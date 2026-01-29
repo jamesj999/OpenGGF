@@ -2,7 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.AnimalObjectInstance;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
@@ -240,7 +240,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
 
         // Play explosion sound
         try {
-            AudioManager.getInstance().playSfx(Sonic2Constants.SndID_Explosion);
+            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_EXPLOSION);
         } catch (Exception e) {
             LOGGER.warning("Failed to play explosion sound: " + e.getMessage());
         }
@@ -287,7 +287,8 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
     /**
      * Updates body animation (Ani_obj3E).
      * Script 0: Hold frame 0 forever
-     * Script 1: Frames 0,1,2,3 with 3 frame delay, loop from frame 1
+     * Script 1: Frames 0,1,2,3 with 3 frame delay, then hold on frame 3
+     * ($FE, 1 means branch back 1 byte, landing on frame 3 - hold forever)
      */
     private void updateBodyAnimation() {
         if (bodyAnim == 0) {
@@ -295,15 +296,19 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // Anim 1: Opening animation
+        // Anim 1: Opening animation - play frames 0,1,2,3 then hold on 3
+        if (bodyAnimFrame >= FRAME_BODY_OPEN_3) {
+            // Already at final frame - hold it
+            return;
+        }
+
         bodyAnimTimer--;
         if (bodyAnimTimer <= 0) {
             bodyAnimTimer = ANIM_FRAME_DELAY;
             bodyAnimFrame++;
-
-            // Clamp to max frame and loop behavior ($FE, 1 = loop from frame 1)
+            // Clamp to max frame (hold on frame 3)
             if (bodyAnimFrame > FRAME_BODY_OPEN_3) {
-                bodyAnimFrame = FRAME_BODY_OPEN_1;
+                bodyAnimFrame = FRAME_BODY_OPEN_3;
             }
         }
     }
@@ -526,7 +531,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
 
         // Play stage clear music
         try {
-            AudioManager.getInstance().playMusic(Sonic2Constants.MusID_StageClear);
+            AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_ACT_CLEAR);
         } catch (Exception e) {
             LOGGER.warning("Failed to play stage clear music: " + e.getMessage());
         }
