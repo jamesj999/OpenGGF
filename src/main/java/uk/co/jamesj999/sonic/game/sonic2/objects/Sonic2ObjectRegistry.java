@@ -17,6 +17,7 @@ import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.ChopChopBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.WhispBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.GrounderBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.CrawlBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2EHZBossInstance;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -245,6 +246,10 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new SignpostObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
         registerFactory(Sonic2ObjectIds.EGG_PRISON,
                 (spawn, registry) -> new EggPrisonObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+
+        // EHZ Boss (Object 0x56)
+        registerFactory(Sonic2ObjectIds.EHZ_BOSS,
+                (spawn, registry) -> new Sonic2EHZBossInstance(spawn, LevelManager.getInstance()));
 
         registerFactory(Sonic2ObjectIds.SWINGING_PLATFORM, platformFactory);
 

@@ -31,8 +31,10 @@ public class ObjectManager {
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
     private final Map<ObjectSpawn, ObjectInstance> activeObjects = new IdentityHashMap<>();
     private final List<ObjectInstance> dynamicObjects = new ArrayList<>();
+    private final List<ObjectInstance> pendingDynamicAdditions = new ArrayList<>();
     private final List<GLCommand> renderCommands = new ArrayList<>();
     private int frameCounter;
+    private boolean updating;
 
     // Pre-bucketed lists for O(n) rendering instead of O(n*buckets)
     @SuppressWarnings("unchecked")
@@ -67,6 +69,7 @@ public class ObjectManager {
     public void reset(int cameraX) {
         activeObjects.clear();
         dynamicObjects.clear();
+        pendingDynamicAdditions.clear();
         frameCounter = 0;
         placement.reset(cameraX);
         registry.reportCoverage(placement.getAllSpawns());
@@ -92,24 +95,33 @@ public class ObjectManager {
         updateCameraBounds();
         syncActiveSpawns();
 
-        Iterator<ObjectInstance> dynamicIterator = dynamicObjects.iterator();
-        while (dynamicIterator.hasNext()) {
-            ObjectInstance instance = dynamicIterator.next();
-            instance.update(frameCounter, player);
-            if (instance.isDestroyed()) {
-                instance.onUnload();
-                dynamicIterator.remove();
+        updating = true;
+        try {
+            Iterator<ObjectInstance> dynamicIterator = dynamicObjects.iterator();
+            while (dynamicIterator.hasNext()) {
+                ObjectInstance instance = dynamicIterator.next();
+                instance.update(frameCounter, player);
+                if (instance.isDestroyed()) {
+                    instance.onUnload();
+                    dynamicIterator.remove();
+                }
             }
-        }
 
-        Iterator<Map.Entry<ObjectSpawn, ObjectInstance>> iterator = activeObjects.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<ObjectSpawn, ObjectInstance> entry = iterator.next();
-            ObjectInstance instance = entry.getValue();
-            instance.update(frameCounter, player);
-            if (instance.isDestroyed()) {
-                instance.onUnload();
-                iterator.remove();
+            Iterator<Map.Entry<ObjectSpawn, ObjectInstance>> iterator = activeObjects.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<ObjectSpawn, ObjectInstance> entry = iterator.next();
+                ObjectInstance instance = entry.getValue();
+                instance.update(frameCounter, player);
+                if (instance.isDestroyed()) {
+                    instance.onUnload();
+                    iterator.remove();
+                }
+            }
+        } finally {
+            updating = false;
+            if (!pendingDynamicAdditions.isEmpty()) {
+                dynamicObjects.addAll(pendingDynamicAdditions);
+                pendingDynamicAdditions.clear();
             }
         }
 
@@ -218,7 +230,11 @@ public class ObjectManager {
     }
 
     public void addDynamicObject(ObjectInstance object) {
-        dynamicObjects.add(object);
+        if (updating) {
+            pendingDynamicAdditions.add(object);
+        } else {
+            dynamicObjects.add(object);
+        }
     }
 
     public boolean isRemembered(ObjectSpawn spawn) {
@@ -294,6 +310,12 @@ public class ObjectManager {
         Collection<ObjectSpawn> activeSpawns = placement.getActiveSpawns();
         for (ObjectSpawn spawn : activeSpawns) {
             if (!activeObjects.containsKey(spawn)) {
+                // Don't recreate instances for remembered spawns - they've been destroyed
+                // and shouldn't respawn. This handles cases where shouldStayActiveWhenRemembered()
+                // kept the spawn in active during the object's destruction sequence.
+                if (placement.isRemembered(spawn)) {
+                    continue;
+                }
                 ObjectInstance instance = registry.create(spawn);
                 activeObjects.put(spawn, instance);
             }
@@ -678,6 +700,9 @@ public class ObjectManager {
                     continue;
                 }
                 int flags = provider.getCollisionFlags();
+                if (flags == 0) {
+                    continue; // Skip collision for objects with no collision flags
+                }
                 int sizeIndex = flags & 0x3F;
                 int width = table.getWidthRadius(sizeIndex);
                 int height = table.getHeightRadius(sizeIndex);
@@ -758,8 +783,18 @@ public class ObjectManager {
                         applyHurt(player, instance);
                     }
                 }
-                case SPECIAL, BOSS -> {
+                case SPECIAL -> {
                     // Listener handles object-specific logic.
+                }
+                case BOSS -> {
+                    if (isPlayerAttacking(player)) {
+                        if (instance instanceof TouchResponseAttackable attackable) {
+                            attackable.onPlayerAttack(player, result);
+                        }
+                        applyEnemyBounce(player, instance);
+                    } else {
+                        applyHurt(player, instance);
+                    }
                 }
             }
         }
@@ -790,6 +825,14 @@ public class ObjectManager {
             if (player.getInvulnerable()) {
                 return;
             }
+
+            // LOG: What object hurt Sonic
+            if (instance != null) {
+                String className = instance.getClass().getSimpleName();
+                int objectId = instance.getSpawn().objectId();
+                System.out.println(">>> SONIC HURT by: " + className + " (ID: 0x" + Integer.toHexString(objectId) + ")");
+            }
+
             int sourceX = instance != null ? instance.getX() : player.getCentreX();
             boolean spikeHit = instance != null && instance.getSpawn().objectId() == 0x36;
             boolean hadRings = player.getRingCount() > 0;

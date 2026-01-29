@@ -96,6 +96,9 @@ public class LevelEventManager implements LevelEventProvider {
     // Boss spawn delay counter (ROM: Boss_spawn_delay)
     private int bossSpawnDelay = 0;
 
+    // EHZ Act 2 boss reference
+    private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2EHZBossInstance ehzBoss = null;
+
     /**
      * Emerald Hill Zone events.
      * ROM: LevEvents_EHZ (s2.asm:20357-20503)
@@ -130,7 +133,9 @@ public class LevelEventManager implements LevelEventProvider {
                     camera.setMaxX((short) 0x2940);
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
-                    // TODO: Trigger music fade, load boss PLC
+                    // ROM: Start music fade-out (s2.asm:20404)
+                    // Fade runs during the 90-frame spawn delay
+                    uk.co.jamesj999.sonic.audio.AudioManager.getInstance().fadeOutMusic();
                 }
             }
             case 4 -> {
@@ -142,19 +147,47 @@ public class LevelEventManager implements LevelEventProvider {
                 // ROM: Increment delay every frame, spawn boss at $5A (90) frames
                 bossSpawnDelay++;
                 if (bossSpawnDelay >= 0x5A) {
-                    // TODO: Spawn EHZ boss object
+                    spawnEHZBoss();
                     eventRoutine += 2;
-                    // TODO: Start boss music
+                    // Start boss music
+                    uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
+                        .playMusic(uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.MUS_BOSS);
                 }
             }
             case 6 -> {
                 // Routine 3 (s2.asm:20438+): Wait for boss defeat
-                // TODO: Check boss defeated flag and handle post-boss events
+                if (ehzBoss != null && ehzBoss.isDefeated()) {
+                    // Boss handles camera unlock and EggPrison spawn in its defeat sequence
+                    // No additional action needed here
+                    eventRoutine += 2;
+                }
             }
             default -> {
                 // No more routines
             }
         }
+    }
+
+    /**
+     * Spawns the EHZ Act 2 boss.
+     * ROM: Creates Object 0x56 at coordinates (0x29D0, 0x0426) with subtype 0x81
+     */
+    private void spawnEHZBoss() {
+        uk.co.jamesj999.sonic.level.objects.ObjectSpawn bossSpawn =
+            new uk.co.jamesj999.sonic.level.objects.ObjectSpawn(
+                0x29D0, 0x0426,
+                uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds.EHZ_BOSS,
+                0x81, 0, false, 0
+            );
+
+        ehzBoss = new uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2EHZBossInstance(
+            bossSpawn,
+            uk.co.jamesj999.sonic.level.LevelManager.getInstance()
+        );
+
+        uk.co.jamesj999.sonic.level.LevelManager.getInstance()
+            .getObjectManager()
+            .addDynamicObject(ehzBoss);
     }
 
     /**

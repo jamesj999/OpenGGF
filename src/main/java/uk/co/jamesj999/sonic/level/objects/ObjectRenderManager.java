@@ -206,6 +206,14 @@ public class ObjectRenderManager {
         return provider.getSheet(ObjectArtKeys.EGG_PRISON);
     }
 
+    public PatternSpriteRenderer getEHZBossRenderer() {
+        return provider.getRenderer(uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys.EHZ_BOSS);
+    }
+
+    public ObjectSpriteSheet getEHZBossSheet() {
+        return provider.getSheet(uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys.EHZ_BOSS);
+    }
+
     public PatternSpriteRenderer getResultsRenderer() {
         return provider.getRenderer(ObjectArtKeys.RESULTS);
     }

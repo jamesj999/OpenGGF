@@ -1978,7 +1978,9 @@ public class LevelManager {
             // Request title card for level starts and death respawns
             // Original Sonic 2 shows title card on all respawns (with or without
             // checkpoint)
-            if (showTitleCard) {
+            // In headless mode, skip title card by default to avoid control locking
+            // during tests
+            if (showTitleCard && !graphicsManager.isHeadlessMode()) {
                 requestTitleCard(currentZone, currentAct);
             }
 

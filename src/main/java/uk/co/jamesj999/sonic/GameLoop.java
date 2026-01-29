@@ -23,7 +23,10 @@ import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.debug.PerformanceProfiler;
 import uk.co.jamesj999.sonic.game.sonic2.objects.SpecialStageResultsScreenObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageManager;
+import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 
 import java.awt.event.KeyEvent;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
@@ -32,6 +35,7 @@ import uk.co.jamesj999.sonic.timer.TimerManager;
 import uk.co.jamesj999.sonic.graphics.FadeManager;
 
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.logging.Logger;
 
 /**
@@ -397,6 +401,11 @@ public class GameLoop {
             if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.NEXT_ZONE))) {
                 levelManager.requestNextZone();
             }
+
+            // Debug: Teleport to last checkpoint (END key, only in LEVEL mode)
+            if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY))) {
+                teleportToLastCheckpoint();
+            }
         }
 
         inputHandler.update();
@@ -415,6 +424,70 @@ public class GameLoop {
             enterResultsScreen(false);
         } else if (currentGameMode == GameMode.SPECIAL_STAGE_RESULTS) {
             exitResultsScreen();
+        }
+    }
+
+    /**
+     * Debug function: Teleports the player to the furthest right checkpoint in the level.
+     * Only works in LEVEL mode (END key is used for special stage completion in special stage mode).
+     */
+    private void teleportToLastCheckpoint() {
+        Level level = levelManager.getCurrentLevel();
+        if (level == null) {
+            return;
+        }
+
+        // Find the furthest right checkpoint (object ID 0x79)
+        ObjectSpawn lastCheckpoint = level.getObjects().stream()
+            .filter(spawn -> spawn.objectId() == Sonic2ObjectIds.CHECKPOINT)
+            .max(Comparator.comparingInt(ObjectSpawn::x))
+            .orElse(null);
+
+        if (lastCheckpoint != null) {
+            int checkpointX = lastCheckpoint.x();
+            int checkpointY = lastCheckpoint.y();
+
+            // Verify checkpoint is within level bounds
+            int levelWidth = level.getMap().getWidth() * 128;
+            int levelHeight = level.getMap().getHeight() * 128;
+            if (checkpointX < 0 || checkpointX >= levelWidth || checkpointY < 0 || checkpointY >= levelHeight) {
+                LOGGER.warning("DEBUG: Checkpoint at (" + checkpointX + ", " + checkpointY +
+                    ") is outside level bounds (" + levelWidth + "x" + levelHeight + ")");
+                return;
+            }
+
+            String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+            if (mainCode == null) mainCode = "sonic";
+            var sprite = spriteManager.getSprite(mainCode);
+            if (sprite instanceof AbstractPlayableSprite player) {
+                // Teleport player to checkpoint position
+                player.setX((short) checkpointX);
+                player.setY((short) checkpointY);
+                player.setXSpeed((short) 0);
+                player.setYSpeed((short) 0);
+                player.setGSpeed((short) 0);
+                player.setAir(false);
+                player.setRolling(false);
+
+                // Move camera to center on player (prevents pit death from camera mismatch)
+                // Camera centers player horizontally and positions them in upper portion vertically
+                int screenWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
+                int screenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+                int cameraX = checkpointX - (screenWidth / 2);
+                int cameraY = checkpointY - (screenHeight / 2);
+
+                // Clamp camera to level bounds
+                cameraX = Math.max(0, Math.min(cameraX, levelWidth - screenWidth));
+                cameraY = Math.max(0, Math.min(cameraY, levelHeight - screenHeight));
+
+                camera.setX((short) cameraX);
+                camera.setY((short) cameraY);
+
+                LOGGER.info("DEBUG: Teleported to checkpoint at (" + checkpointX + ", " + checkpointY +
+                    "), camera at (" + cameraX + ", " + cameraY + ")");
+            }
+        } else {
+            LOGGER.info("DEBUG: No checkpoints found in this level");
         }
     }
 

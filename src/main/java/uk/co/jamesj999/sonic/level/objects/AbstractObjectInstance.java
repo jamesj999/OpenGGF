@@ -38,7 +38,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         return name;
     }
 
-    protected void setDestroyed(boolean destroyed) {
+    public void setDestroyed(boolean destroyed) {
         this.destroyed = destroyed;
     }
 

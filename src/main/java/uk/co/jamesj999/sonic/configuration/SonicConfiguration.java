@@ -165,6 +165,11 @@ public enum SonicConfiguration {
 	/**
 	 * Key to step forward one frame while paused (default: Q).
 	 */
-	FRAME_STEP_KEY;
+	FRAME_STEP_KEY,
+
+	/**
+	 * Key to teleport player to the last checkpoint (debug).
+	 */
+	DEBUG_LAST_CHECKPOINT_KEY;
 
 }

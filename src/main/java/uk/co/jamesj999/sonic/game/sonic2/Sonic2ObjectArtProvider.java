@@ -137,6 +137,12 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         // Egg Prison / Capsule (Object 0x3E)
         registerSheet(ObjectArtKeys.EGG_PRISON, artLoader.loadEggPrisonSheet());
 
+        // EHZ Boss (Object 0x56) - only for EHZ Act 2
+        // Zone index 0 = EHZ (both acts load same art for now)
+        if (zoneIndex == 0) {
+            registerSheet(Sonic2ObjectArtKeys.EHZ_BOSS, artLoader.loadEHZBossSheet());
+        }
+
         // CNZ objects (Sonic 2-specific)
         registerSheet(Sonic2ObjectArtKeys.BUMPER, artData.bumperSheet());
         registerSheet(Sonic2ObjectArtKeys.HEX_BUMPER, artData.hexBumperSheet());

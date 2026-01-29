@@ -49,6 +49,10 @@ public final class Sonic2ObjectIds {
     public static final int EGG_PRISON = 0x3E; // Egg prison / capsule (end of act 2)
     public static final int INVISIBLE_BLOCK = 0x74;
 
+    // Bosses
+    public static final int EHZ_BOSS = 0x56; // EHZ Act 2 Boss (drill car boss)
+    public static final int BOSS_EXPLOSION = 0x58; // Boss explosion (Obj58)
+
     // CPZ Objects
     public static final int TIPPING_FLOOR = 0x0B; // CPZ Tipping Floor (Obj0B)
     public static final int SPEED_BOOSTER = 0x1B; // Speed Booster (Obj1B)

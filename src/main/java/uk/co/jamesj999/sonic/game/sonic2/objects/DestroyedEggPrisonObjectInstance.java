@@ -6,6 +6,8 @@ import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.objects.SolidObjectParams;
+import uk.co.jamesj999.sonic.level.objects.SolidObjectProvider;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
@@ -27,9 +29,14 @@ import java.util.List;
  * - Lifetime: Persists until level transition
  * - No updates: Just renders, no logic
  */
-public class DestroyedEggPrisonObjectInstance extends AbstractObjectInstance {
+public class DestroyedEggPrisonObjectInstance extends AbstractObjectInstance
+        implements SolidObjectProvider {
 
     private static final int FRAME_BODY_OPEN_3 = 3; // Fully open capsule frame
+
+    // SolidObject parameters for body (same as EggPrisonObjectInstance)
+    private static final int BODY_HALF_WIDTH = 0x2B;  // 43 pixels
+    private static final int BODY_HALF_HEIGHT = 0x18; // 24 pixels
 
     private final int positionX;
     private final int positionY;
@@ -71,6 +78,31 @@ public class DestroyedEggPrisonObjectInstance extends AbstractObjectInstance {
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(4); // Same as capsule body
+    }
+
+    @Override
+    public int getX() {
+        return positionX;
+    }
+
+    @Override
+    public int getY() {
+        return positionY;
+    }
+
+    @Override
+    public SolidObjectParams getSolidParams() {
+        // Same collision as the original capsule body
+        return new SolidObjectParams(
+            BODY_HALF_WIDTH,    // 0x2B = 43 pixels
+            BODY_HALF_HEIGHT,   // 0x18 = 24 pixels (air)
+            BODY_HALF_HEIGHT    // 0x18 = 24 pixels (ground)
+        );
+    }
+
+    @Override
+    public boolean isSolidFor(AbstractPlayableSprite player) {
+        return true; // Always solid
     }
 
     @Override

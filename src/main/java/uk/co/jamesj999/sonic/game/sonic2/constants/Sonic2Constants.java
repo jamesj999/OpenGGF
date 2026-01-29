@@ -136,7 +136,6 @@ public class Sonic2Constants {
     public static final int ANI_OBJ79_ADDR = 0x1F0C2; // Ani_obj79
     public static final int ANI_OBJ79_SCRIPT_COUNT = 3;
     public static final int ART_TILE_CHECKPOINT = 0x047C;
-    public static final int SndID_Explosion = 0xC1;
 
     // Signpost/Goal Plate (Object 0D)
     public static final int ART_NEM_SIGNPOST_ADDR = 0x79BDE; // Signpost.nem (78 blocks)
@@ -145,10 +144,6 @@ public class Sonic2Constants {
     public static final int ART_NEM_EGG_PRISON_ADDR = 0x7BA32; // Egg Prison.nem (verified via RomOffsetFinder)
     public static final int MAP_UNC_EGG_PRISON_ADDR = 0x1F436;  // Obj3E_MapUnc_3F436 (relative offset in s2.asm)
     public static final int ART_TILE_SIGNPOST = 0x0434;
-    public static final int SndID_Signpost = 0xCF;
-    public static final int MusID_StageClear = 0x97; // Stage clear / act complete jingle
-    public static final int SndID_Blip = 0xCD; // Tally tick sound
-    public static final int SndID_TallyEnd = 0xC5; // Tally complete sound
 
     // Results Screen Art (Obj3A)
     public static final int ART_UNC_HUD_NUMBERS_ADDR = 0x4134C; // Art_Hud (digits source)
@@ -199,8 +194,16 @@ public class Sonic2Constants {
     public static final int ART_NEM_ARROW_SHOOTER_ADDR = 0x82F74; // ArtNem_ArrowAndShooter
     public static final int MAP_UNC_ARROW_SHOOTER_ADDR = 0x25804; // Obj22_MapUnc_25804
     public static final int ART_TILE_ARROW_SHOOTER = 0x0417;      // ArtTile_ArtNem_ArrowAndShooter
-    public static final int SndID_PreArrowFiring = 0xDB;
-    public static final int SndID_ArrowFiring = 0xAE;
+
+    // Boss art (Nemesis compressed, verified offsets)
+    public static final int ART_NEM_EGGPOD_ADDR = 0x83BF6;     // ArtNem_Eggpod (flying vehicle)
+    public static final int ART_NEM_EHZ_BOSS_ADDR = 0x8507C;   // ArtNem_EHZBoss (ground vehicle/wheels/spike)
+    public static final int ART_NEM_EGG_CHOPPERS_ADDR = 0x85868; // ArtNem_EggChoppers (propeller blades)
+
+    // Boss art tile bases (VRAM pattern IDs)
+    public static final int ART_TILE_EGGPOD = 0x03A0;      // ArtTile_ArtNem_Eggpod_1
+    public static final int ART_TILE_EHZ_BOSS = 0x0400;    // ArtTile_ArtNem_EHZBoss
+    public static final int ART_TILE_EGG_CHOPPERS = 0x056C; // ArtTile_ArtNem_EggChoppers
 
     // Animal art (Nemesis compressed, verified offsets)
     public static final int ART_NEM_FLICKY_ADDR = 0x7EF60;
