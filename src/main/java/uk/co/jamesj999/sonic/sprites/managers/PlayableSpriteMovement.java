@@ -71,7 +71,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	// Input tracking
 	private boolean jumpPressed;
 	private boolean jumpPrevious;
-	private boolean downLocked;  // Prevents roll when transitioning from crouch
 	private boolean testKeyPressed;
 
 	// Current frame input state
@@ -407,7 +406,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private void doJumpHeight() {
 		if (jumpPressed) {
 			short ySpeedCap = sprite.isInWater() ? (short) 0x200 : (short) 0x400;
-			if (sprite.getYSpeed() < -ySpeedCap && !inputJump && !sprite.getSpringing()) {
+			if (sprite.getYSpeed() < -ySpeedCap && !inputJump) {
 				sprite.setYSpeed((short) -ySpeedCap);
 			}
 			if (!sprite.getAir() && !inputJump) {
@@ -444,102 +443,104 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short max = sprite.getMax();
 		Camera camera = Camera.getInstance();
 
-		// Move lock - skip input, apply traction
-		if (sprite.getMoveLockTimer() > 0) {
+		// Move lock - skip input processing but still apply friction
+		// ROM: When move_lock is active, branches to Obj01_ResetScr which continues
+		// to friction check. It does NOT return early and skip friction.
+		boolean moveLockActive = sprite.getMoveLockTimer() > 0;
+
+		if (moveLockActive) {
+			// Camera easing during move lock
 			if (camera != null) camera.easeYBiasToDefault();
-			calculateXYFromGSpeed();
-			doWallCollisionGround();
-			return;
-		}
-
-		// Left input
-		if (inputLeft) {
-			if (gSpeed > 0) {
-				gSpeed -= runDecel;
-				if (gSpeed <= 0) gSpeed = (short) -128;
-				if (isOnFlatGround() && gSpeed > SKID_SPEED_THRESHOLD) {
-					handleSkid();
-				}
-			} else {
-				sprite.setSkidding(false);
-				// Only accelerate if below max - don't cap existing high speed
-				if (gSpeed > -max) {
-					gSpeed -= runAccel;
-					if (gSpeed < -max) gSpeed = (short) -max;
+		} else {
+			// Left input (only when move_lock is not active)
+			if (inputLeft) {
+				if (gSpeed > 0) {
+					gSpeed -= runDecel;
+					if (gSpeed <= 0) gSpeed = (short) -128;
+					if (isOnFlatGround() && gSpeed > SKID_SPEED_THRESHOLD) {
+						handleSkid();
+					}
+				} else {
+					sprite.setSkidding(false);
+					// Only accelerate if below max - don't cap existing high speed
+					if (gSpeed > -max) {
+						gSpeed -= runAccel;
+						if (gSpeed < -max) gSpeed = (short) -max;
+					}
 				}
 			}
-		}
 
-		// Right input
-		if (inputRight) {
-			if (gSpeed < 0) {
-				gSpeed += runDecel;
-				if (gSpeed >= 0) gSpeed = (short) 128;
-				if (isOnFlatGround() && gSpeed < -SKID_SPEED_THRESHOLD) {
-					handleSkid();
-				}
-			} else {
-				sprite.setSkidding(false);
-				// Only accelerate if below max - don't cap existing high speed
-				if (gSpeed < max) {
-					gSpeed += runAccel;
-					if (gSpeed > max) gSpeed = max;
+			// Right input (only when move_lock is not active)
+			if (inputRight) {
+				if (gSpeed < 0) {
+					gSpeed += runDecel;
+					if (gSpeed >= 0) gSpeed = (short) 128;
+					if (isOnFlatGround() && gSpeed < -SKID_SPEED_THRESHOLD) {
+						handleSkid();
+					}
+				} else {
+					sprite.setSkidding(false);
+					// Only accelerate if below max - don't cap existing high speed
+					if (gSpeed < max) {
+						gSpeed += runAccel;
+						if (gSpeed > max) gSpeed = max;
+					}
 				}
 			}
-		}
 
-		if (!inputLeft && !inputRight) {
-			sprite.setSkidding(false);
-		}
+			if (!inputLeft && !inputRight) {
+				sprite.setSkidding(false);
+			}
 
-		// Standing still handling (ROM: Sonic_Lookup, Sonic_Duck, Obj01_ResetScr)
-		// Camera pan has a 120-frame (2 second) delay before starting (s2.asm:36402-36405)
-		if (isOnFlatGround() && gSpeed == 0) {
-			sprite.setPushing(false);
-			short lookDelay = sprite.getLookDelayCounter();
-			if (inputUp) {
-				// ROM: Sonic_Lookup (s2.asm:36398-36409)
-				// Animation is set immediately, camera pan has delay
-				sprite.setLookingUp(true);
-				lookDelay++;
-				if (camera != null) {
-					if (lookDelay >= 0x78) {
-						lookDelay = 0x78;  // Cap at 120 frames
-						camera.incrementLookUpBias();
-					} else {
-						// During delay, bias still eases toward default
+			// Standing still handling (ROM: Sonic_Lookup, Sonic_Duck, Obj01_ResetScr)
+			// Camera pan has a 120-frame (2 second) delay before starting (s2.asm:36402-36405)
+			if (isOnFlatGround() && gSpeed == 0) {
+				sprite.setPushing(false);
+				short lookDelay = sprite.getLookDelayCounter();
+				if (inputUp) {
+					// ROM: Sonic_Lookup (s2.asm:36398-36409)
+					// Animation is set immediately, camera pan has delay
+					sprite.setLookingUp(true);
+					lookDelay++;
+					if (camera != null) {
+						if (lookDelay >= 0x78) {
+							lookDelay = 0x78;  // Cap at 120 frames
+							camera.incrementLookUpBias();
+						} else {
+							// During delay, bias still eases toward default
+							camera.easeYBiasToDefault();
+						}
+					}
+				} else if (inputDown) {
+					// ROM: Sonic_Duck (s2.asm:36412-36423)
+					// Animation (crouching) is handled by updateCrouchState()
+					sprite.setLookingUp(false);
+					lookDelay++;
+					if (camera != null) {
+						if (lookDelay >= 0x78) {
+							lookDelay = 0x78;  // Cap at 120 frames
+							camera.decrementLookDownBias();
+						} else {
+							// During delay, bias still eases toward default
+							camera.easeYBiasToDefault();
+						}
+					}
+				} else {
+					// ROM: Obj01_ResetScr (s2.asm:36428-36429)
+					sprite.setLookingUp(false);
+					lookDelay = 0;
+					if (camera != null) {
 						camera.easeYBiasToDefault();
 					}
 				}
-			} else if (inputDown) {
-				// ROM: Sonic_Duck (s2.asm:36412-36423)
-				// Animation (crouching) is handled by updateCrouchState()
-				sprite.setLookingUp(false);
-				lookDelay++;
-				if (camera != null) {
-					if (lookDelay >= 0x78) {
-						lookDelay = 0x78;  // Cap at 120 frames
-						camera.decrementLookDownBias();
-					} else {
-						// During delay, bias still eases toward default
-						camera.easeYBiasToDefault();
-					}
-				}
+				sprite.setLookDelayCounter(lookDelay);
 			} else {
-				// ROM: Obj01_ResetScr (s2.asm:36428-36429)
+				// Not standing still - reset state and ease bias to default
 				sprite.setLookingUp(false);
-				lookDelay = 0;
+				sprite.setLookDelayCounter((short) 0);
 				if (camera != null) {
 					camera.easeYBiasToDefault();
 				}
-			}
-			sprite.setLookDelayCounter(lookDelay);
-		} else {
-			// Not standing still - reset state and ease bias to default
-			sprite.setLookingUp(false);
-			sprite.setLookDelayCounter((short) 0);
-			if (camera != null) {
-				camera.easeYBiasToDefault();
 			}
 		}
 
@@ -559,7 +560,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		if (Math.abs(gSpeed) < minStartRollSpeed) return;
 		if (inputLeft || inputRight) return;
-		if (!inputDown || downLocked) return;
+		if (!inputDown) return;
 		if (sprite.getAir() || sprite.getRolling()) return;
 
 		sprite.setRolling(true);
@@ -677,10 +678,18 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setYSpeed(ySpeed);
 	}
 
-	/** ObjectMoveAndFall: Apply velocity and gravity */
+	/** ObjectMoveAndFall: Apply velocity and gravity (s2.asm:29945-29953)
+	 * ROM applies gravity to y_vel BEFORE movement, but uses the OLD y_vel for position:
+	 *   move.w  y_vel(a0),d0           ; Save old y_vel in d0
+	 *   addi.w  #$38,y_vel(a0)         ; Add gravity to y_vel FIRST
+	 *   ext.l   d0
+	 *   asl.l   #8,d0
+	 *   add.l   d0,d3                  ; Position uses OLD y_vel (d0, before gravity)
+	 */
 	private void doObjectMoveAndFall() {
-		sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
-		sprite.setYSpeed((short) (sprite.getYSpeed() + sprite.getGravity()));
+		short oldYSpeed = sprite.getYSpeed();  // Save old y_vel before gravity
+		sprite.setYSpeed((short) (oldYSpeed + sprite.getGravity()));  // Apply gravity first
+		sprite.move(sprite.getXSpeed(), oldYSpeed);  // Move using OLD y_vel
 	}
 
 	// ========================================
@@ -1080,11 +1089,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				sprite.setYSpeed((short) 0);
 			} else {
 				// Moderate angles: gSpeed from Y velocity / 2
-				short halfYSpeed = (short) (absYSpeed >> 1);
+				// ROM (s2.asm:37592): asr y_vel(a0) - arithmetic shift right preserves sign
+				// Then (s2.asm:37609-37612): gSpeed = y_vel, negate if angle >= 0x80
+				short halfYSpeed = (short) (ySpeed >> 1);
 				short gSpeed = halfYSpeed;
 				if ((angle & 0x80) != 0) gSpeed = (short) -gSpeed;
 				sprite.setGSpeed(gSpeed);
-				sprite.setYSpeed((short) 0);
+				// ROM does NOT zero y_vel for moderate angles - it leaves the halved value
+				sprite.setYSpeed(halfYSpeed);
 			}
 		}
 	}
@@ -1293,9 +1305,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				&& !sprite.getAir() && !sprite.getRolling() && !sprite.getSpindash()
 				&& sprite.getGSpeed() == 0 && isOnFlatGround();
 		sprite.setCrouching(crouching);
-
-		if (wasCrouching && (inputLeft || inputRight)) downLocked = true;
-		if (!inputDown) downLocked = false;
 	}
 
 	private void applyUpwardVelocityCap() {
