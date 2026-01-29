@@ -932,34 +932,55 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 
-		// ROM s2.asm:36500 - cmpi.w #-$E,d1 / blt.s return_2AD52
-		// If inside wall too deep (distance < -14), ignore the collision
-		if (result.distance() < -14) {
-			return;
-		}
-
-		// ROM s2.asm:36503-36523: Wall collision response
-		// ROM adds distance (in subpixels) to velocity, then ObjectMove applies it.
-		// Since we scanned at predicted position, adding distance to velocity cancels
-		// the over-penetration, and sprite.move() lands us exactly at the wall.
+		// ROM s2.asm:36503-36527: Wall collision response
+		// ROM dispatches based on mode from ROTATED angle to handle velocity adjustment.
+		// The angle was rotated by +/-0x40 based on direction (lines 36490-36497):
+		//   gSpeed < 0 (left):  rotatedAngle = angle + 0x40
+		//   gSpeed > 0 (right): rotatedAngle = angle - 0x40 (= angle + 0xC0)
+		// Then mode = (rotatedAngle + 0x20) & 0xC0 (lines 36504-36505)
+		//
+		// Mode dispatch:
+		//   Mode 0x00 (floor):     add.w d1,y_vel    - adjust Y, NO pushing, NO inertia=0
+		//   Mode 0x40 (left wall): sub.w d1,x_vel    - adjust X + pushing + inertia=0
+		//   Mode 0x80 (ceiling):   sub.w d1,y_vel    - adjust Y, NO pushing, NO inertia=0
+		//   Mode 0xC0 (right wall): add.w d1,x_vel   - adjust X + pushing + inertia=0
 		int velocityAdjustment = result.distance() << 8;  // asl.w #8,d1
 
-		if (sensorIndex == 1) {
-			// Right sensor: ROM does add.w d1,x_vel (line 36511)
-			sprite.setXSpeed((short) (sprite.getXSpeed() + velocityAdjustment));
-		} else {
-			// Left sensor: ROM does sub.w d1,x_vel (line 36521)
-			sprite.setXSpeed((short) (sprite.getXSpeed() - velocityAdjustment));
-		}
+		// Calculate rotated angle based on gSpeed direction (ROM s2.asm:36490-36497)
+		int rotation = (gSpeed < 0) ? 0x40 : 0xC0;  // +0x40 for left, -0x40 (0xC0) for right
+		int rotatedAngle = (angle + rotation) & 0xFF;
 
-		sprite.setGSpeed((short) 0);
+		// Calculate mode from rotated angle (ROM s2.asm:36504-36505)
+		int mode = (rotatedAngle + 0x20) & 0xC0;
 
-		// ROM s2.asm:36511-36524: Set pushing flag based on mode from angle
-		// Only wall modes (0x40 left wall, 0xC0 right wall) set the pushing flag
-		// Floor mode (0x00) and ceiling mode (0x80) do NOT set pushing
-		int mode = calculateModeFromAngle(angle);
-		if (mode == 0x40 || mode == 0xC0) {
-			sprite.setPushing(true);
+		switch (mode) {
+			case 0x00:  // Floor mode: adjust Y velocity only
+				// ROM s2.asm:36527 (loc_1A6BA) - add.w d1,y_vel
+				sprite.setYSpeed((short) (sprite.getYSpeed() + velocityAdjustment));
+				// NO gSpeed=0, NO pushing for floor mode
+				break;
+
+			case 0x40:  // Left wall mode: adjust X velocity, zero gSpeed, set pushing
+				// ROM s2.asm:36521 (loc_1A6A8) - sub.w d1,x_vel
+				sprite.setXSpeed((short) (sprite.getXSpeed() - velocityAdjustment));
+				// ROM s2.asm:36522-36524 - bset pushing / move.w #0,inertia
+				sprite.setGSpeed((short) 0);
+				sprite.setPushing(true);
+				break;
+
+			case 0x80:  // Ceiling mode: adjust Y velocity only
+				// ROM s2.asm:36517 (loc_1A6A2) - sub.w d1,y_vel
+				sprite.setYSpeed((short) (sprite.getYSpeed() - velocityAdjustment));
+				// NO gSpeed=0, NO pushing for ceiling mode
+				break;
+
+			case 0xC0:  // Right wall mode: adjust X velocity, zero gSpeed, set pushing
+				// ROM s2.asm:36511 - add.w d1,x_vel
+				sprite.setXSpeed((short) (sprite.getXSpeed() + velocityAdjustment));
+				// ROM s2.asm:36512-36513 - bset pushing / move.w #0,inertia
+				sprite.setGSpeed((short) 0);
+				sprite.setPushing(true);
+				break;
 		}
 	}
 
@@ -1066,21 +1087,29 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		int angle = sprite.getAngle() & 0xFF;
 
 		// ROM processes all landings through angle classification, no early return for ySpeed <= 0
-		// Treat negative/zero ySpeed same as positive for angle-based gSpeed conversion
-		short absYSpeed = (short) Math.abs(ySpeed);
-
 		boolean isSteep = isSteepAngle(angle);
 
 		if (isSteep) {
-			// Steep angles: gSpeed from Y velocity magnitude
+			// Steep angles: gSpeed from signed Y velocity
+			// ROM (s2.asm:37608-37612):
+			//   move.w y_vel(a0),inertia(a0)  ; gSpeed = SIGNED y_vel
+			//   tst.b  d3
+			//   bpl.s  return_1AF8A
+			//   neg.w  inertia(a0)            ; Negate if angle >= 0x80
+			// Cap check uses signed comparison (ble = branch if less or equal, signed)
 			sprite.setXSpeed((short) 0);
-			if (absYSpeed > YSPEED_LANDING_CAP) {
-				absYSpeed = YSPEED_LANDING_CAP;
+			short gSpeed = ySpeed;
+			if (gSpeed > YSPEED_LANDING_CAP) {
+				gSpeed = YSPEED_LANDING_CAP;
+				// ROM (s2.asm:37605-37608) writes capped value back to y_vel:
+				//   cmpi.w  #$FC0,y_vel(a0)
+				//   ble.s   loc_1AF7C
+				//   move.w  #$FC0,y_vel(a0)
+				sprite.setYSpeed(gSpeed);
 			}
-			short gSpeed = absYSpeed;
 			if ((angle & 0x80) != 0) gSpeed = (short) -gSpeed;
 			sprite.setGSpeed(gSpeed);
-			sprite.setYSpeed((short) 0);
+			// ROM does NOT zero y_vel for steep landings (s2.asm:37612-37615 just returns)
 		} else {
 			boolean isFlat = isFlatAngle(angle);
 			if (isFlat) {
