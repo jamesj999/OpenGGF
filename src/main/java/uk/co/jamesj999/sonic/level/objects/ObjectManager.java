@@ -226,7 +226,13 @@ public class ObjectManager {
     }
 
     public void markRemembered(ObjectSpawn spawn) {
-        placement.markRemembered(spawn);
+        // Look up the instance to check if it should stay active
+        ObjectInstance instance = activeObjects.get(spawn);
+        if (instance != null) {
+            placement.markRemembered(spawn, instance);
+        } else {
+            placement.markRemembered(spawn);
+        }
     }
 
     public void clearRemembered() {
@@ -252,6 +258,16 @@ public class ObjectManager {
 
     public void clearRidingObject() {
         solidContacts.clearRidingObject();
+    }
+
+    /**
+     * Get the object that the player is currently standing on (riding).
+     * Used for balance detection at object edges.
+     *
+     * @return The object being ridden, or null if not standing on any object
+     */
+    public ObjectInstance getRidingObject() {
+        return solidContacts.getRidingObject();
     }
 
     public boolean hasStandingContact(AbstractPlayableSprite player) {
@@ -380,7 +396,17 @@ public class ObjectManager {
         }
 
         void markRemembered(ObjectSpawn spawn) {
-            if (spawn.objectId() != 0x26) {
+            int index = getSpawnIndex(spawn);
+            if (index < 0) {
+                return;
+            }
+            remembered.set(index);
+        }
+
+        void markRemembered(ObjectSpawn spawn, ObjectInstance instance) {
+            // Some objects (monitors, capsules) need to stay active to complete their
+            // destruction/animation sequence even after being marked as remembered
+            if (!instance.shouldStayActiveWhenRemembered()) {
                 active.remove(spawn);
             }
 
@@ -807,6 +833,10 @@ public class ObjectManager {
 
         void clearRidingObject() {
             ridingObject = null;
+        }
+
+        ObjectInstance getRidingObject() {
+            return ridingObject;
         }
 
         boolean hasStandingContact(AbstractPlayableSprite player) {
