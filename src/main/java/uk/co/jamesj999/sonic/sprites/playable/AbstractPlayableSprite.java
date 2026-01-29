@@ -1841,11 +1841,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 // (both upward and downward velocity)
                 ySpeed = (short) (ySpeed / 4);
 
-                // Play splash sound
-                AudioManager.getInstance().playSfx(GameSound.SPLASH);
+                // ROM (s2.asm:36050-36110): Skip splash if y_vel is 0 after quartering
+                //   tst.w   y_vel(a0)
+                //   beq.s   loc_F6DE         ; Skip splash if y_vel is now 0
+                if (ySpeed != 0) {
+                        // Play splash sound
+                        AudioManager.getInstance().playSfx(GameSound.SPLASH);
 
-                // Spawn splash object at water surface
-                spawnSplash();
+                        // Spawn splash object at water surface
+                        spawnSplash();
+                }
 
                 // Reset drowning manager for new underwater session
                 if (controller.getDrowning() != null) {
@@ -1869,6 +1874,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (!isHurt()) {
                         // Double y velocity (both up and down)
                         ySpeed = (short) (ySpeed * 2);
+                }
+
+                // ROM (s2.asm:36103-36104): tst.w y_vel(a0) / beq.w return_1A18C
+                // If y velocity is zero after doubling, skip splash entirely
+                if (ySpeed == 0) {
+                        // Notify drowning manager but skip splash effects
+                        if (controller.getDrowning() != null) {
+                                controller.getDrowning().onExitWater();
+                        }
+                        return;
                 }
 
                 // ROM: cmpi.w #-$1000,y_vel(a0) - cap upward velocity at -$1000
