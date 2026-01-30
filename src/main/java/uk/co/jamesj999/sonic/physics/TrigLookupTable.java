@@ -21,6 +21,36 @@ public final class TrigLookupTable {
     private static final double[] COS_DEG_TABLE = new double[360];
 
     /**
+     * ROM Angle_Data lookup table from misc/angles.bin (s2.asm:4081).
+     * Maps ratio index (0-255) to arctan angle in first quadrant (0-0x20).
+     * Used by calcAngle() for ROM-accurate angle calculation.
+     */
+    private static final int[] ANGLE_DATA = {
+            0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02,
+            0x02, 0x02, 0x02, 0x02, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x04,
+            0x04, 0x04, 0x04, 0x04, 0x04, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x06,
+            0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07,
+            0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x09, 0x09, 0x09, 0x09, 0x09,
+            0x09, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0b, 0x0b, 0x0b, 0x0b,
+            0x0b, 0x0b, 0x0b, 0x0c, 0x0c, 0x0c, 0x0c, 0x0c, 0x0c, 0x0c, 0x0d, 0x0d,
+            0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0e, 0x0e, 0x0e, 0x0e, 0x0e, 0x0e, 0x0e,
+            0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x10, 0x10, 0x10, 0x10, 0x10,
+            0x10, 0x10, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x12, 0x12,
+            0x12, 0x12, 0x12, 0x12, 0x12, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13,
+            0x13, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x15, 0x15, 0x15,
+            0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16,
+            0x16, 0x16, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x18,
+            0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x19, 0x19, 0x19, 0x19,
+            0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a,
+            0x1a, 0x1a, 0x1a, 0x1b, 0x1b, 0x1b, 0x1b, 0x1b, 0x1b, 0x1b, 0x1b, 0x1b,
+            0x1b, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c,
+            0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1e,
+            0x1e, 0x1e, 0x1e, 0x1e, 0x1e, 0x1e, 0x1e, 0x1e, 0x1e, 0x1e, 0x1f, 0x1f,
+            0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20
+    };
+
+    /**
      * Original Sonic engine SINCOSLIST from SPG:Calculations.
      * Returns integer values from -256 to 256 for precision.
      * Divide result by 256 to get typical -1 to 1 decimal result.
@@ -183,7 +213,14 @@ public final class TrigLookupTable {
 
     /**
      * Calculates the angle from velocity components, matching ROM's CalcAngle routine.
-     * ROM: CalcAngle at s2.asm - converts (xSpeed, ySpeed) to a hex angle.
+     * ROM: CalcAngle at s2.asm:4033-4076 - converts (xSpeed, ySpeed) to a hex angle.
+     *
+     * Uses the ANGLE_DATA lookup table and integer math exactly as the ROM does:
+     * 1. If both x and y are 0, return 0x40 (down)
+     * 2. Calculate abs(x), abs(y)
+     * 3. If abs(y) >= abs(x): index = (abs(x) << 8) / abs(y), angle = 0x40 - ANGLE_DATA[index]
+     * 4. Else: index = (abs(y) << 8) / abs(x), angle = ANGLE_DATA[index]
+     * 5. Adjust quadrant based on signs of x and y
      *
      * The Mega Drive angle convention:
      * - 0x00 = 0° (right)
@@ -197,33 +234,56 @@ public final class TrigLookupTable {
      */
     public static int calcAngle(short xSpeed, short ySpeed) {
         // ROM: CalcAngle_Zero returns 0x40 (90 degrees / down) for zero velocity
+        // s2.asm:4039-4040: or.w d3,d4 / beq.s CalcAngle_Zero
         if (xSpeed == 0 && ySpeed == 0) {
             return 0x40;
         }
-        // atan2 returns radians from -PI to PI
-        // Note: Y is NOT inverted because in MD screen coords, positive Y = down,
-        // which matches standard atan2 convention where positive Y = up visually
-        // but we want 0x40 to represent "down" (positive Y direction)
-        double radians = Math.atan2(ySpeed, xSpeed);
 
-        // Convert radians to 0-255 angle range
-        // atan2 returns -PI to PI, we need 0 to 255
-        int hexAngle = (int) Math.round((radians / (2.0 * Math.PI)) * 256.0);
-        if (hexAngle < 0) {
-            hexAngle += 256;
+        // s2.asm:4043-4044: absw.w d3 / absw.w d4
+        int absX = Math.abs(xSpeed);
+        int absY = Math.abs(ySpeed);
+
+        int angle;
+        // s2.asm:4045-4057: compare and calculate using lookup table
+        if (absY >= absX) {
+            // s2.asm:4054-4057: lsl.l #8,d3 / divu.w d4,d3 / moveq #$40,d0 / sub.b Angle_Data(pc,d3.w),d0
+            int index = (absX << 8) / absY;
+            if (index > 255) index = 255;  // Clamp to table size
+            angle = 0x40 - ANGLE_DATA[index];
+        } else {
+            // s2.asm:4048-4051: lsl.l #8,d4 / divu.w d3,d4 / moveq #0,d0 / move.b Angle_Data(pc,d4.w),d0
+            int index = (absY << 8) / absX;
+            if (index > 255) index = 255;  // Clamp to table size
+            angle = ANGLE_DATA[index];
         }
-        return hexAngle & 0xFF;
+
+        // s2.asm:4059-4062: Adjust for left half (x < 0)
+        // tst.w d1 / bpl.w + / neg.w d0 / addi.w #$80,d0
+        if (xSpeed < 0) {
+            angle = -angle + 0x80;
+        }
+
+        // s2.asm:4064-4067: Adjust for bottom half (y < 0)
+        // tst.w d2 / bpl.w + / neg.w d0 / addi.w #$100,d0
+        if (ySpeed < 0) {
+            angle = -angle + 0x100;
+        }
+
+        return angle & 0xFF;
     }
 
     /**
      * Calculates the movement quadrant from velocity, matching ROM's collision logic.
      * ROM: Sonic_DoLevelCollision (s2.asm:37547-37557)
      *
+     * The calculation is: ((angle - 0x20) & 0xC0)
+     * This offsets the quadrant boundaries by 32 degrees from the cardinal directions.
+     *
      * The quadrant determines which collision path to take:
-     * - 0x00: Moving mostly right/down-right
-     * - 0x40: Moving mostly down/down-left
-     * - 0x80: Moving mostly up/up-left
-     * - 0xC0: Moving mostly up-right/right
+     * - 0xC0: Moving mostly right (angles 0-31, 224-255) → Sonic_HitRightWall path
+     * - 0x00: Moving mostly down (angles 32-95) → default floor/wall check path
+     * - 0x40: Moving mostly left (angles 96-159) → Sonic_HitLeftWall path
+     * - 0x80: Moving mostly up (angles 160-223) → Sonic_HitCeilingAndWalls path
      *
      * @param xSpeed X velocity (subpixels)
      * @param ySpeed Y velocity (subpixels)
