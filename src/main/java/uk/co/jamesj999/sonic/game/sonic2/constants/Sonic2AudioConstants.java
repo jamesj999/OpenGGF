@@ -40,6 +40,8 @@ public final class Sonic2AudioConstants {
     public static final int SFX_PRE_ARROW_FIRING = 0xDB; // Arrow shooter pre-fire sound (SndID_PreArrowFiring)
     public static final int SFX_ARROW_FIRING = 0xAE;    // Arrow firing sound (SndID_ArrowFiring)
     public static final int SFX_BOSS_HIT = 0xAC;        // Boss hit sound effect (SndID_BossHit)
+    public static final int SFX_BOSS_EXPLOSION = 0xC4;  // Boss explosion sound effect (SndID_BossExplosion)
+    public static final int SFX_MEGA_MACK_DROP = 0xE6;  // Mega Mack drop sound (SndID_MegaMackDrop)
     public static final int SFX_HELICOPTER = 0xDE;      // Helicopter sound effect (SndID_Helicopter)
 
     public static final int MUS_CASINO_NIGHT_2P = 0x80;

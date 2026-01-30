@@ -57,6 +57,8 @@ public class LevelEventManager implements LevelEventProvider {
         this.currentAct = act;
         this.eventRoutine = 0;
         this.bossSpawnDelay = 0;
+        this.cpzWaterTriggered = false;
+        this.cpzBoss = null;
     }
 
     /**
@@ -95,9 +97,12 @@ public class LevelEventManager implements LevelEventProvider {
 
     // Boss spawn delay counter (ROM: Boss_spawn_delay)
     private int bossSpawnDelay = 0;
+    private boolean cpzWaterTriggered = false;
 
     // EHZ Act 2 boss reference
     private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2EHZBossInstance ehzBoss = null;
+    // CPZ Act 2 boss reference
+    private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CPZBossInstance cpzBoss = null;
 
     /**
      * Emerald Hill Zone events.
@@ -315,36 +320,84 @@ public class LevelEventManager implements LevelEventProvider {
             // Only Act 2 has water rise events
             return;
         }
+        updateCPZWaterRise();
+        updateCPZBossEvents();
+    }
 
-        // CPZ Act 2: Rising Mega Mack
-        // ROM zone ID for CPZ is 0x0D
+    private void updateCPZWaterRise() {
+        if (cpzWaterTriggered) {
+            return;
+        }
         final int ZONE_ID_CPZ_ROM = 0x0D;
-
-        // X coordinate trigger for water rise (from original game)
-        // This is where the famous "rising water" section begins
         final int WATER_RISE_TRIGGER_X = 0x1E80;
-
-        // Target water level (lower Y = higher water on screen)
-        // Initial level is 0x710 (1808), target is approximately 0x508 (1288)
         final int WATER_TARGET_Y = 0x508;
+        var player = camera.getFocusedSprite();
+        if (player != null && player.getX() >= WATER_RISE_TRIGGER_X) {
+            WaterSystem.getInstance().setWaterLevelTarget(
+                    ZONE_ID_CPZ_ROM, currentAct, WATER_TARGET_Y);
+            cpzWaterTriggered = true;
+        }
+    }
 
+    private void updateCPZBossEvents() {
         switch (eventRoutine) {
             case 0 -> {
-                // Routine 0: Wait for player X to reach trigger point
-                // Note: Original game checks player position, not camera position
-                var player = camera.getFocusedSprite();
-                if (player != null && player.getX() >= WATER_RISE_TRIGGER_X) {
-                    // Trigger water to start rising
-                    WaterSystem.getInstance().setWaterLevelTarget(
-                            ZONE_ID_CPZ_ROM, currentAct, WATER_TARGET_Y);
+                if (camera.getX() >= 0x2680) {
+                    camera.setMinX(camera.getX());
+                    camera.setMaxYTarget((short) 0x450);
                     eventRoutine += 2;
                 }
             }
+            case 2 -> {
+                if (camera.getX() >= 0x2A20) {
+                    // ROM locks camera completely at X=0x2A20 for the entire fight
+                    camera.setMinX((short) 0x2A20);
+                    camera.setMaxX((short) 0x2A20);
+                    eventRoutine += 2;
+                    bossSpawnDelay = 0;
+                    uk.co.jamesj999.sonic.audio.AudioManager.getInstance().fadeOutMusic();
+                    uk.co.jamesj999.sonic.game.GameServices.gameState().setCurrentBossId(1);
+                }
+            }
+            case 4 -> {
+                if (camera.getY() >= 0x448) {
+                    camera.setMinY((short) 0x448);
+                }
+                bossSpawnDelay++;
+                if (bossSpawnDelay >= 0x5A) {
+                    spawnCPZBoss();
+                    eventRoutine += 2;
+                    uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
+                            .playMusic(uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.MUS_BOSS);
+                }
+            }
+            case 6 -> {
+                // Prevent backtracking - minX can only increase, never decrease
+                // ROM: move.w (Camera_X_pos).w,(Camera_Min_X_pos).w
+                short cameraX = camera.getX();
+                if (cameraX > camera.getMinX()) {
+                    camera.setMinX(cameraX);
+                }
+            }
             default -> {
-                // Water is rising or has reached target
-                // WaterSystem.update() handles the gradual rise
             }
         }
+    }
+
+    private void spawnCPZBoss() {
+        uk.co.jamesj999.sonic.level.objects.ObjectSpawn bossSpawn =
+                new uk.co.jamesj999.sonic.level.objects.ObjectSpawn(
+                        0x2B80, 0x04B0,
+                        uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds.CPZ_BOSS,
+                        0, 0, false, 0
+                );
+        cpzBoss = new uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CPZBossInstance(
+                bossSpawn,
+                uk.co.jamesj999.sonic.level.LevelManager.getInstance()
+        );
+        uk.co.jamesj999.sonic.level.LevelManager.getInstance()
+                .getObjectManager()
+                .addDynamicObject(cpzBoss);
     }
 
     /**

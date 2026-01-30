@@ -199,11 +199,27 @@ public class Sonic2Constants {
     public static final int ART_NEM_EGGPOD_ADDR = 0x83BF6;     // ArtNem_Eggpod (flying vehicle)
     public static final int ART_NEM_EHZ_BOSS_ADDR = 0x8507C;   // ArtNem_EHZBoss (ground vehicle/wheels/spike)
     public static final int ART_NEM_EGG_CHOPPERS_ADDR = 0x85868; // ArtNem_EggChoppers (propeller blades)
+    public static final int ART_NEM_CPZ_BOSS_ADDR = 0x84332;   // ArtNem_CPZBoss (verified via RomOffsetFinder)
+    public static final int ART_NEM_EGGPOD_JETS_ADDR = 0x84F18; // ArtNem_EggpodJets (verified via RomOffsetFinder)
+    public static final int ART_NEM_BOSS_SMOKE_ADDR = 0x84F96;  // ArtNem_BossSmoke (verified via RomOffsetFinder)
+    public static final int ART_NEM_FIERY_EXPLOSION_ADDR = 0x84890; // ArtNem_FieryExplosion (Obj58, verified)
 
     // Boss art tile bases (VRAM pattern IDs)
     public static final int ART_TILE_EGGPOD = 0x03A0;      // ArtTile_ArtNem_Eggpod_1
     public static final int ART_TILE_EHZ_BOSS = 0x0400;    // ArtTile_ArtNem_EHZBoss
     public static final int ART_TILE_EGG_CHOPPERS = 0x056C; // ArtTile_ArtNem_EggChoppers
+    public static final int ART_TILE_EGGPOD_3 = 0x0420;    // ArtTile_ArtNem_Eggpod_3 (CPZ boss)
+    public static final int ART_TILE_EGGPOD_JETS_1 = 0x0418; // ArtTile_ArtNem_EggpodJets_1 (CPZ boss)
+    public static final int ART_TILE_CPZ_BOSS = 0x0500;    // ArtTile_ArtNem_CPZBoss
+    public static final int ART_TILE_BOSS_SMOKE_1 = 0x0570; // ArtTile_ArtNem_BossSmoke_1
+    public static final int ART_TILE_FIERY_EXPLOSION = 0x0580; // ArtTile_ArtNem_FieryExplosion
+
+    // CPZ Boss mappings (uncompressed)
+    public static final int MAP_UNC_CPZ_BOSS_PARTS_ADDR = 0x2EADC;   // Obj5D_MapUnc_2EADC (CPZ boss parts)
+    public static final int MAP_UNC_CPZ_BOSS_EGGPOD_ADDR = 0x2ED8C;  // Obj5D_MapUnc_2ED8C (eggpod body)
+    public static final int MAP_UNC_CPZ_BOSS_JETS_ADDR = 0x2EE88;    // Obj5D_MapUnc_2EE88 (eggpod jets)
+    public static final int MAP_UNC_CPZ_BOSS_SMOKE_ADDR = 0x2EEA0;   // Obj5D_MapUnc_2EEA0 (boss smoke)
+    public static final int MAP_UNC_BOSS_EXPLOSION_ADDR = 0x2D50A;   // Obj58_MapUnc_2D50A (boss explosion)
 
     // Animal art (Nemesis compressed, verified offsets)
     public static final int ART_NEM_FLICKY_ADDR = 0x7EF60;

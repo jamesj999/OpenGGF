@@ -5,7 +5,7 @@ import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.game.sonic2.objects.EggPrisonObjectInstance;
-import uk.co.jamesj999.sonic.game.sonic2.objects.ExplosionObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.BossExplosionObjectInstance;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
@@ -332,8 +332,7 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
         int random = ThreadLocalRandom.current().nextInt(0x10000);
         int xOffset = ((random & 0xFF) >> 2) - 0x20;
         int yOffset = (((random >> 8) & 0xFF) >> 2) - 0x20;
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(
-                Sonic2ObjectIds.BOSS_EXPLOSION,
+        BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(
                 state.x + xOffset,
                 state.y + yOffset,
                 renderManager);

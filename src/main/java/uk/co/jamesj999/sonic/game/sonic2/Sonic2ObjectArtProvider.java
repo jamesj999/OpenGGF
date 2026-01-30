@@ -108,6 +108,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         registerSheet(ObjectArtKeys.SPRING_HORIZONTAL_RED, artData.springHorizontalRedSheet());
         registerSheet(ObjectArtKeys.SPRING_DIAGONAL_RED, artData.springDiagonalRedSheet());
         registerSheet(ObjectArtKeys.EXPLOSION, artData.explosionSheet());
+        registerSheet(Sonic2ObjectArtKeys.BOSS_EXPLOSION, artLoader.loadBossExplosionSheet());
         registerSheet(ObjectArtKeys.SHIELD, artData.shieldSheet());
         registerSheet(ObjectArtKeys.INVINCIBILITY_STARS, artData.invincibilityStarsSheet());
         registerSheet(ObjectArtKeys.BRIDGE, artData.bridgeSheet());
@@ -138,9 +139,17 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         registerSheet(ObjectArtKeys.EGG_PRISON, artLoader.loadEggPrisonSheet());
 
         // EHZ Boss (Object 0x56) - only for EHZ Act 2
-        // Zone index 0 = EHZ (both acts load same art for now)
-        if (zoneIndex == 0) {
+        // zoneIndex is the ROM zone ID (see Sonic2ZoneConstants)
+        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_EHZ) {
             registerSheet(Sonic2ObjectArtKeys.EHZ_BOSS, artLoader.loadEHZBossSheet());
+        }
+        // CPZ Boss (Object 0x5D) - only for CPZ Act 2
+        // zoneIndex is the ROM zone ID (0x0D for CPZ)
+        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_CPZ) {
+            registerSheet(Sonic2ObjectArtKeys.CPZ_BOSS_EGGPOD, artLoader.loadCPZBossEggpodSheet());
+            registerSheet(Sonic2ObjectArtKeys.CPZ_BOSS_PARTS, artLoader.loadCPZBossPartsSheet());
+            registerSheet(Sonic2ObjectArtKeys.CPZ_BOSS_JETS, artLoader.loadCPZBossJetsSheet());
+            registerSheet(Sonic2ObjectArtKeys.CPZ_BOSS_SMOKE, artLoader.loadCPZBossSmokeSheet());
         }
 
         // CNZ objects (Sonic 2-specific)
@@ -317,4 +326,3 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         return artData;
     }
 }
-
