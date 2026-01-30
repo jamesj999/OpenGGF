@@ -19,6 +19,7 @@ import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.GrounderBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.CrawlBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2EHZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CPZBossInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2ARZBossInstance;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -254,6 +255,9 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         // CPZ Boss (Object 0x5D)
         registerFactory(Sonic2ObjectIds.CPZ_BOSS,
                 (spawn, registry) -> new Sonic2CPZBossInstance(spawn, LevelManager.getInstance()));
+        // ARZ Boss (Object 0x89)
+        registerFactory(Sonic2ObjectIds.ARZ_BOSS,
+                (spawn, registry) -> new Sonic2ARZBossInstance(spawn, LevelManager.getInstance()));
         // Boss Explosion (Object 0x58)
         registerFactory(Sonic2ObjectIds.BOSS_EXPLOSION,
                 (spawn, registry) -> new BossExplosionObjectInstance(
