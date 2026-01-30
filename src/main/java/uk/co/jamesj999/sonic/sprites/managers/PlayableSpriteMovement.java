@@ -121,8 +121,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		inputRawLeft = left;
 		inputRawRight = right;
 
-		// Block left/right when move_lock OR obj_control OR springing OR hurt
-		if (moveLocked || objControlLocked || sprite.getSpringing() || sprite.isHurt()) {
+		// ROM-accurate control lock behavior:
+		// - move_lock and springing only block input when GROUNDED (checked in Sonic_Move, not Sonic_ChgJumpDir)
+		// - obj_control and hurt block input in ALL states
+		boolean groundedControlLock = !sprite.getAir() && (moveLocked || sprite.getSpringing());
+		if (groundedControlLock || objControlLocked || sprite.isHurt()) {
 			left = right = false;
 		}
 		// Block up/down when hurt
