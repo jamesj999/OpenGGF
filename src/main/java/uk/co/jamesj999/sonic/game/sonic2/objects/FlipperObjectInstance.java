@@ -110,7 +110,7 @@ public class FlipperObjectInstance extends BoxObjectInstance
                     // Only adjust Y if not already rolling (the bne.s skips adjustment if already rolling)
                     if (!player.getRolling()) {
                         player.setRolling(true);
-                        player.setY((short) (player.getY() + 5));
+                        player.setY((short) (player.getY() + player.getRollHeightAdjustment()));
                     }
                     playerFlipperState = 1;
                 } else {
@@ -242,7 +242,7 @@ public class FlipperObjectInstance extends BoxObjectInstance
         // Only adjust Y if not already rolling
         if (!player.getRolling()) {
             player.setRolling(true);
-            player.setY((short) (player.getY() + 5));
+            player.setY((short) (player.getY() + player.getRollHeightAdjustment()));
         } else {
             player.setRolling(true);
         }
