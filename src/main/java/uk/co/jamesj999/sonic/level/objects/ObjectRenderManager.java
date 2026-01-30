@@ -134,6 +134,10 @@ public class ObjectRenderManager {
         return provider.getRenderer(ObjectArtKeys.EXPLOSION);
     }
 
+    public PatternSpriteRenderer getBossExplosionRenderer() {
+        return provider.getRenderer(uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys.BOSS_EXPLOSION);
+    }
+
     public PatternSpriteRenderer getShieldRenderer() {
         return provider.getRenderer(ObjectArtKeys.SHIELD);
     }

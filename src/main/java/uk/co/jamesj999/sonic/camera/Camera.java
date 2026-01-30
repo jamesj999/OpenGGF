@@ -82,8 +82,8 @@ public class Camera {
 			y = (short) (focusedSprite.getCentreY() - 96);
 
 			// Apply bounds clamping
-			if (x < 0) x = 0;
-			if (y < 0) y = 0;
+			if (x < minX) x = minX;
+			if (y < minY) y = minY;
 			if (x > maxX) x = maxX;
 			if (y > maxY) y = maxY;
 			return;
@@ -208,12 +208,12 @@ public class Camera {
 			// else: ROM: .doNotScroll - player is at bias, no scroll needed
 		}
 
-		// Clamp to boundaries
-		if (x < 0) {
-			x = 0;
+		// Clamp to boundaries (ROM: ScrollHoriz lines 18077-18092, ScrollVerti similar)
+		if (x < minX) {
+			x = minX;
 		}
-		if (y < 0) {
-			y = 0;
+		if (y < minY) {
+			y = minY;
 		}
 		if (x > maxX) {
 			x = maxX;

@@ -3212,6 +3212,75 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load CPZ Boss Eggpod sprite sheet (Obj5D main + Robotnik).
+     * Uses ArtNem_Eggpod with mappings from Obj5D_MapUnc_2ED8C.
+     * Palette line 1 by default (main body). Robotnik uses palette override 0.
+     */
+    public ObjectSpriteSheet loadCPZBossEggpodSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_EGGPOD_ADDR, "Eggpod");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_CPZ_BOSS_EGGPOD_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Load CPZ Boss parts sprite sheet (pipe, pump, container, gunk, etc.).
+     * Uses ArtNem_CPZBoss with mappings from Obj5D_MapUnc_2EADC.
+     * Palette line 1 by default; dripper/gunk use palette override 3.
+     */
+    public ObjectSpriteSheet loadCPZBossPartsSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_CPZ_BOSS_ADDR, "CPZBoss");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_CPZ_BOSS_PARTS_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Load CPZ Boss eggpod jets sprite sheet (exhaust flame).
+     * Uses ArtNem_EggpodJets with mappings from Obj5D_MapUnc_2EE88.
+     * Palette line 0 (as per art tile).
+     */
+    public ObjectSpriteSheet loadCPZBossJetsSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_EGGPOD_JETS_ADDR, "EggpodJets");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_CPZ_BOSS_JETS_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Load CPZ Boss smoke puff sprite sheet (used during retreat).
+     * Uses ArtNem_BossSmoke with mappings from Obj5D_MapUnc_2EEA0.
+     */
+    public ObjectSpriteSheet loadCPZBossSmokeSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_BOSS_SMOKE_ADDR, "BossSmoke");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_CPZ_BOSS_SMOKE_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Load Boss Explosion sprite sheet (Obj58).
+     * Uses ArtNem_FieryExplosion with mappings from Obj58_MapUnc_2D50A.
+     * Palette line 0 (as per art tile).
+     */
+    public ObjectSpriteSheet loadBossExplosionSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_FIERY_EXPLOSION_ADDR, "BossExplosion");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_BOSS_EXPLOSION_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
      * Creates mapping frames for Egg Prison (Obj3E).
      * Based on mappings/sprite/obj3E.asm from the disassembly.
      *
