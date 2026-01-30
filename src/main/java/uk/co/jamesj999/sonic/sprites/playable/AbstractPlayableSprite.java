@@ -1457,16 +1457,31 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         /**
+         * Returns the Y position adjustment needed when transitioning between standing and rolling.
+         *
+         * The ROM uses center-based coordinates where y_pos is the sprite center, so it adjusts by
+         * the RADIUS difference (standYRadius - rollYRadius = 19 - 14 = 5 pixels for Sonic).
+         *
+         * This engine uses top-left coordinates where y is the top of the sprite, so we must adjust
+         * by the full HEIGHT difference (runHeight - rollHeight = 38 - 28 = 10 pixels for Sonic).
+         *
+         * When entering roll: setY(getY() + getRollHeightAdjustment()) - moves top down, feet stay planted
+         * When exiting roll: setY(getY() - getRollHeightAdjustment()) - moves top up, feet stay planted
+         *
+         * @return the height difference between standing and rolling (always positive)
+         */
+        public short getRollHeightAdjustment() {
+                return (short) (runHeight - rollHeight);
+        }
+
+        /**
          * Sets the rolling state and handles hitbox changes.
          *
          * IMPORTANT: This method changes the rolling flag, hitbox radii, and visual dimensions.
-         * It does NOT adjust Y position. The Y position adjustment (+5 when starting roll,
-         * -5 when ending roll) must be done by the caller because:
+         * It does NOT adjust Y position. The Y position adjustment must be done by the caller using
+         * getRollHeightAdjustment() because:
          * 1. ROM does the adjustment in specific contexts (jump, spindash, roll start/end)
          * 2. Some callers (like applyHurt) should NOT adjust Y position
-         *
-         * ROM reference: y_radius changes from 19 (standing) to 14 (rolling), diff = 5
-         * The caller should use: setY(getY() + 5) when starting roll, setY(getY() - 5) when ending.
          *
          * @param rolling true to enter rolling state, false to exit
          */

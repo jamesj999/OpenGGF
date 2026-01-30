@@ -305,7 +305,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private void doReleaseSpindash() {
 		sprite.applyRollingRadii(false);
 		setRollAnimation();
-		sprite.setY((short) (sprite.getY() + 5));
+		sprite.setY((short) (sprite.getY() + sprite.getRollHeightAdjustment()));
 		sprite.setSpindash(false);
 
 		int speedIndex = Math.min((sprite.getSpindashCounter() >> 8) & 0xFF, 8);
@@ -397,7 +397,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		if (!wasRolling) {
 			sprite.applyRollingRadii(true);
 			sprite.setRolling(true);
-			sprite.setY((short) (sprite.getY() + 5));
+			sprite.setY((short) (sprite.getY() + sprite.getRollHeightAdjustment()));
 		} else {
 			sprite.setRollingJump(true);
 		}
@@ -567,7 +567,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		if (sprite.getAir() || sprite.getRolling()) return;
 
 		sprite.setRolling(true);
-		sprite.setY((short) (sprite.getY() + 5));
+		sprite.setY((short) (sprite.getY() + sprite.getRollHeightAdjustment()));
 		audioManager.playSfx(GameSound.ROLLING);
 
 		if (sprite.getGSpeed() == 0) {
@@ -619,7 +619,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				gSpeed = (short) (sprite.getDirection() == Direction.LEFT ? -0x400 : 0x400);
 			} else {
 				sprite.setRolling(false);
-				sprite.setY((short) (sprite.getY() - 5));
+				sprite.setY((short) (sprite.getY() - sprite.getRollHeightAdjustment()));
 			}
 		}
 
@@ -1070,7 +1070,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private void resetOnFloor() {
 		if (sprite.getRolling() && !sprite.getPinballMode()) {
 			sprite.setRolling(false);
-			sprite.setY((short) (sprite.getY() - 5));
+			sprite.setY((short) (sprite.getY() - sprite.getRollHeightAdjustment()));
 		}
 		sprite.setPinballMode(false);
 		sprite.setAir(false);

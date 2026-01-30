@@ -153,7 +153,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         boolean wasRolling = player.getRolling();
         player.setRolling(true);
         if (!wasRolling) {
-            player.setY((short) (player.getY() + 5));
+            player.setY((short) (player.getY() + player.getRollHeightAdjustment()));
         }
 
         playerState = STATE_STANDING;
