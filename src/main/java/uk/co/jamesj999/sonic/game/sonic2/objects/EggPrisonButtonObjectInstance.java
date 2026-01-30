@@ -159,6 +159,14 @@ public class EggPrisonButtonObjectInstance extends AbstractObjectInstance
     // ========================================================================================
 
     /**
+     * Detach from parent without destroying (called when results screen triggers).
+     * Button persists to maintain visual and collision during results.
+     */
+    public void detachFromParent() {
+        this.parent = null;
+    }
+
+    /**
      * Detach from parent and destroy button (called when parent is destroyed).
      */
     public void destroyButton() {

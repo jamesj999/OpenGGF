@@ -71,7 +71,9 @@ public class DestroyedEggPrisonObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // Render frame 3 (fully open capsule)
+        // Render frame 3 (fully open capsule body)
+        // Note: Button is NOT rendered here - EggPrisonButtonObjectInstance persists
+        // during results screen to maintain its own render priority (5) and collision
         renderer.drawFrameIndex(FRAME_BODY_OPEN_3, positionX, positionY, false, false);
     }
 

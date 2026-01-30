@@ -215,6 +215,7 @@ public class Sonic2Constants {
     public static final int ART_TILE_BOSS_SMOKE_1 = 0x0570; // ArtTile_ArtNem_BossSmoke_1
     public static final int ART_TILE_FIERY_EXPLOSION = 0x0580; // ArtTile_ArtNem_FieryExplosion
     public static final int ART_TILE_ARZ_BOSS = 0x03E0;    // ArtTile_ArtNem_ARZBoss
+    public static final int ART_TILE_EGGPOD_4 = 0x0500;   // ArtTile_ArtNem_Eggpod_4 (ARZ/MCZ/CNZ/MTZ boss)
 
     // CPZ Boss mappings (uncompressed)
     public static final int MAP_UNC_CPZ_BOSS_PARTS_ADDR = 0x2EADC;   // Obj5D_MapUnc_2EADC (CPZ boss parts)
