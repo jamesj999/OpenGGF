@@ -1623,9 +1623,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (pushSensors == null || pushSensors.length < 2) {
                         return;
                 }
-                // SPG: Y offset = +8 only on truly flat ground (not air, GROUND mode, angle = 0)
-                // On slopes or in air, Y offset = 0
-                boolean onFlatGround = !air && runningMode == GroundMode.GROUND && angle == 0;
+                // ROM: Y offset = +8 when (angle & 0x38) == 0, i.e., near-flat angles (0-7, 248-255)
+                // This allows the offset on slight slopes, not just strictly flat ground.
+                // See s2.asm:43517-43519 in CalcRoomInFront
+                boolean onFlatGround = !air && runningMode == GroundMode.GROUND && (angle & 0x38) == 0;
                 byte yOffset = onFlatGround ? (byte) 8 : (byte) 0;
                 // SPG: Push sensors always use x = +/-10, regardless of rolling state
                 byte push = 10;
