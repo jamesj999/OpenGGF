@@ -3212,6 +3212,75 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load CPZ Boss Eggpod sprite sheet (Obj5D main + Robotnik).
+     * Uses ArtNem_Eggpod with mappings from Obj5D_MapUnc_2ED8C.
+     * Palette line 1 by default (main body). Robotnik uses palette override 0.
+     */
+    public ObjectSpriteSheet loadCPZBossEggpodSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_EGGPOD_ADDR, "Eggpod");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_CPZ_BOSS_EGGPOD_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Load CPZ Boss parts sprite sheet (pipe, pump, container, gunk, etc.).
+     * Uses ArtNem_CPZBoss with mappings from Obj5D_MapUnc_2EADC.
+     * Palette line 1 by default; dripper/gunk use palette override 3.
+     */
+    public ObjectSpriteSheet loadCPZBossPartsSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_CPZ_BOSS_ADDR, "CPZBoss");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_CPZ_BOSS_PARTS_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Load CPZ Boss eggpod jets sprite sheet (exhaust flame).
+     * Uses ArtNem_EggpodJets with mappings from Obj5D_MapUnc_2EE88.
+     * Palette line 0 (as per art tile).
+     */
+    public ObjectSpriteSheet loadCPZBossJetsSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_EGGPOD_JETS_ADDR, "EggpodJets");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_CPZ_BOSS_JETS_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Load CPZ Boss smoke puff sprite sheet (used during retreat).
+     * Uses ArtNem_BossSmoke with mappings from Obj5D_MapUnc_2EEA0.
+     */
+    public ObjectSpriteSheet loadCPZBossSmokeSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_BOSS_SMOKE_ADDR, "BossSmoke");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_CPZ_BOSS_SMOKE_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Load Boss Explosion sprite sheet (Obj58).
+     * Uses ArtNem_FieryExplosion with mappings from Obj58_MapUnc_2D50A.
+     * Palette line 0 (as per art tile).
+     */
+    public ObjectSpriteSheet loadBossExplosionSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_FIERY_EXPLOSION_ADDR, "BossExplosion");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_BOSS_EXPLOSION_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
      * Creates mapping frames for Egg Prison (Obj3E).
      * Based on mappings/sprite/obj3E.asm from the disassembly.
      *
@@ -3277,6 +3346,232 @@ public class Sonic2ObjectArt {
         List<SpriteMappingPiece> frame5 = new ArrayList<>();
         frame5.add(new SpriteMappingPiece(-0x08, -0x08, 2, 2, 0x2D, false, false, 0));
         frames.add(new SpriteMappingFrame(frame5));
+
+        return frames;
+    }
+
+    /**
+     * Load EHZ Boss (Obj56) sprite sheet - multi-component boss with 3 art sources.
+     * ROM: ArtNem_Eggpod at 0x83BF6 (flying vehicle),
+     *      ArtNem_EHZBoss at 0x8507C (ground vehicle/wheels/spike),
+     *      ArtNem_EggChoppers at 0x85868 (propeller)
+     * Palette line 1
+     *
+     * Note: This is a composite sheet combining all three art sources.
+     * Full sprite mappings from obj56_a.asm, obj56_b.asm, obj56_c.asm need to be implemented.
+     */
+    public ObjectSpriteSheet loadEHZBossSheet() {
+        // Load all three art sources
+        Pattern[] eggpodPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_EGGPOD_ADDR, "Eggpod");
+        Pattern[] ehzBossPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_EHZ_BOSS_ADDR, "EHZBoss");
+        Pattern[] choppersPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_EGG_CHOPPERS_ADDR, "EggChoppers");
+
+        if (eggpodPatterns.length == 0 && ehzBossPatterns.length == 0 && choppersPatterns.length == 0) {
+            return null;
+        }
+
+        // Combine all patterns into a single array
+        Pattern[] allPatterns = new Pattern[eggpodPatterns.length + ehzBossPatterns.length + choppersPatterns.length];
+        System.arraycopy(eggpodPatterns, 0, allPatterns, 0, eggpodPatterns.length);
+        System.arraycopy(ehzBossPatterns, 0, allPatterns, eggpodPatterns.length, ehzBossPatterns.length);
+        System.arraycopy(choppersPatterns, 0, allPatterns, eggpodPatterns.length + ehzBossPatterns.length, choppersPatterns.length);
+
+        // Create mappings (TODO: implement full mappings from disassembly)
+        List<SpriteMappingFrame> mappings = createEHZBossMappings();
+
+        return new ObjectSpriteSheet(allPatterns, mappings, 1, 1);
+    }
+
+    /**
+     * Creates mapping frames for EHZ Boss (Obj56).
+     * Based on mappings/sprite/obj56_a.asm (propeller - 7 frames),
+     *              mappings/sprite/obj56_b.asm (ground vehicle - 8 frames),
+     *              mappings/sprite/obj56_c.asm (flying vehicle - 7 frames)
+     *
+     * The boss uses three art sources loaded sequentially into one array:
+     * - ArtNem_Eggpod: 96 patterns (0x60 tiles) - flying vehicle - array indices 0-95
+     * - ArtNem_EHZBoss: 128 patterns (0x80 tiles) - ground vehicle/wheels/spike - array indices 96-223
+     * - ArtNem_EggChoppers: 20 patterns (0x14 tiles) - propeller - array indices 224-243
+     *
+     * In ROM VRAM layout:
+     * - ArtTile_ArtNem_Eggpod_1 = 0x03A0
+     * - ArtTile_ArtNem_EHZBoss = 0x0400 (0x60 tiles after Eggpod)
+     * - ArtTile_ArtNem_EggChoppers = 0x056C
+     *
+     * Mapping tile indices in the disassembly are relative to their VRAM base address.
+     * We convert them to pattern array indices by adding the appropriate offset.
+     */
+    private List<SpriteMappingFrame> createEHZBossMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Pattern array offsets for each art source
+        final int EGGPOD_OFFSET = 0;      // Eggpod starts at index 0
+        final int VEHICLE_OFFSET = 96;    // EHZBoss starts at index 96 (after 0x60 Eggpod tiles)
+        final int PROPELLER_OFFSET = 224; // EggChoppers starts at index 224 (after 0x60 + 0x80 tiles)
+
+        // =================================================================================
+        // obj56_a: Propeller animations (7 frames) - uses ArtNem_EggChoppers
+        // Tile indices in disassembly are relative to ArtTile_ArtNem_EggChoppers
+        // =================================================================================
+
+        // Frame 0: Propeller fully stopped
+        List<SpriteMappingPiece> prop0 = new ArrayList<>();
+        prop0.add(new SpriteMappingPiece(0x02, -0x28, 2, 2, PROPELLER_OFFSET + 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(prop0));
+
+        // Frame 1: Propeller spinning - wide spread
+        List<SpriteMappingPiece> prop1 = new ArrayList<>();
+        prop1.add(new SpriteMappingPiece(0x02, -0x28, 2, 2, PROPELLER_OFFSET + 4, false, false, 0));
+        prop1.add(new SpriteMappingPiece(0x12, -0x28, 4, 2, PROPELLER_OFFSET + 0x0C, false, false, 0));
+        prop1.add(new SpriteMappingPiece(0x32, -0x28, 4, 2, PROPELLER_OFFSET + 0x0C, false, false, 0));
+        prop1.add(new SpriteMappingPiece(-0x1E, -0x28, 4, 2, PROPELLER_OFFSET + 0x0C, false, false, 0));
+        prop1.add(new SpriteMappingPiece(-0x3E, -0x28, 4, 2, PROPELLER_OFFSET + 0x0C, false, false, 0));
+        frames.add(new SpriteMappingFrame(prop1));
+
+        // Frame 2: Propeller spinning - medium spread
+        List<SpriteMappingPiece> prop2 = new ArrayList<>();
+        prop2.add(new SpriteMappingPiece(0x02, -0x28, 2, 2, PROPELLER_OFFSET + 4, false, false, 0));
+        prop2.add(new SpriteMappingPiece(0x12, -0x28, 4, 2, PROPELLER_OFFSET + 0x0C, false, false, 0));
+        prop2.add(new SpriteMappingPiece(0x32, -0x28, 2, 2, PROPELLER_OFFSET + 8, false, false, 0));
+        prop2.add(new SpriteMappingPiece(-0x1E, -0x28, 4, 2, PROPELLER_OFFSET + 0x0C, false, false, 0));
+        prop2.add(new SpriteMappingPiece(-0x2E, -0x28, 2, 2, PROPELLER_OFFSET + 8, false, false, 0));
+        frames.add(new SpriteMappingFrame(prop2));
+
+        // Frame 3: Propeller spinning - narrow
+        List<SpriteMappingPiece> prop3 = new ArrayList<>();
+        prop3.add(new SpriteMappingPiece(0x02, -0x28, 2, 2, PROPELLER_OFFSET + 4, false, false, 0));
+        prop3.add(new SpriteMappingPiece(0x12, -0x28, 4, 2, PROPELLER_OFFSET + 0x0C, false, false, 0));
+        prop3.add(new SpriteMappingPiece(-0x1E, -0x28, 4, 2, PROPELLER_OFFSET + 0x0C, false, false, 0));
+        frames.add(new SpriteMappingFrame(prop3));
+
+        // Frame 4: Propeller spinning - minimal
+        List<SpriteMappingPiece> prop4 = new ArrayList<>();
+        prop4.add(new SpriteMappingPiece(0x02, -0x28, 2, 2, PROPELLER_OFFSET + 4, false, false, 0));
+        prop4.add(new SpriteMappingPiece(0x12, -0x28, 2, 2, PROPELLER_OFFSET + 8, false, false, 0));
+        prop4.add(new SpriteMappingPiece(-0x0E, -0x28, 2, 2, PROPELLER_OFFSET + 8, false, false, 0));
+        frames.add(new SpriteMappingFrame(prop4));
+
+        // Frame 5: Propeller spinning - returning to wide (right side)
+        List<SpriteMappingPiece> prop5 = new ArrayList<>();
+        prop5.add(new SpriteMappingPiece(0x02, -0x28, 2, 2, PROPELLER_OFFSET + 0, false, false, 0));
+        prop5.add(new SpriteMappingPiece(0x12, -0x28, 4, 2, PROPELLER_OFFSET + 0x0C, false, false, 0));
+        prop5.add(new SpriteMappingPiece(0x32, -0x28, 4, 2, PROPELLER_OFFSET + 0x0C, false, false, 0));
+        frames.add(new SpriteMappingFrame(prop5));
+
+        // Frame 6: Propeller spinning - returning to wide (left side)
+        List<SpriteMappingPiece> prop6 = new ArrayList<>();
+        prop6.add(new SpriteMappingPiece(0x02, -0x28, 2, 2, PROPELLER_OFFSET + 4, false, false, 0));
+        prop6.add(new SpriteMappingPiece(-0x1E, -0x28, 4, 2, PROPELLER_OFFSET + 0x0C, false, false, 0));
+        prop6.add(new SpriteMappingPiece(-0x3E, -0x28, 4, 2, PROPELLER_OFFSET + 0x0C, false, false, 0));
+        frames.add(new SpriteMappingFrame(prop6));
+
+        // =================================================================================
+        // obj56_b: Ground vehicle, wheels, spike (8 frames) - uses ArtNem_EHZBoss
+        // Tile indices in disassembly are relative to ArtTile_ArtNem_EHZBoss
+        // =================================================================================
+
+        // Frame 7 (0): Ground vehicle body (full)
+        List<SpriteMappingPiece> vehicle0 = new ArrayList<>();
+        vehicle0.add(new SpriteMappingPiece(-0x30, -0x10, 4, 4, VEHICLE_OFFSET + 0, false, false, 0));
+        vehicle0.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x10, false, false, 0));
+        vehicle0.add(new SpriteMappingPiece(0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x20, false, false, 0));
+        frames.add(new SpriteMappingFrame(vehicle0));
+
+        // Frame 8 (1): Spike retracted
+        List<SpriteMappingPiece> spike1 = new ArrayList<>();
+        spike1.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x30, false, false, 0));
+        frames.add(new SpriteMappingFrame(spike1));
+
+        // Frame 9 (2): Spike partially extended
+        List<SpriteMappingPiece> spike2 = new ArrayList<>();
+        spike2.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x40, false, false, 0));
+        frames.add(new SpriteMappingFrame(spike2));
+
+        // Frame 10 (3): Spike fully extended
+        List<SpriteMappingPiece> spike3 = new ArrayList<>();
+        spike3.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x50, false, false, 0));
+        frames.add(new SpriteMappingFrame(spike3));
+
+        // Frame 11 (4): Wheel foreground frame 1
+        List<SpriteMappingPiece> wheel4 = new ArrayList<>();
+        wheel4.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x60, false, false, 0));
+        frames.add(new SpriteMappingFrame(wheel4));
+
+        // Frame 12 (5): Wheel foreground frame 2 (H-flipped)
+        List<SpriteMappingPiece> wheel5 = new ArrayList<>();
+        wheel5.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x60, true, false, 0));
+        frames.add(new SpriteMappingFrame(wheel5));
+
+        // Frame 13 (6): Wheel background frame 1
+        List<SpriteMappingPiece> wheel6 = new ArrayList<>();
+        wheel6.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x70, false, false, 0));
+        frames.add(new SpriteMappingFrame(wheel6));
+
+        // Frame 14 (7): Wheel background frame 2 (H-flipped)
+        List<SpriteMappingPiece> wheel7 = new ArrayList<>();
+        wheel7.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x70, true, false, 0));
+        frames.add(new SpriteMappingFrame(wheel7));
+
+        // =================================================================================
+        // obj56_c: Flying vehicle top / Eggman (7 frames) - uses ArtNem_Eggpod
+        // Tile indices in disassembly are relative to ArtTile_ArtNem_Eggpod_1
+        // =================================================================================
+
+        // Frame 15 (0): Flying vehicle bottom
+        List<SpriteMappingPiece> flying0 = new ArrayList<>();
+        flying0.add(new SpriteMappingPiece(-0x20, -8, 2, 2, EGGPOD_OFFSET + 0, false, false, 0));
+        flying0.add(new SpriteMappingPiece(-0x20, 8, 2, 2, EGGPOD_OFFSET + 4, false, false, 0));
+        flying0.add(new SpriteMappingPiece(-0x10, -8, 4, 4, EGGPOD_OFFSET + 8, false, false, 0));
+        flying0.add(new SpriteMappingPiece(0x10, -8, 2, 4, EGGPOD_OFFSET + 0x18, false, false, 0));
+        frames.add(new SpriteMappingFrame(flying0));
+
+        // Frame 16 (1): Eggman normal (capsule top)
+        List<SpriteMappingPiece> egg1 = new ArrayList<>();
+        egg1.add(new SpriteMappingPiece(-0x20, -0x18, 2, 2, EGGPOD_OFFSET + 0x28, false, false, 0));
+        egg1.add(new SpriteMappingPiece(-0x10, -0x18, 4, 2, EGGPOD_OFFSET + 0x30, false, false, 0));
+        egg1.add(new SpriteMappingPiece(0x10, -0x18, 2, 2, EGGPOD_OFFSET + 0x24, false, false, 0));
+        egg1.add(new SpriteMappingPiece(0x02, -0x28, 2, 2, EGGPOD_OFFSET + 0x20, false, false, 0));
+        frames.add(new SpriteMappingFrame(egg1));
+
+        // Frame 17 (2): Eggman normal variant
+        List<SpriteMappingPiece> egg2 = new ArrayList<>();
+        egg2.add(new SpriteMappingPiece(-0x20, -0x18, 2, 2, EGGPOD_OFFSET + 0x28, false, false, 0));
+        egg2.add(new SpriteMappingPiece(-0x10, -0x18, 4, 2, EGGPOD_OFFSET + 0x38, false, false, 0));
+        egg2.add(new SpriteMappingPiece(0x10, -0x18, 2, 2, EGGPOD_OFFSET + 0x24, false, false, 0));
+        egg2.add(new SpriteMappingPiece(0x02, -0x28, 2, 2, EGGPOD_OFFSET + 0x20, false, false, 0));
+        frames.add(new SpriteMappingFrame(egg2));
+
+        // Frame 18 (3): Eggman laughing frame 1
+        List<SpriteMappingPiece> egg3 = new ArrayList<>();
+        egg3.add(new SpriteMappingPiece(-0x20, -0x18, 2, 2, EGGPOD_OFFSET + 0x28, false, false, 0));
+        egg3.add(new SpriteMappingPiece(-0x10, -0x18, 4, 2, EGGPOD_OFFSET + 0x40, false, false, 0));
+        egg3.add(new SpriteMappingPiece(0x10, -0x18, 2, 2, EGGPOD_OFFSET + 0x24, false, false, 0));
+        egg3.add(new SpriteMappingPiece(0x02, -0x28, 2, 2, EGGPOD_OFFSET + 0x20, false, false, 0));
+        frames.add(new SpriteMappingFrame(egg3));
+
+        // Frame 19 (4): Eggman laughing frame 2
+        List<SpriteMappingPiece> egg4 = new ArrayList<>();
+        egg4.add(new SpriteMappingPiece(-0x20, -0x18, 2, 2, EGGPOD_OFFSET + 0x28, false, false, 0));
+        egg4.add(new SpriteMappingPiece(-0x10, -0x18, 4, 2, EGGPOD_OFFSET + 0x48, false, false, 0));
+        egg4.add(new SpriteMappingPiece(0x10, -0x18, 2, 2, EGGPOD_OFFSET + 0x24, false, false, 0));
+        egg4.add(new SpriteMappingPiece(0x02, -0x28, 2, 2, EGGPOD_OFFSET + 0x20, false, false, 0));
+        frames.add(new SpriteMappingFrame(egg4));
+
+        // Frame 20 (5): Eggman hit (taking damage)
+        List<SpriteMappingPiece> egg5 = new ArrayList<>();
+        egg5.add(new SpriteMappingPiece(-0x20, -0x18, 2, 2, EGGPOD_OFFSET + 0x28, false, false, 0));
+        egg5.add(new SpriteMappingPiece(-0x10, -0x18, 4, 2, EGGPOD_OFFSET + 0x50, false, false, 0));
+        egg5.add(new SpriteMappingPiece(0x10, -0x18, 2, 2, EGGPOD_OFFSET + 0x24, false, false, 0));
+        egg5.add(new SpriteMappingPiece(0x02, -0x28, 2, 2, EGGPOD_OFFSET + 0x20, false, false, 0));
+        frames.add(new SpriteMappingFrame(egg5));
+
+        // Frame 21 (6): Eggman flying off (fleeing)
+        List<SpriteMappingPiece> egg6 = new ArrayList<>();
+        egg6.add(new SpriteMappingPiece(-0x20, -0x18, 2, 2, EGGPOD_OFFSET + 0x28, false, false, 0));
+        egg6.add(new SpriteMappingPiece(-0x10, -0x18, 4, 2, EGGPOD_OFFSET + 0x58, false, false, 0));
+        egg6.add(new SpriteMappingPiece(0x10, -0x18, 2, 2, EGGPOD_OFFSET + 0x24, false, false, 0));
+        egg6.add(new SpriteMappingPiece(0x02, -0x28, 2, 2, EGGPOD_OFFSET + 0x20, false, false, 0));
+        frames.add(new SpriteMappingFrame(egg6));
 
         return frames;
     }

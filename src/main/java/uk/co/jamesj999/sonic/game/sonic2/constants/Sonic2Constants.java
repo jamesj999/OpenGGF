@@ -136,7 +136,6 @@ public class Sonic2Constants {
     public static final int ANI_OBJ79_ADDR = 0x1F0C2; // Ani_obj79
     public static final int ANI_OBJ79_SCRIPT_COUNT = 3;
     public static final int ART_TILE_CHECKPOINT = 0x047C;
-    public static final int SndID_Explosion = 0xC1;
 
     // Signpost/Goal Plate (Object 0D)
     public static final int ART_NEM_SIGNPOST_ADDR = 0x79BDE; // Signpost.nem (78 blocks)
@@ -145,10 +144,6 @@ public class Sonic2Constants {
     public static final int ART_NEM_EGG_PRISON_ADDR = 0x7BA32; // Egg Prison.nem (verified via RomOffsetFinder)
     public static final int MAP_UNC_EGG_PRISON_ADDR = 0x1F436;  // Obj3E_MapUnc_3F436 (relative offset in s2.asm)
     public static final int ART_TILE_SIGNPOST = 0x0434;
-    public static final int SndID_Signpost = 0xCF;
-    public static final int MusID_StageClear = 0x97; // Stage clear / act complete jingle
-    public static final int SndID_Blip = 0xCD; // Tally tick sound
-    public static final int SndID_TallyEnd = 0xC5; // Tally complete sound
 
     // Results Screen Art (Obj3A)
     public static final int ART_UNC_HUD_NUMBERS_ADDR = 0x4134C; // Art_Hud (digits source)
@@ -199,8 +194,32 @@ public class Sonic2Constants {
     public static final int ART_NEM_ARROW_SHOOTER_ADDR = 0x82F74; // ArtNem_ArrowAndShooter
     public static final int MAP_UNC_ARROW_SHOOTER_ADDR = 0x25804; // Obj22_MapUnc_25804
     public static final int ART_TILE_ARROW_SHOOTER = 0x0417;      // ArtTile_ArtNem_ArrowAndShooter
-    public static final int SndID_PreArrowFiring = 0xDB;
-    public static final int SndID_ArrowFiring = 0xAE;
+
+    // Boss art (Nemesis compressed, verified offsets)
+    public static final int ART_NEM_EGGPOD_ADDR = 0x83BF6;     // ArtNem_Eggpod (flying vehicle)
+    public static final int ART_NEM_EHZ_BOSS_ADDR = 0x8507C;   // ArtNem_EHZBoss (ground vehicle/wheels/spike)
+    public static final int ART_NEM_EGG_CHOPPERS_ADDR = 0x85868; // ArtNem_EggChoppers (propeller blades)
+    public static final int ART_NEM_CPZ_BOSS_ADDR = 0x84332;   // ArtNem_CPZBoss (verified via RomOffsetFinder)
+    public static final int ART_NEM_EGGPOD_JETS_ADDR = 0x84F18; // ArtNem_EggpodJets (verified via RomOffsetFinder)
+    public static final int ART_NEM_BOSS_SMOKE_ADDR = 0x84F96;  // ArtNem_BossSmoke (verified via RomOffsetFinder)
+    public static final int ART_NEM_FIERY_EXPLOSION_ADDR = 0x84890; // ArtNem_FieryExplosion (Obj58, verified)
+
+    // Boss art tile bases (VRAM pattern IDs)
+    public static final int ART_TILE_EGGPOD = 0x03A0;      // ArtTile_ArtNem_Eggpod_1
+    public static final int ART_TILE_EHZ_BOSS = 0x0400;    // ArtTile_ArtNem_EHZBoss
+    public static final int ART_TILE_EGG_CHOPPERS = 0x056C; // ArtTile_ArtNem_EggChoppers
+    public static final int ART_TILE_EGGPOD_3 = 0x0420;    // ArtTile_ArtNem_Eggpod_3 (CPZ boss)
+    public static final int ART_TILE_EGGPOD_JETS_1 = 0x0418; // ArtTile_ArtNem_EggpodJets_1 (CPZ boss)
+    public static final int ART_TILE_CPZ_BOSS = 0x0500;    // ArtTile_ArtNem_CPZBoss
+    public static final int ART_TILE_BOSS_SMOKE_1 = 0x0570; // ArtTile_ArtNem_BossSmoke_1
+    public static final int ART_TILE_FIERY_EXPLOSION = 0x0580; // ArtTile_ArtNem_FieryExplosion
+
+    // CPZ Boss mappings (uncompressed)
+    public static final int MAP_UNC_CPZ_BOSS_PARTS_ADDR = 0x2EADC;   // Obj5D_MapUnc_2EADC (CPZ boss parts)
+    public static final int MAP_UNC_CPZ_BOSS_EGGPOD_ADDR = 0x2ED8C;  // Obj5D_MapUnc_2ED8C (eggpod body)
+    public static final int MAP_UNC_CPZ_BOSS_JETS_ADDR = 0x2EE88;    // Obj5D_MapUnc_2EE88 (eggpod jets)
+    public static final int MAP_UNC_CPZ_BOSS_SMOKE_ADDR = 0x2EEA0;   // Obj5D_MapUnc_2EEA0 (boss smoke)
+    public static final int MAP_UNC_BOSS_EXPLOSION_ADDR = 0x2D50A;   // Obj58_MapUnc_2D50A (boss explosion)
 
     // Animal art (Nemesis compressed, verified offsets)
     public static final int ART_NEM_FLICKY_ADDR = 0x7EF60;

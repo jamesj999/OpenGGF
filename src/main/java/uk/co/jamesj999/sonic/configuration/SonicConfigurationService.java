@@ -162,6 +162,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.SPECIAL_STAGE_PLANE_DEBUG_KEY, java.awt.event.KeyEvent.VK_F3);
 		putDefault(SonicConfiguration.PAUSE_KEY, java.awt.event.KeyEvent.VK_ENTER);
 		putDefault(SonicConfiguration.FRAME_STEP_KEY, java.awt.event.KeyEvent.VK_Q);
+		putDefault(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, java.awt.event.KeyEvent.VK_END);
 	}
 
 	private void putDefault(SonicConfiguration key, Object value) {
