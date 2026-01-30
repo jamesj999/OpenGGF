@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.level;
 
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.DynamicHtz;
 import uk.co.jamesj999.sonic.level.scroll.BackgroundCamera;
 import uk.co.jamesj999.sonic.level.scroll.ParallaxTables;
@@ -156,20 +157,24 @@ public class ParallaxManager {
         return vscrollFactorBG;
     }
 
+    /**
+     * Set the screen shake flag for MCZ.
+     * @deprecated Use GameServices.gameState().setScreenShakeActive() directly.
+     *             Screen shake is now a global state that all zones check.
+     */
+    @Deprecated
     public void setScreenShakeFlag(boolean screenShakeFlag) {
-        if (mczHandler != null) {
-            mczHandler.setScreenShakeFlag(screenShakeFlag);
-        }
+        GameServices.gameState().setScreenShakeActive(screenShakeFlag);
     }
 
     /**
      * Set the HTZ screen shake mode flag.
-     * When true, uses simplified scroll with ripple-based shake effect.
+     * @deprecated Use GameServices.gameState().setScreenShakeActive() directly.
+     *             Screen shake is now a global state that all zones check.
      */
+    @Deprecated
     public void setHtzScreenShake(boolean active) {
-        if (htzHandler != null) {
-            htzHandler.setScreenShakeActive(active);
-        }
+        GameServices.gameState().setScreenShakeActive(active);
     }
 
     public void update(int zoneId, int actId, Camera cam, int frameCounter, int bgScrollY) {
@@ -237,7 +242,7 @@ public class ParallaxManager {
                     minScroll = htzHandler.getMinScrollOffset();
                     maxScroll = htzHandler.getMaxScrollOffset();
                     vscrollFactorBG = htzHandler.getVscrollFactorBG();
-                    if (htzHandler.isScreenShakeActive()) {
+                    if (GameServices.gameState().isScreenShakeActive()) {
                         vscrollFactorFG = htzHandler.getVscrollFactorFG();
                     }
                 } else {
@@ -539,5 +544,14 @@ public class ParallaxManager {
         for (int line = 0; line < VISIBLE_LINES; line++) {
             setLineWithOffset(line, fgScroll, offset);
         }
+    }
+
+    /**
+     * Returns the parallax tables for use by other managers (e.g., ScreenShakeManager).
+     *
+     * @return ParallaxTables instance, or null if not yet loaded
+     */
+    public ParallaxTables getTables() {
+        return tables;
     }
 }

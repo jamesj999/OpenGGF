@@ -203,6 +203,7 @@ public class Sonic2Constants {
     public static final int ART_NEM_EGGPOD_JETS_ADDR = 0x84F18; // ArtNem_EggpodJets (verified via RomOffsetFinder)
     public static final int ART_NEM_BOSS_SMOKE_ADDR = 0x84F96;  // ArtNem_BossSmoke (verified via RomOffsetFinder)
     public static final int ART_NEM_FIERY_EXPLOSION_ADDR = 0x84890; // ArtNem_FieryExplosion (Obj58, verified)
+    public static final int ART_NEM_ARZ_BOSS_ADDR = 0x86128;    // ArtNem_ARZBoss (verified via RomOffsetFinder)
 
     // Boss art tile bases (VRAM pattern IDs)
     public static final int ART_TILE_EGGPOD = 0x03A0;      // ArtTile_ArtNem_Eggpod_1
@@ -213,6 +214,7 @@ public class Sonic2Constants {
     public static final int ART_TILE_CPZ_BOSS = 0x0500;    // ArtTile_ArtNem_CPZBoss
     public static final int ART_TILE_BOSS_SMOKE_1 = 0x0570; // ArtTile_ArtNem_BossSmoke_1
     public static final int ART_TILE_FIERY_EXPLOSION = 0x0580; // ArtTile_ArtNem_FieryExplosion
+    public static final int ART_TILE_ARZ_BOSS = 0x03E0;    // ArtTile_ArtNem_ARZBoss
 
     // CPZ Boss mappings (uncompressed)
     public static final int MAP_UNC_CPZ_BOSS_PARTS_ADDR = 0x2EADC;   // Obj5D_MapUnc_2EADC (CPZ boss parts)
@@ -220,6 +222,8 @@ public class Sonic2Constants {
     public static final int MAP_UNC_CPZ_BOSS_JETS_ADDR = 0x2EE88;    // Obj5D_MapUnc_2EE88 (eggpod jets)
     public static final int MAP_UNC_CPZ_BOSS_SMOKE_ADDR = 0x2EEA0;   // Obj5D_MapUnc_2EEA0 (boss smoke)
     public static final int MAP_UNC_BOSS_EXPLOSION_ADDR = 0x2D50A;   // Obj58_MapUnc_2D50A (boss explosion)
+    public static final int MAP_UNC_ARZ_BOSS_PARTS_ADDR = 0x30D68;   // Obj89_MapUnc_30D68 (ARZ boss parts)
+    public static final int MAP_UNC_ARZ_BOSS_MAIN_ADDR = 0x30E04;    // Obj89_MapUnc_30E04 (ARZ boss main)
 
     // Animal art (Nemesis compressed, verified offsets)
     public static final int ART_NEM_FLICKY_ADDR = 0x7EF60;

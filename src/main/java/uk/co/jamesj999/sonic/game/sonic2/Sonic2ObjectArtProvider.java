@@ -151,6 +151,12 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             registerSheet(Sonic2ObjectArtKeys.CPZ_BOSS_JETS, artLoader.loadCPZBossJetsSheet());
             registerSheet(Sonic2ObjectArtKeys.CPZ_BOSS_SMOKE, artLoader.loadCPZBossSmokeSheet());
         }
+        // ARZ Boss (Object 0x89) - only for ARZ Act 2
+        // zoneIndex is the ROM zone ID (0x0F for ARZ)
+        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_ARZ) {
+            registerSheet(Sonic2ObjectArtKeys.ARZ_BOSS_MAIN, artLoader.loadARZBossMainSheet());
+            registerSheet(Sonic2ObjectArtKeys.ARZ_BOSS_PARTS, artLoader.loadARZBossPartsSheet());
+        }
 
         // CNZ objects (Sonic 2-specific)
         registerSheet(Sonic2ObjectArtKeys.BUMPER, artData.bumperSheet());

@@ -3267,6 +3267,34 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load ARZ Boss main sprite sheet (Obj89 main vehicle).
+     * Uses ArtNem_ARZBoss with mappings from Obj89_MapUnc_30E04.
+     * Palette line 0 (ArtTile_ArtNem_ARZBoss uses palette 0).
+     */
+    public ObjectSpriteSheet loadARZBossMainSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_ARZ_BOSS_ADDR, "ARZBoss");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_ARZ_BOSS_MAIN_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Load ARZ Boss parts sprite sheet (pillars, arrows, bulging eyes).
+     * Uses ArtNem_ARZBoss with mappings from Obj89_MapUnc_30D68.
+     * Palette line 0 (ArtTile_ArtNem_ARZBoss uses palette 0).
+     */
+    public ObjectSpriteSheet loadARZBossPartsSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_ARZ_BOSS_ADDR, "ARZBoss");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_ARZ_BOSS_PARTS_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
      * Load Boss Explosion sprite sheet (Obj58).
      * Uses ArtNem_FieryExplosion with mappings from Obj58_MapUnc_2D50A.
      * Palette line 0 (as per art tile).
