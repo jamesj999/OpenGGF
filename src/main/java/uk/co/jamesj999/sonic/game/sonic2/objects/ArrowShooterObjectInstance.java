@@ -2,7 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -158,7 +158,7 @@ public class ArrowShooterObjectInstance extends AbstractObjectInstance {
 
     private void fireArrow() {
         // Play pre-arrow sound
-        AudioManager.getInstance().playSfx(Sonic2Constants.SndID_PreArrowFiring);
+        AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_PRE_ARROW_FIRING);
 
         // Spawn arrow projectile
         LevelManager manager = LevelManager.getInstance();

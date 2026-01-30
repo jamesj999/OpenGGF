@@ -2,7 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -80,10 +80,39 @@ public class SignpostObjectInstance extends BoxObjectInstance {
 
     public SignpostObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name, 24, 40, 0.3f, 0.8f, 0.3f, false);
+
+        // ROM: Obj0D_Init (s2.asm:34412-34418)
+        // Signpost is disabled in Act 2+ except for MTZ Act 2
+        // ROM sets x_pos to 0, causing MarkObjGone to delete it and clear respawn bit
+        LevelManager levelMgr = LevelManager.getInstance();
+        if (levelMgr != null) {
+            int currentAct = levelMgr.getCurrentAct();
+            int currentZone = levelMgr.getCurrentZone();
+
+            // ROM check: if (Current_Act != 0 && Current_ZoneAndAct != metropolis_zone_act_2)
+            // metropolis_zone_act_2 = (7 << 8) | 1 = 0x0701
+            if (currentAct > 0) {
+                boolean isMTZAct2 = (currentZone == 7 && currentAct == 1);
+                if (!isMTZAct2) {
+                    // Mark as remembered to prevent respawning, then destroy
+                    // This prevents the spawn-destroy cycle every frame
+                    ObjectManager objMgr = levelMgr.getObjectManager();
+                    if (objMgr != null) {
+                        objMgr.markRemembered(spawn);
+                    }
+                    setDestroyed(true);
+                }
+            }
+        }
     }
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
+        // Don't update if destroyed (disabled in Act 2+)
+        if (isDestroyed()) {
+            return;
+        }
+
         if (player == null) {
             return;
         }
@@ -114,7 +143,7 @@ public class SignpostObjectInstance extends BoxObjectInstance {
         LOGGER.info("Signpost activated at X=" + spawn.x());
 
         try {
-            AudioManager.getInstance().playSfx(Sonic2Constants.SndID_Signpost);
+            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SIGNPOST);
         } catch (Exception e) {
             LOGGER.warning("Failed to play signpost sound: " + e.getMessage());
         }
@@ -255,7 +284,7 @@ public class SignpostObjectInstance extends BoxObjectInstance {
         LOGGER.info("Player off-screen, triggering end of act sequence");
 
         try {
-            AudioManager.getInstance().playMusic(Sonic2Constants.MusID_StageClear);
+            AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_ACT_CLEAR);
         } catch (Exception e) {
             LOGGER.warning("Failed to play stage clear music: " + e.getMessage());
         }

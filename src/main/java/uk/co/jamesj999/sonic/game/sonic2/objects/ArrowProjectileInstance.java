@@ -2,7 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -79,7 +79,7 @@ public class ArrowProjectileInstance extends AbstractObjectInstance
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (!initialized) {
             // Play arrow firing sound on first update
-            AudioManager.getInstance().playSfx(Sonic2Constants.SndID_ArrowFiring);
+            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_ARROW_FIRING);
             initialized = true;
         }
 

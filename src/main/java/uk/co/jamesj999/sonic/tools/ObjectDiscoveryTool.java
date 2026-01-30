@@ -85,6 +85,7 @@ public class ObjectDiscoveryTool {
             0x44,  // Bumper
             0x49,  // EHZWaterfall
             0x4B,  // Buzzer
+            0x56,  // EHZBoss (dynamically spawned drill car boss)
             0x5C,  // Masher
             0x6B,  // MTZPlatform (multi-purpose platform with 12 movement subtypes)
             0x72,  // CNZConveyorBelt (invisible velocity zone - CNZ/MTZ/WFZ)

@@ -1,6 +1,6 @@
 # Sonic 2 Object Implementation Checklist
 
-Generated: 2026-01-28 10:17:59
+Generated: 2026-01-29 18:16:47
 
 ## Summary
 
@@ -176,7 +176,7 @@ Total: 158 objects | Implemented: 15 | Unimplemented: 0
 - [x] 0x9D Coconuts (x9) [0x1E]
 
 **Bosses:**
-- [ ] 0x56 EHZBoss *(dynamic)* - Drill car boss
+- [x] 0x56 EHZBoss *(dynamic)* - Drill car boss
 
 **Objects:**
 - [x] 0x03 LayerSwitcher (x34) [10 subtypes]

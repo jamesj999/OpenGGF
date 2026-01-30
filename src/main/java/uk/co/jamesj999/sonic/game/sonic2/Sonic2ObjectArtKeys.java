@@ -81,4 +81,12 @@ public final class Sonic2ObjectArtKeys {
 
     // ARZ Objects
     public static final String ARROW_SHOOTER = "arrow_shooter";
+
+    // Bosses
+    public static final String EHZ_BOSS = "ehz_boss";
+    public static final String BOSS_EXPLOSION = "boss_explosion";
+    public static final String CPZ_BOSS_EGGPOD = "cpz_boss_eggpod";
+    public static final String CPZ_BOSS_PARTS = "cpz_boss_parts";
+    public static final String CPZ_BOSS_JETS = "cpz_boss_jets";
+    public static final String CPZ_BOSS_SMOKE = "cpz_boss_smoke";
 }

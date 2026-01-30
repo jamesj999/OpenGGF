@@ -6,7 +6,7 @@ import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.GameStateManager;
 import uk.co.jamesj999.sonic.game.ResultsScreen;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
@@ -205,7 +205,7 @@ public abstract class AbstractResultsScreen extends AbstractObjectInstance imple
     // Audio helpers
     protected void playTickSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic2Constants.SndID_Blip);
+            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_BLIP);
         } catch (Exception e) {
             // Ignore audio errors
         }
@@ -213,7 +213,7 @@ public abstract class AbstractResultsScreen extends AbstractObjectInstance imple
 
     protected void playTallyEndSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic2Constants.SndID_TallyEnd);
+            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_TALLY_END);
         } catch (Exception e) {
             // Ignore audio errors
         }
