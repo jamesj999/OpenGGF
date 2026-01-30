@@ -910,6 +910,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		// ROM: bmi.s Obj01_CheckWallsOnGround_Left - select sensor based on gSpeed direction
 		int sensorIndex = gSpeed >= 0 ? 1 : 0;
+		Sensor sensor = pushSensors[sensorIndex];
 
 		// ROM s2.asm:43480-43491 (CalcRoomInFront): Velocity prediction
 		// The ROM scans at PREDICTED position (current + velocity), not current position.
@@ -930,7 +931,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short predictedDx = (short) (((sprite.getXSubpixel() & 0xFF) + sprite.getXSpeed()) >> 8);
 		short predictedDy = (short) (((sprite.getYSubpixel() & 0xFF) + sprite.getYSpeed()) >> 8);
 
-		SensorResult result = pushSensors[sensorIndex].scan(predictedDx, predictedDy);
+		// ROM doesn't use sensor active state - it checks gSpeed != 0 directly (already done above).
+		// Our sensor active state is updated at end of frame, so may be stale here on first frame
+		// of movement from standstill. Temporarily enable sensor to match ROM behavior.
+		boolean wasActive = sensor.isActive();
+		sensor.setActive(true);
+		SensorResult result = sensor.scan(predictedDx, predictedDy);
+		sensor.setActive(wasActive);
+
 		if (result == null || result.distance() >= 0) {
 			return;
 		}
