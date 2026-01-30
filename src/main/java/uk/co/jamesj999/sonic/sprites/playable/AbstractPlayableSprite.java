@@ -13,6 +13,7 @@ import uk.co.jamesj999.sonic.game.sonic2.objects.InvincibilityStarsObjectInstanc
 import uk.co.jamesj999.sonic.game.sonic2.objects.ShieldObjectInstance;
 import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.physics.Sensor;
+import uk.co.jamesj999.sonic.physics.TrigLookupTable;
 import uk.co.jamesj999.sonic.sprites.AbstractSprite;
 import uk.co.jamesj999.sonic.sprites.SensorConfiguration;
 import uk.co.jamesj999.sonic.sprites.managers.PlayableSpriteAnimation;
@@ -1713,31 +1714,40 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 Sensor pushF = pushSensors[1];
 
                 if (getAir()) {
-                        // Compute motion angle using Sonic's 256-degree system
-                        // 0 = right, 64 = down, 128 = left, 192 = up
-                        double radians = Math.atan2(ySpeed, xSpeed);
-                        int motionAngle = (int) Math.round(radians * 128.0 / Math.PI);
-                        if (motionAngle < 0) {
-                                motionAngle += 256;
-                        }
+                        // Use ROM-accurate angle calculation via TrigLookupTable.calcAngle
+                        // ROM: Sonic_DoLevelCollision (s2.asm:37547-37557)
+                        int motionAngle = TrigLookupTable.calcAngle(xSpeed, ySpeed);
 
-                        // Select quadrant based on angle ranges
-                        if ((motionAngle >= 224 && motionAngle <= 255) || (motionAngle >= 0 && motionAngle <= 31)) {
-                                // Mostly Right (224-255, 0-31): A, B, C, D, F
-                                sensorsToActivate = new Sensor[] { groundA, groundB, ceilingC, ceilingD, pushF };
-                                sensorsToDeactivate = new Sensor[] { pushE };
-                        } else if (motionAngle >= 32 && motionAngle <= 95) {
-                                // Mostly Down (32-95): A, B, E, F
-                                sensorsToActivate = new Sensor[] { groundA, groundB, pushE, pushF };
-                                sensorsToDeactivate = new Sensor[] { ceilingC, ceilingD };
-                        } else if (motionAngle >= 96 && motionAngle <= 159) {
-                                // Mostly Left (96-159): A, B, C, D, E
-                                sensorsToActivate = new Sensor[] { groundA, groundB, ceilingC, ceilingD, pushE };
-                                sensorsToDeactivate = new Sensor[] { pushF };
-                        } else {
-                                // Mostly Up (160-223): C, D, E, F
-                                sensorsToActivate = new Sensor[] { ceilingC, ceilingD, pushE, pushF };
-                                sensorsToDeactivate = new Sensor[] { groundA, groundB };
+                        // ROM quadrant calculation: subi.b #$20,d0 / andi.b #$C0,d0
+                        // This creates quadrants offset by 32 degrees:
+                        // - 0xC0: Angles 0-31 or 224-255 (mostly right)
+                        // - 0x00: Angles 32-95 (mostly down)
+                        // - 0x40: Angles 96-159 (mostly left)
+                        // - 0x80: Angles 160-223 (mostly up)
+                        int quadrant = ((motionAngle - 0x20) & 0xC0) & 0xFF;
+
+                        switch (quadrant) {
+                                case 0xC0 -> {
+                                        // Mostly Right (angles 0-31, 224-255): A, B, C, D, F
+                                        sensorsToActivate = new Sensor[] { groundA, groundB, ceilingC, ceilingD, pushF };
+                                        sensorsToDeactivate = new Sensor[] { pushE };
+                                }
+                                case 0x40 -> {
+                                        // Mostly Left (angles 96-159): A, B, C, D, E
+                                        sensorsToActivate = new Sensor[] { groundA, groundB, ceilingC, ceilingD, pushE };
+                                        sensorsToDeactivate = new Sensor[] { pushF };
+                                }
+                                case 0x80 -> {
+                                        // Mostly Up (angles 160-223): C, D, E, F
+                                        sensorsToActivate = new Sensor[] { ceilingC, ceilingD, pushE, pushF };
+                                        sensorsToDeactivate = new Sensor[] { groundA, groundB };
+                                }
+                                default -> {
+                                        // 0x00: Mostly Down (angles 32-95): A, B, E, F
+                                        // Also handles any unexpected values (mask guarantees only 0x00/0x40/0x80/0xC0)
+                                        sensorsToActivate = new Sensor[] { groundA, groundB, pushE, pushF };
+                                        sensorsToDeactivate = new Sensor[] { ceilingC, ceilingD };
+                                }
                         }
                 } else {
                         // Push sensors active on floor/ceiling, disabled on walls
