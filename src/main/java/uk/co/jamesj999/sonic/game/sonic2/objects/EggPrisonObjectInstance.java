@@ -556,9 +556,9 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
         // remains alive after parent deletion (loc_3F406), keeping the open capsule visible
         spawnDestroyedCapsule();
 
-        // Destroy button object
+        // Detach button from parent but keep it alive for visual/collision during results
         if (buttonObject != null) {
-            buttonObject.destroyButton();
+            buttonObject.detachFromParent();
         }
 
         // Mark this object for deletion
