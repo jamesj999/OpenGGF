@@ -1805,6 +1805,31 @@ public class LevelManager {
     }
 
     /**
+     * Updates a specific palette line with new color data.
+     * This is used to load boss palettes during boss fights.
+     *
+     * @param paletteIndex The palette line to update (0-3)
+     * @param paletteData  The raw Sega-format palette data (32 bytes for 16 colors)
+     */
+    public void updatePalette(int paletteIndex, byte[] paletteData) {
+        if (level == null || paletteIndex < 0 || paletteIndex >= 4) {
+            return;
+        }
+
+        // Create a new palette from the data
+        Palette newPalette = new Palette();
+        newPalette.fromSegaFormat(paletteData);
+
+        // Update the graphics manager's cached palette texture
+        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        if (graphicsMan.getGraphics() != null) {
+            graphicsMan.cachePaletteTexture(newPalette, paletteIndex);
+        }
+
+        LOGGER.fine("Updated palette line " + paletteIndex + " with " + paletteData.length + " bytes");
+    }
+
+    /**
      * Gets the music ID for the current level.
      * Returns -1 if no level is loaded or music ID cannot be determined.
      */
