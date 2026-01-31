@@ -23,10 +23,13 @@ import java.util.List;
  * when triggered by the player.
  *
  * State machine (subtype & 0x07):
- *   0, 4: Wait for player contact on TOP, then 30-frame countdown
- *   1, 3: Smooth upward interpolation (rise)
- *   2, 6: Wait for player contact from BOTTOM, 60-frame countdown with oscillation
- *   5, 7: Smooth downward interpolation (drop)
+ *   0, 4: Wait for player contact on TOP, then 30-frame countdown, advance to 1/5
+ *   1, 3: Move DOWN (yOffset → +128), stop at limit (one-way, no state change)
+ *   2, 6: Wait for player contact from BOTTOM, 60-frame countdown with oscillation, advance to 3/7
+ *   5, 7: Move UP (yOffset → -128), stop at limit (one-way, no state change)
+ *
+ * Important: The staircase is ONE-WAY. Once it reaches its destination, it stays there.
+ * States 1/3/5/7 do NOT auto-advance to the next state after movement completes.
  *
  * Multi-piece structure:
  *   - 4 platform pieces spaced 32 pixels apart horizontally
@@ -236,15 +239,19 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
      * States 1, 3: Smooth downward movement (platforms descend, carrying player down).
      * Despite being called "rise" in disassembly, the Y offset increases.
      * The master piece (piece 0) moves down 1 pixel per frame.
+     *
+     * Original disassembly (loc_29346):
+     *   cmpi.w  #$80,(a1)    ; compare offset with +128
+     *   beq.s   return_29386 ; if at max, just return (DON'T advance state)
+     *   addq.w  #1,(a1)      ; increment offset (go positive)
      */
     private void updateRise() {
         // Move master piece down (positive Y = down in screen coords)
+        // Original compares with #$80 (+128) and does NOT advance state
         if (yOffsets[0] < MAX_Y_OFFSET) {
             yOffsets[0]++;
-        } else {
-            // Reached max travel, transition to next state
-            state++;
         }
+        // Original does NOT auto-advance state - staircase is one-way
     }
 
     /**
@@ -266,19 +273,21 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * States 5, 7: Smooth upward movement (platforms rise back to original position).
-     * Despite being called "drop" in disassembly, this returns platforms to start.
-     * The master piece (piece 0) moves up 1 pixel per frame.
+     * States 5, 7: Smooth upward movement (platforms ascend).
+     * The master piece (piece 0) moves up 1 pixel per frame (negative Y direction).
+     *
+     * Original disassembly (loc_2935E):
+     *   cmpi.w  #-$80,(a1)   ; compare offset with -128
+     *   beq.s   return_29386 ; if at min, just return (DON'T advance state)
+     *   subq.w  #1,(a1)      ; decrement offset (go negative)
      */
     private void updateDrop() {
-        // Move master piece up (negative direction = returning to base)
-        if (yOffsets[0] > 0) {
+        // Move master piece up (negative direction = up on screen)
+        // Original compares with #-$80 (-128) and does NOT advance state
+        if (yOffsets[0] > -MAX_Y_OFFSET) {
             yOffsets[0]--;
-        } else {
-            // Reached original position, transition to next state
-            // State wraps: 5 -> 6, 7 -> 0 (via & 0x07)
-            state = (state + 1) & 0x07;
         }
+        // Original does NOT auto-advance state - staircase is one-way
     }
 
     /**
