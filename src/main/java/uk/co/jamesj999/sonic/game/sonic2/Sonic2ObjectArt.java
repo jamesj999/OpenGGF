@@ -3639,113 +3639,186 @@ public class Sonic2ObjectArt {
      * Load CNZ Boss sprite sheet (Object 0x51) - Eggman's electricity generator boss.
      * <p>
      * ROM Reference: s2.asm:90063 (ArtNem_CNZBoss) + Obj51_MapUnc_320EA
-     * Art address: 0x87AAC (Nemesis compressed)
-     * Mappings: 21 frames covering main body, generators, electrodes, electric ball
+     * Art addresses:
+     * - CNZBoss: 0x87AAC (Nemesis compressed) at VRAM $0407
+     * - Eggpod: 0x83BF6 (Nemesis compressed) at VRAM $0500 (for Robotnik graphics)
+     * <p>
+     * The mappings use a "fudge" base of $03A7 (= $0407 - $60), so:
+     * - Tiles $60-$E4 reference CNZBoss art (subtract $60 for array index)
+     * - Tiles $17D-$1B1 reference Eggpod art at VRAM $0500 (Robotnik body/face)
+     * <p>
+     * We create a combined pattern array where:
+     * - CNZBoss patterns at indices 0+ (tiles $60+ minus $60)
+     * - Eggpod patterns at indices $11D+ (tiles $17D+ minus $60)
      *
      * @return sprite sheet for CNZ boss, or null on failure
      */
     public ObjectSpriteSheet loadCNZBossSheet() {
+        // Load CNZBoss art (generators, electrodes, electricity effects)
         Pattern[] cnzBossPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_CNZ_BOSS_ADDR, "CNZBoss");
-
         if (cnzBossPatterns.length == 0) {
             return null;
         }
 
+        // Load Eggpod art (Robotnik body, propellers, face expressions)
+        Pattern[] eggpodPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_EGGPOD_ADDR, "Eggpod");
+
+        // Calculate offsets based on VRAM tile positions:
+        // - Fudge base = $03A7
+        // - CNZBoss at VRAM $0407: tile $60 → index 0 (subtract $60)
+        // - Eggpod at VRAM $0500: tile $17D → index $11D (since $17D - $60 = $11D)
+        //   Eggpod VRAM offset from fudge: $0500 - $03A7 = $159
+        //   But mappings reference $17D which is $17D - $60 = $11D from CNZBoss start
+        final int EGGPOD_OFFSET_IN_COMBINED = 0x11D; // Where Eggpod tiles start in combined array
+
+        // Create combined array large enough for both art sources
+        // Highest Eggpod tile used: $1B1 → index $151 (needs array size of at least $152)
+        int combinedSize = Math.max(cnzBossPatterns.length, EGGPOD_OFFSET_IN_COMBINED + eggpodPatterns.length);
+        Pattern[] combinedPatterns = new Pattern[combinedSize];
+
+        // Initialize with empty patterns
+        for (int i = 0; i < combinedSize; i++) {
+            combinedPatterns[i] = new Pattern();
+        }
+
+        // Copy CNZBoss patterns at index 0 (tiles $60+ in mappings)
+        System.arraycopy(cnzBossPatterns, 0, combinedPatterns, 0, cnzBossPatterns.length);
+
+        // Copy Eggpod patterns at index $11D (tiles $17D+ in mappings)
+        // The Eggpod tiles used are $17D, $181, $185, $189, $191, $199, $1A1, $1A9, $1B1
+        // These correspond to Eggpod array indices: $24, $28, $2C, $30, $38, $40, $48, $50, $58
+        // (calculated as: mapping_tile - $60 - $11D + $24 for first one, but actually
+        //  VRAM $0500 + offset = tile value, so Eggpod[offset] where offset = VRAM_tile - $0500)
+        // Tile $17D in mapping → VRAM $03A7 + $17D = $0524 → Eggpod[$0524 - $0500] = Eggpod[$24]
+        if (eggpodPatterns.length > 0) {
+            // Map Eggpod tiles to correct positions in combined array
+            // Eggpod VRAM starts at $0500, fudge base is $03A7
+            // Mapping tile $17D → VRAM $0524 → Eggpod index $24
+            // Combined array index = mapping_tile - $60 = $17D - $60 = $11D
+            // So Eggpod[$24] goes to combined[$11D]
+            int eggpodVramBase = 0x0500;
+            int fudgeBase = 0x03A7;
+
+            // Copy the relevant Eggpod tiles to their correct positions
+            int[] eggpodMappingTiles = {0x17D, 0x181, 0x185, 0x189, 0x191, 0x199, 0x1A1, 0x1A9, 0x1B1};
+            for (int mappingTile : eggpodMappingTiles) {
+                int vramTile = fudgeBase + mappingTile;
+                int eggpodIndex = vramTile - eggpodVramBase;
+                int combinedIndex = mappingTile - 0x60;
+
+                if (eggpodIndex >= 0 && eggpodIndex < eggpodPatterns.length &&
+                        combinedIndex >= 0 && combinedIndex < combinedSize) {
+                    combinedPatterns[combinedIndex] = eggpodPatterns[eggpodIndex];
+                }
+            }
+
+            // Also copy a range of Eggpod patterns for any we might have missed
+            // The propeller and face tiles use consecutive patterns
+            // Start copying from Eggpod[$24] (where the referenced tiles begin)
+            int eggpodCopyStart = 0x24;
+            int maxCopyCount = Math.min(0x60, eggpodPatterns.length - eggpodCopyStart);
+            for (int i = 0; i < maxCopyCount; i++) {
+                int combinedIndex = EGGPOD_OFFSET_IN_COMBINED + i;
+                if (combinedIndex < combinedSize && (eggpodCopyStart + i) < eggpodPatterns.length) {
+                    combinedPatterns[combinedIndex] = eggpodPatterns[eggpodCopyStart + i];
+                }
+            }
+        }
+
         List<SpriteMappingFrame> mappings = createCNZBossMappings();
-        return new ObjectSpriteSheet(cnzBossPatterns, mappings, 0, 1);
+        return new ObjectSpriteSheet(combinedPatterns, mappings, 0, 1);
     }
 
     /**
      * Creates mapping frames for CNZ Boss (Obj51).
      * Based on mappings/sprite/obj51.asm (21 frames)
      * <p>
-     * The CNZ boss uses a single art source with a "fudge" tile offset:
-     * ArtTile_ArtNem_CNZBoss = 0x0407
-     * ArtTile_ArtNem_CNZBoss_Fudge = 0x03A7 (= 0x0407 - 0x60)
+     * The CNZ boss uses TWO art sources with a "fudge" tile offset:
+     * - ArtTile_ArtNem_CNZBoss = 0x0407 (generators, electrodes, electricity)
+     * - ArtTile_ArtNem_Eggpod_4 = 0x0500 (Robotnik body, propellers, faces)
+     * - ArtTile_ArtNem_CNZBoss_Fudge = 0x03A7 (= 0x0407 - 0x60, used as art_tile base)
      * <p>
-     * Mappings use the fudge offset, so tile indices need adjustment.
-     * In our array, tiles start at 0, so we subtract the fudge base.
+     * Mapping tile indices (subtract 0x60 for combined array index):
+     * - CNZBoss tiles: $60-$E4 → indices 0x00-0x84
+     * - Eggpod tiles: $17D-$1B1 → indices 0x11D-0x151
      */
     private List<SpriteMappingFrame> createCNZBossMappings() {
         List<SpriteMappingFrame> frames = new ArrayList<>();
 
-        // The fudge offset means mappings reference tiles starting at 0x60 relative to art.
-        // Since our pattern array starts at 0, and the mappings reference 0x60+,
-        // we need to subtract 0x60 from tile indices.
-        // However, some tiles (like 0x17D) are from the Eggpod art loaded separately.
-        // For simplicity, we'll use indices as if all art is contiguous.
+        // Tile index calculation: mapping_tile - 0x60 = combined_array_index
+        // CNZBoss tiles: $60 → 0, $6C → 0x0C, $7C → 0x1C, etc.
+        // Eggpod tiles: $17D → 0x11D, $181 → 0x121, $185 → 0x125, etc.
 
-        // Frame 0 (Map_obj51): Main Eggman body - referenced by mainspr_mapframe=0
-        // This is a multi-piece frame from Map_obj51_002A
+        // Frame 0 (Map_obj51_002A): Main boss body with Robotnik
+        // This is THE main frame showing the boss machine with Eggman inside
         List<SpriteMappingPiece> frame0 = new ArrayList<>();
-        // spritePiece $10, -$10, 2, 2, $17D - Eggpod piece (would need eggpod loaded)
-        // For now, use CNZ boss tiles only
-        // spritePiece -7, -$28, 4, 3, $60 - Generator/electrode top
-        frame0.add(new SpriteMappingPiece(-7, -0x28, 4, 3, 0, false, false, 1));
-        // spritePiece -$28, 0, 4, 4, $6C
+        // spritePiece $10, -$10, 2, 2, $17D - Robotnik body (Eggpod art)
+        frame0.add(new SpriteMappingPiece(0x10, -0x10, 2, 2, 0x11D, false, false, 0));
+        // spritePiece -7, -$28, 4, 3, $60 - Generator/electrode top (CNZBoss art)
+        frame0.add(new SpriteMappingPiece(-7, -0x28, 4, 3, 0x00, false, false, 1));
+        // spritePiece -$28, 0, 4, 4, $6C - Left machine body
         frame0.add(new SpriteMappingPiece(-0x28, 0, 4, 4, 0x0C, false, false, 1));
-        // spritePiece -8, 0, 4, 4, $7C
+        // spritePiece -8, 0, 4, 4, $7C - Center machine body
         frame0.add(new SpriteMappingPiece(-8, 0, 4, 4, 0x1C, false, false, 1));
-        // spritePiece $18, 0, 2, 3, $8C
+        // spritePiece $18, 0, 2, 3, $8C - Right machine body
         frame0.add(new SpriteMappingPiece(0x18, 0, 2, 3, 0x2C, false, false, 1));
         frames.add(new SpriteMappingFrame(frame0));
 
-        // Frame 1 (Map_obj51_0054): Left generator
+        // Frame 1 (Map_obj51_0054): Left generator - tile $AA → index 0x4A
         List<SpriteMappingPiece> frame1 = new ArrayList<>();
         frame1.add(new SpriteMappingPiece(-0x1C, 0x18, 2, 3, 0x4A, false, false, 1));
         frames.add(new SpriteMappingFrame(frame1));
 
-        // Frame 2 (Map_obj51_005E): Right generator
+        // Frame 2 (Map_obj51_005E): Right generator - tile $B0 → index 0x50
         List<SpriteMappingPiece> frame2 = new ArrayList<>();
         frame2.add(new SpriteMappingPiece(-0x25, 0x10, 2, 3, 0x50, false, false, 1));
         frames.add(new SpriteMappingFrame(frame2));
 
-        // Frame 3 (Map_obj51_0068): Electrode piece
+        // Frame 3 (Map_obj51_0068): Electrode piece - tile $92 → index 0x32
         List<SpriteMappingPiece> frame3 = new ArrayList<>();
         frame3.add(new SpriteMappingPiece(8, 0x10, 3, 4, 0x32, false, false, 1));
         frames.add(new SpriteMappingFrame(frame3));
 
-        // Frame 4 (Map_obj51_0072): Electrode extended
+        // Frame 4 (Map_obj51_0072): Electrode extended - tiles $9E, $A4 → indices 0x3E, 0x44
         List<SpriteMappingPiece> frame4 = new ArrayList<>();
         frame4.add(new SpriteMappingPiece(8, 0x10, 3, 2, 0x3E, false, false, 1));
         frame4.add(new SpriteMappingPiece(0x20, 0x10, 2, 3, 0x44, false, false, 1));
         frames.add(new SpriteMappingFrame(frame4));
 
-        // Frame 5 (Map_obj51_0084): Propeller frame 1
+        // Frame 5 (Map_obj51_0084): Propeller frame 1 - Eggpod tiles $189, $181 → indices 0x129, 0x121
         List<SpriteMappingPiece> frame5 = new ArrayList<>();
-        // These reference Eggpod tiles ($181, $189) - use placeholder indices
-        frame5.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x56, false, false, 0));
-        frame5.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x5E, false, false, 0));
+        frame5.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x129, false, false, 0));
+        frame5.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x121, false, false, 0));
         frames.add(new SpriteMappingFrame(frame5));
 
-        // Frame 6 (Map_obj51_0096): Propeller frame 2
+        // Frame 6 (Map_obj51_0096): Propeller frame 2 - Eggpod tiles $191, $181 → indices 0x131, 0x121
         List<SpriteMappingPiece> frame6 = new ArrayList<>();
-        frame6.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x62, false, false, 0));
-        frame6.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x5E, false, false, 0));
+        frame6.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x131, false, false, 0));
+        frame6.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x121, false, false, 0));
         frames.add(new SpriteMappingFrame(frame6));
 
-        // Frame 7 (Map_obj51_00A8): Eggman face variant 1
+        // Frame 7 (Map_obj51_00A8): Eggman normal face - Eggpod tiles $199, $185 → indices 0x139, 0x125
         List<SpriteMappingPiece> frame7 = new ArrayList<>();
-        frame7.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x6A, false, false, 0));
-        frame7.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x72, false, false, 0));
+        frame7.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x139, false, false, 0));
+        frame7.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x125, false, false, 0));
         frames.add(new SpriteMappingFrame(frame7));
 
-        // Frame 8 (Map_obj51_00BA): Eggman face variant 2
+        // Frame 8 (Map_obj51_00BA): Eggman alternate face - Eggpod tiles $1A1, $185 → indices 0x141, 0x125
         List<SpriteMappingPiece> frame8 = new ArrayList<>();
-        frame8.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x76, false, false, 0));
-        frame8.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x72, false, false, 0));
+        frame8.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x141, false, false, 0));
+        frame8.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x125, false, false, 0));
         frames.add(new SpriteMappingFrame(frame8));
 
-        // Frame 9 (Map_obj51_00CC): Eggman laughing
+        // Frame 9 (Map_obj51_00CC): Eggman laughing - Eggpod tiles $1A9, $185 → indices 0x149, 0x125
         List<SpriteMappingPiece> frame9 = new ArrayList<>();
-        frame9.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x7E, false, false, 0));
-        frame9.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x72, false, false, 0));
+        frame9.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x149, false, false, 0));
+        frame9.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x125, false, false, 0));
         frames.add(new SpriteMappingFrame(frame9));
 
-        // Frame 10 (Map_obj51_00DE): Eggman hurt
+        // Frame 10 (Map_obj51_00DE): Eggman hurt - Eggpod tiles $1B1, $185 → indices 0x151, 0x125
         List<SpriteMappingPiece> frame10 = new ArrayList<>();
-        frame10.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x86, false, false, 0));
-        frame10.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x72, false, false, 0));
+        frame10.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x151, false, false, 0));
+        frame10.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x125, false, false, 0));
         frames.add(new SpriteMappingFrame(frame10));
 
         // Frame 11 (Map_obj51_00F0): Electricity field frame 1 (0x0C in code)

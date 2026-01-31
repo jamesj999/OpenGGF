@@ -44,6 +44,28 @@ public class LevelEventManager implements LevelEventProvider {
     // CPZ uses zone index 1 in level event ordering (ROM zone ID 0x0D)
     public static final int ZONE_CPZ = 1;
 
+    // CNZ Boss palette data (from docs/s2disasm/art/palettes/CNZ Boss.bin)
+    // This palette replaces palette line 1 during the CNZ boss fight
+    // The electricity effects use colors from this palette
+    private static final byte[] CNZ_BOSS_PALETTE = {
+            (byte) 0x00, (byte) 0x00,  // Color 0: Transparent/black
+            (byte) 0x00, (byte) 0x00,  // Color 1: Black
+            (byte) 0x00, (byte) 0x6e,  // Color 2: Dark blue
+            (byte) 0x00, (byte) 0xae,  // Color 3: Medium blue
+            (byte) 0x00, (byte) 0xee,  // Color 4: Light blue
+            (byte) 0x00, (byte) 0x44,  // Color 5: Dark green
+            (byte) 0x0e, (byte) 0xee,  // Color 6: White/yellow
+            (byte) 0x0a, (byte) 0xaa,  // Color 7: Light gray
+            (byte) 0x08, (byte) 0x88,  // Color 8: Medium gray
+            (byte) 0x04, (byte) 0x44,  // Color 9: Dark gray
+            (byte) 0x06, (byte) 0x66,  // Color 10: Mid gray
+            (byte) 0x0e, (byte) 0xc0,  // Color 11: Orange
+            (byte) 0x00, (byte) 0xee,  // Color 12: Blue/cyan
+            (byte) 0x00, (byte) 0x88,  // Color 13: Dark cyan
+            (byte) 0x0a, (byte) 0x0e,  // Color 14: Purple
+            (byte) 0x00, (byte) 0xe0   // Color 15: Green
+    };
+
     private LevelEventManager() {
         this.camera = Camera.getInstance();
     }
@@ -62,6 +84,8 @@ public class LevelEventManager implements LevelEventProvider {
         this.arzBoss = null;
         this.ehzBoss = null;
         this.cnzBoss = null;
+        this.cnzLeftBarrier = null;
+        this.cnzRightBarrier = null;
     }
 
     /**
@@ -110,6 +134,9 @@ public class LevelEventManager implements LevelEventProvider {
     private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2ARZBossInstance arzBoss = null;
     // CNZ Act 2 boss reference
     private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CNZBossInstance cnzBoss = null;
+    // CNZ Act 2 boss arena barriers
+    private uk.co.jamesj999.sonic.game.sonic2.objects.BarrierObjectInstance cnzLeftBarrier = null;
+    private uk.co.jamesj999.sonic.game.sonic2.objects.BarrierObjectInstance cnzRightBarrier = null;
 
     /**
      * Emerald Hill Zone events.
@@ -535,12 +562,13 @@ public class LevelEventManager implements LevelEventProvider {
         // ROM: LevEvents_CNZ2 (s2.asm:21486-21570)
         switch (eventRoutine) {
             case 0 -> {
-                // Routine 0 (s2.asm:21500-21517): Wait for camera X >= $27C0
+                // Routine 1 (s2.asm:21500-21517): Wait for camera X >= $27C0
                 if (camera.getX() >= 0x27C0) {
                     // ROM: Set minX to current camera X (prevent backtracking)
                     camera.setMinX(camera.getX());
-                    // ROM: Set maxY TARGET to $5D0 (boss arena height)
-                    camera.setMaxYTarget((short) 0x5D0);
+                    // ROM: Set maxY TARGET to $62E (initial arena height - allows access to floor)
+                    // This gets tightened to $5D0 later in routine 4 once fight starts
+                    camera.setMaxYTarget((short) 0x62E);
                     eventRoutine += 2;
                 }
             }
@@ -554,10 +582,17 @@ public class LevelEventManager implements LevelEventProvider {
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance().fadeOutMusic();
-                    // ROM: Set Current_Boss_ID to 3 (CNZ boss)
-                    uk.co.jamesj999.sonic.game.GameServices.gameState().setCurrentBossId(3);
-                    // ROM: Load CNZ boss palette (Pal_CNZ_B, palette $25)
-                    // Note: Palette loading is handled by the boss object
+                    // ROM: Set Current_Boss_ID to 6 (CNZ boss ID in BossCollision_Index)
+                    uk.co.jamesj999.sonic.game.GameServices.gameState().setCurrentBossId(6);
+
+                    // ROM: Load CNZ boss palette (Pal_CNZ_B to palette line 1)
+                    // This palette contains the electricity effect colors
+                    uk.co.jamesj999.sonic.level.LevelManager.getInstance()
+                            .updatePalette(1, CNZ_BOSS_PALETTE);
+
+                    // Spawn boss arena barriers (Object 0x2D)
+                    // These rise up when the player enters the arena to prevent backtracking
+                    spawnCNZArenaBarriers();
                 }
             }
             case 4 -> {
@@ -617,6 +652,55 @@ public class LevelEventManager implements LevelEventProvider {
         uk.co.jamesj999.sonic.level.LevelManager.getInstance()
                 .getObjectManager()
                 .addDynamicObject(cnzBoss);
+    }
+
+    /**
+     * Spawns the CNZ Act 2 boss arena barriers.
+     * ROM: Object 0x2D barriers are pre-placed in level layout, but we spawn them
+     * dynamically when entering the boss arena to ensure they appear.
+     * <p>
+     * Barrier positions based on arena bounds:
+     * - Left barrier: X = 0x2878 (just right of camera min 0x2860)
+     * - Right barrier: X = 0x2AF0 (at right edge of arena, X-flipped)
+     * - Y position: 0x6A0 (floor level of boss arena)
+     * <p>
+     * Subtype 0 = HTZ style barrier (8px width, works for CNZ)
+     */
+    private void spawnCNZArenaBarriers() {
+        uk.co.jamesj999.sonic.level.LevelManager levelManager =
+                uk.co.jamesj999.sonic.level.LevelManager.getInstance();
+
+        // Left barrier - faces right (player enters from left)
+        // Position just inside the left arena boundary
+        uk.co.jamesj999.sonic.level.objects.ObjectSpawn leftBarrierSpawn =
+                new uk.co.jamesj999.sonic.level.objects.ObjectSpawn(
+                        0x2878, 0x6A0,  // Position at left edge of arena
+                        uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds.BARRIER,
+                        0,      // Subtype 0 (HTZ style)
+                        0,      // Render flags (no flip - faces right)
+                        false, 0
+                );
+
+        cnzLeftBarrier = new uk.co.jamesj999.sonic.game.sonic2.objects.BarrierObjectInstance(
+                leftBarrierSpawn, "CNZLeftBarrier"
+        );
+        levelManager.getObjectManager().addDynamicObject(cnzLeftBarrier);
+
+        // Right barrier - faces left (X-flipped)
+        // Position at right edge of arena
+        uk.co.jamesj999.sonic.level.objects.ObjectSpawn rightBarrierSpawn =
+                new uk.co.jamesj999.sonic.level.objects.ObjectSpawn(
+                        0x2AF0, 0x6A0,  // Position at right edge of arena
+                        uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds.BARRIER,
+                        0,      // Subtype 0 (HTZ style)
+                        0x01,   // Render flags (X-flip - faces left)
+                        false, 0
+                );
+
+        cnzRightBarrier = new uk.co.jamesj999.sonic.game.sonic2.objects.BarrierObjectInstance(
+                rightBarrierSpawn, "CNZRightBarrier"
+        );
+        levelManager.getObjectManager().addDynamicObject(cnzRightBarrier);
     }
 
     /**

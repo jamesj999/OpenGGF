@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2;
 
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
+import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.Palette;
@@ -162,6 +163,23 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
         byte[] data4 = safeSlice(reader, CYCLING_PAL_CNZ4_ADDR, CYCLING_PAL_CNZ4_LEN);
         if (data4.length >= 40) {
             cycles.add(new CnzCycle4(data4));
+        }
+
+        // CNZ Boss Palette Cycles (only active when Current_Boss_ID != 0)
+        // ROM: CNZ_SkipToBossPalCycle (s2.asm:2915-2944)
+        // These cycles animate the electricity effects on the CNZ boss
+        byte[] bossData1 = safeSlice(reader, CYCLING_PAL_CNZ_BOSS1_ADDR, CYCLING_PAL_CNZ_BOSS1_LEN);
+        byte[] bossData2 = safeSlice(reader, CYCLING_PAL_CNZ_BOSS2_ADDR, CYCLING_PAL_CNZ_BOSS2_LEN);
+        byte[] bossData3 = safeSlice(reader, CYCLING_PAL_CNZ_BOSS3_ADDR, CYCLING_PAL_CNZ_BOSS3_LEN);
+
+        if (bossData1.length >= CYCLING_PAL_CNZ_BOSS1_LEN) {
+            cycles.add(new CnzBossCycle1(bossData1));
+        }
+        if (bossData2.length >= CYCLING_PAL_CNZ_BOSS2_LEN) {
+            cycles.add(new CnzBossCycle2(bossData2));
+        }
+        if (bossData3.length >= CYCLING_PAL_CNZ_BOSS3_LEN) {
+            cycles.add(new CnzBossCycle3(bossData3));
         }
 
         return cycles;
@@ -425,6 +443,140 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
 
             if (dirty && graphicsManager.getGraphics() != null) {
                 graphicsManager.cachePaletteTexture(level.getPalette(3), 3);
+                dirty = false;
+            }
+        }
+    }
+
+    // ========== CNZ Boss Cycle 1 (electricity effect - 3 colors) ==========
+    // ROM: CyclingPal_CNZ1_B (s2.asm:2926-2931)
+    // Interleaved layout: 3 frames, reads at d0, d0+6, d0+12 for colors 2,3,4 of palette line 1
+    private static class CnzBossCycle1 extends PaletteCycle {
+        CnzBossCycle1(byte[] data) {
+            // Timer 3, palette line 1 (index 1)
+            super(data, 3, 2, 3, 1, new int[]{});
+        }
+
+        @Override
+        protected void tick(Level level, GraphicsManager graphicsManager) {
+            // Only run when boss is active (ROM: tst.b (Current_Boss_ID).w)
+            if (GameServices.gameState().getCurrentBossId() == 0) {
+                return;
+            }
+            if (data.length == 0) return;
+
+            if (timer > 0) {
+                timer--;
+                return;
+            }
+            timer = timerReset;
+
+            int frameIndex = frame % 3;
+            frame++;
+
+            // Palette line 2 (index 1): offsets $24, $26, $28 = indices 2, 3, 4
+            // Data is interleaved: read at d0, d0+6, d0+12 (0xC)
+            Palette pal1 = level.getPalette(1);
+            int d0 = frameIndex * 2;
+
+            if (d0 + 12 < data.length) {
+                pal1.getColor(2).fromSegaFormat(data, d0);       // _move.w 0(a0),$24(a1)
+                pal1.getColor(3).fromSegaFormat(data, 6 + d0);   // move.w 6(a0),$26(a1)
+                pal1.getColor(4).fromSegaFormat(data, 12 + d0);  // move.w $C(a0),$28(a1)
+            }
+
+            dirty = true;
+
+            if (dirty && graphicsManager.getGraphics() != null) {
+                graphicsManager.cachePaletteTexture(level.getPalette(1), 1);
+                dirty = false;
+            }
+        }
+    }
+
+    // ========== CNZ Boss Cycle 2 (electricity effect - 1 color scrolling) ==========
+    // ROM: CyclingPal_CNZ2_B (s2.asm:2932-2938)
+    // 10 frames (0x14 bytes / 2 = 10), writes to palette line 1, offset $3C (index 14)
+    private static class CnzBossCycle2 extends PaletteCycle {
+        CnzBossCycle2(byte[] data) {
+            // Timer 3, palette line 1 (index 1), 10 frames
+            super(data, 10, 2, 3, 1, new int[]{14});
+        }
+
+        @Override
+        protected void tick(Level level, GraphicsManager graphicsManager) {
+            // Only run when boss is active
+            if (GameServices.gameState().getCurrentBossId() == 0) {
+                return;
+            }
+            if (data.length == 0) return;
+
+            if (timer > 0) {
+                timer--;
+                return;
+            }
+            timer = timerReset;
+
+            int frameIndex = frame % 10;
+            frame++;
+
+            // Palette line 2 (index 1): offset $3C = index 14
+            Palette pal1 = level.getPalette(1);
+            int d0 = frameIndex * 2;
+
+            if (d0 + 1 < data.length) {
+                pal1.getColor(14).fromSegaFormat(data, d0);  // move.w (a0,d0.w),$3C(a1)
+            }
+
+            dirty = true;
+
+            if (dirty && graphicsManager.getGraphics() != null) {
+                graphicsManager.cachePaletteTexture(level.getPalette(1), 1);
+                dirty = false;
+            }
+        }
+    }
+
+    // ========== CNZ Boss Cycle 3 (electricity effect - 1 color cycling) ==========
+    // ROM: CyclingPal_CNZ3_B (s2.asm:2939-2943)
+    // 8 frames (andi.w #$E wraps frame counter), writes to palette line 1, offset $3E (index 15)
+    private static class CnzBossCycle3 extends PaletteCycle {
+        CnzBossCycle3(byte[] data) {
+            // Timer 3, palette line 1 (index 1), 8 frames
+            super(data, 8, 2, 3, 1, new int[]{15});
+        }
+
+        @Override
+        protected void tick(Level level, GraphicsManager graphicsManager) {
+            // Only run when boss is active
+            if (GameServices.gameState().getCurrentBossId() == 0) {
+                return;
+            }
+            if (data.length == 0) return;
+
+            if (timer > 0) {
+                timer--;
+                return;
+            }
+            timer = timerReset;
+
+            // ROM uses: andi.w #$E,(PalCycle_Frame2_CNZ).w
+            // This means frame wraps at 8 (0, 2, 4, 6, 8, 10, 12, 14 -> andi $E = 0-7 * 2)
+            int frameIndex = frame & 7;  // Equivalent to andi #$E on d0*2
+            frame++;
+
+            // Palette line 2 (index 1): offset $3E = index 15
+            Palette pal1 = level.getPalette(1);
+            int d0 = frameIndex * 2;
+
+            if (d0 + 1 < data.length) {
+                pal1.getColor(15).fromSegaFormat(data, d0);  // move.w (a0,d0.w),$3E(a1)
+            }
+
+            dirty = true;
+
+            if (dirty && graphicsManager.getGraphics() != null) {
+                graphicsManager.cachePaletteTexture(level.getPalette(1), 1);
                 dirty = false;
             }
         }
