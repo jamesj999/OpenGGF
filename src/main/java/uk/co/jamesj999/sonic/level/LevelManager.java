@@ -1820,6 +1820,11 @@ public class LevelManager {
         Palette newPalette = new Palette();
         newPalette.fromSegaFormat(paletteData);
 
+        // Update the level's palette object so palette cycling uses the new palette
+        // This is critical - without this, palette cycling would re-cache the original
+        // level palette, overwriting the boss palette we just loaded
+        level.setPalette(paletteIndex, newPalette);
+
         // Update the graphics manager's cached palette texture
         GraphicsManager graphicsMan = GraphicsManager.getInstance();
         if (graphicsMan.getGraphics() != null) {
@@ -1827,6 +1832,15 @@ public class LevelManager {
         }
 
         LOGGER.fine("Updated palette line " + paletteIndex + " with " + paletteData.length + " bytes");
+    }
+
+    /**
+     * Marks the foreground tilemap as dirty, forcing a rebuild on next render.
+     * Call this after modifying the level layout (e.g., placing boss arena walls).
+     * This is equivalent to setting Screen_redraw_flag in the original ROM.
+     */
+    public void invalidateForegroundTilemap() {
+        foregroundTilemapDirty = true;
     }
 
     /**

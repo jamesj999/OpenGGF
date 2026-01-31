@@ -3556,9 +3556,10 @@ public class Sonic2ObjectArt {
         wheel4.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x60, false, false, 0));
         frames.add(new SpriteMappingFrame(wheel4));
 
-        // Frame 12 (5): Wheel foreground frame 2 (H-flipped)
+        // Frame 12 (5): Wheel foreground frame 2 (V-flipped for rotation)
+        // ROM: spritePiece -$10, -$10, 4, 4, $60, 0, 1, 0, 0 (xflip=0, yflip=1)
         List<SpriteMappingPiece> wheel5 = new ArrayList<>();
-        wheel5.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x60, true, false, 0));
+        wheel5.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x60, false, true, 0));
         frames.add(new SpriteMappingFrame(wheel5));
 
         // Frame 13 (6): Wheel background frame 1
@@ -3566,9 +3567,10 @@ public class Sonic2ObjectArt {
         wheel6.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x70, false, false, 0));
         frames.add(new SpriteMappingFrame(wheel6));
 
-        // Frame 14 (7): Wheel background frame 2 (H-flipped)
+        // Frame 14 (7): Wheel background frame 2 (V-flipped for rotation)
+        // ROM: spritePiece -$10, -$10, 4, 4, $70, 0, 1, 0, 0 (xflip=0, yflip=1)
         List<SpriteMappingPiece> wheel7 = new ArrayList<>();
-        wheel7.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x70, true, false, 0));
+        wheel7.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, VEHICLE_OFFSET + 0x70, false, true, 0));
         frames.add(new SpriteMappingFrame(wheel7));
 
         // =================================================================================

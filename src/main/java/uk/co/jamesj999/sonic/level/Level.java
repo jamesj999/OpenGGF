@@ -18,6 +18,18 @@ public interface Level {
     // Abstract method to get a specific palette by index
     public Palette getPalette(int index);
 
+    /**
+     * Updates a specific palette at the given index.
+     * Used for boss palettes and other dynamic palette changes.
+     * Default implementation is a no-op for immutable level implementations.
+     *
+     * @param index   The palette index (0-3)
+     * @param palette The new palette to set
+     */
+    default void setPalette(int index, Palette palette) {
+        // Default no-op for immutable implementations
+    }
+
     // Abstract method to get the number of patterns
     public int getPatternCount();
 

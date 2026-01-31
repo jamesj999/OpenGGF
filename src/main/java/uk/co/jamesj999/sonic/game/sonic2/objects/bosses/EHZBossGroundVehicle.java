@@ -28,7 +28,7 @@ public class EHZBossGroundVehicle extends AbstractBossChild {
     private int renderFlags;
 
     public EHZBossGroundVehicle(Sonic2EHZBossInstance parent) {
-        super(parent, "EHZ Boss Ground Vehicle", 3, Sonic2ObjectIds.EHZ_BOSS);
+        super(parent, "EHZ Boss Ground Vehicle", 4, Sonic2ObjectIds.EHZ_BOSS);  // Behind Sonic (2) and near-side wheel (3)
         this.routineSecondary = 0;
         this.initialY = parent.getInitialY();
         this.currentX = APPROACH_START_X;
@@ -65,9 +65,21 @@ public class EHZBossGroundVehicle extends AbstractBossChild {
             int flags = ehzParent.getCustomFlag(OBJOFF_FLAGS);
             boolean active = (flags & FLAG_ACTIVE) != 0;
             boolean flyingOff = (flags & FLAG_FLYING_OFF) != 0;
-            if (!active || flyingOff) {
+
+            // During defeat falling (SUB6/SUB8), continue syncing so the body falls with Robotnik
+            boolean defeatFalling = ehzParent.getState().routineSecondary == 0x06
+                                 || ehzParent.getState().routineSecondary == 0x08;
+
+            if (flyingOff) {
+                // Once flying off, stop syncing (body stays on ground)
                 return;
             }
+
+            if (!active && !defeatFalling) {
+                // Not active and not in defeat falling phase
+                return;
+            }
+
             syncPositionWithParent();
             currentY += 8;
             renderFlags = ehzParent.getState().renderFlags;

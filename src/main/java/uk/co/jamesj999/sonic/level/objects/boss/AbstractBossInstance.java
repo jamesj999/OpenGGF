@@ -4,6 +4,7 @@ import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
@@ -92,7 +93,8 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (!state.defeated) {
             hitHandler.update();
-            paletteFlasher.update();
+            // Note: paletteFlasher.update() is now called inside hitHandler.update()
+            // to match ROM order: flash first, then decrement timer
         }
 
         if (!state.defeated || !usesDefeatSequencer()) {
@@ -227,16 +229,21 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
 
     /**
      * Inner class: Handles hit detection and invulnerability.
-     * ROM Reference: s2.asm:63119-63163 (loc_2F4A6 - hit handling routine)
+     * ROM Reference: s2.asm:60734-60758 (Boss_HandleHits routine)
      */
     protected class BossHitHandler {
         public void update() {
             if (state.invulnerable) {
-                // ROM: s2.asm:63141 - subq.b #1,objoff_3E(a0)
+                // ROM: s2.asm:60748-60754 - Toggle palette FIRST
+                paletteFlasher.update();
+
+                // ROM: s2.asm:60755 - subq.b #1,boss_invulnerable_time(a0)
                 state.invulnerabilityTimer--;
+
+                // ROM: s2.asm:60756-60757 - Check if done
                 if (state.invulnerabilityTimer <= 0) {
                     state.invulnerable = false;
-                    // ROM: s2.asm:63143 - move.b #$F,collision_flags(a0)
+                    // ROM: s2.asm:60758 - move.b #$F,collision_flags(a0)
                     paletteFlasher.stopFlash();
                 }
             }
@@ -278,25 +285,26 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
 
     /**
      * Inner class: Handles palette flashing during invulnerability.
-     * ROM Reference: s2.asm:63132-63140 (loc_2F4D0 - palette flash routine)
+     * ROM Reference: s2.asm:60748-60754 (Boss_HandleHits palette flash)
      */
     protected class BossPaletteFlasher {
-        // ROM: s2.asm:63134 - moveq #0,d0 (black = 0x0000)
+        // ROM: s2.asm:60749 - moveq #0,d0 (black = 0x0000)
         private static final Palette.Color BLACK = new Palette.Color((byte) 0, (byte) 0, (byte) 0);
-        // ROM: s2.asm:63137 - move.w #$EEE,d0 (white = 0x0EEE)
+        // ROM: s2.asm:60752 - move.w #$EEE,d0 (white = 0x0EEE)
         private static final Palette.Color WHITE = new Palette.Color((byte) 255, (byte) 255, (byte) 255); // 0xEEE scaled to RGB
 
+        private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
         private boolean flashing;
         private int flashFrame;
         private Palette.Color originalColor;
         private boolean colorStored;
-        private boolean flashWhite; // Toggle state for flashing
+        private boolean useWhite; // Internal toggle - immune to external palette modifications
 
         public void startFlash() {
             flashing = true;
             flashFrame = 0;
-            flashWhite = false; // Start with black
             colorStored = false;
+            useWhite = false; // Start with black on first frame
         }
 
         public void stopFlash() {
@@ -305,6 +313,8 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
                 Palette palette = getPaletteForFlash();
                 if (palette != null) {
                     palette.setColor(1, originalColor);
+                    // Upload restored palette to GPU
+                    uploadPaletteToGpu(palette);
                 }
             }
             flashing = false;
@@ -322,20 +332,31 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
                 return;
             }
 
-            // Store original color on first flash
+            // Store original color on first flash (make a copy to avoid reference issues)
             if (!colorStored) {
-                originalColor = palette.getColor(1);
+                Palette.Color orig = palette.getColor(1);
+                originalColor = new Palette.Color(orig.r, orig.g, orig.b);
                 colorStored = true;
             }
 
-            // ROM: s2.asm:63135-63140 - Toggle between black (0x0000) and white (0x0EEE)
-            // tst.w (a1) / bne.s loc_2F4DE / move.w #$EEE,d0 / move.w d0,(a1)
-            // Use internal toggle state instead of reading palette to prevent external changes from breaking the effect
-            Palette.Color newColor = flashWhite ? WHITE : BLACK;
+            // ROM: s2.asm:60749-60754 - Toggle between black (0x0000) and white (0x0EEE)
+            // Use internal toggle state to ensure reliable alternation even if
+            // palette cyclers or other systems modify the palette between frames
+            Palette.Color newColor = useWhite ? WHITE : BLACK;
             palette.setColor(1, newColor);
-            flashWhite = !flashWhite; // Toggle for next frame
+            useWhite = !useWhite; // Toggle for next frame
+
+            // Upload modified palette to GPU so the change is visible
+            uploadPaletteToGpu(palette);
 
             flashFrame++;
+        }
+
+        private void uploadPaletteToGpu(Palette palette) {
+            if (graphicsManager.getGraphics() != null) {
+                int paletteIndex = getPaletteLineForFlash();
+                graphicsManager.cachePaletteTexture(palette, paletteIndex);
+            }
         }
 
         private Palette getPaletteForFlash() {

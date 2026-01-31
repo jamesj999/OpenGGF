@@ -32,7 +32,7 @@ public class EHZBossSpike extends AbstractBossChild implements TouchResponseProv
     private boolean collisionEnabled;
 
     public EHZBossSpike(Sonic2EHZBossInstance parent) {
-        super(parent, "EHZ Boss Spike", 2, Sonic2ObjectIds.EHZ_BOSS);
+        super(parent, "EHZ Boss Spike", 4, Sonic2ObjectIds.EHZ_BOSS);  // Behind Sonic (2), same as body
         this.animationState = new ObjectAnimationState(
                 EHZBossAnimations.getVehicleAnimations(),
                 0,

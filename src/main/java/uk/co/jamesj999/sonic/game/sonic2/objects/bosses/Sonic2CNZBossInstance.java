@@ -3,6 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
@@ -129,9 +130,13 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
     private int electricityFrame;   // Current electricity animation frame
     private int electricityTimer;   // Timer for electricity animation
 
-    // Electrode/claw animation (ROM: Anim 1 - cycles frames 4,5 with delay $F)
+    // Electrode/generator animation
+    // ROM: sub2 (electrode) and sub5 (generator) are separate sprites
+    // Their frames are controlled by Boss_AnimationArray based on collision mode:
+    // - LOWER mode: animation frozen at initial frames (electrode small, generator left)
+    // - ZAP mode: animation running (electrode extended, generator right)
     private int electrodeFrame;     // Current electrode frame (3 or 4)
-    private int electrodeTimer;     // Timer for electrode animation (delay 15)
+    private int generatorFrame;     // Current generator frame (1 or 2)
 
     // Generator fall-off state during defeat
     private int leftGenYVel;   // ROM: objoff_2E
@@ -168,10 +173,10 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
         electricityFrame = FRAME_ELEC_LOWER_1;
         electricityTimer = 0;
 
-        // ROM: Anim 1 (byte_320B3) cycles electrode frames 4,5 with delay $F (15)
-        // Engine frames 3,4 = ROM frames 4,5 (electrode small, electrode extended)
-        electrodeFrame = FRAME_ELECTRODE_EXTENDED;  // Start extended (ROM: sub2_mapframe = 5)
-        electrodeTimer = 0;
+        // ROM: sub2_mapframe = 5 (electrode extended), sub5_mapframe = 2 (generator right)
+        // Initially in LOWER mode, animation is frozen at first frame of each sequence
+        electrodeFrame = FRAME_ELECTRODE_SMALL;    // Electrode small (ROM frame 4 = Java 3)
+        generatorFrame = FRAME_GENERATOR_LEFT;     // Generator left arm (ROM frame 2 = Java 1)
 
         // ROM: move.w #0,(Boss_Y_vel).w / move.w #-$180,(Boss_X_vel).w
         state.xVel = -VELOCITY_HORIZONTAL;
@@ -375,6 +380,9 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
             bossAnimArray[3] = 0x20;
             bossAnimArray[9] = 0x20;
             bossAnimArray[0] = ANIM_ZAP_MODE;
+            // ROM: Animation running in ZAP mode - show extended/active frames
+            electrodeFrame = FRAME_ELECTRODE_EXTENDED;
+            generatorFrame = FRAME_GENERATOR_RIGHT;
         } else {
             // Lower collision mode - narrow electricity
             mainMapFrame = FRAME_ELEC_LOWER_1;
@@ -383,12 +391,17 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
             bossAnimArray[3] = 0;
             bossAnimArray[9] = 0;
             bossAnimArray[0] = ANIM_LOWER_COLLISION;
+            // ROM: Animation frozen in LOWER mode - show initial/small frames
+            electrodeFrame = FRAME_ELECTRODE_SMALL;
+            generatorFrame = FRAME_GENERATOR_LEFT;
         }
         electricityTimer = 0;
     }
 
     /**
      * Update electricity animation cycling through frames.
+     * ROM: Ani_obj51 uses delay=1 which means frame advances every 2 ticks
+     * (delay value + 1 = ticks per frame in Sonic 2 animation system)
      */
     private void updateElectricityAnimation() {
         if (bossCollisionRoutine == COLLISION_OFF) {
@@ -397,7 +410,8 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
         }
 
         electricityTimer++;
-        if ((electricityTimer & 0x01) == 0) {  // Change frame every 2 ticks (ROM: Ani_obj51 delay=1)
+        // ROM: delay=1 means frame changes every 2 ticks (delay + 1)
+        if ((electricityTimer & 0x01) == 0) {
             if (bossCollisionRoutine == COLLISION_ZAP) {
                 // Cycle through zap frames 14, 15, 16
                 electricityFrame++;
@@ -490,6 +504,9 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
             }
         } else {
             // Transition to bounce phase
+            // ROM: Remove arena wall at this point (line 66296 in s2.asm)
+            LevelEventManager.getInstance().onCNZBossDefeated();
+
             state.renderFlags |= 1;  // Face right
             state.xVel = 0;
             state.yVel = 0;
@@ -643,12 +660,17 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
 
     /**
      * ROM: loc_31BF2 - Spawn electric ball child.
+     * Ball is spawned as a child object with subtype 4, linked to parent via objoff_34.
+     * The ball's position is set to parent position in its init, then adjusted by
+     * objoff_28 (ballRiseOffset) during attach phase.
      */
     private void spawnElectricBall() {
         if (levelManager.getObjectManager() == null) {
             return;
         }
-        ObjectSpawn ballSpawn = new ObjectSpawn(state.x, state.y + 0x30, Sonic2ObjectIds.CNZ_BOSS, 4, 0, false, 0);
+        // ROM: move.b #4,boss_subtype(a1) / move.l a0,objoff_34(a1)
+        // The spawn coordinates are informational - ball uses parent position directly
+        ObjectSpawn ballSpawn = new ObjectSpawn(state.x, state.y, Sonic2ObjectIds.CNZ_BOSS, 4, 0, false, 0);
         CNZBossElectricBall ball = new CNZBossElectricBall(ballSpawn, levelManager, this);
         levelManager.getObjectManager().addDynamicObject(ball);
     }
@@ -745,42 +767,48 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
             propellerFrame = (propellerFrame == FRAME_PROPELLER_1) ? FRAME_PROPELLER_2 : FRAME_PROPELLER_1;
         }
 
-        // Update electrode/claw animation (ROM: Anim 1 - delay $F, cycles frames 4,5)
-        // Delay 15 means change every 16 frames
-        electrodeTimer++;
-        if (electrodeTimer >= 16) {
-            electrodeTimer = 0;
-            electrodeFrame = (electrodeFrame == FRAME_ELECTRODE_EXTENDED)
-                    ? FRAME_ELECTRODE_SMALL : FRAME_ELECTRODE_EXTENDED;
-        }
+        // Note: electrode/generator frames are controlled by collision mode in updatePeriodicModeToggle()
+        // - LOWER mode: electrode small (3), generator left (1)
+        // - ZAP mode: electrode extended (4), generator right (2)
 
-        // ROM renders 4 sub-sprites at the boss position:
-        // - sub2 = frame 5 (ROM) = frame 4 (Java) = electrode extended (claws)
-        // - sub3 = frame 1 (ROM) = frame 0 (Java) = main body with Eggman
-        // - sub4 = frame 6 (ROM) = frame 5 (Java) = propeller
-        // - sub5 = frame 2 (ROM) = frame 1 (Java) = generator arm
+        // ROM renders 4 child sub-sprites at the boss position in this order:
+        // (Rendering order matters for proper layering)
+        // - sub2 = frame 5 (ROM) = electrode extended (ROM cycles frames 4,5 via Anim 1)
+        // - sub3 = frame 1 (ROM) = main body with Eggman
+        // - sub4 = frame 6 (ROM) = propeller (animates between frames 6,7)
+        // - sub5 = frame 2 (ROM) = generator arm (second electrode)
+        //
+        // Additionally, mainspr_mapframe holds the electricity overlay frame (or 0 for none)
+        //
+        // ROM frame indices are 1-indexed in mappings, Java is 0-indexed
+        // ROM frame 1 = Java frame 0, ROM frame 5 = Java frame 4, etc.
 
-        // 1. Render the main boss body (frame 0 = Eggman + machine structure)
-        renderer.drawFrameIndex(FRAME_BOSS_BODY, state.x, state.y, flipped, false);
-
-        // 2. Render electrode / claws (animated between frames 3-4)
-        // These are the prong pieces that hang below the boss
+        // 1. Render sub2: electrode/claws (animated between frames 4-5 in ROM = 3-4 in Java)
         renderer.drawFrameIndex(electrodeFrame, state.x, state.y, flipped, false);
 
-        // 3. Render generator arm (frame 1) - unless fallen off during defeat
-        if (!state.defeated || leftGenY == state.y) {
-            renderer.drawFrameIndex(FRAME_GENERATOR_LEFT, state.x, state.y, flipped, false);
-        }
+        // 2. Render sub3: main boss body (frame 1 in ROM = frame 0 in Java)
+        renderer.drawFrameIndex(FRAME_BOSS_BODY, state.x, state.y, flipped, false);
 
-        // 4. Render propeller animation at boss position
+        // 3. Render sub4: propeller animation (frames 6-7 in ROM = 5-6 in Java)
         renderer.drawFrameIndex(propellerFrame, state.x, state.y, flipped, false);
 
-        // 5. Render electricity overlay if active (frames 11-16)
+        // 4. Render sub5: generator arm (separate from electrode)
+        // ROM: sub5 uses generator frames (1-2), not electrode frames (3-4)
+        // During defeat, this detaches and falls separately
+        if (!state.defeated || leftGenY == state.y) {
+            renderer.drawFrameIndex(generatorFrame, state.x, state.y, flipped, false);
+        }
+
+        // 5. Render mainspr_mapframe: electricity overlay if active
+        // ROM frames $0C-$0E = lower electricity, $0F-$11 = wide zap
+        // Java frames 11-13 = lower, 14-16 = wide zap
         if (mainMapFrame >= FRAME_ELEC_LOWER_1 && mainMapFrame <= FRAME_ZAP_WIDE_3) {
             renderer.drawFrameIndex(mainMapFrame, state.x, state.y, flipped, false);
         }
 
         // 6. Render fallen generator arms during defeat (at their fallen positions)
+        // Left generator (sub5) falls at countdown <= 0x78
+        // Right generator (sub2 electrode) falls at countdown <= 60
         if (state.defeated) {
             if (leftGenY != state.y) {
                 renderer.drawFrameIndex(FRAME_GENERATOR_LEFT, leftGenX, leftGenY, flipped, false);
