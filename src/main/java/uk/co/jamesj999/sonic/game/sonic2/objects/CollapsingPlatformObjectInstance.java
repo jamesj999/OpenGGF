@@ -125,23 +125,25 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     private static final int ARZ_PALETTE = 2;
 
     // ARZ Frame 0 (intact) - 4 pieces from obj1F_d.asm Map_obj1F_d_0004
+    // Note: piece palette is 0 so that (0 + ARZ_PALETTE) & 3 = 2 (correct palette)
     private static final SpriteMappingFrame ARZ_FRAME_INTACT = new SpriteMappingFrame(List.of(
-            new SpriteMappingPiece(-0x20, -0x10, 4, 2, 0x55, false, false, ARZ_PALETTE),  // Top-left
-            new SpriteMappingPiece(0x00, -0x10, 4, 2, 0x55, true, false, ARZ_PALETTE),   // Top-right (H-flip)
-            new SpriteMappingPiece(-0x20, 0x00, 4, 2, 0xA3, false, false, ARZ_PALETTE),  // Bottom-left
-            new SpriteMappingPiece(0x00, 0x00, 4, 2, 0xA3, true, false, ARZ_PALETTE)     // Bottom-right (H-flip)
+            new SpriteMappingPiece(-0x20, -0x10, 4, 2, 0x55, false, false, 0),  // Top-left
+            new SpriteMappingPiece(0x00, -0x10, 4, 2, 0x55, true, false, 0),   // Top-right (H-flip)
+            new SpriteMappingPiece(-0x20, 0x00, 4, 2, 0xA3, false, false, 0),  // Bottom-left
+            new SpriteMappingPiece(0x00, 0x00, 4, 2, 0xA3, true, false, 0)     // Bottom-right (H-flip)
     ));
 
     // ARZ Frame 1 (collapsed) - 8 pieces from obj1F_d.asm Map_obj1F_d_0026
+    // Note: piece palette is 0 so that (0 + ARZ_PALETTE) & 3 = 2 (correct palette)
     private static final SpriteMappingFrame ARZ_FRAME_COLLAPSED = new SpriteMappingFrame(List.of(
-            new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x55, false, false, ARZ_PALETTE),  // Piece 0
-            new SpriteMappingPiece(-0x10, -0x10, 2, 2, 0x59, false, false, ARZ_PALETTE),  // Piece 1
-            new SpriteMappingPiece(0x00, -0x10, 2, 2, 0x59, true, false, ARZ_PALETTE),   // Piece 2 (H-flip)
-            new SpriteMappingPiece(0x10, -0x10, 2, 2, 0x55, true, false, ARZ_PALETTE),   // Piece 3 (H-flip)
-            new SpriteMappingPiece(-0x20, 0x00, 2, 2, 0xA3, false, false, ARZ_PALETTE),  // Piece 4
-            new SpriteMappingPiece(-0x10, 0x00, 2, 2, 0xA7, false, false, ARZ_PALETTE),  // Piece 5
-            new SpriteMappingPiece(0x00, 0x00, 2, 2, 0xA7, true, false, ARZ_PALETTE),    // Piece 6 (H-flip)
-            new SpriteMappingPiece(0x10, 0x00, 2, 2, 0xA3, true, false, ARZ_PALETTE)     // Piece 7 (H-flip)
+            new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x55, false, false, 0),  // Piece 0
+            new SpriteMappingPiece(-0x10, -0x10, 2, 2, 0x59, false, false, 0),  // Piece 1
+            new SpriteMappingPiece(0x00, -0x10, 2, 2, 0x59, true, false, 0),   // Piece 2 (H-flip)
+            new SpriteMappingPiece(0x10, -0x10, 2, 2, 0x55, true, false, 0),   // Piece 3 (H-flip)
+            new SpriteMappingPiece(-0x20, 0x00, 2, 2, 0xA3, false, false, 0),  // Piece 4
+            new SpriteMappingPiece(-0x10, 0x00, 2, 2, 0xA7, false, false, 0),  // Piece 5
+            new SpriteMappingPiece(0x00, 0x00, 2, 2, 0xA7, true, false, 0),    // Piece 6 (H-flip)
+            new SpriteMappingPiece(0x10, 0x00, 2, 2, 0xA3, true, false, 0)     // Piece 7 (H-flip)
     ));
 
     // State
@@ -294,6 +296,13 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
 
         // Spawn fragments
         spawnFragments();
+
+        // Mark as remembered to prevent respawn (ROM-accurate behavior)
+        // In the original ROM, collapsed platforms set bit 7 in the respawn table
+        LevelManager manager = LevelManager.getInstance();
+        if (manager != null && manager.getObjectManager() != null) {
+            manager.getObjectManager().markRemembered(spawn);
+        }
 
         // Mark as destroyed
         setDestroyed(true);
