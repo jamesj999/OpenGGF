@@ -66,6 +66,7 @@ public class CPZBossContainer extends AbstractObjectInstance {
         this.floorSpawned = false;
         this.extendSpawned = false;
         this.animationState = new ObjectAnimationState(CPZBossAnimations.getDripperAnimations(), anim, mappingFrame);
+        animate();  // Initialize mappingFrame to correct first frame for this anim
     }
 
     @Override
@@ -130,6 +131,8 @@ public class CPZBossContainer extends AbstractObjectInstance {
             mainBoss.onContainerCycleComplete();
             routineSecondary = SUB_INIT;
             containerInitDone = false;
+            floorSpawned = false;   // Reset so new floor can spawn for next cycle
+            extendSpawned = false;  // Reset so new extend (liquid fill) can spawn for next cycle
             return;
         }
 

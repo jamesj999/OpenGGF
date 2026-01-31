@@ -272,6 +272,8 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
                 state.routineTertiary = 2;
                 // ROM: s2.asm:63052 - move.w #$32,objoff_2A(a0)
                 waitTimer = 0x32;
+                // Clear boss fight active flag so right boundary expands
+                uk.co.jamesj999.sonic.game.GameServices.gameState().setCurrentBossId(0);
                 AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_EMERALD_HILL);
             }
             case 2 -> {
@@ -441,7 +443,7 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
 
     @Override
     public int getPriorityBucket() {
-        return 4;
+        return 5;  // Behind ground vehicle (4) and Sonic (2)
     }
 
     @Override

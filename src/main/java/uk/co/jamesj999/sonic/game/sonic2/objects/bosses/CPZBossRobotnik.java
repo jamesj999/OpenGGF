@@ -41,6 +41,7 @@ public class CPZBossRobotnik extends AbstractObjectInstance {
         this.mappingFrame = 0;
         this.animationState = new ObjectAnimationState(
                 CPZBossAnimations.getEggpodAnimations(), anim, mappingFrame);
+        animate();  // Initialize mappingFrame to correct first frame for this anim
     }
 
     @Override

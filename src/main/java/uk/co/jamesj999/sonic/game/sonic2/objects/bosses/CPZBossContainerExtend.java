@@ -158,7 +158,7 @@ public class CPZBossContainerExtend extends AbstractObjectInstance {
 
     @Override
     public int getPriorityBucket() {
-        return 4;
+        return 5;  // Render behind container body (bucket 4) so liquid appears inside
     }
 
     @Override

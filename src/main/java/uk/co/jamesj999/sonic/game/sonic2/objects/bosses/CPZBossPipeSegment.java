@@ -49,6 +49,7 @@ public class CPZBossPipeSegment extends AbstractObjectInstance {
         this.mappingFrame = 0;
         this.retracting = false;
         this.animationState = new ObjectAnimationState(CPZBossAnimations.getDripperAnimations(), anim, mappingFrame);
+        animate();  // Initialize mappingFrame to correct first frame for this anim
     }
 
     @Override
