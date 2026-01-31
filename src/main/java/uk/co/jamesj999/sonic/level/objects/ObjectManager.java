@@ -683,7 +683,8 @@ public class ObjectManager {
 
             int playerX = player.getCentreX() - 8;
             int baseYRadius = Math.max(1, player.getYRadius() - 3);
-            int playerY = player.getCentreY() - 8 - baseYRadius;
+            // ROM: playerY = y_pos - (y_radius - 3). Do NOT subtract 8 from Y (only X).
+            int playerY = player.getCentreY() - baseYRadius;
             int playerHeight = baseYRadius * 2;
             boolean crouching = player.getCrouching();
             if (crouching) {

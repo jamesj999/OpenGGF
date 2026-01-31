@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.level.scroll;
 
+import uk.co.jamesj999.sonic.game.GameServices;
+
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.*;
 
 /**
@@ -230,7 +232,25 @@ public class SwScrlArz implements ZoneScrollHandler {
         rowScrollPx[15] = fastSpeed;
 
         // ==================== Step 6: Fill Scroll Buffer ====================
-        short fgScroll = negWord(cameraX);
+        // Check for screen shake (ROM: Screen_Shaking_Flag)
+        boolean shaking = GameServices.gameState().isScreenShakeActive();
+        int shakeOffsetX = 0;
+        int shakeOffsetY = 0;
+
+        if (shaking && tables != null) {
+            // ROM: Uses ripple data for shake offsets
+            // Horizontal offset at index (frameCounter & 0x3F) + 1
+            // Vertical offset at index (frameCounter & 0x3F)
+            int rippleIndex = frameCounter & 0x3F;
+            shakeOffsetY = tables.getRippleSigned(rippleIndex);
+            if (rippleIndex + 1 < tables.getRippleDataLength()) {
+                shakeOffsetX = tables.getRippleSigned(rippleIndex + 1);
+            }
+            // Apply vertical shake to vscrollFactorBG
+            vscrollFactorBG = (short) ((arzBgYPos >> 16) + shakeOffsetY);
+        }
+
+        short fgScroll = negWord(cameraX + shakeOffsetX);
         int currentLine = 0;
         int rowIdx = currentRowIndex;
         int pixelsInRow = remainingInRow;
@@ -240,7 +260,7 @@ public class SwScrlArz implements ZoneScrollHandler {
             int count = Math.min(pixelsInRow, VISIBLE_LINES - currentLine);
 
             for (int k = 0; k < count; k++) {
-                short bgScroll = negWord(speed);
+                short bgScroll = negWord(speed + shakeOffsetX);
                 horizScrollBuf[currentLine++] = packScrollWords(fgScroll, bgScroll);
 
                 int offset = bgScroll - fgScroll;

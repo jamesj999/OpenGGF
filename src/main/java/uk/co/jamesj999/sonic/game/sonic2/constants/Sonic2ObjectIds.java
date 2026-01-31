@@ -52,6 +52,7 @@ public final class Sonic2ObjectIds {
     // Bosses
     public static final int EHZ_BOSS = 0x56; // EHZ Act 2 Boss (drill car boss)
     public static final int CPZ_BOSS = 0x5D; // CPZ Act 2 Boss (water dropper boss)
+    public static final int ARZ_BOSS = 0x89; // ARZ Act 2 Boss (hammer/arrow boss)
     public static final int BOSS_EXPLOSION = 0x58; // Boss explosion (Obj58)
 
     // CPZ Objects

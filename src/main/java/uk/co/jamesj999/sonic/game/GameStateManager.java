@@ -27,6 +27,13 @@ public class GameStateManager {
      */
     private int currentBossId;
 
+    /**
+     * Screen shake flag (ROM: Screen_Shaking_Flag at $FFFFF72C).
+     * When active, scroll handlers should apply shake offsets from ripple data.
+     * Used by boss fights and events like pillar rising in ARZ.
+     */
+    private boolean screenShakeActive;
+
     private GameStateManager() {
         resetSession();
     }
@@ -52,6 +59,7 @@ public class GameStateManager {
         }
 
         this.currentBossId = 0;
+        this.screenShakeActive = false;
     }
 
     public int getScore() {
@@ -153,6 +161,30 @@ public class GameStateManager {
      */
     public boolean isBossFightActive() {
         return currentBossId != 0;
+    }
+
+    /**
+     * Gets the screen shake active state.
+     * ROM: tst.b (Screen_Shaking_Flag).w
+     *
+     * @return true if screen shake is active
+     */
+    public boolean isScreenShakeActive() {
+        return screenShakeActive;
+    }
+
+    /**
+     * Sets the screen shake active state.
+     * ROM: move.b #1,(Screen_Shaking_Flag).w to enable
+     * ROM: move.b #0,(Screen_Shaking_Flag).w to disable
+     *
+     * When active, scroll handlers should use ripple data from ParallaxTables
+     * to apply shake offsets to both horizontal and vertical scroll values.
+     *
+     * @param active true to enable screen shake, false to disable
+     */
+    public void setScreenShakeActive(boolean active) {
+        this.screenShakeActive = active;
     }
 }
 
