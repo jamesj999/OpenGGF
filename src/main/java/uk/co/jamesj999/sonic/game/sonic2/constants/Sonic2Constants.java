@@ -198,6 +198,7 @@ public class Sonic2Constants {
     // Boss art (Nemesis compressed, verified offsets)
     public static final int ART_NEM_EGGPOD_ADDR = 0x83BF6;     // ArtNem_Eggpod (flying vehicle)
     public static final int ART_NEM_EHZ_BOSS_ADDR = 0x8507C;   // ArtNem_EHZBoss (ground vehicle/wheels/spike)
+    public static final int ART_NEM_CNZ_BOSS_ADDR = 0x87AAC;   // ArtNem_CNZBoss (verified via RomOffsetFinder)
     public static final int ART_NEM_EGG_CHOPPERS_ADDR = 0x85868; // ArtNem_EggChoppers (propeller blades)
     public static final int ART_NEM_CPZ_BOSS_ADDR = 0x84332;   // ArtNem_CPZBoss (verified via RomOffsetFinder)
     public static final int ART_NEM_EGGPOD_JETS_ADDR = 0x84F18; // ArtNem_EggpodJets (verified via RomOffsetFinder)
@@ -216,6 +217,19 @@ public class Sonic2Constants {
     public static final int ART_TILE_FIERY_EXPLOSION = 0x0580; // ArtTile_ArtNem_FieryExplosion
     public static final int ART_TILE_ARZ_BOSS = 0x03E0;    // ArtTile_ArtNem_ARZBoss
     public static final int ART_TILE_EGGPOD_4 = 0x0500;   // ArtTile_ArtNem_Eggpod_4 (ARZ/MCZ/CNZ/MTZ boss)
+    public static final int ART_TILE_CNZ_BOSS = 0x0407;   // ArtTile_ArtNem_CNZBoss
+    public static final int ART_TILE_CNZ_BOSS_FUDGE = 0x03A7; // ArtTile_ArtNem_CNZBoss_Fudge (= 0x0407 - 0x60)
+
+    // CNZ Boss mappings (uncompressed)
+    public static final int MAP_UNC_CNZ_BOSS_ADDR = 0x320EA;  // Obj51_MapUnc_320EA (21 frames)
+
+    // CNZ Boss palette cycling (addresses from disassembly)
+    public static final int CYCLING_PAL_CNZ_BOSS1_ADDR = 0x1FEC;  // CyclingPal_CNZ1_B (boss cycle 1)
+    public static final int CYCLING_PAL_CNZ_BOSS1_LEN = 18;
+    public static final int CYCLING_PAL_CNZ_BOSS2_ADDR = 0x1FFE;  // CyclingPal_CNZ2_B (boss cycle 2)
+    public static final int CYCLING_PAL_CNZ_BOSS2_LEN = 20;
+    public static final int CYCLING_PAL_CNZ_BOSS3_ADDR = 0x2012;  // CyclingPal_CNZ3_B (boss cycle 3)
+    public static final int CYCLING_PAL_CNZ_BOSS3_LEN = 16;
 
     // CPZ Boss mappings (uncompressed)
     public static final int MAP_UNC_CPZ_BOSS_PARTS_ADDR = 0x2EADC;   // Obj5D_MapUnc_2EADC (CPZ boss parts)
