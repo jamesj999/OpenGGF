@@ -43,10 +43,14 @@ public class EHZBossWheel extends AbstractBossChild {
         this.xVel = 0;
         this.yVel = 0;
         this.renderFlags = 0;
+        // Animation selection based on wheel type, not render priority:
+        // - Subtypes 0 and 1: foreground wheel art (larger, near-side)
+        // - Subtype 2: background wheel art (smaller, far-side)
+        boolean useBackgroundArt = (subtype == 2);
         this.animationState = new ObjectAnimationState(
                 EHZBossAnimations.getVehicleAnimations(),
-                priority == 2 ? 1 : 2,
-                priority == 2 ? 4 : 6);
+                useBackgroundArt ? 2 : 1,
+                useBackgroundArt ? 6 : 4);
 
         this.currentX = 0x2AF0 + xOffset;
         this.currentY = parent.getInitialY() + 0x0C;
@@ -117,7 +121,8 @@ public class EHZBossWheel extends AbstractBossChild {
         }
         routineSecondary = 4;
 
-        if (priority == 2) {
+        if (subtype < 2) {
+            // Only foreground wheels (subtypes 0 and 1) contribute to Y calculation
             ehzParent.addToWheelYAccumulator(currentY);
         }
     }
@@ -139,7 +144,8 @@ public class EHZBossWheel extends AbstractBossChild {
         applyFloorCheck();
         yVel = 0x100;
 
-        if (priority == 2) {
+        if (subtype < 2) {
+            // Only foreground wheels (subtypes 0 and 1) contribute to Y calculation
             ehzParent.addToWheelYAccumulator(currentY);
         }
 
@@ -154,7 +160,8 @@ public class EHZBossWheel extends AbstractBossChild {
         routineSecondary = 8;
         timer = 0x0A;
         yVel = -0x300;
-        if (priority != 2) {
+        if (subtype == 2) {
+            // Background wheel (subtype 2) bounces in opposite direction
             xVel = -xVel;
         }
     }
@@ -207,6 +214,7 @@ public class EHZBossWheel extends AbstractBossChild {
             return;
         }
 
+        // Wheel rotation uses V-flip (frames 5/7), vehicle direction uses H-flip
         boolean flipped = (renderFlags & 1) != 0;
         int frameIndex = VEHICLE_FRAME_OFFSET + animationState.getMappingFrame();
         renderManager.getEHZBossRenderer().drawFrameIndex(frameIndex, currentX, currentY, flipped, false);

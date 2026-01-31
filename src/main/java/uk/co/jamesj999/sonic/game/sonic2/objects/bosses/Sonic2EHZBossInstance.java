@@ -123,9 +123,9 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
                 new EHZBossVehicleTop(this),
                 new EHZBossGroundVehicle(this),
                 new EHZBossPropeller(this),
-                new EHZBossWheel(this, 0, 0x1C, 2),   // Left foreground: +28
-                new EHZBossWheel(this, 1, -0x0C, 2),  // Right foreground: -12
-                new EHZBossWheel(this, 2, -0x2C, 3),  // Back wheel: -44
+                new EHZBossWheel(this, 0, 0x1C, 3),   // Front wheel: +28 (near side - in front of body)
+                new EHZBossWheel(this, 1, -0x0C, 3),  // Front wheel: -12 (near side - in front of body)
+                new EHZBossWheel(this, 2, -0x2C, 5),  // Rear wheel: -44 (far side - behind body)
                 new EHZBossSpike(this)
         );
 

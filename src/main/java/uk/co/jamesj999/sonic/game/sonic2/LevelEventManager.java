@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2;
 
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.ParallaxManager;
 import uk.co.jamesj999.sonic.level.WaterSystem;
 
@@ -84,8 +85,10 @@ public class LevelEventManager implements LevelEventProvider {
         this.arzBoss = null;
         this.ehzBoss = null;
         this.cnzBoss = null;
-        this.cnzLeftBarrier = null;
-        this.cnzRightBarrier = null;
+        this.cnzLeftWallX = -1;
+        this.cnzLeftWallY = -1;
+        this.cnzRightWallX = -1;
+        this.cnzRightWallY = -1;
     }
 
     /**
@@ -134,9 +137,16 @@ public class LevelEventManager implements LevelEventProvider {
     private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2ARZBossInstance arzBoss = null;
     // CNZ Act 2 boss reference
     private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CNZBossInstance cnzBoss = null;
-    // CNZ Act 2 boss arena barriers
-    private uk.co.jamesj999.sonic.game.sonic2.objects.BarrierObjectInstance cnzLeftBarrier = null;
-    private uk.co.jamesj999.sonic.game.sonic2.objects.BarrierObjectInstance cnzRightBarrier = null;
+    // CNZ Act 2 boss arena wall positions (for removal after defeat)
+    // Layout offset calculation: offset / layoutWidth = y, offset % layoutWidth = x
+    // ROM uses 256-wide layout, but we store the calculated x,y for flexibility
+    // Note: Names reflect actual X positions (lower X = left, higher X = right)
+    // - $C50 (x=80) is the LEFT wall (lower pixel position: 80 * 128 = 0x2800)
+    // - $C54 (x=84) is the RIGHT wall (higher pixel position: 84 * 128 = 0x2A00)
+    private int cnzLeftWallX = -1;   // x=80 from offset $C50
+    private int cnzLeftWallY = -1;
+    private int cnzRightWallX = -1;  // x=84 from offset $C54
+    private int cnzRightWallY = -1;
 
     /**
      * Emerald Hill Zone events.
@@ -590,9 +600,9 @@ public class LevelEventManager implements LevelEventProvider {
                     uk.co.jamesj999.sonic.level.LevelManager.getInstance()
                             .updatePalette(1, CNZ_BOSS_PALETTE);
 
-                    // Spawn boss arena barriers (Object 0x2D)
-                    // These rise up when the player enters the arena to prevent backtracking
-                    spawnCNZArenaBarriers();
+                    // Place boss arena walls by modifying level layout (ROM-accurate)
+                    // ROM writes block $F9 (solid wall) to layout offsets $C54 and $C50
+                    placeCNZArenaWalls();
                 }
             }
             case 4 -> {
@@ -655,52 +665,97 @@ public class LevelEventManager implements LevelEventProvider {
     }
 
     /**
-     * Spawns the CNZ Act 2 boss arena barriers.
-     * ROM: Object 0x2D barriers are pre-placed in level layout, but we spawn them
-     * dynamically when entering the boss arena to ensure they appear.
+     * Places CNZ Act 2 boss arena walls by modifying the level layout.
+     * ROM: LevEvents_CNZ2 modifies Level_Layout directly with block $F9 (solid wall).
      * <p>
-     * Barrier positions based on arena bounds:
-     * - Left barrier: X = 0x2878 (just right of camera min 0x2860)
-     * - Right barrier: X = 0x2AF0 (at right edge of arena, X-flipped)
-     * - Y position: 0x6A0 (floor level of boss arena)
+     * From docs/s2disasm/s2.asm (LevEvents_CNZ2):
+     * - Routine 1 (line 21509): move.b #$F9,(Level_Layout+$C54).w  ; left wall
+     * - Routine 2 (line 21523): move.b #$F9,(Level_Layout+$C50).w  ; right wall
      * <p>
-     * Subtype 0 = HTZ style barrier (8px width, works for CNZ)
+     * Layout offset calculation (256 tiles wide):
+     * - Offset $C54 (3156): x = 3156 % 256 = 84, y = 3156 / 256 = 12
+     * - Offset $C50 (3152): x = 3152 % 256 = 80, y = 3152 / 256 = 12
      */
-    private void spawnCNZArenaBarriers() {
+    private void placeCNZArenaWalls() {
         uk.co.jamesj999.sonic.level.LevelManager levelManager =
                 uk.co.jamesj999.sonic.level.LevelManager.getInstance();
+        Level level = levelManager.getCurrentLevel();
+        if (level == null) {
+            return;
+        }
+        uk.co.jamesj999.sonic.level.Map map = level.getMap();
+        if (map == null) {
+            return;
+        }
 
-        // Left barrier - faces right (player enters from left)
-        // Position just inside the left arena boundary
-        uk.co.jamesj999.sonic.level.objects.ObjectSpawn leftBarrierSpawn =
-                new uk.co.jamesj999.sonic.level.objects.ObjectSpawn(
-                        0x2878, 0x6A0,  // Position at left edge of arena
-                        uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds.BARRIER,
-                        0,      // Subtype 0 (HTZ style)
-                        0,      // Render flags (no flip - faces right)
-                        false, 0
-                );
+        // ROM layout offsets for CNZ boss arena walls
+        // Block $F9 = solid wall block
+        final int WALL_BLOCK = 0xF9;
+        final int LAYOUT_WIDTH = 256;  // ROM layout width
 
-        cnzLeftBarrier = new uk.co.jamesj999.sonic.game.sonic2.objects.BarrierObjectInstance(
-                leftBarrierSpawn, "CNZLeftBarrier"
-        );
-        levelManager.getObjectManager().addDynamicObject(cnzLeftBarrier);
+        // Left wall: offset $C50 = 3152 (x=80, lower X position)
+        final int LEFT_OFFSET = 0xC50;
+        cnzLeftWallX = LEFT_OFFSET % LAYOUT_WIDTH;   // 80
+        cnzLeftWallY = LEFT_OFFSET / LAYOUT_WIDTH;   // 12
 
-        // Right barrier - faces left (X-flipped)
-        // Position at right edge of arena
-        uk.co.jamesj999.sonic.level.objects.ObjectSpawn rightBarrierSpawn =
-                new uk.co.jamesj999.sonic.level.objects.ObjectSpawn(
-                        0x2AF0, 0x6A0,  // Position at right edge of arena
-                        uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds.BARRIER,
-                        0,      // Subtype 0 (HTZ style)
-                        0x01,   // Render flags (X-flip - faces left)
-                        false, 0
-                );
+        // Right wall: offset $C54 = 3156 (x=84, higher X position)
+        final int RIGHT_OFFSET = 0xC54;
+        cnzRightWallX = RIGHT_OFFSET % LAYOUT_WIDTH; // 84
+        cnzRightWallY = RIGHT_OFFSET / LAYOUT_WIDTH; // 12
 
-        cnzRightBarrier = new uk.co.jamesj999.sonic.game.sonic2.objects.BarrierObjectInstance(
-                rightBarrierSpawn, "CNZRightBarrier"
-        );
-        levelManager.getObjectManager().addDynamicObject(cnzRightBarrier);
+        // Place wall blocks in the layout (layer 0 = foreground)
+        try {
+            map.setValue(0, cnzLeftWallX, cnzLeftWallY, (byte) WALL_BLOCK);
+            map.setValue(0, cnzRightWallX, cnzRightWallY, (byte) WALL_BLOCK);
+            // Invalidate the foreground tilemap so changes are rendered
+            // This is equivalent to setting Screen_redraw_flag in the original ROM
+            levelManager.invalidateForegroundTilemap();
+        } catch (IllegalArgumentException e) {
+            // Layout dimensions may differ - log and continue
+            System.err.println("CNZ wall placement failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Removes CNZ Act 2 boss arena wall after defeat.
+     * ROM: After boss defeat, removes the RIGHT wall (offset $C54) with block $DD (empty).
+     * <p>
+     * From docs/s2disasm/s2.asm (line 66296):
+     * - move.b #$DD,(Level_Layout+$C54).w
+     * <p>
+     * This allows Sonic to exit the arena to the right after defeating the boss.
+     */
+    private void removeCNZArenaWalls() {
+        uk.co.jamesj999.sonic.level.LevelManager levelManager =
+                uk.co.jamesj999.sonic.level.LevelManager.getInstance();
+        Level level = levelManager.getCurrentLevel();
+        if (level == null || cnzRightWallX < 0) {
+            return;
+        }
+        uk.co.jamesj999.sonic.level.Map map = level.getMap();
+        if (map == null) {
+            return;
+        }
+
+        // ROM: Removes right wall (offset $C54, x=84) with block $DD after defeat
+        final int EMPTY_BLOCK = 0xDD;
+
+        try {
+            map.setValue(0, cnzRightWallX, cnzRightWallY, (byte) EMPTY_BLOCK);
+            // Invalidate the foreground tilemap so changes are rendered
+            // ROM sets Screen_redraw_flag at line 66297
+            levelManager.invalidateForegroundTilemap();
+        } catch (IllegalArgumentException e) {
+            // Layout dimensions may differ - ignore
+        }
+    }
+
+    /**
+     * Called by Sonic2CNZBossInstance when the CNZ boss is defeated.
+     * ROM timing: Called during transition from defeat exploding to defeat bounce phase.
+     */
+    public void onCNZBossDefeated() {
+        removeCNZArenaWalls();
     }
 
     /**

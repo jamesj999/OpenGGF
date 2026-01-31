@@ -10,6 +10,7 @@ import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.objects.TouchResponseProvider;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.physics.ObjectTerrainUtils;
 import uk.co.jamesj999.sonic.physics.TerrainCheckResult;
@@ -26,7 +27,7 @@ import java.util.List;
  * - FALL: Ball drops toward floor
  * - SPLIT: Ball splits into two after hitting floor
  */
-public class CNZBossElectricBall extends AbstractObjectInstance {
+public class CNZBossElectricBall extends AbstractObjectInstance implements TouchResponseProvider {
 
     // Routine states
     private static final int BALL_ATTACH = 0;
@@ -39,9 +40,12 @@ public class CNZBossElectricBall extends AbstractObjectInstance {
     private static final int DELETE_Y = 0x705;
 
     // Animation constants
-    private static final int FRAME_NORMAL = 0x13;
-    private static final int FRAME_EXPLODE_1 = 0x13;
-    private static final int FRAME_EXPLODE_2 = 0x14;
+    // Frame 17 = Map_obj51_0144 = 3x3 spiked ball (24x24 pixels)
+    // Frame 18 = Map_obj51_014E = 1x1 small orb 1 (8x8 pixels)
+    // Frame 19 = Map_obj51_0158 = 1x1 small orb 2 (8x8 pixels)
+    private static final int FRAME_SPIKED_BALL = 17;
+    private static final int FRAME_ORB_1 = 18;
+    private static final int FRAME_ORB_2 = 19;
 
     private final LevelManager levelManager;
     private final Sonic2CNZBossInstance mainBoss;
@@ -63,22 +67,26 @@ public class CNZBossElectricBall extends AbstractObjectInstance {
 
     /**
      * Create electric ball attached to boss.
+     * ROM: loc_31F48 - Init sets position to parent.y + 0x30, then advances to attach.
      */
     public CNZBossElectricBall(ObjectSpawn spawn, LevelManager levelManager, Sonic2CNZBossInstance mainBoss) {
         super(spawn, "CNZ Boss Ball");
         this.levelManager = levelManager;
         this.mainBoss = mainBoss;
 
-        // ROM: position = parent (x, y+0x30)
+        // ROM: loc_31F48 - position = parent (x, y+0x30) during init
+        // Then immediately advances to attach routine where objoff_28 starts at 0
+        // So ball position becomes parent.y + 0 on first frame of attach
+        // This matches the ROM behavior where the ball "appears" at parent position
         this.x = mainBoss.getX();
-        this.y = mainBoss.getY() + 0x30;
+        this.y = mainBoss.getY();  // Will be adjusted by ballRiseOffset in attach
         this.xFixed = x << 16;
         this.yFixed = y << 16;
         this.xVel = 0;
         this.yVel = 0;
 
         this.routineState = BALL_ATTACH;
-        this.ballRiseOffset = 0;
+        this.ballRiseOffset = 0;  // ROM: objoff_28 starts at 0
         this.exploding = false;
         this.renderFlags = 0;
     }
@@ -123,16 +131,24 @@ public class CNZBossElectricBall extends AbstractObjectInstance {
 
     /**
      * ROM: loc_31F96 - Ball attached to boss, lowering.
+     * objoff_28 starts at 0, increments by 1 per frame, caps at $2E.
+     * Position = parent.y + objoff_28
      */
     private void updateBallAttach() {
         x = mainBoss.getX();
         y = mainBoss.getY() + ballRiseOffset;
 
+        // ROM: addi_.w #1,d0 / cmpi.w #$2E,d0 / blt.s + / move.w #$2E,d0
         ballRiseOffset++;
-        if (ballRiseOffset > 0x2E) {
+        if (ballRiseOffset >= 0x2E) {
             ballRiseOffset = 0x2E;
         }
 
+        // Sync fixed-point position for when we transition to fall
+        xFixed = x << 16;
+        yFixed = y << 16;
+
+        // ROM: tst.w (Boss_Countdown).w / bne.w DisplaySprite
         // Wait for main boss countdown to reach 0
         if (mainBoss.getBossCountdown() <= 0) {
             routineState = BALL_FALL;
@@ -143,13 +159,15 @@ public class CNZBossElectricBall extends AbstractObjectInstance {
 
     /**
      * ROM: loc_31FDC - Ball falling.
+     * Uses ObjCheckFloorDist, triggers split when d1 (distance) is negative or zero.
      */
     private void updateBallFall() {
         applyBallPhysics();
 
-        // Floor collision check
+        // ROM: jsr (ObjCheckFloorDist).l / tst.w d1 / bpl.w DisplaySprite
+        // Triggers when d1 <= 0 (at or below floor)
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(x, y, Y_RADIUS);
-        if (floor.hasCollision() && floor.distance() < 0) {
+        if (floor.hasCollision() && floor.distance() <= 0) {
             y += floor.distance();
             yFixed = y << 16;
             explodeAndSplit();
@@ -223,12 +241,15 @@ public class CNZBossElectricBall extends AbstractObjectInstance {
 
     /**
      * Get ball mapping frame based on animation state.
+     * ROM animation 7 (byte_320DD): delay=3, frames cycle between orb 1 and orb 2.
      */
     private int getBallMappingFrame() {
         if (exploding) {
-            return FRAME_EXPLODE_1 + ((lastFrameCounter >> 2) & 1);
+            // Cycle between FRAME_ORB_1 (18) and FRAME_ORB_2 (19) every 4 frames
+            return FRAME_ORB_1 + ((lastFrameCounter >> 2) & 1);
         }
-        return FRAME_NORMAL;
+        // During attach/fall phases, show the spiked ball
+        return FRAME_SPIKED_BALL;
     }
 
     @Override
@@ -257,9 +278,22 @@ public class CNZBossElectricBall extends AbstractObjectInstance {
 
     /**
      * Get collision flags for hazard detection.
+     * ROM: collision_flags = $98 (harmful, category HAZARD, size 0x18)
      */
+    @Override
     public int getCollisionFlags() {
+        if (isDestroyed()) {
+            return 0;
+        }
         // ROM: collision_flags = $98 (harmful)
         return 0x98;
+    }
+
+    /**
+     * Get collision property (used for enemy bounce/hurt behavior).
+     */
+    @Override
+    public int getCollisionProperty() {
+        return 0;
     }
 }

@@ -143,6 +143,13 @@ public class Sonic2Level implements Level {
     }
 
     @Override
+    public void setPalette(int index, Palette palette) {
+        if (index >= 0 && index < PALETTE_COUNT && palette != null) {
+            palettes[index] = palette;
+        }
+    }
+
+    @Override
     public int getPatternCount() {
         return patternCount;
     }

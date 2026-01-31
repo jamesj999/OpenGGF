@@ -792,7 +792,7 @@ public class ObjectManager {
                         if (instance instanceof TouchResponseAttackable attackable) {
                             attackable.onPlayerAttack(player, result);
                         }
-                        applyEnemyBounce(player, instance);
+                        applyBossBounce(player);
                     } else {
                         applyHurt(player, instance);
                     }
@@ -813,13 +813,24 @@ public class ObjectManager {
                 player.setYSpeed((short) (ySpeed + 0x100));
                 return;
             }
-            int playerY = player.getY();
-            int enemyY = instance != null ? instance.getY() : playerY;
+            // Use center coordinates to match ROM y_pos behavior
+            int playerY = player.getCentreY();
+            int enemyY = instance != null ? instance.getSpawn().y() : playerY;
             if (playerY < enemyY) {
                 player.setYSpeed((short) -ySpeed);
             } else {
                 player.setYSpeed((short) (ySpeed - 0x100));
             }
+        }
+
+        /**
+         * ROM-accurate boss bounce: negate both X and Y velocities.
+         * From s2.asm Touch_Enemy_Part2 lines 84806-84807.
+         */
+        private void applyBossBounce(AbstractPlayableSprite player) {
+            player.setAir(true);
+            player.setXSpeed((short) -player.getXSpeed());
+            player.setYSpeed((short) -player.getYSpeed());
         }
 
         private void applyHurt(AbstractPlayableSprite player, ObjectInstance instance) {
