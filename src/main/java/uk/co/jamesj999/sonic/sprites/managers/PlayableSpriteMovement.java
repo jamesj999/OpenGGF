@@ -725,7 +725,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			sprite.setGSpeed((short) 0);
 		}
 
-		if (sprite.getY() > camera.getMaxY() + 224) {
+		// ROM fixBugs: Use max of current maxY and target to prevent premature death
+		// while camera boundary is still easing down. Without this fix, falling
+		// faster than the camera can adjust its maxY limit causes death.
+		// See s2.asm:36913-36922 (Sonic_Boundary_CheckBottom)
+		short effectiveMaxY = (short) Math.max(camera.getMaxY(), camera.getMaxYTarget());
+		if (sprite.getY() > effectiveMaxY + 224) {
 			sprite.applyPitDeath();
 		}
 	}

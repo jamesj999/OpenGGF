@@ -31,6 +31,9 @@ public class BossStateContext {
     public int renderFlags;
     public int lastUpdatedFrame = -1;
 
+    // Hover/sine wave state
+    public int sineCounter;
+
     public BossStateContext(int initialX, int initialY, int initialHitCount) {
         this.x = initialX;
         this.y = initialY;
@@ -46,6 +49,7 @@ public class BossStateContext {
         this.invulnerable = false;
         this.invulnerabilityTimer = 0;
         this.renderFlags = 0;
+        this.sineCounter = 0;
     }
 
     /**
