@@ -42,6 +42,7 @@ public final class Sonic2AudioConstants {
     public static final int SFX_ARROW_STICK = 0xDD;     // Arrow sticking to pillar (SndID_ArrowStick)
     public static final int SFX_BOSS_HIT = 0xAC;        // Boss hit sound effect (SndID_BossHit)
     public static final int SFX_BOSS_EXPLOSION = 0xC4;  // Boss explosion sound effect (SndID_BossExplosion)
+    public static final int SFX_CNZ_BOSS_ZAP = 0xD0;    // CNZ Boss electricity zap (SndID_CNZBossZap)
     public static final int SFX_HAMMER = 0xBD;          // ARZ Boss hammer swing (SndID_Hammer)
     public static final int SFX_RUMBLING_2 = 0xE1;      // Rumbling 2 (SndID_Rumbling2)
     public static final int SFX_MEGA_MACK_DROP = 0xE6;  // Mega Mack drop sound (SndID_MegaMackDrop)

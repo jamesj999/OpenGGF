@@ -61,6 +61,7 @@ public class LevelEventManager implements LevelEventProvider {
         this.cpzBoss = null;
         this.arzBoss = null;
         this.ehzBoss = null;
+        this.cnzBoss = null;
     }
 
     /**
@@ -107,6 +108,8 @@ public class LevelEventManager implements LevelEventProvider {
     private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CPZBossInstance cpzBoss = null;
     // ARZ Act 2 boss reference
     private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2ARZBossInstance arzBoss = null;
+    // CNZ Act 2 boss reference
+    private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CNZBossInstance cnzBoss = null;
 
     /**
      * Emerald Hill Zone events.
@@ -511,11 +514,109 @@ public class LevelEventManager implements LevelEventProvider {
 
     /**
      * Casino Night Zone events.
-     * ROM: LevEvents_CNZ (s2.asm:20671-20776)
+     * ROM: LevEvents_CNZ (s2.asm:21479-21570)
+     *
+     * Act 1: No dynamic events (just SlotMachine call)
+     * Act 2: Boss arena - camera lock and boss spawn
+     *
+     * CNZ2 boss arena triggers:
+     * - Routine 0: Camera X >= $27C0 -> lock minX, set maxY target
+     * - Routine 2: Camera X >= $2890 -> lock arena, load palette, fade music
+     * - Routine 4: Lock minY, spawn boss after delay, play boss music
+     * - Routine 6: Prevent backtracking during fight
      */
     private void updateCNZ() {
-        // CNZ has vertical section events
-        // Implement as needed
+        if (currentAct == 0) {
+            // Act 1: No dynamic events (ROM: LevEvents_CNZ just calls SlotMachine and returns)
+            return;
+        }
+
+        // Act 2: Boss arena setup
+        // ROM: LevEvents_CNZ2 (s2.asm:21486-21570)
+        switch (eventRoutine) {
+            case 0 -> {
+                // Routine 0 (s2.asm:21500-21517): Wait for camera X >= $27C0
+                if (camera.getX() >= 0x27C0) {
+                    // ROM: Set minX to current camera X (prevent backtracking)
+                    camera.setMinX(camera.getX());
+                    // ROM: Set maxY TARGET to $5D0 (boss arena height)
+                    camera.setMaxYTarget((short) 0x5D0);
+                    eventRoutine += 2;
+                }
+            }
+            case 2 -> {
+                // Routine 2 (s2.asm:21520-21538): Wait for camera X >= $2890, lock arena
+                if (camera.getX() >= 0x2890) {
+                    // ROM: Lock camera X boundaries for boss arena
+                    camera.setMinX((short) 0x2860);
+                    camera.setMaxX((short) 0x28E0);
+                    eventRoutine += 2;
+                    bossSpawnDelay = 0;
+                    // ROM: Fade out music
+                    uk.co.jamesj999.sonic.audio.AudioManager.getInstance().fadeOutMusic();
+                    // ROM: Set Current_Boss_ID to 3 (CNZ boss)
+                    uk.co.jamesj999.sonic.game.GameServices.gameState().setCurrentBossId(3);
+                    // ROM: Load CNZ boss palette (Pal_CNZ_B, palette $25)
+                    // Note: Palette loading is handled by the boss object
+                }
+            }
+            case 4 -> {
+                // Routine 4 (s2.asm:21541-21558): Lock floor and spawn boss
+                // ROM: Set minY when camera Y reaches $4E0
+                if (camera.getY() >= 0x4E0) {
+                    camera.setMinY((short) 0x4E0);
+                }
+                // ROM: Increment delay every frame, spawn boss at $5A (90) frames
+                bossSpawnDelay++;
+                if (bossSpawnDelay >= 0x5A) {
+                    spawnCNZBoss();
+                    eventRoutine += 2;
+                    // Start boss music
+                    uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
+                            .playMusic(uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.MUS_BOSS);
+                }
+            }
+            case 6 -> {
+                // Routine 6 (s2.asm:21561-21570): Prevent backtracking during boss fight
+                // ROM: When camera X >= $2A00, adjust camera bounds
+                if (camera.getX() >= 0x2A00) {
+                    camera.setMaxYTarget((short) 0x5D0);
+                    // ROM: move.w (Camera_X_pos).w,(Camera_Min_X_pos).w
+                    short cameraX = camera.getX();
+                    if (cameraX > camera.getMinX()) {
+                        camera.setMinX(cameraX);
+                    }
+                }
+            }
+            default -> {
+                // No more routines
+            }
+        }
+    }
+
+    /**
+     * Spawns the CNZ Act 2 boss.
+     * ROM: Creates Object 0x51 via JmpTo_AllocateObject in LevEvents_CNZ2_Routine3
+     * The boss object handles its own initial positioning.
+     */
+    private void spawnCNZBoss() {
+        // ROM spawns obj51 with no specific coordinates - the object positions itself
+        // CNZ boss initial position from Sonic2CNZBossInstance: (0x2A46, 0x654)
+        uk.co.jamesj999.sonic.level.objects.ObjectSpawn bossSpawn =
+                new uk.co.jamesj999.sonic.level.objects.ObjectSpawn(
+                        0x2A46, 0x654,  // Boss starting position (set in Obj51_Init)
+                        uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds.CNZ_BOSS,
+                        0, 0, false, 0
+                );
+
+        cnzBoss = new uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CNZBossInstance(
+                bossSpawn,
+                uk.co.jamesj999.sonic.level.LevelManager.getInstance()
+        );
+
+        uk.co.jamesj999.sonic.level.LevelManager.getInstance()
+                .getObjectManager()
+                .addDynamicObject(cnzBoss);
     }
 
     /**

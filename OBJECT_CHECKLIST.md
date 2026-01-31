@@ -1,6 +1,6 @@
 # Sonic 2 Object Implementation Checklist
 
-Generated: 2026-01-30 18:19:30
+Generated: 2026-01-31 11:38:00
 
 ## Summary
 
@@ -294,7 +294,7 @@ Total: 222 objects | Implemented: 20 | Unimplemented: 0
 - [x] 0x91 ChopChop (x21) [0x08]
 
 **Bosses:**
-- [ ] 0x89 ARZBoss *(dynamic)* - Hammer/arrow boss
+- [x] 0x89 ARZBoss *(dynamic)* - Hammer/arrow boss
 
 **Objects:**
 - [x] 0x03 LayerSwitcher (x28) [17 subtypes]

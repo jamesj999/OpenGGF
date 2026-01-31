@@ -11,12 +11,16 @@ import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.objects.TouchResponseAttackable;
 import uk.co.jamesj999.sonic.level.objects.TouchResponseProvider;
 import uk.co.jamesj999.sonic.level.objects.TouchResponseResult;
+import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
+import uk.co.jamesj999.sonic.game.sonic2.objects.BossExplosionObjectInstance;
+import uk.co.jamesj999.sonic.physics.TrigLookupTable;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Base class for boss objects with hit handling, palette flashing, and defeat sequences.
@@ -24,6 +28,18 @@ import java.util.Map;
  */
 public abstract class AbstractBossInstance extends AbstractObjectInstance
         implements TouchResponseProvider, TouchResponseAttackable {
+
+    // Common boss constants (ROM values)
+    /** ROM: s2.asm:63155 - move.w #$B3,objoff_3C(a0) ($B3 = 179 decimal) */
+    protected static final int DEFEAT_TIMER_START = 0xB3;
+    /** ROM: ObjectMoveAndFall gravity (8.8 fixed-point) */
+    protected static final int GRAVITY = 0x38;
+    /** Standard Sonic 2 boss hit count */
+    protected static final int DEFAULT_HIT_COUNT = 8;
+    /** Default invulnerability duration in frames */
+    protected static final int DEFAULT_INVULNERABILITY_DURATION = 32;
+    /** Boss explosion spawn interval (every 8 frames) */
+    protected static final int EXPLOSION_INTERVAL = 8;
 
     protected final LevelManager levelManager;
     protected final BossStateContext state;
@@ -135,6 +151,72 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         customMemory.put(offset, value);
     }
 
+    // ========================================================================
+    // CONFIGURABLE METHODS - Override in subclasses to customize behavior
+    // ========================================================================
+
+    /**
+     * Get invulnerability duration in frames.
+     * Override for bosses with different durations (e.g., ARZ uses 64, CNZ uses 48).
+     */
+    protected int getInvulnerabilityDuration() {
+        return DEFAULT_INVULNERABILITY_DURATION;
+    }
+
+    /**
+     * Get palette line index for flash effect.
+     * Most bosses flash palette line 1, but ARZ flashes palette line 0.
+     */
+    protected int getPaletteLineForFlash() {
+        return 1;
+    }
+
+    // ========================================================================
+    // HELPER METHODS - Common functionality for all bosses
+    // ========================================================================
+
+    /**
+     * Calculate hover offset using sine wave.
+     * ROM pattern: Used by EHZ, CPZ, CNZ, ARZ bosses for floating motion.
+     * Increments sineCounter by 2 each frame and returns offset >> 6.
+     */
+    protected int calculateHoverOffset() {
+        int sine = TrigLookupTable.sinHex(state.sineCounter & 0xFF);
+        state.sineCounter = (state.sineCounter + 2) & 0xFF;
+        return sine >> 6;
+    }
+
+    /**
+     * Spawn defeat explosion with random offset from boss position.
+     * ROM: Boss_LoadExplosion (s2.asm lines referenced in each boss)
+     * Uses standard random offset calculation: (random >> 2) - 0x20.
+     */
+    protected void spawnDefeatExplosion() {
+        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        if (renderManager == null || levelManager.getObjectManager() == null) {
+            return;
+        }
+        int random = ThreadLocalRandom.current().nextInt(0x10000);
+        int xOffset = ((random & 0xFF) >> 2) - 0x20;
+        int yOffset = (((random >> 8) & 0xFF) >> 2) - 0x20;
+        BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(
+                state.x + xOffset,
+                state.y + yOffset,
+                renderManager);
+        levelManager.getObjectManager().addDynamicObject(explosion);
+    }
+
+    /**
+     * Apply gravity to boss velocity and update position.
+     * ROM: ObjectMoveAndFall pattern.
+     */
+    protected void applyObjectMoveAndFall() {
+        state.xFixed += (state.xVel << 8);
+        state.yFixed += (state.yVel << 8);
+        state.yVel += GRAVITY;
+        state.updatePositionFromFixed();
+    }
+
     /**
      * Whether this boss uses the generic defeat sequencer.
      * Subclasses with custom defeat logic should override and return false.
@@ -148,9 +230,6 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
      * ROM Reference: s2.asm:63119-63163 (loc_2F4A6 - hit handling routine)
      */
     protected class BossHitHandler {
-        // ROM: s2.asm:63128 - move.b #$20,objoff_3E(a0)
-        private static final int INVULNERABILITY_DURATION = 32; // Frames
-
         public void update() {
             if (state.invulnerable) {
                 // ROM: s2.asm:63141 - subq.b #1,objoff_3E(a0)
@@ -171,8 +250,8 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
 
             // ROM: collision_property(a0) is hitcount, decremented by Touch_Enemy_Part2
             state.hitCount--;
-            // ROM: s2.asm:63128 - move.b #$20,objoff_3E(a0)
-            state.invulnerabilityTimer = INVULNERABILITY_DURATION;
+            // Use configurable invulnerability duration
+            state.invulnerabilityTimer = getInvulnerabilityDuration();
             state.invulnerable = true;
 
             // ROM: s2.asm:63129 - move.w #SndID_BossHit,d0
@@ -223,12 +302,9 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         public void stopFlash() {
             if (flashing && colorStored) {
                 // Restore original color
-                int paletteCount = levelManager.getCurrentLevel().getPaletteCount();
-                if (paletteCount > 1) {
-                    Palette palette = levelManager.getCurrentLevel().getPalette(1);
-                    if (palette != null) {
-                        palette.setColor(1, originalColor);
-                    }
+                Palette palette = getPaletteForFlash();
+                if (palette != null) {
+                    palette.setColor(1, originalColor);
                 }
             }
             flashing = false;
@@ -241,13 +317,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
                 return;
             }
 
-            int paletteCount = levelManager.getCurrentLevel().getPaletteCount();
-            if (paletteCount <= 1) {
-                return;
-            }
-
-            // ROM: s2.asm:63133 - lea (Normal_palette_line2+2).w,a1
-            Palette palette = levelManager.getCurrentLevel().getPalette(1); // Normal_palette_line2
+            Palette palette = getPaletteForFlash();
             if (palette == null) {
                 return;
             }
@@ -266,6 +336,18 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
             flashWhite = !flashWhite; // Toggle for next frame
 
             flashFrame++;
+        }
+
+        private Palette getPaletteForFlash() {
+            if (levelManager == null || levelManager.getCurrentLevel() == null) {
+                return null;
+            }
+            int paletteIndex = getPaletteLineForFlash();
+            int paletteCount = levelManager.getCurrentLevel().getPaletteCount();
+            if (paletteCount <= paletteIndex) {
+                return null;
+            }
+            return levelManager.getCurrentLevel().getPalette(paletteIndex);
         }
     }
 

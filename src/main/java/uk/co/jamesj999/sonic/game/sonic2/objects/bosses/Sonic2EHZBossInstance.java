@@ -5,7 +5,6 @@ import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.game.sonic2.objects.EggPrisonObjectInstance;
-import uk.co.jamesj999.sonic.game.sonic2.objects.BossExplosionObjectInstance;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
@@ -19,7 +18,6 @@ import uk.co.jamesj999.sonic.physics.TerrainCheckResult;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * EHZ Act 2 Boss (Object 0x56) - Drill car boss with 6 child components.
@@ -59,7 +57,7 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
     private static final int VELOCITY_RIGHT_FLEE = 6;
 
     // Physics constants
-    private static final int GRAVITY = 0x38; // ObjectMoveAndFall gravity (8.8)
+    // GRAVITY inherited from AbstractBossInstance
     private static final int MAIN_Y_RADIUS = 0x14;
 
     // Timing constants
@@ -317,27 +315,7 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
         state.yFixed = state.y << 16;
     }
 
-    private void applyObjectMoveAndFall() {
-        state.xFixed += (state.xVel << 8);
-        state.yFixed += (state.yVel << 8);
-        state.yVel += GRAVITY;
-        state.updatePositionFromFixed();
-    }
-
-    private void spawnDefeatExplosion() {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null || levelManager.getObjectManager() == null) {
-            return;
-        }
-        int random = ThreadLocalRandom.current().nextInt(0x10000);
-        int xOffset = ((random & 0xFF) >> 2) - 0x20;
-        int yOffset = (((random >> 8) & 0xFF) >> 2) - 0x20;
-        BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(
-                state.x + xOffset,
-                state.y + yOffset,
-                renderManager);
-        levelManager.getObjectManager().addDynamicObject(explosion);
-    }
+    // applyObjectMoveAndFall() and spawnDefeatExplosion() inherited from AbstractBossInstance
 
     private void reloadPropeller() {
         for (BossChildComponent child : childComponents) {

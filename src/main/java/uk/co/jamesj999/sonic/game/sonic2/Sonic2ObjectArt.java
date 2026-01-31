@@ -3634,4 +3634,171 @@ public class Sonic2ObjectArt {
 
         return frames;
     }
+
+    /**
+     * Load CNZ Boss sprite sheet (Object 0x51) - Eggman's electricity generator boss.
+     * <p>
+     * ROM Reference: s2.asm:90063 (ArtNem_CNZBoss) + Obj51_MapUnc_320EA
+     * Art address: 0x87AAC (Nemesis compressed)
+     * Mappings: 21 frames covering main body, generators, electrodes, electric ball
+     *
+     * @return sprite sheet for CNZ boss, or null on failure
+     */
+    public ObjectSpriteSheet loadCNZBossSheet() {
+        Pattern[] cnzBossPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_CNZ_BOSS_ADDR, "CNZBoss");
+
+        if (cnzBossPatterns.length == 0) {
+            return null;
+        }
+
+        List<SpriteMappingFrame> mappings = createCNZBossMappings();
+        return new ObjectSpriteSheet(cnzBossPatterns, mappings, 0, 1);
+    }
+
+    /**
+     * Creates mapping frames for CNZ Boss (Obj51).
+     * Based on mappings/sprite/obj51.asm (21 frames)
+     * <p>
+     * The CNZ boss uses a single art source with a "fudge" tile offset:
+     * ArtTile_ArtNem_CNZBoss = 0x0407
+     * ArtTile_ArtNem_CNZBoss_Fudge = 0x03A7 (= 0x0407 - 0x60)
+     * <p>
+     * Mappings use the fudge offset, so tile indices need adjustment.
+     * In our array, tiles start at 0, so we subtract the fudge base.
+     */
+    private List<SpriteMappingFrame> createCNZBossMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // The fudge offset means mappings reference tiles starting at 0x60 relative to art.
+        // Since our pattern array starts at 0, and the mappings reference 0x60+,
+        // we need to subtract 0x60 from tile indices.
+        // However, some tiles (like 0x17D) are from the Eggpod art loaded separately.
+        // For simplicity, we'll use indices as if all art is contiguous.
+
+        // Frame 0 (Map_obj51): Main Eggman body - referenced by mainspr_mapframe=0
+        // This is a multi-piece frame from Map_obj51_002A
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        // spritePiece $10, -$10, 2, 2, $17D - Eggpod piece (would need eggpod loaded)
+        // For now, use CNZ boss tiles only
+        // spritePiece -7, -$28, 4, 3, $60 - Generator/electrode top
+        frame0.add(new SpriteMappingPiece(-7, -0x28, 4, 3, 0, false, false, 1));
+        // spritePiece -$28, 0, 4, 4, $6C
+        frame0.add(new SpriteMappingPiece(-0x28, 0, 4, 4, 0x0C, false, false, 1));
+        // spritePiece -8, 0, 4, 4, $7C
+        frame0.add(new SpriteMappingPiece(-8, 0, 4, 4, 0x1C, false, false, 1));
+        // spritePiece $18, 0, 2, 3, $8C
+        frame0.add(new SpriteMappingPiece(0x18, 0, 2, 3, 0x2C, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1 (Map_obj51_0054): Left generator
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-0x1C, 0x18, 2, 3, 0x4A, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2 (Map_obj51_005E): Right generator
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-0x25, 0x10, 2, 3, 0x50, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3 (Map_obj51_0068): Electrode piece
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(8, 0x10, 3, 4, 0x32, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame3));
+
+        // Frame 4 (Map_obj51_0072): Electrode extended
+        List<SpriteMappingPiece> frame4 = new ArrayList<>();
+        frame4.add(new SpriteMappingPiece(8, 0x10, 3, 2, 0x3E, false, false, 1));
+        frame4.add(new SpriteMappingPiece(0x20, 0x10, 2, 3, 0x44, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame4));
+
+        // Frame 5 (Map_obj51_0084): Propeller frame 1
+        List<SpriteMappingPiece> frame5 = new ArrayList<>();
+        // These reference Eggpod tiles ($181, $189) - use placeholder indices
+        frame5.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x56, false, false, 0));
+        frame5.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x5E, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame5));
+
+        // Frame 6 (Map_obj51_0096): Propeller frame 2
+        List<SpriteMappingPiece> frame6 = new ArrayList<>();
+        frame6.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x62, false, false, 0));
+        frame6.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x5E, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame6));
+
+        // Frame 7 (Map_obj51_00A8): Eggman face variant 1
+        List<SpriteMappingPiece> frame7 = new ArrayList<>();
+        frame7.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x6A, false, false, 0));
+        frame7.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x72, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame7));
+
+        // Frame 8 (Map_obj51_00BA): Eggman face variant 2
+        List<SpriteMappingPiece> frame8 = new ArrayList<>();
+        frame8.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x76, false, false, 0));
+        frame8.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x72, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame8));
+
+        // Frame 9 (Map_obj51_00CC): Eggman laughing
+        List<SpriteMappingPiece> frame9 = new ArrayList<>();
+        frame9.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x7E, false, false, 0));
+        frame9.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x72, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame9));
+
+        // Frame 10 (Map_obj51_00DE): Eggman hurt
+        List<SpriteMappingPiece> frame10 = new ArrayList<>();
+        frame10.add(new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x86, false, false, 0));
+        frame10.add(new SpriteMappingPiece(-0x20, -0x10, 2, 2, 0x72, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame10));
+
+        // Frame 11 (Map_obj51_00F0): Electricity field frame 1 (0x0C in code)
+        List<SpriteMappingPiece> frame11 = new ArrayList<>();
+        frame11.add(new SpriteMappingPiece(-0x10, 0x28, 4, 1, 0x56, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame11));
+
+        // Frame 12 (Map_obj51_00FA): Electricity field frame 2 (0x0D in code)
+        List<SpriteMappingPiece> frame12 = new ArrayList<>();
+        frame12.add(new SpriteMappingPiece(-0x10, 0x28, 4, 1, 0x5A, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame12));
+
+        // Frame 13 (Map_obj51_0104): Electricity field frame 3 (0x0E in code)
+        List<SpriteMappingPiece> frame13 = new ArrayList<>();
+        frame13.add(new SpriteMappingPiece(-0x10, 0x28, 4, 1, 0x5E, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame13));
+
+        // Frame 14 (Map_obj51_010E): Zap field wide frame 1 (0x0F in code)
+        List<SpriteMappingPiece> frame14 = new ArrayList<>();
+        frame14.add(new SpriteMappingPiece(-0x1C, 0x20, 4, 1, 0x62, false, false, 1));
+        frame14.add(new SpriteMappingPiece(4, 0x20, 4, 1, 0x66, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame14));
+
+        // Frame 15 (Map_obj51_0120): Zap field wide frame 2 (0x10 in code)
+        List<SpriteMappingPiece> frame15 = new ArrayList<>();
+        frame15.add(new SpriteMappingPiece(-0x1C, 0x20, 4, 1, 0x6A, false, false, 1));
+        frame15.add(new SpriteMappingPiece(4, 0x20, 4, 1, 0x6E, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame15));
+
+        // Frame 16 (Map_obj51_0132): Zap field wide frame 3 (0x11 in code)
+        List<SpriteMappingPiece> frame16 = new ArrayList<>();
+        frame16.add(new SpriteMappingPiece(-0x1C, 0x20, 4, 1, 0x72, false, false, 1));
+        frame16.add(new SpriteMappingPiece(4, 0x20, 4, 1, 0x76, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame16));
+
+        // Frame 17 (Map_obj51_0144): Electric ball (0x13 in code)
+        List<SpriteMappingPiece> frame17 = new ArrayList<>();
+        frame17.add(new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x7A, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame17));
+
+        // Frame 18 (Map_obj51_014E): Small spark 1 (0x14 in code)
+        List<SpriteMappingPiece> frame18 = new ArrayList<>();
+        frame18.add(new SpriteMappingPiece(-4, -4, 1, 1, 0x83, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame18));
+
+        // Frame 19 (Map_obj51_0158): Small spark 2 (0x15 in code)
+        List<SpriteMappingPiece> frame19 = new ArrayList<>();
+        frame19.add(new SpriteMappingPiece(-4, -4, 1, 1, 0x84, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame19));
+
+        // Frame 20: Empty/placeholder
+        frames.add(new SpriteMappingFrame(new ArrayList<>()));
+
+        return frames;
+    }
 }
