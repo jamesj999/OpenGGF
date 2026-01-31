@@ -113,8 +113,8 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
     private static final int VRAM_HUD = 0x06CA;
     private static final int VRAM_END = 0x0710;        // End of HUD region (generous)
 
-    private static final int PATTERN_BASE = 0x30000;   // High ID to avoid conflicts with other cached patterns
-    private static final int SOURCE_DIGITS_PATTERN_BASE = 0x31000;  // Separate base for preserved source digits
+    private static final int PATTERN_BASE = 0x40000;   // High ID to avoid conflicts (0x30000 used by water surface)
+    private static final int SOURCE_DIGITS_PATTERN_BASE = 0x41000;  // Separate base for preserved source digits
 
     // Input data
     private final int ringsCollected;

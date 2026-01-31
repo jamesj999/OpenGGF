@@ -29,7 +29,6 @@ public class CPZBossFlame extends AbstractObjectInstance {
     private int mappingFrame;
     private int animFrameDuration;
     private int frameIndex;
-    private int routineSecondary;
 
     public CPZBossFlame(ObjectSpawn spawn, LevelManager levelManager, Sonic2CPZBossInstance mainBoss) {
         super(spawn, "CPZ Boss Flame");
@@ -41,7 +40,6 @@ public class CPZBossFlame extends AbstractObjectInstance {
         this.mappingFrame = 0;
         this.animFrameDuration = 1;
         this.frameIndex = 0;
-        this.routineSecondary = 0;
     }
 
     @Override
@@ -50,26 +48,26 @@ public class CPZBossFlame extends AbstractObjectInstance {
             return;
         }
 
-        if (mappingFrame < 0) {
-            mappingFrame = 0;
-        }
-
-        if (mainBoss != null && mainBoss.isBossDefeated()) {
-            if (mainBoss.isInRetreatPhase()) {
-                routineSecondary += 2;
-            }
-            return;
-        }
-
         if (mainBoss == null || mainBoss.isDestroyed()) {
             setDestroyed(true);
             return;
         }
 
+        // Always sync position with parent boss (even during defeat/retreat)
         x = mainBoss.getX();
         y = mainBoss.getY();
         renderFlags = mainBoss.getRenderFlags();
 
+        if (mappingFrame < 0) {
+            mappingFrame = 0;
+        }
+
+        // Skip animation updates during defeat sequence
+        if (mainBoss.isBossDefeated()) {
+            return;
+        }
+
+        // Normal animation loop (3 frames)
         animFrameDuration--;
         if (animFrameDuration < 0) {
             animFrameDuration = 1;
