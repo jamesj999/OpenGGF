@@ -1212,8 +1212,9 @@ public class ObjectManager {
                 int halfHeight = player.getAir() ? params.airHalfHeight() : params.groundHalfHeight();
 
                 // Multi-piece solids don't use monitor solidity
+                // Pass piece index so sticky buffer only applies to the piece being ridden
                 SolidContact contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
-                        multiPiece.isTopSolidOnly(), false, instance, true);
+                        multiPiece.isTopSolidOnly(), false, instance, i, true);
 
                 if (contact == null) {
                     continue;
@@ -1254,9 +1255,23 @@ public class ObjectManager {
             return new MultiPieceContactResult(anyStanding, anyPushing, standingPieceX, standingPieceY, standingPieceIndex);
         }
 
+        /**
+         * Resolve contact for single-piece objects (backwards compatibility).
+         */
         private SolidContact resolveContact(AbstractPlayableSprite player,
                 int anchorX, int anchorY, int halfWidth, int halfHeight, boolean topSolidOnly,
                 boolean monitorSolidity, ObjectInstance instance, boolean apply) {
+            return resolveContact(player, anchorX, anchorY, halfWidth, halfHeight, topSolidOnly,
+                    monitorSolidity, instance, -1, apply);
+        }
+
+        /**
+         * Resolve contact with piece index support for multi-piece objects.
+         * @param pieceIndex The piece index being checked, or -1 for single-piece objects
+         */
+        private SolidContact resolveContact(AbstractPlayableSprite player,
+                int anchorX, int anchorY, int halfWidth, int halfHeight, boolean topSolidOnly,
+                boolean monitorSolidity, ObjectInstance instance, int pieceIndex, boolean apply) {
             int playerCenterX = player.getCentreX();
             int playerCenterY = player.getCentreY();
 
@@ -1272,7 +1287,11 @@ public class ObjectManager {
             int relY = playerCenterY - anchorY + verticalOffset + maxTop;
 
             boolean riding = isRidingObject(instance);
-            int minRelY = riding ? -16 : 0;
+            // For multi-piece objects, only apply sticky buffer (-16px) when checking
+            // the specific piece being ridden, not all pieces of the same object.
+            // pieceIndex < 0 means single-piece object (always apply sticky buffer if riding)
+            boolean ridingThisPiece = riding && (pieceIndex < 0 || pieceIndex == ridingPieceIndex);
+            int minRelY = ridingThisPiece ? -16 : 0;
 
             if (relY < minRelY || relY >= maxTop * 2) {
                 return null;
