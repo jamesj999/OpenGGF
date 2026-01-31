@@ -704,9 +704,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		Camera camera = Camera.getInstance();
 		if (camera == null) return;
 
+		// ROM uses center coordinates for x_pos, so boundary offsets are calibrated for center
 		final int SCREEN_WIDTH = 320, SONIC_WIDTH = 24, LEFT_OFFSET = 16, RIGHT_EXTRA = 64;
 
-		int xTotal = (sprite.getX() * 256) + (sprite.getXSubpixel() & 0xFF) + sprite.getXSpeed();
+		// Use center X to match ROM's x_pos (not top-left getX())
+		int xTotal = (sprite.getCentreX() * 256) + (sprite.getXSubpixel() & 0xFF) + sprite.getXSpeed();
 		int predictedX = xTotal >> 8;
 
 		int leftBoundary = camera.getMinX() + LEFT_OFFSET;
@@ -715,12 +717,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			rightBoundary += RIGHT_EXTRA;
 		}
 
+		// ROM comparison: bhi.s for left (<), bls.s for right (>=)
 		if (predictedX < leftBoundary) {
-			sprite.setX((short) leftBoundary);
+			sprite.setCentreX((short) leftBoundary);
 			sprite.setXSpeed((short) 0);
 			sprite.setGSpeed((short) 0);
-		} else if (predictedX > rightBoundary) {
-			sprite.setX((short) rightBoundary);
+		} else if (predictedX >= rightBoundary) {
+			sprite.setCentreX((short) rightBoundary);
 			sprite.setXSpeed((short) 0);
 			sprite.setGSpeed((short) 0);
 		}

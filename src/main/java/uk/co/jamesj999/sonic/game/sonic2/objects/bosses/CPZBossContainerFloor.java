@@ -47,6 +47,7 @@ public class CPZBossContainerFloor extends AbstractObjectInstance {
         this.mappingFrame = 0;
         this.timer2 = isFloor2 ? 0x24 : 0;
         this.animationState = new ObjectAnimationState(CPZBossAnimations.getDripperAnimations(), anim, mappingFrame);
+        animate();  // Initialize mappingFrame to correct first frame for this anim
     }
 
     @Override
@@ -108,6 +109,7 @@ public class CPZBossContainerFloor extends AbstractObjectInstance {
         }
         animationState.setAnimId(anim);
         animationState.update();
+        anim = animationState.getAnimId();  // Sync back after SWITCH transitions (0x0A -> 9)
         mappingFrame = animationState.getMappingFrame();
     }
 

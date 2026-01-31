@@ -96,6 +96,7 @@ public class CPZBossDripper extends AbstractObjectInstance {
                 x = parentPipe.getPipeX() - 2;
                 y = parentPipe.getPipeY() - 0x24;
             }
+            animate();  // Sync mappingFrame with new anim before returning
             return;
         }
 

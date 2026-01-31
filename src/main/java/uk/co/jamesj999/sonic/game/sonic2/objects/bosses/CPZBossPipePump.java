@@ -54,6 +54,7 @@ public class CPZBossPipePump extends AbstractObjectInstance {
         this.timer = 0x12;
         this.timer3 = 2;
         this.animationState = new ObjectAnimationState(CPZBossAnimations.getDripperAnimations(), anim, mappingFrame);
+        animate();  // Initialize mappingFrame to correct first frame for this anim
     }
 
     @Override
@@ -113,6 +114,7 @@ public class CPZBossPipePump extends AbstractObjectInstance {
             timer = 0x12;
             routineSecondary = SUB_ANIMATE;
             yOffset = 0x58;
+            animate();  // Sync mappingFrame with new anim before returning
             return;
         }
 

@@ -75,6 +75,7 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
         this.collisionFlags = COLLISION_FLAGS;
         this.isDroplet = false;
         this.animationState = new ObjectAnimationState(CPZBossAnimations.getDripperAnimations(), anim, mappingFrame);
+        animate();  // Initialize mappingFrame to correct first frame for this anim
 
         if (gunkReady) {
             routineSecondary = SUB_DELAY;
@@ -132,6 +133,7 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
             }
             routineSecondary = SUB_DROPLETS;
             isDroplet = false;
+            mappingFrame = 9;  // Set droplet frame immediately to avoid stale frame flash
             AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_MEGA_MACK_DROP);
             return;
         }

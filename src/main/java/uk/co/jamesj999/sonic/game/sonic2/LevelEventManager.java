@@ -180,6 +180,9 @@ public class LevelEventManager implements LevelEventProvider {
                     // ROM: Lock X boundaries immediately for boss arena (not eased)
                     camera.setMinX((short) 0x28F0);
                     camera.setMaxX((short) 0x2940);
+                    // Mark boss fight active when camera locks (enables tight boundary)
+                    uk.co.jamesj999.sonic.game.GameServices.gameState().setCurrentBossId(
+                        uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds.EHZ_BOSS);
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Start music fade-out (s2.asm:20404)
