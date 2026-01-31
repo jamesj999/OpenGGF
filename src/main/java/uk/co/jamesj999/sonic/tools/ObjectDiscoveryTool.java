@@ -87,6 +87,7 @@ public class ObjectDiscoveryTool {
             0x4B,  // Buzzer
             0x56,  // EHZBoss (dynamically spawned drill car boss)
             0x5C,  // Masher
+            0x89,  // ARZBoss (dynamically spawned hammer/arrow boss)
             0x6B,  // MTZPlatform (multi-purpose platform with 12 movement subtypes)
             0x72,  // CNZConveyorBelt (invisible velocity zone - CNZ/MTZ/WFZ)
             0x74,  // InvisibleBlock

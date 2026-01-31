@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.level.scroll;
 
+import uk.co.jamesj999.sonic.game.GameServices;
+
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.*;
 
 /**
@@ -55,15 +57,18 @@ public class SwScrlMcz implements ZoneScrollHandler {
     // Pre-allocated segment scroll array
     private final short[] segScroll = new short[24];
 
-    // State
-    private boolean screenShakeFlag = false;
-
     public SwScrlMcz(ParallaxTables tables) {
         this.tables = tables;
     }
 
+    /**
+     * Set the screen shake flag.
+     * Delegates to GameStateManager for global screen shake state.
+     * @deprecated Use GameServices.gameState().setScreenShakeActive() directly
+     */
+    @Deprecated
     public void setScreenShakeFlag(boolean flag) {
-        this.screenShakeFlag = flag;
+        GameServices.gameState().setScreenShakeActive(flag);
     }
 
     @Override
@@ -94,7 +99,7 @@ public class SwScrlMcz implements ZoneScrollHandler {
         int rippleX = 0;
         int rippleY = 0;
 
-        if (screenShakeFlag && tables != null) {
+        if (GameServices.gameState().isScreenShakeActive() && tables != null) {
             int idx = frameCounter & 0x3F;
             byte[] rippleData = tables.getRippleData();
             if (rippleData != null && rippleData.length >= 66) {

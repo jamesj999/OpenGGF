@@ -3267,6 +3267,65 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load ARZ Boss main sprite sheet (Obj89 main vehicle).
+     * Uses ArtNem_ARZBoss with mappings from Obj89_MapUnc_30E04.
+     * Palette line 0 (ArtTile_ArtNem_ARZBoss uses palette 0).
+     *
+     * The ARZ boss main frames use tiles from BOTH ARZ boss art AND Eggpod art.
+     * In the original game:
+     * - ARZ boss art is at VRAM tile $3E0 (ArtTile_ArtNem_ARZBoss)
+     * - Eggpod art is at VRAM tile $500 (ArtTile_ArtNem_Eggpod_4)
+     * - Gap = $500 - $3E0 = $120 = 288 tiles
+     *
+     * The mappings use tile indices relative to art_tile ($3E0), so:
+     * - Tile $6F → ARZ boss tile (low index, within ARZ art)
+     * - Tile $150 → Eggpod tile ($3E0 + $150 = $530, which is $30 into Eggpod at $500)
+     *
+     * We create a combined pattern array with Eggpod patterns at offset $120.
+     */
+    public ObjectSpriteSheet loadARZBossMainSheet() {
+        Pattern[] arzPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_ARZ_BOSS_ADDR, "ARZBoss");
+        if (arzPatterns.length == 0) {
+            return null;
+        }
+
+        // Load Eggpod patterns (used for Robotnik's face/body in various frames)
+        Pattern[] eggpodPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_EGGPOD_ADDR, "Eggpod");
+
+        // Calculate offset: $500 - $3E0 = $120 = 288 tiles
+        int eggpodOffset = Sonic2Constants.ART_TILE_EGGPOD_4 - Sonic2Constants.ART_TILE_ARZ_BOSS;
+
+        // Create combined array large enough to hold both art sets at correct offsets
+        int combinedSize = Math.max(arzPatterns.length, eggpodOffset + eggpodPatterns.length);
+        Pattern[] combinedPatterns = new Pattern[combinedSize];
+
+        // Copy ARZ boss patterns starting at index 0
+        System.arraycopy(arzPatterns, 0, combinedPatterns, 0, arzPatterns.length);
+
+        // Copy Eggpod patterns at offset $120 (288)
+        for (int i = 0; i < eggpodPatterns.length && (eggpodOffset + i) < combinedSize; i++) {
+            combinedPatterns[eggpodOffset + i] = eggpodPatterns[i];
+        }
+
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_ARZ_BOSS_MAIN_ADDR);
+        return new ObjectSpriteSheet(combinedPatterns, mappings, 0, 1);
+    }
+
+    /**
+     * Load ARZ Boss parts sprite sheet (pillars, arrows, bulging eyes).
+     * Uses ArtNem_ARZBoss with mappings from Obj89_MapUnc_30D68.
+     * Palette line 0 (ArtTile_ArtNem_ARZBoss uses palette 0).
+     */
+    public ObjectSpriteSheet loadARZBossPartsSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_ARZ_BOSS_ADDR, "ARZBoss");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_ARZ_BOSS_PARTS_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
      * Load Boss Explosion sprite sheet (Obj58).
      * Uses ArtNem_FieryExplosion with mappings from Obj58_MapUnc_2D50A.
      * Palette line 0 (as per art tile).

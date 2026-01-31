@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.level.scroll;
 
+import uk.co.jamesj999.sonic.game.GameServices;
+
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.*;
 
 /**
@@ -34,9 +36,6 @@ public class SwScrlHtz implements ZoneScrollHandler {
     private short vscrollFactorBG;
     private short vscrollFactorFG;
 
-    // Screen shake mode flag
-    private boolean screenShakeActive = false;
-
     // Cloud animation counter (TempArray_LayerDef+$22 equivalent)
     // Incremented by 4 each frame
     private int cloudCounter = 0;
@@ -59,7 +58,6 @@ public class SwScrlHtz implements ZoneScrollHandler {
      */
     public void init() {
         cloudCounter = 0;
-        screenShakeActive = false;
         for (int i = 0; i < 16; i++) {
             tempArrayLayerDef[i] = 0;
         }
@@ -67,14 +65,21 @@ public class SwScrlHtz implements ZoneScrollHandler {
 
     /**
      * Set the screen shake mode flag.
+     * Delegates to GameStateManager for global screen shake state.
      * When true, uses simplified scroll with ripple-based shake effect.
+     * @deprecated Use GameServices.gameState().setScreenShakeActive() directly
      */
+    @Deprecated
     public void setScreenShakeActive(boolean active) {
-        this.screenShakeActive = active;
+        GameServices.gameState().setScreenShakeActive(active);
     }
 
+    /**
+     * @deprecated Use GameServices.gameState().isScreenShakeActive() directly
+     */
+    @Deprecated
     public boolean isScreenShakeActive() {
-        return screenShakeActive;
+        return GameServices.gameState().isScreenShakeActive();
     }
 
     /**
@@ -99,7 +104,7 @@ public class SwScrlHtz implements ZoneScrollHandler {
         vscrollFactorBG = (short) bgCamera.getBgYPos();
         vscrollFactorFG = (short) cameraY;
 
-        if (screenShakeActive) {
+        if (GameServices.gameState().isScreenShakeActive()) {
             updateScreenShake(horizScrollBuf, cameraX, cameraY, frameCounter);
         } else {
             updateNormal(horizScrollBuf, cameraX, cameraY, frameCounter);
