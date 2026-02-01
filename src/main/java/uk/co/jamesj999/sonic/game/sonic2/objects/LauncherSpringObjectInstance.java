@@ -4,6 +4,7 @@ import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.audio.GameSound;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AnimationIds;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -84,6 +85,14 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     private int animationTimer = 0;  // For frame toggling animation
     private int baseX;  // Original X position (for diagonal movement)
     private int baseY;  // Original Y position (for spring movement)
+
+    /**
+     * ROM objoff_3A: Flag to prevent multiple compression increments per frame.
+     * ROM clears this at the start of each update cycle (lines 57452, 57606),
+     * then sets it when ANY player compresses. This prevents both P1 and P2
+     * from incrementing compression in the same frame.
+     */
+    private boolean compressionProcessedThisFrame = false;
 
     // Rendering state
     private int currentSpriteX;
@@ -187,12 +196,18 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         player.setYSpeed((short) 0);
         player.setGSpeed((short) 0);
 
-        // Set rolling animation
+        // Set rolling state and animation
+        // ROM: bset #status.player.rolling,status(a1)
+        //      move.b #$E,y_radius(a1)
+        //      move.b #7,x_radius(a1)
+        //      move.b #AniIDSonAni_Roll,anim(a1)
         boolean wasRolling = player.getRolling();
         player.setRolling(true);
         if (!wasRolling) {
             player.setY((short) (player.getY() + player.getRollHeightAdjustment()));
         }
+        // Explicitly set roll animation (ROM: move.b #AniIDSonAni_Roll,anim(a1))
+        player.setAnimationId(Sonic2AnimationIds.ROLL);
 
         ps.state = STATE_STANDING;
 
@@ -217,34 +232,60 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     }
 
     /**
+     * Checks if any player in STANDING state is holding the jump button.
+     * ROM (lines 57477-57492, 57636-57652): Before transitioning to launch state,
+     * the ROM checks if ANY standing player is holding jump. If so, no launch occurs.
+     *
+     * @return true if any standing player is holding jump
+     */
+    private boolean isAnyStandingPlayerHoldingJump() {
+        // ROM: Checks both P1 and P2 states and inputs, then ORs them together
+        // cmpi.b #1,objoff_36(a0) / or.w (Ctrl_1_Logical).w,d0
+        // cmpi.b #1,objoff_37(a0) / or.w (Ctrl_2).w,d0
+        // andi.w #$7000,d0 / bne.s return (if any jump button held, don't launch)
+        for (Map.Entry<AbstractPlayableSprite, PlayerState> entry : playerStates.entrySet()) {
+            AbstractPlayableSprite player = entry.getKey();
+            PlayerState ps = entry.getValue();
+            if (ps.state == STATE_STANDING && player.isJumpPressed()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Handles compression while player is standing on spring.
      * Compression increases every 4 frames while jump is held (ROM: loc_2AD96).
      *
-     * ROM behavior (lines 57477-57492, 57636-57652):
-     * - If compression > 0 AND no jump button pressed, set state to 2 (launch pending)
-     * - The actual launch happens on the next frame when the per-player routine
-     *   sees state 2, decrements it, and branches to launch code.
+     * ROM behavior (lines 57552-57562, 57719-57729):
+     * - Check objoff_3A flag - if already set, skip compression increment
+     * - Set objoff_3A flag to prevent double-increment when both players are on spring
+     * - Decrement objoff_32 timer; if underflows, reset to 3 and increment compression
+     *
+     * @return true if this player is holding jump
      */
-    private void handleCompression(AbstractPlayableSprite player, PlayerState ps) {
+    private boolean handleCompression(AbstractPlayableSprite player, PlayerState ps) {
         boolean jumpPressed = player.isJumpPressed();
 
         if (jumpPressed) {
-            // Holding jump - increase compression
-            compressionFrameCounter++;
-            if (compressionFrameCounter >= COMPRESSION_FRAME_INTERVAL) {
-                compressionFrameCounter = 0;
-                if (compression < getMaxCompression()) {
-                    compression++;
+            // ROM: tst.b objoff_3A(a0) / bne.s loc_2ADFE - skip if already processed this frame
+            if (!compressionProcessedThisFrame) {
+                // ROM: move.b #1,objoff_3A(a0) - mark as processed
+                compressionProcessedThisFrame = true;
+
+                // ROM: subq.b #1,objoff_32(a0) / bpl.s loc_2ADDA
+                compressionFrameCounter--;
+                if (compressionFrameCounter < 0) {
+                    // ROM: move.b #3,objoff_32(a0) - reset timer to 3 (4 frames total)
+                    compressionFrameCounter = COMPRESSION_FRAME_INTERVAL - 1;
+                    // ROM: cmpi.w #$20,objoff_38(a0) / beq.s loc_2ADDA / addq.w #1,objoff_38(a0)
+                    if (compression < getMaxCompression()) {
+                        compression++;
+                    }
                 }
             }
-        } else if (compression > 0) {
-            // ROM: Button NOT pressed AND compression > 0 -> set state to 2
-            // The ROM doesn't require a button release transition, just checks
-            // if button is currently not pressed while compression exists.
-            ps.state = STATE_LAUNCH_PENDING;
         }
-        // If compression == 0 and button not pressed, player just stands there
-        // Player position is updated in update() after updateSpringPosition()
+        return jumpPressed;
     }
 
     /**
@@ -443,6 +484,10 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     public void update(int frameCounter, AbstractPlayableSprite player) {
         Camera camera = Camera.getInstance();
 
+        // ROM: move.b #0,objoff_3A(a0) - clear compression-processed flag at start of update
+        // This allows ONE compression increment per frame across all players
+        compressionProcessedThisFrame = false;
+
         // Process all tracked players (supports two-player mode)
         // ROM uses objoff_36 for P1 and objoff_37 for P2
         processPlayer(player, camera);
@@ -452,6 +497,12 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         if (sidekick != null && sidekick != player) {
             processPlayer(sidekick, camera);
         }
+
+        // ROM behavior (lines 57477-57492, 57636-57652):
+        // After processing both players, check if we should transition to launch state.
+        // The ROM sets BOTH players to state 2 simultaneously (move.w #$202,objoff_36(a0))
+        // if compression > 0 AND no standing player is holding jump.
+        checkForLaunchTransition();
 
         // ROM: loc_2AD14 - When spring is empty, compression decays by 4 per frame
         // This creates a gradual decompression animation instead of instant snap
@@ -487,6 +538,40 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
 
         // Update animation
         updateAnimationFrame();
+    }
+
+    /**
+     * ROM behavior (lines 57477-57492, 57636-57652):
+     * After processing both players individually, check if ALL standing players
+     * have released the jump button. If so, and compression > 0, transition
+     * ALL standing players to launch state simultaneously.
+     *
+     * ROM: move.w #$202,objoff_36(a0) - sets BOTH bytes to 2 at once
+     */
+    private void checkForLaunchTransition() {
+        // ROM: tst.w objoff_36(a0) / beq.s loc_2AD14 - if no players on spring, skip
+        if (!hasAnyPlayerOnSpring()) {
+            return;
+        }
+
+        // ROM: tst.w objoff_38(a0) / beq.s return - if no compression, skip
+        if (compression == 0) {
+            return;
+        }
+
+        // ROM: Check if ANY standing player is holding jump
+        // If any player is holding, don't trigger launch for anyone
+        if (isAnyStandingPlayerHoldingJump()) {
+            return;
+        }
+
+        // ROM: move.w #$202,objoff_36(a0) - set BOTH player states to 2 (launch pending)
+        // This ensures both players launch simultaneously
+        for (PlayerState ps : playerStates.values()) {
+            if (ps.state == STATE_STANDING) {
+                ps.state = STATE_LAUNCH_PENDING;
+            }
+        }
     }
 
     /**
@@ -541,7 +626,8 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
                 return;
             }
 
-            // Update compression state (may transition to STATE_LAUNCH_PENDING)
+            // Update compression state (tracks if jump is held, but doesn't transition state)
+            // The transition to STATE_LAUNCH_PENDING is handled by checkForLaunchTransition()
             handleCompression(player, ps);
         }
     }
