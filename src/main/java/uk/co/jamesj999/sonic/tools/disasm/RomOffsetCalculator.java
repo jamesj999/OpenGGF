@@ -22,6 +22,18 @@ public class RomOffsetCalculator {
             "^\\s*(\\w+):\\s*(?:BINCLUDE|binclude)\\s+\"([^\"]+)\"",
             Pattern.CASE_INSENSITIVE
     );
+    private static final Pattern BINCLUDE_NO_LABEL_PATTERN = Pattern.compile(
+            "^\\s*(?:BINCLUDE|binclude)\\s+\"([^\"]+)\"",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern ALIGN_PATTERN = Pattern.compile(
+            "^\\s*align\\s+(\\$?[0-9A-Fa-f]+)\\b",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern EVEN_PATTERN = Pattern.compile(
+            "^\\s*even\\b",
+            Pattern.CASE_INSENSITIVE
+    );
 
     /**
      * Known anchor offsets from verified ROM locations.
@@ -185,7 +197,12 @@ public class RomOffsetCalculator {
         if (anchorIndex < targetIndex) {
             // Anchor is before target - add file sizes
             for (int i = anchorIndex; i < targetIndex; i++) {
-                long fileSize = getFileSize(orderedEntries.get(i).filePath);
+                BincludeEntry entry = orderedEntries.get(i);
+                if (entry.isAlignmentEntry()) {
+                    offset = alignOffset(offset, entry.alignment);
+                    continue;
+                }
+                long fileSize = getFileSize(entry.filePath);
                 if (fileSize < 0) {
                     return -1; // File not found
                 }
@@ -198,7 +215,14 @@ public class RomOffsetCalculator {
         } else {
             // Anchor is after target - subtract file sizes
             for (int i = anchorIndex - 1; i >= targetIndex; i--) {
-                long fileSize = getFileSize(orderedEntries.get(i).filePath);
+                BincludeEntry entry = orderedEntries.get(i);
+                if (entry.isAlignmentEntry()) {
+                    if (entry.alignment > 2) {
+                        return -1; // Cannot reliably reverse non-even alignment
+                    }
+                    continue;
+                }
+                long fileSize = getFileSize(entry.filePath);
                 if (fileSize < 0) {
                     return -1; // File not found
                 }
@@ -297,6 +321,31 @@ public class RomOffsetCalculator {
                             matcher.group(2),
                             lineNumber
                     ));
+                    continue;
+                }
+
+                Matcher noLabelMatcher = BINCLUDE_NO_LABEL_PATTERN.matcher(line);
+                if (noLabelMatcher.find()) {
+                    entries.add(new BincludeEntry(
+                            null,
+                            noLabelMatcher.group(1),
+                            lineNumber
+                    ));
+                    continue;
+                }
+
+                Matcher alignMatcher = ALIGN_PATTERN.matcher(line);
+                if (alignMatcher.find()) {
+                    int alignment = parseAlignment(alignMatcher.group(1));
+                    if (alignment > 1) {
+                        entries.add(BincludeEntry.alignment(alignment, lineNumber));
+                    }
+                    continue;
+                }
+
+                Matcher evenMatcher = EVEN_PATTERN.matcher(line);
+                if (evenMatcher.find()) {
+                    entries.add(BincludeEntry.alignment(2, lineNumber));
                 }
             }
         }
@@ -334,12 +383,51 @@ public class RomOffsetCalculator {
         final String label;
         final String filePath;
         final int lineNumber;
+        final int alignment;
 
         BincludeEntry(String label, String filePath, int lineNumber) {
             this.label = label;
             this.filePath = filePath;
             this.lineNumber = lineNumber;
+            this.alignment = 0;
         }
+
+        private BincludeEntry(int alignment, int lineNumber) {
+            this.label = null;
+            this.filePath = null;
+            this.lineNumber = lineNumber;
+            this.alignment = alignment;
+        }
+
+        static BincludeEntry alignment(int alignment, int lineNumber) {
+            return new BincludeEntry(alignment, lineNumber);
+        }
+
+        boolean isAlignmentEntry() {
+            return alignment > 0;
+        }
+    }
+
+    private static int parseAlignment(String value) {
+        if (value == null || value.isBlank()) {
+            return 0;
+        }
+        String trimmed = value.trim();
+        if (trimmed.startsWith("$")) {
+            return Integer.parseInt(trimmed.substring(1), 16);
+        }
+        if (trimmed.startsWith("0x") || trimmed.startsWith("0X")) {
+            return Integer.parseInt(trimmed.substring(2), 16);
+        }
+        return Integer.parseInt(trimmed, 10);
+    }
+
+    private static long alignOffset(long offset, int alignment) {
+        if (alignment <= 1) {
+            return offset;
+        }
+        long mask = alignment - 1L;
+        return (offset + mask) & ~mask;
     }
 
     /**

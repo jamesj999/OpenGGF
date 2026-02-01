@@ -123,6 +123,55 @@ public class CompressionTestTool {
     }
 
     /**
+     * Search the ROM for an exact raw byte match of the reference data.
+     * This is useful for compressed assets where the disassembly file is the
+     * exact compressed stream stored in the ROM.
+     *
+     * @return the ROM offset of the first match, or -1 if not found.
+     */
+    public long findRawMatch(byte[] referenceData, long startOffset, long endOffset) throws IOException {
+        if (referenceData == null || referenceData.length == 0) {
+            return -1;
+        }
+
+        byte[] data = getRomData();
+        int refLen = referenceData.length;
+        int start = (int) Math.max(0, startOffset);
+        int maxEnd = endOffset > 0 ? (int) Math.min(endOffset, data.length) : data.length;
+        int maxStart = maxEnd - refLen;
+        if (maxStart < start) {
+            return -1;
+        }
+
+        byte first = referenceData[0];
+        byte last = referenceData[refLen - 1];
+
+        for (int i = start; i <= maxStart; i++) {
+            if (data[i] != first) {
+                continue;
+            }
+            if (refLen > 1 && data[i + refLen - 1] != last) {
+                continue;
+            }
+            if (matchesAt(data, referenceData, i)) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private boolean matchesAt(byte[] data, byte[] referenceData, int offset) {
+        int refLen = referenceData.length;
+        for (int j = 1; j < refLen - 1; j++) {
+            if (data[offset + j] != referenceData[j]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Search the entire ROM for a matching compressed version of the reference data.
      */
     public CompressionTestResult searchEntireRom(CompressionType type, byte[] referenceData) throws IOException {

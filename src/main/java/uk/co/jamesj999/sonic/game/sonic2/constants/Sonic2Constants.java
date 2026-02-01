@@ -345,6 +345,9 @@ public class Sonic2Constants {
 
     // Breakable Block (Object 0x32) - CPZ metal blocks / HTZ rocks
     public static final int ART_NEM_CPZ_METAL_BLOCK_ADDR = 0x827B8;  // ArtNem_CPZMetalBlock (verified)
+    public static final int ART_NEM_HTZ_ROCK_ADDR = 0x0F0C14;        // ArtNem_HtzRock (verified)
+    public static final int MAP_UNC_OBJ32_HTZ_ADDR = 0x23852;        // Obj32_MapUnc_23852 (HTZ rock)
+    public static final int MAP_UNC_OBJ32_CPZ_ADDR = 0x23886;        // Obj32_MapUnc_23886 (CPZ metal block)
 
     // CPZ/OOZ/WFZ Moving Platform (Object 0x19)
     public static final int MAP_UNC_OBJ19_ADDR = 0x2222A;  // Obj19_MapUnc_2222A
