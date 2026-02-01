@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.audio.GameSound;
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
@@ -9,9 +10,12 @@ import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.*;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.physics.Direction;
+import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * CNZ LauncherSpring Object (Obj85).
@@ -23,7 +27,7 @@ import java.util.List;
  * Subtypes:
  * <ul>
  *   <li><b>0x00</b>: Vertical spring (launches straight up)</li>
- *   <li><b>0x81</b>: Diagonal spring (launches up-left, bit 7 indicates diagonal mode)</li>
+ *   <li><b>0x81</b>: Diagonal spring (always launches up-right, bit 7 indicates diagonal mode)</li>
  * </ul>
  * <p>
  * Launch velocity formula: (compression + base) * 128
@@ -40,7 +44,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     // Subtype constants
     private static final int SUBTYPE_DIAGONAL_FLAG = 0x80;
 
-    // State constants (match ROM objoff_36 values)
+    // State constants (match ROM objoff_36/objoff_37 values)
     private static final int STATE_EMPTY = 0;
     private static final int STATE_STANDING = 1;
     private static final int STATE_LAUNCH_PENDING = 2;
@@ -59,16 +63,27 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     private static final int DIAGONAL_PLAYER_X_OFFSET = 0x13;    // 19 pixels from spring X
     private static final int DIAGONAL_PLAYER_Y_OFFSET = 0x13;    // 19 pixels above spring Y
 
-    // State tracking
+    /**
+     * Per-player state tracking.
+     * ROM uses objoff_36 (byte) for Player 1 and objoff_37 (byte) for Player 2,
+     * both stored within the same word. This allows both players to interact
+     * with the spring simultaneously.
+     */
+    private static class PlayerState {
+        int state = STATE_EMPTY;
+        int launchCooldown = 0;
+    }
+
+    // Per-player state map (ROM: objoff_36 for P1, objoff_37 for P2)
+    private final Map<AbstractPlayableSprite, PlayerState> playerStates = new HashMap<>();
+
+    // Shared spring state (affects all players equally)
     private int compression = 0;
-    private int playerState = STATE_EMPTY;  // STATE_EMPTY, STATE_STANDING, or STATE_LAUNCH_PENDING
     private int compressionFrameCounter = 0;
     private int mainSpriteFrame = 1;  // Main sprite frame (1 or 5 for vibration toggle)
     private int animationTimer = 0;  // For frame toggling animation
     private int baseX;  // Original X position (for diagonal movement)
     private int baseY;  // Original Y position (for spring movement)
-    private AbstractPlayableSprite trackedPlayer = null;  // Player currently on the spring
-    private int launchCooldown = 0;  // Prevents re-capture immediately after launch
 
     // Rendering state
     private int currentSpriteX;
@@ -112,14 +127,40 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
 
     @Override
     public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
-        if (player == null || launchCooldown > 0) {
+        if (player == null) {
             return;
         }
 
-        // Only handle initial landing - compression is handled in update()
+        PlayerState ps = playerStates.computeIfAbsent(player, k -> new PlayerState());
+
+        // Skip if player is in cooldown
+        if (ps.launchCooldown > 0) {
+            return;
+        }
+
+        // ROM: cmpi.b #4,routine(a1) - skip if hurt/dead (routine >= 4)
+        if (player.isHurt() || player.getDead()) {
+            return;
+        }
+
+        // Only handle initial capture - compression is handled in update()
         // This avoids issues where moving spring causes inconsistent contact callbacks
-        if (playerState == STATE_EMPTY && contact.standing() && player.getYSpeed() >= 0) {
-            enterSpring(player);
+        if (ps.state == STATE_EMPTY) {
+            // ROM behavior (lines 57673-57679):
+            // 1. Check standing bit - if standing, capture player
+            // 2. For diagonal springs: if not standing, check pushing bit
+            // 3. If pushing into diagonal spring from side, convert to standing (capture)
+            boolean shouldCapture = contact.standing() && player.getYSpeed() >= 0;
+
+            // Diagonal springs can also capture players who push into them from the side
+            // ROM: btst pushing_bit / bset standing_bit - converts side push to standing
+            if (!shouldCapture && isDiagonal() && contact.pushing()) {
+                shouldCapture = true;
+            }
+
+            if (shouldCapture) {
+                enterSpring(player, ps);
+            }
         }
     }
 
@@ -127,10 +168,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
      * Called when player first lands on the spring.
      * Locks controls and sets rolling state (ROM: loc_2AD26).
      */
-    private void enterSpring(AbstractPlayableSprite player) {
-        // Store player reference for update() to use
-        trackedPlayer = player;
-
+    private void enterSpring(AbstractPlayableSprite player, PlayerState ps) {
         // Lock player controls (obj_control = 0x81 in ROM)
         player.setControlLocked(true);
         player.setPinballMode(true);
@@ -156,10 +194,26 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
             player.setY((short) (player.getY() + player.getRollHeightAdjustment()));
         }
 
-        playerState = STATE_STANDING;
-        compression = 0;
-        compressionFrameCounter = 0;
+        ps.state = STATE_STANDING;
+
+        // Reset compression only if no other player is on the spring
+        if (!hasAnyPlayerOnSpring()) {
+            compression = 0;
+            compressionFrameCounter = 0;
+        }
         animationTimer = getMaxCompression() / 2;  // Initialize timer for animation
+    }
+
+    /**
+     * Checks if any player is currently standing on or launching from the spring.
+     */
+    private boolean hasAnyPlayerOnSpring() {
+        for (PlayerState ps : playerStates.values()) {
+            if (ps.state != STATE_EMPTY) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -171,7 +225,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
      * - The actual launch happens on the next frame when the per-player routine
      *   sees state 2, decrements it, and branches to launch code.
      */
-    private void handleCompression(AbstractPlayableSprite player) {
+    private void handleCompression(AbstractPlayableSprite player, PlayerState ps) {
         boolean jumpPressed = player.isJumpPressed();
 
         if (jumpPressed) {
@@ -187,7 +241,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
             // ROM: Button NOT pressed AND compression > 0 -> set state to 2
             // The ROM doesn't require a button release transition, just checks
             // if button is currently not pressed while compression exists.
-            playerState = STATE_LAUNCH_PENDING;
+            ps.state = STATE_LAUNCH_PENDING;
         }
         // If compression == 0 and button not pressed, player just stands there
         // Player position is updated in update() after updateSpringPosition()
@@ -255,43 +309,49 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
      * Launches the player with velocity based on compression.
      * ROM: loc_2AE0C (vertical) / loc_2B018 (diagonal)
      *
-     * ROM behavior: Both vertical and diagonal springs set in_air initially.
-     * Diagonal springs then clear in_air and set angle 0xE0 for slope running.
-     * However, our physics engine doesn't handle "imaginary slope" running,
-     * so we keep the player airborne for both types to ensure correct trajectory.
+     * Diagonal springs have two modes based on subtype:
+     * - Subtype 0x01 (bit 7 clear): Normal airborne launch
+     * - Subtype 0x81 (bit 7 set): "Slope running" mode - grounded with angle 0xE0
+     *
+     * Both modes launch UP-RIGHT (positive X, negative Y velocities).
+     * ROM: loc_2B018 - x_vel = +magnitude, y_vel = -magnitude
      */
-    private void launchPlayer(AbstractPlayableSprite player) {
+    private void launchPlayer(AbstractPlayableSprite player, PlayerState ps) {
         int launchMagnitude = (compression + getBaseVelocity()) << 7;
 
         if (isDiagonal()) {
-            // Diagonal launch - ROM always launches UP-RIGHT (positive X, negative Y)
-            // ROM: loc_2B018 - x_vel = +magnitude, y_vel = -magnitude
-            // Note: ROM doesn't vary direction based on render flags - all diagonal springs go right
-            int xVel = launchMagnitude;
-            int yVel = -launchMagnitude;
-
-            // Check render flags for horizontal flip - this flips the launch direction
-            if (isLeftFacing()) {
-                xVel = -xVel;
-            }
+            // Diagonal launch - ROM ALWAYS launches UP-RIGHT (positive X, negative Y)
+            // ROM: loc_2B018 - move.w d0,x_vel (positive), neg.w d0, move.w d0,y_vel (negative)
+            int xVel = launchMagnitude;   // Always positive (right)
+            int yVel = -launchMagnitude;  // Always negative (up)
 
             player.setXSpeed((short) xVel);
             player.setYSpeed((short) yVel);
 
-            // ROM sets inertia and clears in_air for diagonal springs, but our
-            // physics doesn't handle imaginary slope running, so keep airborne
+            // ROM: bset #status.player.in_air (set airborne first, may be cleared below)
             player.setAir(true);
-            player.setGSpeed((short) 0);
+            player.setGSpeed((short) 0x800);  // ROM: move.w #$800,inertia(a1)
 
-            // Set facing direction based on launch direction
-            player.setDirection(isLeftFacing() ? Direction.LEFT : Direction.RIGHT);
+            // ROM: tst.b subtype(a0) / bpl.s loc_2B068 - check bit 7
+            // If bit 7 SET (subtype 0x81): "slope running" mode
+            if ((spawn.subtype() & 0x80) != 0) {
+                // ROM: neg.w d0 / move.w d0,inertia(a1) - inertia = +launch magnitude
+                player.setGSpeed((short) launchMagnitude);
+                // ROM: bclr #status.player.in_air - make grounded
+                player.setAir(false);
+                // ROM: move.b #-$20,angle(a1) - angle 0xE0 (upward-right slope)
+                player.setAngle((byte) 0xE0);
+            }
+
+            // Always face right for diagonal launch (ROM: bclr #status.player.x_flip)
+            player.setDirection(Direction.RIGHT);
         } else {
             // Vertical launch - straight up, airborne
-            // ROM: loc_2AE0C - sets y_vel negative, x_vel=0, sets in_air
+            // ROM: loc_2AE0C - sets y_vel negative, x_vel=0, sets in_air, inertia=$800
             player.setYSpeed((short) -launchMagnitude);
             player.setXSpeed((short) 0);
             player.setAir(true);
-            player.setGSpeed((short) 0);
+            player.setGSpeed((short) 0x800);  // ROM: move.w #$800,inertia(a1)
         }
 
         // ROM: bclr #status.player.on_object,status(a1) - clear "standing on object" flag
@@ -313,34 +373,41 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         playLaunchSound();
 
         // Set cooldown to prevent immediate re-capture
-        launchCooldown = 16;
+        ps.launchCooldown = 16;
 
         // Release player controls
-        releasePlayer(player);
+        releasePlayer(player, ps);
     }
 
     /**
-     * Releases player controls and resets spring state.
+     * Releases player controls and resets per-player spring state.
      */
-    private void releasePlayer(AbstractPlayableSprite player) {
+    private void releasePlayer(AbstractPlayableSprite player, PlayerState ps) {
         player.setControlLocked(false);
         player.setPinballMode(false);
-        resetSpringState();
+        resetPlayerState(ps);
     }
 
     /**
-     * Resets spring internal state without modifying player.
-     * Used when player enters debug mode or otherwise leaves unexpectedly.
+     * Resets per-player state without modifying player or shared spring state.
+     * Used when player enters debug mode, goes off-screen, or otherwise leaves unexpectedly.
+     * Note: Compression is NOT zeroed here - it decays gradually in update().
+     * ROM: loc_2AD14 - subq.w #4,objoff_38(a0) decreases compression by 4 per frame.
      */
-    private void resetSpringState() {
-        playerState = STATE_EMPTY;
-        compression = 0;
+    private void resetPlayerState(PlayerState ps) {
+        ps.state = STATE_EMPTY;
+        // Note: compression is shared and decays in update() when no players are on spring
+    }
+
+    /**
+     * Resets shared spring animation state.
+     * Called when all players have left the spring.
+     */
+    private void resetAnimationState() {
         compressionFrameCounter = 0;
         mainSpriteFrame = 1;
         animationTimer = getMaxCompression() / 2;
-        trackedPlayer = null;
-        currentSpriteX = baseX;
-        currentSpriteY = baseY;
+        // Note: currentSpriteX/Y are NOT reset here - they update based on compression in update()
     }
 
     /**
@@ -374,49 +441,109 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        // Decrement launch cooldown
-        if (launchCooldown > 0) {
-            launchCooldown--;
+        Camera camera = Camera.getInstance();
+
+        // Process all tracked players (supports two-player mode)
+        // ROM uses objoff_36 for P1 and objoff_37 for P2
+        processPlayer(player, camera);
+
+        // Also process sidekick if present (two-player support)
+        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
+        if (sidekick != null && sidekick != player) {
+            processPlayer(sidekick, camera);
         }
 
-        // ROM state machine: Check for launch pending state FIRST (state 2 -> launch)
-        // This ensures the launch happens on the frame AFTER button release was detected
-        if (trackedPlayer != null && playerState == STATE_LAUNCH_PENDING) {
-            // State 2: Launch pending - ROM triggers launch when it sees this state
-            // ROM: loc_2AD7A decrements state, state 2->1 means D0!=0, branches to launch
-            launchPlayer(trackedPlayer);
-            return;  // Don't process anything else after launch
-        }
-
-        // Handle compression logic if player is standing on the spring (state 1)
-        if (trackedPlayer != null && playerState == STATE_STANDING) {
-            // Check if player entered debug mode
-            if (trackedPlayer.isDebugMode()) {
-                releasePlayer(trackedPlayer);
-                return;
+        // ROM: loc_2AD14 - When spring is empty, compression decays by 4 per frame
+        // This creates a gradual decompression animation instead of instant snap
+        if (!hasAnyPlayerOnSpring() && compression > 0) {
+            compression -= 4;
+            if (compression < 0) {
+                compression = 0;
             }
-
-            // Update compression state (may transition to STATE_LAUNCH_PENDING)
-            handleCompression(trackedPlayer);
+            // Reset animation state when spring becomes fully empty
+            if (compression == 0) {
+                resetAnimationState();
+            }
         }
 
         // Update spring position based on current compression
-        // This must happen after handleCompression so player position matches spring
+        // This must happen after handleCompression/decay so player position matches spring
         updateSpringPosition();
 
-        // If player is on spring (state 1 or 2), update their position to match the spring
-        if (trackedPlayer != null && playerState != STATE_EMPTY) {
-            if (isDiagonal()) {
-                trackedPlayer.setCentreX((short) (currentSpriteX + DIAGONAL_PLAYER_X_OFFSET));
-                trackedPlayer.setCentreY((short) (currentSpriteY - DIAGONAL_PLAYER_Y_OFFSET));
-            } else {
-                trackedPlayer.setCentreX((short) currentSpriteX);
-                trackedPlayer.setCentreY((short) (currentSpriteY - VERTICAL_PLAYER_Y_OFFSET));
+        // Update position of all players on the spring
+        for (Map.Entry<AbstractPlayableSprite, PlayerState> entry : playerStates.entrySet()) {
+            AbstractPlayableSprite p = entry.getKey();
+            PlayerState ps = entry.getValue();
+            if (ps.state != STATE_EMPTY) {
+                if (isDiagonal()) {
+                    p.setCentreX((short) (currentSpriteX + DIAGONAL_PLAYER_X_OFFSET));
+                    p.setCentreY((short) (currentSpriteY - DIAGONAL_PLAYER_Y_OFFSET));
+                } else {
+                    p.setCentreX((short) currentSpriteX);
+                    p.setCentreY((short) (currentSpriteY - VERTICAL_PLAYER_Y_OFFSET));
+                }
             }
         }
 
         // Update animation
         updateAnimationFrame();
+    }
+
+    /**
+     * Process a single player's interaction with the spring.
+     * Handles state machine, off-screen checks, hurt/dead checks, and compression.
+     */
+    private void processPlayer(AbstractPlayableSprite player, Camera camera) {
+        if (player == null) {
+            return;
+        }
+
+        PlayerState ps = playerStates.computeIfAbsent(player, k -> new PlayerState());
+
+        // Decrement launch cooldown
+        if (ps.launchCooldown > 0) {
+            ps.launchCooldown--;
+        }
+
+        // Skip processing if player is not on spring
+        if (ps.state == STATE_EMPTY) {
+            return;
+        }
+
+        // ROM: _btst #render_flags.on_screen,render_flags(a1) - release if off-screen
+        // This prevents the player from getting stuck if the camera moves away
+        if (camera != null && !camera.isOnScreen(player)) {
+            player.setAir(true);  // ROM: bset #status.player.in_air
+            releasePlayer(player, ps);
+            return;
+        }
+
+        // ROM: cmpi.b #4,routine(a1) - skip if hurt/dead (routine >= 4)
+        if (player.isHurt() || player.getDead()) {
+            releasePlayer(player, ps);
+            return;
+        }
+
+        // ROM state machine: Check for launch pending state FIRST (state 2 -> launch)
+        // This ensures the launch happens on the frame AFTER button release was detected
+        if (ps.state == STATE_LAUNCH_PENDING) {
+            // State 2: Launch pending - ROM triggers launch when it sees this state
+            // ROM: loc_2AD7A decrements state, state 2->1 means D0!=0, branches to launch
+            launchPlayer(player, ps);
+            return;
+        }
+
+        // Handle compression logic if player is standing on the spring (state 1)
+        if (ps.state == STATE_STANDING) {
+            // Check if player entered debug mode
+            if (player.isDebugMode()) {
+                releasePlayer(player, ps);
+                return;
+            }
+
+            // Update compression state (may transition to STATE_LAUNCH_PENDING)
+            handleCompression(player, ps);
+        }
     }
 
     @Override
@@ -439,18 +566,25 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
 
         // ROM uses multi-sprite rendering:
-        // Main sprite: body (frame 1 or 5 for vibration toggle)
-        // Sub-sprite: plunger base (frame 2 or 3 based on compression)
+        // Main sprite: body (frame 1 or 5 for vibration toggle) - moves with compression
+        // Sub-sprite: plunger base (frame 2 or 3 based on compression) - stays at ORIGINAL position
+        //
+        // ROM behavior (obj85_a.asm / obj85_b.asm):
+        // - Init sets sub2_y_pos ONCE to baseY + 0x20 (vertical) or baseY (diagonal)
+        // - Only main sprite y_pos updates during compression
+        // - Sub-sprite position is NEVER touched after initialization
         renderer.drawFrameIndex(mainSpriteFrame, currentSpriteX, currentSpriteY, hFlip, vFlip);
 
         // Sub-sprite: plunger base (frame 2 if compression < 0x10, frame 3 otherwise)
+        // CRITICAL: Sub-sprite stays at ORIGINAL base position, not compressed position!
+        // This creates the visual effect of the main body compressing toward the fixed plunger base.
         int subFrame = (compression >= 0x10) ? 3 : 2;
         if (isDiagonal()) {
-            // Diagonal: sub-sprite at same position as main
-            renderer.drawFrameIndex(subFrame, currentSpriteX, currentSpriteY, hFlip, vFlip);
+            // Diagonal: sub-sprite at original base position
+            renderer.drawFrameIndex(subFrame, baseX, baseY, hFlip, vFlip);
         } else {
-            // Vertical: sub-sprite 32 pixels below main (ROM: spring Y + $20)
-            renderer.drawFrameIndex(subFrame, currentSpriteX, currentSpriteY + 0x20, hFlip, vFlip);
+            // Vertical: sub-sprite at original base position + 32 pixels (ROM: baseY + $20)
+            renderer.drawFrameIndex(subFrame, baseX, baseY + 0x20, hFlip, vFlip);
         }
     }
 

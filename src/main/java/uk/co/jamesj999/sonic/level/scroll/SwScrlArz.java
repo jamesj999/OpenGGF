@@ -47,6 +47,10 @@ public class SwScrlArz implements ZoneScrollHandler {
     private int maxScrollOffset;
     private short vscrollFactorBG;
 
+    // Screen shake offsets for FG/sprite rendering
+    private int shakeOffsetX = 0;
+    private int shakeOffsetY = 0;
+
     // 16.16 fixed-point background camera accumulators
     private long arzBgXPos; // Target BG X position (16.16 in long to avoid overflow)
     private long arzBgXPosFast; // Actual BG X position (16.16)
@@ -234,23 +238,25 @@ public class SwScrlArz implements ZoneScrollHandler {
         // ==================== Step 6: Fill Scroll Buffer ====================
         // Check for screen shake (ROM: Screen_Shaking_Flag)
         boolean shaking = GameServices.gameState().isScreenShakeActive();
-        int shakeOffsetX = 0;
-        int shakeOffsetY = 0;
+
+        // Reset shake offsets each frame
+        this.shakeOffsetX = 0;
+        this.shakeOffsetY = 0;
 
         if (shaking && tables != null) {
             // ROM: Uses ripple data for shake offsets
             // Horizontal offset at index (frameCounter & 0x3F) + 1
             // Vertical offset at index (frameCounter & 0x3F)
             int rippleIndex = frameCounter & 0x3F;
-            shakeOffsetY = tables.getRippleSigned(rippleIndex);
+            this.shakeOffsetY = tables.getRippleSigned(rippleIndex);
             if (rippleIndex + 1 < tables.getRippleDataLength()) {
-                shakeOffsetX = tables.getRippleSigned(rippleIndex + 1);
+                this.shakeOffsetX = tables.getRippleSigned(rippleIndex + 1);
             }
             // Apply vertical shake to vscrollFactorBG
-            vscrollFactorBG = (short) ((arzBgYPos >> 16) + shakeOffsetY);
+            vscrollFactorBG = (short) ((arzBgYPos >> 16) + this.shakeOffsetY);
         }
 
-        short fgScroll = negWord(cameraX + shakeOffsetX);
+        short fgScroll = negWord(cameraX + this.shakeOffsetX);
         int currentLine = 0;
         int rowIdx = currentRowIndex;
         int pixelsInRow = remainingInRow;
@@ -260,7 +266,7 @@ public class SwScrlArz implements ZoneScrollHandler {
             int count = Math.min(pixelsInRow, VISIBLE_LINES - currentLine);
 
             for (int k = 0; k < count; k++) {
-                short bgScroll = negWord(speed + shakeOffsetX);
+                short bgScroll = negWord(speed + this.shakeOffsetX);
                 horizScrollBuf[currentLine++] = packScrollWords(fgScroll, bgScroll);
 
                 int offset = bgScroll - fgScroll;
@@ -323,5 +329,19 @@ public class SwScrlArz implements ZoneScrollHandler {
      */
     public int getBgY() {
         return arzBgYPos >> 16;
+    }
+
+    /**
+     * @return Horizontal shake offset for this frame (pixels)
+     */
+    public int getShakeOffsetX() {
+        return shakeOffsetX;
+    }
+
+    /**
+     * @return Vertical shake offset for this frame (pixels)
+     */
+    public int getShakeOffsetY() {
+        return shakeOffsetY;
     }
 }

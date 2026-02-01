@@ -322,6 +322,11 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new LavaMarkerObjectInstance(spawn,
                         registry.getPrimaryName(spawn.objectId())));
 
+        // HTZ Rising Lava (invisible solid platform during earthquake)
+        registerFactory(Sonic2ObjectIds.RISING_LAVA,
+                (spawn, registry) -> new RisingLavaObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
         // HTZ Seesaw (Object 0x14)
         registerFactory(Sonic2ObjectIds.SEESAW,
                 (spawn, registry) -> new SeesawObjectInstance(spawn,
@@ -330,6 +335,11 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         // HTZ Zipline Lift (Object 0x16)
         registerFactory(Sonic2ObjectIds.HTZ_LIFT,
                 (spawn, registry) -> new HTZLiftObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // HTZ Smashable Ground (Object 0x2F) - breakable rock platform
+        registerFactory(Sonic2ObjectIds.SMASHABLE_GROUND,
+                (spawn, registry) -> new SmashableGroundObjectInstance(spawn,
                         registry.getPrimaryName(spawn.objectId())));
     }
 }

@@ -73,6 +73,7 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
     private int widthPixels;
     private int mappingFrame;
     private boolean movingUp;   // routine_secondary - true when moving up
+    private boolean wasMovingUp; // Previous frame's movingUp state for detection boundary calculation
     private boolean xFlip;
 
     private ObjectSpawn dynamicSpawn;
@@ -99,20 +100,23 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        // Reset movement flag each frame
-        movingUp = false;
-
-        // Calculate detection boundaries based on flip state
+        // Calculate detection boundaries using PREVIOUS frame's movingUp state
+        // ROM behavior: detection boundaries are calculated using routine_secondary from the previous frame,
+        // then routine_secondary is cleared to 0, then character detection is performed.
+        // This allows the expanded detection zone to persist for one extra frame.
         int detectLeft, detectRight;
         if (!xFlip) {
-            // Normal: check from left boundary to current x (or right boundary if moving)
+            // Normal: check from left boundary to current x (or right boundary if was moving)
             detectLeft = leftBoundary;
-            detectRight = movingUp ? rightBoundary : x;
+            detectRight = wasMovingUp ? rightBoundary : x;
         } else {
-            // Flipped: check from current x (or left boundary if moving) to right boundary
-            detectLeft = movingUp ? leftBoundary : x;
+            // Flipped: check from current x (or left boundary if was moving) to right boundary
+            detectLeft = wasMovingUp ? leftBoundary : x;
             detectRight = rightBoundary;
         }
+
+        // Reset movement flag for this frame (ROM clears routine_secondary here)
+        movingUp = false;
 
         int detectTop = baseY - DETECTION_Y_HALF;
         int detectBottom = baseY + DETECTION_Y_HALF;
@@ -152,6 +156,9 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
         // Update Y position: y_pos = base_y - rise_offset
         y = baseY - riseOffset;
 
+        // Save current movingUp state for next frame's detection boundary calculation
+        wasMovingUp = movingUp;
+
         refreshDynamicSpawn();
     }
 
@@ -166,8 +173,10 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
             return;
         }
 
-        int charX = character.getX();
-        int charY = character.getY();
+        // ROM uses x_pos(a1) and y_pos(a1) which are CENTER coordinates
+        // Must use getCentreX/getCentreY to match ROM behavior (see CLAUDE.md)
+        int charX = character.getCentreX();
+        int charY = character.getCentreY();
 
         // Check X boundaries (character must be >= left and < right)
         if (charX < left || charX >= right) {
@@ -234,6 +243,7 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
         y = baseY;
         riseOffset = 0;
         movingUp = false;
+        wasMovingUp = false;
 
         // Get subtype (mapping frame)
         mappingFrame = spawn.subtype() & 0x03;

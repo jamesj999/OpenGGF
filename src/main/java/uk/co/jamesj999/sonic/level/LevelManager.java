@@ -85,6 +85,7 @@ public class LevelManager {
     private static final float SWITCHER_DEBUG_B = 0.1f;
     private static final float SWITCHER_DEBUG_ALPHA = 0.35f;
     private static final int OBJECT_PATTERN_BASE = 0x20000;
+    private static final int HUD_PATTERN_BASE = 0x28000;
     private static LevelManager levelManager;
     private Level level;
     private Game game;
@@ -430,7 +431,14 @@ public class LevelManager {
 
             objectRenderManager = new ObjectRenderManager(provider);
             LOGGER.info("Initializing Object Art. Base Index: " + OBJECT_PATTERN_BASE);
-            int hudBaseIndex = objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
+            objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
+
+            // Register SmashableGround art (uses level patterns, must be after level load)
+            if (provider instanceof uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtProvider sonic2Provider) {
+                sonic2Provider.registerSmashableGroundSheet(level);
+                // Re-cache patterns to include the newly registered sheet
+                objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
+            }
 
             hudRenderManager = new HudRenderManager(graphicsManager);
             // Wire up HUD to unified UI render pipeline
@@ -438,6 +446,8 @@ public class LevelManager {
                 graphicsManager.getUiRenderPipeline().setHudRenderManager(hudRenderManager);
             }
 
+            // HUD uses a fixed pattern base to avoid collisions with dynamically registered object sheets
+            int hudBaseIndex = HUD_PATTERN_BASE;
             Pattern[] hudDigits = provider.getHudDigitPatterns();
             if (hudDigits != null) {
                 LOGGER.info("Cached " + hudDigits.length + " HUD Digit patterns at index " + hudBaseIndex);
@@ -594,6 +604,13 @@ public class LevelManager {
         }
 
         parallaxManager.update(currentZone, currentAct, camera, frameCounter, bgScrollY, level);
+
+        // Propagate shake offsets from parallax manager to camera
+        // This allows FG tilemap and sprite rendering to use shake-adjusted positions
+        camera.setShakeOffsets(
+                parallaxManager.getShakeOffsetX(),
+                parallaxManager.getShakeOffsetY());
+
         collisionCommands.clear();
 
         // Update water shader state before rendering level
@@ -1046,12 +1063,15 @@ public class LevelManager {
         WaterSystem waterSystem = WaterSystem.getInstance();
         boolean hasWater = waterSystem.hasWater(level.getZoneIndex(), currentAct);
         int waterLevel = hasWater ? waterSystem.getVisualWaterLevelY(level.getZoneIndex(), currentAct) : 0;
-        float waterlineScreenY = (float) (waterLevel - camera.getY());
+        // Use shake-adjusted Y for water line calculation
+        float waterlineScreenY = (float) (waterLevel - camera.getYWithShake());
 
         int screenW = cachedScreenWidth;
         int screenH = cachedScreenHeight;
-        float worldOffsetX = camera.getX();
-        float worldOffsetY = camera.getY();
+        // Use shake-adjusted camera positions for FG tilemap rendering
+        // This makes the foreground tiles shake in sync with sprites
+        float worldOffsetX = camera.getXWithShake();
+        float worldOffsetY = camera.getYWithShake();
 
         Integer atlasId = graphicsManager.getPatternAtlasTextureId();
         Integer paletteId = graphicsManager.getCombinedPaletteTextureId();

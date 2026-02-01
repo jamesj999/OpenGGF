@@ -78,6 +78,8 @@ public class ObjectDiscoveryTool {
             0x2B,  // RisingPillar (ARZ pillar that rises and launches player)
             0x2C,  // LeavesGenerator (ARZ falling leaves trigger)
             0x2D,  // Barrier (one-way rising platform)
+            0x2F,  // SmashableGround (HTZ breakable rock platform)
+            0x30,  // RisingLava (HTZ invisible solid platform during earthquakes)
             0x26,  // Monitor
             0x31,  // LavaMarker (HTZ/MTZ invisible lava hazard zone)
             0x32,  // BreakableBlock (CPZ metal blocks / HTZ rocks)

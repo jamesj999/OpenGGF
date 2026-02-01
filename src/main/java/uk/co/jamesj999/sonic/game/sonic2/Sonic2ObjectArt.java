@@ -2147,11 +2147,17 @@ public class Sonic2ObjectArt {
     /**
      * Creates mappings for Points (Obj29).
      * Based on obj29.asm.
+     * <p>
+     * Frame assignments:
+     * - Frames 0-4: Standard badnik kill points (100, 200, 500, 1000, 10)
+     * - Frame 5: 1000 points alt (for chain bonus max)
+     * - Frame 6: Reserved for future use
      */
     private List<SpriteMappingFrame> createPointsMappings() {
         List<SpriteMappingFrame> frames = new ArrayList<>();
 
         // Frame 0: 100 points (-8, -8, 2x2, tile 2)
+        // Used for badnik kills and SmashableObject_LoadPoints when counter >= 6
         frames.add(createSimpleFrame(-8, -8, 2, 2, 2));
 
         // Frame 1: 200 points (-8, -8, 2x2, tile 6)
@@ -2160,14 +2166,27 @@ public class Sonic2ObjectArt {
         // Frame 2: 500 points (-8, -8, 2x2, tile 10 ($A))
         frames.add(createSimpleFrame(-8, -8, 2, 2, 10));
 
-        // Frame 3: 1000 points
+        // Frame 3: 1000 points (tiles 0 + 14)
         List<SpriteMappingPiece> frame3 = new ArrayList<>();
         frame3.add(new SpriteMappingPiece(-8, -8, 1, 2, 0, false, false, 0));
         frame3.add(new SpriteMappingPiece(0, -8, 2, 2, 14, false, false, 0));
         frames.add(new SpriteMappingFrame(frame3));
 
-        // Frame 4: 10 points
+        // Frame 4: 10 points (tile 0 = "1" single digit, used for "10")
         frames.add(createSimpleFrame(-4, -8, 1, 2, 0));
+
+        // Frame 5: 1000 points alternative (tiles 2 + 14)
+        // Used for chain bonus max ($A/2 = 5)
+        List<SpriteMappingPiece> frame5 = new ArrayList<>();
+        frame5.add(new SpriteMappingPiece(-16, -8, 2, 2, 2, false, false, 0));
+        frame5.add(new SpriteMappingPiece(0, -8, 2, 2, 14, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame5));
+
+        // Frame 6: 5000 points (tiles 10 + 14) - reserved
+        List<SpriteMappingPiece> frame6 = new ArrayList<>();
+        frame6.add(new SpriteMappingPiece(-16, -8, 2, 2, 10, false, false, 0));
+        frame6.add(new SpriteMappingPiece(0, -8, 2, 2, 14, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame6));
 
         return frames;
     }
@@ -4109,6 +4128,178 @@ public class Sonic2ObjectArt {
 
         // Frame 20: Empty/placeholder
         frames.add(new SpriteMappingFrame(new ArrayList<>()));
+
+        return frames;
+    }
+
+    /**
+     * Load Smashable Ground sprite sheet (Object 0x2F) - breakable rock platform in HTZ.
+     * <p>
+     * This object uses LEVEL patterns (ArtTile_ArtKos_LevelArt), not dedicated object art.
+     * The patterns must be extracted from the level at runtime.
+     * <p>
+     * From s2.asm obj2F.asm mappings, the tile indices used are:
+     * - 0x12, 0x16: Top rock patterns (4x2 = 8 tiles or 2x2 = 4 tiles each)
+     * - 0x4A: Upper-middle patterns (2x2 = 4 tiles)
+     * - 0x4E: Lower-middle patterns (2x2 = 4 tiles)
+     * - 0x52: Base/bottom patterns (2x2 = 4 tiles)
+     * <p>
+     * Palette: Line 2 (standard level palette)
+     *
+     * @param level The level to extract patterns from
+     * @return sprite sheet for smashable ground, or null if level is null
+     */
+    public ObjectSpriteSheet loadSmashableGroundSheet(uk.co.jamesj999.sonic.level.Level level) {
+        if (level == null) {
+            return null;
+        }
+
+        // Extract the needed patterns from level data
+        // The highest tile index used is 0x52 + (2*2) = 0x56
+        // We need tiles from 0x12 to around 0x56
+        int maxTileNeeded = 0x56;
+        int patternCount = level.getPatternCount();
+        if (patternCount < maxTileNeeded) {
+            LOGGER.warning("Level has fewer patterns than SmashableGround needs: "
+                    + patternCount + " < " + maxTileNeeded);
+            // Still try to load what we can
+        }
+
+        // Extract patterns for the object
+        // We'll create a local pattern array with remapped indices
+        // Pattern indices used: 0x12, 0x16, 0x4A, 0x4E, 0x52
+        // We'll create a compact array where:
+        // - Index 0 = level pattern 0x12
+        // - Index 8 = level pattern 0x16 (for the 4x2 top section)
+        // - Index 12 = level pattern 0x4A
+        // - Index 16 = level pattern 0x4E
+        // - Index 20 = level pattern 0x52
+        // This allows us to use the mapping offsets directly
+
+        // Actually, let's just copy enough patterns from the level to cover
+        // the range 0x00 to 0x56, and use the original tile indices
+        int copyCount = Math.min(patternCount, maxTileNeeded + 4);
+        Pattern[] patterns = new Pattern[copyCount];
+        for (int i = 0; i < copyCount; i++) {
+            patterns[i] = level.getPattern(i);
+        }
+
+        List<SpriteMappingFrame> mappings = createSmashableGroundMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 2, 1);
+    }
+
+    /**
+     * Creates mappings for Smashable Ground (Obj2F).
+     * Based on mappings/sprite/obj2F.asm
+     * <p>
+     * 5 destruction states with different heights:
+     * - Frame 0: Full (y_radius=36) - 9 pieces
+     * - Frame 1: Partly broken 1 (y_radius=32) - 10 pieces
+     * - Frame 2: Partly broken 2 (y_radius=32) - 8 pieces
+     * - Frame 3: Partly broken 3 (y_radius=24) - 6 pieces
+     * - Frame 4: Partly broken 4 (y_radius=16) - 4 pieces
+     * - Frame 5: Partly broken 5 (y_radius=8) - 2 pieces
+     * <p>
+     * Note: The mapping table has entries for states 0,2,2,4,4,6,6,8,8
+     * (indices 0-9), with some duplicates. We implement the unique frames.
+     */
+    private List<SpriteMappingFrame> createSmashableGroundMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_obj2F_0014): Full intact platform - 9 pieces
+        // spritePiece -$10, -$28, 4, 2, $12 - top (4x2 = 8 tiles)
+        // spritePiece -$10, -$18, 2, 2, $4A - upper-middle left
+        // spritePiece    0, -$18, 2, 2, $4A - upper-middle right
+        // spritePiece -$10,   -8, 2, 2, $4E - middle left
+        // spritePiece    0,   -8, 2, 2, $4E - middle right
+        // spritePiece -$10,    8, 2, 2, $52 - lower left
+        // spritePiece    0,    8, 2, 2, $52 - lower right
+        // spritePiece -$10,  $18, 2, 2, $52 - bottom left
+        // spritePiece    0,  $18, 2, 2, $52 - bottom right
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x10, -0x28, 4, 2, 0x12, false, false, 0));
+        frame0.add(new SpriteMappingPiece(-0x10, -0x18, 2, 2, 0x4A, false, false, 0));
+        frame0.add(new SpriteMappingPiece(0, -0x18, 2, 2, 0x4A, false, false, 0));
+        frame0.add(new SpriteMappingPiece(-0x10, -8, 2, 2, 0x4E, false, false, 0));
+        frame0.add(new SpriteMappingPiece(0, -8, 2, 2, 0x4E, false, false, 0));
+        frame0.add(new SpriteMappingPiece(-0x10, 8, 2, 2, 0x52, false, false, 0));
+        frame0.add(new SpriteMappingPiece(0, 8, 2, 2, 0x52, false, false, 0));
+        frame0.add(new SpriteMappingPiece(-0x10, 0x18, 2, 2, 0x52, false, false, 0));
+        frame0.add(new SpriteMappingPiece(0, 0x18, 2, 2, 0x52, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1 (Map_obj2F_005E): Partly broken 1 - 10 pieces (top split into 2x2 + 2x2)
+        // spritePiece -$10, -$28, 2, 2, $12 - top-left
+        // spritePiece    0, -$28, 2, 2, $16 - top-right
+        // ... rest same as frame 0
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-0x10, -0x28, 2, 2, 0x12, false, false, 0));
+        frame1.add(new SpriteMappingPiece(0, -0x28, 2, 2, 0x16, false, false, 0));
+        frame1.add(new SpriteMappingPiece(-0x10, -0x18, 2, 2, 0x4A, false, false, 0));
+        frame1.add(new SpriteMappingPiece(0, -0x18, 2, 2, 0x4A, false, false, 0));
+        frame1.add(new SpriteMappingPiece(-0x10, -8, 2, 2, 0x4E, false, false, 0));
+        frame1.add(new SpriteMappingPiece(0, -8, 2, 2, 0x4E, false, false, 0));
+        frame1.add(new SpriteMappingPiece(-0x10, 8, 2, 2, 0x52, false, false, 0));
+        frame1.add(new SpriteMappingPiece(0, 8, 2, 2, 0x52, false, false, 0));
+        frame1.add(new SpriteMappingPiece(-0x10, 0x18, 2, 2, 0x52, false, false, 0));
+        frame1.add(new SpriteMappingPiece(0, 0x18, 2, 2, 0x52, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2 (Map_obj2F_00B0): Partly broken 2 - 8 pieces (no top layer)
+        // spritePiece -$10, -$20, 2, 2, $4A - upper left (shifted up)
+        // spritePiece    0, -$20, 2, 2, $4A - upper right
+        // spritePiece -$10, -$10, 2, 2, $4E
+        // spritePiece    0, -$10, 2, 2, $4E
+        // spritePiece -$10,    0, 2, 2, $52
+        // spritePiece    0,    0, 2, 2, $52
+        // spritePiece -$10,  $10, 2, 2, $52
+        // spritePiece    0,  $10, 2, 2, $52
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-0x10, -0x20, 2, 2, 0x4A, false, false, 0));
+        frame2.add(new SpriteMappingPiece(0, -0x20, 2, 2, 0x4A, false, false, 0));
+        frame2.add(new SpriteMappingPiece(-0x10, -0x10, 2, 2, 0x4E, false, false, 0));
+        frame2.add(new SpriteMappingPiece(0, -0x10, 2, 2, 0x4E, false, false, 0));
+        frame2.add(new SpriteMappingPiece(-0x10, 0, 2, 2, 0x52, false, false, 0));
+        frame2.add(new SpriteMappingPiece(0, 0, 2, 2, 0x52, false, false, 0));
+        frame2.add(new SpriteMappingPiece(-0x10, 0x10, 2, 2, 0x52, false, false, 0));
+        frame2.add(new SpriteMappingPiece(0, 0x10, 2, 2, 0x52, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3 (Map_obj2F_00F2): Partly broken 3 - 6 pieces
+        // spritePiece -$10, -$18, 2, 2, $4E
+        // spritePiece    0, -$18, 2, 2, $4E
+        // spritePiece -$10,   -8, 2, 2, $52
+        // spritePiece    0,   -8, 2, 2, $52
+        // spritePiece -$10,    8, 2, 2, $52
+        // spritePiece    0,    8, 2, 2, $52
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(-0x10, -0x18, 2, 2, 0x4E, false, false, 0));
+        frame3.add(new SpriteMappingPiece(0, -0x18, 2, 2, 0x4E, false, false, 0));
+        frame3.add(new SpriteMappingPiece(-0x10, -8, 2, 2, 0x52, false, false, 0));
+        frame3.add(new SpriteMappingPiece(0, -8, 2, 2, 0x52, false, false, 0));
+        frame3.add(new SpriteMappingPiece(-0x10, 8, 2, 2, 0x52, false, false, 0));
+        frame3.add(new SpriteMappingPiece(0, 8, 2, 2, 0x52, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame3));
+
+        // Frame 4 (Map_obj2F_0124): Partly broken 4 - 4 pieces
+        // spritePiece -$10, -$10, 2, 2, $52
+        // spritePiece    0, -$10, 2, 2, $52
+        // spritePiece -$10,    0, 2, 2, $52
+        // spritePiece    0,    0, 2, 2, $52
+        List<SpriteMappingPiece> frame4 = new ArrayList<>();
+        frame4.add(new SpriteMappingPiece(-0x10, -0x10, 2, 2, 0x52, false, false, 0));
+        frame4.add(new SpriteMappingPiece(0, -0x10, 2, 2, 0x52, false, false, 0));
+        frame4.add(new SpriteMappingPiece(-0x10, 0, 2, 2, 0x52, false, false, 0));
+        frame4.add(new SpriteMappingPiece(0, 0, 2, 2, 0x52, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame4));
+
+        // Frame 5 (Map_obj2F_0146): Partly broken 5 - 2 pieces (smallest)
+        // spritePiece -$10,   -8, 2, 2, $52
+        // spritePiece    0,   -8, 2, 2, $52
+        List<SpriteMappingPiece> frame5 = new ArrayList<>();
+        frame5.add(new SpriteMappingPiece(-0x10, -8, 2, 2, 0x52, false, false, 0));
+        frame5.add(new SpriteMappingPiece(0, -8, 2, 2, 0x52, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame5));
 
         return frames;
     }

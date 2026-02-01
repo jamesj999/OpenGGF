@@ -16,6 +16,11 @@ public class Camera {
 	private short maxX;
 	private short maxY;
 
+	// Screen shake offsets (ROM: applied to Camera_X_pos_copy and Camera_Y_pos_copy)
+	// These offsets affect both FG tiles and sprites to create unified screen shake.
+	private short shakeOffsetX = 0;
+	private short shakeOffsetY = 0;
+
 	// Target boundaries for smooth easing (ROM: Camera_Max_Y_pos_target, etc.)
 	private short minXTarget;
 	private short minYTarget;
@@ -383,6 +388,46 @@ public class Camera {
 
 	public void setY(short y) {
 		this.y = y;
+	}
+
+	/**
+	 * Sets the screen shake offsets (ROM: applied to Camera_X_pos_copy and Camera_Y_pos_copy).
+	 * These offsets are used by the rendering system to shake both foreground tiles and sprites.
+	 *
+	 * @param x horizontal shake offset in pixels
+	 * @param y vertical shake offset in pixels
+	 */
+	public void setShakeOffsets(int x, int y) {
+		this.shakeOffsetX = (short) x;
+		this.shakeOffsetY = (short) y;
+	}
+
+	/**
+	 * @return Current horizontal shake offset in pixels
+	 */
+	public short getShakeOffsetX() {
+		return shakeOffsetX;
+	}
+
+	/**
+	 * @return Current vertical shake offset in pixels
+	 */
+	public short getShakeOffsetY() {
+		return shakeOffsetY;
+	}
+
+	/**
+	 * @return Camera X position with shake offset applied (for rendering)
+	 */
+	public short getXWithShake() {
+		return (short) (x + shakeOffsetX);
+	}
+
+	/**
+	 * @return Camera Y position with shake offset applied (for rendering)
+	 */
+	public short getYWithShake() {
+		return (short) (y + shakeOffsetY);
 	}
 
 	public short getWidth() {

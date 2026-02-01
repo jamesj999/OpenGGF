@@ -74,6 +74,10 @@ public class ParallaxManager {
     private int currentZone = -1;
     private int currentAct = -1;
 
+    // Screen shake offsets propagated from zone handlers
+    private int currentShakeOffsetX = 0;
+    private int currentShakeOffsetY = 0;
+
     // Pre-allocated arrays to avoid per-frame allocations
     private final int[] wfzOffsets = new int[4];
 
@@ -158,6 +162,28 @@ public class ParallaxManager {
     }
 
     /**
+     * Get the current horizontal shake offset for this frame.
+     * This is propagated from the active zone scroll handler when screen shake is active.
+     * Used by LevelManager to set camera shake offsets for FG tiles and sprites.
+     *
+     * @return Horizontal shake offset in pixels, or 0 if no shake
+     */
+    public int getShakeOffsetX() {
+        return currentShakeOffsetX;
+    }
+
+    /**
+     * Get the current vertical shake offset for this frame.
+     * This is propagated from the active zone scroll handler when screen shake is active.
+     * Used by LevelManager to set camera shake offsets for FG tiles and sprites.
+     *
+     * @return Vertical shake offset in pixels, or 0 if no shake
+     */
+    public int getShakeOffsetY() {
+        return currentShakeOffsetY;
+    }
+
+    /**
      * Set the screen shake flag for MCZ.
      * @deprecated Use GameServices.gameState().setScreenShakeActive() directly.
      *             Screen shake is now a global state that all zones check.
@@ -169,17 +195,22 @@ public class ParallaxManager {
 
     /**
      * Set the HTZ screen shake mode flag.
-     * @deprecated Use GameServices.gameState().setScreenShakeActive() directly.
-     *             Screen shake is now a global state that all zones check.
+     * This sets the HTZ-specific flag (Screen_Shaking_Flag_HTZ) which stays
+     * active for the entire earthquake sequence, as well as the general
+     * screen shake flag for visual shake effects.
      */
-    @Deprecated
     public void setHtzScreenShake(boolean active) {
+        GameServices.gameState().setHtzScreenShakeActive(active);
         GameServices.gameState().setScreenShakeActive(active);
     }
 
     public void update(int zoneId, int actId, Camera cam, int frameCounter, int bgScrollY) {
         minScroll = Integer.MAX_VALUE;
         maxScroll = Integer.MIN_VALUE;
+
+        // Reset shake offsets at start of frame
+        currentShakeOffsetX = 0;
+        currentShakeOffsetY = 0;
 
         if (!loaded) {
             fillMinimal(cam);
@@ -222,6 +253,9 @@ public class ParallaxManager {
                     minScroll = arzHandler.getMinScrollOffset();
                     maxScroll = arzHandler.getMaxScrollOffset();
                     vscrollFactorBG = arzHandler.getVscrollFactorBG();
+                    // Capture shake offsets for FG tiles and sprites
+                    currentShakeOffsetX = arzHandler.getShakeOffsetX();
+                    currentShakeOffsetY = arzHandler.getShakeOffsetY();
                 }
                 break;
             case ZONE_CNZ:
@@ -244,6 +278,9 @@ public class ParallaxManager {
                     vscrollFactorBG = htzHandler.getVscrollFactorBG();
                     if (GameServices.gameState().isScreenShakeActive()) {
                         vscrollFactorFG = htzHandler.getVscrollFactorFG();
+                        // Capture shake offsets for FG tiles and sprites
+                        currentShakeOffsetX = htzHandler.getShakeOffsetX();
+                        currentShakeOffsetY = htzHandler.getShakeOffsetY();
                     }
                 } else {
                     fillHtz(cameraX, bgScrollY);
@@ -256,6 +293,9 @@ public class ParallaxManager {
                     maxScroll = mczHandler.getMaxScrollOffset();
                     vscrollFactorBG = mczHandler.getVscrollFactorBG();
                     vscrollFactorFG = mczHandler.getVscrollFactorFG();
+                    // Capture shake offsets for FG tiles and sprites
+                    currentShakeOffsetX = mczHandler.getShakeOffsetX();
+                    currentShakeOffsetY = mczHandler.getShakeOffsetY();
                     // Update bgCamera for renderer's vertical scroll
                     bgCamera.setBgYPos(mczHandler.getBgY());
                 }

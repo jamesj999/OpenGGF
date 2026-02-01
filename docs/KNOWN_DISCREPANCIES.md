@@ -6,7 +6,7 @@ This document tracks intentional deviations from the original Sonic 2 ROM implem
 
 1. [Gloop Sound Toggle](#gloop-sound-toggle)
 2. [Spindash Release Transpose Fix](#spindash-release-transpose-fix)
-3. [Pattern ID Ranges for GUI/Results Screen](#pattern-id-ranges-for-guiresults-screen)
+3. [Pattern ID Ranges](#pattern-id-ranges-for-guiresults-screen)
 
 ---
 
@@ -107,7 +107,7 @@ Spindash Release now includes the initial FM5 hit before the delayed PSG noise, 
 
 ---
 
-## Pattern ID Ranges for GUI/Results Screen
+## Pattern ID Ranges
 
 **Location:** `LevelManager.java`, `ObjectRenderManager.java`, `PatternAtlas.java`
 **ROM Reference:** VDP VRAM tile management
@@ -126,22 +126,25 @@ move.w  #tiles_to_bytes(ArtTile_Title_Card),d0
 
 ### Our Implementation
 
-We use **extended pattern ID ranges** that don't overlap with level tile indices:
+We use **extended pattern ID ranges** with fixed bases that don't overlap:
 
-| Category | Pattern ID Range | Notes |
-|----------|------------------|-------|
-| Level tiles | 0 - ~2047 | Corresponds to VRAM tile indices |
-| Objects, HUD, Results | 0x20000+ | Far above VRAM range, no collision |
+| Base | Category | Notes |
+|------|----------|-------|
+| `0x00000` | Level tiles | Corresponds to VRAM tile indices (0-~2047) |
+| `0x01000` | Special Stage | Track, objects, HUD for special stages |
+| `0x10000` | Results Screen | End-of-act results screen patterns |
+| `0x20000` | Objects | Monitors, springs, badniks, zone-specific objects |
+| `0x28000` | HUD | Score, time, rings display (fixed base) |
+| `0x30000` | Water surface | Underwater palette transition patterns |
+| `0x40000` | Title Card | Zone/act title card patterns |
 
 ```java
 // LevelManager.java
 private static final int OBJECT_PATTERN_BASE = 0x20000;
-
-// ObjectRenderManager caches patterns starting at this base
-int hudBaseIndex = objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
+private static final int HUD_PATTERN_BASE = 0x28000;
 ```
 
-The `PatternAtlas` stores all patterns in a single HashMap keyed by pattern ID. By using IDs starting at `OBJECT_PATTERN_BASE` (0x20000 = 131072), we ensure they never collide with level patterns.
+The `PatternAtlas` stores all patterns in a HashMap keyed by pattern ID. Each category has a fixed base to prevent collisions when new sheets are dynamically registered (e.g., zone-specific objects like SmashableGround in HTZ).
 
 ### Rationale
 

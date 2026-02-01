@@ -106,6 +106,7 @@ public final class Sonic2ObjectIds {
     // HTZ Objects
     public static final int HTZ_LIFT = 0x16;          // HTZ Zipline Lift (Obj16) - diagonal moving platform
     public static final int SMASHABLE_GROUND = 0x2F;  // Smashable Ground (Obj2F) - breakable rock platform
+    public static final int RISING_LAVA = 0x30;       // Rising Lava (Obj30) - invisible solid platform during earthquakes
     public static final int LAVA_MARKER = 0x31;       // Lava Marker (Obj31) - invisible hazard collision zone
 
     // CNZ/MTZ/WFZ Objects

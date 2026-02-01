@@ -1,12 +1,12 @@
 # Sonic 2 Object Implementation Checklist
 
-Generated: 2026-02-01 19:51:55
+Generated: 2026-02-01 22:34:58
 
 ## Summary
 
 - **Total unique objects found:** 120
-- **Implemented:** 57 (47.5%)
-- **Unimplemented:** 63 (52.5%)
+- **Implemented:** 61 (50.8%)
+- **Unimplemented:** 59 (49.2%)
 
 ## Implemented Objects
 
@@ -17,7 +17,9 @@ Generated: 2026-02-01 19:51:55
 | 0x0B | TippingFloor | 18 | CPZ1, CPZ2 |
 | 0x0D | GoalPlate | 13 | EHZ1, EHZ2, CPZ1, ARZ1, CNZ1, CNZ2, HTZ1, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2 |
 | 0x11 | Bridge | 14 | EHZ1, EHZ2 |
+| 0x14 | Seesaw | 13 | HTZ1, HTZ2 |
 | 0x15 | SwingingPlatform | 7 | ARZ2, MCZ1, MCZ2 |
+| 0x16 | HTZLift | 14 | HTZ1, HTZ2 |
 | 0x18 | ARZPlatform | 71 | EHZ1, EHZ2, ARZ1, ARZ2, HTZ1, HTZ2 |
 | 0x19 | CPZPlatform | 55 | CPZ1, CPZ2, OOZ1, OOZ2, WFZ1 |
 | 0x1B | SpeedBooster | 20 | CPZ1, CPZ2 |
@@ -32,6 +34,8 @@ Generated: 2026-02-01 19:51:55
 | 0x2B | RisingPillar | 11 | ARZ1, ARZ2 |
 | 0x2C | LeavesGenerator | 43 | ARZ1, ARZ2 |
 | 0x2D | Barrier | 35 | CPZ1, CPZ2, HTZ1, HTZ2, MTZ1, MTZ2, MTZ3, WFZ1, DEZ1 |
+| 0x2F | SmashableGround | 40 | HTZ1, HTZ2 |
+| 0x30 | RisingLava | 7 | HTZ1, HTZ2 |
 | 0x31 | LavaMarker | 50 | HTZ1, HTZ2, MTZ2, MTZ3 |
 | 0x32 | BreakableBlock | 28 | CPZ1, CPZ2, HTZ1, HTZ2 |
 | 0x36 | Spikes | 204 | EHZ1, EHZ2, CPZ2, ARZ1, CNZ1, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3 |
@@ -78,7 +82,6 @@ Generated: 2026-02-01 19:51:55
 | 0x65 | Object | MTZLongPlatform | 81 | MTZ1, MTZ2, MTZ3 |
 | 0x3F | Object | Fan | 60 | OOZ1, OOZ2 |
 | 0x66 | Object | MTZSpringWall | 60 | MTZ1, MTZ2, MTZ3 |
-| 0x2F | Object | SmashableGround | 40 | HTZ1, HTZ2 |
 | 0x48 | Object | LauncherBall | 32 | OOZ1, OOZ2 |
 | 0x4A | Badnik | Octus | 28 | OOZ1, OOZ2 |
 | 0x69 | Object | Nut | 28 | MTZ1, MTZ2, MTZ3 |
@@ -96,11 +99,9 @@ Generated: 2026-02-01 19:51:55
 | 0x42 | Object | SteamSpring | 18 | MTZ1, MTZ2, MTZ3 |
 | 0x50 | Badnik | Aquis | 16 | OOZ1, OOZ2 |
 | 0x71 | Object | MTZLavaBubble | 15 | MTZ2, MTZ3 |
-| 0x16 | Object | HTZLift | 14 | HTZ1, HTZ2 |
 | 0x47 | Object | Button | 14 | MTZ1, MTZ2, MTZ3 |
 | 0x70 | Object | Cog | 14 | MTZ2, MTZ3 |
 | 0x76 | Object | SlidingSpikes | 14 | MCZ1, MCZ2 |
-| 0x14 | Object | Seesaw | 13 | HTZ1, HTZ2 |
 | 0x2A | Object | Stomper | 13 | MCZ1, MCZ2 |
 | 0xB4 | Object | VPropeller | 13 | SCZ1, WFZ1 |
 | 0x67 | Object | MTZSpinTube | 12 | MTZ1, MTZ2, MTZ3 |
@@ -115,7 +116,6 @@ Generated: 2026-02-01 19:51:55
 | 0xB5 | Object | HPropeller | 10 | SCZ1, WFZ1 |
 | 0x9F | Badnik | Shellcracker | 9 | MTZ1, MTZ2, MTZ3 |
 | 0xC0 | Object | SpeedLauncher | 8 | WFZ1 |
-| 0x30 | Object | RisingLava | 7 | HTZ1, HTZ2 |
 | 0x6A | Object | MCZRotPforms | 7 | MCZ1, MCZ2, MTZ3 |
 | 0xBE | Object | LateralCannon | 7 | WFZ1 |
 | 0x3D | Object | OOZLauncher | 6 | OOZ1, OOZ2 |
@@ -377,7 +377,7 @@ Total: 254 objects | Implemented: 19 | Unimplemented: 0
 
 #### Act 1
 
-Total: 144 objects | Implemented: 13 | Unimplemented: 7
+Total: 144 objects | Implemented: 17 | Unimplemented: 3
 
 **Badniks:**
 - [ ] 0x92 Spiker (x6) [0x0A]
@@ -387,14 +387,14 @@ Total: 144 objects | Implemented: 13 | Unimplemented: 7
 **Objects:**
 - [x] 0x03 LayerSwitcher (x18) [12 subtypes]
 - [x] 0x0D GoalPlate (x1) [0x00]
-- [ ] 0x14 Seesaw (x9) [0x00]
-- [ ] 0x16 HTZLift (x4) [0x14, 0x1C]
+- [x] 0x14 Seesaw (x9) [0x00]
+- [x] 0x16 HTZLift (x4) [0x14, 0x1C]
 - [x] 0x18 ARZPlatform (x8) [4 subtypes]
 - [x] 0x1C Scenery (x16) [4 subtypes]
 - [x] 0x26 Monitor (x8) [0x04, 0x06, 0x07]
 - [x] 0x2D Barrier (x5) [0x00]
-- [ ] 0x2F SmashableGround (x10) [5 subtypes]
-- [ ] 0x30 RisingLava (x3) [0x00, 0x02, 0x04]
+- [x] 0x2F SmashableGround (x10) [5 subtypes]
+- [x] 0x30 RisingLava (x3) [0x00, 0x02, 0x04]
 - [x] 0x31 LavaMarker (x9) [0x01, 0x02]
 - [x] 0x32 BreakableBlock (x7) [0x00]
 - [x] 0x36 Spikes (x12) [0x00, 0x01]
@@ -405,7 +405,7 @@ Total: 144 objects | Implemented: 13 | Unimplemented: 7
 
 #### Act 2
 
-Total: 259 objects | Implemented: 13 | Unimplemented: 7
+Total: 259 objects | Implemented: 17 | Unimplemented: 3
 
 **Badniks:**
 - [ ] 0x92 Spiker (x17) [0x0A]
@@ -417,14 +417,14 @@ Total: 259 objects | Implemented: 13 | Unimplemented: 7
 
 **Objects:**
 - [x] 0x03 LayerSwitcher (x35) [19 subtypes]
-- [ ] 0x14 Seesaw (x4) [0x00]
-- [ ] 0x16 HTZLift (x10) [6 subtypes]
+- [x] 0x14 Seesaw (x4) [0x00]
+- [x] 0x16 HTZLift (x10) [6 subtypes]
 - [x] 0x18 ARZPlatform (x24) [6 subtypes]
 - [x] 0x1C Scenery (x35) [4 subtypes]
 - [x] 0x26 Monitor (x14) [4 subtypes]
 - [x] 0x2D Barrier (x10) [0x00]
-- [ ] 0x2F SmashableGround (x30) [10 subtypes]
-- [ ] 0x30 RisingLava (x4) [0x06, 0x08]
+- [x] 0x2F SmashableGround (x30) [10 subtypes]
+- [x] 0x30 RisingLava (x4) [0x06, 0x08]
 - [x] 0x31 LavaMarker (x21) [0x00, 0x01, 0x02]
 - [x] 0x32 BreakableBlock (x14) [0x00]
 - [x] 0x36 Spikes (x6) [0x00, 0x01]
