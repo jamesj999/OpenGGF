@@ -162,12 +162,14 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_CNZ) {
             registerSheet(Sonic2ObjectArtKeys.CNZ_BOSS, artLoader.loadCNZBossSheet());
         }
-        // HTZ objects (Object 0x14, 0x16) - only for HTZ
+        // HTZ objects (Object 0x14, 0x16, 0x2F) - only for HTZ
         // zoneIndex is the ROM zone ID (0x07 for HTZ)
         if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_HTZ) {
             registerSheet(Sonic2ObjectArtKeys.SEESAW, artLoader.loadSeesawSheet());
             registerSheet(Sonic2ObjectArtKeys.SEESAW_BALL, artLoader.loadSeesawBallSheet());
             registerSheet(Sonic2ObjectArtKeys.HTZ_LIFT, artLoader.loadHTZLiftSheet());
+            // SmashableGround uses level patterns - must be loaded after level is available
+            // This is registered separately via registerSmashableGroundSheet()
         }
 
         // CNZ objects (Sonic 2-specific)
@@ -342,5 +344,32 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
      */
     public ObjectArtData getArtData() {
         return artData;
+    }
+
+    /**
+     * Registers the SmashableGround sprite sheet using level patterns.
+     * This must be called AFTER the level is loaded since SmashableGround uses
+     * level art patterns (ArtTile_ArtKos_LevelArt) rather than dedicated object art.
+     * <p>
+     * Only registers if we're in HTZ (zone 0x07) and the level is available.
+     *
+     * @param level The loaded level to extract patterns from
+     */
+    public void registerSmashableGroundSheet(uk.co.jamesj999.sonic.level.Level level) {
+        if (level == null || artLoader == null) {
+            return;
+        }
+
+        // Only register for HTZ
+        int zoneIndex = level.getZoneIndex();
+        if (zoneIndex != uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_HTZ) {
+            return;
+        }
+
+        // Load and register the sheet
+        ObjectSpriteSheet sheet = artLoader.loadSmashableGroundSheet(level);
+        if (sheet != null) {
+            registerSheet(Sonic2ObjectArtKeys.SMASHABLE_GROUND, sheet);
+        }
     }
 }

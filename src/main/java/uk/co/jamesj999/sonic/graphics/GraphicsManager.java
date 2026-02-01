@@ -172,9 +172,10 @@ public class GraphicsManager {
 
 	/**
 	 * Flush all registered commands.
+	 * Uses shake-adjusted camera positions so sprites shake in sync with FG tiles.
 	 */
 	public void flush() {
-		flushWithCamera(camera.getX(), camera.getY(), camera.getWidth(), camera.getHeight());
+		flushWithCamera(camera.getXWithShake(), camera.getYWithShake(), camera.getWidth(), camera.getHeight());
 	}
 
 	/**

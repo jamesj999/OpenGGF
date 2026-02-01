@@ -39,24 +39,41 @@ public class PointsObjectInstance extends uk.co.jamesj999.sonic.level.objects.Ab
     }
 
     public void setScore(int points) {
+        // Frame indices based on our mappings (which follow obj29.asm):
+        // Frame 0: "100" (tile 2)
+        // Frame 1: "200" (tile 6)
+        // Frame 2: "500" (tile 10)
+        // Frame 3: "1000" (tiles 0+14)
+        // Frame 4: "10" (tile 0, single "1" digit)
+        // Frame 5: "1000" alt (tiles 2+14, for chain bonus max)
         switch (points) {
             case 10:
-                this.scoreFrame = 4;
+                this.scoreFrame = 4;  // "10" display
                 break;
-            case 100:
+            case 20:
+                // No dedicated "20" graphic in ROM; closest is "100"
+                // For accuracy, we could add a "20" frame, but for now use "100"
                 this.scoreFrame = 0;
                 break;
-            case 200:
-                this.scoreFrame = 1;
-                break;
-            case 500:
+            case 50:
+                // No dedicated "50" graphic in ROM; closest is "500"
+                // For accuracy, we could add a "50" frame, but for now use "500"
                 this.scoreFrame = 2;
                 break;
+            case 100:
+                this.scoreFrame = 0;  // "100"
+                break;
+            case 200:
+                this.scoreFrame = 1;  // "200"
+                break;
+            case 500:
+                this.scoreFrame = 2;  // "500"
+                break;
             case 1000:
-                this.scoreFrame = 3;
+                this.scoreFrame = 5;  // "1000" (large version)
                 break;
             default:
-                this.scoreFrame = 0; // Default 100
+                this.scoreFrame = 0; // Default to "100"
                 break;
         }
     }

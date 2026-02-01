@@ -36,6 +36,10 @@ public class SwScrlHtz implements ZoneScrollHandler {
     private short vscrollFactorBG;
     private short vscrollFactorFG;
 
+    // Screen shake offsets for FG/sprite rendering (calculated during updateScreenShake)
+    private int shakeOffsetX = 0;
+    private int shakeOffsetY = 0;
+
     // Cloud animation counter (TempArray_LayerDef+$22 equivalent)
     // Incremented by 4 each frame
     private int cloudCounter = 0;
@@ -103,6 +107,10 @@ public class SwScrlHtz implements ZoneScrollHandler {
         // Set vertical scroll factor from BG camera
         vscrollFactorBG = (short) bgCamera.getBgYPos();
         vscrollFactorFG = (short) cameraY;
+
+        // Reset shake offsets - will be set if screen shake is active
+        shakeOffsetX = 0;
+        shakeOffsetY = 0;
 
         if (GameServices.gameState().isScreenShakeActive()) {
             updateScreenShake(horizScrollBuf, cameraX, cameraY, frameCounter);
@@ -313,20 +321,24 @@ public class SwScrlHtz implements ZoneScrollHandler {
      */
     private void updateScreenShake(int[] horizScrollBuf, int cameraX, int cameraY, int frameCounter) {
         // Apply screen shake using ripple data
-        int shakeOffset = 0;
+        int shakeOffsetV = 0;
         int shakeOffsetH = 0;
 
         if (tables != null) {
             int rippleIndex = frameCounter & 0x3F;
-            shakeOffset = tables.getRippleSigned(rippleIndex);
+            shakeOffsetV = tables.getRippleSigned(rippleIndex);
             if (rippleIndex + 1 < tables.getRippleDataLength()) {
                 shakeOffsetH = tables.getRippleSigned(rippleIndex + 1);
             }
         }
 
+        // Store shake offsets for Camera to use for FG tiles and sprites
+        this.shakeOffsetX = shakeOffsetH;
+        this.shakeOffsetY = shakeOffsetV;
+
         // Update vscroll factors with shake
-        vscrollFactorFG = (short) (cameraY + shakeOffset);
-        vscrollFactorBG = (short) (bgCamera.getBgYPos() + shakeOffset);
+        vscrollFactorFG = (short) (cameraY + shakeOffsetV);
+        vscrollFactorBG = (short) (bgCamera.getBgYPos() + shakeOffsetV);
 
         // FG scroll with horizontal shake
         short fgScroll = negWord(cameraX + shakeOffsetH);
@@ -373,5 +385,19 @@ public class SwScrlHtz implements ZoneScrollHandler {
     @Override
     public int getMaxScrollOffset() {
         return maxScrollOffset;
+    }
+
+    /**
+     * @return Horizontal shake offset for this frame (pixels)
+     */
+    public int getShakeOffsetX() {
+        return shakeOffsetX;
+    }
+
+    /**
+     * @return Vertical shake offset for this frame (pixels)
+     */
+    public int getShakeOffsetY() {
+        return shakeOffsetY;
     }
 }
