@@ -28,7 +28,8 @@ import java.util.Map;
  * Subtypes:
  * <ul>
  *   <li><b>0x00</b>: Vertical spring (launches straight up)</li>
- *   <li><b>0x81</b>: Diagonal spring (always launches up-right, bit 7 indicates diagonal mode)</li>
+ *   <li><b>0x01-0x7F</b>: Diagonal spring with normal airborne launch</li>
+ *   <li><b>0x80-0xFF</b>: Diagonal spring with "slope running" mode (bit 7 = grounded launch)</li>
  * </ul>
  * <p>
  * Launch velocity formula: (compression + base) * 128
@@ -43,7 +44,9 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
     // Subtype constants
-    private static final int SUBTYPE_DIAGONAL_FLAG = 0x80;
+    // Note: Bit 7 (0x80) indicates "slope running" mode for diagonal springs,
+    // but ANY non-zero subtype is treated as diagonal (ROM: tst.b subtype(a0))
+    private static final int SUBTYPE_SLOPE_MODE_FLAG = 0x80;
 
     // State constants (match ROM objoff_36/objoff_37 values)
     private static final int STATE_EMPTY = 0;
@@ -107,10 +110,12 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     }
 
     /**
-     * Checks if this is a diagonal spring (subtype bit 7 set).
+     * Checks if this is a diagonal spring.
+     * ROM behavior (s2.asm:57411-57421): ANY non-zero subtype is treated as diagonal.
+     * The ROM uses "tst.b subtype(a0)" which checks for zero vs non-zero.
      */
     private boolean isDiagonal() {
-        return (spawn.subtype() & SUBTYPE_DIAGONAL_FLAG) != 0;
+        return spawn.subtype() != 0;
     }
 
     /**
@@ -351,8 +356,8 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
      * ROM: loc_2AE0C (vertical) / loc_2B018 (diagonal)
      *
      * Diagonal springs have two modes based on subtype:
-     * - Subtype 0x01 (bit 7 clear): Normal airborne launch
-     * - Subtype 0x81 (bit 7 set): "Slope running" mode - grounded with angle 0xE0
+     * - Subtype 0x01-0x7F (bit 7 clear): Normal airborne launch
+     * - Subtype 0x80-0xFF (bit 7 set): "Slope running" mode - grounded with angle 0xE0
      *
      * Both modes launch UP-RIGHT (positive X, negative Y velocities).
      * ROM: loc_2B018 - x_vel = +magnitude, y_vel = -magnitude
@@ -374,8 +379,8 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
             player.setGSpeed((short) 0x800);  // ROM: move.w #$800,inertia(a1)
 
             // ROM: tst.b subtype(a0) / bpl.s loc_2B068 - check bit 7
-            // If bit 7 SET (subtype 0x81): "slope running" mode
-            if ((spawn.subtype() & 0x80) != 0) {
+            // If bit 7 SET (subtype 0x80+): "slope running" mode
+            if ((spawn.subtype() & SUBTYPE_SLOPE_MODE_FLAG) != 0) {
                 // ROM: neg.w d0 / move.w d0,inertia(a1) - inertia = +launch magnitude
                 player.setGSpeed((short) launchMagnitude);
                 // ROM: bclr #status.player.in_air - make grounded
