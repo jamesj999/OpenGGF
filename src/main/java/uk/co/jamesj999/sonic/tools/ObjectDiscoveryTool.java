@@ -62,7 +62,9 @@ public class ObjectDiscoveryTool {
             0x0B,  // TippingFloor (CPZ)
             0x0D,  // Signpost
             0x11,  // Bridge
+            0x14,  // Seesaw (HTZ tilting platform with ball)
             0x15,  // SwingingPlatform
+            0x16,  // HTZLift (zipline diagonal sliding platform)
             0x18,  // ARZPlatform/EHZPlatform
             0x19,  // CPZPlatform/OOZMovingPform/WFZPlatform
             0x1B,  // SpeedBooster (CPZ)

@@ -79,6 +79,12 @@ public final class Sonic2ObjectArtKeys {
     // CNZ Badniks
     public static final String CRAWL = "crawl";
 
+    // HTZ Objects
+    public static final String SEESAW = "seesaw";
+    public static final String SEESAW_BALL = "seesaw_ball";
+    public static final String HTZ_LIFT = "htz_lift";
+    public static final String SMASHABLE_GROUND = "smashable_ground";
+
     // ARZ Objects
     public static final String ARROW_SHOOTER = "arrow_shooter";
 

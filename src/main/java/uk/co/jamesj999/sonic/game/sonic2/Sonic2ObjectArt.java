@@ -919,6 +919,53 @@ public class Sonic2ObjectArt {
         return new ObjectSpriteSheet(patterns, mappings, 1, 1);
     }
 
+    /**
+     * Load Seesaw (Obj14) sprite sheet - tilting platform from HTZ.
+     * ROM: ArtNem_HtzSeeSaw at 0xF096E, palette line 2
+     * 2 frames: tilted (0) and flat (1). Frame 2 uses frame 0 with x-flip.
+     */
+    public ObjectSpriteSheet loadSeesawSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_HTZ_SEESAW_ADDR, "HtzSeeSaw");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createSeesawMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 2, 0);
+    }
+
+    /**
+     * Load Seesaw Ball sprite sheet - ball child of Seesaw from HTZ.
+     * ROM: ArtNem_Sol at 0xF0D4A, palette line 0 (alternates with line 1 for animation)
+     * 2 frames: same sprite with different palette lines for blinking effect.
+     */
+    public ObjectSpriteSheet loadSeesawBallSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_SOL_ADDR, "Sol");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createSeesawBallMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Load HTZ Zipline Lift sprite sheet - diagonal moving platform from HTZ.
+     * ROM: ArtNem_HtzZipline at 0xF0602, palette line 2.
+     * 5 frames:
+     * - Frame 0: Main lift (10 pieces) - diagonal platform with cables
+     * - Frame 1: Variant lift (8 pieces)
+     * - Frame 2: Rope only (2 pieces) - shown after motion stops
+     * - Frame 3: Left stake (3 pieces) - for scenery
+     * - Frame 4: Right stake (3 pieces) - for scenery
+     */
+    public ObjectSpriteSheet loadHTZLiftSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_HTZ_ZIPLINE_ADDR, "HtzZipline");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createHTZLiftMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 2, 1);
+    }
+
     private AnimalType[] resolveZoneAnimals(int zoneIndex) {
         if (zoneIndex < 0 || zoneIndex >= ZONE_ANIMALS.length) {
             return DEFAULT_ANIMALS;
@@ -1919,6 +1966,124 @@ public class Sonic2ObjectArt {
         frame3.add(new SpriteMappingPiece(-32, 0, 3, 2, 0x24, true, false, 0));     // Left foot (H-flipped)
         frame3.add(new SpriteMappingPiece(-16, -16, 4, 4, 0x00, false, false, 0));  // Body
         frames.add(new SpriteMappingFrame(frame3));
+
+        return frames;
+    }
+
+    /**
+     * Creates mappings for Seesaw (Obj14) - tilting platform from HTZ.
+     * Based on obj14_a.asm (S2 disassembly).
+     * 2 frames: 0 = tilted right, 1 = flat
+     * Frame 2 (tilted left) reuses frame 0 with x-flip.
+     */
+    private List<SpriteMappingFrame> createSeesawMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Tilted right (Map_obj14_a_0008)
+        // spritePiece x, y, width, height, tile, hflip, vflip, pal, priority
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-8, -4, 2, 2, 0x14, false, false, 2));   // Fulcrum
+        frame0.add(new SpriteMappingPiece(-4, 12, 1, 2, 0x12, false, false, 1));   // Fulcrum base
+        frame0.add(new SpriteMappingPiece(-48, -28, 2, 2, 0x06, false, false, 2)); // Left end (high)
+        frame0.add(new SpriteMappingPiece(-32, -20, 2, 2, 0x0A, false, false, 2)); // Left-mid
+        frame0.add(new SpriteMappingPiece(-16, -12, 2, 2, 0x0A, false, false, 2)); // Center-left
+        frame0.add(new SpriteMappingPiece(0, -4, 2, 2, 0x0A, false, false, 2));    // Center
+        frame0.add(new SpriteMappingPiece(16, 4, 2, 2, 0x0A, false, false, 2));    // Center-right
+        frame0.add(new SpriteMappingPiece(32, 12, 2, 2, 0x0E, false, false, 2));   // Right end (low)
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1: Flat/balanced (Map_obj14_a_004A)
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-8, -4, 2, 2, 0x14, false, false, 2));   // Fulcrum
+        frame1.add(new SpriteMappingPiece(-4, 12, 1, 2, 0x12, false, false, 1));   // Fulcrum base
+        frame1.add(new SpriteMappingPiece(-48, -12, 2, 2, 0x00, false, false, 2)); // Left end
+        frame1.add(new SpriteMappingPiece(-32, -12, 2, 2, 0x02, false, false, 2)); // Left-mid
+        frame1.add(new SpriteMappingPiece(-16, -12, 2, 2, 0x02, false, false, 2)); // Center-left
+        frame1.add(new SpriteMappingPiece(0, -12, 2, 2, 0x02, false, false, 2));   // Center
+        frame1.add(new SpriteMappingPiece(16, -12, 2, 2, 0x02, false, false, 2));  // Center-right
+        frame1.add(new SpriteMappingPiece(32, -12, 2, 2, 0x00, true, false, 2));   // Right end (h-flip)
+        frames.add(new SpriteMappingFrame(frame1));
+
+        return frames;
+    }
+
+    /**
+     * Creates mappings for Seesaw Ball - Sol badnik ball on seesaw from HTZ.
+     * Based on obj14_b.asm (S2 disassembly).
+     * 2 frames with different palette lines for blinking effect.
+     */
+    private List<SpriteMappingFrame> createSeesawBallMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Palette line 0 (Map_obj14_b_0004)
+        // spritePiece -8, -8, 2, 2, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1: Palette line 1 (Map_obj14_b_000E)
+        // spritePiece -8, -8, 2, 2, 0, 0, 0, 1, 0
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        return frames;
+    }
+
+    /**
+     * Creates mappings for HTZ Zipline Lift (Obj16).
+     * Based on obj16.asm (S2 disassembly).
+     * 5 frames: main lift, variant, rope only, left stake, right stake.
+     */
+    private List<SpriteMappingFrame> createHTZLiftMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Map_obj16_000A - Main lift (10 pieces)
+        // spritePiece x, y, width, height, tile, hflip, vflip, pal, priority
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x1C, -0x3F, 2, 2, 0x00, false, false, 0)); // Top cable
+        frame0.add(new SpriteMappingPiece(-0x1A, -0x30, 1, 4, 0x04, false, false, 0)); // Cable segment
+        frame0.add(new SpriteMappingPiece(-0x1A, -0x10, 1, 4, 0x04, false, false, 0)); // Cable segment
+        frame0.add(new SpriteMappingPiece(-0x19, 0x10, 1, 2, 0x08, false, false, 0));  // Cable bottom
+        frame0.add(new SpriteMappingPiece(0x0C, -0x2B, 2, 2, 0x0A, false, false, 0));  // Top right cable
+        frame0.add(new SpriteMappingPiece(0x11, -0x20, 1, 4, 0x0E, false, false, 0));  // Right cable segment
+        frame0.add(new SpriteMappingPiece(0x11, 0x10, 1, 2, 0x12, false, false, 0));   // Right cable bottom
+        frame0.add(new SpriteMappingPiece(0x11, 0x00, 1, 4, 0x0E, false, false, 0));   // Right cable segment
+        frame0.add(new SpriteMappingPiece(-0x20, 0x20, 4, 2, 0x14, false, false, 0));  // Platform left
+        frame0.add(new SpriteMappingPiece(0x00, 0x20, 4, 2, 0x14, true, false, 0));    // Platform right (h-flip)
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1: Map_obj16_005C - Variant lift (8 pieces)
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-0x1C, -0x3F, 2, 2, 0x00, false, false, 0)); // Top cable
+        frame1.add(new SpriteMappingPiece(-0x1A, -0x30, 1, 4, 0x04, false, false, 0)); // Cable segment
+        frame1.add(new SpriteMappingPiece(-0x1A, -0x10, 1, 4, 0x04, false, false, 0)); // Cable segment
+        frame1.add(new SpriteMappingPiece(-0x1A, 0x10, 1, 2, 0x2C, false, false, 0));  // Different connector tile
+        frame1.add(new SpriteMappingPiece(0x0C, -0x2B, 2, 2, 0x0A, false, false, 0));  // Top right cable
+        frame1.add(new SpriteMappingPiece(0x11, -0x20, 1, 4, 0x0E, false, false, 0));  // Right cable segment
+        frame1.add(new SpriteMappingPiece(0x11, 0x18, 1, 2, 0x2E, false, false, 0));   // Different connector tile
+        frame1.add(new SpriteMappingPiece(0x11, 0x00, 1, 4, 0x0E, false, false, 0));   // Right cable segment
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2: Map_obj16_009E - Rope only (2 pieces)
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-0x20, 0x20, 4, 2, 0x14, false, false, 0));  // Platform left
+        frame2.add(new SpriteMappingPiece(0x00, 0x20, 4, 2, 0x14, true, false, 0));    // Platform right (h-flip)
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3: Map_obj16_00B0 - Left stake (3 pieces)
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(-8, -0x28, 2, 2, 0x1C, false, false, 0));    // Stake top
+        frame3.add(new SpriteMappingPiece(-8, -0x18, 2, 4, 0x20, false, false, 0));    // Stake middle
+        frame3.add(new SpriteMappingPiece(-8, 0x08, 2, 4, 0x20, false, false, 0));     // Stake bottom
+        frames.add(new SpriteMappingFrame(frame3));
+
+        // Frame 4: Map_obj16_00CA - Right stake (3 pieces)
+        List<SpriteMappingPiece> frame4 = new ArrayList<>();
+        frame4.add(new SpriteMappingPiece(-8, -0x28, 2, 2, 0x28, false, false, 0));    // Stake top (different tile)
+        frame4.add(new SpriteMappingPiece(-8, -0x18, 2, 4, 0x20, true, false, 0));     // Stake middle (h-flip)
+        frame4.add(new SpriteMappingPiece(-8, 0x08, 2, 4, 0x20, true, false, 0));      // Stake bottom (h-flip)
+        frames.add(new SpriteMappingFrame(frame4));
 
         return frames;
     }

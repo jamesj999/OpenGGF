@@ -162,6 +162,13 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_CNZ) {
             registerSheet(Sonic2ObjectArtKeys.CNZ_BOSS, artLoader.loadCNZBossSheet());
         }
+        // HTZ objects (Object 0x14, 0x16) - only for HTZ
+        // zoneIndex is the ROM zone ID (0x07 for HTZ)
+        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_HTZ) {
+            registerSheet(Sonic2ObjectArtKeys.SEESAW, artLoader.loadSeesawSheet());
+            registerSheet(Sonic2ObjectArtKeys.SEESAW_BALL, artLoader.loadSeesawBallSheet());
+            registerSheet(Sonic2ObjectArtKeys.HTZ_LIFT, artLoader.loadHTZLiftSheet());
+        }
 
         // CNZ objects (Sonic 2-specific)
         registerSheet(Sonic2ObjectArtKeys.BUMPER, artData.bumperSheet());
