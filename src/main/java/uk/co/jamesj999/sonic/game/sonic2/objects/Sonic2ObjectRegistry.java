@@ -269,7 +269,10 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
                         spawn.y(),
                         LevelManager.getInstance().getObjectRenderManager()));
 
-        registerFactory(Sonic2ObjectIds.SWINGING_PLATFORM, platformFactory);
+        // SwingingPlatform (Object 0x15) - chain-suspended platform in OOZ, ARZ, MCZ
+        registerFactory(Sonic2ObjectIds.SWINGING_PLATFORM,
+                (spawn, registry) -> new SwingingPlatformObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
 
         registerFactory(Sonic2ObjectIds.GENERIC_PLATFORM_A,
                 (spawn, registry) -> new ARZPlatformObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));

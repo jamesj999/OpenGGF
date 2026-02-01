@@ -199,11 +199,22 @@ public class ARZRotPformsObjectInstance extends AbstractObjectInstance
     /**
      * Update positions for all platforms and chain links based on current angle.
      * <p>
-     * The disassembly uses 16.16 fixed-point math:
-     * 1. CalcSine returns sin/cos as 16.16 fixed point (integer part in high word)
-     * 2. Values are shifted right 4 bits (asr.l #4) to scale the orbit radius
-     * 3. Positions are accumulated for chain links at 1/4, 1/2, 3/4 of full radius
-     * 4. Platforms are positioned at full radius (4× the base step)
+     * The disassembly uses 16.16 fixed-point math where fractional bits accumulate:
+     * <pre>
+     *   swap    d0          ; Move sine to HIGH word: d0.l = 0xSSSS0000
+     *   asr.l   #4,d0       ; 32-bit shift: HIGH = integer, LOW = 12-bit fractional
+     *   add.l   d0,d4       ; 32-bit add preserves fractional accumulation!
+     *   ...
+     *   swap    d4          ; Only at END extract integer part
+     * </pre>
+     * <p>
+     * To preserve subpixel precision, we multiply BEFORE dividing:
+     * <ul>
+     *   <li>ROM: {@code ((sin << 16) >> 4) * mult >> 16 = (sin * mult) >> 4}</li>
+     *   <li>Our fix: {@code (sin * mult) >> 4}</li>
+     * </ul>
+     * This ensures small sine values (e.g., 6) contribute to pixel positions
+     * instead of being truncated to zero by an early division.
      */
     private void updatePositions() {
         // Extract effective angle (high byte of 16-bit word, 68000 big-endian)
@@ -223,27 +234,22 @@ public class ARZRotPformsObjectInstance extends AbstractObjectInstance
                 armAngle = (effectiveAngle - ANGLE_120_DEGREES) & 0xFF;
             }
 
-            // Get sin/cos for this arm's angle
+            // Get sin/cos for this arm's angle (values range from -256 to +256)
             int sin = calcSine(armAngle);
             int cos = calcCosine(armAngle);
 
-            // After CalcSine and asr.l #4, the values are scaled:
-            // sin/16 and cos/16 in integer form (max ±16 pixels per step)
-            // The disassembly accumulates these: 1×, 2×, 3× for chains, 4× for platform
-            int sinStep = sin >> 4;  // sin/16
-            int cosStep = cos >> 4;  // cos/16
-
-            // Position chain links at 1×, 2×, 3× of the step (1/4, 1/2, 3/4 radius)
+            // Position chain links at 1×, 2×, 3× radius
+            // Multiply BEFORE dividing to preserve subpixel precision
             for (int c = 0; c < CHAINS_PER_ARM; c++) {
                 int multiplier = c + 1;  // 1, 2, 3
-                chainX[chainIndex] = initialX + (cosStep * multiplier);
-                chainY[chainIndex] = initialY + (sinStep * multiplier);
+                chainX[chainIndex] = initialX + ((cos * multiplier) >> 4);
+                chainY[chainIndex] = initialY + ((sin * multiplier) >> 4);
                 chainIndex++;
             }
 
-            // Position platform at 4× the step (full radius)
-            platformX[arm] = initialX + (cosStep * 4);
-            platformY[arm] = initialY + (sinStep * 4);
+            // Position platform at 4× radius
+            platformX[arm] = initialX + ((cos * 4) >> 4);
+            platformY[arm] = initialY + ((sin * 4) >> 4);
         }
     }
 

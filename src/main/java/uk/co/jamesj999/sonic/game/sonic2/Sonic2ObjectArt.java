@@ -524,6 +524,62 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load OOZ Swinging Platform sprite sheet (Object 0x15 in Oil Ocean Zone).
+     * <p>
+     * ROM: ArtNem_OOZSwingPlat at 0x80E26, palette line 2
+     * This is the dedicated art for OOZ; MCZ and ARZ use level art instead.
+     *
+     * @return sprite sheet for OOZ swinging platform, or null on failure
+     */
+    public ObjectSpriteSheet loadOOZSwingPlatformSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_OOZ_SWING_PLAT_ADDR, "OOZSwingPlatform");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createOOZSwingPlatformMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 2, 1);
+    }
+
+    /**
+     * Create mappings for OOZ Swinging Platform (Object 0x15).
+     * From obj15_a.asm:
+     * - Frame 0: Platform (4 pieces: 4x2 tiles each, forming 64x32 sprite)
+     * - Frame 1: Chain link (1 piece: 2x2 tiles, 16x16)
+     * - Frame 2: Same as frame 1 (chain variant)
+     * - Frame 3: Empty frame
+     */
+    private List<SpriteMappingFrame> createOOZSwingPlatformMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Platform (64x32 pixels, 4 pieces of 4x2 tiles)
+        // spritePiece -$20, -$10, 4, 2, 4, 0, 0, 1, 0
+        // spritePiece 0, -$10, 4, 2, $C, 0, 0, 1, 0
+        // spritePiece -$20, 0, 4, 2, $14, 0, 0, 1, 0
+        // spritePiece 0, 0, 4, 2, $14, 1, 0, 1, 0
+        List<SpriteMappingPiece> platformPieces = new ArrayList<>();
+        platformPieces.add(new SpriteMappingPiece(-0x20, -0x10, 4, 2, 4, false, false, 1));
+        platformPieces.add(new SpriteMappingPiece(0, -0x10, 4, 2, 0x0C, false, false, 1));
+        platformPieces.add(new SpriteMappingPiece(-0x20, 0, 4, 2, 0x14, false, false, 1));
+        platformPieces.add(new SpriteMappingPiece(0, 0, 4, 2, 0x14, true, false, 1));
+        frames.add(new SpriteMappingFrame(platformPieces));
+
+        // Frame 1: Chain link (16x16 pixels, 1 piece of 2x2 tiles)
+        // spritePiece -8, -8, 2, 2, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> chainPieces = new ArrayList<>();
+        chainPieces.add(new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(chainPieces));
+
+        // Frame 2: Same as frame 1 (chain variant)
+        frames.add(new SpriteMappingFrame(chainPieces));
+
+        // Frame 3: Empty frame
+        frames.add(new SpriteMappingFrame(List.of()));
+
+        return frames;
+    }
+
+    /**
      * Load OOZ Collapsing Platform sprite sheet (Object 0x1F in Oil Ocean Zone).
      * <p>
      * ROM: ArtNem_OOZPlatform at 0x809D0, palette line 3

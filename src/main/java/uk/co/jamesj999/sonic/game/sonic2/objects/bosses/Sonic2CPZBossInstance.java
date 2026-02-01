@@ -203,7 +203,10 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
             if ((state.yFixed >> 16) == MAIN_TARGET_Y) {
                 state.routine = MAIN_WAIT;
                 status ^= STATUS_SIDE;
-                status2 |= STATUS2_ACTION0; // Activate pipe
+                // Clear stale container flags before starting new attack cycle
+                status2 &= ~STATUS2_ACTION2;  // Clear container moving
+                status2 &= ~STATUS2_ACTION4;  // Clear container returning
+                status2 |= STATUS2_ACTION0;   // Activate pipe
             }
         } else {
             state.xVel = target > baseX ? MAIN_MOVE_VEL : -MAIN_MOVE_VEL;

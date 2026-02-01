@@ -127,6 +127,13 @@ public class Sonic2Constants {
     // Rotating Platforms (Object 0x83) - ARZ (shared mappings with Obj15 SwingingPlatform)
     public static final int MAP_UNC_OBJ83_ADDR = 0x1021E;  // Obj15_Obj83_MapUnc_1021E
 
+    // SwingingPlatform (Object 0x15) - chain-suspended platform in OOZ, ARZ, MCZ
+    public static final int ART_NEM_OOZ_SWING_PLAT_ADDR = 0x80E26;  // ArtNem_OOZSwingPlat (verified via RomOffsetFinder)
+    public static final int ART_TILE_OOZ_SWING_PLAT = 0x03E3;       // VRAM tile offset
+    public static final int MAP_UNC_OBJ15_A_ADDR = 0x101E8;         // OOZ mappings (Obj15_MapUnc_101E8)
+    public static final int MAP_UNC_OBJ15_MCZ_ADDR = 0x10256;       // MCZ mappings (Obj15_Obj7A_MapUnc_10256)
+    public static final int MAP_UNC_OBJ15_TRAP_ADDR = 0x102DE;      // MCZ trap mappings (Obj15_MapUnc_102DE)
+
     public static final int ZONE_AQUATIC_RUIN = 2;
 
     // Checkpoint/Starpost (Object $79)
