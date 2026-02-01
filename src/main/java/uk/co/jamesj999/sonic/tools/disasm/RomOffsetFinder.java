@@ -86,14 +86,31 @@ public class RomOffsetFinder {
         }
 
         long searchEnd = endOffset > 0 ? endOffset : Long.MAX_VALUE;
-        CompressionTestResult testResult = testTool.searchForMatch(type, referenceData, startOffset, searchEnd, 1);
+        long rawOffset = testTool.findRawMatch(referenceData, startOffset, searchEnd);
+        if (rawOffset >= 0) {
+            CompressionTestResult testResult;
+            if (type == CompressionType.UNCOMPRESSED) {
+                testResult = CompressionTestResult.success(type, rawOffset,
+                        referenceData.length, referenceData.length, referenceData);
+            } else {
+                CompressionTestResult decompressed = testTool.testDecompression(rawOffset, type);
+                if (decompressed.isSuccess()) {
+                    testResult = decompressed;
+                } else {
+                    testResult = CompressionTestResult.success(type, rawOffset,
+                            referenceData.length, 0, null);
+                }
+            }
+            return OffsetFinderResult.found(item, testResult);
+        }
 
+        CompressionTestResult testResult = testTool.searchForMatch(type, referenceData, startOffset, searchEnd, 1);
         if (testResult.isSuccess()) {
             return OffsetFinderResult.found(item, testResult);
-        } else {
-            return OffsetFinderResult.notFound(labelPattern,
-                    "Could not find matching ROM offset for " + item.getLabel());
         }
+
+        return OffsetFinderResult.notFound(labelPattern,
+                "Could not find matching ROM offset for " + item.getLabel());
     }
 
     /**
@@ -171,7 +188,9 @@ public class RomOffsetFinder {
 
         if (java.util.Arrays.equals(romBytes, referenceData)) {
             // Direct byte comparison matches - verified!
-            return VerificationResult.verified(label, calculatedOffset, type, referenceData.length);
+            VerificationResult result = VerificationResult.verified(label, calculatedOffset, type, referenceData.length);
+            offsetCalculator.addVerifiedAnchor(label, calculatedOffset);
+            return result;
         }
 
         // 5. Bytes don't match - search nearby for the actual location
@@ -181,7 +200,21 @@ public class RomOffsetFinder {
         for (long offset = searchStart; offset < searchEnd; offset++) {
             byte[] testBytes = testTool.readRomBytes(offset, referenceData.length);
             if (testBytes != null && java.util.Arrays.equals(testBytes, referenceData)) {
-                return VerificationResult.mismatch(label, calculatedOffset, offset, type, referenceData.length);
+                VerificationResult result = VerificationResult.mismatch(label, calculatedOffset, offset, type,
+                        referenceData.length);
+                offsetCalculator.addVerifiedAnchor(label, offset);
+                return result;
+            }
+        }
+
+        // Full ROM search for small assets to improve accuracy
+        if (referenceData.length <= 0x4000) {
+            long fullScanOffset = testTool.findRawMatch(referenceData, 0, Long.MAX_VALUE);
+            if (fullScanOffset >= 0) {
+                VerificationResult result = VerificationResult.mismatch(label, calculatedOffset, fullScanOffset, type,
+                        referenceData.length);
+                offsetCalculator.addVerifiedAnchor(label, fullScanOffset);
+                return result;
             }
         }
 
@@ -218,6 +251,8 @@ public class RomOffsetFinder {
                 // Add verified offsets as runtime anchors for better accuracy
                 if (result.isVerified()) {
                     offsetCalculator.addVerifiedAnchor(result.getLabel(), result.getCalculatedOffset());
+                } else if (result.getStatus() == VerificationResult.Status.MISMATCH) {
+                    offsetCalculator.addVerifiedAnchor(result.getLabel(), result.getVerifiedOffset());
                 }
             } catch (Exception e) {
                 results.add(VerificationResult.error(item.getLabel(), e.getMessage()));

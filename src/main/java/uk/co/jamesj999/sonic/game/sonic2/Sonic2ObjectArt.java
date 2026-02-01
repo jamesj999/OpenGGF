@@ -253,10 +253,25 @@ public class Sonic2ObjectArt {
         List<SpriteMappingFrame> blueBallsMappings = createBlueBallsMappings();
         ObjectSpriteSheet blueBallsSheet = new ObjectSpriteSheet(blueBallsPatterns, blueBallsMappings, 3, 0);
 
-        // CPZ Breakable Block art (Object 0x32) - metal blocks that shatter when rolled into
-        Pattern[] breakableBlockPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_CPZ_METAL_BLOCK_ADDR, "CPZMetalBlock");
-        List<SpriteMappingFrame> breakableBlockMappings = createBreakableBlockMappings();
-        ObjectSpriteSheet breakableBlockSheet = new ObjectSpriteSheet(breakableBlockPatterns, breakableBlockMappings, 3, 1);
+        // Breakable Block / Rock art (Object 0x32) - CPZ metal block or HTZ rock
+        ObjectArtConfig breakableBlockArtConfig = getObjectArtConfig(Sonic2ObjectIds.BREAKABLE_BLOCK, zoneIndex);
+        int breakableBlockArtAddr = breakableBlockArtConfig != null
+                ? breakableBlockArtConfig.artAddress()
+                : Sonic2Constants.ART_NEM_CPZ_METAL_BLOCK_ADDR;
+        int breakableBlockPalette = breakableBlockArtConfig != null
+                ? breakableBlockArtConfig.palette()
+                : 3;
+        String breakableBlockName = (zoneIndex == Sonic2Constants.ZONE_HTZ) ? "HTZRock" : "CPZMetalBlock";
+        Pattern[] breakableBlockPatterns = safeLoadNemesisPatterns(breakableBlockArtAddr, breakableBlockName);
+        int breakableBlockMapAddr = (zoneIndex == Sonic2Constants.ZONE_HTZ)
+                ? Sonic2Constants.MAP_UNC_OBJ32_HTZ_ADDR
+                : Sonic2Constants.MAP_UNC_OBJ32_CPZ_ADDR;
+        List<SpriteMappingFrame> breakableBlockMappings = loadMappingFrames(breakableBlockMapAddr);
+        if (breakableBlockMappings.isEmpty()) {
+            breakableBlockMappings = createBreakableBlockMappings();
+        }
+        ObjectSpriteSheet breakableBlockSheet = new ObjectSpriteSheet(
+                breakableBlockPatterns, breakableBlockMappings, breakableBlockPalette, 1);
 
         // CPZ/OOZ/WFZ Moving Platform art (Object 0x19)
         // Load art based on zone via ZoneArtProvider
