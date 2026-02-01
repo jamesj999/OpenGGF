@@ -1,6 +1,6 @@
 # Sonic 2 Object Implementation Checklist
 
-Generated: 2026-02-01 11:00:57
+Generated: 2026-02-01 12:08:41
 
 ## Summary
 
@@ -231,7 +231,7 @@ Total: 202 objects | Implemented: 21 | Unimplemented: 0
 - [x] 0xA7 Grabber (x3) [0x36]
 
 **Bosses:**
-- [ ] 0x5D CPZBoss *(dynamic)* - Water dropper boss
+- [x] 0x5D CPZBoss *(dynamic)* - Water dropper boss
 
 **Objects:**
 - [x] 0x03 LayerSwitcher (x59) [21 subtypes]
@@ -351,7 +351,7 @@ Total: 254 objects | Implemented: 19 | Unimplemented: 0
 - [x] 0xC8 Crawl (x6) [0xAC]
 
 **Bosses:**
-- [ ] 0x51 CNZBoss *(dynamic)* - Catcher boss
+- [x] 0x51 CNZBoss *(dynamic)* - Catcher boss
 
 **Objects:**
 - [x] 0x03 LayerSwitcher (x9) [0x50, 0xD0, 0x52]
