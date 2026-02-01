@@ -343,15 +343,24 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
      * Update platform and chain positions based on oscillation value.
      * <p>
      * Uses CalcSine to convert oscillation value to positional offset.
+     * The oscillation value is centered at 0x40 (64) for proper pendulum motion:
+     * <ul>
+     *   <li>oscValue 0x00: swing far left</li>
+     *   <li>oscValue 0x40: center position (hanging straight down)</li>
+     *   <li>oscValue 0x80: swing far right</li>
+     * </ul>
      */
     private void updatePositions(int oscValue) {
-        // Convert oscillation value (0-255) to angle
-        // The ROM uses this directly as a sine table lookup
-        int angle = oscValue & 0xFF;
+        // Center oscillation at 0x40 for pendulum motion
+        // This converts the oscillation range to a signed swing angle
+        // where 0 = hanging down, negative = left, positive = right
+        int swingAngle = (oscValue - 0x40) & 0xFF;
 
-        // Get sin/cos for the angle (values from -256 to +256)
-        int sin = calcSine(angle);
-        int cos = calcCosine(angle);
+        // Get sin/cos for the swing angle (values from -256 to +256)
+        // sin gives horizontal offset (negative = left, positive = right)
+        // cos gives vertical offset (always positive for |angle| <= 90°)
+        int sin = calcSine(swingAngle);
+        int cos = calcCosine(swingAngle);
 
         // Calculate platform position (at end of chain)
         // Chain length factor: 0x10 pixels per chain segment
@@ -424,8 +433,9 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
             }
         }
 
-        // Render chain links (frame 1)
-        if (mappings.size() > 1 && !displayOnly) {
+        // Render chain links (frame 1) at calculated positions
+        // Note: displayOnly flag affects behavior state, not rendering - chains still render
+        if (mappings.size() > 1) {
             SpriteMappingFrame chainFrame = mappings.get(1);
             if (chainFrame != null && !chainFrame.pieces().isEmpty()) {
                 for (int i = 0; i < chainCount; i++) {
