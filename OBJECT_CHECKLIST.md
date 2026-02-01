@@ -1,12 +1,12 @@
 # Sonic 2 Object Implementation Checklist
 
-Generated: 2026-02-01 12:08:41
+Generated: 2026-02-01 19:51:55
 
 ## Summary
 
 - **Total unique objects found:** 120
-- **Implemented:** 56 (46.7%)
-- **Unimplemented:** 64 (53.3%)
+- **Implemented:** 57 (47.5%)
+- **Unimplemented:** 63 (52.5%)
 
 ## Implemented Objects
 
@@ -32,6 +32,7 @@ Generated: 2026-02-01 12:08:41
 | 0x2B | RisingPillar | 11 | ARZ1, ARZ2 |
 | 0x2C | LeavesGenerator | 43 | ARZ1, ARZ2 |
 | 0x2D | Barrier | 35 | CPZ1, CPZ2, HTZ1, HTZ2, MTZ1, MTZ2, MTZ3, WFZ1, DEZ1 |
+| 0x31 | LavaMarker | 50 | HTZ1, HTZ2, MTZ2, MTZ3 |
 | 0x32 | BreakableBlock | 28 | CPZ1, CPZ2, HTZ1, HTZ2 |
 | 0x36 | Spikes | 204 | EHZ1, EHZ2, CPZ2, ARZ1, CNZ1, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3 |
 | 0x3E | EggPrison | 7 | EHZ2, CPZ2, ARZ2, CNZ2, HTZ2, MCZ2, MTZ3 |
@@ -77,7 +78,6 @@ Generated: 2026-02-01 12:08:41
 | 0x65 | Object | MTZLongPlatform | 81 | MTZ1, MTZ2, MTZ3 |
 | 0x3F | Object | Fan | 60 | OOZ1, OOZ2 |
 | 0x66 | Object | MTZSpringWall | 60 | MTZ1, MTZ2, MTZ3 |
-| 0x31 | Object | LavaMarker | 50 | HTZ1, HTZ2, MTZ2, MTZ3 |
 | 0x2F | Object | SmashableGround | 40 | HTZ1, HTZ2 |
 | 0x48 | Object | LauncherBall | 32 | OOZ1, OOZ2 |
 | 0x4A | Badnik | Octus | 28 | OOZ1, OOZ2 |
@@ -377,7 +377,7 @@ Total: 254 objects | Implemented: 19 | Unimplemented: 0
 
 #### Act 1
 
-Total: 144 objects | Implemented: 12 | Unimplemented: 8
+Total: 144 objects | Implemented: 13 | Unimplemented: 7
 
 **Badniks:**
 - [ ] 0x92 Spiker (x6) [0x0A]
@@ -395,7 +395,7 @@ Total: 144 objects | Implemented: 12 | Unimplemented: 8
 - [x] 0x2D Barrier (x5) [0x00]
 - [ ] 0x2F SmashableGround (x10) [5 subtypes]
 - [ ] 0x30 RisingLava (x3) [0x00, 0x02, 0x04]
-- [ ] 0x31 LavaMarker (x9) [0x01, 0x02]
+- [x] 0x31 LavaMarker (x9) [0x01, 0x02]
 - [x] 0x32 BreakableBlock (x7) [0x00]
 - [x] 0x36 Spikes (x12) [0x00, 0x01]
 - [x] 0x41 Spring (x8) [5 subtypes]
@@ -405,7 +405,7 @@ Total: 144 objects | Implemented: 12 | Unimplemented: 8
 
 #### Act 2
 
-Total: 259 objects | Implemented: 12 | Unimplemented: 8
+Total: 259 objects | Implemented: 13 | Unimplemented: 7
 
 **Badniks:**
 - [ ] 0x92 Spiker (x17) [0x0A]
@@ -425,7 +425,7 @@ Total: 259 objects | Implemented: 12 | Unimplemented: 8
 - [x] 0x2D Barrier (x10) [0x00]
 - [ ] 0x2F SmashableGround (x30) [10 subtypes]
 - [ ] 0x30 RisingLava (x4) [0x06, 0x08]
-- [ ] 0x31 LavaMarker (x21) [0x00, 0x01, 0x02]
+- [x] 0x31 LavaMarker (x21) [0x00, 0x01, 0x02]
 - [x] 0x32 BreakableBlock (x14) [0x00]
 - [x] 0x36 Spikes (x6) [0x00, 0x01]
 - [x] 0x3E EggPrison (x1) [0x00]
@@ -577,7 +577,7 @@ Total: 193 objects | Implemented: 10 | Unimplemented: 12
 
 #### Act 2
 
-Total: 220 objects | Implemented: 11 | Unimplemented: 16
+Total: 220 objects | Implemented: 12 | Unimplemented: 15
 
 **Badniks:**
 - [ ] 0x9F Shellcracker (x3) [0x24]
@@ -590,7 +590,7 @@ Total: 220 objects | Implemented: 11 | Unimplemented: 16
 - [x] 0x1C Scenery (x12) [0x00, 0x01, 0x03]
 - [x] 0x26 Monitor (x13) [4 subtypes]
 - [x] 0x2D Barrier (x3) [0x01]
-- [ ] 0x31 LavaMarker (x12) [0x01, 0x02]
+- [x] 0x31 LavaMarker (x12) [0x01, 0x02]
 - [x] 0x36 Spikes (x11) [0x00, 0x40]
 - [x] 0x41 Spring (x6) [0x00, 0x02]
 - [ ] 0x42 SteamSpring (x5) [0x01]
@@ -612,7 +612,7 @@ Total: 220 objects | Implemented: 11 | Unimplemented: 16
 
 #### Act 3
 
-Total: 270 objects | Implemented: 11 | Unimplemented: 18
+Total: 270 objects | Implemented: 12 | Unimplemented: 17
 
 **Badniks:**
 - [ ] 0x9F Shellcracker (x3) [0x24]
@@ -628,7 +628,7 @@ Total: 270 objects | Implemented: 11 | Unimplemented: 18
 - [x] 0x1C Scenery (x1) [0x03]
 - [x] 0x26 Monitor (x11) [4 subtypes]
 - [x] 0x2D Barrier (x4) [0x01]
-- [ ] 0x31 LavaMarker (x8) [0x01, 0x02]
+- [x] 0x31 LavaMarker (x8) [0x01, 0x02]
 - [x] 0x36 Spikes (x14) [5 subtypes]
 - [x] 0x3E EggPrison (x1) [0x00]
 - [x] 0x41 Spring (x9) [0x00, 0x10, 0x02]

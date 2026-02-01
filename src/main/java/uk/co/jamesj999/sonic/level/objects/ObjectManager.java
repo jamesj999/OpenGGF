@@ -208,16 +208,7 @@ public class ObjectManager {
 
         renderCommands.clear();
         for (ObjectInstance instance : instances) {
-            int cmdsBefore = renderCommands.size();
             instance.appendRenderCommands(renderCommands);
-            int cmdsAdded = renderCommands.size() - cmdsBefore;
-
-            // Alert if any object adds too many commands
-            if (cmdsAdded > 50) {
-                System.out.println("WARNING: " + instance.getClass().getSimpleName() +
-                        " at (" + instance.getX() + "," + instance.getY() +
-                        ") added " + cmdsAdded + " commands!");
-            }
         }
 
         if (renderCommands.isEmpty()) {

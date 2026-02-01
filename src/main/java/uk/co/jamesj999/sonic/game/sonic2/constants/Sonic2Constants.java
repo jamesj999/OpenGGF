@@ -409,6 +409,13 @@ public class Sonic2Constants {
     // HTZ ROM zone ID (from s2.constants.asm)
     public static final int ZONE_HTZ = 0x07;  // hill_top_zone
 
+    // HTZ Seesaw (Object 0x14)
+    public static final int ART_NEM_HTZ_SEESAW_ADDR = 0xF096E;  // Nemesis compressed
+    public static final int ART_NEM_SOL_ADDR = 0xF0D4A;         // Ball uses Sol badnik art
+
+    // HTZ Zipline Lift (Object 0x16)
+    public static final int ART_NEM_HTZ_ZIPLINE_ADDR = 0xF0602;  // Nemesis compressed
+
     // HTZ Dynamic Art Tile Indices (from s2.constants.asm)
     // These tiles are normally populated by Dynamic_HTZ at runtime
     // ArtTile_ArtUnc_HTZMountains = $0500 (24 tiles for mountain/cliff art)

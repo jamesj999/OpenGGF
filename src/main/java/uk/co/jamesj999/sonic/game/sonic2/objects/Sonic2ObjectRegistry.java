@@ -321,5 +321,15 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         registerFactory(Sonic2ObjectIds.LAVA_MARKER,
                 (spawn, registry) -> new LavaMarkerObjectInstance(spawn,
                         registry.getPrimaryName(spawn.objectId())));
+
+        // HTZ Seesaw (Object 0x14)
+        registerFactory(Sonic2ObjectIds.SEESAW,
+                (spawn, registry) -> new SeesawObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // HTZ Zipline Lift (Object 0x16)
+        registerFactory(Sonic2ObjectIds.HTZ_LIFT,
+                (spawn, registry) -> new HTZLiftObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
     }
 }

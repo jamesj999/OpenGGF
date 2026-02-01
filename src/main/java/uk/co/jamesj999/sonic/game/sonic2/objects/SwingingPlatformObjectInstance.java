@@ -545,8 +545,8 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
             oozMappings = loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_A_ADDR);
             LOGGER.fine("Loaded " + oozMappings.size() + " Obj15 OOZ mapping frames");
 
-            // Load MCZ/ARZ mappings (shared with Obj83)
-            mczArzMappings = loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ83_ADDR);
+            // Load MCZ/ARZ mappings - use dedicated MCZ address, not Obj83
+            mczArzMappings = loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_MCZ_ADDR);
             LOGGER.fine("Loaded " + mczArzMappings.size() + " Obj15 MCZ/ARZ mapping frames");
 
             // Load trap mode mappings
@@ -571,14 +571,29 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
         }
         int frameCount = firstOffset / 2;
 
+        // Sanity check: mappings should have at most ~20 frames
+        if (frameCount > 100) {
+            LOGGER.warning("Suspicious frameCount=" + frameCount + " at mapping addr 0x" +
+                    Integer.toHexString(mappingAddr) + ", firstOffset=0x" + Integer.toHexString(firstOffset));
+            return List.of(new SpriteMappingFrame(List.of()));
+        }
+
         List<SpriteMappingFrame> frames = new ArrayList<>(frameCount);
 
         for (int i = 0; i < frameCount; i++) {
-            int offset = reader.readU16BE(mappingAddr + (i * 2));
+            // Read offset as SIGNED 16-bit - some tables reference data before them (negative offset)
+            int offset = reader.readS16BE(mappingAddr + (i * 2));
             int frameAddr = mappingAddr + offset;
 
             int pieceCount = reader.readU16BE(frameAddr);
             frameAddr += 2;
+
+            // Sanity check: frames should have at most ~50 pieces
+            if (pieceCount > 200) {
+                LOGGER.warning("Suspicious pieceCount=" + pieceCount + " at frame " + i +
+                        ", frameAddr=0x" + Integer.toHexString(frameAddr - 2));
+                pieceCount = 0; // Skip this frame
+            }
 
             List<SpriteMappingPiece> pieces = new ArrayList<>(pieceCount);
 

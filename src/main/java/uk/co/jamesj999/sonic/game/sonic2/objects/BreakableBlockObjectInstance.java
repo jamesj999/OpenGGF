@@ -10,6 +10,9 @@ import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.*;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
+import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.ArrayList;
@@ -33,9 +36,12 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
 
     private static final Logger LOGGER = Logger.getLogger(BreakableBlockObjectInstance.class.getName());
 
-    // From disassembly: move.b #$10,width_pixels(a0) for CPZ version
-    private static final int HALF_WIDTH = 0x10;  // 16 pixels
-    private static final int HALF_HEIGHT = 0x10; // 16 pixels
+    // From disassembly:
+    // - CPZ: move.b #$10,width_pixels(a0) (32px wide)
+    // - HTZ: move.b #$18,width_pixels(a0) (48px wide)
+    private static final int CPZ_HALF_WIDTH = 0x10;  // 16 pixels
+    private static final int HTZ_HALF_WIDTH = 0x18;  // 24 pixels
+    private static final int HALF_HEIGHT = 0x10;     // 16 pixels
 
     // From disassembly: move.w #-$300,y_vel(a1) for player bounce
     private static final int PLAYER_BOUNCE_VELOCITY = -0x300;
@@ -45,30 +51,34 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
     //  $100, -$200  ; top-right
     // -$C0,  -$1C0  ; bottom-left
     //  $C0,  -$1C0  ; bottom-right
-    private static final int[][] FRAGMENT_VELOCITIES = {
+    private static final int[][] CPZ_FRAGMENT_VELOCITIES = {
             {-0x100, -0x200},  // Fragment 0: top-left
             { 0x100, -0x200},  // Fragment 1: top-right
             {-0x0C0, -0x1C0},  // Fragment 2: bottom-left
             { 0x0C0, -0x1C0}   // Fragment 3: bottom-right
     };
 
-    // Fragment spawn offsets (relative to block center)
-    private static final int[][] FRAGMENT_OFFSETS = {
-            {-8, -8},   // Fragment 0: top-left
-            { 8, -8},   // Fragment 1: top-right
-            {-8,  8},   // Fragment 2: bottom-left
-            { 8,  8}    // Fragment 3: bottom-right
+    // Fragment velocities from Obj32_VelArray1 (HTZ version, 6 pieces)
+    private static final int[][] HTZ_FRAGMENT_VELOCITIES = {
+            {-0x200, -0x200},
+            { 0x000, -0x280},
+            { 0x200, -0x200},
+            {-0x1C0, -0x1C0},
+            { 0x000, -0x200},
+            { 0x1C0, -0x1C0}
     };
 
     // Mapping frame indices
     private static final int FRAME_INTACT = 0;
-    private static final int FRAME_FRAGMENT_BASE = 1;  // Fragments use frames 1-4
+    private static final int FRAME_FRAGMENT_BASE = 1;  // Fragments use frames 1-4 (legacy fallback)
 
+    private final int halfWidth;
     private boolean broken;
     private boolean playerWasRolling;
 
     public BreakableBlockObjectInstance(ObjectSpawn spawn, String name) {
-        super(spawn, name, HALF_WIDTH, HALF_HEIGHT, 0.6f, 0.6f, 0.8f, false);
+        super(spawn, name, resolveHalfWidth(), HALF_HEIGHT, 0.6f, 0.6f, 0.8f, false);
+        this.halfWidth = resolveHalfWidth();
         this.broken = false;
 
         // Check persistence: if already broken, stay broken
@@ -115,7 +125,7 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
 
         // Check X overlap
         int dx = Math.abs(playerX - blockX);
-        if (dx >= HALF_WIDTH + 11) {
+        if (dx >= halfWidth + 11) {
             return false;
         }
 
@@ -130,9 +140,9 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
 
     @Override
     public SolidObjectParams getSolidParams() {
-        // From disassembly: width_pixels = $10 (16 pixels half-width)
+        // From disassembly: width_pixels = $10 (CPZ) / $18 (HTZ)
         // SolidObject routine uses: halfWidth + 11 for x check, halfHeight for y check
-        return new SolidObjectParams(HALF_WIDTH + 11, HALF_HEIGHT, HALF_HEIGHT + 1);
+        return new SolidObjectParams(halfWidth + 11, HALF_HEIGHT, HALF_HEIGHT + 1);
     }
 
     @Override
@@ -236,16 +246,48 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
             return;
         }
 
-        // Spawn 4 fragment objects
+        ObjectSpriteSheet sheet = renderManager.getSheet(Sonic2ObjectArtKeys.BREAKABLE_BLOCK);
+        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.BREAKABLE_BLOCK);
+        if (sheet == null || renderer == null) {
+            return;
+        }
+
+        List<SpriteMappingPiece> pieces = List.of();
+        if (sheet.getFrameCount() > 0) {
+            SpriteMappingFrame frame = sheet.getFrame(0);
+            if (frame != null && frame.pieces() != null) {
+                pieces = frame.pieces();
+            }
+        }
+
+        if (!pieces.isEmpty()) {
+            int[][] velocities = pieces.size() >= HTZ_FRAGMENT_VELOCITIES.length
+                    ? HTZ_FRAGMENT_VELOCITIES
+                    : CPZ_FRAGMENT_VELOCITIES;
+            int count = Math.min(pieces.size(), velocities.length);
+
+            for (int i = 0; i < count; i++) {
+                SpriteMappingPiece piece = pieces.get(i);
+                BreakableBlockFragmentInstance fragment = new BreakableBlockFragmentInstance(
+                        spawn.x(),
+                        spawn.y(),
+                        velocities[i][0],
+                        velocities[i][1],
+                        piece,
+                        renderer);
+                objectManager.addDynamicObject(fragment);
+            }
+            return;
+        }
+
+        // Fallback: spawn 4 simple fragments if mappings are missing
         for (int i = 0; i < 4; i++) {
-            int fragX = spawn.x() + FRAGMENT_OFFSETS[i][0];
-            int fragY = spawn.y() + FRAGMENT_OFFSETS[i][1];
-            int velX = FRAGMENT_VELOCITIES[i][0];
-            int velY = FRAGMENT_VELOCITIES[i][1];
+            int velX = CPZ_FRAGMENT_VELOCITIES[i][0];
+            int velY = CPZ_FRAGMENT_VELOCITIES[i][1];
             int frameIndex = FRAME_FRAGMENT_BASE + i;
 
             BreakableBlockFragmentInstance fragment = new BreakableBlockFragmentInstance(
-                    fragX, fragY, velX, velY, frameIndex, renderManager);
+                    spawn.x(), spawn.y(), velX, velY, frameIndex, renderManager);
             objectManager.addDynamicObject(fragment);
         }
     }
@@ -278,12 +320,23 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
 
     @Override
     protected int getHalfWidth() {
-        return HALF_WIDTH;
+        return halfWidth;
     }
 
     @Override
     protected int getHalfHeight() {
         return HALF_HEIGHT;
+    }
+
+    private static int resolveHalfWidth() {
+        LevelManager manager = LevelManager.getInstance();
+        if (manager == null || manager.getCurrentLevel() == null) {
+            return CPZ_HALF_WIDTH;
+        }
+        int zoneId = manager.getCurrentLevel().getZoneIndex();
+        return zoneId == uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants.ZONE_HTZ
+                ? HTZ_HALF_WIDTH
+                : CPZ_HALF_WIDTH;
     }
 
     /**
@@ -300,8 +353,27 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
         private int subY;  // 8.8 fixed point
         private int velX;  // 8.8 fixed point
         private int velY;  // 8.8 fixed point
+        private final SpriteMappingPiece piece;
+        private final PatternSpriteRenderer renderer;
+        private final List<SpriteMappingPiece> pieceList;
         private final int frameIndex;
         private final ObjectRenderManager renderManager;
+
+        public BreakableBlockFragmentInstance(int x, int y, int velX, int velY, SpriteMappingPiece piece,
+                                              PatternSpriteRenderer renderer) {
+            super(new ObjectSpawn(x, y, 0x32, 0, 0, false, 0), "BlockFragment");
+            this.currentX = x;
+            this.currentY = y;
+            this.subX = x << 8;
+            this.subY = y << 8;
+            this.velX = velX;
+            this.velY = velY;
+            this.piece = piece;
+            this.renderer = renderer;
+            this.pieceList = piece != null ? List.of(piece) : List.of();
+            this.frameIndex = -1;
+            this.renderManager = null;
+        }
 
         public BreakableBlockFragmentInstance(int x, int y, int velX, int velY, int frameIndex,
                                               ObjectRenderManager renderManager) {
@@ -312,6 +384,9 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
             this.subY = y << 8;
             this.velX = velX;
             this.velY = velY;
+            this.piece = null;
+            this.renderer = null;
+            this.pieceList = List.of();
             this.frameIndex = frameIndex;
             this.renderManager = renderManager;
         }
@@ -341,16 +416,25 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            if (isDestroyed() || renderManager == null) {
+            if (isDestroyed()) {
                 return;
             }
 
-            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.BREAKABLE_BLOCK);
-            if (renderer == null || !renderer.isReady()) {
+            if (renderer != null) {
+                if (!renderer.isReady() || pieceList.isEmpty()) {
+                    return;
+                }
+                renderer.drawPieces(pieceList, currentX, currentY, false, false);
                 return;
             }
 
-            renderer.drawFrameIndex(frameIndex, currentX, currentY, false, false);
+            if (renderManager != null) {
+                PatternSpriteRenderer fallbackRenderer = renderManager.getRenderer(Sonic2ObjectArtKeys.BREAKABLE_BLOCK);
+                if (fallbackRenderer == null || !fallbackRenderer.isReady()) {
+                    return;
+                }
+                fallbackRenderer.drawFrameIndex(frameIndex, currentX, currentY, false, false);
+            }
         }
 
         @Override

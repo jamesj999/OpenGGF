@@ -7,6 +7,7 @@ public final class Sonic2ObjectIds {
     public static final int MONITOR = 0x26;
     public static final int CHECKPOINT = 0x79;
     public static final int BRIDGE = 0x11;
+    public static final int SEESAW = 0x14;
     public static final int SWINGING_PLATFORM = 0x15;
     public static final int GENERIC_PLATFORM_A = 0x18;
     public static final int GENERIC_PLATFORM_B = 0x19;
@@ -102,7 +103,9 @@ public final class Sonic2ObjectIds {
     public static final int FORCED_SPIN = 0x84; // ForcedSpin/Pinball Mode (Obj84) - CNZ/HTZ
     public static final int LAUNCHER_SPRING = 0x85; // LauncherSpring (Obj85) - CNZ pressure spring
 
-    // HTZ/MTZ Lava Markers
+    // HTZ Objects
+    public static final int HTZ_LIFT = 0x16;          // HTZ Zipline Lift (Obj16) - diagonal moving platform
+    public static final int SMASHABLE_GROUND = 0x2F;  // Smashable Ground (Obj2F) - breakable rock platform
     public static final int LAVA_MARKER = 0x31;       // Lava Marker (Obj31) - invisible hazard collision zone
 
     // CNZ/MTZ/WFZ Objects
