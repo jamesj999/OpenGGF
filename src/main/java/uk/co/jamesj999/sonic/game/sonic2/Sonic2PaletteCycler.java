@@ -13,22 +13,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants.*;
+import static uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.*;
 
 /**
  * Applies Sonic 2 palette cycling (PalCycle_* routines) for supported zones.
  * Based on the original assembly routines in s2.asm.
+ * <p>
+ * Uses ROM zone IDs from {@link uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants}
+ * which match the values returned by {@code level.getZoneIndex()}.
  */
 class Sonic2PaletteCycler implements AnimatedPaletteManager {
-    // ROM zone indices (from s2.constants.asm)
-    private static final int ZONE_EHZ = 0x00;
-    private static final int ZONE_HTZ = 0x05;
-    private static final int ZONE_OOZ = 0x0A;
-    private static final int ZONE_MCZ = 0x0B;
-    private static final int ZONE_CNZ = 0x0C;
-    private static final int ZONE_CPZ = 0x0D;
-    private static final int ZONE_ARZ = 0x0F;
-    private static final int ZONE_MTZ = 0x10;
-
     private final Level level;
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
     private final List<PaletteCycle> cycles;
@@ -52,14 +46,14 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
     private List<PaletteCycle> loadCycles(RomByteReader reader, int zoneIndex) {
         List<PaletteCycle> list = new ArrayList<>();
         switch (zoneIndex) {
-            case ZONE_EHZ -> addIfNotNull(list, createEhzWaterCycle(reader));
-            case ZONE_HTZ -> addIfNotNull(list, createHtzLavaCycle(reader));
-            case ZONE_MTZ -> list.addAll(createMtzCycles(reader));
-            case ZONE_OOZ -> addIfNotNull(list, createOozOilCycle(reader));
-            case ZONE_MCZ -> addIfNotNull(list, createMczLanternCycle(reader));
-            case ZONE_CNZ -> list.addAll(createCnzCycles(reader));
-            case ZONE_CPZ -> list.addAll(createCpzCycles(reader));
-            case ZONE_ARZ -> addIfNotNull(list, createArzWaterCycle(reader));
+            case ROM_ZONE_EHZ -> addIfNotNull(list, createEhzWaterCycle(reader));
+            case ROM_ZONE_HTZ -> addIfNotNull(list, createHtzLavaCycle(reader));
+            case ROM_ZONE_MTZ -> list.addAll(createMtzCycles(reader));
+            case ROM_ZONE_OOZ -> addIfNotNull(list, createOozOilCycle(reader));
+            case ROM_ZONE_MCZ -> addIfNotNull(list, createMczLanternCycle(reader));
+            case ROM_ZONE_CNZ -> list.addAll(createCnzCycles(reader));
+            case ROM_ZONE_CPZ -> list.addAll(createCpzCycles(reader));
+            case ROM_ZONE_ARZ -> addIfNotNull(list, createArzWaterCycle(reader));
         }
         return list;
     }

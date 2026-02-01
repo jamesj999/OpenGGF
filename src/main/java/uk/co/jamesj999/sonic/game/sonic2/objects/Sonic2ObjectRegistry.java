@@ -316,5 +316,10 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         registerFactory(Sonic2ObjectIds.ARZ_ROT_PFORMS,
                 (spawn, registry) -> new ARZRotPformsObjectInstance(spawn,
                         registry.getPrimaryName(spawn.objectId())));
+
+        // HTZ/MTZ Lava Marker (invisible hazard collision zone)
+        registerFactory(Sonic2ObjectIds.LAVA_MARKER,
+                (spawn, registry) -> new LavaMarkerObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
     }
 }

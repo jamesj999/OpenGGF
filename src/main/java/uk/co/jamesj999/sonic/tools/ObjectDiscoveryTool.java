@@ -77,6 +77,7 @@ public class ObjectDiscoveryTool {
             0x2C,  // LeavesGenerator (ARZ falling leaves trigger)
             0x2D,  // Barrier (one-way rising platform)
             0x26,  // Monitor
+            0x31,  // LavaMarker (HTZ/MTZ invisible lava hazard zone)
             0x32,  // BreakableBlock (CPZ metal blocks / HTZ rocks)
             0x36,  // Spikes
             0x3E,  // EggPrison (end of act capsule)
@@ -85,8 +86,10 @@ public class ObjectDiscoveryTool {
             0x44,  // Bumper
             0x49,  // EHZWaterfall
             0x4B,  // Buzzer
+            0x51,  // CNZBoss (dynamically spawned pinball spike dropper zapping boss)
             0x56,  // EHZBoss (dynamically spawned drill car boss)
             0x5C,  // Masher
+            0x5D,  // CPZBoss (dynamically spawned water dropper boss)
             0x89,  // ARZBoss (dynamically spawned hammer/arrow boss)
             0x6B,  // MTZPlatform (multi-purpose platform with 12 movement subtypes)
             0x72,  // CNZConveyorBelt (invisible velocity zone - CNZ/MTZ/WFZ)

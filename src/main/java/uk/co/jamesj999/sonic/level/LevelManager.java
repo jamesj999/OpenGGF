@@ -283,26 +283,44 @@ public class LevelManager {
         }
     }
 
-    public void update() {
-        // Update global oscillation values used by moving platforms, water surface,
-        // etc.
-        // Must be called centrally each frame to ensure continuous oscillation even
-        // when
-        // no platform objects are currently on-screen.
+    /**
+     * Updates object positions before player physics.
+     * This must be called BEFORE spriteManager.update() so that SolidContacts
+     * sees the current frame's platform positions, fixing 1-frame lag on
+     * fast-moving platforms (SwingingPlatform, CNZ Elevators).
+     *
+     * <p>Update order is critical:
+     * <ol>
+     *   <li>OscillationManager - oscillation values first</li>
+     *   <li>objectManager - platforms read oscillation, move to new positions</li>
+     *   <li>spriteManager - SolidContacts now sees updated positions</li>
+     * </ol>
+     */
+    public void updateObjectPositions() {
+        // Update global oscillation values used by moving platforms, water surface, etc.
+        // Must run before objects so SwingingPlatform reads current oscillation values.
         uk.co.jamesj999.sonic.game.sonic2.OscillationManager.update(frameCounter);
+
+        if (objectManager != null) {
+            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
+            objectManager.update(Camera.getInstance().getX(), playable, frameCounter + 1);
+        }
+    }
+
+    public void update() {
+        // NOTE: OscillationManager and objectManager are now updated via updateObjectPositions()
+        // which is called earlier in GameLoop to fix platform riding sync (1-frame lag fix).
 
         // Update dynamic water levels (for rising water in CPZ2, etc.)
         WaterSystem.getInstance().update();
 
         Sprite player = null;
         AbstractPlayableSprite playable = null;
-        boolean needsPlayer = objectManager != null || ringManager != null;
+        boolean needsPlayer = ringManager != null || zoneFeatureProvider != null || levelGamestate != null;
         if (needsPlayer) {
             player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
-        }
-        if (objectManager != null) {
-            objectManager.update(Camera.getInstance().getX(), playable, frameCounter + 1);
         }
         if (ringManager != null) {
             ringManager.update(Camera.getInstance().getX(), playable, frameCounter + 1);

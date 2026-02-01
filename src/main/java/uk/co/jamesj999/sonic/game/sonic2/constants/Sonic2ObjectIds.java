@@ -102,6 +102,9 @@ public final class Sonic2ObjectIds {
     public static final int FORCED_SPIN = 0x84; // ForcedSpin/Pinball Mode (Obj84) - CNZ/HTZ
     public static final int LAUNCHER_SPRING = 0x85; // LauncherSpring (Obj85) - CNZ pressure spring
 
+    // HTZ/MTZ Lava Markers
+    public static final int LAVA_MARKER = 0x31;       // Lava Marker (Obj31) - invisible hazard collision zone
+
     // CNZ/MTZ/WFZ Objects
     public static final int CNZ_CONVEYOR_BELT = 0x72; // Conveyor Belt (Obj72) - invisible velocity zone
 

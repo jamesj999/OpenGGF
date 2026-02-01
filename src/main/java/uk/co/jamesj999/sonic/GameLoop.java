@@ -367,6 +367,12 @@ public class GameLoop {
             // Freeze level updates during special stage entry transition
             boolean freezeForSpecialStage = specialStageTransitionPending;
             if (!freezeForArtViewer && !freezeForSpecialStage) {
+                // Objects must update BEFORE player physics so SolidContacts sees new positions.
+                // This fixes 1-frame lag on fast-moving platforms (SwingingPlatform, CNZ Elevators).
+                profiler.beginSection("objects");
+                levelManager.updateObjectPositions();
+                profiler.endSection("objects");
+
                 profiler.beginSection("physics");
                 spriteManager.update(inputHandler);
                 profiler.endSection("physics");
@@ -383,9 +389,9 @@ public class GameLoop {
                 camera.updatePosition();
                 profiler.endSection("camera");
 
-                profiler.beginSection("objects");
+                profiler.beginSection("level");
                 levelManager.update();
-                profiler.endSection("objects");
+                profiler.endSection("level");
 
                 // Check if a checkpoint star requested a special stage
                 if (levelManager.consumeSpecialStageRequest()) {
