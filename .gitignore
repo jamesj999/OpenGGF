@@ -8,3 +8,34 @@
 .vscode/
 /config.json
 /*.bin
+
+# Build/debug artifacts
+*.log
+*_output.txt
+*.class
+
+# IDE temporary
+.idea/shelf/
+
+# Archives
+*.7z
+
+# Audio debug files (keep locally, don't track)
+docs/audio-debug/
+*.pcm
+*.raw
+
+# Archived planning docs
+docs/archive/
+
+# Debug tools (uncompiled standalone scripts)
+tools/
+
+# Screenshots (keep locally)
+docs/screenshots/
+
+# Claude Code workspace
+.claude/
+
+# Savestates
+*.gs2
