@@ -4,14 +4,14 @@ Last updated: 2026-01-22
 
 ## Open Bugs
 
-- [ ] Buzzer badnik shoots projectile from wrong location (under body, instead of tail tip)
+- [x] Buzzer badnik shoots projectile from wrong location (under body, instead of tail tip) - Fixed: X offset sign was inverted
 - [x] Air bubble collection sound is incorrect - appears to be an audio engine bug
 - [x] ARZ: Sonic can't jump high enough to break rising pillars
-- [ ] CPZ: H-flipped CPZ staircase platforms do not activate when Sonic walks on them
-- [ ] CPZ: Walking down staircase platforms as they move causes collision issues (Sonic teleports down instead of moving smoothly)
-- [ ] CPZ: Sideways platforms and rotating platforms have incorrect spacing/timing - not spaced out when loaded (likely shared timer issue)
-- [ ] ARZ: Arrows disappear immediately when going off-screen (should persist longer like in ROM)
-- [ ] ARZ: Pillars reset immediately when going off-screen (verify if this matches ROM behavior)
+- [x] CPZ: H-flipped CPZ staircase platforms do not activate when Sonic walks on them
+- [x] CPZ: Walking down staircase platforms as they move causes collision issues (Sonic teleports down instead of moving smoothly)
+- [x] CPZ: Sideways platforms and rotating platforms have incorrect spacing/timing - Fixed: ROM doubles subtype before bit testing for quadrant selection
+- [x] ARZ: Arrows disappear immediately when going off-screen - Fixed: Increased off-screen margin from 32 to 480 pixels (matches ROM's MarkObjGone)
+- [ ] ARZ: Pillars reset immediately when going off-screen (needs manual ROM verification - current behavior may be correct)
 - [x] ARZ: Grounder badnik cannot move from spawn location
 
 ## ROM-Accurate Investigation Plan

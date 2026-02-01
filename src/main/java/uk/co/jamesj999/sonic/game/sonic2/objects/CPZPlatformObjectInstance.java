@@ -263,6 +263,17 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
      * Routine 8 (reversed) also negates X before adding to position.
      */
     private void applyCircularMotion(int subtype, boolean reversed) {
+        // ROM doubles the subtype before bit testing in Obj19_Move:
+        //   move.b  subtype(a0),d0
+        //   andi.w  #$F,d0
+        //   add.w   d0,d0              ; d0 = subtype * 2
+        // This creates 4 distinct quadrants for types 8-11:
+        //   Type 8 → d0=16 (0b10000) → bit2=0, bit1=0
+        //   Type 9 → d0=18 (0b10010) → bit2=0, bit1=1
+        //   Type 10 → d0=20 (0b10100) → bit2=1, bit1=0
+        //   Type 11 → d0=22 (0b10110) → bit2=1, bit1=1
+        int doubledSubtype = subtype * 2;
+
         // Get circular motion components
         int d1 = OscillationManager.getByte(0x38) - 0x40; // Sign-extend
         int d2 = OscillationManager.getByte(0x3C) - 0x40;
@@ -271,14 +282,14 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
         d1 = (byte) d1;
         d2 = (byte) d2;
 
-        // Apply bit 2: negate both
-        if ((subtype & 0x04) != 0) {
+        // Apply bit 2: negate both (use DOUBLED subtype)
+        if ((doubledSubtype & 0x04) != 0) {
             d1 = -d1;
             d2 = -d2;
         }
 
-        // Apply bit 1: swap and negate X
-        if ((subtype & 0x02) != 0) {
+        // Apply bit 1: swap and negate X (use DOUBLED subtype)
+        if ((doubledSubtype & 0x02) != 0) {
             d1 = -d1;
             int temp = d1;
             d1 = d2;

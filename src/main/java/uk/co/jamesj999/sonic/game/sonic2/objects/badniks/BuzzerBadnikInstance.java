@@ -137,7 +137,9 @@ public class BuzzerBadnikInstance extends AbstractBadnikInstance {
     private void fireProjectile() {
         // From disassembly: y_vel = $180, x_vel = -$180 (or +$180 if facing left)
         // Y offset: +$18, X offset: +/-$0D
-        int xOffset = facingLeft ? -0x0D : 0x0D;
+        // ROM: offset is +$D, negated if x_flip is SET (facing right)
+        // facingLeft = !x_flip, so: facing left → +$D, facing right → -$D
+        int xOffset = facingLeft ? 0x0D : -0x0D;
         int yOffset = 0x18;
 
         // Velocity in subpixels (shift left 8 for subpixel units)

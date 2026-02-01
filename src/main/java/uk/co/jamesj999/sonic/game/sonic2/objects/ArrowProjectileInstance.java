@@ -94,8 +94,10 @@ public class ArrowProjectileInstance extends AbstractObjectInstance
             return;
         }
 
-        // Off-screen cleanup
-        if (!isOnScreen(32)) {
+        // Off-screen cleanup - ROM uses MarkObjGone with 480 pixel tolerance:
+        //   cmpi.w  #$80+320+$40+$80,d0  ; 480 pixels
+        //   bhi.w   DeleteObject
+        if (!isOnScreen(480)) {
             setDestroyed(true);
         }
     }
