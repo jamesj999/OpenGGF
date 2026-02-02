@@ -23,12 +23,18 @@ public class TestObjectPlacementManager {
         assertTrue(manager.getActiveSpawns().contains(spawnB));
 
         manager.markRemembered(spawnB);
-        assertFalse(manager.getActiveSpawns().contains(spawnB));
+        // Spawn stays in active window but is marked as remembered
+        assertTrue(manager.getActiveSpawns().contains(spawnB));
+        assertTrue(manager.isRemembered(spawnB));
 
         manager.update(2000);
+        // Spawn scrolled out of window
         assertFalse(manager.getActiveSpawns().contains(spawnB));
+        // But still remembered
+        assertTrue(manager.isRemembered(spawnB));
 
         manager.update(0);
+        // Spawn not in window at camera X=0
         assertFalse(manager.getActiveSpawns().contains(spawnB));
     }
 }

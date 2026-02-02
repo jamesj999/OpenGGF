@@ -219,6 +219,105 @@ public class ObjectManager {
         graphicsManager.enqueueDefaultShaderState();
     }
 
+    /**
+     * Draw all objects in a single unified bucket, regardless of their isHighPriority flag.
+     * Calls the provided callback before drawing each object with its high priority status.
+     *
+     * This supports ROM-accurate sprite-to-sprite ordering where bucket number determines
+     * draw order independently of the sprite-to-tile priority (isHighPriority flag).
+     *
+     * @param bucket   The priority bucket to draw (0-7)
+     * @param callback Called before each object draw with (object, isHighPriority)
+     */
+    public void drawUnifiedBucket(int bucket, ObjectDrawCallback callback) {
+        ensureBucketsPopulated();
+        int targetBucket = RenderPriority.clamp(bucket);
+        int idx = targetBucket - RenderPriority.MIN;
+
+        // Draw low-priority objects first (they appear behind)
+        drawBucketInstances(lowPriorityBuckets[idx], false, callback);
+
+        // Draw high-priority objects second (they appear in front)
+        drawBucketInstances(highPriorityBuckets[idx], true, callback);
+    }
+
+    private void drawBucketInstances(List<ObjectInstance> instances, boolean highPriority, ObjectDrawCallback callback) {
+        if (instances.isEmpty()) {
+            return;
+        }
+
+        renderCommands.clear();
+        for (ObjectInstance instance : instances) {
+            if (callback != null) {
+                callback.beforeDraw(instance, highPriority);
+            }
+            instance.appendRenderCommands(renderCommands);
+        }
+
+        if (!renderCommands.isEmpty()) {
+            graphicsManager.enqueueDebugLineState();
+            graphicsManager.registerCommand(new GLCommandGroup(GL2.GL_LINES, renderCommands));
+            graphicsManager.enqueueDefaultShaderState();
+        }
+    }
+
+    /**
+     * Callback interface for unified object drawing.
+     * Called before each object is drawn to allow setting up shader uniforms.
+     */
+    public interface ObjectDrawCallback {
+        /**
+         * Called before drawing an object.
+         *
+         * @param instance     The object instance about to be drawn
+         * @param highPriority True if object should appear above high-priority tiles
+         */
+        void beforeDraw(ObjectInstance instance, boolean highPriority);
+    }
+
+    /**
+     * Draw all objects in a single unified bucket with per-instance priority.
+     * Priority is now handled per-instance in the shader, so no batch flushing
+     * is needed when switching between low and high priority objects.
+     *
+     * @param bucket The priority bucket to draw (0-7)
+     * @param gfx    The graphics manager to use for priority state
+     */
+    public void drawUnifiedBucketWithPriority(int bucket, GraphicsManager gfx) {
+        ensureBucketsPopulated();
+        int idx = RenderPriority.clamp(bucket) - RenderPriority.MIN;
+
+        // Draw low-priority objects first (sets priority per-instance in shader)
+        if (!lowPriorityBuckets[idx].isEmpty()) {
+            gfx.setCurrentSpriteHighPriority(false);
+            drawBucketInstancesWithPriority(lowPriorityBuckets[idx]);
+        }
+
+        // Draw high-priority objects (sets priority per-instance in shader)
+        // No batch flush needed - priority is baked into instance data
+        if (!highPriorityBuckets[idx].isEmpty()) {
+            gfx.setCurrentSpriteHighPriority(true);
+            drawBucketInstancesWithPriority(highPriorityBuckets[idx]);
+        }
+    }
+
+    private void drawBucketInstancesWithPriority(List<ObjectInstance> instances) {
+        if (instances.isEmpty()) {
+            return;
+        }
+
+        renderCommands.clear();
+        for (ObjectInstance instance : instances) {
+            instance.appendRenderCommands(renderCommands);
+        }
+
+        if (!renderCommands.isEmpty()) {
+            graphicsManager.enqueueDebugLineState();
+            graphicsManager.registerCommand(new GLCommandGroup(GL2.GL_LINES, renderCommands));
+            graphicsManager.enqueueDefaultShaderState();
+        }
+    }
+
     public Collection<ObjectInstance> getActiveObjects() {
         List<ObjectInstance> all = new ArrayList<>(activeObjects.values());
         all.addAll(dynamicObjects);

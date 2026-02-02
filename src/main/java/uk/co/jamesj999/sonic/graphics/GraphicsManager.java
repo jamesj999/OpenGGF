@@ -57,6 +57,15 @@ public class GraphicsManager {
 	private static final String TILEMAP_SHADER_PATH = "shaders/shader_tilemap.glsl";
 	private static final String INSTANCED_VERTEX_SHADER_PATH = "shaders/shader_instanced.vert";
 	private static final String CNZ_SLOTS_SHADER_PATH = "shaders/shader_cnz_slots.glsl";
+	private static final String SPRITE_PRIORITY_SHADER_PATH = "shaders/shader_sprite_priority.glsl";
+
+	// Sprite priority rendering for ROM-accurate sprite-to-tile layering
+	private SpritePriorityShaderProgram spritePriorityShaderProgram;
+	private TilePriorityFBO tilePriorityFBO;
+
+	// Sprite priority shader mode flags
+	private boolean useSpritePriorityShader = false;
+	private boolean currentSpriteHighPriority = false;
 
 	// Background renderer for per-scanline parallax scrolling
 	private BackgroundRenderer backgroundRenderer;
@@ -133,6 +142,12 @@ public class GraphicsManager {
 		// Initialize unified UI render pipeline
 		this.uiRenderPipeline = new UiRenderPipeline(this);
 		this.uiRenderPipeline.setFadeManager(this.fadeManager);
+
+		// Initialize sprite priority rendering system
+		this.spritePriorityShaderProgram = new SpritePriorityShaderProgram(gl, SPRITE_PRIORITY_SHADER_PATH);
+		this.spritePriorityShaderProgram.cacheUniformLocations(gl);
+		this.tilePriorityFBO = new TilePriorityFBO();
+		// FBO will be initialized when first needed with actual screen dimensions
 	}
 
 	/**
@@ -692,6 +707,13 @@ public class GraphicsManager {
 		if (instancedPatternRenderer != null) {
 			instancedPatternRenderer.cleanup(graphics);
 		}
+		// Sprite priority rendering cleanup
+		if (spritePriorityShaderProgram != null) {
+			spritePriorityShaderProgram.cleanup(graphics);
+		}
+		if (tilePriorityFBO != null) {
+			tilePriorityFBO.cleanup(graphics);
+		}
 		// Reset fade manager
 		if (fadeManager != null) {
 			fadeManager.cleanup(graphics);
@@ -739,7 +761,41 @@ public class GraphicsManager {
 	}
 
 	public ShaderProgram getShaderProgram() {
+		if (useSpritePriorityShader && spritePriorityShaderProgram != null) {
+			return spritePriorityShaderProgram;
+		}
 		return currentShaderProgram;
+	}
+
+	/**
+	 * Enable or disable sprite priority shader mode.
+	 * When enabled, getShaderProgram() returns the sprite priority shader.
+	 */
+	public void setUseSpritePriorityShader(boolean use) {
+		this.useSpritePriorityShader = use;
+	}
+
+	/**
+	 * Check if sprite priority shader mode is enabled.
+	 */
+	public boolean isUseSpritePriorityShader() {
+		return useSpritePriorityShader;
+	}
+
+	/**
+	 * Set whether the current sprite being rendered has high priority.
+	 * This is used by the sprite priority shader to determine if the sprite
+	 * should appear above or behind high-priority tiles.
+	 */
+	public void setCurrentSpriteHighPriority(boolean highPriority) {
+		this.currentSpriteHighPriority = highPriority;
+	}
+
+	/**
+	 * Get whether the current sprite being rendered has high priority.
+	 */
+	public boolean getCurrentSpriteHighPriority() {
+		return currentSpriteHighPriority;
 	}
 
 	public WaterShaderProgram getWaterShaderProgram() {
@@ -904,4 +960,70 @@ public class GraphicsManager {
 	public UiRenderPipeline getUiRenderPipeline() {
 		return uiRenderPipeline;
 	}
+
+	// ==================== Sprite Priority Rendering ====================
+
+	/**
+	 * Get the sprite priority shader program for ROM-accurate sprite-to-tile layering.
+	 * This shader composites sprites with awareness of high-priority foreground tiles.
+	 */
+	public SpritePriorityShaderProgram getSpritePriorityShaderProgram() {
+		return spritePriorityShaderProgram;
+	}
+
+	/**
+	 * Get the tile priority FBO for rendering high-priority tile information.
+	 * Lazily initializes the FBO with specified dimensions if not already done.
+	 *
+	 * @param width  Screen width in pixels
+	 * @param height Screen height in pixels
+	 */
+	public TilePriorityFBO getTilePriorityFBO(int width, int height) {
+		if (headlessMode || graphics == null) {
+			return null;
+		}
+		if (tilePriorityFBO != null && !tilePriorityFBO.isInitialized()) {
+			tilePriorityFBO.init(graphics, width, height);
+		} else if (tilePriorityFBO != null) {
+			tilePriorityFBO.resize(graphics, width, height);
+		}
+		return tilePriorityFBO;
+	}
+
+	/**
+	 * Get the tile priority FBO without initializing or resizing.
+	 * Returns null if not yet initialized.
+	 */
+	public TilePriorityFBO getTilePriorityFBO() {
+		return tilePriorityFBO;
+	}
+
+	/**
+	 * Begin rendering high-priority tiles to the tile priority FBO.
+	 * Call this before rendering the high-priority foreground tile pass.
+	 *
+	 * @param width  Screen width in pixels
+	 * @param height Screen height in pixels
+	 */
+	public void beginTilePriorityPass(int width, int height) {
+		if (headlessMode || graphics == null) {
+			return;
+		}
+		TilePriorityFBO fbo = getTilePriorityFBO(width, height);
+		if (fbo != null) {
+			fbo.begin(graphics);
+		}
+	}
+
+	/**
+	 * End rendering high-priority tiles to the tile priority FBO.
+	 * Call this after rendering the high-priority foreground tile pass.
+	 */
+	public void endTilePriorityPass() {
+		if (headlessMode || graphics == null || tilePriorityFBO == null) {
+			return;
+		}
+		tilePriorityFBO.end(graphics);
+	}
 }
+

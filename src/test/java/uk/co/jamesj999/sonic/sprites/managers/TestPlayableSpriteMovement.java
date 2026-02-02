@@ -700,6 +700,12 @@ public class TestPlayableSpriteMovement {
         /**
          * Test spring velocity not capped by jump handler.
          */
+        /**
+         * Test spring velocity not capped by jump handler.
+         * ROM: Springs do NOT set the jumping flag. The Sonic_JumpHeight routine
+         * checks jumping, not springing. When jumping=0, it branches to UpVelCap
+         * which has a -0xFC0 cap (much higher than -1720).
+         */
         @Test
         public void testSpringVelocityNotCappedByJumpHandler() throws Exception {
                 mockSprite.setAir(true);
@@ -707,7 +713,8 @@ public class TestPlayableSpriteMovement {
 
                 Field jumpPressedField = PlayableSpriteMovement.class.getDeclaredField("jumpPressed");
                 jumpPressedField.setAccessible(true);
-                jumpPressedField.set(manager, true);
+                // Springs don't set jumping flag - it should be false
+                jumpPressedField.set(manager, false);
                 mockSprite.setSpringing(10);
 
                 setInputState(false, false, false, false, false);
@@ -716,13 +723,14 @@ public class TestPlayableSpriteMovement {
                 jumpHeightMethod.setAccessible(true);
                 jumpHeightMethod.invoke(manager);
 
-                assertEquals("Velocity should NOT be capped while springing",
+                // With jumpPressed=false, goes to UpVelCap path (-0xFC0 cap)
+                // -1720 > -4032, so velocity is NOT capped
+                assertEquals("Velocity should NOT be capped for spring launch",
                                 (short) -1720, mockSprite.getYSpeed());
 
                 mockSprite.setSpringing(0);
-                jumpPressedField.set(manager, false);
 
-                assertEquals("Velocity should remain unchanged because jumpPressed is false",
+                assertEquals("Velocity should remain unchanged in UpVelCap path",
                                 (short) -1720, mockSprite.getYSpeed());
         }
 

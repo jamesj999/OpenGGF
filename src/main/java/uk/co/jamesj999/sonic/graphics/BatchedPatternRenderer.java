@@ -305,8 +305,11 @@ public class BatchedPatternRenderer {
             return null;
         }
 
+        GraphicsManager gm = GraphicsManager.getInstance();
+        boolean usePriority = gm.isUseSpritePriorityShader();
+
         BatchRenderCommand command = obtainBatchCommand();
-        command.load(vertexData, texCoordData, paletteCoordData, patternCount);
+        command.load(vertexData, texCoordData, paletteCoordData, patternCount, usePriority);
 
         // Reset for next batch
         patternCount = 0;
@@ -471,6 +474,7 @@ public class BatchedPatternRenderer {
         private int vertexFloatCount;
         private int texCoordFloatCount;
         private int paletteFloatCount;
+        private boolean usePriorityShader;
 
         private FloatBuffer vertexBuffer;
         private FloatBuffer texCoordBuffer;
@@ -480,8 +484,10 @@ public class BatchedPatternRenderer {
         private int texCoordVboId;
         private int paletteVboId;
 
-        private void load(float[] vertexData, float[] texCoordData, float[] paletteCoordData, int patternCount) {
+        private void load(float[] vertexData, float[] texCoordData, float[] paletteCoordData,
+                          int patternCount, boolean usePriorityShader) {
             this.patternCount = patternCount;
+            this.usePriorityShader = usePriorityShader;
             this.vertexFloatCount = patternCount * FLOATS_PER_PATTERN_VERTS;
             this.texCoordFloatCount = patternCount * FLOATS_PER_PATTERN_TEXCOORDS;
             this.paletteFloatCount = patternCount * 4;
@@ -510,7 +516,14 @@ public class BatchedPatternRenderer {
             ensureVbos(gl);
 
             GraphicsManager gm = GraphicsManager.getInstance();
-            ShaderProgram shader = gm.getShaderProgram();
+            // Use captured priority shader state from batch creation time
+            ShaderProgram shader;
+            if (usePriorityShader) {
+                SpritePriorityShaderProgram priorityShader = gm.getSpritePriorityShaderProgram();
+                shader = (priorityShader != null) ? priorityShader : gm.getShaderProgram();
+            } else {
+                shader = gm.getShaderProgram();
+            }
 
             // Setup state once for entire batch
             gl.glEnable(GL2.GL_BLEND);
@@ -522,6 +535,29 @@ public class BatchedPatternRenderer {
             gl.glUniform1i(shader.getPaletteLocation(), 0);
             gl.glUniform1i(shader.getIndexedColorTextureLocation(), 1);
             shader.setPaletteLine(gl, -1.0f);
+
+            // Set priority uniform if using sprite priority shader
+            if (shader instanceof SpritePriorityShaderProgram priorityShader) {
+                boolean highPri = gm.getCurrentSpriteHighPriority();
+                priorityShader.setSpriteHighPriority(gl, highPri);
+
+                // Bind tile priority FBO texture to unit 3
+                TilePriorityFBO fbo = gm.getTilePriorityFBO();
+                if (fbo != null && fbo.isInitialized()) {
+                    gl.glActiveTexture(GL2.GL_TEXTURE3);
+                    gl.glBindTexture(GL2.GL_TEXTURE_2D, fbo.getTextureId());
+                    priorityShader.setTilePriorityTexture(gl, 3);
+
+                    // Use viewport dimensions for ScreenSize and pass viewport offset
+                    // gl_FragCoord is in WINDOW coordinates, so we need the offset to
+                    // convert to viewport-local coordinates before normalizing
+                    int[] viewport = new int[4];
+                    gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport, 0);
+                    priorityShader.setScreenSize(gl, viewport[2], viewport[3]);
+                    priorityShader.setViewportOffset(gl, viewport[0], viewport[1]);
+                    gl.glActiveTexture(GL2.GL_TEXTURE0);
+                }
+            }
 
             // Enable vertex arrays
             gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
