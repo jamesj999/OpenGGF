@@ -160,6 +160,7 @@ public class LevelManager {
     private final List<GLCommand> debugBoxCommands = new ArrayList<>(512);
     private final List<GLCommand> debugCenterCommands = new ArrayList<>(256);
     private final List<GLCommand> collisionCommands = new ArrayList<>(256);
+    private final List<GLCommand> priorityDebugCommands = new ArrayList<>(256);
     private final List<GLCommand> sensorCommands = new ArrayList<>(128);
     private final List<GLCommand> cameraBoundsCommands = new ArrayList<>(64);
 
@@ -643,6 +644,19 @@ public class LevelManager {
             }
         }
 
+        // Generate tile priority debug overlay commands (shows high-priority tiles in red)
+        if (overlayManager.isEnabled(DebugOverlayToggle.TILE_PRIORITY_VIEW)) {
+            priorityDebugCommands.clear();
+            generateTilePriorityDebugCommands(priorityDebugCommands, camera);
+        }
+
+        // Render tile priority debug overlay on top of foreground tiles
+        if (!priorityDebugCommands.isEmpty() && overlayManager.isEnabled(DebugOverlayToggle.TILE_PRIORITY_VIEW)) {
+            for (GLCommand cmd : priorityDebugCommands) {
+                graphicsManager.registerCommand(cmd);
+            }
+        }
+
         profiler.endSection("render.fg");
 
         // Render zone features that should appear as part of foreground layer (before sprites)
@@ -870,7 +884,8 @@ public class LevelManager {
             // Set uniforms via custom command - this also enables the water shader
             // Use visual water level (with oscillation) for rendering effects
             int waterLevel = waterSystem.getVisualWaterLevelY(zoneId, currentAct);
-            float waterlineScreenY = (float) (waterLevel - camera.getY()); // Pixels from top
+            // Offset by -8 to include the 8px tall water surface sprite in underwater palette
+            float waterlineScreenY = (float) (waterLevel - camera.getY() - 8);
 
             graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
                 // Enable water shader at execution time
@@ -883,13 +898,21 @@ public class LevelManager {
                 int[] viewport = new int[4];
                 gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport, 0);
                 float windowHeight = (float) viewport[3];
+                float screenHeightPixels = (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+
                 shader.setWindowHeight(gl, windowHeight);
                 shader.setWaterlineScreenY(gl, waterlineScreenY);
                 shader.setFrameCounter(gl, frameCounter);
                 shader.setDistortionAmplitude(gl, 0.0f);
                 shader.setIndexedTextureWidth(gl, graphicsManager.getPatternAtlasWidth());
                 shader.setScreenDimensions(gl, (float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
-                        (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS));
+                        screenHeightPixels);
+
+                // Cache water state values in GraphicsManager for sprite priority shader
+                graphicsManager.setWaterEnabled(true);
+                graphicsManager.setWaterlineScreenY(waterlineScreenY);
+                graphicsManager.setWindowHeight(windowHeight);
+                graphicsManager.setScreenHeight(screenHeightPixels);
 
                 // Underwater Palette
                 Palette[] underwater = waterSystem.getUnderwaterPalette(zoneId, currentAct);
@@ -934,6 +957,9 @@ public class LevelManager {
                     shader.use(gl);
                 }
             }));
+        } else {
+            // No water in this zone - disable underwater palette for sprite priority shader
+            graphicsManager.setWaterEnabled(false);
         }
         // Note: We don't disable water shader here - that's done later before HUD
         // rendering
@@ -1596,6 +1622,125 @@ public class LevelManager {
                         drawStartY));
             }
         }
+        // Re-enable texturing and shader for subsequent rendering
+        commands.add(new GLCommand(GLCommand.CommandType.ENABLE, GL2.GL_TEXTURE_2D));
+        if (shaderProgramId != 0) {
+            commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, shaderProgramId));
+        }
+    }
+
+    /**
+     * Generates tile priority debug overlay commands for visible chunks.
+     * This method iterates over visible chunks in the foreground layer (Layer 0)
+     * and overlays high-priority tiles with a semi-transparent red tint.
+     * Helps diagnose sprite-behind-tile priority issues like the ARZ wall bug.
+     *
+     * @param commands the list of GLCommands to add priority rectangles to
+     * @param camera   the camera for visibility culling
+     */
+    private void generateTilePriorityDebugCommands(List<GLCommand> commands, Camera camera) {
+        if (level == null || level.getMap() == null) {
+            return;
+        }
+        if (!overlayManager.isEnabled(DebugOverlayToggle.TILE_PRIORITY_VIEW)) {
+            return;
+        }
+
+        int cameraX = camera.getX();
+        int cameraY = camera.getY();
+        int cameraWidth = camera.getWidth();
+        int cameraHeight = camera.getHeight();
+
+        int levelWidth = level.getMap().getWidth() * LevelConstants.BLOCK_WIDTH;
+        int levelHeight = level.getMap().getHeight() * LevelConstants.BLOCK_HEIGHT;
+
+        // Calculate visible chunk range (same culling logic as foreground rendering)
+        int xStart = cameraX - (cameraX % LevelConstants.CHUNK_WIDTH);
+        int xEnd = cameraX + cameraWidth;
+        int yStart = cameraY - (cameraY % LevelConstants.CHUNK_HEIGHT);
+        int yEnd = cameraY + cameraHeight + LevelConstants.CHUNK_HEIGHT;
+
+        // Disable texturing and shaders for drawing solid colors
+        ShaderProgram shaderProgram = graphicsManager.getShaderProgram();
+        int shaderProgramId = 0;
+        if (shaderProgram != null) {
+            shaderProgramId = shaderProgram.getProgramId();
+        }
+        commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.DISABLE, GL2.GL_TEXTURE_2D));
+
+        for (int y = yStart; y <= yEnd; y += LevelConstants.CHUNK_HEIGHT) {
+            // Foreground clamps vertically (doesn't wrap)
+            if (y < 0 || y >= levelHeight) {
+                continue;
+            }
+
+            for (int x = xStart; x <= xEnd; x += LevelConstants.CHUNK_WIDTH) {
+                // Handle X wrapping
+                int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
+
+                Block block = getBlockAtPosition((byte) 0, wrappedX, y);
+                if (block == null) {
+                    continue;
+                }
+
+                int xBlockBit = (wrappedX % LevelConstants.BLOCK_WIDTH) / LevelConstants.CHUNK_WIDTH;
+                int yBlockBit = (y % LevelConstants.BLOCK_HEIGHT) / LevelConstants.CHUNK_HEIGHT;
+                ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
+
+                int chunkIndex = chunkDesc.getChunkIndex();
+                if (chunkIndex == 0 || chunkIndex >= level.getChunkCount()) {
+                    continue;
+                }
+
+                Chunk chunk = level.getChunk(chunkIndex);
+                if (chunk == null) {
+                    continue;
+                }
+
+                // Check each of the 4 patterns (8x8 tiles) in this 16x16 chunk
+                for (int py = 0; py < 2; py++) {
+                    for (int px = 0; px < 2; px++) {
+                        PatternDesc desc = chunk.getPatternDesc(px, py);
+                        if (desc == null || desc == PatternDesc.EMPTY) {
+                            continue;
+                        }
+
+                        // Only highlight high-priority tiles (priority bit = 1)
+                        if (!desc.getPriority()) {
+                            continue;
+                        }
+
+                        // Calculate screen coordinates for this 8x8 pattern
+                        // We need to account for chunk flip flags
+                        int patternX = x + (chunkDesc.getHFlip() ? (1 - px) : px) * Pattern.PATTERN_WIDTH;
+                        int patternY = y + (chunkDesc.getVFlip() ? (1 - py) : py) * Pattern.PATTERN_HEIGHT;
+
+                        // Draw a semi-transparent red overlay for high-priority tiles
+                        // Use RECTI with alpha blending
+                        int renderX = patternX;
+                        int renderY = patternY;
+
+                        // Add 16 to align with the pattern renderer's coordinate system (same as collision debug)
+                        int drawStartX = renderX;
+                        int drawEndX = drawStartX + Pattern.PATTERN_WIDTH;
+                        int drawStartY = renderY + 16;
+                        int drawEndY = drawStartY - Pattern.PATTERN_HEIGHT;
+
+                        commands.add(new GLCommand(
+                                GLCommand.CommandType.RECTI,
+                                -1,
+                                GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
+                                1.0f, 0.0f, 0.0f, 0.4f, // Red with 40% opacity
+                                drawStartX,
+                                drawEndY,
+                                drawEndX,
+                                drawStartY));
+                    }
+                }
+            }
+        }
+
         // Re-enable texturing and shader for subsequent rendering
         commands.add(new GLCommand(GLCommand.CommandType.ENABLE, GL2.GL_TEXTURE_2D));
         if (shaderProgramId != 0) {

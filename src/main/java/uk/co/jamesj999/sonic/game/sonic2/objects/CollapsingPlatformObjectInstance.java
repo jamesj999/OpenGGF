@@ -17,7 +17,6 @@ import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
 import uk.co.jamesj999.sonic.level.render.SpritePieceRenderer;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -294,7 +293,7 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         // Play collapse sound
         AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SMASH);
 
-        // Spawn fragments
+        // Spawn fragments - they will handle collision now
         spawnFragments();
 
         // Mark as remembered to prevent respawn (ROM-accurate behavior)
@@ -304,8 +303,9 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             manager.getObjectManager().markRemembered(spawn);
         }
 
-        // Mark as destroyed
-        setDestroyed(true);
+        // DON'T destroy immediately - the parent becomes non-solid (isSolidFor returns false
+        // because collapsed=true) but fragments now provide collision.
+        // Parent will be cleaned up when it goes off-screen via normal despawn logic.
 
         LOGGER.fine(() -> String.format("CollapsingPlatform at (%d,%d) collapsed, spawning %d fragments",
                 spawn.x(), spawn.y(), config.delayData().length));
@@ -397,15 +397,25 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
      * Fragment object that falls after the platform collapses.
      * Each fragment has a delay before it starts falling.
      * <p>
+     * In the original ROM, each fragment remains solid during its delay period.
+     * When a fragment's delay expires, it clears the player's "on object" flag
+     * (if the player is standing on that fragment) and starts falling with gravity.
+     * <p>
      * In the original disassembly, each fragment uses static_mappings mode where
      * the mappings pointer points to a single sprite piece (not a full frame).
      * The piece's x/y offsets provide the visual displacement from the fragment's
-     * world position. For now, we use debug rendering until art is fully integrated.
+     * world position.
      */
-    public static class CollapsingPlatformFragmentInstance extends AbstractObjectInstance {
+    public static class CollapsingPlatformFragmentInstance extends AbstractObjectInstance
+            implements SolidObjectProvider {
 
         // Gravity from ObjectMoveAndFall (s2.asm line 29950)
         private static final int GRAVITY = 0x38;
+
+        // Fragment collision dimensions - each fragment piece is roughly 16x16 or 32x16
+        // Using conservative values that work for all zones
+        private static final int FRAGMENT_HALF_WIDTH = 0x10;   // 16 pixels
+        private static final int FRAGMENT_HALF_HEIGHT = 0x08;  // 8 pixels
 
         private int currentX;
         private int currentY;
@@ -421,13 +431,39 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         private final boolean hFlip;
         private final boolean vFlip;
 
-        public CollapsingPlatformFragmentInstance(int x, int y, int delay, int fragmentIndex,
+        // Piece offset from parent (for collision positioning)
+        private final int pieceOffsetX;
+        private final int pieceOffsetY;
+
+        public CollapsingPlatformFragmentInstance(int parentX, int parentY, int delay, int fragmentIndex,
                                                    ZoneConfig config, ObjectRenderManager renderManager,
                                                    boolean hFlip, boolean vFlip) {
-            super(new ObjectSpawn(x, y, 0x1F, 0, 0, false, 0), "CollapsingPlatformFragment");
-            this.currentX = x;
-            this.currentY = y;
-            this.subY = y << 8;
+            super(new ObjectSpawn(parentX, parentY, 0x1F, 0, 0, false, 0), "CollapsingPlatformFragment");
+
+            // Get piece offset from config
+            int offsetX = 0;
+            int offsetY = 0;
+            if (config != null && config.pieceOffsets() != null &&
+                    fragmentIndex < config.pieceOffsets().length) {
+                offsetX = config.pieceOffsets()[fragmentIndex][0];
+                offsetY = config.pieceOffsets()[fragmentIndex][1];
+            }
+
+            // Apply flip to offset if needed
+            if (hFlip) {
+                offsetX = -offsetX;
+            }
+            if (vFlip) {
+                offsetY = -offsetY;
+            }
+
+            this.pieceOffsetX = offsetX;
+            this.pieceOffsetY = offsetY;
+
+            // Fragment position is parent position + piece offset
+            this.currentX = parentX + offsetX;
+            this.currentY = parentY + offsetY;
+            this.subY = currentY << 8;
             this.delayCounter = delay;
             this.fragmentIndex = fragmentIndex;
             this.config = config;
@@ -499,11 +535,16 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
                 return;
             }
 
-            // Fragment frame index depends on zone
-            // OOZ: All fragments use the same mapping (frame 0 or 1)
-            // MCZ: Fragments use frame 1 (collapsed pieces)
-            int frameIndex = 1;  // Collapsed/fragment frame
-            renderer.drawFrameIndex(frameIndex, currentX, currentY, hFlip, vFlip);
+            // Fragment frame index depends on zone - frame 1 is the collapsed/fragment frame
+            // Each fragment draws only its corresponding piece from that frame
+            int frameIndex = 1;
+
+            // Render at parent position (currentX/currentY minus offset) because
+            // the piece renderer will add the piece offset
+            int renderX = currentX - pieceOffsetX;
+            int renderY = currentY - pieceOffsetY;
+
+            renderer.drawFramePieceByIndex(frameIndex, fragmentIndex, renderX, renderY, hFlip, vFlip);
         }
 
         @Override
@@ -511,9 +552,30 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             return RenderPriority.clamp(4);
         }
 
+        // --- SolidObjectProvider implementation ---
+
+        @Override
+        public SolidObjectParams getSolidParams() {
+            return new SolidObjectParams(FRAGMENT_HALF_WIDTH, FRAGMENT_HALF_HEIGHT, FRAGMENT_HALF_HEIGHT);
+        }
+
+        @Override
+        public boolean isTopSolidOnly() {
+            return true;
+        }
+
+        @Override
+        public boolean isSolidFor(AbstractPlayableSprite player) {
+            // Fragment is solid until delay expires AND hasn't started falling
+            // Once falling starts, collision is cleared automatically by SolidContacts.update()
+            return delayCounter > 0 && !falling;
+        }
+
         /**
          * Render an ARZ fragment using level patterns.
          * Each fragment renders its corresponding piece from ARZ_FRAME_COLLAPSED.
+         * Since currentX/currentY already include the piece offset, we need to
+         * subtract it before passing to the renderer (which will add it back).
          */
         private void renderArzFragment() {
             if (fragmentIndex < 0 || fragmentIndex >= ARZ_FRAME_COLLAPSED.pieces().size()) {
@@ -523,10 +585,15 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             SpriteMappingPiece piece = ARZ_FRAME_COLLAPSED.pieces().get(fragmentIndex);
             GraphicsManager graphicsManager = GraphicsManager.getInstance();
 
+            // Render at parent position (currentX/currentY minus offset) because
+            // SpritePieceRenderer will add the piece offset
+            int renderX = currentX - pieceOffsetX;
+            int renderY = currentY - pieceOffsetY;
+
             SpritePieceRenderer.renderPieces(
                     List.of(piece),
-                    currentX,
-                    currentY,
+                    renderX,
+                    renderY,
                     0,  // Level patterns start at index 0
                     ARZ_PALETTE,
                     hFlip,  // Frame H-flip inherited from parent
@@ -545,18 +612,9 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         }
 
         private void appendDebugFragment(List<GLCommand> commands) {
-            // Get visual offset from piece offsets (for debug rendering)
-            int offsetX = 0;
-            int offsetY = 0;
-            if (config != null && config.pieceOffsets() != null &&
-                    fragmentIndex < config.pieceOffsets().length) {
-                offsetX = config.pieceOffsets()[fragmentIndex][0];
-                offsetY = config.pieceOffsets()[fragmentIndex][1];
-            }
-
-            // Fragment renders at world position + piece offset
-            int renderX = currentX + offsetX;
-            int renderY = currentY + offsetY;
+            // Fragment position already includes piece offset (set in constructor)
+            int renderX = currentX;
+            int renderY = currentY;
 
             int size = 12;  // Approximate piece size for debug
             int left = renderX - size;

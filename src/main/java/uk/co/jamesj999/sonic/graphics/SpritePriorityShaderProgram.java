@@ -22,6 +22,13 @@ public class SpritePriorityShaderProgram extends ShaderProgram {
     private int screenSizeLocation = -1;
     private int viewportOffsetLocation = -1;
 
+    // Uniform locations for underwater palette support
+    private int underwaterPaletteLocation = -1;
+    private int waterlineScreenYLocation = -1;
+    private int windowHeightLocation = -1;
+    private int screenHeightLocation = -1;
+    private int waterEnabledLocation = -1;
+
     public SpritePriorityShaderProgram(GL2 gl, String fragmentShaderPath) throws IOException {
         super(gl, fragmentShaderPath);
     }
@@ -38,6 +45,13 @@ public class SpritePriorityShaderProgram extends ShaderProgram {
         spriteHighPriorityLocation = gl.glGetUniformLocation(programId, "SpriteHighPriority");
         screenSizeLocation = gl.glGetUniformLocation(programId, "ScreenSize");
         viewportOffsetLocation = gl.glGetUniformLocation(programId, "ViewportOffset");
+
+        // Cache underwater palette uniforms
+        underwaterPaletteLocation = gl.glGetUniformLocation(programId, "UnderwaterPalette");
+        waterlineScreenYLocation = gl.glGetUniformLocation(programId, "WaterlineScreenY");
+        windowHeightLocation = gl.glGetUniformLocation(programId, "WindowHeight");
+        screenHeightLocation = gl.glGetUniformLocation(programId, "ScreenHeight");
+        waterEnabledLocation = gl.glGetUniformLocation(programId, "WaterEnabled");
     }
 
     /**
@@ -86,6 +100,50 @@ public class SpritePriorityShaderProgram extends ShaderProgram {
     public void setViewportOffset(GL2 gl, float x, float y) {
         if (viewportOffsetLocation != -1) {
             gl.glUniform2f(viewportOffsetLocation, x, y);
+        }
+    }
+
+    /**
+     * Get the uniform location for the underwater palette texture sampler.
+     */
+    public int getUnderwaterPaletteLocation() {
+        return underwaterPaletteLocation;
+    }
+
+    /**
+     * Set the waterline screen Y position (pixels from top of screen).
+     * Set to a negative value to disable underwater palette switching.
+     */
+    public void setWaterlineScreenY(GL2 gl, float y) {
+        if (waterlineScreenYLocation != -1) {
+            gl.glUniform1f(waterlineScreenYLocation, y);
+        }
+    }
+
+    /**
+     * Set the physical window height in pixels.
+     */
+    public void setWindowHeight(GL2 gl, float height) {
+        if (windowHeightLocation != -1) {
+            gl.glUniform1f(windowHeightLocation, height);
+        }
+    }
+
+    /**
+     * Set the logical screen height (e.g., 224 for Genesis).
+     */
+    public void setScreenHeight(GL2 gl, float height) {
+        if (screenHeightLocation != -1) {
+            gl.glUniform1f(screenHeightLocation, height);
+        }
+    }
+
+    /**
+     * Set whether water is enabled in the current zone.
+     */
+    public void setWaterEnabled(GL2 gl, boolean enabled) {
+        if (waterEnabledLocation != -1) {
+            gl.glUniform1i(waterEnabledLocation, enabled ? 1 : 0);
         }
     }
 }

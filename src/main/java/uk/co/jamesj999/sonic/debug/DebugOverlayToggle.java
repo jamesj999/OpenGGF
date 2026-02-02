@@ -16,6 +16,7 @@ public enum DebugOverlayToggle {
     TOUCH_RESPONSE("Touch Response", KeyEvent.VK_F11, false),
     OBJECT_ART_VIEWER("Art Viewer", KeyEvent.VK_F12, false),
     COLLISION_VIEW("Collision View", KeyEvent.VK_BACK_QUOTE, false),
+    TILE_PRIORITY_VIEW("Tile Priority", KeyEvent.VK_EQUALS, false),
     PERFORMANCE("Performance", KeyEvent.VK_P, false);
 
     private final String label;

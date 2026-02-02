@@ -108,6 +108,13 @@ public class GraphicsManager {
 	private int viewportWidth = 320;
 	private int viewportHeight = 224;
 
+	// Water-related state for sprite priority shader underwater palette support.
+	// These values are set by LevelManager.updateWaterShaderState() each frame.
+	private float waterlineScreenY = 0.0f;
+	private float windowHeight = 224.0f;
+	private float screenHeight = 224.0f;
+	private boolean waterEnabled = false;
+
 	public void registerCommand(GLCommandable command) {
 		commands.add(command);
 	}
@@ -625,6 +632,69 @@ public class GraphicsManager {
 
 	public int getViewportHeight() {
 		return viewportHeight;
+	}
+
+	/**
+	 * Get the current waterline Y position in screen coordinates (pixels from top).
+	 * Returns a negative value if there's no water in the current zone.
+	 */
+	public float getWaterlineScreenY() {
+		return waterlineScreenY;
+	}
+
+	/**
+	 * Set the waterline Y position for sprite priority shader underwater palette.
+	 * Called by LevelManager.updateWaterShaderState() each frame.
+	 *
+	 * @param y Screen Y position where water starts (negative to disable)
+	 */
+	public void setWaterlineScreenY(float y) {
+		this.waterlineScreenY = y;
+	}
+
+	/**
+	 * Get the physical window height in pixels.
+	 */
+	public float getWindowHeight() {
+		return windowHeight;
+	}
+
+	/**
+	 * Set the physical window height for sprite priority shader.
+	 * Called by LevelManager.updateWaterShaderState() each frame.
+	 */
+	public void setWindowHeight(float height) {
+		this.windowHeight = height;
+	}
+
+	/**
+	 * Get the logical screen height (e.g., 224 for Genesis).
+	 */
+	public float getScreenHeight() {
+		return screenHeight;
+	}
+
+	/**
+	 * Set the logical screen height for sprite priority shader.
+	 * Called by LevelManager.updateWaterShaderState() each frame.
+	 */
+	public void setScreenHeight(float height) {
+		this.screenHeight = height;
+	}
+
+	/**
+	 * Check if water is enabled for the current zone.
+	 */
+	public boolean isWaterEnabled() {
+		return waterEnabled;
+	}
+
+	/**
+	 * Set whether water is enabled for sprite priority shader.
+	 * Called by LevelManager.updateWaterShaderState() each frame.
+	 */
+	public void setWaterEnabled(boolean enabled) {
+		this.waterEnabled = enabled;
 	}
 
 	private Integer underwaterPaletteTextureId;

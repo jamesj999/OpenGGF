@@ -282,7 +282,7 @@ public class DebugRenderer {
                         lines.add(0, "Overlay Off (" + DebugOverlayToggle.OVERLAY.shortcutLabel() + ")");
                 }
                 int startX = uiX(baseWidth - 150);
-                int startY = uiY(baseHeight - 6);
+                int startY = uiY(baseHeight - 18);
                 int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
                 int y = startY;
                 for (String line : lines) {
@@ -405,7 +405,7 @@ public class DebugRenderer {
                 }
 
                 int startX = uiX(6);
-                int startY = uiY(baseHeight - 6);
+                int startY = uiY(baseHeight - 18);
                 int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
                 int y = startY;
                 for (String line : lines) {

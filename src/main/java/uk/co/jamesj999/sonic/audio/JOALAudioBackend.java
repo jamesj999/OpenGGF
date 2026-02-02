@@ -81,6 +81,11 @@ public class JOALAudioBackend implements AudioBackend {
     private final boolean[] psgUserMutes = new boolean[4];
     private final boolean[] psgUserSolos = new boolean[4];
 
+    // Pooled int[1] arrays to avoid per-frame allocations in OpenAL calls
+    private final int[] alStateBuffer = new int[1];
+    private final int[] alProcessedBuffer = new int[1];
+    private final int[] alUnqueueBuffer = new int[1];
+
     private boolean speedShoesEnabled = false;
     private GameAudioProfile audioProfile;
     private SmpsSequencerConfig smpsConfig;
@@ -311,12 +316,10 @@ public class JOALAudioBackend implements AudioBackend {
     private void stopStream() {
         if (currentStream != null) {
             al.alSourceStop(musicSource);
-            int[] processed = new int[1];
-            al.alGetSourcei(musicSource, AL.AL_BUFFERS_PROCESSED, processed, 0);
-            while (processed[0] > 0) {
-                int[] buffers = new int[1];
-                al.alSourceUnqueueBuffers(musicSource, 1, buffers, 0);
-                processed[0]--;
+            al.alGetSourcei(musicSource, AL.AL_BUFFERS_PROCESSED, alProcessedBuffer, 0);
+            while (alProcessedBuffer[0] > 0) {
+                al.alSourceUnqueueBuffers(musicSource, 1, alUnqueueBuffer, 0);
+                alProcessedBuffer[0]--;
             }
             currentStream = null;
             currentSmps = null;
@@ -343,23 +346,19 @@ public class JOALAudioBackend implements AudioBackend {
             // If currentStream is null but sfxStream is NOT null, we should still stream?
             // Yes.
 
-            int[] state = new int[1];
-            al.alGetSourcei(musicSource, AL.AL_SOURCE_STATE, state, 0);
+            al.alGetSourcei(musicSource, AL.AL_SOURCE_STATE, alStateBuffer, 0);
+            al.alGetSourcei(musicSource, AL.AL_BUFFERS_PROCESSED, alProcessedBuffer, 0);
 
-            int[] processed = new int[1];
-            al.alGetSourcei(musicSource, AL.AL_BUFFERS_PROCESSED, processed, 0);
-
-            while (processed[0] > 0) {
-                int[] buffers = new int[1];
-                al.alSourceUnqueueBuffers(musicSource, 1, buffers, 0);
-                fillBuffer(buffers[0]);
-                al.alSourceQueueBuffers(musicSource, 1, buffers, 0);
-                processed[0]--;
+            while (alProcessedBuffer[0] > 0) {
+                al.alSourceUnqueueBuffers(musicSource, 1, alUnqueueBuffer, 0);
+                fillBuffer(alUnqueueBuffer[0]);
+                al.alSourceQueueBuffers(musicSource, 1, alUnqueueBuffer, 0);
+                alProcessedBuffer[0]--;
             }
 
             // Check state again?
-            al.alGetSourcei(musicSource, AL.AL_SOURCE_STATE, state, 0);
-            if (state[0] != AL.AL_PLAYING) {
+            al.alGetSourcei(musicSource, AL.AL_SOURCE_STATE, alStateBuffer, 0);
+            if (alStateBuffer[0] != AL.AL_PLAYING) {
                 al.alSourcePlay(musicSource);
             }
         }
@@ -516,7 +515,8 @@ public class JOALAudioBackend implements AudioBackend {
         // Stop and cleanup WAV-based SFX sources
         for (int source : sfxSources) {
             al.alSourceStop(source);
-            al.alDeleteSources(1, new int[] { source }, 0);
+            alUnqueueBuffer[0] = source;
+            al.alDeleteSources(1, alUnqueueBuffer, 0);
         }
         sfxSources.clear();
     }
@@ -746,12 +746,12 @@ public class JOALAudioBackend implements AudioBackend {
 
         // Cleanup stopped sources
         Iterator<Integer> it = sfxSources.iterator();
-        int[] state = new int[1];
         while (it.hasNext()) {
             int src = it.next();
-            al.alGetSourcei(src, AL.AL_SOURCE_STATE, state, 0);
-            if (state[0] == AL.AL_STOPPED) {
-                al.alDeleteSources(1, new int[] { src }, 0);
+            al.alGetSourcei(src, AL.AL_SOURCE_STATE, alStateBuffer, 0);
+            if (alStateBuffer[0] == AL.AL_STOPPED) {
+                alUnqueueBuffer[0] = src;
+                al.alDeleteSources(1, alUnqueueBuffer, 0);
                 it.remove();
             }
         }
@@ -780,16 +780,14 @@ public class JOALAudioBackend implements AudioBackend {
     @Override
     public void resume() {
         if (musicSource >= 0) {
-            int[] state = new int[1];
-            al.alGetSourcei(musicSource, AL.AL_SOURCE_STATE, state, 0);
-            if (state[0] == AL.AL_PAUSED) {
+            al.alGetSourcei(musicSource, AL.AL_SOURCE_STATE, alStateBuffer, 0);
+            if (alStateBuffer[0] == AL.AL_PAUSED) {
                 al.alSourcePlay(musicSource);
             }
         }
         for (int src : sfxSources) {
-            int[] state = new int[1];
-            al.alGetSourcei(src, AL.AL_SOURCE_STATE, state, 0);
-            if (state[0] == AL.AL_PAUSED) {
+            al.alGetSourcei(src, AL.AL_SOURCE_STATE, alStateBuffer, 0);
+            if (alStateBuffer[0] == AL.AL_PAUSED) {
                 al.alSourcePlay(src);
             }
         }
