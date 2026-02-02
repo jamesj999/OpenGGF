@@ -163,6 +163,9 @@ public class LevelManager {
     private final List<GLCommand> sensorCommands = new ArrayList<>(128);
     private final List<GLCommand> cameraBoundsCommands = new ArrayList<>(64);
 
+    // Reusable PatternDesc to avoid per-iteration allocations in tight loops
+    private final PatternDesc reusablePatternDesc = new PatternDesc();
+
     // Cached screen dimensions (avoids repeated config service lookups)
     private final int cachedScreenWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
     private final int cachedScreenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
@@ -560,10 +563,9 @@ public class LevelManager {
         for (int y = yTopBound; y <= yBottomBound; y += Pattern.PATTERN_HEIGHT) {
             for (int x = xLeftBound; x <= xRightBound; x += Pattern.PATTERN_WIDTH) {
                 if (count < maxCount) {
-                    PatternDesc pDesc = new PatternDesc();
-                    pDesc.setPaletteIndex(Engine.debugOption.ordinal());
-                    pDesc.setPatternIndex(count);
-                    graphicsManager.renderPattern(pDesc, x, y);
+                    reusablePatternDesc.setPaletteIndex(Engine.debugOption.ordinal());
+                    reusablePatternDesc.setPatternIndex(count);
+                    graphicsManager.renderPattern(reusablePatternDesc, x, y);
                     count++;
                 }
             }
@@ -1360,11 +1362,11 @@ public class LevelManager {
                         if (chunkVFlip) {
                             newIndex ^= 0x1000;
                         }
-                        PatternDesc newPatternDesc = new PatternDesc(newIndex);
+                        reusablePatternDesc.set(newIndex);
 
                         int tileX = chunkX * 2 + cX;
                         int tileY = chunkY * 2 + cY;
-                        writeTileDescriptor(data, widthTiles, heightTiles, tileX, tileY, newPatternDesc);
+                        writeTileDescriptor(data, widthTiles, heightTiles, tileX, tileY, reusablePatternDesc);
                     }
                 }
             }
