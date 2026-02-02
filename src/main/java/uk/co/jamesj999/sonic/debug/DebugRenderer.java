@@ -39,6 +39,11 @@ public class DebugRenderer {
         private PerformancePanelRenderer performancePanelRenderer;
         private static final String[] SENSOR_LABELS = {"A", "B", "C", "D", "E", "F"};
 
+        // Font size constants for different debug text categories
+        private static final FontSize SENSOR_FONT = FontSize.SMALL;      // 10pt - sensor labels
+        private static final FontSize OBJECT_LABEL_FONT = FontSize.MEDIUM; // 11pt - object labels
+        private static final FontSize PANEL_FONT = FontSize.LARGE;        // 12pt - main status panels
+
         private final int baseWidth = configService
                         .getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
         private final int baseHeight = configService
@@ -81,7 +86,7 @@ public class DebugRenderer {
                         } else {
                                 glyphBatch.drawTextOutlined(
                                                 "Overlay Off (" + DebugOverlayToggle.OVERLAY.shortcutLabel() + ")",
-                                                uiX(6), uiY(baseHeight - 6), Color.WHITE);
+                                                uiX(6), uiY(baseHeight - 6), Color.WHITE, PANEL_FONT);
                         }
                         glyphBatch.end(gl);
                         return;
@@ -159,7 +164,7 @@ public class DebugRenderer {
                                                         offsetY = stackOffset;
                                                 }
                                         }
-                                        glyphBatch.drawTextOutlined(label, screenX + offsetX, screenY + offsetY, sensorColor);
+                                        glyphBatch.drawTextOutlined(label, screenX + offsetX, screenY + offsetY, sensorColor, SENSOR_FONT);
                                 }
                         }
                 }
@@ -222,11 +227,11 @@ public class DebugRenderer {
                         int labelX = toScreenX(screenX + 2);
                         int labelY = toScreenYFromWorld(screenY) + uiY(2);
                         int lineHeight = uiY(10);
-                        glyphBatch.drawTextOutlined(name, labelX, labelY - lineHeight, Color.WHITE);
-                        glyphBatch.drawTextOutlined(line1, labelX, labelY, Color.MAGENTA);
+                        glyphBatch.drawTextOutlined(name, labelX, labelY - lineHeight, Color.WHITE, OBJECT_LABEL_FONT);
+                        glyphBatch.drawTextOutlined(line1, labelX, labelY, Color.MAGENTA, OBJECT_LABEL_FONT);
                         if (line2 != null) {
                                 glyphBatch.drawTextOutlined(line2, labelX, labelY + uiY(10),
-                                                new Color(255, 180, 255));
+                                                new Color(255, 180, 255), OBJECT_LABEL_FONT);
                         }
                 }
 
@@ -261,10 +266,10 @@ public class DebugRenderer {
                 }
                 int startX = uiX(baseWidth - 150);
                 int startY = uiY(baseHeight - 6);
-                int lineHeight = Math.max(8, uiY(9));
+                int lineHeight = Math.max(8, uiY(10));
                 int y = startY;
                 for (String line : lines) {
-                        glyphBatch.drawTextOutlined(line, startX, y, Color.WHITE);
+                        glyphBatch.drawTextOutlined(line, startX, y, Color.WHITE, PANEL_FONT);
                         y -= lineHeight;
                 }
         }
@@ -282,20 +287,20 @@ public class DebugRenderer {
                         glyphBatch.drawTextOutlined(side0,
                                         toScreenX(screenX + 2),
                                         toScreenYFromWorld(aboveY),
-                                        planeSwitchColor);
+                                        planeSwitchColor, OBJECT_LABEL_FONT);
                         glyphBatch.drawTextOutlined(side1,
                                         toScreenX(screenX + 2),
                                         toScreenYFromWorld(belowY),
-                                        planeSwitchColor);
+                                        planeSwitchColor, OBJECT_LABEL_FONT);
                 } else {
                         int leftX = screenX - 16;
                         int rightX = screenX + 6;
                         glyphBatch.drawTextOutlined(side0,
                                         toScreenX(leftX), toScreenYFromWorld(screenY),
-                                        planeSwitchColor);
+                                        planeSwitchColor, OBJECT_LABEL_FONT);
                         glyphBatch.drawTextOutlined(side1,
                                         toScreenX(rightX), toScreenYFromWorld(screenY),
-                                        planeSwitchColor);
+                                        planeSwitchColor, OBJECT_LABEL_FONT);
                 }
         }
 
@@ -320,7 +325,7 @@ public class DebugRenderer {
                 glyphBatch.drawTextOutlined(label,
                                 toScreenX(screenX - 6),
                                 toScreenYFromWorld(screenY) + uiY(8),
-                                new Color(255, 140, 0));
+                                new Color(255, 140, 0), OBJECT_LABEL_FONT);
         }
 
         private void renderPlayerStatusPanel(AbstractPlayableSprite sprite, int ringCount) {
@@ -384,10 +389,10 @@ public class DebugRenderer {
 
                 int startX = uiX(6);
                 int startY = uiY(baseHeight - 6);
-                int lineHeight = Math.max(8, uiY(9));
+                int lineHeight = Math.max(8, uiY(10));
                 int y = startY;
                 for (String line : lines) {
-                        glyphBatch.drawTextOutlined(line, startX, y, Color.WHITE);
+                        glyphBatch.drawTextOutlined(line, startX, y, Color.WHITE, PANEL_FONT);
                         y -= lineHeight;
                 }
         }
@@ -441,10 +446,10 @@ public class DebugRenderer {
                 Color touchColor = new Color(180, 255, 180);
                 int startX = uiX(baseWidth - 240);
                 int startY = uiY(baseHeight - 140);
-                int lineHeight = Math.max(8, uiY(9));
+                int lineHeight = Math.max(8, uiY(10));
                 int y = startY;
                 for (String line : lines) {
-                        glyphBatch.drawTextOutlined(line, startX, y, touchColor);
+                        glyphBatch.drawTextOutlined(line, startX, y, touchColor, PANEL_FONT);
                         y -= lineHeight;
                 }
         }
@@ -494,10 +499,10 @@ public class DebugRenderer {
                 Color viewerColor = new Color(180, 255, 180);
                 int startX = uiX(baseWidth - 160);
                 int startY = uiY(baseHeight - 120);
-                int lineHeight = Math.max(8, uiY(9));
+                int lineHeight = Math.max(8, uiY(10));
                 int y = startY;
                 for (String line : lines) {
-                        glyphBatch.drawTextOutlined(line, startX, y, viewerColor);
+                        glyphBatch.drawTextOutlined(line, startX, y, viewerColor, PANEL_FONT);
                         y -= lineHeight;
                 }
         }

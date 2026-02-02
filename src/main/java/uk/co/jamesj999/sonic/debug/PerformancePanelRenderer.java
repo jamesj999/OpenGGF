@@ -43,6 +43,9 @@ public class PerformancePanelRenderer {
     private double scaleX = 1.0;
     private double scaleY = 1.0;
 
+    /** Font size for performance stats (small for compact display) */
+    private static final FontSize PERF_FONT = FontSize.SMALL;
+
     /** Base dimensions (game screen size) */
     private final int baseWidth;
     private final int baseHeight;
@@ -82,7 +85,7 @@ public class PerformancePanelRenderer {
 
         if (!snapshot.hasData()) {
             glyphBatch.begin();
-            glyphBatch.drawTextOutlined("Perf: collecting...", uiX(panelRight - 80), uiY(panelTop - 10), Color.WHITE);
+            glyphBatch.drawTextOutlined("Perf: collecting...", uiX(panelRight - 80), uiY(panelTop - 10), Color.WHITE, PERF_FONT);
             glyphBatch.end(gl);
             return;
         }
@@ -117,7 +120,7 @@ public class PerformancePanelRenderer {
         double workMs = snapshot.totalFrameTimeMs();
         double budgetPct = (workMs / TARGET_FRAME_MS) * 100;
         glyphBatch.drawTextOutlined(String.format("%.1fms (%.0f%%) %.0ffps", workMs, budgetPct, snapshot.fps()),
-                textX, textY, Color.WHITE);
+                textX, textY, Color.WHITE, PERF_FONT);
 
         // Section legend
         List<SectionStats> sections = snapshot.getSectionsSortedByTime();
@@ -134,7 +137,7 @@ public class PerformancePanelRenderer {
                 name = name.substring(0, 10);
             }
             String line = String.format("%.1f %s", section.timeMs(), name);
-            glyphBatch.drawTextOutlined(line, textX, legendY, textColor);
+            glyphBatch.drawTextOutlined(line, textX, legendY, textColor, PERF_FONT);
 
             legendY -= lineHeight;
             count++;
@@ -148,18 +151,18 @@ public class PerformancePanelRenderer {
         int memY = uiY(graphY - 8);
         String heapLine = String.format("Heap: %.0fMB/%.0fMB (%d%%)",
                 memSnapshot.heapUsedMB(), memSnapshot.heapMaxMB(), memSnapshot.heapPercentage());
-        glyphBatch.drawTextOutlined(heapLine, textX, memY, Color.LIGHT_GRAY);
+        glyphBatch.drawTextOutlined(heapLine, textX, memY, Color.LIGHT_GRAY, PERF_FONT);
 
         memY -= lineHeight;
         String gcLine = String.format("GC: %d (%dms) | Alloc: %.1fMB/s",
                 memSnapshot.gcCount(), memSnapshot.gcTimeMs(), memSnapshot.allocationRateMBPerSec());
-        glyphBatch.drawTextOutlined(gcLine, textX, memY, Color.LIGHT_GRAY);
+        glyphBatch.drawTextOutlined(gcLine, textX, memY, Color.LIGHT_GRAY, PERF_FONT);
 
         // Top allocators
         List<MemoryStats.SectionAllocation> topAllocators = memSnapshot.topAllocators();
         if (!topAllocators.isEmpty()) {
             memY -= lineHeight;
-            glyphBatch.drawTextOutlined("Top Alloc:", textX, memY, Color.ORANGE);
+            glyphBatch.drawTextOutlined("Top Alloc:", textX, memY, Color.ORANGE, PERF_FONT);
 
             for (MemoryStats.SectionAllocation alloc : topAllocators) {
                 memY -= lineHeight;
@@ -168,7 +171,7 @@ public class PerformancePanelRenderer {
                     name = name.substring(0, 8);
                 }
                 String allocLine = String.format("%.1fKB %s", alloc.kbPerFrame(), name);
-                glyphBatch.drawTextOutlined(allocLine, textX, memY, Color.ORANGE);
+                glyphBatch.drawTextOutlined(allocLine, textX, memY, Color.ORANGE, PERF_FONT);
             }
         }
 

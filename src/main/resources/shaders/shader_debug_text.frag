@@ -9,7 +9,7 @@ varying vec4 v_color;
 
 void main()
 {
-    // Sample center (the actual glyph)
+    // Sample center (the actual glyph) - now antialiased (0.0-1.0 coverage)
     float center = texture2D(GlyphAtlas, v_texCoord).r;
 
     // Sample 8 neighbors for outline detection
@@ -23,14 +23,19 @@ void main()
     outline = max(outline, texture2D(GlyphAtlas, v_texCoord + vec2(-TexelSize.x,  TexelSize.y)).r);
     outline = max(outline, texture2D(GlyphAtlas, v_texCoord + vec2( TexelSize.x,  TexelSize.y)).r);
 
-    // Composite: outline underneath, fill on top
-    // If center is opaque, use fill color; otherwise use outline color
-    vec4 fillColor = v_color * center;
-    vec4 outlineColorFinal = OutlineColor * outline;
+    // Smooth alpha compositing: blend fill over outline
+    // fillColor.a = center coverage, outlineColor.a = outline coverage
+    vec4 fillColor = v_color;
+    fillColor.a *= center;
 
-    // Blend fill over outline
-    gl_FragColor = mix(outlineColorFinal, fillColor, center);
-    gl_FragColor.a = max(center, outline);
+    vec4 outlineColorFinal = OutlineColor;
+    outlineColorFinal.a *= outline;
+
+    // Porter-Duff "over" compositing: fill over outline
+    // result.rgb = fill.rgb * fill.a + outline.rgb * outline.a * (1 - fill.a)
+    // result.a = fill.a + outline.a * (1 - fill.a)
+    gl_FragColor.rgb = fillColor.rgb * fillColor.a + outlineColorFinal.rgb * outlineColorFinal.a * (1.0 - fillColor.a);
+    gl_FragColor.a = fillColor.a + outlineColorFinal.a * (1.0 - fillColor.a);
 
     // Discard fully transparent fragments
     if (gl_FragColor.a < 0.01) {

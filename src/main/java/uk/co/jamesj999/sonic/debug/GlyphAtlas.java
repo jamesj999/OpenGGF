@@ -10,13 +10,15 @@ import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.nio.ByteBuffer;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
 
 /**
  * Pre-renders ASCII glyphs to a texture atlas for GPU-accelerated text rendering.
- * Uses a 512x512 GL_ALPHA texture with row-based packing.
+ * Supports multiple font sizes (SMALL, MEDIUM, LARGE) packed into a single 512x512 texture.
+ * Uses GL_LUMINANCE for single-channel grayscale with antialiasing for smooth outlines.
  */
 public class GlyphAtlas {
     private static final Logger LOGGER = Logger.getLogger(GlyphAtlas.class.getName());
@@ -27,9 +29,9 @@ public class GlyphAtlas {
     private static final int GLYPH_PADDING = 2;
 
     private int textureId;
-    private final Map<Character, GlyphInfo> glyphs = new HashMap<>();
-    private int lineHeight;
-    private int ascent;
+    private final Map<FontSize, Map<Character, GlyphInfo>> glyphsBySize = new EnumMap<>(FontSize.class);
+    private final Map<FontSize, Integer> lineHeightBySize = new EnumMap<>(FontSize.class);
+    private final Map<FontSize, Integer> ascentBySize = new EnumMap<>(FontSize.class);
     private boolean initialized;
 
     /**
@@ -56,96 +58,112 @@ public class GlyphAtlas {
     }
 
     /**
-     * Initializes the glyph atlas with the specified font.
+     * Initializes the glyph atlas with multiple font sizes.
      * Should be called once during startup with a valid GL context.
+     *
+     * @param gl The OpenGL context
+     * @param baseFont The base font (size will be overridden for each FontSize)
+     * @param scaleFactor Scale factor for DPI scaling
      */
-    public void init(GL2 gl, Font font) {
+    public void init(GL2 gl, Font baseFont, float scaleFactor) {
         if (initialized || gl == null) {
             return;
         }
 
-        // Create a temporary image for rendering glyphs
-        BufferedImage tempImage = new BufferedImage(1, 1, BufferedImage.TYPE_BYTE_GRAY);
-        Graphics2D tempG2d = tempImage.createGraphics();
-        tempG2d.setFont(font);
-        FontMetrics metrics = tempG2d.getFontMetrics();
-        FontRenderContext frc = tempG2d.getFontRenderContext();
-
-        this.lineHeight = metrics.getHeight();
-        this.ascent = metrics.getAscent();
-
-        // Calculate required space for all glyphs
-        int totalGlyphs = LAST_CHAR - FIRST_CHAR + 1;
-        int[] widths = new int[totalGlyphs];
-        int[] heights = new int[totalGlyphs];
-        int maxHeight = 0;
-
-        for (int c = FIRST_CHAR; c <= LAST_CHAR; c++) {
-            char ch = (char) c;
-            GlyphVector gv = font.createGlyphVector(frc, String.valueOf(ch));
-            Rectangle2D bounds = gv.getVisualBounds();
-
-            int w = (int) Math.ceil(bounds.getWidth()) + GLYPH_PADDING * 2;
-            int h = (int) Math.ceil(bounds.getHeight()) + GLYPH_PADDING * 2;
-            widths[c - FIRST_CHAR] = Math.max(w, metrics.charWidth(ch));
-            heights[c - FIRST_CHAR] = Math.max(h, lineHeight);
-            maxHeight = Math.max(maxHeight, heights[c - FIRST_CHAR]);
-        }
-
-        tempG2d.dispose();
-
         // Create the atlas image
         BufferedImage atlasImage = new BufferedImage(ATLAS_SIZE, ATLAS_SIZE, BufferedImage.TYPE_BYTE_GRAY);
         Graphics2D g2d = atlasImage.createGraphics();
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
-        g2d.setFont(font);
+
+        // Enable antialiasing for smooth outline rendering
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         g2d.setColor(Color.WHITE);
 
-        // Pack glyphs row by row
+        // Track cursor position for packing
         int cursorX = GLYPH_PADDING;
         int cursorY = GLYPH_PADDING;
-        int rowHeight = maxHeight;
+        int rowHeight = 0;
 
-        for (int c = FIRST_CHAR; c <= LAST_CHAR; c++) {
-            char ch = (char) c;
-            int glyphWidth = widths[c - FIRST_CHAR];
-            int glyphHeight = heights[c - FIRST_CHAR];
+        // Pack all font sizes into the atlas
+        for (FontSize fontSize : FontSize.values()) {
+            Map<Character, GlyphInfo> glyphs = new HashMap<>();
+            glyphsBySize.put(fontSize, glyphs);
 
-            // Check if we need to start a new row
-            if (cursorX + glyphWidth + GLYPH_PADDING > ATLAS_SIZE) {
-                cursorX = GLYPH_PADDING;
-                cursorY += rowHeight + GLYPH_PADDING;
+            // Scale the font size
+            int scaledSize = Math.max(8, Math.round(fontSize.getPoints() * scaleFactor));
+            Font scaledFont = baseFont.deriveFont((float) scaledSize);
+            g2d.setFont(scaledFont);
+
+            // Get font metrics
+            FontMetrics metrics = g2d.getFontMetrics();
+            FontRenderContext frc = g2d.getFontRenderContext();
+
+            int lineHeight = metrics.getHeight();
+            int ascent = metrics.getAscent();
+            lineHeightBySize.put(fontSize, lineHeight);
+            ascentBySize.put(fontSize, ascent);
+
+            // Calculate glyph dimensions
+            int[] widths = new int[LAST_CHAR - FIRST_CHAR + 1];
+            int[] heights = new int[LAST_CHAR - FIRST_CHAR + 1];
+            int maxGlyphHeight = 0;
+
+            for (int c = FIRST_CHAR; c <= LAST_CHAR; c++) {
+                char ch = (char) c;
+                GlyphVector gv = scaledFont.createGlyphVector(frc, String.valueOf(ch));
+                Rectangle2D bounds = gv.getVisualBounds();
+
+                int w = (int) Math.ceil(bounds.getWidth()) + GLYPH_PADDING * 2;
+                int h = (int) Math.ceil(bounds.getHeight()) + GLYPH_PADDING * 2;
+                widths[c - FIRST_CHAR] = Math.max(w, metrics.charWidth(ch));
+                heights[c - FIRST_CHAR] = Math.max(h, lineHeight);
+                maxGlyphHeight = Math.max(maxGlyphHeight, heights[c - FIRST_CHAR]);
             }
 
-            // Check if we've run out of space
-            if (cursorY + glyphHeight > ATLAS_SIZE) {
-                LOGGER.warning("Glyph atlas is full, some characters may be missing");
-                break;
+            // Pack glyphs
+            for (int c = FIRST_CHAR; c <= LAST_CHAR; c++) {
+                char ch = (char) c;
+                int glyphWidth = widths[c - FIRST_CHAR];
+                int glyphHeight = heights[c - FIRST_CHAR];
+
+                // Check if we need to start a new row
+                if (cursorX + glyphWidth + GLYPH_PADDING > ATLAS_SIZE) {
+                    cursorX = GLYPH_PADDING;
+                    cursorY += rowHeight + GLYPH_PADDING;
+                    rowHeight = 0;
+                }
+
+                // Check if we've run out of space
+                if (cursorY + glyphHeight > ATLAS_SIZE) {
+                    LOGGER.warning("Glyph atlas is full at font size " + fontSize +
+                                   ", some characters may be missing");
+                    break;
+                }
+
+                // Draw the glyph
+                int drawX = cursorX;
+                int drawY = cursorY + ascent;
+                g2d.drawString(String.valueOf(ch), drawX, drawY);
+
+                // Calculate UV coordinates (normalized)
+                // Swap v0/v1 so glyph renders right-side up
+                float u0 = (float) cursorX / ATLAS_SIZE;
+                float v0 = (float) (cursorY + glyphHeight) / ATLAS_SIZE;
+                float u1 = (float) (cursorX + glyphWidth) / ATLAS_SIZE;
+                float v1 = (float) cursorY / ATLAS_SIZE;
+
+                // Store glyph info
+                GlyphInfo info = new GlyphInfo(
+                        u0, v0, u1, v1,
+                        glyphWidth, glyphHeight,
+                        0, 0,
+                        metrics.charWidth(ch)
+                );
+                glyphs.put(ch, info);
+
+                cursorX += glyphWidth + GLYPH_PADDING;
+                rowHeight = Math.max(rowHeight, glyphHeight);
             }
-
-            // Draw the glyph
-            int drawX = cursorX;
-            int drawY = cursorY + ascent;
-            g2d.drawString(String.valueOf(ch), drawX, drawY);
-
-            // Calculate UV coordinates (normalized)
-            // Swap v0/v1 so glyph renders right-side up (BufferedImage Y=0 at top, OpenGL V=0 at bottom)
-            float u0 = (float) cursorX / ATLAS_SIZE;
-            float v0 = (float) (cursorY + glyphHeight) / ATLAS_SIZE;  // bottom of glyph in texture
-            float u1 = (float) (cursorX + glyphWidth) / ATLAS_SIZE;
-            float v1 = (float) cursorY / ATLAS_SIZE;                   // top of glyph in texture
-
-            // Store glyph info
-            GlyphInfo info = new GlyphInfo(
-                    u0, v0, u1, v1,
-                    glyphWidth, glyphHeight,
-                    0, 0,
-                    metrics.charWidth(ch)
-            );
-            glyphs.put(ch, info);
-
-            cursorX += glyphWidth + GLYPH_PADDING;
         }
 
         g2d.dispose();
@@ -161,8 +179,9 @@ public class GlyphAtlas {
         textureId = textures[0];
 
         gl.glBindTexture(GL2.GL_TEXTURE_2D, textureId);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_NEAREST);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_NEAREST);
+        // Use LINEAR filtering for smooth antialiased text
+        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_LINEAR);
+        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_LINEAR);
         gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_S, GL2.GL_CLAMP_TO_EDGE);
         gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_T, GL2.GL_CLAMP_TO_EDGE);
 
@@ -173,23 +192,49 @@ public class GlyphAtlas {
 
         gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
 
+        int totalGlyphs = glyphsBySize.values().stream().mapToInt(Map::size).sum();
         initialized = true;
-        LOGGER.info("Glyph atlas initialized: " + glyphs.size() + " glyphs, texture ID " + textureId);
+        LOGGER.info("Glyph atlas initialized: " + totalGlyphs + " glyphs across " +
+                    FontSize.values().length + " sizes, texture ID " + textureId);
     }
 
     /**
-     * Gets the glyph info for a character.
+     * Initializes the glyph atlas with the specified font (single size, for backwards compatibility).
+     * Should be called once during startup with a valid GL context.
+     */
+    public void init(GL2 gl, Font font) {
+        init(gl, font, 1.0f);
+    }
+
+    /**
+     * Gets the glyph info for a character at a specific font size.
      * Returns null for unsupported characters.
      */
-    public GlyphInfo getGlyph(char c) {
+    public GlyphInfo getGlyph(char c, FontSize fontSize) {
+        Map<Character, GlyphInfo> glyphs = glyphsBySize.get(fontSize);
+        if (glyphs == null) {
+            return null;
+        }
         return glyphs.get(c);
     }
 
     /**
-     * Measures the width of a string in pixels.
+     * Gets the glyph info for a character using the default (MEDIUM) font size.
+     * Returns null for unsupported characters.
      */
-    public int measureTextWidth(String text) {
+    public GlyphInfo getGlyph(char c) {
+        return getGlyph(c, FontSize.MEDIUM);
+    }
+
+    /**
+     * Measures the width of a string in pixels at a specific font size.
+     */
+    public int measureTextWidth(String text, FontSize fontSize) {
         if (text == null || text.isEmpty()) {
+            return 0;
+        }
+        Map<Character, GlyphInfo> glyphs = glyphsBySize.get(fontSize);
+        if (glyphs == null) {
             return 0;
         }
         int width = 0;
@@ -203,17 +248,40 @@ public class GlyphAtlas {
     }
 
     /**
-     * Gets the line height for the font.
+     * Measures the width of a string in pixels using the default (MEDIUM) font size.
      */
-    public int getLineHeight() {
-        return lineHeight;
+    public int measureTextWidth(String text) {
+        return measureTextWidth(text, FontSize.MEDIUM);
     }
 
     /**
-     * Gets the ascent (distance from baseline to top of tallest glyph).
+     * Gets the line height for a specific font size.
+     */
+    public int getLineHeight(FontSize fontSize) {
+        Integer height = lineHeightBySize.get(fontSize);
+        return height != null ? height : 12;
+    }
+
+    /**
+     * Gets the line height for the default (MEDIUM) font size.
+     */
+    public int getLineHeight() {
+        return getLineHeight(FontSize.MEDIUM);
+    }
+
+    /**
+     * Gets the ascent for a specific font size.
+     */
+    public int getAscent(FontSize fontSize) {
+        Integer ascent = ascentBySize.get(fontSize);
+        return ascent != null ? ascent : 10;
+    }
+
+    /**
+     * Gets the ascent for the default (MEDIUM) font size.
      */
     public int getAscent() {
-        return ascent;
+        return getAscent(FontSize.MEDIUM);
     }
 
     /**
@@ -245,7 +313,9 @@ public class GlyphAtlas {
             gl.glDeleteTextures(1, new int[]{textureId}, 0);
         }
         textureId = 0;
-        glyphs.clear();
+        glyphsBySize.clear();
+        lineHeightBySize.clear();
+        ascentBySize.clear();
         initialized = false;
     }
 }
