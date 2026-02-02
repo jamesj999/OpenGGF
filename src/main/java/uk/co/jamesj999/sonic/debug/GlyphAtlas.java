@@ -91,7 +91,9 @@ public class GlyphAtlas {
 
             // Scale the font size (cap at 32pt max to avoid atlas overflow at high DPI)
             int scaledSize = Math.max(8, Math.min(32, Math.round(fontSize.getPoints() * scaleFactor)));
-            Font scaledFont = baseFont.deriveFont((float) scaledSize);
+            // Use bold for SMALL and MEDIUM to improve readability at small sizes
+            int style = (fontSize == FontSize.SMALL || fontSize == FontSize.MEDIUM) ? Font.BOLD : Font.PLAIN;
+            Font scaledFont = baseFont.deriveFont(style, (float) scaledSize);
             g2d.setFont(scaledFont);
 
             // Get font metrics
