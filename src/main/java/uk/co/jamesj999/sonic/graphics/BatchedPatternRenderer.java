@@ -554,6 +554,24 @@ public class BatchedPatternRenderer {
                     priorityShader.setViewportOffset(gl, gm.getViewportX(), gm.getViewportY());
                     gl.glActiveTexture(GL2.GL_TEXTURE0);
                 }
+
+                // Bind underwater palette for per-scanline palette switching
+                Integer underwaterPaletteId = gm.getUnderwaterPaletteTextureId();
+                if (underwaterPaletteId != null) {
+                    gl.glActiveTexture(GL2.GL_TEXTURE2);
+                    gl.glBindTexture(GL2.GL_TEXTURE_2D, underwaterPaletteId);
+                    int loc = priorityShader.getUnderwaterPaletteLocation();
+                    if (loc != -1) {
+                        gl.glUniform1i(loc, 2);
+                    }
+                    gl.glActiveTexture(GL2.GL_TEXTURE0);
+                }
+
+                // Set water uniforms from cached values in GraphicsManager
+                priorityShader.setWaterEnabled(gl, gm.isWaterEnabled());
+                priorityShader.setWaterlineScreenY(gl, gm.getWaterlineScreenY());
+                priorityShader.setWindowHeight(gl, gm.getWindowHeight());
+                priorityShader.setScreenHeight(gl, gm.getScreenHeight());
             }
 
             // Enable vertex arrays

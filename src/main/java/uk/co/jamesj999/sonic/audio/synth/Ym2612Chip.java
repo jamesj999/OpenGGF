@@ -92,6 +92,9 @@ public class Ym2612Chip {
     private static final int[] D2R_IDX = { 13, 15, 14, 16 };
     private static final int[] D1L_RR_IDX = { 17, 19, 18, 20 };
 
+    // Register slot to operator index mapping for writeSlot()
+    private static final int[] REG_TO_OP = { 0, 2, 1, 3 };
+
     // GPGX EG (Envelope Generator) tables for 3-sample stepping
     // EG_INC: Envelope increment table - 19 rows of 8 values each
     // Indexed by eg_rate_select[rate] + ((egCnt >> eg_rate_shift[rate]) & 7)
@@ -930,9 +933,8 @@ public class Ym2612Chip {
         if ((addr & 0x100) != 0)
             nch += 3;
 
-        int[] regToOp = { 0, 2, 1, 3 };
         int regSlot = (addr >> 2) & 3;
-        int opIdx = regToOp[regSlot];
+        int opIdx = REG_TO_OP[regSlot];
 
         Channel ch = channels[nch];
         Operator sl = ch.ops[opIdx];

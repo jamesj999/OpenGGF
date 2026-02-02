@@ -16,6 +16,13 @@ uniform float PaletteLine;
 uniform vec2 ScreenSize;                // Viewport dimensions for screen coord lookup
 uniform vec2 ViewportOffset;            // Viewport offset in window coords (for letterboxing)
 
+// Underwater palette uniforms
+uniform sampler2D UnderwaterPalette;    // Texture Unit 2
+uniform float WaterlineScreenY;         // Screen Y where water starts (negative = above screen)
+uniform float WindowHeight;             // Physical window height in pixels
+uniform float ScreenHeight;             // Logical screen height (e.g., 224)
+uniform int WaterEnabled;               // 1 = zone has water, 0 = no water
+
 void main()
 {
     // Get the color index from the indexed texture
@@ -55,8 +62,26 @@ void main()
     float paletteX = (index + 0.5) / 16.0;
     float paletteY = (paletteLine + 0.5) / 4.0;
 
-    // Sample the palette texture to get the actual color
-    vec4 indexedColor = texture2D(Palette, vec2(paletteX, paletteY));
+    // Check if underwater (screen-space mode) and sample appropriate palette
+    vec4 indexedColor;
+    if (WaterEnabled == 1) {
+        if (WaterlineScreenY < 0.0) {
+            // Waterline above screen - entire screen is underwater
+            indexedColor = texture2D(UnderwaterPalette, vec2(paletteX, paletteY));
+        } else {
+            // Waterline on screen - check per-pixel
+            float normalizedY = 1.0 - (gl_FragCoord.y / WindowHeight);
+            float pixelYFromTop = normalizedY * ScreenHeight;
+            if (pixelYFromTop >= WaterlineScreenY) {
+                indexedColor = texture2D(UnderwaterPalette, vec2(paletteX, paletteY));
+            } else {
+                indexedColor = texture2D(Palette, vec2(paletteX, paletteY));
+            }
+        }
+    } else {
+        // No water in this zone
+        indexedColor = texture2D(Palette, vec2(paletteX, paletteY));
+    }
 
     gl_FragColor = indexedColor; // Output the final color
 }

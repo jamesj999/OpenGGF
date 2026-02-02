@@ -93,6 +93,24 @@ public class PatternSpriteRenderer {
         drawFramePieces(pieces, originX, originY, hFlip, vFlip, spriteSheet.getPaletteIndex());
     }
 
+    /**
+     * Draws a single piece from a frame by its index.
+     * Useful for fragment objects that need to draw just their portion.
+     */
+    public void drawFramePieceByIndex(int frameIndex, int pieceIndex, int originX, int originY,
+            boolean hFlip, boolean vFlip) {
+        if (frameIndex < 0 || frameIndex >= spriteSheet.getFrameCount() || patternBase < 0) {
+            return;
+        }
+        SpriteFrame<? extends SpriteFramePiece> frame = spriteSheet.getFrame(frameIndex);
+        List<? extends SpriteFramePiece> pieces = frame.pieces();
+        if (pieceIndex < 0 || pieceIndex >= pieces.size()) {
+            return;
+        }
+        SpriteFramePiece piece = pieces.get(pieceIndex);
+        drawFramePieces(List.of(piece), originX, originY, hFlip, vFlip, spriteSheet.getPaletteIndex());
+    }
+
     public void drawPatternIndex(int patternIndex, int drawX, int drawY, int paletteIndex) {
         if (patternBase < 0) {
             return;

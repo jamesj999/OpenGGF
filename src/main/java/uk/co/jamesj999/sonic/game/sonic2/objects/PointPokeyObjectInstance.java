@@ -163,7 +163,18 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
         // Get level manager for later use
         levelManager = LevelManager.getInstance();
 
-        // Lock player to cage center (use center coordinates - spawn.x/y are center coords)
+        // Force rolling state FIRST - this changes player height from 38 to 28.
+        // Must be done before setCentreY, otherwise the center calculation uses
+        // wrong height and shifts when setRolling changes it.
+        player.setPinballMode(true);
+        player.setRolling(true);
+        player.setAir(false);
+
+        // ROM: move.b #$81,obj_control(a1) - locks player control
+        player.setControlLocked(true);
+
+        // Lock player to cage center (use center coordinates - spawn.x/y are origin coords)
+        // Now that rolling state is set, height is correct for center calculation
         player.setCentreX((short) spawn.x());
         player.setCentreY((short) spawn.y());
 
@@ -171,14 +182,6 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
         player.setXSpeed((short) 0);
         player.setYSpeed((short) 0);
         player.setGSpeed((short) 0);
-
-        // ROM: move.b #$81,obj_control(a1) - locks player control
-        player.setControlLocked(true);
-
-        // Force rolling state and pinball mode
-        player.setPinballMode(true);
-        player.setRolling(true);
-        player.setAir(false);
 
         // Switch to appropriate state based on mode
         mappingFrame = FRAME_ACTIVE;
@@ -422,7 +425,7 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
      * Keep player locked in cage position.
      */
     private void keepPlayerLocked(AbstractPlayableSprite player) {
-        // Use center coordinates - spawn.x/y are center coords
+        // Use center coordinates - spawn.x/y are origin coords
         player.setCentreX((short) spawn.x());
         player.setCentreY((short) spawn.y());
         player.setXSpeed((short) 0);
@@ -553,8 +556,9 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
 
     @Override
     public int getPriorityBucket() {
-        // Use bucket 3 to render after player (bucket 2) in same pass
-        return RenderPriority.clamp(3);
+        // Use bucket 1 to render AFTER player (bucket 2) so cage appears in front
+        // (higher buckets render first/behind, lower buckets render later/in front)
+        return RenderPriority.clamp(1);
     }
 
     /**

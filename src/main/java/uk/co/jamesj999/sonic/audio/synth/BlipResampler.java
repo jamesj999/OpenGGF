@@ -136,7 +136,8 @@ public class BlipResampler {
      * Check if an output sample is available.
      */
     public boolean hasOutputSample() {
-        long center = (long) Math.floor(outputPos);
+        // Direct cast is equivalent to Math.floor() for positive values (outputPos is always >= 0)
+        long center = (long) outputPos;
         return inputIndex > center + (FILTER_TAPS / 2);
     }
 
@@ -169,12 +170,13 @@ public class BlipResampler {
     }
 
     private int interpolate(int[] history) {
-        double frac = outputPos - Math.floor(outputPos);
+        // Direct cast is equivalent to Math.floor() for positive values (outputPos is always >= 0)
+        long center = (long) outputPos;
+        double frac = outputPos - center;
         int phase = (int) (frac * PHASE_COUNT);
         if (phase >= PHASE_COUNT) phase = PHASE_COUNT - 1;
         double[] coeffs = SINC_TABLE[phase];
 
-        long center = (long) Math.floor(outputPos);
         long start = center - (FILTER_TAPS / 2) + 1;
 
         double sum = 0.0;
@@ -194,41 +196,5 @@ public class BlipResampler {
         }
         int pos = (head - (int) (inputIndex - idx)) & BUFFER_MASK;
         return history[pos];
-    }
-
-    /**
-     * Simplified rendering method that handles the full resample loop.
-     * Returns number of output samples generated.
-     */
-    public int resample(SampleProvider provider, int[] outLeft, int[] outRight, int maxOutput) {
-        int outIdx = 0;
-
-        while (outIdx < maxOutput) {
-            // Generate input samples until we have enough for next output
-            while (!hasOutputSample()) {
-                int[] sample = provider.generateSample();
-                addInputSample(sample[0], sample[1]);
-                advanceInput();
-            }
-
-            // Output the interpolated sample
-            outLeft[outIdx] = getOutputLeft();
-            outRight[outIdx] = getOutputRight();
-            advanceOutput();
-            outIdx++;
-        }
-
-        return outIdx;
-    }
-
-    /**
-     * Interface for sample generation callback.
-     */
-    public interface SampleProvider {
-        /**
-         * Generate one sample at the internal rate.
-         * @return int[2] with [left, right] channels
-         */
-        int[] generateSample();
     }
 }

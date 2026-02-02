@@ -48,6 +48,13 @@ public class InstancedPatternRenderer {
     private int cachedScreenSizeLoc = -1;
     private int cachedViewportOffsetLoc = -1;
 
+    // Cached uniform locations for underwater palette support in priority shader
+    private int cachedUnderwaterPaletteLoc = -1;
+    private int cachedWaterlineScreenYLoc = -1;
+    private int cachedWindowHeightLoc = -1;
+    private int cachedScreenHeightLoc = -1;
+    private int cachedWaterEnabledLoc = -1;
+
     private final ArrayDeque<InstancedBatchCommand> commandPool = new ArrayDeque<>();
 
     public InstancedPatternRenderer() {
@@ -81,6 +88,13 @@ public class InstancedPatternRenderer {
         cachedTilePriorityTexLoc = gl.glGetUniformLocation(priorityProgramId, "TilePriorityTexture");
         cachedScreenSizeLoc = gl.glGetUniformLocation(priorityProgramId, "ScreenSize");
         cachedViewportOffsetLoc = gl.glGetUniformLocation(priorityProgramId, "ViewportOffset");
+
+        // Cache underwater palette uniform locations for priority shader
+        cachedUnderwaterPaletteLoc = gl.glGetUniformLocation(priorityProgramId, "UnderwaterPalette");
+        cachedWaterlineScreenYLoc = gl.glGetUniformLocation(priorityProgramId, "WaterlineScreenY");
+        cachedWindowHeightLoc = gl.glGetUniformLocation(priorityProgramId, "WindowHeight");
+        cachedScreenHeightLoc = gl.glGetUniformLocation(priorityProgramId, "ScreenHeight");
+        cachedWaterEnabledLoc = gl.glGetUniformLocation(priorityProgramId, "WaterEnabled");
 
         initBuffers(gl);
         initialized = true;
@@ -393,6 +407,29 @@ public class InstancedPatternRenderer {
                         }
                         gl.glActiveTexture(GL2.GL_TEXTURE0);
                     }
+                }
+
+                // Bind underwater palette for per-scanline palette switching
+                Integer underwaterPaletteId = gm.getUnderwaterPaletteTextureId();
+                if (underwaterPaletteId != null && cachedUnderwaterPaletteLoc != -1) {
+                    gl.glActiveTexture(GL2.GL_TEXTURE2);
+                    gl.glBindTexture(GL2.GL_TEXTURE_2D, underwaterPaletteId);
+                    gl.glUniform1i(cachedUnderwaterPaletteLoc, 2);
+                    gl.glActiveTexture(GL2.GL_TEXTURE0);
+                }
+
+                // Set water uniforms from cached values in GraphicsManager
+                if (cachedWaterEnabledLoc != -1) {
+                    gl.glUniform1i(cachedWaterEnabledLoc, gm.isWaterEnabled() ? 1 : 0);
+                }
+                if (cachedWaterlineScreenYLoc != -1) {
+                    gl.glUniform1f(cachedWaterlineScreenYLoc, gm.getWaterlineScreenY());
+                }
+                if (cachedWindowHeightLoc != -1) {
+                    gl.glUniform1f(cachedWindowHeightLoc, gm.getWindowHeight());
+                }
+                if (cachedScreenHeightLoc != -1) {
+                    gl.glUniform1f(cachedScreenHeightLoc, gm.getScreenHeight());
                 }
             }
 
