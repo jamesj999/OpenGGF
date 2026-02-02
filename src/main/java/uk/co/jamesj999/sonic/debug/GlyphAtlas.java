@@ -97,8 +97,8 @@ public class GlyphAtlas {
         // Create the atlas image
         BufferedImage atlasImage = new BufferedImage(ATLAS_SIZE, ATLAS_SIZE, BufferedImage.TYPE_BYTE_GRAY);
         Graphics2D g2d = atlasImage.createGraphics();
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
         g2d.setFont(font);
         g2d.setColor(Color.WHITE);
 
@@ -130,10 +130,11 @@ public class GlyphAtlas {
             g2d.drawString(String.valueOf(ch), drawX, drawY);
 
             // Calculate UV coordinates (normalized)
+            // Flip V coordinates for OpenGL (texture Y=0 at bottom, but BufferedImage Y=0 at top)
             float u0 = (float) cursorX / ATLAS_SIZE;
-            float v0 = (float) cursorY / ATLAS_SIZE;
+            float v0 = 1.0f - (float) cursorY / ATLAS_SIZE;
             float u1 = (float) (cursorX + glyphWidth) / ATLAS_SIZE;
-            float v1 = (float) (cursorY + glyphHeight) / ATLAS_SIZE;
+            float v1 = 1.0f - (float) (cursorY + glyphHeight) / ATLAS_SIZE;
 
             // Store glyph info
             GlyphInfo info = new GlyphInfo(
@@ -160,8 +161,8 @@ public class GlyphAtlas {
         textureId = textures[0];
 
         gl.glBindTexture(GL2.GL_TEXTURE_2D, textureId);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_LINEAR);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_LINEAR);
+        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_NEAREST);
+        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_NEAREST);
         gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_S, GL2.GL_CLAMP_TO_EDGE);
         gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_T, GL2.GL_CLAMP_TO_EDGE);
 
