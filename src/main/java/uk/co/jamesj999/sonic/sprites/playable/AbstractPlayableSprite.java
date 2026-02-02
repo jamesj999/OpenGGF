@@ -1701,16 +1701,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 return (short) (yHistory[desired] + (height / 2));
         }
 
+        /**
+         * Updates sensor active states based on movement direction and ground mode.
+         * Refactored to avoid per-frame array allocations by directly setting sensor states.
+         */
         public void updateSensors(short originalX, short originalY) {
-                Sensor[] sensorsToActivate;
-                Sensor[] sensorsToDeactivate;
-
                 Sensor groundA = groundSensors[0];
                 Sensor groundB = groundSensors[1];
-
                 Sensor ceilingC = ceilingSensors[0];
                 Sensor ceilingD = ceilingSensors[1];
-
                 Sensor pushE = pushSensors[0];
                 Sensor pushF = pushSensors[1];
 
@@ -1729,58 +1728,63 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
                         switch (quadrant) {
                                 case 0xC0 -> {
-                                        // Mostly Right (angles 0-31, 224-255): A, B, C, D, F
-                                        sensorsToActivate = new Sensor[] { groundA, groundB, ceilingC, ceilingD, pushF };
-                                        sensorsToDeactivate = new Sensor[] { pushE };
+                                        // Mostly Right (angles 0-31, 224-255): A, B, C, D, F active; E inactive
+                                        groundA.setActive(true);
+                                        groundB.setActive(true);
+                                        ceilingC.setActive(true);
+                                        ceilingD.setActive(true);
+                                        pushE.setActive(false);
+                                        pushF.setActive(true);
                                 }
                                 case 0x40 -> {
-                                        // Mostly Left (angles 96-159): A, B, C, D, E
-                                        sensorsToActivate = new Sensor[] { groundA, groundB, ceilingC, ceilingD, pushE };
-                                        sensorsToDeactivate = new Sensor[] { pushF };
+                                        // Mostly Left (angles 96-159): A, B, C, D, E active; F inactive
+                                        groundA.setActive(true);
+                                        groundB.setActive(true);
+                                        ceilingC.setActive(true);
+                                        ceilingD.setActive(true);
+                                        pushE.setActive(true);
+                                        pushF.setActive(false);
                                 }
                                 case 0x80 -> {
-                                        // Mostly Up (angles 160-223): C, D, E, F
-                                        sensorsToActivate = new Sensor[] { ceilingC, ceilingD, pushE, pushF };
-                                        sensorsToDeactivate = new Sensor[] { groundA, groundB };
+                                        // Mostly Up (angles 160-223): C, D, E, F active; A, B inactive
+                                        groundA.setActive(false);
+                                        groundB.setActive(false);
+                                        ceilingC.setActive(true);
+                                        ceilingD.setActive(true);
+                                        pushE.setActive(true);
+                                        pushF.setActive(true);
                                 }
                                 default -> {
-                                        // 0x00: Mostly Down (angles 32-95): A, B, E, F
-                                        // Also handles any unexpected values (mask guarantees only 0x00/0x40/0x80/0xC0)
-                                        sensorsToActivate = new Sensor[] { groundA, groundB, pushE, pushF };
-                                        sensorsToDeactivate = new Sensor[] { ceilingC, ceilingD };
+                                        // 0x00: Mostly Down (angles 32-95): A, B, E, F active; C, D inactive
+                                        groundA.setActive(true);
+                                        groundB.setActive(true);
+                                        ceilingC.setActive(false);
+                                        ceilingD.setActive(false);
+                                        pushE.setActive(true);
+                                        pushF.setActive(true);
                                 }
                         }
                 } else {
+                        // Ground sensors always active when grounded
+                        groundA.setActive(true);
+                        groundB.setActive(true);
+                        // Ceiling sensors always inactive when grounded
+                        ceilingC.setActive(false);
+                        ceilingD.setActive(false);
+
                         // Push sensors active on floor/ceiling, disabled on walls
                         boolean pushActive = (runningMode == GroundMode.GROUND || runningMode == GroundMode.CEILING);
                         // Use gSpeed (speed along surface) instead of xSpeed for direction
                         if (gSpeed > 0) {
-                                sensorsToActivate = new Sensor[] { groundA, groundB, pushF };
-                                sensorsToDeactivate = new Sensor[] { ceilingC, ceilingD, pushE };
-                                if (!pushActive) {
-                                        sensorsToActivate = new Sensor[] { groundA, groundB };
-                                        sensorsToDeactivate = new Sensor[] { ceilingC, ceilingD, pushE, pushF };
-                                }
+                                pushE.setActive(false);
+                                pushF.setActive(pushActive);
                         } else if (gSpeed < 0) {
-                                sensorsToActivate = new Sensor[] { groundA, groundB, pushE };
-                                sensorsToDeactivate = new Sensor[] { ceilingC, ceilingD, pushF };
-                                if (!pushActive) {
-                                        sensorsToActivate = new Sensor[] { groundA, groundB };
-                                        sensorsToDeactivate = new Sensor[] { ceilingC, ceilingD, pushE, pushF };
-                                }
+                                pushE.setActive(pushActive);
+                                pushF.setActive(false);
                         } else {
-                                sensorsToActivate = new Sensor[] { groundA, groundB };
-                                sensorsToDeactivate = new Sensor[] { ceilingC, ceilingD, pushE, pushF };
+                                pushE.setActive(false);
+                                pushF.setActive(false);
                         }
-                }
-
-                setSensorActive(sensorsToActivate, true);
-                setSensorActive(sensorsToDeactivate, false);
-        }
-
-        private void setSensorActive(Sensor[] sensors, boolean active) {
-                for (Sensor sensor : sensors) {
-                        sensor.setActive(active);
                 }
         }
 

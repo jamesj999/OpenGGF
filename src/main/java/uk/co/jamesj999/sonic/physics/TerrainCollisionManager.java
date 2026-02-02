@@ -7,18 +7,25 @@ package uk.co.jamesj999.sonic.physics;
 public class TerrainCollisionManager {
 	private static TerrainCollisionManager instance;
 
+	// Pre-allocated result arrays to avoid per-frame allocations.
+	// Max sensor count is 6 for player sprites (2 ground, 2 ceiling, 2 push).
+	private static final int MAX_SENSORS = 6;
+	private final SensorResult[] pooledResults = new SensorResult[MAX_SENSORS];
+
 	/**
 	 * Execute all sensors and return their results.
+	 * NOTE: The returned array is reused between calls - callers must not
+	 * store references to it across frames.
 	 *
-	 * @param sensors Array of sensors to scan
-	 * @return Array of results (parallel to input array)
+	 * @param sensors Array of sensors to scan (max 6)
+	 * @return Array of results (parallel to input array, reused buffer)
 	 */
 	public SensorResult[] getSensorResult(Sensor[] sensors) {
-		SensorResult[] results = new SensorResult[sensors.length];
-		for (int i = 0; i < sensors.length; i++) {
-			results[i] = sensors[i].scan();
+		int count = Math.min(sensors.length, MAX_SENSORS);
+		for (int i = 0; i < count; i++) {
+			pooledResults[i] = sensors[i].scan();
 		}
-		return results;
+		return pooledResults;
 	}
 
 	public static synchronized TerrainCollisionManager getInstance() {

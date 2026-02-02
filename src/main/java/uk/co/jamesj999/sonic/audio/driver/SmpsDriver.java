@@ -21,6 +21,9 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
 
     private final List<SmpsSequencer> pendingRemovals = new ArrayList<>();
 
+    // Reusable buffer for stopAllSfx() to avoid per-call ArrayList allocation
+    private final List<SmpsSequencer> sfxRemovalBuffer = new ArrayList<>();
+
     // Scratch buffer for read() to avoid per-frame allocations
     private final short[] scratchFrameBuf = new short[2];
 
@@ -65,8 +68,10 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
      * Used when starting override music to prevent partial SFX playback on restore.
      */
     public void stopAllSfx() {
-        List<SmpsSequencer> sfxToRemove = new ArrayList<>(sfxSequencers);
-        for (SmpsSequencer sfx : sfxToRemove) {
+        sfxRemovalBuffer.clear();
+        sfxRemovalBuffer.addAll(sfxSequencers);
+        for (int i = 0; i < sfxRemovalBuffer.size(); i++) {
+            SmpsSequencer sfx = sfxRemovalBuffer.get(i);
             sequencers.remove(sfx);
             releaseLocks(sfx);
             sfxSequencers.remove(sfx);
