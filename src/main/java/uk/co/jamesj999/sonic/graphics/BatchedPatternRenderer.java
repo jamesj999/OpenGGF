@@ -548,13 +548,10 @@ public class BatchedPatternRenderer {
                     gl.glBindTexture(GL2.GL_TEXTURE_2D, fbo.getTextureId());
                     priorityShader.setTilePriorityTexture(gl, 3);
 
-                    // Use viewport dimensions for ScreenSize and pass viewport offset
-                    // gl_FragCoord is in WINDOW coordinates, so we need the offset to
-                    // convert to viewport-local coordinates before normalizing
-                    int[] viewport = new int[4];
-                    gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport, 0);
-                    priorityShader.setScreenSize(gl, viewport[2], viewport[3]);
-                    priorityShader.setViewportOffset(gl, viewport[0], viewport[1]);
+                    // Use cached viewport dimensions from GraphicsManager
+                    // instead of expensive glGetIntegerv(GL_VIEWPORT) every batch
+                    priorityShader.setScreenSize(gl, gm.getViewportWidth(), gm.getViewportHeight());
+                    priorityShader.setViewportOffset(gl, gm.getViewportX(), gm.getViewportY());
                     gl.glActiveTexture(GL2.GL_TEXTURE0);
                 }
             }
@@ -612,21 +609,21 @@ public class BatchedPatternRenderer {
             vertexBuffer.rewind();
             vertexBuffer.limit(vertexFloatCount);
             gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) vertexFloatCount * Float.BYTES, vertexBuffer,
-                    GL2.GL_STREAM_DRAW);
+                    GL2.GL_DYNAMIC_DRAW);
             gl.glVertexPointer(2, GL2.GL_FLOAT, 0, 0L);
             gl.glClientActiveTexture(GL2.GL_TEXTURE0);
             gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, texCoordVboId);
             texCoordBuffer.rewind();
             texCoordBuffer.limit(texCoordFloatCount);
             gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) texCoordFloatCount * Float.BYTES, texCoordBuffer,
-                    GL2.GL_STREAM_DRAW);
+                    GL2.GL_DYNAMIC_DRAW);
             gl.glTexCoordPointer(2, GL2.GL_FLOAT, 0, 0L);
             gl.glClientActiveTexture(GL2.GL_TEXTURE1);
             gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, paletteVboId);
             paletteCoordBuffer.rewind();
             paletteCoordBuffer.limit(paletteFloatCount);
             gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) paletteFloatCount * Float.BYTES, paletteCoordBuffer,
-                    GL2.GL_STREAM_DRAW);
+                    GL2.GL_DYNAMIC_DRAW);
             gl.glTexCoordPointer(1, GL2.GL_FLOAT, 0, 0L);
             gl.glClientActiveTexture(GL2.GL_TEXTURE0);
 
@@ -662,9 +659,17 @@ public class BatchedPatternRenderer {
             paletteVboId = buffers[2];
         }
 
+        /**
+         * Ensures buffer has required capacity, pre-allocating at max capacity
+         * to avoid mid-frame native memory allocations which can be expensive.
+         */
         private FloatBuffer ensureBuffer(FloatBuffer buffer, int required) {
-            if (buffer == null || buffer.capacity() < required) {
-                return GLBuffers.newDirectFloatBuffer(required);
+            if (buffer == null) {
+                // Pre-allocate at max batch capacity to avoid later reallocations
+                return GLBuffers.newDirectFloatBuffer(MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS);
+            }
+            if (buffer.capacity() < required) {
+                return GLBuffers.newDirectFloatBuffer(MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS);
             }
             return buffer;
         }
@@ -758,14 +763,14 @@ public class BatchedPatternRenderer {
             vertexBuffer.rewind();
             vertexBuffer.limit(vertexFloatCount);
             gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) vertexFloatCount * Float.BYTES, vertexBuffer,
-                    GL2.GL_STREAM_DRAW);
+                    GL2.GL_DYNAMIC_DRAW);
             gl.glVertexPointer(2, GL2.GL_FLOAT, 0, 0L);
 
             gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, texCoordVboId);
             texCoordBuffer.rewind();
             texCoordBuffer.limit(texCoordFloatCount);
             gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) texCoordFloatCount * Float.BYTES, texCoordBuffer,
-                    GL2.GL_STREAM_DRAW);
+                    GL2.GL_DYNAMIC_DRAW);
             gl.glTexCoordPointer(2, GL2.GL_FLOAT, 0, 0L);
             gl.glDrawArrays(GL2.GL_QUADS, 0, patternCount * 4);
 
@@ -793,9 +798,17 @@ public class BatchedPatternRenderer {
             texCoordVboId = buffers[1];
         }
 
+        /**
+         * Ensures buffer has required capacity, pre-allocating at max capacity
+         * to avoid mid-frame native memory allocations.
+         */
         private FloatBuffer ensureBuffer(FloatBuffer buffer, int required) {
-            if (buffer == null || buffer.capacity() < required) {
-                return GLBuffers.newDirectFloatBuffer(required);
+            if (buffer == null) {
+                // Pre-allocate at max batch capacity
+                return GLBuffers.newDirectFloatBuffer(MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS);
+            }
+            if (buffer.capacity() < required) {
+                return GLBuffers.newDirectFloatBuffer(MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS);
             }
             return buffer;
         }

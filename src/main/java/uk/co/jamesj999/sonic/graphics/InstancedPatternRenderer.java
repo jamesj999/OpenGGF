@@ -43,6 +43,11 @@ public class InstancedPatternRenderer {
     private AttribLocations waterAttribs;
     private AttribLocations priorityAttribs;
 
+    // Cached uniform locations for priority shader to avoid glGetUniformLocation calls
+    private int cachedTilePriorityTexLoc = -1;
+    private int cachedScreenSizeLoc = -1;
+    private int cachedViewportOffsetLoc = -1;
+
     private final ArrayDeque<InstancedBatchCommand> commandPool = new ArrayDeque<>();
 
     public InstancedPatternRenderer() {
@@ -70,6 +75,12 @@ public class InstancedPatternRenderer {
         defaultAttribs = queryAttribLocations(gl, instancedShader);
         waterAttribs = queryAttribLocations(gl, instancedWaterShader);
         priorityAttribs = queryAttribLocations(gl, instancedPriorityShader);
+
+        // Cache uniform locations for priority shader
+        int priorityProgramId = instancedPriorityShader.getProgramId();
+        cachedTilePriorityTexLoc = gl.glGetUniformLocation(priorityProgramId, "TilePriorityTexture");
+        cachedScreenSizeLoc = gl.glGetUniformLocation(priorityProgramId, "ScreenSize");
+        cachedViewportOffsetLoc = gl.glGetUniformLocation(priorityProgramId, "ViewportOffset");
 
         initBuffers(gl);
         initialized = true;
@@ -366,26 +377,19 @@ public class InstancedPatternRenderer {
             if (usePriorityShader) {
                 TilePriorityFBO fbo = gm.getTilePriorityFBO();
                 if (fbo != null && fbo.isInitialized()) {
-                    int tilePriorityTexLoc = gl.glGetUniformLocation(shader.getProgramId(), "TilePriorityTexture");
-                    if (tilePriorityTexLoc != -1) {
+                    // Use cached uniform locations instead of glGetUniformLocation every batch
+                    if (cachedTilePriorityTexLoc != -1) {
                         gl.glActiveTexture(GL2.GL_TEXTURE3);
                         gl.glBindTexture(GL2.GL_TEXTURE_2D, fbo.getTextureId());
-                        gl.glUniform1i(tilePriorityTexLoc, 3);
+                        gl.glUniform1i(cachedTilePriorityTexLoc, 3);
 
-                        // Use viewport dimensions for ScreenSize and pass viewport offset
-                        // gl_FragCoord is in WINDOW coordinates, so we need the offset to
-                        // convert to viewport-local coordinates before normalizing
-                        int[] viewport = new int[4];
-                        gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport, 0);
-
-                        int screenSizeLoc = gl.glGetUniformLocation(shader.getProgramId(), "ScreenSize");
-                        if (screenSizeLoc != -1) {
-                            gl.glUniform2f(screenSizeLoc, viewport[2], viewport[3]);
+                        // Use cached viewport dimensions from GraphicsManager
+                        if (cachedScreenSizeLoc != -1) {
+                            gl.glUniform2f(cachedScreenSizeLoc, gm.getViewportWidth(), gm.getViewportHeight());
                         }
 
-                        int viewportOffsetLoc = gl.glGetUniformLocation(shader.getProgramId(), "ViewportOffset");
-                        if (viewportOffsetLoc != -1) {
-                            gl.glUniform2f(viewportOffsetLoc, viewport[0], viewport[1]);
+                        if (cachedViewportOffsetLoc != -1) {
+                            gl.glUniform2f(cachedViewportOffsetLoc, gm.getViewportX(), gm.getViewportY());
                         }
                         gl.glActiveTexture(GL2.GL_TEXTURE0);
                     }
@@ -456,7 +460,7 @@ public class InstancedPatternRenderer {
             gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, instanceVboId);
             instanceBuffer.rewind();
             instanceBuffer.limit(floatCount);
-            gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) floatCount * Float.BYTES, instanceBuffer, GL2.GL_STREAM_DRAW);
+            gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) floatCount * Float.BYTES, instanceBuffer, GL2.GL_DYNAMIC_DRAW);
 
             enableAttrib(gl, attribs.instancePos, 2, GL2.GL_FLOAT, stride, 0L);
             enableAttrib(gl, attribs.instanceSize, 2, GL2.GL_FLOAT, stride, 2L * Float.BYTES);
@@ -499,9 +503,17 @@ public class InstancedPatternRenderer {
             recycleCommand(this);
         }
 
+        /**
+         * Ensures buffer has required capacity, pre-allocating at max capacity
+         * to avoid mid-frame native memory allocations.
+         */
         private FloatBuffer ensureBuffer(FloatBuffer buffer, int required) {
-            if (buffer == null || buffer.capacity() < required) {
-                return GLBuffers.newDirectFloatBuffer(required);
+            if (buffer == null) {
+                // Pre-allocate at max batch capacity
+                return GLBuffers.newDirectFloatBuffer(MAX_PATTERNS_PER_BATCH * FLOATS_PER_INSTANCE);
+            }
+            if (buffer.capacity() < required) {
+                return GLBuffers.newDirectFloatBuffer(MAX_PATTERNS_PER_BATCH * FLOATS_PER_INSTANCE);
             }
             return buffer;
         }

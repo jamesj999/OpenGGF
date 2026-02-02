@@ -116,7 +116,8 @@ public class SpriteManager {
 
 	public void update(InputHandler handler) {
 		frameCounter++;
-		bucketsDirty = true; // Mark for re-bucketing since sprites may have changed
+		// Note: bucketsDirty is already marked in addSprite()/removeSprite(),
+		// no need to unconditionally mark dirty every frame
 		Collection<Sprite> sprites = getAllSprites();
 		boolean up = handler.isKeyDown(upKey);
 		boolean down = handler.isKeyDown(downKey);

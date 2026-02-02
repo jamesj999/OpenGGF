@@ -101,6 +101,13 @@ public class GraphicsManager {
 	 */
 	private boolean useUnderwaterPaletteForBackground = false;
 
+	// Cached viewport dimensions to avoid glGetIntegerv(GL_VIEWPORT) every batch.
+	// Updated when Engine.reshape() is called.
+	private int viewportX = 0;
+	private int viewportY = 0;
+	private int viewportWidth = 320;
+	private int viewportHeight = 224;
+
 	public void registerCommand(GLCommandable command) {
 		commands.add(command);
 	}
@@ -391,8 +398,8 @@ public class GraphicsManager {
 		}
 
 		if (!usedBatch) {
-			// Fallback to individual commands
-			PatternRenderCommand command = new PatternRenderCommand(entry, paletteTextureId, desc, x, y);
+			// Fallback to individual commands (use pooled allocation)
+			PatternRenderCommand command = PatternRenderCommand.obtain(entry, paletteTextureId, desc, x, y);
 			registerCommand(command);
 		}
 	}
@@ -591,6 +598,33 @@ public class GraphicsManager {
 
 	public PatternAtlas getPatternAtlas() {
 		return patternAtlas;
+	}
+
+	/**
+	 * Update cached viewport dimensions. Call this from Engine.reshape().
+	 * Avoids expensive glGetIntegerv(GL_VIEWPORT) calls every batch.
+	 */
+	public void setViewport(int x, int y, int width, int height) {
+		this.viewportX = x;
+		this.viewportY = y;
+		this.viewportWidth = width;
+		this.viewportHeight = height;
+	}
+
+	public int getViewportX() {
+		return viewportX;
+	}
+
+	public int getViewportY() {
+		return viewportY;
+	}
+
+	public int getViewportWidth() {
+		return viewportWidth;
+	}
+
+	public int getViewportHeight() {
+		return viewportHeight;
 	}
 
 	private Integer underwaterPaletteTextureId;

@@ -187,6 +187,8 @@ public class SmpsSequencer implements AudioStream {
         int ams = 0;
         int fms = 0;
         byte[] voiceData; // last loaded voice
+        // Scratch buffer for voice data modification (avoids allocation in refreshInstrument)
+        final byte[] voiceScratch = new byte[25];
         int voiceId;
         int baseFnum;
         int baseBlock;
@@ -1600,9 +1602,11 @@ public class SmpsSequencer implements AudioStream {
         if (t.type != TrackType.FM || t.voiceData == null) {
             return;
         }
-        byte[] voice = new byte[t.voiceData.length];
-        System.arraycopy(t.voiceData, 0, voice, 0, voice.length);
-        boolean hasTl = voice.length >= 25;
+        // Use scratch buffer instead of allocating new array each call
+        int copyLen = Math.min(t.voiceData.length, t.voiceScratch.length);
+        System.arraycopy(t.voiceData, 0, t.voiceScratch, 0, copyLen);
+        byte[] voice = t.voiceScratch;
+        boolean hasTl = t.voiceData.length >= 25;
         // SMPS (S2) stores TL at the end of the 25-byte blob (bytes 21-24).
         int tlBase = hasTl ? 21 : -1;
         if (tlBase >= 0) {
