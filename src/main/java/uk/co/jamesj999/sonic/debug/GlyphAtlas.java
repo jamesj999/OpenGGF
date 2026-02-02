@@ -89,8 +89,8 @@ public class GlyphAtlas {
             Map<Character, GlyphInfo> glyphs = new HashMap<>();
             glyphsBySize.put(fontSize, glyphs);
 
-            // Scale the font size
-            int scaledSize = Math.max(8, Math.round(fontSize.getPoints() * scaleFactor));
+            // Scale the font size (cap at 32pt max to avoid atlas overflow at high DPI)
+            int scaledSize = Math.max(8, Math.min(32, Math.round(fontSize.getPoints() * scaleFactor)));
             Font scaledFont = baseFont.deriveFont((float) scaledSize);
             g2d.setFont(scaledFont);
 
