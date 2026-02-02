@@ -209,8 +209,7 @@ public class GlyphBatchRenderer {
 
             int offset = glyphCount * FLOATS_PER_GLYPH;
             instanceData[offset] = cursorX + glyph.xOffset;
-            // Flip Y for OpenGL (Y=0 at bottom) - position at bottom of glyph
-            instanceData[offset + 1] = y - glyph.height + glyph.yOffset;
+            instanceData[offset + 1] = y + glyph.yOffset;
             instanceData[offset + 2] = glyph.width;
             instanceData[offset + 3] = glyph.height;
             instanceData[offset + 4] = glyph.u0;
@@ -380,6 +379,15 @@ public class GlyphBatchRenderer {
                 return;
             }
 
+            // Set up viewport-space orthographic projection for screen-space text
+            gl.glMatrixMode(GL2.GL_PROJECTION);
+            gl.glPushMatrix();
+            gl.glLoadIdentity();
+            gl.glOrtho(0, viewportWidth, 0, viewportHeight, -1, 1);
+            gl.glMatrixMode(GL2.GL_MODELVIEW);
+            gl.glPushMatrix();
+            gl.glLoadIdentity();
+
             shader.use(gl);
 
             // Set uniforms
@@ -451,6 +459,13 @@ public class GlyphBatchRenderer {
 
             shader.stop(gl);
             gl.glDisable(GL2.GL_BLEND);
+
+            // Restore previous matrices
+            gl.glMatrixMode(GL2.GL_MODELVIEW);
+            gl.glPopMatrix();
+            gl.glMatrixMode(GL2.GL_PROJECTION);
+            gl.glPopMatrix();
+            gl.glMatrixMode(GL2.GL_MODELVIEW);
         }
 
         private FloatBuffer ensureBuffer(FloatBuffer buffer, int required) {

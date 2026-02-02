@@ -130,11 +130,11 @@ public class GlyphAtlas {
             g2d.drawString(String.valueOf(ch), drawX, drawY);
 
             // Calculate UV coordinates (normalized)
-            // Flip V coordinates for OpenGL (texture Y=0 at bottom, but BufferedImage Y=0 at top)
+            // Swap v0/v1 so glyph renders right-side up (BufferedImage Y=0 at top, OpenGL V=0 at bottom)
             float u0 = (float) cursorX / ATLAS_SIZE;
-            float v0 = 1.0f - (float) cursorY / ATLAS_SIZE;
+            float v0 = (float) (cursorY + glyphHeight) / ATLAS_SIZE;  // bottom of glyph in texture
             float u1 = (float) (cursorX + glyphWidth) / ATLAS_SIZE;
-            float v1 = 1.0f - (float) (cursorY + glyphHeight) / ATLAS_SIZE;
+            float v1 = (float) cursorY / ATLAS_SIZE;                   // top of glyph in texture
 
             // Store glyph info
             GlyphInfo info = new GlyphInfo(
