@@ -58,13 +58,16 @@ public class DebugRenderer {
                 }
 
                 // Lazy initialization of glyph batch renderer
+                float scale = (float) Math.max(scaleX, scaleY);
                 if (glyphBatch == null) {
                         glyphBatch = new GlyphBatchRenderer();
-                        glyphBatch.init(gl, new Font("SansSerif", Font.PLAIN, 11));
+                        glyphBatch.init(gl, new Font("SansSerif", Font.PLAIN, 11), scale);
                 }
                 if (!glyphBatch.isInitialized()) {
                         return;
                 }
+                // Reinitialize if scale changed significantly (e.g., window resize)
+                glyphBatch.updateScale(gl, new Font("SansSerif", Font.PLAIN, 11), scale);
                 glyphBatch.updateViewport(viewportWidth, viewportHeight);
 
                 glyphBatch.begin();

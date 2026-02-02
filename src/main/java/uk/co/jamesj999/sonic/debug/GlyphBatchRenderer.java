@@ -54,6 +54,7 @@ public class GlyphBatchRenderer {
     // Viewport dimensions for coordinate conversion
     private int viewportWidth;
     private int viewportHeight;
+    private float currentScale = 1.0f;
 
     // Command pool for batch execution
     private final ArrayDeque<GlyphBatchCommand> commandPool = new ArrayDeque<>();
@@ -63,6 +64,14 @@ public class GlyphBatchRenderer {
      * Must be called with a valid GL context before rendering.
      */
     public void init(GL2 gl, Font font) {
+        init(gl, font, 1.0f);
+    }
+
+    /**
+     * Initializes the glyph batch renderer with scale factor.
+     * Must be called with a valid GL context before rendering.
+     */
+    public void init(GL2 gl, Font font, float scaleFactor) {
         if (initialized || gl == null) {
             return;
         }
@@ -74,9 +83,14 @@ public class GlyphBatchRenderer {
             return;
         }
 
-        // Initialize glyph atlas
+        // Scale the font size based on viewport scale
+        this.currentScale = scaleFactor;
+        int scaledSize = Math.max(8, Math.round(font.getSize() * scaleFactor));
+        Font scaledFont = font.deriveFont((float) scaledSize);
+
+        // Initialize glyph atlas with scaled font
         atlas = new GlyphAtlas();
-        atlas.init(gl, font);
+        atlas.init(gl, scaledFont);
         if (!atlas.isInitialized()) {
             LOGGER.warning("Failed to initialize glyph atlas");
             return;
@@ -117,6 +131,27 @@ public class GlyphBatchRenderer {
     public void updateViewport(int width, int height) {
         this.viewportWidth = width;
         this.viewportHeight = height;
+    }
+
+    /**
+     * Reinitializes the renderer if scale has changed significantly.
+     * Call this when window is resized to keep text crisp.
+     */
+    public void updateScale(GL2 gl, Font baseFont, float newScale) {
+        if (Math.abs(newScale - currentScale) > 0.5f) {
+            if (atlas != null) {
+                atlas.cleanup(gl);
+            }
+            initialized = false;
+            init(gl, baseFont, newScale);
+        }
+    }
+
+    /**
+     * Gets the current scale factor.
+     */
+    public float getCurrentScale() {
+        return currentScale;
     }
 
     /**
@@ -174,7 +209,8 @@ public class GlyphBatchRenderer {
 
             int offset = glyphCount * FLOATS_PER_GLYPH;
             instanceData[offset] = cursorX + glyph.xOffset;
-            instanceData[offset + 1] = y + glyph.yOffset;
+            // Flip Y for OpenGL (Y=0 at bottom) - position at bottom of glyph
+            instanceData[offset + 1] = y - glyph.height + glyph.yOffset;
             instanceData[offset + 2] = glyph.width;
             instanceData[offset + 3] = glyph.height;
             instanceData[offset + 4] = glyph.u0;
