@@ -57,6 +57,9 @@ public class GlyphBatchRenderer {
     private int viewportHeight = 224;
     private float currentScale = 1.0f;
 
+    // Reusable FloatBuffer for instance data - moved to outer class for proper reuse across frames
+    private FloatBuffer instanceBuffer;
+
     // Command pool for batch execution
     private final ArrayDeque<GlyphBatchCommand> commandPool = new ArrayDeque<>();
 
@@ -406,7 +409,6 @@ public class GlyphBatchRenderer {
      * Inner class representing a batch of glyphs to render.
      */
     private class GlyphBatchCommand {
-        private FloatBuffer instanceBuffer;
         private int glyphCount;
         private int floatCount;
 

@@ -44,6 +44,12 @@ public class DebugRenderer {
         private static final FontSize OBJECT_LABEL_FONT = FontSize.MEDIUM; // 11pt - object labels
         private static final FontSize PANEL_FONT = FontSize.LARGE;        // 12pt - main status panels
 
+        // Cached Color objects to avoid per-frame allocations
+        private static final Color COLOR_PLANE_SWITCH = new Color(255, 140, 0);
+        private static final Color COLOR_TOUCH_PANEL = new Color(180, 255, 180);
+        private static final Color COLOR_OBJECT_SUBTYPE = new Color(255, 180, 255);
+        private static final Color COLOR_ART_VIEWER = new Color(180, 255, 180);
+
         private final int baseWidth = configService
                         .getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
         private final int baseHeight = configService
@@ -226,12 +232,12 @@ public class DebugRenderer {
 
                         int labelX = toScreenX(screenX + 2);
                         int labelY = toScreenYFromWorld(screenY) + uiY(2);
-                        int lineHeight = uiY(10);
+                        int lineHeight = glyphBatch.getLineHeight(OBJECT_LABEL_FONT);
                         glyphBatch.drawTextOutlined(name, labelX, labelY - lineHeight, Color.WHITE, OBJECT_LABEL_FONT);
                         glyphBatch.drawTextOutlined(line1, labelX, labelY, Color.MAGENTA, OBJECT_LABEL_FONT);
                         if (line2 != null) {
-                                glyphBatch.drawTextOutlined(line2, labelX, labelY + uiY(10),
-                                                new Color(255, 180, 255), OBJECT_LABEL_FONT);
+                                glyphBatch.drawTextOutlined(line2, labelX, labelY + lineHeight,
+                                                COLOR_OBJECT_SUBTYPE, OBJECT_LABEL_FONT);
                         }
                 }
 
@@ -266,7 +272,7 @@ public class DebugRenderer {
                 }
                 int startX = uiX(baseWidth - 150);
                 int startY = uiY(baseHeight - 6);
-                int lineHeight = Math.max(8, uiY(10));
+                int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
                 int y = startY;
                 for (String line : lines) {
                         glyphBatch.drawTextOutlined(line, startX, y, Color.WHITE, PANEL_FONT);
@@ -279,7 +285,6 @@ public class DebugRenderer {
                 boolean horizontal = ObjectManager.isPlaneSwitcherHorizontal(subtype);
                 String side0 = formatPlaneSwitcherSide(subtype, 0);
                 String side1 = formatPlaneSwitcherSide(subtype, 1);
-                Color planeSwitchColor = new Color(255, 140, 0);
 
                 if (horizontal) {
                         int aboveY = screenY - 6;
@@ -287,20 +292,20 @@ public class DebugRenderer {
                         glyphBatch.drawTextOutlined(side0,
                                         toScreenX(screenX + 2),
                                         toScreenYFromWorld(aboveY),
-                                        planeSwitchColor, OBJECT_LABEL_FONT);
+                                        COLOR_PLANE_SWITCH, OBJECT_LABEL_FONT);
                         glyphBatch.drawTextOutlined(side1,
                                         toScreenX(screenX + 2),
                                         toScreenYFromWorld(belowY),
-                                        planeSwitchColor, OBJECT_LABEL_FONT);
+                                        COLOR_PLANE_SWITCH, OBJECT_LABEL_FONT);
                 } else {
                         int leftX = screenX - 16;
                         int rightX = screenX + 6;
                         glyphBatch.drawTextOutlined(side0,
                                         toScreenX(leftX), toScreenYFromWorld(screenY),
-                                        planeSwitchColor, OBJECT_LABEL_FONT);
+                                        COLOR_PLANE_SWITCH, OBJECT_LABEL_FONT);
                         glyphBatch.drawTextOutlined(side1,
                                         toScreenX(rightX), toScreenYFromWorld(screenY),
-                                        planeSwitchColor, OBJECT_LABEL_FONT);
+                                        COLOR_PLANE_SWITCH, OBJECT_LABEL_FONT);
                 }
         }
 
@@ -325,7 +330,7 @@ public class DebugRenderer {
                 glyphBatch.drawTextOutlined(label,
                                 toScreenX(screenX - 6),
                                 toScreenYFromWorld(screenY) + uiY(8),
-                                new Color(255, 140, 0), OBJECT_LABEL_FONT);
+                                COLOR_PLANE_SWITCH, OBJECT_LABEL_FONT);
         }
 
         private void renderPlayerStatusPanel(AbstractPlayableSprite sprite, int ringCount) {
@@ -389,7 +394,7 @@ public class DebugRenderer {
 
                 int startX = uiX(6);
                 int startY = uiY(baseHeight - 6);
-                int lineHeight = Math.max(8, uiY(10));
+                int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
                 int y = startY;
                 for (String line : lines) {
                         glyphBatch.drawTextOutlined(line, startX, y, Color.WHITE, PANEL_FONT);
@@ -443,13 +448,12 @@ public class DebugRenderer {
                         shown++;
                 }
 
-                Color touchColor = new Color(180, 255, 180);
                 int startX = uiX(baseWidth - 240);
                 int startY = uiY(baseHeight - 140);
-                int lineHeight = Math.max(8, uiY(10));
+                int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
                 int y = startY;
                 for (String line : lines) {
-                        glyphBatch.drawTextOutlined(line, startX, y, touchColor, PANEL_FONT);
+                        glyphBatch.drawTextOutlined(line, startX, y, COLOR_TOUCH_PANEL, PANEL_FONT);
                         y -= lineHeight;
                 }
         }
@@ -496,13 +500,12 @@ public class DebugRenderer {
                         }
                 }
 
-                Color viewerColor = new Color(180, 255, 180);
                 int startX = uiX(baseWidth - 160);
                 int startY = uiY(baseHeight - 120);
-                int lineHeight = Math.max(8, uiY(10));
+                int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
                 int y = startY;
                 for (String line : lines) {
-                        glyphBatch.drawTextOutlined(line, startX, y, viewerColor, PANEL_FONT);
+                        glyphBatch.drawTextOutlined(line, startX, y, COLOR_ART_VIEWER, PANEL_FONT);
                         y -= lineHeight;
                 }
         }
