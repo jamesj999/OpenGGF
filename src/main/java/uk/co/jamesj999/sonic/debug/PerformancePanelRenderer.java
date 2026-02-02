@@ -26,6 +26,15 @@ public class PerformancePanelRenderer {
             {0.9f, 0.6f, 0.8f},   // Pink
     };
 
+    /** Cached Color objects for section colors to avoid per-frame allocations */
+    private static final Color[] SECTION_COLOR_OBJECTS;
+    static {
+        SECTION_COLOR_OBJECTS = new Color[SECTION_COLORS.length];
+        for (int i = 0; i < SECTION_COLORS.length; i++) {
+            SECTION_COLOR_OBJECTS[i] = new Color(SECTION_COLORS[i][0], SECTION_COLORS[i][1], SECTION_COLORS[i][2]);
+        }
+    }
+
     /**
      * Gets a consistent color index for a section name (based on hash).
      */
@@ -113,7 +122,7 @@ public class PerformancePanelRenderer {
 
         int textX = uiX(panelRight - 85);
         int textY = uiY(panelTop - 10);
-        int lineHeight = Math.max(8, uiY(9));
+        int lineHeight = glyphBatch.getLineHeight(PERF_FONT);
 
         // Header line - show work time and actual FPS
         // Work time is how long the frame took to process (should be < 16.7ms for 60fps)
@@ -129,8 +138,7 @@ public class PerformancePanelRenderer {
         int count = 0;
         for (SectionStats section : sections) {
             int colorIndex = getColorIndexForSection(section.name());
-            float[] color = SECTION_COLORS[colorIndex];
-            Color textColor = new Color(color[0], color[1], color[2]);
+            Color textColor = SECTION_COLOR_OBJECTS[colorIndex];
 
             String name = section.name();
             if (name.length() > 10) {
