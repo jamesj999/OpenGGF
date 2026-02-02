@@ -41,6 +41,7 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
 
     public void addSequencer(SmpsSequencer seq, boolean isSfx) {
         seq.setRegion(region);
+        seq.setIsSfx(isSfx); // Cache isSfx flag on the sequencer for O(1) lookup
         sequencers.add(seq);
         if (isSfx) {
             sfxSequencers.add(seq);
@@ -76,6 +77,9 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
     public int read(short[] buffer) {
         int frames = buffer.length / 2;
 
+        // Per-sample processing is required because sequencer state changes (note events,
+        // instrument changes, etc.) must happen in lockstep with rendering. Batching
+        // breaks audio fidelity because synth state changes mid-batch would be lost.
         for (int i = 0; i < frames; i++) {
             int size = sequencers.size();
             for (int j = 0; j < size; j++) {
@@ -108,7 +112,15 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
         return sequencers.isEmpty();
     }
 
+    /**
+     * Check if a source is an SFX sequencer.
+     * Uses cached isSfx field on SmpsSequencer for O(1) lookup instead of HashSet.contains().
+     */
     private boolean isSfx(Object source) {
+        if (source instanceof SmpsSequencer seq) {
+            return seq.isSfx();
+        }
+        // Fallback to HashSet for non-SmpsSequencer sources (shouldn't happen normally)
         return sfxSequencers.contains(source);
     }
 
@@ -133,6 +145,8 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
                 updateOverrides(SmpsSequencer.TrackType.PSG, i, false);
             }
         }
+        // Clear cached PSG latch channel and remove from fallback HashMap
+        seq.setPsgLatchChannel(-1);
         psgLatches.remove(seq);
     }
 
@@ -200,10 +214,19 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
 
     @Override
     public void writePsg(Object source, int val) {
+        // Use cached psgLatchChannel on SmpsSequencer for O(1) lookup instead of HashMap
+        SmpsSequencer seq = (source instanceof SmpsSequencer) ? (SmpsSequencer) source : null;
+
         if ((val & 0x80) != 0) {
             // Latch
             int ch = (val >> 5) & 0x03;
-            psgLatches.put(source, ch);
+
+            // Cache latch channel on sequencer (fast path) and in HashMap (fallback)
+            if (seq != null) {
+                seq.setPsgLatchChannel(ch);
+            } else {
+                psgLatches.put(source, ch);
+            }
 
             if (isSfx(source)) {
                 if (shouldStealLock(psgLocks[ch], (SmpsSequencer) source)) {
@@ -224,9 +247,15 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
                 }
             }
         } else {
-            // Data
-            Integer ch = psgLatches.get(source);
-            if (ch != null) {
+            // Data - get cached latch channel
+            int ch = (seq != null) ? seq.getPsgLatchChannel() : -1;
+            if (ch < 0) {
+                // Fallback to HashMap for non-SmpsSequencer sources
+                Integer chObj = psgLatches.get(source);
+                ch = (chObj != null) ? chObj : -1;
+            }
+
+            if (ch >= 0) {
                 if (isSfx(source)) {
                     // Update lock just in case? Already locked by Latch.
                     if (shouldStealLock(psgLocks[ch], (SmpsSequencer) source)) {

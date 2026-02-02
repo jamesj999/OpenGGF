@@ -39,6 +39,8 @@ public class SmpsSequencer implements AudioStream {
     private int maxTicks = Integer.MAX_VALUE;
     private float pitch = 1.0f;
     private int sfxPriority = 0x70; // Default SFX priority (Z80 driver uses 0x70 as common)
+    private boolean isSfx = false; // Cached SFX status for performance (set by SmpsDriver.addSequencer)
+    private int psgLatchChannel = -1; // Cached PSG latch channel for performance (set by SmpsDriver.writePsg)
 
     public void setPitch(float pitch) {
         this.pitch = pitch;
@@ -57,6 +59,38 @@ public class SmpsSequencer implements AudioStream {
 
     public int getSfxPriority() {
         return sfxPriority;
+    }
+
+    /**
+     * Mark this sequencer as SFX. Called by SmpsDriver when adding the sequencer.
+     * This cached flag eliminates HashSet lookups in the hot path.
+     */
+    public void setIsSfx(boolean isSfx) {
+        this.isSfx = isSfx;
+    }
+
+    /**
+     * Returns true if this sequencer is playing SFX (not music).
+     * Uses a cached field for O(1) lookup instead of HashSet.contains().
+     */
+    public boolean isSfx() {
+        return isSfx;
+    }
+
+    /**
+     * Set the cached PSG latch channel. Called by SmpsDriver.writePsg().
+     * This eliminates HashMap lookups in the hot path.
+     */
+    public void setPsgLatchChannel(int channel) {
+        this.psgLatchChannel = channel;
+    }
+
+    /**
+     * Get the cached PSG latch channel.
+     * @return the latch channel (0-3), or -1 if not latched
+     */
+    public int getPsgLatchChannel() {
+        return psgLatchChannel;
     }
 
     /**
@@ -156,7 +190,7 @@ public class SmpsSequencer implements AudioStream {
         int voiceId;
         int baseFnum;
         int baseBlock;
-        int[] loopCounters = new int[4];
+        int[] loopCounters = new int[8]; // Increased from 4 to reduce runtime reallocation
         int loopTarget = -1;
         // Z80 driver: Stack shares space with loop counters, grows down from offset 0x2A.
         // No hard limit but collision possible after ~5 calls. Using 16 for safety margin.
@@ -654,6 +688,37 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
+    /**
+     * Advance by multiple samples at once. More efficient than calling advance(1) repeatedly.
+     * Processes tempo frames as needed.
+     *
+     * @param samples Number of samples to advance
+     */
+    public void advanceBatch(int samples) {
+        sampleCounter += samples;
+        while (sampleCounter >= samplesPerFrame) {
+            sampleCounter -= samplesPerFrame;
+            processTempoFrame();
+        }
+    }
+
+    /**
+     * Calculate the number of samples until the next tempo frame boundary.
+     * This determines the maximum safe batch size that won't cross a tempo event.
+     *
+     * @return Number of samples until next tempo frame, or Integer.MAX_VALUE if no tempo
+     */
+    public int getSamplesUntilNextTempoFrame() {
+        if (tempoWeight == 0 || samplesPerFrame <= 0) {
+            return Integer.MAX_VALUE;
+        }
+        double remaining = samplesPerFrame - sampleCounter;
+        if (remaining <= 0) {
+            return 0;
+        }
+        return (int) Math.ceil(remaining);
+    }
+
     private void tick() {
         for (Track t : tracks) {
             if (!t.active)
@@ -918,14 +983,44 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
+    // Pre-computed flag parameter length table for SMPS commands 0xE0-0xFF
+    // Lookup table is faster than switch statement in hot path
+    // Index = cmd - 0xE0 (range 0-31)
+    private static final byte[] FLAG_PARAM_LENGTH = new byte[32];
+    static {
+        // 1-parameter commands
+        FLAG_PARAM_LENGTH[0xE0 - 0xE0] = 1; // Pan
+        FLAG_PARAM_LENGTH[0xE1 - 0xE0] = 1; // Detune
+        FLAG_PARAM_LENGTH[0xE2 - 0xE0] = 1; // Set Communication
+        FLAG_PARAM_LENGTH[0xE5 - 0xE0] = 1; // Tick multiplier
+        FLAG_PARAM_LENGTH[0xE6 - 0xE0] = 1; // Volume
+        FLAG_PARAM_LENGTH[0xE8 - 0xE0] = 1; // Note fill
+        FLAG_PARAM_LENGTH[0xE9 - 0xE0] = 1; // Key displacement
+        FLAG_PARAM_LENGTH[0xEA - 0xE0] = 1; // Set main tempo
+        FLAG_PARAM_LENGTH[0xEB - 0xE0] = 1; // Set dividing timing
+        FLAG_PARAM_LENGTH[0xEC - 0xE0] = 1; // PSG volume
+        FLAG_PARAM_LENGTH[0xED - 0xE0] = 1; // (unused but keep for safety)
+        FLAG_PARAM_LENGTH[0xEF - 0xE0] = 1; // Set Voice
+        FLAG_PARAM_LENGTH[0xF3 - 0xE0] = 1; // PSG Noise
+        FLAG_PARAM_LENGTH[0xF5 - 0xE0] = 1; // PSG instrument
+
+        // 2-parameter commands
+        FLAG_PARAM_LENGTH[0xF6 - 0xE0] = 2; // Jump
+        FLAG_PARAM_LENGTH[0xF8 - 0xE0] = 2; // Call
+        FLAG_PARAM_LENGTH[0xFD - 0xE0] = 2; // Custom Fade Out
+
+        // 4-parameter commands
+        FLAG_PARAM_LENGTH[0xF0 - 0xE0] = 4; // Modulation
+        FLAG_PARAM_LENGTH[0xF7 - 0xE0] = 4; // Loop
+
+        // 0-parameter commands (E3, E4, E7, EE, F1, F2, F4, F9) are already 0 from array initialization
+    }
+
     private int flagParamLength(int cmd) {
-        return switch (cmd) {
-            case 0xE0, 0xE1, 0xE2, 0xE5, 0xE6, 0xE8, 0xE9, 0xEA, 0xEB, 0xEC, 0xED, 0xF3, 0xF5, 0xEF -> 1;
-            case 0xF6, 0xF8, 0xFD -> 2;
-            case 0xF0, 0xF7 -> 4;
-            // E3, E4, E7, EE, F1, F2, F4, F9 are 0 parameters
-            default -> 0;
-        };
+        if (cmd >= 0xE0 && cmd <= 0xFF) {
+            return FLAG_PARAM_LENGTH[cmd - 0xE0];
+        }
+        return 0;
     }
 
     private void handleFadeOut(Track t) {

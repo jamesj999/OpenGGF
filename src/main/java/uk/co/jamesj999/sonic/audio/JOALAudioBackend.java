@@ -47,6 +47,8 @@ public class JOALAudioBackend implements AudioBackend {
     // Pre-allocated buffers for fillBuffer() to avoid per-call allocations (~43 times/sec)
     private final short[] streamData = new short[STREAM_BUFFER_SIZE * 2];
     private final short[] sfxStreamData = new short[STREAM_BUFFER_SIZE * 2];
+    // Reusable DirectBuffer to avoid allocation in fillBuffer() hot path
+    private ShortBuffer directShortBuffer;
     private SmpsSequencer currentSmps;
     private SmpsDriver smpsDriver;
 
@@ -132,6 +134,9 @@ public class JOALAudioBackend implements AudioBackend {
             int[] src = new int[1];
             al.alGenSources(1, src, 0);
             musicSource = src[0];
+
+            // Pre-allocate reusable DirectBuffer to avoid per-fillBuffer allocations
+            directShortBuffer = Buffers.newDirectShortBuffer(STREAM_BUFFER_SIZE * 2);
 
         } catch (Throwable t) {
             LOGGER.log(Level.SEVERE, "JOAL Init failed", t);
@@ -436,9 +441,12 @@ public class JOALAudioBackend implements AudioBackend {
             }
         }
 
-        ShortBuffer sBuffer = Buffers.newDirectShortBuffer(streamData);
+        // Reuse pre-allocated DirectBuffer to avoid allocation (~43 times/sec)
+        directShortBuffer.clear();
+        directShortBuffer.put(streamData);
+        directShortBuffer.flip();
         int sampleRate = (int) Math.round(getStreamSampleRate());
-        al.alBufferData(bufferId, AL.AL_FORMAT_STEREO16, sBuffer, streamData.length * 2, sampleRate);
+        al.alBufferData(bufferId, AL.AL_FORMAT_STEREO16, directShortBuffer, streamData.length * 2, sampleRate);
     }
 
     private double getSmpsOutputRate() {
