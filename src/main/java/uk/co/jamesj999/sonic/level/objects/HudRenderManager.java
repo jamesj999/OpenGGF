@@ -31,8 +31,22 @@ public class HudRenderManager {
     // Let's assume we can draw direct patterns to screen coordinates.
 
     private final GraphicsManager graphicsManager;
+    private final Camera camera = Camera.getInstance();
     private int digitPatternIndex;
     private int textPatternIndex;
+
+    // Cached HUD values for performance - avoid String.valueOf() and parsing each frame
+    private int cachedScore = -1;
+    private int cachedRings = -1;
+    private int cachedLives = -1;
+    private String cachedTime = null;
+    // Pre-computed digit arrays to avoid allocation each frame
+    private final int[] scoreDigits = new int[6];  // Max 6 digits for score
+    private final int[] ringDigits = new int[3];   // Max 3 digits for rings
+    private final int[] livesDigits = new int[3];  // Max 3 digits for lives
+    private int scoreDigitCount = 0;
+    private int ringDigitCount = 0;
+    private int livesDigitCount = 0;
 
     // PatternDesc for standard HUD rendering (Palette 0, no flip, priority high?)
     // Priority is handled by draw order usually, but PatternDesc needs a priority
@@ -73,6 +87,50 @@ public class HudRenderManager {
         this.livesNumbersPatternIndex = livesNumbersPatternIndex;
     }
 
+    /**
+     * Invalidates the HUD cache, forcing a full recalculation on next frame.
+     * Call this when loading a new level or when HUD state needs full refresh.
+     */
+    public void invalidateCache() {
+        cachedScore = -1;
+        cachedRings = -1;
+        cachedLives = -1;
+        cachedTime = null;
+        scoreDigitCount = 0;
+        ringDigitCount = 0;
+        livesDigitCount = 0;
+    }
+
+    /**
+     * Converts a number to digits and stores in the provided array.
+     * Returns the number of digits written.
+     * Avoids String allocation that would occur with String.valueOf().
+     */
+    private int numberToDigits(int value, int[] digits) {
+        if (value == 0) {
+            digits[0] = 0;
+            return 1;
+        }
+
+        // Count digits
+        int temp = value;
+        int count = 0;
+        while (temp > 0) {
+            count++;
+            temp /= 10;
+        }
+
+        // Extract digits in reverse order (right to left)
+        int idx = count - 1;
+        temp = value;
+        while (temp > 0) {
+            digits[idx--] = temp % 10;
+            temp /= 10;
+        }
+
+        return count;
+    }
+
     public void draw(LevelState levelGamestate) {
         draw(levelGamestate, null);
     }
@@ -90,7 +148,6 @@ public class HudRenderManager {
             // Two rows of 8 hex digits each (using smaller 8x8 lives number font):
             // Top row: Player X (4 hex digits) + Player Y (4 hex digits)
             // Bottom row: Camera X (4 hex digits) + Camera Y (4 hex digits)
-            Camera camera = Camera.getInstance();
 
             // Draw "SCOR" (skip the E) - this uses the normal large HUD text
             drawHudString(16, 8, "SCOR", hudPatternDesc);
@@ -164,8 +221,8 @@ public class HudRenderManager {
      * @param yCoord Y coordinate to display (will be masked to 16-bit)
      */
     private void drawSmallHexCoordinates(int x, int y, int xCoord, int yCoord) {
-        int camX = Camera.getInstance().getX();
-        int camY = Camera.getInstance().getY();
+        int camX = camera.getX();
+        int camY = camera.getY();
 
         // Draw X coordinate (4 hex digits)
         for (int i = 0; i < 4; i++) {
@@ -209,8 +266,8 @@ public class HudRenderManager {
     }
 
     private void drawLives(int lives) {
-        int camX = Camera.getInstance().getX();
-        int camY = Camera.getInstance().getY();
+        int camX = camera.getX();
+        int camY = camera.getY();
 
         // Base position for Lives HUD (Bottom Left)
         int baseX = 16;
@@ -270,19 +327,23 @@ public class HudRenderManager {
 
         // Numbers use livesNumbersPatternIndex and iconPatternDesc
         // livesNumbersPatternIndex corresponds to '0'
+        // Use cached digit array to avoid String allocation each frame
 
         if (livesNumbersPatternIndex > 0) {
-            String s = String.valueOf(lives);
-            for (int i = 0; i < s.length(); i++) {
-                int digit = s.charAt(i) - '0';
+            if (lives != cachedLives) {
+                cachedLives = lives;
+                livesDigitCount = numberToDigits(lives, livesDigits);
+            }
+            for (int i = 0; i < livesDigitCount; i++) {
+                int digit = livesDigits[i];
                 renderSafe(livesNumbersPatternIndex + digit, iconPatternDesc, numDrawX + camX + (i * 8), line2Y + camY);
             }
         }
     }
 
     private void drawHudString(int x, int y, String text, PatternDesc patternDesc) {
-        int camX = Camera.getInstance().getX();
-        int camY = Camera.getInstance().getY();
+        int camX = camera.getX();
+        int camY = camera.getY();
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             int patternId = getPatternIndexForChar(c);
@@ -318,30 +379,44 @@ public class HudRenderManager {
         };
     }
 
-    private void drawNumberRightAligned(int startX, int y, int value, int digits) {
-        int camX = Camera.getInstance().getX();
-        int camY = Camera.getInstance().getY();
+    private void drawNumberRightAligned(int startX, int y, int value, int maxDigits) {
+        int camX = camera.getX();
+        int camY = camera.getY();
 
-        // Convert to string, pad with spaces? Or just calculate offsets.
-        // Sonic 2 Score is usually 0-padded? No, user screenshot shows "100".
-        // Sonic 2 Rings: "6" is right aligned.
-        String str = String.valueOf(value);
+        // Use cached digit arrays to avoid String allocation each frame
+        int[] digitArray;
+        int digitCount;
 
-        // If value is longer than digits, it extends left? Or right?
-        // "Right justified" in this context usually means the last digit is at a fixed
-        // position.
-        // Let's assume startX is the Left edge of the field.
-        // Field width = digits * 8.
+        // Determine which cache to use based on maxDigits and value range
+        if (maxDigits == 6) {
+            // Score
+            if (value != cachedScore) {
+                cachedScore = value;
+                scoreDigitCount = numberToDigits(value, scoreDigits);
+            }
+            digitArray = scoreDigits;
+            digitCount = scoreDigitCount;
+        } else if (maxDigits == 3 && value <= 999) {
+            // Could be rings or lives - use rings cache for this call
+            // (lives uses a separate method)
+            if (value != cachedRings) {
+                cachedRings = value;
+                ringDigitCount = numberToDigits(value, ringDigits);
+            }
+            digitArray = ringDigits;
+            digitCount = ringDigitCount;
+        } else {
+            // Fallback: compute directly (rare case)
+            digitArray = new int[maxDigits];
+            digitCount = numberToDigits(value, digitArray);
+        }
 
         // Calculate offset for right alignment
-        int padding = digits - str.length();
-        if (padding < 0)
-            padding = 0; // Overflow field
+        int padding = maxDigits - digitCount;
+        if (padding < 0) padding = 0;
 
-        for (int i = 0; i < str.length(); i++) {
-            char c = str.charAt(i);
-            int digit = c - '0';
-            // Position: startX + (padding + i) * 8
+        for (int i = 0; i < digitCount; i++) {
+            int digit = digitArray[i];
             int xPos = startX + (padding + i) * 8;
 
             // Draw top
@@ -352,8 +427,8 @@ public class HudRenderManager {
     }
 
     private void drawTime(int x, int y, String timeStr) {
-        int camX = Camera.getInstance().getX();
-        int camY = Camera.getInstance().getY();
+        int camX = camera.getX();
+        int camY = camera.getY();
         for (int i = 0; i < timeStr.length(); i++) {
             char c = timeStr.charAt(i);
             int patternIdx;
@@ -378,8 +453,8 @@ public class HudRenderManager {
     }
 
     public void drawDebugStrip() {
-        int camX = Camera.getInstance().getX();
-        int camY = Camera.getInstance().getY();
+        int camX = camera.getX();
+        int camY = camera.getY();
         int chunks = Math.min(40, textPatternCount); // Clamp limit
         for (int i = 0; i < chunks; i++) {
             graphicsManager.renderPatternWithId(textPatternIndex + i, hudPatternDesc, camX + 10 + (i * 8), camY + 100);

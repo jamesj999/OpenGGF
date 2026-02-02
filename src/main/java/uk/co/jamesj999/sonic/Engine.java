@@ -180,6 +180,9 @@ public class Engine extends GLCanvas implements GLEventListener {
 		// Set the viewport to the aspect-ratio-correct area
 		gl.glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
 
+		// Cache viewport dimensions in GraphicsManager to avoid glGetIntegerv calls
+		graphicsManager.setViewport(viewportX, viewportY, viewportWidth, viewportHeight);
+
 		// Setup perspective projection using current projection width
 		// (H40=320 for levels, H32=256 for special stages)
 		gl.glMatrixMode(GL_PROJECTION); // choose projection matrix

@@ -12,7 +12,8 @@ public class QuadRenderer {
     private static final int FLOATS_PER_QUAD = 8;
 
     private int vboId;
-    private FloatBuffer vertexBuffer;
+    // Pre-allocate buffer at construction time instead of lazy initialization
+    private FloatBuffer vertexBuffer = GLBuffers.newDirectFloatBuffer(FLOATS_PER_QUAD);
 
     public void init(GL2 gl) {
         if (gl == null || vboId != 0) {
@@ -21,9 +22,6 @@ public class QuadRenderer {
         int[] buffers = new int[1];
         gl.glGenBuffers(1, buffers, 0);
         vboId = buffers[0];
-        if (vertexBuffer == null) {
-            vertexBuffer = GLBuffers.newDirectFloatBuffer(FLOATS_PER_QUAD);
-        }
     }
 
     public void draw(GL2 gl, float x0, float y0, float x1, float y1) {
@@ -32,9 +30,6 @@ public class QuadRenderer {
         }
         if (vboId == 0) {
             init(gl);
-        }
-        if (vertexBuffer == null) {
-            vertexBuffer = GLBuffers.newDirectFloatBuffer(FLOATS_PER_QUAD);
         }
 
         vertexBuffer.clear();
@@ -46,7 +41,7 @@ public class QuadRenderer {
 
         gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, vboId);
         gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) FLOATS_PER_QUAD * Float.BYTES, vertexBuffer,
-                GL2.GL_STREAM_DRAW);
+                GL2.GL_DYNAMIC_DRAW);
 
         gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
         gl.glVertexPointer(2, GL2.GL_FLOAT, 0, 0L);

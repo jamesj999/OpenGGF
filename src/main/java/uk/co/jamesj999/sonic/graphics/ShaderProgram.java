@@ -88,6 +88,12 @@ public class ShaderProgram {
             gl.glGetProgramInfoLog(programId, log.length, null, 0, log, 0);
             System.err.println("Shader linking failed:\n" + new String(log));
         }
+
+        // Detach and delete shader object - it's no longer needed after linking.
+        // The program retains the compiled code, so keeping the shader object
+        // around wastes GPU memory, especially on level restarts.
+        gl.glDetachShader(programId, fragmentShaderId);
+        gl.glDeleteShader(fragmentShaderId);
     }
 
     /**
@@ -116,6 +122,14 @@ public class ShaderProgram {
             gl.glGetProgramInfoLog(programId, log.length, null, 0, log, 0);
             System.err.println("Shader linking failed:\n" + new String(log));
         }
+
+        // Detach and delete shader objects - they're no longer needed after linking.
+        // The program retains the compiled code, so keeping the shader objects
+        // around wastes GPU memory, especially on level restarts.
+        gl.glDetachShader(programId, vertexShaderId);
+        gl.glDetachShader(programId, fragmentShaderId);
+        gl.glDeleteShader(vertexShaderId);
+        gl.glDeleteShader(fragmentShaderId);
     }
 
     /**

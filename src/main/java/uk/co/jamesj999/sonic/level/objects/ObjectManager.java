@@ -43,6 +43,10 @@ public class ObjectManager {
     private final List<ObjectInstance>[] highPriorityBuckets = new ArrayList[BUCKET_COUNT];
     private boolean bucketsDirty = true;
 
+    // Cached combined active objects list to avoid allocation in getActiveObjects()
+    private final List<ObjectInstance> cachedActiveObjects = new ArrayList<>();
+    private boolean activeObjectsCacheDirty = true;
+
     private final PlaneSwitchers planeSwitchers;
     private final SolidContacts solidContacts;
     private final TouchResponses touchResponses;
@@ -70,6 +74,9 @@ public class ObjectManager {
         activeObjects.clear();
         dynamicObjects.clear();
         pendingDynamicAdditions.clear();
+        cachedActiveObjects.clear();
+        activeObjectsCacheDirty = true;
+        bucketsDirty = true;
         frameCounter = 0;
         placement.reset(cameraX);
         registry.reportCoverage(placement.getAllSpawns());
@@ -91,11 +98,13 @@ public class ObjectManager {
     public void update(int cameraX, AbstractPlayableSprite player, int touchFrameCounter) {
         placement.update(cameraX);
         frameCounter++;
-        bucketsDirty = true; // Mark for re-bucketing since objects may have changed
+        // Note: bucketsDirty and activeObjectsCacheDirty are marked in syncActiveSpawns()
+        // and when objects are removed below, avoiding unnecessary re-bucketing
         updateCameraBounds();
         syncActiveSpawns();
 
         updating = true;
+        boolean objectsRemoved = false;
         try {
             Iterator<ObjectInstance> dynamicIterator = dynamicObjects.iterator();
             while (dynamicIterator.hasNext()) {
@@ -104,6 +113,7 @@ public class ObjectManager {
                 if (instance.isDestroyed()) {
                     instance.onUnload();
                     dynamicIterator.remove();
+                    objectsRemoved = true;
                 }
             }
 
@@ -115,6 +125,7 @@ public class ObjectManager {
                 if (instance.isDestroyed()) {
                     instance.onUnload();
                     iterator.remove();
+                    objectsRemoved = true;
                 }
             }
         } finally {
@@ -122,6 +133,11 @@ public class ObjectManager {
             if (!pendingDynamicAdditions.isEmpty()) {
                 dynamicObjects.addAll(pendingDynamicAdditions);
                 pendingDynamicAdditions.clear();
+                objectsRemoved = true; // Adding also requires re-bucketing
+            }
+            if (objectsRemoved) {
+                bucketsDirty = true;
+                activeObjectsCacheDirty = true;
             }
         }
 
@@ -319,9 +335,13 @@ public class ObjectManager {
     }
 
     public Collection<ObjectInstance> getActiveObjects() {
-        List<ObjectInstance> all = new ArrayList<>(activeObjects.values());
-        all.addAll(dynamicObjects);
-        return all;
+        if (activeObjectsCacheDirty) {
+            cachedActiveObjects.clear();
+            cachedActiveObjects.addAll(activeObjects.values());
+            cachedActiveObjects.addAll(dynamicObjects);
+            activeObjectsCacheDirty = false;
+        }
+        return cachedActiveObjects;
     }
 
     public Collection<ObjectSpawn> getActiveSpawns() {
@@ -334,6 +354,8 @@ public class ObjectManager {
         } else {
             dynamicObjects.add(object);
         }
+        bucketsDirty = true;
+        activeObjectsCacheDirty = true;
     }
 
     public boolean isRemembered(ObjectSpawn spawn) {
@@ -407,6 +429,7 @@ public class ObjectManager {
 
     private void syncActiveSpawns() {
         Collection<ObjectSpawn> activeSpawns = placement.getActiveSpawns();
+        boolean changed = false;
         for (ObjectSpawn spawn : activeSpawns) {
             if (!activeObjects.containsKey(spawn)) {
                 // Don't recreate instances for remembered spawns - they've been destroyed
@@ -417,6 +440,7 @@ public class ObjectManager {
                 }
                 ObjectInstance instance = registry.create(spawn);
                 activeObjects.put(spawn, instance);
+                changed = true;
             }
         }
 
@@ -427,8 +451,14 @@ public class ObjectManager {
                 if (!entry.getValue().isPersistent()) {
                     entry.getValue().onUnload();
                     iterator.remove();
+                    changed = true;
                 }
             }
+        }
+
+        if (changed) {
+            bucketsDirty = true;
+            activeObjectsCacheDirty = true;
         }
     }
 
@@ -752,7 +782,11 @@ public class ObjectManager {
     static final class TouchResponses {
         private final ObjectManager objectManager;
         private final TouchResponseTable table;
-        private final Set<ObjectInstance> overlapping = Collections.newSetFromMap(new IdentityHashMap<>());
+        // Double-buffer pattern: swap buffers instead of allocating new sets each frame
+        private final Set<ObjectInstance> bufferA = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Set<ObjectInstance> bufferB = Collections.newSetFromMap(new IdentityHashMap<>());
+        private Set<ObjectInstance> overlapping = bufferA;
+        private Set<ObjectInstance> building = bufferB;
         private final TouchResponseDebugState debugState = new TouchResponseDebugState();
         private int currentFrameCounter;
 
@@ -762,7 +796,10 @@ public class ObjectManager {
         }
 
         void reset() {
-            overlapping.clear();
+            bufferA.clear();
+            bufferB.clear();
+            overlapping = bufferA;
+            building = bufferB;
             currentFrameCounter = 0;
         }
 
@@ -793,7 +830,12 @@ public class ObjectManager {
             debugState.setPlayer(playerX, playerY, playerHeight, baseYRadius, crouching);
             debugState.clear();
 
-            Set<ObjectInstance> current = Collections.newSetFromMap(new IdentityHashMap<>());
+            // Double-buffer pattern:
+            // - 'overlapping' contains last frame's overlapping objects
+            // - 'building' will be populated with this frame's overlapping objects
+            // Clear building to prepare for this frame's data
+            building.clear();
+
             Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
             for (ObjectInstance instance : activeObjects) {
                 if (!(instance instanceof TouchResponseProvider provider)) {
@@ -815,7 +857,8 @@ public class ObjectManager {
                     continue;
                 }
 
-                current.add(instance);
+                building.add(instance);
+                // Only trigger touch response if this is a NEW overlap (not in last frame's set)
                 if (!overlapping.contains(instance)) {
                     TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
@@ -823,8 +866,10 @@ public class ObjectManager {
                 }
             }
 
-            overlapping.clear();
-            overlapping.addAll(current);
+            // Swap buffers: building becomes overlapping for next frame
+            Set<ObjectInstance> temp = overlapping;
+            overlapping = building;
+            building = temp;
         }
 
         private boolean isOverlapping(int playerX, int playerY, int playerHeight,

@@ -83,6 +83,15 @@ public class Ym2612Chip {
     // GPGX: number of samples per LFO step (at internal rate)
     private static final int[] LFO_SAMPLES_PER_STEP = { 108, 77, 71, 67, 62, 44, 8, 5 };
 
+    // Static index arrays for setInstrument() - avoids per-call allocation
+    // Reorder SMPS voice (Op1, Op3, Op2, Op4) into YM operator order (Op1, Op2, Op3, Op4)
+    private static final int[] DT_IDX = { 1, 3, 2, 4 };
+    private static final int[] TL_IDX = { 21, 23, 22, 24 };
+    private static final int[] RS_AR_IDX = { 5, 7, 6, 8 };
+    private static final int[] AM_D1R_IDX = { 9, 11, 10, 12 };
+    private static final int[] D2R_IDX = { 13, 15, 14, 16 };
+    private static final int[] D1L_RR_IDX = { 17, 19, 18, 20 };
+
     // GPGX EG (Envelope Generator) tables for 3-sample stepping
     // EG_INC: Envelope increment table - 19 rows of 8 values each
     // Indexed by eg_rate_select[rate] + ((egCnt >> eg_rate_shift[rate]) & 7)
@@ -540,6 +549,16 @@ public class Ym2612Chip {
 
     private final Channel[] channels = new Channel[6];
     private final boolean[] mutes = new boolean[6];
+
+    // Scratch arrays for setInstrument() - reuse instead of allocating per call
+    private final int[] scratchDt = new int[4];
+    private final int[] scratchTl = new int[4];
+    private final int[] scratchRsAr = new int[4];
+    private final int[] scratchAmD1 = new int[4];
+    private final int[] scratchD2r = new int[4];
+    private final int[] scratchD1lRr = new int[4];
+    // Scratch buffer for voice padding
+    private final byte[] voicePadScratch = new byte[25];
 
     private int in0, in1, in2, in3;
     private int en0, en1, en2, en3;
@@ -1755,9 +1774,9 @@ public class Ym2612Chip {
         boolean hasTl = voice.length >= 25;
         int expectedLen = hasTl ? 25 : 21;
         if (voice.length < expectedLen) {
-            byte[] padded = new byte[expectedLen];
-            System.arraycopy(voice, 0, padded, 0, voice.length);
-            voice = padded;
+            // Use scratch buffer instead of allocating new array
+            System.arraycopy(voice, 0, voicePadScratch, 0, voice.length);
+            voice = voicePadScratch;
         }
 
         final byte[] v = voice;
@@ -1769,42 +1788,24 @@ public class Ym2612Chip {
 
         write(port, 0xB0 + hwCh, (feedback << 3) | algo);
 
-        int tlIdxBase = 21;
-        int rsArBase = 5;
-        int amD1rBase = 9;
-        int d2rBase = 13;
-        int d1lRrBase = 17;
-        // Reorder SMPS voice (Op1, Op3, Op2, Op4) into YM operator order (Op1, Op2, Op3, Op4).
-        int[] dtIdx = { 1, 3, 2, 4 };
-        int[] tlIdx = { 21, 23, 22, 24 };
-        int[] rsArIdx = { 5, 7, 6, 8 };
-        int[] amIdx = { 9, 11, 10, 12 };
-        int[] d2rIdx = { 13, 15, 14, 16 };
-        int[] d1lRrIdx = { 17, 19, 18, 20 };
-
-        // Map to YM order into temporary arrays for clarity
-        int[] dt = new int[4];
-        int[] tl = new int[4];
-        int[] rsar = new int[4];
-        int[] amd1 = new int[4];
-        int[] d2r = new int[4];
-        int[] d1lrr = new int[4];
+        // Map SMPS voice data to YM operator order using static index arrays
+        // and instance scratch arrays to avoid per-call allocations
         for (int i = 0; i < 4; i++) {
-            dt[i] = get.applyAsInt(dtIdx[i]);
-            tl[i] = hasTl ? get.applyAsInt(tlIdx[i]) : 0;
-            rsar[i] = get.applyAsInt(rsArIdx[i]);
-            amd1[i] = get.applyAsInt(amIdx[i]);
-            d2r[i] = get.applyAsInt(d2rIdx[i]);
-            d1lrr[i] = get.applyAsInt(d1lRrIdx[i]);
+            scratchDt[i] = get.applyAsInt(DT_IDX[i]);
+            scratchTl[i] = hasTl ? get.applyAsInt(TL_IDX[i]) : 0;
+            scratchRsAr[i] = get.applyAsInt(RS_AR_IDX[i]);
+            scratchAmD1[i] = get.applyAsInt(AM_D1R_IDX[i]);
+            scratchD2r[i] = get.applyAsInt(D2R_IDX[i]);
+            scratchD1lRr[i] = get.applyAsInt(D1L_RR_IDX[i]);
         }
 
         for (int slot = 0; slot < 4; slot++) {
-            write(port, 0x30 + slot * 4 + hwCh, dt[slot]);
-            write(port, 0x40 + slot * 4 + hwCh, tl[slot]);
-            write(port, 0x50 + slot * 4 + hwCh, rsar[slot]);
-            write(port, 0x60 + slot * 4 + hwCh, amd1[slot]);
-            write(port, 0x70 + slot * 4 + hwCh, d2r[slot]);
-            write(port, 0x80 + slot * 4 + hwCh, d1lrr[slot]);
+            write(port, 0x30 + slot * 4 + hwCh, scratchDt[slot]);
+            write(port, 0x40 + slot * 4 + hwCh, scratchTl[slot]);
+            write(port, 0x50 + slot * 4 + hwCh, scratchRsAr[slot]);
+            write(port, 0x60 + slot * 4 + hwCh, scratchAmD1[slot]);
+            write(port, 0x70 + slot * 4 + hwCh, scratchD2r[slot]);
+            write(port, 0x80 + slot * 4 + hwCh, scratchD1lRr[slot]);
             write(port, 0x90 + slot * 4 + hwCh, 0);
         }
     }

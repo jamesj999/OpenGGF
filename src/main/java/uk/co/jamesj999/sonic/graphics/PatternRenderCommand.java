@@ -7,29 +7,34 @@ import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.level.PatternDesc;
 
 import java.nio.FloatBuffer;
+import java.util.ArrayDeque;
 
 /**
  * Optimized pattern render command that minimizes redundant GL state changes.
- * 
+ *
  * Optimizations applied:
  * 1. Uses cached uniform locations (eliminates string hash lookups)
  * 2. Uses static singleton for shader program reference
  * 3. Tracks last-used textures to avoid redundant binds
  * 4. Pre-computes transformed vertices instead of using matrix operations
+ * 5. Object pooling to avoid per-pattern allocation
  */
 public class PatternRenderCommand implements GLCommandable {
 
-    private final int paletteTextureId;
-    private final float u0;
-    private final float v0;
-    private final float u1;
-    private final float v1;
-    private final int atlasIndex;
-    private final int paletteIndex;
-    private final boolean hFlip;
-    private final boolean vFlip;
-    private final int x;
-    private final int y;
+    // Object pool for command reuse
+    private static final ArrayDeque<PatternRenderCommand> pool = new ArrayDeque<>(256);
+
+    private int paletteTextureId;
+    private float u0;
+    private float v0;
+    private float u1;
+    private float v1;
+    private int atlasIndex;
+    private int paletteIndex;
+    private boolean hFlip;
+    private boolean vFlip;
+    private int x;
+    private int y;
 
     // Static state tracking for batch optimization
     private static int lastAtlasTextureId = -1;
@@ -55,7 +60,31 @@ public class PatternRenderCommand implements GLCommandable {
         return graphicsManager;
     }
 
+    /**
+     * Obtain a PatternRenderCommand from the pool or create a new one.
+     */
+    public static PatternRenderCommand obtain(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y) {
+        PatternRenderCommand cmd = pool.pollFirst();
+        if (cmd == null) {
+            cmd = new PatternRenderCommand();
+        }
+        cmd.init(entry, paletteTextureId, desc, x, y);
+        return cmd;
+    }
+
+    private PatternRenderCommand() {
+        // Private constructor for pooling
+    }
+
+    /**
+     * @deprecated Use {@link #obtain(PatternAtlas.Entry, int, PatternDesc, int, int)} instead for pooled allocation.
+     */
+    @Deprecated
     public PatternRenderCommand(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y) {
+        init(entry, paletteTextureId, desc, x, y);
+    }
+
+    private void init(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y) {
         this.paletteTextureId = paletteTextureId;
         this.u0 = entry.u0();
         this.v0 = entry.v0();
@@ -70,6 +99,15 @@ public class PatternRenderCommand implements GLCommandable {
         // (8)
         // to get the OpenGL Y coordinate for the bottom of the quad
         this.y = SCREEN_HEIGHT - y - 8;
+    }
+
+    /**
+     * Return this command to the pool for reuse.
+     */
+    public void recycle() {
+        if (pool.size() < 512) { // Cap pool size to prevent unbounded growth
+            pool.offerFirst(this);
+        }
     }
 
     /**
@@ -185,6 +223,9 @@ public class PatternRenderCommand implements GLCommandable {
         gl.glClientActiveTexture(GL2.GL_TEXTURE0);
         gl.glTexCoordPointer(2, GL2.GL_FLOAT, 0, TEX_COORD_BUFFER);
         gl.glDrawArrays(GL2.GL_QUADS, 0, 4);
+
+        // Return to pool for reuse
+        recycle();
     }
 
     /**
