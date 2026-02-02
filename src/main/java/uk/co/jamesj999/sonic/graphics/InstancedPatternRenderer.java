@@ -20,8 +20,9 @@ public class InstancedPatternRenderer {
     private static final Logger LOGGER = Logger.getLogger(InstancedPatternRenderer.class.getName());
 
     private static final int MAX_PATTERNS_PER_BATCH = 4096;
-    private static final int FLOATS_PER_INSTANCE = 9; // x,y,w,h,u0,v0,u1,v1,palette
+    private static final int FLOATS_PER_INSTANCE = 10; // x,y,w,h,u0,v0,u1,v1,palette,highPriority
     private static final int COMMAND_POOL_LIMIT = 8;
+    private static final String PRIORITY_FRAGMENT_SHADER_PATH = "shaders/shader_instanced_priority.glsl";
 
     private final int screenHeight;
     private final float[] instanceData;
@@ -33,12 +34,14 @@ public class InstancedPatternRenderer {
 
     private ShaderProgram instancedShader;
     private WaterShaderProgram instancedWaterShader;
+    private ShaderProgram instancedPriorityShader;  // Priority-aware instanced shader
 
     private int quadVboId;
     private int instanceVboId;
 
     private AttribLocations defaultAttribs;
     private AttribLocations waterAttribs;
+    private AttribLocations priorityAttribs;
 
     private final ArrayDeque<InstancedBatchCommand> commandPool = new ArrayDeque<>();
 
@@ -61,9 +64,12 @@ public class InstancedPatternRenderer {
         instancedShader.cacheUniformLocations(gl);
         instancedWaterShader = new WaterShaderProgram(gl, vertexShaderPath, waterFragmentPath);
         instancedWaterShader.cacheUniformLocations(gl);
+        instancedPriorityShader = new ShaderProgram(gl, vertexShaderPath, PRIORITY_FRAGMENT_SHADER_PATH);
+        instancedPriorityShader.cacheUniformLocations(gl);
 
         defaultAttribs = queryAttribLocations(gl, instancedShader);
         waterAttribs = queryAttribLocations(gl, instancedWaterShader);
+        priorityAttribs = queryAttribLocations(gl, instancedPriorityShader);
 
         initBuffers(gl);
         initialized = true;
@@ -111,6 +117,10 @@ public class InstancedPatternRenderer {
             v1 = tmp;
         }
 
+        // Get current sprite priority from GraphicsManager
+        GraphicsManager gm = GraphicsManager.getInstance();
+        float highPriority = gm.getCurrentSpriteHighPriority() ? 1.0f : 0.0f;
+
         int offset = instanceCount * FLOATS_PER_INSTANCE;
         instanceData[offset] = x;
         instanceData[offset + 1] = screenY;
@@ -121,6 +131,7 @@ public class InstancedPatternRenderer {
         instanceData[offset + 6] = u1;
         instanceData[offset + 7] = v1;
         instanceData[offset + 8] = paletteIndex;
+        instanceData[offset + 9] = highPriority;
         instanceCount++;
         return true;
     }
@@ -158,6 +169,10 @@ public class InstancedPatternRenderer {
             v1 = stripTop;
         }
 
+        // Get current sprite priority from GraphicsManager
+        GraphicsManager gm = GraphicsManager.getInstance();
+        float highPriority = gm.getCurrentSpriteHighPriority() ? 1.0f : 0.0f;
+
         int offset = instanceCount * FLOATS_PER_INSTANCE;
         instanceData[offset] = x;
         instanceData[offset + 1] = screenY;
@@ -168,6 +183,7 @@ public class InstancedPatternRenderer {
         instanceData[offset + 6] = u1;
         instanceData[offset + 7] = v1;
         instanceData[offset + 8] = paletteIndex;
+        instanceData[offset + 9] = highPriority;
         instanceCount++;
         return true;
     }
@@ -177,8 +193,11 @@ public class InstancedPatternRenderer {
             batchActive = false;
             return null;
         }
+        GraphicsManager gm = GraphicsManager.getInstance();
+        boolean usePriority = gm.isUseSpritePriorityShader() && instancedPriorityShader != null;
+
         InstancedBatchCommand command = obtainCommand();
-        command.load(instanceData, instanceCount);
+        command.load(instanceData, instanceCount, usePriority);
         instanceCount = 0;
         batchActive = false;
         return command;
@@ -201,10 +220,15 @@ public class InstancedPatternRenderer {
         if (instancedWaterShader != null && gl != null) {
             instancedWaterShader.cleanup(gl);
         }
+        if (instancedPriorityShader != null && gl != null) {
+            instancedPriorityShader.cleanup(gl);
+        }
         instancedShader = null;
         instancedWaterShader = null;
+        instancedPriorityShader = null;
         defaultAttribs = null;
         waterAttribs = null;
+        priorityAttribs = null;
         initialized = false;
         supported = false;
         commandPool.clear();
@@ -252,7 +276,8 @@ public class InstancedPatternRenderer {
                 gl.glGetAttribLocation(programId, "InstanceSize"),
                 gl.glGetAttribLocation(programId, "InstanceUv0"),
                 gl.glGetAttribLocation(programId, "InstanceUv1"),
-                gl.glGetAttribLocation(programId, "InstancePalette"));
+                gl.glGetAttribLocation(programId, "InstancePalette"),
+                gl.glGetAttribLocation(programId, "InstanceHighPriority"));
     }
 
     private InstancedBatchCommand obtainCommand() {
@@ -276,15 +301,17 @@ public class InstancedPatternRenderer {
         private final int instanceUv0;
         private final int instanceUv1;
         private final int instancePalette;
+        private final int instanceHighPriority;
 
         private AttribLocations(int vertexPos, int instancePos, int instanceSize,
-                int instanceUv0, int instanceUv1, int instancePalette) {
+                int instanceUv0, int instanceUv1, int instancePalette, int instanceHighPriority) {
             this.vertexPos = vertexPos;
             this.instancePos = instancePos;
             this.instanceSize = instanceSize;
             this.instanceUv0 = instanceUv0;
             this.instanceUv1 = instanceUv1;
             this.instancePalette = instancePalette;
+            this.instanceHighPriority = instanceHighPriority;
         }
     }
 
@@ -292,10 +319,12 @@ public class InstancedPatternRenderer {
         private FloatBuffer instanceBuffer;
         private int instanceCount;
         private int floatCount;
+        private boolean usePriorityShader;
 
-        private void load(float[] data, int instanceCount) {
+        private void load(float[] data, int instanceCount, boolean usePriorityShader) {
             this.instanceCount = instanceCount;
             this.floatCount = instanceCount * FLOATS_PER_INSTANCE;
+            this.usePriorityShader = usePriorityShader;
             instanceBuffer = ensureBuffer(instanceBuffer, floatCount);
             instanceBuffer.clear();
             instanceBuffer.put(data, 0, floatCount);
@@ -309,7 +338,18 @@ public class InstancedPatternRenderer {
             }
             GraphicsManager gm = GraphicsManager.getInstance();
             boolean useWaterShader = gm.getShaderProgram() instanceof WaterShaderProgram;
-            ShaderProgram shader = useWaterShader ? instancedWaterShader : instancedShader;
+            // Use captured priority shader state from batch creation time
+            boolean usePriorityShader = this.usePriorityShader;
+
+            // Select the appropriate shader based on mode
+            ShaderProgram shader;
+            if (usePriorityShader) {
+                shader = instancedPriorityShader;
+            } else if (useWaterShader) {
+                shader = instancedWaterShader;
+            } else {
+                shader = instancedShader;
+            }
             if (shader == null) {
                 return;
             }
@@ -319,6 +359,38 @@ public class InstancedPatternRenderer {
             gl.glUniform1i(shader.getPaletteLocation(), 0);
             gl.glUniform1i(shader.getIndexedColorTextureLocation(), 1);
             shader.setPaletteLine(gl, -1.0f);
+
+            // Set priority uniforms if using the priority shader
+            // Priority is now per-instance via InstanceHighPriority attribute,
+            // but we still need to bind the tile priority FBO texture and screen size
+            if (usePriorityShader) {
+                TilePriorityFBO fbo = gm.getTilePriorityFBO();
+                if (fbo != null && fbo.isInitialized()) {
+                    int tilePriorityTexLoc = gl.glGetUniformLocation(shader.getProgramId(), "TilePriorityTexture");
+                    if (tilePriorityTexLoc != -1) {
+                        gl.glActiveTexture(GL2.GL_TEXTURE3);
+                        gl.glBindTexture(GL2.GL_TEXTURE_2D, fbo.getTextureId());
+                        gl.glUniform1i(tilePriorityTexLoc, 3);
+
+                        // Use viewport dimensions for ScreenSize and pass viewport offset
+                        // gl_FragCoord is in WINDOW coordinates, so we need the offset to
+                        // convert to viewport-local coordinates before normalizing
+                        int[] viewport = new int[4];
+                        gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport, 0);
+
+                        int screenSizeLoc = gl.glGetUniformLocation(shader.getProgramId(), "ScreenSize");
+                        if (screenSizeLoc != -1) {
+                            gl.glUniform2f(screenSizeLoc, viewport[2], viewport[3]);
+                        }
+
+                        int viewportOffsetLoc = gl.glGetUniformLocation(shader.getProgramId(), "ViewportOffset");
+                        if (viewportOffsetLoc != -1) {
+                            gl.glUniform2f(viewportOffsetLoc, viewport[0], viewport[1]);
+                        }
+                        gl.glActiveTexture(GL2.GL_TEXTURE0);
+                    }
+                }
+            }
 
             Integer paletteTextureId;
             if (gm.isUseUnderwaterPaletteForBackground()) {
@@ -354,7 +426,15 @@ public class InstancedPatternRenderer {
                 }
             }
 
-            AttribLocations attribs = useWaterShader ? waterAttribs : defaultAttribs;
+            // Select attribute locations based on which shader we're using
+            AttribLocations attribs;
+            if (usePriorityShader) {
+                attribs = priorityAttribs;
+            } else if (useWaterShader) {
+                attribs = waterAttribs;
+            } else {
+                attribs = defaultAttribs;
+            }
             if (attribs == null || quadVboId == 0 || instanceVboId == 0) {
                 shader.stop(gl);
                 return;
@@ -383,12 +463,14 @@ public class InstancedPatternRenderer {
             enableAttrib(gl, attribs.instanceUv0, 2, GL2.GL_FLOAT, stride, 4L * Float.BYTES);
             enableAttrib(gl, attribs.instanceUv1, 2, GL2.GL_FLOAT, stride, 6L * Float.BYTES);
             enableAttrib(gl, attribs.instancePalette, 1, GL2.GL_FLOAT, stride, 8L * Float.BYTES);
+            enableAttrib(gl, attribs.instanceHighPriority, 1, GL2.GL_FLOAT, stride, 9L * Float.BYTES);
 
             setDivisor(gl23, attribs.instancePos, 1);
             setDivisor(gl23, attribs.instanceSize, 1);
             setDivisor(gl23, attribs.instanceUv0, 1);
             setDivisor(gl23, attribs.instanceUv1, 1);
             setDivisor(gl23, attribs.instancePalette, 1);
+            setDivisor(gl23, attribs.instanceHighPriority, 1);
 
             gl23.glDrawArraysInstanced(GL2.GL_TRIANGLE_STRIP, 0, 4, instanceCount);
 
@@ -397,7 +479,9 @@ public class InstancedPatternRenderer {
             setDivisor(gl23, attribs.instanceUv0, 0);
             setDivisor(gl23, attribs.instanceUv1, 0);
             setDivisor(gl23, attribs.instancePalette, 0);
+            setDivisor(gl23, attribs.instanceHighPriority, 0);
 
+            disableAttrib(gl, attribs.instanceHighPriority);
             disableAttrib(gl, attribs.instancePalette);
             disableAttrib(gl, attribs.instanceUv1);
             disableAttrib(gl, attribs.instanceUv0);

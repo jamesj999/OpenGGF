@@ -37,6 +37,7 @@ import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.graphics.ShaderProgram;
 import uk.co.jamesj999.sonic.graphics.TilemapGpuRenderer;
+import uk.co.jamesj999.sonic.graphics.TilePriorityFBO;
 import uk.co.jamesj999.sonic.graphics.WaterShaderProgram;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.graphics.PatternRenderCommand;
@@ -648,8 +649,25 @@ public class LevelManager {
             zoneFeatureProvider.renderAfterForeground(camera);
         }
 
+        // Draw Foreground (Layer 0) high-priority pass to tile priority FBO
+        // This captures high-priority tile pixels for the sprite priority shader
+        profiler.beginSection("render.fg.priority");
+        renderHighPriorityTilesToFBO(camera);
+        profiler.endSection("render.fg.priority");
+
+        // Draw Foreground (Layer 0) high-priority pass to screen
+        enqueueForegroundTilemapPass(camera, 1);
+
+        // Render ALL sprites in unified bucket order (7→0)
+        // Sprite-to-sprite ordering is by bucket number regardless of isHighPriority
+        // The sprite priority shader composites sprites with tile priority awareness
         profiler.beginSection("render.sprites");
+
+        // Enable sprite priority shader mode for ROM-accurate sprite-to-tile layering
+        graphicsManager.setUseSpritePriorityShader(true);
+        graphicsManager.setCurrentSpriteHighPriority(false);
         graphicsManager.beginPatternBatch();
+
         if (ringManager != null) {
             ringManager.draw(frameCounter);
             ringManager.drawLostRings(frameCounter);
@@ -657,28 +675,17 @@ public class LevelManager {
 
         for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
             if (spriteManager != null) {
-                spriteManager.drawPriorityBucket(bucket, false);
+                spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
             }
             if (objectManager != null) {
-                objectManager.drawPriorityBucket(bucket, false);
+                objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
             }
         }
         graphicsManager.flushPatternBatch();
+
+        // Disable sprite priority shader mode after sprite rendering
+        graphicsManager.setUseSpritePriorityShader(false);
         profiler.endSection("render.sprites");
-
-        // Draw Foreground (Layer 0) high-priority pass
-        enqueueForegroundTilemapPass(camera, 1);
-
-        graphicsManager.beginPatternBatch();
-        for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
-            if (spriteManager != null) {
-                spriteManager.drawPriorityBucket(bucket, true);
-            }
-            if (objectManager != null) {
-                objectManager.drawPriorityBucket(bucket, true);
-            }
-        }
-        graphicsManager.flushPatternBatch();
 
         // Draw water surface sprites at the water line (CPZ2, ARZ1, ARZ2)
         // Rendered last (after all sprites and tiles) so it appears in front of everything
@@ -1014,6 +1021,7 @@ public class LevelManager {
                             underwaterPaletteId != null ? underwaterPaletteId : 0,
                             -1,
                             true,
+                            false,  // maskOutput = false for screen rendering
                             useUnderwaterPalette,
                             fboWaterlineY);
                 }
@@ -1106,8 +1114,106 @@ public class LevelManager {
                     underwaterPaletteId != null ? underwaterPaletteId : 0,
                     priorityPass,
                     false,
+                    false,  // maskOutput = false for screen rendering
                     useUnderwaterPalette,
                     waterlineScreenY);
+        }));
+    }
+
+    /**
+     * Render high-priority foreground tiles to the tile priority FBO.
+     * This FBO is sampled by the sprite priority shader to determine
+     * if low-priority sprites should be hidden behind high-priority tiles.
+     */
+    private void renderHighPriorityTilesToFBO(Camera camera) {
+        TilePriorityFBO fbo = graphicsManager.getTilePriorityFBO(cachedScreenWidth, cachedScreenHeight);
+        if (fbo == null || !fbo.isInitialized()) {
+            return;
+        }
+
+        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
+        if (renderer == null) {
+            return;
+        }
+
+        Integer atlasId = graphicsManager.getPatternAtlasTextureId();
+        Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
+        if (atlasId == null || paletteId == null) {
+            return;
+        }
+
+        int screenW = cachedScreenWidth;
+        int screenH = cachedScreenHeight;
+        float worldOffsetX = camera.getXWithShake();
+        float worldOffsetY = camera.getYWithShake();
+
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
+            TilePriorityFBO tileFbo = graphicsManager.getTilePriorityFBO();
+            TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+            if (tileFbo == null || tilemapRenderer == null) {
+                return;
+            }
+
+            // Begin rendering to FBO
+            tileFbo.begin(gl);
+
+            // Enable max blending so both layers contribute to priority mask
+            // This ensures high-priority tiles from BOTH background AND foreground
+            // will occlude low-priority sprites (matching VDP behavior)
+            gl.glEnable(GL2.GL_BLEND);
+            gl.glBlendEquation(GL2.GL_MAX);
+            gl.glBlendFunc(GL2.GL_ONE, GL2.GL_ONE);
+
+            // First pass: background high-priority tiles
+            tilemapRenderer.render(gl,
+                    TilemapGpuRenderer.Layer.BACKGROUND,
+                    screenW,
+                    screenH,
+                    0,      // viewport X (FBO uses full size)
+                    0,      // viewport Y
+                    screenW,  // viewport width
+                    screenH,  // viewport height
+                    worldOffsetX,
+                    worldOffsetY,
+                    graphicsManager.getPatternAtlasWidth(),
+                    graphicsManager.getPatternAtlasHeight(),
+                    atlasId,
+                    paletteId,
+                    0,      // no underwater palette for FBO
+                    1,      // priority pass = 1 (high priority only)
+                    false,  // no wrap Y
+                    true,   // maskOutput = true for priority FBO
+                    false,  // no underwater palette
+                    0.0f);  // no waterline
+
+            // Second pass: foreground high-priority tiles
+            tilemapRenderer.render(gl,
+                    TilemapGpuRenderer.Layer.FOREGROUND,
+                    screenW,
+                    screenH,
+                    0,      // viewport X (FBO uses full size)
+                    0,      // viewport Y
+                    screenW,  // viewport width
+                    screenH,  // viewport height
+                    worldOffsetX,
+                    worldOffsetY,
+                    graphicsManager.getPatternAtlasWidth(),
+                    graphicsManager.getPatternAtlasHeight(),
+                    atlasId,
+                    paletteId,
+                    0,      // no underwater palette for FBO
+                    1,      // priority pass = 1 (high priority only)
+                    false,  // no wrap Y
+                    true,   // maskOutput = true for priority FBO
+                    false,  // no underwater palette
+                    0.0f);  // no waterline
+
+            // Restore default blend state
+            gl.glBlendEquation(GL2.GL_FUNC_ADD);
+            gl.glDisable(GL2.GL_BLEND);
+
+            // End rendering to FBO
+            tileFbo.end(gl);
         }));
     }
 

@@ -21,6 +21,7 @@ uniform float WorldOffsetX;          // World X at left edge
 uniform float WorldOffsetY;          // World Y at top edge
 uniform int WrapY;                   // 1 to wrap vertically, 0 to clamp
 uniform int PriorityPass;            // -1 = all, 0 = low, 1 = high
+uniform int MaskOutput;              // 1 = output white mask, 0 = output actual color
 uniform int UseUnderwaterPalette;
 uniform float WaterlineScreenY;
 
@@ -119,5 +120,11 @@ void main()
         color = texture2D(Palette, vec2(paletteX, paletteY));
     }
 
-    gl_FragColor = color;
+    // When MaskOutput is set, output white as a binary priority mask
+    // Otherwise output the actual tile color
+    if (MaskOutput == 1) {
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    } else {
+        gl_FragColor = color;
+    }
 }

@@ -28,6 +28,7 @@ public class TilemapShaderProgram extends ShaderProgram {
     private int worldOffsetYLocation = -1;
     private int wrapYLocation = -1;
     private int priorityPassLocation = -1;
+    private int maskOutputLocation = -1;
     private int useUnderwaterPaletteLocation = -1;
     private int waterlineScreenYLocation = -1;
 
@@ -59,6 +60,7 @@ public class TilemapShaderProgram extends ShaderProgram {
         worldOffsetYLocation = gl.glGetUniformLocation(programId, "WorldOffsetY");
         wrapYLocation = gl.glGetUniformLocation(programId, "WrapY");
         priorityPassLocation = gl.glGetUniformLocation(programId, "PriorityPass");
+        maskOutputLocation = gl.glGetUniformLocation(programId, "MaskOutput");
         useUnderwaterPaletteLocation = gl.glGetUniformLocation(programId, "UseUnderwaterPalette");
         waterlineScreenYLocation = gl.glGetUniformLocation(programId, "WaterlineScreenY");
     }
@@ -148,6 +150,12 @@ public class TilemapShaderProgram extends ShaderProgram {
     public void setPriorityPass(GL2 gl, int pass) {
         if (priorityPassLocation >= 0) {
             gl.glUniform1i(priorityPassLocation, pass);
+        }
+    }
+
+    public void setMaskOutput(GL2 gl, boolean maskOutput) {
+        if (maskOutputLocation >= 0) {
+            gl.glUniform1i(maskOutputLocation, maskOutput ? 1 : 0);
         }
     }
 

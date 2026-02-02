@@ -85,6 +85,7 @@ public class TilemapGpuRenderer {
             int underwaterPaletteTextureId,
             int priorityPass,
             boolean wrapY,
+            boolean maskOutput,
             boolean useUnderwaterPalette,
             float waterlineScreenY) {
         byte[] tilemapData = layer == Layer.FOREGROUND ? foregroundData : backgroundData;
@@ -122,6 +123,7 @@ public class TilemapGpuRenderer {
         shader.setWorldOffset(gl, worldOffsetX, worldOffsetY);
         shader.setWrapY(gl, wrapY);
         shader.setPriorityPass(gl, priorityPass);
+        shader.setMaskOutput(gl, maskOutput);
         shader.setWaterSplit(gl, useUnderwaterPalette, waterlineScreenY);
 
         gl.glActiveTexture(GL2.GL_TEXTURE0);

@@ -3,6 +3,7 @@ package uk.co.jamesj999.sonic.sprites.managers;
 import uk.co.jamesj999.sonic.Control.InputHandler;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
+import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.physics.Direction;
@@ -228,6 +229,101 @@ public class SpriteManager {
 
 		// Non-playable sprites are only drawn once at the minimum high-priority bucket
 		if (highPriority && targetBucket == RenderPriority.MIN) {
+			for (Sprite sprite : nonPlayableSprites) {
+				sprite.draw();
+			}
+		}
+	}
+
+	/**
+	 * Draw all sprites in a single unified bucket, regardless of their isHighPriority flag.
+	 * Calls the provided callback before drawing each sprite with its high priority status.
+	 *
+	 * This supports ROM-accurate sprite-to-sprite ordering where bucket number determines
+	 * draw order independently of the sprite-to-tile priority (isHighPriority flag).
+	 *
+	 * @param bucket   The priority bucket to draw (0-7)
+	 * @param callback Called before each sprite draw with (sprite, isHighPriority)
+	 */
+	public void drawUnifiedBucket(int bucket, SpriteDrawCallback callback) {
+		bucketSprites(); // Ensure sprites are bucketed
+		int targetBucket = RenderPriority.clamp(bucket);
+		int idx = targetBucket - RenderPriority.MIN;
+
+		// Draw low-priority sprites first (they appear behind)
+		for (Sprite sprite : lowPriorityBuckets[idx]) {
+			if (callback != null) {
+				callback.beforeDraw(sprite, false);
+			}
+			sprite.draw();
+		}
+
+		// Draw high-priority sprites second (they appear in front)
+		for (Sprite sprite : highPriorityBuckets[idx]) {
+			if (callback != null) {
+				callback.beforeDraw(sprite, true);
+			}
+			sprite.draw();
+		}
+
+		// Non-playable sprites are drawn at the minimum bucket
+		if (targetBucket == RenderPriority.MIN) {
+			for (Sprite sprite : nonPlayableSprites) {
+				// Non-playable sprites default to low priority for tile layering
+				if (callback != null) {
+					callback.beforeDraw(sprite, false);
+				}
+				sprite.draw();
+			}
+		}
+	}
+
+	/**
+	 * Callback interface for unified sprite drawing.
+	 * Called before each sprite is drawn to allow setting up shader uniforms.
+	 */
+	public interface SpriteDrawCallback {
+		/**
+		 * Called before drawing a sprite.
+		 *
+		 * @param sprite       The sprite about to be drawn
+		 * @param highPriority True if sprite should appear above high-priority tiles
+		 */
+		void beforeDraw(Sprite sprite, boolean highPriority);
+	}
+
+	/**
+	 * Draw all sprites in a single unified bucket with per-instance priority.
+	 * Priority is now handled per-instance in the shader, so no batch flushing
+	 * is needed when switching between low and high priority sprites.
+	 *
+	 * @param bucket The priority bucket to draw (0-7)
+	 * @param gfx    The graphics manager to use for priority state
+	 */
+	public void drawUnifiedBucketWithPriority(int bucket, GraphicsManager gfx) {
+		bucketSprites();
+		int idx = RenderPriority.clamp(bucket) - RenderPriority.MIN;
+
+		// Draw low-priority sprites first (sets priority per-instance in shader)
+		if (!lowPriorityBuckets[idx].isEmpty()) {
+			gfx.setCurrentSpriteHighPriority(false);
+			for (Sprite sprite : lowPriorityBuckets[idx]) {
+				sprite.draw();
+			}
+		}
+
+		// Draw high-priority sprites (sets priority per-instance in shader)
+		// No batch flush needed - priority is baked into instance data
+		if (!highPriorityBuckets[idx].isEmpty()) {
+			gfx.setCurrentSpriteHighPriority(true);
+			for (Sprite sprite : highPriorityBuckets[idx]) {
+				sprite.draw();
+			}
+		}
+
+		// Handle non-playable sprites at bucket MIN
+		if (bucket == RenderPriority.MIN && !nonPlayableSprites.isEmpty()) {
+			gfx.setCurrentSpriteHighPriority(false);
 			for (Sprite sprite : nonPlayableSprites) {
 				sprite.draw();
 			}
