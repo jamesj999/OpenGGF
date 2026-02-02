@@ -37,8 +37,17 @@ public class PlayerSpriteRenderer {
             // Empty DPLCs mean "reuse previously loaded tiles", so we shouldn't
             // update lastFrame in that case - otherwise a subsequent frame with
             // a real DPLC would not reload its tiles.
-            if (applyDplc(frameIndex)) {
+            boolean loaded = applyDplc(frameIndex);
+            if (loaded) {
                 lastFrame = frameIndex;
+            } else if (lastFrame == -1) {
+                // First draw and DPLC was empty - try to find the first non-empty DPLC
+                // to initialize the pattern bank (ROM initializes with frame 0 tiles
+                // before the main loop, but we need to do it here)
+                loaded = forceInitialDplc();
+                if (loaded) {
+                    lastFrame = frameIndex;
+                }
             }
         }
 
@@ -92,5 +101,22 @@ public class PlayerSpriteRenderer {
         }
         patternBank.applyRequests(dplcFrame.requests(), artSet.artTiles());
         return true;
+    }
+
+    /**
+     * Force-load the first non-empty DPLC to initialize the pattern bank.
+     * This handles the case where frame 0 has an empty DPLC expecting tiles
+     * to already be loaded (as the ROM does during initialization).
+     */
+    private boolean forceInitialDplc() {
+        // Search for the first non-empty DPLC
+        for (int i = 0; i < artSet.dplcFrames().size(); i++) {
+            SpriteDplcFrame dplcFrame = artSet.dplcFrames().get(i);
+            if (dplcFrame != null && !dplcFrame.requests().isEmpty()) {
+                patternBank.applyRequests(dplcFrame.requests(), artSet.artTiles());
+                return true;
+            }
+        }
+        return false;
     }
 }

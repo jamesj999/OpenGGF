@@ -205,6 +205,10 @@ public class ParallaxManager {
     }
 
     public void update(int zoneId, int actId, Camera cam, int frameCounter, int bgScrollY) {
+        // Clear scroll buffer to ensure deterministic state
+        // (some zone handlers intentionally leave lines unwritten)
+        java.util.Arrays.fill(hScroll, 0);
+
         minScroll = Integer.MAX_VALUE;
         maxScroll = Integer.MIN_VALUE;
 

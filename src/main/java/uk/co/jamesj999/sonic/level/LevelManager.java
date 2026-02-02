@@ -2327,6 +2327,15 @@ public class LevelManager {
         return levelManager;
     }
 
+    /**
+     * Reset the frame counter to 0.
+     * Used for deterministic visual regression testing to ensure animations
+     * are in a consistent state between reference generation and test runs.
+     */
+    public void resetFrameCounter() {
+        this.frameCounter = 0;
+    }
+
     public void setClearColor(GL2 gl) {
         float r = 0.0f;
         float g = 0.0f;
