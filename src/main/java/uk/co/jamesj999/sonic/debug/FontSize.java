@@ -3,14 +3,14 @@ package uk.co.jamesj999.sonic.debug;
 /**
  * Font sizes for debug text rendering.
  * Different text elements use different sizes for readability:
- * - SMALL (8pt): Sensors, performance panel stats
- * - MEDIUM (9pt): Object labels
- * - LARGE (10pt): Main status panels
+ * - SMALL (7pt): Sensors, performance panel stats
+ * - MEDIUM (8pt): Object labels
+ * - LARGE (9pt): Main status panels
  */
 public enum FontSize {
-    SMALL(8),
-    MEDIUM(9),
-    LARGE(10);
+    SMALL(7),
+    MEDIUM(8),
+    LARGE(9);
 
     private final int points;
 
