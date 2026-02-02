@@ -52,9 +52,9 @@ public class GlyphBatchRenderer {
     private int texelSizeLoc = -1;
     private int outlineColorLoc = -1;
 
-    // Viewport dimensions for coordinate conversion
-    private int viewportWidth;
-    private int viewportHeight;
+    // Viewport dimensions for coordinate conversion (default to common values to avoid 0)
+    private int viewportWidth = 320;
+    private int viewportHeight = 224;
     private float currentScale = 1.0f;
 
     // Command pool for batch execution
@@ -86,37 +86,41 @@ public class GlyphBatchRenderer {
 
         this.currentScale = scaleFactor;
 
-        // Initialize glyph atlas with all font sizes
-        atlas = new GlyphAtlas();
+        // Initialize glyph atlas with all font sizes (may be null after updateScale cleanup)
+        if (atlas == null) {
+            atlas = new GlyphAtlas();
+        }
         atlas.init(gl, font, scaleFactor);
         if (!atlas.isInitialized()) {
             LOGGER.warning("Failed to initialize glyph atlas");
             return;
         }
 
-        // Load shader program
-        try {
-            shader = new ShaderProgram(gl, VERTEX_SHADER_PATH, FRAGMENT_SHADER_PATH);
-        } catch (IOException e) {
-            LOGGER.severe("Failed to load debug text shader: " + e.getMessage());
-            return;
+        // Load shader program (reuse existing if available)
+        if (shader == null) {
+            try {
+                shader = new ShaderProgram(gl, VERTEX_SHADER_PATH, FRAGMENT_SHADER_PATH);
+            } catch (IOException e) {
+                LOGGER.severe("Failed to load debug text shader: " + e.getMessage());
+                return;
+            }
+
+            // Query attribute locations (only needed once per shader)
+            int programId = shader.getProgramId();
+            vertexPosLoc = gl.glGetAttribLocation(programId, "VertexPos");
+            instancePosLoc = gl.glGetAttribLocation(programId, "InstancePos");
+            instanceSizeLoc = gl.glGetAttribLocation(programId, "InstanceSize");
+            instanceUv0Loc = gl.glGetAttribLocation(programId, "InstanceUv0");
+            instanceUv1Loc = gl.glGetAttribLocation(programId, "InstanceUv1");
+            instanceColorLoc = gl.glGetAttribLocation(programId, "InstanceColor");
+
+            // Query uniform locations
+            glyphAtlasLoc = gl.glGetUniformLocation(programId, "GlyphAtlas");
+            texelSizeLoc = gl.glGetUniformLocation(programId, "TexelSize");
+            outlineColorLoc = gl.glGetUniformLocation(programId, "OutlineColor");
         }
 
-        // Query attribute locations
-        int programId = shader.getProgramId();
-        vertexPosLoc = gl.glGetAttribLocation(programId, "VertexPos");
-        instancePosLoc = gl.glGetAttribLocation(programId, "InstancePos");
-        instanceSizeLoc = gl.glGetAttribLocation(programId, "InstanceSize");
-        instanceUv0Loc = gl.glGetAttribLocation(programId, "InstanceUv0");
-        instanceUv1Loc = gl.glGetAttribLocation(programId, "InstanceUv1");
-        instanceColorLoc = gl.glGetAttribLocation(programId, "InstanceColor");
-
-        // Query uniform locations
-        glyphAtlasLoc = gl.glGetUniformLocation(programId, "GlyphAtlas");
-        texelSizeLoc = gl.glGetUniformLocation(programId, "TexelSize");
-        outlineColorLoc = gl.glGetUniformLocation(programId, "OutlineColor");
-
-        // Initialize VBOs
+        // Initialize VBOs (reuses existing if already created)
         initBuffers(gl);
 
         initialized = true;
@@ -137,11 +141,23 @@ public class GlyphBatchRenderer {
      */
     public void updateScale(GL2 gl, Font baseFont, float newScale) {
         if (Math.abs(newScale - currentScale) > 0.5f) {
+            // Save viewport dimensions before cleanup
+            int savedViewportWidth = viewportWidth;
+            int savedViewportHeight = viewportHeight;
+
+            // Clean up atlas (shader and VBOs can be reused)
             if (atlas != null) {
                 atlas.cleanup(gl);
+                atlas = null;
             }
+
+            // Reinitialize with new scale
             initialized = false;
             init(gl, baseFont, newScale);
+
+            // Restore viewport dimensions
+            viewportWidth = savedViewportWidth;
+            viewportHeight = savedViewportHeight;
         }
     }
 
@@ -405,6 +421,12 @@ public class GlyphBatchRenderer {
 
         void execute(GL2 gl) {
             if (glyphCount == 0 || shader == null || atlas == null) {
+                return;
+            }
+
+            // Guard against invalid viewport dimensions
+            if (viewportWidth <= 0 || viewportHeight <= 0) {
+                LOGGER.warning("Invalid viewport dimensions: " + viewportWidth + "x" + viewportHeight);
                 return;
             }
 
