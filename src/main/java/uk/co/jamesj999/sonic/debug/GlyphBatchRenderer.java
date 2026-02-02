@@ -14,6 +14,7 @@ import java.util.logging.Logger;
 /**
  * GPU-accelerated batch renderer for debug text using instanced rendering.
  * Renders all text in a single draw call with shader-based outlining.
+ * Supports multiple font sizes via the FontSize enum.
  */
 public class GlyphBatchRenderer {
     private static final Logger LOGGER = Logger.getLogger(GlyphBatchRenderer.class.getName());
@@ -83,14 +84,11 @@ public class GlyphBatchRenderer {
             return;
         }
 
-        // Scale the font size based on viewport scale
         this.currentScale = scaleFactor;
-        int scaledSize = Math.max(8, Math.round(font.getSize() * scaleFactor));
-        Font scaledFont = font.deriveFont((float) scaledSize);
 
-        // Initialize glyph atlas with scaled font
+        // Initialize glyph atlas with all font sizes
         atlas = new GlyphAtlas();
-        atlas.init(gl, scaledFont);
+        atlas.init(gl, font, scaleFactor);
         if (!atlas.isInitialized()) {
             LOGGER.warning("Failed to initialize glyph atlas");
             return;
@@ -181,10 +179,10 @@ public class GlyphBatchRenderer {
     }
 
     /**
-     * Draws text at the specified position with the given color.
+     * Draws text at the specified position with the given color and font size.
      * Position is in viewport coordinates (origin at bottom-left).
      */
-    public void drawText(String text, int x, int y, Color color) {
+    public void drawText(String text, int x, int y, Color color, FontSize fontSize) {
         if (!batchActive || text == null || text.isEmpty()) {
             return;
         }
@@ -197,7 +195,7 @@ public class GlyphBatchRenderer {
         int cursorX = x;
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
-            GlyphAtlas.GlyphInfo glyph = atlas.getGlyph(c);
+            GlyphAtlas.GlyphInfo glyph = atlas.getGlyph(c, fontSize);
             if (glyph == null) {
                 continue;
             }
@@ -227,33 +225,64 @@ public class GlyphBatchRenderer {
     }
 
     /**
-     * Draws outlined text at the specified position.
+     * Draws text at the specified position with the given color using the default (MEDIUM) font size.
+     * Position is in viewport coordinates (origin at bottom-left).
+     */
+    public void drawText(String text, int x, int y, Color color) {
+        drawText(text, x, y, color, FontSize.MEDIUM);
+    }
+
+    /**
+     * Draws outlined text at the specified position with the given font size.
+     * This is the primary method for debug overlay text.
+     * The outline is rendered in the fragment shader for efficiency.
+     */
+    public void drawTextOutlined(String text, int x, int y, Color fillColor, FontSize fontSize) {
+        // The outline is handled in the shader, so just draw regular text
+        drawText(text, x, y, fillColor, fontSize);
+    }
+
+    /**
+     * Draws outlined text at the specified position using the default (MEDIUM) font size.
      * This is the primary method for debug overlay text.
      * The outline is rendered in the fragment shader for efficiency.
      */
     public void drawTextOutlined(String text, int x, int y, Color fillColor) {
-        // The outline is handled in the shader, so just draw regular text
-        drawText(text, x, y, fillColor);
+        drawTextOutlined(text, x, y, fillColor, FontSize.MEDIUM);
     }
 
     /**
-     * Measures the width of a string in pixels.
+     * Measures the width of a string in pixels at a specific font size.
      */
-    public int measureTextWidth(String text) {
+    public int measureTextWidth(String text, FontSize fontSize) {
         if (atlas == null) {
             return 0;
         }
-        return atlas.measureTextWidth(text);
+        return atlas.measureTextWidth(text, fontSize);
     }
 
     /**
-     * Gets the line height for the font.
+     * Measures the width of a string in pixels using the default (MEDIUM) font size.
      */
-    public int getLineHeight() {
+    public int measureTextWidth(String text) {
+        return measureTextWidth(text, FontSize.MEDIUM);
+    }
+
+    /**
+     * Gets the line height for a specific font size.
+     */
+    public int getLineHeight(FontSize fontSize) {
         if (atlas == null) {
             return 12;
         }
-        return atlas.getLineHeight();
+        return atlas.getLineHeight(fontSize);
+    }
+
+    /**
+     * Gets the line height for the default (MEDIUM) font size.
+     */
+    public int getLineHeight() {
+        return getLineHeight(FontSize.MEDIUM);
     }
 
     /**
