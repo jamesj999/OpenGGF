@@ -14,6 +14,9 @@ public class DebugOverlayManager {
 
     private final EnumMap<DebugOverlayToggle, Boolean> states = new EnumMap<>(DebugOverlayToggle.class);
 
+    /** Reusable list for shortcut lines to avoid per-frame allocations */
+    private final List<String> shortcutLines = new ArrayList<>(16);
+
     private DebugOverlayManager() {
         for (DebugOverlayToggle toggle : DebugOverlayToggle.values()) {
             states.put(toggle, toggle.defaultEnabled());
@@ -94,11 +97,11 @@ public class DebugOverlayManager {
     }
 
     public List<String> buildShortcutLines() {
-        List<String> lines = new ArrayList<>();
+        shortcutLines.clear();
         for (DebugOverlayToggle toggle : DebugOverlayToggle.values()) {
             String state = isEnabled(toggle) ? "On" : "Off";
-            lines.add(toggle.shortcutLabel() + " " + toggle.label() + ": " + state);
+            shortcutLines.add(toggle.shortcutLabel() + " " + toggle.label() + ": " + state);
         }
-        return lines;
+        return shortcutLines;
     }
 }
