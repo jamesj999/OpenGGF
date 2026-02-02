@@ -62,11 +62,14 @@ public class VisualRegressionTest {
     private static Rom rom;
     private static boolean referenceFilesExist;
     private static boolean initialized;
+    private static boolean originalDebugViewEnabled;
 
     @BeforeClass
     public static void setUpClass() {
         try {
-            // Disable debug view to avoid rendering debug markers (e.g., LayerSwitcher)
+            // Save and disable debug view to avoid rendering debug markers (e.g., LayerSwitcher)
+            originalDebugViewEnabled = SonicConfigurationService.getInstance()
+                    .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
             SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.DEBUG_VIEW_ENABLED, false);
 
             // Check if reference files exist first
@@ -149,6 +152,10 @@ public class VisualRegressionTest {
 
     @AfterClass
     public static void tearDownClass() {
+        // Restore debug view setting
+        SonicConfigurationService.getInstance()
+                .setConfigValue(SonicConfiguration.DEBUG_VIEW_ENABLED, originalDebugViewEnabled);
+
         if (drawable != null) {
             try {
                 drawable.getContext().release();
