@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 
-final class RomTestUtils {
+public final class RomTestUtils {
     private RomTestUtils() {
     }
 
@@ -19,7 +19,7 @@ final class RomTestUtils {
     private static final String ROM_PATH_PROPERTY = "sonic.rom.path";
     private static final String ROM_PATH_ENV = "SONIC_ROM_PATH";
 
-    static File ensureRomAvailable() {
+    public static File ensureRomAvailable() {
         File romFile = findLocalRom();
         if (romFile == null) {
             romFile = downloadRom();
