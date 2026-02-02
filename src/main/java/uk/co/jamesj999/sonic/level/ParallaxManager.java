@@ -90,6 +90,22 @@ public class ParallaxManager {
         return instance;
     }
 
+    /**
+     * Reset zone state to force reinitialization on next initZone call.
+     * Useful for tests to ensure deterministic state.
+     */
+    public void resetZoneState() {
+        currentZone = -1;
+        currentAct = -1;
+        // Reset HTZ-specific state
+        if (htzHandler != null) {
+            htzHandler.init();
+        }
+        if (dynamicHtz != null) {
+            dynamicHtz.reset();
+        }
+    }
+
     public void load(Rom rom) {
         if (loaded)
             return;
