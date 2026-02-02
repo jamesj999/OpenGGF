@@ -16,6 +16,7 @@ import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.ParallaxManager;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.Sonic;
@@ -270,6 +271,10 @@ public class VisualRegressionTest {
         // Clear all sprites to avoid state pollution from other tests
         // (other tests may leave mock sprites with empty sensor arrays)
         spriteManager.clearAllSprites();
+
+        // Reset parallax state to ensure deterministic rendering
+        // (forces HTZ cloudCounter to reset, etc.)
+        ParallaxManager.getInstance().resetZoneState();
 
         // Create a fresh player sprite
         SonicConfigurationService configService = SonicConfigurationService.getInstance();
