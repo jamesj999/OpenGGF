@@ -439,8 +439,10 @@ public class ObjectManager {
                     continue;
                 }
                 ObjectInstance instance = registry.create(spawn);
-                activeObjects.put(spawn, instance);
-                changed = true;
+                if (instance != null) {
+                    activeObjects.put(spawn, instance);
+                    changed = true;
+                }
             }
         }
 

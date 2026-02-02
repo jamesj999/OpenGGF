@@ -128,6 +128,9 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
     }
 
     private void registerDefaultFactories() {
+        // LayerSwitcher (0x03) is handled by PlaneSwitcherManager, not as a rendered object
+        registerFactory(Sonic2ObjectIds.LAYER_SWITCHER, (spawn, registry) -> null);
+
         registerFactory(Sonic2ObjectIds.SPRING,
                 (spawn, registry) -> new SpringObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
         registerFactory(Sonic2ObjectIds.SPIKES,
