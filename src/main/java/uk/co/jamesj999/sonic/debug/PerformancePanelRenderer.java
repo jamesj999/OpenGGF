@@ -3,6 +3,8 @@ package uk.co.jamesj999.sonic.debug;
 import com.jogamp.opengl.GL2;
 
 import java.awt.Color;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -58,6 +60,12 @@ public class PerformancePanelRenderer {
     /** Base dimensions (game screen size) */
     private final int baseWidth;
     private final int baseHeight;
+
+    /** Reusable list for pie chart sections to avoid per-frame allocations */
+    private final List<SectionStats> pieChartSections = new ArrayList<>(16);
+
+    /** Comparator for sorting sections by name (alphabetical order for stable pie chart) */
+    private static final Comparator<SectionStats> NAME_COMPARATOR = Comparator.comparing(SectionStats::name);
 
     public PerformancePanelRenderer(int baseWidth, int baseHeight, GlyphBatchRenderer glyphBatch) {
         this.baseWidth = baseWidth;
@@ -193,9 +201,10 @@ public class PerformancePanelRenderer {
      */
     private void drawPieChart(GL2 gl, int centerX, int centerY, int radius, ProfileSnapshot snapshot) {
         // Sort by name for stable pie chart positioning
-        List<SectionStats> sections = snapshot.getSectionsSortedByTime().stream()
-                .sorted((a, b) -> a.name().compareTo(b.name()))
-                .toList();
+        pieChartSections.clear();
+        pieChartSections.addAll(snapshot.getSectionsSortedByTime());
+        pieChartSections.sort(NAME_COMPARATOR);
+        List<SectionStats> sections = pieChartSections;
         if (sections.isEmpty()) {
             return;
         }

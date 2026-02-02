@@ -50,6 +50,15 @@ public class DebugRenderer {
         private static final Color COLOR_OBJECT_SUBTYPE = new Color(255, 180, 255);
         private static final Color COLOR_ART_VIEWER = new Color(180, 255, 180);
 
+        // Reusable lists for panel rendering to avoid per-frame allocations
+        private final List<String> playerStatusLines = new ArrayList<>(24);
+        private final List<String> touchResponseLines = new ArrayList<>(20);
+        private final List<String> artViewerLines = new ArrayList<>(16);
+
+        // Reusable StringBuilders for string construction
+        private final StringBuilder stateFlagsBuilder = new StringBuilder(64);
+        private final StringBuilder objectLabelBuilder = new StringBuilder(32);
+
         private final int baseWidth = configService
                         .getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
         private final int baseHeight = configService
@@ -217,14 +226,16 @@ public class DebugRenderer {
                         }
 
                         String name = registry.getPrimaryName(spawn.objectId());
-                        String line1 = String.format("%02X:%02X",
-                                        spawn.objectId(), spawn.subtype());
+                        objectLabelBuilder.setLength(0);
+                        objectLabelBuilder.append(String.format("%02X:%02X",
+                                        spawn.objectId(), spawn.subtype()));
                         if (spawn.renderFlags() != 0) {
-                                line1 += " F" + Integer.toHexString(spawn.renderFlags()).toUpperCase();
+                                objectLabelBuilder.append(" F").append(Integer.toHexString(spawn.renderFlags()).toUpperCase());
                         }
                         if (spawn.respawnTracked()) {
-                                line1 += " R";
+                                objectLabelBuilder.append(" R");
                         }
+                        String line1 = objectLabelBuilder.toString();
                         int rawFlags = spawn.rawFlags() >> 12;
                         String line2 = rawFlags != 0
                                         ? ("YF:" + Integer.toHexString(rawFlags).toUpperCase())
@@ -334,7 +345,8 @@ public class DebugRenderer {
         }
 
         private void renderPlayerStatusPanel(AbstractPlayableSprite sprite, int ringCount) {
-                List<String> lines = new ArrayList<>();
+                playerStatusLines.clear();
+                List<String> lines = playerStatusLines;
                 int angleByte = sprite.getAngle() & 0xFF;
                 float angleDeg = ((256 - angleByte) * 360f / 256f) % 360f;
 
@@ -420,7 +432,8 @@ public class DebugRenderer {
                         }
                 }
 
-                List<String> lines = new ArrayList<>();
+                touchResponseLines.clear();
+                List<String> lines = touchResponseLines;
                 lines.add("== TOUCH RESP ==");
                 String crouch = state.isCrouching() ? "C" : "-";
                 lines.add(String.format("Player: x %d y %d h %d yR %d %s",
@@ -463,7 +476,8 @@ public class DebugRenderer {
                         return;
                 }
                 DebugObjectArtViewer viewer = DebugObjectArtViewer.getInstance();
-                List<String> lines = new ArrayList<>();
+                artViewerLines.clear();
+                List<String> lines = artViewerLines;
                 lines.add("== ART VIEWER ==");
                 lines.add("Target: " + viewer.getTargetLabel());
 
@@ -521,28 +535,32 @@ public class DebugRenderer {
         }
 
         private String formatStateFlags(AbstractPlayableSprite sprite) {
-                StringBuilder flags = new StringBuilder();
+                stateFlagsBuilder.setLength(0);
                 if (sprite.getAir()) {
-                        flags.append("Air ");
+                        stateFlagsBuilder.append("Air ");
                 } else {
-                        flags.append("Ground ");
+                        stateFlagsBuilder.append("Ground ");
                 }
                 if (sprite.getRolling()) {
-                        flags.append("Roll ");
+                        stateFlagsBuilder.append("Roll ");
                 }
                 if (sprite.getSpindash()) {
-                        flags.append("Spindash ");
+                        stateFlagsBuilder.append("Spindash ");
                 }
                 if (sprite.getCrouching()) {
-                        flags.append("Crouch ");
+                        stateFlagsBuilder.append("Crouch ");
                 }
                 if (sprite.getPushing()) {
-                        flags.append("Push ");
+                        stateFlagsBuilder.append("Push ");
                 }
-                if (flags.length() == 0) {
+                if (stateFlagsBuilder.length() == 0) {
                         return "None";
                 }
-                return flags.toString().trim();
+                // Trim trailing space
+                if (stateFlagsBuilder.charAt(stateFlagsBuilder.length() - 1) == ' ') {
+                        stateFlagsBuilder.setLength(stateFlagsBuilder.length() - 1);
+                }
+                return stateFlagsBuilder.toString();
         }
 
         private String formatPlaneSwitcherSide(int subtype, int side) {
