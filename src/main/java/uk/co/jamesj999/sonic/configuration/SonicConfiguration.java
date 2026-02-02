@@ -170,6 +170,19 @@ public enum SonicConfiguration {
 	/**
 	 * Key to teleport player to the last checkpoint (debug).
 	 */
-	DEBUG_LAST_CHECKPOINT_KEY;
+	DEBUG_LAST_CHECKPOINT_KEY,
+
+	/**
+	 * GPU audio synthesis batch size (256, 512, or 1024 samples).
+	 * Smaller values reduce latency, larger values improve efficiency.
+	 * Only used when OpenGL 4.3+ compute shaders are available.
+	 */
+	AUDIO_GPU_BATCH_SIZE,
+
+	/**
+	 * Whether to enable GPU-accelerated audio synthesis when available.
+	 * Requires OpenGL 4.3+ with compute shader support.
+	 */
+	AUDIO_GPU_ENABLED;
 
 }

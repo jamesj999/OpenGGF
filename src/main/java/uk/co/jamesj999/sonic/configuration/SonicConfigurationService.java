@@ -163,6 +163,10 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.PAUSE_KEY, java.awt.event.KeyEvent.VK_ENTER);
 		putDefault(SonicConfiguration.FRAME_STEP_KEY, java.awt.event.KeyEvent.VK_Q);
 		putDefault(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, java.awt.event.KeyEvent.VK_END);
+		putDefault(SonicConfiguration.AUDIO_GPU_BATCH_SIZE, 256);
+		// GPU audio synthesis disabled by default - envelope/LFO processing not yet implemented
+		// Enable once shader_ym2612_envelope.glsl integration is complete
+		putDefault(SonicConfiguration.AUDIO_GPU_ENABLED, false);
 	}
 
 	private void putDefault(SonicConfiguration key, Object value) {

@@ -7,11 +7,13 @@ import com.jogamp.openal.ALCcontext;
 import com.jogamp.openal.ALCdevice;
 import com.jogamp.common.nio.Buffers;
 
+import com.jogamp.opengl.GL4;
 import uk.co.jamesj999.sonic.audio.driver.SmpsDriver;
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 import uk.co.jamesj999.sonic.audio.smps.DacData;
 import uk.co.jamesj999.sonic.audio.smps.SmpsSequencer;
 import uk.co.jamesj999.sonic.audio.smps.SmpsSequencerConfig;
+import uk.co.jamesj999.sonic.audio.synth.VirtualSynthesizer;
 import uk.co.jamesj999.sonic.audio.synth.Ym2612Chip;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
@@ -85,6 +87,11 @@ public class JOALAudioBackend implements AudioBackend {
     private GameAudioProfile audioProfile;
     private SmpsSequencerConfig smpsConfig;
 
+    // GPU synthesis state (initialized from GL thread)
+    private GL4 gpuGlContext;
+    private int gpuBatchSize = 256;
+    private boolean gpuInitPending = false;
+
     public JOALAudioBackend() {
         // Initialize fallback mappings
         // SFX
@@ -142,6 +149,77 @@ public class JOALAudioBackend implements AudioBackend {
             LOGGER.log(Level.SEVERE, "JOAL Init failed", t);
             throw new RuntimeException(t);
         }
+    }
+
+    /**
+     * Initialize GPU-accelerated audio synthesis.
+     * <p>
+     * This must be called from the OpenGL thread with a valid GL4 context.
+     * Should be called after init() and after compute shader capabilities
+     * have been detected.
+     * <p>
+     * Stores the GL context for deferred initialization when new SmpsDrivers
+     * are created.
+     * <p>
+     * <b>WARNING:</b> GPU audio synthesis is experimental and incomplete.
+     * Envelope and LFO processing are not yet implemented on GPU, which
+     * causes incorrect audio output. Keep AUDIO_GPU_ENABLED=false until
+     * the envelope shader integration is complete.
+     *
+     * @param gl the OpenGL 4 context
+     * @return true if GPU synthesis was initialized successfully
+     */
+    public boolean initializeGpuSynthesis(GL4 gl) {
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+
+        if (!config.getBoolean(SonicConfiguration.AUDIO_GPU_ENABLED)) {
+            LOGGER.fine("GPU audio synthesis disabled in configuration");
+            return false;
+        }
+
+        // Warn about incomplete implementation
+        LOGGER.warning("GPU audio synthesis is EXPERIMENTAL - envelope/LFO processing not implemented. " +
+                "Audio may sound incorrect. Set AUDIO_GPU_ENABLED=false for correct audio.");
+
+        gpuBatchSize = config.getInt(SonicConfiguration.AUDIO_GPU_BATCH_SIZE);
+        gpuGlContext = gl;
+        gpuInitPending = true;
+
+        // If we have an active SMPS driver, try to initialize GPU synthesis on it now
+        if (smpsDriver != null) {
+            boolean success = smpsDriver.initializeGpuSynthesis(gl, gpuBatchSize);
+            if (success) {
+                LOGGER.info("GPU audio synthesis initialized on active driver (batch size: " + gpuBatchSize + ")");
+                gpuInitPending = false;
+            }
+            return success;
+        }
+
+        // No active driver yet - GPU init will happen when playSmps is called
+        LOGGER.fine("GPU synthesis context stored - will initialize on first playSmps");
+        return false;
+    }
+
+    /**
+     * Attempt to initialize GPU synthesis on the current driver if pending.
+     * Called internally when a new driver is created.
+     */
+    private void attemptPendingGpuInit() {
+        if (gpuInitPending && gpuGlContext != null && smpsDriver != null) {
+            boolean success = smpsDriver.initializeGpuSynthesis(gpuGlContext, gpuBatchSize);
+            if (success) {
+                LOGGER.info("GPU audio synthesis initialized on new driver (batch size: " + gpuBatchSize + ")");
+            }
+        }
+    }
+
+    /**
+     * Get the current SMPS driver (for external GPU initialization if needed).
+     *
+     * @return the current SmpsDriver, or null if none active
+     */
+    public SmpsDriver getSmpsDriver() {
+        return smpsDriver;
     }
 
     @Override
@@ -211,6 +289,9 @@ public class JOALAudioBackend implements AudioBackend {
         boolean dacInterpolate = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.DAC_INTERPOLATE);
         smpsDriver.setDacInterpolate(dacInterpolate);
         smpsDriver.setOutputSampleRate(getSmpsOutputRate());
+
+        // Initialize GPU synthesis on new driver if context is available
+        attemptPendingGpuInit();
 
         boolean fm6DacOff = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.FM6_DAC_OFF);
 

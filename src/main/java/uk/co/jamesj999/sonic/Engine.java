@@ -26,15 +26,20 @@ import uk.co.jamesj999.sonic.game.ZoneRegistry;
 import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageManager;
 
 import com.jogamp.opengl.GL2;
+import com.jogamp.opengl.GL4;
 import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLProfile;
 import com.jogamp.opengl.awt.GLCanvas;
 import com.jogamp.opengl.glu.GLU;
+import uk.co.jamesj999.sonic.graphics.compute.ComputeCapabilities;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
+import java.util.logging.Logger;
 
 import static com.jogamp.opengl.GL.GL_COLOR_BUFFER_BIT;
 import static com.jogamp.opengl.GL.GL_DEPTH_BUFFER_BIT;
@@ -51,6 +56,25 @@ import static com.jogamp.opengl.fixedfunc.GLMatrixFunc.GL_PROJECTION;
 @SuppressWarnings("serial")
 public class Engine extends GLCanvas implements GLEventListener {
 	public static final String RESOURCES_SHADERS_PIXEL_SHADER_GLSL = "shaders/shader_the_hedgehog.glsl";
+
+	/**
+	 * Create GLCapabilities requesting the highest available OpenGL profile.
+	 * Prefers GL4bc (backward compatible) for compute shader support while
+	 * maintaining GL2 compatibility. Falls back to GL2 if unavailable.
+	 */
+	private static GLCapabilities createGLCapabilities() {
+		GLProfile profile;
+		try {
+			// Try GL4bc (backward compatible) - includes both GL4 compute shaders AND GL2 fixed-function
+			profile = GLProfile.get(GLProfile.GL4bc);
+		} catch (Exception e) {
+			// Fall back to GL2 if GL4bc is not available
+			profile = GLProfile.get(GLProfile.GL2);
+		}
+		return new GLCapabilities(profile);
+	}
+	private static final Logger LOGGER = Logger.getLogger(Engine.class.getName());
+
 	private final SonicConfigurationService configService = SonicConfigurationService
 			.getInstance();
 	private final SpriteManager spriteManager = SpriteManager.getInstance();
@@ -91,6 +115,7 @@ public class Engine extends GLCanvas implements GLEventListener {
 	private boolean overlayStateReady = false;
 
 	public Engine() {
+		super(createGLCapabilities());
 		this.addGLEventListener(this);
 
 		// Set up game mode change listener to update projection width
@@ -110,6 +135,11 @@ public class Engine extends GLCanvas implements GLEventListener {
 		glu = new GLU(); // get GL Utilities
 		gl.glShadeModel(GL_SMOOTH); // blends colors nicely, and smooths out
 									// lighting
+
+		// Detect compute shader capabilities (OpenGL 4.3+)
+		ComputeCapabilities.detect(drawable.getGL());
+		logGpuSynthesisStatus();
+
 		try {
 			graphicsManager.init(gl, RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
 		} catch (IOException e) {
@@ -118,7 +148,19 @@ public class Engine extends GLCanvas implements GLEventListener {
 		graphicsManager.setGraphics(gl);
 
 		if (configService.getBoolean(SonicConfiguration.AUDIO_ENABLED)) {
-			AudioManager.getInstance().setBackend(new JOALAudioBackend());
+			JOALAudioBackend audioBackend = new JOALAudioBackend();
+			AudioManager.getInstance().setBackend(audioBackend);
+
+			// Initialize GPU synthesis if compute shaders are available
+			if (ComputeCapabilities.isComputeSupported() &&
+					configService.getBoolean(SonicConfiguration.AUDIO_GPU_ENABLED)) {
+				try {
+					GL4 gl4 = drawable.getGL().getGL4();
+					audioBackend.initializeGpuSynthesis(gl4);
+				} catch (Exception e) {
+					LOGGER.warning("Failed to initialize GPU audio synthesis: " + e.getMessage());
+				}
+			}
 		}
 
 		String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
@@ -544,6 +586,36 @@ public class Engine extends GLCanvas implements GLEventListener {
 
 	public static void nextDebugOption() {
 		debugOption = debugOption.next();
+	}
+
+	/**
+	 * Logs GPU synthesis availability status to help users know if GPU acceleration is active.
+	 */
+	private void logGpuSynthesisStatus() {
+		if (ComputeCapabilities.isComputeSupported()) {
+			LOGGER.info("=== GPU Synthesis Available ===");
+			LOGGER.info("  OpenGL Version: " + ComputeCapabilities.getGlVersion());
+			LOGGER.info("  GLSL Version: " + ComputeCapabilities.getGlslVersion());
+			LOGGER.info("  Max Workgroup Size: " + ComputeCapabilities.getMaxComputeWorkGroupSize());
+			LOGGER.info("  Max Workgroup Count: " + ComputeCapabilities.getMaxComputeWorkGroupCount());
+			LOGGER.info("  Max SSBO Size: " + ComputeCapabilities.getMaxShaderStorageBlockSize() + " bytes");
+
+			boolean gpuEnabled = configService.getBoolean(SonicConfiguration.AUDIO_GPU_ENABLED);
+			int batchSize = configService.getInt(SonicConfiguration.AUDIO_GPU_BATCH_SIZE);
+			LOGGER.info("  GPU Audio Enabled (config): " + gpuEnabled);
+			LOGGER.info("  GPU Batch Size (config): " + batchSize + " samples");
+
+			if (gpuEnabled) {
+				LOGGER.info("GPU-accelerated YM2612 synthesis is AVAILABLE and ENABLED");
+			} else {
+				LOGGER.info("GPU synthesis available but DISABLED in config");
+			}
+		} else {
+			LOGGER.info("=== GPU Synthesis Not Available ===");
+			LOGGER.info("  OpenGL Version: " + ComputeCapabilities.getGlVersion());
+			LOGGER.info("  Reason: OpenGL 4.3+ with compute shader support required");
+			LOGGER.info("  Audio will use CPU synthesis (fallback)");
+		}
 	}
 
 	/**

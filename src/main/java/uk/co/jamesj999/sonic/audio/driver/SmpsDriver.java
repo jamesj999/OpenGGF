@@ -24,6 +24,13 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
     // Scratch buffer for read() to avoid per-frame allocations
     private final short[] scratchFrameBuf = new short[2];
 
+    // Batch rendering buffers (reused to avoid per-call allocations)
+    private int[] batchLeftBuf = new int[0];
+    private int[] batchRightBuf = new int[0];
+
+    // Minimum batch size threshold for GPU batching (below this, per-sample is fine)
+    private static final int GPU_MIN_BATCH_SIZE = 64;
+
     public SmpsDriver() {
         super();
     }
@@ -77,9 +84,20 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
     public int read(short[] buffer) {
         int frames = buffer.length / 2;
 
-        // Per-sample processing is required because sequencer state changes (note events,
-        // instrument changes, etc.) must happen in lockstep with rendering. Batching
-        // breaks audio fidelity because synth state changes mid-batch would be lost.
+        // Check if we can use batch rendering (requires GPU synthesis active)
+        if (isGpuSynthesisActive() && frames >= GPU_MIN_BATCH_SIZE) {
+            return readBatched(buffer, frames);
+        }
+
+        // Per-sample processing when GPU batch isn't beneficial
+        return readPerSample(buffer, frames);
+    }
+
+    /**
+     * Per-sample audio rendering (original implementation).
+     * Used when batch sizes are too small for GPU benefit.
+     */
+    private int readPerSample(short[] buffer, int frames) {
         for (int i = 0; i < frames; i++) {
             int size = sequencers.size();
             for (int j = 0; j < size; j++) {
@@ -104,6 +122,92 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
             buffer[i * 2] = scratchFrameBuf[0];
             buffer[i * 2 + 1] = scratchFrameBuf[1];
         }
+        return buffer.length;
+    }
+
+    /**
+     * Batched audio rendering for GPU acceleration.
+     * <p>
+     * Batches samples between SMPS tempo frame boundaries to allow GPU
+     * synthesis while maintaining timing accuracy. SMPS state changes only
+     * occur at tempo frame boundaries, so we can safely batch all samples
+     * between these events.
+     */
+    private int readBatched(short[] buffer, int frames) {
+        // Ensure batch buffers are large enough
+        if (batchLeftBuf.length < frames) {
+            batchLeftBuf = new int[frames];
+            batchRightBuf = new int[frames];
+        }
+
+        int offset = 0;
+        int samplesRemaining = frames;
+
+        while (samplesRemaining > 0) {
+            // Find the minimum samples until next tempo frame across all sequencers
+            int maxBatch = samplesRemaining;
+            int size = sequencers.size();
+            for (int j = 0; j < size; j++) {
+                SmpsSequencer seq = sequencers.get(j);
+                int seqSamples = seq.getSamplesUntilNextTempoFrame();
+                if (seqSamples < maxBatch && seqSamples > 0) {
+                    maxBatch = seqSamples;
+                }
+            }
+
+            // Ensure we process at least 1 sample to make progress
+            int batchSize = Math.max(1, maxBatch);
+
+            // Render the batch
+            if (batchSize >= GPU_MIN_BATCH_SIZE) {
+                // GPU batch rendering
+                super.renderBatch(batchLeftBuf, batchRightBuf, offset, batchSize);
+            } else {
+                // Small batch - render per-sample into batch buffers
+                for (int i = 0; i < batchSize; i++) {
+                    super.render(scratchFrameBuf);
+                    batchLeftBuf[offset + i] = scratchFrameBuf[0];
+                    batchRightBuf[offset + i] = scratchFrameBuf[1];
+                }
+            }
+
+            // Advance all sequencers by the batch size
+            for (int j = 0; j < size; j++) {
+                SmpsSequencer seq = sequencers.get(j);
+                seq.advanceBatch(batchSize);
+                if (seq.isComplete()) {
+                    pendingRemovals.add(seq);
+                }
+            }
+
+            // Handle completed sequencers
+            if (!pendingRemovals.isEmpty()) {
+                for (int j = 0; j < pendingRemovals.size(); j++) {
+                    SmpsSequencer seq = pendingRemovals.get(j);
+                    sequencers.remove(seq);
+                    releaseLocks(seq);
+                    sfxSequencers.remove(seq);
+                }
+                pendingRemovals.clear();
+            }
+
+            offset += batchSize;
+            samplesRemaining -= batchSize;
+        }
+
+        // Convert int buffers to short output
+        for (int i = 0; i < frames; i++) {
+            int l = batchLeftBuf[i];
+            int r = batchRightBuf[i];
+
+            // Clamp to 16-bit range
+            if (l > 32767) l = 32767; else if (l < -32768) l = -32768;
+            if (r > 32767) r = 32767; else if (r < -32768) r = -32768;
+
+            buffer[i * 2] = (short) l;
+            buffer[i * 2 + 1] = (short) r;
+        }
+
         return buffer.length;
     }
 

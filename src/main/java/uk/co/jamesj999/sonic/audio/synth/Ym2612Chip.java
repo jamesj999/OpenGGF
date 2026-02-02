@@ -2118,4 +2118,391 @@ public class Ym2612Chip {
             busyCycles = Math.max(0, busyCycles - (YM_CYCLES_PER_SAMPLE * 1));
         }
     }
+
+    // =========================================================================
+    // GPU State Export/Import Methods
+    // =========================================================================
+
+    // Channel state struct size in ints: 4 operators × 8 ints + 12 channel-level = 44 ints
+    public static final int CHANNEL_STATE_INTS = 44;
+    // Operator state size in ints
+    public static final int OPERATOR_STATE_INTS = 8;
+    // Channel-level state size in ints (after operators)
+    public static final int CHANNEL_LEVEL_STATE_INTS = 12;
+
+    /**
+     * Export a channel's complete state for GPU upload.
+     * The layout matches the GLSL ChannelState struct:
+     * <pre>
+     * - 4 operators × 8 ints each = 32 ints
+     *   Per operator: fCnt, fInc, volume, tll, dt1, mul, amMask, padding
+     * - 12 channel-level ints:
+     *   feedback, algo, ams, pms, kCode, blockFnum, leftMask, rightMask,
+     *   opOut[0], opOut[1], memValue, muted
+     * </pre>
+     *
+     * @param chIdx channel index (0-5)
+     * @param dest destination int array
+     * @param offset starting offset in dest array
+     */
+    public void exportChannelState(int chIdx, int[] dest, int offset) {
+        if (chIdx < 0 || chIdx >= 6) return;
+        Channel ch = channels[chIdx];
+
+        int i = offset;
+
+        // Export 4 operators (8 ints each = 32 ints total)
+        for (int op = 0; op < 4; op++) {
+            Operator o = ch.ops[op];
+            dest[i++] = o.fCnt;      // Phase counter (evolves)
+            dest[i++] = o.fInc;      // Phase increment
+            dest[i++] = o.volume;    // Current envelope level (GPGX-style)
+            dest[i++] = o.tll;       // Total level (TL << 3)
+            dest[i++] = o.dt1;       // Detune index (0-7)
+            dest[i++] = o.mul;       // Frequency multiplier (1 or reg*2)
+            dest[i++] = o.amMask;    // AM enable mask (0 or 0xFFFFFFFF)
+            dest[i++] = 0;           // Padding for alignment
+        }
+
+        // Export channel-level state (12 ints)
+        dest[i++] = ch.feedback;     // Feedback shift (31 = disabled, else SIN_BITS - fb)
+        dest[i++] = ch.algo;         // Algorithm (0-7)
+        dest[i++] = ch.ams;          // AM sensitivity shift
+        dest[i++] = ch.pms;          // PM sensitivity (depth * 32)
+        dest[i++] = ch.kCode;        // Key code for detune
+        dest[i++] = ch.blockFnum;    // (block << 11) | fNum for LFO PM
+        dest[i++] = ch.leftMask;     // Left output mask (0 or 0xFFFFFFFF)
+        dest[i++] = ch.rightMask;    // Right output mask (0 or 0xFFFFFFFF)
+        dest[i++] = ch.opOut[0];     // Feedback buffer 0 (evolves)
+        dest[i++] = ch.opOut[1];     // Feedback buffer 1 (evolves)
+        dest[i++] = ch.memValue;     // Memory value for algo 5 (evolves)
+        dest[i++] = mutes[chIdx] ? 1 : 0;  // Mute flag
+    }
+
+    /**
+     * Import evolving state back from GPU after batch processing.
+     * Only imports fields that change during synthesis:
+     * - Phase counters (fCnt) for each operator
+     * - Feedback buffers (opOut[0], opOut[1])
+     * - Memory value (memValue)
+     *
+     * @param chIdx channel index (0-5)
+     * @param src source int array
+     * @param offset starting offset in src array
+     */
+    public void importEvolvingState(int chIdx, int[] src, int offset) {
+        if (chIdx < 0 || chIdx >= 6) return;
+        Channel ch = channels[chIdx];
+
+        int i = offset;
+
+        // Import phase counters from operators
+        for (int op = 0; op < 4; op++) {
+            ch.ops[op].fCnt = src[i];
+            i += OPERATOR_STATE_INTS; // Skip to next operator
+        }
+
+        // Skip to feedback buffers (offset + 32 + 8 = operators + first 8 channel fields)
+        i = offset + (4 * OPERATOR_STATE_INTS) + 8;
+        ch.opOut[0] = src[i++];
+        ch.opOut[1] = src[i++];
+        ch.memValue = src[i++];
+    }
+
+    /**
+     * Get current LFO AM value (amplitude modulation).
+     * GPGX-style: 126 (max) when LFO disabled, varies 0-126 when enabled.
+     *
+     * @return current LFO AM value
+     */
+    public int getLfoAm() {
+        return lfoAm;
+    }
+
+    /**
+     * Get current LFO PM value (phase modulation / vibrato).
+     *
+     * @return current LFO PM value (0-31)
+     */
+    public int getLfoPm() {
+        return lfoPm;
+    }
+
+    /**
+     * Get current envelope generator counter.
+     * GPGX-style: 12-bit counter (1-4095), skips 0.
+     *
+     * @return current EG counter value
+     */
+    public int getEgCnt() {
+        return egCnt;
+    }
+
+    /**
+     * Get current EG timer (0, 1, or 2).
+     * EG only advances every 3 samples.
+     *
+     * @return current EG timer value
+     */
+    public int getEgTimer() {
+        return egTimer;
+    }
+
+    // =========================================================================
+    // Static Lookup Table Accessors for GPU Upload
+    // =========================================================================
+
+    /**
+     * Get the sine table for GPU upload.
+     * Maps phase to TL_TAB index (includes sign bit).
+     *
+     * @return SIN_TAB array (1024 entries)
+     */
+    public static int[] getSinTable() {
+        return SIN_TAB;
+    }
+
+    /**
+     * Get the total level table for GPU upload.
+     * Linear power table with sign bit expansion.
+     *
+     * @return TL_TAB array (6656 entries)
+     */
+    public static int[] getTlTable() {
+        return TL_TAB;
+    }
+
+    /**
+     * Get the envelope increment table for GPU upload.
+     *
+     * @return EG_INC array (152 entries)
+     */
+    public static int[] getEgIncTable() {
+        return EG_INC;
+    }
+
+    /**
+     * Get the EG rate select table for GPU upload.
+     *
+     * @return EG_RATE_SELECT array (128 entries)
+     */
+    public static int[] getEgRateSelectTable() {
+        return EG_RATE_SELECT;
+    }
+
+    /**
+     * Get the EG rate shift table for GPU upload.
+     *
+     * @return EG_RATE_SHIFT array (128 entries)
+     */
+    public static int[] getEgRateShiftTable() {
+        return EG_RATE_SHIFT;
+    }
+
+    /**
+     * Get the detune table for GPU upload.
+     * 8 detune settings × 32 key codes.
+     *
+     * @return DT_TAB array (flattened to 256 entries)
+     */
+    public static int[] getDtTableFlat() {
+        int[] flat = new int[8 * 32];
+        for (int dt = 0; dt < 8; dt++) {
+            System.arraycopy(DT_TAB[dt], 0, flat, dt * 32, 32);
+        }
+        return flat;
+    }
+
+    /**
+     * Get the LFO PM table for GPU upload.
+     * 128 fnum values × 8 depths × 32 steps.
+     *
+     * @return LFO_PM_TABLE array (32768 entries)
+     */
+    public static int[] getLfoPmTable() {
+        return LFO_PM_TABLE;
+    }
+
+    /**
+     * Get table sizes for GPU buffer allocation.
+     *
+     * @return array of table sizes: [SIN, TL, EG_INC, EG_RATE_SELECT, EG_RATE_SHIFT, DT, LFO_PM]
+     */
+    public static int[] getTableSizes() {
+        return new int[] {
+            SIN_LEN,      // 1024
+            TL_TAB_LEN,   // 6656
+            EG_INC.length, // 152
+            EG_RATE_SELECT.length, // 128
+            EG_RATE_SHIFT.length,  // 128
+            8 * 32,       // 256 (DT flattened)
+            LFO_PM_TABLE.length    // 32768
+        };
+    }
+
+    // =========================================================================
+    // GPU Trajectory Pre-computation Methods
+    // =========================================================================
+
+    /**
+     * Get current envelope volume for an operator.
+     * Used for trajectory pre-computation.
+     *
+     * @param ch channel index (0-5)
+     * @param op operator index (0-3)
+     * @return current GPGX-style volume (0 = max, 1023 = silent)
+     */
+    public int getOperatorVolume(int ch, int op) {
+        return channels[ch].ops[op].volume;
+    }
+
+    /**
+     * Get current LFO counter value.
+     * Used for save/restore during trajectory computation.
+     *
+     * @return current LFO counter (0-127)
+     */
+    public int getLfoCnt() {
+        return lfoCnt;
+    }
+
+    /**
+     * Get current LFO timer value.
+     * Used for save/restore during trajectory computation.
+     *
+     * @return current LFO timer value
+     */
+    public int getLfoTimer() {
+        return lfoTimer;
+    }
+
+    /**
+     * Set EG state for restore after trajectory computation.
+     *
+     * @param cnt   EG counter value
+     * @param timer EG timer value (0, 1, or 2)
+     */
+    public void setEgState(int cnt, int timer) {
+        this.egCnt = cnt;
+        this.egTimer = timer;
+    }
+
+    /**
+     * Set LFO state for restore after trajectory computation.
+     *
+     * @param cnt   LFO counter value (0-127)
+     * @param timer LFO timer value
+     */
+    public void setLfoState(int cnt, int timer) {
+        this.lfoCnt = cnt;
+        this.lfoTimer = timer;
+        // Recalculate AM/PM values from counter
+        if (lfoCnt < 64) {
+            lfoAm = (lfoCnt ^ 63) << 1;
+        } else {
+            lfoAm = (lfoCnt & 63) << 1;
+        }
+        lfoPm = lfoCnt >> 2;
+    }
+
+    /**
+     * Save all operator envelope state for trajectory computation.
+     * Saves volume, curEnv, ssgn, and volOut for all 24 operators.
+     *
+     * @return 2D array [24][4] containing saved state
+     */
+    public int[][] saveOperatorEnvelopeState() {
+        int[][] state = new int[24][5]; // [opIdx][volume, curEnv ordinal, ssgn, volOut, key]
+        for (int ch = 0; ch < 6; ch++) {
+            for (int op = 0; op < 4; op++) {
+                Operator o = channels[ch].ops[op];
+                int idx = ch * 4 + op;
+                state[idx][0] = o.volume;
+                state[idx][1] = o.curEnv.ordinal();
+                state[idx][2] = o.ssgn;
+                state[idx][3] = o.volOut;
+                state[idx][4] = o.key ? 1 : 0;
+            }
+        }
+        return state;
+    }
+
+    /**
+     * Restore operator envelope state after trajectory computation.
+     *
+     * @param state saved state from saveOperatorEnvelopeState()
+     */
+    public void restoreOperatorEnvelopeState(int[][] state) {
+        EnvState[] envStates = EnvState.values();
+        for (int ch = 0; ch < 6; ch++) {
+            for (int op = 0; op < 4; op++) {
+                Operator o = channels[ch].ops[op];
+                int idx = ch * 4 + op;
+                o.volume = state[idx][0];
+                o.curEnv = envStates[state[idx][1]];
+                o.ssgn = state[idx][2];
+                o.volOut = state[idx][3];
+                o.key = state[idx][4] != 0;
+            }
+        }
+    }
+
+    /**
+     * Advance envelope generators for one EG tick (3 samples worth).
+     * Used for trajectory pre-computation. This simulates what happens
+     * every 3 samples when egTimer wraps.
+     */
+    public void advanceEnvelopesOnce() {
+        // Simple increment, wrap from 4096 to 1 (skip 0)
+        egCnt++;
+        if (egCnt >= 4096) egCnt = 1;
+
+        // Advance envelope for all 24 operators
+        for (int ch = 0; ch < 6; ch++) {
+            Channel c = channels[ch];
+            for (int op = 0; op < 4; op++) {
+                advanceEgOperator(c.ops[op]);
+            }
+        }
+    }
+
+    /**
+     * Advance LFO for one sample.
+     * Used for trajectory pre-computation.
+     */
+    public void advanceLfoOnce() {
+        if (lfoTimerOverflow != 0) {
+            lfoTimer++;
+            if (lfoTimer >= lfoTimerOverflow) {
+                lfoTimer = 0;
+                lfoCnt = (lfoCnt + 1) & LFO_MASK;
+                if (lfoCnt < 64) {
+                    lfoAm = (lfoCnt ^ 63) << 1;
+                } else {
+                    lfoAm = (lfoCnt & 63) << 1;
+                }
+                lfoPm = lfoCnt >> 2;
+            }
+        }
+    }
+
+    /**
+     * Advance EG timer by one sample. Triggers envelope update every 3 samples.
+     * Used for trajectory pre-computation and proper state advancement after GPU batch.
+     */
+    public void advanceEgTimerOnce() {
+        egTimer++;
+        if (egTimer >= 3) {
+            egTimer = 0;
+            egCnt++;
+            if (egCnt >= 4096) egCnt = 1;
+
+            for (int ch = 0; ch < 6; ch++) {
+                Channel c = channels[ch];
+                for (int op = 0; op < 4; op++) {
+                    advanceEgOperator(c.ops[op]);
+                }
+            }
+        }
+    }
 }
