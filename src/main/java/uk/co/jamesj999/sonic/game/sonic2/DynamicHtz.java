@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic2;
 
+import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.data.RomManager;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Level;
@@ -7,12 +9,9 @@ import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlHtz;
 import uk.co.jamesj999.sonic.tools.NemesisReader;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.logging.Logger;
 
 /**
@@ -85,20 +84,15 @@ public class DynamicHtz {
         }
     }
 
-    // Path to disassembly files (for loading art directly)
-    private static final String DISASM_PATH = "docs/s2disasm/";
-    private static final String CLIFF_ART_FILE = "art/nemesis/Dynamically reloaded cliffs in HTZ background.nem";
-    private static final String CLOUD_ART_FILE = "art/uncompressed/Background clouds (HTZ).bin";
-
     private boolean initialized = false;
 
     public DynamicHtz() {
     }
 
     /**
-     * Initialize by loading art data from the disassembly files.
-     * For cliff art, we need to decompress it using Nemesis decompression.
-     * For cloud art, it's already uncompressed.
+     * Initialize by loading art data from the ROM.
+     * Cliff art is Nemesis compressed at 0x49A14.
+     * Cloud art is uncompressed at 0x4A33E (1024 bytes).
      */
     public void init() {
         if (initialized) {
@@ -106,106 +100,44 @@ public class DynamicHtz {
         }
 
         try {
-            loadCloudArt();
-            loadCliffArt();
+            Rom rom = RomManager.getInstance().getRom();
+            if (rom == null) {
+                LOG.warning("Cannot initialize DynamicHtz: ROM not loaded");
+                return;
+            }
+
+            loadCloudArt(rom);
+            loadCliffArt(rom);
             initialized = true;
             LOG.info("DynamicHtz initialized - cloud art: " +
                      (cloudArtData != null ? cloudArtData.length : 0) + " bytes, cliff art: " +
                      (cliffArtData != null ? cliffArtData.length : 0) + " bytes");
         } catch (IOException e) {
-            LOG.log(java.util.logging.Level.WARNING, "Failed to load HTZ dynamic art: " + e.getMessage(), e);
+            LOG.log(java.util.logging.Level.WARNING, "Failed to load HTZ dynamic art from ROM: " + e.getMessage(), e);
         }
     }
 
-    private void loadCloudArt() throws IOException {
-        Path cloudPath = Path.of(DISASM_PATH, CLOUD_ART_FILE);
-        if (Files.exists(cloudPath)) {
-            cloudArtData = Files.readAllBytes(cloudPath);
-            LOG.fine("Loaded HTZ cloud art: " + cloudArtData.length + " bytes");
-        }
+    private void loadCloudArt(Rom rom) throws IOException {
+        FileChannel channel = rom.getFileChannel();
+        channel.position(Sonic2Constants.ART_UNC_HTZ_CLOUDS_ADDR);
 
-        // If still not loaded, create placeholder (32 tiles of blue gradient)
-        if (cloudArtData == null || cloudArtData.length == 0) {
-            cloudArtData = createPlaceholderCloudArt();
-            LOG.info("Using placeholder cloud art");
-        }
-    }
-
-    private void loadCliffArt() throws IOException {
-        Path cliffPath = Path.of(DISASM_PATH, CLIFF_ART_FILE);
-        if (Files.exists(cliffPath)) {
-            // The file is Nemesis compressed, need to decompress
-            byte[] compressed = Files.readAllBytes(cliffPath);
-            cliffArtData = decompressNemesis(compressed);
-            LOG.fine("Loaded and decompressed HTZ cliff art: " + cliffArtData.length + " bytes");
-        }
-
-        // If still not loaded, create placeholder (green/blue cliff pattern)
-        if (cliffArtData == null || cliffArtData.length == 0) {
-            cliffArtData = createPlaceholderCliffArt();
-            LOG.info("Using placeholder cliff art");
-        }
-    }
-
-    /**
-     * Decompress Nemesis data using NemesisReader.
-     * NemesisReader expects a ReadableByteChannel.
-     */
-    private byte[] decompressNemesis(byte[] compressed) {
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-             ReadableByteChannel channel = Channels.newChannel(bais)) {
-            return NemesisReader.decompress(channel);
-        } catch (Exception e) {
-            LOG.warning("Nemesis decompression failed: " + e.getMessage());
-            return createPlaceholderCliffArt();
-        }
-    }
-
-    /**
-     * Create placeholder cloud art (blue-tinted gradient pattern).
-     * 32 tiles = 1024 bytes.
-     */
-    private byte[] createPlaceholderCloudArt() {
-        byte[] data = new byte[1024];
-        // Create a repeating pattern that looks cloud-like
-        // Each tile is 32 bytes (8x8 pixels, 4 bits per pixel)
-        for (int tile = 0; tile < 32; tile++) {
-            int baseOffset = tile * 32;
-            for (int row = 0; row < 8; row++) {
-                int rowOffset = baseOffset + row * 4;
-                // Create a gradient pattern using palette indices 0-3
-                int pixelVal = ((tile + row) % 4);
-                // Pack 8 pixels into 4 bytes (4 bits each)
-                data[rowOffset + 0] = (byte) ((pixelVal << 4) | pixelVal);
-                data[rowOffset + 1] = (byte) ((pixelVal << 4) | pixelVal);
-                data[rowOffset + 2] = (byte) ((pixelVal << 4) | pixelVal);
-                data[rowOffset + 3] = (byte) ((pixelVal << 4) | pixelVal);
+        cloudArtData = new byte[Sonic2Constants.ART_UNC_HTZ_CLOUDS_SIZE];
+        ByteBuffer buffer = ByteBuffer.wrap(cloudArtData);
+        while (buffer.hasRemaining()) {
+            int read = channel.read(buffer);
+            if (read < 0) {
+                throw new IOException("Unexpected EOF reading HTZ cloud art");
             }
         }
-        return data;
+        LOG.fine("Loaded HTZ cloud art from ROM: " + cloudArtData.length + " bytes");
     }
 
-    /**
-     * Create placeholder cliff art (green/blue cliff-like pattern).
-     * The decompressed art is exactly $1800 = 6144 bytes (192 tiles).
-     * PatchHTZTiles scatters this data to 48 RAM locations (8 rows × 6 cols × 128 bytes).
-     */
-    private byte[] createPlaceholderCliffArt() {
-        byte[] data = new byte[0x1800]; // 6144 bytes = 192 tiles
-        // Create a pattern that vaguely represents distant cliffs
-        for (int tile = 0; tile < 192; tile++) {
-            int baseOffset = tile * 32;
-            for (int row = 0; row < 8; row++) {
-                int rowOffset = baseOffset + row * 4;
-                // Green/blue gradient for cliffs - vary by tile position
-                int pixelVal = (tile / 24 + row / 2) % 4;
-                data[rowOffset + 0] = (byte) ((pixelVal << 4) | pixelVal);
-                data[rowOffset + 1] = (byte) ((pixelVal << 4) | pixelVal);
-                data[rowOffset + 2] = (byte) ((pixelVal << 4) | pixelVal);
-                data[rowOffset + 3] = (byte) ((pixelVal << 4) | pixelVal);
-            }
-        }
-        return data;
+    private void loadCliffArt(Rom rom) throws IOException {
+        FileChannel channel = rom.getFileChannel();
+        channel.position(Sonic2Constants.ART_NEM_HTZ_CLIFFS_ADDR);
+
+        cliffArtData = NemesisReader.decompress(channel);
+        LOG.fine("Loaded and decompressed HTZ cliff art from ROM: " + cliffArtData.length + " bytes");
     }
 
     /**

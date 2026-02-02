@@ -349,6 +349,11 @@ public class Sonic2Constants {
     public static final int MAP_UNC_OBJ32_HTZ_ADDR = 0x23852;        // Obj32_MapUnc_23852 (HTZ rock)
     public static final int MAP_UNC_OBJ32_CPZ_ADDR = 0x23886;        // Obj32_MapUnc_23886 (CPZ metal block)
 
+    // HTZ Dynamic Background Art (loaded at runtime based on camera position)
+    public static final int ART_NEM_HTZ_CLIFFS_ADDR = 0x49A14;       // ArtNem_HTZCliffs (Nemesis, ~6KB decompressed)
+    public static final int ART_UNC_HTZ_CLOUDS_ADDR = 0x4A33E;       // ArtUnc_HTZClouds (Uncompressed, 1024 bytes)
+    public static final int ART_UNC_HTZ_CLOUDS_SIZE = 1024;          // 32 tiles × 32 bytes
+
     // CPZ/OOZ/WFZ Moving Platform (Object 0x19)
     public static final int MAP_UNC_OBJ19_ADDR = 0x2222A;  // Obj19_MapUnc_2222A
     public static final int ART_NEM_CPZ_ELEVATOR_ADDR = 0x82216;    // ArtNem_CPZElevator (verified)
