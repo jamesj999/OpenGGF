@@ -17,13 +17,13 @@ import java.util.logging.Logger;
 
 /**
  * Pre-renders ASCII glyphs to a texture atlas for GPU-accelerated text rendering.
- * Supports multiple font sizes (SMALL, MEDIUM, LARGE) packed into a single 512x512 texture.
+ * Supports multiple font sizes (SMALL, MEDIUM, LARGE) packed into a single 1024x1024 texture.
  * Uses GL_LUMINANCE for single-channel grayscale with antialiasing for smooth outlines.
  */
 public class GlyphAtlas {
     private static final Logger LOGGER = Logger.getLogger(GlyphAtlas.class.getName());
 
-    private static final int ATLAS_SIZE = 512;
+    private static final int ATLAS_SIZE = 1024;
     private static final int FIRST_CHAR = 32;  // Space
     private static final int LAST_CHAR = 126;  // Tilde
     private static final int GLYPH_PADDING = 2;
