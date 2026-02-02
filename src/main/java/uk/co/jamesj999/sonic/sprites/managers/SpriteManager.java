@@ -91,6 +91,15 @@ public class SpriteManager {
 		return removeSprite(getSprite(code));
 	}
 
+	/**
+	 * Removes all sprites from the manager.
+	 * Useful for test cleanup to ensure a clean state.
+	 */
+	public void clearAllSprites() {
+		sprites.clear();
+		bucketsDirty = true;
+	}
+
 	public Collection<Sprite> getAllSprites() {
 		return sprites.values();
 	}

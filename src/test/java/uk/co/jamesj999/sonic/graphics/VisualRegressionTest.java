@@ -265,16 +265,25 @@ public class VisualRegressionTest {
         LevelManager levelManager = LevelManager.getInstance();
         Camera camera = Camera.getInstance();
         GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        SpriteManager spriteManager = SpriteManager.getInstance();
+
+        // Clear all sprites to avoid state pollution from other tests
+        // (other tests may leave mock sprites with empty sensor arrays)
+        spriteManager.clearAllSprites();
+
+        // Create a fresh player sprite
+        SonicConfigurationService configService = SonicConfigurationService.getInstance();
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        AbstractPlayableSprite player = new Sonic(mainCode, (short) playerX, (short) playerY);
+        spriteManager.addSprite(player);
+        camera.setFocusedSprite(player);
 
         // Load level
         levelManager.loadZoneAndAct(zone, act);
 
         // Move player to checkpoint position
-        var player = camera.getFocusedSprite();
-        if (player != null) {
-            player.setX((short) playerX);
-            player.setY((short) playerY);
-        }
+        player.setX((short) playerX);
+        player.setY((short) playerY);
 
         // Force camera to snap to player position (no smooth scrolling)
         camera.updatePosition(true);
