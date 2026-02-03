@@ -43,6 +43,7 @@ import java.util.Map;
 public class LauncherSpringObjectInstance extends BoxObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
+
     // Subtype constants
     // Note: Bit 7 (0x80) indicates "slope running" mode for diagonal springs,
     // but ANY non-zero subtype is treated as diagonal (ROM: tst.b subtype(a0))
@@ -525,10 +526,13 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         // ROM values from disassembly:
         // Vertical: halfWidth=0x23(35), halfHeightTop=0x20(32), halfHeightBottom=0x1D(29)
         // Diagonal: halfWidth=0x23(35), halfHeightTop=0x08(8), halfHeightBottom=0x05(5)
+        // ROM updates x_pos/y_pos during compression, so collision must follow currentSpriteX/Y.
+        int offsetX = currentSpriteX - baseX;
+        int offsetY = currentSpriteY - baseY;
         if (isDiagonal()) {
-            return new SolidObjectParams(35, 8, 5);
+            return new SolidObjectParams(35, 8, 5, offsetX, offsetY);
         }
-        return new SolidObjectParams(35, 32, 29);
+        return new SolidObjectParams(35, 32, 29, offsetX, offsetY);
     }
 
     @Override
@@ -588,7 +592,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
                     p.setCentreX((short) (currentSpriteX + DIAGONAL_PLAYER_X_OFFSET));
                     p.setCentreY((short) (currentSpriteY - DIAGONAL_PLAYER_Y_OFFSET));
                 } else {
-                    p.setCentreX((short) currentSpriteX);
+                    // ROM: vertical spring only updates Y while standing (loc_2ADFE)
                     p.setCentreY((short) (currentSpriteY - VERTICAL_PLAYER_Y_OFFSET));
                 }
             }
