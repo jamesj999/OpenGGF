@@ -11,6 +11,15 @@ public record SpriteMappingPiece(
         int tileIndex,
         boolean hFlip,
         boolean vFlip,
-        int paletteIndex
+        int paletteIndex,
+        boolean priority
 ) implements SpriteFramePiece {
+
+    /**
+     * Backward-compatible constructor without priority flag (defaults to false).
+     */
+    public SpriteMappingPiece(int xOffset, int yOffset, int widthTiles, int heightTiles,
+            int tileIndex, boolean hFlip, boolean vFlip, int paletteIndex) {
+        this(xOffset, yOffset, widthTiles, heightTiles, tileIndex, hFlip, vFlip, paletteIndex, false);
+    }
 }

@@ -127,6 +127,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         registerSheet(Sonic2ObjectArtKeys.WHISP, artLoader.loadWhispSheet());
         registerSheet(Sonic2ObjectArtKeys.GROUNDER, artLoader.loadGrounderSheet());
         registerSheet(Sonic2ObjectArtKeys.GROUNDER_ROCK, artLoader.loadGrounderRockSheet());
+        registerSheet(Sonic2ObjectArtKeys.SPIKER, artLoader.loadSpikerSheet());
         registerSheet(Sonic2ObjectArtKeys.CRAWL, artLoader.loadCrawlSheet());
         registerSheet(Sonic2ObjectArtKeys.ARROW_SHOOTER, artLoader.loadArrowShooterSheet());
         registerSheet(ObjectArtKeys.ANIMAL, artData.animalSheet());
@@ -168,6 +169,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             registerSheet(Sonic2ObjectArtKeys.SEESAW, artLoader.loadSeesawSheet());
             registerSheet(Sonic2ObjectArtKeys.SEESAW_BALL, artLoader.loadSeesawBallSheet());
             registerSheet(Sonic2ObjectArtKeys.HTZ_LIFT, artLoader.loadHTZLiftSheet());
+            registerSheet(Sonic2ObjectArtKeys.SOL, artLoader.loadSolSheet());
             // SmashableGround uses level patterns - must be loaded after level is available
             // This is registered separately via registerSmashableGroundSheet()
         }

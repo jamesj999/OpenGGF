@@ -1007,6 +1007,7 @@ public class ObjectManager {
 
     static final class SolidContacts {
         private static final Logger LOGGER = Logger.getLogger(SolidContacts.class.getName());
+        private static final int OBJ85_ID = 0x85;
         private final ObjectManager objectManager;
         private int frameCounter;
         private ObjectInstance ridingObject;
@@ -1448,7 +1449,7 @@ public class ObjectManager {
                         anchorX, riding, apply);
             }
             return resolveContactInternal(player, relX, relY, halfWidth, maxTop, playerCenterX, playerCenterY,
-                    topSolidOnly, riding, apply);
+                    topSolidOnly, riding, apply, instance);
         }
 
         /**
@@ -1511,7 +1512,6 @@ public class ObjectManager {
                         if (!player.getPinballMode()) {
                             player.setRolling(false);
                         }
-                        player.setPinballMode(false);
                         player.setAngle((byte) 0);
                         player.setGroundMode(GroundMode.GROUND);
                     }
@@ -1581,11 +1581,12 @@ public class ObjectManager {
             }
 
             return resolveContactInternal(player, relX, relY, halfWidth, maxTop, playerCenterX, playerCenterY,
-                    topSolidOnly, riding, apply);
+                    topSolidOnly, riding, apply, instance);
         }
 
         private SolidContact resolveContactInternal(AbstractPlayableSprite player, int relX, int relY, int halfWidth,
-                int maxTop, int playerCenterX, int playerCenterY, boolean topSolidOnly, boolean sticky, boolean apply) {
+                int maxTop, int playerCenterX, int playerCenterY, boolean topSolidOnly, boolean sticky, boolean apply,
+                ObjectInstance instance) {
             int distX;
             int absDistX;
             if (relX >= halfWidth) {
@@ -1607,6 +1608,62 @@ public class ObjectManager {
             }
 
             if (absDistX <= absDistY) {
+                if (instance != null
+                        && instance.getSpawn().objectId() == OBJ85_ID
+                        && instance.getSpawn().subtype() == 0
+                        && player.getYSpeed() >= 0) {
+                    int anchorX = playerCenterX - (relX - halfWidth);
+                    int anchorY = playerCenterY - (relY - 4 - maxTop);
+                    int landingThreshold = 0x14; // ROM: Obj85 uses 0x14 in SolidObject_TopBottom
+                    int landingFrame = 0;
+                    int landingPrevRelX = 0;
+                    int landingPrevRelY = 0;
+                    boolean landingCrossedTop = false;
+                    int[] prevRelX = new int[3];
+                    int[] prevRelY = new int[3];
+                    for (int framesBehind = 1; framesBehind <= 3; framesBehind++) {
+                        short prevCenterX = player.getCentreX(framesBehind);
+                        short prevCenterY = player.getCentreY(framesBehind);
+                        int idx = framesBehind - 1;
+                        prevRelX[idx] = prevCenterX - anchorX + halfWidth;
+                        prevRelY[idx] = prevCenterY - anchorY + 4 + maxTop;
+                        if (landingFrame == 0
+                                && prevRelX[idx] >= 0 && prevRelX[idx] <= halfWidth * 2
+                                && prevRelY[idx] < landingThreshold) {
+                            boolean withinTop = prevRelY[idx] >= 0 && prevRelY[idx] <= maxTop;
+                            boolean crossedTop = prevRelY[idx] < 0 && relY >= 0;
+                            if (!withinTop && !crossedTop) {
+                                continue;
+                            }
+                            landingFrame = framesBehind;
+                            landingPrevRelX = prevRelX[idx];
+                            landingPrevRelY = prevRelY[idx];
+                            landingCrossedTop = crossedTop;
+                        }
+                    }
+                    if (landingFrame > 0) {
+                        if (apply) {
+                            int newCenterY = anchorY - maxTop - 1;
+                            int newY = newCenterY - (player.getHeight() / 2);
+                            player.setY((short) newY);
+                            if (player.getYSpeed() > 0) {
+                                player.setYSpeed((short) 0);
+                            }
+                            if (player.getAir()) {
+                                player.setGSpeed(player.getXSpeed());
+                                player.setAir(false);
+                                if (!player.getPinballMode()) {
+                                    player.setRolling(false);
+                                }
+                                player.setAngle((byte) 0);
+                                player.setGroundMode(GroundMode.GROUND);
+                            }
+                            player.setOnObject(true);
+                        }
+                        return new SolidContact(true, false, false, true, false);
+                    }
+                }
+
                 if (topSolidOnly) {
                     return null;
                 }
@@ -1662,7 +1719,6 @@ public class ObjectManager {
                         if (!player.getPinballMode()) {
                             player.setRolling(false);
                         }
-                        player.setPinballMode(false);
                         player.setAngle((byte) 0);
                         player.setGroundMode(GroundMode.GROUND);
                     }

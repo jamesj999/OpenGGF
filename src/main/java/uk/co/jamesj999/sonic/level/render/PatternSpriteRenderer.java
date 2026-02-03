@@ -168,12 +168,22 @@ public class PatternSpriteRenderer {
         // sprite index = higher priority.
         for (int i = pieces.size() - 1; i >= 0; i--) {
             SpriteFramePiece piece = pieces.get(i);
+            // Check if this piece has the VDP priority flag set.
+            // On the Genesis, this flag causes sprites to render in front of the playfield.
+            // We simulate this by using a different palette line, creating a visual "flash" effect.
+            int renderPalette = paletteIndex;
+            if (piece.priority()) {
+                // Use the next palette line (wrapping) to create a brightness/flash effect.
+                // This simulates the original VDP priority behavior where the sprite would
+                // appear in front of background tiles that normally obscure it.
+                renderPalette = (paletteIndex + 1) & 3;
+            }
             SpritePieceRenderer.renderPieces(
                     List.of(piece),
                     originX,
                     originY,
                     patternBase,
-                    paletteIndex,
+                    renderPalette,
                     hFlip,
                     vFlip,
                     (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {

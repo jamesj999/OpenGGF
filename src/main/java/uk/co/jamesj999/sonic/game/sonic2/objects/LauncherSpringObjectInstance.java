@@ -43,6 +43,7 @@ import java.util.Map;
 public class LauncherSpringObjectInstance extends BoxObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
+
     // Subtype constants
     // Note: Bit 7 (0x80) indicates "slope running" mode for diagonal springs,
     // but ANY non-zero subtype is treated as diagonal (ROM: tst.b subtype(a0))
@@ -67,6 +68,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     private static final int DIAGONAL_PLAYER_X_OFFSET = 0x13;    // 19 pixels from spring X
     private static final int DIAGONAL_PLAYER_Y_OFFSET = 0x13;    // 19 pixels above spring Y
 
+
     /**
      * Per-player state tracking.
      * ROM uses objoff_36 (byte) for Player 1 and objoff_37 (byte) for Player 2,
@@ -76,6 +78,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     private static class PlayerState {
         int state = STATE_EMPTY;
         int launchCooldown = 0;
+        boolean pinballBeforeCapture = false;
     }
 
     // Per-player state map (ROM: objoff_36 for P1, objoff_37 for P2)
@@ -184,17 +187,27 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
      */
     private void enterSpring(AbstractPlayableSprite player, PlayerState ps) {
         // Lock player controls (obj_control = 0x81 in ROM)
+        // ROM sets obj_control = $81 which has TWO effects:
+        // - Bit 0 (0x01): Blocks input (controlLocked)
+        // - Bit 7 (0x80): Skips ALL movement/physics (objectControlled)
         player.setControlLocked(true);
+        player.setObjectControlled(true);
+        ps.pinballBeforeCapture = player.getPinballMode();
         player.setPinballMode(true);
 
         // Snap player to center of spring (use setCentreX/Y for ROM-compatible center coords)
+        short targetX, targetY;
         if (isDiagonal()) {
-            player.setCentreX((short) (currentSpriteX + DIAGONAL_PLAYER_X_OFFSET));
-            player.setCentreY((short) (currentSpriteY - DIAGONAL_PLAYER_Y_OFFSET));
+            // ROM: ALWAYS adds 0x13 to X (player positioned to the RIGHT of head)
+            // H-flip only affects visual rendering, not player positioning
+            targetX = (short) (currentSpriteX + DIAGONAL_PLAYER_X_OFFSET);
+            targetY = (short) (currentSpriteY - DIAGONAL_PLAYER_Y_OFFSET);
         } else {
-            player.setCentreX((short) currentSpriteX);
-            player.setCentreY((short) (currentSpriteY - VERTICAL_PLAYER_Y_OFFSET));
+            targetX = (short) currentSpriteX;
+            targetY = (short) (currentSpriteY - VERTICAL_PLAYER_Y_OFFSET);
         }
+        player.setCentreX(targetX);
+        player.setCentreY(targetY);
 
         // Clear velocities
         player.setXSpeed((short) 0);
@@ -267,6 +280,10 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
      * - Set objoff_3A flag to prevent double-increment when both players are on spring
      * - Decrement objoff_32 timer; if underflows, reset to 3 and increment compression
      *
+     * Animation timer (ROM lines 57564-57577):
+     * - The ROM only decrements the animation timer (objoff_33) when jump IS pressed
+     * - This is handled here to match ROM behavior where animation only updates during compression
+     *
      * @return true if this player is holding jump
      */
     private boolean handleCompression(AbstractPlayableSprite player, PlayerState ps) {
@@ -288,6 +305,20 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
                         compression++;
                     }
                 }
+
+                // Animation timer logic - only runs when jump IS pressed (ROM behavior)
+                // ROM: subq.b #1,objoff_33(a0) / bpl.s loc_2ADF8
+                animationTimer--;
+                if (animationTimer < 0) {
+                    // Timer underflow - toggle frame and reset interval
+                    // ROM: bchg #2,mainspr_mapframe toggles bit 2 (1 <-> 5)
+                    mainSpriteFrame = (mainSpriteFrame == 1) ? 5 : 1;
+                    // Reset timer: faster at higher compression
+                    animationTimer = Math.max(0, (getMaxCompression() - compression) / 2);
+                } else {
+                    // ROM: loc_2ADF8 - when timer >= 0, unconditionally reset to frame 1
+                    mainSpriteFrame = 1;
+                }
             }
         }
         return jumpPressed;
@@ -295,17 +326,22 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
 
     /**
      * Updates the spring's visual position based on compression.
-     * ROM: Diagonal spring always moves left (subtracts from X) regardless of facing.
-     * The facing direction only affects launch direction, not compression movement.
+     *
+     * ROM behavior: The diagonal spring head ALWAYS moves LEFT and DOWN during compression,
+     * regardless of H-flip state. The H-flip flag only affects visual sprite rendering,
+     * NOT the physics/position calculations.
+     *
+     * ROM: sub.w d0,x_pos(a0) - ALWAYS subtracts (moves head LEFT)
+     * ROM: add.w d0,y_pos(a0) - ALWAYS adds (moves head DOWN)
      */
     private void updateSpringPosition() {
         if (isDiagonal()) {
             // Diagonal spring moves diagonally when compressed
-            // ROM always subtracts from X (moves left) regardless of facing
-            int xOffset = compression / 2;
-            int yOffset = compression / 2;
-            currentSpriteX = baseX - xOffset;  // Always subtract (ROM: sub.w d1,d0)
-            currentSpriteY = baseY + yOffset;
+            // ROM: ALWAYS subtracts from X (head moves LEFT toward base)
+            // H-flip only affects visual rendering, not position
+            int offset = compression / 2;
+            currentSpriteX = baseX - offset;
+            currentSpriteY = baseY + offset;
         } else {
             // Vertical spring moves down when compressed
             currentSpriteX = baseX;
@@ -317,38 +353,18 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
      * Updates the animation frame based on compression level.
      *
      * ROM behavior (s2.asm lines 57564-57577):
-     * <pre>
-     * loc_2ADDA:
-     *     subq.b  #1,objoff_33(a0)          ; Decrement timer
-     *     bpl.s   loc_2ADF8                 ; If >= 0, go to reset frame 1
-     *     ; Timer underflowed - toggle and set new interval
-     *     bchg    #2,mainspr_mapframe(a0)   ; Toggle frame 1 <-> 5
-     *     ...
-     * loc_2ADF8:
-     *     move.b  #1,mainspr_mapframe(a0)   ; ALWAYS reset to frame 1
-     * </pre>
+     * The animation timer only decrements when jump IS pressed (handled in handleCompression).
+     * This method only handles the reset case when compression is zero.
      *
-     * The ROM ALWAYS resets to frame 1 UNLESS the timer just underflowed.
-     * Frame 5 only appears for ONE single frame before being reset.
-     * This creates a quick "flash/twitch" vibration effect.
+     * When compression == 0: Reset to frame 1 and initialize timer.
+     * When compression > 0: Animation is handled in handleCompression() when jump is pressed.
      */
     private void updateAnimationFrame() {
         if (compression == 0) {
             mainSpriteFrame = 1;
             animationTimer = getMaxCompression() / 2;  // Initialize timer
-        } else {
-            animationTimer--;
-            if (animationTimer < 0) {
-                // Timer underflow - toggle frame and reset interval
-                // ROM: bchg #2,mainspr_mapframe toggles bit 2 (1 <-> 5)
-                mainSpriteFrame = (mainSpriteFrame == 1) ? 5 : 1;
-                animationTimer = Math.max(0, (getMaxCompression() - compression) / 2);
-            } else {
-                // ROM: move.b #1,mainspr_mapframe - always reset to frame 1
-                // This means frame 5 only shows for ONE frame (the toggle frame)
-                mainSpriteFrame = 1;
-            }
         }
+        // Animation toggle is now handled in handleCompression() when jump is pressed
     }
 
     /**
@@ -366,10 +382,11 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         int launchMagnitude = (compression + getBaseVelocity()) << 7;
 
         if (isDiagonal()) {
-            // Diagonal launch - ROM ALWAYS launches UP-RIGHT (positive X, negative Y)
-            // ROM: loc_2B018 - move.w d0,x_vel (positive), neg.w d0, move.w d0,y_vel (negative)
-            int xVel = launchMagnitude;   // Always positive (right)
-            int yVel = -launchMagnitude;  // Always negative (up)
+            // ROM: Diagonal spring ALWAYS launches UP-RIGHT regardless of H-flip
+            // H-flip only affects visual rendering, not launch physics
+            // ROM: loc_2B018 - x_vel = +magnitude, y_vel = -magnitude (ALWAYS)
+            int xVel = launchMagnitude;
+            int yVel = -launchMagnitude;
 
             player.setXSpeed((short) xVel);
             player.setYSpeed((short) yVel);
@@ -381,15 +398,23 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
             // ROM: tst.b subtype(a0) / bpl.s loc_2B068 - check bit 7
             // If bit 7 SET (subtype 0x80+): "slope running" mode
             if ((spawn.subtype() & SUBTYPE_SLOPE_MODE_FLAG) != 0) {
-                // ROM: neg.w d0 / move.w d0,inertia(a1) - inertia = +launch magnitude
+                // ROM: inertia = +magnitude (positive gSpeed = moving right along angle 0xE0)
+                // The ROM does neg.w d0 twice, resulting in a positive value
                 player.setGSpeed((short) launchMagnitude);
                 // ROM: bclr #status.player.in_air - make grounded
                 player.setAir(false);
-                // ROM: move.b #-$20,angle(a1) - angle 0xE0 (upward-right slope)
+                // ROM: move.b #-$20,angle(a1) - angle 0xE0 (ALWAYS, regardless of H-flip)
                 player.setAngle((byte) 0xE0);
+                // Keep pinballMode active so rolling is preserved even if physics
+                // briefly loses ground contact during the high-speed diagonal launch.
+                // This mimics ROM behavior where rolling state persists through the launch.
+                player.setPinballMode(true);
+                // Set stickToConvex to prevent slope repel from immediately triggering
+                // airborne mode when there's no terrain at the angle initially.
+                player.setStickToConvex(true);
             }
 
-            // Always face right for diagonal launch (ROM: bclr #status.player.x_flip)
+            // ROM: ALWAYS faces RIGHT after diagonal launch (regardless of H-flip)
             player.setDirection(Direction.RIGHT);
         } else {
             // Vertical launch - straight up, airborne
@@ -399,6 +424,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
             player.setAir(true);
             player.setGSpeed((short) 0x800);  // ROM: move.w #$800,inertia(a1)
         }
+
 
         // ROM: bclr #status.player.on_object,status(a1) - clear "standing on object" flag
         // This is essential to prevent the solid object system from re-capturing the player
@@ -422,16 +448,34 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         ps.launchCooldown = 16;
 
         // Release player controls
-        releasePlayer(player, ps);
+        // For slope-mode launches, pass flag to preserve pinballMode
+        boolean preservePinball = isDiagonal() && (spawn.subtype() & SUBTYPE_SLOPE_MODE_FLAG) != 0;
+        releasePlayer(player, ps, preservePinball);
+    }
+
+
+    /**
+     * Releases player controls and resets per-player spring state.
+     *
+     * @param player         The player to release
+     * @param ps             The player state to reset
+     * @param preservePinball If true, keeps pinballMode active (for slope-mode launches)
+     */
+    private void releasePlayer(AbstractPlayableSprite player, PlayerState ps, boolean preservePinball) {
+        // ROM: move.b #0,obj_control(a1) clears all control bits
+        player.setControlLocked(false);
+        player.setObjectControlled(false);
+        boolean keepPinball = preservePinball || ps.pinballBeforeCapture;
+        player.setPinballMode(keepPinball);
+        resetPlayerState(ps);
     }
 
     /**
      * Releases player controls and resets per-player spring state.
+     * Clears pinballMode by default.
      */
     private void releasePlayer(AbstractPlayableSprite player, PlayerState ps) {
-        player.setControlLocked(false);
-        player.setPinballMode(false);
-        resetPlayerState(ps);
+        releasePlayer(player, ps, false);
     }
 
     /**
@@ -442,6 +486,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
      */
     private void resetPlayerState(PlayerState ps) {
         ps.state = STATE_EMPTY;
+        ps.pinballBeforeCapture = false;
         // Note: compression is shared and decays in update() when no players are on spring
     }
 
@@ -471,6 +516,13 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
 
     @Override
     public boolean isSolidFor(AbstractPlayableSprite player) {
+        // Don't be solid for players already captured on this spring.
+        // This prevents SolidContacts from re-detecting us and fighting
+        // with our manual positioning during compression.
+        PlayerState ps = playerStates.get(player);
+        if (ps != null && ps.state != STATE_EMPTY) {
+            return false;
+        }
         return true;
     }
 
@@ -479,10 +531,13 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         // ROM values from disassembly:
         // Vertical: halfWidth=0x23(35), halfHeightTop=0x20(32), halfHeightBottom=0x1D(29)
         // Diagonal: halfWidth=0x23(35), halfHeightTop=0x08(8), halfHeightBottom=0x05(5)
+        // ROM updates x_pos/y_pos during compression, so collision must follow currentSpriteX/Y.
+        int offsetX = currentSpriteX - baseX;
+        int offsetY = currentSpriteY - baseY;
         if (isDiagonal()) {
-            return new SolidObjectParams(35, 8, 5);
+            return new SolidObjectParams(35, 8, 5, offsetX, offsetY);
         }
-        return new SolidObjectParams(35, 32, 29);
+        return new SolidObjectParams(35, 32, 29, offsetX, offsetY);
     }
 
     @Override
@@ -512,6 +567,9 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         // ROM: loc_2AD14 - When spring is empty, compression decays by 4 per frame
         // This creates a gradual decompression animation instead of instant snap
         if (!hasAnyPlayerOnSpring() && compression > 0) {
+            // ROM: move.b #1,mainspr_mapframe(a0) - ALWAYS reset frame to 1 during decompression
+            // This ensures smooth coil animation by resetting the head flash state
+            mainSpriteFrame = 1;
             compression -= 4;
             if (compression < 0) {
                 compression = 0;
@@ -531,11 +589,15 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
             AbstractPlayableSprite p = entry.getKey();
             PlayerState ps = entry.getValue();
             if (ps.state != STATE_EMPTY) {
+                short oldX = p.getX();
+                short oldY = p.getY();
                 if (isDiagonal()) {
+                    // ROM: ALWAYS adds 0x13 to X (player positioned to the RIGHT of head)
+                    // H-flip only affects visual rendering, not player positioning
                     p.setCentreX((short) (currentSpriteX + DIAGONAL_PLAYER_X_OFFSET));
                     p.setCentreY((short) (currentSpriteY - DIAGONAL_PLAYER_Y_OFFSET));
                 } else {
-                    p.setCentreX((short) currentSpriteX);
+                    // ROM: vertical spring only updates Y while standing (loc_2ADFE)
                     p.setCentreY((short) (currentSpriteY - VERTICAL_PLAYER_Y_OFFSET));
                 }
             }
@@ -664,7 +726,9 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         // - Init sets sub2_y_pos ONCE to baseY + 0x20 (vertical) or baseY (diagonal)
         // - Only main sprite y_pos updates during compression
         // - Sub-sprite position is NEVER touched after initialization
-        renderer.drawFrameIndex(mainSpriteFrame, currentSpriteX, currentSpriteY, hFlip, vFlip);
+        //
+        // Render order: Sub-sprite FIRST (behind), main sprite SECOND (in front).
+        // VDP hardware gives lower sprite indices higher priority - main sprite should be on top.
 
         // Sub-sprite: plunger base (frame 2 if compression < 0x10, frame 3 otherwise)
         // CRITICAL: Sub-sprite stays at ORIGINAL base position, not compressed position!
@@ -677,6 +741,9 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
             // Vertical: sub-sprite at original base position + 32 pixels (ROM: baseY + $20)
             renderer.drawFrameIndex(subFrame, baseX, baseY + 0x20, hFlip, vFlip);
         }
+
+        // Main sprite (head) drawn last - appears on top (higher priority)
+        renderer.drawFrameIndex(mainSpriteFrame, currentSpriteX, currentSpriteY, hFlip, vFlip);
     }
 
     @Override

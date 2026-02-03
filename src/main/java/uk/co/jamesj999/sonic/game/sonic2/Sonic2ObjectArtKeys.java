@@ -76,6 +76,10 @@ public final class Sonic2ObjectArtKeys {
     public static final String GROUNDER = "grounder";
     public static final String GROUNDER_ROCK = "grounder_rock";
 
+    // HTZ Badniks
+    public static final String SPIKER = "spiker";
+    public static final String SOL = "sol";
+
     // CNZ Badniks
     public static final String CRAWL = "crawl";
 

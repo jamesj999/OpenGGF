@@ -233,7 +233,8 @@ public class FlipperObjectInstance extends BoxObjectInstance
         player.setX((short) newX);
         player.setXSpeed((short) xVel);
         player.setGSpeed((short) xVel);
-        player.setYSpeed((short) 0);  // ROM: clr.w y_vel(a1)
+        // NOTE: y_vel is NOT cleared in the ROM for horizontal flippers (loc_2B35C-loc_2B3BC)
+        // The player stays grounded and rolls at high speed - y_vel is handled by the movement system
         player.setPushing(false);  // Clear pushing state - matches BumperObjectInstance pattern
 
         // ROM: move.w #$F,move_lock(a1) - lock player input for 15 frames
@@ -243,9 +244,9 @@ public class FlipperObjectInstance extends BoxObjectInstance
         if (!player.getRolling()) {
             player.setRolling(true);
             player.setY((short) (player.getY() + player.getRollHeightAdjustment()));
-        } else {
-            player.setRolling(true);
         }
+        // ROM always explicitly sets collision radii (y=14, x=7) at loc_2B3BC
+        player.applyRollingRadii(false);
 
         triggerHorizontalAnimation(playerIsRightOfFlipper);
         playFlipperSound();
