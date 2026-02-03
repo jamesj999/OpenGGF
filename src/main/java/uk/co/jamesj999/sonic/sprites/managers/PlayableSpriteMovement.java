@@ -1389,13 +1389,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setCrouching(crouching);
 	}
 
-	private void applyUpwardVelocityCap() {
-		if (sprite.getAir() && !jumpPressed && !sprite.getPinballMode()) {
-			if (sprite.getYSpeed() < UPWARD_VELOCITY_CAP) {
-				sprite.setYSpeed((short) UPWARD_VELOCITY_CAP);
-			}
-		}
-	}
+    private void applyUpwardVelocityCap() {
+        if (sprite.getAir() && !jumpPressed && !sprite.getPinballMode()) {
+            if (sprite.getYSpeed() < UPWARD_VELOCITY_CAP) {
+                sprite.setYSpeed((short) UPWARD_VELOCITY_CAP);
+            }
+        }
+    }
 
 	private void applyDeathMovement() {
 		sprite.setYSpeed((short) (sprite.getYSpeed() + sprite.getGravity()));

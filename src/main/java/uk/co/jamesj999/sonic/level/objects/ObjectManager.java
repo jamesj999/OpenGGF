@@ -1512,7 +1512,6 @@ public class ObjectManager {
                         if (!player.getPinballMode()) {
                             player.setRolling(false);
                         }
-                        player.setPinballMode(false);
                         player.setAngle((byte) 0);
                         player.setGroundMode(GroundMode.GROUND);
                     }
@@ -1656,7 +1655,6 @@ public class ObjectManager {
                                 if (!player.getPinballMode()) {
                                     player.setRolling(false);
                                 }
-                                player.setPinballMode(false);
                                 player.setAngle((byte) 0);
                                 player.setGroundMode(GroundMode.GROUND);
                             }
@@ -1721,7 +1719,6 @@ public class ObjectManager {
                         if (!player.getPinballMode()) {
                             player.setRolling(false);
                         }
-                        player.setPinballMode(false);
                         player.setAngle((byte) 0);
                         player.setGroundMode(GroundMode.GROUND);
                     }
