@@ -171,7 +171,10 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
         player.setAir(false);
 
         // ROM: move.b #$81,obj_control(a1) - locks player control
+        // Bit 0 (0x01): controlLocked - blocks player input
+        // Bit 7 (0x80): objectControlled - disables all physics (gravity, movement)
         player.setControlLocked(true);
+        player.setObjectControlled(true);
 
         // Lock player to cage center (use center coordinates - spawn.x/y are origin coords)
         // Now that rolling state is set, height is correct for center calculation
@@ -237,6 +240,7 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
 
         // Release player control
         player.setControlLocked(false);
+        player.setObjectControlled(false);
         player.setPinballMode(false);
 
         // Reset cage internal state
