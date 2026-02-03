@@ -14,6 +14,9 @@ import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
 import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glDeleteVertexArrays;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 import static org.lwjgl.opengl.GL31.*;
 import static org.lwjgl.opengl.GL33.*;
 
@@ -41,6 +44,7 @@ public class InstancedPatternRenderer {
     private WaterShaderProgram instancedWaterShader;
     private ShaderProgram instancedPriorityShader;  // Priority-aware instanced shader
 
+    private int vaoId;
     private int quadVboId;
     private int instanceVboId;
 
@@ -263,12 +267,16 @@ public class InstancedPatternRenderer {
     }
 
     public void cleanup() {
+        if (vaoId != 0) {
+            glDeleteVertexArrays(vaoId);
+        }
         if (quadVboId != 0) {
             glDeleteBuffers(quadVboId);
         }
         if (instanceVboId != 0) {
             glDeleteBuffers(instanceVboId);
         }
+        vaoId = 0;
         quadVboId = 0;
         instanceVboId = 0;
         if (instancedShader != null) {
@@ -296,6 +304,7 @@ public class InstancedPatternRenderer {
      * Resets internal state without making GL calls.
      */
     public void cleanupHeadless() {
+        vaoId = 0;
         quadVboId = 0;
         instanceVboId = 0;
         instancedShader = null;
@@ -313,6 +322,8 @@ public class InstancedPatternRenderer {
         if (quadVboId != 0) {
             return;
         }
+        // Create VAO (required for OpenGL 3.2+ core profile)
+        vaoId = glGenVertexArrays();
         quadVboId = glGenBuffers();
         instanceVboId = glGenBuffers();
 
@@ -548,6 +559,9 @@ public class InstancedPatternRenderer {
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+            // Bind VAO (required for OpenGL 3.2+ core profile)
+            glBindVertexArray(vaoId);
+
             // Set projection matrix uniform - REQUIRED for correct rendering
             int projectionLoc;
             if (usePriorityShader) {
@@ -618,6 +632,7 @@ public class InstancedPatternRenderer {
             disableAttrib(attribs.vertexPos);
 
             glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindVertexArray(0);
 
             shader.stop();
             glDisable(GL_BLEND);
