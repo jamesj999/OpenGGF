@@ -192,15 +192,18 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         player.setPinballMode(true);
 
         // Snap player to center of spring (use setCentreX/Y for ROM-compatible center coords)
+        short targetX, targetY;
         if (isDiagonal()) {
             // ROM: ALWAYS adds 0x13 to X (player positioned to the RIGHT of head)
             // H-flip only affects visual rendering, not player positioning
-            player.setCentreX((short) (currentSpriteX + DIAGONAL_PLAYER_X_OFFSET));
-            player.setCentreY((short) (currentSpriteY - DIAGONAL_PLAYER_Y_OFFSET));
+            targetX = (short) (currentSpriteX + DIAGONAL_PLAYER_X_OFFSET);
+            targetY = (short) (currentSpriteY - DIAGONAL_PLAYER_Y_OFFSET);
         } else {
-            player.setCentreX((short) currentSpriteX);
-            player.setCentreY((short) (currentSpriteY - VERTICAL_PLAYER_Y_OFFSET));
+            targetX = (short) currentSpriteX;
+            targetY = (short) (currentSpriteY - VERTICAL_PLAYER_Y_OFFSET);
         }
+        player.setCentreX(targetX);
+        player.setCentreY(targetY);
 
         // Clear velocities
         player.setXSpeed((short) 0);
@@ -577,6 +580,8 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
             AbstractPlayableSprite p = entry.getKey();
             PlayerState ps = entry.getValue();
             if (ps.state != STATE_EMPTY) {
+                short oldX = p.getX();
+                short oldY = p.getY();
                 if (isDiagonal()) {
                     // ROM: ALWAYS adds 0x13 to X (player positioned to the RIGHT of head)
                     // H-flip only affects visual rendering, not player positioning

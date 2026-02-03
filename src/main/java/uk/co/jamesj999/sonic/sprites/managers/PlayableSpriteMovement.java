@@ -862,7 +862,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		if (pushSensors == null) return;
 
 		for (int i = 0; i < 2; i++) {
-			SensorResult result = pushSensors[i].scan((short) 0, (short) 0);
+			Sensor sensor = pushSensors[i];
+			SensorResult result = sensor.scan((short) 0, (short) 0);
 			if (result != null && result.distance() < 0) {
 				moveForSensorResult(result);
 				sprite.setXSpeed((short) 0);
@@ -875,7 +876,9 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		Sensor[] pushSensors = sprite.getPushSensors();
 		if (pushSensors == null) return false;
 
-		SensorResult result = pushSensors[sensorIndex].scan((short) 0, (short) 0);
+		Sensor sensor = pushSensors[sensorIndex];
+		SensorResult result = sensor.scan((short) 0, (short) 0);
+
 		if (result != null && result.distance() < 0) {
 			moveForSensorResult(result);
 			sprite.setXSpeed((short) 0);
