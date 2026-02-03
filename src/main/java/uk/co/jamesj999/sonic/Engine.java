@@ -132,6 +132,16 @@ public class Engine {
 	}
 
 	private void init() {
+		// CRITICAL: Initialize AWT BEFORE GLFW on macOS.
+		// Java2D uses Core Graphics which conflicts with GLFW's Cocoa event handling
+		// if AWT initializes after GLFW. Pre-loading AWT fixes the freeze.
+		if (debugViewEnabled) {
+			java.awt.Toolkit.getDefaultToolkit();
+			// Create and dispose a small image to fully initialize Java2D
+			var img = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_BYTE_GRAY);
+			img.createGraphics().dispose();
+		}
+
 		// Setup an error callback
 		GLFWErrorCallback.createPrint(System.err).set();
 
@@ -267,6 +277,20 @@ public class Engine {
 			IntBuffer pHeight = stack.mallocInt(1);
 			glfwGetFramebufferSize(window, pWidth, pHeight);
 			reshape(pWidth.get(0), pHeight.get(0));
+		}
+
+		// Eagerly initialize debug renderer BEFORE the main loop starts.
+		// This is critical on macOS: the GlyphAtlas uses Java2D which conflicts
+		// with GLFW's event loop if initialized lazily during glfwPollEvents().
+		if (debugViewEnabled) {
+			debugRenderer.updateViewport(viewportWidth, viewportHeight);
+			debugRenderer.eagerInit();
+			// Force GL sync and unbind all state
+			glFinish();
+			glBindTexture(GL_TEXTURE_2D, 0);
+			glBindVertexArray(0);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glUseProgram(0);
 		}
 
 		lastFrameTime = System.nanoTime();

@@ -1156,9 +1156,18 @@ public class LevelManager {
      * This FBO is sampled by the sprite priority shader to determine
      * if low-priority sprites should be hidden behind high-priority tiles.
      */
+    // Debug counter for FBO logging
+    private static int fboDebugCounter = 0;
+
     private void renderHighPriorityTilesToFBO(Camera camera) {
         TilePriorityFBO fbo = graphicsManager.getTilePriorityFBO(cachedScreenWidth, cachedScreenHeight);
         if (fbo == null || !fbo.isInitialized()) {
+            if (fboDebugCounter < 10) {
+                System.out.println("[LevelManager] FBO not available: fbo=" + fbo +
+                    ", initialized=" + (fbo != null ? fbo.isInitialized() : "N/A") +
+                    ", screenW=" + cachedScreenWidth + ", screenH=" + cachedScreenHeight);
+                fboDebugCounter++;
+            }
             return;
         }
 

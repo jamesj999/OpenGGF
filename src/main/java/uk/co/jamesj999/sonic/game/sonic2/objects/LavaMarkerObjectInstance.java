@@ -10,7 +10,7 @@ import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
 
-import static org.lwjgl.opengl.GL11.GL_QUADS;
+import static org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN;
 
 /**
  * HTZ/MTZ Lava Marker Object (Obj31) - Invisible collision hazard marker.
@@ -165,7 +165,7 @@ public class LavaMarkerObjectInstance extends AbstractObjectInstance implements 
         // Semi-transparent fill
         commands.add(new GLCommand(
                 GLCommand.CommandType.RECTI,
-                GL_QUADS,
+                GL_TRIANGLE_FAN,
                 GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
                 r, g, b, 0.5f,
                 x1, y1, x2, y2));
@@ -174,25 +174,25 @@ public class LavaMarkerObjectInstance extends AbstractObjectInstance implements 
         // Top edge
         commands.add(new GLCommand(
                 GLCommand.CommandType.RECTI,
-                GL_QUADS,
+                GL_TRIANGLE_FAN,
                 r, g, b,
                 x1, y1, x2, y1 + 1));
         // Bottom edge
         commands.add(new GLCommand(
                 GLCommand.CommandType.RECTI,
-                GL_QUADS,
+                GL_TRIANGLE_FAN,
                 r, g, b,
                 x1, y2 - 1, x2, y2));
         // Left edge
         commands.add(new GLCommand(
                 GLCommand.CommandType.RECTI,
-                GL_QUADS,
+                GL_TRIANGLE_FAN,
                 r, g, b,
                 x1, y1, x1 + 1, y2));
         // Right edge
         commands.add(new GLCommand(
                 GLCommand.CommandType.RECTI,
-                GL_QUADS,
+                GL_TRIANGLE_FAN,
                 r, g, b,
                 x2 - 1, y1, x2, y2));
     }

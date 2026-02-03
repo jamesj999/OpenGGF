@@ -37,10 +37,10 @@ public class BatchedPatternRenderer {
     private static final int MAX_PATTERNS_PER_BATCH = 4096;
     private static final int COMMAND_POOL_LIMIT = 8;
 
-    // 4 vertices per pattern quad, 2 floats (x,y) per vertex
-    private static final int FLOATS_PER_PATTERN_VERTS = 4 * 2;
-    // 4 vertices per pattern quad, 2 floats (u,v) per vertex
-    private static final int FLOATS_PER_PATTERN_TEXCOORDS = 4 * 2;
+    // 6 vertices per pattern (2 triangles), 2 floats (x,y) per vertex
+    private static final int FLOATS_PER_PATTERN_VERTS = 6 * 2;
+    // 6 vertices per pattern (2 triangles), 2 floats (u,v) per vertex
+    private static final int FLOATS_PER_PATTERN_TEXCOORDS = 6 * 2;
 
     // Pre-allocated buffers - reused each frame
     private final float[] vertexData;
@@ -75,7 +75,7 @@ public class BatchedPatternRenderer {
         this.screenHeight = SonicConfigurationService.getInstance().getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
         this.vertexData = new float[MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS];
         this.texCoordData = new float[MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_TEXCOORDS];
-        this.paletteCoordData = new float[MAX_PATTERNS_PER_BATCH * 4];
+        this.paletteCoordData = new float[MAX_PATTERNS_PER_BATCH * 6];
     }
 
     private final ArrayDeque<BatchRenderCommand> batchCommandPool = new ArrayDeque<>();
@@ -139,31 +139,45 @@ public class BatchedPatternRenderer {
         int vertOffset = patternCount * FLOATS_PER_PATTERN_VERTS;
         int texOffset = patternCount * FLOATS_PER_PATTERN_TEXCOORDS;
 
-        // Add vertices (quad: bottom-left, bottom-right, top-right, top-left)
+        // Add vertices as 2 triangles (6 vertices) for GL_TRIANGLES
+        // Triangle 1: bottom-left, bottom-right, top-right
         vertexData[vertOffset + 0] = x0;
         vertexData[vertOffset + 1] = y0;
         vertexData[vertOffset + 2] = x1;
         vertexData[vertOffset + 3] = y0;
         vertexData[vertOffset + 4] = x1;
         vertexData[vertOffset + 5] = y1;
+        // Triangle 2: bottom-left, top-right, top-left
         vertexData[vertOffset + 6] = x0;
-        vertexData[vertOffset + 7] = y1;
+        vertexData[vertOffset + 7] = y0;
+        vertexData[vertOffset + 8] = x1;
+        vertexData[vertOffset + 9] = y1;
+        vertexData[vertOffset + 10] = x0;
+        vertexData[vertOffset + 11] = y1;
 
-        // Add texture coordinates
+        // Add texture coordinates (matching vertex order)
+        // Triangle 1
         texCoordData[texOffset + 0] = u0;
         texCoordData[texOffset + 1] = v0;
         texCoordData[texOffset + 2] = u1;
         texCoordData[texOffset + 3] = v0;
         texCoordData[texOffset + 4] = u1;
         texCoordData[texOffset + 5] = v1;
+        // Triangle 2
         texCoordData[texOffset + 6] = u0;
-        texCoordData[texOffset + 7] = v1;
+        texCoordData[texOffset + 7] = v0;
+        texCoordData[texOffset + 8] = u1;
+        texCoordData[texOffset + 9] = v1;
+        texCoordData[texOffset + 10] = u0;
+        texCoordData[texOffset + 11] = v1;
 
-        int paletteOffset = patternCount * 4;
+        int paletteOffset = patternCount * 6;
         paletteCoordData[paletteOffset + 0] = paletteIndex;
         paletteCoordData[paletteOffset + 1] = paletteIndex;
         paletteCoordData[paletteOffset + 2] = paletteIndex;
         paletteCoordData[paletteOffset + 3] = paletteIndex;
+        paletteCoordData[paletteOffset + 4] = paletteIndex;
+        paletteCoordData[paletteOffset + 5] = paletteIndex;
         patternCount++;
 
         return true;
@@ -257,31 +271,45 @@ public class BatchedPatternRenderer {
         int vertOffset = patternCount * FLOATS_PER_PATTERN_VERTS;
         int texOffset = patternCount * FLOATS_PER_PATTERN_TEXCOORDS;
 
-        // Add vertices (quad: bottom-left, bottom-right, top-right, top-left)
+        // Add vertices as 2 triangles (6 vertices) for GL_TRIANGLES
+        // Triangle 1: bottom-left, bottom-right, top-right
         vertexData[vertOffset + 0] = x0;
         vertexData[vertOffset + 1] = y0;
         vertexData[vertOffset + 2] = x1;
         vertexData[vertOffset + 3] = y0;
         vertexData[vertOffset + 4] = x1;
         vertexData[vertOffset + 5] = y1;
+        // Triangle 2: bottom-left, top-right, top-left
         vertexData[vertOffset + 6] = x0;
-        vertexData[vertOffset + 7] = y1;
+        vertexData[vertOffset + 7] = y0;
+        vertexData[vertOffset + 8] = x1;
+        vertexData[vertOffset + 9] = y1;
+        vertexData[vertOffset + 10] = x0;
+        vertexData[vertOffset + 11] = y1;
 
-        // Add texture coordinates
+        // Add texture coordinates (matching vertex order)
+        // Triangle 1
         texCoordData[texOffset + 0] = u0;
         texCoordData[texOffset + 1] = v0;
         texCoordData[texOffset + 2] = u1;
         texCoordData[texOffset + 3] = v0;
         texCoordData[texOffset + 4] = u1;
         texCoordData[texOffset + 5] = v1;
+        // Triangle 2
         texCoordData[texOffset + 6] = u0;
-        texCoordData[texOffset + 7] = v1;
+        texCoordData[texOffset + 7] = v0;
+        texCoordData[texOffset + 8] = u1;
+        texCoordData[texOffset + 9] = v1;
+        texCoordData[texOffset + 10] = u0;
+        texCoordData[texOffset + 11] = v1;
 
-        int paletteOffset = patternCount * 4;
+        int paletteOffset = patternCount * 6;
         paletteCoordData[paletteOffset + 0] = paletteIndex;
         paletteCoordData[paletteOffset + 1] = paletteIndex;
         paletteCoordData[paletteOffset + 2] = paletteIndex;
         paletteCoordData[paletteOffset + 3] = paletteIndex;
+        paletteCoordData[paletteOffset + 4] = paletteIndex;
+        paletteCoordData[paletteOffset + 5] = paletteIndex;
         patternCount++;
 
         return true;
@@ -301,12 +329,21 @@ public class BatchedPatternRenderer {
         return patternCount;
     }
 
+    // Debug counter to limit log spam
+    private static int debugFrameCounter = 0;
+
     /**
      * End the current batch and return a command that can be queued.
      * This creates a snapshot of the batch data so it can be rendered later in the
      * correct order.
      */
     public GLCommandable endBatch() {
+        // Debug output for first few frames
+        if (debugFrameCounter < 10) {
+            System.out.println("[BatchedPatternRenderer] endBatch: patternCount=" + patternCount);
+            debugFrameCounter++;
+        }
+
         if (patternCount == 0) {
             batchActive = false;
             return null;
@@ -385,25 +422,37 @@ public class BatchedPatternRenderer {
         int vertOffset = patternCount * FLOATS_PER_PATTERN_VERTS;
         int texOffset = patternCount * FLOATS_PER_PATTERN_TEXCOORDS;
 
-        // Add vertices (quad: bottom-left, bottom-right, top-right, top-left)
+        // Add vertices as 2 triangles (6 vertices) for GL_TRIANGLES
+        // Triangle 1: bottom-left, bottom-right, top-right
         vertexData[vertOffset + 0] = x0;
         vertexData[vertOffset + 1] = y0;
         vertexData[vertOffset + 2] = x1;
         vertexData[vertOffset + 3] = y0;
         vertexData[vertOffset + 4] = x1;
         vertexData[vertOffset + 5] = y1;
+        // Triangle 2: bottom-left, top-right, top-left
         vertexData[vertOffset + 6] = x0;
-        vertexData[vertOffset + 7] = y1;
+        vertexData[vertOffset + 7] = y0;
+        vertexData[vertOffset + 8] = x1;
+        vertexData[vertOffset + 9] = y1;
+        vertexData[vertOffset + 10] = x0;
+        vertexData[vertOffset + 11] = y1;
 
-        // Add texture coordinates
+        // Add texture coordinates (matching vertex order)
+        // Triangle 1
         texCoordData[texOffset + 0] = u0;
         texCoordData[texOffset + 1] = v0;
         texCoordData[texOffset + 2] = u1;
         texCoordData[texOffset + 3] = v0;
         texCoordData[texOffset + 4] = u1;
         texCoordData[texOffset + 5] = v1;
+        // Triangle 2
         texCoordData[texOffset + 6] = u0;
-        texCoordData[texOffset + 7] = v1;
+        texCoordData[texOffset + 7] = v0;
+        texCoordData[texOffset + 8] = u1;
+        texCoordData[texOffset + 9] = v1;
+        texCoordData[texOffset + 10] = u0;
+        texCoordData[texOffset + 11] = v1;
 
         patternCount++;
 
@@ -515,7 +564,7 @@ public class BatchedPatternRenderer {
             this.usePriorityShader = usePriorityShader;
             this.vertexFloatCount = patternCount * FLOATS_PER_PATTERN_VERTS;
             this.texCoordFloatCount = patternCount * FLOATS_PER_PATTERN_TEXCOORDS;
-            this.paletteFloatCount = patternCount * 4;
+            this.paletteFloatCount = patternCount * 6;
             vertexBuffer = ensureBuffer(vertexBuffer, vertexFloatCount);
             texCoordBuffer = ensureBuffer(texCoordBuffer, texCoordFloatCount);
             paletteCoordBuffer = ensureBuffer(paletteCoordBuffer, paletteFloatCount);
@@ -532,6 +581,9 @@ public class BatchedPatternRenderer {
             paletteCoordBuffer.put(paletteCoordData, 0, paletteFloatCount);
             paletteCoordBuffer.flip();
         }
+
+        // Debug counter for execute method
+        private static int executeDebugCounter = 0;
 
         @Override
         public void execute(int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
@@ -550,6 +602,16 @@ public class BatchedPatternRenderer {
                 shader = gm.getShaderProgram();
             }
 
+            // Debug output for first few executions
+            if (executeDebugCounter < 5) {
+                System.out.println("[BatchRenderCommand] execute: patterns=" + patternCount +
+                    " camera=(" + cameraX + "," + cameraY + ")" +
+                    " shader=" + (shader != null ? shader.getProgramId() : "null") +
+                    " paletteTexId=" + gm.getCombinedPaletteTextureId() +
+                    " atlasTexId=" + gm.getPatternAtlasTextureId());
+                executeDebugCounter++;
+            }
+
             // Setup state once for entire batch
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -561,7 +623,22 @@ public class BatchedPatternRenderer {
             glUniform1i(shader.getIndexedColorTextureLocation(), 1);
             shader.setPaletteLine(-1.0f);
 
+            // Set projection matrix uniform - REQUIRED for correct rendering
+            int projectionLoc = glGetUniformLocation(shader.getProgramId(), "ProjectionMatrix");
+            if (projectionLoc != -1) {
+                uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
+                if (engine != null) {
+                    float[] projMatrix = engine.getProjectionMatrixBuffer();
+                    if (projMatrix != null) {
+                        glUniformMatrix4fv(projectionLoc, false, projMatrix);
+                    }
+                }
+            }
+
             // Set camera offset uniform (replaces glTranslatef)
+            // X is negated to scroll objects left when camera moves right
+            // Y is NOT negated because vertex Y is already in screen space (flipped from Genesis coords)
+            // When camera moves down in Genesis (cameraY increases), objects should move UP on screen
             int cameraOffsetLoc = glGetUniformLocation(shader.getProgramId(), "CameraOffset");
             if (cameraOffsetLoc != -1) {
                 glUniform2f(cameraOffsetLoc, -cameraX, cameraY);
@@ -669,7 +746,7 @@ public class BatchedPatternRenderer {
             glVertexAttribPointer(ATTRIB_PALETTE, 1, GL_FLOAT, false, 0, 0L);
             glEnableVertexAttribArray(ATTRIB_PALETTE);
 
-            glDrawArrays(GL_QUADS, 0, patternCount * 4);
+            glDrawArrays(GL_TRIANGLES, 0, patternCount * 6);
 
             // Cleanup state
             glDisableVertexAttribArray(ATTRIB_POSITION);
@@ -811,7 +888,21 @@ public class BatchedPatternRenderer {
                 glUniform1i(indexedTexLoc, 0);
             }
 
+            // Set projection matrix uniform - REQUIRED for correct rendering
+            int projectionLoc = glGetUniformLocation(shadowShader.getProgramId(), "ProjectionMatrix");
+            if (projectionLoc != -1) {
+                uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
+                if (engine != null) {
+                    float[] projMatrix = engine.getProjectionMatrixBuffer();
+                    if (projMatrix != null) {
+                        glUniformMatrix4fv(projectionLoc, false, projMatrix);
+                    }
+                }
+            }
+
             // Set camera offset uniform (replaces glTranslatef)
+            // X is negated to scroll objects left when camera moves right
+            // Y is NOT negated because vertex Y is already in screen space (flipped from Genesis coords)
             int cameraOffsetLoc = glGetUniformLocation(shadowShader.getProgramId(), "CameraOffset");
             if (cameraOffsetLoc != -1) {
                 glUniform2f(cameraOffsetLoc, -cameraX, cameraY);
@@ -841,7 +932,7 @@ public class BatchedPatternRenderer {
             glVertexAttribPointer(ATTRIB_TEXCOORD, 2, GL_FLOAT, false, 0, 0L);
             glEnableVertexAttribArray(ATTRIB_TEXCOORD);
 
-            glDrawArrays(GL_QUADS, 0, patternCount * 4);
+            glDrawArrays(GL_TRIANGLES, 0, patternCount * 6);
 
             // Cleanup state
             glDisableVertexAttribArray(ATTRIB_POSITION);

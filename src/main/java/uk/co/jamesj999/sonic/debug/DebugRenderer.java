@@ -69,6 +69,19 @@ public class DebugRenderer {
 	private String sonicCode = configService
 			.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
 
+	/**
+	 * Eagerly initializes the glyph batch renderer.
+	 * Call this BEFORE the main loop starts to avoid macOS freeze issues.
+	 * The GlyphAtlas uses Java2D which conflicts with GLFW's event loop.
+	 */
+	public void eagerInit() {
+		if (glyphBatch == null) {
+			float scale = (float) Math.max(scaleX, scaleY);
+			glyphBatch = new GlyphBatchRenderer();
+			glyphBatch.init(new Font("SansSerif", Font.PLAIN, 11), scale);
+		}
+	}
+
 	public void renderDebugInfo() {
                 // Lazy initialization of glyph batch renderer
                 float scale = (float) Math.max(scaleX, scaleY);

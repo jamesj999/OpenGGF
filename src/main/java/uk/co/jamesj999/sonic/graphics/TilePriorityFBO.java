@@ -50,9 +50,11 @@ public class TilePriorityFBO {
 
         // Configure texture
         glBindTexture(GL_TEXTURE_2D, textureId);
-        // Use single-channel RED format for priority (0 = no tile, 1 = high-priority tile)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, width, height, 0,
-                GL_RED, GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+        // Use RGBA format for priority (R channel: 0 = no tile, 1 = high-priority tile)
+        // Note: Changed from GL_R8 to GL_RGBA8 for macOS OpenGL 4.1 compatibility.
+        // The shader only reads the .r component, so the extra channels are unused.
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0,
+                GL_RGBA, GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -68,9 +70,16 @@ public class TilePriorityFBO {
         int status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (status != GL_FRAMEBUFFER_COMPLETE) {
             LOGGER.severe("Tile priority FBO creation failed with status: " + status);
+        } else {
+            LOGGER.info("TilePriorityFBO FBO is complete. FBO ID=" + fboId + ", Texture ID=" + textureId);
         }
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // Ensure texture is fully complete for macOS driver compatibility
+        // by doing a sync and verifying the texture state
+        glFinish();
+
         initialized = true;
 
         LOGGER.info("TilePriorityFBO initialized: " + width + "x" + height);
