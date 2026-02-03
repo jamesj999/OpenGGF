@@ -1,7 +1,6 @@
 package uk.co.jamesj999.sonic.tools.disasm;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Path;
 import java.util.ArrayList;

@@ -2,7 +2,6 @@ package uk.co.jamesj999.sonic.level.objects;
 
 import uk.co.jamesj999.sonic.game.GameServices;
 
-import uk.co.jamesj999.sonic.game.GameStateManager;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.PatternDesc;

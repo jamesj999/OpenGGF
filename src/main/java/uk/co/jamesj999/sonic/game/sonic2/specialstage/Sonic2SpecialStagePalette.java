@@ -3,7 +3,6 @@ package uk.co.jamesj999.sonic.game.sonic2.specialstage;
 import uk.co.jamesj999.sonic.game.GameServices;
 
 import uk.co.jamesj999.sonic.data.Rom;
-import uk.co.jamesj999.sonic.data.RomManager;
 import uk.co.jamesj999.sonic.level.Palette;
 
 import java.io.IOException;

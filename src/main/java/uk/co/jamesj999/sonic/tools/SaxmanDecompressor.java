@@ -1,6 +1,5 @@
 package uk.co.jamesj999.sonic.tools;
 
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**

@@ -1,6 +1,5 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 
-import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ObjectAnimationState;

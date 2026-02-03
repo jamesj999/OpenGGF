@@ -3,7 +3,6 @@ package uk.co.jamesj999.sonic.game.sonic2;
 import uk.co.jamesj999.sonic.game.ZoneArtProvider;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
-import uk.co.jamesj999.sonic.tools.disasm.CompressionType;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -12,8 +12,6 @@ import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.*;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
-import uk.co.jamesj999.sonic.camera.Camera;
-import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.slotmachine.CNZSlotMachineManager;
 import uk.co.jamesj999.sonic.level.slotmachine.CNZSlotMachineRenderer;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
