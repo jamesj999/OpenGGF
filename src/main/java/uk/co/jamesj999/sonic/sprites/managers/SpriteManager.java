@@ -160,17 +160,20 @@ public class SpriteManager {
 				playable.setJumpInputPressed(space);
 				playable.setDirectionalInputPressed(left, right);
 
-				playable.getMovementManager().handleMovement(effectiveUp, effectiveDown, effectiveLeft,
-						effectiveRight, effectiveJump, effectiveTest, speedUp, slowDown);
-				/// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
-				// This ensures plane switchers check the current frame's position/air state.
-				levelManager.applyPlaneSwitchers(playable);
-				// Update solid object contacts AFTER terrain collision but BEFORE animation.
-				// This ensures pushing flag is set correctly for both terrain and solid objects
-				// before animation resolves which animation to display.
+				// ROM-accurate collision order:
+				// 1. Solid object collision FIRST (objects can push player)
+				// 2. Terrain collision SECOND (naturally corrects any wall embedding)
+				// 3. Plane switchers THIRD
+				// This matches ROM where object updates (including SolidObject) happen
+				// before Sonic's terrain collision in AnglePos/Sonic_DoLevelCollision.
 				if (levelManager.getObjectManager() != null) {
 					levelManager.getObjectManager().updateSolidContacts(playable);
 				}
+				playable.getMovementManager().handleMovement(effectiveUp, effectiveDown, effectiveLeft,
+						effectiveRight, effectiveJump, effectiveTest, speedUp, slowDown);
+				// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
+				// This ensures plane switchers check the current frame's position/air state.
+				levelManager.applyPlaneSwitchers(playable);
 				playable.getAnimationManager().update(frameCounter);
 				playable.tickStatus();
 				playable.endOfTick();
@@ -185,13 +188,13 @@ public class SpriteManager {
 
 		for (Sprite sprite : sprites) {
 			if (sprite instanceof AbstractPlayableSprite playable) {
-				playable.getMovementManager().handleMovement(false, false, false, false, false, false, false, false);
-				/// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
-				levelManager.applyPlaneSwitchers(playable);
-				// Update solid object contacts AFTER terrain collision but BEFORE animation
+				// ROM-accurate collision order: solid objects first, then terrain
 				if (levelManager.getObjectManager() != null) {
 					levelManager.getObjectManager().updateSolidContacts(playable);
 				}
+				playable.getMovementManager().handleMovement(false, false, false, false, false, false, false, false);
+				// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
+				levelManager.applyPlaneSwitchers(playable);
 				playable.getAnimationManager().update(frameCounter);
 				playable.tickStatus();
 				playable.endOfTick();
