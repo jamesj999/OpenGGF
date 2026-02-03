@@ -15,11 +15,13 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE;
+import static org.lwjgl.opengl.GL30.GL_R8;
 
 /**
  * Pre-renders ASCII glyphs to a texture atlas for GPU-accelerated text rendering.
  * Supports multiple font sizes (SMALL, MEDIUM, LARGE) packed into a single 1024x1024 texture.
- * Uses GL_LUMINANCE for single-channel grayscale with antialiasing for smooth outlines.
+ * Uses GL_RED for single-channel grayscale with antialiasing for smooth outlines.
  */
 public class GlyphAtlas {
     private static final Logger LOGGER = Logger.getLogger(GlyphAtlas.class.getName());
@@ -182,13 +184,13 @@ public class GlyphAtlas {
         // Use LINEAR filtering for smooth antialiased text
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        // Use GL_LUMINANCE for single-channel grayscale (GLSL 1.10 compatible)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE,
+        // Use GL_RED for single-channel grayscale (GL_LUMINANCE removed in core profile)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8,
                 ATLAS_SIZE, ATLAS_SIZE, 0,
-                GL_LUMINANCE, GL_UNSIGNED_BYTE, buffer);
+                GL_RED, GL_UNSIGNED_BYTE, buffer);
 
         glBindTexture(GL_TEXTURE_2D, 0);
 
