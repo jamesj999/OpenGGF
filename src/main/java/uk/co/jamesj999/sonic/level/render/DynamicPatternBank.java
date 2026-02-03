@@ -35,7 +35,7 @@ public class DynamicPatternBank {
             this.graphicsManager = graphicsManager;
             return;
         }
-        if (graphicsManager == null || graphicsManager.getGraphics() == null) {
+        if (graphicsManager == null || !graphicsManager.isGlInitialized()) {
             this.graphicsManager = graphicsManager;
             return;
         }

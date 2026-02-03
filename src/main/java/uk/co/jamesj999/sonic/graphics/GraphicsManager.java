@@ -9,11 +9,13 @@ import uk.co.jamesj999.sonic.level.render.BackgroundRenderer;
 
 import static uk.co.jamesj999.sonic.level.LevelConstants.*;
 
-import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.level.slotmachine.CNZSlotMachineRenderer;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.util.GLBuffers;
+import org.lwjgl.system.MemoryUtil;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL20.*;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -33,14 +35,16 @@ public class GraphicsManager {
 	private final Map<String, Integer> paletteTextureMap = new HashMap<>(); // Map for palette textures
 	private Integer combinedPaletteTextureId;
 	private PatternAtlas patternAtlas;
-	private final ByteBuffer paletteUploadBuffer = GLBuffers.newDirectByteBuffer(COLORS_PER_PALETTE * 4);
-	private final ByteBuffer underwaterPaletteUploadBuffer = GLBuffers.newDirectByteBuffer(64 * 4);
+	// Lazily allocated to avoid LWJGL native library loading in headless tests
+	private ByteBuffer paletteUploadBuffer;
+	private ByteBuffer underwaterPaletteUploadBuffer;
 
 	private static final int ATLAS_WIDTH = 1024;
 	private static final int ATLAS_HEIGHT = 1024;
 
-	private final Camera camera = Camera.getInstance();
-	private GL2 graphics;
+	// Lazily fetched to avoid initialization chain issues in headless tests
+	private Camera camera;
+	private boolean glInitialized = false;
 	private ShaderProgram shaderProgram;
 	private ShaderProgram defaultShaderProgram;
 	private WaterShaderProgram waterShaderProgram;
@@ -122,29 +126,29 @@ public class GraphicsManager {
 	/**
 	 * Initialize the GraphicsManager with shader loading.
 	 */
-	public void init(GL2 gl, String pixelShaderPath) throws IOException {
+	public void init(String pixelShaderPath) throws IOException {
 		if (headlessMode) {
 			return;
 		}
-		this.graphics = gl;
+		this.glInitialized = true;
 		this.patternAtlas = new PatternAtlas(ATLAS_WIDTH, ATLAS_HEIGHT);
-		this.patternAtlas.init(gl);
-		this.defaultShaderProgram = new ShaderProgram(gl, pixelShaderPath); // Load default shader
-		this.defaultShaderProgram.cacheUniformLocations(gl);
+		this.patternAtlas.init();
+		this.defaultShaderProgram = new ShaderProgram(pixelShaderPath); // Load default shader
+		this.defaultShaderProgram.cacheUniformLocations();
 
-		this.waterShaderProgram = new WaterShaderProgram(gl, WATER_SHADER_PATH); // Load water shader
-		this.waterShaderProgram.cacheUniformLocations(gl);
+		this.waterShaderProgram = new WaterShaderProgram(WATER_SHADER_PATH); // Load water shader
+		this.waterShaderProgram.cacheUniformLocations();
 
 		this.currentShaderProgram = this.defaultShaderProgram; // Start with default
 		this.shaderProgram = this.currentShaderProgram; // Compatibility
-		this.debugShaderProgram = new ShaderProgram(gl, DEBUG_SHADER_PATH);
-		this.fadeShaderProgram = new ShaderProgram(gl, FADE_SHADER_PATH);
-		this.shadowShaderProgram = new ShaderProgram(gl, SHADOW_SHADER_PATH);
-		this.shadowShaderProgram.cacheUniformLocations(gl);
+		this.debugShaderProgram = new ShaderProgram(DEBUG_SHADER_PATH);
+		this.fadeShaderProgram = new ShaderProgram(FADE_SHADER_PATH);
+		this.shadowShaderProgram = new ShaderProgram(SHADOW_SHADER_PATH);
+		this.shadowShaderProgram.cacheUniformLocations();
 		this.tilemapGpuRenderer = new TilemapGpuRenderer();
-		this.tilemapGpuRenderer.init(gl, TILEMAP_SHADER_PATH);
+		this.tilemapGpuRenderer.init(TILEMAP_SHADER_PATH);
 		this.instancedPatternRenderer = new InstancedPatternRenderer();
-		this.instancedPatternRenderer.init(gl, INSTANCED_VERTEX_SHADER_PATH, pixelShaderPath, WATER_SHADER_PATH);
+		this.instancedPatternRenderer.init(INSTANCED_VERTEX_SHADER_PATH, pixelShaderPath, WATER_SHADER_PATH);
 
 		// Initialize fade manager with shader
 		this.fadeManager = FadeManager.getInstance();
@@ -158,8 +162,8 @@ public class GraphicsManager {
 		this.uiRenderPipeline.setFadeManager(this.fadeManager);
 
 		// Initialize sprite priority rendering system
-		this.spritePriorityShaderProgram = new SpritePriorityShaderProgram(gl, SPRITE_PRIORITY_SHADER_PATH);
-		this.spritePriorityShaderProgram.cacheUniformLocations(gl);
+		this.spritePriorityShaderProgram = new SpritePriorityShaderProgram(SPRITE_PRIORITY_SHADER_PATH);
+		this.spritePriorityShaderProgram.cacheUniformLocations();
 		this.tilePriorityFBO = new TilePriorityFBO();
 		// FBO will be initialized when first needed with actual screen dimensions
 	}
@@ -170,7 +174,7 @@ public class GraphicsManager {
 	 */
 	public void initHeadless() {
 		this.headlessMode = true;
-		this.graphics = null;
+		this.glInitialized = false;
 		if (this.patternAtlas == null) {
 			this.patternAtlas = new PatternAtlas(ATLAS_WIDTH, ATLAS_HEIGHT);
 		}
@@ -193,10 +197,43 @@ public class GraphicsManager {
 	}
 
 	/**
-	 * Set the current GL2 context (in case it needs resetting).
+	 * Mark the GL context as initialized.
 	 */
-	public void setGraphics(GL2 gl) {
-		graphics = gl;
+	public void setGlInitialized(boolean initialized) {
+		this.glInitialized = initialized;
+	}
+
+	/**
+	 * Lazily get the Camera instance.
+	 * This avoids triggering Camera singleton initialization during GraphicsManager construction.
+	 */
+	private Camera getCamera() {
+		if (camera == null) {
+			camera = Camera.getInstance();
+		}
+		return camera;
+	}
+
+	/**
+	 * Lazily allocate the palette upload buffer.
+	 * This avoids triggering LWJGL native library loading during GraphicsManager construction.
+	 */
+	private ByteBuffer ensurePaletteUploadBuffer() {
+		if (paletteUploadBuffer == null) {
+			paletteUploadBuffer = MemoryUtil.memAlloc(COLORS_PER_PALETTE * 4);
+		}
+		return paletteUploadBuffer;
+	}
+
+	/**
+	 * Lazily allocate the underwater palette upload buffer.
+	 * This avoids triggering LWJGL native library loading during GraphicsManager construction.
+	 */
+	private ByteBuffer ensureUnderwaterPaletteUploadBuffer() {
+		if (underwaterPaletteUploadBuffer == null) {
+			underwaterPaletteUploadBuffer = MemoryUtil.memAlloc(64 * 4);
+		}
+		return underwaterPaletteUploadBuffer;
 	}
 
 	/**
@@ -204,7 +241,8 @@ public class GraphicsManager {
 	 * Uses shake-adjusted camera positions so sprites shake in sync with FG tiles.
 	 */
 	public void flush() {
-		flushWithCamera(camera.getXWithShake(), camera.getYWithShake(), camera.getWidth(), camera.getHeight());
+		Camera cam = getCamera();
+		flushWithCamera(cam.getXWithShake(), cam.getYWithShake(), cam.getWidth(), cam.getHeight());
 	}
 
 	/**
@@ -212,7 +250,7 @@ public class GraphicsManager {
 	 * Use this for screen-space rendering by passing (0, 0) for camera position.
 	 */
 	public void flushWithCamera(short cameraX, short cameraY, short cameraWidth, short cameraHeight) {
-		if (headlessMode || commands.isEmpty() || graphics == null) {
+		if (headlessMode || commands.isEmpty() || !glInitialized) {
 			commands.clear();
 			return;
 		}
@@ -221,11 +259,11 @@ public class GraphicsManager {
 		PatternRenderCommand.resetFrameState();
 
 		for (GLCommandable command : commands) {
-			command.execute(graphics, cameraX, cameraY, cameraWidth, cameraHeight);
+			command.execute(cameraX, cameraY, cameraWidth, cameraHeight);
 		}
 
 		// Cleanup pattern render state after all commands
-		PatternRenderCommand.cleanupFrameState(graphics);
+		PatternRenderCommand.cleanupFrameState();
 
 		commands.clear();
 	}
@@ -235,7 +273,8 @@ public class GraphicsManager {
 	 * Used for overlays like title cards and results screens.
 	 */
 	public void flushScreenSpace() {
-		flushWithCamera((short) 0, (short) 0, camera.getWidth(), camera.getHeight());
+		Camera cam = getCamera();
+		flushWithCamera((short) 0, (short) 0, cam.getWidth(), cam.getHeight());
 	}
 
 	/**
@@ -243,24 +282,24 @@ public class GraphicsManager {
 	 * Call this between shader-based and fixed-function rendering phases.
 	 */
 	public void resetForFixedFunction() {
-		if (headlessMode || graphics == null) {
+		if (headlessMode || !glInitialized) {
 			return;
 		}
 		// Ensure no shader is active
-		graphics.glUseProgram(0);
+		glUseProgram(0);
 		// Reset texture state
-		graphics.glActiveTexture(GL2.GL_TEXTURE0);
-		graphics.glBindTexture(GL2.GL_TEXTURE_2D, 0);
-		graphics.glActiveTexture(GL2.GL_TEXTURE1);
-		graphics.glBindTexture(GL2.GL_TEXTURE_2D, 0);
-		graphics.glActiveTexture(GL2.GL_TEXTURE0);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE0);
 		// Disable texturing for solid color drawing
-		graphics.glDisable(GL2.GL_TEXTURE_2D);
+		glDisable(GL_TEXTURE_2D);
 		// Reset color to white
-		graphics.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+		glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 		// Reset matrix
-		graphics.glMatrixMode(GL2.GL_MODELVIEW);
-		graphics.glLoadIdentity();
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
 	}
 
 	/**
@@ -268,20 +307,20 @@ public class GraphicsManager {
 	 */
 	public void cachePatternTexture(Pattern pattern, int patternId) {
 		ensurePatternAtlas();
-		if (headlessMode || graphics == null) {
-			patternAtlas.cachePattern(null, pattern, patternId);
+		if (headlessMode || !glInitialized) {
+			patternAtlas.cachePatternHeadless(pattern, patternId);
 			return;
 		}
-		patternAtlas.cachePattern(graphics, pattern, patternId);
+		patternAtlas.cachePattern(pattern, patternId);
 	}
 
 	public void updatePatternTexture(Pattern pattern, int patternId) {
 		ensurePatternAtlas();
-		if (headlessMode || graphics == null) {
-			patternAtlas.updatePattern(null, pattern, patternId);
+		if (headlessMode || !glInitialized) {
+			patternAtlas.updatePatternHeadless(pattern, patternId);
 			return;
 		}
-		patternAtlas.updatePattern(graphics, pattern, patternId);
+		patternAtlas.updatePattern(pattern, patternId);
 	}
 
 	/**
@@ -324,18 +363,21 @@ public class GraphicsManager {
 			return;
 		}
 		if (combinedPaletteTextureId == null) {
-			combinedPaletteTextureId = glGenTexture();
-			ByteBuffer emptyBuffer = GLBuffers.newDirectByteBuffer(COLORS_PER_PALETTE * 4 * 4);
-			graphics.glBindTexture(GL2.GL_TEXTURE_2D, combinedPaletteTextureId);
-			graphics.glTexImage2D(GL2.GL_TEXTURE_2D, 0, GL2.GL_RGBA, 16, 4, 0, GL2.GL_RGBA, GL2.GL_UNSIGNED_BYTE,
-					emptyBuffer);
-			graphics.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_S, GL2.GL_CLAMP_TO_EDGE);
-			graphics.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_T, GL2.GL_CLAMP_TO_EDGE);
-			graphics.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_NEAREST);
-			graphics.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_NEAREST);
+			combinedPaletteTextureId = glGenTextures();
+			ByteBuffer emptyBuffer = MemoryUtil.memAlloc(COLORS_PER_PALETTE * 4 * 4);
+			try {
+				glBindTexture(GL_TEXTURE_2D, combinedPaletteTextureId);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 16, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, emptyBuffer);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			} finally {
+				MemoryUtil.memFree(emptyBuffer);
+			}
 		}
 
-		ByteBuffer paletteBuffer = paletteUploadBuffer;
+		ByteBuffer paletteBuffer = ensurePaletteUploadBuffer();
 		paletteBuffer.clear();
 		for (int i = 0; i < COLORS_PER_PALETTE; i++) {
 			Palette.Color color = palette.getColor(i);
@@ -350,9 +392,8 @@ public class GraphicsManager {
 		}
 		paletteBuffer.flip();
 
-		graphics.glBindTexture(GL2.GL_TEXTURE_2D, combinedPaletteTextureId);
-		graphics.glTexSubImage2D(GL2.GL_TEXTURE_2D, 0, 0, paletteId, 16, 1, GL2.GL_RGBA, GL2.GL_UNSIGNED_BYTE,
-				paletteBuffer);
+		glBindTexture(GL_TEXTURE_2D, combinedPaletteTextureId);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, paletteId, 16, 1, GL_RGBA, GL_UNSIGNED_BYTE, paletteBuffer);
 
 		paletteTextureMap.put("palette_" + paletteId, combinedPaletteTextureId);
 	}
@@ -708,16 +749,16 @@ public class GraphicsManager {
 			return;
 
 		if (underwaterPaletteTextureId == null) {
-			underwaterPaletteTextureId = glGenTexture();
-			graphics.glBindTexture(GL2.GL_TEXTURE_2D, underwaterPaletteTextureId);
-			graphics.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_S, GL2.GL_CLAMP_TO_EDGE);
-			graphics.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_T, GL2.GL_CLAMP_TO_EDGE);
-			graphics.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_NEAREST);
-			graphics.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_NEAREST);
+			underwaterPaletteTextureId = glGenTextures();
+			glBindTexture(GL_TEXTURE_2D, underwaterPaletteTextureId);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		}
 
 		// Upload 64 colors (16x4)
-		ByteBuffer paletteBuffer = underwaterPaletteUploadBuffer; // 64 cols * 4 bytes (RGBA)
+		ByteBuffer paletteBuffer = ensureUnderwaterPaletteUploadBuffer(); // 64 cols * 4 bytes (RGBA)
 		paletteBuffer.clear();
 
 		for (int pIndex = 0; pIndex < 4; pIndex++) {
@@ -746,26 +787,25 @@ public class GraphicsManager {
 		}
 		paletteBuffer.flip();
 
-		graphics.glBindTexture(GL2.GL_TEXTURE_2D, underwaterPaletteTextureId);
-		graphics.glTexImage2D(GL2.GL_TEXTURE_2D, 0, GL2.GL_RGBA, 16, 4, 0, GL2.GL_RGBA, GL2.GL_UNSIGNED_BYTE,
-				paletteBuffer);
+		glBindTexture(GL_TEXTURE_2D, underwaterPaletteTextureId);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 16, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, paletteBuffer);
 	}
 
 	/**
 	 * Cleanup method to delete textures and release resources.
 	 */
 	public void cleanup() {
-		if (headlessMode || graphics == null) {
+		if (headlessMode || !glInitialized) {
 			// In headless mode, just clear the tracking maps
 			if (patternAtlas != null) {
-				patternAtlas.cleanup(null);
+				patternAtlas.cleanupHeadless();
 			}
 			BatchedPatternRenderer existingBatch = BatchedPatternRenderer.getInstanceIfInitialized();
 			if (existingBatch != null) {
-				existingBatch.cleanup(null);
+				existingBatch.cleanupHeadless();
 			}
 			if (instancedPatternRenderer != null) {
-				instancedPatternRenderer.cleanup(null);
+				instancedPatternRenderer.cleanupHeadless();
 			}
 			paletteTextureMap.clear();
 			combinedPaletteTextureId = null;
@@ -773,74 +813,72 @@ public class GraphicsManager {
 		}
 		// Delete pattern atlas texture
 		if (patternAtlas != null) {
-			patternAtlas.cleanup(graphics);
+			patternAtlas.cleanup();
 		}
 		// Delete palette textures
 		for (int textureId : new java.util.HashSet<>(paletteTextureMap.values())) {
-			graphics.glDeleteTextures(1, new int[] { textureId }, 0);
+			glDeleteTextures(textureId);
 		}
 		// Cleanup shader program
 		if (defaultShaderProgram != null) {
-			defaultShaderProgram.cleanup(graphics);
+			defaultShaderProgram.cleanup();
 		}
 		if (waterShaderProgram != null) {
-			waterShaderProgram.cleanup(graphics);
+			waterShaderProgram.cleanup();
 		}
 		if (debugShaderProgram != null) {
-			debugShaderProgram.cleanup(graphics);
+			debugShaderProgram.cleanup();
 		}
 		if (fadeShaderProgram != null) {
-			fadeShaderProgram.cleanup(graphics);
+			fadeShaderProgram.cleanup();
 		}
 		if (shadowShaderProgram != null) {
-			shadowShaderProgram.cleanup(graphics);
+			shadowShaderProgram.cleanup();
 		}
 		if (cnzSlotsShaderProgram != null) {
-			cnzSlotsShaderProgram.cleanup(graphics);
+			cnzSlotsShaderProgram.cleanup();
 		}
 		if (cnzSlotMachineRenderer != null) {
-			cnzSlotMachineRenderer.cleanup(graphics);
+			cnzSlotMachineRenderer.cleanup();
 		}
 		if (tilemapGpuRenderer != null) {
-			tilemapGpuRenderer.cleanup(graphics);
+			tilemapGpuRenderer.cleanup();
 		}
 		BatchedPatternRenderer existingBatch = BatchedPatternRenderer.getInstanceIfInitialized();
 		if (existingBatch != null) {
-			existingBatch.cleanup(graphics);
+			existingBatch.cleanup();
 		}
 		if (instancedPatternRenderer != null) {
-			instancedPatternRenderer.cleanup(graphics);
+			instancedPatternRenderer.cleanup();
 		}
 		// Sprite priority rendering cleanup
 		if (spritePriorityShaderProgram != null) {
-			spritePriorityShaderProgram.cleanup(graphics);
+			spritePriorityShaderProgram.cleanup();
 		}
 		if (tilePriorityFBO != null) {
-			tilePriorityFBO.cleanup(graphics);
+			tilePriorityFBO.cleanup();
 		}
 		// Reset fade manager
 		if (fadeManager != null) {
-			fadeManager.cleanup(graphics);
+			fadeManager.cleanup();
 			fadeManager.cancel();
 			fadeManager = null;
 		}
-	}
-
-	/**
-	 * Generate a new texture ID.
-	 */
-	private int glGenTexture() {
-		int[] texture = new int[1];
-		graphics.glGenTextures(1, texture, 0);
-		return texture[0];
+		// Free pre-allocated buffers
+		if (paletteUploadBuffer != null) {
+			MemoryUtil.memFree(paletteUploadBuffer);
+		}
+		if (underwaterPaletteUploadBuffer != null) {
+			MemoryUtil.memFree(underwaterPaletteUploadBuffer);
+		}
 	}
 
 	private void ensurePatternAtlas() {
 		if (patternAtlas == null) {
 			patternAtlas = new PatternAtlas(ATLAS_WIDTH, ATLAS_HEIGHT);
 		}
-		if (!patternAtlas.isInitialized() && graphics != null) {
-			patternAtlas.init(graphics);
+		if (!patternAtlas.isInitialized() && glInitialized) {
+			patternAtlas.init();
 		}
 	}
 
@@ -972,8 +1010,11 @@ public class GraphicsManager {
 		return fadeManager;
 	}
 
-	public GL2 getGraphics() {
-		return graphics;
+	/**
+	 * Check if GL is initialized.
+	 */
+	public boolean isGlInitialized() {
+		return glInitialized;
 	}
 
 	/**
@@ -981,9 +1022,9 @@ public class GraphicsManager {
 	 * Lazily initializes the shader on first access.
 	 */
 	public CNZSlotMachineRenderer getCnzSlotMachineRenderer() {
-		if (cnzSlotMachineRenderer != null && cnzSlotsShaderProgram == null && graphics != null) {
+		if (cnzSlotMachineRenderer != null && cnzSlotsShaderProgram == null && glInitialized) {
 			try {
-				cnzSlotsShaderProgram = new ShaderProgram(graphics, CNZ_SLOTS_SHADER_PATH);
+				cnzSlotsShaderProgram = new ShaderProgram(CNZ_SLOTS_SHADER_PATH);
 				cnzSlotMachineRenderer.setShader(cnzSlotsShaderProgram);
 			} catch (Exception e) {
 				System.err.println("Failed to load CNZ slot shader: " + e.getMessage());
@@ -1000,10 +1041,10 @@ public class GraphicsManager {
 		if (headlessMode) {
 			return null;
 		}
-		if (backgroundRenderer == null && graphics != null) {
+		if (backgroundRenderer == null && glInitialized) {
 			try {
 				backgroundRenderer = new BackgroundRenderer();
-				backgroundRenderer.init(graphics, PARALLAX_SHADER_PATH);
+				backgroundRenderer.init(PARALLAX_SHADER_PATH);
 				LOGGER.info("BackgroundRenderer initialized for shader-based parallax.");
 			} catch (IOException e) {
 				LOGGER.log(Level.SEVERE, "Failed to initialize BackgroundRenderer", e);
@@ -1016,14 +1057,14 @@ public class GraphicsManager {
 		ShaderProgram debugShader = getDebugShaderProgram();
 		int programId = debugShader != null ? debugShader.getProgramId() : 0;
 		registerCommand(new GLCommand(GLCommand.CommandType.USE_PROGRAM, programId));
-		registerCommand(new GLCommand(GLCommand.CommandType.DISABLE, GL2.GL_TEXTURE_2D));
-		registerCommand(new GLCommand(GLCommand.CommandType.DISABLE, GL2.GL_LIGHTING));
-		registerCommand(new GLCommand(GLCommand.CommandType.DISABLE, GL2.GL_COLOR_MATERIAL));
-		registerCommand(new GLCommand(GLCommand.CommandType.DISABLE, GL2.GL_DEPTH_TEST));
+		registerCommand(new GLCommand(GLCommand.CommandType.DISABLE, GL_TEXTURE_2D));
+		registerCommand(new GLCommand(GLCommand.CommandType.DISABLE, GL_LIGHTING));
+		registerCommand(new GLCommand(GLCommand.CommandType.DISABLE, GL_COLOR_MATERIAL));
+		registerCommand(new GLCommand(GLCommand.CommandType.DISABLE, GL_DEPTH_TEST));
 	}
 
 	public void enqueueDefaultShaderState() {
-		registerCommand(new GLCommand(GLCommand.CommandType.ENABLE, GL2.GL_TEXTURE_2D));
+		registerCommand(new GLCommand(GLCommand.CommandType.ENABLE, GL_TEXTURE_2D));
 		ShaderProgram shader = getShaderProgram();
 		if (shader != null) {
 			int programId = shader.getProgramId();
@@ -1043,19 +1084,19 @@ public class GraphicsManager {
 	 * @param height Height of scissor rectangle
 	 */
 	public void enableScissor(int x, int y, int width, int height) {
-		if (headlessMode || graphics == null)
+		if (headlessMode || !glInitialized)
 			return;
-		graphics.glScissor(x, y, width, height);
-		graphics.glEnable(GL2.GL_SCISSOR_TEST);
+		glScissor(x, y, width, height);
+		glEnable(GL_SCISSOR_TEST);
 	}
 
 	/**
 	 * Disables scissor test.
 	 */
 	public void disableScissor() {
-		if (headlessMode || graphics == null)
+		if (headlessMode || !glInitialized)
 			return;
-		graphics.glDisable(GL2.GL_SCISSOR_TEST);
+		glDisable(GL_SCISSOR_TEST);
 	}
 
 	/**
@@ -1083,13 +1124,13 @@ public class GraphicsManager {
 	 * @param height Screen height in pixels
 	 */
 	public TilePriorityFBO getTilePriorityFBO(int width, int height) {
-		if (headlessMode || graphics == null) {
+		if (headlessMode || !glInitialized) {
 			return null;
 		}
 		if (tilePriorityFBO != null && !tilePriorityFBO.isInitialized()) {
-			tilePriorityFBO.init(graphics, width, height);
+			tilePriorityFBO.init(width, height);
 		} else if (tilePriorityFBO != null) {
-			tilePriorityFBO.resize(graphics, width, height);
+			tilePriorityFBO.resize(width, height);
 		}
 		return tilePriorityFBO;
 	}
@@ -1110,12 +1151,12 @@ public class GraphicsManager {
 	 * @param height Screen height in pixels
 	 */
 	public void beginTilePriorityPass(int width, int height) {
-		if (headlessMode || graphics == null) {
+		if (headlessMode || !glInitialized) {
 			return;
 		}
 		TilePriorityFBO fbo = getTilePriorityFBO(width, height);
 		if (fbo != null) {
-			fbo.begin(graphics);
+			fbo.begin();
 		}
 	}
 
@@ -1124,10 +1165,10 @@ public class GraphicsManager {
 	 * Call this after rendering the high-priority foreground tile pass.
 	 */
 	public void endTilePriorityPass() {
-		if (headlessMode || graphics == null || tilePriorityFBO == null) {
+		if (headlessMode || !glInitialized || tilePriorityFBO == null) {
 			return;
 		}
-		tilePriorityFBO.end(graphics);
+		tilePriorityFBO.end();
 	}
 }
 

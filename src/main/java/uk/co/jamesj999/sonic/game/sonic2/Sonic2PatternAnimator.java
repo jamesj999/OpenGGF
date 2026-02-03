@@ -322,7 +322,7 @@ class Sonic2PatternAnimator implements AnimatedPatternManager {
 
         private void applyFrame(Level level, GraphicsManager graphicsManager, int tileId) {
             int maxPatterns = level.getPatternCount();
-            boolean canUpdateTextures = graphicsManager.getGraphics() != null;
+            boolean canUpdateTextures = graphicsManager.isGlInitialized();
             for (int i = 0; i < tilesPerFrame; i++) {
                 int srcIndex = tileId + i;
                 int destIndex = destTileIndex + i;

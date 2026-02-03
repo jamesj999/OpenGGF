@@ -13,8 +13,8 @@ import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.level.Pattern;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.util.awt.TextRenderer;
+import uk.co.jamesj999.sonic.debug.GlyphBatchRenderer;
+import uk.co.jamesj999.sonic.debug.FontSize;
 
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 
@@ -178,8 +178,8 @@ public class Sonic2SpecialStageManager {
     private double alignmentRainbowSpeedScale = 1.0;
     private double alignmentRainbowSpeedAccumulator = 0.0;
     private boolean alignmentStepByTrackFrame = false;
-    private TextRenderer alignmentTextRenderer;
-    private TextRenderer lagCompensationTextRenderer;
+    private GlyphBatchRenderer alignmentTextRenderer;
+    private GlyphBatchRenderer lagCompensationTextRenderer;
 
     // Current ring requirement for the active checkpoint (for "rings to go"
     // display)
@@ -861,14 +861,9 @@ public class Sonic2SpecialStageManager {
         // Pattern bases are set in setupPatterns() after they have valid values
 
         // Initialize shader-based background renderer
-        GL2 gl = graphicsManager.getGraphics();
-        if (gl != null) {
-            bgRenderer = new SpecialStageBackgroundRenderer();
-            bgRenderer.init(gl);
-            LOGGER.fine("Special Stage background renderer initialized with shader");
-        } else {
-            LOGGER.warning("GL context not available, background renderer not initialized");
-        }
+        bgRenderer = new SpecialStageBackgroundRenderer();
+        bgRenderer.init();
+        LOGGER.fine("Special Stage background renderer initialized with shader");
 
         LOGGER.fine("Special Stage renderer initialized");
     }
@@ -1620,8 +1615,8 @@ public class Sonic2SpecialStageManager {
                 final float currentVScrollBG = (float) vScrollBG;
 
                 // 1. Begin Tile Pass (Bind FBO) - queued as command for proper ordering
-                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
-                    bgRenderer.beginTilePass(gl, H32_HEIGHT);
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+                    bgRenderer.beginTilePass(H32_HEIGHT);
                 }));
 
                 // 2. Render background tiles to FBO
@@ -1630,15 +1625,15 @@ public class Sonic2SpecialStageManager {
                 graphicsManager.flushPatternBatch();
 
                 // 3. End Tile Pass (Unbind FBO)
-                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
-                    bgRenderer.endTilePass(gl);
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+                    bgRenderer.endTilePass();
                 }));
 
                 // 4. Update H-scroll and render with shader (vScrollBG applies vertical
                 // parallax)
-                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
                     bgRenderer.setUniformHScroll(currentScrollX);
-                    bgRenderer.renderWithShader(gl, currentVScrollBG);
+                    bgRenderer.renderWithShader(currentVScrollBG);
                 }));
             } else {
                 // Fallback to CPU-based rendering
@@ -1691,21 +1686,21 @@ public class Sonic2SpecialStageManager {
                 final int currentScrollX = skydomeScrollX;
                 final float currentVScrollBG = (float) vScrollBG;
 
-                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
-                    bgRenderer.beginTilePass(gl, H32_HEIGHT);
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+                    bgRenderer.beginTilePass(H32_HEIGHT);
                 }));
 
                 graphicsManager.beginPatternBatch();
                 renderer.renderBackgroundToFBO(combinedBackgroundMappings);
                 graphicsManager.flushPatternBatch();
 
-                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
-                    bgRenderer.endTilePass(gl);
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+                    bgRenderer.endTilePass();
                 }));
 
-                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
                     bgRenderer.setUniformHScroll(currentScrollX);
-                    bgRenderer.renderWithShader(gl, currentVScrollBG);
+                    bgRenderer.renderWithShader(currentVScrollBG);
                 }));
             } else {
                 renderer.renderBackground(combinedBackgroundMappings, skydomeScrollX, vScrollBG);
@@ -1727,13 +1722,15 @@ public class Sonic2SpecialStageManager {
         }
 
         if (alignmentTextRenderer == null) {
-            alignmentTextRenderer = new TextRenderer(new Font("SansSerif", Font.PLAIN, 12), true, true);
+            alignmentTextRenderer = new GlyphBatchRenderer();
+            alignmentTextRenderer.init(new Font("SansSerif", Font.PLAIN, 12));
         }
 
-        alignmentTextRenderer.beginRendering(viewportWidth, viewportHeight);
+        alignmentTextRenderer.updateViewport(viewportWidth, viewportHeight);
+        alignmentTextRenderer.begin();
 
         int y = viewportHeight - 14;
-        drawOutlined(alignmentTextRenderer, "SS ALIGNMENT TEST (F4 to exit)", 8, y, Color.WHITE);
+        alignmentTextRenderer.drawTextOutlined("SS ALIGNMENT TEST (F4 to exit)", 8, y, Color.WHITE, FontSize.SMALL);
         y -= 14;
         int gateIndexBase = 0;
         for (int i = 0; i < ANIM_STRAIGHT.length; i++) {
@@ -1743,41 +1740,27 @@ public class Sonic2SpecialStageManager {
             }
         }
         int gateIndex = Math.floorMod(gateIndexBase + alignmentTriggerOffsetFrames, ANIM_STRAIGHT.length);
-        drawOutlined(alignmentTextRenderer,
+        alignmentTextRenderer.drawTextOutlined(
                 "Gate offset (frames): " + alignmentTriggerOffsetFrames +
                         "  Gate frame: " + gateIndex + "/" + (ANIM_STRAIGHT.length - 1) +
                         "  Map: 0x" + String.format("%02X", ANIM_STRAIGHT[gateIndex]),
-                8, y, Color.WHITE);
+                8, y, Color.WHITE, FontSize.SMALL);
         y -= 14;
-        drawOutlined(alignmentTextRenderer,
+        alignmentTextRenderer.drawTextOutlined(
                 String.format("Speed scale: %.2fx", alignmentRainbowSpeedScale),
-                8, y, Color.WHITE);
+                8, y, Color.WHITE, FontSize.SMALL);
         y -= 14;
-        drawOutlined(alignmentTextRenderer,
+        alignmentTextRenderer.drawTextOutlined(
                 "Arrows: LEFT/RIGHT gate offset, UP/DOWN speed",
-                8, y, Color.WHITE);
+                8, y, Color.WHITE, FontSize.SMALL);
         y -= 14;
-        drawOutlined(alignmentTextRenderer,
+        alignmentTextRenderer.drawTextOutlined(
                 "Step mode: " + (alignmentStepByTrackFrame ? "TRACK" : "VINT") +
                         "  TrackFrame: " + alignmentTrackFrameIndex +
                         "  DrawIdx: " + alignmentDrawingIndex,
-                8, y, Color.WHITE);
+                8, y, Color.WHITE, FontSize.SMALL);
 
-        alignmentTextRenderer.endRendering();
-    }
-
-    private void drawOutlined(TextRenderer textRenderer, String text, int x, int y, Color color) {
-        textRenderer.setColor(Color.BLACK);
-        textRenderer.draw(text, x - 1, y);
-        textRenderer.draw(text, x + 1, y);
-        textRenderer.draw(text, x, y - 1);
-        textRenderer.draw(text, x, y + 1);
-        textRenderer.draw(text, x - 1, y - 1);
-        textRenderer.draw(text, x + 1, y - 1);
-        textRenderer.draw(text, x - 1, y + 1);
-        textRenderer.draw(text, x + 1, y + 1);
-        textRenderer.setColor(color);
-        textRenderer.draw(text, x, y);
+        alignmentTextRenderer.end();
     }
 
     /**
@@ -1790,10 +1773,12 @@ public class Sonic2SpecialStageManager {
         }
 
         if (lagCompensationTextRenderer == null) {
-            lagCompensationTextRenderer = new TextRenderer(new Font("SansSerif", Font.PLAIN, 12), true, true);
+            lagCompensationTextRenderer = new GlyphBatchRenderer();
+            lagCompensationTextRenderer.init(new Font("SansSerif", Font.PLAIN, 12));
         }
 
-        lagCompensationTextRenderer.beginRendering(viewportWidth, viewportHeight);
+        lagCompensationTextRenderer.updateViewport(viewportWidth, viewportHeight);
+        lagCompensationTextRenderer.begin();
 
         // Position at bottom-left of screen
         int y = 14;
@@ -1801,11 +1786,11 @@ public class Sonic2SpecialStageManager {
         // Calculate effective updates per second: base 60 * (1 - lagComp)
         double effectiveUpdates = 60.0 * (1.0 - lagCompensation);
 
-        drawOutlined(lagCompensationTextRenderer,
+        lagCompensationTextRenderer.drawTextOutlined(
                 String.format("Lag: %.0f%% (~%.0f upd/s)  F6/F7", lagCompensation * 100, effectiveUpdates),
-                8, y, Color.YELLOW);
+                8, y, Color.YELLOW, FontSize.SMALL);
 
-        lagCompensationTextRenderer.endRendering();
+        lagCompensationTextRenderer.end();
     }
 
     /**
@@ -1955,10 +1940,7 @@ public class Sonic2SpecialStageManager {
 
         // Shader-based background renderer cleanup
         if (bgRenderer != null) {
-            GL2 gl = graphicsManager.getGraphics();
-            if (gl != null) {
-                bgRenderer.cleanup(gl);
-            }
+            bgRenderer.cleanup();
             bgRenderer = null;
         }
 

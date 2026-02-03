@@ -1,14 +1,11 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.GLCapabilities;
-import com.jogamp.opengl.GLDrawableFactory;
-import com.jogamp.opengl.GLOffscreenAutoDrawable;
-import com.jogamp.opengl.GLProfile;
-import com.jogamp.opengl.glu.GLU;
+import org.joml.Matrix4f;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.lwjgl.glfw.GLFWErrorCallback;
+import org.lwjgl.opengl.GL;
 import uk.co.jamesj999.sonic.Engine;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
@@ -31,6 +28,9 @@ import java.nio.file.Paths;
 
 import static org.junit.Assert.*;
 import static org.junit.Assume.assumeTrue;
+import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.system.MemoryUtil.NULL;
 import static uk.co.jamesj999.sonic.tests.RomTestUtils.ensureRomAvailable;
 
 /**
@@ -57,13 +57,15 @@ public class VisualRegressionTest {
     // Tolerance for per-channel pixel comparison (allows minor GPU/driver variations)
     private static final int PIXEL_TOLERANCE = 5;
 
-    private static GLOffscreenAutoDrawable drawable;
-    private static GL2 gl;
-    private static GLU glu;
+    private static long window;
     private static Rom rom;
     private static boolean referenceFilesExist;
     private static boolean initialized;
     private static boolean originalDebugViewEnabled;
+
+    // JOML matrix for projection
+    private static final Matrix4f projectionMatrix = new Matrix4f();
+    private static final float[] matrixBuffer = new float[16];
 
     @BeforeClass
     public static void setUpClass() {
@@ -76,48 +78,53 @@ public class VisualRegressionTest {
             // Check if reference files exist first
             referenceFilesExist = referenceFileExists("ehz_a1_cp1.png");
 
-            // Initialize OpenGL context
-            GLProfile profile = GLProfile.get(GLProfile.GL2);
-            GLCapabilities caps = new GLCapabilities(profile);
-            caps.setOnscreen(false);
-            caps.setDoubleBuffered(false);
-            caps.setPBuffer(true);
+            // Setup error callback
+            GLFWErrorCallback.createPrint(System.err).set();
 
-            GLDrawableFactory factory = GLDrawableFactory.getFactory(profile);
-            drawable = factory.createOffscreenAutoDrawable(
-                    factory.getDefaultDevice(),
-                    caps,
-                    null,
-                    SCREEN_WIDTH,
-                    SCREEN_HEIGHT
-            );
+            // Initialize GLFW
+            if (!glfwInit()) {
+                throw new IllegalStateException("Unable to initialize GLFW");
+            }
 
-            // Force context creation
-            drawable.display();
+            // Configure GLFW for offscreen rendering
+            glfwDefaultWindowHints();
+            glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+            glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 
-            // Get GL context
-            drawable.getContext().makeCurrent();
-            gl = drawable.getGL().getGL2();
-            glu = new GLU();
+            // Create hidden window for offscreen rendering
+            window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Visual Regression Test", NULL, NULL);
+            if (window == NULL) {
+                throw new RuntimeException("Failed to create GLFW window");
+            }
+
+            // Make context current
+            glfwMakeContextCurrent(window);
+
+            // Create GL capabilities
+            GL.createCapabilities();
 
             // Initialize graphics manager with shader
             GraphicsManager graphicsManager = GraphicsManager.getInstance();
-            graphicsManager.init(gl, Engine.RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
+            graphicsManager.init(Engine.RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
 
             // Set viewport
-            gl.glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+            glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-            // Set up projection matrix
-            gl.glMatrixMode(GL2.GL_PROJECTION);
-            gl.glLoadIdentity();
-            glu.gluOrtho2D(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT);
+            // Set up projection matrix using JOML
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            projectionMatrix.identity().ortho2D(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT);
+            projectionMatrix.get(matrixBuffer);
+            glLoadMatrixf(matrixBuffer);
 
-            gl.glMatrixMode(GL2.GL_MODELVIEW);
-            gl.glLoadIdentity();
+            glMatrixMode(GL_MODELVIEW);
+            glLoadIdentity();
 
             // Enable blending for transparency
-            gl.glEnable(GL2.GL_BLEND);
-            gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
             // Update viewport dimensions in GraphicsManager
             graphicsManager.setViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -157,14 +164,14 @@ public class VisualRegressionTest {
         SonicConfigurationService.getInstance()
                 .setConfigValue(SonicConfiguration.DEBUG_VIEW_ENABLED, originalDebugViewEnabled);
 
-        if (drawable != null) {
+        if (window != NULL) {
             try {
-                drawable.getContext().release();
-                drawable.destroy();
+                glfwDestroyWindow(window);
             } catch (Exception e) {
                 // Ignore cleanup errors
             }
         }
+        glfwTerminate();
         GraphicsManager.resetInstance();
     }
 
@@ -306,8 +313,8 @@ public class VisualRegressionTest {
         SpriteManager.getInstance().updateWithoutInput();
 
         // Clear screen with level's background color
-        levelManager.setClearColor(gl);
-        gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
+        levelManager.setClearColor();
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Render level with sprites
         levelManager.drawWithSpritePriority(SpriteManager.getInstance());
@@ -316,10 +323,10 @@ public class VisualRegressionTest {
         graphicsManager.flush();
 
         // Ensure all GL commands are complete
-        gl.glFinish();
+        glFinish();
 
         // Capture framebuffer
-        return ScreenshotCapture.captureFramebuffer(gl, SCREEN_WIDTH, SCREEN_HEIGHT);
+        return ScreenshotCapture.captureFramebuffer(SCREEN_WIDTH, SCREEN_HEIGHT);
     }
 
     /**

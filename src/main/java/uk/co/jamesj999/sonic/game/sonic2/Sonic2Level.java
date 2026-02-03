@@ -172,7 +172,7 @@ public class Sonic2Level implements Level {
         GraphicsManager graphicsMan = GraphicsManager.getInstance();
         for (int i = patternCount; i < newCount; i++) {
             patterns[i] = new Pattern();
-            if (graphicsMan.getGraphics() != null) {
+            if (graphicsMan.isGlInitialized()) {
                 graphicsMan.cachePatternTexture(patterns[i], i);
             }
         }
@@ -288,7 +288,7 @@ public class Sonic2Level implements Level {
             }
         }
 
-        if (graphicsMan.getGraphics() != null) {
+        if (graphicsMan.isGlInitialized()) {
             for (int i = 0; i < palettes.length; i++) {
                 graphicsMan.cachePaletteTexture(palettes[i], i);
             }
@@ -317,7 +317,7 @@ public class Sonic2Level implements Level {
                     (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
             patterns[i].fromSegaFormat(subArray);
 
-            if (graphicsMan.getGraphics() != null) {
+            if (graphicsMan.isGlInitialized()) {
                 graphicsMan.cachePatternTexture(patterns[i], i);
             }
 
@@ -555,7 +555,7 @@ public class Sonic2Level implements Level {
                     (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
             patterns[i].fromSegaFormat(subArray);
 
-            if (graphicsMan.getGraphics() != null) {
+            if (graphicsMan.isGlInitialized()) {
                 graphicsMan.cachePatternTexture(patterns[i], i);
             }
         }
@@ -591,7 +591,7 @@ public class Sonic2Level implements Level {
             patterns[i] = new Pattern();
             patterns[i].fromSegaFormat(skyPattern);
 
-            if (graphicsMan.getGraphics() != null) {
+            if (graphicsMan.isGlInitialized()) {
                 graphicsMan.cachePatternTexture(patterns[i], i);
             }
         }

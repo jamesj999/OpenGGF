@@ -1,7 +1,6 @@
 package uk.co.jamesj999.sonic.debug;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.util.GLBuffers;
+import org.lwjgl.system.MemoryUtil;
 
 import java.awt.*;
 import java.awt.font.FontRenderContext;
@@ -14,6 +13,8 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
+
+import static org.lwjgl.opengl.GL11.*;
 
 /**
  * Pre-renders ASCII glyphs to a texture atlas for GPU-accelerated text rendering.
@@ -61,12 +62,11 @@ public class GlyphAtlas {
      * Initializes the glyph atlas with multiple font sizes.
      * Should be called once during startup with a valid GL context.
      *
-     * @param gl The OpenGL context
      * @param baseFont The base font (size will be overridden for each FontSize)
      * @param scaleFactor Scale factor for DPI scaling
      */
-    public void init(GL2 gl, Font baseFont, float scaleFactor) {
-        if (initialized || gl == null) {
+    public void init(Font baseFont, float scaleFactor) {
+        if (initialized) {
             return;
         }
 
@@ -172,27 +172,27 @@ public class GlyphAtlas {
 
         // Upload to OpenGL texture
         byte[] pixels = ((DataBufferByte) atlasImage.getRaster().getDataBuffer()).getData();
-        ByteBuffer buffer = GLBuffers.newDirectByteBuffer(pixels.length);
+        ByteBuffer buffer = MemoryUtil.memAlloc(pixels.length);
         buffer.put(pixels);
         buffer.flip();
 
-        int[] textures = new int[1];
-        gl.glGenTextures(1, textures, 0);
-        textureId = textures[0];
+        textureId = glGenTextures();
 
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, textureId);
+        glBindTexture(GL_TEXTURE_2D, textureId);
         // Use LINEAR filtering for smooth antialiased text
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_LINEAR);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_LINEAR);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_S, GL2.GL_CLAMP_TO_EDGE);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_T, GL2.GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
         // Use GL_LUMINANCE for single-channel grayscale (GLSL 1.10 compatible)
-        gl.glTexImage2D(GL2.GL_TEXTURE_2D, 0, GL2.GL_LUMINANCE,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE,
                 ATLAS_SIZE, ATLAS_SIZE, 0,
-                GL2.GL_LUMINANCE, GL2.GL_UNSIGNED_BYTE, buffer);
+                GL_LUMINANCE, GL_UNSIGNED_BYTE, buffer);
 
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        MemoryUtil.memFree(buffer);
 
         int totalGlyphs = glyphsBySize.values().stream().mapToInt(Map::size).sum();
         initialized = true;
@@ -204,8 +204,8 @@ public class GlyphAtlas {
      * Initializes the glyph atlas with the specified font (single size, for backwards compatibility).
      * Should be called once during startup with a valid GL context.
      */
-    public void init(GL2 gl, Font font) {
-        init(gl, font, 1.0f);
+    public void init(Font font) {
+        init(font, 1.0f);
     }
 
     /**
@@ -310,9 +310,9 @@ public class GlyphAtlas {
     /**
      * Cleans up OpenGL resources.
      */
-    public void cleanup(GL2 gl) {
-        if (gl != null && textureId != 0) {
-            gl.glDeleteTextures(1, new int[]{textureId}, 0);
+    public void cleanup() {
+        if (textureId != 0) {
+            glDeleteTextures(textureId);
         }
         textureId = 0;
         glyphsBySize.clear();

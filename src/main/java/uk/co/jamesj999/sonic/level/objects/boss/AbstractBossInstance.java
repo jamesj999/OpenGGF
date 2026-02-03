@@ -353,7 +353,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         }
 
         private void uploadPaletteToGpu(Palette palette) {
-            if (graphicsManager.getGraphics() != null) {
+            if (graphicsManager.isGlInitialized()) {
                 int paletteIndex = getPaletteLineForFlash();
                 graphicsManager.cachePaletteTexture(palette, paletteIndex);
             }

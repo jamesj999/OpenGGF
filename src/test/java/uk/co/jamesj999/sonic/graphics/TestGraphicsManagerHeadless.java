@@ -2,23 +2,43 @@ package uk.co.jamesj999.sonic.graphics;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.level.Pattern;
 
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 
 /**
  * Tests for GraphicsManager headless mode.
  * Verifies that GL operations are properly skipped when running
  * without an OpenGL context.
+ *
+ * Note: These tests require LWJGL native libraries to be loadable.
+ * On headless CI systems without xvfb, these tests will be skipped.
  */
 public class TestGraphicsManagerHeadless {
 
     private GraphicsManager graphicsManager;
+    private static boolean lwjglAvailable = false;
+
+    @BeforeClass
+    public static void checkLwjglAvailable() {
+        try {
+            // Try to load LWJGL native libraries by accessing a safe class
+            Class.forName("org.lwjgl.system.MemoryUtil");
+            lwjglAvailable = true;
+        } catch (Throwable t) {
+            // LWJGL natives not available, tests will be skipped
+            System.err.println("LWJGL not available, skipping headless tests: " + t.getMessage());
+            lwjglAvailable = false;
+        }
+    }
 
     @Before
     public void setUp() {
+        assumeTrue("LWJGL natives not available", lwjglAvailable);
         // Reset the singleton to get a fresh instance for each test
         GraphicsManager.resetInstance();
         graphicsManager = GraphicsManager.getInstance();
@@ -52,9 +72,9 @@ public class TestGraphicsManagerHeadless {
     }
 
     @Test
-    public void testInitHeadlessSetsGraphicsToNull() {
+    public void testInitHeadlessSetsGlNotInitialized() {
         graphicsManager.initHeadless();
-        assertNull("Graphics should be null in headless mode", graphicsManager.getGraphics());
+        assertFalse("GL should not be initialized in headless mode", graphicsManager.isGlInitialized());
     }
 
     // ==================== Pattern Caching Tests ====================
@@ -124,7 +144,7 @@ public class TestGraphicsManagerHeadless {
         graphicsManager.initHeadless();
 
         // Register some commands
-        graphicsManager.registerCommand((gl, cX, cY, cW, cH) -> {
+        graphicsManager.registerCommand((cX, cY, cW, cH) -> {
             // This would crash without a GL context if flush actually executed it
             throw new RuntimeException("Command should not execute in headless mode");
         });
@@ -138,7 +158,7 @@ public class TestGraphicsManagerHeadless {
         graphicsManager.initHeadless();
 
         // Register a command
-        graphicsManager.registerCommand((gl, cX, cY, cW, cH) -> {});
+        graphicsManager.registerCommand((cX, cY, cW, cH) -> {});
 
         // Flush should clear
         graphicsManager.flush();

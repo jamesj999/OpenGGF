@@ -2,7 +2,6 @@ package uk.co.jamesj999.sonic.level;
 
 import uk.co.jamesj999.sonic.game.GameServices;
 
-import com.jogamp.opengl.GL2;
 import uk.co.jamesj999.sonic.Engine;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
@@ -75,6 +74,10 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import static java.util.logging.Level.SEVERE;
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL14.*;
+import static org.lwjgl.opengl.GL20.*;
 
 /**
  * Manages the loading and rendering of game levels.
@@ -573,7 +576,7 @@ public class LevelManager {
         }
 
         // Register all collected drawing commands with the graphics manager
-        graphicsManager.registerCommand(new GLCommandGroup(GL2.GL_POINTS, commands));
+        graphicsManager.registerCommand(new GLCommandGroup(GL_POINTS, commands));
 
     }
 
@@ -715,7 +718,7 @@ public class LevelManager {
         // IMPORTANT: Must be queued as a command so it executes AFTER pattern batches
         // Also reset PatternRenderCommand state so next pattern will reinitialize with
         // the default shader
-        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
             graphicsManager.setUseWaterShader(false);
             PatternRenderCommand.resetFrameState();
         }));
@@ -767,11 +770,11 @@ public class LevelManager {
             }
             if (showPlaneSwitchers && !debugSwitcherLineCommands.isEmpty()) {
                 graphicsManager.enqueueDebugLineState();
-                graphicsManager.registerCommand(new GLCommandGroup(GL2.GL_LINES, debugSwitcherLineCommands));
+                graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, debugSwitcherLineCommands));
             }
             if (showObjectPoints && !debugObjectCommands.isEmpty()) {
                 graphicsManager.enqueueDebugLineState();
-                graphicsManager.registerCommand(new GLCommandGroup(GL2.GL_POINTS, debugObjectCommands));
+                graphicsManager.registerCommand(new GLCommandGroup(GL_POINTS, debugObjectCommands));
             }
         }
 
@@ -796,7 +799,7 @@ public class LevelManager {
                                 ring.x(), ring.y(), 0, 0));
                     }
                     graphicsManager.enqueueDebugLineState();
-                    graphicsManager.registerCommand(new GLCommandGroup(GL2.GL_POINTS, debugRingCommands));
+                    graphicsManager.registerCommand(new GLCommandGroup(GL_POINTS, debugRingCommands));
                 } else {
                     PatternSpriteRenderer.FrameBounds bounds = ringManager.getFrameBounds(frameCounter);
                     debugBoxCommands.clear();
@@ -852,11 +855,11 @@ public class LevelManager {
 
                     if (!debugBoxCommands.isEmpty()) {
                         graphicsManager.enqueueDebugLineState();
-                        graphicsManager.registerCommand(new GLCommandGroup(GL2.GL_LINES, debugBoxCommands));
+                        graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, debugBoxCommands));
                     }
                     if (!debugCenterCommands.isEmpty()) {
                         graphicsManager.enqueueDebugLineState();
-                        graphicsManager.registerCommand(new GLCommandGroup(GL2.GL_LINES, debugCenterCommands));
+                        graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, debugCenterCommands));
                     }
                 }
             }
@@ -887,25 +890,25 @@ public class LevelManager {
             // Offset by -8 to include the 8px tall water surface sprite in underwater palette
             float waterlineScreenY = (float) (waterLevel - camera.getY() - 8);
 
-            graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
+            graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
                 // Enable water shader at execution time
                 graphicsManager.setUseWaterShader(true);
 
                 WaterShaderProgram shader = graphicsManager.getWaterShaderProgram();
-                shader.use(gl);
+                shader.use();
 
                 // Query actual window height from GL state to correct shader coordinates
                 int[] viewport = new int[4];
-                gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport, 0);
+                glGetIntegerv(GL_VIEWPORT, viewport);
                 float windowHeight = (float) viewport[3];
                 float screenHeightPixels = (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 
-                shader.setWindowHeight(gl, windowHeight);
-                shader.setWaterlineScreenY(gl, waterlineScreenY);
-                shader.setFrameCounter(gl, frameCounter);
-                shader.setDistortionAmplitude(gl, 0.0f);
-                shader.setIndexedTextureWidth(gl, graphicsManager.getPatternAtlasWidth());
-                shader.setScreenDimensions(gl, (float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
+                shader.setWindowHeight(windowHeight);
+                shader.setWaterlineScreenY(waterlineScreenY);
+                shader.setFrameCounter(frameCounter);
+                shader.setDistortionAmplitude(0.0f);
+                shader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
+                shader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
                         screenHeightPixels);
 
                 // Cache water state values in GraphicsManager for sprite priority shader
@@ -923,23 +926,23 @@ public class LevelManager {
 
                     if (texId != null && loc != -1) {
                         // Bind to TU2
-                        gl.glActiveTexture(GL2.GL_TEXTURE2);
-                        gl.glBindTexture(GL2.GL_TEXTURE_2D, texId);
-                        gl.glUniform1i(loc, 2);
-                        gl.glActiveTexture(GL2.GL_TEXTURE0);
+                        glActiveTexture(GL_TEXTURE2);
+                        glBindTexture(GL_TEXTURE_2D, texId);
+                        glUniform1i(loc, 2);
+                        glActiveTexture(GL_TEXTURE0);
                     }
                 }
 
                 WaterShaderProgram instancedShader = graphicsManager.getInstancedWaterShaderProgram();
                 if (instancedShader != null) {
-                    instancedShader.use(gl);
-                    instancedShader.cacheUniformLocations(gl);
-                    instancedShader.setWindowHeight(gl, windowHeight);
-                    instancedShader.setWaterlineScreenY(gl, waterlineScreenY);
-                    instancedShader.setFrameCounter(gl, frameCounter);
-                    instancedShader.setDistortionAmplitude(gl, 0.0f);
-                    instancedShader.setIndexedTextureWidth(gl, graphicsManager.getPatternAtlasWidth());
-                    instancedShader.setScreenDimensions(gl, (float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
+                    instancedShader.use();
+                    instancedShader.cacheUniformLocations();
+                    instancedShader.setWindowHeight(windowHeight);
+                    instancedShader.setWaterlineScreenY(waterlineScreenY);
+                    instancedShader.setFrameCounter(frameCounter);
+                    instancedShader.setDistortionAmplitude(0.0f);
+                    instancedShader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
+                    instancedShader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
                             (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS));
 
                     Palette[] underwaterInstanced = waterSystem.getUnderwaterPalette(zoneId, currentAct);
@@ -948,13 +951,13 @@ public class LevelManager {
                         Integer texId = graphicsManager.getUnderwaterPaletteTextureId();
                         int loc = instancedShader.getUnderwaterPaletteLocation();
                         if (texId != null && loc != -1) {
-                            gl.glActiveTexture(GL2.GL_TEXTURE2);
-                            gl.glBindTexture(GL2.GL_TEXTURE_2D, texId);
-                            gl.glUniform1i(loc, 2);
-                            gl.glActiveTexture(GL2.GL_TEXTURE0);
+                            glActiveTexture(GL_TEXTURE2);
+                            glBindTexture(GL_TEXTURE_2D, texId);
+                            glUniform1i(loc, 2);
+                            glActiveTexture(GL_TEXTURE0);
                         }
                     }
-                    shader.use(gl);
+                    shader.use();
                 }
             }));
         } else {
@@ -995,8 +998,8 @@ public class LevelManager {
 
         // 1. Resize FBO
         final int finalFboHeight = fboHeight;
-        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
-            bgRenderer.resizeFBO(gl, fboWidth, finalFboHeight);
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+            bgRenderer.resizeFBO(fboWidth, finalFboHeight);
         }));
 
         // 2. Begin Tile Pass (Bind FBO)
@@ -1021,8 +1024,8 @@ public class LevelManager {
         final float fboWaterlineY = (float) ((waterLevelWorldY - camera.getY()) + vOffset);
 
         ensureBackgroundTilemapData();
-        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
-            bgRenderer.beginTilePass(gl, screenHeightPixels, true);
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+            bgRenderer.beginTilePass(screenHeightPixels, true);
             TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
             if (tilemapRenderer != null) {
                 Integer atlasId = graphicsManager.getPatternAtlasTextureId();
@@ -1031,8 +1034,8 @@ public class LevelManager {
                 boolean useUnderwaterPalette = hasWater && underwaterPaletteId != null;
                 if (atlasId != null && paletteId != null) {
                     int[] viewport = new int[4];
-                    gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport, 0);
-                    tilemapRenderer.render(gl,
+                    glGetIntegerv(GL_VIEWPORT, viewport);
+                    tilemapRenderer.render(
                             TilemapGpuRenderer.Layer.BACKGROUND,
                             fboWidth,
                             fboHeight,
@@ -1054,7 +1057,7 @@ public class LevelManager {
                             fboWaterlineY);
                 }
             }
-            bgRenderer.endTilePass(gl);
+            bgRenderer.endTilePass();
             graphicsManager.setUseUnderwaterPaletteForBackground(false);
         }));
 
@@ -1082,8 +1085,8 @@ public class LevelManager {
 
             final int finalVOffset = shaderVOffset;
 
-            graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx2, cy2, cw2, ch2) -> {
-                bgRenderer.renderWithScrollWide(gl, hScrollData, baseScrollForShader, extraBuffer, finalVOffset, pId,
+            graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx2, cy2, cw2, ch2) -> {
+                bgRenderer.renderWithScrollWide(hScrollData, baseScrollForShader, extraBuffer, finalVOffset, pId,
                         screenW,
                         screenH);
             }));
@@ -1118,14 +1121,14 @@ public class LevelManager {
             return;
         }
 
-        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
             TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
             if (tilemapRenderer == null) {
                 return;
             }
             int[] viewport = new int[4];
-            gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport, 0);
-            tilemapRenderer.render(gl,
+            glGetIntegerv(GL_VIEWPORT, viewport);
+            tilemapRenderer.render(
                     TilemapGpuRenderer.Layer.FOREGROUND,
                     screenW,
                     screenH,
@@ -1175,7 +1178,7 @@ public class LevelManager {
         float worldOffsetX = camera.getXWithShake();
         float worldOffsetY = camera.getYWithShake();
 
-        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
             TilePriorityFBO tileFbo = graphicsManager.getTilePriorityFBO();
             TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
             if (tileFbo == null || tilemapRenderer == null) {
@@ -1183,17 +1186,17 @@ public class LevelManager {
             }
 
             // Begin rendering to FBO
-            tileFbo.begin(gl);
+            tileFbo.begin();
 
             // Enable max blending so both layers contribute to priority mask
             // This ensures high-priority tiles from BOTH background AND foreground
             // will occlude low-priority sprites (matching VDP behavior)
-            gl.glEnable(GL2.GL_BLEND);
-            gl.glBlendEquation(GL2.GL_MAX);
-            gl.glBlendFunc(GL2.GL_ONE, GL2.GL_ONE);
+            glEnable(GL_BLEND);
+            glBlendEquation(GL_MAX);
+            glBlendFunc(GL_ONE, GL_ONE);
 
             // First pass: background high-priority tiles
-            tilemapRenderer.render(gl,
+            tilemapRenderer.render(
                     TilemapGpuRenderer.Layer.BACKGROUND,
                     screenW,
                     screenH,
@@ -1215,7 +1218,7 @@ public class LevelManager {
                     0.0f);  // no waterline
 
             // Second pass: foreground high-priority tiles
-            tilemapRenderer.render(gl,
+            tilemapRenderer.render(
                     TilemapGpuRenderer.Layer.FOREGROUND,
                     screenW,
                     screenH,
@@ -1237,11 +1240,11 @@ public class LevelManager {
                     0.0f);  // no waterline
 
             // Restore default blend state
-            gl.glBlendEquation(GL2.GL_FUNC_ADD);
-            gl.glDisable(GL2.GL_BLEND);
+            glBlendEquation(GL_FUNC_ADD);
+            glDisable(GL_BLEND);
 
             // End rendering to FBO
-            tileFbo.end(gl);
+            tileFbo.end();
         }));
     }
 
@@ -1582,7 +1585,7 @@ public class LevelManager {
             shaderProgramId = shaderProgram.getProgramId();
         }
         commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.DISABLE, GL2.GL_TEXTURE_2D));
+        commands.add(new GLCommand(GLCommand.CommandType.DISABLE, GL_TEXTURE_2D));
 
         // Iterate over each pixel column in the tile
         for (int i = 0; i < LevelConstants.CHUNK_WIDTH; i++) {
@@ -1612,7 +1615,7 @@ public class LevelManager {
 
                 commands.add(new GLCommand(
                         GLCommand.CommandType.RECTI,
-                        GL2.GL_2D,
+                        GL_2D,
                         r,
                         g,
                         b,
@@ -1623,7 +1626,7 @@ public class LevelManager {
             }
         }
         // Re-enable texturing and shader for subsequent rendering
-        commands.add(new GLCommand(GLCommand.CommandType.ENABLE, GL2.GL_TEXTURE_2D));
+        commands.add(new GLCommand(GLCommand.CommandType.ENABLE, GL_TEXTURE_2D));
         if (shaderProgramId != 0) {
             commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, shaderProgramId));
         }
@@ -1667,7 +1670,7 @@ public class LevelManager {
             shaderProgramId = shaderProgram.getProgramId();
         }
         commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.DISABLE, GL2.GL_TEXTURE_2D));
+        commands.add(new GLCommand(GLCommand.CommandType.DISABLE, GL_TEXTURE_2D));
 
         for (int y = yStart; y <= yEnd; y += LevelConstants.CHUNK_HEIGHT) {
             // Foreground clamps vertically (doesn't wrap)
@@ -1742,7 +1745,7 @@ public class LevelManager {
         }
 
         // Re-enable texturing and shader for subsequent rendering
-        commands.add(new GLCommand(GLCommand.CommandType.ENABLE, GL2.GL_TEXTURE_2D));
+        commands.add(new GLCommand(GLCommand.CommandType.ENABLE, GL_TEXTURE_2D));
         if (shaderProgramId != 0) {
             commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, shaderProgramId));
         }
@@ -1820,7 +1823,7 @@ public class LevelManager {
 
         if (!sensorCommands.isEmpty()) {
             graphicsManager.enqueueDebugLineState();
-            graphicsManager.registerCommand(new GLCommandGroup(GL2.GL_LINES, sensorCommands));
+            graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, sensorCommands));
         }
     }
 
@@ -1846,7 +1849,7 @@ public class LevelManager {
 
         if (!cameraBoundsCommands.isEmpty()) {
             graphicsManager.enqueueDebugLineState();
-            graphicsManager.registerCommand(new GLCommandGroup(GL2.GL_LINES, cameraBoundsCommands));
+            graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, cameraBoundsCommands));
         }
     }
 
@@ -2118,7 +2121,7 @@ public class LevelManager {
 
         // Update the graphics manager's cached palette texture
         GraphicsManager graphicsMan = GraphicsManager.getInstance();
-        if (graphicsMan.getGraphics() != null) {
+        if (graphicsMan.isGlInitialized()) {
             graphicsMan.cachePaletteTexture(newPalette, paletteIndex);
         }
 
@@ -2483,7 +2486,7 @@ public class LevelManager {
         this.frameCounter = 0;
     }
 
-    public void setClearColor(GL2 gl) {
+    public void setClearColor() {
         float r = 0.0f;
         float g = 0.0f;
         float b = 0.0f;
@@ -2505,7 +2508,7 @@ public class LevelManager {
             b = Byte.toUnsignedInt(backgroundColor.b) / 255f;
         }
 
-        gl.glClearColor(r, g, b, 1.0f);
+        glClearColor(r, g, b, 1.0f);
     }
 
     /**

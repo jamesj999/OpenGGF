@@ -1,6 +1,8 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL14.*;
+import static org.lwjgl.opengl.GL20.*;
 
 /**
  * Manages screen fade effects for transitions.
@@ -397,26 +399,24 @@ public class FadeManager {
 
     /**
      * Render the fade overlay. Call after all game rendering is complete.
-     *
-     * @param gl The OpenGL context
      */
-    public void render(GL2 gl) {
+    public void render() {
         if (state == FadeState.NONE) {
             return;
         }
-        quadRenderer.init(gl);
+        quadRenderer.init();
 
         if (fadeType == FadeType.WHITE) {
-            renderWhiteFade(gl);
+            renderWhiteFade();
         } else {
-            renderBlackFade(gl);
+            renderBlackFade();
         }
     }
 
     /**
      * Render white fade using additive blending.
      */
-    private void renderWhiteFade(GL2 gl) {
+    private void renderWhiteFade() {
         // Skip if fade color is zero (nothing to render)
         if (fadeR == 0f && fadeG == 0f && fadeB == 0f) {
             return;
@@ -428,43 +428,58 @@ public class FadeManager {
         }
 
         // Save OpenGL state
-        gl.glPushAttrib(GL2.GL_ALL_ATTRIB_BITS);
+        boolean blendWasEnabled = glIsEnabled(GL_BLEND);
+        boolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+        boolean texture2dWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+        int[] prevBlendSrc = new int[1];
+        int[] prevBlendDst = new int[1];
+        glGetIntegerv(GL_BLEND_SRC_ALPHA, prevBlendSrc);
+        glGetIntegerv(GL_BLEND_DST_ALPHA, prevBlendDst);
 
         // Set up additive blending: result = src + dst
-        gl.glEnable(GL2.GL_BLEND);
-        gl.glBlendFunc(GL2.GL_ONE, GL2.GL_ONE);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE);
 
         // Disable depth test and texturing
-        gl.glDisable(GL2.GL_DEPTH_TEST);
-        gl.glDisable(GL2.GL_TEXTURE_2D);
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_TEXTURE_2D);
 
         // Use fade shader
-        fadeShader.use(gl);
+        fadeShader.use();
 
         // Set the fade color uniform
         if (fadeColorLocation < 0) {
-            fadeColorLocation = gl.glGetUniformLocation(fadeShader.getProgramId(), "FadeColor");
+            fadeColorLocation = glGetUniformLocation(fadeShader.getProgramId(), "FadeColor");
         }
         if (fadeColorLocation >= 0) {
-            gl.glUniform3f(fadeColorLocation, fadeR, fadeG, fadeB);
+            glUniform3f(fadeColorLocation, fadeR, fadeG, fadeB);
         }
 
         // Save and reset modelview matrix
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
-        gl.glPushMatrix();
-        gl.glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        glLoadIdentity();
 
         // Draw fullscreen quad (using screen coordinates 0-320 x 0-224)
-        quadRenderer.draw(gl, 0, 0, 320, 224);
+        quadRenderer.draw(0, 0, 320, 224);
 
         // Restore modelview matrix
-        gl.glPopMatrix();
+        glPopMatrix();
 
         // Stop using shader
-        fadeShader.stop(gl);
+        fadeShader.stop();
 
         // Restore OpenGL state
-        gl.glPopAttrib();
+        if (!blendWasEnabled) {
+            glDisable(GL_BLEND);
+        }
+        if (depthTestWasEnabled) {
+            glEnable(GL_DEPTH_TEST);
+        }
+        if (texture2dWasEnabled) {
+            glEnable(GL_TEXTURE_2D);
+        }
+        glBlendFunc(prevBlendSrc[0], prevBlendDst[0]);
     }
 
     /**
@@ -473,7 +488,7 @@ public class FadeManager {
      * - Each color's red channel decreases first, then green, then blue
      * - fadeR/G/B represent how much to subtract from each channel (0 to 1)
      */
-    private void renderBlackFade(GL2 gl) {
+    private void renderBlackFade() {
         // Skip if no darkness (nothing to render)
         if (fadeR == 0f && fadeG == 0f && fadeB == 0f) {
             return;
@@ -485,48 +500,63 @@ public class FadeManager {
         }
 
         // Save OpenGL state
-        gl.glPushAttrib(GL2.GL_ALL_ATTRIB_BITS);
+        boolean blendWasEnabled = glIsEnabled(GL_BLEND);
+        boolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+        boolean texture2dWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+        int[] prevBlendSrc = new int[1];
+        int[] prevBlendDst = new int[1];
+        int[] prevBlendEquation = new int[1];
+        glGetIntegerv(GL_BLEND_SRC_ALPHA, prevBlendSrc);
+        glGetIntegerv(GL_BLEND_DST_ALPHA, prevBlendDst);
+        glGetIntegerv(GL_BLEND_EQUATION_RGB, prevBlendEquation);
 
         // Set up subtractive blending: result = dst - src
         // This subtracts our fade color from the screen
-        gl.glEnable(GL2.GL_BLEND);
-        gl.glBlendEquation(GL2.GL_FUNC_REVERSE_SUBTRACT);
-        gl.glBlendFunc(GL2.GL_ONE, GL2.GL_ONE);
+        glEnable(GL_BLEND);
+        glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
+        glBlendFunc(GL_ONE, GL_ONE);
 
         // Disable depth test and texturing
-        gl.glDisable(GL2.GL_DEPTH_TEST);
-        gl.glDisable(GL2.GL_TEXTURE_2D);
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_TEXTURE_2D);
 
         // Use fade shader
-        fadeShader.use(gl);
+        fadeShader.use();
 
         // Set the fade color uniform (amount to subtract per channel)
         if (fadeColorLocation < 0) {
-            fadeColorLocation = gl.glGetUniformLocation(fadeShader.getProgramId(), "FadeColor");
+            fadeColorLocation = glGetUniformLocation(fadeShader.getProgramId(), "FadeColor");
         }
         if (fadeColorLocation >= 0) {
-            gl.glUniform3f(fadeColorLocation, fadeR, fadeG, fadeB);
+            glUniform3f(fadeColorLocation, fadeR, fadeG, fadeB);
         }
 
         // Save and reset modelview matrix
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
-        gl.glPushMatrix();
-        gl.glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        glLoadIdentity();
 
         // Draw fullscreen quad
-        quadRenderer.draw(gl, 0, 0, 320, 224);
+        quadRenderer.draw(0, 0, 320, 224);
 
         // Restore modelview matrix
-        gl.glPopMatrix();
+        glPopMatrix();
 
         // Stop using shader
-        fadeShader.stop(gl);
-
-        // Reset blend equation to default (additive)
-        gl.glBlendEquation(GL2.GL_FUNC_ADD);
+        fadeShader.stop();
 
         // Restore OpenGL state
-        gl.glPopAttrib();
+        glBlendEquation(prevBlendEquation[0]);
+        if (!blendWasEnabled) {
+            glDisable(GL_BLEND);
+        }
+        if (depthTestWasEnabled) {
+            glEnable(GL_DEPTH_TEST);
+        }
+        if (texture2dWasEnabled) {
+            glEnable(GL_TEXTURE_2D);
+        }
+        glBlendFunc(prevBlendSrc[0], prevBlendDst[0]);
     }
 
     /**
@@ -575,8 +605,8 @@ public class FadeManager {
         holdFrameCount = 0;
     }
 
-    public void cleanup(GL2 gl) {
-        quadRenderer.cleanup(gl);
+    public void cleanup() {
+        quadRenderer.cleanup();
     }
 
     /**

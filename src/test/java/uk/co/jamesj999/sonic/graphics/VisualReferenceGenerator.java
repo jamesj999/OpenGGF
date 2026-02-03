@@ -1,11 +1,8 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.GLCapabilities;
-import com.jogamp.opengl.GLDrawableFactory;
-import com.jogamp.opengl.GLOffscreenAutoDrawable;
-import com.jogamp.opengl.GLProfile;
-import com.jogamp.opengl.glu.GLU;
+import org.joml.Matrix4f;
+import org.lwjgl.glfw.GLFWErrorCallback;
+import org.lwjgl.opengl.GL;
 import uk.co.jamesj999.sonic.Engine;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
@@ -24,6 +21,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.system.MemoryUtil.NULL;
 import static uk.co.jamesj999.sonic.tests.RomTestUtils.ensureRomAvailable;
 
 /**
@@ -56,10 +56,12 @@ public class VisualReferenceGenerator {
             {5, 0, 1400, 1128, "mcz_a1_cp1.png"},     // MCZ Act 1 checkpoint 1
     };
 
-    private GLOffscreenAutoDrawable drawable;
-    private GL2 gl;
-    private GLU glu;
+    private long window;
     private Rom rom;
+
+    // JOML matrix for projection
+    private final Matrix4f projectionMatrix = new Matrix4f();
+    private final float[] matrixBuffer = new float[16];
 
     public static void main(String[] args) {
         VisualReferenceGenerator generator = new VisualReferenceGenerator();
@@ -85,48 +87,53 @@ public class VisualReferenceGenerator {
         // Disable debug view to avoid rendering debug markers
         SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.DEBUG_VIEW_ENABLED, false);
 
-        // Create offscreen drawable
-        GLProfile profile = GLProfile.get(GLProfile.GL2);
-        GLCapabilities caps = new GLCapabilities(profile);
-        caps.setOnscreen(false);
-        caps.setDoubleBuffered(false); // Single-buffered for offscreen
-        caps.setPBuffer(true);
+        // Setup error callback
+        GLFWErrorCallback.createPrint(System.err).set();
 
-        GLDrawableFactory factory = GLDrawableFactory.getFactory(profile);
-        drawable = factory.createOffscreenAutoDrawable(
-                factory.getDefaultDevice(),
-                caps,
-                null,
-                SCREEN_WIDTH,
-                SCREEN_HEIGHT
-        );
+        // Initialize GLFW
+        if (!glfwInit()) {
+            throw new IllegalStateException("Unable to initialize GLFW");
+        }
 
-        // Force context creation
-        drawable.display();
+        // Configure GLFW for offscreen rendering
+        glfwDefaultWindowHints();
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 
-        // Get GL context
-        drawable.getContext().makeCurrent();
-        gl = drawable.getGL().getGL2();
-        glu = new GLU();
+        // Create hidden window for offscreen rendering
+        window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Visual Reference Generator", NULL, NULL);
+        if (window == NULL) {
+            throw new RuntimeException("Failed to create GLFW window");
+        }
+
+        // Make context current
+        glfwMakeContextCurrent(window);
+
+        // Create GL capabilities
+        GL.createCapabilities();
 
         // Initialize graphics manager with shader
         GraphicsManager graphicsManager = GraphicsManager.getInstance();
-        graphicsManager.init(gl, Engine.RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
+        graphicsManager.init(Engine.RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
 
         // Set viewport
-        gl.glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+        glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-        // Set up projection matrix
-        gl.glMatrixMode(GL2.GL_PROJECTION);
-        gl.glLoadIdentity();
-        glu.gluOrtho2D(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT);
+        // Set up projection matrix using JOML
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        projectionMatrix.identity().ortho2D(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT);
+        projectionMatrix.get(matrixBuffer);
+        glLoadMatrixf(matrixBuffer);
 
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
-        gl.glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
 
         // Enable blending for transparency
-        gl.glEnable(GL2.GL_BLEND);
-        gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         // Load ROM
         System.out.println("Loading ROM...");
@@ -207,8 +214,8 @@ public class VisualReferenceGenerator {
                 spriteManager.updateWithoutInput();
 
                 // Clear screen with level's background color
-                levelManager.setClearColor(gl);
-                gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
+                levelManager.setClearColor();
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
                 // Render level with sprites
                 levelManager.drawWithSpritePriority(spriteManager);
@@ -217,10 +224,10 @@ public class VisualReferenceGenerator {
                 graphicsManager.flush();
 
                 // Ensure all GL commands are complete
-                gl.glFinish();
+                glFinish();
 
                 // Capture framebuffer
-                BufferedImage screenshot = ScreenshotCapture.captureFramebuffer(gl, SCREEN_WIDTH, SCREEN_HEIGHT);
+                BufferedImage screenshot = ScreenshotCapture.captureFramebuffer(SCREEN_WIDTH, SCREEN_HEIGHT);
 
                 // Save to file
                 Path filePath = refDir.resolve(filename);
@@ -239,14 +246,14 @@ public class VisualReferenceGenerator {
      * Cleanup OpenGL resources.
      */
     public void cleanup() {
-        if (drawable != null) {
+        if (window != NULL) {
             try {
-                drawable.getContext().release();
-                drawable.destroy();
+                glfwDestroyWindow(window);
             } catch (Exception e) {
                 // Ignore cleanup errors
             }
         }
+        glfwTerminate();
 
         // Reset graphics singleton for clean state
         GraphicsManager.resetInstance();

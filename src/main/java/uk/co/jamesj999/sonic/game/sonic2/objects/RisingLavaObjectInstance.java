@@ -17,6 +17,8 @@ import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
 
+import static org.lwjgl.opengl.GL11.GL_QUADS;
+
 /**
  * Object 30 - Large rising lava platform during earthquake in HTZ.
  * <p>
@@ -344,7 +346,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // Semi-transparent fill
         commands.add(new GLCommand(
                 GLCommand.CommandType.RECTI,
-                com.jogamp.opengl.GL2.GL_QUADS,
+                GL_QUADS,
                 GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
                 r, g, b, 0.3f,
                 x1, y1, x2, y2));
@@ -352,22 +354,22 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // Solid border
         commands.add(new GLCommand(
                 GLCommand.CommandType.RECTI,
-                com.jogamp.opengl.GL2.GL_QUADS,
+                GL_QUADS,
                 r, g, b,
                 x1, y1, x2, y1 + 1));
         commands.add(new GLCommand(
                 GLCommand.CommandType.RECTI,
-                com.jogamp.opengl.GL2.GL_QUADS,
+                GL_QUADS,
                 r, g, b,
                 x1, y2 - 1, x2, y2));
         commands.add(new GLCommand(
                 GLCommand.CommandType.RECTI,
-                com.jogamp.opengl.GL2.GL_QUADS,
+                GL_QUADS,
                 r, g, b,
                 x1, y1, x1 + 1, y2));
         commands.add(new GLCommand(
                 GLCommand.CommandType.RECTI,
-                com.jogamp.opengl.GL2.GL_QUADS,
+                GL_QUADS,
                 r, g, b,
                 x2 - 1, y1, x2, y2));
     }

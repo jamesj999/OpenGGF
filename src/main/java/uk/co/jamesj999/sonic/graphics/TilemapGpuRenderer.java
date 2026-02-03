@@ -1,9 +1,10 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
-
 import java.io.IOException;
 import java.util.logging.Logger;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
 
 /**
  * GPU renderer that draws a tilemap texture into the current framebuffer.
@@ -36,16 +37,13 @@ public class TilemapGpuRenderer {
     private int lookupSize;
     private boolean lookupDirty = false;
 
-    public void init(GL2 gl, String shaderPath) throws IOException {
-        if (gl == null) {
-            return;
-        }
+    public void init(String shaderPath) throws IOException {
         if (shader == null) {
-            shader = new TilemapShaderProgram(gl, shaderPath);
-            shader.cacheUniformLocations(gl);
+            shader = new TilemapShaderProgram(shaderPath);
+            shader.cacheUniformLocations();
             LOGGER.info("Tilemap GPU renderer initialized.");
         }
-        quadRenderer.init(gl);
+        quadRenderer.init();
     }
 
     public void setTilemapData(Layer layer, byte[] data, int widthTiles, int heightTiles) {
@@ -68,7 +66,7 @@ public class TilemapGpuRenderer {
         this.lookupDirty = true;
     }
 
-    public void render(GL2 gl,
+    public void render(
             Layer layer,
             int windowWidth,
             int windowHeight,
@@ -93,78 +91,78 @@ public class TilemapGpuRenderer {
         int tilemapHeightTiles = layer == Layer.FOREGROUND ? foregroundHeightTiles : backgroundHeightTiles;
         TilemapTexture tilemapTexture = layer == Layer.FOREGROUND ? foregroundTexture : backgroundTexture;
 
-        if (gl == null || shader == null || tilemapData == null || lookupData == null) {
+        if (shader == null || tilemapData == null || lookupData == null) {
             return;
         }
 
         if (layer == Layer.FOREGROUND) {
             if (foregroundDirty) {
-                tilemapTexture.upload(gl, tilemapData, tilemapWidthTiles, tilemapHeightTiles);
+                tilemapTexture.upload(tilemapData, tilemapWidthTiles, tilemapHeightTiles);
                 foregroundDirty = false;
             }
         } else if (backgroundDirty) {
-            tilemapTexture.upload(gl, tilemapData, tilemapWidthTiles, tilemapHeightTiles);
+            tilemapTexture.upload(tilemapData, tilemapWidthTiles, tilemapHeightTiles);
             backgroundDirty = false;
         }
         if (lookupDirty) {
-            patternLookup.upload(gl, lookupData, lookupSize);
+            patternLookup.upload(lookupData, lookupSize);
             lookupDirty = false;
         }
 
-        shader.use(gl);
-        shader.cacheUniformLocations(gl);
+        shader.use();
+        shader.cacheUniformLocations();
 
-        shader.setTextureUnits(gl, 0, 1, 2, 3, 4);
-        shader.setTilemapDimensions(gl, tilemapWidthTiles, tilemapHeightTiles);
-        shader.setAtlasDimensions(gl, atlasWidth, atlasHeight);
-        shader.setLookupSize(gl, lookupSize);
-        shader.setWindowDimensions(gl, windowWidth, windowHeight);
-        shader.setViewport(gl, viewportX, viewportY, viewportWidth, viewportHeight);
-        shader.setWorldOffset(gl, worldOffsetX, worldOffsetY);
-        shader.setWrapY(gl, wrapY);
-        shader.setPriorityPass(gl, priorityPass);
-        shader.setMaskOutput(gl, maskOutput);
-        shader.setWaterSplit(gl, useUnderwaterPalette, waterlineScreenY);
+        shader.setTextureUnits(0, 1, 2, 3, 4);
+        shader.setTilemapDimensions(tilemapWidthTiles, tilemapHeightTiles);
+        shader.setAtlasDimensions(atlasWidth, atlasHeight);
+        shader.setLookupSize(lookupSize);
+        shader.setWindowDimensions(windowWidth, windowHeight);
+        shader.setViewport(viewportX, viewportY, viewportWidth, viewportHeight);
+        shader.setWorldOffset(worldOffsetX, worldOffsetY);
+        shader.setWrapY(wrapY);
+        shader.setPriorityPass(priorityPass);
+        shader.setMaskOutput(maskOutput);
+        shader.setWaterSplit(useUnderwaterPalette, waterlineScreenY);
 
-        gl.glActiveTexture(GL2.GL_TEXTURE0);
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, tilemapTexture.getTextureId());
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, tilemapTexture.getTextureId());
 
-        gl.glActiveTexture(GL2.GL_TEXTURE1);
-        gl.glBindTexture(GL2.GL_TEXTURE_1D, patternLookup.getTextureId());
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_1D, patternLookup.getTextureId());
 
-        gl.glActiveTexture(GL2.GL_TEXTURE2);
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, atlasTextureId);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, atlasTextureId);
 
-        gl.glActiveTexture(GL2.GL_TEXTURE3);
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, paletteTextureId);
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, paletteTextureId);
 
-        gl.glActiveTexture(GL2.GL_TEXTURE4);
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, underwaterPaletteTextureId);
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, underwaterPaletteTextureId);
 
-        quadRenderer.draw(gl, 0, 0, windowWidth, windowHeight);
+        quadRenderer.draw(0, 0, windowWidth, windowHeight);
 
-        gl.glActiveTexture(GL2.GL_TEXTURE3);
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
-        gl.glActiveTexture(GL2.GL_TEXTURE4);
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
-        gl.glActiveTexture(GL2.GL_TEXTURE2);
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
-        gl.glActiveTexture(GL2.GL_TEXTURE1);
-        gl.glBindTexture(GL2.GL_TEXTURE_1D, 0);
-        gl.glActiveTexture(GL2.GL_TEXTURE0);
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_1D, 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, 0);
 
-        shader.stop(gl);
+        shader.stop();
     }
 
-    public void cleanup(GL2 gl) {
+    public void cleanup() {
         if (shader != null) {
-            shader.cleanup(gl);
+            shader.cleanup();
             shader = null;
         }
-        backgroundTexture.cleanup(gl);
-        foregroundTexture.cleanup(gl);
-        patternLookup.cleanup(gl);
-        quadRenderer.cleanup(gl);
+        backgroundTexture.cleanup();
+        foregroundTexture.cleanup();
+        patternLookup.cleanup();
+        quadRenderer.cleanup();
     }
 }

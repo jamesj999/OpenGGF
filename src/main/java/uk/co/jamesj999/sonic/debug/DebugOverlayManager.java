@@ -4,10 +4,11 @@ import uk.co.jamesj999.sonic.Control.InputHandler;
 
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
-import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
+
+import static org.lwjgl.glfw.GLFW.*;
 
 public class DebugOverlayManager {
     private static DebugOverlayManager debugOverlayManager;
@@ -41,7 +42,7 @@ public class DebugOverlayManager {
         }
 
         // Ctrl+P copies performance stats to clipboard
-        if (handler.isKeyDown(KeyEvent.VK_CONTROL) && handler.isKeyPressed(KeyEvent.VK_P)) {
+        if (handler.isKeyDown(GLFW_KEY_LEFT_CONTROL) && handler.isKeyPressed(GLFW_KEY_P)) {
             copyPerformanceStatsToClipboard();
         }
     }

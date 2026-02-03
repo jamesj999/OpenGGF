@@ -251,7 +251,7 @@ public class DynamicHtz {
                     System.arraycopy(cliffArtData, srcTileOffset, tileData, 0, 32);
                     pattern.fromSegaFormat(tileData);
 
-                    if (graphicsMan.getGraphics() != null) {
+                    if (graphicsMan.isGlInitialized()) {
                         graphicsMan.updatePatternTexture(pattern, destIndex);
                     }
                 }
@@ -363,7 +363,7 @@ public class DynamicHtz {
 
                 pattern.fromSegaFormat(tileData);
 
-                if (graphicsMan.getGraphics() != null) {
+                if (graphicsMan.isGlInitialized()) {
                     graphicsMan.updatePatternTexture(pattern, destIndex);
                 }
             }

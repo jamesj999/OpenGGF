@@ -1,6 +1,5 @@
 package uk.co.jamesj999.sonic.graphics.pipeline;
 
-import com.jogamp.opengl.GL2;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.graphics.FadeManager;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
@@ -63,15 +62,13 @@ public class UiRenderPipeline {
 
     /**
      * Render the fade pass. Must be called after all other rendering.
-     *
-     * @param gl OpenGL context
      */
-    public void renderFadePass(GL2 gl) {
+    public void renderFadePass() {
         RenderOrderRecorder recorder = RenderOrderRecorder.getInstance();
 
         if (fadeEnabled && fadeManager != null && fadeManager.isActive()) {
             recorder.record(RenderPhase.FADE_PASS, "Fade");
-            fadeManager.render(gl);
+            fadeManager.render();
         }
     }
 

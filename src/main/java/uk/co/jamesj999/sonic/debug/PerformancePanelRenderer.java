@@ -1,11 +1,11 @@
 package uk.co.jamesj999.sonic.debug;
 
-import com.jogamp.opengl.GL2;
-
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+
+import static org.lwjgl.opengl.GL11.*;
 
 /**
  * Renders the performance profiling panel in the debug overlay.
@@ -87,10 +87,9 @@ public class PerformancePanelRenderer {
      * Renders the performance panel.
      * Must be called while in 2D overlay rendering mode.
      *
-     * @param gl The OpenGL context
      * @param snapshot The profiling data snapshot to display
      */
-    public void render(GL2 gl, ProfileSnapshot snapshot) {
+    public void render(ProfileSnapshot snapshot) {
         if (glyphBatch == null || !glyphBatch.isInitialized()) {
             return;
         }
@@ -103,7 +102,7 @@ public class PerformancePanelRenderer {
         if (!snapshot.hasData()) {
             glyphBatch.begin();
             glyphBatch.drawTextOutlined("Perf: collecting...", uiX(panelRight - 80), uiY(panelTop - 10), Color.WHITE, PERF_FONT);
-            glyphBatch.end(gl);
+            glyphBatch.end();
             return;
         }
 
@@ -113,14 +112,14 @@ public class PerformancePanelRenderer {
         int pieCenterY = panelTop - 50;  // Below the text stats
 
         // Draw pie chart (uses game coordinates directly)
-        drawPieChart(gl, pieCenterX, pieCenterY, pieRadius, snapshot);
+        drawPieChart(pieCenterX, pieCenterY, pieRadius, snapshot);
 
         // Draw frame history graph below pie chart
         int graphWidth = 80;
         int graphHeight = 25;
         int graphX = panelRight - graphWidth - 4;
         int graphY = panelTop - 115;  // Below the pie chart
-        drawFrameHistoryGraph(gl, graphX, graphY, graphWidth, graphHeight, snapshot);
+        drawFrameHistoryGraph(graphX, graphY, graphWidth, graphHeight, snapshot);
 
         // Draw memory stats below the frame graph
         MemoryStats.Snapshot memSnapshot = MemoryStats.getInstance().snapshot();
@@ -191,7 +190,7 @@ public class PerformancePanelRenderer {
             }
         }
 
-        glyphBatch.end(gl);
+        glyphBatch.end();
     }
 
     /**
@@ -199,7 +198,7 @@ public class PerformancePanelRenderer {
      * Uses game coordinates (0-320, 0-224 with Y=0 at bottom).
      * Sections are drawn in alphabetical order for stable positioning.
      */
-    private void drawPieChart(GL2 gl, int centerX, int centerY, int radius, ProfileSnapshot snapshot) {
+    private void drawPieChart(int centerX, int centerY, int radius, ProfileSnapshot snapshot) {
         // Sort by name for stable pie chart positioning
         pieChartSections.clear();
         pieChartSections.addAll(snapshot.getSectionsSortedByTime());
@@ -209,9 +208,9 @@ public class PerformancePanelRenderer {
             return;
         }
 
-        gl.glDisable(GL2.GL_TEXTURE_2D);
-        gl.glEnable(GL2.GL_BLEND);
-        gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
+        glDisable(GL_TEXTURE_2D);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         float startAngle = 90; // Start from top
 
@@ -223,35 +222,35 @@ public class PerformancePanelRenderer {
 
             int colorIndex = getColorIndexForSection(section.name());
             float[] color = SECTION_COLORS[colorIndex];
-            gl.glColor3f(color[0], color[1], color[2]);
+            glColor3f(color[0], color[1], color[2]);
 
-            gl.glBegin(GL2.GL_TRIANGLE_FAN);
-            gl.glVertex2f(centerX, centerY);
+            glBegin(GL_TRIANGLE_FAN);
+            glVertex2f(centerX, centerY);
 
             for (float a = startAngle; a >= startAngle - sweepAngle; a -= 10) {
                 float rad = (float) Math.toRadians(a);
-                gl.glVertex2f(centerX + radius * (float) Math.cos(rad),
+                glVertex2f(centerX + radius * (float) Math.cos(rad),
                               centerY + radius * (float) Math.sin(rad));
             }
             float endRad = (float) Math.toRadians(startAngle - sweepAngle);
-            gl.glVertex2f(centerX + radius * (float) Math.cos(endRad),
+            glVertex2f(centerX + radius * (float) Math.cos(endRad),
                           centerY + radius * (float) Math.sin(endRad));
-            gl.glEnd();
+            glEnd();
 
             startAngle -= sweepAngle;
         }
 
         // Outline
-        gl.glColor3f(0.7f, 0.7f, 0.7f);
-        gl.glBegin(GL2.GL_LINE_LOOP);
+        glColor3f(0.7f, 0.7f, 0.7f);
+        glBegin(GL_LINE_LOOP);
         for (int a = 0; a < 360; a += 15) {
             float rad = (float) Math.toRadians(a);
-            gl.glVertex2f(centerX + radius * (float) Math.cos(rad),
+            glVertex2f(centerX + radius * (float) Math.cos(rad),
                           centerY + radius * (float) Math.sin(rad));
         }
-        gl.glEnd();
+        glEnd();
 
-        gl.glEnable(GL2.GL_TEXTURE_2D);
+        glEnable(GL_TEXTURE_2D);
     }
 
     /**
@@ -259,7 +258,7 @@ public class PerformancePanelRenderer {
      * Uses game coordinates (0-320, 0-224 with Y=0 at bottom).
      * Auto-scales based on actual data range.
      */
-    private void drawFrameHistoryGraph(GL2 gl, int x, int y, int width, int height,
+    private void drawFrameHistoryGraph(int x, int y, int width, int height,
                                         ProfileSnapshot snapshot) {
         float[] history = snapshot.frameHistory();
         int currentIndex = snapshot.historyIndex();
@@ -282,49 +281,49 @@ public class PerformancePanelRenderer {
             graphMax = (float) Math.ceil(graphMax); // Round to 1ms
         }
 
-        gl.glDisable(GL2.GL_TEXTURE_2D);
-        gl.glEnable(GL2.GL_BLEND);
+        glDisable(GL_TEXTURE_2D);
+        glEnable(GL_BLEND);
 
         // Background
-        gl.glColor4f(0.0f, 0.0f, 0.0f, 0.6f);
-        gl.glBegin(GL2.GL_QUADS);
-        gl.glVertex2f(x, y);
-        gl.glVertex2f(x + width, y);
-        gl.glVertex2f(x + width, y + height);
-        gl.glVertex2f(x, y + height);
-        gl.glEnd();
+        glColor4f(0.0f, 0.0f, 0.0f, 0.6f);
+        glBegin(GL_QUADS);
+        glVertex2f(x, y);
+        glVertex2f(x + width, y);
+        glVertex2f(x + width, y + height);
+        glVertex2f(x, y + height);
+        glEnd();
 
         // Mid-line (at 50% of scale)
         float midY = y + 0.5f * height;
-        gl.glColor3f(0.3f, 0.3f, 0.3f);
-        gl.glBegin(GL2.GL_LINES);
-        gl.glVertex2f(x, midY);
-        gl.glVertex2f(x + width, midY);
-        gl.glEnd();
+        glColor3f(0.3f, 0.3f, 0.3f);
+        glBegin(GL_LINES);
+        glVertex2f(x, midY);
+        glVertex2f(x + width, midY);
+        glEnd();
 
         // Frame time line
-        gl.glColor3f(0.3f, 0.9f, 0.3f);
-        gl.glBegin(GL2.GL_LINE_STRIP);
+        glColor3f(0.3f, 0.9f, 0.3f);
+        glBegin(GL_LINE_STRIP);
         for (int i = 0; i < historySize; i++) {
             int idx = (currentIndex + i) % historySize;
             float frameTime = history[idx];
             float graphX = x + (float) i / historySize * width;
             float normalizedY = Math.min(frameTime / graphMax, 1.0f);
             float graphY = y + normalizedY * height;
-            gl.glVertex2f(graphX, graphY);
+            glVertex2f(graphX, graphY);
         }
-        gl.glEnd();
+        glEnd();
 
         // Border
-        gl.glColor3f(0.5f, 0.5f, 0.5f);
-        gl.glBegin(GL2.GL_LINE_LOOP);
-        gl.glVertex2f(x, y);
-        gl.glVertex2f(x + width, y);
-        gl.glVertex2f(x + width, y + height);
-        gl.glVertex2f(x, y + height);
-        gl.glEnd();
+        glColor3f(0.5f, 0.5f, 0.5f);
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(x, y);
+        glVertex2f(x + width, y);
+        glVertex2f(x + width, y + height);
+        glVertex2f(x, y + height);
+        glEnd();
 
-        gl.glEnable(GL2.GL_TEXTURE_2D);
+        glEnable(GL_TEXTURE_2D);
     }
 
     /** Scale game X to viewport X */

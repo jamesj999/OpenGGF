@@ -1,7 +1,11 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.util.GLBuffers;
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+
+import org.lwjgl.system.MemoryUtil;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.level.PatternDesc;
@@ -11,12 +15,12 @@ import java.util.ArrayDeque;
 
 /**
  * High-performance batched pattern renderer.
- * 
+ *
  * Instead of issuing one draw call per 8x8 pattern (with full state setup each
  * time),
  * this class collects all patterns to render and issues them in batched draw
  * calls.
- * 
+ *
  * Performance gains:
  * - Eliminates per-pattern glPushMatrix/glPopMatrix calls
  * - Eliminates per-pattern shader bind/unbind
@@ -438,31 +442,43 @@ public class BatchedPatternRenderer {
         return command;
     }
 
-    private void recycleBatchCommand(BatchRenderCommand command, GL2 gl) {
+    private void recycleBatchCommand(BatchRenderCommand command) {
         if (batchCommandPool.size() < COMMAND_POOL_LIMIT) {
             batchCommandPool.addLast(command);
         } else {
-            command.dispose(gl);
+            command.dispose();
         }
     }
 
-    private void recycleShadowCommand(ShadowBatchRenderCommand command, GL2 gl) {
+    private void recycleShadowCommand(ShadowBatchRenderCommand command) {
         if (shadowCommandPool.size() < COMMAND_POOL_LIMIT) {
             shadowCommandPool.addLast(command);
         } else {
-            command.dispose(gl);
+            command.dispose();
         }
     }
 
-    public void cleanup(GL2 gl) {
+    public void cleanup() {
         for (BatchRenderCommand command : batchCommandPool) {
-            command.dispose(gl);
+            command.dispose();
         }
         batchCommandPool.clear();
         for (ShadowBatchRenderCommand command : shadowCommandPool) {
-            command.dispose(gl);
+            command.dispose();
         }
         shadowCommandPool.clear();
+    }
+
+    /**
+     * Cleanup for headless mode (no GL context available).
+     * Clears internal state without making GL calls.
+     */
+    public void cleanupHeadless() {
+        batchCommandPool.clear();
+        shadowCommandPool.clear();
+        patternCount = 0;
+        batchActive = false;
+        shadowBatchActive = false;
     }
 
     /**
@@ -509,11 +525,11 @@ public class BatchedPatternRenderer {
         }
 
         @Override
-        public void execute(GL2 gl, int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
+        public void execute(int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
             if (patternCount == 0) {
                 return;
             }
-            ensureVbos(gl);
+            ensureVbos();
 
             GraphicsManager gm = GraphicsManager.getInstance();
             // Use captured priority shader state from batch creation time
@@ -526,64 +542,64 @@ public class BatchedPatternRenderer {
             }
 
             // Setup state once for entire batch
-            gl.glEnable(GL2.GL_BLEND);
-            gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
-            shader.use(gl);
-            shader.cacheUniformLocations(gl);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            shader.use();
+            shader.cacheUniformLocations();
 
             // Set texture unit uniforms once
-            gl.glUniform1i(shader.getPaletteLocation(), 0);
-            gl.glUniform1i(shader.getIndexedColorTextureLocation(), 1);
-            shader.setPaletteLine(gl, -1.0f);
+            glUniform1i(shader.getPaletteLocation(), 0);
+            glUniform1i(shader.getIndexedColorTextureLocation(), 1);
+            shader.setPaletteLine(-1.0f);
 
             // Set priority uniform if using sprite priority shader
             if (shader instanceof SpritePriorityShaderProgram priorityShader) {
                 boolean highPri = gm.getCurrentSpriteHighPriority();
-                priorityShader.setSpriteHighPriority(gl, highPri);
+                priorityShader.setSpriteHighPriority(highPri);
 
                 // Bind tile priority FBO texture to unit 3
                 TilePriorityFBO fbo = gm.getTilePriorityFBO();
                 if (fbo != null && fbo.isInitialized()) {
-                    gl.glActiveTexture(GL2.GL_TEXTURE3);
-                    gl.glBindTexture(GL2.GL_TEXTURE_2D, fbo.getTextureId());
-                    priorityShader.setTilePriorityTexture(gl, 3);
+                    glActiveTexture(GL_TEXTURE3);
+                    glBindTexture(GL_TEXTURE_2D, fbo.getTextureId());
+                    priorityShader.setTilePriorityTexture(3);
 
                     // Use cached viewport dimensions from GraphicsManager
                     // instead of expensive glGetIntegerv(GL_VIEWPORT) every batch
-                    priorityShader.setScreenSize(gl, gm.getViewportWidth(), gm.getViewportHeight());
-                    priorityShader.setViewportOffset(gl, gm.getViewportX(), gm.getViewportY());
-                    gl.glActiveTexture(GL2.GL_TEXTURE0);
+                    priorityShader.setScreenSize(gm.getViewportWidth(), gm.getViewportHeight());
+                    priorityShader.setViewportOffset(gm.getViewportX(), gm.getViewportY());
+                    glActiveTexture(GL_TEXTURE0);
                 }
 
                 // Bind underwater palette for per-scanline palette switching
                 Integer underwaterPaletteId = gm.getUnderwaterPaletteTextureId();
                 if (underwaterPaletteId != null) {
-                    gl.glActiveTexture(GL2.GL_TEXTURE2);
-                    gl.glBindTexture(GL2.GL_TEXTURE_2D, underwaterPaletteId);
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_2D, underwaterPaletteId);
                     int loc = priorityShader.getUnderwaterPaletteLocation();
                     if (loc != -1) {
-                        gl.glUniform1i(loc, 2);
+                        glUniform1i(loc, 2);
                     }
-                    gl.glActiveTexture(GL2.GL_TEXTURE0);
+                    glActiveTexture(GL_TEXTURE0);
                 }
 
                 // Set water uniforms from cached values in GraphicsManager
-                priorityShader.setWaterEnabled(gl, gm.isWaterEnabled());
-                priorityShader.setWaterlineScreenY(gl, gm.getWaterlineScreenY());
-                priorityShader.setWindowHeight(gl, gm.getWindowHeight());
-                priorityShader.setScreenHeight(gl, gm.getScreenHeight());
+                priorityShader.setWaterEnabled(gm.isWaterEnabled());
+                priorityShader.setWaterlineScreenY(gm.getWaterlineScreenY());
+                priorityShader.setWindowHeight(gm.getWindowHeight());
+                priorityShader.setScreenHeight(gm.getScreenHeight());
             }
 
             // Enable vertex arrays
-            gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
-            gl.glClientActiveTexture(GL2.GL_TEXTURE0);
-            gl.glEnableClientState(GL2.GL_TEXTURE_COORD_ARRAY);
-            gl.glClientActiveTexture(GL2.GL_TEXTURE1);
-            gl.glEnableClientState(GL2.GL_TEXTURE_COORD_ARRAY);
+            glEnableClientState(GL_VERTEX_ARRAY);
+            glClientActiveTexture(GL_TEXTURE0);
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            glClientActiveTexture(GL_TEXTURE1);
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 
             // Bind palette texture (use underwater palette if flag is set for background
             // rendering)
-            gl.glActiveTexture(GL2.GL_TEXTURE0);
+            glActiveTexture(GL_TEXTURE0);
             Integer paletteTextureId;
             if (gm.isUseUnderwaterPaletteForBackground()) {
                 // Use underwater palette for entire background when Sonic is underwater
@@ -596,13 +612,13 @@ public class BatchedPatternRenderer {
                 paletteTextureId = gm.getCombinedPaletteTextureId();
             }
             if (paletteTextureId != null) {
-                gl.glBindTexture(GL2.GL_TEXTURE_2D, paletteTextureId);
+                glBindTexture(GL_TEXTURE_2D, paletteTextureId);
             }
 
             Integer atlasTextureId = gm.getPatternAtlasTextureId();
             if (atlasTextureId != null) {
-                gl.glActiveTexture(GL2.GL_TEXTURE1);
-                gl.glBindTexture(GL2.GL_TEXTURE_2D, atlasTextureId);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, atlasTextureId);
             }
 
             // If using water shader, bind underwater palette to texture unit 2
@@ -610,71 +626,66 @@ public class BatchedPatternRenderer {
                 WaterShaderProgram waterShader = (WaterShaderProgram) shader;
                 Integer underwaterPaletteId = gm.getUnderwaterPaletteTextureId();
                 if (underwaterPaletteId != null) {
-                    gl.glActiveTexture(GL2.GL_TEXTURE2);
-                    gl.glBindTexture(GL2.GL_TEXTURE_2D, underwaterPaletteId);
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_2D, underwaterPaletteId);
                     int loc = waterShader.getUnderwaterPaletteLocation();
                     if (loc != -1) {
-                        gl.glUniform1i(loc, 2);
+                        glUniform1i(loc, 2);
                     }
-                    gl.glActiveTexture(GL2.GL_TEXTURE0);
+                    glActiveTexture(GL_TEXTURE0);
                 }
             }
 
-            gl.glPushMatrix();
-            gl.glTranslatef(-cameraX, cameraY, 0);
+            glPushMatrix();
+            glTranslatef(-cameraX, cameraY, 0);
 
-            gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, vertexVboId);
+            glBindBuffer(GL_ARRAY_BUFFER, vertexVboId);
             vertexBuffer.rewind();
             vertexBuffer.limit(vertexFloatCount);
-            gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) vertexFloatCount * Float.BYTES, vertexBuffer,
-                    GL2.GL_DYNAMIC_DRAW);
-            gl.glVertexPointer(2, GL2.GL_FLOAT, 0, 0L);
-            gl.glClientActiveTexture(GL2.GL_TEXTURE0);
-            gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, texCoordVboId);
+            glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_DYNAMIC_DRAW);
+            glVertexPointer(2, GL_FLOAT, 0, 0L);
+            glClientActiveTexture(GL_TEXTURE0);
+            glBindBuffer(GL_ARRAY_BUFFER, texCoordVboId);
             texCoordBuffer.rewind();
             texCoordBuffer.limit(texCoordFloatCount);
-            gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) texCoordFloatCount * Float.BYTES, texCoordBuffer,
-                    GL2.GL_DYNAMIC_DRAW);
-            gl.glTexCoordPointer(2, GL2.GL_FLOAT, 0, 0L);
-            gl.glClientActiveTexture(GL2.GL_TEXTURE1);
-            gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, paletteVboId);
+            glBufferData(GL_ARRAY_BUFFER, texCoordBuffer, GL_DYNAMIC_DRAW);
+            glTexCoordPointer(2, GL_FLOAT, 0, 0L);
+            glClientActiveTexture(GL_TEXTURE1);
+            glBindBuffer(GL_ARRAY_BUFFER, paletteVboId);
             paletteCoordBuffer.rewind();
             paletteCoordBuffer.limit(paletteFloatCount);
-            gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) paletteFloatCount * Float.BYTES, paletteCoordBuffer,
-                    GL2.GL_DYNAMIC_DRAW);
-            gl.glTexCoordPointer(1, GL2.GL_FLOAT, 0, 0L);
-            gl.glClientActiveTexture(GL2.GL_TEXTURE0);
+            glBufferData(GL_ARRAY_BUFFER, paletteCoordBuffer, GL_DYNAMIC_DRAW);
+            glTexCoordPointer(1, GL_FLOAT, 0, 0L);
+            glClientActiveTexture(GL_TEXTURE0);
 
-            gl.glDrawArrays(GL2.GL_QUADS, 0, patternCount * 4);
+            glDrawArrays(GL_QUADS, 0, patternCount * 4);
 
-            gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, 0);
-            gl.glPopMatrix();
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glPopMatrix();
 
             // Cleanup state
-            gl.glDisableClientState(GL2.GL_VERTEX_ARRAY);
-            gl.glClientActiveTexture(GL2.GL_TEXTURE1);
-            gl.glDisableClientState(GL2.GL_TEXTURE_COORD_ARRAY);
-            gl.glClientActiveTexture(GL2.GL_TEXTURE0);
-            gl.glDisableClientState(GL2.GL_TEXTURE_COORD_ARRAY);
-            shader.stop(gl);
-            gl.glDisable(GL2.GL_BLEND);
+            glDisableClientState(GL_VERTEX_ARRAY);
+            glClientActiveTexture(GL_TEXTURE1);
+            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+            glClientActiveTexture(GL_TEXTURE0);
+            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+            shader.stop();
+            glDisable(GL_BLEND);
 
             // Reset PatternRenderCommand state tracking so subsequent patterns
             // will properly reinitialize GL state (since we just disabled everything)
             PatternRenderCommand.resetFrameState();
 
-            recycleBatchCommand(this, gl);
+            recycleBatchCommand(this);
         }
 
-        private void ensureVbos(GL2 gl) {
+        private void ensureVbos() {
             if (vertexVboId != 0) {
                 return;
             }
-            int[] buffers = new int[3];
-            gl.glGenBuffers(3, buffers, 0);
-            vertexVboId = buffers[0];
-            texCoordVboId = buffers[1];
-            paletteVboId = buffers[2];
+            vertexVboId = glGenBuffers();
+            texCoordVboId = glGenBuffers();
+            paletteVboId = glGenBuffers();
         }
 
         /**
@@ -684,23 +695,40 @@ public class BatchedPatternRenderer {
         private FloatBuffer ensureBuffer(FloatBuffer buffer, int required) {
             if (buffer == null) {
                 // Pre-allocate at max batch capacity to avoid later reallocations
-                return GLBuffers.newDirectFloatBuffer(MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS);
+                return MemoryUtil.memAllocFloat(MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS);
             }
             if (buffer.capacity() < required) {
-                return GLBuffers.newDirectFloatBuffer(MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS);
+                MemoryUtil.memFree(buffer);
+                return MemoryUtil.memAllocFloat(MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS);
             }
             return buffer;
         }
 
-        private void dispose(GL2 gl) {
-            if (gl == null) {
-                return;
+        private void dispose() {
+            if (vertexVboId != 0) {
+                glDeleteBuffers(vertexVboId);
+                vertexVboId = 0;
             }
-            int[] buffers = new int[] { vertexVboId, texCoordVboId, paletteVboId };
-            gl.glDeleteBuffers(3, buffers, 0);
-            vertexVboId = 0;
-            texCoordVboId = 0;
-            paletteVboId = 0;
+            if (texCoordVboId != 0) {
+                glDeleteBuffers(texCoordVboId);
+                texCoordVboId = 0;
+            }
+            if (paletteVboId != 0) {
+                glDeleteBuffers(paletteVboId);
+                paletteVboId = 0;
+            }
+            if (vertexBuffer != null) {
+                MemoryUtil.memFree(vertexBuffer);
+                vertexBuffer = null;
+            }
+            if (texCoordBuffer != null) {
+                MemoryUtil.memFree(texCoordBuffer);
+                texCoordBuffer = null;
+            }
+            if (paletteCoordBuffer != null) {
+                MemoryUtil.memFree(paletteCoordBuffer);
+                paletteCoordBuffer = null;
+            }
         }
     }
 
@@ -739,81 +767,77 @@ public class BatchedPatternRenderer {
         }
 
         @Override
-        public void execute(GL2 gl, int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
+        public void execute(int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
             if (patternCount == 0) {
                 return;
             }
-            ensureVbos(gl);
+            ensureVbos();
 
             GraphicsManager gm = GraphicsManager.getInstance();
             ShaderProgram shadowShader = gm.getShadowShaderProgram();
 
             // Setup state for shadow rendering
-            gl.glEnable(GL2.GL_BLEND);
+            glEnable(GL_BLEND);
             // Multiplicative blending: result = dest * src
             // Shadow shader outputs 0.5 for index 14, which will halve (darken) the
             // background
-            gl.glBlendFunc(GL2.GL_ZERO, GL2.GL_SRC_COLOR);
+            glBlendFunc(GL_ZERO, GL_SRC_COLOR);
 
-            shadowShader.use(gl);
-            shadowShader.cacheUniformLocations(gl);
+            shadowShader.use();
+            shadowShader.cacheUniformLocations();
 
             // Set texture unit uniform (shadow shader only needs the indexed texture)
             int indexedTexLoc = shadowShader.getIndexedColorTextureLocation();
             if (indexedTexLoc >= 0) {
-                gl.glUniform1i(indexedTexLoc, 0);
+                glUniform1i(indexedTexLoc, 0);
             }
 
             // Enable vertex arrays
-            gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
-            gl.glEnableClientState(GL2.GL_TEXTURE_COORD_ARRAY);
+            glEnableClientState(GL_VERTEX_ARRAY);
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 
             Integer atlasTextureId = gm.getPatternAtlasTextureId();
             if (atlasTextureId != null) {
-                gl.glActiveTexture(GL2.GL_TEXTURE0);
-                gl.glBindTexture(GL2.GL_TEXTURE_2D, atlasTextureId);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, atlasTextureId);
             }
 
-            gl.glPushMatrix();
-            gl.glTranslatef(-cameraX, cameraY, 0);
+            glPushMatrix();
+            glTranslatef(-cameraX, cameraY, 0);
 
-            gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, vertexVboId);
+            glBindBuffer(GL_ARRAY_BUFFER, vertexVboId);
             vertexBuffer.rewind();
             vertexBuffer.limit(vertexFloatCount);
-            gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) vertexFloatCount * Float.BYTES, vertexBuffer,
-                    GL2.GL_DYNAMIC_DRAW);
-            gl.glVertexPointer(2, GL2.GL_FLOAT, 0, 0L);
+            glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_DYNAMIC_DRAW);
+            glVertexPointer(2, GL_FLOAT, 0, 0L);
 
-            gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, texCoordVboId);
+            glBindBuffer(GL_ARRAY_BUFFER, texCoordVboId);
             texCoordBuffer.rewind();
             texCoordBuffer.limit(texCoordFloatCount);
-            gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) texCoordFloatCount * Float.BYTES, texCoordBuffer,
-                    GL2.GL_DYNAMIC_DRAW);
-            gl.glTexCoordPointer(2, GL2.GL_FLOAT, 0, 0L);
-            gl.glDrawArrays(GL2.GL_QUADS, 0, patternCount * 4);
+            glBufferData(GL_ARRAY_BUFFER, texCoordBuffer, GL_DYNAMIC_DRAW);
+            glTexCoordPointer(2, GL_FLOAT, 0, 0L);
+            glDrawArrays(GL_QUADS, 0, patternCount * 4);
 
-            gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, 0);
-            gl.glPopMatrix();
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glPopMatrix();
 
             // Cleanup state
-            gl.glDisableClientState(GL2.GL_VERTEX_ARRAY);
-            gl.glDisableClientState(GL2.GL_TEXTURE_COORD_ARRAY);
-            shadowShader.stop(gl);
-            gl.glDisable(GL2.GL_BLEND);
+            glDisableClientState(GL_VERTEX_ARRAY);
+            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+            shadowShader.stop();
+            glDisable(GL_BLEND);
 
             PatternRenderCommand.resetFrameState();
 
-            recycleShadowCommand(this, gl);
+            recycleShadowCommand(this);
         }
 
-        private void ensureVbos(GL2 gl) {
+        private void ensureVbos() {
             if (vertexVboId != 0) {
                 return;
             }
-            int[] buffers = new int[2];
-            gl.glGenBuffers(2, buffers, 0);
-            vertexVboId = buffers[0];
-            texCoordVboId = buffers[1];
+            vertexVboId = glGenBuffers();
+            texCoordVboId = glGenBuffers();
         }
 
         /**
@@ -823,22 +847,32 @@ public class BatchedPatternRenderer {
         private FloatBuffer ensureBuffer(FloatBuffer buffer, int required) {
             if (buffer == null) {
                 // Pre-allocate at max batch capacity
-                return GLBuffers.newDirectFloatBuffer(MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS);
+                return MemoryUtil.memAllocFloat(MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS);
             }
             if (buffer.capacity() < required) {
-                return GLBuffers.newDirectFloatBuffer(MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS);
+                MemoryUtil.memFree(buffer);
+                return MemoryUtil.memAllocFloat(MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS);
             }
             return buffer;
         }
 
-        private void dispose(GL2 gl) {
-            if (gl == null) {
-                return;
+        private void dispose() {
+            if (vertexVboId != 0) {
+                glDeleteBuffers(vertexVboId);
+                vertexVboId = 0;
             }
-            int[] buffers = new int[] { vertexVboId, texCoordVboId };
-            gl.glDeleteBuffers(2, buffers, 0);
-            vertexVboId = 0;
-            texCoordVboId = 0;
+            if (texCoordVboId != 0) {
+                glDeleteBuffers(texCoordVboId);
+                texCoordVboId = 0;
+            }
+            if (vertexBuffer != null) {
+                MemoryUtil.memFree(vertexBuffer);
+                vertexBuffer = null;
+            }
+            if (texCoordBuffer != null) {
+                MemoryUtil.memFree(texCoordBuffer);
+                texCoordBuffer = null;
+            }
         }
     }
 }

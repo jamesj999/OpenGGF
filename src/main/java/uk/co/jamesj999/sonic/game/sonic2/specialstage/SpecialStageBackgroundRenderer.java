@@ -1,13 +1,16 @@
 package uk.co.jamesj999.sonic.game.sonic2.specialstage;
 
-import com.jogamp.opengl.GL2;
 import uk.co.jamesj999.sonic.graphics.HScrollBuffer;
 import uk.co.jamesj999.sonic.graphics.ParallaxShaderProgram;
 import uk.co.jamesj999.sonic.graphics.QuadRenderer;
 
 import java.io.IOException;
-import java.nio.ShortBuffer;
 import java.util.logging.Logger;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL14.GL_DEPTH_COMPONENT16;
+import static org.lwjgl.opengl.GL30.*;
 
 /**
  * GPU-based background renderer for Special Stage.
@@ -56,25 +59,24 @@ public class SpecialStageBackgroundRenderer {
     /**
      * Initialize the renderer with FBO and shader.
      *
-     * @param gl OpenGL context
      * @throws IOException if shader loading fails
      */
-    public void init(GL2 gl) throws IOException {
+    public void init() throws IOException {
         if (initialized) {
             return;
         }
 
         // Create FBO for background tile rendering
-        createFBO(gl);
+        createFBO();
 
         // Initialize H-scroll buffer
         hScrollBuffer = new HScrollBuffer();
-        hScrollBuffer.init(gl);
+        hScrollBuffer.init();
 
         // Load special stage background shader
-        shader = new ParallaxShaderProgram(gl, "shaders/shader_ss_background.glsl");
-        shader.cacheUniformLocations(gl);
-        quadRenderer.init(gl);
+        shader = new ParallaxShaderProgram("shaders/shader_ss_background.glsl");
+        shader.cacheUniformLocations();
+        quadRenderer.init();
 
         // Initialize H-scroll data to zero
         for (int i = 0; i < SCREEN_HEIGHT; i++) {
@@ -88,50 +90,44 @@ public class SpecialStageBackgroundRenderer {
     /**
      * Create the framebuffer object for tile rendering.
      */
-    private void createFBO(GL2 gl) {
+    private void createFBO() {
         // Generate FBO
-        int[] fbos = new int[1];
-        gl.glGenFramebuffers(1, fbos, 0);
-        fboId = fbos[0];
+        fboId = glGenFramebuffers();
 
         // Generate texture for color attachment
-        int[] textures = new int[1];
-        gl.glGenTextures(1, textures, 0);
-        fboTextureId = textures[0];
+        fboTextureId = glGenTextures();
 
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, fboTextureId);
-        gl.glTexImage2D(GL2.GL_TEXTURE_2D, 0, GL2.GL_RGBA8, FBO_WIDTH, FBO_HEIGHT, 0,
-                GL2.GL_RGBA, GL2.GL_UNSIGNED_BYTE, null);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_NEAREST);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_NEAREST);
+        glBindTexture(GL_TEXTURE_2D, fboTextureId);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, FBO_WIDTH, FBO_HEIGHT, 0,
+                GL_RGBA, GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         // Use REPEAT for seamless horizontal wrapping
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_S, GL2.GL_REPEAT);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_T, GL2.GL_REPEAT);
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glBindTexture(GL_TEXTURE_2D, 0);
 
         // Generate depth buffer (optional, but good practice)
-        int[] depths = new int[1];
-        gl.glGenRenderbuffers(1, depths, 0);
-        fboDepthId = depths[0];
+        fboDepthId = glGenRenderbuffers();
 
-        gl.glBindRenderbuffer(GL2.GL_RENDERBUFFER, fboDepthId);
-        gl.glRenderbufferStorage(GL2.GL_RENDERBUFFER, GL2.GL_DEPTH_COMPONENT16, FBO_WIDTH, FBO_HEIGHT);
-        gl.glBindRenderbuffer(GL2.GL_RENDERBUFFER, 0);
+        glBindRenderbuffer(GL_RENDERBUFFER, fboDepthId);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, FBO_WIDTH, FBO_HEIGHT);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
         // Attach to FBO
-        gl.glBindFramebuffer(GL2.GL_FRAMEBUFFER, fboId);
-        gl.glFramebufferTexture2D(GL2.GL_FRAMEBUFFER, GL2.GL_COLOR_ATTACHMENT0,
-                GL2.GL_TEXTURE_2D, fboTextureId, 0);
-        gl.glFramebufferRenderbuffer(GL2.GL_FRAMEBUFFER, GL2.GL_DEPTH_ATTACHMENT,
-                GL2.GL_RENDERBUFFER, fboDepthId);
+        glBindFramebuffer(GL_FRAMEBUFFER, fboId);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                GL_TEXTURE_2D, fboTextureId, 0);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                GL_RENDERBUFFER, fboDepthId);
 
         // Check FBO completeness
-        int status = gl.glCheckFramebufferStatus(GL2.GL_FRAMEBUFFER);
-        if (status != GL2.GL_FRAMEBUFFER_COMPLETE) {
+        int status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        if (status != GL_FRAMEBUFFER_COMPLETE) {
             LOGGER.severe("Special stage background FBO creation failed with status: " + status);
         }
 
-        gl.glBindFramebuffer(GL2.GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         LOGGER.fine("Created FBO " + FBO_WIDTH + "x" + FBO_HEIGHT + " for special stage background");
     }
 
@@ -139,19 +135,18 @@ public class SpecialStageBackgroundRenderer {
      * Begin the tile rendering pass - bind FBO and set up projection.
      * After calling this, render background tiles using the normal tile renderer.
      *
-     * @param gl            OpenGL context
      * @param displayHeight The display height used by pattern renderer for Y-flip
      */
-    public void beginTilePass(GL2 gl, int displayHeight) {
+    public void beginTilePass(int displayHeight) {
         if (!initialized)
             return;
 
         // Save current viewport to restore later (must query actual GL state)
-        gl.glGetIntegerv(GL2.GL_VIEWPORT, savedViewport, 0);
+        glGetIntegerv(GL_VIEWPORT, savedViewport);
 
         // Bind FBO
-        gl.glBindFramebuffer(GL2.GL_FRAMEBUFFER, fboId);
-        gl.glViewport(0, 0, FBO_WIDTH, FBO_HEIGHT);
+        glBindFramebuffer(GL_FRAMEBUFFER, fboId);
+        glViewport(0, 0, FBO_WIDTH, FBO_HEIGHT);
 
         // Set up projection matrix
         // The pattern renderer places tiles at OpenGL Y = screenHeight - genesisY - 8.
@@ -160,113 +155,112 @@ public class SpecialStageBackgroundRenderer {
         // - Genesis Y=248 (bottom row) -> OpenGL Y = 224 - 248 - 8 = -32 (tile spans -32..-24)
         //
         // The full tilemap spans exactly -32..224 (256 pixels). Match that 1:1.
-        gl.glMatrixMode(GL2.GL_PROJECTION);
-        gl.glPushMatrix();
-        gl.glLoadIdentity();
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+        glLoadIdentity();
 
         // Capture exactly 256 world units (matching Genesis VDP plane height)
         // to fit into the 256x256 FBO texture with 1:1 pixel mapping.
         int top = displayHeight; // 224: top boundary includes row 0's top edge
         int bottom = top - FBO_HEIGHT; // -32: bottom boundary includes row 31's bottom edge
-        gl.glOrtho(0, FBO_WIDTH, bottom, top, -1, 1);
+        glOrtho(0, FBO_WIDTH, bottom, top, -1, 1);
 
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
-        gl.glPushMatrix();
-        gl.glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        glLoadIdentity();
 
         // Clear FBO with transparent black
-        gl.glClearColor(0, 0, 0, 0);
-        gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
+        glClearColor(0, 0, 0, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
     /**
      * End the tile rendering pass - unbind FBO and restore state.
      */
-    public void endTilePass(GL2 gl) {
+    public void endTilePass() {
         if (!initialized)
             return;
 
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
-        gl.glPopMatrix();
-        gl.glMatrixMode(GL2.GL_PROJECTION);
-        gl.glPopMatrix();
+        glMatrixMode(GL_MODELVIEW);
+        glPopMatrix();
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
 
-        gl.glBindFramebuffer(GL2.GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // Restore viewport
-        gl.glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
+        glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
     }
 
     /**
      * Render the background with per-scanline scrolling using the shader.
      *
-     * @param gl        OpenGL context
      * @param vScrollBG Vertical scroll offset for parallax
      */
-    public void renderWithShader(GL2 gl, float vScrollBG) {
+    public void renderWithShader(float vScrollBG) {
         if (!initialized)
             return;
 
         // Upload H-scroll data to GPU
-        hScrollBuffer.upload(gl, hScrollData);
+        hScrollBuffer.upload(hScrollData);
 
         // Bind shader
-        shader.use(gl);
-        shader.cacheUniformLocations(gl);
+        shader.use();
+        shader.cacheUniformLocations();
 
         // Set texture units
-        shader.setBackgroundTexture(gl, 0); // FBO texture
-        shader.setHScrollTexture(gl, 1); // H-scroll table
+        shader.setBackgroundTexture(0); // FBO texture
+        shader.setHScrollTexture(1); // H-scroll table
 
         // Get actual viewport dimensions for resolution independence
         int[] viewport = new int[4];
-        gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport, 0);
+        glGetIntegerv(GL_VIEWPORT, viewport);
         float realWidth = (float) viewport[2];
         float realHeight = (float) viewport[3];
 
         // Set shader uniforms
-        shader.setScreenDimensions(gl, realWidth, realHeight);
-        shader.setBGTextureDimensions(gl, FBO_WIDTH, FBO_HEIGHT);
-        shader.setVScrollBG(gl, vScrollBG);
-        shader.setViewportOffset(gl, (float) viewport[0], (float) viewport[1]);
+        shader.setScreenDimensions(realWidth, realHeight);
+        shader.setBGTextureDimensions(FBO_WIDTH, FBO_HEIGHT);
+        shader.setVScrollBG(vScrollBG);
+        shader.setViewportOffset((float) viewport[0], (float) viewport[1]);
 
         // Bind textures
-        gl.glActiveTexture(GL2.GL_TEXTURE0);
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, fboTextureId);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fboTextureId);
 
-        hScrollBuffer.bind(gl, 1);
+        hScrollBuffer.bind(1);
 
         // Draw fullscreen quad
-        drawFullscreenQuad(gl);
+        drawFullscreenQuad();
 
         // Cleanup
-        shader.stop(gl);
-        hScrollBuffer.unbind(gl, 1);
-        gl.glActiveTexture(GL2.GL_TEXTURE0);
+        shader.stop();
+        hScrollBuffer.unbind(1);
+        glActiveTexture(GL_TEXTURE0);
     }
 
     /**
      * Draw a fullscreen quad covering the entire screen.
      * The shader handles H32 clipping internally.
      */
-    private void drawFullscreenQuad(GL2 gl) {
-        gl.glMatrixMode(GL2.GL_PROJECTION);
-        gl.glPushMatrix();
-        gl.glLoadIdentity();
+    private void drawFullscreenQuad() {
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+        glLoadIdentity();
         // Use Genesis screen coordinates (320x224)
-        gl.glOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, -1, 1);
+        glOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, -1, 1);
 
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
-        gl.glPushMatrix();
-        gl.glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        glLoadIdentity();
 
         // Draw quad covering full screen - shader will clip to H32 viewport
-        quadRenderer.draw(gl, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+        quadRenderer.draw(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-        gl.glPopMatrix();
-        gl.glMatrixMode(GL2.GL_PROJECTION);
-        gl.glPopMatrix();
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
+        glPopMatrix();
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
+        glMatrixMode(GL_MODELVIEW);
     }
 
     /**
@@ -329,26 +323,26 @@ public class SpecialStageBackgroundRenderer {
     /**
      * Clean up OpenGL resources.
      */
-    public void cleanup(GL2 gl) {
+    public void cleanup() {
         if (hScrollBuffer != null) {
-            hScrollBuffer.cleanup(gl);
+            hScrollBuffer.cleanup();
             hScrollBuffer = null;
         }
         if (shader != null) {
-            shader.cleanup(gl);
+            shader.cleanup();
             shader = null;
         }
-        quadRenderer.cleanup(gl);
+        quadRenderer.cleanup();
         if (fboId > 0) {
-            gl.glDeleteFramebuffers(1, new int[] { fboId }, 0);
+            glDeleteFramebuffers(fboId);
             fboId = -1;
         }
         if (fboTextureId > 0) {
-            gl.glDeleteTextures(1, new int[] { fboTextureId }, 0);
+            glDeleteTextures(fboTextureId);
             fboTextureId = -1;
         }
         if (fboDepthId > 0) {
-            gl.glDeleteRenderbuffers(1, new int[] { fboDepthId }, 0);
+            glDeleteRenderbuffers(fboDepthId);
             fboDepthId = -1;
         }
         initialized = false;
