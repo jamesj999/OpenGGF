@@ -90,13 +90,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	@Override
-	public void handleMovement(boolean up, boolean down, boolean left, boolean right, boolean jump, boolean testKey) {
+	public void handleMovement(boolean up, boolean down, boolean left, boolean right, boolean jump, boolean testKey,
+			boolean speedUp, boolean slowDown) {
 		// Note: Raw input state for objects is now stored in SpriteManager BEFORE filtering,
 		// so objects can query button state even when control is locked (ROM: obj_control).
 		// The parameters here are already filtered by control lock state.
 
 		if (sprite.isDebugMode()) {
-			handleDebugMovement(up, down, left, right);
+			handleDebugMovement(up, down, left, right, speedUp, slowDown);
 			return;
 		}
 
@@ -1293,11 +1294,21 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		jumpPrevious = jump;
 	}
 
-	private void handleDebugMovement(boolean up, boolean down, boolean left, boolean right) {
-		if (left) sprite.setX((short) (sprite.getX() - DEBUG_MOVE_SPEED));
-		if (right) sprite.setX((short) (sprite.getX() + DEBUG_MOVE_SPEED));
-		if (up) sprite.setY((short) (sprite.getY() - DEBUG_MOVE_SPEED));
-		if (down) sprite.setY((short) (sprite.getY() + DEBUG_MOVE_SPEED));
+	private void handleDebugMovement(boolean up, boolean down, boolean left, boolean right, boolean speedUp,
+			boolean slowDown) {
+		double multiplier = 1.0;
+		if (speedUp) {
+			multiplier *= 2.0;
+		}
+		if (slowDown) {
+			multiplier *= 0.5;
+		}
+		int moveSpeed = (int) Math.max(1, Math.round(DEBUG_MOVE_SPEED * multiplier));
+
+		if (left) sprite.setX((short) (sprite.getX() - moveSpeed));
+		if (right) sprite.setX((short) (sprite.getX() + moveSpeed));
+		if (up) sprite.setY((short) (sprite.getY() - moveSpeed));
+		if (down) sprite.setY((short) (sprite.getY() + moveSpeed));
 	}
 
 	private void handleTestKey(boolean testKey) {

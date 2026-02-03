@@ -12,6 +12,7 @@ import uk.co.jamesj999.sonic.sprites.Sprite;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.GroundMode;
 
+import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -134,6 +135,8 @@ public class SpriteManager {
 		boolean right = handler.isKeyDown(rightKey);
 		boolean space = handler.isKeyDown(jumpKey);
 		boolean testButton = handler.isKeyDown(testKey);
+		boolean speedUp = handler.isKeyDown(KeyEvent.VK_SHIFT);
+		boolean slowDown = handler.isKeyDown(KeyEvent.VK_CONTROL);
 		boolean debugModePressed = handler.isKeyPressed(debugModeKey);
 
 		LevelManager levelManager = getLevelManager();
@@ -158,7 +161,7 @@ public class SpriteManager {
 				playable.setDirectionalInputPressed(left, right);
 
 				playable.getMovementManager().handleMovement(effectiveUp, effectiveDown, effectiveLeft,
-						effectiveRight, effectiveJump, effectiveTest);
+						effectiveRight, effectiveJump, effectiveTest, speedUp, slowDown);
 				/// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
 				// This ensures plane switchers check the current frame's position/air state.
 				levelManager.applyPlaneSwitchers(playable);
@@ -182,7 +185,7 @@ public class SpriteManager {
 
 		for (Sprite sprite : sprites) {
 			if (sprite instanceof AbstractPlayableSprite playable) {
-				playable.getMovementManager().handleMovement(false, false, false, false, false, false);
+				playable.getMovementManager().handleMovement(false, false, false, false, false, false, false, false);
 				/// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
 				levelManager.applyPlaneSwitchers(playable);
 				// Update solid object contacts AFTER terrain collision but BEFORE animation
