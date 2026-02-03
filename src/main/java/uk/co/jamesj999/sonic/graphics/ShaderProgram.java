@@ -59,40 +59,6 @@ public class ShaderProgram {
     }
 
     /**
-     * Initializes a shader program with only a fragment shader.
-     *
-     * @param fragmentShaderPath the path to the fragment shader file
-     * @throws IOException if the shader file cannot be loaded
-     */
-    public ShaderProgram(String fragmentShaderPath) throws IOException {
-        // Load and compile the fragment shader
-        int fragmentShaderId = ShaderLoader.loadShader(fragmentShaderPath, GL_FRAGMENT_SHADER);
-
-        // Create a new shader program
-        programId = glCreateProgram();
-
-        // Attach the fragment shader to the program
-        glAttachShader(programId, fragmentShaderId);
-
-        // Link the program
-        glLinkProgram(programId);
-
-        // Check for linking errors
-        int linked = glGetProgrami(programId, GL_LINK_STATUS);
-        if (linked == 0) {
-            // Linking failed, retrieve and print the log
-            String log = glGetProgramInfoLog(programId);
-            System.err.println("Shader linking failed:\n" + log);
-        }
-
-        // Detach and delete shader object - it's no longer needed after linking.
-        // The program retains the compiled code, so keeping the shader object
-        // around wastes GPU memory, especially on level restarts.
-        glDetachShader(programId, fragmentShaderId);
-        glDeleteShader(fragmentShaderId);
-    }
-
-    /**
      * Initializes a shader program with a vertex and fragment shader.
      *
      * @param vertexShaderPath   the path to the vertex shader file

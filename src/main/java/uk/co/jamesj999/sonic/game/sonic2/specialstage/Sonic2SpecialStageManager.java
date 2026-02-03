@@ -1614,17 +1614,24 @@ public class Sonic2SpecialStageManager {
                 final int currentScrollX = skydomeScrollX;
                 final float currentVScrollBG = (float) vScrollBG;
 
-                // 1. Begin Tile Pass (Bind FBO) - queued as command for proper ordering
+                // 1. Set up FBO projection BEFORE creating the batch
+                // This ensures Y coordinates are calculated for 256x256 FBO, not 320x224 screen
+                bgRenderer.beginFBOProjection();
+
+                // 2. Begin Tile Pass (Bind FBO) - queued as command for proper ordering
                 graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
                     bgRenderer.beginTilePass(H32_HEIGHT);
                 }));
 
-                // 2. Render background tiles to FBO
+                // 3. Render background tiles to FBO
                 graphicsManager.beginPatternBatch();
                 renderer.renderBackgroundToFBO(combinedBackgroundMappings);
                 graphicsManager.flushPatternBatch();
 
-                // 3. End Tile Pass (Unbind FBO)
+                // 4. Restore normal projection after batch creation
+                bgRenderer.endFBOProjection();
+
+                // 5. End Tile Pass (Unbind FBO)
                 graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
                     bgRenderer.endTilePass();
                 }));
@@ -1686,6 +1693,9 @@ public class Sonic2SpecialStageManager {
                 final int currentScrollX = skydomeScrollX;
                 final float currentVScrollBG = (float) vScrollBG;
 
+                // Set up FBO projection BEFORE creating the batch
+                bgRenderer.beginFBOProjection();
+
                 graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
                     bgRenderer.beginTilePass(H32_HEIGHT);
                 }));
@@ -1693,6 +1703,9 @@ public class Sonic2SpecialStageManager {
                 graphicsManager.beginPatternBatch();
                 renderer.renderBackgroundToFBO(combinedBackgroundMappings);
                 graphicsManager.flushPatternBatch();
+
+                // Restore normal projection after batch creation
+                bgRenderer.endFBOProjection();
 
                 graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
                     bgRenderer.endTilePass();

@@ -430,7 +430,6 @@ public class FadeManager {
         // Save OpenGL state
         boolean blendWasEnabled = glIsEnabled(GL_BLEND);
         boolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
-        boolean texture2dWasEnabled = glIsEnabled(GL_TEXTURE_2D);
         int[] prevBlendSrc = new int[1];
         int[] prevBlendDst = new int[1];
         glGetIntegerv(GL_BLEND_SRC_ALPHA, prevBlendSrc);
@@ -440,9 +439,8 @@ public class FadeManager {
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE);
 
-        // Disable depth test and texturing
+        // Disable depth test for fullscreen overlay
         glDisable(GL_DEPTH_TEST);
-        glDisable(GL_TEXTURE_2D);
 
         // Use fade shader
         fadeShader.use();
@@ -455,16 +453,8 @@ public class FadeManager {
             glUniform3f(fadeColorLocation, fadeR, fadeG, fadeB);
         }
 
-        // Save and reset modelview matrix
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glLoadIdentity();
-
-        // Draw fullscreen quad (using screen coordinates 0-320 x 0-224)
+        // Draw fullscreen quad (shader generates positions from gl_VertexID)
         quadRenderer.draw(0, 0, 320, 224);
-
-        // Restore modelview matrix
-        glPopMatrix();
 
         // Stop using shader
         fadeShader.stop();
@@ -475,9 +465,6 @@ public class FadeManager {
         }
         if (depthTestWasEnabled) {
             glEnable(GL_DEPTH_TEST);
-        }
-        if (texture2dWasEnabled) {
-            glEnable(GL_TEXTURE_2D);
         }
         glBlendFunc(prevBlendSrc[0], prevBlendDst[0]);
     }
@@ -502,7 +489,6 @@ public class FadeManager {
         // Save OpenGL state
         boolean blendWasEnabled = glIsEnabled(GL_BLEND);
         boolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
-        boolean texture2dWasEnabled = glIsEnabled(GL_TEXTURE_2D);
         int[] prevBlendSrc = new int[1];
         int[] prevBlendDst = new int[1];
         int[] prevBlendEquation = new int[1];
@@ -516,9 +502,8 @@ public class FadeManager {
         glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
         glBlendFunc(GL_ONE, GL_ONE);
 
-        // Disable depth test and texturing
+        // Disable depth test for fullscreen overlay
         glDisable(GL_DEPTH_TEST);
-        glDisable(GL_TEXTURE_2D);
 
         // Use fade shader
         fadeShader.use();
@@ -531,16 +516,8 @@ public class FadeManager {
             glUniform3f(fadeColorLocation, fadeR, fadeG, fadeB);
         }
 
-        // Save and reset modelview matrix
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glLoadIdentity();
-
-        // Draw fullscreen quad
+        // Draw fullscreen quad (shader generates positions from gl_VertexID)
         quadRenderer.draw(0, 0, 320, 224);
-
-        // Restore modelview matrix
-        glPopMatrix();
 
         // Stop using shader
         fadeShader.stop();
@@ -552,9 +529,6 @@ public class FadeManager {
         }
         if (depthTestWasEnabled) {
             glEnable(GL_DEPTH_TEST);
-        }
-        if (texture2dWasEnabled) {
-            glEnable(GL_TEXTURE_2D);
         }
         glBlendFunc(prevBlendSrc[0], prevBlendDst[0]);
     }

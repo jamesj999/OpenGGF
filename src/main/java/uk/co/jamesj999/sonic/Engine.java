@@ -341,10 +341,9 @@ public class Engine {
 
 			glfwPollEvents();
 
-			// Update input handler state
-			if (inputHandler != null) {
-				inputHandler.update();
-			}
+			// Note: inputHandler.update() is called at the end of GameLoop.step()
+			// to properly handle isKeyPressed() edge detection. Do NOT call update()
+			// here or isKeyPressed() will always return false.
 
 			// Sleep to avoid busy-waiting
 			long remainingTime = frameTimeNanos - (System.nanoTime() - lastFrameTime);
@@ -603,6 +602,51 @@ public class Engine {
 	 * @return the projection matrix as a 16-element float array
 	 */
 	public float[] getProjectionMatrixBuffer() {
-		return matrixBuffer;
+		return fboProjectionActive ? fboMatrixBuffer : matrixBuffer;
+	}
+
+	// FBO projection support - used when rendering to off-screen framebuffers
+	private boolean fboProjectionActive = false;
+	private final org.joml.Matrix4f fboProjectionMatrix = new org.joml.Matrix4f();
+	private final float[] fboMatrixBuffer = new float[16];
+	private int fboWidth = 256;
+	private int fboHeight = 256;
+
+	/**
+	 * Sets up FBO projection mode for rendering to an off-screen framebuffer.
+	 * While active, getProjectionMatrixBuffer() returns the FBO projection.
+	 *
+	 * @param width  The FBO width in pixels
+	 * @param height The FBO height in pixels
+	 */
+	public void beginFBOProjection(int width, int height) {
+		this.fboWidth = width;
+		this.fboHeight = height;
+		fboProjectionMatrix.identity().ortho2D(0, width, 0, height);
+		fboProjectionMatrix.get(fboMatrixBuffer);
+		fboProjectionActive = true;
+	}
+
+	/**
+	 * Restores normal screen projection after FBO rendering.
+	 */
+	public void endFBOProjection() {
+		fboProjectionActive = false;
+	}
+
+	/**
+	 * Returns the current display height for coordinate calculations.
+	 * When FBO projection is active, returns the FBO height.
+	 * Otherwise returns the normal screen height.
+	 */
+	public int getCurrentDisplayHeight() {
+		return fboProjectionActive ? fboHeight : (int) realHeight;
+	}
+
+	/**
+	 * Returns whether FBO projection mode is currently active.
+	 */
+	public boolean isFBOProjectionActive() {
+		return fboProjectionActive;
 	}
 }

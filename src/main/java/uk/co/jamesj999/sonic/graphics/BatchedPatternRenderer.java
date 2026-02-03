@@ -78,6 +78,19 @@ public class BatchedPatternRenderer {
         this.paletteCoordData = new float[MAX_PATTERNS_PER_BATCH * 6];
     }
 
+    /**
+     * Gets the current display height for Y coordinate calculations.
+     * When rendering to an FBO, this returns the FBO height.
+     * Otherwise returns the normal screen height.
+     */
+    private int getCurrentDisplayHeight() {
+        uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
+        if (engine != null && engine.isFBOProjectionActive()) {
+            return engine.getCurrentDisplayHeight();
+        }
+        return screenHeight;
+    }
+
     private final ArrayDeque<BatchRenderCommand> batchCommandPool = new ArrayDeque<>();
     private final ArrayDeque<ShadowBatchRenderCommand> shadowCommandPool = new ArrayDeque<>();
 
@@ -110,7 +123,9 @@ public class BatchedPatternRenderer {
         // Genesis Y refers to the TOP of the pattern, so we subtract the pattern height
         // (8)
         // to get the OpenGL Y coordinate for the bottom of the quad
-        int screenY = screenHeight - y - 8;
+        // Use dynamic display height for FBO rendering support
+        int currentHeight = getCurrentDisplayHeight();
+        int screenY = currentHeight - y - 8;
 
         // Compute the 4 corners of the quad
         float x0 = x;
@@ -209,9 +224,11 @@ public class BatchedPatternRenderer {
         // Convert Y to screen coordinates (flip Y axis)
         // Genesis Y=0 is top of screen, OpenGL Y=0 is bottom
         // For a 2-pixel strip at Genesis Y, the OpenGL bottom should be:
-        // screenHeight - y - stripHeight = 224 - y - 2
-        // This ensures Genesis Y=0 maps to OpenGL Y=222-224 (visible top of screen)
-        int screenY = screenHeight - y - 2;
+        // currentHeight - y - stripHeight
+        // This ensures Genesis Y=0 maps to OpenGL Y at top of screen
+        // Use dynamic display height for FBO rendering support
+        int currentHeight = getCurrentDisplayHeight();
+        int screenY = currentHeight - y - 2;
 
         // Compute the 4 corners of the quad (8 wide × 2 high)
         float x0 = x;
@@ -394,7 +411,9 @@ public class BatchedPatternRenderer {
         }
 
         // Convert Y to screen coordinates (flip Y axis)
-        int screenY = screenHeight - y - 8;
+        // Use dynamic display height for FBO rendering support
+        int currentHeight = getCurrentDisplayHeight();
+        int screenY = currentHeight - y - 8;
 
         // Compute the 4 corners of the quad
         float x0 = x;

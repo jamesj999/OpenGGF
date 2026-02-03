@@ -79,6 +79,19 @@ public class InstancedPatternRenderer {
         this.instanceData = new float[MAX_PATTERNS_PER_BATCH * FLOATS_PER_INSTANCE];
     }
 
+    /**
+     * Gets the current display height for Y coordinate calculations.
+     * When rendering to an FBO, this returns the FBO height.
+     * Otherwise returns the normal screen height.
+     */
+    private int getCurrentDisplayHeight() {
+        uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
+        if (engine != null && engine.isFBOProjectionActive()) {
+            return engine.getCurrentDisplayHeight();
+        }
+        return screenHeight;
+    }
+
     public void init(String vertexShaderPath, String fragmentShaderPath, String waterFragmentPath)
             throws IOException {
         if (initialized) {
@@ -155,7 +168,9 @@ public class InstancedPatternRenderer {
         if (!batchActive || instanceCount >= MAX_PATTERNS_PER_BATCH) {
             return false;
         }
-        int screenY = screenHeight - y - 8;
+        // Use dynamic display height for FBO rendering support
+        int currentHeight = getCurrentDisplayHeight();
+        int screenY = currentHeight - y - 8;
         float u0 = entry.u0();
         float u1 = entry.u1();
         float v0 = entry.v0();
@@ -195,7 +210,9 @@ public class InstancedPatternRenderer {
         if (!batchActive || instanceCount >= MAX_PATTERNS_PER_BATCH) {
             return false;
         }
-        int screenY = screenHeight - y - 2;
+        // Use dynamic display height for FBO rendering support
+        int currentHeight = getCurrentDisplayHeight();
+        int screenY = currentHeight - y - 2;
 
         int rowTop = stripIndex * 2;
         int rowBottom = stripIndex * 2 + 1;

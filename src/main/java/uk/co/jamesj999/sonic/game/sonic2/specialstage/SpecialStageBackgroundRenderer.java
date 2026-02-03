@@ -1,19 +1,15 @@
 package uk.co.jamesj999.sonic.game.sonic2.specialstage;
 
-import org.joml.Matrix4f;
-import org.lwjgl.system.MemoryStack;
 import uk.co.jamesj999.sonic.graphics.HScrollBuffer;
 import uk.co.jamesj999.sonic.graphics.ParallaxShaderProgram;
 import uk.co.jamesj999.sonic.graphics.QuadRenderer;
 
 import java.io.IOException;
-import java.nio.FloatBuffer;
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
 import static org.lwjgl.opengl.GL14.GL_DEPTH_COMPONENT16;
-import static org.lwjgl.opengl.GL20.glUniformMatrix4fv;
 import static org.lwjgl.opengl.GL30.*;
 
 /**
@@ -136,8 +132,37 @@ public class SpecialStageBackgroundRenderer {
     }
 
     /**
-     * Begin the tile rendering pass - bind FBO and set up projection.
+     * Sets up FBO projection mode for coordinate calculations.
+     * Call this BEFORE creating the pattern batch so that Y coordinates
+     * are calculated correctly for the 256x256 FBO.
+     *
+     * This method only updates the projection state - it does not perform
+     * any GL operations. Call beginTilePassGL() for the actual GL setup.
+     */
+    public void beginFBOProjection() {
+        uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
+        if (engine != null) {
+            engine.beginFBOProjection(FBO_WIDTH, FBO_HEIGHT);
+        }
+    }
+
+    /**
+     * Restores normal screen projection after FBO pattern batch creation.
+     * Call this AFTER flushing the pattern batch.
+     */
+    public void endFBOProjection() {
+        uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
+        if (engine != null) {
+            engine.endFBOProjection();
+        }
+    }
+
+    /**
+     * Begin the tile rendering pass - bind FBO and set up viewport.
      * After calling this, render background tiles using the normal tile renderer.
+     *
+     * Note: Call beginFBOProjection() BEFORE creating the pattern batch to ensure
+     * correct coordinate calculations. This method handles GL state setup.
      *
      * @param displayHeight The display height used by pattern renderer for Y-flip
      */
@@ -152,26 +177,12 @@ public class SpecialStageBackgroundRenderer {
         glBindFramebuffer(GL_FRAMEBUFFER, fboId);
         glViewport(0, 0, FBO_WIDTH, FBO_HEIGHT);
 
-        // Set up projection matrix
-        // The pattern renderer places tiles at OpenGL Y = screenHeight - genesisY - 8.
-        // For a 32-tile (256 pixel) tall background with screenHeight=224:
-        // - Genesis Y=0 (top row) -> OpenGL Y = 224 - 0 - 8 = 216 (tile spans 216..224)
-        // - Genesis Y=248 (bottom row) -> OpenGL Y = 224 - 248 - 8 = -32 (tile spans -32..-24)
-        //
-        // The full tilemap spans exactly -32..224 (256 pixels). Match that 1:1.
-        glMatrixMode(GL_PROJECTION);
-        glPushMatrix();
-        glLoadIdentity();
-
-        // Capture exactly 256 world units (matching Genesis VDP plane height)
-        // to fit into the 256x256 FBO texture with 1:1 pixel mapping.
-        int top = displayHeight; // 224: top boundary includes row 0's top edge
-        int bottom = top - FBO_HEIGHT; // -32: bottom boundary includes row 31's bottom edge
-        glOrtho(0, FBO_WIDTH, bottom, top, -1, 1);
-
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glLoadIdentity();
+        // Re-enable FBO projection for the batch command execution
+        // (The batch command reads the projection matrix when it executes)
+        uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
+        if (engine != null) {
+            engine.beginFBOProjection(FBO_WIDTH, FBO_HEIGHT);
+        }
 
         // Clear FBO with transparent black
         glClearColor(0, 0, 0, 0);
@@ -179,18 +190,19 @@ public class SpecialStageBackgroundRenderer {
     }
 
     /**
-     * End the tile rendering pass - unbind FBO and restore state.
+     * End the tile rendering pass - unbind FBO and restore viewport.
      */
     public void endTilePass() {
         if (!initialized)
             return;
 
-        glMatrixMode(GL_MODELVIEW);
-        glPopMatrix();
-        glMatrixMode(GL_PROJECTION);
-        glPopMatrix();
-
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // Restore normal projection mode
+        uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
+        if (engine != null) {
+            engine.endFBOProjection();
+        }
 
         // Restore viewport
         glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
@@ -246,25 +258,11 @@ public class SpecialStageBackgroundRenderer {
     /**
      * Draw a fullscreen quad covering the entire screen.
      * The shader handles H32 clipping internally.
+     * Note: The shader uses gl_FragCoord for positioning,
+     * so no projection matrix is needed.
      */
     private void drawFullscreenQuad() {
-        glMatrixMode(GL_PROJECTION);
-        glPushMatrix();
-        glLoadIdentity();
-        // Use Genesis screen coordinates (320x224)
-        glOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, -1, 1);
-
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glLoadIdentity();
-
-        // Draw quad covering full screen - shader will clip to H32 viewport
         quadRenderer.draw(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-        glPopMatrix();
-        glMatrixMode(GL_PROJECTION);
-        glPopMatrix();
-        glMatrixMode(GL_MODELVIEW);
     }
 
     /**
