@@ -1,21 +1,26 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.util.Objects;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
 
 import com.jogamp.opengl.GL2;
 
 public class ShaderLoader {
     public static int loadShader(GL2 gl, String filePath, int shaderType) throws IOException {
-        // Load the shader source code from the file
-
-        String truePath = Objects.requireNonNull(ShaderLoader.class.getClassLoader().getResource(filePath).getPath());
-        if (truePath.contains(":")) {
-            truePath = truePath.split("/",2)[1];
+        // Load the shader source code from classpath resource
+        String shaderSource;
+        try (InputStream is = ShaderLoader.class.getClassLoader().getResourceAsStream(filePath)) {
+            if (is == null) {
+                throw new IOException("Shader resource not found: " + filePath);
+            }
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                shaderSource = reader.lines().collect(Collectors.joining("\n"));
+            }
         }
-        String shaderSource = new String(Files.readAllBytes(Paths.get(truePath)));
 
         // Create a new shader object
         int shaderId = gl.glCreateShader(shaderType);
