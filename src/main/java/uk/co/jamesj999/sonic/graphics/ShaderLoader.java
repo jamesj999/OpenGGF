@@ -3,7 +3,6 @@ package uk.co.jamesj999.sonic.graphics;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Objects;
 
 import static org.lwjgl.opengl.GL20.*;
 

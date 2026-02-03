@@ -1,9 +1,7 @@
 package uk.co.jamesj999.sonic.tools;
 
 import uk.co.jamesj999.sonic.level.ChunkDesc;
-import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelConstants;
-import uk.co.jamesj999.sonic.level.LevelManager;
 
 public class LevelDataFactory {
     public static ChunkDesc[] chunksFromSegaByteArray(byte[] blockBuffer) {

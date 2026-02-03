@@ -4,7 +4,6 @@ import uk.co.jamesj999.sonic.game.GameServices;
 
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomManager;
-import uk.co.jamesj999.sonic.game.GameStateManager;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageConstants;
 import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageDataLoader;

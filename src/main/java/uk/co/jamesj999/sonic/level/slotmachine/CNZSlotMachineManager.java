@@ -1,7 +1,6 @@
 package uk.co.jamesj999.sonic.level.slotmachine;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
-import uk.co.jamesj999.sonic.audio.GameSound;
 
 import java.util.Random;
 import java.util.logging.Logger;

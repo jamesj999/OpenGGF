@@ -15,7 +15,6 @@ import uk.co.jamesj999.sonic.level.rings.RingSpriteSheet;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
