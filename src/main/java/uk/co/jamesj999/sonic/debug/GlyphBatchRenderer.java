@@ -15,6 +15,7 @@ import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
 import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.*;
 import static org.lwjgl.opengl.GL31.*;
 import static org.lwjgl.opengl.GL33.*;
 
@@ -37,6 +38,7 @@ public class GlyphBatchRenderer {
     private GlyphAtlas atlas;
     private ShaderProgram shader;
 
+    private int vaoId;  // VAO required for macOS Core Profile
     private int quadVboId;
     private int instanceVboId;
 
@@ -380,6 +382,10 @@ public class GlyphBatchRenderer {
      * Cleans up OpenGL resources.
      */
     public void cleanup() {
+        if (vaoId != 0) {
+            glDeleteVertexArrays(vaoId);
+        }
+        vaoId = 0;
         if (quadVboId != 0) {
             glDeleteBuffers(quadVboId);
         }
@@ -413,6 +419,8 @@ public class GlyphBatchRenderer {
             return;
         }
 
+        // Create VAO - required for macOS Core Profile
+        vaoId = glGenVertexArrays();
         quadVboId = glGenBuffers();
         instanceVboId = glGenBuffers();
 
@@ -471,6 +479,9 @@ public class GlyphBatchRenderer {
                 LOGGER.warning("Invalid viewport dimensions: " + viewportWidth + "x" + viewportHeight);
                 return;
             }
+
+            // Bind VAO - required for macOS Core Profile
+            glBindVertexArray(vaoId);
 
             shader.use();
 
@@ -548,6 +559,9 @@ public class GlyphBatchRenderer {
             disableAttrib(vertexPosLoc);
 
             glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+            // Unbind VAO
+            glBindVertexArray(0);
 
             shader.stop();
             glDisable(GL_BLEND);

@@ -59,6 +59,9 @@ public class GraphicsManager {
 	private static final String SHADOW_SHADER_PATH = "shaders/shader_shadow.glsl";
 	private static final String WATER_SHADER_PATH = "shaders/shader_water.glsl";
 	private static final String TILEMAP_SHADER_PATH = "shaders/shader_tilemap.glsl";
+	private static final String BASIC_VERTEX_SHADER_PATH = "shaders/shader_basic.vert";
+	private static final String FULLSCREEN_VERTEX_SHADER_PATH = "shaders/shader_fullscreen.vert";
+	private static final String DEBUG_VERTEX_SHADER_PATH = "shaders/shader_debug_color.vert";
 	private static final String INSTANCED_VERTEX_SHADER_PATH = "shaders/shader_instanced.vert";
 	private static final String CNZ_SLOTS_SHADER_PATH = "shaders/shader_cnz_slots.glsl";
 	private static final String SPRITE_PRIORITY_SHADER_PATH = "shaders/shader_sprite_priority.glsl";
@@ -91,6 +94,11 @@ public class GraphicsManager {
 	private BatchedPatternRenderer batchedRenderer;
 	private boolean instancedBatchingEnabled = true;
 	private boolean instancedBatchActive = false;
+
+	/**
+	 * Reference to the Engine for accessing projection matrix.
+	 */
+	private uk.co.jamesj999.sonic.Engine engine;
 
 	/**
 	 * Headless mode flag. When true, GL operations are skipped.
@@ -133,17 +141,17 @@ public class GraphicsManager {
 		this.glInitialized = true;
 		this.patternAtlas = new PatternAtlas(ATLAS_WIDTH, ATLAS_HEIGHT);
 		this.patternAtlas.init();
-		this.defaultShaderProgram = new ShaderProgram(pixelShaderPath); // Load default shader
+		this.defaultShaderProgram = new ShaderProgram(BASIC_VERTEX_SHADER_PATH, pixelShaderPath); // Load default shader
 		this.defaultShaderProgram.cacheUniformLocations();
 
-		this.waterShaderProgram = new WaterShaderProgram(WATER_SHADER_PATH); // Load water shader
+		this.waterShaderProgram = new WaterShaderProgram(BASIC_VERTEX_SHADER_PATH, WATER_SHADER_PATH); // Load water shader
 		this.waterShaderProgram.cacheUniformLocations();
 
 		this.currentShaderProgram = this.defaultShaderProgram; // Start with default
 		this.shaderProgram = this.currentShaderProgram; // Compatibility
-		this.debugShaderProgram = new ShaderProgram(DEBUG_SHADER_PATH);
-		this.fadeShaderProgram = new ShaderProgram(FADE_SHADER_PATH);
-		this.shadowShaderProgram = new ShaderProgram(SHADOW_SHADER_PATH);
+		this.debugShaderProgram = new ShaderProgram(DEBUG_VERTEX_SHADER_PATH, DEBUG_SHADER_PATH);
+		this.fadeShaderProgram = new ShaderProgram(FULLSCREEN_VERTEX_SHADER_PATH, FADE_SHADER_PATH);
+		this.shadowShaderProgram = new ShaderProgram(BASIC_VERTEX_SHADER_PATH, SHADOW_SHADER_PATH);
 		this.shadowShaderProgram.cacheUniformLocations();
 		this.tilemapGpuRenderer = new TilemapGpuRenderer();
 		this.tilemapGpuRenderer.init(TILEMAP_SHADER_PATH);
@@ -902,6 +910,20 @@ public class GraphicsManager {
 			return spritePriorityShaderProgram;
 		}
 		return currentShaderProgram;
+	}
+
+	/**
+	 * Set the Engine reference for accessing projection matrix.
+	 */
+	public void setEngine(uk.co.jamesj999.sonic.Engine engine) {
+		this.engine = engine;
+	}
+
+	/**
+	 * Get the Engine reference.
+	 */
+	public uk.co.jamesj999.sonic.Engine getEngine() {
+		return engine;
 	}
 
 	/**

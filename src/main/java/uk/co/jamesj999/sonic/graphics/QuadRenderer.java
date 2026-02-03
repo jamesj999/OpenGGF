@@ -1,60 +1,50 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import org.lwjgl.system.MemoryUtil;
-
-import java.nio.FloatBuffer;
-
 import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glDeleteVertexArrays;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 
 /**
- * VBO-backed quad renderer to avoid immediate mode draws.
+ * Modern OpenGL fullscreen quad renderer for core profile.
+ * Uses a dummy VAO and draws a fullscreen triangle strip.
+ * The vertex shader generates positions from gl_VertexID.
  */
 public class QuadRenderer {
-    private static final int FLOATS_PER_QUAD = 8;
-
-    private int vboId;
-    // Pre-allocate buffer at construction time instead of lazy initialization
-    private FloatBuffer vertexBuffer = MemoryUtil.memAllocFloat(FLOATS_PER_QUAD);
+    private int vaoId;
 
     public void init() {
-        if (vboId != 0) {
+        if (vaoId != 0) {
             return;
         }
-        vboId = glGenBuffers();
+        // Create a VAO - required for core profile even if we don't use vertex attributes
+        vaoId = glGenVertexArrays();
     }
 
+    /**
+     * Draws a fullscreen quad. The x0,y0,x1,y1 parameters are ignored since
+     * the tilemap shader uses gl_FragCoord for pixel positioning and receives
+     * viewport dimensions via uniforms.
+     */
     public void draw(float x0, float y0, float x1, float y1) {
-        if (vboId == 0) {
+        if (vaoId == 0) {
             init();
         }
 
-        vertexBuffer.clear();
-        vertexBuffer.put(x0).put(y0);
-        vertexBuffer.put(x1).put(y0);
-        vertexBuffer.put(x1).put(y1);
-        vertexBuffer.put(x0).put(y1);
-        vertexBuffer.flip();
+        // Bind the VAO (required even for attribute-less draws in core profile)
+        glBindVertexArray(vaoId);
 
-        glBindBuffer(GL_ARRAY_BUFFER, vboId);
-        glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_DYNAMIC_DRAW);
+        // Draw a fullscreen triangle strip (4 vertices)
+        // The vertex shader (shader_fullscreen.vert) generates positions from gl_VertexID
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-        glEnableClientState(GL_VERTEX_ARRAY);
-        glVertexPointer(2, GL_FLOAT, 0, 0L);
-        glDrawArrays(GL_QUADS, 0, 4);
-        glDisableClientState(GL_VERTEX_ARRAY);
-
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
     }
 
     public void cleanup() {
-        if (vboId != 0) {
-            glDeleteBuffers(vboId);
-        }
-        vboId = 0;
-        if (vertexBuffer != null) {
-            MemoryUtil.memFree(vertexBuffer);
-            vertexBuffer = null;
+        if (vaoId != 0) {
+            glDeleteVertexArrays(vaoId);
+            vaoId = 0;
         }
     }
 }

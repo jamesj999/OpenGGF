@@ -31,6 +31,8 @@ public class ParallaxShaderProgram {
     private int viewportOffsetXLocation = -1;
     private int viewportOffsetYLocation = -1;
 
+    private static final String FULLSCREEN_VERTEX_SHADER = "shaders/shader_fullscreen.vert";
+
     /**
      * Creates and links the parallax shader program.
      *
@@ -38,9 +40,11 @@ public class ParallaxShaderProgram {
      * @throws IOException if shader loading fails
      */
     public ParallaxShaderProgram(String fragmentShaderPath) throws IOException {
+        int vertexShaderId = ShaderLoader.loadShader(FULLSCREEN_VERTEX_SHADER, GL_VERTEX_SHADER);
         int fragmentShaderId = ShaderLoader.loadShader(fragmentShaderPath, GL_FRAGMENT_SHADER);
 
         programId = glCreateProgram();
+        glAttachShader(programId, vertexShaderId);
         glAttachShader(programId, fragmentShaderId);
         glLinkProgram(programId);
 
@@ -51,8 +55,10 @@ public class ParallaxShaderProgram {
             System.err.println("Parallax shader linking failed:\n" + log);
         }
 
-        // Detach and delete shader object - it's no longer needed after linking
+        // Detach and delete shader objects - they're no longer needed after linking
+        glDetachShader(programId, vertexShaderId);
         glDetachShader(programId, fragmentShaderId);
+        glDeleteShader(vertexShaderId);
         glDeleteShader(fragmentShaderId);
     }
 

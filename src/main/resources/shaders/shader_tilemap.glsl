@@ -1,4 +1,4 @@
-#version 110
+#version 410 core
 
 uniform sampler2D TilemapTexture;    // RGBA8 tile descriptors
 uniform sampler1D PatternLookup;     // RGBA8: R=tileX, G=tileY
@@ -24,6 +24,8 @@ uniform int PriorityPass;            // -1 = all, 0 = low, 1 = high
 uniform int MaskOutput;              // 1 = output white mask, 0 = output actual color
 uniform int UseUnderwaterPalette;
 uniform float WaterlineScreenY;
+
+out vec4 FragColor;
 
 void main()
 {
@@ -61,7 +63,7 @@ void main()
     }
 
     vec2 tileUv = vec2((tileXf + 0.5) / TilemapWidth, (tileYf + 0.5) / TilemapHeight);
-    vec4 desc = texture2D(TilemapTexture, tileUv);
+    vec4 desc = texture(TilemapTexture, tileUv);
 
     if (desc.a < 0.5) {
         discard;
@@ -97,7 +99,7 @@ void main()
     }
 
     float lookupU = (patternIndex + 0.5) / LookupSize;
-    vec4 lookup = texture1D(PatternLookup, lookupU);
+    vec4 lookup = texture(PatternLookup, lookupU);
     float atlasTileX = lookup.r * 255.0;
     float atlasTileY = lookup.g * 255.0;
 
@@ -105,7 +107,7 @@ void main()
     float atlasPixelY = atlasTileY * 8.0 + localY + 0.5;
 
     vec2 atlasUv = vec2(atlasPixelX / AtlasWidth, atlasPixelY / AtlasHeight);
-    float index = texture2D(AtlasTexture, atlasUv).r * 255.0;
+    float index = texture(AtlasTexture, atlasUv).r * 255.0;
 
     if (index < 0.1) {
         discard;
@@ -115,16 +117,16 @@ void main()
     float paletteY = (paletteIndex + 0.5) / 4.0;
     vec4 color;
     if (UseUnderwaterPalette == 1 && pixelYFromTop >= WaterlineScreenY) {
-        color = texture2D(UnderwaterPalette, vec2(paletteX, paletteY));
+        color = texture(UnderwaterPalette, vec2(paletteX, paletteY));
     } else {
-        color = texture2D(Palette, vec2(paletteX, paletteY));
+        color = texture(Palette, vec2(paletteX, paletteY));
     }
 
     // When MaskOutput is set, output white as a binary priority mask
     // Otherwise output the actual tile color
     if (MaskOutput == 1) {
-        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+        FragColor = vec4(1.0, 1.0, 1.0, 1.0);
     } else {
-        gl_FragColor = color;
+        FragColor = color;
     }
 }
