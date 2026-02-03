@@ -1049,7 +1049,7 @@ public class GraphicsManager {
 	public CNZSlotMachineRenderer getCnzSlotMachineRenderer() {
 		if (cnzSlotMachineRenderer != null && cnzSlotsShaderProgram == null && glInitialized) {
 			try {
-				cnzSlotsShaderProgram = new ShaderProgram(CNZ_SLOTS_SHADER_PATH);
+				cnzSlotsShaderProgram = new ShaderProgram(FULLSCREEN_VERTEX_SHADER_PATH, CNZ_SLOTS_SHADER_PATH);
 				cnzSlotMachineRenderer.setShader(cnzSlotsShaderProgram);
 			} catch (Exception e) {
 				System.err.println("Failed to load CNZ slot shader: " + e.getMessage());

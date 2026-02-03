@@ -25,10 +25,6 @@ public class WaterShaderProgram extends ShaderProgram {
     private int renderWorldYOffsetLocation = -1;
     private int useWorldSpaceWaterLocation = -1;
 
-    public WaterShaderProgram(String fragmentShaderPath) throws IOException {
-        super(fragmentShaderPath);
-    }
-
     public WaterShaderProgram(String vertexShaderPath, String fragmentShaderPath) throws IOException {
         super(vertexShaderPath, fragmentShaderPath);
     }

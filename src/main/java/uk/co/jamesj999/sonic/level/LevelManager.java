@@ -1578,14 +1578,13 @@ public class LevelManager {
         boolean hFlip = chunkDesc.getHFlip();
         boolean yFlip = chunkDesc.getVFlip(); // Using VFlip as per your current code
 
-        // Disable texturing and shaders for drawing solid colors
+        // Disable shaders for drawing solid colors (RECTI uses its own debug shader)
         ShaderProgram shaderProgram = graphicsManager.getShaderProgram();
         int shaderProgramId = 0;
         if (shaderProgram != null) {
             shaderProgramId = shaderProgram.getProgramId();
         }
         commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.DISABLE, GL_TEXTURE_2D));
 
         // Iterate over each pixel column in the tile
         for (int i = 0; i < LevelConstants.CHUNK_WIDTH; i++) {
@@ -1625,8 +1624,7 @@ public class LevelManager {
                         drawStartY));
             }
         }
-        // Re-enable texturing and shader for subsequent rendering
-        commands.add(new GLCommand(GLCommand.CommandType.ENABLE, GL_TEXTURE_2D));
+        // Re-enable shader for subsequent rendering
         if (shaderProgramId != 0) {
             commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, shaderProgramId));
         }
@@ -1663,14 +1661,13 @@ public class LevelManager {
         int yStart = cameraY - (cameraY % LevelConstants.CHUNK_HEIGHT);
         int yEnd = cameraY + cameraHeight + LevelConstants.CHUNK_HEIGHT;
 
-        // Disable texturing and shaders for drawing solid colors
+        // Disable shaders for drawing solid colors (RECTI uses its own debug shader)
         ShaderProgram shaderProgram = graphicsManager.getShaderProgram();
         int shaderProgramId = 0;
         if (shaderProgram != null) {
             shaderProgramId = shaderProgram.getProgramId();
         }
         commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.DISABLE, GL_TEXTURE_2D));
 
         for (int y = yStart; y <= yEnd; y += LevelConstants.CHUNK_HEIGHT) {
             // Foreground clamps vertically (doesn't wrap)
@@ -1744,8 +1741,7 @@ public class LevelManager {
             }
         }
 
-        // Re-enable texturing and shader for subsequent rendering
-        commands.add(new GLCommand(GLCommand.CommandType.ENABLE, GL_TEXTURE_2D));
+        // Re-enable shader for subsequent rendering
         if (shaderProgramId != 0) {
             commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, shaderProgramId));
         }
