@@ -534,8 +534,11 @@ public class InstancedPatternRenderer {
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-            glPushMatrix();
-            glTranslatef(-cameraX, cameraY, 0);
+            // Set camera offset uniform (replaces glTranslatef)
+            int cameraOffsetLoc = glGetUniformLocation(shader.getProgramId(), "CameraOffset");
+            if (cameraOffsetLoc != -1) {
+                glUniform2f(cameraOffsetLoc, -cameraX, cameraY);
+            }
 
             int stride = FLOATS_PER_INSTANCE * Float.BYTES;
 
@@ -580,7 +583,6 @@ public class InstancedPatternRenderer {
             disableAttrib(attribs.vertexPos);
 
             glBindBuffer(GL_ARRAY_BUFFER, 0);
-            glPopMatrix();
 
             shader.stop();
             glDisable(GL_BLEND);

@@ -1,4 +1,4 @@
-#version 110
+#version 410 core
 
 // Standard inputs (from ShaderProgram/default shader)
 uniform sampler2D Palette;              // Texture Unit 0
@@ -20,12 +20,17 @@ uniform float WaterLevelWorldY;         // Water level in world coordinates
 uniform float RenderWorldYOffset;       // World Y offset for current render context
 uniform int UseWorldSpaceWater;         // 0 = screen space, 1 = world space
 
+in vec2 v_texCoord;
+in float v_paletteLine;
+
+out vec4 FragColor;
+
 void main()
 {
     // Determine if we're underwater based on mode
     float pixelYFromTop;
     float waterlineY;
-    
+
     if (UseWorldSpaceWater == 1) {
         // World-space mode (for FBO/background rendering)
         // gl_FragCoord.y in FBO space (0 at bottom of FBO)
@@ -41,60 +46,60 @@ void main()
         pixelYFromTop = normalizedY * ScreenHeight;
         waterlineY = WaterlineScreenY;
     }
-    
+
     float distortion = 0.0;
-    
+
     // Check if below waterline
     if (pixelYFromTop >= waterlineY) {
         // Calculate procedural sine wave distortion
         // Frequency: roughly 4 scanlines per cycle looks good for Sonic
         // Speed: FrameCounter moves the phase
-        
+
         float scanlinesBelow = pixelYFromTop - waterlineY;
-        
+
         // Formula similar to Genesis sine table lookups
         // Using FrameCounter to shift phase
         float angle = (scanlinesBelow * 0.15) + (float(FrameCounter) * 0.2);
-        
+
         // Amplitude: typically 1-2 pixels
         distortion = sin(angle) * DistortionAmplitude;
     }
-    
+
     // Apply distortion to U coordinate
     // UV.s is 0..1 representing 0..ScreenWidth
-    vec2 uv = gl_TexCoord[0].st;
+    vec2 uv = v_texCoord;
     float uDistortion = distortion / IndexedTextureWidth;
     uv.s += uDistortion;
-    
+
     // Sample texture index
-    float index = texture2D(IndexedColorTexture, uv).r * 255.0;
-    
+    float index = texture(IndexedColorTexture, uv).r * 255.0;
+
     bool isTransparent = index < 0.1;
-    
+
     // Output Color Lookup
     vec4 color;
-    
+
     if (isTransparent) {
         discard;
     } else {
-        // Resolve palette line (uniform or per-vertex attribute via texcoord1.s)
+        // Resolve palette line (uniform or per-vertex attribute)
         float paletteLine = PaletteLine;
         if (paletteLine < 0.0) {
-            paletteLine = gl_TexCoord[1].s;
+            paletteLine = v_paletteLine;
         }
 
         // Standard palette lookup
         float paletteX = (index + 0.5) / 16.0;
         float paletteY = (paletteLine + 0.5) / 4.0;
-        
+
         if (pixelYFromTop >= waterlineY) {
              // Use underwater palette
-             color = texture2D(UnderwaterPalette, vec2(paletteX, paletteY));
+             color = texture(UnderwaterPalette, vec2(paletteX, paletteY));
         } else {
              // Use normal palette
-             color = texture2D(Palette, vec2(paletteX, paletteY));
+             color = texture(Palette, vec2(paletteX, paletteY));
         }
     }
-    
-    gl_FragColor = color;
+
+    FragColor = color;
 }

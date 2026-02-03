@@ -32,8 +32,10 @@ public class TilemapShaderProgram extends ShaderProgram {
     private int useUnderwaterPaletteLocation = -1;
     private int waterlineScreenYLocation = -1;
 
+    private static final String FULLSCREEN_VERTEX_SHADER = "shaders/shader_fullscreen.vert";
+
     public TilemapShaderProgram(String fragmentShaderPath) throws IOException {
-        super(fragmentShaderPath);
+        super(FULLSCREEN_VERTEX_SHADER, fragmentShaderPath);
     }
 
     @Override

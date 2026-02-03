@@ -149,8 +149,9 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.SCREEN_HEIGHT_PIXELS, 240);
 		putDefault(SonicConfiguration.SCALE, 1.0);
 		putDefault(SonicConfiguration.ROM_FILENAME, "Sonic The Hedgehog 2 (W) (REV01) [!].gen");
-		// Force debug view enabled for tests/headless use unless explicitly overridden
-		config.put(SonicConfiguration.DEBUG_VIEW_ENABLED.name(), true);
+		// Force debug view DISABLED - GlyphBatchRenderer causes macOS freeze in glfwPollEvents()
+		// TODO: Fix GlyphAtlas/Java2D interaction with macOS AppKit event loop
+		config.put(SonicConfiguration.DEBUG_VIEW_ENABLED.name(), false);
 		putDefault(SonicConfiguration.DEBUG_COLLISION_VIEW_ENABLED, false);
 		putDefault(SonicConfiguration.DAC_INTERPOLATE, true);
 		putDefault(SonicConfiguration.FM6_DAC_OFF, true); // Default true for Sonic 2 parity

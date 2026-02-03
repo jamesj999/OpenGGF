@@ -34,7 +34,9 @@ import static org.lwjgl.glfw.Callbacks.*;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.*;
 import static org.lwjgl.system.MemoryStack.*;
 import static org.lwjgl.system.MemoryUtil.*;
 
@@ -168,7 +170,10 @@ public class Engine {
 		glfwSetFramebufferSizeCallback(window, (windowHandle, width, height) -> {
 			this.windowWidth = width;
 			this.windowHeight = height;
-			reshape(width, height);
+			// Only reshape if GL context is initialized (avoids crash during window setup)
+			if (graphicsManager.isGlInitialized()) {
+				reshape(width, height);
+			}
 		});
 
 		// Setup window focus callback
@@ -225,6 +230,7 @@ public class Engine {
 
 		try {
 			graphicsManager.init(RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
+			graphicsManager.setEngine(this);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -400,6 +406,11 @@ public class Engine {
 		} else if (debugViewEnabled) {
 			debugRenderer.updateViewport(viewportWidth, viewportHeight);
 			debugRenderer.renderDebugInfo();
+
+			// Clean up GL state after debug rendering to prevent macOS event loop issues
+			glBindVertexArray(0);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glUseProgram(0);
 		}
 		profiler.endSection("debug");
 

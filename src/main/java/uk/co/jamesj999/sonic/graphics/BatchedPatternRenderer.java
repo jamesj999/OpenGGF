@@ -811,9 +811,14 @@ public class BatchedPatternRenderer {
                 glUniform1i(indexedTexLoc, 0);
             }
 
-            // Enable vertex arrays
-            glEnableClientState(GL_VERTEX_ARRAY);
-            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            // Set camera offset uniform (replaces glTranslatef)
+            int cameraOffsetLoc = glGetUniformLocation(shadowShader.getProgramId(), "CameraOffset");
+            if (cameraOffsetLoc != -1) {
+                glUniform2f(cameraOffsetLoc, -cameraX, cameraY);
+            }
+
+            // Bind VAO (required for core profile)
+            glBindVertexArray(vaoId);
 
             Integer atlasTextureId = gm.getPatternAtlasTextureId();
             if (atlasTextureId != null) {
@@ -821,28 +826,28 @@ public class BatchedPatternRenderer {
                 glBindTexture(GL_TEXTURE_2D, atlasTextureId);
             }
 
-            glPushMatrix();
-            glTranslatef(-cameraX, cameraY, 0);
-
+            // Upload vertex data to VBOs using modern vertex attributes
             glBindBuffer(GL_ARRAY_BUFFER, vertexVboId);
             vertexBuffer.rewind();
             vertexBuffer.limit(vertexFloatCount);
             glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_DYNAMIC_DRAW);
-            glVertexPointer(2, GL_FLOAT, 0, 0L);
+            glVertexAttribPointer(ATTRIB_POSITION, 2, GL_FLOAT, false, 0, 0L);
+            glEnableVertexAttribArray(ATTRIB_POSITION);
 
             glBindBuffer(GL_ARRAY_BUFFER, texCoordVboId);
             texCoordBuffer.rewind();
             texCoordBuffer.limit(texCoordFloatCount);
             glBufferData(GL_ARRAY_BUFFER, texCoordBuffer, GL_DYNAMIC_DRAW);
-            glTexCoordPointer(2, GL_FLOAT, 0, 0L);
+            glVertexAttribPointer(ATTRIB_TEXCOORD, 2, GL_FLOAT, false, 0, 0L);
+            glEnableVertexAttribArray(ATTRIB_TEXCOORD);
+
             glDrawArrays(GL_QUADS, 0, patternCount * 4);
 
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            glPopMatrix();
-
             // Cleanup state
-            glDisableClientState(GL_VERTEX_ARRAY);
-            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+            glDisableVertexAttribArray(ATTRIB_POSITION);
+            glDisableVertexAttribArray(ATTRIB_TEXCOORD);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindVertexArray(0);
             shadowShader.stop();
             glDisable(GL_BLEND);
 
@@ -852,9 +857,11 @@ public class BatchedPatternRenderer {
         }
 
         private void ensureVbos() {
-            if (vertexVboId != 0) {
+            if (vaoId != 0) {
                 return;
             }
+            // Create VAO (required for OpenGL 3.2+ core profile)
+            vaoId = glGenVertexArrays();
             vertexVboId = glGenBuffers();
             texCoordVboId = glGenBuffers();
         }
@@ -876,6 +883,10 @@ public class BatchedPatternRenderer {
         }
 
         private void dispose() {
+            if (vaoId != 0) {
+                glDeleteVertexArrays(vaoId);
+                vaoId = 0;
+            }
             if (vertexVboId != 0) {
                 glDeleteBuffers(vertexVboId);
                 vertexVboId = 0;

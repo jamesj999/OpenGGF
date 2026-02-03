@@ -1,4 +1,4 @@
-#version 110
+#version 410 core
 
 // Instanced sprite priority shader - composites sprites with tile priority awareness
 //
@@ -7,7 +7,7 @@
 // are hidden behind high-priority foreground tiles, while high-priority sprites
 // always render on top of all tiles.
 //
-// The priority is passed per-instance from the vertex shader via gl_TexCoord[2].
+// The priority is passed per-instance from the vertex shader via v_highPriority.
 
 uniform sampler2D Palette;
 uniform sampler2D IndexedColorTexture;
@@ -23,10 +23,16 @@ uniform float WindowHeight;             // Physical window height in pixels
 uniform float ScreenHeight;             // Logical screen height (e.g., 224)
 uniform int WaterEnabled;               // 1 = zone has water, 0 = no water
 
+in vec2 v_texCoord;
+in float v_paletteLine;
+in float v_highPriority;
+
+out vec4 FragColor;
+
 void main()
 {
     // Get the color index from the indexed texture
-    float index = texture2D(IndexedColorTexture, gl_TexCoord[0].st).r * 255.0;
+    float index = texture(IndexedColorTexture, v_texCoord).r * 255.0;
 
     // Mega Drive VDP Rule: Index 0 is transparent.
     // We discard the fragment so it doesn't write to the frame buffer (or depth buffer),
@@ -36,7 +42,7 @@ void main()
     }
 
     // Get per-instance priority from vertex shader
-    float spriteHighPriority = gl_TexCoord[2].s;
+    float spriteHighPriority = v_highPriority;
 
     // Check tile priority at this screen position
     // gl_FragCoord is in WINDOW coordinates (0,0 at bottom-left of window),
@@ -44,7 +50,7 @@ void main()
     // Subtract ViewportOffset to get viewport-local coordinates, then normalize.
     // No Y-flip needed: OpenGL texture V coordinates already match the FBO orientation
     vec2 screenCoord = (gl_FragCoord.xy - ViewportOffset) / ScreenSize;
-    float tilePriority = texture2D(TilePriorityTexture, screenCoord).r;
+    float tilePriority = texture(TilePriorityTexture, screenCoord).r;
 
     // Low-priority sprite behind high-priority tile: discard
     // tilePriority > 0.5 means there's a high-priority tile pixel at this location
@@ -52,10 +58,10 @@ void main()
         discard;
     }
 
-    // Resolve palette line (uniform or per-vertex attribute via texcoord1.s)
+    // Resolve palette line (uniform or per-vertex attribute)
     float paletteLine = PaletteLine;
     if (paletteLine < 0.0) {
-        paletteLine = gl_TexCoord[1].s;
+        paletteLine = v_paletteLine;
     }
 
     // Map the index to palette coordinates (16 colors, 4 lines)
@@ -67,21 +73,21 @@ void main()
     if (WaterEnabled == 1) {
         if (WaterlineScreenY < 0.0) {
             // Waterline above screen - entire screen is underwater
-            indexedColor = texture2D(UnderwaterPalette, vec2(paletteX, paletteY));
+            indexedColor = texture(UnderwaterPalette, vec2(paletteX, paletteY));
         } else {
             // Waterline on screen - check per-pixel
             float normalizedY = 1.0 - (gl_FragCoord.y / WindowHeight);
             float pixelYFromTop = normalizedY * ScreenHeight;
             if (pixelYFromTop >= WaterlineScreenY) {
-                indexedColor = texture2D(UnderwaterPalette, vec2(paletteX, paletteY));
+                indexedColor = texture(UnderwaterPalette, vec2(paletteX, paletteY));
             } else {
-                indexedColor = texture2D(Palette, vec2(paletteX, paletteY));
+                indexedColor = texture(Palette, vec2(paletteX, paletteY));
             }
         }
     } else {
         // No water in this zone
-        indexedColor = texture2D(Palette, vec2(paletteX, paletteY));
+        indexedColor = texture(Palette, vec2(paletteX, paletteY));
     }
 
-    gl_FragColor = indexedColor; // Output the final color
+    FragColor = indexedColor; // Output the final color
 }

@@ -30,8 +30,10 @@ public class SpritePriorityShaderProgram extends ShaderProgram {
     private int screenHeightLocation = -1;
     private int waterEnabledLocation = -1;
 
+    private static final String BASIC_VERTEX_SHADER = "shaders/shader_basic.vert";
+
     public SpritePriorityShaderProgram(String fragmentShaderPath) throws IOException {
-        super(fragmentShaderPath);
+        super(BASIC_VERTEX_SHADER, fragmentShaderPath);
     }
 
     @Override

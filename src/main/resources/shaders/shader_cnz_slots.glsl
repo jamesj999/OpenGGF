@@ -1,4 +1,4 @@
-#version 110
+#version 410 core
 
 // CNZ Slot Machine Display Shader
 // Renders 3 scrolling slot windows with face wrapping
@@ -38,6 +38,8 @@ const float SLOT_SPACING = 0.0;  // No gap between slots
 const float FACE_HEIGHT = 32.0;  // Each face is 32 pixels tall
 const float NUM_FACES = 6.0;     // 6 faces total
 const float TEXTURE_HEIGHT = 192.0; // 6 faces × 32 pixels
+
+out vec4 FragColor;
 
 void main()
 {
@@ -113,7 +115,7 @@ void main()
     float textureV = (faceIndex * FACE_HEIGHT + scrolledV * FACE_HEIGHT + 0.5) / TEXTURE_HEIGHT;
 
     // Sample the indexed texture (single channel, 0-15 color index per pixel)
-    float colorIndex = texture2D(SlotFaceTexture, vec2(u, textureV)).r * 255.0;
+    float colorIndex = texture(SlotFaceTexture, vec2(u, textureV)).r * 255.0;
 
     // Color index 0 is transparent
     if (colorIndex < 0.5) {
@@ -123,7 +125,7 @@ void main()
     // Palette lookup: X = color index (0-15), Y = palette line
     float paletteX = (colorIndex + 0.5) / 16.0;
     float paletteY = (PaletteLine + 0.5) / 4.0;
-    vec4 color = texture2D(Palette, vec2(paletteX, paletteY));
+    vec4 color = texture(Palette, vec2(paletteX, paletteY));
 
-    gl_FragColor = color;
+    FragColor = color;
 }
