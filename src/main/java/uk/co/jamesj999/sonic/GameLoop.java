@@ -980,9 +980,6 @@ public class GameLoop {
             LOGGER.info("Exited Title Card, starting level");
         }
 
-        // Enable debug logging for sprite rendering after title card exits
-        uk.co.jamesj999.sonic.graphics.InstancedPatternRenderer.enablePostTitleCardLogging();
-
         // Notify listener of mode change
         if (gameModeChangeListener != null) {
             gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);

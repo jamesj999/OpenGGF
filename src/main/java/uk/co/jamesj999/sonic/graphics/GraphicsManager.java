@@ -1147,9 +1147,6 @@ public class GraphicsManager {
 		return spritePriorityShaderProgram;
 	}
 
-	// Debug counter for FBO logging
-	private static int gmFboDebugCounter = 0;
-
 	/**
 	 * Get the tile priority FBO for rendering high-priority tile information.
 	 * Lazily initializes the FBO with specified dimensions if not already done.
@@ -1159,17 +1156,9 @@ public class GraphicsManager {
 	 */
 	public TilePriorityFBO getTilePriorityFBO(int width, int height) {
 		if (headlessMode || !glInitialized) {
-			if (gmFboDebugCounter < 10) {
-				System.out.println("[GraphicsManager] getTilePriorityFBO blocked: headless=" + headlessMode + ", glInitialized=" + glInitialized);
-				gmFboDebugCounter++;
-			}
 			return null;
 		}
 		if (tilePriorityFBO != null && !tilePriorityFBO.isInitialized()) {
-			if (gmFboDebugCounter < 10) {
-				System.out.println("[GraphicsManager] Initializing TilePriorityFBO: " + width + "x" + height);
-				gmFboDebugCounter++;
-			}
 			tilePriorityFBO.init(width, height);
 		} else if (tilePriorityFBO != null) {
 			tilePriorityFBO.resize(width, height);

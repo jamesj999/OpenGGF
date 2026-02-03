@@ -649,12 +649,12 @@ public class BatchedPatternRenderer {
                 boolean highPri = gm.getCurrentSpriteHighPriority();
                 priorityShader.setSpriteHighPriority(highPri);
 
-                // Bind tile priority FBO texture to unit 3
+                // Bind tile priority FBO texture to unit 5 (avoid conflict with TilemapGpuRenderer which uses 0-4)
                 TilePriorityFBO fbo = gm.getTilePriorityFBO();
                 if (fbo != null && fbo.isInitialized()) {
-                    glActiveTexture(GL_TEXTURE3);
+                    glActiveTexture(GL_TEXTURE5);
                     glBindTexture(GL_TEXTURE_2D, fbo.getTextureId());
-                    priorityShader.setTilePriorityTexture(3);
+                    priorityShader.setTilePriorityTexture(5);
 
                     // Use cached viewport dimensions from GraphicsManager
                     // instead of expensive glGetIntegerv(GL_VIEWPORT) every batch
