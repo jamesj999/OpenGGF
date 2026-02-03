@@ -1,8 +1,6 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.GL2GL3;
-import com.jogamp.opengl.util.GLBuffers;
+import org.lwjgl.system.MemoryUtil;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.level.PatternDesc;
@@ -11,6 +9,13 @@ import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.util.ArrayDeque;
 import java.util.logging.Logger;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL31.*;
+import static org.lwjgl.opengl.GL33.*;
 
 /**
  * Instanced renderer for batched 8x8 pattern draws.
@@ -62,41 +67,41 @@ public class InstancedPatternRenderer {
         this.instanceData = new float[MAX_PATTERNS_PER_BATCH * FLOATS_PER_INSTANCE];
     }
 
-    public void init(GL2 gl, String vertexShaderPath, String fragmentShaderPath, String waterFragmentPath)
+    public void init(String vertexShaderPath, String fragmentShaderPath, String waterFragmentPath)
             throws IOException {
-        if (initialized || gl == null) {
+        if (initialized) {
             return;
         }
-        supported = isInstancingSupported(gl);
+        supported = isInstancingSupported();
         if (!supported) {
             LOGGER.info("Instanced rendering not supported; falling back to non-instanced batching.");
             return;
         }
-        instancedShader = new ShaderProgram(gl, vertexShaderPath, fragmentShaderPath);
-        instancedShader.cacheUniformLocations(gl);
-        instancedWaterShader = new WaterShaderProgram(gl, vertexShaderPath, waterFragmentPath);
-        instancedWaterShader.cacheUniformLocations(gl);
-        instancedPriorityShader = new ShaderProgram(gl, vertexShaderPath, PRIORITY_FRAGMENT_SHADER_PATH);
-        instancedPriorityShader.cacheUniformLocations(gl);
+        instancedShader = new ShaderProgram(vertexShaderPath, fragmentShaderPath);
+        instancedShader.cacheUniformLocations();
+        instancedWaterShader = new WaterShaderProgram(vertexShaderPath, waterFragmentPath);
+        instancedWaterShader.cacheUniformLocations();
+        instancedPriorityShader = new ShaderProgram(vertexShaderPath, PRIORITY_FRAGMENT_SHADER_PATH);
+        instancedPriorityShader.cacheUniformLocations();
 
-        defaultAttribs = queryAttribLocations(gl, instancedShader);
-        waterAttribs = queryAttribLocations(gl, instancedWaterShader);
-        priorityAttribs = queryAttribLocations(gl, instancedPriorityShader);
+        defaultAttribs = queryAttribLocations(instancedShader);
+        waterAttribs = queryAttribLocations(instancedWaterShader);
+        priorityAttribs = queryAttribLocations(instancedPriorityShader);
 
         // Cache uniform locations for priority shader
         int priorityProgramId = instancedPriorityShader.getProgramId();
-        cachedTilePriorityTexLoc = gl.glGetUniformLocation(priorityProgramId, "TilePriorityTexture");
-        cachedScreenSizeLoc = gl.glGetUniformLocation(priorityProgramId, "ScreenSize");
-        cachedViewportOffsetLoc = gl.glGetUniformLocation(priorityProgramId, "ViewportOffset");
+        cachedTilePriorityTexLoc = glGetUniformLocation(priorityProgramId, "TilePriorityTexture");
+        cachedScreenSizeLoc = glGetUniformLocation(priorityProgramId, "ScreenSize");
+        cachedViewportOffsetLoc = glGetUniformLocation(priorityProgramId, "ViewportOffset");
 
         // Cache underwater palette uniform locations for priority shader
-        cachedUnderwaterPaletteLoc = gl.glGetUniformLocation(priorityProgramId, "UnderwaterPalette");
-        cachedWaterlineScreenYLoc = gl.glGetUniformLocation(priorityProgramId, "WaterlineScreenY");
-        cachedWindowHeightLoc = gl.glGetUniformLocation(priorityProgramId, "WindowHeight");
-        cachedScreenHeightLoc = gl.glGetUniformLocation(priorityProgramId, "ScreenHeight");
-        cachedWaterEnabledLoc = gl.glGetUniformLocation(priorityProgramId, "WaterEnabled");
+        cachedUnderwaterPaletteLoc = glGetUniformLocation(priorityProgramId, "UnderwaterPalette");
+        cachedWaterlineScreenYLoc = glGetUniformLocation(priorityProgramId, "WaterlineScreenY");
+        cachedWindowHeightLoc = glGetUniformLocation(priorityProgramId, "WindowHeight");
+        cachedScreenHeightLoc = glGetUniformLocation(priorityProgramId, "ScreenHeight");
+        cachedWaterEnabledLoc = glGetUniformLocation(priorityProgramId, "WaterEnabled");
 
-        initBuffers(gl);
+        initBuffers();
         initialized = true;
         LOGGER.info("Instanced pattern renderer initialized.");
     }
@@ -228,25 +233,23 @@ public class InstancedPatternRenderer {
         return command;
     }
 
-    public void cleanup(GL2 gl) {
-        if (gl != null) {
-            if (quadVboId != 0) {
-                gl.glDeleteBuffers(1, new int[] { quadVboId }, 0);
-            }
-            if (instanceVboId != 0) {
-                gl.glDeleteBuffers(1, new int[] { instanceVboId }, 0);
-            }
+    public void cleanup() {
+        if (quadVboId != 0) {
+            glDeleteBuffers(quadVboId);
+        }
+        if (instanceVboId != 0) {
+            glDeleteBuffers(instanceVboId);
         }
         quadVboId = 0;
         instanceVboId = 0;
-        if (instancedShader != null && gl != null) {
-            instancedShader.cleanup(gl);
+        if (instancedShader != null) {
+            instancedShader.cleanup();
         }
-        if (instancedWaterShader != null && gl != null) {
-            instancedWaterShader.cleanup(gl);
+        if (instancedWaterShader != null) {
+            instancedWaterShader.cleanup();
         }
-        if (instancedPriorityShader != null && gl != null) {
-            instancedPriorityShader.cleanup(gl);
+        if (instancedPriorityShader != null) {
+            instancedPriorityShader.cleanup();
         }
         instancedShader = null;
         instancedWaterShader = null;
@@ -259,50 +262,77 @@ public class InstancedPatternRenderer {
         commandPool.clear();
     }
 
-    private void initBuffers(GL2 gl) {
+    /**
+     * Cleanup for headless mode (no GL context available).
+     * Resets internal state without making GL calls.
+     */
+    public void cleanupHeadless() {
+        quadVboId = 0;
+        instanceVboId = 0;
+        instancedShader = null;
+        instancedWaterShader = null;
+        instancedPriorityShader = null;
+        defaultAttribs = null;
+        waterAttribs = null;
+        priorityAttribs = null;
+        initialized = false;
+        supported = false;
+        commandPool.clear();
+    }
+
+    private void initBuffers() {
         if (quadVboId != 0) {
             return;
         }
-        int[] buffers = new int[2];
-        gl.glGenBuffers(2, buffers, 0);
-        quadVboId = buffers[0];
-        instanceVboId = buffers[1];
+        quadVboId = glGenBuffers();
+        instanceVboId = glGenBuffers();
 
-        FloatBuffer quadBuffer = GLBuffers.newDirectFloatBuffer(8);
+        FloatBuffer quadBuffer = MemoryUtil.memAllocFloat(8);
         quadBuffer.put(0f).put(0f);
         quadBuffer.put(1f).put(0f);
         quadBuffer.put(0f).put(1f);
         quadBuffer.put(1f).put(1f);
         quadBuffer.flip();
 
-        gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, quadVboId);
-        gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) quadBuffer.capacity() * Float.BYTES, quadBuffer,
-                GL2.GL_STATIC_DRAW);
-        gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVboId);
+        glBufferData(GL_ARRAY_BUFFER, quadBuffer, GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        MemoryUtil.memFree(quadBuffer);
     }
 
-    private boolean isInstancingSupported(GL2 gl) {
-        if (!gl.isFunctionAvailable("glDrawArraysInstanced")) {
-            return false;
+    private boolean isInstancingSupported() {
+        // LWJGL with GL3.1+ context always supports instancing
+        // Check OpenGL version - instancing requires GL 3.1+ or extensions
+        String version = glGetString(GL_VERSION);
+        if (version != null) {
+            try {
+                // Parse major.minor from version string (e.g., "4.1 INTEL-..." or "3.3.0")
+                String[] parts = version.split("[^0-9]+");
+                if (parts.length >= 2) {
+                    int major = Integer.parseInt(parts[0]);
+                    int minor = Integer.parseInt(parts[1]);
+                    // GL 3.3+ supports glVertexAttribDivisor (GL 3.1 only has glDrawArraysInstanced)
+                    return major > 3 || (major == 3 && minor >= 3);
+                }
+            } catch (NumberFormatException e) {
+                // Fall through to extension check
+            }
         }
-        if (!gl.isFunctionAvailable("glVertexAttribDivisor") && !gl.isFunctionAvailable("glVertexAttribDivisorARB")) {
-            return false;
-        }
-        return gl.isExtensionAvailable("GL_ARB_instanced_arrays")
-                || gl.isExtensionAvailable("GL_EXT_instanced_arrays")
-                || gl.isGL2GL3();
+        // Fallback: assume support if we got this far with LWJGL
+        return true;
     }
 
-    private AttribLocations queryAttribLocations(GL2 gl, ShaderProgram program) {
+    private AttribLocations queryAttribLocations(ShaderProgram program) {
         int programId = program.getProgramId();
         return new AttribLocations(
-                gl.glGetAttribLocation(programId, "VertexPos"),
-                gl.glGetAttribLocation(programId, "InstancePos"),
-                gl.glGetAttribLocation(programId, "InstanceSize"),
-                gl.glGetAttribLocation(programId, "InstanceUv0"),
-                gl.glGetAttribLocation(programId, "InstanceUv1"),
-                gl.glGetAttribLocation(programId, "InstancePalette"),
-                gl.glGetAttribLocation(programId, "InstanceHighPriority"));
+                glGetAttribLocation(programId, "VertexPos"),
+                glGetAttribLocation(programId, "InstancePos"),
+                glGetAttribLocation(programId, "InstanceSize"),
+                glGetAttribLocation(programId, "InstanceUv0"),
+                glGetAttribLocation(programId, "InstanceUv1"),
+                glGetAttribLocation(programId, "InstancePalette"),
+                glGetAttribLocation(programId, "InstanceHighPriority"));
     }
 
     private InstancedBatchCommand obtainCommand() {
@@ -357,7 +387,7 @@ public class InstancedPatternRenderer {
         }
 
         @Override
-        public void execute(GL2 gl, int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
+        public void execute(int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
             if (instanceCount == 0 || instancedShader == null) {
                 return;
             }
@@ -379,11 +409,11 @@ public class InstancedPatternRenderer {
                 return;
             }
 
-            shader.use(gl);
-            shader.cacheUniformLocations(gl);
-            gl.glUniform1i(shader.getPaletteLocation(), 0);
-            gl.glUniform1i(shader.getIndexedColorTextureLocation(), 1);
-            shader.setPaletteLine(gl, -1.0f);
+            shader.use();
+            shader.cacheUniformLocations();
+            glUniform1i(shader.getPaletteLocation(), 0);
+            glUniform1i(shader.getIndexedColorTextureLocation(), 1);
+            shader.setPaletteLine(-1.0f);
 
             // Set priority uniforms if using the priority shader
             // Priority is now per-instance via InstanceHighPriority attribute,
@@ -393,43 +423,43 @@ public class InstancedPatternRenderer {
                 if (fbo != null && fbo.isInitialized()) {
                     // Use cached uniform locations instead of glGetUniformLocation every batch
                     if (cachedTilePriorityTexLoc != -1) {
-                        gl.glActiveTexture(GL2.GL_TEXTURE3);
-                        gl.glBindTexture(GL2.GL_TEXTURE_2D, fbo.getTextureId());
-                        gl.glUniform1i(cachedTilePriorityTexLoc, 3);
+                        glActiveTexture(GL_TEXTURE3);
+                        glBindTexture(GL_TEXTURE_2D, fbo.getTextureId());
+                        glUniform1i(cachedTilePriorityTexLoc, 3);
 
                         // Use cached viewport dimensions from GraphicsManager
                         if (cachedScreenSizeLoc != -1) {
-                            gl.glUniform2f(cachedScreenSizeLoc, gm.getViewportWidth(), gm.getViewportHeight());
+                            glUniform2f(cachedScreenSizeLoc, gm.getViewportWidth(), gm.getViewportHeight());
                         }
 
                         if (cachedViewportOffsetLoc != -1) {
-                            gl.glUniform2f(cachedViewportOffsetLoc, gm.getViewportX(), gm.getViewportY());
+                            glUniform2f(cachedViewportOffsetLoc, gm.getViewportX(), gm.getViewportY());
                         }
-                        gl.glActiveTexture(GL2.GL_TEXTURE0);
+                        glActiveTexture(GL_TEXTURE0);
                     }
                 }
 
                 // Bind underwater palette for per-scanline palette switching
                 Integer underwaterPaletteId = gm.getUnderwaterPaletteTextureId();
                 if (underwaterPaletteId != null && cachedUnderwaterPaletteLoc != -1) {
-                    gl.glActiveTexture(GL2.GL_TEXTURE2);
-                    gl.glBindTexture(GL2.GL_TEXTURE_2D, underwaterPaletteId);
-                    gl.glUniform1i(cachedUnderwaterPaletteLoc, 2);
-                    gl.glActiveTexture(GL2.GL_TEXTURE0);
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_2D, underwaterPaletteId);
+                    glUniform1i(cachedUnderwaterPaletteLoc, 2);
+                    glActiveTexture(GL_TEXTURE0);
                 }
 
                 // Set water uniforms from cached values in GraphicsManager
                 if (cachedWaterEnabledLoc != -1) {
-                    gl.glUniform1i(cachedWaterEnabledLoc, gm.isWaterEnabled() ? 1 : 0);
+                    glUniform1i(cachedWaterEnabledLoc, gm.isWaterEnabled() ? 1 : 0);
                 }
                 if (cachedWaterlineScreenYLoc != -1) {
-                    gl.glUniform1f(cachedWaterlineScreenYLoc, gm.getWaterlineScreenY());
+                    glUniform1f(cachedWaterlineScreenYLoc, gm.getWaterlineScreenY());
                 }
                 if (cachedWindowHeightLoc != -1) {
-                    gl.glUniform1f(cachedWindowHeightLoc, gm.getWindowHeight());
+                    glUniform1f(cachedWindowHeightLoc, gm.getWindowHeight());
                 }
                 if (cachedScreenHeightLoc != -1) {
-                    gl.glUniform1f(cachedScreenHeightLoc, gm.getScreenHeight());
+                    glUniform1f(cachedScreenHeightLoc, gm.getScreenHeight());
                 }
             }
 
@@ -443,27 +473,27 @@ public class InstancedPatternRenderer {
                 paletteTextureId = gm.getCombinedPaletteTextureId();
             }
             if (paletteTextureId != null) {
-                gl.glActiveTexture(GL2.GL_TEXTURE0);
-                gl.glBindTexture(GL2.GL_TEXTURE_2D, paletteTextureId);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, paletteTextureId);
             }
 
             Integer atlasTextureId = gm.getPatternAtlasTextureId();
             if (atlasTextureId != null) {
-                gl.glActiveTexture(GL2.GL_TEXTURE1);
-                gl.glBindTexture(GL2.GL_TEXTURE_2D, atlasTextureId);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, atlasTextureId);
             }
 
             if (shader instanceof WaterShaderProgram) {
                 WaterShaderProgram waterShader = (WaterShaderProgram) shader;
                 Integer underwaterPaletteId = gm.getUnderwaterPaletteTextureId();
                 if (underwaterPaletteId != null) {
-                    gl.glActiveTexture(GL2.GL_TEXTURE2);
-                    gl.glBindTexture(GL2.GL_TEXTURE_2D, underwaterPaletteId);
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_2D, underwaterPaletteId);
                     int loc = waterShader.getUnderwaterPaletteLocation();
                     if (loc != -1) {
-                        gl.glUniform1i(loc, 2);
+                        glUniform1i(loc, 2);
                     }
-                    gl.glActiveTexture(GL2.GL_TEXTURE0);
+                    glActiveTexture(GL_TEXTURE0);
                 }
             }
 
@@ -477,64 +507,63 @@ public class InstancedPatternRenderer {
                 attribs = defaultAttribs;
             }
             if (attribs == null || quadVboId == 0 || instanceVboId == 0) {
-                shader.stop(gl);
+                shader.stop();
                 return;
             }
 
-            gl.glEnable(GL2.GL_BLEND);
-            gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-            gl.glPushMatrix();
-            gl.glTranslatef(-cameraX, cameraY, 0);
+            glPushMatrix();
+            glTranslatef(-cameraX, cameraY, 0);
 
-            GL2GL3 gl23 = gl.getGL2GL3();
             int stride = FLOATS_PER_INSTANCE * Float.BYTES;
 
-            gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, quadVboId);
-            enableAttrib(gl, attribs.vertexPos, 2, GL2.GL_FLOAT, 0, 0L);
-            setDivisor(gl23, attribs.vertexPos, 0);
+            glBindBuffer(GL_ARRAY_BUFFER, quadVboId);
+            enableAttrib(attribs.vertexPos, 2, GL_FLOAT, 0, 0L);
+            glVertexAttribDivisor(attribs.vertexPos, 0);
 
-            gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, instanceVboId);
+            glBindBuffer(GL_ARRAY_BUFFER, instanceVboId);
             instanceBuffer.rewind();
             instanceBuffer.limit(floatCount);
-            gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) floatCount * Float.BYTES, instanceBuffer, GL2.GL_DYNAMIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, instanceBuffer, GL_DYNAMIC_DRAW);
 
-            enableAttrib(gl, attribs.instancePos, 2, GL2.GL_FLOAT, stride, 0L);
-            enableAttrib(gl, attribs.instanceSize, 2, GL2.GL_FLOAT, stride, 2L * Float.BYTES);
-            enableAttrib(gl, attribs.instanceUv0, 2, GL2.GL_FLOAT, stride, 4L * Float.BYTES);
-            enableAttrib(gl, attribs.instanceUv1, 2, GL2.GL_FLOAT, stride, 6L * Float.BYTES);
-            enableAttrib(gl, attribs.instancePalette, 1, GL2.GL_FLOAT, stride, 8L * Float.BYTES);
-            enableAttrib(gl, attribs.instanceHighPriority, 1, GL2.GL_FLOAT, stride, 9L * Float.BYTES);
+            enableAttrib(attribs.instancePos, 2, GL_FLOAT, stride, 0L);
+            enableAttrib(attribs.instanceSize, 2, GL_FLOAT, stride, 2L * Float.BYTES);
+            enableAttrib(attribs.instanceUv0, 2, GL_FLOAT, stride, 4L * Float.BYTES);
+            enableAttrib(attribs.instanceUv1, 2, GL_FLOAT, stride, 6L * Float.BYTES);
+            enableAttrib(attribs.instancePalette, 1, GL_FLOAT, stride, 8L * Float.BYTES);
+            enableAttrib(attribs.instanceHighPriority, 1, GL_FLOAT, stride, 9L * Float.BYTES);
 
-            setDivisor(gl23, attribs.instancePos, 1);
-            setDivisor(gl23, attribs.instanceSize, 1);
-            setDivisor(gl23, attribs.instanceUv0, 1);
-            setDivisor(gl23, attribs.instanceUv1, 1);
-            setDivisor(gl23, attribs.instancePalette, 1);
-            setDivisor(gl23, attribs.instanceHighPriority, 1);
+            setDivisor(attribs.instancePos, 1);
+            setDivisor(attribs.instanceSize, 1);
+            setDivisor(attribs.instanceUv0, 1);
+            setDivisor(attribs.instanceUv1, 1);
+            setDivisor(attribs.instancePalette, 1);
+            setDivisor(attribs.instanceHighPriority, 1);
 
-            gl23.glDrawArraysInstanced(GL2.GL_TRIANGLE_STRIP, 0, 4, instanceCount);
+            glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, instanceCount);
 
-            setDivisor(gl23, attribs.instancePos, 0);
-            setDivisor(gl23, attribs.instanceSize, 0);
-            setDivisor(gl23, attribs.instanceUv0, 0);
-            setDivisor(gl23, attribs.instanceUv1, 0);
-            setDivisor(gl23, attribs.instancePalette, 0);
-            setDivisor(gl23, attribs.instanceHighPriority, 0);
+            setDivisor(attribs.instancePos, 0);
+            setDivisor(attribs.instanceSize, 0);
+            setDivisor(attribs.instanceUv0, 0);
+            setDivisor(attribs.instanceUv1, 0);
+            setDivisor(attribs.instancePalette, 0);
+            setDivisor(attribs.instanceHighPriority, 0);
 
-            disableAttrib(gl, attribs.instanceHighPriority);
-            disableAttrib(gl, attribs.instancePalette);
-            disableAttrib(gl, attribs.instanceUv1);
-            disableAttrib(gl, attribs.instanceUv0);
-            disableAttrib(gl, attribs.instanceSize);
-            disableAttrib(gl, attribs.instancePos);
-            disableAttrib(gl, attribs.vertexPos);
+            disableAttrib(attribs.instanceHighPriority);
+            disableAttrib(attribs.instancePalette);
+            disableAttrib(attribs.instanceUv1);
+            disableAttrib(attribs.instanceUv0);
+            disableAttrib(attribs.instanceSize);
+            disableAttrib(attribs.instancePos);
+            disableAttrib(attribs.vertexPos);
 
-            gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, 0);
-            gl.glPopMatrix();
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glPopMatrix();
 
-            shader.stop(gl);
-            gl.glDisable(GL2.GL_BLEND);
+            shader.stop();
+            glDisable(GL_BLEND);
 
             PatternRenderCommand.resetFrameState();
             recycleCommand(this);
@@ -547,34 +576,35 @@ public class InstancedPatternRenderer {
         private FloatBuffer ensureBuffer(FloatBuffer buffer, int required) {
             if (buffer == null) {
                 // Pre-allocate at max batch capacity
-                return GLBuffers.newDirectFloatBuffer(MAX_PATTERNS_PER_BATCH * FLOATS_PER_INSTANCE);
+                return MemoryUtil.memAllocFloat(MAX_PATTERNS_PER_BATCH * FLOATS_PER_INSTANCE);
             }
             if (buffer.capacity() < required) {
-                return GLBuffers.newDirectFloatBuffer(MAX_PATTERNS_PER_BATCH * FLOATS_PER_INSTANCE);
+                MemoryUtil.memFree(buffer);
+                return MemoryUtil.memAllocFloat(MAX_PATTERNS_PER_BATCH * FLOATS_PER_INSTANCE);
             }
             return buffer;
         }
 
-        private void enableAttrib(GL2 gl, int location, int size, int type, int stride, long offset) {
+        private void enableAttrib(int location, int size, int type, int stride, long offset) {
             if (location < 0) {
                 return;
             }
-            gl.glEnableVertexAttribArray(location);
-            gl.glVertexAttribPointer(location, size, type, false, stride, offset);
+            glEnableVertexAttribArray(location);
+            glVertexAttribPointer(location, size, type, false, stride, offset);
         }
 
-        private void disableAttrib(GL2 gl, int location) {
+        private void disableAttrib(int location) {
             if (location < 0) {
                 return;
             }
-            gl.glDisableVertexAttribArray(location);
+            glDisableVertexAttribArray(location);
         }
 
-        private void setDivisor(GL2GL3 gl, int location, int divisor) {
+        private void setDivisor(int location, int divisor) {
             if (location < 0) {
                 return;
             }
-            gl.glVertexAttribDivisor(location, divisor);
+            glVertexAttribDivisor(location, divisor);
         }
     }
 }

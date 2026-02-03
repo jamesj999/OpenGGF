@@ -3,11 +3,9 @@ package uk.co.jamesj999.sonic.debug;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 
-import com.jogamp.opengl.GL2;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
-import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.objects.ObjectManager;
@@ -72,22 +70,17 @@ public class DebugRenderer {
 			.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
 
 	public void renderDebugInfo() {
-                GL2 gl = GraphicsManager.getInstance().getGraphics();
-                if (gl == null) {
-                        return;
-                }
-
                 // Lazy initialization of glyph batch renderer
                 float scale = (float) Math.max(scaleX, scaleY);
                 if (glyphBatch == null) {
                         glyphBatch = new GlyphBatchRenderer();
-                        glyphBatch.init(gl, new Font("SansSerif", Font.PLAIN, 11), scale);
+                        glyphBatch.init(new Font("SansSerif", Font.PLAIN, 11), scale);
                 }
                 if (!glyphBatch.isInitialized()) {
                         return;
                 }
                 // Reinitialize if scale changed significantly (e.g., window resize)
-                glyphBatch.updateScale(gl, new Font("SansSerif", Font.PLAIN, 11), scale);
+                glyphBatch.updateScale(new Font("SansSerif", Font.PLAIN, 11), scale);
                 glyphBatch.updateViewport(viewportWidth, viewportHeight);
 
                 glyphBatch.begin();
@@ -103,7 +96,7 @@ public class DebugRenderer {
                                                 "Overlay Off (" + DebugOverlayToggle.OVERLAY.shortcutLabel() + ")",
                                                 uiX(6), uiY(baseHeight - 6), Color.WHITE, PANEL_FONT);
                         }
-                        glyphBatch.end(gl);
+                        glyphBatch.end();
                         return;
                 }
 
@@ -195,11 +188,11 @@ public class DebugRenderer {
                 }
 
                 // End the batch - single draw call for all text
-                glyphBatch.end(gl);
+                glyphBatch.end();
 
-                // Render performance panel (requires separate GL2 calls for pie chart)
+                // Render performance panel (requires separate GL calls for pie chart)
                 if (overlayManager.isEnabled(DebugOverlayToggle.PERFORMANCE)) {
-                        renderPerformancePanel(gl);
+                        renderPerformancePanel();
                 }
         }
 
@@ -524,14 +517,14 @@ public class DebugRenderer {
                 }
         }
 
-        private void renderPerformancePanel(GL2 gl) {
+        private void renderPerformancePanel() {
                 if (performancePanelRenderer == null) {
                         performancePanelRenderer = new PerformancePanelRenderer(baseWidth, baseHeight, glyphBatch);
                 }
                 performancePanelRenderer.updateViewport(viewportWidth, viewportHeight);
 
                 ProfileSnapshot snapshot = PerformanceProfiler.getInstance().getSnapshot();
-                performancePanelRenderer.render(gl, snapshot);
+                performancePanelRenderer.render(snapshot);
         }
 
         private String formatStateFlags(AbstractPlayableSprite sprite) {

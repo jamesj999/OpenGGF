@@ -1,12 +1,14 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
+import org.lwjgl.system.MemoryUtil;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+
+import static org.lwjgl.opengl.GL11.*;
 
 /**
  * Utility class for framebuffer capture and image comparison.
@@ -41,41 +43,45 @@ public final class ScreenshotCapture {
      * Capture the current OpenGL framebuffer as a BufferedImage.
      * Reads from the back buffer and flips the Y-axis (OpenGL origin is bottom-left).
      *
-     * @param gl     The OpenGL context
      * @param width  Width of the capture area in pixels
      * @param height Height of the capture area in pixels
      * @return A BufferedImage containing the captured framebuffer contents
      */
-    public static BufferedImage captureFramebuffer(GL2 gl, int width, int height) {
-        // Allocate buffer for RGBA data
-        ByteBuffer buffer = ByteBuffer.allocateDirect(width * height * 4);
+    public static BufferedImage captureFramebuffer(int width, int height) {
+        // Allocate buffer for RGBA data using LWJGL's MemoryUtil
+        ByteBuffer buffer = MemoryUtil.memAlloc(width * height * 4);
 
-        // Read pixels from back buffer
-        gl.glReadBuffer(GL2.GL_BACK);
-        gl.glReadPixels(0, 0, width, height, GL2.GL_RGBA, GL2.GL_UNSIGNED_BYTE, buffer);
+        try {
+            // Read pixels from back buffer
+            glReadBuffer(GL_BACK);
+            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 
-        // Create BufferedImage
-        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            // Create BufferedImage
+            BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 
-        // Copy pixels from buffer to image, flipping Y coordinate
-        // OpenGL origin is bottom-left, BufferedImage origin is top-left
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                // Read from flipped Y position in buffer
-                int srcY = height - 1 - y;
-                int srcIndex = (srcY * width + x) * 4;
+            // Copy pixels from buffer to image, flipping Y coordinate
+            // OpenGL origin is bottom-left, BufferedImage origin is top-left
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    // Read from flipped Y position in buffer
+                    int srcY = height - 1 - y;
+                    int srcIndex = (srcY * width + x) * 4;
 
-                int r = buffer.get(srcIndex) & 0xFF;
-                int g = buffer.get(srcIndex + 1) & 0xFF;
-                int b = buffer.get(srcIndex + 2) & 0xFF;
-                int a = buffer.get(srcIndex + 3) & 0xFF;
+                    int r = buffer.get(srcIndex) & 0xFF;
+                    int g = buffer.get(srcIndex + 1) & 0xFF;
+                    int b = buffer.get(srcIndex + 2) & 0xFF;
+                    int a = buffer.get(srcIndex + 3) & 0xFF;
 
-                int argb = (a << 24) | (r << 16) | (g << 8) | b;
-                image.setRGB(x, y, argb);
+                    int argb = (a << 24) | (r << 16) | (g << 8) | b;
+                    image.setRGB(x, y, argb);
+                }
             }
-        }
 
-        return image;
+            return image;
+        } finally {
+            // Free the native memory
+            MemoryUtil.memFree(buffer);
+        }
     }
 
     /**

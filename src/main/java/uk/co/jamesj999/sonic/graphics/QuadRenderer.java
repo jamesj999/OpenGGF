@@ -1,9 +1,11 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.util.GLBuffers;
+import org.lwjgl.system.MemoryUtil;
 
 import java.nio.FloatBuffer;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL15.*;
 
 /**
  * VBO-backed quad renderer to avoid immediate mode draws.
@@ -13,23 +15,18 @@ public class QuadRenderer {
 
     private int vboId;
     // Pre-allocate buffer at construction time instead of lazy initialization
-    private FloatBuffer vertexBuffer = GLBuffers.newDirectFloatBuffer(FLOATS_PER_QUAD);
+    private FloatBuffer vertexBuffer = MemoryUtil.memAllocFloat(FLOATS_PER_QUAD);
 
-    public void init(GL2 gl) {
-        if (gl == null || vboId != 0) {
+    public void init() {
+        if (vboId != 0) {
             return;
         }
-        int[] buffers = new int[1];
-        gl.glGenBuffers(1, buffers, 0);
-        vboId = buffers[0];
+        vboId = glGenBuffers();
     }
 
-    public void draw(GL2 gl, float x0, float y0, float x1, float y1) {
-        if (gl == null) {
-            return;
-        }
+    public void draw(float x0, float y0, float x1, float y1) {
         if (vboId == 0) {
-            init(gl);
+            init();
         }
 
         vertexBuffer.clear();
@@ -39,22 +36,25 @@ public class QuadRenderer {
         vertexBuffer.put(x0).put(y1);
         vertexBuffer.flip();
 
-        gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, vboId);
-        gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) FLOATS_PER_QUAD * Float.BYTES, vertexBuffer,
-                GL2.GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, vboId);
+        glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_DYNAMIC_DRAW);
 
-        gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
-        gl.glVertexPointer(2, GL2.GL_FLOAT, 0, 0L);
-        gl.glDrawArrays(GL2.GL_QUADS, 0, 4);
-        gl.glDisableClientState(GL2.GL_VERTEX_ARRAY);
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glVertexPointer(2, GL_FLOAT, 0, 0L);
+        glDrawArrays(GL_QUADS, 0, 4);
+        glDisableClientState(GL_VERTEX_ARRAY);
 
-        gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
-    public void cleanup(GL2 gl) {
-        if (gl != null && vboId != 0) {
-            gl.glDeleteBuffers(1, new int[] { vboId }, 0);
+    public void cleanup() {
+        if (vboId != 0) {
+            glDeleteBuffers(vboId);
         }
         vboId = 0;
+        if (vertexBuffer != null) {
+            MemoryUtil.memFree(vertexBuffer);
+            vertexBuffer = null;
+        }
     }
 }

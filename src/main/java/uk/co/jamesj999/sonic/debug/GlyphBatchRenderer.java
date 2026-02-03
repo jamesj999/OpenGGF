@@ -1,8 +1,6 @@
 package uk.co.jamesj999.sonic.debug;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.GL2GL3;
-import com.jogamp.opengl.util.GLBuffers;
+import org.lwjgl.system.MemoryUtil;
 import uk.co.jamesj999.sonic.graphics.ShaderProgram;
 
 import java.awt.*;
@@ -10,6 +8,13 @@ import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.util.ArrayDeque;
 import java.util.logging.Logger;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL31.*;
+import static org.lwjgl.opengl.GL33.*;
 
 /**
  * GPU-accelerated batch renderer for debug text using instanced rendering.
@@ -67,25 +72,22 @@ public class GlyphBatchRenderer {
      * Initializes the glyph batch renderer.
      * Must be called with a valid GL context before rendering.
      */
-    public void init(GL2 gl, Font font) {
-        init(gl, font, 1.0f);
+    public void init(Font font) {
+        init(font, 1.0f);
     }
 
     /**
      * Initializes the glyph batch renderer with scale factor.
      * Must be called with a valid GL context before rendering.
      */
-    public void init(GL2 gl, Font font, float scaleFactor) {
-        if (initialized || gl == null) {
+    public void init(Font font, float scaleFactor) {
+        if (initialized) {
             return;
         }
 
-        // Check for instancing support
-        supported = isInstancingSupported(gl);
-        if (!supported) {
-            LOGGER.warning("Instanced rendering not supported, glyph batch renderer disabled");
-            return;
-        }
+        // Check for instancing support by parsing GL version
+        // Instanced rendering requires GL 3.3+ (or ARB_instanced_arrays extension)
+        supported = checkInstancingSupport();
 
         this.currentScale = scaleFactor;
 
@@ -93,41 +95,52 @@ public class GlyphBatchRenderer {
         if (atlas == null) {
             atlas = new GlyphAtlas();
         }
-        atlas.init(gl, font, scaleFactor);
+        atlas.init(font, scaleFactor);
         if (!atlas.isInitialized()) {
             LOGGER.warning("Failed to initialize glyph atlas");
             return;
         }
 
-        // Load shader program (reuse existing if available)
-        if (shader == null) {
-            try {
-                shader = new ShaderProgram(gl, VERTEX_SHADER_PATH, FRAGMENT_SHADER_PATH);
-            } catch (IOException e) {
-                LOGGER.severe("Failed to load debug text shader: " + e.getMessage());
-                return;
+        // Only initialize shaders and VBOs if instancing is supported
+        if (supported) {
+            // Load shader program (reuse existing if available)
+            if (shader == null) {
+                try {
+                    shader = new ShaderProgram(VERTEX_SHADER_PATH, FRAGMENT_SHADER_PATH);
+                } catch (IOException e) {
+                    LOGGER.severe("Failed to load debug text shader: " + e.getMessage());
+                    supported = false;
+                }
+
+                if (shader != null) {
+                    // Query attribute locations (only needed once per shader)
+                    int programId = shader.getProgramId();
+                    vertexPosLoc = glGetAttribLocation(programId, "VertexPos");
+                    instancePosLoc = glGetAttribLocation(programId, "InstancePos");
+                    instanceSizeLoc = glGetAttribLocation(programId, "InstanceSize");
+                    instanceUv0Loc = glGetAttribLocation(programId, "InstanceUv0");
+                    instanceUv1Loc = glGetAttribLocation(programId, "InstanceUv1");
+                    instanceColorLoc = glGetAttribLocation(programId, "InstanceColor");
+
+                    // Query uniform locations
+                    glyphAtlasLoc = glGetUniformLocation(programId, "GlyphAtlas");
+                    texelSizeLoc = glGetUniformLocation(programId, "TexelSize");
+                    outlineColorLoc = glGetUniformLocation(programId, "OutlineColor");
+                }
             }
 
-            // Query attribute locations (only needed once per shader)
-            int programId = shader.getProgramId();
-            vertexPosLoc = gl.glGetAttribLocation(programId, "VertexPos");
-            instancePosLoc = gl.glGetAttribLocation(programId, "InstancePos");
-            instanceSizeLoc = gl.glGetAttribLocation(programId, "InstanceSize");
-            instanceUv0Loc = gl.glGetAttribLocation(programId, "InstanceUv0");
-            instanceUv1Loc = gl.glGetAttribLocation(programId, "InstanceUv1");
-            instanceColorLoc = gl.glGetAttribLocation(programId, "InstanceColor");
-
-            // Query uniform locations
-            glyphAtlasLoc = gl.glGetUniformLocation(programId, "GlyphAtlas");
-            texelSizeLoc = gl.glGetUniformLocation(programId, "TexelSize");
-            outlineColorLoc = gl.glGetUniformLocation(programId, "OutlineColor");
+            // Initialize VBOs (reuses existing if already created)
+            if (supported) {
+                initBuffers();
+            }
         }
 
-        // Initialize VBOs (reuses existing if already created)
-        initBuffers(gl);
-
         initialized = true;
-        LOGGER.info("Glyph batch renderer initialized");
+        if (supported) {
+            LOGGER.info("Glyph batch renderer initialized with instanced rendering");
+        } else {
+            LOGGER.info("Glyph batch renderer initialized with fallback immediate mode");
+        }
     }
 
     /**
@@ -142,7 +155,7 @@ public class GlyphBatchRenderer {
      * Reinitializes the renderer if scale has changed significantly.
      * Call this when window is resized to keep text crisp.
      */
-    public void updateScale(GL2 gl, Font baseFont, float newScale) {
+    public void updateScale(Font baseFont, float newScale) {
         if (Math.abs(newScale - currentScale) > 0.5f) {
             // Save viewport dimensions before cleanup
             int savedViewportWidth = viewportWidth;
@@ -150,13 +163,13 @@ public class GlyphBatchRenderer {
 
             // Clean up atlas (shader and VBOs can be reused)
             if (atlas != null) {
-                atlas.cleanup(gl);
+                atlas.cleanup();
                 atlas = null;
             }
 
             // Reinitialize with new scale
             initialized = false;
-            init(gl, baseFont, newScale);
+            init(baseFont, newScale);
 
             // Restore viewport dimensions
             viewportWidth = savedViewportWidth;
@@ -175,7 +188,36 @@ public class GlyphBatchRenderer {
      * Checks if the renderer is initialized and ready to use.
      */
     public boolean isInitialized() {
-        return initialized && supported;
+        return initialized;
+    }
+
+    /**
+     * Checks if the GL context supports instanced rendering (GL 3.3+).
+     * Returns false on older contexts like macOS's OpenGL 2.1.
+     */
+    private boolean checkInstancingSupport() {
+        try {
+            String versionStr = glGetString(GL_VERSION);
+            if (versionStr == null) {
+                LOGGER.warning("Could not get GL version string");
+                return false;
+            }
+            // Parse version like "2.1 INTEL-..." or "4.1 NVIDIA..."
+            String[] parts = versionStr.split("[\\s.]");
+            if (parts.length >= 2) {
+                int major = Integer.parseInt(parts[0]);
+                int minor = Integer.parseInt(parts[1]);
+                // Need GL 3.3+ for glVertexAttribDivisor
+                if (major > 3 || (major == 3 && minor >= 3)) {
+                    return true;
+                }
+            }
+            LOGGER.info("GL version " + versionStr + " does not support instanced rendering; debug text disabled");
+            return false;
+        } catch (Exception e) {
+            LOGGER.warning("Error checking GL version: " + e.getMessage());
+            return false;
+        }
     }
 
     /**
@@ -307,88 +349,176 @@ public class GlyphBatchRenderer {
     /**
      * Ends the current batch and executes the draw command.
      */
-    public void end(GL2 gl) {
+    public void end() {
         if (!batchActive) {
             return;
         }
         batchActive = false;
 
-        if (glyphCount == 0 || gl == null) {
+        if (glyphCount == 0) {
             return;
         }
 
-        GlyphBatchCommand command = obtainCommand();
-        command.load(instanceData, glyphCount);
-        command.execute(gl);
-        recycleCommand(command);
+        if (supported) {
+            // Use instanced rendering
+            GlyphBatchCommand command = obtainCommand();
+            command.load(instanceData, glyphCount);
+            command.execute();
+            recycleCommand(command);
+        } else {
+            // Use immediate mode fallback
+            renderImmediateMode();
+        }
 
         glyphCount = 0;
     }
 
     /**
+     * Fallback immediate mode rendering for OpenGL 2.1 contexts.
+     * Renders glyphs one at a time using glBegin/glEnd.
+     */
+    private void renderImmediateMode() {
+        if (atlas == null || atlas.getTextureId() == 0) {
+            return;
+        }
+
+        // Save GL state manually (glPushAttrib not reliable in LWJGL)
+        boolean blendWasEnabled = glIsEnabled(GL_BLEND);
+        boolean texture2dWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+
+        glEnable(GL_TEXTURE_2D);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        glBindTexture(GL_TEXTURE_2D, atlas.getTextureId());
+
+        // Set up orthographic projection for 2D rendering
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+        glLoadIdentity();
+        glOrtho(0, viewportWidth, 0, viewportHeight, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        glLoadIdentity();
+
+        // Render each glyph - batch all quads together for better performance
+        // First pass: outlines (black)
+        glColor4f(0, 0, 0, 1);
+        glBegin(GL_QUADS);
+        for (int i = 0; i < glyphCount; i++) {
+            int offset = i * FLOATS_PER_GLYPH;
+            float x = instanceData[offset];
+            float y = instanceData[offset + 1];
+            float w = instanceData[offset + 2];
+            float h = instanceData[offset + 3];
+            float u0 = instanceData[offset + 4];
+            float v0 = instanceData[offset + 5];
+            float u1 = instanceData[offset + 6];
+            float v1 = instanceData[offset + 7];
+
+            // Draw outline in 4 cardinal directions only (faster than 8)
+            for (int d = 0; d < 4; d++) {
+                int dx = (d == 0) ? -1 : (d == 1) ? 1 : 0;
+                int dy = (d == 2) ? -1 : (d == 3) ? 1 : 0;
+                glTexCoord2f(u0, v0); glVertex2f(x + dx, y + dy);
+                glTexCoord2f(u1, v0); glVertex2f(x + w + dx, y + dy);
+                glTexCoord2f(u1, v1); glVertex2f(x + w + dx, y + h + dy);
+                glTexCoord2f(u0, v1); glVertex2f(x + dx, y + h + dy);
+            }
+        }
+        glEnd();
+
+        // Second pass: main glyphs with color
+        glBegin(GL_QUADS);
+        for (int i = 0; i < glyphCount; i++) {
+            int offset = i * FLOATS_PER_GLYPH;
+            float x = instanceData[offset];
+            float y = instanceData[offset + 1];
+            float w = instanceData[offset + 2];
+            float h = instanceData[offset + 3];
+            float u0 = instanceData[offset + 4];
+            float v0 = instanceData[offset + 5];
+            float u1 = instanceData[offset + 6];
+            float v1 = instanceData[offset + 7];
+            float r = instanceData[offset + 8];
+            float g = instanceData[offset + 9];
+            float b = instanceData[offset + 10];
+            float a = instanceData[offset + 11];
+
+            glColor4f(r, g, b, a);
+            glTexCoord2f(u0, v0); glVertex2f(x, y);
+            glTexCoord2f(u1, v0); glVertex2f(x + w, y);
+            glTexCoord2f(u1, v1); glVertex2f(x + w, y + h);
+            glTexCoord2f(u0, v1); glVertex2f(x, y + h);
+        }
+        glEnd();
+
+        // Restore GL state
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
+        glMatrixMode(GL_MODELVIEW);
+        glPopMatrix();
+
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        // Restore previous state
+        if (!blendWasEnabled) glDisable(GL_BLEND);
+        if (!texture2dWasEnabled) glDisable(GL_TEXTURE_2D);
+    }
+
+    /**
      * Cleans up OpenGL resources.
      */
-    public void cleanup(GL2 gl) {
-        if (gl != null) {
-            if (quadVboId != 0) {
-                gl.glDeleteBuffers(1, new int[]{quadVboId}, 0);
-            }
-            if (instanceVboId != 0) {
-                gl.glDeleteBuffers(1, new int[]{instanceVboId}, 0);
-            }
+    public void cleanup() {
+        if (quadVboId != 0) {
+            glDeleteBuffers(quadVboId);
+        }
+        if (instanceVboId != 0) {
+            glDeleteBuffers(instanceVboId);
         }
         quadVboId = 0;
         instanceVboId = 0;
 
-        if (shader != null && gl != null) {
-            shader.cleanup(gl);
+        if (shader != null) {
+            shader.cleanup();
         }
         shader = null;
 
-        if (atlas != null && gl != null) {
-            atlas.cleanup(gl);
+        if (atlas != null) {
+            atlas.cleanup();
         }
         atlas = null;
+
+        if (instanceBuffer != null) {
+            MemoryUtil.memFree(instanceBuffer);
+            instanceBuffer = null;
+        }
 
         initialized = false;
         commandPool.clear();
     }
 
-    private void initBuffers(GL2 gl) {
+    private void initBuffers() {
         if (quadVboId != 0) {
             return;
         }
 
-        int[] buffers = new int[2];
-        gl.glGenBuffers(2, buffers, 0);
-        quadVboId = buffers[0];
-        instanceVboId = buffers[1];
+        quadVboId = glGenBuffers();
+        instanceVboId = glGenBuffers();
 
         // Create unit quad (0,0) to (1,1)
-        FloatBuffer quadBuffer = GLBuffers.newDirectFloatBuffer(8);
+        FloatBuffer quadBuffer = MemoryUtil.memAllocFloat(8);
         quadBuffer.put(0f).put(0f);
         quadBuffer.put(1f).put(0f);
         quadBuffer.put(0f).put(1f);
         quadBuffer.put(1f).put(1f);
         quadBuffer.flip();
 
-        gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, quadVboId);
-        gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) quadBuffer.capacity() * Float.BYTES,
-                quadBuffer, GL2.GL_STATIC_DRAW);
-        gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, 0);
-    }
+        glBindBuffer(GL_ARRAY_BUFFER, quadVboId);
+        glBufferData(GL_ARRAY_BUFFER, quadBuffer, GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    private boolean isInstancingSupported(GL2 gl) {
-        if (!gl.isFunctionAvailable("glDrawArraysInstanced")) {
-            return false;
-        }
-        if (!gl.isFunctionAvailable("glVertexAttribDivisor") &&
-                !gl.isFunctionAvailable("glVertexAttribDivisorARB")) {
-            return false;
-        }
-        return gl.isExtensionAvailable("GL_ARB_instanced_arrays")
-                || gl.isExtensionAvailable("GL_EXT_instanced_arrays")
-                || gl.isGL2GL3();
+        MemoryUtil.memFree(quadBuffer);
     }
 
     private GlyphBatchCommand obtainCommand() {
@@ -421,7 +551,7 @@ public class GlyphBatchRenderer {
             instanceBuffer.flip();
         }
 
-        void execute(GL2 gl) {
+        void execute() {
             if (glyphCount == 0 || shader == null || atlas == null) {
                 return;
             }
@@ -433,124 +563,123 @@ public class GlyphBatchRenderer {
             }
 
             // Set up viewport-space orthographic projection for screen-space text
-            gl.glMatrixMode(GL2.GL_PROJECTION);
-            gl.glPushMatrix();
-            gl.glLoadIdentity();
-            gl.glOrtho(0, viewportWidth, 0, viewportHeight, -1, 1);
-            gl.glMatrixMode(GL2.GL_MODELVIEW);
-            gl.glPushMatrix();
-            gl.glLoadIdentity();
+            glMatrixMode(GL_PROJECTION);
+            glPushMatrix();
+            glLoadIdentity();
+            glOrtho(0, viewportWidth, 0, viewportHeight, -1, 1);
+            glMatrixMode(GL_MODELVIEW);
+            glPushMatrix();
+            glLoadIdentity();
 
-            shader.use(gl);
+            shader.use();
 
             // Set uniforms
             if (glyphAtlasLoc >= 0) {
-                gl.glUniform1i(glyphAtlasLoc, 0);
+                glUniform1i(glyphAtlasLoc, 0);
             }
             if (texelSizeLoc >= 0) {
                 float texelSize = 1.0f / atlas.getAtlasSize();
-                gl.glUniform2f(texelSizeLoc, texelSize, texelSize);
+                glUniform2f(texelSizeLoc, texelSize, texelSize);
             }
             if (outlineColorLoc >= 0) {
-                gl.glUniform4f(outlineColorLoc, 0f, 0f, 0f, 1f);
+                glUniform4f(outlineColorLoc, 0f, 0f, 0f, 1f);
             }
 
             // Bind glyph atlas texture
-            gl.glActiveTexture(GL2.GL_TEXTURE0);
-            gl.glBindTexture(GL2.GL_TEXTURE_2D, atlas.getTextureId());
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, atlas.getTextureId());
 
-            gl.glEnable(GL2.GL_BLEND);
-            gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-            GL2GL3 gl23 = gl.getGL2GL3();
             int stride = FLOATS_PER_GLYPH * Float.BYTES;
 
             // Bind quad VBO
-            gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, quadVboId);
-            enableAttrib(gl, vertexPosLoc, 2, GL2.GL_FLOAT, 0, 0L);
-            setDivisor(gl23, vertexPosLoc, 0);
+            glBindBuffer(GL_ARRAY_BUFFER, quadVboId);
+            enableAttrib(vertexPosLoc, 2, GL_FLOAT, 0, 0L);
+            setDivisor(vertexPosLoc, 0);
 
             // Bind instance VBO
-            gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, instanceVboId);
+            glBindBuffer(GL_ARRAY_BUFFER, instanceVboId);
             instanceBuffer.rewind();
             instanceBuffer.limit(floatCount);
-            gl.glBufferData(GL2.GL_ARRAY_BUFFER, (long) floatCount * Float.BYTES,
-                    instanceBuffer, GL2.GL_DYNAMIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, instanceBuffer, GL_DYNAMIC_DRAW);
 
             // Set up instance attributes
-            enableAttrib(gl, instancePosLoc, 2, GL2.GL_FLOAT, stride, 0L);
-            enableAttrib(gl, instanceSizeLoc, 2, GL2.GL_FLOAT, stride, 2L * Float.BYTES);
-            enableAttrib(gl, instanceUv0Loc, 2, GL2.GL_FLOAT, stride, 4L * Float.BYTES);
-            enableAttrib(gl, instanceUv1Loc, 2, GL2.GL_FLOAT, stride, 6L * Float.BYTES);
-            enableAttrib(gl, instanceColorLoc, 4, GL2.GL_FLOAT, stride, 8L * Float.BYTES);
+            enableAttrib(instancePosLoc, 2, GL_FLOAT, stride, 0L);
+            enableAttrib(instanceSizeLoc, 2, GL_FLOAT, stride, 2L * Float.BYTES);
+            enableAttrib(instanceUv0Loc, 2, GL_FLOAT, stride, 4L * Float.BYTES);
+            enableAttrib(instanceUv1Loc, 2, GL_FLOAT, stride, 6L * Float.BYTES);
+            enableAttrib(instanceColorLoc, 4, GL_FLOAT, stride, 8L * Float.BYTES);
 
-            setDivisor(gl23, instancePosLoc, 1);
-            setDivisor(gl23, instanceSizeLoc, 1);
-            setDivisor(gl23, instanceUv0Loc, 1);
-            setDivisor(gl23, instanceUv1Loc, 1);
-            setDivisor(gl23, instanceColorLoc, 1);
+            setDivisor(instancePosLoc, 1);
+            setDivisor(instanceSizeLoc, 1);
+            setDivisor(instanceUv0Loc, 1);
+            setDivisor(instanceUv1Loc, 1);
+            setDivisor(instanceColorLoc, 1);
 
             // Draw all glyphs in one call
-            gl23.glDrawArraysInstanced(GL2.GL_TRIANGLE_STRIP, 0, 4, glyphCount);
+            glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, glyphCount);
 
             // Reset divisors
-            setDivisor(gl23, instancePosLoc, 0);
-            setDivisor(gl23, instanceSizeLoc, 0);
-            setDivisor(gl23, instanceUv0Loc, 0);
-            setDivisor(gl23, instanceUv1Loc, 0);
-            setDivisor(gl23, instanceColorLoc, 0);
+            setDivisor(instancePosLoc, 0);
+            setDivisor(instanceSizeLoc, 0);
+            setDivisor(instanceUv0Loc, 0);
+            setDivisor(instanceUv1Loc, 0);
+            setDivisor(instanceColorLoc, 0);
 
             // Disable attributes
-            disableAttrib(gl, instanceColorLoc);
-            disableAttrib(gl, instanceUv1Loc);
-            disableAttrib(gl, instanceUv0Loc);
-            disableAttrib(gl, instanceSizeLoc);
-            disableAttrib(gl, instancePosLoc);
-            disableAttrib(gl, vertexPosLoc);
+            disableAttrib(instanceColorLoc);
+            disableAttrib(instanceUv1Loc);
+            disableAttrib(instanceUv0Loc);
+            disableAttrib(instanceSizeLoc);
+            disableAttrib(instancePosLoc);
+            disableAttrib(vertexPosLoc);
 
-            gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, 0);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-            shader.stop(gl);
-            gl.glDisable(GL2.GL_BLEND);
+            shader.stop();
+            glDisable(GL_BLEND);
 
             // Restore previous matrices
-            gl.glMatrixMode(GL2.GL_MODELVIEW);
-            gl.glPopMatrix();
-            gl.glMatrixMode(GL2.GL_PROJECTION);
-            gl.glPopMatrix();
-            gl.glMatrixMode(GL2.GL_MODELVIEW);
+            glMatrixMode(GL_MODELVIEW);
+            glPopMatrix();
+            glMatrixMode(GL_PROJECTION);
+            glPopMatrix();
+            glMatrixMode(GL_MODELVIEW);
         }
 
         private FloatBuffer ensureBuffer(FloatBuffer buffer, int required) {
             if (buffer == null) {
-                return GLBuffers.newDirectFloatBuffer(MAX_GLYPHS_PER_BATCH * FLOATS_PER_GLYPH);
+                return MemoryUtil.memAllocFloat(MAX_GLYPHS_PER_BATCH * FLOATS_PER_GLYPH);
             }
             if (buffer.capacity() < required) {
-                return GLBuffers.newDirectFloatBuffer(MAX_GLYPHS_PER_BATCH * FLOATS_PER_GLYPH);
+                MemoryUtil.memFree(buffer);
+                return MemoryUtil.memAllocFloat(MAX_GLYPHS_PER_BATCH * FLOATS_PER_GLYPH);
             }
             return buffer;
         }
 
-        private void enableAttrib(GL2 gl, int location, int size, int type, int stride, long offset) {
+        private void enableAttrib(int location, int size, int type, int stride, long offset) {
             if (location < 0) {
                 return;
             }
-            gl.glEnableVertexAttribArray(location);
-            gl.glVertexAttribPointer(location, size, type, false, stride, offset);
+            glEnableVertexAttribArray(location);
+            glVertexAttribPointer(location, size, type, false, stride, offset);
         }
 
-        private void disableAttrib(GL2 gl, int location) {
+        private void disableAttrib(int location) {
             if (location < 0) {
                 return;
             }
-            gl.glDisableVertexAttribArray(location);
+            glDisableVertexAttribArray(location);
         }
 
-        private void setDivisor(GL2GL3 gl, int location, int divisor) {
+        private void setDivisor(int location, int divisor) {
             if (location < 0) {
                 return;
             }
-            gl.glVertexAttribDivisor(location, divisor);
+            glVertexAttribDivisor(location, divisor);
         }
     }
 }

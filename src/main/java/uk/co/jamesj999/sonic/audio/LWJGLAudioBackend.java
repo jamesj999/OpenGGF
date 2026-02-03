@@ -1,11 +1,8 @@
 package uk.co.jamesj999.sonic.audio;
 
-import com.jogamp.openal.AL;
-import com.jogamp.openal.ALC;
-import com.jogamp.openal.ALFactory;
-import com.jogamp.openal.ALCcontext;
-import com.jogamp.openal.ALCdevice;
-import com.jogamp.common.nio.Buffers;
+import org.lwjgl.openal.*;
+import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 
 import uk.co.jamesj999.sonic.audio.driver.SmpsDriver;
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
@@ -21,19 +18,20 @@ import javax.sound.sampled.*;
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 import java.util.*;
-import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class JOALAudioBackend implements AudioBackend {
-    private static final Logger LOGGER = Logger.getLogger(JOALAudioBackend.class.getName());
+import static org.lwjgl.openal.AL10.*;
+import static org.lwjgl.openal.ALC10.*;
 
-    private AL al;
-    private ALC alc;
-    private ALCdevice device;
-    private ALCcontext context;
+public class LWJGLAudioBackend implements AudioBackend {
+    private static final Logger LOGGER = Logger.getLogger(LWJGLAudioBackend.class.getName());
+
+    private long device;
+    private long context;
 
     private final Map<String, Integer> buffers = new HashMap<>();
     private final List<Integer> sfxSources = new ArrayList<>();
@@ -81,16 +79,11 @@ public class JOALAudioBackend implements AudioBackend {
     private final boolean[] psgUserMutes = new boolean[4];
     private final boolean[] psgUserSolos = new boolean[4];
 
-    // Pooled int[1] arrays to avoid per-frame allocations in OpenAL calls
-    private final int[] alStateBuffer = new int[1];
-    private final int[] alProcessedBuffer = new int[1];
-    private final int[] alUnqueueBuffer = new int[1];
-
     private boolean speedShoesEnabled = false;
     private GameAudioProfile audioProfile;
     private SmpsSequencerConfig smpsConfig;
 
-    public JOALAudioBackend() {
+    public LWJGLAudioBackend() {
         // Initialize fallback mappings
         // SFX
         sfxFallback.put("JUMP", "sfx/jump.wav");
@@ -108,27 +101,29 @@ public class JOALAudioBackend implements AudioBackend {
     @Override
     public void init() {
         try {
-            al = ALFactory.getAL();
-            alc = ALFactory.getALC();
-
-            String deviceSpec = null;
-            device = alc.alcOpenDevice(deviceSpec);
-            if (device == null) {
+            // Open default device
+            device = alcOpenDevice((ByteBuffer) null);
+            if (device == 0) {
                 throw new RuntimeException("Could not open ALC device");
             }
 
-            context = alc.alcCreateContext(device, null);
-            if (context == null) {
+            // Create context
+            context = alcCreateContext(device, (IntBuffer) null);
+            if (context == 0) {
                 throw new RuntimeException("Could not create ALC context");
             }
 
-            alc.alcMakeContextCurrent(context);
+            alcMakeContextCurrent(context);
 
-            if (al.alGetError() != AL.AL_NO_ERROR) {
+            // Create capabilities (required for LWJGL OpenAL)
+            ALCCapabilities alcCaps = ALC.createCapabilities(device);
+            AL.createCapabilities(alcCaps);
+
+            if (alGetError() != AL_NO_ERROR) {
                 throw new RuntimeException("AL Error during init");
             }
 
-            LOGGER.info("OpenAL Initialized. Buffer Size: " + STREAM_BUFFER_SIZE);
+            LOGGER.info("LWJGL OpenAL Initialized. Buffer Size: " + STREAM_BUFFER_SIZE);
 
             // Preload SFX
             for (String sfxPath : sfxFallback.values()) {
@@ -136,15 +131,13 @@ public class JOALAudioBackend implements AudioBackend {
             }
 
             // Generate music source
-            int[] src = new int[1];
-            al.alGenSources(1, src, 0);
-            musicSource = src[0];
+            musicSource = alGenSources();
 
             // Pre-allocate reusable DirectBuffer to avoid per-fillBuffer allocations
-            directShortBuffer = Buffers.newDirectShortBuffer(STREAM_BUFFER_SIZE * 2);
+            directShortBuffer = MemoryUtil.memAllocShort(STREAM_BUFFER_SIZE * 2);
 
         } catch (Throwable t) {
-            LOGGER.log(Level.SEVERE, "JOAL Init failed", t);
+            LOGGER.log(Level.SEVERE, "LWJGL OpenAL Init failed", t);
             throw new RuntimeException(t);
         }
     }
@@ -178,8 +171,6 @@ public class JOALAudioBackend implements AudioBackend {
                 smpsDriver.stopAllSfx();
             }
             // Only push state if current music is NOT an override (e.g., not already playing 1up jingle).
-            // This prevents stacking multiple jingles - the ROM restarts the jingle instead,
-            // keeping the original music at the bottom of the stack.
             boolean currentIsOverride = audioProfile != null && audioProfile.isMusicOverride(currentMusicId);
             if (!currentIsOverride) {
                 pushCurrentState();
@@ -189,17 +180,16 @@ public class JOALAudioBackend implements AudioBackend {
                 sfxBlocked = true;
             }
 
-            // Just disconnect the current driver from the source without stopping/clearing
-            // it.
-            al.alSourceStop(musicSource);
-            al.alSourcei(musicSource, AL.AL_BUFFER, 0);
+            // Just disconnect the current driver from the source without stopping/clearing it.
+            alSourceStop(musicSource);
+            alSourcei(musicSource, AL_BUFFER, 0);
             currentStream = null;
             currentSmps = null;
             smpsDriver = null;
         } else {
             stopStream();
             // Stop music source if playing wav
-            al.alSourceStop(musicSource);
+            alSourceStop(musicSource);
             clearMusicStack();
         }
 
@@ -254,8 +244,6 @@ public class JOALAudioBackend implements AudioBackend {
 
         if (smpsDriver != null && currentStream == smpsDriver) {
             // Mix into current driver
-            // Note: DAC interpolation is global on the driver/synth.
-            // FM6 DAC Off is per-sequencer.
             SmpsSequencer seq = new SmpsSequencer(data, dacData, smpsDriver, requireSmpsConfig());
             seq.setSampleRate(smpsDriver.getOutputSampleRate());
             seq.setFm6DacOff(fm6DacOff);
@@ -290,11 +278,10 @@ public class JOALAudioBackend implements AudioBackend {
         }
 
         // Ensure stream is running
-        int[] queued = new int[1];
-        al.alGetSourcei(musicSource, AL.AL_BUFFERS_QUEUED, queued, 0);
-        if (queued[0] == 0) {
-            al.alSourceStop(musicSource);
-            al.alSourcei(musicSource, AL.AL_BUFFER, 0);
+        int queued = alGetSourcei(musicSource, AL_BUFFERS_QUEUED);
+        if (queued == 0) {
+            alSourceStop(musicSource);
+            alSourcei(musicSource, AL_BUFFER, 0);
             startStream();
         }
     }
@@ -302,24 +289,32 @@ public class JOALAudioBackend implements AudioBackend {
     private void startStream() {
         if (streamBuffers == null) {
             streamBuffers = new int[STREAM_BUFFER_COUNT];
-            al.alGenBuffers(STREAM_BUFFER_COUNT, streamBuffers, 0);
+            for (int i = 0; i < STREAM_BUFFER_COUNT; i++) {
+                streamBuffers[i] = alGenBuffers();
+            }
         }
 
         for (int i = 0; i < STREAM_BUFFER_COUNT; i++) {
             fillBuffer(streamBuffers[i]);
         }
 
-        al.alSourceQueueBuffers(musicSource, STREAM_BUFFER_COUNT, streamBuffers, 0);
-        al.alSourcePlay(musicSource);
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer bufferIds = stack.mallocInt(STREAM_BUFFER_COUNT);
+            for (int i = 0; i < STREAM_BUFFER_COUNT; i++) {
+                bufferIds.put(i, streamBuffers[i]);
+            }
+            alSourceQueueBuffers(musicSource, bufferIds);
+        }
+        alSourcePlay(musicSource);
     }
 
     private void stopStream() {
         if (currentStream != null) {
-            al.alSourceStop(musicSource);
-            al.alGetSourcei(musicSource, AL.AL_BUFFERS_PROCESSED, alProcessedBuffer, 0);
-            while (alProcessedBuffer[0] > 0) {
-                al.alSourceUnqueueBuffers(musicSource, 1, alUnqueueBuffer, 0);
-                alProcessedBuffer[0]--;
+            alSourceStop(musicSource);
+            int processed = alGetSourcei(musicSource, AL_BUFFERS_PROCESSED);
+            while (processed > 0) {
+                alSourceUnqueueBuffers(musicSource);
+                processed--;
             }
             currentStream = null;
             currentSmps = null;
@@ -340,26 +335,20 @@ public class JOALAudioBackend implements AudioBackend {
         }
 
         if (currentStream != null || sfxStream != null) {
-            // Only update if playing via SMPS. If playing WAV, musicSource handles it.
-            // But musicSource is used for streaming.
-            // If we are playing WAV, currentStream is null.
-            // If currentStream is null but sfxStream is NOT null, we should still stream?
-            // Yes.
+            int state = alGetSourcei(musicSource, AL_SOURCE_STATE);
+            int processed = alGetSourcei(musicSource, AL_BUFFERS_PROCESSED);
 
-            al.alGetSourcei(musicSource, AL.AL_SOURCE_STATE, alStateBuffer, 0);
-            al.alGetSourcei(musicSource, AL.AL_BUFFERS_PROCESSED, alProcessedBuffer, 0);
-
-            while (alProcessedBuffer[0] > 0) {
-                al.alSourceUnqueueBuffers(musicSource, 1, alUnqueueBuffer, 0);
-                fillBuffer(alUnqueueBuffer[0]);
-                al.alSourceQueueBuffers(musicSource, 1, alUnqueueBuffer, 0);
-                alProcessedBuffer[0]--;
+            while (processed > 0) {
+                int bufferId = alSourceUnqueueBuffers(musicSource);
+                fillBuffer(bufferId);
+                alSourceQueueBuffers(musicSource, bufferId);
+                processed--;
             }
 
-            // Check state again?
-            al.alGetSourcei(musicSource, AL.AL_SOURCE_STATE, alStateBuffer, 0);
-            if (alStateBuffer[0] != AL.AL_PLAYING) {
-                al.alSourcePlay(musicSource);
+            // Check state again
+            state = alGetSourcei(musicSource, AL_SOURCE_STATE);
+            if (state != AL_PLAYING) {
+                alSourcePlay(musicSource);
             }
         }
     }
@@ -381,14 +370,12 @@ public class JOALAudioBackend implements AudioBackend {
         }
 
         // Stop the current (invincibility/extra-life) music stream
-        al.alSourceStop(musicSource);
+        alSourceStop(musicSource);
 
         // Unqueue ALL buffers (both processed and queued) to avoid OpenAL errors
-        int[] queued = new int[1];
-        al.alGetSourcei(musicSource, AL.AL_BUFFERS_QUEUED, queued, 0);
-        for (int i = 0; i < queued[0]; i++) {
-            int[] buffers = new int[1];
-            al.alSourceUnqueueBuffers(musicSource, 1, buffers, 0);
+        int queued = alGetSourcei(musicSource, AL_BUFFERS_QUEUED);
+        for (int i = 0; i < queued; i++) {
+            alSourceUnqueueBuffers(musicSource);
         }
 
         // Stop the current (non-saved) smps driver
@@ -420,7 +407,6 @@ public class JOALAudioBackend implements AudioBackend {
         if (currentStream != null) {
             currentStream.read(streamData);
         }
-        // If music stream ended or not present, buffer is 0.
 
         if (sfxStream != null) {
             Arrays.fill(sfxStreamData, (short) 0);
@@ -445,7 +431,7 @@ public class JOALAudioBackend implements AudioBackend {
         directShortBuffer.put(streamData);
         directShortBuffer.flip();
         int sampleRate = (int) Math.round(getStreamSampleRate());
-        al.alBufferData(bufferId, AL.AL_FORMAT_STEREO16, directShortBuffer, streamData.length * 2, sampleRate);
+        alBufferData(bufferId, AL_FORMAT_STEREO16, directShortBuffer, sampleRate);
     }
 
     private double getSmpsOutputRate() {
@@ -488,11 +474,9 @@ public class JOALAudioBackend implements AudioBackend {
     public void playSfx(String sfxName, float pitch) {
         String filename = sfxFallback.get(sfxName);
         if (filename != null) {
-            int source = getAvailableSource();
-            if (source != -1) {
-                sfxSources.add(source);
-                playWav(filename, source, false, pitch);
-            }
+            int source = alGenSources();
+            sfxSources.add(source);
+            playWav(filename, source, false, pitch);
         } else {
             LOGGER.fine("SFX not found in fallback map: " + sfxName);
         }
@@ -501,8 +485,8 @@ public class JOALAudioBackend implements AudioBackend {
     @Override
     public void stopPlayback() {
         stopStream();
-        al.alSourceStop(musicSource);
-        al.alSourcei(musicSource, AL.AL_BUFFER, 0);
+        alSourceStop(musicSource);
+        alSourcei(musicSource, AL_BUFFER, 0);
         currentStream = null;
         currentSmps = null;
         currentMusicId = -1;
@@ -514,9 +498,8 @@ public class JOALAudioBackend implements AudioBackend {
         sfxStream = null;
         // Stop and cleanup WAV-based SFX sources
         for (int source : sfxSources) {
-            al.alSourceStop(source);
-            alUnqueueBuffer[0] = source;
-            al.alDeleteSources(1, alUnqueueBuffer, 0);
+            alSourceStop(source);
+            alDeleteSources(source);
         }
         sfxSources.clear();
     }
@@ -643,12 +626,6 @@ public class JOALAudioBackend implements AudioBackend {
         return smpsConfig;
     }
 
-    private int getAvailableSource() {
-        int[] src = new int[1];
-        al.alGenSources(1, src, 0);
-        return src[0];
-    }
-
     private void pushCurrentState() {
         if (currentStream == null || currentSmps == null || smpsDriver == null) {
             return;
@@ -689,12 +666,11 @@ public class JOALAudioBackend implements AudioBackend {
 
             Integer buffer = buffers.get(resourcePath);
             if (buffer != null) {
-                // Check if source is playing something else?
-                al.alSourceStop(source);
-                al.alSourcei(source, AL.AL_BUFFER, buffer);
-                al.alSourcei(source, AL.AL_LOOPING, loop ? AL.AL_TRUE : AL.AL_FALSE);
-                al.alSourcef(source, AL.AL_PITCH, pitch);
-                al.alSourcePlay(source);
+                alSourceStop(source);
+                alSourcei(source, AL_BUFFER, buffer);
+                alSourcei(source, AL_LOOPING, loop ? AL_TRUE : AL_FALSE);
+                alSourcef(source, AL_PITCH, pitch);
+                alSourcePlay(source);
             } else {
                 LOGGER.fine("Could not load buffer for: " + resourcePath);
             }
@@ -706,7 +682,6 @@ public class JOALAudioBackend implements AudioBackend {
     private void loadWav(String resourcePath) {
         try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
             if (is == null) {
-                // Don't log severe if file is missing, just fine.
                 LOGGER.fine("Audio resource not found: " + resourcePath);
                 return;
             }
@@ -720,20 +695,23 @@ public class JOALAudioBackend implements AudioBackend {
 
                 int alFormat;
                 if (channels == 1) {
-                    alFormat = (sampleSize == 8) ? AL.AL_FORMAT_MONO8 : AL.AL_FORMAT_MONO16;
+                    alFormat = (sampleSize == 8) ? AL_FORMAT_MONO8 : AL_FORMAT_MONO16;
                 } else {
-                    alFormat = (sampleSize == 8) ? AL.AL_FORMAT_STEREO8 : AL.AL_FORMAT_STEREO16;
+                    alFormat = (sampleSize == 8) ? AL_FORMAT_STEREO8 : AL_FORMAT_STEREO16;
                 }
 
                 // Read data
                 byte[] data = ais.readAllBytes();
-                ByteBuffer bufferData = Buffers.newDirectByteBuffer(data);
+                ByteBuffer bufferData = MemoryUtil.memAlloc(data.length);
+                bufferData.put(data);
+                bufferData.flip();
 
-                int[] buf = new int[1];
-                al.alGenBuffers(1, buf, 0);
-                al.alBufferData(buf[0], alFormat, bufferData, data.length, (int) sampleRate);
+                int buf = alGenBuffers();
+                alBufferData(buf, alFormat, bufferData, (int) sampleRate);
 
-                buffers.put(resourcePath, buf[0]);
+                MemoryUtil.memFree(bufferData);
+
+                buffers.put(resourcePath, buf);
             }
         } catch (Exception e) {
             LOGGER.warning("Error loading WAV " + resourcePath + ": " + e.getMessage());
@@ -748,10 +726,9 @@ public class JOALAudioBackend implements AudioBackend {
         Iterator<Integer> it = sfxSources.iterator();
         while (it.hasNext()) {
             int src = it.next();
-            al.alGetSourcei(src, AL.AL_SOURCE_STATE, alStateBuffer, 0);
-            if (alStateBuffer[0] == AL.AL_STOPPED) {
-                alUnqueueBuffer[0] = src;
-                al.alDeleteSources(1, alUnqueueBuffer, 0);
+            int state = alGetSourcei(src, AL_SOURCE_STATE);
+            if (state == AL_STOPPED) {
+                alDeleteSources(src);
                 it.remove();
             }
         }
@@ -759,36 +736,69 @@ public class JOALAudioBackend implements AudioBackend {
 
     @Override
     public void destroy() {
-        if (context != null) {
-            alc.alcDestroyContext(context);
+        // Free the pre-allocated buffer
+        if (directShortBuffer != null) {
+            MemoryUtil.memFree(directShortBuffer);
+            directShortBuffer = null;
         }
-        if (device != null) {
-            alc.alcCloseDevice(device);
+
+        // Delete all buffers
+        for (int bufferId : buffers.values()) {
+            alDeleteBuffers(bufferId);
+        }
+        buffers.clear();
+
+        // Delete stream buffers
+        if (streamBuffers != null) {
+            for (int bufferId : streamBuffers) {
+                alDeleteBuffers(bufferId);
+            }
+            streamBuffers = null;
+        }
+
+        // Delete sources
+        if (musicSource >= 0) {
+            alDeleteSources(musicSource);
+            musicSource = -1;
+        }
+        for (int source : sfxSources) {
+            alDeleteSources(source);
+        }
+        sfxSources.clear();
+
+        // Destroy context and close device
+        if (context != 0) {
+            alcDestroyContext(context);
+            context = 0;
+        }
+        if (device != 0) {
+            alcCloseDevice(device);
+            device = 0;
         }
     }
 
     @Override
     public void pause() {
         if (musicSource >= 0) {
-            al.alSourcePause(musicSource);
+            alSourcePause(musicSource);
         }
         for (int src : sfxSources) {
-            al.alSourcePause(src);
+            alSourcePause(src);
         }
     }
 
     @Override
     public void resume() {
         if (musicSource >= 0) {
-            al.alGetSourcei(musicSource, AL.AL_SOURCE_STATE, alStateBuffer, 0);
-            if (alStateBuffer[0] == AL.AL_PAUSED) {
-                al.alSourcePlay(musicSource);
+            int state = alGetSourcei(musicSource, AL_SOURCE_STATE);
+            if (state == AL_PAUSED) {
+                alSourcePlay(musicSource);
             }
         }
         for (int src : sfxSources) {
-            al.alGetSourcei(src, AL.AL_SOURCE_STATE, alStateBuffer, 0);
-            if (alStateBuffer[0] == AL.AL_PAUSED) {
-                al.alSourcePlay(src);
+            int state = alGetSourcei(src, AL_SOURCE_STATE);
+            if (state == AL_PAUSED) {
+                alSourcePlay(src);
             }
         }
     }

@@ -14,7 +14,7 @@ import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.level.slotmachine.CNZSlotMachineRenderer;
 
-import java.awt.event.KeyEvent;
+import static org.lwjgl.glfw.GLFW.*;
 
 /**
  * Debug viewer for object art frames.
@@ -82,54 +82,54 @@ public class DebugObjectArtViewer {
         if (!GameServices.debugOverlay().isEnabled(DebugOverlayToggle.OBJECT_ART_VIEWER)) {
             return;
         }
-        if (handler.isKeyPressed(KeyEvent.VK_TAB) || handler.isKeyPressed(KeyEvent.VK_M)) {
+        if (handler.isKeyPressed(GLFW_KEY_TAB) || handler.isKeyPressed(GLFW_KEY_M)) {
             toggleViewMode();
         }
-        if (handler.isKeyPressed(KeyEvent.VK_PAGE_UP)) {
+        if (handler.isKeyPressed(GLFW_KEY_PAGE_UP)) {
             stepTarget(-1);
         }
-        if (handler.isKeyPressed(KeyEvent.VK_PAGE_DOWN)) {
+        if (handler.isKeyPressed(GLFW_KEY_PAGE_DOWN)) {
             stepTarget(1);
         }
-        if (handler.isKeyPressed(KeyEvent.VK_0)) {
+        if (handler.isKeyPressed(GLFW_KEY_0)) {
             paletteOverride = -1;
         }
-        if (handler.isKeyPressed(KeyEvent.VK_1)) {
+        if (handler.isKeyPressed(GLFW_KEY_1)) {
             paletteOverride = 0;
         }
-        if (handler.isKeyPressed(KeyEvent.VK_2)) {
+        if (handler.isKeyPressed(GLFW_KEY_2)) {
             paletteOverride = 1;
         }
-        if (handler.isKeyPressed(KeyEvent.VK_3)) {
+        if (handler.isKeyPressed(GLFW_KEY_3)) {
             paletteOverride = 2;
         }
-        if (handler.isKeyPressed(KeyEvent.VK_4)) {
+        if (handler.isKeyPressed(GLFW_KEY_4)) {
             paletteOverride = 3;
         }
         if (viewMode == ViewMode.FRAME) {
-            if (handler.isKeyPressed(KeyEvent.VK_LEFT)) {
+            if (handler.isKeyPressed(GLFW_KEY_LEFT)) {
                 stepFrame(-1);
             }
-            if (handler.isKeyPressed(KeyEvent.VK_RIGHT)) {
+            if (handler.isKeyPressed(GLFW_KEY_RIGHT)) {
                 stepFrame(1);
             }
         } else {
-            if (handler.isKeyPressed(KeyEvent.VK_LEFT)) {
+            if (handler.isKeyPressed(GLFW_KEY_LEFT)) {
                 stepPatternCursor(-1);
             }
-            if (handler.isKeyPressed(KeyEvent.VK_RIGHT)) {
+            if (handler.isKeyPressed(GLFW_KEY_RIGHT)) {
                 stepPatternCursor(1);
             }
-            if (handler.isKeyPressed(KeyEvent.VK_UP)) {
+            if (handler.isKeyPressed(GLFW_KEY_UP)) {
                 stepPatternCursor(-GRID_COLUMNS);
             }
-            if (handler.isKeyPressed(KeyEvent.VK_DOWN)) {
+            if (handler.isKeyPressed(GLFW_KEY_DOWN)) {
                 stepPatternCursor(GRID_COLUMNS);
             }
-            if (handler.isKeyPressed(KeyEvent.VK_HOME)) {
+            if (handler.isKeyPressed(GLFW_KEY_HOME)) {
                 setPatternCursor(0);
             }
-            if (handler.isKeyPressed(KeyEvent.VK_END)) {
+            if (handler.isKeyPressed(GLFW_KEY_END)) {
                 setPatternCursor(maxPatterns - 1);
             }
         }

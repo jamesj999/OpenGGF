@@ -246,7 +246,7 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
                 dirty = true;
             }
 
-            if (dirty && graphicsManager.getGraphics() != null) {
+            if (dirty && graphicsManager.isGlInitialized()) {
                 graphicsManager.cachePaletteTexture(level.getPalette(paletteIndex), paletteIndex);
                 dirty = false;
             }
@@ -299,7 +299,7 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
                 dirty = true;
             }
 
-            if (dirty && graphicsManager.getGraphics() != null) {
+            if (dirty && graphicsManager.isGlInitialized()) {
                 graphicsManager.cachePaletteTexture(level.getPalette(1), 1);
                 dirty = false;
             }
@@ -361,7 +361,7 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
                 dirty = true;
             }
 
-            if (dirty && graphicsManager.getGraphics() != null) {
+            if (dirty && graphicsManager.isGlInitialized()) {
                 graphicsManager.cachePaletteTexture(level.getPalette(2), 2);
                 dirty = false;
             }
@@ -396,7 +396,7 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
                 dirty = true;
             }
 
-            if (dirty && graphicsManager.getGraphics() != null) {
+            if (dirty && graphicsManager.isGlInitialized()) {
                 graphicsManager.cachePaletteTexture(level.getPalette(3), 3);
                 dirty = false;
             }
@@ -435,7 +435,7 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
 
             dirty = true;
 
-            if (dirty && graphicsManager.getGraphics() != null) {
+            if (dirty && graphicsManager.isGlInitialized()) {
                 graphicsManager.cachePaletteTexture(level.getPalette(3), 3);
                 dirty = false;
             }
@@ -481,7 +481,7 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
 
             dirty = true;
 
-            if (dirty && graphicsManager.getGraphics() != null) {
+            if (dirty && graphicsManager.isGlInitialized()) {
                 graphicsManager.cachePaletteTexture(level.getPalette(1), 1);
                 dirty = false;
             }
@@ -524,7 +524,7 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
 
             dirty = true;
 
-            if (dirty && graphicsManager.getGraphics() != null) {
+            if (dirty && graphicsManager.isGlInitialized()) {
                 graphicsManager.cachePaletteTexture(level.getPalette(1), 1);
                 dirty = false;
             }
@@ -569,7 +569,7 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
 
             dirty = true;
 
-            if (dirty && graphicsManager.getGraphics() != null) {
+            if (dirty && graphicsManager.isGlInitialized()) {
                 graphicsManager.cachePaletteTexture(level.getPalette(1), 1);
                 dirty = false;
             }

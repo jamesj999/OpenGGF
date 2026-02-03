@@ -1,6 +1,6 @@
 package uk.co.jamesj999.sonic.level.objects;
 
-import com.jogamp.opengl.GL2;
+import static org.lwjgl.opengl.GL11.GL_LINES;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GLCommandGroup;
@@ -231,7 +231,7 @@ public class ObjectManager {
             return;
         }
         graphicsManager.enqueueDebugLineState();
-        graphicsManager.registerCommand(new GLCommandGroup(GL2.GL_LINES, renderCommands));
+        graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, renderCommands));
         graphicsManager.enqueueDefaultShaderState();
     }
 
@@ -272,7 +272,7 @@ public class ObjectManager {
 
         if (!renderCommands.isEmpty()) {
             graphicsManager.enqueueDebugLineState();
-            graphicsManager.registerCommand(new GLCommandGroup(GL2.GL_LINES, renderCommands));
+            graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, renderCommands));
             graphicsManager.enqueueDefaultShaderState();
         }
     }
@@ -329,7 +329,7 @@ public class ObjectManager {
 
         if (!renderCommands.isEmpty()) {
             graphicsManager.enqueueDebugLineState();
-            graphicsManager.registerCommand(new GLCommandGroup(GL2.GL_LINES, renderCommands));
+            graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, renderCommands));
             graphicsManager.enqueueDefaultShaderState();
         }
     }

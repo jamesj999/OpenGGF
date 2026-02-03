@@ -1,7 +1,8 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
 import java.io.IOException;
+
+import static org.lwjgl.opengl.GL20.*;
 
 /**
  * Shader program for underwater distortion effects.
@@ -24,98 +25,98 @@ public class WaterShaderProgram extends ShaderProgram {
     private int renderWorldYOffsetLocation = -1;
     private int useWorldSpaceWaterLocation = -1;
 
-    public WaterShaderProgram(GL2 gl, String fragmentShaderPath) throws IOException {
-        super(gl, fragmentShaderPath);
+    public WaterShaderProgram(String fragmentShaderPath) throws IOException {
+        super(fragmentShaderPath);
     }
 
-    public WaterShaderProgram(GL2 gl, String vertexShaderPath, String fragmentShaderPath) throws IOException {
-        super(gl, vertexShaderPath, fragmentShaderPath);
+    public WaterShaderProgram(String vertexShaderPath, String fragmentShaderPath) throws IOException {
+        super(vertexShaderPath, fragmentShaderPath);
     }
 
     @Override
-    public void cacheUniformLocations(GL2 gl) {
+    public void cacheUniformLocations() {
         // Cache base uniforms (Palette, IndexedColorTexture, PaletteLine)
-        super.cacheUniformLocations(gl);
+        super.cacheUniformLocations();
 
         int programId = getProgramId();
 
         // Cache water-specific uniforms
-        underwaterPaletteLocation = gl.glGetUniformLocation(programId, "UnderwaterPalette");
-        waterlineScreenYLocation = gl.glGetUniformLocation(programId, "WaterlineScreenY");
-        frameCounterLocation = gl.glGetUniformLocation(programId, "FrameCounter");
-        distortionAmplitudeLocation = gl.glGetUniformLocation(programId, "DistortionAmplitude");
-        screenHeightLocation = gl.glGetUniformLocation(programId, "ScreenHeight");
-        screenWidthLocation = gl.glGetUniformLocation(programId, "ScreenWidth");
-        indexedTextureWidthLocation = gl.glGetUniformLocation(programId, "IndexedTextureWidth");
-        windowHeightLocation = gl.glGetUniformLocation(programId, "WindowHeight");
+        underwaterPaletteLocation = glGetUniformLocation(programId, "UnderwaterPalette");
+        waterlineScreenYLocation = glGetUniformLocation(programId, "WaterlineScreenY");
+        frameCounterLocation = glGetUniformLocation(programId, "FrameCounter");
+        distortionAmplitudeLocation = glGetUniformLocation(programId, "DistortionAmplitude");
+        screenHeightLocation = glGetUniformLocation(programId, "ScreenHeight");
+        screenWidthLocation = glGetUniformLocation(programId, "ScreenWidth");
+        indexedTextureWidthLocation = glGetUniformLocation(programId, "IndexedTextureWidth");
+        windowHeightLocation = glGetUniformLocation(programId, "WindowHeight");
 
         // World-space uniforms for FBO rendering
-        waterLevelWorldYLocation = gl.glGetUniformLocation(programId, "WaterLevelWorldY");
-        renderWorldYOffsetLocation = gl.glGetUniformLocation(programId, "RenderWorldYOffset");
-        useWorldSpaceWaterLocation = gl.glGetUniformLocation(programId, "UseWorldSpaceWater");
+        waterLevelWorldYLocation = glGetUniformLocation(programId, "WaterLevelWorldY");
+        renderWorldYOffsetLocation = glGetUniformLocation(programId, "RenderWorldYOffset");
+        useWorldSpaceWaterLocation = glGetUniformLocation(programId, "UseWorldSpaceWater");
     }
 
     public int getUnderwaterPaletteLocation() {
         return underwaterPaletteLocation;
     }
 
-    public void setWaterlineScreenY(GL2 gl, float y) {
+    public void setWaterlineScreenY(float y) {
         if (waterlineScreenYLocation != -1) {
-            gl.glUniform1f(waterlineScreenYLocation, y);
+            glUniform1f(waterlineScreenYLocation, y);
         }
     }
 
-    public void setFrameCounter(GL2 gl, int frame) {
+    public void setFrameCounter(int frame) {
         if (frameCounterLocation != -1) {
-            gl.glUniform1i(frameCounterLocation, frame);
+            glUniform1i(frameCounterLocation, frame);
         }
     }
 
-    public void setDistortionAmplitude(GL2 gl, float amp) {
+    public void setDistortionAmplitude(float amp) {
         if (distortionAmplitudeLocation != -1) {
-            gl.glUniform1f(distortionAmplitudeLocation, amp);
+            glUniform1f(distortionAmplitudeLocation, amp);
         }
     }
 
-    public void setScreenDimensions(GL2 gl, float width, float height) {
+    public void setScreenDimensions(float width, float height) {
         if (screenWidthLocation != -1) {
-            gl.glUniform1f(screenWidthLocation, width);
+            glUniform1f(screenWidthLocation, width);
         }
         if (screenHeightLocation != -1) {
-            gl.glUniform1f(screenHeightLocation, height);
+            glUniform1f(screenHeightLocation, height);
         }
     }
 
-    public void setIndexedTextureWidth(GL2 gl, float width) {
+    public void setIndexedTextureWidth(float width) {
         if (indexedTextureWidthLocation != -1) {
-            gl.glUniform1f(indexedTextureWidthLocation, width);
+            glUniform1f(indexedTextureWidthLocation, width);
         }
     }
 
-    public void setWindowHeight(GL2 gl, float height) {
+    public void setWindowHeight(float height) {
         if (windowHeightLocation != -1) {
-            gl.glUniform1f(windowHeightLocation, height);
+            glUniform1f(windowHeightLocation, height);
         }
     }
 
     /**
      * Set world-space water parameters for FBO rendering.
-     * 
+     *
      * @param waterLevelWorldY   The water level in world Y coordinates
      * @param renderWorldYOffset The world Y offset for the current render
      *                           (typically camera Y + FBO offset)
      * @param useWorldSpace      If true, use world-space calculation instead of
      *                           screen-space
      */
-    public void setWorldSpaceWater(GL2 gl, float waterLevelWorldY, float renderWorldYOffset, boolean useWorldSpace) {
+    public void setWorldSpaceWater(float waterLevelWorldY, float renderWorldYOffset, boolean useWorldSpace) {
         if (waterLevelWorldYLocation != -1) {
-            gl.glUniform1f(waterLevelWorldYLocation, waterLevelWorldY);
+            glUniform1f(waterLevelWorldYLocation, waterLevelWorldY);
         }
         if (renderWorldYOffsetLocation != -1) {
-            gl.glUniform1f(renderWorldYOffsetLocation, renderWorldYOffset);
+            glUniform1f(renderWorldYOffsetLocation, renderWorldYOffset);
         }
         if (useWorldSpaceWaterLocation != -1) {
-            gl.glUniform1i(useWorldSpaceWaterLocation, useWorldSpace ? 1 : 0);
+            glUniform1i(useWorldSpaceWaterLocation, useWorldSpace ? 1 : 0);
         }
     }
 }

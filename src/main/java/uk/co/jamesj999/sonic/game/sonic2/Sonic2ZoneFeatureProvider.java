@@ -119,7 +119,7 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
         GraphicsManager graphicsManager = GraphicsManager.getInstance();
         cnzSlotMachineRenderer = graphicsManager.getCnzSlotMachineRenderer();
         if (cnzSlotMachineRenderer != null && !graphicsManager.isHeadlessMode()) {
-            cnzSlotMachineRenderer.init(graphicsManager.getGraphics(), rom);
+            cnzSlotMachineRenderer.init(rom);
         }
 
         // The slot machine shader renders on top of the tilemap, so we don't need

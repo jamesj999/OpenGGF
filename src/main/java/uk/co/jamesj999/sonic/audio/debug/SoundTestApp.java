@@ -2,7 +2,7 @@ package uk.co.jamesj999.sonic.audio.debug;
 
 import uk.co.jamesj999.sonic.audio.AudioBackend;
 import uk.co.jamesj999.sonic.audio.ChannelType;
-import uk.co.jamesj999.sonic.audio.JOALAudioBackend;
+import uk.co.jamesj999.sonic.audio.LWJGLAudioBackend;
 import uk.co.jamesj999.sonic.audio.NullAudioBackend;
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 import uk.co.jamesj999.sonic.audio.smps.DacData;
@@ -83,7 +83,7 @@ public final class SoundTestApp {
 
         Sonic2SmpsLoader loader = new Sonic2SmpsLoader(rom);
         DacData dacData = loader.loadDacData();
-        AudioBackend backend = options.nullAudio ? new NullAudioBackend() : new JOALAudioBackend();
+        AudioBackend backend = options.nullAudio ? new NullAudioBackend() : new LWJGLAudioBackend();
         backend.init();
         backend.setAudioProfile(new Sonic2AudioProfile());
         Runtime.getRuntime().addShutdownHook(new Thread(backend::destroy));
@@ -488,7 +488,7 @@ public final class SoundTestApp {
         private void updateDetails() {
             if (tracksPanel == null)
                 return;
-            if (backend instanceof uk.co.jamesj999.sonic.audio.JOALAudioBackend joal) {
+            if (backend instanceof uk.co.jamesj999.sonic.audio.LWJGLAudioBackend joal) {
                 var dbg = joal.getDebugState();
                 Set<String> touched = new HashSet<>();
                 if (dbg != null) {

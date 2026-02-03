@@ -1,13 +1,17 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.util.GLBuffers;
+import org.lwjgl.system.MemoryUtil;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.level.PatternDesc;
 
 import java.nio.FloatBuffer;
 import java.util.ArrayDeque;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
 
 /**
  * Optimized pattern render command that minimizes redundant GL state changes.
@@ -43,8 +47,8 @@ public class PatternRenderCommand implements GLCommandable {
     private static boolean stateInitialized = false;
 
     // Pre-allocated vertex buffer for transformed coordinates
-    private static final FloatBuffer VERTEX_BUFFER = GLBuffers.newDirectFloatBuffer(8);
-    private static final FloatBuffer TEX_COORD_BUFFER = GLBuffers.newDirectFloatBuffer(8);
+    private static final FloatBuffer VERTEX_BUFFER = MemoryUtil.memAllocFloat(8);
+    private static final FloatBuffer TEX_COORD_BUFFER = MemoryUtil.memAllocFloat(8);
 
     // Screen height for Y coordinate transformation
     private static final int SCREEN_HEIGHT = SonicConfigurationService.getInstance()
@@ -122,33 +126,33 @@ public class PatternRenderCommand implements GLCommandable {
     }
 
     @Override
-    public void execute(GL2 gl, int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
+    public void execute(int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
         ShaderProgram shaderProgram = getGraphicsManager().getShaderProgram();
 
         // Initialize persistent state once per batch of patterns
         if (!stateInitialized) {
-            gl.glEnable(GL2.GL_BLEND);
-            gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
-            shaderProgram.use(gl);
-            shaderProgram.cacheUniformLocations(gl);
-            gl.glUniform1i(shaderProgram.getPaletteLocation(), 0);
-            gl.glUniform1i(shaderProgram.getIndexedColorTextureLocation(), 1);
-            gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
-            gl.glClientActiveTexture(GL2.GL_TEXTURE0);
-            gl.glEnableClientState(GL2.GL_TEXTURE_COORD_ARRAY);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            shaderProgram.use();
+            shaderProgram.cacheUniformLocations();
+            glUniform1i(shaderProgram.getPaletteLocation(), 0);
+            glUniform1i(shaderProgram.getIndexedColorTextureLocation(), 1);
+            glEnableClientState(GL_VERTEX_ARRAY);
+            glClientActiveTexture(GL_TEXTURE0);
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 
             // If using water shader, bind underwater palette to texture unit 2
             if (shaderProgram instanceof WaterShaderProgram) {
                 WaterShaderProgram waterShader = (WaterShaderProgram) shaderProgram;
                 Integer underwaterPaletteId = getGraphicsManager().getUnderwaterPaletteTextureId();
                 if (underwaterPaletteId != null) {
-                    gl.glActiveTexture(GL2.GL_TEXTURE2);
-                    gl.glBindTexture(GL2.GL_TEXTURE_2D, underwaterPaletteId);
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_2D, underwaterPaletteId);
                     int loc = waterShader.getUnderwaterPaletteLocation();
                     if (loc != -1) {
-                        gl.glUniform1i(loc, 2);
+                        glUniform1i(loc, 2);
                     }
-                    gl.glActiveTexture(GL2.GL_TEXTURE0);
+                    glActiveTexture(GL_TEXTURE0);
                 }
             }
 
@@ -157,22 +161,22 @@ public class PatternRenderCommand implements GLCommandable {
 
         // Only bind palette texture if it changed
         if (paletteTextureId != lastPaletteTextureId) {
-            gl.glActiveTexture(GL2.GL_TEXTURE0);
-            gl.glBindTexture(GL2.GL_TEXTURE_2D, paletteTextureId);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, paletteTextureId);
             lastPaletteTextureId = paletteTextureId;
         }
 
         // Only bind atlas texture if it changed
         Integer atlasTextureId = getGraphicsManager().getPatternAtlasTextureId(atlasIndex);
         if (atlasTextureId != null && atlasTextureId != lastAtlasTextureId) {
-            gl.glActiveTexture(GL2.GL_TEXTURE1);
-            gl.glBindTexture(GL2.GL_TEXTURE_2D, atlasTextureId);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, atlasTextureId);
             lastAtlasTextureId = atlasTextureId;
         }
 
         // Only update palette line uniform if it changed
         if (paletteIndex != lastPaletteIndex) {
-            shaderProgram.setPaletteLine(gl, paletteIndex);
+            shaderProgram.setPaletteLine(paletteIndex);
             lastPaletteIndex = paletteIndex;
         }
 
@@ -219,10 +223,10 @@ public class PatternRenderCommand implements GLCommandable {
         TEX_COORD_BUFFER.put(u0).put(v1);
         TEX_COORD_BUFFER.flip();
 
-        gl.glVertexPointer(2, GL2.GL_FLOAT, 0, VERTEX_BUFFER);
-        gl.glClientActiveTexture(GL2.GL_TEXTURE0);
-        gl.glTexCoordPointer(2, GL2.GL_FLOAT, 0, TEX_COORD_BUFFER);
-        gl.glDrawArrays(GL2.GL_QUADS, 0, 4);
+        glVertexPointer(2, GL_FLOAT, 0, VERTEX_BUFFER);
+        glClientActiveTexture(GL_TEXTURE0);
+        glTexCoordPointer(2, GL_FLOAT, 0, TEX_COORD_BUFFER);
+        glDrawArrays(GL_QUADS, 0, 4);
 
         // Return to pool for reuse
         recycle();
@@ -232,16 +236,16 @@ public class PatternRenderCommand implements GLCommandable {
      * Clean up GL state after all patterns are rendered.
      * Call this after the last pattern command in a frame.
      */
-    public static void cleanupFrameState(GL2 gl) {
+    public static void cleanupFrameState() {
         if (stateInitialized) {
-            gl.glDisableClientState(GL2.GL_VERTEX_ARRAY);
-            gl.glClientActiveTexture(GL2.GL_TEXTURE0);
-            gl.glDisableClientState(GL2.GL_TEXTURE_COORD_ARRAY);
+            glDisableClientState(GL_VERTEX_ARRAY);
+            glClientActiveTexture(GL_TEXTURE0);
+            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
             ShaderProgram shaderProgram = getGraphicsManager().getShaderProgram();
             if (shaderProgram != null) {
-                shaderProgram.stop(gl);
+                shaderProgram.stop();
             }
-            gl.glDisable(GL2.GL_BLEND);
+            glDisable(GL_BLEND);
             stateInitialized = false;
         }
     }

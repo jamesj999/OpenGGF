@@ -1,9 +1,11 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.util.GLBuffers;
+import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE;
 
 /**
  * 1D texture that maps pattern index to atlas tile coordinates.
@@ -13,39 +15,41 @@ public class PatternLookupBuffer {
     private int textureId = 0;
     private int size = 0;
 
-    public void init(GL2 gl, int size) {
-        if (gl == null || size <= 0) {
+    public void init(int size) {
+        if (size <= 0) {
             return;
         }
         if (textureId == 0) {
-            int[] textures = new int[1];
-            gl.glGenTextures(1, textures, 0);
-            textureId = textures[0];
+            textureId = glGenTextures();
         }
         this.size = size;
 
-        gl.glBindTexture(GL2.GL_TEXTURE_1D, textureId);
-        gl.glTexImage1D(GL2.GL_TEXTURE_1D, 0, GL2.GL_RGBA8, size, 0, GL2.GL_RGBA,
-                GL2.GL_UNSIGNED_BYTE, null);
-        gl.glTexParameteri(GL2.GL_TEXTURE_1D, GL2.GL_TEXTURE_WRAP_S, GL2.GL_CLAMP_TO_EDGE);
-        gl.glTexParameteri(GL2.GL_TEXTURE_1D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_NEAREST);
-        gl.glTexParameteri(GL2.GL_TEXTURE_1D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_NEAREST);
-        gl.glBindTexture(GL2.GL_TEXTURE_1D, 0);
+        glBindTexture(GL_TEXTURE_1D, textureId);
+        glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8, size, 0, GL_RGBA,
+                GL_UNSIGNED_BYTE, (ByteBuffer) null);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glBindTexture(GL_TEXTURE_1D, 0);
     }
 
-    public void upload(GL2 gl, byte[] data, int size) {
-        if (gl == null || data == null || size <= 0) {
+    public void upload(byte[] data, int size) {
+        if (data == null || size <= 0) {
             return;
         }
         if (textureId == 0 || this.size != size) {
-            init(gl, size);
+            init(size);
         }
-        ByteBuffer buffer = GLBuffers.newDirectByteBuffer(data.length);
-        buffer.put(data);
-        buffer.flip();
-        gl.glBindTexture(GL2.GL_TEXTURE_1D, textureId);
-        gl.glTexSubImage1D(GL2.GL_TEXTURE_1D, 0, 0, size, GL2.GL_RGBA, GL2.GL_UNSIGNED_BYTE, buffer);
-        gl.glBindTexture(GL2.GL_TEXTURE_1D, 0);
+        ByteBuffer buffer = MemoryUtil.memAlloc(data.length);
+        try {
+            buffer.put(data);
+            buffer.flip();
+            glBindTexture(GL_TEXTURE_1D, textureId);
+            glTexSubImage1D(GL_TEXTURE_1D, 0, 0, size, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+            glBindTexture(GL_TEXTURE_1D, 0);
+        } finally {
+            MemoryUtil.memFree(buffer);
+        }
     }
 
     public int getTextureId() {
@@ -56,9 +60,9 @@ public class PatternLookupBuffer {
         return size;
     }
 
-    public void cleanup(GL2 gl) {
-        if (gl != null && textureId != 0) {
-            gl.glDeleteTextures(1, new int[] { textureId }, 0);
+    public void cleanup() {
+        if (textureId != 0) {
+            glDeleteTextures(textureId);
         }
         textureId = 0;
         size = 0;

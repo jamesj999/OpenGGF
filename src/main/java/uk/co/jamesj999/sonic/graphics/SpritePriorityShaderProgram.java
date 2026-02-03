@@ -1,7 +1,8 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
 import java.io.IOException;
+
+import static org.lwjgl.opengl.GL20.*;
 
 /**
  * Shader program for sprite-to-tile priority compositing.
@@ -29,29 +30,29 @@ public class SpritePriorityShaderProgram extends ShaderProgram {
     private int screenHeightLocation = -1;
     private int waterEnabledLocation = -1;
 
-    public SpritePriorityShaderProgram(GL2 gl, String fragmentShaderPath) throws IOException {
-        super(gl, fragmentShaderPath);
+    public SpritePriorityShaderProgram(String fragmentShaderPath) throws IOException {
+        super(fragmentShaderPath);
     }
 
     @Override
-    public void cacheUniformLocations(GL2 gl) {
+    public void cacheUniformLocations() {
         // Cache base uniforms (Palette, IndexedColorTexture, PaletteLine)
-        super.cacheUniformLocations(gl);
+        super.cacheUniformLocations();
 
         int programId = getProgramId();
 
         // Cache priority-specific uniforms
-        tilePriorityTextureLocation = gl.glGetUniformLocation(programId, "TilePriorityTexture");
-        spriteHighPriorityLocation = gl.glGetUniformLocation(programId, "SpriteHighPriority");
-        screenSizeLocation = gl.glGetUniformLocation(programId, "ScreenSize");
-        viewportOffsetLocation = gl.glGetUniformLocation(programId, "ViewportOffset");
+        tilePriorityTextureLocation = glGetUniformLocation(programId, "TilePriorityTexture");
+        spriteHighPriorityLocation = glGetUniformLocation(programId, "SpriteHighPriority");
+        screenSizeLocation = glGetUniformLocation(programId, "ScreenSize");
+        viewportOffsetLocation = glGetUniformLocation(programId, "ViewportOffset");
 
         // Cache underwater palette uniforms
-        underwaterPaletteLocation = gl.glGetUniformLocation(programId, "UnderwaterPalette");
-        waterlineScreenYLocation = gl.glGetUniformLocation(programId, "WaterlineScreenY");
-        windowHeightLocation = gl.glGetUniformLocation(programId, "WindowHeight");
-        screenHeightLocation = gl.glGetUniformLocation(programId, "ScreenHeight");
-        waterEnabledLocation = gl.glGetUniformLocation(programId, "WaterEnabled");
+        underwaterPaletteLocation = glGetUniformLocation(programId, "UnderwaterPalette");
+        waterlineScreenYLocation = glGetUniformLocation(programId, "WaterlineScreenY");
+        windowHeightLocation = glGetUniformLocation(programId, "WindowHeight");
+        screenHeightLocation = glGetUniformLocation(programId, "ScreenHeight");
+        waterEnabledLocation = glGetUniformLocation(programId, "WaterEnabled");
     }
 
     /**
@@ -64,31 +65,30 @@ public class SpritePriorityShaderProgram extends ShaderProgram {
     /**
      * Set the tile priority texture sampler unit.
      */
-    public void setTilePriorityTexture(GL2 gl, int textureUnit) {
+    public void setTilePriorityTexture(int textureUnit) {
         if (tilePriorityTextureLocation != -1) {
-            gl.glUniform1i(tilePriorityTextureLocation, textureUnit);
+            glUniform1i(tilePriorityTextureLocation, textureUnit);
         }
     }
 
     /**
      * Set whether the current sprite has high priority (appears above all tiles).
      *
-     * @param gl           OpenGL context
      * @param highPriority true if sprite should appear above all tiles, false if it
      *                     should appear behind high-priority tiles
      */
-    public void setSpriteHighPriority(GL2 gl, boolean highPriority) {
+    public void setSpriteHighPriority(boolean highPriority) {
         if (spriteHighPriorityLocation != -1) {
-            gl.glUniform1i(spriteHighPriorityLocation, highPriority ? 1 : 0);
+            glUniform1i(spriteHighPriorityLocation, highPriority ? 1 : 0);
         }
     }
 
     /**
      * Set the screen dimensions for coordinate lookup in the priority texture.
      */
-    public void setScreenSize(GL2 gl, float width, float height) {
+    public void setScreenSize(float width, float height) {
         if (screenSizeLocation != -1) {
-            gl.glUniform2f(screenSizeLocation, width, height);
+            glUniform2f(screenSizeLocation, width, height);
         }
     }
 
@@ -97,9 +97,9 @@ public class SpritePriorityShaderProgram extends ShaderProgram {
      * This is needed because gl_FragCoord is in window coordinates, not viewport-local.
      * When the viewport is letterboxed/centered, the offset is non-zero.
      */
-    public void setViewportOffset(GL2 gl, float x, float y) {
+    public void setViewportOffset(float x, float y) {
         if (viewportOffsetLocation != -1) {
-            gl.glUniform2f(viewportOffsetLocation, x, y);
+            glUniform2f(viewportOffsetLocation, x, y);
         }
     }
 
@@ -114,36 +114,36 @@ public class SpritePriorityShaderProgram extends ShaderProgram {
      * Set the waterline screen Y position (pixels from top of screen).
      * Set to a negative value to disable underwater palette switching.
      */
-    public void setWaterlineScreenY(GL2 gl, float y) {
+    public void setWaterlineScreenY(float y) {
         if (waterlineScreenYLocation != -1) {
-            gl.glUniform1f(waterlineScreenYLocation, y);
+            glUniform1f(waterlineScreenYLocation, y);
         }
     }
 
     /**
      * Set the physical window height in pixels.
      */
-    public void setWindowHeight(GL2 gl, float height) {
+    public void setWindowHeight(float height) {
         if (windowHeightLocation != -1) {
-            gl.glUniform1f(windowHeightLocation, height);
+            glUniform1f(windowHeightLocation, height);
         }
     }
 
     /**
      * Set the logical screen height (e.g., 224 for Genesis).
      */
-    public void setScreenHeight(GL2 gl, float height) {
+    public void setScreenHeight(float height) {
         if (screenHeightLocation != -1) {
-            gl.glUniform1f(screenHeightLocation, height);
+            glUniform1f(screenHeightLocation, height);
         }
     }
 
     /**
      * Set whether water is enabled in the current zone.
      */
-    public void setWaterEnabled(GL2 gl, boolean enabled) {
+    public void setWaterEnabled(boolean enabled) {
         if (waterEnabledLocation != -1) {
-            gl.glUniform1i(waterEnabledLocation, enabled ? 1 : 0);
+            glUniform1i(waterEnabledLocation, enabled ? 1 : 0);
         }
     }
 }

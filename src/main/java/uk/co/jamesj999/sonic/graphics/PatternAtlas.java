@@ -1,7 +1,6 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.util.GLBuffers;
+import org.lwjgl.system.MemoryUtil;
 import uk.co.jamesj999.sonic.level.Pattern;
 
 import java.nio.ByteBuffer;
@@ -10,6 +9,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE;
+import static org.lwjgl.opengl.GL30.GL_RED;
 
 /**
  * Texture atlas for 8x8 indexed patterns.
@@ -42,7 +45,7 @@ public class PatternAtlas {
         this.tilesPerRow = atlasWidth / TILE_SIZE;
         this.tilesPerColumn = atlasHeight / TILE_SIZE;
         this.maxSlots = tilesPerRow * tilesPerColumn;
-        this.patternUploadBuffer = GLBuffers.newDirectByteBuffer(TILE_SIZE * TILE_SIZE);
+        this.patternUploadBuffer = MemoryUtil.memAlloc(TILE_SIZE * TILE_SIZE);
     }
 
     public int getAtlasWidth() {
@@ -72,35 +75,43 @@ public class PatternAtlas {
         return initialized;
     }
 
-    public void init(GL2 gl) {
-        if (initialized || gl == null) {
+    public void init() {
+        if (initialized) {
             return;
         }
         if (pages.isEmpty()) {
-            pages.add(createPage(gl, 0));
+            pages.add(createPage(0));
         } else {
             for (AtlasPage page : pages) {
                 if (page.textureId() == 0) {
-                    page.setTextureId(createTexture(gl));
+                    page.setTextureId(createTexture());
                 }
             }
         }
         initialized = true;
     }
 
-    public Entry cachePattern(GL2 gl, Pattern pattern, int patternId) {
-        Entry entry = ensureEntry(gl, patternId);
+    public Entry cachePattern(Pattern pattern, int patternId) {
+        Entry entry = ensureEntry(patternId, false);
         if (entry == null) {
             return null;
         }
-        if (gl != null && initialized && pattern != null) {
-            uploadPattern(gl, pattern, entry);
+        if (initialized && pattern != null) {
+            uploadPattern(pattern, entry);
         }
         return entry;
     }
 
-    public Entry updatePattern(GL2 gl, Pattern pattern, int patternId) {
-        return cachePattern(gl, pattern, patternId);
+    public Entry cachePatternHeadless(Pattern pattern, int patternId) {
+        return ensureEntry(patternId, true);
+    }
+
+    public Entry updatePattern(Pattern pattern, int patternId) {
+        return cachePattern(pattern, patternId);
+    }
+
+    public Entry updatePatternHeadless(Pattern pattern, int patternId) {
+        return cachePatternHeadless(pattern, patternId);
     }
 
     public Entry getEntry(int patternId) {
@@ -151,26 +162,35 @@ public class PatternAtlas {
         return pages.size();
     }
 
-    public void cleanup(GL2 gl) {
-        if (gl != null) {
-            for (AtlasPage page : pages) {
-                if (page.textureId() != 0) {
-                    gl.glDeleteTextures(1, new int[] { page.textureId() }, 0);
-                }
+    public void cleanup() {
+        for (AtlasPage page : pages) {
+            if (page.textureId() != 0) {
+                glDeleteTextures(page.textureId());
             }
         }
+        cleanupCommon();
+    }
+
+    public void cleanupHeadless() {
+        cleanupCommon();
+    }
+
+    private void cleanupCommon() {
         initialized = false;
         entries.clear();
         pages.clear();
+        if (patternUploadBuffer != null) {
+            MemoryUtil.memFree(patternUploadBuffer);
+        }
     }
 
-    private Entry ensureEntry(GL2 gl, int patternId) {
+    private Entry ensureEntry(int patternId, boolean headless) {
         Entry existing = entries.get(patternId);
         if (existing != null) {
             return existing;
         }
 
-        AtlasPage page = getOrCreatePage(gl);
+        AtlasPage page = getOrCreatePage(headless);
         if (page == null) {
             LOGGER.warning("Pattern atlas capacity exceeded; patternId=" + patternId);
             return null;
@@ -193,7 +213,7 @@ public class PatternAtlas {
         return entry;
     }
 
-    private void uploadPattern(GL2 gl, Pattern pattern, Entry entry) {
+    private void uploadPattern(Pattern pattern, Entry entry) {
         ByteBuffer patternBuffer = patternUploadBuffer;
         patternBuffer.clear();
         for (int col = 0; col < TILE_SIZE; col++) {
@@ -208,15 +228,15 @@ public class PatternAtlas {
         int pixelY = entry.tileY() * TILE_SIZE;
 
         int textureId = getTextureId(entry.atlasIndex());
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, textureId);
-        gl.glTexSubImage2D(GL2.GL_TEXTURE_2D, 0, pixelX, pixelY, TILE_SIZE, TILE_SIZE,
-                GL2.GL_RED, GL2.GL_UNSIGNED_BYTE, patternBuffer);
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, pixelX, pixelY, TILE_SIZE, TILE_SIZE,
+                GL_RED, GL_UNSIGNED_BYTE, patternBuffer);
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 
-    private AtlasPage getOrCreatePage(GL2 gl) {
+    private AtlasPage getOrCreatePage(boolean headless) {
         if (pages.isEmpty()) {
-            pages.add(createPage(gl, 0));
+            pages.add(createPage(0, headless));
         }
         AtlasPage current = pages.get(pages.size() - 1);
         if (current.hasCapacity()) {
@@ -225,31 +245,33 @@ public class PatternAtlas {
         if (pages.size() >= MAX_ATLASES) {
             return null;
         }
-        AtlasPage next = createPage(gl, pages.size());
+        AtlasPage next = createPage(pages.size(), headless);
         pages.add(next);
         return next;
     }
 
-    private AtlasPage createPage(GL2 gl, int atlasIndex) {
-        int textureId = gl != null ? createTexture(gl) : 0;
+    private AtlasPage createPage(int atlasIndex) {
+        return createPage(atlasIndex, false);
+    }
+
+    private AtlasPage createPage(int atlasIndex, boolean headless) {
+        int textureId = headless ? 0 : createTexture();
         return new AtlasPage(atlasIndex, textureId, maxSlots);
     }
 
-    private int createTexture(GL2 gl) {
-        int[] textures = new int[1];
-        gl.glGenTextures(1, textures, 0);
-        int textureId = textures[0];
+    private int createTexture() {
+        int textureId = glGenTextures();
 
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, textureId);
-        gl.glTexImage2D(GL2.GL_TEXTURE_2D, 0, GL2.GL_RED, atlasWidth, atlasHeight, 0,
-                GL2.GL_RED, GL2.GL_UNSIGNED_BYTE, null);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, atlasWidth, atlasHeight, 0,
+                GL_RED, GL_UNSIGNED_BYTE, (ByteBuffer) null);
 
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_S, GL2.GL_CLAMP_TO_EDGE);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_T, GL2.GL_CLAMP_TO_EDGE);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_NEAREST);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
         return textureId;
     }
 

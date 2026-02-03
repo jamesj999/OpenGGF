@@ -10,6 +10,8 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.lwjgl.glfw.GLFW.*;
+
 public class SonicConfigurationService {
 	private static SonicConfigurationService sonicConfigurationService;
 	public static String ENGINE_VERSION = "0.2.20260117";
@@ -155,14 +157,25 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.AUDIO_ENABLED, true);
 		putDefault(SonicConfiguration.AUDIO_INTERNAL_RATE_OUTPUT, false);
 		putDefault(SonicConfiguration.REGION, "NTSC");
-		putDefault(SonicConfiguration.SPECIAL_STAGE_KEY, java.awt.event.KeyEvent.VK_HOME);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_COMPLETE_KEY, java.awt.event.KeyEvent.VK_END);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_FAIL_KEY, java.awt.event.KeyEvent.VK_DELETE);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_SPRITE_DEBUG_KEY, java.awt.event.KeyEvent.VK_F12);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_PLANE_DEBUG_KEY, java.awt.event.KeyEvent.VK_F3);
-		putDefault(SonicConfiguration.PAUSE_KEY, java.awt.event.KeyEvent.VK_ENTER);
-		putDefault(SonicConfiguration.FRAME_STEP_KEY, java.awt.event.KeyEvent.VK_Q);
-		putDefault(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, java.awt.event.KeyEvent.VK_END);
+		// Key codes - using GLFW key codes
+		putDefault(SonicConfiguration.UP, GLFW_KEY_UP);
+		putDefault(SonicConfiguration.DOWN, GLFW_KEY_DOWN);
+		putDefault(SonicConfiguration.LEFT, GLFW_KEY_LEFT);
+		putDefault(SonicConfiguration.RIGHT, GLFW_KEY_RIGHT);
+		putDefault(SonicConfiguration.JUMP, GLFW_KEY_SPACE);
+		putDefault(SonicConfiguration.TEST, GLFW_KEY_T);
+		putDefault(SonicConfiguration.NEXT_ACT, GLFW_KEY_PAGE_UP);
+		putDefault(SonicConfiguration.NEXT_ZONE, GLFW_KEY_PAGE_DOWN);
+		putDefault(SonicConfiguration.DEBUG_MODE_KEY, GLFW_KEY_D);
+		putDefault(SonicConfiguration.FPS, 60);
+		putDefault(SonicConfiguration.SPECIAL_STAGE_KEY, GLFW_KEY_HOME);
+		putDefault(SonicConfiguration.SPECIAL_STAGE_COMPLETE_KEY, GLFW_KEY_END);
+		putDefault(SonicConfiguration.SPECIAL_STAGE_FAIL_KEY, GLFW_KEY_DELETE);
+		putDefault(SonicConfiguration.SPECIAL_STAGE_SPRITE_DEBUG_KEY, GLFW_KEY_F12);
+		putDefault(SonicConfiguration.SPECIAL_STAGE_PLANE_DEBUG_KEY, GLFW_KEY_F3);
+		putDefault(SonicConfiguration.PAUSE_KEY, GLFW_KEY_ENTER);
+		putDefault(SonicConfiguration.FRAME_STEP_KEY, GLFW_KEY_Q);
+		putDefault(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, GLFW_KEY_END);
 	}
 
 	private void putDefault(SonicConfiguration key, Object value) {

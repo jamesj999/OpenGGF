@@ -130,7 +130,7 @@ public class PatternSpriteRenderer {
     }
 
     private void cachePatterns(GraphicsManager graphicsManager, int basePatternIndex) {
-        if (graphicsManager.getGraphics() == null) {
+        if (!graphicsManager.isGlInitialized()) {
             return;
         }
         Pattern[] patterns = spriteSheet.getPatterns();

@@ -1,7 +1,5 @@
 package uk.co.jamesj999.sonic.configuration;
 
-import java.awt.event.KeyEvent;
-
 /**
  * All configurable properties are put here. Eventually, these will be loaded
  * from a file. Use SonicConfigurationSerivce to retrieve the values for

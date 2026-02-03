@@ -1,7 +1,6 @@
 package uk.co.jamesj999.sonic.level.slotmachine;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.util.GLBuffers;
+import org.lwjgl.system.MemoryUtil;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.graphics.QuadRenderer;
@@ -11,6 +10,11 @@ import uk.co.jamesj999.sonic.graphics.GLCommand;
 
 import java.nio.ByteBuffer;
 import java.util.logging.Logger;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
 
 /**
  * Renders the CNZ slot machine visual display.
@@ -93,27 +97,26 @@ public class CNZSlotMachineRenderer {
     /**
      * Initialize the renderer by loading slot art from ROM.
      *
-     * @param gl  The OpenGL context
      * @param rom The ROM to load art from
      */
-    public void init(GL2 gl, Rom rom) {
-        if (initialized || gl == null || rom == null) {
+    public void init(Rom rom) {
+        if (initialized || rom == null) {
             return;
         }
 
         // Load and create the slot face texture
-        textureId = createSlotTexture(gl, rom);
+        textureId = createSlotTexture(rom);
         if (textureId == 0) {
             LOGGER.warning("Failed to create slot face texture");
             return;
         }
 
         // Initialize quad renderer
-        quadRenderer.init(gl);
+        quadRenderer.init();
 
         // Cache uniform locations if shader is set
         if (shader != null) {
-            cacheUniformLocations(gl);
+            cacheUniformLocations();
         }
 
         initialized = true;
@@ -124,11 +127,10 @@ public class CNZSlotMachineRenderer {
      * Create the slot face texture from ROM data.
      * The texture contains all 6 faces stacked vertically (32×192 pixels).
      *
-     * @param gl  The OpenGL context
      * @param rom The ROM to load from
      * @return The texture ID, or 0 on failure
      */
-    private int createSlotTexture(GL2 gl, Rom rom) {
+    private int createSlotTexture(Rom rom) {
         // Read slot pictures from ROM
         byte[] slotData;
         try {
@@ -144,7 +146,7 @@ public class CNZSlotMachineRenderer {
         int offset = 0;
 
         // Convert 4bpp tiled data to linear indexed texture
-        ByteBuffer textureData = GLBuffers.newDirectByteBuffer(TEXTURE_WIDTH * TEXTURE_HEIGHT);
+        ByteBuffer textureData = MemoryUtil.memAlloc(TEXTURE_WIDTH * TEXTURE_HEIGHT);
 
         for (int face = 0; face < NUM_FACES; face++) {
             int faceOffset = offset + face * TILES_PER_FACE * BYTES_PER_TILE;
@@ -156,20 +158,21 @@ public class CNZSlotMachineRenderer {
         textureData.flip();
 
         // Create OpenGL texture
-        int[] textures = new int[1];
-        gl.glGenTextures(1, textures, 0);
-        int texId = textures[0];
+        int texId = glGenTextures();
 
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, texId);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_S, GL2.GL_CLAMP_TO_EDGE);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_T, GL2.GL_REPEAT); // Allow vertical wrapping
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_NEAREST);
-        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_NEAREST);
+        glBindTexture(GL_TEXTURE_2D, texId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); // Allow vertical wrapping
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-        gl.glTexImage2D(GL2.GL_TEXTURE_2D, 0, GL2.GL_RED, TEXTURE_WIDTH, TEXTURE_HEIGHT,
-                0, GL2.GL_RED, GL2.GL_UNSIGNED_BYTE, textureData);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, TEXTURE_WIDTH, TEXTURE_HEIGHT,
+                0, GL_RED, GL_UNSIGNED_BYTE, textureData);
 
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        // Free the native memory buffer
+        MemoryUtil.memFree(textureData);
 
         return texId;
     }
@@ -261,8 +264,8 @@ public class CNZSlotMachineRenderer {
         float offset2 = manager.getSlotOffset(2) / 256.0f;
 
         // Return a custom command that does the actual rendering
-        return new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
-            executeRender(gl, screenX, screenY, paletteTextureId,
+        return new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+            executeRender(screenX, screenY, paletteTextureId,
                     face0, face1, face2, nextFace0, nextFace1, nextFace2,
                     offset0, offset1, offset2);
         });
@@ -272,127 +275,133 @@ public class CNZSlotMachineRenderer {
      * Execute the actual slot machine rendering.
      * Called from the queued GLCommand during flush.
      */
-    private void executeRender(GL2 gl, int screenX, int screenY, int paletteTextureId,
+    private void executeRender(int screenX, int screenY, int paletteTextureId,
                                int face0, int face1, int face2,
                                int nextFace0, int nextFace1, int nextFace2,
                                float offset0, float offset1, float offset2) {
         // Get viewport dimensions to handle scaling
         int[] viewport = new int[4];
-        gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport, 0);
+        glGetIntegerv(GL_VIEWPORT, viewport);
         int viewportWidth = viewport[2];
         int viewportHeight = viewport[3];
 
         // Save OpenGL state
-        gl.glPushAttrib(GL2.GL_ALL_ATTRIB_BITS);
+        boolean blendWasEnabled = glIsEnabled(GL_BLEND);
+        boolean depthWasEnabled = glIsEnabled(GL_DEPTH_TEST);
 
         // Set up for shader rendering
-        gl.glEnable(GL2.GL_BLEND);
-        gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
-        gl.glDisable(GL2.GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable(GL_DEPTH_TEST);
 
         // Use the slot shader
-        shader.use(gl);
+        shader.use();
 
         // Cache uniform locations if needed
         if (locSlotFaceTexture < 0) {
-            cacheUniformLocations(gl);
+            cacheUniformLocations();
         }
 
         // Bind textures
-        gl.glActiveTexture(GL2.GL_TEXTURE0);
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, textureId);
-        gl.glUniform1i(locSlotFaceTexture, 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        glUniform1i(locSlotFaceTexture, 0);
 
-        gl.glActiveTexture(GL2.GL_TEXTURE1);
-        gl.glBindTexture(GL2.GL_TEXTURE_2D, paletteTextureId);
-        gl.glUniform1i(locPalette, 1);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, paletteTextureId);
+        glUniform1i(locPalette, 1);
 
         // Set slot state uniforms
-        gl.glUniform1i(locSlotFace0, face0);
-        gl.glUniform1i(locSlotFace1, face1);
-        gl.glUniform1i(locSlotFace2, face2);
+        glUniform1i(locSlotFace0, face0);
+        glUniform1i(locSlotFace1, face1);
+        glUniform1i(locSlotFace2, face2);
 
         // Set next face uniforms (for scroll wrapping - faces are non-sequential in sequence)
-        gl.glUniform1i(locSlotNextFace0, nextFace0);
-        gl.glUniform1i(locSlotNextFace1, nextFace1);
-        gl.glUniform1i(locSlotNextFace2, nextFace2);
+        glUniform1i(locSlotNextFace0, nextFace0);
+        glUniform1i(locSlotNextFace1, nextFace1);
+        glUniform1i(locSlotNextFace2, nextFace2);
 
-        gl.glUniform1f(locSlotOffset0, offset0);
-        gl.glUniform1f(locSlotOffset1, offset1);
-        gl.glUniform1f(locSlotOffset2, offset2);
+        glUniform1f(locSlotOffset0, offset0);
+        glUniform1f(locSlotOffset1, offset1);
+        glUniform1f(locSlotOffset2, offset2);
 
         // Set screen position uniforms
-        gl.glUniform1f(locScreenX, screenX);
-        gl.glUniform1f(locScreenY, screenY);
-        gl.glUniform1f(locScreenWidth, 320.0f);
-        gl.glUniform1f(locScreenHeight, 224.0f);
-        gl.glUniform1f(locPaletteLine, 0.0f); // CNZ slot faces use palette line 0
+        glUniform1f(locScreenX, screenX);
+        glUniform1f(locScreenY, screenY);
+        glUniform1f(locScreenWidth, 320.0f);
+        glUniform1f(locScreenHeight, 224.0f);
+        glUniform1f(locPaletteLine, 0.0f); // CNZ slot faces use palette line 0
 
         // Pass actual viewport dimensions for coordinate conversion
-        gl.glUniform1f(locViewportWidth, viewportWidth);
-        gl.glUniform1f(locViewportHeight, viewportHeight);
+        glUniform1f(locViewportWidth, viewportWidth);
+        glUniform1f(locViewportHeight, viewportHeight);
 
         // Save and reset matrices for fullscreen quad
-        gl.glMatrixMode(GL2.GL_PROJECTION);
-        gl.glPushMatrix();
-        gl.glLoadIdentity();
-        gl.glOrtho(0, viewportWidth, 0, viewportHeight, -1, 1);
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+        glLoadIdentity();
+        glOrtho(0, viewportWidth, 0, viewportHeight, -1, 1);
 
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
-        gl.glPushMatrix();
-        gl.glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        glLoadIdentity();
 
         // Draw fullscreen quad using immediate mode (more compatible with fragment-only shader)
-        gl.glBegin(GL2.GL_QUADS);
-        gl.glVertex2f(0, 0);
-        gl.glVertex2f(viewportWidth, 0);
-        gl.glVertex2f(viewportWidth, viewportHeight);
-        gl.glVertex2f(0, viewportHeight);
-        gl.glEnd();
+        glBegin(GL_QUADS);
+        glVertex2f(0, 0);
+        glVertex2f(viewportWidth, 0);
+        glVertex2f(viewportWidth, viewportHeight);
+        glVertex2f(0, viewportHeight);
+        glEnd();
 
         // Restore matrices
-        gl.glPopMatrix();
-        gl.glMatrixMode(GL2.GL_PROJECTION);
-        gl.glPopMatrix();
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
+        glPopMatrix();
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
+        glMatrixMode(GL_MODELVIEW);
 
         // Stop using shader
-        shader.stop(gl);
+        shader.stop();
 
         // Reset active texture
-        gl.glActiveTexture(GL2.GL_TEXTURE0);
+        glActiveTexture(GL_TEXTURE0);
 
         // Restore OpenGL state
-        gl.glPopAttrib();
+        if (!blendWasEnabled) {
+            glDisable(GL_BLEND);
+        }
+        if (depthWasEnabled) {
+            glEnable(GL_DEPTH_TEST);
+        }
     }
 
     /**
      * Cache shader uniform locations.
      */
-    private void cacheUniformLocations(GL2 gl) {
+    private void cacheUniformLocations() {
         if (shader == null) {
             return;
         }
 
         int programId = shader.getProgramId();
-        locSlotFaceTexture = gl.glGetUniformLocation(programId, "SlotFaceTexture");
-        locPalette = gl.glGetUniformLocation(programId, "Palette");
-        locSlotFace0 = gl.glGetUniformLocation(programId, "SlotFace0");
-        locSlotFace1 = gl.glGetUniformLocation(programId, "SlotFace1");
-        locSlotFace2 = gl.glGetUniformLocation(programId, "SlotFace2");
-        locSlotNextFace0 = gl.glGetUniformLocation(programId, "SlotNextFace0");
-        locSlotNextFace1 = gl.glGetUniformLocation(programId, "SlotNextFace1");
-        locSlotNextFace2 = gl.glGetUniformLocation(programId, "SlotNextFace2");
-        locSlotOffset0 = gl.glGetUniformLocation(programId, "SlotOffset0");
-        locSlotOffset1 = gl.glGetUniformLocation(programId, "SlotOffset1");
-        locSlotOffset2 = gl.glGetUniformLocation(programId, "SlotOffset2");
-        locScreenX = gl.glGetUniformLocation(programId, "ScreenX");
-        locScreenY = gl.glGetUniformLocation(programId, "ScreenY");
-        locScreenWidth = gl.glGetUniformLocation(programId, "ScreenWidth");
-        locScreenHeight = gl.glGetUniformLocation(programId, "ScreenHeight");
-        locPaletteLine = gl.glGetUniformLocation(programId, "PaletteLine");
-        locViewportWidth = gl.glGetUniformLocation(programId, "ViewportWidth");
-        locViewportHeight = gl.glGetUniformLocation(programId, "ViewportHeight");
+        locSlotFaceTexture = glGetUniformLocation(programId, "SlotFaceTexture");
+        locPalette = glGetUniformLocation(programId, "Palette");
+        locSlotFace0 = glGetUniformLocation(programId, "SlotFace0");
+        locSlotFace1 = glGetUniformLocation(programId, "SlotFace1");
+        locSlotFace2 = glGetUniformLocation(programId, "SlotFace2");
+        locSlotNextFace0 = glGetUniformLocation(programId, "SlotNextFace0");
+        locSlotNextFace1 = glGetUniformLocation(programId, "SlotNextFace1");
+        locSlotNextFace2 = glGetUniformLocation(programId, "SlotNextFace2");
+        locSlotOffset0 = glGetUniformLocation(programId, "SlotOffset0");
+        locSlotOffset1 = glGetUniformLocation(programId, "SlotOffset1");
+        locSlotOffset2 = glGetUniformLocation(programId, "SlotOffset2");
+        locScreenX = glGetUniformLocation(programId, "ScreenX");
+        locScreenY = glGetUniformLocation(programId, "ScreenY");
+        locScreenWidth = glGetUniformLocation(programId, "ScreenWidth");
+        locScreenHeight = glGetUniformLocation(programId, "ScreenHeight");
+        locPaletteLine = glGetUniformLocation(programId, "PaletteLine");
+        locViewportWidth = glGetUniformLocation(programId, "ViewportWidth");
+        locViewportHeight = glGetUniformLocation(programId, "ViewportHeight");
 
         // Check for invalid uniform locations (shader might have failed to compile)
         if (locSlotFaceTexture < 0 || locPalette < 0 || locViewportWidth < 0) {
@@ -448,11 +457,11 @@ public class CNZSlotMachineRenderer {
 
         // Render all 6 faces in two rows of 3
         // For debug view, next face is just sequential since we're not scrolling
-        return new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
+        return new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
             // Row 1: Faces 0, 1, 2 (Sonic, Tails, Eggman)
-            executeRender(gl, screenX, screenY, paletteTextureId, 0, 1, 2, 1, 2, 3, 0.0f, 0.0f, 0.0f);
+            executeRender(screenX, screenY, paletteTextureId, 0, 1, 2, 1, 2, 3, 0.0f, 0.0f, 0.0f);
             // Row 2: Faces 3, 4, 5 (Jackpot, Ring, Bar)
-            executeRender(gl, screenX, screenY + 40, paletteTextureId, 3, 4, 5, 4, 5, 0, 0.0f, 0.0f, 0.0f);
+            executeRender(screenX, screenY + 40, paletteTextureId, 3, 4, 5, 4, 5, 0, 0.0f, 0.0f, 0.0f);
         });
     }
 
@@ -489,12 +498,12 @@ public class CNZSlotMachineRenderer {
     /**
      * Clean up OpenGL resources.
      */
-    public void cleanup(GL2 gl) {
-        if (gl != null && textureId != 0) {
-            gl.glDeleteTextures(1, new int[]{textureId}, 0);
+    public void cleanup() {
+        if (textureId != 0) {
+            glDeleteTextures(textureId);
         }
         textureId = 0;
-        quadRenderer.cleanup(gl);
+        quadRenderer.cleanup();
         initialized = false;
     }
 }

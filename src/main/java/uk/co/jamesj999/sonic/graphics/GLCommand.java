@@ -1,8 +1,10 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL20.*;
 
 public class GLCommand implements GLCommandable {
         private static final ThreadLocal<Boolean> IN_GROUP = ThreadLocal.withInitial(() -> Boolean.FALSE);
@@ -118,21 +120,20 @@ public class GLCommand implements GLCommandable {
                 this.blendMode = blendType;
         }
 
-        public void execute(GL2 gl, int cameraX, int cameraY, int cameraWidth,
-                        int cameraHeight) {
+        public void execute(int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
                 switch (glCmdCommandType) {
                         case USE_PROGRAM:
-                                gl.glUseProgram(value);
+                                glUseProgram(value);
                                 return;
                         case ENABLE:
-                                gl.glEnable(value);
+                                glEnable(value);
                                 return;
                         case DISABLE:
-                                gl.glDisable(value);
+                                glDisable(value);
                                 return;
                         case CUSTOM:
                                 if (customAction != null) {
-                                        customAction.execute(gl, cameraX, cameraY, cameraWidth, cameraHeight);
+                                        customAction.execute(cameraX, cameraY, cameraWidth, cameraHeight);
                                 }
                                 return;
                 }
@@ -140,24 +141,24 @@ public class GLCommand implements GLCommandable {
                 boolean single = drawMethod != -1;
                 if (!isInGroup()) {
                         if (blendMode == BlendType.SOLID) {
-                                gl.glDisable(GL2.GL_BLEND);
+                                glDisable(GL_BLEND);
                         }
                         if (blendMode == BlendType.ONE_MINUS_SRC_ALPHA) {
-                                gl.glEnable(GL2.GL_BLEND);
-                                gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
+                                glEnable(GL_BLEND);
+                                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
                         }
                 }
                 if (single) {
-                        gl.glBegin(drawMethod);
+                        glBegin(drawMethod);
                 }
-                gl.glColor4f(colour1, colour2, colour3, alpha);
+                glColor4f(colour1, colour2, colour3, alpha);
                 if (CommandType.RECTI.equals(glCmdCommandType)) {
-                        gl.glRecti(x1 - cameraX, y1 + cameraY, x2 - cameraX, y2 + cameraY);
+                        glRecti(x1 - cameraX, y1 + cameraY, x2 - cameraX, y2 + cameraY);
                 } else if (CommandType.VERTEX2I.equals(glCmdCommandType)) {
-                        gl.glVertex2i(x1 - cameraX, y1 + cameraY);
+                        glVertex2i(x1 - cameraX, y1 + cameraY);
                 }
                 if (single) {
-                        gl.glEnd();
+                        glEnd();
                 }
         }
 }

@@ -28,7 +28,7 @@ import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 
-import java.awt.event.KeyEvent;
+import static org.lwjgl.glfw.GLFW.*;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.timer.TimerManager;
@@ -1136,15 +1136,15 @@ public class GameLoop {
             return;
         }
 
-        if (inputHandler.isKeyPressed(KeyEvent.VK_F4)) {
+        if (inputHandler.isKeyPressed(GLFW_KEY_F4)) {
             ssProvider.toggleAlignmentTestMode();
         }
 
         // Lag compensation adjustment (F6 decrease, F7 increase)
-        if (inputHandler.isKeyPressed(KeyEvent.VK_F6)) {
+        if (inputHandler.isKeyPressed(GLFW_KEY_F6)) {
             adjustLagCompensation(-0.05);
         }
-        if (inputHandler.isKeyPressed(KeyEvent.VK_F7)) {
+        if (inputHandler.isKeyPressed(GLFW_KEY_F7)) {
             adjustLagCompensation(0.05);
         }
 
@@ -1161,7 +1161,7 @@ public class GameLoop {
             if (inputHandler.isKeyPressed(downKey)) {
                 ssProvider.adjustAlignmentSpeed(-0.1);
             }
-            if (inputHandler.isKeyPressed(KeyEvent.VK_SPACE)) {
+            if (inputHandler.isKeyPressed(GLFW_KEY_SPACE)) {
                 ssProvider.toggleAlignmentStepMode();
             }
             return;
