@@ -28,6 +28,11 @@ public final class Sonic2ObjectIds {
     // ARZ Badniks
     public static final int CHOP_CHOP = 0x91;
 
+    // HTZ Badniks
+    public static final int SPIKER = 0x92;       // Spiker (drill badnik)
+    public static final int SPIKER_DRILL = 0x93; // Spiker drill projectile
+    public static final int SOL = 0x95;          // Sol (fireball badnik)
+
     // CNZ Badniks
     public static final int CRAWL = 0xC8;  // Bouncer badnik from CNZ - bounces player from front
     public static final int WHISP = 0x8C;
