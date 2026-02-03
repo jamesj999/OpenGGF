@@ -68,6 +68,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     private static final int DIAGONAL_PLAYER_X_OFFSET = 0x13;    // 19 pixels from spring X
     private static final int DIAGONAL_PLAYER_Y_OFFSET = 0x13;    // 19 pixels above spring Y
 
+
     /**
      * Per-player state tracking.
      * ROM uses objoff_36 (byte) for Player 1 and objoff_37 (byte) for Player 2,
@@ -77,6 +78,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     private static class PlayerState {
         int state = STATE_EMPTY;
         int launchCooldown = 0;
+        boolean pinballBeforeCapture = false;
     }
 
     // Per-player state map (ROM: objoff_36 for P1, objoff_37 for P2)
@@ -190,6 +192,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         // - Bit 7 (0x80): Skips ALL movement/physics (objectControlled)
         player.setControlLocked(true);
         player.setObjectControlled(true);
+        ps.pinballBeforeCapture = player.getPinballMode();
         player.setPinballMode(true);
 
         // Snap player to center of spring (use setCentreX/Y for ROM-compatible center coords)
@@ -422,6 +425,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
             player.setGSpeed((short) 0x800);  // ROM: move.w #$800,inertia(a1)
         }
 
+
         // ROM: bclr #status.player.on_object,status(a1) - clear "standing on object" flag
         // This is essential to prevent the solid object system from re-capturing the player
         player.setOnObject(false);
@@ -449,6 +453,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         releasePlayer(player, ps, preservePinball);
     }
 
+
     /**
      * Releases player controls and resets per-player spring state.
      *
@@ -460,9 +465,8 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         // ROM: move.b #0,obj_control(a1) clears all control bits
         player.setControlLocked(false);
         player.setObjectControlled(false);
-        if (!preservePinball) {
-            player.setPinballMode(false);
-        }
+        boolean keepPinball = preservePinball || ps.pinballBeforeCapture;
+        player.setPinballMode(keepPinball);
         resetPlayerState(ps);
     }
 
@@ -482,6 +486,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
      */
     private void resetPlayerState(PlayerState ps) {
         ps.state = STATE_EMPTY;
+        ps.pinballBeforeCapture = false;
         // Note: compression is shared and decays in update() when no players are on spring
     }
 
