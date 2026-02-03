@@ -5,7 +5,7 @@ import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.physics.GroundSensor;
 import uk.co.jamesj999.sonic.physics.Sensor;
 
-import static org.lwjgl.opengl.GL11.GL_QUADS;
+import static org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN;
 
 public class Tails extends AbstractPlayableSprite {
 
@@ -39,7 +39,7 @@ public class Tails extends AbstractPlayableSprite {
 			return;
 		}
 		graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.RECTI,
-				GL_QUADS, 1, 1, 1, xPixel, yPixel, xPixel + width, yPixel
+				GL_TRIANGLE_FAN, 1, 1, 1, xPixel, yPixel, xPixel + width, yPixel
 						+ height));
 		graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.VERTEX2I,
 				-1, 1, 0, 0, getCentreX(), getCentreY(), 0, 0));

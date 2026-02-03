@@ -144,6 +144,17 @@ public class GraphicsManager {
 		this.defaultShaderProgram = new ShaderProgram(BASIC_VERTEX_SHADER_PATH, pixelShaderPath); // Load default shader
 		this.defaultShaderProgram.cacheUniformLocations();
 
+		// Debug: print shader info
+		int pid = this.defaultShaderProgram.getProgramId();
+		System.out.println("=== SHADER DEBUG ===");
+		System.out.println("Default shader program ID: " + pid);
+		System.out.println("  Link status: " + org.lwjgl.opengl.GL20.glGetProgrami(pid, org.lwjgl.opengl.GL20.GL_LINK_STATUS));
+		System.out.println("  ProjectionMatrix loc: " + org.lwjgl.opengl.GL20.glGetUniformLocation(pid, "ProjectionMatrix"));
+		System.out.println("  CameraOffset loc: " + org.lwjgl.opengl.GL20.glGetUniformLocation(pid, "CameraOffset"));
+		System.out.println("  Palette loc: " + this.defaultShaderProgram.getPaletteLocation());
+		System.out.println("  IndexedColorTexture loc: " + this.defaultShaderProgram.getIndexedColorTextureLocation());
+		System.out.println("=== END SHADER DEBUG ===");
+
 		this.waterShaderProgram = new WaterShaderProgram(BASIC_VERTEX_SHADER_PATH, WATER_SHADER_PATH); // Load water shader
 		this.waterShaderProgram.cacheUniformLocations();
 
@@ -428,17 +439,14 @@ public class GraphicsManager {
 		}
 
 		if (entry == null) {
-			// Pattern not in atlas - silently skip (may be intentionally uncached, e.g., CNZ slot display)
 			return;
 		}
 		if (paletteTextureId == null) {
-			System.err.println("Palette not cached for pattern " + patternId);
 			return;
 		}
 
 		// Try batched rendering for better performance
-		// Only use batching if enabled, batch is active, and pattern was successfully
-		// added
+		// Only use batching if enabled, batch is active, and pattern was successfully added
 		boolean usedBatch = false;
 		if (entry.atlasIndex() == 0) {
 			if (batchingEnabled && instancedBatchActive && instancedPatternRenderer != null) {
@@ -1139,6 +1147,9 @@ public class GraphicsManager {
 		return spritePriorityShaderProgram;
 	}
 
+	// Debug counter for FBO logging
+	private static int gmFboDebugCounter = 0;
+
 	/**
 	 * Get the tile priority FBO for rendering high-priority tile information.
 	 * Lazily initializes the FBO with specified dimensions if not already done.
@@ -1148,9 +1159,17 @@ public class GraphicsManager {
 	 */
 	public TilePriorityFBO getTilePriorityFBO(int width, int height) {
 		if (headlessMode || !glInitialized) {
+			if (gmFboDebugCounter < 10) {
+				System.out.println("[GraphicsManager] getTilePriorityFBO blocked: headless=" + headlessMode + ", glInitialized=" + glInitialized);
+				gmFboDebugCounter++;
+			}
 			return null;
 		}
 		if (tilePriorityFBO != null && !tilePriorityFBO.isInitialized()) {
+			if (gmFboDebugCounter < 10) {
+				System.out.println("[GraphicsManager] Initializing TilePriorityFBO: " + width + "x" + height);
+				gmFboDebugCounter++;
+			}
 			tilePriorityFBO.init(width, height);
 		} else if (tilePriorityFBO != null) {
 			tilePriorityFBO.resize(width, height);

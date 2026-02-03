@@ -1,11 +1,20 @@
 package uk.co.jamesj999.sonic.debug;
 
+import org.lwjgl.system.MemoryUtil;
+import uk.co.jamesj999.sonic.Engine;
+import uk.co.jamesj999.sonic.graphics.GraphicsManager;
+import uk.co.jamesj999.sonic.graphics.ShaderProgram;
+
 import java.awt.Color;
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
 import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.*;
 
 /**
  * Renders the performance profiling panel in the debug overlay.
@@ -67,6 +76,18 @@ public class PerformancePanelRenderer {
     /** Comparator for sorting sections by name (alphabetical order for stable pie chart) */
     private static final Comparator<SectionStats> NAME_COMPARATOR = Comparator.comparing(SectionStats::name);
 
+    // VAO/VBO for primitive rendering
+    private int vaoId;
+    private int vboId;
+    private FloatBuffer vertexBuffer;
+    private static final int VERTEX_SIZE = 6; // 2 floats position + 4 floats color
+    private static final int MAX_VERTICES = 512;
+
+    // Cached uniform locations
+    private int cachedProjectionLoc = -1;
+    private int cachedCameraOffsetLoc = -1;
+    private int lastProgramId = -1;
+
     public PerformancePanelRenderer(int baseWidth, int baseHeight, GlyphBatchRenderer glyphBatch) {
         this.baseWidth = baseWidth;
         this.baseHeight = baseHeight;
@@ -81,6 +102,75 @@ public class PerformancePanelRenderer {
         this.viewportHeight = viewportHeight;
         this.scaleX = viewportWidth / (double) baseWidth;
         this.scaleY = viewportHeight / (double) baseHeight;
+    }
+
+    private void ensureBuffers() {
+        if (vaoId == 0) {
+            vaoId = glGenVertexArrays();
+            vboId = glGenBuffers();
+            vertexBuffer = MemoryUtil.memAllocFloat(MAX_VERTICES * VERTEX_SIZE);
+        }
+    }
+
+    private void setupShader() {
+        GraphicsManager gm = GraphicsManager.getInstance();
+        ShaderProgram debugShader = gm.getDebugShaderProgram();
+        if (debugShader == null) {
+            return;
+        }
+
+        int programId = debugShader.getProgramId();
+        glUseProgram(programId);
+
+        // Cache uniform locations if program changed
+        if (programId != lastProgramId) {
+            cachedProjectionLoc = glGetUniformLocation(programId, "ProjectionMatrix");
+            cachedCameraOffsetLoc = glGetUniformLocation(programId, "CameraOffset");
+            lastProgramId = programId;
+        }
+
+        // Set projection matrix
+        if (cachedProjectionLoc != -1) {
+            Engine engine = gm.getEngine();
+            if (engine != null) {
+                float[] projMatrix = engine.getProjectionMatrixBuffer();
+                if (projMatrix != null) {
+                    glUniformMatrix4fv(cachedProjectionLoc, false, projMatrix);
+                }
+            }
+        }
+
+        // Set camera offset to zero - positions are in screen space
+        if (cachedCameraOffsetLoc != -1) {
+            glUniform2f(cachedCameraOffsetLoc, 0.0f, 0.0f);
+        }
+    }
+
+    private void putVertex(float x, float y, float r, float g, float b, float a) {
+        vertexBuffer.put(x).put(y).put(r).put(g).put(b).put(a);
+    }
+
+    private void drawVertices(int drawMode, int vertexCount) {
+        if (vertexCount <= 0) return;
+
+        glBindVertexArray(vaoId);
+        glBindBuffer(GL_ARRAY_BUFFER, vboId);
+        glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_DYNAMIC_DRAW);
+
+        // Position attribute (location 0)
+        glVertexAttribPointer(0, 2, GL_FLOAT, false, VERTEX_SIZE * 4, 0L);
+        glEnableVertexAttribArray(0);
+
+        // Color attribute (location 1)
+        glVertexAttribPointer(1, 4, GL_FLOAT, false, VERTEX_SIZE * 4, 2 * 4L);
+        glEnableVertexAttribArray(1);
+
+        glDrawArrays(drawMode, 0, vertexCount);
+
+        glDisableVertexAttribArray(0);
+        glDisableVertexAttribArray(1);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
     }
 
     /**
@@ -208,7 +298,9 @@ public class PerformancePanelRenderer {
             return;
         }
 
-        glDisable(GL_TEXTURE_2D);
+        ensureBuffers();
+        setupShader();
+
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -222,35 +314,48 @@ public class PerformancePanelRenderer {
 
             int colorIndex = getColorIndexForSection(section.name());
             float[] color = SECTION_COLORS[colorIndex];
-            glColor3f(color[0], color[1], color[2]);
 
-            glBegin(GL_TRIANGLE_FAN);
-            glVertex2f(centerX, centerY);
+            // Build triangle fan for pie slice
+            vertexBuffer.clear();
+            int vertexCount = 0;
+
+            // Center vertex
+            putVertex(centerX, centerY, color[0], color[1], color[2], 1.0f);
+            vertexCount++;
 
             for (float a = startAngle; a >= startAngle - sweepAngle; a -= 10) {
                 float rad = (float) Math.toRadians(a);
-                glVertex2f(centerX + radius * (float) Math.cos(rad),
-                              centerY + radius * (float) Math.sin(rad));
+                putVertex(centerX + radius * (float) Math.cos(rad),
+                         centerY + radius * (float) Math.sin(rad),
+                         color[0], color[1], color[2], 1.0f);
+                vertexCount++;
             }
             float endRad = (float) Math.toRadians(startAngle - sweepAngle);
-            glVertex2f(centerX + radius * (float) Math.cos(endRad),
-                          centerY + radius * (float) Math.sin(endRad));
-            glEnd();
+            putVertex(centerX + radius * (float) Math.cos(endRad),
+                     centerY + radius * (float) Math.sin(endRad),
+                     color[0], color[1], color[2], 1.0f);
+            vertexCount++;
+
+            vertexBuffer.flip();
+            drawVertices(GL_TRIANGLE_FAN, vertexCount);
 
             startAngle -= sweepAngle;
         }
 
         // Outline
-        glColor3f(0.7f, 0.7f, 0.7f);
-        glBegin(GL_LINE_LOOP);
+        vertexBuffer.clear();
+        int outlineVertices = 0;
         for (int a = 0; a < 360; a += 15) {
             float rad = (float) Math.toRadians(a);
-            glVertex2f(centerX + radius * (float) Math.cos(rad),
-                          centerY + radius * (float) Math.sin(rad));
+            putVertex(centerX + radius * (float) Math.cos(rad),
+                     centerY + radius * (float) Math.sin(rad),
+                     0.7f, 0.7f, 0.7f, 1.0f);
+            outlineVertices++;
         }
-        glEnd();
+        vertexBuffer.flip();
+        drawVertices(GL_LINE_LOOP, outlineVertices);
 
-        glEnable(GL_TEXTURE_2D);
+        glUseProgram(0);
     }
 
     /**
@@ -281,49 +386,54 @@ public class PerformancePanelRenderer {
             graphMax = (float) Math.ceil(graphMax); // Round to 1ms
         }
 
-        glDisable(GL_TEXTURE_2D);
-        glEnable(GL_BLEND);
+        ensureBuffers();
+        setupShader();
 
-        // Background
-        glColor4f(0.0f, 0.0f, 0.0f, 0.6f);
-        glBegin(GL_QUADS);
-        glVertex2f(x, y);
-        glVertex2f(x + width, y);
-        glVertex2f(x + width, y + height);
-        glVertex2f(x, y + height);
-        glEnd();
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        // Background - two triangles forming a quad
+        vertexBuffer.clear();
+        putVertex(x, y, 0.0f, 0.0f, 0.0f, 0.6f);
+        putVertex(x + width, y, 0.0f, 0.0f, 0.0f, 0.6f);
+        putVertex(x + width, y + height, 0.0f, 0.0f, 0.0f, 0.6f);
+        putVertex(x, y + height, 0.0f, 0.0f, 0.0f, 0.6f);
+        vertexBuffer.flip();
+        drawVertices(GL_TRIANGLE_FAN, 4);
 
         // Mid-line (at 50% of scale)
         float midY = y + 0.5f * height;
-        glColor3f(0.3f, 0.3f, 0.3f);
-        glBegin(GL_LINES);
-        glVertex2f(x, midY);
-        glVertex2f(x + width, midY);
-        glEnd();
+        vertexBuffer.clear();
+        putVertex(x, midY, 0.3f, 0.3f, 0.3f, 1.0f);
+        putVertex(x + width, midY, 0.3f, 0.3f, 0.3f, 1.0f);
+        vertexBuffer.flip();
+        drawVertices(GL_LINES, 2);
 
         // Frame time line
-        glColor3f(0.3f, 0.9f, 0.3f);
-        glBegin(GL_LINE_STRIP);
+        vertexBuffer.clear();
+        int lineVertices = 0;
         for (int i = 0; i < historySize; i++) {
             int idx = (currentIndex + i) % historySize;
             float frameTime = history[idx];
             float graphX = x + (float) i / historySize * width;
             float normalizedY = Math.min(frameTime / graphMax, 1.0f);
             float graphY = y + normalizedY * height;
-            glVertex2f(graphX, graphY);
+            putVertex(graphX, graphY, 0.3f, 0.9f, 0.3f, 1.0f);
+            lineVertices++;
         }
-        glEnd();
+        vertexBuffer.flip();
+        drawVertices(GL_LINE_STRIP, lineVertices);
 
         // Border
-        glColor3f(0.5f, 0.5f, 0.5f);
-        glBegin(GL_LINE_LOOP);
-        glVertex2f(x, y);
-        glVertex2f(x + width, y);
-        glVertex2f(x + width, y + height);
-        glVertex2f(x, y + height);
-        glEnd();
+        vertexBuffer.clear();
+        putVertex(x, y, 0.5f, 0.5f, 0.5f, 1.0f);
+        putVertex(x + width, y, 0.5f, 0.5f, 0.5f, 1.0f);
+        putVertex(x + width, y + height, 0.5f, 0.5f, 0.5f, 1.0f);
+        putVertex(x, y + height, 0.5f, 0.5f, 0.5f, 1.0f);
+        vertexBuffer.flip();
+        drawVertices(GL_LINE_LOOP, 4);
 
-        glEnable(GL_TEXTURE_2D);
+        glUseProgram(0);
     }
 
     /** Scale game X to viewport X */
@@ -334,5 +444,21 @@ public class PerformancePanelRenderer {
     /** Scale game Y to viewport Y (for TextRenderer) */
     private int uiY(int gameY) {
         return (int) Math.round(gameY * scaleY);
+    }
+
+    /** Cleanup GL resources */
+    public void cleanup() {
+        if (vboId != 0) {
+            glDeleteBuffers(vboId);
+            vboId = 0;
+        }
+        if (vaoId != 0) {
+            glDeleteVertexArrays(vaoId);
+            vaoId = 0;
+        }
+        if (vertexBuffer != null) {
+            MemoryUtil.memFree(vertexBuffer);
+            vertexBuffer = null;
+        }
     }
 }

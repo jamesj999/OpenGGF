@@ -165,7 +165,21 @@ public class PatternRenderCommand implements GLCommandable {
             glUniform1i(shaderProgram.getPaletteLocation(), 0);
             glUniform1i(shaderProgram.getIndexedColorTextureLocation(), 1);
 
+            // Set projection matrix uniform - REQUIRED for correct rendering
+            int projectionLoc = glGetUniformLocation(shaderProgram.getProgramId(), "ProjectionMatrix");
+            if (projectionLoc != -1) {
+                uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
+                if (engine != null) {
+                    float[] projMatrix = engine.getProjectionMatrixBuffer();
+                    if (projMatrix != null) {
+                        glUniformMatrix4fv(projectionLoc, false, projMatrix);
+                    }
+                }
+            }
+
             // Set camera offset uniform
+            // X is negated to scroll objects left when camera moves right
+            // Y is NOT negated because vertex Y is already in screen space (flipped from Genesis coords)
             int cameraOffsetLoc = glGetUniformLocation(shaderProgram.getProgramId(), "CameraOffset");
             if (cameraOffsetLoc != -1) {
                 glUniform2f(cameraOffsetLoc, -cameraX, cameraY);

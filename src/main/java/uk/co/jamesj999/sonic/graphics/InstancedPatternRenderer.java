@@ -238,7 +238,22 @@ public class InstancedPatternRenderer {
         return true;
     }
 
+    // Debug counter to limit log spam
+    private static int debugInstancedFrameCounter = 0;
+    // Flag to track when to start logging (after title card)
+    private static boolean logAfterTitleCard = false;
+    public static void enablePostTitleCardLogging() {
+        logAfterTitleCard = true;
+        debugInstancedFrameCounter = 0;
+    }
+
     public GLCommandable endBatch() {
+        // Debug output for first few frames after title card exits
+        if (logAfterTitleCard && debugInstancedFrameCounter < 20) {
+            System.out.println("[InstancedPatternRenderer] POST_TITLE: endBatch: instanceCount=" + instanceCount);
+            debugInstancedFrameCounter++;
+        }
+
         if (instanceCount == 0) {
             batchActive = false;
             return null;
@@ -411,6 +426,9 @@ public class InstancedPatternRenderer {
             if (instanceCount == 0 || instancedShader == null) {
                 return;
             }
+
+            // Clear any accumulated GL errors from previous operations
+            while (glGetError() != GL_NO_ERROR) { /* drain errors */ }
             GraphicsManager gm = GraphicsManager.getInstance();
             boolean useWaterShader = gm.getShaderProgram() instanceof WaterShaderProgram;
             // Use captured priority shader state from batch creation time
@@ -443,9 +461,27 @@ public class InstancedPatternRenderer {
                 if (fbo != null && fbo.isInitialized()) {
                     // Use cached uniform locations instead of glGetUniformLocation every batch
                     if (cachedTilePriorityTexLoc != -1) {
-                        glActiveTexture(GL_TEXTURE3);
-                        glBindTexture(GL_TEXTURE_2D, fbo.getTextureId());
-                        glUniform1i(cachedTilePriorityTexLoc, 3);
+                        int fboTexId = fbo.getTextureId();
+                        if (logAfterTitleCard && debugInstancedFrameCounter < 10) {
+                            System.out.println("[InstancedPatternRenderer] POST_TITLE: Binding TilePriorityFBO texture: " +
+                                fboTexId + " to unit 3, uniformLoc=" + cachedTilePriorityTexLoc);
+                            // Check GL errors before binding
+                            int glErr = glGetError();
+                            if (glErr != GL_NO_ERROR) {
+                                System.out.println("[InstancedPatternRenderer] POST_TITLE: GL error before bind: " + glErr);
+                            }
+                        }
+                        // Use texture unit 5 for TilePriorityFBO to avoid conflicts with TilemapGpuRenderer (0-4)
+                        glActiveTexture(GL_TEXTURE5);
+                        glBindTexture(GL_TEXTURE_2D, fboTexId);
+                        if (logAfterTitleCard && debugInstancedFrameCounter < 10) {
+                            // Check GL errors after binding
+                            int glErr = glGetError();
+                            if (glErr != GL_NO_ERROR) {
+                                System.out.println("[InstancedPatternRenderer] POST_TITLE: GL error after bind: " + glErr);
+                            }
+                        }
+                        glUniform1i(cachedTilePriorityTexLoc, 5);
 
                         // Use cached viewport dimensions from GraphicsManager
                         if (cachedScreenSizeLoc != -1) {
@@ -456,6 +492,12 @@ public class InstancedPatternRenderer {
                             glUniform2f(cachedViewportOffsetLoc, gm.getViewportX(), gm.getViewportY());
                         }
                         glActiveTexture(GL_TEXTURE0);
+                    }
+                } else {
+                    // DEBUG: FBO not available - log it
+                    if (logAfterTitleCard && debugInstancedFrameCounter < 10) {
+                        System.out.println("[InstancedPatternRenderer] POST_TITLE: Priority shader but FBO not ready: fbo=" + fbo +
+                            ", initialized=" + (fbo != null ? fbo.isInitialized() : "N/A"));
                     }
                 }
 
@@ -534,7 +576,28 @@ public class InstancedPatternRenderer {
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+            // Set projection matrix uniform - REQUIRED for correct rendering
+            int projectionLoc;
+            if (usePriorityShader) {
+                projectionLoc = cachedPriorityProjectionLoc;
+            } else if (useWaterShader) {
+                projectionLoc = cachedWaterProjectionLoc;
+            } else {
+                projectionLoc = cachedDefaultProjectionLoc;
+            }
+            if (projectionLoc != -1) {
+                uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
+                if (engine != null) {
+                    float[] projMatrix = engine.getProjectionMatrixBuffer();
+                    if (projMatrix != null) {
+                        glUniformMatrix4fv(projectionLoc, false, projMatrix);
+                    }
+                }
+            }
+
             // Set camera offset uniform (replaces glTranslatef)
+            // X is negated to scroll objects left when camera moves right
+            // Y is NOT negated because vertex Y is already in screen space (flipped from Genesis coords)
             int cameraOffsetLoc = glGetUniformLocation(shader.getProgramId(), "CameraOffset");
             if (cameraOffsetLoc != -1) {
                 glUniform2f(cameraOffsetLoc, -cameraX, cameraY);

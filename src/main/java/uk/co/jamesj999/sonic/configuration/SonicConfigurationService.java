@@ -149,9 +149,8 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.SCREEN_HEIGHT_PIXELS, 240);
 		putDefault(SonicConfiguration.SCALE, 1.0);
 		putDefault(SonicConfiguration.ROM_FILENAME, "Sonic The Hedgehog 2 (W) (REV01) [!].gen");
-		// Force debug view DISABLED - GlyphBatchRenderer causes macOS freeze in glfwPollEvents()
-		// TODO: Fix GlyphAtlas/Java2D interaction with macOS AppKit event loop
-		config.put(SonicConfiguration.DEBUG_VIEW_ENABLED.name(), false);
+		// Debug view now eagerly initialized in Engine.init() to avoid macOS freeze
+		putDefault(SonicConfiguration.DEBUG_VIEW_ENABLED, true);
 		putDefault(SonicConfiguration.DEBUG_COLLISION_VIEW_ENABLED, false);
 		putDefault(SonicConfiguration.DAC_INTERPOLATE, true);
 		putDefault(SonicConfiguration.FM6_DAC_OFF, true); // Default true for Sonic 2 parity
@@ -169,14 +168,14 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.NEXT_ZONE, GLFW_KEY_PAGE_DOWN);
 		putDefault(SonicConfiguration.DEBUG_MODE_KEY, GLFW_KEY_D);
 		putDefault(SonicConfiguration.FPS, 60);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_KEY, GLFW_KEY_HOME);
+		putDefault(SonicConfiguration.SPECIAL_STAGE_KEY, GLFW_KEY_TAB);
 		putDefault(SonicConfiguration.SPECIAL_STAGE_COMPLETE_KEY, GLFW_KEY_END);
 		putDefault(SonicConfiguration.SPECIAL_STAGE_FAIL_KEY, GLFW_KEY_DELETE);
 		putDefault(SonicConfiguration.SPECIAL_STAGE_SPRITE_DEBUG_KEY, GLFW_KEY_F12);
 		putDefault(SonicConfiguration.SPECIAL_STAGE_PLANE_DEBUG_KEY, GLFW_KEY_F3);
 		putDefault(SonicConfiguration.PAUSE_KEY, GLFW_KEY_ENTER);
 		putDefault(SonicConfiguration.FRAME_STEP_KEY, GLFW_KEY_Q);
-		putDefault(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, GLFW_KEY_END);
+		putDefault(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, GLFW_KEY_C);
 	}
 
 	private void putDefault(SonicConfiguration key, Object value) {
