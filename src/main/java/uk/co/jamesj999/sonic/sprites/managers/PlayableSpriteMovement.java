@@ -90,13 +90,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	@Override
-	public void handleMovement(boolean up, boolean down, boolean left, boolean right, boolean jump, boolean testKey) {
+	public void handleMovement(boolean up, boolean down, boolean left, boolean right, boolean jump, boolean testKey,
+			boolean speedUp, boolean slowDown) {
 		// Note: Raw input state for objects is now stored in SpriteManager BEFORE filtering,
 		// so objects can query button state even when control is locked (ROM: obj_control).
 		// The parameters here are already filtered by control lock state.
 
 		if (sprite.isDebugMode()) {
-			handleDebugMovement(up, down, left, right);
+			handleDebugMovement(up, down, left, right, speedUp, slowDown);
 			return;
 		}
 
@@ -861,7 +862,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		if (pushSensors == null) return;
 
 		for (int i = 0; i < 2; i++) {
-			SensorResult result = pushSensors[i].scan((short) 0, (short) 0);
+			Sensor sensor = pushSensors[i];
+			SensorResult result = sensor.scan((short) 0, (short) 0);
 			if (result != null && result.distance() < 0) {
 				moveForSensorResult(result);
 				sprite.setXSpeed((short) 0);
@@ -874,7 +876,9 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		Sensor[] pushSensors = sprite.getPushSensors();
 		if (pushSensors == null) return false;
 
-		SensorResult result = pushSensors[sensorIndex].scan((short) 0, (short) 0);
+		Sensor sensor = pushSensors[sensorIndex];
+		SensorResult result = sensor.scan((short) 0, (short) 0);
+
 		if (result != null && result.distance() < 0) {
 			moveForSensorResult(result);
 			sprite.setXSpeed((short) 0);
@@ -948,6 +952,21 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sensor.setActive(wasActive);
 
 		if (result == null || result.distance() >= 0) {
+			return;
+		}
+
+		// ROM-accurate: Only process wall collision if terrain is actually a wall.
+		// The ROM's FindWall relies on ColArrayHorizontal having 0 for floor slopes,
+		// but due to velocity prediction scanning deep into slope tiles, we may get
+		// false collision detections. Filter by terrain angle to match ROM behavior.
+		//
+		// Walls have angles in the range 0x40-0xBF (90-270 degrees from horizontal).
+		// Floor slopes have angles 0x00-0x3F (0-45 degrees) and 0xC0-0xFF (315-360 degrees).
+		// Only true walls should trigger the collision response that zeros gSpeed.
+		int terrainAngle = result.angle() & 0xFF;
+		boolean isWallLike = (terrainAngle >= 0x40 && terrainAngle < 0xC0);
+		if (!isWallLike) {
+			// Terrain is floor-like or ceiling-like, not a wall - skip collision response
 			return;
 		}
 
@@ -1084,6 +1103,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/** Sonic_ResetOnFloor: Clear landing-related flags (s2.asm:37744) */
 	private void resetOnFloor() {
+		// Don't reset states if player is controlled by an object (e.g., LauncherSpring).
+		// The controlling object manages these states directly.
+		if (sprite.isObjectControlled()) {
+			return;
+		}
+
 		if (sprite.getRolling() && !sprite.getPinballMode()) {
 			sprite.setRolling(false);
 			sprite.setY((short) (sprite.getY() - sprite.getRollHeightAdjustment()));
@@ -1293,11 +1318,21 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		jumpPrevious = jump;
 	}
 
-	private void handleDebugMovement(boolean up, boolean down, boolean left, boolean right) {
-		if (left) sprite.setX((short) (sprite.getX() - DEBUG_MOVE_SPEED));
-		if (right) sprite.setX((short) (sprite.getX() + DEBUG_MOVE_SPEED));
-		if (up) sprite.setY((short) (sprite.getY() - DEBUG_MOVE_SPEED));
-		if (down) sprite.setY((short) (sprite.getY() + DEBUG_MOVE_SPEED));
+	private void handleDebugMovement(boolean up, boolean down, boolean left, boolean right, boolean speedUp,
+			boolean slowDown) {
+		double multiplier = 1.0;
+		if (speedUp) {
+			multiplier *= 2.0;
+		}
+		if (slowDown) {
+			multiplier *= 0.5;
+		}
+		int moveSpeed = (int) Math.max(1, Math.round(DEBUG_MOVE_SPEED * multiplier));
+
+		if (left) sprite.setX((short) (sprite.getX() - moveSpeed));
+		if (right) sprite.setX((short) (sprite.getX() + moveSpeed));
+		if (up) sprite.setY((short) (sprite.getY() - moveSpeed));
+		if (down) sprite.setY((short) (sprite.getY() + moveSpeed));
 	}
 
 	private void handleTestKey(boolean testKey) {
@@ -1369,13 +1404,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setCrouching(crouching);
 	}
 
-	private void applyUpwardVelocityCap() {
-		if (sprite.getAir() && !jumpPressed && !sprite.getPinballMode()) {
-			if (sprite.getYSpeed() < UPWARD_VELOCITY_CAP) {
-				sprite.setYSpeed((short) UPWARD_VELOCITY_CAP);
-			}
-		}
-	}
+    private void applyUpwardVelocityCap() {
+        if (sprite.getAir() && !jumpPressed && !sprite.getPinballMode()) {
+            if (sprite.getYSpeed() < UPWARD_VELOCITY_CAP) {
+                sprite.setYSpeed((short) UPWARD_VELOCITY_CAP);
+            }
+        }
+    }
 
 	private void applyDeathMovement() {
 		sprite.setYSpeed((short) (sprite.getYSpeed() + sprite.getGravity()));

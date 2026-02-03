@@ -17,6 +17,9 @@ import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.ChopChopBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.WhispBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.GrounderBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.CrawlBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SpikerBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SpikerDrillObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SolBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2EHZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CPZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2ARZBossInstance;
@@ -242,6 +245,17 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         registerFactory(Sonic2ObjectIds.GROUNDER_IN_WALL2,
                 (spawn, registry) -> new GrounderBadnikInstance(spawn, LevelManager.getInstance(), true));
         // Note: GROUNDER_WALL (0x8F) and GROUNDER_ROCKS (0x90) are spawned dynamically
+
+        // HTZ Badniks
+        registerFactory(Sonic2ObjectIds.SPIKER,
+                (spawn, registry) -> new SpikerBadnikInstance(spawn, LevelManager.getInstance()));
+        registerFactory(Sonic2ObjectIds.SPIKER_DRILL,
+                (spawn, registry) -> new SpikerDrillObjectInstance(
+                        spawn, spawn.x(), spawn.y(),
+                        (spawn.renderFlags() & 0x01) != 0,
+                        (spawn.renderFlags() & 0x02) != 0));
+        registerFactory(Sonic2ObjectIds.SOL,
+                (spawn, registry) -> new SolBadnikInstance(spawn, LevelManager.getInstance()));
 
         // CNZ Badniks
         registerFactory(Sonic2ObjectIds.CRAWL,
