@@ -48,6 +48,14 @@ public class InstancedPatternRenderer {
     private AttribLocations waterAttribs;
     private AttribLocations priorityAttribs;
 
+    // Cached uniform locations for projection and camera offset (shared by all shaders)
+    private int cachedDefaultProjectionLoc = -1;
+    private int cachedDefaultCameraOffsetLoc = -1;
+    private int cachedWaterProjectionLoc = -1;
+    private int cachedWaterCameraOffsetLoc = -1;
+    private int cachedPriorityProjectionLoc = -1;
+    private int cachedPriorityCameraOffsetLoc = -1;
+
     // Cached uniform locations for priority shader to avoid glGetUniformLocation calls
     private int cachedTilePriorityTexLoc = -1;
     private int cachedScreenSizeLoc = -1;
@@ -88,8 +96,20 @@ public class InstancedPatternRenderer {
         waterAttribs = queryAttribLocations(instancedWaterShader);
         priorityAttribs = queryAttribLocations(instancedPriorityShader);
 
-        // Cache uniform locations for priority shader
+        // Cache projection and camera offset uniform locations for all shaders
+        int defaultProgramId = instancedShader.getProgramId();
+        cachedDefaultProjectionLoc = glGetUniformLocation(defaultProgramId, "ProjectionMatrix");
+        cachedDefaultCameraOffsetLoc = glGetUniformLocation(defaultProgramId, "CameraOffset");
+
+        int waterProgramId = instancedWaterShader.getProgramId();
+        cachedWaterProjectionLoc = glGetUniformLocation(waterProgramId, "ProjectionMatrix");
+        cachedWaterCameraOffsetLoc = glGetUniformLocation(waterProgramId, "CameraOffset");
+
         int priorityProgramId = instancedPriorityShader.getProgramId();
+        cachedPriorityProjectionLoc = glGetUniformLocation(priorityProgramId, "ProjectionMatrix");
+        cachedPriorityCameraOffsetLoc = glGetUniformLocation(priorityProgramId, "CameraOffset");
+
+        // Cache uniform locations for priority shader
         cachedTilePriorityTexLoc = glGetUniformLocation(priorityProgramId, "TilePriorityTexture");
         cachedScreenSizeLoc = glGetUniformLocation(priorityProgramId, "ScreenSize");
         cachedViewportOffsetLoc = glGetUniformLocation(priorityProgramId, "ViewportOffset");

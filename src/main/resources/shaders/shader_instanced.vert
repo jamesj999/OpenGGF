@@ -8,10 +8,13 @@ attribute vec2 InstanceUv1;
 attribute float InstancePalette;
 attribute float InstanceHighPriority;  // 0.0 = low priority, 1.0 = high priority
 
+uniform mat4 ProjectionMatrix;
+uniform vec2 CameraOffset;
+
 void main()
 {
-    vec2 pos = InstancePos + (VertexPos * InstanceSize);
-    gl_Position = gl_ModelViewProjectionMatrix * vec4(pos, 0.0, 1.0);
+    vec2 pos = InstancePos + (VertexPos * InstanceSize) + CameraOffset;
+    gl_Position = ProjectionMatrix * vec4(pos, 0.0, 1.0);
 
     vec2 uv = mix(InstanceUv0, InstanceUv1, VertexPos);
     gl_TexCoord[0] = vec4(uv, 0.0, 1.0);

@@ -278,8 +278,10 @@ public class GraphicsManager {
 	}
 
 	/**
-	 * Reset OpenGL state for fixed-function rendering.
-	 * Call this between shader-based and fixed-function rendering phases.
+	 * Reset OpenGL state for shader-based rendering.
+	 * Call this between different rendering phases to ensure clean state.
+	 * Note: Fixed-function calls (glDisable(GL_TEXTURE_2D), glMatrixMode, etc.)
+	 * have been removed for OpenGL 4.1 core profile compatibility.
 	 */
 	public void resetForFixedFunction() {
 		if (headlessMode || !glInitialized) {
@@ -293,13 +295,6 @@ public class GraphicsManager {
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		glActiveTexture(GL_TEXTURE0);
-		// Disable texturing for solid color drawing
-		glDisable(GL_TEXTURE_2D);
-		// Reset color to white
-		glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-		// Reset matrix
-		glMatrixMode(GL_MODELVIEW);
-		glLoadIdentity();
 	}
 
 	/**
@@ -1053,18 +1048,24 @@ public class GraphicsManager {
 		return backgroundRenderer;
 	}
 
+	/**
+	 * Enqueue OpenGL state for debug line rendering.
+	 * Note: Deprecated fixed-function calls (GL_TEXTURE_2D, GL_LIGHTING, GL_COLOR_MATERIAL)
+	 * have been removed for OpenGL 4.1 core profile compatibility.
+	 */
 	public void enqueueDebugLineState() {
 		ShaderProgram debugShader = getDebugShaderProgram();
 		int programId = debugShader != null ? debugShader.getProgramId() : 0;
 		registerCommand(new GLCommand(GLCommand.CommandType.USE_PROGRAM, programId));
-		registerCommand(new GLCommand(GLCommand.CommandType.DISABLE, GL_TEXTURE_2D));
-		registerCommand(new GLCommand(GLCommand.CommandType.DISABLE, GL_LIGHTING));
-		registerCommand(new GLCommand(GLCommand.CommandType.DISABLE, GL_COLOR_MATERIAL));
 		registerCommand(new GLCommand(GLCommand.CommandType.DISABLE, GL_DEPTH_TEST));
 	}
 
+	/**
+	 * Enqueue OpenGL state for default shader rendering.
+	 * Note: glEnable(GL_TEXTURE_2D) has been removed for OpenGL 4.1 core profile compatibility.
+	 * Texturing is now controlled entirely through shaders.
+	 */
 	public void enqueueDefaultShaderState() {
-		registerCommand(new GLCommand(GLCommand.CommandType.ENABLE, GL_TEXTURE_2D));
 		ShaderProgram shader = getShaderProgram();
 		if (shader != null) {
 			int programId = shader.getProgramId();

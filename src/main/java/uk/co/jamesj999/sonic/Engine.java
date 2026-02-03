@@ -93,9 +93,12 @@ public class Engine {
 	private int viewportWidth = 0;
 	private int viewportHeight = 0;
 
-	// JOML matrices for projection
+	// JOML matrices for projection - accessible for shader uniforms
 	private final org.joml.Matrix4f projectionMatrix = new org.joml.Matrix4f();
 	private final float[] matrixBuffer = new float[16];
+
+	// Static instance for singleton access
+	private static Engine instance;
 
 	// Frame timing
 	private int targetFps;
@@ -103,6 +106,7 @@ public class Engine {
 	private boolean paused = false;
 
 	public Engine() {
+		instance = this;
 		this.windowWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH);
 		this.windowHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT);
 		this.targetFps = configService.getInt(SonicConfiguration.FPS);
@@ -139,10 +143,11 @@ public class Engine {
 		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
-		// Request OpenGL 2.1 for compatibility with legacy fixed-function code
-		// Note: instanced rendering features (GL 3.3+) will be disabled on macOS
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+		// Request OpenGL 4.1 core profile for macOS compatibility
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE); // Required for macOS
 
 		// Create the window
 		String version = SonicConfigurationService.ENGINE_VERSION;
@@ -218,9 +223,6 @@ public class Engine {
 		// OpenGL context, or any context that is managed externally.
 		GL.createCapabilities();
 
-		// Initialize OpenGL state
-		glShadeModel(GL_SMOOTH);
-
 		try {
 			graphicsManager.init(RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
 		} catch (IOException e) {
@@ -289,16 +291,9 @@ public class Engine {
 		// Cache viewport dimensions in GraphicsManager
 		graphicsManager.setViewport(viewportX, viewportY, viewportWidth, viewportHeight);
 
-		// Setup orthographic projection using JOML
-		glMatrixMode(GL_PROJECTION);
-		glLoadIdentity();
+		// Setup orthographic projection using JOML - stored for shader access
 		projectionMatrix.identity().ortho2D(0, (float) projectionWidth, 0, (float) realHeight);
 		projectionMatrix.get(matrixBuffer);
-		glLoadMatrixf(matrixBuffer);
-
-		// Enable the model-view transform
-		glMatrixMode(GL_MODELVIEW);
-		glLoadIdentity();
 	}
 
 	private void loop() {
@@ -347,13 +342,9 @@ public class Engine {
 		// Set the viewport to the aspect-ratio-correct area for game rendering
 		glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
 
-		// Update projection matrix for current mode
-		glMatrixMode(GL_PROJECTION);
-		glLoadIdentity();
+		// Update projection matrix for current mode - stored for shader access
 		projectionMatrix.identity().ortho2D(0, (float) projectionWidth, 0, (float) realHeight);
 		projectionMatrix.get(matrixBuffer);
-		glLoadMatrixf(matrixBuffer);
-		glMatrixMode(GL_MODELVIEW);
 
 		// Set clear color based on game mode and clear the game viewport
 		if (getCurrentGameMode() == GameMode.SPECIAL_STAGE) {
@@ -370,9 +361,6 @@ public class Engine {
 		glClear(GL_COLOR_BUFFER_BIT);
 		glDisable(GL_SCISSOR_TEST);
 
-		glLoadIdentity();
-		glDisable(GL_LIGHTING);
-		glDisable(GL_COLOR_MATERIAL);
 		glColorMask(true, true, true, true);
 
 		profiler.beginSection("update");
@@ -507,11 +495,7 @@ public class Engine {
 		}
 		glActiveTexture(GL_TEXTURE0);
 		glUseProgram(0);
-		glDisable(GL_LIGHTING);
-		glDisable(GL_COLOR_MATERIAL);
 		glDisable(GL_DEPTH_TEST);
-		glColor4f(1f, 1f, 1f, 1f);
-		glEnable(GL_TEXTURE_2D);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -519,13 +503,9 @@ public class Engine {
 
 		glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
 
-		glMatrixMode(GL_PROJECTION);
-		glLoadIdentity();
+		// Update projection matrix for overlay - stored for shader access
 		projectionMatrix.identity().ortho2D(0, (float) projectionWidth, 0, (float) realHeight);
 		projectionMatrix.get(matrixBuffer);
-		glLoadMatrixf(matrixBuffer);
-		glMatrixMode(GL_MODELVIEW);
-		glLoadIdentity();
 
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -565,5 +545,29 @@ public class Engine {
 	// For testing - get window handle
 	long getWindowHandle() {
 		return window;
+	}
+
+	/**
+	 * Gets the singleton instance of the Engine.
+	 * @return the Engine instance, or null if not yet created
+	 */
+	public static Engine getInstance() {
+		return instance;
+	}
+
+	/**
+	 * Gets the current projection matrix for use in shaders.
+	 * @return the projection matrix
+	 */
+	public org.joml.Matrix4f getProjectionMatrix() {
+		return projectionMatrix;
+	}
+
+	/**
+	 * Gets the projection matrix data as a float array for shader uniforms.
+	 * @return the projection matrix as a 16-element float array
+	 */
+	public float[] getProjectionMatrixBuffer() {
+		return matrixBuffer;
 	}
 }
