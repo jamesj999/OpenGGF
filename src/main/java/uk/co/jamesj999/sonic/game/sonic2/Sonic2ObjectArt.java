@@ -2430,14 +2430,16 @@ public class Sonic2ObjectArt {
 
         // Frame 4: Head with priority flag (used for vibration toggle)
         // ROM: spritePiece -$C, -$20, 3, 2, 0, 0, 0, 1, 0
-        // The only difference from frame 1 is priority=1, which we can't represent.
-        // Visually identical to frame 1 (no flip flags).
+        // The priority=1 flag causes the VDP to render this in front of the playfield,
+        // creating a "flash" effect when toggling between frame 1 and frame 4/5.
         List<SpriteMappingPiece> frame4 = new ArrayList<>();
-        frame4.add(new SpriteMappingPiece(-12, -32, 3, 2, 0, false, false, 0));
+        frame4.add(new SpriteMappingPiece(-12, -32, 3, 2, 0, false, false, 0, true));
         frames.add(new SpriteMappingFrame(frame4));
 
         // Frame 5: Same as frame 4 (duplicate in ROM)
-        frames.add(new SpriteMappingFrame(frame4));
+        List<SpriteMappingPiece> frame5 = new ArrayList<>();
+        frame5.add(new SpriteMappingPiece(-12, -32, 3, 2, 0, false, false, 0, true));
+        frames.add(new SpriteMappingFrame(frame5));
 
         return frames;
     }
@@ -2481,14 +2483,16 @@ public class Sonic2ObjectArt {
 
         // Frame 4: Body with priority flag (used for vibration toggle)
         // ROM: spritePiece -$10, -$10, 4, 4, 0, 0, 0, 1, 0
-        // The only difference from frame 1 is priority=1, which we can't represent.
-        // Visually identical to frame 1 (no flip flags).
+        // The priority=1 flag causes the VDP to render this in front of the playfield,
+        // creating a "flash" effect when toggling between frame 1 and frame 4/5.
         List<SpriteMappingPiece> frame4 = new ArrayList<>();
-        frame4.add(new SpriteMappingPiece(-16, -16, 4, 4, 0, false, false, 0));
+        frame4.add(new SpriteMappingPiece(-16, -16, 4, 4, 0, false, false, 0, true));
         frames.add(new SpriteMappingFrame(frame4));
 
         // Frame 5: Same as frame 4 (duplicate)
-        frames.add(new SpriteMappingFrame(frame4));
+        List<SpriteMappingPiece> frame5 = new ArrayList<>();
+        frame5.add(new SpriteMappingPiece(-16, -16, 4, 4, 0, false, false, 0, true));
+        frames.add(new SpriteMappingFrame(frame5));
 
         return frames;
     }

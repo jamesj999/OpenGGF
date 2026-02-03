@@ -1084,6 +1084,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/** Sonic_ResetOnFloor: Clear landing-related flags (s2.asm:37744) */
 	private void resetOnFloor() {
+		// Don't reset states if player is controlled by an object (e.g., LauncherSpring).
+		// The controlling object manages these states directly.
+		if (sprite.isObjectControlled()) {
+			return;
+		}
+
 		if (sprite.getRolling() && !sprite.getPinballMode()) {
 			sprite.setRolling(false);
 			sprite.setY((short) (sprite.getY() - sprite.getRollHeightAdjustment()));
