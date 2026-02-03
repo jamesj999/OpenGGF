@@ -150,17 +150,9 @@ public class BackgroundRenderer {
         glBindFramebuffer(GL_FRAMEBUFFER, fboId);
         glViewport(0, 0, fboWidth, fboHeight);
 
-        glMatrixMode(GL_PROJECTION);
-        glPushMatrix();
-        glLoadIdentity();
-
-        // GPU tilemap renderer draws a quad from (0,0) to (fboWidth, fboHeight).
-        // Set up projection to cover the full quad coordinate space.
-        glOrtho(0, fboWidth, 0, fboHeight, -1, 1);
-
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glLoadIdentity();
+        // Note: The tilemap shader uses gl_FragCoord for positioning,
+        // so no projection matrix uniform is needed. The viewport setup above
+        // is sufficient for gl_FragCoord to work correctly.
 
         glClearColor(0, 0, 0, 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -173,11 +165,6 @@ public class BackgroundRenderer {
     public void endTilePass() {
         if (!initialized)
             return;
-
-        glMatrixMode(GL_MODELVIEW);
-        glPopMatrix();
-        glMatrixMode(GL_PROJECTION);
-        glPopMatrix();
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -325,23 +312,12 @@ public class BackgroundRenderer {
 
     /**
      * Draw a fullscreen quad for the parallax pass.
+     * Note: The parallax shader uses gl_FragCoord for positioning,
+     * so no projection matrix is needed. The quad coordinates are
+     * arbitrary since the shader only cares about fragment screen position.
      */
     private void drawFullscreenQuad() {
-        glMatrixMode(GL_PROJECTION);
-        glPushMatrix();
-        glLoadIdentity();
-        glOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, -1, 1);
-
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glLoadIdentity();
-
         quadRenderer.draw(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-        glPopMatrix();
-        glMatrixMode(GL_PROJECTION);
-        glPopMatrix();
-        glMatrixMode(GL_MODELVIEW);
     }
 
     /**

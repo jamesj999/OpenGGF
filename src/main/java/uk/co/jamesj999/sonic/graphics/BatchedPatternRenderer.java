@@ -4,6 +4,9 @@ import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
 import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glDeleteVertexArrays;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 
 import org.lwjgl.system.MemoryUtil;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
@@ -496,9 +499,15 @@ public class BatchedPatternRenderer {
         private FloatBuffer texCoordBuffer;
         private FloatBuffer paletteCoordBuffer;
 
+        private int vaoId;
         private int vertexVboId;
         private int texCoordVboId;
         private int paletteVboId;
+
+        // Vertex attribute locations (standard layout)
+        private static final int ATTRIB_POSITION = 0;
+        private static final int ATTRIB_TEXCOORD = 1;
+        private static final int ATTRIB_PALETTE = 2;
 
         private void load(float[] vertexData, float[] texCoordData, float[] paletteCoordData,
                           int patternCount, boolean usePriorityShader) {
@@ -552,6 +561,12 @@ public class BatchedPatternRenderer {
             glUniform1i(shader.getIndexedColorTextureLocation(), 1);
             shader.setPaletteLine(-1.0f);
 
+            // Set camera offset uniform (replaces glTranslatef)
+            int cameraOffsetLoc = glGetUniformLocation(shader.getProgramId(), "CameraOffset");
+            if (cameraOffsetLoc != -1) {
+                glUniform2f(cameraOffsetLoc, -cameraX, cameraY);
+            }
+
             // Set priority uniform if using sprite priority shader
             if (shader instanceof SpritePriorityShaderProgram priorityShader) {
                 boolean highPri = gm.getCurrentSpriteHighPriority();
@@ -590,12 +605,8 @@ public class BatchedPatternRenderer {
                 priorityShader.setScreenHeight(gm.getScreenHeight());
             }
 
-            // Enable vertex arrays
-            glEnableClientState(GL_VERTEX_ARRAY);
-            glClientActiveTexture(GL_TEXTURE0);
-            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-            glClientActiveTexture(GL_TEXTURE1);
-            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            // Bind VAO (required for core profile, encapsulates vertex attribute state)
+            glBindVertexArray(vaoId);
 
             // Bind palette texture (use underwater palette if flag is set for background
             // rendering)
@@ -636,39 +647,36 @@ public class BatchedPatternRenderer {
                 }
             }
 
-            glPushMatrix();
-            glTranslatef(-cameraX, cameraY, 0);
-
+            // Upload vertex data to VBOs using modern vertex attributes
             glBindBuffer(GL_ARRAY_BUFFER, vertexVboId);
             vertexBuffer.rewind();
             vertexBuffer.limit(vertexFloatCount);
             glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_DYNAMIC_DRAW);
-            glVertexPointer(2, GL_FLOAT, 0, 0L);
-            glClientActiveTexture(GL_TEXTURE0);
+            glVertexAttribPointer(ATTRIB_POSITION, 2, GL_FLOAT, false, 0, 0L);
+            glEnableVertexAttribArray(ATTRIB_POSITION);
+
             glBindBuffer(GL_ARRAY_BUFFER, texCoordVboId);
             texCoordBuffer.rewind();
             texCoordBuffer.limit(texCoordFloatCount);
             glBufferData(GL_ARRAY_BUFFER, texCoordBuffer, GL_DYNAMIC_DRAW);
-            glTexCoordPointer(2, GL_FLOAT, 0, 0L);
-            glClientActiveTexture(GL_TEXTURE1);
+            glVertexAttribPointer(ATTRIB_TEXCOORD, 2, GL_FLOAT, false, 0, 0L);
+            glEnableVertexAttribArray(ATTRIB_TEXCOORD);
+
             glBindBuffer(GL_ARRAY_BUFFER, paletteVboId);
             paletteCoordBuffer.rewind();
             paletteCoordBuffer.limit(paletteFloatCount);
             glBufferData(GL_ARRAY_BUFFER, paletteCoordBuffer, GL_DYNAMIC_DRAW);
-            glTexCoordPointer(1, GL_FLOAT, 0, 0L);
-            glClientActiveTexture(GL_TEXTURE0);
+            glVertexAttribPointer(ATTRIB_PALETTE, 1, GL_FLOAT, false, 0, 0L);
+            glEnableVertexAttribArray(ATTRIB_PALETTE);
 
             glDrawArrays(GL_QUADS, 0, patternCount * 4);
 
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            glPopMatrix();
-
             // Cleanup state
-            glDisableClientState(GL_VERTEX_ARRAY);
-            glClientActiveTexture(GL_TEXTURE1);
-            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-            glClientActiveTexture(GL_TEXTURE0);
-            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+            glDisableVertexAttribArray(ATTRIB_POSITION);
+            glDisableVertexAttribArray(ATTRIB_TEXCOORD);
+            glDisableVertexAttribArray(ATTRIB_PALETTE);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindVertexArray(0);
             shader.stop();
             glDisable(GL_BLEND);
 
@@ -680,9 +688,11 @@ public class BatchedPatternRenderer {
         }
 
         private void ensureVbos() {
-            if (vertexVboId != 0) {
+            if (vaoId != 0) {
                 return;
             }
+            // Create VAO (required for OpenGL 3.2+ core profile)
+            vaoId = glGenVertexArrays();
             vertexVboId = glGenBuffers();
             texCoordVboId = glGenBuffers();
             paletteVboId = glGenBuffers();
@@ -705,6 +715,10 @@ public class BatchedPatternRenderer {
         }
 
         private void dispose() {
+            if (vaoId != 0) {
+                glDeleteVertexArrays(vaoId);
+                vaoId = 0;
+            }
             if (vertexVboId != 0) {
                 glDeleteBuffers(vertexVboId);
                 vertexVboId = 0;
@@ -746,8 +760,13 @@ public class BatchedPatternRenderer {
         private FloatBuffer vertexBuffer;
         private FloatBuffer texCoordBuffer;
 
+        private int vaoId;
         private int vertexVboId;
         private int texCoordVboId;
+
+        // Vertex attribute locations (standard layout)
+        private static final int ATTRIB_POSITION = 0;
+        private static final int ATTRIB_TEXCOORD = 1;
 
         private void load(float[] vertexData, float[] texCoordData, int patternCount) {
             this.patternCount = patternCount;

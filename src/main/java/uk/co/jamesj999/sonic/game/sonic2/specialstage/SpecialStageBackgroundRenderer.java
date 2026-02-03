@@ -1,15 +1,19 @@
 package uk.co.jamesj999.sonic.game.sonic2.specialstage;
 
+import org.joml.Matrix4f;
+import org.lwjgl.system.MemoryStack;
 import uk.co.jamesj999.sonic.graphics.HScrollBuffer;
 import uk.co.jamesj999.sonic.graphics.ParallaxShaderProgram;
 import uk.co.jamesj999.sonic.graphics.QuadRenderer;
 
 import java.io.IOException;
+import java.nio.FloatBuffer;
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
 import static org.lwjgl.opengl.GL14.GL_DEPTH_COMPONENT16;
+import static org.lwjgl.opengl.GL20.glUniformMatrix4fv;
 import static org.lwjgl.opengl.GL30.*;
 
 /**

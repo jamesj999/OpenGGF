@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.debug;
 
+import org.joml.Matrix4f;
+import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import uk.co.jamesj999.sonic.graphics.ShaderProgram;
 
@@ -56,6 +58,7 @@ public class GlyphBatchRenderer {
     private int glyphAtlasLoc = -1;
     private int texelSizeLoc = -1;
     private int outlineColorLoc = -1;
+    private int projectionMatrixLoc = -1;
 
     // Viewport dimensions for coordinate conversion (default to common values to avoid 0)
     private int viewportWidth = 320;
@@ -126,6 +129,7 @@ public class GlyphBatchRenderer {
                     glyphAtlasLoc = glGetUniformLocation(programId, "GlyphAtlas");
                     texelSizeLoc = glGetUniformLocation(programId, "TexelSize");
                     outlineColorLoc = glGetUniformLocation(programId, "OutlineColor");
+                    projectionMatrixLoc = glGetUniformLocation(programId, "ProjectionMatrix");
                 }
             }
 
@@ -365,105 +369,11 @@ public class GlyphBatchRenderer {
             command.load(instanceData, glyphCount);
             command.execute();
             recycleCommand(command);
-        } else {
-            // Use immediate mode fallback
-            renderImmediateMode();
         }
+        // Note: Immediate mode fallback removed - it caused freezes on macOS OpenGL 2.1
+        // Debug text will only render on OpenGL 3.3+ contexts
 
         glyphCount = 0;
-    }
-
-    /**
-     * Fallback immediate mode rendering for OpenGL 2.1 contexts.
-     * Renders glyphs one at a time using glBegin/glEnd.
-     */
-    private void renderImmediateMode() {
-        if (atlas == null || atlas.getTextureId() == 0) {
-            return;
-        }
-
-        // Save GL state manually (glPushAttrib not reliable in LWJGL)
-        boolean blendWasEnabled = glIsEnabled(GL_BLEND);
-        boolean texture2dWasEnabled = glIsEnabled(GL_TEXTURE_2D);
-
-        glEnable(GL_TEXTURE_2D);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-        glBindTexture(GL_TEXTURE_2D, atlas.getTextureId());
-
-        // Set up orthographic projection for 2D rendering
-        glMatrixMode(GL_PROJECTION);
-        glPushMatrix();
-        glLoadIdentity();
-        glOrtho(0, viewportWidth, 0, viewportHeight, -1, 1);
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glLoadIdentity();
-
-        // Render each glyph - batch all quads together for better performance
-        // First pass: outlines (black)
-        glColor4f(0, 0, 0, 1);
-        glBegin(GL_QUADS);
-        for (int i = 0; i < glyphCount; i++) {
-            int offset = i * FLOATS_PER_GLYPH;
-            float x = instanceData[offset];
-            float y = instanceData[offset + 1];
-            float w = instanceData[offset + 2];
-            float h = instanceData[offset + 3];
-            float u0 = instanceData[offset + 4];
-            float v0 = instanceData[offset + 5];
-            float u1 = instanceData[offset + 6];
-            float v1 = instanceData[offset + 7];
-
-            // Draw outline in 4 cardinal directions only (faster than 8)
-            for (int d = 0; d < 4; d++) {
-                int dx = (d == 0) ? -1 : (d == 1) ? 1 : 0;
-                int dy = (d == 2) ? -1 : (d == 3) ? 1 : 0;
-                glTexCoord2f(u0, v0); glVertex2f(x + dx, y + dy);
-                glTexCoord2f(u1, v0); glVertex2f(x + w + dx, y + dy);
-                glTexCoord2f(u1, v1); glVertex2f(x + w + dx, y + h + dy);
-                glTexCoord2f(u0, v1); glVertex2f(x + dx, y + h + dy);
-            }
-        }
-        glEnd();
-
-        // Second pass: main glyphs with color
-        glBegin(GL_QUADS);
-        for (int i = 0; i < glyphCount; i++) {
-            int offset = i * FLOATS_PER_GLYPH;
-            float x = instanceData[offset];
-            float y = instanceData[offset + 1];
-            float w = instanceData[offset + 2];
-            float h = instanceData[offset + 3];
-            float u0 = instanceData[offset + 4];
-            float v0 = instanceData[offset + 5];
-            float u1 = instanceData[offset + 6];
-            float v1 = instanceData[offset + 7];
-            float r = instanceData[offset + 8];
-            float g = instanceData[offset + 9];
-            float b = instanceData[offset + 10];
-            float a = instanceData[offset + 11];
-
-            glColor4f(r, g, b, a);
-            glTexCoord2f(u0, v0); glVertex2f(x, y);
-            glTexCoord2f(u1, v0); glVertex2f(x + w, y);
-            glTexCoord2f(u1, v1); glVertex2f(x + w, y + h);
-            glTexCoord2f(u0, v1); glVertex2f(x, y + h);
-        }
-        glEnd();
-
-        // Restore GL state
-        glMatrixMode(GL_PROJECTION);
-        glPopMatrix();
-        glMatrixMode(GL_MODELVIEW);
-        glPopMatrix();
-
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        // Restore previous state
-        if (!blendWasEnabled) glDisable(GL_BLEND);
-        if (!texture2dWasEnabled) glDisable(GL_TEXTURE_2D);
     }
 
     /**
@@ -562,16 +472,17 @@ public class GlyphBatchRenderer {
                 return;
             }
 
-            // Set up viewport-space orthographic projection for screen-space text
-            glMatrixMode(GL_PROJECTION);
-            glPushMatrix();
-            glLoadIdentity();
-            glOrtho(0, viewportWidth, 0, viewportHeight, -1, 1);
-            glMatrixMode(GL_MODELVIEW);
-            glPushMatrix();
-            glLoadIdentity();
-
             shader.use();
+
+            // Set up orthographic projection matrix using JOML and upload to shader
+            if (projectionMatrixLoc >= 0) {
+                try (MemoryStack stack = MemoryStack.stackPush()) {
+                    Matrix4f projection = new Matrix4f().ortho(0, viewportWidth, 0, viewportHeight, -1, 1);
+                    FloatBuffer matrixBuffer = stack.mallocFloat(16);
+                    projection.get(matrixBuffer);
+                    glUniformMatrix4fv(projectionMatrixLoc, false, matrixBuffer);
+                }
+            }
 
             // Set uniforms
             if (glyphAtlasLoc >= 0) {
@@ -640,13 +551,6 @@ public class GlyphBatchRenderer {
 
             shader.stop();
             glDisable(GL_BLEND);
-
-            // Restore previous matrices
-            glMatrixMode(GL_MODELVIEW);
-            glPopMatrix();
-            glMatrixMode(GL_PROJECTION);
-            glPopMatrix();
-            glMatrixMode(GL_MODELVIEW);
         }
 
         private FloatBuffer ensureBuffer(FloatBuffer buffer, int required) {

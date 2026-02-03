@@ -9,12 +9,16 @@ import uk.co.jamesj999.sonic.graphics.ShaderProgram;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
 import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glDeleteVertexArrays;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 
 /**
  * Renders the CNZ slot machine visual display.
@@ -63,8 +67,12 @@ public class CNZSlotMachineRenderer {
 
     private ShaderProgram shader;
     private int textureId = 0;
-    private final QuadRenderer quadRenderer = new QuadRenderer();
     private boolean initialized = false;
+
+    // VAO/VBO for fullscreen quad
+    private int vaoId = 0;
+    private int vboId = 0;
+    private int vertexPosLocation = -1;
 
     // Cached uniform locations
     private int locSlotFaceTexture = -1;
@@ -85,6 +93,8 @@ public class CNZSlotMachineRenderer {
     private int locPaletteLine = -1;
     private int locViewportWidth = -1;
     private int locViewportHeight = -1;
+
+    private final QuadRenderer quadRenderer = new QuadRenderer();
 
     /**
      * Set the shader program. Called by GraphicsManager during initialization.
@@ -111,8 +121,8 @@ public class CNZSlotMachineRenderer {
             return;
         }
 
-        // Initialize quad renderer
-        quadRenderer.init();
+        // Initialize fullscreen quad VAO/VBO
+        initQuadVao();
 
         // Cache uniform locations if shader is set
         if (shader != null) {
@@ -121,6 +131,39 @@ public class CNZSlotMachineRenderer {
 
         initialized = true;
         LOGGER.info("CNZ Slot Machine Renderer initialized");
+    }
+
+    /**
+     * Initialize VAO and VBO for the fullscreen quad.
+     * Uses GL_TRIANGLE_STRIP with 4 vertices to cover the entire viewport.
+     */
+    private void initQuadVao() {
+        if (vaoId != 0) {
+            return;
+        }
+
+        // Create and bind VAO
+        vaoId = glGenVertexArrays();
+        glBindVertexArray(vaoId);
+
+        // Create VBO with fullscreen quad vertices (normalized device coordinates)
+        // Order: bottom-left, bottom-right, top-left, top-right (for triangle strip)
+        FloatBuffer quadBuffer = MemoryUtil.memAllocFloat(8);
+        quadBuffer.put(-1f).put(-1f);  // bottom-left
+        quadBuffer.put(1f).put(-1f);   // bottom-right
+        quadBuffer.put(-1f).put(1f);   // top-left
+        quadBuffer.put(1f).put(1f);    // top-right
+        quadBuffer.flip();
+
+        vboId = glGenBuffers();
+        glBindBuffer(GL_ARRAY_BUFFER, vboId);
+        glBufferData(GL_ARRAY_BUFFER, quadBuffer, GL_STATIC_DRAW);
+
+        MemoryUtil.memFree(quadBuffer);
+
+        // Unbind
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
     }
 
     /**
@@ -336,29 +379,26 @@ public class CNZSlotMachineRenderer {
         glUniform1f(locViewportWidth, viewportWidth);
         glUniform1f(locViewportHeight, viewportHeight);
 
-        // Save and reset matrices for fullscreen quad
-        glMatrixMode(GL_PROJECTION);
-        glPushMatrix();
-        glLoadIdentity();
-        glOrtho(0, viewportWidth, 0, viewportHeight, -1, 1);
+        // Draw fullscreen quad using VAO/VBO (OpenGL 4.1 core compatible)
+        glBindVertexArray(vaoId);
+        glBindBuffer(GL_ARRAY_BUFFER, vboId);
 
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glLoadIdentity();
+        // Enable vertex attribute for position
+        if (vertexPosLocation >= 0) {
+            glEnableVertexAttribArray(vertexPosLocation);
+            glVertexAttribPointer(vertexPosLocation, 2, GL_FLOAT, false, 0, 0L);
+        }
 
-        // Draw fullscreen quad using immediate mode (more compatible with fragment-only shader)
-        glBegin(GL_QUADS);
-        glVertex2f(0, 0);
-        glVertex2f(viewportWidth, 0);
-        glVertex2f(viewportWidth, viewportHeight);
-        glVertex2f(0, viewportHeight);
-        glEnd();
+        // Draw the fullscreen quad as a triangle strip
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-        // Restore matrices
-        glPopMatrix();
-        glMatrixMode(GL_PROJECTION);
-        glPopMatrix();
-        glMatrixMode(GL_MODELVIEW);
+        // Disable vertex attribute
+        if (vertexPosLocation >= 0) {
+            glDisableVertexAttribArray(vertexPosLocation);
+        }
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
 
         // Stop using shader
         shader.stop();
