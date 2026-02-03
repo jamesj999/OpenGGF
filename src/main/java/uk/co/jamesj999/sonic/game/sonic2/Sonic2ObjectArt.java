@@ -906,6 +906,94 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load Spiker (Obj92/93) sprite sheet - drill badnik from HTZ.
+     * <p>
+     * Spiker uses two separate art sources in VRAM:
+     * - Sol badnik art at tile $3DE (ArtNem_Sol)
+     * - Spiker art at tile $520 (ArtNem_Spiker)
+     * <p>
+     * The mappings reference absolute tile indices, so we build a combined
+     * sheet using a base tile of $3DE and offset Spiker tiles accordingly.
+     */
+    public ObjectSpriteSheet loadSpikerSheet() {
+        Pattern[] solPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_SOL_ADDR, "Sol");
+        Pattern[] spikerPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_SPIKER_ADDR, "Spiker");
+        if (solPatterns.length == 0 && spikerPatterns.length == 0) {
+            return null;
+        }
+
+        final int baseTile = 0x3DE;    // ArtTile_ArtNem_Sol
+        final int spikerTile = 0x520;  // ArtTile_ArtNem_Spiker
+        final int spikerOffset = spikerTile - baseTile;
+        final int maxTileUsed = 0x533; // Highest tile referenced by Obj92/93 mappings
+
+        int requiredSize = Math.max(spikerOffset + spikerPatterns.length, solPatterns.length);
+        requiredSize = Math.max(requiredSize, (maxTileUsed - baseTile) + 1);
+
+        Pattern[] combined = new Pattern[requiredSize];
+        if (solPatterns.length > 0) {
+            System.arraycopy(solPatterns, 0, combined, 0,
+                    Math.min(solPatterns.length, combined.length));
+        }
+        if (spikerPatterns.length > 0 && spikerOffset < combined.length) {
+            int copyLen = Math.min(spikerPatterns.length, combined.length - spikerOffset);
+            System.arraycopy(spikerPatterns, 0, combined, spikerOffset, copyLen);
+        }
+
+        for (int i = 0; i < combined.length; i++) {
+            if (combined[i] == null) {
+                combined[i] = new Pattern();
+            }
+        }
+
+        List<SpriteMappingFrame> mappings = createSpikerMappings();
+        return new ObjectSpriteSheet(combined, mappings, 0, 1);
+    }
+
+    /**
+     * Load Sol (Obj95) sprite sheet - HTZ fireball badnik.
+     * ROM:
+     * - Fireball 1 art at tile $39E (ArtNem_HtzFireball1)
+     * - Sol badnik art at tile $3DE (ArtNem_Sol)
+     * - Fireball mappings use tile $3AE
+     */
+    public ObjectSpriteSheet loadSolSheet() {
+        Pattern[] fireballPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_HTZ_FIREBALL1_ADDR,
+                "HtzFireball1");
+        Pattern[] solPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_SOL_ADDR, "Sol");
+        if (fireballPatterns.length == 0 && solPatterns.length == 0) {
+            return null;
+        }
+
+        final int baseTile = 0x39E;      // ArtTile_ArtNem_HtzFireball1
+        final int solTile = 0x3DE;       // ArtTile_ArtNem_Sol
+        final int fireballOffset = 0;    // Fireball art starts at base tile
+        final int solOffset = solTile - baseTile;
+        final int maxTileUsed = 0x3E1;   // Highest tile referenced by Obj95 mappings
+
+        int requiredSize = Math.max(fireballOffset + fireballPatterns.length, solOffset + solPatterns.length);
+        requiredSize = Math.max(requiredSize, (maxTileUsed - baseTile) + 1);
+        Pattern[] combined = new Pattern[requiredSize];
+        if (fireballPatterns.length > 0 && fireballOffset < combined.length) {
+            int copyLen = Math.min(fireballPatterns.length, combined.length - fireballOffset);
+            System.arraycopy(fireballPatterns, 0, combined, fireballOffset, copyLen);
+        }
+        if (solPatterns.length > 0 && solOffset < combined.length) {
+            int copyLen = Math.min(solPatterns.length, combined.length - solOffset);
+            System.arraycopy(solPatterns, 0, combined, solOffset, copyLen);
+        }
+
+        for (int i = 0; i < combined.length; i++) {
+            if (combined[i] == null) {
+                combined[i] = new Pattern();
+            }
+        }
+
+        List<SpriteMappingFrame> mappings = createSolMappings();
+        return new ObjectSpriteSheet(combined, mappings, 0, 1);
+    }
+
+    /**
      * Load Crawl (ObjC8) sprite sheet - bouncer badnik from CNZ.
      * ROM: ArtNem_Crawl at 0x901A4, palette line 0
      * 4 frames: 2 walking + 2 impact (ground/air)
@@ -1922,6 +2010,97 @@ public class Sonic2ObjectArt {
         List<SpriteMappingPiece> frame2 = new ArrayList<>();
         frame2.add(new SpriteMappingPiece(-4, -4, 1, 1, 0x31, false, false, 0));
         frames.add(new SpriteMappingFrame(frame2));
+
+        return frames;
+    }
+
+    /**
+     * Creates mappings for Spiker (Obj92) and Spiker Drill (Obj93).
+     * Based on mappings/sprite/obj93.asm.
+     * <p>
+     * Tile indices are absolute VRAM indices, so we subtract base tile $3DE
+     * (ArtTile_ArtNem_Sol) to map into our combined sheet.
+     * Frames:
+     * - 0/1: Walking with drill extended (tiles $520/$526 + $52C + $3DE)
+     * - 2/3: Walking without drill (tiles $520/$526 + $3DE)
+     * - 4: Drill projectile (tile $52C)
+     */
+    private List<SpriteMappingFrame> createSpikerMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        final int baseTile = 0x3DE;
+        final int tileBodyA = 0x520 - baseTile;
+        final int tileBodyB = 0x526 - baseTile;
+        final int tileDrill = 0x52C - baseTile;
+        final int tileSol = 0x3DE - baseTile;
+
+        // Frame 0 (Map_obj93_000A)
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x0C, 8, 3, 2, tileBodyA, false, false, 0));
+        frame0.add(new SpriteMappingPiece(-8, -0x18, 2, 4, tileDrill, false, false, 0));
+        frame0.add(new SpriteMappingPiece(-8, 0, 2, 2, tileSol, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1 (Map_obj93_0024)
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-0x0C, 8, 3, 2, tileBodyB, false, false, 0));
+        frame1.add(new SpriteMappingPiece(-8, -0x18, 2, 4, tileDrill, false, false, 0));
+        frame1.add(new SpriteMappingPiece(-8, 0, 2, 2, tileSol, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2 (Map_obj93_003E)
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-0x0C, 8, 3, 2, tileBodyA, false, false, 0));
+        frame2.add(new SpriteMappingPiece(-8, 0, 2, 2, tileSol, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3 (Map_obj93_0050)
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(-0x0C, 8, 3, 2, tileBodyB, false, false, 0));
+        frame3.add(new SpriteMappingPiece(-8, 0, 2, 2, tileSol, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame3));
+
+        // Frame 4 (Map_obj93_0062) - Drill projectile
+        List<SpriteMappingPiece> frame4 = new ArrayList<>();
+        frame4.add(new SpriteMappingPiece(-8, -0x14, 2, 4, tileDrill, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame4));
+
+        return frames;
+    }
+
+    /**
+     * Creates mappings for Sol (Obj95) - fireball-throwing badnik from HTZ.
+     * Based on obj95.asm sprite mappings.
+     */
+    private List<SpriteMappingFrame> createSolMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        final int baseTile = 0x39E; // ArtTile_ArtNem_HtzFireball1
+        final int tileFireball = 0x3AE - baseTile;
+        final int tileSol = 0x3DE - baseTile;
+
+        // Frames 0-2: Sol body (Map_obj95_000A/0014/001E)
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-8, -8, 2, 2, tileSol, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-8, -8, 2, 2, tileSol, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-8, -8, 2, 2, tileSol, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3: Fireball (Map_obj95_0028)
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(-8, -8, 2, 2, tileFireball, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame3));
+
+        // Frame 4: Fireball (H-flipped) (Map_obj95_0032)
+        List<SpriteMappingPiece> frame4 = new ArrayList<>();
+        frame4.add(new SpriteMappingPiece(-8, -8, 2, 2, tileFireball, true, false, 1));
+        frames.add(new SpriteMappingFrame(frame4));
 
         return frames;
     }

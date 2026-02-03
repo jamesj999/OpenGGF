@@ -111,6 +111,8 @@ public class ObjectDiscoveryTool {
             0x8D,  // GrounderInWall (ARZ Grounder hiding behind wall)
             0x8E,  // GrounderInWall2 (ARZ Grounder variant - walks immediately)
             0x91,  // ChopChop
+            0x92,  // Spiker (HTZ drill badnik)
+            0x95,  // Sol (HTZ fireball badnik)
             0x9D,  // Coconuts
             0xA5,  // Spiny (CPZ crawling badnik)
             0xA6,  // SpinyOnWall (CPZ wall-climbing badnik)

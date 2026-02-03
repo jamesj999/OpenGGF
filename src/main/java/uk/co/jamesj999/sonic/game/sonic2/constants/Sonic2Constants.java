@@ -194,6 +194,9 @@ public class Sonic2Constants {
     public static final int ART_NEM_WHISP_ADDR = 0x895E4;    // Whisp (blowfly from ARZ)
     public static final int ART_NEM_GROUNDER_ADDR = 0x8970E; // Grounder (drill badnik from ARZ)
 
+    // HTZ Badnik Art (Nemesis compressed)
+    public static final int ART_NEM_SPIKER_ADDR = 0x89FAA;   // Spiker (drill badnik from HTZ)
+
     // CNZ Badnik Art (Nemesis compressed)
     public static final int ART_NEM_CRAWL_ADDR = 0x901A4;    // Crawl (bouncer badnik from CNZ, 42 tiles)
 
@@ -417,6 +420,7 @@ public class Sonic2Constants {
     // HTZ Seesaw (Object 0x14)
     public static final int ART_NEM_HTZ_SEESAW_ADDR = 0xF096E;  // Nemesis compressed
     public static final int ART_NEM_SOL_ADDR = 0xF0D4A;         // Ball uses Sol badnik art
+    public static final int ART_NEM_HTZ_FIREBALL1_ADDR = 0xF0160; // ArtNem_HtzFireball1 (Sol fireball)
 
     // HTZ Zipline Lift (Object 0x16)
     public static final int ART_NEM_HTZ_ZIPLINE_ADDR = 0xF0602;  // Nemesis compressed
