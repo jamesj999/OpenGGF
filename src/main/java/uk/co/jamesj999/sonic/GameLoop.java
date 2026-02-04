@@ -22,6 +22,7 @@ import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.debug.PerformanceProfiler;
 import uk.co.jamesj999.sonic.game.sonic2.objects.SpecialStageResultsScreenObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageManager;
+import uk.co.jamesj999.sonic.game.sonic2.levelselect.LevelSelectManager;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
@@ -322,6 +323,17 @@ public class GameLoop {
                 camera.updatePosition(true);
                 return; // Don't process LEVEL mode logic yet
             }
+        } else if (currentGameMode == GameMode.LEVEL_SELECT) {
+            // Update level select screen
+            LevelSelectManager levelSelectManager = LevelSelectManager.getInstance();
+            levelSelectManager.update(inputHandler);
+
+            // Check if user made a selection
+            if (levelSelectManager.isExiting()) {
+                exitLevelSelect();
+            }
+            inputHandler.update();
+            return; // Don't process LEVEL mode logic
         }
 
         profiler.endSection("input");
@@ -410,6 +422,11 @@ public class GameLoop {
             // Debug: Teleport to last checkpoint (END key, only in LEVEL mode)
             if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY))) {
                 teleportToLastCheckpoint();
+            }
+
+            // Level select key (F9 by default)
+            if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.LEVEL_SELECT_KEY))) {
+                enterLevelSelect();
             }
         }
 
@@ -983,6 +1000,177 @@ public class GameLoop {
         if (gameModeChangeListener != null) {
             gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
         }
+    }
+
+    // ==================== Level Select Methods ====================
+
+    /**
+     * Initializes the game loop to start directly in level select mode.
+     * Called from Engine.init() when LEVEL_SELECT_ON_STARTUP is true.
+     * Unlike enterLevelSelect(), this does not require being in LEVEL mode first
+     * and does not perform a fade transition.
+     */
+    public void initializeLevelSelectMode() {
+        LOGGER.info("Initializing game in Level Select mode");
+
+        // Ensure the ROM is loaded and audio is initialized before level select
+        try {
+            var rom = GameServices.rom().getRom();
+            var gameModule = GameModuleRegistry.getCurrent();
+
+            // Initialize audio system with game module's audio profile
+            AudioManager audioManager = AudioManager.getInstance();
+            audioManager.setAudioProfile(gameModule.getAudioProfile());
+            audioManager.setRom(rom);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load ROM for level select", e);
+        }
+
+        GameMode oldMode = currentGameMode;
+        currentGameMode = GameMode.LEVEL_SELECT;
+
+        // Set camera to origin for level select rendering
+        camera.setX((short) 0);
+        camera.setY((short) 0);
+
+        // Initialize the level select manager (also loads and caches palettes)
+        LevelSelectManager.getInstance().initialize();
+
+        // Notify listener of mode change
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+
+        LOGGER.info("Game initialized in Level Select mode");
+    }
+
+    /**
+     * Enters the level select screen from level mode.
+     * Performs fade-to-black transition before showing level select.
+     */
+    public void enterLevelSelect() {
+        if (currentGameMode != GameMode.LEVEL) {
+            return;
+        }
+
+        // Don't start another fade if one is already in progress
+        FadeManager fadeManager = FadeManager.getInstance();
+        if (fadeManager.isActive()) {
+            return;
+        }
+
+        // Fade out current music
+        AudioManager.getInstance().fadeOutMusic();
+
+        // Start fade-to-black, then enter level select when complete
+        fadeManager.startFadeToBlack(() -> {
+            doEnterLevelSelect();
+        });
+
+        LOGGER.info("Starting fade-to-black for Level Select");
+    }
+
+    /**
+     * Actually enters the level select screen after fade-to-black completes.
+     */
+    private void doEnterLevelSelect() {
+        GameMode oldMode = currentGameMode;
+        currentGameMode = GameMode.LEVEL_SELECT;
+
+        // Set camera to origin for level select rendering
+        camera.setX((short) 0);
+        camera.setY((short) 0);
+
+        // Initialize the level select manager
+        LevelSelectManager.getInstance().initialize();
+
+        // Notify listener of mode change
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+
+        // Start fade-from-black to reveal the level select
+        FadeManager.getInstance().startFadeFromBlack(null);
+
+        LOGGER.info("Entered Level Select screen");
+    }
+
+    /**
+     * Exits the level select screen and loads the selected zone/act or special stage.
+     */
+    private void exitLevelSelect() {
+        LevelSelectManager levelSelect = LevelSelectManager.getInstance();
+
+        if (levelSelect.isSpecialStageSelected()) {
+            // Enter special stage
+            levelSelect.reset();
+            GameMode oldMode = currentGameMode;
+            currentGameMode = GameMode.LEVEL;
+
+            // Notify listener of mode change
+            if (gameModeChangeListener != null) {
+                gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+            }
+
+            // Now enter special stage via the normal path
+            enterSpecialStage();
+            LOGGER.info("Level select -> Special Stage");
+
+        } else if (levelSelect.isSoundTestSelected()) {
+            // Sound test was selected but not a level, just reset
+            levelSelect.reset();
+            LOGGER.info("Level select sound test (no level transition)");
+
+        } else {
+            // Load selected zone/act
+            int zone = levelSelect.getSelectedZone();
+            int act = levelSelect.getSelectedAct();
+
+            // Reset level select manager
+            levelSelect.reset();
+
+            // Start fade-to-black, then load level
+            FadeManager.getInstance().startFadeToBlack(() -> {
+                doExitLevelSelectToZone(zone, act);
+            });
+
+            LOGGER.info("Level select -> Zone " + zone + " Act " + act);
+        }
+    }
+
+    /**
+     * Actually loads the selected zone/act after fade-to-black completes.
+     */
+    private void doExitLevelSelectToZone(int zone, int act) {
+        GameMode oldMode = currentGameMode;
+        currentGameMode = GameMode.LEVEL;
+
+        // Load the selected zone/act
+        try {
+            levelManager.loadZoneAndAct(zone, act);
+        } catch (IOException e) {
+            LOGGER.severe("Failed to load zone " + zone + " act " + act + ": " + e.getMessage());
+            throw new RuntimeException("Failed to load zone " + zone + " act " + act, e);
+        }
+
+        // Notify listener of mode change
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+
+        // Start fade-from-black to reveal the title card
+        FadeManager.getInstance().startFadeFromBlack(null);
+
+        LOGGER.info("Loaded zone " + zone + " act " + act + " from level select");
+    }
+
+    /**
+     * Gets the level select manager (for rendering).
+     *
+     * @return the level select manager
+     */
+    public LevelSelectManager getLevelSelectManager() {
+        return LevelSelectManager.getInstance();
     }
 
     // ==================== Level Transition Methods with Fade ====================

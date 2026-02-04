@@ -23,6 +23,7 @@ import uk.co.jamesj999.sonic.sprites.playable.Sonic;
 import uk.co.jamesj999.sonic.sprites.playable.Tails;
 import uk.co.jamesj999.sonic.game.GameMode;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
+import uk.co.jamesj999.sonic.game.sonic2.levelselect.LevelSelectManager;
 import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageManager;
 
 import java.io.IOException;
@@ -259,15 +260,23 @@ public class Engine {
 		camera.setFocusedSprite(mainSprite);
 		camera.updatePosition(true);
 
-		try {
-			levelManager.loadZoneAndAct(0, 0);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-
-		// Create input handler and set it
+		// Create input handler and set it (needed before level select initialization)
 		inputHandler = new InputHandler();
 		setInputHandler(inputHandler);
+
+		// Check if we should start with level select or load EHZ directly
+		boolean levelSelectOnStartup = configService.getBoolean(SonicConfiguration.LEVEL_SELECT_ON_STARTUP);
+		if (levelSelectOnStartup) {
+			// Start in level select mode - no level loaded initially
+			gameLoop.initializeLevelSelectMode();
+		} else {
+			// Load Emerald Hill Zone Act 1 as the default starting level
+			try {
+				levelManager.loadZoneAndAct(0, 0);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		}
 
 		// Initial reshape
 		try (MemoryStack stack = stackPush()) {
@@ -378,6 +387,9 @@ public class Engine {
 			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		} else if (getCurrentGameMode() == GameMode.SPECIAL_STAGE_RESULTS) {
 			glClearColor(0.85f, 0.9f, 0.95f, 1.0f);
+		} else if (getCurrentGameMode() == GameMode.LEVEL_SELECT) {
+			// Level select has its own background color (blue)
+			glClearColor(0.0f, 0.0f, 0.5f, 1.0f);
 		} else if (getCurrentGameMode() == GameMode.TITLE_CARD) {
 			levelManager.setClearColor();
 		} else {
@@ -483,6 +495,11 @@ public class Engine {
 							GL_LINES, resultsCommands));
 				}
 			}
+		} else if (getCurrentGameMode() == GameMode.LEVEL_SELECT) {
+			// Render level select screen
+			camera.setX((short) 0);
+			camera.setY((short) 0);
+			LevelSelectManager.getInstance().draw();
 		} else if (getCurrentGameMode() == GameMode.TITLE_CARD) {
 			levelManager.drawWithSpritePriority(spriteManager);
 

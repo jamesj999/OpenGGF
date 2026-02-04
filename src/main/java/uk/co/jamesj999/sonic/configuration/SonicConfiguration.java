@@ -168,6 +168,16 @@ public enum SonicConfiguration {
 	/**
 	 * Key to teleport player to the last checkpoint (debug).
 	 */
-	DEBUG_LAST_CHECKPOINT_KEY;
+	DEBUG_LAST_CHECKPOINT_KEY,
+
+	/**
+	 * Key to open the Level Select screen (debug).
+	 */
+	LEVEL_SELECT_KEY,
+
+	/**
+	 * Whether to show the Level Select screen on startup instead of loading EHZ.
+	 */
+	LEVEL_SELECT_ON_STARTUP;
 
 }

@@ -164,6 +164,19 @@ public class Sonic2Constants {
     public static final int ART_NEM_HUD_ADDR = 0x7923E; // HUD.nem (SCORE/TIME/RING text)
     public static final int ART_NEM_TITLE_CARD_ADDR = 0x7D22C; // Title card.nem (E, N, O, Z letters)
     public static final int ART_NEM_TITLE_CARD2_ADDR = 0x7D58A; // Font using large broken letters.nem (other letters)
+
+    // Level Select Art (Nemesis compressed)
+    public static final int ART_NEM_MENU_BOX_ADDR = 0x7D990;           // Menu borders, boxes, text frames
+    public static final int ART_NEM_LEVEL_SELECT_PICS_ADDR = 0x7DA10;  // Zone preview icons (15 icons)
+    public static final int ART_NEM_FONT_STUFF_ADDR = 0x7C43A;         // Standard menu font
+
+    // Level Select Mappings (Enigma compressed)
+    public static final int MAP_ENI_LEVEL_SELECT_ADDR = 0x9A60;        // Main screen layout (40x28 tiles)
+    public static final int MAP_ENI_LEVEL_SELECT_ICON_ADDR = 0x9C32;   // Icon box layout (preview area)
+
+    // Level Select Palettes (uncompressed)
+    public static final int PAL_LEVEL_ICONS_ADDR = 0x9880;             // 15 icon palettes (32 bytes each)
+    public static final int PAL_LEVEL_ICONS_SIZE = 480;                // 15 * 32 bytes
     public static final int ART_NEM_RESULTS_TEXT_ADDR = 0x7E86A; // End of level results text.nem
     public static final int ART_NEM_MINI_SONIC_ADDR = 0x7C0AA; // Sonic continue.nem (mini character)
     public static final int ART_NEM_PERFECT_ADDR = 0x7EEBE; // Perfect text.nem
