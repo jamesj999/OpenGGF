@@ -152,6 +152,7 @@ public class Engine {
 		glfwDefaultWindowHints();
 		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+		glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE); // DPI-aware window scaling
 
 		// Request OpenGL 4.1 core profile for macOS compatibility
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
