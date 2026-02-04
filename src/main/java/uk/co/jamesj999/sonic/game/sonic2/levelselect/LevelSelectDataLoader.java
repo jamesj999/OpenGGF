@@ -42,14 +42,14 @@ import java.util.logging.Logger;
 public class LevelSelectDataLoader {
     private static final Logger LOGGER = Logger.getLogger(LevelSelectDataLoader.class.getName());
 
-    /** Pattern offset for menu box art within level select patterns */
-    private static final int MENU_BOX_OFFSET = 0;
+    /** Pattern offset for menu box art within level select patterns (ArtTile_ArtNem_MenuBox) */
+    private static final int MENU_BOX_OFFSET = 0x70;
 
-    /** Pattern offset for level select pics art */
-    private static final int LEVEL_SELECT_PICS_OFFSET = 0x80;
+    /** Pattern offset for level select pics art (ArtTile_ArtNem_LevelSelectPics) */
+    private static final int LEVEL_SELECT_PICS_OFFSET = 0x90;
 
-    /** Pattern offset for font art */
-    private static final int FONT_OFFSET = 0x400;
+    /** Pattern offset for font art (ArtTile_ArtNem_FontStuff) */
+    private static final int FONT_OFFSET = 0x10;
 
     // Loaded art patterns
     private Pattern[] menuBoxPatterns;
@@ -72,22 +72,22 @@ public class LevelSelectDataLoader {
     // Icon palettes (15 palettes, one per icon)
     private Palette[] iconPalettes;
 
-    // Menu palettes (4 palette lines for text)
+    // Menu palettes (4 palette lines from Menu.bin)
     private Palette[] menuPalettes;
 
     // Menu.bin palette data from s2disasm (128 bytes = 4 palette lines)
     // Format: Mega Drive 0x0BGR, 16 colors per line, 2 bytes per color
     private static final byte[] MENU_PALETTE_DATA = {
-        // Line 0 (normal text)
+        // Line 0
         0x0C, 0x20, 0x00, 0x00, 0x0A, 0x22, 0x0C, 0x42, 0x0E, 0x44, 0x0E, 0x66, 0x0E, (byte)0xEE, 0x0A, (byte)0xAA,
         0x08, (byte)0x88, 0x04, 0x44, 0x08, (byte)0xAE, 0x04, 0x6A, 0x00, 0x0E, 0x00, 0x08, 0x00, (byte)0xAE, 0x00, (byte)0x8E,
         // Line 1
         0x0C, 0x20, 0x00, 0x00, 0x0E, 0x62, 0x0A, (byte)0x86, 0x0E, (byte)0x86, 0x00, 0x44, 0x0E, (byte)0xEE, 0x0A, (byte)0xAA,
         0x08, (byte)0x88, 0x04, 0x44, 0x06, 0x66, 0x0E, (byte)0x86, 0x00, (byte)0xEE, 0x00, (byte)0x88, 0x0E, (byte)0xA8, 0x0E, (byte)0xCA,
-        // Line 2 (mostly empty)
+        // Line 2
         0x0C, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        // Line 3 (highlighted/selected text)
+        // Line 3
         0x0C, 0x20, 0x00, 0x00, 0x06, 0x00, 0x0C, 0x20, 0x0A, 0x00, 0x0E, (byte)0xEE, 0x00, (byte)0xEE, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0E, 0x60, 0x08, 0x00, 0x00, 0x0E, 0x00, 0x08
     };
@@ -183,15 +183,22 @@ public class LevelSelectDataLoader {
      * Combines loaded patterns into a VRAM-style array for easy access.
      */
     private void combinePatternsToVram() {
-        // Calculate total size needed
-        int totalSize = FONT_OFFSET + (fontPatterns != null ? fontPatterns.length : 0);
+        int menuBoxLength = menuBoxPatterns != null ? menuBoxPatterns.length : 0;
+        int picsLength = levelSelectPicsPatterns != null ? levelSelectPicsPatterns.length : 0;
+        int fontLength = fontPatterns != null ? fontPatterns.length : 0;
+
+        int totalSize = 1;
+        totalSize = Math.max(totalSize, MENU_BOX_OFFSET + menuBoxLength);
+        totalSize = Math.max(totalSize, LEVEL_SELECT_PICS_OFFSET + picsLength);
+        totalSize = Math.max(totalSize, FONT_OFFSET + fontLength);
+
         combinedPatterns = new Pattern[totalSize];
 
         // Fill with empty patterns
         Pattern emptyPattern = new Pattern();
         Arrays.fill(combinedPatterns, emptyPattern);
 
-        // Copy menu box patterns to offset 0
+        // Copy menu box patterns to offset 0x70 (ArtTile_ArtNem_MenuBox)
         if (menuBoxPatterns != null) {
             for (int i = 0; i < menuBoxPatterns.length && (MENU_BOX_OFFSET + i) < combinedPatterns.length; i++) {
                 if (menuBoxPatterns[i] != null) {
@@ -200,16 +207,8 @@ public class LevelSelectDataLoader {
             }
         }
 
-        // Copy level select pics to offset 0x80
+        // Copy level select pics to offset 0x90 (ArtTile_ArtNem_LevelSelectPics)
         if (levelSelectPicsPatterns != null) {
-            // Extend array if needed
-            int neededSize = LEVEL_SELECT_PICS_OFFSET + levelSelectPicsPatterns.length;
-            if (neededSize > combinedPatterns.length) {
-                Pattern[] newArray = new Pattern[neededSize];
-                Arrays.fill(newArray, emptyPattern);
-                System.arraycopy(combinedPatterns, 0, newArray, 0, combinedPatterns.length);
-                combinedPatterns = newArray;
-            }
             for (int i = 0; i < levelSelectPicsPatterns.length; i++) {
                 if (levelSelectPicsPatterns[i] != null) {
                     combinedPatterns[LEVEL_SELECT_PICS_OFFSET + i] = levelSelectPicsPatterns[i];
@@ -217,16 +216,8 @@ public class LevelSelectDataLoader {
             }
         }
 
-        // Copy font patterns to offset 0x400
+        // Copy font patterns to offset 0x10 (ArtTile_ArtNem_FontStuff)
         if (fontPatterns != null) {
-            // Extend array if needed
-            int neededSize = FONT_OFFSET + fontPatterns.length;
-            if (neededSize > combinedPatterns.length) {
-                Pattern[] newArray = new Pattern[neededSize];
-                Arrays.fill(newArray, emptyPattern);
-                System.arraycopy(combinedPatterns, 0, newArray, 0, combinedPatterns.length);
-                combinedPatterns = newArray;
-            }
             for (int i = 0; i < fontPatterns.length; i++) {
                 if (fontPatterns[i] != null) {
                     combinedPatterns[FONT_OFFSET + i] = fontPatterns[i];
@@ -261,6 +252,18 @@ public class LevelSelectDataLoader {
                 screenLayoutWidth = 40;
                 screenLayoutHeight = wordCount / screenLayoutWidth;
 
+                // Clear sound test placeholder tiles at (col 34-35, row 18)
+                // The original ROM Enigma data contains "00" here which we overwrite dynamically
+                // in LevelSelectManager.drawSoundTestValue(). Clearing prevents ghosting.
+                int soundTestIdx1 = 18 * screenLayoutWidth + 34;
+                int soundTestIdx2 = 18 * screenLayoutWidth + 35;
+                if (soundTestIdx1 < screenLayout.length) {
+                    screenLayout[soundTestIdx1] = 0;
+                }
+                if (soundTestIdx2 < screenLayout.length) {
+                    screenLayout[soundTestIdx2] = 0;
+                }
+
                 LOGGER.info("Loaded screen layout: " + screenLayoutWidth + "x" + screenLayoutHeight +
                         " (" + wordCount + " tiles)");
             }
@@ -280,7 +283,7 @@ public class LevelSelectDataLoader {
             byte[] compressed = rom.readBytes(Sonic2Constants.MAP_ENI_LEVEL_SELECT_ICON_ADDR, 256);
             try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
                  ReadableByteChannel channel = Channels.newChannel(bais)) {
-                byte[] decompressed = EnigmaReader.decompress(channel, 0);
+                byte[] decompressed = EnigmaReader.decompress(channel, LEVEL_SELECT_PICS_OFFSET);
 
                 int wordCount = decompressed.length / 2;
                 iconMappings = new int[wordCount];
@@ -289,8 +292,8 @@ public class LevelSelectDataLoader {
                     iconMappings[i] = buf.getShort() & 0xFFFF;
                 }
 
-                // Icon box is 3 tiles wide x 4 tiles tall
-                iconMappingsWidth = 3;
+                // Icon box is 4 tiles wide x 3 tiles tall per icon (12 words each)
+                iconMappingsWidth = 4;
                 iconMappingsHeight = wordCount / iconMappingsWidth;
 
                 LOGGER.info("Loaded icon mappings: " + iconMappingsWidth + "x" + iconMappingsHeight);
@@ -433,7 +436,7 @@ public class LevelSelectDataLoader {
 
     /**
      * Gets the menu palette for a specific line (0-3).
-     * Line 0 = normal text, Line 3 = highlighted text.
+     * Line 0 = normal text.
      */
     public Palette getMenuPalette(int lineIndex) {
         if (menuPalettes != null && lineIndex >= 0 && lineIndex < menuPalettes.length) {
