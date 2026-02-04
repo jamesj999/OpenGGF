@@ -1129,6 +1129,9 @@ public class GameLoop {
             // Reset level select manager
             levelSelect.reset();
 
+            // Fade out level select music
+            AudioManager.getInstance().fadeOutMusic();
+
             // Start fade-to-black, then load level
             FadeManager.getInstance().startFadeToBlack(() -> {
                 doExitLevelSelectToZone(zone, act);
