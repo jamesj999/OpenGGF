@@ -76,6 +76,26 @@ The project is in an **alpha** state. Core systems are functional with 291 passi
     *   `tools` – utilities such as `KosinskiReader` for decompressing Sega data
 *   **Tests:** Live under `src/test/java/uk/co/jamesj999/sonic/tests` and cover ROM loading, decompression, and collision.
 
+## Headless Testing with HeadlessTestRunner
+
+The `HeadlessTestRunner` utility (`uk.co.jamesj999.sonic.tests.HeadlessTestRunner`) enables physics and collision integration tests without an OpenGL context.
+
+### Usage
+```java
+HeadlessTestRunner runner = new HeadlessTestRunner(sprite);
+runner.stepFrame(up, down, left, right, jump);  // Simulate one frame
+runner.stepIdleFrames(5);                        // Step multiple idle frames
+```
+
+### Critical Setup Requirements
+1. **Reset singletons:** `GraphicsManager.resetInstance()`, `Camera.resetInstance()`
+2. **Initialize headless graphics:** `GraphicsManager.getInstance().initHeadless()`
+3. **Load level:** `LevelManager.getInstance().loadZoneAndAct(zone, act)`
+4. **Fix GroundSensor:** `GroundSensor.setLevelManager(LevelManager.getInstance())` (static field becomes stale between tests)
+5. **Update camera:** `Camera.getInstance().updatePosition(true)` AFTER level load (bounds set during load)
+
+See `TestHeadlessWallCollision.java` for a complete example.
+
 ## Core Services Façade
 
 Access core singletons through `GameServices` instead of direct `getInstance()` calls:

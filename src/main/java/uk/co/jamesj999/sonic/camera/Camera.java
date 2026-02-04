@@ -678,4 +678,11 @@ public class Camera {
 		}
 		return camera;
 	}
+
+	/**
+	 * Resets the singleton instance. Used for testing to ensure clean state.
+	 */
+	public static synchronized void resetInstance() {
+		camera = null;
+	}
 }
