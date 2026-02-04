@@ -8,6 +8,7 @@ import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 import uk.co.jamesj999.sonic.audio.smps.DacData;
 import uk.co.jamesj999.sonic.game.sonic2.audio.smps.Sonic2SmpsLoader;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SoundTestCatalog;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.data.Rom;
@@ -46,7 +47,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.LinkedHashMap;
+import java.util.NavigableSet;
 import java.util.TreeSet;
 
 /**
@@ -837,62 +838,25 @@ public final class SoundTestApp {
         }
     }
 
-    private static final Map<Integer, String> TITLE_MAP = buildTitleMap();
-    private static final TreeSet<Integer> VALID_SONGS = new TreeSet<>(TITLE_MAP.keySet());
-
-    private static Map<Integer, String> buildTitleMap() {
-        Map<Integer, String> m = new LinkedHashMap<>();
-        m.put(0x00, "Continue");
-        m.put(0x80, "Casino Night Zone (2P)");
-        m.put(0x81, "Emerald Hill Zone");
-        m.put(0x82, "Metropolis Zone");
-        m.put(0x83, "Casino Night Zone");
-        m.put(0x84, "Mystic Cave Zone");
-        m.put(0x85, "Mystic Cave Zone (2P)");
-        m.put(0x86, "Aquatic Ruin Zone");
-        m.put(0x87, "Death Egg Zone");
-        m.put(0x88, "Special Stage");
-        m.put(0x89, "Option Screen");
-        m.put(0x8A, "Ending");
-        m.put(0x8B, "Final Battle");
-        m.put(0x8C, "Chemical Plant Zone");
-        m.put(0x8D, "Boss");
-        m.put(0x8E, "Sky Chase Zone");
-        m.put(0x8F, "Oil Ocean Zone");
-        m.put(0x90, "Wing Fortress Zone");
-        m.put(0x91, "Emerald Hill Zone (2P)");
-        m.put(0x92, "2P Results Screen");
-        m.put(0x93, "Super Sonic");
-        m.put(0x94, "Hill Top Zone");
-        m.put(0x96, "Title Screen");
-        m.put(0x97, "Stage Clear");
-        m.put(0x99, "Invincibility");
-        m.put(0x9B, "Hidden Palace Zone");
-        m.put(0xB5, "1-Up");
-        m.put(0xB8, "Game Over");
-        m.put(0xBA, "Got an Emerald");
-        m.put(0xBD, "Credits");
-        m.put(0xDC, "Underwater Timing");
-        return m;
-    }
-
     private static String lookupTitle(int songId) {
-        return TITLE_MAP.get(songId);
+        return Sonic2SoundTestCatalog.lookupTitle(songId);
     }
 
     private static int getNextValidSong(int current) {
-        Integer next = VALID_SONGS.higher(current);
+        NavigableSet<Integer> valid = Sonic2SoundTestCatalog.getValidSongs();
+        Integer next = valid.higher(current);
         if (next != null) {
             return next;
         }
-        return VALID_SONGS.first();
+        return valid.first();
     }
 
     private static int getPreviousValidSong(int current) {
-        Integer prev = VALID_SONGS.lower(current);
+        NavigableSet<Integer> valid = Sonic2SoundTestCatalog.getValidSongs();
+        Integer prev = valid.lower(current);
         if (prev != null) {
             return prev;
         }
-        return VALID_SONGS.last();
+        return valid.last();
     }
 }
