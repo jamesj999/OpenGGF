@@ -25,13 +25,15 @@ public class TestGraphicsManagerHeadless {
 
     @BeforeClass
     public static void checkLwjglAvailable() {
+        // These tests use GraphicsManager in headless mode, which should NOT require
+        // LWJGL natives. The headless mode avoids all GL calls and lazy-allocates
+        // native buffers only when needed. We just check if the LWJGL classes are on
+        // the classpath (without triggering native library loading).
         try {
-            // Try to load LWJGL native libraries by accessing a safe class
             Class.forName("org.lwjgl.system.MemoryUtil");
             lwjglAvailable = true;
-        } catch (Throwable t) {
-            // LWJGL natives not available, tests will be skipped
-            System.err.println("LWJGL not available, skipping headless tests: " + t.getMessage());
+        } catch (ClassNotFoundException e) {
+            System.err.println("LWJGL classes not on classpath, skipping headless tests: " + e.getMessage());
             lwjglAvailable = false;
         }
     }

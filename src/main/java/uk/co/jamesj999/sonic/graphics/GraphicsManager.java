@@ -101,6 +101,12 @@ public class GraphicsManager {
 	private uk.co.jamesj999.sonic.Engine engine;
 
 	/**
+	 * Projection matrix buffer for shader-based rendering.
+	 * Can be set directly by tests or other code that doesn't have an Engine instance.
+	 */
+	private float[] projectionMatrixBuffer;
+
+	/**
 	 * Headless mode flag. When true, GL operations are skipped.
 	 * This enables testing game logic without requiring an OpenGL context.
 	 */
@@ -932,6 +938,37 @@ public class GraphicsManager {
 	 */
 	public uk.co.jamesj999.sonic.Engine getEngine() {
 		return engine;
+	}
+
+	/**
+	 * Set the projection matrix buffer directly.
+	 * Use this when testing or when no Engine instance is available.
+	 * The buffer should be a 16-element float array in column-major order.
+	 */
+	public void setProjectionMatrixBuffer(float[] buffer) {
+		this.projectionMatrixBuffer = buffer;
+	}
+
+	/**
+	 * Get the projection matrix buffer for shader-based rendering.
+	 * First checks if a local buffer has been set, then falls back to Engine.
+	 * @return the projection matrix as a 16-element float array, or null if not available
+	 */
+	public float[] getProjectionMatrixBuffer() {
+		// First try local buffer (set directly by tests or other code)
+		if (projectionMatrixBuffer != null) {
+			return projectionMatrixBuffer;
+		}
+		// Fall back to engine reference
+		if (engine != null) {
+			return engine.getProjectionMatrixBuffer();
+		}
+		// Finally try Engine singleton
+		uk.co.jamesj999.sonic.Engine engineInstance = uk.co.jamesj999.sonic.Engine.getInstance();
+		if (engineInstance != null) {
+			return engineInstance.getProjectionMatrixBuffer();
+		}
+		return null;
 	}
 
 	/**
