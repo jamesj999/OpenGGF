@@ -1,7 +1,10 @@
 package uk.co.jamesj999.sonic.graphics;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.logging.Logger;
+
+import org.lwjgl.system.MemoryUtil;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
@@ -23,6 +26,10 @@ public class TilemapGpuRenderer {
     private final PatternLookupBuffer patternLookup = new PatternLookupBuffer();
     private final QuadRenderer quadRenderer = new QuadRenderer();
 
+    // Dummy 1x1 texture used as fallback when no real texture is available.
+    // This prevents macOS OpenGL driver warnings about unbound samplers.
+    private int dummyTextureId = 0;
+
     private byte[] backgroundData;
     private int backgroundWidthTiles;
     private int backgroundHeightTiles;
@@ -41,6 +48,23 @@ public class TilemapGpuRenderer {
         if (shader == null) {
             shader = new TilemapShaderProgram(shaderPath);
             shader.cacheUniformLocations();
+
+            // Create a dummy 1x1 texture to bind to unused sampler units.
+            // This prevents macOS OpenGL driver warnings about unbound samplers
+            // when the shader is first validated.
+            dummyTextureId = glGenTextures();
+            glBindTexture(GL_TEXTURE_2D, dummyTextureId);
+            ByteBuffer pixel = MemoryUtil.memAlloc(4);
+            try {
+                pixel.put((byte) 0).put((byte) 0).put((byte) 0).put((byte) 0).flip();
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+            } finally {
+                MemoryUtil.memFree(pixel);
+            }
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glBindTexture(GL_TEXTURE_2D, 0);
+
             LOGGER.info("Tilemap GPU renderer initialized.");
         }
         quadRenderer.init();
@@ -137,7 +161,9 @@ public class TilemapGpuRenderer {
         glBindTexture(GL_TEXTURE_2D, paletteTextureId);
 
         glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, underwaterPaletteTextureId);
+        // Use dummy texture when no underwater palette is available to avoid
+        // macOS OpenGL driver warnings about unbound samplers.
+        glBindTexture(GL_TEXTURE_2D, underwaterPaletteTextureId != 0 ? underwaterPaletteTextureId : dummyTextureId);
 
         quadRenderer.draw(0, 0, windowWidth, windowHeight);
 
@@ -159,6 +185,10 @@ public class TilemapGpuRenderer {
         if (shader != null) {
             shader.cleanup();
             shader = null;
+        }
+        if (dummyTextureId != 0) {
+            glDeleteTextures(dummyTextureId);
+            dummyTextureId = 0;
         }
         backgroundTexture.cleanup();
         foregroundTexture.cleanup();
