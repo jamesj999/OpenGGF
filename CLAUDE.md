@@ -529,6 +529,63 @@ Reference implementations in `docs/SMPS-rips/SMPSPlay/libs/download/libvgm/emu/c
 - `feature/ai-*` - New features
 - `bugfix/ai-*` - Bug fixes
 
+## Headless Testing
+
+The `HeadlessTestRunner` utility enables physics and collision integration tests without an OpenGL context.
+
+### Usage
+
+```java
+HeadlessTestRunner runner = new HeadlessTestRunner(sprite);
+runner.stepFrame(up, down, left, right, jump);  // Simulate one frame with input
+runner.stepIdleFrames(5);                        // Step multiple frames with no input
+```
+
+### Required Setup
+
+Tests using `HeadlessTestRunner` must follow this setup order:
+
+```java
+@Before
+public void setUp() {
+    // 1. Reset singletons (may have stale state from other tests)
+    GraphicsManager.resetInstance();
+    Camera.resetInstance();
+
+    // 2. Load ROM and initialize headless graphics
+    rom = new Rom();
+    rom.open(romFile.getAbsolutePath());
+    GameModuleRegistry.detectAndSetModule(rom);
+    GraphicsManager.getInstance().initHeadless();
+
+    // 3. Create sprite and add to SpriteManager
+    sprite = new Sonic(mainCode, startX, startY);
+    SpriteManager.getInstance().addSprite(sprite);
+    Camera.getInstance().setFocusedSprite(sprite);
+
+    // 4. Load level
+    LevelManager.getInstance().loadZoneAndAct(zone, act);
+
+    // 5. Fix static references (critical for test isolation)
+    GroundSensor.setLevelManager(LevelManager.getInstance());
+
+    // 6. Update camera position AFTER level loads (bounds are set during load)
+    Camera.getInstance().updatePosition(true);
+
+    // 7. Create test runner
+    testRunner = new HeadlessTestRunner(sprite);
+}
+```
+
+**Key pitfalls:**
+- `GroundSensor` has a static `levelManager` field initialized at class load time. Must call `setLevelManager()` after loading a new level.
+- `Camera.updatePosition(true)` must be called AFTER level load, as level bounds are set during `loadCurrentLevel()`.
+- Failing to reset `Camera` can leave `frozen=true` from death sequences in other tests.
+
+### Example Test
+
+See `TestHeadlessWallCollision.java` for a complete example that verifies ground collision and walking physics.
+
 ## Code Style Notes
 
 - Keep logic in manager classes, not in `Engine.java`
