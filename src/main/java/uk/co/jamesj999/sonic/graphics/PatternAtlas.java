@@ -33,7 +33,8 @@ public class PatternAtlas {
 
     private final Map<Integer, Entry> entries = new HashMap<>();
     private final List<AtlasPage> pages = new ArrayList<>();
-    private final ByteBuffer patternUploadBuffer;
+    // Lazily allocated to avoid LWJGL native library loading in headless tests
+    private ByteBuffer patternUploadBuffer;
     private boolean initialized = false;
 
     public PatternAtlas(int atlasWidth, int atlasHeight) {
@@ -45,7 +46,18 @@ public class PatternAtlas {
         this.tilesPerRow = atlasWidth / TILE_SIZE;
         this.tilesPerColumn = atlasHeight / TILE_SIZE;
         this.maxSlots = tilesPerRow * tilesPerColumn;
-        this.patternUploadBuffer = MemoryUtil.memAlloc(TILE_SIZE * TILE_SIZE);
+        // patternUploadBuffer is lazily allocated when first needed
+    }
+
+    /**
+     * Lazily allocate the pattern upload buffer.
+     * This avoids triggering LWJGL native library loading during construction.
+     */
+    private ByteBuffer ensurePatternUploadBuffer() {
+        if (patternUploadBuffer == null) {
+            patternUploadBuffer = MemoryUtil.memAlloc(TILE_SIZE * TILE_SIZE);
+        }
+        return patternUploadBuffer;
     }
 
     public int getAtlasWidth() {
@@ -214,7 +226,7 @@ public class PatternAtlas {
     }
 
     private void uploadPattern(Pattern pattern, Entry entry) {
-        ByteBuffer patternBuffer = patternUploadBuffer;
+        ByteBuffer patternBuffer = ensurePatternUploadBuffer();
         patternBuffer.clear();
         for (int col = 0; col < TILE_SIZE; col++) {
             for (int row = 0; row < TILE_SIZE; row++) {

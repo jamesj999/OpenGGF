@@ -168,12 +168,9 @@ public class PatternRenderCommand implements GLCommandable {
             // Set projection matrix uniform - REQUIRED for correct rendering
             int projectionLoc = glGetUniformLocation(shaderProgram.getProgramId(), "ProjectionMatrix");
             if (projectionLoc != -1) {
-                uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
-                if (engine != null) {
-                    float[] projMatrix = engine.getProjectionMatrixBuffer();
-                    if (projMatrix != null) {
-                        glUniformMatrix4fv(projectionLoc, false, projMatrix);
-                    }
+                float[] projMatrix = getGraphicsManager().getProjectionMatrixBuffer();
+                if (projMatrix != null) {
+                    glUniformMatrix4fv(projectionLoc, false, projMatrix);
                 }
             }
 
