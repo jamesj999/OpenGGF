@@ -409,9 +409,9 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
                 // briefly loses ground contact during the high-speed diagonal launch.
                 // This mimics ROM behavior where rolling state persists through the launch.
                 player.setPinballMode(true);
-                // Set stickToConvex to prevent slope repel from immediately triggering
-                // airborne mode when there's no terrain at the angle initially.
-                player.setStickToConvex(true);
+                // Note: stickToConvex is NOT set here. The flag is unused in original
+                // Sonic 2 ROM (s2.constants.asm:63 documents it as "unused in Sonic 2").
+                // Setting it caused players to get stuck on ceilings with gSpeed=0.
             }
 
             // ROM: ALWAYS faces RIGHT after diagonal launch (regardless of H-flip)
