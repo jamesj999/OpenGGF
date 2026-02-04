@@ -181,6 +181,8 @@ public class Sonic2Constants {
     public static final int MAP_ENI_MENU_BACK_SIZE = 428;              // Enigma-compressed map size
 
     // Level Select Palettes (uncompressed)
+    public static final int PAL_MENU_ADDR = 0x30E2;                    // Pal_Menu - 4 palette lines (128 bytes)
+    public static final int PAL_MENU_SIZE = 128;                       // 4 lines * 16 colors * 2 bytes
     public static final int PAL_LEVEL_ICONS_ADDR = 0x9880;             // 15 icon palettes (32 bytes each)
     public static final int PAL_LEVEL_ICONS_SIZE = 480;                // 15 * 32 bytes
     public static final int ART_NEM_RESULTS_TEXT_ADDR = 0x7E86A; // End of level results text.nem

@@ -155,7 +155,14 @@ public class RomOffsetFinder {
             return VerificationResult.notFound(labelPattern, -1, "Label not found in disassembly");
         }
 
+        // Prefer exact match over partial match
         DisassemblySearchResult item = results.get(0);
+        for (DisassemblySearchResult r : results) {
+            if (labelPattern.equalsIgnoreCase(r.getLabel())) {
+                item = r;
+                break;
+            }
+        }
         String label = item.getLabel();
         if (label == null) {
             return VerificationResult.error(labelPattern, "Item has no label");

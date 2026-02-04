@@ -72,25 +72,8 @@ public class LevelSelectDataLoader {
     // Icon palettes (15 palettes, one per icon)
     private Palette[] iconPalettes;
 
-    // Menu palettes (4 palette lines from Menu.bin)
+    // Menu palettes (4 palette lines from ROM Pal_Menu)
     private Palette[] menuPalettes;
-
-    // Menu.bin palette data from s2disasm (128 bytes = 4 palette lines)
-    // Format: Mega Drive 0x0BGR, 16 colors per line, 2 bytes per color
-    private static final byte[] MENU_PALETTE_DATA = {
-        // Line 0
-        0x0C, 0x20, 0x00, 0x00, 0x0A, 0x22, 0x0C, 0x42, 0x0E, 0x44, 0x0E, 0x66, 0x0E, (byte)0xEE, 0x0A, (byte)0xAA,
-        0x08, (byte)0x88, 0x04, 0x44, 0x08, (byte)0xAE, 0x04, 0x6A, 0x00, 0x0E, 0x00, 0x08, 0x00, (byte)0xAE, 0x00, (byte)0x8E,
-        // Line 1
-        0x0C, 0x20, 0x00, 0x00, 0x0E, 0x62, 0x0A, (byte)0x86, 0x0E, (byte)0x86, 0x00, 0x44, 0x0E, (byte)0xEE, 0x0A, (byte)0xAA,
-        0x08, (byte)0x88, 0x04, 0x44, 0x06, 0x66, 0x0E, (byte)0x86, 0x00, (byte)0xEE, 0x00, (byte)0x88, 0x0E, (byte)0xA8, 0x0E, (byte)0xCA,
-        // Line 2
-        0x0C, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        // Line 3
-        0x0C, 0x20, 0x00, 0x00, 0x06, 0x00, 0x0C, 0x20, 0x0A, 0x00, 0x0E, (byte)0xEE, 0x00, (byte)0xEE, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0E, 0x60, 0x08, 0x00, 0x00, 0x0E, 0x00, 0x08
-    };
 
     private boolean dataLoaded = false;
     private boolean artCached = false;
@@ -139,8 +122,8 @@ public class LevelSelectDataLoader {
             // Load icon palettes
             loadIconPalettes(rom);
 
-            // Load menu palettes (from hardcoded data - same as Menu.bin)
-            loadMenuPalettes();
+            // Load menu palettes from ROM
+            loadMenuPalettes(rom);
 
             dataLoaded = true;
             return true;
@@ -307,26 +290,29 @@ public class LevelSelectDataLoader {
     }
 
     /**
-     * Loads the menu palettes from hardcoded data (same as Menu.bin from s2disasm).
+     * Loads the menu palettes from ROM (Pal_Menu at 0x30E2).
      */
-    private void loadMenuPalettes() {
-        menuPalettes = new Palette[4];
+    private void loadMenuPalettes(Rom rom) {
+        try {
+            byte[] paletteData = rom.readBytes(Sonic2Constants.PAL_MENU_ADDR, Sonic2Constants.PAL_MENU_SIZE);
+            menuPalettes = new Palette[4];
 
-        for (int line = 0; line < 4; line++) {
-            menuPalettes[line] = new Palette();
-            int offset = line * 32;
-            for (int c = 0; c < 16; c++) {
-                // Mega Drive format: 0x0BGR (3 bits per channel, bit 0 unused)
-                int colorWord = ((MENU_PALETTE_DATA[offset + c * 2] & 0xFF) << 8) |
-                                (MENU_PALETTE_DATA[offset + c * 2 + 1] & 0xFF);
-                int b = ((colorWord >> 9) & 0x07) * 36;  // Scale 0-7 to 0-252
-                int g = ((colorWord >> 5) & 0x07) * 36;
-                int r = ((colorWord >> 1) & 0x07) * 36;
-                menuPalettes[line].setColor(c, new Palette.Color((byte) r, (byte) g, (byte) b));
+            for (int line = 0; line < 4; line++) {
+                menuPalettes[line] = new Palette();
+                // Each palette line is 32 bytes (16 colors * 2 bytes per color)
+                int offset = line * 32;
+                if (offset + 32 <= paletteData.length) {
+                    byte[] lineData = Arrays.copyOfRange(paletteData, offset, offset + 32);
+                    menuPalettes[line].fromSegaFormat(lineData);
+                }
             }
-        }
 
-        LOGGER.info("Loaded 4 menu palette lines");
+            LOGGER.info("Loaded 4 menu palette lines from ROM at 0x" +
+                    Integer.toHexString(Sonic2Constants.PAL_MENU_ADDR));
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load menu palettes from ROM: " + e.getMessage());
+            menuPalettes = new Palette[0];
+        }
     }
 
     /**
@@ -341,13 +327,9 @@ public class LevelSelectDataLoader {
                 iconPalettes[i] = new Palette();
                 // Each palette is 32 bytes (16 colors * 2 bytes per color in Mega Drive format)
                 int offset = i * 32;
-                for (int c = 0; c < 16 && (offset + c * 2 + 1) < paletteData.length; c++) {
-                    // Mega Drive format: 0x0BGR (4 bits per channel)
-                    int colorWord = ((paletteData[offset + c * 2] & 0xFF) << 8) | (paletteData[offset + c * 2 + 1] & 0xFF);
-                    int b = ((colorWord >> 9) & 0x07) * 36;  // Scale 0-7 to 0-252
-                    int g = ((colorWord >> 5) & 0x07) * 36;
-                    int r = ((colorWord >> 1) & 0x07) * 36;
-                    iconPalettes[i].setColor(c, new Palette.Color((byte) r, (byte) g, (byte) b));
+                if (offset + 32 <= paletteData.length) {
+                    byte[] lineData = Arrays.copyOfRange(paletteData, offset, offset + 32);
+                    iconPalettes[i].fromSegaFormat(lineData);
                 }
             }
 
