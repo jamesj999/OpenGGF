@@ -79,6 +79,7 @@ public final class Sonic2ObjectArtKeys {
     // HTZ Badniks
     public static final String SPIKER = "spiker";
     public static final String SOL = "sol";
+    public static final String REXON = "rexon";
 
     // CNZ Badniks
     public static final String CRAWL = "crawl";

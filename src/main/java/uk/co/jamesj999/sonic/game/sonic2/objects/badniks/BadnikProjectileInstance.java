@@ -23,14 +23,17 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
     public enum ProjectileType {
         BUZZER_STINGER,
         COCONUT,
-        SPINY_SPIKE
+        SPINY_SPIKE,
+        REXON_FIREBALL
     }
 
     private static final int COLLISION_SIZE_STINGER = 0x18; // From disassembly $98 & 0x3F
     private static final int COLLISION_SIZE_COCONUT = 0x0B; // From disassembly $8B & 0x3F
     private static final int COLLISION_SIZE_SPINY_SPIKE = 0x0B; // Same as coconut
+    private static final int COLLISION_SIZE_REXON_FIREBALL = 0x18; // From disassembly $98 & 0x3F
     private static final int GRAVITY_COCONUT = 0x20; // Obj98_CoconutFall
     private static final int GRAVITY_SPINY_SPIKE = 0x20; // From disassembly +$20 per frame
+    private static final int GRAVITY_REXON_FIREBALL = 0x80; // From disassembly $80 per frame
 
     private final ProjectileType type;
     private int currentX;
@@ -78,6 +81,10 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
             case SPINY_SPIKE -> {
                 this.gravity = GRAVITY_SPINY_SPIKE;
                 this.collisionSizeIndex = COLLISION_SIZE_SPINY_SPIKE;
+            }
+            case REXON_FIREBALL -> {
+                this.gravity = GRAVITY_REXON_FIREBALL;
+                this.collisionSizeIndex = COLLISION_SIZE_REXON_FIREBALL;
             }
         }
     }
@@ -166,6 +173,11 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
                 renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SPINY);
                 // Spiny spike uses frames 6-7 (alternating)
                 frame = 6 + animFrame;
+                break;
+            case REXON_FIREBALL:
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.REXON);
+                // Rexon fireball uses frame 3 (1x1 tile)
+                frame = 3;
                 break;
             default:
                 return;

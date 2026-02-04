@@ -170,6 +170,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             registerSheet(Sonic2ObjectArtKeys.SEESAW_BALL, artLoader.loadSeesawBallSheet());
             registerSheet(Sonic2ObjectArtKeys.HTZ_LIFT, artLoader.loadHTZLiftSheet());
             registerSheet(Sonic2ObjectArtKeys.SOL, artLoader.loadSolSheet());
+            registerSheet(Sonic2ObjectArtKeys.REXON, artLoader.loadRexonSheet());
             // SmashableGround uses level patterns - must be loaded after level is available
             // This is registered separately via registerSmashableGroundSheet()
         }

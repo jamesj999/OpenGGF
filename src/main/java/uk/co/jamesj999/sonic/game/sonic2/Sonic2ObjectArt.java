@@ -994,6 +994,24 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load Rexon (Obj94/96/97) sprite sheet - lava snake from HTZ.
+     * ROM: ArtNem_Rexon at 0x89DEC, palette line 3.
+     * 4 frames:
+     * - Frame 0: Body (3x2 = 6 tiles, 27x16 pixels)
+     * - Frame 1: Neck segment (2x2 = 4 tiles, 16x16 pixels)
+     * - Frame 2: Full body view (4x2 = 8 tiles, 32x16 pixels)
+     * - Frame 3: Projectile (1x1 = 1 tile, 8x8 pixels)
+     */
+    public ObjectSpriteSheet loadRexonSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_REXON_ADDR, "Rexon");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createRexonMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
      * Load Crawl (ObjC8) sprite sheet - bouncer badnik from CNZ.
      * ROM: ArtNem_Crawl at 0x901A4, palette line 0
      * 4 frames: 2 walking + 2 impact (ground/air)
@@ -2101,6 +2119,45 @@ public class Sonic2ObjectArt {
         List<SpriteMappingPiece> frame4 = new ArrayList<>();
         frame4.add(new SpriteMappingPiece(-8, -8, 2, 2, tileFireball, true, false, 1));
         frames.add(new SpriteMappingFrame(frame4));
+
+        return frames;
+    }
+
+    /**
+     * Creates mappings for Rexon (Obj94/96/97) - lava snake from HTZ.
+     * Based on obj97.asm sprite mappings.
+     * 4 frames:
+     * - Frame 0: Body (3x2 = 6 tiles, ~24x16 pixels) - platform/anchor
+     * - Frame 1: Neck segment (2x2 = 4 tiles, 16x16 pixels) - head segments
+     * - Frame 2: Full body view (4x2 = 8 tiles, 32x16 pixels) - unused
+     * - Frame 3: Projectile (1x1 = 1 tile, 8x8 pixels) - fireball
+     */
+    private List<SpriteMappingFrame> createRexonMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Body (Map_obj97_0008) - 3x2 tiles
+        // spritePiece -20, -6, 3, 2, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-20, -6, 3, 2, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1: Neck/Head segment (Map_obj97_0012) - 2x2 tiles
+        // spritePiece -8, -8, 2, 2, 6, 0, 0, 0, 0
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-8, -8, 2, 2, 6, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2: Full body view (Map_obj97_001C) - 4x2 tiles
+        // spritePiece -16, -8, 4, 2, $A, 0, 0, 0, 0
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-16, -8, 4, 2, 0x0A, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3: Projectile (Map_obj97_0026) - 1x1 tile
+        // spritePiece -4, -4, 1, 1, $12, 0, 0, 0, 0
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(-4, -4, 1, 1, 0x12, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame3));
 
         return frames;
     }

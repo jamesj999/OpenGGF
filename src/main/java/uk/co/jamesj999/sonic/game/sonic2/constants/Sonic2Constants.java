@@ -215,6 +215,7 @@ public class Sonic2Constants {
 
     // HTZ Badnik Art (Nemesis compressed)
     public static final int ART_NEM_SPIKER_ADDR = 0x89FAA;   // Spiker (drill badnik from HTZ)
+    public static final int ART_NEM_REXON_ADDR = 0x89DEC;    // Rexon (lava snake from HTZ)
 
     // CNZ Badnik Art (Nemesis compressed)
     public static final int ART_NEM_CRAWL_ADDR = 0x901A4;    // Crawl (bouncer badnik from CNZ, 42 tiles)
