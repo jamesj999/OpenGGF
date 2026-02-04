@@ -124,7 +124,7 @@ See `uk.co.jamesj999.sonic.tools.disasm` package for full API.
 ## Architecture
 
 ### Entry Point
-`uk.co.jamesj999.sonic.Engine` - OpenGL canvas with FPSAnimator. Creates the game loop via `display()` → `update()` → `draw()`.
+`uk.co.jamesj999.sonic.Engine` - GLFW window with manual timing loop. Creates the game loop via `display()` → `update()` → `draw()`.
 
 ### Core Managers (Singleton Pattern)
 The codebase uses singletons extensively via `getInstance()`:
@@ -224,7 +224,7 @@ Located in `uk.co.jamesj999.sonic.graphics.pipeline`, ensures correct render ord
 ### Configuration
 `SonicConfigurationService` loads from `config.json`. Key settings:
 - `DEBUG_VIEW_ENABLED` - Overlays sensor/collision info (default: true)
-- `DEBUG_MODE_KEY` - Key to toggle debug movement mode (default: 68 = 'D' key). When active, Sonic can fly freely with arrow keys, ignoring collision/physics.
+- `DEBUG_MODE_KEY` - Key to toggle debug movement mode (default: 68 = GLFW_KEY_D). When active, Sonic can fly freely with arrow keys, ignoring collision/physics.
 - `AUDIO_ENABLED` - Sound on/off
 - `ROM_FILENAME` - ROM path
 

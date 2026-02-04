@@ -955,21 +955,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 
-		// ROM-accurate: Only process wall collision if terrain is actually a wall.
-		// The ROM's FindWall relies on ColArrayHorizontal having 0 for floor slopes,
-		// but due to velocity prediction scanning deep into slope tiles, we may get
-		// false collision detections. Filter by terrain angle to match ROM behavior.
-		//
-		// Walls have angles in the range 0x40-0xBF (90-270 degrees from horizontal).
-		// Floor slopes have angles 0x00-0x3F (0-45 degrees) and 0xC0-0xFF (315-360 degrees).
-		// Only true walls should trigger the collision response that zeros gSpeed.
-		int terrainAngle = result.angle() & 0xFF;
-		boolean isWallLike = (terrainAngle >= 0x40 && terrainAngle < 0xC0);
-		if (!isWallLike) {
-			// Terrain is floor-like or ceiling-like, not a wall - skip collision response
-			return;
-		}
-
 		// ROM s2.asm:36503-36527: Wall collision response
 		// ROM dispatches based on mode from ROTATED angle to handle velocity adjustment.
 		// The angle was rotated by +/-0x40 based on direction (lines 36490-36497):

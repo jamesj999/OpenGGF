@@ -128,6 +128,10 @@ public class VisualReferenceGenerator {
         projectionMatrix.get(matrixBuffer);
         glLoadMatrixf(matrixBuffer);
 
+        // Provide projection matrix to GraphicsManager for shader-based rendering
+        // (required since Engine.getInstance() returns null in test/CLI context)
+        graphicsManager.setProjectionMatrixBuffer(matrixBuffer.clone());
+
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
 
