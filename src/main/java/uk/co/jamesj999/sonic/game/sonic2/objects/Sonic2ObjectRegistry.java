@@ -20,6 +20,7 @@ import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.CrawlBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SpikerBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SpikerDrillObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SolBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.RexonBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2EHZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CPZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2ARZBossInstance;
@@ -256,6 +257,12 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
                         (spawn.renderFlags() & 0x02) != 0));
         registerFactory(Sonic2ObjectIds.SOL,
                 (spawn, registry) -> new SolBadnikInstance(spawn, LevelManager.getInstance()));
+        // Rexon (lava snake) - both 0x94 and 0x96 point to same implementation
+        registerFactory(Sonic2ObjectIds.REXON,
+                (spawn, registry) -> new RexonBadnikInstance(spawn, LevelManager.getInstance()));
+        registerFactory(Sonic2ObjectIds.REXON2,
+                (spawn, registry) -> new RexonBadnikInstance(spawn, LevelManager.getInstance()));
+        // Note: REXON_HEAD (0x97) is spawned dynamically by RexonBadnikInstance
 
         // CNZ Badniks
         registerFactory(Sonic2ObjectIds.CRAWL,

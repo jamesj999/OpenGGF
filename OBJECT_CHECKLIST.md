@@ -1,12 +1,12 @@
 # Sonic 2 Object Implementation Checklist
 
-Generated: 2026-02-03 14:39:51
+Generated: 2026-02-04 19:40:44
 
 ## Summary
 
 - **Total unique objects found:** 120
-- **Implemented:** 61 (50.8%)
-- **Unimplemented:** 59 (49.2%)
+- **Implemented:** 64 (53.3%)
+- **Unimplemented:** 56 (46.7%)
 
 ## Implemented Objects
 
@@ -62,6 +62,9 @@ Generated: 2026-02-03 14:39:51
 | 0x8D | GrounderInWall | 8 | ARZ1, ARZ2 |
 | 0x8E | GrounderInWall2 | 20 | ARZ1, ARZ2 |
 | 0x91 | ChopChop | 38 | ARZ1, ARZ2 |
+| 0x92 | Spiker | 23 | HTZ1, HTZ2 |
+| 0x95 | Sol | 3 | HTZ1, HTZ2 |
+| 0x96 | Rexon2 | 6 | HTZ1, HTZ2 |
 | 0x9D | Coconuts | 17 | EHZ1, EHZ2 |
 | 0xA5 | Spiny | 11 | CPZ1, CPZ2 |
 | 0xA6 | SpinyOnWall | 2 | CPZ1, CPZ2 |
@@ -90,7 +93,6 @@ Generated: 2026-02-03 14:39:51
 | 0x6D | Object | FloorSpike | 25 | MTZ1, MTZ2, MTZ3 |
 | 0x80 | Object | MovingVine | 24 | MCZ1, MCZ2, WFZ1 |
 | 0xA1 | Badnik | Slicer | 24 | MTZ1, MTZ2, MTZ3 |
-| 0x92 | Badnik | Spiker | 23 | HTZ1, HTZ2 |
 | 0x99 | Badnik | Nebula | 23 | SCZ1 |
 | 0x33 | Object | OOZPoppingPform | 22 | OOZ1, OOZ2 |
 | 0x68 | Object | SpikyBlock | 22 | MTZ1, MTZ2, MTZ3 |
@@ -120,14 +122,12 @@ Generated: 2026-02-03 14:39:51
 | 0xBE | Object | LateralCannon | 7 | WFZ1 |
 | 0x3D | Object | OOZLauncher | 6 | OOZ1, OOZ2 |
 | 0x64 | Object | MTZTwinStompers | 6 | MTZ1, MTZ2, MTZ3 |
-| 0x96 | Badnik | Rexon2 | 6 | HTZ1, HTZ2 |
 | 0xB9 | Object | Laser | 6 | WFZ1 |
 | 0x77 | Object | MCZBridge | 5 | MCZ1, MCZ2 |
 | 0xB6 | Object | TiltingPlatform | 5 | WFZ1 |
 | 0xB8 | Object | WallTurret | 5 | WFZ1 |
 | 0xBD | Object | SmallMetalPform | 5 | WFZ1 |
 | 0xC1 | Object | BreakablePlating | 4 | WFZ1 |
-| 0x95 | Badnik | Sol | 3 | HTZ1, HTZ2 |
 | 0xB2 | Object | Tornado | 3 | SCZ1, WFZ1 |
 | 0xB3 | Object | Cloud | 3 | SCZ1 |
 | 0xD9 | Object | Grab | 3 | WFZ1 |
@@ -377,12 +377,12 @@ Total: 254 objects | Implemented: 19 | Unimplemented: 0
 
 #### Act 1
 
-Total: 144 objects | Implemented: 17 | Unimplemented: 3
+Total: 144 objects | Implemented: 20 | Unimplemented: 0
 
 **Badniks:**
-- [ ] 0x92 Spiker (x6) [0x0A]
-- [ ] 0x95 Sol (x1) [0x00]
-- [ ] 0x96 Rexon2 (x2) [0x0E]
+- [x] 0x92 Spiker (x6) [0x0A]
+- [x] 0x95 Sol (x1) [0x00]
+- [x] 0x96 Rexon2 (x2) [0x0E]
 
 **Objects:**
 - [x] 0x03 LayerSwitcher (x18) [12 subtypes]
@@ -405,12 +405,12 @@ Total: 144 objects | Implemented: 17 | Unimplemented: 3
 
 #### Act 2
 
-Total: 259 objects | Implemented: 17 | Unimplemented: 3
+Total: 259 objects | Implemented: 20 | Unimplemented: 0
 
 **Badniks:**
-- [ ] 0x92 Spiker (x17) [0x0A]
-- [ ] 0x95 Sol (x2) [0x00]
-- [ ] 0x96 Rexon2 (x4) [0x0E]
+- [x] 0x92 Spiker (x17) [0x0A]
+- [x] 0x95 Sol (x2) [0x00]
+- [x] 0x96 Rexon2 (x4) [0x0E]
 
 **Bosses:**
 - [ ] 0x52 HTZBoss *(dynamic)* - Lava-mobile boss

@@ -31,7 +31,10 @@ public final class Sonic2ObjectIds {
     // HTZ Badniks
     public static final int SPIKER = 0x92;       // Spiker (drill badnik)
     public static final int SPIKER_DRILL = 0x93; // Spiker drill projectile
+    public static final int REXON = 0x94;        // Rexon (lava snake) body
     public static final int SOL = 0x95;          // Sol (fireball badnik)
+    public static final int REXON2 = 0x96;       // Rexon alias (same as 0x94)
+    public static final int REXON_HEAD = 0x97;   // Rexon's head segment (spawned dynamically)
 
     // CNZ Badniks
     public static final int CRAWL = 0xC8;  // Bouncer badnik from CNZ - bounces player from front
