@@ -44,6 +44,14 @@ public class SonicConfigurationService {
 				config = new HashMap<>();
 			}
 		}
+
+		// Migrate AWT key codes to GLFW if detected (for users upgrading from JOGL build)
+		ConfigMigrationService migrationService = new ConfigMigrationService();
+		if (migrationService.detectAwtKeyCodes(config)) {
+			migrationService.migrateConfig(config);
+			saveConfig(); // Persist migrated config
+		}
+
 		applyDefaults();
 	}
 
