@@ -35,6 +35,13 @@ public class RomOffsetCalculator {
             Pattern.CASE_INSENSITIVE
     );
 
+    // Pattern for palette macro: "Label: palette path[,path2] [; comment]"
+    // The macro expands to BINCLUDE "art/palettes/{path}"
+    private static final Pattern PALETTE_PATTERN = Pattern.compile(
+            "^\\s*(\\w+):\\s*palette\\s+([^,;]+?)(?:\\s*,\\s*([^;]+?))?(?:\\s*;.*)?\\s*$",
+            Pattern.CASE_INSENSITIVE
+    );
+
     /**
      * Known anchor offsets from verified ROM locations.
      * These are used as starting points for offset calculation.
@@ -57,7 +64,8 @@ public class RomOffsetCalculator {
         // Track data anchors
         ANCHOR_OFFSETS.put("ArtKos_SpecialStage", 0x0DCA38L);
 
-        // Other common anchors can be added here
+        // Palette anchors (verified)
+        ANCHOR_OFFSETS.put("Pal_Result", 0x3302L);  // Special Stage Results Screen palette
     }
 
     private final Path disasmRoot;
@@ -346,6 +354,23 @@ public class RomOffsetCalculator {
                 Matcher evenMatcher = EVEN_PATTERN.matcher(line);
                 if (evenMatcher.find()) {
                     entries.add(BincludeEntry.alignment(2, lineNumber));
+                    continue;
+                }
+
+                // Check for palette macro
+                Matcher paletteMatcher = PALETTE_PATTERN.matcher(line);
+                if (paletteMatcher.find()) {
+                    String label = paletteMatcher.group(1);
+                    String path1 = paletteMatcher.group(2).trim();
+                    String path2 = paletteMatcher.group(3) != null ? paletteMatcher.group(3).trim() : null;
+
+                    // First palette file
+                    entries.add(new BincludeEntry(label, "art/palettes/" + path1, lineNumber));
+
+                    // Second palette file (if present) - same label, follows immediately
+                    if (path2 != null && !path2.isEmpty()) {
+                        entries.add(new BincludeEntry(label + "_2", "art/palettes/" + path2, lineNumber));
+                    }
                 }
             }
         }
