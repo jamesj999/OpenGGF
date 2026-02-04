@@ -49,7 +49,7 @@ The project is in an **alpha** state. Core systems are functional with 291 passi
 2.  **Code Structure:** Keep logic within existing or new manager classes. Avoid putting all logic into `Engine.java` to maintain a strong object-oriented design.
 
 ## Key information
-*   **Entry point:** `uk.co.jamesj999.sonic.Engine` (declared in the manifest). A `main` method creates an OpenGL canvas with an `FPSAnimator`.
+*   **Entry point:** `uk.co.jamesj999.sonic.Engine` (declared in the manifest). A `main` method creates a GLFW window with a manual timing game loop.
 *   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 4).
 *   **Run:** `java -jar target/sonic-engine-0.05-BETA-jar-with-dependencies.jar`.
 *   **ROM Requirement:** A compatible Sonic 2 ROM named `Sonic The Hedgehog 2 (W) (REV01) [!].gen` is expected for level loading. Without it, level logic may fail at runtime. If the ROM is not present locally, it can be downloaded for debugging, coding, and testing from `http://bluetoaster.net/secretfolder/Sonic%20The%20Hedgehog%202%20%28W%29%20%28REV01%29%20%5B!%5D.gen`. The ROM is likely to be in .gitignore, so may be invisible to the agent.
@@ -376,7 +376,7 @@ exporter.exportAsJavaConstants(results, "ART_", new PrintWriter(System.out));
     *   **Pattern:** An 8x8 pixel tile.
     *   **Chunk:** A 16x16 pixel tile, composed of Patterns.
     *   **Block:** A 128x128 pixel area, composed of Chunks.
-*   **Dependencies:** Running the engine requires OpenGL libraries from the JogAmp suite (JOGL, JOCL, JOAL), already declared as dependencies in `pom.xml`.
+*   **Dependencies:** Running the engine requires LWJGL (OpenGL, OpenAL, GLFW bindings) and JOML (math library), already declared as dependencies in `pom.xml`.
 *   **Debug:** `DEBUG_VIEW_ENABLED` (true by default) overlays sensor and collision info during gameplay.
 *   **Level Loading:** Performed by `LevelManager`, which reads from the ROM through classes in `uk.co.jamesj999.sonic.data`.
 *   **Skipped Tests**: `TestCollisionLogic` is skipped in the test environment because it requires a valid ROM file, which is not available. This is a known and accepted test outcome.

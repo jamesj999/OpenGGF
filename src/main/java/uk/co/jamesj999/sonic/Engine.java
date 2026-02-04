@@ -327,15 +327,29 @@ public class Engine {
 
 	private void loop() {
 		long frameTimeNanos = 1_000_000_000L / targetFps;
+		long accumulator = 0;
+		long previousTime = System.nanoTime();
 
 		while (!glfwWindowShouldClose(window)) {
 			long currentTime = System.nanoTime();
-			long elapsed = currentTime - lastFrameTime;
+			long deltaTime = currentTime - previousTime;
+			previousTime = currentTime;
 
-			if (!paused && elapsed >= frameTimeNanos) {
-				lastFrameTime = currentTime;
-				display();
-				glfwSwapBuffers(window);
+			if (!paused) {
+				accumulator += deltaTime;
+
+				// Process exactly one frame per target interval
+				if (accumulator >= frameTimeNanos) {
+					display();
+					glfwSwapBuffers(window);
+					// Preserve remainder to prevent timing drift
+					accumulator -= frameTimeNanos;
+
+					// Clamp accumulator to prevent spiral of death if frames take too long
+					if (accumulator > frameTimeNanos) {
+						accumulator = frameTimeNanos;
+					}
+				}
 			}
 
 			glfwPollEvents();
@@ -344,14 +358,22 @@ public class Engine {
 			// to properly handle isKeyPressed() edge detection. Do NOT call update()
 			// here or isKeyPressed() will always return false.
 
-			// Sleep to avoid busy-waiting
-			long remainingTime = frameTimeNanos - (System.nanoTime() - lastFrameTime);
-			if (remainingTime > 1_000_000) {
+			// Hybrid sleep: sleep most of the wait time, then spin-wait for precision
+			long remainingTime = frameTimeNanos - accumulator;
+			if (remainingTime > 2_000_000) {
+				// Sleep for most of the remaining time, leaving ~1ms for spin-wait
 				try {
-					Thread.sleep(remainingTime / 1_000_000);
+					Thread.sleep((remainingTime - 1_000_000) / 1_000_000);
 				} catch (InterruptedException e) {
 					Thread.currentThread().interrupt();
 				}
+			}
+
+			// Spin-wait the final portion for sub-millisecond precision
+			// Calculate target time for next frame check
+			long targetTime = previousTime + (frameTimeNanos - accumulator);
+			while (System.nanoTime() < targetTime) {
+				Thread.onSpinWait();
 			}
 		}
 	}
