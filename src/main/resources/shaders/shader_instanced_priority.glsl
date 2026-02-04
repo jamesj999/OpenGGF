@@ -1,4 +1,4 @@
-#version 410 core
+#version 120
 
 // Instanced sprite priority shader - composites sprites with tile priority awareness
 //
@@ -23,16 +23,14 @@ uniform float WindowHeight;             // Physical window height in pixels
 uniform float ScreenHeight;             // Logical screen height (e.g., 224)
 uniform int WaterEnabled;               // 1 = zone has water, 0 = no water
 
-in vec2 v_texCoord;
-in float v_paletteLine;
-in float v_highPriority;
-
-out vec4 FragColor;
+varying vec2 v_texCoord;
+varying float v_paletteLine;
+varying float v_highPriority;
 
 void main()
 {
     // Get the color index from the indexed texture
-    float index = texture(IndexedColorTexture, v_texCoord).r * 255.0;
+    float index = texture2D(IndexedColorTexture, v_texCoord).r * 255.0;
 
     // Mega Drive VDP Rule: Index 0 is transparent.
     // We discard the fragment so it doesn't write to the frame buffer (or depth buffer),
@@ -50,7 +48,7 @@ void main()
     // Subtract ViewportOffset to get viewport-local coordinates, then normalize.
     // No Y-flip needed: OpenGL texture V coordinates already match the FBO orientation
     vec2 screenCoord = (gl_FragCoord.xy - ViewportOffset) / ScreenSize;
-    float tilePriority = texture(TilePriorityTexture, screenCoord).r;
+    float tilePriority = texture2D(TilePriorityTexture, screenCoord).r;
 
     // Low-priority sprite behind high-priority tile: discard
     // tilePriority > 0.5 means there's a high-priority tile pixel at this location
@@ -73,21 +71,21 @@ void main()
     if (WaterEnabled == 1) {
         if (WaterlineScreenY < 0.0) {
             // Waterline above screen - entire screen is underwater
-            indexedColor = texture(UnderwaterPalette, vec2(paletteX, paletteY));
+            indexedColor = texture2D(UnderwaterPalette, vec2(paletteX, paletteY));
         } else {
             // Waterline on screen - check per-pixel
             float normalizedY = 1.0 - (gl_FragCoord.y / WindowHeight);
             float pixelYFromTop = normalizedY * ScreenHeight;
             if (pixelYFromTop >= WaterlineScreenY) {
-                indexedColor = texture(UnderwaterPalette, vec2(paletteX, paletteY));
+                indexedColor = texture2D(UnderwaterPalette, vec2(paletteX, paletteY));
             } else {
-                indexedColor = texture(Palette, vec2(paletteX, paletteY));
+                indexedColor = texture2D(Palette, vec2(paletteX, paletteY));
             }
         }
     } else {
         // No water in this zone
-        indexedColor = texture(Palette, vec2(paletteX, paletteY));
+        indexedColor = texture2D(Palette, vec2(paletteX, paletteY));
     }
 
-    FragColor = indexedColor; // Output the final color
+    gl_FragColor = indexedColor; // Output the final color
 }

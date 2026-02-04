@@ -1,14 +1,14 @@
-#version 410 core
+#version 120
 
-layout(location = 0) in vec2 VertexPos;
-layout(location = 1) in vec2 VertexUv;
-layout(location = 2) in float VertexPalette;
+attribute vec2 VertexPos;
+attribute vec2 VertexUv;
+attribute float VertexPalette;
 
 uniform mat4 ProjectionMatrix;
 uniform vec2 CameraOffset;
 
-out vec2 v_texCoord;
-out float v_paletteLine;
+varying vec2 v_texCoord;
+varying float v_paletteLine;
 
 void main()
 {

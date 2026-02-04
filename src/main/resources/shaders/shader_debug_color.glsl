@@ -1,12 +1,10 @@
-#version 410 core
+#version 120
 
 // Debug color fragment shader for rendering debug primitives
 
-in vec4 v_color;
-
-out vec4 FragColor;
+varying vec4 v_color;
 
 void main()
 {
-    FragColor = v_color;
+    gl_FragColor = v_color;
 }

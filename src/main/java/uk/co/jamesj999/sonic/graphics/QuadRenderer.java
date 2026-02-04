@@ -1,24 +1,50 @@
 package uk.co.jamesj999.sonic.graphics;
 
+import org.lwjgl.system.MemoryUtil;
+
+import java.nio.FloatBuffer;
+
 import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL30.glBindVertexArray;
-import static org.lwjgl.opengl.GL30.glDeleteVertexArrays;
-import static org.lwjgl.opengl.GL30.glGenVertexArrays;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
 
 /**
- * Modern OpenGL fullscreen quad renderer for core profile.
- * Uses a dummy VAO and draws a fullscreen triangle strip.
- * The vertex shader generates positions from gl_VertexID.
+ * OpenGL 2.1 compatible fullscreen quad renderer.
+ * Provides vertex position data via a VBO since gl_VertexID is not
+ * available in GLSL 1.20.
  */
 public class QuadRenderer {
-    private int vaoId;
+    private int vboId;
+    private boolean initialized = false;
+
+    // Fullscreen quad vertex positions in clip space (triangle strip order)
+    // bottom-left, bottom-right, top-left, top-right
+    private static final float[] QUAD_VERTICES = {
+        -1.0f, -1.0f,  // 0: bottom-left
+         1.0f, -1.0f,  // 1: bottom-right
+        -1.0f,  1.0f,  // 2: top-left
+         1.0f,  1.0f   // 3: top-right
+    };
 
     public void init() {
-        if (vaoId != 0) {
+        if (initialized) {
             return;
         }
-        // Create a VAO - required for core profile even if we don't use vertex attributes
-        vaoId = glGenVertexArrays();
+
+        // Create VBO with vertex positions
+        vboId = glGenBuffers();
+        glBindBuffer(GL_ARRAY_BUFFER, vboId);
+
+        FloatBuffer buffer = MemoryUtil.memAllocFloat(QUAD_VERTICES.length);
+        try {
+            buffer.put(QUAD_VERTICES).flip();
+            glBufferData(GL_ARRAY_BUFFER, buffer, GL_STATIC_DRAW);
+        } finally {
+            MemoryUtil.memFree(buffer);
+        }
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        initialized = true;
     }
 
     /**
@@ -27,24 +53,27 @@ public class QuadRenderer {
      * viewport dimensions via uniforms.
      */
     public void draw(float x0, float y0, float x1, float y1) {
-        if (vaoId == 0) {
+        if (!initialized) {
             init();
         }
 
-        // Bind the VAO (required even for attribute-less draws in core profile)
-        glBindVertexArray(vaoId);
+        // Bind VBO and set up vertex attribute
+        glBindBuffer(GL_ARRAY_BUFFER, vboId);
+        glEnableVertexAttribArray(0);  // VertexPos is at location 0
+        glVertexAttribPointer(0, 2, GL_FLOAT, false, 0, 0);
 
         // Draw a fullscreen triangle strip (4 vertices)
-        // The vertex shader (shader_fullscreen.vert) generates positions from gl_VertexID
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-        glBindVertexArray(0);
+        glDisableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
     public void cleanup() {
-        if (vaoId != 0) {
-            glDeleteVertexArrays(vaoId);
-            vaoId = 0;
+        if (vboId != 0) {
+            glDeleteBuffers(vboId);
+            vboId = 0;
         }
+        initialized = false;
     }
 }

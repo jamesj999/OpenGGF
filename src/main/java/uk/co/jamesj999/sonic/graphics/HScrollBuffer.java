@@ -8,15 +8,18 @@ import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 import static org.lwjgl.opengl.GL13.glActiveTexture;
-import static org.lwjgl.opengl.GL30.GL_R32F;
+import static org.lwjgl.opengl.ARBTextureFloat.GL_LUMINANCE32F_ARB;
 
 /**
  * GPU-side horizontal scroll buffer for per-scanline parallax scrolling.
  * Emulates Mega Drive VDP HScroll RAM by storing per-line scroll values
- * in a 1D texture that the parallax shader samples.
+ * in a 2D texture (Nx1) that the parallax shader samples.
  *
  * The texture stores 224 entries (one per visible scanline), with each
  * entry containing the background X scroll offset normalized to -1..1.
+ *
+ * Uses GL_TEXTURE_2D with height=1 instead of GL_TEXTURE_1D for better
+ * OpenGL 2.1 / GLSL 1.20 compatibility. Shaders sample with Y=0.5.
  *
  * IMPORTANT: Uses R32F format (32-bit float) instead of R16F because:
  * - 16-bit half-float only has 11 significant bits of mantissa
@@ -44,28 +47,31 @@ public class HScrollBuffer {
 
         textureId = glGenTextures();
 
-        glBindTexture(GL_TEXTURE_1D, textureId);
+        glBindTexture(GL_TEXTURE_2D, textureId);
 
         // Use nearest filtering - we want exact per-line values
-        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
         // Clamp to edge - shouldn't sample outside valid range
-        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        // Allocate texture with R32F format for full precision
+        // Allocate texture with luminance 32-bit float format for full precision (Nx1 for GLSL 1.20 compat)
+        // Uses ARB_texture_float extension for OpenGL 2.1 compatibility
         // R16F (half-float) only has 11 significant bits, causing jitter at high X
-        glTexImage1D(
-                GL_TEXTURE_1D,
+        glTexImage2D(
+                GL_TEXTURE_2D,
                 0,
-                GL_R32F,
+                GL_LUMINANCE32F_ARB,
                 VISIBLE_LINES,
+                1,  // Height = 1 for 1D-style lookup
                 0,
-                GL_RED,
+                GL_LUMINANCE,
                 GL_FLOAT,
                 (FloatBuffer) null);
 
-        glBindTexture(GL_TEXTURE_1D, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
         initialized = true;
     }
 
@@ -97,16 +103,18 @@ public class HScrollBuffer {
             buffer.put(scrollData);
             buffer.flip();
 
-            glBindTexture(GL_TEXTURE_1D, textureId);
-            glTexSubImage1D(
-                    GL_TEXTURE_1D,
+            glBindTexture(GL_TEXTURE_2D, textureId);
+            glTexSubImage2D(
+                    GL_TEXTURE_2D,
+                    0,
                     0,
                     0,
                     VISIBLE_LINES,
-                    GL_RED,
+                    1,  // Height = 1
+                    GL_LUMINANCE,
                     GL_FLOAT,
                     buffer);
-            glBindTexture(GL_TEXTURE_1D, 0);
+            glBindTexture(GL_TEXTURE_2D, 0);
         } finally {
             MemoryUtil.memFree(buffer);
         }
@@ -122,7 +130,7 @@ public class HScrollBuffer {
             return;
         }
         glActiveTexture(GL_TEXTURE0 + textureUnit);
-        glBindTexture(GL_TEXTURE_1D, textureId);
+        glBindTexture(GL_TEXTURE_2D, textureId);
     }
 
     /**
@@ -130,7 +138,7 @@ public class HScrollBuffer {
      */
     public void unbind(int textureUnit) {
         glActiveTexture(GL_TEXTURE0 + textureUnit);
-        glBindTexture(GL_TEXTURE_1D, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 
     /**

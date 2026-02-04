@@ -1,4 +1,4 @@
-#version 410 core
+#version 120
 
 /*
  * Special Stage Background Shader
@@ -15,9 +15,9 @@
 // Background tilemap rendered to FBO (256x256, already palette-resolved RGBA)
 uniform sampler2D BackgroundTexture;
 
-// 1D texture containing per-scanline horizontal scroll values (224 entries)
+// 2D texture containing per-scanline horizontal scroll values (Nx1 texture, 224 entries)
 // Each value is the background X scroll offset for that scanline
-uniform sampler1D HScrollTexture;
+uniform sampler2D HScrollTexture;
 
 // Screen dimensions (actual window pixels)
 uniform float ScreenWidth;
@@ -39,8 +39,6 @@ const float H32_WIDTH = 256.0;
 const float SCREEN_GAME_WIDTH = 320.0;
 const float SCREEN_GAME_HEIGHT = 224.0;
 const float H32_OFFSET = (SCREEN_GAME_WIDTH - H32_WIDTH) / 2.0;  // 32 pixels
-
-out vec4 FragColor;
 
 void main()
 {
@@ -77,7 +75,8 @@ void main()
 
     // H-scroll texture contains signed 16-bit values encoded as normalized floats
     // The value represents pixels to scroll (positive = scroll right, content moves left)
-    float hScrollValue = texture(HScrollTexture, scanlineTexCoord).r * 32767.0;
+    // Sample 2D texture with Y=0.5 (single row)
+    float hScrollValue = texture2D(HScrollTexture, vec2(scanlineTexCoord, 0.5)).r * 32767.0;
 
     // Apply horizontal scroll to get the source X position in the background
     // Negative scroll = background moves right (content scrolls left into view)
@@ -112,12 +111,12 @@ void main()
     float texV = 1.0 - (sampleY / BGTextureHeight);
 
     // Sample the background texture
-    vec4 color = texture(BackgroundTexture, vec2(texU, texV));
+    vec4 color = texture2D(BackgroundTexture, vec2(texU, texV));
 
     // Alpha test - discard transparent pixels
     if (color.a < 0.1) {
         discard;
     }
 
-    FragColor = color;
+    gl_FragColor = color;
 }

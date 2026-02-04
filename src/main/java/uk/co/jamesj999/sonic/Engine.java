@@ -153,11 +153,10 @@ public class Engine {
 		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
-		// Request OpenGL 4.1 core profile for macOS compatibility
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+		// Request OpenGL 2.1 compatibility profile for wider GPU support
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE); // Required for macOS
+		// OpenGL 2.1 uses compatibility profile (default), no explicit profile hint needed
 
 		// Create the window
 		String version = SonicConfigurationService.ENGINE_VERSION;

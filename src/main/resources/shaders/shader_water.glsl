@@ -1,4 +1,4 @@
-#version 410 core
+#version 120
 
 // Standard inputs (from ShaderProgram/default shader)
 uniform sampler2D Palette;              // Texture Unit 0
@@ -20,10 +20,8 @@ uniform float WaterLevelWorldY;         // Water level in world coordinates
 uniform float RenderWorldYOffset;       // World Y offset for current render context
 uniform int UseWorldSpaceWater;         // 0 = screen space, 1 = world space
 
-in vec2 v_texCoord;
-in float v_paletteLine;
-
-out vec4 FragColor;
+varying vec2 v_texCoord;
+varying float v_paletteLine;
 
 void main()
 {
@@ -72,7 +70,7 @@ void main()
     uv.s += uDistortion;
 
     // Sample texture index
-    float index = texture(IndexedColorTexture, uv).r * 255.0;
+    float index = texture2D(IndexedColorTexture, uv).r * 255.0;
 
     bool isTransparent = index < 0.1;
 
@@ -94,12 +92,12 @@ void main()
 
         if (pixelYFromTop >= waterlineY) {
              // Use underwater palette
-             color = texture(UnderwaterPalette, vec2(paletteX, paletteY));
+             color = texture2D(UnderwaterPalette, vec2(paletteX, paletteY));
         } else {
              // Use normal palette
-             color = texture(Palette, vec2(paletteX, paletteY));
+             color = texture2D(Palette, vec2(paletteX, paletteY));
         }
     }
 
-    FragColor = color;
+    gl_FragColor = color;
 }

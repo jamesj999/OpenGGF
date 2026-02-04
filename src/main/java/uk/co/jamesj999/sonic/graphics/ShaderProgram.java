@@ -72,6 +72,25 @@ public class ShaderProgram {
         programId = glCreateProgram();
         glAttachShader(programId, vertexShaderId);
         glAttachShader(programId, fragmentShaderId);
+
+        // Bind attribute locations before linking (required for OpenGL 2.1 without layout qualifiers)
+        // These must match the attribute indices used in the vertex array setup code.
+        // Basic pattern shader attributes
+        glBindAttribLocation(programId, 0, "VertexPos");
+        glBindAttribLocation(programId, 1, "VertexUv");
+        glBindAttribLocation(programId, 2, "VertexPalette");
+        // Debug color shader attributes
+        glBindAttribLocation(programId, 1, "VertexColor");
+        // Instanced shader attributes
+        glBindAttribLocation(programId, 1, "InstancePos");
+        glBindAttribLocation(programId, 2, "InstanceSize");
+        glBindAttribLocation(programId, 3, "InstanceUv0");
+        glBindAttribLocation(programId, 4, "InstanceUv1");
+        glBindAttribLocation(programId, 5, "InstancePalette");
+        glBindAttribLocation(programId, 6, "InstanceHighPriority");
+        // Debug text shader attributes
+        glBindAttribLocation(programId, 5, "InstanceColor");
+
         glLinkProgram(programId);
 
         int linked = glGetProgrami(programId, GL_LINK_STATUS);

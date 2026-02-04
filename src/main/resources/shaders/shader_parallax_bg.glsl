@@ -1,4 +1,4 @@
-#version 410 core
+#version 120
 
 /*
  * Parallax Background Shader
@@ -13,8 +13,8 @@
 // Background rendered to FBO (RGBA, wider than screen)
 uniform sampler2D BackgroundTexture;
 
-// 1D texture containing per-scanline scroll values (224 entries)
-uniform sampler1D HScrollTexture;
+// 2D texture containing per-scanline scroll values (Nx1 texture, 224 entries in X)
+uniform sampler2D HScrollTexture;
 
 // Screen dimensions (actual viewport pixels)
 uniform float ScreenHeight;
@@ -38,8 +38,6 @@ uniform float VScroll;
 uniform float ViewportOffsetX;
 uniform float ViewportOffsetY;
 
-out vec4 FragColor;
-
 void main()
 {
     // Get viewport-relative position by subtracting viewport offset from window coordinates
@@ -55,7 +53,8 @@ void main()
     // Get the scroll value for this scanline
     float scanline = clamp(gameY, 0.0, 223.0);  // Clamp to valid scanline range
     float scanlineTexCoord = (scanline + 0.5) / 224.0;
-    float hScrollThis = texture(HScrollTexture, scanlineTexCoord).r * 32767.0;
+    // Sample 2D texture with Y=0.5 (single row)
+    float hScrollThis = texture2D(HScrollTexture, vec2(scanlineTexCoord, 0.5)).r * 32767.0;
 
     // hScroll contains negative values (e.g., -cameraX * parallaxFactor)
     // To get world X position: worldX = screenX - hScroll
@@ -77,12 +76,12 @@ void main()
     float fboV = 1.0 - ((fboY + 0.5) / BGTextureHeight);  // Add 0.5 for pixel center
     fboV = clamp(fboV, 0.5 / BGTextureHeight, 1.0 - 0.5 / BGTextureHeight);  // Stay within texture
 
-    vec4 color = texture(BackgroundTexture, vec2(fboU, fboV));
+    vec4 color = texture2D(BackgroundTexture, vec2(fboU, fboV));
 
     // Alpha test
     if (color.a < 0.1) {
         discard;
     }
 
-    FragColor = color;
+    gl_FragColor = color;
 }

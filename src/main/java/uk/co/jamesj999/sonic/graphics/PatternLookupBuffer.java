@@ -8,8 +8,11 @@ import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE;
 
 /**
- * 1D texture that maps pattern index to atlas tile coordinates.
+ * 2D texture (Nx1) that maps pattern index to atlas tile coordinates.
  * Stores RGBA8 where R=tileX, G=tileY.
+ *
+ * Uses GL_TEXTURE_2D with height=1 instead of GL_TEXTURE_1D for better
+ * OpenGL 2.1 / GLSL 1.20 compatibility. Shaders sample with Y=0.5.
  */
 public class PatternLookupBuffer {
     private int textureId = 0;
@@ -24,13 +27,14 @@ public class PatternLookupBuffer {
         }
         this.size = size;
 
-        glBindTexture(GL_TEXTURE_1D, textureId);
-        glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8, size, 0, GL_RGBA,
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, size, 1, 0, GL_RGBA,
                 GL_UNSIGNED_BYTE, (ByteBuffer) null);
-        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glBindTexture(GL_TEXTURE_1D, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 
     public void upload(byte[] data, int size) {
@@ -44,9 +48,9 @@ public class PatternLookupBuffer {
         try {
             buffer.put(data);
             buffer.flip();
-            glBindTexture(GL_TEXTURE_1D, textureId);
-            glTexSubImage1D(GL_TEXTURE_1D, 0, 0, size, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-            glBindTexture(GL_TEXTURE_1D, 0);
+            glBindTexture(GL_TEXTURE_2D, textureId);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, 1, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+            glBindTexture(GL_TEXTURE_2D, 0);
         } finally {
             MemoryUtil.memFree(buffer);
         }

@@ -1,4 +1,4 @@
-#version 410 core
+#version 120
 
 // VDP Shadow/Highlight mode shader for Sonic 2 Special Stage
 //
@@ -11,9 +11,7 @@
 
 uniform sampler2D IndexedColorTexture;
 
-in vec2 v_texCoord;
-
-out vec4 FragColor;
+varying vec2 v_texCoord;
 
 // Shadow darkening factor (Genesis VDP halves RGB values)
 const float SHADOW_FACTOR = 0.5;
@@ -21,7 +19,7 @@ const float SHADOW_FACTOR = 0.5;
 void main()
 {
     // Get the color index from the indexed texture
-    float index = texture(IndexedColorTexture, v_texCoord).r * 255.0;
+    float index = texture2D(IndexedColorTexture, v_texCoord).r * 255.0;
 
     // Index 0 is transparent - discard to leave background unchanged
     if (index < 0.5) {
@@ -30,5 +28,5 @@ void main()
 
     // Any non-zero pixel outputs the shadow darkening factor
     // With glBlendFunc(GL_ZERO, GL_SRC_COLOR): result = dest * 0.5 = darkened background
-    FragColor = vec4(SHADOW_FACTOR, SHADOW_FACTOR, SHADOW_FACTOR, 1.0);
+    gl_FragColor = vec4(SHADOW_FACTOR, SHADOW_FACTOR, SHADOW_FACTOR, 1.0);
 }

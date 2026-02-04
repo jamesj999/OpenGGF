@@ -1,14 +1,14 @@
-#version 410 core
+#version 120
 
 // Debug color vertex shader for rendering debug primitives (lines, quads, etc.)
 
-layout(location = 0) in vec2 VertexPos;
-layout(location = 1) in vec4 VertexColor;
+attribute vec2 VertexPos;
+attribute vec4 VertexColor;
 
 uniform mat4 ProjectionMatrix;
 uniform vec2 CameraOffset;
 
-out vec4 v_color;
+varying vec4 v_color;
 
 void main()
 {

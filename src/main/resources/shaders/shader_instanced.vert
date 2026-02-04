@@ -1,19 +1,19 @@
-#version 410 core
+#version 120
 
-layout(location = 0) in vec2 VertexPos;
-layout(location = 1) in vec2 InstancePos;
-layout(location = 2) in vec2 InstanceSize;
-layout(location = 3) in vec2 InstanceUv0;
-layout(location = 4) in vec2 InstanceUv1;
-layout(location = 5) in float InstancePalette;
-layout(location = 6) in float InstanceHighPriority;  // 0.0 = low priority, 1.0 = high priority
+attribute vec2 VertexPos;
+attribute vec2 InstancePos;
+attribute vec2 InstanceSize;
+attribute vec2 InstanceUv0;
+attribute vec2 InstanceUv1;
+attribute float InstancePalette;
+attribute float InstanceHighPriority;  // 0.0 = low priority, 1.0 = high priority
 
 uniform mat4 ProjectionMatrix;
 uniform vec2 CameraOffset;
 
-out vec2 v_texCoord;
-out float v_paletteLine;
-out float v_highPriority;
+varying vec2 v_texCoord;
+varying float v_paletteLine;
+varying float v_highPriority;
 
 void main()
 {

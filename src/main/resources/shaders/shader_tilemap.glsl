@@ -1,7 +1,7 @@
-#version 410 core
+#version 120
 
 uniform sampler2D TilemapTexture;    // RGBA8 tile descriptors
-uniform sampler1D PatternLookup;     // RGBA8: R=tileX, G=tileY
+uniform sampler2D PatternLookup;     // RGBA8: R=tileX, G=tileY (1D data in 2D texture)
 uniform sampler2D AtlasTexture;      // Indexed color atlas (GL_RED)
 uniform sampler2D Palette;           // Combined palette texture
 uniform sampler2D UnderwaterPalette; // Underwater palette
@@ -24,8 +24,6 @@ uniform int PriorityPass;            // -1 = all, 0 = low, 1 = high
 uniform int MaskOutput;              // 1 = output white mask, 0 = output actual color
 uniform int UseUnderwaterPalette;
 uniform float WaterlineScreenY;
-
-out vec4 FragColor;
 
 void main()
 {
@@ -63,7 +61,7 @@ void main()
     }
 
     vec2 tileUv = vec2((tileXf + 0.5) / TilemapWidth, (tileYf + 0.5) / TilemapHeight);
-    vec4 desc = texture(TilemapTexture, tileUv);
+    vec4 desc = texture2D(TilemapTexture, tileUv);
 
     if (desc.a < 0.5) {
         discard;
@@ -98,8 +96,9 @@ void main()
         localY = 7.0 - localY;
     }
 
+    // Pattern lookup using 2D texture with Y=0.5 (single row)
     float lookupU = (patternIndex + 0.5) / LookupSize;
-    vec4 lookup = texture(PatternLookup, lookupU);
+    vec4 lookup = texture2D(PatternLookup, vec2(lookupU, 0.5));
     float atlasTileX = lookup.r * 255.0;
     float atlasTileY = lookup.g * 255.0;
 
@@ -107,7 +106,7 @@ void main()
     float atlasPixelY = atlasTileY * 8.0 + localY + 0.5;
 
     vec2 atlasUv = vec2(atlasPixelX / AtlasWidth, atlasPixelY / AtlasHeight);
-    float index = texture(AtlasTexture, atlasUv).r * 255.0;
+    float index = texture2D(AtlasTexture, atlasUv).r * 255.0;
 
     if (index < 0.1) {
         discard;
@@ -117,16 +116,16 @@ void main()
     float paletteY = (paletteIndex + 0.5) / 4.0;
     vec4 color;
     if (UseUnderwaterPalette == 1 && pixelYFromTop >= WaterlineScreenY) {
-        color = texture(UnderwaterPalette, vec2(paletteX, paletteY));
+        color = texture2D(UnderwaterPalette, vec2(paletteX, paletteY));
     } else {
-        color = texture(Palette, vec2(paletteX, paletteY));
+        color = texture2D(Palette, vec2(paletteX, paletteY));
     }
 
     // When MaskOutput is set, output white as a binary priority mask
     // Otherwise output the actual tile color
     if (MaskOutput == 1) {
-        FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
     } else {
-        FragColor = color;
+        gl_FragColor = color;
     }
 }

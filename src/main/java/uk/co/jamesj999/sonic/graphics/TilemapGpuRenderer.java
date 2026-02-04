@@ -128,7 +128,7 @@ public class TilemapGpuRenderer {
         glBindTexture(GL_TEXTURE_2D, tilemapTexture.getTextureId());
 
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_1D, patternLookup.getTextureId());
+        glBindTexture(GL_TEXTURE_2D, patternLookup.getTextureId());
 
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, atlasTextureId);
@@ -148,7 +148,7 @@ public class TilemapGpuRenderer {
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_1D, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, 0);
 
