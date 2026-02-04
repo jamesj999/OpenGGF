@@ -411,8 +411,8 @@ public class Engine {
 		} else if (getCurrentGameMode() == GameMode.SPECIAL_STAGE_RESULTS) {
 			glClearColor(0.85f, 0.9f, 0.95f, 1.0f);
 		} else if (getCurrentGameMode() == GameMode.LEVEL_SELECT) {
-			// Level select has its own background color (blue)
-			glClearColor(0.0f, 0.0f, 0.5f, 1.0f);
+			// Level select backdrop is palette 0, color 0 (per VDP register $8700)
+			LevelSelectManager.getInstance().setClearColor();
 		} else if (getCurrentGameMode() == GameMode.TITLE_CARD) {
 			levelManager.setClearColor();
 		} else {
