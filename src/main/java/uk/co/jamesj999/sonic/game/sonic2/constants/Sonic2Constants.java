@@ -171,8 +171,14 @@ public class Sonic2Constants {
     public static final int ART_NEM_FONT_STUFF_ADDR = 0x7C43A;         // Standard menu font
 
     // Level Select Mappings (Enigma compressed)
-    public static final int MAP_ENI_LEVEL_SELECT_ADDR = 0x9A60;        // Main screen layout (40x28 tiles)
+    public static final int MAP_ENI_LEVEL_SELECT_ADDR = 0x9ADE;        // Main screen layout (40x28 tiles)
     public static final int MAP_ENI_LEVEL_SELECT_ICON_ADDR = 0x9C32;   // Icon box layout (preview area)
+
+    // Menu Background (Sonic/Miles) - uncompressed art + Enigma mappings
+    public static final int ART_UNC_MENU_BACK_ADDR = 0x7CD2C;          // ArtUnc_MenuBack (40 tiles)
+    public static final int ART_UNC_MENU_BACK_SIZE = 1280;             // 40 tiles * 32 bytes
+    public static final int MAP_ENI_MENU_BACK_ADDR = 0x7CB80;          // MapEng_MenuBack (40x28 tiles)
+    public static final int MAP_ENI_MENU_BACK_SIZE = 428;              // Enigma-compressed map size
 
     // Level Select Palettes (uncompressed)
     public static final int PAL_LEVEL_ICONS_ADDR = 0x9880;             // 15 icon palettes (32 bytes each)

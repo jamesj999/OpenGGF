@@ -16,6 +16,9 @@ public final class LevelSelectConstants {
     /** Pattern base ID for level select art (high ID to avoid conflicts) */
     public static final int PATTERN_BASE = 0x50000;
 
+    /** Pattern offset for menu background art (separate from menu box/font/icon art) */
+    public static final int MENU_BACK_OFFSET = 0x500;
+
     /** Screen dimensions */
     public static final int SCREEN_WIDTH = 320;
     public static final int SCREEN_HEIGHT = 224;
@@ -87,7 +90,7 @@ public final class LevelSelectConstants {
 
     /**
      * Icon table - maps menu index to icon index (0-14).
-     * Each icon is a 3x4 tile (24x32 pixel) image.
+     * Each icon is a 4x3 tile (32x24 pixel) image.
      *
      * <pre>
      * From s2.asm LevSel_IconTable:

@@ -5,8 +5,12 @@ import uk.co.jamesj999.sonic.Control.InputHandler;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SoundTestCatalog;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
+import uk.co.jamesj999.sonic.game.sonic2.menu.MenuBackgroundAnimator;
+import uk.co.jamesj999.sonic.game.sonic2.menu.MenuBackgroundDataLoader;
+import uk.co.jamesj999.sonic.game.sonic2.menu.MenuBackgroundRenderer;
 import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.level.PatternDesc;
 
@@ -49,6 +53,12 @@ public class LevelSelectManager {
 
     private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
     private final LevelSelectDataLoader dataLoader = new LevelSelectDataLoader();
+    private final MenuBackgroundDataLoader menuBackgroundDataLoader = new MenuBackgroundDataLoader();
+    private final MenuBackgroundRenderer menuBackgroundRenderer = new MenuBackgroundRenderer();
+
+    private MenuBackgroundAnimator menuBackgroundAnimator;
+    private final PatternDesc reusableDesc = new PatternDesc();
+    private final PatternDesc highlightDesc = new PatternDesc();
 
     private State state = State.INACTIVE;
     private int selectedIndex = 0;      // Menu selection (0-21)
@@ -68,6 +78,9 @@ public class LevelSelectManager {
     private static final float BG_R = 0.0f;
     private static final float BG_G = 0.0f;
     private static final float BG_B = 0.5f;
+
+    private static final int HIGHLIGHT_PALETTE_INDEX = 3;
+    private static final int ICON_PALETTE_INDEX = 2;
 
     private LevelSelectManager() {
     }
@@ -90,6 +103,10 @@ public class LevelSelectManager {
         if (!dataLoader.isDataLoaded()) {
             dataLoader.loadData();
         }
+        if (!menuBackgroundDataLoader.isDataLoaded()) {
+            menuBackgroundDataLoader.loadData();
+        }
+        menuBackgroundAnimator = null;
 
         // Reset state
         state = State.FADE_IN;
@@ -250,13 +267,15 @@ public class LevelSelectManager {
 
         if (zoneAct == SOUND_TEST_VALUE) {
             // Sound test - play the selected sound
-            LOGGER.info("Playing sound test: 0x" + Integer.toHexString(soundTestValue));
-            if (soundTestValue < 0x20) {
-                // Music
-                AudioManager.getInstance().playMusic(soundTestValue);
+            int soundId = Sonic2SoundTestCatalog.toSoundId(soundTestValue);
+            LOGGER.info("Playing sound test: 0x" + Integer.toHexString(soundTestValue)
+                    + " -> soundId 0x" + Integer.toHexString(soundId));
+            if (Sonic2SoundTestCatalog.isMusicId(soundId)) {
+                AudioManager.getInstance().playMusic(soundId);
+            } else if (Sonic2SoundTestCatalog.isSfxId(soundId)) {
+                AudioManager.getInstance().playSfx(soundId);
             } else {
-                // SFX
-                AudioManager.getInstance().playSfx(soundTestValue);
+                LOGGER.fine("No mapped sound for sound test value: 0x" + Integer.toHexString(soundTestValue));
             }
         } else {
             // Start fade out for level/special stage
@@ -282,46 +301,73 @@ public class LevelSelectManager {
         if (!dataLoader.isDataLoaded()) {
             dataLoader.loadData();
         }
+        if (!menuBackgroundDataLoader.isDataLoaded()) {
+            menuBackgroundDataLoader.loadData();
+        }
         dataLoader.cacheToGpu();
+        menuBackgroundDataLoader.cacheToGpu(PATTERN_BASE, MENU_BACK_OFFSET);
 
         GraphicsManager gm = GraphicsManager.getInstance();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }
 
-        // Draw background color
-        gm.registerCommand(new GLCommand(
-                GLCommand.CommandType.RECTI,
-                -1,
-                BG_R, BG_G, BG_B,
-                0, 0, SCREEN_WIDTH, SCREEN_HEIGHT
-        ));
+        if (menuBackgroundAnimator == null
+                && menuBackgroundDataLoader.getMenuBackPatterns() != null
+                && menuBackgroundDataLoader.getMenuBackPatterns().length > 0) {
+            menuBackgroundAnimator = new MenuBackgroundAnimator(
+                    menuBackgroundDataLoader.getMenuBackPatterns(),
+                    PATTERN_BASE + MENU_BACK_OFFSET);
+            menuBackgroundAnimator.prime();
+        }
+        if (menuBackgroundAnimator != null) {
+            menuBackgroundAnimator.update();
+        }
 
-        // Draw the zone icon preview first (uses its own palette on line 3)
-        gm.beginPatternBatch();
-        drawZoneIcon(gm);
-        gm.flushPatternBatch();
-
-        // Restore menu palettes for text rendering (skip line 1 which has icon palette)
-        int[] textPaletteLines = {0, 2, 3};
-        for (int i : textPaletteLines) {
-            Palette menuPal = dataLoader.getMenuPalette(i);
-            if (menuPal != null) {
-                gm.cachePaletteTexture(menuPal, i);
+        int iconIndex = selectedIndex < ICON_TABLE.length ? ICON_TABLE[selectedIndex] : -1;
+        if (iconIndex >= 0) {
+            Palette iconPalette = dataLoader.getIconPalette(iconIndex);
+            if (iconPalette != null) {
+                gm.cachePaletteTexture(iconPalette, ICON_PALETTE_INDEX);
             }
         }
 
-        // Draw the menu entries (uses menu palettes 0 and 3)
-        gm.beginPatternBatch();
-        drawMenuEntries(gm);
-
-        // Draw the selection highlight
-        drawSelectionHighlight(gm);
-
-        // Draw sound test value if on sound test
-        if (selectedIndex == MENU_ENTRY_COUNT - 1) {
-            drawSoundTestValue(gm);
+        boolean renderMenuBack = menuBackgroundDataLoader.getMenuBackMappings() != null
+                && menuBackgroundDataLoader.getMenuBackMappings().length > 0;
+        if (!renderMenuBack) {
+            gm.registerCommand(new GLCommand(
+                    GLCommand.CommandType.RECTI,
+                    -1,
+                    BG_R, BG_G, BG_B,
+                    0, 0, SCREEN_WIDTH, SCREEN_HEIGHT
+            ));
         }
+
+        gm.beginPatternBatch();
+        if (renderMenuBack) {
+            menuBackgroundRenderer.render(
+                    gm,
+                    menuBackgroundDataLoader.getMenuBackMappings(),
+                    menuBackgroundDataLoader.getMenuBackWidth(),
+                    menuBackgroundDataLoader.getMenuBackHeight(),
+                    PATTERN_BASE,
+                    MENU_BACK_OFFSET
+            );
+        }
+
+        int[] screenLayout = dataLoader.getScreenLayout();
+        if (screenLayout != null && screenLayout.length > 0) {
+            renderTilemap(gm, screenLayout, dataLoader.getScreenLayoutWidth(), dataLoader.getScreenLayoutHeight());
+            drawSelectionHighlight(gm, screenLayout, dataLoader.getScreenLayoutWidth(),
+                    dataLoader.getScreenLayoutHeight());
+        } else {
+            drawMenuEntries(gm);
+        }
+
+        int soundPalette = selectedIndex == MENU_ENTRY_COUNT - 1 ? HIGHLIGHT_PALETTE_INDEX : 0;
+        drawSoundTestValue(gm, soundPalette);
+
+        drawZoneIcon(gm);
 
         gm.flushPatternBatch();
 
@@ -341,6 +387,32 @@ public class LevelSelectManager {
                     0.0f, 0.0f, 0.0f, fadeAmount,
                     0, 0, SCREEN_WIDTH, SCREEN_HEIGHT
             ));
+        }
+    }
+
+    /**
+     * Renders a tilemap decoded from Enigma mappings.
+     */
+    private void renderTilemap(GraphicsManager gm, int[] map, int width, int height) {
+        if (map == null || map.length == 0 || width <= 0 || height <= 0) {
+            return;
+        }
+
+        for (int ty = 0; ty < height; ty++) {
+            int baseIndex = ty * width;
+            for (int tx = 0; tx < width; tx++) {
+                int idx = baseIndex + tx;
+                if (idx < 0 || idx >= map.length) {
+                    continue;
+                }
+                int word = map[idx];
+                if (word == 0) {
+                    continue;
+                }
+                reusableDesc.set(word);
+                int patternId = PATTERN_BASE + reusableDesc.getPatternIndex();
+                gm.renderPatternWithId(patternId, reusableDesc, tx * 8, ty * 8);
+            }
         }
     }
 
@@ -474,54 +546,103 @@ public class LevelSelectManager {
             return;
         }
 
-        // Update icon palette (palette line 1 - separate from text palettes)
-        Palette iconPalette = dataLoader.getIconPalette(iconIndex);
-        if (iconPalette != null) {
-            gm.cachePaletteTexture(iconPalette, 1);
-        }
-
         // Icon position (bottom right area of screen)
         int iconX = 216;
         int iconY = 176;
 
-        // Each icon is 4x3 tiles (32x24 pixels)
-        // Icons are stored sequentially in ArtNem_LevelSelectPics
-        int tilesPerIcon = 12; // 4 * 3
-        int baseTile = dataLoader.getLevelSelectPicsOffset() + (iconIndex * tilesPerIcon);
+        int[] iconMappings = dataLoader.getIconMappings();
+        int iconMapWidth = dataLoader.getIconMappingsWidth();
+        if (iconMappings == null || iconMappings.length == 0 || iconMapWidth <= 0) {
+            return;
+        }
 
-        // Draw the 4x3 icon (row-major order - tiles stored left-to-right, top-to-bottom)
+        int iconRowStart = iconIndex * 3;
         for (int row = 0; row < 3; row++) {
+            int mapRow = iconRowStart + row;
+            int baseIndex = mapRow * iconMapWidth;
             for (int col = 0; col < 4; col++) {
-                int tileOffset = row * 4 + col;  // row-major: row * width + col
-                int patternId = PATTERN_BASE + baseTile + tileOffset;
+                int idx = baseIndex + col;
+                if (idx < 0 || idx >= iconMappings.length) {
+                    continue;
+                }
+                int word = iconMappings[idx];
+                if (word == 0) {
+                    continue;
+                }
+                int patternIndex = word & 0x7FF;
+                reusableDesc.set(word);
+                int patternId = PATTERN_BASE + patternIndex;
                 int tileX = iconX + col * 8;
                 int tileY = iconY + row * 8;
-
-                // Use palette line 1 for icons (separate from text highlight on line 3)
-                PatternDesc desc = new PatternDesc(tileOffset | (1 << 13));
-                gm.renderPatternWithId(patternId, desc, tileX, tileY);
+                gm.renderPatternWithId(patternId, reusableDesc, tileX, tileY);
             }
         }
     }
 
     /**
-     * Draws the selection highlight.
-     * Note: The original game highlights selected text by changing palette only,
-     * which is already handled in drawMenuEntries(). No additional visual indicator needed.
+     * Draws the selection highlight by re-rendering the marked tiles
+     * with the highlight palette line.
      */
-    private void drawSelectionHighlight(GraphicsManager gm) {
-        // The original Sonic 2 level select only highlights by changing text color
-        // to yellow (palette line 3). No arrow or background rectangle is drawn.
-        // The palette-based highlighting is already done in drawMenuEntries().
+    private void drawSelectionHighlight(GraphicsManager gm, int[] map, int width, int height) {
+        if (map == null || map.length == 0 || width <= 0 || height <= 0) {
+            return;
+        }
+        if (selectedIndex < 0 || selectedIndex >= MARK_TABLE.length) {
+            return;
+        }
+
+        int[] mark = MARK_TABLE[selectedIndex];
+        int row1 = mark[0];
+        int col1 = mark[1] / 2;
+        renderHighlightSpan(gm, map, width, height, row1, col1, 14);
+
+        int row2 = mark[2];
+        int col2 = mark[3] / 2;
+        if (row2 != 0 || col2 != 0) {
+            renderHighlightTile(gm, map, width, height, row2, col2);
+        }
+    }
+
+    private void renderHighlightSpan(GraphicsManager gm, int[] map, int width, int height,
+                                     int row, int col, int length) {
+        if (row < 0 || row >= height) {
+            return;
+        }
+        for (int i = 0; i < length; i++) {
+            int tileCol = col + i;
+            if (tileCol < 0 || tileCol >= width) {
+                break;
+            }
+            renderHighlightTile(gm, map, width, height, row, tileCol);
+        }
+    }
+
+    private void renderHighlightTile(GraphicsManager gm, int[] map, int width, int height, int row, int col) {
+        if (row < 0 || row >= height || col < 0 || col >= width) {
+            return;
+        }
+        int idx = row * width + col;
+        if (idx < 0 || idx >= map.length) {
+            return;
+        }
+        int word = map[idx];
+        if (word == 0) {
+            return;
+        }
+        int patternIndex = word & 0x7FF;
+        int flags = word & 0xF800;
+        int adjusted = (flags & ~0x6000) | ((HIGHLIGHT_PALETTE_INDEX & 0x3) << 13) | patternIndex;
+        highlightDesc.set(adjusted);
+        int patternId = PATTERN_BASE + patternIndex;
+        gm.renderPatternWithId(patternId, highlightDesc, col * 8, row * 8);
     }
 
     /**
      * Draws the sound test value as hex digits.
      */
-    private void drawSoundTestValue(GraphicsManager gm) {
-        // Draw the sound test value at the right side of the sound test entry
-        // Sound Test is at line 18, X position after "SOUND TEST" text
-        int x = 288;      // col=0x48 → tile 36 → X=288 (same as right column act numbers)
+    private void drawSoundTestValue(GraphicsManager gm, int paletteIndex) {
+        // Draw the sound test value at tile (34,18)
+        int x = 34 * 8;
         int y = 18 * 8;   // line 18 → Y=144
 
         // Convert to 2-digit hex
@@ -529,15 +650,15 @@ public class LevelSelectManager {
         int lowNibble = soundTestValue & 0xF;
 
         // Draw high nibble
-        drawHexDigit(gm, highNibble, x, y);
+        drawHexDigit(gm, highNibble, x, y, paletteIndex);
         // Draw low nibble
-        drawHexDigit(gm, lowNibble, x + 8, y);
+        drawHexDigit(gm, lowNibble, x + 8, y, paletteIndex);
     }
 
     /**
      * Draws a single hex digit (0-F).
      */
-    private void drawHexDigit(GraphicsManager gm, int digit, int x, int y) {
+    private void drawHexDigit(GraphicsManager gm, int digit, int x, int y, int paletteIndex) {
         int charIndex;
         if (digit < 10) {
             charIndex = digit; // 0-9 at indices 0-9
@@ -546,7 +667,7 @@ public class LevelSelectManager {
         }
 
         int patternId = PATTERN_BASE + dataLoader.getFontOffset() + charIndex;
-        PatternDesc desc = new PatternDesc(charIndex | (3 << 13)); // Yellow palette (line 3)
+        PatternDesc desc = new PatternDesc(charIndex | ((paletteIndex & 0x3) << 13));
         gm.renderPatternWithId(patternId, desc, x, y);
     }
 
