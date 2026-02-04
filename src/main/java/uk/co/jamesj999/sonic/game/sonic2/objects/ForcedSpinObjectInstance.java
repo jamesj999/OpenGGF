@@ -258,11 +258,12 @@ public class ForcedSpinObjectInstance extends BoxObjectInstance {
         }
 
         // Force into rolling state
-        // setRolling(true) handles:
-        // - Setting y_radius to 14, x_radius to 7 (via applyRollingRadii)
-        // - Adjusting Y position by +5 pixels
-        // - Setting height to roll height
+        // setRolling(true) handles radii and visual dimensions but NOT Y position
         player.setRolling(true);
+
+        // Adjust Y position for roll height change (ROM: addq.w #5,y_pos)
+        // ROM uses center coordinates (+5 radius diff), our engine uses top-left (+10 height diff)
+        player.setY((short) (player.getY() + player.getRollHeightAdjustment()));
 
         // Set roll animation
         forceRollAnimation(player);
