@@ -178,12 +178,9 @@ public class GLCommand implements GLCommandable {
 
 		// Set projection matrix
 		if (cachedProjectionLoc != -1) {
-			Engine engine = gm.getEngine();
-			if (engine != null) {
-				float[] projMatrix = engine.getProjectionMatrixBuffer();
-				if (projMatrix != null) {
-					glUniformMatrix4fv(cachedProjectionLoc, false, projMatrix);
-				}
+			float[] projMatrix = gm.getProjectionMatrixBuffer();
+			if (projMatrix != null) {
+				glUniformMatrix4fv(cachedProjectionLoc, false, projMatrix);
 			}
 		}
 

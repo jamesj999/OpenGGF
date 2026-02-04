@@ -119,6 +119,10 @@ public class VisualRegressionTest {
             projectionMatrix.get(matrixBuffer);
             glLoadMatrixf(matrixBuffer);
 
+            // Provide projection matrix to GraphicsManager for shader-based rendering
+            // (required since Engine.getInstance() returns null in test context)
+            graphicsManager.setProjectionMatrixBuffer(matrixBuffer.clone());
+
             glMatrixMode(GL_MODELVIEW);
             glLoadIdentity();
 

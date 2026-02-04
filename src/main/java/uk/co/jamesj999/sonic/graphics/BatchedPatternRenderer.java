@@ -645,12 +645,9 @@ public class BatchedPatternRenderer {
             // Set projection matrix uniform - REQUIRED for correct rendering
             int projectionLoc = glGetUniformLocation(shader.getProgramId(), "ProjectionMatrix");
             if (projectionLoc != -1) {
-                uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
-                if (engine != null) {
-                    float[] projMatrix = engine.getProjectionMatrixBuffer();
-                    if (projMatrix != null) {
-                        glUniformMatrix4fv(projectionLoc, false, projMatrix);
-                    }
+                float[] projMatrix = gm.getProjectionMatrixBuffer();
+                if (projMatrix != null) {
+                    glUniformMatrix4fv(projectionLoc, false, projMatrix);
                 }
             }
 
@@ -910,12 +907,9 @@ public class BatchedPatternRenderer {
             // Set projection matrix uniform - REQUIRED for correct rendering
             int projectionLoc = glGetUniformLocation(shadowShader.getProgramId(), "ProjectionMatrix");
             if (projectionLoc != -1) {
-                uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
-                if (engine != null) {
-                    float[] projMatrix = engine.getProjectionMatrixBuffer();
-                    if (projMatrix != null) {
-                        glUniformMatrix4fv(projectionLoc, false, projMatrix);
-                    }
+                float[] projMatrix = gm.getProjectionMatrixBuffer();
+                if (projMatrix != null) {
+                    glUniformMatrix4fv(projectionLoc, false, projMatrix);
                 }
             }
 
