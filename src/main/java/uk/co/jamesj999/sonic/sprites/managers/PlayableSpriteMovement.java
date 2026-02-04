@@ -943,12 +943,25 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short predictedDx = (short) (((sprite.getXSubpixel() & 0xFF) + sprite.getXSpeed()) >> 8);
 		short predictedDy = (short) (((sprite.getYSubpixel() & 0xFF) + sprite.getYSpeed()) >> 8);
 
+		// ROM: CalcRoomInFront (s2.asm:43517-43519) adds +8 to Y only when (rotatedAngle & 0x38) == 0
+		// The angle is ROTATED before this check: +0x40 when moving left, -0x40 (0xC0) when moving right.
+		// This must be calculated FRESH each frame, not use the stale sensor offset.
+		// The sensor stores a Y offset that only updates when setAir/setGroundMode is called,
+		// which doesn't happen when the angle changes on curved terrain.
+		int wallRotation = (gSpeed < 0) ? 0x40 : 0xC0;  // +0x40 for left, -0x40 (0xC0) for right
+		int wallRotatedAngle = (angle + wallRotation) & 0xFF;
+		// Calculate dynamic offset: +8 only when (rotatedAngle & 0x38) == 0
+		short dynamicYOffset = (short) (((wallRotatedAngle & 0x38) == 0) ? 8 : 0);
+		// Subtract the stale sensor Y offset and add the dynamically calculated one
+		short sensorYOffset = sensor.getY();
+		short wallYOffset = (short) (dynamicYOffset - sensorYOffset);
+
 		// ROM doesn't use sensor active state - it checks gSpeed != 0 directly (already done above).
 		// Our sensor active state is updated at end of frame, so may be stale here on first frame
 		// of movement from standstill. Temporarily enable sensor to match ROM behavior.
 		boolean wasActive = sensor.isActive();
 		sensor.setActive(true);
-		SensorResult result = sensor.scan(predictedDx, predictedDy);
+		SensorResult result = sensor.scan(predictedDx, (short)(predictedDy + wallYOffset));
 		sensor.setActive(wasActive);
 
 		if (result == null || result.distance() >= 0) {
