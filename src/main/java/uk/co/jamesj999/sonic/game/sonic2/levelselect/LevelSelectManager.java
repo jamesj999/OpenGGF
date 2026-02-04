@@ -29,7 +29,7 @@ import static uk.co.jamesj999.sonic.game.sonic2.levelselect.LevelSelectConstants
  *
  * <p>State machine:
  * <pre>
- * INACTIVE → FADE_IN → ACTIVE → FADE_OUT → EXITING
+ * INACTIVE → FADE_IN → ACTIVE → EXITING
  * </pre>
  */
 public class LevelSelectManager {
@@ -47,8 +47,6 @@ public class LevelSelectManager {
         FADE_IN,
         /** Main interactive state */
         ACTIVE,
-        /** Fading out to load level */
-        FADE_OUT,
         /** Ready to exit and load selected level */
         EXITING
     }
@@ -132,7 +130,6 @@ public class LevelSelectManager {
         switch (state) {
             case FADE_IN -> updateFadeIn();
             case ACTIVE -> updateActive(input);
-            case FADE_OUT -> updateFadeOut();
             case INACTIVE, EXITING -> { }
         }
     }
@@ -206,14 +203,6 @@ public class LevelSelectManager {
         }
     }
 
-    private void updateFadeOut() {
-        fadeTimer++;
-        if (fadeTimer >= FADE_DURATION) {
-            state = State.EXITING;
-            LOGGER.info("Level select fade out complete, ready to exit");
-        }
-    }
-
     private void moveUp() {
         selectedIndex--;
         if (selectedIndex < 0) {
@@ -280,11 +269,9 @@ public class LevelSelectManager {
                 LOGGER.fine("No mapped sound for sound test value: 0x" + Integer.toHexString(soundTestValue));
             }
         } else {
-            // Start fade out for level/special stage
-            state = State.FADE_OUT;
-            fadeTimer = 0;
-            AudioManager.getInstance().fadeOutMusic();
-            LOGGER.info("Level select starting fade out for selection: " + selectedIndex);
+            // Signal exit - GameLoop will handle the fade
+            state = State.EXITING;
+            LOGGER.info("Level select exiting for selection: " + selectedIndex);
         }
     }
 
@@ -369,8 +356,6 @@ public class LevelSelectManager {
         float fadeAmount = 0.0f;
         if (state == State.FADE_IN) {
             fadeAmount = 1.0f - (float) fadeTimer / FADE_DURATION;
-        } else if (state == State.FADE_OUT) {
-            fadeAmount = (float) fadeTimer / FADE_DURATION;
         }
 
         if (fadeAmount > 0.0f) {
