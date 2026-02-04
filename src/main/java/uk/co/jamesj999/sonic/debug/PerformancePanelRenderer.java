@@ -225,7 +225,7 @@ public class PerformancePanelRenderer {
         // Work time is how long the frame took to process (should be < 16.7ms for 60fps)
         double workMs = snapshot.totalFrameTimeMs();
         double budgetPct = (workMs / TARGET_FRAME_MS) * 100;
-        glyphBatch.drawTextOutlined(String.format("%.1fms (%.0f%%) %.0ffps", workMs, budgetPct, snapshot.fps()),
+        glyphBatch.drawTextOutlined(String.format("%.1fms (%.0f%%) %.1ffps", workMs, budgetPct, snapshot.fps()),
                 textX, textY, Color.WHITE, PERF_FONT);
 
         // Section legend
