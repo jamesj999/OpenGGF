@@ -59,6 +59,13 @@ public class HeadlessTestRunner {
     public void stepFrame(boolean up, boolean down, boolean left, boolean right, boolean jump) {
         frameCounter++;
 
+        // Store RAW input state for objects (like springs) that need to query button state
+        // even when control is locked. This matches SpriteManager.update() behavior where
+        // input state is set BEFORE object updates. Objects read isJumpPressed() during
+        // their update() methods, so this must be set before updateObjectPositions().
+        sprite.setJumpInputPressed(jump);
+        sprite.setDirectionalInputPressed(left, right);
+
         // Update object positions (from GameLoop.step())
         levelManager.updateObjectPositions();
 
