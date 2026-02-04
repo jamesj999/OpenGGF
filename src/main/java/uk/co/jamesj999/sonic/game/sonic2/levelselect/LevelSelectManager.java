@@ -16,6 +16,8 @@ import uk.co.jamesj999.sonic.level.PatternDesc;
 
 import java.util.logging.Logger;
 
+import static org.lwjgl.opengl.GL11.glClearColor;
+
 import static uk.co.jamesj999.sonic.game.sonic2.levelselect.LevelSelectConstants.*;
 
 /**
@@ -334,14 +336,6 @@ public class LevelSelectManager {
 
         boolean renderMenuBack = menuBackgroundDataLoader.getMenuBackMappings() != null
                 && menuBackgroundDataLoader.getMenuBackMappings().length > 0;
-        if (!renderMenuBack) {
-            gm.registerCommand(new GLCommand(
-                    GLCommand.CommandType.RECTI,
-                    -1,
-                    BG_R, BG_G, BG_B,
-                    0, 0, SCREEN_WIDTH, SCREEN_HEIGHT
-            ));
-        }
 
         gm.beginPatternBatch();
         if (renderMenuBack) {
@@ -749,6 +743,24 @@ public class LevelSelectManager {
         fadeTimer = 0;
         resetHoldTimers();
         LOGGER.info("Level select reset to inactive");
+    }
+
+    /**
+     * Sets the OpenGL clear color to the VDP backdrop color (palette 0, color 0).
+     * This matches the original game's VDP register $8700 setting.
+     */
+    public void setClearColor() {
+        if (!dataLoader.isDataLoaded()) {
+            dataLoader.loadData();
+        }
+        Palette pal0 = dataLoader.getMenuPalette(0);
+        if (pal0 != null) {
+            Palette.Color backdrop = pal0.getColor(0);
+            glClearColor(backdrop.rFloat(), backdrop.gFloat(), backdrop.bFloat(), 1.0f);
+        } else {
+            // Fallback
+            glClearColor(BG_R, BG_G, BG_B, 1.0f);
+        }
     }
 
     /**

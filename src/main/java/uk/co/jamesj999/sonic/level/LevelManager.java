@@ -2481,9 +2481,6 @@ public class LevelManager {
     }
 
     public void setClearColor() {
-        float r = 0.0f;
-        float g = 0.0f;
-        float b = 0.0f;
         boolean forceBlack = false;
 
         if (level instanceof uk.co.jamesj999.sonic.game.sonic2.Sonic2Level) {
@@ -2496,13 +2493,11 @@ public class LevelManager {
 
         if (!forceBlack && level.getPaletteCount() > 1) {
             // In Sonic 2, Palette 1 is the level palette (Palette 0 is character).
-            Palette.Color backgroundColor = level.getPalette(1).getColor(0);
-            r = Byte.toUnsignedInt(backgroundColor.r) / 255f;
-            g = Byte.toUnsignedInt(backgroundColor.g) / 255f;
-            b = Byte.toUnsignedInt(backgroundColor.b) / 255f;
+            Palette.Color backdrop = level.getPalette(1).getColor(0);
+            glClearColor(backdrop.rFloat(), backdrop.gFloat(), backdrop.bFloat(), 1.0f);
+        } else {
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         }
-
-        glClearColor(r, g, b, 1.0f);
     }
 
     /**
