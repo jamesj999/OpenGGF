@@ -12,6 +12,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <lwjgl.version>3.3.3</lwjgl.version>
         <joml.version>1.10.5</joml.version>
+        <surefire.argLine></surefire.argLine>
     </properties>
 
     <!-- LWJGL native classifier profiles -->
@@ -32,6 +33,7 @@
             </activation>
             <properties>
                 <lwjgl.natives>natives-macos</lwjgl.natives>
+                <surefire.argLine>-XstartOnFirstThread</surefire.argLine>
             </properties>
         </profile>
         <profile>
@@ -41,6 +43,7 @@
             </activation>
             <properties>
                 <lwjgl.natives>natives-macos-arm64</lwjgl.natives>
+                <surefire.argLine>-XstartOnFirstThread</surefire.argLine>
             </properties>
         </profile>
         <profile>
@@ -114,8 +117,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
                 <configuration>
-                    <!-- LWJGL/GLFW on macOS requires -XstartOnFirstThread -->
-                    <argLine>-XstartOnFirstThread</argLine>
+                    <!-- LWJGL/GLFW on macOS requires -XstartOnFirstThread (set via profile) -->
+                    <argLine>${surefire.argLine}</argLine>
                     <!-- Exclude tests that require a GL context/display -->
                     <excludes>
                         <exclude>**/TestGraphicsManagerHeadless.java</exclude>

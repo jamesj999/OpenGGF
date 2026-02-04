@@ -26,6 +26,8 @@ import java.util.logging.Logger;
 
 import static org.lwjgl.openal.AL10.*;
 import static org.lwjgl.openal.ALC10.*;
+import static org.lwjgl.openal.ALC11.*;
+import static org.lwjgl.openal.SOFTHRTF.*;
 
 public class LWJGLAudioBackend implements AudioBackend {
     private static final Logger LOGGER = Logger.getLogger(LWJGLAudioBackend.class.getName());
@@ -45,6 +47,7 @@ public class LWJGLAudioBackend implements AudioBackend {
     // Pre-allocated buffers for fillBuffer() to avoid per-call allocations (~43 times/sec)
     private final short[] streamData = new short[STREAM_BUFFER_SIZE * 2];
     private final short[] sfxStreamData = new short[STREAM_BUFFER_SIZE * 2];
+    private int deviceSampleRate = 48000;  // Default fallback, updated in init()
     // Reusable DirectBuffer to avoid allocation in fillBuffer() hot path
     private ShortBuffer directShortBuffer;
     private SmpsSequencer currentSmps;
@@ -107,8 +110,15 @@ public class LWJGLAudioBackend implements AudioBackend {
                 throw new RuntimeException("Could not open ALC device");
             }
 
-            // Create context
-            context = alcCreateContext(device, (IntBuffer) null);
+            // Request 48000 Hz sample rate explicitly and disable HRTF for clean stereo output
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                IntBuffer contextAttribs = stack.ints(
+                    ALC_FREQUENCY, 48000,
+                    ALC_HRTF_SOFT, ALC_FALSE,  // Disable HRTF processing
+                    0  // Terminate list
+                );
+                context = alcCreateContext(device, contextAttribs);
+            }
             if (context == 0) {
                 throw new RuntimeException("Could not create ALC context");
             }
@@ -119,11 +129,39 @@ public class LWJGLAudioBackend implements AudioBackend {
             ALCCapabilities alcCaps = ALC.createCapabilities(device);
             AL.createCapabilities(alcCaps);
 
+            // Verify the actual frequency (may differ from request)
+            deviceSampleRate = alcGetInteger(device, ALC_FREQUENCY);
+            if (deviceSampleRate <= 0) {
+                deviceSampleRate = 48000;  // Use our requested rate as fallback
+            }
+
             if (alGetError() != AL_NO_ERROR) {
                 throw new RuntimeException("AL Error during init");
             }
 
-            LOGGER.info("LWJGL OpenAL Initialized. Buffer Size: " + STREAM_BUFFER_SIZE);
+            // Log HRTF status
+            if (ALC.getCapabilities().ALC_SOFT_HRTF) {
+                int hrtfStatus = alcGetInteger(device, ALC_HRTF_STATUS_SOFT);
+                String hrtfStatusStr = switch (hrtfStatus) {
+                    case ALC_HRTF_DISABLED_SOFT -> "Disabled";
+                    case ALC_HRTF_ENABLED_SOFT -> "Enabled";
+                    case ALC_HRTF_DENIED_SOFT -> "Denied";
+                    case ALC_HRTF_REQUIRED_SOFT -> "Required";
+                    case ALC_HRTF_HEADPHONES_DETECTED_SOFT -> "Headphones Detected";
+                    case ALC_HRTF_UNSUPPORTED_FORMAT_SOFT -> "Unsupported Format";
+                    default -> "Unknown (" + hrtfStatus + ")";
+                };
+                LOGGER.info("HRTF Status: " + hrtfStatusStr);
+            }
+
+            // Log device info
+            String deviceName = alcGetString(device, ALC_DEVICE_SPECIFIER);
+            int monoSources = alcGetInteger(device, ALC_MONO_SOURCES);
+            int stereoSources = alcGetInteger(device, ALC_STEREO_SOURCES);
+            LOGGER.info("OpenAL Device: " + deviceName);
+            LOGGER.info("Mono sources: " + monoSources + ", Stereo sources: " + stereoSources);
+
+            LOGGER.info("LWJGL OpenAL Initialized. Device sample rate: " + deviceSampleRate + " Hz, Buffer Size: " + STREAM_BUFFER_SIZE);
 
             // Preload SFX
             for (String sfxPath : sfxFallback.values()) {
@@ -437,11 +475,12 @@ public class LWJGLAudioBackend implements AudioBackend {
     private double getSmpsOutputRate() {
         boolean internalRate = SonicConfigurationService.getInstance()
                 .getBoolean(SonicConfiguration.AUDIO_INTERNAL_RATE_OUTPUT);
-        return internalRate ? Ym2612Chip.getInternalRate() : Ym2612Chip.getDefaultOutputRate();
+        // Use device's native sample rate to avoid OpenAL resampling - our BlipResampler handles it
+        return internalRate ? Ym2612Chip.getInternalRate() : deviceSampleRate;
     }
 
     private double getStreamSampleRate() {
-        double rate = Ym2612Chip.getDefaultOutputRate();
+        double rate = deviceSampleRate;  // Use device rate as fallback to match getSmpsOutputRate()
         SmpsDriver musicDriver = (currentStream instanceof SmpsDriver driver) ? driver : null;
         SmpsDriver sfxDriver = (sfxStream instanceof SmpsDriver driver) ? driver : null;
         if (musicDriver != null) {
