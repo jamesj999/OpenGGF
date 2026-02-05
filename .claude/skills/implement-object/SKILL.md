@@ -207,6 +207,23 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 ```
 **Examples:** `BuzzerBadnikInstance`, `GrabberBadnikInstance`, `MasherBadnikInstance`
 
+##### Pattern 5: Boss (Zone Act 2 Boss Fights)
+
+**Use the dedicated `/implement-boss` skill** (`.claude/skills/implement-boss/skill.md`) for boss implementations.
+
+Bosses differ significantly from regular objects:
+- Dynamic spawning via `LevelEventManager` (not level layout)
+- Camera arena locking with min/max boundaries
+- 8 hits with invulnerability and palette flash
+- Multi-component architecture with `AbstractBossChild`
+- Defeat sequences (explosions, flee, EggPrison spawn)
+- Music transitions (fade, boss music, resume)
+
+**Detect a boss when disassembly shows:**
+- Object spawned by `LevEvents_XXX` routines
+- `collision_flags` set to `$C0 | size_index` (boss category)
+- Uses `Boss_HandleHits` pattern
+
 ##### Choosing the Right Pattern
 
 | Disassembly Pattern | Engine Pattern | Key Indicator |
@@ -215,6 +232,7 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 | Loop calculating piece positions | Multi-Piece Solid | Pieces calculated from shared angle/state |
 | `AllocateObjectAfterCurrent` calls | Parent-Child Spawning | Children get independent `routine`/`subtype` |
 | `Obj25` (enemy) base routines | Badnik | Uses touch response, spawns explosion on death |
+| `LevEvents_XXX` spawning, `Boss_HandleHits` | **Use /implement-boss** | Spawned by level events, 8 hits, camera lock |
 
 #### 2.4 Implementation Requirements
 
@@ -355,6 +373,7 @@ Once cross-validation is confirmed bug-free:
 | Purpose | Location |
 |---------|----------|
 | **Disassembly guide** | `.claude/skills/s2disasm-guide/skill.md` |
+| **Boss skill** | `.claude/skills/implement-boss/skill.md` |
 | Object IDs | `src/.../game/sonic2/constants/Sonic2ObjectIds.java` |
 | ROM offsets | `src/.../game/sonic2/constants/Sonic2Constants.java` |
 | Art keys | `src/.../game/sonic2/Sonic2ObjectArtKeys.java` |
