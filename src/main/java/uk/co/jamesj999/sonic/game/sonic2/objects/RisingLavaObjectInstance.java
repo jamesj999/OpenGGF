@@ -6,6 +6,7 @@ import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.ParallaxManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.objects.SolidContact;
@@ -156,7 +157,17 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // ROM: Obj30_Main (line 49083)
         // Y position = base Y + Camera_BG_Y_offset
         int bgYOffset = LevelEventManager.getInstance().getCameraBgYOffset();
-        currentY = baseY + bgYOffset;
+
+        // During screen shake, visual terrain also shifts by shakeOffsetY from ripple data.
+        // The collision platform must include this offset to stay synchronized with where
+        // the visual terrain appears, preventing invisible walls.
+        // ROM: The visual scroll uses vscrollFactorFG = cameraY + shakeOffsetV
+        int shakeOffsetY = 0;
+        if (GameServices.gameState().isScreenShakeActive()) {
+            shakeOffsetY = ParallaxManager.getInstance().getShakeOffsetY();
+        }
+
+        currentY = baseY + bgYOffset + shakeOffsetY;
 
         updateDynamicSpawn();
 

@@ -1,6 +1,9 @@
 package uk.co.jamesj999.sonic.tests;
 
+import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
 import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.ParallaxManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 /**
@@ -65,6 +68,21 @@ public class HeadlessTestRunner {
         // their update() methods, so this must be set before updateObjectPositions().
         sprite.setJumpInputPressed(jump);
         sprite.setDirectionalInputPressed(up, down, left, right);
+
+        // Update camera position BEFORE level events (matches game loop order)
+        Camera camera = Camera.getInstance();
+        camera.updatePosition(false);
+
+        // Update level events (dynamic boundaries, HTZ earthquake, etc.)
+        // This is essential for HTZ lava oscillation and screen shake triggers
+        LevelEventManager.getInstance().update();
+
+        // Update parallax scrolling (calculates shake offsets from ripple data)
+        // This must run after level events so shake flags are set correctly
+        ParallaxManager parallax = ParallaxManager.getInstance();
+        int zoneId = levelManager.getCurrentZone();
+        int actId = levelManager.getCurrentAct();
+        parallax.update(zoneId, actId, camera, frameCounter, 0);
 
         // Update object positions (from GameLoop.step())
         levelManager.updateObjectPositions();

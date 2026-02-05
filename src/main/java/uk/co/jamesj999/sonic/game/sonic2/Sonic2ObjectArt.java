@@ -2269,16 +2269,18 @@ public class Sonic2ObjectArt {
         frame2.add(new SpriteMappingPiece(-8, -8, 2, 2, tileSol, false, false, 0));
         frames.add(new SpriteMappingFrame(frame2));
 
-        // Frame 3: Fireball (Map_obj95_0028) - palette 1
+        // Frame 3: Fireball (Map_obj95_0028) - palette 0
+        // Note: Original ROM mapping says palette 1, but HtzFireball1 art is designed for palette 0
+        // (verified by comparing with Obj20 lava ball which uses same art with palette 0)
         // spritePiece -8, -8, 2, 2, $3AE, 0, 0, 0, 1
         List<SpriteMappingPiece> frame3 = new ArrayList<>();
-        frame3.add(new SpriteMappingPiece(-8, -8, 2, 2, tileFireball, false, false, 1));
+        frame3.add(new SpriteMappingPiece(-8, -8, 2, 2, tileFireball, false, false, 0));
         frames.add(new SpriteMappingFrame(frame3));
 
-        // Frame 4: Fireball H-flipped (Map_obj95_0032) - palette 1
+        // Frame 4: Fireball H-flipped (Map_obj95_0032) - palette 0
         // spritePiece -8, -8, 2, 2, $3AE, 1, 0, 0, 1
         List<SpriteMappingPiece> frame4 = new ArrayList<>();
-        frame4.add(new SpriteMappingPiece(-8, -8, 2, 2, tileFireball, true, false, 1));
+        frame4.add(new SpriteMappingPiece(-8, -8, 2, 2, tileFireball, true, false, 0));
         frames.add(new SpriteMappingFrame(frame4));
 
         return frames;

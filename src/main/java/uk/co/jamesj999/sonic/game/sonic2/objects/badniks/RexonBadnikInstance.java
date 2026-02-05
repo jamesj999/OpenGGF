@@ -208,8 +208,8 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
 
     @Override
     protected void updateAnimation(int frameCounter) {
-        // Body uses frame 0, no animation
-        animFrame = 0;
+        // Body uses frame 2 (s2.asm:73691: move.b #2,mapping_frame(a0))
+        animFrame = 2;
     }
 
     @Override
@@ -248,7 +248,7 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
             return;
         }
 
-        // Body uses frame 0
-        renderer.drawFrameIndex(0, currentX, currentY, xFlipFlag, false);
+        // Body uses frame 2 (s2.asm:73691)
+        renderer.drawFrameIndex(2, currentX, currentY, xFlipFlag, false);
     }
 }
