@@ -179,9 +179,11 @@ public class HTZBossLavaBall extends AbstractBossChild implements TouchResponseP
         int baseTile = (animFrame == 0) ? TILE_LARGE_FIRE_1 : TILE_LARGE_FIRE_2;
         int drawX = currentX - 8;
         int drawY = currentY - 8;
+        // Sprite mapping pieces use column-major tile order:
+        // tileOffset = (tx * heightTiles) + ty (same as SpritePieceRenderer).
         for (int ty = 0; ty < 2; ty++) {
             for (int tx = 0; tx < 2; tx++) {
-                int tile = baseTile + (ty * 2) + tx;
+                int tile = baseTile + (tx * 2) + ty;
                 renderer.drawPatternIndex(tile, drawX + (tx * 8), drawY + (ty * 8), 0);
             }
         }

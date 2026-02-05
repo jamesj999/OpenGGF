@@ -130,8 +130,8 @@ public class TestHTZBossChildObjects {
 
         lavaBall.appendRenderCommands(new ArrayList<>());
         verify(renderer).drawPatternIndex(eq(0xC3), eq(0x3038), eq(0x0578), eq(0));
-        verify(renderer).drawPatternIndex(eq(0xC4), eq(0x3040), eq(0x0578), eq(0));
-        verify(renderer).drawPatternIndex(eq(0xC5), eq(0x3038), eq(0x0580), eq(0));
+        verify(renderer).drawPatternIndex(eq(0xC5), eq(0x3040), eq(0x0578), eq(0));
+        verify(renderer).drawPatternIndex(eq(0xC4), eq(0x3038), eq(0x0580), eq(0));
         verify(renderer).drawPatternIndex(eq(0xC6), eq(0x3040), eq(0x0580), eq(0));
     }
 
