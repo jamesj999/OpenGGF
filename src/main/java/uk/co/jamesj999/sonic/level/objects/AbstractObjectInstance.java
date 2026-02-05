@@ -83,6 +83,10 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         return cameraBounds.containsX(getX());
     }
 
+    protected boolean isOnScreenX(int margin) {
+        return cameraBounds.containsX(getX(), margin);
+    }
+
     /**
      * Checks if this object is within the camera viewport with a margin.
      * Useful for projectiles that should persist slightly off-screen.
