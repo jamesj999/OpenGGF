@@ -106,6 +106,11 @@ public class LevelSelectManager {
         if (!menuBackgroundDataLoader.isDataLoaded()) {
             menuBackgroundDataLoader.loadData();
         }
+
+        // Force palette re-upload on next draw - level palettes may have overwritten
+        // the menu palette slots (0-3) on the GPU
+        dataLoader.resetCache();
+
         menuBackgroundAnimator = null;
 
         // Reset state
