@@ -1173,8 +1173,20 @@ public class LevelManager {
 
         int screenW = cachedScreenWidth;
         int screenH = cachedScreenHeight;
-        float worldOffsetX = camera.getXWithShake();
-        float worldOffsetY = camera.getYWithShake();
+        float fgWorldOffsetX = camera.getXWithShake();
+        float fgWorldOffsetY = camera.getYWithShake();
+
+        // Use parallax-computed BG offsets for the BG priority mask pass.
+        // This avoids HTZ earthquake desync where BG high-priority mask can drift
+        // relative to the actual background rendering and incorrectly hide sprites.
+        float bgWorldOffsetY = parallaxManager.getVscrollFactorBG();
+        float bgWorldOffsetXMutable = fgWorldOffsetX;
+        int[] hScrollData = parallaxManager.getHScrollForShader();
+        if (hScrollData != null && hScrollData.length > 0) {
+            short bgScroll = (short) (hScrollData[hScrollData.length - 1] & 0xFFFF);
+            bgWorldOffsetXMutable = -bgScroll;
+        }
+        final float bgWorldOffsetX = bgWorldOffsetXMutable;
 
         graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
             TilePriorityFBO tileFbo = graphicsManager.getTilePriorityFBO();
@@ -1202,8 +1214,8 @@ public class LevelManager {
                     0,      // viewport Y
                     screenW,  // viewport width
                     screenH,  // viewport height
-                    worldOffsetX,
-                    worldOffsetY,
+                    bgWorldOffsetX,
+                    bgWorldOffsetY,
                     graphicsManager.getPatternAtlasWidth(),
                     graphicsManager.getPatternAtlasHeight(),
                     atlasId,
@@ -1224,8 +1236,8 @@ public class LevelManager {
                     0,      // viewport Y
                     screenW,  // viewport width
                     screenH,  // viewport height
-                    worldOffsetX,
-                    worldOffsetY,
+                    fgWorldOffsetX,
+                    fgWorldOffsetY,
                     graphicsManager.getPatternAtlasWidth(),
                     graphicsManager.getPatternAtlasHeight(),
                     atlasId,
