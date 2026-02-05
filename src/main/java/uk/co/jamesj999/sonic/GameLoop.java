@@ -837,6 +837,27 @@ public class GameLoop {
         // Clean up results screen
         resultsScreen = null;
 
+        if (levelManager.getCurrentLevel() == null) {
+            // No level was loaded (special stage launched from level select).
+            // Load the starting level; loadCurrentLevel() will request its own title card.
+            GameMode oldMode = currentGameMode;
+            currentGameMode = GameMode.LEVEL;
+            try {
+                levelManager.loadZoneAndAct(0, 0);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to load starting level after special stage", e);
+            }
+
+            if (gameModeChangeListener != null) {
+                gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+            }
+
+            FadeManager.getInstance().startFadeFromWhite(null);
+
+            LOGGER.info("Exited Results Screen, loaded starting level (no previous level)");
+            return;
+        }
+
         // Restore level palettes (special stage overwrites them) - needed for title
         // card
         levelManager.reloadLevelPalettes();

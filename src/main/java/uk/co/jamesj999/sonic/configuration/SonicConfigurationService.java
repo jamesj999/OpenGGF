@@ -14,7 +14,7 @@ import static org.lwjgl.glfw.GLFW.*;
 
 public class SonicConfigurationService {
 	private static SonicConfigurationService sonicConfigurationService;
-	public static String ENGINE_VERSION = "0.2.20260117";
+	public static String ENGINE_VERSION = "0.3.prerelease";
 
 	private Map<String, Object> config;
 
