@@ -7,18 +7,11 @@ import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.physics.Sensor;
 
-import java.awt.image.BufferedImage;
-
 public abstract class AbstractSprite implements Sprite {
 	protected final SonicConfigurationService configService = SonicConfigurationService
 			.getInstance();
 	protected final GraphicsManager graphicsManager = GraphicsManager
 			.getInstance();
-
-	protected BufferedImage spriteImage = new BufferedImage(
-			configService.getInt(SonicConfiguration.SCREEN_WIDTH),
-			configService.getInt(SonicConfiguration.SCREEN_HEIGHT),
-			BufferedImage.TYPE_INT_RGB);
 
 	protected String code;
 

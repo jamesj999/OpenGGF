@@ -22,7 +22,7 @@ public class SonicConfigurationService {
 		ObjectMapper mapper = new ObjectMapper();
 		TypeReference<Map<String, Object>> type = new TypeReference<>(){};
 
-		File file = new File("config.json");
+		File file = resolveRelativeFile("config.json");
 		if (file.exists()) {
 			try {
 				config = mapper.readValue(file, type);
@@ -133,7 +133,7 @@ public class SonicConfigurationService {
 	public void saveConfig() {
 		ObjectMapper mapper = new ObjectMapper();
 		try {
-			mapper.writerWithDefaultPrettyPrinter().writeValue(new File("config.json"), config);
+			mapper.writerWithDefaultPrettyPrinter().writeValue(resolveRelativeFile("config.json"), config);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -193,5 +193,21 @@ public class SonicConfigurationService {
 			config = new HashMap<>();
 		}
 		config.putIfAbsent(key.name(), value);
+	}
+
+	/**
+	 * Resolves a relative filename against user.dir. In GraalVM native images
+	 * launched from macOS Finder, getcwd() is broken so File("relative") may
+	 * resolve against the wrong directory. This ensures consistent behavior.
+	 */
+	private static File resolveRelativeFile(String name) {
+		File f = new File(name);
+		if (!f.isAbsolute()) {
+			String userDir = System.getProperty("user.dir");
+			if (userDir != null) {
+				return new File(userDir, name);
+			}
+		}
+		return f;
 	}
 }

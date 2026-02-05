@@ -55,6 +55,113 @@
                 <lwjgl.natives>natives-windows</lwjgl.natives>
             </properties>
         </profile>
+
+        <!-- GraalVM native-image build: mvn package -Pnative -DskipTests -->
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <!-- Extract LWJGL native libraries from classifier JARs.
+                         In a native image there are no JARs to extract from at runtime,
+                         so we bundle the .dylib/.so/.dll files alongside the executable. -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <version>3.6.1</version>
+                        <executions>
+                            <execution>
+                                <id>unpack-lwjgl-natives</id>
+                                <phase>generate-resources</phase>
+                                <goals><goal>unpack-dependencies</goal></goals>
+                                <configuration>
+                                    <includeGroupIds>org.lwjgl</includeGroupIds>
+                                    <includeClassifiers>${lwjgl.natives}</includeClassifiers>
+                                    <outputDirectory>${project.build.directory}/lwjgl-unpack</outputDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- Flatten extracted native libs into target/native-libs/ -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>flatten-native-libs</id>
+                                <phase>process-resources</phase>
+                                <goals><goal>run</goal></goals>
+                                <configuration>
+                                    <target>
+                                        <mkdir dir="${project.build.directory}/native-libs"/>
+                                        <copy todir="${project.build.directory}/native-libs" flatten="true">
+                                            <fileset dir="${project.build.directory}/lwjgl-unpack">
+                                                <include name="**/*.dylib"/>
+                                                <include name="**/*.so"/>
+                                                <include name="**/*.dll"/>
+                                            </fileset>
+                                        </copy>
+                                        <!-- Also copy to target/ alongside the native binary
+                                             so bare execution (target/SonicEngine) works -->
+                                        <copy todir="${project.build.directory}" flatten="true">
+                                            <fileset dir="${project.build.directory}/lwjgl-unpack">
+                                                <include name="**/*.dylib"/>
+                                                <include name="**/*.so"/>
+                                                <include name="**/*.dll"/>
+                                            </fileset>
+                                        </copy>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>0.10.4</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <imageName>SonicEngine</imageName>
+                            <mainClass>uk.co.jamesj999.sonic.Engine</mainClass>
+                            <fallback>false</fallback>
+                            <buildArgs>
+                                <buildArg>--initialize-at-run-time=org.lwjgl</buildArg>
+                                <buildArg>--initialize-at-run-time=java.awt,javax.swing,sun.awt,sun.java2d,com.apple.laf</buildArg>
+                                <buildArg>-march=compatibility</buildArg>
+                            </buildArgs>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>build-native</id>
+                                <goals><goal>compile-no-fork</goal></goals>
+                                <phase>prepare-package</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>assemble-platform-package</id>
+                                <phase>package</phase>
+                                <goals><goal>exec</goal></goals>
+                                <configuration>
+                                    <executable>bash</executable>
+                                    <arguments>
+                                        <argument>${basedir}/src/packaging/assemble-macos-app.sh</argument>
+                                        <argument>${basedir}/target/SonicEngine</argument>
+                                        <argument>${basedir}/target</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
     </profiles>
 
     <dependencyManagement>

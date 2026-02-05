@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.game;
 
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2RomDetector;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -44,17 +45,9 @@ public class RomDetectionService {
      * Called during initialization.
      */
     private void registerBuiltInDetectors() {
-        // Import dynamically to avoid circular dependencies at class load time
-        try {
-            Class<?> sonic2DetectorClass = Class.forName(
-                    "uk.co.jamesj999.sonic.game.sonic2.Sonic2RomDetector");
-            RomDetector sonic2Detector = (RomDetector) sonic2DetectorClass
-                    .getDeclaredConstructor().newInstance();
-            registerDetector(sonic2Detector);
-            LOGGER.fine("Registered Sonic2RomDetector");
-        } catch (Exception e) {
-            LOGGER.warning("Failed to register Sonic2RomDetector: " + e.getMessage());
-        }
+        RomDetector sonic2Detector = new Sonic2RomDetector();
+        registerDetector(sonic2Detector);
+        LOGGER.fine("Registered Sonic2RomDetector");
     }
 
     /**
