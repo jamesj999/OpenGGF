@@ -91,6 +91,12 @@ public class Sonic2PlayerArt {
         } else {
             animationSet = null;
         }
+        // Tails' TailsAni_Hurt (0x19) uses the same frame ($5D) as TailsAni_Death (0x18).
+        // Use TailsAni_Hurt2 (0x1A, frame $5C) for Tails so hurt looks distinct from death.
+        int hurtAnimId = (basePatternIndex == Sonic2Constants.ART_TILE_TAILS)
+                ? Sonic2AnimationIds.HURT2
+                : Sonic2AnimationIds.HURT;
+
         SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile(
                 Sonic2AnimationIds.WAIT,      // idleAnimId
                 Sonic2AnimationIds.WALK,      // walkAnimId
@@ -103,7 +109,7 @@ public class Sonic2PlayerArt {
                 Sonic2AnimationIds.SPINDASH,  // spindashAnimId
                 Sonic2AnimationIds.SPRING,    // springAnimId
                 Sonic2AnimationIds.DEATH,     // deathAnimId
-                Sonic2AnimationIds.HURT,      // hurtAnimId
+                hurtAnimId,                   // hurtAnimId
                 Sonic2AnimationIds.SKID,      // skidAnimId
                 Sonic2AnimationIds.WALK,      // airAnimId
                 Sonic2AnimationIds.BALANCE,   // balanceAnimId - facing edge, safe distance

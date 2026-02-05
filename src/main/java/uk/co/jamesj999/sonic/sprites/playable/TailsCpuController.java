@@ -137,6 +137,7 @@ public class TailsCpuController {
             tails.setGSpeed((short) 0);
             tails.setAir(true);
             tails.setDead(false);
+            tails.setHurt(false);
 
             state = State.FLYING;
             tails.setForcedAnimationId(FLY_ANIM_ID);
@@ -202,6 +203,7 @@ public class TailsCpuController {
             tails.setXSpeed((short) 0);
             tails.setYSpeed((short) 0);
             tails.setGSpeed((short) 0);
+            tails.setHurt(false);
             tails.setForcedAnimationId(-1);
             state = State.NORMAL;
             despawnCounter = 0;
@@ -401,6 +403,7 @@ public class TailsCpuController {
         tails.setXSpeed((short) 0);
         tails.setYSpeed((short) 0);
         tails.setGSpeed((short) 0);
+        tails.setHurt(false);
         tails.setAir(true);
         tails.setForcedAnimationId(FLY_ANIM_ID);
         state = State.SPAWNING;
