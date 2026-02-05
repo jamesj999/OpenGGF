@@ -93,19 +93,84 @@ If the object needs new art:
 
 #### 2.3 Object Instance Class
 
-Create the instance class following existing patterns:
+Create the instance class following existing patterns. **Choose the appropriate pattern based on the object's behavior:**
 
-**For regular objects** - extend `AbstractObjectInstance`:
+##### Pattern 1: Simple Object (Single Entity)
+For objects that exist as a single collision/render entity:
+
 ```java
 package uk.co.jamesj999.sonic.game.sonic2.objects;
 
 public class ObjectNameObjectInstance extends AbstractObjectInstance
-        implements SolidObjectProvider, TouchResponseProvider {
-    // Implementation
+        implements SolidObjectProvider, SolidObjectListener {
+    // Single object with its own collision and rendering
 }
 ```
+**Examples:** `SpringObjectInstance`, `MonitorObjectInstance`, `MTZPlatformObjectInstance`
 
-**For badniks** - extend `AbstractBadnikInstance`:
+##### Pattern 2: Multi-Piece Solid (Single State Machine, Multiple Collision Pieces)
+For objects with multiple collision surfaces calculated from a **single state machine**:
+
+```java
+public class ObjectNameObjectInstance extends AbstractObjectInstance
+        implements MultiPieceSolidProvider, SolidObjectListener {
+
+    @Override
+    public int getPieceCount() { return NUM_PIECES; }
+
+    @Override
+    public int getPieceX(int pieceIndex) {
+        // Calculate piece position from single state (e.g., rotation angle)
+        return baseX + calculateOffset(pieceIndex);
+    }
+
+    @Override
+    public SolidObjectParams getPieceParams(int pieceIndex) {
+        return PIECE_PARAMS;  // Shared or per-piece collision
+    }
+}
+```
+**Use when:**
+- All pieces move together based on shared state (rotation, interpolation)
+- Pieces are calculated, not independent entities
+- Single `update()` method calculates all piece positions
+
+**Examples:**
+- `ARZRotPformsObjectInstance` - 3 orbiting platforms + 9 chain links, all rotating around a single center point
+- `CPZStaircaseObjectInstance` - 4 platform pieces interpolating together as a staircase
+
+##### Pattern 3: Parent-Child Spawning (Independent Child Objects)
+For objects that spawn separate, independent child objects:
+
+```java
+public class ObjectNameObjectInstance extends AbstractObjectInstance
+        implements SolidObjectProvider {
+
+    private void spawnChildren() {
+        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+
+        // Create child with its own spawn data
+        ObjectSpawn childSpawn = new ObjectSpawn(childX, childY, objectId, childSubtype, ...);
+        ChildObjectInstance child = new ChildObjectInstance(childSpawn, "ChildName");
+        manager.addDynamicObject(child);  // Child becomes independent
+    }
+}
+```
+**Use when:**
+- Children have independent state machines
+- Children can be destroyed/activated separately
+- Children move independently (not calculated from parent state)
+- ROM uses `AllocateObjectAfterCurrent` to spawn children
+
+**Examples:**
+- `MCZRotPformsObjectInstance` - Parent (subtype 0x18) spawns 2 child platforms with independent movement
+- `BubbleGeneratorObjectInstance` - Spawns individual bubble objects
+- `EggPrisonObjectInstance` - Spawns button, lock, and animals as separate objects
+- `AbstractBadnikInstance` - Spawns explosion + animal on destruction
+
+##### Pattern 4: Badnik (Enemy with AI)
+For enemies with touch response and destruction behavior:
+
 ```java
 package uk.co.jamesj999.sonic.game.sonic2.objects.badniks;
 
@@ -126,6 +191,16 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
     }
 }
 ```
+**Examples:** `BuzzerBadnikInstance`, `GrabberBadnikInstance`, `MasherBadnikInstance`
+
+##### Choosing the Right Pattern
+
+| Disassembly Pattern | Engine Pattern | Key Indicator |
+|---------------------|----------------|---------------|
+| Single object, single collision | Simple Object | No child allocation, single `width_pixels`/`y_radius` |
+| Loop calculating piece positions | Multi-Piece Solid | Pieces calculated from shared angle/state |
+| `AllocateObjectAfterCurrent` calls | Parent-Child Spawning | Children get independent `routine`/`subtype` |
+| `Obj25` (enemy) base routines | Badnik | Uses touch response, spawns explosion on death |
 
 #### 2.4 Implementation Requirements
 
@@ -276,8 +351,22 @@ Once cross-validation is confirmed bug-free:
 ## Example Implementations
 
 Study these for patterns:
-- `BuzzerBadnikInstance.java` - Flying badnik with projectiles
-- `GrabberBadnikInstance.java` - Complex multi-state badnik
-- `SpringObjectInstance.java` - Object with subtypes
-- `CNZRectBlocksObjectInstance.java` - Animated platforms
-- `MTZPlatformObjectInstance.java` - Multi-subtype platform
+
+### Simple Objects (Single Entity)
+- `SpringObjectInstance.java` - Object with subtypes (red/yellow, direction variants)
+- `MTZPlatformObjectInstance.java` - Multi-subtype platform with 12 movement types
+- `CNZRectBlocksObjectInstance.java` - Animated platform with state machine
+
+### Multi-Piece Solid (Single State, Multiple Collision Pieces)
+- `ARZRotPformsObjectInstance.java` - 3 orbiting platforms + 9 chain links rotating together
+- `CPZStaircaseObjectInstance.java` - 4 platform pieces interpolating as staircase
+
+### Parent-Child Spawning (Independent Children)
+- `MCZRotPformsObjectInstance.java` - Parent spawns 2 independent moving platforms (subtype 0x18)
+- `BubbleGeneratorObjectInstance.java` - Spawns individual bubble objects on timer
+- `EggPrisonObjectInstance.java` - Spawns button, lock, and animals as separate entities
+
+### Badniks (Enemies with AI)
+- `BuzzerBadnikInstance.java` - Flying badnik with projectile spawning
+- `GrabberBadnikInstance.java` - Complex multi-state spider badnik with grabbing
+- `MasherBadnikInstance.java` - Simple jumping fish badnik
