@@ -256,6 +256,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         private SpriteAnimationProfile animationProfile;
         private SpriteAnimationSet animationSet;
         private int animationId = 0;
+        /** When >= 0, overrides profile-based animation resolution (e.g., Tails CPU fly anim). */
+        private int forcedAnimationId = -1;
         private int animationFrameIndex = 0;
         private int animationTick = 0;
         private boolean renderHFlip = false;
@@ -563,6 +565,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void setAnimationId(int animationId) {
                 this.animationId = Math.max(0, animationId);
+        }
+
+        public int getForcedAnimationId() {
+                return forcedAnimationId;
+        }
+
+        public void setForcedAnimationId(int forcedAnimationId) {
+                this.forcedAnimationId = forcedAnimationId;
         }
 
         public int getAnimationFrameIndex() {

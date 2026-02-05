@@ -44,6 +44,9 @@ public class TailsCpuController {
     /** Spindash charge cycle in Panic state (ROM: every 128 frames) */
     private static final int PANIC_SPINDASH_INTERVAL = 128;
 
+    /** Tails helicopter flying animation ID (ROM: AniIDTailsAni_Fly = 0x20) */
+    private static final int FLY_ANIM_ID = 0x20;
+
     public enum State {
         INIT,       // Initial setup
         SPAWNING,   // Waiting to respawn (Sonic must be grounded safely)
@@ -136,12 +139,15 @@ public class TailsCpuController {
             tails.setDead(false);
 
             state = State.FLYING;
+            tails.setForcedAnimationId(FLY_ANIM_ID);
             despawnCounter = 0;
         }
     }
 
     private void updateFlying() {
         // ROM: TailsCPU_Flying - helicopter chase toward Sonic's delayed position
+        tails.setForcedAnimationId(FLY_ANIM_ID);
+
         // Check despawn while flying
         if (checkDespawn()) {
             return;
@@ -196,6 +202,7 @@ public class TailsCpuController {
             tails.setXSpeed((short) 0);
             tails.setYSpeed((short) 0);
             tails.setGSpeed((short) 0);
+            tails.setForcedAnimationId(-1);
             state = State.NORMAL;
             despawnCounter = 0;
             stuckCounter = 0;
@@ -395,6 +402,7 @@ public class TailsCpuController {
         tails.setYSpeed((short) 0);
         tails.setGSpeed((short) 0);
         tails.setAir(true);
+        tails.setForcedAnimationId(FLY_ANIM_ID);
         state = State.SPAWNING;
         despawnCounter = 0;
     }
@@ -445,6 +453,7 @@ public class TailsCpuController {
         stuckCounter = 0;
         jumpingFlag = false;
         clearInputs();
+        tails.setForcedAnimationId(-1);
         sonic = null;
     }
 }
