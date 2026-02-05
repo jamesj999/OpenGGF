@@ -1,6 +1,7 @@
 name: Build Release
 
 on:
+  pull_request:
   # Build on version tags
   push:
     tags:
