@@ -336,6 +336,11 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new SwingingPformObjectInstance(spawn,
                         registry.getPrimaryName(spawn.objectId())));
 
+        // MCZ/MTZ Rotating Platforms (moving wooden crates)
+        registerFactory(Sonic2ObjectIds.MCZ_ROT_PFORMS,
+                (spawn, registry) -> new MCZRotPformsObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
         // ARZ Rotating Platforms
         registerFactory(Sonic2ObjectIds.ARZ_ROT_PFORMS,
                 (spawn, registry) -> new ARZRotPformsObjectInstance(spawn,
@@ -364,6 +369,36 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         // HTZ Smashable Ground (Object 0x2F) - breakable rock platform
         registerFactory(Sonic2ObjectIds.SMASHABLE_GROUND,
                 (spawn, registry) -> new SmashableGroundObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // MCZ Brick / Spike Ball (Object 0x75)
+        registerFactory(Sonic2ObjectIds.MCZ_BRICK,
+                (spawn, registry) -> new MCZBrickObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // MCZ Sliding Spikes (Object 0x76) - spike block that slides out of wall
+        registerFactory(Sonic2ObjectIds.SLIDING_SPIKES,
+                (spawn, registry) -> new SlidingSpikesObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // MCZ Stomper (Object 0x2A) - ceiling crusher
+        registerFactory(Sonic2ObjectIds.STOMPER,
+                (spawn, registry) -> new StomperObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // MCZ VineSwitch (Object 0x7F) - pull switch that triggers ButtonVine
+        registerFactory(Sonic2ObjectIds.VINE_SWITCH,
+                (spawn, registry) -> new VineSwitchObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // MCZ/WFZ MovingVine (Object 0x80) - vine pulley or hook on chain
+        registerFactory(Sonic2ObjectIds.MOVING_VINE,
+                (spawn, registry) -> new MovingVineObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // MCZ Drawbridge (Object 0x81) - rotatable drawbridge triggered by ButtonVine
+        registerFactory(Sonic2ObjectIds.MCZ_DRAWBRIDGE,
+                (spawn, registry) -> new MCZDrawbridgeObjectInstance(spawn,
                         registry.getPrimaryName(spawn.objectId())));
     }
 }

@@ -629,6 +629,149 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load MCZ Vine Pulley sprite sheet (Object 0x80 - MCZ variant).
+     * <p>
+     * ROM: ArtNem_VinePulley at 0xF1D5C, palette line 3
+     * Mappings: Obj80_MapUnc_29C64 (7 frames, extension-based)
+     * <p>
+     * Disassembly Reference: s2.asm Obj80_MCZ_Init (loc_29A1C)
+     *
+     * @return sprite sheet for MCZ vine pulley, or null on failure
+     */
+    public ObjectSpriteSheet loadVinePulleySheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_VINE_PULLEY_ADDR, "VinePulley");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJ80_MCZ_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Load MCZ Crate sprite sheet (Object 0x6A - MCZ variant).
+     * <p>
+     * ROM: ArtNem_Crate at 0xF187C, palette line 3
+     * A large 64x64 wooden crate that moves when the player walks off of it.
+     * <p>
+     * Disassembly Reference: s2.asm Obj6A_Init (lines 53661-53683)
+     * Mappings: Obj6A_MapUnc_27D30 at s2.asm line 53850
+     * <pre>
+     * Map_obj6A_0002: 4 pieces
+     *   spritePiece -$20, -$20, 4, 4, 0, 0, 0, 0, 0      ; top-left
+     *   spritePiece    0, -$20, 4, 4, $10, 0, 0, 0, 0    ; top-right
+     *   spritePiece -$20,    0, 4, 4, $10, 1, 1, 0, 0    ; bottom-left (H-flip, V-flip)
+     *   spritePiece    0,    0, 4, 4, 0, 1, 1, 0, 0      ; bottom-right (H-flip, V-flip)
+     * </pre>
+     *
+     * @return sprite sheet for MCZ wooden crate, or null on failure
+     */
+    public ObjectSpriteSheet loadMCZCrateSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_CRATE_ADDR, "MCZCrate");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMCZCrateMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Create MCZ Crate mappings from disassembly.
+     * <p>
+     * Single frame with 4 pieces making a 64x64 crate:
+     * - Piece 0: Top-left 32x32 at (-32, -32), tiles 0-15
+     * - Piece 1: Top-right 32x32 at (0, -32), tiles 16-31
+     * - Piece 2: Bottom-left 32x32 at (-32, 0), tiles 16-31 with H+V flip
+     * - Piece 3: Bottom-right 32x32 at (0, 0), tiles 0-15 with H+V flip
+     */
+    private List<SpriteMappingFrame> createMCZCrateMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        List<SpriteMappingPiece> pieces = new ArrayList<>();
+        // Top-left: 4x4 tiles (32x32 pixels) at offset (-32, -32), pattern 0
+        pieces.add(new SpriteMappingPiece(-32, -32, 4, 4, 0, false, false, 3));
+        // Top-right: 4x4 tiles (32x32 pixels) at offset (0, -32), pattern 0x10
+        pieces.add(new SpriteMappingPiece(0, -32, 4, 4, 0x10, false, false, 3));
+        // Bottom-left: 4x4 tiles (32x32 pixels) at offset (-32, 0), pattern 0x10, H-flip, V-flip
+        pieces.add(new SpriteMappingPiece(-32, 0, 4, 4, 0x10, true, true, 3));
+        // Bottom-right: 4x4 tiles (32x32 pixels) at offset (0, 0), pattern 0, H-flip, V-flip
+        pieces.add(new SpriteMappingPiece(0, 0, 4, 4, 0, true, true, 3));
+
+        frames.add(new SpriteMappingFrame(pieces));
+        return frames;
+    }
+
+    /**
+     * Load MCZ Drawbridge sprite sheet (Object 0x81).
+     * <p>
+     * ROM: ArtNem_MCZGateLog at 0xF1E06, palette line 3
+     * Mappings: Obj81_MapUnc_2A24E (2 frames - empty frame 0, log piece frame 1)
+     * <p>
+     * The drawbridge uses 8 child sprites stacked vertically, each rendering frame 1.
+     * Frame 0 is an empty/null frame used when the drawbridge is invisible.
+     * <p>
+     * Disassembly Reference: s2.asm lines 56420-56617 (Obj81 code)
+     *
+     * @return sprite sheet for MCZ drawbridge log segments, or null on failure
+     */
+    public ObjectSpriteSheet loadMCZDrawbridgeSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MCZ_GATE_LOG_ADDR, "MCZDrawbridge");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMCZDrawbridgeMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Create MCZ Drawbridge mappings from disassembly.
+     * <p>
+     * Two frames from Obj81_MapUnc_2A24E (mappings/sprite/obj81.asm):
+     * <ul>
+     *   <li>Frame 0: Empty (no pieces)</li>
+     *   <li>Frame 1: Single 2x2 tile piece at (-8, -8), pattern 0</li>
+     * </ul>
+     * <p>
+     * The drawbridge creates 8 child sprites using frame 1 to form the full bridge.
+     */
+    private List<SpriteMappingFrame> createMCZDrawbridgeMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Empty (Map_obj81_0004)
+        frames.add(new SpriteMappingFrame(new ArrayList<>()));
+
+        // Frame 1: Single 2x2 tile piece (Map_obj81_0006)
+        // spritePiece -8, -8, 2, 2, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 3));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        return frames;
+    }
+
+    /**
+     * Load WFZ Hook sprite sheet (Object 0x80 - WFZ variant).
+     * <p>
+     * ROM: ArtNem_WfzHook at 0x8D388, palette line 1
+     * Mappings: Obj80_MapUnc_29DD0 (13 frames, extension-based)
+     * <p>
+     * Disassembly Reference: s2.asm Obj80_WFZ_Init at loc_29C06
+     *
+     * @return sprite sheet for WFZ hook on chain, or null on failure
+     */
+    public ObjectSpriteSheet loadWFZHookSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_WFZ_HOOK_ADDR, "WFZHook");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJ80_WFZ_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
      * Load CNZ LauncherSpring vertical sprite sheet (Object 0x85 subtype 0x00).
      * <p>
      * ROM: ArtNem_CNZVertPlunger at 0x81C96, palette line 0
