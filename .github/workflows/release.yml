@@ -1,21 +1,15 @@
-name: Build Release
+name: Release
 
 on:
   pull_request:
-  # Build on version tags
+    branches:
+      - master
   push:
-    tags:
-      - 'v*'
-  # Allow manual trigger for testing
+    branches:
+      - master
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version name for artifacts'
-        required: false
-        default: 'snapshot'
 
 jobs:
-  # Run all tests before building native images
   test:
     runs-on: ubuntu-latest
     steps:
@@ -32,7 +26,6 @@ jobs:
       - name: Run tests
         run: mvn test -B
 
-  # Build native images for all platforms (only after tests pass)
   build:
     needs: test
     strategy:
@@ -76,8 +69,6 @@ jobs:
         if: matrix.platform == 'macos'
         run: |
           mkdir -p dist
-          # .app is already assembled by Maven's exec-maven-plugin,
-          # but we rebuild to dist/ for clean artifact packaging
           bash src/packaging/assemble-macos-app.sh target/SonicEngine dist
           cd dist
           zip -r SonicEngine-macos.zip SonicEngine.app
@@ -99,15 +90,23 @@ jobs:
           path: dist/*
           retention-days: 30
 
-  # Create a GitHub Release when triggered by a tag
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from pom.xml
+        id: version
+        run: |
+          VERSION=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -119,7 +118,9 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          draft: true
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          draft: false
           generate_release_notes: true
           files: |
             artifacts/**/*
