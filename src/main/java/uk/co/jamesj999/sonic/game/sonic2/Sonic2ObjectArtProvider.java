@@ -174,6 +174,18 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             // SmashableGround uses level patterns - must be loaded after level is available
             // This is registered separately via registerSmashableGroundSheet()
         }
+        // MCZ objects (Object 0x80 vine, Object 0x6A crate, Object 0x81 drawbridge) - only for MCZ
+        // zoneIndex is the ROM zone ID (0x0B for MCZ)
+        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_MCZ) {
+            registerSheet(Sonic2ObjectArtKeys.VINE_PULLEY, artLoader.loadVinePulleySheet());
+            registerSheet(Sonic2ObjectArtKeys.MCZ_CRATE, artLoader.loadMCZCrateSheet());
+            registerSheet(Sonic2ObjectArtKeys.MCZ_DRAWBRIDGE, artLoader.loadMCZDrawbridgeSheet());
+        }
+        // WFZ objects (Object 0x80 hook) - only for WFZ
+        // zoneIndex is the ROM zone ID (0x06 for WFZ)
+        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_WFZ) {
+            registerSheet(Sonic2ObjectArtKeys.WFZ_HOOK, artLoader.loadWFZHookSheet());
+        }
 
         // CNZ objects (Sonic 2-specific)
         registerSheet(Sonic2ObjectArtKeys.BUMPER, artData.bumperSheet());

@@ -75,6 +75,7 @@ public class ObjectDiscoveryTool {
             0x22,  // ArrowShooter (ARZ arrow-firing hazard + projectile)
             0x23,  // FallingPillar (ARZ pillar that drops lower section)
             0x24,  // Bubbles (ARZ bubble generator + rising bubbles)
+            0x2A,  // Stomper (MCZ ceiling crusher)
             0x2B,  // RisingPillar (ARZ pillar that rises and launches player)
             0x2C,  // LeavesGenerator (ARZ falling leaves trigger)
             0x2D,  // Barrier (one-way rising platform)
@@ -95,13 +96,18 @@ public class ObjectDiscoveryTool {
             0x5C,  // Masher
             0x5D,  // CPZBoss (dynamically spawned water dropper boss)
             0x89,  // ARZBoss (dynamically spawned hammer/arrow boss)
+            0x6A,  // MCZRotPforms (MCZ wooden crate / MTZ moving platform - activates when player walks off)
             0x6B,  // MTZPlatform (multi-purpose platform with 12 movement subtypes)
             0x72,  // CNZConveyorBelt (invisible velocity zone - CNZ/MTZ/WFZ)
             0x74,  // InvisibleBlock
+            0x75,  // MCZBrick (MCZ static brick / rotating spike ball)
+            0x76,  // SlidingSpikes (MCZ spike block that slides out of wall)
             0x78,  // CPZStaircase (4-piece triggered elevator platform)
             0x79,  // Checkpoint
             0x7A,  // SidewaysPform (CPZ/MCZ horizontal moving platform)
             0x7B,  // PipeExitSpring (CPZ warp tube exit spring)
+            0x7F,  // VineSwitch (MCZ pull switch that triggers ButtonVine)
+            0x80,  // MovingVine (MCZ vine pulley / WFZ hook on chain)
             0x82,  // SwingingPform (ARZ swinging vine platform)
             0x83,  // ARZRotPforms (ARZ rotating platforms with chain links)
             0x84,  // ForcedSpin (CNZ/HTZ pinball mode trigger)

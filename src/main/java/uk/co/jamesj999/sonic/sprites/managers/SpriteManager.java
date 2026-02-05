@@ -158,7 +158,7 @@ public class SpriteManager {
 				// button state even when control is locked. This matches ROM behavior
 				// where obj_control locks movement but objects can still read button state.
 				playable.setJumpInputPressed(space);
-				playable.setDirectionalInputPressed(left, right);
+				playable.setDirectionalInputPressed(up, down, left, right);
 
 				// ROM-accurate collision order:
 				// 1. Solid object collision FIRST (objects can push player)
