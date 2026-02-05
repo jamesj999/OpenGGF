@@ -198,7 +198,6 @@ public class LevelSelectManager {
         if (input.isKeyPressed(configService.getInt(SonicConfiguration.TEST))) {
             if (selectedIndex == MENU_ENTRY_COUNT - 1) { // Sound test
                 soundTestValue = (soundTestValue + 16) & 0x7F;
-                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_RING_LEFT);
             }
         }
     }
@@ -208,7 +207,6 @@ public class LevelSelectManager {
         if (selectedIndex < 0) {
             selectedIndex = MENU_ENTRY_COUNT - 1;
         }
-        AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_RING_LEFT);
         LOGGER.fine("Level select moved up to index " + selectedIndex);
     }
 
@@ -217,7 +215,6 @@ public class LevelSelectManager {
         if (selectedIndex >= MENU_ENTRY_COUNT) {
             selectedIndex = 0;
         }
-        AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_RING_LEFT);
         LOGGER.fine("Level select moved down to index " + selectedIndex);
     }
 
@@ -228,11 +225,9 @@ public class LevelSelectManager {
             if (soundTestValue < 0) {
                 soundTestValue = 0x7F;
             }
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_RING_LEFT);
         } else {
             // Switch columns
             selectedIndex = SWITCH_TABLE[selectedIndex];
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_RING_LEFT);
         }
         LOGGER.fine("Level select moved left to index " + selectedIndex);
     }
@@ -244,11 +239,9 @@ public class LevelSelectManager {
             if (soundTestValue > 0x7F) {
                 soundTestValue = 0;
             }
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_RING_LEFT);
         } else {
             // Switch columns
             selectedIndex = SWITCH_TABLE[selectedIndex];
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_RING_LEFT);
         }
         LOGGER.fine("Level select moved right to index " + selectedIndex);
     }
