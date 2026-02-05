@@ -311,7 +311,8 @@ public class LevelManager {
         if (objectManager != null) {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
-            objectManager.update(Camera.getInstance().getX(), playable, frameCounter + 1);
+            AbstractPlayableSprite sidekick = spriteManager.getSidekick();
+            objectManager.update(Camera.getInstance().getX(), playable, sidekick, frameCounter + 1);
         }
     }
 
@@ -332,6 +333,12 @@ public class LevelManager {
         if (ringManager != null) {
             ringManager.update(Camera.getInstance().getX(), playable, frameCounter + 1);
             ringManager.updateLostRings(playable, frameCounter + 1);
+            // ROM: CPU Tails can also collect rings in 1P mode
+            AbstractPlayableSprite sidekick = spriteManager.getSidekick();
+            if (sidekick != null && !sidekick.getDead()) {
+                ringManager.update(Camera.getInstance().getX(), sidekick, frameCounter + 1);
+                ringManager.updateLostRings(sidekick, frameCounter + 1);
+            }
         }
         // Update zone-specific features (CNZ bumpers, etc.)
         if (zoneFeatureProvider != null && level != null) {
@@ -394,12 +401,43 @@ public class LevelManager {
         } catch (IOException e) {
             LOGGER.log(SEVERE, "Failed to load player sprite art.", e);
         }
+
+        // Also initialize art for sidekick (CPU-controlled Tails)
+        AbstractPlayableSprite sidekick = spriteManager.getSidekick();
+        if (sidekick != null) {
+            try {
+                SpriteArtSet sidekickArt = provider.loadPlayerSpriteArt(sidekick.getCode());
+                if (sidekickArt != null && sidekickArt.bankSize() > 0 && !sidekickArt.mappingFrames().isEmpty()
+                        && !sidekickArt.dplcFrames().isEmpty()) {
+                    PlayerSpriteRenderer sidekickRenderer = new PlayerSpriteRenderer(sidekickArt);
+                    sidekickRenderer.ensureCached(graphicsManager);
+                    sidekick.setSpriteRenderer(sidekickRenderer);
+                    sidekick.setMappingFrame(0);
+                    sidekick.setAnimationFrameCount(sidekickArt.mappingFrames().size());
+                    sidekick.setAnimationProfile(sidekickArt.animationProfile());
+                    sidekick.setAnimationSet(sidekickArt.animationSet());
+                    sidekick.setAnimationId(0);
+                    sidekick.setAnimationFrameIndex(0);
+                    sidekick.setAnimationTick(0);
+                    initSpindashDust(sidekick);
+                }
+            } catch (IOException e) {
+                LOGGER.log(SEVERE, "Failed to load sidekick sprite art.", e);
+            }
+        }
     }
 
     private void resetPlayerState() {
         Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
         if (player instanceof AbstractPlayableSprite playable) {
             playable.resetState();
+        }
+        AbstractPlayableSprite sidekick = spriteManager.getSidekick();
+        if (sidekick != null) {
+            sidekick.resetState();
+            if (sidekick.getCpuController() != null) {
+                sidekick.getCpuController().reset();
+            }
         }
     }
 
@@ -2308,6 +2346,21 @@ public class LevelManager {
                 if (levelEvents != null) {
                     levelEvents.initLevel(currentZone, currentAct);
                 }
+            }
+
+            // Reset sidekick (Tails) position near the main player on level load/restart
+            AbstractPlayableSprite sidekick = spriteManager.getSidekick();
+            if (sidekick != null) {
+                sidekick.setX((short) (player.getX() - 40));
+                sidekick.setY(player.getY());
+                sidekick.setXSpeed((short) 0);
+                sidekick.setYSpeed((short) 0);
+                sidekick.setGSpeed((short) 0);
+                sidekick.setAir(false);
+                sidekick.setDead(false);
+                sidekick.setDeathCountdown(0);
+                sidekick.setHighPriority(false);
+                sidekick.setDirection(uk.co.jamesj999.sonic.physics.Direction.RIGHT);
             }
 
             // Request title card for level starts and death respawns

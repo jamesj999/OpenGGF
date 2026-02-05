@@ -95,7 +95,7 @@ public class ObjectManager {
         }
     }
 
-    public void update(int cameraX, AbstractPlayableSprite player, int touchFrameCounter) {
+    public void update(int cameraX, AbstractPlayableSprite player, AbstractPlayableSprite sidekick, int touchFrameCounter) {
         placement.update(cameraX);
         frameCounter++;
         // Note: bucketsDirty and activeObjectsCacheDirty are marked in syncActiveSpawns()
@@ -146,11 +146,18 @@ public class ObjectManager {
         // for both terrain and solid objects before animation resolves.
         if (touchResponses != null) {
             touchResponses.update(player, touchFrameCounter);
+            // ROM: Both players participate in touch responses.
+            // Sidekick uses separate overlap tracking and special hurt handling.
+            if (sidekick != null) {
+                touchResponses.updateSidekick(sidekick, touchFrameCounter);
+            }
         }
     }
 
     public void applyPlaneSwitchers(AbstractPlayableSprite player) {
-        if (planeSwitchers != null) {
+        // ROM: CPU Tails does not interact with plane switchers in 1P mode.
+        // Only the main player triggers layer/priority changes.
+        if (planeSwitchers != null && !player.isCpuControlled()) {
             planeSwitchers.update(player);
         }
     }
@@ -789,6 +796,11 @@ public class ObjectManager {
         private final Set<ObjectInstance> bufferB = Collections.newSetFromMap(new IdentityHashMap<>());
         private Set<ObjectInstance> overlapping = bufferA;
         private Set<ObjectInstance> building = bufferB;
+        // Separate overlap tracking for sidekick (CPU Tails)
+        private final Set<ObjectInstance> sidekickBufferA = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Set<ObjectInstance> sidekickBufferB = Collections.newSetFromMap(new IdentityHashMap<>());
+        private Set<ObjectInstance> sidekickOverlapping = sidekickBufferA;
+        private Set<ObjectInstance> sidekickBuilding = sidekickBufferB;
         private final TouchResponseDebugState debugState = new TouchResponseDebugState();
         private int currentFrameCounter;
 
@@ -802,6 +814,10 @@ public class ObjectManager {
             bufferB.clear();
             overlapping = bufferA;
             building = bufferB;
+            sidekickBufferA.clear();
+            sidekickBufferB.clear();
+            sidekickOverlapping = sidekickBufferA;
+            sidekickBuilding = sidekickBufferB;
             currentFrameCounter = 0;
         }
 
@@ -872,6 +888,125 @@ public class ObjectManager {
             Set<ObjectInstance> temp = overlapping;
             overlapping = building;
             building = temp;
+        }
+
+        /**
+         * Touch response check for the CPU sidekick (Tails).
+         * Uses separate overlap tracking from the main player.
+         * ROM: In 1P mode, CPU Tails interacts with objects but doesn't scatter
+         * rings when hurt and can never die from enemy contact.
+         */
+        void updateSidekick(AbstractPlayableSprite sidekick, int frameCounter) {
+            currentFrameCounter = frameCounter;
+            if (sidekick == null || objectManager == null || sidekick.getDead() || table == null) {
+                sidekickOverlapping.clear();
+                return;
+            }
+
+            if (sidekick.isDebugMode()) {
+                sidekickOverlapping.clear();
+                return;
+            }
+
+            int playerX = sidekick.getCentreX() - 8;
+            int baseYRadius = Math.max(1, sidekick.getYRadius() - 3);
+            int playerY = sidekick.getCentreY() - baseYRadius;
+            int playerHeight = baseYRadius * 2;
+            boolean crouching = sidekick.getCrouching();
+            if (crouching) {
+                playerY += 12;
+                playerHeight = 20;
+            }
+
+            sidekickBuilding.clear();
+
+            Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
+            for (ObjectInstance instance : activeObjects) {
+                if (!(instance instanceof TouchResponseProvider provider)) {
+                    continue;
+                }
+                int flags = provider.getCollisionFlags();
+                if (flags == 0) {
+                    continue;
+                }
+                int sizeIndex = flags & 0x3F;
+                int width = table.getWidthRadius(sizeIndex);
+                int height = table.getHeightRadius(sizeIndex);
+                TouchCategory category = decodeCategory(flags);
+
+                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getSpawn(), width, height);
+                if (!overlap) {
+                    continue;
+                }
+
+                sidekickBuilding.add(instance);
+                if (!sidekickOverlapping.contains(instance)) {
+                    TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
+                    TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
+                    handleTouchResponseSidekick(sidekick, instance, listener, result);
+                }
+            }
+
+            Set<ObjectInstance> temp = sidekickOverlapping;
+            sidekickOverlapping = sidekickBuilding;
+            sidekickBuilding = temp;
+        }
+
+        /**
+         * ROM: In 1P mode, CPU Tails interacts with objects but hurt handling differs:
+         * - Can destroy badniks while rolling/invincible (same as Sonic)
+         * - Gets knocked back when hurt but does NOT scatter rings or die
+         * - Special category objects still interact normally
+         */
+        private void handleTouchResponseSidekick(AbstractPlayableSprite sidekick, ObjectInstance instance,
+                TouchResponseListener listener, TouchResponseResult result) {
+            if (sidekick == null) {
+                return;
+            }
+            if (listener != null) {
+                listener.onTouchResponse(sidekick, result, currentFrameCounter);
+            }
+
+            switch (result.category()) {
+                case HURT -> applySidekickHurt(sidekick, instance);
+                case ENEMY -> {
+                    if (isPlayerAttacking(sidekick)) {
+                        if (instance instanceof TouchResponseAttackable attackable) {
+                            attackable.onPlayerAttack(sidekick, result);
+                        }
+                        applyEnemyBounce(sidekick, instance);
+                    } else {
+                        applySidekickHurt(sidekick, instance);
+                    }
+                }
+                case SPECIAL -> {
+                    // Listener handles object-specific logic.
+                }
+                case BOSS -> {
+                    if (isPlayerAttacking(sidekick)) {
+                        if (instance instanceof TouchResponseAttackable attackable) {
+                            attackable.onPlayerAttack(sidekick, result);
+                        }
+                        applyBossBounce(sidekick);
+                    } else {
+                        applySidekickHurt(sidekick, instance);
+                    }
+                }
+            }
+        }
+
+        /**
+         * ROM: Hurt_Sidekick in 1P mode - just knockback, no ring scatter, no death.
+         * From s2.asm HurtCharacter: in 1P mode, branches directly to Hurt_Sidekick
+         * which applies hurt animation without checking rings.
+         */
+        private void applySidekickHurt(AbstractPlayableSprite sidekick, ObjectInstance instance) {
+            if (sidekick.getInvulnerable()) {
+                return;
+            }
+            int sourceX = instance != null ? instance.getX() : sidekick.getCentreX();
+            // ROM: Hurt_Sidekick in 1P mode - just apply hurt knockback, no ring scatter
+            sidekick.applyHurt(sourceX);
         }
 
         private boolean isOverlapping(int playerX, int playerY, int playerHeight,

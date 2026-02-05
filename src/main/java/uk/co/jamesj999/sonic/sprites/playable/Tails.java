@@ -55,8 +55,8 @@ public class Tails extends AbstractPlayableSprite {
 		jump = 1664;
 		angle = 0;
 		slopeRunning = 32;
-		slopeRollingDown = 20;
-		slopeRollingUp = 80;
+		slopeRollingDown = 80;
+		slopeRollingUp = 20;
 		rollDecel = 32;
 		minStartRollSpeed = 264;
 		minRollSpeed = 128;

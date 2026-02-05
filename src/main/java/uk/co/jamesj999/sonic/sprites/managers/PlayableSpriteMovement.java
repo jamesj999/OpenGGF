@@ -735,7 +735,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// See s2.asm:36913-36922 (Sonic_Boundary_CheckBottom)
 		short effectiveMaxY = (short) Math.max(camera.getMaxY(), camera.getMaxYTarget());
 		if (sprite.getY() > effectiveMaxY + 224) {
-			sprite.applyPitDeath();
+			if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
+				sprite.getCpuController().despawn();
+			} else {
+				sprite.applyPitDeath();
+			}
 		}
 	}
 
@@ -1377,7 +1381,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private void checkPitDeath() {
 		Camera camera = Camera.getInstance();
 		if (camera != null && sprite.getY() > camera.getY() + camera.getHeight()) {
-			sprite.applyPitDeath();
+			if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
+				sprite.getCpuController().despawn();
+			} else {
+				sprite.applyPitDeath();
+			}
 		}
 	}
 
@@ -1421,8 +1429,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 
 		if (sprite.tickDeathCountdown()) {
-			GameServices.gameState().loseLife();
-			uk.co.jamesj999.sonic.level.LevelManager.getInstance().requestRespawn();
+			if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
+				// CPU-controlled sprites (Tails) despawn and respawn near the main player
+				// instead of causing a level reset
+				sprite.getCpuController().despawn();
+			} else {
+				GameServices.gameState().loseLife();
+				uk.co.jamesj999.sonic.level.LevelManager.getInstance().requestRespawn();
+			}
 		}
 	}
 

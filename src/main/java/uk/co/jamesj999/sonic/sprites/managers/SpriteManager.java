@@ -119,8 +119,11 @@ public class SpriteManager {
 	 * @return the sidekick sprite, or null if no sidekick is active
 	 */
 	public AbstractPlayableSprite getSidekick() {
-		// TODO: Implement sidekick (Tails AI) support
-		// When implemented, this should return the secondary playable sprite
+		for (Sprite sprite : sprites.values()) {
+			if (sprite instanceof AbstractPlayableSprite playable && playable.isCpuControlled()) {
+				return playable;
+			}
+		}
 		return null;
 	}
 
@@ -146,19 +149,53 @@ public class SpriteManager {
 					playable.toggleDebugMode();
 				}
 
-				boolean controlLocked = playable.isControlLocked();
-				boolean effectiveRight = right || playable.isForceInputRight() || controlLocked;
-				boolean effectiveLeft = !controlLocked && left && !playable.isForceInputRight();
-				boolean effectiveUp = !controlLocked && up;
-				boolean effectiveDown = !controlLocked && down;
-				boolean effectiveJump = !controlLocked && space;
-				boolean effectiveTest = !controlLocked && testButton;
+				boolean effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump, effectiveTest;
 
-				// Store RAW input state for objects (like flippers) that need to query
-				// button state even when control is locked. This matches ROM behavior
-				// where obj_control locks movement but objects can still read button state.
-				playable.setJumpInputPressed(space);
-				playable.setDirectionalInputPressed(up, down, left, right);
+				if (playable.isCpuControlled() && playable.getCpuController() != null) {
+					// CPU-controlled sprite: run AI to generate virtual input
+					var cpuController = playable.getCpuController();
+					cpuController.update(frameCounter);
+
+					// If flying, the AI moves Tails directly - skip normal physics
+					if (cpuController.isFlying()) {
+						playable.getAnimationManager().update(frameCounter);
+						playable.tickStatus();
+						playable.endOfTick();
+						continue;
+					}
+
+					boolean aiUp = cpuController.getInputUp();
+					boolean aiDown = cpuController.getInputDown();
+					boolean aiLeft = cpuController.getInputLeft();
+					boolean aiRight = cpuController.getInputRight();
+					boolean aiJump = cpuController.getInputJump();
+
+					boolean controlLocked = playable.isControlLocked();
+					effectiveRight = aiRight || playable.isForceInputRight() || controlLocked;
+					effectiveLeft = !controlLocked && aiLeft && !playable.isForceInputRight();
+					effectiveUp = !controlLocked && aiUp;
+					effectiveDown = !controlLocked && aiDown;
+					effectiveJump = !controlLocked && aiJump;
+					effectiveTest = false;
+
+					playable.setJumpInputPressed(aiJump);
+					playable.setDirectionalInputPressed(aiUp, aiDown, aiLeft, aiRight);
+				} else {
+					// Player-controlled sprite: use keyboard input
+					boolean controlLocked = playable.isControlLocked();
+					effectiveRight = right || playable.isForceInputRight() || controlLocked;
+					effectiveLeft = !controlLocked && left && !playable.isForceInputRight();
+					effectiveUp = !controlLocked && up;
+					effectiveDown = !controlLocked && down;
+					effectiveJump = !controlLocked && space;
+					effectiveTest = !controlLocked && testButton;
+
+					// Store RAW input state for objects (like flippers) that need to query
+					// button state even when control is locked. This matches ROM behavior
+					// where obj_control locks movement but objects can still read button state.
+					playable.setJumpInputPressed(space);
+					playable.setDirectionalInputPressed(up, down, left, right);
+				}
 
 				// ROM-accurate collision order:
 				// 1. Solid object collision FIRST (objects can push player)

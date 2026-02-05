@@ -71,8 +71,33 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         private short[] xHistory = new short[64];
         private short[] yHistory = new short[64];
 
+        // ROM: Sonic_Stat_Record_Buf is $100 bytes (256 bytes / 4 bytes per entry = 64 entries)
+        // Records input buttons and status flags each frame for Tails CPU input replay.
+        // Entry format matches ROM: word 0 = Ctrl_1_Logical (input), word 1 = status
+        private short[] inputHistory = new short[64];
+        private byte[] statusHistory = new byte[64];
+
+        // Input bitmask constants (matching Mega Drive controller layout)
+        public static final int INPUT_UP    = 0x01;
+        public static final int INPUT_DOWN  = 0x02;
+        public static final int INPUT_LEFT  = 0x04;
+        public static final int INPUT_RIGHT = 0x08;
+        public static final int INPUT_JUMP  = 0x10;
+
+        // Status flag constants (matching ROM status byte)
+        public static final byte STATUS_FACING_LEFT = 0x01;
+        public static final byte STATUS_IN_AIR      = 0x02;
+        public static final byte STATUS_ROLLING     = 0x04;
+        public static final byte STATUS_PUSHING     = 0x10;
+
         // ROM: Sonic_Pos_Record_Index - wraps at 256 (64 entries * 4 bytes)
         private byte historyPos = 0;
+
+        /** Whether this sprite is controlled by CPU AI (e.g., Tails follower) */
+        private boolean cpuControlled = false;
+
+        /** The CPU controller for AI-driven sprites */
+        private TailsCpuController cpuController;
 
         /**
          * Whether or not this sprite is rolling
@@ -975,7 +1000,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 }
                 dead = true;
                 // Lock camera when dying - prevent following the falling corpse
-                uk.co.jamesj999.sonic.camera.Camera.getInstance().setFrozen(true);
+                // Only freeze camera for the main player, not for CPU sidekick
+                if (!cpuControlled) {
+                        uk.co.jamesj999.sonic.camera.Camera.getInstance().setFrozen(true);
+                }
                 setInvulnerableFrames(0);
                 setInvincibleFrames(0);
                 setSpringing(0);
@@ -1349,6 +1377,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 for (short i = 0; i < 64; i++) {
                         xHistory[i] = x;
                         yHistory[i] = y;
+                        inputHistory[i] = 0;
+                        statusHistory[i] = 0;
                 }
                 // Always use PlayableSpriteController - it checks debugMode internally
                 controller = new PlayableSpriteController(this);
@@ -1480,6 +1510,22 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public short[] getYHistory() {
                 return yHistory;
+        }
+
+        public boolean isCpuControlled() {
+                return cpuControlled;
+        }
+
+        public void setCpuControlled(boolean cpuControlled) {
+                this.cpuControlled = cpuControlled;
+        }
+
+        public TailsCpuController getCpuController() {
+                return cpuController;
+        }
+
+        public void setCpuController(TailsCpuController cpuController) {
+                this.cpuController = cpuController;
         }
 
         public boolean getRolling() {
@@ -1731,6 +1777,32 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         /**
+         * Returns the recorded input bitmask from framesBehind frames ago.
+         * ROM: Reads from Sonic_Stat_Record_Buf for Tails CPU input replay.
+         * Use INPUT_UP/DOWN/LEFT/RIGHT/JUMP constants to test individual bits.
+         */
+        public final short getInputHistory(int framesBehind) {
+                int desired = historyPos - framesBehind;
+                if (desired < 0) {
+                        desired += inputHistory.length;
+                }
+                return inputHistory[desired];
+        }
+
+        /**
+         * Returns the recorded status flags from framesBehind frames ago.
+         * ROM: Reads from Sonic_Stat_Record_Buf for Tails CPU input replay.
+         * Use STATUS_FACING_LEFT/IN_AIR/ROLLING/PUSHING constants to test individual bits.
+         */
+        public final byte getStatusHistory(int framesBehind) {
+                int desired = historyPos - framesBehind;
+                if (desired < 0) {
+                        desired += statusHistory.length;
+                }
+                return statusHistory[desired];
+        }
+
+        /**
          * Updates sensor active states based on movement direction and ground mode.
          * Refactored to avoid per-frame array allocations by directly setting sensor states.
          */
@@ -1861,6 +1933,22 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 }
                 xHistory[historyPos] = xPixel;
                 yHistory[historyPos] = yPixel;
+
+                // ROM: Sonic_Stat_Record_Buf records input buttons and status each frame
+                short input = 0;
+                if (upInputPressed) input |= INPUT_UP;
+                if (downInputPressed) input |= INPUT_DOWN;
+                if (leftInputPressed) input |= INPUT_LEFT;
+                if (rightInputPressed) input |= INPUT_RIGHT;
+                if (jumpInputPressed) input |= INPUT_JUMP;
+                inputHistory[historyPos] = input;
+
+                byte status = 0;
+                if (getDirection() == uk.co.jamesj999.sonic.physics.Direction.LEFT) status |= STATUS_FACING_LEFT;
+                if (air) status |= STATUS_IN_AIR;
+                if (rolling) status |= STATUS_ROLLING;
+                if (pushing) status |= STATUS_PUSHING;
+                statusHistory[historyPos] = status;
         }
 
         public short getRenderCentreX() {
