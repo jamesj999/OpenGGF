@@ -860,8 +860,10 @@ public class ObjectManager {
                 }
 
                 building.add(instance);
-                // Only trigger touch response if this is a NEW overlap (not in last frame's set)
-                if (!overlapping.contains(instance)) {
+                // ROM touch checks run every frame for bosses. Keep edge-triggering for other
+                // categories to avoid repeated side effects from listeners.
+                boolean shouldTrigger = category == TouchCategory.BOSS || !overlapping.contains(instance);
+                if (shouldTrigger) {
                     TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
                     handleTouchResponse(player, instance, listener, result);
