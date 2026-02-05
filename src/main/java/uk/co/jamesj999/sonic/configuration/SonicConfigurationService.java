@@ -186,7 +186,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, GLFW_KEY_C);
 		putDefault(SonicConfiguration.LEVEL_SELECT_KEY, GLFW_KEY_F9);
 		putDefault(SonicConfiguration.LEVEL_SELECT_ON_STARTUP, true);
-		putDefault(SonicConfiguration.TAILS_ENABLED, true);
+		putDefault(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "tails");
 	}
 
 	private void putDefault(SonicConfiguration key, Object value) {
