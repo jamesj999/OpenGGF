@@ -1223,6 +1223,24 @@ public class Sonic2ObjectArt {
         return new ObjectSpriteSheet(patterns, mappings, 2, 1);
     }
 
+    /**
+     * Load HTZ Barrier sprite sheet (Object 0x2D subtype 0 in Hill Top Zone).
+     * Uses ArtNem_HtzValveBarrier at 0xF08F6 instead of the CPZ ConstructionStripes art.
+     * Frame 0 mapping: 4 x 2x2 tile pieces stacked vertically (16x64 total), palette 1.
+     *
+     * @return sprite sheet for HTZ valve barrier, or null on failure
+     */
+    public ObjectSpriteSheet loadHTZBarrierSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_HTZ_VALVE_BARRIER_ADDR, "HtzValveBarrier");
+        if (patterns.length == 0) {
+            return null;
+        }
+        // Reuse the same mappings as the generic barrier - frame 0 is the HTZ mapping
+        List<SpriteMappingFrame> mappings = createBarrierMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
     private AnimalType[] resolveZoneAnimals(int zoneIndex) {
         if (zoneIndex < 0 || zoneIndex >= ZONE_ANIMALS.length) {
             return DEFAULT_ANIMALS;

@@ -214,6 +214,13 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         registerSheet(Sonic2ObjectArtKeys.PIPE_EXIT_SPRING, artData.pipeExitSpringSheet());
         registerSheet(Sonic2ObjectArtKeys.TIPPING_FLOOR, artData.tippingFloorSheet());
         registerSheet(Sonic2ObjectArtKeys.BARRIER, artData.barrierSheet());
+        // HTZ barrier uses zone-specific art (ArtNem_HtzValveBarrier) instead of CPZ ConstructionStripes
+        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_HTZ) {
+            ObjectSpriteSheet htzBarrierSheet = artLoader.loadHTZBarrierSheet();
+            if (htzBarrierSheet != null) {
+                registerSheet(Sonic2ObjectArtKeys.BARRIER, htzBarrierSheet);
+            }
+        }
         registerSheet(Sonic2ObjectArtKeys.SPRINGBOARD, artData.springboardSheet());
 
         // Underwater bubbles
