@@ -3,7 +3,6 @@ package uk.co.jamesj999.sonic.game.sonic2;
 import uk.co.jamesj999.sonic.game.RomOffsetProvider;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -31,24 +30,16 @@ public class Sonic2RomOffsetProvider implements RomOffsetProvider {
     }
 
     private void initializeCache() {
-        // Pre-populate cache from Sonic2Constants using reflection
-        try {
-            for (Field field : Sonic2Constants.class.getDeclaredFields()) {
-                if (field.getType() == int.class || field.getType() == long.class) {
-                    String name = field.getName();
-                    int value = field.getInt(null);
-
-                    // Categorize based on prefix
-                    String category = categorizeOffset(name);
-                    offsetCache.computeIfAbsent(category, k -> new HashMap<>())
-                            .put(name, value);
-                }
-            }
-            LOGGER.fine("Initialized Sonic 2 ROM offset cache with " +
-                    offsetCache.values().stream().mapToInt(Map::size).sum() + " offsets");
-        } catch (IllegalAccessException e) {
-            LOGGER.warning("Failed to initialize ROM offset cache: " + e.getMessage());
+        Map<String, Integer> allOffsets = Sonic2Constants.getAllOffsets();
+        for (Map.Entry<String, Integer> entry : allOffsets.entrySet()) {
+            String name = entry.getKey();
+            int value = entry.getValue();
+            String category = categorizeOffset(name);
+            offsetCache.computeIfAbsent(category, k -> new HashMap<>())
+                    .put(name, value);
         }
+        LOGGER.fine("Initialized Sonic 2 ROM offset cache with " +
+                offsetCache.values().stream().mapToInt(Map::size).sum() + " offsets");
     }
 
     private String categorizeOffset(String name) {

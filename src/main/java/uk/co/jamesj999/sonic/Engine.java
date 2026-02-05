@@ -51,7 +51,9 @@ public class Engine {
 	private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
 
 	private final Camera camera = Camera.getInstance();
-	private final DebugRenderer debugRenderer = DebugRenderer.getInstance();
+	// Lazy-initialized: DebugRenderer.<clinit> references java.awt.Color which
+	// is unavailable in GraalVM native-image builds.
+	private DebugRenderer debugRenderer;
 	private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
 
 	private final GameLoop gameLoop = new GameLoop();
@@ -106,11 +108,23 @@ public class Engine {
 	private long lastFrameTime;
 	private boolean paused = false;
 
+	private DebugRenderer getDebugRenderer() {
+		if (debugRenderer == null) {
+			debugRenderer = DebugRenderer.getInstance();
+		}
+		return debugRenderer;
+	}
+
 	public Engine() {
 		instance = this;
 		this.windowWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH);
 		this.windowHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT);
 		this.targetFps = configService.getInt(SonicConfiguration.FPS);
+
+		// Debug overlay uses Java2D (GlyphAtlas) which is unavailable in native images
+		if (isNativeImage()) {
+			debugViewEnabled = false;
+		}
 
 		// Set up game mode change listener to update projection width
 		gameLoop.setGameModeChangeListener((oldMode, newMode) -> {
@@ -130,11 +144,16 @@ public class Engine {
 		cleanup();
 	}
 
+	private static boolean isNativeImage() {
+		return System.getProperty("org.graalvm.nativeimage.imagecode") != null;
+	}
+
 	private void init() {
 		// CRITICAL: Initialize AWT BEFORE GLFW on macOS.
 		// Java2D uses Core Graphics which conflicts with GLFW's Cocoa event handling
 		// if AWT initializes after GLFW. Pre-loading AWT fixes the freeze.
-		if (debugViewEnabled) {
+		// Skip in native-image builds where AWT is not available.
+		if (debugViewEnabled && !isNativeImage()) {
 			java.awt.Toolkit.getDefaultToolkit();
 			// Create and dispose a small image to fully initialize Java2D
 			var img = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_BYTE_GRAY);
@@ -290,9 +309,10 @@ public class Engine {
 		// Eagerly initialize debug renderer BEFORE the main loop starts.
 		// This is critical on macOS: the GlyphAtlas uses Java2D which conflicts
 		// with GLFW's event loop if initialized lazily during glfwPollEvents().
-		if (debugViewEnabled) {
-			debugRenderer.updateViewport(viewportWidth, viewportHeight);
-			debugRenderer.eagerInit();
+		// Skip in native-image builds where AWT/Java2D is not available.
+		if (debugViewEnabled && !isNativeImage()) {
+			getDebugRenderer().updateViewport(viewportWidth, viewportHeight);
+			getDebugRenderer().eagerInit();
 			// Force GL sync and unbind all state
 			glFinish();
 			glBindTexture(GL_TEXTURE_2D, 0);
@@ -460,8 +480,8 @@ public class Engine {
 				specialStageManager.renderLagCompensationOverlay(windowWidth, windowHeight);
 			}
 		} else if (debugViewEnabled) {
-			debugRenderer.updateViewport(viewportWidth, viewportHeight);
-			debugRenderer.renderDebugInfo();
+			getDebugRenderer().updateViewport(viewportWidth, viewportHeight);
+			getDebugRenderer().renderDebugInfo();
 
 			// Clean up GL state after debug rendering to prevent macOS event loop issues
 			glBindVertexArray(0);
@@ -611,7 +631,65 @@ public class Engine {
 	}
 
 	public static void main(String[] args) {
+		if (isNativeImage() && System.getProperty("org.lwjgl.librarypath") == null) {
+			// In a native image, LWJGL can't extract native libs from JARs.
+			// Find the bundled .dylib/.so/.dll files next to the executable.
+			String libPath = findNativeLibsDir();
+			if (libPath != null) {
+				System.setProperty("org.lwjgl.librarypath", libPath);
+			}
+		}
 		new Engine().run();
+	}
+
+	private static String findNativeLibsDir() {
+		// Strategy 1: SONIC_NATIVE_LIBS_DIR env var set by .app launcher script.
+		// This is NOT stripped by macOS SIP (unlike DYLD_LIBRARY_PATH).
+		String envDir = System.getenv("SONIC_NATIVE_LIBS_DIR");
+		if (envDir != null && !envDir.isEmpty()) {
+			java.io.File dir = new java.io.File(envDir);
+			if (hasNativeLibs(dir)) {
+				return dir.getAbsolutePath();
+			}
+		}
+
+		// Strategy 2: directory containing the executable (works for bare binary
+		// and .app bundles where dylibs are co-located with the binary)
+		try {
+			String cmd = ProcessHandle.current().info().command().orElse("");
+			if (!cmd.isEmpty()) {
+				java.io.File execDir = new java.io.File(cmd).getParentFile();
+				if (execDir != null && hasNativeLibs(execDir)) {
+					return execDir.getAbsolutePath();
+				}
+			}
+		} catch (Exception ignored) {
+		}
+
+		// Strategy 3: working directory (if user runs from target/)
+		java.io.File cwd = new java.io.File(System.getProperty("user.dir"));
+		if (hasNativeLibs(cwd)) {
+			return cwd.getAbsolutePath();
+		}
+
+		// Strategy 4: target/native-libs/ relative to working directory (dev builds)
+		java.io.File targetNativeLibs = new java.io.File(cwd, "target/native-libs");
+		if (hasNativeLibs(targetNativeLibs)) {
+			return targetNativeLibs.getAbsolutePath();
+		}
+
+		return null;
+	}
+
+	private static boolean hasNativeLibs(java.io.File dir) {
+		if (!dir.isDirectory()) return false;
+		String[] files = dir.list();
+		if (files == null) return false;
+		for (String f : files) {
+			if (f.startsWith("liblwjgl.")) return true;   // .dylib or .so
+			if (f.equals("lwjgl.dll")) return true;
+		}
+		return false;
 	}
 
 	// For testing - get window handle

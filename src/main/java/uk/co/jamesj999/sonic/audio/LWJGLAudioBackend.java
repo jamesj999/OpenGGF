@@ -14,8 +14,6 @@ import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SmpsConstants;
 
-import javax.sound.sampled.*;
-import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
@@ -724,34 +722,26 @@ public class LWJGLAudioBackend implements AudioBackend {
                 LOGGER.fine("Audio resource not found: " + resourcePath);
                 return;
             }
-            try (BufferedInputStream bis = new BufferedInputStream(is);
-                    AudioInputStream ais = AudioSystem.getAudioInputStream(bis)) {
 
-                AudioFormat format = ais.getFormat();
-                int channels = format.getChannels();
-                int sampleSize = format.getSampleSizeInBits();
-                float sampleRate = format.getSampleRate();
+            WavDecoder wav = WavDecoder.decode(is);
 
-                int alFormat;
-                if (channels == 1) {
-                    alFormat = (sampleSize == 8) ? AL_FORMAT_MONO8 : AL_FORMAT_MONO16;
-                } else {
-                    alFormat = (sampleSize == 8) ? AL_FORMAT_STEREO8 : AL_FORMAT_STEREO16;
-                }
-
-                // Read data
-                byte[] data = ais.readAllBytes();
-                ByteBuffer bufferData = MemoryUtil.memAlloc(data.length);
-                bufferData.put(data);
-                bufferData.flip();
-
-                int buf = alGenBuffers();
-                alBufferData(buf, alFormat, bufferData, (int) sampleRate);
-
-                MemoryUtil.memFree(bufferData);
-
-                buffers.put(resourcePath, buf);
+            int alFormat;
+            if (wav.channels == 1) {
+                alFormat = (wav.bitsPerSample == 8) ? AL_FORMAT_MONO8 : AL_FORMAT_MONO16;
+            } else {
+                alFormat = (wav.bitsPerSample == 8) ? AL_FORMAT_STEREO8 : AL_FORMAT_STEREO16;
             }
+
+            ByteBuffer bufferData = MemoryUtil.memAlloc(wav.data.length);
+            bufferData.put(wav.data);
+            bufferData.flip();
+
+            int buf = alGenBuffers();
+            alBufferData(buf, alFormat, bufferData, wav.sampleRate);
+
+            MemoryUtil.memFree(bufferData);
+
+            buffers.put(resourcePath, buf);
         } catch (Exception e) {
             LOGGER.warning("Error loading WAV " + resourcePath + ": " + e.getMessage());
         }
