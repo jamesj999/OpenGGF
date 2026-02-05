@@ -1256,6 +1256,13 @@ public class LevelManager {
         }
         final float bgWorldOffsetX = bgWorldOffsetXMutable;
 
+        // BG high-priority FBO pass is only valid when BG scroll is flat (earthquake mode).
+        // In normal mode, per-scanline parallax means a single BG offset can't match the
+        // actual on-screen tile positions, causing the sprite priority shader to hide sprites
+        // behind misaligned mask pixels.
+        final boolean bgFboPassEnabled =
+                currentZone == ParallaxManager.ZONE_HTZ && GameServices.gameState().isHtzScreenShakeActive();
+
         graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
             TilePriorityFBO tileFbo = graphicsManager.getTilePriorityFBO();
             TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
@@ -1273,27 +1280,29 @@ public class LevelManager {
             glBlendEquation(GL_MAX);
             glBlendFunc(GL_ONE, GL_ONE);
 
-            // First pass: background high-priority tiles
-            tilemapRenderer.render(
-                    TilemapGpuRenderer.Layer.BACKGROUND,
-                    screenW,
-                    screenH,
-                    0,      // viewport X (FBO uses full size)
-                    0,      // viewport Y
-                    screenW,  // viewport width
-                    screenH,  // viewport height
-                    bgWorldOffsetX,
-                    bgWorldOffsetY,
-                    graphicsManager.getPatternAtlasWidth(),
-                    graphicsManager.getPatternAtlasHeight(),
-                    atlasId,
-                    paletteId,
-                    0,      // no underwater palette for FBO
-                    1,      // priority pass = 1 (high priority only)
-                    false,  // no wrap Y
-                    true,   // maskOutput = true for priority FBO
-                    false,  // no underwater palette
-                    0.0f);  // no waterline
+            // First pass: background high-priority tiles (only when BG scroll is flat)
+            if (bgFboPassEnabled) {
+                tilemapRenderer.render(
+                        TilemapGpuRenderer.Layer.BACKGROUND,
+                        screenW,
+                        screenH,
+                        0,      // viewport X (FBO uses full size)
+                        0,      // viewport Y
+                        screenW,  // viewport width
+                        screenH,  // viewport height
+                        bgWorldOffsetX,
+                        bgWorldOffsetY,
+                        graphicsManager.getPatternAtlasWidth(),
+                        graphicsManager.getPatternAtlasHeight(),
+                        atlasId,
+                        paletteId,
+                        0,      // no underwater palette for FBO
+                        1,      // priority pass = 1 (high priority only)
+                        false,  // no wrap Y
+                        true,   // maskOutput = true for priority FBO
+                        false,  // no underwater palette
+                        0.0f);  // no waterline
+            }
 
             // Second pass: foreground high-priority tiles
             tilemapRenderer.render(

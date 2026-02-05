@@ -123,6 +123,7 @@ public class ObjectDiscoveryTool {
             0x95,  // Sol (HTZ fireball badnik)
             0x96,  // Rexon2 (HTZ lava snake body alias)
             0x9D,  // Coconuts
+            0x9E,  // Crawlton (MCZ snake badnik - lunges at player with trailing body)
             0xA5,  // Spiny (CPZ crawling badnik)
             0xA6,  // SpinyOnWall (CPZ wall-climbing badnik)
             0xA7,  // Grabber (CPZ spider badnik)

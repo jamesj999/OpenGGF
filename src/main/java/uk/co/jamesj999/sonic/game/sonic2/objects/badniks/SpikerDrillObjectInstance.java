@@ -41,7 +41,7 @@ public class SpikerDrillObjectInstance extends AbstractObjectInstance implements
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        if (!isOnScreen()) {
+        if (!isOnScreenX(128)) {
             setDestroyed(true);
             return;
         }

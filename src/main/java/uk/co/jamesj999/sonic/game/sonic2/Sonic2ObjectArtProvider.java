@@ -120,6 +120,8 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         registerSheet(Sonic2ObjectArtKeys.MASHER, artLoader.loadMasherSheet());
         registerSheet(Sonic2ObjectArtKeys.BUZZER, artLoader.loadBuzzerSheet());
         registerSheet(Sonic2ObjectArtKeys.COCONUTS, artLoader.loadCoconutsSheet());
+        registerSheet(Sonic2ObjectArtKeys.CRAWLTON, artLoader.loadCrawltonSheet());
+        registerSheet(Sonic2ObjectArtKeys.FLASHER, artLoader.loadFlasherSheet());
         registerSheet(Sonic2ObjectArtKeys.SPINY, artLoader.loadSpinySheet());
         registerSheet(Sonic2ObjectArtKeys.GRABBER, artLoader.loadGrabberSheet());
         registerSheet(Sonic2ObjectArtKeys.GRABBER_STRING, artLoader.loadGrabberStringSheet());

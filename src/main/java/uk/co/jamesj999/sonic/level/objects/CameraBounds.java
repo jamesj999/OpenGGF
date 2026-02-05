@@ -52,6 +52,13 @@ public final class CameraBounds {
     }
 
     /**
+     * Checks if an X coordinate is within horizontal bounds, expanded by a margin.
+     */
+    public boolean containsX(int x, int margin) {
+        return x >= left - margin && x <= right + margin;
+    }
+
+    /**
      * Checks if a point is within these bounds with a margin.
      */
     public boolean contains(int x, int y, int margin) {
