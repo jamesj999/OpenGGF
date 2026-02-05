@@ -3,12 +3,14 @@ package uk.co.jamesj999.sonic.sprites.playable;
 import uk.co.jamesj999.sonic.sprites.managers.PlayableSpriteAnimation;
 import uk.co.jamesj999.sonic.sprites.managers.PlayableSpriteMovement;
 import uk.co.jamesj999.sonic.sprites.managers.SpindashDustController;
+import uk.co.jamesj999.sonic.sprites.managers.TailsTailsController;
 
 public class PlayableSpriteController {
     private final PlayableSpriteMovement movement;
     private final PlayableSpriteAnimation animation;
     private final DrowningController drowning;
     private SpindashDustController spindashDust;
+    private TailsTailsController tailsTails;
 
     public PlayableSpriteController(AbstractPlayableSprite sprite) {
         this.movement = new PlayableSpriteMovement(sprite);
@@ -34,5 +36,13 @@ public class PlayableSpriteController {
 
     public void setSpindashDust(SpindashDustController spindashDust) {
         this.spindashDust = spindashDust;
+    }
+
+    public TailsTailsController getTailsTails() {
+        return tailsTails;
+    }
+
+    public void setTailsTails(TailsTailsController tailsTails) {
+        this.tailsTails = tailsTails;
     }
 }

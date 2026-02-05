@@ -60,9 +60,12 @@ import uk.co.jamesj999.sonic.physics.SensorResult;
 import uk.co.jamesj999.sonic.sprites.Sprite;
 import uk.co.jamesj999.sonic.sprites.SensorConfiguration;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.sprites.managers.SpindashDustController;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
+import uk.co.jamesj999.sonic.sprites.managers.TailsTailsController;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+import uk.co.jamesj999.sonic.sprites.playable.Tails;
 import uk.co.jamesj999.sonic.sprites.render.PlayerSpriteRenderer;
 
 import java.io.IOException;
@@ -398,6 +401,7 @@ public class LevelManager {
             playable.setAnimationFrameIndex(0);
             playable.setAnimationTick(0);
             initSpindashDust(playable);
+            initTailsTails(playable, artSet);
         } catch (IOException e) {
             LOGGER.log(SEVERE, "Failed to load player sprite art.", e);
         }
@@ -420,6 +424,7 @@ public class LevelManager {
                     sidekick.setAnimationFrameIndex(0);
                     sidekick.setAnimationTick(0);
                     initSpindashDust(sidekick);
+                    initTailsTails(sidekick, sidekickArt);
                 }
             } catch (IOException e) {
                 LOGGER.log(SEVERE, "Failed to load sidekick sprite art.", e);
@@ -460,6 +465,28 @@ public class LevelManager {
             LOGGER.log(SEVERE, "Failed to load spindash dust art.", e);
             playable.setSpindashDustController(null);
         }
+    }
+
+    private void initTailsTails(AbstractPlayableSprite playable, SpriteArtSet artSet) {
+        if (!(playable instanceof Tails)) {
+            playable.setTailsTailsController(null);
+            return;
+        }
+        // Obj05 uses same mappings/DPLCs/art as Tails but at a different VRAM base
+        SpriteArtSet tailsArt = new SpriteArtSet(
+                artSet.artTiles(),
+                artSet.mappingFrames(),
+                artSet.dplcFrames(),
+                artSet.paletteIndex(),
+                Sonic2Constants.ART_TILE_TAILS_TAILS,
+                artSet.frameDelay(),
+                artSet.bankSize(),
+                null,
+                null
+        );
+        PlayerSpriteRenderer tailsRenderer = new PlayerSpriteRenderer(tailsArt);
+        tailsRenderer.ensureCached(graphicsManager);
+        playable.setTailsTailsController(new TailsTailsController(playable, tailsRenderer));
     }
 
     private void initObjectArt() {

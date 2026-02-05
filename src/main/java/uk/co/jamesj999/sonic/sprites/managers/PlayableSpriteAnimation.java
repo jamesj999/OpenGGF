@@ -28,6 +28,9 @@ public class PlayableSpriteAnimation {
         if (sprite.getSpindashDustController() != null) {
             sprite.getSpindashDustController().update();
         }
+        if (sprite.getTailsTailsController() != null) {
+            sprite.getTailsTailsController().update();
+        }
 
         SpriteAnimationProfile profile = sprite.getAnimationProfile();
         if (sprite.getAnimationSet() != null && !sprite.getAnimationSet().getAllScripts().isEmpty()) {

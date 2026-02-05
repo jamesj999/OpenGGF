@@ -42,6 +42,7 @@ public class Sonic2Constants {
     public static final int MAP_R_UNC_OBJ08_ADDR = 0x1E074;
     public static final int ART_TILE_SONIC_DUST = 0x049C;
     public static final int ART_TILE_TAILS_DUST = 0x048C;
+    public static final int ART_TILE_TAILS_TAILS = 0x07B0;
     // Object art (Nemesis) + mappings
     public static final int ART_NEM_MONITOR_ADDR = 0x79550;
     public static final int ART_NEM_SONIC_LIFE_ADDR = 0x79346;
@@ -571,6 +572,7 @@ public class Sonic2Constants {
         offsets.put("MAP_R_UNC_OBJ08_ADDR", MAP_R_UNC_OBJ08_ADDR);
         offsets.put("ART_TILE_SONIC_DUST", ART_TILE_SONIC_DUST);
         offsets.put("ART_TILE_TAILS_DUST", ART_TILE_TAILS_DUST);
+        offsets.put("ART_TILE_TAILS_TAILS", ART_TILE_TAILS_TAILS);
         offsets.put("ART_NEM_MONITOR_ADDR", ART_NEM_MONITOR_ADDR);
         offsets.put("ART_NEM_SONIC_LIFE_ADDR", ART_NEM_SONIC_LIFE_ADDR);
         offsets.put("ART_NEM_TAILS_LIFE_ADDR", ART_NEM_TAILS_LIFE_ADDR);

@@ -25,6 +25,7 @@ import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationProfile;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
 import uk.co.jamesj999.sonic.sprites.managers.SpindashDustController;
+import uk.co.jamesj999.sonic.sprites.managers.TailsTailsController;
 import uk.co.jamesj999.sonic.timer.timers.SpeedShoesTimer;
 
 /**
@@ -597,6 +598,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void setSpindashDustController(SpindashDustController spindashDustController) {
                 controller.setSpindashDust(spindashDustController);
+        }
+
+        public TailsTailsController getTailsTailsController() {
+                return controller.getTailsTails();
+        }
+
+        public void setTailsTailsController(TailsTailsController tailsTailsController) {
+                controller.setTailsTails(tailsTailsController);
         }
 
         public boolean getRenderHFlip() {
