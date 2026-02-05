@@ -528,19 +528,14 @@ public class ParallaxManager {
 
     /**
      * SCZ - Sky Chase Zone
+     * No per-scanline parallax. All 224 scanlines use the same BG scroll.
+     * BG advances at 0.5 px/frame while FG advances at ~1 px/frame (tornado
+     * velocity), so BG scrolls at half the foreground speed.
      */
     private void fillScz(int cameraX, int cameraY) {
         short fgScroll = (short) -cameraX;
-
+        int offset = cameraX - (cameraX >> 1);
         for (int line = 0; line < VISIBLE_LINES; line++) {
-            int offset;
-            if (line < 64) {
-                offset = cameraX - (cameraX >> 3);
-            } else if (line < 144) {
-                offset = cameraX - (cameraX >> 2);
-            } else {
-                offset = cameraX - (cameraX >> 2) - (cameraX >> 3);
-            }
             setLineWithOffset(line, fgScroll, offset);
         }
     }

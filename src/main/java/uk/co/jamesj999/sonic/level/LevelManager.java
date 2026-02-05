@@ -1335,9 +1335,17 @@ public class LevelManager {
         foregroundTilemapHeightTiles = data.heightTiles;
     }
 
+    // VDP plane size for Sonic 2 normal levels: 64x32 cells = 512x256 pixels.
+    // The background tilemap wraps at this width to match original hardware.
+    private static final int VDP_BG_PLANE_WIDTH_PX = 512;
+
     private TilemapData buildTilemapData(byte layerIndex) {
-        int levelWidth = level.getMap().getWidth() * LevelConstants.BLOCK_WIDTH;
+        int fullLevelWidth = level.getMap().getWidth() * LevelConstants.BLOCK_WIDTH;
         int levelHeight = level.getMap().getHeight() * LevelConstants.BLOCK_HEIGHT;
+
+        // Background wraps at VDP plane width (512px) to match original hardware.
+        // Foreground uses full level width.
+        int levelWidth = (layerIndex == 1) ? VDP_BG_PLANE_WIDTH_PX : fullLevelWidth;
 
         int widthTiles = levelWidth / Pattern.PATTERN_WIDTH;
         int heightTiles = levelHeight / Pattern.PATTERN_HEIGHT;
@@ -2495,9 +2503,9 @@ public class LevelManager {
             }
         }
 
-        if (!forceBlack && level.getPaletteCount() > 1) {
-            // In Sonic 2, Palette 1 is the level palette (Palette 0 is character).
-            Palette.Color backdrop = level.getPalette(1).getColor(0);
+        if (!forceBlack && level.getPaletteCount() > 2) {
+            // VDP register 7 = $8720: backdrop is palette line 2, color 0.
+            Palette.Color backdrop = level.getPalette(2).getColor(0);
             glClearColor(backdrop.rFloat(), backdrop.gFloat(), backdrop.bFloat(), 1.0f);
         } else {
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
