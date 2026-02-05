@@ -93,6 +93,7 @@ public class LevelEventManager implements LevelEventProvider {
         this.cnzLeftWallY = -1;
         this.cnzRightWallX = -1;
         this.cnzRightWallY = -1;
+        this.htzBoss = null;
         // Reset HTZ earthquake state
         this.cameraBgYOffset = 0;
         this.htzTerrainSinking = false;
@@ -182,6 +183,8 @@ public class LevelEventManager implements LevelEventProvider {
     private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2ARZBossInstance arzBoss = null;
     // CNZ Act 2 boss reference
     private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CNZBossInstance cnzBoss = null;
+    // HTZ Act 2 boss reference
+    private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2HTZBossInstance htzBoss = null;
     // CNZ Act 2 boss arena wall positions (for removal after defeat)
     // Layout offset calculation: offset / layoutWidth = y, offset % layoutWidth = x
     // ROM uses 256-wide layout, but we store the calculated x,y for flexibility
@@ -445,12 +448,111 @@ public class LevelEventManager implements LevelEventProvider {
                     ParallaxManager.getInstance().setHtzScreenShake(true);
                     initHtzEarthquake();
                     eventRoutine -= 2;
+                } else if (camera.getX() >= HTZ2_BOSS_CUTOFF_X) {
+                    // Approaching boss area - advance to boss routines
+                    exitHtzEarthquakeArea();
+                    eventRoutine = 12;
+                }
+            }
+            case 12 -> {
+                // Routine 6: Boss area cutoff (LevEvents_HTZ2_Routine6)
+                // ROM: s2.asm:21197-21206
+                if (camera.getX() >= HTZ2_BOSS_ARENA_TRIGGER_X) {
+                    // ROM: Set minX to lock arena left boundary
+                    camera.setMinX(camera.getX());
+                    // ROM: Set maxY TARGET to allow boss area access
+                    camera.setMaxYTarget((short) HTZ2_BOSS_ARENA_MAX_Y);
+                    eventRoutine += 2;
+                }
+            }
+            case 14 -> {
+                // Routine 7: Boss arena camera shift (LevEvents_HTZ2_Routine7)
+                // ROM: s2.asm:21222-21238
+                if (camera.getX() >= HTZ2_BOSS_ARENA_LEFT) {
+                    // ROM: Lock camera X boundaries
+                    camera.setMinX((short) HTZ2_BOSS_ARENA_LEFT);
+                    camera.setMaxX((short) HTZ2_BOSS_ARENA_RIGHT);
+                    eventRoutine += 2;
+                    bossSpawnDelay = 0;
+                    // ROM: Fade out music
+                    uk.co.jamesj999.sonic.audio.AudioManager.getInstance().fadeOutMusic();
+                    // ROM: Set Current_Boss_ID to 3 (HTZ boss)
+                    uk.co.jamesj999.sonic.game.GameServices.gameState().setCurrentBossId(3);
+                }
+            }
+            case 16 -> {
+                // Routine 8: Boss spawn (LevEvents_HTZ2_Routine8)
+                // ROM: s2.asm:21241-21258
+                // ROM: Lock minY when camera Y reaches boss floor
+                if (camera.getY() >= HTZ2_BOSS_FLOOR_Y) {
+                    camera.setMinY((short) HTZ2_BOSS_FLOOR_Y);
+                }
+                // ROM: Increment delay every frame, spawn boss at $5A (90) frames
+                bossSpawnDelay++;
+                if (bossSpawnDelay >= 0x5A) {
+                    spawnHTZBoss();
+                    eventRoutine += 2;
+                    // Start boss music
+                    uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
+                            .playMusic(uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.MUS_BOSS);
+                }
+            }
+            case 18 -> {
+                // Routine 9: Boss end / camera extend (LevEvents_HTZ2_Routine9)
+                // ROM: s2.asm:21261-21277
+                // Prevent backtracking during fight
+                short cameraX = camera.getX();
+                if (cameraX > camera.getMinX()) {
+                    camera.setMinX(cameraX);
+                }
+
+                // Check for boss defeat
+                if (htzBoss != null && htzBoss.isDefeated()) {
+                    // Camera unlock happens in boss defeat sequence
+                    eventRoutine += 2;
                 }
             }
             default -> {
-                // Further routines handle boss area
+                // Post-boss: no more routines
             }
         }
+    }
+
+    // HTZ Act 2 boss arena constants (from disassembly LevEvents_HTZ2)
+    /** Cutoff trigger X to start boss preparation (ROM: $2B00) */
+    private static final int HTZ2_BOSS_CUTOFF_X = 0x2B00;
+    /** Arena left boundary trigger X (ROM: $2EDF) */
+    private static final int HTZ2_BOSS_ARENA_TRIGGER_X = 0x2C50;
+    /** Boss arena left camera lock X (ROM: $2EE0) */
+    private static final int HTZ2_BOSS_ARENA_LEFT = 0x2EE0;
+    /** Boss arena right camera lock X (ROM: $2F5E) */
+    private static final int HTZ2_BOSS_ARENA_RIGHT = 0x2F5E;
+    /** Boss arena max Y target (ROM: $480) */
+    private static final int HTZ2_BOSS_ARENA_MAX_Y = 0x480;
+    /** Boss arena floor Y lock (ROM: $478) */
+    private static final int HTZ2_BOSS_FLOOR_Y = 0x478;
+
+    /**
+     * Spawns the HTZ Act 2 boss.
+     * ROM: Creates Object 0x52 at arena position
+     */
+    private void spawnHTZBoss() {
+        // HTZ boss initial position from Obj52_Init
+        uk.co.jamesj999.sonic.level.objects.ObjectSpawn bossSpawn =
+                new uk.co.jamesj999.sonic.level.objects.ObjectSpawn(
+                        0x3040, 0x0580,  // Boss starting position (set in Obj52_Init)
+                        uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds.HTZ_BOSS,
+                        0, 0, false, 0
+                );
+
+        htzBoss = new uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2HTZBossInstance(
+                bossSpawn,
+                uk.co.jamesj999.sonic.level.LevelManager.getInstance()
+        );
+
+        uk.co.jamesj999.sonic.level.LevelManager.getInstance()
+                .getObjectManager()
+                .addDynamicObject(htzBoss);
     }
 
     // =========================================================================

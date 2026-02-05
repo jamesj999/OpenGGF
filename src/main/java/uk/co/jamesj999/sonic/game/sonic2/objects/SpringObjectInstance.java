@@ -74,11 +74,11 @@ public class SpringObjectInstance extends BoxObjectInstance
             return;
         }
 
-        // Prevent infinite re-triggering: if player is already springing, don't trigger
-        // again
-        if (player.getSpringing()) {
-            return;
-        }
+        // ROM behavior: No check for "springing" state before triggering.
+        // The ROM only checks pushing/standing flags and side position.
+        // Natural collision resolution (pushing player away) prevents
+        // infinite re-triggering on the same spring. The move_lock/springing
+        // state only locks player INPUT, not object interactions.
 
         int type = getType();
 
@@ -327,15 +327,17 @@ public class SpringObjectInstance extends BoxObjectInstance
     }
 
     /**
-     * Make spring non-solid when player is already springing.
-     * This prevents ceiling collision from zeroing Y velocity immediately after
-     * launch.
+     * ROM behavior: Springs are always solid.
+     * The onSolidContact guard (checking player.getSpringing()) prevents
+     * re-triggering while allowing the spring to remain solid for collision.
+     * This is critical for spring loops where the player must collide with
+     * the second spring after hitting the first.
+     *
+     * Previous implementation made springs non-solid during springing state,
+     * which caused players to pass through springs and hit terrain.
      */
     @Override
     public boolean isSolidFor(AbstractPlayableSprite player) {
-        if (player != null && player.getSpringing()) {
-            return false; // Player passes through spring when springing
-        }
         return true;
     }
 

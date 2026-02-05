@@ -60,10 +60,12 @@ public final class Sonic2ObjectIds {
 
     // Bosses
     public static final int CNZ_BOSS = 0x51; // CNZ Act 2 Boss (electricity boss)
+    public static final int HTZ_BOSS = 0x52; // HTZ Act 2 Boss (lava flamethrower boss)
     public static final int EHZ_BOSS = 0x56; // EHZ Act 2 Boss (drill car boss)
     public static final int CPZ_BOSS = 0x5D; // CPZ Act 2 Boss (water dropper boss)
     public static final int ARZ_BOSS = 0x89; // ARZ Act 2 Boss (hammer/arrow boss)
     public static final int BOSS_EXPLOSION = 0x58; // Boss explosion (Obj58)
+    public static final int LAVA_BUBBLE = 0x20;    // Lava bubble (Obj20) - spawned when HTZ lava ball hits ground
 
     // CPZ Objects
     public static final int TIPPING_FLOOR = 0x0B; // CPZ Tipping Floor (Obj0B)

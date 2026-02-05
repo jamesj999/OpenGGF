@@ -44,6 +44,8 @@ public final class Sonic2AudioConstants {
     public static final int SFX_BOSS_EXPLOSION = 0xC4;  // Boss explosion sound effect (SndID_BossExplosion)
     public static final int SFX_CNZ_BOSS_ZAP = 0xD0;    // CNZ Boss electricity zap (SndID_CNZBossZap)
     public static final int SFX_HAMMER = 0xBD;          // ARZ Boss hammer swing (SndID_Hammer)
+    public static final int SFX_LAVA_BALL = 0xAE;       // HTZ lava ball launch (SndID_LavaBall)
+    public static final int SFX_FIRE_BURN = 0xB3;       // HTZ lava ball ground hit (SndID_FireBurn)
     public static final int SFX_RUMBLING_2 = 0xE1;      // Rumbling 2 (SndID_Rumbling2)
     public static final int SFX_MEGA_MACK_DROP = 0xE6;  // Mega Mack drop sound (SndID_MegaMackDrop)
     public static final int SFX_HELICOPTER = 0xDE;      // Helicopter sound effect (SndID_Helicopter)

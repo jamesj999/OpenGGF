@@ -6,6 +6,10 @@ import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.objects.SolidContact;
+import uk.co.jamesj999.sonic.level.objects.SolidObjectListener;
+import uk.co.jamesj999.sonic.level.objects.SolidObjectParams;
+import uk.co.jamesj999.sonic.level.objects.SolidObjectProvider;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.sprites.Sprite;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
@@ -25,10 +29,16 @@ import java.util.List;
  * - When player detected, spawns 5 head segments that rise up
  * - Body stays stationary as anchor after spawning heads
  */
-public class RexonBadnikInstance extends AbstractBadnikInstance {
+public class RexonBadnikInstance extends AbstractBadnikInstance
+        implements SolidObjectProvider, SolidObjectListener {
     // Collision size from Obj94_SubObjData (s2.asm:74061)
     // Body has collision 0, not 0x0B - heads have their own collision
     private static final int COLLISION_SIZE_INDEX = 0x00;
+
+    // Solid collision dimensions from s2.asm:73743-73748 (Obj94_SolidCollision)
+    private static final int SOLID_HALF_WIDTH = 0x1B;      // 27 pixels
+    private static final int SOLID_AIR_HALF_HEIGHT = 8;    // 8 pixels when jumping
+    private static final int SOLID_GROUND_HALF_HEIGHT = 8; // 8 pixels when walking
 
     // Movement constants from disassembly
     private static final int X_VELOCITY = -0x20;  // Patrol velocity (8.8 fixed)
@@ -98,41 +108,34 @@ public class RexonBadnikInstance extends AbstractBadnikInstance {
     }
 
     /**
-     * Check if player is within angular detection range using Obj_GetOrientationToPlayer logic.
-     * The original code calculates angle to player, adds 0x60, and checks if < 0x100.
+     * Check if player is within detection range using Obj_GetOrientationToPlayer logic.
+     *
+     * The original code (s2.asm:72295-72321) does NOT calculate a full angle - it returns
+     * a simple 2-bit quadrant value (0, 2, 4, or 6):
+     * - d0 = 0 if player is RIGHT, d0 = 2 if player is LEFT
+     * - d1 = 0 if object is ABOVE/SAME, d1 = 2 if object is BELOW
+     * - Combined result is 0, 2, 4, or 6
+     *
+     * With quadrant values 0, 2, 4, or 6 plus 0x60 offset = 0x60, 0x62, 0x64, or 0x66.
+     * All are < 0x100, so heads ALWAYS spawn when body is on screen.
      */
     private boolean checkPlayerInRange(AbstractPlayableSprite player) {
         if (player == null || !isOnScreen()) {
             return false;
         }
 
-        int dx = player.getCentreX() - currentX;
-        int dy = player.getCentreY() - currentY;
+        int dx = currentX - player.getCentreX();  // Object X - Player X (like disasm)
+        int dy = currentY - player.getCentreY();  // Object Y - Player Y
 
-        // Calculate angle (0-255 range, 0 = right, 64 = down, 128 = left, 192 = up)
-        int angle = calculateAngle(dx, dy);
+        // Quadrant logic from Obj_GetOrientationToPlayer (s2.asm:72295-72321)
+        // Returns 0, 2, 4, or 6 based on player position relative to object
+        int orientation = 0;
+        if (dx < 0) orientation += 2;  // Player is to the right (object X < player X)
+        if (dy < 0) orientation += 2;  // Player is above (object Y < player Y)
 
-        // Apply flip adjustment if facing left
-        if (xFlipFlag) {
-            angle = (256 - angle) & 0xFF;
-        }
-
-        // Add offset and check range
-        int adjusted = (angle + DETECT_ANGLE_OFFSET) & 0xFF;
-        return adjusted < (DETECT_ANGLE_RANGE & 0xFF);
-    }
-
-    /**
-     * Calculate angle from delta x/y using atan2 approximation.
-     * Returns 0-255 where 0 = right, 64 = down, 128 = left, 192 = up.
-     */
-    private int calculateAngle(int dx, int dy) {
-        if (dx == 0 && dy == 0) {
-            return 0;
-        }
-        double radians = Math.atan2(dy, dx);
-        int degrees256 = (int) Math.round(radians * 128.0 / Math.PI);
-        return degrees256 & 0xFF;
+        // Add offset and check (16-bit compare, no mask)
+        int adjusted = orientation + DETECT_ANGLE_OFFSET;
+        return adjusted < DETECT_ANGLE_RANGE;
     }
 
     private void createHeads() {
@@ -212,6 +215,16 @@ public class RexonBadnikInstance extends AbstractBadnikInstance {
     @Override
     protected int getCollisionSizeIndex() {
         return COLLISION_SIZE_INDEX;
+    }
+
+    @Override
+    public SolidObjectParams getSolidParams() {
+        return new SolidObjectParams(SOLID_HALF_WIDTH, SOLID_AIR_HALF_HEIGHT, SOLID_GROUND_HALF_HEIGHT);
+    }
+
+    @Override
+    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+        // Standard solid collision - no special behavior needed
     }
 
     @Override

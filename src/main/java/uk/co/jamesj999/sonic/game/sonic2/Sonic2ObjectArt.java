@@ -1096,9 +1096,17 @@ public class Sonic2ObjectArt {
     /**
      * Load Sol (Obj95) sprite sheet - HTZ fireball badnik.
      * ROM:
-     * - Fireball 1 art at tile $39E (ArtNem_HtzFireball1)
-     * - Sol badnik art at tile $3DE (ArtNem_Sol)
-     * - Fireball mappings use tile $3AE
+     * - Fireball 1 art at tile $39E (ArtNem_HtzFireball1) - 20 tiles
+     * - Sol badnik art at tile $3DE (ArtNem_Sol) - 4 tiles
+     * - Fireball mappings use tile $3AE (offset 0x10 within fireball art)
+     *
+     * Palette usage (matching original ROM obj95.asm):
+     * - Sprite sheet base palette: 0 (from art_tile = make_art_tile(ArtTile_ArtKos_LevelArt, 0, 0))
+     * - Body frames (0-2): piece palette 0 → final palette 0 (character palette)
+     * - Fireball frames (3-4): piece palette 1 → final palette 1 (zone palette line 1 = HTZ)
+     *
+     * The fireball art contains graphics designed for palette 1, which includes
+     * orange/red fire colors in the HTZ zone palette.
      */
     public ObjectSpriteSheet loadSolSheet() {
         Pattern[] fireballPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_HTZ_FIREBALL1_ADDR,
@@ -2198,14 +2206,14 @@ public class Sonic2ObjectArt {
         // Frame 0 (Map_obj93_000A)
         List<SpriteMappingPiece> frame0 = new ArrayList<>();
         frame0.add(new SpriteMappingPiece(-0x0C, 8, 3, 2, tileBodyA, false, false, 0));
-        frame0.add(new SpriteMappingPiece(-8, -0x18, 2, 4, tileDrill, false, false, 0));
+        frame0.add(new SpriteMappingPiece(-8, -0x18, 2, 4, tileDrill, false, false, 1));
         frame0.add(new SpriteMappingPiece(-8, 0, 2, 2, tileSol, false, false, 0));
         frames.add(new SpriteMappingFrame(frame0));
 
         // Frame 1 (Map_obj93_0024)
         List<SpriteMappingPiece> frame1 = new ArrayList<>();
         frame1.add(new SpriteMappingPiece(-0x0C, 8, 3, 2, tileBodyB, false, false, 0));
-        frame1.add(new SpriteMappingPiece(-8, -0x18, 2, 4, tileDrill, false, false, 0));
+        frame1.add(new SpriteMappingPiece(-8, -0x18, 2, 4, tileDrill, false, false, 1));
         frame1.add(new SpriteMappingPiece(-8, 0, 2, 2, tileSol, false, false, 0));
         frames.add(new SpriteMappingFrame(frame1));
 
@@ -2223,7 +2231,7 @@ public class Sonic2ObjectArt {
 
         // Frame 4 (Map_obj93_0062) - Drill projectile
         List<SpriteMappingPiece> frame4 = new ArrayList<>();
-        frame4.add(new SpriteMappingPiece(-8, -0x14, 2, 4, tileDrill, false, false, 0));
+        frame4.add(new SpriteMappingPiece(-8, -0x14, 2, 4, tileDrill, false, false, 1));
         frames.add(new SpriteMappingFrame(frame4));
 
         return frames;
@@ -2232,15 +2240,23 @@ public class Sonic2ObjectArt {
     /**
      * Creates mappings for Sol (Obj95) - fireball-throwing badnik from HTZ.
      * Based on obj95.asm sprite mappings.
+     *
+     * From s2disasm obj95.asm:
+     * - Body frames use tile $3DE with palette 0 (character palette)
+     * - Fireball frames use tile $3AE with palette 1 (zone palette = HTZ fire colors)
+     *
+     * The palette values here (0 and 1) are ADDED to the sprite sheet's base palette (0),
+     * resulting in final palette indices 0 (body) and 1 (fireball).
      */
     private List<SpriteMappingFrame> createSolMappings() {
         List<SpriteMappingFrame> frames = new ArrayList<>();
 
         final int baseTile = 0x39E; // ArtTile_ArtNem_HtzFireball1
-        final int tileFireball = 0x3AE - baseTile;
-        final int tileSol = 0x3DE - baseTile;
+        final int tileFireball = 0x3AE - baseTile;  // = 0x10 (tile 16 in combined array)
+        final int tileSol = 0x3DE - baseTile;       // = 0x40 (tile 64 in combined array)
 
-        // Frames 0-2: Sol body (Map_obj95_000A/0014/001E)
+        // Frames 0-2: Sol body (Map_obj95_000A/0014/001E) - palette 0
+        // spritePiece -8, -8, 2, 2, $3DE, 0, 0, 0, 0
         List<SpriteMappingPiece> frame0 = new ArrayList<>();
         frame0.add(new SpriteMappingPiece(-8, -8, 2, 2, tileSol, false, false, 0));
         frames.add(new SpriteMappingFrame(frame0));
@@ -2253,12 +2269,14 @@ public class Sonic2ObjectArt {
         frame2.add(new SpriteMappingPiece(-8, -8, 2, 2, tileSol, false, false, 0));
         frames.add(new SpriteMappingFrame(frame2));
 
-        // Frame 3: Fireball (Map_obj95_0028)
+        // Frame 3: Fireball (Map_obj95_0028) - palette 1
+        // spritePiece -8, -8, 2, 2, $3AE, 0, 0, 0, 1
         List<SpriteMappingPiece> frame3 = new ArrayList<>();
         frame3.add(new SpriteMappingPiece(-8, -8, 2, 2, tileFireball, false, false, 1));
         frames.add(new SpriteMappingFrame(frame3));
 
-        // Frame 4: Fireball (H-flipped) (Map_obj95_0032)
+        // Frame 4: Fireball H-flipped (Map_obj95_0032) - palette 1
+        // spritePiece -8, -8, 2, 2, $3AE, 1, 0, 0, 1
         List<SpriteMappingPiece> frame4 = new ArrayList<>();
         frame4.add(new SpriteMappingPiece(-8, -8, 2, 2, tileFireball, true, false, 1));
         frames.add(new SpriteMappingFrame(frame4));
@@ -4683,6 +4701,255 @@ public class Sonic2ObjectArt {
         frame5.add(new SpriteMappingPiece(-0x10, -8, 2, 2, 0x52, false, false, 0));
         frame5.add(new SpriteMappingPiece(0, -8, 2, 2, 0x52, false, false, 0));
         frames.add(new SpriteMappingFrame(frame5));
+
+        return frames;
+    }
+
+    /**
+     * Load HTZ Boss sprite sheet (Object 0x52) - Lava flamethrower boss.
+     * <p>
+     * ROM Reference: s2.asm:63619-64207 (Obj52)
+     * Art addresses:
+     * - HTZBoss: 0x8595C (Nemesis compressed) at VRAM $0421 - flamethrower, lava ball components
+     * - Eggpod: 0x83BF6 (Nemesis compressed) at VRAM $03C1 (Eggpod_2) - Robotnik/vehicle body
+     * <p>
+     * The mappings use these tile bases:
+     * - Tiles 0-$5F: Eggpod art (palette 1), used for main vehicle body
+     * - Tiles $60+: HTZ boss art (palette 0), used for flamethrower and lava ball
+     * <p>
+     * We create a combined pattern array where:
+     * - Eggpod patterns at indices 0+
+     * - HTZ boss patterns at indices 0x60+ (tiles $60+ in mappings)
+     *
+     * @return sprite sheet for HTZ boss, or null on failure
+     */
+    public ObjectSpriteSheet loadHTZBossSheet() {
+        // Load Eggpod art (vehicle body with Robotnik)
+        Pattern[] eggpodPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_EGGPOD_ADDR, "Eggpod");
+        if (eggpodPatterns.length == 0) {
+            return null;
+        }
+
+        // Load HTZ boss art (flamethrower, lava ball components)
+        Pattern[] htzBossPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_HTZ_BOSS_ADDR, "HTZBoss");
+
+        // HTZ boss tiles start at offset 0x60 in the combined array
+        // Eggpod tiles: 0x00-0x5F
+        // HTZ boss tiles: 0x60+
+        final int HTZ_BOSS_OFFSET = 0x60;
+
+        // Create combined array large enough for both art sources
+        int combinedSize = Math.max(eggpodPatterns.length, HTZ_BOSS_OFFSET + htzBossPatterns.length);
+        Pattern[] combinedPatterns = new Pattern[combinedSize];
+
+        // Initialize with empty patterns
+        for (int i = 0; i < combinedSize; i++) {
+            combinedPatterns[i] = new Pattern();
+        }
+
+        // Copy Eggpod patterns at index 0
+        System.arraycopy(eggpodPatterns, 0, combinedPatterns, 0, eggpodPatterns.length);
+
+        // Copy HTZ boss patterns at index 0x60
+        if (htzBossPatterns.length > 0) {
+            for (int i = 0; i < htzBossPatterns.length && (HTZ_BOSS_OFFSET + i) < combinedSize; i++) {
+                combinedPatterns[HTZ_BOSS_OFFSET + i] = htzBossPatterns[i];
+            }
+        }
+
+        List<SpriteMappingFrame> mappings = createHTZBossMappings();
+        return new ObjectSpriteSheet(combinedPatterns, mappings, 1, 1);
+    }
+
+    /**
+     * Load HTZ Boss smoke sprite sheet.
+     * Uses same smoke art as CPZ boss (ArtNem_BossSmoke) with HTZ-specific mappings.
+     * ROM Reference: Obj52_MapUnc_30258 (4 frames of smoke animation)
+     *
+     * @return sprite sheet for HTZ boss smoke, or null on failure
+     */
+    public ObjectSpriteSheet loadHTZBossSmokeSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_BOSS_SMOKE_ADDR, "BossSmoke");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createHTZBossSmokeMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Creates mapping frames for HTZ Boss (Obj52).
+     * Based on mappings/sprite/obj52_b.asm (17 frames)
+     * <p>
+     * The HTZ boss uses TWO art sources:
+     * - ArtTile_ArtNem_Eggpod_2 = 0x03C1 (vehicle body with Robotnik) - palette 1
+     * - ArtTile_ArtNem_HTZBoss = 0x0421 (flamethrower/lava ball) - palette 0
+     * <p>
+     * Mapping tile indices:
+     * - Tiles 0-$5F: Eggpod art (combined array indices 0x00-0x5F)
+     * - Tiles $60+: HTZ boss art (combined array indices 0x60+)
+     * <p>
+     * Frame layout:
+     * - Frame 0: Placeholder (self-reference in ROM, empty here)
+     * - Frame 1: Main boss body (vehicle + Robotnik)
+     * - Frames 2-3: Eye/cockpit states
+     * - Frames 4-10: Flamethrower (progressively extending)
+     * - Frames 11-12: Lava ball small
+     * - Frames 13-14: Lava ball large
+     * - Frame 15: Empty
+     * - Frame 16: Defeated body (smaller cockpit)
+     */
+    private List<SpriteMappingFrame> createHTZBossMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Empty placeholder
+        frames.add(new SpriteMappingFrame(new ArrayList<>()));
+
+        // Frame 1 (Map_obj52_b_0022): Main boss body - 8 pieces
+        // Uses Eggpod art (tiles 0-$5F) for vehicle body and HTZ boss art (tiles $60+) for cockpit
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        // spritePiece -$20, 4, 2, 2, 0, palette 1 - Eggpod bottom left
+        frame1.add(new SpriteMappingPiece(-0x20, 4, 2, 2, 0x00, false, false, 1));
+        // spritePiece -$20, $14, 2, 2, 4, palette 1 - Eggpod bottom left extension
+        frame1.add(new SpriteMappingPiece(-0x20, 0x14, 2, 2, 0x04, false, false, 1));
+        // spritePiece -$10, 4, 4, 4, 8, palette 1 - Eggpod main body
+        frame1.add(new SpriteMappingPiece(-0x10, 4, 4, 4, 0x08, false, false, 1));
+        // spritePiece $10, 4, 2, 4, $18, palette 1 - Eggpod right side
+        frame1.add(new SpriteMappingPiece(0x10, 4, 2, 4, 0x18, false, false, 1));
+        // spritePiece -$20, -$C, 4, 2, $60, palette 0 - HTZ cockpit left
+        frame1.add(new SpriteMappingPiece(-0x20, -0x0C, 4, 2, 0x60, false, false, 0));
+        // spritePiece 0, -$C, 4, 2, $68, palette 0 - HTZ cockpit right
+        frame1.add(new SpriteMappingPiece(0, -0x0C, 4, 2, 0x68, false, false, 0));
+        // spritePiece -$18, -$24, 3, 3, $70, palette 1 - Robotnik upper
+        frame1.add(new SpriteMappingPiece(-0x18, -0x24, 3, 3, 0x70, false, false, 1));
+        // spritePiece 0, -$24, 2, 3, $79, palette 1 - Robotnik side
+        frame1.add(new SpriteMappingPiece(0, -0x24, 2, 3, 0x79, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2 (Map_obj52_b_0064): Eye frame 1 - tile $83
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-0x28, -0x21, 2, 1, 0x83, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3 (Map_obj52_b_006E): Eye frame 2 - tile $85
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(-0x28, -0x21, 2, 1, 0x85, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame3));
+
+        // Frame 4 (Map_obj52_b_0078): Flamethrower start - tile $87
+        List<SpriteMappingPiece> frame4 = new ArrayList<>();
+        frame4.add(new SpriteMappingPiece(-0x30, -0x21, 3, 1, 0x87, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame4));
+
+        // Frame 5 (Map_obj52_b_0082): Flamethrower extending - tiles $8A, $8E
+        List<SpriteMappingPiece> frame5 = new ArrayList<>();
+        frame5.add(new SpriteMappingPiece(-0x40, -0x21, 4, 1, 0x8A, false, false, 0));
+        frame5.add(new SpriteMappingPiece(-0x20, -0x21, 1, 1, 0x8E, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame5));
+
+        // Frame 6 (Map_obj52_b_0094): Flamethrower longer - tiles $8F, $93
+        List<SpriteMappingPiece> frame6 = new ArrayList<>();
+        frame6.add(new SpriteMappingPiece(-0x50, -0x21, 4, 1, 0x8F, false, false, 0));
+        frame6.add(new SpriteMappingPiece(-0x30, -0x21, 3, 1, 0x93, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame6));
+
+        // Frame 7 (Map_obj52_b_00A6): Flamethrower even longer - tiles $96, $9A, $9E
+        List<SpriteMappingPiece> frame7 = new ArrayList<>();
+        frame7.add(new SpriteMappingPiece(-0x60, -0x21, 4, 1, 0x96, false, false, 0));
+        frame7.add(new SpriteMappingPiece(-0x40, -0x21, 4, 1, 0x9A, false, false, 0));
+        frame7.add(new SpriteMappingPiece(-0x20, -0x21, 1, 1, 0x9E, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame7));
+
+        // Frame 8 (Map_obj52_b_00C0): Flamethrower full - tiles $9F, $A3, $A7
+        List<SpriteMappingPiece> frame8 = new ArrayList<>();
+        frame8.add(new SpriteMappingPiece(-0x70, -0x21, 4, 1, 0x9F, false, false, 0));
+        frame8.add(new SpriteMappingPiece(-0x50, -0x21, 4, 1, 0xA3, false, false, 0));
+        frame8.add(new SpriteMappingPiece(-0x30, -0x21, 3, 1, 0xA7, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame8));
+
+        // Frame 9 (Map_obj52_b_00DA): Flamethrower variant 1 - tiles $AA, $AE, $B2
+        List<SpriteMappingPiece> frame9 = new ArrayList<>();
+        frame9.add(new SpriteMappingPiece(-0x78, -0x21, 4, 1, 0xAA, false, false, 0));
+        frame9.add(new SpriteMappingPiece(-0x58, -0x21, 4, 1, 0xAE, false, false, 0));
+        frame9.add(new SpriteMappingPiece(-0x38, -0x21, 3, 1, 0xB2, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame9));
+
+        // Frame 10 (Map_obj52_b_00F4): Flamethrower variant 2 - tiles $B5, $B9
+        List<SpriteMappingPiece> frame10 = new ArrayList<>();
+        frame10.add(new SpriteMappingPiece(-0x78, -0x21, 4, 1, 0xB5, false, false, 0));
+        frame10.add(new SpriteMappingPiece(-0x58, -0x21, 4, 1, 0xB9, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame10));
+
+        // Frame 11 (Map_obj52_b_0106): Flamethrower tip - tile $BD
+        List<SpriteMappingPiece> frame11 = new ArrayList<>();
+        frame11.add(new SpriteMappingPiece(-0x78, -0x21, 4, 1, 0xBD, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame11));
+
+        // Frame 12 (Map_obj52_b_0110): Lava ball small 1 - tile $61
+        List<SpriteMappingPiece> frame12 = new ArrayList<>();
+        frame12.add(new SpriteMappingPiece(-4, -4, 1, 1, 0x61, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame12));
+
+        // Frame 13 (Map_obj52_b_011A): Lava ball small 2 - tile $62
+        List<SpriteMappingPiece> frame13 = new ArrayList<>();
+        frame13.add(new SpriteMappingPiece(-4, -4, 1, 1, 0x62, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame13));
+
+        // Frame 14 (Map_obj52_b_0124): Lava ball large 1 - tile $63
+        List<SpriteMappingPiece> frame14 = new ArrayList<>();
+        frame14.add(new SpriteMappingPiece(-8, -8, 2, 2, 0x63, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame14));
+
+        // Frame 15 (Map_obj52_b_012E): Lava ball large 2 - tile $67
+        List<SpriteMappingPiece> frame15 = new ArrayList<>();
+        frame15.add(new SpriteMappingPiece(-8, -8, 2, 2, 0x67, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame15));
+
+        // Frame 16 (Map_obj52_b_0138): Defeated body - 7 pieces
+        // Similar to frame 1 but with different cockpit (smaller top piece)
+        List<SpriteMappingPiece> frame16 = new ArrayList<>();
+        frame16.add(new SpriteMappingPiece(-0x20, 4, 2, 2, 0x00, false, false, 1));
+        frame16.add(new SpriteMappingPiece(-0x20, 0x14, 2, 2, 0x04, false, false, 1));
+        frame16.add(new SpriteMappingPiece(-0x10, 4, 4, 4, 0x08, false, false, 1));
+        frame16.add(new SpriteMappingPiece(0x10, 4, 2, 4, 0x18, false, false, 1));
+        frame16.add(new SpriteMappingPiece(-0x20, -0x0C, 4, 2, 0x60, false, false, 0));
+        frame16.add(new SpriteMappingPiece(0, -0x0C, 4, 2, 0x68, false, false, 0));
+        // Smaller cockpit top - tile $7F
+        frame16.add(new SpriteMappingPiece(-0x10, -0x14, 4, 1, 0x7F, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame16));
+
+        return frames;
+    }
+
+    /**
+     * Creates mapping frames for HTZ Boss Smoke (Obj52 smoke puffs).
+     * Based on mappings/sprite/obj52_a.asm (4 frames of smoke animation)
+     * <p>
+     * Each frame is a simple 2x2 tile sprite.
+     * Tile indices: 0, 4, 8, C (0x0C)
+     */
+    private List<SpriteMappingFrame> createHTZBossSmokeMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Smoke frame 1 - tile 0
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-8, -8, 2, 2, 0x00, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1: Smoke frame 2 - tile 4
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-8, -8, 2, 2, 0x04, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2: Smoke frame 3 - tile 8
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-8, -8, 2, 2, 0x08, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3: Smoke frame 4 - tile C
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(-8, -8, 2, 2, 0x0C, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame3));
 
         return frames;
     }

@@ -136,10 +136,16 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
         this.headNumber = headIndex / 2;  // Convert 0,2,4,6,8 to 0,1,2,3,4
         this.xFlip = xFlip;
 
-        this.currentX = x;
-        this.currentY = y;
-        this.baseX = x;
-        this.baseY = y;
+        // Apply position offsets from Obj97_Init (s2.asm:73775-73784)
+        // X offset: x_flip SET: +0x28 (40 pixels right), NOT set: -0x18 (-24 pixels left)
+        int xOffset = xFlip ? 0x28 : -0x18;
+        // Y offset: +0x10 (16 pixels down)
+        int yOffset = 0x10;
+
+        this.currentX = x + xOffset;
+        this.currentY = y + yOffset;
+        this.baseX = x + xOffset;
+        this.baseY = y + yOffset;
         this.xVelocity = 0;
         this.yVelocity = 0;
         this.xSubpixel = 0;
@@ -354,11 +360,13 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
 
     @Override
     public int getCollisionFlags() {
-        // Last head (index 8) has HURT flag (0x80), others are normal enemy
+        // From s2.asm:73788-73794 (Obj97_Init):
+        // Tip head (index 8 / headNumber 4): 0x0B = ENEMY category - can be attacked
+        // Body heads (index 0-6 / headNumbers 0-3): 0x8B = HURT category - damages player
         if (headNumber == 4) {
-            return 0x80 | (COLLISION_SIZE_NORMAL & 0x3F);  // HURT category
+            return 0x00 | (COLLISION_SIZE_NORMAL & 0x3F);  // ENEMY - attackable tip
         }
-        return 0x00 | (COLLISION_SIZE_NORMAL & 0x3F);  // ENEMY category
+        return 0x80 | (COLLISION_SIZE_NORMAL & 0x3F);  // HURT - body segments damage player
     }
 
     @Override
