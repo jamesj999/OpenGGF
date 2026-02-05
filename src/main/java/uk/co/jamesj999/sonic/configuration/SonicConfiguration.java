@@ -178,6 +178,11 @@ public enum SonicConfiguration {
 	/**
 	 * Whether to show the Level Select screen on startup instead of loading EHZ.
 	 */
-	LEVEL_SELECT_ON_STARTUP;
+	LEVEL_SELECT_ON_STARTUP,
+
+	/**
+	 * Whether to spawn CPU-controlled Tails as a sidekick when playing as Sonic.
+	 */
+	TAILS_ENABLED;
 
 }
