@@ -181,8 +181,9 @@ public enum SonicConfiguration {
 	LEVEL_SELECT_ON_STARTUP,
 
 	/**
-	 * Whether to spawn CPU-controlled Tails as a sidekick when playing as Sonic.
+	 * Code of the sprite of the CPU-controlled sidekick character.
+	 * Set to "tails" or "sonic" to spawn a sidekick, or empty string to disable.
 	 */
-	TAILS_ENABLED;
+	SIDEKICK_CHARACTER_CODE;
 
 }

@@ -31,5 +31,5 @@
   "DAC_INTERPOLATE": true,
   "FM6_DAC_OFF": true,
   "AUDIO_INTERNAL_RATE_OUTPUT": false,
-  "TAILS_ENABLED": true
+  "SIDEKICK_CHARACTER_CODE": "tails"
 }
