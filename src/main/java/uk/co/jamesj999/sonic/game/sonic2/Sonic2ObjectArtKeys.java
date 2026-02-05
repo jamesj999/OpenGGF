@@ -93,6 +93,14 @@ public final class Sonic2ObjectArtKeys {
     // ARZ Objects
     public static final String ARROW_SHOOTER = "arrow_shooter";
 
+    // MCZ Objects
+    public static final String VINE_PULLEY = "vine_pulley";
+    public static final String MCZ_CRATE = "mcz_crate";
+    public static final String MCZ_DRAWBRIDGE = "mcz_drawbridge";
+
+    // WFZ Objects
+    public static final String WFZ_HOOK = "wfz_hook";
+
     // Bosses
     public static final String EHZ_BOSS = "ehz_boss";
     public static final String BOSS_EXPLOSION = "boss_explosion";

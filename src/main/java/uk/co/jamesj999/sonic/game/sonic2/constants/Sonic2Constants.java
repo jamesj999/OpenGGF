@@ -127,6 +127,9 @@ public class Sonic2Constants {
     // Swinging Platform (Object 0x82) - ARZ swinging vine platform
     public static final int MAP_UNC_OBJ82_ADDR = 0x2A476;  // Obj82_MapUnc_2A476
 
+    // MCZ Brick / Spike Ball (Object 0x75)
+    public static final int MAP_UNC_OBJ75_ADDR = 0x28D8A;  // Obj75_MapUnc_28D8A
+
     // Rotating Platforms (Object 0x83) - ARZ (shared mappings with Obj15 SwingingPlatform)
     public static final int MAP_UNC_OBJ83_ADDR = 0x1021E;  // Obj15_Obj83_MapUnc_1021E
 
@@ -403,6 +406,33 @@ public class Sonic2Constants {
     public static final int ZONE_WING_FORTRESS = 0x06;   // wing_fortress_zone
     public static final int ZONE_MYSTIC_CAVE = 0x0B;     // mystic_cave_zone
     public static final int ZONE_ARZ = 0x0F;             // aquatic_ruin_zone
+
+    // MovingVine (Object 0x80) - MCZ vine / WFZ hook
+    // ROM Reference: s2.asm lines 56145-56412 (Obj80 code)
+    public static final int ART_NEM_VINE_PULLEY_ADDR = 0xF1D5C;    // ArtNem_VinePulley (MCZ vine art)
+    public static final int ART_NEM_WFZ_HOOK_ADDR = 0x8D388;        // ArtNem_WfzHook (WFZ hook art)
+    public static final int MAP_UNC_OBJ80_MCZ_ADDR = 0x29C64;       // Obj80_MapUnc_29C64 (MCZ mappings, 7 frames)
+    public static final int MAP_UNC_OBJ80_WFZ_ADDR = 0x29DD0;       // Obj80_MapUnc_29DD0 (WFZ mappings, 13 frames)
+    public static final int ART_TILE_VINE_PULLEY = 0x041E;          // ArtTile_ArtNem_VinePulley (MCZ palette 3)
+    public static final int ART_TILE_WFZ_HOOK = 0x03FA;             // ArtTile_ArtNem_WfzHook (WFZ palette 1)
+    public static final int ART_TILE_WFZ_HOOK_FUDGE = 0x03FE;       // ArtTile_ArtNem_WfzHook_Fudge (bad mappings offset)
+
+    // VineSwitch (Object 0x7F) - MCZ pull switch
+    // ROM Reference: s2.asm lines 56022-56132 (Obj7F code)
+    public static final int ART_NEM_VINE_SWITCH_ADDR = 0xF1C64;     // ArtNem_VineSwitch (Pull switch from MCZ.nem)
+    public static final int MAP_UNC_OBJ7F_ADDR = 0x29938;           // Obj7F_MapUnc_29938 (2 frames)
+    public static final int ART_TILE_VINE_SWITCH = 0x040E;          // ArtTile_ArtNem_VineSwitch (MCZ palette 3)
+
+    // MCZRotPforms (Object 0x6A) - MCZ wooden crate / MTZ moving platform
+    // ROM Reference: s2.asm lines 53645-53850 (Obj6A code)
+    public static final int ART_NEM_CRATE_ADDR = 0xF187C;           // ArtNem_Crate (Large wooden box from MCZ.nem)
+    public static final int ART_TILE_CRATE = 0x03C8;                // ArtTile_ArtNem_Crate (MCZ palette 3)
+
+    // MCZDrawbridge (Object 0x81) - MCZ rotatable drawbridge
+    // ROM Reference: s2.asm lines 56420-56617 (Obj81 code)
+    public static final int ART_NEM_MCZ_GATE_LOG_ADDR = 0xF1E06;    // ArtNem_MCZGateLog (Drawbridge logs from MCZ.nem)
+    public static final int MAP_UNC_OBJ81_ADDR = 0x2A24E;           // Obj81_MapUnc_2A24E (2 frames)
+    public static final int ART_TILE_MCZ_GATE_LOG = 0x043C;         // ArtTile_ArtNem_MCZGateLog (MCZ palette 3)
 
     // Collapsing Platform art (Object 0x1F)
     public static final int ART_NEM_OOZ_COLLAPSING_PLATFORM_ADDR = 0x809D0;  // ArtNem_OOZPlatform

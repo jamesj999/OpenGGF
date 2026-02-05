@@ -104,6 +104,17 @@ public final class Sonic2ObjectIds {
     // OOZ/MCZ/ARZ Objects
     public static final int COLLAPSING_PLATFORM = 0x1F; // Collapsing Platform (Obj1F) - OOZ/MCZ/ARZ
 
+    // MCZ Objects
+    public static final int STOMPER = 0x2A;         // Stomper (Obj2A) - MCZ ceiling crusher
+    public static final int MCZ_BRICK = 0x75;       // MCZ Brick / Spike Ball (Obj75)
+    public static final int SLIDING_SPIKES = 0x76;  // MCZ Sliding Spikes (Obj76)
+    public static final int VINE_SWITCH = 0x7F;     // VineSwitch (Obj7F) - MCZ pull switch that triggers ButtonVine
+    public static final int MOVING_VINE = 0x80;     // MovingVine (Obj80) - MCZ vine / WFZ hook on chain
+    public static final int MCZ_DRAWBRIDGE = 0x81;  // MCZ Drawbridge (Obj81) - rotatable drawbridge triggered by ButtonVine
+
+    // MCZ/MTZ Rotating Platforms
+    public static final int MCZ_ROT_PFORMS = 0x6A; // Rotating Platforms (Obj6A) - MCZ wooden crate / MTZ moving platform
+
     // ARZ Rotating Platforms
     public static final int ARZ_ROT_PFORMS = 0x83; // Rotating Platforms (Obj83) - 3 platforms orbiting center
 
