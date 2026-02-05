@@ -17,6 +17,10 @@ public class Tails extends AbstractPlayableSprite {
 	}
 
 	public void draw() {
+		// ROM: Obj05 (Tails' tails) renders independently of invulnerability blink
+		if (getTailsTailsController() != null) {
+			getTailsTailsController().draw();
+		}
 		// Skip rendering on certain frames during invulnerability (blink effect)
 		// Pattern: (frames & 0x04) creates ~8-frame on/off cycle
 		if (getInvulnerableFrames() > 0 && (getInvulnerableFrames() & 0x04) != 0) {
