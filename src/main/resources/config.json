@@ -30,5 +30,6 @@
   "REGION": "NTSC",
   "DAC_INTERPOLATE": true,
   "FM6_DAC_OFF": true,
-  "AUDIO_INTERNAL_RATE_OUTPUT": false
+  "AUDIO_INTERNAL_RATE_OUTPUT": false,
+  "TAILS_ENABLED": true
 }

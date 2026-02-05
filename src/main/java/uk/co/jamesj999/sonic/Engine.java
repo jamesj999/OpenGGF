@@ -278,10 +278,10 @@ public class Engine {
 		}
 		spriteManager.addSprite(mainSprite);
 
-		// Create Tails as CPU-controlled sidekick (unless player IS Tails)
+		// Create Tails as CPU-controlled sidekick (unless player IS Tails or Tails is disabled)
 		// ROM: Both Sonic and Tails share the same start position from the zone start location table.
 		// Tails must start at the same X as Sonic so the AI doesn't immediately chase (threshold is 16px).
-		if (!"tails".equalsIgnoreCase(mainCode)) {
+		if (!"tails".equalsIgnoreCase(mainCode) && configService.getBoolean(SonicConfiguration.TAILS_ENABLED)) {
 			Tails tailsSidekick = new Tails("tails", mainSprite.getX(), mainSprite.getY());
 			tailsSidekick.setCpuControlled(true);
 			TailsCpuController cpuController = new TailsCpuController(tailsSidekick);
