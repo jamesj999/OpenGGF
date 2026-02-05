@@ -175,6 +175,17 @@ public class LevelEventManager implements LevelEventProvider {
         return cameraBgYOffset;
     }
 
+    /**
+     * Returns the relative BG vertical shift for HTZ earthquake.
+     * 0 = normal/risen position, positive = BG scrolled up (more lava visible).
+     * This is used by SwScrlHtz to offset vscrollFactorBG without modifying bgCamera.bgYPos.
+     */
+    public int getHtzBgVerticalShift() {
+        if (cameraBgYOffset == 0) return 0;
+        int risenLimit = (currentAct == 0) ? HTZ1_LAVA_OFFSET_RISEN : HTZ2_LAVA_OFFSET_RISEN;
+        return risenLimit - cameraBgYOffset;
+    }
+
     // EHZ Act 2 boss reference
     private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2EHZBossInstance ehzBoss = null;
     // CPZ Act 2 boss reference
@@ -500,16 +511,23 @@ public class LevelEventManager implements LevelEventProvider {
             case 18 -> {
                 // Routine 9: Boss end / camera extend (LevEvents_HTZ2_Routine9)
                 // ROM: s2.asm:21261-21277
-                // Prevent backtracking during fight
-                short cameraX = camera.getX();
-                if (cameraX > camera.getMinX()) {
-                    camera.setMinX(cameraX);
+                if (uk.co.jamesj999.sonic.game.GameServices.gameState().getCurrentBossId() != 0) {
+                    // ROM: does nothing until Boss_defeated_flag is set.
+                    return;
                 }
 
-                // Check for boss defeat
-                if (htzBoss != null && htzBoss.isDefeated()) {
-                    // Camera unlock happens in boss defeat sequence
-                    eventRoutine += 2;
+                // ROM: Camera_Min_X_pos follows Camera_X_pos after boss defeat.
+                short cameraX = camera.getX();
+                camera.setMinX(cameraX);
+
+                // ROM: once camera reaches $30E0, ease Y bounds up toward $428/$430.
+                if (cameraX >= 0x30E0) {
+                    if (camera.getMinY() >= 0x428) {
+                        camera.setMinY((short) (camera.getMinY() - 2));
+                    }
+                    if (camera.getMaxYTarget() >= 0x430) {
+                        camera.setMaxYTarget((short) (camera.getMaxYTarget() - 2));
+                    }
                 }
             }
             default -> {
@@ -521,7 +539,7 @@ public class LevelEventManager implements LevelEventProvider {
     // HTZ Act 2 boss arena constants (from disassembly LevEvents_HTZ2)
     /** Cutoff trigger X to start boss preparation (ROM: $2B00) */
     private static final int HTZ2_BOSS_CUTOFF_X = 0x2B00;
-    /** Arena left boundary trigger X (ROM: $2EDF) */
+    /** Boss prep trigger X (ROM: $2C50) */
     private static final int HTZ2_BOSS_ARENA_TRIGGER_X = 0x2C50;
     /** Boss arena left camera lock X (ROM: $2EE0) */
     private static final int HTZ2_BOSS_ARENA_LEFT = 0x2EE0;

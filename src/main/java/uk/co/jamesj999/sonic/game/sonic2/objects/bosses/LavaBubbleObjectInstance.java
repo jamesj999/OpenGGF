@@ -1,11 +1,13 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.objects.TouchResponseProvider;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
@@ -20,11 +22,11 @@ import java.util.List;
  * <p>
  * Uses collision flags 0x98 (enemy projectile with size).
  */
-public class LavaBubbleObjectInstance extends AbstractObjectInstance {
+public class LavaBubbleObjectInstance extends AbstractObjectInstance implements TouchResponseProvider {
 
     // Animation constants
     private static final int ANIM_DELAY = 8;  // Frames between animation changes
-    private static final int FRAME_COUNT = 2; // Total animation frames (cycles frames 14-15)
+    private static final int FRAME_COUNT = 2; // Total animation frames (uses Obj20 fireball frames)
 
     // Lifetime constant (ROM: approximately 2 seconds)
     private static final int LIFETIME = 120;
@@ -47,7 +49,7 @@ public class LavaBubbleObjectInstance extends AbstractObjectInstance {
      * @param y Y position (ground level)
      */
     public LavaBubbleObjectInstance(int x, int y) {
-        super(new ObjectSpawn(x, y, 0x20, 0, 0, false, 0), "Lava Bubble");
+        super(new ObjectSpawn(x, y, Sonic2ObjectIds.LAVA_BUBBLE, 0, 0, false, 0), "Lava Bubble");
         this.levelManager = LevelManager.getInstance();
         this.x = x;
         this.y = y;
@@ -88,6 +90,11 @@ public class LavaBubbleObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
+    public int getCollisionProperty() {
+        return 0;
+    }
+
+    @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         if (isDestroyed()) {
             return;
@@ -99,15 +106,14 @@ public class LavaBubbleObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.HTZ_BOSS);
+        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SOL);
         if (renderer == null || !renderer.isReady()) {
             return;
         }
 
-        // Lava bubble uses same frames as lava ball (frames 14-15)
-        // ROM: Obj20 transformation uses Obj52 art tiles for visual consistency
-        // These are the large lava ball frames ($E, $F) that look like bubbling lava
-        int frame = 14 + animFrame;
+        // ROM: Obj20 uses ArtNem_HtzFireball1 after transformation.
+        // SOL sheet frames 3 and 4 are the two fireball frames using the same art source.
+        int frame = 3 + animFrame;
 
         renderer.drawFrameIndex(frame, x, y, false, false);
     }

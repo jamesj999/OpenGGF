@@ -1187,7 +1187,7 @@ public class Sonic2ObjectArt {
             return null;
         }
         List<SpriteMappingFrame> mappings = createSeesawMappings();
-        return new ObjectSpriteSheet(patterns, mappings, 2, 0);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 0);
     }
 
     /**
@@ -4760,7 +4760,7 @@ public class Sonic2ObjectArt {
         }
 
         List<SpriteMappingFrame> mappings = createHTZBossMappings();
-        return new ObjectSpriteSheet(combinedPatterns, mappings, 1, 1);
+        return new ObjectSpriteSheet(combinedPatterns, mappings, 0, 1);
     }
 
     /**
@@ -4776,7 +4776,7 @@ public class Sonic2ObjectArt {
             return null;
         }
         List<SpriteMappingFrame> mappings = createHTZBossSmokeMappings();
-        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
     }
 
     /**
