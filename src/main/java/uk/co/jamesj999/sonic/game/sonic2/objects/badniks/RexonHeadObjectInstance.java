@@ -466,7 +466,10 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // Head segments use frame 1
-        renderer.drawFrameIndex(1, currentX, currentY, xFlip, false);
+        // From s2.asm:73791-73793:
+        // - Tip head (headIndex == 8 / headNumber == 4): uses frame 0 (head with eyes)
+        // - Neck segments (headIndex 0-6 / headNumber 0-3): use frame 1 (circular segment)
+        int frame = (headNumber == 4) ? 0 : 1;
+        renderer.drawFrameIndex(frame, currentX, currentY, xFlip, false);
     }
 }
