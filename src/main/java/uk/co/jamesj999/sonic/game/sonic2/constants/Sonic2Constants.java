@@ -376,6 +376,7 @@ public class Sonic2Constants {
     // Barrier (Object 0x2D) - One-way rising barrier
     public static final int ART_NEM_CONSTRUCTION_STRIPES_ADDR = 0x827F8;  // ArtNem_ConstructionStripes (CPZ/DEZ)
     public static final int ART_NEM_ARZ_BARRIER_ADDR = 0x830D2;           // ArtNem_ARZBarrierThing
+    public static final int ART_NEM_HTZ_VALVE_BARRIER_ADDR = 0xF08F6;    // ArtNem_HtzValveBarrier (HTZ subtype 0)
     public static final int MAP_UNC_BARRIER_ADDR = 0x11822;               // Obj2D_MapUnc_11822 (Enigma)
 
     // CPZ BlueBalls (Object 0x1D) - Bouncing water droplet hazard
@@ -775,6 +776,7 @@ public class Sonic2Constants {
         offsets.put("ART_NEM_CPZ_ANIMATED_BITS_ADDR", ART_NEM_CPZ_ANIMATED_BITS_ADDR);
         offsets.put("ART_NEM_CONSTRUCTION_STRIPES_ADDR", ART_NEM_CONSTRUCTION_STRIPES_ADDR);
         offsets.put("ART_NEM_ARZ_BARRIER_ADDR", ART_NEM_ARZ_BARRIER_ADDR);
+        offsets.put("ART_NEM_HTZ_VALVE_BARRIER_ADDR", ART_NEM_HTZ_VALVE_BARRIER_ADDR);
         offsets.put("MAP_UNC_BARRIER_ADDR", MAP_UNC_BARRIER_ADDR);
         offsets.put("ART_NEM_CPZ_DROPLET_ADDR", ART_NEM_CPZ_DROPLET_ADDR);
         offsets.put("ART_NEM_CPZ_METAL_BLOCK_ADDR", ART_NEM_CPZ_METAL_BLOCK_ADDR);
