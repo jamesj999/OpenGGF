@@ -129,6 +129,20 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 
 #### 2.4 Implementation Requirements
 
+**Engine Extensions**: If the ROM uses functionality that the engine doesn't expose, **you MUST extend the engine** rather than working around it or documenting it as a limitation. Examples:
+- ROM reads button state (up/down/left/right) → Engine must expose `isUpPressed()`, `isDownPressed()`, etc.
+- ROM uses a RAM variable for inter-object communication → Engine must provide equivalent manager/service
+- ROM accesses player state not currently exposed → Add the getter/setter to `AbstractPlayableSprite`
+
+Never accept "engine limitation" as a reason for incomplete behavior. The engine exists to support ROM-accurate implementations.
+
+When extending the engine:
+1. Search for similar existing functionality to follow established patterns
+2. Add fields/methods to the appropriate class (e.g., `AbstractPlayableSprite` for player state)
+3. Update any input/update pipelines that need to populate the new state (e.g., `SpriteManager` for input)
+4. Make the extension general-purpose so other objects can use it
+5. Document the extension with ROM references in comments
+
 **Constants**: Extract all magic numbers as named constants with disassembly comments:
 ```java
 // From disassembly: move.w #$180,x_vel(a0)
@@ -186,10 +200,12 @@ registerFactory(Sonic2ObjectIds.OBJECT_NAME,
 
 Ensure the implementation:
 - Has no TODOs or placeholder code
+- Has no "engine limitation" workarounds - if the ROM does it, the engine must support it
 - Uses explicit disassembly references in comments for non-trivial logic
 - Handles object creation and cleanup correctly
 - Properly manages object lifecycle (spawning, despawning)
 - Follows existing code patterns in the codebase
+- Any engine extensions are clean, well-documented, and usable by other objects
 
 ### Phase 4: Cross-Validation
 
@@ -214,6 +230,7 @@ Validation checklist:
 8. Debug visualization present
 9. No TODOs or simplifications
 10. Object lifecycle handled correctly
+11. No "engine limitation" workarounds - any missing engine functionality was added
 
 Report any discrepancies with specific line references from both code and disassembly.
 ```
