@@ -2481,6 +2481,10 @@ public class LevelManager {
     }
 
     public void setClearColor() {
+        if (level == null) {
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            return;
+        }
         boolean forceBlack = false;
 
         if (level instanceof uk.co.jamesj999.sonic.game.sonic2.Sonic2Level) {
