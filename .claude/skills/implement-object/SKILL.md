@@ -6,11 +6,25 @@ Implement a Sonic 2 object or badnik with complete ROM accuracy. This skill guid
 
 $ARGUMENTS: Object name or ID (e.g., "Masher", "0x5C", "Crawl badnik")
 
+## Related Skills
+
+When delegating agents to explore the disassembly, instruct them to use the **s2disasm-guide** skill for:
+- Directory structure and file locations
+- Compression types (.nem, .kos, .eni, .sax, .bin)
+- Label naming conventions (ArtNem_, Pal_, Obj_, etc.)
+- RomOffsetFinder tool commands
+- Object system reference (status table offsets, routine patterns)
+- Zone abbreviations and IDs
+
 ## Implementation Process
 
 ### Phase 1: Research & Discovery
 
-Delegate multiple agents to:
+Delegate multiple agents to explore the disassembly. **Include this instruction in each agent prompt:**
+
+> Use the s2disasm-guide skill (`.claude/skills/s2disasm-guide/skill.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
+
+Agents should:
 
 1. **Identify the object** - Parse $ARGUMENTS to determine the object ID and name
    - Search `Sonic2ObjectIds.java` and `Sonic2ObjectRegistryData.java` for ID/name mapping
@@ -284,10 +298,14 @@ Ensure the implementation:
 
 ### Phase 4: Cross-Validation
 
-Delegate to a review agent to cross-validate against the disassembly:
+Delegate to a review agent to cross-validate against the disassembly. **Include this instruction in the agent prompt:**
+
+> Use the s2disasm-guide skill (`.claude/skills/s2disasm-guide/skill.md`) for reference on disassembly structure, label conventions, and object system patterns.
 
 ```
 Review the implementation of [ObjectName] (0xXX) against the Sonic 2 disassembly.
+
+Reference: Use the s2disasm-guide skill for disassembly navigation guidance.
 
 Files to review:
 - [List all created/modified files]
@@ -336,6 +354,7 @@ Once cross-validation is confirmed bug-free:
 
 | Purpose | Location |
 |---------|----------|
+| **Disassembly guide** | `.claude/skills/s2disasm-guide/skill.md` |
 | Object IDs | `src/.../game/sonic2/constants/Sonic2ObjectIds.java` |
 | ROM offsets | `src/.../game/sonic2/constants/Sonic2Constants.java` |
 | Art keys | `src/.../game/sonic2/Sonic2ObjectArtKeys.java` |
