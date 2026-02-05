@@ -25,6 +25,7 @@ import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2EHZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CPZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2ARZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CNZBossInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2HTZBossInstance;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -277,6 +278,9 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         // CNZ Boss (Object 0x51)
         registerFactory(Sonic2ObjectIds.CNZ_BOSS,
                 (spawn, registry) -> new Sonic2CNZBossInstance(spawn, LevelManager.getInstance()));
+        // HTZ Boss (Object 0x52)
+        registerFactory(Sonic2ObjectIds.HTZ_BOSS,
+                (spawn, registry) -> new Sonic2HTZBossInstance(spawn, LevelManager.getInstance()));
         // EHZ Boss (Object 0x56)
         registerFactory(Sonic2ObjectIds.EHZ_BOSS,
                 (spawn, registry) -> new Sonic2EHZBossInstance(spawn, LevelManager.getInstance()));

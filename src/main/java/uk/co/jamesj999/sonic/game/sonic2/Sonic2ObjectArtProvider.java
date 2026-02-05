@@ -173,6 +173,9 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             registerSheet(Sonic2ObjectArtKeys.REXON, artLoader.loadRexonSheet());
             // SmashableGround uses level patterns - must be loaded after level is available
             // This is registered separately via registerSmashableGroundSheet()
+            // HTZ Boss (Object 0x52)
+            registerSheet(Sonic2ObjectArtKeys.HTZ_BOSS, artLoader.loadHTZBossSheet());
+            registerSheet(Sonic2ObjectArtKeys.HTZ_BOSS_SMOKE, artLoader.loadHTZBossSmokeSheet());
         }
         // MCZ objects (Object 0x80 vine, Object 0x6A crate, Object 0x81 drawbridge) - only for MCZ
         // zoneIndex is the ROM zone ID (0x0B for MCZ)

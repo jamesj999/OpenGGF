@@ -236,6 +236,7 @@ public class Sonic2Constants {
     // Boss art (Nemesis compressed, verified offsets)
     public static final int ART_NEM_EGGPOD_ADDR = 0x83BF6;     // ArtNem_Eggpod (flying vehicle)
     public static final int ART_NEM_EHZ_BOSS_ADDR = 0x8507C;   // ArtNem_EHZBoss (ground vehicle/wheels/spike)
+    public static final int ART_NEM_HTZ_BOSS_ADDR = 0x8595C;   // ArtNem_HTZBoss (flamethrower/lava ball components)
     public static final int ART_NEM_CNZ_BOSS_ADDR = 0x87AAC;   // ArtNem_CNZBoss (verified via RomOffsetFinder)
     public static final int ART_NEM_EGG_CHOPPERS_ADDR = 0x85868; // ArtNem_EggChoppers (propeller blades)
     public static final int ART_NEM_CPZ_BOSS_ADDR = 0x84332;   // ArtNem_CPZBoss (verified via RomOffsetFinder)
@@ -257,6 +258,8 @@ public class Sonic2Constants {
     public static final int ART_TILE_EGGPOD_4 = 0x0500;   // ArtTile_ArtNem_Eggpod_4 (ARZ/MCZ/CNZ/MTZ boss)
     public static final int ART_TILE_CNZ_BOSS = 0x0407;   // ArtTile_ArtNem_CNZBoss
     public static final int ART_TILE_CNZ_BOSS_FUDGE = 0x03A7; // ArtTile_ArtNem_CNZBoss_Fudge (= 0x0407 - 0x60)
+    public static final int ART_TILE_HTZ_BOSS = 0x0421;  // ArtTile_ArtNem_HTZBoss (flamethrower/lava ball)
+    public static final int ART_TILE_EGGPOD_2 = 0x03C1;  // ArtTile_ArtNem_Eggpod_2 (HTZ boss uses this)
 
     // CNZ Boss mappings (uncompressed)
     public static final int MAP_UNC_CNZ_BOSS_ADDR = 0x320EA;  // Obj51_MapUnc_320EA (21 frames)
@@ -277,6 +280,10 @@ public class Sonic2Constants {
     public static final int MAP_UNC_BOSS_EXPLOSION_ADDR = 0x2D50A;   // Obj58_MapUnc_2D50A (boss explosion)
     public static final int MAP_UNC_ARZ_BOSS_PARTS_ADDR = 0x30D68;   // Obj89_MapUnc_30D68 (ARZ boss parts)
     public static final int MAP_UNC_ARZ_BOSS_MAIN_ADDR = 0x30E04;    // Obj89_MapUnc_30E04 (ARZ boss main)
+
+    // HTZ Boss mappings (uncompressed)
+    public static final int MAP_UNC_HTZ_BOSS_SMOKE_ADDR = 0x30258;  // Obj52_MapUnc_30258 (smoke particles)
+    public static final int MAP_UNC_HTZ_BOSS_MAIN_ADDR = 0x302BC;   // Obj52_MapUnc_302BC (main boss, flamethrower, lava ball)
 
     // Animal art (Nemesis compressed, verified offsets)
     public static final int ART_NEM_FLICKY_ADDR = 0x7EF60;

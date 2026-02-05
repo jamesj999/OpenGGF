@@ -1,12 +1,12 @@
 # Sonic 2 Object Implementation Checklist
 
-Generated: 2026-02-05 11:38:50
+Generated: 2026-02-05 17:06:45
 
 ## Summary
 
 - **Total unique objects found:** 120
-- **Implemented:** 70 (58.3%)
-- **Unimplemented:** 50 (41.7%)
+- **Implemented:** 71 (59.2%)
+- **Unimplemented:** 49 (40.8%)
 
 ## Implemented Objects
 
@@ -59,6 +59,7 @@ Generated: 2026-02-05 11:38:50
 | 0x7B | PipeExitSpring | 9 | CPZ1, CPZ2 |
 | 0x7F | VineSwitch | 11 | MCZ1, MCZ2 |
 | 0x80 | MovingVine | 24 | MCZ1, MCZ2, WFZ1 |
+| 0x81 | MCZDrawbridge | 12 | MCZ1, MCZ2 |
 | 0x82 | SwingingPform | 15 | ARZ1, ARZ2 |
 | 0x83 | ARZRotPforms | 4 | ARZ1, ARZ2 |
 | 0x84 | ForcedSpin | 42 | CNZ1, CNZ2, HTZ1, HTZ2 |
@@ -109,7 +110,6 @@ Generated: 2026-02-05 11:38:50
 | 0x70 | Object | Cog | 14 | MTZ2, MTZ3 |
 | 0xB4 | Object | VPropeller | 13 | SCZ1, WFZ1 |
 | 0x67 | Object | MTZSpinTube | 12 | MTZ1, MTZ2, MTZ3 |
-| 0x81 | Object | MCZDrawbridge | 12 | MCZ1, MCZ2 |
 | 0x9E | Badnik | Crawlton | 12 | MCZ1, MCZ2 |
 | 0x8B | Object | WFZPalSwitcher | 11 | WFZ1 |
 | 0x6C | Object | Conveyor | 10 | MTZ2, MTZ3 |
@@ -438,7 +438,7 @@ Total: 259 objects | Implemented: 20 | Unimplemented: 0
 
 #### Act 1
 
-Total: 130 objects | Implemented: 15 | Unimplemented: 4
+Total: 130 objects | Implemented: 16 | Unimplemented: 3
 
 **Badniks:**
 - [ ] 0x9E Crawlton (x6) [0x22]
@@ -461,11 +461,11 @@ Total: 130 objects | Implemented: 15 | Unimplemented: 4
 - [x] 0x7A SidewaysPform (x3) [0x00, 0x12]
 - [x] 0x7F VineSwitch (x4) [4 subtypes]
 - [x] 0x80 MovingVine (x6) [4 subtypes]
-- [ ] 0x81 MCZDrawbridge (x5) [5 subtypes]
+- [x] 0x81 MCZDrawbridge (x5) [5 subtypes]
 
 #### Act 2
 
-Total: 148 objects | Implemented: 16 | Unimplemented: 4
+Total: 148 objects | Implemented: 17 | Unimplemented: 3
 
 **Badniks:**
 - [ ] 0x9E Crawlton (x6) [0x22]
@@ -492,7 +492,7 @@ Total: 148 objects | Implemented: 16 | Unimplemented: 4
 - [x] 0x7A SidewaysPform (x3) [0x00, 0x12]
 - [x] 0x7F VineSwitch (x7) [7 subtypes]
 - [x] 0x80 MovingVine (x8) [4 subtypes]
-- [ ] 0x81 MCZDrawbridge (x7) [7 subtypes]
+- [x] 0x81 MCZDrawbridge (x7) [7 subtypes]
 
 ### Oil Ocean Zone
 

@@ -72,8 +72,13 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     protected void updateAnimation(int frameCounter) {
+        // In AFTER_FIRE state, use fast flashing animation (duration 5 = ~5 Hz)
+        // In WAIT_FOR_PLAYER state, use slower body animation (duration 15)
         ObjectAnimationState animationState = (state == State.AFTER_FIRE) ? afterAnimation : bodyAnimation;
         animationState.update();
+        // Mask to 0-3: Frame 4 becomes frame 0 (body), matching original ROM behavior.
+        // This creates a "flash" effect alternating between fireball (frame 3, palette 1)
+        // and body (frame 0, palette 0).
         animFrame = animationState.getMappingFrame() & 0x03;
     }
 

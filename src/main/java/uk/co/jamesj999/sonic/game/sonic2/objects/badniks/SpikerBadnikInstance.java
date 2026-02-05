@@ -218,6 +218,6 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
             return;
         }
 
-        renderer.drawFrameIndex(animFrame, currentX, currentY, xFlipFlag, false);
+        renderer.drawFrameIndex(animFrame, currentX, currentY, xFlipFlag, yFlipFlag);
     }
 }
