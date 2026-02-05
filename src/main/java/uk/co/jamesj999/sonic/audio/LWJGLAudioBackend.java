@@ -40,7 +40,7 @@ public class LWJGLAudioBackend implements AudioBackend {
     private AudioStream currentStream;
     private AudioStream sfxStream;
     private int[] streamBuffers;
-    private static final int STREAM_BUFFER_COUNT = 2;
+    private static final int STREAM_BUFFER_COUNT = 3;
     private static final int STREAM_BUFFER_SIZE = 1024;
     // Pre-allocated buffers for fillBuffer() to avoid per-call allocations (~43 times/sec)
     private final short[] streamData = new short[STREAM_BUFFER_SIZE * 2];
