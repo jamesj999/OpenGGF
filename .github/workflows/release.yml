@@ -1,0 +1,126 @@
+name: Build Release
+
+on:
+  # Build on version tags
+  push:
+    tags:
+      - 'v*'
+  # Allow manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version name for artifacts'
+        required: false
+        default: 'snapshot'
+
+jobs:
+  # Run all tests before building native images
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run tests
+        run: mvn test -B
+
+  # Build native images for all platforms (only after tests pass)
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: macos-latest
+            platform: macos
+          - os: ubuntu-latest
+            platform: linux
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm'
+          cache: maven
+
+      - name: Build native image
+        run: mvn package -Pnative -DskipTests -B
+
+      - name: Package (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/SonicEngine
+          Copy-Item "target/SonicEngine.exe" "dist/SonicEngine/"
+          Copy-Item "target/native-libs/*.dll" "dist/SonicEngine/"
+          Compress-Archive -Path "dist/SonicEngine" -DestinationPath "dist/SonicEngine-windows.zip"
+          Remove-Item -Recurse -Force "dist/SonicEngine"
+
+      - name: Package (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          mkdir -p dist
+          # .app is already assembled by Maven's exec-maven-plugin,
+          # but we rebuild to dist/ for clean artifact packaging
+          bash src/packaging/assemble-macos-app.sh target/SonicEngine dist
+          cd dist
+          zip -r SonicEngine-macos.zip SonicEngine.app
+          rm -rf SonicEngine.app
+
+      - name: Package (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          mkdir -p dist/SonicEngine
+          cp target/SonicEngine dist/SonicEngine/
+          cp target/native-libs/*.so dist/SonicEngine/
+          tar -czvf dist/SonicEngine-linux.tar.gz -C dist SonicEngine
+          rm -rf dist/SonicEngine
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonic-engine-${{ matrix.platform }}
+          path: dist/*
+          retention-days: 30
+
+  # Create a GitHub Release when triggered by a tag
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display artifacts
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
