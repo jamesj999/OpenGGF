@@ -21,6 +21,7 @@ import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.Sonic;
 import uk.co.jamesj999.sonic.sprites.playable.Tails;
+import uk.co.jamesj999.sonic.sprites.playable.TailsCpuController;
 import uk.co.jamesj999.sonic.game.GameMode;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.sonic2.levelselect.LevelSelectManager;
@@ -276,6 +277,15 @@ public class Engine {
 			mainSprite = new Sonic(mainCode, (short) 100, (short) 624);
 		}
 		spriteManager.addSprite(mainSprite);
+
+		// Create Tails as CPU-controlled sidekick (unless player IS Tails)
+		if (!"tails".equalsIgnoreCase(mainCode)) {
+			Tails tailsSidekick = new Tails("tails", (short) 60, (short) 624);
+			tailsSidekick.setCpuControlled(true);
+			TailsCpuController cpuController = new TailsCpuController(tailsSidekick);
+			tailsSidekick.setCpuController(cpuController);
+			spriteManager.addSprite(tailsSidekick);
+		}
 
 		camera.setFocusedSprite(mainSprite);
 		camera.updatePosition(true);

@@ -63,6 +63,8 @@ public class Sonic2Constants {
     public static final int ANI_OBJ41_SCRIPT_COUNT = 0x06;
     public static final int SONIC_ANIM_DATA_ADDR = 0x01B618;
     public static final int SONIC_ANIM_SCRIPT_COUNT = 0x22;
+    public static final int TAILS_ANIM_DATA_ADDR = 0x01D038;
+    public static final int TAILS_ANIM_SCRIPT_COUNT = 0x21; // 33 scripts (0x00-0x20)
 
     public static final int ART_NEM_SHIELD_ADDR = 0x71D8E;
     // Bridge art (EHZ wooden bridge - 8 blocks)
@@ -589,6 +591,8 @@ public class Sonic2Constants {
         offsets.put("ANI_OBJ41_SCRIPT_COUNT", ANI_OBJ41_SCRIPT_COUNT);
         offsets.put("SONIC_ANIM_DATA_ADDR", SONIC_ANIM_DATA_ADDR);
         offsets.put("SONIC_ANIM_SCRIPT_COUNT", SONIC_ANIM_SCRIPT_COUNT);
+        offsets.put("TAILS_ANIM_DATA_ADDR", TAILS_ANIM_DATA_ADDR);
+        offsets.put("TAILS_ANIM_SCRIPT_COUNT", TAILS_ANIM_SCRIPT_COUNT);
         offsets.put("ART_NEM_SHIELD_ADDR", ART_NEM_SHIELD_ADDR);
         offsets.put("ART_NEM_BRIDGE_ADDR", ART_NEM_BRIDGE_ADDR);
         offsets.put("ART_NEM_EHZ_WATERFALL_ADDR", ART_NEM_EHZ_WATERFALL_ADDR);
