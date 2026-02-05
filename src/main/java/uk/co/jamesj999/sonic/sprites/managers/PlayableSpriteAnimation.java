@@ -31,9 +31,12 @@ public class PlayableSpriteAnimation {
 
         SpriteAnimationProfile profile = sprite.getAnimationProfile();
         if (sprite.getAnimationSet() != null && !sprite.getAnimationSet().getAllScripts().isEmpty()) {
-            Integer desiredAnimId = profile != null
-                    ? profile.resolveAnimationId(sprite, frameCounter, sprite.getAnimationSet().getScriptCount())
-                    : null;
+            int forced = sprite.getForcedAnimationId();
+            Integer desiredAnimId = forced >= 0
+                    ? forced
+                    : (profile != null
+                        ? profile.resolveAnimationId(sprite, frameCounter, sprite.getAnimationSet().getScriptCount())
+                        : null);
             if (desiredAnimId != null && desiredAnimId != sprite.getAnimationId()) {
                 sprite.setAnimationId(desiredAnimId);
                 resetScriptState();
