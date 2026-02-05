@@ -10,6 +10,8 @@ $ARGUMENTS: Object name or ID (e.g., "Masher", "0x5C", "Crawl badnik")
 
 ### Phase 1: Research & Discovery
 
+Delegate multiple agents to:
+
 1. **Identify the object** - Parse $ARGUMENTS to determine the object ID and name
    - Search `Sonic2ObjectIds.java` and `Sonic2ObjectRegistryData.java` for ID/name mapping
    - If ambiguous, search the disassembly in `docs/s2disasm/` for object references
