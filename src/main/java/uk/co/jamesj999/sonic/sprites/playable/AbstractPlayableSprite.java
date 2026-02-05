@@ -277,13 +277,23 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          */
         protected boolean jumpInputPressed = false;
         /**
+         * Tracks whether the up button is currently pressed this frame.
+         * Set by SpriteManager, used by objects (like VineSwitch) to detect directional input.
+         */
+        protected boolean upInputPressed = false;
+        /**
+         * Tracks whether the down button is currently pressed this frame.
+         * Set by SpriteManager, used by objects (like VineSwitch) to detect directional input.
+         */
+        protected boolean downInputPressed = false;
+        /**
          * Tracks whether the left button is currently pressed this frame.
-         * Set by movement manager, used by objects (like Grabber) to detect directional input.
+         * Set by SpriteManager, used by objects (like Grabber) to detect directional input.
          */
         protected boolean leftInputPressed = false;
         /**
          * Tracks whether the right button is currently pressed this frame.
-         * Set by movement manager, used by objects (like Grabber) to detect directional input.
+         * Set by SpriteManager, used by objects (like Grabber) to detect directional input.
          */
         protected boolean rightInputPressed = false;
         /**
@@ -1117,6 +1127,22 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         /**
+         * Returns whether the up button is currently pressed.
+         * Used by objects (like VineSwitch) to detect directional input for release delay.
+         */
+        public boolean isUpPressed() {
+                return upInputPressed;
+        }
+
+        /**
+         * Returns whether the down button is currently pressed.
+         * Used by objects (like VineSwitch) to detect directional input for release delay.
+         */
+        public boolean isDownPressed() {
+                return downInputPressed;
+        }
+
+        /**
          * Returns whether the left button is currently pressed.
          * Used by objects (like Grabber) to detect directional input for escape mechanism.
          */
@@ -1134,9 +1160,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         /**
          * Sets the directional input state for this frame.
-         * Called by movement manager each frame with the current button states.
+         * Called by SpriteManager each frame with the current button states.
          */
-        public void setDirectionalInputPressed(boolean left, boolean right) {
+        public void setDirectionalInputPressed(boolean up, boolean down, boolean left, boolean right) {
+                this.upInputPressed = up;
+                this.downInputPressed = down;
                 this.leftInputPressed = left;
                 this.rightInputPressed = right;
         }

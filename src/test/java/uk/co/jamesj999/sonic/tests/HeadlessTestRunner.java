@@ -64,7 +64,7 @@ public class HeadlessTestRunner {
         // input state is set BEFORE object updates. Objects read isJumpPressed() during
         // their update() methods, so this must be set before updateObjectPositions().
         sprite.setJumpInputPressed(jump);
-        sprite.setDirectionalInputPressed(left, right);
+        sprite.setDirectionalInputPressed(up, down, left, right);
 
         // Update object positions (from GameLoop.step())
         levelManager.updateObjectPositions();
