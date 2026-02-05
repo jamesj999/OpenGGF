@@ -5,6 +5,7 @@ import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.TouchResponseProvider;
 import uk.co.jamesj999.sonic.level.objects.boss.AbstractBossChild;
 import uk.co.jamesj999.sonic.physics.ObjectTerrainUtils;
 import uk.co.jamesj999.sonic.physics.TerrainCheckResult;
@@ -20,7 +21,7 @@ import java.util.List;
  * They arc upward then fall, transforming into lava bubbles on ground contact.
  * They damage the player on contact.
  */
-public class HTZBossLavaBall extends AbstractBossChild {
+public class HTZBossLavaBall extends AbstractBossChild implements TouchResponseProvider {
 
     // Physics constants (ROM: s2.asm:63987-64006)
     /** Left ball X velocity (ROM: move.w #$1C00,d0 / neg.w d0) */
@@ -33,6 +34,14 @@ public class HTZBossLavaBall extends AbstractBossChild {
     private static final int Y_VEL_RIGHT_SIDE = -0x6400;
     /** Gravity per frame (ROM: addi.w #$380,y_vel(a0)) */
     private static final int GRAVITY = 0x380;
+    /**
+     * Obj52 child objects use ArtTile_ArtNem_HTZBoss as their art base, while the
+     * parent renderer sheet is aligned to ArtTile_ArtNem_Eggpod_2. The VRAM delta is
+     * $60 tiles, so child tile indices must be shifted by +$60 on this combined sheet.
+     */
+    private static final int CHILD_TILE_BASE_OFFSET = 0x60;
+    private static final int TILE_LARGE_FIRE_1 = CHILD_TILE_BASE_OFFSET + 0x63;
+    private static final int TILE_LARGE_FIRE_2 = CHILD_TILE_BASE_OFFSET + 0x67;
 
     // Fixed-point position accumulators (ROM: objoff_2A for x, y_pos for y)
     private int xFixed;
@@ -142,6 +151,11 @@ public class HTZBossLavaBall extends AbstractBossChild {
     }
 
     @Override
+    public int getCollisionProperty() {
+        return 0;
+    }
+
+    @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         if (isDestroyed()) {
             return;
@@ -162,8 +176,14 @@ public class HTZBossLavaBall extends AbstractBossChild {
 
         // Lava ball uses frames 14-15 (large lava ball frames)
         // ROM: Animation 7 - byte_302B7: dc.b 3, $E, $F, $FF → frames 14 ($E), 15 ($F)
-        int frame = 14 + animFrame;
-
-        renderer.drawFrameIndex(frame, currentX, currentY, false, false);
+        int baseTile = (animFrame == 0) ? TILE_LARGE_FIRE_1 : TILE_LARGE_FIRE_2;
+        int drawX = currentX - 8;
+        int drawY = currentY - 8;
+        for (int ty = 0; ty < 2; ty++) {
+            for (int tx = 0; tx < 2; tx++) {
+                int tile = baseTile + (ty * 2) + tx;
+                renderer.drawPatternIndex(tile, drawX + (tx * 8), drawY + (ty * 8), 0);
+            }
+        }
     }
 }

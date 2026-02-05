@@ -130,7 +130,7 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
     }
 
     private boolean checkForThrow(AbstractPlayableSprite player) {
-        if (hasThrown || player == null || !isOnScreen()) {
+        if (hasThrown || player == null || !isOnScreenX()) {
             return false;
         }
 

@@ -75,6 +75,15 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
+     * Checks if this object's X is within the camera viewport.
+     * Matches ROM's MarkObjGone which only checks X distance for the on_screen flag.
+     * Use this for detection checks where Y proximity is handled separately.
+     */
+    protected boolean isOnScreenX() {
+        return cameraBounds.containsX(getX());
+    }
+
+    /**
      * Checks if this object is within the camera viewport with a margin.
      * Useful for projectiles that should persist slightly off-screen.
      *

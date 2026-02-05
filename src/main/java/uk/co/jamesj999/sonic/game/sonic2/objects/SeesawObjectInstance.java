@@ -372,6 +372,11 @@ public class SeesawObjectInstance extends BoxObjectInstance
     }
 
     @Override
+    public boolean isTopSolidOnly() {
+        return true; // ROM's SlopedPlatform is top-solid-only (s2.asm:35747)
+    }
+
+    @Override
     public SolidObjectParams getSolidParams() {
         return new SolidObjectParams(COLLISION_HALF_WIDTH, COLLISION_HEIGHT, COLLISION_HEIGHT);
     }
@@ -381,6 +386,15 @@ public class SeesawObjectInstance extends BoxObjectInstance
         // ROM: Obj14_UpdateMappingAndCollision selects slope data based on mapping_frame
         // Frame 0 or 2 (tilted) = SLOPE_TILTED, Frame 1 (flat) = SLOPE_FLAT
         return (mappingFrame == 1) ? SLOPE_FLAT : SLOPE_TILTED;
+    }
+
+    @Override
+    public int getSlopeBaseline() {
+        // ROM's SlopedPlatform overwrites d3 (height param) with the slope sample,
+        // so the surface is at object_y - slopeSample. But the Java framework bakes
+        // halfHeight into the landing snap via maxTop, so slopeBase must equal
+        // halfHeight to compensate: baseY - halfHeight = anchorY - slopeSample.
+        return COLLISION_HEIGHT;
     }
 
     @Override
