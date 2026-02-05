@@ -1,0 +1,11 @@
+{
+  "resources": {
+    "includes": [
+      { "pattern": "config\\.json" },
+      { "pattern": "collisionindexes\\.txt" },
+      { "pattern": "kosinski\\.txt" },
+      { "pattern": "shaders/.*\\.(glsl|vert|frag)" },
+      { "pattern": "\\Qorg/lwjgl/\\E.*" }
+    ]
+  }
+}
