@@ -1,0 +1,39 @@
+package uk.co.jamesj999.sonic.game.sonic1.constants;
+
+/**
+ * Object type IDs for Sonic the Hedgehog 1.
+ * From the Sonic 1 disassembly object pointer table.
+ */
+public final class Sonic1ObjectIds {
+
+    private Sonic1ObjectIds() {
+    }
+
+    public static final int SONIC           = 0x01;
+    public static final int SIGNPOST        = 0x0D;
+    public static final int BRIDGE          = 0x11;
+    public static final int PLATFORM        = 0x18;
+    public static final int CRABMEAT        = 0x1F;
+    public static final int BUZZ_BOMBER     = 0x22;
+    public static final int RING            = 0x25;
+    public static final int MONITOR         = 0x26;
+    public static final int CHOPPER         = 0x2B;
+    public static final int JAWS            = 0x2C;
+    public static final int BURROBOT        = 0x2D;
+    public static final int SPIKES          = 0x36;
+    public static final int ROCK            = 0x3B;
+    public static final int BREAKABLE_WALL  = 0x3C;
+    public static final int EGG_PRISON      = 0x3E;
+    public static final int MOTOBUG         = 0x40;
+    public static final int SPRING          = 0x41;
+    public static final int NEWTRON         = 0x42;
+    public static final int BUMPER          = 0x47;
+    public static final int GIANT_RING      = 0x4B;
+    public static final int YADRIN          = 0x50;
+    public static final int BATBRAIN        = 0x55;
+    public static final int SEESAW          = 0x5E;
+    public static final int BOMB            = 0x5F;
+    public static final int ORBINAUT        = 0x60;
+    public static final int CATERKILLER     = 0x78;
+    public static final int LAMPPOST        = 0x79;
+}
