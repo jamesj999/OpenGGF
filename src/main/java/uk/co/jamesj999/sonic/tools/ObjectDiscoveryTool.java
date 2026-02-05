@@ -108,6 +108,7 @@ public class ObjectDiscoveryTool {
             0x7B,  // PipeExitSpring (CPZ warp tube exit spring)
             0x7F,  // VineSwitch (MCZ pull switch that triggers ButtonVine)
             0x80,  // MovingVine (MCZ vine pulley / WFZ hook on chain)
+            0x81,  // MCZDrawbridge (MCZ rotatable drawbridge triggered by ButtonVine)
             0x82,  // SwingingPform (ARZ swinging vine platform)
             0x83,  // ARZRotPforms (ARZ rotating platforms with chain links)
             0x84,  // ForcedSpin (CNZ/HTZ pinball mode trigger)
