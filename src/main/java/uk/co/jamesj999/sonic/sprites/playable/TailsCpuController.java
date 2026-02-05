@@ -107,14 +107,14 @@ public class TailsCpuController {
     // -- State Updates --
 
     private void updateInit() {
-        // ROM: TailsCPU_Init - immediately transition to Normal
+        // ROM: TailsCPU_Init - transition to Normal and return (rts).
+        // Does NOT process Normal on the same frame.
         state = State.NORMAL;
         despawnCounter = 0;
         stuckCounter = 0;
         tails.setXSpeed((short) 0);
         tails.setYSpeed((short) 0);
         tails.setGSpeed((short) 0);
-        updateNormal();
     }
 
     private void updateSpawning() {
