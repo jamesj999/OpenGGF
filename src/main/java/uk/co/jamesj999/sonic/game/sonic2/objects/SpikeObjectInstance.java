@@ -60,6 +60,11 @@ public class SpikeObjectInstance extends BoxObjectInstance implements SolidObjec
         if (player.getInvulnerable()) {
             return;
         }
+        // ROM: Hurt_Sidekick - CPU Tails only gets knockback, no ring scatter or death
+        if (player.isCpuControlled()) {
+            player.applyHurt(currentX);
+            return;
+        }
         boolean hadRings = player.getRingCount() > 0;
         if (hadRings && !player.hasShield()) {
             LevelManager.getInstance().spawnLostRings(player, frameCounter);
