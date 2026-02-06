@@ -221,7 +221,7 @@ public class SwScrlCnz implements ZoneScrollHandler {
      * Reference: SwScrl_CNZ ripple handling
      *
      * The ripple animation index changes every 8 frames:
-     * idx = (-((Vint_runcount + 3) >> 3)) & 0x1F
+     * idx = (-((Vint_runcount.b >>> 3))) & 0x1F
      *
      * For each of 16 lines:
      * - Read signed byte from RippleData[idx + lineOffset]
@@ -240,8 +240,10 @@ public class SwScrlCnz implements ZoneScrollHandler {
         short baseBgScroll = negWord(baseScrollValue);
 
         // Calculate ripple animation index
-        // idx = (-((frameCounter + 3) >> 3)) & 0x1F
-        int idx = (-(((frameCounter + 3) >> 3))) & 0x1F;
+        // In the assembly, (Vint_runcount+3) is a byte offset reading the low byte
+        // of the 32-bit big-endian frame counter, not arithmetic +3.
+        // lsr.w #3 is a logical (unsigned) shift right.
+        int idx = (-((frameCounter & 0xFF) >>> 3)) & 0x1F;
 
         // Fill 16 lines with ripple effect
         int linesToFill = Math.min(16, VISIBLE_LINES - startLine);

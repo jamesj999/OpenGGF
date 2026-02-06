@@ -434,7 +434,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         // continuing to track the player's position relative to the spring.
         var objectManager = LevelManager.getInstance().getObjectManager();
         if (objectManager != null) {
-            objectManager.clearRidingObject();
+            objectManager.clearRidingObject(player);
         }
 
         // ROM keeps player rolling after launch (rolling flag is set in enterSpring, never cleared)

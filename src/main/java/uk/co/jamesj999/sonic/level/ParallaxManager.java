@@ -15,7 +15,10 @@ import uk.co.jamesj999.sonic.level.scroll.SwScrlCpz;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlEhz;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlMcz;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlHtz;
+import uk.co.jamesj999.sonic.level.scroll.SwScrlDez;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlOoz;
+import uk.co.jamesj999.sonic.level.scroll.SwScrlScz;
+import uk.co.jamesj999.sonic.level.scroll.SwScrlWfz;
 import uk.co.jamesj999.sonic.level.scroll.ZoneScrollHandler;
 
 import java.io.IOException;
@@ -75,7 +78,10 @@ public class ParallaxManager {
     private SwScrlCpz cpzHandler;
     private SwScrlHtz htzHandler;
     private SwScrlMcz mczHandler;
+    private SwScrlDez dezHandler;
     private SwScrlOoz oozHandler;
+    private SwScrlScz sczHandler;
+    private SwScrlWfz wfzHandler;
 
     // HTZ dynamic art streaming (mountains and clouds)
     private DynamicHtz dynamicHtz;
@@ -148,7 +154,10 @@ public class ParallaxManager {
                 cpzHandler = new SwScrlCpz(tables);
                 htzHandler = new SwScrlHtz(tables, bgCamera);
                 mczHandler = new SwScrlMcz(tables);
+                dezHandler = new SwScrlDez(tables);
                 oozHandler = new SwScrlOoz(tables);
+                sczHandler = new SwScrlScz();
+                wfzHandler = new SwScrlWfz(tables, bgCamera);
                 dynamicHtz = new DynamicHtz();
                 dynamicHtz.init();
                 loaded = true;
@@ -177,6 +186,11 @@ public class ParallaxManager {
                 }
             } else if (zoneId == ZONE_OOZ && oozHandler != null) {
                 oozHandler.init(cameraX, cameraY);
+            } else if (zoneId == ZONE_SCZ && sczHandler != null) {
+                sczHandler.init();
+                // SCZ camera is driven by Tornado velocity, not player following.
+                // Freeze camera to prevent normal updatePosition() from overriding.
+                Camera.getInstance().setFrozen(true);
             }
         }
     }
@@ -380,16 +394,40 @@ public class ParallaxManager {
                 }
                 break;
             case ZONE_MTZ:
-                fillMtz(cameraX);
+                fillMtz(cameraX, cameraY);
                 break;
             case ZONE_SCZ:
-                fillScz(cameraX, cameraY);
+                if (sczHandler != null) {
+                    sczHandler.update(hScroll, cameraX, cameraY, frameCounter, actId);
+                    minScroll = sczHandler.getMinScrollOffset();
+                    maxScroll = sczHandler.getMaxScrollOffset();
+                    vscrollFactorBG = sczHandler.getVscrollFactorBG();
+                    // Re-read camera position after SCZ handler modifies it
+                    vscrollFactorFG = (short) cam.getY();
+                } else {
+                    fillScz(cameraX, cameraY);
+                }
                 break;
             case ZONE_WFZ:
-                fillWfz(cameraX, frameCounter);
+                if (wfzHandler != null) {
+                    wfzHandler.update(hScroll, cameraX, cameraY, frameCounter, actId);
+                    minScroll = wfzHandler.getMinScrollOffset();
+                    maxScroll = wfzHandler.getMaxScrollOffset();
+                    vscrollFactorBG = wfzHandler.getVscrollFactorBG();
+                } else {
+                    fillWfz(cameraX, frameCounter);
+                }
                 break;
             case ZONE_DEZ:
-                fillDez(cameraX, frameCounter);
+                if (dezHandler != null) {
+                    dezHandler.setVscrollFactorBG(vscrollFactorBG);
+                    dezHandler.update(hScroll, cameraX, cameraY, frameCounter, actId);
+                    minScroll = dezHandler.getMinScrollOffset();
+                    maxScroll = dezHandler.getMaxScrollOffset();
+                    vscrollFactorBG = dezHandler.getVscrollFactorBG();
+                } else {
+                    fillDez(cameraX, frameCounter);
+                }
                 break;
             default:
                 fillMinimal(cam);
@@ -565,29 +603,27 @@ public class ParallaxManager {
     /**
      * MTZ - Metropolis Zone
      */
-    private void fillMtz(int cameraX) {
+    private void fillMtz(int cameraX, int cameraY) {
         short fgScroll = (short) -cameraX;
-        int offset = cameraX - (cameraX >> 2);
+        // SwScrl_MTZ uses Camera_X_pos_diff << 5 which tracks at 1/8 speed
+        int offset = cameraX - (cameraX >> 3);
         for (int line = 0; line < VISIBLE_LINES; line++) {
             setLineWithOffset(line, fgScroll, offset);
         }
+        // MTZ BG Y scrolls at 1/4 camera speed
+        vscrollFactorBG = (short)(cameraY >> 2);
     }
 
     /**
      * SCZ - Sky Chase Zone
+     * No per-scanline parallax. All 224 scanlines use the same BG scroll.
+     * BG advances at 0.5 px/frame while FG advances at ~1 px/frame (tornado
+     * velocity), so BG scrolls at half the foreground speed.
      */
     private void fillScz(int cameraX, int cameraY) {
         short fgScroll = (short) -cameraX;
-
+        int offset = cameraX - (cameraX >> 1);
         for (int line = 0; line < VISIBLE_LINES; line++) {
-            int offset;
-            if (line < 64) {
-                offset = cameraX - (cameraX >> 3);
-            } else if (line < 144) {
-                offset = cameraX - (cameraX >> 2);
-            } else {
-                offset = cameraX - (cameraX >> 2) - (cameraX >> 3);
-            }
             setLineWithOffset(line, fgScroll, offset);
         }
     }
