@@ -55,6 +55,14 @@ public interface AudioBackend {
 
     void setSpeedShoes(boolean enabled);
 
+    /**
+     * Set the speed multiplier on the music sequencer (S3K speed shoes).
+     * A multiplier of 1 means normal speed, >1 means extra tick calls per frame.
+     */
+    default void setSpeedMultiplier(int multiplier) {
+        // Default no-op; backends that support S3K override this.
+    }
+
     void restoreMusic();
 
     /**
