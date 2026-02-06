@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Logger;
 
-public class SmpsSequencer implements AudioStream {
+public class SmpsSequencer implements AudioStream, CoordFlagContext {
     private static final Logger LOGGER = Logger.getLogger(SmpsSequencer.class.getName());
     private final AbstractSmpsData smpsData;
     private AbstractSmpsData fallbackVoiceData;
@@ -42,6 +42,7 @@ public class SmpsSequencer implements AudioStream {
     private int sfxPriority = 0x70; // Default SFX priority (Z80 driver uses 0x70 as common)
     private boolean isSfx = false; // Cached SFX status for performance (set by SmpsDriver.addSequencer)
     private int psgLatchChannel = -1; // Cached PSG latch channel for performance (set by SmpsDriver.writePsg)
+    private int speedMultiplier = 1; // S3K: extra tick calls per tempo frame for speed shoes
 
     public void setPitch(float pitch) {
         this.pitch = pitch;
@@ -171,63 +172,63 @@ public class SmpsSequencer implements AudioStream {
     }
 
     public static class Track {
-        int pos;
-        TrackType type;
-        int channelId;
-        int duration;
-        int note;
-        boolean active = true;
-        boolean overridden = false; // Set if SFX stole the channel
-        int rawDuration;
-        int scaledDuration;
-        int fill; // note-off shortening in ticks
-        int keyOffset; // signed semitone displacement (E9)
-        int volumeOffset; // attenuation applied to TL (FM) or volume (PSG)
-        boolean tieNext; // E7 prevents next attack
-        int pan = 0xC0; // default L+R bits set for YM (E0)
-        int ams = 0;
-        int fms = 0;
-        byte[] voiceData; // last loaded voice
+        public int pos;
+        public TrackType type;
+        public int channelId;
+        public int duration;
+        public int note;
+        public boolean active = true;
+        public boolean overridden = false; // Set if SFX stole the channel
+        public int rawDuration;
+        public int scaledDuration;
+        public int fill; // note-off shortening in ticks
+        public int keyOffset; // signed semitone displacement (E9)
+        public int volumeOffset; // attenuation applied to TL (FM) or volume (PSG)
+        public boolean tieNext; // E7 prevents next attack
+        public int pan = 0xC0; // default L+R bits set for YM (E0)
+        public int ams = 0;
+        public int fms = 0;
+        public byte[] voiceData; // last loaded voice
         // Scratch buffer for voice data modification (avoids allocation in refreshInstrument)
-        final byte[] voiceScratch = new byte[25];
-        int voiceId;
-        int baseFnum;
-        int baseBlock;
-        int[] loopCounters = new int[8]; // Increased from 4 to reduce runtime reallocation
-        int loopTarget = -1;
+        public final byte[] voiceScratch = new byte[25];
+        public int voiceId;
+        public int baseFnum;
+        public int baseBlock;
+        public int[] loopCounters = new int[8]; // Increased from 4 to reduce runtime reallocation
+        public int loopTarget = -1;
         // Z80 driver: Stack shares space with loop counters, grows down from offset 0x2A.
         // No hard limit but collision possible after ~5 calls. Using 16 for safety margin.
-        final int[] returnStack = new int[16];
-        int returnSp = 0;
-        int dividingTiming = 1;
+        public final int[] returnStack = new int[16];
+        public int returnSp = 0;
+        public int dividingTiming = 1;
         // Modulation (F0)
-        int modDelay;
-        int modDelayInit;
-        int modRate;
-        int modDelta;
-        int modSteps;
-        int modStepsFull;
-        int modRateCounter;
-        int modStepCounter;
-        int modAccumulator;
-        int modCurrentDelta;
-        boolean modEnabled;
-        int detune;
-        int modEnvId;
-        int instrumentId;
-        boolean noiseMode;
-        int psgNoiseParam;
-        int decayOffset;
-        int decayTimer;
+        public int modDelay;
+        public int modDelayInit;
+        public int modRate;
+        public int modDelta;
+        public int modSteps;
+        public int modStepsFull;
+        public int modRateCounter;
+        public int modStepCounter;
+        public int modAccumulator;
+        public int modCurrentDelta;
+        public boolean modEnabled;
+        public int detune;
+        public int modEnvId;
+        public int instrumentId;
+        public boolean noiseMode;
+        public int psgNoiseParam;
+        public int decayOffset;
+        public int decayTimer;
         // PSG Volume Envelope
-        byte[] envData;
-        int envPos;
-        int envValue;
-        boolean envHold;
-        boolean envAtRest;
-        boolean forceRefresh;
+        public byte[] envData;
+        public int envPos;
+        public int envValue;
+        public boolean envHold;
+        public boolean envAtRest;
+        public boolean forceRefresh;
         // DAC mute state for fade-in
-        boolean dacMuted;
+        public boolean dacMuted;
 
         Track(int pos, TrackType type, int channelId) {
             this.pos = pos;
@@ -350,6 +351,7 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
+    @Override
     public AbstractSmpsData getSmpsData() {
         return smpsData;
     }
@@ -846,6 +848,11 @@ public class SmpsSequencer implements AudioStream {
                 tempoAccumulator -= tempoModBase;
                 processFade();
                 tick();
+                // S3K speed shoes: extra tick calls when multiplier > 1
+                for (int m = 1; m < speedMultiplier; m++) {
+                    processFade();
+                    tick();
+                }
                 if (sfxMode) {
                     maxTicks--;
                     if (maxTicks <= 0) {
@@ -918,6 +925,12 @@ public class SmpsSequencer implements AudioStream {
 
     // handleFlag and other private methods...
     private void handleFlag(Track t, int cmd) {
+        // Delegate to game-specific handler first (e.g., S3K coord flags)
+        CoordFlagHandler handler = config.getCoordFlagHandler();
+        if (handler != null && handler.handleFlag(this, t, cmd)) {
+            return;
+        }
+
         switch (cmd) {
             case 0xF2: // Stop
                 t.active = false;
@@ -1068,6 +1081,14 @@ public class SmpsSequencer implements AudioStream {
 
     private int flagParamLength(int cmd) {
         if (cmd >= 0xE0 && cmd <= 0xFF) {
+            // Delegate to game-specific handler first
+            CoordFlagHandler handler = config.getCoordFlagHandler();
+            if (handler != null) {
+                int len = handler.flagParamLength(cmd);
+                if (len >= 0) {
+                    return len;
+                }
+            }
             // Check for game-specific overrides first (e.g., S1 ED/EE differ from S2)
             Map<Integer, Integer> overrides = config.getCoordFlagParamOverrides();
             if (!overrides.isEmpty()) {
@@ -1093,6 +1114,7 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
+    @Override
     public int getCommData() {
         return commData;
     }
@@ -1114,7 +1136,8 @@ public class SmpsSequencer implements AudioStream {
      *
      * <p>S2 Z80: Pointers are absolute Z80 addresses, resolved via {@link #relocate}.
      */
-    private int readJumpPointer(Track t) {
+    @Override
+    public int readJumpPointer(Track t) {
         if (config.isRelativePointers()) {
             // S1 68k: PC-relative from (ptrAddr + 1)
             int ptrOffset = t.pos;
@@ -1230,7 +1253,8 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
-    private void clearModulation(Track t) {
+    @Override
+    public void clearModulation(Track t) {
         t.modEnabled = false;
         t.modAccumulator = 0;
     }
@@ -1291,7 +1315,8 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
-    private void updateDividingTiming(int newDividingTiming) {
+    @Override
+    public void updateDividingTiming(int newDividingTiming) {
         dividingTiming = newDividingTiming;
         for (Track track : tracks) {
             track.dividingTiming = newDividingTiming;
@@ -1321,7 +1346,8 @@ public class SmpsSequencer implements AudioStream {
         return scaled;
     }
 
-    private void loadVoice(Track t, int voiceId) {
+    @Override
+    public void loadVoice(Track t, int voiceId) {
         byte[] voice = smpsData.getVoice(voiceId);
         if (voice == null && fallbackVoiceData != null) {
             voice = fallbackVoiceData.getVoice(voiceId);
@@ -1515,7 +1541,8 @@ public class SmpsSequencer implements AudioStream {
         return freq;
     }
 
-    private void stopNote(Track t) {
+    @Override
+    public void stopNote(Track t) {
         if (t.type == TrackType.FM) {
             int hwCh = t.channelId;
             int port = (hwCh < 3) ? 0 : 1;
@@ -1544,7 +1571,8 @@ public class SmpsSequencer implements AudioStream {
         return true;
     }
 
-    private void refreshVolume(Track t) {
+    @Override
+    public void refreshVolume(Track t) {
         if (t.type == TrackType.FM) {
             updateFmTotalLevel(t);
         } else if (t.type == TrackType.PSG) {
@@ -1574,8 +1602,20 @@ public class SmpsSequencer implements AudioStream {
             return;
         }
         int algo = t.voiceData[0] & 0x07;
-        int mask = ALGO_OUT_MASK[algo];
         int[] tlIdx = { 21, 23, 22, 24 };
+        int mask;
+        if (config.getVolMode() == SmpsSequencerConfig.VolMode.BIT7) {
+            // S3K: carrier operators identified by bit 7 set in TL bytes
+            mask = 0;
+            for (int op = 0; op < 4; op++) {
+                int idx = tlIdx[op];
+                if (idx < t.voiceData.length && (t.voiceData[idx] & 0x80) != 0) {
+                    mask |= (1 << op);
+                }
+            }
+        } else {
+            mask = ALGO_OUT_MASK[algo];
+        }
 
         int hwCh = t.channelId;
         int port = (hwCh < 3) ? 0 : 1;
@@ -1595,7 +1635,8 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
-    private void loadPsgEnvelope(Track t, int id) {
+    @Override
+    public void loadPsgEnvelope(Track t, int id) {
         byte[] env = smpsData.getPsgEnvelope(id);
         if (env != null) {
             t.envData = env;
@@ -1629,7 +1670,12 @@ public class SmpsSequencer implements AudioStream {
                 return;
             } else {
                 if (val == 0x80) {
-                    // HOLD (Sonic 2 driver definition)
+                    if (config.getPsgEnvCmd80() == SmpsSequencerConfig.PsgEnvCmd80.RESET) {
+                        // S3K: reset envelope to start (loop from beginning)
+                        t.envPos = 0;
+                        continue;
+                    }
+                    // S1/S2: HOLD (Sonic 2 driver definition)
                     t.envHold = true;
                     t.envAtRest = true;
                     return;
@@ -1676,7 +1722,8 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
-    private void refreshInstrument(Track t) {
+    @Override
+    public void refreshInstrument(Track t) {
         if (t.type != TrackType.FM || t.voiceData == null) {
             return;
         }
@@ -1689,8 +1736,20 @@ public class SmpsSequencer implements AudioStream {
         int tlBase = hasTl ? 21 : -1;
         if (tlBase >= 0) {
             int algo = voice[0] & 0x07;
-            int mask = ALGO_OUT_MASK[algo];
             int[] opMap = { 0, 2, 1, 3 };
+            int mask;
+            if (config.getVolMode() == SmpsSequencerConfig.VolMode.BIT7) {
+                // S3K: carrier operators identified by bit 7 set in TL bytes
+                mask = 0;
+                for (int op = 0; op < 4; op++) {
+                    int idx = tlBase + opMap[op];
+                    if (idx < voice.length && (voice[idx] & 0x80) != 0) {
+                        mask |= (1 << op);
+                    }
+                }
+            } else {
+                mask = ALGO_OUT_MASK[algo];
+            }
 
             for (int op = 0; op < 4; op++) {
                 if ((mask & (1 << op)) != 0) {
@@ -1907,6 +1966,78 @@ public class SmpsSequencer implements AudioStream {
 
     public Synthesizer getSynthesizer() {
         return synth;
+    }
+
+    // -----------------------------------------------------------------------
+    // CoordFlagContext implementation (remaining methods)
+    // -----------------------------------------------------------------------
+
+    @Override
+    public byte[] getData() {
+        return data;
+    }
+
+    @Override
+    public SmpsSequencerConfig getConfig() {
+        return config;
+    }
+
+    @Override
+    public void setNormalTempo(int tempo) {
+        this.normalTempo = tempo;
+    }
+
+    @Override
+    public int getNormalTempo() {
+        return normalTempo;
+    }
+
+    @Override
+    public void recalculateTempo() {
+        calculateTempo();
+    }
+
+    @Override
+    public void triggerFadeIn() {
+        // Parameterless version: use config defaults
+        triggerFadeIn(config.getFadeInSteps(), config.getFadeInDelay());
+    }
+
+    @Override
+    public void setCommData(int value) {
+        this.commData = value;
+    }
+
+    @Override
+    public void writeFm(int port, int reg, int value) {
+        synth.writeFm(this, port, reg, value);
+    }
+
+    @Override
+    public void writePsg(int value) {
+        synth.writePsg(this, value);
+    }
+
+    @Override
+    public void playDac(int noteId) {
+        synth.playDac(this, noteId);
+    }
+
+    @Override
+    public void stopDac() {
+        synth.stopDac(this);
+    }
+
+    // -----------------------------------------------------------------------
+    // Speed multiplier (S3K speed shoes)
+    // -----------------------------------------------------------------------
+
+    public void setSpeedMultiplier(int multiplier) {
+        this.speedMultiplier = Math.max(1, multiplier);
+    }
+
+    public int getSpeedMultiplier() {
+        return speedMultiplier;
     }
 
     public synchronized DebugState debugState() {

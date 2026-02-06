@@ -16,6 +16,38 @@ public final class SmpsSequencerConfig {
         TIMEOUT
     }
 
+    /** How carrier operators are determined for volume scaling. */
+    public enum VolMode {
+        /** S1/S2: carrier mask derived from algorithm number via ALGO_OUT_MASK table. */
+        ALGO,
+        /** S3K: carrier operators identified by bit 7 set in the TL byte of the voice data. */
+        BIT7
+    }
+
+    /** Behavior of PSG envelope command byte 0x80. */
+    public enum PsgEnvCmd80 {
+        /** S1/S2: hold the envelope at current level (stop advancing). */
+        HOLD,
+        /** S3K: reset the envelope index to 0 (loop from start). */
+        RESET
+    }
+
+    /** How note-on is prevented during ties/holds. */
+    public enum NoteOnPrevent {
+        /** S1/S2: prevented when note is REST (0x80). */
+        REST,
+        /** S3K: prevented when HOLD flag is set. */
+        HOLD
+    }
+
+    /** What happens to frequency during rests/delays. */
+    public enum DelayFreq {
+        /** S1/S2: frequency is reset on rest. */
+        RESET,
+        /** S3K: frequency persists through rests. */
+        KEEP
+    }
+
     private final Map<Integer, Integer> speedUpTempos;
     private final int tempoModBase;
     private final int[] fmChannelOrder;
@@ -27,6 +59,47 @@ public final class SmpsSequencerConfig {
     private final Set<Integer> extraTrkEndFlags;
     private final boolean relativePointers; // S1: true (68k PC-relative), S2: false (Z80 absolute)
     private final boolean tempoOnFirstTick; // S1: true (DOTEMPO), S2: false (PlayMusic)
+
+    // --- S3K-specific config fields ---
+    private final VolMode volMode;
+    private final PsgEnvCmd80 psgEnvCmd80;
+    private final NoteOnPrevent noteOnPrevent;
+    private final DelayFreq delayFreq;
+    private final CoordFlagHandler coordFlagHandler;
+    private final int fadeOutDelay;
+    private final int fadeOutSteps;
+    private final int fadeInSteps;
+    private final int fadeInDelay;
+
+    /**
+     * Private constructor used by the Builder. All fields are set here.
+     */
+    private SmpsSequencerConfig(Builder b) {
+        this.speedUpTempos = Collections.unmodifiableMap(new HashMap<>(b.speedUpTempos));
+        this.tempoModBase = b.tempoModBase;
+        this.fmChannelOrder = Arrays.copyOf(b.fmChannelOrder, b.fmChannelOrder.length);
+        this.psgChannelOrder = Arrays.copyOf(b.psgChannelOrder, b.psgChannelOrder.length);
+        this.tempoMode = b.tempoMode;
+        this.coordFlagParamOverrides = (b.coordFlagParamOverrides != null)
+                ? Collections.unmodifiableMap(new HashMap<>(b.coordFlagParamOverrides))
+                : Collections.emptyMap();
+        this.applyModOnNote = b.applyModOnNote;
+        this.halveModSteps = b.halveModSteps;
+        this.extraTrkEndFlags = (b.extraTrkEndFlags != null)
+                ? Collections.unmodifiableSet(b.extraTrkEndFlags)
+                : Collections.emptySet();
+        this.relativePointers = b.relativePointers;
+        this.tempoOnFirstTick = b.tempoOnFirstTick;
+        this.volMode = b.volMode;
+        this.psgEnvCmd80 = b.psgEnvCmd80;
+        this.noteOnPrevent = b.noteOnPrevent;
+        this.delayFreq = b.delayFreq;
+        this.coordFlagHandler = b.coordFlagHandler;
+        this.fadeOutDelay = b.fadeOutDelay;
+        this.fadeOutSteps = b.fadeOutSteps;
+        this.fadeInSteps = b.fadeInSteps;
+        this.fadeInDelay = b.fadeInDelay;
+    }
 
     /**
      * Constructor with all options including tempo mode, coord flag overrides, and modulation settings.
@@ -62,6 +135,16 @@ public final class SmpsSequencerConfig {
                 : Collections.emptySet();
         this.relativePointers = relativePointers;
         this.tempoOnFirstTick = tempoOnFirstTick;
+        // Defaults for S3K-specific fields (S1/S2 compatible)
+        this.volMode = VolMode.ALGO;
+        this.psgEnvCmd80 = PsgEnvCmd80.HOLD;
+        this.noteOnPrevent = NoteOnPrevent.REST;
+        this.delayFreq = DelayFreq.RESET;
+        this.coordFlagHandler = null;
+        this.fadeOutDelay = 3;
+        this.fadeOutSteps = 0x28;
+        this.fadeInSteps = 0x28;
+        this.fadeInDelay = 2;
     }
 
     /**
@@ -159,5 +242,115 @@ public final class SmpsSequencerConfig {
      */
     public boolean isTempoOnFirstTick() {
         return tempoOnFirstTick;
+    }
+
+    /** Volume mode: ALGO (S1/S2) or BIT7 (S3K). */
+    public VolMode getVolMode() {
+        return volMode;
+    }
+
+    /** PSG envelope 0x80 command behavior: HOLD (S1/S2) or RESET (S3K). */
+    public PsgEnvCmd80 getPsgEnvCmd80() {
+        return psgEnvCmd80;
+    }
+
+    /** Note-on prevention mode: REST (S1/S2) or HOLD (S3K). */
+    public NoteOnPrevent getNoteOnPrevent() {
+        return noteOnPrevent;
+    }
+
+    /** Delay frequency behavior: RESET (S1/S2) or KEEP (S3K). */
+    public DelayFreq getDelayFreq() {
+        return delayFreq;
+    }
+
+    /** Game-specific coordination flag handler, or null for default S2 handling. */
+    public CoordFlagHandler getCoordFlagHandler() {
+        return coordFlagHandler;
+    }
+
+    /** Fade-out inter-step delay in frames. S1/S2: 3, S3K: 6. */
+    public int getFadeOutDelay() {
+        return fadeOutDelay;
+    }
+
+    /** Fade-out total step count. S1/S2: 0x28, S3K: 0x28. */
+    public int getFadeOutSteps() {
+        return fadeOutSteps;
+    }
+
+    /** Fade-in total step count. S1/S2: 0x28, S3K: 0x40. */
+    public int getFadeInSteps() {
+        return fadeInSteps;
+    }
+
+    /** Fade-in inter-step delay in frames. S1/S2: 2, S3K: 2. */
+    public int getFadeInDelay() {
+        return fadeInDelay;
+    }
+
+    // -----------------------------------------------------------------------
+    // Builder
+    // -----------------------------------------------------------------------
+
+    /**
+     * Builder for SmpsSequencerConfig with S2-compatible defaults.
+     * Use this for S3K and other configs that need the new fields.
+     */
+    public static final class Builder {
+        // Required
+        private Map<Integer, Integer> speedUpTempos = Collections.emptyMap();
+        private int tempoModBase = 0x100;
+        private int[] fmChannelOrder = { 0x16, 0, 1, 2, 4, 5, 6 };
+        private int[] psgChannelOrder = { 0x80, 0xA0, 0xC0 };
+
+        // S2-compatible defaults
+        private TempoMode tempoMode = TempoMode.OVERFLOW;
+        private Map<Integer, Integer> coordFlagParamOverrides = null;
+        private boolean applyModOnNote = true;
+        private boolean halveModSteps = true;
+        private Set<Integer> extraTrkEndFlags = null;
+        private boolean relativePointers = false;
+        private boolean tempoOnFirstTick = false;
+
+        // S3K-specific defaults (S2 compatible)
+        private VolMode volMode = VolMode.ALGO;
+        private PsgEnvCmd80 psgEnvCmd80 = PsgEnvCmd80.HOLD;
+        private NoteOnPrevent noteOnPrevent = NoteOnPrevent.REST;
+        private DelayFreq delayFreq = DelayFreq.RESET;
+        private CoordFlagHandler coordFlagHandler = null;
+        private int fadeOutDelay = 3;
+        private int fadeOutSteps = 0x28;
+        private int fadeInSteps = 0x28;
+        private int fadeInDelay = 2;
+
+        public Builder speedUpTempos(Map<Integer, Integer> val) { speedUpTempos = val; return this; }
+        public Builder tempoModBase(int val) { tempoModBase = val; return this; }
+        public Builder fmChannelOrder(int[] val) { fmChannelOrder = val; return this; }
+        public Builder psgChannelOrder(int[] val) { psgChannelOrder = val; return this; }
+        public Builder tempoMode(TempoMode val) { tempoMode = val; return this; }
+        public Builder coordFlagParamOverrides(Map<Integer, Integer> val) { coordFlagParamOverrides = val; return this; }
+        public Builder applyModOnNote(boolean val) { applyModOnNote = val; return this; }
+        public Builder halveModSteps(boolean val) { halveModSteps = val; return this; }
+        public Builder extraTrkEndFlags(Set<Integer> val) { extraTrkEndFlags = val; return this; }
+        public Builder relativePointers(boolean val) { relativePointers = val; return this; }
+        public Builder tempoOnFirstTick(boolean val) { tempoOnFirstTick = val; return this; }
+        public Builder volMode(VolMode val) { volMode = val; return this; }
+        public Builder psgEnvCmd80(PsgEnvCmd80 val) { psgEnvCmd80 = val; return this; }
+        public Builder noteOnPrevent(NoteOnPrevent val) { noteOnPrevent = val; return this; }
+        public Builder delayFreq(DelayFreq val) { delayFreq = val; return this; }
+        public Builder coordFlagHandler(CoordFlagHandler val) { coordFlagHandler = val; return this; }
+        public Builder fadeOutDelay(int val) { fadeOutDelay = val; return this; }
+        public Builder fadeOutSteps(int val) { fadeOutSteps = val; return this; }
+        public Builder fadeInSteps(int val) { fadeInSteps = val; return this; }
+        public Builder fadeInDelay(int val) { fadeInDelay = val; return this; }
+
+        public SmpsSequencerConfig build() {
+            Objects.requireNonNull(speedUpTempos, "speedUpTempos");
+            Objects.requireNonNull(fmChannelOrder, "fmChannelOrder");
+            Objects.requireNonNull(psgChannelOrder, "psgChannelOrder");
+            Objects.requireNonNull(tempoMode, "tempoMode");
+            return new SmpsSequencerConfig(this);
+        }
     }
 }

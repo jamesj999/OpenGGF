@@ -617,6 +617,13 @@ public class LWJGLAudioBackend implements AudioBackend {
         }
     }
 
+    @Override
+    public void setSpeedMultiplier(int multiplier) {
+        if (currentSmps != null) {
+            currentSmps.setSpeedMultiplier(multiplier);
+        }
+    }
+
     private void updateSynthesizerConfig() {
         if (currentSmps == null || currentSmps.getSynthesizer() == null)
             return;

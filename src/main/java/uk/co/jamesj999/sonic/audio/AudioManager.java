@@ -85,10 +85,18 @@ public class AudioManager {
                 return;
             }
             if (musicId == audioProfile.getSpeedShoesOnCommandId()) {
-                backend.setSpeedShoes(true);
+                if (audioProfile.getSpeedMode() == GameAudioProfile.SpeedMode.FRAME_MULTIPLY) {
+                    backend.setSpeedMultiplier(audioProfile.getSpeedMultiplierValue());
+                } else {
+                    backend.setSpeedShoes(true);
+                }
                 return;
             } else if (musicId == audioProfile.getSpeedShoesOffCommandId()) {
-                backend.setSpeedShoes(false);
+                if (audioProfile.getSpeedMode() == GameAudioProfile.SpeedMode.FRAME_MULTIPLY) {
+                    backend.setSpeedMultiplier(1);
+                } else {
+                    backend.setSpeedShoes(false);
+                }
                 return;
             }
         }

@@ -5,6 +5,15 @@ import uk.co.jamesj999.sonic.audio.smps.SmpsSequencerConfig;
 import uk.co.jamesj999.sonic.data.Rom;
 
 public interface GameAudioProfile {
+
+    /** How speed shoes affect music playback. */
+    enum SpeedMode {
+        /** S1/S2: swap to a faster tempo value from the speed-up table. */
+        TEMPO_SWAP,
+        /** S3K: multiply frame ticks (music updates multiple times per frame). */
+        FRAME_MULTIPLY
+    }
+
     SmpsLoader createSmpsLoader(Rom rom);
 
     SmpsSequencerConfig getSequencerConfig();
@@ -48,5 +57,15 @@ public interface GameAudioProfile {
      */
     default boolean handleSystemCommand(int soundId, AudioManager manager) {
         return false;
+    }
+
+    /** How speed shoes affect music playback. Default: TEMPO_SWAP (S1/S2). */
+    default SpeedMode getSpeedMode() {
+        return SpeedMode.TEMPO_SWAP;
+    }
+
+    /** S3K speed multiplier value. Default 0x08 means ~1.25x speed. */
+    default int getSpeedMultiplierValue() {
+        return 0x08;
     }
 }
