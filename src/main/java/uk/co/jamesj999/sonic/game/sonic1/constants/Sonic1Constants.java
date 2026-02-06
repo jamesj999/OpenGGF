@@ -50,6 +50,13 @@ public final class Sonic1Constants {
     public static final int SONIC_PALETTE_ADDR = 0x23A0; // Pal_Sonic (palette ID 3)
     public static final int GHZ_PALETTE_ADDR   = 0x2400; // palid_GHZ = 4
 
+    // ---- Pattern Load Cues (PLC) ----
+    // ArtLoadCues pointer table: word offsets to PLC lists, indexed by PLC ID.
+    // Each PLC list starts with a word (entry_count - 1), followed by 6-byte entries:
+    //   dc.l rom_address, dc.w vram_byte_offset
+    // Divide vram_byte_offset by 0x20 to get tile index.
+    public static final int ART_LOAD_CUES_ADDR = 0x01DD86;
+
     // Per-zone art addresses (patterns, 16x16, 256x256) are read dynamically
     // from LevelHeaders at runtime - no need for per-zone constants here.
 

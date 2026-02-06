@@ -13,7 +13,9 @@ import uk.co.jamesj999.sonic.tools.NemesisReader;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -41,6 +43,15 @@ public class Sonic1Level implements Level {
 
     private static final Logger LOG = Logger.getLogger(Sonic1Level.class.getName());
 
+    /**
+     * A pattern load cue entry from the ArtLoadCues table.
+     * Each entry specifies a Nemesis-compressed art source and its destination tile offset.
+     *
+     * @param romAddr    ROM address of Nemesis-compressed data
+     * @param tileOffset destination tile index (VRAM byte offset / 0x20)
+     */
+    public record PatternLoadCue(int romAddr, int tileOffset) {}
+
     private final int zoneIndex;
     private Palette[] palettes;
     private Pattern[] patterns;
@@ -65,7 +76,7 @@ public class Sonic1Level implements Level {
                        int zoneIndex,
                        int sonicPaletteAddr,
                        int levelPaletteAddr,
-                       int patternAddr,
+                       List<PatternLoadCue> patternCues,
                        int chunksAddr,
                        int blocksAddr,
                        int fgLayoutAddr,
@@ -83,11 +94,12 @@ public class Sonic1Level implements Level {
         this.ringSpriteSheet = null; // Sonic 1 rings are objects, not separate placement
 
         loadPalettes(rom, sonicPaletteAddr, levelPaletteAddr);
-        loadPatterns(rom, patternAddr);
+        loadPatterns(rom, patternCues);
         loadSolidTiles(rom, solidTileHeightsAddr, solidTileWidthsAddr, solidTileAnglesAddr);
         loadChunks(rom, chunksAddr, collisionIndexAddr);
         loadBlocks(rom, blocksAddr);
         loadMap(rom, fgLayoutAddr, bgLayoutAddr);
+        verifyChunkPatternReferences();
 
         this.minX = boundaries[0];
         this.maxX = boundaries[1];
@@ -246,7 +258,7 @@ public class Sonic1Level implements Level {
         palettes = new Palette[PALETTE_COUNT];
         GraphicsManager graphicsMan = GraphicsManager.getInstance();
 
-        // Palette 0: Sonic/character palette
+        // Palette 0: Sonic/character palette (32 bytes = 16 colors)
         byte[] buffer = rom.readBytes(sonicPaletteAddr, Palette.PALETTE_SIZE_IN_ROM);
         palettes[0] = new Palette();
         palettes[0].fromSegaFormat(buffer);
@@ -270,36 +282,95 @@ public class Sonic1Level implements Level {
                 graphicsMan.cachePaletteTexture(palettes[i], i);
             }
         }
+
+        // Log first few colors of each palette line for debugging
+        for (int p = 0; p < PALETTE_COUNT; p++) {
+            Palette pal = palettes[p];
+            StringBuilder sb = new StringBuilder();
+            sb.append("Palette ").append(p).append(": ");
+            for (int c = 0; c < Math.min(4, pal.getColorCount()); c++) {
+                Palette.Color col = pal.getColor(c);
+                sb.append(String.format("(%d,%d,%d) ", col.r & 0xFF, col.g & 0xFF, col.b & 0xFF));
+            }
+            sb.append("...");
+            LOG.info(sb.toString());
+        }
     }
 
     /**
-     * Loads patterns using Nemesis decompression (Sonic 1 format).
+     * Loads patterns from multiple PLC (Pattern Load Cue) entries using Nemesis decompression.
+     *
+     * <p>Each PLC entry specifies a ROM address and a destination tile offset. All entries
+     * are loaded at their specified offsets, allowing non-contiguous placement. This handles
+     * zones like GHZ which require two files: Nem_GHZ_1st at tile 0 and Nem_GHZ_2nd at 0x1CD.
+     *
+     * <p>Any gaps between entries are filled with empty patterns.
      */
-    private void loadPatterns(Rom rom, int patternAddr) throws IOException {
+    private void loadPatterns(Rom rom, List<PatternLoadCue> cues) throws IOException {
         GraphicsManager graphicsMan = GraphicsManager.getInstance();
         FileChannel channel = rom.getFileChannel();
-        channel.position(patternAddr);
 
-        byte[] result = NemesisReader.decompress(channel);
+        // Sort cues by tile offset
+        List<PatternLoadCue> sorted = new ArrayList<>(cues);
+        sorted.sort(Comparator.comparingInt(PatternLoadCue::tileOffset));
 
-        patternCount = result.length / Pattern.PATTERN_SIZE_IN_ROM;
-        if (result.length % Pattern.PATTERN_SIZE_IN_ROM != 0) {
-            throw new IOException("Inconsistent pattern data");
+        // Decompress all PLC entries and place at their specified tile offsets
+        List<byte[]> decompressedData = new ArrayList<>();
+        List<PatternLoadCue> usedCues = new ArrayList<>();
+        int maxTileIndex = 0;
+
+        for (PatternLoadCue cue : sorted) {
+            channel.position(cue.romAddr());
+            byte[] data = NemesisReader.decompress(channel);
+            decompressedData.add(data);
+            usedCues.add(cue);
+
+            int tileCount = data.length / Pattern.PATTERN_SIZE_IN_ROM;
+            int endTile = cue.tileOffset() + tileCount;
+            if (endTile > maxTileIndex) {
+                maxTileIndex = endTile;
+            }
+
+            LOG.info("PLC entry: romAddr=0x" + Integer.toHexString(cue.romAddr()) +
+                    " tileOffset=0x" + Integer.toHexString(cue.tileOffset()) +
+                    " tiles=" + tileCount + " endTile=0x" + Integer.toHexString(endTile));
         }
 
+        // Build pattern array covering all loaded entries
+        patternCount = maxTileIndex;
         patterns = new Pattern[patternCount];
-        for (int i = 0; i < patternCount; i++) {
-            patterns[i] = new Pattern();
-            byte[] subArray = Arrays.copyOfRange(result, i * Pattern.PATTERN_SIZE_IN_ROM,
-                    (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-            patterns[i].fromSegaFormat(subArray);
 
-            if (graphicsMan.isGlInitialized()) {
-                graphicsMan.cachePatternTexture(patterns[i], i);
+        for (int i = 0; i < usedCues.size(); i++) {
+            PatternLoadCue cue = usedCues.get(i);
+            byte[] data = decompressedData.get(i);
+            int tileCount = data.length / Pattern.PATTERN_SIZE_IN_ROM;
+
+            for (int t = 0; t < tileCount; t++) {
+                int patIdx = cue.tileOffset() + t;
+                if (patIdx >= patternCount) break;
+                patterns[patIdx] = new Pattern();
+                byte[] subArray = Arrays.copyOfRange(data, t * Pattern.PATTERN_SIZE_IN_ROM,
+                        (t + 1) * Pattern.PATTERN_SIZE_IN_ROM);
+                patterns[patIdx].fromSegaFormat(subArray);
+
+                if (graphicsMan.isGlInitialized()) {
+                    graphicsMan.cachePatternTexture(patterns[patIdx], patIdx);
+                }
             }
         }
 
-        LOG.fine("Pattern count: " + patternCount + " (" + result.length + " bytes) [Nemesis]");
+        // Fill any gaps with empty patterns
+        for (int i = 0; i < patternCount; i++) {
+            if (patterns[i] == null) {
+                patterns[i] = new Pattern();
+                if (graphicsMan.isGlInitialized()) {
+                    graphicsMan.cachePatternTexture(patterns[i], i);
+                }
+            }
+        }
+
+        LOG.info("Total pattern count: 0x" + Integer.toHexString(patternCount) +
+                " (" + patternCount + ") from " + usedCues.size() + " PLC entries [Nemesis]");
     }
 
     /**
@@ -359,29 +430,30 @@ public class Sonic1Level implements Level {
 
         byte[] blockBuffer = KosinskiReader.decompress(channel, false);
 
-        blockCount = blockBuffer.length / S1_BLOCK_SIZE_IN_ROM;
+        int dataBlockCount = blockBuffer.length / S1_BLOCK_SIZE_IN_ROM;
         if (blockBuffer.length % S1_BLOCK_SIZE_IN_ROM != 0) {
             LOG.warning("Block data not aligned to block size: " + blockBuffer.length +
                     " bytes, expected multiple of " + S1_BLOCK_SIZE_IN_ROM);
-            // Truncate to whole blocks
-            blockCount = blockBuffer.length / S1_BLOCK_SIZE_IN_ROM;
         }
 
+        // Sonic 1 block IDs are 1-based in the layout: ID 0 = empty, ID 1 = first
+        // block in the Kosinski data. The disassembly's GetBlockData does subq.b #1
+        // before computing the offset. So we allocate one extra slot and store data
+        // blocks starting at index 1, keeping index 0 as the empty block.
+        blockCount = dataBlockCount + 1;
         blocks = new Block[blockCount];
-        for (int i = 0; i < blockCount; i++) {
-            blocks[i] = new Block(S1_GRID_SIDE);
+        blocks[0] = new Block(S1_GRID_SIDE); // Empty block for ID 0
+
+        for (int i = 0; i < dataBlockCount; i++) {
+            blocks[i + 1] = new Block(S1_GRID_SIDE);
             byte[] subArray = Arrays.copyOfRange(blockBuffer, i * S1_BLOCK_SIZE_IN_ROM,
                     (i + 1) * S1_BLOCK_SIZE_IN_ROM);
             byte[] converted = convertS1BlockData(subArray);
-            blocks[i].fromSegaFormat(converted, S1_CHUNKS_PER_BLOCK);
+            blocks[i + 1].fromSegaFormat(converted, S1_CHUNKS_PER_BLOCK);
         }
 
-        // Block 0 = empty (same sanitization as Sonic 2)
-        if (blockCount > 0) {
-            blocks[0] = new Block(S1_GRID_SIDE);
-        }
-
-        LOG.fine("Block count: " + blockCount + " (" + blockBuffer.length + " bytes) [Kosinski]");
+        LOG.fine("Block count: " + blockCount + " (data=" + dataBlockCount +
+                ", " + blockBuffer.length + " bytes) [Kosinski]");
     }
 
     /**
@@ -446,10 +518,16 @@ public class Sonic1Level implements Level {
             }
         }
 
-        // Copy BG (layer 1) - strip loop flag (bit 7)
-        for (int y = 0; y < bgHeight; y++) {
-            for (int x = 0; x < bgWidth; x++) {
-                mapBuffer[y * mapWidth * 2 + mapWidth + x] = (byte) (bgData[y * bgWidth + x] & 0x7F);
+        // Copy BG (layer 1) - strip loop flag (bit 7).
+        // Tile BG data to fill the full unified map dimensions, since the engine's
+        // Map wraps at mapWidth/mapHeight, not the BG's original dimensions.
+        // GHZ BG is 32x1 but needs to tile across the full 48x5 FG area.
+        for (int y = 0; y < mapHeight; y++) {
+            int srcY = y % bgHeight;
+            for (int x = 0; x < mapWidth; x++) {
+                int srcX = x % bgWidth;
+                mapBuffer[y * mapWidth * 2 + mapWidth + x] =
+                        (byte) (bgData[srcY * bgWidth + srcX] & 0x7F);
             }
         }
 
@@ -479,5 +557,35 @@ public class Sonic1Level implements Level {
         }
 
         LOG.fine("SolidTiles loaded: " + solidTileCount);
+    }
+
+    /**
+     * Verifies that all chunk pattern references are within the loaded pattern count.
+     * Logs warnings for any out-of-range references that would appear as blank tiles.
+     */
+    private void verifyChunkPatternReferences() {
+        int outOfRange = 0;
+        int maxRefIndex = 0;
+        for (int i = 0; i < chunkCount; i++) {
+            Chunk chunk = chunks[i];
+            for (int py = 0; py < 2; py++) {
+                for (int px = 0; px < 2; px++) {
+                    PatternDesc pd = chunk.getPatternDesc(px, py);
+                    int pidx = pd.getPatternIndex();
+                    if (pidx > maxRefIndex) {
+                        maxRefIndex = pidx;
+                    }
+                    if (pidx >= patternCount && pidx != 0) {
+                        outOfRange++;
+                    }
+                }
+            }
+        }
+        LOG.info("Chunk pattern verification: maxRefIndex=0x" + Integer.toHexString(maxRefIndex) +
+                " patternCount=0x" + Integer.toHexString(patternCount) +
+                " outOfRange=" + outOfRange);
+        if (outOfRange > 0) {
+            LOG.warning(outOfRange + " chunk pattern references exceed loaded pattern count!");
+        }
     }
 }
