@@ -1,6 +1,5 @@
 package uk.co.jamesj999.sonic.tests;
 
-import org.junit.Assume;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
@@ -20,11 +19,8 @@ import static org.junit.Assert.*;
  */
 public class Sonic1PlayerArtTest {
 
-    private static final String S1_ROM_FILENAME = "Sonic The Hedgehog (W) (REV01) [!].gen";
-
     private RomByteReader openS1Rom() throws Exception {
-        File romFile = new File(S1_ROM_FILENAME);
-        Assume.assumeTrue("Sonic 1 ROM not available, skipping test", romFile.exists());
+        File romFile = RomTestUtils.ensureSonic1RomAvailable();
         Rom rom = new Rom();
         rom.open(romFile.getAbsolutePath());
         return RomByteReader.fromRom(rom);
