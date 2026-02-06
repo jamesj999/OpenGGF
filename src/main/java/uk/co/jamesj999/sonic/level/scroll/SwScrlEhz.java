@@ -34,6 +34,9 @@ public class SwScrlEhz implements ZoneScrollHandler {
     private int maxScrollOffset;
     private short vscrollFactorBG;
 
+    // Persistent ripple counter, decrements every 8 frames (matches TempArray_LayerDef)
+    private int ripplePhase = 0;
+
     public SwScrlEhz(ParallaxTables tables) {
         this.tables = tables;
     }
@@ -84,15 +87,16 @@ public class SwScrlEhz implements ZoneScrollHandler {
 
         // ==================== Band 3: Water Surface (21 lines) ====================
         // Water surface with ripple effect using SwScrl_RippleData
+        // Reference: s2.asm lines 15285-15302
         {
             short baseBgScroll = asrWord(d2, 6);
             int limit = Math.min(VISIBLE_LINES, lineIndex + 21);
 
-            // Ripple animation speed (1 byte every 8 frames) - Slowed down per user
-            // feedback
-            // Using continuous counter, masking lookup to first 32 bytes to avoid
-            // distortion
-            int rippleIndex = (frameCounter >> 3);
+            // Ripple counter decrements every 8 frames (matches subq.w #1,(TempArray_LayerDef))
+            if ((frameCounter & 7) == 0) {
+                ripplePhase--;
+            }
+            int rippleIndex = ripplePhase & 0x1F;
 
             for (; lineIndex < limit; lineIndex++) {
                 int wobble = tables.getRippleSigned(rippleIndex & 0x1F);
@@ -144,85 +148,96 @@ public class SwScrlEhz implements ZoneScrollHandler {
         }
 
         // ==================== Bottom Gradient Region ====================
-        // Reverting to previous ParallaxManager logic which interpolated from 0.25 to
-        // 1.0
-        // FG speed. Using 'd2' (FG scroll) as base.
-
-        // ========== Sub-band 6a (Segment 7): 15 lines (0.25 -> 0.50) ==========
+        // ROM-accurate implementation matching s2.asm lines 15330-15380.
+        // Uses 68k-style 16.16 fixed-point with swapped word order:
+        //   d3 normal: integer in low word, fraction in high word
+        //   d3 swapped: fraction in low word, integer in high word (for add.l)
+        //
+        // Compute per-line increment:
+        //   diff = d2/2 - d2/8 = 3*d2/8
+        //   increment = ((diff << 8) / 0x30) << 8  (16.16 fixed-point)
+        //
+        // Starting BG value: d3 = d2 >> 3 (0.125x speed, integer only)
         {
-            // Start: 0.25 * d2 = d2 >> 2. In fixed point (<<16): (d2<<16) >> 2 = d2 << 14
-            int startFixed = (d2 << 14);
-            int endFixed = (d2 << 15);
-            int count = 15;
-            int increment = (endFixed - startFixed) / count;
-
-            int bgFixed = startFixed;
-            int limit = Math.min(VISIBLE_LINES, lineIndex + count);
-
-            for (; lineIndex < limit; lineIndex++) {
-                short bgScroll = (short) (bgFixed >> 16);
-                horizScrollBuf[lineIndex] = packScrollWords(fgScroll, bgScroll);
-
-                // Check offset for every line in gradient (value changes)
-                int offset = bgScroll - fgScroll;
-                if (offset < minScrollOffset)
-                    minScrollOffset = offset;
-                if (offset > maxScrollOffset)
-                    maxScrollOffset = offset;
-
-                bgFixed += increment;
+            // Increment calculation (s2.asm lines 15332-15341)
+            short halfD2 = asrWord(d2, 1);       // d2/2
+            short eighthD2 = asrWord(d2, 3);     // d2/8
+            short diff = (short) (halfD2 - eighthD2); // 3*d2/8
+            int diffExt = diff;                   // ext.l d0 (sign-extend to 32-bit)
+            diffExt <<= 8;                        // asl.l #8,d0
+            // divs.w #$30,d0 : 32-bit dividend / 16-bit divisor, quotient in low word
+            int quotient;
+            if (diffExt == 0) {
+                quotient = 0;
+            } else {
+                quotient = diffExt / 0x30;
             }
-        }
+            short quotientWord = (short) quotient; // ext.l d0 (take low word, sign-extend)
+            int increment = ((int) quotientWord) << 8; // asl.l #8,d0
 
-        // ========== Sub-band 6b (Segment 8): 18 lines (0.50 -> 0.75) ==========
-        {
-            // Start: 0.50 * d2 = d2 >> 1
-            // End: 0.75 * d2 = 0.50 + 0.25 = (d2 >> 1) + (d2 >> 2)
-            int startFixed = (d2 << 15);
-            int endFixed = startFixed + (d2 << 14);
-            int count = 18;
-            int increment = (endFixed - startFixed) / count;
+            // Starting BG value (s2.asm lines 15342-15344)
+            // moveq #0,d3; move.w d2,d3; asr.w #3,d3
+            // d3 in "normal" form: integer in low word, fraction (0) in high word
+            short d3_integer = asrWord(d2, 3);    // d2/8
+            // Store in "swapped" form for easy arithmetic:
+            //   swapped = integer in high 16, fraction in low 16 (standard 16.16)
+            int d3 = (d3_integer & 0xFFFF) << 16; // fraction = 0
 
-            int bgFixed = startFixed;
-            int limit = Math.min(VISIBLE_LINES, lineIndex + count);
+            // FG scroll for all gradient lines (d4.w after swap = d2 = FG scroll)
+            // Already have fgScroll = d2
 
-            for (; lineIndex < limit; lineIndex++) {
-                short bgScroll = (short) (bgFixed >> 16);
-                horizScrollBuf[lineIndex] = packScrollWords(fgScroll, bgScroll);
-
-                int offset = bgScroll - fgScroll;
-                if (offset < minScrollOffset)
-                    minScrollOffset = offset;
-                if (offset > maxScrollOffset)
-                    maxScrollOffset = offset;
-
-                bgFixed += increment;
+            // ===== 15-line band: 1 line per iteration (s2.asm lines 15347-15353) =====
+            {
+                int limit = Math.min(VISIBLE_LINES, lineIndex + 15);
+                for (; lineIndex < limit; lineIndex++) {
+                    short bgScroll = (short) (d3 >> 16); // integer part from high word
+                    horizScrollBuf[lineIndex] = packScrollWords(fgScroll, bgScroll);
+                    trackOffset(fgScroll, bgScroll);
+                    // swap d3; add.l d0,d3; swap d3
+                    d3 += increment;
+                }
             }
-        }
 
-        // ========== Sub-band 6c (Segment 9): 45 lines (0.75 -> 1.00) ==========
-        {
-            // Start: 0.75 * d2
-            // End: 1.00 * d2
-            int endFixed = (d2 << 16);
-            int startFixed = (endFixed >> 1) + (endFixed >> 2);
-            int count = 45;
-            int increment = (endFixed - startFixed) / count;
+            // ===== 18-line band: 2 lines per iteration (s2.asm lines 15356-15365) =====
+            // Pairs of lines share the same BG value (stairstep effect)
+            {
+                int limit = Math.min(VISIBLE_LINES, lineIndex + 18);
+                for (int pair = 0; pair < 9 && lineIndex < limit; pair++) {
+                    short bgScroll = (short) (d3 >> 16);
+                    int packed = packScrollWords(fgScroll, bgScroll);
+                    trackOffset(fgScroll, bgScroll);
+                    // Write 2 lines with same BG value
+                    horizScrollBuf[lineIndex++] = packed;
+                    if (lineIndex < limit) {
+                        horizScrollBuf[lineIndex++] = packed;
+                    }
+                    // add.l d0,d3; add.l d0,d3 (advance by 2 increments)
+                    d3 += increment;
+                    d3 += increment;
+                }
+            }
 
-            int bgFixed = startFixed;
-            int limit = Math.min(VISIBLE_LINES, lineIndex + count);
-
-            for (; lineIndex < limit; lineIndex++) {
-                short bgScroll = (short) (bgFixed >> 16);
-                horizScrollBuf[lineIndex] = packScrollWords(fgScroll, bgScroll);
-
-                int offset = bgScroll - fgScroll;
-                if (offset < minScrollOffset)
-                    minScrollOffset = offset;
-                if (offset > maxScrollOffset)
-                    maxScrollOffset = offset;
-
-                bgFixed += increment;
+            // ===== 45-line band: 3 lines per iteration (s2.asm lines 15368-15380) =====
+            // Triplets of lines share the same BG value
+            {
+                int limit = Math.min(VISIBLE_LINES, lineIndex + 45);
+                for (int trip = 0; trip < 15 && lineIndex < limit; trip++) {
+                    short bgScroll = (short) (d3 >> 16);
+                    int packed = packScrollWords(fgScroll, bgScroll);
+                    trackOffset(fgScroll, bgScroll);
+                    // Write 3 lines with same BG value
+                    horizScrollBuf[lineIndex++] = packed;
+                    if (lineIndex < limit) {
+                        horizScrollBuf[lineIndex++] = packed;
+                    }
+                    if (lineIndex < limit) {
+                        horizScrollBuf[lineIndex++] = packed;
+                    }
+                    // add.l d0,d3 x3 (advance by 3 increments)
+                    d3 += increment;
+                    d3 += increment;
+                    d3 += increment;
+                }
             }
         }
 
