@@ -910,6 +910,21 @@ public class GraphicsManager {
 	}
 
 	/**
+	 * Resets mutable rendering state without destroying the singleton instance.
+	 * Preserves headlessMode and glInitialized configuration.
+	 * Clears render command queues and palette caches.
+	 */
+	public void resetState() {
+		commands.clear();
+		paletteTextureMap.clear();
+		combinedPaletteTextureId = null;
+		camera = null;
+		useUnderwaterPaletteForBackground = false;
+		useSpritePriorityShader = false;
+		currentSpriteHighPriority = false;
+	}
+
+	/**
 	 * Reset the singleton instance. Used for testing.
 	 */
 	public static synchronized void resetInstance() {

@@ -1,6 +1,5 @@
 package uk.co.jamesj999.sonic.tests;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -15,8 +14,6 @@ import uk.co.jamesj999.sonic.sprites.playable.Sonic;
 import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
 import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
 import uk.co.jamesj999.sonic.tests.rules.SonicGame;
-
-import java.lang.reflect.Field;
 
 import static org.junit.Assert.*;
 
@@ -54,10 +51,6 @@ public class TestHtzSpringLoop {
 
     @Before
     public void setUp() throws Exception {
-        // Reset singletons that might have stale state from other tests
-        GraphicsManager.resetInstance();
-        Camera.resetInstance();
-
         // Initialize headless graphics (no GL context needed)
         GraphicsManager.getInstance().initHeadless();
 
@@ -99,21 +92,6 @@ public class TestHtzSpringLoop {
 
         // Create the headless test runner
         testRunner = new HeadlessTestRunner(sprite);
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        // Reset GraphicsManager
-        GraphicsManager.resetInstance();
-
-        // Reset LevelManager - set level field to null
-        LevelManager levelManager = LevelManager.getInstance();
-        Field levelField = LevelManager.class.getDeclaredField("level");
-        levelField.setAccessible(true);
-        levelField.set(levelManager, null);
-
-        // Clear SpriteManager
-        SpriteManager.getInstance().clearAllSprites();
     }
 
     /**

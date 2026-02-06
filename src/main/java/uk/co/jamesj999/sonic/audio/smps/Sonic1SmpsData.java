@@ -30,21 +30,24 @@ package uk.co.jamesj999.sonic.audio.smps;
  * <ul>
  *   <li>Pointers are 16-bit big-endian, relative to song start (offset 0 in data[]).
  *       S2 uses little-endian absolute Z80 addresses.</li>
- *   <li>FM voice operator order in ROM is 1,3,2,4. This matches the engine's expected
- *       format, so no reordering is needed (unlike S2 which stores 4,2,3,1).</li>
+ *   <li>FM voice operator order per group in ROM is Op4,Op3,Op2,Op1 (InsMode=DEFAULT).
+ *       S2 stores Op4,Op2,Op3,Op1 (InsMode=Hardware). The middle two bytes are swapped.
+ *       {@link #getVoice(int)} converts S1 format to S2 format on load.</li>
  *   <li>Base note is B (offset 1), same as S2 (DefDrv.txt: FMBaseNote = B).</li>
  * </ul>
  *
- * <p>Voice data format (25 bytes per FM instrument):
+ * <p>Voice data format in ROM (25 bytes per FM instrument, S1 InsMode=DEFAULT order):
  * <pre>
  *   Byte  0:    (feedback &lt;&lt; 3) | algorithm
- *   Bytes 1-4:  (DT&lt;&lt;4)|MUL for operators 1, 3, 2, 4
- *   Bytes 5-8:  (RS&lt;&lt;6)|AR for operators 1, 3, 2, 4
- *   Bytes 9-12: AM|D1R for operators 1, 3, 2, 4
- *   Bytes 13-16: D2R for operators 1, 3, 2, 4
- *   Bytes 17-20: (D1L&lt;&lt;4)|RR for operators 1, 3, 2, 4
- *   Bytes 21-24: TL for operators 1, 3, 2, 4
+ *   Bytes 1-4:  (DT&lt;&lt;4)|MUL for operators 4, 3, 2, 1
+ *   Bytes 5-8:  (RS&lt;&lt;6)|AR for operators 4, 3, 2, 1
+ *   Bytes 9-12: AM|D1R for operators 4, 3, 2, 1
+ *   Bytes 13-16: D2R for operators 4, 3, 2, 1
+ *   Bytes 17-20: (D1L&lt;&lt;4)|RR for operators 4, 3, 2, 1
+ *   Bytes 21-24: TL for operators 4, 3, 2, 1
  * </pre>
+ * S2 uses Op4,Op2,Op3,Op1 per group. The engine expects S2 format, so
+ * {@link #getVoice(int)} swaps the middle two bytes of each group on load.
  */
 public class Sonic1SmpsData extends AbstractSmpsData {
 
@@ -158,19 +161,20 @@ public class Sonic1SmpsData extends AbstractSmpsData {
             return null;
         }
 
-        // S1 voice byte layout is already in the engine's expected format:
-        // Byte 0: FB|ALGO
-        // Bytes 1-4:   DT|MUL for ops 1,3,2,4
-        // Bytes 5-8:   RS|AR  for ops 1,3,2,4
-        // Bytes 9-12:  AM|D1R for ops 1,3,2,4
-        // Bytes 13-16: D2R    for ops 1,3,2,4
-        // Bytes 17-20: D1L|RR for ops 1,3,2,4
-        // Bytes 21-24: TL     for ops 1,3,2,4
-        //
-        // The Ym2612Chip.setInstrument() reads using index arrays that assume
-        // this exact (1,3,2,4) operator order. No reordering needed.
+        // S1 voice bytes per 4-byte group are in order Op4,Op3,Op2,Op1 (InsMode=DEFAULT).
+        // The engine (Ym2612Chip.setInstrument) expects S2 order: Op4,Op2,Op3,Op1.
+        // The difference: bytes at positions [g+1] and [g+2] are swapped.
+        // Convert S1 → S2 format by swapping the middle two bytes in each group.
         byte[] voice = new byte[stride];
         System.arraycopy(data, offset, voice, 0, stride);
+
+        // Swap positions [g+1] and [g+2] for each 4-byte operator group
+        // Groups start at byte offsets 1, 5, 9, 13, 17, 21
+        for (int g = 1; g < 25; g += 4) {
+            byte tmp = voice[g + 1];
+            voice[g + 1] = voice[g + 2];
+            voice[g + 2] = tmp;
+        }
         return voice;
     }
 
@@ -198,6 +202,6 @@ public class Sonic1SmpsData extends AbstractSmpsData {
 
     @Override
     public int getPsgBaseNoteOffset() {
-        return 1; // PSG base note B (DefDrv.txt: FMBaseNote = B)
+        return 0; // PSG base note C (PSGSetFreq subtracts 0x81, table starts at C)
     }
 }

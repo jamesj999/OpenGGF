@@ -1,35 +1,36 @@
 package uk.co.jamesj999.sonic.tests;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
-import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.sonic1.Sonic1PlayerArt;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
-
-import java.io.File;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
+import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
 import static org.junit.Assert.*;
 
 /**
  * Tests for Sonic 1 player sprite art loading.
- * Requires the Sonic 1 ROM to be present in the working directory.
- * Uses a local ROM instance to avoid contaminating singletons
- * (GameModuleRegistry, AudioManager) that affect other tests.
+ * Uses {@link RequiresRom} annotation — TestEnvironment.resetAll() in
+ * RequiresRomRule prevents S1 module/loader from leaking to subsequent tests.
  */
+@RequiresRom(SonicGame.SONIC_1)
 public class Sonic1PlayerArtTest {
+
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
 
     private RomByteReader reader;
 
     @Before
     public void setUp() throws Exception {
-        File romFile = RomTestUtils.ensureSonic1RomAvailable();
-        Rom rom = new Rom();
-        rom.open(romFile.getAbsolutePath());
-        reader = RomByteReader.fromRom(rom);
+        reader = RomByteReader.fromRom(romRule.rom());
     }
 
     @Test

@@ -63,9 +63,9 @@ public class RomManager implements AutoCloseable {
      * specific ROMs directly rather than relying on config resolution.
      */
     public synchronized void setRom(Rom rom) {
-        if (this.rom != null && this.rom != rom) {
-            this.rom.close();
-        }
+        // Do NOT close the previous ROM here — its lifecycle is managed
+        // by whoever created it (e.g., RomCache in tests). Closing it here
+        // would invalidate cached ROM instances shared across tests.
         this.rom = rom;
         this.initialized = rom != null && rom.isOpen();
     }

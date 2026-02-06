@@ -121,6 +121,36 @@ public class ParallaxManager {
         }
     }
 
+    /**
+     * Resets all mutable state without destroying the singleton instance.
+     * Clears zone handlers, tables, and scroll factors so the next load starts fresh.
+     */
+    public void resetState() {
+        resetZoneState();
+        arzHandler = null;
+        cnzHandler = null;
+        ehzHandler = null;
+        cpzHandler = null;
+        htzHandler = null;
+        mczHandler = null;
+        dezHandler = null;
+        oozHandler = null;
+        sczHandler = null;
+        wfzHandler = null;
+        dynamicHtz = null;
+        scrollProvider = null;
+        tables = null;
+        loaded = false;
+        providerLoaded = false;
+        vscrollFactorFG = 0;
+        vscrollFactorBG = 0;
+        currentShakeOffsetX = 0;
+        currentShakeOffsetY = 0;
+        minScroll = 0;
+        maxScroll = 0;
+        java.util.Arrays.fill(hScroll, 0);
+    }
+
     public void load(Rom rom) {
         if (loaded || providerLoaded) {
             return;

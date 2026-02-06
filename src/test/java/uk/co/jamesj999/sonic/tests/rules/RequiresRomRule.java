@@ -8,6 +8,7 @@ import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomManager;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.game.sonic1.Sonic1GameModule;
+import uk.co.jamesj999.sonic.tests.TestEnvironment;
 
 /**
  * JUnit 4 rule that handles ROM loading and game module configuration
@@ -65,6 +66,7 @@ public class RequiresRomRule implements TestRule {
         return new Statement() {
             @Override
             public void evaluate() throws Throwable {
+                TestEnvironment.resetAll();
                 rom = RomCache.getRom(game);
                 Assume.assumeTrue(
                         game.getDisplayName() + " ROM not available — skipping test",
@@ -80,6 +82,7 @@ public class RequiresRomRule implements TestRule {
         return new Statement() {
             @Override
             public void evaluate() throws Throwable {
+                TestEnvironment.resetAll();
                 switch (game) {
                     case SONIC_1 -> GameModuleRegistry.setCurrent(new Sonic1GameModule());
                     case SONIC_2 -> GameModuleRegistry.reset();

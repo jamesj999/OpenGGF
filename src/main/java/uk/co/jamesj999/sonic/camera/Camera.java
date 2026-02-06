@@ -680,6 +680,30 @@ public class Camera {
 	}
 
 	/**
+	 * Resets mutable state without destroying the singleton instance.
+	 * Preserves width/height (configuration), clears all runtime state.
+	 */
+	public void resetState() {
+		x = 0;
+		y = 0;
+		minX = 0;
+		minY = 0;
+		maxX = 0;
+		maxY = 0;
+		shakeOffsetX = 0;
+		shakeOffsetY = 0;
+		minXTarget = 0;
+		minYTarget = 0;
+		maxXTarget = 0;
+		maxYTarget = 0;
+		maxYChanging = false;
+		horizScrollDelayFrames = 0;
+		frozen = false;
+		focusedSprite = null;
+		yPosBias = DEFAULT_Y_BIAS;
+	}
+
+	/**
 	 * Resets the singleton instance. Used for testing to ensure clean state.
 	 */
 	public static synchronized void resetInstance() {
