@@ -7,6 +7,7 @@ import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.data.RomManager;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ResultsScreenObjectInstance;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
@@ -62,6 +63,7 @@ public class TestSignpostWalkOff {
         rom = new Rom();
         rom.open(romFile.getAbsolutePath());
         GameModuleRegistry.detectAndSetModule(rom);
+        RomManager.getInstance().setRom(rom);
 
         // Initialize headless graphics (no GL context needed)
         GraphicsManager.getInstance().initHeadless();

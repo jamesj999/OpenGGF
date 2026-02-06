@@ -23,7 +23,6 @@
   "MAIN_CHARACTER_CODE": "sonic",
   "DEBUG_VIEW_ENABLED": true,
   "DEBUG_COLLISION_VIEW_ENABLED": false,
-  "ROM_FILENAME": "Sonic The Hedgehog 2 (W) (REV01) [!].gen",
   "DEBUG_MODE_KEY": 68,
   "DEBUG_LAST_CHECKPOINT_KEY": 67,
   "AUDIO_ENABLED": true,

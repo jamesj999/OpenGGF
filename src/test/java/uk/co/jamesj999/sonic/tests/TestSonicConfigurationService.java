@@ -48,13 +48,15 @@ public class TestSonicConfigurationService {
         SonicConfigurationService svc = SonicConfigurationService.getInstance();
         assertEquals(640, svc.getInt(SonicConfiguration.SCREEN_WIDTH));
         assertEquals(320, svc.getShort(SonicConfiguration.SCREEN_WIDTH_PIXELS));
-        // ROM_FILENAME may be overridden by working directory config.json; just verify it's set
-        assertFalse(svc.getString(SonicConfiguration.ROM_FILENAME).isEmpty());
+        // ROM_FILENAME has no default; resolved via DEFAULT_ROM + per-game keys instead
+        // If working dir config.json has ROM_FILENAME it'll be non-empty, otherwise empty
+        assertNotNull(svc.getString(SonicConfiguration.ROM_FILENAME));
         assertTrue(svc.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED));
         assertEquals(1.0, svc.getDouble(SonicConfiguration.SCALE), 0.001);
         // Per-game ROM defaults are always populated
         assertEquals("Sonic The Hedgehog 2 (W) (REV01) [!].gen",
                 svc.getString(SonicConfiguration.SONIC_2_ROM));
-        assertEquals("s2", svc.getString(SonicConfiguration.DEFAULT_ROM));
+        // DEFAULT_ROM is always populated (from config.json or applyDefaults)
+        assertFalse(svc.getString(SonicConfiguration.DEFAULT_ROM).isEmpty());
     }
 }

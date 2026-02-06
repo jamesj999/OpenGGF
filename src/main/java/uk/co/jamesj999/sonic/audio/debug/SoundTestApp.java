@@ -12,6 +12,7 @@ import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SoundTestCatalog;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.data.RomManager;
 
 import uk.co.jamesj999.sonic.audio.driver.SmpsDriver;
 import uk.co.jamesj999.sonic.audio.smps.SmpsSequencer;
@@ -780,12 +781,9 @@ public final class SoundTestApp {
         }
 
         static Options fromArgs(String[] args) {
-            String defaultRom = SonicConfigurationService.getInstance()
-                    .getString(SonicConfiguration.ROM_FILENAME);
-            if (defaultRom == null || defaultRom.isEmpty()) {
-                defaultRom = "Sonic The Hedgehog 2 (W) (REV01) [!].gen";
-            }
-            String romPath = defaultRom;
+            String romPath = RomManager.resolveRomForGame(
+                    SonicConfigurationService.getInstance()
+                            .getString(SonicConfiguration.DEFAULT_ROM));
             int songId = 0x8C; // Chemical Plant default for debugging
             boolean nullAudio = false;
             boolean help = false;

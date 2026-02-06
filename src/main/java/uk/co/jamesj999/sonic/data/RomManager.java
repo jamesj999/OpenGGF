@@ -59,6 +59,18 @@ public class RomManager implements AutoCloseable {
     }
 
     /**
+     * Injects a pre-opened ROM instance. Useful for tests that open
+     * specific ROMs directly rather than relying on config resolution.
+     */
+    public synchronized void setRom(Rom rom) {
+        if (this.rom != null && this.rom != rom) {
+            this.rom.close();
+        }
+        this.rom = rom;
+        this.initialized = rom != null && rom.isOpen();
+    }
+
+    /**
      * Checks if the ROM is currently open and available.
      */
     public synchronized boolean isRomAvailable() {
@@ -114,7 +126,7 @@ public class RomManager implements AutoCloseable {
      * @param gameId "s1", "s2", or "s3k"
      * @return the configured ROM filename for that game
      */
-    static String resolveRomForGame(String gameId) {
+    public static String resolveRomForGame(String gameId) {
         SonicConfigurationService svc = SonicConfigurationService.getInstance();
         return switch (gameId != null ? gameId.toLowerCase() : "s2") {
             case "s1" -> svc.getString(SonicConfiguration.SONIC_1_ROM);
