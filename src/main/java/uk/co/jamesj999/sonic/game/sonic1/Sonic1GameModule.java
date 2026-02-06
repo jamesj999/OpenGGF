@@ -24,7 +24,7 @@ import uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1ObjectRegistry;
 import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ScrollHandlerProvider;
 import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
 import uk.co.jamesj999.sonic.game.sonic2.LevelGamestate;
-import uk.co.jamesj999.sonic.game.sonic2.titlecard.TitleCardManager;
+import uk.co.jamesj999.sonic.game.sonic1.titlecard.Sonic1TitleCardManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
 import uk.co.jamesj999.sonic.level.objects.PlaneSwitcherConfig;
 import uk.co.jamesj999.sonic.level.objects.TouchResponseTable;
@@ -91,8 +91,7 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public TitleCardProvider getTitleCardProvider() {
-        // Reuse Sonic 2's title card rendering for now
-        return TitleCardManager.getInstance();
+        return Sonic1TitleCardManager.getInstance();
     }
 
     @Override

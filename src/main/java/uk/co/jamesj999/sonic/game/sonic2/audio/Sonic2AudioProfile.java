@@ -37,4 +37,9 @@ public class Sonic2AudioProfile implements GameAudioProfile {
     public int getExtraLifeMusicId() {
         return Sonic2AudioConstants.MUS_EXTRA_LIFE;
     }
+
+    @Override
+    public int getSfxPriority(int soundId) {
+        return Sonic2SmpsConstants.getSfxPriority(soundId);
+    }
 }

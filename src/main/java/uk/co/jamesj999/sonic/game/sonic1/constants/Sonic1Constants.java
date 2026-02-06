@@ -110,6 +110,12 @@ public final class Sonic1Constants {
     // Giant ring art (after level layout data)
     public static final int ART_UNC_GIANT_RING_ADDR  = 0x6A324; // 3136 bytes, 98 tiles
 
+    // ---- Title card art ----
+    // Nem_TitleCard: Nemesis-compressed title card sprite art (1550 bytes)
+    // Contains zone name letters, "ZONE", act numbers, oval decoration
+    // Verified by binary search matching docs/s1disasm/artnem/Title Cards.nem
+    public static final int ART_NEM_TITLE_CARD_ADDR = 0x39204;
+
     // ---- Animated tile VRAM destinations (ArtTile_Level = 0x000) ----
     // GHZ
     public static final int ARTTILE_GHZ_WATERFALL     = 0x378;

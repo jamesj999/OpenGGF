@@ -10,22 +10,24 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
- * Tool for searching the Sonic 2 disassembly (s2disasm) for items by label name or file name.
- * Parses BINCLUDE directives and returns information about matching entries.
+ * Tool for searching Sonic disassemblies (s1disasm/s2disasm/skdisasm) for items by label name or file name.
+ * Parses BINCLUDE/binclude/bincludePalette directives and returns information about matching entries.
  */
 public class DisassemblySearchTool {
 
+    // Matches labeled BINCLUDE/binclude/bincludePalette directives
     private static final Pattern BINCLUDE_PATTERN = Pattern.compile(
-            "^\\s*(\\w+):\\s*(?:BINCLUDE|binclude)\\s+\"([^\"]+)\"",
+            "^\\s*(\\w+):\\s*(?:BINCLUDE|binclude(?:Palette)?)\\s+\"([^\"]+)\"",
             Pattern.CASE_INSENSITIVE
     );
 
+    // Matches unlabeled BINCLUDE/binclude/bincludePalette directives
     private static final Pattern BINCLUDE_NO_LABEL_PATTERN = Pattern.compile(
-            "^\\s*(?:BINCLUDE|binclude)\\s+\"([^\"]+)\"",
+            "^\\s*(?:BINCLUDE|binclude(?:Palette)?)\\s+\"([^\"]+)\"",
             Pattern.CASE_INSENSITIVE
     );
 
-    // Pattern for palette macro: "Label: palette path[,path2] [; comment]"
+    // Pattern for S2 palette macro: "Label: palette path[,path2] [; comment]"
     // The macro expands to BINCLUDE "art/palettes/{path}"
     // path can contain spaces, stops at comma, semicolon, or end of line
     private static final Pattern PALETTE_PATTERN = Pattern.compile(
@@ -34,13 +36,27 @@ public class DisassemblySearchTool {
     );
 
     private final Path disasmRoot;
+    private final RomOffsetFinder.GameProfile profile;
 
     public DisassemblySearchTool(Path disasmRoot) {
-        this.disasmRoot = disasmRoot;
+        this(disasmRoot, null);
     }
 
     public DisassemblySearchTool(String disasmRootPath) {
-        this(Path.of(disasmRootPath));
+        this(Path.of(disasmRootPath), null);
+    }
+
+    public DisassemblySearchTool(String disasmRootPath, RomOffsetFinder.GameProfile profile) {
+        this(Path.of(disasmRootPath), profile);
+    }
+
+    public DisassemblySearchTool(Path disasmRoot, RomOffsetFinder.GameProfile profile) {
+        this.disasmRoot = disasmRoot;
+        this.profile = profile;
+    }
+
+    private boolean hasPaletteMacro() {
+        return profile == null || profile.paletteDirPrefix() != null;
     }
 
     /**
@@ -162,7 +178,7 @@ public class DisassemblySearchTool {
                         results.add(new DisassemblySearchResult(
                                 label,
                                 filePath,
-                                CompressionType.fromExtension(filePath),
+                                CompressionType.fromLabelAndExtension(label, filePath),
                                 disasmRoot.relativize(asmFile).toString(),
                                 lineNumber,
                                 line.trim()
@@ -206,7 +222,7 @@ public class DisassemblySearchTool {
                         results.add(new DisassemblySearchResult(
                                 label,
                                 filePath,
-                                CompressionType.fromExtension(filePath),
+                                CompressionType.fromLabelAndExtension(label, filePath),
                                 disasmRoot.relativize(asmFile).toString(),
                                 lineNumber,
                                 line.trim()
@@ -226,8 +242,8 @@ public class DisassemblySearchTool {
                                     line.trim()
                             ));
                         }
-                    } else {
-                        // Check for palette macro
+                    } else if (hasPaletteMacro()) {
+                        // Check for S2 palette macro (S1 uses bincludePalette, caught above)
                         Matcher paletteMatcher = PALETTE_PATTERN.matcher(line);
                         if (paletteMatcher.find()) {
                             parsePaletteMacroResults(paletteMatcher, asmFile, lineNumber, line, pattern, results);
@@ -295,7 +311,7 @@ public class DisassemblySearchTool {
                 if (matcher.find()) {
                     String label = matcher.group(1);
                     String filePath = matcher.group(2);
-                    CompressionType fileType = CompressionType.fromExtension(filePath);
+                    CompressionType fileType = CompressionType.fromLabelAndExtension(label, filePath);
 
                     if (fileType == type) {
                         results.add(new DisassemblySearchResult(
@@ -323,8 +339,8 @@ public class DisassemblySearchTool {
                                     line.trim()
                             ));
                         }
-                    } else {
-                        // Check for palette macro (palettes are UNCOMPRESSED)
+                    } else if (hasPaletteMacro()) {
+                        // Check for S2 palette macro (palettes are UNCOMPRESSED)
                         if (type == CompressionType.UNCOMPRESSED) {
                             Matcher paletteMatcher = PALETTE_PATTERN.matcher(line);
                             if (paletteMatcher.find()) {

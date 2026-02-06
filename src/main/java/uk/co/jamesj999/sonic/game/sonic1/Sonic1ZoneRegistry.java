@@ -32,15 +32,14 @@ public class Sonic1ZoneRegistry implements ZoneRegistry {
             "FINAL"
     };
 
-    // Music IDs - stub values for now (0 = no music)
     private static final int[] ZONE_MUSIC = {
-            0, // Green Hill
-            0, // Labyrinth
-            0, // Marble
-            0, // Star Light
-            0, // Spring Yard
-            0, // Scrap Brain
-            0  // Final Zone
+            0x81, // Green Hill (MUS_GHZ)
+            0x82, // Labyrinth (MUS_LZ)
+            0x83, // Marble (MUS_MZ)
+            0x84, // Star Light (MUS_SLZ)
+            0x85, // Spring Yard (MUS_SYZ)
+            0x86, // Scrap Brain (MUS_SBZ)
+            0x8D  // Final Zone (MUS_FZ)
     };
 
     private Sonic1ZoneRegistry() {

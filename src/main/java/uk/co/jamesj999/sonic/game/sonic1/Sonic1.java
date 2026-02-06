@@ -7,6 +7,7 @@ import uk.co.jamesj999.sonic.data.Game;
 import uk.co.jamesj999.sonic.data.PlayerSpriteArtProvider;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.animation.AnimatedPaletteManager;
@@ -17,7 +18,7 @@ import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
+
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -172,14 +173,29 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
 
     @Override
     public int getMusicId(int levelIdx) throws IOException {
-        // Stub - music IDs not yet mapped for Sonic 1
-        return 0;
+        // Sonic 1 level indices are 0x80-based, 3 acts per zone
+        // Zone = (levelIdx - 0x80) / 3, except special cases
+        int offset = levelIdx - 0x80;
+        if (offset < 0) return 0;
+        // SBZ Act 3 (level 0x91) reuses LZ music
+        if (levelIdx == 0x91) return Sonic1AudioProfile.MUS_LZ;
+        // Final Zone (level 0x92)
+        if (levelIdx == 0x92) return Sonic1AudioProfile.MUS_FZ;
+        int zone = offset / 3;
+        return switch (zone) {
+            case 0 -> Sonic1AudioProfile.MUS_GHZ;
+            case 1 -> Sonic1AudioProfile.MUS_LZ;
+            case 2 -> Sonic1AudioProfile.MUS_MZ;
+            case 3 -> Sonic1AudioProfile.MUS_SLZ;
+            case 4 -> Sonic1AudioProfile.MUS_SYZ;
+            case 5 -> Sonic1AudioProfile.MUS_SBZ;
+            default -> 0;
+        };
     }
 
     @Override
     public Map<GameSound, Integer> getSoundMap() {
-        // Stub - sound map not yet mapped for Sonic 1
-        return new HashMap<>();
+        return new Sonic1AudioProfile().getSoundMap();
     }
 
     @Override

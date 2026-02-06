@@ -1,6 +1,54 @@
 package uk.co.jamesj999.sonic.audio.smps;
 
+/**
+ * SMPS 68k music data parser for Sonic 1.
+ *
+ * <p>S1 music header layout (confirmed from s1disasm):
+ * <pre>
+ *   Offset 0x00: word  - Voice pointer (16-bit BE, relative to song start)
+ *   Offset 0x02: byte  - FM channel count (includes DAC as the first "FM" channel)
+ *   Offset 0x03: byte  - PSG channel count
+ *   Offset 0x04: byte  - Dividing timing (initial tick multiplier)
+ *   Offset 0x05: byte  - Tempo value
+ *   Offset 0x06: DAC track entry (4 bytes):
+ *     +0: word  - Data pointer (relative to song start)
+ *     +2: byte  - Pitch/transpose
+ *     +3: byte  - Volume
+ *   Then FM channel entries (4 bytes each):
+ *     +0: word  - Data pointer (relative to song start)
+ *     +2: byte  - Transpose
+ *     +3: byte  - Volume
+ *   Then PSG channel entries (6 bytes each):
+ *     +0: word  - Data pointer (relative to song start)
+ *     +2: byte  - Transpose
+ *     +3: byte  - Volume
+ *     +4: byte  - Modulation/voice (unused in S1, always 0)
+ *     +5: byte  - PSG volume envelope index
+ * </pre>
+ *
+ * <p>Key differences from Sonic 2:
+ * <ul>
+ *   <li>Pointers are 16-bit big-endian, relative to song start (offset 0 in data[]).
+ *       S2 uses little-endian absolute Z80 addresses.</li>
+ *   <li>FM voice operator order in ROM is 1,3,2,4. This matches the engine's expected
+ *       format, so no reordering is needed (unlike S2 which stores 4,2,3,1).</li>
+ *   <li>Base note is C (offset 0), not B (offset 1) like S2.</li>
+ * </ul>
+ *
+ * <p>Voice data format (25 bytes per FM instrument):
+ * <pre>
+ *   Byte  0:    (feedback &lt;&lt; 3) | algorithm
+ *   Bytes 1-4:  (DT&lt;&lt;4)|MUL for operators 1, 3, 2, 4
+ *   Bytes 5-8:  (RS&lt;&lt;6)|AR for operators 1, 3, 2, 4
+ *   Bytes 9-12: AM|D1R for operators 1, 3, 2, 4
+ *   Bytes 13-16: D2R for operators 1, 3, 2, 4
+ *   Bytes 17-20: (D1L&lt;&lt;4)|RR for operators 1, 3, 2, 4
+ *   Bytes 21-24: TL for operators 1, 3, 2, 4
+ * </pre>
+ */
 public class Sonic1SmpsData extends AbstractSmpsData {
+
+    private byte[][] psgEnvelopes;
 
     public Sonic1SmpsData(byte[] data) {
         this(data, 0);
@@ -10,148 +58,146 @@ public class Sonic1SmpsData extends AbstractSmpsData {
         super(data, z80StartAddress);
     }
 
+    /**
+     * Sets the PSG envelope data loaded from ROM by the Sonic1SmpsLoader.
+     *
+     * @param psgEnvelopes array of 9 PSG envelopes (index 0-8)
+     */
+    public void setPsgEnvelopes(byte[][] psgEnvelopes) {
+        this.psgEnvelopes = psgEnvelopes;
+    }
+
     @Override
     protected void parseHeader() {
-        // Sonic 1 Header Layout
-        // Assuming Big Endian pointers.
-        // Layout:
-        // Voice Ptr (0-1)
-        // Channels (2)
-        // PSG Channels (3)
-        // Tempo (4) ? (S2 has dividing timing here)
-        // Wait, S1 header is different.
-        // Assuming Standard SMPS 68k header.
-        // Offsets might differ.
+        if (data.length < 8) {
+            return;
+        }
 
-        // For now, I will implement generic logic assuming similar structure but Big Endian.
-        // S1 has PtrFmt = Z80 (which usually means relative?).
-        // No, S1 is 68k, usually Absolute Big Endian?
-        // Let's assume structure matches S2 but Big Endian and different offsets if needed.
-        // S2 offset 0x06 is used for FM Ptr. S1 uses 0x0A?
-        // Let's use 0x0A for S1 FM Start as per previous Test.
+        // Voice pointer: 16-bit BE, relative to song start (data[0])
+        this.voicePtr = read16(0);
 
-        if (data.length >= 8) {
-            this.voicePtr = read16(0);
-            this.channels = data[2] & 0xFF;
-            // Dividing Timing / Tempo might be swapped or different?
-            // Sonic 1: 04=Tempo, 05=Divider? Or same?
-            // DefDrv.txt for S2: TickMult at offset...
-            // Let's assume same layout for simplicity until proven otherwise, just different pointer formats.
-            this.psgChannels = data[3] & 0xFF;
-            this.dividingTiming = data[4] & 0xFF;
-            this.tempo = data[5] & 0xFF;
-            // DAC Pointer? S1 usually has DAC as channel?
-            this.dacPointer = read16(6);
+        // Channel counts
+        this.channels = data[2] & 0xFF;  // FM channel count (includes DAC)
+        this.psgChannels = data[3] & 0xFF;
 
-            // Sonic 1 Header FM Start
-            int fmStart = 0x06; // Default to same? Or 0x0A?
-            // If I look at `SmpsSequencerTest` for "Big Endian", it put FM ptr at 0x0A.
-            // Let's check `SmpsData` (previous implementation) logic.
-            // `int fmStart = 0x06;` was hardcoded.
-            // But S1 header usually has pointers at 0x16 or so.
-            // However, since I don't have S1 DefDrv, I will stick to what `SmpsSequencerTest` used: 0x0A.
-            // Actually, wait. The test used 0x0A because it assumed S1 layout.
-            // I'll set it to 0x06 for now to match the AbstractSmpsData base logic, but override if needed.
-            // Or better, let's look at `SmpsLoader` equivalent for S1.
-            // If S1 uses `PtrFmt=68K` (Big Endian).
+        // Timing
+        this.dividingTiming = data[4] & 0xFF;
+        this.tempo = data[5] & 0xFF;
 
-            // I will use 0x06 for now. If tests fail I adjust.
-            // Wait, if I use 0x06, I am consistent with AbstractSmpsData fields.
+        // DAC + FM channel entries start at offset 0x06.
+        // The first entry in the channels count is the DAC track.
+        // Each FM/DAC entry is 4 bytes: pointer(2) + transpose(1) + volume(1).
+        int fmStart = 0x06;
+        this.fmPointers = new int[channels];
+        this.fmKeyOffsets = new int[channels];
+        this.fmVolumeOffsets = new int[channels];
 
-            this.fmPointers = new int[channels];
-            this.fmKeyOffsets = new int[channels];
-            this.fmVolumeOffsets = new int[channels];
-            int offset = fmStart;
-            for (int i = 0; i < channels; i++) {
-                if (offset + 1 < data.length) {
-                    this.fmPointers[i] = read16(offset);
-                    this.fmKeyOffsets[i] = (byte) data[offset + 2];
-                    this.fmVolumeOffsets[i] = (byte) data[offset + 3];
-                }
-                offset += 4;
+        int offset = fmStart;
+        for (int i = 0; i < channels; i++) {
+            if (offset + 3 < data.length) {
+                this.fmPointers[i] = read16(offset);
+                this.fmKeyOffsets[i] = (byte) data[offset + 2];
+                this.fmVolumeOffsets[i] = (byte) data[offset + 3];
             }
+            offset += 4;
+        }
 
-            this.psgPointers = new int[psgChannels];
-            this.psgKeyOffsets = new int[psgChannels];
-            this.psgVolumeOffsets = new int[psgChannels];
-            this.psgModEnvs = new int[psgChannels];
-            this.psgInstruments = new int[psgChannels];
-            for (int i = 0; i < psgChannels; i++) {
-                if (offset + 5 < data.length) {
-                    this.psgPointers[i] = read16(offset);
-                    this.psgKeyOffsets[i] = (byte) data[offset + 2];
-                    this.psgVolumeOffsets[i] = (byte) data[offset + 3];
-                    this.psgModEnvs[i] = data[offset + 4] & 0xFF;
-                    this.psgInstruments[i] = data[offset + 5] & 0xFF;
-                }
-                offset += 6;
+        // The first FM pointer is the DAC pointer
+        if (channels > 0) {
+            this.dacPointer = this.fmPointers[0];
+        }
+
+        // PSG channel entries: 6 bytes each
+        // pointer(2) + transpose(1) + volume(1) + modulation(1) + envelope index(1)
+        this.psgPointers = new int[psgChannels];
+        this.psgKeyOffsets = new int[psgChannels];
+        this.psgVolumeOffsets = new int[psgChannels];
+        this.psgModEnvs = new int[psgChannels];
+        this.psgInstruments = new int[psgChannels];
+
+        for (int i = 0; i < psgChannels; i++) {
+            if (offset + 5 < data.length) {
+                this.psgPointers[i] = read16(offset);
+                this.psgKeyOffsets[i] = (byte) data[offset + 2];
+                this.psgVolumeOffsets[i] = (byte) data[offset + 3];
+                this.psgModEnvs[i] = data[offset + 4] & 0xFF;
+                this.psgInstruments[i] = data[offset + 5] & 0xFF;
             }
+            offset += 6;
         }
     }
 
     @Override
     public byte[] getVoice(int voiceId) {
         int ptr = voicePtr;
-        if (ptr == 0) return null;
+        if (ptr == 0) {
+            return null;
+        }
 
-        int offset = -1;
-        if (ptr >= 0 && ptr < data.length) {
-            offset = ptr;
-        } else if (z80StartAddress > 0) {
-            // Relocation logic for S1? Usually Absolute.
-            int rel = ptr - z80StartAddress;
-            if (rel >= 0 && rel < data.length) {
-                offset = rel;
+        // S1 voice pointer is relative to song start (offset 0 in data[]).
+        // Since z80StartAddress is 0 for S1, ptr is already a direct index into data[].
+        int offset = ptr;
+        if (offset < 0 || offset >= data.length) {
+            // Fallback: try subtracting z80StartAddress in case it was set
+            if (z80StartAddress > 0) {
+                int rel = ptr - z80StartAddress;
+                if (rel >= 0 && rel < data.length) {
+                    offset = rel;
+                } else {
+                    return null;
+                }
+            } else {
+                return null;
             }
         }
-        if (offset < 0) offset = ptr; // Try raw
 
         int stride = 25;
         offset += (voiceId * stride);
 
-        if (offset < 0 || offset + 25 > data.length) return null;
+        if (offset < 0 || offset + stride > data.length) {
+            return null;
+        }
 
-        // Sonic 1 (Big Endian) Voices are 25 bytes.
-        // Structure: Header, DT, TL, RS, AM, D2R, RR (Standard Order?)
-        // Wait. `SmpsSequencer` comments said:
-        // "Sonic 1 (Big Endian / Default Order)"
-        // "Source: Header, DT, RS, AM, D2R, RR, TL"
-        // "Target (Ym2612Chip with len=25): Header, DT, TL, RS, AM, D2R, RR."
-
-        byte[] raw = new byte[25];
-        System.arraycopy(data, offset, raw, 0, 25);
-
-        byte[] voice = new byte[25];
-        voice[0] = raw[0]; // FB/Algo
-        System.arraycopy(raw, 1, voice, 1, 4); // DT
-        System.arraycopy(raw, 21, voice, 5, 4); // TL (Moved from end)
-        System.arraycopy(raw, 5, voice, 9, 4); // RS
-        System.arraycopy(raw, 9, voice, 13, 4); // AM
-        System.arraycopy(raw, 13, voice, 17, 4); // D2R
-        System.arraycopy(raw, 17, voice, 21, 4); // RR
-
-        // Operator Order:
-        // Source is Default Order (1, 3, 2, 4).
-        // Target is Default Order (1, 3, 2, 4).
-        // No swap needed.
-
+        // S1 voice byte layout is already in the engine's expected format:
+        // Byte 0: FB|ALGO
+        // Bytes 1-4:   DT|MUL for ops 1,3,2,4
+        // Bytes 5-8:   RS|AR  for ops 1,3,2,4
+        // Bytes 9-12:  AM|D1R for ops 1,3,2,4
+        // Bytes 13-16: D2R    for ops 1,3,2,4
+        // Bytes 17-20: D1L|RR for ops 1,3,2,4
+        // Bytes 21-24: TL     for ops 1,3,2,4
+        //
+        // The Ym2612Chip.setInstrument() reads using index arrays that assume
+        // this exact (1,3,2,4) operator order. No reordering needed.
+        byte[] voice = new byte[stride];
+        System.arraycopy(data, offset, voice, 0, stride);
         return voice;
     }
 
     @Override
     public byte[] getPsgEnvelope(int id) {
+        if (psgEnvelopes != null && id >= 0 && id < psgEnvelopes.length) {
+            return psgEnvelopes[id];
+        }
         return null;
     }
 
     @Override
     public int read16(int offset) {
-        if (offset + 1 >= data.length) return 0;
-        return ((data[offset] & 0xFF) << 8) | (data[offset + 1] & 0xFF); // Big Endian
+        if (offset + 1 >= data.length) {
+            return 0;
+        }
+        // Big Endian (68k byte order)
+        return ((data[offset] & 0xFF) << 8) | (data[offset + 1] & 0xFF);
     }
 
     @Override
     public int getBaseNoteOffset() {
-        return 0; // Sonic 1 uses Base Note C (+0 offset?) or B?
-        // S1 Base Note is typically C (0).
+        return 0; // Sonic 1 uses base note C (no offset)
+    }
+
+    @Override
+    public int getPsgBaseNoteOffset() {
+        return 0; // PSG base note C
     }
 }
