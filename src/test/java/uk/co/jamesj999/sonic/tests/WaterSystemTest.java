@@ -1,12 +1,15 @@
 package uk.co.jamesj999.sonic.tests;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.data.Rom;
-import uk.co.jamesj999.sonic.data.RomManager;
 import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.level.WaterSystem;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
+import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +19,7 @@ import static org.junit.Assert.*;
 /**
  * Tests for water system ROM extraction and validation.
  */
+@RequiresRom(SonicGame.SONIC_2)
 public class WaterSystemTest {
 
     private static final int WATER_SURFACE_OBJECT_ID = 0x04;
@@ -30,6 +34,9 @@ public class WaterSystemTest {
     private static final int ARZ_ACT_1_EXPECTED = 0x410;
     private static final int ARZ_ACT_2_EXPECTED = 0x510;
 
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
+
     private WaterSystem waterSystem;
     private Rom rom;
 
@@ -37,13 +44,7 @@ public class WaterSystemTest {
     public void setUp() {
         waterSystem = WaterSystem.getInstance();
         waterSystem.reset();
-
-        try {
-            rom = RomManager.getInstance().getRom();
-        } catch (Exception e) {
-            // ROM not available in test environment
-            rom = null;
-        }
+        rom = romRule.rom();
     }
 
     @Test
@@ -51,10 +52,8 @@ public class WaterSystemTest {
         // EHZ has no water - should detect this
         List<ObjectSpawn> emptyObjects = new ArrayList<>();
 
-        if (rom != null) {
-            waterSystem.loadForLevel(rom, ZONE_EHZ, 0, emptyObjects);
-            assertFalse("EHZ Act 1 should not have water", waterSystem.hasWater(ZONE_EHZ, 0));
-        }
+        waterSystem.loadForLevel(rom, ZONE_EHZ, 0, emptyObjects);
+        assertFalse("EHZ Act 1 should not have water", waterSystem.hasWater(ZONE_EHZ, 0));
     }
 
     @Test
@@ -63,18 +62,16 @@ public class WaterSystemTest {
         List<ObjectSpawn> objects = new ArrayList<>();
         objects.add(new ObjectSpawn(0, CPZ_ACT_2_EXPECTED, WATER_SURFACE_OBJECT_ID, 0, 0, false, 0));
 
-        if (rom != null) {
-            waterSystem.loadForLevel(rom, ZONE_CPZ, 1, objects);
+        waterSystem.loadForLevel(rom, ZONE_CPZ, 1, objects);
 
-            assertTrue("CPZ Act 2 should have water", waterSystem.hasWater(ZONE_CPZ, 1));
-            int waterY = waterSystem.getWaterLevelY(ZONE_CPZ, 1);
+        assertTrue("CPZ Act 2 should have water", waterSystem.hasWater(ZONE_CPZ, 1));
+        int waterY = waterSystem.getWaterLevelY(ZONE_CPZ, 1);
 
-            // Allow small tolerance for extraction accuracy
-            int tolerance = 5;
-            assertTrue(String.format("CPZ Act 2 water should be around %d (got %d)",
-                    CPZ_ACT_2_EXPECTED, waterY),
-                    Math.abs(waterY - CPZ_ACT_2_EXPECTED) <= tolerance);
-        }
+        // Allow small tolerance for extraction accuracy
+        int tolerance = 5;
+        assertTrue(String.format("CPZ Act 2 water should be around %d (got %d)",
+                CPZ_ACT_2_EXPECTED, waterY),
+                Math.abs(waterY - CPZ_ACT_2_EXPECTED) <= tolerance);
     }
 
     @Test
@@ -82,17 +79,15 @@ public class WaterSystemTest {
         List<ObjectSpawn> objects = new ArrayList<>();
         objects.add(new ObjectSpawn(100, ARZ_ACT_1_EXPECTED, WATER_SURFACE_OBJECT_ID, 0, 0, false, 0));
 
-        if (rom != null) {
-            waterSystem.loadForLevel(rom, ZONE_ARZ, 0, objects);
+        waterSystem.loadForLevel(rom, ZONE_ARZ, 0, objects);
 
-            assertTrue("ARZ Act 1 should have water", waterSystem.hasWater(ZONE_ARZ, 0));
-            int waterY = waterSystem.getWaterLevelY(ZONE_ARZ, 0);
+        assertTrue("ARZ Act 1 should have water", waterSystem.hasWater(ZONE_ARZ, 0));
+        int waterY = waterSystem.getWaterLevelY(ZONE_ARZ, 0);
 
-            int tolerance = 5;
-            assertTrue(String.format("ARZ Act 1 water should be around %d (got %d)",
-                    ARZ_ACT_1_EXPECTED, waterY),
-                    Math.abs(waterY - ARZ_ACT_1_EXPECTED) <= tolerance);
-        }
+        int tolerance = 5;
+        assertTrue(String.format("ARZ Act 1 water should be around %d (got %d)",
+                ARZ_ACT_1_EXPECTED, waterY),
+                Math.abs(waterY - ARZ_ACT_1_EXPECTED) <= tolerance);
     }
 
     @Test
@@ -100,17 +95,15 @@ public class WaterSystemTest {
         List<ObjectSpawn> objects = new ArrayList<>();
         objects.add(new ObjectSpawn(200, ARZ_ACT_2_EXPECTED, WATER_SURFACE_OBJECT_ID, 0, 0, false, 0));
 
-        if (rom != null) {
-            waterSystem.loadForLevel(rom, ZONE_ARZ, 1, objects);
+        waterSystem.loadForLevel(rom, ZONE_ARZ, 1, objects);
 
-            assertTrue("ARZ Act 2 should have water", waterSystem.hasWater(ZONE_ARZ, 1));
-            int waterY = waterSystem.getWaterLevelY(ZONE_ARZ, 1);
+        assertTrue("ARZ Act 2 should have water", waterSystem.hasWater(ZONE_ARZ, 1));
+        int waterY = waterSystem.getWaterLevelY(ZONE_ARZ, 1);
 
-            int tolerance = 5;
-            assertTrue(String.format("ARZ Act 2 water should be around %d (got %d)",
-                    ARZ_ACT_2_EXPECTED, waterY),
-                    Math.abs(waterY - ARZ_ACT_2_EXPECTED) <= tolerance);
-        }
+        int tolerance = 5;
+        assertTrue(String.format("ARZ Act 2 water should be around %d (got %d)",
+                ARZ_ACT_2_EXPECTED, waterY),
+                Math.abs(waterY - ARZ_ACT_2_EXPECTED) <= tolerance);
     }
 
     @Test
@@ -118,17 +111,15 @@ public class WaterSystemTest {
         List<ObjectSpawn> objects = new ArrayList<>();
         objects.add(new ObjectSpawn(0, CPZ_ACT_2_EXPECTED, WATER_SURFACE_OBJECT_ID, 0, 0, false, 0));
 
-        if (rom != null) {
-            waterSystem.loadForLevel(rom, ZONE_CPZ, 1, objects);
+        waterSystem.loadForLevel(rom, ZONE_CPZ, 1, objects);
 
-            Palette[] underwaterPalette = waterSystem.getUnderwaterPalette(ZONE_CPZ, 1);
-            assertNotNull("CPZ should have underwater palette", underwaterPalette);
-            assertEquals("Palette array should have 4 palettes", 4, underwaterPalette.length);
+        Palette[] underwaterPalette = waterSystem.getUnderwaterPalette(ZONE_CPZ, 1);
+        assertNotNull("CPZ should have underwater palette", underwaterPalette);
+        assertEquals("Palette array should have 4 palettes", 4, underwaterPalette.length);
 
-            // Verify first palette has correct number of colors
-            assertNotNull("Palette 0 should not be null", underwaterPalette[0]);
-            assertEquals("Palette should have 16 colors", 16, underwaterPalette[0].colors.length);
-        }
+        // Verify first palette has correct number of colors
+        assertNotNull("Palette 0 should not be null", underwaterPalette[0]);
+        assertEquals("Palette should have 16 colors", 16, underwaterPalette[0].colors.length);
     }
 
     @Test
@@ -151,28 +142,26 @@ public class WaterSystemTest {
 
     @Test
     public void testMultipleLevelConfigs() {
-        if (rom != null) {
-            // Load config for multiple levels
-            List<ObjectSpawn> cpzObjects = new ArrayList<>();
-            cpzObjects.add(new ObjectSpawn(0, 700, WATER_SURFACE_OBJECT_ID, 0, 0, false, 0));
-            waterSystem.loadForLevel(rom, ZONE_CPZ, 1, cpzObjects);
+        // Load config for multiple levels
+        List<ObjectSpawn> cpzObjects = new ArrayList<>();
+        cpzObjects.add(new ObjectSpawn(0, 700, WATER_SURFACE_OBJECT_ID, 0, 0, false, 0));
+        waterSystem.loadForLevel(rom, ZONE_CPZ, 1, cpzObjects);
 
-            List<ObjectSpawn> arzObjects = new ArrayList<>();
-            arzObjects.add(new ObjectSpawn(0, 400, WATER_SURFACE_OBJECT_ID, 0, 0, false, 0));
-            waterSystem.loadForLevel(rom, ZONE_ARZ, 0, arzObjects);
+        List<ObjectSpawn> arzObjects = new ArrayList<>();
+        arzObjects.add(new ObjectSpawn(0, 400, WATER_SURFACE_OBJECT_ID, 0, 0, false, 0));
+        waterSystem.loadForLevel(rom, ZONE_ARZ, 0, arzObjects);
 
-            List<ObjectSpawn> ehzObjects = new ArrayList<>();
-            waterSystem.loadForLevel(rom, ZONE_EHZ, 0, ehzObjects);
+        List<ObjectSpawn> ehzObjects = new ArrayList<>();
+        waterSystem.loadForLevel(rom, ZONE_EHZ, 0, ehzObjects);
 
-            // Verify all configs are stored correctly
-            assertTrue("CPZ should have water", waterSystem.hasWater(ZONE_CPZ, 1));
-            assertTrue("ARZ should have water", waterSystem.hasWater(ZONE_ARZ, 0));
-            assertFalse("EHZ should not have water", waterSystem.hasWater(ZONE_EHZ, 0));
+        // Verify all configs are stored correctly
+        assertTrue("CPZ should have water", waterSystem.hasWater(ZONE_CPZ, 1));
+        assertTrue("ARZ should have water", waterSystem.hasWater(ZONE_ARZ, 0));
+        assertFalse("EHZ should not have water", waterSystem.hasWater(ZONE_EHZ, 0));
 
-            // Verify water heights are distinct
-            assertNotEquals("CPZ and ARZ should have different water levels",
-                    waterSystem.getWaterLevelY(ZONE_CPZ, 1),
-                    waterSystem.getWaterLevelY(ZONE_ARZ, 0));
-        }
+        // Verify water heights are distinct
+        assertNotEquals("CPZ and ARZ should have different water levels",
+                waterSystem.getWaterLevelY(ZONE_CPZ, 1),
+                waterSystem.getWaterLevelY(ZONE_ARZ, 0));
     }
 }

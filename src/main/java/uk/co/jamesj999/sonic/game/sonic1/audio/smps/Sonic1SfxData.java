@@ -188,11 +188,11 @@ public class Sonic1SfxData extends AbstractSmpsData implements SmpsSfxData {
 
     @Override
     public int getBaseNoteOffset() {
-        return 0; // Sonic 1 uses base note C
+        return 1; // Sonic 1 uses base note B (DefDrv.txt: FMBaseNote = B)
     }
 
     @Override
     public int getPsgBaseNoteOffset() {
-        return 0; // PSG base note C
+        return 1; // PSG base note B (DefDrv.txt: FMBaseNote = B)
     }
 }

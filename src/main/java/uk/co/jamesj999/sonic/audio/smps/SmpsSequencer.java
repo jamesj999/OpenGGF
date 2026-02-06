@@ -669,7 +669,11 @@ public class SmpsSequencer implements AudioStream {
     public int read(short[] buffer) {
         if (!primed) {
             if (tempoWeight != 0) {
-                tick();
+                if (config.isTempoOnFirstTick()) {
+                    processTempoFrame(); // S1: process tempo on first frame (DOTEMPO)
+                } else {
+                    tick(); // S2: skip tempo on first frame (PlayMusic)
+                }
             }
             primed = true;
         }
@@ -811,13 +815,16 @@ public class SmpsSequencer implements AudioStream {
         }
         if (config.getTempoMode() == SmpsSequencerConfig.TempoMode.TIMEOUT) {
             // S1 style: always tick, but periodically extend track durations
-            tempoAccumulator--;
-            if (tempoAccumulator <= 0) {
-                tempoAccumulator = normalTempo;
-                // Extend all active music track durations by 1
-                for (Track t : tracks) {
-                    if (t.active && t.duration > 0) {
-                        t.duration++;
+            // SFX bypass tempo extension entirely - they just tick every frame
+            if (!sfxMode) {
+                tempoAccumulator--;
+                if (tempoAccumulator <= 0) {
+                    tempoAccumulator = normalTempo;
+                    // Extend all active music track durations by 1
+                    for (Track t : tracks) {
+                        if (t.active && t.duration > 0) {
+                            t.duration++;
+                        }
                     }
                 }
             }
@@ -1013,6 +1020,12 @@ public class SmpsSequencer implements AudioStream {
                 }
                 break;
             default:
+                // Check for game-specific TRK_END flags (e.g., S1 0xEE = stop track)
+                if (!config.getExtraTrkEndFlags().isEmpty() && config.getExtraTrkEndFlags().contains(cmd)) {
+                    t.active = false;
+                    stopNote(t);
+                    break;
+                }
                 int params = flagParamLength(cmd);
                 int advance = Math.min(params, data.length - t.pos);
                 t.pos += advance;
@@ -1092,9 +1105,33 @@ public class SmpsSequencer implements AudioStream {
         return ptr;
     }
 
+    /**
+     * Read a jump/loop/call pointer from the track data, handling both S1 (PC-relative)
+     * and S2 (absolute Z80) addressing modes.
+     *
+     * <p>S1 68k: In-stream pointers (F6/F7/F8) use {@code dc.w loc-*-1}, meaning the
+     * raw 16-bit value is a signed offset from (ptrWordOffset + 1).
+     *
+     * <p>S2 Z80: Pointers are absolute Z80 addresses, resolved via {@link #relocate}.
+     */
+    private int readJumpPointer(Track t) {
+        if (config.isRelativePointers()) {
+            // S1 68k: PC-relative from (ptrAddr + 1)
+            int ptrOffset = t.pos;
+            int raw = smpsData.read16(t.pos);
+            t.pos += 2;
+            // Interpret as signed 16-bit
+            int target = ptrOffset + 1 + (short) raw;
+            return (target >= 0 && target < data.length) ? target : -1;
+        } else {
+            // S2 Z80: absolute address, needs relocate
+            int ptr = readPointer(t);
+            return relocate(ptr, smpsData.getZ80StartAddress());
+        }
+    }
+
     private void handleJump(Track t) {
-        int ptr = readPointer(t);
-        int newPos = relocate(ptr, smpsData.getZ80StartAddress());
+        int newPos = readJumpPointer(t);
         if (newPos != -1) {
             t.pos = newPos;
         } else {
@@ -1106,8 +1143,7 @@ public class SmpsSequencer implements AudioStream {
         if (t.pos + 2 <= data.length) {
             int index = data[t.pos++] & 0xFF;
             int count = data[t.pos++] & 0xFF;
-            int ptr = readPointer(t);
-            int newPos = relocate(ptr, smpsData.getZ80StartAddress());
+            int newPos = readJumpPointer(t);
             if (newPos == -1) {
                 t.active = false;
                 return;
@@ -1135,8 +1171,7 @@ public class SmpsSequencer implements AudioStream {
     }
 
     private void handleCall(Track t) {
-        int ptr = readPointer(t);
-        int newPos = relocate(ptr, smpsData.getZ80StartAddress());
+        int newPos = readJumpPointer(t);
         if (newPos == -1 || t.returnSp >= t.returnStack.length) {
             t.active = false;
             return;
@@ -1184,8 +1219,8 @@ public class SmpsSequencer implements AudioStream {
             t.modDelta = data[t.pos++];
             int steps = data[t.pos++] & 0xFF;
             t.modStepsFull = steps;
-            // Z80 driver: srl a
-            t.modSteps = steps / 2;
+            // Z80 driver (S2): srl a (halve). 68k driver (S1): no halving.
+            t.modSteps = config.isHalveModSteps() ? steps / 2 : steps;
 
             t.modRateCounter = t.modRate;
             t.modStepCounter = t.modSteps;
@@ -1387,8 +1422,8 @@ public class SmpsSequencer implements AudioStream {
 
             writeFmFreq(port, ch, fnum, block);
             applyFmPanAmsFms(t);
-            // Z80 driver applies modulation before note-on on note start.
-            if (t.modEnabled) {
+            // S2 (ModAlgo 68k_a) applies modulation before note-on; S1 (ModAlgo 68k) does not.
+            if (t.modEnabled && config.isApplyModOnNote()) {
                 applyModulation(t);
             }
 
@@ -1444,8 +1479,8 @@ public class SmpsSequencer implements AudioStream {
                 t.modCurrentDelta = t.modDelta;
             }
 
-            // Z80 driver applies modulation before PSG volume write on note start.
-            if (t.modEnabled) {
+            // S2 (ModAlgo 68k_a) applies modulation before PSG volume write; S1 (ModAlgo 68k) does not.
+            if (t.modEnabled && config.isApplyModOnNote()) {
                 applyModulation(t);
             }
 

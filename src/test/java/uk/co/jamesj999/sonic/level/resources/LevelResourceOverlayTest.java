@@ -1,14 +1,16 @@
 package uk.co.jamesj999.sonic.level.resources;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
-import org.junit.Assume;
 
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2LevelResourcePlans;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
+import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
-import java.io.File;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -39,35 +41,17 @@ import static org.junit.Assert.*;
  *   <li>SonLVL "chunks" (128x128) = Engine "blocks"</li>
  * </ul>
  */
+@RequiresRom(SonicGame.SONIC_2)
 public class LevelResourceOverlayTest {
 
-    private static final String ROM_FILENAME = "Sonic The Hedgehog 2 (W) (REV01) [!].gen";
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
 
     private Rom rom;
-    private boolean romAvailable;
 
     @Before
     public void setUp() {
-        File romFile = new File(ROM_FILENAME);
-        romAvailable = romFile.exists() && romFile.length() > 0;
-
-        if (romAvailable) {
-            try {
-                rom = new Rom();
-                rom.open(romFile.getAbsolutePath());
-                // Verify the ROM opened successfully
-                romAvailable = rom.isOpen();
-            } catch (Exception e) {
-                romAvailable = false;
-            }
-        }
-    }
-
-    @org.junit.After
-    public void tearDown() {
-        if (rom != null) {
-            rom.close();
-        }
+        rom = romRule.rom();
     }
 
     // ===== Unit Tests (no ROM required) =====
@@ -193,7 +177,6 @@ public class LevelResourceOverlayTest {
 
     @Test
     public void testChunkOverlayProducesDifferentData() throws IOException {
-        Assume.assumeTrue("ROM not available, skipping ROM test", romAvailable);
 
         ResourceLoader loader = new ResourceLoader(rom);
 
@@ -225,7 +208,6 @@ public class LevelResourceOverlayTest {
 
     @Test
     public void testPatternOverlayProducesDifferentData() throws IOException {
-        Assume.assumeTrue("ROM not available, skipping ROM test", romAvailable);
 
         ResourceLoader loader = new ResourceLoader(rom);
 
@@ -259,7 +241,6 @@ public class LevelResourceOverlayTest {
 
     @Test
     public void testCacheSafety_OverlayDoesNotMutateOriginal() throws IOException {
-        Assume.assumeTrue("ROM not available, skipping ROM test", romAvailable);
 
         ResourceLoader loader = new ResourceLoader(rom);
 
@@ -281,7 +262,6 @@ public class LevelResourceOverlayTest {
 
     @Test
     public void testOverlayOffsetCalculation() throws IOException {
-        Assume.assumeTrue("ROM not available, skipping ROM test", romAvailable);
 
         // Pattern overlay offset 0x3F80 bytes corresponds to tile index 0x01FC
         // (0x3F80 / 32 bytes per tile = 0x1FC)
@@ -301,7 +281,6 @@ public class LevelResourceOverlayTest {
 
     @Test
     public void testBlockDataSharedBetweenEhzAndHtz() throws IOException {
-        Assume.assumeTrue("ROM not available, skipping ROM test", romAvailable);
 
         ResourceLoader loader = new ResourceLoader(rom);
 

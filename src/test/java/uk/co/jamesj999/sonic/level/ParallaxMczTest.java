@@ -1,17 +1,25 @@
 package uk.co.jamesj999.sonic.level;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.level.scroll.ParallaxTables;
+import uk.co.jamesj999.sonic.tests.rules.RequiresGameModule;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
+import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
 import java.io.IOException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+@RequiresGameModule(SonicGame.SONIC_2)
 public class ParallaxMczTest {
+
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
 
     private ParallaxManager parallaxManager;
     private MockRom mockRom;

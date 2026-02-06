@@ -2,13 +2,11 @@ package uk.co.jamesj999.sonic.tests;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
-import uk.co.jamesj999.sonic.data.Rom;
-import uk.co.jamesj999.sonic.data.RomManager;
-import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectInstance;
@@ -16,8 +14,10 @@ import uk.co.jamesj999.sonic.physics.GroundSensor;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.playable.GroundMode;
 import uk.co.jamesj999.sonic.sprites.playable.Sonic;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
+import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
-import java.io.File;
 import java.lang.reflect.Field;
 
 import static org.junit.Assert.*;
@@ -45,7 +45,10 @@ import static org.junit.Assert.*;
  *
  * This test is expected to FAIL until the underlying bug is fixed.
  */
+@RequiresRom(SonicGame.SONIC_2)
 public class TestCNZCeilingStateExit {
+
+    @Rule public RequiresRomRule romRule = new RequiresRomRule();
 
     // Zone constants
     private static final int ZONE_CNZ = 3;  // Casino Night Zone (level select ID)
@@ -66,7 +69,6 @@ public class TestCNZCeilingStateExit {
     private static final int MAX_CEILING_FRAMES = 180;      // 3 seconds at 60fps - bug threshold
     private static final int MAX_TEST_FRAMES = 600;         // Total frames to run after launch
 
-    private Rom rom;
     private Sonic sprite;
     private HeadlessTestRunner testRunner;
 
@@ -75,13 +77,6 @@ public class TestCNZCeilingStateExit {
         // Reset singletons that might have stale state from other tests
         GraphicsManager.resetInstance();
         Camera.resetInstance();
-
-        // Load ROM
-        File romFile = RomTestUtils.ensureRomAvailable();
-        rom = new Rom();
-        rom.open(romFile.getAbsolutePath());
-        GameModuleRegistry.detectAndSetModule(rom);
-        RomManager.getInstance().setRom(rom);
 
         // Initialize headless graphics (no GL context needed)
         GraphicsManager.getInstance().initHeadless();
@@ -133,11 +128,6 @@ public class TestCNZCeilingStateExit {
 
         // Clear SpriteManager
         SpriteManager.getInstance().clearAllSprites();
-
-        // Close ROM
-        if (rom != null) {
-            rom.close();
-        }
     }
 
     /**
