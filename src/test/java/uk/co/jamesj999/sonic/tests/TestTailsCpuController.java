@@ -200,36 +200,39 @@ public class TestTailsCpuController {
             stepTailsFrame();
         }
 
-        // Place Tails well below AND far from Sonic (ROM requires both vertical
-        // gap > 32px AND horizontal gap > 64px for AI jump)
+        // Place Tails well below AND far from Sonic. ROM requires Sonic to be
+        // >= 32px above Tails (vertical check always required). On 256-frame
+        // boundaries the distance check is skipped, so any horizontal gap works.
         tails.setX((short) (sonic.getCentreX() + 200));
         tails.setY((short) (sonic.getY() + 100));
         tails.setAir(false);
 
-        // Run controller on a frame that satisfies (frameCounter & 0x3F) == 0
-        controller.update(64);
+        // Frame 256: (256 & 0xFF) == 0 skips distance gate, (256 & 0x3F) == 0 passes timing
+        controller.update(256);
 
-        assertTrue("Should trigger AI jump when Sonic is above AND far away horizontally",
+        assertTrue("Should trigger AI jump when Sonic is above by >= 32px on 256-frame boundary",
                 controller.getInputJump());
     }
 
     @Test
-    public void testJumpWhenLargeHorizontalGapOnAlignedFrame() {
+    public void testNoJumpWhenSameHeightDespiteLargeGap() {
         // Settle sprites and populate history
         for (int i = 0; i < 20; i++) {
             sonicRunner.stepFrame(false, false, false, false, false);
             stepTailsFrame();
         }
 
-        // Place Tails far from Sonic horizontally (>64px gap)
+        // Place Tails far from Sonic horizontally (>64px gap) but at SAME HEIGHT.
+        // ROM: AI jump ALWAYS requires Sonic to be >= 32px above Tails.
+        // Horizontal distance alone never triggers a jump.
         tails.setX((short) (sonic.getCentreX() + 200));
         tails.setY(sonic.getY());
         tails.setAir(false);
 
-        // ROM: AI jump requires (frameCounter & 0xFF) == 0 for horizontal-only jump
+        // Even on a 256-frame boundary (skips distance gate), vertical check fails
         controller.update(256);
 
-        assertTrue("Should trigger AI jump when horizontal gap > 64px on aligned frame",
+        assertFalse("Should NOT jump when at same height, even with large horizontal gap",
                 controller.getInputJump());
     }
 
