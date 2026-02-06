@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.sprites.playable;
 
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AnimationIds;
 import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 
@@ -295,33 +296,44 @@ public class TailsCpuController {
             }
         }
 
-        // ROM: Jump replay from recorded input.
-        // Must continue relaying jump-held state after the initial trigger,
-        // otherwise doJumpHeight() caps ySpeed on frame 2 (minimum jump).
+        // ROM: Replay Sonic's jump input. In the original, Sonic's recorded
+        // jump bits are already in d1 from the history buffer. The
+        // Tails_CPU_jumping flag is ONLY for AI-initiated jumps.
         if (replayJump) {
             inputJump = true;
-            if (!jumpingFlag) {
-                jumpingFlag = true;
+        }
+
+        // ROM: TailsCPU_Normal_FilterAction - AI jump handling.
+        // When jumpingFlag is set (AI-initiated jump in progress), hold jump
+        // while airborne. Clear flag when Tails lands.
+        if (jumpingFlag) {
+            inputJump = true;
+            if (!tails.getAir()) {
+                jumpingFlag = false;
             }
         }
 
-        // ROM: AI jump logic - much more restrictive than simple distance chase
-        // Only triggers when: frame_counter & 0xFF == 0 AND distance > 64px horizontally
-        // AND Tails is below Sonic by > 32px AND frame_counter & 0x3F == 0
-        if (!tails.getAir() && !jumpingFlag) {
-            if ((frameCounter & 0xFF) == 0 && Math.abs(dx) > JUMP_DISTANCE_TRIGGER) {
-                inputJump = true;
-                jumpingFlag = true;
-            } else if (dy < -JUMP_HEIGHT_THRESHOLD && (frameCounter & 0x3F) == 0
-                    && Math.abs(dx) > JUMP_DISTANCE_TRIGGER) {
-                inputJump = true;
-                jumpingFlag = true;
+        // ROM: AI jump conditions (only when grounded and not in AI jump).
+        // Flow: frame gate -> distance gate -> vertical check -> timing gate -> duck check.
+        // The vertical check (Sonic above Tails by >= 32px) is ALWAYS required.
+        // On 256-frame boundaries the distance check is skipped; on other frames
+        // horizontal distance must be < 64 pixels.
+        if (!jumpingFlag && !tails.getAir()) {
+            boolean passesDistanceGate;
+            if ((frameCounter & 0xFF) == 0) {
+                passesDistanceGate = true;
+            } else {
+                passesDistanceGate = Math.abs(dx) < JUMP_DISTANCE_TRIGGER;
             }
-        }
 
-        // Reset jump flag when Tails lands
-        if (!tails.getAir() && jumpingFlag && !inputJump) {
-            jumpingFlag = false;
+            if (passesDistanceGate && dy <= -JUMP_HEIGHT_THRESHOLD) {
+                if ((frameCounter & 0x3F) == 0) {
+                    if (tails.getAnimationId() != Sonic2AnimationIds.DUCK) {
+                        inputJump = true;
+                        jumpingFlag = true;
+                    }
+                }
+            }
         }
     }
 
