@@ -332,7 +332,7 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
         // We check if we're the player's riding object
         ObjectManager manager = LevelManager.getInstance().getObjectManager();
         if (manager != null) {
-            return manager.getRidingObject() == this;
+            return manager.isAnyPlayerRiding(this);
         }
 
         return false;

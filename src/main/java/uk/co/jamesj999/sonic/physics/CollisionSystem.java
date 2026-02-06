@@ -115,7 +115,7 @@ public class CollisionSystem {
         trace.onSolidContactsStart(sprite.getCentreX(), sprite.getCentreY());
         resolveSolidContacts(sprite);
         trace.onSolidContactsComplete(
-            objectManager != null && objectManager.isRidingObject(),
+            objectManager != null && objectManager.isRidingObject(sprite),
             sprite.getCentreX(), sprite.getCentreY()
         );
 
@@ -196,19 +196,19 @@ public class CollisionSystem {
     /**
      * Check if player is currently riding an object.
      */
-    public boolean isRidingObject() {
+    public boolean isRidingObject(AbstractPlayableSprite player) {
         if (objectManager == null) {
             return false;
         }
-        return objectManager.isRidingObject();
+        return objectManager.isRidingObject(player);
     }
 
     /**
      * Clear riding state (e.g., when player jumps off).
      */
-    public void clearRidingObject() {
+    public void clearRidingObject(AbstractPlayableSprite player) {
         if (objectManager != null) {
-            objectManager.clearRidingObject();
+            objectManager.clearRidingObject(player);
         }
     }
 }
