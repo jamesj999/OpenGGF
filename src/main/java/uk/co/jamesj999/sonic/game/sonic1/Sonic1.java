@@ -2,12 +2,14 @@ package uk.co.jamesj999.sonic.game.sonic1;
 
 import uk.co.jamesj999.sonic.audio.GameSound;
 import uk.co.jamesj999.sonic.data.Game;
+import uk.co.jamesj999.sonic.data.PlayerSpriteArtProvider;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.rings.RingSpawn;
+import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -25,7 +27,7 @@ import java.util.logging.Logger;
  * <p>Level indices for Sonic 1 start at 0x80 (see {@link uk.co.jamesj999.sonic.level.LevelData}).
  * Zone = (levelIdx - 0x80) / 3, Act = (levelIdx - 0x80) % 3.
  */
-public class Sonic1 extends Game {
+public class Sonic1 extends Game implements PlayerSpriteArtProvider {
     private static final Logger LOG = Logger.getLogger(Sonic1.class.getName());
 
     private static final int S1_LEVEL_INDEX_BASE = 0x80;
@@ -36,6 +38,7 @@ public class Sonic1 extends Game {
     private final Rom rom;
     private RomByteReader romReader;
     private Sonic1ObjectPlacement objectPlacement;
+    private Sonic1PlayerArt playerArt;
 
     public Sonic1(Rom rom) {
         this.rom = rom;
@@ -203,12 +206,24 @@ public class Sonic1 extends Game {
 
     // ===== Private helpers =====
 
+    @Override
+    public SpriteArtSet loadPlayerSpriteArt(String characterCode) throws IOException {
+        ensureHelpers();
+        if (playerArt == null) {
+            return null;
+        }
+        return playerArt.loadForCharacter(characterCode);
+    }
+
     private void ensureHelpers() throws IOException {
         if (romReader == null) {
             romReader = RomByteReader.fromRom(rom);
         }
         if (objectPlacement == null) {
             objectPlacement = new Sonic1ObjectPlacement(romReader);
+        }
+        if (playerArt == null) {
+            playerArt = new Sonic1PlayerArt(romReader);
         }
     }
 
