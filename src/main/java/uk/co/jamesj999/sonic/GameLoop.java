@@ -14,6 +14,7 @@ import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.game.GameStateManager;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
 import uk.co.jamesj999.sonic.game.LevelSelectProvider;
+import uk.co.jamesj999.sonic.game.TitleScreenProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.RespawnState;
 import uk.co.jamesj999.sonic.game.ResultsScreen;
@@ -323,6 +324,18 @@ public class GameLoop {
                 camera.updatePosition(true);
                 return; // Don't process LEVEL mode logic yet
             }
+        } else if (currentGameMode == GameMode.TITLE_SCREEN) {
+            // Update title screen
+            TitleScreenProvider titleScreen = getTitleScreenProviderLazy();
+            if (titleScreen != null) {
+                titleScreen.update(inputHandler);
+
+                if (titleScreen.isExiting()) {
+                    exitTitleScreen();
+                }
+            }
+            inputHandler.update();
+            return; // Don't process LEVEL mode logic
         } else if (currentGameMode == GameMode.LEVEL_SELECT) {
             // Update level select screen
             LevelSelectProvider levelSelect = getLevelSelectProviderLazy();
@@ -1023,6 +1036,121 @@ public class GameLoop {
         if (gameModeChangeListener != null) {
             gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
         }
+    }
+
+    // ==================== Title Screen Methods ====================
+
+    /**
+     * Initializes the game loop to start in title screen mode.
+     * Called from Engine.init() when TITLE_SCREEN_ON_STARTUP is true.
+     */
+    public void initializeTitleScreenMode() {
+        LOGGER.info("Initializing game in Title Screen mode");
+
+        // Ensure the ROM is loaded and audio is initialized
+        try {
+            var rom = GameServices.rom().getRom();
+            var gameModule = GameModuleRegistry.getCurrent();
+
+            AudioManager audioManager = AudioManager.getInstance();
+            audioManager.setAudioProfile(gameModule.getAudioProfile());
+            audioManager.setRom(rom);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load ROM for title screen", e);
+        }
+
+        GameMode oldMode = currentGameMode;
+        currentGameMode = GameMode.TITLE_SCREEN;
+
+        camera.setX((short) 0);
+        camera.setY((short) 0);
+
+        TitleScreenProvider titleScreen = getTitleScreenProviderLazy();
+        if (titleScreen != null) {
+            titleScreen.initialize();
+        }
+
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+
+        LOGGER.info("Game initialized in Title Screen mode");
+    }
+
+    /**
+     * Exits the title screen. Fades to black, then transitions to level select
+     * (if LEVEL_SELECT_ON_STARTUP is true) or loads EHZ Act 1.
+     */
+    private void exitTitleScreen() {
+        TitleScreenProvider titleScreen = getTitleScreenProviderLazy();
+        if (titleScreen == null) {
+            return;
+        }
+
+        // Don't start another fade if one is already in progress
+        FadeManager fadeManager = FadeManager.getInstance();
+        if (fadeManager.isActive()) {
+            return;
+        }
+
+        // Fade out title music
+        AudioManager.getInstance().fadeOutMusic();
+
+        // Start fade-to-black, then transition
+        fadeManager.startFadeToBlack(() -> {
+            doExitTitleScreen();
+        });
+
+        LOGGER.info("Starting fade-to-black for Title Screen exit");
+    }
+
+    /**
+     * Actually performs the title screen exit after fade-to-black completes.
+     */
+    private void doExitTitleScreen() {
+        TitleScreenProvider titleScreen = getTitleScreenProviderLazy();
+        if (titleScreen != null) {
+            titleScreen.reset();
+        }
+
+        boolean levelSelectOnStartup = configService.getBoolean(SonicConfiguration.LEVEL_SELECT_ON_STARTUP);
+        if (levelSelectOnStartup) {
+            // Transition to level select
+            doEnterLevelSelect();
+        } else {
+            // Load EHZ Act 1
+            GameMode oldMode = currentGameMode;
+            currentGameMode = GameMode.LEVEL;
+
+            try {
+                levelManager.loadZoneAndAct(0, 0);
+            } catch (IOException e) {
+                LOGGER.severe("Failed to load EHZ Act 1: " + e.getMessage());
+                throw new RuntimeException("Failed to load EHZ Act 1", e);
+            }
+
+            if (gameModeChangeListener != null) {
+                gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+            }
+
+            FadeManager.getInstance().startFadeFromBlack(null);
+            LOGGER.info("Title screen -> EHZ Act 1");
+        }
+    }
+
+    /**
+     * Gets the title screen provider from the current game module.
+     */
+    public TitleScreenProvider getTitleScreenProvider() {
+        return getTitleScreenProviderLazy();
+    }
+
+    private TitleScreenProvider getTitleScreenProviderLazy() {
+        var gameModule = GameModuleRegistry.getCurrent();
+        if (gameModule != null) {
+            return gameModule.getTitleScreenProvider();
+        }
+        return null;
     }
 
     // ==================== Level Select Methods ====================

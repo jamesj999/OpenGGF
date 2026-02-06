@@ -162,6 +162,16 @@ public class AudioManager {
     }
 
     /**
+     * Stops all playing SFX without affecting music.
+     * Clears both SFX sequencers in the active music driver and the standalone SFX stream.
+     */
+    public void stopAllSfx() {
+        if (backend != null) {
+            backend.stopAllSfx();
+        }
+    }
+
+    /**
      * Stops all music and sound playback.
      * Used when exiting special stages or changing game modes.
      */

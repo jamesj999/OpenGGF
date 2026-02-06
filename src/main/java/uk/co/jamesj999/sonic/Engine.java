@@ -25,6 +25,7 @@ import uk.co.jamesj999.sonic.sprites.playable.TailsCpuController;
 import uk.co.jamesj999.sonic.game.GameMode;
 import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
+import uk.co.jamesj999.sonic.game.TitleScreenProvider;
 import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageManager;
 
 import java.io.IOException;
@@ -302,9 +303,13 @@ public class Engine {
 		inputHandler = new InputHandler();
 		setInputHandler(inputHandler);
 
-		// Check if we should start with level select or load EHZ directly
+		// Check startup mode: title screen takes priority when enabled
+		boolean titleScreenOnStartup = configService.getBoolean(SonicConfiguration.TITLE_SCREEN_ON_STARTUP);
 		boolean levelSelectOnStartup = configService.getBoolean(SonicConfiguration.LEVEL_SELECT_ON_STARTUP);
-		if (levelSelectOnStartup) {
+		if (titleScreenOnStartup) {
+			// Start in title screen mode
+			gameLoop.initializeTitleScreenMode();
+		} else if (levelSelectOnStartup) {
 			// Start in level select mode - no level loaded initially
 			gameLoop.initializeLevelSelectMode();
 		} else {
@@ -448,6 +453,12 @@ public class Engine {
 			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		} else if (getCurrentGameMode() == GameMode.SPECIAL_STAGE_RESULTS) {
 			glClearColor(0.85f, 0.9f, 0.95f, 1.0f);
+		} else if (getCurrentGameMode() == GameMode.TITLE_SCREEN) {
+			// Title screen backdrop is palette 2, color 0 (per VDP register $8720)
+			TitleScreenProvider titleScreen = gameLoop.getTitleScreenProvider();
+			if (titleScreen != null) {
+				titleScreen.setClearColor();
+			}
 		} else if (getCurrentGameMode() == GameMode.LEVEL_SELECT) {
 			// Level select backdrop is palette 0, color 0 (per VDP register $8700)
 			LevelSelectProvider levelSelect = gameLoop.getLevelSelectProvider();
@@ -558,6 +569,14 @@ public class Engine {
 					graphicsManager.registerCommand(new uk.co.jamesj999.sonic.graphics.GLCommandGroup(
 							GL_LINES, resultsCommands));
 				}
+			}
+		} else if (getCurrentGameMode() == GameMode.TITLE_SCREEN) {
+			// Render title screen
+			camera.setX((short) 0);
+			camera.setY((short) 0);
+			TitleScreenProvider titleScreen = gameLoop.getTitleScreenProvider();
+			if (titleScreen != null) {
+				titleScreen.draw();
 			}
 		} else if (getCurrentGameMode() == GameMode.LEVEL_SELECT) {
 			// Render level select screen
