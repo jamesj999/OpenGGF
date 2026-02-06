@@ -138,6 +138,17 @@ public interface GameModule {
     ObjectArtProvider getObjectArtProvider();
 
     /**
+     * Returns the level select provider for this game.
+     * Provides the game-specific level select screen with ROM-accurate
+     * menu layout, text, and navigation.
+     *
+     * @return the level select provider, or null if not implemented
+     */
+    default LevelSelectProvider getLevelSelectProvider() {
+        return null;
+    }
+
+    /**
      * Called when a level is loaded to reset any game-specific object state.
      * Use this to clear static state in object classes that persists across
      * object load/unload cycles (e.g., sibling spawn tracking, timing sync).

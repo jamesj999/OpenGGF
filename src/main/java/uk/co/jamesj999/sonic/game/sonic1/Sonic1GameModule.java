@@ -9,6 +9,7 @@ import uk.co.jamesj999.sonic.game.DebugModeProvider;
 import uk.co.jamesj999.sonic.game.DebugOverlayProvider;
 import uk.co.jamesj999.sonic.game.GameModule;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.ObjectArtProvider;
 import uk.co.jamesj999.sonic.game.RespawnState;
@@ -20,6 +21,7 @@ import uk.co.jamesj999.sonic.game.ZoneArtProvider;
 import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
 import uk.co.jamesj999.sonic.game.ZoneRegistry;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic1.levelselect.Sonic1LevelSelectManager;
 import uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1ObjectRegistry;
 import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ScrollHandlerProvider;
 import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
@@ -140,6 +142,11 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public ZoneArtProvider getZoneArtProvider() {
         return null;
+    }
+
+    @Override
+    public LevelSelectProvider getLevelSelectProvider() {
+        return Sonic1LevelSelectManager.getInstance();
     }
 
     @Override

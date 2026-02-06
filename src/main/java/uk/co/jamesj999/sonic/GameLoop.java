@@ -13,6 +13,7 @@ import uk.co.jamesj999.sonic.game.GameMode;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.game.GameStateManager;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.RespawnState;
 import uk.co.jamesj999.sonic.game.ResultsScreen;
@@ -22,7 +23,6 @@ import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.debug.PerformanceProfiler;
 import uk.co.jamesj999.sonic.game.sonic2.objects.SpecialStageResultsScreenObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageManager;
-import uk.co.jamesj999.sonic.game.sonic2.levelselect.LevelSelectManager;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
@@ -325,12 +325,14 @@ public class GameLoop {
             }
         } else if (currentGameMode == GameMode.LEVEL_SELECT) {
             // Update level select screen
-            LevelSelectManager levelSelectManager = LevelSelectManager.getInstance();
-            levelSelectManager.update(inputHandler);
+            LevelSelectProvider levelSelect = getLevelSelectProviderLazy();
+            if (levelSelect != null) {
+                levelSelect.update(inputHandler);
 
-            // Check if user made a selection
-            if (levelSelectManager.isExiting()) {
-                exitLevelSelect();
+                // Check if user made a selection
+                if (levelSelect.isExiting()) {
+                    exitLevelSelect();
+                }
             }
             inputHandler.update();
             return; // Don't process LEVEL mode logic
@@ -1054,8 +1056,11 @@ public class GameLoop {
         camera.setX((short) 0);
         camera.setY((short) 0);
 
-        // Initialize the level select manager (also loads and caches palettes)
-        LevelSelectManager.getInstance().initialize();
+        // Initialize the level select provider (also loads and caches palettes)
+        LevelSelectProvider levelSelect = getLevelSelectProviderLazy();
+        if (levelSelect != null) {
+            levelSelect.initialize();
+        }
 
         // Notify listener of mode change
         if (gameModeChangeListener != null) {
@@ -1102,8 +1107,11 @@ public class GameLoop {
         camera.setX((short) 0);
         camera.setY((short) 0);
 
-        // Initialize the level select manager
-        LevelSelectManager.getInstance().initialize();
+        // Initialize the level select provider
+        LevelSelectProvider levelSelect = getLevelSelectProviderLazy();
+        if (levelSelect != null) {
+            levelSelect.initialize();
+        }
 
         // Notify listener of mode change
         if (gameModeChangeListener != null) {
@@ -1120,7 +1128,10 @@ public class GameLoop {
      * Exits the level select screen and loads the selected zone/act or special stage.
      */
     private void exitLevelSelect() {
-        LevelSelectManager levelSelect = LevelSelectManager.getInstance();
+        LevelSelectProvider levelSelect = getLevelSelectProviderLazy();
+        if (levelSelect == null) {
+            return;
+        }
 
         if (levelSelect.isSpecialStageSelected()) {
             // Enter special stage
@@ -1189,12 +1200,23 @@ public class GameLoop {
     }
 
     /**
-     * Gets the level select manager (for rendering).
+     * Gets the level select provider from the current game module.
      *
-     * @return the level select manager
+     * @return the level select provider, or null if not available
      */
-    public LevelSelectManager getLevelSelectManager() {
-        return LevelSelectManager.getInstance();
+    public LevelSelectProvider getLevelSelectProvider() {
+        return getLevelSelectProviderLazy();
+    }
+
+    /**
+     * Lazily retrieves the level select provider from the current game module.
+     */
+    private LevelSelectProvider getLevelSelectProviderLazy() {
+        var gameModule = GameModuleRegistry.getCurrent();
+        if (gameModule != null) {
+            return gameModule.getLevelSelectProvider();
+        }
+        return null;
     }
 
     // ==================== Level Transition Methods with Fade ====================

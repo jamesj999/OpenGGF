@@ -185,7 +185,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.FRAME_STEP_KEY, GLFW_KEY_Q);
 		putDefault(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, GLFW_KEY_C);
 		putDefault(SonicConfiguration.LEVEL_SELECT_KEY, GLFW_KEY_F9);
-		putDefault(SonicConfiguration.LEVEL_SELECT_ON_STARTUP, false);
+		putDefault(SonicConfiguration.LEVEL_SELECT_ON_STARTUP, true);
 	}
 
 	private void putDefault(SonicConfiguration key, Object value) {
