@@ -83,9 +83,20 @@ public class Sonic2PlayerArt {
         int bankSize = resolveBankSize(dplcFrames, mappingFrames);
         int frameDelay = 1;
         int paletteIndex = 0;
-        SpriteAnimationSet animationSet = basePatternIndex == Sonic2Constants.ART_TILE_SONIC
-                ? loadSonicAnimations()
-                : null;
+        SpriteAnimationSet animationSet;
+        if (basePatternIndex == Sonic2Constants.ART_TILE_SONIC) {
+            animationSet = loadSonicAnimations();
+        } else if (basePatternIndex == Sonic2Constants.ART_TILE_TAILS) {
+            animationSet = loadTailsAnimations();
+        } else {
+            animationSet = null;
+        }
+        // Tails' TailsAni_Hurt (0x19) uses the same frame ($5D) as TailsAni_Death (0x18).
+        // Use TailsAni_Hurt2 (0x1A, frame $5C) for Tails so hurt looks distinct from death.
+        int hurtAnimId = (basePatternIndex == Sonic2Constants.ART_TILE_TAILS)
+                ? Sonic2AnimationIds.HURT2
+                : Sonic2AnimationIds.HURT;
+
         SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile(
                 Sonic2AnimationIds.WAIT,      // idleAnimId
                 Sonic2AnimationIds.WALK,      // walkAnimId
@@ -98,7 +109,7 @@ public class Sonic2PlayerArt {
                 Sonic2AnimationIds.SPINDASH,  // spindashAnimId
                 Sonic2AnimationIds.SPRING,    // springAnimId
                 Sonic2AnimationIds.DEATH,     // deathAnimId
-                Sonic2AnimationIds.HURT,      // hurtAnimId
+                hurtAnimId,                   // hurtAnimId
                 Sonic2AnimationIds.SKID,      // skidAnimId
                 Sonic2AnimationIds.WALK,      // airAnimId
                 Sonic2AnimationIds.BALANCE,   // balanceAnimId - facing edge, safe distance
@@ -196,6 +207,51 @@ public class Sonic2PlayerArt {
         SpriteAnimationSet set = new SpriteAnimationSet();
         int base = Sonic2Constants.SONIC_ANIM_DATA_ADDR;
         int count = Sonic2Constants.SONIC_ANIM_SCRIPT_COUNT;
+
+        for (int i = 0; i < count; i++) {
+            int scriptAddr = base + reader.readU16BE(base + i * 2);
+            int delay = reader.readU8(scriptAddr);
+            scriptAddr += 1;
+
+            List<Integer> frames = new ArrayList<>();
+            SpriteAnimationEndAction endAction = SpriteAnimationEndAction.LOOP;
+            int endParam = 0;
+
+            while (true) {
+                int value = reader.readU8(scriptAddr);
+                scriptAddr += 1;
+                if (value >= 0xF0) {
+                    if (value == 0xFF) {
+                        endAction = SpriteAnimationEndAction.LOOP;
+                        break;
+                    }
+                    if (value == 0xFE) {
+                        endAction = SpriteAnimationEndAction.LOOP_BACK;
+                        endParam = reader.readU8(scriptAddr);
+                        scriptAddr += 1;
+                        break;
+                    }
+                    if (value == 0xFD) {
+                        endAction = SpriteAnimationEndAction.SWITCH;
+                        endParam = reader.readU8(scriptAddr);
+                        scriptAddr += 1;
+                        break;
+                    }
+                    endAction = SpriteAnimationEndAction.HOLD;
+                    break;
+                }
+                frames.add(value);
+            }
+
+            set.addScript(i, new SpriteAnimationScript(delay, frames, endAction, endParam));
+        }
+        return set;
+    }
+
+    private SpriteAnimationSet loadTailsAnimations() {
+        SpriteAnimationSet set = new SpriteAnimationSet();
+        int base = Sonic2Constants.TAILS_ANIM_DATA_ADDR;
+        int count = Sonic2Constants.TAILS_ANIM_SCRIPT_COUNT;
 
         for (int i = 0; i < count; i++) {
             int scriptAddr = base + reader.readU16BE(base + i * 2);
