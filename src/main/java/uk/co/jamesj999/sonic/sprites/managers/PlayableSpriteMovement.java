@@ -127,7 +127,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// - obj_control and hurt block input in ALL states
 		boolean groundedControlLock = !sprite.getAir() && (moveLocked || sprite.getSpringing());
 		if (groundedControlLock || objControlLocked || sprite.isHurt()) {
-			left = right = false;
+			left = false;
+			if (!sprite.isForceInputRight()) {
+				right = false;
+			}
 		}
 		// Block up/down when hurt
 		if (sprite.isHurt()) {
@@ -1520,12 +1523,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	private boolean hasObjectSupport() {
 		var objectManager = uk.co.jamesj999.sonic.level.LevelManager.getInstance().getObjectManager();
-		return objectManager != null && (objectManager.isRidingObject() || objectManager.hasStandingContact(sprite));
+		return objectManager != null && (objectManager.isRidingObject(sprite) || objectManager.hasStandingContact(sprite));
 	}
 
 	private void clearRidingObject() {
 		var objectManager = uk.co.jamesj999.sonic.level.LevelManager.getInstance().getObjectManager();
-		if (objectManager != null) objectManager.clearRidingObject();
+		if (objectManager != null) objectManager.clearRidingObject(sprite);
 	}
 
 	private int getDuckAnimId() {
@@ -1624,7 +1627,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 
-		var ridingObject = objectManager.getRidingObject();
+		var ridingObject = objectManager.getRidingObject(sprite);
 		if (ridingObject == null) {
 			return;
 		}
