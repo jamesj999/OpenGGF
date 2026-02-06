@@ -1,4 +1,4 @@
-# Implement Boss
+# Implement Sonic 2 Boss
 
 Implement a Sonic 2 zone boss with complete ROM accuracy. This skill guides complete implementation including LevelEventManager integration, multi-component architecture, hit handling, defeat sequences, and cross-validation against the disassembly.
 
@@ -9,7 +9,7 @@ $ARGUMENTS: Boss name or zone (e.g., "EHZ boss", "Chemical Plant boss", "0x56")
 ## Related Skills
 
 - **s2disasm-guide** (`.claude/skills/s2disasm-guide/skill.md`) - Disassembly navigation, label conventions, RomOffsetFinder
-- **implement-object** (`.claude/skills/implement-object/skill.md`) - For non-boss objects and badniks
+- **s2-implement-object** (`.claude/skills/s2-implement-object/skill.md`) - For non-boss Sonic 2 objects and badniks
 
 ## Key Differences: Bosses vs Regular Objects
 
