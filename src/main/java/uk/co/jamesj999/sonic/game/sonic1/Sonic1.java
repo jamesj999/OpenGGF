@@ -1,12 +1,16 @@
 package uk.co.jamesj999.sonic.game.sonic1;
 
 import uk.co.jamesj999.sonic.audio.GameSound;
+import uk.co.jamesj999.sonic.data.AnimatedPaletteProvider;
+import uk.co.jamesj999.sonic.data.AnimatedPatternProvider;
 import uk.co.jamesj999.sonic.data.Game;
 import uk.co.jamesj999.sonic.data.PlayerSpriteArtProvider;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.level.Level;
+import uk.co.jamesj999.sonic.level.animation.AnimatedPaletteManager;
+import uk.co.jamesj999.sonic.level.animation.AnimatedPatternManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.rings.RingSpawn;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
@@ -27,7 +31,7 @@ import java.util.logging.Logger;
  * <p>Level indices for Sonic 1 start at 0x80 (see {@link uk.co.jamesj999.sonic.level.LevelData}).
  * Zone = (levelIdx - 0x80) / 3, Act = (levelIdx - 0x80) % 3.
  */
-public class Sonic1 extends Game implements PlayerSpriteArtProvider {
+public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPatternProvider, AnimatedPaletteProvider {
     private static final Logger LOG = Logger.getLogger(Sonic1.class.getName());
 
     private static final int S1_LEVEL_INDEX_BASE = 0x80;
@@ -202,6 +206,23 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider {
     @Override
     public boolean save(int levelIdx, Level level) {
         return false;
+    }
+
+    // ===== AnimatedPatternProvider =====
+
+    @Override
+    public AnimatedPatternManager loadAnimatedPatternManager(Level level, int zoneIndex) throws IOException {
+        if (level == null) return null;
+        ensureHelpers();
+        return new Sonic1PatternAnimator(romReader, level, zoneIndex);
+    }
+
+    // ===== AnimatedPaletteProvider =====
+
+    @Override
+    public AnimatedPaletteManager loadAnimatedPaletteManager(Level level, int zoneIndex) throws IOException {
+        if (level == null) return null;
+        return new Sonic1PaletteCycler(level, zoneIndex);
     }
 
     // ===== Private helpers =====
