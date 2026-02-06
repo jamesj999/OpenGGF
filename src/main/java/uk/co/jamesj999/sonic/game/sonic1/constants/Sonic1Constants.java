@@ -1,0 +1,131 @@
+package uk.co.jamesj999.sonic.game.sonic1.constants;
+
+/**
+ * ROM addresses and constants for Sonic the Hedgehog 1 (Mega Drive/Genesis).
+ * Addresses are for the standard REV00/REV01 ROM.
+ */
+public final class Sonic1Constants {
+
+    private Sonic1Constants() {
+    }
+
+    // ---- Zone IDs (from s1disasm) ----
+    public static final int ZONE_GHZ  = 0x00; // Green Hill Zone
+    public static final int ZONE_LZ   = 0x01; // Labyrinth Zone
+    public static final int ZONE_MZ   = 0x02; // Marble Zone
+    public static final int ZONE_SLZ  = 0x03; // Star Light Zone
+    public static final int ZONE_SYZ  = 0x04; // Spring Yard Zone
+    public static final int ZONE_SBZ  = 0x05; // Scrap Brain Zone
+    public static final int ZONE_ENDZ = 0x06; // Ending / Final Zone
+    public static final int ZONE_SS   = 0x07; // Special Stage
+
+    // ---- Level data ----
+    public static final int LEVEL_HEADERS_ADDR    = 0x1DD16; // 16 bytes per zone header
+    public static final int LEVEL_INDEX_ADDR      = 0x68B96; // Layout offset table
+    public static final int OBJ_POS_INDEX_ADDR    = 0x6B000; // Object placement index
+    public static final int START_LOC_ARRAY_ADDR  = 0x0611E; // Start positions (4 bytes per act)
+
+    // ---- Level size / boundary array ----
+    // LevelSizeArray from disassembly - contains camera boundaries per act
+    // Each entry: 6 words (12 bytes) = unused, left, right, top, bottom, vshift
+    // 4 act slots per zone, 7 zones (GHZ..Ending)
+    public static final int LEVEL_SIZE_ARRAY_ADDR = 0x05F2A;
+
+    // ---- Collision data ----
+    public static final int COLLISION_ARRAY_NORMAL_ADDR  = 0x62A00; // CollArray1 (0x1000 bytes)
+    public static final int COLLISION_ARRAY_ROTATED_ADDR = 0x63A00; // CollArray2 (0x1000 bytes)
+    public static final int ANGLE_MAP_ADDR               = 0x62900; // AngleMap (0x100 bytes)
+
+    // Per-zone collision index addresses (raw binary)
+    public static final int COL_GHZ_ADDR = 0x64A00;
+    public static final int COL_LZ_ADDR  = 0x64B9A;
+    public static final int COL_MZ_ADDR  = 0x64C62;
+    public static final int COL_SLZ_ADDR = 0x64DF2;
+    public static final int COL_SYZ_ADDR = 0x64FE6;
+    public static final int COL_SBZ_ADDR = 0x651DA;
+
+    // ---- Palette data ----
+    // PalPointers table: 8 bytes per entry (dc.l addr, dc.w ramDest, dc.w count-1)
+    public static final int PALETTE_TABLE_ADDR = 0x2168;
+    public static final int SONIC_PALETTE_ADDR = 0x23A0; // Pal_Sonic (palette ID 3)
+    public static final int GHZ_PALETTE_ADDR   = 0x2400; // palid_GHZ = 4
+
+    // ---- Pattern Load Cues (PLC) ----
+    // ArtLoadCues pointer table: word offsets to PLC lists, indexed by PLC ID.
+    // Each PLC list starts with a word (entry_count - 1), followed by 6-byte entries:
+    //   dc.l rom_address, dc.w vram_byte_offset
+    // Divide vram_byte_offset by 0x20 to get tile index.
+    public static final int ART_LOAD_CUES_ADDR = 0x01DD86;
+
+    // Per-zone art addresses (patterns, 16x16, 256x256) are read dynamically
+    // from LevelHeaders at runtime - no need for per-zone constants here.
+
+    // ---- Block / tile sizes (Sonic 1 uses 256x256 blocks, not 128x128) ----
+    public static final int BLOCK_WIDTH_PX  = 256;
+    public static final int BLOCK_HEIGHT_PX = 256;
+    public static final int CHUNKS_PER_BLOCK_SIDE = 16; // 16x16 chunks in a 256x256 block
+    public static final int CHUNK_SIZE_PX   = 16;       // Each chunk is 16x16 pixels
+    public static final int PATTERN_SIZE_PX = 8;        // Each pattern is 8x8 pixels
+
+    // Solid tile data sizes
+    public static final int SOLID_TILE_MAP_SIZE   = 0x1000;
+    public static final int SOLID_TILE_ANGLE_SIZE = 0x100;
+
+    // ---- Player sprite data (REV01) ----
+    // Sonic's uncompressed art tiles (8x8 patterns)
+    public static final int ART_UNC_SONIC_ADDR = 0x22610;
+    public static final int ART_UNC_SONIC_SIZE = 0xA120; // 41248 bytes = 1289 patterns
+
+    // Sonic's sprite mappings (S1 format: 5 bytes per piece, byte header)
+    public static final int MAP_SONIC_ADDR = 0x21CF4;
+
+    // Sonic's Dynamic Pattern Load Cues (S1 format: byte header)
+    public static final int DPLC_SONIC_ADDR = 0x22310;
+
+    // Sonic's animation scripts (31 animations)
+    public static final int SONIC_ANIM_DATA_ADDR = 0x1421C;
+    public static final int SONIC_ANIM_SCRIPT_COUNT = 31;
+
+    // Sonic's VRAM tile index
+    public static final int ART_TILE_SONIC = 0x0780;
+
+    // S1 mapping/DPLC frame count (Map_Sonic and SonicDynPLC both have this many entries)
+    public static final int SONIC_MAPPING_FRAME_COUNT = 88;
+
+    // ---- Animated level art (uncompressed) ----
+    // Addresses calculated backward from LEVEL_INDEX_ADDR using artunc file sizes.
+    // GHZ animated art
+    public static final int ART_UNC_GHZ_WATER_ADDR   = 0x66A96; // 512 bytes, 16 tiles (2 frames × 8 tiles)
+    public static final int ART_UNC_GHZ_FLOWER1_ADDR  = 0x66C96; // 1024 bytes, 32 tiles (2 frames × 16 tiles)
+    public static final int ART_UNC_GHZ_FLOWER2_ADDR  = 0x67096; // 1152 bytes, 36 tiles (3 frames × 12 tiles)
+
+    // MZ animated art
+    public static final int ART_UNC_MZ_LAVA1_ADDR    = 0x67516; // 768 bytes, 24 tiles (3 frames × 8 tiles)
+    public static final int ART_UNC_MZ_LAVA2_ADDR    = 0x67816; // 1536 bytes, 48 tiles (magma, 3 frames × 16 tiles)
+    public static final int ART_UNC_MZ_TORCH_ADDR    = 0x67E16; // 768 bytes, 24 tiles (4 frames × 6 tiles)
+
+    // SBZ animated art
+    public static final int ART_UNC_SBZ_SMOKE_ADDR   = 0x68116; // 2688 bytes, 84 tiles (7 frames × 12 tiles)
+
+    // Giant ring art (after level layout data)
+    public static final int ART_UNC_GIANT_RING_ADDR  = 0x6A324; // 3136 bytes, 98 tiles
+
+    // ---- Title card art ----
+    // Nem_TitleCard: Nemesis-compressed title card sprite art (1550 bytes)
+    // Contains zone name letters, "ZONE", act numbers, oval decoration
+    // Verified by binary search matching docs/s1disasm/artnem/Title Cards.nem
+    public static final int ART_NEM_TITLE_CARD_ADDR = 0x39204;
+
+    // ---- Animated tile VRAM destinations (ArtTile_Level = 0x000) ----
+    // GHZ
+    public static final int ARTTILE_GHZ_WATERFALL     = 0x378;
+    public static final int ARTTILE_GHZ_BIG_FLOWER_1  = 0x35C;
+    public static final int ARTTILE_GHZ_SMALL_FLOWER  = 0x36C;
+    // MZ
+    public static final int ARTTILE_MZ_ANIMATED_LAVA  = 0x2E2;
+    public static final int ARTTILE_MZ_ANIMATED_MAGMA = 0x2D2;
+    public static final int ARTTILE_MZ_TORCH          = 0x2F2;
+    // SBZ
+    public static final int ARTTILE_SBZ_SMOKE_PUFF_1  = 0x448;
+    public static final int ARTTILE_SBZ_SMOKE_PUFF_2  = 0x454;
+}

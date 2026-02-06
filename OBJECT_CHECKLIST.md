@@ -1,12 +1,12 @@
 # Sonic 2 Object Implementation Checklist
 
-Generated: 2026-02-05 17:06:45
+Generated: 2026-02-05 23:32:33
 
 ## Summary
 
 - **Total unique objects found:** 120
-- **Implemented:** 71 (59.2%)
-- **Unimplemented:** 49 (40.8%)
+- **Implemented:** 72 (60.0%)
+- **Unimplemented:** 48 (40.0%)
 
 ## Implemented Objects
 
@@ -73,6 +73,7 @@ Generated: 2026-02-05 17:06:45
 | 0x95 | Sol | 3 | HTZ1, HTZ2 |
 | 0x96 | Rexon2 | 6 | HTZ1, HTZ2 |
 | 0x9D | Coconuts | 17 | EHZ1, EHZ2 |
+| 0x9E | Crawlton | 12 | MCZ1, MCZ2 |
 | 0xA5 | Spiny | 11 | CPZ1, CPZ2 |
 | 0xA6 | SpinyOnWall | 2 | CPZ1, CPZ2 |
 | 0xA7 | Grabber | 5 | CPZ1, CPZ2 |
@@ -110,7 +111,6 @@ Generated: 2026-02-05 17:06:45
 | 0x70 | Object | Cog | 14 | MTZ2, MTZ3 |
 | 0xB4 | Object | VPropeller | 13 | SCZ1, WFZ1 |
 | 0x67 | Object | MTZSpinTube | 12 | MTZ1, MTZ2, MTZ3 |
-| 0x9E | Badnik | Crawlton | 12 | MCZ1, MCZ2 |
 | 0x8B | Object | WFZPalSwitcher | 11 | WFZ1 |
 | 0x6C | Object | Conveyor | 10 | MTZ2, MTZ3 |
 | 0x9A | Badnik | Turtloid | 10 | SCZ1 |
@@ -438,10 +438,10 @@ Total: 259 objects | Implemented: 20 | Unimplemented: 0
 
 #### Act 1
 
-Total: 130 objects | Implemented: 16 | Unimplemented: 3
+Total: 130 objects | Implemented: 17 | Unimplemented: 2
 
 **Badniks:**
-- [ ] 0x9E Crawlton (x6) [0x22]
+- [x] 0x9E Crawlton (x6) [0x22]
 - [ ] 0xA3 Flasher (x12) [0x2C]
 
 **Objects:**
@@ -465,10 +465,10 @@ Total: 130 objects | Implemented: 16 | Unimplemented: 3
 
 #### Act 2
 
-Total: 148 objects | Implemented: 17 | Unimplemented: 3
+Total: 148 objects | Implemented: 18 | Unimplemented: 2
 
 **Badniks:**
-- [ ] 0x9E Crawlton (x6) [0x22]
+- [x] 0x9E Crawlton (x6) [0x22]
 - [ ] 0xA3 Flasher (x14) [0x2C]
 
 **Bosses:**

@@ -40,55 +40,62 @@ These directories are untracked (not in git) but available locally.
 
 ## ROM Offset Finder Tool
 
-If `docs/s2disasm` is present, use the **RomOffsetFinder** tool to search for disassembly items and find their ROM offsets. This streamlines finding offsets for items defined in the disassembly.
+If `docs/s2disasm`, `docs/s1disasm`, or `docs/skdisasm` is present, use the **RomOffsetFinder** tool to search for disassembly items and find their ROM offsets. Supports Sonic 1, Sonic 2, and Sonic 3&K.
 
 ### Quick Reference
 
 ```bash
-# Search for items (by label or filename) - includes calculated ROM offset
+# Sonic 2 (default) - search, verify, export
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search SpecialStars" -q
-
-# List all files of a compression type (nem, kos, eni, sax, bin)
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="list nem" -q
-
-# Test decompression at a ROM offset
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="test 0xDD8CE nem" -q
-
-# Auto-detect compression type at offset
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="test 0x3000 auto" -q
-
-# Verify a calculated offset against actual ROM data
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify ArtNem_SpecialHUD" -q
-
-# Batch verify all items of a type (shows [OK], [!!] mismatch, [??] not found)
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify-batch nem" -q
-
-# Export verified offsets as Java constants
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="export nem ART_" -q
+
+# Sonic 1 - use --game s1 flag
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_GHZ" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 list nem" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Pal_Sonic" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 verify Pal_Sonic" -q
+
+# Sonic 3&K - use --game s3k flag
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search AIZ" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k list nem" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Pal_AIZ" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k verify ArtNem_TitleScreenText" -q
+
+# Other commands (work with all games)
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="list nem" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="test 0xDD8CE nem" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="test 0x3000 auto" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify-batch nem" -q
 ```
 
-The `search` command automatically calculates ROM offsets using known anchor points from `RomOffsetCalculator.ANCHOR_OFFSETS`. Verified offsets are added as runtime anchors to improve accuracy for nearby items.
+Game selection: `--game s1`, `--game s2` (default), or `--game s3k`. Also supports `-Dgame=s1` system property. Auto-detects from disasm path if `--game` not specified.
+
+The `search` command automatically calculates ROM offsets using known anchor points from the game's `GameProfile`. Verified offsets are added as runtime anchors to improve accuracy for nearby items.
 
 ### CLI Commands
 
 | Command | Description |
 |---------|-------------|
-| `search <pattern>` | Search for items by label/filename |
-| `find <label> [offset]` | Find ROM offset by decompression search |
-| `test <offset> <type>` | Test decompression at offset |
-| `list [type]` | List all includes (optionally by type) |
-| `verify <label>` | Verify calculated offset against ROM |
-| `verify-batch [type]` | Batch verify all/filtered items |
-| `export <type> [prefix]` | Export verified offsets as Java constants |
+| `[--game s1\|s2\|s3k] search <pattern>` | Search for items by label/filename |
+| `[--game s1\|s2\|s3k] find <label> [offset]` | Find ROM offset by decompression search |
+| `[--game s1\|s2\|s3k] test <offset> <type>` | Test decompression at offset |
+| `[--game s1\|s2\|s3k] list [type]` | List all includes (optionally by type) |
+| `[--game s1\|s2\|s3k] verify <label>` | Verify calculated offset against ROM |
+| `[--game s1\|s2\|s3k] verify-batch [type]` | Batch verify all/filtered items |
+| `[--game s1\|s2\|s3k] export <type> [prefix]` | Export verified offsets as Java constants |
 
 ### Compression Types
 | Type | Extension | CLI Arg |
 |------|-----------|---------|
 | Nemesis | `.nem` | `nem` |
 | Kosinski | `.kos` | `kos` |
+| Kosinski Moduled | `.kosm` | `kosm` |
 | Enigma | `.eni` | `eni` |
 | Saxman | `.sax` | `sax` |
 | Uncompressed | `.bin` | `bin` |
+
+**Note:** S3K encodes compression type in the label suffix (e.g., `AIZ1_8x8_Primary_KosM`) rather than the file extension. The tool automatically infers the correct type from the label when the file extension is `.bin`.
 
 ### Palette Macro Support
 

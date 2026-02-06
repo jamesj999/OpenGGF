@@ -7,6 +7,7 @@ import uk.co.jamesj999.sonic.audio.synth.VirtualSynthesizer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Logger;
 
@@ -568,6 +569,11 @@ public class SmpsSequencer implements AudioStream {
             weighted = 0xFF;
 
         this.tempoWeight = weighted;
+
+        // For TIMEOUT mode, initialize the countdown accumulator to the tempo value
+        if (config.getTempoMode() == SmpsSequencerConfig.TempoMode.TIMEOUT && tempoAccumulator == 0) {
+            tempoAccumulator = normalTempo;
+        }
     }
 
     private int mapFmChannel(int val) {
@@ -803,9 +809,18 @@ public class SmpsSequencer implements AudioStream {
         if (tempoWeight == 0) {
             return;
         }
-        tempoAccumulator += tempoWeight;
-        if (tempoAccumulator >= tempoModBase) {
-            tempoAccumulator -= tempoModBase;
+        if (config.getTempoMode() == SmpsSequencerConfig.TempoMode.TIMEOUT) {
+            // S1 style: always tick, but periodically extend track durations
+            tempoAccumulator--;
+            if (tempoAccumulator <= 0) {
+                tempoAccumulator = normalTempo;
+                // Extend all active music track durations by 1
+                for (Track t : tracks) {
+                    if (t.active && t.duration > 0) {
+                        t.duration++;
+                    }
+                }
+            }
             processFade();
             tick();
             if (sfxMode) {
@@ -814,6 +829,23 @@ public class SmpsSequencer implements AudioStream {
                     for (Track t : tracks) {
                         t.active = false;
                         stopNote(t);
+                    }
+                }
+            }
+        } else {
+            // S2 style: accumulator overflow
+            tempoAccumulator += tempoWeight;
+            if (tempoAccumulator >= tempoModBase) {
+                tempoAccumulator -= tempoModBase;
+                processFade();
+                tick();
+                if (sfxMode) {
+                    maxTicks--;
+                    if (maxTicks <= 0) {
+                        for (Track t : tracks) {
+                            t.active = false;
+                            stopNote(t);
+                        }
                     }
                 }
             }
@@ -965,9 +997,12 @@ public class SmpsSequencer implements AudioStream {
                 if (t.pos < data.length) {
                     normalTempo = data[t.pos++] & 0xFF;
                     calculateTempo();
-                    // Parity: EA (Tempo Set) resets the tempo accumulator/counter to the new tempo
-                    // value
-                    tempoAccumulator = tempoWeight;
+                    // Parity: EA (Tempo Set) resets the tempo accumulator/counter to the new tempo value
+                    if (config.getTempoMode() == SmpsSequencerConfig.TempoMode.TIMEOUT) {
+                        tempoAccumulator = normalTempo;
+                    } else {
+                        tempoAccumulator = tempoWeight;
+                    }
                 }
                 break;
             case 0xEB:
@@ -1020,6 +1055,14 @@ public class SmpsSequencer implements AudioStream {
 
     private int flagParamLength(int cmd) {
         if (cmd >= 0xE0 && cmd <= 0xFF) {
+            // Check for game-specific overrides first (e.g., S1 ED/EE differ from S2)
+            Map<Integer, Integer> overrides = config.getCoordFlagParamOverrides();
+            if (!overrides.isEmpty()) {
+                Integer override = overrides.get(cmd);
+                if (override != null) {
+                    return override;
+                }
+            }
             return FLAG_PARAM_LENGTH[cmd - 0xE0];
         }
         return 0;

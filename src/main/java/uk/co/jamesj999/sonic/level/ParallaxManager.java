@@ -2,7 +2,10 @@ package uk.co.jamesj999.sonic.level;
 
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.game.GameModuleRegistry;
+import uk.co.jamesj999.sonic.game.GameModule;
 import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
 import uk.co.jamesj999.sonic.game.sonic2.DynamicHtz;
 import uk.co.jamesj999.sonic.level.scroll.BackgroundCamera;
 import uk.co.jamesj999.sonic.level.scroll.ParallaxTables;
@@ -13,6 +16,7 @@ import uk.co.jamesj999.sonic.level.scroll.SwScrlEhz;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlMcz;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlHtz;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlOoz;
+import uk.co.jamesj999.sonic.level.scroll.ZoneScrollHandler;
 
 import java.io.IOException;
 import java.util.logging.Logger;
@@ -60,6 +64,11 @@ public class ParallaxManager {
     private ParallaxTables tables;
     private boolean loaded = false;
 
+    // Game-agnostic scroll handler provider (from current GameModule)
+    private ScrollHandlerProvider scrollProvider;
+    private boolean providerLoaded = false;
+
+    // Sonic 2-specific handlers (used when loaded == true)
     private SwScrlArz arzHandler;
     private SwScrlCnz cnzHandler;
     private SwScrlEhz ehzHandler;
@@ -107,23 +116,47 @@ public class ParallaxManager {
     }
 
     public void load(Rom rom) {
-        if (loaded)
+        if (loaded || providerLoaded) {
             return;
-        try {
-            tables = new ParallaxTables(rom);
-            arzHandler = new SwScrlArz(tables);
-            cnzHandler = new SwScrlCnz(tables);
-            ehzHandler = new SwScrlEhz(tables);
-            cpzHandler = new SwScrlCpz(tables);
-            htzHandler = new SwScrlHtz(tables, bgCamera);
-            mczHandler = new SwScrlMcz(tables);
-            oozHandler = new SwScrlOoz(tables);
-            dynamicHtz = new DynamicHtz();
-            dynamicHtz.init();
-            loaded = true;
-            LOGGER.info("Parallax tables loaded.");
-        } catch (IOException e) {
-            LOGGER.log(java.util.logging.Level.SEVERE, "Failed to load parallax data: " + e.getMessage(), e);
+        }
+
+        // Get the game-specific scroll handler provider
+        GameModule module = GameModuleRegistry.getCurrent();
+        String gameId = (module != null) ? module.getIdentifier() : null;
+
+        if (module != null) {
+            scrollProvider = module.getScrollHandlerProvider();
+            if (scrollProvider != null) {
+                try {
+                    scrollProvider.load(rom);
+                    providerLoaded = true;
+                } catch (IOException e) {
+                    LOGGER.warning("Failed to load game scroll provider: " + e.getMessage());
+                    scrollProvider = null;
+                }
+            }
+        }
+
+        // Load Sonic 2-specific inline handlers (ParallaxTables, zone-specific post-processing).
+        // Only for Sonic 2 - other games use the provider path exclusively.
+        if ("Sonic2".equals(gameId)) {
+            try {
+                tables = new ParallaxTables(rom);
+                arzHandler = new SwScrlArz(tables);
+                cnzHandler = new SwScrlCnz(tables);
+                ehzHandler = new SwScrlEhz(tables);
+                cpzHandler = new SwScrlCpz(tables);
+                htzHandler = new SwScrlHtz(tables, bgCamera);
+                mczHandler = new SwScrlMcz(tables);
+                oozHandler = new SwScrlOoz(tables);
+                dynamicHtz = new DynamicHtz();
+                dynamicHtz.init();
+                loaded = true;
+                LOGGER.info("Parallax tables loaded (Sonic 2).");
+            } catch (IOException e) {
+                LOGGER.log(java.util.logging.Level.SEVERE,
+                        "Failed to load parallax data: " + e.getMessage(), e);
+            }
         }
     }
 
@@ -232,17 +265,31 @@ public class ParallaxManager {
         currentShakeOffsetX = 0;
         currentShakeOffsetY = 0;
 
+        int cameraX = cam.getX();
+        int cameraY = cam.getY();
+        vscrollFactorFG = (short) cameraY;
+
+        // For non-Sonic 2 games, use the game-specific scroll handler provider
+        if (!loaded && scrollProvider != null) {
+            ZoneScrollHandler handler = scrollProvider.getHandler(zoneId);
+            if (handler != null) {
+                handler.update(hScroll, cameraX, cameraY, frameCounter, actId);
+                minScroll = handler.getMinScrollOffset();
+                maxScroll = handler.getMaxScrollOffset();
+                vscrollFactorBG = handler.getVscrollFactorBG();
+            } else {
+                fillMinimal(cam);
+            }
+            return;
+        }
+
         if (!loaded) {
             fillMinimal(cam);
             return;
         }
 
-        initZone(zoneId, actId, cam.getX(), cam.getY());
-
-        int cameraX = cam.getX();
-        int cameraY = cam.getY();
-
-        vscrollFactorFG = (short) cameraY;
+        // Sonic 2 path: use dedicated handlers with zone-specific post-processing
+        initZone(zoneId, actId, cameraX, cameraY);
         vscrollFactorBG = (short) bgCamera.getBgYPos();
 
         switch (zoneId) {

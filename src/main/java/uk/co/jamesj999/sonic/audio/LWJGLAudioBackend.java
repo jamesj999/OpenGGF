@@ -12,7 +12,6 @@ import uk.co.jamesj999.sonic.audio.smps.SmpsSequencerConfig;
 import uk.co.jamesj999.sonic.audio.synth.Ym2612Chip;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
-import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SmpsConstants;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -275,8 +274,8 @@ public class LWJGLAudioBackend implements AudioBackend {
         boolean dacInterpolate = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.DAC_INTERPOLATE);
         boolean fm6DacOff = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.FM6_DAC_OFF);
 
-        // Look up SFX priority from Z80 driver priority table
-        int sfxPriority = Sonic2SmpsConstants.getSfxPriority(data.getId());
+        // Look up SFX priority from game-specific audio profile
+        int sfxPriority = (audioProfile != null) ? audioProfile.getSfxPriority(data.getId()) : 0x70;
 
         if (smpsDriver != null && currentStream == smpsDriver) {
             // Mix into current driver

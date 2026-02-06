@@ -237,89 +237,99 @@ Game objects use a factory pattern with game-specific registries.
 ### Constants Files
 | File | Contents |
 |------|----------|
-| `Sonic2Constants.java` | Primary ROM offsets |
-| `Sonic2ObjectIds.java` | Object type IDs (0x41=Spring, 0x26=Monitor) |
-| `Sonic2ObjectConstants.java` | Touch collision data |
-| `Sonic2AudioConstants.java` | Music and SFX IDs |
+| `Sonic2Constants.java` | Sonic 2 primary ROM offsets |
+| `Sonic2ObjectIds.java` | Sonic 2 object type IDs (0x41=Spring, 0x26=Monitor) |
+| `Sonic2ObjectConstants.java` | Sonic 2 touch collision data |
+| `Sonic2AudioConstants.java` | Sonic 2 music and SFX IDs |
+| `Sonic1Constants.java` | Sonic 1 ROM offsets (zone IDs, level data, collision, palettes, art) |
 
 ## Adding New Game Support
 
-To add support for a new game (e.g., Sonic 1):
-1. Create `GameModule` implementation (`Sonic1GameModule`)
+To add support for a new game:
+1. Create `GameModule` implementation (e.g., `Sonic3KGameModule`)
 2. Create `RomDetector` to identify the ROM
 3. Implement required providers (`ZoneRegistry`, `ObjectRegistry`, audio profile)
 4. Register detector in `RomDetectionService.registerBuiltInDetectors()`
+5. Add a `GameProfile` factory method in `RomOffsetFinder.GameProfile` for the ROM Offset Finder tool
+
+Sonic 1 support is actively being developed on the `feature/sonic-1-support` branch with `Sonic1GameModule`, `Sonic1ZoneRegistry`, and related providers already in place. The ROM Offset Finder tool supports S1, S2, and S3K via `GameProfile` factory methods (`sonic1()`, `sonic2()`, `sonic3k()`).
 
 ## ROM Offset Finder Tool
 
-If `docs/s2disasm` is present, you can use the **RomOffsetFinder** tool to search for disassembly items, find their ROM offsets, verify them against ROM data, and export as Java constants.
+If `docs/s2disasm`, `docs/s1disasm`, or `docs/skdisasm` is present, you can use the **RomOffsetFinder** tool to search for disassembly items, find their ROM offsets, verify them against ROM data, and export as Java constants. Supports Sonic 1, Sonic 2, and Sonic 3&K.
 
 ### Prerequisites
-- `docs/s2disasm/` directory (Sonic 2 disassembly) must be present
-- ROM file `Sonic The Hedgehog 2 (W) (REV01) [!].gen` in the project root (for `test`, `verify`, `verify-batch`, `export` commands)
+- `docs/s2disasm/` (Sonic 2), `docs/s1disasm/` (Sonic 1), or `docs/skdisasm/` (Sonic 3&K) directory must be present
+- Corresponding ROM file in the project root (for `test`, `verify`, `verify-batch`, `export` commands)
+
+### Game Selection
+
+Use `--game s1`, `--game s2` (default), or `--game s3k` to select the target game. Can also be set via `-Dgame=s1` system property. If omitted, auto-detects from the disasm path.
 
 ### CLI Commands
 
 | Command | Description |
 |---------|-------------|
-| `search <pattern>` | Search by label/filename, shows calculated offset |
-| `list [type]` | List all includes, optionally filtered by compression type |
-| `test <offset> <type>` | Test decompression at a ROM offset |
-| `verify <label>` | Verify a calculated offset against ROM data |
-| `verify-batch [type]` | Batch verify all offsets (optionally filtered by type) |
-| `export <type> [prefix]` | Export verified offsets as Java constants |
+| `[--game s1\|s2\|s3k] search <pattern>` | Search by label/filename, shows calculated offset |
+| `[--game s1\|s2\|s3k] list [type]` | List all includes, optionally filtered by compression type |
+| `[--game s1\|s2\|s3k] test <offset> <type>` | Test decompression at a ROM offset |
+| `[--game s1\|s2\|s3k] verify <label>` | Verify a calculated offset against ROM data |
+| `[--game s1\|s2\|s3k] verify-batch [type]` | Batch verify all offsets (optionally filtered by type) |
+| `[--game s1\|s2\|s3k] export <type> [prefix]` | Export verified offsets as Java constants |
 
 ### Usage via Maven
 
 ```bash
-# Search for items - includes calculated ROM offset
+# Sonic 2 (default) - search, verify, export
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search <pattern>" -q
-
-# Verify a calculated offset against ROM data
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify <label>" -q
-
-# Batch verify all Nemesis files
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify-batch nem" -q
-
-# Export verified offsets as Java constants
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="export nem ART_" -q
 
-# Test decompression at a ROM offset
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="test <offset> <type>" -q
+# Sonic 1 - use --game s1 flag
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_GHZ" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 list nem" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 verify Pal_Sonic" -q
 
-# List all files of a compression type
+# Sonic 3&K - use --game s3k flag
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search AIZ" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k list nem" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k verify ArtNem_TitleScreenText" -q
+
+# Other commands (work with all games)
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify-batch nem" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="test <offset> <type>" -q
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="list <type>" -q
 ```
 
 ### Examples
 
 ```bash
-# Search for special stage stars art (shows ROM offset automatically)
+# Sonic 2: Search for special stage stars art
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search SpecialStars" -q
 
-# Search for palettes (supports palette macro)
+# Sonic 2: Search for palettes (supports S2 palette macro)
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search Pal_SS" -q
 
-# Verify a specific label's offset
+# Sonic 2: Verify a specific label's offset
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify ArtNem_SpecialHUD" -q
-# Output: [OK] ArtNem_SpecialHUD at 0xDD48A (Nemesis, 774 bytes)
 
-# Batch verify all Nemesis files
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify-batch nem" -q
-# Output:
-# [OK] ArtNem_SpecialBack      0xDCD68
-# [OK] ArtNem_SpecialHUD       0xDD48A
-# [!!] ArtNem_SomeAsset        calc=0x12345 actual=0x12350
-# Summary: 45 verified, 1 mismatch, 0 not found, 0 errors
+# Sonic 1: Search for GHZ Nemesis art
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_GHZ" -q
 
-# Export as Java constants
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="export nem ART_" -q
-# Output:
-# public static final long ART_NEM_SPECIAL_HUD_OFFSET = 0x0DD48AL;
-# public static final int ART_NEM_SPECIAL_HUD_SIZE = 774;
+# Sonic 1: Search for palettes (finds bincludePalette entries)
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Pal_Sonic" -q
 
-# Test with auto-detection
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="test 0x3000 auto" -q
+# Sonic 1: Export verified Nemesis offsets as Sonic1Constants
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 export nem NEM_" -q
+
+# Sonic 3&K: Search for Angel Island Zone items
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search AIZ" -q
+
+# Sonic 3&K: List all Kosinski Moduled files (label-suffix detection)
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k list kosm" -q
+
+# Sonic 3&K: Verify a specific offset against ROM
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k verify ArtNem_TitleScreenText" -q
 ```
 
 ### Verification Status Codes
@@ -331,51 +341,58 @@ mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFind
 | `[??]` | Not found - couldn't locate data in ROM |
 | `[ER]` | Error during verification |
 
-### Adding New Anchor Offsets
-The offset calculator uses known anchor points defined in `RomOffsetCalculator.ANCHOR_OFFSETS`. Verified offsets are automatically added as runtime anchors during a session. To add permanent anchors, update the `ANCHOR_OFFSETS` map.
+### GameProfile and Anchor Offsets
+
+The offset calculator uses a `GameProfile` that encapsulates all game-specific configuration:
+- **Anchor offsets** - Known verified ROM addresses used as reference points for calculation
+- **Main ASM file** - `s2.asm` for Sonic 2, `sonic.asm` for Sonic 1, `sonic3k.asm` for Sonic 3&K
+- **Label prefix mappings** - For converting disassembly labels to Java constant names (e.g., `ArtNem_` -> `NEM_` for S2, `Nem_` -> `NEM_` for S1, `ArtKosM_` -> `KOSM_` for S3K)
+- **Palette handling** - S2 uses a `palette` macro (expanded to `art/palettes/`), S1 uses `bincludePalette` (caught by the BINCLUDE regex), S3K uses plain `binclude` for palettes
+- **Label-suffix compression inference** - S3K encodes compression type in label suffixes (e.g., `_KosM`, `_Kos`, `_Nem`) since files use `.bin` extension. The tool automatically infers the correct type.
+
+Verified offsets are automatically added as runtime anchors during a session. To add permanent anchors, update the `GameProfile.sonic1()`, `GameProfile.sonic2()`, or `GameProfile.sonic3k()` factory methods in `RomOffsetFinder.java`.
 
 ### Compression Types
 | Type | Extension | Argument |
 |------|-----------|----------|
 | Nemesis | `.nem` | `nem` |
 | Kosinski | `.kos` | `kos` |
+| Kosinski Moduled | `.kosm` | `kosm` |
 | Enigma | `.eni` | `eni` |
 | Saxman | `.sax` | `sax` |
 | Uncompressed | `.bin` | `bin` |
 
-### Palette Macro Support
-The search also parses `palette` macros from the disassembly:
-```asm
-Pal_SSResult:   palette Special Stage/Results.bin   ; found as art/palettes/Special Stage/Results.bin
-```
+### Palette Support
+- **Sonic 2:** Parses `palette` macros (e.g., `Pal_SSResult: palette Special Stage/Results.bin` → `art/palettes/Special Stage/Results.bin`)
+- **Sonic 1:** Parses `bincludePalette` directives (e.g., `Pal_Sonic: bincludePalette "palette/Sonic.bin"`)
 
 ### Programmatic Usage
 
 The tools in `uk.co.jamesj999.sonic.tools.disasm` can also be used programmatically:
 
 ```java
-// Calculate ROM offset for a label
-RomOffsetCalculator calculator = new RomOffsetCalculator("docs/s2disasm");
-long offset = calculator.calculateOffset("ArtNem_SpecialStars");
-
-// Add verified anchor for improved accuracy
-calculator.addVerifiedAnchor("ArtNem_SpecialStars", 0xDD8CE);
-
-// Search the disassembly (includes palette macros)
-DisassemblySearchTool searchTool = new DisassemblySearchTool("docs/s2disasm");
-List<DisassemblySearchResult> results = searchTool.search("Ring");
-
-// Verify an offset against ROM
-RomOffsetFinder finder = new RomOffsetFinder("docs/s2disasm", "path/to/rom.gen");
+// Sonic 2 (default profile)
+RomOffsetFinder finder = new RomOffsetFinder("docs/s2disasm", "path/to/s2rom.gen");
 VerificationResult result = finder.verify("ArtNem_SpecialHUD");
-if (result.isVerified()) {
-    System.out.printf("Verified at 0x%X%n", result.getVerifiedOffset());
-}
 
-// Batch verify and export
-List<VerificationResult> results = finder.verifyBatch(CompressionType.NEMESIS);
+// Sonic 1 (explicit profile)
+RomOffsetFinder.GameProfile s1 = RomOffsetFinder.GameProfile.sonic1();
+RomOffsetFinder s1Finder = new RomOffsetFinder("docs/s1disasm", "path/to/s1rom.gen", s1);
+VerificationResult s1Result = s1Finder.verify("Pal_Sonic");
+
+// Sonic 3&K (explicit profile)
+RomOffsetFinder.GameProfile s3k = RomOffsetFinder.GameProfile.sonic3k();
+RomOffsetFinder s3kFinder = new RomOffsetFinder("docs/skdisasm", "path/to/s3krom.gen", s3k);
+VerificationResult s3kResult = s3kFinder.verify("ArtNem_TitleScreenText");
+
+// Search the disassembly
+DisassemblySearchTool searchTool = new DisassemblySearchTool("docs/s1disasm", s1);
+List<DisassemblySearchResult> results = searchTool.search("Nem_GHZ");
+
+// Batch verify and export with game-aware labels
+List<VerificationResult> batch = s1Finder.verifyBatch(CompressionType.NEMESIS);
 ConstantsExporter exporter = new ConstantsExporter();
-exporter.exportAsJavaConstants(results, "ART_", new PrintWriter(System.out));
+exporter.exportAsJavaConstants(batch, "", new PrintWriter(System.out), s1);
 ```
 
 ## Audio Engine hints

@@ -76,4 +76,10 @@ public interface Level {
      * This is used by animated pattern/palette managers to look up zone-specific data.
      */
     int getZoneIndex();
+
+    /** Block size in pixels (128 for Sonic 2, 256 for Sonic 1). */
+    default int getBlockPixelSize() { return 128; }
+
+    /** Number of 16x16 chunks along one side of a block (8 for Sonic 2, 16 for Sonic 1). */
+    default int getChunksPerBlockSide() { return 8; }
 }

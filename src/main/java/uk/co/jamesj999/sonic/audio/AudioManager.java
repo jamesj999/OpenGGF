@@ -81,6 +81,9 @@ public class AudioManager {
 
     public void playMusic(int musicId) {
         if (audioProfile != null) {
+            if (audioProfile.handleSystemCommand(musicId, this)) {
+                return;
+            }
             if (musicId == audioProfile.getSpeedShoesOnCommandId()) {
                 backend.setSpeedShoes(true);
                 return;

@@ -1,9 +1,12 @@
 package uk.co.jamesj999.sonic.tools;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.util.Arrays;
 
 /**
  * A thread-safe, statically callable Java implementation of the Kosinski decompression algorithm.
@@ -180,6 +183,92 @@ public class KosinskiReader {
      */
     public static byte[] decompress(ReadableByteChannel inputChannel) throws IOException {
         return decompress(inputChannel, false);
+    }
+
+    /**
+     * Decompresses Kosinski Moduled data from a byte array at the given offset.
+     * <p>
+     * Kosinski Moduled format:
+     * <ol>
+     *   <li>2-byte big-endian header: total uncompressed size</li>
+     *   <li>Module 1: standard Kosinski compressed data (up to 0x1000 bytes decompressed)</li>
+     *   <li>Zero-byte padding to align the next module to a 16-byte boundary
+     *       (relative to 2 bytes after the header start)</li>
+     *   <li>Module 2, Module 3, ... until total decompressed bytes >= header size</li>
+     * </ol>
+     *
+     * @param data   The byte array containing the compressed data.
+     * @param offset The offset within the array where the moduled data begins.
+     * @return The decompressed data as a byte array.
+     * @throws IOException If an I/O error occurs during decompression.
+     */
+    public static byte[] decompressModuled(byte[] data, int offset) throws IOException {
+        if (offset + 2 > data.length) {
+            throw new IOException("Not enough data for Kosinski Moduled header");
+        }
+
+        // Read 2-byte big-endian header: total uncompressed size
+        int fullSize = ((data[offset] & 0xFF) << 8) | (data[offset + 1] & 0xFF);
+        if (fullSize == 0) {
+            return new byte[0];
+        }
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream(fullSize);
+        int pos = offset + 2; // current position in the data array
+
+        while (output.size() < fullSize) {
+            if (pos >= data.length) {
+                throw new IOException("Unexpected end of data in Kosinski Moduled stream");
+            }
+
+            // Decompress one standard Kosinski module
+            int remaining = data.length - pos;
+            ByteArrayInputStream bais = new ByteArrayInputStream(data, pos, remaining);
+            ReadableByteChannel channel = Channels.newChannel(bais);
+            byte[] moduleData = decompress(channel);
+            int compressedBytesConsumed = remaining - bais.available();
+
+            output.write(moduleData);
+            pos += compressedBytesConsumed;
+
+            if (output.size() >= fullSize) {
+                break;
+            }
+
+            // Pad position to next 16-byte boundary relative to (offset + 2)
+            // Formula from reference: ((pos - 2 + 0xF) & ~0xF) + 2
+            // where positions are relative to the start of the data, so we adjust for our offset
+            int relativePos = pos - offset;
+            int paddedRelative = (((relativePos - 2) + 0xF) & ~0xF) + 2;
+            pos = offset + paddedRelative;
+        }
+
+        // Truncate to exactly fullSize bytes
+        byte[] result = output.toByteArray();
+        if (result.length > fullSize) {
+            result = Arrays.copyOf(result, fullSize);
+        }
+        return result;
+    }
+
+    /**
+     * Decompresses Kosinski Moduled data from a ReadableByteChannel.
+     * This reads all available data from the channel into a byte array first.
+     *
+     * @param inputChannel The input channel to read compressed data from.
+     * @return The decompressed data as a byte array.
+     * @throws IOException If an I/O error occurs during decompression.
+     */
+    public static byte[] decompressModuled(ReadableByteChannel inputChannel) throws IOException {
+        // Read all data from the channel
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        ByteBuffer readBuf = ByteBuffer.allocate(4096);
+        while (inputChannel.read(readBuf) != -1) {
+            readBuf.flip();
+            buffer.write(readBuf.array(), 0, readBuf.limit());
+            readBuf.clear();
+        }
+        return decompressModuled(buffer.toByteArray(), 0);
     }
 
     // Helper class to encapsulate mutable state
