@@ -76,21 +76,14 @@ public class TestSmpsSequencerInstrumentLoading {
             data[v+i] = (byte) (i + 10);
         }
 
-        // Expected Voice (Reordered: DT, TL, RS, AM, D2R, RR)
-        // Source: DT, RS, AM, D2R, RR, TL
-        // Source Order: Logical (1, 2, 3, 4)
-        // Target Order: Logical (1, 2, 3, 4). No Swap.
-
+        // Expected Voice: S1 voices are already in the engine's expected format
+        // (operator order 1,3,2,4), matching Ym2612Chip.setInstrument() index arrays.
+        // No rearrangement is needed - getVoice() returns raw bytes directly.
+        //
+        // Layout: [0]=FB|ALGO, [1-4]=DT|MUL, [5-8]=RS|AR, [9-12]=AM|D1R,
+        //         [13-16]=D2R, [17-20]=D1L|RR, [21-24]=TL
         byte[] expectedVoice = new byte[25];
-        expectedVoice[0] = 10; // Algo
-
-        // Direct copy (No Swap)
-        System.arraycopy(data, v+1, expectedVoice, 1, 4); // DT
-        System.arraycopy(data, v+21, expectedVoice, 5, 4); // TL
-        System.arraycopy(data, v+5, expectedVoice, 9, 4); // RS
-        System.arraycopy(data, v+9, expectedVoice, 13, 4); // AM
-        System.arraycopy(data, v+13, expectedVoice, 17, 4); // D2R
-        System.arraycopy(data, v+17, expectedVoice, 21, 4); // RR
+        System.arraycopy(data, v, expectedVoice, 0, 25);
 
         // Explicitly set to Big Endian (S1) to verify 25-byte voice loading
         AbstractSmpsData smps = new Sonic1SmpsData(data, 0);

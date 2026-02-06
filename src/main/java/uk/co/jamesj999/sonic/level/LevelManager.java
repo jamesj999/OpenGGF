@@ -93,6 +93,8 @@ public class LevelManager {
     private static final int HUD_PATTERN_BASE = 0x28000;
     private static LevelManager levelManager;
     private Level level;
+    private int blockPixelSize = 128;  // cached from level
+    private int chunksPerBlockSide = 8;
     private Game game;
     private GameModule gameModule;
 
@@ -231,6 +233,8 @@ public class LevelManager {
             audioManager.resetRingSound();
             audioManager.playMusic(game.getMusicId(levelIndex));
             level = game.loadLevel(levelIndex);
+            blockPixelSize = level.getBlockPixelSize();
+            chunksPerBlockSide = level.getChunksPerBlockSide();
         backgroundTilemapDirty = true;
         foregroundTilemapDirty = true;
         patternLookupDirty = true;
@@ -253,7 +257,7 @@ public class LevelManager {
             Camera camera = Camera.getInstance();
             camera.setFrozen(false);
             camera.setMinX((short) 0);
-            camera.setMaxX((short) (level.getMap().getWidth() * LevelConstants.BLOCK_WIDTH));
+            camera.setMaxX((short) (level.getMap().getWidth() * blockPixelSize));
             objectManager.reset(camera.getX());
             // Reset game-specific object state for new level
             gameModule.onLevelLoad();
@@ -609,8 +613,8 @@ public class LevelManager {
         // Calculate drawing bounds, adjusted to include partially visible tiles
         int drawX = cameraX;
         int drawY = cameraY;
-        int levelWidth = level.getMap().getWidth() * LevelConstants.BLOCK_WIDTH;
-        int levelHeight = level.getMap().getHeight() * LevelConstants.BLOCK_HEIGHT;
+        int levelWidth = level.getMap().getWidth() * blockPixelSize;
+        int levelHeight = level.getMap().getHeight() * blockPixelSize;
 
         int xLeftBound = Math.max(drawX, 0);
         int xRightBound = Math.min(cameraX + cameraWidth, levelWidth);
@@ -1494,8 +1498,8 @@ public class LevelManager {
     private static final int VDP_BG_PLANE_WIDTH_PX = 512;
 
     private TilemapData buildTilemapData(byte layerIndex) {
-        int fullLevelWidth = level.getMap().getWidth() * LevelConstants.BLOCK_WIDTH;
-        int levelHeight = level.getMap().getHeight() * LevelConstants.BLOCK_HEIGHT;
+        int fullLevelWidth = level.getMap().getWidth() * blockPixelSize;
+        int levelHeight = level.getMap().getHeight() * blockPixelSize;
 
         // Background wraps at VDP plane width (512px) to match original hardware.
         // Foreground uses full level width.
@@ -1519,8 +1523,8 @@ public class LevelManager {
                     continue;
                 }
 
-                int xBlockBit = (x % LevelConstants.BLOCK_WIDTH) / chunkWidth;
-                int yBlockBit = (y % LevelConstants.BLOCK_HEIGHT) / chunkHeight;
+                int xBlockBit = (x % blockPixelSize) / chunkWidth;
+                int yBlockBit = (y % blockPixelSize) / chunkHeight;
                 ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
                 int chunkIndex = chunkDesc.getChunkIndex();
 
@@ -1635,8 +1639,8 @@ public class LevelManager {
         int cameraWidth = camera.getWidth();
         int cameraHeight = camera.getHeight();
 
-        int levelWidth = level.getMap().getWidth() * LevelConstants.BLOCK_WIDTH;
-        int levelHeight = level.getMap().getHeight() * LevelConstants.BLOCK_HEIGHT;
+        int levelWidth = level.getMap().getWidth() * blockPixelSize;
+        int levelHeight = level.getMap().getHeight() * blockPixelSize;
 
         // Calculate visible chunk range (same culling logic as foreground rendering)
         int xStart = cameraX - (cameraX % LevelConstants.CHUNK_WIDTH);
@@ -1659,8 +1663,8 @@ public class LevelManager {
                     continue;
                 }
 
-                int xBlockBit = (wrappedX % LevelConstants.BLOCK_WIDTH) / LevelConstants.CHUNK_WIDTH;
-                int yBlockBit = (y % LevelConstants.BLOCK_HEIGHT) / LevelConstants.CHUNK_HEIGHT;
+                int xBlockBit = (wrappedX % blockPixelSize) / LevelConstants.CHUNK_WIDTH;
+                int yBlockBit = (y % blockPixelSize) / LevelConstants.CHUNK_HEIGHT;
                 ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
 
                 int chunkIndex = chunkDesc.getChunkIndex();
@@ -1812,8 +1816,8 @@ public class LevelManager {
         int cameraWidth = camera.getWidth();
         int cameraHeight = camera.getHeight();
 
-        int levelWidth = level.getMap().getWidth() * LevelConstants.BLOCK_WIDTH;
-        int levelHeight = level.getMap().getHeight() * LevelConstants.BLOCK_HEIGHT;
+        int levelWidth = level.getMap().getWidth() * blockPixelSize;
+        int levelHeight = level.getMap().getHeight() * blockPixelSize;
 
         // Calculate visible chunk range (same culling logic as foreground rendering)
         int xStart = cameraX - (cameraX % LevelConstants.CHUNK_WIDTH);
@@ -1844,8 +1848,8 @@ public class LevelManager {
                     continue;
                 }
 
-                int xBlockBit = (wrappedX % LevelConstants.BLOCK_WIDTH) / LevelConstants.CHUNK_WIDTH;
-                int yBlockBit = (y % LevelConstants.BLOCK_HEIGHT) / LevelConstants.CHUNK_HEIGHT;
+                int xBlockBit = (wrappedX % blockPixelSize) / LevelConstants.CHUNK_WIDTH;
+                int yBlockBit = (y % blockPixelSize) / LevelConstants.CHUNK_HEIGHT;
                 ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
 
                 int chunkIndex = chunkDesc.getChunkIndex();
@@ -2134,8 +2138,8 @@ public class LevelManager {
             return null;
         }
 
-        int levelWidth = level.getMap().getWidth() * LevelConstants.BLOCK_WIDTH;
-        int levelHeight = level.getMap().getHeight() * LevelConstants.BLOCK_HEIGHT;
+        int levelWidth = level.getMap().getWidth() * blockPixelSize;
+        int levelHeight = level.getMap().getHeight() * blockPixelSize;
 
         // Handle wrapping for X
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
@@ -2152,8 +2156,8 @@ public class LevelManager {
         }
 
         Map map = level.getMap();
-        int mapX = wrappedX / LevelConstants.BLOCK_WIDTH;
-        int mapY = wrappedY / LevelConstants.BLOCK_HEIGHT;
+        int mapX = wrappedX / blockPixelSize;
+        int mapY = wrappedY / blockPixelSize;
 
         byte value = map.getValue(layer, mapX, mapY);
 
@@ -2178,17 +2182,17 @@ public class LevelManager {
             return null;
         }
 
-        int levelWidth = level.getMap().getWidth() * LevelConstants.BLOCK_WIDTH;
+        int levelWidth = level.getMap().getWidth() * blockPixelSize;
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
 
         if (layer == 1) {
-            int levelHeight = level.getMap().getHeight() * LevelConstants.BLOCK_HEIGHT;
+            int levelHeight = level.getMap().getHeight() * blockPixelSize;
             wrappedY = ((y % levelHeight) + levelHeight) % levelHeight;
         }
 
-        ChunkDesc chunkDesc = block.getChunkDesc((wrappedX % LevelConstants.BLOCK_WIDTH) / LevelConstants.CHUNK_WIDTH,
-                (wrappedY % LevelConstants.BLOCK_HEIGHT) / LevelConstants.CHUNK_HEIGHT);
+        ChunkDesc chunkDesc = block.getChunkDesc((wrappedX % blockPixelSize) / LevelConstants.CHUNK_WIDTH,
+                (wrappedY % blockPixelSize) / LevelConstants.CHUNK_HEIGHT);
         return chunkDesc;
     }
 
@@ -2866,8 +2870,8 @@ public class LevelManager {
     private int getPatternIndexAt(int worldX, int worldY, Map map) {
         try {
             // Block is 128x128 pixels
-            int blockX = worldX / 128;
-            int blockY = worldY / 128;
+            int blockX = worldX / blockPixelSize;
+            int blockY = worldY / blockPixelSize;
 
             if (blockX < 0 || blockX >= map.getWidth() || blockY < 0 || blockY >= map.getHeight()) {
                 return -1;
@@ -2885,8 +2889,8 @@ public class LevelManager {
             }
 
             // Chunk within block (16x16 pixels each, 8x8 grid of chunks)
-            int chunkX = (worldX % 128) / 16;
-            int chunkY = (worldY % 128) / 16;
+            int chunkX = (worldX % blockPixelSize) / 16;
+            int chunkY = (worldY % blockPixelSize) / 16;
             ChunkDesc chunkDesc = block.getChunkDesc(chunkX, chunkY);
             if (chunkDesc == null) {
                 return -1;
