@@ -1259,6 +1259,13 @@ public class LevelEventManager implements LevelEventProvider {
         this.eventRoutine = routine;
     }
 
+    /**
+     * Resets mutable state without destroying the singleton instance.
+     */
+    public void resetState() {
+        initLevel(-1, -1);
+    }
+
     public static synchronized LevelEventManager getInstance() {
         if (instance == null) {
             instance = new LevelEventManager();

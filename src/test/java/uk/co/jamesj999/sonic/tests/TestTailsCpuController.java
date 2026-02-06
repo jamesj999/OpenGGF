@@ -1,6 +1,5 @@
 package uk.co.jamesj999.sonic.tests;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -18,8 +17,6 @@ import uk.co.jamesj999.sonic.sprites.playable.TailsCpuController;
 import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
 import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
 import uk.co.jamesj999.sonic.tests.rules.SonicGame;
-
-import java.lang.reflect.Field;
 
 import static org.junit.Assert.*;
 
@@ -41,9 +38,6 @@ public class TestTailsCpuController {
 
     @Before
     public void setUp() throws Exception {
-        GraphicsManager.resetInstance();
-        Camera.resetInstance();
-
         GraphicsManager.getInstance().initHeadless();
 
         SonicConfigurationService configService = SonicConfigurationService.getInstance();
@@ -71,18 +65,6 @@ public class TestTailsCpuController {
         camera.updatePosition(true);
 
         sonicRunner = new HeadlessTestRunner(sonic);
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        GraphicsManager.resetInstance();
-
-        LevelManager levelManager = LevelManager.getInstance();
-        Field levelField = LevelManager.class.getDeclaredField("level");
-        levelField.setAccessible(true);
-        levelField.set(levelManager, null);
-
-        SpriteManager.getInstance().clearAllSprites();
     }
 
     // -- State Transition Tests --

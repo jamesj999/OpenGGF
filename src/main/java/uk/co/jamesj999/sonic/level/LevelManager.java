@@ -2642,6 +2642,45 @@ public class LevelManager {
     }
 
     /**
+     * Resets mutable state without destroying the singleton instance.
+     * Replaces the reflection-based tearDown hacks in test classes.
+     */
+    public void resetState() {
+        level = null;
+        game = null;
+        gameModule = null;
+        objectManager = null;
+        ringManager = null;
+        zoneFeatureProvider = null;
+        objectRenderManager = null;
+        hudRenderManager = null;
+        animatedPatternManager = null;
+        animatedPaletteManager = null;
+        checkpointState = null;
+        levelGamestate = null;
+        backgroundTilemapData = null;
+        foregroundTilemapData = null;
+        patternLookupData = null;
+        currentZone = 0;
+        currentAct = 0;
+        frameCounter = 0;
+        backgroundTilemapDirty = true;
+        foregroundTilemapDirty = true;
+        patternLookupDirty = true;
+        specialStageRequestedFromCheckpoint = false;
+        titleCardRequested = false;
+        titleCardZone = -1;
+        titleCardAct = -1;
+        respawnRequested = false;
+        nextActRequested = false;
+        nextZoneRequested = false;
+        specificZoneActRequested = false;
+        requestedZone = -1;
+        requestedAct = -1;
+        levels.clear();
+    }
+
+    /**
      * Returns the singleton instance of LevelManager.
      *
      * @return the singleton LevelManager instance

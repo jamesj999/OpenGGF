@@ -101,6 +101,15 @@ public class SpriteManager {
 		bucketsDirty = true;
 	}
 
+	/**
+	 * Resets mutable state without destroying the singleton instance.
+	 */
+	public void resetState() {
+		clearAllSprites();
+		levelManager = null;
+		frameCounter = 0;
+	}
+
 	public Collection<Sprite> getAllSprites() {
 		return sprites.values();
 	}

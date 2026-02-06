@@ -76,14 +76,17 @@ public class TestSmpsSequencerInstrumentLoading {
             data[v+i] = (byte) (i + 10);
         }
 
-        // Expected Voice: S1 voices are already in the engine's expected format
-        // (operator order 1,3,2,4), matching Ym2612Chip.setInstrument() index arrays.
-        // No rearrangement is needed - getVoice() returns raw bytes directly.
-        //
-        // Layout: [0]=FB|ALGO, [1-4]=DT|MUL, [5-8]=RS|AR, [9-12]=AM|D1R,
-        //         [13-16]=D2R, [17-20]=D1L|RR, [21-24]=TL
+        // Expected Voice: S1 voices (InsMode=DEFAULT) store operator groups as Op4,Op3,Op2,Op1.
+        // getVoice() converts to S2 format (Op4,Op2,Op3,Op1) by swapping the middle two
+        // bytes of each 4-byte group, so the engine's DT_IDX mapping works correctly.
         byte[] expectedVoice = new byte[25];
         System.arraycopy(data, v, expectedVoice, 0, 25);
+        // Apply the same swap that getVoice() performs
+        for (int g = 1; g < 25; g += 4) {
+            byte tmp = expectedVoice[g + 1];
+            expectedVoice[g + 1] = expectedVoice[g + 2];
+            expectedVoice[g + 2] = tmp;
+        }
 
         // Explicitly set to Big Endian (S1) to verify 25-byte voice loading
         AbstractSmpsData smps = new Sonic1SmpsData(data, 0);

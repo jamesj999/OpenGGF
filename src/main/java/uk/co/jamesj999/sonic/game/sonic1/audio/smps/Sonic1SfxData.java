@@ -163,9 +163,17 @@ public class Sonic1SfxData extends AbstractSmpsData implements SmpsSfxData {
             return null;
         }
 
-        // S1 voices are already in the engine's expected operator order (1,3,2,4)
+        // S1 voice bytes per 4-byte group are in order Op4,Op3,Op2,Op1 (InsMode=DEFAULT).
+        // The engine expects S2 order: Op4,Op2,Op3,Op1.
+        // Convert by swapping the middle two bytes in each group.
         byte[] voice = new byte[stride];
         System.arraycopy(data, offset, voice, 0, stride);
+
+        for (int g = 1; g < 25; g += 4) {
+            byte tmp = voice[g + 1];
+            voice[g + 1] = voice[g + 2];
+            voice[g + 2] = tmp;
+        }
         return voice;
     }
 
@@ -193,6 +201,6 @@ public class Sonic1SfxData extends AbstractSmpsData implements SmpsSfxData {
 
     @Override
     public int getPsgBaseNoteOffset() {
-        return 1; // PSG base note B (DefDrv.txt: FMBaseNote = B)
+        return 0; // PSG base note C (PSGSetFreq subtracts 0x81, table starts at C)
     }
 }

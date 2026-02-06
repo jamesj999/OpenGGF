@@ -208,6 +208,22 @@ public class AudioManager {
         }
     }
 
+    /**
+     * Resets mutable state without destroying the singleton instance.
+     * Used by TestEnvironment to prevent state leaking between tests
+     * (e.g. Sonic 1 SMPS loader contaminating Sonic 2 tests).
+     */
+    public void resetState() {
+        if (backend != null) {
+            backend.stopPlayback();
+        }
+        this.smpsLoader = null;
+        this.dacData = null;
+        this.soundMap = null;
+        this.audioProfile = null;
+        this.ringLeft = true;
+    }
+
     public void destroy() {
         if (backend != null) {
             backend.destroy();
