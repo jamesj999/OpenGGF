@@ -1,4 +1,4 @@
-# Implement Object/Badnik
+# Implement Sonic 2 Object/Badnik
 
 Implement a Sonic 2 object or badnik with complete ROM accuracy. This skill guides complete implementation including art, animation, sound effects, all subtypes, and cross-validation against the disassembly.
 
@@ -209,7 +209,7 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 
 ##### Pattern 5: Boss (Zone Act 2 Boss Fights)
 
-**Use the dedicated `/implement-boss` skill** (`.claude/skills/implement-boss/skill.md`) for boss implementations.
+**Use the dedicated `/s2-implement-boss` skill** (`.claude/skills/s2-implement-boss/skill.md`) for boss implementations.
 
 Bosses differ significantly from regular objects:
 - Dynamic spawning via `LevelEventManager` (not level layout)
@@ -232,7 +232,7 @@ Bosses differ significantly from regular objects:
 | Loop calculating piece positions | Multi-Piece Solid | Pieces calculated from shared angle/state |
 | `AllocateObjectAfterCurrent` calls | Parent-Child Spawning | Children get independent `routine`/`subtype` |
 | `Obj25` (enemy) base routines | Badnik | Uses touch response, spawns explosion on death |
-| `LevEvents_XXX` spawning, `Boss_HandleHits` | **Use /implement-boss** | Spawned by level events, 8 hits, camera lock |
+| `LevEvents_XXX` spawning, `Boss_HandleHits` | **Use /s2-implement-boss** | Spawned by level events, 8 hits, camera lock |
 
 #### 2.4 Implementation Requirements
 
@@ -373,7 +373,7 @@ Once cross-validation is confirmed bug-free:
 | Purpose | Location |
 |---------|----------|
 | **Disassembly guide** | `.claude/skills/s2disasm-guide/skill.md` |
-| **Boss skill** | `.claude/skills/implement-boss/skill.md` |
+| **Boss skill** | `.claude/skills/s2-implement-boss/skill.md` |
 | Object IDs | `src/.../game/sonic2/constants/Sonic2ObjectIds.java` |
 | ROM offsets | `src/.../game/sonic2/constants/Sonic2Constants.java` |
 | Art keys | `src/.../game/sonic2/Sonic2ObjectArtKeys.java` |
