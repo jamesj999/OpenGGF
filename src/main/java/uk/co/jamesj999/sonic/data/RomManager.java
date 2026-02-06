@@ -76,7 +76,7 @@ public class RomManager implements AutoCloseable {
             rom.close();
         }
 
-        String romFilename = configService.getString(SonicConfiguration.ROM_FILENAME);
+        String romFilename = resolveRomFilename();
         if (romFilename == null || romFilename.isEmpty()) {
             throw new IOException("ROM filename not configured (ROM_FILENAME is null or empty)");
         }
@@ -94,6 +94,33 @@ public class RomManager implements AutoCloseable {
 
         // Auto-detect game type and set appropriate module
         GameModuleRegistry.detectAndSetModule(rom);
+    }
+
+    /**
+     * Resolves the ROM filename. Uses ROM_FILENAME if explicitly set in config,
+     * otherwise falls back to DEFAULT_ROM + per-game ROM entries.
+     */
+    private String resolveRomFilename() {
+        String explicit = configService.getString(SonicConfiguration.ROM_FILENAME);
+        if (explicit != null && !explicit.isEmpty()) {
+            return explicit;
+        }
+        return resolveRomForGame(configService.getString(SonicConfiguration.DEFAULT_ROM));
+    }
+
+    /**
+     * Resolves the ROM filename for a given game identifier.
+     *
+     * @param gameId "s1", "s2", or "s3k"
+     * @return the configured ROM filename for that game
+     */
+    static String resolveRomForGame(String gameId) {
+        SonicConfigurationService svc = SonicConfigurationService.getInstance();
+        return switch (gameId != null ? gameId.toLowerCase() : "s2") {
+            case "s1" -> svc.getString(SonicConfiguration.SONIC_1_ROM);
+            case "s3k" -> svc.getString(SonicConfiguration.SONIC_3K_ROM);
+            default -> svc.getString(SonicConfiguration.SONIC_2_ROM);
+        };
     }
 
     /**

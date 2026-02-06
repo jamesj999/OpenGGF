@@ -31,5 +31,9 @@
   "DAC_INTERPOLATE": true,
   "FM6_DAC_OFF": true,
   "AUDIO_INTERNAL_RATE_OUTPUT": false,
-  "SIDEKICK_CHARACTER_CODE": "tails"
+  "SIDEKICK_CHARACTER_CODE": "tails",
+  "SONIC_1_ROM": "Sonic The Hedgehog (W) (REV01) [!].gen",
+  "SONIC_2_ROM": "Sonic The Hedgehog 2 (W) (REV01) [!].gen",
+  "SONIC_3K_ROM": "Sonic 3 & Knuckles (W) [!].gen",
+  "DEFAULT_ROM": "s2"
 }

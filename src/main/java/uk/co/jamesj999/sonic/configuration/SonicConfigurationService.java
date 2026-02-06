@@ -187,6 +187,10 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.LEVEL_SELECT_KEY, GLFW_KEY_F9);
 		putDefault(SonicConfiguration.LEVEL_SELECT_ON_STARTUP, true);
 		putDefault(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "tails");
+		putDefault(SonicConfiguration.SONIC_1_ROM, "Sonic The Hedgehog (W) (REV01) [!].gen");
+		putDefault(SonicConfiguration.SONIC_2_ROM, "Sonic The Hedgehog 2 (W) (REV01) [!].gen");
+		putDefault(SonicConfiguration.SONIC_3K_ROM, "Sonic 3 & Knuckles (W) [!].gen");
+		putDefault(SonicConfiguration.DEFAULT_ROM, "s2");
 	}
 
 	private void putDefault(SonicConfiguration key, Object value) {
