@@ -70,4 +70,25 @@ public final class Sonic1Constants {
     // Solid tile data sizes
     public static final int SOLID_TILE_MAP_SIZE   = 0x1000;
     public static final int SOLID_TILE_ANGLE_SIZE = 0x100;
+
+    // ---- Player sprite data (REV01) ----
+    // Sonic's uncompressed art tiles (8x8 patterns)
+    public static final int ART_UNC_SONIC_ADDR = 0x22610;
+    public static final int ART_UNC_SONIC_SIZE = 0xA120; // 41248 bytes = 1289 patterns
+
+    // Sonic's sprite mappings (S1 format: 5 bytes per piece, byte header)
+    public static final int MAP_SONIC_ADDR = 0x21CF4;
+
+    // Sonic's Dynamic Pattern Load Cues (S1 format: byte header)
+    public static final int DPLC_SONIC_ADDR = 0x22310;
+
+    // Sonic's animation scripts (31 animations)
+    public static final int SONIC_ANIM_DATA_ADDR = 0x1421C;
+    public static final int SONIC_ANIM_SCRIPT_COUNT = 31;
+
+    // Sonic's VRAM tile index
+    public static final int ART_TILE_SONIC = 0x0780;
+
+    // S1 mapping/DPLC frame count (Map_Sonic and SonicDynPLC both have this many entries)
+    public static final int SONIC_MAPPING_FRAME_COUNT = 88;
 }
