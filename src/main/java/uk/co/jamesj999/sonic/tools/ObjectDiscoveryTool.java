@@ -57,22 +57,83 @@ public class ObjectDiscoveryTool {
 
     // Object IDs that have implementations (factory or manager-based)
     private static final Set<Integer> IMPLEMENTED_IDS = Set.of(
-            0x03,  // LayerSwitcher (via PlaneSwitcherManager, no visual instance)
+            0x03,  // LayerSwitcher (via ObjectManager plane switchers, no visual instance)
             0x06,  // Spiral
+            0x0B,  // TippingFloor (CPZ)
             0x0D,  // Signpost
             0x11,  // Bridge
+            0x14,  // Seesaw (HTZ tilting platform with ball)
             0x15,  // SwingingPlatform
+            0x16,  // HTZLift (zipline diagonal sliding platform)
             0x18,  // ARZPlatform/EHZPlatform
             0x19,  // CPZPlatform/OOZMovingPform/WFZPlatform
+            0x1B,  // SpeedBooster (CPZ)
             0x1C,  // BridgeStake
+            0x1D,  // BlueBalls (CPZ)
+            0x1E,  // CPZSpinTube
+            0x1F,  // Collapsing Platform
+            0x22,  // ArrowShooter (ARZ arrow-firing hazard + projectile)
+            0x23,  // FallingPillar (ARZ pillar that drops lower section)
+            0x24,  // Bubbles (ARZ bubble generator + rising bubbles)
+            0x2A,  // Stomper (MCZ ceiling crusher)
+            0x2B,  // RisingPillar (ARZ pillar that rises and launches player)
+            0x2C,  // LeavesGenerator (ARZ falling leaves trigger)
+            0x2D,  // Barrier (one-way rising platform)
+            0x2F,  // SmashableGround (HTZ breakable rock platform)
+            0x30,  // RisingLava (HTZ invisible solid platform during earthquakes)
             0x26,  // Monitor
+            0x31,  // LavaMarker (HTZ/MTZ invisible lava hazard zone)
+            0x32,  // BreakableBlock (CPZ metal blocks / HTZ rocks)
             0x36,  // Spikes
+            0x3E,  // EggPrison (end of act capsule)
+            0x40,  // Springboard (CPZ/ARZ/MCZ lever spring)
             0x41,  // Spring
+            0x44,  // Bumper
             0x49,  // EHZWaterfall
             0x4B,  // Buzzer
+            0x51,  // CNZBoss (dynamically spawned pinball spike dropper zapping boss)
+            0x56,  // EHZBoss (dynamically spawned drill car boss)
             0x5C,  // Masher
+            0x5D,  // CPZBoss (dynamically spawned water dropper boss)
+            0x89,  // ARZBoss (dynamically spawned hammer/arrow boss)
+            0x6A,  // MCZRotPforms (MCZ wooden crate / MTZ moving platform - activates when player walks off)
+            0x6B,  // MTZPlatform (multi-purpose platform with 12 movement subtypes)
+            0x72,  // CNZConveyorBelt (invisible velocity zone - CNZ/MTZ/WFZ)
+            0x74,  // InvisibleBlock
+            0x75,  // MCZBrick (MCZ static brick / rotating spike ball)
+            0x76,  // SlidingSpikes (MCZ spike block that slides out of wall)
+            0x78,  // CPZStaircase (4-piece triggered elevator platform)
             0x79,  // Checkpoint
-            0x9D   // Coconuts
+            0x7A,  // SidewaysPform (CPZ/MCZ horizontal moving platform)
+            0x7B,  // PipeExitSpring (CPZ warp tube exit spring)
+            0x7F,  // VineSwitch (MCZ pull switch that triggers ButtonVine)
+            0x80,  // MovingVine (MCZ vine pulley / WFZ hook on chain)
+            0x81,  // MCZDrawbridge (MCZ rotatable drawbridge triggered by ButtonVine)
+            0x82,  // SwingingPform (ARZ swinging vine platform)
+            0x83,  // ARZRotPforms (ARZ rotating platforms with chain links)
+            0x84,  // ForcedSpin (CNZ/HTZ pinball mode trigger)
+            0x85,  // LauncherSpring (CNZ pressure spring)
+            0x86,  // CNZFlipper
+            0x8C,  // Whisp
+            0x8D,  // GrounderInWall (ARZ Grounder hiding behind wall)
+            0x8E,  // GrounderInWall2 (ARZ Grounder variant - walks immediately)
+            0x91,  // ChopChop
+            0x92,  // Spiker (HTZ drill badnik)
+            0x94,  // Rexon (HTZ lava snake body)
+            0x95,  // Sol (HTZ fireball badnik)
+            0x96,  // Rexon2 (HTZ lava snake body alias)
+            0x9D,  // Coconuts
+            0x9E,  // Crawlton (MCZ snake badnik - lunges at player with trailing body)
+            0xA5,  // Spiny (CPZ crawling badnik)
+            0xA6,  // SpinyOnWall (CPZ wall-climbing badnik)
+            0xA7,  // Grabber (CPZ spider badnik)
+            0xC8,  // Crawl (CNZ bouncer badnik with shield)
+            0xD2,  // CNZRectBlocks (CNZ flashing "caterpillar" blocks)
+            0xD4,  // CNZBigBlock (CNZ large 64x64 oscillating platform)
+            0xD5,  // CNZElevator (CNZ vertical platform that moves when stood on)
+            0xD6,  // PointPokey (CNZ cage that captures player and awards points)
+            0xD7,  // HexBumper (CNZ hexagonal bumper)
+            0xD8   // BonusBlock
     );
 
     // Object categories for organized output

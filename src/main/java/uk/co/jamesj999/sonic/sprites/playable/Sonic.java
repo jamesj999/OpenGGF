@@ -5,7 +5,7 @@ import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.physics.GroundSensor;
 import uk.co.jamesj999.sonic.physics.Sensor;
 
-import com.jogamp.opengl.GL2;
+import static org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN;
 
 public class Sonic extends AbstractPlayableSprite {
 
@@ -22,14 +22,14 @@ public class Sonic extends AbstractPlayableSprite {
 		// Pattern: (frames & 0x04) creates ~8-frame on/off cycle
 		if (getInvulnerableFrames() > 0 && (getInvulnerableFrames() & 0x04) != 0) {
 			// Still draw spindash dust even when blinking
-			if (getSpindashDustManager() != null) {
-				getSpindashDustManager().draw();
+			if (getSpindashDustController() != null) {
+				getSpindashDustController().draw();
 			}
 			return; // Invisible this frame
 		}
 		if (getSpriteRenderer() != null) {
-			if (getSpindashDustManager() != null) {
-				getSpindashDustManager().draw();
+			if (getSpindashDustController() != null) {
+				getSpindashDustController().draw();
 			}
 			getSpriteRenderer().drawFrame(
 					getMappingFrame(),
@@ -40,7 +40,7 @@ public class Sonic extends AbstractPlayableSprite {
 			return;
 		}
 		graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.RECTI,
-				GL2.GL_2D, 1, 1, 1, xPixel, yPixel, xPixel + width, yPixel
+				GL_TRIANGLE_FAN, 1, 1, 1, xPixel, yPixel, xPixel + width, yPixel
 						+ height));
 		graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.VERTEX2I,
 				-1, 1, 0, 0, getCentreX(), getCentreY(), 0, 0));
@@ -56,8 +56,8 @@ public class Sonic extends AbstractPlayableSprite {
 		jump = 1664;
 		angle = 0;
 		slopeRunning = 32;
-		slopeRollingDown = 20;
-		slopeRollingUp = 80;
+		slopeRollingDown = 80;  // Full slope factor when rolling downhill (with gravity)
+		slopeRollingUp = 20;    // Reduced factor (80 >> 2) when rolling uphill (against gravity)
 		rollDecel = 32;
 		minStartRollSpeed = 128; // SPG: 0.5 pixels (128 subpixels) in S1/S2
 		minRollSpeed = 128;
@@ -72,15 +72,15 @@ public class Sonic extends AbstractPlayableSprite {
 
 	@Override
 	protected void createSensorLines() {
-		// Ground Sensors
+		// Ground Sensors - Y offset matches standYRadius (0x13 = 19)
 		groundSensors = new Sensor[2];
-		groundSensors[0] = new GroundSensor(this, Direction.DOWN, (byte) -9, (byte) 20, true);
-		groundSensors[1] = new GroundSensor(this, Direction.DOWN, (byte) 9, (byte) 20, true);
+		groundSensors[0] = new GroundSensor(this, Direction.DOWN, (byte) -9, (byte) 19, true);
+		groundSensors[1] = new GroundSensor(this, Direction.DOWN, (byte) 9, (byte) 19, true);
 
-		// Ceiling Sensors
+		// Ceiling Sensors - Y offset matches -standYRadius (-0x13 = -19)
 		ceilingSensors = new Sensor[2];
-		ceilingSensors[0] = new GroundSensor(this, Direction.UP, (byte) -9, (byte) -20, false);
-		ceilingSensors[1] = new GroundSensor(this, Direction.UP, (byte) 9, (byte) -20, false);
+		ceilingSensors[0] = new GroundSensor(this, Direction.UP, (byte) -9, (byte) -19, false);
+		ceilingSensors[1] = new GroundSensor(this, Direction.UP, (byte) 9, (byte) -19, false);
 
 		// Push Sensors
 		pushSensors = new Sensor[2];

@@ -1,7 +1,8 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
 import java.io.IOException;
+
+import static org.lwjgl.opengl.GL20.*;
 
 /**
  * Shader program specialized for parallax background rendering.
@@ -30,66 +31,71 @@ public class ParallaxShaderProgram {
     private int viewportOffsetXLocation = -1;
     private int viewportOffsetYLocation = -1;
 
+    private static final String FULLSCREEN_VERTEX_SHADER = "shaders/shader_fullscreen.vert";
+
     /**
      * Creates and links the parallax shader program.
-     * 
-     * @param gl                 OpenGL context
+     *
      * @param fragmentShaderPath Path to the fragment shader file
      * @throws IOException if shader loading fails
      */
-    public ParallaxShaderProgram(GL2 gl, String fragmentShaderPath) throws IOException {
-        int fragmentShaderId = ShaderLoader.loadShader(gl, fragmentShaderPath, GL2.GL_FRAGMENT_SHADER);
+    public ParallaxShaderProgram(String fragmentShaderPath) throws IOException {
+        int vertexShaderId = ShaderLoader.loadShader(FULLSCREEN_VERTEX_SHADER, GL_VERTEX_SHADER);
+        int fragmentShaderId = ShaderLoader.loadShader(fragmentShaderPath, GL_FRAGMENT_SHADER);
 
-        programId = gl.glCreateProgram();
-        gl.glAttachShader(programId, fragmentShaderId);
-        gl.glLinkProgram(programId);
+        programId = glCreateProgram();
+        glAttachShader(programId, vertexShaderId);
+        glAttachShader(programId, fragmentShaderId);
+        glLinkProgram(programId);
 
         // Check for linking errors
-        int[] linked = new int[1];
-        gl.glGetProgramiv(programId, GL2.GL_LINK_STATUS, linked, 0);
-        if (linked[0] == 0) {
-            int[] logLength = new int[1];
-            gl.glGetProgramiv(programId, GL2.GL_INFO_LOG_LENGTH, logLength, 0);
-            byte[] log = new byte[logLength[0]];
-            gl.glGetProgramInfoLog(programId, log.length, null, 0, log, 0);
-            System.err.println("Parallax shader linking failed:\n" + new String(log));
+        int linked = glGetProgrami(programId, GL_LINK_STATUS);
+        if (linked == 0) {
+            String log = glGetProgramInfoLog(programId);
+            System.err.println("Parallax shader linking failed:\n" + log);
         }
+
+        // Detach and delete shader objects - they're no longer needed after linking
+        glDetachShader(programId, vertexShaderId);
+        glDetachShader(programId, fragmentShaderId);
+        glDeleteShader(vertexShaderId);
+        glDeleteShader(fragmentShaderId);
     }
 
     /**
      * Cache all uniform locations for efficient access.
      */
-    public void cacheUniformLocations(GL2 gl) {
+    public void cacheUniformLocations() {
         if (uniformsCached) {
             return;
         }
 
         // Texture samplers
-        backgroundTextureLocation = gl.glGetUniformLocation(programId, "BackgroundTexture");
-        hScrollTextureLocation = gl.glGetUniformLocation(programId, "HScrollTexture");
-        paletteLocation = gl.glGetUniformLocation(programId, "Palette");
+        backgroundTextureLocation = glGetUniformLocation(programId, "BackgroundTexture");
+        hScrollTextureLocation = glGetUniformLocation(programId, "HScrollTexture");
+        paletteLocation = glGetUniformLocation(programId, "Palette");
 
         // Scroll and dimensions
-        screenHeightLocation = gl.glGetUniformLocation(programId, "ScreenHeight");
-        screenWidthLocation = gl.glGetUniformLocation(programId, "ScreenWidth");
-        vScrollBGLocation = gl.glGetUniformLocation(programId, "VScrollBG");
-        bgTextureWidthLocation = gl.glGetUniformLocation(programId, "BGTextureWidth");
-        bgTextureHeightLocation = gl.glGetUniformLocation(programId, "BGTextureHeight");
-        scrollMidpointLocation = gl.glGetUniformLocation(programId, "ScrollMidpoint");
-        extraBufferLocation = gl.glGetUniformLocation(programId, "ExtraBuffer");
-        vScrollLocation = gl.glGetUniformLocation(programId, "VScroll");
-        viewportOffsetXLocation = gl.glGetUniformLocation(programId, "ViewportOffsetX");
-        viewportOffsetYLocation = gl.glGetUniformLocation(programId, "ViewportOffsetY");
+        screenHeightLocation = glGetUniformLocation(programId, "ScreenHeight");
+        screenWidthLocation = glGetUniformLocation(programId, "ScreenWidth");
+        vScrollBGLocation = glGetUniformLocation(programId, "VScrollBG");
+        bgTextureWidthLocation = glGetUniformLocation(programId, "BGTextureWidth");
+        bgTextureHeightLocation = glGetUniformLocation(programId, "BGTextureHeight");
+        scrollMidpointLocation = glGetUniformLocation(programId, "ScrollMidpoint");
+        extraBufferLocation = glGetUniformLocation(programId, "ExtraBuffer");
+        vScrollLocation = glGetUniformLocation(programId, "VScroll");
+        viewportOffsetXLocation = glGetUniformLocation(programId, "ViewportOffsetX");
+        viewportOffsetYLocation = glGetUniformLocation(programId, "ViewportOffsetY");
 
         uniformsCached = true;
     }
 
-    public void use(GL2 gl) {
-        gl.glUseProgram(programId);
+    public void use() {
+        glUseProgram(programId);
     }
 
-    public void stop(GL2 gl) {
-        gl.glUseProgram(0);
+    public void stop() {
+        glUseProgram(0);
     }
 
     public int getProgramId() {
@@ -97,79 +103,79 @@ public class ParallaxShaderProgram {
     }
 
     // Texture unit setters
-    public void setBackgroundTexture(GL2 gl, int textureUnit) {
+    public void setBackgroundTexture(int textureUnit) {
         if (backgroundTextureLocation >= 0) {
-            gl.glUniform1i(backgroundTextureLocation, textureUnit);
+            glUniform1i(backgroundTextureLocation, textureUnit);
         }
     }
 
-    public void setHScrollTexture(GL2 gl, int textureUnit) {
+    public void setHScrollTexture(int textureUnit) {
         if (hScrollTextureLocation >= 0) {
-            gl.glUniform1i(hScrollTextureLocation, textureUnit);
+            glUniform1i(hScrollTextureLocation, textureUnit);
         }
     }
 
-    public void setPalette(GL2 gl, int textureUnit) {
+    public void setPalette(int textureUnit) {
         if (paletteLocation >= 0) {
-            gl.glUniform1i(paletteLocation, textureUnit);
+            glUniform1i(paletteLocation, textureUnit);
         }
     }
 
     // Dimension and scroll setters
-    public void setScreenDimensions(GL2 gl, float width, float height) {
+    public void setScreenDimensions(float width, float height) {
         if (screenWidthLocation >= 0) {
-            gl.glUniform1f(screenWidthLocation, width);
+            glUniform1f(screenWidthLocation, width);
         }
         if (screenHeightLocation >= 0) {
-            gl.glUniform1f(screenHeightLocation, height);
+            glUniform1f(screenHeightLocation, height);
         }
     }
 
-    public void setVScrollBG(GL2 gl, float vScroll) {
+    public void setVScrollBG(float vScroll) {
         if (vScrollBGLocation >= 0) {
-            gl.glUniform1f(vScrollBGLocation, vScroll);
+            glUniform1f(vScrollBGLocation, vScroll);
         }
     }
 
-    public void setBGTextureDimensions(GL2 gl, float width, float height) {
+    public void setBGTextureDimensions(float width, float height) {
         if (bgTextureWidthLocation >= 0) {
-            gl.glUniform1f(bgTextureWidthLocation, width);
+            glUniform1f(bgTextureWidthLocation, width);
         }
         if (bgTextureHeightLocation >= 0) {
-            gl.glUniform1f(bgTextureHeightLocation, height);
+            glUniform1f(bgTextureHeightLocation, height);
         }
     }
 
-    public void setScrollMidpoint(GL2 gl, int midpoint) {
+    public void setScrollMidpoint(int midpoint) {
         if (scrollMidpointLocation >= 0) {
-            gl.glUniform1f(scrollMidpointLocation, (float) midpoint);
+            glUniform1f(scrollMidpointLocation, (float) midpoint);
         }
     }
 
-    public void setExtraBuffer(GL2 gl, int buffer) {
+    public void setExtraBuffer(int buffer) {
         if (extraBufferLocation >= 0) {
-            gl.glUniform1f(extraBufferLocation, (float) buffer);
+            glUniform1f(extraBufferLocation, (float) buffer);
         }
     }
 
-    public void setVScroll(GL2 gl, float vScroll) {
+    public void setVScroll(float vScroll) {
         if (vScrollLocation >= 0) {
-            gl.glUniform1f(vScrollLocation, vScroll);
+            glUniform1f(vScrollLocation, vScroll);
         }
     }
 
-    public void setViewportOffset(GL2 gl, float offsetX, float offsetY) {
+    public void setViewportOffset(float offsetX, float offsetY) {
         if (viewportOffsetXLocation >= 0) {
-            gl.glUniform1f(viewportOffsetXLocation, offsetX);
+            glUniform1f(viewportOffsetXLocation, offsetX);
         }
         if (viewportOffsetYLocation >= 0) {
-            gl.glUniform1f(viewportOffsetYLocation, offsetY);
+            glUniform1f(viewportOffsetYLocation, offsetY);
         }
     }
 
-    public void cleanup(GL2 gl) {
+    public void cleanup() {
         if (programId != 0) {
-            gl.glDeleteProgram(programId);
+            glDeleteProgram(programId);
             programId = 0;
         }
     }

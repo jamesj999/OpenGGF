@@ -7,18 +7,11 @@ import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.physics.Sensor;
 
-import java.awt.image.BufferedImage;
-
 public abstract class AbstractSprite implements Sprite {
 	protected final SonicConfigurationService configService = SonicConfigurationService
 			.getInstance();
 	protected final GraphicsManager graphicsManager = GraphicsManager
 			.getInstance();
-
-	protected BufferedImage spriteImage = new BufferedImage(
-			configService.getInt(SonicConfiguration.SCREEN_WIDTH),
-			configService.getInt(SonicConfiguration.SCREEN_HEIGHT),
-			BufferedImage.TYPE_INT_RGB);
 
 	protected String code;
 
@@ -77,15 +70,13 @@ public abstract class AbstractSprite implements Sprite {
 	}
 
 	public void setCentreY(short y) {
-		this.yPixel = (short) (y + (width / 2));
+		this.yPixel = (short) (y - (height / 2));
 		this.ySubpixel = (short) 0;
 	}
 
 	public final short getX() {
-		// TODO Not sure if this is needed, round to nearest subpixel?
-		if ((xPixel & 0xFF) > 128) {
-			return (short) (xPixel + 1);
-		}
+		// SPG: Collision calculations use whole pixel position, ignoring subpixels.
+		// No rounding should be done - the pixel position is authoritative.
 		return xPixel;
 	}
 
@@ -98,10 +89,8 @@ public abstract class AbstractSprite implements Sprite {
 	}
 
 	public final short getY() {
-		// TODO Not sure if this is needed, round to nearest subpixel?
-		if ((ySubpixel & 0xFF) > 128) {
-			return (short) (yPixel + 1);
-		}
+		// SPG: Collision calculations use whole pixel position, ignoring subpixels.
+		// No rounding should be done - the pixel position is authoritative.
 		return yPixel;
 	}
 
@@ -148,25 +137,22 @@ public abstract class AbstractSprite implements Sprite {
 		xTotal += xSpeed;
 		yTotal += ySpeed;
 
-		short updatedXPixel = (short) (xTotal / 256);
-		short updatedYPixel = (short) (yTotal / 256);
+		// ROM-accurate: 68000 asr.l #8 rounds toward negative infinity
+		// Java / rounds toward zero, which causes drift when moving left/up
+		short updatedXPixel = (short) (xTotal >> 8);
+		short updatedYPixel = (short) (yTotal >> 8);
 
-		byte updatedXSubpixel = (byte) (xTotal % 256);
-		byte updatedYSubpixel = (byte) (yTotal % 256);
+		byte updatedXSubpixel = (byte) (xTotal & 0xFF);
+		byte updatedYSubpixel = (byte) (yTotal & 0xFF);
 
-		if (updatedXPixel < 0) {
-			xPixel = 0;
-			xSubpixel = 0;
-			xSpeed = 0;
-		} else {
-			xPixel = updatedXPixel;
-			xSubpixel = updatedXSubpixel;
-		}
+		xPixel = updatedXPixel;
+		xSubpixel = updatedXSubpixel;
 
+		// Y boundary: prevent going above Y=0 (top of level)
+		// X boundary enforcement is handled by PlayableSpriteMovement.doLevelBoundary()
 		if (updatedYPixel < 0) {
 			yPixel = 0;
 			ySubpixel = 0;
-			ySpeed = 0;
 		} else {
 			yPixel = updatedYPixel;
 			ySubpixel = updatedYSubpixel;

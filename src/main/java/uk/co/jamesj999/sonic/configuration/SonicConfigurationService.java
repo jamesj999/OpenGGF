@@ -10,9 +10,11 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.lwjgl.glfw.GLFW.*;
+
 public class SonicConfigurationService {
 	private static SonicConfigurationService sonicConfigurationService;
-	public static String ENGINE_VERSION = "0.2.20260117";
+	public static String ENGINE_VERSION = "0.3.20260206";
 
 	private Map<String, Object> config;
 
@@ -20,7 +22,7 @@ public class SonicConfigurationService {
 		ObjectMapper mapper = new ObjectMapper();
 		TypeReference<Map<String, Object>> type = new TypeReference<>(){};
 
-		File file = new File("config.json");
+		File file = resolveRelativeFile("config.json");
 		if (file.exists()) {
 			try {
 				config = mapper.readValue(file, type);
@@ -42,6 +44,14 @@ public class SonicConfigurationService {
 				config = new HashMap<>();
 			}
 		}
+
+		// Migrate AWT key codes to GLFW if detected (for users upgrading from JOGL build)
+		ConfigMigrationService migrationService = new ConfigMigrationService();
+		if (migrationService.detectAwtKeyCodes(config)) {
+			migrationService.migrateConfig(config);
+			saveConfig(); // Persist migrated config
+		}
+
 		applyDefaults();
 	}
 
@@ -123,7 +133,7 @@ public class SonicConfigurationService {
 	public void saveConfig() {
 		ObjectMapper mapper = new ObjectMapper();
 		try {
-			mapper.writerWithDefaultPrettyPrinter().writeValue(new File("config.json"), config);
+			mapper.writerWithDefaultPrettyPrinter().writeValue(resolveRelativeFile("config.json"), config);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -146,19 +156,40 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.SCREEN_HEIGHT, 480);
 		putDefault(SonicConfiguration.SCREEN_HEIGHT_PIXELS, 240);
 		putDefault(SonicConfiguration.SCALE, 1.0);
-		putDefault(SonicConfiguration.ROM_FILENAME, "Sonic The Hedgehog 2 (W) (REV01) [!].gen");
-		// Force debug view enabled for tests/headless use unless explicitly overridden
-		config.put(SonicConfiguration.DEBUG_VIEW_ENABLED.name(), true);
+		// Debug view now eagerly initialized in Engine.init() to avoid macOS freeze
+		putDefault(SonicConfiguration.DEBUG_VIEW_ENABLED, true);
 		putDefault(SonicConfiguration.DEBUG_COLLISION_VIEW_ENABLED, false);
 		putDefault(SonicConfiguration.DAC_INTERPOLATE, true);
 		putDefault(SonicConfiguration.FM6_DAC_OFF, true); // Default true for Sonic 2 parity
 		putDefault(SonicConfiguration.AUDIO_ENABLED, true);
+		putDefault(SonicConfiguration.AUDIO_INTERNAL_RATE_OUTPUT, false);
 		putDefault(SonicConfiguration.REGION, "NTSC");
-		putDefault(SonicConfiguration.SPECIAL_STAGE_KEY, java.awt.event.KeyEvent.VK_HOME);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_COMPLETE_KEY, java.awt.event.KeyEvent.VK_END);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_FAIL_KEY, java.awt.event.KeyEvent.VK_DELETE);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_SPRITE_DEBUG_KEY, java.awt.event.KeyEvent.VK_F12);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_PLANE_DEBUG_KEY, java.awt.event.KeyEvent.VK_F3);
+		// Key codes - using GLFW key codes
+		putDefault(SonicConfiguration.UP, GLFW_KEY_UP);
+		putDefault(SonicConfiguration.DOWN, GLFW_KEY_DOWN);
+		putDefault(SonicConfiguration.LEFT, GLFW_KEY_LEFT);
+		putDefault(SonicConfiguration.RIGHT, GLFW_KEY_RIGHT);
+		putDefault(SonicConfiguration.JUMP, GLFW_KEY_SPACE);
+		putDefault(SonicConfiguration.TEST, GLFW_KEY_T);
+		putDefault(SonicConfiguration.NEXT_ACT, GLFW_KEY_PAGE_UP);
+		putDefault(SonicConfiguration.NEXT_ZONE, GLFW_KEY_PAGE_DOWN);
+		putDefault(SonicConfiguration.DEBUG_MODE_KEY, GLFW_KEY_D);
+		putDefault(SonicConfiguration.FPS, 60);
+		putDefault(SonicConfiguration.SPECIAL_STAGE_KEY, GLFW_KEY_TAB);
+		putDefault(SonicConfiguration.SPECIAL_STAGE_COMPLETE_KEY, GLFW_KEY_END);
+		putDefault(SonicConfiguration.SPECIAL_STAGE_FAIL_KEY, GLFW_KEY_DELETE);
+		putDefault(SonicConfiguration.SPECIAL_STAGE_SPRITE_DEBUG_KEY, GLFW_KEY_F12);
+		putDefault(SonicConfiguration.SPECIAL_STAGE_PLANE_DEBUG_KEY, GLFW_KEY_F3);
+		putDefault(SonicConfiguration.PAUSE_KEY, GLFW_KEY_ENTER);
+		putDefault(SonicConfiguration.FRAME_STEP_KEY, GLFW_KEY_Q);
+		putDefault(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, GLFW_KEY_C);
+		putDefault(SonicConfiguration.LEVEL_SELECT_KEY, GLFW_KEY_F9);
+		putDefault(SonicConfiguration.LEVEL_SELECT_ON_STARTUP, true);
+		putDefault(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "tails");
+		putDefault(SonicConfiguration.SONIC_1_ROM, "Sonic The Hedgehog (W) (REV01) [!].gen");
+		putDefault(SonicConfiguration.SONIC_2_ROM, "Sonic The Hedgehog 2 (W) (REV01) [!].gen");
+		putDefault(SonicConfiguration.SONIC_3K_ROM, "Sonic 3 & Knuckles (W) [!].gen");
+		putDefault(SonicConfiguration.DEFAULT_ROM, "s2");
 	}
 
 	private void putDefault(SonicConfiguration key, Object value) {
@@ -166,5 +197,21 @@ public class SonicConfigurationService {
 			config = new HashMap<>();
 		}
 		config.putIfAbsent(key.name(), value);
+	}
+
+	/**
+	 * Resolves a relative filename against user.dir. In GraalVM native images
+	 * launched from macOS Finder, getcwd() is broken so File("relative") may
+	 * resolve against the wrong directory. This ensures consistent behavior.
+	 */
+	private static File resolveRelativeFile(String name) {
+		File f = new File(name);
+		if (!f.isAbsolute()) {
+			String userDir = System.getProperty("user.dir");
+			if (userDir != null) {
+				return new File(userDir, name);
+			}
+		}
+		return f;
 	}
 }

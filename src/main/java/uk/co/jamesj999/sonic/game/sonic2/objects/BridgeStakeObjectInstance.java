@@ -1,22 +1,31 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects;
-import uk.co.jamesj999.sonic.level.objects.*;
 
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
+import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 
 import java.util.List;
 
 /**
- * Bridge Stake (scenery) object (0x1C subtype 2) - Static decorative posts at
- * bridge ends.
- * Uses the same art as the bridge (EHZ bridge.nem) but renders frame 1 (the
- * stake).
- * 
- * From disassembly (objEHZ.ini):
- * - Uses obj11_b.asm mappings with frame 1
- * - Uses palette 2
- * - No collision/physics (pure scenery)
+ * Bridge Stake / Scenery object (0x1C) - Static decorative posts and edges.
+ * <p>
+ * From disassembly Obj1C_InitData table:
+ * <ul>
+ *   <li>Subtype 0: Bolt/rope (Obj1C_MapUnc_11552 frame 0, BoltEnd_Rope art)</li>
+ *   <li>Subtype 1: Bolt/rope (Obj1C_MapUnc_11552 frame 1, BoltEnd_Rope art)</li>
+ *   <li>Subtype 2: EHZ bridge stake (Obj11_MapUnc_FC70 frame 1, EHZ_Bridge art)</li>
+ *   <li>Subtype 3: Bolt/rope (Obj1C_MapUnc_11552 frame 2, BoltEnd_Rope art)</li>
+ *   <li>Subtype 4: HTZ left stake (Obj16_MapUnc_21F14 frame 3, HtzZipline art)</li>
+ *   <li>Subtype 5: HTZ right stake (Obj16_MapUnc_21F14 frame 4, HtzZipline art)</li>
+ *   <li>Subtype 6: HTZ connector (Obj16_MapUnc_21F14 frame 1, HtzZipline art) - spawned by lift</li>
+ *   <li>Subtype 7: Ground edge left (Obj1C_MapUnc_113D6 frame 0, LevelArt)</li>
+ *   <li>Subtype 8: Ground edge right (Obj1C_MapUnc_113D6 frame 1, LevelArt)</li>
+ * </ul>
+ * No collision/physics (pure scenery).
  */
 public class BridgeStakeObjectInstance extends AbstractObjectInstance {
 
@@ -31,12 +40,39 @@ public class BridgeStakeObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        PatternSpriteRenderer renderer = renderManager.getBridgeRenderer();
+        int subtype = spawn.subtype() & 0xFF;
+        PatternSpriteRenderer renderer;
+        int frame;
+
+        switch (subtype) {
+            case 4 -> {  // HTZ left stake
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.HTZ_LIFT);
+                frame = 3;
+            }
+            case 5 -> {  // HTZ right stake
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.HTZ_LIFT);
+                frame = 4;
+            }
+            case 6 -> {  // HTZ connector (spawned by lift)
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.HTZ_LIFT);
+                frame = 1;
+            }
+            case 7, 8 -> {  // Ground edge (uses level art - skip for now)
+                return;  // TODO: Implement level art rendering
+            }
+            default -> {  // EHZ bridge stake (subtype 2) and others
+                renderer = renderManager.getBridgeRenderer();
+                frame = 1;
+            }
+        }
+
         if (renderer == null || !renderer.isReady()) {
             return;
         }
 
-        // Render frame 1 (the stake) at the spawn position
-        renderer.drawFrameIndex(1, spawn.x(), spawn.y(), false, false);
+        boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
+        boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
+        renderer.drawFrameIndex(frame, spawn.x(), spawn.y(), hFlip, vFlip);
     }
 }
+

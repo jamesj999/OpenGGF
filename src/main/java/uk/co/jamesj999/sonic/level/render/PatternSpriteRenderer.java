@@ -66,11 +66,20 @@ public class PatternSpriteRenderer {
     }
 
     public void drawFrameIndex(int frameIndex, int originX, int originY, boolean hFlip, boolean vFlip) {
+        drawFrameIndex(frameIndex, originX, originY, hFlip, vFlip, -1);
+    }
+
+    /**
+     * Draws a frame with an optional palette override.
+     * @param paletteOverride palette index to use, or -1 to use the sprite sheet's default
+     */
+    public void drawFrameIndex(int frameIndex, int originX, int originY, boolean hFlip, boolean vFlip, int paletteOverride) {
         if (frameIndex < 0 || frameIndex >= spriteSheet.getFrameCount() || patternBase < 0) {
             return;
         }
         SpriteFrame<? extends SpriteFramePiece> frame = spriteSheet.getFrame(frameIndex);
-        drawFrame(frame, originX, originY, hFlip, vFlip);
+        int paletteIndex = paletteOverride >= 0 ? paletteOverride : spriteSheet.getPaletteIndex();
+        drawFrame(frame, originX, originY, hFlip, vFlip, paletteIndex);
     }
 
     public void drawPieces(List<? extends SpriteFramePiece> pieces,
@@ -81,7 +90,25 @@ public class PatternSpriteRenderer {
         if (pieces == null || patternBase < 0) {
             return;
         }
-        drawFramePieces(pieces, originX, originY, hFlip, vFlip);
+        drawFramePieces(pieces, originX, originY, hFlip, vFlip, spriteSheet.getPaletteIndex());
+    }
+
+    /**
+     * Draws a single piece from a frame by its index.
+     * Useful for fragment objects that need to draw just their portion.
+     */
+    public void drawFramePieceByIndex(int frameIndex, int pieceIndex, int originX, int originY,
+            boolean hFlip, boolean vFlip) {
+        if (frameIndex < 0 || frameIndex >= spriteSheet.getFrameCount() || patternBase < 0) {
+            return;
+        }
+        SpriteFrame<? extends SpriteFramePiece> frame = spriteSheet.getFrame(frameIndex);
+        List<? extends SpriteFramePiece> pieces = frame.pieces();
+        if (pieceIndex < 0 || pieceIndex >= pieces.size()) {
+            return;
+        }
+        SpriteFramePiece piece = pieces.get(pieceIndex);
+        drawFramePieces(List.of(piece), originX, originY, hFlip, vFlip, spriteSheet.getPaletteIndex());
     }
 
     public void drawPatternIndex(int patternIndex, int drawX, int drawY, int paletteIndex) {
@@ -103,7 +130,7 @@ public class PatternSpriteRenderer {
     }
 
     private void cachePatterns(GraphicsManager graphicsManager, int basePatternIndex) {
-        if (graphicsManager.getGraphics() == null) {
+        if (!graphicsManager.isGlInitialized()) {
             return;
         }
         Pattern[] patterns = spriteSheet.getPatterns();
@@ -117,41 +144,61 @@ public class PatternSpriteRenderer {
             int originY,
             boolean hFlip,
             boolean vFlip) {
-        drawFramePieces(frame.pieces(), originX, originY, hFlip, vFlip);
+        drawFramePieces(frame.pieces(), originX, originY, hFlip, vFlip, spriteSheet.getPaletteIndex());
+    }
+
+    private void drawFrame(SpriteFrame<? extends SpriteFramePiece> frame,
+            int originX,
+            int originY,
+            boolean hFlip,
+            boolean vFlip,
+            int paletteIndex) {
+        drawFramePieces(frame.pieces(), originX, originY, hFlip, vFlip, paletteIndex);
     }
 
     private void drawFramePieces(List<? extends SpriteFramePiece> pieces,
             int originX,
             int originY,
             boolean hFlip,
-            boolean vFlip) {
+            boolean vFlip,
+            int paletteIndex) {
         // Draw in reverse order (Painter's Algorithm) so that the first piece in the
         // list (index 0)
         // is drawn LAST, appearing on top. This matches Genesis behavior where lower
         // sprite index = higher priority.
         for (int i = pieces.size() - 1; i >= 0; i--) {
             SpriteFramePiece piece = pieces.get(i);
+            // Check if this piece has the VDP priority flag set.
+            // On the Genesis, this flag causes sprites to render in front of the playfield.
+            // We simulate this by using a different palette line, creating a visual "flash" effect.
+            int renderPalette = paletteIndex;
+            if (piece.priority()) {
+                // Use the next palette line (wrapping) to create a brightness/flash effect.
+                // This simulates the original VDP priority behavior where the sprite would
+                // appear in front of background tiles that normally obscure it.
+                renderPalette = (paletteIndex + 1) & 3;
+            }
             SpritePieceRenderer.renderPieces(
                     List.of(piece),
                     originX,
                     originY,
                     patternBase,
-                    spriteSheet.getPaletteIndex(),
+                    renderPalette,
                     hFlip,
                     vFlip,
-                    (patternIndex, pieceHFlip, pieceVFlip, paletteIndex, drawX, drawY) -> {
+                    (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {
                         // Build PatternDesc with masked index (for flip/palette flags)
-                        int descIndex = patternIndex & 0x7FF;
+                        int descIndex = patternIdx & 0x7FF;
                         if (pieceHFlip) {
                             descIndex |= 0x800;
                         }
                         if (pieceVFlip) {
                             descIndex |= 0x1000;
                         }
-                        descIndex |= (paletteIndex & 0x3) << 13;
+                        descIndex |= (palIdx & 0x3) << 13;
                         PatternDesc desc = new PatternDesc(descIndex);
                         // Use full patternIndex for texture lookup (avoids 11-bit limit)
-                        GraphicsManager.getInstance().renderPatternWithId(patternIndex, desc, drawX, drawY);
+                        GraphicsManager.getInstance().renderPatternWithId(patternIdx, desc, drawX, drawY);
                     });
         }
     }

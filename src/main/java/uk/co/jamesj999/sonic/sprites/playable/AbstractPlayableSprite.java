@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.sprites.playable;
 
+import uk.co.jamesj999.sonic.game.GameServices;
+
 import uk.co.jamesj999.sonic.audio.GameAudioProfile;
 
 import java.util.logging.Logger;
@@ -11,18 +13,19 @@ import uk.co.jamesj999.sonic.game.sonic2.objects.InvincibilityStarsObjectInstanc
 import uk.co.jamesj999.sonic.game.sonic2.objects.ShieldObjectInstance;
 import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.physics.Sensor;
+import uk.co.jamesj999.sonic.physics.TrigLookupTable;
 import uk.co.jamesj999.sonic.sprites.AbstractSprite;
 import uk.co.jamesj999.sonic.sprites.SensorConfiguration;
-import uk.co.jamesj999.sonic.sprites.managers.PlayableSpriteMovementManager;
-import uk.co.jamesj999.sonic.sprites.managers.PlayableSpriteAnimationManager;
+import uk.co.jamesj999.sonic.sprites.managers.PlayableSpriteAnimation;
+import uk.co.jamesj999.sonic.sprites.managers.PlayableSpriteMovement;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteMovementManager;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.render.PlayerSpriteRenderer;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationProfile;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
-import uk.co.jamesj999.sonic.sprites.managers.SpindashDustManager;
-import uk.co.jamesj999.sonic.timer.TimerManager;
+import uk.co.jamesj999.sonic.sprites.managers.SpindashDustController;
+import uk.co.jamesj999.sonic.sprites.managers.TailsTailsController;
 import uk.co.jamesj999.sonic.timer.timers.SpeedShoesTimer;
 
 /**
@@ -34,8 +37,7 @@ import uk.co.jamesj999.sonic.timer.timers.SpeedShoesTimer;
 public abstract class AbstractPlayableSprite extends AbstractSprite {
         private static final Logger LOGGER = Logger.getLogger(AbstractPlayableSprite.class.getName());
 
-        protected final SpriteMovementManager movementManager;
-        protected final PlayableSpriteAnimationManager animationManager;
+        protected final PlayableSpriteController controller;
 
         protected GroundMode runningMode = GroundMode.GROUND;
 
@@ -65,15 +67,52 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         protected short xSpeed = 0;
         protected short ySpeed = 0;
 
-        private short[] xHistory = new short[32];
-        private short[] yHistory = new short[32];
+        // ROM: Sonic_Pos_Record_Buf is $100 bytes (256 bytes / 4 bytes per entry = 64 entries)
+        // Used for spindash camera lag and Tails CPU following
+        private short[] xHistory = new short[64];
+        private short[] yHistory = new short[64];
 
+        // ROM: Sonic_Stat_Record_Buf is $100 bytes (256 bytes / 4 bytes per entry = 64 entries)
+        // Records input buttons and status flags each frame for Tails CPU input replay.
+        // Entry format matches ROM: word 0 = Ctrl_1_Logical (input), word 1 = status
+        private short[] inputHistory = new short[64];
+        private byte[] statusHistory = new byte[64];
+
+        // Input bitmask constants (matching Mega Drive controller layout)
+        public static final int INPUT_UP    = 0x01;
+        public static final int INPUT_DOWN  = 0x02;
+        public static final int INPUT_LEFT  = 0x04;
+        public static final int INPUT_RIGHT = 0x08;
+        public static final int INPUT_JUMP  = 0x10;
+
+        // Status flag constants (matching ROM status byte)
+        public static final byte STATUS_FACING_LEFT = 0x01;
+        public static final byte STATUS_IN_AIR      = 0x02;
+        public static final byte STATUS_ROLLING     = 0x04;
+        public static final byte STATUS_PUSHING     = 0x10;
+
+        // ROM: Sonic_Pos_Record_Index - wraps at 256 (64 entries * 4 bytes)
         private byte historyPos = 0;
+
+        /** Whether this sprite is controlled by CPU AI (e.g., Tails follower) */
+        private boolean cpuControlled = false;
+
+        /** The CPU controller for AI-driven sprites */
+        private TailsCpuController cpuController;
 
         /**
          * Whether or not this sprite is rolling
          */
         protected boolean rolling = false;
+
+        /**
+         * Pinball mode flag - when set, prevents rolling from being cleared on landing
+         * and prevents rolling from stopping when speed reaches 0 (gives a boost instead).
+         * This matches ROM's pinball_mode (spindash_flag when rolling) behavior used by
+         * spin tubes, S-curves, and other "must roll" areas.
+         * See s2.asm lines 36712, 37745 for usage in rolling/landing logic.
+         */
+        protected boolean pinballMode = false;
 
         /**
          * Whether the current jump originated from a rolling state.
@@ -88,9 +127,43 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         protected boolean air = false;
 
         /**
+         * Whether this sprite is currently jumping (ROM: jumping(a0) status bit).
+         * Distinct from 'air' - you can be airborne without having jumped
+         * (e.g., walked off an edge, hit by enemy, launched by spring).
+         * Set when jump starts, cleared on landing.
+         */
+        protected boolean jumping = false;
+
+        /**
+         * Whether this sprite is standing on a solid object (platform, moving block).
+         * ROM: status.player.on_object
+         * When true, AnglePos skips terrain collision - the object handles positioning.
+         */
+        protected boolean onObject = false;
+
+        /**
+         * Whether to stick to convex surfaces even at low speeds.
+         * ROM: stick_to_convex status bit
+         * When true, prevents slope repel/detachment on convex terrain.
+         */
+        protected boolean stickToConvex = false;
+
+        /**
          * Whether or not this sprite is pushing a solid object.
          */
         protected boolean pushing = false;
+
+        /**
+         * Whether or not this sprite is currently skidding (braking).
+         * ROM: Set when pressing opposite direction from movement at speed >= 0x400.
+         */
+        protected boolean skidding = false;
+
+        /**
+         * Timer for skid dust spawning. ROM spawns dust every 4 frames while skidding.
+         * Decrements each frame; when < 0, spawn dust and reset to 3.
+         */
+        protected int skidDustTimer = 0;
 
         /**
          * Frames remaining for post-hit invulnerability.
@@ -147,7 +220,36 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          */
         protected boolean crouching = false;
 
-        protected float spindashConstant = 0f;
+        /**
+         * Whether or not this sprite is looking up (holding up while standing still).
+         */
+        protected boolean lookingUp = false;
+
+        /**
+         * ROM: Balance animation state when standing at a ledge edge.
+         * 0 = not balancing
+         * 1 = BALANCE (0x06) - safe distance, facing toward edge
+         * 2 = BALANCE2 (0x0C) - closer to edge, facing toward edge
+         * 3 = BALANCE3 (0x1D) - safe distance, facing away from edge
+         * 4 = BALANCE4 (0x1E) - closer to edge, facing away from edge
+         * See s2.asm:36246-36373 for the balance detection logic.
+         */
+        protected int balanceState = 0;
+
+        /**
+         * ROM-accurate spindash counter (spindash_counter).
+         * Range: 0x000 to 0x800 (0 to 2048).
+         * Speed table is indexed by counter >> 8 (gives 0-8).
+         */
+        protected short spindashCounter = 0;
+
+        /**
+         * ROM: Sonic_Look_delay_counter / Tails_Look_delay_counter
+         * Counter for look up/down camera pan delay. Increments each frame while
+         * up/down is held. Camera only starts panning after this reaches 0x78 (120 frames).
+         * Reset to 0 when neither up nor down is pressed.
+         */
+        protected short lookDelayCounter = 0;
 
         private PlayerSpriteRenderer spriteRenderer;
         private int mappingFrame = 0;
@@ -155,13 +257,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         private SpriteAnimationProfile animationProfile;
         private SpriteAnimationSet animationSet;
         private int animationId = 0;
+        /** When >= 0, overrides profile-based animation resolution (e.g., Tails CPU fly anim). */
+        private int forcedAnimationId = -1;
         private int animationFrameIndex = 0;
         private int animationTick = 0;
         private boolean renderHFlip = false;
         private boolean renderVFlip = false;
         private boolean highPriority = false;
         private int priorityBucket = RenderPriority.PLAYER_DEFAULT;
-        private SpindashDustManager spindashDustManager;
 
         protected boolean shield = false;
         private ShieldObjectInstance shieldObject;
@@ -178,11 +281,75 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          * When true, user inputs are ignored (Control_Locked in ROM).
          */
         protected boolean controlLocked = false;
+        /**
+         * Movement lock timer (ROM: move_lock). When > 0, player input is ignored
+         * and the player cannot move. Decremented each frame.
+         * Used by: air bubble collection (35 frames), springs, hurt state, etc.
+         */
+        protected int moveLockTimer = 0;
+        /**
+         * When true, an object has full control of the player and normal physics
+         * (gravity, movement, collision) are skipped. This matches the ROM's
+         * obj_control = $81 behavior used by spin tubes, corkscrews, etc.
+         */
+        protected boolean objectControlled = false;
+        /**
+         * Frame number when the player was last released from object control.
+         * Used to prevent immediate re-capture by nearby objects (e.g., spin tubes).
+         */
+        protected int objectControlReleasedFrame = Integer.MIN_VALUE;
+        /**
+         * Tracks whether the jump button is currently pressed this frame.
+         * Set by movement manager, used by objects (like flippers) to detect jump
+         * input.
+         */
+        protected boolean jumpInputPressed = false;
+        /**
+         * Tracks whether the up button is currently pressed this frame.
+         * Set by SpriteManager, used by objects (like VineSwitch) to detect directional input.
+         */
+        protected boolean upInputPressed = false;
+        /**
+         * Tracks whether the down button is currently pressed this frame.
+         * Set by SpriteManager, used by objects (like VineSwitch) to detect directional input.
+         */
+        protected boolean downInputPressed = false;
+        /**
+         * Tracks whether the left button is currently pressed this frame.
+         * Set by SpriteManager, used by objects (like Grabber) to detect directional input.
+         */
+        protected boolean leftInputPressed = false;
+        /**
+         * Tracks whether the right button is currently pressed this frame.
+         * Set by SpriteManager, used by objects (like Grabber) to detect directional input.
+         */
+        protected boolean rightInputPressed = false;
+        /**
+         * Tracks whether the player is actively pressing a movement direction this frame,
+         * after filtering for control locks and move locks. Used by animation system to
+         * determine walk vs idle animation per ROM behavior (s2.asm:36558, 36619).
+         * ROM: Walking animation is set in Sonic_MoveLeft/MoveRight, which are only called
+         * when directional input passes control lock checks.
+         */
+        protected boolean movementInputActive = false;
         private int spiralActiveFrame = Integer.MIN_VALUE;
         private byte flipAngle = 0;
         private byte flipSpeed = 0;
         private byte flipsRemaining = 0;
         private boolean flipTurned = false;
+
+        /**
+         * Whether this sprite is currently underwater.
+         * Affects physics constants and triggers entry/exit speed changes.
+         */
+        protected boolean inWater = false;
+        /**
+         * Previous frame's water state, used for detecting transitions.
+         */
+        protected boolean wasInWater = false;
+        /**
+         * Manages drowning mechanics while underwater (air countdown, bubbles, etc.).
+         */
 
         /**
          * Clears all active power-ups (shield, invincibility, speed shoes).
@@ -204,7 +371,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 // Clear speed shoes
                 if (this.speedShoes) {
                         this.speedShoes = false;
-                        TimerManager.getInstance().removeTimerForCode("SpeedShoes-" + getCode());
+                        GameServices.timers().removeTimerForCode("SpeedShoes-" + getCode());
                         defineSpeeds(); // Reset speeds to default
                 }
         }
@@ -221,7 +388,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 }
                 this.speedShoes = false;
                 // Cancel any active speed shoes timer
-                TimerManager.getInstance().removeTimerForCode("SpeedShoes-" + getCode());
+                GameServices.timers().removeTimerForCode("SpeedShoes-" + getCode());
                 this.invincibleFrames = 0;
                 this.invulnerableFrames = 0;
                 this.invincibleFrames = 0;
@@ -231,22 +398,47 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.hurt = false;
                 this.deathCountdown = 0;
                 this.air = false;
+                this.jumping = false;
+                this.onObject = false;
+                this.stickToConvex = false;
+                // Reset ground mode to GROUND - critical for sensor direction on level load.
+                // Without this, if player was on a wall/ceiling when previous level ended,
+                // sensors would point in wrong direction and collision detection would fail.
+                this.runningMode = GroundMode.GROUND;
                 this.springing = false;
                 this.springingFrames = 0;
                 this.rolling = false;
                 this.rollingJump = false;
+                this.pinballMode = false;
                 this.spindash = false;
+                this.lookDelayCounter = 0;
                 this.pushing = false;
+                this.skidding = false;
+                this.skidDustTimer = 0;
                 this.crouching = false;
+                this.lookingUp = false;
+                this.balanceState = 0;
                 this.highPriority = false;
                 this.priorityBucket = RenderPriority.PLAYER_DEFAULT;
                 this.forceInputRight = false;
                 this.controlLocked = false;
+                this.moveLockTimer = 0;
+                this.objectControlled = false;
+                this.objectControlReleasedFrame = Integer.MIN_VALUE;
+                this.movementInputActive = false;
                 this.spiralActiveFrame = Integer.MIN_VALUE;
                 this.flipAngle = 0;
                 this.flipSpeed = 0;
                 this.flipsRemaining = 0;
                 this.flipTurned = false;
+                this.inWater = false;
+                this.wasInWater = false;
+                // Reset collision path to Path 0 (primary collision).
+                // Without this, if player was on Path 1 in previous level,
+                // solidity bits would remain 0x0E/0x0F causing collision checks
+                // against the wrong collision map, making player fall through floors.
+                this.topSolidBit = 0x0C;
+                this.lrbSolidBit = 0x0D;
                 defineSpeeds(); // Reset speeds to default
         }
 
@@ -278,7 +470,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.speedShoes = true;
                 // Register speed shoes timer using the existing timer framework
                 // Duration is 1200 frames (20 seconds @ 60fps) per SPG Sonic 2
-                TimerManager.getInstance().registerTimer(
+                GameServices.timers().registerTimer(
                                 new SpeedShoesTimer("SpeedShoes-" + getCode(), this));
         }
 
@@ -376,6 +568,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.animationId = Math.max(0, animationId);
         }
 
+        public int getForcedAnimationId() {
+                return forcedAnimationId;
+        }
+
+        public void setForcedAnimationId(int forcedAnimationId) {
+                this.forcedAnimationId = forcedAnimationId;
+        }
+
         public int getAnimationFrameIndex() {
                 return animationFrameIndex;
         }
@@ -392,12 +592,20 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.animationTick = Math.max(0, animationTick);
         }
 
-        public SpindashDustManager getSpindashDustManager() {
-                return spindashDustManager;
+        public SpindashDustController getSpindashDustController() {
+                return controller.getSpindashDust();
         }
 
-        public void setSpindashDustManager(SpindashDustManager spindashDustManager) {
-                this.spindashDustManager = spindashDustManager;
+        public void setSpindashDustController(SpindashDustController spindashDustController) {
+                controller.setSpindashDust(spindashDustController);
+        }
+
+        public TailsTailsController getTailsTailsController() {
+                return controller.getTailsTails();
+        }
+
+        public void setTailsTailsController(TailsTailsController tailsTailsController) {
+                controller.setTailsTails(tailsTailsController);
         }
 
         public boolean getRenderHFlip() {
@@ -434,24 +642,85 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public void setAir(boolean air) {
-                // If landing from hurt state, clear hurt flag
+                // If landing from hurt state, clear hurt flag and high-priority rendering
                 // (invulnerableFrames already set in applyHurt() per ROM behavior)
                 if (!air && this.air && hurt) {
                         hurt = false;
+                        setHighPriority(false);
                 }
                 // Reset rolling jump flag when landing
                 if (!air && this.air) {
                         rollingJump = false;
                 }
-                // TODO Update ground sensors here
+                // Clear jumping flag when landing
+                if (!air && this.air) {
+                        jumping = false;
+                }
                 this.air = air;
+                // SPG: Push sensor Y offset changes based on air state
+                updatePushSensorYOffset();
                 if (air) {
                         setGroundMode(GroundMode.GROUND);
-                        setAngle((byte) 0);
+                        // SPG: Angle should gradually return to 0 while airborne,
+                        // NOT immediately reset. See returnAngleToZero() called during air updates.
                 } else {
                         // Reset badnik chain when landing
                         resetBadnikChain();
                 }
+        }
+
+        public boolean isJumping() {
+                return jumping;
+        }
+
+        public void setJumping(boolean jumping) {
+                this.jumping = jumping;
+        }
+
+        public boolean isOnObject() {
+                return onObject;
+        }
+
+        public void setOnObject(boolean onObject) {
+                this.onObject = onObject;
+        }
+
+        public boolean isStickToConvex() {
+                return stickToConvex;
+        }
+
+        public void setStickToConvex(boolean stickToConvex) {
+                this.stickToConvex = stickToConvex;
+        }
+
+        /**
+         * SPG: While airborne, Ground Angle smoothly returns toward 0 by 2 hex units per frame.
+         * This affects the visual rotation of the sprite during air time.
+         * Call this once per frame while airborne.
+         */
+        public void returnAngleToZero() {
+                int currentAngle = angle & 0xFF;
+                if (currentAngle == 0) {
+                        return; // Already at 0
+                }
+                // ROM: Sonic_JumpAngle (s2.asm:37465-37486)
+                // ROM uses bpl (branch if positive, i.e., bit 7 clear) to determine direction
+                // Angles 0x01-0x7F (1-127): bit 7 clear = positive, subtract 2
+                // Angles 0x80-0xFF (128-255): bit 7 set = negative, add 2
+                if (currentAngle < 128) {
+                        // Positive range (0x01-0x7F): decrease toward 0
+                        currentAngle -= 2;
+                        if (currentAngle < 0) {
+                                currentAngle = 0;
+                        }
+                } else {
+                        // Negative range (0x80-0xFF): increase toward 0 (wrapping through 256)
+                        currentAngle += 2;
+                        if (currentAngle >= 256) {
+                                currentAngle = 0;
+                        }
+                }
+                angle = (byte) currentAngle;
         }
 
         private int badnikChainCounter = 0;
@@ -488,6 +757,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public short getJump() {
+                // Water: reduced jump force (ROM s2.asm line 37019: 0x380 vs normal 0x680)
+                if (inWater) {
+                        return 0x380;
+                }
                 return jump;
         }
 
@@ -507,12 +780,52 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.crouching = crouching;
         }
 
+        public boolean getLookingUp() {
+                return lookingUp;
+        }
+
+        public void setLookingUp(boolean lookingUp) {
+                this.lookingUp = lookingUp;
+        }
+
+        public int getBalanceState() {
+                return balanceState;
+        }
+
+        public void setBalanceState(int balanceState) {
+                this.balanceState = balanceState;
+        }
+
+        public boolean isBalancing() {
+                return balanceState > 0;
+        }
+
         public boolean getPushing() {
                 return pushing;
         }
 
         public void setPushing(boolean pushing) {
                 this.pushing = pushing;
+        }
+
+        public boolean getSkidding() {
+                return skidding;
+        }
+
+        public void setSkidding(boolean skidding) {
+                this.skidding = skidding;
+                if (!skidding) {
+                        // Reset dust timer when skidding ends
+                        this.skidDustTimer = 0;
+                }
+        }
+
+        public int getSkidDustTimer() {
+                return skidDustTimer;
+        }
+
+        public void setSkidDustTimer(int timer) {
+                this.skidDustTimer = timer;
         }
 
         public boolean getInvulnerable() {
@@ -665,8 +978,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 setAir(true);
                 setGSpeed((short) 0);
                 int dir = (getCentreX() >= sourceX) ? 1 : -1;
-                setXSpeed((short) (0x200 * dir));
-                setYSpeed((short) -0x400);
+                // ROM s2.asm lines 84936-84941: knockback is halved underwater
+                if (inWater) {
+                        setXSpeed((short) (0x100 * dir));
+                        setYSpeed((short) -0x200);
+                } else {
+                        setXSpeed((short) (0x200 * dir));
+                        setYSpeed((short) -0x400);
+                }
                 AudioManager.getInstance().playSfx(resolveDamageSound(cause));
                 return true;
         }
@@ -700,7 +1019,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 }
                 dead = true;
                 // Lock camera when dying - prevent following the falling corpse
-                uk.co.jamesj999.sonic.camera.Camera.getInstance().setFrozen(true);
+                // Only freeze camera for the main player, not for CPU sidekick
+                if (!cpuControlled) {
+                        uk.co.jamesj999.sonic.camera.Camera.getInstance().setFrozen(true);
+                }
                 setInvulnerableFrames(0);
                 setInvincibleFrames(0);
                 setSpringing(0);
@@ -731,12 +1053,36 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 };
         }
 
-        public float getSpindashConstant() {
-                return spindashConstant;
+        /**
+         * Get the spindash counter (ROM: spindash_counter).
+         * Range: 0x000 to 0x800. Speed index = counter >> 8.
+         */
+        public short getSpindashCounter() {
+                return spindashCounter;
         }
 
-        public void setSpindashConstant(float spindashConstant) {
-                this.spindashConstant = spindashConstant;
+        /**
+         * Set the spindash counter (ROM: spindash_counter).
+         * @param spindashCounter Value 0x000 to 0x800
+         */
+        public void setSpindashCounter(short spindashCounter) {
+                this.spindashCounter = spindashCounter;
+        }
+
+        /**
+         * Get the look delay counter (ROM: Sonic_Look_delay_counter).
+         * Camera panning starts when this reaches 0x78 (120 frames).
+         */
+        public short getLookDelayCounter() {
+                return lookDelayCounter;
+        }
+
+        /**
+         * Set the look delay counter (ROM: Sonic_Look_delay_counter).
+         * @param lookDelayCounter Counter value (capped at 0x78)
+         */
+        public void setLookDelayCounter(short lookDelayCounter) {
+                this.lookDelayCounter = lookDelayCounter;
         }
 
         public boolean isForceInputRight() {
@@ -753,6 +1099,137 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void setControlLocked(boolean controlLocked) {
                 this.controlLocked = controlLocked;
+        }
+
+        /**
+         * Gets the movement lock timer (ROM: move_lock).
+         * When > 0, player input is ignored.
+         */
+        public int getMoveLockTimer() {
+                return moveLockTimer;
+        }
+
+        /**
+         * Sets the movement lock timer (ROM: move_lock).
+         * The timer is decremented each frame by the movement manager.
+         */
+        public void setMoveLockTimer(int moveLockTimer) {
+                this.moveLockTimer = Math.max(0, moveLockTimer);
+        }
+
+        /**
+         * Returns whether an object has full control of the player (physics disabled).
+         * When true, the movement manager skips all physics processing.
+         */
+        public boolean isObjectControlled() {
+                return objectControlled;
+        }
+
+        /**
+         * Sets whether an object has full control of the player.
+         * When true, normal physics (gravity, movement, collision) are skipped.
+         * The controlling object is responsible for updating the player's position.
+         */
+        public void setObjectControlled(boolean objectControlled) {
+                this.objectControlled = objectControlled;
+        }
+
+        /**
+         * Releases the player from object control and records the frame number.
+         * Use this instead of setObjectControlled(false) when exiting a controlling object
+         * to enable the cooldown period that prevents immediate re-capture.
+         */
+        public void releaseFromObjectControl(int frameCounter) {
+                this.objectControlled = false;
+                this.objectControlReleasedFrame = frameCounter;
+        }
+
+        /**
+         * Returns true if the player was recently released from object control.
+         * Used by objects like spin tubes to prevent immediate re-capture after exit.
+         * @param frameCounter Current frame number
+         * @param cooldownFrames Number of frames to wait before allowing re-capture
+         */
+        public boolean wasRecentlyObjectControlled(int frameCounter, int cooldownFrames) {
+                if (objectControlReleasedFrame == Integer.MIN_VALUE) {
+                        return false;
+                }
+                return (frameCounter - objectControlReleasedFrame) < cooldownFrames;
+        }
+
+        /**
+         * Returns whether the jump button is currently pressed.
+         * Used by objects (like CNZ flippers) to detect jump input for triggering.
+         */
+        public boolean isJumpPressed() {
+                return jumpInputPressed;
+        }
+
+        /**
+         * Sets the jump input state for this frame.
+         * Called by movement manager each frame with the current jump button state.
+         */
+        public void setJumpInputPressed(boolean pressed) {
+                this.jumpInputPressed = pressed;
+        }
+
+        /**
+         * Returns whether the up button is currently pressed.
+         * Used by objects (like VineSwitch) to detect directional input for release delay.
+         */
+        public boolean isUpPressed() {
+                return upInputPressed;
+        }
+
+        /**
+         * Returns whether the down button is currently pressed.
+         * Used by objects (like VineSwitch) to detect directional input for release delay.
+         */
+        public boolean isDownPressed() {
+                return downInputPressed;
+        }
+
+        /**
+         * Returns whether the left button is currently pressed.
+         * Used by objects (like Grabber) to detect directional input for escape mechanism.
+         */
+        public boolean isLeftPressed() {
+                return leftInputPressed;
+        }
+
+        /**
+         * Returns whether the right button is currently pressed.
+         * Used by objects (like Grabber) to detect directional input for escape mechanism.
+         */
+        public boolean isRightPressed() {
+                return rightInputPressed;
+        }
+
+        /**
+         * Sets the directional input state for this frame.
+         * Called by SpriteManager each frame with the current button states.
+         */
+        public void setDirectionalInputPressed(boolean up, boolean down, boolean left, boolean right) {
+                this.upInputPressed = up;
+                this.downInputPressed = down;
+                this.leftInputPressed = left;
+                this.rightInputPressed = right;
+        }
+
+        /**
+         * Returns whether the player is actively pressing a movement direction this frame,
+         * after all control lock filtering. Used by animation to match ROM behavior.
+         */
+        public boolean isMovementInputActive() {
+                return movementInputActive;
+        }
+
+        /**
+         * Sets whether movement directional input is active this frame.
+         * Called by movement manager after control lock/move lock filtering.
+         */
+        public void setMovementInputActive(boolean active) {
+                this.movementInputActive = active;
         }
 
         public void markSpiralActive(int frameCounter) {
@@ -915,13 +1392,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
                 // Set our entire history for x and y to be the starting position so if
                 // the player spindashes immediately the camera effect won't be b0rked.
-                for (short i = 0; i < 32; i++) {
+                // ROM: Sonic_Pos_Record_Buf has 64 entries
+                for (short i = 0; i < 64; i++) {
                         xHistory[i] = x;
                         yHistory[i] = y;
+                        inputHistory[i] = 0;
+                        statusHistory[i] = 0;
                 }
-                // Always use PlayableSpriteMovementManager - it checks debugMode internally
-                movementManager = new PlayableSpriteMovementManager(this);
-                animationManager = new PlayableSpriteAnimationManager(this);
+                // Always use PlayableSpriteController - it checks debugMode internally
+                controller = new PlayableSpriteController(this);
         }
 
         /**
@@ -933,9 +1412,17 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         /**
          * Toggles debug movement mode on/off.
+         * Resets interaction states to prevent getting stuck in object-controlled states.
          */
         public void toggleDebugMode() {
                 debugMode = !debugMode;
+                // Reset ALL interaction states when entering or leaving debug mode
+                // This prevents getting stuck on LauncherSprings or in other locked states
+                controlLocked = false;
+                pinballMode = false;
+                objectControlled = false;
+                onObject = false;           // Clear "standing on object" flag
+                stickToConvex = false;      // Clear slope adhesion flag (set by slope-mode launches)
         }
 
         /**
@@ -954,12 +1441,20 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public short getRunAccel() {
-                // SPG Sonic 2: Speed shoes double acceleration
-                return hasSpeedShoes() ? (short) (runAccel * 2) : runAccel;
+                // Water: halved, Speed shoes: doubled
+                short value = runAccel;
+                if (inWater) {
+                        value = (short) (value / 2);
+                }
+                if (hasSpeedShoes()) {
+                        value = (short) (value * 2);
+                }
+                return value;
         }
 
         public short getRunDecel() {
-                return runDecel;
+                // Water: halved (speed shoes don't affect decel)
+                return inWater ? (short) (runDecel / 2) : runDecel;
         }
 
         public short getSlopeRunning() {
@@ -975,13 +1470,49 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public short getFriction() {
-                // SPG Sonic 2: Speed shoes double friction
-                return hasSpeedShoes() ? (short) (friction * 2) : friction;
+                // Water: halved, Speed shoes: doubled
+                short value = friction;
+                if (inWater) {
+                        value = (short) (value / 2);
+                }
+                if (hasSpeedShoes()) {
+                        value = (short) (value * 2);
+                }
+                return value;
         }
 
         public short getMax() {
-                // SPG Sonic 2: Speed shoes double top speed
-                return hasSpeedShoes() ? (short) (max * 2) : max;
+                // Water: halved, Speed shoes: doubled
+                short value = max;
+                if (inWater) {
+                        value = (short) (value / 2);
+                }
+                if (hasSpeedShoes()) {
+                        value = (short) (value * 2);
+                }
+                return value;
+        }
+
+        /**
+         * Returns the base gravity value applied by ObjectMoveAndFall.
+         * This method returns the FULL gravity (0x38) regardless of water state.
+         * Underwater gravity reduction is handled separately in PlayableSpriteMovement.modeAirborne()
+         * by subtracting 0x28 AFTER applying gravity, matching ROM behavior exactly:
+         *   - ROM: ObjectMoveAndFall adds 0x38 to y_vel
+         *   - ROM: Then Obj01_MdAir subtracts 0x28 if underwater
+         *   - Net underwater gravity = 0x38 - 0x28 = 0x10
+         *
+         * Normal: 0x38 (56 subpixels)
+         * Hurt: 0x30 (48 subpixels) - per SPG hurt_gravity_force
+         *
+         * @see docs/s2disasm/s2.asm lines 29950 (ObjectMoveAndFall) and 36170 (underwater adjustment)
+         */
+        @Override
+        public float getGravity() {
+                if (hurt) {
+                        return 0x30; // Reduced hurt gravity (SPG: 0.1875 = 48 subpixels)
+                }
+                return gravity; // Normal gravity (0x38)
         }
 
         public byte getAngle() {
@@ -1000,44 +1531,75 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 return yHistory;
         }
 
+        public boolean isCpuControlled() {
+                return cpuControlled;
+        }
+
+        public void setCpuControlled(boolean cpuControlled) {
+                this.cpuControlled = cpuControlled;
+        }
+
+        public TailsCpuController getCpuController() {
+                return cpuController;
+        }
+
+        public void setCpuController(TailsCpuController cpuController) {
+                this.cpuController = cpuController;
+        }
+
         public boolean getRolling() {
                 return rolling;
         }
 
+        /**
+         * Returns the Y position adjustment needed when transitioning between standing and rolling.
+         *
+         * The ROM uses center-based coordinates where y_pos is the sprite center, so it adjusts by
+         * the RADIUS difference (standYRadius - rollYRadius = 19 - 14 = 5 pixels for Sonic).
+         *
+         * This engine uses top-left coordinates where y is the top of the sprite, so we must adjust
+         * by the full HEIGHT difference (runHeight - rollHeight = 38 - 28 = 10 pixels for Sonic).
+         *
+         * When entering roll: setY(getY() + getRollHeightAdjustment()) - moves top down, feet stay planted
+         * When exiting roll: setY(getY() - getRollHeightAdjustment()) - moves top up, feet stay planted
+         *
+         * @return the height difference between standing and rolling (always positive)
+         */
+        public short getRollHeightAdjustment() {
+                return (short) (runHeight - rollHeight);
+        }
+
+        /**
+         * Sets the rolling state and handles hitbox changes.
+         *
+         * IMPORTANT: This method changes the rolling flag, hitbox radii, and visual dimensions.
+         * It does NOT adjust Y position. The Y position adjustment must be done by the caller using
+         * getRollHeightAdjustment() because:
+         * 1. ROM does the adjustment in specific contexts (jump, spindash, roll start/end)
+         * 2. Some callers (like applyHurt) should NOT adjust Y position
+         *
+         * @param rolling true to enter rolling state, false to exit
+         */
         public void setRolling(boolean rolling) {
                 if (this.rolling == rolling) {
                         return;
                 }
 
+                // Update visual dimensions (no position adjustment)
                 if (GroundMode.CEILING.equals(runningMode) || GroundMode.GROUND.equals(runningMode)) {
-                        int oldHeight = getHeight();
                         int newHeight = rolling ? rollHeight : runHeight;
-                        if (oldHeight != newHeight) {
-                                int delta = (oldHeight - newHeight) / 2;
-                                yPixel = (short) (yPixel + delta);
-                                setHeight(newHeight);
-                        }
+                        setHeight(newHeight);
                 } else {
-                        int oldWidth = getWidth();
                         int newWidth = rolling ? rollHeight : runHeight;
-                        if (oldWidth != newWidth) {
-                                int delta = (oldWidth - newWidth) / 2;
-                                xPixel = (short) (xPixel + delta);
-                                setWidth(newWidth);
-                        }
+                        setWidth(newWidth);
                 }
 
+                // Apply appropriate collision radii
                 if (rolling) {
                         applyRollingRadii(false);
                 } else {
                         applyStandingRadii(false);
                 }
-
-                byte delta = 5;
-                if (!rolling) {
-                        delta = (byte) -delta;
-                }
-                moveForGroundModeAndDirection(delta, Direction.DOWN);
 
                 this.rolling = rolling;
         }
@@ -1048,6 +1610,22 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void setRollingJump(boolean rollingJump) {
                 this.rollingJump = rollingJump;
+        }
+
+        /**
+         * Returns whether pinball mode is active.
+         * When true, rolling cannot be cleared on landing and rolling cannot stop at 0 speed.
+         */
+        public boolean getPinballMode() {
+                return pinballMode;
+        }
+
+        /**
+         * Sets pinball mode. When true, the player must continue rolling -
+         * rolling won't be cleared on landing and if speed reaches 0, a boost is given.
+         */
+        public void setPinballMode(boolean pinballMode) {
+                this.pinballMode = pinballMode;
         }
 
         @Override
@@ -1079,11 +1657,21 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 return yRadius;
         }
 
-        protected void applyStandingRadii(boolean adjustY) {
+        /**
+         * Apply standing hitbox radii (y_radius=19, x_radius=9).
+         * ROM: Used when unrolling or landing.
+         * @param adjustY If true, adjust Y position for height change (not used - always pass false)
+         */
+        public void applyStandingRadii(boolean adjustY) {
                 setCollisionRadii(standXRadius, standYRadius, adjustY);
         }
 
-        protected void applyRollingRadii(boolean adjustY) {
+        /**
+         * Apply rolling hitbox radii (y_radius=14, x_radius=7).
+         * ROM: Used when starting roll, spindash release, or jumping.
+         * @param adjustY If true, adjust Y position for height change (not used - always pass false)
+         */
+        public void applyRollingRadii(boolean adjustY) {
                 setCollisionRadii(rollXRadius, rollYRadius, adjustY);
         }
 
@@ -1100,7 +1688,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
                 byte xRad = (byte) xRadius;
                 byte yRad = (byte) yRadius;
-                byte push = (byte) (xRadius + 1);
+                // SPG: Push sensors always use x = +/-10, regardless of rolling state
+                byte push = 10;
 
                 if (groundSensors != null && groundSensors.length >= 2) {
                         groundSensors[0].setOffset((byte) -xRad, yRad);
@@ -1116,14 +1705,35 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         pushSensors[0].setOffset((byte) -push, (byte) 0);
                         pushSensors[1].setOffset(push, (byte) 0);
                 }
+                // Update push sensor Y offset based on current ground state
+                updatePushSensorYOffset();
+        }
+
+        /**
+         * SPG: Push sensors shift down by +8 on flat ground so low steps are pushed
+         * against instead of being stepped onto. In air or on slopes, Y offset is 0.
+         */
+        public void updatePushSensorYOffset() {
+                if (pushSensors == null || pushSensors.length < 2) {
+                        return;
+                }
+                // ROM: Y offset = +8 when (angle & 0x38) == 0, i.e., near-flat angles (0-7, 248-255)
+                // This allows the offset on slight slopes, not just strictly flat ground.
+                // See s2.asm:43517-43519 in CalcRoomInFront
+                boolean onFlatGround = !air && runningMode == GroundMode.GROUND && (angle & 0x38) == 0;
+                byte yOffset = onFlatGround ? (byte) 8 : (byte) 0;
+                // SPG: Push sensors always use x = +/-10, regardless of rolling state
+                byte push = 10;
+                pushSensors[0].setOffset((byte) -push, yOffset);
+                pushSensors[1].setOffset(push, yOffset);
         }
 
         public SpriteMovementManager getMovementManager() {
-                return movementManager;
+                return controller.getMovement();
         }
 
-        public PlayableSpriteAnimationManager getAnimationManager() {
-                return animationManager;
+        public PlayableSpriteAnimation getAnimationManager() {
+                return controller.getAnimation();
         }
 
         protected abstract void defineSpeeds();
@@ -1140,6 +1750,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (this.runningMode != groundMode) {
                         updateSpriteShapeForRunningMode(groundMode, this.runningMode);
                         this.runningMode = groundMode;
+                        // SPG: Push sensor Y offset changes based on ground mode
+                        updatePushSensorYOffset();
                 }
         }
 
@@ -1183,71 +1795,116 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 return (short) (yHistory[desired] + (height / 2));
         }
 
-        public void updateSensors(short originalX, short originalY) {
-                Sensor[] sensorsToActivate;
-                Sensor[] sensorsToDeactivate;
+        /**
+         * Returns the recorded input bitmask from framesBehind frames ago.
+         * ROM: Reads from Sonic_Stat_Record_Buf for Tails CPU input replay.
+         * Use INPUT_UP/DOWN/LEFT/RIGHT/JUMP constants to test individual bits.
+         */
+        public final short getInputHistory(int framesBehind) {
+                int desired = historyPos - framesBehind;
+                if (desired < 0) {
+                        desired += inputHistory.length;
+                }
+                return inputHistory[desired];
+        }
 
+        /**
+         * Returns the recorded status flags from framesBehind frames ago.
+         * ROM: Reads from Sonic_Stat_Record_Buf for Tails CPU input replay.
+         * Use STATUS_FACING_LEFT/IN_AIR/ROLLING/PUSHING constants to test individual bits.
+         */
+        public final byte getStatusHistory(int framesBehind) {
+                int desired = historyPos - framesBehind;
+                if (desired < 0) {
+                        desired += statusHistory.length;
+                }
+                return statusHistory[desired];
+        }
+
+        /**
+         * Updates sensor active states based on movement direction and ground mode.
+         * Refactored to avoid per-frame array allocations by directly setting sensor states.
+         */
+        public void updateSensors(short originalX, short originalY) {
                 Sensor groundA = groundSensors[0];
                 Sensor groundB = groundSensors[1];
-
                 Sensor ceilingC = ceilingSensors[0];
                 Sensor ceilingD = ceilingSensors[1];
-
                 Sensor pushE = pushSensors[0];
                 Sensor pushF = pushSensors[1];
 
                 if (getAir()) {
-                        short xSpeedPositive = (short) Math.abs(xSpeed);
-                        short ySpeedPositive = (short) Math.abs(ySpeed);
+                        // Use ROM-accurate angle calculation via TrigLookupTable.calcAngle
+                        // ROM: Sonic_DoLevelCollision (s2.asm:37547-37557)
+                        int motionAngle = TrigLookupTable.calcAngle(xSpeed, ySpeed);
 
-                        if (xSpeedPositive > ySpeedPositive) {
-                                if (xSpeed > 0) {
-                                        sensorsToActivate = new Sensor[] { groundA, groundB, ceilingC, ceilingD,
-                                                        pushF };
-                                        sensorsToDeactivate = new Sensor[] { pushE };
-                                } else {
-                                        sensorsToActivate = new Sensor[] { groundA, groundB, ceilingC, ceilingD,
-                                                        pushE };
-                                        sensorsToDeactivate = new Sensor[] { pushF };
+                        // ROM quadrant calculation: subi.b #$20,d0 / andi.b #$C0,d0
+                        // This creates quadrants offset by 32 degrees:
+                        // - 0xC0: Angles 0-31 or 224-255 (mostly right)
+                        // - 0x00: Angles 32-95 (mostly down)
+                        // - 0x40: Angles 96-159 (mostly left)
+                        // - 0x80: Angles 160-223 (mostly up)
+                        int quadrant = ((motionAngle - 0x20) & 0xC0) & 0xFF;
+
+                        switch (quadrant) {
+                                case 0xC0 -> {
+                                        // Mostly Right (angles 0-31, 224-255): A, B, C, D, F active; E inactive
+                                        groundA.setActive(true);
+                                        groundB.setActive(true);
+                                        ceilingC.setActive(true);
+                                        ceilingD.setActive(true);
+                                        pushE.setActive(false);
+                                        pushF.setActive(true);
                                 }
-                        } else {
-                                if (ySpeed > 0) {
-                                        sensorsToActivate = new Sensor[] { groundA, groundB, pushE, pushF };
-                                        sensorsToDeactivate = new Sensor[] { ceilingC, ceilingD };
-                                } else {
-                                        sensorsToActivate = new Sensor[] { ceilingC, ceilingD, pushE, pushF };
-                                        sensorsToDeactivate = new Sensor[] { groundA, groundB };
+                                case 0x40 -> {
+                                        // Mostly Left (angles 96-159): A, B, C, D, E active; F inactive
+                                        groundA.setActive(true);
+                                        groundB.setActive(true);
+                                        ceilingC.setActive(true);
+                                        ceilingD.setActive(true);
+                                        pushE.setActive(true);
+                                        pushF.setActive(false);
+                                }
+                                case 0x80 -> {
+                                        // Mostly Up (angles 160-223): C, D, E, F active; A, B inactive
+                                        groundA.setActive(false);
+                                        groundB.setActive(false);
+                                        ceilingC.setActive(true);
+                                        ceilingD.setActive(true);
+                                        pushE.setActive(true);
+                                        pushF.setActive(true);
+                                }
+                                default -> {
+                                        // 0x00: Mostly Down (angles 32-95): A, B, E, F active; C, D inactive
+                                        groundA.setActive(true);
+                                        groundB.setActive(true);
+                                        ceilingC.setActive(false);
+                                        ceilingD.setActive(false);
+                                        pushE.setActive(true);
+                                        pushF.setActive(true);
                                 }
                         }
                 } else {
-                        boolean pushActive = Math.abs(angle) <= 64;
-                        if (xSpeed > 0) {
-                                sensorsToActivate = new Sensor[] { groundA, groundB, ceilingC, ceilingD, pushF };
-                                sensorsToDeactivate = new Sensor[] { pushE };
-                                if (!pushActive) {
-                                        sensorsToActivate = new Sensor[] { groundA, groundB, ceilingC, ceilingD };
-                                        sensorsToDeactivate = new Sensor[] { pushE, pushF };
-                                }
-                        } else if (xSpeed < 0) {
-                                sensorsToActivate = new Sensor[] { groundA, groundB, ceilingC, ceilingD, pushE };
-                                sensorsToDeactivate = new Sensor[] { pushF };
-                                if (!pushActive) {
-                                        sensorsToActivate = new Sensor[] { groundA, groundB, ceilingC, ceilingD };
-                                        sensorsToDeactivate = new Sensor[] { pushE, pushF };
-                                }
+                        // Ground sensors always active when grounded
+                        groundA.setActive(true);
+                        groundB.setActive(true);
+                        // Ceiling sensors always inactive when grounded
+                        ceilingC.setActive(false);
+                        ceilingD.setActive(false);
+
+                        // Push sensors active on floor/ceiling, disabled on walls
+                        boolean pushActive = (runningMode == GroundMode.GROUND || runningMode == GroundMode.CEILING);
+                        // Use gSpeed (speed along surface) instead of xSpeed for direction
+                        if (gSpeed > 0) {
+                                pushE.setActive(false);
+                                pushF.setActive(pushActive);
+                        } else if (gSpeed < 0) {
+                                pushE.setActive(pushActive);
+                                pushF.setActive(false);
                         } else {
-                                sensorsToActivate = new Sensor[] { groundA, groundB, ceilingC, ceilingD };
-                                sensorsToDeactivate = new Sensor[] { pushE, pushF };
+                                pushE.setActive(false);
+                                pushF.setActive(false);
                         }
-                }
-
-                setSensorActive(sensorsToActivate, true);
-                setSensorActive(sensorsToDeactivate, false);
-        }
-
-        private void setSensorActive(Sensor[] sensors, boolean active) {
-                for (Sensor sensor : sensors) {
-                        sensor.setActive(active);
                 }
         }
 
@@ -1287,13 +1944,30 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          * of the tick so all movement calculations have been performed.
          */
         public void endOfTick() {
-                if (historyPos == 31) {
+                // ROM: Sonic_Pos_Record_Index wraps at 256 bytes (64 entries * 4 bytes per entry)
+                if (historyPos == 63) {
                         historyPos = 0;
                 } else {
                         historyPos++;
                 }
                 xHistory[historyPos] = xPixel;
                 yHistory[historyPos] = yPixel;
+
+                // ROM: Sonic_Stat_Record_Buf records input buttons and status each frame
+                short input = 0;
+                if (upInputPressed) input |= INPUT_UP;
+                if (downInputPressed) input |= INPUT_DOWN;
+                if (leftInputPressed) input |= INPUT_LEFT;
+                if (rightInputPressed) input |= INPUT_RIGHT;
+                if (jumpInputPressed) input |= INPUT_JUMP;
+                inputHistory[historyPos] = input;
+
+                byte status = 0;
+                if (getDirection() == uk.co.jamesj999.sonic.physics.Direction.LEFT) status |= STATUS_FACING_LEFT;
+                if (air) status |= STATUS_IN_AIR;
+                if (rolling) status |= STATUS_ROLLING;
+                if (pushing) status |= STATUS_PUSHING;
+                statusHistory[historyPos] = status;
         }
 
         public short getRenderCentreX() {
@@ -1308,4 +1982,313 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.renderXOffset = xOffset;
                 this.renderYOffset = yOffset;
         }
+
+        // ==================== Water Physics ====================
+
+        /**
+         * Updates water state based on player Y position relative to water level.
+         *
+         * @param waterLevelY Water surface Y position in world coordinates (pixels)
+         */
+        public void updateWaterState(int waterLevelY) {
+                wasInWater = inWater;
+
+                // ROM compares y_pos (center Y) with Water_Level_1:
+                //   cmp.w y_pos(a0),d0 ; is Sonic above the water?
+                //   bge.s Obj01_OutWater
+                // Player is in water when center Y > water level
+                int playerCenterY = getCentreY();
+                inWater = playerCenterY > waterLevelY;
+
+                // Detect transitions
+                if (!wasInWater && inWater) {
+                        onEnterWater();
+                } else if (wasInWater && !inWater) {
+                        onExitWater();
+                }
+
+                // Update drowning manager each frame while underwater
+                if (inWater && !dead && controller.getDrowning() != null) {
+                        boolean shouldDrown = controller.getDrowning().update();
+                        if (shouldDrown) {
+                                applyDrownDeath();
+                        }
+                }
+        }
+
+        /**
+         * Called when player enters water.
+         * Applies instantaneous velocity changes per original game logic.
+         */
+        protected void onEnterWater() {
+                LOGGER.fine("Player entered water");
+
+                // ROM: asr.w x_vel(a0) - halve horizontal velocity once
+                xSpeed = (short) (xSpeed / 2);
+                gSpeed = (short) (gSpeed / 2);
+
+                // ROM: asr.w y_vel(a0) twice - divide by 4 unconditionally
+                // (both upward and downward velocity)
+                ySpeed = (short) (ySpeed / 4);
+
+                // ROM (s2.asm:36050-36110): Skip splash if y_vel is 0 after quartering
+                //   tst.w   y_vel(a0)
+                //   beq.s   loc_F6DE         ; Skip splash if y_vel is now 0
+                if (ySpeed != 0) {
+                        // Play splash sound
+                        AudioManager.getInstance().playSfx(GameSound.SPLASH);
+
+                        // Spawn splash object at water surface
+                        spawnSplash();
+                }
+
+                // Reset drowning manager for new underwater session
+                if (controller.getDrowning() != null) {
+                        controller.getDrowning().reset();
+                }
+        }
+
+        /**
+         * Called when player exits water.
+         * Applies velocity boost per original game logic.
+         */
+        protected void onExitWater() {
+                LOGGER.fine("Player exited water");
+
+                // ROM does NOT modify x_vel on water exit - only top_speed/accel/decel
+                // change, which affects future acceleration but not current velocity
+
+                // ROM: cmpi.b #4,routine(a0) - skip y_vel doubling if hurt
+                //      beq.s +
+                //      asl y_vel(a0)
+                if (!isHurt()) {
+                        // Double y velocity (both up and down)
+                        ySpeed = (short) (ySpeed * 2);
+                }
+
+                // ROM (s2.asm:36103-36104): tst.w y_vel(a0) / beq.w return_1A18C
+                // If y velocity is zero after doubling, skip splash entirely
+                if (ySpeed == 0) {
+                        // Notify drowning manager but skip splash effects
+                        if (controller.getDrowning() != null) {
+                                controller.getDrowning().onExitWater();
+                        }
+                        return;
+                }
+
+                // ROM: cmpi.w #-$1000,y_vel(a0) - cap upward velocity at -$1000
+                //      bgt.s +
+                //      move.w #-$1000,y_vel(a0)
+                if (ySpeed < -0x1000) {
+                        ySpeed = -0x1000;
+                }
+
+                // Play splash sound
+                AudioManager.getInstance().playSfx(GameSound.SPLASH);
+
+                // Spawn splash object at water surface
+                spawnSplash();
+
+                // Notify drowning manager of water exit (stops drowning music, resets state)
+                if (controller.getDrowning() != null) {
+                        controller.getDrowning().onExitWater();
+                }
+        }
+
+        /**
+         * Spawns a splash object at the water surface.
+         * The splash appears at the player's X position at the water level Y.
+         */
+        private void spawnSplash() {
+                LevelManager levelManager = LevelManager.getInstance();
+                if (levelManager == null || levelManager.getObjectManager() == null) {
+                        return;
+                }
+
+                // Get dust/splash renderer from spindash dust manager
+                SpindashDustController dustController = getSpindashDustController();
+                if (dustController == null || dustController.getRenderer() == null) {
+                        return;
+                }
+
+                // Get water level from WaterSystem
+                // Use getVisualWaterLevelY so splash appears at the oscillating water surface (CPZ2)
+                var level = levelManager.getCurrentLevel();
+                if (level == null) {
+                        return;
+                }
+                var waterSystem = uk.co.jamesj999.sonic.level.WaterSystem.getInstance();
+                int waterY = waterSystem.getVisualWaterLevelY(level.getZoneIndex(), levelManager.getCurrentAct());
+
+                // Create splash object
+                var splash = new uk.co.jamesj999.sonic.game.sonic2.objects.SplashObjectInstance(
+                                getCentreX(), waterY, dustController.getRenderer(),
+                                direction == Direction.LEFT);
+
+                // Add to object manager
+                levelManager.getObjectManager().addDynamicObject(splash);
+        }
+
+        /**
+         * Returns true if player is currently underwater.
+         */
+        public boolean isInWater() {
+                return inWater;
+        }
+
+        /**
+         * Replenishes air by collecting a large breathable bubble.
+         * Implements full ROM behavior from s2.asm lines 44966-44998:
+         * <ul>
+         *   <li>Clears all velocity (x_vel, y_vel, inertia)</li>
+         *   <li>Sets bubble-breathing animation</li>
+         *   <li>Locks movement for 35 frames (0x23)</li>
+         *   <li>Clears jumping, pushing, and roll-jumping flags</li>
+         *   <li>Unrolls player if rolling (adjusts hitbox)</li>
+         * </ul>
+         */
+        public void replenishAir() {
+                // ROM: clr.w x_vel(a1) / clr.w y_vel(a1) / clr.w inertia(a1)
+                xSpeed = 0;
+                ySpeed = 0;
+                gSpeed = 0;
+
+                // ROM: move.b #AniIDSonAni_Bubble,anim(a1)
+                setAnimationId(uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AnimationIds.BUBBLE);
+
+                // ROM: move.w #$23,move_lock(a1) (35 frames)
+                moveLockTimer = 0x23;
+
+                // ROM: move.b #0,jumping(a1) - we don't have a jumping flag, but air=false is similar
+                air = false;
+
+                // ROM: bclr #status.player.pushing,status(a1)
+                pushing = false;
+
+                // ROM: bclr #status.player.rolljumping,status(a1)
+                rollingJump = false;
+
+                // ROM: btst #status.player.rolling,status(a1) / beq.w loc_1FBB8
+                // If rolling, unroll (setRolling handles hitbox adjustment and Y position)
+                if (rolling) {
+                        // ROM: bclr #status.player.rolling,status(a1)
+                        // setRolling(false) handles:
+                        // - Adjusting y_radius back to standing height
+                        // - Adjusting x_radius back to standing width
+                        // - Adjusting Y position (subq.w #5,y_pos for Sonic, subq.w #1 for Tails)
+                        setRolling(false);
+                }
+
+                // Delegate to drowning manager for air timer reset and music handling
+                if (controller.getDrowning() != null) {
+                        controller.getDrowning().replenishAir();
+                }
+        }
+
+        /**
+         * Sets water state directly (for loading checkpoints, testing, etc.).
+         */
+        public void setInWater(boolean inWater) {
+                this.inWater = inWater;
+                this.wasInWater = inWater;
+        }
+
+        // ==================== Physics Constant Getters with Modifiers
+        // ====================
+        // These apply underwater and speed shoes modifiers dynamically
+
+        /**
+         * Returns effective run acceleration, accounting for underwater and speed
+         * shoes.
+         * Underwater: halved
+         * Speed shoes: doubled
+         */
+        public short getEffectiveRunAccel() {
+                short value = runAccel;
+                if (inWater) {
+                        value = (short) (value / 2);
+                }
+                if (speedShoes) {
+                        value = (short) (value * 2);
+                }
+                return value;
+        }
+
+        /**
+         * Returns effective run deceleration, accounting for modifiers.
+         */
+        public short getEffectiveRunDecel() {
+                short value = runDecel;
+                if (inWater) {
+                        value = (short) (value / 2);
+                }
+                // Speed shoes don't affect decel in original
+                return value;
+        }
+
+        /**
+         * Returns effective friction, accounting for modifiers.
+         */
+        public short getEffectiveFriction() {
+                short value = friction;
+                if (inWater) {
+                        value = (short) (value / 2);
+                }
+                if (speedShoes) {
+                        value = (short) (value * 2);
+                }
+                return value;
+        }
+
+        /**
+         * Returns effective max speed, accounting for modifiers.
+         * Underwater: halved
+         * Speed shoes: doubled
+         */
+        public short getEffectiveMax() {
+                short value = max;
+                if (inWater) {
+                        value = (short) (value / 2);
+                }
+                if (speedShoes) {
+                        value = (short) (value * 2);
+                }
+                return value;
+        }
+
+        /**
+         * Returns effective jump force, accounting for underwater modifier.
+         * ROM s2.asm line 37019: Underwater = 0x380 (896), Normal = 0x680 (1664)
+         */
+        public short getEffectiveJump() {
+                if (inWater) {
+                        return 0x380; // Reduced underwater jump (ROM: 0x380)
+                }
+                return jump;
+        }
+
+        /**
+         * Returns effective gravity value.
+         * Normal: 0x38 (56 subpixels)
+         * Underwater: 0x10 (16 subpixels)
+         */
+        public short getEffectiveGravity() {
+                if (inWater) {
+                        return 0x10; // Reduced underwater gravity
+                }
+                return 0x38; // Normal gravity
+        }
+
+        /**
+         * Returns effective air drag threshold.
+         * Normal: -0x400
+         * Underwater: -0x200
+         */
+        public short getEffectiveAirDragThreshold() {
+                if (inWater) {
+                        return -0x200;
+                }
+                return -0x400;
+        }
 }
+

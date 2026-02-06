@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects.badniks;
 
+import uk.co.jamesj999.sonic.game.GameServices;
+
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
@@ -8,9 +10,8 @@ import uk.co.jamesj999.sonic.level.objects.TouchResponseProvider;
 import uk.co.jamesj999.sonic.level.objects.TouchResponseResult;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ExplosionObjectInstance;
-import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.AnimalObjectInstance;
-import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.PointsObjectInstance;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
+import uk.co.jamesj999.sonic.game.sonic2.objects.PointsObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 
 /**
  * Abstract base class for all Badnik enemies.
@@ -97,6 +98,13 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         destroyed = true;
         setDestroyed(true);
 
+        // Remove from active spawns to prevent immediate respawn
+        // (badniks will still respawn when camera leaves and returns - ROM accurate)
+        var objectManager = levelManager.getObjectManager();
+        if (objectManager != null) {
+            objectManager.removeFromActiveSpawns(spawn);
+        }
+
         // Spawn explosion
         ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,
                 levelManager.getObjectRenderManager());
@@ -111,7 +119,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         int pointsValue = 100;
         if (player != null) {
             pointsValue = player.incrementBadnikChain();
-            uk.co.jamesj999.sonic.game.GameStateManager.getInstance().addScore(pointsValue);
+            GameServices.gameState().addScore(pointsValue);
         }
 
         // Spawn points
@@ -120,7 +128,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         levelManager.getObjectManager().addDynamicObject(points);
 
         // Play explosion SFX
-        uk.co.jamesj999.sonic.audio.AudioManager.getInstance().playSfx(Sonic2Constants.SndID_Explosion);
+        uk.co.jamesj999.sonic.audio.AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_EXPLOSION);
 
         // Remove self
         // Remove self (handled by update loop via destroyed flag)
@@ -128,7 +136,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
 
     /**
      * Returns a dynamic spawn with the current position for collision detection.
-     * This is critical because TouchResponseManager uses getSpawn() position.
+     * This is critical because ObjectManager touch responses use getSpawn() position.
      */
     @Override
     public ObjectSpawn getSpawn() {
@@ -175,3 +183,4 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         return baseY + (int) (amplitude * Math.sin(angle));
     }
 }
+

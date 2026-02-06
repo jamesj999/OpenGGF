@@ -1,102 +1,37 @@
 package uk.co.jamesj999.sonic.physics;
 
-import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
-
+/**
+ * Aggregates sensor results for terrain collision detection.
+ * Delegates individual scans to Sensor implementations.
+ */
 public class TerrainCollisionManager {
-	private static TerrainCollisionManager terrainCollisionManager;
+	private static TerrainCollisionManager instance;
 
-	// In the future, we may need to expand this method to work with AbstractSprite too for NPCs.
+	// Pre-allocated result arrays to avoid per-frame allocations.
+	// Max sensor count is 6 for player sprites (2 ground, 2 ceiling, 2 push).
+	private static final int MAX_SENSORS = 6;
+	private final SensorResult[] pooledResults = new SensorResult[MAX_SENSORS];
+
+	/**
+	 * Execute all sensors and return their results.
+	 * NOTE: The returned array is reused between calls - callers must not
+	 * store references to it across frames.
+	 *
+	 * @param sensors Array of sensors to scan (max 6)
+	 * @return Array of results (parallel to input array, reused buffer)
+	 */
 	public SensorResult[] getSensorResult(Sensor[] sensors) {
-		SensorResult[] results = new SensorResult[sensors.length];
-
-		for (int i = 0; i < sensors.length; i++) {
-			results[i] = sensors[i].scan();
+		int count = Math.min(sensors.length, MAX_SENSORS);
+		for (int i = 0; i < count; i++) {
+			pooledResults[i] = sensors[i].scan();
 		}
-
-		return results;
-	}
-		// I know, I thought it was closest to 0 too, but apparently not
-//		SensorResult lowestResult = null;
-//		for (Sensor sensor : sprite.getGroundSensors()) {
-//			SensorResult result = sensor.scan();
-//			if (result != null) {
-//				byte distance = result.distance();
-//				if (lowestResult == null || distance < lowestResult.distance()) {
-//					lowestResult = result;
-//				}
-//			}
-//		}
-//		return lowestResult;
-		//}
-//		if(lowestResult != null && lowestResult.distance() < 16) {
-//			short newX = sprite.getX();
-//			short newY = sprite.getY();
-//
-//			switch (sprite.getGroundMode()) {
-//				case GROUND -> {
-//					newY += lowestResult.distance();
-//				}
-//				case RIGHTWALL -> {
-//					newX += lowestResult.distance();
-//				}
-//				case CEILING -> {
-//					newY -= lowestResult.distance();
-//				}
-//				case LEFTWALL -> {
-//					newX -= lowestResult.distance();
-//				}
-//			}
-//			if (sprite.getAir()) {
-//				sprite.setAir(false);
-//			}
-//			sprite.setX(newX);
-//			sprite.setY(newY);
-//			sprite.setAngle(lowestResult.angle());
-//
-//
-//		} else {
-//			if(!sprite.getAir()) {
-//				sprite.setAir(true);
-//			}
-//		}
-//	}
-
-	// In the future, we may need to expand this method to work with AbstractSprite too for NPCs.
-	public short calculateWallPosition(AbstractPlayableSprite sprite) {
-		short output = -1;
-		Direction direction = null;
-
-//		for (SensorLine line : sprite.getSensorLinesForDirection(Direction.LEFT, Direction.RIGHT)) {
-//			SensorResult result = line.scan();
-//			if (result != null && result.distance() > output) {
-//				output = result.distance();
-//				direction = line.getDirection();
-//			}
-//		}
-
-		if (output > -1 && direction != null) {
-			switch (direction) {
-				case UP -> {
-					//TODO
-				}
-				case DOWN -> {
-					//TODO
-				}
-				case LEFT -> {
-					output -= (sprite.getCentreX() + (sprite.getWidth() / 2));
-				}
-				case RIGHT -> {
-					output += (sprite.getCentreY() + (sprite.getWidth() / 2));
-				}
-			}
-		}
-		return output;
+		return pooledResults;
 	}
 
-	public synchronized static TerrainCollisionManager getInstance() {
-		if (terrainCollisionManager == null) {
-			terrainCollisionManager = new TerrainCollisionManager();
+	public static synchronized TerrainCollisionManager getInstance() {
+		if (instance == null) {
+			instance = new TerrainCollisionManager();
 		}
-		return terrainCollisionManager;
+		return instance;
 	}
 }

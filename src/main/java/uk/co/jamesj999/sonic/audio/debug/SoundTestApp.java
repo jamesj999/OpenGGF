@@ -2,20 +2,30 @@ package uk.co.jamesj999.sonic.audio.debug;
 
 import uk.co.jamesj999.sonic.audio.AudioBackend;
 import uk.co.jamesj999.sonic.audio.ChannelType;
-import uk.co.jamesj999.sonic.audio.JOALAudioBackend;
+import uk.co.jamesj999.sonic.audio.LWJGLAudioBackend;
 import uk.co.jamesj999.sonic.audio.NullAudioBackend;
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 import uk.co.jamesj999.sonic.audio.smps.DacData;
 import uk.co.jamesj999.sonic.game.sonic2.audio.smps.Sonic2SmpsLoader;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SoundTestCatalog;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.data.RomManager;
+
+import uk.co.jamesj999.sonic.audio.driver.SmpsDriver;
+import uk.co.jamesj999.sonic.audio.smps.SmpsSequencer;
+import uk.co.jamesj999.sonic.audio.synth.Ym2612Chip;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SmpsSequencerConfig;
 
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.Font;
 import java.awt.event.KeyAdapter;
@@ -23,7 +33,10 @@ import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
 import java.util.Locale;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -35,7 +48,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.LinkedHashMap;
+import java.util.NavigableSet;
 import java.util.TreeSet;
 
 /**
@@ -72,7 +85,7 @@ public final class SoundTestApp {
 
         Sonic2SmpsLoader loader = new Sonic2SmpsLoader(rom);
         DacData dacData = loader.loadDacData();
-        AudioBackend backend = options.nullAudio ? new NullAudioBackend() : new JOALAudioBackend();
+        AudioBackend backend = options.nullAudio ? new NullAudioBackend() : new LWJGLAudioBackend();
         backend.init();
         backend.setAudioProfile(new Sonic2AudioProfile());
         Runtime.getRuntime().addShutdownHook(new Thread(backend::destroy));
@@ -265,7 +278,7 @@ public final class SoundTestApp {
             tracksPanel.add(heading);
             frame.getContentPane().add(tracksPanel, BorderLayout.CENTER);
             JLabel info = new JLabel(String.format(
-                    "ROM: %s | Backend: %s%s | Tab: Music/SFX | Up/Down change | Enter play | S Speed Shoes | Esc quit",
+                    "ROM: %s | Backend: %s%s | Tab: Music/SFX | Up/Down change | Enter play | S Speed | Ctrl+E export WAV | Esc quit",
                     romPath, backend.getClass().getSimpleName(), nullAudio ? " (silent)" : ""), SwingConstants.CENTER);
             info.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
             frame.getContentPane().add(info, BorderLayout.SOUTH);
@@ -347,6 +360,11 @@ public final class SoundTestApp {
                             backend.setSpeedShoes(speedShoes);
                             updateLabel();
                             break;
+                        case KeyEvent.VK_E:
+                            if (e.isControlDown()) {
+                                exportToWav();
+                            }
+                            break;
                         default:
                             break;
                     }
@@ -367,7 +385,6 @@ public final class SoundTestApp {
             frame.setLocationRelativeTo(null);
             frame.setVisible(true);
             updateLabel();
-            playCurrent();
             refreshTimer = new Timer(200, e -> updateDetails());
             refreshTimer.start();
         }
@@ -473,7 +490,7 @@ public final class SoundTestApp {
         private void updateDetails() {
             if (tracksPanel == null)
                 return;
-            if (backend instanceof uk.co.jamesj999.sonic.audio.JOALAudioBackend joal) {
+            if (backend instanceof uk.co.jamesj999.sonic.audio.LWJGLAudioBackend joal) {
                 var dbg = joal.getDebugState();
                 Set<String> touched = new HashSet<>();
                 if (dbg != null) {
@@ -549,6 +566,185 @@ public final class SoundTestApp {
                 frame.dispose();
             }
         }
+
+        private void exportToWav() {
+            // Determine what to export
+            int exportId;
+            String exportName;
+            boolean isSfxExport;
+            AbstractSmpsData exportData;
+
+            if (sfxMode) {
+                exportId = sfxId;
+                String name = sfxNames.get(sfxId);
+                exportName = name != null ? name : "SFX_" + toHex(sfxId);
+                isSfxExport = true;
+                exportData = loader.loadSfx(sfxId);
+            } else {
+                exportId = songId;
+                String title = lookupTitle(songId);
+                exportName = title != null ? title.replace(" ", "_") : "Music_" + toHex(songId);
+                isSfxExport = false;
+                exportData = loader.loadMusic(songId);
+            }
+
+            if (exportData == null) {
+                JOptionPane.showMessageDialog(frame,
+                    "Failed to load " + (isSfxExport ? "SFX" : "music") + " " + toHex(exportId),
+                    "Export Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // Show file chooser
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setDialogTitle("Export WAV");
+            fileChooser.setSelectedFile(new File(exportName + ".wav"));
+            fileChooser.setFileFilter(new FileNameExtensionFilter("WAV Audio Files", "wav"));
+
+            if (fileChooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) {
+                return;
+            }
+
+            File outputFile = fileChooser.getSelectedFile();
+            if (!outputFile.getName().toLowerCase().endsWith(".wav")) {
+                outputFile = new File(outputFile.getPath() + ".wav");
+            }
+
+            // Disable UI during export
+            frame.setEnabled(false);
+            titleLabel.setText("Exporting " + exportName + "...");
+
+            // Run export in background thread
+            final File finalOutputFile = outputFile;
+            final boolean finalIsSfx = isSfxExport;
+            new Thread(() -> {
+                try {
+                    int samplesWritten = renderToWav(exportData, dacData, finalOutputFile, finalIsSfx);
+                    SwingUtilities.invokeLater(() -> {
+                        frame.setEnabled(true);
+                        updateLabel();
+                        double seconds = samplesWritten / getOutputSampleRate();
+                        JOptionPane.showMessageDialog(frame,
+                            String.format("Exported %.2f seconds to:\n%s", seconds, finalOutputFile.getAbsolutePath()),
+                            "Export Complete", JOptionPane.INFORMATION_MESSAGE);
+                    });
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    SwingUtilities.invokeLater(() -> {
+                        frame.setEnabled(true);
+                        updateLabel();
+                        JOptionPane.showMessageDialog(frame,
+                            "Export failed: " + ex.getMessage(),
+                            "Export Error", JOptionPane.ERROR_MESSAGE);
+                    });
+                }
+            }).start();
+        }
+
+        /**
+         * Renders SMPS data to a WAV file.
+         * For SFX, renders until complete.
+         * For music, renders for a fixed duration (default 60 seconds).
+         */
+        private int renderToWav(AbstractSmpsData data, DacData dacSamples, File outputFile, boolean isSfx) throws IOException {
+            // Create a standalone driver for rendering
+            SmpsDriver driver = new SmpsDriver(getOutputSampleRate());
+            driver.setRegion(SmpsSequencer.Region.NTSC);
+            driver.setDacInterpolate(true);
+
+            SmpsSequencer seq = new SmpsSequencer(data, dacSamples, driver, Sonic2SmpsSequencerConfig.CONFIG);
+            seq.setSampleRate(driver.getOutputSampleRate());
+            if (isSfx) {
+                seq.setSfxMode(true);
+            }
+            driver.addSequencer(seq, isSfx);
+
+            // Render parameters
+            int sampleRate = (int) Math.round(driver.getOutputSampleRate());
+            int maxSamples = isSfx ? sampleRate * 10 : sampleRate * 60; // 10s for SFX, 60s for music
+            int bufferSize = 1024;
+            short[] buffer = new short[bufferSize * 2]; // Stereo
+
+            // Use RandomAccessFile so we can update header after writing
+            try (RandomAccessFile raf = new RandomAccessFile(outputFile, "rw")) {
+                // Write placeholder header (44 bytes)
+                byte[] header = new byte[44];
+                raf.write(header);
+
+                int totalSamples = 0;
+                while (totalSamples < maxSamples) {
+                    driver.read(buffer);
+
+                    // Write samples as little-endian 16-bit
+                    for (int i = 0; i < buffer.length; i++) {
+                        raf.writeByte(buffer[i] & 0xFF);
+                        raf.writeByte((buffer[i] >> 8) & 0xFF);
+                    }
+
+                    totalSamples += bufferSize;
+
+                    // Check if SFX is complete
+                    if (isSfx && driver.isComplete()) {
+                        break;
+                    }
+                }
+
+                // Calculate sizes
+                int dataSize = totalSamples * 2 * 2; // samples * 2 channels * 2 bytes per sample
+                int fileSize = dataSize + 36;
+
+                // Go back and write proper WAV header
+                raf.seek(0);
+                writeWavHeader(raf, sampleRate, 2, 16, dataSize);
+
+                return totalSamples;
+            }
+        }
+
+        /**
+         * Writes a WAV file header.
+         */
+        private void writeWavHeader(RandomAccessFile raf, int sampleRate, int channels, int bitsPerSample, int dataSize) throws IOException {
+            int byteRate = sampleRate * channels * bitsPerSample / 8;
+            int blockAlign = channels * bitsPerSample / 8;
+
+            // RIFF header
+            raf.writeBytes("RIFF");
+            writeIntLE(raf, dataSize + 36); // File size - 8
+            raf.writeBytes("WAVE");
+
+            // fmt chunk
+            raf.writeBytes("fmt ");
+            writeIntLE(raf, 16); // Chunk size
+            writeShortLE(raf, (short) 1); // Audio format (PCM)
+            writeShortLE(raf, (short) channels);
+            writeIntLE(raf, sampleRate);
+            writeIntLE(raf, byteRate);
+            writeShortLE(raf, (short) blockAlign);
+            writeShortLE(raf, (short) bitsPerSample);
+
+            // data chunk
+            raf.writeBytes("data");
+            writeIntLE(raf, dataSize);
+        }
+
+        private void writeIntLE(RandomAccessFile raf, int value) throws IOException {
+            raf.writeByte(value & 0xFF);
+            raf.writeByte((value >> 8) & 0xFF);
+            raf.writeByte((value >> 16) & 0xFF);
+            raf.writeByte((value >> 24) & 0xFF);
+        }
+
+        private void writeShortLE(RandomAccessFile raf, short value) throws IOException {
+            raf.writeByte(value & 0xFF);
+            raf.writeByte((value >> 8) & 0xFF);
+        }
+
+        private double getOutputSampleRate() {
+            boolean internalRate = SonicConfigurationService.getInstance()
+                    .getBoolean(SonicConfiguration.AUDIO_INTERNAL_RATE_OUTPUT);
+            return internalRate ? Ym2612Chip.getInternalRate() : Ym2612Chip.getDefaultOutputRate();
+        }
     }
 
     private static void printUsage() {
@@ -585,12 +781,9 @@ public final class SoundTestApp {
         }
 
         static Options fromArgs(String[] args) {
-            String defaultRom = SonicConfigurationService.getInstance()
-                    .getString(SonicConfiguration.ROM_FILENAME);
-            if (defaultRom == null || defaultRom.isEmpty()) {
-                defaultRom = "Sonic The Hedgehog 2 (W) (REV01) [!].gen";
-            }
-            String romPath = defaultRom;
+            String romPath = RomManager.resolveRomForGame(
+                    SonicConfigurationService.getInstance()
+                            .getString(SonicConfiguration.DEFAULT_ROM));
             int songId = 0x8C; // Chemical Plant default for debugging
             boolean nullAudio = false;
             boolean help = false;
@@ -643,62 +836,25 @@ public final class SoundTestApp {
         }
     }
 
-    private static final Map<Integer, String> TITLE_MAP = buildTitleMap();
-    private static final TreeSet<Integer> VALID_SONGS = new TreeSet<>(TITLE_MAP.keySet());
-
-    private static Map<Integer, String> buildTitleMap() {
-        Map<Integer, String> m = new LinkedHashMap<>();
-        m.put(0x00, "Continue");
-        m.put(0x80, "Casino Night Zone (2P)");
-        m.put(0x81, "Emerald Hill Zone");
-        m.put(0x82, "Metropolis Zone");
-        m.put(0x83, "Casino Night Zone");
-        m.put(0x84, "Mystic Cave Zone");
-        m.put(0x85, "Mystic Cave Zone (2P)");
-        m.put(0x86, "Aquatic Ruin Zone");
-        m.put(0x87, "Death Egg Zone");
-        m.put(0x88, "Special Stage");
-        m.put(0x89, "Option Screen");
-        m.put(0x8A, "Ending");
-        m.put(0x8B, "Final Battle");
-        m.put(0x8C, "Chemical Plant Zone");
-        m.put(0x8D, "Boss");
-        m.put(0x8E, "Sky Chase Zone");
-        m.put(0x8F, "Oil Ocean Zone");
-        m.put(0x90, "Wing Fortress Zone");
-        m.put(0x91, "Emerald Hill Zone (2P)");
-        m.put(0x92, "2P Results Screen");
-        m.put(0x93, "Super Sonic");
-        m.put(0x94, "Hill Top Zone");
-        m.put(0x96, "Title Screen");
-        m.put(0x97, "Stage Clear");
-        m.put(0x99, "Invincibility");
-        m.put(0x9B, "Hidden Palace Zone");
-        m.put(0xB5, "1-Up");
-        m.put(0xB8, "Game Over");
-        m.put(0xBA, "Got an Emerald");
-        m.put(0xBD, "Credits");
-        m.put(0xDC, "Underwater Timing");
-        return m;
-    }
-
     private static String lookupTitle(int songId) {
-        return TITLE_MAP.get(songId);
+        return Sonic2SoundTestCatalog.lookupTitle(songId);
     }
 
     private static int getNextValidSong(int current) {
-        Integer next = VALID_SONGS.higher(current);
+        NavigableSet<Integer> valid = Sonic2SoundTestCatalog.getValidSongs();
+        Integer next = valid.higher(current);
         if (next != null) {
             return next;
         }
-        return VALID_SONGS.first();
+        return valid.first();
     }
 
     private static int getPreviousValidSong(int current) {
-        Integer prev = VALID_SONGS.lower(current);
+        NavigableSet<Integer> valid = Sonic2SoundTestCatalog.getValidSongs();
+        Integer prev = valid.lower(current);
         if (prev != null) {
             return prev;
         }
-        return VALID_SONGS.last();
+        return valid.last();
     }
 }

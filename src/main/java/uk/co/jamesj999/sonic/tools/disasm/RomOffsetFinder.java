@@ -1,41 +1,174 @@
 package uk.co.jamesj999.sonic.tools.disasm;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
- * Main CLI tool for finding ROM offsets of items defined in the Sonic 2 disassembly.
- * 
+ * Main CLI tool for finding ROM offsets of items defined in Sonic disassemblies.
+ * Supports Sonic 1 (s1disasm), Sonic 2 (s2disasm), and Sonic 3&K (skdisasm).
+ *
  * This tool:
- * 1. Searches s2disasm for items by label or filename
+ * 1. Searches disassembly for items by label or filename
  * 2. Tests decompression based on file extension
  * 3. Finds the ROM offset by matching decompressed data
- * 
+ *
  * Usage:
- *   java RomOffsetFinder search <pattern>           - Search for items by label/filename
- *   java RomOffsetFinder find <label> [startOffset] - Find ROM offset for a specific item
- *   java RomOffsetFinder test <offset> <type>       - Test decompression at offset
- *   java RomOffsetFinder list [type]                - List all includes (optionally filtered by type)
+ *   java RomOffsetFinder [--game s1|s2|s3k] search <pattern>
+ *   java RomOffsetFinder [--game s1|s2|s3k] find <label> [startOffset]
+ *   java RomOffsetFinder [--game s1|s2|s3k] test <offset> <type>
+ *   java RomOffsetFinder [--game s1|s2|s3k] list [type]
  */
 public class RomOffsetFinder {
 
-    private static final String DEFAULT_ROM_PATH = "Sonic The Hedgehog 2 (W) (REV01) [!].gen";
-    private static final String DEFAULT_DISASM_PATH = "docs/s2disasm";
+    /**
+     * Encapsulates all game-specific configuration for the offset finder.
+     */
+    public record GameProfile(
+            String gameId,
+            String gameName,
+            String romVerName,
+            String defaultRomPath,
+            String defaultDisasmPath,
+            String mainAsmFile,
+            String paletteDirPrefix,
+            Map<String, Long> anchorOffsets,
+            LinkedHashMap<String, String> labelPrefixMap
+    ) {
+        /**
+         * Create a Sonic 1 profile.
+         */
+        public static GameProfile sonic1() {
+            Map<String, Long> anchors = new LinkedHashMap<>();
+            // Verified anchors from Sonic1Constants
+            anchors.put("Art_Text", 0x5F0L);          // artunc/menutext.bin
+            anchors.put("Pal_Sonic", 0x2380L);        // palette/Sonic.bin
+            anchors.put("Nem_TitleCard", 0x39204L);   // artnem/Title Cards.nem
+            anchors.put("Col_GHZ", 0x64A00L);         // collide/GHZ.bin
+            anchors.put("AngleMap", 0x62900L);         // collide/Angle Map.bin
+            anchors.put("CollArray1", 0x62A00L);       // collide/Collision Array (Normal).bin
+
+            LinkedHashMap<String, String> prefixes = new LinkedHashMap<>();
+            // Longest-first to avoid partial matches
+            prefixes.put("Blk256_", "BLK256_");
+            prefixes.put("Blk16_", "BLK16_");
+            prefixes.put("Nem_", "NEM_");
+            prefixes.put("Art_", "ART_");
+            prefixes.put("Pal_", "PAL_");
+            prefixes.put("Map_", "MAP_");
+            prefixes.put("Col_", "COL_");
+            prefixes.put("Level_", "LEVEL_");
+            prefixes.put("ObjPos_", "OBJPOS_");
+
+            return new GameProfile(
+                    "s1", "Sonic 1", "Sonic 1 (REV01)",
+                    "Sonic The Hedgehog (W) (REV01) [!].gen",
+                    "docs/s1disasm",
+                    "sonic.asm",
+                    null, // S1 uses bincludePalette, not the palette macro
+                    Collections.unmodifiableMap(anchors),
+                    prefixes
+            );
+        }
+
+        /**
+         * Create a Sonic 2 profile (default).
+         */
+        public static GameProfile sonic2() {
+            Map<String, Long> anchors = new LinkedHashMap<>();
+            anchors.put("ArtNem_SpecialBack", 0x0DCD68L);
+            anchors.put("ArtNem_SpecialHUD", 0x0DD48AL);
+            anchors.put("ArtNem_SpecialStart", 0x0DD790L);
+            anchors.put("ArtNem_SpecialRings", 0x0DDA7EL);
+            anchors.put("ArtNem_SpecialFlatShadow", 0x0DDFA4L);
+            anchors.put("ArtNem_SpecialDiagShadow", 0x0DE05AL);
+            anchors.put("ArtNem_SpecialSideShadow", 0x0DE120L);
+            anchors.put("ArtNem_SpecialBomb", 0x0DE4BCL);
+            anchors.put("ArtNem_SpecialEmerald", 0x0DE8ACL);
+            anchors.put("ArtNem_SpecialMessages", 0x0DEAF4L);
+            anchors.put("ArtNem_SpecialSonicAndTails", 0x0DEEAEL);
+            anchors.put("ArtKos_SpecialStage", 0x0DCA38L);
+            anchors.put("Pal_Result", 0x3302L);
+
+            LinkedHashMap<String, String> prefixes = new LinkedHashMap<>();
+            prefixes.put("ArtNem_", "NEM_");
+            prefixes.put("ArtKos_", "KOS_");
+            prefixes.put("ArtEni_", "ENI_");
+            prefixes.put("ArtSax_", "SAX_");
+            prefixes.put("MapEni_", "MAP_ENI_");
+            prefixes.put("MapUnc_", "MAP_UNC_");
+            prefixes.put("Pal_", "PAL_");
+
+            return new GameProfile(
+                    "s2", "Sonic 2", "Sonic 2 (REV01)",
+                    "Sonic The Hedgehog 2 (W) (REV01) [!].gen",
+                    "docs/s2disasm",
+                    "s2.asm",
+                    "art/palettes/", // S2 uses the palette macro
+                    Collections.unmodifiableMap(anchors),
+                    prefixes
+            );
+        }
+
+        /**
+         * Create a Sonic 3&K profile.
+         */
+        public static GameProfile sonic3k() {
+            Map<String, Long> anchors = new LinkedHashMap<>();
+            // Initially empty — populate via verify-batch runs against actual ROM
+
+            LinkedHashMap<String, String> prefixes = new LinkedHashMap<>();
+            // Longest-first to avoid partial matches
+            prefixes.put("ArtKosM_", "KOSM_");
+            prefixes.put("ArtNem_", "NEM_");
+            prefixes.put("ArtKos_", "KOS_");
+            prefixes.put("AnPal_", "ANPAL_");
+            prefixes.put("Pal_", "PAL_");
+
+            return new GameProfile(
+                    "s3k", "Sonic 3 & Knuckles", "Sonic 3 & Knuckles",
+                    "Sonic and Knuckles & Sonic 3 (W) [!].gen",
+                    "docs/skdisasm",
+                    "sonic3k.asm",
+                    null, // S3K does NOT use palette macro
+                    Collections.unmodifiableMap(anchors),
+                    prefixes
+            );
+        }
+
+        /**
+         * Auto-detect game from disassembly path.
+         */
+        public static GameProfile detect(String disasmPath) {
+            if (disasmPath != null) {
+                if (disasmPath.contains("s1disasm")) return sonic1();
+                if (disasmPath.contains("skdisasm")) return sonic3k();
+            }
+            return sonic2();
+        }
+    }
 
     private final DisassemblySearchTool searchTool;
     private final CompressionTestTool testTool;
     private final RomOffsetCalculator offsetCalculator;
     private final String disasmPath;
+    private final GameProfile profile;
 
     public RomOffsetFinder(String disasmPath, String romPath) throws IOException {
+        this(disasmPath, romPath, GameProfile.detect(disasmPath));
+    }
+
+    public RomOffsetFinder(String disasmPath, String romPath, GameProfile profile) throws IOException {
         this.disasmPath = disasmPath;
-        this.searchTool = new DisassemblySearchTool(disasmPath);
+        this.profile = profile;
+        this.searchTool = new DisassemblySearchTool(disasmPath, profile);
         this.testTool = new CompressionTestTool(romPath);
-        this.offsetCalculator = new RomOffsetCalculator(disasmPath);
+        this.offsetCalculator = new RomOffsetCalculator(disasmPath, profile);
+    }
+
+    public GameProfile getProfile() {
+        return profile;
     }
 
     /**
@@ -86,14 +219,31 @@ public class RomOffsetFinder {
         }
 
         long searchEnd = endOffset > 0 ? endOffset : Long.MAX_VALUE;
-        CompressionTestResult testResult = testTool.searchForMatch(type, referenceData, startOffset, searchEnd, 1);
+        long rawOffset = testTool.findRawMatch(referenceData, startOffset, searchEnd);
+        if (rawOffset >= 0) {
+            CompressionTestResult testResult;
+            if (type == CompressionType.UNCOMPRESSED) {
+                testResult = CompressionTestResult.success(type, rawOffset,
+                        referenceData.length, referenceData.length, referenceData);
+            } else {
+                CompressionTestResult decompressed = testTool.testDecompression(rawOffset, type);
+                if (decompressed.isSuccess()) {
+                    testResult = decompressed;
+                } else {
+                    testResult = CompressionTestResult.success(type, rawOffset,
+                            referenceData.length, 0, null);
+                }
+            }
+            return OffsetFinderResult.found(item, testResult);
+        }
 
+        CompressionTestResult testResult = testTool.searchForMatch(type, referenceData, startOffset, searchEnd, 1);
         if (testResult.isSuccess()) {
             return OffsetFinderResult.found(item, testResult);
-        } else {
-            return OffsetFinderResult.notFound(labelPattern,
-                    "Could not find matching ROM offset for " + item.getLabel());
         }
+
+        return OffsetFinderResult.notFound(labelPattern,
+                "Could not find matching ROM offset for " + item.getLabel());
     }
 
     /**
@@ -139,7 +289,14 @@ public class RomOffsetFinder {
             return VerificationResult.notFound(labelPattern, -1, "Label not found in disassembly");
         }
 
+        // Prefer exact match over partial match
         DisassemblySearchResult item = results.get(0);
+        for (DisassemblySearchResult r : results) {
+            if (labelPattern.equalsIgnoreCase(r.getLabel())) {
+                item = r;
+                break;
+            }
+        }
         String label = item.getLabel();
         if (label == null) {
             return VerificationResult.error(labelPattern, "Item has no label");
@@ -171,7 +328,9 @@ public class RomOffsetFinder {
 
         if (java.util.Arrays.equals(romBytes, referenceData)) {
             // Direct byte comparison matches - verified!
-            return VerificationResult.verified(label, calculatedOffset, type, referenceData.length);
+            VerificationResult result = VerificationResult.verified(label, calculatedOffset, type, referenceData.length);
+            offsetCalculator.addVerifiedAnchor(label, calculatedOffset);
+            return result;
         }
 
         // 5. Bytes don't match - search nearby for the actual location
@@ -181,7 +340,21 @@ public class RomOffsetFinder {
         for (long offset = searchStart; offset < searchEnd; offset++) {
             byte[] testBytes = testTool.readRomBytes(offset, referenceData.length);
             if (testBytes != null && java.util.Arrays.equals(testBytes, referenceData)) {
-                return VerificationResult.mismatch(label, calculatedOffset, offset, type, referenceData.length);
+                VerificationResult result = VerificationResult.mismatch(label, calculatedOffset, offset, type,
+                        referenceData.length);
+                offsetCalculator.addVerifiedAnchor(label, offset);
+                return result;
+            }
+        }
+
+        // Full ROM search for small assets to improve accuracy
+        if (referenceData.length <= 0x4000) {
+            long fullScanOffset = testTool.findRawMatch(referenceData, 0, Long.MAX_VALUE);
+            if (fullScanOffset >= 0) {
+                VerificationResult result = VerificationResult.mismatch(label, calculatedOffset, fullScanOffset, type,
+                        referenceData.length);
+                offsetCalculator.addVerifiedAnchor(label, fullScanOffset);
+                return result;
             }
         }
 
@@ -218,6 +391,8 @@ public class RomOffsetFinder {
                 // Add verified offsets as runtime anchors for better accuracy
                 if (result.isVerified()) {
                     offsetCalculator.addVerifiedAnchor(result.getLabel(), result.getCalculatedOffset());
+                } else if (result.getStatus() == VerificationResult.Status.MISMATCH) {
+                    offsetCalculator.addVerifiedAnchor(result.getLabel(), result.getVerifiedOffset());
                 }
             } catch (Exception e) {
                 results.add(VerificationResult.error(item.getLabel(), e.getMessage()));
@@ -243,12 +418,59 @@ public class RomOffsetFinder {
             return;
         }
 
+        // Parse --game flag and strip it from args
+        GameProfile profile = null;
+        List<String> filteredArgs = new ArrayList<>();
+        for (int i = 0; i < args.length; i++) {
+            if ("--game".equals(args[i]) && i + 1 < args.length) {
+                String gameId = args[++i].toLowerCase();
+                profile = switch (gameId) {
+                    case "s1", "sonic1" -> GameProfile.sonic1();
+                    case "s2", "sonic2" -> GameProfile.sonic2();
+                    case "s3k", "sonic3k", "s3" -> GameProfile.sonic3k();
+                    default -> {
+                        System.out.println("Unknown game: " + gameId + ". Use s1, s2, or s3k.");
+                        yield null;
+                    }
+                };
+                if (profile == null) return;
+            } else {
+                filteredArgs.add(args[i]);
+            }
+        }
+        args = filteredArgs.toArray(new String[0]);
+
+        if (args.length < 1) {
+            printUsage();
+            return;
+        }
+
+        // Check system property as fallback
+        if (profile == null) {
+            String gameProp = System.getProperty("game");
+            if ("s1".equalsIgnoreCase(gameProp) || "sonic1".equalsIgnoreCase(gameProp)) {
+                profile = GameProfile.sonic1();
+            } else if ("s3k".equalsIgnoreCase(gameProp) || "sonic3k".equalsIgnoreCase(gameProp) || "s3".equalsIgnoreCase(gameProp)) {
+                profile = GameProfile.sonic3k();
+            }
+        }
+
         String command = args[0].toLowerCase();
-        String romPath = System.getProperty("rom.path", DEFAULT_ROM_PATH);
-        String disasmPath = System.getProperty("disasm.path", DEFAULT_DISASM_PATH);
+        String disasmPath = System.getProperty("disasm.path",
+                profile != null ? profile.defaultDisasmPath() : null);
+
+        // Auto-detect from disasm path if profile not set
+        if (profile == null) {
+            profile = disasmPath != null ? GameProfile.detect(disasmPath) : GameProfile.sonic2();
+        }
+        if (disasmPath == null) {
+            disasmPath = profile.defaultDisasmPath();
+        }
+
+        String romPath = System.getProperty("rom.path", profile.defaultRomPath());
 
         try {
-            RomOffsetFinder finder = new RomOffsetFinder(disasmPath, romPath);
+            RomOffsetFinder finder = new RomOffsetFinder(disasmPath, romPath, profile);
 
             switch (command) {
                 case "search":
@@ -305,6 +527,10 @@ public class RomOffsetFinder {
                     handleExport(finder, args[1], exportPrefix);
                     break;
 
+                case "verify-audio":
+                    handleVerifyAudio(finder);
+                    break;
+
                 default:
                     printUsage();
             }
@@ -314,6 +540,341 @@ public class RomOffsetFinder {
         } catch (IOException e) {
             System.err.println("Error: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // verify-audio: Find and verify Sonic 1 audio ROM addresses
+    // -----------------------------------------------------------------------
+
+    /**
+     * Result of Sonic 1 audio address verification.
+     */
+    public static class AudioAddressResult {
+        public final String name;
+        public final long foundAddr;
+        public final long expectedAddr;
+        public final boolean verified;
+        public final String note;
+
+        public AudioAddressResult(String name, long foundAddr, long expectedAddr, String note) {
+            this.name = name;
+            this.foundAddr = foundAddr;
+            this.expectedAddr = expectedAddr;
+            this.verified = foundAddr >= 0 && foundAddr == expectedAddr;
+            this.note = note;
+        }
+    }
+
+    /**
+     * Verify all Sonic 1 audio ROM addresses by searching for known byte patterns.
+     * Uses three independent anchors (SpeedUpIndex, SoundPriorities, PSG1 envelope)
+     * and cross-validates via the Go_ pointer table.
+     *
+     * @return list of results for each audio address
+     */
+    public List<AudioAddressResult> verifyAudioAddresses() throws IOException {
+        List<AudioAddressResult> results = new ArrayList<>();
+
+        // --- 1. Find SpeedUpIndex via its known byte pattern ---
+        // From s1disasm: dc.b 7, $72, $73, $26, $15, 8, $FF, 5
+        byte[] speedUpPattern = {0x07, 0x72, 0x73, 0x26, 0x15, 0x08, (byte) 0xFF, 0x05};
+        long speedUpAddr = testTool.findRawMatch(speedUpPattern, 0x60000, Long.MAX_VALUE);
+        results.add(new AudioAddressResult("SpeedUpIndex", speedUpAddr, 0x071A94,
+                speedUpAddr >= 0 ? "pattern: {07,72,73,26,15,08,FF,05}" : "PATTERN NOT FOUND"));
+
+        // --- 2. Derive MusicIndex = SpeedUpIndex + 8 ---
+        long musicIndexAddr = speedUpAddr >= 0 ? speedUpAddr + 8 : -1;
+        results.add(new AudioAddressResult("MusicIndex", musicIndexAddr, 0x071A9C,
+                speedUpAddr >= 0 ? "SpeedUpIndex + 8" : "depends on SpeedUpIndex"));
+
+        // --- 3. Find SoundPriorities via its known pattern ---
+        // First 31 bytes are 0x90, byte 32 is 0x80
+        // From s1disasm: 15 × 0x90 (music 0x81-0x8F) + 16 × 0x90 (0x90-0x9F) = 31 × 0x90, then 0x80
+        byte[] priorityPattern = new byte[32];
+        for (int i = 0; i < 31; i++) priorityPattern[i] = (byte) 0x90;
+        priorityPattern[31] = (byte) 0x80;
+        long soundPrioritiesAddr = testTool.findRawMatch(priorityPattern, 0x60000, Long.MAX_VALUE);
+        results.add(new AudioAddressResult("SoundPriorities", soundPrioritiesAddr, 0x071AE8,
+                soundPrioritiesAddr >= 0 ? "pattern: 31×0x90 + 0x80" : "PATTERN NOT FOUND"));
+
+        // --- 4. Derive SoundIndex = SoundPriorities + 100 ---
+        // SoundPriorities is 100 bytes (0x81-0xE4 = 100 entries)
+        long soundIndexAddr = soundPrioritiesAddr >= 0 ? soundPrioritiesAddr + 100 : -1;
+        results.add(new AudioAddressResult("SoundIndex", soundIndexAddr, 0x078B44,
+                soundPrioritiesAddr >= 0 ? "SoundPriorities + 100" : "depends on SoundPriorities"));
+
+        // --- 5. Derive SpecSoundIndex = SoundIndex + 48*4 ---
+        // SoundIndex has 48 entries × 4 bytes = 192 bytes
+        long specSoundIndexAddr = soundIndexAddr >= 0 ? soundIndexAddr + 192 : -1;
+        results.add(new AudioAddressResult("SpecSoundIndex", specSoundIndexAddr, 0x078C04,
+                soundIndexAddr >= 0 ? "SoundIndex + 192" : "depends on SoundIndex"));
+
+        // --- 6. Find PSG1 envelope data ---
+        // PSG1: dc.b 0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,$80
+        byte[] psg1Pattern = {0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, (byte) 0x80};
+        long psg1Addr = testTool.findRawMatch(psg1Pattern, 0x60000, Long.MAX_VALUE);
+
+        // PSG_Index = PSG1 - 36 (9 longwords × 4 bytes before PSG1)
+        long psgIndexAddr = psg1Addr >= 0 ? psg1Addr - 36 : -1;
+        results.add(new AudioAddressResult("PSG_Index", psgIndexAddr, 0x0719A8,
+                psg1Addr >= 0 ? "PSG1_addr(0x" + Long.toHexString(psg1Addr) + ") - 36" : "PSG1 PATTERN NOT FOUND"));
+
+        // --- 7. Derive Go_ section = PSG_Index - 24 ---
+        // Go_ section is 6 longwords (24 bytes) immediately before PSG_Index
+        long goSectionAddr = psgIndexAddr >= 0 ? psgIndexAddr - 24 : -1;
+        results.add(new AudioAddressResult("Go_Section", goSectionAddr, -1,
+                psgIndexAddr >= 0 ? "PSG_Index - 24" : "depends on PSG_Index"));
+
+        // --- 8. Find DAC_sample_rate ---
+        // The timpani pitch values are computed at assembly time. Search for the
+        // distinctive pattern near the end: two 0xFF bytes followed by 0x00 (even padding)
+        // The table is 6 bytes: {computed, computed, computed, computed, 0xFF, 0xFF}
+        // Search relative to SpeedUpIndex area since it's in the same region
+        long dacSampleRateAddr = -1;
+        if (speedUpAddr >= 0) {
+            // DAC_sample_rate is at label byte_71CC4 in disasm, which is after
+            // the main sound driver code. Search for it relative to music area.
+            // It's about 0x230 bytes after SpeedUpIndex in the default assembly.
+            // Search a wider range in the music data section.
+            // Pattern: 4 bytes (computed timpani rates) + FF FF + 00 (even) or next instruction
+            // The rates are djnz counters: typically small values like 0x12, 0x15, 0x1C, 0x1A
+            // Look for bytes where b[4]=0xFF, b[5]=0xFF in the sound driver area
+            for (long scan = speedUpAddr + 0x100; scan < speedUpAddr + 0x400; scan++) {
+                byte[] candidate = testTool.readRomBytes(scan, 6);
+                if (candidate != null
+                        && candidate[4] == (byte) 0xFF && candidate[5] == (byte) 0xFF
+                        && (candidate[0] & 0xFF) > 0x05 && (candidate[0] & 0xFF) < 0x40
+                        && (candidate[1] & 0xFF) > 0x05 && (candidate[1] & 0xFF) < 0x40
+                        && (candidate[2] & 0xFF) > 0x05 && (candidate[2] & 0xFF) < 0x40
+                        && (candidate[3] & 0xFF) > 0x05 && (candidate[3] & 0xFF) < 0x40) {
+                    dacSampleRateAddr = scan;
+                    break;
+                }
+            }
+        }
+        results.add(new AudioAddressResult("DAC_sample_rate", dacSampleRateAddr, 0x071CC4,
+                dacSampleRateAddr >= 0 ? "4 timpani rates + FF FF near SpeedUpIndex" : "NOT FOUND"));
+
+        // --- 9. Cross-validate via Go_ pointer table ---
+        // The Go_ pointer table is authoritative: SoundIndex and SpecSoundIndex are NOT
+        // adjacent to SoundPriorities in the compiled ROM, so derivation is unreliable.
+        // Use Go_ values to override derived addresses.
+        if (goSectionAddr >= 0) {
+            byte[] goBytes = testTool.readRomBytes(goSectionAddr, 24);
+            if (goBytes != null) {
+                // Read 6 big-endian longwords
+                long goSoundPriorities = readBE32(goBytes, 0);
+                long goSpecSoundIndex = readBE32(goBytes, 4);
+                long goMusicIndex = readBE32(goBytes, 8);
+                long goSoundIndex = readBE32(goBytes, 12);
+                long goSpeedUpIndex = readBE32(goBytes, 16);
+                long goPsgIndex = readBE32(goBytes, 20);
+
+                // Override derived SoundIndex/SpecSoundIndex with Go_ values
+                // (derivation assumed adjacency which doesn't hold in compiled ROM)
+                if (goSoundIndex > 0 && goSoundIndex < 0x100000) {
+                    soundIndexAddr = goSoundIndex;
+                    // Update the existing result entry
+                    results.set(3, new AudioAddressResult("SoundIndex", goSoundIndex, 0x078B44,
+                            "Go_ pointer table (authoritative)"));
+                }
+                if (goSpecSoundIndex > 0 && goSpecSoundIndex < 0x100000) {
+                    specSoundIndexAddr = goSpecSoundIndex;
+                    results.set(4, new AudioAddressResult("SpecSoundIndex", goSpecSoundIndex, 0x078C04,
+                            "Go_ pointer table (authoritative)"));
+                }
+
+                results.add(new AudioAddressResult("Go_→SoundPriorities", goSoundPriorities,
+                        soundPrioritiesAddr >= 0 ? soundPrioritiesAddr : -1,
+                        crossValidateNote(goSoundPriorities, soundPrioritiesAddr, "SoundPriorities")));
+                results.add(new AudioAddressResult("Go_→SpecSoundIndex", goSpecSoundIndex,
+                        specSoundIndexAddr >= 0 ? specSoundIndexAddr : -1,
+                        crossValidateNote(goSpecSoundIndex, specSoundIndexAddr, "SpecSoundIndex")));
+                results.add(new AudioAddressResult("Go_→MusicIndex", goMusicIndex,
+                        musicIndexAddr >= 0 ? musicIndexAddr : -1,
+                        crossValidateNote(goMusicIndex, musicIndexAddr, "MusicIndex")));
+                results.add(new AudioAddressResult("Go_→SoundIndex", goSoundIndex,
+                        soundIndexAddr >= 0 ? soundIndexAddr : -1,
+                        crossValidateNote(goSoundIndex, soundIndexAddr, "SoundIndex")));
+                results.add(new AudioAddressResult("Go_→SpeedUpIndex", goSpeedUpIndex,
+                        speedUpAddr >= 0 ? speedUpAddr : -1,
+                        crossValidateNote(goSpeedUpIndex, speedUpAddr, "SpeedUpIndex")));
+                results.add(new AudioAddressResult("Go_→PSG_Index", goPsgIndex,
+                        psgIndexAddr >= 0 ? psgIndexAddr : -1,
+                        crossValidateNote(goPsgIndex, psgIndexAddr, "PSG_Index")));
+            }
+        }
+
+        // --- 10. Verify first MusicIndex entry points to valid SMPS data ---
+        if (musicIndexAddr >= 0) {
+            byte[] firstEntry = testTool.readRomBytes(musicIndexAddr, 4);
+            if (firstEntry != null) {
+                long musicPtr = readBE32(firstEntry, 0);
+                String ptrNote = String.format("first ptr → 0x%X", musicPtr);
+                if (musicPtr > 0 && musicPtr < 0x100000) {
+                    // Read first few bytes of the music data to check if it looks like SMPS
+                    byte[] musicHeader = testTool.readRomBytes(musicPtr, 6);
+                    if (musicHeader != null) {
+                        // SMPS header starts with voice pointer (word), then channels
+                        ptrNote += String.format(" (header: %02X %02X %02X %02X %02X %02X)",
+                                musicHeader[0] & 0xFF, musicHeader[1] & 0xFF,
+                                musicHeader[2] & 0xFF, musicHeader[3] & 0xFF,
+                                musicHeader[4] & 0xFF, musicHeader[5] & 0xFF);
+                    }
+                } else {
+                    ptrNote += " (OUT OF RANGE - likely wrong address!)";
+                }
+                results.add(new AudioAddressResult("MusicIndex[0]→Music81", musicPtr, -1, ptrNote));
+            }
+        }
+
+        // --- 11. Verify first SoundIndex entry (use Go_-corrected address) ---
+        if (soundIndexAddr >= 0) {
+            byte[] firstSfx = testTool.readRomBytes(soundIndexAddr, 4);
+            if (firstSfx != null) {
+                long sfxPtr = readBE32(firstSfx, 0);
+                String ptrNote = String.format("first ptr → 0x%X", sfxPtr);
+                if (sfxPtr > 0 && sfxPtr < 0x100000) {
+                    ptrNote += " (valid ROM range)";
+                } else {
+                    ptrNote += " (OUT OF RANGE - likely wrong address!)";
+                }
+                results.add(new AudioAddressResult("SoundIndex[0]→SndA0", sfxPtr, -1, ptrNote));
+            }
+        }
+
+        // --- 12. Find DAC driver via 'lea (DACDriver).l,a0; lea (z80_ram).l,a1' pattern ---
+        // The DACDriverLoad routine uses: 41F9 xxxx xxxx 43F9 00A0 0000
+        // Search for the z80_ram lea (43F9 00A0 0000) and check preceding bytes for the DAC address
+        long dacDriverAddr = -1;
+        byte[] z80RamLea = {0x43, (byte) 0xF9, 0x00, (byte) 0xA0, 0x00, 0x00};
+        long z80LeaPos = testTool.findRawMatch(z80RamLea, 0, Long.MAX_VALUE);
+        while (z80LeaPos >= 6) {
+            byte[] preceding = testTool.readRomBytes(z80LeaPos - 6, 6);
+            if (preceding != null && (preceding[0] & 0xFF) == 0x41 && (preceding[1] & 0xFF) == 0xF9) {
+                dacDriverAddr = readBE32(preceding, 2);
+                break;
+            }
+            // Search for next occurrence
+            z80LeaPos = testTool.findRawMatch(z80RamLea, z80LeaPos + 1, Long.MAX_VALUE);
+        }
+        String dacNote;
+        if (dacDriverAddr >= 0) {
+            // Verify it's valid Kosinski data
+            try {
+                CompressionTestResult kos = testTool.testDecompression(dacDriverAddr, CompressionType.KOSINSKI);
+                dacNote = kos.isSuccess()
+                        ? String.format("lea instruction → Kosinski, decompresses to %d bytes", kos.getDecompressedSize())
+                        : "lea instruction found, but Kosinski decompression failed";
+            } catch (Exception e) {
+                dacNote = "lea instruction found, Kosinski test error";
+            }
+        } else {
+            dacNote = "DACDriverLoad lea pattern not found";
+        }
+        results.add(new AudioAddressResult("DAC_Driver", dacDriverAddr, 0x072E7C, dacNote));
+
+        return results;
+    }
+
+    private static long readBE32(byte[] data, int offset) {
+        return ((long) (data[offset] & 0xFF) << 24)
+                | ((long) (data[offset + 1] & 0xFF) << 16)
+                | ((long) (data[offset + 2] & 0xFF) << 8)
+                | (long) (data[offset + 3] & 0xFF);
+    }
+
+    private static String crossValidateNote(long goValue, long derivedValue, String name) {
+        if (derivedValue < 0) {
+            return String.format("Go_ says 0x%X (derived %s unknown)", goValue, name);
+        }
+        if (goValue == derivedValue) {
+            return String.format("MATCH - Go_ confirms 0x%X", goValue);
+        }
+        return String.format("MISMATCH - Go_ says 0x%X, derived says 0x%X", goValue, derivedValue);
+    }
+
+    private static void handleVerifyAudio(RomOffsetFinder finder) throws IOException {
+        if (!"s1".equals(finder.profile.gameId())) {
+            System.out.println("verify-audio is currently only supported for Sonic 1 (--game s1)");
+            return;
+        }
+
+        System.out.println("=== SONIC 1 AUDIO ADDRESS VERIFICATION ===");
+        System.out.println();
+
+        List<AudioAddressResult> results = finder.verifyAudioAddresses();
+
+        // Print primary address results
+        System.out.println("--- Primary Addresses (pattern-matched) ---");
+        for (AudioAddressResult r : results) {
+            if (r.name.startsWith("Go_→") || r.name.contains("[0]")) continue;
+
+            String status;
+            if (r.foundAddr < 0) {
+                status = "[FAIL]";
+            } else if (r.expectedAddr < 0) {
+                status = "[ -- ]";
+            } else if (r.verified) {
+                status = "[ OK ]";
+            } else {
+                status = "[DIFF]";
+            }
+
+            if (r.foundAddr >= 0) {
+                System.out.printf("%s %-20s  0x%05X", status, r.name, r.foundAddr);
+                if (r.expectedAddr >= 0 && !r.verified) {
+                    System.out.printf("  (expected 0x%05X, diff %+d)", r.expectedAddr,
+                            r.foundAddr - r.expectedAddr);
+                }
+            } else {
+                System.out.printf("%s %-20s  NOT FOUND", status, r.name);
+                if (r.expectedAddr >= 0) {
+                    System.out.printf("  (expected 0x%05X)", r.expectedAddr);
+                }
+            }
+            System.out.printf("  [%s]%n", r.note);
+        }
+
+        // Print Go_ cross-validation
+        System.out.println();
+        System.out.println("--- Go_ Pointer Cross-Validation ---");
+        for (AudioAddressResult r : results) {
+            if (!r.name.startsWith("Go_→")) continue;
+            String status = r.note.contains("MATCH -") && !r.note.contains("MISMATCH") ? "[ OK ]" : "[WARN]";
+            System.out.printf("%s %-25s  %s%n", status, r.name, r.note);
+        }
+
+        // Print pointer validation
+        System.out.println();
+        System.out.println("--- Pointer Table Validation ---");
+        for (AudioAddressResult r : results) {
+            if (!r.name.contains("[0]")) continue;
+            System.out.printf("      %-25s  %s%n", r.name, r.note);
+        }
+
+        // Print summary with recommended constants
+        System.out.println();
+        System.out.println("--- Recommended Sonic1SmpsConstants Values ---");
+        for (AudioAddressResult r : results) {
+            if (r.name.startsWith("Go_→") || r.name.contains("[0]") || r.name.equals("Go_Section")) continue;
+            if (r.foundAddr < 0) continue;
+
+            String constName = switch (r.name) {
+                case "SpeedUpIndex" -> "SPEED_UP_INDEX_ADDR";
+                case "MusicIndex" -> "MUSIC_PTR_TABLE_ADDR";
+                case "SoundPriorities" -> "SOUND_PRIORITIES_ADDR";
+                case "SoundIndex" -> "SFX_PTR_TABLE_ADDR";
+                case "SpecSoundIndex" -> "SPECIAL_SFX_PTR_TABLE_ADDR";
+                case "PSG_Index" -> "PSG_ENV_PTR_TABLE_ADDR";
+                case "DAC_sample_rate" -> "DAC_SAMPLE_RATE_TABLE_ADDR";
+                case "DAC_Driver" -> "DAC_DRIVER_ADDR";
+                default -> null;
+            };
+            if (constName != null) {
+                System.out.printf("  public static final int %-30s = 0x%05X;%n", constName, r.foundAddr);
+            }
         }
     }
 
@@ -328,10 +889,6 @@ public class RomOffsetFinder {
         System.out.println("Found " + results.size() + " result(s):");
         System.out.println();
 
-        // Create offset calculator for ROM offset estimation
-        RomOffsetCalculator offsetCalculator = new RomOffsetCalculator(
-                System.getProperty("disasm.path", DEFAULT_DISASM_PATH));
-
         for (DisassemblySearchResult result : results) {
             System.out.printf("Label:       %s%n", result.getLabel() != null ? result.getLabel() : "(none)");
             System.out.printf("File:        %s%n", result.getFilePath());
@@ -345,22 +902,28 @@ public class RomOffsetFinder {
                 System.out.printf("File Size:   (not found)%n");
             }
 
-            // Calculate ROM offset from anchors
+            // Get verified ROM offset by searching the ROM directly
             if (result.getLabel() != null) {
                 try {
-                    RomOffsetCalculator.OffsetCalculation calc =
-                            offsetCalculator.getCalculationDetails(result.getLabel());
-                    if (calc != null && calc.offset >= 0) {
-                        System.out.printf("ROM Offset:  0x%X", calc.offset);
-                        if (calc.isAnchor) {
-                            System.out.println(" (anchor)");
-                        } else {
-                            System.out.printf(" (calculated from %s, %d files away)%n",
-                                    calc.anchorLabel, calc.distanceFromAnchor);
-                        }
+                    VerificationResult vr = finder.verify(result.getLabel());
+                    switch (vr.getStatus()) {
+                        case VERIFIED:
+                            // For VERIFIED, calculatedOffset was correct
+                            System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getCalculatedOffset());
+                            break;
+                        case MISMATCH:
+                            // Calculation was wrong, but we found the actual offset
+                            System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getVerifiedOffset());
+                            break;
+                        case NOT_FOUND:
+                            System.out.printf("ROM Offset:  (not found in ROM)%n");
+                            break;
+                        case ERROR:
+                            System.out.printf("ROM Offset:  (error: %s)%n", vr.getMessage());
+                            break;
                     }
                 } catch (IOException e) {
-                    // Ignore offset calculation errors
+                    // Ignore verification errors
                 }
             }
 
@@ -570,7 +1133,7 @@ public class RomOffsetFinder {
         // Export to stdout
         ConstantsExporter exporter = new ConstantsExporter();
         StringWriter sw = new StringWriter();
-        exporter.exportAsJavaConstants(results, prefix, sw);
+        exporter.exportAsJavaConstants(results, prefix, sw, finder.getProfile());
         System.out.println(sw.toString());
     }
 
@@ -609,29 +1172,50 @@ public class RomOffsetFinder {
     }
 
     private static void printUsage() {
-        System.out.println("RomOffsetFinder - Find ROM offsets for Sonic 2 disassembly items");
+        System.out.println("RomOffsetFinder - Find ROM offsets for Sonic disassembly items");
         System.out.println();
         System.out.println("Usage:");
-        System.out.println("  search <pattern>              Search for items by label/filename");
-        System.out.println("  find <label> [startOffset]    Find ROM offset for a specific item");
-        System.out.println("  test <offset> <type>          Test decompression at offset");
-        System.out.println("  list [type]                   List all includes (optionally by type)");
-        System.out.println("  verify <label>                Verify calculated offset against ROM");
-        System.out.println("  verify-batch [type]           Batch verify all items (optionally by type)");
-        System.out.println("  export <type> [prefix]        Export verified offsets as Java constants");
+        System.out.println("  [--game s1|s2|s3k] search <pattern>       Search for items by label/filename");
+        System.out.println("  [--game s1|s2|s3k] find <label> [offset]  Find ROM offset for a specific item");
+        System.out.println("  [--game s1|s2|s3k] test <offset> <type>   Test decompression at offset");
+        System.out.println("  [--game s1|s2|s3k] list [type]            List all includes (optionally by type)");
+        System.out.println("  [--game s1|s2|s3k] verify <label>         Verify calculated offset against ROM");
+        System.out.println("  [--game s1|s2|s3k] verify-batch [type]    Batch verify all items (by type)");
+        System.out.println("  [--game s1|s2|s3k] export <type> [prefix] Export verified offsets as constants");
+        System.out.println("  --game s1 verify-audio                    Verify Sonic 1 audio ROM addresses");
         System.out.println();
-        System.out.println("Compression types: nem, kos, eni, sax, bin, auto");
+        System.out.println("Game selection:");
+        System.out.println("  --game s1          Sonic 1 (s1disasm + Sonic 1 ROM)");
+        System.out.println("  --game s2          Sonic 2 (s2disasm + Sonic 2 ROM) [default]");
+        System.out.println("  --game s3k         Sonic 3&K (skdisasm + S3K ROM)");
+        System.out.println("  -Dgame=s1          Alternative via system property");
+        System.out.println("  (auto-detected from disasm path if --game not specified)");
+        System.out.println();
+        System.out.println("Compression types: nem, kos, kosm, eni, sax, bin, auto");
         System.out.println();
         System.out.println("System properties:");
         System.out.println("  -Drom.path=<path>            Path to ROM file");
-        System.out.println("  -Ddisasm.path=<path>         Path to s2disasm directory");
+        System.out.println("  -Ddisasm.path=<path>         Path to disassembly directory");
+        System.out.println("  -Dgame=<s1|s2|s3k>           Game selection");
         System.out.println();
-        System.out.println("Examples:");
+        System.out.println("Examples (Sonic 2 - default):");
         System.out.println("  search ring                   Search for items containing 'ring'");
-        System.out.println("  find Art_Ring                 Find ROM offset for Art_Ring");
+        System.out.println("  find ArtNem_Ring              Find ROM offset for ArtNem_Ring");
         System.out.println("  test 0x41A4C nem              Test Nemesis decompression at 0x41A4C");
         System.out.println("  list nem                      List all Nemesis-compressed files");
         System.out.println("  verify ArtNem_SpecialHUD      Verify offset of ArtNem_SpecialHUD");
+        System.out.println();
+        System.out.println("Examples (Sonic 1):");
+        System.out.println("  --game s1 search Nem_GHZ      Search S1 disassembly for GHZ art");
+        System.out.println("  --game s1 list nem             List all S1 Nemesis files");
+        System.out.println("  --game s1 search Pal_Sonic     Find Sonic palette (bincludePalette)");
+        System.out.println("  --game s1 verify Pal_Sonic     Verify S1 palette offset against ROM");
+        System.out.println();
+        System.out.println("Examples (Sonic 3&K):");
+        System.out.println("  --game s3k search AIZ          Search S3K disassembly for AIZ items");
+        System.out.println("  --game s3k list nem             List all S3K Nemesis files");
+        System.out.println("  --game s3k search Pal_AIZ       Find AIZ palette");
+        System.out.println("  --game s3k verify ArtNem_TitleScreenText  Verify S3K offset against ROM");
     }
 
     /**

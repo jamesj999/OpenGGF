@@ -1,0 +1,5 @@
+[
+  { "name": "java.util.HashMap", "methods": [{ "name": "<init>", "parameterTypes": [] }] },
+  { "name": "java.util.LinkedHashMap", "methods": [{ "name": "<init>", "parameterTypes": [] }] },
+  { "name": "java.util.ArrayList", "methods": [{ "name": "<init>", "parameterTypes": [] }] }
+]

@@ -1,33 +1,80 @@
 package uk.co.jamesj999.sonic.graphics;
 
-import com.jogamp.opengl.GL2;
+import org.lwjgl.system.MemoryUtil;
+
+import java.nio.FloatBuffer;
 import java.util.List;
 
+import static org.lwjgl.opengl.GL11.*;
+
+/**
+ * Groups multiple GLCommands together for batch rendering.
+ * Uses modern OpenGL (VAO/VBO) for core profile compatibility.
+ */
 public class GLCommandGroup implements GLCommandable {
 	private int drawMethod;
 	private List<GLCommand> commands;
-	
+
+	// Vertex size: 2 floats position + 4 floats color = 6 floats
+	private static final int VERTEX_SIZE = 6;
+	private static FloatBuffer batchBuffer;
+
 	public GLCommandGroup(int drawMethod, List<GLCommand> commands) {
 		this.drawMethod = drawMethod;
 		this.commands = commands;
 	}
-	
-    public void execute(GL2 gl, int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
-        if (!commands.isEmpty()) {
-            GLCommand.BlendType blendMode = commands.get(0).getBlendMode();
-            if (blendMode == GLCommand.BlendType.SOLID) {
-                gl.glDisable(GL2.GL_BLEND);
-            } else {
-                gl.glEnable(GL2.GL_BLEND);
-                gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
-            }
-        }
-        GLCommand.setInGroup(true);
-        gl.glBegin(drawMethod);
-        for(GLCommand command : commands) {
-            command.execute(gl, cameraX, cameraY, cameraWidth, cameraHeight);
-        }
-        gl.glEnd();
-        GLCommand.setInGroup(false);
-    }
+
+	public void execute(int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
+		if (commands.isEmpty()) {
+			return;
+		}
+
+		// Get blend mode from first command
+		GLCommand.BlendType blendMode = commands.get(0).getBlendMode();
+
+		// Ensure buffer is large enough
+		int requiredFloats = commands.size() * VERTEX_SIZE;
+		if (batchBuffer == null || batchBuffer.capacity() < requiredFloats) {
+			if (batchBuffer != null) {
+				MemoryUtil.memFree(batchBuffer);
+			}
+			batchBuffer = MemoryUtil.memAllocFloat(Math.max(requiredFloats, 256));
+		}
+
+		// Batch all vertices into a single buffer
+		batchBuffer.clear();
+		int vertexCount = 0;
+
+		GLCommand.setInGroup(true);
+		for (GLCommand command : commands) {
+			// Only process VERTEX2I commands (the typical case for groups)
+			if (command.getCommandType() == GLCommand.CommandType.VERTEX2I) {
+				float x = command.getX1() - cameraX;
+				float y = command.getY1() + cameraY;
+				float r = command.getColour1();
+				float g = command.getColour2();
+				float b = command.getColour3();
+				float a = command.getAlpha();
+
+				batchBuffer.put(x).put(y).put(r).put(g).put(b).put(a);
+				vertexCount++;
+			}
+		}
+		GLCommand.setInGroup(false);
+
+		batchBuffer.flip();
+
+		// Draw all vertices at once
+		GLCommand.drawBatch(drawMethod, batchBuffer, vertexCount, cameraX, cameraY, blendMode);
+	}
+
+	/**
+	 * Cleanup static resources.
+	 */
+	public static void cleanup() {
+		if (batchBuffer != null) {
+			MemoryUtil.memFree(batchBuffer);
+			batchBuffer = null;
+		}
+	}
 }

@@ -1,10 +1,12 @@
 package uk.co.jamesj999.sonic.data;
 
+import uk.co.jamesj999.sonic.game.GameServices;
+
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
+import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 
 import java.io.IOException;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -17,7 +19,7 @@ import java.util.logging.Logger;
  *
  * Usage:
  * <pre>
- * Rom rom = RomManager.getInstance().getRom();
+ * Rom rom = GameServices.rom().getRom();
  * byte[] data = rom.readBytes(offset, length);
  * </pre>
  */
@@ -57,6 +59,18 @@ public class RomManager implements AutoCloseable {
     }
 
     /**
+     * Injects a pre-opened ROM instance. Useful for tests that open
+     * specific ROMs directly rather than relying on config resolution.
+     */
+    public synchronized void setRom(Rom rom) {
+        // Do NOT close the previous ROM here — its lifecycle is managed
+        // by whoever created it (e.g., RomCache in tests). Closing it here
+        // would invalidate cached ROM instances shared across tests.
+        this.rom = rom;
+        this.initialized = rom != null && rom.isOpen();
+    }
+
+    /**
      * Checks if the ROM is currently open and available.
      */
     public synchronized boolean isRomAvailable() {
@@ -74,9 +88,9 @@ public class RomManager implements AutoCloseable {
             rom.close();
         }
 
-        String romFilename = configService.getString(SonicConfiguration.ROM_FILENAME);
+        String romFilename = resolveRomForGame(configService.getString(SonicConfiguration.DEFAULT_ROM));
         if (romFilename == null || romFilename.isEmpty()) {
-            throw new IOException("ROM filename not configured (ROM_FILENAME is null or empty)");
+            throw new IOException("ROM filename not configured (DEFAULT_ROM not set or per-game ROM key empty)");
         }
 
         LOGGER.info("Opening ROM: " + romFilename);
@@ -89,6 +103,24 @@ public class RomManager implements AutoCloseable {
 
         initialized = true;
         LOGGER.info("ROM opened successfully: " + rom.readDomesticName());
+
+        // Auto-detect game type and set appropriate module
+        GameModuleRegistry.detectAndSetModule(rom);
+    }
+
+    /**
+     * Resolves the ROM filename for a given game identifier.
+     *
+     * @param gameId "s1", "s2", or "s3k"
+     * @return the configured ROM filename for that game
+     */
+    public static String resolveRomForGame(String gameId) {
+        SonicConfigurationService svc = SonicConfigurationService.getInstance();
+        return switch (gameId != null ? gameId.toLowerCase() : "s2") {
+            case "s1" -> svc.getString(SonicConfiguration.SONIC_1_ROM);
+            case "s3k" -> svc.getString(SonicConfiguration.SONIC_3K_ROM);
+            default -> svc.getString(SonicConfiguration.SONIC_2_ROM);
+        };
     }
 
     /**
@@ -115,3 +147,4 @@ public class RomManager implements AutoCloseable {
         }
     }
 }
+

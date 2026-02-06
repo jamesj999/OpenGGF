@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects.badniks;
 
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -21,18 +22,26 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
 
     public enum ProjectileType {
         BUZZER_STINGER,
-        COCONUT
+        COCONUT,
+        SPINY_SPIKE,
+        REXON_FIREBALL
     }
 
     private static final int COLLISION_SIZE_STINGER = 0x18; // From disassembly $98 & 0x3F
     private static final int COLLISION_SIZE_COCONUT = 0x0B; // From disassembly $8B & 0x3F
+    private static final int COLLISION_SIZE_SPINY_SPIKE = 0x0B; // Same as coconut
+    private static final int COLLISION_SIZE_REXON_FIREBALL = 0x18; // From disassembly $98 & 0x3F
     private static final int GRAVITY_COCONUT = 0x20; // Obj98_CoconutFall
+    private static final int GRAVITY_SPINY_SPIKE = 0x20; // From disassembly +$20 per frame
+    private static final int GRAVITY_REXON_FIREBALL = 0x80; // From disassembly $80 per frame
 
     private final ProjectileType type;
     private int currentX;
     private int currentY;
-    private int xVelocity; // In subpixels
-    private int yVelocity; // In subpixels
+    private int xVelocity; // In subpixels (8.8 fixed point)
+    private int yVelocity; // In subpixels (8.8 fixed point)
+    private int xSubpixel; // Fractional X position (low 8 bits of 16.8 position)
+    private int ySubpixel; // Fractional Y position (low 8 bits of 16.8 position)
     private boolean applyGravity;
     private int gravity;
     private int collisionSizeIndex;
@@ -71,6 +80,14 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
                 this.gravity = GRAVITY_COCONUT;
                 this.collisionSizeIndex = COLLISION_SIZE_COCONUT;
             }
+            case SPINY_SPIKE -> {
+                this.gravity = GRAVITY_SPINY_SPIKE;
+                this.collisionSizeIndex = COLLISION_SIZE_SPINY_SPIKE;
+            }
+            case REXON_FIREBALL -> {
+                this.gravity = GRAVITY_REXON_FIREBALL;
+                this.collisionSizeIndex = COLLISION_SIZE_REXON_FIREBALL;
+            }
         }
     }
 
@@ -81,30 +98,24 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
             yVelocity += gravity;
         }
 
-        // Update position (velocities are in subpixels, shift by 8)
-        currentX += (xVelocity >> 8);
-        currentY += (yVelocity >> 8);
+        // Update position using 16.8 fixed-point (matches ObjectMove in s2.asm:29969-29982)
+        // Velocity (8.8) is added to position (16.8) for subpixel precision
+        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
+        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
+        xPos24 += xVelocity;
+        yPos24 += yVelocity;
+        currentX = xPos24 >> 8;
+        currentY = yPos24 >> 8;
+        xSubpixel = xPos24 & 0xFF;
+        ySubpixel = yPos24 & 0xFF;
 
-        // Check if off-screen and destroy
-        if (!isOnScreen()) {
+        // Check if off-screen (with margin) and destroy
+        if (!isOnScreen(32)) {
             setDestroyed(true);
         }
 
         // Simple animation cycling
         animFrame = ((frameCounter >> 2) & 1);
-    }
-
-    private boolean isOnScreen() {
-        uk.co.jamesj999.sonic.camera.Camera camera = uk.co.jamesj999.sonic.camera.Camera.getInstance();
-        int camX = camera.getX();
-        int camY = camera.getY();
-        int width = camera.getWidth();
-        int height = camera.getHeight();
-        int margin = 32;
-        return currentX >= camX - margin
-                && currentX <= camX + width + margin
-                && currentY >= camY - margin
-                && currentY <= camY + height + margin;
     }
 
     @Override
@@ -155,17 +166,31 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
 
         PatternSpriteRenderer renderer;
         int frame;
+        int paletteOverride = -1; // -1 = use sprite sheet default
 
         switch (type) {
             case BUZZER_STINGER:
-                renderer = renderManager.getBuzzerRenderer();
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.BUZZER);
                 // Buzzer projectile uses frames 5-6 (animation 2 in disassembly)
                 frame = 5 + animFrame;
                 break;
             case COCONUT:
-                renderer = renderManager.getCoconutsRenderer();
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.COCONUTS);
                 // Coconut uses frame 3
                 frame = 3;
+                break;
+            case SPINY_SPIKE:
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SPINY);
+                // Spiny spike uses frames 6-7 (alternating)
+                frame = 6 + animFrame;
+                break;
+            case REXON_FIREBALL:
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.REXON);
+                // Rexon fireball uses frame 3 (1x1 tile)
+                // Fireball uses palette line 1 (Obj94_SubObjData2: make_art_tile(ArtTile_ArtNem_Rexon,1,0))
+                // while head/body use palette line 3 (the sheet default)
+                frame = 3;
+                paletteOverride = 1;
                 break;
             default:
                 return;
@@ -175,6 +200,6 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
             return;
         }
 
-        renderer.drawFrameIndex(frame, currentX, currentY, hFlip, false);
+        renderer.drawFrameIndex(frame, currentX, currentY, hFlip, false, paletteOverride);
     }
 }

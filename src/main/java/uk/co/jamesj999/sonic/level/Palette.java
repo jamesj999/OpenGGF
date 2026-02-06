@@ -33,6 +33,21 @@ public class Palette {
             this.b = b;
         }
 
+        /** Returns red component as GL float (0.0 - 1.0) */
+        public float rFloat() {
+            return (r & 0xFF) / 255.0f;
+        }
+
+        /** Returns green component as GL float (0.0 - 1.0) */
+        public float gFloat() {
+            return (g & 0xFF) / 255.0f;
+        }
+
+        /** Returns blue component as GL float (0.0 - 1.0) */
+        public float bFloat() {
+            return (b & 0xFF) / 255.0f;
+        }
+
         // Converts the color from Sega's format (char-based data)
         public void fromSegaFormat(byte[] bytes, int offset) {
             // Mega Drive palette format is 1 word (2 bytes) per color.

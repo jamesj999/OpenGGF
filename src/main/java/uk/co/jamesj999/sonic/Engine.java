@@ -1,73 +1,69 @@
 package uk.co.jamesj999.sonic;
 
-import com.jogamp.opengl.util.FPSAnimator;
+import org.lwjgl.glfw.*;
+import org.lwjgl.opengl.*;
+import org.lwjgl.system.MemoryStack;
+
 import uk.co.jamesj999.sonic.Control.InputHandler;
 import uk.co.jamesj999.sonic.audio.AudioManager;
-import uk.co.jamesj999.sonic.audio.JOALAudioBackend;
+import uk.co.jamesj999.sonic.audio.LWJGLAudioBackend;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
-import uk.co.jamesj999.sonic.configuration.OptionsMenu;
 import uk.co.jamesj999.sonic.debug.DebugOption;
 import uk.co.jamesj999.sonic.debug.DebugRenderer;
-import uk.co.jamesj999.sonic.debug.DebugSpecialStageSprites;
+import uk.co.jamesj999.sonic.debug.PerformanceProfiler;
+import uk.co.jamesj999.sonic.game.sonic2.debug.Sonic2SpecialStageSpriteDebug;
 import uk.co.jamesj999.sonic.debug.DebugState;
-import uk.co.jamesj999.sonic.graphics.FadeManager;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
-import uk.co.jamesj999.sonic.graphics.SpriteRenderManager;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.Sonic;
 import uk.co.jamesj999.sonic.sprites.playable.Tails;
+import uk.co.jamesj999.sonic.sprites.playable.TailsCpuController;
 import uk.co.jamesj999.sonic.game.GameMode;
+import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageManager;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.GLAutoDrawable;
-import com.jogamp.opengl.GLEventListener;
-import com.jogamp.opengl.awt.GLCanvas;
-import com.jogamp.opengl.glu.GLU;
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.io.IOException;
+import java.nio.IntBuffer;
 
-import static com.jogamp.opengl.GL.GL_COLOR_BUFFER_BIT;
-import static com.jogamp.opengl.GL.GL_DEPTH_BUFFER_BIT;
-import static com.jogamp.opengl.fixedfunc.GLLightingFunc.GL_SMOOTH;
-import static com.jogamp.opengl.fixedfunc.GLMatrixFunc.GL_MODELVIEW;
-import static com.jogamp.opengl.fixedfunc.GLMatrixFunc.GL_PROJECTION;
+import static org.lwjgl.glfw.Callbacks.*;
+import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.*;
+import static org.lwjgl.system.MemoryStack.*;
+import static org.lwjgl.system.MemoryUtil.*;
 
 /**
  * Controls the game.
  *
  * @author james
- *
  */
-@SuppressWarnings("serial")
-public class Engine extends GLCanvas implements GLEventListener {
+public class Engine {
 	public static final String RESOURCES_SHADERS_PIXEL_SHADER_GLSL = "shaders/shader_the_hedgehog.glsl";
-	private final SonicConfigurationService configService = SonicConfigurationService
-			.getInstance();
+	private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
 	private final SpriteManager spriteManager = SpriteManager.getInstance();
-	private final SpriteRenderManager spriteRenderManager = SpriteRenderManager.getInstance();
 	private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
 
 	private final Camera camera = Camera.getInstance();
-	private final DebugRenderer debugRenderer = DebugRenderer.getInstance();
+	// Lazy-initialized: DebugRenderer.<clinit> references java.awt.Color which
+	// is unavailable in GraalVM native-image builds.
+	private DebugRenderer debugRenderer;
+	private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
 
 	private final GameLoop gameLoop = new GameLoop();
 
 	public static DebugState debugState = DebugState.NONE;
 	public static DebugOption debugOption = DebugOption.A;
 
-	private double realWidth = configService
-			.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
-	private double realHeight = configService
-			.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+	private double realWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
+	private double realHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 
 	// Current projection width - can be changed for H32/H40 mode switching
 	// H40 mode (normal levels): 320 pixels wide
@@ -76,44 +72,201 @@ public class Engine extends GLCanvas implements GLEventListener {
 
 	private boolean debugViewEnabled = configService.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
 
-	// TODO move this into a manager
 	private final LevelManager levelManager = LevelManager.getInstance();
+	// Direct reference to Sonic2SpecialStageManager for debug overlay features.
 	private final Sonic2SpecialStageManager specialStageManager = Sonic2SpecialStageManager.getInstance();
 
-	private GLU glu;
+	// Pre-allocated list for results screen rendering
+	private final java.util.List<uk.co.jamesj999.sonic.graphics.GLCommand> resultsCommands = new java.util.ArrayList<>(64);
 
-	// TODO Add Log4J Support, or some other logging that allows proper
-	// debugging etc. Any ideas?
+	// GLFW window handle
+	private long window;
+
+	// Window dimensions
+	private int windowWidth;
+	private int windowHeight;
+
+	private boolean overlayStateReady = false;
+
+	// Input handler for keyboard input
+	private InputHandler inputHandler;
+
+	// Viewport parameters for aspect-ratio-correct rendering
+	private int viewportX = 0;
+	private int viewportY = 0;
+	private int viewportWidth = 0;
+	private int viewportHeight = 0;
+
+	// JOML matrices for projection - accessible for shader uniforms
+	private final org.joml.Matrix4f projectionMatrix = new org.joml.Matrix4f();
+	private final float[] matrixBuffer = new float[16];
+
+	// Static instance for singleton access
+	private static Engine instance;
+
+	// Frame timing
+	private int targetFps;
+	private long lastFrameTime;
+	private boolean paused = false;
+
+	private DebugRenderer getDebugRenderer() {
+		if (debugRenderer == null) {
+			debugRenderer = DebugRenderer.getInstance();
+		}
+		return debugRenderer;
+	}
 
 	public Engine() {
-		this.addGLEventListener(this);
+		instance = this;
+		this.windowWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH);
+		this.windowHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT);
+		this.targetFps = configService.getInt(SonicConfiguration.FPS);
+
+		// Debug overlay uses Java2D (GlyphAtlas) which is unavailable in native images
+		if (isNativeImage()) {
+			debugViewEnabled = false;
+		}
 
 		// Set up game mode change listener to update projection width
 		gameLoop.setGameModeChangeListener((oldMode, newMode) -> {
 			// Keep projection at 320 for both modes
-			// Special stage renderer will center 256px content within 320px viewport
 			projectionWidth = realWidth;
 		});
 	}
 
 	public void setInputHandler(InputHandler inputHandler) {
+		this.inputHandler = inputHandler;
 		gameLoop.setInputHandler(inputHandler);
 	}
 
-	public void init(GLAutoDrawable drawable) {
-		GL2 gl = drawable.getGL().getGL2(); // get the OpenGL graphics context
-		glu = new GLU(); // get GL Utilities
-		gl.glShadeModel(GL_SMOOTH); // blends colors nicely, and smooths out
-									// lighting
+	public void run() {
+		init();
+		loop();
+		cleanup();
+	}
+
+	private static boolean isNativeImage() {
+		return System.getProperty("org.graalvm.nativeimage.imagecode") != null;
+	}
+
+	private void init() {
+		// CRITICAL: Initialize AWT BEFORE GLFW on macOS.
+		// Java2D uses Core Graphics which conflicts with GLFW's Cocoa event handling
+		// if AWT initializes after GLFW. Pre-loading AWT fixes the freeze.
+		// Skip in native-image builds where AWT is not available.
+		if (debugViewEnabled && !isNativeImage()) {
+			java.awt.Toolkit.getDefaultToolkit();
+			// Create and dispose a small image to fully initialize Java2D
+			var img = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_BYTE_GRAY);
+			img.createGraphics().dispose();
+		}
+
+		// Setup an error callback
+		GLFWErrorCallback.createPrint(System.err).set();
+
+		// Initialize GLFW
+		if (!glfwInit()) {
+			throw new IllegalStateException("Unable to initialize GLFW");
+		}
+
+		// Configure GLFW
+		glfwDefaultWindowHints();
+		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+		glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE); // DPI-aware window scaling
+
+		// Request OpenGL 4.1 core profile for macOS compatibility
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE); // Required for macOS
+
+		// Create the window
+		String version = SonicConfigurationService.ENGINE_VERSION;
+		window = glfwCreateWindow(windowWidth, windowHeight,
+				"Java Sonic Engine by Jamesj999 and Raiscan " + version, NULL, NULL);
+		if (window == NULL) {
+			throw new RuntimeException("Failed to create the GLFW window");
+		}
+
+		// Setup key callback
+		glfwSetKeyCallback(window, (windowHandle, key, scancode, action, mods) -> {
+			if (inputHandler != null) {
+				inputHandler.handleKeyEvent(key, action);
+			}
+		});
+
+		// Setup window resize callback
+		glfwSetFramebufferSizeCallback(window, (windowHandle, width, height) -> {
+			this.windowWidth = width;
+			this.windowHeight = height;
+			// Only reshape if GL context is initialized (avoids crash during window setup)
+			if (graphicsManager.isGlInitialized()) {
+				reshape(width, height);
+			}
+		});
+
+		// Setup window focus callback
+		glfwSetWindowFocusCallback(window, (windowHandle, focused) -> {
+			if (focused) {
+				gameLoop.resume();
+			} else {
+				gameLoop.pause();
+			}
+		});
+
+		// Setup window iconify callback
+		glfwSetWindowIconifyCallback(window, (windowHandle, iconified) -> {
+			if (iconified) {
+				paused = true;
+				gameLoop.pause();
+			} else {
+				paused = false;
+				gameLoop.resume();
+			}
+		});
+
+		// Get the thread stack and push a new frame
+		try (MemoryStack stack = stackPush()) {
+			IntBuffer pWidth = stack.mallocInt(1);
+			IntBuffer pHeight = stack.mallocInt(1);
+
+			// Get the window size passed to glfwCreateWindow
+			glfwGetWindowSize(window, pWidth, pHeight);
+
+			// Get the resolution of the primary monitor
+			GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+
+			// Center the window
+			glfwSetWindowPos(
+					window,
+					(vidmode.width() - pWidth.get(0)) / 2,
+					(vidmode.height() - pHeight.get(0)) / 2
+			);
+		}
+
+		// Make the OpenGL context current
+		glfwMakeContextCurrent(window);
+
+		// Enable v-sync
+		glfwSwapInterval(1);
+
+		// Make the window visible
+		glfwShowWindow(window);
+
+		// This line is critical for LWJGL's interoperation with GLFW's
+		// OpenGL context, or any context that is managed externally.
+		GL.createCapabilities();
+
 		try {
-			graphicsManager.init(gl, RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
+			graphicsManager.init(RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
+			graphicsManager.setEngine(this);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
-		graphicsManager.setGraphics(gl);
 
 		if (configService.getBoolean(SonicConfiguration.AUDIO_ENABLED)) {
-			AudioManager.getInstance().setBackend(new JOALAudioBackend());
+			AudioManager.getInstance().setBackend(new LWJGLAudioBackend());
 		}
 
 		String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
@@ -125,47 +278,83 @@ public class Engine extends GLCanvas implements GLEventListener {
 		}
 		spriteManager.addSprite(mainSprite);
 
-		// Causes camera to instantiate itself... TODO Probably remove this
-		// later since it'll be used in the first update loop anyway
+		// Create CPU-controlled sidekick if configured (empty string = no sidekick).
+		// ROM: Both Sonic and Tails share the same start position from the zone start location table.
+		// Sidekick must start at the same X as main so the AI doesn't immediately chase (threshold is 16px).
+		String sidekickCode = configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
+		if (!sidekickCode.isEmpty()) {
+			AbstractPlayableSprite sidekick;
+			if ("tails".equalsIgnoreCase(sidekickCode)) {
+				sidekick = new Tails(sidekickCode, mainSprite.getX(), mainSprite.getY());
+			} else {
+				sidekick = new Sonic(sidekickCode, mainSprite.getX(), mainSprite.getY());
+			}
+			sidekick.setCpuControlled(true);
+			TailsCpuController cpuController = new TailsCpuController(sidekick);
+			sidekick.setCpuController(cpuController);
+			spriteManager.addSprite(sidekick);
+		}
+
 		camera.setFocusedSprite(mainSprite);
 		camera.updatePosition(true);
 
-		// levelManager.setLevel(new TestOldLevel());
+		// Create input handler and set it (needed before level select initialization)
+		inputHandler = new InputHandler();
+		setInputHandler(inputHandler);
 
-		try {
-			levelManager.loadZoneAndAct(0, 0);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
+		// Check if we should start with level select or load EHZ directly
+		boolean levelSelectOnStartup = configService.getBoolean(SonicConfiguration.LEVEL_SELECT_ON_STARTUP);
+		if (levelSelectOnStartup) {
+			// Start in level select mode - no level loaded initially
+			gameLoop.initializeLevelSelectMode();
+		} else {
+			// Load Emerald Hill Zone Act 1 as the default starting level
+			try {
+				levelManager.loadZoneAndAct(0, 0);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
 		}
+
+		// Initial reshape
+		try (MemoryStack stack = stackPush()) {
+			IntBuffer pWidth = stack.mallocInt(1);
+			IntBuffer pHeight = stack.mallocInt(1);
+			glfwGetFramebufferSize(window, pWidth, pHeight);
+			reshape(pWidth.get(0), pHeight.get(0));
+		}
+
+		// Eagerly initialize debug renderer BEFORE the main loop starts.
+		// This is critical on macOS: the GlyphAtlas uses Java2D which conflicts
+		// with GLFW's event loop if initialized lazily during glfwPollEvents().
+		// Skip in native-image builds where AWT/Java2D is not available.
+		if (debugViewEnabled && !isNativeImage()) {
+			getDebugRenderer().updateViewport(viewportWidth, viewportHeight);
+			getDebugRenderer().eagerInit();
+			// Force GL sync and unbind all state
+			glFinish();
+			glBindTexture(GL_TEXTURE_2D, 0);
+			glBindVertexArray(0);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glUseProgram(0);
+		}
+
+		lastFrameTime = System.nanoTime();
 	}
 
-	// Viewport parameters for aspect-ratio-correct rendering
-	private int viewportX = 0;
-	private int viewportY = 0;
-	private int viewportWidth = 0;
-	private int viewportHeight = 0;
-
-	/**
-	 * Call-back handler for window re-size event. Also called when the drawable
-	 * is first set to visible.
-	 */
-	public void reshape(GLAutoDrawable drawable, int x, int y, int width,
-			int height) {
-		GL2 gl = drawable.getGL().getGL2(); // get the OpenGL 2 graphics context
-		graphicsManager.setGraphics(gl);
-
+	private void reshape(int width, int height) {
 		// Calculate aspect-ratio-correct viewport
 		double targetAspect = realWidth / realHeight;
 		double windowAspect = (double) width / height;
 
 		if (windowAspect > targetAspect) {
-			// Window is wider than target - pillarbox (black bars on sides)
+			// Window is wider than target - pillarbox
 			viewportHeight = height;
 			viewportWidth = (int) (height * targetAspect);
 			viewportX = (width - viewportWidth) / 2;
 			viewportY = 0;
 		} else {
-			// Window is taller than target - letterbox (black bars on top/bottom)
+			// Window is taller than target - letterbox
 			viewportWidth = width;
 			viewportHeight = (int) (width / targetAspect);
 			viewportX = 0;
@@ -173,22 +362,161 @@ public class Engine extends GLCanvas implements GLEventListener {
 		}
 
 		// Set the viewport to the aspect-ratio-correct area
-		gl.glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
+		glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
 
-		// Setup perspective projection using current projection width
-		// (H40=320 for levels, H32=256 for special stages)
-		gl.glMatrixMode(GL_PROJECTION); // choose projection matrix
-		gl.glLoadIdentity(); // reset projection matrix
-		glu.gluOrtho2D(0, projectionWidth, 0, realHeight);
+		// Cache viewport dimensions in GraphicsManager
+		graphicsManager.setViewport(viewportX, viewportY, viewportWidth, viewportHeight);
 
-		// Enable the model-view transform
-		gl.glMatrixMode(GL_MODELVIEW);
-		gl.glLoadIdentity(); // reset
+		// Setup orthographic projection using JOML - stored for shader access
+		projectionMatrix.identity().ortho2D(0, (float) projectionWidth, 0, (float) realHeight);
+		projectionMatrix.get(matrixBuffer);
+	}
+
+	private void loop() {
+		long frameTimeNanos = 1_000_000_000L / targetFps;
+		long accumulator = 0;
+		long previousTime = System.nanoTime();
+
+		while (!glfwWindowShouldClose(window)) {
+			long currentTime = System.nanoTime();
+			long deltaTime = currentTime - previousTime;
+			previousTime = currentTime;
+
+			if (!paused) {
+				accumulator += deltaTime;
+
+				// Process exactly one frame per target interval
+				if (accumulator >= frameTimeNanos) {
+					display();
+					glfwSwapBuffers(window);
+					// Preserve remainder to prevent timing drift
+					accumulator -= frameTimeNanos;
+
+					// Clamp accumulator to prevent spiral of death if frames take too long
+					if (accumulator > frameTimeNanos) {
+						accumulator = frameTimeNanos;
+					}
+				}
+			}
+
+			glfwPollEvents();
+
+			// Note: inputHandler.update() is called at the end of GameLoop.step()
+			// to properly handle isKeyPressed() edge detection. Do NOT call update()
+			// here or isKeyPressed() will always return false.
+
+			// Hybrid sleep: sleep most of the wait time, then spin-wait for precision
+			long remainingTime = frameTimeNanos - accumulator;
+			if (remainingTime > 2_000_000) {
+				// Sleep for most of the remaining time, leaving ~1ms for spin-wait
+				try {
+					Thread.sleep((remainingTime - 1_000_000) / 1_000_000);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+			}
+
+			// Spin-wait the final portion for sub-millisecond precision
+			// Calculate target time for next frame check
+			long targetTime = previousTime + (frameTimeNanos - accumulator);
+			while (System.nanoTime() < targetTime) {
+				Thread.onSpinWait();
+			}
+		}
+	}
+
+	/**
+	 * Called each frame to render the game.
+	 */
+	private void display() {
+		profiler.beginFrame();
+
+		// Clear the entire window to black first (for letterbox/pillarbox bars)
+		glViewport(0, 0, windowWidth, windowHeight);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// Set the viewport to the aspect-ratio-correct area for game rendering
+		glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
+
+		// Update projection matrix for current mode - stored for shader access
+		projectionMatrix.identity().ortho2D(0, (float) projectionWidth, 0, (float) realHeight);
+		projectionMatrix.get(matrixBuffer);
+
+		// Set clear color based on game mode and clear the game viewport
+		if (getCurrentGameMode() == GameMode.SPECIAL_STAGE) {
+			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		} else if (getCurrentGameMode() == GameMode.SPECIAL_STAGE_RESULTS) {
+			glClearColor(0.85f, 0.9f, 0.95f, 1.0f);
+		} else if (getCurrentGameMode() == GameMode.LEVEL_SELECT) {
+			// Level select backdrop is palette 0, color 0 (per VDP register $8700)
+			LevelSelectProvider levelSelect = gameLoop.getLevelSelectProvider();
+			if (levelSelect != null) {
+				levelSelect.setClearColor();
+			}
+		} else if (getCurrentGameMode() == GameMode.TITLE_CARD) {
+			levelManager.setClearColor();
+		} else {
+			levelManager.setClearColor();
+		}
+		glScissor(viewportX, viewportY, viewportWidth, viewportHeight);
+		glEnable(GL_SCISSOR_TEST);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glDisable(GL_SCISSOR_TEST);
+
+		glColorMask(true, true, true, true);
+
+		profiler.beginSection("update");
+		update();
+		profiler.endSection("update");
+
+		// Update fade via unified UI render pipeline
+		var uiPipeline = graphicsManager.getUiRenderPipeline();
+		if (uiPipeline != null) {
+			uiPipeline.updateFade();
+		}
+
+		profiler.beginSection("render");
+		draw();
+		graphicsManager.flush();
+		profiler.endSection("render");
+
+		// Render screen fade overlay via unified UI render pipeline
+		if (uiPipeline != null) {
+			uiPipeline.renderFadePass();
+		}
+
+		boolean needsOverlay = (getCurrentGameMode() == GameMode.SPECIAL_STAGE) ||
+				(debugViewEnabled && getCurrentGameMode() != GameMode.SPECIAL_STAGE);
+
+		if (needsOverlay) {
+			prepareOverlayState();
+		}
+
+		profiler.beginSection("debug");
+		if (getCurrentGameMode() == GameMode.SPECIAL_STAGE) {
+			if (specialStageManager.isAlignmentTestMode()) {
+				specialStageManager.renderAlignmentOverlay(windowWidth, windowHeight);
+			} else {
+				specialStageManager.renderLagCompensationOverlay(windowWidth, windowHeight);
+			}
+		} else if (debugViewEnabled) {
+			getDebugRenderer().updateViewport(viewportWidth, viewportHeight);
+			getDebugRenderer().renderDebugInfo();
+
+			// Clean up GL state after debug rendering to prevent macOS event loop issues
+			glBindVertexArray(0);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glUseProgram(0);
+		}
+		profiler.endSection("debug");
+
+		profiler.endFrame();
+		overlayStateReady = false;
 	}
 
 	/**
 	 * Updates the game state by one frame.
-	 * Delegates to the GameLoop for headless-compatible logic.
 	 */
 	public void update() {
 		gameLoop.step();
@@ -210,58 +538,49 @@ public class Engine extends GLCanvas implements GLEventListener {
 
 	public void draw() {
 		if (getCurrentGameMode() == GameMode.SPECIAL_STAGE) {
-			// Check if sprite debug mode is active
 			if (specialStageManager.isSpriteDebugMode()) {
-				DebugSpecialStageSprites.getInstance().draw();
+				Sonic2SpecialStageSpriteDebug.getInstance().draw();
 			} else {
 				specialStageManager.draw();
 			}
 		} else if (getCurrentGameMode() == GameMode.SPECIAL_STAGE_RESULTS) {
-			// Render results screen
 			var resultsScreen = gameLoop.getResultsScreen();
 			if (resultsScreen != null) {
-				// Reset camera to (0,0) for screen-space rendering
-				// Results screen is a full-screen overlay, not world-relative
 				camera.setX((short) 0);
 				camera.setY((short) 0);
 
-				// Begin pattern batch for ROM art rendering
 				graphicsManager.beginPatternBatch();
 
-				java.util.List<uk.co.jamesj999.sonic.graphics.GLCommand> commands = new java.util.ArrayList<>();
-				resultsScreen.appendRenderCommands(commands);
+				resultsCommands.clear();
+				resultsScreen.appendRenderCommands(resultsCommands);
 
-				// Register placeholder commands (for fallback rendering)
-				if (!commands.isEmpty()) {
+				if (!resultsCommands.isEmpty()) {
 					graphicsManager.registerCommand(new uk.co.jamesj999.sonic.graphics.GLCommandGroup(
-							com.jogamp.opengl.GL2.GL_LINES, commands));
+							GL_LINES, resultsCommands));
 				}
 			}
+		} else if (getCurrentGameMode() == GameMode.LEVEL_SELECT) {
+			// Render level select screen
+			camera.setX((short) 0);
+			camera.setY((short) 0);
+			LevelSelectProvider levelSelect = gameLoop.getLevelSelectProvider();
+			if (levelSelect != null) {
+				levelSelect.draw();
+			}
 		} else if (getCurrentGameMode() == GameMode.TITLE_CARD) {
-			// Draw level and sprites behind the title card (Sonic is already placed and
-			// frozen)
-			levelManager.drawWithSpritePriority(spriteRenderManager);
+			levelManager.drawWithSpritePriority(spriteManager);
 
-			// Flush level commands with level camera position before switching to
-			// screen-space
 			graphicsManager.flush();
-
-			// Reset OpenGL state for fixed-function rendering (RECTI commands for
-			// background planes)
 			graphicsManager.resetForFixedFunction();
 
-			// Render title card overlay in screen-space (independent of camera)
 			TitleCardProvider titleCardProvider = gameLoop.getTitleCardProvider();
 			if (titleCardProvider != null) {
 				titleCardProvider.draw();
-				// Title card commands will be flushed with screen-space camera
 				graphicsManager.flushScreenSpace();
 			}
 		} else if (!debugViewEnabled) {
-			levelManager.drawWithSpritePriority(spriteRenderManager);
+			levelManager.drawWithSpritePriority(spriteManager);
 
-			// Draw title card text overlay if still active (TEXT_WAIT/TEXT_EXIT phases)
-			// Player control has been released but text is still sliding off
 			TitleCardProvider levelTitleCardProvider = gameLoop.getTitleCardProvider();
 			if (levelTitleCardProvider != null && levelTitleCardProvider.isOverlayActive()) {
 				graphicsManager.flush();
@@ -272,12 +591,10 @@ public class Engine extends GLCanvas implements GLEventListener {
 		} else {
 			switch (debugState) {
 				case PATTERNS_VIEW -> levelManager.drawAllPatterns();
-				case CHUNKS_VIEW -> levelManager.drawAllChunks();
 				case BLOCKS_VIEW -> levelManager.draw();
-				case null, default -> levelManager.drawWithSpritePriority(spriteRenderManager);
+				case null, default -> levelManager.drawWithSpritePriority(spriteManager);
 			}
 
-			// Draw title card text overlay if still active (even in debug view)
 			TitleCardProvider debugTitleCardProvider = gameLoop.getTitleCardProvider();
 			if (debugTitleCardProvider != null && debugTitleCardProvider.isOverlayActive()) {
 				graphicsManager.flush();
@@ -288,233 +605,44 @@ public class Engine extends GLCanvas implements GLEventListener {
 		}
 	}
 
-	public static void main(String[] args) {
-		// Run the GUI codes in the event-dispatching thread for thread safety
-		SwingUtilities.invokeLater(new Runnable() {
-			public void run() {
-				// Create the OpenGL rendering canvas
-				GLCanvas canvas = new Engine();
-				canvas.setFocusTraversalKeysEnabled(false);
-				SonicConfigurationService configService = SonicConfigurationService
-						.getInstance();
-				int width = configService
-						.getInt(SonicConfiguration.SCREEN_WIDTH);
-				int height = configService
-						.getInt(SonicConfiguration.SCREEN_HEIGHT);
-				int fps = configService.getInt(SonicConfiguration.FPS);
-				String version = SonicConfigurationService.ENGINE_VERSION;
+	private void prepareOverlayState() {
+		if (overlayStateReady) {
+			return;
+		}
+		glActiveTexture(GL_TEXTURE0);
+		glUseProgram(0);
+		glDisable(GL_DEPTH_TEST);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE0);
 
-				canvas.setPreferredSize(new Dimension(width, height));
+		glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
 
-				// Create a animator that drives canvas' display() at the
-				// specified FPS.
-				final FPSAnimator animator = new FPSAnimator(canvas, fps, true);
+		// Update projection matrix for overlay - stored for shader access
+		projectionMatrix.identity().ortho2D(0, (float) projectionWidth, 0, (float) realHeight);
+		projectionMatrix.get(matrixBuffer);
 
-				// Create the top-level container
-				final JFrame frame = new JFrame(); // Swing's JFrame or AWT's
-													// Frame
-				frame.getContentPane().add(canvas);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-				JMenuBar menuBar = new JMenuBar();
-				JMenu fileMenu = new JMenu("File");
-				JMenuItem optionsItem = new JMenuItem("Options");
-				optionsItem.addActionListener(e -> {
-					new OptionsMenu(frame).setVisible(true);
-				});
-				fileMenu.add(optionsItem);
-				menuBar.add(fileMenu);
-				frame.setJMenuBar(menuBar);
-				((Engine) canvas).setInputHandler(new InputHandler(canvas));
-				frame.addWindowListener(new WindowAdapter() {
-					@Override
-					public void windowClosing(WindowEvent e) {
-						// Use a dedicated thread to run the stop() to ensure
-						// that the
-						// animator stops before program exits.
-						new Thread() {
-							@Override
-							public void run() {
-								if (animator.isStarted())
-									animator.stop();
-								System.exit(0);
-							}
-						}.start();
-					}
-				});
-
-				frame.addWindowFocusListener(new WindowAdapter() {
-					@Override
-					public void windowGainedFocus(WindowEvent e) {
-						canvas.requestFocusInWindow();
-						// request focus back to the canvas
-					}
-				});
-
-				frame.setTitle("Java Sonic Engine by Jamesj999 and Raiscan "
-						+ version);
-				frame.pack();
-				frame.setVisible(true);
-				animator.start(); // start the animation loop
-
-			}
-		});
+		overlayStateReady = true;
 	}
 
-	/**
-	 * Called back by the animator to perform rendering.
-	 */
-	public void display(GLAutoDrawable drawable) {
-		GL2 gl = drawable.getGL().getGL2(); // get the OpenGL 2 graphics context
-
-		// Clear the entire window to black first (for letterbox/pillarbox bars)
-		gl.glViewport(0, 0, drawable.getSurfaceWidth(), drawable.getSurfaceHeight());
-		gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		// Set the viewport to the aspect-ratio-correct area for game rendering
-		gl.glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
-
-		// Update projection matrix for current mode (H40=320 for levels, H32=256 for
-		// special stages)
-		// This must be done each frame since we can switch modes at runtime
-		gl.glMatrixMode(GL_PROJECTION);
-		gl.glLoadIdentity();
-		glu.gluOrtho2D(0, projectionWidth, 0, realHeight);
-		gl.glMatrixMode(GL_MODELVIEW);
-
-		// Set clear color based on game mode and clear the game viewport
-		if (getCurrentGameMode() == GameMode.SPECIAL_STAGE) {
-			gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black for special stage
-		} else if (getCurrentGameMode() == GameMode.SPECIAL_STAGE_RESULTS) {
-			gl.glClearColor(0.85f, 0.9f, 0.95f, 1.0f); // Light blue/white for results
-		} else if (getCurrentGameMode() == GameMode.TITLE_CARD) {
-			// Use level background color so the stage is visible behind the title card
-			levelManager.setClearColor(gl);
-		} else {
-			levelManager.setClearColor(gl);
-		}
-		gl.glScissor(viewportX, viewportY, viewportWidth, viewportHeight);
-		gl.glEnable(GL2.GL_SCISSOR_TEST);
-		gl.glClear(GL_COLOR_BUFFER_BIT);
-		gl.glDisable(GL2.GL_SCISSOR_TEST);
-
-		gl.glLoadIdentity(); // reset the model-view matrix
-		gl.glDisable(GL2.GL_LIGHTING);
-		gl.glDisable(GL2.GL_COLOR_MATERIAL);
-		gl.glColorMask(true, true, true, true);
-		update();
-
-		// Update fade manager for screen transitions
-		FadeManager fadeManager = graphicsManager.getFadeManager();
-		if (fadeManager != null) {
-			fadeManager.update();
-		}
-
-		graphicsManager.setGraphics(gl);
-		draw();
-		graphicsManager.flush();
-
-		// Render screen fade overlay if active (after all game rendering)
-		if (fadeManager != null && fadeManager.isActive()) {
-			fadeManager.render(gl);
-		}
-
-		if (getCurrentGameMode() == GameMode.SPECIAL_STAGE && specialStageManager.isAlignmentTestMode()) {
-			// Reset OpenGL state for JOGL's TextRenderer
-			gl.glActiveTexture(GL2.GL_TEXTURE0);
-			gl.glUseProgram(0);
-			gl.glDisable(GL2.GL_LIGHTING);
-			gl.glDisable(GL2.GL_COLOR_MATERIAL);
-			gl.glDisable(GL2.GL_DEPTH_TEST);
-			gl.glColor4f(1f, 1f, 1f, 1f);
-			gl.glEnable(GL2.GL_TEXTURE_2D);
-			gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
-			gl.glActiveTexture(GL2.GL_TEXTURE1);
-			gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
-			gl.glActiveTexture(GL2.GL_TEXTURE0);
-			// Reset matrices for 2D rendering
-			gl.glMatrixMode(GL_PROJECTION);
-			gl.glLoadIdentity();
-			glu.gluOrtho2D(0, projectionWidth, 0, realHeight);
-			gl.glMatrixMode(GL_MODELVIEW);
-			gl.glLoadIdentity();
-
-			// Re-enable blending for the TextRenderer
-			gl.glEnable(GL2.GL_BLEND);
-			gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
-
-			specialStageManager.renderAlignmentOverlay(drawable.getSurfaceWidth(), drawable.getSurfaceHeight());
-		}
-
-		// Render lag compensation overlay in special stage (when not in alignment test mode)
-		if (getCurrentGameMode() == GameMode.SPECIAL_STAGE && !specialStageManager.isAlignmentTestMode()) {
-			// Reset OpenGL state for JOGL's TextRenderer
-			gl.glActiveTexture(GL2.GL_TEXTURE0);
-			gl.glUseProgram(0);
-			gl.glDisable(GL2.GL_LIGHTING);
-			gl.glDisable(GL2.GL_COLOR_MATERIAL);
-			gl.glDisable(GL2.GL_DEPTH_TEST);
-			gl.glColor4f(1f, 1f, 1f, 1f);
-			gl.glEnable(GL2.GL_TEXTURE_2D);
-			gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
-			gl.glActiveTexture(GL2.GL_TEXTURE1);
-			gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
-			gl.glActiveTexture(GL2.GL_TEXTURE0);
-			// Reset matrices for 2D rendering
-			gl.glMatrixMode(GL_PROJECTION);
-			gl.glLoadIdentity();
-			glu.gluOrtho2D(0, projectionWidth, 0, realHeight);
-			gl.glMatrixMode(GL_MODELVIEW);
-			gl.glLoadIdentity();
-
-			// Re-enable blending for the TextRenderer
-			gl.glEnable(GL2.GL_BLEND);
-			gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
-
-			specialStageManager.renderLagCompensationOverlay(drawable.getSurfaceWidth(), drawable.getSurfaceHeight());
-		}
-
-		// Only show debug overlay in level mode, not during special stage
-		if (debugViewEnabled && getCurrentGameMode() != GameMode.SPECIAL_STAGE) {
-			// Reset OpenGL state for JOGL's TextRenderer
-			gl.glActiveTexture(GL2.GL_TEXTURE0);
-			gl.glUseProgram(0);
-			gl.glDisable(GL2.GL_LIGHTING);
-			gl.glDisable(GL2.GL_COLOR_MATERIAL);
-			gl.glDisable(GL2.GL_DEPTH_TEST);
-			gl.glColor4f(1f, 1f, 1f, 1f);
-			gl.glEnable(GL2.GL_TEXTURE_2D);
-			gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
-			gl.glActiveTexture(GL2.GL_TEXTURE1);
-			gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
-			gl.glActiveTexture(GL2.GL_TEXTURE0);
-
-			// Set viewport to match aspect-ratio-correct game viewport
-			gl.glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
-
-			// Reset matrices for 2D rendering
-			gl.glMatrixMode(GL_PROJECTION);
-			gl.glLoadIdentity();
-			glu.gluOrtho2D(0, projectionWidth, 0, realHeight);
-			gl.glMatrixMode(GL_MODELVIEW);
-			gl.glLoadIdentity();
-
-			// Re-enable blending for the TextRenderer
-			gl.glEnable(GL2.GL_BLEND);
-			gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
-
-			debugRenderer.updateViewport(viewportWidth, viewportHeight);
-			debugRenderer.renderDebugInfo();
-		}
-	}
-
-	/**
-	 * Called back before the OpenGL context is destroyed. Release resource such
-	 * as buffers.
-	 */
-	public void dispose(GLAutoDrawable drawable) {
+	private void cleanup() {
 		graphicsManager.cleanup();
 		AudioManager.getInstance().destroy();
+
+		// Free the window callbacks and destroy the window
+		glfwFreeCallbacks(window);
+		glfwDestroyWindow(window);
+
+		// Terminate GLFW and free the error callback
+		glfwTerminate();
+		GLFWErrorCallback callback = glfwSetErrorCallback(null);
+		if (callback != null) {
+			callback.free();
+		}
 	}
 
 	public static void nextDebugState() {
@@ -524,5 +652,141 @@ public class Engine extends GLCanvas implements GLEventListener {
 
 	public static void nextDebugOption() {
 		debugOption = debugOption.next();
+	}
+
+	public static void main(String[] args) {
+		if (isNativeImage() && System.getProperty("org.lwjgl.librarypath") == null) {
+			// In a native image, LWJGL can't extract native libs from JARs.
+			// Find the bundled .dylib/.so/.dll files next to the executable.
+			String libPath = findNativeLibsDir();
+			if (libPath != null) {
+				System.setProperty("org.lwjgl.librarypath", libPath);
+			}
+		}
+		new Engine().run();
+	}
+
+	private static String findNativeLibsDir() {
+		// Strategy 1: SONIC_NATIVE_LIBS_DIR env var set by .app launcher script.
+		// This is NOT stripped by macOS SIP (unlike DYLD_LIBRARY_PATH).
+		String envDir = System.getenv("SONIC_NATIVE_LIBS_DIR");
+		if (envDir != null && !envDir.isEmpty()) {
+			java.io.File dir = new java.io.File(envDir);
+			if (hasNativeLibs(dir)) {
+				return dir.getAbsolutePath();
+			}
+		}
+
+		// Strategy 2: directory containing the executable (works for bare binary
+		// and .app bundles where dylibs are co-located with the binary)
+		try {
+			String cmd = ProcessHandle.current().info().command().orElse("");
+			if (!cmd.isEmpty()) {
+				java.io.File execDir = new java.io.File(cmd).getParentFile();
+				if (execDir != null && hasNativeLibs(execDir)) {
+					return execDir.getAbsolutePath();
+				}
+			}
+		} catch (Exception ignored) {
+		}
+
+		// Strategy 3: working directory (if user runs from target/)
+		java.io.File cwd = new java.io.File(System.getProperty("user.dir"));
+		if (hasNativeLibs(cwd)) {
+			return cwd.getAbsolutePath();
+		}
+
+		// Strategy 4: target/native-libs/ relative to working directory (dev builds)
+		java.io.File targetNativeLibs = new java.io.File(cwd, "target/native-libs");
+		if (hasNativeLibs(targetNativeLibs)) {
+			return targetNativeLibs.getAbsolutePath();
+		}
+
+		return null;
+	}
+
+	private static boolean hasNativeLibs(java.io.File dir) {
+		if (!dir.isDirectory()) return false;
+		String[] files = dir.list();
+		if (files == null) return false;
+		for (String f : files) {
+			if (f.startsWith("liblwjgl.")) return true;   // .dylib or .so
+			if (f.equals("lwjgl.dll")) return true;
+		}
+		return false;
+	}
+
+	// For testing - get window handle
+	long getWindowHandle() {
+		return window;
+	}
+
+	/**
+	 * Gets the singleton instance of the Engine.
+	 * @return the Engine instance, or null if not yet created
+	 */
+	public static Engine getInstance() {
+		return instance;
+	}
+
+	/**
+	 * Gets the current projection matrix for use in shaders.
+	 * @return the projection matrix
+	 */
+	public org.joml.Matrix4f getProjectionMatrix() {
+		return projectionMatrix;
+	}
+
+	/**
+	 * Gets the projection matrix data as a float array for shader uniforms.
+	 * @return the projection matrix as a 16-element float array
+	 */
+	public float[] getProjectionMatrixBuffer() {
+		return fboProjectionActive ? fboMatrixBuffer : matrixBuffer;
+	}
+
+	// FBO projection support - used when rendering to off-screen framebuffers
+	private boolean fboProjectionActive = false;
+	private final org.joml.Matrix4f fboProjectionMatrix = new org.joml.Matrix4f();
+	private final float[] fboMatrixBuffer = new float[16];
+	private int fboWidth = 256;
+	private int fboHeight = 256;
+
+	/**
+	 * Sets up FBO projection mode for rendering to an off-screen framebuffer.
+	 * While active, getProjectionMatrixBuffer() returns the FBO projection.
+	 *
+	 * @param width  The FBO width in pixels
+	 * @param height The FBO height in pixels
+	 */
+	public void beginFBOProjection(int width, int height) {
+		this.fboWidth = width;
+		this.fboHeight = height;
+		fboProjectionMatrix.identity().ortho2D(0, width, 0, height);
+		fboProjectionMatrix.get(fboMatrixBuffer);
+		fboProjectionActive = true;
+	}
+
+	/**
+	 * Restores normal screen projection after FBO rendering.
+	 */
+	public void endFBOProjection() {
+		fboProjectionActive = false;
+	}
+
+	/**
+	 * Returns the current display height for coordinate calculations.
+	 * When FBO projection is active, returns the FBO height.
+	 * Otherwise returns the normal screen height.
+	 */
+	public int getCurrentDisplayHeight() {
+		return fboProjectionActive ? fboHeight : (int) realHeight;
+	}
+
+	/**
+	 * Returns whether FBO projection mode is currently active.
+	 */
+	public boolean isFBOProjectionActive() {
+		return fboProjectionActive;
 	}
 }

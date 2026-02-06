@@ -1,12 +1,20 @@
 package uk.co.jamesj999.sonic.debug;
 
+import uk.co.jamesj999.sonic.game.GameModuleRegistry;
+import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2ZoneFeatureProvider;
+
 import uk.co.jamesj999.sonic.Control.InputHandler;
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.level.slotmachine.CNZSlotMachineRenderer;
 
-import java.awt.event.KeyEvent;
+import static org.lwjgl.glfw.GLFW.*;
 
 /**
  * Debug viewer for object art frames.
@@ -16,7 +24,8 @@ public class DebugObjectArtViewer {
 
     private enum ArtTarget {
         SIGNPOST("Signpost"),
-        RESULTS("Results");
+        RESULTS("Results"),
+        CNZ_SLOTS("CNZ Slot Faces");
 
         private final String label;
 
@@ -56,6 +65,9 @@ public class DebugObjectArtViewer {
     private static final int GRID_COLUMNS = 16;
     private static final int GRID_ROWS = 16;
 
+    // Y offset below HUD (HUD is ~32 pixels tall)
+    private static final int DEBUG_Y_OFFSET = 48;
+
     public static synchronized DebugObjectArtViewer getInstance() {
         if (instance == null) {
             instance = new DebugObjectArtViewer();
@@ -67,57 +79,57 @@ public class DebugObjectArtViewer {
         if (handler == null) {
             return;
         }
-        if (!DebugOverlayManager.getInstance().isEnabled(DebugOverlayToggle.OBJECT_ART_VIEWER)) {
+        if (!GameServices.debugOverlay().isEnabled(DebugOverlayToggle.OBJECT_ART_VIEWER)) {
             return;
         }
-        if (handler.isKeyPressed(KeyEvent.VK_TAB) || handler.isKeyPressed(KeyEvent.VK_M)) {
+        if (handler.isKeyPressed(GLFW_KEY_TAB) || handler.isKeyPressed(GLFW_KEY_M)) {
             toggleViewMode();
         }
-        if (handler.isKeyPressed(KeyEvent.VK_PAGE_UP)) {
+        if (handler.isKeyPressed(GLFW_KEY_PAGE_UP)) {
             stepTarget(-1);
         }
-        if (handler.isKeyPressed(KeyEvent.VK_PAGE_DOWN)) {
+        if (handler.isKeyPressed(GLFW_KEY_PAGE_DOWN)) {
             stepTarget(1);
         }
-        if (handler.isKeyPressed(KeyEvent.VK_0)) {
+        if (handler.isKeyPressed(GLFW_KEY_0)) {
             paletteOverride = -1;
         }
-        if (handler.isKeyPressed(KeyEvent.VK_1)) {
+        if (handler.isKeyPressed(GLFW_KEY_1)) {
             paletteOverride = 0;
         }
-        if (handler.isKeyPressed(KeyEvent.VK_2)) {
+        if (handler.isKeyPressed(GLFW_KEY_2)) {
             paletteOverride = 1;
         }
-        if (handler.isKeyPressed(KeyEvent.VK_3)) {
+        if (handler.isKeyPressed(GLFW_KEY_3)) {
             paletteOverride = 2;
         }
-        if (handler.isKeyPressed(KeyEvent.VK_4)) {
+        if (handler.isKeyPressed(GLFW_KEY_4)) {
             paletteOverride = 3;
         }
         if (viewMode == ViewMode.FRAME) {
-            if (handler.isKeyPressed(KeyEvent.VK_LEFT)) {
+            if (handler.isKeyPressed(GLFW_KEY_LEFT)) {
                 stepFrame(-1);
             }
-            if (handler.isKeyPressed(KeyEvent.VK_RIGHT)) {
+            if (handler.isKeyPressed(GLFW_KEY_RIGHT)) {
                 stepFrame(1);
             }
         } else {
-            if (handler.isKeyPressed(KeyEvent.VK_LEFT)) {
+            if (handler.isKeyPressed(GLFW_KEY_LEFT)) {
                 stepPatternCursor(-1);
             }
-            if (handler.isKeyPressed(KeyEvent.VK_RIGHT)) {
+            if (handler.isKeyPressed(GLFW_KEY_RIGHT)) {
                 stepPatternCursor(1);
             }
-            if (handler.isKeyPressed(KeyEvent.VK_UP)) {
+            if (handler.isKeyPressed(GLFW_KEY_UP)) {
                 stepPatternCursor(-GRID_COLUMNS);
             }
-            if (handler.isKeyPressed(KeyEvent.VK_DOWN)) {
+            if (handler.isKeyPressed(GLFW_KEY_DOWN)) {
                 stepPatternCursor(GRID_COLUMNS);
             }
-            if (handler.isKeyPressed(KeyEvent.VK_HOME)) {
+            if (handler.isKeyPressed(GLFW_KEY_HOME)) {
                 setPatternCursor(0);
             }
-            if (handler.isKeyPressed(KeyEvent.VK_END)) {
+            if (handler.isKeyPressed(GLFW_KEY_END)) {
                 setPatternCursor(maxPatterns - 1);
             }
         }
@@ -127,9 +139,16 @@ public class DebugObjectArtViewer {
         if (renderManager == null || camera == null) {
             return;
         }
-        if (!DebugOverlayManager.getInstance().isEnabled(DebugOverlayToggle.OBJECT_ART_VIEWER)) {
+        if (!GameServices.debugOverlay().isEnabled(DebugOverlayToggle.OBJECT_ART_VIEWER)) {
             return;
         }
+
+        // Handle CNZ_SLOTS separately as it uses a different renderer
+        if (target == ArtTarget.CNZ_SLOTS) {
+            drawCnzSlots(camera);
+            return;
+        }
+
         PatternSpriteRenderer renderer = getRenderer(renderManager);
         if (renderer == null || !renderer.isReady()) {
             return;
@@ -142,7 +161,7 @@ public class DebugObjectArtViewer {
             }
             PatternSpriteRenderer.FrameBounds bounds = renderer.getFrameBoundsForIndex(frameIndex);
             int drawX = camera.getX() + 16 - bounds.minX();
-            int drawY = camera.getY() + 24 - bounds.minY();
+            int drawY = camera.getY() + DEBUG_Y_OFFSET - bounds.minY();
             renderer.drawFrameIndex(frameIndex, drawX, drawY, false, false);
         } else {
             int patternCount = getPatternCount(renderManager);
@@ -152,6 +171,53 @@ public class DebugObjectArtViewer {
             }
             drawPatternGrid(renderer, camera, patternCount);
         }
+    }
+
+    /**
+     * Draw CNZ slot faces for debug verification.
+     * Shows all 6 faces in two rows with expected labels.
+     */
+    private void drawCnzSlots(Camera camera) {
+        // Get the slot machine renderer from the zone feature provider
+        CNZSlotMachineRenderer slotRenderer = getCnzSlotRenderer();
+        if (slotRenderer == null || !slotRenderer.isInitialized()) {
+            return;
+        }
+
+        // Get palette texture from graphics manager
+        GraphicsManager gm = GraphicsManager.getInstance();
+        Integer paletteTextureId = gm.getCombinedPaletteTextureId();
+        if (paletteTextureId == null || paletteTextureId == 0) {
+            return;
+        }
+
+        // Position below HUD (use screen coordinates, not world coordinates)
+        int screenX = 16;
+        int screenY = DEBUG_Y_OFFSET;
+
+        // Create and queue the debug render command
+        GLCommand cmd = slotRenderer.createDebugRenderCommand(screenX, screenY, paletteTextureId, frameIndex);
+        if (cmd != null) {
+            gm.registerCommand(cmd);
+        }
+
+        // Set frame info for display in panel
+        setMaxFrames(6);  // 6 faces total
+    }
+
+    /**
+     * Get the CNZ slot machine renderer from the zone feature provider.
+     */
+    private CNZSlotMachineRenderer getCnzSlotRenderer() {
+        try {
+            ZoneFeatureProvider provider = GameModuleRegistry.getCurrent().getZoneFeatureProvider();
+            if (provider instanceof Sonic2ZoneFeatureProvider sonic2Provider) {
+                return sonic2Provider.getSlotMachineRenderer();
+            }
+        } catch (Exception e) {
+            // Not in CNZ or renderer not available
+        }
+        return null;
     }
 
     public String getTargetLabel() {
@@ -191,6 +257,28 @@ public class DebugObjectArtViewer {
         return paletteOverride < 0 ? "Auto" : String.format("P%d", paletteOverride);
     }
 
+    /**
+     * Check if currently viewing CNZ slot faces.
+     */
+    public boolean isCnzSlotsMode() {
+        return target == ArtTarget.CNZ_SLOTS;
+    }
+
+    /**
+     * Get slot face info for the current frame index (when in CNZ slots mode).
+     * @return Array of [name, reward] strings, or null if not applicable
+     */
+    public String[] getSlotFaceInfo() {
+        if (target != ArtTarget.CNZ_SLOTS) {
+            return null;
+        }
+        int faceIndex = frameIndex % 6;
+        return new String[] {
+            CNZSlotMachineRenderer.getFaceName(faceIndex),
+            CNZSlotMachineRenderer.getFaceReward(faceIndex)
+        };
+    }
+
     public int getFrameIndex() {
         return frameIndex;
     }
@@ -207,6 +295,7 @@ public class DebugObjectArtViewer {
         return switch (target) {
             case SIGNPOST -> renderManager.getSignpostRenderer();
             case RESULTS -> renderManager.getResultsRenderer();
+            case CNZ_SLOTS -> null; // Handled separately in drawCnzSlots
         };
     }
 
@@ -214,6 +303,7 @@ public class DebugObjectArtViewer {
         return switch (target) {
             case SIGNPOST -> renderManager.getSignpostSheet().getFrameCount();
             case RESULTS -> renderManager.getResultsSheet().getFrameCount();
+            case CNZ_SLOTS -> 6; // 6 slot faces
         };
     }
 
@@ -221,6 +311,7 @@ public class DebugObjectArtViewer {
         return switch (target) {
             case SIGNPOST -> renderManager.getSignpostSheet().getPatterns().length;
             case RESULTS -> renderManager.getResultsSheet().getPatterns().length;
+            case CNZ_SLOTS -> 0; // No pattern grid view for slots
         };
     }
 
@@ -304,7 +395,7 @@ public class DebugObjectArtViewer {
         int pageStart = (getPatternCursor() / pageSize) * pageSize;
         int paletteIndex = paletteOverride;
         int baseX = camera.getX() + 16;
-        int baseY = camera.getY() + 24;
+        int baseY = camera.getY() + DEBUG_Y_OFFSET;
         int index = pageStart;
         for (int row = 0; row < GRID_ROWS; row++) {
             for (int col = 0; col < GRID_COLUMNS; col++) {
@@ -319,3 +410,4 @@ public class DebugObjectArtViewer {
         }
     }
 }
+

@@ -33,8 +33,22 @@ public class PlayerSpriteRenderer {
             return;
         }
         if (frameIndex != lastFrame) {
-            applyDplc(frameIndex);
-            lastFrame = frameIndex;
+            // ROM behavior: Only update lastFrame when tiles were actually loaded.
+            // Empty DPLCs mean "reuse previously loaded tiles", so we shouldn't
+            // update lastFrame in that case - otherwise a subsequent frame with
+            // a real DPLC would not reload its tiles.
+            boolean loaded = applyDplc(frameIndex);
+            if (loaded) {
+                lastFrame = frameIndex;
+            } else if (lastFrame == -1) {
+                // First draw and DPLC was empty - try to find the first non-empty DPLC
+                // to initialize the pattern bank (ROM initializes with frame 0 tiles
+                // before the main loop, but we need to do it here)
+                loaded = forceInitialDplc();
+                if (loaded) {
+                    lastFrame = frameIndex;
+                }
+            }
         }
 
         SpriteMappingFrame frame = artSet.mappingFrames().get(frameIndex);
@@ -70,14 +84,39 @@ public class PlayerSpriteRenderer {
         return SpritePieceRenderer.computeFrameBounds(frame.pieces(), hFlip, vFlip);
     }
 
-    private void applyDplc(int frameIndex) {
+    /**
+     * Applies DPLC (Dynamic Pattern Load Cues) for a frame, loading tiles into VRAM.
+     *
+     * @param frameIndex The frame index to load DPLC for
+     * @return true if tiles were loaded, false if DPLC was empty (tiles unchanged)
+     */
+    private boolean applyDplc(int frameIndex) {
         if (frameIndex < 0 || frameIndex >= artSet.dplcFrames().size()) {
-            return;
+            return false;
         }
         SpriteDplcFrame dplcFrame = artSet.dplcFrames().get(frameIndex);
         if (dplcFrame == null || dplcFrame.requests().isEmpty()) {
-            return;
+            // ROM behavior: empty DPLC means "reuse previously loaded tiles"
+            return false;
         }
         patternBank.applyRequests(dplcFrame.requests(), artSet.artTiles());
+        return true;
+    }
+
+    /**
+     * Force-load the first non-empty DPLC to initialize the pattern bank.
+     * This handles the case where frame 0 has an empty DPLC expecting tiles
+     * to already be loaded (as the ROM does during initialization).
+     */
+    private boolean forceInitialDplc() {
+        // Search for the first non-empty DPLC
+        for (int i = 0; i < artSet.dplcFrames().size(); i++) {
+            SpriteDplcFrame dplcFrame = artSet.dplcFrames().get(i);
+            if (dplcFrame != null && !dplcFrame.requests().isEmpty()) {
+                patternBank.applyRequests(dplcFrame.requests(), artSet.artTiles());
+                return true;
+            }
+        }
+        return false;
     }
 }

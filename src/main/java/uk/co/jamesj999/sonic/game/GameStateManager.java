@@ -20,6 +20,29 @@ public class GameStateManager {
     private int emeraldCount;
     private final boolean[] gotEmeralds = new boolean[SPECIAL_STAGE_COUNT];
 
+    /**
+     * Current boss ID (ROM: Current_Boss_ID).
+     * 0 = no boss active, non-zero = boss fight in progress.
+     * Used by level boundary logic to remove the +64 right buffer during boss fights.
+     */
+    private int currentBossId;
+
+    /**
+     * Screen shake flag (ROM: Screen_Shaking_Flag at $FFFFF72C).
+     * When active, scroll handlers should apply shake offsets from ripple data.
+     * Used by boss fights and events like pillar rising in ARZ.
+     */
+    private boolean screenShakeActive;
+
+    /**
+     * HTZ-specific screen shake flag (ROM: Screen_Shaking_Flag_HTZ at $FFFFF7C3).
+     * This is the master flag for HTZ earthquake sequences. Unlike the general
+     * Screen_Shaking_Flag which gets cleared during delay periods, this flag
+     * stays active for the entire earthquake sequence.
+     * Used by Obj30 (RisingLava) to determine if the platform should be solid.
+     */
+    private boolean htzScreenShakeActive;
+
     private GameStateManager() {
         resetSession();
     }
@@ -43,6 +66,10 @@ public class GameStateManager {
         for (int i = 0; i < gotEmeralds.length; i++) {
             gotEmeralds[i] = false;
         }
+
+        this.currentBossId = 0;
+        this.screenShakeActive = false;
+        this.htzScreenShakeActive = false;
     }
 
     public int getScore() {
@@ -119,6 +146,83 @@ public class GameStateManager {
      */
     public boolean hasAllEmeralds() {
         return emeraldCount >= SPECIAL_STAGE_COUNT;
+    }
+
+    /**
+     * Gets the current boss ID.
+     * ROM: Current_Boss_ID - 0 means no boss active.
+     */
+    public int getCurrentBossId() {
+        return currentBossId;
+    }
+
+    /**
+     * Sets the current boss ID.
+     * ROM: Current_Boss_ID - set to non-zero when entering a boss fight,
+     * 0 when the boss is defeated. When non-zero, the +64 right boundary
+     * buffer is removed to keep the player within the boss arena.
+     */
+    public void setCurrentBossId(int bossId) {
+        this.currentBossId = bossId;
+    }
+
+    /**
+     * Checks if a boss fight is currently active.
+     */
+    public boolean isBossFightActive() {
+        return currentBossId != 0;
+    }
+
+    /**
+     * Gets the screen shake active state.
+     * ROM: tst.b (Screen_Shaking_Flag).w
+     *
+     * @return true if screen shake is active
+     */
+    public boolean isScreenShakeActive() {
+        return screenShakeActive;
+    }
+
+    /**
+     * Sets the screen shake active state.
+     * ROM: move.b #1,(Screen_Shaking_Flag).w to enable
+     * ROM: move.b #0,(Screen_Shaking_Flag).w to disable
+     *
+     * When active, scroll handlers should use ripple data from ParallaxTables
+     * to apply shake offsets to both horizontal and vertical scroll values.
+     *
+     * @param active true to enable screen shake, false to disable
+     */
+    public void setScreenShakeActive(boolean active) {
+        this.screenShakeActive = active;
+    }
+
+    /**
+     * Gets the HTZ-specific screen shake flag.
+     * ROM: tst.b (Screen_Shaking_Flag_HTZ).w
+     *
+     * This is the master flag checked by Obj30 (RisingLava) to determine
+     * if the invisible solid platforms should be active. Unlike the general
+     * Screen_Shaking_Flag, this stays on during delay periods.
+     *
+     * @return true if HTZ earthquake sequence is active
+     */
+    public boolean isHtzScreenShakeActive() {
+        return htzScreenShakeActive;
+    }
+
+    /**
+     * Sets the HTZ-specific screen shake flag.
+     * ROM: move.b #1,(Screen_Shaking_Flag_HTZ).w to enable
+     * ROM: move.b #0,(Screen_Shaking_Flag_HTZ).w to disable
+     *
+     * This is set when entering an HTZ earthquake area and cleared when exiting.
+     * The flag persists through delay periods when the lava pauses at limits.
+     *
+     * @param active true to enable HTZ earthquake mode, false to disable
+     */
+    public void setHtzScreenShakeActive(boolean active) {
+        this.htzScreenShakeActive = active;
     }
 }
 

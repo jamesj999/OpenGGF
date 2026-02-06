@@ -50,6 +50,13 @@ public class TimerManager {
         }
     }
 
+    /**
+     * Resets mutable state without destroying the singleton instance.
+     */
+    public void resetState() {
+        timers.clear();
+    }
+
     public synchronized static TimerManager getInstance() {
         if (timerManager == null) {
             timerManager = new TimerManager();

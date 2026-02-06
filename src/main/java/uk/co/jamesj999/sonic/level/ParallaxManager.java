@@ -2,15 +2,26 @@ package uk.co.jamesj999.sonic.level;
 
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.game.GameModuleRegistry;
+import uk.co.jamesj999.sonic.game.GameModule;
+import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
+import uk.co.jamesj999.sonic.game.sonic2.DynamicHtz;
 import uk.co.jamesj999.sonic.level.scroll.BackgroundCamera;
 import uk.co.jamesj999.sonic.level.scroll.ParallaxTables;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlArz;
+import uk.co.jamesj999.sonic.level.scroll.SwScrlCnz;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlCpz;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlEhz;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlMcz;
+import uk.co.jamesj999.sonic.level.scroll.SwScrlHtz;
+import uk.co.jamesj999.sonic.level.scroll.SwScrlDez;
+import uk.co.jamesj999.sonic.level.scroll.SwScrlOoz;
+import uk.co.jamesj999.sonic.level.scroll.SwScrlScz;
+import uk.co.jamesj999.sonic.level.scroll.SwScrlWfz;
+import uk.co.jamesj999.sonic.level.scroll.ZoneScrollHandler;
 
 import java.io.IOException;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -56,13 +67,31 @@ public class ParallaxManager {
     private ParallaxTables tables;
     private boolean loaded = false;
 
+    // Game-agnostic scroll handler provider (from current GameModule)
+    private ScrollHandlerProvider scrollProvider;
+    private boolean providerLoaded = false;
+
+    // Sonic 2-specific handlers (used when loaded == true)
     private SwScrlArz arzHandler;
+    private SwScrlCnz cnzHandler;
     private SwScrlEhz ehzHandler;
     private SwScrlCpz cpzHandler;
+    private SwScrlHtz htzHandler;
     private SwScrlMcz mczHandler;
+    private SwScrlDez dezHandler;
+    private SwScrlOoz oozHandler;
+    private SwScrlScz sczHandler;
+    private SwScrlWfz wfzHandler;
+
+    // HTZ dynamic art streaming (mountains and clouds)
+    private DynamicHtz dynamicHtz;
 
     private int currentZone = -1;
     private int currentAct = -1;
+
+    // Screen shake offsets propagated from zone handlers
+    private int currentShakeOffsetX = 0;
+    private int currentShakeOffsetY = 0;
 
     // Pre-allocated arrays to avoid per-frame allocations
     private final int[] wfzOffsets = new int[4];
@@ -76,19 +105,97 @@ public class ParallaxManager {
         return instance;
     }
 
+    /**
+     * Reset zone state to force reinitialization on next initZone call.
+     * Useful for tests to ensure deterministic state.
+     */
+    public void resetZoneState() {
+        currentZone = -1;
+        currentAct = -1;
+        // Reset HTZ-specific state
+        if (htzHandler != null) {
+            htzHandler.init();
+        }
+        if (dynamicHtz != null) {
+            dynamicHtz.reset();
+        }
+    }
+
+    /**
+     * Resets all mutable state without destroying the singleton instance.
+     * Clears zone handlers, tables, and scroll factors so the next load starts fresh.
+     */
+    public void resetState() {
+        resetZoneState();
+        arzHandler = null;
+        cnzHandler = null;
+        ehzHandler = null;
+        cpzHandler = null;
+        htzHandler = null;
+        mczHandler = null;
+        dezHandler = null;
+        oozHandler = null;
+        sczHandler = null;
+        wfzHandler = null;
+        dynamicHtz = null;
+        scrollProvider = null;
+        tables = null;
+        loaded = false;
+        providerLoaded = false;
+        vscrollFactorFG = 0;
+        vscrollFactorBG = 0;
+        currentShakeOffsetX = 0;
+        currentShakeOffsetY = 0;
+        minScroll = 0;
+        maxScroll = 0;
+        java.util.Arrays.fill(hScroll, 0);
+    }
+
     public void load(Rom rom) {
-        if (loaded)
+        if (loaded || providerLoaded) {
             return;
-        try {
-            tables = new ParallaxTables(rom);
-            arzHandler = new SwScrlArz(tables);
-            ehzHandler = new SwScrlEhz(tables);
-            cpzHandler = new SwScrlCpz(tables);
-            mczHandler = new SwScrlMcz(tables);
-            loaded = true;
-            LOGGER.info("Parallax tables loaded.");
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Failed to load parallax data: " + e.getMessage(), e);
+        }
+
+        // Get the game-specific scroll handler provider
+        GameModule module = GameModuleRegistry.getCurrent();
+        String gameId = (module != null) ? module.getIdentifier() : null;
+
+        if (module != null) {
+            scrollProvider = module.getScrollHandlerProvider();
+            if (scrollProvider != null) {
+                try {
+                    scrollProvider.load(rom);
+                    providerLoaded = true;
+                } catch (IOException e) {
+                    LOGGER.warning("Failed to load game scroll provider: " + e.getMessage());
+                    scrollProvider = null;
+                }
+            }
+        }
+
+        // Load Sonic 2-specific inline handlers (ParallaxTables, zone-specific post-processing).
+        // Only for Sonic 2 - other games use the provider path exclusively.
+        if ("Sonic2".equals(gameId)) {
+            try {
+                tables = new ParallaxTables(rom);
+                arzHandler = new SwScrlArz(tables);
+                cnzHandler = new SwScrlCnz(tables);
+                ehzHandler = new SwScrlEhz(tables);
+                cpzHandler = new SwScrlCpz(tables);
+                htzHandler = new SwScrlHtz(tables, bgCamera);
+                mczHandler = new SwScrlMcz(tables);
+                dezHandler = new SwScrlDez(tables);
+                oozHandler = new SwScrlOoz(tables);
+                sczHandler = new SwScrlScz();
+                wfzHandler = new SwScrlWfz(tables, bgCamera);
+                dynamicHtz = new DynamicHtz();
+                dynamicHtz.init();
+                loaded = true;
+                LOGGER.info("Parallax tables loaded (Sonic 2).");
+            } catch (IOException e) {
+                LOGGER.log(java.util.logging.Level.SEVERE,
+                        "Failed to load parallax data: " + e.getMessage(), e);
+            }
         }
     }
 
@@ -102,6 +209,18 @@ public class ParallaxManager {
                 arzHandler.init(actId, cameraX, cameraY);
             } else if (zoneId == ZONE_CPZ && cpzHandler != null) {
                 cpzHandler.init(cameraX, cameraY);
+            } else if (zoneId == ZONE_HTZ && htzHandler != null) {
+                htzHandler.init();
+                if (dynamicHtz != null) {
+                    dynamicHtz.reset();
+                }
+            } else if (zoneId == ZONE_OOZ && oozHandler != null) {
+                oozHandler.init(cameraX, cameraY);
+            } else if (zoneId == ZONE_SCZ && sczHandler != null) {
+                sczHandler.init();
+                // SCZ camera is driven by Tornado velocity, not player following.
+                // Freeze camera to prevent normal updatePosition() from overriding.
+                Camera.getInstance().setFrozen(true);
             }
         }
     }
@@ -135,27 +254,86 @@ public class ParallaxManager {
         return vscrollFactorBG;
     }
 
+    /**
+     * Get the current horizontal shake offset for this frame.
+     * This is propagated from the active zone scroll handler when screen shake is active.
+     * Used by LevelManager to set camera shake offsets for FG tiles and sprites.
+     *
+     * @return Horizontal shake offset in pixels, or 0 if no shake
+     */
+    public int getShakeOffsetX() {
+        return currentShakeOffsetX;
+    }
+
+    /**
+     * Get the current vertical shake offset for this frame.
+     * This is propagated from the active zone scroll handler when screen shake is active.
+     * Used by LevelManager to set camera shake offsets for FG tiles and sprites.
+     *
+     * @return Vertical shake offset in pixels, or 0 if no shake
+     */
+    public int getShakeOffsetY() {
+        return currentShakeOffsetY;
+    }
+
+    /**
+     * Set the screen shake flag for MCZ.
+     * @deprecated Use GameServices.gameState().setScreenShakeActive() directly.
+     *             Screen shake is now a global state that all zones check.
+     */
+    @Deprecated
     public void setScreenShakeFlag(boolean screenShakeFlag) {
-        if (mczHandler != null) {
-            mczHandler.setScreenShakeFlag(screenShakeFlag);
-        }
+        GameServices.gameState().setScreenShakeActive(screenShakeFlag);
+    }
+
+    /**
+     * Set the HTZ screen shake mode flag.
+     * This sets the HTZ-specific flag (Screen_Shaking_Flag_HTZ) which stays
+     * active for the entire earthquake sequence, as well as the general
+     * screen shake flag for visual shake effects.
+     */
+    public void setHtzScreenShake(boolean active) {
+        GameServices.gameState().setHtzScreenShakeActive(active);
+        GameServices.gameState().setScreenShakeActive(active);
     }
 
     public void update(int zoneId, int actId, Camera cam, int frameCounter, int bgScrollY) {
+        // Clear scroll buffer to ensure deterministic state
+        // (some zone handlers intentionally leave lines unwritten)
+        java.util.Arrays.fill(hScroll, 0);
+
         minScroll = Integer.MAX_VALUE;
         maxScroll = Integer.MIN_VALUE;
+
+        // Reset shake offsets at start of frame
+        currentShakeOffsetX = 0;
+        currentShakeOffsetY = 0;
+
+        int cameraX = cam.getX();
+        int cameraY = cam.getY();
+        vscrollFactorFG = (short) cameraY;
+
+        // For non-Sonic 2 games, use the game-specific scroll handler provider
+        if (!loaded && scrollProvider != null) {
+            ZoneScrollHandler handler = scrollProvider.getHandler(zoneId);
+            if (handler != null) {
+                handler.update(hScroll, cameraX, cameraY, frameCounter, actId);
+                minScroll = handler.getMinScrollOffset();
+                maxScroll = handler.getMaxScrollOffset();
+                vscrollFactorBG = handler.getVscrollFactorBG();
+            } else {
+                fillMinimal(cam);
+            }
+            return;
+        }
 
         if (!loaded) {
             fillMinimal(cam);
             return;
         }
 
-        initZone(zoneId, actId, cam.getX(), cam.getY());
-
-        int cameraX = cam.getX();
-        int cameraY = cam.getY();
-
-        vscrollFactorFG = (short) cameraY;
+        // Sonic 2 path: use dedicated handlers with zone-specific post-processing
+        initZone(zoneId, actId, cameraX, cameraY);
         vscrollFactorBG = (short) bgCamera.getBgYPos();
 
         switch (zoneId) {
@@ -186,13 +364,38 @@ public class ParallaxManager {
                     minScroll = arzHandler.getMinScrollOffset();
                     maxScroll = arzHandler.getMaxScrollOffset();
                     vscrollFactorBG = arzHandler.getVscrollFactorBG();
+                    // Capture shake offsets for FG tiles and sprites
+                    currentShakeOffsetX = arzHandler.getShakeOffsetX();
+                    currentShakeOffsetY = arzHandler.getShakeOffsetY();
                 }
                 break;
             case ZONE_CNZ:
-                fillCnz(cameraX, bgScrollY);
+                if (cnzHandler != null) {
+                    cnzHandler.update(hScroll, cameraX, cameraY, frameCounter, actId);
+                    minScroll = cnzHandler.getMinScrollOffset();
+                    maxScroll = cnzHandler.getMaxScrollOffset();
+                    vscrollFactorBG = cnzHandler.getVscrollFactorBG();
+                    // Update bgCamera for renderer's vertical scroll
+                    bgCamera.setBgYPos(vscrollFactorBG);
+                } else {
+                    fillCnz(cameraX, bgScrollY);
+                }
                 break;
             case ZONE_HTZ:
-                fillHtz(cameraX, bgScrollY);
+                if (htzHandler != null) {
+                    htzHandler.update(hScroll, cameraX, cameraY, frameCounter, actId);
+                    minScroll = htzHandler.getMinScrollOffset();
+                    maxScroll = htzHandler.getMaxScrollOffset();
+                    vscrollFactorBG = htzHandler.getVscrollFactorBG();
+                    if (GameServices.gameState().isScreenShakeActive()) {
+                        vscrollFactorFG = htzHandler.getVscrollFactorFG();
+                        // Capture shake offsets for FG tiles and sprites
+                        currentShakeOffsetX = htzHandler.getShakeOffsetX();
+                        currentShakeOffsetY = htzHandler.getShakeOffsetY();
+                    }
+                } else {
+                    fillHtz(cameraX, bgScrollY);
+                }
                 break;
             case ZONE_MCZ:
                 if (mczHandler != null) {
@@ -201,28 +404,85 @@ public class ParallaxManager {
                     maxScroll = mczHandler.getMaxScrollOffset();
                     vscrollFactorBG = mczHandler.getVscrollFactorBG();
                     vscrollFactorFG = mczHandler.getVscrollFactorFG();
+                    // Capture shake offsets for FG tiles and sprites
+                    currentShakeOffsetX = mczHandler.getShakeOffsetX();
+                    currentShakeOffsetY = mczHandler.getShakeOffsetY();
                     // Update bgCamera for renderer's vertical scroll
                     bgCamera.setBgYPos(mczHandler.getBgY());
                 }
                 break;
             case ZONE_OOZ:
-                fillOoz(cameraX, bgScrollY, frameCounter);
+                if (oozHandler != null) {
+                    oozHandler.update(hScroll, cameraX, cameraY, frameCounter, actId);
+                    minScroll = oozHandler.getMinScrollOffset();
+                    maxScroll = oozHandler.getMaxScrollOffset();
+                    vscrollFactorBG = oozHandler.getVscrollFactorBG();
+                    // Update bgCamera for renderer's vertical scroll
+                    bgCamera.setBgYPos(vscrollFactorBG);
+                } else {
+                    fillOoz(cameraX, bgScrollY, frameCounter);
+                }
                 break;
             case ZONE_MTZ:
-                fillMtz(cameraX);
+                fillMtz(cameraX, cameraY);
                 break;
             case ZONE_SCZ:
-                fillScz(cameraX, cameraY);
+                if (sczHandler != null) {
+                    sczHandler.update(hScroll, cameraX, cameraY, frameCounter, actId);
+                    minScroll = sczHandler.getMinScrollOffset();
+                    maxScroll = sczHandler.getMaxScrollOffset();
+                    vscrollFactorBG = sczHandler.getVscrollFactorBG();
+                    // Re-read camera position after SCZ handler modifies it
+                    vscrollFactorFG = (short) cam.getY();
+                } else {
+                    fillScz(cameraX, cameraY);
+                }
                 break;
             case ZONE_WFZ:
-                fillWfz(cameraX, frameCounter);
+                if (wfzHandler != null) {
+                    wfzHandler.update(hScroll, cameraX, cameraY, frameCounter, actId);
+                    minScroll = wfzHandler.getMinScrollOffset();
+                    maxScroll = wfzHandler.getMaxScrollOffset();
+                    vscrollFactorBG = wfzHandler.getVscrollFactorBG();
+                } else {
+                    fillWfz(cameraX, frameCounter);
+                }
                 break;
             case ZONE_DEZ:
-                fillDez(cameraX, frameCounter);
+                if (dezHandler != null) {
+                    dezHandler.setVscrollFactorBG(vscrollFactorBG);
+                    dezHandler.update(hScroll, cameraX, cameraY, frameCounter, actId);
+                    minScroll = dezHandler.getMinScrollOffset();
+                    maxScroll = dezHandler.getMaxScrollOffset();
+                    vscrollFactorBG = dezHandler.getVscrollFactorBG();
+                } else {
+                    fillDez(cameraX, frameCounter);
+                }
                 break;
             default:
                 fillMinimal(cam);
                 break;
+        }
+    }
+
+    /**
+     * Update parallax scrolling with dynamic art streaming support.
+     * This overload handles zone-specific dynamic art updates (HTZ mountains/clouds).
+     *
+     * @param zoneId Zone identifier
+     * @param actId Act identifier
+     * @param cam Camera instance
+     * @param frameCounter Current frame counter
+     * @param bgScrollY Background scroll Y value
+     * @param level Level instance for dynamic art updates (may be null)
+     */
+    public void update(int zoneId, int actId, Camera cam, int frameCounter, int bgScrollY, Level level) {
+        // Perform standard parallax update
+        update(zoneId, actId, cam, frameCounter, bgScrollY);
+
+        // Update zone-specific dynamic art
+        if (zoneId == ZONE_HTZ && dynamicHtz != null && level != null && htzHandler != null) {
+            dynamicHtz.update(level, cam.getX(), htzHandler);
         }
     }
 
@@ -373,29 +633,27 @@ public class ParallaxManager {
     /**
      * MTZ - Metropolis Zone
      */
-    private void fillMtz(int cameraX) {
+    private void fillMtz(int cameraX, int cameraY) {
         short fgScroll = (short) -cameraX;
-        int offset = cameraX - (cameraX >> 2);
+        // SwScrl_MTZ uses Camera_X_pos_diff << 5 which tracks at 1/8 speed
+        int offset = cameraX - (cameraX >> 3);
         for (int line = 0; line < VISIBLE_LINES; line++) {
             setLineWithOffset(line, fgScroll, offset);
         }
+        // MTZ BG Y scrolls at 1/4 camera speed
+        vscrollFactorBG = (short)(cameraY >> 2);
     }
 
     /**
      * SCZ - Sky Chase Zone
+     * No per-scanline parallax. All 224 scanlines use the same BG scroll.
+     * BG advances at 0.5 px/frame while FG advances at ~1 px/frame (tornado
+     * velocity), so BG scrolls at half the foreground speed.
      */
     private void fillScz(int cameraX, int cameraY) {
         short fgScroll = (short) -cameraX;
-
+        int offset = cameraX - (cameraX >> 1);
         for (int line = 0; line < VISIBLE_LINES; line++) {
-            int offset;
-            if (line < 64) {
-                offset = cameraX - (cameraX >> 3);
-            } else if (line < 144) {
-                offset = cameraX - (cameraX >> 2);
-            } else {
-                offset = cameraX - (cameraX >> 2) - (cameraX >> 3);
-            }
             setLineWithOffset(line, fgScroll, offset);
         }
     }
@@ -459,5 +717,14 @@ public class ParallaxManager {
         for (int line = 0; line < VISIBLE_LINES; line++) {
             setLineWithOffset(line, fgScroll, offset);
         }
+    }
+
+    /**
+     * Returns the parallax tables for use by other managers (e.g., ScreenShakeManager).
+     *
+     * @return ParallaxTables instance, or null if not yet loaded
+     */
+    public ParallaxTables getTables() {
+        return tables;
     }
 }

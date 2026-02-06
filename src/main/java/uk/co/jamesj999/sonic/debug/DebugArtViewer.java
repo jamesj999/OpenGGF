@@ -3,7 +3,6 @@ package uk.co.jamesj999.sonic.debug;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArt;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.level.objects.ObjectArtData;
 import uk.co.jamesj999.sonic.level.Pattern;
 

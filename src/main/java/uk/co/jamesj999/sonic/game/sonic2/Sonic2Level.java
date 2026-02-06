@@ -5,6 +5,9 @@ import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.*;
+import uk.co.jamesj999.sonic.level.resources.LevelResourcePlan;
+import uk.co.jamesj999.sonic.level.resources.LoadOp;
+import uk.co.jamesj999.sonic.level.resources.ResourceLoader;
 import uk.co.jamesj999.sonic.tools.KosinskiReader;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.rings.RingSpawn;
@@ -12,7 +15,6 @@ import uk.co.jamesj999.sonic.level.rings.RingSpriteSheet;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
@@ -77,6 +79,55 @@ public class Sonic2Level implements Level {
         loadBoundaries(rom, levelBoundariesAddr);
     }
 
+    /**
+     * Creates a Sonic2Level using a LevelResourcePlan for overlay-based resource loading.
+     *
+     * <p>This constructor supports zones that compose resources from multiple sources,
+     * such as Hill Top Zone which overlays HTZ-specific patterns and blocks on top
+     * of shared EHZ/HTZ base data.
+     *
+     * @param rom                    The ROM to load from
+     * @param zoneIndex              Zone index (ROM zone ID)
+     * @param characterPaletteAddr   Address of character palette
+     * @param levelPalettesAddr      Address of level palettes
+     * @param levelPalettesSize      Size of level palette data
+     * @param resourcePlan           Resource plan defining pattern/block/chunk/collision loading
+     * @param mapAddr                Address of level layout
+     * @param solidTileHeightsAddr   Address of solid tile heights
+     * @param solidTileWidthsAddr    Address of solid tile widths
+     * @param solidTilesAngleAddr    Address of solid tile angles
+     * @param objectSpawns           Object spawn data
+     * @param ringSpawns             Ring spawn data
+     * @param ringSpriteSheet        Ring sprite sheet
+     * @param levelBoundariesAddr    Address of level boundaries
+     */
+    public Sonic2Level(Rom rom,
+            int zoneIndex,
+            int characterPaletteAddr,
+            int levelPalettesAddr,
+            int levelPalettesSize,
+            LevelResourcePlan resourcePlan,
+            int mapAddr,
+            int solidTileHeightsAddr,
+            int solidTileWidthsAddr,
+            int solidTilesAngleAddr,
+            List<ObjectSpawn> objectSpawns,
+            List<RingSpawn> ringSpawns,
+            RingSpriteSheet ringSpriteSheet,
+            int levelBoundariesAddr) throws IOException {
+        this.zoneIndex = zoneIndex;
+        loadPalettes(rom, characterPaletteAddr, levelPalettesAddr, levelPalettesSize);
+        loadPatternsWithPlan(rom, resourcePlan);
+        loadSolidTiles(rom, solidTileHeightsAddr, solidTileWidthsAddr, solidTilesAngleAddr);
+        loadChunksWithPlan(rom, resourcePlan);
+        loadBlocksWithPlan(rom, resourcePlan);
+        loadMap(rom, mapAddr);
+        this.objects = List.copyOf(objectSpawns);
+        this.rings = List.copyOf(ringSpawns);
+        this.ringSpriteSheet = ringSpriteSheet;
+        loadBoundaries(rom, levelBoundariesAddr);
+    }
+
     @Override
     public int getPaletteCount() {
         return PALETTE_COUNT;
@@ -88,6 +139,13 @@ public class Sonic2Level implements Level {
             throw new IllegalArgumentException("Invalid palette index");
         }
         return palettes[index];
+    }
+
+    @Override
+    public void setPalette(int index, Palette palette) {
+        if (index >= 0 && index < PALETTE_COUNT && palette != null) {
+            palettes[index] = palette;
+        }
     }
 
     @Override
@@ -113,7 +171,7 @@ public class Sonic2Level implements Level {
         GraphicsManager graphicsMan = GraphicsManager.getInstance();
         for (int i = patternCount; i < newCount; i++) {
             patterns[i] = new Pattern();
-            if (graphicsMan.getGraphics() != null) {
+            if (graphicsMan.isGlInitialized()) {
                 graphicsMan.cachePatternTexture(patterns[i], i);
             }
         }
@@ -229,7 +287,7 @@ public class Sonic2Level implements Level {
             }
         }
 
-        if (graphicsMan.getGraphics() != null) {
+        if (graphicsMan.isGlInitialized()) {
             for (int i = 0; i < palettes.length; i++) {
                 graphicsMan.cachePaletteTexture(palettes[i], i);
             }
@@ -258,7 +316,7 @@ public class Sonic2Level implements Level {
                     (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
             patterns[i].fromSegaFormat(subArray);
 
-            if (graphicsMan.getGraphics() != null) {
+            if (graphicsMan.isGlInitialized()) {
                 graphicsMan.cachePatternTexture(patterns[i], i);
             }
 
@@ -453,5 +511,183 @@ public class Sonic2Level implements Level {
         this.maxX = rom.read16BitAddr(levelBoundariesAddr + 2);
         this.minY = (short) rom.read16BitAddr(levelBoundariesAddr + 4);
         this.maxY = (short) rom.read16BitAddr(levelBoundariesAddr + 6);
+    }
+
+    // ===== Resource Plan-based loading methods =====
+
+    /**
+     * Loads patterns using a LevelResourcePlan, supporting overlay composition.
+     *
+     * <p>For zones like HTZ, this loads the base EHZ_HTZ patterns first, then
+     * overlays HTZ-specific patterns at the specified offset (0x3F80 bytes).
+     *
+     * <p>HTZ also requires extended pattern space for dynamic art (mountains/clouds)
+     * which are normally loaded by Dynamic_HTZ at runtime. We pre-fill these with
+     * sky blue placeholder patterns to avoid garbled rendering.
+     */
+    private void loadPatternsWithPlan(Rom rom, LevelResourcePlan plan) throws IOException {
+        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        ResourceLoader loader = new ResourceLoader(rom);
+
+        // Use a large initial buffer - will be trimmed to actual size
+        byte[] result = loader.loadWithOverlays(plan.getPatternOps(), 0x10000);
+
+        int loadedPatternCount = result.length / Pattern.PATTERN_SIZE_IN_ROM;
+        if (result.length % Pattern.PATTERN_SIZE_IN_ROM != 0) {
+            throw new IOException("Inconsistent pattern data after overlay composition");
+        }
+
+        // For HTZ, extend pattern array to include dynamic art tile indices
+        // The background map references tiles at $0500-$0520 (1280-1312) for mountains/clouds
+        int requiredPatterns = loadedPatternCount;
+        if (zoneIndex == Sonic2Constants.ZONE_HTZ) {
+            requiredPatterns = Math.max(requiredPatterns, Sonic2Constants.HTZ_DYNAMIC_TILES_END);
+        }
+
+        patternCount = requiredPatterns;
+        patterns = new Pattern[patternCount];
+
+        // Load patterns from ROM data
+        for (int i = 0; i < loadedPatternCount; i++) {
+            patterns[i] = new Pattern();
+            byte[] subArray = Arrays.copyOfRange(result, i * Pattern.PATTERN_SIZE_IN_ROM,
+                    (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
+            patterns[i].fromSegaFormat(subArray);
+
+            if (graphicsMan.isGlInitialized()) {
+                graphicsMan.cachePatternTexture(patterns[i], i);
+            }
+        }
+
+        // Fill any extended patterns (for HTZ dynamic art region) with sky blue
+        if (patternCount > loadedPatternCount) {
+            fillHtzDynamicArtPatterns(graphicsMan, loadedPatternCount);
+        }
+
+        if (plan.hasPatternOverlays()) {
+            LOG.info("Pattern count: " + patternCount + " (" + result.length + " bytes) [with overlays]");
+        } else {
+            LOG.fine("Pattern count: " + patternCount + " (" + result.length + " bytes)");
+        }
+    }
+
+    /**
+     * Fills HTZ dynamic art pattern slots with sky blue placeholder patterns.
+     *
+     * <p>The original game uses Dynamic_HTZ to stream mountain and cloud art
+     * to VRAM tiles $0500-$0520 based on camera position. Without this dynamic
+     * streaming, those tiles would show garbage. We fill them with sky blue (palette
+     * index 0 in HTZ, which maps to the sky color) to provide a clean fallback.
+     *
+     * <p>TODO: Implement proper Dynamic_HTZ to stream the actual cliff/cloud art.
+     */
+    private void fillHtzDynamicArtPatterns(GraphicsManager graphicsMan, int startIndex) {
+        // Create a sky blue pattern (all pixels = palette index 0, which is sky blue in HTZ)
+        byte[] skyPattern = new byte[Pattern.PATTERN_SIZE_IN_ROM];
+        // All zeros = palette index 0 for all pixels, which is sky blue in HTZ palette
+
+        for (int i = startIndex; i < patternCount; i++) {
+            patterns[i] = new Pattern();
+            patterns[i].fromSegaFormat(skyPattern);
+
+            if (graphicsMan.isGlInitialized()) {
+                graphicsMan.cachePatternTexture(patterns[i], i);
+            }
+        }
+
+        LOG.info("HTZ: Filled " + (patternCount - startIndex) + " dynamic art pattern slots with sky blue placeholders");
+    }
+
+    /**
+     * Loads chunks (16x16 tile mappings) using a LevelResourcePlan, supporting overlay composition.
+     *
+     * <p>For zones like HTZ, this loads the base EHZ chunks first, then overlays
+     * HTZ-specific chunks at the specified offset (0x0980 bytes). This also
+     * loads the collision indices from the plan.
+     */
+    private void loadChunksWithPlan(Rom rom, LevelResourcePlan plan) throws IOException {
+        ResourceLoader loader = new ResourceLoader(rom);
+
+        // Load chunk data (usually single source)
+        byte[] chunkBuffer = loader.loadWithOverlays(plan.getChunkOps(), 0x10000);
+        chunkBuffer = applyAnimatedPatternMappings(rom, chunkBuffer);
+
+        chunkCount = chunkBuffer.length / Chunk.CHUNK_SIZE_IN_ROM;
+        if (chunkBuffer.length % Chunk.CHUNK_SIZE_IN_ROM != 0) {
+            throw new IOException("Inconsistent chunk data");
+        }
+
+        // Load collision indices from the plan
+        byte[] solidTileRefBuffer;
+        byte[] solidTileAltRefBuffer;
+
+        LoadOp primaryCollision = plan.getPrimaryCollision();
+        LoadOp secondaryCollision = plan.getSecondaryCollision();
+
+        if (primaryCollision != null) {
+            solidTileRefBuffer = loader.loadSingle(primaryCollision);
+        } else {
+            solidTileRefBuffer = new byte[0];
+        }
+
+        if (secondaryCollision != null) {
+            solidTileAltRefBuffer = loader.loadSingle(secondaryCollision);
+        } else {
+            solidTileAltRefBuffer = new byte[0];
+        }
+
+        chunks = new Chunk[chunkCount];
+        for (int i = 0; i < chunkCount; i++) {
+            chunks[i] = new Chunk();
+            byte[] subArray = Arrays.copyOfRange(chunkBuffer, i * Chunk.CHUNK_SIZE_IN_ROM,
+                    (i + 1) * Chunk.CHUNK_SIZE_IN_ROM);
+            int solidTileIndex = 0;
+            if (i < solidTileRefBuffer.length) {
+                solidTileIndex = Byte.toUnsignedInt(solidTileRefBuffer[i]);
+            }
+            int altSolidTileIndex = 0;
+            if (i < solidTileAltRefBuffer.length) {
+                altSolidTileIndex = Byte.toUnsignedInt(solidTileAltRefBuffer[i]);
+            }
+            chunks[i].fromSegaFormat(subArray, solidTileIndex, altSolidTileIndex);
+        }
+
+        LOG.fine("Chunk count: " + chunkCount + " (" + chunkBuffer.length + " bytes)");
+    }
+
+    /**
+     * Loads blocks (128x128 tile mappings) using a LevelResourcePlan, supporting overlay composition.
+     *
+     * <p>Most zones use shared block data without overlays (e.g., HTZ uses shared EHZ_HTZ blocks).
+     * This method supports overlays for future zones that may need them.
+     */
+    private void loadBlocksWithPlan(Rom rom, LevelResourcePlan plan) throws IOException {
+        ResourceLoader loader = new ResourceLoader(rom);
+
+        // Load and compose block data with overlays, aligned to block size
+        byte[] blockBuffer = loader.loadWithOverlaysAligned(
+                plan.getBlockOps(), 0x10000, LevelConstants.BLOCK_SIZE_IN_ROM);
+
+        blockCount = blockBuffer.length / LevelConstants.BLOCK_SIZE_IN_ROM;
+        // Alignment is guaranteed by loadWithOverlaysAligned
+
+        blocks = new Block[blockCount];
+        for (int i = 0; i < blockCount; i++) {
+            blocks[i] = new Block();
+            byte[] subArray = Arrays.copyOfRange(blockBuffer, i * LevelConstants.BLOCK_SIZE_IN_ROM,
+                    (i + 1) * LevelConstants.BLOCK_SIZE_IN_ROM);
+            blocks[i].fromSegaFormat(subArray);
+        }
+
+        // Sanitize Block 0: In Sonic 2, Block 0 is universally defined as "Empty".
+        if (blockCount > 0) {
+            blocks[0] = new Block();
+        }
+
+        if (plan.hasBlockOverlays()) {
+            LOG.info("Block count: " + blockCount + " (" + blockBuffer.length + " bytes) [with overlays]");
+        } else {
+            LOG.fine("Block count: " + blockCount + " (" + blockBuffer.length + " bytes)");
+        }
     }
 }

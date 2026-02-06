@@ -55,6 +55,14 @@ public interface AudioBackend {
 
     void setSpeedShoes(boolean enabled);
 
+    /**
+     * Set the speed multiplier on the music sequencer (S3K speed shoes).
+     * A multiplier of 1 means normal speed, >1 means extra tick calls per frame.
+     */
+    default void setSpeedMultiplier(int multiplier) {
+        // Default no-op; backends that support S3K override this.
+    }
+
     void restoreMusic();
 
     /**
@@ -69,4 +77,16 @@ public interface AudioBackend {
     void update();
 
     void destroy();
+
+    /**
+     * Pauses audio playback. Called when the game window is minimized or loses focus.
+     * Audio should be suspended but state preserved so it can resume seamlessly.
+     */
+    void pause();
+
+    /**
+     * Resumes audio playback after being paused.
+     * Called when the game window is restored or regains focus.
+     */
+    void resume();
 }

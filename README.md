@@ -55,3 +55,15 @@ game.
 v0.2.20260117 - Improvements and fixes across the board. Special stages are now implemented, feature complete with a few known issues.
 Physics have been improved, parallax backgrounds implemented and complete for EHZ, CPZ, ARZ and MCZ. Some sound improvements, title cards,
 level 'outros' etc.
+
+v0.3.20260206 - A massive release covering 366 commits across every major subsystem. Tails (Miles Prower) is now a playable
+character with ROM-accurate CPU AI follower behaviour, input replay, flight, and configurable sidekick toggle. The engine has been
+refactored to support multiple games via a provider-based abstraction layer, with initial Sonic 1 ROM support (level select, title
+cards, HUD, audio with S1-specific SMPS driver configuration) alongside the existing Sonic 2 support. The physics engine has been
+completely rewritten to match ROM behaviour. Boss fights are implemented for 5 zones (EHZ, CPZ, HTZ, CNZ, ARZ), along with 15+ new
+badniks and 50+ new game objects spanning all implemented zones. A full water system with drowning mechanics is in place for CPZ and
+ARZ. The graphics backend has been migrated from JOGL to LWJGL with a GPU-accelerated rendering pipeline (pattern atlas, tilemap
+shader, instanced sprite batching, priority FBOs). The audio engine has seen major accuracy improvements to YM2612 FM synthesis
+(based on Genesis-Plus-GX reference) and the SMPS driver. New infrastructure includes per-game ROM configuration, a
+HeadlessTestRunner for physics integration testing, visual and audio regression test suites, a multi-game test annotation framework,
+GraalVM native build support, and significant performance optimisations throughout. See CHANGELOG.md for full details.

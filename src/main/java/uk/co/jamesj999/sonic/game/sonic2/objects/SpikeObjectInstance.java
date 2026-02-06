@@ -3,7 +3,6 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.audio.AudioManager;
-import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
@@ -59,6 +58,11 @@ public class SpikeObjectInstance extends BoxObjectInstance implements SolidObjec
         // Check invulnerability BEFORE doing anything - allows walking on spikes when
         // invulnerable
         if (player.getInvulnerable()) {
+            return;
+        }
+        // ROM: Hurt_Sidekick - CPU Tails only gets knockback, no ring scatter or death
+        if (player.isCpuControlled()) {
+            player.applyHurt(currentX);
             return;
         }
         boolean hadRings = player.getRingCount() > 0;
@@ -246,14 +250,5 @@ public class SpikeObjectInstance extends BoxObjectInstance implements SolidObjec
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic.
         }
-    }
-
-    private boolean isOnScreen() {
-        Camera camera = Camera.getInstance();
-        int left = camera.getX();
-        int top = camera.getY();
-        int right = left + camera.getWidth();
-        int bottom = top + camera.getHeight();
-        return currentX >= left && currentX <= right && currentY >= top && currentY <= bottom;
     }
 }

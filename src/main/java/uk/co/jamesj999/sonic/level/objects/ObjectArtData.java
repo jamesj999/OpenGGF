@@ -26,15 +26,29 @@ public class ObjectArtData {
         private final ObjectSpriteSheet waterfallSheet;
         private final ObjectSpriteSheet checkpointSheet;
         private final ObjectSpriteSheet checkpointStarSheet;
-        private final ObjectSpriteSheet masherSheet;
-        private final ObjectSpriteSheet buzzerSheet;
-        private final ObjectSpriteSheet coconutsSheet;
         private final ObjectSpriteSheet animalSheet;
         private final int animalTypeA;
         private final int animalTypeB;
         private final ObjectSpriteSheet pointsSheet;
         private final ObjectSpriteSheet signpostSheet;
+        private final ObjectSpriteSheet bumperSheet;
+        private final ObjectSpriteSheet hexBumperSheet;
+        private final ObjectSpriteSheet bonusBlockSheet;
+        private final ObjectSpriteSheet flipperSheet;
+        private final ObjectSpriteSheet speedBoosterSheet;
+        private final ObjectSpriteSheet blueBallsSheet;
+        private final ObjectSpriteSheet breakableBlockSheet;
+        private final ObjectSpriteSheet cpzPlatformSheet;
+        private final ObjectSpriteSheet cpzStairBlockSheet;
+        private final ObjectSpriteSheet sidewaysPformSheet;
+        private final ObjectSpriteSheet cpzPylonSheet;
+        private final ObjectSpriteSheet pipeExitSpringSheet;
+        private final ObjectSpriteSheet tippingFloorSheet;
+        private final ObjectSpriteSheet barrierSheet;
+        private final ObjectSpriteSheet springboardSheet;
         private final ObjectSpriteSheet resultsSheet;
+        private final ObjectSpriteSheet bubblesSheet;
+        private final ObjectSpriteSheet leavesSheet;
         private final Pattern[] hudDigitPatterns;
         private final Pattern[] hudTextPatterns;
         private final Pattern[] hudLivesPatterns;
@@ -47,6 +61,10 @@ public class ObjectArtData {
         private final SpriteAnimationSet springAnimations;
         private final SpriteAnimationSet checkpointAnimations;
         private final SpriteAnimationSet signpostAnimations;
+        private final SpriteAnimationSet flipperAnimations;
+        private final SpriteAnimationSet pipeExitSpringAnimations;
+        private final SpriteAnimationSet tippingFloorAnimations;
+        private final SpriteAnimationSet springboardAnimations;
 
         public ObjectArtData(
                         ObjectSpriteSheet monitorSheet,
@@ -65,15 +83,29 @@ public class ObjectArtData {
                         ObjectSpriteSheet waterfallSheet,
                         ObjectSpriteSheet checkpointSheet,
                         ObjectSpriteSheet checkpointStarSheet,
-                        ObjectSpriteSheet masherSheet,
-                        ObjectSpriteSheet buzzerSheet,
-                        ObjectSpriteSheet coconutsSheet,
                         ObjectSpriteSheet animalSheet,
                         int animalTypeA,
                         int animalTypeB,
                         ObjectSpriteSheet pointsSheet,
                         ObjectSpriteSheet signpostSheet,
+                        ObjectSpriteSheet bumperSheet,
+                        ObjectSpriteSheet hexBumperSheet,
+                        ObjectSpriteSheet bonusBlockSheet,
+                        ObjectSpriteSheet flipperSheet,
+                        ObjectSpriteSheet speedBoosterSheet,
+                        ObjectSpriteSheet blueBallsSheet,
+                        ObjectSpriteSheet breakableBlockSheet,
+                        ObjectSpriteSheet cpzPlatformSheet,
+                        ObjectSpriteSheet cpzStairBlockSheet,
+                        ObjectSpriteSheet sidewaysPformSheet,
+                        ObjectSpriteSheet cpzPylonSheet,
+                        ObjectSpriteSheet pipeExitSpringSheet,
+                        ObjectSpriteSheet tippingFloorSheet,
+                        ObjectSpriteSheet barrierSheet,
+                        ObjectSpriteSheet springboardSheet,
                         ObjectSpriteSheet resultsSheet,
+                        ObjectSpriteSheet bubblesSheet,
+                        ObjectSpriteSheet leavesSheet,
                         Pattern[] hudDigitPatterns,
                         Pattern[] hudTextPatterns,
                         Pattern[] hudLivesPatterns,
@@ -85,7 +117,11 @@ public class ObjectArtData {
                         SpriteAnimationSet monitorAnimations,
                         SpriteAnimationSet springAnimations,
                         SpriteAnimationSet checkpointAnimations,
-                        SpriteAnimationSet signpostAnimations) {
+                        SpriteAnimationSet signpostAnimations,
+                        SpriteAnimationSet flipperAnimations,
+                        SpriteAnimationSet pipeExitSpringAnimations,
+                        SpriteAnimationSet tippingFloorAnimations,
+                        SpriteAnimationSet springboardAnimations) {
                 this.monitorSheet = monitorSheet;
                 this.spikeSheet = spikeSheet;
                 this.spikeSideSheet = spikeSideSheet;
@@ -102,15 +138,29 @@ public class ObjectArtData {
                 this.waterfallSheet = waterfallSheet;
                 this.checkpointSheet = checkpointSheet;
                 this.checkpointStarSheet = checkpointStarSheet;
-                this.masherSheet = masherSheet;
-                this.buzzerSheet = buzzerSheet;
-                this.coconutsSheet = coconutsSheet;
                 this.animalSheet = animalSheet;
                 this.animalTypeA = animalTypeA;
                 this.animalTypeB = animalTypeB;
                 this.pointsSheet = pointsSheet;
                 this.signpostSheet = signpostSheet;
+                this.bumperSheet = bumperSheet;
+                this.hexBumperSheet = hexBumperSheet;
+                this.bonusBlockSheet = bonusBlockSheet;
+                this.flipperSheet = flipperSheet;
+                this.speedBoosterSheet = speedBoosterSheet;
+                this.blueBallsSheet = blueBallsSheet;
+                this.breakableBlockSheet = breakableBlockSheet;
+                this.cpzPlatformSheet = cpzPlatformSheet;
+                this.cpzStairBlockSheet = cpzStairBlockSheet;
+                this.sidewaysPformSheet = sidewaysPformSheet;
+                this.cpzPylonSheet = cpzPylonSheet;
+                this.pipeExitSpringSheet = pipeExitSpringSheet;
+                this.tippingFloorSheet = tippingFloorSheet;
+                this.barrierSheet = barrierSheet;
+                this.springboardSheet = springboardSheet;
                 this.resultsSheet = resultsSheet;
+                this.bubblesSheet = bubblesSheet;
+                this.leavesSheet = leavesSheet;
                 this.hudDigitPatterns = hudDigitPatterns;
                 this.hudTextPatterns = hudTextPatterns;
                 this.hudLivesPatterns = hudLivesPatterns;
@@ -123,6 +173,10 @@ public class ObjectArtData {
                 this.springAnimations = springAnimations;
                 this.checkpointAnimations = checkpointAnimations;
                 this.signpostAnimations = signpostAnimations;
+                this.flipperAnimations = flipperAnimations;
+                this.pipeExitSpringAnimations = pipeExitSpringAnimations;
+                this.tippingFloorAnimations = tippingFloorAnimations;
+                this.springboardAnimations = springboardAnimations;
         }
 
         public ObjectSpriteSheet monitorSheet() {
@@ -189,17 +243,6 @@ public class ObjectArtData {
                 return checkpointStarSheet;
         }
 
-        public ObjectSpriteSheet masherSheet() {
-                return masherSheet;
-        }
-
-        public ObjectSpriteSheet buzzerSheet() {
-                return buzzerSheet;
-        }
-
-        public ObjectSpriteSheet coconutsSheet() {
-                return coconutsSheet;
-        }
 
         public ObjectSpriteSheet animalSheet() {
                 return animalSheet;
@@ -221,8 +264,76 @@ public class ObjectArtData {
                 return signpostSheet;
         }
 
+        public ObjectSpriteSheet bumperSheet() {
+                return bumperSheet;
+        }
+
+        public ObjectSpriteSheet hexBumperSheet() {
+                return hexBumperSheet;
+        }
+
+        public ObjectSpriteSheet bonusBlockSheet() {
+                return bonusBlockSheet;
+        }
+
+        public ObjectSpriteSheet flipperSheet() {
+                return flipperSheet;
+        }
+
+        public ObjectSpriteSheet speedBoosterSheet() {
+                return speedBoosterSheet;
+        }
+
+        public ObjectSpriteSheet blueBallsSheet() {
+                return blueBallsSheet;
+        }
+
+        public ObjectSpriteSheet breakableBlockSheet() {
+                return breakableBlockSheet;
+        }
+
+        public ObjectSpriteSheet cpzPlatformSheet() {
+                return cpzPlatformSheet;
+        }
+
+        public ObjectSpriteSheet cpzStairBlockSheet() {
+                return cpzStairBlockSheet;
+        }
+
+        public ObjectSpriteSheet sidewaysPformSheet() {
+                return sidewaysPformSheet;
+        }
+
+        public ObjectSpriteSheet cpzPylonSheet() {
+                return cpzPylonSheet;
+        }
+
+        public ObjectSpriteSheet pipeExitSpringSheet() {
+                return pipeExitSpringSheet;
+        }
+
+        public ObjectSpriteSheet tippingFloorSheet() {
+                return tippingFloorSheet;
+        }
+
+        public ObjectSpriteSheet barrierSheet() {
+                return barrierSheet;
+        }
+
+        public ObjectSpriteSheet springboardSheet() {
+                return springboardSheet;
+        }
+
         public ObjectSpriteSheet resultsSheet() {
                 return resultsSheet;
+        }
+
+        public ObjectSpriteSheet bubblesSheet() {
+                return bubblesSheet;
+        }
+
+        public ObjectSpriteSheet leavesSheet() {
+                return leavesSheet;
         }
 
         public Pattern[] getHudDigitPatterns() {
@@ -259,5 +370,21 @@ public class ObjectArtData {
 
         public SpriteAnimationSet signpostAnimations() {
                 return signpostAnimations;
+        }
+
+        public SpriteAnimationSet flipperAnimations() {
+                return flipperAnimations;
+        }
+
+        public SpriteAnimationSet pipeExitSpringAnimations() {
+                return pipeExitSpringAnimations;
+        }
+
+        public SpriteAnimationSet tippingFloorAnimations() {
+                return tippingFloorAnimations;
+        }
+
+        public SpriteAnimationSet springboardAnimations() {
+                return springboardAnimations;
         }
 }

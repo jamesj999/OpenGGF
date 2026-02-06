@@ -1,18 +1,20 @@
 package uk.co.jamesj999.sonic.game.sonic2.specialstage;
 
+import uk.co.jamesj999.sonic.game.GameServices;
+
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.audio.GameSound;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomManager;
-import uk.co.jamesj999.sonic.debug.DebugSpecialStageSprites;
+import uk.co.jamesj999.sonic.game.sonic2.debug.Sonic2SpecialStageSpriteDebug;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.level.Pattern;
 
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.util.awt.TextRenderer;
+import uk.co.jamesj999.sonic.debug.GlyphBatchRenderer;
+import uk.co.jamesj999.sonic.debug.FontSize;
 
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 
@@ -143,12 +145,12 @@ public class Sonic2SpecialStageManager {
     private Sonic2PerspectiveData perspectiveData;
     private int ringPatternBase;
     private int bombPatternBase;
-    private int starsPatternBase;      // For ring sparkle animation
-    private int explosionPatternBase;  // For bomb explosion animation
-    private int emeraldPatternBase;    // For chaos emerald
-    private int shadowFlatPatternBase;   // Horizontal shadow art
-    private int shadowDiagPatternBase;   // Diagonal shadow art
-    private int shadowSidePatternBase;   // Vertical shadow art
+    private int starsPatternBase; // For ring sparkle animation
+    private int explosionPatternBase; // For bomb explosion animation
+    private int emeraldPatternBase; // For chaos emerald
+    private int shadowFlatPatternBase; // Horizontal shadow art
+    private int shadowDiagPatternBase; // Diagonal shadow art
+    private int shadowSidePatternBase; // Vertical shadow art
 
     // Track state for object spawning
     private int lastDrawingIndex = -1;
@@ -176,10 +178,11 @@ public class Sonic2SpecialStageManager {
     private double alignmentRainbowSpeedScale = 1.0;
     private double alignmentRainbowSpeedAccumulator = 0.0;
     private boolean alignmentStepByTrackFrame = false;
-    private TextRenderer alignmentTextRenderer;
-    private TextRenderer lagCompensationTextRenderer;
+    private GlyphBatchRenderer alignmentTextRenderer;
+    private GlyphBatchRenderer lagCompensationTextRenderer;
 
-    // Current ring requirement for the active checkpoint (for "rings to go" display)
+    // Current ring requirement for the active checkpoint (for "rings to go"
+    // display)
     private int currentRingRequirement = 0;
 
     // Frame timing diagnostics
@@ -199,7 +202,8 @@ public class Sonic2SpecialStageManager {
      * The original Mega Drive special stage VBlank handler (Vint_S2SS) does heavy
      * DMA transfers (~3500 bytes: palette, sprites, H-scroll, 1/4 plane table).
      * When this can't complete in one VBlank period, Vint_Lag runs instead,
-     * which does NOT run the main game loop - effectively skipping that entire frame.
+     * which does NOT run the main game loop - effectively skipping that entire
+     * frame.
      *
      * Our Java implementation runs at consistent 60fps with no lag, making the
      * entire simulation appear ~35% faster than the original hardware. This factor
@@ -215,10 +219,10 @@ public class Sonic2SpecialStageManager {
 
     // Skydome scroll state (accumulated horizontal scroll for background)
     private int skydomeScrollX = 0;
-    private boolean alternateScrollBuffer = false;      // SS_Alternate_HorizScroll_Buf
-    private boolean lastAlternateScrollBuffer = false;  // SS_Last_Alternate_HorizScroll_Buf
-    private int drawingIndex = 0;      // SSTrack_drawing_index (0-4, increments each frame)
-    private int lastAnimFrame = 0;     // SSTrack_last_anim_frame - frame index at last update
+    private boolean alternateScrollBuffer = false; // SS_Alternate_HorizScroll_Buf
+    private boolean lastAlternateScrollBuffer = false; // SS_Last_Alternate_HorizScroll_Buf
+    private int drawingIndex = 0; // SSTrack_drawing_index (0-4, increments each frame)
+    private int lastAnimFrame = 0; // SSTrack_last_anim_frame - frame index at last update
 
     // Vertical scroll state (Vscroll_Factor_BG)
     private int vScrollBG = 0;
@@ -232,56 +236,60 @@ public class Sonic2SpecialStageManager {
     // Each entry is 5 values corresponding to drawing_index 0-4
     // Index is byte offset / 2 into the word-sized offset table
     private static final int[][] BG_SCROLL_DELTA_TABLE = {
-        {2, 2, 2, 2, 2},      // Index 0 (byte_6E04)
-        {4, 4, 5, 4, 5},      // Index 1 (byte_6E09)
-        {11, 11, 11, 11, 12}, // Index 2 (byte_6E0E)
-        {0, 0, 1, 0, 0},      // Index 3 (byte_6E13)
-        {1, 1, 1, 1, 1},      // Index 4 (byte_6E18)
-        {9, 9, 8, 9, 9},      // Index 5 (byte_6E1D)
-        {9, 9, 9, 9, 10},     // Index 6 (byte_6E22)
-        {7, 7, 6, 7, 7},      // Index 7 (byte_6E27)
-        {0, 1, 1, 1, 0},      // Index 8 (byte_6E2C)
-        {4, 3, 3, 3, 4},      // Index 9 (byte_6E31)
-        {0, 0, -1, 0, 0}      // Index 10 (byte_6E36) - $FF = -1 for wrapping effect
+            { 2, 2, 2, 2, 2 }, // Index 0 (byte_6E04)
+            { 4, 4, 5, 4, 5 }, // Index 1 (byte_6E09)
+            { 11, 11, 11, 11, 12 }, // Index 2 (byte_6E0E)
+            { 0, 0, 1, 0, 0 }, // Index 3 (byte_6E13)
+            { 1, 1, 1, 1, 1 }, // Index 4 (byte_6E18)
+            { 9, 9, 8, 9, 9 }, // Index 5 (byte_6E1D)
+            { 9, 9, 9, 9, 10 }, // Index 6 (byte_6E22)
+            { 7, 7, 6, 7, 7 }, // Index 7 (byte_6E27)
+            { 0, 1, 1, 1, 0 }, // Index 8 (byte_6E2C)
+            { 4, 3, 3, 3, 4 }, // Index 9 (byte_6E31)
+            { 0, 0, -1, 0, 0 } // Index 10 (byte_6E36) - $FF = -1 for wrapping effect
     };
 
     // Maps byte offset to table index: offset / 2
     // Rise frame table indices (byte offsets into off_6DEE)
     // -1 means skip (no scroll this frame)
     private static final int[] VSCROLL_RISE_TABLE_INDICES = {
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  // Frames 0-9: skip
-        4, 4, 1, 2, 2, 2, 2, 2, 2, 5,            // Frames 10-19 (8/2=4, 2/2=1, 4/2=2, 10/2=5)
-        6, 7, 9, 8                                // Frames 20-23 (12/2=6, 14/2=7, 18/2=9, 16/2=8)
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, // Frames 0-9: skip
+            4, 4, 1, 2, 2, 2, 2, 2, 2, 5, // Frames 10-19 (8/2=4, 2/2=1, 4/2=2, 10/2=5)
+            6, 7, 9, 8 // Frames 20-23 (12/2=6, 14/2=7, 18/2=9, 16/2=8)
     };
 
-    // Checkpoint rainbow palette - static states (SSRainbowPaletteColors at word_35548)
-    // OFF: dark red when no checkpoint active, ON: bright red when entering checkpoint
-    private static final int[] CHECKPOINT_RAINBOW_PALETTE_ON = {0x0EE, 0x0CC, 0x088};
-    private static final int[] CHECKPOINT_RAINBOW_PALETTE_OFF = {0x0EE, 0x088, 0x044};
+    // Checkpoint rainbow palette - static states (SSRainbowPaletteColors at
+    // word_35548)
+    // OFF: dark red when no checkpoint active, ON: bright red when entering
+    // checkpoint
+    private static final int[] CHECKPOINT_RAINBOW_PALETTE_ON = { 0x0EE, 0x0CC, 0x088 };
+    private static final int[] CHECKPOINT_RAINBOW_PALETTE_OFF = { 0x0EE, 0x088, 0x044 };
 
-    // Checkpoint rainbow palette cycling colors (PalCycle_SS at word_54C4-word_54C8)
+    // Checkpoint rainbow palette cycling colors (PalCycle_SS at
+    // word_54C4-word_54C8)
     // Cycles every 8 frames through: Red -> Green -> Yellow -> Magenta
     private static final int[][] CHECKPOINT_RAINBOW_CYCLE_COLORS = {
-        {0x0EE, 0x0CC, 0x088},  // Index 0: Red shades
-        {0x0E0, 0x0C0, 0x080},  // Index 1: Green shades
-        {0xEE0, 0xCC0, 0x880},  // Index 2: Yellow shades
-        {0xE0E, 0xC0C, 0x808}   // Index 3: Magenta shades
+            { 0x0EE, 0x0CC, 0x088 }, // Index 0: Red shades
+            { 0x0E0, 0x0C0, 0x080 }, // Index 1: Green shades
+            { 0xEE0, 0xCC0, 0x880 }, // Index 2: Yellow shades
+            { 0xE0E, 0xC0C, 0x808 } // Index 3: Magenta shades
     };
     private static final int RAINBOW_CYCLE_FRAME_INTERVAL = 8; // Cycles every 8 frames
-    // Checkpoint gate trigger uses MapSpec_Straight4..MapSpec_Drop1 range (Obj5A_Init).
+    // Checkpoint gate trigger uses MapSpec_Straight4..MapSpec_Drop1 range
+    // (Obj5A_Init).
     private static final int CHECKPOINT_TRIGGER_FRAME = 0x14; // Straight4
-    private static final int CHECKPOINT_TRIGGER_OFFSET = 1;   // Offset within straight animation (alignment tuned)
+    private static final int CHECKPOINT_TRIGGER_OFFSET = 1; // Offset within straight animation (alignment tuned)
 
     // Drop frame table indices
     private static final int[] VSCROLL_DROP_TABLE_INDICES = {
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  // Frames 0-10: skip
-        8, 9, 7, 6, 5, 2, 2, 2, 2, 2, 2, 1, 0        // Frames 11-23 (16/2=8, 18/2=9, etc.)
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, // Frames 0-10: skip
+            8, 9, 7, 6, 5, 2, 2, 2, 2, 2, 2, 1, 0 // Frames 11-23 (16/2=8, 18/2=9, etc.)
     };
 
     // Straight frame table indices - pattern {6, 6, $14, $14} = {3, 3, 10, 10}
     // (byte offset 6 / 2 = 3, byte offset $14 / 2 = 10)
     private static final int[] VSCROLL_STRAIGHT_TABLE_INDICES = {
-        3, 3, 10, 10, 3, 3, 10, 10, 3, 3, 10, 10, 3, 3, 10, 10
+            3, 3, 10, 10, 3, 3, 10, 10, 3, 3, 10, 10, 3, 3, 10, 10
     };
 
     // H-scroll table indices for turn segments (frames 0-11)
@@ -292,7 +300,7 @@ public class Sonic2SpecialStageManager {
     // Frame 10: d1=2 → index 1
     // Frame 11: d1=0 → index 0
     private static final int[] HSCROLL_TURN_TABLE_INDICES = {
-        0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0
+            0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0
     };
 
     private Sonic2SpecialStageManager() {
@@ -317,7 +325,7 @@ public class Sonic2SpecialStageManager {
 
         try {
             // Get ROM from centralized RomManager
-            rom = RomManager.getInstance().getRom();
+            rom = GameServices.rom().getRom();
 
             if (dataLoader == null) {
                 dataLoader = new Sonic2SpecialStageDataLoader(rom);
@@ -388,7 +396,8 @@ public class Sonic2SpecialStageManager {
         objectManager.initialize(currentStage);
 
         // Pre-spawn segment 0 objects immediately at stage start
-        // In the original game, objects are already in the pipeline when the stage begins.
+        // In the original game, objects are already in the pipeline when the stage
+        // begins.
         // Without this, objects don't spawn until the first drawingIndex==4 transition,
         // causing them to appear too late.
         if (trackAnimator != null) {
@@ -404,7 +413,7 @@ public class Sonic2SpecialStageManager {
             graphicsManager.cachePatternTexture(ringPatterns[i], ringPatternBase + i);
         }
         LOGGER.fine("Cached " + ringPatterns.length + " ring patterns at base 0x" +
-                   Integer.toHexString(ringPatternBase));
+                Integer.toHexString(ringPatternBase));
 
         Pattern[] bombPatterns = dataLoader.getBombArtPatterns();
         bombPatternBase = ringPatternBase + ringPatterns.length;
@@ -412,7 +421,7 @@ public class Sonic2SpecialStageManager {
             graphicsManager.cachePatternTexture(bombPatterns[i], bombPatternBase + i);
         }
         LOGGER.fine("Cached " + bombPatterns.length + " bomb patterns at base 0x" +
-                   Integer.toHexString(bombPatternBase));
+                Integer.toHexString(bombPatternBase));
 
         // Load stars art (for ring sparkle animation)
         Pattern[] starsPatterns = dataLoader.getStarsArtPatterns();
@@ -421,7 +430,7 @@ public class Sonic2SpecialStageManager {
             graphicsManager.cachePatternTexture(starsPatterns[i], starsPatternBase + i);
         }
         LOGGER.fine("Cached " + starsPatterns.length + " stars patterns at base 0x" +
-                   Integer.toHexString(starsPatternBase));
+                Integer.toHexString(starsPatternBase));
 
         // Load explosion art (for bomb explosion animation)
         Pattern[] explosionPatterns = dataLoader.getExplosionArtPatterns();
@@ -430,7 +439,7 @@ public class Sonic2SpecialStageManager {
             graphicsManager.cachePatternTexture(explosionPatterns[i], explosionPatternBase + i);
         }
         LOGGER.fine("Cached " + explosionPatterns.length + " explosion patterns at base 0x" +
-                   Integer.toHexString(explosionPatternBase));
+                Integer.toHexString(explosionPatternBase));
 
         // Load emerald art (for chaos emerald at stage end)
         Pattern[] emeraldPatterns = dataLoader.getEmeraldArtPatterns();
@@ -439,17 +448,18 @@ public class Sonic2SpecialStageManager {
             graphicsManager.cachePatternTexture(emeraldPatterns[i], emeraldPatternBase + i);
         }
         LOGGER.fine("Cached " + emeraldPatterns.length + " emerald patterns at base 0x" +
-                   Integer.toHexString(emeraldPatternBase));
+                Integer.toHexString(emeraldPatternBase));
 
         // Load shadow art (3 types: flat, diagonal, side)
-        // Shadow uses palette line 3 as per original game (obj63.asm: make_art_tile with pal=3)
+        // Shadow uses palette line 3 as per original game (obj63.asm: make_art_tile
+        // with pal=3)
         Pattern[] shadowFlatPatterns = dataLoader.getShadowHorizPatterns();
         shadowFlatPatternBase = emeraldPatternBase + emeraldPatterns.length;
         for (int i = 0; i < shadowFlatPatterns.length; i++) {
             graphicsManager.cachePatternTexture(shadowFlatPatterns[i], shadowFlatPatternBase + i);
         }
         LOGGER.fine("Cached " + shadowFlatPatterns.length + " flat shadow patterns at base 0x" +
-                   Integer.toHexString(shadowFlatPatternBase));
+                Integer.toHexString(shadowFlatPatternBase));
 
         Pattern[] shadowDiagPatterns = dataLoader.getShadowDiagPatterns();
         shadowDiagPatternBase = shadowFlatPatternBase + shadowFlatPatterns.length;
@@ -457,7 +467,7 @@ public class Sonic2SpecialStageManager {
             graphicsManager.cachePatternTexture(shadowDiagPatterns[i], shadowDiagPatternBase + i);
         }
         LOGGER.fine("Cached " + shadowDiagPatterns.length + " diagonal shadow patterns at base 0x" +
-                   Integer.toHexString(shadowDiagPatternBase));
+                Integer.toHexString(shadowDiagPatternBase));
 
         Pattern[] shadowSidePatterns = dataLoader.getShadowVertPatterns();
         shadowSidePatternBase = shadowDiagPatternBase + shadowDiagPatterns.length;
@@ -465,7 +475,7 @@ public class Sonic2SpecialStageManager {
             graphicsManager.cachePatternTexture(shadowSidePatterns[i], shadowSidePatternBase + i);
         }
         LOGGER.fine("Cached " + shadowSidePatterns.length + " side shadow patterns at base 0x" +
-                   Integer.toHexString(shadowSidePatternBase));
+                Integer.toHexString(shadowSidePatternBase));
 
         // Pass pattern bases to renderer
         renderer.setObjectPatternBases(ringPatternBase, bombPatternBase);
@@ -498,7 +508,7 @@ public class Sonic2SpecialStageManager {
         });
 
         checkpoint.setOnCheckpointResolved((result, checkpointNumber, ringRequirement,
-                                            ringsCollected, isFinalCheckpoint) -> {
+                ringsCollected, isFinalCheckpoint) -> {
             handleCheckpointResolved(result, checkpointNumber, ringRequirement,
                     ringsCollected, isFinalCheckpoint);
         });
@@ -523,7 +533,7 @@ public class Sonic2SpecialStageManager {
      * Handles checkpoint reached event from the object manager.
      *
      * @param checkpointNumber The checkpoint number (1-4)
-     * @param ringsCollected Current rings collected
+     * @param ringsCollected   Current rings collected
      */
     private void handleCheckpointReached(int checkpointNumber, int ringsCollected) {
         // Determine if this is team mode or solo mode
@@ -531,8 +541,10 @@ public class Sonic2SpecialStageManager {
 
         // Get ring requirement for this checkpoint (quarter = checkpointNumber - 1)
         int quarter = checkpointNumber - 1;
-        if (quarter < 0) quarter = 0;
-        if (quarter > 3) quarter = 3;
+        if (quarter < 0)
+            quarter = 0;
+        if (quarter > 3)
+            quarter = 3;
 
         int ringRequirement;
         try {
@@ -555,14 +567,16 @@ public class Sonic2SpecialStageManager {
 
     /**
      * Handles emerald reached event from the object manager.
-     * Configures the spawned emerald object with ring requirements and manager reference.
+     * Configures the spawned emerald object with ring requirements and manager
+     * reference.
      * Also loads the per-stage emerald palette colors.
      */
     private void handleEmeraldReached() {
         LOGGER.info("Emerald marker reached - configuring emerald object");
 
         // Load and apply the per-stage emerald palette colors
-        // From disassembly: loc_35F76 loads 3 colors from SS Emerald.bin into palette line 3
+        // From disassembly: loc_35F76 loads 3 colors from SS Emerald.bin into palette
+        // line 3
         // at offsets $16, $18, $1A (color indices 11, 12, 13)
         applyEmeraldPalette();
 
@@ -603,14 +617,14 @@ public class Sonic2SpecialStageManager {
         graphicsManager.cachePaletteTexture(palette, 3);
 
         LOGGER.info("Applied emerald palette for stage " + (currentStage + 1) + ": " +
-                   String.format("%04X, %04X, %04X", emeraldColors[0], emeraldColors[1], emeraldColors[2]));
+                String.format("%04X, %04X, %04X", emeraldColors[0], emeraldColors[1], emeraldColors[2]));
     }
 
     /**
      * Handles checkpoint result after the rainbow animation completes.
      */
     private void handleCheckpointResolved(Sonic2SpecialStageCheckpoint.Result result, int checkpointNumber,
-                                          int ringRequirement, int ringsCollected, boolean isFinalCheckpoint) {
+            int ringRequirement, int ringsCollected, boolean isFinalCheckpoint) {
         applyCheckpointRainbowPalette(false);
 
         if (result == Sonic2SpecialStageCheckpoint.Result.FAILED) {
@@ -653,8 +667,10 @@ public class Sonic2SpecialStageManager {
             return;
         }
 
-        // ROM uses palette line 4 (index 3) for checkpoint rainbow, modifying colors 11-13
-        // Ring art intentionally uses only colors 0-10, so rainbow cycling shouldn't affect rings
+        // ROM uses palette line 4 (index 3) for checkpoint rainbow, modifying colors
+        // 11-13
+        // Ring art intentionally uses only colors 0-10, so rainbow cycling shouldn't
+        // affect rings
         int[] colors = bright ? CHECKPOINT_RAINBOW_PALETTE_ON : CHECKPOINT_RAINBOW_PALETTE_OFF;
         Palette palette = palettes[3];
         palette.setColor(11, Sonic2SpecialStagePalette.genesisColorToPaletteColor(colors[0]));
@@ -743,11 +759,11 @@ public class Sonic2SpecialStageManager {
 
         // Combine background mappings for 32-row VRAM plane:
         // From disassembly SSPlaneB_Background (line 9155):
-        //   MapEng_SpecialBackBottom -> planeLoc(32,0,0)  = row 0 (TOP of VRAM)
-        //   MapEng_SpecialBack       -> planeLoc(32,0,16) = row 16 (BOTTOM of VRAM)
+        // MapEng_SpecialBackBottom -> planeLoc(32,0,0) = row 0 (TOP of VRAM)
+        // MapEng_SpecialBack -> planeLoc(32,0,16) = row 16 (BOTTOM of VRAM)
         // VDP row 0 is at the TOP of the screen.
         int expectedLowerSize = 32 * 16 * 2; // 1024 bytes for rows 0-15 (Lower/Bottom)
-        int expectedMainSize = 32 * 16 * 2;  // 1024 bytes for rows 16-31 (Main)
+        int expectedMainSize = 32 * 16 * 2; // 1024 bytes for rows 16-31 (Main)
         combinedBackgroundMappings = new byte[expectedLowerSize + expectedMainSize];
 
         // Copy Lower (Bottom) mappings to rows 0-15 (top of screen)
@@ -833,7 +849,7 @@ public class Sonic2SpecialStageManager {
                 messagesPatterns.length + " Messages patterns");
 
         // Update debug sprite viewer with all pattern bases
-        DebugSpecialStageSprites debugSprites = DebugSpecialStageSprites.getInstance();
+        Sonic2SpecialStageSpriteDebug debugSprites = Sonic2SpecialStageSpriteDebug.getInstance();
         debugSprites.setPlayerPatternBase(playerPatternBase);
         debugSprites.setHudPatternBase(hudPatternBase, hudPatterns.length);
         debugSprites.setStartPatternBase(startPatternBase, startPatterns.length);
@@ -845,14 +861,9 @@ public class Sonic2SpecialStageManager {
         // Pattern bases are set in setupPatterns() after they have valid values
 
         // Initialize shader-based background renderer
-        GL2 gl = graphicsManager.getGraphics();
-        if (gl != null) {
-            bgRenderer = new SpecialStageBackgroundRenderer();
-            bgRenderer.init(gl);
-            LOGGER.fine("Special Stage background renderer initialized with shader");
-        } else {
-            LOGGER.warning("GL context not available, background renderer not initialized");
-        }
+        bgRenderer = new SpecialStageBackgroundRenderer();
+        bgRenderer.init();
+        LOGGER.fine("Special Stage background renderer initialized with shader");
 
         LOGGER.fine("Special Stage renderer initialized");
     }
@@ -919,7 +930,8 @@ public class Sonic2SpecialStageManager {
      *
      * Lag compensation: The original Mega Drive experiences lag frames during
      * the special stage due to heavy VBlank processing. When a lag frame occurs,
-     * the entire game update is skipped. We simulate this by skipping a proportional
+     * the entire game update is skipped. We simulate this by skipping a
+     * proportional
      * number of update calls entirely.
      */
     public void update() {
@@ -967,10 +979,12 @@ public class Sonic2SpecialStageManager {
         diagnosticUpdateCount++;
 
         // Increment drawing index, cycling based on current frame duration.
-        // In ROM: drawing_index increments each VBlank, resets when >= frame_timer (duration).
+        // In ROM: drawing_index increments each VBlank, resets when >= frame_timer
+        // (duration).
         // At speedFactor=12, duration=5, so drawing_index cycles 0-4.
         // At speedFactor=6, duration=10, so drawing_index cycles 0-9.
-        // drawingIndex==4 is special: it's when $CCCC is used instead of $CCCD for depth decrement.
+        // drawingIndex==4 is special: it's when $CCCC is used instead of $CCCD for
+        // depth decrement.
         int duration = getAlignmentFrameDuration();
         drawingIndex = (drawingIndex + 1) % Math.max(1, duration);
 
@@ -1001,11 +1015,11 @@ public class Sonic2SpecialStageManager {
             double trackPerSec = diagnosticTrackAdvances / seconds;
 
             LOGGER.warning(String.format(
-                "DIAGNOSTIC: %.1f updates/sec (expect 60), %.1f track/sec (expect 12), " +
-                "speedFactor=%d, duration=%d",
-                updatesPerSec, trackPerSec,
-                trackAnimator.getSpeedFactor(),
-                getAlignmentFrameDuration()));
+                    "DIAGNOSTIC: %.1f updates/sec (expect 60), %.1f track/sec (expect 12), " +
+                            "speedFactor=%d, duration=%d",
+                    updatesPerSec, trackPerSec,
+                    trackAnimator.getSpeedFactor(),
+                    getAlignmentFrameDuration()));
 
             // Reset counters
             diagnosticWallStartTime = System.currentTimeMillis();
@@ -1038,7 +1052,8 @@ public class Sonic2SpecialStageManager {
             }
         }
 
-        // Update rainbow palette cycling (runs every frame, but only changes every 8 frames)
+        // Update rainbow palette cycling (runs every frame, but only changes every 8
+        // frames)
         updateRainbowPaletteCycle();
     }
 
@@ -1066,7 +1081,7 @@ public class Sonic2SpecialStageManager {
             if (intro != null && currentRingRequirement > 0) {
                 intro.showRingRequirementMessage(currentRingRequirement);
                 LOGGER.info("Checkpoint animation complete - PASSED, showing next requirement: " +
-                           currentRingRequirement + " rings");
+                        currentRingRequirement + " rings");
             }
         }
     }
@@ -1084,8 +1099,10 @@ public class Sonic2SpecialStageManager {
             return;
         }
 
-        // Use the class field drawingIndex which cycles 0-4 every frame (like ROM's VBlank handler)
-        // Note: this.drawingIndex is incremented in update() before this method is called
+        // Use the class field drawingIndex which cycles 0-4 every frame (like ROM's
+        // VBlank handler)
+        // Note: this.drawingIndex is incremented in update() before this method is
+        // called
 
         // Process new segment when drawing_index reaches 4 and segment changed
         if (this.drawingIndex == 4 && lastDrawingIndex != 4) {
@@ -1124,8 +1141,8 @@ public class Sonic2SpecialStageManager {
      * Invulnerability behavior:
      * - During hurt animation (routineSecondary != 0): NO collision with anything
      * - During invulnerability (ssDplcTimer > 0, routineSecondary == 0):
-     *   - Rings CAN be collected
-     *   - Bombs CANNOT hit (player is invulnerable)
+     * - Rings CAN be collected
+     * - Bombs CANNOT hit (player is invulnerable)
      * - Multiple bombs hitting same frame: Each plays sound (accurate to original)
      */
     private void checkObjectCollisions() {
@@ -1201,7 +1218,7 @@ public class Sonic2SpecialStageManager {
                 AudioManager.getInstance().playSfx(GameSound.RING_SPILL);
             }
             LOGGER.fine("Hit bomb! Lost " + ringsLost + " rings. Remaining: " +
-                       objectManager.getRingsCollected());
+                    objectManager.getRingsCollected());
         }
     }
 
@@ -1217,7 +1234,8 @@ public class Sonic2SpecialStageManager {
             return;
         }
 
-        // Get CURRENT flip state - this is what the original checks in SS_Alternate_HorizScroll_Buf
+        // Get CURRENT flip state - this is what the original checks in
+        // SS_Alternate_HorizScroll_Buf
         boolean currentFlipState = trackAnimator.getEffectiveFlipState();
 
         int segmentType = trackAnimator.getCurrentSegmentType();
@@ -1258,7 +1276,8 @@ public class Sonic2SpecialStageManager {
             return;
         }
 
-        // Use CURRENT animation frame for table lookup (matches SSTrack_last_anim_frame in ROM loop)
+        // Use CURRENT animation frame for table lookup (matches SSTrack_last_anim_frame
+        // in ROM loop)
         int tableIndex = HSCROLL_TURN_TABLE_INDICES[currentFrame];
 
         // Get delta from the pre-defined table using drawingIndex
@@ -1276,7 +1295,7 @@ public class Sonic2SpecialStageManager {
         skydomeScrollX -= delta;
 
         // Debug: track total delta for this segment
-        hScrollDebugTotal += delta;  // Track the raw delta (before subtraction)
+        hScrollDebugTotal += delta; // Track the raw delta (before subtraction)
         hScrollDebugFrames++;
 
         // Save current state for next frame
@@ -1309,7 +1328,7 @@ public class Sonic2SpecialStageManager {
         // drawingIndex cycles 0-4, selecting which delta value from the 5-entry table
         int deltaIndex = drawingIndex % 5;
 
-        int tableIndex = -1;  // -1 = skip this frame
+        int tableIndex = -1; // -1 = skip this frame
 
         switch (segmentType) {
             case SEGMENT_TURN_THEN_RISE:
@@ -1318,7 +1337,7 @@ public class Sonic2SpecialStageManager {
                 }
                 if (tableIndex >= 0 && tableIndex < BG_SCROLL_DELTA_TABLE.length) {
                     int delta = BG_SCROLL_DELTA_TABLE[tableIndex][deltaIndex];
-                    vScrollBG -= delta;  // Rise = subtract (background moves up)
+                    vScrollBG -= delta; // Rise = subtract (background moves up)
                 }
                 break;
 
@@ -1328,7 +1347,7 @@ public class Sonic2SpecialStageManager {
                 }
                 if (tableIndex >= 0 && tableIndex < BG_SCROLL_DELTA_TABLE.length) {
                     int delta = BG_SCROLL_DELTA_TABLE[tableIndex][deltaIndex];
-                    vScrollBG += delta;  // Drop = add (background moves down)
+                    vScrollBG += delta; // Drop = add (background moves down)
                 }
                 break;
 
@@ -1342,7 +1361,7 @@ public class Sonic2SpecialStageManager {
                 }
                 if (tableIndex >= 0 && tableIndex < BG_SCROLL_DELTA_TABLE.length) {
                     int delta = BG_SCROLL_DELTA_TABLE[tableIndex][deltaIndex];
-                    vScrollBG -= delta;  // Straight always subtracts
+                    vScrollBG -= delta; // Straight always subtracts
                 }
                 break;
 
@@ -1539,7 +1558,8 @@ public class Sonic2SpecialStageManager {
         if (trackFrames != null && frameIndex >= 0 && frameIndex < trackFrames.length) {
             byte[] frameData = trackFrames[frameIndex];
 
-            // Diagnostic logging disabled - set to true to enable verbose frame decode logging
+            // Diagnostic logging disabled - set to true to enable verbose frame decode
+            // logging
             boolean runDiag = false;
 
             decodedTrackFrame = Sonic2TrackFrameDecoder.decodeFrame(frameData, flipped, runDiag);
@@ -1594,25 +1614,33 @@ public class Sonic2SpecialStageManager {
                 final int currentScrollX = skydomeScrollX;
                 final float currentVScrollBG = (float) vScrollBG;
 
-                // 1. Begin Tile Pass (Bind FBO) - queued as command for proper ordering
-                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
-                    bgRenderer.beginTilePass(gl, H32_HEIGHT);
+                // 1. Set up FBO projection BEFORE creating the batch
+                // This ensures Y coordinates are calculated for 256x256 FBO, not 320x224 screen
+                bgRenderer.beginFBOProjection();
+
+                // 2. Begin Tile Pass (Bind FBO) - queued as command for proper ordering
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+                    bgRenderer.beginTilePass(H32_HEIGHT);
                 }));
 
-                // 2. Render background tiles to FBO
+                // 3. Render background tiles to FBO
                 graphicsManager.beginPatternBatch();
                 renderer.renderBackgroundToFBO(combinedBackgroundMappings);
                 graphicsManager.flushPatternBatch();
 
-                // 3. End Tile Pass (Unbind FBO)
-                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
-                    bgRenderer.endTilePass(gl);
+                // 4. Restore normal projection after batch creation
+                bgRenderer.endFBOProjection();
+
+                // 5. End Tile Pass (Unbind FBO)
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+                    bgRenderer.endTilePass();
                 }));
 
-                // 4. Update H-scroll and render with shader (vScrollBG applies vertical parallax)
-                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
+                // 4. Update H-scroll and render with shader (vScrollBG applies vertical
+                // parallax)
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
                     bgRenderer.setUniformHScroll(currentScrollX);
-                    bgRenderer.renderWithShader(gl, currentVScrollBG);
+                    bgRenderer.renderWithShader(currentVScrollBG);
                 }));
             } else {
                 // Fallback to CPU-based rendering
@@ -1665,21 +1693,27 @@ public class Sonic2SpecialStageManager {
                 final int currentScrollX = skydomeScrollX;
                 final float currentVScrollBG = (float) vScrollBG;
 
-                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
-                    bgRenderer.beginTilePass(gl, H32_HEIGHT);
+                // Set up FBO projection BEFORE creating the batch
+                bgRenderer.beginFBOProjection();
+
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+                    bgRenderer.beginTilePass(H32_HEIGHT);
                 }));
 
                 graphicsManager.beginPatternBatch();
                 renderer.renderBackgroundToFBO(combinedBackgroundMappings);
                 graphicsManager.flushPatternBatch();
 
-                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
-                    bgRenderer.endTilePass(gl);
+                // Restore normal projection after batch creation
+                bgRenderer.endFBOProjection();
+
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+                    bgRenderer.endTilePass();
                 }));
 
-                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (gl, cx, cy, cw, ch) -> {
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
                     bgRenderer.setUniformHScroll(currentScrollX);
-                    bgRenderer.renderWithShader(gl, currentVScrollBG);
+                    bgRenderer.renderWithShader(currentVScrollBG);
                 }));
             } else {
                 renderer.renderBackground(combinedBackgroundMappings, skydomeScrollX, vScrollBG);
@@ -1701,13 +1735,15 @@ public class Sonic2SpecialStageManager {
         }
 
         if (alignmentTextRenderer == null) {
-            alignmentTextRenderer = new TextRenderer(new Font("SansSerif", Font.PLAIN, 12), true, true);
+            alignmentTextRenderer = new GlyphBatchRenderer();
+            alignmentTextRenderer.init(new Font("SansSerif", Font.PLAIN, 12));
         }
 
-        alignmentTextRenderer.beginRendering(viewportWidth, viewportHeight);
+        alignmentTextRenderer.updateViewport(viewportWidth, viewportHeight);
+        alignmentTextRenderer.begin();
 
         int y = viewportHeight - 14;
-        drawOutlined(alignmentTextRenderer, "SS ALIGNMENT TEST (F4 to exit)", 8, y, Color.WHITE);
+        alignmentTextRenderer.drawTextOutlined("SS ALIGNMENT TEST (F4 to exit)", 8, y, Color.WHITE, FontSize.SMALL);
         y -= 14;
         int gateIndexBase = 0;
         for (int i = 0; i < ANIM_STRAIGHT.length; i++) {
@@ -1717,41 +1753,27 @@ public class Sonic2SpecialStageManager {
             }
         }
         int gateIndex = Math.floorMod(gateIndexBase + alignmentTriggerOffsetFrames, ANIM_STRAIGHT.length);
-        drawOutlined(alignmentTextRenderer,
+        alignmentTextRenderer.drawTextOutlined(
                 "Gate offset (frames): " + alignmentTriggerOffsetFrames +
                         "  Gate frame: " + gateIndex + "/" + (ANIM_STRAIGHT.length - 1) +
                         "  Map: 0x" + String.format("%02X", ANIM_STRAIGHT[gateIndex]),
-                8, y, Color.WHITE);
+                8, y, Color.WHITE, FontSize.SMALL);
         y -= 14;
-        drawOutlined(alignmentTextRenderer,
+        alignmentTextRenderer.drawTextOutlined(
                 String.format("Speed scale: %.2fx", alignmentRainbowSpeedScale),
-                8, y, Color.WHITE);
+                8, y, Color.WHITE, FontSize.SMALL);
         y -= 14;
-        drawOutlined(alignmentTextRenderer,
+        alignmentTextRenderer.drawTextOutlined(
                 "Arrows: LEFT/RIGHT gate offset, UP/DOWN speed",
-                8, y, Color.WHITE);
+                8, y, Color.WHITE, FontSize.SMALL);
         y -= 14;
-        drawOutlined(alignmentTextRenderer,
+        alignmentTextRenderer.drawTextOutlined(
                 "Step mode: " + (alignmentStepByTrackFrame ? "TRACK" : "VINT") +
                         "  TrackFrame: " + alignmentTrackFrameIndex +
                         "  DrawIdx: " + alignmentDrawingIndex,
-                8, y, Color.WHITE);
+                8, y, Color.WHITE, FontSize.SMALL);
 
-        alignmentTextRenderer.endRendering();
-    }
-
-    private void drawOutlined(TextRenderer textRenderer, String text, int x, int y, Color color) {
-        textRenderer.setColor(Color.BLACK);
-        textRenderer.draw(text, x - 1, y);
-        textRenderer.draw(text, x + 1, y);
-        textRenderer.draw(text, x, y - 1);
-        textRenderer.draw(text, x, y + 1);
-        textRenderer.draw(text, x - 1, y - 1);
-        textRenderer.draw(text, x + 1, y - 1);
-        textRenderer.draw(text, x - 1, y + 1);
-        textRenderer.draw(text, x + 1, y + 1);
-        textRenderer.setColor(color);
-        textRenderer.draw(text, x, y);
+        alignmentTextRenderer.end();
     }
 
     /**
@@ -1764,10 +1786,12 @@ public class Sonic2SpecialStageManager {
         }
 
         if (lagCompensationTextRenderer == null) {
-            lagCompensationTextRenderer = new TextRenderer(new Font("SansSerif", Font.PLAIN, 12), true, true);
+            lagCompensationTextRenderer = new GlyphBatchRenderer();
+            lagCompensationTextRenderer.init(new Font("SansSerif", Font.PLAIN, 12));
         }
 
-        lagCompensationTextRenderer.beginRendering(viewportWidth, viewportHeight);
+        lagCompensationTextRenderer.updateViewport(viewportWidth, viewportHeight);
+        lagCompensationTextRenderer.begin();
 
         // Position at bottom-left of screen
         int y = 14;
@@ -1775,11 +1799,11 @@ public class Sonic2SpecialStageManager {
         // Calculate effective updates per second: base 60 * (1 - lagComp)
         double effectiveUpdates = 60.0 * (1.0 - lagCompensation);
 
-        drawOutlined(lagCompensationTextRenderer,
+        lagCompensationTextRenderer.drawTextOutlined(
                 String.format("Lag: %.0f%% (~%.0f upd/s)  F6/F7", lagCompensation * 100, effectiveUpdates),
-                8, y, Color.YELLOW);
+                8, y, Color.YELLOW, FontSize.SMALL);
 
-        lagCompensationTextRenderer.endRendering();
+        lagCompensationTextRenderer.end();
     }
 
     /**
@@ -1810,6 +1834,7 @@ public class Sonic2SpecialStageManager {
 
     /**
      * Gets the lag compensation factor.
+     * 
      * @return Value between 0.0 and 0.5 representing proportion of frames skipped
      */
     public double getLagCompensation() {
@@ -1928,10 +1953,7 @@ public class Sonic2SpecialStageManager {
 
         // Shader-based background renderer cleanup
         if (bgRenderer != null) {
-            GL2 gl = graphicsManager.getGraphics();
-            if (gl != null) {
-                bgRenderer.cleanup(gl);
-            }
+            bgRenderer.cleanup();
             bgRenderer = null;
         }
 
@@ -2014,7 +2036,7 @@ public class Sonic2SpecialStageManager {
      */
     public void toggleSpriteDebugMode() {
         spriteDebugMode = !spriteDebugMode;
-        DebugSpecialStageSprites.getInstance().setEnabled(spriteDebugMode);
+        Sonic2SpecialStageSpriteDebug.getInstance().setEnabled(spriteDebugMode);
         LOGGER.info("Sprite debug mode: " + (spriteDebugMode ? "ON" : "OFF"));
     }
 
@@ -2023,6 +2045,18 @@ public class Sonic2SpecialStageManager {
      */
     public boolean isSpriteDebugMode() {
         return spriteDebugMode;
+    }
+
+    /**
+     * Gets the debug provider for sprite viewing.
+     * 
+     * @return the debug provider, or null if not initialized
+     */
+    public uk.co.jamesj999.sonic.game.SpecialStageDebugProvider getDebugProvider() {
+        if (!initialized) {
+            return null;
+        }
+        return Sonic2SpecialStageSpriteDebug.getInstance();
     }
 
     /**
@@ -2101,4 +2135,430 @@ public class Sonic2SpecialStageManager {
     public Sonic2SpecialStageDataLoader getDataLoader() {
         return dataLoader;
     }
+
+
+    static final class Sonic2SpecialStageObjectManager {
+        private static final Logger LOGGER = Logger.getLogger(Sonic2SpecialStageObjectManager.class.getName());
+
+        /** Marker bytes */
+        public static final int MARKER_END = 0xFF;
+        public static final int MARKER_CHECKPOINT = 0xFE;
+        public static final int MARKER_EMERALD = 0xFD;
+
+        /** Object type bit in first byte */
+        public static final int OBJECT_TYPE_BOMB_BIT = 0x40;
+
+        /** Distance mask for first byte */
+        public static final int DISTANCE_MASK = 0x3F;
+
+        /** Animation lengths per segment type (from Ani_SSTrack_Len) */
+        private static final int[] SEGMENT_ANIM_LENGTHS = { 24, 24, 12, 16, 11 };
+
+        private final Sonic2SpecialStageDataLoader dataLoader;
+
+        /** Raw object location data (decompressed from ROM) */
+        private byte[] objectLocationData;
+
+        /** Per-stage offsets into the object data */
+        private int[] stageOffsets;
+
+        /** Current read position in object data */
+        private int currentPosition;
+
+        /** Current stage index */
+        private int currentStage;
+
+        /** Last segment that had objects spawned */
+        private int lastProcessedSegment = -1;
+
+        /** Active special stage objects (rings and bombs) */
+        private final List<Sonic2SpecialStageObject> activeObjects = new ArrayList<>();
+
+        /** Ring counter */
+        private int ringsCollected = 0;
+
+        /** Total rings for "perfect" tracking */
+        private int perfectRingsTotal = 0;
+
+        /** Current special act (checkpoint number 0-3) */
+        private int currentSpecialAct = 0;
+
+        /** Flags for checkpoint handling */
+        private boolean noCheckpointFlag = false;
+        private boolean noCheckpointMsgFlag = false;
+
+        /** Flag to control "rings to go" display - hidden until first $FC marker */
+        private boolean ringsToGoEnabled = false;
+
+        /** Whether an emerald was spawned */
+        private boolean emeraldSpawned = false;
+
+        /** Callback interface for checkpoint events */
+        public interface CheckpointCallback {
+            /**
+             * Called when a checkpoint marker is encountered.
+             * @param checkpointNumber The checkpoint number (1-4)
+             * @param ringsCollected Current rings collected
+             */
+            void onCheckpoint(int checkpointNumber, int ringsCollected);
+
+            /**
+             * Called when an emerald marker is encountered.
+             */
+            void onEmerald();
+        }
+
+        /** Callback for checkpoint events */
+        private CheckpointCallback checkpointCallback;
+
+        public Sonic2SpecialStageObjectManager(Sonic2SpecialStageDataLoader dataLoader) {
+            this.dataLoader = dataLoader;
+        }
+
+        /**
+         * Sets the callback for checkpoint events.
+         */
+        public void setCheckpointCallback(CheckpointCallback callback) {
+            this.checkpointCallback = callback;
+        }
+
+        /**
+         * Initializes the object manager for the specified stage.
+         */
+        public void initialize(int stageIndex) throws IOException {
+            this.currentStage = stageIndex;
+            this.currentPosition = 0;
+            this.lastProcessedSegment = -1;
+            this.ringsCollected = 0;
+            this.perfectRingsTotal = 0;
+            this.currentSpecialAct = 0;
+            this.noCheckpointFlag = false;
+            this.noCheckpointMsgFlag = false;
+            this.emeraldSpawned = false;
+            activeObjects.clear();
+
+            // Load object location data
+            objectLocationData = dataLoader.getObjectLocations();
+
+            // Parse stage offsets from the data
+            parseStageOffsets();
+
+            // Set read position to current stage
+            if (stageIndex >= 0 && stageIndex < SPECIAL_STAGE_COUNT && stageOffsets != null) {
+                currentPosition = stageOffsets[stageIndex];
+            }
+
+            LOGGER.info("Object manager initialized for stage " + (stageIndex + 1) +
+                       ", data offset: " + currentPosition);
+        }
+
+        /**
+         * Parses the stage offset table from the beginning of the object location data.
+         * Format: 7 words (big-endian) pointing to each stage's object stream.
+         */
+        private void parseStageOffsets() {
+            if (objectLocationData == null || objectLocationData.length < SPECIAL_STAGE_COUNT * 2) {
+                LOGGER.warning("Invalid object location data");
+                stageOffsets = null;
+                return;
+            }
+
+            stageOffsets = new int[SPECIAL_STAGE_COUNT];
+            for (int i = 0; i < SPECIAL_STAGE_COUNT; i++) {
+                int offset = ((objectLocationData[i * 2] & 0xFF) << 8) |
+                            (objectLocationData[i * 2 + 1] & 0xFF);
+                stageOffsets[i] = offset;
+                LOGGER.fine("Stage " + (i + 1) + " object data offset: 0x" + Integer.toHexString(offset));
+            }
+        }
+
+        /**
+         * Processes objects for a segment transition.
+         * This should be called when SSTrack_drawing_index == 4 and a new segment begins.
+         *
+         * @param segmentIndex The current segment index
+         * @param segmentType The segment animation type (0-4)
+         * @return List of newly spawned objects
+         */
+        public List<Sonic2SpecialStageObject> processSegment(int segmentIndex, int segmentType) {
+            List<Sonic2SpecialStageObject> newObjects = new ArrayList<>();
+
+            // Only process once per segment
+            if (segmentIndex == lastProcessedSegment) {
+                return newObjects;
+            }
+            lastProcessedSegment = segmentIndex;
+
+            if (objectLocationData == null || currentPosition >= objectLocationData.length) {
+                return newObjects;
+            }
+
+            // Get segment animation length for depth calculation
+            int segmentAnimLength = getSegmentAnimLength(segmentType);
+            int depthOffset = segmentAnimLength * 4;
+
+            LOGGER.fine("Processing segment " + segmentIndex +
+                       " (type=" + segmentType + ", depthOffset=" + depthOffset + ")");
+
+            // Read objects until we hit a marker
+            while (currentPosition < objectLocationData.length) {
+                int firstByte = objectLocationData[currentPosition] & 0xFF;
+
+                // Check for negative value (marker)
+                if ((firstByte & 0x80) != 0) {
+                    // This is a marker byte
+                    currentPosition++;
+                    handleMarker(firstByte, newObjects);
+                    break; // Exit after processing marker
+                }
+
+                // Regular object entry
+                currentPosition++;
+                if (currentPosition >= objectLocationData.length) break;
+
+                int angleByte = objectLocationData[currentPosition] & 0xFF;
+                currentPosition++;
+
+                // Parse object type and distance
+                boolean isBomb = (firstByte & OBJECT_TYPE_BOMB_BIT) != 0;
+                int distanceIndex = firstByte & DISTANCE_MASK;
+
+                // Calculate depth value (objoff_30)
+                int depth = (distanceIndex * 4) + depthOffset;
+
+                // Create and add the object
+                Sonic2SpecialStageObject obj;
+                if (isBomb) {
+                    obj = new Sonic2SpecialStageBomb();
+                } else {
+                    obj = new Sonic2SpecialStageRing();
+                    perfectRingsTotal++;
+                }
+
+                obj.initialize(depth, angleByte);
+                activeObjects.add(obj);
+                newObjects.add(obj);
+
+                LOGGER.fine("Spawned " + (isBomb ? "bomb" : "ring") +
+                           " at angle=" + angleByte + ", depth=" + depth);
+            }
+
+            return newObjects;
+        }
+
+        /**
+         * Handles a marker byte in the object stream.
+         */
+        private void handleMarker(int marker, List<Sonic2SpecialStageObject> newObjects) {
+            // Convert to signed for comparison (matching assembly's bmi check)
+            if (marker == MARKER_END) {
+                // $FF: End of segment's objects - just return
+                LOGGER.fine("End marker ($FF) at segment");
+                return;
+            }
+
+            if (marker == MARKER_CHECKPOINT) {
+                // $FE: Checkpoint marker
+                LOGGER.info("Checkpoint marker ($FE) - act " + currentSpecialAct);
+                handleCheckpoint();
+                return;
+            }
+
+            if (marker == MARKER_EMERALD) {
+                // $FD: Emerald marker
+                LOGGER.info("Emerald marker ($FD)");
+                handleEmerald(newObjects);
+                return;
+            }
+
+            // $FC and below: No-checkpoint marker
+            // This enables the "rings to go" counter display but does NOT trigger checkpoint animation
+            LOGGER.fine("No-checkpoint marker (0x" + Integer.toHexString(marker) + ")");
+            noCheckpointFlag = true;
+            noCheckpointMsgFlag = false;
+
+            // Enable the "rings to go" display (matches Obj5A_RingsMessageInit clearing flags)
+            ringsToGoEnabled = true;
+            LOGGER.fine("Rings to go display enabled");
+            // NOTE: Unlike $FE, this does NOT call handleCheckpoint() - it just sets flags
+        }
+
+        /**
+         * Handles checkpoint marker processing.
+         */
+        private void handleCheckpoint() {
+            // Increment the special act counter
+            currentSpecialAct++;
+
+            LOGGER.info("Checkpoint " + currentSpecialAct + " reached with " + ringsCollected + " rings");
+
+            // Notify callback if set
+            if (checkpointCallback != null) {
+                checkpointCallback.onCheckpoint(currentSpecialAct, ringsCollected);
+            }
+        }
+
+        /**
+         * Handles emerald marker processing.
+         * Spawns the emerald object that appears at the end of the stage.
+         */
+        private void handleEmerald(List<Sonic2SpecialStageObject> newObjects) {
+            emeraldSpawned = true;
+
+            // Create emerald object at depth 54 ($36), angle 0x40 (bottom center)
+            Sonic2SpecialStageEmerald emerald = new Sonic2SpecialStageEmerald();
+            emerald.initialize(54, 0x40);  // Initial values from disassembly
+            activeObjects.add(emerald);  // Add to active list so it gets updated
+            newObjects.add(emerald);
+
+            LOGGER.info("Emerald object spawned at depth 54, angle 0x40");
+
+            // Notify callback if set
+            if (checkpointCallback != null) {
+                checkpointCallback.onEmerald();
+            }
+        }
+
+        /**
+         * Gets the active emerald object if one exists.
+         */
+        public Sonic2SpecialStageEmerald getActiveEmerald() {
+            for (Sonic2SpecialStageObject obj : activeObjects) {
+                if (obj.isEmerald()) {
+                    return (Sonic2SpecialStageEmerald) obj;
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Gets the animation length for a segment type.
+         */
+        private int getSegmentAnimLength(int segmentType) {
+            if (segmentType >= 0 && segmentType < SEGMENT_ANIM_LENGTHS.length) {
+                return SEGMENT_ANIM_LENGTHS[segmentType];
+            }
+            return 16; // Default to STRAIGHT length
+        }
+
+        /**
+         * Updates all active objects.
+         * Called each frame to update object positions and animations.
+         *
+         * @param currentTrackFrame Current track mapping frame (0-55)
+         * @param trackFlipped Whether the track is flipped (left turn)
+         * @param speedFactor Current speed factor from track animator
+         * @param drawingIndex4 True if SSTrack_drawing_index == 4 (affects depth decrement rate)
+         */
+        public void update(int currentTrackFrame, boolean trackFlipped, int speedFactor, boolean drawingIndex4) {
+            // Update each active object
+            for (int i = activeObjects.size() - 1; i >= 0; i--) {
+                Sonic2SpecialStageObject obj = activeObjects.get(i);
+                obj.update(currentTrackFrame, trackFlipped, speedFactor, drawingIndex4);
+
+                // Remove objects that are done (collected or off-screen)
+                if (obj.shouldRemove()) {
+                    activeObjects.remove(i);
+                }
+            }
+        }
+
+        /**
+         * Gets all active objects for rendering.
+         */
+        public List<Sonic2SpecialStageObject> getActiveObjects() {
+            return activeObjects;
+        }
+
+        /**
+         * Collects a ring and increments the counter.
+         */
+        public void collectRing() {
+            ringsCollected++;
+        }
+
+        /**
+         * Loses rings from a bomb hit (BCD-style subtraction).
+         * Returns the number of rings lost.
+         */
+        public int loseRingsFromBombHit() {
+            if (ringsCollected == 0) {
+                return 0;
+            }
+
+            int ringsLost;
+            if (ringsCollected >= 10) {
+                // Lose exactly 10 rings
+                ringsLost = 10;
+                ringsCollected -= 10;
+            } else {
+                // Lose all remaining rings
+                ringsLost = ringsCollected;
+                ringsCollected = 0;
+            }
+
+            return ringsLost;
+        }
+
+        /**
+         * Gets the current ring count.
+         */
+        public int getRingsCollected() {
+            return ringsCollected;
+        }
+
+        /**
+         * Gets the total rings spawned (for perfect bonus tracking).
+         */
+        public int getPerfectRingsTotal() {
+            return perfectRingsTotal;
+        }
+
+        /**
+         * Gets the current special act (checkpoint number).
+         */
+        public int getCurrentSpecialAct() {
+            return currentSpecialAct;
+        }
+
+        /**
+         * Checks if an emerald was spawned in this stage.
+         */
+        public boolean isEmeraldSpawned() {
+            return emeraldSpawned;
+        }
+
+        /**
+         * Checks if the "rings to go" display is enabled.
+         * This is false until the first $FC marker is encountered.
+         */
+        public boolean isRingsToGoEnabled() {
+            return ringsToGoEnabled;
+        }
+
+        /**
+         * Resets the "rings to go" display enabled flag.
+         * Called after passing a checkpoint to hide the display until the next $FC marker.
+         */
+        public void resetRingsToGoEnabled() {
+            ringsToGoEnabled = false;
+        }
+
+        /**
+         * Resets the manager state.
+         */
+        public void reset() {
+            currentPosition = 0;
+            lastProcessedSegment = -1;
+            ringsCollected = 0;
+            perfectRingsTotal = 0;
+            currentSpecialAct = 0;
+            noCheckpointFlag = false;
+            noCheckpointMsgFlag = false;
+            ringsToGoEnabled = false;
+            emeraldSpawned = false;
+            activeObjects.clear();
+        }
+    }
 }
+

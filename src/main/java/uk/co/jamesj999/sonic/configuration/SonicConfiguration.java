@@ -1,7 +1,5 @@
 package uk.co.jamesj999.sonic.configuration;
 
-import java.awt.event.KeyEvent;
-
 /**
  * All configurable properties are put here. Eventually, these will be loaded
  * from a file. Use SonicConfigurationSerivce to retrieve the values for
@@ -97,11 +95,6 @@ public enum SonicConfiguration {
 	DEBUG_COLLISION_VIEW_ENABLED,
 
 	/**
-	 * Filename of ROM to use (temporary)
-	 */
-	ROM_FILENAME,
-
-	/**
 	 * Key to toggle Debug Movement Mode at runtime.
 	 */
 	DEBUG_MODE_KEY,
@@ -120,6 +113,11 @@ public enum SonicConfiguration {
 	 * Whether to enable DAC Interpolation (smoother sound).
 	 */
 	DAC_INTERPOLATE,
+
+	/**
+	 * Whether to output audio at the internal YM2612 rate (~53kHz).
+	 */
+	AUDIO_INTERNAL_RATE_OUTPUT,
 
 	/**
 	 * Whether to mute FM6 when playing a note on it (if DAC is enabled).
@@ -150,6 +148,58 @@ public enum SonicConfiguration {
 	/**
 	 * Key to cycle Special Stage plane visibility debug modes.
 	 */
-	SPECIAL_STAGE_PLANE_DEBUG_KEY;
+	SPECIAL_STAGE_PLANE_DEBUG_KEY,
+
+	/**
+	 * Key to toggle pause (default: ENTER).
+	 */
+	PAUSE_KEY,
+
+	/**
+	 * Key to step forward one frame while paused (default: Q).
+	 */
+	FRAME_STEP_KEY,
+
+	/**
+	 * Key to teleport player to the last checkpoint (debug).
+	 */
+	DEBUG_LAST_CHECKPOINT_KEY,
+
+	/**
+	 * Key to open the Level Select screen (debug).
+	 */
+	LEVEL_SELECT_KEY,
+
+	/**
+	 * Whether to show the Level Select screen on startup instead of loading EHZ.
+	 */
+	LEVEL_SELECT_ON_STARTUP,
+
+	/**
+	 * Code of the sprite of the CPU-controlled sidekick character.
+	 * Set to "tails" or "sonic" to spawn a sidekick, or empty string to disable.
+	 */
+	SIDEKICK_CHARACTER_CODE,
+
+	/**
+	 * Filename for the Sonic 1 ROM.
+	 */
+	SONIC_1_ROM,
+
+	/**
+	 * Filename for the Sonic 2 ROM.
+	 */
+	SONIC_2_ROM,
+
+	/**
+	 * Filename for the Sonic 3&K ROM.
+	 */
+	SONIC_3K_ROM,
+
+	/**
+	 * Which game to load by default: "s1", "s2", or "s3k".
+	 * Used to select which per-game ROM key (SONIC_1_ROM, etc.) to load.
+	 */
+	DEFAULT_ROM;
 
 }

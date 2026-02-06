@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.level.scroll;
 
+import uk.co.jamesj999.sonic.game.GameServices;
+
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.*;
 
 /**
@@ -52,18 +54,25 @@ public class SwScrlMcz implements ZoneScrollHandler {
     private short vscrollFactorFG;
     private int bgY; // Raw background Y position (without ripple)
 
+    // Screen shake offsets for FG/sprite rendering
+    private int shakeOffsetX = 0;
+    private int shakeOffsetY = 0;
+
     // Pre-allocated segment scroll array
     private final short[] segScroll = new short[24];
-
-    // State
-    private boolean screenShakeFlag = false;
 
     public SwScrlMcz(ParallaxTables tables) {
         this.tables = tables;
     }
 
+    /**
+     * Set the screen shake flag.
+     * Delegates to GameStateManager for global screen shake state.
+     * @deprecated Use GameServices.gameState().setScreenShakeActive() directly
+     */
+    @Deprecated
     public void setScreenShakeFlag(boolean flag) {
-        this.screenShakeFlag = flag;
+        GameServices.gameState().setScreenShakeActive(flag);
     }
 
     @Override
@@ -91,17 +100,18 @@ public class SwScrlMcz implements ZoneScrollHandler {
         }
 
         // ==================== Step 2: Screen Shake (Boss) ====================
-        int rippleX = 0;
-        int rippleY = 0;
+        // Reset shake offsets each frame
+        this.shakeOffsetX = 0;
+        this.shakeOffsetY = 0;
 
-        if (screenShakeFlag && tables != null) {
+        if (GameServices.gameState().isScreenShakeActive() && tables != null) {
             int idx = frameCounter & 0x3F;
             byte[] rippleData = tables.getRippleData();
             if (rippleData != null && rippleData.length >= 66) {
                 // ROM[0xC682 + idx] = rippleY (signed byte)
                 // ROM[0xC682 + idx + 1] = rippleX (signed byte)
-                rippleY = rippleData[idx]; // Java bytes are already signed
-                rippleX = rippleData[idx + 1];
+                this.shakeOffsetY = rippleData[idx]; // Java bytes are already signed
+                this.shakeOffsetX = rippleData[idx + 1];
             }
         }
 
@@ -109,8 +119,8 @@ public class SwScrlMcz implements ZoneScrollHandler {
         this.bgY = bgY;
 
         // Apply shake to vertical scroll factors
-        vscrollFactorBG = (short) (bgY + rippleY);
-        vscrollFactorFG = (short) (cameraY + rippleY);
+        vscrollFactorBG = (short) (bgY + this.shakeOffsetY);
+        vscrollFactorFG = (short) (cameraY + this.shakeOffsetY);
 
         // ==================== Step 3: Build 24 Segment Scroll Values
         // ====================
@@ -132,7 +142,7 @@ public class SwScrlMcz implements ZoneScrollHandler {
         }
 
         // Foreground X scroll (constant per scanline, includes horizontal shake)
-        short fgScroll = negWord(cameraX + rippleX);
+        short fgScroll = negWord(cameraX + this.shakeOffsetX);
 
         // Treat bgY as vertical position in 512-pixel cycle
         // The parallax bands are based on the UNSHAKEN camera Y
@@ -353,5 +363,19 @@ public class SwScrlMcz implements ZoneScrollHandler {
     public short[] buildAndGetSegScroll(int cameraX) {
         buildSegmentScrollValues(cameraX);
         return segScroll.clone();
+    }
+
+    /**
+     * @return Horizontal shake offset for this frame (pixels)
+     */
+    public int getShakeOffsetX() {
+        return shakeOffsetX;
+    }
+
+    /**
+     * @return Vertical shake offset for this frame (pixels)
+     */
+    public int getShakeOffsetY() {
+        return shakeOffsetY;
     }
 }

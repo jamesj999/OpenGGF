@@ -1,4 +1,4 @@
-#version 110
+#version 410 core
 
 /*
  * Special Stage Background Shader
@@ -40,6 +40,8 @@ const float SCREEN_GAME_WIDTH = 320.0;
 const float SCREEN_GAME_HEIGHT = 224.0;
 const float H32_OFFSET = (SCREEN_GAME_WIDTH - H32_WIDTH) / 2.0;  // 32 pixels
 
+out vec4 FragColor;
+
 void main()
 {
     // Get fragment position in window coordinates, adjusted for viewport offset
@@ -75,7 +77,7 @@ void main()
 
     // H-scroll texture contains signed 16-bit values encoded as normalized floats
     // The value represents pixels to scroll (positive = scroll right, content moves left)
-    float hScrollValue = texture1D(HScrollTexture, scanlineTexCoord).r * 32767.0;
+    float hScrollValue = texture(HScrollTexture, scanlineTexCoord).r * 32767.0;
 
     // Apply horizontal scroll to get the source X position in the background
     // Negative scroll = background moves right (content scrolls left into view)
@@ -110,12 +112,12 @@ void main()
     float texV = 1.0 - (sampleY / BGTextureHeight);
 
     // Sample the background texture
-    vec4 color = texture2D(BackgroundTexture, vec2(texU, texV));
+    vec4 color = texture(BackgroundTexture, vec2(texU, texV));
 
     // Alpha test - discard transparent pixels
     if (color.a < 0.1) {
         discard;
     }
 
-    gl_FragColor = color;
+    FragColor = color;
 }

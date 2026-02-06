@@ -51,7 +51,11 @@ public final class SpritePieceRenderer {
 
             int pieceX = originX + pieceXOffset;
             int pieceY = originY + pieceYOffset;
-            int paletteIndex = piece.paletteIndex() != 0 ? piece.paletteIndex() : defaultPaletteIndex;
+            // If defaultPaletteIndex is negative, use piece's palette directly (absolute).
+            // Otherwise, ADD piece's palette to the default (matching Sonic 2 art_tile behavior
+            // where the pattern name word is added to art_tile, including palette bits).
+            int paletteIndex = defaultPaletteIndex < 0 ? piece.paletteIndex()
+                    : ((piece.paletteIndex() + defaultPaletteIndex) & 3);
 
             for (int ty = 0; ty < heightTiles; ty++) {
                 for (int tx = 0; tx < widthTiles; tx++) {

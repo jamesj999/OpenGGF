@@ -29,7 +29,8 @@ import java.util.logging.Logger;
  * Object 18 - Stationary floating platform (EHZ/ARZ/HTZ).
  * Implements movement behaviors and rendering from the disassembly.
  */
-public class ARZPlatformObjectInstance extends AbstractObjectInstance implements SolidObjectProvider, SolidObjectListener {
+public class ARZPlatformObjectInstance extends AbstractObjectInstance
+        implements SolidObjectProvider, SolidObjectListener {
     private static final Logger LOGGER = Logger.getLogger(ARZPlatformObjectInstance.class.getName());
 
     private static final int[] WIDTH_PIXELS = {
@@ -115,7 +116,6 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance implements
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        OscillationManager.update(frameCounter);
         x = baseX;
 
         boolean standing = isStanding();
@@ -201,7 +201,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance implements
 
     @Override
     public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
-        // Platform state is driven via SolidObjectManager standing checks.
+        // Platform state is driven via ObjectManager standing checks.
     }
 
     @Override
@@ -399,10 +399,10 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance implements
 
     private boolean isStanding() {
         LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getSolidObjectManager() == null) {
+        if (manager == null || manager.getObjectManager() == null) {
             return false;
         }
-        return manager.getSolidObjectManager().isRidingObject(this);
+        return manager.getObjectManager().isAnyPlayerRiding(this);
     }
 
     private boolean isAquaticRuin() {

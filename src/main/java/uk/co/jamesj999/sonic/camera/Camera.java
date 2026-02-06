@@ -4,6 +4,7 @@ import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.sprites.Sprite;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+import uk.co.jamesj999.sonic.sprites.playable.Tails;
 
 public class Camera {
 	private static Camera camera;
@@ -14,6 +15,11 @@ public class Camera {
 	private short minY;
 	private short maxX;
 	private short maxY;
+
+	// Screen shake offsets (ROM: applied to Camera_X_pos_copy and Camera_Y_pos_copy)
+	// These offsets affect both FG tiles and sprites to create unified screen shake.
+	private short shakeOffsetX = 0;
+	private short shakeOffsetY = 0;
 
 	// Target boundaries for smooth easing (ROM: Camera_Max_Y_pos_target, etc.)
 	private short minXTarget;
@@ -28,14 +34,38 @@ public class Camera {
 	// When true, normal vertical scroll rules may be modified
 	private boolean maxYChanging = false;
 
-	private int framesBehind = 0;
+	// ROM: Horiz_scroll_delay_val - horizontal scroll delay counter
+	// When > 0, horizontal scroll uses position history while vertical scroll continues normally
+	private int horizScrollDelayFrames = 0;
 
+	// Full camera freeze (both X and Y) - used for death, cutscenes, etc.
+	// This is separate from horizScrollDelayFrames which only affects horizontal scroll.
 	private boolean frozen = false;
 
 	private AbstractPlayableSprite focusedSprite;
 
 	private short width;
 	private short height;
+
+	// ROM: Camera_Y_pos_bias - vertical position target for camera centering
+	// Default is (224/2)-16 = 96 (0x60). Used as center point for scroll windows.
+	private static final short DEFAULT_Y_BIAS = 96;
+
+	// ROM: Look up target bias: 0xC8 (200) - shifts camera up to show more above Sonic
+	private static final short LOOK_UP_BIAS = (short) 0xC8;
+
+	// ROM: Look down target bias: 8 - shifts camera down to show more below Sonic
+	private static final short LOOK_DOWN_BIAS = 8;
+
+	// ROM: Camera_Y_pos_bias - dynamic bias that can change during gameplay
+	// (looking up/down, spindash, etc). Starts at 96.
+	private short yPosBias = DEFAULT_Y_BIAS;
+
+	// ROM: Airborne window is ±0x20 (32) around the bias
+	private static final short AIRBORNE_WINDOW_HALF = 32;
+
+	// ROM: Inertia threshold for fast scroll (0x800 = 2048)
+	private static final short FAST_SCROLL_INERTIA_THRESHOLD = 0x800;
 
 	private Camera() {
 		SonicConfigurationService configService = SonicConfigurationService
@@ -57,43 +87,52 @@ public class Camera {
 			y = (short) (focusedSprite.getCentreY() - 96);
 
 			// Apply bounds clamping
-			if (x < 0) x = 0;
-			if (y < 0) y = 0;
+			if (x < minX) x = minX;
+			if (y < minY) y = minY;
 			if (x > maxX) x = maxX;
 			if (y > maxY) y = maxY;
 			return;
 		}
+
+		// Full camera freeze (death, cutscenes) - don't update X or Y at all
 		if (frozen) {
-			// Clamp framesBehind to prevent exceeding history array length (32)
-			if (framesBehind < 31) {
-				framesBehind++;
-			}
 			return;
 		}
+
+		// ROM behavior: Horiz_scroll_delay_val only affects horizontal scrolling.
+		// Vertical scrolling (ScrollVerti) always uses current position and runs normally.
+		// See s2.asm ScrollHoriz (line ~18009) vs ScrollVerti (line ~18112).
+
+		// Horizontal scroll - may use position history if delay is active
 		short focusedSpriteRealX;
-		short focusedSpriteRealY;
-		if (framesBehind > 0) {
-			// SPG: During spindash lag catchup, use the average of two consecutive
-			// historical positions. This smoothly interpolates through the 64 recorded
-			// positions (32 during freeze + 32 during catchup) over 32 frames.
-			// Position pair: (framesBehind) and (framesBehind - 1)
-			int idx1 = framesBehind;
-			int idx2 = Math.max(0, framesBehind - 1);
-			short x1 = focusedSprite.getCentreX(idx1);
-			short x2 = focusedSprite.getCentreX(idx2);
-			short y1 = focusedSprite.getCentreY(idx1);
-			short y2 = focusedSprite.getCentreY(idx2);
-			// Average the two positions (add together and use as the target)
-			focusedSpriteRealX = (short) (((x1 + x2) / 2) - x);
-			focusedSpriteRealY = (short) (((y1 + y2) / 2) - y);
+		if (horizScrollDelayFrames > 0) {
+			// ROM: ScrollHoriz uses position buffer when Horiz_scroll_delay_val is set
+			// Use historical X position, clamped to buffer size (64 entries)
+			int historyIndex = Math.min(horizScrollDelayFrames, 63);
+			focusedSpriteRealX = (short) (focusedSprite.getCentreX(historyIndex) - x);
+			horizScrollDelayFrames--;
 		} else {
 			focusedSpriteRealX = (short) (focusedSprite.getCentreX() - x);
-			focusedSpriteRealY = (short) (focusedSprite.getCentreY() - y);
 		}
 
+		// Vertical scroll - always uses current position (ROM: ScrollVerti has no delay)
+		short focusedSpriteRealY = (short) (focusedSprite.getCentreY() - y);
+
+		// ROM: s2.asm:18121-18132 - Rolling height compensation
+		// When rolling, Sonic's center shifts down by ~5px due to height change.
+		// Subtract 5 from the Y delta to prevent camera jolt.
+		// Tails is 4 pixels shorter, so only subtract 1 for Tails.
+		if (focusedSprite.getRolling()) {
+			focusedSpriteRealY -= 5;
+			if (focusedSprite instanceof Tails) {
+				focusedSpriteRealY += 4; // Net: subtract 1 for Tails
+			}
+		}
+
+		// Horizontal scroll logic (ROM: ScrollHoriz)
 		if (focusedSpriteRealX < 144) {
 			short difference = (short) (focusedSpriteRealX - 144);
-			if (difference > 16) {
+			if (difference < -16) {
 				x -= 16;
 			} else {
 				x += difference;
@@ -107,60 +146,79 @@ public class Camera {
 			}
 		}
 
+		// Vertical scroll logic (ROM: ScrollVerti)
 		if (focusedSprite.getAir()) {
-			if (focusedSpriteRealY < 96) {
-				short difference = (short) (focusedSpriteRealY - 96);
+			// ROM: Airborne uses ±0x20 window around bias
+			// Upper bound: bias - 32, Lower bound: bias + 32
+			short upperBound = (short) (yPosBias - AIRBORNE_WINDOW_HALF);
+			short lowerBound = (short) (yPosBias + AIRBORNE_WINDOW_HALF);
+			if (focusedSpriteRealY < upperBound) {
+				short difference = (short) (focusedSpriteRealY - upperBound);
 				if (difference < -16) {
 					y -= 16;
 				} else {
 					y += difference;
 				}
-			} else if (focusedSpriteRealY > 160) {
-				short difference = (short) (focusedSpriteRealY - 160);
+			} else if (focusedSpriteRealY >= lowerBound) {
+				short difference = (short) (focusedSpriteRealY - lowerBound);
 				if (difference > 16) {
 					y += 16;
 				} else {
 					y += difference;
 				}
 			}
-		} else if (focusedSpriteRealY > 96) {
-			short ySpeed = (short) (focusedSprite.getYSpeed() / 256);
-			short difference = (short) (focusedSpriteRealY - 96);
-			byte tolerance;
+		} else {
+			// ROM: s2.asm:18150-18195 - Grounded vertical scroll
+			// Uses bias state and inertia (ground speed), NOT ySpeed
+			short difference = (short) (focusedSpriteRealY - yPosBias);
 
-			if (ySpeed > 6) {
-				tolerance = 16;
-			} else {
-				tolerance = 6;
-			}
+			if (difference != 0) {
+				// ROM: .decideScrollType - choose scroll cap based on bias and inertia
+				short tolerance;
+				if (yPosBias != DEFAULT_Y_BIAS) {
+					// ROM: .doScroll_slow - bias is not normal (looking up/down)
+					// Use 2px cap
+					tolerance = 2;
+				} else {
+					// Bias is normal (96) - check inertia for medium vs fast
+					short absInertia = (short) Math.abs(focusedSprite.getGSpeed());
+					if (absInertia >= FAST_SCROLL_INERTIA_THRESHOLD) {
+						// ROM: .doScroll_fast - player moving very fast on ground
+						// Use 16px cap
+						tolerance = 16;
+					} else {
+						// ROM: .doScroll_medium - normal ground movement
+						// Use 6px cap
+						tolerance = 6;
+					}
+				}
 
-			if (difference > tolerance) {
-				y += tolerance;
-			} else {
-				y += difference;
+				// Apply scroll with capping
+				if (difference > 0) {
+					// Scroll down
+					if (difference > tolerance) {
+						y += tolerance;
+					} else {
+						y += difference;
+					}
+				} else {
+					// Scroll up (difference is negative)
+					if (difference < -tolerance) {
+						y -= tolerance;
+					} else {
+						y += difference;
+					}
+				}
 			}
-		} else if (focusedSpriteRealY < 96) {
-			short ySpeed = (short) (focusedSprite.getYSpeed() / 256);
-			short difference = (short) (focusedSpriteRealY - 96);
-			byte tolerance;
-
-			if (ySpeed < -6) {
-				tolerance = -16;
-			} else {
-				tolerance = -6;
-			}
-
-			if (difference < tolerance) {
-				y += tolerance;
-			} else {
-				y += difference;
-			}
+			// else: ROM: .doNotScroll - player is at bias, no scroll needed
 		}
-		if (x < 0) {
-			x = 0;
+
+		// Clamp to boundaries (ROM: ScrollHoriz lines 18077-18092, ScrollVerti similar)
+		if (x < minX) {
+			x = minX;
 		}
-		if (y < 0) {
-			y = 0;
+		if (y < minY) {
+			y = minY;
 		}
 		if (x > maxX) {
 			x = maxX;
@@ -168,25 +226,47 @@ public class Camera {
 		if (y > maxY) {
 			y = maxY;
 		}
-		if (framesBehind > 0) {
-			// SPG: Decrement by 2 each frame since we're processing position pairs
-			// This means we catch up through the full 64 positions (32 freeze + 32 catchup)
-			// in approximately 32 frames
-			framesBehind -= 2;
-			if (framesBehind < 0) {
-				framesBehind = 0;
-			}
+	}
+
+	/**
+	 * Sets horizontal scroll delay frames (ROM: Horiz_scroll_delay_val).
+	 * When delay > 0, horizontal scroll uses position history while vertical scroll
+	 * continues normally. This matches ROM behavior where ScrollHoriz checks
+	 * Horiz_scroll_delay_val but ScrollVerti does not.
+	 *
+	 * @param delayFrames Number of frames to delay horizontal scroll (0 to clear)
+	 */
+	public void setHorizScrollDelay(int delayFrames) {
+		this.horizScrollDelayFrames = delayFrames;
+	}
+
+	/**
+	 * @return Current horizontal scroll delay frames remaining
+	 */
+	public int getHorizScrollDelay() {
+		return horizScrollDelayFrames;
+	}
+
+	/**
+	 * Sets full camera freeze (both X and Y).
+	 * Use this for death, cutscenes, boss arenas, etc. where the camera should
+	 * completely stop following the player.
+	 *
+	 * For spindash-style horizontal-only delay, use setHorizScrollDelay() instead.
+	 *
+	 * @param frozen true to freeze camera, false to unfreeze
+	 */
+	public void setFrozen(boolean frozen) {
+		this.frozen = frozen;
+		// When unfreezing, also clear any horizontal delay
+		if (!frozen) {
+			this.horizScrollDelayFrames = 0;
 		}
 	}
 
-	public void setFrozen(boolean frozen) {
-		this.frozen = frozen;
-		// SPG: When unfreezing, do NOT reset framesBehind!
-		// The camera should continue using the position history while framesBehind > 0,
-		// gradually catching up to the current player position by processing
-		// pairs of positions from history.
-	}
-
+	/**
+	 * @return true if camera is fully frozen (both X and Y)
+	 */
 	public boolean getFrozen() {
 		return frozen;
 	}
@@ -310,6 +390,46 @@ public class Camera {
 		this.y = y;
 	}
 
+	/**
+	 * Sets the screen shake offsets (ROM: applied to Camera_X_pos_copy and Camera_Y_pos_copy).
+	 * These offsets are used by the rendering system to shake both foreground tiles and sprites.
+	 *
+	 * @param x horizontal shake offset in pixels
+	 * @param y vertical shake offset in pixels
+	 */
+	public void setShakeOffsets(int x, int y) {
+		this.shakeOffsetX = (short) x;
+		this.shakeOffsetY = (short) y;
+	}
+
+	/**
+	 * @return Current horizontal shake offset in pixels
+	 */
+	public short getShakeOffsetX() {
+		return shakeOffsetX;
+	}
+
+	/**
+	 * @return Current vertical shake offset in pixels
+	 */
+	public short getShakeOffsetY() {
+		return shakeOffsetY;
+	}
+
+	/**
+	 * @return Camera X position with shake offset applied (for rendering)
+	 */
+	public short getXWithShake() {
+		return (short) (x + shakeOffsetX);
+	}
+
+	/**
+	 * @return Camera Y position with shake offset applied (for rendering)
+	 */
+	public short getYWithShake() {
+		return (short) (y + shakeOffsetY);
+	}
+
 	public short getWidth() {
 		return width;
 	}
@@ -427,10 +547,166 @@ public class Camera {
 		y += amount;
 	}
 
+	/**
+	 * Gets the current Y position bias (ROM: Camera_Y_pos_bias).
+	 * Default is 96. Used as the vertical target position for camera centering.
+	 * @return Current Y position bias value
+	 */
+	public short getYPosBias() {
+		return yPosBias;
+	}
+
+	/**
+	 * Sets the Y position bias (ROM: Camera_Y_pos_bias).
+	 * When bias != 96, grounded vertical scroll uses slower 2px/frame cap.
+	 * Used by looking up/down mechanics and spindash release.
+	 * @param yPosBias New bias value (default is 96)
+	 */
+	public void setYPosBias(short yPosBias) {
+		this.yPosBias = yPosBias;
+	}
+
+	/**
+	 * Resets Y position bias to the default value (96).
+	 * ROM: Called during Obj01_ResetScr equivalents - rolling, spindash release, jumping.
+	 * The bias gradually eases back to 96 at 2px/frame (4 toward, 2 back = net 2).
+	 */
+	public void resetYBias() {
+		// ROM: Obj01_ResetScr_Part2 / Obj01_Jump_ResetScr
+		// The actual reset is gradual: if bias < 96, add 4 then subtract 2 (net +2)
+		// if bias > 96, just subtract 2
+		// This method initiates the reset process - actual easing happens in updateYBiasEasing()
+		this.yPosBias = DEFAULT_Y_BIAS;
+	}
+
+	/**
+	 * Gradually increases bias toward the look-up target (0xC8 = 200).
+	 * ROM: s2.asm:36406-36408 - adds 2 to bias each frame until reaching 0xC8.
+	 * Call this each frame while looking up AND look delay counter >= 0x78.
+	 */
+	public void incrementLookUpBias() {
+		if (yPosBias < LOOK_UP_BIAS) {
+			yPosBias += 2;
+			if (yPosBias > LOOK_UP_BIAS) {
+				yPosBias = LOOK_UP_BIAS;
+			}
+		}
+	}
+
+	/**
+	 * Gradually decreases bias toward the look-down target (8).
+	 * ROM: s2.asm:36420-36422 - subtracts 2 from bias each frame until reaching 8.
+	 * Call this each frame while looking down AND look delay counter >= 0x78.
+	 */
+	public void decrementLookDownBias() {
+		if (yPosBias > LOOK_DOWN_BIAS) {
+			yPosBias -= 2;
+			if (yPosBias < LOOK_DOWN_BIAS) {
+				yPosBias = LOOK_DOWN_BIAS;
+			}
+		}
+	}
+
+	/**
+	 * Gradually eases bias back toward the default value (96).
+	 * ROM: s2.asm:36431-36438 (Obj01_ResetScr_Part2)
+	 * - If bias < 96: add 4, then subtract 2 (net +2 per frame)
+	 * - If bias > 96: subtract 2
+	 * Call this each frame when not actively panning.
+	 */
+	public void easeYBiasToDefault() {
+		if (yPosBias < DEFAULT_Y_BIAS) {
+			// ROM: addq.w #4, then subq.w #2 = net +2
+			yPosBias += 2;
+			if (yPosBias > DEFAULT_Y_BIAS) {
+				yPosBias = DEFAULT_Y_BIAS;
+			}
+		} else if (yPosBias > DEFAULT_Y_BIAS) {
+			// ROM: subq.w #2
+			yPosBias -= 2;
+			if (yPosBias < DEFAULT_Y_BIAS) {
+				yPosBias = DEFAULT_Y_BIAS;
+			}
+		}
+	}
+
+	/**
+	 * @deprecated Use incrementLookUpBias() for ROM-accurate gradual adjustment.
+	 * Sets the bias instantly for looking up (ROM target: 0xC8 = 200).
+	 */
+	@Deprecated
+	public void setLookUpBias() {
+		this.yPosBias = LOOK_UP_BIAS;
+	}
+
+	/**
+	 * @deprecated Use decrementLookDownBias() for ROM-accurate gradual adjustment.
+	 * Sets the bias instantly for looking down/crouching (ROM target: 8).
+	 */
+	@Deprecated
+	public void setLookDownBias() {
+		this.yPosBias = LOOK_DOWN_BIAS;
+	}
+
+	/**
+	 * Gets the default Y bias value.
+	 * @return Default Y bias (96)
+	 */
+	public static short getDefaultYBias() {
+		return DEFAULT_Y_BIAS;
+	}
+
+	/**
+	 * Gets the look up bias target value.
+	 * @return Look up bias (200 / 0xC8)
+	 */
+	public static short getLookUpBias() {
+		return LOOK_UP_BIAS;
+	}
+
+	/**
+	 * Gets the look down bias target value.
+	 * @return Look down bias (8)
+	 */
+	public static short getLookDownBias() {
+		return LOOK_DOWN_BIAS;
+	}
+
 	public static synchronized Camera getInstance() {
 		if (camera == null) {
 			camera = new Camera();
 		}
 		return camera;
+	}
+
+	/**
+	 * Resets mutable state without destroying the singleton instance.
+	 * Preserves width/height (configuration), clears all runtime state.
+	 */
+	public void resetState() {
+		x = 0;
+		y = 0;
+		minX = 0;
+		minY = 0;
+		maxX = 0;
+		maxY = 0;
+		shakeOffsetX = 0;
+		shakeOffsetY = 0;
+		minXTarget = 0;
+		minYTarget = 0;
+		maxXTarget = 0;
+		maxYTarget = 0;
+		maxYChanging = false;
+		horizScrollDelayFrames = 0;
+		frozen = false;
+		focusedSprite = null;
+		yPosBias = DEFAULT_Y_BIAS;
+	}
+
+	/**
+	 * Resets the singleton instance. Used for testing to ensure clean state.
+	 */
+	public static synchronized void resetInstance() {
+		camera = null;
 	}
 }

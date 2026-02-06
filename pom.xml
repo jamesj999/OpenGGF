@@ -6,19 +6,175 @@
 
     <groupId>uk.co.jamesj999</groupId>
     <artifactId>sonic-engine</artifactId>
-    <version>0.2.20260117</version>
+    <version>0.3.20260206</version>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
+        <lwjgl.version>3.3.3</lwjgl.version>
+        <joml.version>1.10.5</joml.version>
+        <surefire.argLine></surefire.argLine>
     </properties>
 
-    <repositories>
-        <repository>
-            <id>jogamp-remote</id>
-            <name>jogamp mirror</name>
-            <url>https://www.jogamp.org/deployment/maven/</url>
-        </repository>
-    </repositories>
+    <!-- LWJGL native classifier profiles -->
+    <profiles>
+        <profile>
+            <id>lwjgl-natives-linux</id>
+            <activation>
+                <os><family>unix</family><name>!Mac OS X</name></os>
+            </activation>
+            <properties>
+                <lwjgl.natives>natives-linux</lwjgl.natives>
+            </properties>
+        </profile>
+        <profile>
+            <id>lwjgl-natives-macos</id>
+            <activation>
+                <os><family>mac</family></os>
+            </activation>
+            <properties>
+                <lwjgl.natives>natives-macos</lwjgl.natives>
+                <surefire.argLine>-XstartOnFirstThread</surefire.argLine>
+            </properties>
+        </profile>
+        <profile>
+            <id>lwjgl-natives-macos-arm64</id>
+            <activation>
+                <os><family>mac</family><arch>aarch64</arch></os>
+            </activation>
+            <properties>
+                <lwjgl.natives>natives-macos-arm64</lwjgl.natives>
+                <surefire.argLine>-XstartOnFirstThread</surefire.argLine>
+            </properties>
+        </profile>
+        <profile>
+            <id>lwjgl-natives-windows</id>
+            <activation>
+                <os><family>windows</family></os>
+            </activation>
+            <properties>
+                <lwjgl.natives>natives-windows</lwjgl.natives>
+            </properties>
+        </profile>
+
+        <!-- GraalVM native-image build: mvn package -Pnative -DskipTests -->
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <!-- Extract LWJGL native libraries from classifier JARs.
+                         In a native image there are no JARs to extract from at runtime,
+                         so we bundle the .dylib/.so/.dll files alongside the executable. -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <version>3.6.1</version>
+                        <executions>
+                            <execution>
+                                <id>unpack-lwjgl-natives</id>
+                                <phase>generate-resources</phase>
+                                <goals><goal>unpack-dependencies</goal></goals>
+                                <configuration>
+                                    <includeGroupIds>org.lwjgl</includeGroupIds>
+                                    <includeClassifiers>${lwjgl.natives}</includeClassifiers>
+                                    <outputDirectory>${project.build.directory}/lwjgl-unpack</outputDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- Flatten extracted native libs into target/native-libs/ -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>flatten-native-libs</id>
+                                <phase>process-resources</phase>
+                                <goals><goal>run</goal></goals>
+                                <configuration>
+                                    <target>
+                                        <mkdir dir="${project.build.directory}/native-libs"/>
+                                        <copy todir="${project.build.directory}/native-libs" flatten="true">
+                                            <fileset dir="${project.build.directory}/lwjgl-unpack">
+                                                <include name="**/*.dylib"/>
+                                                <include name="**/*.so"/>
+                                                <include name="**/*.dll"/>
+                                            </fileset>
+                                        </copy>
+                                        <!-- Also copy to target/ alongside the native binary
+                                             so bare execution (target/SonicEngine) works -->
+                                        <copy todir="${project.build.directory}" flatten="true">
+                                            <fileset dir="${project.build.directory}/lwjgl-unpack">
+                                                <include name="**/*.dylib"/>
+                                                <include name="**/*.so"/>
+                                                <include name="**/*.dll"/>
+                                            </fileset>
+                                        </copy>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>0.10.4</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <imageName>SonicEngine</imageName>
+                            <mainClass>uk.co.jamesj999.sonic.Engine</mainClass>
+                            <fallback>false</fallback>
+                            <buildArgs>
+                                <buildArg>--initialize-at-run-time=org.lwjgl</buildArg>
+                                <buildArg>--initialize-at-run-time=java.awt,javax.swing,sun.awt,sun.java2d,com.apple.laf</buildArg>
+                                <buildArg>-march=compatibility</buildArg>
+                            </buildArgs>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>build-native</id>
+                                <goals><goal>compile-no-fork</goal></goals>
+                                <phase>prepare-package</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>assemble-platform-package</id>
+                                <phase>package</phase>
+                                <goals><goal>exec</goal></goals>
+                                <configuration>
+                                    <executable>bash</executable>
+                                    <arguments>
+                                        <argument>${basedir}/src/packaging/assemble-macos-app.sh</argument>
+                                        <argument>${basedir}/target/SonicEngine</argument>
+                                        <argument>${basedir}/target</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+    </profiles>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.lwjgl</groupId>
+                <artifactId>lwjgl-bom</artifactId>
+                <version>${lwjgl.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
         <sourceDirectory>src/main/java</sourceDirectory>
@@ -63,6 +219,22 @@
                 </configuration>
             </plugin>
 
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <!-- LWJGL/GLFW on macOS requires -XstartOnFirstThread (set via profile) -->
+                    <argLine>${surefire.argLine}</argLine>
+                    <!-- Exclude tests that require a GL context/display -->
+                    <excludes>
+                        <exclude>**/TestGraphicsManagerHeadless.java</exclude>
+                        <exclude>**/VisualRegressionTest.java</exclude>
+                        <exclude>**/VisualReferenceGenerator.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
             <!--<plugin>-->
                 <!--<groupId>org.apache.maven.plugins</groupId>-->
                 <!--<artifactId>maven-jar-plugin</artifactId>-->
@@ -81,26 +253,69 @@
             <artifactId>commons-lang3</artifactId>
             <version>3.18.0</version>
         </dependency>
+
+        <!-- LWJGL Core -->
         <dependency>
-            <groupId>org.jogamp.gluegen</groupId>
-            <artifactId>gluegen-rt-main</artifactId>
-            <version>2.5.0</version>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.jogamp.jogl</groupId>
-            <artifactId>jogl-all-main</artifactId>
-            <version>2.5.0</version>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl</artifactId>
+            <classifier>${lwjgl.natives}</classifier>
+        </dependency>
+
+        <!-- LWJGL OpenGL -->
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-opengl</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.jogamp.jocl</groupId>
-            <artifactId>jocl-main</artifactId>
-            <version>2.5.0</version>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-opengl</artifactId>
+            <classifier>${lwjgl.natives}</classifier>
+        </dependency>
+
+        <!-- LWJGL GLFW (windowing) -->
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-glfw</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.jogamp.joal</groupId>
-            <artifactId>joal-main</artifactId>
-            <version>2.5.0</version>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-glfw</artifactId>
+            <classifier>${lwjgl.natives}</classifier>
         </dependency>
+
+        <!-- LWJGL OpenAL (audio) -->
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-openal</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-openal</artifactId>
+            <classifier>${lwjgl.natives}</classifier>
+        </dependency>
+
+        <!-- LWJGL STB (fonts, images) -->
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-stb</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-stb</artifactId>
+            <classifier>${lwjgl.natives}</classifier>
+        </dependency>
+
+        <!-- JOML (math library for matrices/vectors) -->
+        <dependency>
+            <groupId>org.joml</groupId>
+            <artifactId>joml</artifactId>
+            <version>${joml.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>

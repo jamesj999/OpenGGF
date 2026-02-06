@@ -6,12 +6,28 @@ import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameModule;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.RespawnState;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
+import uk.co.jamesj999.sonic.game.ZoneRegistry;
+import uk.co.jamesj999.sonic.game.SpecialStageProvider;
+import uk.co.jamesj999.sonic.game.BonusStageProvider;
+import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
+import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
+import uk.co.jamesj999.sonic.game.RomOffsetProvider;
+import uk.co.jamesj999.sonic.game.DebugModeProvider;
+import uk.co.jamesj999.sonic.game.DebugOverlayProvider;
+import uk.co.jamesj999.sonic.game.ObjectArtProvider;
+import uk.co.jamesj999.sonic.game.ZoneArtProvider;
+import uk.co.jamesj999.sonic.game.sonic2.debug.Sonic2DebugModeProvider;
+import uk.co.jamesj999.sonic.game.sonic2.levelselect.LevelSelectManager;
+import uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ScrollHandlerProvider;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2AudioProfile;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectConstants;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
+import uk.co.jamesj999.sonic.game.sonic2.objects.BlueBallsObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.BonusBlockObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.Sonic2ObjectRegistry;
 import uk.co.jamesj999.sonic.game.sonic2.titlecard.TitleCardManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
@@ -20,6 +36,8 @@ import uk.co.jamesj999.sonic.level.objects.TouchResponseTable;
 
 public class Sonic2GameModule implements GameModule {
     private final GameAudioProfile audioProfile = new Sonic2AudioProfile();
+    private Sonic2ObjectArtProvider objectArtProvider;
+    private Sonic2ZoneFeatureProvider zoneFeatureProvider;
 
     @Override
     public String getIdentifier() {
@@ -80,5 +98,80 @@ public class Sonic2GameModule implements GameModule {
     @Override
     public TitleCardProvider getTitleCardProvider() {
         return TitleCardManager.getInstance();
+    }
+
+    @Override
+    public ZoneRegistry getZoneRegistry() {
+        return Sonic2ZoneRegistry.getInstance();
+    }
+
+    @Override
+    public SpecialStageProvider getSpecialStageProvider() {
+        // Return a new provider each time to avoid state issues
+        // The underlying manager is a singleton
+        return new Sonic2SpecialStageProvider();
+    }
+
+    @Override
+    public BonusStageProvider getBonusStageProvider() {
+        // Sonic 2 does not have bonus stages (uses special stages via checkpoints instead)
+        return null;
+    }
+
+    @Override
+    public ScrollHandlerProvider getScrollHandlerProvider() {
+        return new Sonic2ScrollHandlerProvider();
+    }
+
+    @Override
+    public ZoneFeatureProvider getZoneFeatureProvider() {
+        if (zoneFeatureProvider == null) {
+            zoneFeatureProvider = new Sonic2ZoneFeatureProvider();
+        }
+        return zoneFeatureProvider;
+    }
+
+    @Override
+    public RomOffsetProvider getRomOffsetProvider() {
+        return new Sonic2RomOffsetProvider();
+    }
+
+    @Override
+    public DebugModeProvider getDebugModeProvider() {
+        return new Sonic2DebugModeProvider();
+    }
+
+    @Override
+    public DebugOverlayProvider getDebugOverlayProvider() {
+        // Debug overlay content is currently handled by the generic DebugRenderer
+        // Future: Create Sonic2DebugOverlayProvider for game-specific overlay content
+        return null;
+    }
+
+    @Override
+    public ZoneArtProvider getZoneArtProvider() {
+        return new Sonic2ZoneArtProvider();
+    }
+
+    @Override
+    public void onLevelLoad() {
+        // Reset oscillation values used by moving platforms, etc.
+        OscillationManager.reset();
+        // Reset object-specific static state that persists across load/unload cycles
+        BlueBallsObjectInstance.resetGlobalState();
+        BonusBlockObjectInstance.resetGroupCounters();
+    }
+
+    @Override
+    public LevelSelectProvider getLevelSelectProvider() {
+        return LevelSelectManager.getInstance();
+    }
+
+    @Override
+    public ObjectArtProvider getObjectArtProvider() {
+        if (objectArtProvider == null) {
+            objectArtProvider = new Sonic2ObjectArtProvider();
+        }
+        return objectArtProvider;
     }
 }

@@ -34,8 +34,20 @@ public class Rom implements AutoCloseable {
     public boolean open(String spath) {
         try {
             Path path = Path.of(spath);
-            LOGGER.fine(path.toAbsolutePath().toString());
-            fileChannel = FileChannel.open(path, StandardOpenOption.READ, StandardOpenOption.WRITE);
+            // Resolve relative paths against user.dir. In GraalVM native images
+            // launched from macOS Finder, Path.toAbsolutePath() may fail because
+            // getcwd() is broken. Explicit resolution against user.dir is reliable.
+            if (!path.isAbsolute()) {
+                String userDir = System.getProperty("user.dir");
+                if (userDir != null) {
+                    path = Path.of(userDir).resolve(path);
+                }
+            }
+            LOGGER.fine(path.toString());
+            // Open read-only. macOS restricts write access to quarantined files
+            // when launched from Finder. Write methods exist for ROM tools but
+            // are not used during normal engine operation.
+            fileChannel = FileChannel.open(path, StandardOpenOption.READ);
             return true;
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "Failed to open ROM: " + spath, e);

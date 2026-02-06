@@ -40,55 +40,62 @@ These directories are untracked (not in git) but available locally.
 
 ## ROM Offset Finder Tool
 
-If `docs/s2disasm` is present, use the **RomOffsetFinder** tool to search for disassembly items and find their ROM offsets. This streamlines finding offsets for items defined in the disassembly.
+If `docs/s2disasm`, `docs/s1disasm`, or `docs/skdisasm` is present, use the **RomOffsetFinder** tool to search for disassembly items and find their ROM offsets. Supports Sonic 1, Sonic 2, and Sonic 3&K.
 
 ### Quick Reference
 
 ```bash
-# Search for items (by label or filename) - includes calculated ROM offset
+# Sonic 2 (default) - search, verify, export
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search SpecialStars" -q
-
-# List all files of a compression type (nem, kos, eni, sax, bin)
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="list nem" -q
-
-# Test decompression at a ROM offset
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="test 0xDD8CE nem" -q
-
-# Auto-detect compression type at offset
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="test 0x3000 auto" -q
-
-# Verify a calculated offset against actual ROM data
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify ArtNem_SpecialHUD" -q
-
-# Batch verify all items of a type (shows [OK], [!!] mismatch, [??] not found)
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify-batch nem" -q
-
-# Export verified offsets as Java constants
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="export nem ART_" -q
+
+# Sonic 1 - use --game s1 flag
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_GHZ" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 list nem" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Pal_Sonic" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 verify Pal_Sonic" -q
+
+# Sonic 3&K - use --game s3k flag
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search AIZ" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k list nem" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Pal_AIZ" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k verify ArtNem_TitleScreenText" -q
+
+# Other commands (work with all games)
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="list nem" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="test 0xDD8CE nem" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="test 0x3000 auto" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify-batch nem" -q
 ```
 
-The `search` command automatically calculates ROM offsets using known anchor points from `RomOffsetCalculator.ANCHOR_OFFSETS`. Verified offsets are added as runtime anchors to improve accuracy for nearby items.
+Game selection: `--game s1`, `--game s2` (default), or `--game s3k`. Also supports `-Dgame=s1` system property. Auto-detects from disasm path if `--game` not specified.
+
+The `search` command automatically calculates ROM offsets using known anchor points from the game's `GameProfile`. Verified offsets are added as runtime anchors to improve accuracy for nearby items.
 
 ### CLI Commands
 
 | Command | Description |
 |---------|-------------|
-| `search <pattern>` | Search for items by label/filename |
-| `find <label> [offset]` | Find ROM offset by decompression search |
-| `test <offset> <type>` | Test decompression at offset |
-| `list [type]` | List all includes (optionally by type) |
-| `verify <label>` | Verify calculated offset against ROM |
-| `verify-batch [type]` | Batch verify all/filtered items |
-| `export <type> [prefix]` | Export verified offsets as Java constants |
+| `[--game s1\|s2\|s3k] search <pattern>` | Search for items by label/filename |
+| `[--game s1\|s2\|s3k] find <label> [offset]` | Find ROM offset by decompression search |
+| `[--game s1\|s2\|s3k] test <offset> <type>` | Test decompression at offset |
+| `[--game s1\|s2\|s3k] list [type]` | List all includes (optionally by type) |
+| `[--game s1\|s2\|s3k] verify <label>` | Verify calculated offset against ROM |
+| `[--game s1\|s2\|s3k] verify-batch [type]` | Batch verify all/filtered items |
+| `[--game s1\|s2\|s3k] export <type> [prefix]` | Export verified offsets as Java constants |
 
 ### Compression Types
 | Type | Extension | CLI Arg |
 |------|-----------|---------|
 | Nemesis | `.nem` | `nem` |
 | Kosinski | `.kos` | `kos` |
+| Kosinski Moduled | `.kosm` | `kosm` |
 | Enigma | `.eni` | `eni` |
 | Saxman | `.sax` | `sax` |
 | Uncompressed | `.bin` | `bin` |
+
+**Note:** S3K encodes compression type in the label suffix (e.g., `AIZ1_8x8_Primary_KosM`) rather than the file extension. The tool automatically infers the correct type from the label when the file extension is `.bin`.
 
 ### Palette Macro Support
 
@@ -124,17 +131,24 @@ See `uk.co.jamesj999.sonic.tools.disasm` package for full API.
 ## Architecture
 
 ### Entry Point
-`uk.co.jamesj999.sonic.Engine` - OpenGL canvas with FPSAnimator. Creates the game loop via `display()` → `update()` → `draw()`.
+`uk.co.jamesj999.sonic.Engine` - GLFW window with manual timing loop. Creates the game loop via `display()` → `update()` → `draw()`.
 
 ### Core Managers (Singleton Pattern)
 The codebase uses singletons extensively via `getInstance()`:
 - **LevelManager** - Level loading, rendering, zone/act management
-- **SpriteManager** - All game sprites (player, objects, enemies)
-- **SpriteCollisionManager** - Collision detection between sprites
+- **SpriteManager** - All game sprites (player, objects, enemies), input handling, render bucketing
 - **GraphicsManager** - OpenGL rendering, shader management
 - **AudioManager** - SMPS audio driver, YM2612/PSG synthesis
-- **GameStateManager** - Score, lives, emerald tracking
 - **Camera** - Camera position tracking, following player
+
+### Core Services Façade
+Access core singletons through the `GameServices` façade instead of direct `getInstance()` calls:
+```java
+GameServices.gameState()    // GameStateManager - score, lives, emeralds
+GameServices.timers()       // TimerManager - event timing
+GameServices.rom()          // RomManager - ROM data access
+GameServices.debugOverlay() // DebugOverlayManager - debug rendering
+```
 
 ### Key Packages
 | Package | Purpose |
@@ -142,11 +156,72 @@ The codebase uses singletons extensively via `getInstance()`:
 | `sprites.playable` | Sonic/Tails player logic, physics |
 | `physics` | Terrain collision, sensors |
 | `level` | Level structures, rendering, scrolling |
-| `level.objects` | Game object management and rendering |
+| `level.objects` | Game object management, rendering, factories |
 | `audio` | SMPS driver, YM2612/PSG chip emulation |
 | `data` | ROM loading, decompression (Kosinski, Nemesis, Saxman) |
+| `game` | Core game-agnostic interfaces and providers |
 | `game.sonic2` | Sonic 2-specific implementations |
+| `game.sonic2.objects` | Object factories and instance classes |
+| `game.sonic2.objects.badniks` | Badnik AI implementations |
+| `game.sonic2.scroll` | Zone-specific parallax scroll handlers |
+| `game.sonic2.constants` | ROM offsets, object IDs, audio constants |
 | `tools` | Compression utilities (KosinskiReader, etc.) |
+
+### Consolidated Subsystems
+
+Several manager classes have been consolidated to reduce complexity while preserving functionality:
+
+#### Object System (`ObjectManager`)
+The `ObjectManager` now contains all object-related functionality as inner classes:
+| Inner Class | Purpose |
+|-------------|---------|
+| `ObjectManager.Placement` | Spawn windowing, remembered objects (was `ObjectPlacementManager`) |
+| `ObjectManager.SolidContacts` | Riding, landing, ceiling, side collision (was `SolidObjectManager`) |
+| `ObjectManager.TouchResponses` | Enemy bounce, hurt, category detection (was `TouchResponseManager`) |
+| `ObjectManager.PlaneSwitchers` | Plane switching logic (was `PlaneSwitcherManager`) |
+
+#### Ring System (`RingManager`)
+The `RingManager` consolidates ring functionality:
+| Inner Class | Purpose |
+|-------------|---------|
+| `RingManager.RingPlacement` | Collection state, sparkle animation, windowed spawning |
+| `RingManager.RingRenderer` | Ring rendering with cached patterns |
+| `RingManager.LostRingPool` | Lost ring physics and collection |
+
+#### Per-Sprite Controller (`PlayableSpriteController`)
+`AbstractPlayableSprite` owns a `PlayableSpriteController` that coordinates:
+| Component | Purpose |
+|-----------|---------|
+| `PlayableSpriteMovement` | Physics and movement handling |
+| `PlayableSpriteAnimation` | Animation state and scripted animations |
+| `SpindashDustController` | Spindash dust effects |
+| `DrowningController` | Underwater drowning mechanics |
+
+#### Sonic 2 Level Animation (`Sonic2LevelAnimationManager`)
+Implements both `AnimatedPatternManager` and `AnimatedPaletteManager`:
+- `Sonic2PatternAnimator` - Animated tile scripts
+- `Sonic2PaletteCycler` - Zone-specific palette cycling
+
+#### CNZ Bumpers (`CNZBumperManager`)
+Combines placement windowing and ROM-accurate bounce physics with type-specific handlers for all 6 bumper types.
+
+#### Collision Pipeline (`CollisionSystem`)
+Unified collision orchestration in `uk.co.jamesj999.sonic.physics`:
+| Phase | Purpose |
+|-------|---------|
+| Terrain probes | Ground/ceiling/wall sensors via `TerrainCollisionManager` |
+| Solid object resolution | Platforms, moving solids via `ObjectManager.SolidContacts` |
+| Post-resolution | Ground mode, headroom checks |
+
+`PlayableSpriteMovement` uses `CollisionSystem.terrainProbes()` for all terrain collision. Supports trace recording for testing via `CollisionTrace` interface.
+
+#### UI Render Pipeline (`UiRenderPipeline`)
+Located in `uk.co.jamesj999.sonic.graphics.pipeline`, ensures correct render ordering:
+1. **Scene** - Level and sprites (rendered by LevelManager)
+2. **Overlay** - HUD via `HudRenderManager`
+3. **Fade pass** - Screen transitions via `FadeManager`
+
+`Engine.display()` uses `UiRenderPipeline.updateFade()` and `renderFadePass()` for screen transitions. Includes `RenderOrderRecorder` for testing.
 
 ### Terminology (differs from standard Sonic 2 naming)
 - **Pattern** - 8x8 pixel tile
@@ -156,9 +231,294 @@ The codebase uses singletons extensively via `getInstance()`:
 ### Configuration
 `SonicConfigurationService` loads from `config.json`. Key settings:
 - `DEBUG_VIEW_ENABLED` - Overlays sensor/collision info (default: true)
-- `DEBUG_MODE_KEY` - Key to toggle debug movement mode (default: 68 = 'D' key). When active, Sonic can fly freely with arrow keys, ignoring collision/physics.
+- `DEBUG_MODE_KEY` - Key to toggle debug movement mode (default: 68 = GLFW_KEY_D). When active, Sonic can fly freely with arrow keys, ignoring collision/physics.
 - `AUDIO_ENABLED` - Sound on/off
 - `ROM_FILENAME` - ROM path
+
+## Level Resource Overlay System
+
+Some Sonic 2 zones share level resources with overlays applied to customize the graphics. The most notable example is **Hill Top Zone (HTZ)**, which shares base data with **Emerald Hill Zone (EHZ)** and applies HTZ-specific overlays.
+
+### HTZ/EHZ Resource Composition
+
+From the s2disasm `SonLVL.ini`:
+```ini
+[Hill Top Zone Act 1/2]
+tiles=../art/kosinski/EHZ_HTZ.bin|../art/kosinski/HTZ_Supp.bin:0x3F80
+blocks=../mappings/16x16/EHZ.bin|../mappings/16x16/HTZ.bin:0x980
+chunks=../mappings/128x128/EHZ_HTZ.bin
+colind1=../collision/EHZ and HTZ primary 16x16 collision index.bin
+colind2=../collision/EHZ and HTZ secondary 16x16 collision index.bin
+```
+
+**What the overlays do:**
+- **Patterns (8×8 tiles):** Base EHZ_HTZ data is loaded, then HTZ_Supp replaces tiles starting at byte offset `0x3F80` (tile index 0x01FC). This replaces EHZ palm tree foreground tiles with HTZ fir trees.
+- **Blocks (16×16 mappings):** Base EHZ blocks are loaded, then HTZ blocks overwrite starting at byte offset `0x0980` (block index 0x0130).
+- **Chunks and Collision:** Fully shared between EHZ and HTZ (no overlay needed).
+
+### ROM Addresses (Rev01)
+
+| Resource | ROM Address | Notes |
+|----------|-------------|-------|
+| Base patterns (EHZ_HTZ) | `0x095C24` | Kosinski compressed |
+| HTZ supplement patterns | `0x098AB4` | Overlay at +0x3F80 bytes |
+| Base blocks (EHZ) | `0x094E74` | Kosinski compressed |
+| HTZ supplement blocks | `0x0985A4` | Overlay at +0x0980 bytes |
+| Shared chunks (EHZ_HTZ) | `0x099D34` | Kosinski compressed |
+| Primary collision | `0x044E50` | Shared EHZ/HTZ |
+| Secondary collision | `0x044F40` | Shared EHZ/HTZ |
+
+### Implementation
+
+The overlay system is implemented in the `uk.co.jamesj999.sonic.level.resources` package:
+
+| Class | Purpose |
+|-------|---------|
+| `LoadOp` | Describes a single load operation (ROM address, compression, dest offset) |
+| `LevelResourcePlan` | Holds lists of LoadOps for patterns, blocks, chunks, collision |
+| `ResourceLoader` | Performs the actual loading with overlay composition |
+| `Sonic2LevelResourcePlans` | Factory for zone-specific resource plans |
+
+**Key points:**
+- Each `LoadOp` specifies a `destOffsetBytes` (0 for base, non-zero for overlays)
+- `ResourceLoader.loadWithOverlays()` allocates a fresh buffer, loads base, then applies overlays
+- Overlays never mutate cached data (copy-on-write pattern)
+- `Sonic2.loadLevel()` checks for custom plans via `Sonic2LevelResourcePlans.getPlanForZone()`
+
+### Adding Similar Overlay Support for Other Zones
+
+If another zone requires overlay-based loading:
+
+1. Add ROM offset constants to `Sonic2Constants.java`
+2. Create a plan factory method in `Sonic2LevelResourcePlans.java`
+3. Update `getPlanForZone()` to return the plan for that zone ID
+4. Write tests in `LevelResourceOverlayTest.java`
+
+## Multi-Game Support Architecture
+
+The engine supports multiple Sonic games (Sonic 1, Sonic 2, Sonic 3&K) through a provider-based abstraction layer. Game-specific behavior is isolated behind interfaces, allowing the engine core to remain game-agnostic.
+
+### Core Components
+
+| Class/Interface | Purpose |
+|-----------------|---------|
+| `GameModule` | Central interface defining all game-specific providers |
+| `GameModuleRegistry` | Singleton holding the current game module |
+| `RomDetectionService` | Auto-detects ROM type and sets appropriate module |
+| `RomDetector` | Interface for game-specific ROM detection logic |
+
+### GameModule Interface
+
+The `GameModule` interface is the entry point for all game-specific functionality:
+
+```java
+// Access the current game module
+GameModule module = GameModuleRegistry.getCurrent();
+
+// Get game-specific providers
+ObjectRegistry objects = module.createObjectRegistry();
+ZoneRegistry zones = module.getZoneRegistry();
+SpecialStageProvider specialStage = module.getSpecialStageProvider();
+ScrollHandlerProvider scroll = module.getScrollHandlerProvider();
+```
+
+### Provider Interfaces
+
+| Provider | Purpose |
+|----------|---------|
+| `ZoneRegistry` | Zone/level metadata (names, act counts, start positions) |
+| `ObjectRegistry` | Object creation factories and ID mappings |
+| `SpecialStageProvider` | Chaos Emerald special stage logic |
+| `BonusStageProvider` | Checkpoint bonus stage logic (S3K) |
+| `ScrollHandlerProvider` | Per-zone parallax scroll handlers |
+| `ZoneFeatureProvider` | Zone-specific mechanics (CNZ bumpers, water) |
+| `RomOffsetProvider` | Type-safe ROM address access |
+| `LevelEventProvider` | Dynamic camera boundaries, boss arenas |
+| `TitleCardProvider` | Zone/act title card rendering |
+| `DebugModeProvider` | Game-specific debug features |
+
+### ROM Auto-Detection
+
+The engine automatically detects the loaded ROM and configures the appropriate game module:
+
+```java
+// Automatic detection (called during ROM load)
+GameModuleRegistry.detectAndSetModule(rom);
+
+// Manual module setting
+GameModuleRegistry.setCurrent(new Sonic2GameModule());
+```
+
+Detection is performed by `RomDetector` implementations registered with `RomDetectionService`. Each detector examines ROM headers/checksums to identify its game.
+
+## Object & Badnik System
+
+Game objects (springs, monitors, badniks, platforms) use a factory pattern with game-specific registries.
+
+### Object Registration
+
+```java
+// ObjectRegistry interface
+ObjectInstance create(ObjectSpawn spawn);
+String getPrimaryName(int objectId);
+
+// ObjectFactory functional interface
+ObjectInstance create(ObjectSpawn spawn, ObjectRegistry registry);
+```
+
+Objects are registered in `Sonic2ObjectRegistry.registerDefaultFactories()`:
+
+```java
+registerFactory(Sonic2ObjectIds.SPRING,
+    (spawn, registry) -> new SpringObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+```
+
+### Key Object Classes
+
+| Class | Purpose |
+|-------|---------|
+| `Sonic2ObjectRegistry` | Factory registry for Sonic 2 objects |
+| `Sonic2ObjectRegistryData` | Static name mappings for object IDs |
+| `AbstractObjectInstance` | Base class for all game objects |
+| `PlaceholderObjectInstance` | Fallback for unimplemented objects |
+
+### Badnik System
+
+Badniks (enemies) extend `AbstractBadnikInstance` which provides:
+- Common collision handling via `TouchResponseProvider`
+- Destruction behavior (explosion, animal spawn, points)
+- Movement/animation framework
+
+```java
+public abstract class AbstractBadnikInstance extends AbstractObjectInstance
+        implements TouchResponseProvider, TouchResponseAttackable {
+
+    // Subclasses implement AI logic
+    protected abstract void updateMovement(int frameCounter, AbstractPlayableSprite player);
+
+    // Collision size for touch response
+    protected abstract int getCollisionSizeIndex();
+}
+```
+
+Example badniks: `MasherBadnikInstance`, `BuzzerBadnikInstance`, `CoconutsBadnikInstance`
+
+### Adding New Objects
+
+1. Add the object ID to `Sonic2ObjectIds.java`
+2. Create an instance class extending `AbstractObjectInstance` (or `AbstractBadnikInstance` for enemies)
+3. Register the factory in `Sonic2ObjectRegistry.registerDefaultFactories()`
+4. Add collision data to `Sonic2ObjectConstants.java` if needed
+
+## Game-Specific Art Loading Pattern
+
+**Important:** Keep `ObjectArtData` game-agnostic. Game-specific sprite sheets (badniks, zone-specific objects) should be loaded through the game-specific provider, not added to `ObjectArtData`.
+
+### Architecture
+
+| Class | Purpose |
+|-------|---------|
+| `ObjectArtData` | Game-agnostic art data (monitors, springs, spikes, etc.) |
+| `Sonic2ObjectArt` | Sonic 2-specific art loader with public loader methods |
+| `Sonic2ObjectArtProvider` | Registers sheets and provides key-based access |
+| `Sonic2ObjectArtKeys` | String keys for Sonic 2-specific art |
+
+### Adding Game-Specific Art (e.g., new Badnik)
+
+1. **Add ROM address** to `Sonic2Constants.java`:
+   ```java
+   public static final int ART_NEM_NEWBADNIK_ADDR = 0x89B9A;
+   ```
+
+2. **Add art key** to `Sonic2ObjectArtKeys.java`:
+   ```java
+   public static final String NEW_BADNIK = "newbadnik";
+   ```
+
+3. **Add loader method** to `Sonic2ObjectArt.java`:
+   ```java
+   public ObjectSpriteSheet loadNewBadnikSheet() {
+       Pattern[] patterns = safeLoadNemesisPatterns(
+           Sonic2Constants.ART_NEM_NEWBADNIK_ADDR, "NewBadnik");
+       if (patterns.length == 0) {
+           return null;
+       }
+       List<SpriteMappingFrame> mappings = createNewBadnikMappings();
+       return new ObjectSpriteSheet(patterns, mappings, paletteIndex, 1);
+   }
+   ```
+
+4. **Add mappings method** to `Sonic2ObjectArt.java`:
+   ```java
+   private List<SpriteMappingFrame> createNewBadnikMappings() {
+       List<SpriteMappingFrame> frames = new ArrayList<>();
+       // Add SpriteMappingPiece for each frame
+       return frames;
+   }
+   ```
+
+5. **Register in provider** `Sonic2ObjectArtProvider.loadArtForZone()`:
+   ```java
+   registerSheet(Sonic2ObjectArtKeys.NEW_BADNIK, artLoader.loadNewBadnikSheet());
+   ```
+
+### DO NOT add to ObjectArtData
+
+The following should NOT be added to `ObjectArtData`:
+- Badnik/enemy sprites (Masher, Buzzer, ChopChop, etc.)
+- Zone-specific object sprites
+- Game-specific decorative elements
+
+These should use the loader method pattern above, keeping `ObjectArtData` focused on common objects that could be shared across game implementations.
+
+## Constants Files
+
+Game-specific constants are organized in the `game.sonic2.constants` package:
+
+| File | Contents |
+|------|----------|
+| `Sonic2Constants.java` | Primary ROM offsets (level data, palettes, collision) |
+| `Sonic2ObjectIds.java` | Object type IDs (0x41 = Spring, 0x26 = Monitor, etc.) |
+| `Sonic2ObjectConstants.java` | Touch collision table address and size data |
+| `Sonic2AnimationIds.java` | Animation script IDs for player sprites |
+| `Sonic2AudioConstants.java` | Music and SFX IDs |
+
+## Adding New Game Support
+
+To add support for a new game (e.g., Sonic 1):
+
+1. **Create the GameModule implementation**
+   ```java
+   public class Sonic1GameModule implements GameModule {
+       // Implement all provider methods
+   }
+   ```
+
+2. **Create a RomDetector**
+   ```java
+   public class Sonic1RomDetector implements RomDetector {
+       public boolean canHandle(Rom rom) {
+           // Check ROM header for "SONIC THE HEDGEHOG"
+       }
+       public GameModule createModule() {
+           return new Sonic1GameModule();
+       }
+   }
+   ```
+
+3. **Implement required providers**
+   - `ZoneRegistry` - Zone names, act counts, start positions
+   - `ObjectRegistry` - Object factories for game-specific objects
+   - Audio profile with correct SFX/music mappings
+
+4. **Register the detector**
+   Add to `RomDetectionService.registerBuiltInDetectors()`:
+   ```java
+   Class<?> sonic1DetectorClass = Class.forName(
+       "uk.co.jamesj999.sonic.game.sonic1.Sonic1RomDetector");
+   ```
+
+Optional providers can return `null` if the game doesn't use that feature (e.g., `getBonusStageProvider()` for Sonic 2).
 
 ## Audio Engine
 
@@ -176,6 +536,63 @@ Reference implementations in `docs/SMPS-rips/SMPSPlay/libs/download/libvgm/emu/c
 - `feature/ai-*` - New features
 - `bugfix/ai-*` - Bug fixes
 
+## Headless Testing
+
+The `HeadlessTestRunner` utility enables physics and collision integration tests without an OpenGL context.
+
+### Usage
+
+```java
+HeadlessTestRunner runner = new HeadlessTestRunner(sprite);
+runner.stepFrame(up, down, left, right, jump);  // Simulate one frame with input
+runner.stepIdleFrames(5);                        // Step multiple frames with no input
+```
+
+### Required Setup
+
+Tests using `HeadlessTestRunner` must follow this setup order:
+
+```java
+@Before
+public void setUp() {
+    // 1. Reset singletons (may have stale state from other tests)
+    GraphicsManager.resetInstance();
+    Camera.resetInstance();
+
+    // 2. Load ROM and initialize headless graphics
+    rom = new Rom();
+    rom.open(romFile.getAbsolutePath());
+    GameModuleRegistry.detectAndSetModule(rom);
+    GraphicsManager.getInstance().initHeadless();
+
+    // 3. Create sprite and add to SpriteManager
+    sprite = new Sonic(mainCode, startX, startY);
+    SpriteManager.getInstance().addSprite(sprite);
+    Camera.getInstance().setFocusedSprite(sprite);
+
+    // 4. Load level
+    LevelManager.getInstance().loadZoneAndAct(zone, act);
+
+    // 5. Fix static references (critical for test isolation)
+    GroundSensor.setLevelManager(LevelManager.getInstance());
+
+    // 6. Update camera position AFTER level loads (bounds are set during load)
+    Camera.getInstance().updatePosition(true);
+
+    // 7. Create test runner
+    testRunner = new HeadlessTestRunner(sprite);
+}
+```
+
+**Key pitfalls:**
+- `GroundSensor` has a static `levelManager` field initialized at class load time. Must call `setLevelManager()` after loading a new level.
+- `Camera.updatePosition(true)` must be called AFTER level load, as level bounds are set during `loadCurrentLevel()`.
+- Failing to reset `Camera` can leave `frozen=true` from death sequences in other tests.
+
+### Example Test
+
+See `TestHeadlessWallCollision.java` for a complete example that verifies ground collision and walking physics.
+
 ## Code Style Notes
 
 - Keep logic in manager classes, not in `Engine.java`
@@ -183,6 +600,24 @@ Reference implementations in `docs/SMPS-rips/SMPSPlay/libs/download/libvgm/emu/c
 - Uses Java 21 features
 
 ## Coordinate System & Rendering
+
+### Player Sprite Coordinates
+
+**Critical:** The original Sonic 2 ROM uses **center coordinates** for player position (`x_pos`, `y_pos`), not top-left corner. When implementing object interactions or collision checks:
+
+| Method | Returns | Use Case |
+|--------|---------|----------|
+| `player.getX()` / `player.getY()` | Top-left corner of sprite bounding box | Rendering, bounding box calculations |
+| `player.getCentreX()` / `player.getCentreY()` | Center of sprite (matches ROM `x_pos`/`y_pos`) | **Object interactions, collision checks** |
+
+**Always use `getCentreX()`/`getCentreY()` for object interactions** to match original ROM behavior. Using `getX()`/`getY()` creates a vertical offset of ~19 pixels (half player height), causing incorrect collision detection (e.g., triggering checkpoints when running through loops beneath them).
+
+Example from disassembly (`s2.asm`):
+```assembly
+move.w  x_pos(a3),d0        ; player CENTER X
+sub.w   x_pos(a0),d0        ; object X
+; ... collision check uses center-to-center delta
+```
 
 ### Y-Axis Convention
 The engine uses Mega Drive/Genesis screen coordinates internally where **Y increases downward** (Y=0 at top of screen). OpenGL uses the opposite convention (Y=0 at bottom), so the `BatchedPatternRenderer` flips the Y coordinate during rendering:
@@ -227,6 +662,14 @@ move.w  #$B4,y_pixel(a1)  ; $B4 = 180 in VDP space = 52 in screen space
 
 To convert: **screen_position = vdp_value - 128**
 
+## Intentional Divergences from Original ROM
+
+While the engine strives for pixel-perfect accuracy, some implementation details differ from the original hardware. These are documented in **[docs/KNOWN_DISCREPANCIES.md](docs/KNOWN_DISCREPANCIES.md)**, including:
+
+- **Gloop Sound Toggle** - Moved from Z80 driver to `BlueBallsObjectInstance`
+- **Spindash Release Transpose Fix** - Patches invalid FM transpose value
+- **Pattern ID Ranges** - GUI/Results use extended IDs (0x20000+) instead of overwriting VRAM tiles
+
 ## Sonic 2 Special Stage Implementation
 
 The special stage uses a unique pseudo-3D rendering system. Key files are in `uk.co.jamesj999.sonic.game.sonic2.specialstage`.
@@ -236,6 +679,7 @@ The special stage uses a unique pseudo-3D rendering system. Key files are in `uk
 | Class | Purpose |
 |-------|---------|
 | `Sonic2SpecialStageManager` | Main manager, coordinates all special stage systems |
+| `Sonic2SpecialStageManager.Sonic2SpecialStageObjectManager` | Nested class for object spawning/collection |
 | `Sonic2SpecialStageDataLoader` | Loads and decompresses data from ROM |
 | `Sonic2TrackAnimator` | Manages segment sequencing and animation timing |
 | `Sonic2TrackFrameDecoder` | Decodes track frame bitstream into VDP tiles |

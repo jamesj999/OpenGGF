@@ -2,8 +2,6 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 import uk.co.jamesj999.sonic.level.objects.*;
 
 import uk.co.jamesj999.sonic.graphics.GLCommand;
-import uk.co.jamesj999.sonic.level.LevelManager;
-import uk.co.jamesj999.sonic.sprites.AbstractSprite;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;

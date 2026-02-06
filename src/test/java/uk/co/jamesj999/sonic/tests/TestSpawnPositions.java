@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.tests;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.data.Game;
 import uk.co.jamesj999.sonic.data.Rom;
@@ -15,8 +16,10 @@ import uk.co.jamesj999.sonic.physics.Sensor;
 import uk.co.jamesj999.sonic.physics.SensorResult;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.GroundMode;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
+import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,17 +31,19 @@ import static org.junit.Assert.*;
  * ground,
  * not inside the floor. This helps identify misconfigured spawn Y coordinates.
  */
+@RequiresRom(SonicGame.SONIC_2)
 public class TestSpawnPositions {
+
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
 
     private Rom rom;
     private Game game;
     private LevelManager levelManager;
 
     @Before
-    public void setUp() throws IOException {
-        rom = new Rom();
-        String romFile = RomTestUtils.ensureRomAvailable().getAbsolutePath();
-        rom.open(romFile);
+    public void setUp() {
+        rom = romRule.rom();
         game = new Sonic2(rom);
 
         assertTrue("ROM should be compatible", game.isCompatible());
@@ -48,9 +53,6 @@ public class TestSpawnPositions {
 
     @After
     public void tearDown() throws Exception {
-        if (rom != null) {
-            rom.close();
-        }
         // Reset the level field in LevelManager
         Field levelField = LevelManager.class.getDeclaredField("level");
         levelField.setAccessible(true);

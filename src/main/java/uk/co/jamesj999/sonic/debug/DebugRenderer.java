@@ -1,17 +1,17 @@
 package uk.co.jamesj999.sonic.debug;
+
+import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 
-import com.jogamp.opengl.util.awt.TextRenderer;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.objects.ObjectManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
-import uk.co.jamesj999.sonic.level.objects.PlaneSwitcherManager;
 import uk.co.jamesj999.sonic.level.objects.TouchResponseDebugHit;
 import uk.co.jamesj999.sonic.level.objects.TouchResponseDebugState;
-import uk.co.jamesj999.sonic.level.objects.TouchResponseManager;
 import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.physics.Sensor;
 import uk.co.jamesj999.sonic.physics.SensorResult;
@@ -32,12 +32,30 @@ public class DebugRenderer {
 	private final LevelManager levelManager = LevelManager.getInstance();
         private final SonicConfigurationService configService = SonicConfigurationService
                         .getInstance();
-        private final DebugOverlayManager overlayManager = DebugOverlayManager.getInstance();
-        private TextRenderer renderer;
-        private TextRenderer objectRenderer;
-        private TextRenderer planeSwitcherRenderer;
-        private TextRenderer sensorRenderer;
+        private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
+        private GlyphBatchRenderer glyphBatch;
+        private PerformancePanelRenderer performancePanelRenderer;
         private static final String[] SENSOR_LABELS = {"A", "B", "C", "D", "E", "F"};
+
+        // Font size constants for different debug text categories
+        private static final FontSize SENSOR_FONT = FontSize.SMALL;      // 10pt - sensor labels
+        private static final FontSize OBJECT_LABEL_FONT = FontSize.MEDIUM; // 11pt - object labels
+        private static final FontSize PANEL_FONT = FontSize.LARGE;        // 12pt - main status panels
+
+        // Cached Color objects to avoid per-frame allocations
+        private static final Color COLOR_PLANE_SWITCH = new Color(255, 140, 0);
+        private static final Color COLOR_TOUCH_PANEL = new Color(180, 255, 180);
+        private static final Color COLOR_OBJECT_SUBTYPE = new Color(255, 180, 255);
+        private static final Color COLOR_ART_VIEWER = new Color(180, 255, 180);
+
+        // Reusable lists for panel rendering to avoid per-frame allocations
+        private final List<String> playerStatusLines = new ArrayList<>(24);
+        private final List<String> touchResponseLines = new ArrayList<>(20);
+        private final List<String> artViewerLines = new ArrayList<>(16);
+
+        // Reusable StringBuilders for string construction
+        private final StringBuilder stateFlagsBuilder = new StringBuilder(64);
+        private final StringBuilder objectLabelBuilder = new StringBuilder(32);
 
         private final int baseWidth = configService
                         .getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
@@ -51,43 +69,52 @@ public class DebugRenderer {
 	private String sonicCode = configService
 			.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
 
-	public void renderDebugInfo() {
-                if (renderer == null) {
-                        renderer = new TextRenderer(new Font(
-                                        "SansSerif", Font.PLAIN, 12), true, true);
-                }
-                if (objectRenderer == null) {
-                        objectRenderer = new TextRenderer(new Font(
-                                        "SansSerif", Font.PLAIN, 11), true, true);
-                }
-                if (planeSwitcherRenderer == null) {
-                        planeSwitcherRenderer = new TextRenderer(new Font(
-                                        "SansSerif", Font.PLAIN, 11), true, true);
-                }
-                if (sensorRenderer == null) {
-                        sensorRenderer = new TextRenderer(new Font(
-                                        "SansSerif", Font.PLAIN, 10), true, true);
-                }
+	/**
+	 * Eagerly initializes the glyph batch renderer.
+	 * Call this BEFORE the main loop starts to avoid macOS freeze issues.
+	 * The GlyphAtlas uses Java2D which conflicts with GLFW's event loop.
+	 */
+	public void eagerInit() {
+		if (glyphBatch == null) {
+			float scale = (float) Math.max(scaleX, scaleY);
+			glyphBatch = new GlyphBatchRenderer();
+			glyphBatch.init(new Font("SansSerif", Font.PLAIN, 11), scale);
+		}
+	}
 
-                renderer.beginRendering(viewportWidth, viewportHeight);
+	public void renderDebugInfo() {
+                // Lazy initialization of glyph batch renderer
+                float scale = (float) Math.max(scaleX, scaleY);
+                if (glyphBatch == null) {
+                        glyphBatch = new GlyphBatchRenderer();
+                        glyphBatch.init(new Font("SansSerif", Font.PLAIN, 11), scale);
+                }
+                if (!glyphBatch.isInitialized()) {
+                        return;
+                }
+                // Reinitialize if scale changed significantly (e.g., window resize)
+                glyphBatch.updateScale(new Font("SansSerif", Font.PLAIN, 11), scale);
+                glyphBatch.updateViewport(viewportWidth, viewportHeight);
+
+                glyphBatch.begin();
 
                 boolean showOverlay = overlayManager.isEnabled(DebugOverlayToggle.OVERLAY);
                 boolean showShortcuts = overlayManager.isEnabled(DebugOverlayToggle.SHORTCUTS);
 
                 if (!showOverlay) {
                         if (showShortcuts) {
-                                renderOverlayShortcuts(renderer, true);
+                                renderOverlayShortcuts(true);
                         } else {
-                                drawOutlined(renderer,
+                                glyphBatch.drawTextOutlined(
                                                 "Overlay Off (" + DebugOverlayToggle.OVERLAY.shortcutLabel() + ")",
-                                                uiX(6), uiY(baseHeight - 6), Color.WHITE);
+                                                uiX(6), uiY(baseHeight - 6), Color.WHITE, PANEL_FONT);
                         }
-                        renderer.endRendering();
+                        glyphBatch.end();
                         return;
                 }
 
                 if (showShortcuts) {
-                        renderOverlayShortcuts(renderer, false);
+                        renderOverlayShortcuts(false);
                 }
 
                 Sprite sprite = spriteManager.getSprite(sonicCode);
@@ -109,10 +136,8 @@ public class DebugRenderer {
                         renderObjectArtViewerPanel();
                 }
 
-                renderer.endRendering();
-
+                // Render sensor labels
                 if (playable != null && overlayManager.isEnabled(DebugOverlayToggle.SENSOR_LABELS)) {
-                        sensorRenderer.beginRendering(viewportWidth, viewportHeight);
                         Sensor[] sensors = playable.getAllSensors();
                         for (int i = 0; i < sensors.length && i < SENSOR_LABELS.length; i++) {
                                 Sensor sensor = sensors[i];
@@ -160,24 +185,34 @@ public class DebugRenderer {
                                                         offsetY = stackOffset;
                                                 }
                                         }
-                                        drawOutlined(sensorRenderer, label, screenX + offsetX, screenY + offsetY, sensorColor);
+                                        glyphBatch.drawTextOutlined(label, screenX + offsetX, screenY + offsetY, sensorColor, SENSOR_FONT);
                                 }
                         }
-                        sensorRenderer.endRendering();
                 }
 
+                // Render object labels
                 if (overlayManager.isEnabled(DebugOverlayToggle.OBJECT_LABELS)) {
                         renderObjectLabels();
                 }
+
+                // Render player plane state
                 if (overlayManager.isEnabled(DebugOverlayToggle.PLANE_SWITCHERS)) {
                         renderPlayerPlaneState();
+                }
+
+                // End the batch - single draw call for all text
+                glyphBatch.end();
+
+                // Render performance panel (requires separate GL calls for pie chart)
+                if (overlayManager.isEnabled(DebugOverlayToggle.PERFORMANCE)) {
+                        renderPerformancePanel();
                 }
         }
 
         private void renderObjectLabels() {
-            if (objectRenderer == null) {
-                return;
-            }
+                if (!glyphBatch.isBatchActive()) {
+                        return;
+                }
                 ObjectRegistry registry = GameModuleRegistry.getCurrent().createObjectRegistry();
                 java.util.Collection<ObjectSpawn> spawns = levelManager.getActiveObjectSpawns();
                 if (spawns.isEmpty()) {
@@ -185,7 +220,6 @@ public class DebugRenderer {
                 }
                 Camera camera = Camera.getInstance();
 
-                objectRenderer.beginRendering(viewportWidth, viewportHeight);
                 for (ObjectSpawn spawn : spawns) {
                         int screenX = spawn.x() - camera.getX();
                         int screenY = spawn.y() - camera.getY();
@@ -198,14 +232,16 @@ public class DebugRenderer {
                         }
 
                         String name = registry.getPrimaryName(spawn.objectId());
-                        String line1 = String.format("%02X:%02X",
-                                        spawn.objectId(), spawn.subtype());
+                        objectLabelBuilder.setLength(0);
+                        objectLabelBuilder.append(String.format("%02X:%02X",
+                                        spawn.objectId(), spawn.subtype()));
                         if (spawn.renderFlags() != 0) {
-                                line1 += " F" + Integer.toHexString(spawn.renderFlags()).toUpperCase();
+                                objectLabelBuilder.append(" F").append(Integer.toHexString(spawn.renderFlags()).toUpperCase());
                         }
                         if (spawn.respawnTracked()) {
-                                line1 += " R";
+                                objectLabelBuilder.append(" R");
                         }
+                        String line1 = objectLabelBuilder.toString();
                         int rawFlags = spawn.rawFlags() >> 12;
                         String line2 = rawFlags != 0
                                         ? ("YF:" + Integer.toHexString(rawFlags).toUpperCase())
@@ -213,23 +249,18 @@ public class DebugRenderer {
 
                         int labelX = toScreenX(screenX + 2);
                         int labelY = toScreenYFromWorld(screenY) + uiY(2);
-                        int lineHeight = uiY(10);
-                        drawOutlined(objectRenderer, name, labelX, labelY - lineHeight, Color.WHITE);
-                        drawOutlined(objectRenderer, line1, labelX, labelY, Color.MAGENTA);
+                        int lineHeight = glyphBatch.getLineHeight(OBJECT_LABEL_FONT);
+                        glyphBatch.drawTextOutlined(name, labelX, labelY - lineHeight, Color.WHITE, OBJECT_LABEL_FONT);
+                        glyphBatch.drawTextOutlined(line1, labelX, labelY, Color.MAGENTA, OBJECT_LABEL_FONT);
                         if (line2 != null) {
-                                drawOutlined(objectRenderer, line2, labelX, labelY + uiY(10),
-                                                new Color(255, 180, 255));
+                                glyphBatch.drawTextOutlined(line2, labelX, labelY + lineHeight,
+                                                COLOR_OBJECT_SUBTYPE, OBJECT_LABEL_FONT);
                         }
                 }
-                objectRenderer.endRendering();
 
                 if (!overlayManager.isEnabled(DebugOverlayToggle.PLANE_SWITCHERS)) {
                         return;
                 }
-                if (planeSwitcherRenderer == null) {
-                        return;
-                }
-                planeSwitcherRenderer.beginRendering(viewportWidth, viewportHeight);
                 int planeSwitcherObjectId = GameModuleRegistry.getCurrent().getPlaneSwitcherObjectId();
                 if (levelManager.getGameModule() != null) {
                         planeSwitcherObjectId = levelManager.getGameModule().getPlaneSwitcherObjectId();
@@ -249,55 +280,54 @@ public class DebugRenderer {
 
                         drawPlaneSwitcherLabels(spawn, screenX, screenY);
                 }
-                planeSwitcherRenderer.endRendering();
         }
 
-        private void renderOverlayShortcuts(TextRenderer textRenderer, boolean overlayOff) {
+        private void renderOverlayShortcuts(boolean overlayOff) {
                 List<String> lines = overlayManager.buildShortcutLines();
                 if (overlayOff) {
                         lines.add(0, "Overlay Off (" + DebugOverlayToggle.OVERLAY.shortcutLabel() + ")");
                 }
                 int startX = uiX(baseWidth - 150);
-                int startY = uiY(baseHeight - 6);
-                int lineHeight = Math.max(8, uiY(9));
+                int startY = uiY(baseHeight - 18);
+                int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
                 int y = startY;
                 for (String line : lines) {
-                        drawOutlined(textRenderer, line, startX, y, Color.WHITE);
+                        glyphBatch.drawTextOutlined(line, startX, y, Color.WHITE, PANEL_FONT);
                         y -= lineHeight;
                 }
         }
 
         private void drawPlaneSwitcherLabels(ObjectSpawn spawn, int screenX, int screenY) {
                 int subtype = spawn.subtype();
-                boolean horizontal = PlaneSwitcherManager.isHorizontal(subtype);
+                boolean horizontal = ObjectManager.isPlaneSwitcherHorizontal(subtype);
                 String side0 = formatPlaneSwitcherSide(subtype, 0);
                 String side1 = formatPlaneSwitcherSide(subtype, 1);
 
                 if (horizontal) {
                         int aboveY = screenY - 6;
                         int belowY = screenY + 6;
-                        drawOutlined(planeSwitcherRenderer, side0,
+                        glyphBatch.drawTextOutlined(side0,
                                         toScreenX(screenX + 2),
                                         toScreenYFromWorld(aboveY),
-                                        new Color(255, 140, 0));
-                        drawOutlined(planeSwitcherRenderer, side1,
+                                        COLOR_PLANE_SWITCH, OBJECT_LABEL_FONT);
+                        glyphBatch.drawTextOutlined(side1,
                                         toScreenX(screenX + 2),
                                         toScreenYFromWorld(belowY),
-                                        new Color(255, 140, 0));
+                                        COLOR_PLANE_SWITCH, OBJECT_LABEL_FONT);
                 } else {
                         int leftX = screenX - 16;
                         int rightX = screenX + 6;
-                        drawOutlined(planeSwitcherRenderer, side0,
+                        glyphBatch.drawTextOutlined(side0,
                                         toScreenX(leftX), toScreenYFromWorld(screenY),
-                                        new Color(255, 140, 0));
-                        drawOutlined(planeSwitcherRenderer, side1,
+                                        COLOR_PLANE_SWITCH, OBJECT_LABEL_FONT);
+                        glyphBatch.drawTextOutlined(side1,
                                         toScreenX(rightX), toScreenYFromWorld(screenY),
-                                        new Color(255, 140, 0));
+                                        COLOR_PLANE_SWITCH, OBJECT_LABEL_FONT);
                 }
         }
 
         private void renderPlayerPlaneState() {
-                if (planeSwitcherRenderer == null) {
+                if (!glyphBatch.isBatchActive()) {
                         return;
                 }
                 Sprite sprite = spriteManager.getSprite(sonicCode);
@@ -314,16 +344,15 @@ public class DebugRenderer {
                         return;
                 }
                 String label = formatLayer(playable.getLayer()) + " " + formatPriority(playable.isHighPriority());
-                planeSwitcherRenderer.beginRendering(viewportWidth, viewportHeight);
-                drawOutlined(planeSwitcherRenderer, label,
+                glyphBatch.drawTextOutlined(label,
                                 toScreenX(screenX - 6),
                                 toScreenYFromWorld(screenY) + uiY(8),
-                                new Color(255, 140, 0));
-                planeSwitcherRenderer.endRendering();
+                                COLOR_PLANE_SWITCH, OBJECT_LABEL_FONT);
         }
 
         private void renderPlayerStatusPanel(AbstractPlayableSprite sprite, int ringCount) {
-                List<String> lines = new ArrayList<>();
+                playerStatusLines.clear();
+                List<String> lines = playerStatusLines;
                 int angleByte = sprite.getAngle() & 0xFF;
                 float angleDeg = ((256 - angleByte) * 360f / 256f) % 360f;
 
@@ -382,21 +411,21 @@ public class DebugRenderer {
                 }
 
                 int startX = uiX(6);
-                int startY = uiY(baseHeight - 6);
-                int lineHeight = Math.max(8, uiY(9));
+                int startY = uiY(baseHeight - 18);
+                int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
                 int y = startY;
                 for (String line : lines) {
-                        drawOutlined(renderer, line, startX, y, Color.WHITE);
+                        glyphBatch.drawTextOutlined(line, startX, y, Color.WHITE, PANEL_FONT);
                         y -= lineHeight;
                 }
         }
 
         private void renderTouchResponsePanel(AbstractPlayableSprite sprite) {
-                TouchResponseManager manager = levelManager.getTouchResponseManager();
-                if (manager == null || renderer == null) {
+                ObjectManager manager = levelManager.getObjectManager();
+                if (manager == null || !glyphBatch.isBatchActive()) {
                         return;
                 }
-                TouchResponseDebugState state = manager.getDebugState();
+                TouchResponseDebugState state = manager.getTouchResponseDebugState();
                 if (state == null) {
                         return;
                 }
@@ -409,7 +438,8 @@ public class DebugRenderer {
                         }
                 }
 
-                List<String> lines = new ArrayList<>();
+                touchResponseLines.clear();
+                List<String> lines = touchResponseLines;
                 lines.add("== TOUCH RESP ==");
                 String crouch = state.isCrouching() ? "C" : "-";
                 lines.add(String.format("Player: x %d y %d h %d yR %d %s",
@@ -439,86 +469,118 @@ public class DebugRenderer {
 
                 int startX = uiX(baseWidth - 240);
                 int startY = uiY(baseHeight - 140);
-                int lineHeight = Math.max(8, uiY(9));
+                int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
                 int y = startY;
                 for (String line : lines) {
-                        drawOutlined(renderer, line, startX, y, new Color(180, 255, 180));
+                        glyphBatch.drawTextOutlined(line, startX, y, COLOR_TOUCH_PANEL, PANEL_FONT);
                         y -= lineHeight;
                 }
         }
 
         private void renderObjectArtViewerPanel() {
-                if (renderer == null) {
+                if (!glyphBatch.isBatchActive()) {
                         return;
                 }
                 DebugObjectArtViewer viewer = DebugObjectArtViewer.getInstance();
-                List<String> lines = new ArrayList<>();
+                artViewerLines.clear();
+                List<String> lines = artViewerLines;
                 lines.add("== ART VIEWER ==");
                 lines.add("Target: " + viewer.getTargetLabel());
-                lines.add("Mode: " + viewer.getViewModeLabel());
-                if (viewer.isPatternMode()) {
-                        lines.add(String.format("Tile: %d", viewer.getPatternCursor()));
-                        lines.add(String.format("Page: %d-%d", viewer.getPatternPageStart(),
-                                        viewer.getPatternPageEnd()));
-                        lines.add("Palette: " + viewer.getPaletteLabel());
-                        lines.add("Keys: Arrows, Tab/M, PgUp/PgDn, 0-4");
-                } else {
-                        int maxFrames = viewer.getMaxFrames();
-                        if (maxFrames > 0) {
-                                lines.add(String.format("Frame: %d/%d", viewer.getFrameIndex(), maxFrames - 1));
-                        } else {
-                                lines.add("Frame: --");
+
+                // Special display for CNZ slot faces
+                if (viewer.isCnzSlotsMode()) {
+                        lines.add("Shows all 6 slot faces");
+                        lines.add("Row 1: 0-2 (Sonic,Tails,Eggman)");
+                        lines.add("Row 2: 3-5 (Jackpot,Ring,Bar)");
+                        lines.add("");
+                        lines.add("Expected face order:");
+                        for (int i = 0; i < 6; i++) {
+                                String name = uk.co.jamesj999.sonic.level.slotmachine.CNZSlotMachineRenderer.getFaceName(i);
+                                String reward = uk.co.jamesj999.sonic.level.slotmachine.CNZSlotMachineRenderer.getFaceReward(i);
+                                lines.add(String.format("  %d: %s (%s)", i, name, reward));
                         }
-                        lines.add("Keys: Left/Right, Tab/M, PgUp/PgDn");
+                        lines.add("");
+                        lines.add("Keys: PgUp/PgDn to switch target");
+                } else {
+                        lines.add("Mode: " + viewer.getViewModeLabel());
+                        if (viewer.isPatternMode()) {
+                                lines.add(String.format("Tile: %d", viewer.getPatternCursor()));
+                                lines.add(String.format("Page: %d-%d", viewer.getPatternPageStart(),
+                                                viewer.getPatternPageEnd()));
+                                lines.add("Palette: " + viewer.getPaletteLabel());
+                                lines.add("Keys: Arrows, Tab/M, PgUp/PgDn, 0-4");
+                        } else {
+                                int maxFrames = viewer.getMaxFrames();
+                                if (maxFrames > 0) {
+                                        lines.add(String.format("Frame: %d/%d", viewer.getFrameIndex(), maxFrames - 1));
+                                } else {
+                                        lines.add("Frame: --");
+                                }
+                                lines.add("Keys: Left/Right, Tab/M, PgUp/PgDn");
+                        }
                 }
 
                 int startX = uiX(baseWidth - 160);
                 int startY = uiY(baseHeight - 120);
-                int lineHeight = Math.max(8, uiY(9));
+                int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
                 int y = startY;
                 for (String line : lines) {
-                        drawOutlined(renderer, line, startX, y, new Color(180, 255, 180));
+                        glyphBatch.drawTextOutlined(line, startX, y, COLOR_ART_VIEWER, PANEL_FONT);
                         y -= lineHeight;
                 }
         }
 
+        private void renderPerformancePanel() {
+                if (performancePanelRenderer == null) {
+                        performancePanelRenderer = new PerformancePanelRenderer(baseWidth, baseHeight, glyphBatch);
+                }
+                performancePanelRenderer.updateViewport(viewportWidth, viewportHeight);
+
+                ProfileSnapshot snapshot = PerformanceProfiler.getInstance().getSnapshot();
+                performancePanelRenderer.render(snapshot);
+        }
+
         private String formatStateFlags(AbstractPlayableSprite sprite) {
-                StringBuilder flags = new StringBuilder();
+                stateFlagsBuilder.setLength(0);
                 if (sprite.getAir()) {
-                        flags.append("Air ");
+                        stateFlagsBuilder.append("Air ");
                 } else {
-                        flags.append("Ground ");
+                        stateFlagsBuilder.append("Ground ");
                 }
                 if (sprite.getRolling()) {
-                        flags.append("Roll ");
+                        stateFlagsBuilder.append("Roll ");
                 }
                 if (sprite.getSpindash()) {
-                        flags.append("Spindash ");
+                        stateFlagsBuilder.append("Spindash ");
                 }
                 if (sprite.getCrouching()) {
-                        flags.append("Crouch ");
+                        stateFlagsBuilder.append("Crouch ");
                 }
                 if (sprite.getPushing()) {
-                        flags.append("Push ");
+                        stateFlagsBuilder.append("Push ");
                 }
-                if (flags.length() == 0) {
+                if (stateFlagsBuilder.length() == 0) {
                         return "None";
                 }
-                return flags.toString().trim();
+                // Trim trailing space
+                if (stateFlagsBuilder.charAt(stateFlagsBuilder.length() - 1) == ' ') {
+                        stateFlagsBuilder.setLength(stateFlagsBuilder.length() - 1);
+                }
+                return stateFlagsBuilder.toString();
         }
 
         private String formatPlaneSwitcherSide(int subtype, int side) {
-                int path = PlaneSwitcherManager.decodePath(subtype, side);
-                boolean highPriority = PlaneSwitcherManager.decodePriority(subtype, side);
+                int path = ObjectManager.decodePlaneSwitcherPath(subtype, side);
+                boolean highPriority = ObjectManager.decodePlaneSwitcherPriority(subtype, side);
                 return formatLayer((byte) path) + " " + formatPriority(highPriority);
         }
 
         private char formatLayer(byte layer) {
-                return PlaneSwitcherManager.formatLayer(layer);
+                return ObjectManager.formatPlaneSwitcherLayer(layer);
         }
 
         private char formatPriority(boolean highPriority) {
-                return PlaneSwitcherManager.formatPriority(highPriority);
+                return ObjectManager.formatPlaneSwitcherPriority(highPriority);
         }
 
         private String formatTouchCategory(uk.co.jamesj999.sonic.level.objects.TouchCategory category) {
@@ -531,20 +593,6 @@ public class DebugRenderer {
                         case HURT -> "H";
                         case BOSS -> "B";
                 };
-        }
-
-        private void drawOutlined(TextRenderer textRenderer, String text, int x, int y, Color color) {
-                textRenderer.setColor(Color.BLACK);
-                textRenderer.draw(text, x - 1, y);
-                textRenderer.draw(text, x + 1, y);
-                textRenderer.draw(text, x, y - 1);
-                textRenderer.draw(text, x, y + 1);
-                textRenderer.draw(text, x - 1, y - 1);
-                textRenderer.draw(text, x + 1, y - 1);
-                textRenderer.draw(text, x - 1, y + 1);
-                textRenderer.draw(text, x + 1, y + 1);
-                textRenderer.setColor(color);
-                textRenderer.draw(text, x, y);
         }
 
         public static synchronized DebugRenderer getInstance() {
@@ -584,3 +632,4 @@ public class DebugRenderer {
                 return viewportHeight - toScreenY(worldY);
         }
 }
+

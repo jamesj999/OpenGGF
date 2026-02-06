@@ -121,6 +121,9 @@ public class TestGroundSensor {
         // Sensor at 100, 100.
         // Tile at 100, 112 (Grid 6, 7).
         // Tile is Full Solid (1).
+        // ROM formula: distance = 15 - metric - (sensorY & 0xF)
+        // Surface at tileBase + 15 - metric = 112 + 15 - 16 = 111
+        // Distance = 111 - 100 = 11
 
         setTileAt(100, 112, 1);
 
@@ -131,14 +134,16 @@ public class TestGroundSensor {
         SensorResult result = sensor.scan();
 
         assertNotNull(result);
-        assertEquals(12, result.distance());
+        assertEquals(11, result.distance());
     }
 
     @Test
     public void testDownSensorTouch() {
         // Sensor at 100, 112.
         // Tile at 100, 112 (Full Solid).
-        // Distance = 0.
+        // ROM formula: distance = 15 - metric - (sensorY & 0xF)
+        // At sensorY = 112 (tileBase): distance = 15 - 16 - 0 = -1
+        // In ROM, distance = -1 means sensor is at the top solid pixel.
 
         setTileAt(100, 112, 1);
 
@@ -149,7 +154,7 @@ public class TestGroundSensor {
         SensorResult result = sensor.scan();
 
         assertNotNull(result);
-        assertEquals(0, result.distance());
+        assertEquals(-1, result.distance());
     }
 
     @Test
@@ -158,8 +163,8 @@ public class TestGroundSensor {
         // Tile at 100, 112 is Empty (0).
         // Tile at 100, 128 is Full Solid (1).
         // Extension should find tile at 128.
-        // Surface at 128.
-        // Distance = 128 - 100 = 28.
+        // ROM formula: surface = tileBase + 15 - metric = 128 + 15 - 16 = 127
+        // Distance = 127 - 100 = 27
 
         setTileAt(100, 112, 0, CollisionMode.NO_COLLISION); // Empty
         setTileAt(100, 128, 1); // Full
@@ -171,7 +176,7 @@ public class TestGroundSensor {
         SensorResult result = sensor.scan();
 
         assertNotNull("Should find extended tile", result);
-        assertEquals(28, result.distance());
+        assertEquals(27, result.distance());
     }
 
     @Test
@@ -209,7 +214,7 @@ public class TestGroundSensor {
         SensorResult result = sensor.scan();
 
         assertNotNull("Should find extended tile", result);
-        assertEquals(12, result.distance());
+        assertEquals(11, result.distance());
     }
 
     @Test
@@ -217,8 +222,8 @@ public class TestGroundSensor {
         // Sensor at 100, 112.
         // Tile at 100, 112 is Full Solid (1).
         // Tile at 100, 96 is Half Solid (2) (Height 8).
-        // Surface at 96 + 16 - 8 = 104.
-        // Distance = 104 - 112 = -8.
+        // ROM formula: surface = tileBase + 15 - metric = 96 + 15 - 8 = 103
+        // Distance = 103 - 112 = -9
 
         setTileAt(100, 112, 1);
         setTileAt(100, 96, 2);
@@ -230,22 +235,21 @@ public class TestGroundSensor {
         SensorResult result = sensor.scan();
 
         assertNotNull("Should find regressed tile", result);
-        assertEquals(-8, result.distance());
+        assertEquals(-9, result.distance());
     }
 
     @Test
     public void testRightWallSensorRotation() {
         // Mode: RIGHTWALL.
         // Sensor: (x=0, y=10) [Relative to Sprite in GROUND mode].
-        // Rotated for RIGHTWALL: (y, -x) -> (10, 0).
+        // Rotated for RIGHTWALL: (x, y) -> (y, x) -> (10, 0).
+        // ROM: s2.asm Sonic_WalkVertR (42684-42712)
         // Sprite Center: (100, 100).
         // Sensor Scan Start: (110, 100).
         // Direction: RIGHTWALL + DOWN -> RIGHT (from SpriteManager).
         // Looking for wall to Right.
         // Wall at (112, 100). Tile 1 (Full).
-        // Distance: (TileX + 16 - Width) - SensorX
-        // TileX = 112. Width = 16.
-        // (112 + 16 - 16) - 110 = 2.
+        // Distance calculation accounts for tile edge detection.
 
         setTileAt(112, 100, 1);
 
@@ -258,7 +262,100 @@ public class TestGroundSensor {
         SensorResult result = sensor.scan();
 
         assertNotNull(result);
-        assertEquals(2, result.distance());
+        assertEquals(1, result.distance());
+    }
+
+    @Test
+    public void testRightWallSensorRotationWithNonZeroX() {
+        // Mode: RIGHTWALL.
+        // Sensor: (x=5, y=10) [Relative to Sprite in GROUND mode].
+        // Rotated for RIGHTWALL: (x, y) -> (y, x) -> (10, 5).
+        // ROM: s2.asm Sonic_WalkVertR (42684-42712)
+        // Just swaps axes, no negation needed.
+
+        mockSprite.setGroundMode(GroundMode.RIGHTWALL);
+        mockSprite.setX((short) 100);
+        mockSprite.setY((short) 100);
+
+        GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 5, (byte) 10, true);
+        short[] rotated = sensor.getRotatedOffset();
+
+        assertEquals("X should be y = 10", 10, rotated[0]);
+        assertEquals("Y should be x = 5", 5, rotated[1]);
+    }
+
+    @Test
+    public void testCeilingSensorRotation() {
+        // Mode: CEILING.
+        // Sensor: (x=-9, y=19) [Left ground sensor offset].
+        // Rotated for CEILING: (x, y) -> (x, -y) -> (-9, -19).
+        // ROM: s2.asm Sonic_WalkCeiling (42750-42779)
+        // X stays the same (left sensor stays on left side).
+        // Only Y is negated (sensor probes upward toward ceiling).
+        // This was the bug: old code did (-x, -y) which swapped left/right sensors!
+
+        mockSprite.setGroundMode(GroundMode.CEILING);
+        mockSprite.setX((short) 100);
+        mockSprite.setY((short) 100);
+
+        GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) -9, (byte) 19, true);
+        short[] rotated = sensor.getRotatedOffset();
+
+        assertEquals("X should remain -9 (left side)", -9, rotated[0]);
+        assertEquals("Y should be negated to -19", -19, rotated[1]);
+    }
+
+    @Test
+    public void testCeilingSensorRotationRightSide() {
+        // Mode: CEILING.
+        // Sensor: (x=9, y=19) [Right ground sensor offset].
+        // Rotated for CEILING: (x, y) -> (x, -y) -> (9, -19).
+        // X stays positive (right sensor stays on right side).
+
+        mockSprite.setGroundMode(GroundMode.CEILING);
+        mockSprite.setX((short) 100);
+        mockSprite.setY((short) 100);
+
+        GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 9, (byte) 19, true);
+        short[] rotated = sensor.getRotatedOffset();
+
+        assertEquals("X should remain 9 (right side)", 9, rotated[0]);
+        assertEquals("Y should be negated to -19", -19, rotated[1]);
+    }
+
+    @Test
+    public void testLeftWallSensorRotation() {
+        // Mode: LEFTWALL.
+        // Sensor: (x=5, y=10) [Relative to Sprite in GROUND mode].
+        // Rotated for LEFTWALL: (x, y) -> (-y, x) -> (-10, 5).
+        // ROM: s2.asm Sonic_WalkVertL (42817-42846)
+
+        mockSprite.setGroundMode(GroundMode.LEFTWALL);
+        mockSprite.setX((short) 100);
+        mockSprite.setY((short) 100);
+
+        GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 5, (byte) 10, true);
+        short[] rotated = sensor.getRotatedOffset();
+
+        assertEquals("X should be -y = -10", -10, rotated[0]);
+        assertEquals("Y should be x = 5", 5, rotated[1]);
+    }
+
+    @Test
+    public void testGroundSensorRotation() {
+        // Mode: GROUND (default).
+        // Sensor: (x=-9, y=19) [Left ground sensor offset].
+        // No rotation: (x, y) -> (x, y) -> (-9, 19).
+
+        mockSprite.setGroundMode(GroundMode.GROUND);
+        mockSprite.setX((short) 100);
+        mockSprite.setY((short) 100);
+
+        GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) -9, (byte) 19, true);
+        short[] rotated = sensor.getRotatedOffset();
+
+        assertEquals("X should remain -9", -9, rotated[0]);
+        assertEquals("Y should remain 19", 19, rotated[1]);
     }
 
     @Test
@@ -272,10 +369,11 @@ public class TestGroundSensor {
         mockSprite.setY((short) 100);
 
         // 1. Check with DOWN sensor (Ground). Should detect collision.
+        // ROM formula: surface = 112 + 15 - 16 = 111, distance = 111 - 100 = 11
         GroundSensor downSensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 0, (byte) 0, true);
         SensorResult downResult = downSensor.scan();
         assertNotNull("DOWN sensor should detect TOP_SOLID", downResult);
-        assertEquals(12, downResult.distance());
+        assertEquals(11, downResult.distance());
 
         // 2. Check with UP sensor (Ceiling). Should NOT detect collision (treat as
         // empty/extend).
@@ -318,11 +416,11 @@ public class TestGroundSensor {
         mockSprite.setY((short) 100);
 
         GroundSensor downSensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 0, (byte) 0, true);
-        // If solid: distance 12.
-        // If ignored: Sees tile at 112 as empty.
-        // Distance: (112 + 16 - 0) - 100 = 28.
+        // If solid: distance 11.
+        // If ignored: Sees tile at 112 as empty, extends to 128.
+        // ROM formula: surface = 128 + 15 - 16 = 127, distance = 127 - 100 = 27
         SensorResult downResult = downSensor.scan();
-        assertEquals("DOWN sensor should ignore L_R_B_SOLID", 28, downResult.distance());
+        assertEquals("DOWN sensor should ignore L_R_B_SOLID", 27, downResult.distance());
 
         // 2. Check UP sensor. Should detect.
         setTileAt(100, 80, 1, CollisionMode.LEFT_RIGHT_BOTTOM_SOLID);

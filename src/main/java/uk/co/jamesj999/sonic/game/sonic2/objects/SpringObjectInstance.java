@@ -3,6 +3,7 @@ import uk.co.jamesj999.sonic.level.objects.*;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.audio.GameSound;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AnimationIds;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -73,11 +74,11 @@ public class SpringObjectInstance extends BoxObjectInstance
             return;
         }
 
-        // Prevent infinite re-triggering: if player is already springing, don't trigger
-        // again
-        if (player.getSpringing()) {
-            return;
-        }
+        // ROM behavior: No check for "springing" state before triggering.
+        // The ROM only checks pushing/standing flags and side position.
+        // Natural collision resolution (pushing player away) prevents
+        // infinite re-triggering on the same spring. The move_lock/springing
+        // state only locks player INPUT, not object interactions.
 
         int type = getType();
 
@@ -135,7 +136,7 @@ public class SpringObjectInstance extends BoxObjectInstance
      * spring face)
      */
     private void applyUpSpring(AbstractPlayableSprite player) {
-        // Don't adjust Y position - SolidObjectManager already handles collision
+        // Don't adjust Y position - ObjectManager already handles collision
         // positioning
 
         // ROM: y_vel = negative value (negative = up in Y-down coordinate system)
@@ -209,11 +210,11 @@ public class SpringObjectInstance extends BoxObjectInstance
             player.setYSpeed((short) 0);
         }
 
-        // ROM: Horizontal springs use move_lock ($F) but ideally shouldn't trigger
-        // spring animation
+        // ROM: Horizontal springs set control lock to 16 frames (SPG confirms)
+        // This prevents player from braking immediately after being launched
         // However, our engine uses setSpringing which also locks controls
         // TODO: Fix animation profile to not show spring animation when grounded
-        player.setSpringing(15);
+        player.setSpringing(16);
 
         trigger(player);
     }
@@ -240,6 +241,61 @@ public class SpringObjectInstance extends BoxObjectInstance
 
     private void trigger(AbstractPlayableSprite player) {
         animationState.setAnimId(triggeredAnimId);
+
+        int subtype = spawn.subtype();
+        int type = getType();
+
+        // ROM: Animation handling varies by spring type
+        // Up/Diagonal-Up: Set Spring animation, then override to Walk if bit 0 set
+        // Down/Diagonal-Down: Only set Walk if bit 0 set (no default animation change)
+        // Horizontal: Set Walk (unless rolling), then add flip params if bit 0 set
+
+        if (type == TYPE_HORIZONTAL) {
+            // ROM: loc_18B11-18B13 - Horizontal springs use Walk animation (unless rolling)
+            if (!player.getRolling()) {
+                player.setAnimationId(Sonic2AnimationIds.WALK);
+            }
+            // ROM: loc_18BAA clears pushing flags after horizontal spring triggers
+            player.setPushing(false);
+        } else if (type == TYPE_UP || type == TYPE_DIAGONAL_UP) {
+            // ROM: loc_189CA/loc_18E10 - Up springs set Spring animation first
+            player.setAnimationId(Sonic2AnimationIds.SPRING);
+        }
+        // Down springs (TYPE_DOWN, TYPE_DIAGONAL_DOWN): No default animation change
+
+        // ROM: If bit 0 set, override to Walk animation with flip/twirl effect
+        if ((subtype & 0x01) != 0) {
+            player.setAnimationId(Sonic2AnimationIds.WALK);
+            player.setFlipAngle(1);
+
+            if (type == TYPE_UP || type == TYPE_DOWN) {
+                // ROM: Up/Down springs use flip_speed=4, flips=0 (or 1 if bit 1 NOT set)
+                player.setFlipSpeed(4);
+                player.setFlipsRemaining((subtype & 0x02) != 0 ? 0 : 1);
+            } else {
+                // ROM: Horizontal/Diagonal springs use flip_speed=8, flips=1 (or 3 if bit 1 NOT set)
+                player.setFlipSpeed(8);
+                player.setFlipsRemaining((subtype & 0x02) != 0 ? 1 : 3);
+            }
+
+            // ROM: move.w #1,inertia(a1) - Set inertia for twirl
+            short inertia = 1;
+
+            // ROM: Negate flip_angle and inertia if player facing left
+            if (player.getDirection() == Direction.LEFT) {
+                player.setFlipAngle(-player.getFlipAngle());
+                inertia = -1;  // ROM: neg.w inertia(a1)
+            }
+
+            // Only set inertia for non-horizontal springs (horizontal already sets gSpeed = x_vel)
+            if (type != TYPE_HORIZONTAL) {
+                player.setGSpeed(inertia);
+            }
+        }
+
+        // ROM: loc_18A3E-18A66 - Set collision layer based on subtype bits 2-3
+        SpringHelper.applyCollisionLayerBits(player, subtype);
+
         try {
             if (AudioManager.getInstance() != null) {
                 AudioManager.getInstance().playSfx(GameSound.SPRING);
@@ -271,15 +327,17 @@ public class SpringObjectInstance extends BoxObjectInstance
     }
 
     /**
-     * Make spring non-solid when player is already springing.
-     * This prevents ceiling collision from zeroing Y velocity immediately after
-     * launch.
+     * ROM behavior: Springs are always solid.
+     * The onSolidContact guard (checking player.getSpringing()) prevents
+     * re-triggering while allowing the spring to remain solid for collision.
+     * This is critical for spring loops where the player must collide with
+     * the second spring after hitting the first.
+     *
+     * Previous implementation made springs non-solid during springing state,
+     * which caused players to pass through springs and hit terrain.
      */
     @Override
     public boolean isSolidFor(AbstractPlayableSprite player) {
-        if (player != null && player.getSpringing()) {
-            return false; // Player passes through spring when springing
-        }
         return true;
     }
 
@@ -287,6 +345,7 @@ public class SpringObjectInstance extends BoxObjectInstance
      * ROM collision params vary by type:
      * Up/Down: D1=$1B (27), D2=8, D3=$10 (16)
      * Horizontal: D1=$13 (19), D2=$E (14), D3=$F (15)
+     * Diagonal: D1=$1B (27), D2=$10 (16) - taller to catch player running off terrain
      */
     @Override
     public SolidObjectParams getSolidParams() {
@@ -295,7 +354,12 @@ public class SpringObjectInstance extends BoxObjectInstance
             // Reduce height to 8 (16px total) to avoid blocking player when walking over it
             return new SolidObjectParams(19, 8, 8);
         }
-        // Up, Down, Diagonal use standard vertical params
+        if (type == TYPE_DIAGONAL_UP || type == TYPE_DIAGONAL_DOWN) {
+            // ROM: Diagonal springs use d2=$10 (halfHeight=16), taller collision box
+            // This is critical for catching the player when running off terrain edges
+            return new SolidObjectParams(27, 16, 16);
+        }
+        // Up, Down springs use standard vertical params
         // Fix height: Air=8, Ground=8 (matches 16px visual height, prevents
         // oscillation)
         return new SolidObjectParams(27, 8, 8);

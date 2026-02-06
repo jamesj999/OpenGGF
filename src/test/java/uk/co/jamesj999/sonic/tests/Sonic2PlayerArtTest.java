@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.tests;
 
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
@@ -7,20 +9,30 @@ import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2PlayerArt;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
-
-import java.io.File;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
+import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
+@RequiresRom(SonicGame.SONIC_2)
 public class Sonic2PlayerArtTest {
+
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
+
+    private Rom rom;
+    private RomByteReader reader;
+
+    @Before
+    public void setUp() throws Exception {
+        rom = romRule.rom();
+        reader = RomByteReader.fromRom(rom);
+    }
 
     @Test
     public void sonicMappingFramesMatchRev01() throws Exception {
-        File romFile = RomTestUtils.ensureRomAvailable();
-        Rom rom = new Rom();
-        rom.open(romFile.getAbsolutePath());
-        RomByteReader reader = RomByteReader.fromRom(rom);
         Sonic2PlayerArt artLoader = new Sonic2PlayerArt(reader);
         SpriteArtSet sonic = artLoader.loadForCharacter("sonic");
 
@@ -33,10 +45,6 @@ public class Sonic2PlayerArtTest {
 
     @Test
     public void tailsMappingFramesMatchRev01() throws Exception {
-        File romFile = RomTestUtils.ensureRomAvailable();
-        Rom rom = new Rom();
-        rom.open(romFile.getAbsolutePath());
-        RomByteReader reader = RomByteReader.fromRom(rom);
         Sonic2PlayerArt artLoader = new Sonic2PlayerArt(reader);
         SpriteArtSet tails = artLoader.loadForCharacter("tails");
 

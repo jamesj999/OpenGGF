@@ -7,10 +7,11 @@ import uk.co.jamesj999.sonic.audio.synth.VirtualSynthesizer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Logger;
 
-public class SmpsSequencer implements AudioStream {
+public class SmpsSequencer implements AudioStream, CoordFlagContext {
     private static final Logger LOGGER = Logger.getLogger(SmpsSequencer.class.getName());
     private final AbstractSmpsData smpsData;
     private AbstractSmpsData fallbackVoiceData;
@@ -19,7 +20,6 @@ public class SmpsSequencer implements AudioStream {
     private final SmpsSequencerConfig config;
     private final int tempoModBase;
     private final List<Track> tracks = new ArrayList<>();
-    private final int z80Base;
 
     public enum Region {
         NTSC(60.0), PAL(50.0);
@@ -34,16 +34,25 @@ public class SmpsSequencer implements AudioStream {
     private Region region = Region.NTSC;
     private boolean speedShoes = false;
     private boolean sfxMode = false;
-    private final boolean isSfx;
     private int normalTempo;
     private int commData = 0; // Communication byte (E2)
     private boolean fm6DacOff = false;
     private int maxTicks = Integer.MAX_VALUE;
     private float pitch = 1.0f;
     private int sfxPriority = 0x70; // Default SFX priority (Z80 driver uses 0x70 as common)
+    private boolean isSfx = false; // Cached SFX status for performance (set by SmpsDriver.addSequencer)
+    private int psgLatchChannel = -1; // Cached PSG latch channel for performance (set by SmpsDriver.writePsg)
+    private int speedMultiplier = 1; // S3K: extra tick calls per tempo frame for speed shoes
 
     public void setPitch(float pitch) {
         this.pitch = pitch;
+    }
+
+    public void setSampleRate(double sampleRate) {
+        if (sampleRate > 0.0) {
+            this.sampleRate = sampleRate;
+            this.samplesPerFrame = sampleRate / region.frameRate;
+        }
     }
 
     public void setSfxPriority(int priority) {
@@ -52,6 +61,46 @@ public class SmpsSequencer implements AudioStream {
 
     public int getSfxPriority() {
         return sfxPriority;
+    }
+
+    /**
+     * Mark this sequencer as SFX. Called by SmpsDriver when adding the sequencer.
+     * This cached flag eliminates HashSet lookups in the hot path.
+     */
+    public void setIsSfx(boolean isSfx) {
+        this.isSfx = isSfx;
+    }
+
+    /**
+     * Returns true if this sequencer is playing SFX (not music).
+     * Uses a cached field for O(1) lookup instead of HashSet.contains().
+     */
+    public boolean isSfx() {
+        return isSfx;
+    }
+
+    /**
+     * Set the cached PSG latch channel. Called by SmpsDriver.writePsg().
+     * This eliminates HashMap lookups in the hot path.
+     */
+    public void setPsgLatchChannel(int channel) {
+        this.psgLatchChannel = channel;
+    }
+
+    /**
+     * Get the cached PSG latch channel.
+     * @return the latch channel (0-3), or -1 if not latched
+     */
+    public int getPsgLatchChannel() {
+        return psgLatchChannel;
+    }
+
+    /**
+     * Set a callback to be invoked when a fade-in completes.
+     * Used by JOALAudioBackend to clear sfxBlocked flag after override music restoration.
+     */
+    public void setOnFadeComplete(Runnable callback) {
+        this.onFadeComplete = callback;
     }
 
     private static class FadeState {
@@ -65,8 +114,9 @@ public class SmpsSequencer implements AudioStream {
     }
 
     private final FadeState fadeState = new FadeState();
+    private Runnable onFadeComplete;
 
-    private static final double SAMPLE_RATE = 44100.0;
+    private double sampleRate = 44100.0;
     // Base tempo weight is game/driver-specific (configured externally).
     private double samplesPerFrame = 44100.0 / 60.0;
     private double sampleCounter = 0;
@@ -75,11 +125,16 @@ public class SmpsSequencer implements AudioStream {
     private int dividingTiming = 1;
     private boolean primed;
 
+    // Scratch buffer for read() to avoid per-sample allocations
+    private final short[] scratchSample = new short[1];
+
     // Speed-up tempos and channel orders are game/driver-specific (configurable).
 
     // F-Num table for Octave 4
+    // Calculated using Z80 formula: round(freq * 1024 * 1024 * 2 / FM_Sample_Rate)
+    // where FM_Sample_Rate = 53267 Hz (NTSC: 7670454 / 144)
     private static final int[] FNUM_TABLE = {
-            617, 653, 692, 733, 777, 823, 872, 924, 979, 1037, 1099, 1164
+            606, 644, 683, 723, 766, 813, 860, 911, 965, 1023, 1084, 1148
     };
     // SMPSPlay DEF_PSGFREQ_68K table (register values). Slice from DEF_PSGFREQ_PRE
     // starting at index 12 (count 70).
@@ -92,70 +147,88 @@ public class SmpsSequencer implements AudioStream {
             0x01B, 0x01A, 0x018, 0x017, 0x016, 0x015, 0x013, 0x012, 0x011, 0x010
     };
 
-    // Carrier bitmask per YM2612 algorithm in YM operator order (Op1, Op2, Op3,
-    // Op4) mapped to bits 0-3.
-    // Works with opMap {0,2,1,3} to reach SMPS TL order (Op1, Op3, Op2, Op4).
-    private static final int[] ALGO_OUT_MASK = { 0x08, 0x08, 0x08, 0x08, 0x0A, 0x0E, 0x0E, 0x0F };
+    // Carrier bitmask per YM2612 algorithm in YM operator order (Op1, Op2, Op3, Op4).
+    // Algo output mask from SMPSPlay is in slot/register order (40/44/48/4C = slots 1/2/3/4).
+    // Our SMPS operator order is Op1, Op3, Op2, Op4, so we convert masks once here.
+    private static final int[] ALGO_OUT_MASK_SLOT = { 0x08, 0x08, 0x08, 0x08, 0x0C, 0x0E, 0x0E, 0x0F };
+    private static final int[] ALGO_OUT_MASK = toSmpsOrderMask(ALGO_OUT_MASK_SLOT);
+
+    private static int[] toSmpsOrderMask(int[] slotMasks) {
+        int[] out = new int[slotMasks.length];
+        for (int i = 0; i < slotMasks.length; i++) {
+            int mask = slotMasks[i];
+            int smps = 0;
+            if ((mask & 0x01) != 0) smps |= 1; // slot1 -> op1
+            if ((mask & 0x04) != 0) smps |= 1 << 1; // slot3 -> op3
+            if ((mask & 0x02) != 0) smps |= 1 << 2; // slot2 -> op2
+            if ((mask & 0x08) != 0) smps |= 1 << 3; // slot4 -> op4
+            out[i] = smps;
+        }
+        return out;
+    }
 
     public enum TrackType {
         FM, PSG, DAC
     }
 
-    private class Track {
-        int pos;
-        TrackType type;
-        int channelId;
-        int duration;
-        int note;
-        boolean active = true;
-        boolean overridden = false; // Set if SFX stole the channel
-        int rawDuration;
-        int scaledDuration;
-        int fill; // note-off shortening in ticks
-        int keyOffset; // signed semitone displacement (E9)
-        int volumeOffset; // attenuation applied to TL (FM) or volume (PSG)
-        boolean tieNext; // E7 prevents next attack
-        int pan = 0xC0; // default L+R bits set for YM (E0)
-        int ams = 0;
-        int fms = 0;
-        byte[] voiceData; // last loaded voice
-        int voiceId;
-        int baseFnum;
-        int baseBlock;
-        int[] loopCounters = new int[4];
-        int loopTarget = -1;
+    public static class Track {
+        public int pos;
+        public TrackType type;
+        public int channelId;
+        public int duration;
+        public int note;
+        public boolean active = true;
+        public boolean overridden = false; // Set if SFX stole the channel
+        public int rawDuration;
+        public int scaledDuration;
+        public int fill; // note-off shortening in ticks
+        public int keyOffset; // signed semitone displacement (E9)
+        public int volumeOffset; // attenuation applied to TL (FM) or volume (PSG)
+        public boolean tieNext; // E7 prevents next attack
+        public int pan = 0xC0; // default L+R bits set for YM (E0)
+        public int ams = 0;
+        public int fms = 0;
+        public byte[] voiceData; // last loaded voice
+        // Scratch buffer for voice data modification (avoids allocation in refreshInstrument)
+        public final byte[] voiceScratch = new byte[25];
+        public int voiceId;
+        public int baseFnum;
+        public int baseBlock;
+        public int[] loopCounters = new int[8]; // Increased from 4 to reduce runtime reallocation
+        public int loopTarget = -1;
         // Z80 driver: Stack shares space with loop counters, grows down from offset 0x2A.
         // No hard limit but collision possible after ~5 calls. Using 16 for safety margin.
-        final int[] returnStack = new int[16];
-        int returnSp = 0;
-        int dividingTiming = 1;
+        public final int[] returnStack = new int[16];
+        public int returnSp = 0;
+        public int dividingTiming = 1;
         // Modulation (F0)
-        int modDelay;
-        int modDelayInit;
-        int modRate;
-        int modDelta;
-        int modSteps;
-        int modRateCounter;
-        int modStepCounter;
-        int modAccumulator;
-        int modCurrentDelta;
-        boolean modEnabled;
-        int detune;
-        int modEnvId;
-        int instrumentId;
-        boolean noiseMode;
-        int psgNoiseParam;
-        int decayOffset;
-        int decayTimer;
+        public int modDelay;
+        public int modDelayInit;
+        public int modRate;
+        public int modDelta;
+        public int modSteps;
+        public int modStepsFull;
+        public int modRateCounter;
+        public int modStepCounter;
+        public int modAccumulator;
+        public int modCurrentDelta;
+        public boolean modEnabled;
+        public int detune;
+        public int modEnvId;
+        public int instrumentId;
+        public boolean noiseMode;
+        public int psgNoiseParam;
+        public int decayOffset;
+        public int decayTimer;
         // PSG Volume Envelope
-        byte[] envData;
-        int envPos;
-        int envValue;
-        boolean envHold;
-        boolean envAtRest;
-        boolean forceRefresh;
+        public byte[] envData;
+        public int envPos;
+        public int envValue;
+        public boolean envHold;
+        public boolean envAtRest;
+        public boolean forceRefresh;
         // DAC mute state for fade-in
-        boolean dacMuted;
+        public boolean dacMuted;
 
         Track(int pos, TrackType type, int channelId) {
             this.pos = pos;
@@ -171,12 +244,10 @@ public class SmpsSequencer implements AudioStream {
     public SmpsSequencer(AbstractSmpsData smpsData, DacData dacData, Synthesizer synth,
             SmpsSequencerConfig config) {
         this.smpsData = smpsData;
-        this.isSfx = smpsData instanceof SmpsSfxData;
         this.data = smpsData.getData();
         this.synth = synth;
         this.config = Objects.requireNonNull(config, "config");
         this.tempoModBase = this.config.getTempoModBase();
-        this.z80Base = smpsData.getZ80StartAddress();
         this.synth.setDacData(dacData);
 
         // Enable DAC (YM2612 Reg 2B = 0x80)
@@ -280,6 +351,7 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
+    @Override
     public AbstractSmpsData getSmpsData() {
         return smpsData;
     }
@@ -296,15 +368,38 @@ public class SmpsSequencer implements AudioStream {
      * Force-silence a hardware channel that was previously owned by this sequencer.
      * Used by the driver when releasing SFX locks so stray tones don't linger
      * if there is no music track to immediately rewrite the channel.
+     * <p>
+     * For FM channels, this matches ROM behavior (zSetMaxRelRate + zFMSilenceChannel):
+     * - Set D1L/RR to 0xFF for all operators (fastest release)
+     * - Set TL to 0x7F for all operators (max attenuation)
+     * - Key off
+     * This ensures the envelope is fully silenced before music refreshes the channel,
+     * preventing corrupted first samples when music resumes.
      */
     public void forceSilence(TrackType type, int channelId) {
         if (type == TrackType.FM) {
-            int hwCh = channelId;
-            int port = (hwCh < 3) ? 0 : 1;
-            int ch = hwCh % 3;
+            int port = (channelId < 3) ? 0 : 1;
+            int ch = channelId % 3;
             int chVal = (port == 0) ? ch : (ch + 4);
-            synth.writeFm(this, 0, 0x28, 0x00 | chVal); // key off
-            if (hwCh == 5) {
+
+            // ROM: zSetMaxRelRate - Set D1L/RR to 0xFF (fastest release) for all operators
+            // Register 0x80-0x8F: D1L/RR (Sustain Level / Release Rate)
+            // Operator register offsets: 0x00 (Op1), 0x08 (Op3), 0x04 (Op2), 0x0C (Op4)
+            int[] opOffsets = {0x00, 0x08, 0x04, 0x0C};
+            for (int opOffset : opOffsets) {
+                synth.writeFm(this, port, 0x80 + opOffset + ch, 0xFF);
+            }
+
+            // ROM: zFMSilenceChannel - Set TL to 0x7F (max attenuation) for all operators
+            // Register 0x40-0x4F: TL (Total Level)
+            for (int opOffset : opOffsets) {
+                synth.writeFm(this, port, 0x40 + opOffset + ch, 0x7F);
+            }
+
+            // Key off
+            synth.writeFm(this, 0, 0x28, chVal);
+
+            if (channelId == 5) {
                 // If this was DAC (FM6), stop DAC playback too.
                 synth.stopDac(this);
             }
@@ -318,7 +413,7 @@ public class SmpsSequencer implements AudioStream {
 
     public void setRegion(Region region) {
         this.region = region;
-        this.samplesPerFrame = SAMPLE_RATE / region.frameRate;
+        this.samplesPerFrame = sampleRate / region.frameRate;
         calculateTempo();
     }
 
@@ -347,7 +442,7 @@ public class SmpsSequencer implements AudioStream {
         }
         // SFX tick every tempo frame; keep frame pacing tied to region to avoid
         // double-speed playback.
-        this.samplesPerFrame = SAMPLE_RATE / region.frameRate;
+        this.samplesPerFrame = sampleRate / region.frameRate;
         calculateTempo();
 
         // Safety: cap SFX to a reasonable tick budget so bad data doesn't hang forever.
@@ -374,6 +469,14 @@ public class SmpsSequencer implements AudioStream {
                     }
                     if (t.type == TrackType.FM) {
                         applyFmPanAmsFms(t);
+                        // Ensure channel is keyed-off after restore to prevent clicks/pops.
+                        // The music track's note was interrupted by SFX; it should remain
+                        // silent until the next note event naturally keys-on.
+                        int hwCh = t.channelId;
+                        int port = (hwCh < 3) ? 0 : 1;
+                        int ch = hwCh % 3;
+                        int chVal = (port == 0) ? ch : (ch + 4);
+                        synth.writeFm(this, 0, 0x28, chVal);
                     }
                     if (t.duration > 0) {
                         restoreFrequency(t);
@@ -406,7 +509,7 @@ public class SmpsSequencer implements AudioStream {
                 int data = reg & 0xF;
                 int type = 0;
                 int ch = t.channelId;
-                synth.writePsg(this, 0x80 | (ch << 5) | (type << 4) | data);
+                synth.writePsg(this, 0x80 | (ch << 5) | (0) | data);
                 synth.writePsg(this, (reg >> 4) & 0x3F);
             }
 
@@ -421,8 +524,6 @@ public class SmpsSequencer implements AudioStream {
 
         int packed = (t.baseBlock << 11) | t.baseFnum;
         packed += t.modAccumulator + t.detune;
-
-        packed = getPitchSlideFreq(packed);
 
         if (pitch != 1.0f) {
             int b = (packed >> 11) & 7;
@@ -470,38 +571,32 @@ public class SmpsSequencer implements AudioStream {
             weighted = 0xFF;
 
         this.tempoWeight = weighted;
+
+        // For TIMEOUT mode, initialize the countdown accumulator to the tempo value
+        if (config.getTempoMode() == SmpsSequencerConfig.TempoMode.TIMEOUT && tempoAccumulator == 0) {
+            tempoAccumulator = normalTempo;
+        }
     }
 
     private int mapFmChannel(int val) {
-        switch (val) {
-            case 0:
-                return 0; // FM1
-            case 1:
-                return 1; // FM2
-            case 2:
-                return 2; // FM3
-            case 4:
-                return 3; // FM4
-            case 5:
-                return 4; // FM5
-            case 6:
-                return 5; // FM6
-            default:
-                return -1;
-        }
+        return switch (val) {
+            case 0 -> 0; // FM1
+            case 1 -> 1; // FM2
+            case 2 -> 2; // FM3
+            case 4 -> 3; // FM4
+            case 5 -> 4; // FM5
+            case 6 -> 5; // FM6
+            default -> -1;
+        };
     }
 
     private int mapPsgChannel(int val) {
-        switch (val) {
-            case 0x80:
-                return 0;
-            case 0xA0:
-                return 1;
-            case 0xC0:
-                return 2;
-            default:
-                return -1;
-        }
+        return switch (val) {
+            case 0x80 -> 0;
+            case 0xA0 -> 1;
+            case 0xC0 -> 2;
+            default -> -1;
+        };
     }
 
     private void initSfxTracks(SmpsSfxData sfxData, int z80Start) {
@@ -576,7 +671,11 @@ public class SmpsSequencer implements AudioStream {
     public int read(short[] buffer) {
         if (!primed) {
             if (tempoWeight != 0) {
-                tick();
+                if (config.isTempoOnFirstTick()) {
+                    processTempoFrame(); // S1: process tempo on first frame (DOTEMPO)
+                } else {
+                    tick(); // S2: skip tempo on first frame (PlayMusic)
+                }
             }
             primed = true;
         }
@@ -587,11 +686,10 @@ public class SmpsSequencer implements AudioStream {
 
         for (int i = 0; i < buffer.length; i++) {
             advance(1.0);
-            short[] single = new short[1];
             if (synth instanceof VirtualSynthesizer) {
-                ((VirtualSynthesizer) synth).render(single);
+                ((VirtualSynthesizer) synth).render(scratchSample);
             }
-            buffer[i] = single[0];
+            buffer[i] = scratchSample[0];
         }
         return buffer.length;
     }
@@ -604,6 +702,37 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
+    /**
+     * Advance by multiple samples at once. More efficient than calling advance(1) repeatedly.
+     * Processes tempo frames as needed.
+     *
+     * @param samples Number of samples to advance
+     */
+    public void advanceBatch(int samples) {
+        sampleCounter += samples;
+        while (sampleCounter >= samplesPerFrame) {
+            sampleCounter -= samplesPerFrame;
+            processTempoFrame();
+        }
+    }
+
+    /**
+     * Calculate the number of samples until the next tempo frame boundary.
+     * This determines the maximum safe batch size that won't cross a tempo event.
+     *
+     * @return Number of samples until next tempo frame, or Integer.MAX_VALUE if no tempo
+     */
+    public int getSamplesUntilNextTempoFrame() {
+        if (tempoWeight == 0 || samplesPerFrame <= 0) {
+            return Integer.MAX_VALUE;
+        }
+        double remaining = samplesPerFrame - sampleCounter;
+        if (remaining <= 0) {
+            return 0;
+        }
+        return (int) Math.ceil(remaining);
+    }
+
     private void tick() {
         for (Track t : tracks) {
             if (!t.active)
@@ -612,8 +741,6 @@ public class SmpsSequencer implements AudioStream {
             // background,
             // but their output is blocked (or overwritten) by the SFX.
             // SmpsDriver blocks the writes if locked.
-
-            boolean wasActive = t.active;
 
             if (t.duration > 0) {
                 t.duration--;
@@ -627,7 +754,8 @@ public class SmpsSequencer implements AudioStream {
                     if (t.type == TrackType.PSG) {
                         processPsgEnvelope(t);
                     }
-                    if ((t.type == TrackType.FM || t.type == TrackType.PSG) && t.modEnabled) {
+                    // Skip modulation if track is at rest (0x80). Matches Z80 driver zDoModulation check.
+                    if ((t.type == TrackType.FM || t.type == TrackType.PSG) && t.modEnabled && t.note != 0x80) {
                         applyModulation(t);
                     }
                     continue;
@@ -677,7 +805,7 @@ public class SmpsSequencer implements AudioStream {
                 }
             }
 
-            if (!t.active && wasActive) {
+            if (!t.active) {
                 stopNote(t);
             }
         }
@@ -687,9 +815,21 @@ public class SmpsSequencer implements AudioStream {
         if (tempoWeight == 0) {
             return;
         }
-        tempoAccumulator += tempoWeight;
-        if (tempoAccumulator >= tempoModBase) {
-            tempoAccumulator -= tempoModBase;
+        if (config.getTempoMode() == SmpsSequencerConfig.TempoMode.TIMEOUT) {
+            // S1 style: always tick, but periodically extend track durations
+            // SFX bypass tempo extension entirely - they just tick every frame
+            if (!sfxMode) {
+                tempoAccumulator--;
+                if (tempoAccumulator <= 0) {
+                    tempoAccumulator = normalTempo;
+                    // Extend all active music track durations by 1
+                    for (Track t : tracks) {
+                        if (t.active && t.duration > 0) {
+                            t.duration++;
+                        }
+                    }
+                }
+            }
             processFade();
             tick();
             if (sfxMode) {
@@ -701,22 +841,38 @@ public class SmpsSequencer implements AudioStream {
                     }
                 }
             }
+        } else {
+            // S2 style: accumulator overflow
+            tempoAccumulator += tempoWeight;
+            if (tempoAccumulator >= tempoModBase) {
+                tempoAccumulator -= tempoModBase;
+                processFade();
+                tick();
+                // S3K speed shoes: extra tick calls when multiplier > 1
+                for (int m = 1; m < speedMultiplier; m++) {
+                    processFade();
+                    tick();
+                }
+                if (sfxMode) {
+                    maxTicks--;
+                    if (maxTicks <= 0) {
+                        for (Track t : tracks) {
+                            t.active = false;
+                            stopNote(t);
+                        }
+                    }
+                }
+            }
         }
     }
 
     private void processFade() {
-        if (!fadeState.active || fadeState.steps == 0) {
+        if (!fadeState.active) {
             return;
         }
 
-        if (fadeState.delayCounter > 0) {
-            fadeState.delayCounter--;
-            return;
-        }
-
-        fadeState.delayCounter = fadeState.delayInit;
-        fadeState.steps--;
-
+        // ROM: Check if fade counter is already 0 BEFORE processing
+        // This happens after all steps have been applied
         if (fadeState.steps == 0) {
             if (fadeState.fadeOut) {
                 // Stop all tracks
@@ -731,10 +887,24 @@ public class SmpsSequencer implements AudioStream {
                         t.dacMuted = false;
                     }
                 }
+                // Notify listener that fade-in is complete (e.g., to unblock SFX)
+                if (onFadeComplete != null) {
+                    onFadeComplete.run();
+                }
             }
             fadeState.active = false;
             return;
         }
+
+        // ROM: Check delay counter, decrement and return if not yet 0
+        if (fadeState.delayCounter > 0) {
+            fadeState.delayCounter--;
+            return;
+        }
+
+        // ROM: Decrement fade counter and apply volume change
+        fadeState.steps--;
+        fadeState.delayCounter = fadeState.delayInit;
 
         int dir = fadeState.fadeOut ? 1 : -1;
 
@@ -755,6 +925,12 @@ public class SmpsSequencer implements AudioStream {
 
     // handleFlag and other private methods...
     private void handleFlag(Track t, int cmd) {
+        // Delegate to game-specific handler first (e.g., S3K coord flags)
+        CoordFlagHandler handler = config.getCoordFlagHandler();
+        if (handler != null && handler.handleFlag(this, t, cmd)) {
+            return;
+        }
+
         switch (cmd) {
             case 0xF2: // Stop
                 t.active = false;
@@ -839,12 +1015,14 @@ public class SmpsSequencer implements AudioStream {
             case 0xEA:
                 // Set main tempo
                 if (t.pos < data.length) {
-                    int newTempo = data[t.pos++] & 0xFF;
-                    normalTempo = newTempo;
+                    normalTempo = data[t.pos++] & 0xFF;
                     calculateTempo();
-                    // Parity: EA (Tempo Set) resets the tempo accumulator/counter to the new tempo
-                    // value
-                    tempoAccumulator = tempoWeight;
+                    // Parity: EA (Tempo Set) resets the tempo accumulator/counter to the new tempo value
+                    if (config.getTempoMode() == SmpsSequencerConfig.TempoMode.TIMEOUT) {
+                        tempoAccumulator = normalTempo;
+                    } else {
+                        tempoAccumulator = tempoWeight;
+                    }
                 }
                 break;
             case 0xEB:
@@ -855,6 +1033,12 @@ public class SmpsSequencer implements AudioStream {
                 }
                 break;
             default:
+                // Check for game-specific TRK_END flags (e.g., S1 0xEE = stop track)
+                if (!config.getExtraTrkEndFlags().isEmpty() && config.getExtraTrkEndFlags().contains(cmd)) {
+                    t.active = false;
+                    stopNote(t);
+                    break;
+                }
                 int params = flagParamLength(cmd);
                 int advance = Math.min(params, data.length - t.pos);
                 t.pos += advance;
@@ -862,35 +1046,60 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
+    // Pre-computed flag parameter length table for SMPS commands 0xE0-0xFF
+    // Lookup table is faster than switch statement in hot path
+    // Index = cmd - 0xE0 (range 0-31)
+    private static final byte[] FLAG_PARAM_LENGTH = new byte[32];
+    static {
+        // 1-parameter commands
+        FLAG_PARAM_LENGTH[0xE0 - 0xE0] = 1; // Pan
+        FLAG_PARAM_LENGTH[0xE1 - 0xE0] = 1; // Detune
+        FLAG_PARAM_LENGTH[0xE2 - 0xE0] = 1; // Set Communication
+        FLAG_PARAM_LENGTH[0xE5 - 0xE0] = 1; // Tick multiplier
+        FLAG_PARAM_LENGTH[0xE6 - 0xE0] = 1; // Volume
+        FLAG_PARAM_LENGTH[0xE8 - 0xE0] = 1; // Note fill
+        FLAG_PARAM_LENGTH[0xE9 - 0xE0] = 1; // Key displacement
+        FLAG_PARAM_LENGTH[0xEA - 0xE0] = 1; // Set main tempo
+        FLAG_PARAM_LENGTH[0xEB - 0xE0] = 1; // Set dividing timing
+        FLAG_PARAM_LENGTH[0xEC - 0xE0] = 1; // PSG volume
+        FLAG_PARAM_LENGTH[0xED - 0xE0] = 1; // (unused but keep for safety)
+        FLAG_PARAM_LENGTH[0xEF - 0xE0] = 1; // Set Voice
+        FLAG_PARAM_LENGTH[0xF3 - 0xE0] = 1; // PSG Noise
+        FLAG_PARAM_LENGTH[0xF5 - 0xE0] = 1; // PSG instrument
+
+        // 2-parameter commands
+        FLAG_PARAM_LENGTH[0xF6 - 0xE0] = 2; // Jump
+        FLAG_PARAM_LENGTH[0xF8 - 0xE0] = 2; // Call
+        FLAG_PARAM_LENGTH[0xFD - 0xE0] = 2; // Custom Fade Out
+
+        // 4-parameter commands
+        FLAG_PARAM_LENGTH[0xF0 - 0xE0] = 4; // Modulation
+        FLAG_PARAM_LENGTH[0xF7 - 0xE0] = 4; // Loop
+
+        // 0-parameter commands (E3, E4, E7, EE, F1, F2, F4, F9) are already 0 from array initialization
+    }
+
     private int flagParamLength(int cmd) {
-        switch (cmd) {
-            case 0xE0:
-            case 0xE1:
-            case 0xE2:
-            case 0xE5:
-            case 0xE6:
-            case 0xE8:
-            case 0xE9:
-            case 0xEA:
-            case 0xEB:
-            case 0xEC:
-            case 0xED:
-            case 0xF3:
-            case 0xF5:
-            case 0xEF:
-                return 1;
-            case 0xF6:
-            case 0xF8:
-                return 2;
-            case 0xF0:
-            case 0xF7:
-                return 4;
-            case 0xFD:
-                return 2;
-            // E3, E4, E7, EE, F1, F2, F4, F9 are 0 parameters
-            default:
-                return 0;
+        if (cmd >= 0xE0 && cmd <= 0xFF) {
+            // Delegate to game-specific handler first
+            CoordFlagHandler handler = config.getCoordFlagHandler();
+            if (handler != null) {
+                int len = handler.flagParamLength(cmd);
+                if (len >= 0) {
+                    return len;
+                }
+            }
+            // Check for game-specific overrides first (e.g., S1 ED/EE differ from S2)
+            Map<Integer, Integer> overrides = config.getCoordFlagParamOverrides();
+            if (!overrides.isEmpty()) {
+                Integer override = overrides.get(cmd);
+                if (override != null) {
+                    return override;
+                }
+            }
+            return FLAG_PARAM_LENGTH[cmd - 0xE0];
         }
+        return 0;
     }
 
     private void handleFadeOut(Track t) {
@@ -905,6 +1114,7 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
+    @Override
     public int getCommData() {
         return commData;
     }
@@ -917,9 +1127,34 @@ public class SmpsSequencer implements AudioStream {
         return ptr;
     }
 
+    /**
+     * Read a jump/loop/call pointer from the track data, handling both S1 (PC-relative)
+     * and S2 (absolute Z80) addressing modes.
+     *
+     * <p>S1 68k: In-stream pointers (F6/F7/F8) use {@code dc.w loc-*-1}, meaning the
+     * raw 16-bit value is a signed offset from (ptrWordOffset + 1).
+     *
+     * <p>S2 Z80: Pointers are absolute Z80 addresses, resolved via {@link #relocate}.
+     */
+    @Override
+    public int readJumpPointer(Track t) {
+        if (config.isRelativePointers()) {
+            // S1 68k: PC-relative from (ptrAddr + 1)
+            int ptrOffset = t.pos;
+            int raw = smpsData.read16(t.pos);
+            t.pos += 2;
+            // Interpret as signed 16-bit
+            int target = ptrOffset + 1 + (short) raw;
+            return (target >= 0 && target < data.length) ? target : -1;
+        } else {
+            // S2 Z80: absolute address, needs relocate
+            int ptr = readPointer(t);
+            return relocate(ptr, smpsData.getZ80StartAddress());
+        }
+    }
+
     private void handleJump(Track t) {
-        int ptr = readPointer(t);
-        int newPos = relocate(ptr, smpsData.getZ80StartAddress());
+        int newPos = readJumpPointer(t);
         if (newPos != -1) {
             t.pos = newPos;
         } else {
@@ -931,8 +1166,7 @@ public class SmpsSequencer implements AudioStream {
         if (t.pos + 2 <= data.length) {
             int index = data[t.pos++] & 0xFF;
             int count = data[t.pos++] & 0xFF;
-            int ptr = readPointer(t);
-            int newPos = relocate(ptr, smpsData.getZ80StartAddress());
+            int newPos = readJumpPointer(t);
             if (newPos == -1) {
                 t.active = false;
                 return;
@@ -960,8 +1194,7 @@ public class SmpsSequencer implements AudioStream {
     }
 
     private void handleCall(Track t) {
-        int ptr = readPointer(t);
-        int newPos = relocate(ptr, smpsData.getZ80StartAddress());
+        int newPos = readJumpPointer(t);
         if (newPos == -1 || t.returnSp >= t.returnStack.length) {
             t.active = false;
             return;
@@ -1007,17 +1240,21 @@ public class SmpsSequencer implements AudioStream {
             int rate = data[t.pos++] & 0xFF;
             t.modRate = (rate == 0) ? 256 : rate;
             t.modDelta = data[t.pos++];
-            t.modSteps = data[t.pos++] & 0xFF;
+            int steps = data[t.pos++] & 0xFF;
+            t.modStepsFull = steps;
+            // Z80 driver (S2): srl a (halve). 68k driver (S1): no halving.
+            t.modSteps = config.isHalveModSteps() ? steps / 2 : steps;
 
             t.modRateCounter = t.modRate;
-            t.modStepCounter = t.modSteps / 2;
+            t.modStepCounter = t.modSteps;
             t.modAccumulator = 0;
             t.modCurrentDelta = t.modDelta;
             t.modEnabled = true;
         }
     }
 
-    private void clearModulation(Track t) {
+    @Override
+    public void clearModulation(Track t) {
         t.modEnabled = false;
         t.modAccumulator = 0;
     }
@@ -1074,12 +1311,12 @@ public class SmpsSequencer implements AudioStream {
 
     private void setTrackDividingTiming(Track t) {
         if (t.pos < data.length) {
-            int newDiv = data[t.pos++] & 0xFF;
-            t.dividingTiming = newDiv;
+            t.dividingTiming = data[t.pos++] & 0xFF;
         }
     }
 
-    private void updateDividingTiming(int newDividingTiming) {
+    @Override
+    public void updateDividingTiming(int newDividingTiming) {
         dividingTiming = newDividingTiming;
         for (Track track : tracks) {
             track.dividingTiming = newDividingTiming;
@@ -1109,7 +1346,8 @@ public class SmpsSequencer implements AudioStream {
         return scaled;
     }
 
-    private void loadVoice(Track t, int voiceId) {
+    @Override
+    public void loadVoice(Track t, int voiceId) {
         byte[] voice = smpsData.getVoice(voiceId);
         if (voice == null && fallbackVoiceData != null) {
             voice = fallbackVoiceData.getVoice(voiceId);
@@ -1170,18 +1408,16 @@ public class SmpsSequencer implements AudioStream {
             t.baseFnum = fnum;
             t.baseBlock = block;
 
-            if (t.modEnabled) {
+            if (t.modEnabled && !t.tieNext) {
                 t.modDelay = t.modDelayInit;
                 t.modRateCounter = t.modRate;
-                t.modStepCounter = t.modSteps / 2;
+                t.modStepCounter = t.modSteps;
                 t.modAccumulator = 0;
                 t.modCurrentDelta = t.modDelta;
             }
 
             int packed = (block << 11) | fnum;
             packed += t.detune;
-
-            packed = getPitchSlideFreq(packed);
 
             if (pitch != 1.0f) {
                 int b = (packed >> 11) & 7;
@@ -1207,11 +1443,15 @@ public class SmpsSequencer implements AudioStream {
                     synth.writeFm(this, 0, 0x2B, 0x00);
                 }
 
-                synth.writeFm(this, 0, 0x28, 0x00 | chVal); // Key Off before frequency change
+                synth.writeFm(this, 0, 0x28, chVal); // Key Off before frequency change
             }
 
             writeFmFreq(port, ch, fnum, block);
             applyFmPanAmsFms(t);
+            // S2 (ModAlgo 68k_a) applies modulation before note-on; S1 (ModAlgo 68k) does not.
+            if (t.modEnabled && config.isApplyModOnNote()) {
+                applyModulation(t);
+            }
 
             if (!t.tieNext) {
                 synth.writeFm(this, 0, 0x28, 0xF0 | chVal); // Key On after latching frequency/pan
@@ -1251,19 +1491,25 @@ public class SmpsSequencer implements AudioStream {
                 int data = reg & 0xF;
                 int type = 0;
                 int ch = t.channelId;
-                synth.writePsg(this, 0x80 | (ch << 5) | (type << 4) | data);
+                synth.writePsg(this, 0x80 | (ch << 5) | (0) | data);
                 synth.writePsg(this, (reg >> 4) & 0x3F);
                 // Initialize modulation state for PSG slides
                 t.baseFnum = reg;
             }
 
-            if (t.modEnabled) {
+            if (t.modEnabled && !t.tieNext) {
                 t.modDelay = t.modDelayInit;
                 t.modRateCounter = t.modRate;
-                t.modStepCounter = t.modSteps / 2;
+                t.modStepCounter = t.modSteps;
                 t.modAccumulator = 0;
                 t.modCurrentDelta = t.modDelta;
             }
+
+            // S2 (ModAlgo 68k_a) applies modulation before PSG volume write; S1 (ModAlgo 68k) does not.
+            if (t.modEnabled && config.isApplyModOnNote()) {
+                applyModulation(t);
+            }
+
         }
 
         t.decayOffset = 0;
@@ -1288,35 +1534,21 @@ public class SmpsSequencer implements AudioStream {
     }
 
     private int getPitchSlideFreq(int freq) {
-        // SMPS driver wraps slides within octaves to avoid discontinuities, but never
-        // past the top octave.
-        int block = (freq >> 11) & 0x7;
-        if (block >= 7) {
-            return freq;
-        }
-
-        int baseFreq = 0x269;
-        int lowFreq = baseFreq;
-        int highFreq = baseFreq * 2;
-        int freqFixDown = 0x7FF - baseFreq;
-        int freqFixUp = 0x800 - baseFreq;
-
-        int octFreq = freq & 0x7FF;
-        if (octFreq < lowFreq) {
-            freq -= freqFixDown;
-        } else if (octFreq > highFreq) {
-            freq += freqFixUp;
-        }
+        // The Z80 SMPS driver does NOT have any pitch slide wrapping logic.
+        // It directly adds modulation/detune to the frequency and lets the
+        // hardware handle any overflow. Previous wrapping code here was
+        // causing incorrect octave jumps during modulation (e.g., Gloop SFX).
         return freq;
     }
 
-    private void stopNote(Track t) {
+    @Override
+    public void stopNote(Track t) {
         if (t.type == TrackType.FM) {
             int hwCh = t.channelId;
             int port = (hwCh < 3) ? 0 : 1;
             int ch = hwCh % 3;
             int chVal = (port == 0) ? ch : (ch + 4);
-            synth.writeFm(this, 0, 0x28, 0x00 | chVal); // Key On/Off is always on Port 0
+            synth.writeFm(this, 0, 0x28, chVal); // Key On/Off is always on Port 0
         } else if (t.type == TrackType.DAC) {
             synth.stopDac(this);
         } else {
@@ -1339,9 +1571,10 @@ public class SmpsSequencer implements AudioStream {
         return true;
     }
 
-    private void refreshVolume(Track t) {
+    @Override
+    public void refreshVolume(Track t) {
         if (t.type == TrackType.FM) {
-            refreshInstrument(t);
+            updateFmTotalLevel(t);
         } else if (t.type == TrackType.PSG) {
             if (t.envAtRest) {
                 return;
@@ -1360,7 +1593,50 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
-    private void loadPsgEnvelope(Track t, int id) {
+    private void updateFmTotalLevel(Track t) {
+        if (t.voiceData == null) {
+            return;
+        }
+        boolean hasTl = t.voiceData.length >= 25;
+        if (!hasTl) {
+            return;
+        }
+        int algo = t.voiceData[0] & 0x07;
+        int[] tlIdx = { 21, 23, 22, 24 };
+        int mask;
+        if (config.getVolMode() == SmpsSequencerConfig.VolMode.BIT7) {
+            // S3K: carrier operators identified by bit 7 set in TL bytes
+            mask = 0;
+            for (int op = 0; op < 4; op++) {
+                int idx = tlIdx[op];
+                if (idx < t.voiceData.length && (t.voiceData[idx] & 0x80) != 0) {
+                    mask |= (1 << op);
+                }
+            }
+        } else {
+            mask = ALGO_OUT_MASK[algo];
+        }
+
+        int hwCh = t.channelId;
+        int port = (hwCh < 3) ? 0 : 1;
+        int ch = hwCh % 3;
+
+        for (int op = 0; op < 4; op++) {
+            if ((mask & (1 << op)) == 0) {
+                continue;
+            }
+            int idx = tlIdx[op];
+            if (idx >= t.voiceData.length) {
+                continue;
+            }
+            int tl = (t.voiceData[idx] & 0x7F) + t.volumeOffset;
+            tl &= 0x7F; // wrap like the Z80 interpreter (7-bit)
+            synth.writeFm(this, port, 0x40 + (op * 4) + ch, tl);
+        }
+    }
+
+    @Override
+    public void loadPsgEnvelope(Track t, int id) {
         byte[] env = smpsData.getPsgEnvelope(id);
         if (env != null) {
             t.envData = env;
@@ -1394,7 +1670,12 @@ public class SmpsSequencer implements AudioStream {
                 return;
             } else {
                 if (val == 0x80) {
-                    // HOLD (Sonic 2 driver definition)
+                    if (config.getPsgEnvCmd80() == SmpsSequencerConfig.PsgEnvCmd80.RESET) {
+                        // S3K: reset envelope to start (loop from beginning)
+                        t.envPos = 0;
+                        continue;
+                    }
+                    // S1/S2: HOLD (Sonic 2 driver definition)
                     t.envHold = true;
                     t.envAtRest = true;
                     return;
@@ -1406,8 +1687,7 @@ public class SmpsSequencer implements AudioStream {
                 } else if (val == 0x82) {
                     // LOOP xx - next byte is target index
                     if (t.envPos < t.envData.length) {
-                        int target = t.envData[t.envPos] & 0xFF;
-                        t.envPos = target;
+                        t.envPos = t.envData[t.envPos] & 0xFF;
                         continue;
                     } else {
                         t.envHold = true;
@@ -1442,25 +1722,34 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
-    private void refreshInstrument(Track t) {
+    @Override
+    public void refreshInstrument(Track t) {
         if (t.type != TrackType.FM || t.voiceData == null) {
             return;
         }
-        byte[] voice = new byte[t.voiceData.length];
-        System.arraycopy(t.voiceData, 0, voice, 0, voice.length);
-        boolean hasTl = voice.length >= 25;
+        // Use scratch buffer instead of allocating new array each call
+        int copyLen = Math.min(t.voiceData.length, t.voiceScratch.length);
+        System.arraycopy(t.voiceData, 0, t.voiceScratch, 0, copyLen);
+        byte[] voice = t.voiceScratch;
+        boolean hasTl = t.voiceData.length >= 25;
         // SMPS (S2) stores TL at the end of the 25-byte blob (bytes 21-24).
         int tlBase = hasTl ? 21 : -1;
         if (tlBase >= 0) {
             int algo = voice[0] & 0x07;
-            int mask = ALGO_OUT_MASK[algo];
-            // Mask bits are in slot order: bit0=Op1, bit1=Op3, bit2=Op2, bit3=Op4.
-            // Voice data is in Slot Order (Op1, Op3, Op2, Op4). Identity mapping.
-            // Voice TL bytes are stored in SMPS slot order: Op1, Op3, Op2, Op4.
-            // Mask bits are YM operator order (Op1, Op2, Op3, Op4); TL bytes are SMPS order
-            // (Op1, Op3, Op2, Op4).
-            // Map mask bit -> TL index offset.
             int[] opMap = { 0, 2, 1, 3 };
+            int mask;
+            if (config.getVolMode() == SmpsSequencerConfig.VolMode.BIT7) {
+                // S3K: carrier operators identified by bit 7 set in TL bytes
+                mask = 0;
+                for (int op = 0; op < 4; op++) {
+                    int idx = tlBase + opMap[op];
+                    if (idx < voice.length && (voice[idx] & 0x80) != 0) {
+                        mask |= (1 << op);
+                    }
+                }
+            } else {
+                mask = ALGO_OUT_MASK[algo];
+            }
 
             for (int op = 0; op < 4; op++) {
                 if ((mask & (1 << op)) != 0) {
@@ -1490,16 +1779,17 @@ public class SmpsSequencer implements AudioStream {
         int valA0 = fnum & 0xFF;
         synth.writeFm(this, port, 0xA4 + ch, valA4);
         synth.writeFm(this, port, 0xA0 + ch, valA0);
-        if (isSfx) {
-            int chVal = (port == 0) ? ch : (ch + 4);
-            synth.writeFm(this, 0, 0x28, 0xF0 | (chVal & 0x0F));
-            LOGGER.fine("FM KEY ON (freq latch): chVal=" + Integer.toHexString(chVal) + " fnum="
-                    + Integer.toHexString(fnum) + " block=" + block);
-        }
+        // Note: Key On is handled by playNote(), NOT here.
+        // The original Z80 driver's zFMUpdateFreq only writes frequency registers.
+        // Adding Key On here caused re-keying during rests, breaking SFX like 0xAD.
     }
 
     private void applyModulation(Track t) {
         if (!t.modEnabled)
+            return;
+        // Match original Z80 driver behavior: skip modulation when track is at rest.
+        // From s2.sounddriver.asm zDoModulation: "bit 1,(ix+zTrack.PlaybackControl) / ret nz"
+        if (t.note == 0x80)  // 0x80 = rest note
             return;
 
         boolean changed = false;
@@ -1518,31 +1808,20 @@ public class SmpsSequencer implements AudioStream {
             changed = true;
 
             if (t.modStepCounter == 0) {
-                t.modStepCounter = t.modSteps;
+                t.modStepCounter = t.modStepsFull;
                 t.modCurrentDelta = -t.modCurrentDelta;
+                // Z80 driver returns early here (no frequency update this tick).
+                return;
             } else {
                 t.modStepCounter--;
                 t.modAccumulator += t.modCurrentDelta;
+                t.modAccumulator = (short) t.modAccumulator; // 16-bit signed wrap
             }
         }
 
         if (changed) {
             if (t.type == TrackType.FM) {
-                int packed = (t.baseBlock << 11) | t.baseFnum;
-                packed += t.modAccumulator + t.detune;
-
-                packed = getPitchSlideFreq(packed);
-
-                if (pitch != 1.0f) {
-                    int b = (packed >> 11) & 7;
-                    int f = packed & 0x7FF;
-                    f = (int) (f * pitch);
-                    while (f > 0x7FF && b < 7) {
-                        f >>= 1;
-                        b++;
-                    }
-                    packed = (b << 11) | (f & 0x7FF);
-                }
+                int packed = getPacked(t);
 
                 int block = (packed >> 11) & 7;
                 int fnum = packed & 0x7FF;
@@ -1577,6 +1856,25 @@ public class SmpsSequencer implements AudioStream {
         }
     }
 
+    private int getPacked(Track t) {
+        int packed = (t.baseBlock << 11) | t.baseFnum;
+        packed += t.modAccumulator + t.detune;
+
+        packed = getPitchSlideFreq(packed);
+
+        if (pitch != 1.0f) {
+            int b = (packed >> 11) & 7;
+            int f = packed & 0x7FF;
+            f = (int) (f * pitch);
+            while (f > 0x7FF && b < 7) {
+                f >>= 1;
+                b++;
+            }
+            packed = (b << 11) | (f & 0x7FF);
+        }
+        return packed;
+    }
+
     private void setDetune(Track t) {
         if (t.pos < data.length) {
             t.detune = data[t.pos++];
@@ -1601,7 +1899,8 @@ public class SmpsSequencer implements AudioStream {
         fadeState.delayInit = delay;
         fadeState.addFm = 1;
         fadeState.addPsg = 1;
-        fadeState.delayCounter = fadeState.delayInit;
+        // ROM: FadeInDelay is NOT initialized, so first step happens immediately
+        fadeState.delayCounter = 0;
         fadeState.active = true;
         fadeState.fadeOut = false; // Fade IN
 
@@ -1667,6 +1966,78 @@ public class SmpsSequencer implements AudioStream {
 
     public Synthesizer getSynthesizer() {
         return synth;
+    }
+
+    // -----------------------------------------------------------------------
+    // CoordFlagContext implementation (remaining methods)
+    // -----------------------------------------------------------------------
+
+    @Override
+    public byte[] getData() {
+        return data;
+    }
+
+    @Override
+    public SmpsSequencerConfig getConfig() {
+        return config;
+    }
+
+    @Override
+    public void setNormalTempo(int tempo) {
+        this.normalTempo = tempo;
+    }
+
+    @Override
+    public int getNormalTempo() {
+        return normalTempo;
+    }
+
+    @Override
+    public void recalculateTempo() {
+        calculateTempo();
+    }
+
+    @Override
+    public void triggerFadeIn() {
+        // Parameterless version: use config defaults
+        triggerFadeIn(config.getFadeInSteps(), config.getFadeInDelay());
+    }
+
+    @Override
+    public void setCommData(int value) {
+        this.commData = value;
+    }
+
+    @Override
+    public void writeFm(int port, int reg, int value) {
+        synth.writeFm(this, port, reg, value);
+    }
+
+    @Override
+    public void writePsg(int value) {
+        synth.writePsg(this, value);
+    }
+
+    @Override
+    public void playDac(int noteId) {
+        synth.playDac(this, noteId);
+    }
+
+    @Override
+    public void stopDac() {
+        synth.stopDac(this);
+    }
+
+    // -----------------------------------------------------------------------
+    // Speed multiplier (S3K speed shoes)
+    // -----------------------------------------------------------------------
+
+    public void setSpeedMultiplier(int multiplier) {
+        this.speedMultiplier = Math.max(1, multiplier);
+    }
+
+    public int getSpeedMultiplier() {
+        return speedMultiplier;
     }
 
     public synchronized DebugState debugState() {

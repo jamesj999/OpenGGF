@@ -2,14 +2,21 @@ package uk.co.jamesj999.sonic.debug;
 
 import uk.co.jamesj999.sonic.Control.InputHandler;
 
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
+
+import static org.lwjgl.glfw.GLFW.*;
 
 public class DebugOverlayManager {
     private static DebugOverlayManager debugOverlayManager;
 
     private final EnumMap<DebugOverlayToggle, Boolean> states = new EnumMap<>(DebugOverlayToggle.class);
+
+    /** Reusable list for shortcut lines to avoid per-frame allocations */
+    private final List<String> shortcutLines = new ArrayList<>(16);
 
     private DebugOverlayManager() {
         for (DebugOverlayToggle toggle : DebugOverlayToggle.values()) {
@@ -33,6 +40,53 @@ public class DebugOverlayManager {
                 setEnabled(toggle, !isEnabled(toggle));
             }
         }
+
+        // Ctrl+P copies performance stats to clipboard
+        if (handler.isKeyDown(GLFW_KEY_LEFT_CONTROL) && handler.isKeyPressed(GLFW_KEY_P)) {
+            copyPerformanceStatsToClipboard();
+        }
+    }
+
+    private void copyPerformanceStatsToClipboard() {
+        StringBuilder sb = new StringBuilder();
+
+        // Performance profiler stats
+        ProfileSnapshot snapshot = PerformanceProfiler.getInstance().getSnapshot();
+        if (snapshot.hasData()) {
+            sb.append("=== Performance Stats ===\n");
+            sb.append(String.format("Frame Time: %.2fms (%.1f%% of 16.67ms budget)\n",
+                    snapshot.totalFrameTimeMs(),
+                    (snapshot.totalFrameTimeMs() / 16.67) * 100));
+            sb.append(String.format("FPS: %.1f\n\n", snapshot.fps()));
+
+            sb.append("Section Timings:\n");
+            for (SectionStats section : snapshot.getSectionsSortedByTime()) {
+                sb.append(String.format("  %-12s %6.2fms (%5.1f%%)\n",
+                        section.name(), section.timeMs(), section.percentage()));
+            }
+            sb.append("\n");
+        }
+
+        // Memory stats
+        MemoryStats.Snapshot memSnapshot = MemoryStats.getInstance().snapshot();
+        sb.append("=== Memory Stats ===\n");
+        sb.append(String.format("Heap: %.0fMB / %.0fMB (%d%%)\n",
+                memSnapshot.heapUsedMB(), memSnapshot.heapMaxMB(), memSnapshot.heapPercentage()));
+        sb.append(String.format("GC Collections: %d (total time: %dms)\n",
+                memSnapshot.gcCount(), memSnapshot.gcTimeMs()));
+        sb.append(String.format("Allocation Rate: %.2fMB/s\n\n", memSnapshot.allocationRateMBPerSec()));
+
+        List<MemoryStats.SectionAllocation> topAllocators = memSnapshot.topAllocators();
+        if (!topAllocators.isEmpty()) {
+            sb.append("Top Allocators (per frame avg):\n");
+            for (MemoryStats.SectionAllocation alloc : topAllocators) {
+                sb.append(String.format("  %-12s %8.1fKB\n", alloc.name(), alloc.kbPerFrame()));
+            }
+        }
+
+        // Copy to clipboard
+        StringSelection selection = new StringSelection(sb.toString());
+        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
     }
 
     public boolean isEnabled(DebugOverlayToggle toggle) {
@@ -44,11 +98,11 @@ public class DebugOverlayManager {
     }
 
     public List<String> buildShortcutLines() {
-        List<String> lines = new ArrayList<>();
+        shortcutLines.clear();
         for (DebugOverlayToggle toggle : DebugOverlayToggle.values()) {
             String state = isEnabled(toggle) ? "On" : "Off";
-            lines.add(toggle.shortcutLabel() + " " + toggle.label() + ": " + state);
+            shortcutLines.add(toggle.shortcutLabel() + " " + toggle.label() + ": " + state);
         }
-        return lines;
+        return shortcutLines;
     }
 }

@@ -1,16 +1,17 @@
 package uk.co.jamesj999.sonic.level.objects;
 
+import uk.co.jamesj999.sonic.game.ObjectArtProvider;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
 /**
- * Caches and renders ROM-backed object art (springs, spikes, monitors).
+ * Manages object art rendering by delegating to a game-specific ObjectArtProvider.
+ * Provides both key-based lookups and typed convenience methods for backward compatibility.
  */
 public class ObjectRenderManager {
     private static final Logger LOGGER = Logger.getLogger(ObjectRenderManager.class.getName());
@@ -21,337 +22,211 @@ public class ObjectRenderManager {
         DIAGONAL
     }
 
-    private final ObjectSpriteSheet monitorSheet;
-    private final ObjectSpriteSheet spikeSheet;
-    private final ObjectSpriteSheet spikeSideSheet;
-    private final ObjectSpriteSheet springVerticalSheet;
-    private final ObjectSpriteSheet springHorizontalSheet;
-    private final ObjectSpriteSheet springDiagonalSheet;
-    private final ObjectSpriteSheet springVerticalRedSheet;
-    private final ObjectSpriteSheet springHorizontalRedSheet;
-    private final ObjectSpriteSheet springDiagonalRedSheet;
-    private final ObjectSpriteSheet explosionSheet;
-    private final ObjectSpriteSheet shieldSheet;
-    private final ObjectSpriteSheet invincibilityStarsSheet;
-    private final ObjectSpriteSheet bridgeSheet;
-    private final ObjectSpriteSheet waterfallSheet;
-    private final ObjectSpriteSheet checkpointSheet;
-    private final ObjectSpriteSheet checkpointStarSheet;
-    private final SpriteAnimationSet monitorAnimations;
-    private final SpriteAnimationSet springAnimations;
-    private final SpriteAnimationSet checkpointAnimations;
+    private final ObjectArtProvider provider;
 
-    // Badnik sheets
-    private final ObjectSpriteSheet masherSheet;
-    private final ObjectSpriteSheet buzzerSheet;
-    private final ObjectSpriteSheet coconutsSheet;
-    private final ObjectSpriteSheet animalSheet;
-    private final ObjectSpriteSheet pointsSheet;
-    private final int animalTypeA;
-    private final int animalTypeB;
-
-    // Signpost
-    private final ObjectSpriteSheet signpostSheet;
-    private final SpriteAnimationSet signpostAnimations;
-
-    // Results screen
-    private final ObjectSpriteSheet resultsSheet;
-    private final Pattern[] resultsHudDigitPatterns;
-
-    private final PatternSpriteRenderer monitorRenderer;
-    private final PatternSpriteRenderer spikeRenderer;
-    private final PatternSpriteRenderer spikeSideRenderer;
-    private final PatternSpriteRenderer springVerticalRenderer;
-    private final PatternSpriteRenderer springHorizontalRenderer;
-    private final PatternSpriteRenderer springDiagonalRenderer;
-    private final PatternSpriteRenderer springVerticalRedRenderer;
-    private final PatternSpriteRenderer springHorizontalRedRenderer;
-    private final PatternSpriteRenderer springDiagonalRedRenderer;
-    private final PatternSpriteRenderer explosionRenderer;
-    private final PatternSpriteRenderer shieldRenderer;
-    private final PatternSpriteRenderer invincibilityStarsRenderer;
-    private final PatternSpriteRenderer bridgeRenderer;
-    private final PatternSpriteRenderer waterfallRenderer;
-    private final PatternSpriteRenderer checkpointRenderer;
-    private final PatternSpriteRenderer checkpointStarRenderer;
-
-    // Badnik renderers
-    private final PatternSpriteRenderer masherRenderer;
-    private final PatternSpriteRenderer buzzerRenderer;
-    private final PatternSpriteRenderer coconutsRenderer;
-    private final PatternSpriteRenderer animalRenderer;
-    private final PatternSpriteRenderer pointsRenderer;
-
-    // Signpost renderer
-    private final PatternSpriteRenderer signpostRenderer;
-
-    // Results screen renderer
-    private final PatternSpriteRenderer resultsRenderer;
-
-    private final List<ObjectSpriteSheet> sheetOrder = new ArrayList<>();
-    private final List<PatternSpriteRenderer> rendererOrder = new ArrayList<>();
-
-    public ObjectRenderManager(ObjectArtData artData) {
-        this.monitorSheet = artData.monitorSheet();
-        this.spikeSheet = artData.spikeSheet();
-        this.spikeSideSheet = artData.spikeSideSheet();
-        this.springVerticalSheet = artData.springVerticalSheet();
-        this.springHorizontalSheet = artData.springHorizontalSheet();
-        this.springDiagonalSheet = artData.springDiagonalSheet();
-        this.springVerticalRedSheet = artData.springVerticalRedSheet();
-        this.springHorizontalRedSheet = artData.springHorizontalRedSheet();
-        this.springDiagonalRedSheet = artData.springDiagonalRedSheet();
-        this.explosionSheet = artData.explosionSheet();
-        this.shieldSheet = artData.shieldSheet();
-        this.invincibilityStarsSheet = artData.invincibilityStarsSheet();
-        this.bridgeSheet = artData.bridgeSheet();
-        this.waterfallSheet = artData.waterfallSheet();
-        this.checkpointSheet = artData.checkpointSheet();
-        this.checkpointStarSheet = artData.checkpointStarSheet();
-        this.monitorAnimations = artData.monitorAnimations();
-        this.springAnimations = artData.springAnimations();
-        this.checkpointAnimations = artData.checkpointAnimations();
-
-        // Badnik sheets
-        this.masherSheet = artData.masherSheet();
-        this.buzzerSheet = artData.buzzerSheet();
-        this.coconutsSheet = artData.coconutsSheet();
-        this.animalSheet = artData.animalSheet();
-        this.pointsSheet = artData.pointsSheet();
-        this.animalTypeA = artData.getAnimalTypeA();
-        this.animalTypeB = artData.getAnimalTypeB();
-
-        // Signpost
-        this.signpostSheet = artData.signpostSheet();
-        this.signpostAnimations = artData.signpostAnimations();
-
-        // Results screen
-        this.resultsSheet = artData.resultsSheet();
-        this.resultsHudDigitPatterns = artData.getHudDigitPatterns();
-
-        this.monitorRenderer = new PatternSpriteRenderer(monitorSheet);
-        this.spikeRenderer = new PatternSpriteRenderer(spikeSheet);
-        this.spikeSideRenderer = new PatternSpriteRenderer(spikeSideSheet);
-        this.springVerticalRenderer = new PatternSpriteRenderer(springVerticalSheet);
-        this.springHorizontalRenderer = new PatternSpriteRenderer(springHorizontalSheet);
-        this.springDiagonalRenderer = new PatternSpriteRenderer(springDiagonalSheet);
-        this.springVerticalRedRenderer = new PatternSpriteRenderer(springVerticalRedSheet);
-        this.springHorizontalRedRenderer = new PatternSpriteRenderer(springHorizontalRedSheet);
-        this.springDiagonalRedRenderer = new PatternSpriteRenderer(springDiagonalRedSheet);
-        this.explosionRenderer = new PatternSpriteRenderer(explosionSheet);
-
-        register(monitorSheet, monitorRenderer);
-        register(spikeSheet, spikeRenderer);
-        register(spikeSideSheet, spikeSideRenderer);
-        register(springVerticalSheet, springVerticalRenderer);
-        register(springHorizontalSheet, springHorizontalRenderer);
-        register(springDiagonalSheet, springDiagonalRenderer);
-        register(springVerticalRedSheet, springVerticalRedRenderer);
-        register(springHorizontalRedSheet, springHorizontalRedRenderer);
-        register(springDiagonalRedSheet, springDiagonalRedRenderer);
-        register(explosionSheet, explosionRenderer);
-        this.shieldRenderer = new PatternSpriteRenderer(shieldSheet);
-        register(shieldSheet, shieldRenderer);
-        this.invincibilityStarsRenderer = new PatternSpriteRenderer(invincibilityStarsSheet);
-        register(invincibilityStarsSheet, invincibilityStarsRenderer);
-        this.bridgeRenderer = new PatternSpriteRenderer(bridgeSheet);
-        register(bridgeSheet, bridgeRenderer);
-        this.waterfallRenderer = new PatternSpriteRenderer(waterfallSheet);
-        register(waterfallSheet, waterfallRenderer);
-        this.checkpointRenderer = new PatternSpriteRenderer(checkpointSheet);
-        register(checkpointSheet, checkpointRenderer);
-        this.checkpointStarRenderer = new PatternSpriteRenderer(checkpointStarSheet);
-        register(checkpointStarSheet, checkpointStarRenderer);
-
-        // Badnik renderers
-        this.masherRenderer = new PatternSpriteRenderer(masherSheet);
-        register(masherSheet, masherRenderer);
-        this.buzzerRenderer = new PatternSpriteRenderer(buzzerSheet);
-        register(buzzerSheet, buzzerRenderer);
-        this.coconutsRenderer = new PatternSpriteRenderer(coconutsSheet);
-        register(coconutsSheet, coconutsRenderer);
-        this.animalRenderer = new PatternSpriteRenderer(animalSheet);
-        register(animalSheet, animalRenderer);
-        this.pointsRenderer = new PatternSpriteRenderer(pointsSheet);
-        register(pointsSheet, pointsRenderer);
-
-        // Signpost renderer
-        this.signpostRenderer = new PatternSpriteRenderer(signpostSheet);
-        register(signpostSheet, signpostRenderer);
-
-        // Results screen - NOT registered in sheetOrder, uses separate caching
-        this.resultsRenderer = new PatternSpriteRenderer(resultsSheet);
-        // Don't register - Results gets its own pattern namespace in
-        // ensurePatternsCached
-    }
-
-    private void register(ObjectSpriteSheet sheet, PatternSpriteRenderer renderer) {
-        sheetOrder.add(sheet);
-        rendererOrder.add(renderer);
+    /**
+     * Creates an ObjectRenderManager using the given provider.
+     *
+     * @param provider the game-specific object art provider
+     */
+    public ObjectRenderManager(ObjectArtProvider provider) {
+        this.provider = provider;
     }
 
     public int ensurePatternsCached(GraphicsManager graphicsManager, int basePatternIndex) {
-        int next = basePatternIndex;
-        for (int i = 0; i < rendererOrder.size(); i++) {
-            ObjectSpriteSheet sheet = sheetOrder.get(i);
-            PatternSpriteRenderer renderer = rendererOrder.get(i);
-            int count = sheet.getPatterns().length;
-            renderer.ensurePatternsCached(graphicsManager, next);
-            next += count;
-        }
-
-        // Results screen uses a dedicated pattern namespace starting at 0.
-        // This ensures its tile indices (0-465) map directly to texture IDs,
-        // avoiding issues with high basePatternIndex values.
-        // We use a high offset (0x10000) to avoid collision with level/object patterns.
-        resultsRenderer.ensurePatternsCached(graphicsManager, 0x10000);
-
-        return next;
+        return provider.ensurePatternsCached(graphicsManager, basePatternIndex);
     }
 
     public boolean isReady() {
-        return monitorRenderer.isReady()
-                || spikeRenderer.isReady()
-                || springVerticalRenderer.isReady();
+        return provider.isReady();
     }
 
+    // Key-based lookups
+
+    /**
+     * Gets a renderer by its key.
+     *
+     * @param key the renderer key
+     * @return the renderer, or null if not found
+     */
+    public PatternSpriteRenderer getRenderer(String key) {
+        return provider.getRenderer(key);
+    }
+
+    /**
+     * Gets a sprite sheet by its key.
+     *
+     * @param key the sheet key
+     * @return the sprite sheet, or null if not found
+     */
+    public ObjectSpriteSheet getSheet(String key) {
+        return provider.getSheet(key);
+    }
+
+    /**
+     * Gets an animation set by its key.
+     *
+     * @param key the animation key
+     * @return the animation set, or null if not found
+     */
+    public SpriteAnimationSet getAnimations(String key) {
+        return provider.getAnimations(key);
+    }
+
+    /**
+     * Gets all available renderer keys.
+     *
+     * @return list of renderer keys
+     */
+    public List<String> getRendererKeys() {
+        return provider.getRendererKeys();
+    }
+
+    // Convenience methods for backward compatibility
+
     public PatternSpriteRenderer getMonitorRenderer() {
-        return monitorRenderer;
+        return provider.getRenderer(ObjectArtKeys.MONITOR);
     }
 
     public ObjectSpriteSheet getMonitorSheet() {
-        return monitorSheet;
+        return provider.getSheet(ObjectArtKeys.MONITOR);
     }
 
     public SpriteAnimationSet getMonitorAnimations() {
-        return monitorAnimations;
+        return provider.getAnimations(ObjectArtKeys.ANIM_MONITOR);
     }
 
     public PatternSpriteRenderer getSpikeRenderer(boolean sideways) {
-        return sideways ? spikeSideRenderer : spikeRenderer;
+        return sideways
+                ? provider.getRenderer(ObjectArtKeys.SPIKE_SIDE)
+                : provider.getRenderer(ObjectArtKeys.SPIKE);
     }
 
     public ObjectSpriteSheet getSpikeSheet(boolean sideways) {
-        return sideways ? spikeSideSheet : spikeSheet;
+        return sideways
+                ? provider.getSheet(ObjectArtKeys.SPIKE_SIDE)
+                : provider.getSheet(ObjectArtKeys.SPIKE);
     }
 
     public PatternSpriteRenderer getSpringRenderer(SpringVariant variant, boolean red) {
-        return switch (variant) {
-            case HORIZONTAL -> red ? springHorizontalRedRenderer : springHorizontalRenderer;
-            case DIAGONAL -> red ? springDiagonalRedRenderer : springDiagonalRenderer;
-            case VERTICAL -> red ? springVerticalRedRenderer : springVerticalRenderer;
+        String key = switch (variant) {
+            case HORIZONTAL -> red ? ObjectArtKeys.SPRING_HORIZONTAL_RED : ObjectArtKeys.SPRING_HORIZONTAL;
+            case DIAGONAL -> red ? ObjectArtKeys.SPRING_DIAGONAL_RED : ObjectArtKeys.SPRING_DIAGONAL;
+            case VERTICAL -> red ? ObjectArtKeys.SPRING_VERTICAL_RED : ObjectArtKeys.SPRING_VERTICAL;
         };
+        return provider.getRenderer(key);
     }
 
     public ObjectSpriteSheet getSpringSheet(SpringVariant variant, boolean red) {
-        return switch (variant) {
-            case HORIZONTAL -> red ? springHorizontalRedSheet : springHorizontalSheet;
-            case DIAGONAL -> red ? springDiagonalRedSheet : springDiagonalSheet;
-            case VERTICAL -> red ? springVerticalRedSheet : springVerticalSheet;
+        String key = switch (variant) {
+            case HORIZONTAL -> red ? ObjectArtKeys.SPRING_HORIZONTAL_RED : ObjectArtKeys.SPRING_HORIZONTAL;
+            case DIAGONAL -> red ? ObjectArtKeys.SPRING_DIAGONAL_RED : ObjectArtKeys.SPRING_DIAGONAL;
+            case VERTICAL -> red ? ObjectArtKeys.SPRING_VERTICAL_RED : ObjectArtKeys.SPRING_VERTICAL;
         };
+        return provider.getSheet(key);
     }
 
     public SpriteAnimationSet getSpringAnimations() {
-        return springAnimations;
+        return provider.getAnimations(ObjectArtKeys.ANIM_SPRING);
     }
 
     public PatternSpriteRenderer getExplosionRenderer() {
-        return explosionRenderer;
+        return provider.getRenderer(ObjectArtKeys.EXPLOSION);
+    }
+
+    public PatternSpriteRenderer getBossExplosionRenderer() {
+        return provider.getRenderer(uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys.BOSS_EXPLOSION);
     }
 
     public PatternSpriteRenderer getShieldRenderer() {
-        return shieldRenderer;
+        return provider.getRenderer(ObjectArtKeys.SHIELD);
     }
 
     public PatternSpriteRenderer getInvincibilityStarsRenderer() {
-        return invincibilityStarsRenderer;
+        return provider.getRenderer(ObjectArtKeys.INVINCIBILITY_STARS);
     }
 
     public PatternSpriteRenderer getBridgeRenderer() {
-        return bridgeRenderer;
+        return provider.getRenderer(ObjectArtKeys.BRIDGE);
     }
 
     public ObjectSpriteSheet getBridgeSheet() {
-        return bridgeSheet;
-    }
-
-    public PatternSpriteRenderer getWaterfallRenderer() {
-        return waterfallRenderer;
-    }
-
-    public ObjectSpriteSheet getWaterfallSheet() {
-        return waterfallSheet;
+        return provider.getSheet(ObjectArtKeys.BRIDGE);
     }
 
     public PatternSpriteRenderer getCheckpointRenderer() {
-        return checkpointRenderer;
+        return provider.getRenderer(ObjectArtKeys.CHECKPOINT);
     }
 
     public PatternSpriteRenderer getCheckpointStarRenderer() {
-        return checkpointStarRenderer;
+        return provider.getRenderer(ObjectArtKeys.CHECKPOINT_STAR);
     }
 
     public ObjectSpriteSheet getCheckpointSheet() {
-        return checkpointSheet;
+        return provider.getSheet(ObjectArtKeys.CHECKPOINT);
     }
 
     public ObjectSpriteSheet getCheckpointStarSheet() {
-        return checkpointStarSheet;
+        return provider.getSheet(ObjectArtKeys.CHECKPOINT_STAR);
     }
 
     public SpriteAnimationSet getCheckpointAnimations() {
-        return checkpointAnimations;
-    }
-
-    public PatternSpriteRenderer getMasherRenderer() {
-        return masherRenderer;
-    }
-
-    public PatternSpriteRenderer getBuzzerRenderer() {
-        return buzzerRenderer;
-    }
-
-    public PatternSpriteRenderer getCoconutsRenderer() {
-        return coconutsRenderer;
+        return provider.getAnimations(ObjectArtKeys.ANIM_CHECKPOINT);
     }
 
     public PatternSpriteRenderer getAnimalRenderer() {
-        return animalRenderer;
+        return provider.getRenderer(ObjectArtKeys.ANIMAL);
     }
 
     public PatternSpriteRenderer getPointsRenderer() {
-        return pointsRenderer;
+        return provider.getRenderer(ObjectArtKeys.POINTS);
     }
 
     public int getAnimalTypeA() {
-        return animalTypeA;
+        return provider.getZoneData(ObjectArtKeys.ANIMAL_TYPE_A, -1);
     }
 
     public int getAnimalTypeB() {
-        return animalTypeB;
+        return provider.getZoneData(ObjectArtKeys.ANIMAL_TYPE_B, -1);
     }
 
     public PatternSpriteRenderer getSignpostRenderer() {
-        return signpostRenderer;
+        return provider.getRenderer(ObjectArtKeys.SIGNPOST);
     }
 
     public ObjectSpriteSheet getSignpostSheet() {
-        return signpostSheet;
+        return provider.getSheet(ObjectArtKeys.SIGNPOST);
     }
 
     public SpriteAnimationSet getSignpostAnimations() {
-        return signpostAnimations;
+        return provider.getAnimations(ObjectArtKeys.ANIM_SIGNPOST);
+    }
+
+    public PatternSpriteRenderer getEggPrisonRenderer() {
+        return provider.getRenderer(ObjectArtKeys.EGG_PRISON);
+    }
+
+    public ObjectSpriteSheet getEggPrisonSheet() {
+        return provider.getSheet(ObjectArtKeys.EGG_PRISON);
+    }
+
+    public PatternSpriteRenderer getEHZBossRenderer() {
+        return provider.getRenderer(uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys.EHZ_BOSS);
+    }
+
+    public ObjectSpriteSheet getEHZBossSheet() {
+        return provider.getSheet(uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys.EHZ_BOSS);
     }
 
     public PatternSpriteRenderer getResultsRenderer() {
-        return resultsRenderer;
+        return provider.getRenderer(ObjectArtKeys.RESULTS);
     }
 
     public ObjectSpriteSheet getResultsSheet() {
-        return resultsSheet;
+        return provider.getSheet(ObjectArtKeys.RESULTS);
     }
 
     public Pattern[] getResultsHudDigitPatterns() {
-        return resultsHudDigitPatterns;
+        return provider.getHudDigitPatterns();
     }
 }

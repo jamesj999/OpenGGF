@@ -63,7 +63,7 @@ public class RingSpriteSheet implements SpriteSheet<RingFrame> {
     }
 
     public void cachePatterns(GraphicsManager graphicsManager, int basePatternIndex) {
-        if (graphicsManager.getGraphics() == null) {
+        if (!graphicsManager.isGlInitialized()) {
             return;
         }
         for (int i = 0; i < patterns.length; i++) {

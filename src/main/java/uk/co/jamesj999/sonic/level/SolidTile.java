@@ -1,7 +1,5 @@
 package uk.co.jamesj999.sonic.level;
 
-import org.apache.commons.lang3.ArrayUtils;
-
 public class SolidTile {
 	public static final int TILE_SIZE_IN_ROM = 16;
 

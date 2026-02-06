@@ -81,11 +81,22 @@ public class AudioManager {
 
     public void playMusic(int musicId) {
         if (audioProfile != null) {
+            if (audioProfile.handleSystemCommand(musicId, this)) {
+                return;
+            }
             if (musicId == audioProfile.getSpeedShoesOnCommandId()) {
-                backend.setSpeedShoes(true);
+                if (audioProfile.getSpeedMode() == GameAudioProfile.SpeedMode.FRAME_MULTIPLY) {
+                    backend.setSpeedMultiplier(audioProfile.getSpeedMultiplierValue());
+                } else {
+                    backend.setSpeedShoes(true);
+                }
                 return;
             } else if (musicId == audioProfile.getSpeedShoesOffCommandId()) {
-                backend.setSpeedShoes(false);
+                if (audioProfile.getSpeedMode() == GameAudioProfile.SpeedMode.FRAME_MULTIPLY) {
+                    backend.setSpeedMultiplier(1);
+                } else {
+                    backend.setSpeedShoes(false);
+                }
                 return;
             }
         }
@@ -205,9 +216,43 @@ public class AudioManager {
         }
     }
 
+    /**
+     * Resets mutable state without destroying the singleton instance.
+     * Used by TestEnvironment to prevent state leaking between tests
+     * (e.g. Sonic 1 SMPS loader contaminating Sonic 2 tests).
+     */
+    public void resetState() {
+        if (backend != null) {
+            backend.stopPlayback();
+        }
+        this.smpsLoader = null;
+        this.dacData = null;
+        this.soundMap = null;
+        this.audioProfile = null;
+        this.ringLeft = true;
+    }
+
     public void destroy() {
         if (backend != null) {
             backend.destroy();
+        }
+    }
+
+    /**
+     * Pauses audio playback. Called when the game window is minimized or loses focus.
+     */
+    public void pause() {
+        if (backend != null) {
+            backend.pause();
+        }
+    }
+
+    /**
+     * Resumes audio playback after being paused.
+     */
+    public void resume() {
+        if (backend != null) {
+            backend.resume();
         }
     }
 }

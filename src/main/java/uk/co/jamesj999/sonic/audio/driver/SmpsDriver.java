@@ -19,6 +19,22 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
     private final Map<Object, Integer> psgLatches = new HashMap<>();
     private SmpsSequencer.Region region = SmpsSequencer.Region.NTSC;
 
+    private final List<SmpsSequencer> pendingRemovals = new ArrayList<>();
+
+    // Reusable buffer for stopAllSfx() to avoid per-call ArrayList allocation
+    private final List<SmpsSequencer> sfxRemovalBuffer = new ArrayList<>();
+
+    // Scratch buffer for read() to avoid per-frame allocations
+    private final short[] scratchFrameBuf = new short[2];
+
+    public SmpsDriver() {
+        super();
+    }
+
+    public SmpsDriver(double outputSampleRate) {
+        super(outputSampleRate);
+    }
+
     public void setRegion(SmpsSequencer.Region region) {
         this.region = region;
         for (SmpsSequencer seq : sequencers) {
@@ -28,6 +44,7 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
 
     public void addSequencer(SmpsSequencer seq, boolean isSfx) {
         seq.setRegion(region);
+        seq.setIsSfx(isSfx); // Cache isSfx flag on the sequencer for O(1) lookup
         sequencers.add(seq);
         if (isSfx) {
             sfxSequencers.add(seq);
@@ -46,30 +63,51 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
         silenceAll();
     }
 
+    /**
+     * Stop all SFX sequencers, releasing their channel locks and silencing them.
+     * Used when starting override music to prevent partial SFX playback on restore.
+     */
+    public void stopAllSfx() {
+        sfxRemovalBuffer.clear();
+        sfxRemovalBuffer.addAll(sfxSequencers);
+        for (int i = 0; i < sfxRemovalBuffer.size(); i++) {
+            SmpsSequencer sfx = sfxRemovalBuffer.get(i);
+            sequencers.remove(sfx);
+            releaseLocks(sfx);
+            sfxSequencers.remove(sfx);
+        }
+    }
+
     @Override
     public int read(short[] buffer) {
-        // Render interleaved stereo frames (2 samples per frame)
         int frames = buffer.length / 2;
-        short[] frameBuf = new short[2];
 
+        // Per-sample processing is required because sequencer state changes (note events,
+        // instrument changes, etc.) must happen in lockstep with rendering. Batching
+        // breaks audio fidelity because synth state changes mid-batch would be lost.
         for (int i = 0; i < frames; i++) {
-            // Make a defensive copy to handle concurrent modification
-            // (e.g., E4 handler calling restoreMusic which calls stopAll)
-            List<SmpsSequencer> seqCopy = new ArrayList<>(sequencers);
-            for (SmpsSequencer seq : seqCopy) {
+            int size = sequencers.size();
+            for (int j = 0; j < size; j++) {
+                SmpsSequencer seq = sequencers.get(j);
                 seq.advance(1.0);
                 if (seq.isComplete()) {
-                    sequencers.remove(seq);
-                    releaseLocks(seq);
-                    if (isSfx(seq))
-                        sfxSequencers.remove(seq);
+                    pendingRemovals.add(seq);
                 }
             }
 
-            // Render Synth (Stereo Frame)
-            super.render(frameBuf);
-            buffer[i * 2] = frameBuf[0];
-            buffer[i * 2 + 1] = frameBuf[1];
+            if (!pendingRemovals.isEmpty()) {
+                for (int j = 0; j < pendingRemovals.size(); j++) {
+                    SmpsSequencer seq = pendingRemovals.get(j);
+                    sequencers.remove(seq);
+                    releaseLocks(seq);
+                    sfxSequencers.remove(seq);
+                }
+                pendingRemovals.clear();
+            }
+
+            super.render(scratchFrameBuf);
+            buffer[i * 2] = scratchFrameBuf[0];
+            buffer[i * 2 + 1] = scratchFrameBuf[1];
         }
         return buffer.length;
     }
@@ -79,7 +117,15 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
         return sequencers.isEmpty();
     }
 
+    /**
+     * Check if a source is an SFX sequencer.
+     * Uses cached isSfx field on SmpsSequencer for O(1) lookup instead of HashSet.contains().
+     */
     private boolean isSfx(Object source) {
+        if (source instanceof SmpsSequencer seq) {
+            return seq.isSfx();
+        }
+        // Fallback to HashSet for non-SmpsSequencer sources (shouldn't happen normally)
         return sfxSequencers.contains(source);
     }
 
@@ -104,6 +150,8 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
                 updateOverrides(SmpsSequencer.TrackType.PSG, i, false);
             }
         }
+        // Clear cached PSG latch channel and remove from fallback HashMap
+        seq.setPsgLatchChannel(-1);
         psgLatches.remove(seq);
     }
 
@@ -147,6 +195,10 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
         if (ch >= 0 && ch < 6) {
             if (isSfx(source)) {
                 if (shouldStealLock(fmLocks[ch], (SmpsSequencer) source)) {
+                    // Silence channel if stealing from music (not from another SFX or self)
+                    if (fmLocks[ch] != source && !isSfx(fmLocks[ch])) {
+                        silenceFmChannel(ch);
+                    }
                     fmLocks[ch] = (SmpsSequencer) source;
                     updateOverrides(SmpsSequencer.TrackType.FM, ch, true);
                 }
@@ -167,13 +219,26 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
 
     @Override
     public void writePsg(Object source, int val) {
+        // Use cached psgLatchChannel on SmpsSequencer for O(1) lookup instead of HashMap
+        SmpsSequencer seq = (source instanceof SmpsSequencer) ? (SmpsSequencer) source : null;
+
         if ((val & 0x80) != 0) {
             // Latch
             int ch = (val >> 5) & 0x03;
-            psgLatches.put(source, ch);
+
+            // Cache latch channel on sequencer (fast path) and in HashMap (fallback)
+            if (seq != null) {
+                seq.setPsgLatchChannel(ch);
+            } else {
+                psgLatches.put(source, ch);
+            }
 
             if (isSfx(source)) {
                 if (shouldStealLock(psgLocks[ch], (SmpsSequencer) source)) {
+                    // Silence channel if stealing from music (not from another SFX or self)
+                    if (psgLocks[ch] != source && !isSfx(psgLocks[ch])) {
+                        silencePsgChannel(ch);
+                    }
                     psgLocks[ch] = (SmpsSequencer) source;
                     updateOverrides(SmpsSequencer.TrackType.PSG, ch, true);
                 }
@@ -187,12 +252,22 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
                 }
             }
         } else {
-            // Data
-            Integer ch = psgLatches.get(source);
-            if (ch != null) {
+            // Data - get cached latch channel
+            int ch = (seq != null) ? seq.getPsgLatchChannel() : -1;
+            if (ch < 0) {
+                // Fallback to HashMap for non-SmpsSequencer sources
+                Integer chObj = psgLatches.get(source);
+                ch = (chObj != null) ? chObj : -1;
+            }
+
+            if (ch >= 0) {
                 if (isSfx(source)) {
                     // Update lock just in case? Already locked by Latch.
                     if (shouldStealLock(psgLocks[ch], (SmpsSequencer) source)) {
+                        // Silence channel if stealing from music (not from another SFX or self)
+                        if (psgLocks[ch] != source && !isSfx(psgLocks[ch])) {
+                            silencePsgChannel(ch);
+                        }
                         psgLocks[ch] = (SmpsSequencer) source;
                         updateOverrides(SmpsSequencer.TrackType.PSG, ch, true);
                     }
@@ -221,6 +296,10 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
         if (channelId >= 0 && channelId < 6) {
             if (isSfx(source)) {
                 if (shouldStealLock(fmLocks[channelId], (SmpsSequencer) source)) {
+                    // Silence channel if stealing from music (not from another SFX or self)
+                    if (fmLocks[channelId] != source && !isSfx(fmLocks[channelId])) {
+                        silenceFmChannel(channelId);
+                    }
                     fmLocks[channelId] = (SmpsSequencer) source;
                     updateOverrides(SmpsSequencer.TrackType.FM, channelId, true);
                 }
@@ -242,6 +321,11 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
         int ch = 5;
         if (isSfx(source)) {
             if (shouldStealLock(fmLocks[ch], (SmpsSequencer) source)) {
+                // Silence channel if stealing from music (not from another SFX or self)
+                if (fmLocks[ch] != source && !isSfx(fmLocks[ch])) {
+                    silenceFmChannel(5);
+                    super.stopDac(null);
+                }
                 fmLocks[ch] = (SmpsSequencer) source;
                 updateOverrides(SmpsSequencer.TrackType.FM, ch, true);
             }
@@ -278,6 +362,38 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
             return challengerIdx > currentIdx;
         }
         return false; // Lower priority cannot steal
+    }
+
+    /**
+     * Silence an FM channel before SFX takes it over from music.
+     * This directly resets envelope state to prevent the "chirp" artifact
+     * that occurs when SFX first samples inherit envelope state from the
+     * previous music note.
+     *
+     * Unlike register writes (which would be overwritten by the subsequent
+     * voice load), this directly resets the envelope counters to fully
+     * silent state, ensuring the next Key On starts from a clean slate.
+     */
+    private void silenceFmChannel(int ch) {
+        // Directly reset envelope state - this takes effect immediately
+        // without needing audio samples to be rendered
+        super.forceSilenceChannel(ch);
+
+        // Also send Key Off via registers for completeness
+        int port = (ch < 3) ? 0 : 1;
+        int hwCh = ch % 3;
+        int chVal = (port == 0) ? hwCh : (hwCh + 4);
+        super.writeFm(null, 0, 0x28, 0x00 | chVal);
+    }
+
+    /**
+     * Silence a PSG channel before SFX takes it over from music.
+     * Sets volume to 0xF (silence).
+     */
+    private void silencePsgChannel(int ch) {
+        if (ch >= 0 && ch <= 3) {
+            super.writePsg(null, 0x80 | (ch << 5) | (1 << 4) | 0x0F);
+        }
     }
 
     @Override
