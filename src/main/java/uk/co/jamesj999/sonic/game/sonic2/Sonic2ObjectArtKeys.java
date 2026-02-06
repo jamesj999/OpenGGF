@@ -65,6 +65,10 @@ public final class Sonic2ObjectArtKeys {
     public static final String BUZZER = "buzzer";
     public static final String COCONUTS = "coconuts";
 
+    // MCZ Badniks
+    public static final String CRAWLTON = "crawlton";
+    public static final String FLASHER = "flasher";
+
     // CPZ Badniks
     public static final String SPINY = "spiny";
     public static final String GRABBER = "grabber";

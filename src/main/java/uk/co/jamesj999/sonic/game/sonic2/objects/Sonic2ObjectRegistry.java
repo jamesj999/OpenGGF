@@ -10,6 +10,7 @@ import uk.co.jamesj999.sonic.level.objects.PlaceholderObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.MasherBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.BuzzerBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.CoconutsBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.FlasherBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SpinyBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SpinyOnWallBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.GrabberBadnikInstance;
@@ -17,6 +18,7 @@ import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.ChopChopBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.WhispBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.GrounderBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.CrawlBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.CrawltonBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SpikerBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SpikerDrillObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SolBadnikInstance;
@@ -268,6 +270,12 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         // CNZ Badniks
         registerFactory(Sonic2ObjectIds.CRAWL,
                 (spawn, registry) -> new CrawlBadnikInstance(spawn, LevelManager.getInstance()));
+
+        // MCZ Badniks
+        registerFactory(Sonic2ObjectIds.CRAWLTON,
+                (spawn, registry) -> new CrawltonBadnikInstance(spawn, LevelManager.getInstance()));
+        registerFactory(Sonic2ObjectIds.FLASHER,
+                (spawn, registry) -> new FlasherBadnikInstance(spawn, LevelManager.getInstance()));
 
         // Level completion objects
         registerFactory(Sonic2ObjectIds.SIGNPOST,

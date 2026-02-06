@@ -20,6 +20,10 @@ public final class Sonic2ObjectIds {
     public static final int MASHER = 0x5C;
     public static final int COCONUTS = 0x9D;
 
+    // MCZ Badniks
+    public static final int CRAWLTON = 0x9E; // Snake badnik from MCZ - lunges at player with trailing body
+    public static final int FLASHER = 0xA3;
+
     // CPZ Badniks
     public static final int SPINY = 0xA5;
     public static final int SPINY_ON_WALL = 0xA6;
