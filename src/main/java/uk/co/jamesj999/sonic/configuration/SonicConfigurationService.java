@@ -184,6 +184,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.FRAME_STEP_KEY, GLFW_KEY_Q);
 		putDefault(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, GLFW_KEY_C);
 		putDefault(SonicConfiguration.LEVEL_SELECT_KEY, GLFW_KEY_F9);
+		putDefault(SonicConfiguration.TITLE_SCREEN_ON_STARTUP, true);
 		putDefault(SonicConfiguration.LEVEL_SELECT_ON_STARTUP, true);
 		putDefault(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "tails");
 		putDefault(SonicConfiguration.SONIC_1_ROM, "Sonic The Hedgehog (W) (REV01) [!].gen");

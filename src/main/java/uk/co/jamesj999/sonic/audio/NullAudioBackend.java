@@ -83,6 +83,10 @@ public class NullAudioBackend implements AudioBackend {
     }
 
     @Override
+    public void stopAllSfx() {
+    }
+
+    @Override
     public void pause() {
     }
 

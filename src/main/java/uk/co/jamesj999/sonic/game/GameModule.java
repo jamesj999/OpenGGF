@@ -138,6 +138,17 @@ public interface GameModule {
     ObjectArtProvider getObjectArtProvider();
 
     /**
+     * Returns the title screen provider for this game.
+     * Provides the game-specific title screen with ROM-accurate
+     * art, palettes, and scrolling.
+     *
+     * @return the title screen provider, or null if not implemented
+     */
+    default TitleScreenProvider getTitleScreenProvider() {
+        return null;
+    }
+
+    /**
      * Returns the level select provider for this game.
      * Provides the game-specific level select screen with ROM-accurate
      * menu layout, text, and navigation.

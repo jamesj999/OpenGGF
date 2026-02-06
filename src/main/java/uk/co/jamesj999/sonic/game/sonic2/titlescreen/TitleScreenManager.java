@@ -1,0 +1,1160 @@
+package uk.co.jamesj999.sonic.game.sonic2.titlescreen;
+
+import uk.co.jamesj999.sonic.audio.AudioManager;
+import uk.co.jamesj999.sonic.Control.InputHandler;
+import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
+import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
+import uk.co.jamesj999.sonic.game.TitleScreenProvider;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.graphics.GraphicsManager;
+import uk.co.jamesj999.sonic.level.Palette;
+import uk.co.jamesj999.sonic.level.PatternDesc;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.level.render.SpriteFramePiece;
+import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
+
+import java.util.List;
+import java.util.logging.Logger;
+
+import static org.lwjgl.opengl.GL11.glClearColor;
+
+/**
+ * Manages the Sonic 2 Title Screen with full intro animation.
+ *
+ * <p>Implements the Obj0E animation state machine from the disassembly, including:
+ * <ul>
+ *   <li>Sonic and Tails emerging from behind the emblem</li>
+ *   <li>Flashing star sparkle effects at various positions</li>
+ *   <li>Falling star after intro completes</li>
+ *   <li>Water ripple scroll effect on bottom rows</li>
+ *   <li>Star palette cycling</li>
+ *   <li>Skip-intro on Start press</li>
+ * </ul>
+ *
+ * <p>From the disassembly (SwScrl_Title):
+ * <ul>
+ *   <li>Lines 0-159 (rows 0-19): No horizontal scroll</li>
+ *   <li>Lines 160-191 (rows 20-23): Scroll at -(Camera_X_pos) >> 2</li>
+ *   <li>Lines 192-207 (rows 24-25): Scroll + ripple effect</li>
+ * </ul>
+ */
+public class TitleScreenManager implements TitleScreenProvider {
+    private static final Logger LOGGER = Logger.getLogger(TitleScreenManager.class.getName());
+
+    private static TitleScreenManager instance;
+
+    private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
+    private final TitleScreenDataLoader dataLoader = new TitleScreenDataLoader();
+    private final PatternDesc reusableDesc = new PatternDesc();
+
+    private State state = State.INACTIVE;
+
+    // Scrolling - camera starts at -0x280 per disassembly line 4447
+    private int cameraX = -0x280;
+    private int frameCounter = 0;
+
+    // Fade timing
+    private int fadeTimer = 0;
+    private static final int FADE_DURATION = 16;
+
+    // Screen dimensions
+    private static final int SCREEN_WIDTH = 320;
+    private static final int SCREEN_HEIGHT = 224;
+
+    // Scroll boundary (lines 0-159 are static, 160+ scroll)
+    private static final int SCROLL_START_ROW = 20;  // line 160 / 8
+
+    // Palette fade timing (from ObjC9 palette changer subtype 0 in disassembly)
+    // Emblem palette (line 3) fades from black starting at frame 56: 21 steps × 2 frames = 42 frames
+    private static final int EMBLEM_FADE_START = 56;
+    private static final int EMBLEM_FADE_FRAMES = 42;
+
+    // Sprite rendering
+    private PatternSpriteRenderer spriteRenderer;
+    private List<SpriteMappingFrame> titleMappingFrames;
+    private boolean spritesInitialized = false;
+
+    // --- Intro animation state ---
+    private boolean introComplete = false;
+    private boolean musicPlaying = false;
+    private boolean sonicPaletteLoaded = false;
+
+    // Sparkle sound: per-index guard ensures each position plays at most once.
+    // Index 0 = init, indices 1-9 = the 9 flashing star positions.
+    private final boolean[] sparklePlayedAt = new boolean[10];
+
+    // Animated sprite state
+    private final AnimatedSprite sonicSprite = new AnimatedSprite();
+    private final AnimatedSprite tailsSprite = new AnimatedSprite();
+    private final AnimatedSprite sonicHandSprite = new AnimatedSprite();
+    private final AnimatedSprite tailsHandSprite = new AnimatedSprite();
+    private final AnimatedSprite flashingStarSprite = new AnimatedSprite();
+    private final AnimatedSprite fallingStarSprite = new AnimatedSprite();
+    private final AnimatedSprite logoTopSprite = new AnimatedSprite();
+
+    // Animation frame sequences (from Ani_obj0E in disassembly)
+    // Ani_obj0E_Sonic: duration=1, frames: 5, 6, 7, end ($FA)
+    // (Skipping frame 8 per fixBugs - it's a prototype frame missing the right arm)
+    private static final int[] ANIM_SONIC = {5, 6, 7};
+    // Ani_obj0E_Tails: duration=1, frames: 0, 1, 2, 3, 4, end ($FA)
+    private static final int[] ANIM_TAILS = {0, 1, 2, 3, 4};
+    // Ani_obj0E_FlashingStar: duration=1, frames: 0xC, 0xD, 0xE, 0xD, 0xC, end ($FA)
+    private static final int[] ANIM_FLASHING_STAR = {0x0C, 0x0D, 0x0E, 0x0D, 0x0C};
+    // Ani_obj0E_FallingStar: duration=3, frames: 0xC, 0xF, loop ($FF)
+    private static final int[] ANIM_FALLING_STAR = {0x0C, 0x0F};
+
+    // Position arrays from disassembly (VDP coords, subtract 128 for screen coords)
+    // Sonic moves every 4 frames through these positions
+    private static final int[][] SONIC_POSITIONS = {
+            {128 + 136, 128 + 80},
+            {128 + 128, 128 + 64},
+            {128 + 120, 128 + 48},
+            {128 + 118, 128 + 38},
+            {128 + 122, 128 + 30},
+            {128 + 128, 128 + 26},
+            {128 + 132, 128 + 25},
+            {128 + 136, 128 + 24},
+    };
+
+    // Tails moves every 4 frames through these positions
+    private static final int[][] TAILS_POSITIONS = {
+            {128 + 87, 128 + 72},
+            {128 + 83, 128 + 56},
+            {128 + 78, 128 + 44},
+            {128 + 76, 128 + 38},
+            {128 + 74, 128 + 34},
+            {128 + 73, 128 + 33},
+            {128 + 72, 128 + 32},
+    };
+
+    // Flashing star positions (9 positions)
+    private static final int[][] FLASHING_STAR_POSITIONS = {
+            {128 + 90,  128 + 114},
+            {128 + 240, 128 + 120},
+            {128 + 178, 128 + 177},
+            {128 + 286, 128 + 34},
+            {128 + 64,  128 + 99},
+            {128 + 256, 128 + 96},
+            {128 + 141, 128 + 187},
+            {128 + 64,  128 + 43},
+            {128 + 229, 128 + 135},
+    };
+
+    // Sonic hand positions (3 positions, cycles every 4 frames)
+    private static final int[][] SONIC_HAND_POSITIONS = {
+            {128 + 195, 128 + 65},
+            {128 + 192, 128 + 66},
+            {128 + 193, 128 + 65},
+    };
+
+    // Tails hand positions (2 positions, cycles every 4 frames)
+    private static final int[][] TAILS_HAND_POSITIONS = {
+            {128 + 140, 128 + 80},
+            {128 + 141, 128 + 81},
+    };
+
+    // Ripple scroll data (from SwScrl_RippleData in disassembly)
+    private static final byte[] RIPPLE_DATA = {
+            1, 2, 1, 3, 1, 2, 2, 1, 2, 3, 1, 2, 1, 2, 0, 0,
+            2, 0, 3, 2, 2, 3, 2, 2, 1, 3, 0, 0, 1, 0, 1, 3,
+            1, 2, 1, 3, 1, 2, 2, 1, 2, 3, 1, 2, 1, 2, 0, 0,
+            2, 0, 3, 2, 2, 3, 2, 2, 1, 3, 0, 0, 1, 0, 1, 3,
+            1, 2,
+    };
+    private int rippleIndex = 0;
+
+    // CyclingPal_TitleStar palette data (6 colors from "Title Star Cycle.bin")
+    // Sega format: 0x0BBB where B = blue, G = green, R = red (each 0-E in steps of 2)
+    private static final int[] CYCLING_PAL_TITLE_STAR = {
+            0x0E64, 0x0E86, 0x0E64, 0x0EA8, 0x0E64, 0x0ECA,
+    };
+    private int starCycleIndex = 0;
+
+    // Sonic sub-state tracking
+    private int sonicSubState = 0;
+    private int sonicAnimFrame = 0;
+    private int sonicAnimDuration = 0;
+
+    // Tails sub-state tracking
+    private int tailsSubState = 0;
+    private int tailsAnimFrame = 0;
+    private int tailsAnimDuration = 0;
+
+    // Flashing star sub-state
+    private int flashingStarSubState = 0;
+    private int flashingStarAnimFrame = 0;
+    private int flashingStarAnimDuration = 0;
+    private int flashingStarPosIndex = 0;
+    private int flashingStarWaitCounter = 0;
+
+    // Falling star
+    private int fallingStarAnimFrame = 0;
+    private int fallingStarAnimDuration = 0;
+    private int fallingStarLifetime = 0;
+
+    // Sonic hand sub-state
+    private int sonicHandPosIndex = 0;
+    private int sonicHandPosCounter = 0;
+
+    // Tails hand sub-state
+    private int tailsHandPosIndex = 0;
+    private int tailsHandPosCounter = 0;
+
+    private TitleScreenManager() {
+    }
+
+    public static synchronized TitleScreenManager getInstance() {
+        if (instance == null) {
+            instance = new TitleScreenManager();
+        }
+        return instance;
+    }
+
+    @Override
+    public void initialize() {
+        LOGGER.info("Initializing title screen");
+
+        // Load data if not already loaded
+        if (!dataLoader.isDataLoaded()) {
+            dataLoader.loadData();
+        }
+
+        // Force palette re-upload on next draw
+        dataLoader.resetCache();
+
+        // Reset state
+        state = State.FADE_IN;
+        fadeTimer = 0;
+        cameraX = -0x280;  // From disassembly: move.w #-$280,(Camera_X_pos).w
+        frameCounter = 0;
+        introComplete = false;
+        musicPlaying = false;
+        sonicPaletteLoaded = false;
+        rippleIndex = 0;
+        starCycleIndex = 0;
+        spritesInitialized = false;
+
+        // Reset all animated sprites
+        sonicSprite.reset();
+        tailsSprite.reset();
+        sonicHandSprite.reset();
+        tailsHandSprite.reset();
+        flashingStarSprite.reset();
+        fallingStarSprite.reset();
+        logoTopSprite.reset();
+
+        // Reset sub-states
+        sonicSubState = 0;
+        sonicAnimFrame = 0;
+        sonicAnimDuration = 0;
+        tailsSubState = 0;
+        tailsAnimFrame = 0;
+        tailsAnimDuration = 0;
+        flashingStarSubState = 0;
+        flashingStarAnimFrame = 0;
+        flashingStarAnimDuration = 0;
+        flashingStarPosIndex = 0;
+        flashingStarWaitCounter = 0;
+        fallingStarAnimFrame = 0;
+        fallingStarAnimDuration = 0;
+        fallingStarLifetime = 0;
+        sonicHandPosIndex = 0;
+        sonicHandPosCounter = 0;
+        tailsHandPosIndex = 0;
+        tailsHandPosCounter = 0;
+        java.util.Arrays.fill(sparklePlayedAt, false);
+
+        // Initialize Sonic at starting position (below emblem, hidden)
+        sonicSprite.active = true;
+        sonicSprite.mappingFrame = 5;
+        sonicSprite.x = 128 + 144;
+        sonicSprite.y = 128 + 96;
+
+        // Initialize flashing star at first position
+        // From disasm Obj0E_FlashingStar_Init: position (128+128, 128+40), counter=4
+        flashingStarSprite.active = true;
+        flashingStarSprite.mappingFrame = 0x0C;
+        flashingStarSprite.x = 128 + 128;
+        flashingStarSprite.y = 128 + 40;
+        flashingStarSubState = 0; // animate first
+        flashingStarWaitCounter = 4; // from disasm: Init sets counter=4 (first wait is shorter)
+
+        // Initialize logo top (non-Japanese = frame $A)
+        logoTopSprite.active = true;
+        logoTopSprite.mappingFrame = 0x0A;
+        logoTopSprite.x = 128 + 160;  // 128 + 320/2
+        logoTopSprite.y = 128 + 104;
+
+        // Play sparkle sound at init (index 0)
+        playSparkleAtIndex(0);
+
+        LOGGER.info("Title screen initialized, entering FADE_IN state");
+    }
+
+    @Override
+    public void update(InputHandler input) {
+        switch (state) {
+            case FADE_IN -> updateFadeIn(input);
+            case ACTIVE -> updateActive(input);
+            case INACTIVE, EXITING -> { }
+        }
+    }
+
+    private void updateFadeIn(InputHandler input) {
+        fadeTimer++;
+        // Auto-scroll even during fade-in
+        cameraX++;
+        frameCounter++;
+
+        updateIntroAnimation(input);
+
+        if (fadeTimer >= FADE_DURATION) {
+            state = State.ACTIVE;
+            LOGGER.fine("Title screen entered ACTIVE state");
+        }
+    }
+
+    private void updateActive(InputHandler input) {
+        // Auto-scroll background
+        cameraX++;
+        frameCounter++;
+
+        updateIntroAnimation(input);
+
+        // Check for jump/start press to exit (only after intro completes)
+        if (introComplete) {
+            int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+            if (input.isKeyPressed(jumpKey)) {
+                state = State.EXITING;
+                LOGGER.info("Title screen exiting");
+            }
+        }
+    }
+
+    /**
+     * Main intro animation update, matching the Obj0E state machine from the disassembly.
+     */
+    private void updateIntroAnimation(InputHandler input) {
+        // Check for skip (Start pressed before frame 288)
+        if (!introComplete) {
+            int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+            if (input.isKeyPressed(jumpKey)) {
+                skipToFinalState();
+                return;
+            }
+        }
+
+        // Update Sonic state machine
+        updateSonic();
+
+        // Update Tails (only active after frame 192)
+        if (tailsSprite.active) {
+            updateTails();
+        }
+
+        // Update flashing star
+        if (flashingStarSprite.active) {
+            updateFlashingStar();
+        }
+
+        // Update Sonic hand
+        if (sonicHandSprite.active) {
+            updateSonicHand();
+        }
+
+        // Update Tails hand
+        if (tailsHandSprite.active) {
+            updateTailsHand();
+        }
+
+        // Update falling star
+        if (fallingStarSprite.active) {
+            updateFallingStar();
+        }
+
+        // Update ripple animation (every 8 frames)
+        if ((frameCounter & 7) == 0) {
+            rippleIndex--;
+        }
+
+        // Star sparkle palette cycling (after intro complete, every 8 frames)
+        if (introComplete && (frameCounter & 7) == 0) {
+            starCycleIndex += 2;
+            if (starCycleIndex >= CYCLING_PAL_TITLE_STAR.length * 2) {
+                starCycleIndex = 0;
+            }
+        }
+    }
+
+    private void updateSonic() {
+        switch (sonicSubState) {
+            case 0 -> { // Obj0E_Sonic_FadeInAndPlayMusic - wait until frame 56
+                if (frameCounter >= 56) {
+                    sonicSubState = 1;
+                    // Play title music
+                    if (!musicPlaying) {
+                        musicPlaying = true;
+                        AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_TITLE);
+                    }
+                }
+            }
+            case 1 -> { // Obj0E_Sonic_LoadPalette - wait until frame 128
+                if (frameCounter >= 128) {
+                    sonicSubState = 2;
+                    sonicPaletteLoaded = true;
+                    sonicSprite.posArrayIndex = 0;
+                    sonicSprite.posCounter = 0;
+                    // Apply first position from array
+                    sonicSprite.x = SONIC_POSITIONS[0][0];
+                    sonicSprite.y = SONIC_POSITIONS[0][1];
+                }
+            }
+            case 2 -> { // Obj0E_Sonic_Move - advance position every 4 frames
+                sonicSprite.posCounter++;
+                if ((sonicSprite.posCounter & 3) == 0) {
+                    sonicSprite.posArrayIndex++;
+                    if (sonicSprite.posArrayIndex >= SONIC_POSITIONS.length) {
+                        // Done moving, start animation
+                        sonicSubState = 3;
+                        sonicAnimFrame = 0;
+                        sonicAnimDuration = 0;
+                        sonicSprite.mappingFrame = ANIM_SONIC[0];
+                    } else {
+                        sonicSprite.x = SONIC_POSITIONS[sonicSprite.posArrayIndex][0];
+                        sonicSprite.y = SONIC_POSITIONS[sonicSprite.posArrayIndex][1];
+                    }
+                }
+            }
+            case 3 -> { // Obj0E_Animate (Sonic) - play animation script
+                sonicAnimDuration++;
+                if (sonicAnimDuration > 1) { // duration = 1 (2 frames per step)
+                    sonicAnimDuration = 0;
+                    sonicAnimFrame++;
+                    if (sonicAnimFrame >= ANIM_SONIC.length) {
+                        // Animation finished
+                        sonicSubState = 4;
+                        sonicSprite.mappingFrame = 0x12; // Final static frame
+                        // Spawn Sonic's hand
+                        sonicHandSprite.active = true;
+                        sonicHandSprite.mappingFrame = 9;
+                        sonicHandSprite.x = 128 + 197;
+                        sonicHandSprite.y = 128 + 63;
+                        sonicHandPosIndex = 0;
+                        sonicHandPosCounter = 0;
+                    } else {
+                        sonicSprite.mappingFrame = ANIM_SONIC[sonicAnimFrame];
+                    }
+                }
+            }
+            case 4 -> { // Obj0E_Sonic_SpawnTails - wait for frame 192
+                if (frameCounter >= 192) {
+                    sonicSubState = 5;
+                    // Spawn Tails
+                    tailsSprite.active = true;
+                    tailsSprite.mappingFrame = 1; // anim=1 starts at frame 0 of Tails anim
+                    tailsSprite.x = 128 + 88;
+                    tailsSprite.y = 128 + 88;
+                    tailsSprite.posArrayIndex = 0;
+                    tailsSprite.posCounter = 0;
+                    tailsSubState = 0; // move state
+                    tailsAnimFrame = 0;
+                    tailsAnimDuration = 0;
+                    // Apply first position
+                    tailsSprite.x = TAILS_POSITIONS[0][0];
+                    tailsSprite.y = TAILS_POSITIONS[0][1];
+                }
+            }
+            case 5 -> { // Obj0E_Sonic_FlashBackground - wait for frame 288
+                if (frameCounter >= 288) {
+                    sonicSubState = 6;
+                    introComplete = true;
+                    // Flash palette line 3 white is handled in rendering
+                }
+            }
+            case 6 -> { // Obj0E_Sonic_SpawnFallingStar - wait for frame 464 (NTSC)
+                if (frameCounter >= 464) {
+                    sonicSubState = 7;
+                    // Spawn falling star
+                    fallingStarSprite.active = true;
+                    fallingStarSprite.mappingFrame = 0x0C;
+                    fallingStarSprite.x = 128 + 240;
+                    fallingStarSprite.y = 128 + 0;
+                    fallingStarLifetime = 140;
+                    fallingStarAnimFrame = 0;
+                    fallingStarAnimDuration = 0;
+                }
+            }
+            case 7 -> { // Obj0E_Sonic_MakeStarSparkle - star palette cycling (handled globally)
+                // Just display
+            }
+        }
+    }
+
+    private void updateTails() {
+        switch (tailsSubState) {
+            case 0 -> { // Obj0E_Tails_Move
+                tailsSprite.posCounter++;
+                if ((tailsSprite.posCounter & 3) == 0) {
+                    tailsSprite.posArrayIndex++;
+                    if (tailsSprite.posArrayIndex >= TAILS_POSITIONS.length) {
+                        // Done moving, start animation
+                        tailsSubState = 1;
+                        tailsAnimFrame = 0;
+                        tailsAnimDuration = 0;
+                        // Tails animation: frames 0,1,2,3,4
+                        tailsSprite.mappingFrame = ANIM_TAILS[0];
+                    } else {
+                        tailsSprite.x = TAILS_POSITIONS[tailsSprite.posArrayIndex][0];
+                        tailsSprite.y = TAILS_POSITIONS[tailsSprite.posArrayIndex][1];
+                    }
+                }
+            }
+            case 1 -> { // Obj0E_Animate (Tails)
+                tailsAnimDuration++;
+                if (tailsAnimDuration > 1) { // duration = 1
+                    tailsAnimDuration = 0;
+                    tailsAnimFrame++;
+                    if (tailsAnimFrame >= ANIM_TAILS.length) {
+                        // Animation finished - spawn hand, stay at last frame
+                        tailsSubState = 2;
+                        tailsSprite.mappingFrame = ANIM_TAILS[ANIM_TAILS.length - 1];
+                        // Spawn Tails' hand
+                        tailsHandSprite.active = true;
+                        tailsHandSprite.mappingFrame = 0x13;
+                        tailsHandSprite.x = 128 + 143;
+                        tailsHandSprite.y = 128 + 85;
+                        tailsHandPosIndex = 0;
+                        tailsHandPosCounter = 0;
+                    } else {
+                        tailsSprite.mappingFrame = ANIM_TAILS[tailsAnimFrame];
+                    }
+                }
+            }
+            case 2 -> {
+                // Static display
+            }
+        }
+    }
+
+    private void updateFlashingStar() {
+        switch (flashingStarSubState) {
+            case 0 -> { // Animate (sparkle cycle)
+                flashingStarAnimDuration++;
+                if (flashingStarAnimDuration > 1) { // duration = 1 (2 frames per step)
+                    flashingStarAnimDuration = 0;
+                    flashingStarAnimFrame++;
+                    if (flashingStarAnimFrame >= ANIM_FLASHING_STAR.length) {
+                        // Animation complete ($FA terminator) - advance to Wait sub-state.
+                        // Wait counter was already set by Init (4) or Move (6).
+                        flashingStarSubState = 1;
+                        flashingStarAnimFrame = 0;
+                    } else {
+                        flashingStarSprite.mappingFrame = ANIM_FLASHING_STAR[flashingStarAnimFrame];
+                    }
+                }
+            }
+            case 1 -> { // Wait
+                flashingStarWaitCounter--;
+                if (flashingStarWaitCounter < 0) {
+                    flashingStarSubState = 2; // move to next position
+                }
+            }
+            case 2 -> { // Move to next position
+                // From disasm: Obj0E_FlashingStar_Move reads position THEN increments index.
+                // addq.w #4,d0 / cmpi.w #$24,d0 / lea Positions-4(pc,d0.w),a1
+                // First call: d0=0→4, reads Positions[0]. Ninth call: d0=32→36, 36>=$24 → delete.
+                if (flashingStarPosIndex >= FLASHING_STAR_POSITIONS.length) {
+                    // All positions visited, delete star
+                    flashingStarSprite.active = false;
+                    // Force-stop any lingering SFX (sparkle FM channel may not self-terminate)
+                    AudioManager.getInstance().stopAllSfx();
+                } else {
+                    flashingStarSprite.x = FLASHING_STAR_POSITIONS[flashingStarPosIndex][0];
+                    flashingStarSprite.y = FLASHING_STAR_POSITIONS[flashingStarPosIndex][1];
+                    flashingStarPosIndex++;
+                    flashingStarSprite.mappingFrame = ANIM_FLASHING_STAR[0];
+                    flashingStarAnimFrame = 0;
+                    flashingStarAnimDuration = 0;
+                    flashingStarWaitCounter = 6; // from disasm: Move sets counter=6
+                    flashingStarSubState = 0; // back to animate
+
+                    // Play sparkle sound (posIndex already incremented, so it's 1-9)
+                    playSparkleAtIndex(flashingStarPosIndex);
+                }
+            }
+        }
+    }
+
+    private void updateSonicHand() {
+        sonicHandPosCounter++;
+        if ((sonicHandPosCounter & 3) == 0) {
+            sonicHandPosIndex++;
+            if (sonicHandPosIndex >= SONIC_HAND_POSITIONS.length) {
+                // Done moving, stay at last position
+                sonicHandPosIndex = SONIC_HAND_POSITIONS.length - 1;
+            }
+            sonicHandSprite.x = SONIC_HAND_POSITIONS[sonicHandPosIndex][0];
+            sonicHandSprite.y = SONIC_HAND_POSITIONS[sonicHandPosIndex][1];
+        }
+    }
+
+    private void updateTailsHand() {
+        tailsHandPosCounter++;
+        if ((tailsHandPosCounter & 3) == 0) {
+            tailsHandPosIndex++;
+            if (tailsHandPosIndex >= TAILS_HAND_POSITIONS.length) {
+                // Done moving, stay at last position
+                tailsHandPosIndex = TAILS_HAND_POSITIONS.length - 1;
+            }
+            tailsHandSprite.x = TAILS_HAND_POSITIONS[tailsHandPosIndex][0];
+            tailsHandSprite.y = TAILS_HAND_POSITIONS[tailsHandPosIndex][1];
+        }
+    }
+
+    private void updateFallingStar() {
+        fallingStarLifetime--;
+        if (fallingStarLifetime <= 0) {
+            fallingStarSprite.active = false;
+            return;
+        }
+        // Move: X -= 2, Y += 1
+        fallingStarSprite.x -= 2;
+        fallingStarSprite.y += 1;
+
+        // Animate (duration=3: change every 4 frames)
+        fallingStarAnimDuration++;
+        if (fallingStarAnimDuration > 3) {
+            fallingStarAnimDuration = 0;
+            fallingStarAnimFrame++;
+            if (fallingStarAnimFrame >= ANIM_FALLING_STAR.length) {
+                fallingStarAnimFrame = 0; // loop
+            }
+            fallingStarSprite.mappingFrame = ANIM_FALLING_STAR[fallingStarAnimFrame];
+        }
+    }
+
+    /**
+     * Skip intro animation - set all sprites to their final positions.
+     * Matches TitleScreen_SetFinalState from the disassembly.
+     */
+    private void skipToFinalState() {
+        introComplete = true;
+
+        // Sonic final position
+        sonicSprite.mappingFrame = 0x12;
+        sonicSprite.x = 128 + 136;
+        sonicSprite.y = 128 + 24;
+        sonicSubState = 7; // skip to star sparkle state
+
+        // Sonic's hand
+        sonicHandSprite.active = true;
+        sonicHandSprite.mappingFrame = 9;
+        sonicHandSprite.x = 128 + 193;
+        sonicHandSprite.y = 128 + 65;
+        sonicHandPosIndex = SONIC_HAND_POSITIONS.length - 1;
+
+        // Tails final position
+        tailsSprite.active = true;
+        tailsSprite.mappingFrame = 4;
+        tailsSprite.x = 128 + 72;
+        tailsSprite.y = 128 + 32;
+        tailsSubState = 2;
+
+        // Tails' hand
+        tailsHandSprite.active = true;
+        tailsHandSprite.mappingFrame = 0x13;
+        tailsHandSprite.x = 128 + 141;
+        tailsHandSprite.y = 128 + 81;
+        tailsHandPosIndex = TAILS_HAND_POSITIONS.length - 1;
+
+        // Flashing star is deleted
+        flashingStarSprite.active = false;
+        // Force-stop any lingering SFX (sparkle FM channel may not self-terminate)
+        AudioManager.getInstance().stopAllSfx();
+
+        // Load Sonic palette
+        sonicPaletteLoaded = true;
+
+        // Play title music if not already playing
+        if (!musicPlaying) {
+            musicPlaying = true;
+            AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_TITLE);
+        }
+
+        // Force palette re-upload to apply Sonic palette
+        dataLoader.resetCache();
+    }
+
+    @Override
+    public void draw() {
+        // Ensure data is loaded and cached
+        if (!dataLoader.isDataLoaded()) {
+            dataLoader.loadData();
+        }
+        dataLoader.cacheToGpu();
+
+        GraphicsManager gm = GraphicsManager.getInstance();
+        if (gm == null || gm.isHeadlessMode()) {
+            return;
+        }
+
+        // Initialize sprite renderer if needed
+        if (!spritesInitialized && dataLoader.getSpritePatterns() != null) {
+            initSpriteRenderer(gm);
+        }
+
+        // Determine plane visibility based on palette fade timing from the disassembly.
+        // Palette line 2 (Plane B background) stays black until frame 288.
+        // Palette line 3 (Plane A emblem) starts fading from black at frame 56.
+        boolean showBackground = introComplete;
+        boolean showEmblem = frameCounter >= EMBLEM_FADE_START || introComplete;
+
+        // Calculate emblem darkening (simulates ObjC9 palette fade from black)
+        float emblemDarkness = 0.0f;
+        if (showEmblem && !introComplete) {
+            int emblemAge = frameCounter - EMBLEM_FADE_START;
+            if (emblemAge < EMBLEM_FADE_FRAMES) {
+                emblemDarkness = 1.0f - (float) emblemAge / EMBLEM_FADE_FRAMES;
+            }
+        }
+
+        // --- Render Plane B (background, palette line 2) ---
+        if (showBackground) {
+            gm.beginPatternBatch();
+            renderPlaneBNonRipple(gm);
+            gm.flushPatternBatch();
+            // Scanline ripple uses immediate GL scissor state, so the non-ripple commands
+            // must be flushed before any per-line scissor rendering starts.
+            gm.flushScreenSpace();
+            renderPlaneBRipple(gm);
+        }
+
+        // --- Render behind-logo sprites ---
+        // Sonic/Tails emerge behind the SONIC logo, so these must draw before Plane A.
+        if (spriteRenderer != null && spriteRenderer.isReady()) {
+            gm.beginPatternBatch();
+            if (fallingStarSprite.active) {
+                drawSprite(fallingStarSprite);
+            }
+            if (sonicSprite.active && sonicPaletteLoaded && shouldRenderSonicBehindLogo()) {
+                drawSprite(sonicSprite);
+            }
+            if (tailsSprite.active && shouldRenderTailsBehindLogo()) {
+                drawSprite(tailsSprite);
+            }
+            gm.flushPatternBatch();
+        }
+
+        // --- Render Plane A (emblem/logo, palette line 3) ---
+        if (showEmblem) {
+            gm.beginPatternBatch();
+            renderPlaneA(gm);
+            gm.flushPatternBatch();
+        }
+
+        // Emblem fade overlay: darken planes to simulate palette fading from black.
+        // Placed AFTER planes but BEFORE sprites so characters are always visible.
+        if (emblemDarkness > 0.0f) {
+            gm.registerCommand(new GLCommand(
+                    GLCommand.CommandType.RECTI,
+                    -1,
+                    GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
+                    0.0f, 0.0f, 0.0f, emblemDarkness,
+                    0, 0, SCREEN_WIDTH, SCREEN_HEIGHT
+            ));
+        }
+
+        // White flash at frame 288 (disassembly fills palette line 3 with $EEE)
+        if (introComplete && frameCounter >= 288 && frameCounter < 296) {
+            float flashAlpha = 1.0f - (float) (frameCounter - 288) / 8.0f;
+            if (flashAlpha > 0.0f) {
+                gm.registerCommand(new GLCommand(
+                        GLCommand.CommandType.RECTI,
+                        -1,
+                        GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
+                        1.0f, 1.0f, 1.0f, flashAlpha,
+                        0, 0, SCREEN_WIDTH, SCREEN_HEIGHT
+                ));
+            }
+        }
+
+        // --- Render front sprites (on top of logo plane) ---
+        gm.beginPatternBatch();
+
+        if (spriteRenderer != null && spriteRenderer.isReady()) {
+            if (sonicSprite.active && sonicPaletteLoaded && !shouldRenderSonicBehindLogo()) {
+                drawSprite(sonicSprite);
+            }
+
+            if (tailsSprite.active && !shouldRenderTailsBehindLogo()) {
+                drawSprite(tailsSprite);
+            }
+
+            // Logo top has mixed piece priorities in ROM mappings.
+            // Draw only high-priority pieces here so low-priority mask pieces don't
+            // incorrectly appear above the emblem in our simplified title pipeline.
+            if (showEmblem && logoTopSprite.active) {
+                drawSpriteHighPriorityPieces(logoTopSprite);
+            }
+
+            if (sonicHandSprite.active) {
+                drawSprite(sonicHandSprite);
+            }
+
+            if (tailsHandSprite.active) {
+                drawSprite(tailsHandSprite);
+            }
+
+            if (flashingStarSprite.active) {
+                drawSprite(flashingStarSprite);
+            }
+        }
+
+        gm.flushPatternBatch();
+
+        // Global fade overlay (for FADE_IN state at startup)
+        if (state == State.FADE_IN) {
+            float fadeAmount = 1.0f - (float) fadeTimer / FADE_DURATION;
+            if (fadeAmount > 0.0f) {
+                gm.registerCommand(new GLCommand(
+                        GLCommand.CommandType.RECTI,
+                        -1,
+                        GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
+                        0.0f, 0.0f, 0.0f, fadeAmount,
+                        0, 0, SCREEN_WIDTH, SCREEN_HEIGHT
+                ));
+            }
+        }
+    }
+
+    private void initSpriteRenderer(GraphicsManager gm) {
+        titleMappingFrames = TitleScreenMappings.createFrames();
+        ObjectSpriteSheet spriteSheet = new ObjectSpriteSheet(
+                dataLoader.getSpritePatterns(),
+                titleMappingFrames,
+                -1,  // paletteIndex = -1 for absolute mode (each piece has its own palette)
+                1    // frameDelay
+        );
+        spriteRenderer = new PatternSpriteRenderer(spriteSheet);
+        spriteRenderer.ensurePatternsCached(gm, TitleScreenDataLoader.SPRITE_PATTERN_BASE);
+        spritesInitialized = true;
+        LOGGER.info("Title screen sprite renderer initialized with " + titleMappingFrames.size() + " frames");
+    }
+
+    /**
+     * Draws a sprite at its VDP position (subtracting 128 for screen coords).
+     */
+    private void drawSprite(AnimatedSprite sprite) {
+        int screenX = sprite.x - 128;
+        int screenY = sprite.y - 128;
+        spriteRenderer.drawFrameIndex(sprite.mappingFrame, screenX, screenY);
+    }
+
+    /**
+     * Sonic only uses the behind-logo path during pre-visible setup frames.
+     */
+    private boolean shouldRenderSonicBehindLogo() {
+        return !sonicPaletteLoaded;
+    }
+
+    /**
+     * Tails should render in the front pass during entry and final poses.
+     */
+    private boolean shouldRenderTailsBehindLogo() {
+        return false;
+    }
+
+    /**
+     * Draw only high-priority pieces from a sprite mapping frame.
+     */
+    private void drawSpriteHighPriorityPieces(AnimatedSprite sprite) {
+        if (spriteRenderer == null || titleMappingFrames == null) {
+            return;
+        }
+        if (sprite.mappingFrame < 0 || sprite.mappingFrame >= titleMappingFrames.size()) {
+            return;
+        }
+
+        SpriteMappingFrame frame = titleMappingFrames.get(sprite.mappingFrame);
+        if (frame == null || frame.pieces() == null || frame.pieces().isEmpty()) {
+            return;
+        }
+
+        int screenX = sprite.x - 128;
+        int screenY = sprite.y - 128;
+        List<? extends SpriteFramePiece> pieces = frame.pieces();
+
+        for (int i = 0; i < pieces.size(); i++) {
+            if (pieces.get(i).priority()) {
+                spriteRenderer.drawFramePieceByIndex(sprite.mappingFrame, i, screenX, screenY, false, false);
+            }
+        }
+    }
+
+    /**
+     * Renders Plane B non-ripple rows (0-23).
+     * Rows 0-19 are static, rows 20-23 scroll with camera.
+     */
+    private void renderPlaneBNonRipple(GraphicsManager gm) {
+        int[] map = dataLoader.getPlaneBMap();
+        if (map == null || map.length == 0) {
+            return;
+        }
+
+        int planeWidth = dataLoader.getPlaneBWidth();    // 64
+
+        // Calculate scroll offset for scrolling rows
+        int pixelScroll = -(cameraX) >> 2;
+        int tileScrollOffset = pixelScroll >> 3;
+        int subTileOffset = pixelScroll & 7;
+
+        for (int ty = 0; ty < 24 && ty * 8 < SCREEN_HEIGHT; ty++) {
+            if (ty < SCROLL_START_ROW) {
+                // Static rows: render cols 0-39 directly
+                int baseIndex = ty * planeWidth;
+                for (int tx = 0; tx < 40; tx++) {
+                    int idx = baseIndex + tx;
+                    if (idx < 0 || idx >= map.length) {
+                        continue;
+                    }
+                    int word = map[idx];
+                    if (word == 0) {
+                        continue;
+                    }
+                    reusableDesc.set(word);
+                    int patternId = TitleScreenDataLoader.PATTERN_BASE + reusableDesc.getPatternIndex();
+                    gm.renderPatternWithId(patternId, reusableDesc, tx * 8, ty * 8);
+                }
+            } else {
+                // Scrolling rows (20-23): scroll with camera, no ripple
+                int baseIndex = ty * planeWidth;
+                for (int screenTile = -1; screenTile < 41; screenTile++) {
+                    int planeTile = screenTile - tileScrollOffset;
+                    planeTile = ((planeTile % planeWidth) + planeWidth) % planeWidth;
+
+                    int idx = baseIndex + planeTile;
+                    if (idx < 0 || idx >= map.length) {
+                        continue;
+                    }
+                    int word = map[idx];
+                    if (word == 0) {
+                        continue;
+                    }
+                    reusableDesc.set(word);
+                    int patternId = TitleScreenDataLoader.PATTERN_BASE + reusableDesc.getPatternIndex();
+                    int drawX = screenTile * 8 + subTileOffset;
+                    gm.renderPatternWithId(patternId, reusableDesc, drawX, ty * 8);
+                }
+            }
+        }
+    }
+
+    /**
+     * Renders Plane B ripple rows (24-25, lines 192-207) with per-scanline horizontal scroll.
+     *
+     * <p>From SwScrl_Title in the disassembly: each of the 16 scanlines in the water area
+     * gets its own horizontal scroll value = base_scroll + ripple_data[index]. This creates
+     * the wavy water distortion effect.
+     *
+     * <p>Implementation uses GL scissor to clip rendering to one scanline at a time,
+     * allowing each line to have a different horizontal offset.
+     */
+    private void renderPlaneBRipple(GraphicsManager gm) {
+        int[] map = dataLoader.getPlaneBMap();
+        if (map == null || map.length == 0) {
+            return;
+        }
+
+        int planeWidth = dataLoader.getPlaneBWidth();   // 64
+        int planeHeight = dataLoader.getPlaneBHeight(); // 28
+
+        // Base scroll for scrolling rows
+        int pixelScroll = -(cameraX) >> 2;
+
+        // Ripple index, wrapped
+        int currentRippleIndex = rippleIndex & 0x1F;
+
+        // Viewport info for scissor coordinate mapping
+        int vpX = gm.getViewportX();
+        int vpY = gm.getViewportY();
+        int vpW = gm.getViewportWidth();
+        int vpH = gm.getViewportHeight();
+        float scaleY = (float) vpH / SCREEN_HEIGHT;
+
+        // Render each of the 16 scanlines (lines 192-207) individually
+        for (int line = 0; line < 16; line++) {
+            int mdY = 192 + line;           // Mega Drive scanline Y (top-down)
+            int ty = mdY >> 3;              // Tile row (24 or 25)
+            if (ty >= planeHeight) {
+                continue;
+            }
+
+            // Per-line ripple offset from SwScrl_RippleData
+            int rippleIdx = (currentRippleIndex + line) & 0x3F;
+            int rippleValue = 0;
+            if (rippleIdx < RIPPLE_DATA.length) {
+                rippleValue = RIPPLE_DATA[rippleIdx];
+            }
+
+            int linePixelScroll = pixelScroll + rippleValue;
+            int lineTileScroll = linePixelScroll >> 3;
+            int lineSubTile = linePixelScroll & 7;
+
+            // Calculate scissor rectangle in window space (OpenGL Y-up)
+            // Game Y=mdY (top-down) → OpenGL Y = SCREEN_HEIGHT - mdY - 1 (bottom-up)
+            int scissorY = vpY + (int) ((SCREEN_HEIGHT - mdY - 1) * scaleY);
+            int scissorH = Math.max(1, (int) Math.ceil(scaleY));
+
+            gm.enableScissor(vpX, scissorY, vpW, scissorH);
+
+            gm.beginPatternBatch();
+
+            int baseIndex = ty * planeWidth;
+            for (int screenTile = -1; screenTile < 41; screenTile++) {
+                int planeTile = screenTile - lineTileScroll;
+                planeTile = ((planeTile % planeWidth) + planeWidth) % planeWidth;
+
+                int idx = baseIndex + planeTile;
+                if (idx < 0 || idx >= map.length) {
+                    continue;
+                }
+                int word = map[idx];
+                if (word == 0) {
+                    continue;
+                }
+                reusableDesc.set(word);
+                int patternId = TitleScreenDataLoader.PATTERN_BASE + reusableDesc.getPatternIndex();
+                int drawX = screenTile * 8 + lineSubTile;
+                // Render the full tile at the tile row's Y position; scissor clips to one line
+                gm.renderPatternWithId(patternId, reusableDesc, drawX, ty * 8);
+            }
+
+            gm.flushPatternBatch();
+            // Apply scissor clipping to this line by flushing while the scissor
+            // state is active. Title screen rendering is screen-space.
+            gm.flushScreenSpace();
+            gm.disableScissor();
+        }
+    }
+
+    /**
+     * Renders Plane A (logo/emblem). No scrolling, skip transparent tiles (word == 0).
+     */
+    private void renderPlaneA(GraphicsManager gm) {
+        int[] map = dataLoader.getPlaneAMap();
+        if (map == null || map.length == 0) {
+            return;
+        }
+
+        int width = dataLoader.getPlaneAWidth();   // 40
+        int height = dataLoader.getPlaneAHeight();  // 28
+
+        for (int ty = 0; ty < height && ty * 8 < SCREEN_HEIGHT; ty++) {
+            int baseIndex = ty * width;
+            for (int tx = 0; tx < width; tx++) {
+                int idx = baseIndex + tx;
+                if (idx < 0 || idx >= map.length) {
+                    continue;
+                }
+                int word = map[idx];
+                if (word == 0) {
+                    continue;
+                }
+                reusableDesc.set(word);
+                int patternId = TitleScreenDataLoader.PATTERN_BASE + reusableDesc.getPatternIndex();
+                gm.renderPatternWithId(patternId, reusableDesc, tx * 8, ty * 8);
+            }
+        }
+    }
+
+    @Override
+    public void setClearColor() {
+        // During the intro (before frame 288), all palette lines start black.
+        // Palette line 2 (Plane B backdrop) stays black until introComplete.
+        if (!introComplete) {
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            return;
+        }
+        // After intro, use VDP register $8720 = palette 2, color 0
+        if (!dataLoader.isDataLoaded()) {
+            dataLoader.loadData();
+        }
+        Palette bgPal = dataLoader.getBackgroundPalette();
+        if (bgPal != null) {
+            Palette.Color backdrop = bgPal.getColor(0);
+            glClearColor(backdrop.rFloat(), backdrop.gFloat(), backdrop.bFloat(), 1.0f);
+        } else {
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        }
+    }
+
+    /**
+     * Plays the sparkle sound for a specific index (0=init, 1-9=star positions).
+     * Each index can only play once per title screen session, preventing any
+     * possibility of repeated playback regardless of state machine behavior.
+     */
+    private void playSparkleAtIndex(int index) {
+        if (index < 0 || index >= sparklePlayedAt.length) {
+            LOGGER.warning("Sparkle index out of range: " + index + " at frame " + frameCounter);
+            return;
+        }
+        if (sparklePlayedAt[index]) {
+            LOGGER.fine("Sparkle #" + index + " already played, blocked at frame " + frameCounter);
+            return;
+        }
+        sparklePlayedAt[index] = true;
+        LOGGER.fine("Playing sparkle #" + index + " at frame " + frameCounter);
+        AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SPARKLE);
+    }
+
+    @Override
+    public void reset() {
+        state = State.INACTIVE;
+        cameraX = -0x280;
+        frameCounter = 0;
+        fadeTimer = 0;
+        introComplete = false;
+        musicPlaying = false;
+        sonicPaletteLoaded = false;
+        spritesInitialized = false;
+        LOGGER.info("Title screen reset to inactive");
+    }
+
+    @Override
+    public State getState() {
+        return state;
+    }
+
+    @Override
+    public boolean isExiting() {
+        return state == State.EXITING;
+    }
+
+    @Override
+    public boolean isActive() {
+        return state != State.INACTIVE;
+    }
+
+    /**
+     * Lightweight animated sprite state for the title screen intro.
+     */
+    private static class AnimatedSprite {
+        int x;
+        int y;
+        int mappingFrame;
+        boolean active;
+        int posArrayIndex;
+        int posCounter;
+
+        void reset() {
+            x = 0;
+            y = 0;
+            mappingFrame = 0;
+            active = false;
+            posArrayIndex = 0;
+            posCounter = 0;
+        }
+    }
+}
