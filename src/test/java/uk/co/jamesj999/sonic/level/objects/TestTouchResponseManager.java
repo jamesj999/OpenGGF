@@ -71,7 +71,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(obj);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         assertFalse("Should not overlap when object is far to the right",
                 obj.wasTouched);
@@ -84,7 +84,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(obj);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         assertFalse("Should not overlap when object is far to the left",
                 obj.wasTouched);
@@ -97,7 +97,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(obj);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         assertFalse("Should not overlap when object is far above",
                 obj.wasTouched);
@@ -110,7 +110,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(obj);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         assertFalse("Should not overlap when object is far below",
                 obj.wasTouched);
@@ -123,7 +123,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(obj);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         assertTrue("Should overlap when object is at player position",
                 obj.wasTouched);
@@ -136,7 +136,7 @@ public class TestTouchResponseManager {
         setupTableSize(16, 32, 32);
         objectManager.addDynamicObject(obj);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         assertTrue("Should overlap with large object near player",
                 obj.wasTouched);
@@ -151,7 +151,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(obj);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         assertEquals("Category should be ENEMY for flags 0x00-0x3F",
                 TouchCategory.ENEMY, obj.lastResult.category());
@@ -164,7 +164,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(obj);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         assertEquals("Category should be SPECIAL for flags 0x40-0x7F",
                 TouchCategory.SPECIAL, obj.lastResult.category());
@@ -177,7 +177,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(obj);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         assertEquals("Category should be HURT for flags 0x80-0xBF",
                 TouchCategory.HURT, obj.lastResult.category());
@@ -190,7 +190,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(obj);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         assertEquals("Category should be BOSS for flags 0xC0-0xFF",
                 TouchCategory.BOSS, obj.lastResult.category());
@@ -205,7 +205,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(obj);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         assertFalse("Should not touch objects when player is dead",
                 obj.wasTouched);
@@ -219,7 +219,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(obj);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         // Object should NOT touch when player is crouching and object is above normal standing position
         assertFalse("Crouching should reduce hitbox height",
@@ -238,7 +238,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(enemy);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         assertTrue("Enemy should have been attacked when player is rolling", enemy.wasAttacked);
     }
@@ -256,7 +256,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(enemy);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         // Verify applyHurtOrDeath was called
         verify(player).applyHurtOrDeath(anyInt(), anyBoolean(), anyBoolean());
@@ -270,7 +270,7 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(hurtObject);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         // Verify applyHurtOrDeath was NOT called
         verify(player, never()).applyHurtOrDeath(anyInt(), anyBoolean(), anyBoolean());
@@ -285,14 +285,14 @@ public class TestTouchResponseManager {
         objectManager.addDynamicObject(obj);
 
         // First update - should trigger touch
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
         assertTrue("First update should trigger touch", obj.wasTouched);
 
         // Reset touch flag
         obj.wasTouched = false;
 
         // Second update - still overlapping but should NOT trigger again
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
         assertFalse("Second update should NOT trigger touch for same overlap",
                 obj.wasTouched);
     }
@@ -304,16 +304,16 @@ public class TestTouchResponseManager {
         objectManager.addDynamicObject(obj);
 
         // First update - triggers touch
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
         obj.wasTouched = false;
 
         // Move player away
         when(player.getCentreX()).thenReturn((short) 500);
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         // Move player back
         when(player.getCentreX()).thenReturn((short) 160);
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
 
         assertTrue("Touch should trigger again after exit and re-enter",
                 obj.wasTouched);
@@ -327,14 +327,14 @@ public class TestTouchResponseManager {
         setupTableSize(8, 16, 16);
         objectManager.addDynamicObject(obj);
 
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
         obj.wasTouched = false;
 
         // Reset should clear tracking
         objectManager.resetTouchResponses();
 
         // Now touch should trigger again
-        objectManager.update(0, player, 1);
+        objectManager.update(0, player, null, 1);
         assertTrue("Touch should trigger after reset even for same overlap",
                 obj.wasTouched);
     }

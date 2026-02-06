@@ -21,6 +21,7 @@ import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.Sonic;
 import uk.co.jamesj999.sonic.sprites.playable.Tails;
+import uk.co.jamesj999.sonic.sprites.playable.TailsCpuController;
 import uk.co.jamesj999.sonic.game.GameMode;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.sonic2.levelselect.LevelSelectManager;
@@ -276,6 +277,23 @@ public class Engine {
 			mainSprite = new Sonic(mainCode, (short) 100, (short) 624);
 		}
 		spriteManager.addSprite(mainSprite);
+
+		// Create CPU-controlled sidekick if configured (empty string = no sidekick).
+		// ROM: Both Sonic and Tails share the same start position from the zone start location table.
+		// Sidekick must start at the same X as main so the AI doesn't immediately chase (threshold is 16px).
+		String sidekickCode = configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
+		if (!sidekickCode.isEmpty()) {
+			AbstractPlayableSprite sidekick;
+			if ("tails".equalsIgnoreCase(sidekickCode)) {
+				sidekick = new Tails(sidekickCode, mainSprite.getX(), mainSprite.getY());
+			} else {
+				sidekick = new Sonic(sidekickCode, mainSprite.getX(), mainSprite.getY());
+			}
+			sidekick.setCpuControlled(true);
+			TailsCpuController cpuController = new TailsCpuController(sidekick);
+			sidekick.setCpuController(cpuController);
+			spriteManager.addSprite(sidekick);
+		}
 
 		camera.setFocusedSprite(mainSprite);
 		camera.updatePosition(true);

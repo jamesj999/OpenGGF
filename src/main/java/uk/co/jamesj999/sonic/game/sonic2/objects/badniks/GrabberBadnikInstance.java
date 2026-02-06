@@ -323,12 +323,17 @@ public class GrabberBadnikInstance extends AbstractBadnikInstance {
             grabbedPlayer.setObjectControlled(false);
             grabbedPlayer.setAir(true);
 
-            // Hurt the player - this is the punishment for not escaping
-            boolean hadRings = grabbedPlayer.getRingCount() > 0;
-            if (hadRings && !grabbedPlayer.hasShield()) {
-                LevelManager.getInstance().spawnLostRings(grabbedPlayer, 0);
+            // ROM: Hurt_Sidekick - CPU Tails only gets knockback, no ring scatter or death
+            if (grabbedPlayer.isCpuControlled()) {
+                grabbedPlayer.applyHurt(currentX);
+            } else {
+                // Hurt the player - this is the punishment for not escaping
+                boolean hadRings = grabbedPlayer.getRingCount() > 0;
+                if (hadRings && !grabbedPlayer.hasShield()) {
+                    LevelManager.getInstance().spawnLostRings(grabbedPlayer, 0);
+                }
+                grabbedPlayer.applyHurtOrDeath(currentX, true, hadRings);
             }
-            grabbedPlayer.applyHurtOrDeath(currentX, true, hadRings);
 
             grabbedPlayer = null;
         }
