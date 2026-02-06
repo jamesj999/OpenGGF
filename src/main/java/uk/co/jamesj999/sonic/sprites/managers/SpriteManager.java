@@ -171,7 +171,7 @@ public class SpriteManager {
 					boolean aiJump = cpuController.getInputJump();
 
 					boolean controlLocked = playable.isControlLocked();
-					effectiveRight = aiRight || playable.isForceInputRight() || controlLocked;
+					effectiveRight = (!controlLocked && aiRight) || playable.isForceInputRight();
 					effectiveLeft = !controlLocked && aiLeft && !playable.isForceInputRight();
 					effectiveUp = !controlLocked && aiUp;
 					effectiveDown = !controlLocked && aiDown;
@@ -183,7 +183,7 @@ public class SpriteManager {
 				} else {
 					// Player-controlled sprite: use keyboard input
 					boolean controlLocked = playable.isControlLocked();
-					effectiveRight = right || playable.isForceInputRight() || controlLocked;
+					effectiveRight = (!controlLocked && right) || playable.isForceInputRight();
 					effectiveLeft = !controlLocked && left && !playable.isForceInputRight();
 					effectiveUp = !controlLocked && up;
 					effectiveDown = !controlLocked && down;
