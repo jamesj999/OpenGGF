@@ -179,8 +179,11 @@ public class Sonic1SfxData extends AbstractSmpsData implements SmpsSfxData {
 
     @Override
     public byte[] getPsgEnvelope(int id) {
-        if (psgEnvelopes != null && id >= 0 && id < psgEnvelopes.length) {
-            return psgEnvelopes[id];
+        // S1 uses 1-based VoiceIndex (driver does subq.w #1,d0 before table lookup).
+        // VoiceIndex=0 means no envelope. VoiceIndex=1 maps to psgEnvelopes[0], etc.
+        int index = id - 1;
+        if (psgEnvelopes != null && index >= 0 && index < psgEnvelopes.length) {
+            return psgEnvelopes[index];
         }
         return null;
     }
