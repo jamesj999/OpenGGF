@@ -59,8 +59,9 @@ public class CompressionTestTool {
                 case NEMESIS:
                     return testNemesis(offset, chunk);
                 case KOSINSKI:
+                    return testKosinski(offset, chunk);
                 case KOSINSKI_MODULED:
-                    return testKosinski(offset, chunk, type);
+                    return testKosinskiModuled(offset, chunk);
                 case ENIGMA:
                     return testEnigma(offset, chunk);
                 case SAXMAN:
@@ -187,15 +188,22 @@ public class CompressionTestTool {
                 compressedSize, decompressed.length, decompressed);
     }
 
-    private CompressionTestResult testKosinski(long offset, byte[] chunk, CompressionType type) throws IOException {
+    private CompressionTestResult testKosinski(long offset, byte[] chunk) throws IOException {
         ByteArrayInputStream bais = new ByteArrayInputStream(chunk);
         ReadableByteChannel channel = Channels.newChannel(bais);
 
         byte[] decompressed = KosinskiReader.decompress(channel);
         int compressedSize = chunk.length - bais.available();
 
-        return CompressionTestResult.success(type, offset,
+        return CompressionTestResult.success(CompressionType.KOSINSKI, offset,
                 compressedSize, decompressed.length, decompressed);
+    }
+
+    private CompressionTestResult testKosinskiModuled(long offset, byte[] chunk) throws IOException {
+        byte[] decompressed = KosinskiReader.decompressModuled(chunk, 0);
+
+        return CompressionTestResult.success(CompressionType.KOSINSKI_MODULED, offset,
+                -1, decompressed.length, decompressed);
     }
 
     private CompressionTestResult testEnigma(long offset, byte[] chunk) throws IOException {
@@ -227,6 +235,7 @@ public class CompressionTestTool {
         CompressionType[] types = {
                 CompressionType.NEMESIS,
                 CompressionType.KOSINSKI,
+                CompressionType.KOSINSKI_MODULED,
                 CompressionType.ENIGMA,
                 CompressionType.SAXMAN
         };

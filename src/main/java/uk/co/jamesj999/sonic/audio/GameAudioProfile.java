@@ -29,4 +29,24 @@ public interface GameAudioProfile {
     default boolean isSfxBlockingMusic(int musicId) {
         return musicId == getExtraLifeMusicId();
     }
+
+    /**
+     * Returns the priority for a given sound ID. Higher values = higher priority.
+     * Used for SFX channel arbitration.
+     */
+    default int getSfxPriority(int soundId) {
+        return 0x70; // Default priority
+    }
+
+    /**
+     * Handle a game-specific system command (e.g., fade out, stop all).
+     * Called early in {@code AudioManager.playMusic()} dispatch.
+     *
+     * @param soundId the sound/command ID
+     * @param manager the AudioManager instance for executing the command
+     * @return true if the command was handled, false if it should continue normal dispatch
+     */
+    default boolean handleSystemCommand(int soundId, AudioManager manager) {
+        return false;
+    }
 }

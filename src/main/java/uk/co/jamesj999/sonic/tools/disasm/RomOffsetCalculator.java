@@ -12,18 +12,18 @@ import java.util.regex.Pattern;
  * Calculates ROM offsets for disassembly items by using known anchor offsets
  * and summing file sizes in assembly order.
  *
- * The s2disasm assembles files sequentially, so we can calculate any offset if we know:
- * 1. A nearby anchor offset (from Sonic2SpecialStageConstants or similar)
+ * The disassembly assembles files sequentially, so we can calculate any offset if we know:
+ * 1. A nearby anchor offset (from verified constants)
  * 2. The file sizes between the anchor and target
  */
 public class RomOffsetCalculator {
 
     private static final Pattern BINCLUDE_PATTERN = Pattern.compile(
-            "^\\s*(\\w+):\\s*(?:BINCLUDE|binclude)\\s+\"([^\"]+)\"",
+            "^\\s*(\\w+):\\s*(?:BINCLUDE|binclude(?:Palette)?)\\s+\"([^\"]+)\"",
             Pattern.CASE_INSENSITIVE
     );
     private static final Pattern BINCLUDE_NO_LABEL_PATTERN = Pattern.compile(
-            "^\\s*(?:BINCLUDE|binclude)\\s+\"([^\"]+)\"",
+            "^\\s*(?:BINCLUDE|binclude(?:Palette)?)\\s+\"([^\"]+)\"",
             Pattern.CASE_INSENSITIVE
     );
     private static final Pattern ALIGN_PATTERN = Pattern.compile(
@@ -35,54 +35,54 @@ public class RomOffsetCalculator {
             Pattern.CASE_INSENSITIVE
     );
 
-    // Pattern for palette macro: "Label: palette path[,path2] [; comment]"
+    // Pattern for S2 palette macro: "Label: palette path[,path2] [; comment]"
     // The macro expands to BINCLUDE "art/palettes/{path}"
     private static final Pattern PALETTE_PATTERN = Pattern.compile(
             "^\\s*(\\w+):\\s*palette\\s+([^,;]+?)(?:\\s*,\\s*([^;]+?))?(?:\\s*;.*)?\\s*$",
             Pattern.CASE_INSENSITIVE
     );
 
-    /**
-     * Known anchor offsets from verified ROM locations.
-     * These are used as starting points for offset calculation.
-     */
-    private static final Map<String, Long> ANCHOR_OFFSETS = new LinkedHashMap<>();
-    static {
-        // Special stage art anchors (verified)
-        ANCHOR_OFFSETS.put("ArtNem_SpecialBack", 0x0DCD68L);
-        ANCHOR_OFFSETS.put("ArtNem_SpecialHUD", 0x0DD48AL);
-        ANCHOR_OFFSETS.put("ArtNem_SpecialStart", 0x0DD790L);
-        ANCHOR_OFFSETS.put("ArtNem_SpecialRings", 0x0DDA7EL);
-        ANCHOR_OFFSETS.put("ArtNem_SpecialFlatShadow", 0x0DDFA4L);
-        ANCHOR_OFFSETS.put("ArtNem_SpecialDiagShadow", 0x0DE05AL);
-        ANCHOR_OFFSETS.put("ArtNem_SpecialSideShadow", 0x0DE120L);
-        ANCHOR_OFFSETS.put("ArtNem_SpecialBomb", 0x0DE4BCL);
-        ANCHOR_OFFSETS.put("ArtNem_SpecialEmerald", 0x0DE8ACL);
-        ANCHOR_OFFSETS.put("ArtNem_SpecialMessages", 0x0DEAF4L);
-        ANCHOR_OFFSETS.put("ArtNem_SpecialSonicAndTails", 0x0DEEAEL);
-
-        // Track data anchors
-        ANCHOR_OFFSETS.put("ArtKos_SpecialStage", 0x0DCA38L);
-
-        // Palette anchors (verified)
-        ANCHOR_OFFSETS.put("Pal_Result", 0x3302L);  // Special Stage Results Screen palette
-    }
-
     private final Path disasmRoot;
+    private final RomOffsetFinder.GameProfile profile;
+    private final Map<String, Long> anchorOffsets;
     private List<BincludeEntry> orderedEntries;
 
     /**
      * Runtime-discovered anchors from verified offsets.
-     * These supplement the static ANCHOR_OFFSETS map.
+     * These supplement the profile anchor offsets.
      */
     private final Map<String, Long> runtimeAnchors = new LinkedHashMap<>();
 
     public RomOffsetCalculator(Path disasmRoot) {
-        this.disasmRoot = disasmRoot;
+        this(disasmRoot, null);
     }
 
     public RomOffsetCalculator(String disasmRootPath) {
-        this(Path.of(disasmRootPath));
+        this(Path.of(disasmRootPath), null);
+    }
+
+    public RomOffsetCalculator(String disasmRootPath, RomOffsetFinder.GameProfile profile) {
+        this(Path.of(disasmRootPath), profile);
+    }
+
+    public RomOffsetCalculator(Path disasmRoot, RomOffsetFinder.GameProfile profile) {
+        this.disasmRoot = disasmRoot;
+        this.profile = profile;
+        this.anchorOffsets = profile != null
+                ? new LinkedHashMap<>(profile.anchorOffsets())
+                : defaultS2Anchors();
+    }
+
+    private static Map<String, Long> defaultS2Anchors() {
+        return RomOffsetFinder.GameProfile.sonic2().anchorOffsets();
+    }
+
+    private boolean hasPaletteMacro() {
+        return profile == null || profile.paletteDirPrefix() != null;
+    }
+
+    private String mainAsmFile() {
+        return profile != null ? profile.mainAsmFile() : "s2.asm";
     }
 
     /**
@@ -93,17 +93,17 @@ public class RomOffsetCalculator {
      * @param offset The verified ROM offset
      */
     public void addVerifiedAnchor(String label, long offset) {
-        // Don't override static anchors
-        if (!ANCHOR_OFFSETS.containsKey(label)) {
+        // Don't override profile anchors
+        if (!anchorOffsets.containsKey(label)) {
             runtimeAnchors.put(label, offset);
         }
     }
 
     /**
-     * Get all anchors (static + runtime).
+     * Get all anchors (profile + runtime).
      */
     public Map<String, Long> getAllAnchors() {
-        Map<String, Long> all = new LinkedHashMap<>(ANCHOR_OFFSETS);
+        Map<String, Long> all = new LinkedHashMap<>(anchorOffsets);
         all.putAll(runtimeAnchors);
         return Collections.unmodifiableMap(all);
     }
@@ -123,18 +123,18 @@ public class RomOffsetCalculator {
     }
 
     /**
-     * Check if a label is any anchor (static or runtime).
+     * Check if a label is any anchor (profile or runtime).
      */
     private boolean isAnyAnchor(String label) {
-        return ANCHOR_OFFSETS.containsKey(label) || runtimeAnchors.containsKey(label);
+        return anchorOffsets.containsKey(label) || runtimeAnchors.containsKey(label);
     }
 
     /**
-     * Get anchor offset (static or runtime).
+     * Get anchor offset (profile or runtime).
      */
     private long getAnyAnchorOffset(String label) {
-        if (ANCHOR_OFFSETS.containsKey(label)) {
-            return ANCHOR_OFFSETS.get(label);
+        if (anchorOffsets.containsKey(label)) {
+            return anchorOffsets.get(label);
         }
         return runtimeAnchors.getOrDefault(label, -1L);
     }
@@ -305,13 +305,13 @@ public class RomOffsetCalculator {
 
     private void ensureEntriesLoaded() throws IOException {
         if (orderedEntries == null) {
-            orderedEntries = parseS2Asm();
+            orderedEntries = parseMainAsm();
         }
     }
 
-    private List<BincludeEntry> parseS2Asm() throws IOException {
+    private List<BincludeEntry> parseMainAsm() throws IOException {
         List<BincludeEntry> entries = new ArrayList<>();
-        Path s2asm = disasmRoot.resolve("s2.asm");
+        Path s2asm = disasmRoot.resolve(mainAsmFile());
 
         if (!Files.exists(s2asm)) {
             return entries;
@@ -357,19 +357,21 @@ public class RomOffsetCalculator {
                     continue;
                 }
 
-                // Check for palette macro
-                Matcher paletteMatcher = PALETTE_PATTERN.matcher(line);
-                if (paletteMatcher.find()) {
-                    String label = paletteMatcher.group(1);
-                    String path1 = paletteMatcher.group(2).trim();
-                    String path2 = paletteMatcher.group(3) != null ? paletteMatcher.group(3).trim() : null;
+                // Check for S2 palette macro (S1 uses bincludePalette, caught by BINCLUDE regex)
+                if (hasPaletteMacro()) {
+                    Matcher paletteMatcher = PALETTE_PATTERN.matcher(line);
+                    if (paletteMatcher.find()) {
+                        String label = paletteMatcher.group(1);
+                        String path1 = paletteMatcher.group(2).trim();
+                        String path2 = paletteMatcher.group(3) != null ? paletteMatcher.group(3).trim() : null;
 
-                    // First palette file
-                    entries.add(new BincludeEntry(label, "art/palettes/" + path1, lineNumber));
+                        // First palette file
+                        entries.add(new BincludeEntry(label, "art/palettes/" + path1, lineNumber));
 
-                    // Second palette file (if present) - same label, follows immediately
-                    if (path2 != null && !path2.isEmpty()) {
-                        entries.add(new BincludeEntry(label + "_2", "art/palettes/" + path2, lineNumber));
+                        // Second palette file (if present) - same label, follows immediately
+                        if (path2 != null && !path2.isEmpty()) {
+                            entries.add(new BincludeEntry(label + "_2", "art/palettes/" + path2, lineNumber));
+                        }
                     }
                 }
             }
@@ -391,17 +393,17 @@ public class RomOffsetCalculator {
     }
 
     /**
-     * Check if a label is a known anchor.
+     * Check if a label is a known anchor (profile anchor).
      */
-    public static boolean isKnownAnchor(String label) {
-        return ANCHOR_OFFSETS.containsKey(label);
+    public boolean isKnownAnchor(String label) {
+        return anchorOffsets.containsKey(label);
     }
 
     /**
-     * Get all known anchor offsets.
+     * Get all known anchor offsets (profile anchors).
      */
-    public static Map<String, Long> getKnownAnchors() {
-        return Collections.unmodifiableMap(ANCHOR_OFFSETS);
+    public Map<String, Long> getKnownAnchors() {
+        return Collections.unmodifiableMap(anchorOffsets);
     }
 
     private static class BincludeEntry {
