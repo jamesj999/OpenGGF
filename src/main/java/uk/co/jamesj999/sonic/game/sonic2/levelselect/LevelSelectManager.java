@@ -4,6 +4,7 @@ import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.Control.InputHandler;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
+import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SoundTestCatalog;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
@@ -32,24 +33,10 @@ import static uk.co.jamesj999.sonic.game.sonic2.levelselect.LevelSelectConstants
  * INACTIVE → FADE_IN → ACTIVE → EXITING
  * </pre>
  */
-public class LevelSelectManager {
+public class LevelSelectManager implements LevelSelectProvider {
     private static final Logger LOGGER = Logger.getLogger(LevelSelectManager.class.getName());
 
     private static LevelSelectManager instance;
-
-    /**
-     * State machine for level select screen.
-     */
-    public enum State {
-        /** Screen is not active */
-        INACTIVE,
-        /** Fading in from black */
-        FADE_IN,
-        /** Main interactive state */
-        ACTIVE,
-        /** Ready to exit and load selected level */
-        EXITING
-    }
 
     private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
     private final LevelSelectDataLoader dataLoader = new LevelSelectDataLoader();

@@ -22,8 +22,8 @@ import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.Sonic;
 import uk.co.jamesj999.sonic.sprites.playable.Tails;
 import uk.co.jamesj999.sonic.game.GameMode;
+import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
-import uk.co.jamesj999.sonic.game.sonic2.levelselect.LevelSelectManager;
 import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageManager;
 
 import java.io.IOException;
@@ -432,7 +432,10 @@ public class Engine {
 			glClearColor(0.85f, 0.9f, 0.95f, 1.0f);
 		} else if (getCurrentGameMode() == GameMode.LEVEL_SELECT) {
 			// Level select backdrop is palette 0, color 0 (per VDP register $8700)
-			LevelSelectManager.getInstance().setClearColor();
+			LevelSelectProvider levelSelect = gameLoop.getLevelSelectProvider();
+			if (levelSelect != null) {
+				levelSelect.setClearColor();
+			}
 		} else if (getCurrentGameMode() == GameMode.TITLE_CARD) {
 			levelManager.setClearColor();
 		} else {
@@ -542,7 +545,10 @@ public class Engine {
 			// Render level select screen
 			camera.setX((short) 0);
 			camera.setY((short) 0);
-			LevelSelectManager.getInstance().draw();
+			LevelSelectProvider levelSelect = gameLoop.getLevelSelectProvider();
+			if (levelSelect != null) {
+				levelSelect.draw();
+			}
 		} else if (getCurrentGameMode() == GameMode.TITLE_CARD) {
 			levelManager.drawWithSpritePriority(spriteManager);
 
