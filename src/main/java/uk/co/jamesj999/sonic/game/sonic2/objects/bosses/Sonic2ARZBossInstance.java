@@ -460,6 +460,14 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
         int rx = player.getXRadius();
         int ry = player.getYRadius();
         if (dx < (rx + HAMMER_HITBOX_WIDTH) && dy < (ry + HAMMER_HITBOX_HEIGHT)) {
+            if (player.getInvulnerable()) {
+                return;
+            }
+            // ROM: Hurt_Sidekick - CPU Tails only gets knockback, no ring scatter or death
+            if (player.isCpuControlled()) {
+                player.applyHurt(hammerX);
+                return;
+            }
             boolean hadRings = player.getRingCount() > 0;
             if (hadRings && !player.hasShield()) {
                 levelManager.spawnLostRings(player, frameCounter);

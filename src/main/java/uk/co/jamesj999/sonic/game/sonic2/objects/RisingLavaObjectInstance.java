@@ -201,6 +201,11 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
             return;
         }
 
+        // ROM: Hurt_Sidekick - CPU Tails only gets knockback, no ring scatter or death
+        if (player.isCpuControlled()) {
+            player.applyHurt(getX());
+            return;
+        }
         // Check if player has rings
         boolean hadRings = player.getRingCount() > 0;
         if (hadRings && !player.hasShield()) {

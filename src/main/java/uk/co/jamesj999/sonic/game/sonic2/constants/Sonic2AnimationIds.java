@@ -21,8 +21,10 @@ public final class Sonic2AnimationIds {
     public static final int BUBBLE = 0x15;    // Breathing air bubble underwater
     public static final int DEATH = 0x18;
     public static final int HURT = 0x19;
+    public static final int HURT2 = 0x1A;     // Tails: frame $5C (distinct from death frame $5D)
     public static final int BALANCE3 = 0x1D;  // Balancing on edge, facing away from edge
     public static final int BALANCE4 = 0x1E;  // Balancing on edge, facing away, more precarious
+    public static final int FLY = 0x20;       // Tails helicopter fly (Tails only)
 
     private Sonic2AnimationIds() {
     }

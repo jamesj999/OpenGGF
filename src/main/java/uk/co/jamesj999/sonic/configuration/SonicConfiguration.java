@@ -178,6 +178,12 @@ public enum SonicConfiguration {
 	/**
 	 * Whether to show the Level Select screen on startup instead of loading EHZ.
 	 */
-	LEVEL_SELECT_ON_STARTUP;
+	LEVEL_SELECT_ON_STARTUP,
+
+	/**
+	 * Code of the sprite of the CPU-controlled sidekick character.
+	 * Set to "tails" or "sonic" to spawn a sidekick, or empty string to disable.
+	 */
+	SIDEKICK_CHARACTER_CODE;
 
 }
