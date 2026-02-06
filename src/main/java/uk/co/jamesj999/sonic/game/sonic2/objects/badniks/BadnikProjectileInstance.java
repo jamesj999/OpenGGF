@@ -38,8 +38,10 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
     private final ProjectileType type;
     private int currentX;
     private int currentY;
-    private int xVelocity; // In subpixels
-    private int yVelocity; // In subpixels
+    private int xVelocity; // In subpixels (8.8 fixed point)
+    private int yVelocity; // In subpixels (8.8 fixed point)
+    private int xSubpixel; // Fractional X position (low 8 bits of 16.8 position)
+    private int ySubpixel; // Fractional Y position (low 8 bits of 16.8 position)
     private boolean applyGravity;
     private int gravity;
     private int collisionSizeIndex;
@@ -96,9 +98,16 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
             yVelocity += gravity;
         }
 
-        // Update position (velocities are in subpixels, shift by 8)
-        currentX += (xVelocity >> 8);
-        currentY += (yVelocity >> 8);
+        // Update position using 16.8 fixed-point (matches ObjectMove in s2.asm:29969-29982)
+        // Velocity (8.8) is added to position (16.8) for subpixel precision
+        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
+        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
+        xPos24 += xVelocity;
+        yPos24 += yVelocity;
+        currentX = xPos24 >> 8;
+        currentY = yPos24 >> 8;
+        xSubpixel = xPos24 & 0xFF;
+        ySubpixel = yPos24 & 0xFF;
 
         // Check if off-screen (with margin) and destroy
         if (!isOnScreen(32)) {
@@ -157,6 +166,7 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
 
         PatternSpriteRenderer renderer;
         int frame;
+        int paletteOverride = -1; // -1 = use sprite sheet default
 
         switch (type) {
             case BUZZER_STINGER:
@@ -177,7 +187,10 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
             case REXON_FIREBALL:
                 renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.REXON);
                 // Rexon fireball uses frame 3 (1x1 tile)
+                // Fireball uses palette line 1 (Obj94_SubObjData2: make_art_tile(ArtTile_ArtNem_Rexon,1,0))
+                // while head/body use palette line 3 (the sheet default)
                 frame = 3;
+                paletteOverride = 1;
                 break;
             default:
                 return;
@@ -187,6 +200,6 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
             return;
         }
 
-        renderer.drawFrameIndex(frame, currentX, currentY, hFlip, false);
+        renderer.drawFrameIndex(frame, currentX, currentY, hFlip, false, paletteOverride);
     }
 }

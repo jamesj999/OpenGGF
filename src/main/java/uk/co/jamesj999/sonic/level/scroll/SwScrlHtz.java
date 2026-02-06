@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.level.scroll;
 
 import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
 
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.*;
 
@@ -104,16 +105,17 @@ public class SwScrlHtz implements ZoneScrollHandler {
         minScrollOffset = Integer.MAX_VALUE;
         maxScrollOffset = Integer.MIN_VALUE;
 
-        // Set vertical scroll factor from BG camera
+        // Default vertical factors for normal mode.
         vscrollFactorBG = (short) bgCamera.getBgYPos();
         vscrollFactorFG = (short) cameraY;
 
-        // Reset shake offsets - will be set if screen shake is active
+        // Reset shake offsets - quake mode may overwrite.
         shakeOffsetX = 0;
         shakeOffsetY = 0;
 
-        if (GameServices.gameState().isScreenShakeActive()) {
-            updateScreenShake(horizScrollBuf, cameraX, cameraY, frameCounter);
+        // ROM: SwScrl_HTZ branches on Screen_Shaking_Flag_HTZ, not Screen_Shaking_Flag.
+        if (GameServices.gameState().isHtzScreenShakeActive()) {
+            updateEarthquakeMode(horizScrollBuf, cameraX, cameraY, frameCounter);
         } else {
             updateNormal(horizScrollBuf, cameraX, cameraY, frameCounter);
         }
@@ -316,15 +318,23 @@ public class SwScrlHtz implements ZoneScrollHandler {
     }
 
     /**
-     * HTZ screen shake mode scrolling.
+     * HTZ earthquake mode scrolling.
      * Reference: s2.asm HTZ_Screen_Shake lines 15975-16029
      */
-    private void updateScreenShake(int[] horizScrollBuf, int cameraX, int cameraY, int frameCounter) {
-        // Apply screen shake using ripple data
+    private void updateEarthquakeMode(int[] horizScrollBuf, int cameraX, int cameraY, int frameCounter) {
+        LevelEventManager levelEvents = LevelEventManager.getInstance();
+        int bgYOffset = levelEvents.getCameraBgYOffset();
+        int bgXOffset = levelEvents.getHtzBgXOffset();
+
+        // Camera_BG positions used by HTZ_Screen_Shake.
+        int bgXPos = cameraX - bgXOffset;
+        int bgYPos = cameraY - bgYOffset;
+
         int shakeOffsetV = 0;
         int shakeOffsetH = 0;
 
-        if (tables != null) {
+        // Ripple is gated by general Screen_Shaking_Flag while HTZ mode remains active.
+        if (GameServices.gameState().isScreenShakeActive() && tables != null) {
             int rippleIndex = frameCounter & 0x3F;
             shakeOffsetV = tables.getRippleSigned(rippleIndex);
             if (rippleIndex + 1 < tables.getRippleDataLength()) {
@@ -332,23 +342,22 @@ public class SwScrlHtz implements ZoneScrollHandler {
             }
         }
 
-        // Store shake offsets for Camera to use for FG tiles and sprites
+        // Store shake offsets for Camera to use for FG tiles and sprites.
         this.shakeOffsetX = shakeOffsetH;
         this.shakeOffsetY = shakeOffsetV;
 
-        // Update vscroll factors with shake
+        // Vscroll_Factor_FG = Camera_Y_pos (+ optional ripple)
         vscrollFactorFG = (short) (cameraY + shakeOffsetV);
-        vscrollFactorBG = (short) (bgCamera.getBgYPos() + shakeOffsetV);
+        // Vscroll_Factor_BG = Camera_BG_Y_pos (+ optional ripple)
+        vscrollFactorBG = (short) (bgYPos + shakeOffsetV);
 
-        // FG scroll with horizontal shake
+        // Horizontal scroll uses Camera_X_pos and Camera_BG_X_pos (+ optional ripple).
         short fgScroll = negWord(cameraX + shakeOffsetH);
-
-        // BG scroll with horizontal shake
-        short bgScroll = negWord(bgCamera.getBgXPos() + shakeOffsetH);
+        short bgScroll = negWord(bgXPos + shakeOffsetH);
 
         int packed = packScrollWords(fgScroll, bgScroll);
 
-        // Fill all 224 lines with same value (no parallax during shake)
+        // Fill all 224 lines with same value (no parallax during earthquake mode).
         for (int i = 0; i < VISIBLE_LINES; i++) {
             horizScrollBuf[i] = packed;
         }

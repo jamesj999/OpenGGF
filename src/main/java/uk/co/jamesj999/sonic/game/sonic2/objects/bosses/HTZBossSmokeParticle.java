@@ -67,7 +67,7 @@ public class HTZBossSmokeParticle extends AbstractObjectInstance {
      * @param levelManager Level manager
      */
     public HTZBossSmokeParticle(int x, int y, LevelManager levelManager) {
-        this(new ObjectSpawn(x, y, 0x52, 0x0A, 0, false, 0), levelManager);
+        this(new ObjectSpawn(x, y, 0x52, 0x08, 0, false, 0), levelManager);
     }
 
     @Override
@@ -129,7 +129,7 @@ public class HTZBossSmokeParticle extends AbstractObjectInstance {
 
     @Override
     public int getPriorityBucket() {
-        return 3;  // Same as CPZ boss smoke
+        return 1;  // ROM: move.b #1,priority(a1)
     }
 
     @Override
