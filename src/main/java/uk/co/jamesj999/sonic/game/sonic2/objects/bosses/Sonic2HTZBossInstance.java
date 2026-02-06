@@ -100,6 +100,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
     private int defeatTimer;
     private int sineCounter;
     private int currentFrameCounter;
+    private boolean defeatFleeStarted;
 
     // Child sprite state for eye animation (ROM: sub2_* fields, Boss_AnimationArray)
     private int eyeAnimTimer;
@@ -134,6 +135,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
         sineCounter = 4;  // ROM: move.b #4,boss_sine_count(a0)
         actionTimer = 0;
         defeatTimer = 0;
+        defeatFleeStarted = false;
 
         // Initialize eye animation (ROM: Boss_AnimationArray, sub2_mapframe)
         // ROM: move.b #2,sub2_mapframe(a0) - starts with eye open
@@ -321,20 +323,34 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
 
         // Check if time to flee
         // ROM: cmpi.w #-$3C,(Boss_Countdown).w
-        if (defeatTimer < DEFEAT_FLEE_TIME) {
+        if (defeatTimer <= DEFEAT_FLEE_TIME) {
+            // ROM: Boss_defeated_flag is set once when flee starts.
+            if (!defeatFleeStarted) {
+                defeatFleeStarted = true;
+                GameServices.gameState().setCurrentBossId(0);
+                AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_HILL_TOP);
+            }
+
             // Flee - sink into lava
             state.y += 2;
             state.yFixed = state.y << 16;
 
-            // Unlock camera
             Camera camera = Camera.getInstance();
             if (camera.getMaxX() < 0x3160) {
-                camera.setMaxXTarget((short) (camera.getMaxX() + 2));
-            } else if (!isOnScreen(64)) {
-                // Spawn EggPrison and mark complete
-                spawnEggPrison();
-                setDestroyed(true);
+                camera.setMaxX((short) (camera.getMaxX() + 2));
+                return;
             }
+
+            // ROM keeps the boss alive until it is off-screen OR low enough in lava.
+            if (isOnScreen()) {
+                int deleteY = (getCustomFlag(OBJOFF_SIDE_FLAG) != 0) ? 0x588 : 0x578;
+                if (state.y <= deleteY) {
+                    return;
+                }
+            }
+
+            camera.setMaxX((short) 0x3160);
+            setDestroyed(true);
         }
     }
 
@@ -462,13 +478,9 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
             return;
         }
 
-        // Random offset within boss bounds (ROM uses random for variation)
-        int offsetX = (currentFrameCounter & 0x1F) - 0x10;  // -16 to +15
-        int offsetY = ((currentFrameCounter >> 2) & 0x0F) - 0x08;  // -8 to +7
-
         HTZBossSmokeParticle smoke = new HTZBossSmokeParticle(
-                state.x + offsetX,
-                state.y + offsetY,
+                state.x,
+                state.y - 0x28,
                 levelManager
         );
 
@@ -508,8 +520,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
     @Override
     protected int getCollisionSizeIndex() {
         // ROM: move.b #$32,collision_flags(a0)
-        // $32 = 0x32, size index is lower 6 bits = 0x12 (18)
-        return 0x12;
+        return 0x32;
     }
 
     @Override
@@ -520,11 +531,9 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
     @Override
     protected void onDefeatStarted() {
         // ROM: s2.asm:64036-64043
-        // Award 1000 points (100 in ROM = BCD for 1000)
-        GameServices.gameState().addScore(1000);
-
         // Initialize defeat timer
         defeatTimer = DEFEAT_TIMER_START;
+        defeatFleeStarted = false;
 
         // Transition to defeated state
         state.routineSecondary = SUB8_DEFEATED;
@@ -532,21 +541,10 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
 
     @Override
     public int getCollisionFlags() {
-        // ROM: Collision only enabled during SUB2_FLAMETHROWER when timer goes negative
-        // ROM: s2.asm:63722-63728 - Obj52_Mobile_Flamethrower:
-        //   subq.b #1,objoff_3E(a0)
-        //   bpl.s   Obj52_Mobile_Hover     ; If timer >= 0, just hover (no collision)
-        //   move.b #1,(Boss_CollisionRoutine).w  ; Timer < 0: enable collision
-
-        // No collision during rise/lower/defeat phases, or during flamethrower hover delay
-        if (state.routineSecondary != SUB2_FLAMETHROWER ||
-            actionTimer >= 0 ||  // Still in hover delay (ROM: bpl.s = branch if positive/zero)
-            state.defeated || state.invulnerable) {
-            return 0;
-        }
-
-        // Collision enabled only during active flamethrower phase (timer negative)
-        return 0xC0 | (getCollisionSizeIndex() & 0x3F);
+        // ROM keeps collision_flags(a0) at $32 except while invulnerable/defeated.
+        // Boss_CollisionRoutine controls extra HTZ boss-specific collision behavior,
+        // not whether the boss can be hit at all.
+        return super.getCollisionFlags();
     }
 
     @Override

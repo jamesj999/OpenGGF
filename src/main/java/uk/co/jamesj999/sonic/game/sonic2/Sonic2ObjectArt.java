@@ -939,6 +939,60 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load Crawlton (Obj9E) sprite sheet - snake badnik from MCZ.
+     * ROM: ArtNem_Crawlton at 0x8AB36, palette line 1.
+     * 3 frames: frame 0/1 = head (3x2 tiles), frame 2 = body segment (2x2 tiles).
+     */
+    public ObjectSpriteSheet loadCrawltonSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_CRAWLTON_ADDR, "Crawlton");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createCrawltonMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Create sprite mappings for Crawlton (Obj9E).
+     * From mappings/sprite/obj9E.asm:
+     * - Frame 0/1 (head): spritePiece -$10, -8, 3, 2, 0, 0, 0, 0, 0
+     * - Frame 2 (body):   spritePiece -8, -8, 2, 2, 6, 0, 0, 0, 0
+     */
+    private List<SpriteMappingFrame> createCrawltonMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Head (3x2 tiles = 24x16 pixels) at tile 0
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x10, -8, 3, 2, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1: Identical to frame 0 (both point to Map_obj9E_0006)
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-0x10, -8, 3, 2, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2: Body segment (2x2 tiles = 16x16 pixels) at tile 6
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-8, -8, 2, 2, 6, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        return frames;
+    }
+
+    /**
+     * Load Flasher (ObjA3) sprite sheet - firefly/glowbug badnik from MCZ.
+     * ROM: ArtNem_Flasher at 0x8AC5E, palette line 0.
+     */
+    public ObjectSpriteSheet loadFlasherSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_FLASHER_ADDR, "Flasher");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createFlasherMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
      * Load Spiny (ObjA5) sprite sheet - crawling badnik from CPZ.
      * ROM: ArtNem_Spiny at 0x8B430, palette line 0
      */
@@ -1187,7 +1241,7 @@ public class Sonic2ObjectArt {
             return null;
         }
         List<SpriteMappingFrame> mappings = createSeesawMappings();
-        return new ObjectSpriteSheet(patterns, mappings, 2, 0);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 0);
     }
 
     /**
@@ -1221,6 +1275,24 @@ public class Sonic2ObjectArt {
         }
         List<SpriteMappingFrame> mappings = createHTZLiftMappings();
         return new ObjectSpriteSheet(patterns, mappings, 2, 1);
+    }
+
+    /**
+     * Load HTZ Barrier sprite sheet (Object 0x2D subtype 0 in Hill Top Zone).
+     * Uses ArtNem_HtzValveBarrier at 0xF08F6 instead of the CPZ ConstructionStripes art.
+     * Frame 0 mapping: 4 x 2x2 tile pieces stacked vertically (16x64 total), palette 1.
+     *
+     * @return sprite sheet for HTZ valve barrier, or null on failure
+     */
+    public ObjectSpriteSheet loadHTZBarrierSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_HTZ_VALVE_BARRIER_ADDR, "HtzValveBarrier");
+        if (patterns.length == 0) {
+            return null;
+        }
+        // Reuse the same mappings as the generic barrier - frame 0 is the HTZ mapping
+        List<SpriteMappingFrame> mappings = createBarrierMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
     }
 
     private AnimalType[] resolveZoneAnimals(int zoneIndex) {
@@ -2099,6 +2171,55 @@ public class Sonic2ObjectArt {
         frame1.add(new SpriteMappingPiece(-12, -8, 3, 1, 6, false, false, 0));
         frame1.add(new SpriteMappingPiece(-12, 0, 3, 1, 3, false, false, 0));
         frames.add(new SpriteMappingFrame(frame1));
+
+        return frames;
+    }
+
+    /**
+     * Creates mappings for Flasher (ObjA3) - firefly/glowbug badnik from MCZ.
+     * Based on mappings/sprite/objA3.asm.
+     */
+    private List<SpriteMappingFrame> createFlasherMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: body only
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x10, -0x08, 3, 2, 0x00, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1: small glow + body
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-0x08, -0x08, 2, 2, 0x06, false, false, 1));
+        frame1.add(new SpriteMappingPiece(-0x10, -0x08, 3, 2, 0x00, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2: medium glow + body
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-0x08, -0x08, 1, 2, 0x0A, false, false, 1));
+        frame2.add(new SpriteMappingPiece(0x00, -0x08, 1, 2, 0x0A, true, false, 1));
+        frame2.add(new SpriteMappingPiece(-0x08, -0x08, 2, 2, 0x06, false, false, 1));
+        frame2.add(new SpriteMappingPiece(-0x10, -0x08, 3, 2, 0x00, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3: large glow (tile 0x0C) + body
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(-0x10, -0x10, 2, 2, 0x0C, false, false, 1));
+        frame3.add(new SpriteMappingPiece(0x00, -0x10, 2, 2, 0x0C, true, false, 1));
+        frame3.add(new SpriteMappingPiece(-0x10, 0x00, 2, 2, 0x0C, false, true, 1));
+        frame3.add(new SpriteMappingPiece(0x00, 0x00, 2, 2, 0x0C, true, true, 1));
+        frame3.add(new SpriteMappingPiece(-0x08, -0x08, 2, 2, 0x06, false, false, 1));
+        frame3.add(new SpriteMappingPiece(-0x10, -0x08, 3, 2, 0x00, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame3));
+
+        // Frame 4: large glow variant (tile 0x10) + body
+        List<SpriteMappingPiece> frame4 = new ArrayList<>();
+        frame4.add(new SpriteMappingPiece(-0x10, -0x10, 2, 2, 0x10, false, false, 1));
+        frame4.add(new SpriteMappingPiece(0x00, -0x10, 2, 2, 0x10, true, false, 1));
+        frame4.add(new SpriteMappingPiece(-0x10, 0x00, 2, 2, 0x10, false, true, 1));
+        frame4.add(new SpriteMappingPiece(0x00, 0x00, 2, 2, 0x10, true, true, 1));
+        frame4.add(new SpriteMappingPiece(-0x08, -0x08, 2, 2, 0x06, false, false, 1));
+        frame4.add(new SpriteMappingPiece(-0x10, -0x08, 3, 2, 0x00, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame4));
 
         return frames;
     }
@@ -4760,7 +4881,7 @@ public class Sonic2ObjectArt {
         }
 
         List<SpriteMappingFrame> mappings = createHTZBossMappings();
-        return new ObjectSpriteSheet(combinedPatterns, mappings, 1, 1);
+        return new ObjectSpriteSheet(combinedPatterns, mappings, 0, 1);
     }
 
     /**
@@ -4776,7 +4897,7 @@ public class Sonic2ObjectArt {
             return null;
         }
         List<SpriteMappingFrame> mappings = createHTZBossSmokeMappings();
-        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
     }
 
     /**

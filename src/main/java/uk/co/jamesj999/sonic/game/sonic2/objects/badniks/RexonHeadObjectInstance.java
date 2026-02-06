@@ -56,17 +56,6 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
             30   // head 4 (index 8): byte_3744E[(8-8)/2=0] = $1E
     };
 
-    // Oscillation amplitudes per head (from disassembly s2.asm:73871-73876, byte_374BE)
-    // Note: Original game only has 4 entries; head 4 (index 8) reads past array (undefined)
-    // We provide a 5th entry matching a reasonable extrapolation
-    private static final int[] OSCILLATION_AMPLITUDES = {
-            0x24, // head 0 (index 0)
-            0x20, // head 1 (index 2) - from byte_374BE+1
-            0x1C, // head 2 (index 4) - from byte_374BE+2
-            0x1A, // head 3 (index 6) - from byte_374BE+3
-            0x18  // head 4 (index 8) - extrapolated (original reads past array)
-    };
-
     // Death drop X velocities per head (from disassembly)
     private static final int[] DEATH_X_VELOCITIES = {
             0x80,   // head 0
@@ -76,18 +65,46 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
             0x80    // head 4
     };
 
-    // Oscillation lookup table (X, Y pairs, signed bytes)
-    // This creates a figure-8 like motion when combined with rotation
+    // Oscillation lookup table (X, Y pairs, signed bytes) - from byte_376A8 (s2.asm:74068-74100)
+    // Each head uses this to calculate offset to apply to the PREVIOUS head's position
     private static final int[] OSCILLATION_TABLE = {
-            0x0F, 0x00, 0x0F, 0xFF, 0x0F, 0xFF, 0x0F, 0xFE,
-            0x0F, 0xFD, 0x0F, 0xFC, 0x0E, 0xFA, 0x0E, 0xF9,
-            0x0D, 0xF7, 0x0D, 0xF6, 0x0C, 0xF5, 0x0B, 0xF4,
-            0x0A, 0xF3, 0x09, 0xF2, 0x08, 0xF2, 0x07, 0xF1,
-            0x06, 0xF1, 0x05, 0xF1, 0x04, 0xF1, 0x03, 0xF1,
-            0x02, 0xF1, 0x01, 0xF1, 0x01, 0xF1, 0x00, 0xF1,
-            0xFF, 0xF1, 0xFF, 0xF1, 0xFE, 0xF1, 0xFD, 0xF1,
-            0xFD, 0xF1, 0xFC, 0xF1, 0xFB, 0xF1, 0xFB, 0xF1
+            0x0F, 0x00,   // 0
+            0x0F, 0xFF,   // 1
+            0x0F, 0xFF,   // 2
+            0x0F, 0xFE,   // 3
+            0x0F, 0xFD,   // 4
+            0x0F, 0xFC,   // 5
+            0x0E, 0xFC,   // 6
+            0x0E, 0xFB,   // 7
+            0x0E, 0xFA,   // 8
+            0x0E, 0xFA,   // 9
+            0x0D, 0xF9,   // 10
+            0x0D, 0xF8,   // 11
+            0x0C, 0xF8,   // 12
+            0x0C, 0xF7,   // 13
+            0x0C, 0xF6,   // 14
+            0x0B, 0xF6,   // 15
+            0x0B, 0xF5,   // 16
+            0x0A, 0xF5,   // 17
+            0x0A, 0xF4,   // 18
+            0x09, 0xF4,   // 19
+            0x08, 0xF4,   // 20
+            0x08, 0xF3,   // 21
+            0x07, 0xF3,   // 22
+            0x06, 0xF2,   // 23
+            0x06, 0xF2,   // 24
+            0x05, 0xF2,   // 25
+            0x04, 0xF2,   // 26
+            0x04, 0xF1,   // 27
+            0x03, 0xF1,   // 28
+            0x02, 0xF1,   // 29
+            0x01, 0xF1,   // 30
+            0x01, 0xF1    // 31
     };
+
+    // Initial phase values per head (from byte_374BE, s2.asm:73871-73876)
+    // Head 4 reads past the array in original (undefined), we use 0x18 as reasonable value
+    private static final int[] INITIAL_PHASES = { 0x24, 0x20, 0x1C, 0x1A, 0x18 };
 
     // Projectile constants
     private static final int PROJECTILE_INITIAL_DELAY = 32;  // Initial delay before first fire
@@ -120,11 +137,18 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
     private int ySubpixel;
     private int waitTimer;
     private int raiseTimer;  // Timer for raise phase duration (s2.asm:73837)
-    private int oscillationIndex;
-    private int oscillationRotation;  // 0, 1, 2, 3 for 0°, 90°, 180°, 270°
-    private int oscillationFrameCounter;
+    private int oscillationPhase;     // Combined phase value (objoff_2B), 0x00-0x7F
+    private int phaseDirection;       // +1 or -1 for bouncing (objoff_38)
+    private int oscillationFrameCounter;  // (objoff_39) counts frames, only update every 4
     private int projectileTimer;
     private boolean destroyed;
+
+    // Reference to the NEXT head toward the tip (null for head 4/tip)
+    // In original: objoff_30 stores address of the next head
+    // Each head controls the NEXT head's position during oscillation
+    // Head 0 (anchor) → Head 1 → Head 2 → Head 3 → Head 4 (tip)
+    // Head 0 stays at base position; oscillation ripples toward tip
+    private RexonHeadObjectInstance linkedHead;
 
     public RexonHeadObjectInstance(ObjectSpawn spawn, LevelManager levelManager,
                                    RexonBadnikInstance parent, int x, int y,
@@ -152,11 +176,25 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
         this.ySubpixel = 0;
         this.state = State.INIT;
         this.raiseTimer = 0;
-        this.oscillationIndex = 0;
-        this.oscillationRotation = 0;
+        // Initialize phase from byte_374BE based on head number (s2.asm:73866-73868)
+        this.oscillationPhase = INITIAL_PHASES[headNumber];
+        this.phaseDirection = 1;  // Start incrementing (objoff_38 = 1)
         this.oscillationFrameCounter = 0;
         this.projectileTimer = PROJECTILE_INITIAL_DELAY;
         this.destroyed = false;
+        this.linkedHead = null;
+    }
+
+    /**
+     * Set the linked head (the next head toward the tip that this head controls).
+     * In the original game, objoff_30 stores the address of the next head toward the tip.
+     * Each head calculates an oscillation offset and applies it to the linked head.
+     *
+     * Chain direction: Head 0 → Head 1 → Head 2 → Head 3 → Head 4 (tip)
+     * Tip (Head 4) has no linked head - it stays at its base position as the anchor.
+     */
+    public void setLinkedHead(RexonHeadObjectInstance head) {
+        this.linkedHead = head;
     }
 
     @Override
@@ -231,73 +269,116 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
     }
 
     private void updateNormal(int frameCounter) {
-        // Update oscillation every 4 frames
+        // Fire projectile timer check (tip head only, headIndex == 8)
+        // From s2.asm:73882-73886
+        if (headIndex == 8) {
+            projectileTimer--;
+            if (projectileTimer < 0) {
+                fireProjectile();
+                projectileTimer = PROJECTILE_FIRE_INTERVAL;
+            }
+        }
+
+        // Update oscillation every 4 frames (s2.asm:73889-73895)
+        // objoff_39 counts up, only process when (count & 3) == 0
         oscillationFrameCounter++;
-        if (oscillationFrameCounter >= 4) {
-            oscillationFrameCounter = 0;
-            updateOscillation();
-        }
-
-        // Apply oscillation offset to base position
-        applyOscillationOffset();
-
-        // Fire projectile (last head only)
-        if (headNumber == 4) {
-            updateProjectileFiring();
+        if ((oscillationFrameCounter & 3) == 0) {
+            updatePhase();
+            applyOscillationToLinkedHead();
         }
     }
 
-    private void updateOscillation() {
-        // Get amplitude for this head
-        int amplitude = OSCILLATION_AMPLITUDES[headNumber];
+    /**
+     * Update the oscillation phase with bouncing logic.
+     * From loc_3758A (s2.asm:73956-73969):
+     *
+     * The phase bounces between bounds. When (phase - 0x18) == 0, < 0, or >= 0x10,
+     * the direction reverses.
+     *
+     * This creates a bounded oscillation between roughly 0x18 and 0x28.
+     */
+    private void updatePhase() {
+        // Add direction to phase (objoff_38 is +1 or -1)
+        oscillationPhase = (oscillationPhase + phaseDirection) & 0x7F;
 
-        // Advance index
-        oscillationIndex++;
-        if (oscillationIndex >= 32) {
-            // Reached end of table, rotate and reverse
-            oscillationIndex = 0;
-            oscillationRotation = (oscillationRotation + 1) & 3;
+        // Check bounds (s2.asm:73961-73967)
+        int adjusted = (oscillationPhase & 0xFF) - 0x18;
+        if (adjusted == 0 || adjusted < 0 || adjusted >= 0x10) {
+            // Reverse direction
+            phaseDirection = -phaseDirection;
         }
     }
 
-    private void applyOscillationOffset() {
-        int tableIndex = oscillationIndex * 2;
-        int rawX = OSCILLATION_TABLE[tableIndex];
-        int rawY = OSCILLATION_TABLE[tableIndex + 1];
-
-        // Convert signed bytes
-        if (rawX > 127) rawX -= 256;
-        if (rawY > 127) rawY -= 256;
-
-        // Apply rotation (0°, 90°, 180°, 270°)
-        int rotX = rawX;
-        int rotY = rawY;
-        switch (oscillationRotation) {
-            case 1 -> { rotX = -rawY; rotY = rawX; }     // 90°
-            case 2 -> { rotX = -rawX; rotY = -rawY; }    // 180°
-            case 3 -> { rotX = rawY; rotY = -rawX; }     // 270°
+    /**
+     * Apply oscillation offset to the linked (next) head toward the tip.
+     * From Obj97_Oscillate (s2.asm:74003-74029):
+     *
+     * Each head calculates an offset from the oscillation table and applies it
+     * to the NEXT head's position (toward the tip). The tip head (head 4) has no
+     * linked head but IS controlled by head 3.
+     *
+     * Chain: Head 0 → Head 1 → Head 2 → Head 3 → Head 4 (tip)
+     *
+     * Head 0 is the ANCHOR - it's not controlled by anyone and stays at base position.
+     * Each subsequent head is positioned relative to the previous one, creating
+     * a cascading oscillation that ripples from body toward tip.
+     */
+    private void applyOscillationToLinkedHead() {
+        // No linked head means nothing to move (tip has no link)
+        if (linkedHead == null) {
+            return;
         }
 
-        // Scale by amplitude
-        int amplitude = OSCILLATION_AMPLITUDES[headNumber];
-        int offsetX = (rotX * amplitude) >> 4;
-        int offsetY = (rotY * amplitude) >> 4;
+        // Get table index from phase (s2.asm:74008-74013)
+        // phase & 0x1F gives table index 0-31, doubled for byte pairs
+        int phase = oscillationPhase & 0x7F;
+        int tableIndex = (phase & 0x1F) * 2;
 
-        // Apply flip
-        if (xFlip) {
-            offsetX = -offsetX;
+        // Get raw X,Y offsets from table (s2.asm:74014-74017)
+        int d2 = OSCILLATION_TABLE[tableIndex];      // X offset
+        int d3 = OSCILLATION_TABLE[tableIndex + 1];  // Y offset
+
+        // Sign extend (ext.w in assembly)
+        if (d2 > 127) d2 -= 256;
+        if (d3 > 127) d3 -= 256;
+
+        // Get rotation quadrant from phase bits 5-6 (s2.asm:74018-74019)
+        // (phase >> 4) & 6 gives 0, 2, 4, or 6
+        int rotation = (phase >> 4) & 6;
+
+        // Apply rotation transform (s2.asm:74020-74021, off_37652)
+        switch (rotation) {
+            case 0 -> {
+                // return_3765A: no change (X, Y)
+            }
+            case 2 -> {
+                // loc_3765C: exg d2,d3; neg.w d3 → (Y, -X)
+                int temp = d2;
+                d2 = d3;
+                d3 = -temp;
+            }
+            case 4 -> {
+                // loc_37662: neg.w d2; neg.w d3 → (-X, -Y)
+                d2 = -d2;
+                d3 = -d3;
+            }
+            case 6 -> {
+                // loc_37668: exg d2,d3; neg.w d2 → (-Y, X)
+                int temp = d2;
+                d2 = -d3;
+                d3 = temp;
+            }
         }
 
-        currentX = baseX + offsetX;
-        currentY = baseY + offsetY;
-    }
+        // Calculate linked head's new position (s2.asm:74022-74027)
+        // X: add offset to this head's X (full word)
+        // Y: add offset to this head's Y (low byte only in original, we use full)
+        int newX = currentX + d2;
+        int newY = currentY + d3;
 
-    private void updateProjectileFiring() {
-        projectileTimer--;
-        if (projectileTimer <= 0) {
-            fireProjectile();
-            projectileTimer = PROJECTILE_FIRE_INTERVAL;
-        }
+        // Set linked head's position
+        linkedHead.currentX = newX;
+        linkedHead.currentY = newY;
     }
 
     private void fireProjectile() {
@@ -317,7 +398,7 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
                 projY,
                 projXVel,
                 projYVel,
-                true,  // Apply gravity
+                false,  // No gravity - original uses ObjectMove, not ObjectMoveAndFall
                 xFlip
         );
 

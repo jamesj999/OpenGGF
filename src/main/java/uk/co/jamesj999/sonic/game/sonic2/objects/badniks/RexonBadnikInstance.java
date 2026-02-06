@@ -163,6 +163,31 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
             levelManager.getObjectManager().addDynamicObject(head);
         }
 
+        // Set up head chain linking (s2.asm:73786-73795)
+        // In original: each head's objoff_30 points to the NEXT head toward the tip
+        //
+        // Body creates heads in order: index 0, 2, 4, 6, 8
+        // Body stores addresses at: objoff_2C+0, +2, +4, +6, +8
+        // Each head reads from body[0x2E + headIndex] to get its link:
+        //   - Head 0 (index 0): reads body[0x2E] = head 1's address
+        //   - Head 1 (index 2): reads body[0x30] = head 2's address
+        //   - Head 2 (index 4): reads body[0x32] = head 3's address
+        //   - Head 3 (index 6): reads body[0x34] = head 4's address
+        //   - Head 4 (index 8): no link (skipped in init due to cmpi.w #8,d0)
+        //
+        // During oscillation, each head moves its LINKED head:
+        // - Head 0 (anchor, not moved by anyone) moves head 1
+        // - Head 1 (moved by head 0) moves head 2
+        // - Head 2 (moved by head 1) moves head 3
+        // - Head 3 (moved by head 2) moves head 4
+        // - Head 4 (tip, moved by head 3) has no link
+        //
+        // The oscillation ripples OUTWARD from body to tip.
+        // Head 0 stays at its base position (the anchor point).
+        for (int i = 0; i < heads.size() - 1; i++) {
+            heads.get(i).setLinkedHead(heads.get(i + 1));
+        }
+
         state = State.POST_CREATE_HEAD;
     }
 
