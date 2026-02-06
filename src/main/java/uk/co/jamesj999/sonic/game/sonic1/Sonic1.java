@@ -10,6 +10,7 @@ import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.rings.RingSpawn;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,17 +91,28 @@ public class Sonic1 extends Game {
         // Read LevelHeaders (16 bytes per zone)
         int headerAddr = Sonic1Constants.LEVEL_HEADERS_ADDR + zone * 16;
 
-        // Bytes 0-3: Pattern art address (mask off PLC byte in top bits)
-        int patternAddr = rom.read32BitAddr(headerAddr) & 0xFFFFFF;
+        // Bytes 0-3: (PLC_ID << 24) | gfx_address
+        // The top byte is the primary PLC ID; the lower 3 bytes are unused by us
+        // (they point to the last level gfx file, but we read all sources from the PLC).
+        int headerWord0 = rom.read32BitAddr(headerAddr);
+        int plcId = (headerWord0 >> 24) & 0xFF;
 
-        // Bytes 4-7: 16x16 chunk mappings address (Enigma compressed)
-        int chunksAddr = rom.read32BitAddr(headerAddr + 4) & 0xFFFFFF;
+        // Bytes 4-7: (PLC2_ID << 24) | 16x16_chunks_address (Enigma compressed)
+        int headerWord1 = rom.read32BitAddr(headerAddr + 4);
+        int plc2Id = (headerWord1 >> 24) & 0xFF;
+        int chunksAddr = headerWord1 & 0xFFFFFF;
 
         // Bytes 8-11: 256x256 block mappings address (Kosinski compressed)
         int blocksAddr = rom.read32BitAddr(headerAddr + 8);
 
         // Byte 15: palette index
         int paletteId = rom.readByte(headerAddr + 15) & 0xFF;
+
+        // Read pattern load cues from both primary and secondary ArtLoadCues.
+        // Primary PLC = level art loaded during init; Secondary PLC = object/sprite art.
+        // Both are needed since chunks may reference tiles from either.
+        List<Sonic1Level.PatternLoadCue> patternCues = readPatternLoadCues(plcId);
+        patternCues.addAll(readPatternLoadCues(plc2Id));
 
         // Get collision index for this zone
         int collisionIndexAddr = getCollisionIndexAddr(zone);
@@ -113,9 +125,22 @@ public class Sonic1 extends Game {
         // Get boundaries
         int[] boundaries = loadBoundaries(zone, act);
 
-        // Get palette addresses
-        int sonicPaletteAddr = Sonic1Constants.SONIC_PALETTE_ADDR;
-        int levelPaletteAddr = getLevelPaletteAddr(paletteId);
+        // Get palette addresses from PalPointers table.
+        // The Sonic palette ID differs between ROM revisions: the disassembly defines
+        // palid_Sonic=3, but REV01 removed the Level Select entry, shifting everything
+        // down by 1 (Sonic=2, GHZ=3, etc.). The level headers still reference the OLD IDs.
+        // We detect the Sonic palette position and adjust the level palette ID to match.
+        int sonicPaletteId = findSonicPaletteId();
+        int sonicPaletteAddr = getPaletteDataAddr(sonicPaletteId);
+        // Adjust level palette ID: header uses disassembly IDs (Sonic=3 based),
+        // so offset by the difference between expected and actual Sonic position.
+        int DISASM_SONIC_PALID = 3;
+        int adjustedPaletteId = sonicPaletteId + (paletteId - DISASM_SONIC_PALID);
+        int levelPaletteAddr = getPaletteDataAddr(adjustedPaletteId);
+        LOG.info("Palette addresses: sonic(id=" + sonicPaletteId + ")=0x" +
+                Integer.toHexString(sonicPaletteAddr) +
+                " level(headerId=" + paletteId + " adjusted=" + adjustedPaletteId +
+                ")=0x" + Integer.toHexString(levelPaletteAddr));
 
         // Load object spawns
         List<ObjectSpawn> objects = objectPlacement.load(zone, act);
@@ -124,12 +149,13 @@ public class Sonic1 extends Game {
         List<RingSpawn> rings = List.of();
 
         LOG.info("Loading Sonic 1 level: zone=" + zone + " act=" + act +
-                " patterns=0x" + Integer.toHexString(patternAddr) +
+                " plcId=" + plcId + " plc2Id=" + plc2Id +
+                " patternCues=" + patternCues.size() +
                 " chunks=0x" + Integer.toHexString(chunksAddr) +
                 " blocks=0x" + Integer.toHexString(blocksAddr));
 
         return new Sonic1Level(rom, zone, sonicPaletteAddr, levelPaletteAddr,
-                patternAddr, chunksAddr, blocksAddr,
+                patternCues, chunksAddr, blocksAddr,
                 fgLayoutAddr, bgLayoutAddr, collisionIndexAddr,
                 Sonic1Constants.COLLISION_ARRAY_NORMAL_ADDR,
                 Sonic1Constants.COLLISION_ARRAY_ROTATED_ADDR,
@@ -184,6 +210,38 @@ public class Sonic1 extends Game {
         if (objectPlacement == null) {
             objectPlacement = new Sonic1ObjectPlacement(romReader);
         }
+    }
+
+    /**
+     * Reads pattern load cue entries from the ArtLoadCues table in ROM.
+     *
+     * <p>The ArtLoadCues table is a list of word offsets indexed by PLC ID.
+     * Each PLC list starts with a word (entry_count - 1), followed by 6-byte entries:
+     * {@code dc.l rom_address, dc.w vram_byte_offset}.
+     * The VRAM byte offset is divided by 0x20 to get the tile index.
+     *
+     * <p>Returns all entries for the given PLC ID. The caller (Sonic1Level) filters
+     * to only contiguous level tile entries.
+     */
+    private List<Sonic1Level.PatternLoadCue> readPatternLoadCues(int plcId) throws IOException {
+        int tableAddr = Sonic1Constants.ART_LOAD_CUES_ADDR;
+        int plcOffset = rom.read16BitAddr(tableAddr + plcId * 2);
+        int plcAddr = tableAddr + plcOffset;
+
+        int entryCount = (rom.read16BitAddr(plcAddr) & 0xFFFF) + 1;
+
+        List<Sonic1Level.PatternLoadCue> entries = new ArrayList<>();
+        for (int i = 0; i < entryCount; i++) {
+            int entryAddr = plcAddr + 2 + i * 6;
+            int romAddr = rom.read32BitAddr(entryAddr);
+            int vramByteOffset = rom.read16BitAddr(entryAddr + 4) & 0xFFFF;
+            int tileOffset = vramByteOffset / 0x20; // Convert VRAM byte offset to tile index
+            entries.add(new Sonic1Level.PatternLoadCue(romAddr, tileOffset));
+        }
+
+        LOG.fine("PLC " + plcId + " at 0x" + Integer.toHexString(plcAddr) +
+                ": " + entryCount + " entries");
+        return entries;
     }
 
     /**
@@ -246,13 +304,39 @@ public class Sonic1 extends Game {
     }
 
     /**
-     * Gets the level palette address for a given palette ID.
+     * Finds the Sonic character palette ID by scanning PalPointers entries.
      *
-     * <p>The palette pointer table (PalPointers) at 0x2168 has 8-byte entries:
+     * <p>The Sonic palette is the first entry (after the title/menu palettes) that
+     * targets palette line 0 (dest=0xFB00) with exactly 32 bytes (1 palette line).
+     * This handles ROM revisions where the palette ID differs (REV00=3, REV01=2).
+     */
+    private int findSonicPaletteId() throws IOException {
+        int tableAddr = Sonic1Constants.PALETTE_TABLE_ADDR;
+        // Scan entries 2-9 (skip 0=Sega, 1=Title)
+        for (int id = 2; id < 10; id++) {
+            int entryAddr = tableAddr + id * 8;
+            int dest = rom.read16BitAddr(entryAddr + 4) & 0xFFFF;
+            int countWord = rom.read16BitAddr(entryAddr + 6) & 0xFFFF;
+            int byteCount = (countWord + 1) * 4;
+            if (dest == 0xFB00 && byteCount == 32) {
+                LOG.info("Found Sonic palette at PalPointers entry " + id);
+                return id;
+            }
+        }
+        LOG.warning("Could not find Sonic palette in PalPointers, falling back to ID 3");
+        return 3;
+    }
+
+    /**
+     * Gets the palette data ROM address for a given palette ID from the PalPointers table.
+     *
+     * <p>The PalPointers table at 0x2168 has 8-byte entries:
      * {@code dc.l sourceAddress, dc.w ramDest, dc.w (count-1)}.
      * The first longword is an absolute ROM pointer to the palette data.
+     *
+     * @param paletteId palette table index (e.g., 2 for Sonic in REV01, 4 for GHZ)
      */
-    private int getLevelPaletteAddr(int paletteId) throws IOException {
+    private int getPaletteDataAddr(int paletteId) throws IOException {
         int tableAddr = Sonic1Constants.PALETTE_TABLE_ADDR;
         return rom.read32BitAddr(tableAddr + paletteId * 8);
     }
