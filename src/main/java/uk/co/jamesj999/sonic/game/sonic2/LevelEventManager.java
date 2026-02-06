@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic2;
 
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.ParallaxManager;
@@ -98,6 +99,9 @@ public class LevelEventManager implements LevelEventProvider {
         this.cameraBgYOffset = 0;
         this.htzTerrainSinking = false;
         this.htzTerrainDelay = 0;
+        this.htzCurrentRisenLimit = (act == 0) ? HTZ1_LAVA_OFFSET_RISEN : HTZ2_LAVA_OFFSET_RISEN_TOP;
+        this.htzCurrentSunkenLimit = (act == 0) ? HTZ1_LAVA_OFFSET_SUNKEN : HTZ2_LAVA_OFFSET_SUNKEN;
+        this.htzCurrentBgXOffset = HTZ_BG_X_OFFSET_TOP;
     }
 
     /**
@@ -166,6 +170,14 @@ public class LevelEventManager implements LevelEventProvider {
     private int htzTerrainDelay = 0;
 
     /**
+     * Active HTZ oscillation limits for the currently-entered earthquake mode.
+     * These vary by act and by top/bottom route in Act 2.
+     */
+    private int htzCurrentRisenLimit = 0;
+    private int htzCurrentSunkenLimit = 0;
+    private int htzCurrentBgXOffset = 0;
+
+    /**
      * Gets the current Camera_BG_Y_offset for HTZ rising lava.
      * Used by RisingLavaObjectInstance to calculate Y position.
      *
@@ -173,6 +185,26 @@ public class LevelEventManager implements LevelEventProvider {
      */
     public int getCameraBgYOffset() {
         return cameraBgYOffset;
+    }
+
+    /**
+     * Gets the current Camera_BG_X_offset used by HTZ earthquake BG scrolling.
+     * Top route / Act 1 use 0; Act 2 bottom route uses -$680.
+     */
+    public int getHtzBgXOffset() {
+        return htzCurrentBgXOffset;
+    }
+
+    /**
+     * Returns the relative BG vertical shift for HTZ earthquake.
+     * 0 = normal/risen position, positive = BG scrolled up (more lava visible).
+     * This is used by SwScrlHtz to offset vscrollFactorBG without modifying bgCamera.bgYPos.
+     */
+    public int getHtzBgVerticalShift() {
+        if (!GameServices.gameState().isHtzScreenShakeActive()) {
+            return 0;
+        }
+        return htzCurrentRisenLimit - cameraBgYOffset;
     }
 
     // EHZ Act 2 boss reference
@@ -333,26 +365,40 @@ public class LevelEventManager implements LevelEventProvider {
             case 0 -> {
                 // Routine 0: Wait for shake trigger
                 // ROM: LevEvents_HTZ_Routine1 checks Camera_Y >= $400 AND Camera_X >= $1800
+                int cameraX0 = camera.getX();
                 if (camera.getY() >= HTZ1_SHAKE_TRIGGER_Y &&
-                    camera.getX() >= HTZ1_SHAKE_TRIGGER_X) {
+                    cameraX0 >= HTZ1_SHAKE_TRIGGER_X &&
+                    cameraX0 < HTZ1_SHAKE_EXIT_X) {
                     // Enable screen shake and initialize earthquake
                     ParallaxManager.getInstance().setHtzScreenShake(true);
-                    initHtzEarthquake();
+                    initHtzEarthquake(HTZ1_LAVA_OFFSET_RISEN, HTZ1_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine += 2;
+                } else if (cameraX0 >= HTZ1_SHAKE_EXIT_X) {
+                    // Already past earthquake zone (e.g. teleported) - skip to post-shake
+                    eventRoutine = 4;
                 } else {
-                    // Routine 1 Part 2: If shake was active but we're out of range, clear it
-                    if (uk.co.jamesj999.sonic.game.GameServices.gameState().isScreenShakeActive()) {
+                    // Before earthquake zone or Y not met
+                    if (uk.co.jamesj999.sonic.game.GameServices.gameState().isHtzScreenShakeActive()) {
                         exitHtzEarthquakeArea();
                     }
                 }
             }
             case 2 -> {
-                // Routine 2: In shaking area - update lava oscillation
-                updateHtzLavaOscillation();
+                int cameraX = camera.getX();
 
-                // Check for exit at X >= $1E00 to clear shake flag
-                if (camera.getX() >= 0x1E00) {
-                    // Exit shake area
+                // ROM: LevEvents_HTZ_Routine2 only updates oscillation in [$1978, $1E00).
+                if (cameraX >= HTZ1_OSCILLATE_START_X && cameraX < HTZ1_SHAKE_DISABLE_X) {
+                    updateHtzLavaOscillation();
+                } else if (cameraX >= HTZ1_SHAKE_DISABLE_X) {
+                    // ROM: move.b #0,(Screen_Shaking_Flag).w
+                    GameServices.gameState().setScreenShakeActive(false);
+                }
+
+                // Keep routine 2 active while in [$1800, $1F00), matching disassembly.
+                if (cameraX < HTZ1_SHAKE_TRIGGER_X) {
+                    exitHtzEarthquakeArea();
+                    eventRoutine -= 2;
+                } else if (cameraX >= HTZ1_SHAKE_EXIT_X) {
                     exitHtzEarthquakeArea();
                     eventRoutine += 2;
                 }
@@ -362,7 +408,7 @@ public class LevelEventManager implements LevelEventProvider {
                 // Check for re-entry into shake zone
                 if (camera.getX() < HTZ1_SHAKE_EXIT_X) {
                     ParallaxManager.getInstance().setHtzScreenShake(true);
-                    initHtzEarthquake();
+                    initHtzEarthquake(HTZ1_LAVA_OFFSET_RISEN, HTZ1_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine -= 2;  // Go back to routine 2
                 }
             }
@@ -387,27 +433,58 @@ public class LevelEventManager implements LevelEventProvider {
         switch (eventRoutine) {
             case 0 -> {
                 // Routine 0: Wait for shake trigger
-                if (camera.getX() >= HTZ2_SHAKE_TRIGGER_X) {
+                int cameraX0 = camera.getX();
+                if (cameraX0 >= HTZ2_SHAKE_TRIGGER_X && cameraX0 < HTZ2_SHAKE_EXIT_X) {
                     // ROM: Check Y position to determine which earthquake zone
                     // If Camera_Y >= $380, jump to bottom area routines
                     if (camera.getY() >= HTZ2_Y_ZONE_THRESHOLD) {
-                        // Bottom area: skip to routine 6 (will use bottom area parameters)
-                        eventRoutine = 6;
+                        // Bottom area
+                        ParallaxManager.getInstance().setHtzScreenShake(true);
+                        initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
+                                HTZ_BG_X_OFFSET_BOTTOM);
+                        eventRoutine = 8;
+                    } else {
+                        // Top area
+                        ParallaxManager.getInstance().setHtzScreenShake(true);
+                        initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_TOP, HTZ2_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
+                        eventRoutine = 2;
                     }
-                    ParallaxManager.getInstance().setHtzScreenShake(true);
-                    initHtzEarthquake();
-                    eventRoutine += 2;
+                } else if (cameraX0 >= HTZ2_SHAKE_EXIT_X) {
+                    // Already past earthquake zone (e.g. teleported to last checkpoint)
+                    // Skip to appropriate post-shake routine based on Y position
+                    if (camera.getY() >= HTZ2_Y_ZONE_THRESHOLD) {
+                        // Bottom zone
+                        if (cameraX0 >= HTZ2_BOSS_CUTOFF_X) {
+                            eventRoutine = 12;  // Skip to boss prep
+                        } else {
+                            eventRoutine = 10;  // Skip to post-shake (bottom)
+                        }
+                    } else {
+                        eventRoutine = 4;  // Skip to post-shake (top)
+                    }
                 } else {
-                    if (uk.co.jamesj999.sonic.game.GameServices.gameState().isScreenShakeActive()) {
+                    // Before earthquake zone
+                    if (uk.co.jamesj999.sonic.game.GameServices.gameState().isHtzScreenShakeActive()) {
                         exitHtzEarthquakeArea();
                     }
                 }
             }
             case 2 -> {
-                // Routine 1: Shaking area (top zone) - update lava oscillation
-                updateHtzLavaOscillation();
+                int cameraX = camera.getX();
 
-                if (camera.getX() >= 0x1A00) {
+                // ROM: LevEvents_HTZ2_Routine2 oscillates only in [$1678, $1A00).
+                if (cameraX >= HTZ2_TOP_OSCILLATE_START_X && cameraX < HTZ2_TOP_SHAKE_DISABLE_X) {
+                    updateHtzLavaOscillation();
+                } else if (cameraX >= HTZ2_TOP_SHAKE_DISABLE_X) {
+                    // ROM: move.b #0,(Screen_Shaking_Flag).w
+                    GameServices.gameState().setScreenShakeActive(false);
+                }
+
+                // Keep routine 2 active while in [$14C0, $1B00).
+                if (cameraX < HTZ2_SHAKE_TRIGGER_X) {
+                    exitHtzEarthquakeArea();
+                    eventRoutine = 0;
+                } else if (cameraX >= HTZ2_SHAKE_EXIT_X) {
                     exitHtzEarthquakeArea();
                     eventRoutine += 2;
                 }
@@ -416,7 +493,7 @@ public class LevelEventManager implements LevelEventProvider {
                 // Routine 2: Post-shake (top zone)
                 if (camera.getX() < HTZ2_SHAKE_EXIT_X) {
                     ParallaxManager.getInstance().setHtzScreenShake(true);
-                    initHtzEarthquake();
+                    initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_TOP, HTZ2_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine -= 2;
                 }
             }
@@ -425,28 +502,41 @@ public class LevelEventManager implements LevelEventProvider {
                 // This handles re-entry to earthquake zone in bottom area
                 if (camera.getX() >= HTZ2_SHAKE_TRIGGER_X) {
                     ParallaxManager.getInstance().setHtzScreenShake(true);
-                    initHtzEarthquake();
+                    initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
+                            HTZ_BG_X_OFFSET_BOTTOM);
                     eventRoutine += 2;
                 } else {
-                    if (uk.co.jamesj999.sonic.game.GameServices.gameState().isScreenShakeActive()) {
+                    if (uk.co.jamesj999.sonic.game.GameServices.gameState().isHtzScreenShakeActive()) {
                         exitHtzEarthquakeArea();
                     }
                 }
             }
             case 8 -> {
-                // Routine 4: Shaking area (bottom zone) - update lava oscillation
-                updateHtzLavaOscillation();
+                int cameraX = camera.getX();
 
-                if (camera.getX() >= 0x1A00) {
+                // ROM: LevEvents_HTZ2_Routine4 oscillates only in [$15F0, $1AC0).
+                if (cameraX >= HTZ2_BOTTOM_OSCILLATE_START_X && cameraX < HTZ2_BOTTOM_SHAKE_DISABLE_X) {
+                    updateHtzLavaOscillation();
+                } else if (cameraX >= HTZ2_BOTTOM_SHAKE_DISABLE_X) {
+                    // ROM: move.b #0,(Screen_Shaking_Flag).w
+                    GameServices.gameState().setScreenShakeActive(false);
+                }
+
+                // Keep routine 8 active while in [$14C0, $1B00).
+                if (cameraX < HTZ2_SHAKE_TRIGGER_X) {
                     exitHtzEarthquakeArea();
-                    eventRoutine += 2;
+                    eventRoutine = 6;
+                } else if (cameraX >= HTZ2_SHAKE_EXIT_X) {
+                    exitHtzEarthquakeArea();
+                    eventRoutine = 10;
                 }
             }
             case 10 -> {
                 // Routine 5: Post-shake (bottom zone)
                 if (camera.getX() < HTZ2_SHAKE_EXIT_X) {
                     ParallaxManager.getInstance().setHtzScreenShake(true);
-                    initHtzEarthquake();
+                    initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
+                            HTZ_BG_X_OFFSET_BOTTOM);
                     eventRoutine -= 2;
                 } else if (camera.getX() >= HTZ2_BOSS_CUTOFF_X) {
                     // Approaching boss area - advance to boss routines
@@ -500,16 +590,23 @@ public class LevelEventManager implements LevelEventProvider {
             case 18 -> {
                 // Routine 9: Boss end / camera extend (LevEvents_HTZ2_Routine9)
                 // ROM: s2.asm:21261-21277
-                // Prevent backtracking during fight
-                short cameraX = camera.getX();
-                if (cameraX > camera.getMinX()) {
-                    camera.setMinX(cameraX);
+                if (uk.co.jamesj999.sonic.game.GameServices.gameState().getCurrentBossId() != 0) {
+                    // ROM: does nothing until Boss_defeated_flag is set.
+                    return;
                 }
 
-                // Check for boss defeat
-                if (htzBoss != null && htzBoss.isDefeated()) {
-                    // Camera unlock happens in boss defeat sequence
-                    eventRoutine += 2;
+                // ROM: Camera_Min_X_pos follows Camera_X_pos after boss defeat.
+                short cameraX = camera.getX();
+                camera.setMinX(cameraX);
+
+                // ROM: once camera reaches $30E0, ease Y bounds up toward $428/$430.
+                if (cameraX >= 0x30E0) {
+                    if (camera.getMinY() >= 0x428) {
+                        camera.setMinY((short) (camera.getMinY() - 2));
+                    }
+                    if (camera.getMaxYTarget() >= 0x430) {
+                        camera.setMaxYTarget((short) (camera.getMaxYTarget() - 2));
+                    }
                 }
             }
             default -> {
@@ -521,7 +618,7 @@ public class LevelEventManager implements LevelEventProvider {
     // HTZ Act 2 boss arena constants (from disassembly LevEvents_HTZ2)
     /** Cutoff trigger X to start boss preparation (ROM: $2B00) */
     private static final int HTZ2_BOSS_CUTOFF_X = 0x2B00;
-    /** Arena left boundary trigger X (ROM: $2EDF) */
+    /** Boss prep trigger X (ROM: $2C50) */
     private static final int HTZ2_BOSS_ARENA_TRIGGER_X = 0x2C50;
     /** Boss arena left camera lock X (ROM: $2EE0) */
     private static final int HTZ2_BOSS_ARENA_LEFT = 0x2EE0;
@@ -566,10 +663,16 @@ public class LevelEventManager implements LevelEventProvider {
     private static final int HTZ1_LAVA_OFFSET_SUNKEN = 224;
 
     // HTZ Act 2 oscillation constants (from s2.asm LevEvents_HTZ2)
-    /** Act 2 risen limit (ROM: 0x2C0 = 704) */
-    private static final int HTZ2_LAVA_OFFSET_RISEN = 0x2C0;
+    /** Act 2 top route risen limit (ROM: 0x2C0 = 704) */
+    private static final int HTZ2_LAVA_OFFSET_RISEN_TOP = 0x2C0;
+    /** Act 2 bottom route risen limit (ROM: 0x300 = 768) */
+    private static final int HTZ2_LAVA_OFFSET_RISEN_BOTTOM = 0x300;
     /** Act 2 sunken limit (ROM: 0) */
     private static final int HTZ2_LAVA_OFFSET_SUNKEN = 0;
+    /** Camera_BG_X_offset for top route / Act 1 (ROM: 0). */
+    private static final int HTZ_BG_X_OFFSET_TOP = 0;
+    /** Camera_BG_X_offset for Act 2 bottom route (ROM: -$680). */
+    private static final int HTZ_BG_X_OFFSET_BOTTOM = -0x680;
 
     /** Delay frames before direction toggle (ROM: $78 = 120 frames) */
     private static final int HTZ_TERRAIN_DELAY_INIT = 0x78;
@@ -577,14 +680,33 @@ public class LevelEventManager implements LevelEventProvider {
     /** Y threshold for HTZ Act 2 zone detection (ROM: $380) */
     private static final int HTZ2_Y_ZONE_THRESHOLD = 0x380;
 
+    /** Act 1: oscillation begins at X >= $1978 */
+    private static final int HTZ1_OSCILLATE_START_X = 0x1978;
+    /** Act 1: general screen shake disabled at X >= $1E00 */
+    private static final int HTZ1_SHAKE_DISABLE_X = 0x1E00;
+    /** Act 2 top: oscillation begins at X >= $1678 */
+    private static final int HTZ2_TOP_OSCILLATE_START_X = 0x1678;
+    /** Act 2 top: general screen shake disabled at X >= $1A00 */
+    private static final int HTZ2_TOP_SHAKE_DISABLE_X = 0x1A00;
+    /** Act 2 bottom: oscillation begins at X >= $15F0 */
+    private static final int HTZ2_BOTTOM_OSCILLATE_START_X = 0x15F0;
+    /** Act 2 bottom: general screen shake disabled at X >= $1AC0 */
+    private static final int HTZ2_BOTTOM_SHAKE_DISABLE_X = 0x1AC0;
+
     /**
      * Initialize HTZ earthquake state when entering shake zone.
      * ROM: LevEvents_HTZ_Routine1 lines 20698-20707
-     * Uses different oscillation limits for Act 1 vs Act 2.
+     * Uses different oscillation limits for Act 1 vs Act 2 (and top/bottom route).
+     *
+     * @param risenLimit risen Camera_BG_Y_offset limit for this earthquake zone
+     * @param sunkenLimit sunken Camera_BG_Y_offset limit for this earthquake zone
+     * @param bgXOffset Camera_BG_X_offset for this earthquake zone
      */
-    private void initHtzEarthquake() {
-        // Use act-specific risen limit
-        cameraBgYOffset = (currentAct == 0) ? HTZ1_LAVA_OFFSET_RISEN : HTZ2_LAVA_OFFSET_RISEN;
+    private void initHtzEarthquake(int risenLimit, int sunkenLimit, int bgXOffset) {
+        cameraBgYOffset = risenLimit;
+        htzCurrentRisenLimit = risenLimit;
+        htzCurrentSunkenLimit = sunkenLimit;
+        htzCurrentBgXOffset = bgXOffset;
         htzTerrainSinking = false;
         htzTerrainDelay = 0;
     }
@@ -598,6 +720,7 @@ public class LevelEventManager implements LevelEventProvider {
         cameraBgYOffset = 0;
         htzTerrainSinking = false;
         htzTerrainDelay = 0;
+        htzCurrentBgXOffset = HTZ_BG_X_OFFSET_TOP;
     }
 
     /**
@@ -609,12 +732,13 @@ public class LevelEventManager implements LevelEventProvider {
      * then direction toggles and delay resets to 120 frames.
      *
      * Act 1: oscillates between 224-320 (96px range)
-     * Act 2: oscillates between 0-704 (704px range)
+     * Act 2 top: oscillates between 0-704
+     * Act 2 bottom: oscillates between 0-768
      */
     private void updateHtzLavaOscillation() {
-        // Get act-specific limits
-        int risenLimit = (currentAct == 0) ? HTZ1_LAVA_OFFSET_RISEN : HTZ2_LAVA_OFFSET_RISEN;
-        int sunkenLimit = (currentAct == 0) ? HTZ1_LAVA_OFFSET_SUNKEN : HTZ2_LAVA_OFFSET_SUNKEN;
+        // Use the limits set by initHtzEarthquake for the current earthquake zone
+        int risenLimit = htzCurrentRisenLimit;
+        int sunkenLimit = htzCurrentSunkenLimit;
 
         // ROM: tst.b (HTZ_Terrain_Direction).w / bne.s .sinking
         if (!htzTerrainSinking) {

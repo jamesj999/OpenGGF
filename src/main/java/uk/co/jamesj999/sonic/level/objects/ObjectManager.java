@@ -860,8 +860,10 @@ public class ObjectManager {
                 }
 
                 building.add(instance);
-                // Only trigger touch response if this is a NEW overlap (not in last frame's set)
-                if (!overlapping.contains(instance)) {
+                // ROM touch checks run every frame for bosses. Keep edge-triggering for other
+                // categories to avoid repeated side effects from listeners.
+                boolean shouldTrigger = category == TouchCategory.BOSS || !overlapping.contains(instance);
+                if (shouldTrigger) {
                     TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
                     handleTouchResponse(player, instance, listener, result);
@@ -1079,7 +1081,7 @@ public class ObjectManager {
                 if (slopeData != null && instance instanceof SlopedSolidProvider sloped) {
                     int slopeHalfHeight = params.groundHalfHeight();
                     contact = resolveSlopedContact(player, anchorX, anchorY, params.halfWidth(), slopeHalfHeight,
-                            slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(), instance, false);
+                            slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(), instance, false, sloped);
                 } else {
                     contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
                             provider.isTopSolidOnly(), provider.hasMonitorSolidity(), instance, false);
@@ -1301,7 +1303,7 @@ public class ObjectManager {
                 if (slopeData != null && instance instanceof SlopedSolidProvider sloped) {
                     int slopeHalfHeight = params.groundHalfHeight();
                     contact = resolveSlopedContact(player, anchorX, anchorY, params.halfWidth(), slopeHalfHeight,
-                            slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(), instance, true);
+                            slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(), instance, true, sloped);
                 } else {
                     contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
                             provider.isTopSolidOnly(), provider.hasMonitorSolidity(), instance, true);
@@ -1542,7 +1544,7 @@ public class ObjectManager {
 
         private SolidContact resolveSlopedContact(AbstractPlayableSprite player, int anchorX, int anchorY, int halfWidth,
                 int halfHeight, byte[] slopeData, boolean xFlip, boolean topSolidOnly, ObjectInstance instance,
-                boolean apply) {
+                boolean apply, SlopedSolidProvider slopedProvider) {
             if (slopeData == null || slopeData.length == 0) {
                 return null;
             }
@@ -1565,7 +1567,7 @@ public class ObjectManager {
             }
 
             int slopeSample = (byte) slopeData[sampleX];
-            int slopeBase = (byte) slopeData[0];
+            int slopeBase = slopedProvider.getSlopeBaseline();
             boolean riding = isRidingObject(instance);
             int minRelY = riding ? -16 : 0;
 

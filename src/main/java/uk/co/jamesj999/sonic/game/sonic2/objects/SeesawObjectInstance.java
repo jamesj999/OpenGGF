@@ -268,6 +268,11 @@ public class SeesawObjectInstance extends BoxObjectInstance
         // Spawn ball on first update
         ensureBallSpawned();
 
+        // ROM: SlopedPlatform_SingleCharacter runs every frame to validate standing players.
+        // Checks in_air status and X bounds, clearing standing bit if either fails.
+        // (s2.asm:35526-35545)
+        validateStandingPlayers();
+
         // ROM: loc_21A38 - Store max Y velocity when NEITHER player is standing
         // This prepares for heavy landing detection before the player actually lands
         if (standingPlayer1 == null && standingPlayer2 == null) {
@@ -371,6 +376,40 @@ public class SeesawObjectInstance extends BoxObjectInstance
         return (spawn.renderFlags() & 0x1) != 0;
     }
 
+    /**
+     * ROM: SlopedPlatform_SingleCharacter checks each standing player every frame.
+     * If player is in air or outside X bounds, the standing bit is cleared.
+     * This is necessary because SolidContacts.update() only calls onSolidContact()
+     * when there's an active collision — once the player moves away, the callback
+     * never fires and standingPlayer refs become stale.
+     */
+    private void validateStandingPlayers() {
+        if (standingPlayer1 != null) {
+            if (standingPlayer1.getAir() || !isPlayerInXRange(standingPlayer1)) {
+                standingPlayer1 = null;
+            }
+        }
+        if (standingPlayer2 != null) {
+            if (standingPlayer2.getAir() || !isPlayerInXRange(standingPlayer2)) {
+                standingPlayer2 = null;
+            }
+        }
+    }
+
+    /**
+     * ROM: SlopedPlatform checks if player X is within platform width.
+     * sub.w x_pos(a0),d0 / add.w d1,d0 / bmi.s clear / cmp.w d2,d0 / blo.s stay
+     */
+    private boolean isPlayerInXRange(AbstractPlayableSprite player) {
+        int relX = player.getCentreX() - spawn.x() + COLLISION_HALF_WIDTH;
+        return relX >= 0 && relX < COLLISION_HALF_WIDTH * 2;
+    }
+
+    @Override
+    public boolean isTopSolidOnly() {
+        return true; // ROM's SlopedPlatform is top-solid-only (s2.asm:35747)
+    }
+
     @Override
     public SolidObjectParams getSolidParams() {
         return new SolidObjectParams(COLLISION_HALF_WIDTH, COLLISION_HEIGHT, COLLISION_HEIGHT);
@@ -381,6 +420,15 @@ public class SeesawObjectInstance extends BoxObjectInstance
         // ROM: Obj14_UpdateMappingAndCollision selects slope data based on mapping_frame
         // Frame 0 or 2 (tilted) = SLOPE_TILTED, Frame 1 (flat) = SLOPE_FLAT
         return (mappingFrame == 1) ? SLOPE_FLAT : SLOPE_TILTED;
+    }
+
+    @Override
+    public int getSlopeBaseline() {
+        // ROM's SlopedPlatform overwrites d3 (height param) with the slope sample,
+        // so the surface is at object_y - slopeSample. But the Java framework bakes
+        // halfHeight into the landing snap via maxTop, so slopeBase must equal
+        // halfHeight to compensate: baseY - halfHeight = anchorY - slopeSample.
+        return COLLISION_HEIGHT;
     }
 
     @Override

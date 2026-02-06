@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.level.objects.TouchResponseProvider;
 import uk.co.jamesj999.sonic.level.objects.boss.AbstractBossChild;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
@@ -18,7 +19,7 @@ import java.util.List;
  *   byte_302B0: dc.b 3, $C, $D, $FF  ; Delay 3, frames 12, 13, then end
  * This cycles frames 12 ($C) and 13 ($D) which are small lava projectile frames.
  */
-public class HTZBossFlamethrower extends AbstractBossChild {
+public class HTZBossFlamethrower extends AbstractBossChild implements TouchResponseProvider {
 
     // Movement constants (ROM: s2.asm:63869-63892)
     /** Horizontal offset from boss (ROM: move.w #-$70,d0) */
@@ -29,10 +30,14 @@ public class HTZBossFlamethrower extends AbstractBossChild {
     // Animation constants (ROM: byte_302B0 - animation 5)
     /** Animation delay (ROM: dc.b 3 = delay of 3+1=4 frames) */
     private static final int ANIM_DELAY = 4;
-    /** First frame of animation (ROM: frame $C = 12) */
-    private static final int FRAME_FIRE_1 = 12;
-    /** Second frame of animation (ROM: frame $D = 13) */
-    private static final int FRAME_FIRE_2 = 13;
+    /**
+     * Obj52 child objects use ArtTile_ArtNem_HTZBoss as their art base, while the
+     * parent renderer sheet is aligned to ArtTile_ArtNem_Eggpod_2. The VRAM delta is
+     * $60 tiles, so child tile indices must be shifted by +$60 on this combined sheet.
+     */
+    private static final int CHILD_TILE_BASE_OFFSET = 0x60;
+    private static final int TILE_FIRE_1 = CHILD_TILE_BASE_OFFSET + 0x61;
+    private static final int TILE_FIRE_2 = CHILD_TILE_BASE_OFFSET + 0x62;
 
     // State
     private int xVel;
@@ -105,6 +110,11 @@ public class HTZBossFlamethrower extends AbstractBossChild {
     }
 
     @Override
+    public int getCollisionProperty() {
+        return 0;
+    }
+
+    @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         if (isDestroyed()) {
             return;
@@ -123,10 +133,9 @@ public class HTZBossFlamethrower extends AbstractBossChild {
             return;
         }
 
-        // ROM: Animation 5 uses frames $C (12) and $D (13) - small lava projectile frames
-        // animFrame: 0 = FRAME_FIRE_1 (12), 1 = FRAME_FIRE_2 (13)
-        int frame = (animFrame == 0) ? FRAME_FIRE_1 : FRAME_FIRE_2;
-
-        renderer.drawFrameIndex(frame, currentX, currentY, flipped, false);
+        // ROM frame mappings are tile $61/$62 relative to ArtTile_ArtNem_HTZBoss.
+        // Draw as direct patterns to account for child art base offset.
+        int tile = (animFrame == 0) ? TILE_FIRE_1 : TILE_FIRE_2;
+        renderer.drawPatternIndex(tile, currentX - 4, currentY - 4, 0);
     }
 }

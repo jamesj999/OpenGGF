@@ -6,7 +6,7 @@ import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
-import uk.co.jamesj999.sonic.level.ParallaxManager;
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.objects.SolidContact;
@@ -36,7 +36,7 @@ import static org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN;
  *   <tr><td>2</td><td>0xC0 (192)</td><td>0x80/0x81</td><td>Regular solid</td></tr>
  *   <tr><td>4</td><td>0xC0 (192)</td><td>0x78/0x79</td><td>Lower height solid</td></tr>
  *   <tr><td>6</td><td>0xE0 (224)</td><td>0x78/0x79</td><td>Hurts players standing on it</td></tr>
- *   <tr><td>8</td><td>0x5F (95)</td><td>0x2E</td><td>Sloped solid</td></tr>
+ *   <tr><td>8</td><td>0xC0 (192)</td><td>0x2E</td><td>Sloped solid</td></tr>
  * </table>
  *
  * <h3>Usage Statistics (from OBJECT_CHECKLIST.md)</h3>
@@ -89,6 +89,9 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     /** D2 height for sloped subtype 8 */
     private static final int HEIGHT_D2_SLOPED = 0x2E;
 
+    /** Obj30_Init route split threshold (ROM: cmpi.w #$380,(Camera_Y_pos).w). */
+    private static final int ROUTE_SPLIT_CAMERA_Y = 0x380;
+
     // ========================================================================
     // ROM Constants - Slope data from Obj30_SlopeData (lines 49169-49187)
     // 192 bytes: heights from +48 to -48 for the sloped platform
@@ -122,6 +125,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     private final int widthPixels;
     private final int baseY;
     private final int baseX;
+    private final boolean routeEnabled;
     private int currentY;
 
     /** Dynamic spawn for Y position updates. */
@@ -141,8 +145,25 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // Get width from table (subtype is index)
         int widthIndex = Math.min(subtype, SUBTYPE_WIDTHS.length - 1);
         this.widthPixels = SUBTYPE_WIDTHS[widthIndex];
+        this.routeEnabled = isEnabledForCurrentRoute(subtype, Camera.getInstance().getY());
 
         updateDynamicSpawn();
+    }
+
+    /**
+     * ROM Obj30_Init route filtering:
+     * - Subtype 6: active only when Camera_Y >= $380 (bottom route)
+     * - Subtype >=8: active only when Camera_Y < $380 (top route)
+     * - Other subtypes: always active
+     */
+    private static boolean isEnabledForCurrentRoute(int subtype, int cameraY) {
+        if (subtype < 6) {
+            return true;
+        }
+        if (subtype == 6) {
+            return cameraY >= ROUTE_SPLIT_CAMERA_Y;
+        }
+        return cameraY < ROUTE_SPLIT_CAMERA_Y;
     }
 
     // ========================================================================
@@ -151,23 +172,19 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
+        if (!routeEnabled) {
+            return;
+        }
+
         // Store frame counter for use in onSolidContact callback
         this.lastFrameCounter = frameCounter;
 
-        // ROM: Obj30_Main (line 49083)
-        // Y position = base Y + Camera_BG_Y_offset
+        // ROM: Obj30_Main (s2.asm:49083-49086)
+        // y_pos = objoff_32 + Camera_BG_Y_offset (ONLY bgYOffset, no shake)
+        // Ripple shake is a global screen-space effect applied via Camera shake offsets,
+        // so objects don't add it to their world positions.
         int bgYOffset = LevelEventManager.getInstance().getCameraBgYOffset();
-
-        // During screen shake, visual terrain also shifts by shakeOffsetY from ripple data.
-        // The collision platform must include this offset to stay synchronized with where
-        // the visual terrain appears, preventing invisible walls.
-        // ROM: The visual scroll uses vscrollFactorFG = cameraY + shakeOffsetV
-        int shakeOffsetY = 0;
-        if (GameServices.gameState().isScreenShakeActive()) {
-            shakeOffsetY = ParallaxManager.getInstance().getShakeOffsetY();
-        }
-
-        currentY = baseY + bgYOffset + shakeOffsetY;
+        currentY = baseY + bgYOffset;
 
         updateDynamicSpawn();
 
@@ -276,6 +293,10 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
 
     @Override
     public boolean isSolidFor(AbstractPlayableSprite player) {
+        if (!routeEnabled) {
+            return false;
+        }
+
         // ROM: tst.b (Screen_Shaking_Flag_HTZ).w at line 49091
         // Only solid when HTZ earthquake sequence is active.
         // Uses the HTZ-specific flag which stays on during delay periods,
@@ -328,6 +349,10 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
+        if (!routeEnabled) {
+            return;
+        }
+
         // Invisible during normal gameplay - only render in debug mode
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         if (!config.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED)) {
