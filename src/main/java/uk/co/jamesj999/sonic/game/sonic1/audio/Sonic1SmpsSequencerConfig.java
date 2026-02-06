@@ -5,6 +5,7 @@ import uk.co.jamesj999.sonic.audio.smps.SmpsSequencerConfig;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * SMPS sequencer configuration for Sonic 1.
@@ -64,7 +65,12 @@ public final class Sonic1SmpsSequencerConfig {
 
         CONFIG = new SmpsSequencerConfig(
                 SPEED_UP_TEMPOS, TEMPO_MOD_BASE, FM_CHANNEL_ORDER, PSG_CHANNEL_ORDER,
-                SmpsSequencerConfig.TempoMode.TIMEOUT, coordOverrides);
+                SmpsSequencerConfig.TempoMode.TIMEOUT, coordOverrides,
+                false,            // S1: don't apply modulation during note start (ModAlgo = 68k)
+                false,            // S1: don't halve mod steps (68k driver has no srl a)
+                Set.of(0xEE),
+                true,             // S1: PC-relative pointers for F6/F7/F8
+                true);            // S1: process tempo on first frame (DOTEMPO)
     }
 
     private Sonic1SmpsSequencerConfig() {

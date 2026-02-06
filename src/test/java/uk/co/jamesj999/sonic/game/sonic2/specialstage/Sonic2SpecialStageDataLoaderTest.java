@@ -1,11 +1,13 @@
 package uk.co.jamesj999.sonic.game.sonic2.specialstage;
 
-import org.junit.Assume;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
+import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
-import java.io.File;
 import java.io.IOException;
 
 import static org.junit.Assert.*;
@@ -15,22 +17,18 @@ import static uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageC
  * Tests for Sonic 2 Special Stage data loading from ROM.
  * These tests require the Sonic 2 REV01 ROM to be present.
  */
+@RequiresRom(SonicGame.SONIC_2)
 public class Sonic2SpecialStageDataLoaderTest {
 
-    private static final String ROM_FILENAME = "Sonic The Hedgehog 2 (W) (REV01) [!].gen";
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
 
     private Rom rom;
     private Sonic2SpecialStageDataLoader loader;
 
     @Before
     public void setUp() {
-        File romFile = new File(ROM_FILENAME);
-        Assume.assumeTrue("ROM file not found, skipping test", romFile.exists());
-
-        rom = new Rom();
-        boolean opened = rom.open(ROM_FILENAME);
-        Assume.assumeTrue("Failed to open ROM", opened);
-
+        rom = romRule.rom();
         loader = new Sonic2SpecialStageDataLoader(rom);
     }
 

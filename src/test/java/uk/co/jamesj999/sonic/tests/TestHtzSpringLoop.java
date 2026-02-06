@@ -2,20 +2,20 @@ package uk.co.jamesj999.sonic.tests;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
-import uk.co.jamesj999.sonic.data.Rom;
-import uk.co.jamesj999.sonic.data.RomManager;
-import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.physics.GroundSensor;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.playable.Sonic;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
+import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
-import java.io.File;
 import java.lang.reflect.Field;
 
 import static org.junit.Assert.*;
@@ -35,9 +35,11 @@ import static org.junit.Assert.*;
  *   <li>Fail condition: Sonic's GSpeed is 0 (stopped, spring not triggered)</li>
  * </ol>
  */
+@RequiresRom(SonicGame.SONIC_2)
 public class TestHtzSpringLoop {
 
-    private Rom rom;
+    @Rule public RequiresRomRule romRule = new RequiresRomRule();
+
     private Sonic sprite;
     private HeadlessTestRunner testRunner;
 
@@ -55,13 +57,6 @@ public class TestHtzSpringLoop {
         // Reset singletons that might have stale state from other tests
         GraphicsManager.resetInstance();
         Camera.resetInstance();
-
-        // Load ROM
-        File romFile = RomTestUtils.ensureRomAvailable();
-        rom = new Rom();
-        rom.open(romFile.getAbsolutePath());
-        GameModuleRegistry.detectAndSetModule(rom);
-        RomManager.getInstance().setRom(rom);
 
         // Initialize headless graphics (no GL context needed)
         GraphicsManager.getInstance().initHeadless();
@@ -119,11 +114,6 @@ public class TestHtzSpringLoop {
 
         // Clear SpriteManager
         SpriteManager.getInstance().clearAllSprites();
-
-        // Close ROM
-        if (rom != null) {
-            rom.close();
-        }
     }
 
     /**

@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.tests;
 
+import org.junit.Before;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
@@ -16,19 +17,23 @@ import static org.junit.Assert.*;
 /**
  * Tests for Sonic 1 player sprite art loading.
  * Requires the Sonic 1 ROM to be present in the working directory.
+ * Uses a local ROM instance to avoid contaminating singletons
+ * (GameModuleRegistry, AudioManager) that affect other tests.
  */
 public class Sonic1PlayerArtTest {
 
-    private RomByteReader openS1Rom() throws Exception {
+    private RomByteReader reader;
+
+    @Before
+    public void setUp() throws Exception {
         File romFile = RomTestUtils.ensureSonic1RomAvailable();
         Rom rom = new Rom();
         rom.open(romFile.getAbsolutePath());
-        return RomByteReader.fromRom(rom);
+        reader = RomByteReader.fromRom(rom);
     }
 
     @Test
     public void sonicArtLoadsCorrectTileCount() throws Exception {
-        RomByteReader reader = openS1Rom();
         Sonic1PlayerArt artLoader = new Sonic1PlayerArt(reader);
         SpriteArtSet sonic = artLoader.loadForCharacter("sonic");
 
@@ -39,7 +44,7 @@ public class Sonic1PlayerArtTest {
 
     @Test
     public void sonicMappingFrameCount() throws Exception {
-        RomByteReader reader = openS1Rom();
+
         Sonic1PlayerArt artLoader = new Sonic1PlayerArt(reader);
         SpriteArtSet sonic = artLoader.loadForCharacter("sonic");
 
@@ -50,7 +55,7 @@ public class Sonic1PlayerArtTest {
 
     @Test
     public void sonicDplcFrameCountMatchesMappings() throws Exception {
-        RomByteReader reader = openS1Rom();
+
         Sonic1PlayerArt artLoader = new Sonic1PlayerArt(reader);
         SpriteArtSet sonic = artLoader.loadForCharacter("sonic");
 
@@ -61,7 +66,7 @@ public class Sonic1PlayerArtTest {
 
     @Test
     public void sonicAnimationScriptCount() throws Exception {
-        RomByteReader reader = openS1Rom();
+
         Sonic1PlayerArt artLoader = new Sonic1PlayerArt(reader);
         SpriteArtSet sonic = artLoader.loadForCharacter("sonic");
 
@@ -73,7 +78,7 @@ public class Sonic1PlayerArtTest {
 
     @Test
     public void standingFrameHasFourPieces() throws Exception {
-        RomByteReader reader = openS1Rom();
+
         Sonic1PlayerArt artLoader = new Sonic1PlayerArt(reader);
         SpriteArtSet sonic = artLoader.loadForCharacter("sonic");
 
@@ -93,7 +98,7 @@ public class Sonic1PlayerArtTest {
 
     @Test
     public void walkAnimationHasSixFrames() throws Exception {
-        RomByteReader reader = openS1Rom();
+
         Sonic1PlayerArt artLoader = new Sonic1PlayerArt(reader);
         SpriteArtSet sonic = artLoader.loadForCharacter("sonic");
 
@@ -113,7 +118,7 @@ public class Sonic1PlayerArtTest {
 
     @Test
     public void nullFrameHasZeroPieces() throws Exception {
-        RomByteReader reader = openS1Rom();
+
         Sonic1PlayerArt artLoader = new Sonic1PlayerArt(reader);
         SpriteArtSet sonic = artLoader.loadForCharacter("sonic");
 
@@ -125,7 +130,7 @@ public class Sonic1PlayerArtTest {
 
     @Test
     public void unknownCharacterReturnsNull() throws Exception {
-        RomByteReader reader = openS1Rom();
+
         Sonic1PlayerArt artLoader = new Sonic1PlayerArt(reader);
 
         assertNull("Tails should return null for S1", artLoader.loadForCharacter("tails"));
@@ -134,7 +139,7 @@ public class Sonic1PlayerArtTest {
 
     @Test
     public void bankSizeIsPositive() throws Exception {
-        RomByteReader reader = openS1Rom();
+
         Sonic1PlayerArt artLoader = new Sonic1PlayerArt(reader);
         SpriteArtSet sonic = artLoader.loadForCharacter("sonic");
 
@@ -144,7 +149,7 @@ public class Sonic1PlayerArtTest {
 
     @Test
     public void animationProfileIsSet() throws Exception {
-        RomByteReader reader = openS1Rom();
+
         Sonic1PlayerArt artLoader = new Sonic1PlayerArt(reader);
         SpriteArtSet sonic = artLoader.loadForCharacter("sonic");
 

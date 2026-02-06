@@ -1,8 +1,12 @@
 package uk.co.jamesj999.sonic.tests;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
+import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
 import java.io.IOException;
 
@@ -12,14 +16,16 @@ import static uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants.*;
 /**
  * Tests for palette cycling ROM data locations.
  */
+@RequiresRom(SonicGame.SONIC_2)
 public class TestPaletteCycling {
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
+
     private Rom rom;
 
     @Before
-    public void setUp() throws IOException {
-        rom = new Rom();
-        String romFile = RomTestUtils.ensureRomAvailable().getAbsolutePath();
-        rom.open(romFile);
+    public void setUp() {
+        rom = romRule.rom();
     }
 
     @Test

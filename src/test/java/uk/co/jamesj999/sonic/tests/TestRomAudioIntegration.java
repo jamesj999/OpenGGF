@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.tests;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SmpsSequencerConfig;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 import uk.co.jamesj999.sonic.audio.smps.DacData;
@@ -9,24 +10,27 @@ import uk.co.jamesj999.sonic.game.sonic2.audio.smps.Sonic2SmpsLoader;
 import uk.co.jamesj999.sonic.audio.smps.SmpsSequencer;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.audio.synth.VirtualSynthesizer;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
+import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.*;
 
+@RequiresRom(SonicGame.SONIC_2)
 public class TestRomAudioIntegration {
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
+
     private Rom rom;
     private Sonic2SmpsLoader loader;
 
     @Before
     public void setUp() {
-        File romFile = RomTestUtils.ensureRomAvailable();
-        rom = new Rom();
-        boolean opened = rom.open(romFile.getAbsolutePath());
-        assertTrue("Failed to open ROM", opened);
+        rom = romRule.rom();
         loader = new Sonic2SmpsLoader(rom);
     }
 

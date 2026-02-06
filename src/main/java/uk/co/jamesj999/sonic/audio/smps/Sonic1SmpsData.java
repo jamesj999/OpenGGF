@@ -32,7 +32,7 @@ package uk.co.jamesj999.sonic.audio.smps;
  *       S2 uses little-endian absolute Z80 addresses.</li>
  *   <li>FM voice operator order in ROM is 1,3,2,4. This matches the engine's expected
  *       format, so no reordering is needed (unlike S2 which stores 4,2,3,1).</li>
- *   <li>Base note is C (offset 0), not B (offset 1) like S2.</li>
+ *   <li>Base note is B (offset 1), same as S2 (DefDrv.txt: FMBaseNote = B).</li>
  * </ul>
  *
  * <p>Voice data format (25 bytes per FM instrument):
@@ -193,11 +193,11 @@ public class Sonic1SmpsData extends AbstractSmpsData {
 
     @Override
     public int getBaseNoteOffset() {
-        return 0; // Sonic 1 uses base note C (no offset)
+        return 1; // Sonic 1 uses base note B (DefDrv.txt: FMBaseNote = B)
     }
 
     @Override
     public int getPsgBaseNoteOffset() {
-        return 0; // PSG base note C
+        return 1; // PSG base note B (DefDrv.txt: FMBaseNote = B)
     }
 }

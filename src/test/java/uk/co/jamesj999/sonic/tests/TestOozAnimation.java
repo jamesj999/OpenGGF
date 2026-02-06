@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.tests;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
@@ -9,6 +10,9 @@ import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.level.LevelData;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.animation.AnimatedPatternManager;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
+import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
+import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
 import java.io.IOException;
 import java.util.logging.ConsoleHandler;
@@ -19,12 +23,16 @@ import static org.junit.Assert.*;
 /**
  * Tests for OOZ (Oil Ocean Zone) animation loading.
  */
+@RequiresRom(SonicGame.SONIC_2)
 public class TestOozAnimation {
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
+
     private static final int ANIMATED_EHZ_ADDR = 0x3FF94;
     private Rom rom;
 
     @Before
-    public void setUp() throws IOException {
+    public void setUp() {
         // Enable FINE logging
         Logger rootLogger = Logger.getLogger("uk.co.jamesj999.sonic.game.sonic2");
         rootLogger.setLevel(java.util.logging.Level.FINE);
@@ -32,9 +40,7 @@ public class TestOozAnimation {
         handler.setLevel(java.util.logging.Level.FINE);
         rootLogger.addHandler(handler);
 
-        rom = new Rom();
-        String romFile = RomTestUtils.ensureRomAvailable().getAbsolutePath();
-        rom.open(romFile);
+        rom = romRule.rom();
     }
 
     @Test
