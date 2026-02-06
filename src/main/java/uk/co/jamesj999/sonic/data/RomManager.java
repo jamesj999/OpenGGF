@@ -88,9 +88,9 @@ public class RomManager implements AutoCloseable {
             rom.close();
         }
 
-        String romFilename = resolveRomFilename();
+        String romFilename = resolveRomForGame(configService.getString(SonicConfiguration.DEFAULT_ROM));
         if (romFilename == null || romFilename.isEmpty()) {
-            throw new IOException("ROM filename not configured (ROM_FILENAME is null or empty)");
+            throw new IOException("ROM filename not configured (DEFAULT_ROM not set or per-game ROM key empty)");
         }
 
         LOGGER.info("Opening ROM: " + romFilename);
@@ -106,18 +106,6 @@ public class RomManager implements AutoCloseable {
 
         // Auto-detect game type and set appropriate module
         GameModuleRegistry.detectAndSetModule(rom);
-    }
-
-    /**
-     * Resolves the ROM filename. Uses ROM_FILENAME if explicitly set in config,
-     * otherwise falls back to DEFAULT_ROM + per-game ROM entries.
-     */
-    private String resolveRomFilename() {
-        String explicit = configService.getString(SonicConfiguration.ROM_FILENAME);
-        if (explicit != null && !explicit.isEmpty()) {
-            return explicit;
-        }
-        return resolveRomForGame(configService.getString(SonicConfiguration.DEFAULT_ROM));
     }
 
     /**

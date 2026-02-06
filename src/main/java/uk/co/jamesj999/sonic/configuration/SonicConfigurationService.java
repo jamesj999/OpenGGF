@@ -156,8 +156,6 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.SCREEN_HEIGHT, 480);
 		putDefault(SonicConfiguration.SCREEN_HEIGHT_PIXELS, 240);
 		putDefault(SonicConfiguration.SCALE, 1.0);
-		// ROM_FILENAME intentionally has no default — when absent, RomManager falls
-		// through to DEFAULT_ROM + per-game ROM keys (SONIC_1_ROM, SONIC_2_ROM, etc.).
 		// Debug view now eagerly initialized in Engine.init() to avoid macOS freeze
 		putDefault(SonicConfiguration.DEBUG_VIEW_ENABLED, true);
 		putDefault(SonicConfiguration.DEBUG_COLLISION_VIEW_ENABLED, false);

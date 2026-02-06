@@ -48,9 +48,6 @@ public class TestSonicConfigurationService {
         SonicConfigurationService svc = SonicConfigurationService.getInstance();
         assertEquals(640, svc.getInt(SonicConfiguration.SCREEN_WIDTH));
         assertEquals(320, svc.getShort(SonicConfiguration.SCREEN_WIDTH_PIXELS));
-        // ROM_FILENAME has no default; resolved via DEFAULT_ROM + per-game keys instead
-        // If working dir config.json has ROM_FILENAME it'll be non-empty, otherwise empty
-        assertNotNull(svc.getString(SonicConfiguration.ROM_FILENAME));
         assertTrue(svc.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED));
         assertEquals(1.0, svc.getDouble(SonicConfiguration.SCALE), 0.001);
         // Per-game ROM defaults are always populated

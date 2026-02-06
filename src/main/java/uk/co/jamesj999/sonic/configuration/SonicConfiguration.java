@@ -95,11 +95,6 @@ public enum SonicConfiguration {
 	DEBUG_COLLISION_VIEW_ENABLED,
 
 	/**
-	 * Filename of ROM to use (temporary)
-	 */
-	ROM_FILENAME,
-
-	/**
 	 * Key to toggle Debug Movement Mode at runtime.
 	 */
 	DEBUG_MODE_KEY,
@@ -203,7 +198,7 @@ public enum SonicConfiguration {
 
 	/**
 	 * Which game to load by default: "s1", "s2", or "s3k".
-	 * Used to resolve ROM_FILENAME when it is not explicitly set.
+	 * Used to select which per-game ROM key (SONIC_1_ROM, etc.) to load.
 	 */
 	DEFAULT_ROM;
 
