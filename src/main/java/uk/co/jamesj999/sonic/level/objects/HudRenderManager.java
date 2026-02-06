@@ -51,13 +51,24 @@ public class HudRenderManager {
     // Priority is handled by draw order usually, but PatternDesc needs a priority
     // bit.
     // Assuming priority 1 (high).
-    // Palette 0 for Sonic Icon (0x8000 = Priority 1, Pal 0)
-    private final PatternDesc iconPatternDesc = new PatternDesc(0x8000);
-    // Palette 1 for HUD Text (0xA000 = Priority 1, Pal 1)
-    private final PatternDesc hudPatternDesc = new PatternDesc(0xA000);
+    // Icon/flash palette and HUD text palette — configurable per game
+    private PatternDesc iconPatternDesc = new PatternDesc(0x8000); // default: Priority 1, Pal 0
+    private PatternDesc hudPatternDesc = new PatternDesc(0xA000);  // default: Priority 1, Pal 1
 
     public HudRenderManager(GraphicsManager graphicsManager) {
         this.graphicsManager = graphicsManager;
+    }
+
+    /**
+     * Sets the palette lines for HUD rendering.
+     * Different games use different palette lines for the yellow text vs flash colors.
+     *
+     * @param textPalLine  palette line for HUD text labels (yellow)
+     * @param flashPalLine palette line for icon and flash state (red)
+     */
+    public void setHudPalettes(int textPalLine, int flashPalLine) {
+        this.hudPatternDesc = new PatternDesc(0x8000 | (textPalLine << 13));
+        this.iconPatternDesc = new PatternDesc(0x8000 | (flashPalLine << 13));
     }
 
     private int textPatternCount;

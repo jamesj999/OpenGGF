@@ -110,4 +110,24 @@ public interface ObjectArtProvider {
      * @return true if ready
      */
     boolean isReady();
+
+    /**
+     * Gets the palette line used for HUD text labels (SCORE/TIME/RINGS).
+     * Sonic 2 uses palette line 1 (yellow), Sonic 1 uses palette line 0 (yellow).
+     *
+     * @return palette line (0-3), default 1
+     */
+    default int getHudTextPaletteLine() {
+        return 1;
+    }
+
+    /**
+     * Gets the palette line used for HUD icon and flash state.
+     * This is the alternate palette shown when rings = 0 flashes.
+     *
+     * @return palette line (0-3), default 0
+     */
+    default int getHudFlashPaletteLine() {
+        return 0;
+    }
 }
