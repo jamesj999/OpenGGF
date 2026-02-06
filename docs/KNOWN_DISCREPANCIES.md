@@ -7,6 +7,7 @@ This document tracks intentional deviations from the original Sonic 2 ROM implem
 1. [Gloop Sound Toggle](#gloop-sound-toggle)
 2. [Spindash Release Transpose Fix](#spindash-release-transpose-fix)
 3. [Pattern ID Ranges](#pattern-id-ranges-for-guiresults-screen)
+4. [HTZ Cloud Scroll Precision Fix](#htz-cloud-scroll-precision-fix)
 
 ---
 
@@ -159,3 +160,41 @@ The `PatternAtlas` stores all patterns in a HashMap keyed by pattern ID. Each ca
 ### Verification
 
 The rendered output is identical to the original - the same graphics appear at the same screen positions. Only the internal storage differs.
+
+---
+
+## HTZ Cloud Scroll Precision Fix
+
+**Location:** `SwScrlHtz.java`
+**ROM Reference:** `s2.asm` lines 15823-15831 (fixBugs path) vs line 15833 (original path)
+
+### Original Implementation
+
+The original ROM uses `asr.w #4,d1` to initialize the cloud layer scroll delta. This word-sized shift loses the fractional bits that were set up via `swap d1`, causing a visible 2-frame jerkiness in cloud scrolling as the fractional accumulator repeatedly underflows and corrects.
+
+```asm
+; Original (buggy) path:
+    asr.w   #4,d1          ; word shift discards upper 16 bits (fractional part)
+```
+
+### Our Implementation
+
+We use the `fixBugs` path from the disassembly, which preserves fractional precision:
+
+```asm
+; fixBugs path:
+    swap    d1
+    asr.l   #4,d1          ; long shift preserves fractional bits across the swap
+```
+
+This is implemented in `SwScrlHtz.java` using a 32-bit arithmetic shift after swapping the high/low words, matching the corrected assembly path.
+
+### Rationale
+
+1. **Known bug in original ROM** - The disassembly explicitly marks this as a bug with a `fixBugs` conditional path.
+2. **Smoother cloud animation** - The fractional bits produce smooth per-frame cloud movement instead of the original's periodic stutter.
+3. **Matches disassembly intent** - The `fixBugs` path represents what the original developers intended before the word/long shift mistake.
+
+### Verification
+
+Cloud layer scrolling in HTZ is smooth across all frames, without the 2-frame jitter visible in the original ROM.
