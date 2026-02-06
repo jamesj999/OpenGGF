@@ -91,4 +91,35 @@ public final class Sonic1Constants {
 
     // S1 mapping/DPLC frame count (Map_Sonic and SonicDynPLC both have this many entries)
     public static final int SONIC_MAPPING_FRAME_COUNT = 88;
+
+    // ---- Animated level art (uncompressed) ----
+    // Addresses calculated backward from LEVEL_INDEX_ADDR using artunc file sizes.
+    // GHZ animated art
+    public static final int ART_UNC_GHZ_WATER_ADDR   = 0x66A96; // 512 bytes, 16 tiles (2 frames × 8 tiles)
+    public static final int ART_UNC_GHZ_FLOWER1_ADDR  = 0x66C96; // 1024 bytes, 32 tiles (2 frames × 16 tiles)
+    public static final int ART_UNC_GHZ_FLOWER2_ADDR  = 0x67096; // 1152 bytes, 36 tiles (3 frames × 12 tiles)
+
+    // MZ animated art
+    public static final int ART_UNC_MZ_LAVA1_ADDR    = 0x67516; // 768 bytes, 24 tiles (3 frames × 8 tiles)
+    public static final int ART_UNC_MZ_LAVA2_ADDR    = 0x67816; // 1536 bytes, 48 tiles (magma, 3 frames × 16 tiles)
+    public static final int ART_UNC_MZ_TORCH_ADDR    = 0x67E16; // 768 bytes, 24 tiles (4 frames × 6 tiles)
+
+    // SBZ animated art
+    public static final int ART_UNC_SBZ_SMOKE_ADDR   = 0x68116; // 2688 bytes, 84 tiles (7 frames × 12 tiles)
+
+    // Giant ring art (after level layout data)
+    public static final int ART_UNC_GIANT_RING_ADDR  = 0x6A324; // 3136 bytes, 98 tiles
+
+    // ---- Animated tile VRAM destinations (ArtTile_Level = 0x000) ----
+    // GHZ
+    public static final int ARTTILE_GHZ_WATERFALL     = 0x378;
+    public static final int ARTTILE_GHZ_BIG_FLOWER_1  = 0x35C;
+    public static final int ARTTILE_GHZ_SMALL_FLOWER  = 0x36C;
+    // MZ
+    public static final int ARTTILE_MZ_ANIMATED_LAVA  = 0x2E2;
+    public static final int ARTTILE_MZ_ANIMATED_MAGMA = 0x2D2;
+    public static final int ARTTILE_MZ_TORCH          = 0x2F2;
+    // SBZ
+    public static final int ARTTILE_SBZ_SMOKE_PUFF_1  = 0x448;
+    public static final int ARTTILE_SBZ_SMOKE_PUFF_2  = 0x454;
 }
