@@ -199,7 +199,7 @@ public class FlipperObjectInstance extends BoxObjectInstance
         // This matches the ROM behavior of clearing status.player.on_object (loc_2B2E2).
         var objectManager = LevelManager.getInstance().getObjectManager();
         if (objectManager != null) {
-            objectManager.clearRidingObject();
+            objectManager.clearRidingObject(player);
         }
 
         // Reset flipper state

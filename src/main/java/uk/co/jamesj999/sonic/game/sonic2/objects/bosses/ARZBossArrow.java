@@ -179,10 +179,10 @@ public class ARZBossArrow extends AbstractObjectInstance
         if (player == null || levelManager == null || levelManager.getObjectManager() == null) {
             return;
         }
-        if (!levelManager.getObjectManager().isRidingObject(this)) {
+        if (!levelManager.getObjectManager().isRidingObject(player, this)) {
             return;
         }
-        levelManager.getObjectManager().clearRidingObject();
+        levelManager.getObjectManager().clearRidingObject(player);
         player.setOnObject(false);
         player.setAir(true);
     }

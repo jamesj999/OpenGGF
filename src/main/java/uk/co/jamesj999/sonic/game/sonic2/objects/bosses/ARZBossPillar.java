@@ -140,8 +140,8 @@ public class ARZBossPillar extends AbstractObjectInstance
         if (player == null || levelManager == null || levelManager.getObjectManager() == null) {
             return;
         }
-        if (levelManager.getObjectManager().isRidingObject(this)) {
-            levelManager.getObjectManager().clearRidingObject();
+        if (levelManager.getObjectManager().isRidingObject(player, this)) {
+            levelManager.getObjectManager().clearRidingObject(player);
             player.setOnObject(false);
             player.setAir(true);
         }

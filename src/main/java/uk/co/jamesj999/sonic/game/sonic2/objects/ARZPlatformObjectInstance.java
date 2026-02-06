@@ -402,7 +402,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         if (manager == null || manager.getObjectManager() == null) {
             return false;
         }
-        return manager.getObjectManager().isRidingObject(this);
+        return manager.getObjectManager().isAnyPlayerRiding(this);
     }
 
     private boolean isAquaticRuin() {
