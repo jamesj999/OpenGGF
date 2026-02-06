@@ -92,8 +92,18 @@ public class HeadlessTestRunner {
             levelManager.getObjectManager().updateSolidContacts(sprite);
         }
 
+        // Apply SpriteManager-equivalent input filtering for controlLocked/forceInputRight.
+        // SpriteManager.update() applies this filtering before calling handleMovement, but
+        // HeadlessTestRunner bypasses SpriteManager, so we must replicate it here.
+        boolean controlLocked = sprite.isControlLocked();
+        boolean effectiveRight = (!controlLocked && right) || sprite.isForceInputRight();
+        boolean effectiveLeft = (!controlLocked && left) && !sprite.isForceInputRight();
+        boolean effectiveUp = !controlLocked && up;
+        boolean effectiveDown = !controlLocked && down;
+        boolean effectiveJump = !controlLocked && jump;
+
         // Player movement
-        sprite.getMovementManager().handleMovement(up, down, left, right, jump, false, false, false);
+        sprite.getMovementManager().handleMovement(effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump, false, false, false);
 
         // Plane switchers
         levelManager.applyPlaneSwitchers(sprite);

@@ -127,7 +127,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// - obj_control and hurt block input in ALL states
 		boolean groundedControlLock = !sprite.getAir() && (moveLocked || sprite.getSpringing());
 		if (groundedControlLock || objControlLocked || sprite.isHurt()) {
-			left = right = false;
+			left = false;
+			if (!sprite.isForceInputRight()) {
+				right = false;
+			}
 		}
 		// Block up/down when hurt
 		if (sprite.isHurt()) {
@@ -735,7 +738,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// See s2.asm:36913-36922 (Sonic_Boundary_CheckBottom)
 		short effectiveMaxY = (short) Math.max(camera.getMaxY(), camera.getMaxYTarget());
 		if (sprite.getY() > effectiveMaxY + 224) {
-			sprite.applyPitDeath();
+			if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
+				sprite.getCpuController().despawn();
+			} else {
+				sprite.applyPitDeath();
+			}
 		}
 	}
 
@@ -1377,7 +1384,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private void checkPitDeath() {
 		Camera camera = Camera.getInstance();
 		if (camera != null && sprite.getY() > camera.getY() + camera.getHeight()) {
-			sprite.applyPitDeath();
+			if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
+				sprite.getCpuController().despawn();
+			} else {
+				sprite.applyPitDeath();
+			}
 		}
 	}
 
@@ -1421,8 +1432,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 
 		if (sprite.tickDeathCountdown()) {
-			GameServices.gameState().loseLife();
-			uk.co.jamesj999.sonic.level.LevelManager.getInstance().requestRespawn();
+			if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
+				// CPU-controlled sprites (Tails) despawn and respawn near the main player
+				// instead of causing a level reset
+				sprite.getCpuController().despawn();
+			} else {
+				GameServices.gameState().loseLife();
+				uk.co.jamesj999.sonic.level.LevelManager.getInstance().requestRespawn();
+			}
 		}
 	}
 
@@ -1506,12 +1523,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	private boolean hasObjectSupport() {
 		var objectManager = uk.co.jamesj999.sonic.level.LevelManager.getInstance().getObjectManager();
-		return objectManager != null && (objectManager.isRidingObject() || objectManager.hasStandingContact(sprite));
+		return objectManager != null && (objectManager.isRidingObject(sprite) || objectManager.hasStandingContact(sprite));
 	}
 
 	private void clearRidingObject() {
 		var objectManager = uk.co.jamesj999.sonic.level.LevelManager.getInstance().getObjectManager();
-		if (objectManager != null) objectManager.clearRidingObject();
+		if (objectManager != null) objectManager.clearRidingObject(sprite);
 	}
 
 	private int getDuckAnimId() {
@@ -1610,7 +1627,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 
-		var ridingObject = objectManager.getRidingObject();
+		var ridingObject = objectManager.getRidingObject(sprite);
 		if (ridingObject == null) {
 			return;
 		}

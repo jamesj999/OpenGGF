@@ -378,7 +378,7 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         LevelManager manager = LevelManager.getInstance();
         boolean standing = manager != null &&
                 manager.getObjectManager() != null &&
-                manager.getObjectManager().isRidingObject(this);
+                manager.getObjectManager().isAnyPlayerRiding(this);
         playerStanding = standing;
 
         if (standing) {

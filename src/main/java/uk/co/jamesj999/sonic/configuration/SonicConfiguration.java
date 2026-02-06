@@ -178,6 +178,33 @@ public enum SonicConfiguration {
 	/**
 	 * Whether to show the Level Select screen on startup instead of loading EHZ.
 	 */
-	LEVEL_SELECT_ON_STARTUP;
+	LEVEL_SELECT_ON_STARTUP,
+
+	/**
+	 * Code of the sprite of the CPU-controlled sidekick character.
+	 * Set to "tails" or "sonic" to spawn a sidekick, or empty string to disable.
+	 */
+	SIDEKICK_CHARACTER_CODE,
+
+	/**
+	 * Filename for the Sonic 1 ROM.
+	 */
+	SONIC_1_ROM,
+
+	/**
+	 * Filename for the Sonic 2 ROM.
+	 */
+	SONIC_2_ROM,
+
+	/**
+	 * Filename for the Sonic 3&K ROM.
+	 */
+	SONIC_3K_ROM,
+
+	/**
+	 * Which game to load by default: "s1", "s2", or "s3k".
+	 * Used to resolve ROM_FILENAME when it is not explicitly set.
+	 */
+	DEFAULT_ROM;
 
 }

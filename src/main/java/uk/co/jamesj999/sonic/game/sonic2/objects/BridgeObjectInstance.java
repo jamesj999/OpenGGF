@@ -106,7 +106,7 @@ public class BridgeObjectInstance extends BoxObjectInstance implements SlopedSol
             uk.co.jamesj999.sonic.level.objects.ObjectManager objectManager = uk.co.jamesj999.sonic.level.LevelManager
                     .getInstance().getObjectManager();
 
-            if (objectManager != null && objectManager.isRidingObject(this)) {
+            if (objectManager != null && objectManager.isAnyPlayerRiding(this)) {
                 calculateTargetSag(player, logCount);
             }
         }

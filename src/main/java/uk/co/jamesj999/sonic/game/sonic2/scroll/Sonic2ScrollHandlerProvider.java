@@ -5,6 +5,7 @@ import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
 import uk.co.jamesj999.sonic.level.scroll.ParallaxTables;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlArz;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlCpz;
+import uk.co.jamesj999.sonic.level.scroll.SwScrlDez;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlEhz;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlMcz;
 import uk.co.jamesj999.sonic.level.scroll.ZoneScrollHandler;
@@ -24,6 +25,7 @@ public class Sonic2ScrollHandlerProvider implements ScrollHandlerProvider {
     private boolean loaded = false;
 
     private SwScrlArz arzHandler;
+    private SwScrlDez dezHandler;
     private SwScrlEhz ehzHandler;
     private SwScrlCpz cpzHandler;
     private SwScrlMcz mczHandler;
@@ -36,6 +38,7 @@ public class Sonic2ScrollHandlerProvider implements ScrollHandlerProvider {
         try {
             tables = new ParallaxTables(rom);
             arzHandler = new SwScrlArz(tables);
+            dezHandler = new SwScrlDez(tables);
             ehzHandler = new SwScrlEhz(tables);
             cpzHandler = new SwScrlCpz(tables);
             mczHandler = new SwScrlMcz(tables);
@@ -57,6 +60,7 @@ public class Sonic2ScrollHandlerProvider implements ScrollHandlerProvider {
             case Sonic2ZoneConstants.ZONE_EHZ -> ehzHandler;
             case Sonic2ZoneConstants.ZONE_CPZ -> cpzHandler;
             case Sonic2ZoneConstants.ZONE_ARZ -> arzHandler;
+            case Sonic2ZoneConstants.ZONE_DEZ -> dezHandler;
             case Sonic2ZoneConstants.ZONE_MCZ -> mczHandler;
             // Other zones use inline scroll routines in ParallaxManager for now
             default -> null;

@@ -151,6 +151,6 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public ObjectArtProvider getObjectArtProvider() {
-        return null;
+        return new Sonic1ObjectArtProvider();
     }
 }

@@ -147,7 +147,7 @@ public class SpiralObjectInstance extends AbstractObjectInstance {
         // Initial range checks for "locking on"
         int vx = player.getXSpeed();
         ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        boolean onObject = (objectManager != null && objectManager.isRidingObject()) || wasOnSpiral;
+        boolean onObject = (objectManager != null && objectManager.isRidingObject(player)) || wasOnSpiral;
 
         // Debug range
         if (Math.abs(dx) < 250 && frameCounter % 30 == 0) {

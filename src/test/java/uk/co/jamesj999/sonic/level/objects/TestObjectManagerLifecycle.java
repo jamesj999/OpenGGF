@@ -24,10 +24,10 @@ public class TestObjectManagerLifecycle {
         ObjectManager manager = new ObjectManager(spawns, registry, 0, null, null);
 
         manager.reset(0);
-        manager.update(0, null, 1);
+        manager.update(0, null, null, 1);
         assertEquals(2, manager.getActiveObjects().size());
 
-        manager.update(2000, null, 2);
+        manager.update(2000, null, null, 2);
 
         assertEquals(1, manager.getActiveObjects().size());
         assertTrue(manager.getActiveObjects().contains(registry.instances.get(persistentSpawn)));

@@ -95,7 +95,7 @@ public class ObjectManager {
         }
     }
 
-    public void update(int cameraX, AbstractPlayableSprite player, int touchFrameCounter) {
+    public void update(int cameraX, AbstractPlayableSprite player, AbstractPlayableSprite sidekick, int touchFrameCounter) {
         placement.update(cameraX);
         frameCounter++;
         // Note: bucketsDirty and activeObjectsCacheDirty are marked in syncActiveSpawns()
@@ -146,11 +146,18 @@ public class ObjectManager {
         // for both terrain and solid objects before animation resolves.
         if (touchResponses != null) {
             touchResponses.update(player, touchFrameCounter);
+            // ROM: Both players participate in touch responses.
+            // Sidekick uses separate overlap tracking and special hurt handling.
+            if (sidekick != null) {
+                touchResponses.updateSidekick(sidekick, touchFrameCounter);
+            }
         }
     }
 
     public void applyPlaneSwitchers(AbstractPlayableSprite player) {
-        if (planeSwitchers != null) {
+        // ROM: CPU Tails does not interact with plane switchers in 1P mode.
+        // Only the main player triggers layer/priority changes.
+        if (planeSwitchers != null && !player.isCpuControlled()) {
             planeSwitchers.update(player);
         }
     }
@@ -385,26 +392,40 @@ public class ObjectManager {
         placement.removeFromActive(spawn);
     }
 
-    public boolean isRidingObject() {
-        return solidContacts.isRidingObject();
+    /** Is this player riding any object? */
+    public boolean isRidingObject(AbstractPlayableSprite player) {
+        return solidContacts.isRidingObject(player);
     }
 
-    public boolean isRidingObject(ObjectInstance instance) {
-        return solidContacts.isRidingObject(instance);
+    /** Is this specific player riding this specific object? */
+    public boolean isRidingObject(AbstractPlayableSprite player, ObjectInstance instance) {
+        return solidContacts.isPlayerRiding(player, instance);
     }
 
-    public void clearRidingObject() {
-        solidContacts.clearRidingObject();
+    /** Is ANY player riding anything? */
+    public boolean isAnyPlayerRiding() {
+        return solidContacts.isAnyPlayerRiding();
+    }
+
+    /** Is ANY player riding this specific object? */
+    public boolean isAnyPlayerRiding(ObjectInstance instance) {
+        return solidContacts.isAnyPlayerRiding(instance);
+    }
+
+    /** Clear this player's riding state. */
+    public void clearRidingObject(AbstractPlayableSprite player) {
+        solidContacts.clearRidingObject(player);
     }
 
     /**
-     * Get the object that the player is currently standing on (riding).
+     * Get the object that this player is currently standing on (riding).
      * Used for balance detection at object edges.
      *
+     * @param player The player to check
      * @return The object being ridden, or null if not standing on any object
      */
-    public ObjectInstance getRidingObject() {
-        return solidContacts.getRidingObject();
+    public ObjectInstance getRidingObject(AbstractPlayableSprite player) {
+        return solidContacts.getRidingObject(player);
     }
 
     public boolean hasStandingContact(AbstractPlayableSprite player) {
@@ -789,6 +810,11 @@ public class ObjectManager {
         private final Set<ObjectInstance> bufferB = Collections.newSetFromMap(new IdentityHashMap<>());
         private Set<ObjectInstance> overlapping = bufferA;
         private Set<ObjectInstance> building = bufferB;
+        // Separate overlap tracking for sidekick (CPU Tails)
+        private final Set<ObjectInstance> sidekickBufferA = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Set<ObjectInstance> sidekickBufferB = Collections.newSetFromMap(new IdentityHashMap<>());
+        private Set<ObjectInstance> sidekickOverlapping = sidekickBufferA;
+        private Set<ObjectInstance> sidekickBuilding = sidekickBufferB;
         private final TouchResponseDebugState debugState = new TouchResponseDebugState();
         private int currentFrameCounter;
 
@@ -802,6 +828,10 @@ public class ObjectManager {
             bufferB.clear();
             overlapping = bufferA;
             building = bufferB;
+            sidekickBufferA.clear();
+            sidekickBufferB.clear();
+            sidekickOverlapping = sidekickBufferA;
+            sidekickBuilding = sidekickBufferB;
             currentFrameCounter = 0;
         }
 
@@ -874,6 +904,125 @@ public class ObjectManager {
             Set<ObjectInstance> temp = overlapping;
             overlapping = building;
             building = temp;
+        }
+
+        /**
+         * Touch response check for the CPU sidekick (Tails).
+         * Uses separate overlap tracking from the main player.
+         * ROM: In 1P mode, CPU Tails interacts with objects but doesn't scatter
+         * rings when hurt and can never die from enemy contact.
+         */
+        void updateSidekick(AbstractPlayableSprite sidekick, int frameCounter) {
+            currentFrameCounter = frameCounter;
+            if (sidekick == null || objectManager == null || sidekick.getDead() || table == null) {
+                sidekickOverlapping.clear();
+                return;
+            }
+
+            if (sidekick.isDebugMode()) {
+                sidekickOverlapping.clear();
+                return;
+            }
+
+            int playerX = sidekick.getCentreX() - 8;
+            int baseYRadius = Math.max(1, sidekick.getYRadius() - 3);
+            int playerY = sidekick.getCentreY() - baseYRadius;
+            int playerHeight = baseYRadius * 2;
+            boolean crouching = sidekick.getCrouching();
+            if (crouching) {
+                playerY += 12;
+                playerHeight = 20;
+            }
+
+            sidekickBuilding.clear();
+
+            Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
+            for (ObjectInstance instance : activeObjects) {
+                if (!(instance instanceof TouchResponseProvider provider)) {
+                    continue;
+                }
+                int flags = provider.getCollisionFlags();
+                if (flags == 0) {
+                    continue;
+                }
+                int sizeIndex = flags & 0x3F;
+                int width = table.getWidthRadius(sizeIndex);
+                int height = table.getHeightRadius(sizeIndex);
+                TouchCategory category = decodeCategory(flags);
+
+                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getSpawn(), width, height);
+                if (!overlap) {
+                    continue;
+                }
+
+                sidekickBuilding.add(instance);
+                if (!sidekickOverlapping.contains(instance)) {
+                    TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
+                    TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
+                    handleTouchResponseSidekick(sidekick, instance, listener, result);
+                }
+            }
+
+            Set<ObjectInstance> temp = sidekickOverlapping;
+            sidekickOverlapping = sidekickBuilding;
+            sidekickBuilding = temp;
+        }
+
+        /**
+         * ROM: In 1P mode, CPU Tails interacts with objects but hurt handling differs:
+         * - Can destroy badniks while rolling/invincible (same as Sonic)
+         * - Gets knocked back when hurt but does NOT scatter rings or die
+         * - Special category objects still interact normally
+         */
+        private void handleTouchResponseSidekick(AbstractPlayableSprite sidekick, ObjectInstance instance,
+                TouchResponseListener listener, TouchResponseResult result) {
+            if (sidekick == null) {
+                return;
+            }
+            if (listener != null) {
+                listener.onTouchResponse(sidekick, result, currentFrameCounter);
+            }
+
+            switch (result.category()) {
+                case HURT -> applySidekickHurt(sidekick, instance);
+                case ENEMY -> {
+                    if (isPlayerAttacking(sidekick)) {
+                        if (instance instanceof TouchResponseAttackable attackable) {
+                            attackable.onPlayerAttack(sidekick, result);
+                        }
+                        applyEnemyBounce(sidekick, instance);
+                    } else {
+                        applySidekickHurt(sidekick, instance);
+                    }
+                }
+                case SPECIAL -> {
+                    // Listener handles object-specific logic.
+                }
+                case BOSS -> {
+                    if (isPlayerAttacking(sidekick)) {
+                        if (instance instanceof TouchResponseAttackable attackable) {
+                            attackable.onPlayerAttack(sidekick, result);
+                        }
+                        applyBossBounce(sidekick);
+                    } else {
+                        applySidekickHurt(sidekick, instance);
+                    }
+                }
+            }
+        }
+
+        /**
+         * ROM: Hurt_Sidekick in 1P mode - just knockback, no ring scatter, no death.
+         * From s2.asm HurtCharacter: in 1P mode, branches directly to Hurt_Sidekick
+         * which applies hurt animation without checking rings.
+         */
+        private void applySidekickHurt(AbstractPlayableSprite sidekick, ObjectInstance instance) {
+            if (sidekick.getInvulnerable()) {
+                return;
+            }
+            int sourceX = instance != null ? instance.getX() : sidekick.getCentreX();
+            // ROM: Hurt_Sidekick in 1P mode - just apply hurt knockback, no ring scatter
+            sidekick.applyHurt(sourceX);
         }
 
         private boolean isOverlapping(int playerX, int playerY, int playerHeight,
@@ -1012,10 +1161,11 @@ public class ObjectManager {
         private static final int OBJ85_ID = 0x85;
         private final ObjectManager objectManager;
         private int frameCounter;
-        private ObjectInstance ridingObject;
-        private int ridingX;
-        private int ridingY;
-        private int ridingPieceIndex = -1;
+
+        // Per-player riding state (ROM: each player object has its own SST interact field $3E)
+        private record RidingState(ObjectInstance object, int x, int y, int pieceIndex) {}
+        private final Map<AbstractPlayableSprite, RidingState> ridingStates = new IdentityHashMap<>(2);
+        private AbstractPlayableSprite currentPlayer; // set during update() for internal use
 
         SolidContacts(ObjectManager objectManager) {
             this.objectManager = objectManager;
@@ -1023,24 +1173,59 @@ public class ObjectManager {
 
         void reset() {
             frameCounter = 0;
-            ridingObject = null;
-            ridingPieceIndex = -1;
+            ridingStates.clear();
         }
 
-        boolean isRidingObject() {
-            return ridingObject != null;
+        boolean isRidingObject(AbstractPlayableSprite player) {
+            if (player == null) return false;
+            RidingState state = ridingStates.get(player);
+            return state != null && state.object != null;
         }
 
-        boolean isRidingObject(ObjectInstance instance) {
-            return ridingObject == instance;
+        boolean isAnyPlayerRiding() {
+            for (RidingState state : ridingStates.values()) {
+                if (state != null && state.object != null) return true;
+            }
+            return false;
         }
 
-        void clearRidingObject() {
-            ridingObject = null;
+        boolean isPlayerRiding(AbstractPlayableSprite player, ObjectInstance instance) {
+            if (player == null) return false;
+            RidingState state = ridingStates.get(player);
+            return state != null && state.object == instance;
         }
 
-        ObjectInstance getRidingObject() {
-            return ridingObject;
+        boolean isAnyPlayerRiding(ObjectInstance instance) {
+            for (RidingState state : ridingStates.values()) {
+                if (state != null && state.object == instance) return true;
+            }
+            return false;
+        }
+
+        void clearRidingObject(AbstractPlayableSprite player) {
+            if (player != null) {
+                ridingStates.remove(player);
+            }
+        }
+
+        ObjectInstance getRidingObject(AbstractPlayableSprite player) {
+            if (player == null) return null;
+            RidingState state = ridingStates.get(player);
+            return state != null ? state.object : null;
+        }
+
+        /** Check if the current player (set during update()) is riding the given object. Used by internal resolve methods. */
+        private boolean isRidingCurrentPlayerObject(ObjectInstance instance) {
+            if (currentPlayer == null) return false;
+            RidingState state = ridingStates.get(currentPlayer);
+            return state != null && state.object == instance;
+        }
+
+        /** Get the piece index the current player is riding. Used by internal resolve methods. */
+        private int getCurrentPlayerRidingPieceIndex() {
+            if (currentPlayer == null) return -1;
+            RidingState state = ridingStates.get(currentPlayer);
+            return state != null ? state.pieceIndex : -1;
         }
 
         boolean hasStandingContact(AbstractPlayableSprite player) {
@@ -1053,44 +1238,50 @@ public class ObjectManager {
             if (player.getYSpeed() < 0) {
                 return false;
             }
-            Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
-            for (ObjectInstance instance : activeObjects) {
-                if (!(instance instanceof SolidObjectProvider provider)) {
-                    continue;
-                }
-                if (!provider.isSolidFor(player)) {
-                    continue;
-                }
+            AbstractPlayableSprite savedPlayer = currentPlayer;
+            currentPlayer = player;
+            try {
+                Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
+                for (ObjectInstance instance : activeObjects) {
+                    if (!(instance instanceof SolidObjectProvider provider)) {
+                        continue;
+                    }
+                    if (!provider.isSolidFor(player)) {
+                        continue;
+                    }
 
-                if (provider instanceof MultiPieceSolidProvider multiPiece) {
-                    if (hasStandingContactMultiPiece(player, multiPiece, instance)) {
+                    if (provider instanceof MultiPieceSolidProvider multiPiece) {
+                        if (hasStandingContactMultiPiece(player, multiPiece, instance)) {
+                            return true;
+                        }
+                        continue;
+                    }
+
+                    SolidObjectParams params = provider.getSolidParams();
+                    int anchorX = instance.getSpawn().x() + params.offsetX();
+                    int anchorY = instance.getSpawn().y() + params.offsetY();
+                    int halfHeight = player.getAir() ? params.airHalfHeight() : params.groundHalfHeight();
+                    byte[] slopeData = null;
+                    if (instance instanceof SlopedSolidProvider sloped) {
+                        slopeData = sloped.getSlopeData();
+                    }
+                    SolidContact contact;
+                    if (slopeData != null && instance instanceof SlopedSolidProvider sloped) {
+                        int slopeHalfHeight = params.groundHalfHeight();
+                        contact = resolveSlopedContact(player, anchorX, anchorY, params.halfWidth(), slopeHalfHeight,
+                                slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(), instance, false, sloped);
+                    } else {
+                        contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
+                                provider.isTopSolidOnly(), provider.hasMonitorSolidity(), instance, false);
+                    }
+                    if (contact != null && contact.standing()) {
                         return true;
                     }
-                    continue;
                 }
-
-                SolidObjectParams params = provider.getSolidParams();
-                int anchorX = instance.getSpawn().x() + params.offsetX();
-                int anchorY = instance.getSpawn().y() + params.offsetY();
-                int halfHeight = player.getAir() ? params.airHalfHeight() : params.groundHalfHeight();
-                byte[] slopeData = null;
-                if (instance instanceof SlopedSolidProvider sloped) {
-                    slopeData = sloped.getSlopeData();
-                }
-                SolidContact contact;
-                if (slopeData != null && instance instanceof SlopedSolidProvider sloped) {
-                    int slopeHalfHeight = params.groundHalfHeight();
-                    contact = resolveSlopedContact(player, anchorX, anchorY, params.halfWidth(), slopeHalfHeight,
-                            slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(), instance, false, sloped);
-                } else {
-                    contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
-                            provider.isTopSolidOnly(), provider.hasMonitorSolidity(), instance, false);
-                }
-                if (contact != null && contact.standing()) {
-                    return true;
-                }
+                return false;
+            } finally {
+                currentPlayer = savedPlayer;
             }
-            return false;
         }
 
         private boolean hasStandingContactMultiPiece(AbstractPlayableSprite player,
@@ -1212,20 +1403,31 @@ public class ObjectManager {
         void update(AbstractPlayableSprite player) {
             frameCounter++;
             if (player == null || objectManager == null || player.getDead()) {
-                ridingObject = null;
+                if (player != null) ridingStates.remove(player);
                 return;
             }
 
             if (player.isDebugMode()) {
-                ridingObject = null;
+                ridingStates.remove(player);
                 return;
             }
+
+            // Set currentPlayer so internal resolveContact/resolveSlopedContact can check
+            // this player's riding state via isRidingCurrentPlayerObject()
+            currentPlayer = player;
 
             // Note: Do NOT clear pushing here. Terrain collision handles pushing for terrain walls,
             // and solid object collision sets pushing when appropriate. Clearing here would
             // override the pushing flag set by terrain collision earlier in the same frame.
 
             Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
+
+            // Extract this player's riding state
+            RidingState state = ridingStates.get(player);
+            ObjectInstance ridingObject = state != null ? state.object : null;
+            int ridingX = state != null ? state.x : 0;
+            int ridingY = state != null ? state.y : 0;
+            int ridingPieceIndex = state != null ? state.pieceIndex : -1;
 
             if (ridingObject != null && ridingObject instanceof SolidObjectProvider provider) {
                 int currentX;
@@ -1259,7 +1461,10 @@ public class ObjectManager {
                     }
                     ridingX = currentX;
                     ridingY = currentY;
+                    // Update state with new tracking position
+                    ridingStates.put(player, new RidingState(ridingObject, ridingX, ridingY, ridingPieceIndex));
                 } else {
+                    ridingStates.remove(player);
                     ridingObject = null;
                     ridingPieceIndex = -1;
                 }
@@ -1268,6 +1473,7 @@ public class ObjectManager {
             ObjectInstance nextRidingObject = null;
             int nextRidingX = 0;
             int nextRidingY = 0;
+            int nextRidingPieceIndex = -1;
             for (ObjectInstance instance : activeObjects) {
                 if (!(instance instanceof SolidObjectProvider provider)) {
                     continue;
@@ -1285,7 +1491,7 @@ public class ObjectManager {
                         nextRidingObject = instance;
                         nextRidingX = result.ridingX;
                         nextRidingY = result.ridingY;
-                        ridingPieceIndex = result.pieceIndex;
+                        nextRidingPieceIndex = result.pieceIndex;
                     }
                     continue;
                 }
@@ -1318,15 +1524,18 @@ public class ObjectManager {
                     nextRidingObject = instance;
                     nextRidingX = instance.getX();
                     nextRidingY = instance.getY();
-                    ridingPieceIndex = -1;
+                    nextRidingPieceIndex = -1;
                 }
                 if (instance instanceof SolidObjectListener listener) {
                     listener.onSolidContact(player, contact, frameCounter);
                 }
             }
-            ridingObject = nextRidingObject;
-            ridingX = nextRidingX;
-            ridingY = nextRidingY;
+
+            if (nextRidingObject != null) {
+                ridingStates.put(player, new RidingState(nextRidingObject, nextRidingX, nextRidingY, nextRidingPieceIndex));
+            } else {
+                ridingStates.remove(player);
+            }
 
             // ROM: bclr #status.player.on_object when not standing on any object
             // Also clear when player becomes airborne (jumping/falling off) - s2.asm has many instances
@@ -1334,6 +1543,8 @@ public class ObjectManager {
             if (nextRidingObject == null) {
                 player.setOnObject(false);
             }
+
+            currentPlayer = null;
         }
 
         private record MultiPieceContactResult(boolean standing, boolean pushing, int ridingX, int ridingY, int pieceIndex) {}
@@ -1435,11 +1646,12 @@ public class ObjectManager {
             int verticalOffset = monitorSolidity ? 0 : 4;
             int relY = playerCenterY - anchorY + verticalOffset + maxTop;
 
-            boolean riding = isRidingObject(instance);
+            boolean riding = isRidingCurrentPlayerObject(instance);
             // For multi-piece objects, only apply sticky buffer (-16px) when checking
             // the specific piece being ridden, not all pieces of the same object.
             // pieceIndex < 0 means single-piece object (always apply sticky buffer if riding)
-            boolean ridingThisPiece = riding && (pieceIndex < 0 || pieceIndex == ridingPieceIndex);
+            int currentRidingPieceIndex = getCurrentPlayerRidingPieceIndex();
+            boolean ridingThisPiece = riding && (pieceIndex < 0 || pieceIndex == currentRidingPieceIndex);
             int minRelY = ridingThisPiece ? -16 : 0;
 
             if (relY < minRelY || relY >= maxTop * 2) {
@@ -1568,7 +1780,7 @@ public class ObjectManager {
 
             int slopeSample = (byte) slopeData[sampleX];
             int slopeBase = slopedProvider.getSlopeBaseline();
-            boolean riding = isRidingObject(instance);
+            boolean riding = isRidingCurrentPlayerObject(instance);
             int minRelY = riding ? -16 : 0;
 
             int slopeOffset = slopeSample - slopeBase;

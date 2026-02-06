@@ -325,12 +325,12 @@ public class CollisionSystemTest {
 
     @Test
     public void testIsRidingObject_noObjectManager() {
-        assertFalse(collisionSystem.isRidingObject());
+        assertFalse(collisionSystem.isRidingObject(null));
     }
 
     @Test
     public void testClearRidingObject_noObjectManager() {
-        collisionSystem.clearRidingObject();
+        collisionSystem.clearRidingObject(null);
     }
 
     @Test
