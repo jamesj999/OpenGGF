@@ -128,4 +128,19 @@ public final class Sonic1Constants {
     // SBZ
     public static final int ARTTILE_SBZ_SMOKE_PUFF_1  = 0x448;
     public static final int ARTTILE_SBZ_SMOKE_PUFF_2  = 0x454;
+
+    // ---- HUD art ----
+    // Art_Hud: Uncompressed HUD digit tiles (0-9 + colon), each digit = 2 tiles (top/bottom)
+    public static final int ART_UNC_HUD_NUMBERS_ADDR = 0x1D2A6;
+    public static final int ART_UNC_HUD_NUMBERS_SIZE = 0x300; // 768 bytes = 24 tiles
+
+    // Art_LivesNums: Uncompressed 8x8 lives counter digit tiles (0-9)
+    public static final int ART_UNC_LIVES_NUMBERS_ADDR = 0x1D5A6;
+    public static final int ART_UNC_LIVES_NUMBERS_SIZE = 320; // 10 tiles
+
+    // Nem_Hud: Nemesis-compressed HUD text labels (SCORE/TIME/RINGS)
+    public static final int ART_NEM_HUD_ADDR = 0x39812;
+
+    // Nem_Lives: Nemesis-compressed life counter icon (Sonic face + name letters)
+    public static final int ART_NEM_LIFE_ICON_ADDR = 0x39908;
 }

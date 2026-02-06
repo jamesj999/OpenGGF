@@ -516,6 +516,7 @@ public class LevelManager {
             }
 
             hudRenderManager = new HudRenderManager(graphicsManager);
+            hudRenderManager.setHudPalettes(provider.getHudTextPaletteLine(), provider.getHudFlashPaletteLine());
             // Wire up HUD to unified UI render pipeline
             if (graphicsManager.getUiRenderPipeline() != null) {
                 graphicsManager.getUiRenderPipeline().setHudRenderManager(hudRenderManager);
