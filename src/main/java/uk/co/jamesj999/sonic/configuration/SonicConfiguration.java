@@ -171,6 +171,11 @@ public enum SonicConfiguration {
 	LEVEL_SELECT_KEY,
 
 	/**
+	 * Whether to show the Title Screen on startup.
+	 */
+	TITLE_SCREEN_ON_STARTUP,
+
+	/**
 	 * Whether to show the Level Select screen on startup instead of loading EHZ.
 	 */
 	LEVEL_SELECT_ON_STARTUP,

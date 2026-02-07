@@ -21,7 +21,9 @@ import uk.co.jamesj999.sonic.game.DebugOverlayProvider;
 import uk.co.jamesj999.sonic.game.ObjectArtProvider;
 import uk.co.jamesj999.sonic.game.ZoneArtProvider;
 import uk.co.jamesj999.sonic.game.sonic2.debug.Sonic2DebugModeProvider;
+import uk.co.jamesj999.sonic.game.TitleScreenProvider;
 import uk.co.jamesj999.sonic.game.sonic2.levelselect.LevelSelectManager;
+import uk.co.jamesj999.sonic.game.sonic2.titlescreen.TitleScreenManager;
 import uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ScrollHandlerProvider;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2AudioProfile;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectConstants;
@@ -160,6 +162,11 @@ public class Sonic2GameModule implements GameModule {
         // Reset object-specific static state that persists across load/unload cycles
         BlueBallsObjectInstance.resetGlobalState();
         BonusBlockObjectInstance.resetGroupCounters();
+    }
+
+    @Override
+    public TitleScreenProvider getTitleScreenProvider() {
+        return TitleScreenManager.getInstance();
     }
 
     @Override
