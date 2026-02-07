@@ -17,11 +17,13 @@ import uk.co.jamesj999.sonic.game.RomOffsetProvider;
 import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
 import uk.co.jamesj999.sonic.game.SpecialStageProvider;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
+import uk.co.jamesj999.sonic.game.TitleScreenProvider;
 import uk.co.jamesj999.sonic.game.ZoneArtProvider;
 import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
 import uk.co.jamesj999.sonic.game.ZoneRegistry;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
 import uk.co.jamesj999.sonic.game.sonic1.levelselect.Sonic1LevelSelectManager;
+import uk.co.jamesj999.sonic.game.sonic1.titlescreen.Sonic1TitleScreenManager;
 import uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1ObjectRegistry;
 import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ScrollHandlerProvider;
 import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
@@ -94,6 +96,11 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public TitleCardProvider getTitleCardProvider() {
         return Sonic1TitleCardManager.getInstance();
+    }
+
+    @Override
+    public TitleScreenProvider getTitleScreenProvider() {
+        return Sonic1TitleScreenManager.getInstance();
     }
 
     @Override

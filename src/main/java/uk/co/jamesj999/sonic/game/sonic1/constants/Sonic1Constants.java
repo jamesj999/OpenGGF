@@ -129,6 +129,27 @@ public final class Sonic1Constants {
     public static final int ARTTILE_SBZ_SMOKE_PUFF_1  = 0x448;
     public static final int ARTTILE_SBZ_SMOKE_PUFF_2  = 0x454;
 
+    // ---- Title screen art ----
+    public static final int ART_NEM_TITLE_FG_ADDR    = 0x1ED80;  // Nem_TitleFg (title foreground)
+    public static final int ART_NEM_TITLE_SONIC_ADDR  = 0x1FD8C;  // Nem_TitleSonic (Sonic sprite)
+    public static final int ART_NEM_TITLE_TM_ADDR     = 0x2175A;  // Nem_TitleTM (trademark symbol)
+    public static final int ART_NEM_CREDIT_TEXT_ADDR   = 0x6203A;  // Nem_CreditText (credit text font)
+    public static final int MAP_ENI_TITLE_ADDR         = 0x1EC6C;  // Eni_Title (title foreground tilemap)
+    public static final int ART_NEM_GHZ_1ST_ADDR       = 0x3CB3C;  // Nem_GHZ_1st (GHZ background patterns)
+    public static final int BLK16_GHZ_ADDR             = 0x3C19C;  // Blk16_GHZ (16x16 chunk mappings, Enigma)
+    public static final int BLK256_GHZ_ADDR            = 0x3F544;  // Blk256_GHZ (256x256 block mappings, Kosinski)
+    public static final int LEVEL_GHZ_BG_ADDR          = 0x68F22;  // Level_GHZbg (background layout, uncompressed)
+
+    // ---- Title screen palettes ----
+    public static final int PAL_TITLE_ADDR       = 0x2280;  // Pal_Title (128 bytes, 4 palette lines)
+    public static final int PAL_TITLE_CYCLE_ADDR = 0x1B5E;  // Pal_TitleCyc (32 bytes, water cycle palette)
+
+    // ---- Title screen VRAM tile indices (from Constants.asm) ----
+    public static final int ARTTILE_TITLE_FOREGROUND   = 0x200;
+    public static final int ARTTILE_TITLE_SONIC        = 0x300;
+    public static final int ARTTILE_TITLE_TRADEMARK    = 0x510;
+    public static final int ARTTILE_SONIC_TEAM_FONT    = 0x0A6;
+
     // ---- HUD art ----
     // Art_Hud: Uncompressed HUD digit tiles (0-9 + colon), each digit = 2 tiles (top/bottom)
     public static final int ART_UNC_HUD_NUMBERS_ADDR = 0x1D2A6;
