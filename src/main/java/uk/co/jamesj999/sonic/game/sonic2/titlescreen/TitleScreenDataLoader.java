@@ -47,11 +47,20 @@ public class TitleScreenDataLoader {
     /** Pattern base ID for sprite art (separate from background). */
     static final int SPRITE_PATTERN_BASE = 0x70000;
 
+    /** Pattern base ID for credit text art (separate from background and sprites). */
+    static final int CREDIT_TEXT_PATTERN_BASE = 0x80000;
+
     // Loaded art patterns
     private Pattern[] titlePatterns;
 
     // Sprite art patterns (Sonic/Tails/stars from title screen intro)
     private Pattern[] spritePatterns;
+
+    // Credit text patterns (intro "SONIC AND MILES 'TAILS' PROWER IN" screen)
+    private Pattern[] creditTextPatterns;
+
+    // Intro palette (palette line 0 for credit text - uses Sonic/Tails palette)
+    private Palette introPalette;
 
     // Plane B composed map: cols 0-39 from TitleScreen, cols 40-63 from TitleBack
     private int[] planeBMap;
@@ -105,9 +114,33 @@ public class TitleScreenDataLoader {
             titlePatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_TITLE_ADDR, 8192, "Title");
             LOGGER.info("Loaded title patterns: " + (titlePatterns != null ? titlePatterns.length : 0));
 
-            // Load sprite art (Sonic/Tails/stars: ~684 patterns, needs large buffer)
+            // Load sprite art (Sonic/Tails/stars: 674 patterns)
             spritePatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_TITLE_SPRITES_ADDR, 65536, "TitleSprites");
             LOGGER.info("Loaded title sprite patterns: " + (spritePatterns != null ? spritePatterns.length : 0));
+
+            // Load MenuJunk art (extra tiles at VRAM 0x03F2, which is sprite index 0x2A2)
+            // These tiles contain Sonic's right arm (frame 18 last piece) and Tails' hand (frame 19)
+            Pattern[] menuJunkPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_MENU_JUNK_ADDR, 1024, "MenuJunk");
+            LOGGER.info("Loaded MenuJunk patterns: " + (menuJunkPatterns != null ? menuJunkPatterns.length : 0));
+
+            // Extend spritePatterns to include MenuJunk at the correct offset (0x2A2)
+            if (spritePatterns != null && menuJunkPatterns != null && menuJunkPatterns.length > 0) {
+                int menuJunkOffset = 0x2A2; // VRAM 0x03F2 - base 0x0150
+                int totalSize = menuJunkOffset + menuJunkPatterns.length;
+                Pattern[] extended = new Pattern[totalSize];
+                System.arraycopy(spritePatterns, 0, extended, 0, spritePatterns.length);
+                System.arraycopy(menuJunkPatterns, 0, extended, menuJunkOffset, menuJunkPatterns.length);
+                spritePatterns = extended;
+                LOGGER.info("Extended sprite patterns with MenuJunk: total " + spritePatterns.length +
+                        " (MenuJunk at offset 0x" + Integer.toHexString(menuJunkOffset) + ")");
+            }
+
+            // Load credit text art (64 Nemesis patterns for intro text screen)
+            creditTextPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_CREDIT_TEXT_ADDR, 4096, "CreditText");
+            LOGGER.info("Loaded credit text patterns: " + (creditTextPatterns != null ? creditTextPatterns.length : 0));
+
+            // Load intro palette (Sonic/Tails palette used as text color on the intro screen)
+            loadIntroPalette(rom);
 
             // Load Enigma-compressed mappings and compose plane B
             loadPlaneMaps(rom);
@@ -291,6 +324,25 @@ public class TitleScreenDataLoader {
     }
 
     /**
+     * Loads the intro palette from ROM for the credit text screen.
+     * Uses the Sonic/Tails palette (SONIC_TAILS_PALETTE_ADDR, 32 bytes = 1 line).
+     * The original game loads Pal_BGND (background palette) for the text screen.
+     */
+    private void loadIntroPalette(Rom rom) {
+        try {
+            byte[] paletteData = rom.readBytes(Sonic2Constants.SONIC_TAILS_PALETTE_ADDR, 32);
+            introPalette = new Palette();
+            introPalette.fromSegaFormat(paletteData);
+
+            LOGGER.info("Loaded intro palette from ROM at 0x" +
+                    Integer.toHexString(Sonic2Constants.SONIC_TAILS_PALETTE_ADDR));
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load intro palette: " + e.getMessage());
+            introPalette = null;
+        }
+    }
+
+    /**
      * Loads the title emblem palette from ROM (Pal_1342C = Title Emblem.bin).
      * This palette is used by Plane A logo tiles (VDP palette line 3).
      */
@@ -362,6 +414,43 @@ public class TitleScreenDataLoader {
 
         LOGGER.info("Cached " + cachedCount + " background + " + spriteCachedCount + " sprite patterns to GPU");
         artCached = true;
+    }
+
+    /**
+     * Caches credit text patterns and intro palette to the GPU.
+     * Uses palette line 0 for text color. Called during the intro text phase.
+     */
+    public void cacheCreditTextToGpu() {
+        if (!dataLoaded || creditTextPatterns == null) {
+            return;
+        }
+
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        if (graphicsManager == null || graphicsManager.isHeadlessMode()) {
+            return;
+        }
+
+        // Cache intro palette at line 0 (text color)
+        if (introPalette != null) {
+            graphicsManager.cachePaletteTexture(introPalette, 0);
+        }
+
+        // Cache credit text patterns
+        for (int i = 0; i < creditTextPatterns.length; i++) {
+            if (creditTextPatterns[i] != null) {
+                graphicsManager.cachePatternTexture(creditTextPatterns[i], CREDIT_TEXT_PATTERN_BASE + i);
+            }
+        }
+
+        LOGGER.fine("Cached " + creditTextPatterns.length + " credit text patterns to GPU");
+    }
+
+    public Pattern[] getCreditTextPatterns() {
+        return creditTextPatterns;
+    }
+
+    public Palette getIntroPalette() {
+        return introPalette;
     }
 
     public int[] getPlaneBMap() {
