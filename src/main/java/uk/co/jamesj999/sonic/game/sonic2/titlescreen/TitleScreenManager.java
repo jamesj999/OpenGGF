@@ -65,6 +65,11 @@ public class TitleScreenManager implements TitleScreenProvider {
 
     // Scroll boundary (lines 0-159 are static, 160+ scroll)
     private static final int SCROLL_START_ROW = 20;  // line 160 / 8
+    // Front logo occlusion starts around row 13 in the center and curves lower
+    // toward the edges. Values are in screen pixels for a smoother curve.
+    private static final int LOGO_OCCLUSION_BASE_Y = 13 * 8;
+    private static final int LOGO_OCCLUSION_CURVE_PIXELS = 16;
+    private static final int LOGO_OCCLUSION_COLUMN_WIDTH = 2;
 
     // Palette fade timing (from ObjC9 palette changer subtype 0 in disassembly)
     // Emblem palette (line 3) fades from black starting at frame 56: 21 steps × 2 frames = 42 frames
@@ -751,6 +756,10 @@ public class TitleScreenManager implements TitleScreenProvider {
         if (showEmblem) {
             gm.beginPatternBatch();
             renderPlaneA(gm);
+            // Draw logo-top sprite in the back layer so Sonic/Tails remain in front of it.
+            if (logoTopSprite.active) {
+                drawSpriteHighPriorityPieces(logoTopSprite);
+            }
             gm.flushPatternBatch();
         }
 
@@ -780,7 +789,7 @@ public class TitleScreenManager implements TitleScreenProvider {
             }
         }
 
-        // --- Render front sprites (on top of logo plane) ---
+        // --- Render middle sprites (between upper logo and lower-logo occlusion) ---
         gm.beginPatternBatch();
 
         if (spriteRenderer != null && spriteRenderer.isReady()) {
@@ -791,14 +800,23 @@ public class TitleScreenManager implements TitleScreenProvider {
             if (tailsSprite.active && !shouldRenderTailsBehindLogo()) {
                 drawSprite(tailsSprite);
             }
+        }
 
-            // Logo top has mixed piece priorities in ROM mappings.
-            // Draw only high-priority pieces here so low-priority mask pieces don't
-            // incorrectly appear above the emblem in our simplified title pipeline.
-            if (showEmblem && logoTopSprite.active) {
-                drawSpriteHighPriorityPieces(logoTopSprite);
-            }
+        gm.flushPatternBatch();
 
+        // Re-render the curved lower portion of the logo in front so Sonic/Tails
+        // pass behind the lower banner while staying in front of the top.
+        if (showEmblem) {
+            // Curved occlusion uses per-column scissor + immediate flushes.
+            // Flush queued passes first so only the occlusion draw executes under scissor.
+            gm.flushScreenSpace();
+            renderPlaneAFrontCurvedOcclusion(gm);
+        }
+
+        // --- Render top-most sprites ---
+        gm.beginPatternBatch();
+
+        if (spriteRenderer != null && spriteRenderer.isReady()) {
             if (sonicHandSprite.active) {
                 drawSprite(sonicHandSprite);
             }
@@ -1067,6 +1085,101 @@ public class TitleScreenManager implements TitleScreenProvider {
                 gm.renderPatternWithId(patternId, reusableDesc, tx * 8, ty * 8);
             }
         }
+    }
+
+    /**
+     * Renders only the lower curved occlusion portion of Plane A.
+     *
+     * <p>Uses per-column scissor rectangles so the front-occlusion boundary can
+     * be curved in pixel space instead of snapping to full tile rows.
+     */
+    private void renderPlaneAFrontCurvedOcclusion(GraphicsManager gm) {
+        int[] map = dataLoader.getPlaneAMap();
+        if (map == null || map.length == 0) {
+            return;
+        }
+
+        int width = dataLoader.getPlaneAWidth();   // 40
+        int height = dataLoader.getPlaneAHeight();  // 28
+
+        for (int mdX = 0; mdX < SCREEN_WIDTH; mdX += LOGO_OCCLUSION_COLUMN_WIDTH) {
+            int mdW = Math.min(LOGO_OCCLUSION_COLUMN_WIDTH, SCREEN_WIDTH - mdX);
+            int startY = getLogoOcclusionStartPixel(mdX + (mdW >> 1));
+            if (startY >= SCREEN_HEIGHT) {
+                continue;
+            }
+
+            int tx = mdX >> 3;
+            if (tx < 0 || tx >= width) {
+                continue;
+            }
+
+            if (!enableMdScissorRect(gm, mdX, startY, mdW, SCREEN_HEIGHT - startY)) {
+                continue;
+            }
+
+            gm.beginPatternBatch();
+            int startTileRow = Math.max(0, startY >> 3);
+            renderPlaneAColumn(gm, map, width, height, tx, startTileRow);
+            gm.flushPatternBatch();
+            gm.flushScreenSpace();
+            gm.disableScissor();
+        }
+    }
+
+    private void renderPlaneAColumn(GraphicsManager gm, int[] map, int width, int height, int tx, int startTileRow) {
+        for (int ty = startTileRow; ty < height && ty * 8 < SCREEN_HEIGHT; ty++) {
+            int idx = ty * width + tx;
+            if (idx < 0 || idx >= map.length) {
+                continue;
+            }
+            int word = map[idx];
+            if (word == 0) {
+                continue;
+            }
+            reusableDesc.set(word);
+            int patternId = TitleScreenDataLoader.PATTERN_BASE + reusableDesc.getPatternIndex();
+            gm.renderPatternWithId(patternId, reusableDesc, tx * 8, ty * 8);
+        }
+    }
+
+    private boolean enableMdScissorRect(GraphicsManager gm, int mdX, int mdY, int mdW, int mdH) {
+        if (mdW <= 0 || mdH <= 0) {
+            return false;
+        }
+
+        int clippedX = Math.max(0, mdX);
+        int clippedY = Math.max(0, mdY);
+        int clippedX2 = Math.min(SCREEN_WIDTH, mdX + mdW);
+        int clippedY2 = Math.min(SCREEN_HEIGHT, mdY + mdH);
+        if (clippedX2 <= clippedX || clippedY2 <= clippedY) {
+            return false;
+        }
+
+        int vpX = gm.getViewportX();
+        int vpY = gm.getViewportY();
+        int vpW = gm.getViewportWidth();
+        int vpH = gm.getViewportHeight();
+        float scaleX = (float) vpW / SCREEN_WIDTH;
+        float scaleY = (float) vpH / SCREEN_HEIGHT;
+
+        int scissorX = vpX + (int) Math.floor(clippedX * scaleX);
+        int scissorW = Math.max(1, (int) Math.ceil((clippedX2 - clippedX) * scaleX));
+        int scissorY = vpY + (int) Math.floor((SCREEN_HEIGHT - clippedY2) * scaleY);
+        int scissorH = Math.max(1, (int) Math.ceil((clippedY2 - clippedY) * scaleY));
+
+        gm.enableScissor(scissorX, scissorY, scissorW, scissorH);
+        return true;
+    }
+
+    private int getLogoOcclusionStartPixel(int screenX) {
+        // Curve around the emblem center. Center stays near row 13; edges dip lower.
+        double center = (SCREEN_WIDTH - 1) * 0.5;
+        double halfWidth = 104.0;
+        double norm = Math.abs((screenX - center) / halfWidth);
+        norm = Math.min(1.0, norm);
+        int curveOffset = (int) Math.round(norm * norm * LOGO_OCCLUSION_CURVE_PIXELS);
+        return LOGO_OCCLUSION_BASE_Y + curveOffset;
     }
 
     @Override
