@@ -36,6 +36,12 @@ public interface AudioBackend {
     void stopPlayback();
 
     /**
+     * Stops all playing SFX without affecting music.
+     * Clears both SFX sequencers in the active music driver and the standalone SFX stream.
+     */
+    void stopAllSfx();
+
+    /**
      * Fade out the currently playing music over time.
      * ROM equivalent: MusID_FadeOut (0xF9) / zFadeOutMusic.
      * Does not affect SFX - only music channels fade.

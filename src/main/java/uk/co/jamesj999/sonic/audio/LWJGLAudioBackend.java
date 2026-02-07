@@ -205,6 +205,11 @@ public class LWJGLAudioBackend implements AudioBackend {
             if (smpsDriver != null) {
                 smpsDriver.stopAllSfx();
             }
+            // Also clean up standalone SFX stream (used when SFX played before any music)
+            if (sfxStream instanceof SmpsDriver sfxDriver) {
+                sfxDriver.stopAll();
+            }
+            sfxStream = null;
             // Only push state if current music is NOT an override (e.g., not already playing 1up jingle).
             boolean currentIsOverride = audioProfile != null && audioProfile.isMusicOverride(currentMusicId);
             if (!currentIsOverride) {
@@ -226,6 +231,13 @@ public class LWJGLAudioBackend implements AudioBackend {
             // Stop music source if playing wav
             alSourceStop(musicSource);
             clearMusicStack();
+            // Clean up standalone SFX stream - stopStream() only handles currentStream/smpsDriver,
+            // but SFX played before any music was active use a separate sfxStream SmpsDriver.
+            // Without this, the sfxStream persists and keeps rendering into fillBuffer() indefinitely.
+            if (sfxStream instanceof SmpsDriver sfxDriver) {
+                sfxDriver.stopAll();
+            }
+            sfxStream = null;
         }
 
         smpsDriver = new SmpsDriver(getSmpsOutputRate());
@@ -344,21 +356,23 @@ public class LWJGLAudioBackend implements AudioBackend {
     }
 
     private void stopStream() {
-        if (currentStream != null) {
+        if (musicSource >= 0) {
             alSourceStop(musicSource);
-            int processed = alGetSourcei(musicSource, AL_BUFFERS_PROCESSED);
-            while (processed > 0) {
+            int queued = alGetSourcei(musicSource, AL_BUFFERS_QUEUED);
+            while (queued > 0) {
                 alSourceUnqueueBuffers(musicSource);
-                processed--;
+                queued--;
             }
-            currentStream = null;
-            currentSmps = null;
-            if (smpsDriver != null) {
-                smpsDriver.stopAll();
-                smpsDriver = null;
-            }
-            currentMusicId = -1;
+            alSourcei(musicSource, AL_BUFFER, 0);
         }
+
+        currentStream = null;
+        currentSmps = null;
+        if (smpsDriver != null) {
+            smpsDriver.stopAll();
+            smpsDriver = null;
+        }
+        currentMusicId = -1;
     }
 
     private void updateStream() {
@@ -810,6 +824,19 @@ public class LWJGLAudioBackend implements AudioBackend {
             alcCloseDevice(device);
             device = 0;
         }
+    }
+
+    @Override
+    public void stopAllSfx() {
+        // Stop SFX sequencers in the active music driver (mixed into currentStream)
+        if (smpsDriver != null) {
+            smpsDriver.stopAllSfx();
+        }
+        // Stop standalone SFX stream (used when SFX played before any music started)
+        if (sfxStream instanceof SmpsDriver sfxDriver) {
+            sfxDriver.stopAll();
+        }
+        sfxStream = null;
     }
 
     @Override

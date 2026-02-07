@@ -194,6 +194,37 @@ public class Sonic2Constants {
     public static final int PAL_MENU_SIZE = 128;                       // 4 lines * 16 colors * 2 bytes
     public static final int PAL_LEVEL_ICONS_ADDR = 0x9880;             // 15 icon palettes (32 bytes each)
     public static final int PAL_LEVEL_ICONS_SIZE = 480;                // 15 * 32 bytes
+    // Title Screen Art (Nemesis compressed)
+    public static final int ART_NEM_TITLE_ADDR = 0x74F6C;          // Background patterns
+    public static final int ART_NEM_TITLE_SPRITES_ADDR = 0x7667A;  // ArtNem_TitleSprites (Sonic/Tails/stars, verified)
+    public static final int ART_NEM_MENU_JUNK_ADDR = 0x78CBC;     // ArtNem_MenuJunk (extra sprite tiles at VRAM 0x03F2)
+
+    // Credit Text Art (Nemesis compressed, 64 patterns)
+    // Used for "SONIC AND MILES 'TAILS' PROWER IN" intro screen
+    public static final int ART_NEM_CREDIT_TEXT_ADDR = 0xBD26;     // ArtNem_CreditText
+
+    // Title Screen Sonic Palette (uncompressed, 32 bytes, loaded to palette line 0)
+    public static final int PAL_TITLE_SONIC_ADDR = 0x133EC;        // Pal_133EC (Title Sonic.bin)
+    public static final int PAL_TITLE_SONIC_SIZE = 32;
+
+    // Title Screen Mappings (Enigma compressed)
+    public static final int MAP_ENI_TITLE_SCREEN_ADDR = 0x74DC6;   // Plane B background (40x28)
+    public static final int MAP_ENI_TITLE_BACK_ADDR = 0x74E3A;     // Plane B water/horizon (24x28, col 40+)
+    public static final int MAP_ENI_TITLE_LOGO_ADDR = 0x74E86;     // Plane A logo/emblem (40x28)
+
+    // Title Screen Palettes (uncompressed, 32 bytes each)
+    // Pal_Title loaded at palette line 1 via PalLoad_ForFade (palptr Pal_Title, 1)
+    public static final int PAL_TITLE_ADDR = 0x2942;
+    public static final int PAL_TITLE_SIZE = 32;
+    // Pal_1340C loaded at palette line 2 (Normal_palette_line3) by Obj0E intro animation
+    // Used by Plane B background (make_art_tile palette 2)
+    public static final int PAL_TITLE_BACKGROUND_ADDR = 0x1340C;
+    public static final int PAL_TITLE_BACKGROUND_SIZE = 32;
+    // Pal_1342C loaded at palette line 3 (Normal_palette_line4) by Obj0E intro animation
+    // Used by Plane A logo/emblem (make_art_tile palette 3)
+    public static final int PAL_TITLE_EMBLEM_ADDR = 0x1342C;
+    public static final int PAL_TITLE_EMBLEM_SIZE = 32;
+
     public static final int ART_NEM_RESULTS_TEXT_ADDR = 0x7E86A; // End of level results text.nem
     public static final int ART_NEM_MINI_SONIC_ADDR = 0x7C0AA; // Sonic continue.nem (mini character)
     public static final int ART_NEM_PERFECT_ADDR = 0x7EEBE; // Perfect text.nem
@@ -630,6 +661,11 @@ public class Sonic2Constants {
         offsets.put("CYCLING_PAL_CNZ3_LEN", CYCLING_PAL_CNZ3_LEN);
         offsets.put("CYCLING_PAL_CNZ4_ADDR", CYCLING_PAL_CNZ4_ADDR);
         offsets.put("CYCLING_PAL_CNZ4_LEN", CYCLING_PAL_CNZ4_LEN);
+        offsets.put("ART_NEM_TITLE_ADDR", ART_NEM_TITLE_ADDR);
+        offsets.put("MAP_ENI_TITLE_SCREEN_ADDR", MAP_ENI_TITLE_SCREEN_ADDR);
+        offsets.put("MAP_ENI_TITLE_BACK_ADDR", MAP_ENI_TITLE_BACK_ADDR);
+        offsets.put("MAP_ENI_TITLE_LOGO_ADDR", MAP_ENI_TITLE_LOGO_ADDR);
+        offsets.put("PAL_TITLE_ADDR", PAL_TITLE_ADDR);
         offsets.put("ART_NEM_INVINCIBILITY_STARS_ADDR", ART_NEM_INVINCIBILITY_STARS_ADDR);
         offsets.put("MAP_UNC_INVINCIBILITY_STARS_ADDR", MAP_UNC_INVINCIBILITY_STARS_ADDR);
         offsets.put("ART_TILE_INVINCIBILITY_STARS", ART_TILE_INVINCIBILITY_STARS);

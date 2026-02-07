@@ -17,6 +17,9 @@ public enum GameMode {
     /** Special Stage Results Screen (shown after completing/failing special stage) */
     SPECIAL_STAGE_RESULTS,
 
+    /** Title Screen (shown on game startup before gameplay) */
+    TITLE_SCREEN,
+
     /** Level Select Screen (debug menu for selecting zone/act) */
     LEVEL_SELECT
 }
