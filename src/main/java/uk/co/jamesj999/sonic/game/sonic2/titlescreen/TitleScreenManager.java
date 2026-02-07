@@ -59,6 +59,12 @@ public class TitleScreenManager implements TitleScreenProvider {
     private int fadeTimer = 0;
     private static final int FADE_DURATION = 16;
 
+    // Intro text timing (from disassembly: Pal_FadeFromBlack ~22 frames, hold, Pal_FadeToBlack ~22 frames)
+    private int introTextTimer = 0;
+    private static final int INTRO_TEXT_FADE_DURATION = 22;
+    private static final int INTRO_TEXT_HOLD_DURATION = 96;
+    private boolean creditTextCached = false;
+
     // Screen dimensions
     private static final int SCREEN_WIDTH = 320;
     private static final int SCREEN_HEIGHT = 224;
@@ -229,9 +235,11 @@ public class TitleScreenManager implements TitleScreenProvider {
         // Force palette re-upload on next draw
         dataLoader.resetCache();
 
-        // Reset state
-        state = State.FADE_IN;
+        // Reset state - start with intro text screen
+        state = State.INTRO_TEXT_FADE_IN;
         fadeTimer = 0;
+        introTextTimer = 0;
+        creditTextCached = false;
         cameraX = -0x280;  // From disassembly: move.w #-$280,(Camera_X_pos).w
         frameCounter = 0;
         introComplete = false;
@@ -295,15 +303,72 @@ public class TitleScreenManager implements TitleScreenProvider {
         // Play sparkle sound at init (index 0)
         playSparkleAtIndex(0);
 
-        LOGGER.info("Title screen initialized, entering FADE_IN state");
+        LOGGER.info("Title screen initialized, entering INTRO_TEXT_FADE_IN state");
     }
 
     @Override
     public void update(InputHandler input) {
         switch (state) {
+            case INTRO_TEXT_FADE_IN -> updateIntroTextFadeIn(input);
+            case INTRO_TEXT_HOLD -> updateIntroTextHold(input);
+            case INTRO_TEXT_FADE_OUT -> updateIntroTextFadeOut(input);
             case FADE_IN -> updateFadeIn(input);
             case ACTIVE -> updateActive(input);
             case INACTIVE, EXITING -> { }
+        }
+    }
+
+    private void skipIntroText() {
+        introTextTimer = 0;
+        creditTextCached = false;
+        // Force palette re-upload for main title screen
+        dataLoader.resetCache();
+        state = State.FADE_IN;
+        LOGGER.info("Intro text skipped, entering FADE_IN state");
+    }
+
+    private void updateIntroTextFadeIn(InputHandler input) {
+        int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+        if (input.isKeyPressed(jumpKey)) {
+            skipIntroText();
+            return;
+        }
+        introTextTimer++;
+        if (introTextTimer >= INTRO_TEXT_FADE_DURATION) {
+            introTextTimer = 0;
+            state = State.INTRO_TEXT_HOLD;
+            LOGGER.fine("Intro text entered HOLD state");
+        }
+    }
+
+    private void updateIntroTextHold(InputHandler input) {
+        int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+        if (input.isKeyPressed(jumpKey)) {
+            skipIntroText();
+            return;
+        }
+        introTextTimer++;
+        if (introTextTimer >= INTRO_TEXT_HOLD_DURATION) {
+            introTextTimer = 0;
+            state = State.INTRO_TEXT_FADE_OUT;
+            LOGGER.fine("Intro text entered FADE_OUT state");
+        }
+    }
+
+    private void updateIntroTextFadeOut(InputHandler input) {
+        int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+        if (input.isKeyPressed(jumpKey)) {
+            skipIntroText();
+            return;
+        }
+        introTextTimer++;
+        if (introTextTimer >= INTRO_TEXT_FADE_DURATION) {
+            introTextTimer = 0;
+            creditTextCached = false;
+            // Force palette re-upload for main title screen
+            dataLoader.resetCache();
+            state = State.FADE_IN;
+            LOGGER.info("Intro text complete, entering FADE_IN state");
         }
     }
 
@@ -530,6 +595,8 @@ public class TitleScreenManager implements TitleScreenProvider {
                         tailsHandSprite.mappingFrame = 0x13;
                         tailsHandSprite.x = 128 + 143;
                         tailsHandSprite.y = 128 + 85;
+                        LOGGER.info("Tails hand spawned at frame " + frameCounter +
+                                " pos=(" + tailsHandSprite.x + "," + tailsHandSprite.y + ")");
                         tailsHandPosIndex = 0;
                         tailsHandPosCounter = 0;
                     } else {
@@ -698,12 +765,19 @@ public class TitleScreenManager implements TitleScreenProvider {
         if (!dataLoader.isDataLoaded()) {
             dataLoader.loadData();
         }
-        dataLoader.cacheToGpu();
 
         GraphicsManager gm = GraphicsManager.getInstance();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }
+
+        // Intro text states render their own screen
+        if (state == State.INTRO_TEXT_FADE_IN || state == State.INTRO_TEXT_HOLD || state == State.INTRO_TEXT_FADE_OUT) {
+            drawIntroText(gm);
+            return;
+        }
+
+        dataLoader.cacheToGpu();
 
         // Initialize sprite renderer if needed
         if (!spritesInitialized && dataLoader.getSpritePatterns() != null) {
@@ -847,6 +921,166 @@ public class TitleScreenManager implements TitleScreenProvider {
         }
     }
 
+    /**
+     * Draws the "SONIC AND MILES 'TAILS' PROWER IN" intro text screen.
+     *
+     * <p>From the disassembly (s2.asm lines 4271-4323):
+     * The credit text font is Nemesis compressed at ArtNem_CreditText.
+     * Each uppercase letter = 2 tiles wide (left half + right half).
+     * Text is drawn to Plane A using charset encoding.
+     *
+     * <p>Character encoding (creditText macro from s2.asm:14602-14610):
+     * The charset remapping defines tile indices for each character:
+     * <ul>
+     *   <li>Uppercase letter: 2 tiles (left half, right half) = 16 pixels</li>
+     *   <li>'I': special case, only 1 tile (0x11) = 8 pixels</li>
+     *   <li>Space: 1 tile (0x00, blank) = 8 pixels</li>
+     *   <li>Apostrophe: 1 tile (0x38) = 8 pixels</li>
+     * </ul>
+     *
+     * <p>Text layout (from off_B2B0):
+     * <pre>
+     * "SONIC"                 col 15, row 9
+     * "AND"                   col 17, row 12
+     * "MILES 'TAILS' PROWER"  col 3,  row 15
+     * "IN"                    col 18, row 18
+     * </pre>
+     */
+    private void drawIntroText(GraphicsManager gm) {
+        // Cache credit text patterns on first draw
+        if (!creditTextCached) {
+            dataLoader.cacheCreditTextToGpu();
+            creditTextCached = true;
+        }
+
+        // Render text lines
+        gm.beginPatternBatch();
+        drawCreditTextLine(gm, "SONIC", 15, 9);
+        drawCreditTextLine(gm, "AND", 17, 12);
+        drawCreditTextLine(gm, "MILES 'TAILS' PROWER", 3, 15);
+        drawCreditTextLine(gm, "IN", 18, 18);
+        gm.flushPatternBatch();
+
+        // Apply fade overlay
+        float fadeAmount = 0.0f;
+        if (state == State.INTRO_TEXT_FADE_IN) {
+            fadeAmount = 1.0f - (float) introTextTimer / INTRO_TEXT_FADE_DURATION;
+        } else if (state == State.INTRO_TEXT_FADE_OUT) {
+            fadeAmount = (float) introTextTimer / INTRO_TEXT_FADE_DURATION;
+        }
+        if (fadeAmount > 0.0f) {
+            gm.registerCommand(new GLCommand(
+                    GLCommand.CommandType.RECTI,
+                    -1,
+                    GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
+                    0.0f, 0.0f, 0.0f, fadeAmount,
+                    0, 0, SCREEN_WIDTH, SCREEN_HEIGHT
+            ));
+        }
+    }
+
+    /**
+     * Intro text charset tile mapping (from s2.asm lines 14603-14610).
+     *
+     * <p>Each entry is {upperTile, lowerTile} for the left and right halves of the character.
+     * 'I' is special: only 1 tile (0x11), indicated by lowerTile == -1.
+     * After 'I', tile indices shift down by 1 since 'I' only uses one slot.
+     *
+     * <pre>
+     * charset '@',"\x3A\1\3\5\7\9\xB\xD\xF\x11\x12\x14\x16\x18\x1A\x1C\x1E\x20\x22\x24\x26\x28\x2A\x2C\x2E\x30\x32"
+     * charset 'a',"\2\4\6\8\xA\xC\xE\x10\x11\x13\x15\x17\x19\x1B\x1D\x1F\x21\x23\x25\x27\x29\x2B\x2D\x2F\x31\x33"
+     * charset '\H' (apostrophe) → 0x38
+     * charset ' ' → 0x00
+     * </pre>
+     */
+    private static final int[][] INTRO_CHARSET = {
+            // A-H: sequential pairs starting at tile 1
+            {0x01, 0x02}, // A
+            {0x03, 0x04}, // B
+            {0x05, 0x06}, // C
+            {0x07, 0x08}, // D
+            {0x09, 0x0A}, // E
+            {0x0B, 0x0C}, // F
+            {0x0D, 0x0E}, // G
+            {0x0F, 0x10}, // H
+            // I: single tile (narrow letter, both halves share tile 0x11)
+            {0x11, -1},   // I (1 tile only)
+            // J-Z: shifted down by 1 because I used only 1 tile
+            {0x12, 0x13}, // J
+            {0x14, 0x15}, // K
+            {0x16, 0x17}, // L
+            {0x18, 0x19}, // M
+            {0x1A, 0x1B}, // N
+            {0x1C, 0x1D}, // O
+            {0x1E, 0x1F}, // P
+            {0x20, 0x21}, // Q
+            {0x22, 0x23}, // R
+            {0x24, 0x25}, // S
+            {0x26, 0x27}, // T
+            {0x28, 0x29}, // U
+            {0x2A, 0x2B}, // V
+            {0x2C, 0x2D}, // W
+            {0x2E, 0x2F}, // X
+            {0x30, 0x31}, // Y
+            {0x32, 0x33}, // Z
+    };
+
+    /**
+     * Draws a single line of credit text at the given tile column and row.
+     * Each byte from the creditText macro becomes one 8×8 tile in the nametable.
+     *
+     * <p>Character widths:
+     * <ul>
+     *   <li>Most letters: 2 tiles (16 px) — uppercase + lowercase halves</li>
+     *   <li>'I': 1 tile (8 px) — narrow, only one tile</li>
+     *   <li>Space: 1 tile (8 px) — blank tile 0x00</li>
+     *   <li>Apostrophe: 1 tile (8 px) — tile 0x38</li>
+     * </ul>
+     */
+    private void drawCreditTextLine(GraphicsManager gm, String text, int startCol, int row) {
+        int x = startCol * 8;
+        int y = row * 8;
+
+        reusableDesc.set(0); // Clear: no flip, palette 0, no priority
+
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch == ' ') {
+                // Space = 1 tile (8 pixels), tile 0x00 is blank
+                x += 8;
+                continue;
+            }
+
+            if (ch == '\'') {
+                // Apostrophe = 1 tile at 0x38 (8 pixels)
+                int patternId = TitleScreenDataLoader.CREDIT_TEXT_PATTERN_BASE + 0x38;
+                gm.renderPatternWithId(patternId, reusableDesc, x, y);
+                x += 8;
+                continue;
+            }
+
+            if (ch >= 'A' && ch <= 'Z') {
+                int letterIndex = ch - 'A';
+                int[] tiles = INTRO_CHARSET[letterIndex];
+                // Render left (uppercase) tile
+                int leftPatternId = TitleScreenDataLoader.CREDIT_TEXT_PATTERN_BASE + tiles[0];
+                gm.renderPatternWithId(leftPatternId, reusableDesc, x, y);
+                x += 8;
+
+                if (tiles[1] >= 0) {
+                    // Render right (lowercase) tile
+                    int rightPatternId = TitleScreenDataLoader.CREDIT_TEXT_PATTERN_BASE + tiles[1];
+                    gm.renderPatternWithId(rightPatternId, reusableDesc, x, y);
+                    x += 8;
+                }
+                continue;
+            }
+
+            // Unknown character - skip 8 pixels
+            x += 8;
+        }
+    }
+
     private void initSpriteRenderer(GraphicsManager gm) {
         titleMappingFrames = TitleScreenMappings.createFrames();
         ObjectSpriteSheet spriteSheet = new ObjectSpriteSheet(
@@ -859,6 +1093,18 @@ public class TitleScreenManager implements TitleScreenProvider {
         spriteRenderer.ensurePatternsCached(gm, TitleScreenDataLoader.SPRITE_PATTERN_BASE);
         spritesInitialized = true;
         LOGGER.info("Title screen sprite renderer initialized with " + titleMappingFrames.size() + " frames");
+
+        // Diagnostic: verify Tails hand sprite (frame 0x13) has enough patterns
+        // Frame 19 uses tile 0x2A4 (6 tiles for 2x3), needs at least 0x2AA (682) patterns
+        int spriteCount = dataLoader.getSpritePatterns() != null ? dataLoader.getSpritePatterns().length : 0;
+        int tailsHandTileStart = 0x2A4;
+        int tailsHandTileEnd = tailsHandTileStart + 6; // 2 wide × 3 tall
+        if (spriteCount < tailsHandTileEnd) {
+            LOGGER.warning("Tails hand sprite needs patterns up to " + tailsHandTileEnd +
+                    " but only " + spriteCount + " loaded - Tails hand will NOT render!");
+        } else {
+            LOGGER.info("Tails hand sprite patterns OK: need " + tailsHandTileEnd + ", have " + spriteCount);
+        }
     }
 
     /**
@@ -1228,6 +1474,8 @@ public class TitleScreenManager implements TitleScreenProvider {
         cameraX = -0x280;
         frameCounter = 0;
         fadeTimer = 0;
+        introTextTimer = 0;
+        creditTextCached = false;
         introComplete = false;
         musicPlaying = false;
         sonicPaletteLoaded = false;

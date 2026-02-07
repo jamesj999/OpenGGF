@@ -12,6 +12,12 @@ public interface TitleScreenProvider {
     enum State {
         /** Screen is not active */
         INACTIVE,
+        /** Intro text fading in from black */
+        INTRO_TEXT_FADE_IN,
+        /** Intro text displayed (hold) */
+        INTRO_TEXT_HOLD,
+        /** Intro text fading out to black */
+        INTRO_TEXT_FADE_OUT,
         /** Fading in from black */
         FADE_IN,
         /** Main interactive state */

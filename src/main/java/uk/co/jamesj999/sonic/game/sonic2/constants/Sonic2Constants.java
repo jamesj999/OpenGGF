@@ -197,6 +197,11 @@ public class Sonic2Constants {
     // Title Screen Art (Nemesis compressed)
     public static final int ART_NEM_TITLE_ADDR = 0x74F6C;          // Background patterns
     public static final int ART_NEM_TITLE_SPRITES_ADDR = 0x7667A;  // ArtNem_TitleSprites (Sonic/Tails/stars, verified)
+    public static final int ART_NEM_MENU_JUNK_ADDR = 0x78CBC;     // ArtNem_MenuJunk (extra sprite tiles at VRAM 0x03F2)
+
+    // Credit Text Art (Nemesis compressed, 64 patterns)
+    // Used for "SONIC AND MILES 'TAILS' PROWER IN" intro screen
+    public static final int ART_NEM_CREDIT_TEXT_ADDR = 0xBD26;     // ArtNem_CreditText
 
     // Title Screen Sonic Palette (uncompressed, 32 bytes, loaded to palette line 0)
     public static final int PAL_TITLE_SONIC_ADDR = 0x133EC;        // Pal_133EC (Title Sonic.bin)
