@@ -74,6 +74,7 @@ public class Sonic3kSfxData extends AbstractSmpsData implements SmpsSfxData {
     private final int headerOffset;
     private int tickMultiplier = 1;
     private Map<Integer, byte[]> psgEnvelopes;
+    private Map<Integer, byte[]> modEnvelopes;
 
     public Sonic3kSfxData(byte[] data, int z80StartAddress, int bankOffset, int headerOffset) {
         super(data, z80StartAddress);
@@ -82,6 +83,10 @@ public class Sonic3kSfxData extends AbstractSmpsData implements SmpsSfxData {
 
     public void setPsgEnvelopes(Map<Integer, byte[]> psgEnvelopes) {
         this.psgEnvelopes = psgEnvelopes;
+    }
+
+    public void setModEnvelopes(Map<Integer, byte[]> modEnvelopes) {
+        this.modEnvelopes = modEnvelopes;
     }
 
     @Override
@@ -176,6 +181,14 @@ public class Sonic3kSfxData extends AbstractSmpsData implements SmpsSfxData {
     public byte[] getPsgEnvelope(int id) {
         if (psgEnvelopes != null && psgEnvelopes.containsKey(id)) {
             return psgEnvelopes.get(id);
+        }
+        return null;
+    }
+
+    @Override
+    public byte[] getModEnvelope(int id) {
+        if (modEnvelopes != null && modEnvelopes.containsKey(id)) {
+            return modEnvelopes.get(id);
         }
         return null;
     }

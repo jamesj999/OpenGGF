@@ -52,6 +52,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
 
     // Parsed from Z80 data
     private byte[] globalVoiceData;
+    private Map<Integer, byte[]> modEnvelopes;
     private Map<Integer, byte[]> psgEnvelopes;
     private int[] musicBankAddresses;
     private int[] musicPointers;
@@ -61,6 +62,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
         this.rom = rom;
         decompressZ80Data();
         parseZ80Tables();
+        loadModEnvelopes();
         loadPsgEnvelopes();
         loadGlobalInstrumentTable();
     }
@@ -79,16 +81,16 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
         }
 
         try {
-            // Music bank list has one entry per music ID (2 bytes each, LE).
-            // The entry is a ROM bank address (upper 17 bits of a 24-bit address,
-            // shifted right by 15, stored as a word that the Z80 uses for bank switching).
-            if (musicId >= musicBankAddresses.length) {
+            // Music tables are 0-indexed: index 0 = song ID 0x01, index 1 = song ID 0x02, etc.
+            int index = musicId - 1;
+
+            if (index < 0 || index >= musicBankAddresses.length) {
                 LOGGER.warning("S3K music ID 0x" + Integer.toHexString(musicId)
                         + " exceeds bank list size (" + musicBankAddresses.length + ").");
                 return null;
             }
 
-            int bankAddr = musicBankAddresses[musicId];
+            int bankAddr = musicBankAddresses[index];
             if (bankAddr == 0) {
                 LOGGER.fine("S3K music ID 0x" + Integer.toHexString(musicId) + " has null bank.");
                 return null;
@@ -96,13 +98,13 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
 
             // Music pointer list has one entry per music ID (2 bytes each, LE).
             // This is a Z80 address (0x8000-based) within the bank.
-            if (musicId >= musicPointers.length) {
+            if (index >= musicPointers.length) {
                 LOGGER.warning("S3K music ID 0x" + Integer.toHexString(musicId)
                         + " exceeds pointer list size.");
                 return null;
             }
 
-            int z80Ptr = musicPointers[musicId];
+            int z80Ptr = musicPointers[index];
             if (z80Ptr == 0) {
                 LOGGER.fine("S3K music ID 0x" + Integer.toHexString(musicId)
                         + " has null pointer.");
@@ -120,7 +122,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
             }
 
             // Calculate data size (bounded by bank end or next music entry)
-            int dataSize = calculateMusicDataSize(musicId, romAddr, bankAddr);
+            int dataSize = calculateMusicDataSize(index, romAddr, bankAddr);
             byte[] raw = rom.readBytes(romAddr, dataSize);
 
             LOGGER.info("Loaded S3K music ID 0x" + Integer.toHexString(musicId)
@@ -131,6 +133,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
             LOGGER.info("  First 8 bytes: " + hexDump(raw, 0, 8));
 
             Sonic3kSmpsData data = new Sonic3kSmpsData(raw, z80Ptr);
+            data.setModEnvelopes(modEnvelopes);
             data.setPsgEnvelopes(psgEnvelopes);
             data.setGlobalVoiceData(globalVoiceData);
             data.setId(musicId);
@@ -189,6 +192,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
             byte[] raw = rom.readBytes(SFX_BANK_BASE, readLength);
 
             Sonic3kSfxData sfx = new Sonic3kSfxData(raw, Z80_BANK_BASE, 0, headerOffset);
+            sfx.setModEnvelopes(modEnvelopes);
             sfx.setPsgEnvelopes(psgEnvelopes);
             sfx.setId(sfxId);
 
@@ -227,7 +231,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
 
         if (z80Driver == null) {
             LOGGER.warning("Z80 driver not loaded, cannot load DAC data.");
-            return new DacData(samples, mapping);
+            return new DacData(samples, mapping, 297);
         }
 
         try {
@@ -235,8 +239,14 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
 
             // DAC bank list at Z80_DAC_BANK_LIST (starts with entry for note 0x80).
             // Each entry is 1 BYTE (bank number); ROM bank = bankByte << 15.
-            // DAC drum pointer list at Z80_DAC_DRUM_PTR_LIST (starts with entry for note 0x81).
-            // Each entry is 4 bytes: 2-byte pointer (LE) + 2-byte length (LE).
+            //
+            // DAC drum pointer list at Z80_DAC_DRUM_PTR_LIST (0x8000) is a table of
+            // 2-byte LE pointers. Each pointer points to a 5-byte descriptor within
+            // the same bank:
+            //   byte 0: rate/pitch
+            //   bytes 1-2: sample length (LE)
+            //   bytes 3-4: sample data pointer (LE)
+            // Source: DACExtract.c case 0x19 (lines 2441-2508).
 
             int dacBankListOffset = Z80_DAC_BANK_LIST;
             int dacDrumPtrOffset = Z80_DAC_DRUM_PTR_LIST;
@@ -259,22 +269,34 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
                 // Convert bank byte to ROM address: bankByte << 15
                 int romBank = bankByte << 15;
 
-                // Drum pointer list entry (note 0x81 is index 0)
+                // Pointer table: 2-byte entries at Z80_DAC_DRUM_PTR_LIST (0x8000).
+                // Note 0x81 = index 0.
                 int drumIndex = noteId - DAC_NOTE_BASE;
-                int drumEntryOffset = dacDrumPtrOffset + (drumIndex * 4);
+                int ptrTableOffset = dacDrumPtrOffset + (drumIndex * 2);
 
-                // Drum pointers are in the bank-switched area (0x8000+)
-                // We need to read from the ROM bank
-                if (drumEntryOffset + 3 >= Z80_BANK_BASE) {
-                    // Drum pointer list is at the start of the switched bank.
-                    // Read from the ROM bank directly.
-                    int romDrumAddr = romBank + (drumEntryOffset & Z80_BANK_MASK);
-                    if (romDrumAddr + 3 >= rom.getSize()) {
+                // Pointer table is in the bank-switched area (0x8000+)
+                if (ptrTableOffset + 1 >= Z80_BANK_BASE) {
+                    int romPtrAddr = romBank + (ptrTableOffset & Z80_BANK_MASK);
+                    if (romPtrAddr + 1 >= rom.getSize()) {
                         continue;
                     }
 
-                    int samplePtr = readLE16FromRom(romDrumAddr);
-                    int sampleLen = readLE16FromRom(romDrumAddr + 2);
+                    // Read 2-byte LE pointer to the 5-byte descriptor
+                    int descriptorZ80Addr = readLE16FromRom(romPtrAddr);
+                    if (descriptorZ80Addr == 0) {
+                        continue;
+                    }
+
+                    // Follow pointer to descriptor in same bank
+                    int descriptorRomAddr = romBank + (descriptorZ80Addr & Z80_BANK_MASK);
+                    if (descriptorRomAddr + 4 >= rom.getSize()) {
+                        continue;
+                    }
+
+                    // Read 5-byte descriptor: rate(1), length(2 LE), samplePtr(2 LE)
+                    int rate = rom.readByte(descriptorRomAddr) & 0xFF;
+                    int sampleLen = readLE16FromRom(descriptorRomAddr + 1);
+                    int samplePtr = readLE16FromRom(descriptorRomAddr + 3);
 
                     if (samplePtr == 0 || sampleLen == 0) {
                         continue;
@@ -290,19 +312,20 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
                     byte[] pcm = decoder.decode(compressed);
 
                     samples.put(noteId, pcm);
-                    mapping.put(noteId, new DacData.DacEntry(noteId, 0));
+                    mapping.put(noteId, new DacData.DacEntry(noteId, rate));
 
                     LOGGER.fine("Loaded S3K DAC note 0x" + Integer.toHexString(noteId)
                             + ": " + sampleLen + " DPCM bytes -> " + pcm.length + " PCM bytes"
-                            + " (bank 0x" + Integer.toHexString(romBank) + ")");
+                            + " (bank 0x" + Integer.toHexString(romBank)
+                            + ", rate=0x" + Integer.toHexString(rate) + ")");
                 }
             }
 
             LOGGER.info("Loaded " + samples.size() + " S3K DAC samples.");
-            return new DacData(samples, mapping);
+            return new DacData(samples, mapping, 297); // S3K baseCycles = 297
         } catch (Exception e) {
             LOGGER.severe("Failed to load S3K DAC data: " + e.getMessage());
-            return new DacData(samples, mapping);
+            return new DacData(samples, mapping, 297);
         }
     }
 
@@ -311,6 +334,13 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
      */
     public Map<Integer, byte[]> getPsgEnvelopes() {
         return psgEnvelopes;
+    }
+
+    /**
+     * Returns the loaded modulation envelope data.
+     */
+    public Map<Integer, byte[]> getModEnvelopes() {
+        return modEnvelopes;
     }
 
     /**
@@ -326,12 +356,13 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
 
     @Override
     public int findMusicOffset(int musicId) {
-        if (musicId <= 0 || musicBankAddresses == null || musicPointers == null
-                || musicId >= musicBankAddresses.length || musicId >= musicPointers.length) {
+        int index = musicId - 1;
+        if (index < 0 || musicBankAddresses == null || musicPointers == null
+                || index >= musicBankAddresses.length || index >= musicPointers.length) {
             return -1;
         }
-        int bankAddr = musicBankAddresses[musicId];
-        int z80Ptr = musicPointers[musicId];
+        int bankAddr = musicBankAddresses[index];
+        int z80Ptr = musicPointers[index];
         if (bankAddr == 0 || z80Ptr == 0) return -1;
         return bankAddr + (z80Ptr & Z80_BANK_MASK);
     }
@@ -507,19 +538,64 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
                 // Try as main driver offset
                 if (ptr < z80Driver.length) {
                     envRelOffset = ptr;
-                    loadEnvelopeFromData(i, z80Driver, envRelOffset);
+                    loadEnvelopeFromData(i, z80Driver, envRelOffset, psgEnvelopes);
                     continue;
                 }
                 continue;
             }
 
-            loadEnvelopeFromData(i, z80AdditionalData, envRelOffset);
+            loadEnvelopeFromData(i, z80AdditionalData, envRelOffset, psgEnvelopes);
         }
 
         LOGGER.info("Loaded " + psgEnvelopes.size() + " S3K PSG envelopes.");
     }
 
-    private void loadEnvelopeFromData(int id, byte[] sourceData, int offset) {
+    private void loadModEnvelopes() {
+        modEnvelopes = new HashMap<>();
+
+        if (z80AdditionalData == null) {
+            return;
+        }
+
+        int additionalBase = Z80_GENERAL_PTR_LIST;
+        int listZ80Addr = Z80_MOD_PTR_LIST;        // 0x130E
+        int relOffset = listZ80Addr - additionalBase;
+
+        if (relOffset < 0 || relOffset + 2 > z80AdditionalData.length) {
+            LOGGER.warning("Modulation pointer list not available.");
+            return;
+        }
+
+        // Pointers.txt: "Mod. Pointer List: 130E (W, 3C)" => 0x3C word entries.
+        int maxEnvelopes = 0x3C;
+        for (int i = 1; i <= maxEnvelopes; i++) {
+            int entryOffset = relOffset + ((i - 1) * 2);
+            if (entryOffset + 1 >= z80AdditionalData.length) {
+                break;
+            }
+
+            int ptr = readLE16(z80AdditionalData, entryOffset);
+            if (ptr == 0) {
+                continue;
+            }
+
+            int envRelOffset = ptr - additionalBase;
+            if (envRelOffset < 0 || envRelOffset >= z80AdditionalData.length) {
+                // Fallback for pointers into the main driver blob.
+                if (z80Driver != null && ptr < z80Driver.length) {
+                    loadEnvelopeFromData(i, z80Driver, ptr, modEnvelopes);
+                    continue;
+                }
+                continue;
+            }
+
+            loadEnvelopeFromData(i, z80AdditionalData, envRelOffset, modEnvelopes);
+        }
+
+        LOGGER.info("Loaded " + modEnvelopes.size() + " S3K modulation envelopes.");
+    }
+
+    private void loadEnvelopeFromData(int id, byte[] sourceData, int offset, Map<Integer, byte[]> target) {
         // Read envelope bytes until a terminator command (0x80-0x84)
         byte[] buffer = new byte[256];
         int len = 0;
@@ -543,7 +619,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
         if (len > 0) {
             byte[] env = new byte[len];
             System.arraycopy(buffer, 0, env, 0, len);
-            psgEnvelopes.put(id, env);
+            target.put(id, env);
         }
     }
 
@@ -580,14 +656,14 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
     // Size calculation helpers
     // -----------------------------------------------------------------------
 
-    private int calculateMusicDataSize(int musicId, int romAddr, int bankAddr) throws IOException {
+    private int calculateMusicDataSize(int musicIndex, int romAddr, int bankAddr) throws IOException {
         int bankEnd = bankAddr + Z80_BANK_BASE; // End of 32KB bank
 
         // Try to find the next music entry in the same bank
         if (musicPointers != null && musicBankAddresses != null) {
             int bestNextAddr = bankEnd;
             for (int i = 0; i < musicPointers.length; i++) {
-                if (i == musicId) continue;
+                if (i == musicIndex) continue;
                 if (i < musicBankAddresses.length && musicBankAddresses[i] == bankAddr) {
                     int candidatePtr = musicPointers[i];
                     if (candidatePtr != 0) {
