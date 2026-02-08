@@ -185,6 +185,13 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
                     t.modStepCounter = t.modSteps;
                     t.modAccumulator = 0;
                     t.modCurrentDelta = t.modDelta;
+                    t.customModEnabled = true;
+                    t.modEnvId = 0;
+                    t.modEnvData = null;
+                    t.modEnvPos = 0;
+                    t.modEnvMult = 0;
+                    t.modEnvCache = 0;
+                    t.modEnvHold = false;
                     t.modEnabled = true;
                 }
                 return true;
@@ -197,7 +204,13 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
                     if (t.modEnvId == 0) {
                         ctx.clearModulation(t);
                     } else {
-                        t.modEnabled = true;
+                        t.customModEnabled = false;
+                        t.modEnvData = ctx.getSmpsData().getModEnvelope(t.modEnvId);
+                        t.modEnvPos = 0;
+                        t.modEnvMult = 0;
+                        t.modEnvCache = 0;
+                        t.modEnvHold = false;
+                        t.modEnabled = t.modEnvData != null;
                     }
                 }
                 return true;
@@ -234,7 +247,13 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
                     if (t.modEnvId == 0) {
                         ctx.clearModulation(t);
                     } else {
-                        t.modEnabled = true;
+                        t.customModEnabled = false;
+                        t.modEnvData = ctx.getSmpsData().getModEnvelope(t.modEnvId);
+                        t.modEnvPos = 0;
+                        t.modEnvMult = 0;
+                        t.modEnvCache = 0;
+                        t.modEnvHold = false;
+                        t.modEnabled = t.modEnvData != null;
                     }
                 }
                 return true;

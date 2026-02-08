@@ -223,8 +223,14 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         public int modAccumulator;
         public int modCurrentDelta;
         public boolean modEnabled;
+        public boolean customModEnabled;
         public int detune;
         public int modEnvId;
+        public byte[] modEnvData;
+        public int modEnvPos;
+        public int modEnvMult;
+        public int modEnvCache;
+        public boolean modEnvHold;
         public boolean rawFreqMode;
         public int rawFrequency;
         public int instrumentId;
@@ -359,6 +365,10 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             }
             if (i < psgMods.length) {
                 t.modEnvId = psgMods[i];
+                if (t.modEnvId != 0) {
+                    t.modEnvData = smpsData.getModEnvelope(t.modEnvId);
+                    t.modEnabled = t.modEnvData != null;
+                }
             }
             if (i < psgInsts.length) {
                 t.instrumentId = psgInsts[i];
@@ -511,21 +521,12 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
 
             if (writeToneFreq) {
                 int reg = t.baseFnum + t.modAccumulator + t.detune;
-                if (reg > 1023)
-                    reg = 1023;
-                if (reg < 1)
-                    reg = 1;
-
                 if (pitch != 1.0f) {
                     reg = (int) (reg / pitch);
-                    if (reg > 1023)
-                        reg = 1023;
-                    if (reg < 1)
-                        reg = 1;
                 }
+                reg = normalizePsgPeriod(reg);
 
                 int data = reg & 0xF;
-                int type = 0;
                 int ch = t.channelId;
                 synth.writePsg(this, 0x80 | (ch << 5) | (0) | data);
                 synth.writePsg(this, (reg >> 4) & 0x3F);
@@ -1031,6 +1032,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 handleModulation(t);
                 break;
             case 0xF1: // Modulation on
+                t.customModEnabled = true;
                 t.modEnabled = true;
                 break;
             case 0xE0: // Pan
@@ -1325,14 +1327,42 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             t.modStepCounter = t.modSteps;
             t.modAccumulator = 0;
             t.modCurrentDelta = t.modDelta;
+            t.customModEnabled = true;
+            t.modEnvId = 0;
+            t.modEnvData = null;
+            t.modEnvPos = 0;
+            t.modEnvMult = 0;
+            t.modEnvCache = 0;
+            t.modEnvHold = false;
             t.modEnabled = true;
         }
     }
 
     @Override
     public void clearModulation(Track t) {
+        t.customModEnabled = false;
         t.modEnabled = false;
+        t.modEnvId = 0;
+        t.modEnvData = null;
+        t.modEnvPos = 0;
+        t.modEnvMult = 0;
+        t.modEnvCache = 0;
+        t.modEnvHold = false;
         t.modAccumulator = 0;
+    }
+
+    private void resetModEnvelopeState(Track t) {
+        if (t.modEnvId == 0) {
+            return;
+        }
+        if (t.modEnvData == null) {
+            t.modEnvData = smpsData.getModEnvelope(t.modEnvId);
+        }
+        t.modEnvPos = 0;
+        t.modEnvMult = 0;
+        t.modEnvCache = 0;
+        t.modEnvHold = false;
+        t.modEnabled = t.customModEnabled || t.modEnvData != null;
     }
 
     private void setPanAmsFms(Track t) {
@@ -1434,10 +1464,9 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
     }
 
     private boolean shouldPreventNoteAttack(Track t) {
-        return switch (config.getNoteOnPrevent()) {
-            case HOLD -> t.tieNext;
-            case REST -> t.note == 0x80;
-        };
+        // We model the driver's note-on-prevent bit with tieNext.
+        // On SMPS Z80 this is the HOLD bit, and on SMPS 68k this maps to AT-REST.
+        return t.tieNext;
     }
 
     private void resetTrackedFrequency(Track t) {
@@ -1477,6 +1506,10 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         if (t.forceRefresh) {
             refreshInstrument(t);
             t.forceRefresh = false;
+        }
+
+        if (!preventAttack) {
+            resetModEnvelopeState(t);
         }
 
         if (t.type == TrackType.DAC) {
@@ -1521,7 +1554,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             t.baseFnum = fnum;
             t.baseBlock = block;
 
-            if (t.modEnabled && !preventAttack) {
+            if (t.customModEnabled && !preventAttack) {
                 t.modDelay = t.modDelayInit;
                 t.modRateCounter = t.modRate;
                 t.modStepCounter = t.modSteps;
@@ -1583,18 +1616,11 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             int reg = psgFreqTable[psgNote];
 
             reg += t.detune;
-            if (reg > 1023)
-                reg = 1023;
-            if (reg < 1)
-                reg = 1;
 
             if (pitch != 1.0f) {
                 reg = (int) (reg / pitch);
-                if (reg > 1023)
-                    reg = 1023;
-                if (reg < 1)
-                    reg = 1;
             }
+            reg = normalizePsgPeriod(reg);
 
             boolean noiseUsesTone2 = t.noiseMode && t.channelId == 2 && (t.psgNoiseParam & 0x03) == 0x03;
             boolean writeToneFreq = t.channelId < 3 && (!t.noiseMode || noiseUsesTone2);
@@ -1609,7 +1635,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 t.baseFnum = reg;
             }
 
-            if (t.modEnabled && !preventAttack) {
+            if (t.customModEnabled && !preventAttack) {
                 t.modDelay = t.modDelayInit;
                 t.modRateCounter = t.modRate;
                 t.modStepCounter = t.modSteps;
@@ -1667,6 +1693,10 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             return;
         }
 
+        if (!preventAttack) {
+            resetModEnvelopeState(t);
+        }
+
         if (t.type == TrackType.FM) {
             int packed = freq + t.detune;
             int block = (packed >> 11) & 0x7;
@@ -1674,7 +1704,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             t.baseFnum = fnum;
             t.baseBlock = block;
 
-            if (t.modEnabled && !preventAttack) {
+            if (t.customModEnabled && !preventAttack) {
                 t.modDelay = t.modDelayInit;
                 t.modRateCounter = t.modRate;
                 t.modStepCounter = t.modSteps;
@@ -1705,11 +1735,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             }
         } else if (t.type == TrackType.PSG) {
             int reg = freq + t.detune;
-            if (reg > 0x3FF) {
-                reg = 0x3FF;
-            } else if (reg < 1) {
-                reg = 1;
-            }
+            reg = normalizePsgPeriod(reg);
 
             boolean noiseUsesTone2 = t.noiseMode && t.channelId == 2 && (t.psgNoiseParam & 0x03) == 0x03;
             boolean writeToneFreq = t.channelId < 3 && (!t.noiseMode || noiseUsesTone2);
@@ -1720,7 +1746,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 t.baseFnum = reg;
             }
 
-            if (t.modEnabled && !preventAttack) {
+            if (t.customModEnabled && !preventAttack) {
                 t.modDelay = t.modDelayInit;
                 t.modRateCounter = t.modRate;
                 t.modStepCounter = t.modSteps;
@@ -2053,6 +2079,20 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         // Adding Key On here caused re-keying during rests, breaking SFX like 0xAD.
     }
 
+    private static class ModulationStep {
+        private static final ModulationStep NONE = new ModulationStep(false, false, 0);
+
+        final boolean inEffect;
+        final boolean changed;
+        final int delta;
+
+        ModulationStep(boolean inEffect, boolean changed, int delta) {
+            this.inEffect = inEffect;
+            this.changed = changed;
+            this.delta = delta;
+        }
+    }
+
     private void applyModulation(Track t) {
         if (!t.modEnabled)
             return;
@@ -2061,11 +2101,54 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         if (t.note == 0x80)  // 0x80 = rest note
             return;
 
-        boolean changed = false;
+        ModulationStep custom = stepCustomModulation(t);
+        ModulationStep env = stepModEnvelope(t);
+        if (!custom.inEffect && !env.inEffect) {
+            t.modEnabled = false;
+            return;
+        }
+
+        int freqDelta = custom.delta + env.delta;
+        boolean changed = custom.changed || env.changed;
+        if (!changed) {
+            return;
+        }
+
+        if (t.type == TrackType.FM) {
+            int packed = getPacked(t, freqDelta);
+
+            int block = (packed >> 11) & 7;
+            int fnum = packed & 0x7FF;
+
+            int hwCh = t.channelId;
+            int port = (hwCh < 3) ? 0 : 1;
+            int ch = (hwCh % 3);
+            writeFmFreq(port, ch, fnum, block);
+        } else if (t.type == TrackType.PSG && t.channelId < 3) {
+            boolean noiseUsesTone2 = t.noiseMode && t.channelId == 2 && (t.psgNoiseParam & 0x03) == 0x03;
+            if (!t.noiseMode || noiseUsesTone2) {
+                int reg = t.baseFnum + freqDelta + t.detune;
+                if (pitch != 1.0f) {
+                    reg = (int) (reg / pitch);
+                }
+                reg = normalizePsgPeriod(reg);
+
+                int data = reg & 0xF;
+                int ch = t.channelId;
+                synth.writePsg(this, 0x80 | (ch << 5) | data);
+                synth.writePsg(this, (reg >> 4) & 0x3F);
+            }
+        }
+    }
+
+    private ModulationStep stepCustomModulation(Track t) {
+        if (!t.customModEnabled) {
+            return ModulationStep.NONE;
+        }
 
         if (t.modDelay > 0) {
             t.modDelay--;
-            return;
+            return new ModulationStep(true, false, t.modAccumulator);
         }
 
         if (t.modRateCounter > 0) {
@@ -2074,60 +2157,85 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
 
         if (t.modRateCounter == 0) {
             t.modRateCounter = t.modRate;
-            changed = true;
 
             if (t.modStepCounter == 0) {
                 t.modStepCounter = t.modStepsFull;
                 t.modCurrentDelta = -t.modCurrentDelta;
-                // Z80 driver returns early here (no frequency update this tick).
-                return;
-            } else {
-                t.modStepCounter--;
-                t.modAccumulator += t.modCurrentDelta;
-                t.modAccumulator = (short) t.modAccumulator; // 16-bit signed wrap
+                // Z80 driver returns early here (no frequency register write this tick).
+                return new ModulationStep(true, false, t.modAccumulator);
             }
+
+            t.modStepCounter--;
+            t.modAccumulator += t.modCurrentDelta;
+            t.modAccumulator = (short) t.modAccumulator; // 16-bit signed wrap
+            return new ModulationStep(true, true, t.modAccumulator);
         }
 
-        if (changed) {
-            if (t.type == TrackType.FM) {
-                int packed = getPacked(t);
-
-                int block = (packed >> 11) & 7;
-                int fnum = packed & 0x7FF;
-
-                int hwCh = t.channelId;
-                int port = (hwCh < 3) ? 0 : 1;
-                int ch = (hwCh % 3);
-                writeFmFreq(port, ch, fnum, block);
-            } else if (t.type == TrackType.PSG && t.channelId < 3) {
-                boolean noiseUsesTone2 = t.noiseMode && t.channelId == 2 && (t.psgNoiseParam & 0x03) == 0x03;
-                if (!t.noiseMode || noiseUsesTone2) {
-                    int reg = t.baseFnum + t.modAccumulator + t.detune;
-                    if (reg < 1)
-                        reg = 1;
-                    if (reg > 0x3FF)
-                        reg = 0x3FF;
-
-                    if (pitch != 1.0f) {
-                        reg = (int) (reg / pitch);
-                        if (reg < 1)
-                            reg = 1;
-                        if (reg > 0x3FF)
-                            reg = 0x3FF;
-                    }
-
-                    int data = reg & 0xF;
-                    int ch = t.channelId;
-                    synth.writePsg(this, 0x80 | (ch << 5) | data);
-                    synth.writePsg(this, (reg >> 4) & 0x3F);
-                }
-            }
-        }
+        return new ModulationStep(true, false, t.modAccumulator);
     }
 
-    private int getPacked(Track t) {
+    private ModulationStep stepModEnvelope(Track t) {
+        if (t.modEnvId == 0 || t.modEnvData == null || t.modEnvData.length == 0) {
+            return ModulationStep.NONE;
+        }
+
+        if (t.modEnvHold) {
+            return new ModulationStep(true, false, t.modEnvCache);
+        }
+
+        int safety = 0;
+        while (safety++ < 512) {
+            if (t.modEnvPos >= t.modEnvData.length) {
+                t.modEnvPos = 0;
+            }
+
+            int value = t.modEnvData[t.modEnvPos] & 0xFF;
+            t.modEnvPos++;
+
+            if (value < 0x80) {
+                int envVal = (byte) value;
+                int multiplier = t.modEnvMult + 1; // S3K DefDrv: EnvMult = Z80
+                t.modEnvCache = (short) (envVal * multiplier);
+                return new ModulationStep(true, true, t.modEnvCache);
+            }
+
+            switch (value) {
+                case 0x80: // RESET
+                    t.modEnvPos = 0;
+                    continue;
+                case 0x81: // HOLD
+                case 0x83: // VOLSTOP_MODHOLD => HOLD for modulation envelopes
+                    t.modEnvPos--;
+                    t.modEnvHold = true;
+                    return new ModulationStep(true, false, t.modEnvCache);
+                case 0x82: // LOOP xx
+                    if (t.modEnvPos < t.modEnvData.length) {
+                        t.modEnvPos = t.modEnvData[t.modEnvPos] & 0xFF;
+                        continue;
+                    }
+                    t.modEnvHold = true;
+                    return new ModulationStep(true, false, t.modEnvCache);
+                case 0x84: // CHG_MULT xx
+                    if (t.modEnvPos < t.modEnvData.length) {
+                        t.modEnvMult = (t.modEnvMult + (t.modEnvData[t.modEnvPos] & 0xFF)) & 0xFF;
+                        t.modEnvPos++;
+                        continue;
+                    }
+                    t.modEnvHold = true;
+                    return new ModulationStep(true, false, t.modEnvCache);
+                default:
+                    t.modEnvHold = true;
+                    return new ModulationStep(true, false, t.modEnvCache);
+            }
+        }
+
+        t.modEnvHold = true;
+        return new ModulationStep(true, false, t.modEnvCache);
+    }
+
+    private int getPacked(Track t, int modulationDelta) {
         int packed = (t.baseBlock << 11) | t.baseFnum;
-        packed += t.modAccumulator + t.detune;
+        packed += modulationDelta + t.detune;
 
         packed = getPitchSlideFreq(packed);
 
@@ -2142,6 +2250,11 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             packed = (b << 11) | (f & 0x7FF);
         }
         return packed;
+    }
+
+    private static int normalizePsgPeriod(int reg) {
+        int period = reg & 0x3FF;
+        return period == 0 ? 1 : period;
     }
 
     private void setDetune(Track t) {
