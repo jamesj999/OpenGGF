@@ -31,6 +31,7 @@ public class Sonic3kLevel implements Level {
     private static final Logger LOG = Logger.getLogger(Sonic3kLevel.class.getName());
 
     private static final int PALETTE_COUNT = 4;
+    private static final int BLOCK_GRID_SIDE = 8;
 
     private Palette[] palettes;
     private Pattern[] patterns;
@@ -90,6 +91,7 @@ public class Sonic3kLevel implements Level {
         loadBlocksWithPlan(rom, resourcePlan);
         loadMap(rom, layoutAddr);
         loadBoundaries(rom, levelBoundariesAddr);
+        validateResourceReferences();
     }
 
     // ===== Level interface =====
@@ -304,41 +306,25 @@ public class Sonic3kLevel implements Level {
             throw new IOException("Inconsistent S3K chunk data");
         }
 
-        // Load collision indices directly from ROM (uncompressed)
-        byte[] primaryCollision;
-        byte[] secondaryCollision;
-
-        if (interleaved && primaryCollisionAddr > 0) {
-            // Interleaved: read 0xC00 bytes from base, de-interleave into primary/secondary
-            byte[] interleavedData = rom.readBytes(primaryCollisionAddr,
-                    Sonic3kConstants.COLLISION_INDEX_SIZE * 2);
-            primaryCollision = new byte[Sonic3kConstants.COLLISION_INDEX_SIZE];
-            secondaryCollision = new byte[Sonic3kConstants.COLLISION_INDEX_SIZE];
-            for (int i = 0; i < Sonic3kConstants.COLLISION_INDEX_SIZE; i++) {
-                primaryCollision[i] = interleavedData[i * 2];
-                secondaryCollision[i] = interleavedData[i * 2 + 1];
-            }
-        } else {
-            // Non-interleaved: separate blocks
-            if (primaryCollisionAddr > 0) {
-                primaryCollision = rom.readBytes(primaryCollisionAddr, Sonic3kConstants.COLLISION_INDEX_SIZE);
-            } else {
-                primaryCollision = new byte[0];
-            }
-            if (secondaryCollisionAddr > 0) {
-                secondaryCollision = rom.readBytes(secondaryCollisionAddr, Sonic3kConstants.COLLISION_INDEX_SIZE);
-            } else {
-                secondaryCollision = new byte[0];
-            }
-        }
+        // S3K collision indices are read via chunkIndex*2 in the original code.
+        // Keep raw tables and apply stride during lookup.
+        int tableSize = interleaved
+                ? Sonic3kConstants.COLLISION_INDEX_SIZE * 2
+                : Sonic3kConstants.COLLISION_INDEX_SIZE;
+        byte[] primaryCollision = primaryCollisionAddr > 0
+                ? rom.readBytes(primaryCollisionAddr, tableSize)
+                : new byte[0];
+        byte[] secondaryCollision = secondaryCollisionAddr > 0
+                ? rom.readBytes(secondaryCollisionAddr, tableSize)
+                : new byte[0];
 
         chunks = new Chunk[chunkCount];
         for (int i = 0; i < chunkCount; i++) {
             chunks[i] = new Chunk();
             byte[] subArray = Arrays.copyOfRange(chunkBuffer, i * Chunk.CHUNK_SIZE_IN_ROM,
                     (i + 1) * Chunk.CHUNK_SIZE_IN_ROM);
-            int solidIndex = (i < primaryCollision.length) ? Byte.toUnsignedInt(primaryCollision[i]) : 0;
-            int altSolidIndex = (i < secondaryCollision.length) ? Byte.toUnsignedInt(secondaryCollision[i]) : 0;
+            int solidIndex = readCollisionIndex(primaryCollision, i);
+            int altSolidIndex = readCollisionIndex(secondaryCollision, i);
             chunks[i].fromSegaFormat(subArray, solidIndex, altSolidIndex);
         }
 
@@ -384,8 +370,7 @@ public class Sonic3kLevel implements Level {
     private void loadMap(Rom rom, int layoutAddr) throws IOException {
         if (layoutAddr == 0) {
             LOG.warning("S3K layout address is 0 - using empty map");
-            map = new Map(Sonic3kConstants.MAP_LAYERS, Sonic3kConstants.MAP_WIDTH, Sonic3kConstants.MAP_HEIGHT,
-                    new byte[Sonic3kConstants.MAP_LAYERS * Sonic3kConstants.MAP_WIDTH * Sonic3kConstants.MAP_HEIGHT]);
+            map = new Map(Sonic3kConstants.MAP_LAYERS, Sonic3kConstants.MAP_WIDTH, Sonic3kConstants.MAP_HEIGHT);
             return;
         }
 
@@ -402,19 +387,17 @@ public class Sonic3kLevel implements Level {
 
         int mapWidth = Sonic3kConstants.MAP_WIDTH;
         int mapHeight = Sonic3kConstants.MAP_HEIGHT;
-        byte[] mapData = new byte[Sonic3kConstants.MAP_LAYERS * mapWidth * mapHeight];
+        map = new Map(Sonic3kConstants.MAP_LAYERS, mapWidth, mapHeight);
 
         // Parse FG layout (layer 0)
         parseLayoutLayer(layoutData, Sonic3kConstants.LEVEL_LAYOUT_HEADER_SIZE,
-                fgColsPerRow, fgRows, mapData, 0, mapWidth, mapHeight);
+                fgColsPerRow, fgRows, map, 0, mapWidth, mapHeight);
 
         // Parse BG layout (layer 1)
         // BG row pointers start after FG row pointers in the layout data
         int bgOffset = Sonic3kConstants.LEVEL_LAYOUT_HEADER_SIZE + fgRows * 2;
         parseLayoutLayer(layoutData, bgOffset,
-                bgColsPerRow, bgRows, mapData, mapWidth * mapHeight, mapWidth, mapHeight);
-
-        map = new Map(Sonic3kConstants.MAP_LAYERS, mapWidth, mapHeight, mapData);
+                bgColsPerRow, bgRows, map, 1, mapWidth, mapHeight);
         LOG.info("S3K map loaded successfully");
     }
 
@@ -426,26 +409,103 @@ public class Sonic3kLevel implements Level {
      */
     private void parseLayoutLayer(byte[] layoutData, int rowPtrOffset,
                                   int colsPerRow, int rows,
-                                  byte[] mapData, int mapDataOffset,
+                                  Map map, int layer,
                                   int mapWidth, int mapHeight) {
-        int dataBase = Sonic3kConstants.LEVEL_LAYOUT_HEADER_SIZE;
-
         for (int row = 0; row < Math.min(rows, mapHeight); row++) {
             // Read word-sized row pointer
             int ptrPos = rowPtrOffset + row * 2;
             if (ptrPos + 1 >= layoutData.length) break;
 
-            int rowOffset = ((layoutData[ptrPos] & 0xFF) << 8) | (layoutData[ptrPos + 1] & 0xFF);
-            int rowDataAddr = dataBase + rowOffset;
+            int rowPointerWord = ((layoutData[ptrPos] & 0xFF) << 8) | (layoutData[ptrPos + 1] & 0xFF);
+            int rowDataAddr = decodeLayoutRowOffset(rowPointerWord);
+            if (rowDataAddr < 0 || rowDataAddr >= layoutData.length) {
+                continue;
+            }
 
             for (int col = 0; col < Math.min(colsPerRow, mapWidth); col++) {
                 int srcIdx = rowDataAddr + col;
                 if (srcIdx >= layoutData.length) break;
-                int destIdx = mapDataOffset + row * mapWidth + col;
-                if (destIdx < mapData.length) {
-                    mapData[destIdx] = layoutData[srcIdx];
+                map.setValue(layer, col, row, layoutData[srcIdx]);
+            }
+        }
+    }
+
+    static int decodeLayoutRowOffset(int rowPointerWord) {
+        int pointer = rowPointerWord & Sonic3kConstants.LEVEL_LAYOUT_ROW_POINTER_MASK;
+        if (pointer == 0) {
+            return -1;
+        }
+        if (pointer >= Sonic3kConstants.LEVEL_LAYOUT_RAM_BASE) {
+            return pointer - Sonic3kConstants.LEVEL_LAYOUT_RAM_BASE;
+        }
+        // Fallback for unexpected builds: treat as direct offset.
+        return pointer;
+    }
+
+    static int readCollisionIndex(byte[] collisionTable, int chunkIndex) {
+        if (collisionTable == null || chunkIndex < 0) {
+            return 0;
+        }
+        int offset = chunkIndex * Sonic3kConstants.COLLISION_INDEX_STRIDE_BYTES;
+        if (offset < 0 || offset >= collisionTable.length) {
+            return 0;
+        }
+        return Byte.toUnsignedInt(collisionTable[offset]);
+    }
+
+    private void validateResourceReferences() {
+        if (map == null || blockCount == 0 || chunkCount == 0 || patternCount == 0) {
+            LOG.warning("S3K resource validation skipped due to incomplete level data.");
+            return;
+        }
+
+        int maxMapBlockIndex = 0;
+        for (int y = 0; y < map.getHeight(); y++) {
+            for (int x = 0; x < map.getWidth(); x++) {
+                int fg = Byte.toUnsignedInt(map.getValue(0, x, y));
+                int bg = Byte.toUnsignedInt(map.getValue(1, x, y));
+                if (fg > maxMapBlockIndex) maxMapBlockIndex = fg;
+                if (bg > maxMapBlockIndex) maxMapBlockIndex = bg;
+            }
+        }
+
+        int maxBlockChunkIndex = 0;
+        for (int blockIdx = 0; blockIdx < blockCount; blockIdx++) {
+            Block block = blocks[blockIdx];
+            for (int cy = 0; cy < BLOCK_GRID_SIDE; cy++) {
+                for (int cx = 0; cx < BLOCK_GRID_SIDE; cx++) {
+                    int chunkIndex = block.getChunkDesc(cx, cy).getChunkIndex();
+                    if (chunkIndex > maxBlockChunkIndex) {
+                        maxBlockChunkIndex = chunkIndex;
+                    }
                 }
             }
+        }
+
+        int maxChunkPatternIndex = 0;
+        for (int chunkIdx = 0; chunkIdx < chunkCount; chunkIdx++) {
+            Chunk chunk = chunks[chunkIdx];
+            for (int py = 0; py < 2; py++) {
+                for (int px = 0; px < 2; px++) {
+                    int patternIndex = chunk.getPatternDesc(px, py).getPatternIndex();
+                    if (patternIndex > maxChunkPatternIndex) {
+                        maxChunkPatternIndex = patternIndex;
+                    }
+                }
+            }
+        }
+
+        if (maxMapBlockIndex >= blockCount) {
+            LOG.warning("S3K map references block " + maxMapBlockIndex +
+                    " but blockCount is " + blockCount);
+        }
+        if (maxBlockChunkIndex >= chunkCount) {
+            LOG.warning("S3K blocks reference chunk " + maxBlockChunkIndex +
+                    " but chunkCount is " + chunkCount);
+        }
+        if (maxChunkPatternIndex >= patternCount) {
+            LOG.warning("S3K chunks reference pattern " + maxChunkPatternIndex +
+                    " but patternCount is " + patternCount);
         }
     }
 

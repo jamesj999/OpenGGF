@@ -209,6 +209,12 @@ public enum SonicConfiguration {
 	SONIC_3K_ROM,
 
 	/**
+	 * If true, AIZ1 intro setup is skipped and gameplay-ready bootstrap data is used.
+	 * This is a temporary parity bridge until full AIZ1 intro events are implemented.
+	 */
+	S3K_SKIP_AIZ1_INTRO,
+
+	/**
 	 * Which game to load by default: "s1", "s2", or "s3k".
 	 * Used to select which per-game ROM key (SONIC_1_ROM, etc.) to load.
 	 */

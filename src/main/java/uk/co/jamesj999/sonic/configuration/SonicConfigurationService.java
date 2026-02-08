@@ -191,6 +191,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.SONIC_1_ROM, "Sonic The Hedgehog (W) (REV01) [!].gen");
 		putDefault(SonicConfiguration.SONIC_2_ROM, "Sonic The Hedgehog 2 (W) (REV01) [!].gen");
 		putDefault(SonicConfiguration.SONIC_3K_ROM, "Sonic 3 & Knuckles (W) [!].gen");
+		putDefault(SonicConfiguration.S3K_SKIP_AIZ1_INTRO, true);
 		putDefault(SonicConfiguration.DEFAULT_ROM, "s2");
 	}
 

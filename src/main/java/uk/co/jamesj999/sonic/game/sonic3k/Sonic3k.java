@@ -1,12 +1,16 @@
 package uk.co.jamesj999.sonic.game.sonic3k;
 
 import uk.co.jamesj999.sonic.audio.GameSound;
+import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
+import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.data.Game;
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.game.DynamicStartPositionProvider;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.resources.LevelResourcePlan;
 import uk.co.jamesj999.sonic.level.resources.LoadOp;
+import uk.co.jamesj999.sonic.level.resources.ResourceLoader;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -24,7 +28,7 @@ import java.util.logging.Logger;
  * <p>Phase 1 supports terrain, collision, and basic palettes. No objects,
  * rings, or zone-specific features.
  */
-public class Sonic3k extends Game {
+public class Sonic3k extends Game implements DynamicStartPositionProvider {
     private static final Logger LOG = Logger.getLogger(Sonic3k.class.getName());
 
     private final Rom rom;
@@ -47,8 +51,7 @@ public class Sonic3k extends Game {
 
     public Sonic3k(Rom rom) throws IOException {
         this.rom = rom;
-        // Ensure ROM has been scanned for table addresses
-        new Sonic3kRomScanner(rom).scan();
+        ensureAddressTablesReady();
     }
 
     @Override
@@ -151,8 +154,24 @@ public class Sonic3k extends Game {
         int paletteIndex = (word2 >> 24) & 0xFF;
         int primaryBlocksAddr = word2 & 0x00FFFFFF;
         int secondaryBlocksAddr = word3 & 0x00FFFFFF;
-        int primaryChunksAddr = word4;
-        int secondaryChunksAddr = word5;
+        int primaryChunksAddr = word4 & 0x00FFFFFF;
+        int secondaryChunksAddr = word5 & 0x00FFFFFF;
+        Sonic3kLoadBootstrap bootstrap = Sonic3kBootstrapResolver.resolve(zone, act);
+
+        if (bootstrap.isAiz1GameplayAfterIntro()) {
+            Aiz1GameplayOverlay override = readAiz1GameplayOverlayFromIntroEntry();
+            if (override != null) {
+                // Intro-skip parity bridge:
+                // ROM intro transition swaps in AIZ1 "main level" overlays for 8x8/16x16 data.
+                // Until full intro events are implemented, we bootstrap those resources directly.
+                secondaryArtAddr = override.secondaryArtAddr();
+                secondaryBlocksAddr = override.secondaryBlocksAddr();
+                LOG.info(String.format("  Bootstrap AIZ1 gameplay overlays: art2=0x%06X blocks2=0x%06X",
+                        secondaryArtAddr, secondaryBlocksAddr));
+            } else {
+                LOG.warning("  AIZ1 gameplay bootstrap requested but intro overlay entry was invalid.");
+            }
+        }
 
         LOG.info(String.format("  LLB entry: art1=0x%06X art2=0x%06X blocks1=0x%06X blocks2=0x%06X " +
                         "chunks1=0x%06X chunks2=0x%06X pal=%d",
@@ -161,19 +180,19 @@ public class Sonic3k extends Game {
 
         // Build resource plan
         LevelResourcePlan.Builder planBuilder = LevelResourcePlan.builder();
+        ResourceLoader resourceLoader = new ResourceLoader(rom);
 
         // Patterns (KosM)
-        // Read primary art's KosinskiM header to get its uncompressed size.
-        // The original ROM loads secondary art at VRAM offset = primary art uncompressed size
-        // (i.e. concatenated after primary art, not overlaid at offset 0).
-        int primaryArtSize = rom.read16BitAddr(primaryArtAddr);
-        LOG.info(String.format("  Primary art KosinskiM header: uncompressed size = 0x%04X (%d bytes, %d tiles)",
+        // Use decompressed lengths for KosM overlay offsets.
+        // Header-only size reads are not reliable across all module streams.
+        int primaryArtSize = resourceLoader.loadSingle(LoadOp.kosinskiMBase(primaryArtAddr)).length;
+        LOG.info(String.format("  Primary art KosinskiM decompressed size = 0x%04X (%d bytes, %d tiles)",
                 primaryArtSize, primaryArtSize, primaryArtSize / 32));
 
         planBuilder.addPatternOp(LoadOp.kosinskiMBase(primaryArtAddr));
         if (secondaryArtAddr != primaryArtAddr && secondaryArtAddr > 0) {
-            int secondaryArtSize = rom.read16BitAddr(secondaryArtAddr);
-            LOG.info(String.format("  Secondary art KosinskiM header: uncompressed size = 0x%04X (%d bytes, %d tiles)",
+            int secondaryArtSize = resourceLoader.loadSingle(LoadOp.kosinskiMBase(secondaryArtAddr)).length;
+            LOG.info(String.format("  Secondary art KosinskiM decompressed size = 0x%04X (%d bytes, %d tiles)",
                     secondaryArtSize, secondaryArtSize, secondaryArtSize / 32));
             planBuilder.addPatternOp(LoadOp.kosinskiMOverlay(secondaryArtAddr, primaryArtSize));
         }
@@ -181,21 +200,25 @@ public class Sonic3k extends Game {
         // Blocks (16x16, Kosinski) - "chunks" in engine terminology
         planBuilder.addChunkOp(LoadOp.kosinskiBase(primaryBlocksAddr));
         if (secondaryBlocksAddr != primaryBlocksAddr && secondaryBlocksAddr > 0) {
-            planBuilder.addChunkOp(LoadOp.kosinskiOverlay(secondaryBlocksAddr, 0));
+            int primaryBlocksSize = resourceLoader.loadSingle(LoadOp.kosinskiBase(primaryBlocksAddr)).length;
+            LOG.info(String.format("  Primary 16x16 size: 0x%04X (%d bytes)", primaryBlocksSize, primaryBlocksSize));
+            planBuilder.addChunkOp(LoadOp.kosinskiOverlay(secondaryBlocksAddr, primaryBlocksSize));
         }
 
         // Chunks (128x128, Kosinski) - "blocks" in engine terminology
         planBuilder.addBlockOp(LoadOp.kosinskiBase(primaryChunksAddr));
         if (secondaryChunksAddr != primaryChunksAddr && secondaryChunksAddr > 0) {
-            planBuilder.addBlockOp(LoadOp.kosinskiOverlay(secondaryChunksAddr, 0));
+            int primaryChunksSize = resourceLoader.loadSingle(LoadOp.kosinskiBase(primaryChunksAddr)).length;
+            LOG.info(String.format("  Primary 128x128 size: 0x%04X (%d bytes)", primaryChunksSize, primaryChunksSize));
+            planBuilder.addBlockOp(LoadOp.kosinskiOverlay(secondaryChunksAddr, primaryChunksSize));
         }
 
         // Collision indices (loaded directly, not through resource plan)
         // Returns [primaryAddr, secondaryAddr, interleavedFlag]
-        int[] collisionInfo = getCollisionAddresses(zone, act);
-        int primaryCollisionAddr = collisionInfo[0];
-        int secondaryCollisionAddr = collisionInfo[1];
-        boolean interleavedCollision = collisionInfo[2] != 0;
+        CollisionAddressInfo collisionInfo = getCollisionAddresses(zone, act);
+        int primaryCollisionAddr = collisionInfo.primaryAddress();
+        int secondaryCollisionAddr = collisionInfo.secondaryAddress();
+        boolean interleavedCollision = collisionInfo.interleaved();
 
         LevelResourcePlan plan = planBuilder.build();
 
@@ -243,7 +266,155 @@ public class Sonic3k extends Game {
         return false;
     }
 
+    @Override
+    public int[] getStartPosition(int zoneIndex, int actIndex) throws IOException {
+        int startTableAddr = getCharacterStartTableAddr();
+        if (!isReadable(startTableAddr, Sonic3kConstants.START_LOCATION_ENTRY_SIZE)) {
+            return null;
+        }
+
+        int act = Math.max(0, Math.min(actIndex, Sonic3kConstants.ACTS_PER_ZONE_STRIDE - 1));
+        int entryIndex = zoneIndex * Sonic3kConstants.ACTS_PER_ZONE_STRIDE + act;
+        int entryAddr = startTableAddr + entryIndex * Sonic3kConstants.START_LOCATION_ENTRY_SIZE;
+
+        if (!isReadable(entryAddr, Sonic3kConstants.START_LOCATION_ENTRY_SIZE)) {
+            return null;
+        }
+
+        int x = rom.read16BitAddr(entryAddr);
+        int y = rom.read16BitAddr(entryAddr + 2);
+        return new int[]{x, y};
+    }
+
     // ===== Private helpers =====
+
+    private void ensureAddressTablesReady() throws IOException {
+        if (hasValidCoreTables()) {
+            LOG.info("S3K core tables validated using verified constants.");
+            return;
+        }
+
+        LOG.warning("S3K constants failed sanity checks; running ROM scanner fallback.");
+        Sonic3kConstants.setScanned(false);
+        new Sonic3kRomScanner(rom).scan();
+
+        if (!hasValidCoreTables()) {
+            throw new IOException("S3K address table validation failed after scanner fallback.");
+        }
+    }
+
+    private boolean hasValidCoreTables() throws IOException {
+        return hasValidLevelLoadBlock()
+                && hasValidLevelPointers()
+                && hasValidSolidIndexes()
+                && hasValidStartLocations();
+    }
+
+    private boolean hasValidLevelLoadBlock() throws IOException {
+        int llbAddr = Sonic3kConstants.LEVEL_LOAD_BLOCK_ADDR;
+        if (!isReadable(llbAddr, Sonic3kConstants.LEVEL_LOAD_BLOCK_ENTRY_SIZE)) {
+            return false;
+        }
+
+        int word0 = rom.read32BitAddr(llbAddr);
+        int word2 = rom.read32BitAddr(llbAddr + 8);
+        int word4 = rom.read32BitAddr(llbAddr + 16);
+
+        int primaryArtAddr = word0 & 0x00FFFFFF;
+        int primaryBlocksAddr = word2 & 0x00FFFFFF;
+        int primaryChunksAddr = word4 & 0x00FFFFFF;
+
+        return isReadable(primaryArtAddr, 2)
+                && isReadable(primaryBlocksAddr, 2)
+                && isReadable(primaryChunksAddr, 2);
+    }
+
+    private boolean hasValidLevelPointers() throws IOException {
+        int levelPtrsAddr = Sonic3kConstants.LEVEL_PTRS_ADDR;
+        if (!isReadable(levelPtrsAddr, Sonic3kConstants.LEVEL_PTRS_ENTRY_SIZE)) {
+            return false;
+        }
+
+        int layoutAddr = rom.read32BitAddr(levelPtrsAddr);
+        if (!isReadable(layoutAddr, Sonic3kConstants.LEVEL_LAYOUT_HEADER_SIZE)) {
+            return false;
+        }
+
+        int fgCols = rom.read16BitAddr(layoutAddr);
+        int bgCols = rom.read16BitAddr(layoutAddr + 2);
+        int fgRows = rom.read16BitAddr(layoutAddr + 4);
+        int bgRows = rom.read16BitAddr(layoutAddr + 6);
+        return fgCols > 0 && fgCols <= Sonic3kConstants.MAP_WIDTH
+                && bgCols > 0 && bgCols <= Sonic3kConstants.MAP_WIDTH
+                && fgRows > 0 && fgRows <= Sonic3kConstants.MAP_HEIGHT
+                && bgRows > 0 && bgRows <= Sonic3kConstants.MAP_HEIGHT;
+    }
+
+    private boolean hasValidSolidIndexes() throws IOException {
+        int solidIndexesAddr = Sonic3kConstants.SOLID_INDEXES_ADDR;
+        if (!isReadable(solidIndexesAddr, Sonic3kConstants.SOLID_INDEXES_ENTRY_SIZE)) {
+            return false;
+        }
+
+        int rawPtr = rom.read32BitAddr(solidIndexesAddr);
+        CollisionAddressInfo decoded = decodeCollisionPointer(rawPtr);
+        int primarySize = decoded.interleaved()
+                ? Sonic3kConstants.COLLISION_INDEX_SIZE * 2
+                : Sonic3kConstants.COLLISION_INDEX_SIZE;
+        int secondarySize = primarySize;
+        return isReadable(decoded.primaryAddress(), primarySize)
+                && isReadable(decoded.secondaryAddress(), secondarySize);
+    }
+
+    private boolean hasValidStartLocations() throws IOException {
+        int startAddr = Sonic3kConstants.SONIC_START_LOCATIONS_ADDR;
+        if (!isReadable(startAddr, Sonic3kConstants.START_LOCATION_ENTRY_SIZE)) {
+            return false;
+        }
+        int x = rom.read16BitAddr(startAddr);
+        int y = rom.read16BitAddr(startAddr + 2);
+        return x > 0 && y > 0;
+    }
+
+    private boolean isReadable(int addr, int size) throws IOException {
+        if (addr <= 0 || size <= 0) {
+            return false;
+        }
+        long romSize = rom.getSize();
+        long start = Integer.toUnsignedLong(addr);
+        long end = start + size;
+        return start < romSize && end <= romSize;
+    }
+
+    private int getCharacterStartTableAddr() {
+        String mainCharacterCode = SonicConfigurationService.getInstance()
+                .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if ("knuckles".equalsIgnoreCase(mainCharacterCode)) {
+            return Sonic3kConstants.KNUX_START_LOCATIONS_ADDR;
+        }
+        return Sonic3kConstants.SONIC_START_LOCATIONS_ADDR;
+    }
+
+    private Aiz1GameplayOverlay readAiz1GameplayOverlayFromIntroEntry() throws IOException {
+        int introIndex = Sonic3kConstants.LEVEL_LOAD_BLOCK_AIZ1_INTRO_INDEX;
+        int entryAddr = Sonic3kConstants.LEVEL_LOAD_BLOCK_ADDR
+                + introIndex * Sonic3kConstants.LEVEL_LOAD_BLOCK_ENTRY_SIZE;
+
+        if (!isReadable(entryAddr, Sonic3kConstants.LEVEL_LOAD_BLOCK_ENTRY_SIZE)) {
+            return null;
+        }
+
+        int word1 = rom.read32BitAddr(entryAddr + 4);   // (plc2 << 24) | secondaryArtAddr
+        int word3 = rom.read32BitAddr(entryAddr + 12);  // (palette << 24) | secondaryBlocksAddr
+
+        int secondaryArtAddr = word1 & 0x00FFFFFF;
+        int secondaryBlocksAddr = word3 & 0x00FFFFFF;
+        if (!isReadable(secondaryArtAddr, 2) || !isReadable(secondaryBlocksAddr, 2)) {
+            return null;
+        }
+
+        return new Aiz1GameplayOverlay(secondaryArtAddr, secondaryBlocksAddr);
+    }
 
     /**
      * Gets the primary and secondary collision data addresses for a zone.
@@ -259,36 +430,52 @@ public class Sonic3k extends Game {
      * <p>Non-interleaved: primary 0x600 bytes, then secondary 0x600 bytes.
      * Interleaved: primary and secondary alternate bytes in 0xC00 block.
      *
-     * @return int[3]: [primaryCollisionAddr, secondaryCollisionAddr, interleavedFlag (0 or 1)]
+     * @return CollisionAddressInfo with decoded addresses and format
      */
-    private int[] getCollisionAddresses(int zone, int act) throws IOException {
+    private CollisionAddressInfo getCollisionAddresses(int zone, int act) throws IOException {
         int solidIndexesAddr = Sonic3kConstants.SOLID_INDEXES_ADDR;
         if (solidIndexesAddr == 0) {
             LOG.warning("SolidIndexes address not set - no collision data");
-            return new int[]{0, 0, 0};
+            return new CollisionAddressInfo(0, 0, false);
         }
 
         // SolidIndexes has one entry per act: index = zone*2 + act
         int entryAddr = solidIndexesAddr + (zone * 2 + act) * Sonic3kConstants.SOLID_INDEXES_ENTRY_SIZE;
         int rawPtr = rom.read32BitAddr(entryAddr);
+        CollisionAddressInfo decoded = decodeCollisionPointer(rawPtr);
 
-        // Mask to 24-bit address (strip bit 31 for S3Complete compatibility)
-        int address = rawPtr & 0x00FFFFFF;
+        LOG.info(String.format("  Collision: raw=0x%08X primary=0x%06X secondary=0x%06X interleaved=%b",
+                rawPtr, decoded.primaryAddress(), decoded.secondaryAddress(), decoded.interleaved()));
 
-        // Format detection by address comparison (matches original LoadSolids routine)
-        boolean nonInterleaved = (address >= Sonic3kConstants.S3_LEVEL_SOLID_DATA);
+        return decoded;
+    }
 
-        LOG.info(String.format("  Collision: raw=0x%08X addr=0x%06X nonInterleaved=%b",
-                rawPtr, address, nonInterleaved));
+    static CollisionAddressInfo decodeCollisionPointer(int rawPtr) {
+        int pointerNoHighBit = rawPtr & 0x7FFFFFFF;
+        int address = pointerNoHighBit & 0x00FFFFFF;
+        boolean highBitMarker = (rawPtr & 0x80000000) != 0;
+        boolean lowBitMarker = (address & 1) != 0;
+
+        // Matches both S3Complete and non-S3Complete pointer encodings:
+        // - low bit marker (+1) for non-interleaved entries
+        // - high bit marker for S3Complete builds
+        // - address threshold fallback for standard combined ROMs
+        boolean nonInterleaved = highBitMarker
+                || lowBitMarker
+                || address >= Sonic3kConstants.S3_LEVEL_SOLID_DATA;
 
         if (nonInterleaved) {
-            // S3 zones: primary 0x600 bytes followed by secondary 0x600 bytes
-            return new int[]{address, address + Sonic3kConstants.COLLISION_INDEX_SIZE, 0};
-        } else {
-            // SK zones: interleaved format - both layers in same 0xC00 byte block
-            return new int[]{address, address + 1, 1};
+            return new CollisionAddressInfo(
+                    address,
+                    address + Sonic3kConstants.COLLISION_INDEX_SIZE,
+                    false
+            );
         }
+        return new CollisionAddressInfo(address, address + 1, true);
     }
+
+    static record CollisionAddressInfo(int primaryAddress, int secondaryAddress, boolean interleaved) {}
+    private record Aiz1GameplayOverlay(int secondaryArtAddr, int secondaryBlocksAddr) {}
 
     /**
      * Gets the layout data ROM address for a zone/act from the LevelPtrs table.
@@ -301,7 +488,7 @@ public class Sonic3k extends Game {
         }
 
         int index = zone * Sonic3kConstants.ACTS_PER_ZONE_STRIDE + act;
-        int ptr = rom.read32BitAddr(levelPtrsAddr + index * Sonic3kConstants.LEVEL_PTRS_ENTRY_SIZE);
+        int ptr = rom.read32BitAddr(levelPtrsAddr + index * Sonic3kConstants.LEVEL_PTRS_ENTRY_SIZE) & 0x00FFFFFF;
 
         LOG.info(String.format("  Layout pointer: zone=%d act=%d -> 0x%06X", zone, act, ptr));
         return ptr;
@@ -335,6 +522,6 @@ public class Sonic3k extends Game {
             return 0;
         }
         int entryAddr = palPointersAddr + paletteIndex * 8;
-        return rom.read32BitAddr(entryAddr);
+        return rom.read32BitAddr(entryAddr) & 0x00FFFFFF;
     }
 }

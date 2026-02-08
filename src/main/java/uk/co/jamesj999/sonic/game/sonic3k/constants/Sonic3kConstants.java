@@ -13,7 +13,8 @@ package uk.co.jamesj999.sonic.game.sonic3k.constants;
  *   <li>LevelLoadBlock: 24 bytes/entry (6 longwords via levartptrs macro)</li>
  *   <li>Level layout: uncompressed, variable size per act</li>
  *   <li>Collision index: noninterleaved format (primary 0x600 + secondary 0x600),
- *       pointer bit 0 set = interleaved, bit 31 reserved for S3Complete flag</li>
+ *       noninterleaved entries commonly use pointer bit 0 (+1 marker),
+ *       bit 31 reserved for S3Complete builds</li>
  *   <li>Start locations: per-character tables (Sonic vs Knuckles)</li>
  * </ul>
  */
@@ -31,6 +32,9 @@ public class Sonic3kConstants {
     //   dc.l chunks2                - secondary 128x128 chunks (Kos)
     public static int LEVEL_LOAD_BLOCK_ADDR = 0x091F0C;
     public static final int LEVEL_LOAD_BLOCK_ENTRY_SIZE = 24;
+    // LevelLoadBlock entry index for "SONIC/TAILS INTRO" in sonic3k.asm levartptrs table.
+    // Used by AIZ1 intro-skip bootstrap to source gameplay-ready 16x16/8x8 secondary data.
+    public static final int LEVEL_LOAD_BLOCK_AIZ1_INTRO_INDEX = 26;
 
     // ===== Level sizes table =====
     // 8 bytes per act: dc.w xstart, xend, ystart, yend
@@ -63,6 +67,8 @@ public class Sonic3kConstants {
     // Layout format: FG layer followed by BG layer, each composed of rows of chunk indices.
     public static final int LEVEL_LAYOUT_TOTAL_SIZE = 0x1000;
     public static final int LEVEL_LAYOUT_HEADER_SIZE = 8;
+    public static final int LEVEL_LAYOUT_RAM_BASE = 0x8000;
+    public static final int LEVEL_LAYOUT_ROW_POINTER_MASK = 0x7FFF;
 
     // ===== Collision =====
     // SolidIndexes: 4 bytes per act (indexed as zone*2+act), dc.l pointing to collision index data
@@ -73,6 +79,7 @@ public class Sonic3kConstants {
     public static int SOLID_INDEXES_ADDR = 0x098100;
     public static final int SOLID_INDEXES_ENTRY_SIZE = 4;
     public static final int COLLISION_INDEX_SIZE = 0x600; // per layer (primary or secondary)
+    public static final int COLLISION_INDEX_STRIDE_BYTES = 2;
 
     // Address threshold for collision format detection (from sonic3k.asm LoadSolids routine)
     // S3 zones have collision data at >= this address (non-interleaved)
