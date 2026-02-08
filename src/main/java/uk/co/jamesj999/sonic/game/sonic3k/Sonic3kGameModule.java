@@ -36,6 +36,7 @@ import uk.co.jamesj999.sonic.level.objects.TouchResponseTable;
 public class Sonic3kGameModule implements GameModule {
     private final GameAudioProfile audioProfile = new Sonic3kAudioProfile();
     private Sonic3kScrollHandlerProvider scrollHandlerProvider;
+    private Sonic3kLevelEventManager levelEventManager;
 
     @Override
     public String getIdentifier() {
@@ -80,7 +81,10 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public LevelEventProvider getLevelEventProvider() {
-        return null;
+        if (levelEventManager == null) {
+            levelEventManager = Sonic3kLevelEventManager.getInstance();
+        }
+        return levelEventManager;
     }
 
     @Override

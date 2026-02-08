@@ -2202,14 +2202,26 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         if (t.modRateCounter == 0) {
             t.modRateCounter = t.modRate;
 
-            if (t.modStepCounter == 0) {
-                t.modStepCounter = t.modStepsFull;
-                t.modCurrentDelta = -t.modCurrentDelta;
-                // Z80 driver returns early here (no frequency register write this tick).
-                return new ModulationStep(true, false, t.modAccumulator);
+            if (config.getModAlgo() == SmpsSequencerConfig.ModAlgo.MOD_Z80) {
+                // S3K (MODALGO_Z80): post-decrement with 8-bit wrap, then check.
+                // dec (ix+zModStepCount) ; jr nz,.no_reversal
+                t.modStepCounter = (t.modStepCounter - 1) & 0xFF;
+                if (t.modStepCounter == 0) {
+                    t.modStepCounter = t.modStepsFull; // reload from RAW (ModData[0x03])
+                    t.modCurrentDelta = -t.modCurrentDelta;
+                    return new ModulationStep(true, false, t.modAccumulator);
+                }
+            } else {
+                // S1/S2 (MODALGO_68K): pre-check, then decrement.
+                // ld a,(ix+zModStepCount) ; or a ; jr nz,.calcfreq
+                if (t.modStepCounter == 0) {
+                    t.modStepCounter = t.modStepsFull; // reload from RAW (ModData[0x03])
+                    t.modCurrentDelta = -t.modCurrentDelta;
+                    return new ModulationStep(true, false, t.modAccumulator);
+                }
+                t.modStepCounter--;
             }
 
-            t.modStepCounter--;
             t.modAccumulator += t.modCurrentDelta;
             t.modAccumulator = (short) t.modAccumulator; // 16-bit signed wrap
             return new ModulationStep(true, true, t.modAccumulator);
