@@ -18,6 +18,11 @@ This project uses documentation, tools, and reference implementations from many 
 | **Eke-Eke**          | Genesis Plus GX - YM2612 and PSG emulation cores <br/><br/> https://github.com/ekeeke/Genesis-Plus-GX                           |
 | **MAME Team**        | Sound emulation cores used by SMPSPlay                                                                                          |
 | **libvgm**           | Audio output and emulation libraries                                                                                            |
+| **flamewing**        | S3K Z80 sound driver documentation and bugfixes                                                                                 |
+| **clownacy**         | SMPS sound driver disassembly work across S1, S2, and S3K                                                                       |
+| **MarkeyJester**     | Original S3K Z80 sound driver disassembly                                                                                       |
+| **Linncaki**         | S3K sound driver routines, pointers, and data identification                                                                    |
+| **Xenowhirl**        | Sonic 2 Z80 sound driver disassembly                                                                                            |
 
 ## Physics & Collision
 
@@ -37,8 +42,8 @@ https://github.com/sonicretro/s1disasm
 |--------------------|-------------------------------------------------------|
 | **Hivebrain**      | Created the original Sonic 1 disassembly              |
 | **MainMemory**     | Major contributor, ongoing maintenance                 |
-| **clownacy**       | Disassembly improvements, AS assembler tools           |
-| **flamewing**      | Disassembly contributions, modified AS assembler       |
+| **clownacy**       | Disassembly improvements                               |
+| **flamewing**      | Disassembly contributions                              |
 | **DevonArtmeier**  | Disassembly contributions                              |
 
 ### Sonic 2 Disassembly (s2disasm)
@@ -52,7 +57,7 @@ https://github.com/sonicretro/s2disasm
 | **FraGag**         | Host/maintainer, constants/equates system, major refactoring                        |
 | **shobiz**         | VDP command conversion, commenting, label cleanup                                   |
 | **qiuu**           | RAM address equates, collision and level select commenting                           |
-| **flamewing**      | SMPS2ASM macros, sound driver work, merged contributions                            |
+| **flamewing**      | Sound driver work, merged contributions                                             |
 | **clownacy**       | Disassembly improvements, decompression tools, documentation                        |
 | **MainMemory**     | Disassembly contributions                                                           |
 | **Marzo (marzojr)**| Disassembly contributions                                                           |
@@ -64,10 +69,10 @@ https://github.com/sonicretro/skdisasm
 | Contributor        | Contribution                                                                        |
 |--------------------|-------------------------------------------------------------------------------------|
 | **MainMemory**     | Primary maintainer, split disassembly                                               |
-| **flamewing**      | Thorough Z80 sound driver documentation and bugfixes, SMPS2ASM macros               |
+| **flamewing**      | Thorough Z80 sound driver documentation and bugfixes                                |
 | **MarkeyJester**   | Original Z80 sound driver disassembly                                               |
 | **Linncaki**       | Sound driver routines, pointers, and data identification                            |
-| **clownacy**       | Disassembly contributions, build tools                                              |
+| **clownacy**       | Disassembly contributions                                                           |
 | **Natsumi**        | Disassembly contributions                                                           |
 
 ### General ROM & Hardware Research
@@ -81,8 +86,8 @@ https://github.com/sonicretro/skdisasm
 
 | Contributor   | Contribution                                                                                    |
 |---------------|-------------------------------------------------------------------------------------------------|
-| **clownacy**  | AS assembler releases, p2bin tool, decompression tools <br/><br/> https://github.com/Clownacy/asl-releases |
-| **flamewing** | s2ssedit (Sonic 2 Special Stage Editor), modified AS assembler <br/><br/> https://github.com/flamewing/asl-releases |
+| **clownacy**  | Decompression tools                                                                             |
+| **flamewing** | s2ssedit (Sonic 2 Special Stage Editor) - used as reference                                     |
 
 ## Communities
 

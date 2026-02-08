@@ -4,6 +4,9 @@ import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 
 import java.util.Map;
 
+import static uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kSmpsConstants.Z80_GENERAL_PTR_LIST;
+import static uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kSmpsConstants.Z80_GLOBAL_INSTRUMENT_TABLE;
+
 /**
  * SMPS Z80 Type 2 music data parser for Sonic 3 &amp; Knuckles.
  *
@@ -36,6 +39,7 @@ import java.util.Map;
  * </ul>
  */
 public class Sonic3kSmpsData extends AbstractSmpsData {
+    private static final int VOICE_STRIDE = 25;
 
     private Map<Integer, byte[]> psgEnvelopes;
     private byte[] globalVoiceData;
@@ -113,31 +117,55 @@ public class Sonic3kSmpsData extends AbstractSmpsData {
             return getGlobalVoice(voiceId);
         }
 
-        int offset = -1;
-        if (ptr >= 0 && ptr < data.length) {
-            offset = ptr;
-        } else if (z80StartAddress > 0) {
-            int rel = ptr - z80StartAddress;
-            if (rel >= 0 && rel < data.length) {
-                offset = rel;
+        int localBase = resolveLocalVoiceBase(ptr);
+        if (localBase >= 0) {
+            byte[] local = copyVoice(data, localBase + (voiceId * VOICE_STRIDE));
+            if (local != null) {
+                return local;
             }
         }
 
-        if (offset < 0) {
-            // Fall back to global voice table
-            return getGlobalVoice(voiceId);
+        byte[] globalFromPointer = getGlobalVoiceFromPointer(ptr, voiceId);
+        if (globalFromPointer != null) {
+            return globalFromPointer;
         }
 
-        int stride = 25;
-        offset += (voiceId * stride);
+        // Final fallback: treat global table as voiceId-based.
+        return getGlobalVoice(voiceId);
+    }
 
-        if (offset < 0 || offset + stride > data.length) {
-            return getGlobalVoice(voiceId);
+    private int resolveLocalVoiceBase(int ptr) {
+        if (ptr < 0) {
+            return -1;
         }
 
-        byte[] voice = new byte[stride];
-        System.arraycopy(data, offset, voice, 0, stride);
+        if (z80StartAddress > 0) {
+            int rel = ptr - z80StartAddress;
+            if (rel >= 0 && rel < data.length) {
+                return rel;
+            }
+            // Some ripped data stores bank-local offsets with the 0x80xx high byte stripped.
+            // Keep that compatibility for small in-song offsets only.
+            if (ptr < data.length && ptr < Z80_GENERAL_PTR_LIST) {
+                return ptr;
+            }
+            return -1;
+        }
 
+        if (ptr < data.length) {
+            return ptr;
+        }
+
+        return -1;
+    }
+
+    private byte[] copyVoice(byte[] source, int offset) {
+        if (source == null || offset < 0 || offset + VOICE_STRIDE > source.length) {
+            return null;
+        }
+
+        byte[] voice = new byte[VOICE_STRIDE];
+        System.arraycopy(source, offset, voice, 0, VOICE_STRIDE);
         // S3K InsMode=DEFAULT: operator order is Op4,Op3,Op2,Op1 per group.
         // Engine expects S2 order: Op4,Op2,Op3,Op1.
         // Swap positions [g+1] and [g+2] in each 4-byte group.
@@ -181,21 +209,17 @@ public class Sonic3kSmpsData extends AbstractSmpsData {
             return null;
         }
 
-        int stride = 25;
-        int offset = voiceId * stride;
-        if (offset < 0 || offset + stride > globalVoiceData.length) {
+        return copyVoice(globalVoiceData, voiceId * VOICE_STRIDE);
+    }
+
+    private byte[] getGlobalVoiceFromPointer(int ptr, int voiceId) {
+        if (globalVoiceData == null) {
             return null;
         }
-
-        byte[] voice = new byte[stride];
-        System.arraycopy(globalVoiceData, offset, voice, 0, stride);
-
-        // Same operator order swap as per-song voices
-        for (int g = 1; g < 25; g += 4) {
-            byte tmp = voice[g + 1];
-            voice[g + 1] = voice[g + 2];
-            voice[g + 2] = tmp;
+        int globalBase = ptr - Z80_GLOBAL_INSTRUMENT_TABLE;
+        if (globalBase < 0 || globalBase >= globalVoiceData.length) {
+            return null;
         }
-        return voice;
+        return copyVoice(globalVoiceData, globalBase + (voiceId * VOICE_STRIDE));
     }
 }

@@ -740,11 +740,11 @@ public class Sonic2SmpsLoader implements SmpsLoader {
                 mapping.put(noteId, new DacData.DacEntry(sampleId, rate));
             }
 
-            return new DacData(samples, mapping);
+            return new DacData(samples, mapping, 288); // S2 baseCycles = 288
         } catch (Exception e) {
             LOGGER.severe("Failed to load DAC Data");
             e.printStackTrace();
-            return new DacData(new HashMap<>(), new HashMap<>());
+            return new DacData(new HashMap<>(), new HashMap<>(), 288);
         }
     }
 }

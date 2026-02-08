@@ -236,7 +236,7 @@ public class Sonic1SmpsLoader implements SmpsLoader {
                         + ", rate=" + pitchByte);
             }
 
-            return new DacData(samples, mapping);
+            return new DacData(samples, mapping, 301); // S1 baseCycles = 301
         } catch (Exception e) {
             LOGGER.severe("Failed to load S1 DAC data: " + e.getMessage());
             e.printStackTrace();

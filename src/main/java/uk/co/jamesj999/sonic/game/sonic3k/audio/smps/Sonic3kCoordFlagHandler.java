@@ -58,7 +58,7 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
 
             case 0xE2: // FADE_IN_SONG - fade previous track in
                 if (t.pos < data.length) {
-                    int fadeParam = data[t.pos++] & 0xFF;
+                    t.pos++;
                     ctx.triggerFadeIn();
                 }
                 return true;
@@ -70,25 +70,37 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
 
             case 0xE4: // VOL_ABS_S3K - set absolute volume
                 if (t.pos < data.length) {
-                    t.volumeOffset = data[t.pos++] & 0xFF;
-                    ctx.refreshVolume(t);
+                    int raw = data[t.pos++] & 0xFF;
+                    if (t.type == SmpsSequencer.TrackType.FM) {
+                        // 00(min)..7F(max) -> 7F(min)..00(max)
+                        t.volumeOffset = (~raw) & 0x7F;
+                        ctx.refreshVolume(t);
+                    } else if (t.type == SmpsSequencer.TrackType.PSG) {
+                        // 00(min)..7F(max) -> 0F(min)..00(max)
+                        t.volumeOffset = ((raw >> 3) & 0x0F) ^ 0x0F;
+                        ctx.refreshVolume(t);
+                    }
                 }
                 return true;
 
-            case 0xE5: // VOL_CC_FMP2 - volume change + FM patch (3 bytes total: flag + vol + patch)
+            case 0xE5: // VOL_CC_FMP2 - S3K broken: ignore first param, apply second as FM volume delta
                 if (t.pos + 1 < data.length) {
-                    int volChange = (byte) data[t.pos++]; // signed
-                    int patchId = data[t.pos++] & 0xFF;
-                    t.volumeOffset += volChange;
-                    ctx.loadVoice(t, patchId);
-                    ctx.refreshVolume(t);
+                    t.pos++; // First parameter is ignored in S3K.
+                    int volChange = (byte) data[t.pos++];
+                    if (t.type == SmpsSequencer.TrackType.FM) {
+                        applySignedFmVolumeDelta(t, volChange);
+                        ctx.refreshVolume(t);
+                    }
                 }
                 return true;
 
             case 0xE6: // VOL_CC_FM - add to volume offset
                 if (t.pos < data.length) {
-                    t.volumeOffset += (byte) data[t.pos++]; // signed add
-                    ctx.refreshVolume(t);
+                    int delta = (byte) data[t.pos++];
+                    if (t.type == SmpsSequencer.TrackType.FM) {
+                        applySignedFmVolumeDelta(t, delta);
+                        ctx.refreshVolume(t);
+                    }
                 }
                 return true;
 
@@ -119,14 +131,23 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
 
             case 0xEC: // PSG_VOL (VOL_CC_PSG) - add to PSG volume
                 if (t.pos < data.length) {
-                    t.volumeOffset += (byte) data[t.pos++]; // signed add
-                    ctx.refreshVolume(t);
+                    int delta = (byte) data[t.pos++];
+                    if (t.type == SmpsSequencer.TrackType.PSG) {
+                        // Z80 Type 2 behavior: unsigned add then clip upper bound to 0x0F.
+                        int updated = (t.volumeOffset + delta) & 0xFF;
+                        if (updated > 0x0F) {
+                            updated = 0x0F;
+                        }
+                        t.volumeOffset = updated;
+                        t.envAtRest = false;
+                        ctx.refreshVolume(t);
+                    }
                 }
                 return true;
 
             case 0xED: // TRANSPOSE_SET (TRNSP_SET_S3K) - set absolute transposition
                 if (t.pos < data.length) {
-                    t.keyOffset = (byte) data[t.pos++]; // signed
+                    t.keyOffset = wrapSignedByte((data[t.pos++] & 0xFF) - 0x40);
                 }
                 return true;
 
@@ -170,10 +191,14 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
 
             case 0xF1: // MOD_ENV (MENV_FMP) - FM modulation envelope (2 params)
                 if (t.pos + 1 < data.length) {
-                    int envParam1 = data[t.pos++] & 0xFF;
-                    int envParam2 = data[t.pos++] & 0xFF;
-                    // Stub: modulation envelope not fully modeled yet
-                    LOGGER.fine("S3K MOD_ENV FMP: " + envParam1 + ", " + envParam2);
+                    int psgEnvId = data[t.pos++] & 0xFF;
+                    int fmEnvId = data[t.pos++] & 0xFF;
+                    t.modEnvId = (t.type == SmpsSequencer.TrackType.PSG) ? psgEnvId : fmEnvId;
+                    if (t.modEnvId == 0) {
+                        ctx.clearModulation(t);
+                    } else {
+                        t.modEnabled = true;
+                    }
                 }
                 return true;
 
@@ -184,18 +209,33 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
 
             case 0xF3: // PSG_NOISE (PNOIS_SRES) - set + reset
                 if (t.pos < data.length) {
-                    int noiseVal = data[t.pos++] & 0x0F;
-                    t.noiseMode = true;
-                    t.psgNoiseParam = noiseVal;
-                    ctx.writePsg(0xE0 | (noiseVal & 0x0F));
+                    int noiseVal = data[t.pos++] & 0xFF;
+                    if (t.type == SmpsSequencer.TrackType.PSG) {
+                        ctx.writePsg(0xDF);
+                        if (noiseVal == 0) {
+                            t.noiseMode = false;
+                            t.psgNoiseParam = 0;
+                            ctx.writePsg(0xFF);
+                        } else {
+                            int noiseReg = ((noiseVal & 0xE0) == 0xE0)
+                                    ? noiseVal
+                                    : (0xE0 | (noiseVal & 0x0F));
+                            t.noiseMode = true;
+                            t.psgNoiseParam = noiseReg & 0x0F;
+                            ctx.writePsg(noiseReg);
+                        }
+                    }
                 }
                 return true;
 
             case 0xF4: // MOD_ENV (MENV_GEN) - generic modulation envelope (1 param)
                 if (t.pos < data.length) {
-                    int envId = data[t.pos++] & 0xFF;
-                    // Stub: generic modulation envelope not fully modeled yet
-                    LOGGER.fine("S3K MOD_ENV GEN: " + envId);
+                    t.modEnvId = data[t.pos++] & 0xFF;
+                    if (t.modEnvId == 0) {
+                        ctx.clearModulation(t);
+                    } else {
+                        t.modEnabled = true;
+                    }
                 }
                 return true;
 
@@ -233,7 +273,7 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
 
             case 0xFB: // TRANSPOSE_ADD - add to transposition
                 if (t.pos < data.length) {
-                    t.keyOffset += (byte) data[t.pos++]; // signed add
+                    t.keyOffset = wrapSignedByte(t.keyOffset + (byte) data[t.pos++]); // signed 8-bit add
                 }
                 return true;
 
@@ -244,8 +284,7 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
             case 0xFD: // RAW_FREQ - set raw frequency mode
                 if (t.pos < data.length) {
                     int rawFreqVal = data[t.pos++] & 0xFF;
-                    // Stub: raw frequency mode flag
-                    LOGGER.fine("S3K RAW_FREQ: " + rawFreqVal);
+                    t.rawFreqMode = (rawFreqVal == 0x01);
                 }
                 return true;
 
@@ -463,10 +502,22 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
 
             case 0x06: // FM_VOLENV - FM volume envelope (2 params)
                 if (t.pos + 1 < data.length) {
-                    int volEnvP1 = data[t.pos++] & 0xFF;
-                    int volEnvP2 = data[t.pos++] & 0xFF;
-                    // Stub: FM volume envelope not fully modeled yet
-                    LOGGER.fine("S3K META FM_VOLENV: " + volEnvP1 + ", " + volEnvP2);
+                    int envId = data[t.pos++] & 0xFF;
+                    int opMask = data[t.pos++] & 0x0F;
+                    if (t.type == SmpsSequencer.TrackType.FM && envId != 0 && opMask != 0) {
+                        t.fmVolEnvData = ctx.getSmpsData().getPsgEnvelope(envId);
+                        t.fmVolEnvPos = 0;
+                        t.fmVolEnvValue = 0;
+                        t.fmVolEnvHold = false;
+                        t.fmVolEnvOpMask = opMask;
+                    } else {
+                        t.fmVolEnvData = null;
+                        t.fmVolEnvPos = 0;
+                        t.fmVolEnvValue = 0;
+                        t.fmVolEnvHold = true;
+                        t.fmVolEnvOpMask = 0;
+                    }
+                    ctx.refreshVolume(t);
                 }
                 break;
 
@@ -478,5 +529,19 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
                 LOGGER.warning("S3K unknown meta command: FF " + String.format("%02X", sub));
                 break;
         }
+    }
+
+    private static void applySignedFmVolumeDelta(SmpsSequencer.Track t, int delta) {
+        int updated = t.volumeOffset + delta;
+        if (updated < 0) {
+            updated = 0;
+        } else if (updated > 0x7F) {
+            updated = 0x7F;
+        }
+        t.volumeOffset = updated;
+    }
+
+    private static int wrapSignedByte(int value) {
+        return (byte) value;
     }
 }
