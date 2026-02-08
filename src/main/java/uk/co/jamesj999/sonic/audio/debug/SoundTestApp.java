@@ -2,13 +2,13 @@ package uk.co.jamesj999.sonic.audio.debug;
 
 import uk.co.jamesj999.sonic.audio.AudioBackend;
 import uk.co.jamesj999.sonic.audio.ChannelType;
+import uk.co.jamesj999.sonic.audio.GameAudioProfile;
 import uk.co.jamesj999.sonic.audio.LWJGLAudioBackend;
 import uk.co.jamesj999.sonic.audio.NullAudioBackend;
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 import uk.co.jamesj999.sonic.audio.smps.DacData;
-import uk.co.jamesj999.sonic.game.sonic2.audio.smps.Sonic2SmpsLoader;
-import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2AudioProfile;
-import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SoundTestCatalog;
+import uk.co.jamesj999.sonic.audio.smps.SmpsLoader;
+import uk.co.jamesj999.sonic.audio.smps.SmpsSequencerConfig;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.data.Rom;
@@ -17,7 +17,12 @@ import uk.co.jamesj999.sonic.data.RomManager;
 import uk.co.jamesj999.sonic.audio.driver.SmpsDriver;
 import uk.co.jamesj999.sonic.audio.smps.SmpsSequencer;
 import uk.co.jamesj999.sonic.audio.synth.Ym2612Chip;
-import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SmpsSequencerConfig;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1SoundTestCatalog;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SoundTestCatalog;
+import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioProfile;
+import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kSoundTestCatalog;
 
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -47,12 +52,14 @@ import javax.swing.BoxLayout;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.NavigableSet;
+import java.util.Set;
 import java.util.TreeSet;
 
 /**
  * Lightweight console-driven sound test runner for SMPS tracks.
+ * Supports Sonic 1, Sonic 2, and Sonic 3&amp;K ROMs.
+ *
  * Controls (stdin):
  * - n / p : next / previous song ID
  * - r : restart current song
@@ -83,23 +90,62 @@ public final class SoundTestApp {
             return;
         }
 
-        Sonic2SmpsLoader loader = new Sonic2SmpsLoader(rom);
+        GameAudioProfile profile = createProfileForGame(options.gameId);
+        SoundTestCatalog catalog = createCatalogForGame(options.gameId);
+        SmpsLoader loader = profile.createSmpsLoader(rom);
         DacData dacData = loader.loadDacData();
+        SmpsSequencerConfig seqConfig = profile.getSequencerConfig();
+
+        // Probe available SFX IDs
+        System.out.println("Probing SFX for " + catalog.getGameName() + "...");
+        TreeSet<Integer> validSfx = probeValidSfx(loader, catalog.getSfxIdBase(), catalog.getSfxIdMax());
+        System.out.println("Found " + validSfx.size() + " valid SFX.");
+
         AudioBackend backend = options.nullAudio ? new NullAudioBackend() : new LWJGLAudioBackend();
         backend.init();
-        backend.setAudioProfile(new Sonic2AudioProfile());
+        backend.setAudioProfile(profile);
         Runtime.getRuntime().addShutdownHook(new Thread(backend::destroy));
 
+        int startSongId = options.songId >= 0 ? options.songId : catalog.getDefaultSongId();
+
         if (options.interactiveWindow) {
-            runInteractiveWindow(options, loader, dacData, backend);
+            runInteractiveWindow(options, loader, dacData, backend, catalog, seqConfig, validSfx, startSongId);
         } else {
-            runConsole(options, loader, dacData, backend);
+            runConsole(options, loader, dacData, backend, catalog, startSongId);
         }
     }
 
-    private static void runInteractiveWindow(Options options, Sonic2SmpsLoader loader, DacData dacData,
-            AudioBackend backend) throws Exception {
-        InteractiveState state = new InteractiveState(options.songId, loader, dacData, backend);
+    private static GameAudioProfile createProfileForGame(String gameId) {
+        return switch (gameId) {
+            case "s1" -> new Sonic1AudioProfile();
+            case "s3k" -> new Sonic3kAudioProfile();
+            default -> new Sonic2AudioProfile();
+        };
+    }
+
+    private static SoundTestCatalog createCatalogForGame(String gameId) {
+        return switch (gameId) {
+            case "s1" -> Sonic1SoundTestCatalog.getInstance();
+            case "s3k" -> Sonic3kSoundTestCatalog.getInstance();
+            default -> Sonic2SoundTestCatalog.getInstance();
+        };
+    }
+
+    private static TreeSet<Integer> probeValidSfx(SmpsLoader loader, int sfxBase, int sfxMax) {
+        TreeSet<Integer> valid = new TreeSet<>();
+        for (int id = sfxBase; id <= sfxMax; id++) {
+            if (loader.loadSfx(id) != null) {
+                valid.add(id);
+            }
+        }
+        return valid;
+    }
+
+    private static void runInteractiveWindow(Options options, SmpsLoader loader, DacData dacData,
+            AudioBackend backend, SoundTestCatalog catalog, SmpsSequencerConfig seqConfig,
+            TreeSet<Integer> validSfx, int startSongId) throws Exception {
+        InteractiveState state = new InteractiveState(startSongId, loader, dacData, backend,
+                catalog, seqConfig, validSfx);
         SwingUtilities.invokeAndWait(() -> state.show(options.nullAudio, options.romPath));
         ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
         exec.scheduleAtFixedRate(backend::update, 0, 16, TimeUnit.MILLISECONDS);
@@ -108,16 +154,16 @@ public final class SoundTestApp {
         backend.destroy();
     }
 
-    private static void runConsole(Options options, Sonic2SmpsLoader loader, DacData dacData, AudioBackend backend)
-            throws Exception {
-        System.out.println("Sound test ready.");
+    private static void runConsole(Options options, SmpsLoader loader, DacData dacData, AudioBackend backend,
+            SoundTestCatalog catalog, int startSongId) throws Exception {
+        System.out.println("Sound test ready. [" + catalog.getGameName() + "]");
         System.out.println("ROM: " + options.romPath);
         System.out.println("Backend: " + backend.getClass().getSimpleName() + (options.nullAudio ? " (silent)" : ""));
-        printControls(options.songId);
+        printControls(startSongId);
 
-        int currentSong = options.songId;
+        int currentSong = startSongId;
         boolean speedShoes = false;
-        playSong(loader, dacData, backend, currentSong);
+        playSong(loader, dacData, backend, currentSong, catalog);
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
         boolean running = true;
@@ -136,7 +182,7 @@ public final class SoundTestApp {
                         running = false;
                         break;
                     case "r":
-                        playSong(loader, dacData, backend, currentSong);
+                        playSong(loader, dacData, backend, currentSong, catalog);
                         break;
                     case "s":
                         speedShoes = !speedShoes;
@@ -144,18 +190,18 @@ public final class SoundTestApp {
                         System.out.println("Speed shoes: " + (speedShoes ? "ON" : "OFF"));
                         break;
                     case "n":
-                        currentSong = getNextValidSong(currentSong);
-                        playSong(loader, dacData, backend, currentSong);
+                        currentSong = getNextValidSong(currentSong, catalog);
+                        playSong(loader, dacData, backend, currentSong, catalog);
                         break;
                     case "p":
-                        currentSong = getPreviousValidSong(currentSong);
-                        playSong(loader, dacData, backend, currentSong);
+                        currentSong = getPreviousValidSong(currentSong, catalog);
+                        playSong(loader, dacData, backend, currentSong, catalog);
                         break;
                     default:
                         int parsed = parseSongId(line);
                         if (parsed >= 0) {
                             currentSong = parsed;
-                            playSong(loader, dacData, backend, currentSong);
+                            playSong(loader, dacData, backend, currentSong, catalog);
                         } else {
                             System.out.println("Unrecognised command: " + line);
                             printControls(currentSong);
@@ -170,16 +216,17 @@ public final class SoundTestApp {
         System.out.println("Sound test exited.");
     }
 
-    private static void playSong(Sonic2SmpsLoader loader, DacData dacData, AudioBackend backend, int songId) {
+    private static void playSong(SmpsLoader loader, DacData dacData, AudioBackend backend,
+            int songId, SoundTestCatalog catalog) {
         int offset = loader.findMusicOffset(songId);
         AbstractSmpsData data = loader.loadMusic(songId);
         if (data == null) {
-            System.out.println(String.format("Song %s not found (offset %s).", toHex(songId), toHex(offset)));
+            System.out.println(String.format("Song %s not found.", toHex(songId)));
             return;
         }
 
         System.out.println("--------------------------------------------------");
-        String title = lookupTitle(songId);
+        String title = catalog.lookupTitle(songId);
         if (title != null) {
             System.out.println(String.format("Playing song %s (%s)", toHex(songId), title));
         } else {
@@ -219,11 +266,13 @@ public final class SoundTestApp {
     }
 
     private static class InteractiveState {
-        private final Sonic2SmpsLoader loader;
+        private final SmpsLoader loader;
         private final DacData dacData;
         private final AudioBackend backend;
+        private final SoundTestCatalog catalog;
+        private final SmpsSequencerConfig seqConfig;
         private int songId;
-        private int sfxId = 0xA0;
+        private int sfxId;
         private boolean sfxMode = false;
         private JFrame frame;
         private JLabel label;
@@ -239,24 +288,26 @@ public final class SoundTestApp {
         private final TreeSet<Integer> validSfx;
         private final Map<Integer, String> sfxNames;
 
-        InteractiveState(int songId, Sonic2SmpsLoader loader, DacData dacData, AudioBackend backend) {
+        InteractiveState(int songId, SmpsLoader loader, DacData dacData, AudioBackend backend,
+                SoundTestCatalog catalog, SmpsSequencerConfig seqConfig, TreeSet<Integer> validSfx) {
             this.songId = songId;
             this.loader = loader;
             this.dacData = dacData;
             this.backend = backend;
-            this.sfxNames = loader.getSfxList();
-            // Use available SFX IDs from cache to ensure we only list what we successfully
-            // loaded
-            this.validSfx = new TreeSet<>(loader.getAvailableSfxIds());
+            this.catalog = catalog;
+            this.seqConfig = seqConfig;
+            this.sfxNames = catalog.getSfxNames();
+            this.validSfx = validSfx;
             if (!validSfx.isEmpty()) {
                 this.sfxId = validSfx.first();
             } else {
-                System.out.println("No SFX available in cache.");
+                this.sfxId = catalog.getSfxIdBase();
+                System.out.println("No SFX available.");
             }
         }
 
         void show(boolean nullAudio, String romPath) {
-            frame = new JFrame("Sonic Sound Test");
+            frame = new JFrame(catalog.getGameName() + " Sound Test");
             frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
             frame.getContentPane().setLayout(new BorderLayout());
             JPanel topPanel = new JPanel();
@@ -278,8 +329,9 @@ public final class SoundTestApp {
             tracksPanel.add(heading);
             frame.getContentPane().add(tracksPanel, BorderLayout.CENTER);
             JLabel info = new JLabel(String.format(
-                    "ROM: %s | Backend: %s%s | Tab: Music/SFX | Up/Down change | Enter play | S Speed | Ctrl+E export WAV | Esc quit",
-                    romPath, backend.getClass().getSimpleName(), nullAudio ? " (silent)" : ""), SwingConstants.CENTER);
+                    "[%s] ROM: %s | Backend: %s%s | Tab: Music/SFX | Up/Down change | Enter play | S Speed | Ctrl+E export WAV | Esc quit",
+                    catalog.getGameName(), romPath, backend.getClass().getSimpleName(), nullAudio ? " (silent)" : ""),
+                    SwingConstants.CENTER);
             info.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
             frame.getContentPane().add(info, BorderLayout.SOUTH);
             frame.setFocusTraversalKeysEnabled(false);
@@ -318,7 +370,7 @@ public final class SoundTestApp {
                             if (sfxMode) {
                                 sfxId = getNextValidSfx(sfxId);
                             } else {
-                                songId = getNextValidSong(songId);
+                                songId = getNextValidSong(songId, catalog);
                             }
                             updateLabel();
                             break;
@@ -326,7 +378,7 @@ public final class SoundTestApp {
                             if (sfxMode) {
                                 sfxId = getPreviousValidSfx(sfxId);
                             } else {
-                                songId = getPreviousValidSong(songId);
+                                songId = getPreviousValidSong(songId, catalog);
                             }
                             updateLabel();
                             break;
@@ -396,7 +448,6 @@ public final class SoundTestApp {
         }
 
         private void playCurrent() {
-            int offset = loader.findMusicOffset(songId);
             AbstractSmpsData data = loader.loadMusic(songId);
             if (data != null) {
                 backend.playSmps(data, dacData);
@@ -424,9 +475,9 @@ public final class SoundTestApp {
                 String sfxTxt = String.format("SFX %s (%s)", toHex(sfxId), name != null ? name : "Unknown");
                 label.setText(sfxTxt);
 
-                String playingTxt = "";
+                String playingTxt;
                 if (playing && playingSongId != null) {
-                    String playingTitle = lookupTitle(playingSongId);
+                    String playingTitle = catalog.lookupTitle(playingSongId);
                     playingTxt = String.format("Playing Music: '%s' (%s)",
                             playingTitle != null ? playingTitle : "Unknown", toHex(playingSongId));
                 } else {
@@ -441,7 +492,9 @@ public final class SoundTestApp {
             AbstractSmpsData data = loader.loadMusic(songId);
             StringBuilder sb = new StringBuilder();
             sb.append("Song ").append(toHex(songId));
-            sb.append(" | Offset ").append(toHex(offset));
+            if (offset >= 0) {
+                sb.append(" | Offset ").append(toHex(offset));
+            }
             if (data != null) {
                 sb.append(" | Tempo ").append(data.getTempo());
                 sb.append(" | Div ").append(data.getDividingTiming());
@@ -451,9 +504,9 @@ public final class SoundTestApp {
                 sb.append(" | Not found");
             }
             label.setText(sb.toString());
-            String selectedTitle = lookupTitle(songId);
+            String selectedTitle = catalog.lookupTitle(songId);
             if (playing && playingSongId != null) {
-                String playingTitle = lookupTitle(playingSongId);
+                String playingTitle = catalog.lookupTitle(playingSongId);
                 String txt = String.format("Playing: '%s' (%s)", playingTitle != null ? playingTitle : "Unknown Track",
                         toHex(playingSongId));
                 if (speedShoes) {
@@ -513,11 +566,6 @@ public final class SoundTestApp {
                         };
                         boolean muted = backend.isMuted(ct, t.channelId);
                         boolean soloed = backend.isSoloed(ct, t.channelId);
-
-                        // If type is DAC, channelId is 5, but logic handles it.
-                        // However, if SMPS says type=FM ch=5, we treat it as FM in UI label, but
-                        // backend uses index 5.
-                        // Backend isMuted(FM, 5) works because FM case handles 0-6.
 
                         String statusMarker = "";
                         if (muted)
@@ -582,7 +630,7 @@ public final class SoundTestApp {
                 exportData = loader.loadSfx(sfxId);
             } else {
                 exportId = songId;
-                String title = lookupTitle(songId);
+                String title = catalog.lookupTitle(songId);
                 exportName = title != null ? title.replace(" ", "_") : "Music_" + toHex(songId);
                 isSfxExport = false;
                 exportData = loader.loadMusic(songId);
@@ -652,7 +700,7 @@ public final class SoundTestApp {
             driver.setRegion(SmpsSequencer.Region.NTSC);
             driver.setDacInterpolate(true);
 
-            SmpsSequencer seq = new SmpsSequencer(data, dacSamples, driver, Sonic2SmpsSequencerConfig.CONFIG);
+            SmpsSequencer seq = new SmpsSequencer(data, dacSamples, driver, seqConfig);
             seq.setSampleRate(driver.getOutputSampleRate());
             if (isSfx) {
                 seq.setSfxMode(true);
@@ -691,7 +739,6 @@ public final class SoundTestApp {
 
                 // Calculate sizes
                 int dataSize = totalSamples * 2 * 2; // samples * 2 channels * 2 bytes per sample
-                int fileSize = dataSize + 36;
 
                 // Go back and write proper WAV header
                 raf.seek(0);
@@ -749,31 +796,27 @@ public final class SoundTestApp {
 
     private static void printUsage() {
         System.out.println("Sound test usage:");
-        System.out.println("  mvn -Psoundtest exec:java [-Dexec.args=\"--rom <path> --song <hex> --null-audio\"]");
+        System.out.println("  mvn -Psoundtest exec:java [-Dexec.args=\"--game <s1|s2|s3k> --rom <path> --song <hex> --null-audio\"]");
         System.out.println("Args:");
-        System.out.println("  --rom <path>      Path to Sonic 2 ROM (defaults to config ROM)");
-        System.out.println("  --song <id>       Song ID in hex or decimal (default 0x8C)");
+        System.out.println("  --game <id>       Game: s1 (Sonic 1), s2 (Sonic 2), s3k (Sonic 3&K). Defaults to config DEFAULT_ROM.");
+        System.out.println("  --rom <path>      Path to ROM file (defaults to config ROM for selected game)");
+        System.out.println("  --song <id>       Song ID in hex or decimal (default varies by game)");
         System.out.println("  --null-audio      Run without JOAL (parsing only)");
         System.out.println("  --help            Show this help");
     }
 
     private static final class Options {
         final String romPath;
+        final String gameId;
         final int songId;
         final boolean nullAudio;
         final boolean help;
         final boolean interactiveWindow;
 
-        private Options(String romPath, int songId, boolean nullAudio, boolean help) {
+        private Options(String romPath, String gameId, int songId, boolean nullAudio, boolean help,
+                boolean interactiveWindow) {
             this.romPath = romPath;
-            this.songId = songId;
-            this.nullAudio = nullAudio;
-            this.help = help;
-            this.interactiveWindow = false;
-        }
-
-        private Options(String romPath, int songId, boolean nullAudio, boolean help, boolean interactiveWindow) {
-            this.romPath = romPath;
+            this.gameId = gameId;
             this.songId = songId;
             this.nullAudio = nullAudio;
             this.help = help;
@@ -781,10 +824,11 @@ public final class SoundTestApp {
         }
 
         static Options fromArgs(String[] args) {
-            String romPath = RomManager.resolveRomForGame(
-                    SonicConfigurationService.getInstance()
-                            .getString(SonicConfiguration.DEFAULT_ROM));
-            int songId = 0x8C; // Chemical Plant default for debugging
+            String configGame = SonicConfigurationService.getInstance()
+                    .getString(SonicConfiguration.DEFAULT_ROM);
+            String gameId = configGame != null ? configGame.toLowerCase(Locale.ROOT) : "s2";
+            String romPath = null;
+            int songId = -1; // -1 means "use catalog default"
             boolean nullAudio = false;
             boolean help = false;
             boolean forceConsole = false;
@@ -792,6 +836,11 @@ public final class SoundTestApp {
             for (int i = 0; i < args.length; i++) {
                 String arg = args[i];
                 switch (arg) {
+                    case "--game":
+                        if (i + 1 < args.length) {
+                            gameId = args[++i].toLowerCase(Locale.ROOT);
+                        }
+                        break;
                     case "--rom":
                         if (i + 1 < args.length) {
                             romPath = args[++i];
@@ -816,7 +865,9 @@ public final class SoundTestApp {
                         forceConsole = true;
                         break;
                     default:
-                        if (arg.startsWith("--rom=")) {
+                        if (arg.startsWith("--game=")) {
+                            gameId = arg.substring("--game=".length()).toLowerCase(Locale.ROOT);
+                        } else if (arg.startsWith("--rom=")) {
                             romPath = arg.substring("--rom=".length());
                         } else if (arg.startsWith("--song=")) {
                             int parsed = parseSongId(arg.substring("--song=".length()));
@@ -831,17 +882,19 @@ public final class SoundTestApp {
                         break;
                 }
             }
+
+            // Resolve ROM path if not explicitly set
+            if (romPath == null) {
+                romPath = RomManager.resolveRomForGame(gameId);
+            }
+
             boolean interactive = args.length == 0 || !forceConsole;
-            return new Options(romPath, songId, nullAudio, help, interactive);
+            return new Options(romPath, gameId, songId, nullAudio, help, interactive);
         }
     }
 
-    private static String lookupTitle(int songId) {
-        return Sonic2SoundTestCatalog.lookupTitle(songId);
-    }
-
-    private static int getNextValidSong(int current) {
-        NavigableSet<Integer> valid = Sonic2SoundTestCatalog.getValidSongs();
+    private static int getNextValidSong(int current, SoundTestCatalog catalog) {
+        NavigableSet<Integer> valid = catalog.getValidSongs();
         Integer next = valid.higher(current);
         if (next != null) {
             return next;
@@ -849,8 +902,8 @@ public final class SoundTestApp {
         return valid.first();
     }
 
-    private static int getPreviousValidSong(int current) {
-        NavigableSet<Integer> valid = Sonic2SoundTestCatalog.getValidSongs();
+    private static int getPreviousValidSong(int current, SoundTestCatalog catalog) {
+        NavigableSet<Integer> valid = catalog.getValidSongs();
         Integer prev = valid.lower(current);
         if (prev != null) {
             return prev;
