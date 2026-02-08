@@ -629,19 +629,20 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
 
     /**
      * Parses music bank and pointer tables from the S3 standalone Z80 driver.
-     * The S3 driver is stored uncompressed at ROM {@code 0x0E6000} in the
-     * combined S3&K ROM. Its tables use the same format as the S&K driver
+     * The S3 driver is stored uncompressed at ROM {@code 0x2E6000} in the
+     * combined S3&K ROM (S3 standalone offset 0x0E6000 + S3 ROM offset 0x200000).
+     * Its tables use the same format as the S&K driver
      * but at different Z80 RAM offsets and with 50 entries instead of 51.
      */
     private void parseS3MusicTables() {
         int driverSize = S3_Z80_MUSIC_PTR_LIST + (S3_Z80_MUSIC_COUNT * 2) + 16;
 
         try {
-            if (S3_Z80_DRIVER_ADDR + driverSize > rom.getSize()) {
+            if (S3_Z80_DRIVER_ADDR + S3_ROM_OFFSET_IN_COMBINED + driverSize > rom.getSize()) {
                 LOGGER.warning("S3 driver region exceeds ROM size, skipping S3 table parsing.");
                 return;
             }
-            byte[] s3Driver = rom.readBytes(S3_Z80_DRIVER_ADDR, driverSize);
+            byte[] s3Driver = rom.readBytes(S3_Z80_DRIVER_ADDR + S3_ROM_OFFSET_IN_COMBINED, driverSize);
 
             // Parse S3 music bank list at Z80 offset 0x0B48 (1-byte entries).
             // S3 uses bankswitchToMusicS3: only the low 4 bits of the bank byte
@@ -669,7 +670,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
             logS3SkDifferences();
 
             LOGGER.info("Parsed S3 music tables: " + S3_Z80_MUSIC_COUNT + " entries from ROM 0x"
-                    + Integer.toHexString(S3_Z80_DRIVER_ADDR));
+                    + Integer.toHexString(S3_Z80_DRIVER_ADDR + S3_ROM_OFFSET_IN_COMBINED));
         } catch (IOException e) {
             LOGGER.warning("Failed to read S3 driver data: " + e.getMessage());
         }
