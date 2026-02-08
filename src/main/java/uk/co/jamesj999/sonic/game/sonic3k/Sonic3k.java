@@ -163,9 +163,19 @@ public class Sonic3k extends Game {
         LevelResourcePlan.Builder planBuilder = LevelResourcePlan.builder();
 
         // Patterns (KosM)
+        // Read primary art's KosinskiM header to get its uncompressed size.
+        // The original ROM loads secondary art at VRAM offset = primary art uncompressed size
+        // (i.e. concatenated after primary art, not overlaid at offset 0).
+        int primaryArtSize = rom.read16BitAddr(primaryArtAddr);
+        LOG.info(String.format("  Primary art KosinskiM header: uncompressed size = 0x%04X (%d bytes, %d tiles)",
+                primaryArtSize, primaryArtSize, primaryArtSize / 32));
+
         planBuilder.addPatternOp(LoadOp.kosinskiMBase(primaryArtAddr));
         if (secondaryArtAddr != primaryArtAddr && secondaryArtAddr > 0) {
-            planBuilder.addPatternOp(LoadOp.kosinskiMOverlay(secondaryArtAddr, 0));
+            int secondaryArtSize = rom.read16BitAddr(secondaryArtAddr);
+            LOG.info(String.format("  Secondary art KosinskiM header: uncompressed size = 0x%04X (%d bytes, %d tiles)",
+                    secondaryArtSize, secondaryArtSize, secondaryArtSize / 32));
+            planBuilder.addPatternOp(LoadOp.kosinskiMOverlay(secondaryArtAddr, primaryArtSize));
         }
 
         // Blocks (16x16, Kosinski) - "chunks" in engine terminology
@@ -182,7 +192,7 @@ public class Sonic3k extends Game {
 
         // Collision indices (loaded directly, not through resource plan)
         // Returns [primaryAddr, secondaryAddr, interleavedFlag]
-        int[] collisionInfo = getCollisionAddresses(zone);
+        int[] collisionInfo = getCollisionAddresses(zone, act);
         int primaryCollisionAddr = collisionInfo[0];
         int secondaryCollisionAddr = collisionInfo[1];
         boolean interleavedCollision = collisionInfo[2] != 0;
@@ -238,41 +248,45 @@ public class Sonic3k extends Game {
     /**
      * Gets the primary and secondary collision data addresses for a zone.
      *
-     * <p>SolidIndexes entries are 32-bit values with two flags:
+     * <p>SolidIndexes entries are 32-bit pointers to collision index data, one per act
+     * (indexed as zone*2+act). The format is determined by address comparison, matching
+     * the original LoadSolids routine (sonic3k.asm:9549-9558):
      * <ul>
-     *   <li>Bit 31: Noninterleaved_Solid_Flag (set for S3K zones, clear for SK zones)</li>
-     *   <li>Bit 0: +1 offset baked into S3K zone entries</li>
+     *   <li>Address >= S3_LEVEL_SOLID_DATA (0x260000): non-interleaved (S3 zones)</li>
+     *   <li>Address < S3_LEVEL_SOLID_DATA: interleaved (SK zones)</li>
      * </ul>
      *
-     * <p>Non-interleaved (bit 31 set): primary 0x600 bytes, then secondary 0x600 bytes.
-     * Interleaved (bit 31 clear): primary and secondary alternate bytes; secondary = primary + 1.
+     * <p>Non-interleaved: primary 0x600 bytes, then secondary 0x600 bytes.
+     * Interleaved: primary and secondary alternate bytes in 0xC00 block.
      *
      * @return int[3]: [primaryCollisionAddr, secondaryCollisionAddr, interleavedFlag (0 or 1)]
      */
-    private int[] getCollisionAddresses(int zone) throws IOException {
+    private int[] getCollisionAddresses(int zone, int act) throws IOException {
         int solidIndexesAddr = Sonic3kConstants.SOLID_INDEXES_ADDR;
         if (solidIndexesAddr == 0) {
             LOG.warning("SolidIndexes address not set - no collision data");
             return new int[]{0, 0, 0};
         }
 
-        // SolidIndexes has one entry per zone (not per act)
-        int entryAddr = solidIndexesAddr + zone * Sonic3kConstants.SOLID_INDEXES_ENTRY_SIZE;
+        // SolidIndexes has one entry per act: index = zone*2 + act
+        int entryAddr = solidIndexesAddr + (zone * 2 + act) * Sonic3kConstants.SOLID_INDEXES_ENTRY_SIZE;
         int rawPtr = rom.read32BitAddr(entryAddr);
 
-        boolean nonInterleaved = (rawPtr & 0x80000000) != 0;
-        // Strip bit 31 and bit 0 to get clean base address
-        int collisionBase = rawPtr & 0x7FFFFFFE;
+        // Mask to 24-bit address (strip bit 31 for S3Complete compatibility)
+        int address = rawPtr & 0x00FFFFFF;
 
-        LOG.info(String.format("  Collision: raw=0x%08X base=0x%06X nonInterleaved=%b",
-                rawPtr, collisionBase, nonInterleaved));
+        // Format detection by address comparison (matches original LoadSolids routine)
+        boolean nonInterleaved = (address >= Sonic3kConstants.S3_LEVEL_SOLID_DATA);
+
+        LOG.info(String.format("  Collision: raw=0x%08X addr=0x%06X nonInterleaved=%b",
+                rawPtr, address, nonInterleaved));
 
         if (nonInterleaved) {
-            // S3K zones: primary 0x600 bytes followed by secondary 0x600 bytes
-            return new int[]{collisionBase, collisionBase + Sonic3kConstants.COLLISION_INDEX_SIZE, 0};
+            // S3 zones: primary 0x600 bytes followed by secondary 0x600 bytes
+            return new int[]{address, address + Sonic3kConstants.COLLISION_INDEX_SIZE, 0};
         } else {
             // SK zones: interleaved format - both layers in same 0xC00 byte block
-            return new int[]{collisionBase, collisionBase + 1, 1};
+            return new int[]{address, address + 1, 1};
         }
     }
 

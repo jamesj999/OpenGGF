@@ -65,13 +65,19 @@ public class Sonic3kConstants {
     public static final int LEVEL_LAYOUT_HEADER_SIZE = 8;
 
     // ===== Collision =====
-    // SolidIndexes: 4 bytes per act, dc.l pointing to collision index data
-    // Pointer flags: bit 0 set = interleaved format (primary/secondary alternating bytes)
-    //                bit 0 clear = non-interleaved (primary block then secondary block)
-    // Collision index block sizes: 0x600 bytes primary + 0x600 bytes secondary
+    // SolidIndexes: 4 bytes per act (indexed as zone*2+act), dc.l pointing to collision index data
+    // Format detection: addresses >= S3_LEVEL_SOLID_DATA are non-interleaved (S3 zones),
+    //                   addresses < S3_LEVEL_SOLID_DATA are interleaved (SK zones)
+    // Non-interleaved: primary 0x600 bytes, then secondary 0x600 bytes
+    // Interleaved: primary/secondary alternate bytes in 0xC00 block
     public static int SOLID_INDEXES_ADDR = 0x098100;
     public static final int SOLID_INDEXES_ENTRY_SIZE = 4;
     public static final int COLLISION_INDEX_SIZE = 0x600; // per layer (primary or secondary)
+
+    // Address threshold for collision format detection (from sonic3k.asm LoadSolids routine)
+    // S3 zones have collision data at >= this address (non-interleaved)
+    // SK zones have collision data below this address (interleaved)
+    public static final int S3_LEVEL_SOLID_DATA = 0x260000;
 
     // Height maps and angles
     // AngleArray: 256 bytes of tile slope angles

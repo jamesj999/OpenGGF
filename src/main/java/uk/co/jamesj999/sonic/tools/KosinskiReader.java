@@ -163,7 +163,7 @@ public class KosinskiReader {
 
                 // Copy the matched sequence from the backsearch buffer
                 for (int i = 0; i < count; i++) {
-                    byte value = backsearchBuffer[(state.writePosition - distance) % SLIDING_WINDOW_SIZE];
+                    byte value = backsearchBuffer[Math.floorMod(state.writePosition - distance, SLIDING_WINDOW_SIZE)];
                     writeByte.write(value);
                 }
             }

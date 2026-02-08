@@ -508,11 +508,18 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
                         int hwCh = t.channelId;
                         int port = (hwCh < 3) ? 0 : 1;
                         int ch = hwCh % 3;
+                        // Read and store SSG-EG values for persistence across voice refreshes.
+                        // setInstrument() unconditionally clears 0x90-0x9C; storing them in
+                        // the track allows refreshInstrument() to restore them.
+                        t.ssgEg[0] = data[t.pos++] & 0xFF;
+                        t.ssgEg[1] = data[t.pos++] & 0xFF;
+                        t.ssgEg[2] = data[t.pos++] & 0xFF;
+                        t.ssgEg[3] = data[t.pos++] & 0xFF;
                         // Write SSG-EG for all 4 operators (registers 0x90-0x9C)
-                        ctx.writeFm(port, 0x90 + ch, data[t.pos++] & 0xFF);
-                        ctx.writeFm(port, 0x94 + ch, data[t.pos++] & 0xFF);
-                        ctx.writeFm(port, 0x98 + ch, data[t.pos++] & 0xFF);
-                        ctx.writeFm(port, 0x9C + ch, data[t.pos++] & 0xFF);
+                        ctx.writeFm(port, 0x90 + ch, t.ssgEg[0]);
+                        ctx.writeFm(port, 0x94 + ch, t.ssgEg[1]);
+                        ctx.writeFm(port, 0x98 + ch, t.ssgEg[2]);
+                        ctx.writeFm(port, 0x9C + ch, t.ssgEg[3]);
                     } else {
                         // Not an FM track, just skip the 4 bytes
                         t.pos += 4;
