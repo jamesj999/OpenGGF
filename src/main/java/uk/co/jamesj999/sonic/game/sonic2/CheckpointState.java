@@ -41,12 +41,21 @@ public class CheckpointState implements RespawnState {
      * Save state from a checkpoint activation.
      */
     public void saveFromCheckpoint(CheckpointObjectInstance checkpoint, AbstractPlayableSprite player) {
-        this.lastCheckpointIndex = checkpoint.getCheckpointIndex();
-        this.savedX = checkpoint.getCenterX();
-        this.savedY = checkpoint.getCenterY();
-        this.cameraLock = checkpoint.hasCameraLockFlag();
+        saveCheckpoint(checkpoint.getCheckpointIndex(),
+                checkpoint.getCenterX(), checkpoint.getCenterY(),
+                checkpoint.hasCameraLockFlag());
+    }
 
-        // Save camera position
+    /**
+     * Save checkpoint state from raw values.
+     * Game-agnostic alternative to saveFromCheckpoint that doesn't depend on a specific object class.
+     */
+    public void saveCheckpoint(int checkpointIndex, int x, int y, boolean cameraLockFlag) {
+        this.lastCheckpointIndex = checkpointIndex;
+        this.savedX = x;
+        this.savedY = y;
+        this.cameraLock = cameraLockFlag;
+
         Camera camera = Camera.getInstance();
         this.savedCameraX = camera.getX();
         this.savedCameraY = camera.getY();

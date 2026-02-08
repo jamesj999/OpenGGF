@@ -1,27 +1,55 @@
 package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
+import uk.co.jamesj999.sonic.level.objects.ObjectFactory;
 import uk.co.jamesj999.sonic.level.objects.ObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.objects.PlaceholderObjectInstance;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * Object registry for Sonic the Hedgehog 1.
- * Minimal implementation - all objects return PlaceholderObjectInstance for now.
+ * Uses factory-based registration following the Sonic 2 pattern.
  */
 public class Sonic1ObjectRegistry implements ObjectRegistry {
+    private static final Logger LOGGER = Logger.getLogger(Sonic1ObjectRegistry.class.getName());
+
+    private final Map<Integer, ObjectFactory> factories = new HashMap<>();
+    private boolean loaded;
+
+    private final ObjectFactory defaultFactory = (spawn, registry) ->
+            new PlaceholderObjectInstance(spawn, registry.getPrimaryName(spawn.objectId()));
 
     @Override
     public ObjectInstance create(ObjectSpawn spawn) {
-        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId()));
+        ensureLoaded();
+        int id = spawn.objectId();
+        ObjectFactory factory = factories.getOrDefault(id, defaultFactory);
+        return factory.create(spawn, this);
     }
 
     @Override
     public void reportCoverage(List<ObjectSpawn> spawns) {
         // No-op for now
+    }
+
+    private void ensureLoaded() {
+        if (loaded) {
+            return;
+        }
+        loaded = true;
+        registerDefaultFactories();
+        LOGGER.fine("Sonic1ObjectRegistry loaded with " + factories.size() + " factories.");
+    }
+
+    private void registerDefaultFactories() {
+        factories.put(Sonic1ObjectIds.LAMPPOST,
+                (spawn, registry) -> new Sonic1LamppostObjectInstance(spawn));
     }
 
     @Override

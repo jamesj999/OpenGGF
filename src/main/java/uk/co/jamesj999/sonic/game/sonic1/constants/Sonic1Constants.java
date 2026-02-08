@@ -167,4 +167,7 @@ public final class Sonic1Constants {
 
     // Nem_Ring: Nemesis-compressed ring art (8 frames: 4 spin + 4 sparkle)
     public static final int ART_NEM_RING_ADDR = 0x39A0E;
+
+    // Nem_Lamp: Nemesis-compressed lamppost art (10 tiles: pole, blue ball, red ball)
+    public static final int ART_NEM_LAMPPOST_ADDR = 0x3AE64;
 }
