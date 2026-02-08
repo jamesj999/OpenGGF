@@ -859,20 +859,32 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
             initSpriteRenderers(gm);
         }
 
-        // Render Plane A (title logo) - full height, no split needed
+        // Render with the same Plane A split as the normal title screen draw():
+        // rows 0-8 behind Sonic, rows 9+ in front. This replicates the VDP
+        // sprite line limiter (M_PSB_Limiter) masking effect.
+
+        // Plane A upper portion (behind Sonic)
         gm.beginPatternBatch();
-        renderPlaneA(gm, 0, dataLoader.getPlaneAHeight());
+        renderPlaneA(gm, 0, PLANE_A_SPLIT_ROW);
         gm.flushPatternBatch();
         gm.flushScreenSpace();
 
-        // Render Sonic sprite (frozen at current position/frame)
+        // Sonic sprite frozen at whatever position/frame he was on
+        // when the user pressed Start. The sonicRoutine >= 4 guard matches
+        // the normal draw() — Sonic is invisible during the initial delay.
         gm.beginPatternBatch();
-        if (sonicSpriteRenderer != null && sonicSpriteRenderer.isReady()) {
+        if (sonicRoutine >= 4 && sonicSpriteRenderer != null && sonicSpriteRenderer.isReady()) {
             int screenX = SONIC_X - 128;
             int screenY = sonicScreenY - 128;
             sonicSpriteRenderer.drawFrameIndex(sonicAnimFrame, screenX, screenY);
         }
         gm.flushPatternBatch();
+
+        // Plane A lower portion (in front of Sonic)
+        gm.beginPatternBatch();
+        renderPlaneA(gm, PLANE_A_SPLIT_ROW, dataLoader.getPlaneAHeight());
+        gm.flushPatternBatch();
+        gm.flushScreenSpace();
 
         // TM symbol
         gm.beginPatternBatch();
