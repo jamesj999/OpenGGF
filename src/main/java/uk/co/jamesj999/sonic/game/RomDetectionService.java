@@ -3,6 +3,7 @@ package uk.co.jamesj999.sonic.game;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.sonic1.Sonic1RomDetector;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2RomDetector;
+import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kRomDetector;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -46,6 +47,10 @@ public class RomDetectionService {
      * Called during initialization.
      */
     private void registerBuiltInDetectors() {
+        RomDetector sonic3kDetector = new Sonic3kRomDetector();
+        registerDetector(sonic3kDetector);
+        LOGGER.fine("Registered Sonic3kRomDetector");
+
         RomDetector sonic1Detector = new Sonic1RomDetector();
         registerDetector(sonic1Detector);
         LOGGER.fine("Registered Sonic1RomDetector");
