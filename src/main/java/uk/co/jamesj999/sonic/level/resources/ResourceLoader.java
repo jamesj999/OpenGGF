@@ -137,6 +137,7 @@ public class ResourceLoader {
     private byte[] decompress(LoadOp op) throws IOException {
         return switch (op.compressionType()) {
             case KOSINSKI -> decompressKosinski(op.romAddr());
+            case KOSINSKI_MODULED -> decompressKosinskiModuled(op.romAddr());
             case NEMESIS -> decompressNemesis(op.romAddr());
             case UNCOMPRESSED -> throw new UnsupportedOperationException(
                     "Uncompressed loading requires a size parameter. Use loadUncompressed() instead.");
@@ -150,6 +151,18 @@ public class ResourceLoader {
         FileChannel channel = rom.getFileChannel();
         channel.position(romAddr);
         return KosinskiReader.decompress(channel, KOS_DEBUG_LOG);
+    }
+
+    /**
+     * Decompresses Kosinski Moduled data from the specified ROM address.
+     * KosM data has a 2-byte BE header giving the total uncompressed size,
+     * followed by standard Kosinski modules at 16-byte aligned boundaries.
+     */
+    private byte[] decompressKosinskiModuled(int romAddr) throws IOException {
+        // Read enough data for decompression - KosM data can be large
+        // We read a generous chunk since we don't know the compressed size upfront
+        byte[] romData = rom.readBytes(romAddr, 0x10000); // 64KB should be enough for any single KosM block
+        return KosinskiReader.decompressModuled(romData, 0);
     }
 
     /**

@@ -130,11 +130,13 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
 
     // Speed-up tempos and channel orders are game/driver-specific (configurable).
 
-    // F-Num table for Octave 4
-    // Calculated using Z80 formula: round(freq * 1024 * 1024 * 2 / FM_Sample_Rate)
-    // where FM_Sample_Rate = 53267 Hz (NTSC: 7670454 / 144)
-    private static final int[] FNUM_TABLE = {
+    // DEF_FMFREQ_68K - S1/S2 68K driver (FMBaseNote = B, FMBaseOctave = -1)
+    private static final int[] FNUM_TABLE_68K = {
             606, 644, 683, 723, 766, 813, 860, 911, 965, 1023, 1084, 1148
+    };
+    // DEF_FMFREQ_Z80 - S3K Z80 driver (FMBaseNote = C, FMBaseOctave = 0)
+    private static final int[] FNUM_TABLE_Z80 = {
+            644, 683, 723, 766, 813, 860, 911, 965, 1023, 1084, 1148, 1216
     };
     // SMPSPlay DEF_PSGFREQ_68K table (register values). Slice from DEF_PSGFREQ_PRE
     // starting at index 12 (count 70).
@@ -995,7 +997,14 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             int add = (t.type == TrackType.PSG) ? fadeState.addPsg : fadeState.addFm;
             int change = add * dir;
 
+            int prevOffset = t.volumeOffset;
             t.volumeOffset += change;
+            if (fadeState.fadeOut) {
+                // SMPSPlay smps.c:3467-3476 - clamp on signed overflow (bit-7 toggle)
+                if ((t.volumeOffset & 0x80) != 0 && (prevOffset & 0x80) == 0) {
+                    t.volumeOffset = 0x7F;
+                }
+            }
             refreshVolume(t);
         }
     }
@@ -1456,6 +1465,13 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         return scaled;
     }
 
+    private int[] getFmFreqTable() {
+        if (config.getVolMode() == SmpsSequencerConfig.VolMode.BIT7) {
+            return FNUM_TABLE_Z80;
+        }
+        return FNUM_TABLE_68K;
+    }
+
     private int[] getPsgFreqTable() {
         if (config.getVolMode() == SmpsSequencerConfig.VolMode.BIT7) {
             return PSG_FREQ_TABLE_Z80_T2;
@@ -1537,7 +1553,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             int port = (hwCh < 3) ? 0 : 1;
             int ch = (hwCh % 3);
 
-            int fnum = FNUM_TABLE[noteIdx];
+            int fnum = getFmFreqTable()[noteIdx];
             int block = octave;
 
             if (block > 7) {
@@ -2048,11 +2064,13 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 mask = ALGO_OUT_MASK[algo];
             }
 
+            boolean bit7Mode = config.getVolMode() == SmpsSequencerConfig.VolMode.BIT7;
             for (int op = 0; op < 4; op++) {
                 if ((mask & (1 << op)) != 0) {
                     int idx = tlBase + opMap[op];
+                    int bit7 = bit7Mode ? (voice[idx] & 0x80) : 0; // preserve carrier marker in S3K BIT7 mode only
                     int tl = computeFmTotalLevel(t, voice[idx] & 0x7F, op);
-                    voice[idx] = (byte) tl;
+                    voice[idx] = (byte) (tl | bit7);
                 }
             }
         }

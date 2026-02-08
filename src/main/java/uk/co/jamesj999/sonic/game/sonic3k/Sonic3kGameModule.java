@@ -22,18 +22,20 @@ import uk.co.jamesj999.sonic.game.ZoneRegistry;
 import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
 import uk.co.jamesj999.sonic.game.sonic2.LevelGamestate;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioProfile;
+import uk.co.jamesj999.sonic.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
 import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
 import uk.co.jamesj999.sonic.level.objects.PlaneSwitcherConfig;
 import uk.co.jamesj999.sonic.level.objects.TouchResponseTable;
 
 /**
- * Minimal GameModule stub for Sonic 3 &amp; Knuckles.
+ * GameModule for Sonic 3 &amp; Knuckles.
  *
- * <p>Currently only provides the audio profile for sound test functionality.
- * Other providers return null or minimal stubs until S3K gameplay is implemented.
+ * <p>Provides audio, zone registry, scroll handlers, and level loading.
+ * Phase 1: terrain/collision only. Objects, rings, and zone features are deferred.
  */
 public class Sonic3kGameModule implements GameModule {
     private final GameAudioProfile audioProfile = new Sonic3kAudioProfile();
+    private Sonic3kScrollHandlerProvider scrollHandlerProvider;
 
     @Override
     public String getIdentifier() {
@@ -42,8 +44,13 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public Game createGame(Rom rom) {
-        // S3K gameplay not yet implemented
-        return null;
+        try {
+            return new Sonic3k(rom);
+        } catch (java.io.IOException e) {
+            java.util.logging.Logger.getLogger(Sonic3kGameModule.class.getName())
+                    .severe("Failed to create S3K game: " + e.getMessage());
+            return null;
+        }
     }
 
     @Override
@@ -93,7 +100,7 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public ZoneRegistry getZoneRegistry() {
-        return null;
+        return Sonic3kZoneRegistry.getInstance();
     }
 
     @Override
@@ -108,7 +115,10 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public ScrollHandlerProvider getScrollHandlerProvider() {
-        return null;
+        if (scrollHandlerProvider == null) {
+            scrollHandlerProvider = new Sonic3kScrollHandlerProvider();
+        }
+        return scrollHandlerProvider;
     }
 
     @Override

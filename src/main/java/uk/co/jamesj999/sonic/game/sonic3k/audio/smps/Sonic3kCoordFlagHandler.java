@@ -140,6 +140,7 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
                         }
                         t.volumeOffset = updated;
                         t.envAtRest = false;
+                        if (t.envPos > 0) t.envPos--; // SMPSPlay smps_commands.c:1890 VolEnvIdx--
                         ctx.refreshVolume(t);
                     }
                 }
