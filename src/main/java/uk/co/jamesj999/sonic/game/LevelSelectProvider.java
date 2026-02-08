@@ -99,4 +99,14 @@ public interface LevelSelectProvider {
      * Gets the current sound test value.
      */
     int getSoundTestValue();
+
+    /**
+     * Initializes the level select screen when transitioning from the title screen.
+     * Unlike {@link #initialize()}, this does not restart music (it continues
+     * playing from the title screen) and performs no fade transition.
+     * <p>Default implementation delegates to {@link #initialize()}.
+     */
+    default void initializeFromTitleScreen() {
+        initialize();
+    }
 }

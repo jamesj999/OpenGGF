@@ -68,4 +68,23 @@ public interface TitleScreenProvider {
      * Returns true if the title screen is active (not inactive).
      */
     boolean isActive();
+
+    /**
+     * Returns true if this title screen supports rendering as a frozen background
+     * behind the level select overlay (like Sonic 1, where the title logo and Sonic
+     * sprite remain visible with a brown palette while the level select text overlays).
+     */
+    default boolean supportsLevelSelectOverlay() {
+        return false;
+    }
+
+    /**
+     * Renders the title screen foreground elements (logo, sprites) without
+     * the scrolling background, for use as a frozen backdrop behind the level select.
+     * <p>The caller is responsible for uploading the level select palette before
+     * calling this, so the art appears with the appropriate tint.
+     */
+    default void drawFrozenForLevelSelect() {
+        // Default: no-op (Sonic 2 etc. have a completely different level select)
+    }
 }

@@ -824,4 +824,59 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
     public boolean isActive() {
         return state != State.INACTIVE;
     }
+
+    @Override
+    public boolean supportsLevelSelectOverlay() {
+        return true;
+    }
+
+    /**
+     * Renders the title screen foreground art (logo, Sonic sprite, TM) without
+     * the scrolling GHZ background.
+     *
+     * <p>Used by the Sonic 1 level select to display the frozen title screen art
+     * behind the level select text. The caller must upload the level select palette
+     * to the GPU before calling this, so the art appears with the brown/sepia tint
+     * (matching the original game's Pal_LevelSel behaviour).
+     *
+     * <p>From the disassembly: the original game simply loads Pal_LevelSel and
+     * clears the BG VRAM plane. The Plane A tiles and sprites remain in VRAM
+     * and are recoloured by the new palette.
+     */
+    @Override
+    public void drawFrozenForLevelSelect() {
+        if (!dataLoader.isDataLoaded()) {
+            return;
+        }
+
+        GraphicsManager gm = GraphicsManager.getInstance();
+
+        // Cache patterns to GPU (NOT palettes - level select palette is already active)
+        dataLoader.cacheForegroundToGpu();
+        dataLoader.cacheTmToGpu();
+
+        if (!spritesInitialized) {
+            initSpriteRenderers(gm);
+        }
+
+        // Render Plane A (title logo) - full height, no split needed
+        gm.beginPatternBatch();
+        renderPlaneA(gm, 0, dataLoader.getPlaneAHeight());
+        gm.flushPatternBatch();
+        gm.flushScreenSpace();
+
+        // Render Sonic sprite (frozen at current position/frame)
+        gm.beginPatternBatch();
+        if (sonicSpriteRenderer != null && sonicSpriteRenderer.isReady()) {
+            int screenX = SONIC_X - 128;
+            int screenY = sonicScreenY - 128;
+            sonicSpriteRenderer.drawFrameIndex(sonicAnimFrame, screenX, screenY);
+        }
+        gm.flushPatternBatch();
+
+        // TM symbol
+        gm.beginPatternBatch();
+        drawTMSymbol(gm);
+        gm.flushPatternBatch();
+    }
 }
