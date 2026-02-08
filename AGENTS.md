@@ -52,7 +52,7 @@ The project is in an **alpha** state. Core systems are functional with 291 passi
 *   **Entry point:** `uk.co.jamesj999.sonic.Engine` (declared in the manifest). A `main` method creates a GLFW window with a manual timing game loop.
 *   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 4).
 *   **Run:** `java -jar target/sonic-engine-0.05-BETA-jar-with-dependencies.jar`.
-*   **ROM Requirement:** A compatible Sonic 2 ROM named `Sonic The Hedgehog 2 (W) (REV01) [!].gen` is expected for level loading. Without it, level logic may fail at runtime. If the ROM is not present locally, it can be downloaded for debugging, coding, and testing from `http://bluetoaster.net/secretfolder/Sonic%20The%20Hedgehog%202%20%28W%29%20%28REV01%29%20%5B!%5D.gen`. The ROM is likely to be in .gitignore, so may be invisible to the agent.
+*   **ROM Requirement:** The engine now supports Sonic 1, Sonic 2, and Sonic 3&K modules. Keep the relevant ROM in the project root (typically gitignored): `Sonic The Hedgehog 2 (W) (REV01) [!].gen`, `Sonic The Hedgehog (W) (REV01) [!].gen`, and `Sonic and Knuckles & Sonic 3 (W) [!].gen`. S3K-focused tests should pass `-Ds3k.rom.path="Sonic and Knuckles & Sonic 3 (W) [!].gen"` when needed.
 *   **Important packages** under `src/main/java/uk/co/jamesj999/sonic`:
     *   `Control` – input handling
     *   `camera` – camera logic
@@ -64,6 +64,8 @@ The project is in an **alpha** state. Core systems are functional with 291 passi
     *   `game.sonic2.objects` – object factories and instance classes
     *   `game.sonic2.objects.badniks` – badnik AI implementations
     *   `game.sonic2.constants` – ROM offsets, object IDs, audio constants
+    *   `game.sonic3k` – Sonic 3&K game module, level loading, and bootstrap logic
+    *   `game.sonic3k.constants` – Sonic 3&K ROM offsets and table metadata
     *   `graphics` – GL wrappers and render managers
     *   `level` – level structures (patterns, blocks, chunks, collision)
     *   `level.objects` – unified `ObjectManager` with placement, collision, touch response
@@ -90,9 +92,10 @@ runner.stepIdleFrames(5);                        // Step multiple idle frames
 ### Critical Setup Requirements
 1. **Reset singletons:** `GraphicsManager.resetInstance()`, `Camera.resetInstance()`
 2. **Initialize headless graphics:** `GraphicsManager.getInstance().initHeadless()`
-3. **Load level:** `LevelManager.getInstance().loadZoneAndAct(zone, act)`
-4. **Fix GroundSensor:** `GroundSensor.setLevelManager(LevelManager.getInstance())` (static field becomes stale between tests)
-5. **Update camera:** `Camera.getInstance().updatePosition(true)` AFTER level load (bounds set during load)
+3. **Create and register playable sprite first:** add the main sprite to `SpriteManager` and set camera focus before `loadZoneAndAct(...)` (required by current `LevelManager` load path)
+4. **Load level:** `LevelManager.getInstance().loadZoneAndAct(zone, act)`
+5. **Fix GroundSensor:** `GroundSensor.setLevelManager(LevelManager.getInstance())` (static field becomes stale between tests)
+6. **Update camera:** `Camera.getInstance().updatePosition(true)` AFTER level load (bounds set during load)
 
 See `TestHeadlessWallCollision.java` for a complete example.
 
@@ -192,6 +195,31 @@ ZoneRegistry zones = module.getZoneRegistry();
 // Auto-detect ROM and set module
 GameModuleRegistry.detectAndSetModule(rom);
 ```
+
+### Sonic 3&K Bring-up Notes (Critical)
+
+- `Sonic3kLevel.loadMap(...)` must decode layout row pointers as interleaved FG/BG words per row:
+  - FG pointer word at `header + row * 4`
+  - BG pointer word at `header + 2 + row * 4`
+  Parsing FG and BG pointers as contiguous tables corrupts terrain rendering and collision lookups.
+- AIZ1 intro-skip bootstrap currently uses a parity bridge:
+  - `Sonic3k.loadLevel(...)` resolves an AIZ1 gameplay-after-intro bootstrap profile.
+  - It loads gameplay overlays from the intro `LevelLoadBlock` entry for `art2` and `blocks2`.
+  - It uses `LevelSizes` index `26` (AIZ intro profile) so post-intro spawn is valid (`yEnd = 0x1000`).
+  This intentionally skips full intro scripting and is documented in code comments.
+- Camera clamping must happen after bounds are assigned:
+  - In `LevelManager.loadCurrentLevel(...)`, call `camera.updatePosition(true)` again after setting `minX/maxX/minY/maxY`.
+  - Without this, high-Y starts can be evaluated against stale bounds and trigger bad pit/death behavior.
+- S3K collision index pointers:
+  - Use `Sonic3k.decodeCollisionPointer(...)` marker logic (low-bit/high-bit marker + address threshold).
+  - `Sonic3kLevel.readCollisionIndex(...)` uses stride-2 indexing, matching the original code path for chunk collision references.
+- Current known limitation:
+  - `validateResourceReferences()` may still log high chunk pattern references in some S3K acts (`maxChunkPatternIndex > patternCount`), indicating dynamic art/PLC parity is still incomplete.
+- Regression tests to keep:
+  - `TestS3kAiz1SpawnStability`
+  - `TestSonic3kLevelLoading`
+  - `TestSonic3kBootstrapResolver`
+  - `TestSonic3kDecodingUtils`
 
 ## Object & Badnik System
 
@@ -418,3 +446,4 @@ exporter.exportAsJavaConstants(batch, "", new PrintWriter(System.out), s1);
 *   **Level Loading:** Performed by `LevelManager`, which reads from the ROM through classes in `uk.co.jamesj999.sonic.data`.
 *   **Skipped Tests**: `TestCollisionLogic` is skipped in the test environment because it requires a valid ROM file, which is not available. This is a known and accepted test outcome.
 *   **File Endings**: Ensure all source code files end with a newline character.
+

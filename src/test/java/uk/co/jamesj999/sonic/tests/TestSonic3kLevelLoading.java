@@ -59,6 +59,8 @@ public class TestSonic3kLevelLoading {
     @Test
     public void aiz1LoadsWithValidResourceReferences() throws Exception {
         Level level = game.loadLevel(LevelData.S3K_ANGEL_ISLAND_1.getLevelIndex());
+        assertTrue("AIZ1 intro-skip bootstrap should use intro-profile vertical bounds",
+                level.getMaxY() >= 0x1000);
         assertLevelResourceIntegrity(level, 0, 0);
     }
 

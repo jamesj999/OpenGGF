@@ -26,13 +26,21 @@ java -jar target/sonic-engine-0.1.20260110-jar-with-dependencies.jar
 
 ## ROM Requirement
 
-The engine requires `Sonic The Hedgehog 2 (W) (REV01) [!].gen` in the working directory. This file is gitignored. For development/testing, it can be downloaded from: `http://bluetoaster.net/secretfolder/Sonic%20The%20Hedgehog%202%20%28W%29%20%28REV01%29%20%5B!%5D.gen`
+The engine supports Sonic 1, Sonic 2, and Sonic 3&K ROM modules. Keep the relevant ROMs in the working directory (typically gitignored):
+- `Sonic The Hedgehog (W) (REV01) [!].gen`
+- `Sonic The Hedgehog 2 (W) (REV01) [!].gen`
+- `Sonic and Knuckles & Sonic 3 (W) [!].gen`
+
+For development/testing, the Sonic 2 ROM can be downloaded from: `http://bluetoaster.net/secretfolder/Sonic%20The%20Hedgehog%202%20%28W%29%20%28REV01%29%20%5B!%5D.gen`
+
+For S3K-focused tests, pass: `-Ds3k.rom.path="Sonic and Knuckles & Sonic 3 (W) [!].gen"`
 
 `TestRomLogic` is intentionally skipped when the ROM is absent.
 
 ## Reference Materials
 
 - **`docs/s2disasm/`** - Sonic 2 disassembly (68000 assembly). Use this to understand original game logic, ROM addresses, and behavior. Essential for accuracy verification.
+- **`docs/skdisasm/`** - Sonic 3&K disassembly. Primary reference for S3K level layout, solid index pointers, and level event parity.
 - **`docs/SMPS-rips/SMPSPlay/`** - SMPS audio driver source and reference implementations
 - **`docs/s2ssedit-0.2.0/`** - Special stage editor source code
 
@@ -165,6 +173,8 @@ GameServices.debugOverlay() // DebugOverlayManager - debug rendering
 | `game.sonic2.objects.badniks` | Badnik AI implementations |
 | `game.sonic2.scroll` | Zone-specific parallax scroll handlers |
 | `game.sonic2.constants` | ROM offsets, object IDs, audio constants |
+| `game.sonic3k` | Sonic 3&K game module, level loading, bootstrap, and event managers |
+| `game.sonic3k.constants` | Sonic 3&K ROM table addresses and decode constants |
 | `tools` | Compression utilities (KosinskiReader, etc.) |
 
 ### Consolidated Subsystems
@@ -234,6 +244,7 @@ Located in `uk.co.jamesj999.sonic.graphics.pipeline`, ensures correct render ord
 - `DEBUG_MODE_KEY` - Key to toggle debug movement mode (default: 68 = GLFW_KEY_D). When active, Sonic can fly freely with arrow keys, ignoring collision/physics.
 - `AUDIO_ENABLED` - Sound on/off
 - `ROM_FILENAME` - ROM path
+- `S3K_SKIP_AIZ1_INTRO` - S3K bootstrap flag for skipping the cinematic AIZ1 intro path during current bring-up
 
 ## Level Resource Overlay System
 
@@ -350,6 +361,38 @@ GameModuleRegistry.setCurrent(new Sonic2GameModule());
 ```
 
 Detection is performed by `RomDetector` implementations registered with `RomDetectionService`. Each detector examines ROM headers/checksums to identify its game.
+
+## Sonic 3&K Bring-up Notes
+
+These are critical architecture constraints for current S3K support:
+
+- Layout decoding:
+  - `Sonic3kLevel.loadMap(...)` must parse FG/BG row pointers as interleaved pairs per row, not as two contiguous pointer tables.
+  - FG pointer word: `header + row * 4`
+  - BG pointer word: `header + 2 + row * 4`
+  - Getting this wrong causes broken terrain rendering and invalid collision surfaces.
+
+- AIZ1 intro skip bridge:
+  - `Sonic3k.loadLevel(...)` can bootstrap AIZ1 to gameplay-after-intro by loading intro entry overlays for `art2` and `blocks2`.
+  - `getLevelBoundariesAddr(...)` must use `LEVEL_SIZES_AIZ1_INTRO_INDEX` (`26`) when that bootstrap is active, so vertical bounds match post-intro gameplay expectations.
+  - This is an intentional temporary parity bridge until full intro event scripting is implemented.
+
+- Camera bounds timing:
+  - In `LevelManager.loadCurrentLevel(...)`, camera placement must be refreshed *after* assigning level min/max bounds (`camera.updatePosition(true)`).
+  - This prevents bad pit/death evaluation on high-Y starts.
+
+- Collision table decoding:
+  - Keep S3K collision pointer decoding through `Sonic3k.decodeCollisionPointer(...)` marker logic.
+  - Keep stride-2 collision index reads in `Sonic3kLevel.readCollisionIndex(...)` for chunk lookup parity.
+
+- Known limitation:
+  - Some S3K levels still log `maxChunkPatternIndex > patternCount`, which indicates dynamic art/PLC parity is still incomplete.
+
+- Keep these S3K regression tests green:
+  - `uk.co.jamesj999.sonic.tests.TestS3kAiz1SpawnStability`
+  - `uk.co.jamesj999.sonic.tests.TestSonic3kLevelLoading`
+  - `uk.co.jamesj999.sonic.game.sonic3k.TestSonic3kBootstrapResolver`
+  - `uk.co.jamesj999.sonic.game.sonic3k.TestSonic3kDecodingUtils`
 
 ## Object & Badnik System
 

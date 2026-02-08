@@ -226,7 +226,7 @@ public class Sonic3k extends Game implements DynamicStartPositionProvider {
         int layoutAddr = getLayoutAddr(zone, act);
 
         // Get level boundaries address from LevelSizes
-        int boundariesAddr = getLevelBoundariesAddr(zone, act);
+        int boundariesAddr = getLevelBoundariesAddr(zone, act, bootstrap);
 
         // Get palette address
         int levelPaletteAddr = getLevelPaletteAddr(paletteIndex);
@@ -497,11 +497,21 @@ public class Sonic3k extends Game implements DynamicStartPositionProvider {
     /**
      * Gets the level boundaries address from the LevelSizes table.
      */
-    private int getLevelBoundariesAddr(int zone, int act) {
+    private int getLevelBoundariesAddr(int zone, int act, Sonic3kLoadBootstrap bootstrap) {
         int levelSizesAddr = Sonic3kConstants.LEVEL_SIZES_ADDR;
         if (levelSizesAddr == 0) {
             return 0;
         }
+
+        if (bootstrap != null && bootstrap.isAiz1GameplayAfterIntro()) {
+            // Intro-skip bridge:
+            // AIZ1 post-intro spawn (X=$13A0, Y=$041A) requires the intro-profile
+            // vertical limits (yEnd=$1000). Act 1 limits (yEnd=$0390) cause immediate
+            // pit-death checks before full resize scripting is implemented.
+            int introIndex = Sonic3kConstants.LEVEL_SIZES_AIZ1_INTRO_INDEX;
+            return levelSizesAddr + introIndex * Sonic3kConstants.LEVEL_SIZES_ENTRY_SIZE;
+        }
+
         int index = zone * Sonic3kConstants.ACTS_PER_ZONE_STRIDE + act;
         return levelSizesAddr + index * Sonic3kConstants.LEVEL_SIZES_ENTRY_SIZE;
     }
