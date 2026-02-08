@@ -6,8 +6,11 @@ import uk.co.jamesj999.sonic.game.ObjectArtProvider;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Pattern;
+import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
+import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
 import uk.co.jamesj999.sonic.tools.NemesisReader;
 
@@ -15,14 +18,16 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 /**
- * Minimal ObjectArtProvider for Sonic 1 focused on HUD art.
- * Loads HUD digit, text, lives icon, and lives number patterns from the Sonic 1 ROM.
+ * ObjectArtProvider for Sonic 1.
+ * Loads HUD art and game object art (lamppost, etc.) from the Sonic 1 ROM.
  */
 public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     private static final Logger LOGGER = Logger.getLogger(Sonic1ObjectArtProvider.class.getName());
@@ -32,6 +37,12 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     private Pattern[] hudLivesPatterns;
     private Pattern[] hudLivesNumbers;
     private boolean loaded = false;
+
+    private final Map<String, PatternSpriteRenderer> renderers = new HashMap<>();
+    private final Map<String, ObjectSpriteSheet> sheets = new HashMap<>();
+    private final List<String> rendererKeys = new ArrayList<>();
+    private final List<ObjectSpriteSheet> sheetOrder = new ArrayList<>();
+    private final List<PatternSpriteRenderer> rendererOrder = new ArrayList<>();
 
     @Override
     public void loadArtForZone(int zoneIndex) throws IOException {
@@ -58,12 +69,95 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 Sonic1Constants.ART_UNC_LIVES_NUMBERS_ADDR,
                 Sonic1Constants.ART_UNC_LIVES_NUMBERS_SIZE, "LivesNumbers");
 
+        // Load lamppost art
+        loadLamppostArt(rom);
+
         loaded = true;
-        LOGGER.info("Sonic1ObjectArtProvider loaded HUD art: digits=" +
+        LOGGER.info("Sonic1ObjectArtProvider loaded: digits=" +
                 (hudDigitPatterns != null ? hudDigitPatterns.length : 0) +
                 " text=" + (hudTextPatterns != null ? hudTextPatterns.length : 0) +
                 " lives=" + (hudLivesPatterns != null ? hudLivesPatterns.length : 0) +
-                " livesNums=" + (hudLivesNumbers != null ? hudLivesNumbers.length : 0));
+                " livesNums=" + (hudLivesNumbers != null ? hudLivesNumbers.length : 0) +
+                " renderers=" + rendererKeys.size());
+    }
+
+    /**
+     * Loads lamppost art (Nem_Lamp) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Lamppost.asm (Map_Lamp_internal).
+     */
+    private void loadLamppostArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_LAMPPOST_ADDR, "Lamppost");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load lamppost art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createLamppostMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.CHECKPOINT, sheet);
+    }
+
+    /**
+     * Creates lamppost sprite mappings from S1 disassembly Map_Lamp_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0 (.blue):        Pole with blue ball on top (6 pieces)
+     * Frame 1 (.poleonly):    Pole without ball (4 pieces)
+     * Frame 2 (.redballonly): Red ball only - used for twirl sparkle (2 pieces)
+     * Frame 3 (.red):         Pole with red ball on top (6 pieces)
+     */
+    private List<SpriteMappingFrame> createLamppostMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .blue - pole + blue ball
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x1C, 1, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece( 0, -0x1C, 1, 2, 0, true,  false, 0, false),
+                new SpriteMappingPiece(-8, -0x0C, 1, 4, 2, false, false, 1, false),
+                new SpriteMappingPiece( 0, -0x0C, 1, 4, 2, true,  false, 1, false),
+                new SpriteMappingPiece(-8, -0x2C, 1, 2, 6, false, false, 0, false),
+                new SpriteMappingPiece( 0, -0x2C, 1, 2, 6, true,  false, 0, false)
+        )));
+
+        // Frame 1: .poleonly - pole without ball
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x1C, 1, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece( 0, -0x1C, 1, 2, 0, true,  false, 0, false),
+                new SpriteMappingPiece(-8, -0x0C, 1, 4, 2, false, false, 1, false),
+                new SpriteMappingPiece( 0, -0x0C, 1, 4, 2, true,  false, 1, false)
+        )));
+
+        // Frame 2: .redballonly - red ball only (twirl sparkle)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 1, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece( 0, -8, 1, 2, 8, true,  false, 0, false)
+        )));
+
+        // Frame 3: .red - pole + red ball
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x1C, 1, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece( 0, -0x1C, 1, 2, 0, true,  false, 0, false),
+                new SpriteMappingPiece(-8, -0x0C, 1, 4, 2, false, false, 1, false),
+                new SpriteMappingPiece( 0, -0x0C, 1, 4, 2, true,  false, 1, false),
+                new SpriteMappingPiece(-8, -0x2C, 1, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece( 0, -0x2C, 1, 2, 8, true,  false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    private void registerSheet(String key, ObjectSpriteSheet sheet) {
+        if (sheet == null) {
+            return;
+        }
+        sheets.put(key, sheet);
+        PatternSpriteRenderer renderer = new PatternSpriteRenderer(sheet);
+        renderers.put(key, renderer);
+        rendererKeys.add(key);
+        sheetOrder.add(sheet);
+        rendererOrder.add(renderer);
     }
 
     private Pattern[] loadUncompressedPatterns(Rom rom, int address, int size, String name) {
@@ -134,12 +228,12 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
 
     @Override
     public PatternSpriteRenderer getRenderer(String key) {
-        return null;
+        return renderers.get(key);
     }
 
     @Override
     public ObjectSpriteSheet getSheet(String key) {
-        return null;
+        return sheets.get(key);
     }
 
     @Override
@@ -154,12 +248,20 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
 
     @Override
     public List<String> getRendererKeys() {
-        return Collections.emptyList();
+        return new ArrayList<>(rendererKeys);
     }
 
     @Override
     public int ensurePatternsCached(GraphicsManager graphicsManager, int baseIndex) {
-        return baseIndex;
+        int next = baseIndex;
+        for (int i = 0; i < rendererOrder.size(); i++) {
+            ObjectSpriteSheet sheet = sheetOrder.get(i);
+            PatternSpriteRenderer renderer = rendererOrder.get(i);
+            int count = sheet.getPatterns().length;
+            renderer.ensurePatternsCached(graphicsManager, next);
+            next += count;
+        }
+        return next;
     }
 
     @Override
