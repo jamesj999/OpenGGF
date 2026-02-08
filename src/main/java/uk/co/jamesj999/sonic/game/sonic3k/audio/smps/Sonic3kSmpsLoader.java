@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic3k.audio.smps;
 
+import static uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioConstants.S3_MUSIC_ID_BASE;
 import static uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kSmpsConstants.*;
 
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
@@ -51,7 +52,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
     private byte[] z80Driver;
     private byte[] z80AdditionalData;
 
-    // Parsed from Z80 data
+    // Parsed from S&K Z80 data
     private byte[] globalVoiceData;
     private Map<Integer, byte[]> modEnvelopes;
     private Map<Integer, byte[]> psgEnvelopes;
@@ -59,10 +60,15 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
     private int[] musicPointers;
     private int[] sfxPointers;
 
+    // Parsed from S3 Z80 data (uncompressed driver at ROM 0x0E6000)
+    private int[] s3MusicBankAddresses;
+    private int[] s3MusicPointers;
+
     public Sonic3kSmpsLoader(Rom rom) {
         this.rom = rom;
         decompressZ80Data();
         parseZ80Tables();
+        parseS3MusicTables();
         loadModEnvelopes();
         loadPsgEnvelopes();
         loadGlobalInstrumentTable();
@@ -70,6 +76,11 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
 
     @Override
     public AbstractSmpsData loadMusic(int musicId) {
+        // Route S3-specific IDs (0x100+) to the S3 driver tables
+        if (musicId >= S3_MUSIC_ID_BASE) {
+            return loadS3Music(musicId & 0xFF);
+        }
+
         if (musicId <= 0 || musicBankAddresses == null || musicPointers == null) {
             LOGGER.fine("Cannot load S3K music ID 0x" + Integer.toHexString(musicId)
                     + ": driver data not loaded.");
@@ -366,6 +377,9 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
 
     @Override
     public int findMusicOffset(int musicId) {
+        if (musicId >= S3_MUSIC_ID_BASE) {
+            return findS3MusicOffset(musicId & 0xFF);
+        }
         int index = musicId - 1;
         if (index < 0 || musicBankAddresses == null || musicPointers == null
                 || index >= musicBankAddresses.length || index >= musicPointers.length) {
@@ -375,6 +389,106 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
         int z80Ptr = musicPointers[index];
         if (bankAddr == 0 || z80Ptr == 0) return -1;
         return bankAddr + (z80Ptr & Z80_BANK_MASK);
+    }
+
+    /**
+     * Returns the ROM offset for a music ID using the S3 driver tables.
+     * Returns -1 if the S3 tables are not loaded or the ID is out of range.
+     */
+    public int findS3MusicOffset(int musicId) {
+        int index = musicId - 1;
+        if (index < 0 || s3MusicBankAddresses == null || s3MusicPointers == null
+                || index >= s3MusicBankAddresses.length || index >= s3MusicPointers.length) {
+            return -1;
+        }
+        int bankAddr = s3MusicBankAddresses[index];
+        int z80Ptr = s3MusicPointers[index];
+        if (bankAddr == 0 || z80Ptr == 0) return -1;
+        return bankAddr + (z80Ptr & Z80_BANK_MASK);
+    }
+
+    /**
+     * Loads a music track using the S3 standalone driver tables instead of the
+     * S&K driver tables. This is needed for tracks that differ between the two
+     * drivers, most notably ID 0x2E (S3 miniboss vs S&K miniboss).
+     *
+     * <p>Uses the same SMPS parsing infrastructure as {@link #loadMusic(int)}
+     * but resolves bank addresses and pointers from the S3 driver's tables.
+     *
+     * @param musicId the music ID (1-based, same numbering as S&K)
+     * @return the parsed SMPS data, or null if unavailable
+     */
+    public AbstractSmpsData loadS3Music(int musicId) {
+        if (musicId <= 0 || s3MusicBankAddresses == null || s3MusicPointers == null) {
+            LOGGER.fine("Cannot load S3 music ID 0x" + Integer.toHexString(musicId)
+                    + ": S3 driver tables not loaded.");
+            return null;
+        }
+
+        // Use a distinct cache key to avoid colliding with S&K-loaded versions
+        int cacheKey = 0x10000 | musicId;
+        AbstractSmpsData cached = musicCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
+        try {
+            int index = musicId - 1;
+            if (index < 0 || index >= S3_Z80_MUSIC_COUNT) {
+                LOGGER.warning("S3 music ID 0x" + Integer.toHexString(musicId)
+                        + " exceeds S3 table size (" + S3_Z80_MUSIC_COUNT + ").");
+                return null;
+            }
+
+            int bankAddr = s3MusicBankAddresses[index];
+            if (bankAddr == 0) {
+                LOGGER.fine("S3 music ID 0x" + Integer.toHexString(musicId) + " has null bank.");
+                return null;
+            }
+
+            int z80Ptr = s3MusicPointers[index];
+            if (z80Ptr == 0) {
+                LOGGER.fine("S3 music ID 0x" + Integer.toHexString(musicId) + " has null pointer.");
+                return null;
+            }
+
+            int bankOffset = z80Ptr & Z80_BANK_MASK;
+            int romAddr = bankAddr + bankOffset;
+
+            if (romAddr <= 0 || romAddr >= rom.getSize()) {
+                LOGGER.warning("Invalid S3 music ROM address for ID 0x"
+                        + Integer.toHexString(musicId) + ": 0x" + Integer.toHexString(romAddr));
+                return null;
+            }
+
+            // Calculate data size using S3 tables
+            int dataSize = calculateS3MusicDataSize(index, romAddr, bankAddr);
+            byte[] raw = rom.readBytes(romAddr, dataSize);
+
+            LOGGER.info("Loaded S3 music ID 0x" + Integer.toHexString(musicId)
+                    + " at ROM 0x" + Integer.toHexString(romAddr)
+                    + " (bank 0x" + Integer.toHexString(bankAddr)
+                    + ", z80Ptr=0x" + Integer.toHexString(z80Ptr)
+                    + ", " + raw.length + " bytes)");
+
+            Sonic3kSmpsData data = new Sonic3kSmpsData(raw, z80Ptr);
+            data.setModEnvelopes(modEnvelopes);
+            data.setPsgEnvelopes(psgEnvelopes);
+            data.setGlobalVoiceData(globalVoiceData);
+
+            byte[] bank = loadBank(bankAddr);
+            if (bank != null) {
+                data.setBankData(bank, Z80_BANK_BASE);
+            }
+
+            data.setId(musicId);
+            musicCache.put(cacheKey, data);
+            return data;
+        } catch (IOException e) {
+            LOGGER.severe("Failed to load S3 music ID 0x" + Integer.toHexString(musicId)
+                    + ": " + e.getMessage());
+            return null;
+        }
     }
 
     private void decompressZ80Data() {
@@ -511,6 +625,87 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
         }
 
         LOGGER.fine("Parsed S3K SFX pointer list: " + maxEntries + " entries.");
+    }
+
+    /**
+     * Parses music bank and pointer tables from the S3 standalone Z80 driver.
+     * The S3 driver is stored uncompressed at ROM {@code 0x0E6000} in the
+     * combined S3&K ROM. Its tables use the same format as the S&K driver
+     * but at different Z80 RAM offsets and with 50 entries instead of 51.
+     */
+    private void parseS3MusicTables() {
+        int driverSize = S3_Z80_MUSIC_PTR_LIST + (S3_Z80_MUSIC_COUNT * 2) + 16;
+
+        try {
+            if (S3_Z80_DRIVER_ADDR + driverSize > rom.getSize()) {
+                LOGGER.warning("S3 driver region exceeds ROM size, skipping S3 table parsing.");
+                return;
+            }
+            byte[] s3Driver = rom.readBytes(S3_Z80_DRIVER_ADDR, driverSize);
+
+            // Parse S3 music bank list at Z80 offset 0x0B48 (1-byte entries).
+            // S3 uses bankswitchToMusicS3: only the low 4 bits of the bank byte
+            // are used, and bit 4 of the 9-bit bank register is always set.
+            // The resulting address is within the S3 standalone ROM (0x080000-0x0F8000).
+            // In the combined S3&K ROM, S3 data is at offset 0x200000.
+            s3MusicBankAddresses = new int[S3_Z80_MUSIC_COUNT];
+            for (int i = 0; i < S3_Z80_MUSIC_COUNT; i++) {
+                int entryOffset = S3_Z80_MUSIC_BANK_LIST + i;
+                if (entryOffset >= s3Driver.length) break;
+                int bankByte = s3Driver[entryOffset] & 0xFF;
+                int s3Bank = ((bankByte & 0x0F) | 0x10) << 15; // bankswitchToMusicS3 formula
+                s3MusicBankAddresses[i] = s3Bank + S3_ROM_OFFSET_IN_COMBINED;
+            }
+
+            // Parse S3 music pointer list at Z80 offset 0x161A (2-byte LE entries)
+            s3MusicPointers = new int[S3_Z80_MUSIC_COUNT];
+            for (int i = 0; i < S3_Z80_MUSIC_COUNT; i++) {
+                int entryOffset = S3_Z80_MUSIC_PTR_LIST + (i * 2);
+                if (entryOffset + 1 >= s3Driver.length) break;
+                s3MusicPointers[i] = readLE16(s3Driver, entryOffset);
+            }
+
+            // Log differences between S3 and S&K tables
+            logS3SkDifferences();
+
+            LOGGER.info("Parsed S3 music tables: " + S3_Z80_MUSIC_COUNT + " entries from ROM 0x"
+                    + Integer.toHexString(S3_Z80_DRIVER_ADDR));
+        } catch (IOException e) {
+            LOGGER.warning("Failed to read S3 driver data: " + e.getMessage());
+        }
+    }
+
+    private void logS3SkDifferences() {
+        if (s3MusicBankAddresses == null || s3MusicPointers == null
+                || musicBankAddresses == null || musicPointers == null) {
+            return;
+        }
+
+        int compareCount = Math.min(S3_Z80_MUSIC_COUNT, musicBankAddresses.length);
+        compareCount = Math.min(compareCount, musicPointers.length);
+
+        for (int i = 0; i < compareCount; i++) {
+            int skBank = musicBankAddresses[i];
+            int s3Bank = s3MusicBankAddresses[i];
+            int skPtr = musicPointers[i];
+            int s3Ptr = s3MusicPointers[i];
+
+            if (skBank != s3Bank || skPtr != s3Ptr) {
+                int musicId = i + 1;
+                int skRom = (skBank != 0 && skPtr != 0) ? skBank + (skPtr & Z80_BANK_MASK) : 0;
+                int s3Rom = (s3Bank != 0 && s3Ptr != 0) ? s3Bank + (s3Ptr & Z80_BANK_MASK) : 0;
+                LOGGER.info("S3/S&K table difference at index " + i + " (music ID 0x"
+                        + Integer.toHexString(musicId) + "): S&K ROM=0x"
+                        + Integer.toHexString(skRom) + " S3 ROM=0x"
+                        + Integer.toHexString(s3Rom));
+            }
+        }
+
+        if (musicBankAddresses.length > S3_Z80_MUSIC_COUNT) {
+            LOGGER.info("S&K driver has " + (musicBankAddresses.length - S3_Z80_MUSIC_COUNT)
+                    + " extra entries beyond S3 table (IDs 0x"
+                    + Integer.toHexString(S3_Z80_MUSIC_COUNT + 1) + "+).");
+        }
     }
 
     private void loadPsgEnvelopes() {
@@ -717,6 +912,37 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
         }
 
         // Fallback: read to end of bank
+        int size = bankEnd - romAddr;
+        if (size <= 0 || size > MAX_BLOB_SIZE) {
+            size = MAX_BLOB_SIZE;
+        }
+        return Math.min(size, (int) (rom.getSize() - romAddr));
+    }
+
+    private int calculateS3MusicDataSize(int musicIndex, int romAddr, int bankAddr) throws IOException {
+        int bankEnd = bankAddr + Z80_BANK_BASE;
+
+        if (s3MusicPointers != null && s3MusicBankAddresses != null) {
+            int bestNextAddr = bankEnd;
+            for (int i = 0; i < s3MusicPointers.length; i++) {
+                if (i == musicIndex) continue;
+                if (i < s3MusicBankAddresses.length && s3MusicBankAddresses[i] == bankAddr) {
+                    int candidatePtr = s3MusicPointers[i];
+                    if (candidatePtr != 0) {
+                        int candidateRom = bankAddr + (candidatePtr & Z80_BANK_MASK);
+                        if (candidateRom > romAddr && candidateRom < bestNextAddr) {
+                            bestNextAddr = candidateRom;
+                        }
+                    }
+                }
+            }
+
+            int size = bestNextAddr - romAddr;
+            if (size > 0 && size <= MAX_BLOB_SIZE) {
+                return Math.min(size, (int) (rom.getSize() - romAddr));
+            }
+        }
+
         int size = bankEnd - romAddr;
         if (size <= 0 || size > MAX_BLOB_SIZE) {
             size = MAX_BLOB_SIZE;

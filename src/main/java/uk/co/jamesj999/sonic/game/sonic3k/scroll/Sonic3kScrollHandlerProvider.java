@@ -17,6 +17,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
     private boolean loaded = false;
 
     private SwScrlAiz aizHandler;
+    private SwScrlS3kDefault defaultHandler;
 
     @Override
     public void load(Rom rom) throws IOException {
@@ -24,6 +25,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
             return;
         }
         aizHandler = new SwScrlAiz();
+        defaultHandler = new SwScrlS3kDefault();
         loaded = true;
         LOGGER.info("Sonic 3K scroll handlers loaded.");
     }
@@ -36,7 +38,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
 
         return switch (zoneIndex) {
             case Sonic3kZoneConstants.ZONE_AIZ -> aizHandler;
-            default -> null;
+            default -> defaultHandler;
         };
     }
 
