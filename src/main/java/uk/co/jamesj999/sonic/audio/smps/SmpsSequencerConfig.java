@@ -10,9 +10,11 @@ import java.util.Set;
 public final class SmpsSequencerConfig {
 
     public enum TempoMode {
-        /** Sonic 2/3K style: accumulator += tempo; tick when >= modBase (overflow). */
+        /** S3K: accumulator overflow → skip (delay). Tick on non-overflow. Higher tempo = slower. */
         OVERFLOW,
-        /** Sonic 1 style: countdown from tempo; when 0, extend all track durations by 1. Always tick. */
+        /** S2: accumulator overflow → tick. Skip on non-overflow. Higher tempo = faster. */
+        OVERFLOW2,
+        /** S1: countdown from tempo; when 0, extend all track durations by 1. Always tick. */
         TIMEOUT
     }
 
@@ -170,7 +172,7 @@ public final class SmpsSequencerConfig {
             int[] fmChannelOrder,
             int[] psgChannelOrder) {
         this(speedUpTempos, tempoModBase, fmChannelOrder, psgChannelOrder,
-                TempoMode.OVERFLOW, null);
+                TempoMode.OVERFLOW2, null);
     }
 
     public Map<Integer, Integer> getSpeedUpTempos() {
@@ -305,7 +307,7 @@ public final class SmpsSequencerConfig {
         private int[] psgChannelOrder = { 0x80, 0xA0, 0xC0 };
 
         // S2-compatible defaults
-        private TempoMode tempoMode = TempoMode.OVERFLOW;
+        private TempoMode tempoMode = TempoMode.OVERFLOW2;
         private Map<Integer, Integer> coordFlagParamOverrides = null;
         private boolean applyModOnNote = true;
         private boolean halveModSteps = true;

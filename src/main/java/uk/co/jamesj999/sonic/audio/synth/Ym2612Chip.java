@@ -1820,7 +1820,11 @@ public class Ym2612Chip {
             this.currentDacSampleId = entry.sampleId;
             this.dacPos = 0;
             int rateByte = entry.rate & 0xFF;
-            double cyclesPerBlock = DAC_BASE_CYCLES + (DAC_LOOP_CYCLES * rateByte);
+            // Z80 djnz loops (N-1) times; first iteration is in BaseCycles.
+            // SMPSPlay dac.c:107: Divisor = BaseCycles + LoopCycles * (Rate - 1)
+            int effectiveRate = Math.max(1, rateByte);
+            double dacBaseCycles = dacData.baseCycles;
+            double cyclesPerBlock = dacBaseCycles + (DAC_LOOP_CYCLES * (effectiveRate - 1));
             double cyclesPerSample = cyclesPerBlock / DAC_LOOP_SAMPLES;
             double rateHz = Z80_CLOCK / cyclesPerSample;
             // DAC step is now relative to internal rate since renderDac() is called at
