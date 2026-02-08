@@ -17,6 +17,10 @@ public class BlipDeltaBuffer {
     private static final int TIME_UNIT = 1 << FRAC_BITS;     // 1048576
     private static final int PHASE_SHIFT = FRAC_BITS - PHASE_BITS;  // 15
     private static final int BUF_EXTRA = HALF_WIDTH * 2 + 2;
+    // Extra precision for clock->sample ratio to avoid long-run drift when
+    // rendering sample-by-sample and mixing against non-blip sources.
+    private static final int FACTOR_FP_BITS = 20;
+    private static final long FACTOR_FP_UNIT = 1L << FACTOR_FP_BITS;
 
     // High-pass filter constant (GPGX bass_shift = 9)
     // This DC-blocking filter removes low-frequency drift and improves crispness
@@ -93,8 +97,8 @@ public class BlipDeltaBuffer {
             0,   43, -115,  350, -488, 1136, -914, 5861
     };
 
-    private long factor;
-    private long offset;
+    private long factorFp;
+    private long offsetFp;
     private int[] bufferL;
     private int[] bufferR;
     private int size;
@@ -108,11 +112,11 @@ public class BlipDeltaBuffer {
 
     public void setRates(double clockRate, double sampleRate) {
         double factor = TIME_UNIT * sampleRate / clockRate;
-        long rounded = (long) factor;
-        if (rounded < factor) {
-            rounded++;
+        long rounded = (long) (factor * FACTOR_FP_UNIT + 0.5);
+        if (rounded <= 0) {
+            rounded = 1;
         }
-        this.factor = rounded;
+        this.factorFp = rounded;
     }
 
     public void reset(double clockRate, double sampleRate) {
@@ -125,7 +129,7 @@ public class BlipDeltaBuffer {
             Arrays.fill(bufferL, 0);
             Arrays.fill(bufferR, 0);
         }
-        offset = factor / 2;
+        offsetFp = factorFp / 2;
         integL = 0;
         integR = 0;
     }
@@ -157,7 +161,7 @@ public class BlipDeltaBuffer {
         }
 
         // Convert to fixed-point position
-        long fixed = (long) clockTime * factor + offset;
+        long fixed = (((long) clockTime * factorFp) + offsetFp) >> FACTOR_FP_BITS;
         if (fixed < 0) {
             fixed = 0;
         }
@@ -194,7 +198,7 @@ public class BlipDeltaBuffer {
         }
 
         // Convert to fixed-point position using pure integer math (matches GPGX)
-        long fixed = (long) clockTime * factor + offset;
+        long fixed = (((long) clockTime * factorFp) + offsetFp) >> FACTOR_FP_BITS;
 
         // Protect against negative fixed values (can happen if offset drifts negative)
         if (fixed < 0) {
@@ -269,7 +273,7 @@ public class BlipDeltaBuffer {
     }
 
     public void readSamples(int[] left, int[] right, int count) {
-        int available = (int) (offset >> FRAC_BITS);
+        int available = (int) (offsetFp >> (FRAC_BITS + FACTOR_FP_BITS));
         if (count > available) {
             count = available;
         }
@@ -317,7 +321,7 @@ public class BlipDeltaBuffer {
             }
         }
 
-        offset -= (long) count << FRAC_BITS;
+        offsetFp -= (long) count << (FRAC_BITS + FACTOR_FP_BITS);
     }
 
     /**
@@ -325,6 +329,6 @@ public class BlipDeltaBuffer {
      * Uses integer clocks to eliminate floating-point precision loss.
      */
     public void endFrame(int clocks) {
-        offset += (long) clocks * factor;
+        offsetFp += (long) clocks * factorFp;
     }
 }

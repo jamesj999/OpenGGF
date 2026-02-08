@@ -69,6 +69,7 @@ public class PsgChipGPGX {
     private long clockFrac = 0;
     private long clocksPerSampleFixed = 0;
     private boolean hqPsg = false;  // false = fast mode (rawer/brighter, GPGX default), true = HQ sinc filter
+    private boolean noiseShiftOnEveryToggle = true; // true=MAME-style, false=GPGX/libvgm positive-edge only
 
     public PsgChipGPGX() {
         this(DEFAULT_SAMPLE_RATE, ChipType.INTEGRATED);
@@ -111,6 +112,19 @@ public class PsgChipGPGX {
 
     public boolean isHqMode() {
         return hqPsg;
+    }
+
+    /**
+     * Set noise LFSR clocking mode.
+     * @param everyToggle true = shift on every polarity toggle (MAME-style, brighter),
+     *                    false = shift on positive edges only (GPGX/libvgm behavior).
+     */
+    public void setNoiseShiftOnEveryToggle(boolean everyToggle) {
+        this.noiseShiftOnEveryToggle = everyToggle;
+    }
+
+    public boolean isNoiseShiftOnEveryToggle() {
+        return noiseShiftOnEveryToggle;
     }
 
     public void setMute(int ch, boolean mute) {
@@ -305,24 +319,25 @@ public class PsgChipGPGX {
                 }
             } else {
                 int shiftValue = noiseShiftValue;
-                // Shift LFSR on every polarity toggle (MAME sn76496 behavior)
-                // for full-rate noise bandwidth. GPGX only shifts on positive
-                // edges, giving half the rate and muffled white noise.
+                // Configurable noise stepping mode: every-toggle (MAME-style)
+                // or positive-edge only (GPGX/libvgm style).
                 while (timestamp < targetClocks) {
                     pol = -pol;
-                    int shiftOutput = shiftValue & 0x01;
-                    if ((regs[6] & 0x04) != 0) {
-                        int feedback = NOISE_FEEDBACK[shiftValue & noiseBitMask];
-                        shiftValue = (shiftValue >> 1) | (feedback << noiseShiftWidth);
-                    } else {
-                        shiftValue = (shiftValue >> 1) | (shiftOutput << noiseShiftWidth);
-                    }
-                    int delta = (shiftValue & 0x01) - shiftOutput;
-                    if (delta != 0 && !mutes[3]) {
-                        if (hqPsg) {
-                            blip.addDelta(timestamp, delta * chanOut[3][0], delta * chanOut[3][1]);
+                    if (noiseShiftOnEveryToggle || pol > 0) {
+                        int shiftOutput = shiftValue & 0x01;
+                        if ((regs[6] & 0x04) != 0) {
+                            int feedback = NOISE_FEEDBACK[shiftValue & noiseBitMask];
+                            shiftValue = (shiftValue >> 1) | (feedback << noiseShiftWidth);
                         } else {
-                            blip.addDeltaFast(timestamp, delta * chanOut[3][0], delta * chanOut[3][1]);
+                            shiftValue = (shiftValue >> 1) | (shiftOutput << noiseShiftWidth);
+                        }
+                        int delta = (shiftValue & 0x01) - shiftOutput;
+                        if (delta != 0 && !mutes[3]) {
+                            if (hqPsg) {
+                                blip.addDelta(timestamp, delta * chanOut[3][0], delta * chanOut[3][1]);
+                            } else {
+                                blip.addDeltaFast(timestamp, delta * chanOut[3][0], delta * chanOut[3][1]);
+                            }
                         }
                     }
                     timestamp += freqInc[3];
