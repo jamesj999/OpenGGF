@@ -58,6 +58,26 @@ public class TestPsgChipGpgxParity {
     }
 
     @Test
+    public void noiseLfsrCanBeConfiguredToPositiveEdgeOnly() throws Exception {
+        PsgChipGPGX chip = new PsgChipGPGX(44100.0, PsgChipGPGX.ChipType.INTEGRATED);
+        chip.setNoiseShiftOnEveryToggle(false);
+
+        int initialShift = readPrivateInt(chip, "noiseShiftValue");
+        int shiftWidth = readPrivateInt(chip, "noiseShiftWidth");
+
+        setPrivateIntArrayValue(chip, "regs", 6, 0x03);
+        setPrivateIntArrayValue(chip, "freqCounter", 3, 0);
+        setPrivateIntArrayValue(chip, "freqInc", 3, 10);
+        setPrivateIntArrayValue(chip, "polarity", 3, -1);
+
+        invokePrivateUpdate(chip, 100);
+
+        int actualShift = readPrivateInt(chip, "noiseShiftValue");
+        int expectedShift = advancePeriodicNoise(initialShift, shiftWidth, 5);
+        assertEquals("Positive-edge mode should shift half as often as every-toggle mode", expectedShift, actualShift);
+    }
+
+    @Test
     public void blipTimingDoesNotAccumulateLargeBacklogAt48khz() throws Exception {
         PsgChipGPGX chip = new PsgChipGPGX(48000.0, PsgChipGPGX.ChipType.INTEGRATED);
 
