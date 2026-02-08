@@ -81,7 +81,7 @@ public class GroundSensor extends Sensor {
 
     private SensorResult scanTileVertical(short origX, short origY, short checkX, short checkY,
                                           int solidityBit, Direction direction) {
-        ChunkDesc desc = levelManager.getChunkDescAt((byte) 0, checkX, checkY);
+        ChunkDesc desc = levelManager.getChunkDescAt((byte) 0, checkX, checkY, sprite.isLoopLowPlane());
         SolidTile tile = getSolidTile(desc, solidityBit);
         if (tile == null) {
             return null;
@@ -122,7 +122,7 @@ public class GroundSensor extends Sensor {
         // Full-height tile: check previous tile for edge detection
         if (metric == FULL_TILE) {
             short prevY = (short) (checkY + (direction == Direction.DOWN ? -16 : 16));
-            ChunkDesc prevDesc = levelManager.getChunkDescAt((byte) 0, checkX, prevY);
+            ChunkDesc prevDesc = levelManager.getChunkDescAt((byte) 0, checkX, prevY, sprite.isLoopLowPlane());
             SolidTile prevTile = getSolidTile(prevDesc, solidityBit);
             byte prevMetric = getHeightMetric(prevTile, prevDesc, checkX, direction);
 
@@ -192,7 +192,7 @@ public class GroundSensor extends Sensor {
     }
 
     private WallScanResult evaluateWallTile(int x, int y, int solidityBit, Direction direction) {
-        ChunkDesc desc = levelManager.getChunkDescAt((byte) 0, x, y);
+        ChunkDesc desc = levelManager.getChunkDescAt((byte) 0, x, y, sprite.isLoopLowPlane());
         SolidTile tile = getSolidTile(desc, solidityBit);
 
         if (tile == null) {
@@ -231,7 +231,7 @@ public class GroundSensor extends Sensor {
     }
 
     private WallScanResult scanWallTileSimple(int x, int y, int solidityBit, Direction direction) {
-        ChunkDesc desc = levelManager.getChunkDescAt((byte) 0, x, y);
+        ChunkDesc desc = levelManager.getChunkDescAt((byte) 0, x, y, sprite.isLoopLowPlane());
         SolidTile tile = getSolidTile(desc, solidityBit);
         int xInTile = x & 0x0F;
         int xAdjusted = (direction == Direction.LEFT) ? (15 - xInTile) : xInTile;

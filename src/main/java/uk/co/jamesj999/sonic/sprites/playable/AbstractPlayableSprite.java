@@ -60,6 +60,13 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         protected byte lrbSolidBit = 0x0D;
 
         /**
+         * Sonic 1 loop plane state. When true, the player is on the "low plane"
+         * and collision uses alternate block data (block index + 1) for loop tiles.
+         * Toggled by Sonic1LoopManager based on position within 256x256 blocks and ground angle.
+         */
+        protected boolean loopLowPlane = false;
+
+        /**
          * Speed (in subpixels) at which this sprite walks
          */
         protected short jump = 0;
@@ -439,6 +446,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 // against the wrong collision map, making player fall through floors.
                 this.topSolidBit = 0x0C;
                 this.lrbSolidBit = 0x0D;
+                this.loopLowPlane = false;
                 defineSpeeds(); // Reset speeds to default
         }
 
@@ -754,6 +762,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void setLrbSolidBit(byte lrbSolidBit) {
                 this.lrbSolidBit = lrbSolidBit;
+        }
+
+        public boolean isLoopLowPlane() {
+                return loopLowPlane;
+        }
+
+        public void setLoopLowPlane(boolean loopLowPlane) {
+                this.loopLowPlane = loopLowPlane;
         }
 
         public short getJump() {

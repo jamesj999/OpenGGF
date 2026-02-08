@@ -174,6 +174,28 @@ public final class Sonic1Constants {
     // Nem_Sign: Nemesis-compressed signpost art (end-of-act sign, 58 tiles)
     public static final int ART_NEM_SIGNPOST_ADDR = 0x3A9E8;
 
+    // ---- Loop / Plane Switching ----
+    // LoopTileNums table from Sonic_Loops (_incObj/01 Sonic.asm lines 1536-1611).
+    // Per-zone: { loop1, loop2, roll1, roll2 } - raw layout values including bit 7.
+    // 0x7F means "disabled" (no loop/roll in that zone).
+    public static final int LOOP_DISABLED = 0x7F;
+    // GHZ loop tile IDs
+    public static final int GHZ_LOOP1 = 0xB5;  // 0x35 | 0x80
+    public static final int GHZ_LOOP2 = 0x7F;  // disabled
+    public static final int GHZ_ROLL1 = 0x1F;
+    public static final int GHZ_ROLL2 = 0x20;
+    // SLZ loop tile IDs
+    public static final int SLZ_LOOP1 = 0xAA;  // 0x2A | 0x80
+    public static final int SLZ_LOOP2 = 0xB4;  // 0x34 | 0x80
+    public static final int SLZ_ROLL1 = 0x7F;  // disabled
+    public static final int SLZ_ROLL2 = 0x7F;  // disabled
+    // Position thresholds within 256x256 block for plane switching
+    public static final int LOOP_HIGH_PLANE_X_MAX = 0x2C; // X < 0x2C → high plane
+    public static final int LOOP_LOW_PLANE_X_MIN = 0xE0;  // X >= 0xE0 → low plane
+    // Special-case block remap: block 0x29 remaps to 0x51 in FindNearestTile
+    public static final int LOOP_BLOCK_REMAP_FROM = 0x29;
+    public static final int LOOP_BLOCK_REMAP_TO = 0x51;
+
     // ---- Results screen VRAM layout ----
     // ArtTile_Title_Card = $580: title card letters, zone names, oval, act numbers
     // ArtTile_HUD = $6CA = $580 + $14A: HUD text labels (SCORE/TIME/RINGS)

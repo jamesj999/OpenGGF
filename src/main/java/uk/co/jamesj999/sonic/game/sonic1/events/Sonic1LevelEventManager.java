@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic1.events;
 
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.sonic1.Sonic1LoopManager;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 
 /**
@@ -30,6 +31,9 @@ public class Sonic1LevelEventManager implements LevelEventProvider {
     private final Sonic1SYZEvents syzEvents;
     private final Sonic1SBZEvents sbzEvents;
 
+    // Loop/plane switching manager
+    private final Sonic1LoopManager loopManager = new Sonic1LoopManager();
+
     private Sonic1LevelEventManager() {
         Camera camera = Camera.getInstance();
         ghzEvents = new Sonic1GHZEvents(camera);
@@ -52,6 +56,7 @@ public class Sonic1LevelEventManager implements LevelEventProvider {
         slzEvents.init();
         syzEvents.init();
         sbzEvents.init();
+        loopManager.initLevel(zone, act);
     }
 
     @Override
@@ -103,6 +108,10 @@ public class Sonic1LevelEventManager implements LevelEventProvider {
             case Sonic1Constants.ZONE_SBZ, Sonic1Constants.ZONE_ENDZ -> sbzEvents;
             default -> null;
         };
+    }
+
+    public Sonic1LoopManager getLoopManager() {
+        return loopManager;
     }
 
     public static synchronized Sonic1LevelEventManager getInstance() {

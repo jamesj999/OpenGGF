@@ -159,4 +159,10 @@ public class Sonic1GameModule implements GameModule {
     public ObjectArtProvider getObjectArtProvider() {
         return new Sonic1ObjectArtProvider();
     }
+
+    @Override
+    public void applyPlaneSwitching(uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite player) {
+        uk.co.jamesj999.sonic.game.sonic1.events.Sonic1LevelEventManager.getInstance()
+                .getLoopManager().update(player);
+    }
 }

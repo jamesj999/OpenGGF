@@ -370,10 +370,17 @@ public class LevelManager {
     }
 
     public void applyPlaneSwitchers(AbstractPlayableSprite player) {
-        if (objectManager == null || player == null) {
+        if (player == null) {
             return;
         }
-        objectManager.applyPlaneSwitchers(player);
+        if (objectManager != null) {
+            objectManager.applyPlaneSwitchers(player);
+        }
+        // Sonic 1 loop-based plane switching (and any other game-specific plane logic)
+        GameModule module = GameModuleRegistry.getCurrent();
+        if (module != null) {
+            module.applyPlaneSwitching(player);
+        }
     }
 
     public LevelState getLevelGamestate() {
@@ -2196,6 +2203,55 @@ public class LevelManager {
         ChunkDesc chunkDesc = block.getChunkDesc((wrappedX % blockPixelSize) / LevelConstants.CHUNK_WIDTH,
                 (wrappedY % blockPixelSize) / LevelConstants.CHUNK_HEIGHT);
         return chunkDesc;
+    }
+
+    /**
+     * Returns the ChunkDesc at the given pixel position, optionally resolving
+     * Sonic 1 loop collision (low plane uses alternate block index).
+     *
+     * @param layer        0 = foreground, 1 = background
+     * @param x            pixel X
+     * @param y            pixel Y
+     * @param loopLowPlane if true and layer == 0, resolve collision block index via Level
+     * @return the ChunkDesc, or null if out of bounds
+     */
+    public ChunkDesc getChunkDescAt(byte layer, int x, int y, boolean loopLowPlane) {
+        if (!loopLowPlane || layer != 0) {
+            return getChunkDescAt(layer, x, y);
+        }
+
+        // Loop low plane: resolve collision block via Level.resolveCollisionBlockIndex
+        if (level == null || level.getMap() == null) {
+            return null;
+        }
+
+        int levelWidth = level.getMap().getWidth() * blockPixelSize;
+        int levelHeight = level.getMap().getHeight() * blockPixelSize;
+        int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
+        int wrappedY = y;
+        if (wrappedY < 0 || wrappedY >= levelHeight) {
+            return null;
+        }
+
+        Map map = level.getMap();
+        int mapX = wrappedX / blockPixelSize;
+        int mapY = wrappedY / blockPixelSize;
+
+        int rawBlockIndex = map.getValue(0, mapX, mapY) & 0xFF;
+        int resolvedIndex = level.resolveCollisionBlockIndex(rawBlockIndex, mapX, mapY);
+
+        if (resolvedIndex >= level.getBlockCount()) {
+            return null;
+        }
+
+        Block block = level.getBlock(resolvedIndex);
+        if (block == null) {
+            return null;
+        }
+
+        return block.getChunkDesc(
+                (wrappedX % blockPixelSize) / LevelConstants.CHUNK_WIDTH,
+                (wrappedY % blockPixelSize) / LevelConstants.CHUNK_HEIGHT);
     }
 
     public SolidTile getSolidTileForChunkDesc(ChunkDesc chunkDesc, int solidityBitIndex) {

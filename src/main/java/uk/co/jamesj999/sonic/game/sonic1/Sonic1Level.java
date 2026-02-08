@@ -72,6 +72,11 @@ public class Sonic1Level implements Level {
     private int minY;
     private int maxY;
 
+    // Loop flag data: bit 7 of original FG layout bytes (used by Sonic_Loops)
+    private boolean[] fgLoopFlags;
+    private int fgMapWidth;
+    private int fgMapHeight;
+
     public Sonic1Level(Rom rom,
                        int zoneIndex,
                        int sonicPaletteAddr,
@@ -246,6 +251,51 @@ public class Sonic1Level implements Level {
     @Override
     public int getZoneIndex() {
         return zoneIndex;
+    }
+
+    // ===== Loop flag accessors =====
+
+    /**
+     * Returns whether the FG layout cell at (mapX, mapY) has the loop flag (bit 7) set.
+     * Used by Sonic1LoopManager to detect loop tiles.
+     */
+    public boolean hasLoopFlag(int mapX, int mapY) {
+        if (fgLoopFlags == null || mapX < 0 || mapX >= fgMapWidth || mapY < 0 || mapY >= fgMapHeight) {
+            return false;
+        }
+        return fgLoopFlags[mapY * fgMapWidth + mapX];
+    }
+
+    /**
+     * Returns the raw FG layout value (block ID with loop flag) for a given map cell.
+     * Reconstructs the original byte from the stripped map value + stored loop flag.
+     */
+    public int getRawFgValue(int mapX, int mapY) {
+        if (map == null || mapX < 0 || mapX >= fgMapWidth || mapY < 0 || mapY >= fgMapHeight) {
+            return 0;
+        }
+        int stripped = map.getValue(0, mapX, mapY) & 0xFF;
+        if (hasLoopFlag(mapX, mapY)) {
+            stripped |= 0x80;
+        }
+        return stripped;
+    }
+
+    /**
+     * Resolves the collision block index for Sonic 1 loop tiles.
+     * When a block has the loop flag set, collision uses the next block (index + 1),
+     * with a special case: block 0x29 remaps to 0x51 (FindNearestTile in original ROM).
+     */
+    @Override
+    public int resolveCollisionBlockIndex(int blockIndex, int mapX, int mapY) {
+        if (!hasLoopFlag(mapX, mapY)) {
+            return blockIndex;
+        }
+        int resolved = (blockIndex & 0x7F) + 1;
+        if (resolved == Sonic1Constants.LOOP_BLOCK_REMAP_FROM) {
+            resolved = Sonic1Constants.LOOP_BLOCK_REMAP_TO;
+        }
+        return resolved;
     }
 
     // ===== Loading methods =====
@@ -506,6 +556,16 @@ public class Sonic1Level implements Level {
         int bgWidth = (bgHeader[0] & 0xFF) + 1;
         int bgHeight = (bgHeader[1] & 0xFF) + 1;
         byte[] bgData = rom.readBytes(bgAddr + 2, bgWidth * bgHeight);
+
+        // Preserve loop flags (bit 7) from FG layout before stripping
+        this.fgMapWidth = fgWidth;
+        this.fgMapHeight = fgHeight;
+        this.fgLoopFlags = new boolean[fgWidth * fgHeight];
+        for (int y = 0; y < fgHeight; y++) {
+            for (int x = 0; x < fgWidth; x++) {
+                fgLoopFlags[y * fgWidth + x] = (fgData[y * fgWidth + x] & 0x80) != 0;
+            }
+        }
 
         // Build Map with 2 layers
         int mapWidth = Math.max(fgWidth, bgWidth);
