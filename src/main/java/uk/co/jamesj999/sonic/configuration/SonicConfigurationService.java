@@ -163,6 +163,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.FM6_DAC_OFF, true); // Default true for Sonic 2 parity
 		putDefault(SonicConfiguration.AUDIO_ENABLED, true);
 		putDefault(SonicConfiguration.AUDIO_INTERNAL_RATE_OUTPUT, false);
+		putDefault(SonicConfiguration.PSG_NOISE_SHIFT_EVERY_TOGGLE, true);
 		putDefault(SonicConfiguration.REGION, "NTSC");
 		// Key codes - using GLFW key codes
 		putDefault(SonicConfiguration.UP, GLFW_KEY_UP);

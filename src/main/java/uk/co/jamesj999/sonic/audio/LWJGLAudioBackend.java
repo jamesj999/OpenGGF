@@ -253,6 +253,7 @@ public class LWJGLAudioBackend implements AudioBackend {
         boolean dacInterpolate = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.DAC_INTERPOLATE);
         smpsDriver.setDacInterpolate(dacInterpolate);
         smpsDriver.setOutputSampleRate(getSmpsOutputRate());
+        applyPsgNoiseConfig(smpsDriver);
 
         boolean fm6DacOff = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.FM6_DAC_OFF);
 
@@ -312,6 +313,7 @@ public class LWJGLAudioBackend implements AudioBackend {
                 sfxStream = sfxDriver;
             }
             sfxDriver.setOutputSampleRate(getSmpsOutputRate());
+            applyPsgNoiseConfig(sfxDriver);
             SmpsSequencer seq = new SmpsSequencer(data, dacData, sfxDriver, requireSmpsConfig());
             seq.setSampleRate(sfxDriver.getOutputSampleRate());
             seq.setFm6DacOff(fm6DacOff);
@@ -488,6 +490,12 @@ public class LWJGLAudioBackend implements AudioBackend {
                 .getBoolean(SonicConfiguration.AUDIO_INTERNAL_RATE_OUTPUT);
         // Use device's native sample rate to avoid OpenAL resampling - our BlipResampler handles it
         return internalRate ? Ym2612Chip.getInternalRate() : deviceSampleRate;
+    }
+
+    private void applyPsgNoiseConfig(SmpsDriver driver) {
+        boolean everyToggle = SonicConfigurationService.getInstance()
+                .getBoolean(SonicConfiguration.PSG_NOISE_SHIFT_EVERY_TOGGLE);
+        driver.setPsgNoiseShiftOnEveryToggle(everyToggle);
     }
 
     private double getStreamSampleRate() {
