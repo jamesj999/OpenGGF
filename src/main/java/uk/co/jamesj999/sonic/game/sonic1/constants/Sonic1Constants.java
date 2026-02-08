@@ -164,4 +164,7 @@ public final class Sonic1Constants {
 
     // Nem_Lives: Nemesis-compressed life counter icon (Sonic face + name letters)
     public static final int ART_NEM_LIFE_ICON_ADDR = 0x39908;
+
+    // Nem_Ring: Nemesis-compressed ring art (8 frames: 4 spin + 4 sparkle)
+    public static final int ART_NEM_RING_ADDR = 0x39A0E;
 }
