@@ -40,7 +40,9 @@ public class Sonic1AudioProfile implements GameAudioProfile {
     public static final int SFX_BREAK_ITEM = 0xC1;   // sfx_BreakItem
     public static final int SFX_WARNING = 0xC2;      // sfx_Warning (air countdown ding)
     public static final int SFX_RING_LOSS = 0xC6;    // sfx_RingLoss
+    public static final int SFX_CASH = 0xC5;          // sfx_Cash (tally complete / "ker-ching")
     public static final int SFX_SPRING = 0xCC;       // sfx_Spring
+    public static final int SFX_SWITCH = 0xCD;       // sfx_Switch (tally tick / blip)
     public static final int SFX_RING_LEFT = 0xCE;    // sfx_RingLeft (stereo ring pan)
     public static final int SFX_SIGNPOST = 0xCF;     // sfx_Signpost
 
