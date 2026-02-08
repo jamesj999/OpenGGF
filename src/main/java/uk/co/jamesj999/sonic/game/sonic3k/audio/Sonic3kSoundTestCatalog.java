@@ -112,6 +112,22 @@ public final class Sonic3kSoundTestCatalog implements SoundTestCatalog {
         m.put(Sonic3kAudioConstants.MUS_FINAL_BOSS, "Final Boss");
         m.put(Sonic3kAudioConstants.MUS_DROWNING, "Drowning");
         m.put(Sonic3kAudioConstants.MUS_ENDING, "Ending");
+        m.put(Sonic3kAudioConstants.MUS_CREDITS_SK, "Credits (S&K)");
+
+        // S3-specific track variants (from the S3 driver in the combined ROM)
+        m.put(Sonic3kAudioConstants.MUS_ICZ1_S3, "IceCap Zone Act 1 (S3)");
+        m.put(Sonic3kAudioConstants.MUS_ICZ2_S3, "IceCap Zone Act 2 (S3)");
+        m.put(Sonic3kAudioConstants.MUS_LBZ1_S3, "Launch Base Zone Act 1 (S3)");
+        m.put(Sonic3kAudioConstants.MUS_LBZ2_S3, "Launch Base Zone Act 2 (S3)");
+        m.put(Sonic3kAudioConstants.MUS_KNUCKLES_S3, "Knuckles' Theme (S3)");
+        m.put(Sonic3kAudioConstants.MUS_TITLE_S3, "Title Screen (S3)");
+        m.put(Sonic3kAudioConstants.MUS_CREDITS_S3_ALT, "Credits (S3)");
+        m.put(Sonic3kAudioConstants.MUS_ACT_CLEAR_S3, "Act Clear (S3)");
+        m.put(Sonic3kAudioConstants.MUS_EXTRA_LIFE_S3, "Extra Life (S3)");
+        m.put(Sonic3kAudioConstants.MUS_INVINCIBILITY_S3, "Invincibility (S3)");
+        m.put(Sonic3kAudioConstants.MUS_COMPETITION_MENU_S3, "Competition Menu (S3)");
+        m.put(Sonic3kAudioConstants.MUS_MINIBOSS_S3_ALT, "Mini-Boss (S3)");
+        m.put(Sonic3kAudioConstants.MUS_FINAL_BOSS_S3, "Final Boss (S3)");
         return m;
     }
 

@@ -55,11 +55,76 @@ public final class Sonic3kAudioConstants {
     public static final int MUS_EMERALD = 0x2B;
     public static final int MUS_INVINCIBILITY = 0x2C;
     public static final int MUS_COMPETITION_MENU = 0x2D;
+    /**
+     * Mini-Boss (S3 slot). In the S&K driver table (default), this ID plays the
+     * S&K miniboss theme (same track as {@link #MUS_MINIBOSS} 0x18). In the S3
+     * driver table ({@code loadS3Music}), this ID plays the original Sonic 3
+     * miniboss theme — a different arrangement. S3 zones should use
+     * {@code Sonic3kSmpsLoader.loadS3Music(MUS_MINIBOSS_S3)} for the authentic
+     * S3 track.
+     */
     public static final int MUS_MINIBOSS_S3 = 0x2E;
     public static final int MUS_DATA_SELECT = 0x2F;
     public static final int MUS_FINAL_BOSS = 0x30;
     public static final int MUS_DROWNING = 0x31;
     public static final int MUS_ENDING = 0x32;
+
+    /** S&K Staff Roll (only present in S&K driver table, not S3). */
+    public static final int MUS_CREDITS_SK = 0x33;
+
+    // -----------------------------------------------------------------------
+    // S3-specific track variants (loaded from the S3 driver tables)
+    //
+    // The combined S3&K ROM contains two Z80 drivers with separate music
+    // banks. These IDs use an offset of 0x100 so the loader can distinguish
+    // them from S&K IDs and route to the S3 driver tables automatically.
+    // -----------------------------------------------------------------------
+
+    /** Offset added to a base music ID to request the S3 driver variant. */
+    public static final int S3_MUSIC_ID_BASE = 0x100;
+
+    /** S3 Title Screen (original composition, differs from S&K). */
+    public static final int MUS_TITLE_S3 = S3_MUSIC_ID_BASE | MUS_TITLE;
+
+    /** S3 Knuckles' Theme (original composition). */
+    public static final int MUS_KNUCKLES_S3 = S3_MUSIC_ID_BASE | MUS_KNUCKLES;
+
+    /** S3 Extra Life jingle (original composition). */
+    public static final int MUS_EXTRA_LIFE_S3 = S3_MUSIC_ID_BASE | MUS_EXTRA_LIFE;
+
+    /** S3 Invincibility (original composition). */
+    public static final int MUS_INVINCIBILITY_S3 = S3_MUSIC_ID_BASE | MUS_INVINCIBILITY;
+
+    /** S3 Competition Menu (original composition). */
+    public static final int MUS_COMPETITION_MENU_S3 = S3_MUSIC_ID_BASE | MUS_COMPETITION_MENU;
+
+    /**
+     * S3 Mini-Boss (original composition). In the S&K driver table, base ID
+     * 0x2E is a duplicate of 0x18 (S&K miniboss). This S3 variant plays the
+     * distinct Sonic 3 miniboss arrangement.
+     */
+    public static final int MUS_MINIBOSS_S3_ALT = S3_MUSIC_ID_BASE | MUS_MINIBOSS_S3;
+
+    /** S3 Act Clear jingle (original composition). */
+    public static final int MUS_ACT_CLEAR_S3 = S3_MUSIC_ID_BASE | MUS_ACT_CLEAR;
+
+    /** S3 Credits (original composition, differs from S&K credits). */
+    public static final int MUS_CREDITS_S3_ALT = S3_MUSIC_ID_BASE | MUS_CREDITS_S3;
+
+    /** S3 IceCap Zone Act 1 (original composition). */
+    public static final int MUS_ICZ1_S3 = S3_MUSIC_ID_BASE | MUS_ICZ1;
+
+    /** S3 IceCap Zone Act 2 (original composition). */
+    public static final int MUS_ICZ2_S3 = S3_MUSIC_ID_BASE | MUS_ICZ2;
+
+    /** S3 Launch Base Zone Act 1 (original composition). */
+    public static final int MUS_LBZ1_S3 = S3_MUSIC_ID_BASE | MUS_LBZ1;
+
+    /** S3 Launch Base Zone Act 2 (original composition). */
+    public static final int MUS_LBZ2_S3 = S3_MUSIC_ID_BASE | MUS_LBZ2;
+
+    /** S3 Final Boss (original composition). */
+    public static final int MUS_FINAL_BOSS_S3 = S3_MUSIC_ID_BASE | MUS_FINAL_BOSS;
 
     // -----------------------------------------------------------------------
     // System commands (sound queue IDs)
