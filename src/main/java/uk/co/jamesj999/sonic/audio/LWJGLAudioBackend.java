@@ -446,7 +446,7 @@ public class LWJGLAudioBackend implements AudioBackend {
             currentSmps.refreshAllVoices();
             // Set callback to unblock SFX when fade-in completes
             currentSmps.setOnFadeComplete(() -> sfxBlocked = false);
-            currentSmps.triggerFadeIn(0x28, 2);
+            currentSmps.triggerFadeIn();
         }
 
         startStream();
