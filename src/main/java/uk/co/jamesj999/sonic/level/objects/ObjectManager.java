@@ -79,7 +79,9 @@ public class ObjectManager {
         bucketsDirty = true;
         frameCounter = 0;
         placement.reset(cameraX);
-        registry.reportCoverage(placement.getAllSpawns());
+        if (registry != null) {
+            registry.reportCoverage(placement.getAllSpawns());
+        }
         if (planeSwitchers != null) {
             planeSwitchers.reset();
         }
@@ -459,7 +461,7 @@ public class ObjectManager {
                 if (placement.isRemembered(spawn)) {
                     continue;
                 }
-                ObjectInstance instance = registry.create(spawn);
+                ObjectInstance instance = registry != null ? registry.create(spawn) : null;
                 if (instance != null) {
                     activeObjects.put(spawn, instance);
                     changed = true;

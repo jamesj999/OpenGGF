@@ -45,6 +45,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
     private final Rom rom;
     private final Map<Integer, AbstractSmpsData> musicCache = new HashMap<>();
     private final Map<Integer, AbstractSmpsData> sfxCache = new HashMap<>();
+    private final Map<Integer, byte[]> bankCache = new HashMap<>();
 
     // Decompressed Z80 driver data
     private byte[] z80Driver;
@@ -136,6 +137,15 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
             data.setModEnvelopes(modEnvelopes);
             data.setPsgEnvelopes(psgEnvelopes);
             data.setGlobalVoiceData(globalVoiceData);
+
+            // Provide full bank data for shared voice table resolution.
+            // Songs later in a bank need to reach the shared voice table
+            // at the beginning of the bank (before their own start address).
+            byte[] bank = loadBank(bankAddr);
+            if (bank != null) {
+                data.setBankData(bank, Z80_BANK_BASE);
+            }
+
             data.setId(musicId);
             musicCache.put(musicId, data);
             return data;
@@ -649,6 +659,31 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
             System.arraycopy(z80AdditionalData, relOffset, globalVoiceData, 0, tableSize);
             LOGGER.info("Loaded S3K global instrument table: " + voiceCount
                     + " voices (" + tableSize + " bytes).");
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Bank loading
+    // -----------------------------------------------------------------------
+
+    private byte[] loadBank(int bankAddr) {
+        if (bankCache.containsKey(bankAddr)) {
+            return bankCache.get(bankAddr);
+        }
+        try {
+            int size = (int) Math.min(Z80_BANK_BASE, rom.getSize() - bankAddr);
+            if (size <= 0) {
+                bankCache.put(bankAddr, null);
+                return null;
+            }
+            byte[] bank = rom.readBytes(bankAddr, size);
+            bankCache.put(bankAddr, bank);
+            return bank;
+        } catch (IOException e) {
+            LOGGER.warning("Failed to load bank at 0x" + Integer.toHexString(bankAddr)
+                    + ": " + e.getMessage());
+            bankCache.put(bankAddr, null);
+            return null;
         }
     }
 

@@ -229,10 +229,13 @@ public class Sonic3kLevel implements Level {
 
         byte[] result = loader.loadWithOverlays(plan.getPatternOps(), 0x10000);
 
-        patternCount = result.length / Pattern.PATTERN_SIZE_IN_ROM;
         if (result.length % Pattern.PATTERN_SIZE_IN_ROM != 0) {
-            throw new IOException("Inconsistent S3K pattern data");
+            LOG.warning(String.format("S3K pattern data not 32-byte aligned: %d bytes (remainder %d). Truncating.",
+                    result.length, result.length % Pattern.PATTERN_SIZE_IN_ROM));
+            int alignedLength = (result.length / Pattern.PATTERN_SIZE_IN_ROM) * Pattern.PATTERN_SIZE_IN_ROM;
+            result = Arrays.copyOf(result, alignedLength);
         }
+        patternCount = result.length / Pattern.PATTERN_SIZE_IN_ROM;
 
         patterns = new Pattern[patternCount];
         for (int i = 0; i < patternCount; i++) {

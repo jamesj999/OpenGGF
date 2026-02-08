@@ -6,6 +6,7 @@ import uk.co.jamesj999.sonic.audio.synth.Synthesizer;
 import uk.co.jamesj999.sonic.audio.synth.VirtualSynthesizer;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -253,6 +254,9 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         public boolean fmVolEnvHold;
         public int fmVolEnvOpMask;
         public boolean forceRefresh;
+        // SSG-EG per-operator state (S3K FF 05). Preserved across refreshInstrument() calls
+        // because setInstrument() unconditionally clears SSG-EG registers (0x90-0x9C).
+        public final int[] ssgEg = new int[4];
         // DAC mute state for fade-in
         public boolean dacMuted;
 
@@ -1503,6 +1507,9 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         if (voice != null) {
             t.voiceData = voice;
             t.voiceId = voiceId;
+            // Clear SSG-EG state: new voice may not use SSG-EG, and the song's
+            // coordination flags (FF 05) will re-set it if needed.
+            Arrays.fill(t.ssgEg, 0);
             refreshInstrument(t);
         }
     }
@@ -2075,6 +2082,24 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             }
         }
         synth.setInstrument(this, t.channelId, voice);
+
+        // Restore SSG-EG values that setInstrument() cleared (registers 0x90-0x9C).
+        // S3K sets SSG-EG via coordination flag FF 05; without restoring them here,
+        // every voice refresh (SFX restore, fade, forceRefresh) resets the looping
+        // envelope shapes that fundamentally define instrument character.
+        boolean hasSsgEg = false;
+        for (int v : t.ssgEg) {
+            if (v != 0) { hasSsgEg = true; break; }
+        }
+        if (hasSsgEg) {
+            int port = (t.channelId < 3) ? 0 : 1;
+            int ch = t.channelId % 3;
+            for (int slot = 0; slot < 4; slot++) {
+                if (t.ssgEg[slot] != 0) {
+                    synth.writeFm(this, port, 0x90 + slot * 4 + ch, t.ssgEg[slot]);
+                }
+            }
+        }
     }
 
     private void applyFmPanAmsFms(Track t) {

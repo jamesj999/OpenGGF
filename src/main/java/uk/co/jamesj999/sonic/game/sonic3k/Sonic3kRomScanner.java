@@ -71,16 +71,22 @@ public class Sonic3kRomScanner {
             LOG.warning("Could not find AngleArray - collision data will not work");
         }
 
-        // Find SolidIndexes: table of 32-bit pointers with interleaved/noninterleaved flags.
+        // Find SolidIndexes: table of 32-bit pointers to collision data.
+        // First try right after HeightMapsRot, then fall back to wider search.
         int solidSearchStart = angleArrayAddr >= 0
                 ? Sonic3kConstants.SOLID_TILE_HORIZONTAL_MAP_ADDR + Sonic3kConstants.SOLID_TILE_MAP_SIZE
                 : searchStart + 0x8000;
         int solidIndexesAddr = findSolidIndexes(solidSearchStart);
+        if (solidIndexesAddr < 0) {
+            // Widen search to full ROM if not found near HeightMapsRot
+            LOG.info("SolidIndexes not found near HeightMapsRot, searching full ROM...");
+            solidIndexesAddr = findSolidIndexes(0x10000);
+        }
         if (solidIndexesAddr >= 0) {
             Sonic3kConstants.SOLID_INDEXES_ADDR = solidIndexesAddr;
             LOG.info(String.format("  SolidIndexes: 0x%06X", solidIndexesAddr));
         } else {
-            LOG.warning("Could not find SolidIndexes table");
+            LOG.warning("Could not find SolidIndexes table - collision may not work");
         }
 
         // Find LevelPtrs: table of 32-bit ROM pointers to layout data.
@@ -186,25 +192,35 @@ public class Sonic3kRomScanner {
 
     /**
      * Finds the SolidIndexes table by looking for consecutive 32-bit entries
-     * that point to collision data with interleaved/noninterleaved flags.
+     * that point to collision data. Uses strong validation:
+     * <ul>
+     *   <li>First entries (S3 zones: AIZ1, AIZ2, HCZ1, HCZ2) must point to addresses >= 0x260000</li>
+     *   <li>Entries are per-act (zone*2+act), so AIZ has entries 0-1, HCZ has entries 2-3, etc.</li>
+     *   <li>At least 4 consecutive S3-zone entries must match the pattern</li>
+     * </ul>
      */
     private int findSolidIndexes(int searchStart) throws IOException {
-        int searchEnd = Math.min(searchStart + 0x80000, romSize);
-        for (int i = searchStart; i < searchEnd - 16; i += 2) {
-            // SolidIndexes entries: pointer with bit 0 set = interleaved
-            int val0 = rom.read32BitAddr(i);
-            int addr0 = val0 & 0x7FFFFFFE; // clear bit 31 and bit 0
-            if (addr0 < 0x10000 || addr0 >= romSize) continue;
-
-            // Check second entry
-            int val1 = rom.read32BitAddr(i + 4);
-            int addr1 = val1 & 0x7FFFFFFE;
-            if (addr1 < 0x10000 || addr1 >= romSize) continue;
-
-            // Entries should point to nearby collision data blocks
-            if (Math.abs(addr1 - addr0) <= 0x2000) {
-                return i;
+        int searchEnd = Math.min(searchStart + 0x200000, romSize);
+        for (int i = searchStart; i < searchEnd - 32; i += 2) {
+            // Validate first 4 entries (AIZ1, AIZ2, HCZ1, HCZ2) - all S3 zones
+            // S3 zone collision addresses must be >= S3_LEVEL_SOLID_DATA (0x260000)
+            boolean valid = true;
+            for (int j = 0; j < 4; j++) {
+                int val = rom.read32BitAddr(i + j * 4);
+                int addr = val & 0x00FFFFFF; // mask to 24-bit
+                if (addr < Sonic3kConstants.S3_LEVEL_SOLID_DATA || addr >= romSize) {
+                    valid = false;
+                    break;
+                }
             }
+            if (!valid) continue;
+
+            // Additional check: first two entries (AIZ1, AIZ2) should point to nearby addresses
+            int addr0 = rom.read32BitAddr(i) & 0x00FFFFFF;
+            int addr1 = rom.read32BitAddr(i + 4) & 0x00FFFFFF;
+            if (Math.abs(addr1 - addr0) > 0x2000) continue;
+
+            return i;
         }
         return -1;
     }
@@ -227,7 +243,12 @@ public class Sonic3kRomScanner {
 
             int layoutPtr = rom.read32BitAddr(i);
             if (layoutPtr + Sonic3kConstants.LEVEL_LAYOUT_TOTAL_SIZE <= romSize) {
-                return i;
+                // Validate layout header: first entry should have plausible FG dimensions
+                int fgCols = rom.read16BitAddr(layoutPtr);
+                int fgRows = rom.read16BitAddr(layoutPtr + 4);
+                if (fgCols > 0 && fgCols <= 128 && fgRows > 0 && fgRows <= 16) {
+                    return i;
+                }
             }
         }
         return -1;
@@ -238,7 +259,8 @@ public class Sonic3kRomScanner {
      * 24-byte entry pattern with PLC indices in high bytes.
      */
     private int findLevelLoadBlock() throws IOException {
-        int searchStart = romSize / 4;
+        // LLB is in the S&K portion at ~0x091F0C, well before romSize/4 (0x100000)
+        int searchStart = 0x050000;
         int searchEnd = romSize - Sonic3kConstants.LEVEL_LOAD_BLOCK_ENTRY_SIZE;
 
         for (int i = searchStart; i < searchEnd; i += 2) {
