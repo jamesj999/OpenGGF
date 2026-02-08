@@ -48,6 +48,15 @@ public abstract class AbstractSmpsData {
 
     public abstract byte[] getPsgEnvelope(int id);
 
+    /**
+     * Optional modulation envelope data lookup.
+     * Games that do not use a dedicated modulation envelope table can keep the
+     * default {@code null} behavior.
+     */
+    public byte[] getModEnvelope(int id) {
+        return null;
+    }
+
     public abstract int read16(int offset);
 
     public abstract int getBaseNoteOffset();
