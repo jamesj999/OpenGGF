@@ -6,6 +6,7 @@ import uk.co.jamesj999.sonic.audio.synth.Synthesizer;
 import uk.co.jamesj999.sonic.audio.synth.VirtualSynthesizer;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -130,11 +131,13 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
 
     // Speed-up tempos and channel orders are game/driver-specific (configurable).
 
-    // F-Num table for Octave 4
-    // Calculated using Z80 formula: round(freq * 1024 * 1024 * 2 / FM_Sample_Rate)
-    // where FM_Sample_Rate = 53267 Hz (NTSC: 7670454 / 144)
-    private static final int[] FNUM_TABLE = {
+    // DEF_FMFREQ_68K - S1/S2 68K driver (FMBaseNote = B, FMBaseOctave = -1)
+    private static final int[] FNUM_TABLE_68K = {
             606, 644, 683, 723, 766, 813, 860, 911, 965, 1023, 1084, 1148
+    };
+    // DEF_FMFREQ_Z80 - S3K Z80 driver (FMBaseNote = C, FMBaseOctave = 0)
+    private static final int[] FNUM_TABLE_Z80 = {
+            644, 683, 723, 766, 813, 860, 911, 965, 1023, 1084, 1148, 1216
     };
     // SMPSPlay DEF_PSGFREQ_68K table (register values). Slice from DEF_PSGFREQ_PRE
     // starting at index 12 (count 70).
@@ -251,6 +254,9 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         public boolean fmVolEnvHold;
         public int fmVolEnvOpMask;
         public boolean forceRefresh;
+        // SSG-EG per-operator state (S3K FF 05). Preserved across refreshInstrument() calls
+        // because setInstrument() unconditionally clears SSG-EG registers (0x90-0x9C).
+        public final int[] ssgEg = new int[4];
         // DAC mute state for fade-in
         public boolean dacMuted;
 
@@ -705,7 +711,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             primed = true;
         }
 
-        if (tempoWeight == 0) {
+        if (tempoWeight == 0 && config.getTempoMode() == SmpsSequencerConfig.TempoMode.OVERFLOW2) {
             return buffer.length;
         }
 
@@ -866,7 +872,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
     }
 
     private void processTempoFrame() {
-        if (tempoWeight == 0) {
+        if (tempoWeight == 0 && config.getTempoMode() == SmpsSequencerConfig.TempoMode.OVERFLOW2) {
             return;
         }
         if (config.getTempoMode() == SmpsSequencerConfig.TempoMode.TIMEOUT) {
@@ -995,7 +1001,14 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             int add = (t.type == TrackType.PSG) ? fadeState.addPsg : fadeState.addFm;
             int change = add * dir;
 
+            int prevOffset = t.volumeOffset;
             t.volumeOffset += change;
+            if (fadeState.fadeOut) {
+                // SMPSPlay smps.c:3467-3476 - clamp on signed overflow (bit-7 toggle)
+                if ((t.volumeOffset & 0x80) != 0 && (prevOffset & 0x80) == 0) {
+                    t.volumeOffset = 0x7F;
+                }
+            }
             refreshVolume(t);
         }
     }
@@ -1456,6 +1469,13 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         return scaled;
     }
 
+    private int[] getFmFreqTable() {
+        if (config.getVolMode() == SmpsSequencerConfig.VolMode.BIT7) {
+            return FNUM_TABLE_Z80;
+        }
+        return FNUM_TABLE_68K;
+    }
+
     private int[] getPsgFreqTable() {
         if (config.getVolMode() == SmpsSequencerConfig.VolMode.BIT7) {
             return PSG_FREQ_TABLE_Z80_T2;
@@ -1487,6 +1507,9 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         if (voice != null) {
             t.voiceData = voice;
             t.voiceId = voiceId;
+            // Clear SSG-EG state: new voice may not use SSG-EG, and the song's
+            // coordination flags (FF 05) will re-set it if needed.
+            Arrays.fill(t.ssgEg, 0);
             refreshInstrument(t);
         }
     }
@@ -1537,7 +1560,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             int port = (hwCh < 3) ? 0 : 1;
             int ch = (hwCh % 3);
 
-            int fnum = FNUM_TABLE[noteIdx];
+            int fnum = getFmFreqTable()[noteIdx];
             int block = octave;
 
             if (block > 7) {
@@ -1614,6 +1637,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             if (psgNote >= psgFreqTable.length)
                 psgNote = psgFreqTable.length - 1;
             int reg = psgFreqTable[psgNote];
+            t.baseFnum = reg;
 
             reg += t.detune;
 
@@ -1631,8 +1655,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 int ch = t.channelId;
                 synth.writePsg(this, 0x80 | (ch << 5) | (0) | data);
                 synth.writePsg(this, (reg >> 4) & 0x3F);
-                // Initialize modulation state for PSG slides
-                t.baseFnum = reg;
+                // baseFnum stores detune-free period; modulation applies detune dynamically.
             }
 
             if (t.customModEnabled && !preventAttack) {
@@ -1734,6 +1757,8 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 refreshVolume(t);
             }
         } else if (t.type == TrackType.PSG) {
+            t.baseFnum = freq;
+
             int reg = freq + t.detune;
             reg = normalizePsgPeriod(reg);
 
@@ -1743,7 +1768,6 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 int ch = t.channelId;
                 synth.writePsg(this, 0x80 | (ch << 5) | (reg & 0x0F));
                 synth.writePsg(this, (reg >> 4) & 0x3F);
-                t.baseFnum = reg;
             }
 
             if (t.customModEnabled && !preventAttack) {
@@ -2047,15 +2071,35 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 mask = ALGO_OUT_MASK[algo];
             }
 
+            boolean bit7Mode = config.getVolMode() == SmpsSequencerConfig.VolMode.BIT7;
             for (int op = 0; op < 4; op++) {
                 if ((mask & (1 << op)) != 0) {
                     int idx = tlBase + opMap[op];
+                    int bit7 = bit7Mode ? (voice[idx] & 0x80) : 0; // preserve carrier marker in S3K BIT7 mode only
                     int tl = computeFmTotalLevel(t, voice[idx] & 0x7F, op);
-                    voice[idx] = (byte) tl;
+                    voice[idx] = (byte) (tl | bit7);
                 }
             }
         }
         synth.setInstrument(this, t.channelId, voice);
+
+        // Restore SSG-EG values that setInstrument() cleared (registers 0x90-0x9C).
+        // S3K sets SSG-EG via coordination flag FF 05; without restoring them here,
+        // every voice refresh (SFX restore, fade, forceRefresh) resets the looping
+        // envelope shapes that fundamentally define instrument character.
+        boolean hasSsgEg = false;
+        for (int v : t.ssgEg) {
+            if (v != 0) { hasSsgEg = true; break; }
+        }
+        if (hasSsgEg) {
+            int port = (t.channelId < 3) ? 0 : 1;
+            int ch = t.channelId % 3;
+            for (int slot = 0; slot < 4; slot++) {
+                if (t.ssgEg[slot] != 0) {
+                    synth.writeFm(this, port, 0x90 + slot * 4 + ch, t.ssgEg[slot]);
+                }
+            }
+        }
     }
 
     private void applyFmPanAmsFms(Track t) {
@@ -2158,14 +2202,26 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         if (t.modRateCounter == 0) {
             t.modRateCounter = t.modRate;
 
-            if (t.modStepCounter == 0) {
-                t.modStepCounter = t.modStepsFull;
-                t.modCurrentDelta = -t.modCurrentDelta;
-                // Z80 driver returns early here (no frequency register write this tick).
-                return new ModulationStep(true, false, t.modAccumulator);
+            if (config.getModAlgo() == SmpsSequencerConfig.ModAlgo.MOD_Z80) {
+                // S3K (MODALGO_Z80): post-decrement with 8-bit wrap, then check.
+                // dec (ix+zModStepCount) ; jr nz,.no_reversal
+                t.modStepCounter = (t.modStepCounter - 1) & 0xFF;
+                if (t.modStepCounter == 0) {
+                    t.modStepCounter = t.modStepsFull; // reload from RAW (ModData[0x03])
+                    t.modCurrentDelta = -t.modCurrentDelta;
+                    return new ModulationStep(true, false, t.modAccumulator);
+                }
+            } else {
+                // S1/S2 (MODALGO_68K): pre-check, then decrement.
+                // ld a,(ix+zModStepCount) ; or a ; jr nz,.calcfreq
+                if (t.modStepCounter == 0) {
+                    t.modStepCounter = t.modStepsFull; // reload from RAW (ModData[0x03])
+                    t.modCurrentDelta = -t.modCurrentDelta;
+                    return new ModulationStep(true, false, t.modAccumulator);
+                }
+                t.modStepCounter--;
             }
 
-            t.modStepCounter--;
             t.modAccumulator += t.modCurrentDelta;
             t.modAccumulator = (short) t.modAccumulator; // 16-bit signed wrap
             return new ModulationStep(true, true, t.modAccumulator);

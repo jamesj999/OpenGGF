@@ -120,6 +120,13 @@ public enum SonicConfiguration {
 	AUDIO_INTERNAL_RATE_OUTPUT,
 
 	/**
+	 * PSG noise LFSR clock mode.
+	 * true = shift on every polarity toggle (MAME-style, brighter),
+	 * false = shift on positive edges only (GPGX/libvgm style).
+	 */
+	PSG_NOISE_SHIFT_EVERY_TOGGLE,
+
+	/**
 	 * Whether to mute FM6 when playing a note on it (if DAC is enabled).
 	 * Parity hack from SMPSPlay.
 	 */
@@ -200,6 +207,12 @@ public enum SonicConfiguration {
 	 * Filename for the Sonic 3&K ROM.
 	 */
 	SONIC_3K_ROM,
+
+	/**
+	 * If true, AIZ1 intro setup is skipped and gameplay-ready bootstrap data is used.
+	 * This is a temporary parity bridge until full AIZ1 intro events are implemented.
+	 */
+	S3K_SKIP_AIZ1_INTRO,
 
 	/**
 	 * Which game to load by default: "s1", "s2", or "s3k".

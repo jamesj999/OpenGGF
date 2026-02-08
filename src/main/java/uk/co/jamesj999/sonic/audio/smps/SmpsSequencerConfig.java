@@ -50,6 +50,14 @@ public final class SmpsSequencerConfig {
         KEEP
     }
 
+    /** Modulation stepping algorithm. */
+    public enum ModAlgo {
+        /** S1/S2 (MODALGO_68K): pre-check step counter, then decrement. Reload from raw data. */
+        MOD_68K,
+        /** S3K (MODALGO_Z80): post-decrement with 8-bit wrap, then check. Reload from raw data. */
+        MOD_Z80
+    }
+
     private final Map<Integer, Integer> speedUpTempos;
     private final int tempoModBase;
     private final int[] fmChannelOrder;
@@ -68,6 +76,7 @@ public final class SmpsSequencerConfig {
     private final NoteOnPrevent noteOnPrevent;
     private final DelayFreq delayFreq;
     private final CoordFlagHandler coordFlagHandler;
+    private final ModAlgo modAlgo;
     private final int fadeOutDelay;
     private final int fadeOutSteps;
     private final int fadeInSteps;
@@ -97,6 +106,7 @@ public final class SmpsSequencerConfig {
         this.noteOnPrevent = b.noteOnPrevent;
         this.delayFreq = b.delayFreq;
         this.coordFlagHandler = b.coordFlagHandler;
+        this.modAlgo = b.modAlgo;
         this.fadeOutDelay = b.fadeOutDelay;
         this.fadeOutSteps = b.fadeOutSteps;
         this.fadeInSteps = b.fadeInSteps;
@@ -143,6 +153,7 @@ public final class SmpsSequencerConfig {
         this.noteOnPrevent = NoteOnPrevent.REST;
         this.delayFreq = DelayFreq.RESET;
         this.coordFlagHandler = null;
+        this.modAlgo = ModAlgo.MOD_68K;
         this.fadeOutDelay = 3;
         this.fadeOutSteps = 0x28;
         this.fadeInSteps = 0x28;
@@ -271,6 +282,11 @@ public final class SmpsSequencerConfig {
         return coordFlagHandler;
     }
 
+    /** Modulation stepping algorithm: MOD_68K (S1/S2) or MOD_Z80 (S3K). */
+    public ModAlgo getModAlgo() {
+        return modAlgo;
+    }
+
     /** Fade-out inter-step delay in frames. S1/S2: 3, S3K: 6. */
     public int getFadeOutDelay() {
         return fadeOutDelay;
@@ -321,6 +337,7 @@ public final class SmpsSequencerConfig {
         private NoteOnPrevent noteOnPrevent = NoteOnPrevent.REST;
         private DelayFreq delayFreq = DelayFreq.RESET;
         private CoordFlagHandler coordFlagHandler = null;
+        private ModAlgo modAlgo = ModAlgo.MOD_68K;
         private int fadeOutDelay = 3;
         private int fadeOutSteps = 0x28;
         private int fadeInSteps = 0x28;
@@ -342,6 +359,7 @@ public final class SmpsSequencerConfig {
         public Builder noteOnPrevent(NoteOnPrevent val) { noteOnPrevent = val; return this; }
         public Builder delayFreq(DelayFreq val) { delayFreq = val; return this; }
         public Builder coordFlagHandler(CoordFlagHandler val) { coordFlagHandler = val; return this; }
+        public Builder modAlgo(ModAlgo val) { modAlgo = val; return this; }
         public Builder fadeOutDelay(int val) { fadeOutDelay = val; return this; }
         public Builder fadeOutSteps(int val) { fadeOutSteps = val; return this; }
         public Builder fadeInSteps(int val) { fadeInSteps = val; return this; }

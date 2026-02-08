@@ -68,7 +68,8 @@ public class PsgChipGPGX {
     private int clocks = 0;  // Integer for drift-free timing
     private long clockFrac = 0;
     private long clocksPerSampleFixed = 0;
-    private boolean hqPsg = true;  // false = fast mode (rawer sound), true = HQ sinc filter
+    private boolean hqPsg = false;  // false = fast mode (rawer/brighter, GPGX default), true = HQ sinc filter
+    private boolean noiseShiftOnEveryToggle = true; // true=MAME-style, false=GPGX/libvgm positive-edge only
 
     public PsgChipGPGX() {
         this(DEFAULT_SAMPLE_RATE, ChipType.INTEGRATED);
@@ -111,6 +112,19 @@ public class PsgChipGPGX {
 
     public boolean isHqMode() {
         return hqPsg;
+    }
+
+    /**
+     * Set noise LFSR clocking mode.
+     * @param everyToggle true = shift on every polarity toggle (MAME-style, brighter),
+     *                    false = shift on positive edges only (GPGX/libvgm behavior).
+     */
+    public void setNoiseShiftOnEveryToggle(boolean everyToggle) {
+        this.noiseShiftOnEveryToggle = everyToggle;
+    }
+
+    public boolean isNoiseShiftOnEveryToggle() {
+        return noiseShiftOnEveryToggle;
     }
 
     public void setMute(int ch, boolean mute) {
@@ -269,7 +283,6 @@ public class PsgChipGPGX {
         clockFrac = total & (CLOCK_FRAC_UNIT - 1);
         psgUpdate(target);
         endFrame(target);
-        clocks = target;
         blip.readSamples(left, right, len);
     }
 
@@ -306,9 +319,11 @@ public class PsgChipGPGX {
                 }
             } else {
                 int shiftValue = noiseShiftValue;
+                // Configurable noise stepping mode: every-toggle (MAME-style)
+                // or positive-edge only (GPGX/libvgm style).
                 while (timestamp < targetClocks) {
                     pol = -pol;
-                    if (pol > 0) {
+                    if (noiseShiftOnEveryToggle || pol > 0) {
                         int shiftOutput = shiftValue & 0x01;
                         if ((regs[6] & 0x04) != 0) {
                             int feedback = NOISE_FEEDBACK[shiftValue & noiseBitMask];
