@@ -5,7 +5,7 @@ import uk.co.jamesj999.sonic.audio.smps.DacData;
 import java.util.Arrays;
 
 public class VirtualSynthesizer implements Synthesizer {
-    private final PsgChip psg;
+    private final PsgChipGPGX psg;
     private final Ym2612Chip ym;
     private double outputSampleRate = Ym2612Chip.getDefaultOutputRate();
 
@@ -23,7 +23,8 @@ public class VirtualSynthesizer implements Synthesizer {
     }
 
     public VirtualSynthesizer(double outputSampleRate) {
-        this.psg = new PsgChip(outputSampleRate);
+        // Use the GPGX PSG core for better timing/pitch parity with Genesis hardware.
+        this.psg = new PsgChipGPGX(outputSampleRate, PsgChipGPGX.ChipType.INTEGRATED);
         this.ym = new Ym2612Chip();
         setOutputSampleRate(outputSampleRate);
         // Match typical driver init: silence chips on startup to avoid power-on noise.
@@ -82,10 +83,11 @@ public class VirtualSynthesizer implements Synthesizer {
 
         psg.renderStereo(scratchLeftPsg, scratchRightPsg);
 
-        // Mix PSG at ~50% level relative to FM
+        // Mix PSG into FM output. GPGX PSG produces unipolar 0..4200 that the
+        // BlipDeltaBuffer DC-blocks to ±2100 — close to PsgChip's ±4096 >> 1.
         for (int i = 0; i < frames; i++) {
-            scratchLeft[i] += scratchLeftPsg[i] >> 1;
-            scratchRight[i] += scratchRightPsg[i] >> 1;
+            scratchLeft[i] += scratchLeftPsg[i];
+            scratchRight[i] += scratchRightPsg[i];
         }
 
         for (int i = 0; i < frames; i++) {
