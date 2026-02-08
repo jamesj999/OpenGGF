@@ -42,6 +42,7 @@ public class Sonic3kSmpsData extends AbstractSmpsData {
     private static final int VOICE_STRIDE = 25;
 
     private Map<Integer, byte[]> psgEnvelopes;
+    private Map<Integer, byte[]> modEnvelopes;
     private byte[] globalVoiceData;
 
     public Sonic3kSmpsData(byte[] data) {
@@ -54,6 +55,10 @@ public class Sonic3kSmpsData extends AbstractSmpsData {
 
     public void setPsgEnvelopes(Map<Integer, byte[]> psgEnvelopes) {
         this.psgEnvelopes = psgEnvelopes;
+    }
+
+    public void setModEnvelopes(Map<Integer, byte[]> modEnvelopes) {
+        this.modEnvelopes = modEnvelopes;
     }
 
     /**
@@ -181,6 +186,14 @@ public class Sonic3kSmpsData extends AbstractSmpsData {
     public byte[] getPsgEnvelope(int id) {
         if (psgEnvelopes != null && psgEnvelopes.containsKey(id)) {
             return psgEnvelopes.get(id);
+        }
+        return null;
+    }
+
+    @Override
+    public byte[] getModEnvelope(int id) {
+        if (modEnvelopes != null && modEnvelopes.containsKey(id)) {
+            return modEnvelopes.get(id);
         }
         return null;
     }

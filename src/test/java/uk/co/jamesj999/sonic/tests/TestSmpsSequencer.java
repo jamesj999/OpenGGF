@@ -473,6 +473,36 @@ public class TestSmpsSequencer {
     }
 
     @Test
+    public void testS2HoldE7PreventsRetrigger() {
+        byte[] data = new byte[64];
+        data[2] = 2; // DAC + FM1
+        data[4] = 1; // Dividing timing
+        data[5] = (byte) 0x80; // Tempo
+
+        // FM1 pointer at header slot 1 (0x0A/0x0B)
+        data[0x0A] = 0x14;
+        data[0x0B] = 0x00;
+
+        int pos = 0x14;
+        data[pos++] = (byte) 0x81; // Note 1
+        data[pos++] = 0x01;        // Duration
+        data[pos++] = (byte) 0xE7; // HOLD / no-attack for next note
+        data[pos++] = (byte) 0x83; // Note 2 (should sustain, not retrigger)
+        data[pos++] = 0x01;        // Duration
+        data[pos] = (byte) 0xF2;   // Stop
+
+        AbstractSmpsData smps = new Sonic2SmpsData(data);
+        MockFmSynth synth = new MockFmSynth();
+        SmpsSequencer seq = new SmpsSequencer(smps, null, synth, Sonic2SmpsSequencerConfig.CONFIG);
+        seq.read(new short[12000]);
+
+        long fmKeyOnCount = synth.fmLog.stream()
+                .filter(s -> s.startsWith("0:28:") && s.endsWith("F0"))
+                .count();
+        assertEquals("E7 HOLD should prevent retriggering the second FM note", 1, fmKeyOnCount);
+    }
+
+    @Test
     public void testSfxBcFmVoicePlaysWithCenteredPan() {
         // Load real SFX 0xBC from ROM to exercise the FM blip.
         File romFile = RomTestUtils.ensureRomAvailable();

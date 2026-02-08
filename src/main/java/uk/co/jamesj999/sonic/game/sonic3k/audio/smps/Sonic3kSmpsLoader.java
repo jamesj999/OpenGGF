@@ -52,6 +52,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
 
     // Parsed from Z80 data
     private byte[] globalVoiceData;
+    private Map<Integer, byte[]> modEnvelopes;
     private Map<Integer, byte[]> psgEnvelopes;
     private int[] musicBankAddresses;
     private int[] musicPointers;
@@ -61,6 +62,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
         this.rom = rom;
         decompressZ80Data();
         parseZ80Tables();
+        loadModEnvelopes();
         loadPsgEnvelopes();
         loadGlobalInstrumentTable();
     }
@@ -131,6 +133,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
             LOGGER.info("  First 8 bytes: " + hexDump(raw, 0, 8));
 
             Sonic3kSmpsData data = new Sonic3kSmpsData(raw, z80Ptr);
+            data.setModEnvelopes(modEnvelopes);
             data.setPsgEnvelopes(psgEnvelopes);
             data.setGlobalVoiceData(globalVoiceData);
             data.setId(musicId);
@@ -189,6 +192,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
             byte[] raw = rom.readBytes(SFX_BANK_BASE, readLength);
 
             Sonic3kSfxData sfx = new Sonic3kSfxData(raw, Z80_BANK_BASE, 0, headerOffset);
+            sfx.setModEnvelopes(modEnvelopes);
             sfx.setPsgEnvelopes(psgEnvelopes);
             sfx.setId(sfxId);
 
@@ -330,6 +334,13 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
      */
     public Map<Integer, byte[]> getPsgEnvelopes() {
         return psgEnvelopes;
+    }
+
+    /**
+     * Returns the loaded modulation envelope data.
+     */
+    public Map<Integer, byte[]> getModEnvelopes() {
+        return modEnvelopes;
     }
 
     /**
@@ -527,19 +538,64 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
                 // Try as main driver offset
                 if (ptr < z80Driver.length) {
                     envRelOffset = ptr;
-                    loadEnvelopeFromData(i, z80Driver, envRelOffset);
+                    loadEnvelopeFromData(i, z80Driver, envRelOffset, psgEnvelopes);
                     continue;
                 }
                 continue;
             }
 
-            loadEnvelopeFromData(i, z80AdditionalData, envRelOffset);
+            loadEnvelopeFromData(i, z80AdditionalData, envRelOffset, psgEnvelopes);
         }
 
         LOGGER.info("Loaded " + psgEnvelopes.size() + " S3K PSG envelopes.");
     }
 
-    private void loadEnvelopeFromData(int id, byte[] sourceData, int offset) {
+    private void loadModEnvelopes() {
+        modEnvelopes = new HashMap<>();
+
+        if (z80AdditionalData == null) {
+            return;
+        }
+
+        int additionalBase = Z80_GENERAL_PTR_LIST;
+        int listZ80Addr = Z80_MOD_PTR_LIST;        // 0x130E
+        int relOffset = listZ80Addr - additionalBase;
+
+        if (relOffset < 0 || relOffset + 2 > z80AdditionalData.length) {
+            LOGGER.warning("Modulation pointer list not available.");
+            return;
+        }
+
+        // Pointers.txt: "Mod. Pointer List: 130E (W, 3C)" => 0x3C word entries.
+        int maxEnvelopes = 0x3C;
+        for (int i = 1; i <= maxEnvelopes; i++) {
+            int entryOffset = relOffset + ((i - 1) * 2);
+            if (entryOffset + 1 >= z80AdditionalData.length) {
+                break;
+            }
+
+            int ptr = readLE16(z80AdditionalData, entryOffset);
+            if (ptr == 0) {
+                continue;
+            }
+
+            int envRelOffset = ptr - additionalBase;
+            if (envRelOffset < 0 || envRelOffset >= z80AdditionalData.length) {
+                // Fallback for pointers into the main driver blob.
+                if (z80Driver != null && ptr < z80Driver.length) {
+                    loadEnvelopeFromData(i, z80Driver, ptr, modEnvelopes);
+                    continue;
+                }
+                continue;
+            }
+
+            loadEnvelopeFromData(i, z80AdditionalData, envRelOffset, modEnvelopes);
+        }
+
+        LOGGER.info("Loaded " + modEnvelopes.size() + " S3K modulation envelopes.");
+    }
+
+    private void loadEnvelopeFromData(int id, byte[] sourceData, int offset, Map<Integer, byte[]> target) {
         // Read envelope bytes until a terminator command (0x80-0x84)
         byte[] buffer = new byte[256];
         int len = 0;
@@ -563,7 +619,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
         if (len > 0) {
             byte[] env = new byte[len];
             System.arraycopy(buffer, 0, env, 0, len);
-            psgEnvelopes.put(id, env);
+            target.put(id, env);
         }
     }
 

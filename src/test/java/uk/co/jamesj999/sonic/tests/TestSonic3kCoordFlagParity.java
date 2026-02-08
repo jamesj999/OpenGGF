@@ -190,6 +190,22 @@ public class TestSonic3kCoordFlagParity {
     }
 
     @Test
+    public void psgDetuneUnderflowWrapsTo10BitPeriod() {
+        byte[] psgTrack = {
+                (byte) 0xE1, (byte) 0xFF, // detune -1
+                (byte) 0xD4, 0x01,        // high note -> base period 0x000 in DEF_Z80_T2 tail
+                (byte) 0xF2
+        };
+        CaptureSynth synth = new CaptureSynth();
+        Sonic3kSmpsData smps = createMusicData(1, 1, null, psgTrack, null);
+        SmpsSequencer seq = new SmpsSequencer(smps, EMPTY_DAC, synth, Sonic3kSmpsSequencerConfig.CONFIG);
+        seq.read(new short[25000]);
+
+        assertTrue("Underflow should wrap to 0x3FF low nibble", synth.psgWrites.contains(0x8F));
+        assertTrue("Underflow should wrap to 0x3FF high bits", synth.psgWrites.contains(0x3F));
+    }
+
+    @Test
     public void fbTransposeAddWrapsAsSignedByte() {
         byte[] fmTrack = {
                 (byte) 0xFB, (byte) 0xF0,
@@ -276,8 +292,54 @@ public class TestSonic3kCoordFlagParity {
         assertEquals(0x01, fm.fmVolEnvOpMask);
     }
 
+    @Test
+    public void f4ModEnvelopeAppliesPitchDeltaOnPsg() {
+        byte[] psgTrack = {
+                (byte) 0xF4, 0x01, // load modulation envelope 1
+                (byte) 0x90, 0x04,
+                (byte) 0xF2
+        };
+        Map<Integer, byte[]> modEnvs = new HashMap<>();
+        modEnvs.put(1, new byte[] { 0x01, (byte) 0x81 }); // +1 then HOLD
+
+        CaptureSynth synth = new CaptureSynth();
+        Sonic3kSmpsData smps = createMusicData(1, 1, null, psgTrack, null, modEnvs);
+        SmpsSequencer seq = new SmpsSequencer(smps, EMPTY_DAC, synth, Sonic3kSmpsSequencerConfig.CONFIG);
+        seq.read(new short[25000]);
+
+        SmpsSequencer.Track psg = findTrack(seq, SmpsSequencer.TrackType.PSG);
+        assertEquals("Mod envelope delta should be cached", 1, psg.modEnvCache);
+        assertTrue("PSG pitch write should include modulation-adjusted low nibble", synth.psgWrites.contains(0x8F));
+    }
+
+    @Test
+    public void modEnvelopeChangeMultiplierUsesZ80Formula() {
+        byte[] psgTrack = {
+                (byte) 0xF4, 0x01,
+                (byte) 0x92, 0x04, // base period 0x280 in DEF_Z80_T2
+                (byte) 0xF2
+        };
+        Map<Integer, byte[]> modEnvs = new HashMap<>();
+        // 84 02 => mult = 2, Z80 formula uses (mult + 1), then value 01 => delta 3.
+        modEnvs.put(1, new byte[] { (byte) 0x84, 0x02, 0x01, (byte) 0x81 });
+
+        CaptureSynth synth = new CaptureSynth();
+        Sonic3kSmpsData smps = createMusicData(1, 1, null, psgTrack, null, modEnvs);
+        SmpsSequencer seq = new SmpsSequencer(smps, EMPTY_DAC, synth, Sonic3kSmpsSequencerConfig.CONFIG);
+        seq.read(new short[25000]);
+
+        SmpsSequencer.Track psg = findTrack(seq, SmpsSequencer.TrackType.PSG);
+        assertEquals("CHG_MULT should affect modulation delta via Z80 (mult+1)", 3, psg.modEnvCache);
+        assertTrue("PSG frequency should reflect +3 modulation delta", synth.psgWrites.contains(0x83));
+    }
+
     private static Sonic3kSmpsData createMusicData(int channels, int psgChannels, byte[] fmTrack, byte[] psgTrack,
             Map<Integer, byte[]> psgEnvelopes) {
+        return createMusicData(channels, psgChannels, fmTrack, psgTrack, psgEnvelopes, null);
+    }
+
+    private static Sonic3kSmpsData createMusicData(int channels, int psgChannels, byte[] fmTrack, byte[] psgTrack,
+            Map<Integer, byte[]> psgEnvelopes, Map<Integer, byte[]> modEnvelopes) {
         byte[] data = new byte[0x240];
         setLe16(data, 0x00, 0x100); // voice table pointer
         data[0x02] = (byte) channels;
@@ -325,6 +387,9 @@ public class TestSonic3kCoordFlagParity {
         Sonic3kSmpsData smps = new Sonic3kSmpsData(data, 0);
         if (psgEnvelopes != null) {
             smps.setPsgEnvelopes(psgEnvelopes);
+        }
+        if (modEnvelopes != null) {
+            smps.setModEnvelopes(modEnvelopes);
         }
         return smps;
     }
