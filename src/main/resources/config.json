@@ -30,6 +30,7 @@
   "DAC_INTERPOLATE": true,
   "FM6_DAC_OFF": true,
   "AUDIO_INTERNAL_RATE_OUTPUT": false,
+  "PSG_NOISE_SHIFT_EVERY_TOGGLE": true,
   "SIDEKICK_CHARACTER_CODE": "tails",
   "SONIC_1_ROM": "Sonic The Hedgehog (W) (REV01) [!].gen",
   "SONIC_2_ROM": "Sonic The Hedgehog 2 (W) (REV01) [!].gen",

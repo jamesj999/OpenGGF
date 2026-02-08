@@ -138,6 +138,14 @@ public class VirtualSynthesizer implements Synthesizer {
         ym.setDacInterpolate(interpolate);
     }
 
+    public void setPsgNoiseShiftOnEveryToggle(boolean everyToggle) {
+        psg.setNoiseShiftOnEveryToggle(everyToggle);
+    }
+
+    public boolean isPsgNoiseShiftOnEveryToggle() {
+        return psg.isNoiseShiftOnEveryToggle();
+    }
+
     @Override
     public void silenceAll() {
         ym.silenceAll();
