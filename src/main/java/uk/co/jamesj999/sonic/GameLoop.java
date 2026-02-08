@@ -1080,10 +1080,25 @@ public class GameLoop {
     /**
      * Exits the title screen. Fades to black, then transitions to level select
      * (if LEVEL_SELECT_ON_STARTUP is true) or loads EHZ Act 1.
+     *
+     * <p>Special case: If the title screen supports a level select overlay
+     * (e.g. Sonic 1), the transition is immediate with no fade and no music
+     * restart, matching the original hardware behaviour.
      */
     private void exitTitleScreen() {
         TitleScreenProvider titleScreen = getTitleScreenProviderLazy();
         if (titleScreen == null) {
+            return;
+        }
+
+        boolean levelSelectOnStartup = configService.getBoolean(SonicConfiguration.LEVEL_SELECT_ON_STARTUP);
+
+        // Sonic 1 level select: immediate transition, no fade, music continues.
+        // The original game loads Pal_LevelSel and clears the BG plane instantly.
+        // Title screen art data is kept loaded so it can be rendered behind the
+        // level select text with the brown/sepia palette tint.
+        if (levelSelectOnStartup && titleScreen.supportsLevelSelectOverlay()) {
+            doEnterLevelSelectFromTitleScreen();
             return;
         }
 
@@ -1102,6 +1117,38 @@ public class GameLoop {
         });
 
         LOGGER.info("Starting fade-to-black for Title Screen exit");
+    }
+
+    /**
+     * Enters the level select screen directly from the title screen, with no
+     * fade transition and no music restart. Used by Sonic 1 where the title
+     * screen art remains visible (with level select palette) behind the menu.
+     *
+     * <p>From the Sonic 1 disassembly (Tit_ChkLevSel): the transition loads
+     * Pal_LevelSel, clears the BG VRAM plane, and draws the menu text. Music
+     * continues uninterrupted.
+     */
+    private void doEnterLevelSelectFromTitleScreen() {
+        // Do NOT reset the title screen - its art data is still needed
+        // for rendering the frozen background behind level select text.
+        // Do NOT fade music - title music continues.
+
+        GameMode oldMode = currentGameMode;
+        currentGameMode = GameMode.LEVEL_SELECT;
+
+        camera.setX((short) 0);
+        camera.setY((short) 0);
+
+        LevelSelectProvider levelSelect = getLevelSelectProviderLazy();
+        if (levelSelect != null) {
+            levelSelect.initializeFromTitleScreen();
+        }
+
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+
+        LOGGER.info("Title screen -> Level Select (immediate, no fade)");
     }
 
     /**

@@ -6,6 +6,7 @@ import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic1.titlescreen.Sonic1TitleScreenManager;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Palette;
@@ -86,6 +87,36 @@ public class Sonic1LevelSelectManager implements LevelSelectProvider {
         AudioManager.getInstance().playMusic(Sonic1AudioProfile.MUS_TITLE);
 
         LOGGER.info("Sonic 1 level select initialized, entering FADE_IN state");
+    }
+
+    /**
+     * Initializes the level select when transitioning from the title screen.
+     * Unlike {@link #initialize()}, this does not restart the title music
+     * (it continues playing) and skips the fade-in (immediate display).
+     * This matches the original Sonic 1 behaviour where pressing Start+A on
+     * the title screen immediately shows the level select with no fade and
+     * no music interruption.
+     */
+    @Override
+    public void initializeFromTitleScreen() {
+        LOGGER.info("Initializing Sonic 1 level select from title screen (no music restart)");
+
+        if (!dataLoader.isDataLoaded()) {
+            dataLoader.loadData();
+        }
+
+        // Force palette re-upload on next draw
+        dataLoader.resetCache();
+
+        // Go straight to ACTIVE - no fade-in (matches original: immediate display)
+        state = State.ACTIVE;
+        fadeTimer = 0;
+        selectedIndex = 0;
+        soundTestValue = 0;
+        resetHoldTimers();
+
+        // Do NOT play music - title music continues from the title screen
+        LOGGER.info("Sonic 1 level select initialized from title screen, entering ACTIVE state");
     }
 
     @Override
@@ -214,11 +245,23 @@ public class Sonic1LevelSelectManager implements LevelSelectProvider {
         if (!dataLoader.isDataLoaded()) {
             dataLoader.loadData();
         }
+        // Upload level select palettes FIRST (before rendering frozen title art)
+        // This ensures the title screen art appears with the brown/sepia tint
+        // from Pal_LevelSel, matching the original hardware behaviour where
+        // changing CRAM immediately affects all displayed tiles.
         dataLoader.cacheToGpu();
 
         GraphicsManager gm = GraphicsManager.getInstance();
         if (gm == null || gm.isHeadlessMode()) {
             return;
+        }
+
+        // Render frozen title screen art behind the level select text.
+        // The level select palette is already active on the GPU, so the
+        // foreground logo and Sonic sprite appear brown/sepia.
+        Sonic1TitleScreenManager titleScreen = Sonic1TitleScreenManager.getInstance();
+        if (titleScreen.supportsLevelSelectOverlay()) {
+            titleScreen.drawFrozenForLevelSelect();
         }
 
         gm.beginPatternBatch();
