@@ -87,11 +87,12 @@ public class Sonic1Level implements Level {
                        int solidTileAnglesAddr,
                        List<ObjectSpawn> objectSpawns,
                        List<RingSpawn> ringSpawns,
+                       RingSpriteSheet ringSpriteSheet,
                        int[] boundaries) throws IOException {
         this.zoneIndex = zoneIndex;
         this.objects = List.copyOf(objectSpawns);
         this.rings = List.copyOf(ringSpawns);
-        this.ringSpriteSheet = null; // Sonic 1 rings are objects, not separate placement
+        this.ringSpriteSheet = ringSpriteSheet;
 
         loadPalettes(rom, sonicPaletteAddr, levelPaletteAddr);
         loadPatterns(rom, patternCues);

@@ -14,6 +14,7 @@ import uk.co.jamesj999.sonic.level.animation.AnimatedPaletteManager;
 import uk.co.jamesj999.sonic.level.animation.AnimatedPatternManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.rings.RingSpawn;
+import uk.co.jamesj999.sonic.level.rings.RingSpriteSheet;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 
 import java.io.IOException;
@@ -44,6 +45,8 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
     private RomByteReader romReader;
     private Sonic1ObjectPlacement objectPlacement;
     private Sonic1PlayerArt playerArt;
+    private Sonic1RingPlacement ringPlacement;
+    private Sonic1RingArt ringArt;
 
     public Sonic1(Rom rom) {
         this.rom = rom;
@@ -150,17 +153,21 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
                 " level(headerId=" + paletteId + " adjusted=" + adjustedPaletteId +
                 ")=0x" + Integer.toHexString(levelPaletteAddr));
 
-        // Load object spawns
-        List<ObjectSpawn> objects = objectPlacement.load(zone, act);
+        // Load object spawns, then extract ring objects into RingSpawn records
+        List<ObjectSpawn> allObjects = objectPlacement.load(zone, act);
+        Sonic1RingPlacement.Result ringResult = ringPlacement.extract(allObjects);
+        List<RingSpawn> rings = ringResult.rings();
+        List<ObjectSpawn> objects = ringResult.remainingObjects();
 
-        // Sonic 1 doesn't have separate ring placement - rings are objects
-        List<RingSpawn> rings = List.of();
+        // Load ring sprite sheet
+        RingSpriteSheet ringSpriteSheet = ringArt.load();
 
         LOG.info("Loading Sonic 1 level: zone=" + zone + " act=" + act +
                 " plcId=" + plcId + " plc2Id=" + plc2Id +
                 " patternCues=" + patternCues.size() +
                 " chunks=0x" + Integer.toHexString(chunksAddr) +
-                " blocks=0x" + Integer.toHexString(blocksAddr));
+                " blocks=0x" + Integer.toHexString(blocksAddr) +
+                " rings=" + rings.size() + " objects=" + objects.size());
 
         return new Sonic1Level(rom, zone, sonicPaletteAddr, levelPaletteAddr,
                 patternCues, chunksAddr, blocksAddr,
@@ -168,7 +175,7 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
                 Sonic1Constants.COLLISION_ARRAY_NORMAL_ADDR,
                 Sonic1Constants.COLLISION_ARRAY_ROTATED_ADDR,
                 Sonic1Constants.ANGLE_MAP_ADDR,
-                objects, rings, boundaries);
+                objects, rings, ringSpriteSheet, boundaries);
     }
 
     @Override
@@ -261,6 +268,12 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
         }
         if (playerArt == null) {
             playerArt = new Sonic1PlayerArt(romReader);
+        }
+        if (ringPlacement == null) {
+            ringPlacement = new Sonic1RingPlacement();
+        }
+        if (ringArt == null) {
+            ringArt = new Sonic1RingArt(rom);
         }
     }
 

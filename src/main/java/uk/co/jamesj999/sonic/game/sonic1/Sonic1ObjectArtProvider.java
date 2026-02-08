@@ -174,6 +174,6 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
 
     @Override
     public int getHudFlashPaletteLine() {
-        return 1; // Sonic 1: red flash color is in palette line 1
+        return 0; // Sonic 1: life icon and flash both use palette line 0 (Sonic's palette)
     }
 }
