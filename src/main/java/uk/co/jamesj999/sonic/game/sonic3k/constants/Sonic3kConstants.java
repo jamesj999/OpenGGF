@@ -41,6 +41,9 @@ public class Sonic3kConstants {
     // Sequential: AIZ1, AIZ2, HCZ1, HCZ2, ...
     public static int LEVEL_SIZES_ADDR = 0x01BCC6;
     public static final int LEVEL_SIZES_ENTRY_SIZE = 8;
+    // LevelSizes entry index for "AIZ Intro" (Current_zone_and_act = $0D00).
+    // This has the taller vertical bounds needed for post-intro AIZ1 gameplay.
+    public static final int LEVEL_SIZES_AIZ1_INTRO_INDEX = 26;
 
     // ===== Start location tables =====
     // 4 bytes per act: dc.w x_pos, y_pos

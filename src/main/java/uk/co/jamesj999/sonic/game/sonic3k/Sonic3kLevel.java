@@ -389,15 +389,16 @@ public class Sonic3kLevel implements Level {
         int mapHeight = Sonic3kConstants.MAP_HEIGHT;
         map = new Map(Sonic3kConstants.MAP_LAYERS, mapWidth, mapHeight);
 
-        // Parse FG layout (layer 0)
+        // Parse FG/BG layout pointers.
+        // S3K stores row pointers as interleaved word pairs:
+        //   row0: FG_ptr, BG_ptr
+        //   row1: FG_ptr, BG_ptr
+        //   ...
+        // (each row-pair = 4 bytes).
         parseLayoutLayer(layoutData, Sonic3kConstants.LEVEL_LAYOUT_HEADER_SIZE,
-                fgColsPerRow, fgRows, map, 0, mapWidth, mapHeight);
-
-        // Parse BG layout (layer 1)
-        // BG row pointers start after FG row pointers in the layout data
-        int bgOffset = Sonic3kConstants.LEVEL_LAYOUT_HEADER_SIZE + fgRows * 2;
-        parseLayoutLayer(layoutData, bgOffset,
-                bgColsPerRow, bgRows, map, 1, mapWidth, mapHeight);
+                4, fgColsPerRow, fgRows, map, 0, mapWidth, mapHeight);
+        parseLayoutLayer(layoutData, Sonic3kConstants.LEVEL_LAYOUT_HEADER_SIZE + 2,
+                4, bgColsPerRow, bgRows, map, 1, mapWidth, mapHeight);
         LOG.info("S3K map loaded successfully");
     }
 
@@ -407,13 +408,13 @@ public class Sonic3kLevel implements Level {
      * <p>Each layer has a table of word-sized row pointers (relative to layout start + 8),
      * and each row pointer leads to chunk index bytes for that row.
      */
-    private void parseLayoutLayer(byte[] layoutData, int rowPtrOffset,
+    private void parseLayoutLayer(byte[] layoutData, int rowPtrOffset, int rowPtrStride,
                                   int colsPerRow, int rows,
                                   Map map, int layer,
                                   int mapWidth, int mapHeight) {
         for (int row = 0; row < Math.min(rows, mapHeight); row++) {
             // Read word-sized row pointer
-            int ptrPos = rowPtrOffset + row * 2;
+            int ptrPos = rowPtrOffset + row * rowPtrStride;
             if (ptrPos + 1 >= layoutData.length) break;
 
             int rowPointerWord = ((layoutData[ptrPos] & 0xFF) << 8) | (layoutData[ptrPos + 1] & 0xFF);

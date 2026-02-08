@@ -2477,6 +2477,10 @@ public class LevelManager {
                     camera.setMaxX((short) currentLevel.getMaxX());
                     camera.setMinY((short) currentLevel.getMinY());
                     camera.setMaxY((short) currentLevel.getMaxY());
+                    // Re-apply camera placement after level bounds are set.
+                    // Some starts (notably S3K AIZ1 intro-skip) are far below Y=0 and
+                    // must be clamped with the correct maxY before pit checks run.
+                    camera.updatePosition(true);
                 }
 
                 // Initialize level events for dynamic boundary updates (game-specific)
