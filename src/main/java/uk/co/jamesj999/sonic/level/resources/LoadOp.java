@@ -41,6 +41,20 @@ public record LoadOp(int romAddr, CompressionType compressionType, int destOffse
     }
 
     /**
+     * Creates a Kosinski Moduled base load operation.
+     */
+    public static LoadOp kosinskiMBase(int romAddr) {
+        return base(romAddr, CompressionType.KOSINSKI_MODULED);
+    }
+
+    /**
+     * Creates a Kosinski Moduled overlay load operation.
+     */
+    public static LoadOp kosinskiMOverlay(int romAddr, int destOffsetBytes) {
+        return overlay(romAddr, CompressionType.KOSINSKI_MODULED, destOffsetBytes);
+    }
+
+    /**
      * Creates an uncompressed base load operation.
      */
     public static LoadOp uncompressedBase(int romAddr) {

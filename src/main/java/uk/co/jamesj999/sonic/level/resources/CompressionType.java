@@ -10,6 +10,13 @@ public enum CompressionType {
     KOSINSKI,
 
     /**
+     * Kosinski Moduled compression - used for S3K 8x8 pattern tile art.
+     * Has a 2-byte BE header (total uncompressed size), followed by
+     * standard Kosinski modules at 16-byte aligned boundaries.
+     */
+    KOSINSKI_MODULED,
+
+    /**
      * Nemesis compression - used for sprite art.
      */
     NEMESIS,
