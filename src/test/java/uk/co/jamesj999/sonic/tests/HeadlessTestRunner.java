@@ -1,7 +1,8 @@
 package uk.co.jamesj999.sonic.tests;
 
 import uk.co.jamesj999.sonic.camera.Camera;
-import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
+import uk.co.jamesj999.sonic.game.GameModuleRegistry;
+import uk.co.jamesj999.sonic.game.LevelEventProvider;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.ParallaxManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
@@ -73,9 +74,11 @@ public class HeadlessTestRunner {
         Camera camera = Camera.getInstance();
         camera.updatePosition(false);
 
-        // Update level events (dynamic boundaries, HTZ earthquake, etc.)
-        // This is essential for HTZ lava oscillation and screen shake triggers
-        LevelEventManager.getInstance().update();
+        // Update level events (dynamic boundaries, zone scripts, etc.)
+        LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        if (levelEvents != null) {
+            levelEvents.update();
+        }
 
         // Update parallax scrolling (calculates shake offsets from ripple data)
         // This must run after level events so shake flags are set correctly

@@ -1,0 +1,47 @@
+package uk.co.jamesj999.sonic.game.sonic3k.scroll;
+
+import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
+import uk.co.jamesj999.sonic.level.scroll.ZoneScrollHandler;
+
+import java.io.IOException;
+import java.util.logging.Logger;
+
+/**
+ * Scroll handler provider for Sonic 3 &amp; Knuckles.
+ * Provides zone-specific scroll handlers for parallax effects.
+ */
+public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
+    private static final Logger LOGGER = Logger.getLogger(Sonic3kScrollHandlerProvider.class.getName());
+
+    private boolean loaded = false;
+
+    private SwScrlAiz aizHandler;
+
+    @Override
+    public void load(Rom rom) throws IOException {
+        if (loaded) {
+            return;
+        }
+        aizHandler = new SwScrlAiz();
+        loaded = true;
+        LOGGER.info("Sonic 3K scroll handlers loaded.");
+    }
+
+    @Override
+    public ZoneScrollHandler getHandler(int zoneIndex) {
+        if (!loaded) {
+            return null;
+        }
+
+        return switch (zoneIndex) {
+            case Sonic3kZoneConstants.ZONE_AIZ -> aizHandler;
+            default -> null;
+        };
+    }
+
+    @Override
+    public ZoneConstants getZoneConstants() {
+        return Sonic3kZoneConstants.INSTANCE;
+    }
+}

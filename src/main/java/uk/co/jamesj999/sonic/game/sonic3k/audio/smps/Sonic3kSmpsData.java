@@ -44,6 +44,8 @@ public class Sonic3kSmpsData extends AbstractSmpsData {
     private Map<Integer, byte[]> psgEnvelopes;
     private Map<Integer, byte[]> modEnvelopes;
     private byte[] globalVoiceData;
+    private byte[] bankData;       // Full 32KB bank for shared voice table resolution
+    private int bankZ80Base;       // Z80 base address of the bank (0x8000)
 
     public Sonic3kSmpsData(byte[] data) {
         this(data, 0);
@@ -68,6 +70,18 @@ public class Sonic3kSmpsData extends AbstractSmpsData {
      */
     public void setGlobalVoiceData(byte[] globalVoiceData) {
         this.globalVoiceData = globalVoiceData;
+    }
+
+    /**
+     * Sets the full bank data for shared voice table resolution.
+     * S3K songs within the same bank share a voice table located at the
+     * beginning of the bank. Songs that start later in the bank need
+     * access to this data to resolve voice pointers that precede their
+     * own start address.
+     */
+    public void setBankData(byte[] bankData, int bankZ80Base) {
+        this.bankData = bankData;
+        this.bankZ80Base = bankZ80Base;
     }
 
     @Override
@@ -122,6 +136,7 @@ public class Sonic3kSmpsData extends AbstractSmpsData {
             return getGlobalVoice(voiceId);
         }
 
+        // Try 1: local voices within the song's own data blob
         int localBase = resolveLocalVoiceBase(ptr);
         if (localBase >= 0) {
             byte[] local = copyVoice(data, localBase + (voiceId * VOICE_STRIDE));
@@ -130,6 +145,18 @@ public class Sonic3kSmpsData extends AbstractSmpsData {
             }
         }
 
+        // Try 2: shared voices within the bank (voice table before song start)
+        if (bankData != null && bankZ80Base > 0) {
+            int bankRel = ptr - bankZ80Base;
+            if (bankRel >= 0 && bankRel + (voiceId * VOICE_STRIDE) + VOICE_STRIDE <= bankData.length) {
+                byte[] bankVoice = copyVoice(bankData, bankRel + (voiceId * VOICE_STRIDE));
+                if (bankVoice != null) {
+                    return bankVoice;
+                }
+            }
+        }
+
+        // Try 3: global instrument table (pointer-based offset)
         byte[] globalFromPointer = getGlobalVoiceFromPointer(ptr, voiceId);
         if (globalFromPointer != null) {
             return globalFromPointer;

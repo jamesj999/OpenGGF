@@ -305,13 +305,16 @@ public class GameLoop {
             }
         } else if (currentGameMode == GameMode.TITLE_CARD) {
             // Update title card animation
-            getTitleCardProviderLazy().update();
+            TitleCardProvider tcpCard = getTitleCardProviderLazy();
+            if (tcpCard != null) {
+                tcpCard.update();
+            }
 
             // From disassembly lines 5073-5078: control is released at the START of
             // TEXT_WAIT,
             // not when the title card is complete. This allows the player to move while the
             // text is still visible on screen.
-            if (getTitleCardProviderLazy().shouldReleaseControl()) {
+            if (tcpCard == null || tcpCard.shouldReleaseControl()) {
                 exitTitleCard();
                 // Continue to LEVEL mode processing this frame (fall through)
             } else {
@@ -358,8 +361,9 @@ public class GameLoop {
             // Continue updating title card overlay if still active
             // (TEXT_WAIT and TEXT_EXIT phases where player can move but text is still
             // visible)
-            if (getTitleCardProviderLazy().isOverlayActive()) {
-                getTitleCardProviderLazy().update();
+            TitleCardProvider tcp = getTitleCardProviderLazy();
+            if (tcp != null && tcp.isOverlayActive()) {
+                tcp.update();
             }
             // Check if a title card was requested (new level loaded)
             if (levelManager.consumeTitleCardRequest()) {
@@ -938,7 +942,9 @@ public class GameLoop {
         }
 
         // Initialize the title card manager
-        getTitleCardProviderLazy().initialize(zoneIndex, actIndex);
+        if (getTitleCardProviderLazy() != null) {
+            getTitleCardProviderLazy().initialize(zoneIndex, actIndex);
+        }
 
         // Start zone music immediately when title card begins (not at the end)
         int zoneMusicId = levelManager.getCurrentLevelMusicId();
@@ -988,7 +994,9 @@ public class GameLoop {
         }
 
         // Initialize the title card manager
-        getTitleCardProviderLazy().initialize(zoneIndex, actIndex);
+        if (getTitleCardProviderLazy() != null) {
+            getTitleCardProviderLazy().initialize(zoneIndex, actIndex);
+        }
 
         // Snap camera to player position immediately so it's correct from the start
         // Normal updates during the title card will keep it settled

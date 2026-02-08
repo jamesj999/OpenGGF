@@ -19,6 +19,7 @@ import uk.co.jamesj999.sonic.game.LevelEventProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.ObjectArtProvider;
 import uk.co.jamesj999.sonic.game.RespawnState;
+import uk.co.jamesj999.sonic.game.DynamicStartPositionProvider;
 import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
 
 import uk.co.jamesj999.sonic.debug.DebugObjectArtViewer;
@@ -2411,10 +2412,26 @@ public class LevelManager {
                 LOGGER.info("Set player position from checkpoint: X=" + checkpointX + ", Y=" + checkpointY +
                         " (adjusted by yRadius=" + yRadius + ")");
             } else {
-                player.setX((short) levelData.getStartXPos());
-                player.setY((short) (levelData.getStartYPos() - yRadius));
-                LOGGER.info("Set player position from levelData: X=" + levelData.getStartXPos() +
-                        ", Y=" + levelData.getStartYPos() + " (adjusted by yRadius=" + yRadius +
+                int spawnX = levelData.getStartXPos();
+                int spawnY = levelData.getStartYPos();
+
+                if (game instanceof DynamicStartPositionProvider dynamicStartProvider) {
+                    int[] dynamicStart = dynamicStartProvider.getStartPosition(currentZone, currentAct);
+                    if (dynamicStart != null && dynamicStart.length >= 2) {
+                        spawnX = dynamicStart[0];
+                        spawnY = dynamicStart[1];
+                        LOGGER.info("Set player position from dynamic start provider: X=" + spawnX +
+                                ", Y=" + spawnY + " (zone=" + currentZone + ", act=" + currentAct + ")");
+                    } else {
+                        LOGGER.info("Dynamic start provider unavailable, using levelData fallback for " +
+                                levelData.name());
+                    }
+                }
+
+                player.setX((short) spawnX);
+                player.setY((short) (spawnY - yRadius));
+                LOGGER.info("Set player position from level start: X=" + spawnX +
+                        ", Y=" + spawnY + " (adjusted by yRadius=" + yRadius +
                         ", level: " + levelData.name() + ")");
             }
 
@@ -2460,6 +2477,10 @@ public class LevelManager {
                     camera.setMaxX((short) currentLevel.getMaxX());
                     camera.setMinY((short) currentLevel.getMinY());
                     camera.setMaxY((short) currentLevel.getMaxY());
+                    // Re-apply camera placement after level bounds are set.
+                    // Some starts (notably S3K AIZ1 intro-skip) are far below Y=0 and
+                    // must be clamped with the correct maxY before pit checks run.
+                    camera.updatePosition(true);
                 }
 
                 // Initialize level events for dynamic boundary updates (game-specific)

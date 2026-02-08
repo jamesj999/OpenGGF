@@ -163,6 +163,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.FM6_DAC_OFF, true); // Default true for Sonic 2 parity
 		putDefault(SonicConfiguration.AUDIO_ENABLED, true);
 		putDefault(SonicConfiguration.AUDIO_INTERNAL_RATE_OUTPUT, false);
+		putDefault(SonicConfiguration.PSG_NOISE_SHIFT_EVERY_TOGGLE, true);
 		putDefault(SonicConfiguration.REGION, "NTSC");
 		// Key codes - using GLFW key codes
 		putDefault(SonicConfiguration.UP, GLFW_KEY_UP);
@@ -190,6 +191,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.SONIC_1_ROM, "Sonic The Hedgehog (W) (REV01) [!].gen");
 		putDefault(SonicConfiguration.SONIC_2_ROM, "Sonic The Hedgehog 2 (W) (REV01) [!].gen");
 		putDefault(SonicConfiguration.SONIC_3K_ROM, "Sonic 3 & Knuckles (W) [!].gen");
+		putDefault(SonicConfiguration.S3K_SKIP_AIZ1_INTRO, true);
 		putDefault(SonicConfiguration.DEFAULT_ROM, "s2");
 	}
 
