@@ -79,8 +79,7 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public LevelEventProvider getLevelEventProvider() {
-        // Sonic 1 has no dynamic level events (no earthquake, etc.)
-        return null;
+        return uk.co.jamesj999.sonic.game.sonic1.events.Sonic1LevelEventManager.getInstance();
     }
 
     @Override
