@@ -169,4 +169,18 @@ public interface GameModule {
     default void onLevelLoad() {
         // Default no-op
     }
+
+    /**
+     * Applies game-specific plane switching logic for the given player sprite.
+     * Called each frame from LevelManager.applyPlaneSwitchers(), after any
+     * object-based plane switching (Sonic 2 style).
+     *
+     * <p>Sonic 1 uses this for loop-based plane switching (Sonic_Loops).
+     * Default implementation does nothing (Sonic 2/3K use object-based switching).
+     *
+     * @param player the player sprite to apply plane switching to
+     */
+    default void applyPlaneSwitching(uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite player) {
+        // Default no-op
+    }
 }

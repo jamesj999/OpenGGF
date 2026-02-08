@@ -82,4 +82,19 @@ public interface Level {
 
     /** Number of 16x16 chunks along one side of a block (8 for Sonic 2, 16 for Sonic 1). */
     default int getChunksPerBlockSide() { return 8; }
+
+    /**
+     * Resolves the collision block index for a given map cell.
+     * In Sonic 1, loop-flagged blocks use the next block (index + 1) for
+     * collision when the player is on the "low plane."
+     * Default implementation returns the block index unchanged.
+     *
+     * @param blockIndex the raw block index from the layout map
+     * @param mapX       the map cell X coordinate
+     * @param mapY       the map cell Y coordinate
+     * @return the resolved block index for collision lookup
+     */
+    default int resolveCollisionBlockIndex(int blockIndex, int mapX, int mapY) {
+        return blockIndex;
+    }
 }
