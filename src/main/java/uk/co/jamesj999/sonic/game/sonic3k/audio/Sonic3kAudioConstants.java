@@ -37,8 +37,9 @@ public final class Sonic3kAudioConstants {
     public static final int MUS_BOSS = 0x19;
     public static final int MUS_DDZ = 0x1A;
     public static final int MUS_PACHINKO = 0x1B;
-    public static final int MUS_SLOTS = 0x1C;
-    public static final int MUS_GUMBALL = 0x1D;
+    public static final int MUS_SPECIAL_STAGE = 0x1C;
+    public static final int MUS_SLOTS = 0x1D;
+    public static final int MUS_GUMBALL = 0x1E;
     public static final int MUS_KNUCKLES = 0x1F;
     public static final int MUS_AZURE_LAKE = 0x20;
     public static final int MUS_BALLOON_PARK = 0x21;
@@ -46,20 +47,19 @@ public final class Sonic3kAudioConstants {
     public static final int MUS_CHROME_GADGET = 0x23;
     public static final int MUS_ENDLESS_MINE = 0x24;
     public static final int MUS_TITLE = 0x25;
-    public static final int MUS_GAME_OVER = 0x26;
-    public static final int MUS_SPECIAL_STAGE = 0x27;
-    public static final int MUS_BLUE_SPHERE = 0x28;
-    public static final int MUS_CONTINUE = 0x29;
-    public static final int MUS_ACT_CLEAR = 0x2A;
-    public static final int MUS_DATA_SELECT = 0x2B;
+    public static final int MUS_CREDITS_S3 = 0x26;
+    public static final int MUS_GAME_OVER = 0x27;
+    public static final int MUS_CONTINUE = 0x28;
+    public static final int MUS_ACT_CLEAR = 0x29;
+    public static final int MUS_EXTRA_LIFE = 0x2A;
+    public static final int MUS_EMERALD = 0x2B;
     public static final int MUS_INVINCIBILITY = 0x2C;
     public static final int MUS_COMPETITION_MENU = 0x2D;
-    public static final int MUS_EXTRA_LIFE = 0x2E;
-    public static final int MUS_LEVEL_SELECT = 0x2F;
+    public static final int MUS_MINIBOSS_S3 = 0x2E;
+    public static final int MUS_DATA_SELECT = 0x2F;
     public static final int MUS_FINAL_BOSS = 0x30;
     public static final int MUS_DROWNING = 0x31;
-    public static final int MUS_ALL_CLEAR = 0x32;
-    public static final int MUS_CREDITS = 0x33;
+    public static final int MUS_ENDING = 0x32;
 
     // -----------------------------------------------------------------------
     // System commands (sound queue IDs)

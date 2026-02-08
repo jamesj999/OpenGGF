@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic3k.audio.smps;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.audio.smps.CoordFlagContext;
 import uk.co.jamesj999.sonic.audio.smps.CoordFlagHandler;
 import uk.co.jamesj999.sonic.audio.smps.SmpsSequencer;
@@ -56,10 +57,17 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
                 }
                 return true;
 
-            case 0xE2: // FADE_IN_SONG - fade previous track in
+            case 0xE2: // FADE_TO_PREV - store fade-to-previous flag
+                // Z80 driver: stores param into zFadeToPrevFlag, main loop checks it.
+                // 0xFF = restore backed-up music with fade-in (zFadeInToPrevious)
+                // Other values = SFX blocking control (no-op here, handled by isSfxBlockingMusic)
                 if (t.pos < data.length) {
-                    t.pos++;
-                    ctx.triggerFadeIn();
+                    int param = data[t.pos++] & 0xFF;
+                    if (param == 0xFF) {
+                        // Restore previous music with fade-in (same as S2 E4 handler)
+                        AudioManager.getInstance().getBackend().restoreMusic();
+                    }
+                    // Other values: no-op
                 }
                 return true;
 
