@@ -705,7 +705,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             primed = true;
         }
 
-        if (tempoWeight == 0) {
+        if (tempoWeight == 0 && config.getTempoMode() == SmpsSequencerConfig.TempoMode.OVERFLOW2) {
             return buffer.length;
         }
 
@@ -866,7 +866,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
     }
 
     private void processTempoFrame() {
-        if (tempoWeight == 0) {
+        if (tempoWeight == 0 && config.getTempoMode() == SmpsSequencerConfig.TempoMode.OVERFLOW2) {
             return;
         }
         if (config.getTempoMode() == SmpsSequencerConfig.TempoMode.TIMEOUT) {
@@ -1614,6 +1614,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             if (psgNote >= psgFreqTable.length)
                 psgNote = psgFreqTable.length - 1;
             int reg = psgFreqTable[psgNote];
+            t.baseFnum = reg;
 
             reg += t.detune;
 
@@ -1631,8 +1632,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 int ch = t.channelId;
                 synth.writePsg(this, 0x80 | (ch << 5) | (0) | data);
                 synth.writePsg(this, (reg >> 4) & 0x3F);
-                // Initialize modulation state for PSG slides
-                t.baseFnum = reg;
+                // baseFnum stores detune-free period; modulation applies detune dynamically.
             }
 
             if (t.customModEnabled && !preventAttack) {
@@ -1734,6 +1734,8 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 refreshVolume(t);
             }
         } else if (t.type == TrackType.PSG) {
+            t.baseFnum = freq;
+
             int reg = freq + t.detune;
             reg = normalizePsgPeriod(reg);
 
@@ -1743,7 +1745,6 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 int ch = t.channelId;
                 synth.writePsg(this, 0x80 | (ch << 5) | (reg & 0x0F));
                 synth.writePsg(this, (reg >> 4) & 0x3F);
-                t.baseFnum = reg;
             }
 
             if (t.customModEnabled && !preventAttack) {

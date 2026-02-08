@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -310,6 +311,26 @@ public class TestSonic3kCoordFlagParity {
         SmpsSequencer.Track psg = findTrack(seq, SmpsSequencer.TrackType.PSG);
         assertEquals("Mod envelope delta should be cached", 1, psg.modEnvCache);
         assertTrue("PSG pitch write should include modulation-adjusted low nibble", synth.psgWrites.contains(0x8F));
+    }
+
+    @Test
+    public void psgDetuneIsAppliedOnceWhenModEnvelopeUpdatesPitch() {
+        byte[] psgTrack = {
+                (byte) 0xE1, 0x01, // detune +1
+                (byte) 0xF4, 0x01, // load modulation envelope 1
+                (byte) 0x92, 0x04, // base period 0x280 in DEF_Z80_T2
+                (byte) 0xF2
+        };
+        Map<Integer, byte[]> modEnvs = new HashMap<>();
+        modEnvs.put(1, new byte[] { 0x01, (byte) 0x81 }); // +1 then HOLD
+
+        CaptureSynth synth = new CaptureSynth();
+        Sonic3kSmpsData smps = createMusicData(1, 1, null, psgTrack, null, modEnvs);
+        SmpsSequencer seq = new SmpsSequencer(smps, EMPTY_DAC, synth, Sonic3kSmpsSequencerConfig.CONFIG);
+        seq.read(new short[25000]);
+
+        assertTrue("Expected modulation write at 0x282 (+1 detune, +1 env)", synth.psgWrites.contains(0x82));
+        assertFalse("Detune must not be applied twice (would write 0x283)", synth.psgWrites.contains(0x83));
     }
 
     @Test
