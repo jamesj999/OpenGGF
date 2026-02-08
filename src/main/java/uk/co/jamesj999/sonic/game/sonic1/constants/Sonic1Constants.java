@@ -170,4 +170,20 @@ public final class Sonic1Constants {
 
     // Nem_Lamp: Nemesis-compressed lamppost art (10 tiles: pole, blue ball, red ball)
     public static final int ART_NEM_LAMPPOST_ADDR = 0x3AE64;
+
+    // Nem_Sign: Nemesis-compressed signpost art (end-of-act sign, 58 tiles)
+    public static final int ART_NEM_SIGNPOST_ADDR = 0x3A9E8;
+
+    // ---- Results screen VRAM layout ----
+    // ArtTile_Title_Card = $580: title card letters, zone names, oval, act numbers
+    // ArtTile_HUD = $6CA = $580 + $14A: HUD text labels (SCORE/TIME/RINGS)
+    // Bonus digits occupy $570-$57F (16 tiles below ArtTile_Title_Card)
+    public static final int VRAM_RESULTS_BASE = 0x570;
+    public static final int VRAM_RESULTS_TITLE_CARD = 0x580;
+    public static final int VRAM_RESULTS_HUD_TEXT = 0x6CA;
+    // Tile adjust: mapping tile IDs are relative to $580, array starts at $570
+    public static final int RESULTS_TILE_ADJUST = VRAM_RESULTS_TITLE_CARD - VRAM_RESULTS_BASE; // 0x10
+    // Bonus digit tiles: 2 groups (time bonus, ring bonus) x 4 digits x 2 tiles = 16
+    public static final int S1_RESULTS_BONUS_DIGIT_TILES = 16;
+    public static final int S1_RESULTS_BONUS_DIGIT_GROUP_TILES = 8;
 }

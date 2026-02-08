@@ -313,6 +313,14 @@ public abstract class AbstractResultsScreen extends AbstractObjectInstance imple
     protected record TallyResult(boolean anyRemaining, int totalIncrement) {
     }
 
+    /**
+     * Factory method for creating TallyResult from subclasses in other packages.
+     * (Java restricts direct protected constructor access across packages.)
+     */
+    protected TallyResult tallyResult(boolean anyRemaining, int totalIncrement) {
+        return new TallyResult(anyRemaining, totalIncrement);
+    }
+
     // State getter for testing
     public int getState() {
         return state;

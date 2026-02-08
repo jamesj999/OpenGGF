@@ -72,6 +72,12 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load lamppost art
         loadLamppostArt(rom);
 
+        // Load signpost art
+        loadSignpostArt(rom);
+
+        // Load results screen art (reuses title card + HUD text)
+        loadResultsScreenArt(rom);
+
         loaded = true;
         LOGGER.info("Sonic1ObjectArtProvider loaded: digits=" +
                 (hudDigitPatterns != null ? hudDigitPatterns.length : 0) +
@@ -143,6 +149,257 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 new SpriteMappingPiece( 0, -0x0C, 1, 4, 2, true,  false, 1, false),
                 new SpriteMappingPiece(-8, -0x2C, 1, 2, 8, false, false, 0, false),
                 new SpriteMappingPiece( 0, -0x2C, 1, 2, 8, true,  false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads signpost art (Nem_Sign) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Signpost.asm (Map_Sign_internal).
+     */
+    private void loadSignpostArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SIGNPOST_ADDR, "Signpost");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load signpost art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSignpostMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.SIGNPOST, sheet);
+    }
+
+    /**
+     * Creates signpost sprite mappings from S1 disassembly Map_Sign_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0 (.eggman):  Eggman face sign (3 pieces, left+mirrored right+post)
+     * Frame 1 (.spin1):   Spinning frame 1 - wide (2 pieces, sign+post)
+     * Frame 2 (.spin2):   Spinning frame 2 - thin/edge-on (2 pieces, sign+post)
+     * Frame 3 (.spin3):   Spinning frame 3 - wide mirrored (2 pieces, sign+post)
+     * Frame 4 (.sonic):   Sonic face sign (3 pieces, left+right+post)
+     */
+    private List<SpriteMappingFrame> createSignpostMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .eggman - Eggman sign face (left half + mirrored right half + post)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x10, 3, 4, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x10, 3, 4, 0x00, true,  false, 0, false),
+                new SpriteMappingPiece(   -4,  0x10, 1, 2, 0x38, false, false, 0, false)
+        )));
+
+        // Frame 1: .spin1 - Spinning wide (4x4 sign + post)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x0C, false, false, 0, false),
+                new SpriteMappingPiece(   -4,  0x10, 1, 2, 0x38, false, false, 0, false)
+        )));
+
+        // Frame 2: .spin2 - Spinning thin/edge-on (1x4 sign + post with xflip)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -0x10, 1, 4, 0x1C, false, false, 0, false),
+                new SpriteMappingPiece(-4,  0x10, 1, 2, 0x38, true,  false, 0, false)
+        )));
+
+        // Frame 3: .spin3 - Spinning wide mirrored (4x4 sign xflipped + post with xflip)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x0C, true,  false, 0, false),
+                new SpriteMappingPiece(   -4,  0x10, 1, 2, 0x38, true,  false, 0, false)
+        )));
+
+        // Frame 4: .sonic - Sonic sign face (left half + right half + post)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x10, 3, 4, 0x20, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x10, 3, 4, 0x2C, false, false, 0, false),
+                new SpriteMappingPiece(   -4,  0x10, 1, 2, 0x38, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads results screen art by compositing title card patterns + HUD text patterns
+     * into a single VRAM-aligned pattern array, matching the original S1 layout.
+     * <p>
+     * VRAM layout:
+     * <ul>
+     *   <li>$570-$57F (indices 0-15): Writable bonus digit slots (time + ring bonus)</li>
+     *   <li>$580+ (indices 16+): Title card art (Nem_TitleCard)</li>
+     *   <li>$6CA+ (indices 0x15A+): HUD text art (Nem_Hud: SCORE/TIME/RINGS labels)</li>
+     * </ul>
+     * <p>
+     * Mapping tile IDs are relative to ArtTile_Title_Card ($580).
+     * Array index = tile_id + RESULTS_TILE_ADJUST (0x10).
+     */
+    private void loadResultsScreenArt(Rom rom) {
+        Pattern[] titleCardPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_TITLE_CARD_ADDR, "TitleCard");
+        if (titleCardPatterns.length == 0) {
+            LOGGER.warning("Failed to load title card art for results screen");
+            return;
+        }
+        if (hudTextPatterns == null || hudTextPatterns.length == 0) {
+            LOGGER.warning("HUD text patterns not available for results screen");
+            return;
+        }
+
+        // Calculate the HUD text start index in our composite array
+        // HUD text is at VRAM $6CA; title card at $580; base at $570
+        int hudTextStartIndex = Sonic1Constants.VRAM_RESULTS_HUD_TEXT - Sonic1Constants.VRAM_RESULTS_BASE;
+
+        // Total array size: enough to cover HUD text at the end
+        int totalSize = hudTextStartIndex + hudTextPatterns.length;
+
+        Pattern[] compositePatterns = new Pattern[totalSize];
+
+        // Fill with blank patterns
+        for (int i = 0; i < totalSize; i++) {
+            compositePatterns[i] = new Pattern();
+        }
+
+        // Copy title card patterns at index RESULTS_TILE_ADJUST (0x10)
+        int titleCardStart = Sonic1Constants.RESULTS_TILE_ADJUST;
+        for (int i = 0; i < titleCardPatterns.length && (titleCardStart + i) < totalSize; i++) {
+            compositePatterns[titleCardStart + i] = titleCardPatterns[i];
+        }
+
+        // Copy HUD text patterns at hudTextStartIndex
+        for (int i = 0; i < hudTextPatterns.length && (hudTextStartIndex + i) < totalSize; i++) {
+            compositePatterns[hudTextStartIndex + i] = hudTextPatterns[i];
+        }
+
+        List<SpriteMappingFrame> mappings = createResultsScreenMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(compositePatterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.RESULTS, sheet);
+
+        LOGGER.info("Results screen art loaded: " + totalSize + " composite patterns, "
+                + mappings.size() + " frames");
+    }
+
+    /**
+     * Creates sprite mappings for the Sonic 1 results screen from Map_Got in the disassembly.
+     * <p>
+     * All tile IDs from the disassembly are relative to ArtTile_Title_Card ($580).
+     * We add RESULTS_TILE_ADJUST (0x10) to convert to composite array indices.
+     * <p>
+     * Frames:
+     * <ol start="0">
+     *   <li>"SONIC HAS" (8 pieces)</li>
+     *   <li>"PASSED" (6 pieces)</li>
+     *   <li>"SCORE" + score area (6 pieces)</li>
+     *   <li>"TIME BONUS" + digit area (7 pieces)</li>
+     *   <li>"RING BONUS" + digit area (7 pieces)</li>
+     *   <li>Oval decoration (13 pieces)</li>
+     *   <li>"ACT 1" (2 pieces)</li>
+     *   <li>"ACT 2" (2 pieces)</li>
+     *   <li>"ACT 3" (2 pieces)</li>
+     * </ol>
+     */
+    private List<SpriteMappingFrame> createResultsScreenMappings() {
+        final int T = Sonic1Constants.RESULTS_TILE_ADJUST; // 0x10
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: M_Got_SonicHas - "SONIC HAS" (8 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x48, -8, 2, 2, 0x3E + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x38, -8, 2, 2, 0x32 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x28, -8, 2, 2, 0x2E + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, -8, 1, 2, 0x20 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -8, 2, 2, 0x08 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x10, -8, 2, 2, 0x1C + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x20, -8, 2, 2, 0x00 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x30, -8, 2, 2, 0x3E + T, false, false, 0, false)
+        )));
+
+        // Frame 1: M_Got_Passed - "PASSED" (6 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x30, -8, 2, 2, 0x36 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -8, 2, 2, 0x00 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -8, 2, 2, 0x3E + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x00, -8, 2, 2, 0x3E + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x10, -8, 2, 2, 0x10 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x20, -8, 2, 2, 0x0C + T, false, false, 0, false)
+        )));
+
+        // Frame 2: M_Got_Score - "SCORE" text + score digits (4 pieces)
+        // Separator dots split into frame 9 to ensure correct z-ordering:
+        // batched rendering can lose within-frame piece priority, so the dots
+        // must be in a separate drawFrameIndex call issued before this frame.
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x50, -8, 4, 2, 0x14A + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x30, -8, 1, 2, 0x162 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x18, -8, 3, 2, 0x164 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x30, -8, 4, 2, 0x16A + T, false, false, 0, false)
+        )));
+
+        // Frame 3: M_Got_TBonus - "TIME BONUS" + digit area (7 pieces)
+        // Tile -$10 = time bonus digits at array index 0 (= -0x10 + T = 0)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x50, -8, 4, 2, 0x15A + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x27, -8, 4, 2, 0x66 + T,  false, false, 0, false),
+                new SpriteMappingPiece(   -7, -8, 1, 2, 0x14A + T, false, false, 0, false),
+                new SpriteMappingPiece( -0xA, -9, 2, 1, 0x6E + T,  false, false, 0, false),
+                new SpriteMappingPiece( -0xA, -1, 2, 1, 0x6E + T,  true,  true,  0, false),
+                new SpriteMappingPiece( 0x28, -8, 4, 2, 0,         false, false, 0, false),
+                new SpriteMappingPiece( 0x48, -8, 1, 2, 0x170 + T, false, false, 0, false)
+        )));
+
+        // Frame 4: M_Got_RBonus - "RING BONUS" + digit area (7 pieces)
+        // Tile -$8 = ring bonus digits at array index 8 (= -0x08 + T = 8)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x50, -8, 4, 2, 0x152 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x27, -8, 4, 2, 0x66 + T,  false, false, 0, false),
+                new SpriteMappingPiece(   -7, -8, 1, 2, 0x14A + T, false, false, 0, false),
+                new SpriteMappingPiece( -0xA, -9, 2, 1, 0x6E + T,  false, false, 0, false),
+                new SpriteMappingPiece( -0xA, -1, 2, 1, 0x6E + T,  true,  true,  0, false),
+                new SpriteMappingPiece( 0x28, -8, 4, 2, 8,         false, false, 0, false),
+                new SpriteMappingPiece( 0x48, -8, 1, 2, 0x170 + T, false, false, 0, false)
+        )));
+
+        // Frame 5: M_Card_Oval - Oval decoration (13 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x1C, 4, 1, 0x70 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x14, -0x1C, 1, 3, 0x74 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x14, -0x14, 2, 1, 0x77 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x1C, -0x0C, 2, 2, 0x79 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x14,  0x14, 4, 1, 0x70 + T, true,  true,  0, false),
+                new SpriteMappingPiece(-0x1C,  0x04, 1, 3, 0x74 + T, true,  true,  0, false),
+                new SpriteMappingPiece( 0x04,  0x0C, 2, 1, 0x77 + T, true,  true,  0, false),
+                new SpriteMappingPiece( 0x0C, -0x04, 2, 2, 0x79 + T, true,  true,  0, false),
+                new SpriteMappingPiece(-0x04, -0x14, 3, 1, 0x7D + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C, -0x0C, 4, 1, 0x7C + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C, -0x04, 3, 1, 0x7C + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x14,  0x04, 4, 1, 0x7C + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x14,  0x0C, 3, 1, 0x7C + T, false, false, 0, false)
+        )));
+
+        // Frame 6: M_Card_Act1 - "ACT 1" (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, 0x04, 4, 1, 0x53 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x0C, -0x0C, 1, 3, 0x57 + T, false, false, 0, false)
+        )));
+
+        // Frame 7: M_Card_Act2 - "ACT 2" (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, 0x04, 4, 1, 0x53 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x08, -0x0C, 2, 3, 0x5A + T, false, false, 0, false)
+        )));
+
+        // Frame 8: M_Card_Act3 - "ACT 3" (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, 0x04, 4, 1, 0x53 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x08, -0x0C, 2, 3, 0x60 + T, false, false, 0, false)
+        )));
+
+        // Frame 9: SCORE separator dots (split from frame 2)
+        // Drawn as a separate drawFrameIndex call before the SCORE text frame
+        // so that batched rendering correctly places dots behind text.
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x33, -9, 2, 1, 0x6E + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x33, -1, 2, 1, 0x6E + T, true,  true,  0, false)
         )));
 
         return frames;

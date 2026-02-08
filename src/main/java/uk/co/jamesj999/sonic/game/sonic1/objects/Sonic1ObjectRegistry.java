@@ -50,6 +50,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
     private void registerDefaultFactories() {
         factories.put(Sonic1ObjectIds.LAMPPOST,
                 (spawn, registry) -> new Sonic1LamppostObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SIGNPOST,
+                (spawn, registry) -> new Sonic1SignpostObjectInstance(spawn));
     }
 
     @Override
