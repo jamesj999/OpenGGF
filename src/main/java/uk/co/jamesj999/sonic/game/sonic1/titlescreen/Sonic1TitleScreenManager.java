@@ -96,6 +96,12 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
     private static final int TM_X = 0x170 - 128; // = 240
     private static final int TM_Y = 0xF8 - 128; // = 120
 
+    // Plane A split row for sprite layering.
+    // The original game uses M_PSB_Limiter (30 blank sprites) to mask TitleSonic
+    // below screen Y 104 via VDP per-scanline sprite limit. Screen Y 104 corresponds
+    // to Plane A tile row 9: (104 - startPixelY) / 8 = (104 - 32) / 8 = 9.
+    private static final int PLANE_A_SPLIT_ROW = 9;
+
     // Background scroll using GHZ parallax scroll handler
     private int bgCameraX = 0;
     private SwScrlGhz scrollHandler;
@@ -329,6 +335,10 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
      * Uses horizScrollBuf (populated by the scroll handler) for per-scanline BG scroll.
      * Each tile row uses the scroll value from its first scanline.
      *
+     * <p>Applies VDP vertical scroll (vscrollFactorBG) to offset which rows of the
+     * 256-pixel tall nametable are visible. Without this, the wrong portion of the
+     * GHZ background is shown (e.g. water instead of mountains on the title screen).
+     *
      * <p>Caller must call {@code gm.beginPatternBatch()} before and
      * {@code gm.flushPatternBatch()} after, matching the S2 title screen pattern.
      */
@@ -344,13 +354,38 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
             return;
         }
 
-        // Render visible tile rows: 28 rows (224px), 42 columns (320px + partial tile)
-        int visibleRows = Math.min(28, mapHeight);
+        // Apply VDP vertical scroll: vscrollFactorBG determines which row of the
+        // nametable appears at the top of the screen. In the VDP, nametable_row =
+        // (screen_row + vscroll) mod nametable_height.
+        int vscroll = scrollHandler.getVscrollFactorBG() & 0xFFFF;
+        int subTileY = vscroll & 7;
+        int startTileY = vscroll >> 3;
+
+        // Render visible tile rows: 29 rows (28 + 1 for sub-tile Y offset at top/bottom)
+        int visibleRows = Math.min(29, mapHeight);
 
         for (int ty = 0; ty < visibleRows; ty++) {
+            // Stop before the nametable wraps vertically. Without this, the bottom
+            // of the screen shows a few rows from the top of the block (sky/clouds)
+            // due to VDP torus wrapping. The clear color (palette line 2, color 0)
+            // fills the remaining scanlines instead, matching the water/ground below.
+            // This wrap also occurs on real hardware but is only ~6 pixels and usually
+            // obscured by the foreground logo.
+            if (startTileY + ty >= mapHeight) {
+                break;
+            }
+            int mapTileY = startTileY + ty;
+
+            // Screen Y for this tile row, offset by sub-tile V-scroll
+            int drawY = ty * 8 - subTileY;
+            if (drawY >= SCREEN_HEIGHT) {
+                break;
+            }
+
             // Extract BG scroll for this tile row from horizScrollBuf.
             // BG scroll is in the low 16 bits (signed short, negated camera position).
-            int scanline = ty * 8;
+            // Use the screen scanline (not nametable row) for H-scroll lookup.
+            int scanline = Math.max(0, drawY);
             if (scanline >= M68KMath.VISIBLE_LINES) {
                 break;
             }
@@ -367,7 +402,7 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
                 // Wrap horizontally within the nametable
                 mapTileX = ((mapTileX % mapWidth) + mapWidth) % mapWidth;
 
-                int idx = ty * mapWidth + mapTileX;
+                int idx = mapTileY * mapWidth + mapTileX;
                 if (idx < 0 || idx >= map.length) {
                     continue;
                 }
@@ -379,7 +414,7 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
                 reusableDesc.set(word);
                 int patternId = Sonic1TitleScreenDataLoader.GHZ_PATTERN_BASE + reusableDesc.getPatternIndex();
                 int drawX = screenTile * 8 - subTileX;
-                gm.renderPatternWithId(patternId, reusableDesc, drawX, ty * 8);
+                gm.renderPatternWithId(patternId, reusableDesc, drawX, drawY);
             }
         }
     }
@@ -413,10 +448,11 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
             return;
         }
 
-        // Write 4 colors into palette line 2, starting at color index 2
-        // (matches disassembly: lea (Normal_palette_line_2+4).w,a1 → color index 2)
+        // Write 4 colors into palette line 2, starting at color index 8
+        // (matches disassembly: lea (v_palette+$50).w,a1
+        //  v_palette+$50 = line 2 start ($40) + $10 = color index 8)
         for (int i = 0; i < 4; i++) {
-            Palette.Color color = palLine2.getColor(2 + i);
+            Palette.Color color = palLine2.getColor(8 + i);
             color.fromSegaFormat(cycleData, offset + i * 2);
         }
 
@@ -458,9 +494,13 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
         // Flush Plane B to framebuffer before Plane A starts (matches S2 pattern)
         gm.flushScreenSpace();
 
-        // --- Render Plane A (title foreground logo) ---
+        // --- Render Plane A upper portion (behind sprites) ---
+        // The original game uses a "sprite line limiter" (M_PSB_Limiter) to mask
+        // Sonic's sprite below screen Y 104 via the VDP per-scanline sprite limit.
+        // We replicate this by splitting Plane A at tile row 9 (screen Y 104 = startPixelY + 9*8).
+        // Rows 0-8 render behind Sonic; rows 9+ render in front.
         gm.beginPatternBatch();
-        renderPlaneA(gm);
+        renderPlaneA(gm, 0, PLANE_A_SPLIT_ROW);
         gm.flushPatternBatch();
         gm.flushScreenSpace();
 
@@ -475,6 +515,14 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
         }
 
         gm.flushPatternBatch();
+
+        // --- Render Plane A lower portion (in front of sprites) ---
+        // Replicates the visual effect of M_PSB_Limiter masking Sonic below
+        // the logo's mid-section (red ribbon / "THE HEDGEHOG" text).
+        gm.beginPatternBatch();
+        renderPlaneA(gm, PLANE_A_SPLIT_ROW, dataLoader.getPlaneAHeight());
+        gm.flushPatternBatch();
+        gm.flushScreenSpace();
 
         // TM uses title foreground patterns, render separately
         gm.beginPatternBatch();
@@ -541,14 +589,20 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
     }
 
     /**
-     * Renders the Plane A (title foreground logo) from the Enigma-decoded nametable.
-     * The nametable is 34 tiles wide by 22 tiles tall, placed starting at VRAM row 1, col 3
-     * (offset 0x206 = row*64 + col, but we render directly at pixel positions).
+     * Renders a row range of the Plane A (title foreground logo) nametable.
      *
-     * <p>Caller must call {@code gm.beginPatternBatch()} before and
-     * {@code gm.flushPatternBatch()} after, matching the S2 title screen pattern.
+     * <p>The nametable is 34 tiles wide by 22 tiles tall, placed starting at VRAM row 4, col 3
+     * (offset 0x206 = row*128 + col*2, but we render directly at pixel positions).
+     *
+     * <p>Called twice per frame to layer Sonic correctly: rows 0 to PLANE_A_SPLIT_ROW
+     * render behind Sonic, and rows PLANE_A_SPLIT_ROW to end render in front of him.
+     * This replicates the visual effect of the original game's M_PSB_Limiter sprite
+     * masking trick.
+     *
+     * @param startRow first tile row to render (inclusive)
+     * @param endRow   last tile row to render (exclusive)
      */
-    private void renderPlaneA(GraphicsManager gm) {
+    private void renderPlaneA(GraphicsManager gm, int startRow, int endRow) {
         int[] map = dataLoader.getPlaneAMap();
         if (map == null || map.length == 0) {
             return;
@@ -562,7 +616,9 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
         int startPixelX = 24;
         int startPixelY = 32;
 
-        for (int ty = 0; ty < mapHeight; ty++) {
+        int clampedEnd = Math.min(endRow, mapHeight);
+
+        for (int ty = startRow; ty < clampedEnd; ty++) {
             for (int tx = 0; tx < mapWidth; tx++) {
                 int idx = ty * mapWidth + tx;
                 if (idx >= map.length) {
