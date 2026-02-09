@@ -300,12 +300,18 @@ Report any discrepancies with specific line references.
 
 1. **Verify registration** in `Sonic1ObjectRegistry`
 
-2. **Build and test**:
+2. **Add to IMPLEMENTED_IDS** in `Sonic1ObjectProfile.java` (the `IMPLEMENTED_IDS` set):
+   ```java
+   Sonic1ObjectIds.ZONE_BOSS
+   ```
+   Keep the set entries sorted logically with the other entries.
+
+3. **Build and test**:
    ```bash
    mvn package
    ```
 
-3. Report completion with summary.
+4. Report completion with summary.
 
 ## Reference Files
 
@@ -323,6 +329,7 @@ Report any discrepancies with specific line references.
 | S2 boss examples | `src/.../game/sonic2/objects/bosses/` |
 | Disassembly bosses | `docs/s1disasm/_incObj/*Boss*.asm` |
 | Disassembly mappings | `docs/s1disasm/_maps/Eggman.asm`, `_maps/Boss Items.asm` |
+| Implemented IDs | `src/.../tools/Sonic1ObjectProfile.java` (IMPLEMENTED_IDS set) |
 
 ## Boss-Specific Notes
 
