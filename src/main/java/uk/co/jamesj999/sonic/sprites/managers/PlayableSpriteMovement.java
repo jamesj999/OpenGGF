@@ -944,6 +944,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/** Obj01_CheckWallsOnGround: Ground wall collision (s2.asm:36486) */
 	private void doWallCollisionGround() {
+		// S1 roll tunnels: suppress push sensor wall check to prevent false
+		// detections against the narrow tunnel walls. S1's ROM has no separate
+		// ground wall check (01 Sonic.asm: Sonic_MdNormal has no CalcRoomInFront).
+		if (sprite.isTunnelMode()) {
+			return;
+		}
 		Sensor[] pushSensors = sprite.getPushSensors();
 		if (pushSensors == null) return;
 
