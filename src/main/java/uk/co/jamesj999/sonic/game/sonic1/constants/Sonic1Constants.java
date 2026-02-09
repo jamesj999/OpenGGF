@@ -193,6 +193,9 @@ public final class Sonic1Constants {
     // Nem_Lamp: Nemesis-compressed lamppost art (10 tiles: pole, blue ball, red ball)
     public static final int ART_NEM_LAMPPOST_ADDR = 0x3AE64;
 
+    // Nem_Spikes: Nemesis-compressed spike art (upward + sideways, 8 tiles)
+    public static final int ART_NEM_SPIKES_ADDR = 0x2FCFE;
+
     // Nem_Sign: Nemesis-compressed signpost art (end-of-act sign, 58 tiles)
     public static final int ART_NEM_SIGNPOST_ADDR = 0x3A9E8;
 

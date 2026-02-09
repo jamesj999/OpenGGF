@@ -1263,6 +1263,7 @@ public class ObjectManager {
                     int anchorX = instance.getSpawn().x() + params.offsetX();
                     int anchorY = instance.getSpawn().y() + params.offsetY();
                     int halfHeight = player.getAir() ? params.airHalfHeight() : params.groundHalfHeight();
+                    boolean useStickyBuffer = provider.usesStickyContactBuffer();
                     byte[] slopeData = null;
                     if (instance instanceof SlopedSolidProvider sloped) {
                         slopeData = sloped.getSlopeData();
@@ -1271,10 +1272,12 @@ public class ObjectManager {
                     if (slopeData != null && instance instanceof SlopedSolidProvider sloped) {
                         int slopeHalfHeight = params.groundHalfHeight();
                         contact = resolveSlopedContact(player, anchorX, anchorY, params.halfWidth(), slopeHalfHeight,
-                                slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(), instance, false, sloped);
+                                slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(),
+                                useStickyBuffer, instance, false, sloped);
                     } else {
                         contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
-                                provider.isTopSolidOnly(), provider.hasMonitorSolidity(), instance, false);
+                                provider.isTopSolidOnly(), provider.hasMonitorSolidity(),
+                                useStickyBuffer, instance, false);
                     }
                     if (contact != null && contact.standing()) {
                         return true;
@@ -1294,10 +1297,11 @@ public class ObjectManager {
                 int anchorX = multiPiece.getPieceX(i) + params.offsetX();
                 int anchorY = multiPiece.getPieceY(i) + params.offsetY();
                 int halfHeight = player.getAir() ? params.airHalfHeight() : params.groundHalfHeight();
+                boolean useStickyBuffer = multiPiece.usesStickyContactBuffer();
 
                 // Multi-piece solids don't use monitor solidity
                 SolidContact contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
-                        multiPiece.isTopSolidOnly(), false, instance, false);
+                        multiPiece.isTopSolidOnly(), false, useStickyBuffer, instance, false);
                 if (contact != null && contact.standing()) {
                     return true;
                 }
@@ -1485,7 +1489,8 @@ public class ObjectManager {
                 }
 
                 if (provider instanceof MultiPieceSolidProvider multiPiece) {
-                    MultiPieceContactResult result = processMultiPieceCollision(player, multiPiece, instance, frameCounter);
+                    MultiPieceContactResult result = processMultiPieceCollision(
+                            player, multiPiece, instance, frameCounter, provider.usesStickyContactBuffer());
                     if (result.pushing) {
                         player.setPushing(true);
                     }
@@ -1502,6 +1507,7 @@ public class ObjectManager {
                 int anchorX = instance.getSpawn().x() + params.offsetX();
                 int anchorY = instance.getSpawn().y() + params.offsetY();
                 int halfHeight = player.getAir() ? params.airHalfHeight() : params.groundHalfHeight();
+                boolean useStickyBuffer = provider.usesStickyContactBuffer();
                 SolidContact contact;
                 byte[] slopeData = null;
                 if (instance instanceof SlopedSolidProvider sloped) {
@@ -1511,10 +1517,12 @@ public class ObjectManager {
                 if (slopeData != null && instance instanceof SlopedSolidProvider sloped) {
                     int slopeHalfHeight = params.groundHalfHeight();
                     contact = resolveSlopedContact(player, anchorX, anchorY, params.halfWidth(), slopeHalfHeight,
-                            slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(), instance, true, sloped);
+                            slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(),
+                            useStickyBuffer, instance, true, sloped);
                 } else {
                     contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
-                            provider.isTopSolidOnly(), provider.hasMonitorSolidity(), instance, true);
+                            provider.isTopSolidOnly(), provider.hasMonitorSolidity(),
+                            useStickyBuffer, instance, true);
                 }
                 if (contact == null) {
                     continue;
@@ -1552,7 +1560,8 @@ public class ObjectManager {
         private record MultiPieceContactResult(boolean standing, boolean pushing, int ridingX, int ridingY, int pieceIndex) {}
 
         private MultiPieceContactResult processMultiPieceCollision(AbstractPlayableSprite player,
-                MultiPieceSolidProvider multiPiece, ObjectInstance instance, int frameCounter) {
+                MultiPieceSolidProvider multiPiece, ObjectInstance instance, int frameCounter,
+                boolean useStickyBuffer) {
             int pieceCount = multiPiece.getPieceCount();
 
             boolean anyStanding = false;
@@ -1576,7 +1585,7 @@ public class ObjectManager {
                 // Multi-piece solids don't use monitor solidity
                 // Pass piece index so sticky buffer only applies to the piece being ridden
                 SolidContact contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
-                        multiPiece.isTopSolidOnly(), false, instance, i, true);
+                        multiPiece.isTopSolidOnly(), false, useStickyBuffer, instance, i, true);
 
                 if (contact == null) {
                     continue;
@@ -1622,9 +1631,9 @@ public class ObjectManager {
          */
         private SolidContact resolveContact(AbstractPlayableSprite player,
                 int anchorX, int anchorY, int halfWidth, int halfHeight, boolean topSolidOnly,
-                boolean monitorSolidity, ObjectInstance instance, boolean apply) {
+                boolean monitorSolidity, boolean useStickyBuffer, ObjectInstance instance, boolean apply) {
             return resolveContact(player, anchorX, anchorY, halfWidth, halfHeight, topSolidOnly,
-                    monitorSolidity, instance, -1, apply);
+                    monitorSolidity, useStickyBuffer, instance, -1, apply);
         }
 
         /**
@@ -1633,7 +1642,7 @@ public class ObjectManager {
          */
         private SolidContact resolveContact(AbstractPlayableSprite player,
                 int anchorX, int anchorY, int halfWidth, int halfHeight, boolean topSolidOnly,
-                boolean monitorSolidity, ObjectInstance instance, int pieceIndex, boolean apply) {
+                boolean monitorSolidity, boolean useStickyBuffer, ObjectInstance instance, int pieceIndex, boolean apply) {
             int playerCenterX = player.getCentreX();
             int playerCenterY = player.getCentreY();
 
@@ -1648,7 +1657,7 @@ public class ObjectManager {
             int verticalOffset = monitorSolidity ? 0 : 4;
             int relY = playerCenterY - anchorY + verticalOffset + maxTop;
 
-            boolean riding = isRidingCurrentPlayerObject(instance);
+            boolean riding = useStickyBuffer && isRidingCurrentPlayerObject(instance);
             // For multi-piece objects, only apply sticky buffer (-16px) when checking
             // the specific piece being ridden, not all pieces of the same object.
             // pieceIndex < 0 means single-piece object (always apply sticky buffer if riding)
@@ -1757,8 +1766,8 @@ public class ObjectManager {
         }
 
         private SolidContact resolveSlopedContact(AbstractPlayableSprite player, int anchorX, int anchorY, int halfWidth,
-                int halfHeight, byte[] slopeData, boolean xFlip, boolean topSolidOnly, ObjectInstance instance,
-                boolean apply, SlopedSolidProvider slopedProvider) {
+                int halfHeight, byte[] slopeData, boolean xFlip, boolean topSolidOnly, boolean useStickyBuffer,
+                ObjectInstance instance, boolean apply, SlopedSolidProvider slopedProvider) {
             if (slopeData == null || slopeData.length == 0) {
                 return null;
             }
@@ -1782,7 +1791,7 @@ public class ObjectManager {
 
             int slopeSample = (byte) slopeData[sampleX];
             int slopeBase = slopedProvider.getSlopeBaseline();
-            boolean riding = isRidingCurrentPlayerObject(instance);
+            boolean riding = useStickyBuffer && isRidingCurrentPlayerObject(instance);
             int minRelY = riding ? -16 : 0;
 
             int slopeOffset = slopeSample - slopeBase;
