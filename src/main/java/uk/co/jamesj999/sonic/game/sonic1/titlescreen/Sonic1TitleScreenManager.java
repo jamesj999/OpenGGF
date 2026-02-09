@@ -5,7 +5,7 @@ import uk.co.jamesj999.sonic.Control.InputHandler;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.game.TitleScreenProvider;
-import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.game.sonic1.scroll.SwScrlGhz;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
@@ -252,7 +252,7 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
         scrollHandler = new SwScrlGhz();
 
         // Play title music
-        AudioManager.getInstance().playMusic(Sonic1AudioProfile.MUS_TITLE);
+        AudioManager.getInstance().playMusic(Sonic1Music.TITLE.id);
 
         LOGGER.info("S1 Title Screen: transitioning to main screen");
     }

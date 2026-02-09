@@ -1,7 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
-import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -259,7 +259,7 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
             if (delayTimer == 0 && isOnScreen()) {
                 // From disassembly: move.w #sfx_SpikesMove,d0 / jsr (QueueSound2).l
                 try {
-                    AudioManager.getInstance().playSfx(Sonic1AudioProfile.SFX_SPIKES_MOVE);
+                    AudioManager.getInstance().playSfx(Sonic1Sfx.SPIKES_MOVE.id);
                 } catch (Exception e) {
                     // Prevent audio failure from breaking game logic
                 }

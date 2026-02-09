@@ -1,7 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic3k;
 
 import uk.co.jamesj999.sonic.game.ZoneRegistry;
-import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioConstants;
+import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kMusic;
 import uk.co.jamesj999.sonic.level.LevelData;
 
 import java.util.List;
@@ -49,19 +49,19 @@ public class Sonic3kZoneRegistry implements ZoneRegistry {
 
     // Music IDs per zone/act - S3K has different music per act for most zones
     private static final int[][] ZONE_MUSIC = {
-            {Sonic3kAudioConstants.MUS_AIZ1, Sonic3kAudioConstants.MUS_AIZ2},
-            {Sonic3kAudioConstants.MUS_HCZ1, Sonic3kAudioConstants.MUS_HCZ2},
-            {Sonic3kAudioConstants.MUS_MGZ1, Sonic3kAudioConstants.MUS_MGZ2},
-            {Sonic3kAudioConstants.MUS_CNZ1, Sonic3kAudioConstants.MUS_CNZ2},
-            {Sonic3kAudioConstants.MUS_FBZ1, Sonic3kAudioConstants.MUS_FBZ2},
-            {Sonic3kAudioConstants.MUS_ICZ1, Sonic3kAudioConstants.MUS_ICZ2},
-            {Sonic3kAudioConstants.MUS_LBZ1, Sonic3kAudioConstants.MUS_LBZ2},
-            {Sonic3kAudioConstants.MUS_MHZ1, Sonic3kAudioConstants.MUS_MHZ2},
-            {Sonic3kAudioConstants.MUS_SOZ1, Sonic3kAudioConstants.MUS_SOZ2},
-            {Sonic3kAudioConstants.MUS_LRZ1, Sonic3kAudioConstants.MUS_LRZ2},
-            {Sonic3kAudioConstants.MUS_SSZ, Sonic3kAudioConstants.MUS_SSZ},
-            {Sonic3kAudioConstants.MUS_DEZ1, Sonic3kAudioConstants.MUS_DEZ2},
-            {Sonic3kAudioConstants.MUS_DDZ}
+            {Sonic3kMusic.AIZ1.id, Sonic3kMusic.AIZ2.id},
+            {Sonic3kMusic.HCZ1.id, Sonic3kMusic.HCZ2.id},
+            {Sonic3kMusic.MGZ1.id, Sonic3kMusic.MGZ2.id},
+            {Sonic3kMusic.CNZ1.id, Sonic3kMusic.CNZ2.id},
+            {Sonic3kMusic.FBZ1.id, Sonic3kMusic.FBZ2.id},
+            {Sonic3kMusic.ICZ1.id, Sonic3kMusic.ICZ2.id},
+            {Sonic3kMusic.LBZ1.id, Sonic3kMusic.LBZ2.id},
+            {Sonic3kMusic.MHZ1.id, Sonic3kMusic.MHZ2.id},
+            {Sonic3kMusic.SOZ1.id, Sonic3kMusic.SOZ2.id},
+            {Sonic3kMusic.LRZ1.id, Sonic3kMusic.LRZ2.id},
+            {Sonic3kMusic.SSZ.id, Sonic3kMusic.SSZ.id},
+            {Sonic3kMusic.DEZ1.id, Sonic3kMusic.DEZ2.id},
+            {Sonic3kMusic.DDZ.id}
     };
 
     private Sonic3kZoneRegistry() {

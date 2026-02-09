@@ -4,7 +4,7 @@ import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ObjectAnimationState;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
@@ -270,7 +270,7 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
                 state.yVel -= 8;
             } else if (defeatTimer == 0x30) {
                 state.yVel = 0;
-                AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_CHEMICAL_PLANT);
+                AudioManager.getInstance().playMusic(Sonic2Music.CHEMICAL_PLANT.id);
             } else if (defeatTimer >= 0x38) {
                 state.routine = MAIN_RETREAT;
             }

@@ -1,7 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
@@ -179,7 +179,7 @@ public class LeavesGeneratorObjectInstance extends AbstractObjectInstance {
         try {
             AudioManager audioManager = AudioManager.getInstance();
             if (audioManager != null) {
-                audioManager.playSfx(Sonic2AudioConstants.SFX_LEAVES);
+                audioManager.playSfx(Sonic2Sfx.LEAVES.id);
             }
         } catch (Exception e) {
             // Don't let audio failure break game logic

@@ -2,7 +2,8 @@ package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
-import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -177,7 +178,7 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
 
         // ROM: move.w #sfx_Signpost,d0; jsr (QueueSound1).l
         try {
-            AudioManager.getInstance().playSfx(Sonic1AudioProfile.SFX_SIGNPOST);
+            AudioManager.getInstance().playSfx(Sonic1Sfx.SIGNPOST.id);
         } catch (Exception e) {
             LOGGER.warning("Failed to play signpost sound: " + e.getMessage());
         }
@@ -353,7 +354,7 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
 
         // ROM: move.w #bgm_GotThrough,d0; jsr (QueueSound2).l
         try {
-            AudioManager.getInstance().playMusic(Sonic1AudioProfile.MUS_GOT_THROUGH);
+            AudioManager.getInstance().playMusic(Sonic1Music.GOT_THROUGH.id);
         } catch (Exception e) {
             LOGGER.warning("Failed to play stage clear music: " + e.getMessage());
         }

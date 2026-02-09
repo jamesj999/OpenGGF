@@ -8,6 +8,7 @@ import uk.co.jamesj999.sonic.data.PlayerSpriteArtProvider;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.animation.AnimatedPaletteManager;
@@ -185,17 +186,17 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
         int offset = levelIdx - 0x80;
         if (offset < 0) return 0;
         // SBZ Act 3 (level 0x91) reuses LZ music
-        if (levelIdx == 0x91) return Sonic1AudioProfile.MUS_LZ;
+        if (levelIdx == 0x91) return Sonic1Music.LZ.id;
         // Final Zone (level 0x92)
-        if (levelIdx == 0x92) return Sonic1AudioProfile.MUS_FZ;
+        if (levelIdx == 0x92) return Sonic1Music.FZ.id;
         int zone = offset / 3;
         return switch (zone) {
-            case 0 -> Sonic1AudioProfile.MUS_GHZ;
-            case 1 -> Sonic1AudioProfile.MUS_LZ;
-            case 2 -> Sonic1AudioProfile.MUS_MZ;
-            case 3 -> Sonic1AudioProfile.MUS_SLZ;
-            case 4 -> Sonic1AudioProfile.MUS_SYZ;
-            case 5 -> Sonic1AudioProfile.MUS_SBZ;
+            case 0 -> Sonic1Music.GHZ.id;
+            case 1 -> Sonic1Music.LZ.id;
+            case 2 -> Sonic1Music.MZ.id;
+            case 3 -> Sonic1Music.SLZ.id;
+            case 4 -> Sonic1Music.SYZ.id;
+            case 5 -> Sonic1Music.SBZ.id;
             default -> 0;
         };
     }

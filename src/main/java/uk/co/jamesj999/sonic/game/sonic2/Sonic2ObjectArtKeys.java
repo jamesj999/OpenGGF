@@ -56,6 +56,13 @@ public final class Sonic2ObjectArtKeys {
     // ARZ specific
     public static final String LEAVES = "leaves";
 
+    // OOZ-specific
+    public static final String LAUNCH_BALL = "launch_ball";
+    public static final String OOZ_LAUNCHER_VERT = "ooz_launcher_vert";
+    public static final String OOZ_LAUNCHER_HORIZ = "ooz_launcher_horiz";
+    public static final String OOZ_BURNER_LID = "ooz_burner_lid";
+    public static final String OOZ_BURN_FLAME = "ooz_burn_flame";
+
     // Collapsing Platform (OOZ/MCZ)
     public static final String OOZ_COLLAPSING_PLATFORM = "ooz_collapsing_platform";
     public static final String MCZ_COLLAPSING_PLATFORM = "mcz_collapsing_platform";
@@ -100,6 +107,7 @@ public final class Sonic2ObjectArtKeys {
     // MCZ Objects
     public static final String VINE_PULLEY = "vine_pulley";
     public static final String MCZ_CRATE = "mcz_crate";
+    public static final String MCZ_BRIDGE = "mcz_bridge";
     public static final String MCZ_DRAWBRIDGE = "mcz_drawbridge";
 
     // WFZ Objects

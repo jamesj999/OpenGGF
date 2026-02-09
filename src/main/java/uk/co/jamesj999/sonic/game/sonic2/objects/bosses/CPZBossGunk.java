@@ -3,7 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ObjectAnimationState;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -134,7 +134,7 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
             routineSecondary = SUB_DROPLETS;
             isDroplet = false;
             mappingFrame = 9;  // Set droplet frame immediately to avoid stale frame flash
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_MEGA_MACK_DROP);
+            AudioManager.getInstance().playSfx(Sonic2Sfx.MEGA_MACK_DROP.id);
             return;
         }
         if (y >= FLOOR_Y) {

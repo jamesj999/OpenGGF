@@ -1,7 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -111,7 +111,7 @@ public class HTZBossLavaBall extends AbstractBossChild implements TouchResponseP
         if (floor.hasCollision() && floor.distance() < 0) {
             // Hit the floor - transform to lava bubble
             // ROM: s2.asm:64016-64060
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_FIRE_BURN);
+            AudioManager.getInstance().playSfx(Sonic2Sfx.FIRE_BURN.id);
 
             // Spawn lava bubble at floor contact point
             LavaBubbleObjectInstance bubble = new LavaBubbleObjectInstance(

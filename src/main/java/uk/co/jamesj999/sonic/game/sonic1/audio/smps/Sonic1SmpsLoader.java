@@ -2,6 +2,9 @@ package uk.co.jamesj999.sonic.game.sonic1.audio.smps;
 
 import static uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1SmpsConstants.*;
 
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
+
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 import uk.co.jamesj999.sonic.audio.smps.DacData;
 import uk.co.jamesj999.sonic.audio.smps.SmpsLoader;
@@ -51,7 +54,7 @@ public class Sonic1SmpsLoader implements SmpsLoader {
 
     @Override
     public AbstractSmpsData loadMusic(int musicId) {
-        if (musicId < MUSIC_ID_BASE || musicId > MUSIC_ID_MAX) {
+        if (musicId < Sonic1Music.ID_BASE || musicId > Sonic1Music.ID_MAX) {
             LOGGER.fine("Music ID 0x" + Integer.toHexString(musicId) + " out of range.");
             return null;
         }
@@ -62,7 +65,7 @@ public class Sonic1SmpsLoader implements SmpsLoader {
         }
 
         try {
-            int index = musicId - MUSIC_ID_BASE;
+            int index = musicId - Sonic1Music.ID_BASE;
             int romAddr = rom.read32BitAddr(MUSIC_PTR_TABLE_ADDR + index * 4);
             if (romAddr <= 0 || romAddr >= rom.getSize()) {
                 LOGGER.warning("Invalid music pointer for ID 0x" + Integer.toHexString(musicId)
@@ -91,7 +94,7 @@ public class Sonic1SmpsLoader implements SmpsLoader {
 
     @Override
     public AbstractSmpsData loadSfx(int sfxId) {
-        if (sfxId < SFX_ID_BASE || sfxId > SFX_ID_MAX) {
+        if (sfxId < Sonic1Sfx.ID_BASE || sfxId > Sonic1Sfx.ID_MAX) {
             // Check special SFX range
             if (sfxId >= SPECIAL_SFX_ID_BASE
                     && sfxId < SPECIAL_SFX_ID_BASE + SPECIAL_SFX_COUNT) {
@@ -107,7 +110,7 @@ public class Sonic1SmpsLoader implements SmpsLoader {
         }
 
         try {
-            int index = sfxId - SFX_ID_BASE;
+            int index = sfxId - Sonic1Sfx.ID_BASE;
             int romAddr = rom.read32BitAddr(SFX_PTR_TABLE_ADDR + index * 4);
             if (romAddr <= 0 || romAddr >= rom.getSize()) {
                 LOGGER.warning("Invalid SFX pointer for ID 0x" + Integer.toHexString(sfxId)
@@ -140,7 +143,7 @@ public class Sonic1SmpsLoader implements SmpsLoader {
         if (sfxName != null) {
             try {
                 int id = Integer.parseInt(sfxName, 16);
-                if (id >= SFX_ID_BASE && id <= SFX_ID_MAX) {
+                if (id >= Sonic1Sfx.ID_BASE && id <= Sonic1Sfx.ID_MAX) {
                     return loadSfx(id);
                 }
             } catch (NumberFormatException ignored) {

@@ -1,7 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic2.specialstage;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 
 import java.util.logging.Logger;
 
@@ -267,7 +267,7 @@ public class Sonic2SpecialStageEmerald extends Sonic2SpecialStageObject {
     private void updateCollecting() {
         // Play emerald jingle once
         if (!emeraldAwarded) {
-            AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_GOT_EMERALD);
+            AudioManager.getInstance().playMusic(Sonic2Music.GOT_EMERALD.id);
             emeraldAwarded = true;
             phase = EmeraldPhase.COLLECTED;
             phaseTimer = COLLECT_COUNTDOWN;

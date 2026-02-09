@@ -1,8 +1,9 @@
 package uk.co.jamesj999.sonic.level.objects.boss;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
+import uk.co.jamesj999.sonic.debug.DebugRenderContext;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.Palette;
@@ -16,6 +17,7 @@ import uk.co.jamesj999.sonic.game.sonic2.objects.BossExplosionObjectInstance;
 import uk.co.jamesj999.sonic.physics.TrigLookupTable;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -261,7 +263,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
             state.invulnerable = true;
 
             // ROM: s2.asm:63129 - move.w #SndID_BossHit,d0
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_BOSS_HIT);
+            AudioManager.getInstance().playSfx(Sonic2Sfx.BOSS_HIT.id);
             paletteFlasher.startFlash();
             onHitTaken(state.hitCount);
 
@@ -458,6 +460,37 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         private boolean isOffScreen() {
             // Subclasses can override
             return fleeTimer > 200;
+        }
+    }
+
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
+        // Hitbox rectangle colored by state
+        float r, g, b;
+        if (state.defeated) {
+            r = 0.5f; g = 0.5f; b = 0.5f; // Gray = defeated
+        } else if (state.invulnerable) {
+            r = 1f; g = 0f; b = 0f; // Red = invulnerable
+        } else {
+            r = 0f; g = 1f; b = 0f; // Green = hittable
+        }
+        ctx.drawRect(state.x, state.y, 24, 24, r, g, b);
+
+        // Red text: name + HP + routine
+        String hpLabel = name + " HP:" + state.hitCount + " R:" + state.routine;
+        ctx.drawWorldLabel(state.x, state.y, -3, hpLabel, Color.RED);
+
+        // Orange invulnerability timer when invulnerable
+        if (state.invulnerable) {
+            String invulnLabel = "Invuln:" + state.invulnerabilityTimer;
+            ctx.drawWorldLabel(state.x, state.y, -2, invulnLabel, Color.ORANGE);
+        }
+
+        // Blue lines from parent to each child component
+        for (BossChildComponent child : childComponents) {
+            if (!child.isDestroyed() && child instanceof AbstractBossChild bossChild) {
+                ctx.drawLine(state.x, state.y, bossChild.getX(), bossChild.getY(), 0.3f, 0.3f, 1f);
+            }
         }
     }
 

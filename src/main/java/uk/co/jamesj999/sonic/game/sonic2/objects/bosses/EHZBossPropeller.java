@@ -1,7 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ObjectAnimationState;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
@@ -87,7 +87,7 @@ public class EHZBossPropeller extends AbstractBossChild {
         } else {
             // Only play helicopter SFX when not flying off
             if ((parentFlags & FLAG_FLYING_OFF) == 0 && (frameCounter & (HELICOPTER_SOUND_INTERVAL - 1)) == 0) {
-                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_HELICOPTER);
+                AudioManager.getInstance().playSfx(Sonic2Sfx.WING_FORTRESS.id);
             }
         }
 
@@ -120,7 +120,7 @@ public class EHZBossPropeller extends AbstractBossChild {
 
         // Play helicopter SFX during reload if not flying off
         if ((parentFlags & FLAG_FLYING_OFF) == 0 && (frameCounter & (HELICOPTER_SOUND_INTERVAL - 1)) == 0) {
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_HELICOPTER);
+            AudioManager.getInstance().playSfx(Sonic2Sfx.WING_FORTRESS.id);
         }
 
         animationState.update();

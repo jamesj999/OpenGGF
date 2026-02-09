@@ -3,7 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -201,7 +201,7 @@ public class CNZBossElectricBall extends AbstractObjectInstance implements Touch
      * ROM: loc_32030 - Explode and split into two pieces.
      */
     private void explodeAndSplit() {
-        AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_BOSS_EXPLOSION);
+        AudioManager.getInstance().playSfx(Sonic2Sfx.BOSS_EXPLOSION.id);
         exploding = true;
         yVel = -0x300;
         xVel = -0x100;
