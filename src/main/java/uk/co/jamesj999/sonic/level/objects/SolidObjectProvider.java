@@ -23,4 +23,14 @@ public interface SolidObjectProvider {
     default boolean hasMonitorSolidity() {
         return false;
     }
+
+    /**
+     * Whether this object should use the generic sticky contact buffer while being ridden.
+     * <p>
+     * The buffer reduces edge jitter for moving platforms, but some hazards should not
+     * preserve contact through this tolerance.
+     */
+    default boolean usesStickyContactBuffer() {
+        return true;
+    }
 }

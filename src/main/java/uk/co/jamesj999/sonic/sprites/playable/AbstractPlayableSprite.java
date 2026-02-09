@@ -994,7 +994,26 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public boolean applyHurt(int sourceX, DamageCause cause) {
-                if (getInvulnerable()) {
+                return applyHurt(sourceX, cause, false);
+        }
+
+        /**
+         * Applies hurt while ignoring post-hit invulnerability frames.
+         * <p>
+         * This still respects debug invulnerability and invincibility power-up.
+         * Intended for Sonic 1 spike behavior.
+         */
+        public boolean applyHurtIgnoringIFrames(int sourceX, boolean spikeHit) {
+                DamageCause cause = spikeHit ? DamageCause.SPIKE : DamageCause.NORMAL;
+                return applyHurt(sourceX, cause, true);
+        }
+
+        public boolean applyHurtIgnoringIFrames(int sourceX, DamageCause cause) {
+                return applyHurt(sourceX, cause, true);
+        }
+
+        private boolean applyHurt(int sourceX, DamageCause cause, boolean ignoreIFrames) {
+                if (isDamageBlocked(ignoreIFrames)) {
                         return false;
                 }
 
@@ -1040,13 +1059,39 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public boolean applyHurtOrDeath(int sourceX, DamageCause cause, boolean hadRings) {
-                if (getInvulnerable()) {
+                return applyHurtOrDeath(sourceX, cause, hadRings, false);
+        }
+
+        /**
+         * Applies hurt/death while ignoring post-hit invulnerability frames.
+         * <p>
+         * This still respects debug invulnerability and invincibility power-up.
+         * Intended for Sonic 1 spike behavior.
+         */
+        public boolean applyHurtOrDeathIgnoringIFrames(int sourceX, boolean spikeHit, boolean hadRings) {
+                DamageCause cause = spikeHit ? DamageCause.SPIKE : DamageCause.NORMAL;
+                return applyHurtOrDeath(sourceX, cause, hadRings, true);
+        }
+
+        public boolean applyHurtOrDeathIgnoringIFrames(int sourceX, DamageCause cause, boolean hadRings) {
+                return applyHurtOrDeath(sourceX, cause, hadRings, true);
+        }
+
+        private boolean applyHurtOrDeath(int sourceX, DamageCause cause, boolean hadRings, boolean ignoreIFrames) {
+                if (isDamageBlocked(ignoreIFrames)) {
                         return false;
                 }
                 if (!hadRings && !shield) {
                         return applyDeath(cause);
                 }
-                return applyHurt(sourceX, cause);
+                return applyHurt(sourceX, cause, ignoreIFrames);
+        }
+
+        private boolean isDamageBlocked(boolean ignoreIFrames) {
+                if (debugMode || invincibleFrames > 0) {
+                        return true;
+                }
+                return !ignoreIFrames && (invulnerableFrames > 0 || hurt);
         }
 
         public boolean applyDrownDeath() {
@@ -2414,4 +2459,3 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 return -0x400;
         }
 }
-

@@ -36,6 +36,7 @@ public class Sonic1AudioProfile implements GameAudioProfile {
     public static final int SFX_DROWN = 0xB2;        // sfx_Drown
     public static final int SFX_BUMPER = 0xB4;       // sfx_Bumper
     public static final int SFX_RING = 0xB5;         // sfx_Ring
+    public static final int SFX_SPIKES_MOVE = 0xB6;  // sfx_SpikesMove
     public static final int SFX_ROLL = 0xBE;         // sfx_Roll
     public static final int SFX_BREAK_ITEM = 0xC1;   // sfx_BreakItem
     public static final int SFX_WARNING = 0xC2;      // sfx_Warning (air countdown ding)

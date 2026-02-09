@@ -84,6 +84,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load purple rock art (GHZ)
         loadPurpleRockArt(rom);
 
+        // Load spike art
+        loadSpikeArt(rom);
+
         // Load monitor art
         loadMonitorArt(rom);
 
@@ -323,6 +326,85 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Frame 2: M_Bri_Rope - rope only (1 piece, 2x1 tiles at -8,-4)
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-8, -4, 2, 1, 8, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads spike art (Nem_Spikes) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Spikes.asm (Map_Spike_internal).
+     * <p>
+     * Palette line 0 from disassembly: make_art_tile(ArtTile_Spikes,0,0).
+     * Single sheet covers all 6 frames (upward and sideways variants).
+     */
+    private void loadSpikeArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SPIKES_ADDR, "Spikes");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load spike art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSpikeMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.SPIKE, sheet);
+    }
+
+    /**
+     * Creates spike sprite mappings from S1 disassembly Map_Spike_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0: 3 upward spikes (3 pieces, 1x4 tiles each, startTile=4)
+     * Frame 1: 3 sideways spikes (3 pieces, 4x1 tiles each, startTile=0)
+     * Frame 2: 1 upward spike (1 piece, 1x4 tiles, startTile=4)
+     * Frame 3: 3 widely spaced upward spikes (3 pieces, 1x4 tiles each, startTile=4)
+     * Frame 4: 6 upward spikes (6 pieces, 1x4 tiles each, startTile=4)
+     * Frame 5: 1 sideways spike (1 piece, 4x1 tiles, startTile=0)
+     */
+    private List<SpriteMappingFrame> createSpikeMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: 3 upward spikes
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, -0x10, 1, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece(   -4, -0x10, 1, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece( 0x0C, -0x10, 1, 4, 4, false, false, 0, false)
+        )));
+
+        // Frame 1: 3 sideways spikes
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x14, 4, 1, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,    -4, 4, 1, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,  0x0C, 4, 1, 0, false, false, 0, false)
+        )));
+
+        // Frame 2: 1 upward spike
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -0x10, 1, 4, 4, false, false, 0, false)
+        )));
+
+        // Frame 3: 3 widely spaced upward spikes
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x1C, -0x10, 1, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece(   -4, -0x10, 1, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece( 0x14, -0x10, 1, 4, 4, false, false, 0, false)
+        )));
+
+        // Frame 4: 6 upward spikes
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x40, -0x10, 1, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece(-0x28, -0x10, 1, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x10, 1, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece( 0x08, -0x10, 1, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece( 0x20, -0x10, 1, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece( 0x38, -0x10, 1, 4, 4, false, false, 0, false)
+        )));
+
+        // Frame 5: 1 sideways spike
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -4, 4, 1, 0, false, false, 0, false)
         )));
 
         return frames;
