@@ -78,8 +78,17 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load signpost art
         loadSignpostArt(rom);
 
+        // Load purple rock art (GHZ)
+        loadPurpleRockArt(rom);
+
         // Load monitor art
         loadMonitorArt(rom);
+
+        // Load explosion art (used by monitors and badniks)
+        loadExplosionArt(rom);
+
+        // Load shield art
+        loadShieldArt(rom);
 
         // Load results screen art (reuses title card + HUD text)
         loadResultsScreenArt(rom);
@@ -221,6 +230,45 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 new SpriteMappingPiece(-0x18, -0x10, 3, 4, 0x20, false, false, 0, false),
                 new SpriteMappingPiece(    0, -0x10, 3, 4, 0x2C, false, false, 0, false),
                 new SpriteMappingPiece(   -4,  0x10, 1, 2, 0x38, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads purple rock art (Nem_PplRock) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Purple Rock.asm (Map_PRock_internal).
+     */
+    private void loadPurpleRockArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_PURPLE_ROCK_ADDR, "PurpleRock");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load purple rock art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createPurpleRockMappings();
+        // Palette line 3 from disassembly: make_art_tile(ArtTile_GHZ_Purple_Rock,3,0)
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 3, 1);
+        registerSheet(ObjectArtKeys.ROCK, sheet);
+    }
+
+    /**
+     * Creates purple rock sprite mappings from S1 disassembly Map_PRock_internal.
+     * <p>
+     * Single frame with 2 pieces (left half + right half):
+     * <pre>
+     * spritePiece -$18, -$10, 3, 4, 0, 0, 0, 0, 0
+     * spritePiece    0, -$10, 3, 4, $C, 0, 0, 0, 0
+     * </pre>
+     */
+    private List<SpriteMappingFrame> createPurpleRockMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Full rock (2 pieces, left half + right half)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x10, 3, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x10, 3, 4, 0x0C, false, false, 0, false)
         )));
 
         return frames;
@@ -384,6 +432,134 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 List.of(0, 1, 2, 11), SpriteAnimationEndAction.LOOP_BACK, 1));
 
         return set;
+    }
+
+    /**
+     * Loads explosion art (Nem_Explode) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Explosions.asm (Map_ExplodeItem).
+     * Used by monitor break, badnik destruction, etc.
+     */
+    private void loadExplosionArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_EXPLOSION_ADDR, "Explosion");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load explosion art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createExplosionMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.EXPLOSION, sheet);
+    }
+
+    /**
+     * Creates explosion sprite mappings from S1 disassembly Map_ExplodeItem.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * 5 frames: small burst → medium → large → scatter (4 pieces) → scatter (4 pieces)
+     */
+    private List<SpriteMappingFrame> createExplosionMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: small burst (1 piece, 3x2 tiles)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -8, 3, 2, 0, false, false, 0, false)
+        )));
+
+        // Frame 1: medium burst (1 piece, 4x4 tiles)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 6, false, false, 0, false)
+        )));
+
+        // Frame 2: large burst (1 piece, 4x4 tiles)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x16, false, false, 0, false)
+        )));
+
+        // Frame 3: scatter (4 pieces, 3x3 + 2x2 + 2x2 + 3x3 with flips)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, -0x14, 3, 3, 0x26, false, false, 0, false),
+                new SpriteMappingPiece(    4, -0x14, 2, 2, 0x2F, false, false, 0, false),
+                new SpriteMappingPiece(-0x14,     4, 2, 2, 0x2F, true,  true,  0, false),
+                new SpriteMappingPiece(   -4,    -4, 3, 3, 0x26, true,  true,  0, false)
+        )));
+
+        // Frame 4: final scatter (4 pieces, 3x3 + 2x2 + 2x2 + 3x3 with flips)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, -0x14, 3, 3, 0x33, false, false, 0, false),
+                new SpriteMappingPiece(    4, -0x14, 2, 2, 0x3C, false, false, 0, false),
+                new SpriteMappingPiece(-0x14,     4, 2, 2, 0x3C, true,  true,  0, false),
+                new SpriteMappingPiece(   -4,    -4, 3, 3, 0x33, true,  true,  0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads shield art (Nem_Shield) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Shield and Invincibility.asm (Map_Shield_internal).
+     * <p>
+     * S1 shield has 4 frames:
+     * <ul>
+     *   <li>Frame 0 (.shield1): bottom half only (2 pieces, 3x3 tiles each)</li>
+     *   <li>Frame 1 (.shield2): full quad - top + bottom (4 pieces)</li>
+     *   <li>Frame 2 (.shield3): full quad, alternate tile ($12) (4 pieces)</li>
+     *   <li>Frame 3 (.shield4): full quad, mirrored (4 pieces)</li>
+     * </ul>
+     */
+    private void loadShieldArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SHIELD_ADDR, "Shield");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load shield art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createShieldMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.SHIELD, sheet);
+    }
+
+    /**
+     * Creates shield sprite mappings from S1 disassembly Map_Shield_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     */
+    private List<SpriteMappingFrame> createShieldMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .shield1 - bottom half only (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, 0, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(0, 0, 3, 3, 9, false, true, 0, false)
+        )));
+
+        // Frame 1: .shield2 - full quad (4 pieces: top + bottom)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x18, 3, 3, 9, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, 0, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(0, 0, 3, 3, 9, false, true, 0, false)
+        )));
+
+        // Frame 2: .shield3 - full quad, alternate tile $12 (4 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x17, -0x18, 3, 3, 0x12, true, false, 0, false),
+                new SpriteMappingPiece(0, -0x18, 3, 3, 0x12, false, false, 0, false),
+                new SpriteMappingPiece(-0x17, 0, 3, 3, 0x12, true, true, 0, false),
+                new SpriteMappingPiece(0, 0, 3, 3, 0x12, false, true, 0, false)
+        )));
+
+        // Frame 3: .shield4 - full quad, mirrored (4 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x18, 3, 3, 9, true, false, 0, false),
+                new SpriteMappingPiece(0, -0x18, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x18, 0, 3, 3, 9, true, true, 0, false),
+                new SpriteMappingPiece(0, 0, 3, 3, 0, true, true, 0, false)
+        )));
+
+        return frames;
     }
 
     /**

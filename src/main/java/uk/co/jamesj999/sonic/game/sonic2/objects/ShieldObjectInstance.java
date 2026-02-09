@@ -12,11 +12,21 @@ import java.util.List;
 public class ShieldObjectInstance extends AbstractObjectInstance {
     private final AbstractPlayableSprite player;
     private final PatternSpriteRenderer renderer;
-    // Animation sequence from disassembly (Ani_obj38): 5, 0, 5, 1, 5, 2, 5, 3, 5, 4
-    // Alternates between expanded frame (5) and smaller frames (0-4)
-    private static final int[] ANIMATION_SEQUENCE = { 5, 0, 5, 1, 5, 2, 5, 3, 5, 4 };
-    private static final int ANIMATION_SPEED = 1; // frames per step (disassembly uses delay 0)
 
+    // S2 animation from disassembly (Ani_obj38): 5, 0, 5, 1, 5, 2, 5, 3, 5, 4
+    // Alternates between expanded frame (5) and smaller frames (0-4)
+    private static final int[] S2_ANIMATION_SEQUENCE = { 5, 0, 5, 1, 5, 2, 5, 3, 5, 4 };
+
+    // S1 animation from disassembly (Ani_Shield .shield): 1, 0, 2, 0, 3, 0
+    // Alternates between expanded frames (1,2,3) and contracted frame (0)
+    private static final int[] S1_ANIMATION_SEQUENCE = { 1, 0, 2, 0, 3, 0 };
+
+    // S2 Ani_obj38 delay = 0 → advance every frame; S1 Ani_Shield delay = 1 → advance every 2 frames
+    private static final int S2_ANIMATION_SPEED = 1;
+    private static final int S1_ANIMATION_SPEED = 2;
+
+    private final int[] animationSequence;
+    private final int animationSpeed;
     private int sequenceIndex = 0;
     private boolean destroyed = false;
     private boolean visible = true;
@@ -24,15 +34,25 @@ public class ShieldObjectInstance extends AbstractObjectInstance {
     public ShieldObjectInstance(AbstractPlayableSprite player) {
         super(null, "Shield");
         this.player = player;
-        // ... (lines 24-32 omitted for brevity in prompt match, targeting field area)
         ObjectRenderManager renderManager = null;
         if (LevelManager.getInstance() != null) {
             renderManager = LevelManager.getInstance().getObjectRenderManager();
         }
         if (renderManager != null) {
             this.renderer = renderManager.getShieldRenderer();
+            // Detect S1 vs S2 from sheet frame count: S1 has 4 frames, S2 has 6
+            ObjectSpriteSheet sheet = renderManager.getSheet(ObjectArtKeys.SHIELD);
+            if (sheet != null && sheet.getFrameCount() <= 4) {
+                this.animationSequence = S1_ANIMATION_SEQUENCE;
+                this.animationSpeed = S1_ANIMATION_SPEED;
+            } else {
+                this.animationSequence = S2_ANIMATION_SEQUENCE;
+                this.animationSpeed = S2_ANIMATION_SPEED;
+            }
         } else {
             this.renderer = null;
+            this.animationSequence = S2_ANIMATION_SEQUENCE;
+            this.animationSpeed = S2_ANIMATION_SPEED;
         }
     }
 
@@ -46,9 +66,9 @@ public class ShieldObjectInstance extends AbstractObjectInstance {
             return;
         }
         // Animation sequence from disassembly - step through the sequence
-        if (frameCounter % ANIMATION_SPEED == 0) {
+        if (frameCounter % animationSpeed == 0) {
             sequenceIndex++;
-            if (sequenceIndex >= ANIMATION_SEQUENCE.length) {
+            if (sequenceIndex >= animationSequence.length) {
                 sequenceIndex = 0;
             }
         }
@@ -60,7 +80,7 @@ public class ShieldObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        int currentFrame = ANIMATION_SEQUENCE[sequenceIndex];
+        int currentFrame = animationSequence[sequenceIndex];
         renderer.drawFrameIndex(currentFrame, player.getCentreX(), player.getCentreY(), false, false);
     }
 

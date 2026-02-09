@@ -171,11 +171,20 @@ public final class Sonic1Constants {
     // Nem_Monitors: Nemesis-compressed monitor art (1120 bytes, all types + broken shell)
     public static final int ART_NEM_MONITOR_ADDR = 0x39B02;
 
+    // Nem_Explode: Nemesis-compressed explosion art (ArtTile_Explosion = $5A0)
+    public static final int ART_NEM_EXPLOSION_ADDR = 0x39F62;
+
+    // Nem_Shield: Nemesis-compressed shield art (ArtTile_Shield = $541)
+    public static final int ART_NEM_SHIELD_ADDR = 0x2C730;
+
     // ---- Touch collision sizes (ReactToItem .sizes table) ----
     // S1 uses `lea .sizes-2(pc,d0.w)` so effective base is .sizes-2 = 0x1B5E4-2.
     // 36 entries indexed 0x01-0x24; need 37 array slots (0-36) for the engine's 0-based lookup.
     public static final int TOUCH_SIZES_ADDR = 0x1B5E2;
     public static final int TOUCH_ENTRY_COUNT = 37;
+
+    // Nem_PplRock: Nemesis-compressed purple rock art (GHZ, 302 bytes)
+    public static final int ART_NEM_PURPLE_ROCK_ADDR = 0x300BA;
 
     // Nem_Lamp: Nemesis-compressed lamppost art (10 tiles: pole, blue ball, red ball)
     public static final int ART_NEM_LAMPPOST_ADDR = 0x3AE64;
