@@ -23,6 +23,7 @@ import uk.co.jamesj999.sonic.game.ZoneArtProvider;
 import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
 import uk.co.jamesj999.sonic.game.ZoneRegistry;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.game.sonic1.levelselect.Sonic1LevelSelectManager;
 import uk.co.jamesj999.sonic.game.sonic1.titlescreen.Sonic1TitleScreenManager;
 import uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1ObjectRegistry;
@@ -62,9 +63,10 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public TouchResponseTable createTouchResponseTable(RomByteReader romReader) {
-        // Sonic 1 touch response table - use a minimal dummy table for now
-        // Address 0 with count 1 creates a single default entry
-        return new TouchResponseTable(romReader, 0, 1);
+        // S1 ReactToItem .sizes table: 36 entries at 0x1B5E4.
+        // S1 uses `lea .sizes-2(pc,d0.w)` so effective base is .sizes-2 = 0x1B5E2.
+        return new TouchResponseTable(romReader,
+                Sonic1Constants.TOUCH_SIZES_ADDR, Sonic1Constants.TOUCH_ENTRY_COUNT);
     }
 
     @Override
