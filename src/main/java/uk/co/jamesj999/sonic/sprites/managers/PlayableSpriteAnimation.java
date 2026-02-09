@@ -107,7 +107,7 @@ public class PlayableSpriteAnimation {
             active = baseScript;
         }
 
-        int slopeOffset = resolveSlopeOffset(speed >= runThreshold);
+        int slopeOffset = resolveSlopeOffset(active);
         int delay = computeSpeedDelay(speed, 0x800, 8);
         updateScriptWithDelay(active, delay, slopeOffset);
     }
@@ -322,15 +322,32 @@ public class PlayableSpriteAnimation {
         return script != null ? script : fallback;
     }
 
-    private int resolveSlopeOffset(boolean running) {
-        int angle = (byte) sprite.getAngle();
-        int d0 = angle;
-        if (d0 > 0) {
-            d0 -= 1;
+    /**
+     * Computes the slope-based frame offset for walk/run animations.
+     *
+     * <p>ROM reference (S2: s2.asm:38077-38111, S1: 01 Sonic.asm:1699-1734):
+     * <ul>
+     *   <li>S2: angle pre-adjusted by -1 for positive values, walk offset = d0*4, run = d0*2</li>
+     *   <li>S1: no angle pre-adjust, walk offset = d0*3 (d0+d0/2 then *2), run = d0*2</li>
+     * </ul>
+     * <p>Rather than hardcoding the multiplier, we derive it from the animation script's
+     * frame count: {@code offset = d0 * (framesPerSet / 2)} where framesPerSet is the
+     * number of frames in the base angle set (the script's frame list size).
+     */
+    private int resolveSlopeOffset(SpriteAnimationScript activeScript) {
+        int d0 = sprite.getAngle() & 0xFF;
+
+        // S2 only: subtract 1 from positive non-zero angles (s2.asm:38078-38080)
+        ScriptedVelocityAnimationProfile velocityProfile = resolveVelocityProfile();
+        if (velocityProfile != null && velocityProfile.isAnglePreAdjust()) {
+            if (d0 > 0 && d0 < 0x80) {
+                d0 -= 1;
+            }
         }
+
         boolean facingLeft = Direction.LEFT.equals(sprite.getDirection());
         if (!facingLeft) {
-            d0 = ~d0;
+            d0 = (~d0) & 0xFF;
         }
         d0 = (d0 + 0x10) & 0xFF;
         if ((d0 & 0x80) != 0) {
@@ -339,7 +356,14 @@ public class PlayableSpriteAnimation {
             sprite.setRenderFlips(facingLeft, false);
         }
         d0 = (d0 >> 4) & 0x6;
-        return running ? d0 * 2 : d0 * 4;
+
+        // Derive the offset multiplier from the animation script's frame count.
+        // Walk: S2 has 8 frames/set → d0*(8/2)=d0*4, S1 has 6 frames/set → d0*(6/2)=d0*3
+        // Run:  Both have 4 frames/set → d0*(4/2)=d0*2
+        int framesPerSet = (activeScript != null && !activeScript.frames().isEmpty())
+                ? activeScript.frames().size()
+                : 4;
+        return d0 * (framesPerSet / 2);
     }
 
     private int resolveLoopBackIndex(SpriteAnimationScript script) {
