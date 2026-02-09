@@ -186,6 +186,10 @@ public final class Sonic1Constants {
     // Nem_PplRock: Nemesis-compressed purple rock art (GHZ, 302 bytes)
     public static final int ART_NEM_PURPLE_ROCK_ADDR = 0x300BA;
 
+    // Nem_Bridge: Nemesis-compressed bridge art (GHZ, ~10 tiles: log, stump, rope)
+    // Loaded via PLC_GHZ2: plcm Nem_Bridge, ArtTile_GHZ_Bridge
+    public static final int ART_NEM_BRIDGE_ADDR = 0x2FA2C;
+
     // Nem_Lamp: Nemesis-compressed lamppost art (10 tiles: pole, blue ball, red ball)
     public static final int ART_NEM_LAMPPOST_ADDR = 0x3AE64;
 

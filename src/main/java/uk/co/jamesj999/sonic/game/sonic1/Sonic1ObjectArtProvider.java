@@ -78,6 +78,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load signpost art
         loadSignpostArt(rom);
 
+        // Load bridge art (GHZ)
+        loadBridgeArt(rom);
+
         // Load purple rock art (GHZ)
         loadPurpleRockArt(rom);
 
@@ -269,6 +272,57 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-0x18, -0x10, 3, 4, 0, false, false, 0, false),
                 new SpriteMappingPiece(    0, -0x10, 3, 4, 0x0C, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads bridge art (Nem_Bridge) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Bridge.asm (Map_Bri).
+     * <p>
+     * Frame 0: Single log segment (2x2 tiles, 16x16 px)
+     * Frame 1: Bridge stump with rope (2 pieces, used by Scenery 0x1C subtype 3)
+     * Frame 2: Rope only (2x1 tiles, 16x8 px)
+     */
+    private void loadBridgeArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_BRIDGE_ADDR, "Bridge");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load bridge art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createBridgeMappings();
+        // Palette line 2 from disassembly: make_art_tile(ArtTile_GHZ_Bridge,2,0)
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.BRIDGE, sheet);
+    }
+
+    /**
+     * Creates bridge sprite mappings from S1 disassembly Map_Bri.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     */
+    private List<SpriteMappingFrame> createBridgeMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: M_Bri_Log - single log (1 piece, 2x2 tiles at -8,-8)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 0, false)
+        )));
+
+        // Frame 1: M_Bri_Stump - bridge stump (2 pieces)
+        //   spritePiece -$10, -8, 2, 1, 4, 0, 0, 0, 0
+        //   spritePiece -$10, 0, 4, 1, 6, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -8, 2, 1, 4, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,  0, 4, 1, 6, false, false, 0, false)
+        )));
+
+        // Frame 2: M_Bri_Rope - rope only (1 piece, 2x1 tiles at -8,-4)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -4, 2, 1, 8, false, false, 0, false)
         )));
 
         return frames;
