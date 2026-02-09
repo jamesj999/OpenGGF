@@ -102,6 +102,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load Buzz Bomber art (GHZ/MZ/SYZ badnik + missile + dissolve)
         loadBuzzBomberArt(rom);
 
+        // Load Crabmeat art (GHZ/SYZ badnik + projectile)
+        loadCrabmeatArt(rom);
+
         // Load results screen art (reuses title card + HUD text)
         loadResultsScreenArt(rom);
 
@@ -1051,6 +1054,120 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 List.of(1, 0, 0, 2, 2, 2, 2, 2, 2, 0), SpriteAnimationEndAction.SWITCH, 0));
 
         return set;
+    }
+
+    /**
+     * Loads Crabmeat art (Nem_Crabmeat) and creates sprite sheet.
+     * Crabmeat and its projectiles share the same art tile set (ArtTile_Crabmeat = $400).
+     * Mappings from docs/s1disasm/_maps/Crabmeat.asm (Map_Crab_internal).
+     * <p>
+     * 7 mapping frames:
+     * 0 (.stand): Standing/idle - 4 pieces (symmetric, right half is h-flipped left)
+     * 1 (.walk): Walking - 4 pieces
+     * 2 (.slope1): Walking on slope - 4 pieces
+     * 3 (.slope2): Walking on slope (other leg) - 4 pieces
+     * 4 (.firing): Firing projectiles - 6 pieces (symmetric)
+     * 5 (.ball1): Projectile frame 1 - 1 piece (16x16)
+     * 6 (.ball2): Projectile frame 2 - 1 piece (16x16)
+     */
+    private void loadCrabmeatArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_CRABMEAT_ADDR, "Crabmeat");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Crabmeat art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createCrabmeatMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.CRABMEAT, sheet);
+    }
+
+    /**
+     * Creates Crabmeat sprite mappings from S1 disassembly Map_Crab_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     */
+    private List<SpriteMappingFrame> createCrabmeatMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .stand - Standing/idle (4 pieces, symmetric body)
+        // spritePiece -$18, -$10, 3, 2, 0, 0, 0, 0, 0
+        // spritePiece    0, -$10, 3, 2, 0, 1, 0, 0, 0  (h-flipped mirror)
+        // spritePiece -$10,    0, 2, 2, 6, 0, 0, 0, 0
+        // spritePiece    0,    0, 2, 2, 6, 1, 0, 0, 0  (h-flipped mirror)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x10, 3, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x10, 3, 2, 0x00, true,  false, 0, false),
+                new SpriteMappingPiece(-0x10,     0, 2, 2, 0x06, false, false, 0, false),
+                new SpriteMappingPiece(    0,     0, 2, 2, 0x06, true,  false, 0, false)
+        )));
+
+        // Frame 1: .walk - Walking (4 pieces)
+        // spritePiece -$18, -$10, 3, 2, $A, 0, 0, 0, 0
+        // spritePiece    0, -$10, 3, 2, $10, 0, 0, 0, 0
+        // spritePiece -$10,    0, 2, 2, $16, 0, 0, 0, 0
+        // spritePiece    0,    0, 3, 2, $1A, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x10, 3, 2, 0x0A, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x10, 3, 2, 0x10, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,     0, 2, 2, 0x16, false, false, 0, false),
+                new SpriteMappingPiece(    0,     0, 3, 2, 0x1A, false, false, 0, false)
+        )));
+
+        // Frame 2: .slope1 - Walking on slope (4 pieces)
+        // spritePiece -$18, -$14, 3, 2, 0, 0, 0, 0, 0
+        // spritePiece    0, -$14, 3, 2, 0, 1, 0, 0, 0  (h-flipped)
+        // spritePiece    0,   -4, 2, 2, 6, 1, 0, 0, 0  (h-flipped)
+        // spritePiece -$10,   -4, 2, 3, $20, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x14, 3, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x14, 3, 2, 0x00, true,  false, 0, false),
+                new SpriteMappingPiece(    0,    -4, 2, 2, 0x06, true,  false, 0, false),
+                new SpriteMappingPiece(-0x10,    -4, 2, 3, 0x20, false, false, 0, false)
+        )));
+
+        // Frame 3: .slope2 - Walking on slope, other leg (4 pieces)
+        // spritePiece -$18, -$14, 3, 2, $A, 0, 0, 0, 0
+        // spritePiece    0, -$14, 3, 2, $10, 0, 0, 0, 0
+        // spritePiece    0,   -4, 3, 2, $26, 0, 0, 0, 0
+        // spritePiece -$10,   -4, 2, 3, $2C, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x14, 3, 2, 0x0A, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x14, 3, 2, 0x10, false, false, 0, false),
+                new SpriteMappingPiece(    0,    -4, 3, 2, 0x26, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,    -4, 2, 3, 0x2C, false, false, 0, false)
+        )));
+
+        // Frame 4: .firing - Firing projectiles (6 pieces, symmetric)
+        // spritePiece -$10, -$10, 2, 1, $32, 0, 0, 0, 0
+        // spritePiece    0, -$10, 2, 1, $32, 1, 0, 0, 0  (h-flipped)
+        // spritePiece -$18,   -8, 3, 2, $34, 0, 0, 0, 0
+        // spritePiece    0,   -8, 3, 2, $34, 1, 0, 0, 0  (h-flipped)
+        // spritePiece -$10,    8, 2, 1, $3A, 0, 0, 0, 0
+        // spritePiece    0,    8, 2, 1, $3A, 1, 0, 0, 0  (h-flipped)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 2, 1, 0x32, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x10, 2, 1, 0x32, true,  false, 0, false),
+                new SpriteMappingPiece(-0x18,  -0x8, 3, 2, 0x34, false, false, 0, false),
+                new SpriteMappingPiece(    0,  -0x8, 3, 2, 0x34, true,  false, 0, false),
+                new SpriteMappingPiece(-0x10,   0x8, 2, 1, 0x3A, false, false, 0, false),
+                new SpriteMappingPiece(    0,   0x8, 2, 1, 0x3A, true,  false, 0, false)
+        )));
+
+        // Frame 5: .ball1 - Projectile frame 1 (1 piece, 16x16)
+        // spritePiece -8, -8, 2, 2, $3C, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x3C, false, false, 0, false)
+        )));
+
+        // Frame 6: .ball2 - Projectile frame 2 (1 piece, 16x16)
+        // spritePiece -8, -8, 2, 2, $40, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x40, false, false, 0, false)
+        )));
+
+        return frames;
     }
 
     /**

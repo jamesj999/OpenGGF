@@ -1,12 +1,12 @@
 # Sonic 1 Object Implementation Checklist
 
-Generated: 2026-02-09 18:45:56
+Generated: 2026-02-09 21:12:04
 
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 7 (8.8%)
-- **Unimplemented:** 73 (91.3%)
+- **Implemented:** 8 (10.0%)
+- **Unimplemented:** 72 (90.0%)
 
 ## Implemented Objects
 
@@ -14,6 +14,7 @@ Generated: 2026-02-09 18:45:56
 |----|------|------------|-------|
 | 0x0D | Signpost | 13 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2, SBZ1, SBZ2 |
 | 0x11 | Bridge | 11 | GHZ1, GHZ2, GHZ3 |
+| 0x1F | Crabmeat | 43 | GHZ1, GHZ2, GHZ3, SYZ1, SYZ2, SYZ3 |
 | 0x22 | BuzzBomber | 78 | GHZ1, GHZ2, GHZ3, MZ1, MZ2, MZ3, SYZ1, SYZ2, SYZ3 |
 | 0x26 | Monitor | 199 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
 | 0x36 | Spikes | 190 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3 |
@@ -44,7 +45,6 @@ Generated: 2026-02-09 18:45:56
 | 0x2D | Badnik | Burrobot | 50 | LZ1, LZ2, LZ3 |
 | 0x54 | Object | S1_Obj_54 | 48 | MZ1, MZ2, MZ3 |
 | 0x53 | Object | S1_Obj_53 | 45 | MZ3, SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
-| 0x1F | Badnik | Crabmeat | 43 | GHZ1, GHZ2, GHZ3, SYZ1, SYZ2, SYZ3 |
 | 0x47 | Object | Bumper | 43 | SYZ1, SYZ2, SYZ3 |
 | 0x61 | Object | S1_Obj_61 | 43 | LZ1, LZ2, LZ3 |
 | 0x6D | Object | S1_Obj_6D | 42 | SBZ1, SBZ2 |
@@ -106,10 +106,10 @@ Generated: 2026-02-09 18:45:56
 
 #### Act 1
 
-Total: 214 objects | Implemented: 7 | Unimplemented: 13
+Total: 214 objects | Implemented: 8 | Unimplemented: 12
 
 **Badniks:**
-- [ ] 0x1F Crabmeat (x3) [0x00]
+- [x] 0x1F Crabmeat (x3) [0x00]
 - [x] 0x22 BuzzBomber (x11) [0x00]
 - [ ] 0x2B Chopper (x5) [0x00]
 - [ ] 0x40 Motobug (x3) [0x00]
@@ -134,10 +134,10 @@ Total: 214 objects | Implemented: 7 | Unimplemented: 13
 
 #### Act 2
 
-Total: 244 objects | Implemented: 7 | Unimplemented: 15
+Total: 244 objects | Implemented: 8 | Unimplemented: 14
 
 **Badniks:**
-- [ ] 0x1F Crabmeat (x4) [0x00]
+- [x] 0x1F Crabmeat (x4) [0x00]
 - [x] 0x22 BuzzBomber (x12) [0x00]
 - [ ] 0x2B Chopper (x9) [0x00]
 - [ ] 0x40 Motobug (x6) [0x00]
@@ -164,10 +164,10 @@ Total: 244 objects | Implemented: 7 | Unimplemented: 15
 
 #### Act 3
 
-Total: 286 objects | Implemented: 6 | Unimplemented: 14
+Total: 286 objects | Implemented: 7 | Unimplemented: 13
 
 **Badniks:**
-- [ ] 0x1F Crabmeat (x3) [0x00]
+- [x] 0x1F Crabmeat (x3) [0x00]
 - [x] 0x22 BuzzBomber (x24) [0x00]
 - [ ] 0x40 Motobug (x6) [0x00]
 - [ ] 0x42 Newtron (x11) [0x00, 0x01]
@@ -460,10 +460,10 @@ Total: 250 objects | Implemented: 2 | Unimplemented: 18
 
 #### Act 1
 
-Total: 193 objects | Implemented: 4 | Unimplemented: 14
+Total: 193 objects | Implemented: 5 | Unimplemented: 13
 
 **Badniks:**
-- [ ] 0x1F Crabmeat (x9) [0x00]
+- [x] 0x1F Crabmeat (x9) [0x00]
 - [x] 0x22 BuzzBomber (x10) [0x00]
 - [ ] 0x50 Yadrin (x3) [0x00]
 
@@ -486,10 +486,10 @@ Total: 193 objects | Implemented: 4 | Unimplemented: 14
 
 #### Act 2
 
-Total: 230 objects | Implemented: 4 | Unimplemented: 14
+Total: 230 objects | Implemented: 5 | Unimplemented: 13
 
 **Badniks:**
-- [ ] 0x1F Crabmeat (x10) [0x00]
+- [x] 0x1F Crabmeat (x10) [0x00]
 - [x] 0x22 BuzzBomber (x3) [0x00]
 - [ ] 0x50 Yadrin (x5) [0x00]
 
@@ -512,10 +512,10 @@ Total: 230 objects | Implemented: 4 | Unimplemented: 14
 
 #### Act 3
 
-Total: 257 objects | Implemented: 3 | Unimplemented: 13
+Total: 257 objects | Implemented: 4 | Unimplemented: 12
 
 **Badniks:**
-- [ ] 0x1F Crabmeat (x14) [0x00]
+- [x] 0x1F Crabmeat (x14) [0x00]
 - [x] 0x22 BuzzBomber (x6) [0x00]
 - [ ] 0x50 Yadrin (x2) [0x00]
 

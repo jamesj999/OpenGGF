@@ -199,6 +199,10 @@ public final class Sonic1Constants {
     // Nem_Buzz: Nemesis-compressed Buzz Bomber art (GHZ/MZ/SYZ, ArtTile $444)
     public static final int ART_NEM_BUZZ_BOMBER_ADDR = 0x3639E;
 
+    // Nem_Crabmeat: Nemesis-compressed Crabmeat art (GHZ/SYZ, ArtTile $400)
+    // Verified by decompression at ROM offset via RomOffsetFinder
+    public static final int ART_NEM_CRABMEAT_ADDR = 0x35EB0;
+
     // Nem_HSpring: Nemesis-compressed horizontal spring art (up/down springs, 16 tiles)
     // ArtTile_Spring_Horizontal = $523
     public static final int ART_NEM_HSPRING_ADDR = 0x3A80A;
