@@ -105,6 +105,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load Crabmeat art (GHZ/SYZ badnik + projectile)
         loadCrabmeatArt(rom);
 
+        // Load Motobug art (GHZ badnik + exhaust smoke)
+        loadMotobugArt(rom);
+
         // Load results screen art (reuses title card + HUD text)
         loadResultsScreenArt(rom);
 
@@ -1166,6 +1169,94 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-8, -8, 2, 2, 0x40, false, false, 0, false)
         )));
+
+        return frames;
+    }
+
+    /**
+     * Loads Motobug art (Nem_Motobug) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Moto Bug.asm (Map_Moto_internal).
+     * 7 frames: 3 body frames (walk cycle), 3 smoke frames, 1 blank frame.
+     */
+    private void loadMotobugArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_MOTOBUG_ADDR, "Motobug");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Motobug art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createMotobugMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.MOTOBUG, sheet);
+    }
+
+    /**
+     * Creates Motobug sprite mappings from S1 disassembly Map_Moto_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     */
+    private List<SpriteMappingFrame> createMotobugMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .moto1 - Standing/walk frame 1 (4 pieces)
+        // spritePiece -$14, -$10, 4, 2, 0, 0, 0, 0, 0
+        // spritePiece -$14, 0, 4, 1, 8, 0, 0, 0, 0
+        // spritePiece $C, -8, 1, 2, $C, 0, 0, 0, 0
+        // spritePiece -$C, 8, 3, 1, $E, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, -0x10, 4, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x14,     0, 4, 1, 0x08, false, false, 0, false),
+                new SpriteMappingPiece(  0xC,  -0x8, 1, 2, 0x0C, false, false, 0, false),
+                new SpriteMappingPiece( -0xC,   0x8, 3, 1, 0x0E, false, false, 0, false)
+        )));
+
+        // Frame 1: .moto2 - Walk frame 2 (4 pieces, slightly shifted)
+        // spritePiece -$14, -$F, 4, 2, 0, 0, 0, 0, 0
+        // spritePiece -$14, 1, 4, 1, 8, 0, 0, 0, 0
+        // spritePiece $C, -7, 1, 2, $C, 0, 0, 0, 0
+        // spritePiece -$C, 9, 3, 1, $11, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14,  -0xF, 4, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x14,     1, 4, 1, 0x08, false, false, 0, false),
+                new SpriteMappingPiece(  0xC,  -0x7, 1, 2, 0x0C, false, false, 0, false),
+                new SpriteMappingPiece( -0xC,   0x9, 3, 1, 0x11, false, false, 0, false)
+        )));
+
+        // Frame 2: .moto3 - Walk frame 3 (5 pieces, different leg positions)
+        // spritePiece -$14, -$10, 4, 2, 0, 0, 0, 0, 0
+        // spritePiece -$14, 0, 4, 1, $14, 0, 0, 0, 0
+        // spritePiece $C, -8, 1, 2, $C, 0, 0, 0, 0
+        // spritePiece -$14, 8, 2, 1, $18, 0, 0, 0, 0
+        // spritePiece -4, 8, 2, 1, $12, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, -0x10, 4, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x14,     0, 4, 1, 0x14, false, false, 0, false),
+                new SpriteMappingPiece(  0xC,  -0x8, 1, 2, 0x0C, false, false, 0, false),
+                new SpriteMappingPiece(-0x14,   0x8, 2, 1, 0x18, false, false, 0, false),
+                new SpriteMappingPiece(   -4,   0x8, 2, 1, 0x12, false, false, 0, false)
+        )));
+
+        // Frame 3: .smoke1 - Smoke puff frame 1 (1 piece, 8x8)
+        // spritePiece $10, -6, 1, 1, $1A, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x10, -6, 1, 1, 0x1A, false, false, 0, false)
+        )));
+
+        // Frame 4: .smoke2 - Smoke puff frame 2 (1 piece, 8x8)
+        // spritePiece $10, -6, 1, 1, $1B, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x10, -6, 1, 1, 0x1B, false, false, 0, false)
+        )));
+
+        // Frame 5: .smoke3 - Smoke puff frame 3 (1 piece, 8x8)
+        // spritePiece $10, -6, 1, 1, $1C, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x10, -6, 1, 1, 0x1C, false, false, 0, false)
+        )));
+
+        // Frame 6: .blank - Empty frame (0 pieces)
+        frames.add(new SpriteMappingFrame(List.of()));
 
         return frames;
     }

@@ -203,6 +203,10 @@ public final class Sonic1Constants {
     // Verified by decompression at ROM offset via RomOffsetFinder
     public static final int ART_NEM_CRABMEAT_ADDR = 0x35EB0;
 
+    // Nem_Motobug: Nemesis-compressed Motobug art (GHZ, ArtTile $4F0)
+    // Verified by RomOffsetFinder --game s1 search Motobug
+    public static final int ART_NEM_MOTOBUG_ADDR = 0x37A2C;
+
     // Nem_HSpring: Nemesis-compressed horizontal spring art (up/down springs, 16 tiles)
     // ArtTile_Spring_Horizontal = $523
     public static final int ART_NEM_HSPRING_ADDR = 0x3A80A;

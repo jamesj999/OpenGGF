@@ -50,7 +50,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.BRIDGE,
             Sonic1ObjectIds.SPIKES,
             Sonic1ObjectIds.BUZZ_BOMBER,
-            Sonic1ObjectIds.CRABMEAT
+            Sonic1ObjectIds.CRABMEAT,
+            Sonic1ObjectIds.MOTOBUG
     );
 
     private static final Set<Integer> BADNIK_IDS = Set.of(

@@ -42,6 +42,7 @@ public final class ObjectArtKeys {
     public static final String BUZZ_BOMBER_MISSILE = "buzz_bomber_missile";
     public static final String BUZZ_BOMBER_MISSILE_DISSOLVE = "buzz_bomber_missile_dissolve";
     public static final String CRABMEAT = "crabmeat";
+    public static final String MOTOBUG = "motobug";
 
     // Animation keys (common across games)
     public static final String ANIM_MONITOR = "monitor";
