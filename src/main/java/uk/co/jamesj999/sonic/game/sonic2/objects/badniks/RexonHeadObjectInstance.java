@@ -13,7 +13,7 @@ import uk.co.jamesj999.sonic.level.objects.TouchResponseResult;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ExplosionObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.PointsObjectInstance;
 
@@ -491,7 +491,7 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
         levelManager.getObjectManager().addDynamicObject(points);
 
         // Play explosion SFX
-        uk.co.jamesj999.sonic.audio.AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_EXPLOSION);
+        uk.co.jamesj999.sonic.audio.AudioManager.getInstance().playSfx(Sonic2Sfx.EXPLOSION.id);
 
         // Notify parent to trigger death drop for other heads
         if (parent != null) {

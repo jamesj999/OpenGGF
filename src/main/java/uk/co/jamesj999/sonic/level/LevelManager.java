@@ -27,7 +27,9 @@ import uk.co.jamesj999.sonic.debug.DebugOption;
 import uk.co.jamesj999.sonic.debug.DebugOverlayManager;
 import uk.co.jamesj999.sonic.debug.DebugOverlayPalette;
 import uk.co.jamesj999.sonic.debug.DebugOverlayToggle;
+import uk.co.jamesj999.sonic.debug.DebugRenderContext;
 import uk.co.jamesj999.sonic.debug.PerformanceProfiler;
+import uk.co.jamesj999.sonic.level.objects.ObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.HudRenderManager;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GLCommandGroup;
@@ -856,6 +858,27 @@ public class LevelManager {
             if (showObjectPoints && !debugObjectCommands.isEmpty()) {
                 graphicsManager.enqueueDebugLineState();
                 graphicsManager.registerCommand(new GLCommandGroup(GL_POINTS, debugObjectCommands));
+            }
+        }
+
+        // Per-object debug rendering (hitboxes, velocity vectors, AI state labels)
+        if (objectManager != null && overlayEnabled
+                && overlayManager.isEnabled(DebugOverlayToggle.OBJECT_DEBUG)) {
+            DebugRenderContext debugCtx = new DebugRenderContext();
+            for (ObjectInstance instance : objectManager.getActiveObjects()) {
+                if (!isInCameraFrustum(instance.getX(), instance.getY(), 64)) {
+                    continue;
+                }
+                instance.appendDebugRenderCommands(debugCtx);
+            }
+            if (debugCtx.hasGeometry()) {
+                graphicsManager.enqueueDebugLineState();
+                graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, debugCtx.getGeometryCommands()));
+            }
+            if (debugCtx.hasText()) {
+                overlayManager.setObjectDebugTextEntries(new ArrayList<>(debugCtx.getTextEntries()));
+            } else {
+                overlayManager.clearObjectDebugTextEntries();
             }
         }
 

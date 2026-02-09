@@ -48,14 +48,14 @@ public final class Sonic1SmpsSequencerConfig {
 
     static {
         Map<Integer, Integer> tempos = new HashMap<>();
-        tempos.put(0x81, 0x07);  // GHZ
-        tempos.put(0x82, 0x72);  // LZ
-        tempos.put(0x83, 0x73);  // MZ
-        tempos.put(0x84, 0x26);  // SLZ
-        tempos.put(0x85, 0x15);  // SYZ
-        tempos.put(0x86, 0x08);  // SBZ
-        tempos.put(0x87, 0xFF);  // Invincibility
-        tempos.put(0x88, 0x05);  // Extra Life
+        tempos.put(Sonic1Music.GHZ.id, 0x07);
+        tempos.put(Sonic1Music.LZ.id, 0x72);
+        tempos.put(Sonic1Music.MZ.id, 0x73);
+        tempos.put(Sonic1Music.SLZ.id, 0x26);
+        tempos.put(Sonic1Music.SYZ.id, 0x15);
+        tempos.put(Sonic1Music.SBZ.id, 0x08);
+        tempos.put(Sonic1Music.INVINCIBILITY.id, 0xFF);
+        tempos.put(Sonic1Music.EXTRA_LIFE.id, 0x05);
         SPEED_UP_TEMPOS = Collections.unmodifiableMap(tempos);
 
         // Sonic 1 coord flag differences: ED is 1 byte (0 params), EE is 1 byte (0 params)

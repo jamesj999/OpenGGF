@@ -84,11 +84,14 @@ public class ObjectDiscoveryTool {
             0x26,  // Monitor
             0x31,  // LavaMarker (HTZ/MTZ invisible lava hazard zone)
             0x32,  // BreakableBlock (CPZ metal blocks / HTZ rocks)
+            0x33,  // OOZPoppingPform (OOZ green burner platform that pops up)
             0x36,  // Spikes
+            0x3D,  // OOZLauncher (breakable block that launches rolling player)
             0x3E,  // EggPrison (end of act capsule)
             0x40,  // Springboard (CPZ/ARZ/MCZ lever spring)
             0x41,  // Spring
             0x44,  // Bumper
+            0x48,  // LauncherBall (OOZ transporter ball)
             0x49,  // EHZWaterfall
             0x4B,  // Buzzer
             0x51,  // CNZBoss (dynamically spawned pinball spike dropper zapping boss)
@@ -102,6 +105,7 @@ public class ObjectDiscoveryTool {
             0x74,  // InvisibleBlock
             0x75,  // MCZBrick (MCZ static brick / rotating spike ball)
             0x76,  // SlidingSpikes (MCZ spike block that slides out of wall)
+            0x77,  // MCZBridge (MCZ horizontal gate triggered by ButtonVine)
             0x78,  // CPZStaircase (4-piece triggered elevator platform)
             0x79,  // Checkpoint
             0x7A,  // SidewaysPform (CPZ/MCZ horizontal moving platform)
@@ -124,6 +128,7 @@ public class ObjectDiscoveryTool {
             0x96,  // Rexon2 (HTZ lava snake body alias)
             0x9D,  // Coconuts
             0x9E,  // Crawlton (MCZ snake badnik - lunges at player with trailing body)
+            0xA3,  // Flasher
             0xA5,  // Spiny (CPZ crawling badnik)
             0xA6,  // SpinyOnWall (CPZ wall-climbing badnik)
             0xA7,  // Grabber (CPZ spider badnik)

@@ -107,6 +107,11 @@ public final class Sonic2ObjectIds {
     public static final int RISING_PILLAR = 0x2B;  // Rising Pillar (Obj2B) - ARZ pillar that rises and launches player
     public static final int SWINGING_PFORM = 0x82; // Swinging Platform (Obj82) - ARZ swinging vine platform
 
+    // OOZ Objects
+    public static final int OOZ_POPPING_PLATFORM = 0x33; // OOZPoppingPform (Obj33) - green burner platform that pops up
+    public static final int OOZ_LAUNCHER = 0x3D; // OOZLauncher (Obj3D) - breakable block that launches rolling player
+    public static final int LAUNCHER_BALL = 0x48; // LauncherBall (Obj48) - OOZ transporter ball
+
     // OOZ/MCZ/ARZ Objects
     public static final int COLLAPSING_PLATFORM = 0x1F; // Collapsing Platform (Obj1F) - OOZ/MCZ/ARZ
 
@@ -116,6 +121,7 @@ public final class Sonic2ObjectIds {
     public static final int SLIDING_SPIKES = 0x76;  // MCZ Sliding Spikes (Obj76)
     public static final int VINE_SWITCH = 0x7F;     // VineSwitch (Obj7F) - MCZ pull switch that triggers ButtonVine
     public static final int MOVING_VINE = 0x80;     // MovingVine (Obj80) - MCZ vine / WFZ hook on chain
+    public static final int MCZ_BRIDGE = 0x77;      // MCZ Bridge (Obj77) - horizontal gate triggered by ButtonVine
     public static final int MCZ_DRAWBRIDGE = 0x81;  // MCZ Drawbridge (Obj81) - rotatable drawbridge triggered by ButtonVine
 
     // MCZ/MTZ Rotating Platforms

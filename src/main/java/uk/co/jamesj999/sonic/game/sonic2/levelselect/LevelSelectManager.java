@@ -5,7 +5,7 @@ import uk.co.jamesj999.sonic.Control.InputHandler;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.game.LevelSelectProvider;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SoundTestCatalog;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
@@ -108,7 +108,7 @@ public class LevelSelectManager implements LevelSelectProvider {
         resetHoldTimers();
 
         // Play level select music
-        AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_OPTIONS);
+        AudioManager.getInstance().playMusic(Sonic2Music.OPTIONS.id);
 
         LOGGER.info("Level select initialized, entering FADE_IN state");
     }

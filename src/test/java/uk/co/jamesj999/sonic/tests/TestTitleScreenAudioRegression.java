@@ -15,7 +15,8 @@ import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2AudioProfile;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SmpsSequencerConfig;
 import uk.co.jamesj999.sonic.game.sonic2.audio.smps.Sonic2SmpsLoader;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.titlescreen.TitleScreenManager;
 
 import java.io.File;
@@ -60,7 +61,7 @@ public class TestTitleScreenAudioRegression {
 
         @Override
         public void playSfxSmps(AbstractSmpsData data, DacData dacData, float pitch) {
-            if (data != null && data.getId() == Sonic2AudioConstants.SFX_SPARKLE) {
+            if (data != null && data.getId() == Sonic2Sfx.SPARKLE.id) {
                 sparkleSfxCalls++;
             }
         }
@@ -139,7 +140,7 @@ public class TestTitleScreenAudioRegression {
         assertTrue("Failed to open ROM", rom.open(romFile.getAbsolutePath()));
 
         Sonic2SmpsLoader loader = new Sonic2SmpsLoader(rom);
-        AbstractSmpsData titleMusic = loader.loadMusic(Sonic2AudioConstants.MUS_TITLE);
+        AbstractSmpsData titleMusic = loader.loadMusic(Sonic2Music.TITLE.id);
         assertNotNull("Title music should load from ROM", titleMusic);
     }
 
@@ -150,7 +151,7 @@ public class TestTitleScreenAudioRegression {
         assertTrue("Failed to open ROM", rom.open(romFile.getAbsolutePath()));
 
         Sonic2SmpsLoader loader = new Sonic2SmpsLoader(rom);
-        AbstractSmpsData sparkle = loader.loadSfx(Sonic2AudioConstants.SFX_SPARKLE);
+        AbstractSmpsData sparkle = loader.loadSfx(Sonic2Sfx.SPARKLE.id);
         assertNotNull("Sparkle SFX should load from ROM", sparkle);
 
         DacData dacData = loader.loadDacData();

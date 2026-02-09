@@ -17,7 +17,8 @@ public enum DebugOverlayToggle {
     OBJECT_ART_VIEWER("Art Viewer", GLFW_KEY_F12, false),
     COLLISION_VIEW("Collision View", GLFW_KEY_GRAVE_ACCENT, false),
     TILE_PRIORITY_VIEW("Tile Priority", GLFW_KEY_EQUAL, false),
-    PERFORMANCE("Performance", GLFW_KEY_P, false);
+    PERFORMANCE("Performance", GLFW_KEY_P, false),
+    OBJECT_DEBUG("Object Debug", GLFW_KEY_O, false);
 
     private final String label;
     private final int keyCode;
@@ -62,6 +63,7 @@ public enum DebugOverlayToggle {
             case GLFW_KEY_GRAVE_ACCENT -> "`";
             case GLFW_KEY_EQUAL -> "=";
             case GLFW_KEY_P -> "P";
+            case GLFW_KEY_O -> "O";
             default -> "?";
         };
     }

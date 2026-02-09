@@ -2,7 +2,8 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.AnimalObjectInstance;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
@@ -240,7 +241,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
 
         // Play explosion sound
         try {
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_EXPLOSION);
+            AudioManager.getInstance().playSfx(Sonic2Sfx.EXPLOSION.id);
         } catch (Exception e) {
             LOGGER.warning("Failed to play explosion sound: " + e.getMessage());
         }
@@ -531,7 +532,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
 
         // Play stage clear music
         try {
-            AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_ACT_CLEAR);
+            AudioManager.getInstance().playMusic(Sonic2Music.ACT_CLEAR.id);
         } catch (Exception e) {
             LOGGER.warning("Failed to play stage clear music: " + e.getMessage());
         }

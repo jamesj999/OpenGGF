@@ -595,6 +595,293 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load OOZ Burner Lid sprite sheet (Object 0x33 platform).
+     * Green platform from OOZ that pops up from burner pipe.
+     * <p>
+     * ROM: ArtNem_BurnerLid at 0x80274, palette line 3, art tile 0x032C
+     * Mappings: obj33_a.asm - 1 frame, 2 pieces (left + h-flipped right, 3x2 tiles each)
+     *
+     * @return sprite sheet for OOZ burner lid, or null on failure
+     */
+    public ObjectSpriteSheet loadOOZBurnerLidSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_BURNER_LID_ADDR, "BurnerLid");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createOOZBurnerLidMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 2, 1); // palette line 3 = index 2
+    }
+
+    /**
+     * Create sprite mappings for OOZ Burner Lid (Obj33 platform).
+     * From mappings/sprite/obj33_a.asm:
+     * <pre>
+     * Frame 0: spritePiece -$18, -8, 3, 2, 0, 0, 0, 0, 0
+     *          spritePiece 0, -8, 3, 2, 0, 1, 0, 0, 0
+     * </pre>
+     */
+    private List<SpriteMappingFrame> createOOZBurnerLidMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Platform (48x16 pixels, 2 mirrored 3x2 pieces)
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x18, -8, 3, 2, 0, false, false, 0));
+        frame0.add(new SpriteMappingPiece(0, -8, 3, 2, 0, true, false, 0)); // h-flip
+        frames.add(new SpriteMappingFrame(frame0));
+
+        return frames;
+    }
+
+    /**
+     * Load OOZ Burn Flame sprite sheet (Object 0x33 flame child).
+     * Green flame from OOZ burners that appears beneath the popping platform.
+     * <p>
+     * ROM: ArtNem_OOZBurn at 0x81514, palette line 3, art tile 0x02E2
+     * Mappings: obj33_b.asm - 3 frames of flame animation
+     *
+     * @return sprite sheet for OOZ burner flame, or null on failure
+     */
+    public ObjectSpriteSheet loadOOZBurnFlameSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_OOZ_BURN_ADDR, "OOZBurn");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createOOZBurnFlameMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 2, 1); // palette line 3 = index 2
+    }
+
+    /**
+     * Create sprite mappings for OOZ Burn Flame (Obj33 flame child).
+     * From mappings/sprite/obj33_b.asm:
+     * <pre>
+     * Frame 0: spritePiece -$10, -8, 2, 3, 0, 0, 0, 0, 0
+     *          spritePiece 0, -8, 2, 3, 0, 1, 0, 0, 0
+     * Frame 1: spritePiece -$10, -$10, 2, 4, 6, 0, 0, 0, 0
+     *          spritePiece 0, -$10, 2, 4, 6, 1, 0, 0, 0
+     * Frame 2: spritePiece -$10, 0, 2, 2, $E, 0, 0, 0, 0
+     *          spritePiece 0, 0, 2, 2, $E, 1, 0, 0, 0
+     * </pre>
+     */
+    private List<SpriteMappingFrame> createOOZBurnFlameMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Medium flame (32x24 pixels)
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x10, -8, 2, 3, 0, false, false, 0));
+        frame0.add(new SpriteMappingPiece(0, -8, 2, 3, 0, true, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1: Tall flame (32x32 pixels)
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-0x10, -0x10, 2, 4, 6, false, false, 0));
+        frame1.add(new SpriteMappingPiece(0, -0x10, 2, 4, 6, true, false, 0));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2: Short flame (32x16 pixels)
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-0x10, 0, 2, 2, 0xE, false, false, 0));
+        frame2.add(new SpriteMappingPiece(0, 0, 2, 2, 0xE, true, false, 0));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        return frames;
+    }
+
+    /**
+     * Load OOZ LauncherBall sprite sheet (Object 0x48).
+     * Transporter ball from Oil Ocean Zone that fires the player in a cardinal direction.
+     * <p>
+     * ROM: ArtNem_LaunchBall at 0x806E0, palette line 3, art tile 0x0368
+     * Mappings: obj48.asm - 8 frames showing ball rotation/opening sequence
+     *
+     * @return sprite sheet for OOZ launcher ball, or null on failure
+     */
+    public ObjectSpriteSheet loadLaunchBallSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_LAUNCH_BALL_ADDR, "LaunchBall");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createLaunchBallMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Create mappings for OOZ LauncherBall (Object 0x48).
+     * From obj48.asm - 8 frames of ball rotation animation.
+     */
+    private List<SpriteMappingFrame> createLaunchBallMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Closed ball with spout (8 pieces)
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x10, -0x28, 2, 1, 0, false, false, 0));
+        f0.add(new SpriteMappingPiece(0x00, -0x28, 2, 1, 0, true, false, 0));
+        f0.add(new SpriteMappingPiece(-0x10, -0x20, 2, 1, 2, false, false, 0));
+        f0.add(new SpriteMappingPiece(0x00, -0x20, 2, 1, 2, true, false, 0));
+        f0.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x11, false, false, 0));
+        f0.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x11, true, false, 0));
+        f0.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 8, false, true, 0));
+        f0.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 8, true, true, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1: Opening (6 pieces)
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-0x10, -0x20, 2, 1, 0, false, false, 0));
+        f1.add(new SpriteMappingPiece(0x00, -0x20, 2, 1, 0, true, false, 0));
+        f1.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x11, false, false, 0));
+        f1.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x11, true, false, 0));
+        f1.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 8, false, true, 0));
+        f1.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 8, true, true, 0));
+        frames.add(new SpriteMappingFrame(f1));
+
+        // Frame 2: Ball only (4 pieces)
+        List<SpriteMappingPiece> f2 = new ArrayList<>();
+        f2.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x11, false, false, 0));
+        f2.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x11, true, false, 0));
+        f2.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 8, false, true, 0));
+        f2.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 8, true, true, 0));
+        frames.add(new SpriteMappingFrame(f2));
+
+        // Frame 3: Rotated quadrants (4 pieces)
+        List<SpriteMappingPiece> f3 = new ArrayList<>();
+        f3.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x1A, false, false, 0));
+        f3.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x23, true, true, 0));
+        f3.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 0x23, false, false, 0));
+        f3.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 0x1A, true, true, 0));
+        frames.add(new SpriteMappingFrame(f3));
+
+        // Frame 4: Further rotated (4 pieces)
+        List<SpriteMappingPiece> f4 = new ArrayList<>();
+        f4.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x23, false, true, 0));
+        f4.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x1A, true, false, 0));
+        f4.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 0x1A, false, true, 0));
+        f4.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 0x23, true, false, 0));
+        frames.add(new SpriteMappingFrame(f4));
+
+        // Frame 5: Rotated (4 pieces)
+        List<SpriteMappingPiece> f5 = new ArrayList<>();
+        f5.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 8, false, false, 0));
+        f5.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x2C, false, true, 0));
+        f5.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 8, false, true, 0));
+        f5.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 0x2C, false, false, 0));
+        frames.add(new SpriteMappingFrame(f5));
+
+        // Frame 6: Open with side pieces (6 pieces)
+        List<SpriteMappingPiece> f6 = new ArrayList<>();
+        f6.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 8, false, false, 0));
+        f6.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x2C, false, true, 0));
+        f6.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 8, false, true, 0));
+        f6.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 0x2C, false, false, 0));
+        f6.add(new SpriteMappingPiece(0x18, -0x10, 1, 2, 6, false, false, 0));
+        f6.add(new SpriteMappingPiece(0x18, 0x00, 1, 2, 6, false, true, 0));
+        frames.add(new SpriteMappingFrame(f6));
+
+        // Frame 7: Fully open (8 pieces)
+        List<SpriteMappingPiece> f7 = new ArrayList<>();
+        f7.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 8, false, false, 0));
+        f7.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x2C, false, true, 0));
+        f7.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 8, false, true, 0));
+        f7.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 0x2C, false, false, 0));
+        f7.add(new SpriteMappingPiece(0x18, -0x10, 1, 2, 4, false, false, 0));
+        f7.add(new SpriteMappingPiece(0x18, 0x00, 1, 2, 4, false, true, 0));
+        f7.add(new SpriteMappingPiece(0x20, -0x10, 1, 2, 6, false, false, 0));
+        f7.add(new SpriteMappingPiece(0x20, 0x00, 1, 2, 6, false, true, 0));
+        frames.add(new SpriteMappingFrame(f7));
+
+        return frames;
+    }
+
+    /**
+     * Load OOZ Launcher vertical art (Object 0x3D, subtype 0).
+     * ROM: ArtNem_StripedBlocksVert at 0x8030A, palette line 3, art tile 0x0332
+     * Mappings: obj3D.asm - frames 0 (intact 4x1 columns) and 1 (broken 4x4 grid)
+     *
+     * @return sprite sheet for vertical launcher, or null on failure
+     */
+    public ObjectSpriteSheet loadOOZLauncherVertSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_STRIPED_BLOCKS_VERT_ADDR, "StripedBlocksVert");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createOOZLauncherVertMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Create mappings for OOZ Launcher vertical variant (Object 0x3D).
+     * From obj3D.asm frames 0 and 1.
+     */
+    private List<SpriteMappingFrame> createOOZLauncherVertMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Intact block (4 vertical strips, 1x4 tiles each)
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x10, -0x10, 1, 4, 0, false, false, 0));
+        f0.add(new SpriteMappingPiece(-8, -0x10, 1, 4, 0, false, false, 0));
+        f0.add(new SpriteMappingPiece(0, -0x10, 1, 4, 0, false, false, 0));
+        f0.add(new SpriteMappingPiece(8, -0x10, 1, 4, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1: Fragment grid (4x4 individual 1x1 tiles)
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        for (int row = 0; row < 4; row++) {
+            for (int col = 0; col < 4; col++) {
+                f1.add(new SpriteMappingPiece(-0x10 + col * 8, -0x10 + row * 8, 1, 1, row, false, false, 0));
+            }
+        }
+        frames.add(new SpriteMappingFrame(f1));
+
+        return frames;
+    }
+
+    /**
+     * Load OOZ Launcher horizontal art (Object 0x3D, subtype != 0).
+     * ROM: ArtNem_StripedBlocksHoriz at 0x81048, palette line 3, art tile 0x03FF
+     * Mappings: obj3D.asm - frames 2 (intact 4x1 rows) and 3 (broken 4x4 grid)
+     *
+     * @return sprite sheet for horizontal launcher, or null on failure
+     */
+    public ObjectSpriteSheet loadOOZLauncherHorizSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_STRIPED_BLOCKS_HORIZ_ADDR, "StripedBlocksHoriz");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createOOZLauncherHorizMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Create mappings for OOZ Launcher horizontal variant (Object 0x3D).
+     * From obj3D.asm frames 2 and 3.
+     */
+    private List<SpriteMappingFrame> createOOZLauncherHorizMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (ROM frame 2): Intact block (4 horizontal strips, 4x1 tiles each)
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x10, -0x10, 4, 1, 0, false, false, 0));
+        f0.add(new SpriteMappingPiece(-0x10, -8, 4, 1, 0, false, false, 0));
+        f0.add(new SpriteMappingPiece(-0x10, 0, 4, 1, 0, false, false, 0));
+        f0.add(new SpriteMappingPiece(-0x10, 8, 4, 1, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1 (ROM frame 3): Fragment grid (4x4 individual tiles with varying indices)
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        for (int row = 0; row < 4; row++) {
+            for (int col = 0; col < 4; col++) {
+                f1.add(new SpriteMappingPiece(-0x10 + col * 8, -0x10 + row * 8, 1, 1, col, false, false, 0));
+            }
+        }
+        frames.add(new SpriteMappingFrame(f1));
+
+        return frames;
+    }
+
+    /**
      * Load OOZ Collapsing Platform sprite sheet (Object 0x1F in Oil Ocean Zone).
      * <p>
      * ROM: ArtNem_OOZPlatform at 0x809D0, palette line 3
@@ -749,6 +1036,89 @@ public class Sonic2ObjectArt {
         frames.add(new SpriteMappingFrame(frame1));
 
         return frames;
+    }
+
+    /**
+     * Load MCZ Bridge sprite sheet (Object 0x77 - horizontal gate).
+     * <p>
+     * Reuses the same Nemesis art as the drawbridge (ArtNem_MCZGateLog at 0xF1E06),
+     * but with different mappings: 5 frames of 8 pieces each representing the gate
+     * in various states from closed (flat horizontal) to open (split into two columns).
+     * <p>
+     * Disassembly Reference: mappings/sprite/obj77.asm (Obj77_MapUnc_2A0BC)
+     *
+     * @return sprite sheet for MCZ bridge gate, or null on failure
+     */
+    public ObjectSpriteSheet loadMCZBridgeSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MCZ_GATE_LOG_ADDR, "MCZBridge");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMCZBridgeMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Create MCZ Bridge mappings from disassembly (obj77.asm).
+     * <p>
+     * 5 frames, each with 8 pieces (2x2 tiles each):
+     * <ul>
+     *   <li>Frame 0: Flat horizontal bar (closed gate, solid)</li>
+     *   <li>Frame 1: Slightly bowed outward</li>
+     *   <li>Frame 2: More bowed</li>
+     *   <li>Frame 3: Nearly split into two columns</li>
+     *   <li>Frame 4: Fully open (two vertical columns at edges)</li>
+     * </ul>
+     */
+    private List<SpriteMappingFrame> createMCZBridgeMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Flat horizontal (closed) - 8 logs in a row
+        frames.add(createMCZBridgeFrame(
+                -64, -8, -48, -8, -32, -8, -16, -8,
+                  0, -8,  16, -8,  32, -8,  48, -8));
+
+        // Frame 1: Slightly bowed
+        frames.add(createMCZBridgeFrame(
+                -64, -8, -50, -2, -35,  4, -20, 10,
+                  4, 10,  19,  4,  34, -2,  48, -8));
+
+        // Frame 2: More bowed
+        frames.add(createMCZBridgeFrame(
+                -64, -8, -53,  3, -42, 14, -31, 25,
+                 15, 25,  26, 14,  37,  3,  48, -8));
+
+        // Frame 3: Nearly split
+        frames.add(createMCZBridgeFrame(
+                -64, -8, -58,  6, -52, 21, -46, 36,
+                 30, 36,  36, 21,  42,  6,  48, -8));
+
+        // Frame 4: Fully open (two vertical columns)
+        frames.add(createMCZBridgeFrame(
+                -64, -8, -64,  8, -64, 24, -64, 40,
+                 48, -8,  48,  8,  48, 24,  48, 40));
+
+        return frames;
+    }
+
+    /**
+     * Helper to create a single MCZ Bridge frame with 8 pieces.
+     * Each piece is a 2x2 tile log at the specified position.
+     */
+    private SpriteMappingFrame createMCZBridgeFrame(
+            int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3,
+            int x4, int y4, int x5, int y5, int x6, int y6, int x7, int y7) {
+        List<SpriteMappingPiece> pieces = new ArrayList<>();
+        pieces.add(new SpriteMappingPiece(x0, y0, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x1, y1, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x2, y2, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x3, y3, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x4, y4, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x5, y5, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x6, y6, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x7, y7, 2, 2, 0, false, false, 3));
+        return new SpriteMappingFrame(pieces);
     }
 
     /**

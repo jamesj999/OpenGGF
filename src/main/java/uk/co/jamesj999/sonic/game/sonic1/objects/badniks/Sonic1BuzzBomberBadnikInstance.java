@@ -2,7 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic1.objects.badniks;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ExplosionObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.PointsObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.AbstractBadnikInstance;
@@ -241,7 +241,7 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
                 new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
         levelManager.getObjectManager().addDynamicObject(points);
 
-        AudioManager.getInstance().playSfx(Sonic1AudioProfile.SFX_BREAK_ITEM);
+        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
     }
 
     /**

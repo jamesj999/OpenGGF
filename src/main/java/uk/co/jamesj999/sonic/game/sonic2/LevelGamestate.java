@@ -1,8 +1,9 @@
 package uk.co.jamesj999.sonic.game.sonic2;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.game.GameServices;
-
 import uk.co.jamesj999.sonic.game.LevelState;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 
 /**
  * Manages transient state for a single level execution, such as Rings and Time.
@@ -45,12 +46,10 @@ public class LevelGamestate implements LevelState {
             if (amount > 0) {
                 if (previousRings < 100 && rings >= 100) {
                     GameServices.gameState().addLife();
-                    uk.co.jamesj999.sonic.audio.AudioManager.getInstance().playMusic(
-                            uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.MUS_EXTRA_LIFE);
+                    AudioManager.getInstance().playMusic(Sonic2Music.EXTRA_LIFE.id);
                 } else if (previousRings < 200 && rings >= 200) {
                     GameServices.gameState().addLife();
-                    uk.co.jamesj999.sonic.audio.AudioManager.getInstance().playMusic(
-                            uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.MUS_EXTRA_LIFE);
+                    AudioManager.getInstance().playMusic(Sonic2Music.EXTRA_LIFE.id);
                 }
             }
         }

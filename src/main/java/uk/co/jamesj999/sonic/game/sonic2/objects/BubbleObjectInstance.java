@@ -2,7 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.WaterSystem;
@@ -219,7 +219,7 @@ public class BubbleObjectInstance extends AbstractObjectInstance {
 
             // Play inhaling sound
             try {
-                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_INHALING_BUBBLE);
+                AudioManager.getInstance().playSfx(Sonic2Sfx.INHALING_BUBBLE.id);
             } catch (Exception e) {
                 // Don't let audio failure break game logic
             }

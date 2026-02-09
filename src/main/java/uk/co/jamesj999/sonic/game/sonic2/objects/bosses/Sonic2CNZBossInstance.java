@@ -5,7 +5,8 @@ import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -257,7 +258,7 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
         // ROM: loc_31A04 - Zap SFX tick every 32 frames when collision is active
         if (bossCollisionRoutine != COLLISION_OFF) {
             if ((frameCounter & 0x1F) == 0) {
-                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_CNZ_BOSS_ZAP);
+                AudioManager.getInstance().playSfx(Sonic2Sfx.CNZ_BOSS_ZAP.id);
             }
         }
 
@@ -540,7 +541,7 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
         } else if (bossCountdown == 0x18) {
             state.yVel = 0;
             // Play level music and load animal PLCs
-            AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_CASINO_NIGHT);
+            AudioManager.getInstance().playMusic(Sonic2Music.CASINO_NIGHT.id);
         } else if (bossCountdown >= 0x20) {
             state.routine = ROUTINE_FLEE;
         }

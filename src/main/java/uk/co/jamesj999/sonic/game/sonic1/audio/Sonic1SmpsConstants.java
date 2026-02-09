@@ -42,25 +42,13 @@ public final class Sonic1SmpsConstants {
     public static final int SOUND_PRIORITIES_ADDR = 0x071AE8;
 
     // -----------------------------------------------------------------------
-    // ID ranges
+    // Table sizing constants
     // -----------------------------------------------------------------------
 
-    /** First music ID (GHZ). */
-    public static final int MUSIC_ID_BASE = 0x81;
-
-    /** Last music ID (Chaos Emerald). */
-    public static final int MUSIC_ID_MAX = 0x93;
-
-    /** Total number of music tracks. */
+    /** Total number of music tracks (driver table size). */
     public static final int MUSIC_COUNT = 19;
 
-    /** First SFX ID (sfx_Jump). */
-    public static final int SFX_ID_BASE = 0xA0;
-
-    /** Last SFX ID (sfx_Signpost). */
-    public static final int SFX_ID_MAX = 0xCF;
-
-    /** Total number of SFX. */
+    /** Number of standard SFX entries in the SFX pointer table (0xA0-0xCF). */
     public static final int SFX_COUNT = 48;
 
     /** First special SFX ID (sfx_Waterfall). */
@@ -168,7 +156,7 @@ public final class Sonic1SmpsConstants {
      * @return priority value, or 0x70 (default SFX priority) if out of range
      */
     public static int getSfxPriority(int soundId) {
-        int index = soundId - MUSIC_ID_BASE; // 0x81 base
+        int index = soundId - Sonic1Music.ID_BASE; // 0x81 base
         if (index >= 0 && index < SOUND_PRIORITIES.length) {
             return SOUND_PRIORITIES[index];
         }

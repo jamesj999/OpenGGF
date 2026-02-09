@@ -184,6 +184,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_MCZ) {
             registerSheet(Sonic2ObjectArtKeys.VINE_PULLEY, artLoader.loadVinePulleySheet());
             registerSheet(Sonic2ObjectArtKeys.MCZ_CRATE, artLoader.loadMCZCrateSheet());
+            registerSheet(Sonic2ObjectArtKeys.MCZ_BRIDGE, artLoader.loadMCZBridgeSheet());
             registerSheet(Sonic2ObjectArtKeys.MCZ_DRAWBRIDGE, artLoader.loadMCZDrawbridgeSheet());
         }
         // WFZ objects (Object 0x80 hook) - only for WFZ
@@ -230,6 +231,16 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
 
         // ARZ leaves
         registerSheet(Sonic2ObjectArtKeys.LEAVES, artData.leavesSheet());
+
+        // OOZ LauncherBall (Object 0x48) and OOZ Launcher (Object 0x3D) - only for OOZ
+        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_OOZ) {
+            registerSheet(Sonic2ObjectArtKeys.LAUNCH_BALL, artLoader.loadLaunchBallSheet());
+            registerSheet(Sonic2ObjectArtKeys.OOZ_LAUNCHER_VERT, artLoader.loadOOZLauncherVertSheet());
+            registerSheet(Sonic2ObjectArtKeys.OOZ_LAUNCHER_HORIZ, artLoader.loadOOZLauncherHorizSheet());
+            // OOZ Popping Platform (Object 0x33) - burner lid + flame
+            registerSheet(Sonic2ObjectArtKeys.OOZ_BURNER_LID, artLoader.loadOOZBurnerLidSheet());
+            registerSheet(Sonic2ObjectArtKeys.OOZ_BURN_FLAME, artLoader.loadOOZBurnFlameSheet());
+        }
 
         // Collapsing Platform art (Object 0x1F) - zone-specific
         ObjectSpriteSheet oozCollapsingPlatformSheet = artLoader.loadOOZCollapsingPlatformSheet();

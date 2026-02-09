@@ -9,7 +9,7 @@ import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.ButtonVineTriggerManager;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AnimationIds;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
@@ -484,7 +484,7 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
 
             // Play blip sound
             // ROM: move.w #SndID_Blip,d0 / jsr (PlaySound).l
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_BLIP);
+            AudioManager.getInstance().playSfx(Sonic2Sfx.BLIP.id);
         }
 
         LOGGER.fine(() -> String.format("Player grabbed vine at (%d,%d), switchId=%d",

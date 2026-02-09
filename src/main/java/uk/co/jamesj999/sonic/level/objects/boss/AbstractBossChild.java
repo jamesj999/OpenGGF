@@ -1,8 +1,11 @@
 package uk.co.jamesj999.sonic.level.objects.boss;
 
+import uk.co.jamesj999.sonic.debug.DebugRenderContext;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+
+import java.awt.Color;
 
 /**
  * Base class for boss child components with common functionality.
@@ -97,6 +100,14 @@ public abstract class AbstractBossChild extends AbstractObjectInstance implement
 
     public int getPriority() {
         return priority;
+    }
+
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
+        // Blue cross marker at position
+        ctx.drawCross(currentX, currentY, 4, 0.3f, 0.3f, 1f);
+        // Cyan name label
+        ctx.drawWorldLabel(currentX, currentY, -1, name, Color.CYAN);
     }
 
     public int getCurrentX() {

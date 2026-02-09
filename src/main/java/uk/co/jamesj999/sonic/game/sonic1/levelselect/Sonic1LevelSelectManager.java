@@ -5,7 +5,7 @@ import uk.co.jamesj999.sonic.Control.InputHandler;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.game.LevelSelectProvider;
-import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
 import uk.co.jamesj999.sonic.game.sonic1.titlescreen.Sonic1TitleScreenManager;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
@@ -84,7 +84,7 @@ public class Sonic1LevelSelectManager implements LevelSelectProvider {
         resetHoldTimers();
 
         // Play title screen music (Sonic 1 uses title music for level select)
-        AudioManager.getInstance().playMusic(Sonic1AudioProfile.MUS_TITLE);
+        AudioManager.getInstance().playMusic(Sonic1Music.TITLE.id);
 
         LOGGER.info("Sonic 1 level select initialized, entering FADE_IN state");
     }

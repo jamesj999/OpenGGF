@@ -12,9 +12,6 @@ public final class Sonic2SmpsConstants {
     public static final int Z80_BANK_BASE = 0x8000;
     public static final int Z80_BANK_MASK = 0x7FFF;
 
-    public static final int SFX_ID_BASE = 0xA0;
-    public static final int SFX_ID_MAX = 0xEF;
-    public static final int SFX_ID_PARSE_MAX = 0xF0;
     public static final int SFX_POINTER_TABLE_ADDR = 0x0FEE91;
     public static final int SFX_BANK_BASE = 0x0F8000;
     public static final int SFX_BANK_SIZE = 0x8000;
@@ -32,7 +29,7 @@ public final class Sonic2SmpsConstants {
 
     /**
      * SFX priority table from Sonic 2 Z80 driver (zSFXPriority).
-     * Index = SFX ID - SFX_ID_BASE (0xA0).
+     * Index = SFX ID - Sonic2Sfx.ID_BASE (0xA0).
      * Higher values = higher priority. 0x80 = special (jump sound, exits immediately).
      */
     public static final int[] SFX_PRIORITY_TABLE = {
@@ -48,12 +45,22 @@ public final class Sonic2SmpsConstants {
      * Get priority for an SFX ID. Returns 0x70 (default) if out of range.
      */
     public static int getSfxPriority(int sfxId) {
-        int index = sfxId - SFX_ID_BASE;
+        int index = sfxId - Sonic2Sfx.ID_BASE;
         if (index >= 0 && index < SFX_PRIORITY_TABLE.length) {
             return SFX_PRIORITY_TABLE[index];
         }
         return 0x70; // Default priority
     }
+
+    // -----------------------------------------------------------------------
+    // System commands (sound queue IDs)
+    // -----------------------------------------------------------------------
+
+    /** Speed up current music (speed shoes on). */
+    public static final int CMD_SPEED_UP = 0xFB;
+
+    /** Slow down current music (speed shoes off). */
+    public static final int CMD_SLOW_DOWN = 0xFC;
 
     private Sonic2SmpsConstants() {
     }

@@ -4,7 +4,8 @@ import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.audio.GameAudioProfile;
 import uk.co.jamesj999.sonic.audio.GameSound;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ExplosionObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ObjectAnimationState;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
@@ -212,7 +213,7 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
             objectManager.addDynamicObject(
                     new ExplosionObjectInstance(0x27, spawn.x(), spawn.y(), renderManager));
         }
-        AudioManager.getInstance().playSfx(Sonic1AudioProfile.SFX_BREAK_ITEM);
+        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
     }
 
     /**
@@ -262,7 +263,7 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
             // Pow_ChkShield: v_shield = 1, play sfx_Shield
             case SHIELD -> {
                 player.giveShield();
-                AudioManager.getInstance().playSfx(Sonic1AudioProfile.SFX_SHIELD);
+                AudioManager.getInstance().playSfx(Sonic1Sfx.SHIELD.id);
             }
             // Pow_ChkShoes: speed shoes on, play bgm_Speedup (CMD_SPEED_UP = $E2)
             case SHOES -> {
@@ -275,11 +276,11 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
             // Pow_ChkInvinc: invincibility on, play bgm_Invincible
             case INVINCIBILITY -> {
                 player.giveInvincibility();
-                AudioManager.getInstance().playMusic(Sonic1AudioProfile.MUS_INVINCIBILITY);
+                AudioManager.getInstance().playMusic(Sonic1Music.INVINCIBILITY.id);
             }
             // Pow_ChkSonic: v_lives++, play bgm_ExtraLife
             case SONIC -> {
-                AudioManager.getInstance().playMusic(Sonic1AudioProfile.MUS_EXTRA_LIFE);
+                AudioManager.getInstance().playMusic(Sonic1Music.EXTRA_LIFE.id);
                 GameServices.gameState().addLife();
             }
             // Pow_ChkEggman, Pow_ChkS, Pow_ChkGoggles: no effect

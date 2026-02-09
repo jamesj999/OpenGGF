@@ -4,7 +4,7 @@ import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -295,7 +295,7 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
             state.routine = MAIN_SUB6;
             targetFlag = (state.renderFlags & RENDER_X_FLIP) != 0;
             bossCountdown = 0x1E;
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_HAMMER);
+            AudioManager.getInstance().playSfx(Sonic2Sfx.HAMMER.id);
         }
         animateBoss();
     }

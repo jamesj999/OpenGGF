@@ -1,6 +1,9 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects.badniks;
 
+import uk.co.jamesj999.sonic.debug.DebugRenderContext;
 import uk.co.jamesj999.sonic.game.GameServices;
+
+import java.awt.Color;
 
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
@@ -11,7 +14,7 @@ import uk.co.jamesj999.sonic.level.objects.TouchResponseResult;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ExplosionObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.PointsObjectInstance;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 
 /**
  * Abstract base class for all Badnik enemies.
@@ -128,7 +131,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         levelManager.getObjectManager().addDynamicObject(points);
 
         // Play explosion SFX
-        uk.co.jamesj999.sonic.audio.AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_EXPLOSION);
+        uk.co.jamesj999.sonic.audio.AudioManager.getInstance().playSfx(Sonic2Sfx.EXPLOSION.id);
 
         // Remove self
         // Remove self (handled by update loop via destroyed flag)
@@ -163,6 +166,24 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
     @Override
     public int getY() {
         return currentY;
+    }
+
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
+        // Yellow hitbox rectangle (default 16x16 half-size)
+        ctx.drawRect(currentX, currentY, 16, 16, 1f, 1f, 0f);
+
+        // Cyan velocity arrow if moving
+        if (xVelocity != 0 || yVelocity != 0) {
+            int endX = currentX + (xVelocity >> 5);
+            int endY = currentY + (yVelocity >> 5);
+            ctx.drawArrow(currentX, currentY, endX, endY, 0f, 1f, 1f);
+        }
+
+        // Yellow text label: name + frame + facing
+        String dir = facingLeft ? "L" : "R";
+        String label = name + " f" + animFrame + " " + dir;
+        ctx.drawWorldLabel(currentX, currentY, -2, label, Color.YELLOW);
     }
 
     /**

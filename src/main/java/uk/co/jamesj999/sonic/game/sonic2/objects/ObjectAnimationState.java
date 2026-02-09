@@ -32,6 +32,15 @@ public class ObjectAnimationState {
         return mappingFrame;
     }
 
+    /**
+     * Reset the animation frame index to 0.
+     * Matches ROM: move.b #0,anim_frame(a0)
+     */
+    public void resetFrameIndex() {
+        frameIndex = 0;
+        lastAnimId = -1; // Force re-initialization on next update()
+    }
+
     public void update() {
         if (animationSet == null) {
             return;

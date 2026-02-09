@@ -5,7 +5,8 @@ import uk.co.jamesj999.sonic.Control.InputHandler;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.game.TitleScreenProvider;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Palette;
@@ -466,7 +467,7 @@ public class TitleScreenManager implements TitleScreenProvider {
                     // Play title music
                     if (!musicPlaying) {
                         musicPlaying = true;
-                        AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_TITLE);
+                        AudioManager.getInstance().playMusic(Sonic2Music.TITLE.id);
                     }
                 }
             }
@@ -752,7 +753,7 @@ public class TitleScreenManager implements TitleScreenProvider {
         // Play title music if not already playing
         if (!musicPlaying) {
             musicPlaying = true;
-            AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_TITLE);
+            AudioManager.getInstance().playMusic(Sonic2Music.TITLE.id);
         }
 
         // Force palette re-upload to apply Sonic palette
@@ -1465,7 +1466,7 @@ public class TitleScreenManager implements TitleScreenProvider {
         }
         sparklePlayedAt[index] = true;
         LOGGER.fine("Playing sparkle #" + index + " at frame " + frameCounter);
-        AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SPARKLE);
+        AudioManager.getInstance().playSfx(Sonic2Sfx.SPARKLE.id);
     }
 
     @Override

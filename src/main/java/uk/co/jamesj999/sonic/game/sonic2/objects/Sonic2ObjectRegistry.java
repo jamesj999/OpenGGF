@@ -220,6 +220,12 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new BridgeStakeObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
         registerFactory(Sonic2ObjectIds.EHZ_WATERFALL,
                 (spawn, registry) -> new EHZWaterfallObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+        registerFactory(Sonic2ObjectIds.OOZ_LAUNCHER,
+                (spawn, registry) -> new OOZLauncherObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+        registerFactory(Sonic2ObjectIds.LAUNCHER_BALL,
+                (spawn, registry) -> new LauncherBallObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+        registerFactory(Sonic2ObjectIds.OOZ_POPPING_PLATFORM,
+                (spawn, registry) -> new OOZPoppingPlatformObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
         registerFactory(Sonic2ObjectIds.SPIRAL,
                 (spawn, registry) -> new SpiralObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
 
@@ -406,6 +412,11 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         // MCZ/WFZ MovingVine (Object 0x80) - vine pulley or hook on chain
         registerFactory(Sonic2ObjectIds.MOVING_VINE,
                 (spawn, registry) -> new MovingVineObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // MCZ Bridge (Object 0x77) - horizontal gate triggered by ButtonVine
+        registerFactory(Sonic2ObjectIds.MCZ_BRIDGE,
+                (spawn, registry) -> new MCZBridgeObjectInstance(spawn,
                         registry.getPrimaryName(spawn.objectId())));
 
         // MCZ Drawbridge (Object 0x81) - rotatable drawbridge triggered by ButtonVine
