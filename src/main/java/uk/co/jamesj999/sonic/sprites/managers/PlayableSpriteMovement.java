@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.sprites.managers;
 
 import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.PhysicsFeatureSet;
 
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.physics.CollisionSystem;
@@ -87,6 +88,18 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		slopeRollingUp = sprite.getSlopeRollingUp();
 		slopeRollingDown = sprite.getSlopeRollingDown();
 		rollDecel = sprite.getRollDecel();
+	}
+
+	/**
+	 * Returns the spindash speed table from the physics feature set,
+	 * falling back to the static SPINDASH_SPEEDS constant.
+	 */
+	private short[] getSpindashSpeedTable() {
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		if (featureSet != null && featureSet.spindashSpeedTable() != null) {
+			return featureSet.spindashSpeedTable();
+		}
+		return SPINDASH_SPEEDS;
 	}
 
 	@Override
@@ -241,7 +254,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		// Underwater gravity reduction (net gravity = 0x38 - 0x28 = 0x10)
 		if (sprite.isInWater()) {
-			sprite.setYSpeed((short) (sprite.getYSpeed() - 0x28));
+			short reduction = 0x28;
+			var modifiers = sprite.getPhysicsModifiers();
+			if (modifiers != null) {
+				reduction = modifiers.waterGravityReduction();
+			}
+			sprite.setYSpeed((short) (sprite.getYSpeed() - reduction));
 		}
 
 		sprite.returnAngleToZero();
@@ -255,6 +273,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/** Sonic_CheckSpindash: Check for spindash initiation (s2.asm:37206) */
 	private boolean doCheckSpindash() {
+		// Feature gate: skip entirely if spindash is disabled (e.g., Sonic 1)
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		if (featureSet != null && !featureSet.spindashEnabled()) {
+			return false;
+		}
+
 		if (sprite.getSpindash()) {
 			return doUpdateSpindash();
 		}
@@ -313,7 +337,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setSpindash(false);
 
 		int speedIndex = Math.min((sprite.getSpindashCounter() >> 8) & 0xFF, 8);
-		short spindashGSpeed = SPINDASH_SPEEDS[speedIndex];
+		short spindashGSpeed = getSpindashSpeedTable()[speedIndex];
 
 		Camera.getInstance().setHorizScrollDelay(32 - ((spindashGSpeed - 0x800) >> 7));
 

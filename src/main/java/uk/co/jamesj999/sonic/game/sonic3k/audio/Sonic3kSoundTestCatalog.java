@@ -89,6 +89,7 @@ public final class Sonic3kSoundTestCatalog implements SoundTestCatalog {
         m.put(Sonic3kAudioConstants.MUS_BOSS, "Boss");
         m.put(Sonic3kAudioConstants.MUS_DDZ, "Doomsday Zone");
         m.put(Sonic3kAudioConstants.MUS_PACHINKO, "Bonus Stage - Pachinko");
+        m.put(Sonic3kAudioConstants.MUS_SPECIAL_STAGE, "Special Stage");
         m.put(Sonic3kAudioConstants.MUS_SLOTS, "Bonus Stage - Slots");
         m.put(Sonic3kAudioConstants.MUS_GUMBALL, "Bonus Stage - Gumball");
         m.put(Sonic3kAudioConstants.MUS_KNUCKLES, "Knuckles' Theme");
@@ -98,20 +99,35 @@ public final class Sonic3kSoundTestCatalog implements SoundTestCatalog {
         m.put(Sonic3kAudioConstants.MUS_CHROME_GADGET, "Chrome Gadget (Competition)");
         m.put(Sonic3kAudioConstants.MUS_ENDLESS_MINE, "Endless Mine (Competition)");
         m.put(Sonic3kAudioConstants.MUS_TITLE, "Title Screen");
+        m.put(Sonic3kAudioConstants.MUS_CREDITS_S3, "Credits (Sonic 3)");
         m.put(Sonic3kAudioConstants.MUS_GAME_OVER, "Game Over");
-        m.put(Sonic3kAudioConstants.MUS_SPECIAL_STAGE, "Special Stage");
-        m.put(Sonic3kAudioConstants.MUS_BLUE_SPHERE, "Blue Sphere");
         m.put(Sonic3kAudioConstants.MUS_CONTINUE, "Continue");
         m.put(Sonic3kAudioConstants.MUS_ACT_CLEAR, "Act Clear");
-        m.put(Sonic3kAudioConstants.MUS_DATA_SELECT, "Data Select");
+        m.put(Sonic3kAudioConstants.MUS_EXTRA_LIFE, "Extra Life");
+        m.put(Sonic3kAudioConstants.MUS_EMERALD, "Chaos Emerald");
         m.put(Sonic3kAudioConstants.MUS_INVINCIBILITY, "Invincibility");
         m.put(Sonic3kAudioConstants.MUS_COMPETITION_MENU, "Competition Menu");
-        m.put(Sonic3kAudioConstants.MUS_EXTRA_LIFE, "Extra Life");
-        m.put(Sonic3kAudioConstants.MUS_LEVEL_SELECT, "Level Select");
+        m.put(Sonic3kAudioConstants.MUS_MINIBOSS_S3, "Mini-Boss (Sonic 3)");
+        m.put(Sonic3kAudioConstants.MUS_DATA_SELECT, "Data Select");
         m.put(Sonic3kAudioConstants.MUS_FINAL_BOSS, "Final Boss");
         m.put(Sonic3kAudioConstants.MUS_DROWNING, "Drowning");
-        m.put(Sonic3kAudioConstants.MUS_ALL_CLEAR, "All Clear");
-        m.put(Sonic3kAudioConstants.MUS_CREDITS, "Credits");
+        m.put(Sonic3kAudioConstants.MUS_ENDING, "Ending");
+        m.put(Sonic3kAudioConstants.MUS_CREDITS_SK, "Credits (S&K)");
+
+        // S3-specific track variants (from the S3 driver in the combined ROM)
+        m.put(Sonic3kAudioConstants.MUS_ICZ1_S3, "IceCap Zone Act 1 (S3)");
+        m.put(Sonic3kAudioConstants.MUS_ICZ2_S3, "IceCap Zone Act 2 (S3)");
+        m.put(Sonic3kAudioConstants.MUS_LBZ1_S3, "Launch Base Zone Act 1 (S3)");
+        m.put(Sonic3kAudioConstants.MUS_LBZ2_S3, "Launch Base Zone Act 2 (S3)");
+        m.put(Sonic3kAudioConstants.MUS_KNUCKLES_S3, "Knuckles' Theme (S3)");
+        m.put(Sonic3kAudioConstants.MUS_TITLE_S3, "Title Screen (S3)");
+        m.put(Sonic3kAudioConstants.MUS_CREDITS_S3_ALT, "Credits (S3)");
+        m.put(Sonic3kAudioConstants.MUS_ACT_CLEAR_S3, "Act Clear (S3)");
+        m.put(Sonic3kAudioConstants.MUS_EXTRA_LIFE_S3, "Extra Life (S3)");
+        m.put(Sonic3kAudioConstants.MUS_INVINCIBILITY_S3, "Invincibility (S3)");
+        m.put(Sonic3kAudioConstants.MUS_COMPETITION_MENU_S3, "Competition Menu (S3)");
+        m.put(Sonic3kAudioConstants.MUS_MINIBOSS_S3_ALT, "Mini-Boss (S3)");
+        m.put(Sonic3kAudioConstants.MUS_FINAL_BOSS_S3, "Final Boss (S3)");
         return m;
     }
 
