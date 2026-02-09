@@ -15,6 +15,10 @@ public final class Sonic2ObjectIds {
     public static final int SPIRAL = 0x06;
     public static final int EHZ_WATERFALL = 0x49;
 
+    // OOZ Badniks
+    public static final int OCTUS = 0x4A;
+    public static final int AQUIS = 0x50;
+
     // EHZ Badniks
     public static final int BUZZER = 0x4B;
     public static final int MASHER = 0x5C;
@@ -110,6 +114,7 @@ public final class Sonic2ObjectIds {
     // OOZ Objects
     public static final int OOZ_POPPING_PLATFORM = 0x33; // OOZPoppingPform (Obj33) - green burner platform that pops up
     public static final int OOZ_LAUNCHER = 0x3D; // OOZLauncher (Obj3D) - breakable block that launches rolling player
+    public static final int FAN = 0x3F; // Fan (Obj3F) - OOZ wind fan (horizontal/vertical push)
     public static final int LAUNCHER_BALL = 0x48; // LauncherBall (Obj48) - OOZ transporter ball
 
     // OOZ/MCZ/ARZ Objects

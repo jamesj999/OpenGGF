@@ -88,12 +88,15 @@ public class ObjectDiscoveryTool {
             0x36,  // Spikes
             0x3D,  // OOZLauncher (breakable block that launches rolling player)
             0x3E,  // EggPrison (end of act capsule)
+            0x3F,  // Fan (OOZ wind fan - horizontal/vertical push)
             0x40,  // Springboard (CPZ/ARZ/MCZ lever spring)
             0x41,  // Spring
             0x44,  // Bumper
             0x48,  // LauncherBall (OOZ transporter ball)
             0x49,  // EHZWaterfall
+            0x4A,  // Octus (OOZ octopus badnik)
             0x4B,  // Buzzer
+            0x50,  // Aquis (OOZ seahorse badnik)
             0x51,  // CNZBoss (dynamically spawned pinball spike dropper zapping boss)
             0x56,  // EHZBoss (dynamically spawned drill car boss)
             0x5C,  // Masher

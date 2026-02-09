@@ -24,13 +24,17 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
         BUZZER_STINGER,
         COCONUT,
         SPINY_SPIKE,
-        REXON_FIREBALL
+        REXON_FIREBALL,
+        OCTUS_BULLET,
+        AQUIS_BULLET
     }
 
     private static final int COLLISION_SIZE_STINGER = 0x18; // From disassembly $98 & 0x3F
     private static final int COLLISION_SIZE_COCONUT = 0x0B; // From disassembly $8B & 0x3F
     private static final int COLLISION_SIZE_SPINY_SPIKE = 0x0B; // Same as coconut
     private static final int COLLISION_SIZE_REXON_FIREBALL = 0x18; // From disassembly $98 & 0x3F
+    private static final int COLLISION_SIZE_OCTUS_BULLET = 0x18; // From disassembly $98 & 0x3F
+    private static final int COLLISION_SIZE_AQUIS_BULLET = 0x18; // From disassembly $98 & 0x3F
     private static final int GRAVITY_COCONUT = 0x20; // Obj98_CoconutFall
     private static final int GRAVITY_SPINY_SPIKE = 0x20; // From disassembly +$20 per frame
     private static final int GRAVITY_REXON_FIREBALL = 0x80; // From disassembly $80 per frame
@@ -47,6 +51,7 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
     private int collisionSizeIndex;
     private int animFrame;
     private boolean hFlip;
+    private int initialDelay; // Frames to wait before moving (Octus bullet: 0x0F)
 
     /**
      * Create a new projectile.
@@ -88,11 +93,36 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
                 this.gravity = GRAVITY_REXON_FIREBALL;
                 this.collisionSizeIndex = COLLISION_SIZE_REXON_FIREBALL;
             }
+            case OCTUS_BULLET -> {
+                this.gravity = 0;
+                this.collisionSizeIndex = COLLISION_SIZE_OCTUS_BULLET;
+            }
+            case AQUIS_BULLET -> {
+                this.gravity = 0;
+                this.collisionSizeIndex = COLLISION_SIZE_AQUIS_BULLET;
+            }
         }
+    }
+
+    /**
+     * Create a new projectile with an initial stationary delay.
+     * While delay >= 0, the projectile does not move.
+     */
+    public BadnikProjectileInstance(ObjectSpawn spawn, ProjectileType type,
+            int x, int y, int xVel, int yVel, boolean gravity, boolean hFlip, int initialDelay) {
+        this(spawn, type, x, y, xVel, yVel, gravity, hFlip);
+        this.initialDelay = initialDelay;
     }
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
+        // Initial delay: projectile stays stationary (Octus bullet: 16 frames)
+        if (initialDelay > 0) {
+            initialDelay--;
+            animFrame = ((frameCounter >> 2) & 1);
+            return;
+        }
+
         // Apply gravity if enabled
         if (applyGravity) {
             yVelocity += gravity;
@@ -191,6 +221,16 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
                 // while head/body use palette line 3 (the sheet default)
                 frame = 3;
                 paletteOverride = 1;
+                break;
+            case OCTUS_BULLET:
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.OCTUS);
+                // Octus bullet uses frames 5-6 (animation 2: dc.b 2, 5, 6, $FF)
+                frame = 5 + animFrame;
+                break;
+            case AQUIS_BULLET:
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.AQUIS);
+                // Aquis bullet uses frames 5-7 (animation 2: dc.b 3, 5, 6, 7, 6, $FF)
+                frame = 5 + (animFrame % 3);
                 break;
             default:
                 return;

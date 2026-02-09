@@ -7,6 +7,8 @@ import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.objects.PlaceholderObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.AquisBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.OctusBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.MasherBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.BuzzerBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.CoconutsBadnikInstance;
@@ -224,10 +226,18 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new OOZLauncherObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
         registerFactory(Sonic2ObjectIds.LAUNCHER_BALL,
                 (spawn, registry) -> new LauncherBallObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+        registerFactory(Sonic2ObjectIds.FAN,
+                (spawn, registry) -> new FanObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
         registerFactory(Sonic2ObjectIds.OOZ_POPPING_PLATFORM,
                 (spawn, registry) -> new OOZPoppingPlatformObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
         registerFactory(Sonic2ObjectIds.SPIRAL,
                 (spawn, registry) -> new SpiralObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+
+        // OOZ Badniks
+        registerFactory(Sonic2ObjectIds.OCTUS,
+                (spawn, registry) -> new OctusBadnikInstance(spawn, LevelManager.getInstance()));
+        registerFactory(Sonic2ObjectIds.AQUIS,
+                (spawn, registry) -> new AquisBadnikInstance(spawn, LevelManager.getInstance()));
 
         // EHZ Badniks
         registerFactory(Sonic2ObjectIds.MASHER,
