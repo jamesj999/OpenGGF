@@ -38,6 +38,14 @@ public class RomByteReader {
         return (short) readU16BE(addr);
     }
 
+    public int readU32BE(int addr) {
+        boundsCheck(addr, 4);
+        return (Byte.toUnsignedInt(data[addr]) << 24)
+             | (Byte.toUnsignedInt(data[addr + 1]) << 16)
+             | (Byte.toUnsignedInt(data[addr + 2]) << 8)
+             | Byte.toUnsignedInt(data[addr + 3]);
+    }
+
     public byte[] slice(int addr, int len) {
         boundsCheck(addr, len);
         return Arrays.copyOfRange(data, addr, addr + len);

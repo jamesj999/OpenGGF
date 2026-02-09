@@ -102,6 +102,11 @@ public class Sonic2Constants {
     public static final int CYCLING_PAL_OIL_ADDR = 0x001F76;  // 4 frames × 4 bytes = 16 bytes
     public static final int CYCLING_PAL_OIL_LEN = 16;
 
+    // OOZ Oil Surface (Obj07) - ROM: s2.asm:49667-49672
+    public static final int OIL_SURFACE_Y = 0x758;       // Default Y position of oil surface
+    public static final int OIL_SUBMERSION_MAX = 0x30;    // 48 frames before suffocation
+    public static final int OIL_WIDTH = 0x20;             // Platform half-width (tracks player X)
+
     // Palette cycling (MCZ - Mystic Cave Zone) - Lanterns
     public static final int CYCLING_PAL_LANTERN_ADDR = 0x001F86;  // 4 frames × 2 bytes = 8 bytes
     public static final int CYCLING_PAL_LANTERN_LEN = 8;

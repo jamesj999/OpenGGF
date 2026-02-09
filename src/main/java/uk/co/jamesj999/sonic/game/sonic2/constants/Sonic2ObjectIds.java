@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2.constants;
 
 public final class Sonic2ObjectIds {
     public static final int LAYER_SWITCHER = 0x03;
+    public static final int OIL = 0x07;                  // OOZ oil surface (Obj07)
     public static final int SPRING = 0x41;
     public static final int SPIKES = 0x36;
     public static final int MONITOR = 0x26;
