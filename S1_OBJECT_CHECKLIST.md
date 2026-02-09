@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 12 (15.0%)
-- **Unimplemented:** 68 (85.0%)
+- **Implemented:** 13 (16.3%)
+- **Unimplemented:** 67 (83.8%)
 
 ## Implemented Objects
 
@@ -15,6 +15,7 @@ Generated: 2026-02-09 23:03:25
 | 0x0D | Signpost | 13 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2, SBZ1, SBZ2 |
 | 0x11 | Bridge | 11 | GHZ1, GHZ2, GHZ3 |
 | 0x18 | Platform | 96 | GHZ1, GHZ2, GHZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3 |
+| 0x1A | CollapsingLedge | 19 | GHZ1, GHZ2, GHZ3 |
 | 0x1F | Crabmeat | 43 | GHZ1, GHZ2, GHZ3, SYZ1, SYZ2, SYZ3 |
 | 0x22 | BuzzBomber | 78 | GHZ1, GHZ2, GHZ3, MZ1, MZ2, MZ3, SYZ1, SYZ2, SYZ3 |
 | 0x25 | Ring | 802 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
@@ -69,7 +70,6 @@ Generated: 2026-02-09 23:03:25
 | 0x57 | Object | S1_Obj_57 | 22 | LZ1, LZ2, LZ3, SYZ1, SYZ2, SYZ3 |
 | 0x12 | Object | S1_Obj_12 | 21 | SYZ1, SYZ2, SYZ3 |
 | 0x68 | Object | S1_Obj_68 | 20 | SBZ2 |
-| 0x1A | Object | S1_Obj_1A | 19 | GHZ1, GHZ2, GHZ3 |
 | 0x52 | Object | S1_Obj_52 | 17 | LZ1, MZ1, MZ2, MZ3, SBZ1, SBZ2 |
 | 0x6B | Object | S1_Obj_6B | 17 | SBZ1, SBZ2 |
 | 0x59 | Object | S1_Obj_59 | 16 | SLZ1, SLZ2, SLZ3 |
@@ -106,7 +106,7 @@ Generated: 2026-02-09 23:03:25
 
 #### Act 1
 
-Total: 214 objects | Implemented: 12 | Unimplemented: 8
+Total: 214 objects | Implemented: 13 | Unimplemented: 7
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
@@ -119,7 +119,7 @@ Total: 214 objects | Implemented: 12 | Unimplemented: 8
 - [x] 0x0D Signpost (x1) [0x00]
 - [x] 0x11 Bridge (x3) [0x0C]
 - [x] 0x18 Platform (x20) [5 subtypes]
-- [ ] 0x1A S1_Obj_1A (x3) [0x00, 0x01]
+- [x] 0x1A CollapsingLedge (x3) [0x00, 0x01]
 - [ ] 0x1C S1_Obj_1C (x6) [0x03]
 - [x] 0x25 Ring (x82) [8 subtypes]
 - [x] 0x26 Monitor (x10) [0x04, 0x05, 0x06]
@@ -134,7 +134,7 @@ Total: 214 objects | Implemented: 12 | Unimplemented: 8
 
 #### Act 2
 
-Total: 244 objects | Implemented: 12 | Unimplemented: 10
+Total: 244 objects | Implemented: 13 | Unimplemented: 9
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x4) [0x00]
@@ -148,7 +148,7 @@ Total: 244 objects | Implemented: 12 | Unimplemented: 10
 - [x] 0x11 Bridge (x4) [0x0C]
 - [ ] 0x15 S1_Obj_15 (x3) [0x06, 0x08]
 - [x] 0x18 Platform (x9) [0x01, 0x03, 0x0A]
-- [ ] 0x1A S1_Obj_1A (x4) [0x00, 0x01]
+- [x] 0x1A CollapsingLedge (x4) [0x00, 0x01]
 - [ ] 0x1C S1_Obj_1C (x8) [0x03]
 - [x] 0x25 Ring (x74) [11 subtypes]
 - [x] 0x26 Monitor (x10) [5 subtypes]
@@ -164,7 +164,7 @@ Total: 244 objects | Implemented: 12 | Unimplemented: 10
 
 #### Act 3
 
-Total: 286 objects | Implemented: 11 | Unimplemented: 9
+Total: 286 objects | Implemented: 12 | Unimplemented: 8
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
@@ -177,7 +177,7 @@ Total: 286 objects | Implemented: 11 | Unimplemented: 9
 - [ ] 0x15 S1_Obj_15 (x2) [0x07, 0x08]
 - [ ] 0x17 S1_Obj_17 (x4) [0x10]
 - [x] 0x18 Platform (x17) [6 subtypes]
-- [ ] 0x1A S1_Obj_1A (x12) [0x00, 0x01]
+- [x] 0x1A CollapsingLedge (x12) [0x00, 0x01]
 - [ ] 0x1C S1_Obj_1C (x8) [0x03]
 - [x] 0x25 Ring (x74) [6 subtypes]
 - [x] 0x26 Monitor (x20) [5 subtypes]

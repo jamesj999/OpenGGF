@@ -48,6 +48,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.MONITOR,
             Sonic1ObjectIds.RING,
             Sonic1ObjectIds.PLATFORM,
+            Sonic1ObjectIds.COLLAPSING_LEDGE,
             Sonic1ObjectIds.ROCK,
             Sonic1ObjectIds.BRIDGE,
             Sonic1ObjectIds.SPIKES,
@@ -85,6 +86,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.SIGNPOST, List.of("Signpost"));
         map.put(Sonic1ObjectIds.BRIDGE, List.of("Bridge"));
         map.put(Sonic1ObjectIds.PLATFORM, List.of("Platform"));
+        map.put(Sonic1ObjectIds.COLLAPSING_LEDGE, List.of("CollapsingLedge"));
         map.put(Sonic1ObjectIds.CRABMEAT, List.of("Crabmeat"));
         map.put(Sonic1ObjectIds.BUZZ_BOMBER, List.of("BuzzBomber"));
         map.put(Sonic1ObjectIds.BUZZ_BOMBER_MISSILE, List.of("BuzzBomberMissile"));

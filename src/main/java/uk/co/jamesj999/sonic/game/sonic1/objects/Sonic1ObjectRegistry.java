@@ -68,6 +68,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1SpringObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.PLATFORM,
                 (spawn, registry) -> new Sonic1PlatformObjectInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.COLLAPSING_LEDGE,
+                (spawn, registry) -> new Sonic1CollapsingLedgeObjectInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.BUZZ_BOMBER,
                 (spawn, registry) -> new Sonic1BuzzBomberBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.CRABMEAT,
@@ -83,6 +85,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.SIGNPOST -> "Signpost";
             case Sonic1ObjectIds.BRIDGE -> "Bridge";
             case Sonic1ObjectIds.PLATFORM -> "Platform";
+            case Sonic1ObjectIds.COLLAPSING_LEDGE -> "CollapsingLedge";
             case Sonic1ObjectIds.CRABMEAT -> "Crabmeat";
             case Sonic1ObjectIds.BUZZ_BOMBER -> "BuzzBomber";
             case Sonic1ObjectIds.BUZZ_BOMBER_MISSILE -> "BuzzBomberMissile";
