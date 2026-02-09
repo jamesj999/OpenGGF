@@ -355,7 +355,7 @@ If issues are found:
 
 Once cross-validation is confirmed bug-free:
 
-1. **Add to IMPLEMENTED_IDS** in `ObjectDiscoveryTool.java` (around line 59):
+1. **Add to IMPLEMENTED_IDS** in `Sonic2ObjectProfile.java` (the `IMPLEMENTED_IDS` set):
    ```java
    0xXX,  // ObjectName (brief description)
    ```
@@ -384,7 +384,7 @@ Once cross-validation is confirmed bug-free:
 | SFX mapping | `src/.../game/sonic2/audio/smps/Sonic2SmpsLoader.java` |
 | SFX constants | `src/.../game/sonic2/constants/Sonic2AudioConstants.java` |
 | Disassembly | `docs/s2disasm/` |
-| Implemented IDs | `src/.../tools/ObjectDiscoveryTool.java` (line ~59) |
+| Implemented IDs | `src/.../tools/Sonic2ObjectProfile.java` (IMPLEMENTED_IDS set) |
 
 ## Example Implementations
 

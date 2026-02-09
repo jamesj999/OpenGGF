@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2.constants;
 
 public final class Sonic2ObjectIds {
     public static final int LAYER_SWITCHER = 0x03;
+    public static final int OIL = 0x07;                  // OOZ oil surface (Obj07)
     public static final int SPRING = 0x41;
     public static final int SPIKES = 0x36;
     public static final int MONITOR = 0x26;
@@ -14,6 +15,10 @@ public final class Sonic2ObjectIds {
     public static final int BRIDGE_STAKE = 0x1C;
     public static final int SPIRAL = 0x06;
     public static final int EHZ_WATERFALL = 0x49;
+
+    // OOZ Badniks
+    public static final int OCTUS = 0x4A;
+    public static final int AQUIS = 0x50;
 
     // EHZ Badniks
     public static final int BUZZER = 0x4B;
@@ -110,6 +115,7 @@ public final class Sonic2ObjectIds {
     // OOZ Objects
     public static final int OOZ_POPPING_PLATFORM = 0x33; // OOZPoppingPform (Obj33) - green burner platform that pops up
     public static final int OOZ_LAUNCHER = 0x3D; // OOZLauncher (Obj3D) - breakable block that launches rolling player
+    public static final int FAN = 0x3F; // Fan (Obj3F) - OOZ wind fan (horizontal/vertical push)
     public static final int LAUNCHER_BALL = 0x48; // LauncherBall (Obj48) - OOZ transporter ball
 
     // OOZ/MCZ/ARZ Objects

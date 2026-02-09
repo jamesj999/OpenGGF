@@ -168,6 +168,12 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         protected boolean stickToConvex = false;
 
         /**
+         * Whether this sprite is on an oil slide in OOZ.
+         * ROM: status_secondary.sliding
+         */
+        protected boolean sliding = false;
+
+        /**
          * Whether or not this sprite is pushing a solid object.
          */
         protected boolean pushing = false;
@@ -424,6 +430,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.air = false;
                 this.jumping = false;
                 this.onObject = false;
+                this.sliding = false;
                 this.stickToConvex = false;
                 // Reset ground mode to GROUND - critical for sensor direction on level load.
                 // Without this, if player was on a wall/ceiling when previous level ended,
@@ -710,6 +717,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void setOnObject(boolean onObject) {
                 this.onObject = onObject;
+        }
+
+        public boolean isSliding() {
+                return sliding;
+        }
+
+        public void setSliding(boolean sliding) {
+                this.sliding = sliding;
         }
 
         public boolean isStickToConvex() {

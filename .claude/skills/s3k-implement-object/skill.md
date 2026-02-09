@@ -326,12 +326,18 @@ Once cross-validation is confirmed bug-free:
 
 1. **Verify registration** in `Sonic3kObjectRegistry` - ensure the factory is registered and the object is no longer returned as a `PlaceholderObjectInstance`.
 
-2. **Build and test**:
+2. **Add to IMPLEMENTED_IDS** in `Sonic3kObjectProfile.java` (the `IMPLEMENTED_IDS` set):
+   ```java
+   0xXX  // ObjectName
+   ```
+   Keep the set entries sorted numerically.
+
+3. **Build and test**:
    ```bash
    mvn package
    ```
 
-3. Report completion with summary of implementation details.
+4. Report completion with summary of implementation details.
 
 ## Reference Files
 
@@ -348,6 +354,7 @@ Once cross-validation is confirmed bug-free:
 | Disassembly constants | `docs/skdisasm/sonic3k.constants.asm` |
 | Shared sprites | `docs/skdisasm/General/Sprites/` |
 | Zone-specific data | `docs/skdisasm/Levels/{ZONE}/Misc Object Data/` |
+| Implemented IDs | `src/.../tools/Sonic3kObjectProfile.java` (IMPLEMENTED_IDS set) |
 
 ## S3K Badnik List (from General/Sprites/)
 

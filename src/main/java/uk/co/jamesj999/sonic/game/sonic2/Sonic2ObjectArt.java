@@ -689,6 +689,166 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load OOZ Fan horizontal sprite sheet (Object 0x3F).
+     * Side-blowing fan from Oil Ocean Zone.
+     * <p>
+     * ROM: ArtNem_OOZFanHoriz at 0x81254, palette line 0
+     * Mappings: obj3F.asm - 11 frames (ping-pong cycle through 6 unique blade positions)
+     * Each frame has 3 pieces: blade + body top + body bottom.
+     *
+     * @return sprite sheet for horizontal fan, or null on failure
+     */
+    public ObjectSpriteSheet loadOOZFanHorizSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_OOZ_FAN_ADDR, "OOZFan");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createOOZFanHorizMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Create mappings for OOZ Fan horizontal variant (Object 0x3F).
+     * 11 frames with ping-pong pattern: 0,1,2,3,4,5,4,3,2,1,0.
+     * From obj3F mappings in s2.asm.
+     */
+    private List<SpriteMappingFrame> createOOZFanHorizMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: blade 1x3 at (-12,-13) tile=0, body 2x2 at (-4,-16) tile=7, body 2x2 at (-4,0) tile=7 vflip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-12, -13, 1, 3, 0, false, false, 0),
+                new SpriteMappingPiece(-4, -16, 2, 2, 7, false, false, 0),
+                new SpriteMappingPiece(-4, 0, 2, 2, 7, false, true, 0)
+        )));
+
+        // Frame 1: blade 1x3 at (-12,-11) tile=0 vflip, body 2x2, body 2x2 vflip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-12, -11, 1, 3, 0, false, true, 0),
+                new SpriteMappingPiece(-4, -16, 2, 2, 7, false, false, 0),
+                new SpriteMappingPiece(-4, 0, 2, 2, 7, false, true, 0)
+        )));
+
+        // Frame 2: blade 1x4 at (-12,-16) tile=3, body 2x2, body 2x2 vflip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-12, -16, 1, 4, 3, false, false, 0),
+                new SpriteMappingPiece(-4, -16, 2, 2, 7, false, false, 0),
+                new SpriteMappingPiece(-4, 0, 2, 2, 7, false, true, 0)
+        )));
+
+        // Frame 3: blade 1x3 at (-12,-13) tile=0, body 2x2 tile=11, body 2x2 tile=11 vflip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-12, -13, 1, 3, 0, false, false, 0),
+                new SpriteMappingPiece(-4, -16, 2, 2, 11, false, false, 0),
+                new SpriteMappingPiece(-4, 0, 2, 2, 11, false, true, 0)
+        )));
+
+        // Frame 4: blade 1x3 at (-12,-11) tile=0 vflip, body 2x2 tile=11, body 2x2 tile=11 vflip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-12, -11, 1, 3, 0, false, true, 0),
+                new SpriteMappingPiece(-4, -16, 2, 2, 11, false, false, 0),
+                new SpriteMappingPiece(-4, 0, 2, 2, 11, false, true, 0)
+        )));
+
+        // Frame 5: blade 1x4 at (-12,-16) tile=3, body 2x2 tile=11, body 2x2 tile=11 vflip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-12, -16, 1, 4, 3, false, false, 0),
+                new SpriteMappingPiece(-4, -16, 2, 2, 11, false, false, 0),
+                new SpriteMappingPiece(-4, 0, 2, 2, 11, false, true, 0)
+        )));
+
+        // Frames 6-10: Mirror of frames 4,3,2,1,0
+        frames.add(frames.get(4)); // Frame 6 = Frame 4
+        frames.add(frames.get(3)); // Frame 7 = Frame 3
+        frames.add(frames.get(2)); // Frame 8 = Frame 2
+        frames.add(frames.get(1)); // Frame 9 = Frame 1
+        frames.add(frames.get(0)); // Frame 10 = Frame 0
+
+        return frames;
+    }
+
+    /**
+     * Load OOZ Fan vertical sprite sheet (Object 0x3F, subtype bit 7 set).
+     * Upward-blowing fan from Oil Ocean Zone.
+     * <p>
+     * ROM: Same art source as horizontal (ArtNem_OOZFanHoriz at 0x81254)
+     * Mappings: obj3F.asm - 11 frames (vertical variant), each with 3 pieces:
+     * blade + body left + body right.
+     *
+     * @return sprite sheet for vertical fan, or null on failure
+     */
+    public ObjectSpriteSheet loadOOZFanVertSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_OOZ_FAN_ADDR, "OOZFan");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createOOZFanVertMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Create mappings for OOZ Fan vertical variant (Object 0x3F).
+     * 11 frames with ping-pong pattern. Rotated layout from horizontal variant.
+     * From obj3F mappings in s2.asm.
+     */
+    private List<SpriteMappingFrame> createOOZFanVertMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: blade 3x1 at (-13,-12) tile=15, body 2x2 at (-16,-4) tile=22, body 2x2 at (0,-4) tile=22 hflip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-13, -12, 3, 1, 15, false, false, 0),
+                new SpriteMappingPiece(-16, -4, 2, 2, 22, false, false, 0),
+                new SpriteMappingPiece(0, -4, 2, 2, 22, true, false, 0)
+        )));
+
+        // Frame 1: blade 3x1 at (-11,-12) tile=15 hflip, body 2x2, body 2x2 hflip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-11, -12, 3, 1, 15, true, false, 0),
+                new SpriteMappingPiece(-16, -4, 2, 2, 22, false, false, 0),
+                new SpriteMappingPiece(0, -4, 2, 2, 22, true, false, 0)
+        )));
+
+        // Frame 2: blade 4x1 at (-16,-12) tile=18, body 2x2, body 2x2 hflip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-16, -12, 4, 1, 18, false, false, 0),
+                new SpriteMappingPiece(-16, -4, 2, 2, 22, false, false, 0),
+                new SpriteMappingPiece(0, -4, 2, 2, 22, true, false, 0)
+        )));
+
+        // Frame 3: blade 3x1 at (-13,-12) tile=15, body 2x2 tile=26, body 2x2 tile=26 hflip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-13, -12, 3, 1, 15, false, false, 0),
+                new SpriteMappingPiece(-16, -4, 2, 2, 26, false, false, 0),
+                new SpriteMappingPiece(0, -4, 2, 2, 26, true, false, 0)
+        )));
+
+        // Frame 4: blade 3x1 at (-11,-12) tile=15 hflip, body 2x2 tile=26, body 2x2 tile=26 hflip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-11, -12, 3, 1, 15, true, false, 0),
+                new SpriteMappingPiece(-16, -4, 2, 2, 26, false, false, 0),
+                new SpriteMappingPiece(0, -4, 2, 2, 26, true, false, 0)
+        )));
+
+        // Frame 5: blade 4x1 at (-16,-12) tile=18, body 2x2 tile=26, body 2x2 tile=26 hflip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-16, -12, 4, 1, 18, false, false, 0),
+                new SpriteMappingPiece(-16, -4, 2, 2, 26, false, false, 0),
+                new SpriteMappingPiece(0, -4, 2, 2, 26, true, false, 0)
+        )));
+
+        // Frames 6-10: Mirror of frames 4,3,2,1,0
+        frames.add(frames.get(4)); // Frame 6 = Frame 4
+        frames.add(frames.get(3)); // Frame 7 = Frame 3
+        frames.add(frames.get(2)); // Frame 8 = Frame 2
+        frames.add(frames.get(1)); // Frame 9 = Frame 1
+        frames.add(frames.get(0)); // Frame 10 = Frame 0
+
+        return frames;
+    }
+
+    /**
      * Load OOZ LauncherBall sprite sheet (Object 0x48).
      * Transporter ball from Oil Ocean Zone that fires the player in a cardinal direction.
      * <p>
@@ -1597,6 +1757,34 @@ public class Sonic2ObjectArt {
             return null;
         }
         List<SpriteMappingFrame> mappings = createCrawlMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Load Octus (Obj4A) sprite sheet - octopus badnik from OOZ.
+     * ROM: ArtNem_Octus at 0x8336A, palette line 1.
+     * 7 frames: body poses (0-4), bullet frames (5-6).
+     */
+    public ObjectSpriteSheet loadOctusSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_OCTUS_ADDR, "Octus");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createOctusMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Load Aquis (Obj50) sprite sheet - seahorse badnik from OOZ.
+     * ROM: ArtNem_Aquis at 0x8368A, palette line 1.
+     * 9 frames from Map_obj50.
+     */
+    public ObjectSpriteSheet loadAquisSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_AQUIS_ADDR, "Aquis");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createAquisMappings();
         return new ObjectSpriteSheet(patterns, mappings, 1, 1);
     }
 
@@ -2856,6 +3044,129 @@ public class Sonic2ObjectArt {
         frame3.add(new SpriteMappingPiece(-32, 0, 3, 2, 0x24, true, false, 0));     // Left foot (H-flipped)
         frame3.add(new SpriteMappingPiece(-16, -16, 4, 4, 0x00, false, false, 0));  // Body
         frames.add(new SpriteMappingFrame(frame3));
+
+        return frames;
+    }
+
+    /**
+     * Creates mappings for Octus (Obj4A) - octopus badnik from OOZ.
+     * Based on obj4A.asm (S2 disassembly mappings).
+     * 7 frames: body poses (0-4), bullet (5-6).
+     * Art tile: make_art_tile(ArtTile_ArtNem_Octus,1,0) = palette line 1.
+     */
+    private List<SpriteMappingFrame> createOctusMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Body + tentacles (submerged pose)
+        // 2 pieces: 4x2 head at (-16,-21, tile 0), 4x2 tentacles at (-16,-5, tile 8)
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-16, -21, 4, 2, 0x00, false, false, 0));  // Head
+        frame0.add(new SpriteMappingPiece(-16, -5, 4, 2, 0x08, false, false, 0));   // Tentacles
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1: Head + arms pose 1
+        // 3 pieces: 4x2 head at (-16,-16, tile 0), 3x2 left arm at (-24,0, tile 0x10), 3x2 right arm at (0,0, tile 0x16)
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-16, -16, 4, 2, 0x00, false, false, 0));  // Head
+        frame1.add(new SpriteMappingPiece(-24, 0, 3, 2, 0x10, false, false, 0));    // Left arm
+        frame1.add(new SpriteMappingPiece(0, 0, 3, 2, 0x16, false, false, 0));      // Right arm
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2: Head + arms pose 2
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-16, -16, 4, 2, 0x00, false, false, 0));  // Head
+        frame2.add(new SpriteMappingPiece(-24, 0, 3, 2, 0x1C, false, false, 0));    // Left arm
+        frame2.add(new SpriteMappingPiece(0, 0, 3, 2, 0x22, false, false, 0));      // Right arm
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3: Head + arms pose 3
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(-16, -16, 4, 2, 0x00, false, false, 0));  // Head
+        frame3.add(new SpriteMappingPiece(-24, 0, 3, 2, 0x28, false, false, 0));    // Left arm
+        frame3.add(new SpriteMappingPiece(0, 0, 3, 2, 0x2E, false, false, 0));      // Right arm
+        frames.add(new SpriteMappingFrame(frame3));
+
+        // Frame 4: Antenna + head + arms (pre-rise)
+        // 4 pieces: 1x2 antenna at (-9,-16, tile 0x34), then same as frame 1
+        List<SpriteMappingPiece> frame4 = new ArrayList<>();
+        frame4.add(new SpriteMappingPiece(-9, -16, 1, 2, 0x34, false, false, 0));   // Antenna
+        frame4.add(new SpriteMappingPiece(-16, -16, 4, 2, 0x00, false, false, 0));  // Head
+        frame4.add(new SpriteMappingPiece(-24, 0, 3, 2, 0x10, false, false, 0));    // Left arm
+        frame4.add(new SpriteMappingPiece(0, 0, 3, 2, 0x16, false, false, 0));      // Right arm
+        frames.add(new SpriteMappingFrame(frame4));
+
+        // Frame 5: Bullet frame 1
+        List<SpriteMappingPiece> frame5 = new ArrayList<>();
+        frame5.add(new SpriteMappingPiece(-16, -14, 1, 2, 0x36, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame5));
+
+        // Frame 6: Bullet frame 2
+        List<SpriteMappingPiece> frame6 = new ArrayList<>();
+        frame6.add(new SpriteMappingPiece(-16, -14, 1, 2, 0x38, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame6));
+
+        return frames;
+    }
+
+    /**
+     * Creates mappings for Aquis (Obj50) - seahorse badnik from OOZ.
+     * Based on Map_obj50 in disassembly.
+     * 9 frames: body variants, wing, bullets, unused large frame.
+     */
+    private List<SpriteMappingFrame> createAquisMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Main body
+        // 3 pieces: 4x2@(-0x10,-0x18,t0), 3x2@(-8,-8,t8), 2x2@(-8,8,t0xE)
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x10, -0x18, 4, 2, 0x00, false, false, 1));
+        frame0.add(new SpriteMappingPiece(-8, -8, 3, 2, 0x08, false, false, 1));
+        frame0.add(new SpriteMappingPiece(-8, 8, 2, 2, 0x0E, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1: Wing A
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-8, -8, 2, 2, 0x22, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2: Wing B
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-8, -8, 2, 2, 0x26, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3: Body variant 1 (flapping)
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(-0x10, -0x18, 4, 2, 0x12, false, false, 1));
+        frame3.add(new SpriteMappingPiece(-8, -8, 3, 2, 0x08, false, false, 1));
+        frame3.add(new SpriteMappingPiece(-8, 8, 2, 2, 0x0E, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame3));
+
+        // Frame 4: Body variant 2 (flapping)
+        List<SpriteMappingPiece> frame4 = new ArrayList<>();
+        frame4.add(new SpriteMappingPiece(-0x10, -0x18, 4, 2, 0x1A, false, false, 1));
+        frame4.add(new SpriteMappingPiece(-8, -8, 3, 2, 0x08, false, false, 1));
+        frame4.add(new SpriteMappingPiece(-8, 8, 2, 2, 0x0E, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame4));
+
+        // Frame 5: Bullet 1
+        List<SpriteMappingPiece> frame5 = new ArrayList<>();
+        frame5.add(new SpriteMappingPiece(-4, -8, 1, 2, 0x2A, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame5));
+
+        // Frame 6: Bullet 2
+        List<SpriteMappingPiece> frame6 = new ArrayList<>();
+        frame6.add(new SpriteMappingPiece(-4, -8, 1, 2, 0x2C, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame6));
+
+        // Frame 7: Bullet 3
+        List<SpriteMappingPiece> frame7 = new ArrayList<>();
+        frame7.add(new SpriteMappingPiece(-4, -8, 1, 2, 0x2E, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame7));
+
+        // Frame 8: Unused large frame
+        List<SpriteMappingPiece> frame8 = new ArrayList<>();
+        frame8.add(new SpriteMappingPiece(-0x10, -8, 4, 2, 0x30, false, false, 1));
+        frames.add(new SpriteMappingFrame(frame8));
 
         return frames;
     }
