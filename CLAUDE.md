@@ -362,6 +362,180 @@ GameModuleRegistry.setCurrent(new Sonic2GameModule());
 
 Detection is performed by `RomDetector` implementations registered with `RomDetectionService`. Each detector examines ROM headers/checksums to identify its game.
 
+## Per-Game Physics Framework
+
+The engine differentiates physics behavior across Sonic 1, Sonic 2, and Sonic 3&K through a layered provider system. Each layer handles a different concern:
+
+### Architecture
+
+| Class | Purpose | Location |
+|-------|---------|----------|
+| `PhysicsProfile` | Immutable per-character movement constants (18 fields) | `game/PhysicsProfile.java` |
+| `PhysicsModifiers` | Water and speed shoes multiplier rules | `game/PhysicsModifiers.java` |
+| `PhysicsFeatureSet` | Feature flags gating mechanics per game | `game/PhysicsFeatureSet.java` |
+| `CollisionModel` | Enum: collision path architecture (UNIFIED vs DUAL_PATH) | `game/CollisionModel.java` |
+| `PhysicsProvider` | Interface tying the above together per game | `game/PhysicsProvider.java` |
+
+Each game module returns its own `PhysicsProvider`:
+- `Sonic1PhysicsProvider` → `game/sonic1/`
+- `Sonic2PhysicsProvider` → `game/sonic2/`
+- `Sonic3kPhysicsProvider` → `game/sonic3k/`
+
+### Resolution Flow
+
+1. `AbstractPlayableSprite` constructor calls `defineSpeeds()` (hardcoded S2 fallback values)
+2. Then calls `resolvePhysicsProfile()`, which queries `GameModuleRegistry.getCurrent().getPhysicsProvider()`
+3. Profile values overwrite the fallback fields; modifiers and feature set are cached
+4. Getters like `getRunAccel()` apply modifiers dynamically (water/speed shoes)
+5. Feature set gates are checked at call sites (spindash, collision path switching, etc.)
+
+### PhysicsProfile — Per-Character Constants
+
+All values in subpixels (256 = 1 pixel). Pre-defined profiles:
+
+| Profile | Used By | Key Differences |
+|---------|---------|-----------------|
+| `SONIC_2_SONIC` | S1 Sonic, S2 Sonic, S3K Sonic/Knuckles | Baseline |
+| `SONIC_2_TAILS` | S2 Tails, S3K Tails | Shorter (standYRadius=15, runHeight=30) |
+| `SONIC_3K_SUPER_SONIC` | S3K Super Sonic | max=0xA00, accel=0x30, decel=0x100 |
+
+### PhysicsModifiers — Water & Speed Shoes
+
+`PhysicsModifiers.STANDARD` is shared across all three games. Modifiers are applied dynamically via getter methods on `AbstractPlayableSprite`:
+
+```java
+// Example: sprite.getRunAccel() internally calls:
+physicsModifiers.effectiveAccel(runAccel, isInWater(), speedShoes);
+```
+
+Water halves accel/decel/friction/max and overrides jump to 0x380. Speed shoes double accel/friction/max (decel unchanged).
+
+### PhysicsFeatureSet — Per-Game Feature Flags
+
+Controls which mechanics exist in each game. **This is the primary extension point for per-game physics differences.**
+
+Current fields:
+
+| Field | S1 | S2 | S3K | Purpose |
+|-------|----|----|-----|---------|
+| `spindashEnabled` | `false` | `true` | `true` | Gates `doCheckSpindash()` in `PlayableSpriteMovement` |
+| `spindashSpeedTable` | `null` | 9-entry table | 9-entry table | Spindash release speeds (0x800–0xC00) |
+| `collisionModel` | `UNIFIED` | `DUAL_PATH` | `DUAL_PATH` | Collision path switching architecture |
+| `fixedAnglePosThreshold` | `true` | `false` | `false` | S1: fixed 14px threshold; S2/S3K: speed-dependent |
+
+### Collision Model: UNIFIED vs DUAL_PATH
+
+This models a fundamental architectural difference between Sonic 1 and Sonic 2/3K:
+
+**Sonic 1 (`CollisionModel.UNIFIED`):**
+- Single collision index per zone
+- Solidity bits are hardcoded per-routine (not per-sprite)
+- Floor sensors use bit 0x0C (top solid), wall sensors use bit 0x0D (LRB solid)
+- **No dynamic path switching** — bits are locked to their defaults
+- Plane switchers and springs cannot change collision layers
+
+**Sonic 2/3K (`CollisionModel.DUAL_PATH`):**
+- Dual collision indices: Primary (bits 0x0C/0x0D) and Secondary (bits 0x0E/0x0F)
+- Per-sprite `top_solid_bit` and `lrb_solid_bit` stored in SST (s2.constants.asm:70-71)
+- Plane switchers and springs dynamically swap sprites between collision paths
+- Initialized in Obj01_Init: `top_solid_bit = $C`, `lrb_solid_bit = $D`
+
+**Implementation:** The setters `setTopSolidBit()`/`setLrbSolidBit()` on `AbstractPlayableSprite` are guarded — they silently ignore calls when the feature set has `CollisionModel.UNIFIED`:
+
+```java
+public void setTopSolidBit(byte topSolidBit) {
+    if (physicsFeatureSet != null && !physicsFeatureSet.hasDualCollisionPaths()) {
+        return;  // S1: bits are locked
+    }
+    this.topSolidBit = topSolidBit;
+}
+```
+
+This means `SpringHelper.applyCollisionLayerBits()` and `ObjectManager.PlaneSwitchers` automatically become no-ops for Sonic 1 without any changes to those classes.
+
+### How Feature Gates Work
+
+The pattern for checking feature flags at call sites:
+
+```java
+// In PlayableSpriteMovement.doCheckSpindash():
+PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+if (featureSet != null && !featureSet.spindashEnabled()) {
+    return false;  // Skip entirely for S1
+}
+
+// In PlayableSpriteMovement AnglePos threshold:
+if (featureSet != null && featureSet.fixedAnglePosThreshold()) {
+    positiveThreshold = 14;           // S1: fixed (cmpi.w #$E,d1)
+} else {
+    positiveThreshold = Math.min(speedPixels + 4, 14);  // S2/S3K: speed-dependent
+}
+```
+
+Null-safe: when no `GameModule` is loaded, feature set is null and the code falls through to the S2 default behavior.
+
+### Adding a New Per-Game Physics Difference
+
+When you discover a behavior that differs between games (from comparing disassemblies), follow this pattern:
+
+1. **Identify the difference in the disassembly.** Note the exact ROM lines, register values, and which games differ. Reference specific assembly labels (e.g., `s2.asm:37294`).
+
+2. **Add a field to `PhysicsFeatureSet`** if it's a feature flag or behavioral toggle:
+   ```java
+   public record PhysicsFeatureSet(
+       boolean spindashEnabled,
+       short[] spindashSpeedTable,
+       CollisionModel collisionModel,
+       boolean fixedAnglePosThreshold,
+       boolean newDifference           // <-- add here
+   ) {
+       public static final PhysicsFeatureSet SONIC_1 = new PhysicsFeatureSet(
+           false, null, CollisionModel.UNIFIED, true, true);    // <-- S1 value
+       public static final PhysicsFeatureSet SONIC_2 = new PhysicsFeatureSet(true, new short[]{
+           ...}, CollisionModel.DUAL_PATH, false, false);       // <-- S2 value
+       // ... update SONIC_3K too
+   }
+   ```
+
+   Or add to `PhysicsProfile` if it's a per-character constant (like speed or radius values).
+
+   Or add to `PhysicsModifiers` if it's a modifier rule (water/shoes multipliers).
+
+3. **Gate the behavior at the call site** in `PlayableSpriteMovement`, `AbstractPlayableSprite`, or `GroundSensor`:
+   ```java
+   PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+   if (fs != null && fs.newDifference()) {
+       // S1 behavior
+   } else {
+       // S2/S3K behavior (also the fallback when no module loaded)
+   }
+   ```
+
+4. **Add tests** following the `TestSpindashGating`/`TestCollisionModel` pattern:
+   - Create a `TestableSprite` inner class extending `AbstractPlayableSprite`
+   - Set the game module via `GameModuleRegistry.setCurrent(new Sonic1GameModule())`
+   - Assert the feature set value and the resulting behavior
+
+**Key rules:**
+- Always verify the difference against the disassembly. Pixel-perfect accuracy is paramount.
+- The S2 behavior should always be the fallback (when `physicsFeatureSet` is null)
+- Never add game-specific `if/else` chains by game name — always use feature flags
+- Keep `PhysicsFeatureSet` focused on behavioral toggles, not constants (those go in `PhysicsProfile`)
+- Document the disassembly reference in the field's Javadoc and in this CLAUDE.md section
+
+### Test Pattern
+
+Tests live in `src/test/java/uk/co/jamesj999/sonic/game/`:
+
+| Test Class | Covers |
+|------------|--------|
+| `TestPhysicsProfile` | Profile constants match disassembly, modifier math |
+| `TestPhysicsProfileRegression` | Getter values match original hardcoded S2 values |
+| `TestSpindashGating` | S1 disables spindash, S2 enables it, module switching |
+| `TestCollisionModel` | Collision model enum, setter guarding, spring/path switching |
+
+All use a `TestableSprite` inner class pattern — no ROM or OpenGL required.
+
 ## Sonic 3&K Bring-up Notes
 
 These are critical architecture constraints for current S3K support:
