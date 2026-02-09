@@ -26,5 +26,6 @@ public enum GameSound {
     ERROR, // Error/fail sound (used for checkpoint failure)
     SPLASH, // SFX 0xAA - Water splash (entering/exiting water)
     AIR_DING, // SFX 0xC2 - Air warning ding (underwater countdown warning)
-    CASINO_BONUS // SFX 0xC0 - Casino cage points sound (SndID_CasinoBonus)
+    CASINO_BONUS, // SFX 0xC0 - Casino cage points sound (SndID_CasinoBonus)
+    OIL_SLIDE // SFX 0xF0 - OOZ oil slide (SndID_OilSlide)
 }

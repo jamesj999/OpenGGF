@@ -240,6 +240,13 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             // OOZ Popping Platform (Object 0x33) - burner lid + flame
             registerSheet(Sonic2ObjectArtKeys.OOZ_BURNER_LID, artLoader.loadOOZBurnerLidSheet());
             registerSheet(Sonic2ObjectArtKeys.OOZ_BURN_FLAME, artLoader.loadOOZBurnFlameSheet());
+            // OOZ Fan (Object 0x3F) - horizontal and vertical wind fans
+            registerSheet(Sonic2ObjectArtKeys.OOZ_FAN_HORIZ, artLoader.loadOOZFanHorizSheet());
+            registerSheet(Sonic2ObjectArtKeys.OOZ_FAN_VERT, artLoader.loadOOZFanVertSheet());
+            // OOZ Octus badnik (Object 0x4A)
+            registerSheet(Sonic2ObjectArtKeys.OCTUS, artLoader.loadOctusSheet());
+            // OOZ Aquis badnik (Object 0x50)
+            registerSheet(Sonic2ObjectArtKeys.AQUIS, artLoader.loadAquisSheet());
         }
 
         // Collapsing Platform art (Object 0x1F) - zone-specific

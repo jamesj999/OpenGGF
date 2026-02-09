@@ -102,6 +102,11 @@ public class Sonic2Constants {
     public static final int CYCLING_PAL_OIL_ADDR = 0x001F76;  // 4 frames × 4 bytes = 16 bytes
     public static final int CYCLING_PAL_OIL_LEN = 16;
 
+    // OOZ Oil Surface (Obj07) - ROM: s2.asm:49667-49672
+    public static final int OIL_SURFACE_Y = 0x758;       // Default Y position of oil surface
+    public static final int OIL_SUBMERSION_MAX = 0x30;    // 48 frames before suffocation
+    public static final int OIL_WIDTH = 0x20;             // Platform half-width (tracks player X)
+
     // Palette cycling (MCZ - Mystic Cave Zone) - Lanterns
     public static final int CYCLING_PAL_LANTERN_ADDR = 0x001F86;  // 4 frames × 2 bytes = 8 bytes
     public static final int CYCLING_PAL_LANTERN_LEN = 8;
@@ -262,6 +267,10 @@ public class Sonic2Constants {
     // HTZ Badnik Art (Nemesis compressed)
     public static final int ART_NEM_SPIKER_ADDR = 0x89FAA;   // Spiker (drill badnik from HTZ)
     public static final int ART_NEM_REXON_ADDR = 0x89DEC;    // Rexon (lava snake from HTZ)
+
+    // OOZ Badnik Art (Nemesis compressed)
+    public static final int ART_NEM_OCTUS_ADDR = 0x8336A;    // Octus (octopus badnik from OOZ)
+    public static final int ART_NEM_AQUIS_ADDR = 0x8368A;    // Aquis (seahorse badnik from OOZ)
 
     // CNZ Badnik Art (Nemesis compressed)
     public static final int ART_NEM_CRAWL_ADDR = 0x901A4;    // Crawl (bouncer badnik from CNZ, 42 tiles)
@@ -487,6 +496,9 @@ public class Sonic2Constants {
     // OOZ Launcher (Object 0x3D) - striped blocks that launch rolling player
     public static final int ART_NEM_STRIPED_BLOCKS_VERT_ADDR = 0x8030A;  // ArtNem_StripedBlocksVert (CPZ)
     public static final int ART_NEM_STRIPED_BLOCKS_HORIZ_ADDR = 0x81048; // ArtNem_StripedBlocksHoriz (OOZ)
+
+    // Fan (Object 0x3F) - OOZ wind fan (horizontal and vertical variants share art)
+    public static final int ART_NEM_OOZ_FAN_ADDR = 0x81254;  // ArtNem_OOZFanHoriz (verified via RomOffsetFinder)
 
     // LauncherBall (Object 0x48) - OOZ transporter ball
     public static final int ART_NEM_LAUNCH_BALL_ADDR = 0x806E0;  // ArtNem_LaunchBall (verified via RomOffsetFinder)
@@ -748,6 +760,8 @@ public class Sonic2Constants {
         offsets.put("ART_NEM_GROUNDER_ADDR", ART_NEM_GROUNDER_ADDR);
         offsets.put("ART_NEM_SPIKER_ADDR", ART_NEM_SPIKER_ADDR);
         offsets.put("ART_NEM_REXON_ADDR", ART_NEM_REXON_ADDR);
+        offsets.put("ART_NEM_OCTUS_ADDR", ART_NEM_OCTUS_ADDR);
+        offsets.put("ART_NEM_AQUIS_ADDR", ART_NEM_AQUIS_ADDR);
         offsets.put("ART_NEM_CRAWL_ADDR", ART_NEM_CRAWL_ADDR);
         offsets.put("ART_NEM_ARROW_SHOOTER_ADDR", ART_NEM_ARROW_SHOOTER_ADDR);
         offsets.put("MAP_UNC_ARROW_SHOOTER_ADDR", MAP_UNC_ARROW_SHOOTER_ADDR);
@@ -861,6 +875,7 @@ public class Sonic2Constants {
         offsets.put("ART_NEM_OOZ_BURN_ADDR", ART_NEM_OOZ_BURN_ADDR);
         offsets.put("ART_NEM_STRIPED_BLOCKS_VERT_ADDR", ART_NEM_STRIPED_BLOCKS_VERT_ADDR);
         offsets.put("ART_NEM_STRIPED_BLOCKS_HORIZ_ADDR", ART_NEM_STRIPED_BLOCKS_HORIZ_ADDR);
+        offsets.put("ART_NEM_OOZ_FAN_ADDR", ART_NEM_OOZ_FAN_ADDR);
         offsets.put("ART_NEM_LAUNCH_BALL_ADDR", ART_NEM_LAUNCH_BALL_ADDR);
         offsets.put("ART_NEM_OOZ_COLLAPSING_PLATFORM_ADDR", ART_NEM_OOZ_COLLAPSING_PLATFORM_ADDR);
         offsets.put("ART_NEM_MCZ_COLLAPSING_PLATFORM_ADDR", ART_NEM_MCZ_COLLAPSING_PLATFORM_ADDR);

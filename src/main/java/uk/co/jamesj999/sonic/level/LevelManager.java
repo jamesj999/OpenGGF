@@ -2208,6 +2208,30 @@ public class LevelManager {
         return block;
     }
 
+    /**
+     * Returns the raw block index (0-255) at the given pixel position in the foreground layer.
+     * Equivalent to the ROM's Level_Layout lookup used by OilSlides.
+     *
+     * @param x pixel X coordinate
+     * @param y pixel Y coordinate
+     * @return block index (0-255), or -1 if out of bounds
+     */
+    public int getBlockIdAt(int x, int y) {
+        if (level == null || level.getMap() == null) {
+            return -1;
+        }
+        int levelWidth = level.getMap().getWidth() * blockPixelSize;
+        int levelHeight = level.getMap().getHeight() * blockPixelSize;
+        int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
+        if (y < 0 || y >= levelHeight) {
+            return -1;
+        }
+        Map map = level.getMap();
+        int mapX = wrappedX / blockPixelSize;
+        int mapY = y / blockPixelSize;
+        return map.getValue(0, mapX, mapY) & 0xFF;
+    }
+
     public ChunkDesc getChunkDescAt(byte layer, int x, int y) {
         Block block = getBlockAtPosition(layer, x, y);
         if (block == null) {
