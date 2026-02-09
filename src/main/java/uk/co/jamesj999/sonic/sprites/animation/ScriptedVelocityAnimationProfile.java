@@ -28,6 +28,9 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
     private final int runSpeedThreshold;
     private final int walkSpeedThreshold;
     private final int fallbackFrame;
+    // S2 adjusts the angle by -1 for positive values before computing the slope frame
+    // offset (subq.b #1,d0 at s2.asm:38080). S1 does not do this.
+    private final boolean anglePreAdjust;
 
     public ScriptedVelocityAnimationProfile(
             int idleAnimId,
@@ -158,12 +161,15 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         this(idleAnimId, walkAnimId, runAnimId, rollAnimId, roll2AnimId, pushAnimId, duckAnimId, lookUpAnimId,
                 spindashAnimId, springAnimId, deathAnimId, hurtAnimId, skidAnimId, airAnimId,
                 -1, -1, -1, -1,  // balance animations disabled by default
-                walkSpeedThreshold, runSpeedThreshold, fallbackFrame);
+                walkSpeedThreshold, runSpeedThreshold, fallbackFrame, true);
     }
 
     /**
      * Full constructor with balance animation support.
      * Balance animations are ROM-accurate (s2.asm:36246-36373).
+     *
+     * @param anglePreAdjust if true, subtract 1 from positive angles before
+     *     computing slope frame offsets (S2 behavior). S1 does not do this.
      */
     public ScriptedVelocityAnimationProfile(
             int idleAnimId,
@@ -186,7 +192,8 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
             int balance4AnimId,
             int walkSpeedThreshold,
             int runSpeedThreshold,
-            int fallbackFrame) {
+            int fallbackFrame,
+            boolean anglePreAdjust) {
         this.idleAnimId = Math.max(0, idleAnimId);
         this.walkAnimId = Math.max(0, walkAnimId);
         this.runAnimId = Math.max(0, runAnimId);
@@ -208,6 +215,7 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         this.walkSpeedThreshold = Math.max(0, walkSpeedThreshold);
         this.runSpeedThreshold = Math.max(0, runSpeedThreshold);
         this.fallbackFrame = Math.max(0, fallbackFrame);
+        this.anglePreAdjust = anglePreAdjust;
     }
 
     @Override
@@ -368,5 +376,9 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
 
     public int getFallbackFrame() {
         return fallbackFrame;
+    }
+
+    public boolean isAnglePreAdjust() {
+        return anglePreAdjust;
     }
 }

@@ -99,7 +99,8 @@ public class Sonic1PlayerArt {
                 -1,                            // balance4AnimId
                 0x40,                          // walkSpeedThreshold
                 0x600,                         // runSpeedThreshold
-                0);                            // fallbackFrame
+                0,                             // fallbackFrame
+                false);                        // anglePreAdjust (S1 has no subq.b #1,d0)
 
         cachedSonic = new SpriteArtSet(
                 artTiles,

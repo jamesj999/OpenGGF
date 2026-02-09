@@ -118,7 +118,8 @@ public class Sonic2PlayerArt {
                 Sonic2AnimationIds.BALANCE4,  // balance4AnimId - facing away, closer to falling
                 0x40,                         // walkSpeedThreshold
                 0x600,                        // runSpeedThreshold
-                0);                           // fallbackFrame
+                0,                            // fallbackFrame
+                true);                        // anglePreAdjust (S2: subq.b #1,d0 at s2.asm:38080)
 
         return new SpriteArtSet(
                 artTiles,
