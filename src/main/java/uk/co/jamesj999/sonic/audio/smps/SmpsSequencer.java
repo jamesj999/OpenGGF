@@ -776,7 +776,8 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             if (t.duration > 0) {
                 t.duration--;
 
-                if (t.fill > 0 && (t.scaledDuration - t.duration) >= t.fill && !t.tieNext) {
+                if (t.fill > 0 && (t.scaledDuration - t.duration) >= t.fill && !t.tieNext
+                        && t.type != TrackType.DAC) {
                     stopNote(t);
                 }
 
@@ -1524,7 +1525,9 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         boolean preventAttack = shouldPreventNoteAttack(t);
 
         if (t.note == 0x80) {
-            stopNote(t);
+            if (t.type != TrackType.DAC) {
+                stopNote(t);
+            }
             if (config.getDelayFreq() == SmpsSequencerConfig.DelayFreq.RESET) {
                 resetTrackedFrequency(t);
             }
