@@ -173,6 +173,8 @@ public class TestPhysicsProfile {
         PhysicsFeatureSet fs = PhysicsFeatureSet.SONIC_1;
         assertFalse("S1 spindash disabled", fs.spindashEnabled());
         assertNull("S1 no speed table", fs.spindashSpeedTable());
+        assertEquals("S1 unified collision", CollisionModel.UNIFIED, fs.collisionModel());
+        assertFalse("S1 no dual paths", fs.hasDualCollisionPaths());
     }
 
     @Test
@@ -183,6 +185,8 @@ public class TestPhysicsProfile {
         assertEquals("S2 speed table length", 9, fs.spindashSpeedTable().length);
         assertEquals("S2 speed table[0]", 0x0800, fs.spindashSpeedTable()[0]);
         assertEquals("S2 speed table[8]", 0x0C00, fs.spindashSpeedTable()[8]);
+        assertEquals("S2 dual path collision", CollisionModel.DUAL_PATH, fs.collisionModel());
+        assertTrue("S2 has dual paths", fs.hasDualCollisionPaths());
     }
 
     @Test
@@ -191,6 +195,8 @@ public class TestPhysicsProfile {
         assertTrue("S3K spindash enabled", fs.spindashEnabled());
         assertNotNull("S3K has speed table", fs.spindashSpeedTable());
         assertEquals("S3K speed table length", 9, fs.spindashSpeedTable().length);
+        assertEquals("S3K dual path collision", CollisionModel.DUAL_PATH, fs.collisionModel());
+        assertTrue("S3K has dual paths", fs.hasDualCollisionPaths());
     }
 
     // ========================================
