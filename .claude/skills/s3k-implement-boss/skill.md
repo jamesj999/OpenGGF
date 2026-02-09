@@ -368,12 +368,18 @@ Report any discrepancies with specific line references.
 
 1. **Verify registration** in `Sonic3kObjectRegistry`
 
-2. **Build and test**:
+2. **Add to IMPLEMENTED_IDS** in `Sonic3kObjectProfile.java` (the `IMPLEMENTED_IDS` set):
+   ```java
+   0xXX  // ZoneName Boss
+   ```
+   Keep the set entries sorted numerically.
+
+3. **Build and test**:
    ```bash
    mvn package
    ```
 
-3. Report completion with summary.
+4. Report completion with summary.
 
 ## Reference Files
 
@@ -392,6 +398,7 @@ Report any discrepancies with specific line references.
 | Disassembly main | `docs/skdisasm/sonic3k.asm` |
 | Shared sprites | `docs/skdisasm/General/Sprites/` |
 | Zone-specific data | `docs/skdisasm/Levels/{ZONE}/Misc Object Data/` |
+| Implemented IDs | `src/.../tools/Sonic3kObjectProfile.java` (IMPLEMENTED_IDS set) |
 
 ## Boss-Specific Notes
 

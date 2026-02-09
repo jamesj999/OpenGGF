@@ -292,12 +292,18 @@ Once cross-validation is confirmed bug-free:
 
 1. **Verify registration** in `Sonic1ObjectRegistry` - ensure the factory is registered and the object is no longer returned as a `PlaceholderObjectInstance`.
 
-2. **Build and test**:
+2. **Add to IMPLEMENTED_IDS** in `Sonic1ObjectProfile.java` (the `IMPLEMENTED_IDS` set):
+   ```java
+   Sonic1ObjectIds.OBJECT_NAME
+   ```
+   Keep the set entries sorted logically with the other entries.
+
+3. **Build and test**:
    ```bash
    mvn package
    ```
 
-3. Report completion with summary of implementation details.
+4. Report completion with summary of implementation details.
 
 ## Reference Files
 
@@ -314,6 +320,7 @@ Once cross-validation is confirmed bug-free:
 | Disassembly animations | `docs/s1disasm/_anim/` |
 | Disassembly mappings | `docs/s1disasm/_maps/` |
 | Disassembly art | `docs/s1disasm/artnem/` |
+| Implemented IDs | `src/.../tools/Sonic1ObjectProfile.java` (IMPLEMENTED_IDS set) |
 
 ## S1 vs S2 Key Differences Summary
 

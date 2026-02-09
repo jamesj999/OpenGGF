@@ -287,7 +287,7 @@ Report any discrepancies with specific line references from both code and disass
 
 Once cross-validation passes:
 
-1. **Add to IMPLEMENTED_IDS** in `ObjectDiscoveryTool.java`:
+1. **Add to IMPLEMENTED_IDS** in `Sonic2ObjectProfile.java` (the `IMPLEMENTED_IDS` set):
    ```java
    0xXX,  // ZoneName Boss
    ```
@@ -318,7 +318,7 @@ Once cross-validation passes:
 | Registry | `src/.../game/sonic2/objects/Sonic2ObjectRegistry.java` |
 | SFX constants | `src/.../game/sonic2/constants/Sonic2AudioConstants.java` |
 | Disassembly | `docs/s2disasm/` |
-| Implemented IDs | `src/.../tools/ObjectDiscoveryTool.java` |
+| Implemented IDs | `src/.../tools/Sonic2ObjectProfile.java` (IMPLEMENTED_IDS set) |
 
 ## Example Implementations
 
