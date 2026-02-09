@@ -30,7 +30,7 @@ public class ObjectDiscoveryToolTest {
             assertTrue("Failed to open ROM", rom.open(ROM_PATH.toString()));
 
             RomByteReader reader = RomByteReader.fromRom(rom);
-            ObjectDiscoveryTool tool = new ObjectDiscoveryTool(reader);
+            ObjectDiscoveryTool tool = new ObjectDiscoveryTool(reader, new Sonic2ObjectProfile());
 
             ObjectDiscoveryTool.DiscoveryReport report = tool.scan();
 
@@ -65,7 +65,7 @@ public class ObjectDiscoveryToolTest {
             assertTrue("Failed to open ROM", rom.open(ROM_PATH.toString()));
 
             RomByteReader reader = RomByteReader.fromRom(rom);
-            ObjectDiscoveryTool tool = new ObjectDiscoveryTool(reader);
+            ObjectDiscoveryTool tool = new ObjectDiscoveryTool(reader, new Sonic2ObjectProfile());
 
             ObjectDiscoveryTool.DiscoveryReport report = tool.scan();
 
@@ -95,7 +95,7 @@ public class ObjectDiscoveryToolTest {
             assertTrue("Failed to open ROM", rom.open(ROM_PATH.toString()));
 
             RomByteReader reader = RomByteReader.fromRom(rom);
-            ObjectDiscoveryTool tool = new ObjectDiscoveryTool(reader);
+            ObjectDiscoveryTool tool = new ObjectDiscoveryTool(reader, new Sonic2ObjectProfile());
 
             ObjectDiscoveryTool.DiscoveryReport report = tool.scan();
 

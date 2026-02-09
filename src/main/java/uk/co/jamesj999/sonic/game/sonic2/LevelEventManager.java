@@ -97,6 +97,12 @@ public class LevelEventManager implements LevelEventProvider {
         this.cnzRightWallX = -1;
         this.cnzRightWallY = -1;
         this.htzBoss = null;
+        // Reset OOZ oil state
+        if (zone == ZONE_OOZ) {
+            this.oilManager = new OilSurfaceManager();
+        } else {
+            this.oilManager = null;
+        }
         // Reset HTZ earthquake state
         this.cameraBgYOffset = 0;
         this.htzTerrainSinking = false;
@@ -1204,13 +1210,23 @@ public class LevelEventManager implements LevelEventProvider {
         removeCNZArenaWalls();
     }
 
+    // =========================================================================
+    // OOZ Oil Surface State
+    // =========================================================================
+    private OilSurfaceManager oilManager;
+
     /**
      * Oil Ocean Zone events.
      * ROM: LevEvents_OOZ (s2.asm:20938-21035)
+     * Also handles oil surface (Obj07) and oil slides (OilSlides routine).
      */
     private void updateOOZ() {
-        // OOZ has oil level events
-        // Implement as needed
+        if (oilManager != null) {
+            var player = camera.getFocusedSprite();
+            if (player != null) {
+                oilManager.update(player);
+            }
+        }
     }
 
     /**

@@ -88,7 +88,8 @@ public enum Sonic2Sfx {
     TELEPORT(0xEC, "Teleport"),
     ERROR(0xED, "Error"),
     MECHA_SONIC_BUZZ(0xEE, "Mecha Sonic Buzz"),
-    LARGE_LASER(0xEF, "Large Laser");
+    LARGE_LASER(0xEF, "Large Laser"),
+    OIL_SLIDE(0xF0, "Oil Slide");
 
     /** Native SFX ID. */
     public final int id;
@@ -100,7 +101,7 @@ public enum Sonic2Sfx {
     public static final int ID_BASE = 0xA0;
 
     /** Highest SFX ID. */
-    public static final int ID_MAX = 0xEF;
+    public static final int ID_MAX = 0xF0;
 
     private static final Map<Integer, String> NAME_MAP;
     private static final Sonic2Sfx[] BY_ID;

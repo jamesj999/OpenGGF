@@ -1,12 +1,12 @@
 # Sonic 2 Object Implementation Checklist
 
-Generated: 2026-02-06 11:53:40
+Generated: 2026-02-09 18:45:56
 
 ## Summary
 
 - **Total unique objects found:** 120
-- **Implemented:** 72 (60.0%)
-- **Unimplemented:** 48 (40.0%)
+- **Implemented:** 80 (66.7%)
+- **Unimplemented:** 40 (33.3%)
 
 ## Implemented Objects
 
@@ -39,13 +39,19 @@ Generated: 2026-02-06 11:53:40
 | 0x30 | RisingLava | 7 | HTZ1, HTZ2 |
 | 0x31 | LavaMarker | 50 | HTZ1, HTZ2, MTZ2, MTZ3 |
 | 0x32 | BreakableBlock | 28 | CPZ1, CPZ2, HTZ1, HTZ2 |
+| 0x33 | OOZPoppingPform | 22 | OOZ1, OOZ2 |
 | 0x36 | Spikes | 204 | EHZ1, EHZ2, CPZ2, ARZ1, CNZ1, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3 |
+| 0x3D | OOZLauncher | 6 | OOZ1, OOZ2 |
 | 0x3E | EggPrison | 7 | EHZ2, CPZ2, ARZ2, CNZ2, HTZ2, MCZ2, MTZ3 |
+| 0x3F | Fan | 60 | OOZ1, OOZ2 |
 | 0x40 | Springboard | 31 | CPZ2, ARZ1, ARZ2, MCZ2 |
 | 0x41 | Spring | 139 | EHZ1, EHZ2, CPZ1, CPZ2, ARZ1, ARZ2, CNZ1, CNZ2, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3 |
 | 0x44 | Bumper | 117 | CNZ1, CNZ2 |
+| 0x48 | LauncherBall | 32 | OOZ1, OOZ2 |
 | 0x49 | EHZWaterfall | 18 | EHZ1, EHZ2 |
+| 0x4A | Octus | 28 | OOZ1, OOZ2 |
 | 0x4B | Buzzer | 23 | EHZ1, EHZ2 |
+| 0x50 | Aquis | 16 | OOZ1, OOZ2 |
 | 0x5C | Masher | 21 | EHZ1, EHZ2 |
 | 0x6A | MCZRotPforms | 7 | MCZ1, MCZ2, MTZ3 |
 | 0x6B | MTZPlatform | 58 | CPZ1, CPZ2, MTZ1, MTZ2, MTZ3 |
@@ -53,6 +59,7 @@ Generated: 2026-02-06 11:53:40
 | 0x74 | InvisibleBlock | 113 | CPZ1, CPZ2, CNZ1, CNZ2, HTZ1, HTZ2, MCZ1, MTZ1, MTZ2, MTZ3, WFZ1 |
 | 0x75 | MCZBrick | 19 | MCZ1, MCZ2 |
 | 0x76 | SlidingSpikes | 14 | MCZ1, MCZ2 |
+| 0x77 | MCZBridge | 5 | MCZ1, MCZ2 |
 | 0x78 | CPZStaircase | 6 | CPZ1, CPZ2 |
 | 0x79 | Checkpoint | 61 | EHZ1, EHZ2, CPZ1, CPZ2, ARZ1, ARZ2, CNZ1, CNZ2, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3, WFZ1 |
 | 0x7A | SidewaysPform | 9 | CPZ2, MCZ1, MCZ2 |
@@ -74,6 +81,7 @@ Generated: 2026-02-06 11:53:40
 | 0x96 | Rexon2 | 6 | HTZ1, HTZ2 |
 | 0x9D | Coconuts | 17 | EHZ1, EHZ2 |
 | 0x9E | Crawlton | 12 | MCZ1, MCZ2 |
+| 0xA3 | Flasher | 26 | MCZ1, MCZ2 |
 | 0xA5 | Spiny | 11 | CPZ1, CPZ2 |
 | 0xA6 | SpinyOnWall | 2 | CPZ1, CPZ2 |
 | 0xA7 | Grabber | 5 | CPZ1, CPZ2 |
@@ -91,21 +99,15 @@ Generated: 2026-02-06 11:53:40
 |----|----------|------|------------|-------|
 | 0xA4 | Badnik | Asteron | 90 | MTZ1, MTZ2, MTZ3 |
 | 0x65 | Object | MTZLongPlatform | 81 | MTZ1, MTZ2, MTZ3 |
-| 0x3F | Object | Fan | 60 | OOZ1, OOZ2 |
 | 0x66 | Object | MTZSpringWall | 60 | MTZ1, MTZ2, MTZ3 |
-| 0x48 | Object | LauncherBall | 32 | OOZ1, OOZ2 |
-| 0x4A | Badnik | Octus | 28 | OOZ1, OOZ2 |
 | 0x69 | Object | Nut | 28 | MTZ1, MTZ2, MTZ3 |
 | 0x6E | Object | LargeRotPform | 28 | MTZ3 |
-| 0xA3 | Badnik | Flasher | 26 | MCZ1, MCZ2 |
 | 0x6D | Object | FloorSpike | 25 | MTZ1, MTZ2, MTZ3 |
 | 0xA1 | Badnik | Slicer | 24 | MTZ1, MTZ2, MTZ3 |
 | 0x99 | Badnik | Nebula | 23 | SCZ1 |
-| 0x33 | Object | OOZPoppingPform | 22 | OOZ1, OOZ2 |
 | 0x68 | Object | SpikyBlock | 22 | MTZ1, MTZ2, MTZ3 |
 | 0xAC | Badnik | Balkiry | 19 | SCZ1 |
 | 0x42 | Object | SteamSpring | 18 | MTZ1, MTZ2, MTZ3 |
-| 0x50 | Badnik | Aquis | 16 | OOZ1, OOZ2 |
 | 0x71 | Object | MTZLavaBubble | 15 | MTZ2, MTZ3 |
 | 0x47 | Object | Button | 14 | MTZ1, MTZ2, MTZ3 |
 | 0x70 | Object | Cog | 14 | MTZ2, MTZ3 |
@@ -120,10 +122,8 @@ Generated: 2026-02-06 11:53:40
 | 0x9F | Badnik | Shellcracker | 9 | MTZ1, MTZ2, MTZ3 |
 | 0xC0 | Object | SpeedLauncher | 8 | WFZ1 |
 | 0xBE | Object | LateralCannon | 7 | WFZ1 |
-| 0x3D | Object | OOZLauncher | 6 | OOZ1, OOZ2 |
 | 0x64 | Object | MTZTwinStompers | 6 | MTZ1, MTZ2, MTZ3 |
 | 0xB9 | Object | Laser | 6 | WFZ1 |
-| 0x77 | Object | MCZBridge | 5 | MCZ1, MCZ2 |
 | 0xB6 | Object | TiltingPlatform | 5 | WFZ1 |
 | 0xB8 | Object | WallTurret | 5 | WFZ1 |
 | 0xBD | Object | SmallMetalPform | 5 | WFZ1 |
@@ -438,11 +438,11 @@ Total: 259 objects | Implemented: 20 | Unimplemented: 0
 
 #### Act 1
 
-Total: 130 objects | Implemented: 17 | Unimplemented: 2
+Total: 130 objects | Implemented: 19 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x9E Crawlton (x6) [0x22]
-- [ ] 0xA3 Flasher (x12) [0x2C]
+- [x] 0xA3 Flasher (x12) [0x2C]
 
 **Objects:**
 - [x] 0x0D GoalPlate (x1) [0x00]
@@ -456,7 +456,7 @@ Total: 130 objects | Implemented: 17 | Unimplemented: 2
 - [x] 0x74 InvisibleBlock (x2) [0x30, 0xF0]
 - [x] 0x75 MCZBrick (x8) [0x16, 0x0F]
 - [x] 0x76 SlidingSpikes (x11) [0x00]
-- [ ] 0x77 MCZBridge (x3) [0x01, 0x02]
+- [x] 0x77 MCZBridge (x3) [0x01, 0x02]
 - [x] 0x79 Checkpoint (x3) [0x01, 0x02, 0x03]
 - [x] 0x7A SidewaysPform (x3) [0x00, 0x12]
 - [x] 0x7F VineSwitch (x4) [4 subtypes]
@@ -465,11 +465,11 @@ Total: 130 objects | Implemented: 17 | Unimplemented: 2
 
 #### Act 2
 
-Total: 148 objects | Implemented: 18 | Unimplemented: 2
+Total: 148 objects | Implemented: 20 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x9E Crawlton (x6) [0x22]
-- [ ] 0xA3 Flasher (x14) [0x2C]
+- [x] 0xA3 Flasher (x14) [0x2C]
 
 **Bosses:**
 - [ ] 0x57 MCZBoss *(dynamic)* - Drill boss
@@ -487,7 +487,7 @@ Total: 148 objects | Implemented: 18 | Unimplemented: 2
 - [x] 0x6A MCZRotPforms (x3) [0x18]
 - [x] 0x75 MCZBrick (x11) [0x16, 0x17, 0x0F]
 - [x] 0x76 SlidingSpikes (x3) [0x00]
-- [ ] 0x77 MCZBridge (x2) [0x03, 0x04]
+- [x] 0x77 MCZBridge (x2) [0x03, 0x04]
 - [x] 0x79 Checkpoint (x4) [4 subtypes]
 - [x] 0x7A SidewaysPform (x3) [0x00, 0x12]
 - [x] 0x7F VineSwitch (x7) [7 subtypes]
@@ -498,11 +498,11 @@ Total: 148 objects | Implemented: 18 | Unimplemented: 2
 
 #### Act 1
 
-Total: 189 objects | Implemented: 8 | Unimplemented: 6
+Total: 189 objects | Implemented: 14 | Unimplemented: 0
 
 **Badniks:**
-- [ ] 0x4A Octus (x14) [0x00]
-- [ ] 0x50 Aquis (x8) [0x00]
+- [x] 0x4A Octus (x14) [0x00]
+- [x] 0x50 Aquis (x8) [0x00]
 
 **Objects:**
 - [x] 0x0D GoalPlate (x1) [0x00]
@@ -510,21 +510,21 @@ Total: 189 objects | Implemented: 8 | Unimplemented: 6
 - [x] 0x1C Scenery (x21) [7 subtypes]
 - [x] 0x1F CollapsPform (x17) [0x00]
 - [x] 0x26 Monitor (x11) [4 subtypes]
-- [ ] 0x33 OOZPoppingPform (x11) [0x00]
+- [x] 0x33 OOZPoppingPform (x11) [0x00]
 - [x] 0x36 Spikes (x40) [0x00, 0x10, 0x30]
-- [ ] 0x3D OOZLauncher (x3) [0x01]
-- [ ] 0x3F Fan (x30) [5 subtypes]
+- [x] 0x3D OOZLauncher (x3) [0x01]
+- [x] 0x3F Fan (x30) [5 subtypes]
 - [x] 0x41 Spring (x2) [0x02]
-- [ ] 0x48 LauncherBall (x16) [6 subtypes]
+- [x] 0x48 LauncherBall (x16) [6 subtypes]
 - [x] 0x79 Checkpoint (x2) [0x01, 0x02]
 
 #### Act 2
 
-Total: 189 objects | Implemented: 8 | Unimplemented: 6
+Total: 189 objects | Implemented: 14 | Unimplemented: 0
 
 **Badniks:**
-- [ ] 0x4A Octus (x14) [0x00]
-- [ ] 0x50 Aquis (x8) [0x00]
+- [x] 0x4A Octus (x14) [0x00]
+- [x] 0x50 Aquis (x8) [0x00]
 
 **Bosses:**
 - [ ] 0x55 OOZBoss *(dynamic)* - Laser/spike boss
@@ -535,12 +535,12 @@ Total: 189 objects | Implemented: 8 | Unimplemented: 6
 - [x] 0x1C Scenery (x21) [7 subtypes]
 - [x] 0x1F CollapsPform (x17) [0x00]
 - [x] 0x26 Monitor (x11) [4 subtypes]
-- [ ] 0x33 OOZPoppingPform (x11) [0x00]
+- [x] 0x33 OOZPoppingPform (x11) [0x00]
 - [x] 0x36 Spikes (x40) [0x00, 0x10, 0x30]
-- [ ] 0x3D OOZLauncher (x3) [0x01]
-- [ ] 0x3F Fan (x30) [5 subtypes]
+- [x] 0x3D OOZLauncher (x3) [0x01]
+- [x] 0x3F Fan (x30) [5 subtypes]
 - [x] 0x41 Spring (x2) [0x02]
-- [ ] 0x48 LauncherBall (x16) [6 subtypes]
+- [x] 0x48 LauncherBall (x16) [6 subtypes]
 - [x] 0x79 Checkpoint (x2) [0x01, 0x02]
 
 ### Metropolis Zone
