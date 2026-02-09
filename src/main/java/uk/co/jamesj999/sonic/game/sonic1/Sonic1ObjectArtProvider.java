@@ -96,6 +96,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load shield art
         loadShieldArt(rom);
 
+        // Load spring art (all zones)
+        loadSpringArt(rom);
+
         // Load Buzz Bomber art (GHZ/MZ/SYZ badnik + missile + dissolve)
         loadBuzzBomberArt(rom);
 
@@ -884,6 +887,170 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         )));
 
         return frames;
+    }
+
+    /**
+     * Loads spring art (Nem_HSpring + Nem_VSpring) and creates sprite sheets and animations.
+     * <p>
+     * S1 springs use two separate art sets:
+     * <ul>
+     *   <li>Nem_HSpring (horizontal plate) - used for up/down springs (3 frames: idle, flat, extended)</li>
+     *   <li>Nem_VSpring (vertical plate) - used for left/right springs (3 frames: idle, flat, extended)</li>
+     * </ul>
+     * <p>
+     * Red springs use palette line 0, yellow springs use palette line 1
+     * (from disassembly: bset #5,obGfx for yellow).
+     * <p>
+     * Mappings from docs/s1disasm/_maps/Springs.asm (Map_Spring_internal).
+     * Animations from docs/s1disasm/_anim/Springs.asm (Ani_Spring).
+     */
+    private void loadSpringArt(Rom rom) {
+        // Load horizontal spring art (for up/down springs)
+        Pattern[] hPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_HSPRING_ADDR, "HSpring");
+        if (hPatterns.length > 0) {
+            List<SpriteMappingFrame> vMappings = createVerticalSpringMappings();
+            // Red up/down springs: palette 0
+            ObjectSpriteSheet vSheet = new ObjectSpriteSheet(hPatterns, vMappings, 0, 1);
+            registerSheet(ObjectArtKeys.SPRING_VERTICAL, vSheet);
+            // Yellow up/down springs: palette 1
+            ObjectSpriteSheet vSheetYellow = new ObjectSpriteSheet(hPatterns, vMappings, 1, 1);
+            registerSheet(ObjectArtKeys.SPRING_VERTICAL_RED, vSheetYellow);
+        } else {
+            LOGGER.warning("Failed to load horizontal spring art (Nem_HSpring)");
+        }
+
+        // Load vertical spring art (for left/right springs)
+        Pattern[] vPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_VSPRING_ADDR, "VSpring");
+        if (vPatterns.length > 0) {
+            List<SpriteMappingFrame> hMappings = createHorizontalSpringMappings();
+            // Red left/right springs: palette 0
+            ObjectSpriteSheet hSheet = new ObjectSpriteSheet(vPatterns, hMappings, 0, 1);
+            registerSheet(ObjectArtKeys.SPRING_HORIZONTAL, hSheet);
+            // Yellow left/right springs: palette 1
+            ObjectSpriteSheet hSheetYellow = new ObjectSpriteSheet(vPatterns, hMappings, 1, 1);
+            registerSheet(ObjectArtKeys.SPRING_HORIZONTAL_RED, hSheetYellow);
+        } else {
+            LOGGER.warning("Failed to load vertical spring art (Nem_VSpring)");
+        }
+
+        // Register spring animation scripts
+        SpriteAnimationSet springAnims = createSpringAnimations();
+        animations.put(ObjectArtKeys.ANIM_SPRING, springAnims);
+    }
+
+    /**
+     * Creates sprite mappings for up/down springs (using Nem_HSpring art).
+     * <p>
+     * Despite the confusing naming, "Horizontal" art has a horizontal plate
+     * and is used for springs that push vertically (up/down).
+     * <p>
+     * 3 frames (re-indexed from Map_Spring_internal frames 0-2):
+     * <ul>
+     *   <li>Frame 0 (M_Spg_Up): Idle - plate + base (32x16)</li>
+     *   <li>Frame 1 (M_Spg_UpFlat): Compressed - plate only (32x8)</li>
+     *   <li>Frame 2 (M_Spg_UpExt): Extended - plate + coil + base (32x32)</li>
+     * </ul>
+     */
+    private List<SpriteMappingFrame> createVerticalSpringMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: M_Spg_Up - idle (2 pieces)
+        // spritePiece -$10, -8, 4, 1, 0, 0, 0, 0, 0
+        // spritePiece -$10,  0, 4, 1, 4, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -8, 4, 1, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,  0, 4, 1, 4, false, false, 0, false)
+        )));
+
+        // Frame 1: M_Spg_UpFlat - compressed (1 piece)
+        // spritePiece -$10, 0, 4, 1, 0, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, 0, 4, 1, 0, false, false, 0, false)
+        )));
+
+        // Frame 2: M_Spg_UpExt - extended (3 pieces)
+        // spritePiece -$10, -$18, 4, 1, 0, 0, 0, 0, 0
+        // spritePiece   -8, -$10, 2, 2, 8, 0, 0, 0, 0
+        // spritePiece -$10,    0, 4, 1, $C, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x18, 4, 1, 0, false, false, 0, false),
+                new SpriteMappingPiece(  -8,  -0x10, 2, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,     0, 4, 1, 0xC, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Creates sprite mappings for left/right springs (using Nem_VSpring art).
+     * <p>
+     * Despite the confusing naming, "Vertical" art has a vertical plate
+     * and is used for springs that push horizontally (left/right).
+     * <p>
+     * 3 frames (re-indexed from Map_Spring_internal frames 3-5):
+     * <ul>
+     *   <li>Frame 0 (M_Spg_Left): Idle - single tall piece (16x32)</li>
+     *   <li>Frame 1 (M_Spg_LeftFlat): Compressed - thin (8x32)</li>
+     *   <li>Frame 2 (M_Spg_LeftExt): Extended - plate + coil + corners (4 pieces)</li>
+     * </ul>
+     */
+    private List<SpriteMappingFrame> createHorizontalSpringMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: M_Spg_Left - idle (1 piece)
+        // spritePiece -8, -$10, 2, 4, 0, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x10, 2, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 1: M_Spg_LeftFlat - compressed (1 piece)
+        // spritePiece -8, -$10, 1, 4, 4, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x10, 1, 4, 4, false, false, 0, false)
+        )));
+
+        // Frame 2: M_Spg_LeftExt - extended (4 pieces)
+        // spritePiece  $10, -$10, 1, 4, 4, 0, 0, 0, 0
+        // spritePiece   -8,   -8, 3, 2, 8, 0, 0, 0, 0
+        // spritePiece   -8, -$10, 1, 1, 0, 0, 0, 0, 0
+        // spritePiece   -8,    8, 1, 1, 3, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece( 0x10, -0x10, 1, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece(   -8,    -8, 3, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(   -8, -0x10, 1, 1, 0, false, false, 0, false),
+                new SpriteMappingPiece(   -8,     8, 1, 1, 3, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Creates spring animation scripts from S1 disassembly Ani_Spring.
+     * <p>
+     * Since vertical and horizontal sheets both use the same frame indices (0-2),
+     * only two animation IDs are needed: idle (hold on frame 0) and triggered.
+     * <p>
+     * Ani_Spring anim 0 (vertical trigger): speed=0, frames [1,0,0,2,2,2,2,2,2,0], afRoutine
+     * Ani_Spring anim 1 (horizontal trigger): speed=0, frames [1,0,0,2,2,2,2,2,2,0], afRoutine
+     * Both are structurally identical with re-indexed frames.
+     */
+    private SpriteAnimationSet createSpringAnimations() {
+        SpriteAnimationSet set = new SpriteAnimationSet();
+
+        // Anim 0: Idle - hold on frame 0
+        set.addScript(0, new SpriteAnimationScript(0,
+                List.of(0), SpriteAnimationEndAction.HOLD, 0));
+
+        // Anim 1: Triggered - spring bounce animation, then switch back to idle
+        // From disassembly: dc.b 0, 1, 0, 0, 2, 2, 2, 2, 2, 2, 0, afRoutine
+        // afRoutine increments obRoutine, which resets to idle state.
+        // In our engine: SWITCH to anim 0 (idle) when complete.
+        set.addScript(1, new SpriteAnimationScript(0,
+                List.of(1, 0, 0, 2, 2, 2, 2, 2, 2, 0), SpriteAnimationEndAction.SWITCH, 0));
+
+        return set;
     }
 
     /**
