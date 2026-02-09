@@ -756,6 +756,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public void setTopSolidBit(byte topSolidBit) {
+                if (physicsFeatureSet != null && !physicsFeatureSet.hasDualCollisionPaths()) {
+                        return;
+                }
                 this.topSolidBit = topSolidBit;
         }
 
@@ -764,6 +767,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public void setLrbSolidBit(byte lrbSolidBit) {
+                if (physicsFeatureSet != null && !physicsFeatureSet.hasDualCollisionPaths()) {
+                        return;
+                }
                 this.lrbSolidBit = lrbSolidBit;
         }
 
