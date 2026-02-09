@@ -298,12 +298,18 @@ Once cross-validation is confirmed bug-free:
    ```
    Keep the set entries sorted logically with the other entries.
 
-3. **Build and test**:
+3. **Update S1_OBJECT_CHECKLIST.md**:
+   - Move the object from the "Unimplemented Objects" table to the "Implemented Objects" table
+   - Update the summary counts (Implemented/Unimplemented numbers and percentages)
+   - In the "By Zone" section, change `[ ]` to `[x]` for every zone/act entry of this object
+   - Update the per-act "Implemented" and "Unimplemented" counts in each affected act header
+
+4. **Build and test**:
    ```bash
    mvn package
    ```
 
-4. Report completion with summary of implementation details.
+5. Report completion with summary of implementation details.
 
 ## Reference Files
 
@@ -321,6 +327,7 @@ Once cross-validation is confirmed bug-free:
 | Disassembly mappings | `docs/s1disasm/_maps/` |
 | Disassembly art | `docs/s1disasm/artnem/` |
 | Implemented IDs | `src/.../tools/Sonic1ObjectProfile.java` (IMPLEMENTED_IDS set) |
+| Object checklist | `S1_OBJECT_CHECKLIST.md` (update after each implementation) |
 
 ## S1 vs S2 Key Differences Summary
 

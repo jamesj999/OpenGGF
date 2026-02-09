@@ -46,9 +46,11 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.LAMPPOST,
             Sonic1ObjectIds.SIGNPOST,
             Sonic1ObjectIds.MONITOR,
+            Sonic1ObjectIds.RING,
             Sonic1ObjectIds.ROCK,
             Sonic1ObjectIds.BRIDGE,
             Sonic1ObjectIds.SPIKES,
+            Sonic1ObjectIds.SPRING,
             Sonic1ObjectIds.BUZZ_BOMBER,
             Sonic1ObjectIds.CRABMEAT,
             Sonic1ObjectIds.MOTOBUG
