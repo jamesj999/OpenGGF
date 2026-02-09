@@ -50,6 +50,7 @@ public final class Sonic2AudioConstants {
     public static final int SFX_MEGA_MACK_DROP = 0xE6;  // Mega Mack drop sound (SndID_MegaMackDrop)
     public static final int SFX_HELICOPTER = 0xDE;      // Helicopter sound effect (SndID_Helicopter)
     public static final int SFX_HTZ_LIFT_CLICK = 0xE4;  // HTZ lift click sound (SndID_HTZLiftClick)
+    public static final int SFX_DOOR_SLAM = 0xBB;       // Door slam sound (SndID_DoorSlam) - MCZ gate open/close
     public static final int SFX_DRAWBRIDGE_MOVE = 0xE7; // MCZ Drawbridge moving sound (SndID_DrawbridgeMove)
     public static final int SFX_DRAWBRIDGE_DOWN = 0xE9; // MCZ Drawbridge fully down sound (SndID_DrawbridgeDown)
     public static final int SFX_SPARKLE = 0xA7;         // Sparkle/twinkle sound (SndID_Sparkle)

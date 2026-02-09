@@ -215,6 +215,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
             Sonic3kSfxData sfx = new Sonic3kSfxData(raw, Z80_BANK_BASE, 0, headerOffset);
             sfx.setModEnvelopes(modEnvelopes);
             sfx.setPsgEnvelopes(psgEnvelopes);
+            sfx.setGlobalVoiceData(globalVoiceData);
             sfx.setId(sfxId);
 
             if (sfx.getTrackEntries().isEmpty()) {

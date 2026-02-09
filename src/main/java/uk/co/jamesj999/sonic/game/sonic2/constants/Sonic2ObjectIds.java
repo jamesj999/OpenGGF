@@ -116,6 +116,7 @@ public final class Sonic2ObjectIds {
     public static final int SLIDING_SPIKES = 0x76;  // MCZ Sliding Spikes (Obj76)
     public static final int VINE_SWITCH = 0x7F;     // VineSwitch (Obj7F) - MCZ pull switch that triggers ButtonVine
     public static final int MOVING_VINE = 0x80;     // MovingVine (Obj80) - MCZ vine / WFZ hook on chain
+    public static final int MCZ_BRIDGE = 0x77;      // MCZ Bridge (Obj77) - horizontal gate triggered by ButtonVine
     public static final int MCZ_DRAWBRIDGE = 0x81;  // MCZ Drawbridge (Obj81) - rotatable drawbridge triggered by ButtonVine
 
     // MCZ/MTZ Rotating Platforms

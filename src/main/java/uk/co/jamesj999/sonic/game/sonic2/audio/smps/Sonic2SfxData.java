@@ -61,9 +61,10 @@ public class Sonic2SfxData extends AbstractSmpsData implements SmpsSfxData {
     private int tickMultiplier = 1;
 
     public Sonic2SfxData(byte[] data, int z80StartAddress, int bankOffset, int headerOffset) {
-        super(data, z80StartAddress);
+        super(data, z80StartAddress); // parseHeader() runs here with headerOffset=0 (wrong)
         this.bankOffset = bankOffset;
         this.headerOffset = headerOffset;
+        parseHeader(); // Re-parse with correct headerOffset
     }
 
     @Override

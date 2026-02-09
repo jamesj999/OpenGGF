@@ -38,12 +38,12 @@ public class FlasherBadnikInstance extends AbstractBadnikInstance {
             true, true, true, true, true, false, true, true
     };
 
-    // Animation scripts from Ani_objA3_a/b/c (end opcodes handled by state changes).
-    private static final int[] ANIM_CHARGE = {
-            0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1,
+    // Animation scripts from Ani_objA3_a/b/c (byte[0] is delay, rest are frame indices).
+    private static final int[] ANIM_CHARGE = { // Ani_objA3_a: delay=0, frames only
+            0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1,
             0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 2, 3, 4
     };
-    private static final int[] ANIM_ELECTRIFIED_LOOP = {0, 2, 0, 3, 0, 4, 0, 3, 0};
+    private static final int[] ANIM_ELECTRIFIED_LOOP = {2, 0, 3, 0, 4, 0, 3, 0}; // Ani_objA3_b: delay=0
     private static final int[] ANIM_RECOVER = {4, 3, 2, 1, 0};
     private static final int RECOVER_FRAME_DELAY = 3; // Ani_objA3_c delay byte
     private static final int FRAME_ELECTRIFIED_TRANSITION = 3; // loc_3884A

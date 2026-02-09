@@ -100,6 +100,7 @@ public final class Sonic2ObjectArtKeys {
     // MCZ Objects
     public static final String VINE_PULLEY = "vine_pulley";
     public static final String MCZ_CRATE = "mcz_crate";
+    public static final String MCZ_BRIDGE = "mcz_bridge";
     public static final String MCZ_DRAWBRIDGE = "mcz_drawbridge";
 
     // WFZ Objects

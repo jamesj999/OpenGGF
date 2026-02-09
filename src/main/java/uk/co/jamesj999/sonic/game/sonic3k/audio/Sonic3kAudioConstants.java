@@ -146,14 +146,21 @@ public final class Sonic3kAudioConstants {
     public static final int CMD_STOP_ALL = 0xE4;
 
     // -----------------------------------------------------------------------
-    // SFX ID range
+    // SFX ID range (native 68K queue IDs)
+    //
+    // S3K SFX use native 68K queue IDs 0x33-0xDB (169 entries), matching the
+    // Z80 SFX pointer table 1:1. playMusic() and playSfx() are separate
+    // methods with separate loaders, so there is no conflict with music IDs
+    // (which go up to 0x33). System commands (0xE0-0xE4) are handled by
+    // handleSystemCommand() before reaching the SFX loader.
     // -----------------------------------------------------------------------
 
-    /** First SFX ID. */
-    public static final int SFX_ID_BASE = 0xA0;
+    /** First SFX ID (sfx_RingRight, native 68K queue ID 0x33, Z80 SFX table index 0). */
+    public static final int SFX_ID_BASE = 0x33;
 
-    /** Last SFX ID. */
-    public static final int SFX_ID_MAX = 0xFF;
+    /** Last standard SFX ID (native 68K queue ID 0xDB, Z80 SFX table index 168).
+     *  Continuous SFX (cfx_*) beyond 0xDB use a separate driver mechanism. */
+    public static final int SFX_ID_MAX = 0xDB;
 
     private Sonic3kAudioConstants() {
     }

@@ -924,25 +924,31 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             }
         } else {
             // S3K OVERFLOW: tick when accumulator does NOT overflow. Higher tempo = more skips = slower.
-            tempoAccumulator += tempoWeight;
-            if (tempoAccumulator >= tempoModBase) {
-                tempoAccumulator -= tempoModBase;
-                // Overflow → skip this frame (delay)
-            } else {
-                // No overflow → tick normally
+            // SFX bypass: Z80 driver processes SFX every frame (zUpdateSFXTracks),
+            // independent of music tempo. Without this, tempoWeight=tempoModBase
+            // causes overflow every frame → SFX never ticks.
+            if (sfxMode) {
                 processFade();
                 tick();
-                for (int m = 1; m < speedMultiplier; m++) {
+                maxTicks--;
+                if (maxTicks <= 0) {
+                    for (Track t : tracks) {
+                        t.active = false;
+                        stopNote(t);
+                    }
+                }
+            } else {
+                tempoAccumulator += tempoWeight;
+                if (tempoAccumulator >= tempoModBase) {
+                    tempoAccumulator -= tempoModBase;
+                    // Overflow → skip this frame (delay)
+                } else {
+                    // No overflow → tick normally
                     processFade();
                     tick();
-                }
-                if (sfxMode) {
-                    maxTicks--;
-                    if (maxTicks <= 0) {
-                        for (Track t : tracks) {
-                            t.active = false;
-                            stopNote(t);
-                        }
+                    for (int m = 1; m < speedMultiplier; m++) {
+                        processFade();
+                        tick();
                     }
                 }
             }
@@ -1563,16 +1569,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             int fnum = getFmFreqTable()[noteIdx];
             int block = octave;
 
-            if (block > 7) {
-                int shift = block - 7;
-                block = 7;
-                fnum <<= shift;
-                if (fnum > 0x7FF) {
-                    fnum = 0x7FF;
-                }
-            } else {
-                block &= 7;
-            }
+            block &= 7;
 
             t.baseFnum = fnum;
             t.baseBlock = block;

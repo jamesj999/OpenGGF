@@ -75,6 +75,7 @@ public class Sonic3kSfxData extends AbstractSmpsData implements SmpsSfxData {
     private int tickMultiplier = 1;
     private Map<Integer, byte[]> psgEnvelopes;
     private Map<Integer, byte[]> modEnvelopes;
+    private byte[] globalVoiceData;
 
     public Sonic3kSfxData(byte[] data, int z80StartAddress, int bankOffset, int headerOffset) {
         super(data, z80StartAddress);
@@ -87,6 +88,10 @@ public class Sonic3kSfxData extends AbstractSmpsData implements SmpsSfxData {
 
     public void setModEnvelopes(Map<Integer, byte[]> modEnvelopes) {
         this.modEnvelopes = modEnvelopes;
+    }
+
+    public void setGlobalVoiceData(byte[] globalVoiceData) {
+        this.globalVoiceData = globalVoiceData;
     }
 
     @Override
@@ -152,23 +157,41 @@ public class Sonic3kSfxData extends AbstractSmpsData implements SmpsSfxData {
         this.psgChannels = psgCount;
     }
 
+    private static final int VOICE_STRIDE = 25;
+
     @Override
     public byte[] getVoice(int voiceId) {
         int ptr = voicePtr;
-        if (ptr == 0) return null;
+        if (ptr == 0) {
+            // No per-SFX voice table - use global instrument table
+            return getGlobalVoice(voiceId);
+        }
 
         int offset = relocatePtr(ptr);
-        if (offset < 0) return null;
+        if (offset < 0) return getGlobalVoice(voiceId);
 
-        int stride = 25;
-        offset += (voiceId * stride);
+        offset += (voiceId * VOICE_STRIDE);
 
-        if (offset < 0 || offset + stride > data.length) return null;
+        if (offset < 0 || offset + VOICE_STRIDE > data.length) {
+            // Voice ID beyond SFX's own table - fall back to global
+            return getGlobalVoice(voiceId);
+        }
 
-        byte[] voice = new byte[stride];
-        System.arraycopy(data, offset, voice, 0, stride);
+        return copyVoice(data, offset);
+    }
 
-        // S3K InsMode=DEFAULT: swap positions [g+1] and [g+2] in each 4-byte group
+    private byte[] getGlobalVoice(int voiceId) {
+        if (globalVoiceData == null) return null;
+        return copyVoice(globalVoiceData, voiceId * VOICE_STRIDE);
+    }
+
+    private byte[] copyVoice(byte[] source, int offset) {
+        if (source == null || offset < 0 || offset + VOICE_STRIDE > source.length) {
+            return null;
+        }
+        byte[] voice = new byte[VOICE_STRIDE];
+        System.arraycopy(source, offset, voice, 0, VOICE_STRIDE);
+        // S3K InsMode=DEFAULT: swap [g+1] and [g+2] in each 4-byte group
         for (int g = 1; g < 25; g += 4) {
             byte tmp = voice[g + 1];
             voice[g + 1] = voice[g + 2];

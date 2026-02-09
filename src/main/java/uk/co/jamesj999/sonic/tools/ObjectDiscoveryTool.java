@@ -102,6 +102,7 @@ public class ObjectDiscoveryTool {
             0x74,  // InvisibleBlock
             0x75,  // MCZBrick (MCZ static brick / rotating spike ball)
             0x76,  // SlidingSpikes (MCZ spike block that slides out of wall)
+            0x77,  // MCZBridge (MCZ horizontal gate triggered by ButtonVine)
             0x78,  // CPZStaircase (4-piece triggered elevator platform)
             0x79,  // Checkpoint
             0x7A,  // SidewaysPform (CPZ/MCZ horizontal moving platform)
@@ -124,6 +125,7 @@ public class ObjectDiscoveryTool {
             0x96,  // Rexon2 (HTZ lava snake body alias)
             0x9D,  // Coconuts
             0x9E,  // Crawlton (MCZ snake badnik - lunges at player with trailing body)
+            0xA3,  // Flasher
             0xA5,  // Spiny (CPZ crawling badnik)
             0xA6,  // SpinyOnWall (CPZ wall-climbing badnik)
             0xA7,  // Grabber (CPZ spider badnik)

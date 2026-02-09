@@ -752,6 +752,89 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load MCZ Bridge sprite sheet (Object 0x77 - horizontal gate).
+     * <p>
+     * Reuses the same Nemesis art as the drawbridge (ArtNem_MCZGateLog at 0xF1E06),
+     * but with different mappings: 5 frames of 8 pieces each representing the gate
+     * in various states from closed (flat horizontal) to open (split into two columns).
+     * <p>
+     * Disassembly Reference: mappings/sprite/obj77.asm (Obj77_MapUnc_2A0BC)
+     *
+     * @return sprite sheet for MCZ bridge gate, or null on failure
+     */
+    public ObjectSpriteSheet loadMCZBridgeSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MCZ_GATE_LOG_ADDR, "MCZBridge");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMCZBridgeMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Create MCZ Bridge mappings from disassembly (obj77.asm).
+     * <p>
+     * 5 frames, each with 8 pieces (2x2 tiles each):
+     * <ul>
+     *   <li>Frame 0: Flat horizontal bar (closed gate, solid)</li>
+     *   <li>Frame 1: Slightly bowed outward</li>
+     *   <li>Frame 2: More bowed</li>
+     *   <li>Frame 3: Nearly split into two columns</li>
+     *   <li>Frame 4: Fully open (two vertical columns at edges)</li>
+     * </ul>
+     */
+    private List<SpriteMappingFrame> createMCZBridgeMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Flat horizontal (closed) - 8 logs in a row
+        frames.add(createMCZBridgeFrame(
+                -64, -8, -48, -8, -32, -8, -16, -8,
+                  0, -8,  16, -8,  32, -8,  48, -8));
+
+        // Frame 1: Slightly bowed
+        frames.add(createMCZBridgeFrame(
+                -64, -8, -50, -2, -35,  4, -20, 10,
+                  4, 10,  19,  4,  34, -2,  48, -8));
+
+        // Frame 2: More bowed
+        frames.add(createMCZBridgeFrame(
+                -64, -8, -53,  3, -42, 14, -31, 25,
+                 15, 25,  26, 14,  37,  3,  48, -8));
+
+        // Frame 3: Nearly split
+        frames.add(createMCZBridgeFrame(
+                -64, -8, -58,  6, -52, 21, -46, 36,
+                 30, 36,  36, 21,  42,  6,  48, -8));
+
+        // Frame 4: Fully open (two vertical columns)
+        frames.add(createMCZBridgeFrame(
+                -64, -8, -64,  8, -64, 24, -64, 40,
+                 48, -8,  48,  8,  48, 24,  48, 40));
+
+        return frames;
+    }
+
+    /**
+     * Helper to create a single MCZ Bridge frame with 8 pieces.
+     * Each piece is a 2x2 tile log at the specified position.
+     */
+    private SpriteMappingFrame createMCZBridgeFrame(
+            int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3,
+            int x4, int y4, int x5, int y5, int x6, int y6, int x7, int y7) {
+        List<SpriteMappingPiece> pieces = new ArrayList<>();
+        pieces.add(new SpriteMappingPiece(x0, y0, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x1, y1, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x2, y2, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x3, y3, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x4, y4, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x5, y5, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x6, y6, 2, 2, 0, false, false, 3));
+        pieces.add(new SpriteMappingPiece(x7, y7, 2, 2, 0, false, false, 3));
+        return new SpriteMappingFrame(pieces);
+    }
+
+    /**
      * Load WFZ Hook sprite sheet (Object 0x80 - WFZ variant).
      * <p>
      * ROM: ArtNem_WfzHook at 0x8D388, palette line 1
