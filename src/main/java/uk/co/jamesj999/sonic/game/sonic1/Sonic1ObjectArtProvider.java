@@ -11,6 +11,8 @@ import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
+import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationEndAction;
+import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationScript;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
 import uk.co.jamesj999.sonic.tools.NemesisReader;
 
@@ -40,6 +42,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
 
     private final Map<String, PatternSpriteRenderer> renderers = new HashMap<>();
     private final Map<String, ObjectSpriteSheet> sheets = new HashMap<>();
+    private final Map<String, SpriteAnimationSet> animations = new HashMap<>();
     private final List<String> rendererKeys = new ArrayList<>();
     private final List<ObjectSpriteSheet> sheetOrder = new ArrayList<>();
     private final List<PatternSpriteRenderer> rendererOrder = new ArrayList<>();
@@ -74,6 +77,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
 
         // Load signpost art
         loadSignpostArt(rom);
+
+        // Load monitor art
+        loadMonitorArt(rom);
 
         // Load results screen art (reuses title card + HUD text)
         loadResultsScreenArt(rom);
@@ -218,6 +224,166 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         )));
 
         return frames;
+    }
+
+    /**
+     * Loads monitor art (Nem_Monitors) and creates S1-format sprite mappings and animations.
+     * Mappings from docs/s1disasm/_maps/Monitor.asm (Map_Monitor_internal).
+     * Animations from docs/s1disasm/_anim/Monitor.asm (Ani_Monitor).
+     */
+    private void loadMonitorArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_MONITOR_ADDR, "Monitor");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load monitor art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createMonitorMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.MONITOR, sheet);
+
+        SpriteAnimationSet animSet = createMonitorAnimations();
+        animations.put(ObjectArtKeys.ANIM_MONITOR, animSet);
+    }
+
+    /**
+     * Creates monitor sprite mappings from S1 disassembly Map_Monitor_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * 12 frames: 0-2 (static variants), 3 (eggman), 4 (sonic/life), 5 (shoes),
+     * 6 (shield), 7 (invincible), 8 (rings), 9 (S), 10 (goggles), 11 (broken shell)
+     */
+    private List<SpriteMappingFrame> createMonitorMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .static0 - plain monitor box (1 piece)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x11, 4, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 1: .static1 - monitor with static icon variant 1 (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x0B, 2, 2, 0x10, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x11, 4, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 2: .static2 - monitor with static icon variant 2 (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x0B, 2, 2, 0x14, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x11, 4, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 3: .eggman - Eggman monitor (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x0B, 2, 2, 0x18, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x11, 4, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 4: .sonic - Sonic/1-up monitor (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x0B, 2, 2, 0x1C, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x11, 4, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 5: .shoes - Speed shoes monitor (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x0B, 2, 2, 0x24, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x11, 4, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 6: .shield - Shield monitor (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x0B, 2, 2, 0x28, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x11, 4, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 7: .invincible - Invincibility monitor (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x0B, 2, 2, 0x2C, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x11, 4, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 8: .rings - 10 rings monitor (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x0B, 2, 2, 0x30, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x11, 4, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 9: .s - 'S' monitor (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x0B, 2, 2, 0x34, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x11, 4, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 10: .goggles - Goggles monitor (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x0B, 2, 2, 0x20, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x11, 4, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 11: .broken - Broken monitor shell (1 piece)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -1, 4, 2, 0x38, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Creates monitor animation scripts from S1 disassembly Ani_Monitor.
+     * <p>
+     * 10 animations (0-9): static, eggman, sonic, shoes, shield,
+     * invincible, rings, s, goggles, breaking.
+     * <p>
+     * Non-static animations cycle: box→icon→icon→box-variant→icon→icon→box-variant→icon→icon
+     */
+    private SpriteAnimationSet createMonitorAnimations() {
+        SpriteAnimationSet set = new SpriteAnimationSet();
+
+        // Anim 0: .static - dc.b 1, 0, 1, 2, afEnd
+        set.addScript(0, new SpriteAnimationScript(1,
+                List.of(0, 1, 2), SpriteAnimationEndAction.LOOP, 0));
+
+        // Anim 1: .eggman - dc.b 1, 0, 3, 3, 1, 3, 3, 2, 3, 3, afEnd
+        set.addScript(1, new SpriteAnimationScript(1,
+                List.of(0, 3, 3, 1, 3, 3, 2, 3, 3), SpriteAnimationEndAction.LOOP, 0));
+
+        // Anim 2: .sonic - dc.b 1, 0, 4, 4, 1, 4, 4, 2, 4, 4, afEnd
+        set.addScript(2, new SpriteAnimationScript(1,
+                List.of(0, 4, 4, 1, 4, 4, 2, 4, 4), SpriteAnimationEndAction.LOOP, 0));
+
+        // Anim 3: .shoes - dc.b 1, 0, 5, 5, 1, 5, 5, 2, 5, 5, afEnd
+        set.addScript(3, new SpriteAnimationScript(1,
+                List.of(0, 5, 5, 1, 5, 5, 2, 5, 5), SpriteAnimationEndAction.LOOP, 0));
+
+        // Anim 4: .shield - dc.b 1, 0, 6, 6, 1, 6, 6, 2, 6, 6, afEnd
+        set.addScript(4, new SpriteAnimationScript(1,
+                List.of(0, 6, 6, 1, 6, 6, 2, 6, 6), SpriteAnimationEndAction.LOOP, 0));
+
+        // Anim 5: .invincible - dc.b 1, 0, 7, 7, 1, 7, 7, 2, 7, 7, afEnd
+        set.addScript(5, new SpriteAnimationScript(1,
+                List.of(0, 7, 7, 1, 7, 7, 2, 7, 7), SpriteAnimationEndAction.LOOP, 0));
+
+        // Anim 6: .rings - dc.b 1, 0, 8, 8, 1, 8, 8, 2, 8, 8, afEnd
+        set.addScript(6, new SpriteAnimationScript(1,
+                List.of(0, 8, 8, 1, 8, 8, 2, 8, 8), SpriteAnimationEndAction.LOOP, 0));
+
+        // Anim 7: .s - dc.b 1, 0, 9, 9, 1, 9, 9, 2, 9, 9, afEnd
+        set.addScript(7, new SpriteAnimationScript(1,
+                List.of(0, 9, 9, 1, 9, 9, 2, 9, 9), SpriteAnimationEndAction.LOOP, 0));
+
+        // Anim 8: .goggles - dc.b 1, 0, $A, $A, 1, $A, $A, 2, $A, $A, afEnd
+        set.addScript(8, new SpriteAnimationScript(1,
+                List.of(0, 10, 10, 1, 10, 10, 2, 10, 10), SpriteAnimationEndAction.LOOP, 0));
+
+        // Anim 9: .breaking - dc.b 2, 0, 1, 2, $B, afBack, 1
+        // Plays frames 0→1→2→11, then holds on frame 11 (broken shell)
+        set.addScript(9, new SpriteAnimationScript(2,
+                List.of(0, 1, 2, 11), SpriteAnimationEndAction.LOOP_BACK, 1));
+
+        return set;
     }
 
     /**
@@ -495,7 +661,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
 
     @Override
     public SpriteAnimationSet getAnimations(String key) {
-        return null;
+        return animations.get(key);
     }
 
     @Override

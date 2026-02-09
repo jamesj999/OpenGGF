@@ -52,6 +52,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1LamppostObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SIGNPOST,
                 (spawn, registry) -> new Sonic1SignpostObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.MONITOR,
+                (spawn, registry) -> new Sonic1MonitorObjectInstance(spawn));
     }
 
     @Override
