@@ -44,21 +44,21 @@ public enum Sonic1Sfx {
     BASARAN_FLAP(0xC0, "Basaran Flap"),
     BREAK_ITEM(0xC1, "Break Item"),
     WARNING(0xC2, "Warning"),
-    ENTER_GR(0xC3, "Enter GR"),
-    BOSS_EXPLOSION(0xC4, "Boss Explosion"),
-    TALLY(0xC5, "Tally"),
+    ENTER_GR(0xC3, "Giant Ring"),
+    BOSS_EXPLOSION(0xC4, "Bomb"),
+    TALLY(0xC5, "Cash Register"),
     RING_LOSS(0xC6, "Ring Loss"),
-    CHAIN_RISE(0xC7, "Chain Rise"),
-    FLAPPING(0xC8, "Flapping"),
-    ENTER_SS(0xC9, "Enter SS"),
-    WALL_SMASH(0xCA, "Wall Smash"),
-    SPRING(0xCB, "Spring"),
-    SWITCH(0xCC, "Switch"),
-    RING_LEFT(0xCD, "Ring (Left)"),
-    SIGNPOST(0xCE, "Signpost"),
-    WATERFALL(0xCF, "Waterfall"),
+    CHAIN_RISE(0xC7, "Chain Rising"),
+    BURNING(0xC8, "Burning"),
+    HIDDEN_BONUS(0xC9, "Hidden Bonus"),
+    ENTER_SS(0xCA, "Enter SS"),
+    WALL_SMASH(0xCB, "Wall Smash"),
+    SPRING(0xCC, "Spring"),
+    SWITCH(0xCD, "Switch"),
+    RING_LEFT(0xCE, "Ring (Left)"),
+    SIGNPOST(0xCF, "Signpost"),
     // Special SFX (separate pointer table at SPECIAL_SFX_PTR_TABLE_ADDR)
-    WATERFALL_SPECIAL(0xD0, "Waterfall (Special)");
+    WATERFALL(0xD0, "Waterfall");
 
     /** Native SFX ID. */
     public final int id;
