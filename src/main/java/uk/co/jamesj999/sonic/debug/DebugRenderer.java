@@ -200,6 +200,11 @@ public class DebugRenderer {
                         renderPlayerPlaneState();
                 }
 
+                // Render per-object debug text labels
+                if (overlayManager.isEnabled(DebugOverlayToggle.OBJECT_DEBUG)) {
+                        renderObjectDebugLabels();
+                }
+
                 // End the batch - single draw call for all text
                 glyphBatch.end();
 
@@ -348,6 +353,36 @@ public class DebugRenderer {
                                 toScreenX(screenX - 6),
                                 toScreenYFromWorld(screenY) + uiY(8),
                                 COLOR_PLANE_SWITCH, OBJECT_LABEL_FONT);
+        }
+
+        private void renderObjectDebugLabels() {
+                if (!glyphBatch.isBatchActive()) {
+                        return;
+                }
+                List<DebugRenderContext.DebugTextEntry> entries = overlayManager.getObjectDebugTextEntries();
+                if (entries.isEmpty()) {
+                        return;
+                }
+                Camera camera = Camera.getInstance();
+                int lineHeight = glyphBatch.getLineHeight(OBJECT_LABEL_FONT);
+
+                for (DebugRenderContext.DebugTextEntry entry : entries) {
+                        int screenX = entry.worldX() - camera.getX();
+                        int screenY = entry.worldY() - camera.getY();
+
+                        if (screenX < -32 || screenX > baseWidth + 32) {
+                                continue;
+                        }
+                        if (screenY < -32 || screenY > baseHeight + 32) {
+                                continue;
+                        }
+
+                        int px = toScreenX(screenX + 2);
+                        int py = toScreenYFromWorld(screenY) + entry.lineOffset() * lineHeight;
+                        glyphBatch.drawTextOutlined(entry.text(), px, py, entry.color(), OBJECT_LABEL_FONT);
+                }
+
+                overlayManager.clearObjectDebugTextEntries();
         }
 
         private void renderPlayerStatusPanel(AbstractPlayableSprite sprite, int ringCount) {

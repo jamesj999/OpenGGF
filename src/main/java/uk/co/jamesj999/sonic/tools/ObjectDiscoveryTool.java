@@ -84,7 +84,9 @@ public class ObjectDiscoveryTool {
             0x26,  // Monitor
             0x31,  // LavaMarker (HTZ/MTZ invisible lava hazard zone)
             0x32,  // BreakableBlock (CPZ metal blocks / HTZ rocks)
+            0x33,  // OOZPoppingPform (OOZ green burner platform that pops up)
             0x36,  // Spikes
+            0x3D,  // OOZLauncher (breakable block that launches rolling player)
             0x3E,  // EggPrison (end of act capsule)
             0x40,  // Springboard (CPZ/ARZ/MCZ lever spring)
             0x41,  // Spring

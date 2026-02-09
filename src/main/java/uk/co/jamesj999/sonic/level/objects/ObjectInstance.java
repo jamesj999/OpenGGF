@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.level.objects;
 
+import uk.co.jamesj999.sonic.debug.DebugRenderContext;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
@@ -59,6 +60,15 @@ public interface ObjectInstance {
      * Default implementation does nothing.
      */
     default void onUnload() {
+        // Default no-op
+    }
+
+    /**
+     * Append debug rendering commands for this object instance.
+     * Called during the geometry phase when the OBJECT_DEBUG overlay is enabled.
+     * Override to draw hitboxes, velocity vectors, AI state, etc.
+     */
+    default void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Default no-op
     }
 }

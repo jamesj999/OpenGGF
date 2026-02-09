@@ -108,6 +108,8 @@ public final class Sonic2ObjectIds {
     public static final int SWINGING_PFORM = 0x82; // Swinging Platform (Obj82) - ARZ swinging vine platform
 
     // OOZ Objects
+    public static final int OOZ_POPPING_PLATFORM = 0x33; // OOZPoppingPform (Obj33) - green burner platform that pops up
+    public static final int OOZ_LAUNCHER = 0x3D; // OOZLauncher (Obj3D) - breakable block that launches rolling player
     public static final int LAUNCHER_BALL = 0x48; // LauncherBall (Obj48) - OOZ transporter ball
 
     // OOZ/MCZ/ARZ Objects
