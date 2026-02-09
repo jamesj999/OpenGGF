@@ -807,9 +807,17 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 
-		// Positive distance - speed-dependent threshold
-		int speedPixels = getSpeedForThreshold();
-		int positiveThreshold = Math.min(speedPixels + 4, 14);
+		// Positive distance threshold:
+		// S1 ROM: fixed 14px threshold (cmpi.w #$E,d1)
+		// S2/S3K ROM: speed-dependent = min(|vel_pixels| + 4, 14)
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		int positiveThreshold;
+		if (featureSet != null && featureSet.fixedAnglePosThreshold()) {
+			positiveThreshold = 14;
+		} else {
+			int speedPixels = getSpeedForThreshold();
+			positiveThreshold = Math.min(speedPixels + 4, 14);
+		}
 
 		if (distance > positiveThreshold) {
 			if (sprite.isStickToConvex()) {
