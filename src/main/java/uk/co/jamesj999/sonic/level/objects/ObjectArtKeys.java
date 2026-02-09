@@ -39,6 +39,7 @@ public final class ObjectArtKeys {
 
     // Zone objects using level tiles
     public static final String PLATFORM = "platform";
+    public static final String COLLAPSING_LEDGE = "collapsing_ledge";
 
     // Badnik art keys
     public static final String BUZZ_BOMBER = "buzz_bomber";
