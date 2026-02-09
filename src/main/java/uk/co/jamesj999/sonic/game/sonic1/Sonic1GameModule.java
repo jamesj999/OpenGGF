@@ -12,6 +12,7 @@ import uk.co.jamesj999.sonic.game.LevelEventProvider;
 import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.ObjectArtProvider;
+import uk.co.jamesj999.sonic.game.PhysicsProvider;
 import uk.co.jamesj999.sonic.game.RespawnState;
 import uk.co.jamesj999.sonic.game.RomOffsetProvider;
 import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
@@ -158,5 +159,10 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public ObjectArtProvider getObjectArtProvider() {
         return new Sonic1ObjectArtProvider();
+    }
+
+    @Override
+    public PhysicsProvider getPhysicsProvider() {
+        return new Sonic1PhysicsProvider();
     }
 }

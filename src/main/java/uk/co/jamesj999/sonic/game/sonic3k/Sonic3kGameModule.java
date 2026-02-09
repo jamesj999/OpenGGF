@@ -9,6 +9,7 @@ import uk.co.jamesj999.sonic.game.DebugModeProvider;
 import uk.co.jamesj999.sonic.game.DebugOverlayProvider;
 import uk.co.jamesj999.sonic.game.GameModule;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.PhysicsProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.ObjectArtProvider;
 import uk.co.jamesj999.sonic.game.RespawnState;
@@ -153,5 +154,10 @@ public class Sonic3kGameModule implements GameModule {
     @Override
     public ObjectArtProvider getObjectArtProvider() {
         return null;
+    }
+
+    @Override
+    public PhysicsProvider getPhysicsProvider() {
+        return new Sonic3kPhysicsProvider();
     }
 }
