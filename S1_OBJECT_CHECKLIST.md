@@ -1,12 +1,12 @@
 # Sonic 1 Object Implementation Checklist
 
-Generated: 2026-02-09 21:12:04
+Generated: 2026-02-09 23:03:25
 
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 11 (13.8%)
-- **Unimplemented:** 69 (86.3%)
+- **Implemented:** 12 (15.0%)
+- **Unimplemented:** 68 (85.0%)
 
 ## Implemented Objects
 
@@ -14,6 +14,7 @@ Generated: 2026-02-09 21:12:04
 |----|------|------------|-------|
 | 0x0D | Signpost | 13 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2, SBZ1, SBZ2 |
 | 0x11 | Bridge | 11 | GHZ1, GHZ2, GHZ3 |
+| 0x18 | Platform | 96 | GHZ1, GHZ2, GHZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3 |
 | 0x1F | Crabmeat | 43 | GHZ1, GHZ2, GHZ3, SYZ1, SYZ2, SYZ3 |
 | 0x22 | BuzzBomber | 78 | GHZ1, GHZ2, GHZ3, MZ1, MZ2, MZ3, SYZ1, SYZ2, SYZ3 |
 | 0x25 | Ring | 802 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
@@ -31,7 +32,6 @@ Generated: 2026-02-09 21:12:04
 | 0x56 | Object | S1_Obj_56 | 224 | LZ1, LZ2, LZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3 |
 | 0x46 | Object | S1_Obj_46 | 99 | MZ1, MZ2, MZ3 |
 | 0x5F | Badnik | Bomb | 99 | SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
-| 0x18 | Object | Platform | 96 | GHZ1, GHZ2, GHZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3 |
 | 0x71 | Object | S1_Obj_71 | 88 | LZ1, LZ3, MZ1, MZ2, MZ3, SYZ2, SYZ3, SBZ1, SBZ2, SBZ3 |
 | 0x44 | Object | S1_Obj_44 | 74 | GHZ1, GHZ2, GHZ3 |
 | 0x5A | Object | S1_Obj_5A | 68 | SLZ1, SLZ2, SLZ3 |
@@ -106,7 +106,7 @@ Generated: 2026-02-09 21:12:04
 
 #### Act 1
 
-Total: 214 objects | Implemented: 11 | Unimplemented: 9
+Total: 214 objects | Implemented: 12 | Unimplemented: 8
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
@@ -118,7 +118,7 @@ Total: 214 objects | Implemented: 11 | Unimplemented: 9
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
 - [x] 0x11 Bridge (x3) [0x0C]
-- [ ] 0x18 Platform (x20) [5 subtypes]
+- [x] 0x18 Platform (x20) [5 subtypes]
 - [ ] 0x1A S1_Obj_1A (x3) [0x00, 0x01]
 - [ ] 0x1C S1_Obj_1C (x6) [0x03]
 - [x] 0x25 Ring (x82) [8 subtypes]
@@ -134,7 +134,7 @@ Total: 214 objects | Implemented: 11 | Unimplemented: 9
 
 #### Act 2
 
-Total: 244 objects | Implemented: 11 | Unimplemented: 11
+Total: 244 objects | Implemented: 12 | Unimplemented: 10
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x4) [0x00]
@@ -147,7 +147,7 @@ Total: 244 objects | Implemented: 11 | Unimplemented: 11
 - [x] 0x0D Signpost (x1) [0x00]
 - [x] 0x11 Bridge (x4) [0x0C]
 - [ ] 0x15 S1_Obj_15 (x3) [0x06, 0x08]
-- [ ] 0x18 Platform (x9) [0x01, 0x03, 0x0A]
+- [x] 0x18 Platform (x9) [0x01, 0x03, 0x0A]
 - [ ] 0x1A S1_Obj_1A (x4) [0x00, 0x01]
 - [ ] 0x1C S1_Obj_1C (x8) [0x03]
 - [x] 0x25 Ring (x74) [11 subtypes]
@@ -164,7 +164,7 @@ Total: 244 objects | Implemented: 11 | Unimplemented: 11
 
 #### Act 3
 
-Total: 286 objects | Implemented: 10 | Unimplemented: 10
+Total: 286 objects | Implemented: 11 | Unimplemented: 9
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
@@ -176,7 +176,7 @@ Total: 286 objects | Implemented: 10 | Unimplemented: 10
 - [x] 0x11 Bridge (x4) [0x0C]
 - [ ] 0x15 S1_Obj_15 (x2) [0x07, 0x08]
 - [ ] 0x17 S1_Obj_17 (x4) [0x10]
-- [ ] 0x18 Platform (x17) [6 subtypes]
+- [x] 0x18 Platform (x17) [6 subtypes]
 - [ ] 0x1A S1_Obj_1A (x12) [0x00, 0x01]
 - [ ] 0x1C S1_Obj_1C (x8) [0x03]
 - [x] 0x25 Ring (x74) [6 subtypes]
@@ -403,7 +403,7 @@ Total: 223 objects | Implemented: 4 | Unimplemented: 13
 
 #### Act 2
 
-Total: 187 objects | Implemented: 4 | Unimplemented: 15
+Total: 187 objects | Implemented: 5 | Unimplemented: 14
 
 **Badniks:**
 - [ ] 0x5F Bomb (x20) [0x00]
@@ -412,7 +412,7 @@ Total: 187 objects | Implemented: 4 | Unimplemented: 15
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
 - [ ] 0x13 S1_Obj_13 (x1) [0x17]
-- [ ] 0x18 Platform (x3) [0x03]
+- [x] 0x18 Platform (x3) [0x03]
 - [ ] 0x1C S1_Obj_1C (x1) [0x00]
 - [x] 0x25 Ring (x65) [8 subtypes]
 - [x] 0x26 Monitor (x8) [0x02, 0x05, 0x06]
@@ -430,7 +430,7 @@ Total: 187 objects | Implemented: 4 | Unimplemented: 15
 
 #### Act 3
 
-Total: 250 objects | Implemented: 4 | Unimplemented: 16
+Total: 250 objects | Implemented: 5 | Unimplemented: 15
 
 **Badniks:**
 - [ ] 0x5F Bomb (x48) [0x00]
@@ -439,7 +439,7 @@ Total: 250 objects | Implemented: 4 | Unimplemented: 16
 **Objects:**
 - [ ] 0x13 S1_Obj_13 (x7) [0x36, 0x37]
 - [ ] 0x15 S1_Obj_15 (x2) [0x07]
-- [ ] 0x18 Platform (x4) [0x03]
+- [x] 0x18 Platform (x4) [0x03]
 - [ ] 0x1C S1_Obj_1C (x7) [0x00]
 - [x] 0x25 Ring (x65) [11 subtypes]
 - [x] 0x26 Monitor (x17) [4 subtypes]
@@ -460,7 +460,7 @@ Total: 250 objects | Implemented: 4 | Unimplemented: 16
 
 #### Act 1
 
-Total: 193 objects | Implemented: 7 | Unimplemented: 11
+Total: 193 objects | Implemented: 8 | Unimplemented: 10
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x9) [0x00]
@@ -470,7 +470,7 @@ Total: 193 objects | Implemented: 7 | Unimplemented: 11
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
 - [ ] 0x12 S1_Obj_12 (x8) [0x00]
-- [ ] 0x18 Platform (x8) [4 subtypes]
+- [x] 0x18 Platform (x8) [4 subtypes]
 - [x] 0x25 Ring (x42) [15 subtypes]
 - [x] 0x26 Monitor (x6) [5 subtypes]
 - [ ] 0x32 S1_Obj_32 (x2) [0x80, 0x00]
@@ -486,7 +486,7 @@ Total: 193 objects | Implemented: 7 | Unimplemented: 11
 
 #### Act 2
 
-Total: 230 objects | Implemented: 7 | Unimplemented: 11
+Total: 230 objects | Implemented: 8 | Unimplemented: 10
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x10) [0x00]
@@ -496,7 +496,7 @@ Total: 230 objects | Implemented: 7 | Unimplemented: 11
 **Objects:**
 - [x] 0x0D Signpost (x2) [0x00]
 - [ ] 0x12 S1_Obj_12 (x4) [0x00]
-- [ ] 0x18 Platform (x11) [6 subtypes]
+- [x] 0x18 Platform (x11) [6 subtypes]
 - [x] 0x25 Ring (x67) [25 subtypes]
 - [x] 0x26 Monitor (x3) [0x02, 0x04, 0x05]
 - [x] 0x41 Spring (x24) [5 subtypes]
@@ -512,7 +512,7 @@ Total: 230 objects | Implemented: 7 | Unimplemented: 11
 
 #### Act 3
 
-Total: 257 objects | Implemented: 6 | Unimplemented: 10
+Total: 257 objects | Implemented: 7 | Unimplemented: 9
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x14) [0x00]
@@ -521,7 +521,7 @@ Total: 257 objects | Implemented: 6 | Unimplemented: 10
 
 **Objects:**
 - [ ] 0x12 S1_Obj_12 (x9) [0x00]
-- [ ] 0x18 Platform (x24) [5 subtypes]
+- [x] 0x18 Platform (x24) [5 subtypes]
 - [x] 0x25 Ring (x46) [16 subtypes]
 - [x] 0x26 Monitor (x11) [5 subtypes]
 - [ ] 0x32 S1_Obj_32 (x2) [0x00, 0x0F]
