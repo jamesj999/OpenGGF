@@ -109,6 +109,29 @@ public final class Sonic3kSmpsConstants {
     public static final int DAC_NOTE_MAX = 0xDF;
 
     // -----------------------------------------------------------------------
+    // S3 standalone driver (uncompressed in combined S3&K ROM)
+    // -----------------------------------------------------------------------
+
+    /** S3 Z80 driver ROM address (uncompressed, raw data). */
+    public static final int S3_Z80_DRIVER_ADDR = 0x0E6000;
+
+    /** S3 music bank list Z80 RAM offset (1-byte entries). */
+    public static final int S3_Z80_MUSIC_BANK_LIST = 0x0B48;
+
+    /** S3 music pointer list Z80 RAM offset (2-byte LE entries). */
+    public static final int S3_Z80_MUSIC_PTR_LIST = 0x161A;
+
+    /** Number of music entries in the S3 driver (IDs 0x01-0x32). */
+    public static final int S3_Z80_MUSIC_COUNT = 50;
+
+    /**
+     * Offset of the S3 ROM data within the combined S3&K ROM file.
+     * The combined ROM concatenates S&K (first 2MB) and S3 (second 2MB).
+     * In the 68K address space, the locked-on S3 cart is at 0x200000.
+     */
+    public static final int S3_ROM_OFFSET_IN_COMBINED = 0x200000;
+
+    // -----------------------------------------------------------------------
     // ID ranges
     // -----------------------------------------------------------------------
 

@@ -12,6 +12,7 @@ import uk.co.jamesj999.sonic.game.LevelEventProvider;
 import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.ObjectArtProvider;
+import uk.co.jamesj999.sonic.game.PhysicsProvider;
 import uk.co.jamesj999.sonic.game.RespawnState;
 import uk.co.jamesj999.sonic.game.RomOffsetProvider;
 import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
@@ -164,5 +165,10 @@ public class Sonic1GameModule implements GameModule {
     public void applyPlaneSwitching(uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite player) {
         uk.co.jamesj999.sonic.game.sonic1.events.Sonic1LevelEventManager.getInstance()
                 .getLoopManager().update(player);
+    }
+
+    @Override
+    public PhysicsProvider getPhysicsProvider() {
+        return new Sonic1PhysicsProvider();
     }
 }
