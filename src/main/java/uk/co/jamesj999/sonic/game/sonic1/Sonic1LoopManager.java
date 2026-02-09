@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic1;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
+import uk.co.jamesj999.sonic.audio.GameSound;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -119,6 +121,9 @@ public class Sonic1LoopManager {
             return;
         }
 
+        // Not on a tunnel tile — clear tunnel mode so wall checks resume next frame
+        player.setTunnelMode(false);
+
         // Check loop tile IDs
         boolean isLoop1 = (rawValue == zoneLoopTiles[0]);
         boolean isLoop2 = (rawValue == zoneLoopTiles[1]);
@@ -177,12 +182,28 @@ public class Sonic1LoopManager {
     /**
      * Forces rolling mode when on a roll tunnel tile.
      *
-     * <p>ROM: Sonic_Loops loc_12E40 – loc_12E5E
+     * <p>ROM: Sonic_Loops branches to Sonic_ChkRoll (01 Sonic.asm ~line 910).
+     * Sets roll flag, reduces hitbox (19→14 y-radius), adjusts Y to keep feet
+     * planted, plays roll SFX, and gives minimum speed ($200) if stationary.
      */
     private void applyRollTunnel(AbstractPlayableSprite player) {
         // Only force rolling when grounded and not already rolling
+        // ROM: btst #2,obStatus(a0); beq .roll; rts
         if (!player.getAir() && !player.getRolling()) {
             player.setRolling(true);
+            // ROM: addq.w #5,obY(a0) — adjust Y for smaller hitbox (5px in center coords).
+            // Engine uses top-left coords so we use the full height adjustment.
+            player.setY((short) (player.getY() + player.getRollHeightAdjustment()));
+            AudioManager.getInstance().playSfx(GameSound.ROLLING);
+            // ROM: tst.w obInertia(a0); bne .ismoving; move.w #$200,obInertia(a0)
+            if (player.getGSpeed() == 0) {
+                player.setGSpeed((short) 0x200);
+            }
         }
+
+        // Suppress the S2-derived ground wall check while on tunnel tiles.
+        // S1's ROM has no Obj01_CheckWallsOnGround equivalent during ground
+        // movement — the push sensors falsely detect the narrow tunnel walls.
+        player.setTunnelMode(true);
     }
 }

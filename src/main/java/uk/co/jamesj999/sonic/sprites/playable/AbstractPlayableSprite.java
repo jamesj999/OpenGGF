@@ -127,6 +127,13 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         protected boolean pinballMode = false;
 
         /**
+         * Whether the player is in a roll-tunnel section (S1 GHZ S-tubes).
+         * Suppresses the S2-derived ground wall check which falsely detects
+         * narrow tunnel walls. Set by Sonic1LoopManager each frame on tunnel tiles.
+         */
+        protected boolean tunnelMode = false;
+
+        /**
          * Whether the current jump originated from a rolling state.
          * In Sonic 1, 2, 3 & K, air control is locked when jumping while rolling.
          * Reset to false when landing.
@@ -427,6 +434,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.rolling = false;
                 this.rollingJump = false;
                 this.pinballMode = false;
+                this.tunnelMode = false;
                 this.spindash = false;
                 this.lookDelayCounter = 0;
                 this.pushing = false;
@@ -1733,6 +1741,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          */
         public void setPinballMode(boolean pinballMode) {
                 this.pinballMode = pinballMode;
+        }
+
+        public boolean isTunnelMode() {
+                return tunnelMode;
+        }
+
+        public void setTunnelMode(boolean tunnelMode) {
+                this.tunnelMode = tunnelMode;
         }
 
         @Override

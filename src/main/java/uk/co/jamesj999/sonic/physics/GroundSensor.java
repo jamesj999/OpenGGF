@@ -278,9 +278,13 @@ public class GroundSensor extends Sensor {
 
         byte metric = tile.getHeightAt((byte) index);
         if (metric != 0 && metric != FULL_TILE) {
-            boolean invert = (desc != null && desc.getVFlip()) ^ (direction == Direction.UP);
-            if (invert) {
-                metric = (byte) (16 - metric);
+            // ROM: eor.w d6,d4 / btst #$C,d4 / neg.w d0
+            // V-flip (for floor scan) or non-V-flip (for ceiling scan) negates
+            // the height, producing a negative metric processed through the
+            // negative-height path (scanTileVertical's metric < 0 branch).
+            boolean negate = (desc != null && desc.getVFlip()) ^ (direction == Direction.UP);
+            if (negate) {
+                metric = (byte) -metric;
             }
         }
         return metric;
