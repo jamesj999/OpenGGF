@@ -5,8 +5,8 @@ Generated: 2026-02-09 21:12:04
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 8 (10.0%)
-- **Unimplemented:** 72 (90.0%)
+- **Implemented:** 11 (13.8%)
+- **Unimplemented:** 69 (86.3%)
 
 ## Implemented Objects
 
@@ -16,18 +16,19 @@ Generated: 2026-02-09 21:12:04
 | 0x11 | Bridge | 11 | GHZ1, GHZ2, GHZ3 |
 | 0x1F | Crabmeat | 43 | GHZ1, GHZ2, GHZ3, SYZ1, SYZ2, SYZ3 |
 | 0x22 | BuzzBomber | 78 | GHZ1, GHZ2, GHZ3, MZ1, MZ2, MZ3, SYZ1, SYZ2, SYZ3 |
+| 0x25 | Ring | 802 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
 | 0x26 | Monitor | 199 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
 | 0x36 | Spikes | 190 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3 |
 | 0x3B | Rock | 25 | GHZ1, GHZ2, GHZ3 |
+| 0x40 | Motobug | 15 | GHZ1, GHZ2, GHZ3 |
+| 0x41 | Spring | 150 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
 | 0x79 | Lamppost | 23 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1 |
 
 ## Unimplemented Objects (By Usage)
 
 | ID | Category | Name | Total Uses | Zones |
 |----|----------|------|------------|-------|
-| 0x25 | Object | Ring | 802 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
 | 0x56 | Object | S1_Obj_56 | 224 | LZ1, LZ2, LZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3 |
-| 0x41 | Object | Spring | 150 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
 | 0x46 | Object | S1_Obj_46 | 99 | MZ1, MZ2, MZ3 |
 | 0x5F | Badnik | Bomb | 99 | SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
 | 0x18 | Object | Platform | 96 | GHZ1, GHZ2, GHZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3 |
@@ -73,7 +74,6 @@ Generated: 2026-02-09 21:12:04
 | 0x6B | Object | S1_Obj_6B | 17 | SBZ1, SBZ2 |
 | 0x59 | Object | S1_Obj_59 | 16 | SLZ1, SLZ2, SLZ3 |
 | 0x5E | Object | Seesaw | 16 | SLZ2, SLZ3 |
-| 0x40 | Badnik | Motobug | 15 | GHZ1, GHZ2, GHZ3 |
 | 0x2A | Object | S1_Obj_2A | 14 | SBZ1, SBZ2 |
 | 0x2B | Badnik | Chopper | 14 | GHZ1, GHZ2 |
 | 0x30 | Object | S1_Obj_30 | 14 | MZ1, MZ2, MZ3 |
@@ -106,13 +106,13 @@ Generated: 2026-02-09 21:12:04
 
 #### Act 1
 
-Total: 214 objects | Implemented: 8 | Unimplemented: 12
+Total: 214 objects | Implemented: 11 | Unimplemented: 9
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
 - [x] 0x22 BuzzBomber (x11) [0x00]
 - [ ] 0x2B Chopper (x5) [0x00]
-- [ ] 0x40 Motobug (x3) [0x00]
+- [x] 0x40 Motobug (x3) [0x00]
 - [ ] 0x42 Newtron (x10) [0x00, 0x01]
 
 **Objects:**
@@ -121,11 +121,11 @@ Total: 214 objects | Implemented: 8 | Unimplemented: 12
 - [ ] 0x18 Platform (x20) [5 subtypes]
 - [ ] 0x1A S1_Obj_1A (x3) [0x00, 0x01]
 - [ ] 0x1C S1_Obj_1C (x6) [0x03]
-- [ ] 0x25 Ring (x82) [8 subtypes]
+- [x] 0x25 Ring (x82) [8 subtypes]
 - [x] 0x26 Monitor (x10) [0x04, 0x05, 0x06]
 - [x] 0x36 Spikes (x23) [0x00, 0x20]
 - [x] 0x3B Rock (x7) [0x00]
-- [ ] 0x41 Spring (x4) [0x02]
+- [x] 0x41 Spring (x4) [0x02]
 - [ ] 0x44 S1_Obj_44 (x12) [0x00, 0x01, 0x02]
 - [ ] 0x49 S1_Obj_49 (x3) [0x00]
 - [ ] 0x4B GiantRing (x1) [0x00]
@@ -134,13 +134,13 @@ Total: 214 objects | Implemented: 8 | Unimplemented: 12
 
 #### Act 2
 
-Total: 244 objects | Implemented: 8 | Unimplemented: 14
+Total: 244 objects | Implemented: 11 | Unimplemented: 11
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x4) [0x00]
 - [x] 0x22 BuzzBomber (x12) [0x00]
 - [ ] 0x2B Chopper (x9) [0x00]
-- [ ] 0x40 Motobug (x6) [0x00]
+- [x] 0x40 Motobug (x6) [0x00]
 - [ ] 0x42 Newtron (x11) [0x00, 0x01]
 
 **Objects:**
@@ -150,12 +150,12 @@ Total: 244 objects | Implemented: 8 | Unimplemented: 14
 - [ ] 0x18 Platform (x9) [0x01, 0x03, 0x0A]
 - [ ] 0x1A S1_Obj_1A (x4) [0x00, 0x01]
 - [ ] 0x1C S1_Obj_1C (x8) [0x03]
-- [ ] 0x25 Ring (x74) [11 subtypes]
+- [x] 0x25 Ring (x74) [11 subtypes]
 - [x] 0x26 Monitor (x10) [5 subtypes]
 - [x] 0x36 Spikes (x33) [4 subtypes]
 - [x] 0x3B Rock (x11) [0x00]
 - [ ] 0x3C BreakableWall (x6) [0x00, 0x01, 0x02]
-- [ ] 0x41 Spring (x6) [0x10, 0x00, 0x02]
+- [x] 0x41 Spring (x6) [0x10, 0x00, 0x02]
 - [ ] 0x44 S1_Obj_44 (x22) [5 subtypes]
 - [ ] 0x49 S1_Obj_49 (x4) [0x00]
 - [ ] 0x4B GiantRing (x1) [0x00]
@@ -164,12 +164,12 @@ Total: 244 objects | Implemented: 8 | Unimplemented: 14
 
 #### Act 3
 
-Total: 286 objects | Implemented: 7 | Unimplemented: 13
+Total: 286 objects | Implemented: 10 | Unimplemented: 10
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
 - [x] 0x22 BuzzBomber (x24) [0x00]
-- [ ] 0x40 Motobug (x6) [0x00]
+- [x] 0x40 Motobug (x6) [0x00]
 - [ ] 0x42 Newtron (x11) [0x00, 0x01]
 
 **Objects:**
@@ -179,13 +179,13 @@ Total: 286 objects | Implemented: 7 | Unimplemented: 13
 - [ ] 0x18 Platform (x17) [6 subtypes]
 - [ ] 0x1A S1_Obj_1A (x12) [0x00, 0x01]
 - [ ] 0x1C S1_Obj_1C (x8) [0x03]
-- [ ] 0x25 Ring (x74) [6 subtypes]
+- [x] 0x25 Ring (x74) [6 subtypes]
 - [x] 0x26 Monitor (x20) [5 subtypes]
 - [x] 0x36 Spikes (x19) [5 subtypes]
 - [x] 0x3B Rock (x7) [0x00]
 - [ ] 0x3C BreakableWall (x12) [0x00, 0x01, 0x02]
 - [ ] 0x3E EggPrison (x2) [0x00, 0x01]
-- [ ] 0x41 Spring (x13) [0x10, 0x02]
+- [x] 0x41 Spring (x13) [0x10, 0x02]
 - [ ] 0x44 S1_Obj_44 (x40) [6 subtypes]
 - [ ] 0x49 S1_Obj_49 (x4) [0x00]
 - [x] 0x79 Lamppost (x4) [4 subtypes]
@@ -194,7 +194,7 @@ Total: 286 objects | Implemented: 7 | Unimplemented: 13
 
 #### Act 1
 
-Total: 189 objects | Implemented: 4 | Unimplemented: 18
+Total: 189 objects | Implemented: 6 | Unimplemented: 16
 
 **Badniks:**
 - [ ] 0x2C Jaws (x8) [4 subtypes]
@@ -204,11 +204,11 @@ Total: 189 objects | Implemented: 4 | Unimplemented: 18
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
 - [ ] 0x16 S1_Obj_16 (x8) [0x00, 0x02]
-- [ ] 0x25 Ring (x29) [7 subtypes]
+- [x] 0x25 Ring (x29) [7 subtypes]
 - [x] 0x26 Monitor (x5) [0x04, 0x06]
 - [ ] 0x32 S1_Obj_32 (x10) [10 subtypes]
 - [x] 0x36 Spikes (x18) [5 subtypes]
-- [ ] 0x41 Spring (x2) [0x00]
+- [x] 0x41 Spring (x2) [0x00]
 - [ ] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x52 S1_Obj_52 (x1) [0x07]
 - [ ] 0x56 S1_Obj_56 (x10) [10 subtypes]
@@ -224,7 +224,7 @@ Total: 189 objects | Implemented: 4 | Unimplemented: 18
 
 #### Act 2
 
-Total: 138 objects | Implemented: 4 | Unimplemented: 17
+Total: 138 objects | Implemented: 6 | Unimplemented: 15
 
 **Badniks:**
 - [ ] 0x2C Jaws (x7) [4 subtypes]
@@ -235,11 +235,11 @@ Total: 138 objects | Implemented: 4 | Unimplemented: 17
 - [ ] 0x0C S1_Obj_0C (x1) [0x02]
 - [x] 0x0D Signpost (x1) [0x00]
 - [ ] 0x16 S1_Obj_16 (x6) [0x00, 0x02]
-- [ ] 0x25 Ring (x15) [6 subtypes]
+- [x] 0x25 Ring (x15) [6 subtypes]
 - [x] 0x26 Monitor (x9) [0x04, 0x05, 0x06]
 - [ ] 0x32 S1_Obj_32 (x3) [0x00, 0x01, 0x02]
 - [x] 0x36 Spikes (x24) [0x00, 0x30, 0x01]
-- [ ] 0x41 Spring (x2) [0x10, 0x00]
+- [x] 0x41 Spring (x2) [0x10, 0x00]
 - [ ] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x56 S1_Obj_56 (x3) [0xF0, 0xF1, 0xE2]
 - [ ] 0x57 S1_Obj_57 (x5) [4 subtypes]
@@ -253,7 +253,7 @@ Total: 138 objects | Implemented: 4 | Unimplemented: 17
 
 #### Act 3
 
-Total: 245 objects | Implemented: 3 | Unimplemented: 18
+Total: 245 objects | Implemented: 5 | Unimplemented: 16
 
 **Badniks:**
 - [ ] 0x2C Jaws (x7) [0x08, 0x0C]
@@ -264,12 +264,12 @@ Total: 245 objects | Implemented: 3 | Unimplemented: 18
 - [ ] 0x0B S1_Obj_0B (x5) [0x04]
 - [ ] 0x0C S1_Obj_0C (x1) [0x02]
 - [ ] 0x16 S1_Obj_16 (x14) [0x00, 0x02]
-- [ ] 0x25 Ring (x6) [4 subtypes]
+- [x] 0x25 Ring (x6) [4 subtypes]
 - [x] 0x26 Monitor (x17) [4 subtypes]
 - [ ] 0x32 S1_Obj_32 (x10) [10 subtypes]
 - [x] 0x36 Spikes (x39) [5 subtypes]
 - [ ] 0x3E EggPrison (x2) [0x00, 0x01]
-- [ ] 0x41 Spring (x3) [0x00]
+- [x] 0x41 Spring (x3) [0x00]
 - [ ] 0x56 S1_Obj_56 (x9) [9 subtypes]
 - [ ] 0x57 S1_Obj_57 (x8) [5 subtypes]
 - [ ] 0x61 S1_Obj_61 (x19) [0x30, 0x01, 0x27]
@@ -284,7 +284,7 @@ Total: 245 objects | Implemented: 3 | Unimplemented: 18
 
 #### Act 1
 
-Total: 145 objects | Implemented: 5 | Unimplemented: 15
+Total: 145 objects | Implemented: 6 | Unimplemented: 14
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x4) [0x00]
@@ -294,7 +294,7 @@ Total: 145 objects | Implemented: 5 | Unimplemented: 15
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
 - [ ] 0x13 S1_Obj_13 (x4) [0x30, 0x41, 0x42]
-- [ ] 0x25 Ring (x35) [5 subtypes]
+- [x] 0x25 Ring (x35) [5 subtypes]
 - [x] 0x26 Monitor (x10) [0x02, 0x04, 0x06]
 - [ ] 0x2F S1_Obj_2F (x22) [8 subtypes]
 - [ ] 0x30 S1_Obj_30 (x5) [0x01, 0x02]
@@ -312,7 +312,7 @@ Total: 145 objects | Implemented: 5 | Unimplemented: 15
 
 #### Act 2
 
-Total: 198 objects | Implemented: 5 | Unimplemented: 20
+Total: 198 objects | Implemented: 7 | Unimplemented: 18
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x5) [0x00]
@@ -323,7 +323,7 @@ Total: 198 objects | Implemented: 5 | Unimplemented: 20
 - [x] 0x0D Signpost (x1) [0x00]
 - [ ] 0x13 S1_Obj_13 (x10) [5 subtypes]
 - [ ] 0x15 S1_Obj_15 (x4) [0x04, 0x05]
-- [ ] 0x25 Ring (x23) [5 subtypes]
+- [x] 0x25 Ring (x23) [5 subtypes]
 - [x] 0x26 Monitor (x11) [4 subtypes]
 - [ ] 0x2F S1_Obj_2F (x10) [7 subtypes]
 - [ ] 0x30 S1_Obj_30 (x2) [0x14, 0x04]
@@ -331,7 +331,7 @@ Total: 198 objects | Implemented: 5 | Unimplemented: 20
 - [ ] 0x32 S1_Obj_32 (x2) [0x00, 0x01]
 - [ ] 0x33 S1_Obj_33 (x3) [0x00, 0x81]
 - [x] 0x36 Spikes (x9) [4 subtypes]
-- [ ] 0x41 Spring (x1) [0x10]
+- [x] 0x41 Spring (x1) [0x10]
 - [ ] 0x46 S1_Obj_46 (x39) [0x00]
 - [ ] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x4C S1_Obj_4C (x3) [0x01]
@@ -345,7 +345,7 @@ Total: 198 objects | Implemented: 5 | Unimplemented: 20
 
 #### Act 3
 
-Total: 232 objects | Implemented: 4 | Unimplemented: 19
+Total: 232 objects | Implemented: 6 | Unimplemented: 17
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x3) [0x00]
@@ -355,7 +355,7 @@ Total: 232 objects | Implemented: 4 | Unimplemented: 19
 **Objects:**
 - [ ] 0x13 S1_Obj_13 (x18) [9 subtypes]
 - [ ] 0x15 S1_Obj_15 (x3) [0x04]
-- [ ] 0x25 Ring (x31) [5 subtypes]
+- [x] 0x25 Ring (x31) [5 subtypes]
 - [x] 0x26 Monitor (x7) [0x02, 0x04, 0x06]
 - [ ] 0x2F S1_Obj_2F (x5) [4 subtypes]
 - [ ] 0x30 S1_Obj_30 (x7) [0x01, 0x02, 0x14]
@@ -364,7 +364,7 @@ Total: 232 objects | Implemented: 4 | Unimplemented: 19
 - [ ] 0x33 S1_Obj_33 (x2) [0x00]
 - [x] 0x36 Spikes (x23) [4 subtypes]
 - [ ] 0x3E EggPrison (x2) [0x00, 0x01]
-- [ ] 0x41 Spring (x1) [0x10]
+- [x] 0x41 Spring (x1) [0x10]
 - [ ] 0x46 S1_Obj_46 (x34) [0x00, 0x02]
 - [ ] 0x4C S1_Obj_4C (x1) [0x01]
 - [ ] 0x51 S1_Obj_51 (x13) [0x00]
@@ -378,7 +378,7 @@ Total: 232 objects | Implemented: 4 | Unimplemented: 19
 
 #### Act 1
 
-Total: 223 objects | Implemented: 2 | Unimplemented: 15
+Total: 223 objects | Implemented: 4 | Unimplemented: 13
 
 **Badniks:**
 - [ ] 0x5F Bomb (x13) [0x00]
@@ -388,10 +388,10 @@ Total: 223 objects | Implemented: 2 | Unimplemented: 15
 - [x] 0x0D Signpost (x1) [0x00]
 - [ ] 0x13 S1_Obj_13 (x11) [0x36, 0x37]
 - [ ] 0x1C S1_Obj_1C (x11) [0x00]
-- [ ] 0x25 Ring (x54) [7 subtypes]
+- [x] 0x25 Ring (x54) [7 subtypes]
 - [x] 0x26 Monitor (x15) [0x02, 0x05, 0x06]
 - [ ] 0x3C BreakableWall (x4) [0x01]
-- [ ] 0x41 Spring (x16) [0x00, 0x10, 0x02]
+- [x] 0x41 Spring (x16) [0x00, 0x10, 0x02]
 - [ ] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x53 S1_Obj_53 (x10) [0x81]
 - [ ] 0x59 S1_Obj_59 (x5) [4 subtypes]
@@ -403,7 +403,7 @@ Total: 223 objects | Implemented: 2 | Unimplemented: 15
 
 #### Act 2
 
-Total: 187 objects | Implemented: 2 | Unimplemented: 17
+Total: 187 objects | Implemented: 4 | Unimplemented: 15
 
 **Badniks:**
 - [ ] 0x5F Bomb (x20) [0x00]
@@ -414,9 +414,9 @@ Total: 187 objects | Implemented: 2 | Unimplemented: 17
 - [ ] 0x13 S1_Obj_13 (x1) [0x17]
 - [ ] 0x18 Platform (x3) [0x03]
 - [ ] 0x1C S1_Obj_1C (x1) [0x00]
-- [ ] 0x25 Ring (x65) [8 subtypes]
+- [x] 0x25 Ring (x65) [8 subtypes]
 - [x] 0x26 Monitor (x8) [0x02, 0x05, 0x06]
-- [ ] 0x41 Spring (x15) [0x10, 0x00, 0x02]
+- [x] 0x41 Spring (x15) [0x10, 0x00, 0x02]
 - [ ] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x53 S1_Obj_53 (x8) [0x81]
 - [ ] 0x56 S1_Obj_56 (x8) [4 subtypes]
@@ -430,7 +430,7 @@ Total: 187 objects | Implemented: 2 | Unimplemented: 17
 
 #### Act 3
 
-Total: 250 objects | Implemented: 2 | Unimplemented: 18
+Total: 250 objects | Implemented: 4 | Unimplemented: 16
 
 **Badniks:**
 - [ ] 0x5F Bomb (x48) [0x00]
@@ -441,11 +441,11 @@ Total: 250 objects | Implemented: 2 | Unimplemented: 18
 - [ ] 0x15 S1_Obj_15 (x2) [0x07]
 - [ ] 0x18 Platform (x4) [0x03]
 - [ ] 0x1C S1_Obj_1C (x7) [0x00]
-- [ ] 0x25 Ring (x65) [11 subtypes]
+- [x] 0x25 Ring (x65) [11 subtypes]
 - [x] 0x26 Monitor (x17) [4 subtypes]
 - [ ] 0x3C BreakableWall (x4) [0x01]
 - [ ] 0x3E EggPrison (x2) [0x00, 0x01]
-- [ ] 0x41 Spring (x11) [0x10, 0x00, 0x02]
+- [x] 0x41 Spring (x11) [0x10, 0x00, 0x02]
 - [ ] 0x53 S1_Obj_53 (x9) [0x81, 0x01]
 - [ ] 0x56 S1_Obj_56 (x16) [4 subtypes]
 - [ ] 0x59 S1_Obj_59 (x6) [4 subtypes]
@@ -460,7 +460,7 @@ Total: 250 objects | Implemented: 2 | Unimplemented: 18
 
 #### Act 1
 
-Total: 193 objects | Implemented: 5 | Unimplemented: 13
+Total: 193 objects | Implemented: 7 | Unimplemented: 11
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x9) [0x00]
@@ -471,10 +471,10 @@ Total: 193 objects | Implemented: 5 | Unimplemented: 13
 - [x] 0x0D Signpost (x1) [0x00]
 - [ ] 0x12 S1_Obj_12 (x8) [0x00]
 - [ ] 0x18 Platform (x8) [4 subtypes]
-- [ ] 0x25 Ring (x42) [15 subtypes]
+- [x] 0x25 Ring (x42) [15 subtypes]
 - [x] 0x26 Monitor (x6) [5 subtypes]
 - [ ] 0x32 S1_Obj_32 (x2) [0x80, 0x00]
-- [ ] 0x41 Spring (x30) [5 subtypes]
+- [x] 0x41 Spring (x30) [5 subtypes]
 - [ ] 0x43 S1_Obj_43 (x2) [0x00]
 - [ ] 0x47 Bumper (x13) [0x00]
 - [ ] 0x4B GiantRing (x1) [0x00]
@@ -486,7 +486,7 @@ Total: 193 objects | Implemented: 5 | Unimplemented: 13
 
 #### Act 2
 
-Total: 230 objects | Implemented: 5 | Unimplemented: 13
+Total: 230 objects | Implemented: 7 | Unimplemented: 11
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x10) [0x00]
@@ -497,9 +497,9 @@ Total: 230 objects | Implemented: 5 | Unimplemented: 13
 - [x] 0x0D Signpost (x2) [0x00]
 - [ ] 0x12 S1_Obj_12 (x4) [0x00]
 - [ ] 0x18 Platform (x11) [6 subtypes]
-- [ ] 0x25 Ring (x67) [25 subtypes]
+- [x] 0x25 Ring (x67) [25 subtypes]
 - [x] 0x26 Monitor (x3) [0x02, 0x04, 0x05]
-- [ ] 0x41 Spring (x24) [5 subtypes]
+- [x] 0x41 Spring (x24) [5 subtypes]
 - [ ] 0x43 S1_Obj_43 (x2) [0x00]
 - [ ] 0x47 Bumper (x13) [0x00]
 - [ ] 0x4B GiantRing (x2) [0x00]
@@ -512,7 +512,7 @@ Total: 230 objects | Implemented: 5 | Unimplemented: 13
 
 #### Act 3
 
-Total: 257 objects | Implemented: 4 | Unimplemented: 12
+Total: 257 objects | Implemented: 6 | Unimplemented: 10
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x14) [0x00]
@@ -522,11 +522,11 @@ Total: 257 objects | Implemented: 4 | Unimplemented: 12
 **Objects:**
 - [ ] 0x12 S1_Obj_12 (x9) [0x00]
 - [ ] 0x18 Platform (x24) [5 subtypes]
-- [ ] 0x25 Ring (x46) [16 subtypes]
+- [x] 0x25 Ring (x46) [16 subtypes]
 - [x] 0x26 Monitor (x11) [5 subtypes]
 - [ ] 0x32 S1_Obj_32 (x2) [0x00, 0x0F]
 - [ ] 0x3E EggPrison (x2) [0x00, 0x01]
-- [ ] 0x41 Spring (x17) [0x00, 0x02, 0x12]
+- [x] 0x41 Spring (x17) [0x00, 0x02, 0x12]
 - [ ] 0x47 Bumper (x17) [0x00]
 - [ ] 0x56 S1_Obj_56 (x80) [7 subtypes]
 - [ ] 0x57 S1_Obj_57 (x2) [0x54]
@@ -538,7 +538,7 @@ Total: 257 objects | Implemented: 4 | Unimplemented: 12
 
 #### Act 1
 
-Total: 308 objects | Implemented: 3 | Unimplemented: 20
+Total: 308 objects | Implemented: 5 | Unimplemented: 18
 
 **Badniks:**
 - [ ] 0x5F Bomb (x6) [0x00]
@@ -547,11 +547,11 @@ Total: 308 objects | Implemented: 3 | Unimplemented: 20
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
 - [ ] 0x1E S1_Obj_1E (x4) [0x06]
-- [ ] 0x25 Ring (x45) [9 subtypes]
+- [x] 0x25 Ring (x45) [9 subtypes]
 - [x] 0x26 Monitor (x15) [0x04, 0x06]
 - [ ] 0x2A S1_Obj_2A (x8) [0x00]
 - [ ] 0x32 S1_Obj_32 (x4) [0x00, 0x01, 0x02]
-- [ ] 0x41 Spring (x3) [0x10, 0x00]
+- [x] 0x41 Spring (x3) [0x10, 0x00]
 - [ ] 0x52 S1_Obj_52 (x6) [0x39]
 - [ ] 0x53 S1_Obj_53 (x3) [0x01]
 - [ ] 0x66 S1_Obj_66 (x2) [0x00, 0x02]
@@ -569,7 +569,7 @@ Total: 308 objects | Implemented: 3 | Unimplemented: 20
 
 #### Act 2
 
-Total: 292 objects | Implemented: 2 | Unimplemented: 20
+Total: 292 objects | Implemented: 4 | Unimplemented: 18
 
 **Badniks:**
 - [ ] 0x5F Bomb (x12) [0x00]
@@ -579,11 +579,11 @@ Total: 292 objects | Implemented: 2 | Unimplemented: 20
 - [x] 0x0D Signpost (x1) [0x00]
 - [ ] 0x15 S1_Obj_15 (x12) [0x06, 0x07]
 - [ ] 0x1E S1_Obj_1E (x6) [0x08]
-- [ ] 0x25 Ring (x49) [0x10, 0x12, 0x14]
+- [x] 0x25 Ring (x49) [0x10, 0x12, 0x14]
 - [x] 0x26 Monitor (x25) [8 subtypes]
 - [ ] 0x2A S1_Obj_2A (x6) [0x00]
 - [ ] 0x32 S1_Obj_32 (x3) [0x00, 0x01, 0x03]
-- [ ] 0x41 Spring (x2) [0x10]
+- [x] 0x41 Spring (x2) [0x10]
 - [ ] 0x52 S1_Obj_52 (x1) [0x28]
 - [ ] 0x53 S1_Obj_53 (x10) [0x01]
 - [ ] 0x67 S1_Obj_67 (x8) [0x40]
