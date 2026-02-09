@@ -56,6 +56,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1MonitorObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.ROCK,
                 (spawn, registry) -> new Sonic1RockObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.BRIDGE,
+                (spawn, registry) -> new Sonic1BridgeObjectInstance(spawn));
     }
 
     @Override
