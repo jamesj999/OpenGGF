@@ -5,8 +5,6 @@ import uk.co.jamesj999.sonic.audio.smps.SmpsLoader;
 import uk.co.jamesj999.sonic.audio.smps.SmpsSequencerConfig;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.sonic2.audio.smps.Sonic2SmpsLoader;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
-
 public class Sonic2AudioProfile implements GameAudioProfile {
     @Override
     public SmpsLoader createSmpsLoader(Rom rom) {
@@ -20,22 +18,22 @@ public class Sonic2AudioProfile implements GameAudioProfile {
 
     @Override
     public int getSpeedShoesOnCommandId() {
-        return Sonic2AudioConstants.CMD_SPEED_UP;
+        return Sonic2SmpsConstants.CMD_SPEED_UP;
     }
 
     @Override
     public int getSpeedShoesOffCommandId() {
-        return Sonic2AudioConstants.CMD_SLOW_DOWN;
+        return Sonic2SmpsConstants.CMD_SLOW_DOWN;
     }
 
     @Override
     public int getInvincibilityMusicId() {
-        return Sonic2AudioConstants.MUS_INVINCIBILITY;
+        return Sonic2Music.INVINCIBILITY.id;
     }
 
     @Override
     public int getExtraLifeMusicId() {
-        return Sonic2AudioConstants.MUS_EXTRA_LIFE;
+        return Sonic2Music.EXTRA_LIFE.id;
     }
 
     @Override

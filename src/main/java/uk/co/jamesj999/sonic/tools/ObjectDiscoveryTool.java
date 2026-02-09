@@ -89,6 +89,7 @@ public class ObjectDiscoveryTool {
             0x40,  // Springboard (CPZ/ARZ/MCZ lever spring)
             0x41,  // Spring
             0x44,  // Bumper
+            0x48,  // LauncherBall (OOZ transporter ball)
             0x49,  // EHZWaterfall
             0x4B,  // Buzzer
             0x51,  // CNZBoss (dynamically spawned pinball spike dropper zapping boss)

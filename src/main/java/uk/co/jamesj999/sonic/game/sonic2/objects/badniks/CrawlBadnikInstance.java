@@ -2,7 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects.badniks;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -331,7 +331,7 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
         impactTimer = 16;
 
         // Play bumper sound
-        AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_BUMPER);
+        AudioManager.getInstance().playSfx(Sonic2Sfx.BUMPER.id);
     }
 
     @Override

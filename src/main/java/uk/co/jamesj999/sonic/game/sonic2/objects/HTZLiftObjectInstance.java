@@ -3,7 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -172,7 +172,7 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
         // Play click sound every 16 frames
         // ROM: andi.w #$F,d0 / bne.s + / move.w #SndID_HTZLiftClick,d0
         if ((frameCounter & 0x0F) == 0) {
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_HTZ_LIFT_CLICK);
+            AudioManager.getInstance().playSfx(Sonic2Sfx.HTZ_LIFT_CLICK.id);
         }
 
         // Apply velocity (ObjectMove equivalent)

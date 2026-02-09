@@ -56,6 +56,9 @@ public final class Sonic2ObjectArtKeys {
     // ARZ specific
     public static final String LEAVES = "leaves";
 
+    // OOZ-specific
+    public static final String LAUNCH_BALL = "launch_ball";
+
     // Collapsing Platform (OOZ/MCZ)
     public static final String OOZ_COLLAPSING_PLATFORM = "ooz_collapsing_platform";
     public static final String MCZ_COLLAPSING_PLATFORM = "mcz_collapsing_platform";

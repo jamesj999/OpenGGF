@@ -20,7 +20,8 @@ import uk.co.jamesj999.sonic.game.RespawnState;
 import uk.co.jamesj999.sonic.game.ResultsScreen;
 import uk.co.jamesj999.sonic.game.SpecialStageProvider;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.debug.PerformanceProfiler;
 import uk.co.jamesj999.sonic.game.sonic2.objects.SpecialStageResultsScreenObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageManager;
@@ -652,7 +653,7 @@ public class GameLoop {
                 ssRingsCollected, ssEmeraldCollected, ssStageIndex, totalEmeralds);
 
         // Play act clear music
-        AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_ACT_CLEAR);
+        AudioManager.getInstance().playMusic(Sonic2Music.ACT_CLEAR.id);
 
         // Notify listener of mode change
         if (gameModeChangeListener != null) {
@@ -695,7 +696,7 @@ public class GameLoop {
         }
 
         // Play special stage entry sound
-        AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SPECIAL_STAGE_ENTRY);
+        AudioManager.getInstance().playSfx(Sonic2Sfx.SPECIAL_STAGE_ENTRY.id);
 
         // Fade out the current music gradually (ROM: MusID_FadeOut / zFadeOutMusic)
         // This preserves the SFX we just started, unlike stopMusic() which silences all
@@ -732,7 +733,7 @@ public class GameLoop {
             camera.setX((short) 0);
             camera.setY((short) 0);
 
-            AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_SPECIAL_STAGE);
+            AudioManager.getInstance().playMusic(Sonic2Music.SPECIAL_STAGE.id);
 
             // Notify listener of mode change
             if (gameModeChangeListener != null) {
@@ -808,7 +809,7 @@ public class GameLoop {
         }
 
         // Play act clear music
-        AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_ACT_CLEAR);
+        AudioManager.getInstance().playMusic(Sonic2Music.ACT_CLEAR.id);
 
         // Notify listener of mode change
         if (gameModeChangeListener != null) {
@@ -839,7 +840,7 @@ public class GameLoop {
         }
 
         // Play the special stage exit sound (same as entry sound)
-        AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SPECIAL_STAGE_ENTRY);
+        AudioManager.getInstance().playSfx(Sonic2Sfx.SPECIAL_STAGE_ENTRY.id);
 
         // Start fade-to-white, then show title card when complete
         fadeManager.startFadeToWhite(() -> {

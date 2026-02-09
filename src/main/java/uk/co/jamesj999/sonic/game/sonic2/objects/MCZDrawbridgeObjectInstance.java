@@ -8,7 +8,7 @@ import uk.co.jamesj999.sonic.debug.DebugOverlayToggle;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.ButtonVineTriggerManager;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -216,7 +216,7 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
             // Start lowering the bridge
             // ROM (line 56502-56504): tst.b objoff_36(a0) / bne.s + / move.b #1,objoff_36(a0)
             isMoving = true;
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_DRAWBRIDGE_MOVE);
+            AudioManager.getInstance().playSfx(Sonic2Sfx.DRAWBRIDGE_MOVE.id);
 
             // Special case: if X-flip is set, immediately adjust X position
             // ROM (line 56508-56511): cmpi.b #status.npc.no_balancing|status.npc.x_flip,status(a0)
@@ -240,7 +240,7 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
             if (unsignedAngle == ANGLE_COMPLETE_ZERO || unsignedAngle == ANGLE_COMPLETE_180) {
                 isMoving = false;
                 bridgeDown = true;
-                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_DRAWBRIDGE_DOWN);
+                AudioManager.getInstance().playSfx(Sonic2Sfx.DRAWBRIDGE_DOWN.id);
 
                 // Update collision position when bridge is down
                 // ROM (line 56521-56523): move.w objoff_32(a0),y_pos(a0)

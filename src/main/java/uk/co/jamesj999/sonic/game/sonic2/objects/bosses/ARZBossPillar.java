@@ -3,7 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
@@ -88,7 +88,7 @@ public class ARZBossPillar extends AbstractObjectInstance
      */
     private void updatePillarRaise(int frameCounter) {
         if ((frameCounter & 0x1F) == 0) {
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_RUMBLING_2);
+            AudioManager.getInstance().playSfx(Sonic2Sfx.RUMBLING_2.id);
         }
         y -= 1;
         if (y <= PILLAR_TARGET_Y) {

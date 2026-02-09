@@ -8,7 +8,7 @@ import uk.co.jamesj999.sonic.debug.DebugOverlayToggle;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.ButtonVineTriggerManager;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -119,7 +119,7 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
 
             // Play door slam sound if on screen
             if (isOnScreen(WIDTH_PIXELS)) {
-                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_DOOR_SLAM);
+                AudioManager.getInstance().playSfx(Sonic2Sfx.DOOR_SLAM.id);
             }
         } else if (!triggered) {
             triggerLatch = false;

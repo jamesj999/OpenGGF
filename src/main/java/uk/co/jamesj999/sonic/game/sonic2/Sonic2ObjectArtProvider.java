@@ -232,6 +232,11 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         // ARZ leaves
         registerSheet(Sonic2ObjectArtKeys.LEAVES, artData.leavesSheet());
 
+        // OOZ LauncherBall (Object 0x48) - only for OOZ
+        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_OOZ) {
+            registerSheet(Sonic2ObjectArtKeys.LAUNCH_BALL, artLoader.loadLaunchBallSheet());
+        }
+
         // Collapsing Platform art (Object 0x1F) - zone-specific
         ObjectSpriteSheet oozCollapsingPlatformSheet = artLoader.loadOOZCollapsingPlatformSheet();
         if (oozCollapsingPlatformSheet != null) {

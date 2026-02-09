@@ -3,7 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.audio.AudioManager;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
@@ -246,7 +246,7 @@ public class SpikeObjectInstance extends BoxObjectInstance implements SolidObjec
             return;
         }
         try {
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SPIKES_MOVE);
+            AudioManager.getInstance().playSfx(Sonic2Sfx.SPIKES_MOVE.id);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic.
         }

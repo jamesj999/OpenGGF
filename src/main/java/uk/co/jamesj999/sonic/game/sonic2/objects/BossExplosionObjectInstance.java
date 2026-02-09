@@ -1,7 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
@@ -35,7 +35,7 @@ public class BossExplosionObjectInstance extends AbstractObjectInstance {
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (!initialized) {
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_BOSS_EXPLOSION);
+            AudioManager.getInstance().playSfx(Sonic2Sfx.BOSS_EXPLOSION.id);
             initialized = true;
         }
         frameTimer--;

@@ -1,7 +1,9 @@
 package uk.co.jamesj999.sonic.game.sonic2.audio.smps;
 
-import static uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.*;
 import static uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SmpsConstants.*;
+
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 import uk.co.jamesj999.sonic.audio.smps.DacData;
 import uk.co.jamesj999.sonic.audio.smps.SmpsLoader;
@@ -32,36 +34,36 @@ public class Sonic2SmpsLoader implements SmpsLoader {
         // These ROM addresses were discovered empirically and are correct.
         // The IDs here are what the game uses when requesting music.
         musicMap.put(0x00, 0x0F0002); // Continue
-        musicMap.put(MUS_CASINO_NIGHT_2P, 0x0F84F6); // Casino Night 2P
-        musicMap.put(MUS_EMERALD_HILL, 0x0F88C4); // Emerald Hill
-        musicMap.put(MUS_METROPOLIS, 0x0F8DEE); // Metropolis
-        musicMap.put(MUS_CASINO_NIGHT, 0x0F917B); // Casino Night
-        musicMap.put(MUS_MYSTIC_CAVE, 0x0F9664); // Mystic Cave
-        musicMap.put(MUS_MYSTIC_CAVE_2P, 0x0F9A3C); // Mystic Cave 2P
-        musicMap.put(MUS_AQUATIC_RUIN, 0x0F9D69); // Aquatic Ruin
-        musicMap.put(MUS_DEATH_EGG, 0x0FA36B); // Death Egg
-        musicMap.put(MUS_SPECIAL_STAGE, 0x0FA6ED); // Special Stage
-        musicMap.put(MUS_OPTIONS, 0x0FAAC4); // Options
-        musicMap.put(MUS_ENDING, 0x0FAC3C); // Ending
-        musicMap.put(MUS_FINAL_BOSS, 0x0FB124); // Final Battle
-        musicMap.put(MUS_CHEMICAL_PLANT, 0x0FB3F7); // Chemical Plant
-        musicMap.put(MUS_BOSS, 0x0FB81E); // Boss
-        musicMap.put(MUS_SKY_CHASE, 0x0FBA6F); // Sky Chase
-        musicMap.put(MUS_OIL_OCEAN, 0x0FBD8C); // Oil Ocean
-        musicMap.put(MUS_WING_FORTRESS, 0x0FC146); // Wing Fortress
-        musicMap.put(MUS_EMERALD_HILL_2P, 0x0FC480); // Emerald Hill 2P
-        musicMap.put(MUS_2P_RESULTS, 0x0FC824); // 2P Results
-        musicMap.put(MUS_SUPER_SONIC, 0x0FCBBC); // Super Sonic
-        musicMap.put(MUS_HILL_TOP, 0x0FCE74); // Hill Top
-        musicMap.put(MUS_TITLE, 0x0FD193); // Title
-        musicMap.put(MUS_ACT_CLEAR, 0x0FD35E); // Stage Clear
-        musicMap.put(MUS_INVINCIBILITY, 0x0F8359); // Invincibility
-        musicMap.put(MUS_HIDDEN_PALACE, 0x0F803C); // Hidden Palace
-        musicMap.put(MUS_EXTRA_LIFE, 0x0FD48D); // 1-Up (MUS_EXTRA_LIFE)
-        musicMap.put(MUS_GAME_OVER, 0x0FD57A); // Game Over
-        musicMap.put(MUS_GOT_EMERALD, 0x0FD6C9); // Got an Emerald
-        musicMap.put(MUS_CREDITS, 0x0FD797); // Credits
-        musicMap.put(MUS_UNDERWATER, 0x0F823B); // Underwater Timing
+        musicMap.put(Sonic2Music.CASINO_NIGHT_2P.id, 0x0F84F6); // Casino Night 2P
+        musicMap.put(Sonic2Music.EMERALD_HILL.id, 0x0F88C4); // Emerald Hill
+        musicMap.put(Sonic2Music.METROPOLIS.id, 0x0F8DEE); // Metropolis
+        musicMap.put(Sonic2Music.CASINO_NIGHT.id, 0x0F917B); // Casino Night
+        musicMap.put(Sonic2Music.MYSTIC_CAVE.id, 0x0F9664); // Mystic Cave
+        musicMap.put(Sonic2Music.MYSTIC_CAVE_2P.id, 0x0F9A3C); // Mystic Cave 2P
+        musicMap.put(Sonic2Music.AQUATIC_RUIN.id, 0x0F9D69); // Aquatic Ruin
+        musicMap.put(Sonic2Music.DEATH_EGG.id, 0x0FA36B); // Death Egg
+        musicMap.put(Sonic2Music.SPECIAL_STAGE.id, 0x0FA6ED); // Special Stage
+        musicMap.put(Sonic2Music.OPTIONS.id, 0x0FAAC4); // Options
+        musicMap.put(Sonic2Music.ENDING.id, 0x0FAC3C); // Ending
+        musicMap.put(Sonic2Music.FINAL_BOSS.id, 0x0FB124); // Final Battle
+        musicMap.put(Sonic2Music.CHEMICAL_PLANT.id, 0x0FB3F7); // Chemical Plant
+        musicMap.put(Sonic2Music.BOSS.id, 0x0FB81E); // Boss
+        musicMap.put(Sonic2Music.SKY_CHASE.id, 0x0FBA6F); // Sky Chase
+        musicMap.put(Sonic2Music.OIL_OCEAN.id, 0x0FBD8C); // Oil Ocean
+        musicMap.put(Sonic2Music.WING_FORTRESS.id, 0x0FC146); // Wing Fortress
+        musicMap.put(Sonic2Music.EMERALD_HILL_2P.id, 0x0FC480); // Emerald Hill 2P
+        musicMap.put(Sonic2Music.RESULTS_2P.id, 0x0FC824); // 2P Results
+        musicMap.put(Sonic2Music.SUPER_SONIC.id, 0x0FCBBC); // Super Sonic
+        musicMap.put(Sonic2Music.HILL_TOP.id, 0x0FCE74); // Hill Top
+        musicMap.put(Sonic2Music.TITLE.id, 0x0FD193); // Title
+        musicMap.put(Sonic2Music.ACT_CLEAR.id, 0x0FD35E); // Stage Clear
+        musicMap.put(Sonic2Music.INVINCIBILITY.id, 0x0F8359); // Invincibility
+        musicMap.put(Sonic2Music.HIDDEN_PALACE.id, 0x0F803C); // Hidden Palace
+        musicMap.put(Sonic2Music.EXTRA_LIFE.id, 0x0FD48D); // 1-Up
+        musicMap.put(Sonic2Music.GAME_OVER.id, 0x0FD57A); // Game Over
+        musicMap.put(Sonic2Music.GOT_EMERALD.id, 0x0FD6C9); // Got an Emerald
+        musicMap.put(Sonic2Music.CREDITS.id, 0x0FD797); // Credits
+        musicMap.put(Sonic2Music.UNDERWATER.id, 0x0F823B); // Underwater Timing
         // SFX Map (Populate with discovered offsets)
         // Potential candidate for SFX: 0xFFEAD (FM=1)
         sfxMap.put("RING", 0xFFEAD);
@@ -69,7 +71,7 @@ public class Sonic2SmpsLoader implements SmpsLoader {
 
     private void populateSfxNames() {
         // Common Sonic 2 SFX (from SoundIndex in disassembly)
-        sfxNames.put(SFX_ID_BASE, "Jump");
+        sfxNames.put(Sonic2Sfx.ID_BASE, "Jump");
         sfxNames.put(0xA1, "Checkpoint");
         sfxNames.put(0xA2, "Spike Switch");
         sfxNames.put(0xA3, "Hurt");
@@ -148,14 +150,14 @@ public class Sonic2SmpsLoader implements SmpsLoader {
         sfxNames.put(0xEC, "Teleport");
         sfxNames.put(0xED, "Error");
         sfxNames.put(0xEE, "Mecha Sonic Buzz");
-        sfxNames.put(SFX_ID_MAX, "Large Laser");
+        sfxNames.put(Sonic2Sfx.ID_MAX, "Large Laser");
     }
 
     public void cacheAllSfx() {
         LOGGER.info("Caching all SFX...");
-        LOGGER.fine("Scanning for SFX from SFX_ID_BASE to SFX_ID_MAX...");
-        // Scan SFX_ID_BASE to SFX_ID_MAX
-        for (int id = SFX_ID_BASE; id <= SFX_ID_MAX; id++) {
+        LOGGER.fine("Scanning for SFX from ID_BASE to ID_MAX...");
+        // Scan ID_BASE to ID_MAX
+        for (int id = Sonic2Sfx.ID_BASE; id <= Sonic2Sfx.ID_MAX; id++) {
             AbstractSmpsData sfx = loadSfxInternal(id);
             if (sfx != null) {
                 sfxCache.put(id, sfx);
@@ -231,7 +233,7 @@ public class Sonic2SmpsLoader implements SmpsLoader {
         // Try parsing as hex ID (e.g. "A0")
         try {
             int id = Integer.parseInt(name, 16);
-            if (id >= SFX_ID_BASE && id <= SFX_ID_PARSE_MAX) {
+            if (id >= Sonic2Sfx.ID_BASE && id <= Sonic2Sfx.ID_MAX + 1) {
                 return loadSfx(id);
             }
         } catch (NumberFormatException ignored) {
@@ -252,14 +254,14 @@ public class Sonic2SmpsLoader implements SmpsLoader {
 
     private AbstractSmpsData loadSfxInternal(int sfxId) {
         // SFX Pointer Table at SFX_POINTER_TABLE_ADDR.
-        // IDs start at SFX_ID_BASE.
+        // IDs start at Sonic2Sfx.ID_BASE.
         // Pointers are 2 bytes (LE), relative to bank start SFX_BANK_BASE (Z80
         // Z80_BANK_BASE).
-        if (sfxId < SFX_ID_BASE)
+        if (sfxId < Sonic2Sfx.ID_BASE)
             return null;
 
         try {
-            int index = sfxId - SFX_ID_BASE;
+            int index = sfxId - Sonic2Sfx.ID_BASE;
             int tableAddr = SFX_POINTER_TABLE_ADDR;
             int entryAddr = tableAddr + (index * 2);
 
@@ -558,7 +560,7 @@ public class Sonic2SmpsLoader implements SmpsLoader {
         // Bound by next SFX pointer in the table
         int nextOffset = bankEnd;
         int tableAddr = SFX_POINTER_TABLE_ADDR;
-        for (int idx = tableIndex + 1; idx <= (SFX_ID_MAX - SFX_ID_BASE); idx++) {
+        for (int idx = tableIndex + 1; idx <= (Sonic2Sfx.ID_MAX - Sonic2Sfx.ID_BASE); idx++) {
             int entryAddr = tableAddr + (idx * 2);
             int lo = rom.readByte(entryAddr) & 0xFF;
             int hi = rom.readByte(entryAddr + 1) & 0xFF;
