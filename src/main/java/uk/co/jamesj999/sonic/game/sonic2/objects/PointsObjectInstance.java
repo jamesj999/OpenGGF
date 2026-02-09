@@ -96,7 +96,7 @@ public class PointsObjectInstance extends uk.co.jamesj999.sonic.level.objects.Ab
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (isDestroyed())
+        if (isDestroyed() || renderer == null)
             return;
         // Convert 8.8 fixed-point to pixel position (high byte)
         int pixelY = ySubpixel >> 8;

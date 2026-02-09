@@ -96,6 +96,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load shield art
         loadShieldArt(rom);
 
+        // Load Buzz Bomber art (GHZ/MZ/SYZ badnik + missile + dissolve)
+        loadBuzzBomberArt(rom);
+
         // Load results screen art (reuses title card + HUD text)
         loadResultsScreenArt(rom);
 
@@ -878,6 +881,182 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-0x33, -9, 2, 1, 0x6E + T, false, false, 0, false),
                 new SpriteMappingPiece(-0x33, -1, 2, 1, 0x6E + T, true,  true,  0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads Buzz Bomber art (Nem_Buzz) and creates sprite sheets for the Buzz Bomber,
+     * its missile, and the missile dissolve effect.
+     * All three share the same Nemesis-compressed art tile set (ArtTile_Buzz_Bomber = $444).
+     * Missile dissolve uses a separate VRAM region (ArtTile_Missile_Disolve = $41C),
+     * but in practice shares the same ROM art with different tile offsets in mappings.
+     */
+    private void loadBuzzBomberArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_BUZZ_BOMBER_ADDR, "BuzzBomber");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Buzz Bomber art");
+            return;
+        }
+
+        // Buzz Bomber body: palette 0, art tile $444
+        List<SpriteMappingFrame> buzzMappings = createBuzzBomberMappings();
+        ObjectSpriteSheet buzzSheet = new ObjectSpriteSheet(patterns, buzzMappings, 0, 1);
+        registerSheet(ObjectArtKeys.BUZZ_BOMBER, buzzSheet);
+
+        // Missile: palette 1, shares same art tiles (base $444, missile tiles at offset $24+)
+        List<SpriteMappingFrame> missileMappings = createBuzzBomberMissileMappings();
+        ObjectSpriteSheet missileSheet = new ObjectSpriteSheet(patterns, missileMappings, 1, 1);
+        registerSheet(ObjectArtKeys.BUZZ_BOMBER_MISSILE, missileSheet);
+
+        // Missile dissolve: palette 0
+        // In the original ROM, dissolve references ArtTile_Missile_Disolve ($41C) which is
+        // a separate VRAM region. However, $41C is marked as "Unused" in Constants.asm and
+        // no PLC ever loads art to that address. Object 24 itself is marked "unused?" in the
+        // disassembly. The dissolve effect was likely cut during development.
+        // We reuse buzz bomber patterns as a visual stand-in since the original has no art loaded.
+        List<SpriteMappingFrame> dissolveMappings = createBuzzBomberMissileDisolveMappings();
+        ObjectSpriteSheet dissolveSheet = new ObjectSpriteSheet(patterns, dissolveMappings, 0, 1);
+        registerSheet(ObjectArtKeys.BUZZ_BOMBER_MISSILE_DISSOLVE, dissolveSheet);
+    }
+
+    /**
+     * Creates Buzz Bomber sprite mappings from S1 disassembly Map_Buzz_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0 (.Fly1): Hovering, wings up (6 pieces)
+     * Frame 1 (.Fly2): Hovering, wings down (6 pieces)
+     * Frame 2 (.Fly3): Flying, wings up + exhaust (7 pieces)
+     * Frame 3 (.Fly4): Flying, wings down + exhaust (7 pieces)
+     * Frame 4 (.Fire1): Firing, wings up + missile pod (6 pieces)
+     * Frame 5 (.Fire2): Firing, wings down (4 pieces - 2 wing pieces after end marker are unused)
+     */
+    private List<SpriteMappingFrame> createBuzzBomberMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .Fly1 - hovering, wings up
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x0C, 3, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x0C, 3, 2, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece(-0x18,  0x04, 3, 1, 0x15, false, false, 0, false),
+                new SpriteMappingPiece(    0,  0x04, 2, 1, 0x18, false, false, 0, false),
+                new SpriteMappingPiece(-0x14, -0x0F, 3, 1, 0x1A, false, false, 0, false),
+                new SpriteMappingPiece(  0x04, -0x0F, 2, 1, 0x1D, false, false, 0, false)
+        )));
+
+        // Frame 1: .Fly2 - hovering, wings down
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x0C, 3, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x0C, 3, 2, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece(-0x18,  0x04, 3, 1, 0x15, false, false, 0, false),
+                new SpriteMappingPiece(    0,  0x04, 2, 1, 0x18, false, false, 0, false),
+                new SpriteMappingPiece(-0x14, -0x0C, 3, 1, 0x1F, false, false, 0, false),
+                new SpriteMappingPiece(  0x04, -0x0C, 2, 1, 0x22, false, false, 0, false)
+        )));
+
+        // Frame 2: .Fly3 - flying, wings up + small exhaust
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(  0x0C,  0x04, 1, 1, 0x30, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, -0x0C, 3, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x0C, 3, 2, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece(-0x18,  0x04, 3, 1, 0x15, false, false, 0, false),
+                new SpriteMappingPiece(    0,  0x04, 2, 1, 0x18, false, false, 0, false),
+                new SpriteMappingPiece(-0x14, -0x0F, 3, 1, 0x1A, false, false, 0, false),
+                new SpriteMappingPiece(  0x04, -0x0F, 2, 1, 0x1D, false, false, 0, false)
+        )));
+
+        // Frame 3: .Fly4 - flying, wings down + large exhaust
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(  0x0C,  0x04, 2, 1, 0x31, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, -0x0C, 3, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x0C, 3, 2, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece(-0x18,  0x04, 3, 1, 0x15, false, false, 0, false),
+                new SpriteMappingPiece(    0,  0x04, 2, 1, 0x18, false, false, 0, false),
+                new SpriteMappingPiece(-0x14, -0x0C, 3, 1, 0x1F, false, false, 0, false),
+                new SpriteMappingPiece(  0x04, -0x0C, 2, 1, 0x22, false, false, 0, false)
+        )));
+
+        // Frame 4: .Fire1 - firing, wings up + missile pod
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, -0x0C, 4, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x14,  0x04, 4, 1, 0x08, false, false, 0, false),
+                new SpriteMappingPiece(  0x0C,  0x04, 1, 1, 0x0C, false, false, 0, false),
+                new SpriteMappingPiece( -0x0C,  0x0C, 2, 1, 0x0D, false, false, 0, false),
+                new SpriteMappingPiece(-0x14, -0x0F, 3, 1, 0x1A, false, false, 0, false),
+                new SpriteMappingPiece(  0x04, -0x0F, 2, 1, 0x1D, false, false, 0, false)
+        )));
+
+        // Frame 5: .Fire2 - firing, wings down (4 pieces; wing pieces after end marker are unused)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, -0x0C, 4, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x14,  0x04, 4, 1, 0x08, false, false, 0, false),
+                new SpriteMappingPiece(  0x0C,  0x04, 1, 1, 0x0C, false, false, 0, false),
+                new SpriteMappingPiece( -0x0C,  0x0C, 2, 1, 0x0D, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Creates Buzz Bomber missile sprite mappings from S1 disassembly Map_Missile_internal.
+     * <p>
+     * Frame 0 (.Flare1): Flare pulse 1 (2x2 at tile $24)
+     * Frame 1 (.Flare2): Flare pulse 2 (2x2 at tile $28)
+     * Frame 2 (.Ball1):  Missile ball 1 (2x2 at tile $2C)
+     * Frame 3 (.Ball2):  Missile ball 2 (2x2 at tile $33)
+     */
+    private List<SpriteMappingFrame> createBuzzBomberMissileMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .Flare1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x24, false, false, 0, false)
+        )));
+
+        // Frame 1: .Flare2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x28, false, false, 0, false)
+        )));
+
+        // Frame 2: .Ball1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x2C, false, false, 0, false)
+        )));
+
+        // Frame 3: .Ball2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x33, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Creates Buzz Bomber missile dissolve sprite mappings from S1 disassembly
+     * Map_MisDissolve_internal. 4 frames of 3x3 tiles (24x24 px) centered at (-$C, -$C).
+     * <p>
+     * Frame 0: Dissolve step 1 (tile $00)
+     * Frame 1: Dissolve step 2 (tile $09)
+     * Frame 2: Dissolve step 3 (tile $12)
+     * Frame 3: Dissolve step 4 (tile $1B)
+     */
+    private List<SpriteMappingFrame> createBuzzBomberMissileDisolveMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x00, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x09, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x12, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x1B, false, false, 0, false)
         )));
 
         return frames;

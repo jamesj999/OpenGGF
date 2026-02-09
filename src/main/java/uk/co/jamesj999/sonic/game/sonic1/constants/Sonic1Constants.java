@@ -196,6 +196,9 @@ public final class Sonic1Constants {
     // Nem_Spikes: Nemesis-compressed spike art (upward + sideways, 8 tiles)
     public static final int ART_NEM_SPIKES_ADDR = 0x2FCFE;
 
+    // Nem_Buzz: Nemesis-compressed Buzz Bomber art (GHZ/MZ/SYZ, ArtTile $444)
+    public static final int ART_NEM_BUZZ_BOMBER_ADDR = 0x3639E;
+
     // Nem_Sign: Nemesis-compressed signpost art (end-of-act sign, 58 tiles)
     public static final int ART_NEM_SIGNPOST_ADDR = 0x3A9E8;
 

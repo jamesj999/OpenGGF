@@ -1,6 +1,8 @@
 package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
+import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BuzzBomberBadnikInstance;
+import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectFactory;
 import uk.co.jamesj999.sonic.level.objects.ObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
@@ -60,6 +62,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1BridgeObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SPIKES,
                 (spawn, registry) -> new Sonic1SpikeObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.BUZZ_BOMBER,
+                (spawn, registry) -> new Sonic1BuzzBomberBadnikInstance(spawn, LevelManager.getInstance()));
     }
 
     @Override
@@ -71,6 +75,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.PLATFORM -> "Platform";
             case Sonic1ObjectIds.CRABMEAT -> "Crabmeat";
             case Sonic1ObjectIds.BUZZ_BOMBER -> "BuzzBomber";
+            case Sonic1ObjectIds.BUZZ_BOMBER_MISSILE -> "BuzzBomberMissile";
+            case Sonic1ObjectIds.MISSILE_DISSOLVE -> "MissileDissolve";
             case Sonic1ObjectIds.RING -> "Ring";
             case Sonic1ObjectIds.MONITOR -> "Monitor";
             case Sonic1ObjectIds.CHOPPER -> "Chopper";

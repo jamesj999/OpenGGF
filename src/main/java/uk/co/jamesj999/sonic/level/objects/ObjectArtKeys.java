@@ -37,6 +37,11 @@ public final class ObjectArtKeys {
     public static final String RESULTS = "results";
     public static final String EGG_PRISON = "egg_prison";
 
+    // Badnik art keys
+    public static final String BUZZ_BOMBER = "buzz_bomber";
+    public static final String BUZZ_BOMBER_MISSILE = "buzz_bomber_missile";
+    public static final String BUZZ_BOMBER_MISSILE_DISSOLVE = "buzz_bomber_missile_dissolve";
+
     // Animation keys (common across games)
     public static final String ANIM_MONITOR = "monitor";
     public static final String ANIM_SPRING = "spring";

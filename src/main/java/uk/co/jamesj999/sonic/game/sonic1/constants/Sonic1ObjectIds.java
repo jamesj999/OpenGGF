@@ -15,6 +15,8 @@ public final class Sonic1ObjectIds {
     public static final int PLATFORM        = 0x18;
     public static final int CRABMEAT        = 0x1F;
     public static final int BUZZ_BOMBER     = 0x22;
+    public static final int BUZZ_BOMBER_MISSILE = 0x23;
+    public static final int MISSILE_DISSOLVE = 0x24;
     public static final int RING            = 0x25;
     public static final int MONITOR         = 0x26;
     public static final int CHOPPER         = 0x2B;
