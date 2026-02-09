@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic1;
 
 import uk.co.jamesj999.sonic.game.ZoneRegistry;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
 import uk.co.jamesj999.sonic.level.LevelData;
 
 import java.util.List;
@@ -33,13 +34,13 @@ public class Sonic1ZoneRegistry implements ZoneRegistry {
     };
 
     private static final int[] ZONE_MUSIC = {
-            0x81, // Green Hill (MUS_GHZ)
-            0x82, // Labyrinth (MUS_LZ)
-            0x83, // Marble (MUS_MZ)
-            0x84, // Star Light (MUS_SLZ)
-            0x85, // Spring Yard (MUS_SYZ)
-            0x86, // Scrap Brain (MUS_SBZ)
-            0x8D  // Final Zone (MUS_FZ)
+            Sonic1Music.GHZ.id,  // Green Hill
+            Sonic1Music.LZ.id,   // Labyrinth
+            Sonic1Music.MZ.id,   // Marble
+            Sonic1Music.SLZ.id,  // Star Light
+            Sonic1Music.SYZ.id,  // Spring Yard
+            Sonic1Music.SBZ.id,  // Scrap Brain
+            Sonic1Music.FZ.id    // Final Zone
     };
 
     private Sonic1ZoneRegistry() {

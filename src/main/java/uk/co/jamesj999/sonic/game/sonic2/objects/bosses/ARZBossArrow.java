@@ -2,7 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
@@ -131,7 +131,7 @@ public class ARZBossArrow extends AbstractObjectInstance
             if (nextX <= LEFT_ARROW_STOP_X) {
                 x = LEFT_ARROW_STOP_X;
                 routineState = ARROW_SUB_STUCK;
-                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_ARROW_STICK);
+                AudioManager.getInstance().playSfx(Sonic2Sfx.ARROW_STICK.id);
             } else {
                 x = nextX;
             }
@@ -139,7 +139,7 @@ public class ARZBossArrow extends AbstractObjectInstance
             if (nextX >= RIGHT_ARROW_STOP_X) {
                 x = RIGHT_ARROW_STOP_X;
                 routineState = ARROW_SUB_STUCK;
-                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_ARROW_STICK);
+                AudioManager.getInstance().playSfx(Sonic2Sfx.ARROW_STICK.id);
             } else {
                 x = nextX;
             }

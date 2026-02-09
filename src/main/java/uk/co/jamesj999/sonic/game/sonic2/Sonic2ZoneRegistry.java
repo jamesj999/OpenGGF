@@ -1,7 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic2;
 
 import uk.co.jamesj999.sonic.game.ZoneRegistry;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 import uk.co.jamesj999.sonic.level.LevelData;
 
 import java.util.List;
@@ -45,17 +45,17 @@ public class Sonic2ZoneRegistry implements ZoneRegistry {
 
     // Music IDs per zone (all acts in a zone typically share the same music)
     private static final int[] ZONE_MUSIC = {
-            Sonic2AudioConstants.MUS_EMERALD_HILL,    // Emerald Hill
-            Sonic2AudioConstants.MUS_CHEMICAL_PLANT,  // Chemical Plant
-            Sonic2AudioConstants.MUS_AQUATIC_RUIN,    // Aquatic Ruin
-            Sonic2AudioConstants.MUS_CASINO_NIGHT,    // Casino Night
-            Sonic2AudioConstants.MUS_HILL_TOP,        // Hill Top
-            Sonic2AudioConstants.MUS_MYSTIC_CAVE,     // Mystic Cave
-            Sonic2AudioConstants.MUS_OIL_OCEAN,       // Oil Ocean
-            Sonic2AudioConstants.MUS_METROPOLIS,      // Metropolis
-            Sonic2AudioConstants.MUS_SKY_CHASE,       // Sky Chase
-            Sonic2AudioConstants.MUS_WING_FORTRESS,   // Wing Fortress
-            Sonic2AudioConstants.MUS_DEATH_EGG        // Death Egg
+            Sonic2Music.EMERALD_HILL.id,    // Emerald Hill
+            Sonic2Music.CHEMICAL_PLANT.id,  // Chemical Plant
+            Sonic2Music.AQUATIC_RUIN.id,    // Aquatic Ruin
+            Sonic2Music.CASINO_NIGHT.id,    // Casino Night
+            Sonic2Music.HILL_TOP.id,        // Hill Top
+            Sonic2Music.MYSTIC_CAVE.id,     // Mystic Cave
+            Sonic2Music.OIL_OCEAN.id,       // Oil Ocean
+            Sonic2Music.METROPOLIS.id,      // Metropolis
+            Sonic2Music.SKY_CHASE.id,       // Sky Chase
+            Sonic2Music.WING_FORTRESS.id,   // Wing Fortress
+            Sonic2Music.DEATH_EGG.id        // Death Egg
     };
 
     private Sonic2ZoneRegistry() {

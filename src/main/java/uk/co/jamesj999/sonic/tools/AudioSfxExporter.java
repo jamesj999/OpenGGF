@@ -8,7 +8,7 @@ import uk.co.jamesj999.sonic.audio.synth.Ym2612Chip;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SmpsSequencerConfig;
 import uk.co.jamesj999.sonic.game.sonic2.audio.smps.Sonic2SmpsLoader;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 
 import java.io.File;
 import java.io.RandomAccessFile;
@@ -195,12 +195,12 @@ public class AudioSfxExporter {
 
     private static List<SfxSpec> buildDefaultSpecs(int defaultSeconds) {
         List<SfxSpec> specs = new ArrayList<>();
-        specs.add(new SfxSpec(Sonic2AudioConstants.SFX_SPIKE_HIT, "a6-hurt-by-spikes", defaultSeconds));
-        specs.add(new SfxSpec(Sonic2AudioConstants.SFX_RING_RIGHT, "b5-ring-right", defaultSeconds));
-        specs.add(new SfxSpec(Sonic2AudioConstants.SFX_ROLLING, "be-roll", defaultSeconds));
-        specs.add(new SfxSpec(Sonic2AudioConstants.SFX_RING_SPILL, "c6-ring-loss", defaultSeconds));
-        specs.add(new SfxSpec(Sonic2AudioConstants.SFX_RING_LEFT, "ce-ring-left", defaultSeconds));
-        specs.add(new SfxSpec(Sonic2AudioConstants.SFX_SHIELD, "af-shield", defaultSeconds));
+        specs.add(new SfxSpec(Sonic2Sfx.HURT_BY_SPIKES.id, "a6-hurt-by-spikes", defaultSeconds));
+        specs.add(new SfxSpec(Sonic2Sfx.RING_RIGHT.id, "b5-ring-right", defaultSeconds));
+        specs.add(new SfxSpec(Sonic2Sfx.ROLL.id, "be-roll", defaultSeconds));
+        specs.add(new SfxSpec(Sonic2Sfx.RING_SPILL.id, "c6-ring-loss", defaultSeconds));
+        specs.add(new SfxSpec(Sonic2Sfx.RING_LEFT.id, "ce-ring-left", defaultSeconds));
+        specs.add(new SfxSpec(Sonic2Sfx.SHIELD.id, "af-shield", defaultSeconds));
         return specs;
     }
 

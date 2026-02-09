@@ -2,7 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.game.sonic2.objects.EggPrisonObjectInstance;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
@@ -274,7 +274,7 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
                 waitTimer = 0x32;
                 // Clear boss fight active flag so right boundary expands
                 uk.co.jamesj999.sonic.game.GameServices.gameState().setCurrentBossId(0);
-                AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_EMERALD_HILL);
+                AudioManager.getInstance().playMusic(Sonic2Music.EMERALD_HILL.id);
             }
             case 2 -> {
                 // ROM: s2.asm:63060-63068 (loc_2F424 - SubA_2: Waiting)

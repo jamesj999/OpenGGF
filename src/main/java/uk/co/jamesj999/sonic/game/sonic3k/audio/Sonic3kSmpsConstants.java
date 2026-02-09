@@ -132,14 +132,23 @@ public final class Sonic3kSmpsConstants {
     public static final int S3_ROM_OFFSET_IN_COMBINED = 0x200000;
 
     // -----------------------------------------------------------------------
-    // ID ranges
+    // System commands (sound queue IDs)
     // -----------------------------------------------------------------------
 
-    /** First SFX ID (sfx_RingRight, native 68K queue ID 0x33, Z80 SFX table index 0). */
-    public static final int SFX_ID_BASE = 0x33;
+    /** Fade out current music. */
+    public static final int CMD_FADE_OUT = 0xE0;
 
-    /** Last standard SFX ID (native 68K queue ID 0xDB, Z80 SFX table index 168). */
-    public static final int SFX_ID_MAX = 0xDB;
+    /** Play "SEGA" PCM sample. */
+    public static final int CMD_SEGA = 0xE1;
+
+    /** Speed up current music (speed shoes on). */
+    public static final int CMD_SPEED_UP = 0xE2;
+
+    /** Slow down current music (speed shoes off). */
+    public static final int CMD_SLOW_DOWN = 0xE3;
+
+    /** Stop all sound and music. */
+    public static final int CMD_STOP_ALL = 0xE4;
 
     private Sonic3kSmpsConstants() {
     }

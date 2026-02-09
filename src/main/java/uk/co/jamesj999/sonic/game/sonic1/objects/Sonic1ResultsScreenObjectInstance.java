@@ -2,7 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
-import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.game.sonic2.objects.AbstractResultsScreen;
 import uk.co.jamesj999.sonic.graphics.FadeManager;
@@ -259,7 +259,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     @Override
     protected void playTickSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic1AudioProfile.SFX_SWITCH);
+            AudioManager.getInstance().playSfx(Sonic1Sfx.SWITCH.id);
         } catch (Exception e) {
             // Ignore audio errors
         }
@@ -272,7 +272,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     @Override
     protected void playTallyEndSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic1AudioProfile.SFX_CASH);
+            AudioManager.getInstance().playSfx(Sonic1Sfx.TALLY.id);
         } catch (Exception e) {
             // Ignore audio errors
         }

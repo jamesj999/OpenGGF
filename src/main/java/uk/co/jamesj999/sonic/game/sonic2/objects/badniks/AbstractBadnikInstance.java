@@ -11,7 +11,7 @@ import uk.co.jamesj999.sonic.level.objects.TouchResponseResult;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ExplosionObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.PointsObjectInstance;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 
 /**
  * Abstract base class for all Badnik enemies.
@@ -128,7 +128,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         levelManager.getObjectManager().addDynamicObject(points);
 
         // Play explosion SFX
-        uk.co.jamesj999.sonic.audio.AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_EXPLOSION);
+        uk.co.jamesj999.sonic.audio.AudioManager.getInstance().playSfx(Sonic2Sfx.EXPLOSION.id);
 
         // Remove self
         // Remove self (handled by update loop via destroyed flag)

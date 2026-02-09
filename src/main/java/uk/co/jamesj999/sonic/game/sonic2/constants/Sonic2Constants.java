@@ -480,6 +480,9 @@ public class Sonic2Constants {
     public static final int MAP_UNC_OBJ81_ADDR = 0x2A24E;           // Obj81_MapUnc_2A24E (2 frames)
     public static final int ART_TILE_MCZ_GATE_LOG = 0x043C;         // ArtTile_ArtNem_MCZGateLog (MCZ palette 3)
 
+    // LauncherBall (Object 0x48) - OOZ transporter ball
+    public static final int ART_NEM_LAUNCH_BALL_ADDR = 0x806E0;  // ArtNem_LaunchBall (verified via RomOffsetFinder)
+
     // Collapsing Platform art (Object 0x1F)
     public static final int ART_NEM_OOZ_COLLAPSING_PLATFORM_ADDR = 0x809D0;  // ArtNem_OOZPlatform
     public static final int ART_NEM_MCZ_COLLAPSING_PLATFORM_ADDR = 0xF1ABA;  // ArtNem_MCZCollapsePlat
@@ -846,6 +849,7 @@ public class Sonic2Constants {
         offsets.put("ZONE_WING_FORTRESS", ZONE_WING_FORTRESS);
         offsets.put("ZONE_MYSTIC_CAVE", ZONE_MYSTIC_CAVE);
         offsets.put("ZONE_ARZ", ZONE_ARZ);
+        offsets.put("ART_NEM_LAUNCH_BALL_ADDR", ART_NEM_LAUNCH_BALL_ADDR);
         offsets.put("ART_NEM_OOZ_COLLAPSING_PLATFORM_ADDR", ART_NEM_OOZ_COLLAPSING_PLATFORM_ADDR);
         offsets.put("ART_NEM_MCZ_COLLAPSING_PLATFORM_ADDR", ART_NEM_MCZ_COLLAPSING_PLATFORM_ADDR);
         offsets.put("HTZ_PATTERNS_BASE_ADDR", HTZ_PATTERNS_BASE_ADDR);

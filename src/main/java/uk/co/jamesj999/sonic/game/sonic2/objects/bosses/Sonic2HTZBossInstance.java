@@ -3,7 +3,8 @@ package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
 import uk.co.jamesj999.sonic.game.sonic2.objects.EggPrisonObjectInstance;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
@@ -270,7 +271,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
             if (getCustomFlag(OBJOFF_LAVA_SPAWNED) == 0) {
                 setCustomFlag(OBJOFF_LAVA_SPAWNED, 1);
                 spawnLavaBalls();
-                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_LAVA_BALL);
+                AudioManager.getInstance().playSfx(Sonic2Sfx.ARROW_FIRING.id);
             }
         }
 
@@ -328,7 +329,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
             if (!defeatFleeStarted) {
                 defeatFleeStarted = true;
                 GameServices.gameState().setCurrentBossId(0);
-                AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_HILL_TOP);
+                AudioManager.getInstance().playMusic(Sonic2Music.HILL_TOP.id);
             }
 
             // Flee - sink into lava

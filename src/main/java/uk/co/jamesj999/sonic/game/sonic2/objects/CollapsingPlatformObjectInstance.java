@@ -3,7 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
@@ -291,7 +291,7 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         mappingFrame = 1;  // Show collapsed appearance (if applicable)
 
         // Play collapse sound
-        AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SMASH);
+        AudioManager.getInstance().playSfx(Sonic2Sfx.SMASH.id);
 
         // Spawn fragments - they will handle collision now
         spawnFragments();

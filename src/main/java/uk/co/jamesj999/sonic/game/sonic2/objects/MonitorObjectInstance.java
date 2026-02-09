@@ -16,7 +16,9 @@ import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.Tails;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.audio.GameSound;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SmpsConstants;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -183,7 +185,7 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
             LevelManager.getInstance().getObjectManager().addDynamicObject(
                     new ExplosionObjectInstance(0x27, spawn.x(), spawn.y(), renderManager));
         }
-        AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_EXPLOSION);
+        AudioManager.getInstance().playSfx(Sonic2Sfx.EXPLOSION.id);
     }
 
     @Override
@@ -269,18 +271,18 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
             }
             case SHIELD -> {
                 player.giveShield();
-                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SHIELD);
+                AudioManager.getInstance().playSfx(Sonic2Sfx.SHIELD.id);
             }
             case SHOES -> {
                 player.giveSpeedShoes();
-                AudioManager.getInstance().playMusic(Sonic2AudioConstants.CMD_SPEED_UP);
+                AudioManager.getInstance().playMusic(Sonic2SmpsConstants.CMD_SPEED_UP);
             }
             case INVINCIBILITY -> {
                 player.giveInvincibility();
-                AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_INVINCIBILITY);
+                AudioManager.getInstance().playMusic(Sonic2Music.INVINCIBILITY.id);
             }
             case SONIC, TAILS -> {
-                AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_EXTRA_LIFE);
+                AudioManager.getInstance().playMusic(Sonic2Music.EXTRA_LIFE.id);
                 GameServices.gameState().addLife();
             }
             default -> {

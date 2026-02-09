@@ -3,6 +3,8 @@ package uk.co.jamesj999.sonic.game.sonic2;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.ParallaxManager;
 import uk.co.jamesj999.sonic.level.WaterSystem;
@@ -283,7 +285,7 @@ public class LevelEventManager implements LevelEventProvider {
                     eventRoutine += 2;
                     // Start boss music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
-                        .playMusic(uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.MUS_BOSS);
+                        .playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {
@@ -584,7 +586,7 @@ public class LevelEventManager implements LevelEventProvider {
                     eventRoutine += 2;
                     // Start boss music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
-                            .playMusic(uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.MUS_BOSS);
+                            .playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 18 -> {
@@ -753,7 +755,7 @@ public class LevelEventManager implements LevelEventProvider {
                     // Play rumbling sound every 64 frames
                     if ((frameCounter & 0x3F) == 0) {
                         uk.co.jamesj999.sonic.audio.AudioManager.getInstance().playSfx(
-                                uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.SFX_RUMBLING_2);
+                                Sonic2Sfx.RUMBLING_2.id);
                     }
                 }
             }
@@ -769,7 +771,7 @@ public class LevelEventManager implements LevelEventProvider {
                     // Play rumbling sound every 64 frames
                     if ((frameCounter & 0x3F) == 0) {
                         uk.co.jamesj999.sonic.audio.AudioManager.getInstance().playSfx(
-                                uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.SFX_RUMBLING_2);
+                                Sonic2Sfx.RUMBLING_2.id);
                     }
                 }
             }
@@ -856,7 +858,7 @@ public class LevelEventManager implements LevelEventProvider {
                     spawnCPZBoss();
                     eventRoutine += 2;
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
-                            .playMusic(uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.MUS_BOSS);
+                            .playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {
@@ -952,7 +954,7 @@ public class LevelEventManager implements LevelEventProvider {
                     eventRoutine += 2;
                     // Start boss music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
-                            .playMusic(uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.MUS_BOSS);
+                            .playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {
@@ -1062,7 +1064,7 @@ public class LevelEventManager implements LevelEventProvider {
                     eventRoutine += 2;
                     // Start boss music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
-                            .playMusic(uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.MUS_BOSS);
+                            .playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {

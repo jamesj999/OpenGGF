@@ -595,6 +595,111 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load OOZ LauncherBall sprite sheet (Object 0x48).
+     * Transporter ball from Oil Ocean Zone that fires the player in a cardinal direction.
+     * <p>
+     * ROM: ArtNem_LaunchBall at 0x806E0, palette line 3, art tile 0x0368
+     * Mappings: obj48.asm - 8 frames showing ball rotation/opening sequence
+     *
+     * @return sprite sheet for OOZ launcher ball, or null on failure
+     */
+    public ObjectSpriteSheet loadLaunchBallSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_LAUNCH_BALL_ADDR, "LaunchBall");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createLaunchBallMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Create mappings for OOZ LauncherBall (Object 0x48).
+     * From obj48.asm - 8 frames of ball rotation animation.
+     */
+    private List<SpriteMappingFrame> createLaunchBallMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Closed ball with spout (8 pieces)
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x10, -0x28, 2, 1, 0, false, false, 0));
+        f0.add(new SpriteMappingPiece(0x00, -0x28, 2, 1, 0, true, false, 0));
+        f0.add(new SpriteMappingPiece(-0x10, -0x20, 2, 1, 2, false, false, 0));
+        f0.add(new SpriteMappingPiece(0x00, -0x20, 2, 1, 2, true, false, 0));
+        f0.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x11, false, false, 0));
+        f0.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x11, true, false, 0));
+        f0.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 8, false, true, 0));
+        f0.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 8, true, true, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1: Opening (6 pieces)
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-0x10, -0x20, 2, 1, 0, false, false, 0));
+        f1.add(new SpriteMappingPiece(0x00, -0x20, 2, 1, 0, true, false, 0));
+        f1.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x11, false, false, 0));
+        f1.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x11, true, false, 0));
+        f1.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 8, false, true, 0));
+        f1.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 8, true, true, 0));
+        frames.add(new SpriteMappingFrame(f1));
+
+        // Frame 2: Ball only (4 pieces)
+        List<SpriteMappingPiece> f2 = new ArrayList<>();
+        f2.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x11, false, false, 0));
+        f2.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x11, true, false, 0));
+        f2.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 8, false, true, 0));
+        f2.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 8, true, true, 0));
+        frames.add(new SpriteMappingFrame(f2));
+
+        // Frame 3: Rotated quadrants (4 pieces)
+        List<SpriteMappingPiece> f3 = new ArrayList<>();
+        f3.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x1A, false, false, 0));
+        f3.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x23, true, true, 0));
+        f3.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 0x23, false, false, 0));
+        f3.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 0x1A, true, true, 0));
+        frames.add(new SpriteMappingFrame(f3));
+
+        // Frame 4: Further rotated (4 pieces)
+        List<SpriteMappingPiece> f4 = new ArrayList<>();
+        f4.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x23, false, true, 0));
+        f4.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x1A, true, false, 0));
+        f4.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 0x1A, false, true, 0));
+        f4.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 0x23, true, false, 0));
+        frames.add(new SpriteMappingFrame(f4));
+
+        // Frame 5: Rotated (4 pieces)
+        List<SpriteMappingPiece> f5 = new ArrayList<>();
+        f5.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 8, false, false, 0));
+        f5.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x2C, false, true, 0));
+        f5.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 8, false, true, 0));
+        f5.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 0x2C, false, false, 0));
+        frames.add(new SpriteMappingFrame(f5));
+
+        // Frame 6: Open with side pieces (6 pieces)
+        List<SpriteMappingPiece> f6 = new ArrayList<>();
+        f6.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 8, false, false, 0));
+        f6.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x2C, false, true, 0));
+        f6.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 8, false, true, 0));
+        f6.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 0x2C, false, false, 0));
+        f6.add(new SpriteMappingPiece(0x18, -0x10, 1, 2, 6, false, false, 0));
+        f6.add(new SpriteMappingPiece(0x18, 0x00, 1, 2, 6, false, true, 0));
+        frames.add(new SpriteMappingFrame(f6));
+
+        // Frame 7: Fully open (8 pieces)
+        List<SpriteMappingPiece> f7 = new ArrayList<>();
+        f7.add(new SpriteMappingPiece(-0x18, -0x18, 3, 3, 8, false, false, 0));
+        f7.add(new SpriteMappingPiece(0x00, -0x18, 3, 3, 0x2C, false, true, 0));
+        f7.add(new SpriteMappingPiece(-0x18, 0x00, 3, 3, 8, false, true, 0));
+        f7.add(new SpriteMappingPiece(0x00, 0x00, 3, 3, 0x2C, false, false, 0));
+        f7.add(new SpriteMappingPiece(0x18, -0x10, 1, 2, 4, false, false, 0));
+        f7.add(new SpriteMappingPiece(0x18, 0x00, 1, 2, 4, false, true, 0));
+        f7.add(new SpriteMappingPiece(0x20, -0x10, 1, 2, 6, false, false, 0));
+        f7.add(new SpriteMappingPiece(0x20, 0x00, 1, 2, 6, false, true, 0));
+        frames.add(new SpriteMappingFrame(f7));
+
+        return frames;
+    }
+
+    /**
      * Load OOZ Collapsing Platform sprite sheet (Object 0x1F in Oil Ocean Zone).
      * <p>
      * ROM: ArtNem_OOZPlatform at 0x809D0, palette line 3

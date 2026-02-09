@@ -2,7 +2,7 @@ package uk.co.jamesj999.sonic.level.objects.boss;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.Palette;
@@ -261,7 +261,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
             state.invulnerable = true;
 
             // ROM: s2.asm:63129 - move.w #SndID_BossHit,d0
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_BOSS_HIT);
+            AudioManager.getInstance().playSfx(Sonic2Sfx.BOSS_HIT.id);
             paletteFlasher.startFlash();
             onHitTaken(state.hitCount);
 

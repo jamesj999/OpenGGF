@@ -25,7 +25,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants.*;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
+
 import static uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants.*;
 
 public class Sonic2 extends Game implements PlayerSpriteArtProvider, SpindashDustArtProvider,
@@ -85,35 +87,35 @@ public class Sonic2 extends Game implements PlayerSpriteArtProvider, SpindashDus
         switch (levelIdx) {
             case 0: // Emerald Hill 1
             case 1: // Emerald Hill 2
-                return MUS_EMERALD_HILL;
+                return Sonic2Music.EMERALD_HILL.id;
             case 2: // Chemical Plant 1
             case 3: // Chemical Plant 2
-                return MUS_CHEMICAL_PLANT;
+                return Sonic2Music.CHEMICAL_PLANT.id;
             case 4: // Aquatic Ruin 1
             case 5: // Aquatic Ruin 2
-                return MUS_AQUATIC_RUIN;
+                return Sonic2Music.AQUATIC_RUIN.id;
             case 6: // Casino Night 1
             case 7: // Casino Night 2
-                return MUS_CASINO_NIGHT;
+                return Sonic2Music.CASINO_NIGHT.id;
             case 8: // Hill Top 1
             case 9: // Hill Top 2
-                return MUS_HILL_TOP;
+                return Sonic2Music.HILL_TOP.id;
             case 10: // Mystic Cave 1
             case 11: // Mystic Cave 2
-                return MUS_MYSTIC_CAVE;
+                return Sonic2Music.MYSTIC_CAVE.id;
             case 12: // Oil Ocean 1
             case 13: // Oil Ocean 2
-                return MUS_OIL_OCEAN;
+                return Sonic2Music.OIL_OCEAN.id;
             case 14: // Metropolis 1
             case 15: // Metropolis 2
             case 16: // Metropolis 3
-                return MUS_METROPOLIS;
+                return Sonic2Music.METROPOLIS.id;
             case 17: // Sky Chase
-                return MUS_SKY_CHASE;
+                return Sonic2Music.SKY_CHASE.id;
             case 18: // Wing Fortress
-                return MUS_WING_FORTRESS;
+                return Sonic2Music.WING_FORTRESS.id;
             case 19: // Death Egg
-                return MUS_DEATH_EGG;
+                return Sonic2Music.DEATH_EGG.id;
             default:
                 // Fallback to original logic for unknown levels (e.g. 2P)
                 int zoneIdx = rom.readByte(LEVEL_SELECT_ADDR + levelIdx * 2) & 0xFF;
@@ -124,31 +126,31 @@ public class Sonic2 extends Game implements PlayerSpriteArtProvider, SpindashDus
     @Override
     public Map<GameSound, Integer> getSoundMap() {
         Map<GameSound, Integer> map = new HashMap<>();
-        map.put(GameSound.JUMP, SFX_JUMP);
-        map.put(GameSound.RING_LEFT, SFX_RING_LEFT);
-        map.put(GameSound.RING_RIGHT, SFX_RING_RIGHT);
-        map.put(GameSound.RING_SPILL, SFX_RING_SPILL);
-        map.put(GameSound.SPINDASH_CHARGE, SFX_SPINDASH_CHARGE);
-        map.put(GameSound.SPINDASH_RELEASE, SFX_SPINDASH_RELEASE);
-        map.put(GameSound.SKID, SFX_SKID);
-        map.put(GameSound.HURT, SFX_HURT);
-        map.put(GameSound.HURT_SPIKE, SFX_SPIKE_HIT);
-        map.put(GameSound.DROWN, SFX_DROWN);
-        map.put(GameSound.BADNIK_HIT, SFX_BADNIK_HIT);
-        map.put(GameSound.CHECKPOINT, SFX_CHECKPOINT);
-        map.put(GameSound.SPRING, SFX_SPRING);
-        map.put(GameSound.BUMPER, SFX_BUMPER);
-        map.put(GameSound.BONUS_BUMPER, SFX_BONUS_BUMPER);
-        map.put(GameSound.LARGE_BUMPER, SFX_LARGE_BUMPER);
-        map.put(GameSound.FLIPPER, SFX_FLIPPER);
-        map.put(GameSound.CNZ_LAUNCH, SFX_CNZ_LAUNCH);
-        map.put(GameSound.CNZ_ELEVATOR, SFX_CNZ_ELEVATOR);
-        map.put(GameSound.ROLLING, SFX_ROLLING);
-        map.put(GameSound.ERROR, SFX_ERROR);
-        map.put(GameSound.SPLASH, SFX_SPLASH);
-        map.put(GameSound.AIR_DING, SFX_AIR_DING);
-        map.put(GameSound.SLOW_SMASH, SFX_SLOW_SMASH);
-        map.put(GameSound.CASINO_BONUS, SFX_CASINO_BONUS);
+        map.put(GameSound.JUMP, Sonic2Sfx.JUMP.id);
+        map.put(GameSound.RING_LEFT, Sonic2Sfx.RING_LEFT.id);
+        map.put(GameSound.RING_RIGHT, Sonic2Sfx.RING_RIGHT.id);
+        map.put(GameSound.RING_SPILL, Sonic2Sfx.RING_SPILL.id);
+        map.put(GameSound.SPINDASH_CHARGE, Sonic2Sfx.SPINDASH_CHARGE.id);
+        map.put(GameSound.SPINDASH_RELEASE, Sonic2Sfx.SPINDASH_RELEASE.id);
+        map.put(GameSound.SKID, Sonic2Sfx.SKIDDING.id);
+        map.put(GameSound.HURT, Sonic2Sfx.HURT.id);
+        map.put(GameSound.HURT_SPIKE, Sonic2Sfx.HURT_BY_SPIKES.id);
+        map.put(GameSound.DROWN, Sonic2Sfx.DROWN.id);
+        map.put(GameSound.BADNIK_HIT, Sonic2Sfx.EXPLOSION.id);
+        map.put(GameSound.CHECKPOINT, Sonic2Sfx.CHECKPOINT.id);
+        map.put(GameSound.SPRING, Sonic2Sfx.SPRING.id);
+        map.put(GameSound.BUMPER, Sonic2Sfx.BUMPER.id);
+        map.put(GameSound.BONUS_BUMPER, Sonic2Sfx.BONUS_BUMPER.id);
+        map.put(GameSound.LARGE_BUMPER, Sonic2Sfx.LARGE_BUMPER.id);
+        map.put(GameSound.FLIPPER, Sonic2Sfx.FLIPPER.id);
+        map.put(GameSound.CNZ_LAUNCH, Sonic2Sfx.CNZ_LAUNCH.id);
+        map.put(GameSound.CNZ_ELEVATOR, Sonic2Sfx.CNZ_ELEVATOR.id);
+        map.put(GameSound.ROLLING, Sonic2Sfx.ROLL.id);
+        map.put(GameSound.ERROR, Sonic2Sfx.ERROR.id);
+        map.put(GameSound.SPLASH, Sonic2Sfx.SPLASH.id);
+        map.put(GameSound.AIR_DING, Sonic2Sfx.WATER_WARNING.id);
+        map.put(GameSound.SLOW_SMASH, Sonic2Sfx.SLOW_SMASH.id);
+        map.put(GameSound.CASINO_BONUS, Sonic2Sfx.CASINO_BONUS.id);
         return map;
     }
 

@@ -1,7 +1,9 @@
 package uk.co.jamesj999.sonic.game.sonic3k.audio.smps;
 
-import static uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioConstants.S3_MUSIC_ID_BASE;
+import static uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kMusic.S3_MUSIC_ID_BASE;
 import static uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kSmpsConstants.*;
+
+import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kSfx;
 
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 import uk.co.jamesj999.sonic.audio.smps.DacData;
@@ -169,7 +171,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
 
     @Override
     public AbstractSmpsData loadSfx(int sfxId) {
-        if (sfxId < SFX_ID_BASE || sfxId > SFX_ID_MAX) {
+        if (sfxId < Sonic3kSfx.ID_BASE || sfxId > Sonic3kSfx.ID_MAX) {
             LOGGER.fine("S3K SFX ID 0x" + Integer.toHexString(sfxId) + " out of range.");
             return null;
         }
@@ -180,7 +182,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
         }
 
         try {
-            int index = sfxId - SFX_ID_BASE;
+            int index = sfxId - Sonic3kSfx.ID_BASE;
             if (sfxPointers == null || index >= sfxPointers.length) {
                 LOGGER.warning("S3K SFX ID 0x" + Integer.toHexString(sfxId)
                         + " exceeds pointer list size.");
@@ -237,7 +239,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
         if (sfxName != null) {
             try {
                 int id = Integer.parseInt(sfxName, 16);
-                if (id >= SFX_ID_BASE && id <= SFX_ID_MAX) {
+                if (id >= Sonic3kSfx.ID_BASE && id <= Sonic3kSfx.ID_MAX) {
                     return loadSfx(id);
                 }
             } catch (NumberFormatException ignored) {
@@ -614,7 +616,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
             return;
         }
 
-        int maxEntries = SFX_ID_MAX - SFX_ID_BASE + 1; // 0x60 entries
+        int maxEntries = Sonic3kSfx.ID_MAX - Sonic3kSfx.ID_BASE + 1; // 0x60 entries
         sfxPointers = new int[maxEntries];
 
         for (int i = 0; i < maxEntries; i++) {
