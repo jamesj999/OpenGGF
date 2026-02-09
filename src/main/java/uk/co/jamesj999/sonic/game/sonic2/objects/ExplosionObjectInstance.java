@@ -10,7 +10,8 @@ public class ExplosionObjectInstance extends AbstractObjectInstance {
     private final ObjectRenderManager renderManager;
     private int animTimer = 0;
     private int animFrame = 0;
-    private static final int ANIM_DELAY = 3; // 3 frames per sprite frame
+    // S1 disassembly: obTimeFrame = 7, counts 7→0 then advances = 8 game frames per sprite frame
+    private static final int ANIM_DELAY = 8;
     private static final int MAX_FRAME = 4;
 
     public ExplosionObjectInstance(int id, int x, int y, ObjectRenderManager renderManager) {
