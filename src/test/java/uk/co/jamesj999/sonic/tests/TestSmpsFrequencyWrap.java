@@ -104,11 +104,9 @@ public class TestSmpsFrequencyWrap {
 
         assertTrue("Should have written frequency", found);
 
-        // Assert that Block is NOT 0.
-        // If it wraps, block will be 0.
-        // If fixed, block should be 7.
-        // We fail if it is 0.
-        assertTrue("Block should not wrap to 0 for high notes. Got: " + block, block != 0);
-        assertEquals("Block should be 7 for Octave 8", 7, block);
+        // YM2612 block field is 3 bits — octave 8 wraps to block 0 via & 7.
+        // This matches real hardware behavior and is required for S3K tracks
+        // that use extreme negative transpose to produce low "fake drum" notes.
+        assertEquals("Block should wrap to 0 for Octave 8 (3-bit hardware wrap)", 0, block);
     }
 }

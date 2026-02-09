@@ -184,6 +184,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_MCZ) {
             registerSheet(Sonic2ObjectArtKeys.VINE_PULLEY, artLoader.loadVinePulleySheet());
             registerSheet(Sonic2ObjectArtKeys.MCZ_CRATE, artLoader.loadMCZCrateSheet());
+            registerSheet(Sonic2ObjectArtKeys.MCZ_BRIDGE, artLoader.loadMCZBridgeSheet());
             registerSheet(Sonic2ObjectArtKeys.MCZ_DRAWBRIDGE, artLoader.loadMCZDrawbridgeSheet());
         }
         // WFZ objects (Object 0x80 hook) - only for WFZ

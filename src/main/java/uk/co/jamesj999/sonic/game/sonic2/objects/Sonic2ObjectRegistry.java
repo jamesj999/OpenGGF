@@ -408,6 +408,11 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new MovingVineObjectInstance(spawn,
                         registry.getPrimaryName(spawn.objectId())));
 
+        // MCZ Bridge (Object 0x77) - horizontal gate triggered by ButtonVine
+        registerFactory(Sonic2ObjectIds.MCZ_BRIDGE,
+                (spawn, registry) -> new MCZBridgeObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
         // MCZ Drawbridge (Object 0x81) - rotatable drawbridge triggered by ButtonVine
         registerFactory(Sonic2ObjectIds.MCZ_DRAWBRIDGE,
                 (spawn, registry) -> new MCZDrawbridgeObjectInstance(spawn,

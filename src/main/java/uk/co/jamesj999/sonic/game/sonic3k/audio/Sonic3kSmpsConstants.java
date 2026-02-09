@@ -135,11 +135,11 @@ public final class Sonic3kSmpsConstants {
     // ID ranges
     // -----------------------------------------------------------------------
 
-    /** First SFX ID. */
-    public static final int SFX_ID_BASE = 0xA0;
+    /** First SFX ID (sfx_RingRight, native 68K queue ID 0x33, Z80 SFX table index 0). */
+    public static final int SFX_ID_BASE = 0x33;
 
-    /** Last SFX ID. */
-    public static final int SFX_ID_MAX = 0xFF;
+    /** Last standard SFX ID (native 68K queue ID 0xDB, Z80 SFX table index 168). */
+    public static final int SFX_ID_MAX = 0xDB;
 
     private Sonic3kSmpsConstants() {
     }

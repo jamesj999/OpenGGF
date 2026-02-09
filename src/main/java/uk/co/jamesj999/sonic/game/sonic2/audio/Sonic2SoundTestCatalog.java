@@ -76,35 +76,36 @@ public final class Sonic2SoundTestCatalog implements SoundTestCatalog {
     }
 
     private static Map<Integer, String> buildSfxNames() {
+        // Names verified against Sonic2SmpsLoader.populateSfxNames() and s2disasm SoundIndex
         Map<Integer, String> m = new LinkedHashMap<>();
         m.put(0xA0, "Jump");
         m.put(0xA1, "Checkpoint");
-        m.put(0xA2, "Sparkle (Unused)");
+        m.put(0xA2, "Spike Switch");
         m.put(0xA3, "Hurt");
-        m.put(0xA4, "Skid");
-        m.put(0xA5, "Block Push");
-        m.put(0xA6, "Spike Hit");
-        m.put(0xA7, "Destroy");
-        m.put(0xA8, "Big Ring");
-        m.put(0xA9, "Splash");
-        m.put(0xAA, "Rumbling");
-        m.put(0xAB, "Door");
-        m.put(0xAC, "Spin");
-        m.put(0xAD, "Pop");
-        m.put(0xAE, "Bubble");
-        m.put(0xAF, "Smash");
-        m.put(0xB0, "Shield");
-        m.put(0xB1, "Drown");
-        m.put(0xB2, "Stomp");
-        m.put(0xB3, "Air Ding");
-        m.put(0xB4, "Ring");
-        m.put(0xB5, "Bubbling");
-        m.put(0xB6, "Bounce");
-        m.put(0xB7, "SS Glass");
-        m.put(0xB8, "Boss Hit");
-        m.put(0xB9, "Poof");
-        m.put(0xBA, "SS Bomb");
-        m.put(0xBB, "Spindash Charge");
+        m.put(0xA4, "Skidding");
+        m.put(0xA5, "Missile Dissolve (Unused)");
+        m.put(0xA6, "Hurt By Spikes");
+        m.put(0xA7, "Sparkle");
+        m.put(0xA8, "Beep");
+        m.put(0xA9, "Bwoop (Unused)");
+        m.put(0xAA, "Splash");
+        m.put(0xAB, "Swish");
+        m.put(0xAC, "Boss Hit");
+        m.put(0xAD, "Inhaling Bubble");
+        m.put(0xAE, "Arrow Firing");
+        m.put(0xAF, "Shield");
+        m.put(0xB0, "Laser Beam");
+        m.put(0xB1, "Zap (Unused)");
+        m.put(0xB2, "Drown");
+        m.put(0xB3, "Fire Burn");
+        m.put(0xB4, "Bumper");
+        m.put(0xB5, "Ring (Right)");
+        m.put(0xB6, "Spikes Move");
+        m.put(0xB7, "Rumbling");
+        m.put(0xB8, "Unused");
+        m.put(0xB9, "Smash");
+        m.put(0xBA, "Ding (Unused)");
+        m.put(0xBB, "Door Slam");
         m.put(0xBC, "Spindash Release");
         m.put(0xBD, "Hammer");
         m.put(0xBE, "Roll");
@@ -141,7 +142,7 @@ public final class Sonic2SoundTestCatalog implements SoundTestCatalog {
         m.put(0xDD, "Arrow Stick");
         m.put(0xDE, "Wing Fortress");
         m.put(0xDF, "Super Transform");
-        m.put(0xE0, "Spindash Charge 2");
+        m.put(0xE0, "Spindash Charge");
         m.put(0xE1, "Rumbling 2");
         m.put(0xE2, "CNZ Launch");
         m.put(0xE3, "Flipper");
@@ -155,8 +156,8 @@ public final class Sonic2SoundTestCatalog implements SoundTestCatalog {
         m.put(0xEB, "Laser Floor");
         m.put(0xEC, "Teleport");
         m.put(0xED, "Error");
-        m.put(0xEE, "SS Ring");
-        m.put(0xEF, "Fly");
+        m.put(0xEE, "Mecha Sonic Buzz");
+        m.put(0xEF, "Large Laser");
         return m;
     }
 
