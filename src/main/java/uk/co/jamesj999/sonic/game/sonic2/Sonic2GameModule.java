@@ -6,6 +6,7 @@ import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameModule;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.PhysicsProvider;
 import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.RespawnState;
@@ -180,5 +181,10 @@ public class Sonic2GameModule implements GameModule {
             objectArtProvider = new Sonic2ObjectArtProvider();
         }
         return objectArtProvider;
+    }
+
+    @Override
+    public PhysicsProvider getPhysicsProvider() {
+        return new Sonic2PhysicsProvider();
     }
 }

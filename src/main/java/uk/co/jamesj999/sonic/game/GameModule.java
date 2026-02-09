@@ -160,6 +160,17 @@ public interface GameModule {
     }
 
     /**
+     * Returns the physics provider for this game.
+     * Provides per-character physics profiles, modifier rules (water/speed shoes),
+     * and feature flags (spindash availability).
+     *
+     * @return the physics provider (defaults to Sonic 2 provider for backward compatibility)
+     */
+    default PhysicsProvider getPhysicsProvider() {
+        return new uk.co.jamesj999.sonic.game.sonic2.Sonic2PhysicsProvider();
+    }
+
+    /**
      * Called when a level is loaded to reset any game-specific object state.
      * Use this to clear static state in object classes that persists across
      * object load/unload cycles (e.g., sibling spawn tracking, timing sync).

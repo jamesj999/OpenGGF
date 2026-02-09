@@ -1,6 +1,11 @@
 package uk.co.jamesj999.sonic.sprites.playable;
 
+import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.PhysicsFeatureSet;
+import uk.co.jamesj999.sonic.game.PhysicsModifiers;
+import uk.co.jamesj999.sonic.game.PhysicsProfile;
+import uk.co.jamesj999.sonic.game.PhysicsProvider;
 
 import uk.co.jamesj999.sonic.audio.GameAudioProfile;
 
@@ -271,6 +276,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         private InvincibilityStarsObjectInstance invincibilityObject;
         protected boolean speedShoes = false;
 
+        // Physics provider fields — populated from GameModule when available
+        private PhysicsProfile physicsProfile;
+        private PhysicsModifiers physicsModifiers;
+        private PhysicsFeatureSet physicsFeatureSet;
+
         /**
          * When true, forces right input regardless of actual keyboard input.
          * Used for end-of-act walk-off sequences (Control_Locked + button_right_mask in
@@ -440,6 +450,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.topSolidBit = 0x0C;
                 this.lrbSolidBit = 0x0D;
                 defineSpeeds(); // Reset speeds to default
+                resolvePhysicsProfile();
         }
 
         public void giveShield() {
@@ -757,7 +768,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public short getJump() {
-                // Water: reduced jump force (ROM s2.asm line 37019: 0x380 vs normal 0x680)
+                if (physicsModifiers != null) {
+                        return physicsModifiers.effectiveJump(jump, inWater);
+                }
+                // Fallback: Water reduced jump force (ROM s2.asm line 37019: 0x380 vs normal 0x680)
                 if (inWater) {
                         return 0x380;
                 }
@@ -1387,6 +1401,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 // Must define speeds before creating Manager (it will read speeds upon
                 // instantiation).
                 defineSpeeds();
+                resolvePhysicsProfile();
 
                 applyStandingRadii(false);
 
@@ -1401,6 +1416,64 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 }
                 // Always use PlayableSpriteController - it checks debugMode internally
                 controller = new PlayableSpriteController(this);
+        }
+
+        /**
+         * Resolves physics profile, modifiers, and feature set from the active GameModule.
+         * Overwrites the protected speed fields set by defineSpeeds() with values from the profile.
+         * Falls back gracefully if no provider is available (defineSpeeds() values remain).
+         */
+        private void resolvePhysicsProfile() {
+                try {
+                        PhysicsProvider provider = GameModuleRegistry.getCurrent().getPhysicsProvider();
+                        if (provider == null) {
+                                return;
+                        }
+                        String charType = (this instanceof Tails) ? "tails" : "sonic";
+                        PhysicsProfile profile = provider.getProfile(charType);
+                        if (profile != null) {
+                                this.physicsProfile = profile;
+                                this.runAccel = profile.runAccel();
+                                this.runDecel = profile.runDecel();
+                                this.friction = profile.friction();
+                                this.max = profile.max();
+                                this.jump = profile.jump();
+                                this.slopeRunning = profile.slopeRunning();
+                                this.slopeRollingUp = profile.slopeRollingUp();
+                                this.slopeRollingDown = profile.slopeRollingDown();
+                                this.rollDecel = profile.rollDecel();
+                                this.minStartRollSpeed = profile.minStartRollSpeed();
+                                this.minRollSpeed = profile.minRollSpeed();
+                                this.maxRoll = profile.maxRoll();
+                                this.rollHeight = profile.rollHeight();
+                                this.runHeight = profile.runHeight();
+                                this.standXRadius = profile.standXRadius();
+                                this.standYRadius = profile.standYRadius();
+                                this.rollXRadius = profile.rollXRadius();
+                                this.rollYRadius = profile.rollYRadius();
+                        }
+                        this.physicsModifiers = provider.getModifiers();
+                        this.physicsFeatureSet = provider.getFeatureSet();
+                } catch (Exception e) {
+                        // Graceful fallback: defineSpeeds() values remain
+                        LOGGER.fine("PhysicsProvider unavailable, using defineSpeeds() values: " + e.getMessage());
+                }
+        }
+
+        /**
+         * Returns the physics feature set (spindash availability, etc.) for the current game.
+         * May be null if no GameModule provider is active.
+         */
+        public PhysicsFeatureSet getPhysicsFeatureSet() {
+                return physicsFeatureSet;
+        }
+
+        /**
+         * Returns the physics modifiers (water/speed shoes rules) for the current game.
+         * May be null if no GameModule provider is active.
+         */
+        public PhysicsModifiers getPhysicsModifiers() {
+                return physicsModifiers;
         }
 
         /**
@@ -1441,7 +1514,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public short getRunAccel() {
-                // Water: halved, Speed shoes: doubled
+                if (physicsModifiers != null) {
+                        return physicsModifiers.effectiveAccel(runAccel, inWater, hasSpeedShoes());
+                }
+                // Fallback: inline logic (Water: halved, Speed shoes: doubled)
                 short value = runAccel;
                 if (inWater) {
                         value = (short) (value / 2);
@@ -1453,7 +1529,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public short getRunDecel() {
-                // Water: halved (speed shoes don't affect decel)
+                if (physicsModifiers != null) {
+                        return physicsModifiers.effectiveDecel(runDecel, inWater, hasSpeedShoes());
+                }
+                // Fallback: Water halved, speed shoes don't affect decel
                 return inWater ? (short) (runDecel / 2) : runDecel;
         }
 
@@ -1470,7 +1549,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public short getFriction() {
-                // Water: halved, Speed shoes: doubled
+                if (physicsModifiers != null) {
+                        return physicsModifiers.effectiveFriction(friction, inWater, hasSpeedShoes());
+                }
+                // Fallback: inline logic (Water: halved, Speed shoes: doubled)
                 short value = friction;
                 if (inWater) {
                         value = (short) (value / 2);
@@ -1482,7 +1564,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public short getMax() {
-                // Water: halved, Speed shoes: doubled
+                if (physicsModifiers != null) {
+                        return physicsModifiers.effectiveMax(max, inWater, hasSpeedShoes());
+                }
+                // Fallback: inline logic (Water: halved, Speed shoes: doubled)
                 short value = max;
                 if (inWater) {
                         value = (short) (value / 2);
