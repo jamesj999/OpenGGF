@@ -18,6 +18,9 @@ public class DebugOverlayManager {
     /** Reusable list for shortcut lines to avoid per-frame allocations */
     private final List<String> shortcutLines = new ArrayList<>(16);
 
+    /** Per-frame text entries from object debug rendering, set by LevelManager, read by DebugRenderer */
+    private List<DebugRenderContext.DebugTextEntry> pendingObjectDebugText = List.of();
+
     private DebugOverlayManager() {
         for (DebugOverlayToggle toggle : DebugOverlayToggle.values()) {
             states.put(toggle, toggle.defaultEnabled());
@@ -95,6 +98,18 @@ public class DebugOverlayManager {
 
     public void setEnabled(DebugOverlayToggle toggle, boolean enabled) {
         states.put(toggle, enabled);
+    }
+
+    public void setObjectDebugTextEntries(List<DebugRenderContext.DebugTextEntry> entries) {
+        this.pendingObjectDebugText = entries;
+    }
+
+    public List<DebugRenderContext.DebugTextEntry> getObjectDebugTextEntries() {
+        return pendingObjectDebugText;
+    }
+
+    public void clearObjectDebugTextEntries() {
+        pendingObjectDebugText = List.of();
     }
 
     public List<String> buildShortcutLines() {
