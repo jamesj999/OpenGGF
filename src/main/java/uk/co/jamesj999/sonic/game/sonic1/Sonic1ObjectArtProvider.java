@@ -14,6 +14,7 @@ import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationEndAction;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationScript;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
+import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.tools.NemesisReader;
 
 import java.io.ByteArrayInputStream;
@@ -1432,6 +1433,149 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         )));
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x1B, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Registers the platform sprite sheet using level tile patterns.
+     * Must be called AFTER the level is loaded since platforms use zone tileset art
+     * (ArtTile_Level) rather than dedicated Nemesis-compressed object art.
+     * <p>
+     * Zone-specific mappings from disassembly:
+     * <ul>
+     *   <li>GHZ: 2 frames (small 64x24, large column 64x140)</li>
+     *   <li>SYZ: 1 frame (64x20)</li>
+     *   <li>SLZ: 1 frame (64x16)</li>
+     * </ul>
+     *
+     * @param level     The loaded level to extract patterns from
+     * @param zoneIndex The current zone index
+     */
+    public void registerPlatformSheet(Level level, int zoneIndex) {
+        if (level == null) {
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings;
+        int maxTileNeeded;
+
+        switch (zoneIndex) {
+            case Sonic1Constants.ZONE_SYZ -> {
+                mappings = createPlatformMappingsSyz();
+                // Highest tile: 0x55 + (3*4) = 0x61
+                maxTileNeeded = 0x61;
+            }
+            case Sonic1Constants.ZONE_SLZ -> {
+                mappings = createPlatformMappingsSlz();
+                // Highest tile: 0x21 + (4*4) = 0x31
+                maxTileNeeded = 0x31;
+            }
+            default -> {
+                // GHZ (and any other zone with platforms)
+                mappings = createPlatformMappingsGhz();
+                // Highest tile: 0xD5 + (4*4) = 0xE5
+                maxTileNeeded = 0xE5;
+            }
+        }
+
+        int patternCount = level.getPatternCount();
+        int copyCount = Math.min(patternCount, maxTileNeeded);
+        if (copyCount == 0) {
+            LOGGER.warning("No level patterns available for platform art");
+            return;
+        }
+        Pattern[] patterns = new Pattern[copyCount];
+        for (int i = 0; i < copyCount; i++) {
+            patterns[i] = level.getPattern(i);
+        }
+
+        // Palette line 2 (make_art_tile(ArtTile_Level, 2, 0))
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.PLATFORM, sheet);
+    }
+
+    /**
+     * GHZ platform mappings from docs/s1disasm/_maps/Platforms (GHZ).asm.
+     * Frame 0 (.small): 64x24 platform (4 pieces)
+     * Frame 1 (.large): 64x140 column platform (10 pieces)
+     */
+    private List<SpriteMappingFrame> createPlatformMappingsGhz() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.small): 4 pieces
+        // spritePiece -$20, -$C, 3, 4, $3B, 0, 0, 0, 0
+        // spritePiece   -8, -$C, 2, 4, $3F, 0, 0, 0, 0  (NOTE: not hflipped in asm)
+        // spritePiece    8, -$C, 2, 4, $3F, 0, 0, 0, 0  (NOTE: not hflipped in asm)
+        // spritePiece  $18, -$C, 1, 4, $47, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x0C, 3, 4, 0x3B, false, false, 0, false),
+                new SpriteMappingPiece(-0x08, -0x0C, 2, 4, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(0x08, -0x0C, 2, 4, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(0x18, -0x0C, 1, 4, 0x47, false, false, 0, false)
+        )));
+
+        // Frame 1 (.large): 10 pieces - left column (5) + right column hflipped (5)
+        // Left half:
+        // spritePiece -$20,  -$C, 4, 4, $C5, 0, 0, 0, 0
+        // spritePiece -$20,   $4, 4, 4, $D5, 0, 0, 0, 0
+        // spritePiece -$20,  $24, 4, 4, $D5, 0, 0, 0, 0
+        // spritePiece -$20,  $44, 4, 4, $D5, 0, 0, 0, 0
+        // spritePiece -$20,  $64, 4, 4, $D5, 0, 0, 0, 0
+        // Right half (h-flipped):
+        // spritePiece    0,  -$C, 4, 4, $C5, 1, 0, 0, 0
+        // spritePiece    0,   $4, 4, 4, $D5, 1, 0, 0, 0
+        // spritePiece    0,  $24, 4, 4, $D5, 1, 0, 0, 0
+        // spritePiece    0,  $44, 4, 4, $D5, 1, 0, 0, 0
+        // spritePiece    0,  $64, 4, 4, $D5, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x0C, 4, 4, 0xC5, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0x04, 4, 4, 0xD5, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0x24, 4, 4, 0xD5, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0x44, 4, 4, 0xD5, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0x64, 4, 4, 0xD5, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x0C, 4, 4, 0xC5, true, false, 0, false),
+                new SpriteMappingPiece(0x00, 0x04, 4, 4, 0xD5, true, false, 0, false),
+                new SpriteMappingPiece(0x00, 0x24, 4, 4, 0xD5, true, false, 0, false),
+                new SpriteMappingPiece(0x00, 0x44, 4, 4, 0xD5, true, false, 0, false),
+                new SpriteMappingPiece(0x00, 0x64, 4, 4, 0xD5, true, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * SYZ platform mappings from docs/s1disasm/_maps/Platforms (SYZ).asm.
+     * Frame 0 (.platform): 64x20 platform (3 pieces)
+     */
+    private List<SpriteMappingFrame> createPlatformMappingsSyz() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // spritePiece -$20, -$A, 3, 4, $49, 0, 0, 0, 0
+        // spritePiece   -8, -$A, 2, 4, $51, 0, 0, 0, 0
+        // spritePiece    8, -$A, 3, 4, $55, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x0A, 3, 4, 0x49, false, false, 0, false),
+                new SpriteMappingPiece(-0x08, -0x0A, 2, 4, 0x51, false, false, 0, false),
+                new SpriteMappingPiece(0x08, -0x0A, 3, 4, 0x55, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * SLZ platform mappings from docs/s1disasm/_maps/Platforms (SLZ).asm.
+     * Frame 0 (.platform): 64x16 platform (2 pieces)
+     */
+    private List<SpriteMappingFrame> createPlatformMappingsSlz() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // spritePiece -$20, -8, 4, 4, $21, 0, 0, 0, 0
+        // spritePiece    0, -8, 4, 4, $21, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x08, 4, 4, 0x21, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x08, 4, 4, 0x21, false, false, 0, false)
         )));
 
         return frames;

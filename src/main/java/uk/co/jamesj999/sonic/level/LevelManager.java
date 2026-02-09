@@ -518,10 +518,13 @@ public class LevelManager {
             LOGGER.info("Initializing Object Art. Base Index: " + OBJECT_PATTERN_BASE);
             objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
 
-            // Register SmashableGround art (uses level patterns, must be after level load)
+            // Register level-tile-based object art (must be after level load)
             if (provider instanceof uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtProvider sonic2Provider) {
                 sonic2Provider.registerSmashableGroundSheet(level);
-                // Re-cache patterns to include the newly registered sheet
+                objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
+            }
+            if (provider instanceof uk.co.jamesj999.sonic.game.sonic1.Sonic1ObjectArtProvider sonic1Provider) {
+                sonic1Provider.registerPlatformSheet(level, zoneIndex);
                 objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
             }
 

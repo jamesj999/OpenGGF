@@ -66,6 +66,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1SpikeObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SPRING,
                 (spawn, registry) -> new Sonic1SpringObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.PLATFORM,
+                (spawn, registry) -> new Sonic1PlatformObjectInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.BUZZ_BOMBER,
                 (spawn, registry) -> new Sonic1BuzzBomberBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.CRABMEAT,

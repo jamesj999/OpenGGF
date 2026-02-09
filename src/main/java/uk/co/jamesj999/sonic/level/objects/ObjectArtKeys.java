@@ -37,6 +37,9 @@ public final class ObjectArtKeys {
     public static final String RESULTS = "results";
     public static final String EGG_PRISON = "egg_prison";
 
+    // Zone objects using level tiles
+    public static final String PLATFORM = "platform";
+
     // Badnik art keys
     public static final String BUZZ_BOMBER = "buzz_bomber";
     public static final String BUZZ_BOMBER_MISSILE = "buzz_bomber_missile";
