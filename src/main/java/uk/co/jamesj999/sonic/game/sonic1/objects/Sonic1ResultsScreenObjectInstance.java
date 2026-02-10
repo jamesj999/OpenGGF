@@ -305,7 +305,9 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
             LevelManager levelManager = LevelManager.getInstance();
             if (levelManager != null) {
                 if (specialStageAfter) {
-                    // Giant Ring collected: transition to special stage
+                    // Giant Ring collected: advance zone/act first (ROM-accurate: Got_NextLevel),
+                    // then enter special stage. On return, the advanced values are used.
+                    levelManager.advanceZoneActOnly();
                     levelManager.requestSpecialStageFromCheckpoint();
                 } else {
                     try {

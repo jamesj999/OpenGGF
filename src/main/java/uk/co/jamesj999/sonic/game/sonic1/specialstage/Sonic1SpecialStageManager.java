@@ -10,6 +10,7 @@ import uk.co.jamesj999.sonic.game.sonic1.Sonic1RingArt;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1AnimationIds;
+import uk.co.jamesj999.sonic.graphics.FadeManager;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Palette;
@@ -129,6 +130,8 @@ public final class Sonic1SpecialStageManager {
     private boolean exitTriggered;
     private int exitPhase;
     private int exitTimer;
+    private boolean exitFadeStarted;
+    private int exitFadeTimer;
 
     // Input state (set by handleInput, consumed by update)
     private int heldButtons;
@@ -239,6 +242,8 @@ public final class Sonic1SpecialStageManager {
         exitTriggered = false;
         exitPhase = 0;
         exitTimer = 0;
+        exitFadeStarted = false;
+        exitFadeTimer = 0;
 
         // Initialize palette cycle state (PalCycle_SS)
         palSsTime = 0;
@@ -852,29 +857,28 @@ public final class Sonic1SpecialStageManager {
     // ---- Exit Sequence (from Obj09_ExitStage / Obj09_Exit2) ----
 
     private void updateExit() {
-        if (exitPhase == 0) {
-            // Phase 0: speed up rotation until 0x1800, then continue to 0x3000
-            ssRotate += 0x40;
+        // Accelerate rotation (Obj09_ExitStage: add $40 to v_ssrotate)
+        ssRotate += 0x40;
 
-            if (ssRotate == 0x1800) {
-                // Signal game mode change (handled by provider checking isFinished)
-            }
-            if (ssRotate >= 0x3000) {
-                ssRotate = 0;
-                ssAngle = 0x4000;
-                exitPhase = 1;
-                exitTimer = 60; // 0x3C frames
-            }
+        // At rotation threshold, start concurrent fade (SS_ChkEnd / SS_Finish)
+        // ROM: v_ssrotate == $1800 sets v_gamemode = id_Level, triggering SS_Finish
+        // which runs WhiteOut_ToWhite alongside ExecuteObjects for 60 frames.
+        if (ssRotate >= 0x1800 && !exitFadeStarted) {
+            exitFadeStarted = true;
+            exitFadeTimer = 60; // v_generictimer = 60
+            FadeManager.getInstance().startFadeToWhite(null, Integer.MAX_VALUE);
+        }
 
-            // Keep rotating
-            ssAngle = (ssAngle + ssRotate) & 0xFFFF;
-        } else {
-            // Phase 1: countdown timer
-            exitTimer--;
-            if (exitTimer <= 0) {
+        // Count down fade timer (SS_FinLoop: dbf d1,SS_FinLoop)
+        if (exitFadeStarted) {
+            exitFadeTimer--;
+            if (exitFadeTimer <= 0) {
                 finished = true;
             }
         }
+
+        // Keep rotating (spin continues even after fade starts)
+        ssAngle = (ssAngle + ssRotate) & 0xFFFF;
 
         // Update camera during exit
         updateCamera();
@@ -1724,6 +1728,8 @@ public final class Sonic1SpecialStageManager {
         ssPaletteCycle2 = null;
         sonicAnimFrameIndex = 0;
         sonicAnimFrameTimer = 0;
+        exitFadeStarted = false;
+        exitFadeTimer = 0;
         sonicAnimId = Sonic1AnimationIds.ROLL;
         wallVramAnimFrame = 0;
         wallVramAnimTimer = 0;

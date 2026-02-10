@@ -143,6 +143,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load results screen art (reuses title card + HUD text)
         loadResultsScreenArt(rom);
 
+        // Load SS results emerald art (Nem_ResultEm)
+        loadResultsEmeraldArt(rom);
+
         // Load Giant Ring art (uncompressed, all zones)
         loadGiantRingArt(rom);
 
@@ -1074,6 +1077,43 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
 
         LOGGER.info("Results screen art loaded: " + totalSize + " composite patterns, "
                 + mappings.size() + " frames");
+    }
+
+    /**
+     * Loads the Sonic 1 special-stage results emerald art (Nem_ResultEm).
+     * Creates 7 mapping frames matching Map_SSRC from Obj7F:
+     * frames 0-5 are the 6 emerald colors, frame 6 is blank (flash toggle).
+     */
+    private void loadResultsEmeraldArt(Rom rom) {
+        Pattern[] emeraldPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SS_RESULT_EM_ADDR, "SSResultEmerald");
+        if (emeraldPatterns.length == 0) {
+            LOGGER.warning("Failed to load SS results emerald art");
+            return;
+        }
+
+        // Map_SSRC: each frame is a single 2x2 spritePiece(-8, -8, 2, 2, tile, pal)
+        // paletteIndex on each piece selects the emerald color from SS palettes.
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 4, false, false, 1))));  // 0: Blue
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 0))));  // 1: Yellow
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 4, false, false, 2))));  // 2: Pink
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 4, false, false, 3))));  // 3: Green
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 8, false, false, 1))));  // 4: Orange
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 12, false, false, 1)))); // 5: Purple
+        frames.add(new SpriteMappingFrame(List.of()));                         // 6: Blank (flash)
+
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(emeraldPatterns, frames, 0, 1);
+        registerSheet(ObjectArtKeys.SS_RESULTS_EMERALDS, sheet);
+
+        LOGGER.info("SS results emerald art loaded: " + emeraldPatterns.length
+                + " patterns, " + frames.size() + " frames");
     }
 
     private void copyResultsScoreDigitTiles(Pattern[] dest, int startIndex) {

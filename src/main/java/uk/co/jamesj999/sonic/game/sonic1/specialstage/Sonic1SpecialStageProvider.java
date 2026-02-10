@@ -35,7 +35,7 @@ public final class Sonic1SpecialStageProvider implements SpecialStageProvider {
 
     @Override
     public int getResultsMusicId() {
-        return Sonic1Music.CHAOS_EMERALD.id;
+        return Sonic1Music.GOT_THROUGH.id;
     }
 
     @Override
