@@ -40,8 +40,10 @@ import uk.co.jamesj999.sonic.level.objects.TouchResponseTable;
 
 public class Sonic2GameModule implements GameModule {
     private final GameAudioProfile audioProfile = new Sonic2AudioProfile();
+    private final SpecialStageProvider specialStageProvider = new Sonic2SpecialStageProvider();
     private Sonic2ObjectArtProvider objectArtProvider;
     private Sonic2ZoneFeatureProvider zoneFeatureProvider;
+    private PhysicsProvider physicsProvider;
 
     @Override
     public String getIdentifier() {
@@ -111,9 +113,17 @@ public class Sonic2GameModule implements GameModule {
 
     @Override
     public SpecialStageProvider getSpecialStageProvider() {
-        // Return a new provider each time to avoid state issues
-        // The underlying manager is a singleton
-        return new Sonic2SpecialStageProvider();
+        return specialStageProvider;
+    }
+
+    @Override
+    public int getSpecialStageCycleCount() {
+        return 7;
+    }
+
+    @Override
+    public int getChaosEmeraldCount() {
+        return 7;
     }
 
     @Override
@@ -187,6 +197,9 @@ public class Sonic2GameModule implements GameModule {
 
     @Override
     public PhysicsProvider getPhysicsProvider() {
-        return new Sonic2PhysicsProvider();
+        if (physicsProvider == null) {
+            physicsProvider = new Sonic2PhysicsProvider();
+        }
+        return physicsProvider;
     }
 }

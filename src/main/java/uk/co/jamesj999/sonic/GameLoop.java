@@ -8,7 +8,6 @@ import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.debug.DebugObjectArtViewer;
-import uk.co.jamesj999.sonic.game.sonic2.debug.Sonic2SpecialStageSpriteDebug;
 import uk.co.jamesj999.sonic.game.GameMode;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.game.GameStateManager;
@@ -18,13 +17,13 @@ import uk.co.jamesj999.sonic.game.TitleScreenProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.RespawnState;
 import uk.co.jamesj999.sonic.game.ResultsScreen;
+import uk.co.jamesj999.sonic.game.NoOpSpecialStageProvider;
+import uk.co.jamesj999.sonic.game.SpecialStageDebugProvider;
 import uk.co.jamesj999.sonic.game.SpecialStageProvider;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.debug.PerformanceProfiler;
-import uk.co.jamesj999.sonic.game.sonic2.objects.SpecialStageResultsScreenObjectInstance;
-import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageManager;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
@@ -69,11 +68,7 @@ public class GameLoop {
     private final TimerManager timerManager = GameServices.timers();
     private final LevelManager levelManager = LevelManager.getInstance();
     private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
-    // Direct reference to Sonic2SpecialStageManager for debug features and Sonic
-    // 2-specific logic.
-    // Future games should use GameModule.getSpecialStageProvider() for
-    // game-agnostic code.
-    private final Sonic2SpecialStageManager specialStageManager = Sonic2SpecialStageManager.getInstance();
+    private SpecialStageProvider activeSpecialStageProvider = NoOpSpecialStageProvider.INSTANCE;
 
     // Title card provider - lazily initialized when GameModule is available
     private TitleCardProvider titleCardProvider;
@@ -105,8 +100,8 @@ public class GameLoop {
         void onGameModeChanged(GameMode oldMode, GameMode newMode);
     }
 
-    private volatile boolean paused = false;      // Window focus pause
-    private volatile boolean userPaused = false;  // Keyboard toggle pause
+    private boolean paused = false;      // Window focus pause
+    private boolean userPaused = false;  // Keyboard toggle pause
 
     public GameLoop() {
     }
@@ -148,7 +143,7 @@ public class GameLoop {
      * Pauses the game loop due to window losing focus.
      * Audio is also paused to prevent music continuing while game is frozen.
      */
-    public void pause() {
+    public synchronized void pause() {
         if (!paused) {
             paused = true;
             updateAudioPauseState();
@@ -159,7 +154,7 @@ public class GameLoop {
      * Resumes the game loop after window regains focus.
      * Audio playback is restored only if user hasn't also paused via keyboard.
      */
-    public void resume() {
+    public synchronized void resume() {
         if (paused) {
             paused = false;
             updateAudioPauseState();
@@ -170,7 +165,7 @@ public class GameLoop {
      * Toggles the user-initiated pause state (via keyboard).
      * This is separate from window focus pause so both can work independently.
      */
-    public void toggleUserPause() {
+    public synchronized void toggleUserPause() {
         userPaused = !userPaused;
         updateAudioPauseState();
     }
@@ -185,7 +180,7 @@ public class GameLoop {
     /**
      * @return true if the game loop is currently paused (either by window or user)
      */
-    public boolean isPaused() {
+    public synchronized boolean isPaused() {
         return paused || userPaused;
     }
 
@@ -193,7 +188,7 @@ public class GameLoop {
      * Updates audio pause state based on combined pause flags.
      * Audio should be paused if either window or user pause is active.
      */
-    private void updateAudioPauseState() {
+    private synchronized void updateAudioPauseState() {
         if (paused || userPaused) {
             AudioManager.getInstance().pause();
         } else {
@@ -246,6 +241,8 @@ public class GameLoop {
         }
 
         if (currentGameMode == GameMode.SPECIAL_STAGE) {
+            SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
+
             // Debug complete special stage with emerald (for testing results screen)
             if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_COMPLETE_KEY))) {
                 debugCompleteSpecialStageWithEmerald();
@@ -258,41 +255,41 @@ public class GameLoop {
 
             // Toggle sprite frame debug viewer (shows all animation frames)
             if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_SPRITE_DEBUG_KEY))) {
-                specialStageManager.toggleSpriteDebugMode();
+                ssProvider.toggleSpriteDebugMode();
             }
 
             // Cycle special stage plane visibility (A/B/both/off)
             if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_PLANE_DEBUG_KEY))) {
-                specialStageManager.cyclePlaneDebugMode();
+                ssProvider.cyclePlaneDebugMode();
             }
 
             // Handle sprite debug viewer navigation (uses configured movement keys)
-            if (specialStageManager.isSpriteDebugMode()) {
-                Sonic2SpecialStageSpriteDebug debugSprites = Sonic2SpecialStageSpriteDebug.getInstance();
-                // Left/Right: Change page within current graphics set
-                if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.RIGHT))) {
-                    debugSprites.nextPage();
-                }
-                if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.LEFT))) {
-                    debugSprites.previousPage();
-                }
-                // Up/Down: Cycle between graphics sets
-                if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.DOWN))) {
-                    debugSprites.nextSet();
-                }
-                if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.UP))) {
-                    debugSprites.previousSet();
+            if (ssProvider.isSpriteDebugMode()) {
+                SpecialStageDebugProvider debugProvider = ssProvider.getDebugProvider();
+                if (debugProvider != null) {
+                    // Left/Right: Change page within current graphics set
+                    if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.RIGHT))) {
+                        debugProvider.nextPage();
+                    }
+                    if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.LEFT))) {
+                        debugProvider.previousPage();
+                    }
+                    // Up/Down: Cycle between graphics sets
+                    if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.DOWN))) {
+                        debugProvider.nextSet();
+                    }
+                    if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.UP))) {
+                        debugProvider.previousSet();
+                    }
                 }
             }
 
             updateSpecialStageInput();
-            specialStageManager.update();
+            ssProvider.update();
 
             // Check for special stage completion or failure
-            if (specialStageManager.isFinished()) {
-                var result = specialStageManager.getResultState();
-                boolean completed = (result == Sonic2SpecialStageManager.ResultState.COMPLETED);
-                boolean gotEmerald = completed && specialStageManager.hasEmeraldCollected();
+            if (ssProvider.isFinished()) {
+                boolean gotEmerald = ssProvider.isEmeraldCollected();
                 enterResultsScreen(gotEmerald);
             }
         } else if (currentGameMode == GameMode.SPECIAL_STAGE_RESULTS) {
@@ -544,11 +541,13 @@ public class GameLoop {
             return;
         }
 
+        SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
+
         // Force emerald collection state
-        specialStageManager.setEmeraldCollected(true);
+        ssProvider.setEmeraldCollected(true);
 
         // Get the ring requirement for this stage and set rings to meet it
-        int stageIndex = specialStageManager.getCurrentStage();
+        int stageIndex = ssProvider.getCurrentStage();
         int ringRequirement = getDebugRingRequirement(stageIndex);
 
         LOGGER.info("DEBUG: Completing Special Stage " + (stageIndex + 1) +
@@ -567,7 +566,7 @@ public class GameLoop {
             return;
         }
 
-        int stageIndex = specialStageManager.getCurrentStage();
+        int stageIndex = getActiveSpecialStageProvider().getCurrentStage();
         int smallRingCount = 15; // A small amount of rings to show ring bonus tally
 
         LOGGER.info("DEBUG: Failing Special Stage " + (stageIndex + 1) +
@@ -617,7 +616,7 @@ public class GameLoop {
         // Store special stage results for the results screen
         ssRingsCollected = ringsCollected;
         ssEmeraldCollected = emeraldCollected;
-        ssStageIndex = specialStageManager.getCurrentStage();
+        ssStageIndex = getActiveSpecialStageProvider().getCurrentStage();
 
         // Mark emerald as collected now (so it shows in results screen)
         if (emeraldCollected) {
@@ -639,32 +638,7 @@ public class GameLoop {
      * version).
      */
     private void doEnterResultsScreenDebug() {
-        // Reset special stage manager
-        specialStageManager.reset();
-
-        // Transition to results mode
-        GameMode oldMode = currentGameMode;
-        currentGameMode = GameMode.SPECIAL_STAGE_RESULTS;
-        resultsFrameCounter = 0;
-
-        // Create results screen with current emerald count
-        int totalEmeralds = GameServices.gameState().getEmeraldCount();
-        resultsScreen = new SpecialStageResultsScreenObjectInstance(
-                ssRingsCollected, ssEmeraldCollected, ssStageIndex, totalEmeralds);
-
-        // Play act clear music
-        AudioManager.getInstance().playMusic(Sonic2Music.ACT_CLEAR.id);
-
-        // Notify listener of mode change
-        if (gameModeChangeListener != null) {
-            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
-        }
-
-        // Start fade-from-white to reveal the results screen
-        FadeManager.getInstance().startFadeFromWhite(null);
-
-        LOGGER.info("DEBUG: Entered Special Stage Results Screen (rings=" + ssRingsCollected +
-                ", emerald=" + ssEmeraldCollected + ")");
+        doEnterResultsScreen();
     }
 
     /**
@@ -683,6 +657,12 @@ public class GameLoop {
             return;
         }
 
+        SpecialStageProvider ssProvider = getCurrentModuleSpecialStageProvider();
+        if (!ssProvider.hasSpecialStages()) {
+            LOGGER.fine("Current game module has no special stages; ignoring entry request");
+            return;
+        }
+
         // Freeze level updates during transition (ROM-accurate: level stops updating)
         specialStageTransitionPending = true;
 
@@ -696,7 +676,7 @@ public class GameLoop {
         }
 
         // Play special stage entry sound
-        AudioManager.getInstance().playSfx(Sonic2Sfx.SPECIAL_STAGE_ENTRY.id);
+        playSpecialStageTransitionSfx(ssProvider);
 
         // Fade out the current music gradually (ROM: MusID_FadeOut / zFadeOutMusic)
         // This preserves the SFX we just started, unlike stopMusic() which silences all
@@ -708,7 +688,7 @@ public class GameLoop {
 
         // Start fade-to-white, then enter special stage when complete
         fadeManager.startFadeToWhite(() -> {
-            doEnterSpecialStage(stageIndex);
+            doEnterSpecialStage(ssProvider, stageIndex);
         });
 
         LOGGER.info("Starting fade-to-white for Special Stage " + (stageIndex + 1));
@@ -718,13 +698,14 @@ public class GameLoop {
      * Actually enters the special stage after fade-to-white completes.
      * Called by the fade callback.
      */
-    private void doEnterSpecialStage(int stageIndex) {
+    private void doEnterSpecialStage(SpecialStageProvider ssProvider, int stageIndex) {
         // Clear the transition freeze flag (now we're in special stage mode)
         specialStageTransitionPending = false;
 
         try {
-            specialStageManager.reset();
-            specialStageManager.initialize(stageIndex);
+            ssProvider.reset();
+            ssProvider.initializeStage(stageIndex);
+            activeSpecialStageProvider = ssProvider;
 
             GameMode oldMode = currentGameMode;
             currentGameMode = GameMode.SPECIAL_STAGE;
@@ -733,7 +714,7 @@ public class GameLoop {
             camera.setX((short) 0);
             camera.setY((short) 0);
 
-            AudioManager.getInstance().playMusic(Sonic2Music.SPECIAL_STAGE.id);
+            playSpecialStageStageMusic(ssProvider);
 
             // Notify listener of mode change
             if (gameModeChangeListener != null) {
@@ -766,10 +747,12 @@ public class GameLoop {
             return;
         }
 
+        SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
+
         // Store special stage results for the results screen
-        ssRingsCollected = specialStageManager.getRingsCollected();
+        ssRingsCollected = ssProvider.getRingsCollected();
         ssEmeraldCollected = emeraldCollected;
-        ssStageIndex = specialStageManager.getCurrentStage();
+        ssStageIndex = ssProvider.getCurrentStage();
 
         // Mark emerald as collected now (so it shows in results screen)
         if (emeraldCollected) {
@@ -791,10 +774,8 @@ public class GameLoop {
      */
     private void doEnterResultsScreen() {
         // Reset special stage provider
-        SpecialStageProvider ssProvider = GameModuleRegistry.getCurrent().getSpecialStageProvider();
-        if (ssProvider != null) {
-            ssProvider.reset();
-        }
+        SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
+        ssProvider.reset();
 
         // Transition to results mode
         GameMode oldMode = currentGameMode;
@@ -803,13 +784,14 @@ public class GameLoop {
 
         // Create results screen with current emerald count via provider
         int totalEmeralds = GameServices.gameState().getEmeraldCount();
-        if (ssProvider != null) {
-            resultsScreen = ssProvider.createResultsScreen(
-                    ssRingsCollected, ssEmeraldCollected, ssStageIndex, totalEmeralds);
+        resultsScreen = ssProvider.createResultsScreen(
+                ssRingsCollected, ssEmeraldCollected, ssStageIndex, totalEmeralds);
+
+        if (resultsScreen == null) {
+            resultsScreen = uk.co.jamesj999.sonic.game.NoOpResultsScreen.INSTANCE;
         }
 
-        // Play act clear music
-        AudioManager.getInstance().playMusic(Sonic2Music.ACT_CLEAR.id);
+        playSpecialStageResultsMusic(ssProvider);
 
         // Notify listener of mode change
         if (gameModeChangeListener != null) {
@@ -840,7 +822,7 @@ public class GameLoop {
         }
 
         // Play the special stage exit sound (same as entry sound)
-        AudioManager.getInstance().playSfx(Sonic2Sfx.SPECIAL_STAGE_ENTRY.id);
+        playSpecialStageTransitionSfx(getActiveSpecialStageProvider());
 
         // Start fade-to-white, then show title card when complete
         fadeManager.startFadeToWhite(() -> {
@@ -856,6 +838,7 @@ public class GameLoop {
     private void doExitResultsScreen() {
         // Clean up results screen
         resultsScreen = null;
+        activeSpecialStageProvider = NoOpSpecialStageProvider.INSTANCE;
 
         if (levelManager.getCurrentLevel() == null) {
             // No level was loaded (special stage launched from level select).
@@ -1541,6 +1524,49 @@ public class GameLoop {
         return resultsScreen;
     }
 
+    public SpecialStageProvider getActiveSpecialStageProvider() {
+        if (currentGameMode == GameMode.SPECIAL_STAGE || currentGameMode == GameMode.SPECIAL_STAGE_RESULTS) {
+            return activeSpecialStageProvider != null ? activeSpecialStageProvider : NoOpSpecialStageProvider.INSTANCE;
+        }
+        return getCurrentModuleSpecialStageProvider();
+    }
+
+    private SpecialStageProvider getCurrentModuleSpecialStageProvider() {
+        var module = GameModuleRegistry.getCurrent();
+        if (module == null) {
+            return NoOpSpecialStageProvider.INSTANCE;
+        }
+        SpecialStageProvider provider = module.getSpecialStageProvider();
+        return provider != null ? provider : NoOpSpecialStageProvider.INSTANCE;
+    }
+
+    private void playSpecialStageTransitionSfx(SpecialStageProvider ssProvider) {
+        int sfxId = ssProvider.getTransitionSfxId();
+        if (sfxId >= 0) {
+            AudioManager.getInstance().playSfx(sfxId);
+        } else {
+            AudioManager.getInstance().playSfx(Sonic2Sfx.SPECIAL_STAGE_ENTRY.id);
+        }
+    }
+
+    private void playSpecialStageStageMusic(SpecialStageProvider ssProvider) {
+        int musicId = ssProvider.getStageMusicId();
+        if (musicId >= 0) {
+            AudioManager.getInstance().playMusic(musicId);
+        } else {
+            AudioManager.getInstance().playMusic(Sonic2Music.SPECIAL_STAGE.id);
+        }
+    }
+
+    private void playSpecialStageResultsMusic(SpecialStageProvider ssProvider) {
+        int musicId = ssProvider.getResultsMusicId();
+        if (musicId >= 0) {
+            AudioManager.getInstance().playMusic(musicId);
+        } else {
+            AudioManager.getInstance().playMusic(Sonic2Music.ACT_CLEAR.id);
+        }
+    }
+
     private void updateSpecialStageInput() {
         int leftKey = configService.getInt(SonicConfiguration.LEFT);
         int rightKey = configService.getInt(SonicConfiguration.RIGHT);
@@ -1548,10 +1574,7 @@ public class GameLoop {
         int downKey = configService.getInt(SonicConfiguration.DOWN);
         int jumpKey = configService.getInt(SonicConfiguration.JUMP);
 
-        SpecialStageProvider ssProvider = GameModuleRegistry.getCurrent().getSpecialStageProvider();
-        if (ssProvider == null) {
-            return;
-        }
+        SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
 
         if (inputHandler.isKeyPressed(GLFW_KEY_F4)) {
             ssProvider.toggleAlignmentTestMode();
@@ -1614,8 +1637,8 @@ public class GameLoop {
      *              simulation)
      */
     private void adjustLagCompensation(double delta) {
-        SpecialStageProvider ssProvider = GameModuleRegistry.getCurrent().getSpecialStageProvider();
-        if (ssProvider == null || !ssProvider.isInitialized()) {
+        SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
+        if (!ssProvider.isInitialized()) {
             return;
         }
 

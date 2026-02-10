@@ -16,6 +16,33 @@ import java.io.IOException;
  */
 public interface SpecialStageProvider extends MiniGameProvider {
     /**
+     * Gets the SFX ID to play when entering/exiting the special stage flow.
+     *
+     * @return game-specific SFX ID, or -1 to use the engine fallback
+     */
+    default int getTransitionSfxId() {
+        return -1;
+    }
+
+    /**
+     * Gets the music ID to play while the special stage is active.
+     *
+     * @return game-specific music ID, or -1 to use the engine fallback
+     */
+    default int getStageMusicId() {
+        return -1;
+    }
+
+    /**
+     * Gets the music ID to play for special stage results.
+     *
+     * @return game-specific music ID, or -1 to use the engine fallback
+     */
+    default int getResultsMusicId() {
+        return -1;
+    }
+
+    /**
      * Checks if this game has special stages.
      *
      * @return true if special stages are available
