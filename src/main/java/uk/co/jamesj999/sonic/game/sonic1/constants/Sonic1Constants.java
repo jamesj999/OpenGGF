@@ -214,6 +214,14 @@ public final class Sonic1Constants {
     // Nem_Lamp: Nemesis-compressed lamppost art (10 tiles: pole, blue ball, red ball)
     public static final int ART_NEM_LAMPPOST_ADDR = 0x3AE64;
 
+    // Nem_Swing: Nemesis-compressed GHZ/MZ swinging platform art (281 bytes, ArtTile $380)
+    // Verified by RomOffsetFinder --game s1 search Swing
+    public static final int ART_NEM_SWING_ADDR = 0x2F912;
+
+    // Nem_Ball: Nemesis-compressed GHZ giant ball art (413 bytes, ArtTile $3AA)
+    // Verified by RomOffsetFinder --game s1 search Ball
+    public static final int ART_NEM_GIANT_BALL_ADDR = 0x2FB60;
+
     // Nem_Spikes: Nemesis-compressed spike art (upward + sideways, 8 tiles)
     public static final int ART_NEM_SPIKES_ADDR = 0x2FCFE;
 
@@ -258,6 +266,15 @@ public final class Sonic1Constants {
     // Nem_SlzWall: Nemesis-compressed SLZ breakable wall art (ArtTile_GHZ_SLZ_Smashable_Wall+4)
     // Verified by RomOffsetFinder --game s1 search SlzWall (97 bytes)
     public static final int ART_NEM_SLZ_BREAKABLE_WALL_ADDR = 0x33E22;
+
+    // Nem_SlzSwing: Nemesis-compressed SLZ swinging platform art (482 bytes, ArtTile $3DC)
+    // Verified by RomOffsetFinder --game s1 search Swing
+    public static final int ART_NEM_SLZ_SWING_ADDR = 0x33F66;
+
+    // Nem_SyzSpike1: Nemesis-compressed SYZ large spikeball / SBZ spiked ball art (654 bytes, ArtTile $391)
+    // Used by swinging platform object in SBZ (spiked ball on a chain)
+    // Verified by RomOffsetFinder --game s1 search Ball
+    public static final int ART_NEM_SBZ_SPIKED_BALL_ADDR = 0x345A6;
 
     // ---- Loop / Plane Switching ----
     // LoopTileNums table from Sonic_Loops (_incObj/01 Sonic.asm lines 1536-1611).
