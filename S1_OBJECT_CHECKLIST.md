@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 21 (26.3%)
-- **Unimplemented:** 59 (73.8%)
+- **Implemented:** 22 (27.5%)
+- **Unimplemented:** 58 (72.5%)
 
 ## Implemented Objects
 
@@ -33,6 +33,8 @@ Generated: 2026-02-09 23:03:25
 | 0x3C | BreakableWall | 26 | GHZ2, GHZ3, SLZ1, SLZ3 |
 | 0x4B | GiantRing | 11 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2 |
 | 0x15 | SwingingPlatform | 26 | GHZ2, GHZ3, MZ2, MZ3, SLZ3, SBZ2 |
+| 0x3D | GHZBoss | 1 | GHZ3 |
+| 0x3E | EggPrison | 10 | GHZ3, LZ3, MZ3, SLZ3, SYZ3 |
 
 ## Unimplemented Objects (By Usage)
 
@@ -82,7 +84,6 @@ Generated: 2026-02-09 23:03:25
 | 0x6A | Object | S1_Obj_6A | 14 | SBZ1, SBZ2 |
 | 0x70 | Object | S1_Obj_70 | 12 | SBZ1 |
 | 0x1E | Object | S1_Obj_1E | 10 | SBZ1, SBZ2 |
-| 0x3E | Object | EggPrison | 10 | GHZ3, LZ3, MZ3, SLZ3, SYZ3 |
 | 0x50 | Badnik | Yadrin | 10 | SYZ1, SYZ2, SYZ3 |
 | 0x62 | Object | S1_Obj_62 | 9 | LZ1, LZ2, LZ3 |
 | 0x67 | Object | S1_Obj_67 | 8 | SBZ2 |
@@ -164,7 +165,7 @@ Total: 244 objects | Implemented: 20 | Unimplemented: 2
 
 #### Act 3
 
-Total: 286 objects | Implemented: 18 | Unimplemented: 2
+Total: 286 objects | Implemented: 19 | Unimplemented: 1
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
@@ -184,7 +185,7 @@ Total: 286 objects | Implemented: 18 | Unimplemented: 2
 - [x] 0x36 Spikes (x19) [5 subtypes]
 - [x] 0x3B Rock (x7) [0x00]
 - [x] 0x3C BreakableWall (x12) [0x00, 0x01, 0x02]
-- [ ] 0x3E EggPrison (x2) [0x00, 0x01]
+- [x] 0x3E EggPrison (x2) [0x00, 0x01]
 - [x] 0x41 Spring (x13) [0x10, 0x02]
 - [x] 0x44 EdgeWalls (x40) [6 subtypes]
 - [x] 0x49 WaterfallSound (x4) [0x00]
@@ -253,7 +254,7 @@ Total: 138 objects | Implemented: 6 | Unimplemented: 15
 
 #### Act 3
 
-Total: 245 objects | Implemented: 5 | Unimplemented: 16
+Total: 245 objects | Implemented: 6 | Unimplemented: 15
 
 **Badniks:**
 - [ ] 0x2C Jaws (x7) [0x08, 0x0C]
@@ -268,7 +269,7 @@ Total: 245 objects | Implemented: 5 | Unimplemented: 16
 - [x] 0x26 Monitor (x17) [4 subtypes]
 - [ ] 0x32 S1_Obj_32 (x10) [10 subtypes]
 - [x] 0x36 Spikes (x39) [5 subtypes]
-- [ ] 0x3E EggPrison (x2) [0x00, 0x01]
+- [x] 0x3E EggPrison (x2) [0x00, 0x01]
 - [x] 0x41 Spring (x3) [0x00]
 - [ ] 0x56 S1_Obj_56 (x9) [9 subtypes]
 - [ ] 0x57 S1_Obj_57 (x8) [5 subtypes]
@@ -345,7 +346,7 @@ Total: 198 objects | Implemented: 8 | Unimplemented: 17
 
 #### Act 3
 
-Total: 232 objects | Implemented: 7 | Unimplemented: 16
+Total: 232 objects | Implemented: 8 | Unimplemented: 15
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x3) [0x00]
@@ -363,7 +364,7 @@ Total: 232 objects | Implemented: 7 | Unimplemented: 16
 - [ ] 0x32 S1_Obj_32 (x1) [0x01]
 - [ ] 0x33 S1_Obj_33 (x2) [0x00]
 - [x] 0x36 Spikes (x23) [4 subtypes]
-- [ ] 0x3E EggPrison (x2) [0x00, 0x01]
+- [x] 0x3E EggPrison (x2) [0x00, 0x01]
 - [x] 0x41 Spring (x1) [0x10]
 - [ ] 0x46 S1_Obj_46 (x34) [0x00, 0x02]
 - [ ] 0x4C S1_Obj_4C (x1) [0x01]
@@ -430,7 +431,7 @@ Total: 187 objects | Implemented: 6 | Unimplemented: 13
 
 #### Act 3
 
-Total: 250 objects | Implemented: 8 | Unimplemented: 12
+Total: 250 objects | Implemented: 9 | Unimplemented: 11
 
 **Badniks:**
 - [ ] 0x5F Bomb (x48) [0x00]
@@ -444,7 +445,7 @@ Total: 250 objects | Implemented: 8 | Unimplemented: 12
 - [x] 0x25 Ring (x65) [11 subtypes]
 - [x] 0x26 Monitor (x17) [4 subtypes]
 - [x] 0x3C BreakableWall (x4) [0x01]
-- [ ] 0x3E EggPrison (x2) [0x00, 0x01]
+- [x] 0x3E EggPrison (x2) [0x00, 0x01]
 - [x] 0x41 Spring (x11) [0x10, 0x00, 0x02]
 - [ ] 0x53 S1_Obj_53 (x9) [0x81, 0x01]
 - [ ] 0x56 S1_Obj_56 (x16) [4 subtypes]
@@ -512,7 +513,7 @@ Total: 230 objects | Implemented: 8 | Unimplemented: 10
 
 #### Act 3
 
-Total: 257 objects | Implemented: 7 | Unimplemented: 9
+Total: 257 objects | Implemented: 8 | Unimplemented: 8
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x14) [0x00]
@@ -525,7 +526,7 @@ Total: 257 objects | Implemented: 7 | Unimplemented: 9
 - [x] 0x25 Ring (x46) [16 subtypes]
 - [x] 0x26 Monitor (x11) [5 subtypes]
 - [ ] 0x32 S1_Obj_32 (x2) [0x00, 0x0F]
-- [ ] 0x3E EggPrison (x2) [0x00, 0x01]
+- [x] 0x3E EggPrison (x2) [0x00, 0x01]
 - [x] 0x41 Spring (x17) [0x00, 0x02, 0x12]
 - [ ] 0x47 Bumper (x17) [0x00]
 - [ ] 0x56 S1_Obj_56 (x80) [7 subtypes]
