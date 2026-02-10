@@ -21,12 +21,11 @@ import uk.co.jamesj999.sonic.level.rings.RingSpawn;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2AudioProfile;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
-import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 
 import static uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants.*;
 
@@ -125,34 +124,7 @@ public class Sonic2 extends Game implements PlayerSpriteArtProvider, SpindashDus
 
     @Override
     public Map<GameSound, Integer> getSoundMap() {
-        Map<GameSound, Integer> map = new HashMap<>();
-        map.put(GameSound.JUMP, Sonic2Sfx.JUMP.id);
-        map.put(GameSound.RING_LEFT, Sonic2Sfx.RING_LEFT.id);
-        map.put(GameSound.RING_RIGHT, Sonic2Sfx.RING_RIGHT.id);
-        map.put(GameSound.RING_SPILL, Sonic2Sfx.RING_SPILL.id);
-        map.put(GameSound.SPINDASH_CHARGE, Sonic2Sfx.SPINDASH_CHARGE.id);
-        map.put(GameSound.SPINDASH_RELEASE, Sonic2Sfx.SPINDASH_RELEASE.id);
-        map.put(GameSound.SKID, Sonic2Sfx.SKIDDING.id);
-        map.put(GameSound.HURT, Sonic2Sfx.HURT.id);
-        map.put(GameSound.HURT_SPIKE, Sonic2Sfx.HURT_BY_SPIKES.id);
-        map.put(GameSound.DROWN, Sonic2Sfx.DROWN.id);
-        map.put(GameSound.BADNIK_HIT, Sonic2Sfx.EXPLOSION.id);
-        map.put(GameSound.CHECKPOINT, Sonic2Sfx.CHECKPOINT.id);
-        map.put(GameSound.SPRING, Sonic2Sfx.SPRING.id);
-        map.put(GameSound.BUMPER, Sonic2Sfx.BUMPER.id);
-        map.put(GameSound.BONUS_BUMPER, Sonic2Sfx.BONUS_BUMPER.id);
-        map.put(GameSound.LARGE_BUMPER, Sonic2Sfx.LARGE_BUMPER.id);
-        map.put(GameSound.FLIPPER, Sonic2Sfx.FLIPPER.id);
-        map.put(GameSound.CNZ_LAUNCH, Sonic2Sfx.CNZ_LAUNCH.id);
-        map.put(GameSound.CNZ_ELEVATOR, Sonic2Sfx.CNZ_ELEVATOR.id);
-        map.put(GameSound.ROLLING, Sonic2Sfx.ROLL.id);
-        map.put(GameSound.ERROR, Sonic2Sfx.ERROR.id);
-        map.put(GameSound.SPLASH, Sonic2Sfx.SPLASH.id);
-        map.put(GameSound.AIR_DING, Sonic2Sfx.WATER_WARNING.id);
-        map.put(GameSound.SLOW_SMASH, Sonic2Sfx.SLOW_SMASH.id);
-        map.put(GameSound.CASINO_BONUS, Sonic2Sfx.CASINO_BONUS.id);
-        map.put(GameSound.OIL_SLIDE, Sonic2Sfx.OIL_SLIDE.id);
-        return map;
+        return new Sonic2AudioProfile().getSoundMap();
     }
 
     @Override

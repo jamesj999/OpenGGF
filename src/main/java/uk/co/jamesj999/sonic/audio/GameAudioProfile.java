@@ -4,6 +4,8 @@ import uk.co.jamesj999.sonic.audio.smps.SmpsLoader;
 import uk.co.jamesj999.sonic.audio.smps.SmpsSequencerConfig;
 import uk.co.jamesj999.sonic.data.Rom;
 
+import java.util.Map;
+
 public interface GameAudioProfile {
 
     /** How speed shoes affect music playback. */
@@ -68,4 +70,12 @@ public interface GameAudioProfile {
     default int getSpeedMultiplierValue() {
         return 0x08;
     }
+
+    /**
+     * Returns the GameSound to game-specific SFX ID mapping.
+     * Used by the game class to configure AudioManager's sound dispatch.
+     *
+     * @return unmodifiable map of GameSound enum values to native SFX IDs
+     */
+    Map<GameSound, Integer> getSoundMap();
 }
