@@ -111,6 +111,16 @@ public class Sonic1SpecialStageManagerTest {
     }
 
     @Test
+    public void testBackdropColorUsesResolvedSpecialPalette() throws Exception {
+        manager.initialize(0);
+        Palette.Color backdrop = manager.getBackdropColor();
+        assertNotNull("Backdrop color should be available after initialization", backdrop);
+        assertEquals("Backdrop red should match S1 special-stage palette", 0, backdrop.r & 0xFF);
+        assertEquals("Backdrop green should match S1 special-stage palette", 0, backdrop.g & 0xFF);
+        assertEquals("Backdrop blue should match S1 special-stage palette", 73, backdrop.b & 0xFF);
+    }
+
+    @Test
     public void testSonicAnimationFrameAdvancesDuringStage() throws Exception {
         manager.initialize(0);
 
@@ -193,6 +203,30 @@ public class Sonic1SpecialStageManagerTest {
         assertTrue("S1 special stage draw should clear water-enabled state",
                 !graphicsManager.isWaterEnabled());
         assertTrue("S1 special stage draw should disable underwater background palette mode",
+                !graphicsManager.isUseUnderwaterPaletteForBackground());
+    }
+
+    @Test
+    public void testResetClearsSpecialStageShaderState() throws Exception {
+        manager.initialize(0);
+
+        graphicsManager.setUseWaterShader(true);
+        graphicsManager.setUseSpritePriorityShader(true);
+        graphicsManager.setCurrentSpriteHighPriority(true);
+        graphicsManager.setWaterEnabled(true);
+        graphicsManager.setUseUnderwaterPaletteForBackground(true);
+
+        manager.reset();
+
+        assertTrue("S1 special stage reset should disable water shader",
+                !(graphicsManager.getShaderProgram() instanceof uk.co.jamesj999.sonic.graphics.WaterShaderProgram));
+        assertTrue("S1 special stage reset should disable sprite priority mode",
+                !graphicsManager.isUseSpritePriorityShader());
+        assertTrue("S1 special stage reset should clear sprite high-priority state",
+                !graphicsManager.getCurrentSpriteHighPriority());
+        assertTrue("S1 special stage reset should clear water-enabled state",
+                !graphicsManager.isWaterEnabled());
+        assertTrue("S1 special stage reset should disable underwater background palette mode",
                 !graphicsManager.isUseUnderwaterPaletteForBackground());
     }
 
