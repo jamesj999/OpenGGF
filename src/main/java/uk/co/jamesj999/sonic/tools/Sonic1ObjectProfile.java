@@ -64,7 +64,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.NEWTRON,
             Sonic1ObjectIds.WATERFALL_SOUND,
             Sonic1ObjectIds.GIANT_RING,
-            Sonic1ObjectIds.GHZ_BOSS
+            Sonic1ObjectIds.GHZ_BOSS,
+            Sonic1ObjectIds.EGG_PRISON
     );
 
     private static final Set<Integer> BADNIK_IDS = Set.of(

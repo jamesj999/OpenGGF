@@ -155,6 +155,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load swinging platform art (zone-dependent: GHZ/MZ, SLZ, SBZ, GHZ giant ball)
         loadSwingingPlatformArt(rom, zoneIndex);
 
+        // Load prison capsule art (all zones - appears in every boss act)
+        loadPrisonArt(rom);
+
         // Load boss art (GHZ: Eggman, weapons/chain anchor, exhaust flame)
         if (zoneIndex == Sonic1Constants.ZONE_GHZ) {
             loadBossArt(rom);
@@ -2735,6 +2738,91 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 new SpriteMappingPiece(-0x18,     0, 3, 3, 0x12, false, true,  0, false),
                 new SpriteMappingPiece(    0,     0, 3, 3, 0x1B, false, true,  0, false)
         )));
+
+        return frames;
+    }
+
+    /**
+     * Loads prison capsule art (Nem_Prison) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Prison Capsule.asm (Map_Pri_internal).
+     * <p>
+     * Appears in every zone's final act. Uses palette line 1 for capsule body,
+     * palette line 0 for switch pieces.
+     */
+    private void loadPrisonArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_PRISON_ADDR, "Prison");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load prison capsule art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createPrisonMappings();
+        // Palette line 0 as base; capsule body pieces override to pal 1 per-piece
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.EGG_PRISON, sheet);
+    }
+
+    /**
+     * Creates prison capsule sprite mappings from S1 disassembly Map_Pri_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0 (.capsule): Intact sealed capsule (7 pieces, pal 1)
+     * Frame 1 (.switch1): Switch before activation (1 piece, pal 0)
+     * Frame 2 (.broken):  Broken/destroyed capsule (6 pieces, pal 1)
+     * Frame 3 (.switch2): Switch after activation (1 piece, pal 0)
+     * Frame 4 (.unusedthing1): Unused (2 pieces, pal 1)
+     * Frame 5 (.unusedthing2): Unused (1 piece, pal 1)
+     * Frame 6 (.blank):   Empty/invisible frame (0 pieces)
+     */
+    private List<SpriteMappingFrame> createPrisonMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .capsule - intact sealed capsule (7 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x20, 4, 1, 0x00, false, false, 1, false),
+                new SpriteMappingPiece(-0x20, -0x18, 4, 2, 0x04, false, false, 1, false),
+                new SpriteMappingPiece(    0, -0x18, 4, 2, 0x0C, false, false, 1, false),
+                new SpriteMappingPiece(-0x20,    -8, 4, 3, 0x14, false, false, 1, false),
+                new SpriteMappingPiece(    0,    -8, 4, 3, 0x20, false, false, 1, false),
+                new SpriteMappingPiece(-0x20,  0x10, 4, 2, 0x2C, false, false, 1, false),
+                new SpriteMappingPiece(    0,  0x10, 4, 2, 0x34, false, false, 1, false)
+        )));
+
+        // Frame 1: .switch1 - switch before activation (1 piece)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -8, 3, 2, 0x3C, false, false, 0, false)
+        )));
+
+        // Frame 2: .broken - destroyed capsule (6 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20,     0, 3, 1, 0x42, false, false, 1, false),
+                new SpriteMappingPiece(-0x20,     8, 4, 1, 0x45, false, false, 1, false),
+                new SpriteMappingPiece( 0x10,     0, 2, 1, 0x49, false, false, 1, false),
+                new SpriteMappingPiece(    0,     8, 4, 1, 0x4B, false, false, 1, false),
+                new SpriteMappingPiece(-0x20,  0x10, 4, 2, 0x2C, false, false, 1, false),
+                new SpriteMappingPiece(    0,  0x10, 4, 2, 0x34, false, false, 1, false)
+        )));
+
+        // Frame 3: .switch2 - switch after activation (1 piece)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -8, 3, 2, 0x4F, false, false, 0, false)
+        )));
+
+        // Frame 4: .unusedthing1 (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x18, 4, 3, 0x55, false, false, 1, false),
+                new SpriteMappingPiece(-0x10,     0, 4, 3, 0x61, false, false, 1, false)
+        )));
+
+        // Frame 5: .unusedthing2 (1 piece)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x10, 2, 4, 0x6D, false, false, 1, false)
+        )));
+
+        // Frame 6: .blank (0 pieces)
+        frames.add(new SpriteMappingFrame(List.of()));
 
         return frames;
     }

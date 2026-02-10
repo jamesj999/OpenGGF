@@ -97,6 +97,14 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1GiantRingObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GHZ_BOSS,
                 (spawn, registry) -> new Sonic1GHZBossInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.EGG_PRISON, (spawn, registry) -> {
+            // ROM placement has two entries: subtype 0 (body) and subtype 1 (button).
+            // Pri_Main creates sub-objects from Pri_Var; our engine loads each entry separately.
+            if (spawn.subtype() == 1) {
+                return new Sonic1EggPrisonButtonObjectInstance(spawn);
+            }
+            return new Sonic1EggPrisonObjectInstance(spawn);
+        });
     }
 
     @Override
