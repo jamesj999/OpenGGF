@@ -121,6 +121,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
 
         // Load shield art
         loadShieldArt(rom);
+        loadInvincibilityStarsArt(rom);
 
         // Load spring art (all zones)
         loadSpringArt(rom);
@@ -969,6 +970,65 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 new SpriteMappingPiece(0, -0x18, 3, 3, 0, true, false, 0, false),
                 new SpriteMappingPiece(-0x18, 0, 3, 3, 9, true, true, 0, false),
                 new SpriteMappingPiece(0, 0, 3, 3, 0, true, true, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads invincibility stars art (Nem_Stars) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Shield and Invincibility.asm (Map_Shield_internal .stars*).
+     */
+    private void loadInvincibilityStarsArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_INVINCIBILITY_STARS_ADDR, "InvincibilityStars");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load invincibility stars art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createInvincibilityStarsMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.INVINCIBILITY_STARS, sheet);
+    }
+
+    /**
+     * Creates invincibility stars sprite mappings from S1 disassembly Map_Shield_internal.
+     * Uses only .stars1-.stars4 frames.
+     */
+    private List<SpriteMappingFrame> createInvincibilityStarsMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .stars1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x18, 3, 3, 9, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, 0, 3, 3, 9, true, true, 0, false),
+                new SpriteMappingPiece(0, 0, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 1: .stars2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x18, 3, 3, 9, true, false, 0, false),
+                new SpriteMappingPiece(0, -0x18, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x18, 0, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(0, 0, 3, 3, 9, false, true, 0, false)
+        )));
+
+        // Frame 2: .stars3
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x12, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x18, 3, 3, 0x1B, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, 0, 3, 3, 0x1B, true, true, 0, false),
+                new SpriteMappingPiece(0, 0, 3, 3, 0x12, true, true, 0, false)
+        )));
+
+        // Frame 3: .stars4
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x1B, true, false, 0, false),
+                new SpriteMappingPiece(0, -0x18, 3, 3, 0x12, true, false, 0, false),
+                new SpriteMappingPiece(-0x18, 0, 3, 3, 0x12, false, true, 0, false),
+                new SpriteMappingPiece(0, 0, 3, 3, 0x1B, false, true, 0, false)
         )));
 
         return frames;
