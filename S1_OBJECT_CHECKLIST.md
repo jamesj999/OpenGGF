@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 23 (28.8%)
-- **Unimplemented:** 57 (71.3%)
+- **Implemented:** 24 (30.0%)
+- **Unimplemented:** 56 (70.0%)
 
 ## Implemented Objects
 
@@ -33,6 +33,7 @@ Generated: 2026-02-09 23:03:25
 | 0x3C | BreakableWall | 26 | GHZ2, GHZ3, SLZ1, SLZ3 |
 | 0x4B | GiantRing | 11 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2 |
 | 0x15 | SwingingPlatform | 26 | GHZ2, GHZ3, MZ2, MZ3, SLZ3, SBZ2 |
+| 0x17 | SpikedPoleHelix | 4 | GHZ3 |
 | 0x3D | GHZBoss | 1 | GHZ3 |
 | 0x3E | EggPrison | 10 | GHZ3, LZ3, MZ3, SLZ3, SYZ3 |
 | 0x7D | HiddenBonus | 60 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2, SBZ1 |
@@ -91,7 +92,6 @@ Generated: 2026-02-09 23:03:25
 | 0x33 | Object | S1_Obj_33 | 6 | MZ1, MZ2, MZ3 |
 | 0x6F | Object | S1_Obj_6F | 6 | SBZ1 |
 | 0x0B | Object | S1_Obj_0B | 5 | LZ3 |
-| 0x17 | Object | S1_Obj_17 | 4 | GHZ3 |
 | 0x43 | Object | S1_Obj_43 | 4 | SYZ1, SYZ2 |
 | 0x4C | Object | S1_Obj_4C | 4 | MZ2, MZ3 |
 | 0x5C | Object | S1_Obj_5C | 3 | SLZ1, SLZ2, SLZ3 |
@@ -165,7 +165,7 @@ Total: 244 objects | Implemented: 21 | Unimplemented: 1
 
 #### Act 3
 
-Total: 286 objects | Implemented: 19 | Unimplemented: 1
+Total: 286 objects | Implemented: 20 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
@@ -176,7 +176,7 @@ Total: 286 objects | Implemented: 19 | Unimplemented: 1
 **Objects:**
 - [x] 0x11 Bridge (x4) [0x0C]
 - [x] 0x15 SwingingPlatform (x2) [0x07, 0x08]
-- [ ] 0x17 S1_Obj_17 (x4) [0x10]
+- [x] 0x17 SpikedPoleHelix (x4) [0x10]
 - [x] 0x18 Platform (x17) [6 subtypes]
 - [x] 0x1A CollapsingLedge (x12) [0x00, 0x01]
 - [x] 0x1C Scenery (x8) [0x03]

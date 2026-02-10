@@ -47,6 +47,9 @@ public final class ObjectArtKeys {
     public static final String GIANT_RING = "giant_ring";
     public static final String GIANT_RING_FLASH = "giant_ring_flash";
 
+    // Spiked pole helix (S1 GHZ)
+    public static final String SPIKED_POLE_HELIX = "spiked_pole_helix";
+
     // Swinging platform variants (S1)
     public static final String SWING_GHZ = "swing_ghz";
     public static final String SWING_SLZ = "swing_slz";
