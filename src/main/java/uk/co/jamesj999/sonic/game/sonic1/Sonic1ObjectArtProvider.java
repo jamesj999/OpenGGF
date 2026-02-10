@@ -1300,10 +1300,17 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             return;
         }
 
-        // Tile pair $6E2-$6E3 is "E" (from Nem_Hud), followed by seven "0" pairs.
+        // Tile pair $6E2-$6E3 is "E" (from Nem_Hud), followed by six "0" pairs.
+        // The final pair at $6F0-$6F1 is forced blank; results mappings use it as trailing blank.
         copyPatternPair(dest, startIndex, hudTextPatterns, HUD_TEXT_E_PAIR_INDEX);
-        for (int pair = 1; pair < RESULTS_SCORE_DIGIT_PAIR_COUNT; pair++) {
+        for (int pair = 1; pair < RESULTS_SCORE_DIGIT_PAIR_COUNT - 1; pair++) {
             copyPatternPair(dest, startIndex + (pair * 2), hudDigitPatterns, 0);
+        }
+        // Explicitly clear trailing pair in case HUD source art has non-blank data there.
+        int trailingPairIndex = startIndex + ((RESULTS_SCORE_DIGIT_PAIR_COUNT - 1) * 2);
+        if (trailingPairIndex >= 0 && trailingPairIndex + 1 < dest.length) {
+            dest[trailingPairIndex].copyFrom(new Pattern());
+            dest[trailingPairIndex + 1].copyFrom(new Pattern());
         }
     }
 
