@@ -285,4 +285,119 @@ public final class Sonic1Constants {
     // Bonus digit tiles: 2 groups (time bonus, ring bonus) x 4 digits x 2 tiles = 16
     public static final int S1_RESULTS_BONUS_DIGIT_TILES = 16;
     public static final int S1_RESULTS_BONUS_DIGIT_GROUP_TILES = 8;
+
+    // ---- Special Stage data ----
+
+    // SS_LayoutIndex: 6 longword pointers to Enigma-compressed stage layouts
+    public static final int SS_LAYOUT_INDEX_ADDR = 0x1BE02;
+    // Individual layout ROM offsets (verified via RomOffsetFinder)
+    public static final int SS_LAYOUT_1_ADDR = 0x65432;
+    public static final int SS_LAYOUT_2_ADDR = 0x656AC;
+    public static final int SS_LAYOUT_3_ADDR = 0x65ABE;
+    public static final int SS_LAYOUT_4_ADDR = 0x65E1A;
+    public static final int SS_LAYOUT_5_ADDR = 0x662F4;
+    public static final int SS_LAYOUT_6_ADDR = 0x667A4;
+
+    // SS_StartLoc: 6 entries x 4 bytes (word X, word Y) immediately after SS_LayoutIndex
+    public static final int SS_START_LOC_ADDR = 0x1BE1A;
+
+    // Layout format constants
+    public static final int SS_STAGE_COUNT = 6;
+    public static final int SS_LAYOUT_STRIDE = 0x80;   // stride per row in block buffer
+    public static final int SS_LAYOUT_COLS = 0x40;      // data columns per row
+    public static final int SS_BLOCK_SIZE_PX = 0x18;    // 24px per block
+
+    // ---- Special Stage palette ----
+    // palid_Special = index 10 in PalIndex table
+    public static final int PAL_SS_ADDR = 0x2460;       // Pal_Special (128 bytes, 4 palette lines)
+    public static final int PAL_SS_SIZE = 128;
+    public static final int PAL_SS_CYC1_ADDR = 0x4AD6;  // Pal_SSCyc1 (72 bytes)
+    public static final int PAL_SS_CYC1_SIZE = 72;
+    public static final int PAL_SS_CYC2_ADDR = 0x4B1E;  // Pal_SSCyc2 (210 bytes)
+    public static final int PAL_SS_CYC2_SIZE = 210;
+
+    // ---- Special Stage art (Nemesis compressed) ----
+    // All verified via RomOffsetFinder --game s1
+    public static final int ART_NEM_SS_WALLS_ADDR     = 0x2CA8E; // 2360 bytes
+    public static final int ART_NEM_SS_WALLS_SIZE      = 2360;
+    public static final int ART_NEM_SS_BUMPER_ADDR     = 0x342F8; // Nem_Bumper (SYZ bumper reused), 362 bytes
+    public static final int ART_NEM_SS_BUMPER_SIZE     = 362;
+    public static final int ART_NEM_SS_GOAL_ADDR       = 0x2E97E; // 237 bytes
+    public static final int ART_NEM_SS_GOAL_SIZE       = 237;
+    public static final int ART_NEM_SS_UPDOWN_ADDR     = 0x2F1E0; // 500 bytes
+    public static final int ART_NEM_SS_UPDOWN_SIZE     = 500;
+    public static final int ART_NEM_SS_RBLOCK_ADDR     = 0x2EA6C; // 207 bytes
+    public static final int ART_NEM_SS_RBLOCK_SIZE     = 207;
+    public static final int ART_NEM_SS_1UP_ADDR        = 0x2EB3C; // 245 bytes
+    public static final int ART_NEM_SS_1UP_SIZE        = 245;
+    public static final int ART_NEM_SS_EM_STARS_ADDR   = 0x2EC32; // 93 bytes
+    public static final int ART_NEM_SS_EM_STARS_SIZE   = 93;
+    public static final int ART_NEM_SS_RED_WHITE_ADDR  = 0x2EC90; // 145 bytes
+    public static final int ART_NEM_SS_RED_WHITE_SIZE  = 145;
+    public static final int ART_NEM_SS_GHOST_ADDR      = 0x2F53C; // 176 bytes
+    public static final int ART_NEM_SS_GHOST_SIZE      = 176;
+    public static final int ART_NEM_SS_WBLOCK_ADDR     = 0x2F5EC; // 218 bytes
+    public static final int ART_NEM_SS_WBLOCK_SIZE     = 218;
+    public static final int ART_NEM_SS_GLASS_ADDR      = 0x2F6C6; // 131 bytes
+    public static final int ART_NEM_SS_GLASS_SIZE      = 131;
+    public static final int ART_NEM_SS_EMERALD_ADDR    = 0x2F3D4; // 359 bytes
+    public static final int ART_NEM_SS_EMERALD_SIZE    = 359;
+    public static final int ART_NEM_SS_ZONE1_ADDR      = 0x2ED22; // 193 bytes
+    public static final int ART_NEM_SS_ZONE1_SIZE      = 193;
+    public static final int ART_NEM_SS_ZONE2_ADDR      = 0x2EDE4; // 206 bytes
+    public static final int ART_NEM_SS_ZONE2_SIZE      = 206;
+    public static final int ART_NEM_SS_ZONE3_ADDR      = 0x2EEB2; // 203 bytes
+    public static final int ART_NEM_SS_ZONE3_SIZE      = 203;
+    public static final int ART_NEM_SS_ZONE4_ADDR      = 0x2EF7E; // 199 bytes
+    public static final int ART_NEM_SS_ZONE4_SIZE      = 199;
+    public static final int ART_NEM_SS_ZONE5_ADDR      = 0x2F046; // 201 bytes
+    public static final int ART_NEM_SS_ZONE5_SIZE      = 201;
+    public static final int ART_NEM_SS_ZONE6_ADDR      = 0x2F110; // 207 bytes
+    public static final int ART_NEM_SS_ZONE6_SIZE      = 207;
+    public static final int ART_NEM_SS_RESULT_EM_ADDR  = 0x2F74A; // 382 bytes
+    public static final int ART_NEM_SS_RESULT_EM_SIZE  = 382;
+
+    // Background art (Nemesis compressed)
+    public static final int ART_NEM_SS_BG_CLOUD_ADDR   = 0x2E48A; // 1268 bytes
+    public static final int ART_NEM_SS_BG_CLOUD_SIZE   = 1268;
+    public static final int ART_NEM_SS_BG_FISH_ADDR    = 0x2D4FA; // 3215 bytes
+    public static final int ART_NEM_SS_BG_FISH_SIZE    = 3215;
+
+    // Background tilemaps (Enigma compressed)
+    public static final int ENI_SS_BG1_ADDR            = 0x2D3C6; // 308 bytes
+    public static final int ENI_SS_BG1_SIZE            = 308;
+    public static final int ENI_SS_BG2_ADDR            = 0x2E18A; // 768 bytes
+    public static final int ENI_SS_BG2_SIZE            = 768;
+
+    // ---- Special Stage ArtTile bases (from Constants.asm) ----
+    public static final int ARTTILE_SS_BG_CLOUDS       = 0x000;
+    public static final int ARTTILE_SS_BG_FISH         = 0x051;
+    public static final int ARTTILE_SS_WALL            = 0x142;
+    public static final int ARTTILE_SS_BUMPER          = 0x23B;
+    public static final int ARTTILE_SS_GOAL            = 0x251;
+    public static final int ARTTILE_SS_UP_DOWN         = 0x263;
+    public static final int ARTTILE_SS_R_BLOCK         = 0x2F0;
+    public static final int ARTTILE_SS_EXTRA_LIFE      = 0x370;
+    public static final int ARTTILE_SS_EMERALD_SPARKLE = 0x3F0;
+    public static final int ARTTILE_SS_RED_WHITE       = 0x470;
+    public static final int ARTTILE_SS_GHOST           = 0x4F0;
+    public static final int ARTTILE_SS_W_BLOCK         = 0x570;
+    public static final int ARTTILE_SS_GLASS           = 0x5F0;
+    public static final int ARTTILE_SS_EMERALD         = 0x770;
+    public static final int ARTTILE_SS_ZONE_1          = 0x797;
+    public static final int ARTTILE_SS_ZONE_2          = 0x7A0;
+    public static final int ARTTILE_SS_ZONE_3          = 0x7A9;
+    public static final int ARTTILE_SS_ZONE_4          = 0x7B2;
+    public static final int ARTTILE_SS_ZONE_5          = 0x7BB;
+    public static final int ARTTILE_SS_ZONE_6          = 0x7C4;
+
+    // ---- Special Stage physics constants (from Obj09) ----
+    public static final int SS_ACCEL           = 0x0C;   // movement acceleration
+    public static final int SS_BRAKE           = 0x40;   // braking deceleration
+    public static final int SS_MAX_SPEED       = 0x800;  // max inertia
+    public static final int SS_JUMP_FORCE      = 0x680;  // jump force multiplier
+    public static final int SS_GRAVITY         = 0x2A;   // gravity multiplier
+    public static final int SS_BUMPER_FORCE    = 0x700;  // bumper bounce force
+    public static final int SS_INIT_ROTATION   = 0x40;   // initial rotation speed
+    public static final int SS_UP_DOWN_COOLDOWN = 0x1E;  // UP/DOWN/R block cooldown frames
 }
