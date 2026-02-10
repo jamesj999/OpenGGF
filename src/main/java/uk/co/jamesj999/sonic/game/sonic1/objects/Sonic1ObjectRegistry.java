@@ -86,6 +86,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1MotobugBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.NEWTRON,
                 (spawn, registry) -> new Sonic1NewtronBadnikInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.GIANT_RING,
+                (spawn, registry) -> new Sonic1GiantRingObjectInstance(spawn));
     }
 
     @Override
