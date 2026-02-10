@@ -2662,6 +2662,25 @@ public class LevelManager {
         loadCurrentLevel();
     }
 
+    /**
+     * Advances zone/act counters without loading the level.
+     * Used when entering special stage from big ring - the ROM advances
+     * the level counters before entering the special stage (Got_NextLevel).
+     */
+    public void advanceZoneActOnly() {
+        currentAct++;
+        if (currentAct >= levels.get(currentZone).size()) {
+            currentZone++;
+            currentAct = 0;
+            if (currentZone >= levels.size()) {
+                currentZone = 0;
+            }
+        }
+        if (checkpointState != null) {
+            checkpointState.clear();
+        }
+    }
+
     public void loadZoneAndAct(int zone, int act) throws IOException {
         currentAct = act;
         currentZone = zone;
@@ -2704,6 +2723,13 @@ public class LevelManager {
      * Called by CheckpointStarInstance when the player touches a star.
      */
     public void requestSpecialStageFromCheckpoint() {
+        requestSpecialStageEntry();
+    }
+
+    /**
+     * Request entry to special stage using the current game's access method.
+     */
+    public void requestSpecialStageEntry() {
         this.specialStageRequestedFromCheckpoint = true;
     }
 

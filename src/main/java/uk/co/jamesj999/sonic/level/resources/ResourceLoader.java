@@ -162,6 +162,10 @@ public class ResourceLoader {
         // Read enough data for decompression - KosM data can be large
         // We read a generous chunk since we don't know the compressed size upfront
         byte[] romData = rom.readBytes(romAddr, 0x10000); // 64KB should be enough for any single KosM block
+        if (romData.length < 2) {
+            throw new IOException(String.format(
+                    "Insufficient ROM data for KosM decompression at 0x%X: got %d bytes", romAddr, romData.length));
+        }
         return KosinskiReader.decompressModuled(romData, 0);
     }
 

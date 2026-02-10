@@ -43,10 +43,8 @@ public class TestYm2612Attack {
         // We expect volume to increase: max1 < max2 < max3
         // Note: initial samples might be 0.
 
-        assertTrue("Volume should increase during attack. " + max1 + " -> " + max2 + " -> " + max3,
-                   max3 > max1);
-        assertTrue("Volume should increase during attack. " + max2 + " -> " + max3,
-                   max3 >= max2);
+        assertTrue("Attack volume should increase monotonically: " + max1 + " < " + max2 + " < " + max3,
+                   max1 < max2 && max2 < max3);
     }
 
     private int getMax(int[] buf) {

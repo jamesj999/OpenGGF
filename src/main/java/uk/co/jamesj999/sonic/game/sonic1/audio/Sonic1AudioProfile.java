@@ -28,10 +28,7 @@ public class Sonic1AudioProfile implements GameAudioProfile {
     static {
         Map<GameSound, Integer> map = new EnumMap<>(GameSound.class);
         map.put(GameSound.JUMP, Sonic1Sfx.JUMP.id);
-        map.put(GameSound.RING, Sonic1Sfx.RING.id);
         map.put(GameSound.RING_LEFT, Sonic1Sfx.RING_LEFT.id);
-        // Sonic 1 uses sfx_Ring (0xB5) for both ears; sfx_RingLeft
-        // handles the left-pan variant. There is no separate right-pan SFX.
         map.put(GameSound.RING_RIGHT, Sonic1Sfx.RING.id);
         map.put(GameSound.RING_SPILL, Sonic1Sfx.RING_LOSS.id);
         map.put(GameSound.ROLLING, Sonic1Sfx.ROLL.id);

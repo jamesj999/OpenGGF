@@ -5,14 +5,14 @@
  *
  * Renders the special stage parallax background with:
  * - Per-scanline horizontal scrolling (emulates VDP H-scroll table)
- * - H32 mode viewport clipping (256 pixels centered on 320-pixel screen)
+ * - Full 320x224 viewport sampling
  * - Vertical scrolling for rise/drop animations
  *
- * The background is pre-rendered to an FBO as a 256x256 tilemap.
- * This shader samples with per-line scroll offsets and clips to the H32 viewport.
+ * The background is pre-rendered to an FBO tilemap.
+ * This shader samples with per-line scroll offsets across the full Special Stage viewport.
  */
 
-// Background tilemap rendered to FBO (256x256, already palette-resolved RGBA)
+// Background tilemap rendered to FBO (already palette-resolved RGBA)
 uniform sampler2D BackgroundTexture;
 
 // 1D texture containing per-scanline horizontal scroll values (224 entries)
@@ -23,7 +23,7 @@ uniform sampler1D HScrollTexture;
 uniform float ScreenWidth;
 uniform float ScreenHeight;
 
-// Background texture dimensions (256x256 for special stage)
+// Background texture dimensions
 uniform float BGTextureWidth;
 uniform float BGTextureHeight;
 
@@ -33,12 +33,11 @@ uniform float VScrollBG;
 // Viewport offset for letterboxing (accounts for window position)
 uniform float ViewportOffsetX;
 uniform float ViewportOffsetY;
+uniform vec3 BackdropColor;
+uniform float FillTransparentWithBackdrop;
 
-// H32 mode parameters
-const float H32_WIDTH = 256.0;
 const float SCREEN_GAME_WIDTH = 320.0;
 const float SCREEN_GAME_HEIGHT = 224.0;
-const float H32_OFFSET = (SCREEN_GAME_WIDTH - H32_WIDTH) / 2.0;  // 32 pixels
 
 out vec4 FragColor;
 
@@ -56,17 +55,8 @@ void main()
     float gameX = normX * SCREEN_GAME_WIDTH;
     float gameY = (1.0 - normY) * SCREEN_GAME_HEIGHT;
 
-    // ========================================
-    // H32 VIEWPORT CLIPPING
-    // ========================================
-    // Discard fragments outside the 256-pixel H32 viewport
-    // The H32 viewport is centered on the 320-pixel screen (32 pixels on each side)
-    if (gameX < H32_OFFSET || gameX >= H32_OFFSET + H32_WIDTH) {
-        discard;
-    }
-
-    // Convert to H32-local X coordinate (0..255)
-    float localX = gameX - H32_OFFSET;
+    // Full viewport X coordinate.
+    float localX = gameX;
 
     // ========================================
     // PER-SCANLINE HORIZONTAL SCROLL
@@ -83,7 +73,7 @@ void main()
     // Negative scroll = background moves right (content scrolls left into view)
     float bgX = localX - hScrollValue;
 
-    // Wrap horizontally within the background texture (256 pixels wide, seamless)
+    // Wrap horizontally within the background texture.
     bgX = mod(bgX, BGTextureWidth);
     if (bgX < 0.0) bgX += BGTextureWidth;
 
@@ -114,9 +104,14 @@ void main()
     // Sample the background texture
     vec4 color = texture(BackgroundTexture, vec2(texU, texV));
 
-    // Alpha test - discard transparent pixels
+    // Alpha test / backdrop fill
     if (color.a < 0.1) {
-        discard;
+        if (FillTransparentWithBackdrop > 0.5) {
+            FragColor = vec4(BackdropColor, 1.0);
+        } else {
+            discard;
+        }
+        return;
     }
 
     FragColor = color;

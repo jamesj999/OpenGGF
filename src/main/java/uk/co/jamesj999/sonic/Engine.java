@@ -13,8 +13,9 @@ import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.debug.DebugOption;
 import uk.co.jamesj999.sonic.debug.DebugRenderer;
 import uk.co.jamesj999.sonic.debug.PerformanceProfiler;
-import uk.co.jamesj999.sonic.game.sonic2.debug.Sonic2SpecialStageSpriteDebug;
 import uk.co.jamesj999.sonic.debug.DebugState;
+import uk.co.jamesj999.sonic.game.SpecialStageDebugProvider;
+import uk.co.jamesj999.sonic.game.SpecialStageProvider;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
@@ -26,7 +27,6 @@ import uk.co.jamesj999.sonic.game.GameMode;
 import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.TitleScreenProvider;
-import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageManager;
 
 import java.io.IOException;
 import java.nio.IntBuffer;
@@ -74,8 +74,6 @@ public class Engine {
 	private boolean debugViewEnabled = configService.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
 
 	private final LevelManager levelManager = LevelManager.getInstance();
-	// Direct reference to Sonic2SpecialStageManager for debug overlay features.
-	private final Sonic2SpecialStageManager specialStageManager = Sonic2SpecialStageManager.getInstance();
 
 	// Pre-allocated list for results screen rendering
 	private final java.util.List<uk.co.jamesj999.sonic.graphics.GLCommand> resultsCommands = new java.util.ArrayList<>(64);
@@ -118,7 +116,6 @@ public class Engine {
 	}
 
 	public Engine() {
-		instance = this;
 		this.windowWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH);
 		this.windowHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT);
 		this.targetFps = configService.getInt(SonicConfiguration.FPS);
@@ -133,6 +130,8 @@ public class Engine {
 			// Keep projection at 320 for both modes
 			projectionWidth = realWidth;
 		});
+
+		instance = this;
 	}
 
 	public void setInputHandler(InputHandler inputHandler) {
@@ -142,8 +141,7 @@ public class Engine {
 
 	public void run() {
 		init();
-		loop();
-		cleanup();
+		try { loop(); } finally { cleanup(); }
 	}
 
 	private static boolean isNativeImage() {
@@ -450,7 +448,12 @@ public class Engine {
 
 		// Set clear color based on game mode and clear the game viewport
 		if (getCurrentGameMode() == GameMode.SPECIAL_STAGE) {
-			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			SpecialStageProvider ssProviderForClear = gameLoop.getActiveSpecialStageProvider();
+			if (ssProviderForClear != null) {
+				ssProviderForClear.setClearColor();
+			} else {
+				glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			}
 		} else if (getCurrentGameMode() == GameMode.SPECIAL_STAGE_RESULTS) {
 			glClearColor(0.85f, 0.9f, 0.95f, 1.0f);
 		} else if (getCurrentGameMode() == GameMode.TITLE_SCREEN) {
@@ -506,10 +509,11 @@ public class Engine {
 
 		profiler.beginSection("debug");
 		if (getCurrentGameMode() == GameMode.SPECIAL_STAGE) {
-			if (specialStageManager.isAlignmentTestMode()) {
-				specialStageManager.renderAlignmentOverlay(windowWidth, windowHeight);
+			SpecialStageProvider ssProvider = gameLoop.getActiveSpecialStageProvider();
+			if (ssProvider.isAlignmentTestMode()) {
+				ssProvider.renderAlignmentOverlay(windowWidth, windowHeight);
 			} else {
-				specialStageManager.renderLagCompensationOverlay(windowWidth, windowHeight);
+				ssProvider.renderLagCompensationOverlay(windowWidth, windowHeight);
 			}
 		} else if (debugViewEnabled) {
 			getDebugRenderer().updateViewport(viewportWidth, viewportHeight);
@@ -549,10 +553,16 @@ public class Engine {
 
 	public void draw() {
 		if (getCurrentGameMode() == GameMode.SPECIAL_STAGE) {
-			if (specialStageManager.isSpriteDebugMode()) {
-				Sonic2SpecialStageSpriteDebug.getInstance().draw();
+			SpecialStageProvider ssProvider = gameLoop.getActiveSpecialStageProvider();
+			if (ssProvider.isSpriteDebugMode()) {
+				SpecialStageDebugProvider debugProvider = ssProvider.getDebugProvider();
+				if (debugProvider != null) {
+					debugProvider.draw();
+				} else {
+					ssProvider.draw();
+				}
 			} else {
-				specialStageManager.draw();
+				ssProvider.draw();
 			}
 		} else if (getCurrentGameMode() == GameMode.SPECIAL_STAGE_RESULTS) {
 			var resultsScreen = gameLoop.getResultsScreen();
@@ -744,7 +754,7 @@ public class Engine {
 	 * Gets the singleton instance of the Engine.
 	 * @return the Engine instance, or null if not yet created
 	 */
-	public static Engine getInstance() {
+	public static synchronized Engine getInstance() {
 		return instance;
 	}
 
