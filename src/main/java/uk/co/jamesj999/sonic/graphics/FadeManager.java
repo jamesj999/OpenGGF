@@ -111,6 +111,9 @@ public class FadeManager {
      * Reset the singleton instance (for testing).
      */
     public static synchronized void resetInstance() {
+        if (instance != null) {
+            instance.cleanup();
+        }
         instance = null;
     }
 

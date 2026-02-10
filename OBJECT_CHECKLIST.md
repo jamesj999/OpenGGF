@@ -1,6 +1,6 @@
 # Sonic 2 Object Implementation Checklist
 
-Generated: 2026-02-09 21:53:13
+Generated: 2026-02-10 14:06:11
 
 ## Summary
 
@@ -413,7 +413,7 @@ Total: 259 objects | Implemented: 20 | Unimplemented: 0
 - [x] 0x96 Rexon2 (x4) [0x0E]
 
 **Bosses:**
-- [ ] 0x52 HTZBoss *(dynamic)* - Lava-mobile boss
+- [x] 0x52 HTZBoss *(dynamic)* - Lava-mobile boss
 
 **Objects:**
 - [x] 0x03 LayerSwitcher (x35) [19 subtypes]
@@ -472,7 +472,7 @@ Total: 148 objects | Implemented: 20 | Unimplemented: 0
 - [x] 0xA3 Flasher (x14) [0x2C]
 
 **Bosses:**
-- [ ] 0x57 MCZBoss *(dynamic)* - Drill boss
+- [x] 0x57 MCZBoss *(dynamic)* - Drill boss
 
 **Objects:**
 - [x] 0x0D GoalPlate (x1) [0x00]
