@@ -24,7 +24,7 @@ public final class GameModuleRegistry {
     private static final Logger LOGGER = Logger.getLogger(GameModuleRegistry.class.getName());
 
     // Default to Sonic 2 for backward compatibility
-    private static GameModule current = new Sonic2GameModule();
+    private static volatile GameModule current = new Sonic2GameModule();
 
     private GameModuleRegistry() {
     }
@@ -43,10 +43,13 @@ public final class GameModuleRegistry {
      *
      * @param module the module to set as current (ignored if null)
      */
-    public static void setCurrent(GameModule module) {
+    public static synchronized void setCurrent(GameModule module) {
         if (module != null) {
             LOGGER.info("Setting game module: " + module.getIdentifier());
             current = module;
+            GameStateManager.getInstance().configureSpecialStageProgress(
+                    module.getSpecialStageCycleCount(),
+                    module.getChaosEmeraldCount());
         }
     }
 
@@ -71,7 +74,7 @@ public final class GameModuleRegistry {
      * Useful for testing or reinitialization.
      */
     public static void reset() {
-        current = new Sonic2GameModule();
+        setCurrent(new Sonic2GameModule());
         LOGGER.fine("Game module registry reset to Sonic 2 default");
     }
 }

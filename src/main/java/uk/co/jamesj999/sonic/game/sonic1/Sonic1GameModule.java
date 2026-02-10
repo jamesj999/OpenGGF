@@ -28,6 +28,7 @@ import uk.co.jamesj999.sonic.game.sonic1.levelselect.Sonic1LevelSelectManager;
 import uk.co.jamesj999.sonic.game.sonic1.titlescreen.Sonic1TitleScreenManager;
 import uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1ObjectRegistry;
 import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ScrollHandlerProvider;
+import uk.co.jamesj999.sonic.game.sonic1.specialstage.Sonic1SpecialStageProvider;
 import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
 import uk.co.jamesj999.sonic.game.sonic2.LevelGamestate;
 import uk.co.jamesj999.sonic.game.sonic1.titlecard.Sonic1TitleCardManager;
@@ -40,6 +41,8 @@ import uk.co.jamesj999.sonic.level.objects.TouchResponseTable;
  */
 public class Sonic1GameModule implements GameModule {
     private final GameAudioProfile audioProfile = new Sonic1AudioProfile();
+    private final SpecialStageProvider specialStageProvider = new Sonic1SpecialStageProvider();
+    private PhysicsProvider physicsProvider;
 
     @Override
     public String getIdentifier() {
@@ -112,8 +115,17 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public SpecialStageProvider getSpecialStageProvider() {
-        // Sonic 1 special stages not yet implemented
-        return null;
+        return specialStageProvider;
+    }
+
+    @Override
+    public int getSpecialStageCycleCount() {
+        return 6;
+    }
+
+    @Override
+    public int getChaosEmeraldCount() {
+        return 6;
     }
 
     @Override
@@ -171,6 +183,9 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public PhysicsProvider getPhysicsProvider() {
-        return new Sonic1PhysicsProvider();
+        if (physicsProvider == null) {
+            physicsProvider = new Sonic1PhysicsProvider();
+        }
+        return physicsProvider;
     }
 }

@@ -4,6 +4,8 @@ import uk.co.jamesj999.sonic.game.ResultsScreen;
 import uk.co.jamesj999.sonic.game.SpecialStageAccessType;
 import uk.co.jamesj999.sonic.game.SpecialStageDebugProvider;
 import uk.co.jamesj999.sonic.game.SpecialStageProvider;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.objects.SpecialStageResultsScreenObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageManager;
 
@@ -24,6 +26,21 @@ public class Sonic2SpecialStageProvider implements SpecialStageProvider {
 
     public Sonic2SpecialStageProvider() {
         this.manager = Sonic2SpecialStageManager.getInstance();
+    }
+
+    @Override
+    public int getTransitionSfxId() {
+        return Sonic2Sfx.SPECIAL_STAGE_ENTRY.id;
+    }
+
+    @Override
+    public int getStageMusicId() {
+        return Sonic2Music.SPECIAL_STAGE.id;
+    }
+
+    @Override
+    public int getResultsMusicId() {
+        return Sonic2Music.ACT_CLEAR.id;
     }
 
     @Override
@@ -65,6 +82,25 @@ public class Sonic2SpecialStageProvider implements SpecialStageProvider {
     @Override
     public void setEmeraldCollected(boolean collected) {
         manager.setEmeraldCollected(collected);
+    }
+
+    @Override
+    public int getDebugCompletionRingCount(int stageIndex) {
+        // Ring requirements at final checkpoint (checkpoint 3) for each stage
+        // From s2.asm Ring_Requirement_Table (solo mode)
+        int[][] requirements = {
+                { 30, 60, 90, 120 },   // Stage 1
+                { 40, 80, 120, 160 },   // Stage 2
+                { 50, 100, 140, 180 },  // Stage 3
+                { 50, 100, 140, 180 },  // Stage 4
+                { 60, 110, 160, 200 },  // Stage 5
+                { 70, 120, 180, 220 },  // Stage 6
+                { 80, 140, 200, 240 }   // Stage 7
+        };
+        if (stageIndex >= 0 && stageIndex < requirements.length) {
+            return requirements[stageIndex][3];
+        }
+        return 100;
     }
 
     // ==================== Debug Methods ====================

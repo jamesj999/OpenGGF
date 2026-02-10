@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.tests;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2SmpsSequencerConfig;
 
 import org.junit.Test;
+
 import uk.co.jamesj999.sonic.audio.driver.SmpsDriver;
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 import uk.co.jamesj999.sonic.game.sonic2.audio.smps.Sonic2SmpsData;
@@ -96,13 +97,13 @@ public class TestSmpsDriver {
         // sfx2 writes to FM channel 0
         driver.writeFm(sfx2, 0, 0xA0, 0x20);
 
-        // Assert sfx2 stole lock (Current buggy behavior)
-        assertEquals("SFX2 should steal lock on Ch 0", sfx2, driver.getFmLock(0));
+        // Equal priority: newer SFX (sfx2) should steal the lock from sfx1
+        assertEquals("SFX2 should steal lock on Ch 0 (equal priority, newer wins)", sfx2, driver.getFmLock(0));
 
         // sfx1 writes again
         driver.writeFm(sfx1, 0, 0xA0, 0x11);
 
-        // Assert sfx1 did NOT steal it back
-        assertEquals("SFX1 should NOT steal lock back (Priority Fix)", sfx2, driver.getFmLock(0));
+        // sfx1 writes again but sfx2 still holds the lock (equal priority, sfx2 is newer)
+        assertEquals("SFX2 should still hold lock on Ch 0", sfx2, driver.getFmLock(0));
     }
 }

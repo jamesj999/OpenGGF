@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.game;
 
+import static org.lwjgl.opengl.GL11.glClearColor;
+
 import java.io.IOException;
 
 /**
@@ -15,6 +17,33 @@ import java.io.IOException;
  * </ul>
  */
 public interface SpecialStageProvider extends MiniGameProvider {
+    /**
+     * Gets the SFX ID to play when entering/exiting the special stage flow.
+     *
+     * @return game-specific SFX ID, or -1 to use the engine fallback
+     */
+    default int getTransitionSfxId() {
+        return -1;
+    }
+
+    /**
+     * Gets the music ID to play while the special stage is active.
+     *
+     * @return game-specific music ID, or -1 to use the engine fallback
+     */
+    default int getStageMusicId() {
+        return -1;
+    }
+
+    /**
+     * Gets the music ID to play for special stage results.
+     *
+     * @return game-specific music ID, or -1 to use the engine fallback
+     */
+    default int getResultsMusicId() {
+        return -1;
+    }
+
     /**
      * Checks if this game has special stages.
      *
@@ -74,7 +103,44 @@ public interface SpecialStageProvider extends MiniGameProvider {
      */
     void setEmeraldCollected(boolean collected);
 
+    /**
+     * Sets the OpenGL clear color to the special stage backdrop color.
+     * Default clears to black; game-specific providers override with palette-derived color.
+     */
+    default void setClearColor() {
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    }
+
+    /**
+     * Returns the ring count to simulate when debug-completing a specific stage.
+     * S2 returns checkpoint-3 ring requirements; S1 returns a nominal value
+     * since emerald collection is position-based, not ring-based.
+     *
+     * @param stageIndex the stage index (0-based)
+     * @return simulated ring count for the debug results screen
+     */
+    default int getDebugCompletionRingCount(int stageIndex) {
+        return 50;
+    }
+
     // ==================== Debug Methods ====================
+
+    /**
+     * Checks if gameplay debug movement mode is active.
+     * When enabled, directional input moves the special-stage player directly.
+     *
+     * @return true if gameplay debug movement is enabled
+     */
+    default boolean isGameplayDebugMode() {
+        return false;
+    }
+
+    /**
+     * Toggles gameplay debug movement mode on/off.
+     */
+    default void toggleGameplayDebugMode() {
+        // No-op by default.
+    }
 
     /**
      * Checks if sprite debug mode is active.

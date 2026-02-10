@@ -6,6 +6,7 @@ import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.data.Game;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.DynamicStartPositionProvider;
+import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioProfile;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.resources.LevelResourcePlan;
@@ -13,7 +14,6 @@ import uk.co.jamesj999.sonic.level.resources.LoadOp;
 import uk.co.jamesj999.sonic.level.resources.ResourceLoader;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -32,22 +32,6 @@ public class Sonic3k extends Game implements DynamicStartPositionProvider {
     private static final Logger LOG = Logger.getLogger(Sonic3k.class.getName());
 
     private final Rom rom;
-
-    // S3K SFX IDs (from sonic3k.constants.asm)
-    private static final int SFX_JUMP = 0x62;
-    private static final int SFX_RING_RIGHT = 0x33;
-    private static final int SFX_RING_LEFT = 0x34;
-    private static final int SFX_RING_LOSS = 0xB9;
-    private static final int SFX_SPINDASH = 0xAB;
-    private static final int SFX_SKID = 0x36;
-    private static final int SFX_SPRING = 0xB1;
-    private static final int SFX_ROLL = 0x3C;
-    private static final int SFX_SPLASH = 0x39;
-    private static final int SFX_DROWN = 0x3B;
-    private static final int SFX_STARPOST = 0x63;
-    private static final int SFX_BOSS_HIT = 0x6E;
-    private static final int SFX_BUMPER = 0xAA;
-    private static final int SFX_SPIKE_HIT = 0x37;
 
     public Sonic3k(Rom rom) throws IOException {
         this.rom = rom;
@@ -103,24 +87,7 @@ public class Sonic3k extends Game implements DynamicStartPositionProvider {
 
     @Override
     public Map<GameSound, Integer> getSoundMap() {
-        Map<GameSound, Integer> map = new HashMap<>();
-        map.put(GameSound.JUMP, SFX_JUMP);
-        map.put(GameSound.RING_LEFT, SFX_RING_LEFT);
-        map.put(GameSound.RING_RIGHT, SFX_RING_RIGHT);
-        map.put(GameSound.RING_SPILL, SFX_RING_LOSS);
-        map.put(GameSound.SPINDASH_CHARGE, SFX_SPINDASH);
-        map.put(GameSound.SPINDASH_RELEASE, SFX_SPINDASH);
-        map.put(GameSound.SKID, SFX_SKID);
-        map.put(GameSound.HURT, SFX_SPIKE_HIT);
-        map.put(GameSound.HURT_SPIKE, SFX_SPIKE_HIT);
-        map.put(GameSound.BADNIK_HIT, SFX_BOSS_HIT);
-        map.put(GameSound.CHECKPOINT, SFX_STARPOST);
-        map.put(GameSound.SPRING, SFX_SPRING);
-        map.put(GameSound.BUMPER, SFX_BUMPER);
-        map.put(GameSound.ROLLING, SFX_ROLL);
-        map.put(GameSound.SPLASH, SFX_SPLASH);
-        map.put(GameSound.DROWN, SFX_DROWN);
-        return map;
+        return new Sonic3kAudioProfile().getSoundMap();
     }
 
     @Override

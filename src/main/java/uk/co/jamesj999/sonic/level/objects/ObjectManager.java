@@ -634,9 +634,12 @@ public class ObjectManager {
                 }
             }
             // Clear destroyedInWindow for spawns that have left the window (allows respawn on return)
+            // Use tighter bounds for clearing destroyedInWindow to prevent respawn on camera jitter
+            int clearStart = windowStart - 16;
+            int clearEnd = windowEnd + 16;
             for (int i = destroyedInWindow.nextSetBit(0); i >= 0; i = destroyedInWindow.nextSetBit(i + 1)) {
                 ObjectSpawn spawn = spawns.get(i);
-                if (spawn.x() < windowStart || spawn.x() > windowEnd) {
+                if (spawn.x() < clearStart || spawn.x() > clearEnd) {
                     destroyedInWindow.clear(i);
                 }
             }
@@ -892,7 +895,10 @@ public class ObjectManager {
                 int height = table.getHeightRadius(sizeIndex);
                 TouchCategory category = decodeCategory(flags);
 
-                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getSpawn(), width, height);
+                // ROM: Touch_CheckCollision uses x_pos(a1)/y_pos(a1) — the object's current
+                // position, not its spawn position. Use getX()/getY() which moving objects
+                // (badniks, projectiles, boss children) override to return current coords.
+                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getX(), instance.getY(), width, height);
                 debugState.addHit(
                         new TouchResponseDebugHit(instance.getSpawn(), flags, sizeIndex, width, height, category, overlap));
                 if (!overlap) {
@@ -968,7 +974,7 @@ public class ObjectManager {
                 int height = table.getHeightRadius(sizeIndex);
                 TouchCategory category = decodeCategory(flags);
 
-                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getSpawn(), width, height);
+                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getX(), instance.getY(), width, height);
                 if (!overlap) {
                     continue;
                 }
@@ -1044,8 +1050,8 @@ public class ObjectManager {
         }
 
         private boolean isOverlapping(int playerX, int playerY, int playerHeight,
-                ObjectSpawn spawn, int objectWidth, int objectHeight) {
-            int dx = spawn.x() - objectWidth - playerX;
+                int objectX, int objectY, int objectWidth, int objectHeight) {
+            int dx = objectX - objectWidth - playerX;
             if (dx < 0) {
                 int sum = (dx & 0xFFFF) + ((objectWidth * 2) & 0xFFFF);
                 if (sum <= 0xFFFF) {
@@ -1055,7 +1061,7 @@ public class ObjectManager {
                 return false;
             }
 
-            int dy = spawn.y() - objectHeight - playerY;
+            int dy = objectY - objectHeight - playerY;
             if (dy < 0) {
                 int sum = (dy & 0xFFFF) + ((objectHeight * 2) & 0xFFFF);
                 if (sum <= 0xFFFF) {

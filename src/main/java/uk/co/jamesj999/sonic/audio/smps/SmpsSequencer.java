@@ -223,7 +223,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         public int modStepsFull;
         public int modRateCounter;
         public int modStepCounter;
-        public int modAccumulator;
+        public short modAccumulator;
         public int modCurrentDelta;
         public boolean modEnabled;
         public boolean customModEnabled;
@@ -978,8 +978,9 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                     }
                 }
                 // Notify listener that fade-in is complete (e.g., to unblock SFX)
-                if (onFadeComplete != null) {
-                    onFadeComplete.run();
+                Runnable callback = onFadeComplete;
+                if (callback != null) {
+                    callback.run();
                 }
             }
             fadeState.active = false;
@@ -2533,7 +2534,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         public int fms;
         public boolean tieNext;
         public boolean modEnabled;
-        public int modAccumulator;
+        public short modAccumulator;
         public int detune;
         public int decayOffset;
         public int loopCounter;

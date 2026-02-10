@@ -146,6 +146,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load results screen art (reuses title card + HUD text)
         loadResultsScreenArt(rom);
 
+        // Load SS results emerald art (Nem_ResultEm)
+        loadResultsEmeraldArt(rom);
+
         // Load Giant Ring art (uncompressed, all zones)
         loadGiantRingArt(rom);
 
@@ -1195,6 +1198,43 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 + mappings.size() + " frames");
     }
 
+    /**
+     * Loads the Sonic 1 special-stage results emerald art (Nem_ResultEm).
+     * Creates 7 mapping frames matching Map_SSRC from Obj7F:
+     * frames 0-5 are the 6 emerald colors, frame 6 is blank (flash toggle).
+     */
+    private void loadResultsEmeraldArt(Rom rom) {
+        Pattern[] emeraldPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SS_RESULT_EM_ADDR, "SSResultEmerald");
+        if (emeraldPatterns.length == 0) {
+            LOGGER.warning("Failed to load SS results emerald art");
+            return;
+        }
+
+        // Map_SSRC: each frame is a single 2x2 spritePiece(-8, -8, 2, 2, tile, pal)
+        // paletteIndex on each piece selects the emerald color from SS palettes.
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 4, false, false, 1))));  // 0: Blue
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 0))));  // 1: Yellow
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 4, false, false, 2))));  // 2: Pink
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 4, false, false, 3))));  // 3: Green
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 8, false, false, 1))));  // 4: Orange
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 12, false, false, 1)))); // 5: Purple
+        frames.add(new SpriteMappingFrame(List.of()));                         // 6: Blank (flash)
+
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(emeraldPatterns, frames, 0, 1);
+        registerSheet(ObjectArtKeys.SS_RESULTS_EMERALDS, sheet);
+
+        LOGGER.info("SS results emerald art loaded: " + emeraldPatterns.length
+                + " patterns, " + frames.size() + " frames");
+    }
+
     private void copyResultsScoreDigitTiles(Pattern[] dest, int startIndex) {
         if (dest == null || hudDigitPatterns == null || hudDigitPatterns.length < 2) {
             return;
@@ -1241,6 +1281,10 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      *   <li>"ACT 1" (2 pieces)</li>
      *   <li>"ACT 2" (2 pieces)</li>
      *   <li>"ACT 3" (2 pieces)</li>
+     *   <li>SCORE separator dots (2 pieces)</li>
+     *   <li>S1 SS Results "CHAOS EMERALDS"</li>
+     *   <li>S1 SS Results "SPECIAL STAGE"</li>
+     *   <li>S1 SS Results "SONIC GOT THEM ALL"</li>
      * </ol>
      */
     private List<SpriteMappingFrame> createResultsScreenMappings() {
@@ -1345,6 +1389,58 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-0x33, -9, 2, 1, 0x6E + T, false, false, 0, false),
                 new SpriteMappingPiece(-0x33, -1, 2, 1, 0x6E + T, true,  true,  0, false)
+        )));
+
+        // Frame 10: S1 SS Results - "CHAOS EMERALDS" (Map_SSR frame 0)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x70, -8, 2, 2, 0x08 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x60, -8, 2, 2, 0x1C + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x50, -8, 2, 2, 0x00 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x40, -8, 2, 2, 0x32 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x30, -8, 2, 2, 0x3E + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -8, 2, 2, 0x10 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x00, -8, 2, 2, 0x2A + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x10, -8, 2, 2, 0x10 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x20, -8, 2, 2, 0x3A + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x30, -8, 2, 2, 0x00 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x40, -8, 2, 2, 0x26 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x50, -8, 2, 2, 0x0C + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x60, -8, 2, 2, 0x3E + T, false, false, 0, false)
+        )));
+
+        // Frame 11: S1 SS Results - "SPECIAL STAGE" (Map_SSR frame 7)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x64, -8, 2, 2, 0x3E + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x54, -8, 2, 2, 0x36 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x44, -8, 2, 2, 0x10 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x34, -8, 2, 2, 0x08 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x24, -8, 1, 2, 0x20 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x1C, -8, 2, 2, 0x00 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C, -8, 2, 2, 0x26 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x14, -8, 2, 2, 0x3E + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x24, -8, 2, 2, 0x42 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x34, -8, 2, 2, 0x00 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x44, -8, 2, 2, 0x18 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x54, -8, 2, 2, 0x10 + T, false, false, 0, false)
+        )));
+
+        // Frame 12: S1 SS Results - "SONIC GOT THEM ALL" (Map_SSR frame 8)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x78, -8, 2, 2, 0x3E + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x68, -8, 2, 2, 0x32 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x58, -8, 2, 2, 0x2E + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x48, -8, 1, 2, 0x20 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x40, -8, 2, 2, 0x08 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x28, -8, 2, 2, 0x18 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, -8, 2, 2, 0x32 + T, false, false, 0, false),
+                new SpriteMappingPiece(-0x08, -8, 2, 2, 0x42 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x10, -8, 2, 2, 0x42 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x20, -8, 2, 2, 0x1C + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x30, -8, 2, 2, 0x10 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x40, -8, 2, 2, 0x2A + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x58, -8, 2, 2, 0x00 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x68, -8, 2, 2, 0x26 + T, false, false, 0, false),
+                new SpriteMappingPiece( 0x78, -8, 2, 2, 0x26 + T, false, false, 0, false)
         )));
 
         return frames;

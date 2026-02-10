@@ -118,7 +118,7 @@ public class CheckpointStarInstance extends AbstractObjectInstance {
             if (parentCheckpoint != null) {
                 parentCheckpoint.markUsedForSpecialStage();
             }
-            LevelManager.getInstance().requestSpecialStageFromCheckpoint();
+            LevelManager.getInstance().requestSpecialStageEntry();
             setDestroyed(true);
         }
     }

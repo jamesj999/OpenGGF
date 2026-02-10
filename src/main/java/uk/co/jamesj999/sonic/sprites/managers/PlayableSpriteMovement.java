@@ -50,7 +50,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	// Speed thresholds
 	private static final int SLOPE_REPEL_MIN_SPEED = 0x280;
 	private static final int SKID_SPEED_THRESHOLD = 0x400;
-	private static final int YSPEED_LANDING_CAP = 0xFC0;
+	private static final short YSPEED_LANDING_CAP = (short) 0xFC0;
 	private static final int UPWARD_VELOCITY_CAP = -0xFC0;
 
 	// Movement constants

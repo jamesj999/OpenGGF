@@ -43,6 +43,9 @@ public final class ObjectArtKeys {
     // Hidden bonus points (S1 end-of-act)
     public static final String HIDDEN_BONUS = "hidden_bonus";
 
+    // Special stage results
+    public static final String SS_RESULTS_EMERALDS = "ss_results_emeralds";
+
     // Giant Ring / Special Stage entry
     public static final String GIANT_RING = "giant_ring";
     public static final String GIANT_RING_FLASH = "giant_ring_flash";
