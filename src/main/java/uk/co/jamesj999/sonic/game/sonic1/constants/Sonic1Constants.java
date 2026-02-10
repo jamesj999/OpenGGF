@@ -216,6 +216,10 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search Motobug
     public static final int ART_NEM_MOTOBUG_ADDR = 0x37A2C;
 
+    // Nem_Newtron: Nemesis-compressed Newtron art (GHZ, ArtTile_Newtron = $49B)
+    // Verified by RomOffsetFinder --game s1 find Nem_Newtron (2720 bytes decompressed = 85 tiles)
+    public static final int ART_NEM_NEWTRON_ADDR = 0x37CB6;
+
     // Nem_HSpring: Nemesis-compressed horizontal spring art (up/down springs, 16 tiles)
     // ArtTile_Spring_Horizontal = $523
     public static final int ART_NEM_HSPRING_ADDR = 0x3A80A;

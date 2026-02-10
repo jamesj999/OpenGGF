@@ -5,6 +5,7 @@ import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BuzzBomberBadnikI
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1ChopperBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1CrabmeatBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1MotobugBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1NewtronBadnikInstance;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectFactory;
 import uk.co.jamesj999.sonic.level.objects.ObjectInstance;
@@ -83,6 +84,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1CrabmeatBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.MOTOBUG,
                 (spawn, registry) -> new Sonic1MotobugBadnikInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.NEWTRON,
+                (spawn, registry) -> new Sonic1NewtronBadnikInstance(spawn, LevelManager.getInstance()));
     }
 
     @Override

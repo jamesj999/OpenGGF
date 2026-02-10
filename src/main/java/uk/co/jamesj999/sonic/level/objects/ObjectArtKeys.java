@@ -50,6 +50,7 @@ public final class ObjectArtKeys {
     public static final String CHOPPER = "chopper";
     public static final String CRABMEAT = "crabmeat";
     public static final String MOTOBUG = "motobug";
+    public static final String NEWTRON = "newtron";
 
     // Animation keys (common across games)
     public static final String ANIM_MONITOR = "monitor";

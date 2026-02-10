@@ -118,6 +118,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load Motobug art (GHZ badnik + exhaust smoke)
         loadMotobugArt(rom);
 
+        // Load Newtron art (GHZ badnik - two subtypes: walking + missile-firing)
+        loadNewtronArt(rom);
+
         // Load results screen art (reuses title card + HUD text)
         loadResultsScreenArt(rom);
 
@@ -1413,6 +1416,141 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         )));
 
         // Frame 6: .blank - Empty frame (0 pieces)
+        frames.add(new SpriteMappingFrame(List.of()));
+
+        return frames;
+    }
+
+    /**
+     * Loads Newtron art (Nem_Newtron) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Newtron.asm (Map_Newt_internal).
+     * 11 frames: Trans, Norm, Fires, Drop1-3, Fly1a/b, Fly2a/b, Blank.
+     */
+    private void loadNewtronArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_NEWTRON_ADDR, "Newtron");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Newtron art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createNewtronMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.NEWTRON, sheet);
+    }
+
+    /**
+     * Creates Newtron sprite mappings from S1 disassembly Map_Newt_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * 11 frames indexed 0-10. Type 1 (green/missile) variant uses palette line 1
+     * set via obGfx at runtime, not in mappings.
+     */
+    private List<SpriteMappingFrame> createNewtronMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: M_Newt_Trans - Partially visible (appearing, 3 pieces)
+        // spritePiece -$14, -$14, 4, 2, 0, 0, 0, 0, 0
+        // spritePiece $C, -$C, 1, 1, 8, 0, 0, 0, 0
+        // spritePiece -$C, -4, 4, 3, 9, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, -0x14, 4, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(  0xC,  -0xC, 1, 1, 0x08, false, false, 0, false),
+                new SpriteMappingPiece( -0xC,    -4, 4, 3, 0x09, false, false, 0, false)
+        )));
+
+        // Frame 1: M_Newt_Norm - Normal standing (3 pieces)
+        // spritePiece -$14, -$14, 2, 3, $15, 0, 0, 0, 0
+        // spritePiece -4, -$14, 3, 2, $1B, 0, 0, 0, 0
+        // spritePiece -4, -4, 3, 3, $21, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, -0x14, 2, 3, 0x15, false, false, 0, false),
+                new SpriteMappingPiece(   -4, -0x14, 3, 2, 0x1B, false, false, 0, false),
+                new SpriteMappingPiece(   -4,    -4, 3, 3, 0x21, false, false, 0, false)
+        )));
+
+        // Frame 2: M_Newt_Fires - Firing with mouth open (3 pieces)
+        // spritePiece -$14, -$14, 2, 3, $2A, 0, 0, 0, 0
+        // spritePiece -4, -$14, 3, 2, $1B, 0, 0, 0, 0
+        // spritePiece -4, -4, 3, 3, $21, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, -0x14, 2, 3, 0x2A, false, false, 0, false),
+                new SpriteMappingPiece(   -4, -0x14, 3, 2, 0x1B, false, false, 0, false),
+                new SpriteMappingPiece(   -4,    -4, 3, 3, 0x21, false, false, 0, false)
+        )));
+
+        // Frame 3: M_Newt_Drop1 - Dropping phase 1 (4 pieces)
+        // spritePiece -$14, -$14, 2, 3, $30, 0, 0, 0, 0
+        // spritePiece -4, -$14, 3, 2, $1B, 0, 0, 0, 0
+        // spritePiece -4, -4, 3, 2, $36, 0, 0, 0, 0
+        // spritePiece $C, $C, 1, 1, $3C, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14, -0x14, 2, 3, 0x30, false, false, 0, false),
+                new SpriteMappingPiece(   -4, -0x14, 3, 2, 0x1B, false, false, 0, false),
+                new SpriteMappingPiece(   -4,    -4, 3, 2, 0x36, false, false, 0, false),
+                new SpriteMappingPiece(  0xC,   0xC, 1, 1, 0x3C, false, false, 0, false)
+        )));
+
+        // Frame 4: M_Newt_Drop2 - Dropping phase 2 (3 pieces)
+        // spritePiece -$14, -$C, 4, 2, $3D, 0, 0, 0, 0
+        // spritePiece $C, -4, 1, 1, $20, 0, 0, 0, 0
+        // spritePiece -4, 4, 3, 1, $45, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14,  -0xC, 4, 2, 0x3D, false, false, 0, false),
+                new SpriteMappingPiece(  0xC,    -4, 1, 1, 0x20, false, false, 0, false),
+                new SpriteMappingPiece(   -4,     4, 3, 1, 0x45, false, false, 0, false)
+        )));
+
+        // Frame 5: M_Newt_Drop3 - Dropping phase 3 (2 pieces)
+        // spritePiece -$14, -8, 4, 2, $48, 0, 0, 0, 0
+        // spritePiece $C, -8, 1, 2, $50, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14,  -0x8, 4, 2, 0x48, false, false, 0, false),
+                new SpriteMappingPiece(  0xC,  -0x8, 1, 2, 0x50, false, false, 0, false)
+        )));
+
+        // Frame 6: M_Newt_Fly1a - Flying variant 1, wing up (3 pieces)
+        // spritePiece -$14, -8, 4, 2, $48, 0, 0, 0, 0
+        // spritePiece $C, -8, 1, 2, $50, 0, 0, 0, 0
+        // spritePiece $14, -2, 1, 1, $52, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14,  -0x8, 4, 2, 0x48, false, false, 0, false),
+                new SpriteMappingPiece(  0xC,  -0x8, 1, 2, 0x50, false, false, 0, false),
+                new SpriteMappingPiece( 0x14,    -2, 1, 1, 0x52, false, false, 0, false)
+        )));
+
+        // Frame 7: M_Newt_Fly1b - Flying variant 1, wing down (3 pieces)
+        // spritePiece -$14, -8, 4, 2, $48, 0, 0, 0, 0
+        // spritePiece $C, -8, 1, 2, $50, 0, 0, 0, 0
+        // spritePiece $14, -2, 2, 1, $53, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14,  -0x8, 4, 2, 0x48, false, false, 0, false),
+                new SpriteMappingPiece(  0xC,  -0x8, 1, 2, 0x50, false, false, 0, false),
+                new SpriteMappingPiece( 0x14,    -2, 2, 1, 0x53, false, false, 0, false)
+        )));
+
+        // Frame 8: M_Newt_Fly2a - Flying variant 2, wing up (3 pieces, pal 3 + pri on wing)
+        // spritePiece -$14, -8, 4, 2, $48, 0, 0, 0, 0
+        // spritePiece $C, -8, 1, 2, $50, 0, 0, 0, 0
+        // spritePiece $14, -2, 1, 1, $52, 0, 0, 3, 1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14,  -0x8, 4, 2, 0x48, false, false, 0, false),
+                new SpriteMappingPiece(  0xC,  -0x8, 1, 2, 0x50, false, false, 0, false),
+                new SpriteMappingPiece( 0x14,    -2, 1, 1, 0x52, false, false, 3, true)
+        )));
+
+        // Frame 9: M_Newt_Fly2b - Flying variant 2, wing down (3 pieces, pal 3 + pri on wing)
+        // spritePiece -$14, -8, 4, 2, $48, 0, 0, 0, 0
+        // spritePiece $C, -8, 1, 2, $50, 0, 0, 0, 0
+        // spritePiece $14, -2, 2, 1, $53, 0, 0, 3, 1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x14,  -0x8, 4, 2, 0x48, false, false, 0, false),
+                new SpriteMappingPiece(  0xC,  -0x8, 1, 2, 0x50, false, false, 0, false),
+                new SpriteMappingPiece( 0x14,    -2, 2, 1, 0x53, false, false, 3, true)
+        )));
+
+        // Frame 10: M_Newt_Blank - Empty frame (no pieces)
         frames.add(new SpriteMappingFrame(List.of()));
 
         return frames;
