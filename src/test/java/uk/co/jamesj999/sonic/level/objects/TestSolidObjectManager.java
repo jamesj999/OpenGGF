@@ -6,8 +6,10 @@ import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.physics.Sensor;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
+import java.lang.reflect.Field;
 import java.util.List;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -77,6 +79,33 @@ public class TestSolidObjectManager {
 
         // Shape must not be flat: right edge is 16px higher than left edge.
         assertEquals(16, leftCenterY - rightCenterY);
+    }
+
+    @Test
+    public void testCollapsingLedgeFragmentWalkOffWindowRemainsSolid() throws Exception {
+        ObjectSpawn spawn = new ObjectSpawn(100, 100, 0x1A, 0, 0, false, 0);
+        Sonic1CollapsingLedgeObjectInstance ledge = new Sonic1CollapsingLedgeObjectInstance(spawn, null);
+
+        setPrivateInt(ledge, "routine", 6);
+        setPrivateBoolean(ledge, "collapseFlag", true);
+        assertTrue(ledge.isSolidFor(null));
+
+        // Disassembly parity: once collapse flag is cleared in routine 6, the ledge no longer
+        // runs walk-off collision and should not remain solid.
+        setPrivateBoolean(ledge, "collapseFlag", false);
+        assertFalse(ledge.isSolidFor(null));
+    }
+
+    private static void setPrivateInt(Object instance, String fieldName, int value) throws Exception {
+        Field field = instance.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setInt(instance, value);
+    }
+
+    private static void setPrivateBoolean(Object instance, String fieldName, boolean value) throws Exception {
+        Field field = instance.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setBoolean(instance, value);
     }
 
     private ObjectManager buildManager(ObjectInstance instance) {

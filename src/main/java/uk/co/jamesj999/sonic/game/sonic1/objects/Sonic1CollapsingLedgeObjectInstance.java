@@ -308,11 +308,6 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // Detach player if riding
-        if (player != null && objectManager.isAnyPlayerRiding(this)) {
-            objectManager.clearRidingObject(player);
-        }
-
         // Get the smash frame pieces for this subtype
         // Frame 2 = leftsmash, Frame 3 = rightsmash
         int smashFrameIndex = mappingFrame + 2;
@@ -427,8 +422,16 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
 
     @Override
     public boolean isSolidFor(AbstractPlayableSprite player) {
-        // Not solid once fragmented
-        return !isDestroyed() && routine <= 4;
+        if (isDestroyed()) {
+            return false;
+        }
+        if (routine <= 4) {
+            return true;
+        }
+        // Disassembly parity:
+        // Routine 6 remains collidable while ledge_collapse_flag is set
+        // (Ledge_Display -> loc_82D0 runs Ledge_WalkOff/SlopeObject2).
+        return routine == 6 && collapseFlag;
     }
 
     @Override
