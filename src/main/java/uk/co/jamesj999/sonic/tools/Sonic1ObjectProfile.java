@@ -50,6 +50,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.PLATFORM,
             Sonic1ObjectIds.COLLAPSING_LEDGE,
             Sonic1ObjectIds.ROCK,
+            Sonic1ObjectIds.EDGE_WALLS,
             Sonic1ObjectIds.BRIDGE,
             Sonic1ObjectIds.SCENERY,
             Sonic1ObjectIds.SPIKES,
@@ -105,6 +106,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.EGG_PRISON, List.of("EggPrison"));
         map.put(Sonic1ObjectIds.MOTOBUG, List.of("Motobug"));
         map.put(Sonic1ObjectIds.SPRING, List.of("Spring"));
+        map.put(Sonic1ObjectIds.EDGE_WALLS, List.of("EdgeWalls"));
         map.put(Sonic1ObjectIds.NEWTRON, List.of("Newtron"));
         map.put(Sonic1ObjectIds.BUMPER, List.of("Bumper"));
         map.put(Sonic1ObjectIds.GIANT_RING, List.of("GiantRing"));

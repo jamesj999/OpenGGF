@@ -30,6 +30,7 @@ public final class Sonic1ObjectIds {
     public static final int EGG_PRISON      = 0x3E;
     public static final int MOTOBUG         = 0x40;
     public static final int SPRING          = 0x41;
+    public static final int EDGE_WALLS      = 0x44;
     public static final int NEWTRON         = 0x42;
     public static final int BUMPER          = 0x47;
     public static final int GIANT_RING      = 0x4B;
