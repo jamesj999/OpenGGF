@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BuzzBomberBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1ChopperBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1CrabmeatBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1MotobugBadnikInstance;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -70,6 +71,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1PlatformObjectInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.COLLAPSING_LEDGE,
                 (spawn, registry) -> new Sonic1CollapsingLedgeObjectInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.CHOPPER,
+                (spawn, registry) -> new Sonic1ChopperBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.BUZZ_BOMBER,
                 (spawn, registry) -> new Sonic1BuzzBomberBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.CRABMEAT,

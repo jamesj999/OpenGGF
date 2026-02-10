@@ -203,6 +203,10 @@ public final class Sonic1Constants {
     // Verified by decompression at ROM offset via RomOffsetFinder
     public static final int ART_NEM_CRABMEAT_ADDR = 0x35EB0;
 
+    // Nem_Chopper: Nemesis-compressed Chopper art (GHZ, ArtTile_Chopper = $47B)
+    // Verified by RomOffsetFinder --game s1 search Chopper (616 bytes, 1024 decompressed)
+    public static final int ART_NEM_CHOPPER_ADDR = 0x37016;
+
     // Nem_Motobug: Nemesis-compressed Motobug art (GHZ, ArtTile $4F0)
     // Verified by RomOffsetFinder --game s1 search Motobug
     public static final int ART_NEM_MOTOBUG_ADDR = 0x37A2C;

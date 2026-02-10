@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 13 (16.3%)
-- **Unimplemented:** 67 (83.8%)
+- **Implemented:** 14 (17.5%)
+- **Unimplemented:** 66 (82.5%)
 
 ## Implemented Objects
 
@@ -22,6 +22,7 @@ Generated: 2026-02-09 23:03:25
 | 0x26 | Monitor | 199 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
 | 0x36 | Spikes | 190 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3 |
 | 0x3B | Rock | 25 | GHZ1, GHZ2, GHZ3 |
+| 0x2B | Chopper | 14 | GHZ1, GHZ2 |
 | 0x40 | Motobug | 15 | GHZ1, GHZ2, GHZ3 |
 | 0x41 | Spring | 150 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
 | 0x79 | Lamppost | 23 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1 |
@@ -75,7 +76,6 @@ Generated: 2026-02-09 23:03:25
 | 0x59 | Object | S1_Obj_59 | 16 | SLZ1, SLZ2, SLZ3 |
 | 0x5E | Object | Seesaw | 16 | SLZ2, SLZ3 |
 | 0x2A | Object | S1_Obj_2A | 14 | SBZ1, SBZ2 |
-| 0x2B | Badnik | Chopper | 14 | GHZ1, GHZ2 |
 | 0x30 | Object | S1_Obj_30 | 14 | MZ1, MZ2, MZ3 |
 | 0x6A | Object | S1_Obj_6A | 14 | SBZ1, SBZ2 |
 | 0x70 | Object | S1_Obj_70 | 12 | SBZ1 |
@@ -106,12 +106,12 @@ Generated: 2026-02-09 23:03:25
 
 #### Act 1
 
-Total: 214 objects | Implemented: 13 | Unimplemented: 7
+Total: 214 objects | Implemented: 14 | Unimplemented: 6
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
 - [x] 0x22 BuzzBomber (x11) [0x00]
-- [ ] 0x2B Chopper (x5) [0x00]
+- [x] 0x2B Chopper (x5) [0x00]
 - [x] 0x40 Motobug (x3) [0x00]
 - [ ] 0x42 Newtron (x10) [0x00, 0x01]
 
@@ -134,12 +134,12 @@ Total: 214 objects | Implemented: 13 | Unimplemented: 7
 
 #### Act 2
 
-Total: 244 objects | Implemented: 13 | Unimplemented: 9
+Total: 244 objects | Implemented: 14 | Unimplemented: 8
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x4) [0x00]
 - [x] 0x22 BuzzBomber (x12) [0x00]
-- [ ] 0x2B Chopper (x9) [0x00]
+- [x] 0x2B Chopper (x9) [0x00]
 - [x] 0x40 Motobug (x6) [0x00]
 - [ ] 0x42 Newtron (x11) [0x00, 0x01]
 

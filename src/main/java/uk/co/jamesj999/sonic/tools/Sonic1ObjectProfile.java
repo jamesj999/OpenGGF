@@ -54,6 +54,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.SPIKES,
             Sonic1ObjectIds.SPRING,
             Sonic1ObjectIds.BUZZ_BOMBER,
+            Sonic1ObjectIds.CHOPPER,
             Sonic1ObjectIds.CRABMEAT,
             Sonic1ObjectIds.MOTOBUG
     );
