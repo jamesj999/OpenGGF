@@ -717,10 +717,12 @@ public class GameLoop {
             return;
         }
 
-        // Don't start another fade if one is already in progress
+        // Check if the SS manager pre-started a fade (S1: concurrent fade during exit spin)
         FadeManager fadeManager = FadeManager.getInstance();
-        if (fadeManager.isActive()) {
-            return;
+        boolean fadeAlreadyWhite = (fadeManager.getState() == FadeManager.FadeState.HOLD_WHITE);
+
+        if (!fadeAlreadyWhite && fadeManager.isActive()) {
+            return; // Different fade in progress, wait
         }
 
         SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
@@ -737,10 +739,16 @@ public class GameLoop {
             LOGGER.info("Collected emerald " + (ssStageIndex + 1) + "! Total: " + gsm.getEmeraldCount());
         }
 
-        // Start fade-to-white, then show results when complete
-        fadeManager.startFadeToWhite(() -> {
+        if (fadeAlreadyWhite) {
+            // Fade pre-started by SS manager (S1) - screen is already white.
+            // Go directly to results; doEnterResultsScreen() calls startFadeFromWhite().
             doEnterResultsScreen();
-        });
+        } else {
+            // Normal path (S2): start fade-to-white, then callback to results
+            fadeManager.startFadeToWhite(() -> {
+                doEnterResultsScreen();
+            });
+        }
 
         LOGGER.info("Starting fade-to-white to exit Special Stage");
     }

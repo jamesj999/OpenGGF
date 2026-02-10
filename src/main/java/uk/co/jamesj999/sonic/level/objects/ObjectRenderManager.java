@@ -222,6 +222,10 @@ public class ObjectRenderManager {
         return provider.getRenderer(ObjectArtKeys.RESULTS);
     }
 
+    public PatternSpriteRenderer getResultsEmeraldRenderer() {
+        return provider.getRenderer(ObjectArtKeys.SS_RESULTS_EMERALDS);
+    }
+
     public ObjectSpriteSheet getResultsSheet() {
         return provider.getSheet(ObjectArtKeys.RESULTS);
     }

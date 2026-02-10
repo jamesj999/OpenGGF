@@ -259,16 +259,31 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
     }
 
     private void appendEmeraldIndicators(List<GLCommand> commands, Camera camera) {
+        // Flash effect: on odd frames, show emeralds; on even frames, blank (30fps blink).
         if ((totalFrames & 1) == 0) {
             return;
         }
 
         int emeraldCount = Math.min(SONIC1_CHAOS_EMERALD_COUNT, GameServices.gameState().getEmeraldCount());
+        if (emeraldCount <= 0) {
+            return;
+        }
+
+        LevelManager levelManager = LevelManager.getInstance();
+        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        PatternSpriteRenderer emeraldRenderer = renderManager != null
+                ? renderManager.getResultsEmeraldRenderer() : null;
+
         for (int i = 0; i < emeraldCount; i++) {
             int worldX = toWorldX(EMERALD_X_POSITIONS[i], camera);
             int worldY = toWorldY(EMERALD_Y, camera);
-            float[] color = EMERALD_COLORS[i];
-            renderPlaceholderBox(commands, worldX - 8, worldY - 8, 16, 16, color[0], color[1], color[2]);
+            if (emeraldRenderer != null) {
+                emeraldRenderer.drawFrameIndex(i, worldX, worldY, false, false);
+            } else {
+                float[] color = EMERALD_COLORS[i];
+                renderPlaceholderBox(commands, worldX - 8, worldY - 8, 16, 16,
+                        color[0], color[1], color[2]);
+            }
         }
     }
 
