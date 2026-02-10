@@ -4,9 +4,9 @@ Generated: 2026-02-09 23:03:25
 
 ## Summary
 
-- **Total unique objects found:** 80
-- **Implemented:** 24 (30.0%)
-- **Unimplemented:** 56 (70.0%)
+- **Total unique objects found:** 81
+- **Implemented:** 25 (30.9%)
+- **Unimplemented:** 56 (69.1%)
 
 ## Implemented Objects
 
@@ -107,7 +107,7 @@ Generated: 2026-02-09 23:03:25
 
 #### Act 1
 
-Total: 214 objects | Implemented: 19 | Unimplemented: 1
+Total: 214 objects | Implemented: 20 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
@@ -135,7 +135,7 @@ Total: 214 objects | Implemented: 19 | Unimplemented: 1
 
 #### Act 2
 
-Total: 244 objects | Implemented: 21 | Unimplemented: 1
+Total: 244 objects | Implemented: 22 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x4) [0x00]
@@ -165,13 +165,16 @@ Total: 244 objects | Implemented: 21 | Unimplemented: 1
 
 #### Act 3
 
-Total: 286 objects | Implemented: 20 | Unimplemented: 0
+Total: 286 objects | Implemented: 21 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
 - [x] 0x22 BuzzBomber (x24) [0x00]
 - [x] 0x40 Motobug (x6) [0x00]
 - [x] 0x42 Newtron (x11) [0x00, 0x01]
+
+**Bosses:**
+- [x] 0x3D GHZBoss (x1) [0x00]
 
 **Objects:**
 - [x] 0x11 Bridge (x4) [0x0C]
