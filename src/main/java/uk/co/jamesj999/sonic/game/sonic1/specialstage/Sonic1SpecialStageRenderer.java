@@ -3,8 +3,13 @@ package uk.co.jamesj999.sonic.game.sonic1.specialstage;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.PatternDesc;
+import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
+import uk.co.jamesj999.sonic.level.render.SpritePieceRenderer;
 import uk.co.jamesj999.sonic.physics.TrigLookupTable;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.logging.Logger;
 
 import static uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.*;
@@ -16,7 +21,7 @@ import static uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.*;
  * 1. Compute sin/cos from ssAngle
  * 2. Scale by block size (0x18 = 24px)
  * 3. For each 16x16 grid of visible blocks, compute rotated screen position
- * 4. Look up block render info and emit pattern tiles
+ * 4. Look up block render info and emit mapped sprite pieces
  *
  * Uses batched pattern rendering via GraphicsManager for performance.
  */
@@ -61,13 +66,57 @@ public class Sonic1SpecialStageRenderer {
     private int bgCloudPatternBase;
     private int bgFishPatternBase;
 
-    // Wall has 16 rotation frames, each is 9 tiles (3x3)
-    private static final int WALL_TILES_PER_FRAME = 9;
-
     // Background color (dark blue)
     private static final float BG_R = 0.0f, BG_G = 0.0f, BG_B = 0.2f;
     private static final int ZERO_RENDER_WARNING_THRESHOLD = 15;
     private int consecutiveZeroRenderFrames;
+    private int lastRenderedBlocks;
+    private int lastValidBlockCells;
+
+    // Mapping data transcribed from docs/s1disasm/_maps/*.asm
+    private static final List<List<SpriteMappingPiece>> MAP_SS_WALLS_FRAMES = createWallsFrames();
+    private static final List<List<SpriteMappingPiece>> MAP_BUMPER_FRAMES = createBumperFrames();
+    private static final List<List<SpriteMappingPiece>> MAP_SS_R_FRAMES = List.of(
+            List.of(piece(-12, -12, 3, 3, 0, false, false)),
+            List.of(piece(-12, -12, 3, 3, 9, false, false)),
+            List.of() // Ghost switch frame (empty)
+    );
+    private static final List<List<SpriteMappingPiece>> MAP_SS_GLASS_FRAMES = List.of(
+            List.of(piece(-12, -12, 3, 3, 0, false, false)),
+            List.of(piece(-12, -12, 3, 3, 0, true, false)),
+            List.of(piece(-12, -12, 3, 3, 0, true, true)),
+            List.of(piece(-12, -12, 3, 3, 0, false, true))
+    );
+    private static final List<List<SpriteMappingPiece>> MAP_SS_UP_FRAMES = List.of(
+            List.of(piece(-12, -12, 3, 3, 0, false, false)),
+            List.of(piece(-12, -12, 3, 3, 0x12, false, false))
+    );
+    private static final List<List<SpriteMappingPiece>> MAP_SS_DOWN_FRAMES = List.of(
+            List.of(piece(-12, -12, 3, 3, 9, false, false)),
+            List.of(piece(-12, -12, 3, 3, 0x12, false, false))
+    );
+    private static final List<List<SpriteMappingPiece>> MAP_SS_CHAOS1_FRAMES = List.of(
+            List.of(piece(-8, -8, 2, 2, 0, false, false)),
+            List.of(piece(-8, -8, 2, 2, 0xC, false, false))
+    );
+    private static final List<List<SpriteMappingPiece>> MAP_SS_CHAOS2_FRAMES = List.of(
+            List.of(piece(-8, -8, 2, 2, 4, false, false)),
+            List.of(piece(-8, -8, 2, 2, 0xC, false, false))
+    );
+    private static final List<List<SpriteMappingPiece>> MAP_SS_CHAOS3_FRAMES = List.of(
+            List.of(piece(-8, -8, 2, 2, 8, false, false)),
+            List.of(piece(-8, -8, 2, 2, 0xC, false, false))
+    );
+    private static final List<List<SpriteMappingPiece>> MAP_RING_FRAMES = List.of(
+            List.of(piece(-8, -8, 2, 2, 0, false, false)),
+            List.of(piece(-8, -8, 2, 2, 4, false, false)),
+            List.of(piece(-4, -8, 1, 2, 8, false, false)),
+            List.of(piece(-8, -8, 2, 2, 4, true, false)),
+            List.of(piece(-8, -8, 2, 2, 0xA, false, false)),
+            List.of(piece(-8, -8, 2, 2, 0xA, true, false)),
+            List.of(piece(-8, -8, 2, 2, 0xA, false, true)),
+            List.of(piece(-8, -8, 2, 2, 0xA, true, true))
+    );
 
     public Sonic1SpecialStageRenderer(GraphicsManager graphicsManager) {
         this.graphicsManager = graphicsManager;
@@ -120,9 +169,6 @@ public class Sonic1SpecialStageRenderer {
         graphicsManager.beginPatternBatch();
         renderBlocks(layout, cameraX, cameraY, wallRotFrame, ringAnimFrame);
         graphicsManager.flushPatternBatch();
-
-        // 4. Render Sonic
-        renderSonic(sonicX, sonicY, cameraX, cameraY, sonicFacingLeft);
     }
 
     private void renderBackground() {
@@ -198,7 +244,10 @@ public class Sonic1SpecialStageRenderer {
     private void renderBlocks(byte[] layout, int cameraX, int cameraY,
                               int wallRotFrame, int ringAnimFrame) {
         int layoutRows = layout.length / SS_LAYOUT_STRIDE;
+        int layoutCols = SS_LAYOUT_STRIDE;
         if (layoutRows <= 0) {
+            lastRenderedBlocks = 0;
+            lastValidBlockCells = 0;
             return;
         }
 
@@ -228,7 +277,7 @@ public class Sonic1SpecialStageRenderer {
 
                 attemptedCells++;
                 int layoutCol = baseCol + col;
-                if (layoutRow < 0 || layoutRow >= layoutRows || layoutCol < 0 || layoutCol >= SS_LAYOUT_COLS) {
+                if (layoutRow < 0 || layoutRow >= layoutRows || layoutCol < 0 || layoutCol >= layoutCols) {
                     continue;
                 }
                 inBoundsCells++;
@@ -247,6 +296,8 @@ public class Sonic1SpecialStageRenderer {
                 renderedBlocks++;
             }
         }
+        lastRenderedBlocks = renderedBlocks;
+        lastValidBlockCells = validBlockCells;
 
         if (renderedBlocks == 0 && attemptedCells > 0) {
             consecutiveZeroRenderFrames++;
@@ -258,11 +309,20 @@ public class Sonic1SpecialStageRenderer {
                         ", valid=" + validBlockCells +
                         ", camera=" + cameraX + "," + cameraY +
                         ", base=" + baseRow + "," + baseCol +
-                        ", layoutRows=" + layoutRows + ")");
+                        ", layoutRows=" + layoutRows +
+                        ", layoutCols=" + layoutCols + ")");
             }
         } else {
             consecutiveZeroRenderFrames = 0;
         }
+    }
+
+    int getLastRenderedBlocks() {
+        return lastRenderedBlocks;
+    }
+
+    int getLastValidBlockCells() {
+        return lastValidBlockCells;
     }
 
     /**
@@ -272,122 +332,66 @@ public class Sonic1SpecialStageRenderer {
                              int wallRotFrame, int ringAnimFrame) {
         Sonic1SpecialStageBlockType.BlockRenderInfo info =
                 Sonic1SpecialStageBlockType.getBlockInfo(blockId);
-        if (info == null) return;
-
-        int patternBase;
-        int tileOffset = 0;
-
-        switch (info.mappingType()) {
-            case WALLS:
-                patternBase = wallPatternBase;
-                // Wall art: 16 rotation frames x 9 tiles each
-                tileOffset = wallRotFrame * WALL_TILES_PER_FRAME;
-                break;
-            case BUMPER:
-                patternBase = bumperPatternBase;
-                tileOffset = info.animFrame() * 9; // 3 frames
-                break;
-            case BLOCK_3X3:
-                patternBase = getPatternBaseForArtTile(info.artTileBase());
-                break;
-            case GLASS:
-                patternBase = getPatternBaseForArtTile(info.artTileBase());
-                break;
-            case UP:
-                patternBase = upDownPatternBase;
-                break;
-            case DOWN:
-                patternBase = upDownPatternBase;
-                // DOWN uses different mapping within the UP/DOWN art
-                tileOffset = 9; // second 3x3 block in UP/DOWN art
-                break;
-            case RING:
-                patternBase = ringPatternBase;
-                // Ring animation: frame selects which tiles
-                tileOffset = ringAnimFrame * 4; // 4 tiles per ring frame
-                render2x2Block(patternBase, tileOffset, info.paletteIndex(), screenX, screenY);
-                return;
-            case EMERALD_3:
-            case EMERALD_1:
-            case EMERALD_2:
-                patternBase = emeraldPatternBase;
-                break;
-            default:
-                return;
+        if (info == null) {
+            return;
         }
 
-        // Default: render as 3x3 tile block (24x24 pixels)
-        render3x3Block(patternBase, tileOffset, info.paletteIndex(), screenX, screenY);
+        int patternBase = getPatternBaseForArtTile(info.artTileBase());
+        if (patternBase <= 0) {
+            return;
+        }
+
+        List<SpriteMappingPiece> pieces = resolvePieces(info, wallRotFrame, ringAnimFrame);
+        if (pieces.isEmpty()) {
+            return;
+        }
+
+        renderMappedPieces(patternBase, pieces, info.paletteIndex(), screenX, screenY);
     }
 
-    /**
-     * Renders a 3x3 tile block (24x24 pixels) at the given screen position.
-     * The block is centered on the grid cell: offset by -12,-12.
-     */
-    private void render3x3Block(int patternBase, int tileOffset, int palette,
-                                int screenX, int screenY) {
-        // Center the 24x24 block on the grid point
-        int baseX = screenX - 12;
-        int baseY = screenY - 12;
-
-        // Build PatternDesc with palette
-        int descBits = (palette & 0x3) << 13;
-
-        for (int tileRow = 0; tileRow < 3; tileRow++) {
-            for (int tileCol = 0; tileCol < 3; tileCol++) {
-                int tileIndex = tileOffset + tileRow * 3 + tileCol;
-                int patternId = patternBase + tileIndex;
-                int x = baseX + tileCol * 8;
-                int y = baseY + tileRow * 8;
-
-                tempDesc.set(descBits | (patternId & 0x7FF));
-                graphicsManager.renderPatternWithId(patternId, tempDesc, x, y);
+    private List<SpriteMappingPiece> resolvePieces(Sonic1SpecialStageBlockType.BlockRenderInfo info,
+                                                   int wallRotFrame,
+                                                   int ringAnimFrame) {
+        return switch (info.mappingType()) {
+            case WALLS -> frameOrEmpty(MAP_SS_WALLS_FRAMES, wallRotFrame);
+            case BUMPER -> frameOrEmpty(MAP_BUMPER_FRAMES, info.animFrame());
+            case BLOCK_3X3 -> frameOrEmpty(MAP_SS_R_FRAMES, info.animFrame());
+            case GLASS -> frameOrEmpty(MAP_SS_GLASS_FRAMES, info.animFrame());
+            case UP -> frameOrEmpty(MAP_SS_UP_FRAMES, info.animFrame());
+            case DOWN -> frameOrEmpty(MAP_SS_DOWN_FRAMES, info.animFrame());
+            case RING -> {
+                int frame = info.animFrame() > 0 ? info.animFrame() : ringAnimFrame;
+                yield frameOrEmpty(MAP_RING_FRAMES, frame);
             }
-        }
+            case EMERALD_1 -> frameOrEmpty(MAP_SS_CHAOS1_FRAMES, info.animFrame());
+            case EMERALD_2 -> frameOrEmpty(MAP_SS_CHAOS2_FRAMES, info.animFrame());
+            case EMERALD_3 -> frameOrEmpty(MAP_SS_CHAOS3_FRAMES, info.animFrame());
+        };
     }
 
-    /**
-     * Renders a 2x2 tile block (16x16 pixels) for rings.
-     */
-    private void render2x2Block(int patternBase, int tileOffset, int palette,
-                                int screenX, int screenY) {
-        int baseX = screenX - 8;
-        int baseY = screenY - 8;
-
-        int descBits = (palette & 0x3) << 13;
-
-        for (int tileRow = 0; tileRow < 2; tileRow++) {
-            for (int tileCol = 0; tileCol < 2; tileCol++) {
-                int tileIndex = tileOffset + tileRow * 2 + tileCol;
-                int patternId = patternBase + tileIndex;
-                int x = baseX + tileCol * 8;
-                int y = baseY + tileRow * 8;
-
-                tempDesc.set(descBits | (patternId & 0x7FF));
-                graphicsManager.renderPatternWithId(patternId, tempDesc, x, y);
-            }
-        }
-    }
-
-    /**
-     * Renders Sonic at his position relative to camera.
-     */
-    private void renderSonic(int sonicX, int sonicY, int cameraX, int cameraY,
-                             boolean facingLeft) {
-        // Sonic position on screen: world pos - camera + screen center
-        // SS_FixCamera sets camera = sonicPos - screenCenter, so:
-        // screenPos = sonicPos - (sonicPos - screenCenter) = screenCenter
-        // But there can be camera clamping, so compute properly
-        int sx = sonicX - cameraX;
-        int sy = sonicY - cameraY;
-
-        // Sonic is rendered using the normal sprite system which handles
-        // his art via Sonic_LoadGfx. In the special stage, Sonic uses
-        // id_Roll animation (ball form). The existing sprite rendering
-        // pipeline should handle this if the sprite is positioned correctly.
-        // For now, we render a simple placeholder at Sonic's position.
-        // The actual Sonic rendering will be handled by the engine's
-        // existing sprite system once the manager positions Sonic correctly.
+    private void renderMappedPieces(int patternBase, List<SpriteMappingPiece> pieces,
+                                    int palette, int screenX, int screenY) {
+        SpritePieceRenderer.renderPieces(
+                pieces,
+                screenX,
+                screenY,
+                patternBase,
+                palette,
+                false,
+                false,
+                (patternId, pieceHFlip, pieceVFlip, paletteIndex, drawX, drawY) -> {
+                    int descIndex = patternId & 0x7FF;
+                    if (pieceHFlip) {
+                        descIndex |= 0x800;
+                    }
+                    if (pieceVFlip) {
+                        descIndex |= 0x1000;
+                    }
+                    descIndex |= (paletteIndex & 0x3) << 13;
+                    tempDesc.set(descIndex);
+                    graphicsManager.renderPatternWithId(patternId, tempDesc, drawX, drawY);
+                }
+        );
     }
 
     /**
@@ -413,5 +417,45 @@ public class Sonic1SpecialStageRenderer {
         if (artTileBase == ARTTILE_SS_ZONE_5) return zonePatternBases[4];
         if (artTileBase == ARTTILE_SS_ZONE_6) return zonePatternBases[5];
         return wallPatternBase; // default fallback
+    }
+
+    private static List<SpriteMappingPiece> frameOrEmpty(List<List<SpriteMappingPiece>> frames, int frame) {
+        if (frame < 0 || frame >= frames.size()) {
+            return Collections.emptyList();
+        }
+        return frames.get(frame);
+    }
+
+    private static SpriteMappingPiece piece(int xOffset, int yOffset, int widthTiles, int heightTiles,
+                                            int tileIndex, boolean hFlip, boolean vFlip) {
+        return new SpriteMappingPiece(xOffset, yOffset, widthTiles, heightTiles,
+                tileIndex, hFlip, vFlip, 0);
+    }
+
+    private static List<List<SpriteMappingPiece>> createWallsFrames() {
+        List<List<SpriteMappingPiece>> frames = new ArrayList<>(16);
+        frames.add(List.of(piece(-12, -12, 3, 3, 0, false, false)));
+        for (int i = 1; i < 16; i++) {
+            int tileBase = 9 + ((i - 1) * 16);
+            frames.add(List.of(piece(-16, -16, 4, 4, tileBase, false, false)));
+        }
+        return List.copyOf(frames);
+    }
+
+    private static List<List<SpriteMappingPiece>> createBumperFrames() {
+        List<List<SpriteMappingPiece>> frames = new ArrayList<>(3);
+        frames.add(List.of(
+                piece(-16, -16, 2, 4, 0, false, false),
+                piece(0, -16, 2, 4, 0, true, false)
+        ));
+        frames.add(List.of(
+                piece(-12, -12, 2, 3, 8, false, false),
+                piece(4, -12, 1, 3, 8, true, false)
+        ));
+        frames.add(List.of(
+                piece(-16, -16, 2, 4, 0xE, false, false),
+                piece(0, -16, 2, 4, 0xE, true, false)
+        ));
+        return List.copyOf(frames);
     }
 }

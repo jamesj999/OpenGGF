@@ -306,6 +306,9 @@ public final class Sonic1Constants {
     public static final int SS_LAYOUT_STRIDE = 0x80;   // stride per row in block buffer
     public static final int SS_LAYOUT_COLS = 0x40;      // data columns per row
     public static final int SS_BLOCK_SIZE_PX = 0x18;    // 24px per block
+    public static final int SS_LAYOUT_RAM_SIZE = 0x4000; // v_ssbuffer1..v_ssbuffer2 clear range
+    public static final int SS_BLOCKBUFFER_OFFSET = 0x1020; // v_ssblockbuffer = v_ssbuffer1 + $1020
+    public static final int SS_BLOCKBUFFER_ROWS = 0x40; // (v_ssblockbuffer_end-v_ssblockbuffer)/$80
 
     // ---- Special Stage palette ----
     // palid_Special = index 10 in PalIndex table

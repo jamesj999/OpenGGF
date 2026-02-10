@@ -1,9 +1,18 @@
 package uk.co.jamesj999.sonic.game.sonic1.specialstage;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.sonic1.Sonic1PlayerArt;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
+import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1AnimationIds;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Pattern;
+import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationScript;
+import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
+import uk.co.jamesj999.sonic.sprites.render.PlayerSpriteRenderer;
 import uk.co.jamesj999.sonic.physics.TrigLookupTable;
 
 import java.io.IOException;
@@ -82,6 +91,8 @@ public final class Sonic1SpecialStageManager {
     private Sonic1SpecialStageDataLoader dataLoader;
     private Sonic1SpecialStageRenderer renderer;
     private GraphicsManager graphicsManager;
+    private PlayerSpriteRenderer sonicSpriteRenderer;
+    private int sonicSpriteFrame;
 
     public void initialize(int stageIndex) throws IOException {
         this.currentStage = Math.max(0, Math.min(stageIndex, SS_STAGE_COUNT - 1));
@@ -108,6 +119,7 @@ public final class Sonic1SpecialStageManager {
 
         // Load and cache art patterns
         loadArt();
+        loadSonicSprite();
 
         // Initialize rotation
         ssAngle = 0;
@@ -117,7 +129,7 @@ public final class Sonic1SpecialStageManager {
         sonicVelX = 0;
         sonicVelY = 0;
         sonicInertia = 0;
-        sonicAirborne = false;
+        sonicAirborne = true; // Obj09_Main sets obStatus bit 1 before first update
         sonicFacingLeft = false;
 
         // Initialize camera
@@ -207,6 +219,7 @@ public final class Sonic1SpecialStageManager {
         sonicVelX = (short) ((cosVal * SS_JUMP_FORCE) >> 8);
         sonicVelY = (short) ((sinVal * SS_JUMP_FORCE) >> 8);
         sonicAirborne = true;
+        playSfx(Sonic1Sfx.JUMP);
     }
 
     /**
@@ -317,34 +330,31 @@ public final class Sonic1SpecialStageManager {
         long d0 = (long) sinVal * SS_GRAVITY + velXShifted;
         long d1 = (long) cosVal * SS_GRAVITY + velYShifted;
 
-        // Try X movement first
-        sonicPosX = savedX + d0;
-        sonicPosY = savedY;
+        // Try X movement first using temporary probe positions.
+        long probeX = savedX + d0;
+        long probeY = savedY;
 
-        if (checkCollision()) {
-            // X blocked: revert X, clear velX, clear airborne
-            sonicPosX = savedX;
+        if (checkCollisionAt(probeX, probeY)) {
+            // X blocked: clear X velocity, clear airborne
             d0 = 0;
             sonicVelX = 0;
             sonicAirborne = false;
 
             // Now try Y
-            sonicPosY = savedY + d1;
-            if (checkCollision()) {
-                // Y also blocked: revert Y, clear velY
-                sonicPosY = savedY;
+            probeY = savedY + d1;
+            if (checkCollisionAt(savedX, probeY)) {
+                // Y also blocked: clear Y velocity
+                d1 = 0;
                 sonicVelY = 0;
-            } else {
-                // Y succeeded: extract new velocity
-                sonicVelX = (short) (d0 >> 8);
-                sonicVelY = (short) (d1 >> 8);
             }
+            sonicVelX = (short) (d0 >> 8);
+            sonicVelY = (short) (d1 >> 8);
         } else {
             // X succeeded: try Y
-            sonicPosY += d1;
-            if (checkCollision()) {
-                // Y blocked: revert Y, clear velY, clear airborne
-                sonicPosY = savedY;
+            probeY = savedY + d1;
+            if (checkCollisionAt(probeX, probeY)) {
+                // Y blocked: clear Y velocity, clear airborne
+                d1 = 0;
                 sonicVelY = 0;
                 sonicAirborne = false;
                 sonicVelX = (short) (d0 >> 8);
@@ -369,8 +379,12 @@ public final class Sonic1SpecialStageManager {
      * [row,col], [row,col+1], [row+1,col], [row+1,col+1].
      */
     private boolean checkCollision() {
-        int posX = (int) (sonicPosX >> 16);
-        int posY = (int) (sonicPosY >> 16);
+        return checkCollisionAt(sonicPosX, sonicPosY);
+    }
+
+    private boolean checkCollisionAt(long posXFixed, long posYFixed) {
+        int posX = (int) (posXFixed >> 16);
+        int posY = (int) (posYFixed >> 16);
 
         int gridCol = (posX + 0x14) / SS_BLOCK_SIZE_PX;
         int gridRow = (posY + 0x44) / SS_BLOCK_SIZE_PX;
@@ -425,14 +439,14 @@ public final class Sonic1SpecialStageManager {
         if (blockId == 0x3A) {
             layout[bufIndex] = 0;
             ringsCollected++;
-            // TODO: play ring sound, check 50 rings for continue
+            playSfx(Sonic1Sfx.RING);
             return;
         }
 
         // 1UP (0x28)
         if (blockId == 0x28) {
             layout[bufIndex] = 0;
-            // TODO: add extra life, play 1UP music
+            playMusic(Sonic1Music.EXTRA_LIFE);
             return;
         }
 
@@ -440,7 +454,7 @@ public final class Sonic1SpecialStageManager {
         if (blockId >= 0x3B && blockId <= 0x40) {
             layout[bufIndex] = 0;
             emeraldCollected = true;
-            // TODO: play emerald music, register emerald
+            playMusic(Sonic1Music.CHAOS_EMERALD);
             return;
         }
 
@@ -481,7 +495,7 @@ public final class Sonic1SpecialStageManager {
         // GOAL (0x27)
         if (blockId == 0x27) {
             exitTriggered = true;
-            // TODO: play GOAL sound
+            playSfx(Sonic1Sfx.SS_GOAL);
             return;
         }
 
@@ -498,7 +512,7 @@ public final class Sonic1SpecialStageManager {
                 if (idx >= 0 && idx < layout.length) {
                     layout[idx] = 0x2A;
                 }
-                // TODO: play UP/DOWN sound
+                playSfx(Sonic1Sfx.SS_ITEM);
             }
             return;
         }
@@ -516,7 +530,7 @@ public final class Sonic1SpecialStageManager {
                 if (idx >= 0 && idx < layout.length) {
                     layout[idx] = 0x29;
                 }
-                // TODO: play UP/DOWN sound
+                playSfx(Sonic1Sfx.SS_ITEM);
             }
             return;
         }
@@ -526,7 +540,7 @@ public final class Sonic1SpecialStageManager {
             if (reverseCooldown == 0) {
                 reverseCooldown = SS_UP_DOWN_COOLDOWN;
                 ssRotate = -ssRotate; // Reverse rotation
-                // TODO: play R block sound
+                playSfx(Sonic1Sfx.SS_ITEM);
             }
             return;
         }
@@ -541,7 +555,7 @@ public final class Sonic1SpecialStageManager {
                 }
                 layout[idx] = (byte) nextState;
             }
-            // TODO: play glass sound
+            playSfx(Sonic1Sfx.SS_GLASS);
         }
     }
 
@@ -569,15 +583,15 @@ public final class Sonic1SpecialStageManager {
         sonicVelX = (short) ((cosVal * -SS_BUMPER_FORCE) >> 8);
         sonicVelY = (short) ((sinVal * -SS_BUMPER_FORCE) >> 8);
         sonicAirborne = true;
-        // TODO: play bumper sound
+        playSfx(Sonic1Sfx.BUMPER);
     }
 
     /**
      * Replaces all ghost blocks (0x41) with solid blocks (0x2C).
      */
     private void makeGhostsSolid() {
-        for (int row = 0; row < layout.length / SS_LAYOUT_STRIDE; row++) {
-            int rowOff = row * SS_LAYOUT_STRIDE;
+        for (int row = 0; row < SS_BLOCKBUFFER_ROWS; row++) {
+            int rowOff = SS_BLOCKBUFFER_OFFSET + row * SS_LAYOUT_STRIDE;
             for (int col = 0; col < SS_LAYOUT_COLS; col++) {
                 int idx = rowOff + col;
                 if (idx < layout.length && (layout[idx] & 0xFF) == 0x41) {
@@ -822,6 +836,31 @@ public final class Sonic1SpecialStageManager {
         LOGGER.fine("Loaded " + (nextBase - SS_PATTERN_BASE) + " SS art patterns");
     }
 
+    private void loadSonicSprite() throws IOException {
+        Rom rom = GameServices.rom().getRom();
+        SpriteArtSet sonicArt = new Sonic1PlayerArt(RomByteReader.fromRom(rom)).loadSonic();
+        if (sonicArt == null) {
+            sonicSpriteRenderer = null;
+            sonicSpriteFrame = 0;
+            return;
+        }
+
+        sonicSpriteRenderer = new PlayerSpriteRenderer(sonicArt);
+        sonicSpriteRenderer.ensureCached(graphicsManager);
+        sonicSpriteFrame = resolveSpecialStageSonicFrame(sonicArt);
+    }
+
+    private int resolveSpecialStageSonicFrame(SpriteArtSet sonicArt) {
+        if (sonicArt == null || sonicArt.animationSet() == null) {
+            return 0;
+        }
+        SpriteAnimationScript rollScript = sonicArt.animationSet().getScript(Sonic1AnimationIds.ROLL);
+        if (rollScript != null && rollScript.frames() != null && !rollScript.frames().isEmpty()) {
+            return rollScript.frames().get(0);
+        }
+        return 0;
+    }
+
     private Pattern[] loadRingPatterns() throws IOException {
         // Ring art is Nem_Ring at 0x39A0E (same as normal level rings)
         Rom rom = GameServices.rom().getRom();
@@ -852,6 +891,12 @@ public final class Sonic1SpecialStageManager {
         renderer.render(layout, ssAngle, cameraX, cameraY,
                 (int) (sonicPosX >> 16), (int) (sonicPosY >> 16),
                 wallRotFrame, ringAnimFrame, sonicFacingLeft);
+
+        if (sonicSpriteRenderer != null) {
+            int sonicScreenX = (int) (sonicPosX >> 16) - cameraX;
+            int sonicScreenY = (int) (sonicPosY >> 16) - cameraY;
+            sonicSpriteRenderer.drawFrame(sonicSpriteFrame, sonicScreenX, sonicScreenY, sonicFacingLeft, false);
+        }
     }
 
     // ---- Input ----
@@ -877,6 +922,8 @@ public final class Sonic1SpecialStageManager {
         dataLoader = null;
         renderer = null;
         graphicsManager = null;
+        sonicSpriteRenderer = null;
+        sonicSpriteFrame = 0;
         heldButtons = 0;
         pressedButtons = 0;
     }
@@ -907,5 +954,17 @@ public final class Sonic1SpecialStageManager {
 
     public void markFinished() {
         this.finished = true;
+    }
+
+    private void playSfx(Sonic1Sfx sfx) {
+        if (sfx != null) {
+            AudioManager.getInstance().playSfx(sfx.id);
+        }
+    }
+
+    private void playMusic(Sonic1Music music) {
+        if (music != null) {
+            AudioManager.getInstance().playMusic(music.id);
+        }
     }
 }
