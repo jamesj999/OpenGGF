@@ -5732,6 +5732,63 @@ public class Sonic2ObjectArt {
      * Each frame is a simple 2x2 tile sprite.
      * Tile indices: 0, 4, 8, C (0x0C)
      */
+    /**
+     * Load MCZ Boss sprite sheet.
+     * Uses ArtNem_MCZBoss with mappings from Obj57_MapUnc_316EC.
+     * ROM: art_tile = make_art_tile(ArtTile_ArtNem_MCZBoss,0,0) = $03C0
+     *
+     * @return sprite sheet for MCZ boss, or null on failure
+     */
+    public ObjectSpriteSheet loadMCZBossSheet() {
+        Pattern[] bossPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_MCZ_BOSS_ADDR, "MCZBoss");
+        if (bossPatterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_MCZ_BOSS_ADDR);
+        return new ObjectSpriteSheet(bossPatterns, mappings, 0, 1);
+    }
+
+    /**
+     * Load MCZ Falling Rocks sprite sheet.
+     * Uses ArtUnc_FallingRocks (256 bytes = 8 tiles uncompressed).
+     * ROM: art_tile = make_art_tile(ArtTile_ArtUnc_FallingRocks,0,0) = $0560
+     * Falling debris uses frames 13 (stone) and 20 (spike) from Obj57_MapUnc_316EC,
+     * but with a different art_tile base. We create a dedicated sheet with just 2 frames.
+     *
+     * @return sprite sheet for falling rocks, or null on failure
+     */
+    public ObjectSpriteSheet loadMCZFallingRocksSheet() {
+        Pattern[] rockPatterns = safeLoadUncompressedPatterns(
+                Sonic2Constants.ART_UNC_FALLING_ROCKS_ADDR, 256, "FallingRocks");
+        if (rockPatterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMCZFallingRocksMappings();
+        return new ObjectSpriteSheet(rockPatterns, mappings, 2, 0);
+    }
+
+    /**
+     * Creates mapping frames for MCZ Falling Rocks.
+     * From obj57.asm, the falling debris uses:
+     * - Frame 0 (stone): Map_obj57_014C -> spritePiece -8, -8, 2, 2, 0, pal2
+     * - Frame 1 (spike): Map_obj57_01C2 -> spritePiece -4, -$10, 1, 4, 4, pal2
+     */
+    private List<SpriteMappingFrame> createMCZFallingRocksMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Stone (mapping_frame 0x0D in ROM = small rock)
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 2));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1: Spike (mapping_frame 0x14 in ROM = stalactite)
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-4, -0x10, 1, 4, 4, false, false, 2));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        return frames;
+    }
+
     private List<SpriteMappingFrame> createHTZBossSmokeMappings() {
         List<SpriteMappingFrame> frames = new ArrayList<>();
 

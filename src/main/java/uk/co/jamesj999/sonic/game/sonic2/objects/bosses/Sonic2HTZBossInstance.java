@@ -5,8 +5,6 @@ import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
-import uk.co.jamesj999.sonic.game.sonic2.objects.EggPrisonObjectInstance;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
@@ -50,16 +48,16 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
     private static final int LEFT_X = 0x2F40;
     /** Initial spawn Y position (ROM: move.w #$580,y_pos(a0)) */
     private static final int INITIAL_Y = 0x0580;
-    /** Normal hover target Y (ROM: cmpi.w #$518,(Boss_Y_pos).w) */
-    private static final int NORMAL_HOVER_Y = 0x0518;
-    /** Defeated hover target Y (ROM: cmpi.w #$4FC,(Boss_Y_pos).w) */
-    private static final int DEFEATED_HOVER_Y = 0x04FC;
-    /** Normal lower threshold Y (ROM: cmpi.w #$538,(Boss_Y_pos).w) */
-    private static final int NORMAL_LOWER_Y = 0x0538;
-    /** Defeated lower threshold Y (ROM: cmpi.w #$548,(Boss_Y_pos).w) */
-    private static final int DEFEATED_LOWER_Y = 0x0548;
-    /** Normal bottom Y position (ROM: move.w #$5A0,(Boss_Y_pos).w) */
-    private static final int NORMAL_BOTTOM_Y = 0x05A0;
+    /** Left-side hover target Y (ROM: cmpi.w #$518,(Boss_Y_pos).w; boss_defeated=0) */
+    private static final int LEFT_HOVER_Y = 0x0518;
+    /** Right-side hover target Y (ROM: cmpi.w #$4FC,(Boss_Y_pos).w; boss_defeated=1) */
+    private static final int RIGHT_HOVER_Y = 0x04FC;
+    /** Left-side lower threshold Y (ROM: cmpi.w #$538,(Boss_Y_pos).w; boss_defeated=0) */
+    private static final int LEFT_LOWER_Y = 0x0538;
+    /** Right-side lower threshold Y (ROM: cmpi.w #$548,(Boss_Y_pos).w; boss_defeated=1) */
+    private static final int RIGHT_LOWER_Y = 0x0548;
+    /** Left-side bottom Y position (ROM: move.w #$5A0,(Boss_Y_pos).w; boss_defeated=0) */
+    private static final int LEFT_BOTTOM_Y = 0x05A0;
     /** Player X threshold for side selection (ROM: subi.w #$2FC0,d0) */
     private static final int PLAYER_X_THRESHOLD = 0x2FC0;
 
@@ -179,8 +177,8 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
         // Apply velocity
         applyBossMovement();
 
-        // Check target Y based on side
-        int targetY = (getCustomFlag(OBJOFF_SIDE_FLAG) != 0) ? DEFEATED_HOVER_Y : NORMAL_HOVER_Y;
+        // Check target Y based on side (ROM: boss_defeated != 0 = right side)
+        int targetY = (getCustomFlag(OBJOFF_SIDE_FLAG) != 0) ? RIGHT_HOVER_Y : LEFT_HOVER_Y;
 
         if (state.y <= targetY) {
             // Reached hover height
@@ -262,8 +260,8 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
         applyBossMovement();
 
         int sideFlag = getCustomFlag(OBJOFF_SIDE_FLAG);
-        int lowerThreshold = (sideFlag != 0) ? DEFEATED_LOWER_Y : NORMAL_LOWER_Y;
-        int bottomY = (sideFlag != 0) ? INITIAL_Y : NORMAL_BOTTOM_Y;
+        int lowerThreshold = (sideFlag != 0) ? RIGHT_LOWER_Y : LEFT_LOWER_Y;
+        int bottomY = (sideFlag != 0) ? INITIAL_Y : LEFT_BOTTOM_Y;
 
         // Check if reached lava ball spawn threshold
         if (state.y >= lowerThreshold) {
@@ -367,7 +365,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
         int offset = sine >> 7;
 
         // Apply to Y position
-        int baseY = (getCustomFlag(OBJOFF_SIDE_FLAG) != 0) ? DEFEATED_HOVER_Y : NORMAL_HOVER_Y;
+        int baseY = (getCustomFlag(OBJOFF_SIDE_FLAG) != 0) ? RIGHT_HOVER_Y : LEFT_HOVER_Y;
         state.y = baseY + offset;
         state.yFixed = state.y << 16;
 
@@ -406,7 +404,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
         } else {
             // Player on left - boss appears on left
             state.x = LEFT_X;
-            state.y = NORMAL_BOTTOM_Y;
+            state.y = LEFT_BOTTOM_Y;
             setCustomFlag(OBJOFF_SIDE_FLAG, 0);
         }
 
@@ -488,25 +486,9 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
         levelManager.getObjectManager().addDynamicObject(smoke);
     }
 
-    /**
-     * Spawn EggPrison after boss defeat.
-     */
-    private void spawnEggPrison() {
-        if (levelManager.getObjectManager() == null) {
-            return;
-        }
-
-        // Spawn EggPrison near arena exit
-        ObjectSpawn prisonSpawn = new ObjectSpawn(
-                0x3100,  // Near right side of arena
-                0x0500,  // Above lava
-                Sonic2ObjectIds.EGG_PRISON,
-                0, 0, false, 0
-        );
-
-        EggPrisonObjectInstance prison = new EggPrisonObjectInstance(prisonSpawn, "Egg Prison");
-        levelManager.getObjectManager().addDynamicObject(prison);
-    }
+    // Note: The ROM does NOT spawn an EggPrison from the HTZ boss code.
+    // PLCID_Capsule (line 64062) loads capsule art into VRAM, and the actual
+    // EggPrison object is pre-placed in the level's object layout data.
 
     @Override
     protected int getInitialHitCount() {
@@ -540,13 +522,11 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
         state.routineSecondary = SUB8_DEFEATED;
     }
 
-    @Override
-    public int getCollisionFlags() {
-        // ROM keeps collision_flags(a0) at $32 except while invulnerable/defeated.
-        // Boss_CollisionRoutine controls extra HTZ boss-specific collision behavior,
-        // not whether the boss can be hit at all.
-        return super.getCollisionFlags();
-    }
+    // Note: getCollisionFlags() is inherited from AbstractBossInstance which
+    // handles invulnerability/defeat gating. The ROM's Boss_CollisionRoutine
+    // (0=disabled during rising/lowering, 1=enabled during flamethrower) controls
+    // additional HTZ-specific collision behavior, but the base class gating via
+    // invulnerability state is sufficient for this implementation.
 
     @Override
     public int getPriorityBucket() {
