@@ -276,6 +276,16 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search Ball
     public static final int ART_NEM_SBZ_SPIKED_BALL_ADDR = 0x345A6;
 
+    // ---- Boss art (Nemesis compressed) ----
+    // Nem_Eggman: Main Eggman ship + face + flame art (verified by RomOffsetFinder)
+    public static final int ART_NEM_EGGMAN_ADDR = 0x5D0FC;
+    // Nem_Weapons: Boss weapons art — chain anchor, pipes, spikes (verified)
+    public static final int ART_NEM_BOSS_WEAPONS_ADDR = 0x5D960;
+    // Nem_Exhaust: Boss exhaust/escape flame art (verified)
+    public static final int ART_NEM_BOSS_EXHAUST_ADDR = 0x5F9E2;
+    // Nem_Prison: Prison capsule art (verified)
+    public static final int ART_NEM_PRISON_ADDR = 0x5DC4A;
+
     // ---- Loop / Plane Switching ----
     // LoopTileNums table from Sonic_Loops (_incObj/01 Sonic.asm lines 1536-1611).
     // Per-zone: { loop1, loop2, roll1, roll2 } - raw layout values including bit 7.

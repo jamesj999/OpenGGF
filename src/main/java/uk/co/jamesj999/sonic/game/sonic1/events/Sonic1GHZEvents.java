@@ -1,6 +1,13 @@
 package uk.co.jamesj999.sonic.game.sonic1.events;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
+import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1GHZBossInstance;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 
 /**
  * Green Hill Zone dynamic level events.
@@ -142,11 +149,26 @@ class Sonic1GHZEvents extends Sonic1ZoneEvents {
             return; // locret_6EE8
         }
 
-        // TODO: Boss spawn code - objects not yet implemented
-        // ROM loads boss object and sets up the arena here
+        // ROM: DynamicLevelEvents.asm — spawn boss at boss_ghz_x+$100, boss_ghz_y-$80
+        // and play boss music (bgm_Boss)
+        int bossSpawnX = BOSS_GHZ_X + 0x100; // $2A60
+        int bossSpawnY = BOSS_GHZ_Y - 0x80;  // $280
+        ObjectSpawn bossSpawn = new ObjectSpawn(
+                bossSpawnX, bossSpawnY,
+                Sonic1ObjectIds.GHZ_BOSS, 0, 0, false, 0);
+        LevelManager lm = LevelManager.getInstance();
+        Sonic1GHZBossInstance boss = new Sonic1GHZBossInstance(bossSpawn, lm);
+        if (lm.getObjectManager() != null) {
+            lm.getObjectManager().addDynamicObject(boss);
+        }
+        AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
 
         // f_lockscreen = 1 (lock camera)
         camera.setFrozen(true);
+        // Lock right boundary to current camera position so player can't walk off-screen.
+        // ROM: v_limitright2 stays at camera X when f_lockscreen is set.
+        camera.setMaxX((short) camera.getX());
+        GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.GHZ_BOSS);
         eventRoutine += 2; // advance to DLE_GHZ3end
     }
 

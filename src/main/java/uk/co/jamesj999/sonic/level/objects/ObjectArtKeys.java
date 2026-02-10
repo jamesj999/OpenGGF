@@ -50,6 +50,12 @@ public final class ObjectArtKeys {
     public static final String SWING_SBZ_BALL = "swing_sbz_ball";
     public static final String SWING_GIANT_BALL = "swing_giant_ball";
 
+    // Boss art keys (S1 GHZ boss)
+    public static final String EGGMAN = "eggman";
+    public static final String BOSS_WEAPONS = "boss_weapons";
+    public static final String BOSS_EXHAUST = "boss_exhaust";
+    public static final String BOSS_BALL = "boss_ball";
+
     // Zone objects using level tiles
     public static final String PLATFORM = "platform";
     public static final String COLLAPSING_LEDGE = "collapsing_ledge";
