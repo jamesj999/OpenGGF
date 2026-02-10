@@ -152,6 +152,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load Giant Ring Flash art (Nemesis, loaded with ring)
         loadGiantRingFlashArt(rom);
 
+        // Load swinging platform art (zone-dependent: GHZ/MZ, SLZ, SBZ, GHZ giant ball)
+        loadSwingingPlatformArt(rom, zoneIndex);
+
         loaded = true;
         LOGGER.info("Sonic1ObjectArtProvider loaded: digits=" +
                 (hudDigitPatterns != null ? hudDigitPatterns.length : 0) +
@@ -2511,6 +2514,221 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 new SpriteMappingPiece( 0x00, -0x20, 4, 4, 0x44, true,  false, 1, false),
                 new SpriteMappingPiece(-0x20,  0x00, 4, 4, 0x44, false, true,  1, false),
                 new SpriteMappingPiece( 0x00,  0x00, 4, 4, 0x44, true,  true,  1, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads swinging platform art for the current zone.
+     * <p>
+     * Zone-specific art from Pattern Load Cues:
+     * <ul>
+     *   <li>GHZ: Nem_Swing (ArtTile $380, palette 2) + Nem_Ball (ArtTile $3AA, palette 2)</li>
+     *   <li>MZ:  Nem_Swing (ArtTile $380, palette 2)</li>
+     *   <li>SLZ: Nem_SlzSwing (ArtTile $3DC, palette 2)</li>
+     *   <li>SBZ: Nem_SyzSpike1 (ArtTile $391, palette 0)</li>
+     * </ul>
+     */
+    private void loadSwingingPlatformArt(Rom rom, int zoneIndex) {
+        // GHZ/MZ swinging platform (Nem_Swing)
+        if (zoneIndex == Sonic1Constants.ZONE_GHZ || zoneIndex == Sonic1Constants.ZONE_MZ) {
+            Pattern[] patterns = loadNemesisPatterns(rom,
+                    Sonic1Constants.ART_NEM_SWING_ADDR, "SwingGHZ");
+            if (patterns.length > 0) {
+                List<SpriteMappingFrame> mappings = createSwingGhzMappings();
+                // make_art_tile(ArtTile_GHZ_MZ_Swing, 2, 0) — palette line 2
+                ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+                registerSheet(ObjectArtKeys.SWING_GHZ, sheet);
+            }
+        }
+
+        // GHZ giant ball variant (Nem_Ball) — subtype $1X
+        if (zoneIndex == Sonic1Constants.ZONE_GHZ) {
+            Pattern[] patterns = loadNemesisPatterns(rom,
+                    Sonic1Constants.ART_NEM_GIANT_BALL_ADDR, "GiantBall");
+            if (patterns.length > 0) {
+                List<SpriteMappingFrame> mappings = createGiantBallMappings();
+                // make_art_tile(ArtTile_GHZ_Giant_Ball, 2, 0) — palette line 2
+                ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+                registerSheet(ObjectArtKeys.SWING_GIANT_BALL, sheet);
+            }
+        }
+
+        // SLZ swinging platform (Nem_SlzSwing)
+        if (zoneIndex == Sonic1Constants.ZONE_SLZ) {
+            Pattern[] patterns = loadNemesisPatterns(rom,
+                    Sonic1Constants.ART_NEM_SLZ_SWING_ADDR, "SwingSLZ");
+            if (patterns.length > 0) {
+                List<SpriteMappingFrame> mappings = createSwingSlzMappings();
+                // make_art_tile(ArtTile_SLZ_Swing, 2, 0) — palette line 2
+                ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+                registerSheet(ObjectArtKeys.SWING_SLZ, sheet);
+            }
+        }
+
+        // SBZ spiked ball on chain (Nem_SyzSpike1)
+        if (zoneIndex == Sonic1Constants.ZONE_SBZ) {
+            Pattern[] patterns = loadNemesisPatterns(rom,
+                    Sonic1Constants.ART_NEM_SBZ_SPIKED_BALL_ADDR, "SBZSpikedBall");
+            if (patterns.length > 0) {
+                List<SpriteMappingFrame> mappings = createSbzBallMappings();
+                // make_art_tile(ArtTile_SBZ_Swing, 0, 0) — palette line 0
+                ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+                registerSheet(ObjectArtKeys.SWING_SBZ_BALL, sheet);
+            }
+        }
+    }
+
+    /**
+     * GHZ/MZ swinging platform mappings from docs/s1disasm/_maps/Swinging Platforms (GHZ).asm.
+     * <p>
+     * Frame 0 (.block):  Platform — 2 pieces (48x16)
+     * Frame 1 (.chain):  Chain link — 1 piece (16x16)
+     * Frame 2 (.anchor): Anchor point — 1 piece (16x16)
+     */
+    private List<SpriteMappingFrame> createSwingGhzMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .block — platform (2 pieces of 3x2 tiles)
+        // spritePiece -$18, -8, 3, 2, 4, 0, 0, 0, 0
+        // spritePiece    0, -8, 3, 2, 4, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -8, 3, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(    0, -8, 3, 2, 4, false, false, 0, false)
+        )));
+
+        // Frame 1: .chain — chain link (1 piece of 2x2 tiles)
+        // spritePiece -8, -8, 2, 2, 0, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 0, false)
+        )));
+
+        // Frame 2: .anchor — anchor point (1 piece of 2x2 tiles)
+        // spritePiece -8, -8, 2, 2, $A, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0xA, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * SLZ swinging platform mappings from docs/s1disasm/_maps/Swinging Platforms (SLZ).asm.
+     * <p>
+     * Frame 0 (.block):  Platform — 8 pieces (larger 64x32 platform)
+     * Frame 1 (.chain):  Chain link — 1 piece (16x16, palette 2)
+     * Frame 2 (.anchor): Anchor point — 1 piece (16x16)
+     */
+    private List<SpriteMappingFrame> createSwingSlzMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .block — SLZ platform (8 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x10, 4, 4,    4, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x10, 4, 4,    4, true,  false, 0, false),
+                new SpriteMappingPiece(-0x30, -0x10, 2, 2, 0x14, false, false, 0, false),
+                new SpriteMappingPiece( 0x20, -0x10, 2, 2, 0x14, true,  false, 0, false),
+                new SpriteMappingPiece(-0x20,  0x10, 2, 1, 0x18, false, false, 0, false),
+                new SpriteMappingPiece( 0x10,  0x10, 2, 1, 0x18, true,  false, 0, false),
+                new SpriteMappingPiece(   -8,  0x10, 1, 2, 0x1A, false, false, 0, false),
+                new SpriteMappingPiece(    0,  0x10, 1, 2, 0x1A, true,  false, 0, false)
+        )));
+
+        // Frame 1: .chain — chain link (1 piece, palette 2)
+        // spritePiece -8, -8, 2, 2, 0, 0, 0, 2, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 2, false)
+        )));
+
+        // Frame 2: .anchor — anchor (1 piece)
+        // spritePiece -8, -8, 2, 2, $1C, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x1C, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * SBZ spiked ball mappings from docs/s1disasm/_maps/Big Spiked Ball.asm.
+     * <p>
+     * Frame 0 (.ball):   Spiked ball — 5 pieces (48x48 with spikes)
+     * Frame 1 (.chain):  Chain link — 1 piece (16x16)
+     * Frame 2 (.anchor): Anchor — 2 pieces (32x32, v-flip pair)
+     */
+    private List<SpriteMappingFrame> createSbzBallMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .ball — spiked ball (5 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(   -8, -0x18, 2, 1,    0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4,    2, false, false, 0, false),
+                new SpriteMappingPiece(-0x18,    -8, 1, 2, 0x12, false, false, 0, false),
+                new SpriteMappingPiece( 0x10,    -8, 1, 2, 0x14, false, false, 0, false),
+                new SpriteMappingPiece(   -8,  0x10, 2, 1, 0x16, false, false, 0, false)
+        )));
+
+        // Frame 1: .chain — chain link (1 piece)
+        // spritePiece -8, -8, 2, 2, $20, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x20, false, false, 0, false)
+        )));
+
+        // Frame 2: .anchor — anchor (2 pieces, v-flip pair)
+        // spritePiece -$10,   -8, 4, 2, $18, 0, 0, 0, 0
+        // spritePiece -$10, -$18, 4, 2, $18, 0, 1, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10,    -8, 4, 2, 0x18, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x18, 4, 2, 0x18, false, true,  0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * GHZ giant ball mappings from docs/s1disasm/_maps/GHZ Ball.asm.
+     * <p>
+     * Frame 0 (.shiny):  Ball with shine — 6 pieces (48x48)
+     * Frame 1 (.check1): Checkered ball frame 1 — 4 pieces
+     * Frame 2 (.check2): Checkered ball frame 2 — 4 pieces
+     * Frame 3 (.check3): Checkered ball frame 3 — 4 pieces
+     */
+    private List<SpriteMappingFrame> createGiantBallMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .shiny — shine highlight + 4-way symmetric ball
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 2, 1, 0x24, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,    -8, 2, 1, 0x24, false, true,  0, false),
+                new SpriteMappingPiece(-0x18, -0x18, 3, 3,    0, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x18, 3, 3,    0, true,  false, 0, false),
+                new SpriteMappingPiece(-0x18,     0, 3, 3,    0, false, true,  0, false),
+                new SpriteMappingPiece(    0,     0, 3, 3,    0, true,  true,  0, false)
+        )));
+
+        // Frame 1: .check1 — checkered pattern (4-way symmetric)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x18, 3, 3, 9, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x18, 3, 3, 9, true,  false, 0, false),
+                new SpriteMappingPiece(-0x18,     0, 3, 3, 9, false, true,  0, false),
+                new SpriteMappingPiece(    0,     0, 3, 3, 9, true,  true,  0, false)
+        )));
+
+        // Frame 2: .check2 — mixed pattern
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x12, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x18, 3, 3, 0x1B, false, false, 0, false),
+                new SpriteMappingPiece(-0x18,     0, 3, 3, 0x1B, true,  true,  0, false),
+                new SpriteMappingPiece(    0,     0, 3, 3, 0x12, true,  true,  0, false)
+        )));
+
+        // Frame 3: .check3 — rotated pattern
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0x1B, true,  false, 0, false),
+                new SpriteMappingPiece(    0, -0x18, 3, 3, 0x12, true,  false, 0, false),
+                new SpriteMappingPiece(-0x18,     0, 3, 3, 0x12, false, true,  0, false),
+                new SpriteMappingPiece(    0,     0, 3, 3, 0x1B, false, true,  0, false)
         )));
 
         return frames;

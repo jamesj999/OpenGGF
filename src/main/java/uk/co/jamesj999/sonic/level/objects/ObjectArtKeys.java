@@ -44,6 +44,12 @@ public final class ObjectArtKeys {
     public static final String GIANT_RING = "giant_ring";
     public static final String GIANT_RING_FLASH = "giant_ring_flash";
 
+    // Swinging platform variants (S1)
+    public static final String SWING_GHZ = "swing_ghz";
+    public static final String SWING_SLZ = "swing_slz";
+    public static final String SWING_SBZ_BALL = "swing_sbz_ball";
+    public static final String SWING_GIANT_BALL = "swing_giant_ball";
+
     // Zone objects using level tiles
     public static final String PLATFORM = "platform";
     public static final String COLLAPSING_LEDGE = "collapsing_ledge";
