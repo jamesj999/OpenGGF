@@ -29,6 +29,8 @@ import static org.lwjgl.openal.SOFTHRTF.*;
 public class LWJGLAudioBackend implements AudioBackend {
     private static final Logger LOGGER = Logger.getLogger(LWJGLAudioBackend.class.getName());
 
+    private final Object streamLock = new Object();
+
     private long device;
     private long context;
 
@@ -169,6 +171,9 @@ public class LWJGLAudioBackend implements AudioBackend {
             musicSource = alGenSources();
 
             // Pre-allocate reusable DirectBuffer to avoid per-fillBuffer allocations
+            if (directShortBuffer != null) {
+                MemoryUtil.memFree(directShortBuffer);
+            }
             directShortBuffer = MemoryUtil.memAllocShort(STREAM_BUFFER_SIZE * 2);
 
         } catch (Throwable t) {
@@ -268,7 +273,9 @@ public class LWJGLAudioBackend implements AudioBackend {
         currentMusicId = musicId;
 
         updateSynthesizerConfig();
-        currentStream = smpsDriver;
+        synchronized (streamLock) {
+            currentStream = smpsDriver;
+        }
         startStream();
     }
 
@@ -435,10 +442,12 @@ public class LWJGLAudioBackend implements AudioBackend {
         }
 
         // Restore saved state
-        currentStream = savedState.stream;
-        currentSmps = savedState.smps;
-        smpsDriver = savedState.driver;
-        currentMusicId = savedState.musicId;
+        synchronized (streamLock) {
+            currentStream = savedState.stream;
+            currentSmps = savedState.smps;
+            smpsDriver = savedState.driver;
+            currentMusicId = savedState.musicId;
+        }
 
         if (currentSmps != null) {
             // Restore speed shoes state to the saved sequencer
@@ -453,35 +462,39 @@ public class LWJGLAudioBackend implements AudioBackend {
     }
 
     private void fillBuffer(int bufferId) {
-        // Clear and reuse pre-allocated buffer
-        Arrays.fill(streamData, (short) 0);
-        if (currentStream != null) {
-            currentStream.read(streamData);
-        }
-
-        if (sfxStream != null) {
-            Arrays.fill(sfxStreamData, (short) 0);
-            sfxStream.read(sfxStreamData);
-
-            for (int i = 0; i < streamData.length; i++) {
-                int mixed = streamData[i] + sfxStreamData[i];
-                if (mixed > 32000)
-                    mixed = 32000;
-                if (mixed < -32000)
-                    mixed = -32000;
-                streamData[i] = (short) mixed;
+        int sampleRate;
+        synchronized (streamLock) {
+            // Clear and reuse pre-allocated buffer
+            Arrays.fill(streamData, (short) 0);
+            if (currentStream != null) {
+                currentStream.read(streamData);
             }
 
-            if (sfxStream.isComplete()) {
-                sfxStream = null;
+            if (sfxStream != null) {
+                Arrays.fill(sfxStreamData, (short) 0);
+                sfxStream.read(sfxStreamData);
+
+                for (int i = 0; i < streamData.length; i++) {
+                    int mixed = streamData[i] + sfxStreamData[i];
+                    if (mixed > 32000)
+                        mixed = 32000;
+                    if (mixed < -32000)
+                        mixed = -32000;
+                    streamData[i] = (short) mixed;
+                }
+
+                if (sfxStream.isComplete()) {
+                    sfxStream = null;
+                }
             }
+
+            sampleRate = (int) Math.round(getStreamSampleRate());
         }
 
-        // Reuse pre-allocated DirectBuffer to avoid allocation (~43 times/sec)
+        // Keep DirectBuffer/OpenAL operations outside lock to minimize contention
         directShortBuffer.clear();
         directShortBuffer.put(streamData);
         directShortBuffer.flip();
-        int sampleRate = (int) Math.round(getStreamSampleRate());
         alBufferData(bufferId, AL_FORMAT_STEREO16, directShortBuffer, sampleRate);
     }
 
@@ -545,15 +558,17 @@ public class LWJGLAudioBackend implements AudioBackend {
         stopStream();
         alSourceStop(musicSource);
         alSourcei(musicSource, AL_BUFFER, 0);
-        currentStream = null;
-        currentSmps = null;
-        currentMusicId = -1;
-        clearMusicStack();
-        // Also stop any playing SFX to prevent them persisting across level transitions
-        if (sfxStream instanceof SmpsDriver sfxDriver) {
-            sfxDriver.stopAll();
+        synchronized (streamLock) {
+            currentStream = null;
+            currentSmps = null;
+            currentMusicId = -1;
+            clearMusicStack();
+            // Also stop any playing SFX to prevent them persisting across level transitions
+            if (sfxStream instanceof SmpsDriver sfxDriver) {
+                sfxDriver.stopAll();
+            }
+            sfxStream = null;
         }
-        sfxStream = null;
         // Stop and cleanup WAV-based SFX sources
         for (int source : sfxSources) {
             alSourceStop(source);
