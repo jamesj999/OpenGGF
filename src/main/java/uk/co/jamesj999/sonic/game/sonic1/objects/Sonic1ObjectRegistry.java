@@ -86,6 +86,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1MotobugBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.NEWTRON,
                 (spawn, registry) -> new Sonic1NewtronBadnikInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.WATERFALL_SOUND,
+                (spawn, registry) -> new Sonic1WaterfallSoundObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GIANT_RING,
                 (spawn, registry) -> new Sonic1GiantRingObjectInstance(spawn));
     }
@@ -117,6 +119,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.EDGE_WALLS -> "EdgeWalls";
             case Sonic1ObjectIds.NEWTRON -> "Newtron";
             case Sonic1ObjectIds.BUMPER -> "Bumper";
+            case Sonic1ObjectIds.WATERFALL_SOUND -> "WaterfallSound";
             case Sonic1ObjectIds.GIANT_RING -> "GiantRing";
             case Sonic1ObjectIds.YADRIN -> "Yadrin";
             case Sonic1ObjectIds.BATBRAIN -> "Batbrain";

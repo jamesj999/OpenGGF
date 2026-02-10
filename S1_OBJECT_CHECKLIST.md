@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 18 (22.5%)
-- **Unimplemented:** 62 (77.5%)
+- **Implemented:** 19 (23.8%)
+- **Unimplemented:** 61 (76.3%)
 
 ## Implemented Objects
 
@@ -29,6 +29,7 @@ Generated: 2026-02-09 23:03:25
 | 0x42 | Newtron | 32 | GHZ1, GHZ2, GHZ3 |
 | 0x44 | EdgeWalls | 74 | GHZ1, GHZ2, GHZ3 |
 | 0x79 | Lamppost | 23 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1 |
+| 0x49 | WaterfallSound | 11 | GHZ1, GHZ2, GHZ3 |
 | 0x4B | GiantRing | 11 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2 |
 
 ## Unimplemented Objects (By Usage)
@@ -80,7 +81,6 @@ Generated: 2026-02-09 23:03:25
 | 0x30 | Object | S1_Obj_30 | 14 | MZ1, MZ2, MZ3 |
 | 0x6A | Object | S1_Obj_6A | 14 | SBZ1, SBZ2 |
 | 0x70 | Object | S1_Obj_70 | 12 | SBZ1 |
-| 0x49 | Object | S1_Obj_49 | 11 | GHZ1, GHZ2, GHZ3 |
 | 0x1E | Object | S1_Obj_1E | 10 | SBZ1, SBZ2 |
 | 0x3E | Object | EggPrison | 10 | GHZ3, LZ3, MZ3, SLZ3, SYZ3 |
 | 0x50 | Badnik | Yadrin | 10 | SYZ1, SYZ2, SYZ3 |
@@ -106,7 +106,7 @@ Generated: 2026-02-09 23:03:25
 
 #### Act 1
 
-Total: 214 objects | Implemented: 17 | Unimplemented: 3
+Total: 214 objects | Implemented: 18 | Unimplemented: 2
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
@@ -127,14 +127,14 @@ Total: 214 objects | Implemented: 17 | Unimplemented: 3
 - [x] 0x3B Rock (x7) [0x00]
 - [x] 0x41 Spring (x4) [0x02]
 - [x] 0x44 EdgeWalls (x12) [0x00, 0x01, 0x02]
-- [ ] 0x49 S1_Obj_49 (x3) [0x00]
+- [x] 0x49 WaterfallSound (x3) [0x00]
 - [x] 0x4B GiantRing (x1) [0x00]
 - [x] 0x79 Lamppost (x2) [0x01, 0x02]
 - [ ] 0x7D S1_Obj_7D (x5) [0x01, 0x02, 0x03]
 
 #### Act 2
 
-Total: 244 objects | Implemented: 17 | Unimplemented: 5
+Total: 244 objects | Implemented: 18 | Unimplemented: 4
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x4) [0x00]
@@ -157,14 +157,14 @@ Total: 244 objects | Implemented: 17 | Unimplemented: 5
 - [ ] 0x3C BreakableWall (x6) [0x00, 0x01, 0x02]
 - [x] 0x41 Spring (x6) [0x10, 0x00, 0x02]
 - [x] 0x44 EdgeWalls (x22) [5 subtypes]
-- [ ] 0x49 S1_Obj_49 (x4) [0x00]
+- [x] 0x49 WaterfallSound (x4) [0x00]
 - [x] 0x4B GiantRing (x1) [0x00]
 - [x] 0x79 Lamppost (x1) [0x01]
 - [ ] 0x7D S1_Obj_7D (x5) [0x01, 0x02, 0x03]
 
 #### Act 3
 
-Total: 286 objects | Implemented: 15 | Unimplemented: 5
+Total: 286 objects | Implemented: 16 | Unimplemented: 4
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
@@ -187,7 +187,7 @@ Total: 286 objects | Implemented: 15 | Unimplemented: 5
 - [ ] 0x3E EggPrison (x2) [0x00, 0x01]
 - [x] 0x41 Spring (x13) [0x10, 0x02]
 - [x] 0x44 EdgeWalls (x40) [6 subtypes]
-- [ ] 0x49 S1_Obj_49 (x4) [0x00]
+- [x] 0x49 WaterfallSound (x4) [0x00]
 - [x] 0x79 Lamppost (x4) [4 subtypes]
 
 ### Labyrinth Zone

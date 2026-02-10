@@ -60,6 +60,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.CRABMEAT,
             Sonic1ObjectIds.MOTOBUG,
             Sonic1ObjectIds.NEWTRON,
+            Sonic1ObjectIds.WATERFALL_SOUND,
             Sonic1ObjectIds.GIANT_RING
     );
 
@@ -111,6 +112,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.EDGE_WALLS, List.of("EdgeWalls"));
         map.put(Sonic1ObjectIds.NEWTRON, List.of("Newtron"));
         map.put(Sonic1ObjectIds.BUMPER, List.of("Bumper"));
+        map.put(Sonic1ObjectIds.WATERFALL_SOUND, List.of("WaterfallSound"));
         map.put(Sonic1ObjectIds.GIANT_RING, List.of("GiantRing"));
         map.put(Sonic1ObjectIds.YADRIN, List.of("Yadrin"));
         map.put(Sonic1ObjectIds.BATBRAIN, List.of("Batbrain"));
