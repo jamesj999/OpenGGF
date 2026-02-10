@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.game;
 
+import java.util.logging.Logger;
+
 /**
  * Manages session-persistent game state such as Score, Lives, and Special Stage progress.
  * <p>
@@ -9,7 +11,9 @@ package uk.co.jamesj999.sonic.game;
  * - Got_Emeralds_array: which specific emeralds have been obtained
  */
 public class GameStateManager {
-    private static final int SPECIAL_STAGE_COUNT = 7;
+    private static final Logger LOGGER = Logger.getLogger(GameStateManager.class.getName());
+    private static final int DEFAULT_SPECIAL_STAGE_COUNT = 7;
+    private static final int DEFAULT_CHAOS_EMERALD_COUNT = 7;
 
     private static GameStateManager instance;
 
@@ -18,7 +22,9 @@ public class GameStateManager {
 
     private int currentSpecialStageIndex;
     private int emeraldCount;
-    private final boolean[] gotEmeralds = new boolean[SPECIAL_STAGE_COUNT];
+    private int specialStageCount;
+    private int chaosEmeraldCount;
+    private boolean[] gotEmeralds;
 
     /**
      * Current boss ID (ROM: Current_Boss_ID).
@@ -44,6 +50,7 @@ public class GameStateManager {
     private boolean htzScreenShakeActive;
 
     private GameStateManager() {
+        configureSpecialStageProgress(DEFAULT_SPECIAL_STAGE_COUNT, DEFAULT_CHAOS_EMERALD_COUNT);
         resetSession();
     }
 
@@ -109,8 +116,11 @@ public class GameStateManager {
      * @return The stage index to use for this entry (before increment)
      */
     public int consumeCurrentSpecialStageIndexAndAdvance() {
+        if (specialStageCount <= 0) {
+            return 0;
+        }
         int index = currentSpecialStageIndex;
-        currentSpecialStageIndex = (currentSpecialStageIndex + 1) % SPECIAL_STAGE_COUNT;
+        currentSpecialStageIndex = (currentSpecialStageIndex + 1) % specialStageCount;
         return index;
     }
 
@@ -133,8 +143,12 @@ public class GameStateManager {
      * Marks an emerald as collected.
      * @param index Emerald index (0-6)
      */
-    public void markEmeraldCollected(int index) {
-        if (index < 0 || index >= gotEmeralds.length) return;
+    public synchronized void markEmeraldCollected(int index) {
+        if (index < 0 || index >= gotEmeralds.length) {
+            LOGGER.warning("Attempted to mark emerald " + index +
+                " but valid range is 0-" + (gotEmeralds.length - 1));
+            return;
+        }
         if (!gotEmeralds[index]) {
             gotEmeralds[index] = true;
             emeraldCount++;
@@ -145,7 +159,32 @@ public class GameStateManager {
      * Checks if all 7 emeralds have been collected.
      */
     public boolean hasAllEmeralds() {
-        return emeraldCount >= SPECIAL_STAGE_COUNT;
+        return emeraldCount >= chaosEmeraldCount;
+    }
+
+    /**
+     * Configures special stage cycle count and emerald target count for the current game.
+     *
+     * @param stageCount number of special stages in the rotation (minimum 1)
+     * @param emeraldTarget number of chaos emeralds in this game (minimum 1)
+     */
+    public synchronized void configureSpecialStageProgress(int stageCount, int emeraldTarget) {
+        int safeStageCount = Math.max(1, stageCount);
+        int safeEmeraldTarget = Math.max(1, emeraldTarget);
+
+        this.specialStageCount = safeStageCount;
+        this.chaosEmeraldCount = safeEmeraldTarget;
+        this.gotEmeralds = new boolean[safeEmeraldTarget];
+        this.currentSpecialStageIndex = 0;
+        this.emeraldCount = 0;
+    }
+
+    public int getSpecialStageCount() {
+        return specialStageCount;
+    }
+
+    public int getChaosEmeraldCount() {
+        return chaosEmeraldCount;
     }
 
     /**

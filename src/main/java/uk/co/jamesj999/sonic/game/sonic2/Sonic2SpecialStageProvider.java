@@ -4,6 +4,8 @@ import uk.co.jamesj999.sonic.game.ResultsScreen;
 import uk.co.jamesj999.sonic.game.SpecialStageAccessType;
 import uk.co.jamesj999.sonic.game.SpecialStageDebugProvider;
 import uk.co.jamesj999.sonic.game.SpecialStageProvider;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.objects.SpecialStageResultsScreenObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.specialstage.Sonic2SpecialStageManager;
 
@@ -24,6 +26,21 @@ public class Sonic2SpecialStageProvider implements SpecialStageProvider {
 
     public Sonic2SpecialStageProvider() {
         this.manager = Sonic2SpecialStageManager.getInstance();
+    }
+
+    @Override
+    public int getTransitionSfxId() {
+        return Sonic2Sfx.SPECIAL_STAGE_ENTRY.id;
+    }
+
+    @Override
+    public int getStageMusicId() {
+        return Sonic2Music.SPECIAL_STAGE.id;
+    }
+
+    @Override
+    public int getResultsMusicId() {
+        return Sonic2Music.ACT_CLEAR.id;
     }
 
     @Override

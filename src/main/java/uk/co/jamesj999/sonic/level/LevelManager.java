@@ -2704,6 +2704,13 @@ public class LevelManager {
      * Called by CheckpointStarInstance when the player touches a star.
      */
     public void requestSpecialStageFromCheckpoint() {
+        requestSpecialStageEntry();
+    }
+
+    /**
+     * Request entry to special stage using the current game's access method.
+     */
+    public void requestSpecialStageEntry() {
         this.specialStageRequestedFromCheckpoint = true;
     }
 

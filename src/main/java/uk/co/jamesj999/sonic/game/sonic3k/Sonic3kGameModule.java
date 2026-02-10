@@ -12,6 +12,7 @@ import uk.co.jamesj999.sonic.game.LevelEventProvider;
 import uk.co.jamesj999.sonic.game.PhysicsProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.ObjectArtProvider;
+import uk.co.jamesj999.sonic.game.NoOpSpecialStageProvider;
 import uk.co.jamesj999.sonic.game.RespawnState;
 import uk.co.jamesj999.sonic.game.RomOffsetProvider;
 import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
@@ -38,6 +39,7 @@ public class Sonic3kGameModule implements GameModule {
     private final GameAudioProfile audioProfile = new Sonic3kAudioProfile();
     private Sonic3kScrollHandlerProvider scrollHandlerProvider;
     private Sonic3kLevelEventManager levelEventManager;
+    private PhysicsProvider physicsProvider;
 
     @Override
     public String getIdentifier() {
@@ -110,7 +112,7 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public SpecialStageProvider getSpecialStageProvider() {
-        return null;
+        return NoOpSpecialStageProvider.INSTANCE;
     }
 
     @Override
@@ -158,6 +160,9 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public PhysicsProvider getPhysicsProvider() {
-        return new Sonic3kPhysicsProvider();
+        if (physicsProvider == null) {
+            physicsProvider = new Sonic3kPhysicsProvider();
+        }
+        return physicsProvider;
     }
 }

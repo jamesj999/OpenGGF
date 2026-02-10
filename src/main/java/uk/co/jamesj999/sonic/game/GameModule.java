@@ -73,6 +73,26 @@ public interface GameModule {
     SpecialStageProvider getSpecialStageProvider();
 
     /**
+     * Returns the number of special stages used for stage index cycling.
+     * Sonic 1 uses 6, Sonic 2 uses 7.
+     *
+     * @return special stage cycle count
+     */
+    default int getSpecialStageCycleCount() {
+        return 7;
+    }
+
+    /**
+     * Returns the number of Chaos Emeralds required for "all emeralds".
+     * Sonic 1 uses 6, Sonic 2/Sonic 3&K use 7.
+     *
+     * @return chaos emerald target count
+     */
+    default int getChaosEmeraldCount() {
+        return 7;
+    }
+
+    /**
      * Returns the bonus stage provider for this game.
      * Bonus stages are accessed via checkpoints and award rings, shields, etc.
      *
