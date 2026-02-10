@@ -7,6 +7,10 @@ import uk.co.jamesj999.sonic.game.SpecialStageProvider;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 
+import uk.co.jamesj999.sonic.level.Palette;
+
+import static org.lwjgl.opengl.GL11.glClearColor;
+
 import java.io.IOException;
 
 /**
@@ -42,6 +46,16 @@ public final class Sonic1SpecialStageProvider implements SpecialStageProvider {
     @Override
     public SpecialStageAccessType getAccessType() {
         return SpecialStageAccessType.GIANT_RING;
+    }
+
+    @Override
+    public void setClearColor() {
+        Palette.Color backdrop = manager.getBackdropColor();
+        if (backdrop != null) {
+            glClearColor(backdrop.rFloat(), backdrop.gFloat(), backdrop.bFloat(), 1.0f);
+        } else {
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        }
     }
 
     @Override

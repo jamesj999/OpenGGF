@@ -67,8 +67,8 @@ public class Sonic1SpecialStageRenderer {
     private int bgCloudPatternBase;
     private int bgFishPatternBase;
 
-    // Background color (dark blue)
-    private static final float BG_R = 0.0f, BG_G = 0.0f, BG_B = 0.2f;
+    // Fallback background color (palette-derived, updated each frame)
+    private float bgR, bgG, bgB;
     // Wall palette animation table (from SS_WaRiVramSet, sonic.asm:7187-7194)
     // 4 groups x 16 entries. For frame f, positions 2-8 read entries at f+0 through f+6.
     private static final int[][] WALL_PALETTE_ANIM = {
@@ -194,6 +194,15 @@ public class Sonic1SpecialStageRenderer {
     }
 
     /**
+     * Updates the fallback background color from the SS palette backdrop (CRAM[0]).
+     */
+    void setBackdropColor(float r, float g, float b) {
+        this.bgR = r;
+        this.bgG = g;
+        this.bgB = b;
+    }
+
+    /**
      * Renders the solid-color background fallback.
      * Package-visible for use when the shader-based BG renderer is unavailable.
      */
@@ -202,7 +211,7 @@ public class Sonic1SpecialStageRenderer {
             GLCommand.CommandType.RECTI,
             -1,
             GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
-            BG_R, BG_G, BG_B, 1.0f,
+            bgR, bgG, bgB, 1.0f,
             0, 0,
             H32_WIDTH, H32_HEIGHT
         ));

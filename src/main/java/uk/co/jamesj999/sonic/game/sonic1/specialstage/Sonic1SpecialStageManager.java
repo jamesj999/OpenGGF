@@ -1518,6 +1518,12 @@ public final class Sonic1SpecialStageManager {
             return;
         }
 
+        // Update fallback background color from palette (CRAM[0] equivalent)
+        Palette.Color backdrop = getBackdropColor();
+        if (backdrop != null) {
+            renderer.setBackdropColor(backdrop.rFloat(), backdrop.gFloat(), backdrop.bFloat());
+        }
+
         if (bgRenderer != null && bgRenderer.isInitialized()
                 && fgRenderer != null && fgRenderer.isInitialized()) {
             drawWithBgRenderers();
@@ -1678,6 +1684,17 @@ public final class Sonic1SpecialStageManager {
 
     public boolean isInitialized() {
         return initialized;
+    }
+
+    /**
+     * Returns the SS backdrop color (palette line 0, color 0).
+     * On the Mega Drive, CRAM[0] fills all unpainted/transparent areas.
+     */
+    public Palette.Color getBackdropColor() {
+        if (ssPalettes != null && ssPalettes.length > 0) {
+            return ssPalettes[0].getColor(0);
+        }
+        return null;
     }
 
     public int getCurrentStage() {

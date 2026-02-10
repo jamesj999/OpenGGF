@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.game;
 
+import static org.lwjgl.opengl.GL11.glClearColor;
+
 import java.io.IOException;
 
 /**
@@ -100,6 +102,14 @@ public interface SpecialStageProvider extends MiniGameProvider {
      * @param collected true to mark emerald as collected
      */
     void setEmeraldCollected(boolean collected);
+
+    /**
+     * Sets the OpenGL clear color to the special stage backdrop color.
+     * Default clears to black; game-specific providers override with palette-derived color.
+     */
+    default void setClearColor() {
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    }
 
     // ==================== Debug Methods ====================
 
