@@ -79,8 +79,11 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load signpost art
         loadSignpostArt(rom);
 
-        // Load bridge art (GHZ)
+        // Load bridge art (GHZ) - also used by Scenery 0x1C subtype 3
         loadBridgeArt(rom);
+
+        // Load SLZ cannon art (fireball launcher base, used by Scenery 0x1C subtypes 0-2)
+        loadSlzCannonArt(rom);
 
         // Load purple rock art (GHZ)
         loadPurpleRockArt(rom);
@@ -342,6 +345,47 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Frame 2: M_Bri_Rope - rope only (1 piece, 2x1 tiles at -8,-4)
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-8, -4, 2, 1, 8, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads SLZ fireball launcher / lava thrower art (Nem_SlzCannon) and creates
+     * S1-format sprite mappings. Used by Scenery object 0x1C subtypes 0-2.
+     * Mappings from docs/s1disasm/_maps/Scenery.asm (Map_Scen).
+     * <p>
+     * Palette line 2 from disassembly: make_art_tile(ArtTile_SLZ_Fireball_Launcher,2,0).
+     * Single frame: 2x4 tiles (16x32 px) at offset (-8, -16).
+     */
+    private void loadSlzCannonArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SLZ_CANNON_ADDR, "SlzCannon");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SLZ cannon art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSceneryMappings();
+        // Palette line 2 from disassembly: make_art_tile(ArtTile_SLZ_Fireball_Launcher,2,0)
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SCENERY, sheet);
+    }
+
+    /**
+     * Creates scenery (SLZ fireball launcher) sprite mappings from S1 disassembly Map_Scen.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0: Fireball launcher base (1 piece, 2x4 tiles = 16x32 px)
+     *   spritePiece -8, -$10, 2, 4, 0, 0, 0, 0, 0
+     */
+    private List<SpriteMappingFrame> createSceneryMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Fireball launcher base (2x4 tiles at -8, -16)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x10, 2, 4, 0, false, false, 0, false)
         )));
 
         return frames;
