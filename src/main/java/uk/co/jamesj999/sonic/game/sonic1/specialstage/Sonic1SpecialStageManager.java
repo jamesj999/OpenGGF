@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic1.specialstage;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
+import uk.co.jamesj999.sonic.audio.GameSound;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameServices;
@@ -570,7 +571,7 @@ public final class Sonic1SpecialStageManager {
         // Ring (0x3A)
         if (blockId == 0x3A) {
             ringsCollected++;
-            playSfx(Sonic1Sfx.RING);
+            playSfx(GameSound.RING);
             startItemAnimation(bufIndex);
             return;
         }
@@ -1803,6 +1804,12 @@ public final class Sonic1SpecialStageManager {
     private void playSfx(Sonic1Sfx sfx) {
         if (sfx != null) {
             AudioManager.getInstance().playSfx(sfx.id);
+        }
+    }
+
+    private void playSfx(GameSound sfx) {
+        if (sfx != null) {
+            AudioManager.getInstance().playSfx(sfx);
         }
     }
 

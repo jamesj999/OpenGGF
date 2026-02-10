@@ -170,7 +170,8 @@ public final class Sonic1SpecialStageProvider implements SpecialStageProvider {
     @Override
     public ResultsScreen createResultsScreen(int ringsCollected, boolean gotEmerald,
             int stageIndex, int totalEmeraldCount) {
-        return new Sonic1SpecialStageResultsScreen();
+        return new Sonic1SpecialStageResultsScreen(
+                ringsCollected, gotEmerald, stageIndex, totalEmeraldCount);
     }
 
     @Override
