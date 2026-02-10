@@ -85,6 +85,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load SLZ cannon art (fireball launcher base, used by Scenery 0x1C subtypes 0-2)
         loadSlzCannonArt(rom);
 
+        // Load GHZ edge wall art
+        loadGhzEdgeWallArt(rom);
+
         // Load purple rock art (GHZ)
         loadPurpleRockArt(rom);
 
@@ -294,6 +297,69 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-0x18, -0x10, 3, 4, 0, false, false, 0, false),
                 new SpriteMappingPiece(    0, -0x10, 3, 4, 0x0C, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads GHZ edge wall art (Nem_GhzWall2) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/GHZ Edge Walls.asm (Map_Edge_internal).
+     * <p>
+     * Frame 0 (Shadow): Light top + shadow body (4 pieces, 2x2 each, 16x64 px)
+     * Frame 1 (Light): All light (4 identical pieces)
+     * Frame 2 (Dark): All shadow (4 identical pieces)
+     * <p>
+     * Palette line 2 from disassembly: make_art_tile(ArtTile_GHZ_Edge_Wall,2,0)
+     */
+    private void loadGhzEdgeWallArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_GHZ_EDGE_WALL_ADDR, "GHZEdgeWall");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load GHZ edge wall art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createGhzEdgeWallMappings();
+        // Palette line 2 from disassembly: make_art_tile(ArtTile_GHZ_Edge_Wall,2,0)
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.GHZ_EDGE_WALL, sheet);
+    }
+
+    /**
+     * Creates GHZ edge wall sprite mappings from S1 disassembly Map_Edge_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Each frame is 4 pieces stacked vertically (each 2x2 tiles = 16x16 px).
+     * Pattern indices: 0 = dark/shadow tiles, 4 = light top tile, 8 = light body tile.
+     */
+    private List<SpriteMappingFrame> createGhzEdgeWallMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: M_Edge_Shadow - light with shadow
+        // Top piece uses tile 4 (light), body pieces use tile 8 (shadow)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x20, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(-8, -0x10, 2, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(-8,  0x00, 2, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(-8,  0x10, 2, 2, 8, false, false, 0, false)
+        )));
+
+        // Frame 1: M_Edge_Light - light with no shadow (all tile 8)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x20, 2, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(-8, -0x10, 2, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(-8,  0x00, 2, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(-8,  0x10, 2, 2, 8, false, false, 0, false)
+        )));
+
+        // Frame 2: M_Edge_Dark - all shadow (all tile 0)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x20, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-8, -0x10, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-8,  0x00, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-8,  0x10, 2, 2, 0, false, false, 0, false)
         )));
 
         return frames;

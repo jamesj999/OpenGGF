@@ -34,6 +34,7 @@ public final class ObjectArtKeys {
     public static final String POINTS = "points";
     public static final String BRIDGE = "bridge";
     public static final String ROCK = "rock";
+    public static final String GHZ_EDGE_WALL = "ghz_edge_wall";
     public static final String SCENERY = "scenery";
     public static final String RESULTS = "results";
     public static final String EGG_PRISON = "egg_prison";
