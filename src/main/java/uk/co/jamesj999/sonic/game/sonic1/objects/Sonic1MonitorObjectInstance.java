@@ -199,7 +199,7 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
 
         // Initialize icon rising (PowerUp object)
         iconActive = true;
-        iconSubY = spawn.y() << 8;
+        iconSubY = currentY << 8;
         iconVelY = ICON_INITIAL_VELOCITY;
         iconWaitFrames = 0;
         effectApplied = false;
@@ -211,7 +211,7 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
         if (renderManager != null && objectManager != null
                 && renderManager.getExplosionRenderer() != null) {
             objectManager.addDynamicObject(
-                    new ExplosionObjectInstance(0x27, spawn.x(), spawn.y(), renderManager));
+                    new ExplosionObjectInstance(0x27, spawn.x(), currentY, renderManager));
         }
         AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
     }

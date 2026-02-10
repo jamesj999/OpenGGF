@@ -178,6 +178,18 @@ public final class Sonic1Constants {
     // Nem_Explode: Nemesis-compressed explosion art (ArtTile_Explosion = $5A0)
     public static final int ART_NEM_EXPLOSION_ADDR = 0x39F62;
 
+    // Nem_Points: Nemesis-compressed points popups (100/200/500/1000)
+    public static final int ART_NEM_POINTS_ADDR = 0x3A5C8;
+
+    // Zone animal art (used by badnik destruction object 0x28)
+    public static final int ART_NEM_ANIMAL_RABBIT_ADDR = 0x3B884;
+    public static final int ART_NEM_ANIMAL_CHICKEN_ADDR = 0x3B9DC;
+    public static final int ART_NEM_ANIMAL_PENGUIN_ADDR = 0x3BB38;
+    public static final int ART_NEM_ANIMAL_SEAL_ADDR = 0x3BCB4;
+    public static final int ART_NEM_ANIMAL_PIG_ADDR = 0x3BDD0;
+    public static final int ART_NEM_ANIMAL_FLICKY_ADDR = 0x3BF06;
+    public static final int ART_NEM_ANIMAL_SQUIRREL_ADDR = 0x3C040;
+
     // Nem_Shield: Nemesis-compressed shield art (ArtTile_Shield = $541)
     public static final int ART_NEM_SHIELD_ADDR = 0x2C730;
 
