@@ -46,4 +46,5 @@ public final class Sonic1ObjectIds {
     public static final int CATERKILLER     = 0x78;
     public static final int LAMPPOST        = 0x79;
     public static final int RING_FLASH      = 0x7C;
+    public static final int HIDDEN_BONUS    = 0x7D;
 }

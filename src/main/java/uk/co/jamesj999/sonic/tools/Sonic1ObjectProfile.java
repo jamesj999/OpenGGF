@@ -65,7 +65,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.WATERFALL_SOUND,
             Sonic1ObjectIds.GIANT_RING,
             Sonic1ObjectIds.GHZ_BOSS,
-            Sonic1ObjectIds.EGG_PRISON
+            Sonic1ObjectIds.EGG_PRISON,
+            Sonic1ObjectIds.HIDDEN_BONUS
     );
 
     private static final Set<Integer> BADNIK_IDS = Set.of(
@@ -130,6 +131,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.ORBINAUT, List.of("Orbinaut"));
         map.put(Sonic1ObjectIds.CATERKILLER, List.of("Caterkiller"));
         map.put(Sonic1ObjectIds.LAMPPOST, List.of("Lamppost"));
+        map.put(Sonic1ObjectIds.HIDDEN_BONUS, List.of("HiddenBonus"));
         return Map.copyOf(map);
     }
 

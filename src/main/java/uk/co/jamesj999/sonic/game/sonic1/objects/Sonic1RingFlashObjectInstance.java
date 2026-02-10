@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
+import uk.co.jamesj999.sonic.game.GameStateManager;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
@@ -104,6 +105,9 @@ public class Sonic1RingFlashObjectInstance extends AbstractObjectInstance {
         // Check trigger frame: cmpi.b #3,obFrame(a0) / bne.s locret_9F76
         if (animFrame == TRIGGER_FRAME && !triggerFired) {
             triggerFired = true;
+
+            // ROM: move.b #1,(f_bigring).w — block hidden bonuses
+            GameStateManager.getInstance().setBigRingCollected(true);
 
             // ROM: move.b #6,obRoutine(a1) - delete parent Giant Ring
             if (parent != null) {

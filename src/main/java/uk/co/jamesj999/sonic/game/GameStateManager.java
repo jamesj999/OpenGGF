@@ -43,6 +43,13 @@ public class GameStateManager {
      */
     private boolean htzScreenShakeActive;
 
+    /**
+     * Giant Ring collected flag (S1 ROM: f_bigring at $FFFFF7AA).
+     * Set when a Giant Ring flash triggers; prevents hidden bonuses from activating.
+     * Reset on level load.
+     */
+    private boolean bigRingCollected;
+
     private GameStateManager() {
         resetSession();
     }
@@ -70,6 +77,7 @@ public class GameStateManager {
         this.currentBossId = 0;
         this.screenShakeActive = false;
         this.htzScreenShakeActive = false;
+        this.bigRingCollected = false;
     }
 
     public int getScore() {
@@ -223,6 +231,22 @@ public class GameStateManager {
      */
     public void setHtzScreenShakeActive(boolean active) {
         this.htzScreenShakeActive = active;
+    }
+
+    /**
+     * Checks if a Giant Ring has been collected in this level.
+     * S1 ROM: tst.b (f_bigring).w
+     */
+    public boolean isBigRingCollected() {
+        return bigRingCollected;
+    }
+
+    /**
+     * Sets the Giant Ring collected flag.
+     * S1 ROM: move.b #1,(f_bigring).w — set by Ring Flash at trigger frame.
+     */
+    public void setBigRingCollected(boolean collected) {
+        this.bigRingCollected = collected;
     }
 }
 

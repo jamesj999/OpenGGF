@@ -181,6 +181,11 @@ public final class Sonic1Constants {
     // Nem_Points: Nemesis-compressed points popups (100/200/500/1000)
     public static final int ART_NEM_POINTS_ADDR = 0x3A5C8;
 
+    // Nem_Bonus: Nemesis-compressed hidden bonus point popup art (769 bytes)
+    // ArtTile_Hidden_Points = $4B6
+    // Verified by RomOffsetFinder --game s1 search Bonus
+    public static final int ART_NEM_HIDDEN_BONUS_ADDR = 0x3B098;
+
     // Zone animal art (used by badnik destruction object 0x28)
     public static final int ART_NEM_ANIMAL_RABBIT_ADDR = 0x3B884;
     public static final int ART_NEM_ANIMAL_CHICKEN_ADDR = 0x3B9DC;
