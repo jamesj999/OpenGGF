@@ -220,7 +220,12 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
 
         var objectManager = levelManager.getObjectManager();
         if (objectManager != null) {
-            objectManager.removeFromActiveSpawns(spawn);
+            if (spawn.respawnTracked()) {
+                // S1 ROM behavior: destroyed respawn-tracked badniks set persistent respawn state.
+                objectManager.markRemembered(spawn);
+            } else {
+                objectManager.removeFromActiveSpawns(spawn);
+            }
         }
 
         ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,

@@ -37,4 +37,28 @@ public class TestObjectPlacementManager {
         // Spawn not in window at camera X=0
         assertFalse(manager.getActiveSpawns().contains(spawnB));
     }
+
+    @Test
+    public void testRemoveFromActiveRequiresWindowExitBeforeRespawn() {
+        ObjectSpawn spawn = new ObjectSpawn(500, 0, 0x1A, 0, 0, false, 0);
+        ObjectManager.Placement manager = new ObjectManager.Placement(List.of(spawn));
+
+        manager.reset(0);
+        assertTrue(manager.getActiveSpawns().contains(spawn));
+
+        // Object destroyed while still in window: should not respawn immediately.
+        manager.removeFromActive(spawn);
+        assertFalse(manager.getActiveSpawns().contains(spawn));
+        manager.update(0);
+        assertFalse(manager.getActiveSpawns().contains(spawn));
+
+        // Move forward far enough that spawn leaves the active window.
+        // This goes through trimActive(), which clears the temporary destroyed lock.
+        manager.update(1400);
+        assertFalse(manager.getActiveSpawns().contains(spawn));
+
+        // Returning camera into range should allow respawn.
+        manager.update(200);
+        assertTrue(manager.getActiveSpawns().contains(spawn));
+    }
 }

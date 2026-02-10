@@ -10,6 +10,7 @@ import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
 import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.objects.SlopedSolidProvider;
 import uk.co.jamesj999.sonic.level.objects.SolidContact;
 import uk.co.jamesj999.sonic.level.objects.SolidObjectListener;
 import uk.co.jamesj999.sonic.level.objects.SolidObjectParams;
@@ -45,7 +46,7 @@ import java.util.List;
  * Reference: docs/s1disasm/_incObj/1A Collapsing Ledge (part 1).asm
  */
 public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
-        implements SolidObjectProvider, SolidObjectListener {
+        implements SolidObjectProvider, SolidObjectListener, SlopedSolidProvider {
 
     // From disassembly: move.w #$30,d1 (half-width for platform collision)
     private static final int PLATFORM_HALF_WIDTH = 0x30;
@@ -56,9 +57,6 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
     // From disassembly: move.b #4,obPriority(a0)
     private static final int PRIORITY = 4;
 
-    // From disassembly: move.b #$38,obHeight(a0)
-    private static final int HALF_HEIGHT = 0x38;
-
     // From disassembly: move.b #7,ledge_timedelay(a0)
     private static final int INITIAL_COLLAPSE_DELAY = 7;
 
@@ -68,7 +66,7 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
     // GHZ Collapsing Ledge Heightmap (48 bytes from misc/GHZ Collapsing Ledge Heightmap.bin)
     // Each byte = height offset from object Y. Index = (playerX - objectX + $30) / 2
     // Values: columns 0-7 = 0x20, then linearly increasing by 1 per 2 columns up to 0x30
-    private static final int[] SLOPE_DATA = {
+    private static final byte[] SLOPE_DATA = {
             0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
             0x21, 0x21, 0x22, 0x22, 0x23, 0x23, 0x24, 0x24,
             0x25, 0x25, 0x26, 0x26, 0x27, 0x27, 0x28, 0x28,
@@ -155,7 +153,7 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
             case 2 -> updateTouch(player);
             case 4 -> updateCollapse(player);
             case 6 -> updateFragmentFall(player);
-            case 8 -> setDestroyed(true);
+            case 8 -> destroyWithWindowGatedRespawn();
             default -> { }
         }
         refreshDynamicSpawn();
@@ -235,8 +233,23 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
 
         // Check if offscreen (obRender bit 7 clear = offscreen)
         if (!isOnScreen()) {
-            setDestroyed(true);
+            destroyWithWindowGatedRespawn();
         }
+    }
+
+    /**
+     * Object 1A uses DeleteObject when falling fragments leave the screen.
+     * Keep the spawn suppressed until it leaves the object window so it doesn't
+     * recreate immediately while still near the camera.
+     */
+    private void destroyWithWindowGatedRespawn() {
+        if (!isDestroyed() && levelManager != null) {
+            var objectManager = levelManager.getObjectManager();
+            if (objectManager != null) {
+                objectManager.removeFromActiveSpawns(spawn);
+            }
+        }
+        setDestroyed(true);
     }
 
     /**
@@ -375,13 +388,32 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
 
     @Override
     public SolidObjectParams getSolidParams() {
-        // Sloped platform: use full half-width and height for collision detection
-        return new SolidObjectParams(PLATFORM_HALF_WIDTH, HALF_HEIGHT, HALF_HEIGHT);
+        // ROM SlopeObject logic does not add object half-height to surface checks;
+        // it tests directly against (obY - slopeSample). Keep vertical extents at 0
+        // so sloped contact matches Platform3 landing math.
+        return new SolidObjectParams(PLATFORM_HALF_WIDTH, 0, 0);
     }
 
     @Override
     public boolean isTopSolidOnly() {
         return true;
+    }
+
+    @Override
+    public byte[] getSlopeData() {
+        return SLOPE_DATA;
+    }
+
+    @Override
+    public boolean isSlopeFlipped() {
+        // SlopeObject checks obRender bit 0 for x-flip.
+        return (spawn.renderFlags() & 0x01) != 0;
+    }
+
+    @Override
+    public int getSlopeBaseline() {
+        // ROM uses absolute slope values: surface Y = obY - slopeSample.
+        return 0;
     }
 
     @Override

@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.level.objects;
 
 import org.junit.Test;
+import uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1CollapsingLedgeObjectInstance;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.physics.Sensor;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
@@ -43,6 +44,39 @@ public class TestSolidObjectManager {
         int distance = manager.getHeadroomDistance(player, 0x00);
 
         assertEquals(3, distance);
+    }
+
+    @Test
+    public void testCollapsingLedgeUsesSlopedSurfaceProfile() {
+        ObjectSpawn spawn = new ObjectSpawn(100, 100, 0x1A, 0, 0, false, 0);
+        Sonic1CollapsingLedgeObjectInstance ledge = new Sonic1CollapsingLedgeObjectInstance(spawn, null);
+        ObjectManager manager = buildManager(ledge);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setAir(true);
+        player.setYSpeed((short) 0);
+
+        // Left-side sample (heightmap value 0x20): expected center Y after snap = 59.
+        // Use an interior X so top resolution wins over side resolution.
+        player.setCentreX((short) 64);
+        player.setCentreY((short) 59);
+        manager.updateSolidContacts(player);
+        int leftCenterY = player.getCentreY();
+        assertEquals(59, leftCenterY);
+
+        // Right-side sample (heightmap value 0x30): expected center Y after snap = 43.
+        player.setAir(true);
+        player.setYSpeed((short) 0);
+        player.setCentreX((short) 136);
+        player.setCentreY((short) 43);
+        manager.updateSolidContacts(player);
+        int rightCenterY = player.getCentreY();
+        assertEquals(43, rightCenterY);
+
+        // Shape must not be flat: right edge is 16px higher than left edge.
+        assertEquals(16, leftCenterY - rightCenterY);
     }
 
     private ObjectManager buildManager(ObjectInstance instance) {
