@@ -9,7 +9,9 @@ import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
 import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
 import java.io.IOException;
+import java.util.Arrays;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.SS_BLOCKBUFFER_OFFSET;
@@ -110,5 +112,37 @@ public class Sonic1SpecialStageDataLoaderTest {
             assertTrue("Stage " + (stageIndex + 1) + " start should be near non-empty layout cells",
                     samples > 0 && nonZeroNearby > 0);
         }
+    }
+
+    @Test
+    public void testSpecialStageBackgroundPlanesAreBuiltFromSsBgLoadLogic() throws IOException {
+        byte[] bgPlane5 = loader.getBgPlane5Tilemap();
+        byte[] bgPlane6 = loader.getBgPlane6Tilemap();
+        assertNotNull(bgPlane5);
+        assertNotNull(bgPlane6);
+        assertEquals("BG plane 5 should be 64x64 words", 64 * 64 * 2, bgPlane5.length);
+        assertEquals("BG plane 6 should be 64x64 words", 64 * 64 * 2, bgPlane6.length);
+        assertTrue("BG plane 5 should contain non-zero mappings", countNonZeroWords(bgPlane5) > 0);
+        assertTrue("BG plane 6 should contain non-zero mappings", countNonZeroWords(bgPlane6) > 0);
+        assertTrue("BG planes 5 and 6 should differ", !Arrays.equals(bgPlane5, bgPlane6));
+
+        for (int plane = 1; plane <= 4; plane++) {
+            byte[] fgPlane = loader.getFgPlaneTilemap(plane);
+            assertNotNull("FG plane should load for plane " + plane, fgPlane);
+            assertEquals("FG plane should be 64x64 words for plane " + plane, 64 * 64 * 2, fgPlane.length);
+            assertTrue("FG plane should contain non-zero mappings for plane " + plane,
+                    countNonZeroWords(fgPlane) > 0);
+        }
+    }
+
+    private int countNonZeroWords(byte[] tilemap) {
+        int nonZero = 0;
+        for (int i = 0; i + 1 < tilemap.length; i += 2) {
+            int word = ((tilemap[i] & 0xFF) << 8) | (tilemap[i + 1] & 0xFF);
+            if (word != 0) {
+                nonZero++;
+            }
+        }
+        return nonZero;
     }
 }

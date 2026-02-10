@@ -226,6 +226,19 @@ public final class Sonic1SpecialStageBlockType {
     }
 
     /**
+     * Returns the wall group (0-3) and position (0-8) for a wall block ID.
+     * Wall blocks 0x01-0x24 are arranged in 4 groups of 9.
+     * @return {group, position} or null if not a wall block
+     */
+    public static int[] getWallGroupAndPosition(int blockId) {
+        if (blockId < 0x01 || blockId > 0x24) return null;
+        int index = blockId - 1;
+        int group = index / 9;
+        int pos = index % 9;
+        return new int[]{group, pos};
+    }
+
+    /**
      * Maximum valid block ID.
      */
     public static final int MAX_BLOCK_ID = 0x4E;

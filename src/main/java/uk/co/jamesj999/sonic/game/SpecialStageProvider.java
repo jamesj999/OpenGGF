@@ -104,6 +104,23 @@ public interface SpecialStageProvider extends MiniGameProvider {
     // ==================== Debug Methods ====================
 
     /**
+     * Checks if gameplay debug movement mode is active.
+     * When enabled, directional input moves the special-stage player directly.
+     *
+     * @return true if gameplay debug movement is enabled
+     */
+    default boolean isGameplayDebugMode() {
+        return false;
+    }
+
+    /**
+     * Toggles gameplay debug movement mode on/off.
+     */
+    default void toggleGameplayDebugMode() {
+        // No-op by default.
+    }
+
+    /**
      * Checks if sprite debug mode is active.
      *
      * @return true if sprite debug viewer is enabled

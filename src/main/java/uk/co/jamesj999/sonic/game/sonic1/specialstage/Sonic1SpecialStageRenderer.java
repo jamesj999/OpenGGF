@@ -28,10 +28,10 @@ import static uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.*;
 public class Sonic1SpecialStageRenderer {
     private static final Logger LOGGER = Logger.getLogger(Sonic1SpecialStageRenderer.class.getName());
 
-    // H32 viewport dimensions on the 320x224 output surface.
-    public static final int H32_WIDTH = 256;
+    // Special Stage viewport dimensions on the 320x224 output surface.
+    public static final int H32_WIDTH = 320;
     public static final int H32_HEIGHT = 224;
-    public static final int SCREEN_CENTER_OFFSET = (320 - H32_WIDTH) / 2;
+    public static final int SCREEN_CENTER_OFFSET = 0;
 
     // Grid display size (16x16 blocks visible at once)
     private static final int GRID_SIZE = 16;
@@ -69,6 +69,15 @@ public class Sonic1SpecialStageRenderer {
 
     // Background color (dark blue)
     private static final float BG_R = 0.0f, BG_G = 0.0f, BG_B = 0.2f;
+    // Wall palette animation table (from SS_WaRiVramSet, sonic.asm:7187-7194)
+    // 4 groups x 16 entries. For frame f, positions 2-8 read entries at f+0 through f+6.
+    private static final int[][] WALL_PALETTE_ANIM = {
+            {0, 3, 0, 0, 0, 0, 0, 3, 0, 3, 0, 0, 0, 0, 0, 3},
+            {1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0},
+            {2, 1, 2, 2, 2, 2, 2, 1, 2, 1, 2, 2, 2, 2, 2, 1},
+            {3, 2, 3, 3, 3, 3, 3, 2, 3, 2, 3, 3, 3, 3, 3, 2},
+    };
+
     private static final int ZERO_RENDER_WARNING_THRESHOLD = 15;
     private int consecutiveZeroRenderFrames;
     private int lastRenderedBlocks;
@@ -155,30 +164,46 @@ public class Sonic1SpecialStageRenderer {
     }
 
     /**
-     * Renders the complete special stage frame.
+     * Renders the complete special stage frame (background + maze).
      */
     public void render(byte[] layout, int ssAngle, int cameraX, int cameraY,
                        int sonicX, int sonicY, int wallRotFrame, int ringAnimFrame,
+                       int wallVramAnimFrame, int ani2Frame, int ani3Frame,
                        boolean sonicFacingLeft) {
-        // 1. Draw background (solid color for now, animated parallax deferred)
+        // 1. Draw background (solid color fallback)
         renderBackground();
 
-        // 2. Compute rotated grid positions
+        // 2. Render maze (grid computation + block rendering)
+        renderMaze(layout, ssAngle, cameraX, cameraY, wallRotFrame, ringAnimFrame, wallVramAnimFrame,
+                ani2Frame, ani3Frame);
+    }
+
+    /**
+     * Renders only the rotating maze blocks (no background).
+     * Used when the background is rendered separately via the BG renderer.
+     */
+    public void renderMaze(byte[] layout, int ssAngle, int cameraX, int cameraY,
+                           int wallRotFrame, int ringAnimFrame, int wallVramAnimFrame,
+                           int ani2Frame, int ani3Frame) {
         computeGridPositions(ssAngle, cameraX, cameraY);
 
-        // 3. Render blocks
         graphicsManager.beginPatternBatch();
-        renderBlocks(layout, cameraX, cameraY, wallRotFrame, ringAnimFrame);
+        renderBlocks(layout, cameraX, cameraY, wallRotFrame, ringAnimFrame, wallVramAnimFrame,
+                ani2Frame, ani3Frame);
         graphicsManager.flushPatternBatch();
     }
 
-    private void renderBackground() {
+    /**
+     * Renders the solid-color background fallback.
+     * Package-visible for use when the shader-based BG renderer is unavailable.
+     */
+    void renderBackground() {
         graphicsManager.registerCommand(new GLCommand(
             GLCommand.CommandType.RECTI,
             -1,
             GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
             BG_R, BG_G, BG_B, 1.0f,
-            SCREEN_CENTER_OFFSET, 0,
+            0, 0,
             H32_WIDTH, H32_HEIGHT
         ));
     }
@@ -243,7 +268,8 @@ public class Sonic1SpecialStageRenderer {
      * Renders all visible blocks in the layout grid.
      */
     private void renderBlocks(byte[] layout, int cameraX, int cameraY,
-                              int wallRotFrame, int ringAnimFrame) {
+                              int wallRotFrame, int ringAnimFrame, int wallVramAnimFrame,
+                              int ani2Frame, int ani3Frame) {
         int layoutRows = layout.length / SS_LAYOUT_STRIDE;
         int layoutCols = SS_LAYOUT_STRIDE;
         if (layoutRows <= 0) {
@@ -293,7 +319,8 @@ public class Sonic1SpecialStageRenderer {
                 }
                 validBlockCells++;
 
-                renderBlock(blockId, sx + SCREEN_CENTER_OFFSET, sy, wallRotFrame, ringAnimFrame);
+                renderBlock(blockId, sx + SCREEN_CENTER_OFFSET, sy, wallRotFrame, ringAnimFrame, wallVramAnimFrame,
+                        ani2Frame, ani3Frame);
                 renderedBlocks++;
             }
         }
@@ -330,7 +357,8 @@ public class Sonic1SpecialStageRenderer {
      * Renders a single block at the given screen position.
      */
     private void renderBlock(int blockId, int screenX, int screenY,
-                             int wallRotFrame, int ringAnimFrame) {
+                             int wallRotFrame, int ringAnimFrame, int wallVramAnimFrame,
+                             int ani2Frame, int ani3Frame) {
         Sonic1SpecialStageBlockType.BlockRenderInfo info =
                 Sonic1SpecialStageBlockType.getBlockInfo(blockId);
         if (info == null) {
@@ -342,31 +370,61 @@ public class Sonic1SpecialStageRenderer {
             return;
         }
 
-        List<SpriteMappingPiece> pieces = resolvePieces(info, wallRotFrame, ringAnimFrame);
+        List<SpriteMappingPiece> pieces = resolvePieces(info, blockId, wallRotFrame, ringAnimFrame,
+                ani2Frame, ani3Frame);
         if (pieces.isEmpty()) {
             return;
         }
 
-        renderMappedPieces(patternBase, pieces, info.paletteIndex(), screenX, screenY);
+        // Wall palette animation override (SS_WaRiVramSet)
+        int palette = info.paletteIndex();
+        if (info.mappingType() == Sonic1SpecialStageBlockType.MappingType.WALLS) {
+            int[] gp = Sonic1SpecialStageBlockType.getWallGroupAndPosition(blockId);
+            if (gp != null && gp[1] >= 2) {
+                int animPos = gp[1] - 2; // 0-6 (positions 2-8 map to anim entries 0-6)
+                palette = WALL_PALETTE_ANIM[gp[0]][wallVramAnimFrame + animPos];
+            }
+        }
+
+        renderMappedPieces(patternBase, pieces, palette, screenX, screenY);
     }
 
     private List<SpriteMappingPiece> resolvePieces(Sonic1SpecialStageBlockType.BlockRenderInfo info,
+                                                   int blockId,
                                                    int wallRotFrame,
-                                                   int ringAnimFrame) {
+                                                   int ringAnimFrame,
+                                                   int ani2Frame,
+                                                   int ani3Frame) {
         return switch (info.mappingType()) {
             case WALLS -> frameOrEmpty(MAP_SS_WALLS_FRAMES, wallRotFrame);
             case BUMPER -> frameOrEmpty(MAP_BUMPER_FRAMES, info.animFrame());
-            case BLOCK_3X3 -> frameOrEmpty(MAP_SS_R_FRAMES, info.animFrame());
-            case GLASS -> frameOrEmpty(MAP_SS_GLASS_FRAMES, info.animFrame());
-            case UP -> frameOrEmpty(MAP_SS_UP_FRAMES, info.animFrame());
-            case DOWN -> frameOrEmpty(MAP_SS_DOWN_FRAMES, info.animFrame());
+            case BLOCK_3X3 -> {
+                // GOAL (0x27) uses ani2 for blinking animation
+                if (blockId == 0x27) {
+                    yield frameOrEmpty(MAP_SS_R_FRAMES, ani2Frame);
+                }
+                yield frameOrEmpty(MAP_SS_R_FRAMES, info.animFrame());
+            }
+            case GLASS -> {
+                // Red-White (0x2C) uses ani2 for blinking animation
+                if (blockId == 0x2C) {
+                    yield frameOrEmpty(MAP_SS_GLASS_FRAMES, ani2Frame);
+                }
+                // Glass blocks (0x2D-0x30, 0x4B-0x4E) use ani3 for rotation animation
+                if ((blockId >= 0x2D && blockId <= 0x30) || (blockId >= 0x4B && blockId <= 0x4E)) {
+                    yield frameOrEmpty(MAP_SS_GLASS_FRAMES, ani3Frame);
+                }
+                yield frameOrEmpty(MAP_SS_GLASS_FRAMES, info.animFrame());
+            }
+            case UP -> frameOrEmpty(MAP_SS_UP_FRAMES, ani2Frame);
+            case DOWN -> frameOrEmpty(MAP_SS_DOWN_FRAMES, ani2Frame);
             case RING -> {
                 int frame = info.animFrame() > 0 ? info.animFrame() : ringAnimFrame;
                 yield frameOrEmpty(MAP_RING_FRAMES, frame);
             }
-            case EMERALD_1 -> frameOrEmpty(MAP_SS_CHAOS1_FRAMES, info.animFrame());
-            case EMERALD_2 -> frameOrEmpty(MAP_SS_CHAOS2_FRAMES, info.animFrame());
-            case EMERALD_3 -> frameOrEmpty(MAP_SS_CHAOS3_FRAMES, info.animFrame());
+            case EMERALD_1 -> frameOrEmpty(MAP_SS_CHAOS1_FRAMES, ani2Frame);
+            case EMERALD_2 -> frameOrEmpty(MAP_SS_CHAOS2_FRAMES, ani2Frame);
+            case EMERALD_3 -> frameOrEmpty(MAP_SS_CHAOS3_FRAMES, ani2Frame);
         };
     }
 

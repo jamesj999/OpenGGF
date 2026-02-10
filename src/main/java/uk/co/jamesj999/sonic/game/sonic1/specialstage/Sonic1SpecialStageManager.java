@@ -9,6 +9,7 @@ import uk.co.jamesj999.sonic.game.sonic1.Sonic1RingArt;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1AnimationIds;
+import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.level.Pattern;
@@ -41,20 +42,34 @@ public final class Sonic1SpecialStageManager {
     // Pattern atlas base for SS art (above normal level art range)
     private static final int SS_PATTERN_BASE = 0x10000;
     private static final int SS_ROLL_SPEED_SWITCH = 0x600;
+    private static final int DEBUG_MOVE_SPEED = 3;
 
-    // PalCycle_SS script (time, palette-cycle selector byte)
-    private static final int[][] SS_PALETTE_CYCLE_SCRIPT = {
-            {3, 0x92}, {3, 0x90}, {3, 0x8E}, {3, 0x8C}, {3, 0x8B},
-            {3, 0x80}, {3, 0x82}, {3, 0x84}, {3, 0x86}, {3, 0x88},
-            {7, 0x00}, {7, 0x0C}, {-1, 0x18}, {-1, 0x18}, {7, 0x0C}, {7, 0x00},
-            {3, 0x88}, {3, 0x86}, {3, 0x84}, {3, 0x82}, {3, 0x81},
-            {3, 0x8A}, {3, 0x8C}, {3, 0x8E}, {3, 0x90}, {3, 0x92},
-            {7, 0x24}, {7, 0x30}, {-1, 0x3C}, {-1, 0x3C}, {7, 0x30}, {7, 0x24}
+    // Collection animation buffer (matches v_ssitembuffer from SS_AniRingSparks)
+    private static final int SS_ANIM_BUFFER_SIZE = 8;
+    private static final int ANIM_NONE = 0;
+    private static final int ANIM_RING_SPARKLE = 1;
+    private static final int ANIM_GLASS_BLOCK = 6;
+    private static final int[] ANIM_RING_SPARKLE_DATA = {0x42, 0x43, 0x44, 0x45, 0};
+    private static final int ANIM_RING_PERIOD = 6; // 5+1 frames per step (ROM: move.b #5,2(a0))
+    private static final int[] ANIM_GLASS_DATA = {0x4B, 0x4C, 0x4D, 0x4E, 0x4B, 0x4C, 0x4D, 0x4E, 0};
+    private static final int ANIM_GLASS_PERIOD = 2; // 1+1 frames per step (ROM: move.b #1,2(a0))
+
+    // byte_4A3C: SS BG state table (32 entries, 4 fields each)
+    // {time, anim, bgPlaneSelect (0=Plane_6, 1=Plane_5), palette-cycle selector byte}
+    // Decoded from SSBGData macro in sonic.asm.
+    private static final int[][] SS_BG_STATE_TABLE = {
+            {3, 0, 0, 0x92}, {3, 0, 0, 0x90}, {3, 0, 0, 0x8E}, {3, 0, 0, 0x8C}, {3, 0, 0, 0x8B},
+            {3, 0, 0, 0x80}, {3, 0, 0, 0x82}, {3, 0, 0, 0x84}, {3, 0, 0, 0x86}, {3, 0, 0, 0x88},
+            {7, 8, 0, 0x00}, {7, 10, 0, 0x0C}, {-1, 12, 0, 0x18}, {-1, 12, 0, 0x18}, {7, 10, 0, 0x0C}, {7, 8, 0, 0x00},
+            {3, 0, 1, 0x88}, {3, 0, 1, 0x86}, {3, 0, 1, 0x84}, {3, 0, 1, 0x82}, {3, 0, 1, 0x81},
+            {3, 0, 1, 0x8A}, {3, 0, 1, 0x8C}, {3, 0, 1, 0x8E}, {3, 0, 1, 0x90}, {3, 0, 1, 0x92},
+            {7, 2, 1, 0x24}, {7, 4, 1, 0x30}, {-1, 6, 1, 0x3C}, {-1, 6, 1, 0x3C}, {7, 4, 1, 0x30}, {7, 2, 1, 0x24}
     };
 
     private boolean initialized;
     private boolean finished;
     private boolean emeraldCollected;
+    private boolean debugMode;
     private int currentStage;
     private int ringsCollected;
 
@@ -64,6 +79,8 @@ public final class Sonic1SpecialStageManager {
     // Rotation
     private int ssAngle;       // 16-bit rotation angle (top byte = hex angle)
     private int ssRotate;      // 16-bit rotation speed
+    private int debugSavedAngle;
+    private int debugSavedRotate;
 
     // Player position (16.16 fixed-point)
     private long sonicPosX;    // 32-bit: top 16 = pixel X
@@ -92,12 +109,20 @@ public final class Sonic1SpecialStageManager {
     private int wallRotFrame;       // 0-15, computed from ssAngle
     private int ringAnimFrame;      // 0-7, cycled via timer
     private int ringAnimTimer;
+    private int wallVramAnimFrame;  // ani0: 8-frame decrementing cycle
+    private int wallVramAnimTimer;
+    private int[][] ssAnimBuffer;   // [slot][4: type, timer, frameIndex, layoutIndex]
+    private int[] ssAnimGlassFinalBlock; // Final post-animation state for glass hits (Obj09_GlassUpdate)
     private int sonicAnimId;
     private int sonicAnimFrameIndex;
     private int sonicAnimFrameTimer;
     private int palSsTime;
     private int palSsNum;
     private int palSsIndex;
+    private int ani2Frame;   // 0-1, period 8 (GOAL/UP/DOWN/emerald animation)
+    private int ani2Timer;
+    private int ani3Frame;   // 0-3, period 5 (glass block animation)
+    private int ani3Timer;
 
     // Exit sequence
     private boolean exitTriggered;
@@ -108,6 +133,20 @@ public final class Sonic1SpecialStageManager {
     private int heldButtons;
     private int pressedButtons;
 
+    // BG animation state (SS_BGAnimate from sonic.asm)
+    private int bgAnimState;           // v_ssbganim (0,2,4,6,8,10,12)
+    private byte[][] fgPlaneTilemaps;  // SS FG namespaces plane1..4 (64x64 each)
+    private byte[] bgPlane5Tilemap;    // SS BG namespace plane5 (64x64)
+    private byte[] bgPlane6Tilemap;    // SS BG namespace plane6 (64x64)
+    private boolean bgUsingPlane6;     // true=Plane_6 active, false=Plane_5 active
+    private int fgAnimPlaneIndex;      // 0..3 => FG plane 1..4
+    private int fgYScroll;             // v_scrposy_vdp from byte_4ABC (0 or 0x100)
+    private int bgYScroll;             // v_bgscreenposy (vertical scroll offset, wraps at 256)
+    private int bgExtraScrollX;        // v_bg3screenposx (FG uniform scroll component)
+    private int[] bgSineBuffer;        // v_ngfx_buffer: 10 entries × 2 words [scroll, phase]
+    private int[] bgBandBuffer;        // v_ssscroll_buffer: 7 entries × 2 words [pos_hi, pos_lo]
+    private int[] bgHScrollData;       // 224-entry per-scanline H-scroll output
+
     // Subsystems
     private Sonic1SpecialStageDataLoader dataLoader;
     private Sonic1SpecialStageRenderer renderer;
@@ -116,6 +155,10 @@ public final class Sonic1SpecialStageManager {
     private int sonicSpriteFrame;
     private SpriteAnimationScript sonicRollScript;
     private SpriteAnimationScript sonicRoll2Script;
+    private Sonic1SpecialStageBackgroundRenderer bgRenderer;
+    private Sonic1SpecialStageBackgroundRenderer fgRenderer;
+    private int bgCloudBase;
+    private int bgFishBase;
     private Palette[] ssPalettes;
     private byte[] ssPaletteCycle1;
     private byte[] ssPaletteCycle2;
@@ -125,6 +168,7 @@ public final class Sonic1SpecialStageManager {
         this.ringsCollected = 0;
         this.emeraldCollected = false;
         this.finished = false;
+        this.debugMode = false;
 
         // Initialize subsystems
         Rom rom = GameServices.rom().getRom();
@@ -147,9 +191,14 @@ public final class Sonic1SpecialStageManager {
         loadArt();
         loadSonicSprite();
 
+        // Initialize background renderer
+        initBgRenderer();
+
         // Initialize rotation
         ssAngle = 0;
         ssRotate = SS_INIT_ROTATION;
+        debugSavedAngle = 0;
+        debugSavedRotate = SS_INIT_ROTATION;
 
         // Initialize physics
         sonicVelX = 0;
@@ -171,6 +220,10 @@ public final class Sonic1SpecialStageManager {
         wallRotFrame = 0;
         ringAnimFrame = 0;
         ringAnimTimer = 0;
+        wallVramAnimFrame = 0;
+        wallVramAnimTimer = 7;
+        ssAnimBuffer = new int[SS_ANIM_BUFFER_SIZE][4];
+        ssAnimGlassFinalBlock = new int[SS_ANIM_BUFFER_SIZE];
         sonicAnimId = Sonic1AnimationIds.ROLL;
         sonicAnimFrameIndex = 0;
         sonicAnimFrameTimer = 0;
@@ -184,6 +237,12 @@ public final class Sonic1SpecialStageManager {
         palSsTime = 0;
         palSsNum = 0;
         palSsIndex = 0;
+
+        // Initialize GOAL/UP/DOWN/emerald and glass animation counters (SS_AniWallsRings ani2, ani3)
+        ani2Frame = 0;
+        ani2Timer = 7;
+        ani3Frame = 0;
+        ani3Timer = 4;
 
         // Clear input
         heldButtons = 0;
@@ -200,6 +259,12 @@ public final class Sonic1SpecialStageManager {
 
         if (exitTriggered) {
             updateExit();
+        } else if (debugMode) {
+            processDebugMove();
+            updateCamera();
+            ssAngle = (ssAngle + ssRotate) & 0xFFFF;
+            updateAnimCounters();
+            updateBgAnimate();
         } else {
             // Process input
             lastCollisionBlockId = 0;
@@ -228,10 +293,37 @@ public final class Sonic1SpecialStageManager {
 
             // Update animation counters
             updateAnimCounters();
+
+            // Update background animation (sine wave / band scroll)
+            updateBgAnimate();
         }
 
         // Clear pressed buttons (held persist until next handleInput call)
         pressedButtons = 0;
+    }
+
+    private void processDebugMove() {
+        if ((heldButtons & INPUT_LEFT) != 0) {
+            sonicPosX -= (long) DEBUG_MOVE_SPEED << 16;
+            sonicFacingLeft = true;
+        }
+        if ((heldButtons & INPUT_RIGHT) != 0) {
+            sonicPosX += (long) DEBUG_MOVE_SPEED << 16;
+            sonicFacingLeft = false;
+        }
+        if ((heldButtons & INPUT_UP) != 0) {
+            sonicPosY -= (long) DEBUG_MOVE_SPEED << 16;
+        }
+        if ((heldButtons & INPUT_DOWN) != 0) {
+            sonicPosY += (long) DEBUG_MOVE_SPEED << 16;
+        }
+
+        // Keep movement deterministic when leaving debug mode.
+        sonicVelX = 0;
+        sonicVelY = 0;
+        sonicInertia = 0;
+        sonicAirborne = true;
+        lastCollisionBlockId = 0;
     }
 
     // ---- Physics (from Obj09) ----
@@ -471,9 +563,9 @@ public final class Sonic1SpecialStageManager {
 
         // Ring (0x3A)
         if (blockId == 0x3A) {
-            layout[bufIndex] = 0;
             ringsCollected++;
             playSfx(Sonic1Sfx.RING);
+            startItemAnimation(bufIndex);
             return;
         }
 
@@ -590,7 +682,7 @@ public final class Sonic1SpecialStageManager {
                 if (nextState > 0x30) {
                     nextState = 0; // Glass destroyed
                 }
-                layout[idx] = (byte) nextState;
+                startGlassAnimation(idx, nextState);
             }
             playSfx(Sonic1Sfx.SS_GLASS);
         }
@@ -638,6 +730,118 @@ public final class Sonic1SpecialStageManager {
         }
     }
 
+    // ---- Item Animation (from SS_AniRingSparks) ----
+
+    private void startItemAnimation(int layoutIndex) {
+        if (ssAnimBuffer == null) {
+            if (layoutIndex >= 0 && layoutIndex < layout.length) {
+                layout[layoutIndex] = 0;
+            }
+            return;
+        }
+        for (int i = 0; i < SS_ANIM_BUFFER_SIZE; i++) {
+            if (ssAnimBuffer[i][0] == ANIM_NONE) {
+                ssAnimBuffer[i][0] = ANIM_RING_SPARKLE;
+                ssAnimBuffer[i][1] = ANIM_RING_PERIOD;
+                ssAnimBuffer[i][2] = 0;
+                ssAnimBuffer[i][3] = layoutIndex;
+                // Write first sparkle frame immediately
+                if (layoutIndex >= 0 && layoutIndex < layout.length) {
+                    layout[layoutIndex] = (byte) ANIM_RING_SPARKLE_DATA[0];
+                }
+                return;
+            }
+        }
+        // No free slot - just clear the cell
+        if (layoutIndex >= 0 && layoutIndex < layout.length) {
+            layout[layoutIndex] = 0;
+        }
+    }
+
+    private void startGlassAnimation(int layoutIndex, int finalBlockId) {
+        if (ssAnimBuffer == null || ssAnimGlassFinalBlock == null) {
+            if (layoutIndex >= 0 && layoutIndex < layout.length) {
+                layout[layoutIndex] = (byte) finalBlockId;
+            }
+            return;
+        }
+        for (int i = 0; i < SS_ANIM_BUFFER_SIZE; i++) {
+            if (ssAnimBuffer[i][0] == ANIM_NONE) {
+                ssAnimBuffer[i][0] = ANIM_GLASS_BLOCK;
+                ssAnimBuffer[i][1] = 0; // Trigger first frame immediately on next animation tick
+                ssAnimBuffer[i][2] = 0;
+                ssAnimBuffer[i][3] = layoutIndex;
+                ssAnimGlassFinalBlock[i] = finalBlockId;
+                return;
+            }
+        }
+        // ROM behavior when no slot is free: skip the transition this frame.
+    }
+
+    private void updateItemAnimations() {
+        if (ssAnimBuffer == null) return;
+        for (int i = 0; i < SS_ANIM_BUFFER_SIZE; i++) {
+            int type = ssAnimBuffer[i][0];
+            if (type == ANIM_NONE) continue;
+            if (type == ANIM_RING_SPARKLE) {
+                updateRingAnimation(i);
+                continue;
+            }
+            if (type == ANIM_GLASS_BLOCK) {
+                updateGlassAnimation(i);
+                continue;
+            }
+            ssAnimBuffer[i][0] = ANIM_NONE;
+        }
+    }
+
+    private void updateRingAnimation(int slot) {
+        ssAnimBuffer[slot][1]--;
+        if (ssAnimBuffer[slot][1] > 0) return;
+        ssAnimBuffer[slot][1] = ANIM_RING_PERIOD;
+        ssAnimBuffer[slot][2]++;
+        int frameIdx = ssAnimBuffer[slot][2];
+        int layoutIndex = ssAnimBuffer[slot][3];
+
+        int nextBlockId = (frameIdx < ANIM_RING_SPARKLE_DATA.length)
+                ? ANIM_RING_SPARKLE_DATA[frameIdx] : 0;
+        if (nextBlockId == 0) {
+            // Animation complete - clear cell and free slot
+            if (layoutIndex >= 0 && layoutIndex < layout.length) {
+                layout[layoutIndex] = 0;
+            }
+            ssAnimBuffer[slot][0] = ANIM_NONE;
+            return;
+        }
+        if (layoutIndex >= 0 && layoutIndex < layout.length) {
+            layout[layoutIndex] = (byte) nextBlockId;
+        }
+    }
+
+    private void updateGlassAnimation(int slot) {
+        ssAnimBuffer[slot][1]--;
+        if (ssAnimBuffer[slot][1] > 0) return;
+        ssAnimBuffer[slot][1] = ANIM_GLASS_PERIOD;
+
+        int frameIdx = ssAnimBuffer[slot][2];
+        ssAnimBuffer[slot][2] = frameIdx + 1;
+        int layoutIndex = ssAnimBuffer[slot][3];
+        int nextBlockId = (frameIdx < ANIM_GLASS_DATA.length) ? ANIM_GLASS_DATA[frameIdx] : 0;
+
+        if (nextBlockId != 0) {
+            if (layoutIndex >= 0 && layoutIndex < layout.length) {
+                layout[layoutIndex] = (byte) nextBlockId;
+            }
+            return;
+        }
+
+        if (layoutIndex >= 0 && layoutIndex < layout.length) {
+            layout[layoutIndex] = (byte) ssAnimGlassFinalBlock[slot];
+        }
+        ssAnimBuffer[slot][0] = ANIM_NONE;
+        ssAnimGlassFinalBlock[slot] = 0;
+    }
+
     // ---- Exit Sequence (from Obj09_ExitStage / Obj09_Exit2) ----
 
     private void updateExit() {
@@ -670,6 +874,7 @@ public final class Sonic1SpecialStageManager {
 
         // Update animation
         updateAnimCounters();
+        updateBgAnimate();
     }
 
     // ---- Camera (from SS_FixCamera) ----
@@ -697,12 +902,36 @@ public final class Sonic1SpecialStageManager {
         // Wall rotation frame from angle
         wallRotFrame = Sonic1SpecialStageBlockType.getWallRotationFrame(ssAngle);
 
-        // Ring animation: 8-frame cycle at 8 frames per step
+        // Ring animation: 4-frame spin cycle at 8 frames per step (0-3 only; 4-7 are sparkle)
         ringAnimTimer++;
         if (ringAnimTimer >= 8) {
             ringAnimTimer = 0;
-            ringAnimFrame = (ringAnimFrame + 1) & 0x7;
+            ringAnimFrame = (ringAnimFrame + 1) & 0x3;
         }
+
+        // Wall VRAM palette animation (SS_AniWallsRings ani0)
+        wallVramAnimTimer--;
+        if (wallVramAnimTimer < 0) {
+            wallVramAnimTimer = 7;
+            wallVramAnimFrame = (wallVramAnimFrame - 1) & 0x7;
+        }
+
+        // GOAL/UP/DOWN/emerald animation (SS_AniWallsRings ani2): 2-frame cycle, period 8
+        ani2Timer--;
+        if (ani2Timer < 0) {
+            ani2Timer = 7;
+            ani2Frame = (ani2Frame + 1) & 0x1;
+        }
+
+        // Glass block rotation animation (SS_AniWallsRings ani3): 4-frame cycle, period 5
+        ani3Timer--;
+        if (ani3Timer < 0) {
+            ani3Timer = 4;
+            ani3Frame = (ani3Frame + 1) & 0x3;
+        }
+
+        // Item collection animations (ring sparkle etc.)
+        updateItemAnimations();
 
         updateSonicAnimation();
         updateSpecialStagePaletteCycle();
@@ -711,7 +940,16 @@ public final class Sonic1SpecialStageManager {
     // ---- Art Loading ----
 
     private void loadPalette() throws IOException {
-        byte[] palData = dataLoader.getSSPalette();
+        // Verify PAL_SS_ADDR against palette table (palid_Special = index 10)
+        Rom rom = GameServices.rom().getRom();
+        int verifiedAddr = rom.read32BitAddr(PALETTE_TABLE_ADDR + 10 * 8) & 0x00FFFFFF;
+        if (verifiedAddr != PAL_SS_ADDR) {
+            LOGGER.warning("PAL_SS_ADDR mismatch: constant=0x" + Integer.toHexString(PAL_SS_ADDR)
+                    + ", palette table says=0x" + Integer.toHexString(verifiedAddr)
+                    + " — using verified address");
+        }
+
+        byte[] palData = dataLoader.getSSPalette(verifiedAddr);
         ssPaletteCycle1 = dataLoader.getSSPaletteCycle1();
         ssPaletteCycle2 = dataLoader.getSSPaletteCycle2();
 
@@ -854,7 +1092,7 @@ public final class Sonic1SpecialStageManager {
 
         // BG cloud art
         Pattern[] bgClouds = dataLoader.getBgCloudPatterns();
-        int bgCloudBase = nextBase;
+        bgCloudBase = nextBase;
         for (int i = 0; i < bgClouds.length; i++) {
             graphicsManager.cachePatternTexture(bgClouds[i], nextBase + i);
         }
@@ -862,7 +1100,7 @@ public final class Sonic1SpecialStageManager {
 
         // BG fish art
         Pattern[] bgFish = dataLoader.getBgFishPatterns();
-        int bgFishBase = nextBase;
+        bgFishBase = nextBase;
         for (int i = 0; i < bgFish.length; i++) {
             graphicsManager.cachePatternTexture(bgFish[i], nextBase + i);
         }
@@ -991,11 +1229,23 @@ public final class Sonic1SpecialStageManager {
             return;
         }
 
-        int[] entry = SS_PALETTE_CYCLE_SCRIPT[palSsNum & 0x1F];
+        int[] entry = SS_BG_STATE_TABLE[palSsNum & 0x1F];
         palSsNum++;
         palSsTime = entry[0] < 0 ? 0x1FF : entry[0];
 
-        int d0 = entry[1] & 0xFF;
+        // Extract anim and namespace selection fields.
+        bgAnimState = entry[1];
+        updateFgStateFromAnim(bgAnimState);
+
+        boolean wantPlane5 = entry[2] == 1;
+        if (wantPlane5 == bgUsingPlane6) {
+            bgUsingPlane6 = !wantPlane5;
+            if (bgRenderer != null) {
+                bgRenderer.setTilemap(bgUsingPlane6 ? bgPlane6Tilemap : bgPlane5Tilemap);
+            }
+        }
+
+        int d0 = entry[3] & 0xFF;
         boolean[] touched = new boolean[4];
 
         if ((d0 & 0x80) == 0) {
@@ -1010,9 +1260,13 @@ public final class Sonic1SpecialStageManager {
         }
         int base = d1 * 0x2A;
         int idx = d0 & 0x7F;
-        idx &= ~1;
+        // ROM: bclr #0,d0 / beq.s loc_4A18
+        // bclr clears bit 0 and sets Z if bit was already 0.
+        // beq skips the write if bit was 0 (even index).
+        boolean bit0WasSet = (idx & 1) != 0;
+        idx &= ~1;  // bclr #0,d0
 
-        if (idx != 0) {
+        if (bit0WasSet) {
             writePaletteBytes(ssPaletteCycle2, base, 0x6E, 12, touched);
         }
 
@@ -1025,6 +1279,52 @@ public final class Sonic1SpecialStageManager {
         src += idx * 3;
         writePaletteBytes(ssPaletteCycle2, src, dest, 6, touched);
         recacheTouchedPalettes(touched);
+    }
+
+    /**
+     * Mirrors byte_4ABC indirection used by PalCycle_SS:
+     * anim values (0,2,4,6,8,10,12) select FG plane namespace and Y scroll.
+     */
+    private void updateFgStateFromAnim(int animState) {
+        int planeIndex;
+        int y;
+        switch (animState) {
+            case 2 -> {
+                planeIndex = 1; // Plane 2
+                y = 0;
+            }
+            case 4 -> {
+                planeIndex = 1; // Plane 2
+                y = 0x100;
+            }
+            case 6 -> {
+                planeIndex = 2; // Plane 3
+                y = 0;
+            }
+            case 8 -> {
+                planeIndex = 2; // Plane 3
+                y = 0x100;
+            }
+            case 10 -> {
+                planeIndex = 3; // Plane 4
+                y = 0;
+            }
+            case 12 -> {
+                planeIndex = 3; // Plane 4
+                y = 0x100;
+            }
+            default -> {
+                planeIndex = 0; // Plane 1
+                y = 0x100;
+            }
+        }
+
+        fgAnimPlaneIndex = planeIndex;
+        fgYScroll = y;
+
+        if (fgRenderer != null && fgPlaneTilemaps != null && planeIndex >= 0 && planeIndex < fgPlaneTilemaps.length) {
+            fgRenderer.setTilemap(fgPlaneTilemaps[planeIndex]);
+        }
     }
 
     private void writePaletteBytes(byte[] source, int sourceOffset, int destByteOffset, int byteCount,
@@ -1059,12 +1359,156 @@ public final class Sonic1SpecialStageManager {
         }
     }
 
+    /**
+     * SS_BGAnimate (sonic.asm lines 3806-3892): Per-scanline H-scroll animation.
+     *
+     * Two paths based on bgAnimState:
+     * - ANIM 0-7 (sine wave): 10 oscillators with independent amplitude/speed/phase
+     * - ANIM 8-12 (band scroll): 7 bands with independent 16.16 fixed-point positions
+     *
+     * Both paths fill bgHScrollData (224 scanlines) via band widths, wrapping at 256 scanlines.
+     */
+    private void updateBgAnimate() {
+        if (bgHScrollData == null) {
+            return;
+        }
+
+        if (bgAnimState < 8) {
+            // Sine wave path
+            if (bgAnimState == 0) {
+                bgYScroll = 0;
+            }
+            if (bgAnimState == 6) {
+                bgExtraScrollX++;
+                bgYScroll++;
+            }
+            // Update 10 sine oscillators (v_ngfx_buffer)
+            // ROM: CalcSine(phase) → sin * amplitude >> 8 → store scroll; phase += speed
+            if (bgSineBuffer != null) {
+                for (int i = 0; i < 10; i++) {
+                    int phase = bgSineBuffer[i * 2 + 1];
+                    int sinVal = TrigLookupTable.sinHex(phase & 0xFF);
+                    int amplitude = SS_BG_SINE_AMPLITUDES[i];
+                    int scroll = (sinVal * amplitude) >> 8;
+                    bgSineBuffer[i * 2] = scroll;
+                    bgSineBuffer[i * 2 + 1] = phase + SS_BG_SINE_SPEEDS[i];
+                }
+                fillHScrollFromBands(bgSineBuffer, SS_SINE_BAND_WIDTHS);
+            }
+        } else {
+            // Band scroll path
+            if (bgAnimState == 12 && bgBandBuffer != null) {
+                bgExtraScrollX--;
+                // Update band speeds: first band gets $18000, each subsequent $2000 less
+                int speed = 0x18000;
+                for (int i = 0; i < 7; i++) {
+                    long val = ((long) bgBandBuffer[i * 2] << 16) | (bgBandBuffer[i * 2 + 1] & 0xFFFF);
+                    val -= speed;
+                    bgBandBuffer[i * 2] = (int) (val >> 16);
+                    bgBandBuffer[i * 2 + 1] = (int) (val & 0xFFFF);
+                    speed -= 0x2000;
+                }
+            }
+            if (bgBandBuffer != null) {
+                fillHScrollFromBands(bgBandBuffer, SS_SCROLL_BAND_WIDTHS);
+            }
+        }
+    }
+
+    /**
+     * Common H-scroll fill routine for both sine and band scroll paths.
+     * Mirrors the ROM code at loc_4C7E-loc_4CA4.
+     *
+     * The ROM writes 32-bit entries (FG|BG) to the H-scroll table. We only
+     * need the BG portion (low word), which is the per-band scroll value.
+     * The FG scroll (high word = -bg3screenposx) is irrelevant to our rendering.
+     *
+     * @param scrollBuffer Array of [scroll, phase/frac] pairs (stride 2)
+     * @param bandWidths   First element = band count - 1, remaining = scanline heights
+     */
+    private void fillHScrollFromBands(int[] scrollBuffer, int[] bandWidths) {
+        // ROM: scanline offset = (-bgscreenposy & $FF) * 4, wrapping at $3FC
+        // We use & 0xFF since our array is indexed by scanline, not by 4-byte stride
+        int scanline = (-bgYScroll) & 0xFF;
+        int bandCount = bandWidths[0] + 1;
+        for (int band = 0; band < bandCount; band++) {
+            int scroll = scrollBuffer[band * 2]; // BG scroll value (high word for bands, sine value for sine)
+            int height = bandWidths[band + 1];
+            for (int j = 0; j < height; j++) {
+                int idx = scanline & 0xFF;
+                if (idx < 224) {
+                    bgHScrollData[idx] = scroll;
+                }
+                scanline++;
+            }
+        }
+    }
+
     private Pattern[] loadRingPatterns() throws IOException {
         RingSpriteSheet ringSheet = new Sonic1RingArt(GameServices.rom().getRom()).load();
         if (ringSheet == null || ringSheet.getPatterns() == null) {
             return new Pattern[0];
         }
         return ringSheet.getPatterns();
+    }
+
+    // ---- Background Renderer ----
+
+    private void initBgRenderer() {
+        // Load disassembly-equivalent FG/BG namespaces regardless of headless mode.
+        try {
+            fgPlaneTilemaps = new byte[4][];
+            for (int i = 0; i < 4; i++) {
+                fgPlaneTilemaps[i] = dataLoader.getFgPlaneTilemap(i + 1);
+            }
+            bgPlane5Tilemap = dataLoader.getBgPlane5Tilemap();
+            bgPlane6Tilemap = dataLoader.getBgPlane6Tilemap();
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load SS BG planes: " + e.getMessage());
+            fgPlaneTilemaps = null;
+            bgPlane5Tilemap = null;
+            bgPlane6Tilemap = null;
+        }
+
+        // Initialize BG animation state.
+        bgUsingPlane6 = true;
+        bgAnimState = 0;
+        bgYScroll = 0;
+        bgExtraScrollX = 0;
+        bgSineBuffer = new int[20]; // 10 entries x 2 words [scroll, phase]
+        bgBandBuffer = new int[14]; // 7 entries x 2 words [pos_hi, pos_lo]
+        bgHScrollData = new int[224];
+        updateFgStateFromAnim(0); // byte_4ABC default for anim 0 => plane 1, y=$100
+
+        if (fgPlaneTilemaps == null || bgPlane5Tilemap == null || bgPlane6Tilemap == null) {
+            bgRenderer = null;
+            fgRenderer = null;
+            return;
+        }
+
+        if (graphicsManager.isHeadlessMode()) {
+            bgRenderer = null;
+            fgRenderer = null;
+            return;
+        }
+        try {
+            bgRenderer = new Sonic1SpecialStageBackgroundRenderer();
+            bgRenderer.init();
+            bgRenderer.setPatternBases(bgCloudBase, bgFishBase);
+            bgRenderer.setTilemap(bgPlane6Tilemap); // BG starts on plane 6.
+
+            fgRenderer = new Sonic1SpecialStageBackgroundRenderer();
+            fgRenderer.init();
+            fgRenderer.setPatternBases(bgCloudBase, bgFishBase);
+            if (fgPlaneTilemaps != null && fgPlaneTilemaps.length > 0) {
+                fgRenderer.setTilemap(fgPlaneTilemaps[0]); // FG starts on plane 1.
+            }
+            LOGGER.fine("S1 SS background renderers initialized");
+        } catch (Exception e) {
+            LOGGER.warning("Failed to init S1 SS background renderer, using fallback: " + e.getMessage());
+            bgRenderer = null;
+            fgRenderer = null;
+        }
     }
 
     // ---- Drawing ----
@@ -1074,9 +1518,16 @@ public final class Sonic1SpecialStageManager {
             return;
         }
 
-        renderer.render(layout, ssAngle, cameraX, cameraY,
-                (int) (sonicPosX >> 16), (int) (sonicPosY >> 16),
-                wallRotFrame, ringAnimFrame, sonicFacingLeft);
+        if (bgRenderer != null && bgRenderer.isInitialized()
+                && fgRenderer != null && fgRenderer.isInitialized()) {
+            drawWithBgRenderers();
+        } else {
+            // Fallback: solid color background + maze
+            renderer.render(layout, ssAngle, cameraX, cameraY,
+                    (int) (sonicPosX >> 16), (int) (sonicPosY >> 16),
+                    wallRotFrame, ringAnimFrame, wallVramAnimFrame,
+                    ani2Frame, ani3Frame, sonicFacingLeft);
+        }
 
         if (sonicSpriteRenderer != null) {
             int sonicScreenX = Sonic1SpecialStageRenderer.SCREEN_CENTER_OFFSET +
@@ -1086,11 +1537,77 @@ public final class Sonic1SpecialStageManager {
         }
     }
 
+    private void drawWithBgRenderers() {
+        renderLayerToFbo(bgRenderer);
+        renderLayerToFbo(fgRenderer);
+
+        // BG pass: per-scanline H-scroll + BG V-scroll.
+        final int[] bgScrollSnapshot = bgHScrollData != null ? bgHScrollData.clone() : new int[224];
+        final float bgVScroll = (float) bgYScroll;
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+            bgRenderer.setHScrollData(bgScrollSnapshot);
+            bgRenderer.renderWithShader(bgVScroll);
+        }));
+
+        // FG pass: uniform H-scroll (-v_bg3screenposx) + FG V-scroll from byte_4ABC.
+        final int fgUniformHScroll = -bgExtraScrollX;
+        final float fgVScroll = (float) fgYScroll;
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+            fgRenderer.setUniformHScroll(fgUniformHScroll);
+            fgRenderer.renderWithShader(fgVScroll);
+        }));
+
+        // Maze pass - every frame.
+        renderer.renderMaze(layout, ssAngle, cameraX, cameraY, wallRotFrame, ringAnimFrame, wallVramAnimFrame,
+                ani2Frame, ani3Frame);
+    }
+
+    private void renderLayerToFbo(Sonic1SpecialStageBackgroundRenderer layerRenderer) {
+        if (layerRenderer == null || !layerRenderer.needsRedraw()) {
+            return;
+        }
+
+        layerRenderer.beginFBOProjection();
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+            layerRenderer.beginTilePass(Sonic1SpecialStageRenderer.H32_HEIGHT);
+        }));
+        graphicsManager.beginPatternBatch();
+        layerRenderer.renderTilesToFBO(graphicsManager);
+        graphicsManager.flushPatternBatch();
+        layerRenderer.endFBOProjection();
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+            layerRenderer.endTilePass();
+        }));
+    }
+
     // ---- Input ----
 
     public void handleInput(int heldButtons, int pressedButtons) {
         this.heldButtons = heldButtons;
         this.pressedButtons |= pressedButtons;
+    }
+
+    public boolean isDebugMode() {
+        return debugMode;
+    }
+
+    public void toggleDebugMode() {
+        if (!debugMode) {
+            debugSavedAngle = ssAngle;
+            debugSavedRotate = ssRotate;
+            ssAngle = 0;
+            ssRotate = 0;
+            debugMode = true;
+        } else {
+            ssAngle = debugSavedAngle;
+            ssRotate = debugSavedRotate;
+            debugMode = false;
+        }
+        sonicVelX = 0;
+        sonicVelY = 0;
+        sonicInertia = 0;
+        sonicAirborne = true;
+        lastCollisionBlockId = 0;
     }
 
     // ---- State queries ----
@@ -1100,9 +1617,20 @@ public final class Sonic1SpecialStageManager {
     }
 
     public void reset() {
+        if (bgRenderer != null) {
+            bgRenderer.cleanup();
+            bgRenderer = null;
+        }
+        if (fgRenderer != null) {
+            fgRenderer.cleanup();
+            fgRenderer = null;
+        }
         initialized = false;
         finished = false;
         emeraldCollected = false;
+        debugMode = false;
+        debugSavedAngle = 0;
+        debugSavedRotate = 0;
         ringsCollected = 0;
         currentStage = 0;
         layout = null;
@@ -1119,9 +1647,31 @@ public final class Sonic1SpecialStageManager {
         sonicAnimFrameIndex = 0;
         sonicAnimFrameTimer = 0;
         sonicAnimId = Sonic1AnimationIds.ROLL;
+        wallVramAnimFrame = 0;
+        wallVramAnimTimer = 0;
+        ssAnimBuffer = null;
+        ssAnimGlassFinalBlock = null;
+        bgCloudBase = 0;
+        bgFishBase = 0;
+        bgAnimState = 0;
+        fgPlaneTilemaps = null;
+        bgPlane5Tilemap = null;
+        bgPlane6Tilemap = null;
+        bgUsingPlane6 = true;
+        fgAnimPlaneIndex = 0;
+        fgYScroll = 0;
+        bgYScroll = 0;
+        bgExtraScrollX = 0;
+        bgSineBuffer = null;
+        bgBandBuffer = null;
+        bgHScrollData = null;
         palSsTime = 0;
         palSsNum = 0;
         palSsIndex = 0;
+        ani2Frame = 0;
+        ani2Timer = 0;
+        ani3Frame = 0;
+        ani3Timer = 0;
         heldButtons = 0;
         pressedButtons = 0;
     }

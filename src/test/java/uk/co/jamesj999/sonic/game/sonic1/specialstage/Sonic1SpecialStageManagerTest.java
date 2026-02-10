@@ -16,6 +16,7 @@ import java.lang.reflect.Method;
 import java.util.HashSet;
 import java.util.Set;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.SS_BLOCK_SIZE_PX;
@@ -178,5 +179,49 @@ public class Sonic1SpecialStageManagerTest {
         assertTrue("Emerald collection flag should be set", manager.isEmeraldCollected());
         assertTrue("Collecting an emerald should trigger special-stage exit",
                 exitTriggeredField.getBoolean(manager));
+    }
+
+    @Test
+    public void testGlassBlockUsesAnimationCooldownBeforeAdvancingState() throws Exception {
+        manager.initialize(0);
+
+        Field layoutField = Sonic1SpecialStageManager.class.getDeclaredField("layout");
+        Field lastCollisionBlockIdField = Sonic1SpecialStageManager.class.getDeclaredField("lastCollisionBlockId");
+        Field lastCollisionRowField = Sonic1SpecialStageManager.class.getDeclaredField("lastCollisionRow");
+        Field lastCollisionColField = Sonic1SpecialStageManager.class.getDeclaredField("lastCollisionCol");
+        Method processItemInteractionMethod = Sonic1SpecialStageManager.class.getDeclaredMethod("processItemInteraction");
+        Method updateItemAnimationsMethod = Sonic1SpecialStageManager.class.getDeclaredMethod("updateItemAnimations");
+
+        layoutField.setAccessible(true);
+        lastCollisionBlockIdField.setAccessible(true);
+        lastCollisionRowField.setAccessible(true);
+        lastCollisionColField.setAccessible(true);
+        processItemInteractionMethod.setAccessible(true);
+        updateItemAnimationsMethod.setAccessible(true);
+
+        byte[] layout = (byte[]) layoutField.get(manager);
+        int row = 0;
+        int col = 0;
+        int layoutIndex = row * SS_LAYOUT_STRIDE + col;
+
+        layout[layoutIndex] = 0x2D;
+        lastCollisionBlockIdField.setInt(manager, 0x2D);
+        lastCollisionRowField.setInt(manager, row);
+        lastCollisionColField.setInt(manager, col);
+
+        processItemInteractionMethod.invoke(manager);
+        assertEquals("Glass should not advance immediately before animation tick",
+                0x2D, layout[layoutIndex] & 0xFF);
+
+        updateItemAnimationsMethod.invoke(manager);
+        assertEquals("First animation tick should move glass into transitional state",
+                0x4B, layout[layoutIndex] & 0xFF);
+
+        for (int i = 0; i < 32; i++) {
+            updateItemAnimationsMethod.invoke(manager);
+        }
+
+        assertEquals("After one full glass animation, block should advance by one hit state",
+                0x2E, layout[layoutIndex] & 0xFF);
     }
 }

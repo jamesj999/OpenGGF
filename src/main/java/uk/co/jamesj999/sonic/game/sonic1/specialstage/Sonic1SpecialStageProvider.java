@@ -79,6 +79,16 @@ public final class Sonic1SpecialStageProvider implements SpecialStageProvider {
     }
 
     @Override
+    public boolean isGameplayDebugMode() {
+        return manager.isDebugMode();
+    }
+
+    @Override
+    public void toggleGameplayDebugMode() {
+        manager.toggleDebugMode();
+    }
+
+    @Override
     public boolean isSpriteDebugMode() {
         return false;
     }
