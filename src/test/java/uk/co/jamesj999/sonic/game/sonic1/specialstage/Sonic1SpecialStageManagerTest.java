@@ -6,14 +6,20 @@ import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.graphics.PatternAtlas;
+import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
 import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
 import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.SS_BLOCK_SIZE_PX;
+import static uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.SS_LAYOUT_STRIDE;
 
 @RequiresRom(SonicGame.SONIC_1)
 public class Sonic1SpecialStageManagerTest {
@@ -101,5 +107,76 @@ public class Sonic1SpecialStageManagerTest {
         assertNotNull("Renderer should be created during initialization", renderer);
         assertTrue("Special stage should still render blocks after updates",
                 renderer.getLastRenderedBlocks() > 0);
+    }
+
+    @Test
+    public void testSonicAnimationFrameAdvancesDuringStage() throws Exception {
+        manager.initialize(0);
+
+        Field frameField = Sonic1SpecialStageManager.class.getDeclaredField("sonicSpriteFrame");
+        frameField.setAccessible(true);
+
+        Set<Integer> seenFrames = new HashSet<>();
+        for (int i = 0; i < 180; i++) {
+            manager.update();
+            seenFrames.add(frameField.getInt(manager));
+        }
+
+        assertTrue("Sonic special-stage roll animation should advance through multiple frames",
+                seenFrames.size() > 1);
+    }
+
+    @Test
+    public void testSpecialStagePaletteCycleMutatesPaletteEntries() throws Exception {
+        manager.initialize(0);
+
+        Field palettesField = Sonic1SpecialStageManager.class.getDeclaredField("ssPalettes");
+        palettesField.setAccessible(true);
+        Palette[] palettes = (Palette[]) palettesField.get(manager);
+        assertNotNull("Special-stage palettes should be loaded", palettes);
+        assertTrue("Special-stage palette lines should be present", palettes.length == 4);
+
+        Set<String> observedColors = new HashSet<>();
+        for (int i = 0; i < 120; i++) {
+            manager.update();
+            Palette.Color c = palettes[2].getColor(7); // v_palette+$4E cycle target
+            observedColors.add((c.r & 0xFF) + "," + (c.g & 0xFF) + "," + (c.b & 0xFF));
+        }
+
+        assertTrue("Special-stage palette cycle should change cycled colors over time",
+                observedColors.size() > 1);
+    }
+
+    @Test
+    public void testCollectingEmeraldTriggersExitSequence() throws Exception {
+        manager.initialize(0);
+
+        Field sonicPosXField = Sonic1SpecialStageManager.class.getDeclaredField("sonicPosX");
+        Field sonicPosYField = Sonic1SpecialStageManager.class.getDeclaredField("sonicPosY");
+        Field layoutField = Sonic1SpecialStageManager.class.getDeclaredField("layout");
+        Field exitTriggeredField = Sonic1SpecialStageManager.class.getDeclaredField("exitTriggered");
+        Method checkItemsMethod = Sonic1SpecialStageManager.class.getDeclaredMethod("checkItems");
+        sonicPosXField.setAccessible(true);
+        sonicPosYField.setAccessible(true);
+        layoutField.setAccessible(true);
+        exitTriggeredField.setAccessible(true);
+        checkItemsMethod.setAccessible(true);
+
+        long sonicPosX = sonicPosXField.getLong(manager);
+        long sonicPosY = sonicPosYField.getLong(manager);
+        byte[] layout = (byte[]) layoutField.get(manager);
+
+        int posX = (int) (sonicPosX >> 16);
+        int posY = (int) (sonicPosY >> 16);
+        int gridCol = (posX + 0x20) / SS_BLOCK_SIZE_PX;
+        int gridRow = (posY + 0x50) / SS_BLOCK_SIZE_PX;
+        int layoutIndex = gridRow * SS_LAYOUT_STRIDE + gridCol;
+        layout[layoutIndex] = 0x3B;
+
+        checkItemsMethod.invoke(manager);
+
+        assertTrue("Emerald collection flag should be set", manager.isEmeraldCollected());
+        assertTrue("Collecting an emerald should trigger special-stage exit",
+                exitTriggeredField.getBoolean(manager));
     }
 }

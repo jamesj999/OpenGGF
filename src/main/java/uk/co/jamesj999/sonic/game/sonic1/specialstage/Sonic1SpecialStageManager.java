@@ -5,11 +5,15 @@ import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic1.Sonic1PlayerArt;
+import uk.co.jamesj999.sonic.game.sonic1.Sonic1RingArt;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1AnimationIds;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
+import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.level.Pattern;
+import uk.co.jamesj999.sonic.level.rings.RingSpriteSheet;
+import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationEndAction;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationScript;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 import uk.co.jamesj999.sonic.sprites.render.PlayerSpriteRenderer;
@@ -36,6 +40,17 @@ public final class Sonic1SpecialStageManager {
 
     // Pattern atlas base for SS art (above normal level art range)
     private static final int SS_PATTERN_BASE = 0x10000;
+    private static final int SS_ROLL_SPEED_SWITCH = 0x600;
+
+    // PalCycle_SS script (time, palette-cycle selector byte)
+    private static final int[][] SS_PALETTE_CYCLE_SCRIPT = {
+            {3, 0x92}, {3, 0x90}, {3, 0x8E}, {3, 0x8C}, {3, 0x8B},
+            {3, 0x80}, {3, 0x82}, {3, 0x84}, {3, 0x86}, {3, 0x88},
+            {7, 0x00}, {7, 0x0C}, {-1, 0x18}, {-1, 0x18}, {7, 0x0C}, {7, 0x00},
+            {3, 0x88}, {3, 0x86}, {3, 0x84}, {3, 0x82}, {3, 0x81},
+            {3, 0x8A}, {3, 0x8C}, {3, 0x8E}, {3, 0x90}, {3, 0x92},
+            {7, 0x24}, {7, 0x30}, {-1, 0x3C}, {-1, 0x3C}, {7, 0x30}, {7, 0x24}
+    };
 
     private boolean initialized;
     private boolean finished;
@@ -77,6 +92,12 @@ public final class Sonic1SpecialStageManager {
     private int wallRotFrame;       // 0-15, computed from ssAngle
     private int ringAnimFrame;      // 0-7, cycled via timer
     private int ringAnimTimer;
+    private int sonicAnimId;
+    private int sonicAnimFrameIndex;
+    private int sonicAnimFrameTimer;
+    private int palSsTime;
+    private int palSsNum;
+    private int palSsIndex;
 
     // Exit sequence
     private boolean exitTriggered;
@@ -93,6 +114,11 @@ public final class Sonic1SpecialStageManager {
     private GraphicsManager graphicsManager;
     private PlayerSpriteRenderer sonicSpriteRenderer;
     private int sonicSpriteFrame;
+    private SpriteAnimationScript sonicRollScript;
+    private SpriteAnimationScript sonicRoll2Script;
+    private Palette[] ssPalettes;
+    private byte[] ssPaletteCycle1;
+    private byte[] ssPaletteCycle2;
 
     public void initialize(int stageIndex) throws IOException {
         this.currentStage = Math.max(0, Math.min(stageIndex, SS_STAGE_COUNT - 1));
@@ -145,11 +171,19 @@ public final class Sonic1SpecialStageManager {
         wallRotFrame = 0;
         ringAnimFrame = 0;
         ringAnimTimer = 0;
+        sonicAnimId = Sonic1AnimationIds.ROLL;
+        sonicAnimFrameIndex = 0;
+        sonicAnimFrameTimer = 0;
 
         // Initialize exit state
         exitTriggered = false;
         exitPhase = 0;
         exitTimer = 0;
+
+        // Initialize palette cycle state (PalCycle_SS)
+        palSsTime = 0;
+        palSsNum = 0;
+        palSsIndex = 0;
 
         // Clear input
         heldButtons = 0;
@@ -454,6 +488,9 @@ public final class Sonic1SpecialStageManager {
         if (blockId >= 0x3B && blockId <= 0x40) {
             layout[bufIndex] = 0;
             emeraldCollected = true;
+            exitTriggered = true;
+            exitPhase = 0;
+            exitTimer = 0;
             playMusic(Sonic1Music.CHAOS_EMERALD);
             return;
         }
@@ -666,24 +703,30 @@ public final class Sonic1SpecialStageManager {
             ringAnimTimer = 0;
             ringAnimFrame = (ringAnimFrame + 1) & 0x7;
         }
+
+        updateSonicAnimation();
+        updateSpecialStagePaletteCycle();
     }
 
     // ---- Art Loading ----
 
     private void loadPalette() throws IOException {
         byte[] palData = dataLoader.getSSPalette();
+        ssPaletteCycle1 = dataLoader.getSSPaletteCycle1();
+        ssPaletteCycle2 = dataLoader.getSSPaletteCycle2();
+
         // palData is 128 bytes = 4 palette lines x 16 colors x 2 bytes each (MD format)
-        uk.co.jamesj999.sonic.level.Palette[] palettes = new uk.co.jamesj999.sonic.level.Palette[4];
+        ssPalettes = new Palette[4];
         for (int line = 0; line < 4; line++) {
-            palettes[line] = new uk.co.jamesj999.sonic.level.Palette();
-            byte[] lineData = new byte[uk.co.jamesj999.sonic.level.Palette.PALETTE_SIZE_IN_ROM];
-            int srcOffset = line * uk.co.jamesj999.sonic.level.Palette.PALETTE_SIZE_IN_ROM;
+            ssPalettes[line] = new Palette();
+            byte[] lineData = new byte[Palette.PALETTE_SIZE_IN_ROM];
+            int srcOffset = line * Palette.PALETTE_SIZE_IN_ROM;
             System.arraycopy(palData, srcOffset, lineData, 0,
                     Math.min(lineData.length, palData.length - srcOffset));
-            palettes[line].fromSegaFormat(lineData);
+            ssPalettes[line].fromSegaFormat(lineData);
         }
-        for (int i = 0; i < palettes.length; i++) {
-            graphicsManager.cachePaletteTexture(palettes[i], i);
+        for (int i = 0; i < ssPalettes.length; i++) {
+            graphicsManager.cachePaletteTexture(ssPalettes[i], i);
         }
     }
 
@@ -842,11 +885,23 @@ public final class Sonic1SpecialStageManager {
         if (sonicArt == null) {
             sonicSpriteRenderer = null;
             sonicSpriteFrame = 0;
+            sonicRollScript = null;
+            sonicRoll2Script = null;
             return;
         }
 
         sonicSpriteRenderer = new PlayerSpriteRenderer(sonicArt);
         sonicSpriteRenderer.ensureCached(graphicsManager);
+        sonicRollScript = sonicArt.animationSet() != null
+                ? sonicArt.animationSet().getScript(Sonic1AnimationIds.ROLL)
+                : null;
+        sonicRoll2Script = sonicArt.animationSet() != null
+                ? sonicArt.animationSet().getScript(Sonic1AnimationIds.ROLL2)
+                : null;
+
+        sonicAnimId = Sonic1AnimationIds.ROLL;
+        sonicAnimFrameIndex = 0;
+        sonicAnimFrameTimer = 0;
         sonicSpriteFrame = resolveSpecialStageSonicFrame(sonicArt);
     }
 
@@ -861,24 +916,155 @@ public final class Sonic1SpecialStageManager {
         return 0;
     }
 
+    private void updateSonicAnimation() {
+        SpriteAnimationScript rollScript = sonicRollScript;
+        if (rollScript == null || rollScript.frames() == null || rollScript.frames().isEmpty()) {
+            return;
+        }
+
+        int speed = Math.abs(sonicInertia);
+        boolean useRoll2 = speed >= SS_ROLL_SPEED_SWITCH
+                && sonicRoll2Script != null
+                && sonicRoll2Script.frames() != null
+                && !sonicRoll2Script.frames().isEmpty();
+        int targetAnimId = useRoll2 ? Sonic1AnimationIds.ROLL2 : Sonic1AnimationIds.ROLL;
+        SpriteAnimationScript activeScript = useRoll2 ? sonicRoll2Script : rollScript;
+
+        if (sonicAnimId != targetAnimId) {
+            sonicAnimId = targetAnimId;
+            sonicAnimFrameIndex = 0;
+            sonicAnimFrameTimer = 0;
+        }
+
+        if (sonicAnimFrameTimer > 0) {
+            sonicAnimFrameTimer--;
+            return;
+        }
+
+        int delay = ((0x400 - speed) < 0 ? 0 : (0x400 - speed)) >> 8;
+        sonicAnimFrameTimer = delay;
+
+        if (sonicAnimFrameIndex < 0 || sonicAnimFrameIndex >= activeScript.frames().size()) {
+            sonicAnimFrameIndex = 0;
+        }
+
+        sonicSpriteFrame = activeScript.frames().get(sonicAnimFrameIndex);
+        advanceSonicFrameIndex(activeScript);
+    }
+
+    private void advanceSonicFrameIndex(SpriteAnimationScript script) {
+        int next = sonicAnimFrameIndex + 1;
+        if (next < script.frames().size()) {
+            sonicAnimFrameIndex = next;
+            return;
+        }
+
+        switch (script.endAction()) {
+            case HOLD -> sonicAnimFrameIndex = script.frames().size() - 1;
+            case LOOP_BACK -> sonicAnimFrameIndex = resolveLoopBackIndex(script);
+            case SWITCH -> {
+                int nextAnimId = script.endParam();
+                sonicAnimId = nextAnimId;
+                sonicAnimFrameIndex = 0;
+            }
+            case LOOP -> sonicAnimFrameIndex = 0;
+            default -> sonicAnimFrameIndex = 0;
+        }
+    }
+
+    private int resolveLoopBackIndex(SpriteAnimationScript script) {
+        int loopBack = script.endParam();
+        if (loopBack <= 0) {
+            return 0;
+        }
+        int target = script.frames().size() - loopBack;
+        return Math.max(0, target);
+    }
+
+    private void updateSpecialStagePaletteCycle() {
+        if (ssPalettes == null || ssPaletteCycle1 == null || ssPaletteCycle2 == null) {
+            return;
+        }
+
+        palSsTime--;
+        if (palSsTime >= 0) {
+            return;
+        }
+
+        int[] entry = SS_PALETTE_CYCLE_SCRIPT[palSsNum & 0x1F];
+        palSsNum++;
+        palSsTime = entry[0] < 0 ? 0x1FF : entry[0];
+
+        int d0 = entry[1] & 0xFF;
+        boolean[] touched = new boolean[4];
+
+        if ((d0 & 0x80) == 0) {
+            writePaletteBytes(ssPaletteCycle1, d0, 0x4E, 12, touched);
+            recacheTouchedPalettes(touched);
+            return;
+        }
+
+        int d1 = palSsIndex;
+        if (d0 >= 0x8A) {
+            d1++;
+        }
+        int base = d1 * 0x2A;
+        int idx = d0 & 0x7F;
+        idx &= ~1;
+
+        if (idx != 0) {
+            writePaletteBytes(ssPaletteCycle2, base, 0x6E, 12, touched);
+        }
+
+        int src = base + 0x0C;
+        int dest = 0x5A;
+        if (idx >= 0x0A) {
+            idx -= 0x0A;
+            dest = 0x7A;
+        }
+        src += idx * 3;
+        writePaletteBytes(ssPaletteCycle2, src, dest, 6, touched);
+        recacheTouchedPalettes(touched);
+    }
+
+    private void writePaletteBytes(byte[] source, int sourceOffset, int destByteOffset, int byteCount,
+                                   boolean[] touchedLines) {
+        if (source == null || byteCount <= 0 || sourceOffset < 0 || sourceOffset + byteCount > source.length) {
+            return;
+        }
+        int colorCount = byteCount / 2;
+        int paletteColorIndex = destByteOffset / 2;
+        for (int i = 0; i < colorCount; i++) {
+            int globalColor = paletteColorIndex + i;
+            int line = globalColor / Palette.PALETTE_SIZE;
+            int colorInLine = globalColor % Palette.PALETTE_SIZE;
+            if (line < 0 || line >= ssPalettes.length) {
+                continue;
+            }
+            ssPalettes[line].getColor(colorInLine).fromSegaFormat(source, sourceOffset + (i * 2));
+            if (touchedLines != null && line < touchedLines.length) {
+                touchedLines[line] = true;
+            }
+        }
+    }
+
+    private void recacheTouchedPalettes(boolean[] touchedLines) {
+        if (touchedLines == null || ssPalettes == null) {
+            return;
+        }
+        for (int i = 0; i < touchedLines.length && i < ssPalettes.length; i++) {
+            if (touchedLines[i]) {
+                graphicsManager.cachePaletteTexture(ssPalettes[i], i);
+            }
+        }
+    }
+
     private Pattern[] loadRingPatterns() throws IOException {
-        // Ring art is Nem_Ring at 0x39A0E (same as normal level rings)
-        Rom rom = GameServices.rom().getRom();
-        byte[] compressed = rom.readBytes(ART_NEM_RING_ADDR, 243 + 16);
-        byte[] decompressed;
-        try (java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(compressed);
-             java.nio.channels.ReadableByteChannel channel = java.nio.channels.Channels.newChannel(bais)) {
-            decompressed = uk.co.jamesj999.sonic.tools.NemesisReader.decompress(channel);
+        RingSpriteSheet ringSheet = new Sonic1RingArt(GameServices.rom().getRom()).load();
+        if (ringSheet == null || ringSheet.getPatterns() == null) {
+            return new Pattern[0];
         }
-        int count = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
-        Pattern[] patterns = new Pattern[count];
-        for (int i = 0; i < count; i++) {
-            patterns[i] = new Pattern();
-            byte[] sub = java.util.Arrays.copyOfRange(decompressed,
-                    i * Pattern.PATTERN_SIZE_IN_ROM, (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-            patterns[i].fromSegaFormat(sub);
-        }
-        return patterns;
+        return ringSheet.getPatterns();
     }
 
     // ---- Drawing ----
@@ -893,7 +1079,8 @@ public final class Sonic1SpecialStageManager {
                 wallRotFrame, ringAnimFrame, sonicFacingLeft);
 
         if (sonicSpriteRenderer != null) {
-            int sonicScreenX = (int) (sonicPosX >> 16) - cameraX;
+            int sonicScreenX = Sonic1SpecialStageRenderer.SCREEN_CENTER_OFFSET +
+                    (int) (sonicPosX >> 16) - cameraX;
             int sonicScreenY = (int) (sonicPosY >> 16) - cameraY;
             sonicSpriteRenderer.drawFrame(sonicSpriteFrame, sonicScreenX, sonicScreenY, sonicFacingLeft, false);
         }
@@ -924,6 +1111,17 @@ public final class Sonic1SpecialStageManager {
         graphicsManager = null;
         sonicSpriteRenderer = null;
         sonicSpriteFrame = 0;
+        sonicRollScript = null;
+        sonicRoll2Script = null;
+        ssPalettes = null;
+        ssPaletteCycle1 = null;
+        ssPaletteCycle2 = null;
+        sonicAnimFrameIndex = 0;
+        sonicAnimFrameTimer = 0;
+        sonicAnimId = Sonic1AnimationIds.ROLL;
+        palSsTime = 0;
+        palSsNum = 0;
+        palSsIndex = 0;
         heldButtons = 0;
         pressedButtons = 0;
     }

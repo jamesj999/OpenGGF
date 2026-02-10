@@ -144,7 +144,7 @@ public final class Sonic1SpecialStageBlockType {
             info(MappingType.BLOCK_3X3, ARTTILE_SS_ZONE_6, 0, 0), // 0x39
 
             // Block ID 0x3A: Ring (animated, 8 frames cycle)
-            info(MappingType.RING, 0, 1, 0), // ArtTile_Ring = ArtTile_Sonic = 0x780
+            info(MappingType.RING, ARTTILE_RING, 1, 0),
 
             // Block IDs 0x3B-0x40: Chaos Emeralds
             info(MappingType.EMERALD_3, ARTTILE_SS_EMERALD, 0, 0), // 0x3B
@@ -158,10 +158,10 @@ public final class Sonic1SpecialStageBlockType {
             info(MappingType.BLOCK_3X3, ARTTILE_SS_GHOST, 0, 0),
 
             // Block IDs 0x42-0x45: Ring animation (sparkle frames)
-            info(MappingType.RING, 0, 1, 4), // 0x42
-            info(MappingType.RING, 0, 1, 5), // 0x43
-            info(MappingType.RING, 0, 1, 6), // 0x44
-            info(MappingType.RING, 0, 1, 7), // 0x45
+            info(MappingType.RING, ARTTILE_RING, 1, 4), // 0x42
+            info(MappingType.RING, ARTTILE_RING, 1, 5), // 0x43
+            info(MappingType.RING, ARTTILE_RING, 1, 6), // 0x44
+            info(MappingType.RING, ARTTILE_RING, 1, 7), // 0x45
 
             // Block IDs 0x46-0x49: Emerald sparkle
             info(MappingType.GLASS, ARTTILE_SS_EMERALD_SPARKLE, 1, 0), // 0x46

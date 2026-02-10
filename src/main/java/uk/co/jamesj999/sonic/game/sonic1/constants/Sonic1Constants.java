@@ -88,6 +88,7 @@ public final class Sonic1Constants {
 
     // Sonic's VRAM tile index
     public static final int ART_TILE_SONIC = 0x0780;
+    public static final int ARTTILE_RING = 0x0780;
 
     // S1 mapping/DPLC frame count (Map_Sonic and SonicDynPLC both have this many entries)
     public static final int SONIC_MAPPING_FRAME_COUNT = 88;
