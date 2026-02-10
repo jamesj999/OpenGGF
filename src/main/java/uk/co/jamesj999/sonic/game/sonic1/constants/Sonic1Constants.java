@@ -198,6 +198,8 @@ public final class Sonic1Constants {
 
     // Nem_Shield: Nemesis-compressed shield art (ArtTile_Shield = $541)
     public static final int ART_NEM_SHIELD_ADDR = 0x2C730;
+    // Nem_Stars: Nemesis-compressed invincibility stars (ArtTile_Invincibility = $55C)
+    public static final int ART_NEM_INVINCIBILITY_STARS_ADDR = 0x2C8C6;
 
     // ---- Touch collision sizes (ReactToItem .sizes table) ----
     // S1 uses `lea .sizes-2(pc,d0.w)` so effective base is .sizes-2 = 0x1B5E4-2.

@@ -1,10 +1,13 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects;
-import uk.co.jamesj999.sonic.level.objects.*;
-import uk.co.jamesj999.sonic.graphics.RenderPriority;
 
+import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
+import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -20,6 +23,7 @@ import java.util.List;
 public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
     private final AbstractPlayableSprite player;
     private final PatternSpriteRenderer renderer;
+    private final boolean sonic1TrailMode;
 
     // Decoded from byte_1DB42: dc.w $F00, $F03, $E06, $D08, $B0B, $80D, $60E, $30F,
     // $10, -$3F1, -$6F2, -$8F3, -$BF5, -$DF8, -$EFA, -$FFD,
@@ -58,6 +62,20 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
     // 4 stars at 90 degree intervals (32 entries / 4 = 8 index spacing)
     private static final int STAR_COUNT = 4;
     private static final int ANGLE_SPACING = 8; // 8 indices = 90 degrees
+    private static final int S1_TRAIL_PHASE_COUNT = 6;
+
+    // S1 Ani_Shield scripts converted to local frame indices 0..3:
+    // stars1: 4,5,6,7
+    // stars2: 4,4,0,4,4,0,5,5,0,5,5,0,6,6,0,6,6,0,7,7,0,7,7,0
+    // stars3: 4,4,0,4,0,0,5,5,0,5,0,0,6,6,0,6,0,0,7,7,0,7,0,0
+    // stars4: 4,0,0,4,0,0,5,0,0,5,0,0,6,0,0,6,0,0,7,0,0,7,0,0
+    private static final int[][] S1_ANIMATION_SEQUENCES = {
+            { 0, 1, 2, 3 },
+            { 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 2, 2, 0, 2, 2, 0, 3, 3, 0, 3, 3, 0 },
+            { 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 2, 2, 0, 2, 0, 0, 3, 3, 0, 3, 0, 0 },
+            { 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 2, 0, 0, 2, 0, 0, 3, 0, 0, 3, 0, 0 }
+    };
+    private static final int[] S1_ANIMATION_SPEEDS = { 6, 1, 1, 1 };
 
     // Original uses objoff_34 incremented by $12 (18) each frame when walking
     // direction,
@@ -68,6 +86,9 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
     // That's fast! Let's use $02 (2 bytes = 1 entry) for stationary.
     private int currentAngle = 0; // Index 0-31 (byte offset / 2)
     private int animationIndex = 0;
+    private int s1TrailPhase = 0;
+    private final int[] s1AnimationIndices = new int[STAR_COUNT];
+    private final int[] s1AnimationTimers = new int[STAR_COUNT];
 
     public InvincibilityStarsObjectInstance(AbstractPlayableSprite player) {
         super(null, "InvincibilityStars");
@@ -82,10 +103,26 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
         } else {
             this.renderer = null;
         }
+        this.sonic1TrailMode = isSonic1Module();
     }
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
+        if (sonic1TrailMode) {
+            s1TrailPhase = (s1TrailPhase + 1) % S1_TRAIL_PHASE_COUNT;
+            for (int i = 0; i < STAR_COUNT; i++) {
+                s1AnimationTimers[i]++;
+                if (s1AnimationTimers[i] >= S1_ANIMATION_SPEEDS[i]) {
+                    s1AnimationTimers[i] = 0;
+                    s1AnimationIndices[i]++;
+                    if (s1AnimationIndices[i] >= S1_ANIMATION_SEQUENCES[i].length) {
+                        s1AnimationIndices[i] = 0;
+                    }
+                }
+            }
+            return;
+        }
+
         // Original increments angle by $02 (1 entry) each frame when stationary,
         // and by $12 (9 entries) when moving. Let's use 1 entry per frame for now.
         currentAngle = (currentAngle + 1) % ORBIT_OFFSETS.length;
@@ -100,6 +137,11 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         if (renderer == null || player == null) {
+            return;
+        }
+
+        if (sonic1TrailMode) {
+            appendSonic1TrailRenderCommands();
             return;
         }
 
@@ -118,6 +160,33 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
             int frameIndex = FRAME_SEQUENCE[(animationIndex + (i * 2)) % FRAME_SEQUENCE.length];
 
             renderer.drawFrameIndex(frameIndex, starX, starY, false, false);
+        }
+    }
+
+    private void appendSonic1TrailRenderCommands() {
+        boolean hFlip = player.getDirection() == Direction.LEFT;
+
+        for (int i = 0; i < STAR_COUNT; i++) {
+            int framesBehind = s1FramesBehindForStar(i, s1TrailPhase);
+            int starX = player.getCentreX(framesBehind);
+            int starY = player.getCentreY(framesBehind);
+            int frameIndex = S1_ANIMATION_SEQUENCES[i][s1AnimationIndices[i]];
+
+            renderer.drawFrameIndex(frameIndex, starX, starY, hFlip, false);
+        }
+    }
+
+    static int s1FramesBehindForStar(int starIndex, int trailPhase) {
+        int normalizedStar = Math.max(0, Math.min(STAR_COUNT - 1, starIndex));
+        int normalizedPhase = Math.floorMod(trailPhase, S1_TRAIL_PHASE_COUNT);
+        return 1 + (normalizedStar * S1_TRAIL_PHASE_COUNT) + normalizedPhase;
+    }
+
+    private static boolean isSonic1Module() {
+        try {
+            return "Sonic1".equals(GameModuleRegistry.getCurrent().getIdentifier());
+        } catch (Exception ignored) {
+            return false;
         }
     }
 
