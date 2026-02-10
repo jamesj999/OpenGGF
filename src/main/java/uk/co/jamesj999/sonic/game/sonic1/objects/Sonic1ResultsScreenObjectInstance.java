@@ -415,7 +415,8 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     private int lastRingBonus = Integer.MIN_VALUE;
     private int lastScoreValue = Integer.MIN_VALUE;
     private final Pattern blankDigit = new Pattern();
-    private static final int SCORE_DIGITS_COUNT = 7;
+    // Sonic 1 score is 6 digits max (clamped to 999999 in AddPoints).
+    private static final int SCORE_DIGITS_COUNT = 6;
     private static final int SCORE_DIGIT_TILES = SCORE_DIGITS_COUNT * 2;
     private static final int SCORE_DIGITS_START_INDEX =
             (Sonic1Constants.VRAM_RESULTS_HUD_TEXT + 0x1A) - Sonic1Constants.VRAM_RESULTS_BASE;
@@ -519,7 +520,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
         }
 
         int clampedScore = Math.min(score, 9_999_999);
-        int divisor = 1_000_000;
+        int divisor = 100_000;
         boolean hasDigit = false;
         for (int i = 0; i < SCORE_DIGITS_COUNT; i++) {
             int digit = (clampedScore / divisor) % 10;

@@ -99,7 +99,8 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
     };
 
     // Score digit layout in the composite results sheet.
-    private static final int SCORE_DIGITS_COUNT = 7;
+    // Sonic 1 score is 6 digits max (clamped to 999999 in AddPoints).
+    private static final int SCORE_DIGITS_COUNT = 6;
     private static final int SCORE_DIGIT_TILES = SCORE_DIGITS_COUNT * 2;
     private static final int SCORE_DIGITS_START_INDEX =
             (Sonic1Constants.VRAM_RESULTS_HUD_TEXT + 0x1A) - Sonic1Constants.VRAM_RESULTS_BASE;
@@ -577,7 +578,7 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
 
     private void writeScoreValue(Pattern[] destination, int score, Pattern[] digits) {
         int clampedScore = Math.min(score, 9_999_999);
-        int divisor = 1_000_000;
+        int divisor = 100_000;
         boolean hasDigit = false;
         for (int i = 0; i < SCORE_DIGITS_COUNT; i++) {
             int digit = (clampedScore / divisor) % 10;
@@ -605,7 +606,8 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
 
     /**
      * Copies the initial score digit tiles into the composite array.
-     * Tile pair at startIndex is "E" (from HUD text), followed by seven "0" pairs.
+     * Tile pair at startIndex is "E" (from HUD text), followed by six "0" pairs.
+     * The final pair at $6F0-$6F1 is forced blank for trailing blank mappings.
      */
     private static void copyResultsScoreDigitTiles(Pattern[] dest, int startIndex,
             Pattern[] hudTextPatterns, Pattern[] hudDigitPatterns) {
@@ -614,9 +616,15 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
         }
         // "E" pair from HUD text
         copyPatternPair(dest, startIndex, hudTextPatterns, HUD_TEXT_E_PAIR_INDEX);
-        // Seven "0" pairs from digit patterns
-        for (int pair = 1; pair < RESULTS_SCORE_DIGIT_PAIR_COUNT; pair++) {
+        // Six "0" pairs from digit patterns.
+        for (int pair = 1; pair < RESULTS_SCORE_DIGIT_PAIR_COUNT - 1; pair++) {
             copyPatternPair(dest, startIndex + (pair * 2), hudDigitPatterns, 0);
+        }
+        // Explicitly clear trailing pair in case source HUD art has non-blank data there.
+        int trailingPairIndex = startIndex + ((RESULTS_SCORE_DIGIT_PAIR_COUNT - 1) * 2);
+        if (trailingPairIndex >= 0 && trailingPairIndex + 1 < dest.length) {
+            dest[trailingPairIndex].copyFrom(new Pattern());
+            dest[trailingPairIndex + 1].copyFrom(new Pattern());
         }
     }
 
