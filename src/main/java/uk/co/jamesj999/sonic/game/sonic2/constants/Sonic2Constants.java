@@ -280,6 +280,14 @@ public class Sonic2Constants {
     public static final int MAP_UNC_ARROW_SHOOTER_ADDR = 0x25804; // Obj22_MapUnc_25804
     public static final int ART_TILE_ARROW_SHOOTER = 0x0417;      // ArtTile_ArtNem_ArrowAndShooter
 
+    // MCZ Boss art
+    public static final int ART_NEM_MCZ_BOSS_ADDR = 0x86B6E;         // ArtNem_MCZBoss (verified via RomOffsetFinder)
+    public static final int ART_UNC_FALLING_ROCKS_ADDR = 0x894E4;    // ArtUnc_FallingRocks (256 bytes, verified)
+    public static final int ART_TILE_MCZ_BOSS = 0x03C0;              // ArtTile_ArtNem_MCZBoss
+    public static final int ART_TILE_FALLING_ROCKS = 0x0560;         // ArtTile_ArtUnc_FallingRocks
+    public static final int MAP_UNC_MCZ_BOSS_ADDR = 0x316EC;         // Obj57_MapUnc_316EC (21 frames)
+    public static final int PAL_MCZ_BOSS_ADDR = 0x3082;              // Pal_MCZ_B (32 bytes, verified)
+
     // Boss art (Nemesis compressed, verified offsets)
     public static final int ART_NEM_EGGPOD_ADDR = 0x83BF6;     // ArtNem_Eggpod (flying vehicle)
     public static final int ART_NEM_EHZ_BOSS_ADDR = 0x8507C;   // ArtNem_EHZBoss (ground vehicle/wheels/spike)
@@ -787,6 +795,9 @@ public class Sonic2Constants {
         offsets.put("ART_TILE_EGGPOD_4", ART_TILE_EGGPOD_4);
         offsets.put("ART_TILE_CNZ_BOSS", ART_TILE_CNZ_BOSS);
         offsets.put("ART_TILE_CNZ_BOSS_FUDGE", ART_TILE_CNZ_BOSS_FUDGE);
+        offsets.put("ART_NEM_MCZ_BOSS_ADDR", ART_NEM_MCZ_BOSS_ADDR);
+        offsets.put("ART_UNC_FALLING_ROCKS_ADDR", ART_UNC_FALLING_ROCKS_ADDR);
+        offsets.put("MAP_UNC_MCZ_BOSS_ADDR", MAP_UNC_MCZ_BOSS_ADDR);
         offsets.put("MAP_UNC_CNZ_BOSS_ADDR", MAP_UNC_CNZ_BOSS_ADDR);
         offsets.put("CYCLING_PAL_CNZ_BOSS1_ADDR", CYCLING_PAL_CNZ_BOSS1_ADDR);
         offsets.put("CYCLING_PAL_CNZ_BOSS1_LEN", CYCLING_PAL_CNZ_BOSS1_LEN);

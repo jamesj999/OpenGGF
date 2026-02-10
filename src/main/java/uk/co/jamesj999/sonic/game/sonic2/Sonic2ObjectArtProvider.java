@@ -186,6 +186,9 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             registerSheet(Sonic2ObjectArtKeys.MCZ_CRATE, artLoader.loadMCZCrateSheet());
             registerSheet(Sonic2ObjectArtKeys.MCZ_BRIDGE, artLoader.loadMCZBridgeSheet());
             registerSheet(Sonic2ObjectArtKeys.MCZ_DRAWBRIDGE, artLoader.loadMCZDrawbridgeSheet());
+            // MCZ Boss (Object 0x57)
+            registerSheet(Sonic2ObjectArtKeys.MCZ_BOSS, artLoader.loadMCZBossSheet());
+            registerSheet(Sonic2ObjectArtKeys.MCZ_FALLING_ROCKS, artLoader.loadMCZFallingRocksSheet());
         }
         // WFZ objects (Object 0x80 hook) - only for WFZ
         // zoneIndex is the ROM zone ID (0x06 for WFZ)

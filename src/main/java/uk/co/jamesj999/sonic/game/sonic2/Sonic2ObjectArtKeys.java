@@ -121,6 +121,8 @@ public final class Sonic2ObjectArtKeys {
 
     // Bosses
     public static final String EHZ_BOSS = "ehz_boss";
+    public static final String MCZ_BOSS = "mcz_boss";
+    public static final String MCZ_FALLING_ROCKS = "mcz_falling_rocks";
     public static final String BOSS_EXPLOSION = "boss_explosion";
     public static final String CPZ_BOSS_EGGPOD = "cpz_boss_eggpod";
     public static final String CPZ_BOSS_PARTS = "cpz_boss_parts";
