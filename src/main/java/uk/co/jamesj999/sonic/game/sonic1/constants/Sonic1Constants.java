@@ -395,6 +395,29 @@ public final class Sonic1Constants {
     public static final int ARTTILE_SS_ZONE_5          = 0x7BB;
     public static final int ARTTILE_SS_ZONE_6          = 0x7C4;
 
+    // ---- Special Stage BG animation data (from SS_BGAnimate, sonic.asm) ----
+
+    /**
+     * byte_4CCC: 10 sine oscillator amplitude/speed pairs.
+     * Each oscillator has: amplitude (unsigned byte), speed (signed byte).
+     * ROM data: 8,2, 4,$FF, 2,3, 8,$FF, 4,2, 2,3, 8,$FD, 4,2, 2,3, 2,$FF
+     */
+    public static final int[] SS_BG_SINE_AMPLITUDES = {8, 4, 2, 8, 4, 2, 8, 4, 2, 2};
+    public static final int[] SS_BG_SINE_SPEEDS = {2, -1, 3, -1, 2, 3, -3, 2, 3, -1};
+
+    /**
+     * byte_4CB8: Sine band widths. First byte = band count - 1, rest = scanline heights.
+     * Widths: 40,24,16,40,24,16,48,24,8,16 = 256 total.
+     */
+    public static final int[] SS_SINE_BAND_WIDTHS = {9, 0x28, 0x18, 0x10, 0x28, 0x18, 0x10, 0x30, 0x18, 8, 0x10};
+
+    /**
+     * byte_4CC4: Scroll band widths for band-scroll transitions.
+     * First byte = band count - 1, rest = scanline heights.
+     * Widths: 48,48,48,40,24,24,24 = 256 total.
+     */
+    public static final int[] SS_SCROLL_BAND_WIDTHS = {6, 0x30, 0x30, 0x30, 0x28, 0x18, 0x18, 0x18};
+
     // ---- Special Stage physics constants (from Obj09) ----
     public static final int SS_ACCEL           = 0x0C;   // movement acceleration
     public static final int SS_BRAKE           = 0x40;   // braking deceleration

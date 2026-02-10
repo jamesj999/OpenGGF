@@ -1573,8 +1573,13 @@ public class GameLoop {
         int upKey = configService.getInt(SonicConfiguration.UP);
         int downKey = configService.getInt(SonicConfiguration.DOWN);
         int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+        int debugModeKey = configService.getInt(SonicConfiguration.DEBUG_MODE_KEY);
 
         SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
+
+        if (inputHandler.isKeyPressed(debugModeKey)) {
+            ssProvider.toggleGameplayDebugMode();
+        }
 
         if (inputHandler.isKeyPressed(GLFW_KEY_F4)) {
             ssProvider.toggleAlignmentTestMode();
@@ -1617,11 +1622,20 @@ public class GameLoop {
             heldButtons |= 0x08;
         }
 
-        if (inputHandler.isKeyPressed(jumpKey)) {
-            pressedButtons |= 0x70;
-        }
-        if (inputHandler.isKeyDown(jumpKey)) {
-            heldButtons |= 0x70;
+        if (ssProvider.isGameplayDebugMode()) {
+            if (inputHandler.isKeyDown(upKey)) {
+                heldButtons |= 0x01;
+            }
+            if (inputHandler.isKeyDown(downKey)) {
+                heldButtons |= 0x02;
+            }
+        } else {
+            if (inputHandler.isKeyPressed(jumpKey)) {
+                pressedButtons |= 0x70;
+            }
+            if (inputHandler.isKeyDown(jumpKey)) {
+                heldButtons |= 0x70;
+            }
         }
 
         ssProvider.handleInput(heldButtons, pressedButtons);

@@ -66,9 +66,9 @@ public class Sonic1SpecialStageRendererTest {
         layout[2] = 0x3A;
 
         try {
-            renderer.render(layout, 0, 0, 0, 0, 0, 0, 0, false);
-            renderer.render(layout, 0x4000, 0x7FFF, 0x7FFF, 0, 0, 0, 0, false);
-            renderer.render(layout, 0x8000, 0x7FFF_FFFF, 0x7FFF_FFFF, 0, 0, 0, 0, true);
+            renderer.render(layout, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+            renderer.render(layout, 0x4000, 0x7FFF, 0x7FFF, 0, 0, 0, 0, 0, 0, 0, false);
+            renderer.render(layout, 0x8000, 0x7FFF_FFFF, 0x7FFF_FFFF, 0, 0, 0, 0, 0, 0, 0, true);
         } catch (Exception ex) {
             fail("Renderer should handle extreme camera values without exceptions: " + ex.getMessage());
         }
@@ -78,7 +78,7 @@ public class Sonic1SpecialStageRendererTest {
     public void testRenderHandlesEmptyLayoutWithoutException() {
         byte[] emptyLayout = new byte[0];
         try {
-            renderer.render(emptyLayout, 0, 0, 0, 0, 0, 0, 0, false);
+            renderer.render(emptyLayout, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
         } catch (Exception ex) {
             fail("Renderer should handle empty layout without exceptions: " + ex.getMessage());
         }
@@ -96,8 +96,10 @@ public class Sonic1SpecialStageRendererTest {
     }
 
     @Test
-    public void testH32ViewportUsesCenteredOffset() {
-        assertEquals("S1 special stage should center 256px viewport on 320px output",
-                32, Sonic1SpecialStageRenderer.SCREEN_CENTER_OFFSET);
+    public void testSpecialStageUsesFullScreenViewport() {
+        assertEquals("S1 special stage should use full-width viewport",
+                320, Sonic1SpecialStageRenderer.H32_WIDTH);
+        assertEquals("S1 special stage should not apply horizontal centering offset",
+                0, Sonic1SpecialStageRenderer.SCREEN_CENTER_OFFSET);
     }
 }

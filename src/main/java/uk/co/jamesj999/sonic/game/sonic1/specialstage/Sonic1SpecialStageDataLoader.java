@@ -34,6 +34,11 @@ public class Sonic1SpecialStageDataLoader {
     private byte[] ssPaletteCycle1;
     private byte[] ssPaletteCycle2;
 
+    // SS_BGLoad-generated plane tilemaps (64x64 words per plane)
+    private byte[][] ssFgPlaneTilemaps; // planes 1..4 (indices 0..3)
+    private byte[] ssBgPlane5Tilemap;
+    private byte[] ssBgPlane6Tilemap;
+
     // Art pattern caches
     private Pattern[] wallPatterns;
     private Pattern[] bumperPatterns;
@@ -93,9 +98,16 @@ public class Sonic1SpecialStageDataLoader {
      * Gets the special stage palette (128 bytes = 4 palette lines).
      */
     public byte[] getSSPalette() throws IOException {
+        return getSSPalette(PAL_SS_ADDR);
+    }
+
+    /**
+     * Gets the special stage palette from a verified ROM address.
+     */
+    public byte[] getSSPalette(int addr) throws IOException {
         if (ssPalette == null) {
-            ssPalette = rom.readBytes(PAL_SS_ADDR, PAL_SS_SIZE);
-            LOGGER.fine("Loaded SS palette: " + ssPalette.length + " bytes");
+            ssPalette = rom.readBytes(addr, PAL_SS_SIZE);
+            LOGGER.fine("Loaded SS palette from 0x" + Integer.toHexString(addr) + ": " + ssPalette.length + " bytes");
         }
         return ssPalette;
     }
@@ -252,6 +264,178 @@ public class Sonic1SpecialStageDataLoader {
             LOGGER.fine("Loaded SS BG fish art: " + bgFishPatterns.length + " patterns");
         }
         return bgFishPatterns;
+    }
+
+    // ---- BG/FG plane tilemap loading (SS_BGLoad parity) ----
+
+    /**
+     * Gets Special Stage FG plane tilemap 1..4 (64x64 words, big-endian).
+     */
+    public byte[] getFgPlaneTilemap(int planeNumber) throws IOException {
+        if (planeNumber < 1 || planeNumber > 4) {
+            throw new IllegalArgumentException("FG plane number out of range: " + planeNumber);
+        }
+        ensureSpecialStageBackgroundPlanesLoaded();
+        return ssFgPlaneTilemaps[planeNumber - 1];
+    }
+
+    /**
+     * Gets Special Stage BG plane 5 tilemap (64x64 words, big-endian).
+     */
+    public byte[] getBgPlane5Tilemap() throws IOException {
+        ensureSpecialStageBackgroundPlanesLoaded();
+        return ssBgPlane5Tilemap;
+    }
+
+    /**
+     * Gets Special Stage BG plane 6 tilemap (64x64 words, big-endian).
+     */
+    public byte[] getBgPlane6Tilemap() throws IOException {
+        ensureSpecialStageBackgroundPlanesLoaded();
+        return ssBgPlane6Tilemap;
+    }
+
+    /**
+     * Backwards-compatible aliases used by older callers:
+     * BG1 => active BG plane 6, BG2 => active BG plane 5.
+     */
+    public byte[] getBgTilemap1() throws IOException {
+        return getBgPlane6Tilemap();
+    }
+
+    public byte[] getBgTilemap2() throws IOException {
+        return getBgPlane5Tilemap();
+    }
+
+    private byte[] loadEnigmaTilemap(int addr, int size, int startingArtTile) throws IOException {
+        byte[] compressed = rom.readBytes(addr, size + 64);
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
+             ReadableByteChannel channel = Channels.newChannel(bais)) {
+            return EnigmaReader.decompress(channel, startingArtTile);
+        }
+    }
+
+    private void ensureSpecialStageBackgroundPlanesLoaded() throws IOException {
+        if (ssFgPlaneTilemaps != null && ssBgPlane5Tilemap != null && ssBgPlane6Tilemap != null) {
+            return;
+        }
+
+        // Simulated VRAM namespace used by SS_BGLoad path (word-addressed, 0x0000..0xFFFF bytes).
+        short[] vramWords = new short[0x10000 / 2];
+
+        // 1) Eni_SSBg1: birds/fish mappings (starting art tile make_art_tile(ArtTile_SS_Background_Fish,2,0)).
+        byte[] fishSource = loadEnigmaTilemap(ENI_SS_BG1_ADDR, ENI_SS_BG1_SIZE, 0x4051);
+
+        // SS_BGLoad loop: stamp 8x8 mapping chunks into 64x32 regions at $5000..$B000.
+        int srcChunkOffset = 0x80; // a2 = v_ssbuffer1 + $80
+        for (int d7 = 6; d7 >= 0; d7--) {
+            int regionIndex = 6 - d7;
+            int destBase = 0x5000 + regionIndex * 0x1000;
+            int d4 = (d7 < 3) ? 1 : 0;
+
+            for (int rowBlock = 0; rowBlock < 4; rowBlock++) {
+                for (int colBlock = 0; colBlock < 8; colBlock++) {
+                    d4 ^= 1;
+
+                    int chunkOffset = srcChunkOffset;
+                    boolean shouldWrite = true;
+
+                    if (d4 == 0) {
+                        if (d7 == 6) {
+                            chunkOffset = 0; // Special case: first region alternates with chunk 0.
+                        } else {
+                            shouldWrite = false; // Skip write, leaving cleared cells.
+                        }
+                    }
+
+                    if (shouldWrite) {
+                        int chunkDest = destBase + rowBlock * 0x400 + colBlock * 0x10;
+                        copy8x8ChunkToVram(fishSource, chunkOffset, vramWords, chunkDest);
+                    }
+                }
+                d4 ^= 1;
+            }
+
+            srcChunkOffset += 0x80; // adda.w #$80,a2
+        }
+
+        // 2) Eni_SSBg2: clouds mapping, copied by SS_BGLoad to plane 5/6 namespaces.
+        byte[] cloudSource = loadEnigmaTilemap(ENI_SS_BG2_ADDR, ENI_SS_BG2_SIZE, 0x4000);
+        copyTilemapToVram(cloudSource, 0xC000, 64, 32, vramWords); // ArtTile_SS_Plane_5
+        copyTilemapToVram(cloudSource, 0xD000, 64, 64, vramWords); // ArtTile_SS_Plane_5 + plane_size_64x32
+
+        ssFgPlaneTilemaps = new byte[4][];
+        ssFgPlaneTilemaps[0] = extract64x64Plane(vramWords, 0x4000); // Plane 1
+        ssFgPlaneTilemaps[1] = extract64x64Plane(vramWords, 0x6000); // Plane 2
+        ssFgPlaneTilemaps[2] = extract64x64Plane(vramWords, 0x8000); // Plane 3
+        ssFgPlaneTilemaps[3] = extract64x64Plane(vramWords, 0xA000); // Plane 4
+        ssBgPlane5Tilemap = extract64x64Plane(vramWords, 0xC000);    // Plane 5
+        ssBgPlane6Tilemap = extract64x64Plane(vramWords, 0xE000);    // Plane 6
+
+        LOGGER.fine("Built SS BG planes from disassembly logic: FG1-4 + BG5-6 (64x64 each)");
+    }
+
+    private void copy8x8ChunkToVram(byte[] source, int sourceOffset, short[] vramWords, int destVramAddr) {
+        for (int y = 0; y < 8; y++) {
+            int srcRowOffset = sourceOffset + y * 16;
+            int destWordIndex = (destVramAddr >> 1) + y * 64;
+            for (int x = 0; x < 8; x++) {
+                int srcIdx = srcRowOffset + x * 2;
+                short word = readWordSafe(source, srcIdx);
+                int dstIdx = destWordIndex + x;
+                if (dstIdx >= 0 && dstIdx < vramWords.length) {
+                    vramWords[dstIdx] = word;
+                }
+            }
+        }
+    }
+
+    private void copyTilemapToVram(byte[] source, int destVramAddr, int width, int height, short[] vramWords) {
+        int srcWordIndex = 0;
+        int srcWordCount = source.length / 2;
+        for (int y = 0; y < height; y++) {
+            int dstRow = (destVramAddr >> 1) + y * 64;
+            for (int x = 0; x < width; x++) {
+                short word = 0;
+                if (srcWordIndex < srcWordCount) {
+                    int srcByte = srcWordIndex * 2;
+                    word = readWordSafe(source, srcByte);
+                }
+                int dst = dstRow + x;
+                if (dst >= 0 && dst < vramWords.length) {
+                    vramWords[dst] = word;
+                }
+                srcWordIndex++;
+            }
+        }
+    }
+
+    private byte[] extract64x64Plane(short[] vramWords, int baseVramAddr) {
+        byte[] out = new byte[64 * 64 * 2];
+        int outIdx = 0;
+        int baseWord = baseVramAddr >> 1;
+        for (int y = 0; y < 64; y++) {
+            int row = baseWord + y * 64;
+            for (int x = 0; x < 64; x++) {
+                short word = 0;
+                int idx = row + x;
+                if (idx >= 0 && idx < vramWords.length) {
+                    word = vramWords[idx];
+                }
+                out[outIdx++] = (byte) ((word >> 8) & 0xFF);
+                out[outIdx++] = (byte) (word & 0xFF);
+            }
+        }
+        return out;
+    }
+
+    private short readWordSafe(byte[] data, int byteOffset) {
+        if (data == null || byteOffset < 0 || byteOffset + 1 >= data.length) {
+            return 0;
+        }
+        int hi = data[byteOffset] & 0xFF;
+        int lo = data[byteOffset + 1] & 0xFF;
+        return (short) ((hi << 8) | lo);
     }
 
     // ---- Internal helpers ----
