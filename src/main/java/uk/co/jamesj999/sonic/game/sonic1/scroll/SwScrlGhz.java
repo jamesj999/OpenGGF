@@ -5,26 +5,21 @@ import uk.co.jamesj999.sonic.level.scroll.ZoneScrollHandler;
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.*;
 
 /**
- * ROM-accurate implementation of Deform_GHZ (Green Hill Zone scroll routine).
- * Reference: s1disasm/_inc/DeformLayers.asm - Deform_GHZ
+ * ROM-accurate implementation of REV01 Deform_GHZ (Green Hill Zone scroll routine).
+ * Reference: s1disasm/_inc/DeformLayers (JP1).asm - Deform_GHZ
  *
- * GHZ uses three background sections with perspective interpolation:
+ * GHZ line layout is fixed and always totals 224 lines:
  * <ul>
- *   <li>Section 1 (0x70-d4 lines): BG1 - clouds/sky at ~37.5% camera speed</li>
- *   <li>Section 2 (40 lines): BG2 - distant hills at 50% camera speed</li>
- *   <li>Section 3 (0x48+d4 lines): Perspective interpolation from BG2 to near-FG</li>
+ *   <li>Upper cloud band: 32-d4 lines (variable with camera Y)</li>
+ *   <li>Middle cloud band: 16 lines</li>
+ *   <li>Lower cloud band: 16 lines</li>
+ *   <li>Distant mountains: 48 lines</li>
+ *   <li>Hills/waterfalls: 40 lines</li>
+ *   <li>Water deformation: 72+d4 lines (variable with camera Y)</li>
  * </ul>
  *
- * The three sections always total exactly 224 lines.
- *
- * BG camera speeds (from ScrollBlock1 / ScrollBlock4):
- * <ul>
- *   <li>BG1 X: scrshiftx * 96 (accumulates at 96/256 = 37.5% of camera speed)</li>
- *   <li>BG2 X: scrshiftx * 128 (accumulates at 128/256 = 50% of camera speed)</li>
- * </ul>
- *
- * BG2 Y position: 0x26 - ((cameraY &amp; 0x7FF) &gt;&gt; 5)
- * This creates a depth effect where the background rises as the camera descends.
+ * REV01 GHZ uses bg3screenposx (96/256 speed) and bg2screenposx (128/256 speed),
+ * plus three auto-scroll cloud counters.
  */
 public class SwScrlGhz implements ZoneScrollHandler {
 
@@ -33,22 +28,30 @@ public class SwScrlGhz implements ZoneScrollHandler {
     private short vscrollFactorBG;
 
     // Persistent BG camera positions (16.16 fixed point, matching original RAM)
-    // v_bgscreenposx (BG1): accumulated via ScrollBlock1 at rate scrshiftx * 96
-    private long bg1XPos;
-    // v_bg2screenposx (BG2): accumulated via ScrollBlock4 at rate scrshiftx * 128
+    // v_bg2screenposx: accumulated at scrshiftx * 128
     private long bg2XPos;
+    // v_bg3screenposx: accumulated at scrshiftx * 96
+    private long bg3XPos;
+
+    // GHZ cloud auto-scroll accumulators (16.16 fixed point).
+    // High word is added to BG3 X to create layered cloud drift at idle.
+    private int cloudLayer1Counter;
+    private int cloudLayer2Counter;
+    private int cloudLayer3Counter;
 
     private int lastCameraX;
     private boolean initialized = false;
 
     /**
      * Initialize BG camera positions.
-     * Replicates BgScrollSpeed initial setup: bgscreenposx = screenposx.
+     * REV01 BgScroll_GHZ clears all GHZ BG position accumulators.
      */
     public void init(int cameraX) {
-        // BgScrollSpeed sets bgscreenposx = bg2screenposx = screenposx (high word)
-        bg1XPos = (long) cameraX << 16;
-        bg2XPos = (long) cameraX << 16;
+        bg2XPos = 0;
+        bg3XPos = 0;
+        cloudLayer1Counter = 0;
+        cloudLayer2Counter = 0;
+        cloudLayer3Counter = 0;
         lastCameraX = cameraX;
         initialized = true;
     }
@@ -70,43 +73,51 @@ public class SwScrlGhz implements ZoneScrollHandler {
         int deltaX = cameraX - lastCameraX;
         lastCameraX = cameraX;
 
-        // ScrollBlock1: bg1XPos += scrshiftx * 96
+        // BGScroll_Block3: bg3screenposx += scrshiftx * 96
         // scrshiftx = deltaX << 8 (8.8 fixed point)
-        // d4 = scrshiftx * 96 = deltaX * 96 * 256 = deltaX * 24576
-        bg1XPos += (long) deltaX * 24576;
+        // d4 = scrshiftx * 96 = deltaX * 96 * 256
+        bg3XPos += (long) deltaX * 24576;
 
-        // ScrollBlock4: bg2XPos += scrshiftx * 128
+        // BGScroll_Block2: bg2screenposx += scrshiftx * 128
         // d0 = scrshiftx << 7 = deltaX * 128 * 256 = deltaX * 32768
         bg2XPos += (long) deltaX * 32768;
 
+        // GHZ auto-scroll clouds (JP1 Deform_GHZ behavior):
+        // +0x10000/frame, +0xC000/frame, +0x8000/frame.
+        cloudLayer1Counter += 0x00010000;
+        cloudLayer2Counter += 0x0000C000;
+        cloudLayer3Counter += 0x00008000;
+
         // Extract integer pixel positions (high word of 16.16)
-        int bg1X = (int) (bg1XPos >> 16);
+        int bg3X = (int) (bg3XPos >> 16);
         int bg2X = (int) (bg2XPos >> 16);
 
-        // bg2screenposy = 0x26 - (screenposy & 0x7FF) >> 5
-        int bg2Y = 0x26 - ((cameraY & 0x7FF) >> 5);
-        vscrollFactorBG = (short) bg2Y;
-
-        // d4 in the disassembly is bg2screenposy, used to split sections
-        int d4 = bg2Y;
+        // d4 = max(0, 0x20 - ((screenposy & 0x7FF) >> 5))
+        int d4 = 0x20 - ((cameraY & 0x7FF) >> 5);
+        if (d4 < 0) {
+            d4 = 0;
+        }
+        vscrollFactorBG = (short) d4;
 
         // FG scroll = -screenposx (constant for all lines)
         short fgScroll = negWord(cameraX);
 
         int lineIndex = 0;
 
-        // ==================== Section 1: Sky/BG1 ====================
-        // (0x70 - d4) lines with BG = -bg1X
-        int section1Count = 0x70 - d4;
-        if (section1Count > 0) {
-            short bgScroll = negWord(bg1X);
-            int packed = packScrollWords(fgScroll, bgScroll);
-            trackOffset(fgScroll, bgScroll);
-            int limit = Math.min(VISIBLE_LINES, lineIndex + section1Count);
-            for (; lineIndex < limit; lineIndex++) {
-                horizScrollBuf[lineIndex] = packed;
-            }
-        }
+        // ==================== Cloud + mountain bands ====================
+        short cloud1Offset = (short) (cloudLayer1Counter >> 16);
+        short cloud2Offset = (short) (cloudLayer2Counter >> 16);
+        short cloud3Offset = (short) (cloudLayer3Counter >> 16);
+
+        // Upper clouds: 32-d4 lines
+        lineIndex = fillBand(horizScrollBuf, lineIndex, Math.max(0, 0x20 - d4), fgScroll,
+                negWord(bg3X + cloud1Offset));
+        // Middle clouds: 16 lines
+        lineIndex = fillBand(horizScrollBuf, lineIndex, 16, fgScroll, negWord(bg3X + cloud2Offset));
+        // Lower clouds: 16 lines
+        lineIndex = fillBand(horizScrollBuf, lineIndex, 16, fgScroll, negWord(bg3X + cloud3Offset));
+        // Mountains: 48 lines
+        lineIndex = fillBand(horizScrollBuf, lineIndex, 48, fgScroll, negWord(bg3X));
 
         // ==================== Section 2: BG2 (distant hills) ====================
         // 40 lines (0x28) with BG = -bg2X
@@ -121,19 +132,19 @@ public class SwScrlGhz implements ZoneScrollHandler {
         }
 
         // ==================== Section 3: Perspective interpolation ====================
-        // (0x48 + d4) lines, interpolating from bg2X to (cameraX - 0x200)
+        // (0x48 + d4) lines, interpolating from bg2X to cameraX
         // over 0x68 (104) conceptual divisions.
         //
-        // From disassembly:
-        //   d2 = (screenposx - 0x200) - bg2screenposx (distance to interpolate)
+        // From disassembly (REV01):
+        //   d2 = screenposx - bg2screenposx (distance to interpolate)
         //   increment = (d2 << 8) / 0x68 << 8 (16.16 fixed point per line)
         //   start = bg2screenposx (16.16)
         int section3Count = 0x48 + d4;
         if (section3Count > 0 && lineIndex < VISIBLE_LINES) {
             // Start value: bg2screenposx (negated for scroll direction)
             int startVal = bg2X;
-            // End value: screenposx - 0x200
-            int endVal = cameraX - 0x200;
+            // End value: screenposx (REV01)
+            int endVal = cameraX;
 
             // Calculate per-line increment in 16.16 fixed point
             int diff = endVal - startVal;
@@ -161,6 +172,19 @@ public class SwScrlGhz implements ZoneScrollHandler {
                 currentVal += increment16;
             }
         }
+    }
+
+    private int fillBand(int[] horizScrollBuf, int lineIndex, int lineCount, short fgScroll, short bgScroll) {
+        if (lineCount <= 0 || lineIndex >= VISIBLE_LINES) {
+            return lineIndex;
+        }
+        int packed = packScrollWords(fgScroll, bgScroll);
+        trackOffset(fgScroll, bgScroll);
+        int limit = Math.min(VISIBLE_LINES, lineIndex + lineCount);
+        for (; lineIndex < limit; lineIndex++) {
+            horizScrollBuf[lineIndex] = packed;
+        }
+        return lineIndex;
     }
 
     private void trackOffset(short fgScroll, short bgScroll) {
