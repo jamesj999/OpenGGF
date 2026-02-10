@@ -20,7 +20,8 @@ import static uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.*;
  *
  * Layout format: Enigma-compressed layouts decompress to big-endian 16-bit words.
  * The low byte of each word is the block ID. The decompressed data is 0x40 bytes
- * wide; SS_Load copies it into a 0x80-stride buffer (0x40 data + 0x40 padding per row).
+ * wide; SS_Load copies it into v_ssblockbuffer, which starts at offset 0x1020 inside
+ * the 0x4000-byte v_ssbuffer1 RAM window.
  */
 public class Sonic1SpecialStageDataLoader {
     private static final Logger LOGGER = Logger.getLogger(Sonic1SpecialStageDataLoader.class.getName());
@@ -54,8 +55,7 @@ public class Sonic1SpecialStageDataLoader {
     }
 
     /**
-     * Gets the layout for a stage, formatted as a 0x80-stride buffer.
-     * Each row has 0x40 bytes of block IDs followed by 0x40 bytes of zero padding.
+     * Gets the layout for a stage in special-stage RAM layout format.
      */
     public byte[] getStageLayout(int stageIndex) throws IOException {
         if (stageLayouts == null) {
@@ -246,16 +246,18 @@ public class Sonic1SpecialStageDataLoader {
             enigmaOutput = EnigmaReader.decompress(channel, 0);
         }
 
-        // ROM path (SS_Load): copy first $1000 bytes into a 64x64 block buffer
-        // with $80 stride ($40 data + $40 padding) per row.
+        // ROM path (SS_Load):
+        // 1) clear v_ssbuffer1..v_ssbuffer2 (0x4000 bytes)
+        // 2) copy $1000 bytes from v_ssbuffer2 into v_ssblockbuffer
+        //    with $80 stride and $40-byte row padding.
         final int sourceBytesToCopy = 0x1000;
-        final int rows = sourceBytesToCopy / SS_LAYOUT_COLS; // 64 rows
-        byte[] buffer = new byte[rows * SS_LAYOUT_STRIDE];
+        final int rows = SS_BLOCKBUFFER_ROWS;
+        byte[] buffer = new byte[SS_LAYOUT_RAM_SIZE];
 
         int bytesAvailable = Math.min(sourceBytesToCopy, enigmaOutput.length);
         for (int row = 0; row < rows; row++) {
             int srcOff = row * SS_LAYOUT_COLS;
-            int dstOff = row * SS_LAYOUT_STRIDE;
+            int dstOff = SS_BLOCKBUFFER_OFFSET + row * SS_LAYOUT_STRIDE;
             if (srcOff >= bytesAvailable) {
                 break;
             }
@@ -265,8 +267,8 @@ public class Sonic1SpecialStageDataLoader {
 
         LOGGER.fine("SS layout " + (stageIndex + 1) + ": decompressed=" + enigmaOutput.length +
                 " bytes, copied=" + bytesAvailable +
-                " bytes into " + rows + "x" + SS_LAYOUT_COLS +
-                " (stride " + SS_LAYOUT_STRIDE + ")");
+                " bytes into blockbuffer@" + Integer.toHexString(SS_BLOCKBUFFER_OFFSET) +
+                " (" + rows + "x" + SS_LAYOUT_COLS + ", stride " + SS_LAYOUT_STRIDE + ")");
         return buffer;
     }
 

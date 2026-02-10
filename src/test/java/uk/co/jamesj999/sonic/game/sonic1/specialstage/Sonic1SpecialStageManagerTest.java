@@ -70,4 +70,36 @@ public class Sonic1SpecialStageManagerTest {
             assertNotNull("Pattern atlas entry missing for zone " + (i + 1) + " base " + base, entry);
         }
     }
+
+    @Test
+    public void testInitialDrawRendersStageBlocks() throws Exception {
+        manager.initialize(0);
+        manager.draw();
+
+        Field rendererField = Sonic1SpecialStageManager.class.getDeclaredField("renderer");
+        rendererField.setAccessible(true);
+        Sonic1SpecialStageRenderer renderer = (Sonic1SpecialStageRenderer) rendererField.get(manager);
+        assertNotNull("Renderer should be created during initialization", renderer);
+
+        assertTrue("Special stage should render at least one block on first draw",
+                renderer.getLastRenderedBlocks() > 0);
+        assertTrue("Special stage should detect valid block cells on first draw",
+                renderer.getLastValidBlockCells() > 0);
+    }
+
+    @Test
+    public void testUpdateDoesNotRunAwayFromSpawnImmediately() throws Exception {
+        manager.initialize(0);
+        for (int i = 0; i < 120; i++) {
+            manager.update();
+        }
+        manager.draw();
+
+        Field rendererField = Sonic1SpecialStageManager.class.getDeclaredField("renderer");
+        rendererField.setAccessible(true);
+        Sonic1SpecialStageRenderer renderer = (Sonic1SpecialStageRenderer) rendererField.get(manager);
+        assertNotNull("Renderer should be created during initialization", renderer);
+        assertTrue("Special stage should still render blocks after updates",
+                renderer.getLastRenderedBlocks() > 0);
+    }
 }
