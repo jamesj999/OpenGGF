@@ -155,6 +155,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load swinging platform art (zone-dependent: GHZ/MZ, SLZ, SBZ, GHZ giant ball)
         loadSwingingPlatformArt(rom, zoneIndex);
 
+        // Load hidden bonus art (end-of-act point popups, all zones)
+        loadHiddenBonusArt(rom);
+
         // Load prison capsule art (all zones - appears in every boss act)
         loadPrisonArt(rom);
 
@@ -2522,6 +2525,64 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 new SpriteMappingPiece( 0x00, -0x20, 4, 4, 0x44, true,  false, 1, false),
                 new SpriteMappingPiece(-0x20,  0x00, 4, 4, 0x44, false, true,  1, false),
                 new SpriteMappingPiece( 0x00,  0x00, 4, 4, 0x44, true,  true,  1, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads hidden bonus point popup art (Nem_Bonus) and creates mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/7D Hidden Bonuses.asm:
+     * make_art_tile(ArtTile_Hidden_Points,0,1) — palette line 0, priority bit set.
+     * <p>
+     * Mappings from docs/s1disasm/_maps/Hidden Bonuses.asm (Map_Bonus_internal):
+     * <ul>
+     *   <li>Frame 0: .blank — 0 pieces (no rendering)</li>
+     *   <li>Frame 1: ._10000 — 1 piece, 4x3 (32x24), pattern $00, at (-$10, -$C)</li>
+     *   <li>Frame 2: ._1000 — 1 piece, 4x3 (32x24), pattern $0C, at (-$10, -$C)</li>
+     *   <li>Frame 3: ._100 — 1 piece, 4x3 (32x24), pattern $18, at (-$10, -$C)</li>
+     * </ul>
+     */
+    private void loadHiddenBonusArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_HIDDEN_BONUS_ADDR, "HiddenBonus");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load hidden bonus art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createHiddenBonusMappings();
+        // make_art_tile(ArtTile_Hidden_Points, 0, 1) — palette 0, priority set
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.HIDDEN_BONUS, sheet);
+    }
+
+    /**
+     * Creates hidden bonus sprite mappings from S1 disassembly Map_Bonus_internal.
+     * <p>
+     * S1 5-byte piece format: y_offset, size, pattern_word, x_offset.
+     * Size 0x05 = 2x2 (16x16 pixels).
+     */
+    private List<SpriteMappingFrame> createHiddenBonusMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .blank — 0 pieces (empty, used for subtype 0 = 0 points)
+        frames.add(new SpriteMappingFrame(List.of()));
+
+        // Frame 1: ._10000 — spritePiece -$10, -$C, 4, 3, 0, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x0C, 4, 3, 0x00, false, false, 0, false)
+        )));
+
+        // Frame 2: ._1000 — spritePiece -$10, -$C, 4, 3, $C, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x0C, 4, 3, 0x0C, false, false, 0, false)
+        )));
+
+        // Frame 3: ._100 — spritePiece -$10, -$C, 4, 3, $18, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x0C, 4, 3, 0x18, false, false, 0, false)
         )));
 
         return frames;

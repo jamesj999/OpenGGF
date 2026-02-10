@@ -95,6 +95,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1WaterfallSoundObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GIANT_RING,
                 (spawn, registry) -> new Sonic1GiantRingObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.HIDDEN_BONUS,
+                (spawn, registry) -> new Sonic1HiddenBonusObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GHZ_BOSS,
                 (spawn, registry) -> new Sonic1GHZBossInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.EGG_PRISON, (spawn, registry) -> {
@@ -146,6 +148,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.ORBINAUT -> "Orbinaut";
             case Sonic1ObjectIds.CATERKILLER -> "Caterkiller";
             case Sonic1ObjectIds.LAMPPOST -> "Lamppost";
+            case Sonic1ObjectIds.HIDDEN_BONUS -> "HiddenBonus";
             default -> String.format("S1_Obj_%02X", objectId & 0xFF);
         };
     }
