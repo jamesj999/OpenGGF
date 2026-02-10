@@ -30,6 +30,8 @@ public class ParallaxShaderProgram {
     private int vScrollLocation = -1;
     private int viewportOffsetXLocation = -1;
     private int viewportOffsetYLocation = -1;
+    private int backdropColorLocation = -1;
+    private int fillTransparentWithBackdropLocation = -1;
 
     private static final String FULLSCREEN_VERTEX_SHADER = "shaders/shader_fullscreen.vert";
 
@@ -86,6 +88,8 @@ public class ParallaxShaderProgram {
         vScrollLocation = glGetUniformLocation(programId, "VScroll");
         viewportOffsetXLocation = glGetUniformLocation(programId, "ViewportOffsetX");
         viewportOffsetYLocation = glGetUniformLocation(programId, "ViewportOffsetY");
+        backdropColorLocation = glGetUniformLocation(programId, "BackdropColor");
+        fillTransparentWithBackdropLocation = glGetUniformLocation(programId, "FillTransparentWithBackdrop");
 
         uniformsCached = true;
     }
@@ -170,6 +174,18 @@ public class ParallaxShaderProgram {
         }
         if (viewportOffsetYLocation >= 0) {
             glUniform1f(viewportOffsetYLocation, offsetY);
+        }
+    }
+
+    public void setBackdropColor(float r, float g, float b) {
+        if (backdropColorLocation >= 0) {
+            glUniform3f(backdropColorLocation, r, g, b);
+        }
+    }
+
+    public void setFillTransparentWithBackdrop(boolean fill) {
+        if (fillTransparentWithBackdropLocation >= 0) {
+            glUniform1f(fillTransparentWithBackdropLocation, fill ? 1.0f : 0.0f);
         }
     }
 

@@ -84,6 +84,25 @@ public class Sonic2SpecialStageProvider implements SpecialStageProvider {
         manager.setEmeraldCollected(collected);
     }
 
+    @Override
+    public int getDebugCompletionRingCount(int stageIndex) {
+        // Ring requirements at final checkpoint (checkpoint 3) for each stage
+        // From s2.asm Ring_Requirement_Table (solo mode)
+        int[][] requirements = {
+                { 30, 60, 90, 120 },   // Stage 1
+                { 40, 80, 120, 160 },   // Stage 2
+                { 50, 100, 140, 180 },  // Stage 3
+                { 50, 100, 140, 180 },  // Stage 4
+                { 60, 110, 160, 200 },  // Stage 5
+                { 70, 120, 180, 220 },  // Stage 6
+                { 80, 140, 200, 240 }   // Stage 7
+        };
+        if (stageIndex >= 0 && stageIndex < requirements.length) {
+            return requirements[stageIndex][3];
+        }
+        return 100;
+    }
+
     // ==================== Debug Methods ====================
 
     @Override

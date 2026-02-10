@@ -173,6 +173,12 @@ public final class Sonic1SpecialStageManager {
         // Initialize subsystems
         Rom rom = GameServices.rom().getRom();
         this.graphicsManager = GraphicsManager.getInstance();
+        this.graphicsManager.setUseWaterShader(false);
+        this.graphicsManager.setUseSpritePriorityShader(false);
+        this.graphicsManager.setCurrentSpriteHighPriority(false);
+        this.graphicsManager.setWaterEnabled(false);
+        // Special stages always use their own palette; avoid stale underwater tint state.
+        this.graphicsManager.setUseUnderwaterPaletteForBackground(false);
         this.dataLoader = new Sonic1SpecialStageDataLoader(rom);
         this.renderer = new Sonic1SpecialStageRenderer(graphicsManager);
 
@@ -221,7 +227,7 @@ public final class Sonic1SpecialStageManager {
         ringAnimFrame = 0;
         ringAnimTimer = 0;
         wallVramAnimFrame = 0;
-        wallVramAnimTimer = 7;
+        wallVramAnimTimer = 0;
         ssAnimBuffer = new int[SS_ANIM_BUFFER_SIZE][4];
         ssAnimGlassFinalBlock = new int[SS_ANIM_BUFFER_SIZE];
         sonicAnimId = Sonic1AnimationIds.ROLL;
@@ -240,9 +246,9 @@ public final class Sonic1SpecialStageManager {
 
         // Initialize GOAL/UP/DOWN/emerald and glass animation counters (SS_AniWallsRings ani2, ani3)
         ani2Frame = 0;
-        ani2Timer = 7;
+        ani2Timer = 0;
         ani3Frame = 0;
-        ani3Timer = 4;
+        ani3Timer = 0;
 
         // Clear input
         heldButtons = 0;
@@ -902,10 +908,10 @@ public final class Sonic1SpecialStageManager {
         // Wall rotation frame from angle
         wallRotFrame = Sonic1SpecialStageBlockType.getWallRotationFrame(ssAngle);
 
-        // Ring animation: 4-frame spin cycle at 8 frames per step (0-3 only; 4-7 are sparkle)
-        ringAnimTimer++;
-        if (ringAnimTimer >= 8) {
-            ringAnimTimer = 0;
+        // Ring animation (ROM ani1): timer counts down, wraps to 7, frame advances 0..3.
+        ringAnimTimer--;
+        if (ringAnimTimer < 0) {
+            ringAnimTimer = 7;
             ringAnimFrame = (ringAnimFrame + 1) & 0x3;
         }
 
@@ -1251,6 +1257,7 @@ public final class Sonic1SpecialStageManager {
         if ((d0 & 0x80) == 0) {
             writePaletteBytes(ssPaletteCycle1, d0, 0x4E, 12, touched);
             recacheTouchedPalettes(touched);
+            markBackgroundLayersDirtyIfPaletteTouched(touched);
             return;
         }
 
@@ -1279,6 +1286,29 @@ public final class Sonic1SpecialStageManager {
         src += idx * 3;
         writePaletteBytes(ssPaletteCycle2, src, dest, 6, touched);
         recacheTouchedPalettes(touched);
+        markBackgroundLayersDirtyIfPaletteTouched(touched);
+    }
+
+    private void markBackgroundLayersDirtyIfPaletteTouched(boolean[] touchedLines) {
+        if (touchedLines == null) {
+            return;
+        }
+        boolean touched = false;
+        for (boolean lineTouched : touchedLines) {
+            if (lineTouched) {
+                touched = true;
+                break;
+            }
+        }
+        if (!touched) {
+            return;
+        }
+        if (bgRenderer != null) {
+            bgRenderer.markDirty();
+        }
+        if (fgRenderer != null) {
+            fgRenderer.markDirty();
+        }
     }
 
     /**
@@ -1496,10 +1526,12 @@ public final class Sonic1SpecialStageManager {
             bgRenderer.init();
             bgRenderer.setPatternBases(bgCloudBase, bgFishBase);
             bgRenderer.setTilemap(bgPlane6Tilemap); // BG starts on plane 6.
+            bgRenderer.setFillTransparentWithBackdrop(true);
 
             fgRenderer = new Sonic1SpecialStageBackgroundRenderer();
             fgRenderer.init();
             fgRenderer.setPatternBases(bgCloudBase, bgFishBase);
+            fgRenderer.setFillTransparentWithBackdrop(false);
             if (fgPlaneTilemaps != null && fgPlaneTilemaps.length > 0) {
                 fgRenderer.setTilemap(fgPlaneTilemaps[0]); // FG starts on plane 1.
             }
@@ -1517,11 +1549,26 @@ public final class Sonic1SpecialStageManager {
         if (!initialized || renderer == null || layout == null) {
             return;
         }
+        graphicsManager.setUseWaterShader(false);
+        graphicsManager.setUseSpritePriorityShader(false);
+        graphicsManager.setCurrentSpriteHighPriority(false);
+        graphicsManager.setWaterEnabled(false);
+        graphicsManager.setUseUnderwaterPaletteForBackground(false);
 
-        // Update fallback background color from palette (CRAM[0] equivalent)
+        // Update backdrop color from palette (CRAM[0] equivalent)
         Palette.Color backdrop = getBackdropColor();
+        float bdR = 0, bdG = 0, bdB = 0;
         if (backdrop != null) {
-            renderer.setBackdropColor(backdrop.rFloat(), backdrop.gFloat(), backdrop.bFloat());
+            bdR = backdrop.rFloat();
+            bdG = backdrop.gFloat();
+            bdB = backdrop.bFloat();
+            renderer.setBackdropColor(bdR, bdG, bdB);
+            if (bgRenderer != null) {
+                bgRenderer.setBackdropColor(bdR, bdG, bdB);
+            }
+            if (fgRenderer != null) {
+                fgRenderer.setBackdropColor(bdR, bdG, bdB);
+            }
         }
 
         if (bgRenderer != null && bgRenderer.isInitialized()
@@ -1623,6 +1670,7 @@ public final class Sonic1SpecialStageManager {
     }
 
     public void reset() {
+        GraphicsManager gm = graphicsManager;
         if (bgRenderer != null) {
             bgRenderer.cleanup();
             bgRenderer = null;
@@ -1642,7 +1690,6 @@ public final class Sonic1SpecialStageManager {
         layout = null;
         dataLoader = null;
         renderer = null;
-        graphicsManager = null;
         sonicSpriteRenderer = null;
         sonicSpriteFrame = 0;
         sonicRollScript = null;
@@ -1680,6 +1727,14 @@ public final class Sonic1SpecialStageManager {
         ani3Timer = 0;
         heldButtons = 0;
         pressedButtons = 0;
+        if (gm != null) {
+            gm.setUseWaterShader(false);
+            gm.setUseSpritePriorityShader(false);
+            gm.setCurrentSpriteHighPriority(false);
+            gm.setWaterEnabled(false);
+            gm.setUseUnderwaterPaletteForBackground(false);
+        }
+        graphicsManager = null;
     }
 
     public boolean isInitialized() {

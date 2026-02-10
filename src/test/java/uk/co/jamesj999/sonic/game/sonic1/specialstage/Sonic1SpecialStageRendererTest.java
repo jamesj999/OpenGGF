@@ -99,6 +99,8 @@ public class Sonic1SpecialStageRendererTest {
     public void testSpecialStageUsesFullScreenViewport() {
         assertEquals("S1 special stage should use full-width viewport",
                 320, Sonic1SpecialStageRenderer.H32_WIDTH);
+        assertEquals("S1 special stage should use 224-line visible height",
+                224, Sonic1SpecialStageRenderer.H32_HEIGHT);
         assertEquals("S1 special stage should not apply horizontal centering offset",
                 0, Sonic1SpecialStageRenderer.SCREEN_CENTER_OFFSET);
     }

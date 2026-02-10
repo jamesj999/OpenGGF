@@ -33,6 +33,8 @@ uniform float VScrollBG;
 // Viewport offset for letterboxing (accounts for window position)
 uniform float ViewportOffsetX;
 uniform float ViewportOffsetY;
+uniform vec3 BackdropColor;
+uniform float FillTransparentWithBackdrop;
 
 const float SCREEN_GAME_WIDTH = 320.0;
 const float SCREEN_GAME_HEIGHT = 224.0;
@@ -102,9 +104,14 @@ void main()
     // Sample the background texture
     vec4 color = texture(BackgroundTexture, vec2(texU, texV));
 
-    // Alpha test - discard transparent pixels
+    // Alpha test / backdrop fill
     if (color.a < 0.1) {
-        discard;
+        if (FillTransparentWithBackdrop > 0.5) {
+            FragColor = vec4(BackdropColor, 1.0);
+        } else {
+            discard;
+        }
+        return;
     }
 
     FragColor = color;

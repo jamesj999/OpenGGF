@@ -35,6 +35,7 @@ public class Sonic1SpecialStageRenderer {
 
     // Grid display size (16x16 blocks visible at once)
     private static final int GRID_SIZE = 16;
+    private static final int SPRITE_CULL_MARGIN = 16;
 
     // VDP coordinate offsets from SS_ShowLayout
     private static final int VDP_OFFSET_X = 0x120; // 288
@@ -303,11 +304,10 @@ public class Sonic1SpecialStageRenderer {
                 int sx = screenPositions[posIdx++];
                 int sy = screenPositions[posIdx++];
 
-                // Bounds check (from SS_ShowLayout: check against $70..$1D0 for x, $70..$170 for y)
-                // Converting from VDP coords to screen: subtract VDP_BASE=128
-                // Original bounds: x=$70..$1D0 (screen -48..336), y=$70..$170 (screen -48..240)
-                // We use slightly wider bounds to avoid pop-in
-                if (sx < -48 || sx >= H32_WIDTH + 48 || sy < -48 || sy >= H32_HEIGHT + 48) {
+                // SS_ShowLayout culls at VDP x=$70..$1CF and y=$70..$16F.
+                // Converted to screen space this is a 16px margin around 320x224.
+                if (sx < -SPRITE_CULL_MARGIN || sx >= H32_WIDTH + SPRITE_CULL_MARGIN ||
+                        sy < -SPRITE_CULL_MARGIN || sy >= H32_HEIGHT + SPRITE_CULL_MARGIN) {
                     continue;
                 }
 
