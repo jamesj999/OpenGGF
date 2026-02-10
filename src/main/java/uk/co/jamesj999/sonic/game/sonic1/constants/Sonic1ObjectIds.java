@@ -28,12 +28,14 @@ public final class Sonic1ObjectIds {
     public static final int SPIKES          = 0x36;
     public static final int ROCK            = 0x3B;
     public static final int BREAKABLE_WALL  = 0x3C;
+    public static final int GHZ_BOSS        = 0x3D;
     public static final int EGG_PRISON      = 0x3E;
     public static final int MOTOBUG         = 0x40;
     public static final int SPRING          = 0x41;
     public static final int EDGE_WALLS      = 0x44;
     public static final int NEWTRON         = 0x42;
     public static final int BUMPER          = 0x47;
+    public static final int BOSS_BALL       = 0x48;
     public static final int WATERFALL_SOUND = 0x49;
     public static final int GIANT_RING      = 0x4B;
     public static final int YADRIN          = 0x50;

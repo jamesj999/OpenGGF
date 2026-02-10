@@ -155,6 +155,11 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load swinging platform art (zone-dependent: GHZ/MZ, SLZ, SBZ, GHZ giant ball)
         loadSwingingPlatformArt(rom, zoneIndex);
 
+        // Load boss art (GHZ: Eggman, weapons/chain anchor, exhaust flame)
+        if (zoneIndex == Sonic1Constants.ZONE_GHZ) {
+            loadBossArt(rom);
+        }
+
         loaded = true;
         LOGGER.info("Sonic1ObjectArtProvider loaded: digits=" +
                 (hudDigitPatterns != null ? hudDigitPatterns.length : 0) +
@@ -2732,6 +2737,70 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         )));
 
         return frames;
+    }
+
+    /**
+     * Loads boss art for GHZ: Eggman ship/face/flame, boss weapons (chain anchor),
+     * and exhaust flame for escape sequence.
+     * ROM: Nem_Eggman, Nem_Weapons, Nem_Exhaust.
+     */
+    private void loadBossArt(Rom rom) {
+        // Nem_Eggman: Main Eggman art (ship body, face variants, flames)
+        Pattern[] eggmanPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_EGGMAN_ADDR, "Eggman");
+
+        // Nem_Exhaust: Boss exhaust/escape flame (ArtTile_Eggman_Exhaust = ArtTile_Eggman + $12A)
+        // Escape flame frames 11-12 in Eggman mappings reference tiles $12A+.
+        // Merge exhaust patterns into the Eggman array at offset $12A so a single
+        // renderer can draw all frames including escape flames.
+        Pattern[] exhaustPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_BOSS_EXHAUST_ADDR, "BossExhaust");
+
+        if (eggmanPatterns.length > 0) {
+            // Merge: place exhaust patterns at offset $12A in a combined array
+            int exhaustOffset = 0x12A; // ArtTile_Eggman_Exhaust - ArtTile_Eggman
+            int mergedLength = Math.max(eggmanPatterns.length,
+                    exhaustOffset + exhaustPatterns.length);
+            Pattern[] mergedPatterns = java.util.Arrays.copyOf(eggmanPatterns, mergedLength);
+            for (int i = 0; i < exhaustPatterns.length; i++) {
+                mergedPatterns[exhaustOffset + i] = exhaustPatterns[i];
+            }
+
+            // Eggman uses make_art_tile(ArtTile_Eggman, 0, 0) — palette line 0
+            // Ship body pieces use palette 1, face pieces use palette 0
+            // (palette per-piece is encoded in the mappings)
+            List<SpriteMappingFrame> mappings =
+                    uk.co.jamesj999.sonic.game.sonic1.objects.bosses.GHZBossMappings.createEggmanMappings();
+            ObjectSpriteSheet sheet = new ObjectSpriteSheet(mergedPatterns, mappings, 0, mappings.size());
+            registerSheet(ObjectArtKeys.EGGMAN, sheet);
+        }
+
+        // Nem_Weapons: Boss weapons art (chain anchor frames for ball/chain)
+        Pattern[] weaponsPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_BOSS_WEAPONS_ADDR, "BossWeapons");
+        if (weaponsPatterns.length > 0) {
+            List<SpriteMappingFrame> mappings =
+                    uk.co.jamesj999.sonic.game.sonic1.objects.bosses.GHZBossMappings.createBossItemsMappings();
+            ObjectSpriteSheet sheet = new ObjectSpriteSheet(weaponsPatterns, mappings, 0, mappings.size());
+            registerSheet(ObjectArtKeys.BOSS_WEAPONS, sheet);
+        }
+
+        // GHZ Ball art (Nem_Ball) is already loaded by loadSwingingPlatformArt as SWING_GIANT_BALL.
+        // The boss ball uses the same art with make_art_tile(ArtTile_GHZ_Giant_Ball, 2, 0).
+        // Register an alias so boss code can find it under BOSS_BALL key too.
+        ObjectSpriteSheet ballSheet = sheets.get(ObjectArtKeys.SWING_GIANT_BALL);
+        if (ballSheet != null) {
+            registerSheet(ObjectArtKeys.BOSS_BALL, ballSheet);
+        }
+
+        // Boss defeat explosions use getBossExplosionRenderer() which looks for the S2 key.
+        // Register S1's standard explosion art under that key so BossExplosionObjectInstance works.
+        // S1 explosion has 5 frames (vs S2's 7); frames 5-6 will be no-ops (graceful bounds check).
+        ObjectSpriteSheet explosionSheet = sheets.get(ObjectArtKeys.EXPLOSION);
+        if (explosionSheet != null) {
+            registerSheet(uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys.BOSS_EXPLOSION,
+                    explosionSheet);
+        }
     }
 
     private void registerSheet(String key, ObjectSpriteSheet sheet) {

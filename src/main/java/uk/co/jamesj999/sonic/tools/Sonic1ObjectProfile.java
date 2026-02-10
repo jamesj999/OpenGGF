@@ -63,7 +63,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.MOTOBUG,
             Sonic1ObjectIds.NEWTRON,
             Sonic1ObjectIds.WATERFALL_SOUND,
-            Sonic1ObjectIds.GIANT_RING
+            Sonic1ObjectIds.GIANT_RING,
+            Sonic1ObjectIds.GHZ_BOSS
     );
 
     private static final Set<Integer> BADNIK_IDS = Set.of(
@@ -81,7 +82,9 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.CATERKILLER
     );
 
-    private static final Set<Integer> BOSS_IDS = Set.of();
+    private static final Set<Integer> BOSS_IDS = Set.of(
+            Sonic1ObjectIds.GHZ_BOSS
+    );
 
     private static final Map<String, List<DynamicBoss>> DYNAMIC_BOSSES = Map.of();
 
@@ -109,12 +112,14 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.SPIKES, List.of("Spikes"));
         map.put(Sonic1ObjectIds.ROCK, List.of("Rock"));
         map.put(Sonic1ObjectIds.BREAKABLE_WALL, List.of("BreakableWall"));
+        map.put(Sonic1ObjectIds.GHZ_BOSS, List.of("GHZBoss"));
         map.put(Sonic1ObjectIds.EGG_PRISON, List.of("EggPrison"));
         map.put(Sonic1ObjectIds.MOTOBUG, List.of("Motobug"));
         map.put(Sonic1ObjectIds.SPRING, List.of("Spring"));
         map.put(Sonic1ObjectIds.EDGE_WALLS, List.of("EdgeWalls"));
         map.put(Sonic1ObjectIds.NEWTRON, List.of("Newtron"));
         map.put(Sonic1ObjectIds.BUMPER, List.of("Bumper"));
+        map.put(Sonic1ObjectIds.BOSS_BALL, List.of("BossBall"));
         map.put(Sonic1ObjectIds.WATERFALL_SOUND, List.of("WaterfallSound"));
         map.put(Sonic1ObjectIds.GIANT_RING, List.of("GiantRing"));
         map.put(Sonic1ObjectIds.YADRIN, List.of("Yadrin"));

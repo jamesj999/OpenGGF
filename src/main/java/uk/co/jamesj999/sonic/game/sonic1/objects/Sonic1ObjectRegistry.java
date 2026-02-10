@@ -6,6 +6,7 @@ import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1ChopperBadnikInst
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1CrabmeatBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1MotobugBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1NewtronBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1GHZBossInstance;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectFactory;
 import uk.co.jamesj999.sonic.level.objects.ObjectInstance;
@@ -94,6 +95,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1WaterfallSoundObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GIANT_RING,
                 (spawn, registry) -> new Sonic1GiantRingObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.GHZ_BOSS,
+                (spawn, registry) -> new Sonic1GHZBossInstance(spawn, LevelManager.getInstance()));
     }
 
     @Override
@@ -118,12 +121,14 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.SPIKES -> "Spikes";
             case Sonic1ObjectIds.ROCK -> "Rock";
             case Sonic1ObjectIds.BREAKABLE_WALL -> "BreakableWall";
+            case Sonic1ObjectIds.GHZ_BOSS -> "GHZBoss";
             case Sonic1ObjectIds.EGG_PRISON -> "EggPrison";
             case Sonic1ObjectIds.MOTOBUG -> "Motobug";
             case Sonic1ObjectIds.SPRING -> "Spring";
             case Sonic1ObjectIds.EDGE_WALLS -> "EdgeWalls";
             case Sonic1ObjectIds.NEWTRON -> "Newtron";
             case Sonic1ObjectIds.BUMPER -> "Bumper";
+            case Sonic1ObjectIds.BOSS_BALL -> "BossBall";
             case Sonic1ObjectIds.WATERFALL_SOUND -> "WaterfallSound";
             case Sonic1ObjectIds.GIANT_RING -> "GiantRing";
             case Sonic1ObjectIds.YADRIN -> "Yadrin";
