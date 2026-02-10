@@ -946,13 +946,14 @@ public final class Sonic1SpecialStageManager {
     // ---- Art Loading ----
 
     private void loadPalette() throws IOException {
-        // Verify PAL_SS_ADDR against palette table (palid_Special = index 10)
+        // Resolve the Special Stage palette entry in a ROM-revision-safe way.
+        // REV00: Sonic=3, Special=10. REV01 shifts both down by 1.
         Rom rom = GameServices.rom().getRom();
-        int verifiedAddr = rom.read32BitAddr(PALETTE_TABLE_ADDR + 10 * 8) & 0x00FFFFFF;
+        int verifiedAddr = resolveSpecialPaletteAddress(rom);
         if (verifiedAddr != PAL_SS_ADDR) {
-            LOGGER.warning("PAL_SS_ADDR mismatch: constant=0x" + Integer.toHexString(PAL_SS_ADDR)
+            LOGGER.fine("PAL_SS_ADDR mismatch: constant=0x" + Integer.toHexString(PAL_SS_ADDR)
                     + ", palette table says=0x" + Integer.toHexString(verifiedAddr)
-                    + " — using verified address");
+                    + " - using verified address");
         }
 
         byte[] palData = dataLoader.getSSPalette(verifiedAddr);
@@ -972,6 +973,29 @@ public final class Sonic1SpecialStageManager {
         for (int i = 0; i < ssPalettes.length; i++) {
             graphicsManager.cachePaletteTexture(ssPalettes[i], i);
         }
+    }
+
+    private int resolveSpecialPaletteAddress(Rom rom) throws IOException {
+        final int disasmSonicPaletteId = 3;
+        final int disasmSpecialPaletteId = 10;
+        final int specialOffsetFromSonic = disasmSpecialPaletteId - disasmSonicPaletteId;
+        int sonicPaletteId = findSonicPaletteId(rom);
+        int specialPaletteId = sonicPaletteId + specialOffsetFromSonic;
+        return rom.read32BitAddr(PALETTE_TABLE_ADDR + specialPaletteId * 8) & 0x00FFFFFF;
+    }
+
+    private int findSonicPaletteId(Rom rom) throws IOException {
+        // Scan range that contains Sonic in both REV00 and REV01 tables.
+        for (int id = 2; id < 10; id++) {
+            int entryAddr = PALETTE_TABLE_ADDR + id * 8;
+            int dest = rom.read16BitAddr(entryAddr + 4) & 0xFFFF;
+            int countWord = rom.read16BitAddr(entryAddr + 6) & 0xFFFF;
+            int byteCount = (countWord + 1) * 4;
+            if (dest == 0xFB00 && byteCount == 32) {
+                return id;
+            }
+        }
+        return 3;
     }
 
     private void loadArt() throws IOException {
@@ -1562,13 +1586,13 @@ public final class Sonic1SpecialStageManager {
             bdR = backdrop.rFloat();
             bdG = backdrop.gFloat();
             bdB = backdrop.bFloat();
-            renderer.setBackdropColor(bdR, bdG, bdB);
-            if (bgRenderer != null) {
-                bgRenderer.setBackdropColor(bdR, bdG, bdB);
-            }
-            if (fgRenderer != null) {
-                fgRenderer.setBackdropColor(bdR, bdG, bdB);
-            }
+        }
+        renderer.setBackdropColor(bdR, bdG, bdB);
+        if (bgRenderer != null) {
+            bgRenderer.setBackdropColor(bdR, bdG, bdB);
+        }
+        if (fgRenderer != null) {
+            fgRenderer.setBackdropColor(bdR, bdG, bdB);
         }
 
         if (bgRenderer != null && bgRenderer.isInitialized()

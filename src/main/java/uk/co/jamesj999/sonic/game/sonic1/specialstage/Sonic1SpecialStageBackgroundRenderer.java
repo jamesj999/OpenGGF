@@ -11,7 +11,7 @@ import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
-import static org.lwjgl.opengl.GL14.GL_DEPTH_COMPONENT16;
+import static org.lwjgl.opengl.GL14.*;
 import static org.lwjgl.opengl.GL30.*;
 import static uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.ARTTILE_SS_BG_FISH;
 
@@ -20,7 +20,7 @@ import static uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.ARTTIL
  *
  * Renders the active SS namespace tilemap to an FBO (512x512, matching a 64x64 tile
  * VDP plane), then draws a fullscreen quad with the SS background shader
- * applying per-scanline H-scroll across the full 320x224 viewport.
+ * applying per-scanline H-scroll across the active game viewport.
  *
  * Modeled on the S2 {@code SpecialStageBackgroundRenderer} but with:
  * <ul>
