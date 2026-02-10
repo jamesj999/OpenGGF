@@ -247,9 +247,17 @@ public final class Sonic1Constants {
     // Nem_Sign: Nemesis-compressed signpost art (end-of-act sign, 58 tiles)
     public static final int ART_NEM_SIGNPOST_ADDR = 0x3A9E8;
 
+    // Nem_GhzWall1: Nemesis-compressed GHZ breakable wall art (ArtTile_GHZ_SLZ_Smashable_Wall = $50F)
+    // Verified by RomOffsetFinder --game s1 search GhzWall1 (157 bytes)
+    public static final int ART_NEM_GHZ_BREAKABLE_WALL_ADDR = 0x301E8;
+
     // Nem_GhzWall2: Nemesis-compressed GHZ edge wall art (ArtTile_GHZ_Edge_Wall = $34C)
     // Verified by RomOffsetFinder --game s1 search GhzWall (96 bytes)
     public static final int ART_NEM_GHZ_EDGE_WALL_ADDR = 0x30286;
+
+    // Nem_SlzWall: Nemesis-compressed SLZ breakable wall art (ArtTile_GHZ_SLZ_Smashable_Wall+4)
+    // Verified by RomOffsetFinder --game s1 search SlzWall (97 bytes)
+    public static final int ART_NEM_SLZ_BREAKABLE_WALL_ADDR = 0x33E22;
 
     // ---- Loop / Plane Switching ----
     // LoopTileNums table from Sonic_Loops (_incObj/01 Sonic.asm lines 1536-1611).

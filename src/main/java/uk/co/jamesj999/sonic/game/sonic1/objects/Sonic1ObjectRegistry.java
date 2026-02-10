@@ -74,6 +74,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1PlatformObjectInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.COLLAPSING_LEDGE,
                 (spawn, registry) -> new Sonic1CollapsingLedgeObjectInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.BREAKABLE_WALL,
+                (spawn, registry) -> new Sonic1BreakableWallObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.EDGE_WALLS,
                 (spawn, registry) -> new Sonic1EdgeWallObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.CHOPPER,

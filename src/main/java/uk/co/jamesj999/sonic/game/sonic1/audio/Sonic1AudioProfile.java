@@ -53,6 +53,7 @@ public class Sonic1AudioProfile implements GameAudioProfile {
         // GameSound.CNZ_LAUNCH - CNZ-specific, not in S1
         // GameSound.CNZ_ELEVATOR - CNZ-specific, not in S1
         // GameSound.SLOW_SMASH - special stage bomb, not in S1
+        map.put(GameSound.WALL_SMASH, Sonic1Sfx.WALL_SMASH.id);
         // GameSound.ERROR - no direct S1 equivalent
         // GameSound.CASINO_BONUS - CNZ-specific, not in S1
         SOUND_MAP = Collections.unmodifiableMap(map);
