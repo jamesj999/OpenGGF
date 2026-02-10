@@ -225,6 +225,8 @@ public class LevelEventManager implements LevelEventProvider {
     private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CNZBossInstance cnzBoss = null;
     // HTZ Act 2 boss reference
     private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2HTZBossInstance htzBoss = null;
+    // MCZ Act 2 boss reference
+    private uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2MCZBossInstance mczBoss = null;
     // CNZ Act 2 boss arena wall positions (for removal after defeat)
     // Layout offset calculation: offset / layoutWidth = y, offset % layoutWidth = x
     // ROM uses 256-wide layout, but we store the calculated x,y for flexibility
@@ -899,10 +901,103 @@ public class LevelEventManager implements LevelEventProvider {
     /**
      * Mystic Cave Zone events.
      * ROM: LevEvents_MCZ (s2.asm:20777-20851)
+     *
+     * Act 1: No dynamic events
+     * Act 2: Boss arena - camera lock, art load, boss spawn
      */
     private void updateMCZ() {
-        // MCZ has vertical section changes
-        // Implement as needed
+        if (currentAct == 0) {
+            // Act 1: No dynamic events (ROM: LevEvents_MCZ1 just returns)
+            return;
+        }
+
+        // Act 2: Boss arena setup
+        // ROM: LevEvents_MCZ2 (s2.asm:21384-21483)
+        switch (eventRoutine) {
+            case 0 -> {
+                // Routine 0 (s2.asm LevEvents_MCZ2_Routine1): Wait for camera X >= $2080
+                if (camera.getX() >= 0x2080) {
+                    // ROM: Set minX to current camera X (prevents backtracking)
+                    camera.setMinX(camera.getX());
+                    // ROM: Set maxY TARGET to $5D0
+                    camera.setMaxYTarget((short) 0x5D0);
+                    eventRoutine += 2;
+                }
+            }
+            case 2 -> {
+                // Routine 1 (s2.asm LevEvents_MCZ2_Routine2): Wait for camera X >= $20F0
+                if (camera.getX() >= 0x20F0) {
+                    // ROM: Lock camera X boundaries for boss arena
+                    camera.setMinX((short) 0x20F0);
+                    camera.setMaxX((short) 0x20F0);
+                    // Mark boss fight active
+                    uk.co.jamesj999.sonic.game.GameServices.gameState().setCurrentBossId(
+                        uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds.MCZ_BOSS);
+                    eventRoutine += 2;
+                    bossSpawnDelay = 0;
+                    // ROM: Fade out music
+                    uk.co.jamesj999.sonic.audio.AudioManager.getInstance().fadeOutMusic();
+                    // ROM: Set Current_Boss_ID to 5
+                    // ROM: Load falling rocks art and MCZ boss PLC/palette
+                    // (art loading is handled by Sonic2ObjectArtProvider)
+                }
+            }
+            case 4 -> {
+                // Routine 2 (s2.asm LevEvents_MCZ2_Routine3): Lock floor and spawn boss
+                // ROM: Set minY when camera Y reaches $5C8
+                if (camera.getY() >= 0x5C8) {
+                    camera.setMinY((short) 0x5C8);
+                }
+                // ROM: Increment delay every frame, spawn boss at $5A (90) frames
+                bossSpawnDelay++;
+                if (bossSpawnDelay >= 0x5A) {
+                    spawnMCZBoss();
+                    eventRoutine += 2;
+                    // Start boss music
+                    uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
+                        .playMusic(Sonic2Music.BOSS.id);
+                }
+            }
+            case 6 -> {
+                // Routine 3 (s2.asm LevEvents_MCZ2_Routine4): Boss fight area
+                // ROM: Play rumble SFX every $20 frames during screen shake
+                if (mczBoss != null && mczBoss.isScreenShaking()) {
+                    if ((frameCounter & 0x1F) == 0) {
+                        uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
+                            .playSfx(Sonic2Sfx.RUMBLING_2.id);
+                    }
+                }
+                // ROM: Update minX to camera X (prevent backtracking)
+                camera.setMinX(camera.getX());
+
+                if (mczBoss != null && mczBoss.isDefeated()) {
+                    eventRoutine += 2;
+                }
+            }
+            default -> {
+                // No more routines
+            }
+        }
+    }
+
+    /**
+     * Spawns the MCZ Act 2 boss.
+     * ROM: Creates Object 0x57 at coordinates (0x21A0, 0x0560)
+     */
+    private void spawnMCZBoss() {
+        uk.co.jamesj999.sonic.level.objects.ObjectSpawn bossSpawn =
+            new uk.co.jamesj999.sonic.level.objects.ObjectSpawn(
+                0x21A0, 0x0560,
+                uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds.MCZ_BOSS,
+                0, 0, false, 0
+            );
+        mczBoss = new uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2MCZBossInstance(
+                bossSpawn,
+                uk.co.jamesj999.sonic.level.LevelManager.getInstance()
+        );
+        uk.co.jamesj999.sonic.level.LevelManager.getInstance()
+                .getObjectManager()
+                .addDynamicObject(mczBoss);
     }
 
     /**

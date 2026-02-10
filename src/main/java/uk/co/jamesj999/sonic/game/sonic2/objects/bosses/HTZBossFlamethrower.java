@@ -16,8 +16,9 @@ import java.util.List;
  * It damages the player on contact.
  *
  * Animation uses ROM Ani_obj52 animation 5:
- *   byte_302B0: dc.b 3, $C, $D, $FF  ; Delay 3, frames 12, 13, then end
- * This cycles frames 12 ($C) and 13 ($D) which are small lava projectile frames.
+ *   byte_302B0: dc.b 3, $C, $D, $FF  ; Delay 3, frames 12, 13, then loop
+ * $FF in AnimateSprite means restart from beginning (infinite loop).
+ * The flamethrower is destroyed via MarkObjGone when it drifts off-screen.
  */
 public class HTZBossFlamethrower extends AbstractBossChild implements TouchResponseProvider {
 
@@ -44,7 +45,6 @@ public class HTZBossFlamethrower extends AbstractBossChild implements TouchRespo
     private boolean flipped;
     private int animFrame;
     private int animTimer;
-    private int animCycles;
 
     public HTZBossFlamethrower(Sonic2HTZBossInstance parent, int spawnX, int spawnY, boolean flipped) {
         super(parent, "HTZ Flamethrower", 4, Sonic2ObjectIds.HTZ_BOSS);
@@ -60,10 +60,9 @@ public class HTZBossFlamethrower extends AbstractBossChild implements TouchRespo
         // ROM: neg.w d0 / neg.w d1 if flipped
         this.xVel = flipped ? -X_VELOCITY : X_VELOCITY;
 
-        // Animation state (ROM: animation 5 cycles frames $C, $D then ends)
+        // Animation state (ROM: animation 5 loops frames $C, $D via $FF restart)
         this.animFrame = 0;  // 0 = frame $C, 1 = frame $D
         this.animTimer = ANIM_DELAY;
-        this.animCycles = 0;  // Track animation cycles for termination
     }
 
     @Override
@@ -76,22 +75,21 @@ public class HTZBossFlamethrower extends AbstractBossChild implements TouchRespo
         // ROM: move.w x_vel(a0),d1 / add.w d1,x_pos(a0)
         currentX += xVel;
 
+        // ROM: jmpto JmpTo37_MarkObjGone - destroy when off-screen
+        if (!isOnScreen()) {
+            setDestroyed(true);
+            return;
+        }
+
         // Update animation (ROM: animation 5 - byte_302B0: dc.b 3, $C, $D, $FF)
-        // Delay of 3 means change every 4 frames (delay + 1)
+        // $FF = restart from beginning (infinite loop). Delay of 3 = change every 4 frames.
         animTimer--;
         if (animTimer <= 0) {
             animTimer = ANIM_DELAY;
             animFrame++;
             if (animFrame > 1) {
-                // Animation sequence complete ($FF in ROM = end)
-                // ROM terminates animation after cycling through frames $C, $D
-                animCycles++;
-                if (animCycles >= 3) {
-                    // After a few cycles, destroy
-                    setDestroyed(true);
-                    return;
-                }
-                animFrame = 0;  // Loop animation
+                // $FF restart: loop back to first frame
+                animFrame = 0;
             }
         }
 
