@@ -448,7 +448,12 @@ public class Engine {
 
 		// Set clear color based on game mode and clear the game viewport
 		if (getCurrentGameMode() == GameMode.SPECIAL_STAGE) {
-			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			SpecialStageProvider ssProviderForClear = gameLoop.getActiveSpecialStageProvider();
+			if (ssProviderForClear != null) {
+				ssProviderForClear.setClearColor();
+			} else {
+				glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			}
 		} else if (getCurrentGameMode() == GameMode.SPECIAL_STAGE_RESULTS) {
 			glClearColor(0.85f, 0.9f, 0.95f, 1.0f);
 		} else if (getCurrentGameMode() == GameMode.TITLE_SCREEN) {
