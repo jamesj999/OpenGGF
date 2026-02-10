@@ -136,6 +136,13 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     // Track whether elements have reached their targets
     private final boolean[] elemArrived = new boolean[ELEMENT_COUNT];
 
+    /** When true, transition to special stage after tally instead of next level. */
+    private boolean specialStageAfter = false;
+
+    public void setSpecialStageAfter(boolean specialStageAfter) {
+        this.specialStageAfter = specialStageAfter;
+    }
+
     public Sonic1ResultsScreenObjectInstance(int elapsedTimeSeconds, int ringCount, int actNumber) {
         super("s1_results_screen");
         this.elapsedTimeSeconds = elapsedTimeSeconds;
@@ -296,10 +303,15 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
             setDestroyed(true);
             LevelManager levelManager = LevelManager.getInstance();
             if (levelManager != null) {
-                try {
-                    levelManager.advanceToNextLevel();
-                } catch (java.io.IOException e) {
-                    LOGGER.severe("Failed to load next level: " + e.getMessage());
+                if (specialStageAfter) {
+                    // Giant Ring collected: transition to special stage
+                    levelManager.requestSpecialStageFromCheckpoint();
+                } else {
+                    try {
+                        levelManager.advanceToNextLevel();
+                    } catch (java.io.IOException e) {
+                        LOGGER.severe("Failed to load next level: " + e.getMessage());
+                    }
                 }
             }
         });

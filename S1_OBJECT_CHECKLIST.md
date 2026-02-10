@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 17 (21.3%)
-- **Unimplemented:** 63 (78.8%)
+- **Implemented:** 18 (22.5%)
+- **Unimplemented:** 62 (77.5%)
 
 ## Implemented Objects
 
@@ -29,6 +29,7 @@ Generated: 2026-02-09 23:03:25
 | 0x42 | Newtron | 32 | GHZ1, GHZ2, GHZ3 |
 | 0x44 | EdgeWalls | 74 | GHZ1, GHZ2, GHZ3 |
 | 0x79 | Lamppost | 23 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1 |
+| 0x4B | GiantRing | 11 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2 |
 
 ## Unimplemented Objects (By Usage)
 
@@ -80,7 +81,6 @@ Generated: 2026-02-09 23:03:25
 | 0x6A | Object | S1_Obj_6A | 14 | SBZ1, SBZ2 |
 | 0x70 | Object | S1_Obj_70 | 12 | SBZ1 |
 | 0x49 | Object | S1_Obj_49 | 11 | GHZ1, GHZ2, GHZ3 |
-| 0x4B | Object | GiantRing | 11 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2 |
 | 0x1E | Object | S1_Obj_1E | 10 | SBZ1, SBZ2 |
 | 0x3E | Object | EggPrison | 10 | GHZ3, LZ3, MZ3, SLZ3, SYZ3 |
 | 0x50 | Badnik | Yadrin | 10 | SYZ1, SYZ2, SYZ3 |
@@ -128,7 +128,7 @@ Total: 214 objects | Implemented: 17 | Unimplemented: 3
 - [x] 0x41 Spring (x4) [0x02]
 - [x] 0x44 EdgeWalls (x12) [0x00, 0x01, 0x02]
 - [ ] 0x49 S1_Obj_49 (x3) [0x00]
-- [ ] 0x4B GiantRing (x1) [0x00]
+- [x] 0x4B GiantRing (x1) [0x00]
 - [x] 0x79 Lamppost (x2) [0x01, 0x02]
 - [ ] 0x7D S1_Obj_7D (x5) [0x01, 0x02, 0x03]
 
@@ -158,7 +158,7 @@ Total: 244 objects | Implemented: 17 | Unimplemented: 5
 - [x] 0x41 Spring (x6) [0x10, 0x00, 0x02]
 - [x] 0x44 EdgeWalls (x22) [5 subtypes]
 - [ ] 0x49 S1_Obj_49 (x4) [0x00]
-- [ ] 0x4B GiantRing (x1) [0x00]
+- [x] 0x4B GiantRing (x1) [0x00]
 - [x] 0x79 Lamppost (x1) [0x01]
 - [ ] 0x7D S1_Obj_7D (x5) [0x01, 0x02, 0x03]
 
@@ -209,7 +209,7 @@ Total: 189 objects | Implemented: 6 | Unimplemented: 16
 - [ ] 0x32 S1_Obj_32 (x10) [10 subtypes]
 - [x] 0x36 Spikes (x18) [5 subtypes]
 - [x] 0x41 Spring (x2) [0x00]
-- [ ] 0x4B GiantRing (x1) [0x00]
+- [x] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x52 S1_Obj_52 (x1) [0x07]
 - [ ] 0x56 S1_Obj_56 (x10) [10 subtypes]
 - [ ] 0x57 S1_Obj_57 (x4) [0xD4, 0xD5, 0xB5]
@@ -240,7 +240,7 @@ Total: 138 objects | Implemented: 6 | Unimplemented: 15
 - [ ] 0x32 S1_Obj_32 (x3) [0x00, 0x01, 0x02]
 - [x] 0x36 Spikes (x24) [0x00, 0x30, 0x01]
 - [x] 0x41 Spring (x2) [0x10, 0x00]
-- [ ] 0x4B GiantRing (x1) [0x00]
+- [x] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x56 S1_Obj_56 (x3) [0xF0, 0xF1, 0xE2]
 - [ ] 0x57 S1_Obj_57 (x5) [4 subtypes]
 - [ ] 0x61 S1_Obj_61 (x3) [0x01, 0x13]
@@ -303,7 +303,7 @@ Total: 145 objects | Implemented: 6 | Unimplemented: 14
 - [ ] 0x33 S1_Obj_33 (x1) [0x00]
 - [x] 0x36 Spikes (x2) [0x01, 0x12]
 - [ ] 0x46 S1_Obj_46 (x26) [4 subtypes]
-- [ ] 0x4B GiantRing (x1) [0x00]
+- [x] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x52 S1_Obj_52 (x2) [0x41]
 - [ ] 0x54 S1_Obj_54 (x10) [0x01, 0x02]
 - [ ] 0x71 S1_Obj_71 (x3) [0x31, 0x11]
@@ -333,7 +333,7 @@ Total: 198 objects | Implemented: 7 | Unimplemented: 18
 - [x] 0x36 Spikes (x9) [4 subtypes]
 - [x] 0x41 Spring (x1) [0x10]
 - [ ] 0x46 S1_Obj_46 (x39) [0x00]
-- [ ] 0x4B GiantRing (x1) [0x00]
+- [x] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x4C S1_Obj_4C (x3) [0x01]
 - [ ] 0x4E S1_Obj_4E (x1) [0x00]
 - [ ] 0x51 S1_Obj_51 (x17) [0x00]
@@ -392,7 +392,7 @@ Total: 223 objects | Implemented: 5 | Unimplemented: 12
 - [x] 0x26 Monitor (x15) [0x02, 0x05, 0x06]
 - [ ] 0x3C BreakableWall (x4) [0x01]
 - [x] 0x41 Spring (x16) [0x00, 0x10, 0x02]
-- [ ] 0x4B GiantRing (x1) [0x00]
+- [x] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x53 S1_Obj_53 (x10) [0x81]
 - [ ] 0x59 S1_Obj_59 (x5) [4 subtypes]
 - [ ] 0x5A S1_Obj_5A (x44) [8 subtypes]
@@ -417,7 +417,7 @@ Total: 187 objects | Implemented: 6 | Unimplemented: 13
 - [x] 0x25 Ring (x65) [8 subtypes]
 - [x] 0x26 Monitor (x8) [0x02, 0x05, 0x06]
 - [x] 0x41 Spring (x15) [0x10, 0x00, 0x02]
-- [ ] 0x4B GiantRing (x1) [0x00]
+- [x] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x53 S1_Obj_53 (x8) [0x81]
 - [ ] 0x56 S1_Obj_56 (x8) [4 subtypes]
 - [ ] 0x59 S1_Obj_59 (x5) [0x00, 0x03]
@@ -477,7 +477,7 @@ Total: 193 objects | Implemented: 8 | Unimplemented: 10
 - [x] 0x41 Spring (x30) [5 subtypes]
 - [ ] 0x43 S1_Obj_43 (x2) [0x00]
 - [ ] 0x47 Bumper (x13) [0x00]
-- [ ] 0x4B GiantRing (x1) [0x00]
+- [x] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x56 S1_Obj_56 (x41) [5 subtypes]
 - [ ] 0x57 S1_Obj_57 (x2) [0x54]
 - [ ] 0x58 S1_Obj_58 (x8) [4 subtypes]
@@ -502,7 +502,7 @@ Total: 230 objects | Implemented: 8 | Unimplemented: 10
 - [x] 0x41 Spring (x24) [5 subtypes]
 - [ ] 0x43 S1_Obj_43 (x2) [0x00]
 - [ ] 0x47 Bumper (x13) [0x00]
-- [ ] 0x4B GiantRing (x2) [0x00]
+- [x] 0x4B GiantRing (x2) [0x00]
 - [ ] 0x56 S1_Obj_56 (x57) [4 subtypes]
 - [ ] 0x57 S1_Obj_57 (x1) [0x54]
 - [ ] 0x58 S1_Obj_58 (x12) [4 subtypes]

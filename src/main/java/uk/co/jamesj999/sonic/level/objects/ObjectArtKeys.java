@@ -39,6 +39,10 @@ public final class ObjectArtKeys {
     public static final String RESULTS = "results";
     public static final String EGG_PRISON = "egg_prison";
 
+    // Giant Ring / Special Stage entry
+    public static final String GIANT_RING = "giant_ring";
+    public static final String GIANT_RING_FLASH = "giant_ring_flash";
+
     // Zone objects using level tiles
     public static final String PLATFORM = "platform";
     public static final String COLLAPSING_LEDGE = "collapsing_ledge";

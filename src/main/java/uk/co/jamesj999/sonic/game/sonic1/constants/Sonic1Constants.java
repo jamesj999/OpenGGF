@@ -108,7 +108,11 @@ public final class Sonic1Constants {
     public static final int ART_UNC_SBZ_SMOKE_ADDR   = 0x68116; // 2688 bytes, 84 tiles (7 frames × 12 tiles)
 
     // Giant ring art (after level layout data)
-    public static final int ART_UNC_GIANT_RING_ADDR  = 0x6A324; // 3136 bytes, 98 tiles
+    public static final int ART_UNC_GIANT_RING_ADDR  = 0x6A2E4; // Art_BigRing (verified by RomOffsetFinder)
+    public static final int ART_UNC_GIANT_RING_SIZE  = 3136;     // $C40 bytes = 98 tiles
+
+    // Giant ring flash art (Nemesis compressed)
+    public static final int ART_NEM_GIANT_RING_FLASH_ADDR = 0x3AF24; // Nem_BigFlash (verified by RomOffsetFinder)
 
     // ---- Title card art ----
     // Nem_TitleCard: Nemesis-compressed title card sprite art (1550 bytes)

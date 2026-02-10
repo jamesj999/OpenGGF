@@ -18,6 +18,10 @@ public class Sonic extends AbstractPlayableSprite {
 	}
 
 	public void draw() {
+		// ROM: move.b #id_Null,(v_player+obAnim).w - Giant Ring flash hides Sonic
+		if (isHidden()) {
+			return;
+		}
 		// Skip rendering on certain frames during invulnerability (blink effect)
 		// Pattern: (frames & 0x04) creates ~8-frame on/off cycle
 		if (getInvulnerableFrames() > 0 && (getInvulnerableFrames() & 0x04) != 0) {

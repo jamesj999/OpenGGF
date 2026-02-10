@@ -124,6 +124,12 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load results screen art (reuses title card + HUD text)
         loadResultsScreenArt(rom);
 
+        // Load Giant Ring art (uncompressed, all zones)
+        loadGiantRingArt(rom);
+
+        // Load Giant Ring Flash art (Nemesis, loaded with ring)
+        loadGiantRingFlashArt(rom);
+
         loaded = true;
         LOGGER.info("Sonic1ObjectArtProvider loaded: digits=" +
                 (hudDigitPatterns != null ? hudDigitPatterns.length : 0) +
@@ -2019,6 +2025,179 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 new SpriteMappingPiece(0x20, 0x10, 2, 2, 0xAB, false, false, 0, false),
                 new SpriteMappingPiece(0x10, 0x10, 2, 2, 0xAB, false, false, 0, false),
                 new SpriteMappingPiece(0x00, 0x10, 2, 2, 0xB7, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads Giant Ring art (Art_BigRing) - uncompressed 98-tile ring sprite.
+     * Mappings from docs/s1disasm/_maps/Giant Ring.asm (Map_GRing_internal).
+     * 4 frames: front view, angled, edge-on, angled reverse.
+     */
+    private void loadGiantRingArt(Rom rom) {
+        Pattern[] patterns = loadUncompressedPatterns(rom,
+                Sonic1Constants.ART_UNC_GIANT_RING_ADDR,
+                Sonic1Constants.ART_UNC_GIANT_RING_SIZE, "GiantRing");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Giant Ring art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createGiantRingMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.GIANT_RING, sheet);
+    }
+
+    /**
+     * Creates Giant Ring sprite mappings from S1 disassembly Map_GRing_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0: Ring front-on (10 pieces)
+     * Frame 1: Ring at angle (8 pieces)
+     * Frame 2: Ring perpendicular/edge-on (4 pieces)
+     * Frame 3: Ring at angle reverse - frame 1 with H-flip (8 pieces)
+     */
+    private List<SpriteMappingFrame> createGiantRingMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: byte_9FDA - ring front view (10 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x20, 3, 1, 0x00, false, false, 1, false),
+                new SpriteMappingPiece( 0x00, -0x20, 3, 1, 0x03, false, false, 1, false),
+                new SpriteMappingPiece(-0x20, -0x18, 4, 1, 0x06, false, false, 1, false),
+                new SpriteMappingPiece( 0x00, -0x18, 4, 1, 0x0A, false, false, 1, false),
+                new SpriteMappingPiece(-0x20, -0x10, 2, 4, 0x0E, false, false, 1, false),
+                new SpriteMappingPiece( 0x10, -0x10, 2, 4, 0x16, false, false, 1, false),
+                new SpriteMappingPiece(-0x20,  0x10, 4, 1, 0x1E, false, false, 1, false),
+                new SpriteMappingPiece( 0x00,  0x10, 4, 1, 0x22, false, false, 1, false),
+                new SpriteMappingPiece(-0x18,  0x18, 3, 1, 0x26, false, false, 1, false),
+                new SpriteMappingPiece( 0x00,  0x18, 3, 1, 0x29, false, false, 1, false)
+        )));
+
+        // Frame 1: byte_A00D - ring at angle (8 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x20, 4, 1, 0x2C, false, false, 1, false),
+                new SpriteMappingPiece(-0x18, -0x18, 3, 1, 0x30, false, false, 1, false),
+                new SpriteMappingPiece( 0x00, -0x18, 3, 2, 0x33, false, false, 1, false),
+                new SpriteMappingPiece(-0x18, -0x10, 2, 4, 0x39, false, false, 1, false),
+                new SpriteMappingPiece( 0x08, -0x08, 2, 2, 0x41, false, false, 1, false),
+                new SpriteMappingPiece( 0x00,  0x08, 3, 2, 0x45, false, false, 1, false),
+                new SpriteMappingPiece(-0x18,  0x10, 3, 1, 0x4B, false, false, 1, false),
+                new SpriteMappingPiece(-0x10,  0x18, 4, 1, 0x4E, false, false, 1, false)
+        )));
+
+        // Frame 2: byte_A036 - ring perpendicular/edge-on (4 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x20, 2, 4, 0x52, false, false, 1, false),
+                new SpriteMappingPiece( 0x04, -0x20, 1, 4, 0x52, true,  false, 1, false),
+                new SpriteMappingPiece(-0x0C,  0x00, 2, 4, 0x5A, false, false, 1, false),
+                new SpriteMappingPiece( 0x04,  0x00, 1, 4, 0x5A, true,  false, 1, false)
+        )));
+
+        // Frame 3: byte_A04B - ring at angle reverse (8 pieces, all H-flipped)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x20, 4, 1, 0x2C, true, false, 1, false),
+                new SpriteMappingPiece( 0x00, -0x18, 3, 1, 0x30, true, false, 1, false),
+                new SpriteMappingPiece(-0x18, -0x18, 3, 2, 0x33, true, false, 1, false),
+                new SpriteMappingPiece( 0x08, -0x10, 2, 4, 0x39, true, false, 1, false),
+                new SpriteMappingPiece(-0x18, -0x08, 2, 2, 0x41, true, false, 1, false),
+                new SpriteMappingPiece(-0x18,  0x08, 3, 2, 0x45, true, false, 1, false),
+                new SpriteMappingPiece( 0x00,  0x10, 3, 1, 0x4B, true, false, 1, false),
+                new SpriteMappingPiece(-0x10,  0x18, 4, 1, 0x4E, true, false, 1, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads Giant Ring Flash art (Nem_BigFlash) - Nemesis-compressed flash sprite.
+     * Mappings from docs/s1disasm/_maps/Ring Flash.asm (Map_Flash_internal).
+     * 8 frames of expanding flash effect.
+     */
+    private void loadGiantRingFlashArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_GIANT_RING_FLASH_ADDR, "GiantRingFlash");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Giant Ring Flash art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createGiantRingFlashMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.GIANT_RING_FLASH, sheet);
+    }
+
+    /**
+     * Creates Giant Ring Flash sprite mappings from S1 disassembly Map_Flash_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * 8 frames of expanding white flash. Frames 0-2 expand right, frame 3 is
+     * full symmetric, frames 4-6 contract left, frame 7 is the final flash.
+     */
+    private List<SpriteMappingFrame> createGiantRingFlashMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: byte_A084 - small flash (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece( 0x00, -0x20, 4, 4, 0x00, false, false, 1, false),
+                new SpriteMappingPiece( 0x00,  0x00, 4, 4, 0x00, false, true,  1, false)
+        )));
+
+        // Frame 1: byte_A08F - wider flash (4 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x20, 4, 4, 0x10, false, false, 1, false),
+                new SpriteMappingPiece( 0x10, -0x20, 2, 4, 0x20, false, false, 1, false),
+                new SpriteMappingPiece(-0x10,  0x00, 4, 4, 0x10, false, true,  1, false),
+                new SpriteMappingPiece( 0x10,  0x00, 2, 4, 0x20, false, true,  1, false)
+        )));
+
+        // Frame 2: byte_A0A4 - large flash (4 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x20, 4, 4, 0x28, false, false, 1, false),
+                new SpriteMappingPiece( 0x08, -0x20, 3, 4, 0x38, false, false, 1, false),
+                new SpriteMappingPiece(-0x18,  0x00, 4, 4, 0x28, false, true,  1, false),
+                new SpriteMappingPiece( 0x08,  0x00, 3, 4, 0x38, false, true,  1, false)
+        )));
+
+        // Frame 3: byte_A0B9 - full width flash, symmetric (4 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x20, 4, 4, 0x34, true,  false, 1, false),
+                new SpriteMappingPiece( 0x00, -0x20, 4, 4, 0x34, false, false, 1, false),
+                new SpriteMappingPiece(-0x20,  0x00, 4, 4, 0x34, true,  true,  1, false),
+                new SpriteMappingPiece( 0x00,  0x00, 4, 4, 0x34, false, true,  1, false)
+        )));
+
+        // Frame 4: byte_A0CE - contracting left (4 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x20, 3, 4, 0x38, true,  false, 1, false),
+                new SpriteMappingPiece(-0x08, -0x20, 4, 4, 0x28, true,  false, 1, false),
+                new SpriteMappingPiece(-0x20,  0x00, 3, 4, 0x38, true,  true,  1, false),
+                new SpriteMappingPiece(-0x08,  0x00, 4, 4, 0x28, true,  true,  1, false)
+        )));
+
+        // Frame 5: byte_A0E3 - contracting further (4 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x20, 2, 4, 0x20, true,  false, 1, false),
+                new SpriteMappingPiece(-0x10, -0x20, 4, 4, 0x10, true,  false, 1, false),
+                new SpriteMappingPiece(-0x20,  0x00, 2, 4, 0x20, true,  true,  1, false),
+                new SpriteMappingPiece(-0x10,  0x00, 4, 4, 0x10, true,  true,  1, false)
+        )));
+
+        // Frame 6: byte_A0F8 - small flash left (2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x20, 4, 4, 0x00, true,  false, 1, false),
+                new SpriteMappingPiece(-0x20,  0x00, 4, 4, 0x00, true,  true,  1, false)
+        )));
+
+        // Frame 7: byte_A103 - final flash, 4-way symmetric (4 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x20, 4, 4, 0x44, false, false, 1, false),
+                new SpriteMappingPiece( 0x00, -0x20, 4, 4, 0x44, true,  false, 1, false),
+                new SpriteMappingPiece(-0x20,  0x00, 4, 4, 0x44, false, true,  1, false),
+                new SpriteMappingPiece( 0x00,  0x00, 4, 4, 0x44, true,  true,  1, false)
         )));
 
         return frames;

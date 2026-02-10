@@ -324,6 +324,12 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          */
         protected boolean objectControlled = false;
         /**
+         * When true, the sprite is not rendered. Used by the Giant Ring flash
+         * to make Sonic invisible during the special stage entry sequence.
+         * ROM: move.b #id_Null,(v_player+obAnim).w
+         */
+        protected boolean hidden = false;
+        /**
          * Frame number when the player was last released from object control.
          * Used to prevent immediate re-capture by nearby objects (e.g., spin tubes).
          */
@@ -456,6 +462,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.controlLocked = false;
                 this.moveLockTimer = 0;
                 this.objectControlled = false;
+                this.hidden = false;
                 this.objectControlReleasedFrame = Integer.MIN_VALUE;
                 this.movementInputActive = false;
                 this.spiralActiveFrame = Integer.MIN_VALUE;
@@ -1219,6 +1226,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          */
         public void setMoveLockTimer(int moveLockTimer) {
                 this.moveLockTimer = Math.max(0, moveLockTimer);
+        }
+
+        public boolean isHidden() {
+                return hidden;
+        }
+
+        public void setHidden(boolean hidden) {
+                this.hidden = hidden;
         }
 
         /**
