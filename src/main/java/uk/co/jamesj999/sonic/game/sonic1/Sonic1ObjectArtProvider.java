@@ -4,6 +4,7 @@ import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.ObjectArtProvider;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.AnimalType;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
@@ -34,11 +35,26 @@ import java.util.logging.Logger;
  */
 public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     private static final Logger LOGGER = Logger.getLogger(Sonic1ObjectArtProvider.class.getName());
+    private static final int ANIMAL_TILE_BANK_SIZE = 18;
+    private static final int RESULTS_SCORE_DIGIT_PAIR_COUNT = 8;
+    private static final int RESULTS_SCORE_DIGIT_TILE_COUNT = RESULTS_SCORE_DIGIT_PAIR_COUNT * 2;
+    private static final int HUD_TEXT_E_PAIR_INDEX = 22;
+    private static final AnimalType[] DEFAULT_ANIMALS = { AnimalType.RABBIT, AnimalType.FLICKY };
+    private static final AnimalType[][] ZONE_ANIMALS = {
+            { AnimalType.RABBIT, AnimalType.FLICKY },   // GHZ
+            { AnimalType.PENGUIN, AnimalType.SEAL },    // LZ
+            { AnimalType.SQUIRREL, AnimalType.SEAL },   // MZ
+            { AnimalType.PIG, AnimalType.FLICKY },      // SLZ
+            { AnimalType.PIG, AnimalType.CHICKEN },     // SYZ
+            { AnimalType.RABBIT, AnimalType.CHICKEN }   // SBZ
+    };
 
     private Pattern[] hudDigitPatterns;
     private Pattern[] hudTextPatterns;
     private Pattern[] hudLivesPatterns;
     private Pattern[] hudLivesNumbers;
+    private int animalTypeA = AnimalType.RABBIT.ordinal();
+    private int animalTypeB = AnimalType.FLICKY.ordinal();
     private boolean loaded = false;
 
     private final Map<String, PatternSpriteRenderer> renderers = new HashMap<>();
@@ -105,6 +121,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
 
         // Load spring art (all zones)
         loadSpringArt(rom);
+
+        // Load dynamic points popups and escaped animals (zone-dependent)
+        loadAnimalAndPointsArt(rom, zoneIndex);
 
         // Load Buzz Bomber art (GHZ/MZ/SYZ badnik + missile + dissolve)
         loadBuzzBomberArt(rom);
@@ -834,6 +853,168 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
+     * Loads Sonic 1 points popups and zone-specific animal art.
+     * <p>
+     * S1 uses two animal art banks per zone (Anml_VarIndex), selected at runtime
+     * when an enemy is destroyed.
+     */
+    private void loadAnimalAndPointsArt(Rom rom, int zoneIndex) {
+        AnimalType[] zoneAnimals = resolveZoneAnimals(zoneIndex);
+        animalTypeA = zoneAnimals[0].ordinal();
+        animalTypeB = zoneAnimals[1].ordinal();
+
+        Pattern[] firstAnimalPatterns = loadAnimalPatterns(rom, zoneAnimals[0]);
+        Pattern[] secondAnimalPatterns = loadAnimalPatterns(rom, zoneAnimals[1]);
+        if (firstAnimalPatterns.length == 0 || secondAnimalPatterns.length == 0) {
+            LOGGER.warning("Failed to load S1 animal art for zone " + zoneIndex);
+            return;
+        }
+
+        Pattern[] combinedAnimals = createCombinedAnimalPatterns(firstAnimalPatterns, secondAnimalPatterns);
+        ObjectSpriteSheet animalSheet = new ObjectSpriteSheet(
+                combinedAnimals,
+                createAnimalMappings(),
+                0,
+                1);
+        registerSheet(ObjectArtKeys.ANIMAL, animalSheet);
+
+        Pattern[] pointsPatterns = loadNemesisPatterns(rom, Sonic1Constants.ART_NEM_POINTS_ADDR, "Points");
+        if (pointsPatterns.length == 0) {
+            LOGGER.warning("Failed to load S1 points art");
+            return;
+        }
+        ObjectSpriteSheet pointsSheet = new ObjectSpriteSheet(pointsPatterns, createPointsMappings(), 1, 0);
+        registerSheet(ObjectArtKeys.POINTS, pointsSheet);
+    }
+
+    private AnimalType[] resolveZoneAnimals(int zoneIndex) {
+        if (zoneIndex < 0 || zoneIndex >= ZONE_ANIMALS.length) {
+            return DEFAULT_ANIMALS;
+        }
+        return ZONE_ANIMALS[zoneIndex];
+    }
+
+    private Pattern[] loadAnimalPatterns(Rom rom, AnimalType type) {
+        int address = switch (type) {
+            case RABBIT -> Sonic1Constants.ART_NEM_ANIMAL_RABBIT_ADDR;
+            case CHICKEN -> Sonic1Constants.ART_NEM_ANIMAL_CHICKEN_ADDR;
+            case PENGUIN -> Sonic1Constants.ART_NEM_ANIMAL_PENGUIN_ADDR;
+            case SEAL -> Sonic1Constants.ART_NEM_ANIMAL_SEAL_ADDR;
+            case PIG -> Sonic1Constants.ART_NEM_ANIMAL_PIG_ADDR;
+            case FLICKY -> Sonic1Constants.ART_NEM_ANIMAL_FLICKY_ADDR;
+            case SQUIRREL -> Sonic1Constants.ART_NEM_ANIMAL_SQUIRREL_ADDR;
+            default -> -1;
+        };
+        if (address < 0) {
+            return new Pattern[0];
+        }
+        return loadNemesisPatterns(rom, address, "Animal_" + type.displayName());
+    }
+
+    private Pattern[] createCombinedAnimalPatterns(Pattern[] first, Pattern[] second) {
+        int firstLength = Math.max(ANIMAL_TILE_BANK_SIZE, first.length);
+        int secondLength = Math.max(ANIMAL_TILE_BANK_SIZE, second.length);
+        Pattern[] combined = new Pattern[firstLength + secondLength];
+
+        for (int i = 0; i < combined.length; i++) {
+            combined[i] = new Pattern();
+        }
+        for (int i = 0; i < first.length; i++) {
+            combined[i] = first[i];
+        }
+        for (int i = 0; i < second.length; i++) {
+            combined[firstLength + i] = second[i];
+        }
+        return combined;
+    }
+
+    private List<SpriteMappingFrame> createAnimalMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+        AnimalType.MappingSet[] sets = {
+                AnimalType.MappingSet.A,
+                AnimalType.MappingSet.B,
+                AnimalType.MappingSet.C,
+                AnimalType.MappingSet.D,
+                AnimalType.MappingSet.E
+        };
+
+        // Frame order matches AnimalObjectInstance.getFrameIndex():
+        // ((mappingSet * 2) + artVariant) * 3 + animFrame
+        for (AnimalType.MappingSet mappingSet : sets) {
+            addAnimalSetFrames(frames, mappingSet, 0);
+            addAnimalSetFrames(frames, mappingSet, ANIMAL_TILE_BANK_SIZE);
+        }
+        return frames;
+    }
+
+    private void addAnimalSetFrames(List<SpriteMappingFrame> frames, AnimalType.MappingSet mappingSet, int tileOffset) {
+        switch (mappingSet) {
+            case A, D -> {
+                // Map_Animal2: flying set (flicky/chicken/seal style)
+                frames.add(new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-8, -4, 2, 2, tileOffset + 0x06, false, false, 0, false)
+                )));
+                frames.add(new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-8, -4, 2, 2, tileOffset + 0x0A, false, false, 0, false)
+                )));
+                frames.add(new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-8, -0x0C, 2, 3, tileOffset, false, false, 0, false)
+                )));
+            }
+            case B, C -> {
+                // Map_Animal3: wide body set (squirrel/pig style)
+                frames.add(new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-0x0C, -4, 3, 2, tileOffset + 0x06, false, false, 0, false)
+                )));
+                frames.add(new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-0x0C, -4, 3, 2, tileOffset + 0x0C, false, false, 0, false)
+                )));
+                frames.add(new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-8, -0x0C, 2, 3, tileOffset, false, false, 0, false)
+                )));
+            }
+            case E -> {
+                // Map_Animal1: tall walker set (rabbit/penguin style)
+                frames.add(new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-8, -0x0C, 2, 3, tileOffset + 0x06, false, false, 0, false)
+                )));
+                frames.add(new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-8, -0x0C, 2, 3, tileOffset + 0x0C, false, false, 0, false)
+                )));
+                frames.add(new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-8, -0x0C, 2, 3, tileOffset, false, false, 0, false)
+                )));
+            }
+        }
+    }
+
+    private List<SpriteMappingFrame> createPointsMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Obj29 score popup frames. Frame order is aligned with PointsObjectInstance.
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -4, 2, 1, 0, false, false, 0, false) // 100
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -4, 2, 1, 2, false, false, 0, false) // 200
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -4, 2, 1, 4, false, false, 0, false) // 500
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -4, 3, 1, 6, false, false, 0, false) // 1000
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -4, 1, 1, 6, false, false, 0, false) // 10
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -4, 3, 1, 6, false, false, 0, false) // 1000 alt slot
+        )));
+
+        return frames;
+    }
+
+    /**
      * Loads results screen art by compositing title card patterns + HUD text patterns
      * into a single VRAM-aligned pattern array, matching the original S1 layout.
      * <p>
@@ -859,12 +1040,14 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             return;
         }
 
-        // Calculate the HUD text start index in our composite array
-        // HUD text is at VRAM $6CA; title card at $580; base at $570
+        // HUD text starts at VRAM $6CA. Results mappings also reference
+        // $6E2-$6F1 for score digits/trailing zero (loaded from Art_Hud).
         int hudTextStartIndex = Sonic1Constants.VRAM_RESULTS_HUD_TEXT - Sonic1Constants.VRAM_RESULTS_BASE;
-
-        // Total array size: enough to cover HUD text at the end
-        int totalSize = hudTextStartIndex + hudTextPatterns.length;
+        int hudScoreDigitsStartIndex =
+                (Sonic1Constants.VRAM_RESULTS_HUD_TEXT + 0x18) - Sonic1Constants.VRAM_RESULTS_BASE;
+        int totalSize = Math.max(
+                hudTextStartIndex + hudTextPatterns.length,
+                hudScoreDigitsStartIndex + RESULTS_SCORE_DIGIT_TILE_COUNT);
 
         Pattern[] compositePatterns = new Pattern[totalSize];
 
@@ -883,6 +1066,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         for (int i = 0; i < hudTextPatterns.length && (hudTextStartIndex + i) < totalSize; i++) {
             compositePatterns[hudTextStartIndex + i] = hudTextPatterns[i];
         }
+        copyResultsScoreDigitTiles(compositePatterns, hudScoreDigitsStartIndex);
 
         List<SpriteMappingFrame> mappings = createResultsScreenMappings();
         ObjectSpriteSheet sheet = new ObjectSpriteSheet(compositePatterns, mappings, 0, 1);
@@ -890,6 +1074,35 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
 
         LOGGER.info("Results screen art loaded: " + totalSize + " composite patterns, "
                 + mappings.size() + " frames");
+    }
+
+    private void copyResultsScoreDigitTiles(Pattern[] dest, int startIndex) {
+        if (dest == null || hudDigitPatterns == null || hudDigitPatterns.length < 2) {
+            return;
+        }
+
+        // Tile pair $6E2-$6E3 is "E" (from Nem_Hud), followed by seven "0" pairs.
+        copyPatternPair(dest, startIndex, hudTextPatterns, HUD_TEXT_E_PAIR_INDEX);
+        for (int pair = 1; pair < RESULTS_SCORE_DIGIT_PAIR_COUNT; pair++) {
+            copyPatternPair(dest, startIndex + (pair * 2), hudDigitPatterns, 0);
+        }
+    }
+
+    private void copyPatternPair(Pattern[] dest, int destIndex, Pattern[] src, int srcIndex) {
+        if (src == null || srcIndex < 0 || srcIndex + 1 >= src.length) {
+            return;
+        }
+        if (destIndex < 0 || destIndex + 1 >= dest.length) {
+            return;
+        }
+        if (dest[destIndex] == null) {
+            dest[destIndex] = new Pattern();
+        }
+        if (dest[destIndex + 1] == null) {
+            dest[destIndex + 1] = new Pattern();
+        }
+        dest[destIndex].copyFrom(src[srcIndex]);
+        dest[destIndex + 1].copyFrom(src[srcIndex + 1]);
     }
 
     /**
@@ -2298,7 +2511,11 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
 
     @Override
     public int getZoneData(String key, int zoneIndex) {
-        return -1;
+        return switch (key) {
+            case ObjectArtKeys.ANIMAL_TYPE_A -> animalTypeA;
+            case ObjectArtKeys.ANIMAL_TYPE_B -> animalTypeB;
+            default -> -1;
+        };
     }
 
     @Override

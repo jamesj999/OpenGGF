@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.game.sonic2.objects.AbstractResultsScreen;
@@ -410,7 +411,12 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
 
     private int lastTimeBonus = Integer.MIN_VALUE;
     private int lastRingBonus = Integer.MIN_VALUE;
+    private int lastScoreValue = Integer.MIN_VALUE;
     private final Pattern blankDigit = new Pattern();
+    private static final int SCORE_DIGITS_COUNT = 7;
+    private static final int SCORE_DIGIT_TILES = SCORE_DIGITS_COUNT * 2;
+    private static final int SCORE_DIGITS_START_INDEX =
+            (Sonic1Constants.VRAM_RESULTS_HUD_TEXT + 0x1A) - Sonic1Constants.VRAM_RESULTS_BASE;
 
     /**
      * Writes bonus digit patterns into the results screen composite pattern array.
@@ -435,8 +441,10 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
             return;
         }
 
-        // Skip update if values haven't changed
-        if (timeBonus == lastTimeBonus && ringBonus == lastRingBonus) {
+        int scoreValue = Math.max(0, GameServices.gameState().getScore());
+
+        // Skip update if nothing has changed
+        if (timeBonus == lastTimeBonus && ringBonus == lastRingBonus && scoreValue == lastScoreValue) {
             return;
         }
 
@@ -459,13 +467,16 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
         // Write time bonus digits at index 0, ring bonus digits at index 8
         writeBonusValue(patterns, 0, timeBonus, digitPatterns);
         writeBonusValue(patterns, Sonic1Constants.S1_RESULTS_BONUS_DIGIT_GROUP_TILES, ringBonus, digitPatterns);
+        writeScoreValue(patterns, scoreValue, digitPatterns);
 
         // Push updated digit patterns to GPU
         GraphicsManager graphicsManager = GraphicsManager.getInstance();
         renderer.updatePatternRange(graphicsManager, 0, Sonic1Constants.S1_RESULTS_BONUS_DIGIT_TILES);
+        renderer.updatePatternRange(graphicsManager, SCORE_DIGITS_START_INDEX, SCORE_DIGIT_TILES);
 
         lastTimeBonus = timeBonus;
         lastRingBonus = ringBonus;
+        lastScoreValue = scoreValue;
     }
 
     /**
@@ -498,6 +509,29 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
         }
         dest[destIndex].copyFrom(digits[srcIndex]);
         dest[destIndex + 1].copyFrom(digits[srcIndex + 1]);
+    }
+
+    private void writeScoreValue(Pattern[] dest, int score, Pattern[] digits) {
+        if (SCORE_DIGITS_START_INDEX + SCORE_DIGIT_TILES > dest.length) {
+            return;
+        }
+
+        int clampedScore = Math.min(score, 9_999_999);
+        int divisor = 1_000_000;
+        boolean hasDigit = false;
+        for (int i = 0; i < SCORE_DIGITS_COUNT; i++) {
+            int digit = (clampedScore / divisor) % 10;
+            int tileIndex = SCORE_DIGITS_START_INDEX + (i * 2);
+            boolean isLastDigit = (i == SCORE_DIGITS_COUNT - 1);
+            if (digit != 0 || hasDigit || isLastDigit) {
+                hasDigit = true;
+                copyDigit(dest, tileIndex, digit, digits);
+            } else {
+                dest[tileIndex].copyFrom(blankDigit);
+                dest[tileIndex + 1].copyFrom(blankDigit);
+            }
+            divisor /= 10;
+        }
     }
 
     /**
