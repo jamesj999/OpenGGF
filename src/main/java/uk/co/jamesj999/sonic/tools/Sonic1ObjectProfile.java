@@ -47,6 +47,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.SIGNPOST,
             Sonic1ObjectIds.MONITOR,
             Sonic1ObjectIds.RING,
+            Sonic1ObjectIds.SPIKED_POLE_HELIX,
             Sonic1ObjectIds.SWINGING_PLATFORM,
             Sonic1ObjectIds.PLATFORM,
             Sonic1ObjectIds.COLLAPSING_LEDGE,
@@ -98,6 +99,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.SONIC, List.of("Sonic"));
         map.put(Sonic1ObjectIds.SIGNPOST, List.of("Signpost"));
         map.put(Sonic1ObjectIds.BRIDGE, List.of("Bridge"));
+        map.put(Sonic1ObjectIds.SPIKED_POLE_HELIX, List.of("SpikedPoleHelix"));
         map.put(Sonic1ObjectIds.SWINGING_PLATFORM, List.of("SwingingPlatform"));
         map.put(Sonic1ObjectIds.PLATFORM, List.of("Platform"));
         map.put(Sonic1ObjectIds.COLLAPSING_LEDGE, List.of("CollapsingLedge"));

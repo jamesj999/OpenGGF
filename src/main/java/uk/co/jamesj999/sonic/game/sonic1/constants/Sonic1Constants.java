@@ -227,6 +227,10 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search Ball
     public static final int ART_NEM_GIANT_BALL_ADDR = 0x2FB60;
 
+    // Nem_SpikePole: Nemesis-compressed spiked pole helix art (GHZ, 300 bytes, ArtTile $398)
+    // Verified by RomOffsetFinder --game s1 search SpikePole
+    public static final int ART_NEM_SPIKE_POLE_ADDR = 0x2FF8E;
+
     // Nem_Spikes: Nemesis-compressed spike art (upward + sideways, 8 tiles)
     public static final int ART_NEM_SPIKES_ADDR = 0x2FCFE;
 

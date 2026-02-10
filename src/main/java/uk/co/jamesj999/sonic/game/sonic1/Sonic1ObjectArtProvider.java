@@ -155,6 +155,11 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load swinging platform art (zone-dependent: GHZ/MZ, SLZ, SBZ, GHZ giant ball)
         loadSwingingPlatformArt(rom, zoneIndex);
 
+        // Load spiked pole helix art (GHZ only)
+        if (zoneIndex == Sonic1Constants.ZONE_GHZ) {
+            loadSpikedPoleHelixArt(rom);
+        }
+
         // Load hidden bonus art (end-of-act point popups, all zones)
         loadHiddenBonusArt(rom);
 
@@ -2583,6 +2588,94 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Frame 3: ._100 — spritePiece -$10, -$C, 4, 3, $18, 0, 0, 0, 0
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-0x10, -0x0C, 4, 3, 0x18, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads spiked pole helix art (GHZ only).
+     * <p>
+     * Art: Nem_SpikePole (ArtTile_GHZ_Spike_Pole = $398, palette line 2).
+     * 8 mapping frames representing the spike ball at different rotation angles.
+     * <p>
+     * Disassembly: docs/s1disasm/_incObj/17 Spiked Pole Helix.asm,
+     * docs/s1disasm/_maps/Spiked Pole Helix.asm
+     */
+    private void loadSpikedPoleHelixArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SPIKE_POLE_ADDR, "SpikePole");
+        if (patterns.length == 0) {
+            return;
+        }
+        List<SpriteMappingFrame> mappings = createSpikedPoleHelixMappings();
+        // make_art_tile(ArtTile_GHZ_Spike_Pole, 2, 0) — palette line 2
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SPIKED_POLE_HELIX, sheet);
+    }
+
+    /**
+     * Spiked pole helix mappings from docs/s1disasm/_maps/Spiked Pole Helix.asm.
+     * <p>
+     * 8 frames representing spike ball at different rotation angles around the pole:
+     * <ul>
+     *   <li>Frame 0: Straight up (harmful) — 1x2 tiles at (-4, -$10), pattern $00</li>
+     *   <li>Frame 1: 45 degrees — 2x2 tiles at (-8, -$0B), pattern $02</li>
+     *   <li>Frame 2: 90 degrees (horizontal) — 2x2 tiles at (-8, -8), pattern $06</li>
+     *   <li>Frame 3: 135 degrees — 2x2 tiles at (-8, -5), pattern $0A</li>
+     *   <li>Frame 4: Straight down — 1x2 tiles at (-4, 0), pattern $0E</li>
+     *   <li>Frame 5: Small piece (behind pole) — 1x1 tile at (-3, 4), pattern $10</li>
+     *   <li>Frame 6: Invisible (hack: zero pieces) — empty frame</li>
+     *   <li>Frame 7: Small piece (emerging) — 1x1 tile at (-3, -$0C), pattern $11</li>
+     * </ul>
+     */
+    private List<SpriteMappingFrame> createSpikedPoleHelixMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: byte_7E08 — straight up (harmful position)
+        // spritePiece -4, -$10, 1, 2, 0, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -0x10, 1, 2, 0x00, false, false, 0, false)
+        )));
+
+        // Frame 1: byte_7E0E — 45 degrees clockwise
+        // spritePiece -8, -$B, 2, 2, 2, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x0B, 2, 2, 0x02, false, false, 0, false)
+        )));
+
+        // Frame 2: byte_7E14 — 90 degrees (horizontal)
+        // spritePiece -8, -8, 2, 2, 6, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x06, false, false, 0, false)
+        )));
+
+        // Frame 3: byte_7E1A — 135 degrees
+        // spritePiece -8, -5, 2, 2, $A, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -5, 2, 2, 0x0A, false, false, 0, false)
+        )));
+
+        // Frame 4: byte_7E20 — straight down
+        // spritePiece -4, 0, 1, 2, $E, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, 0, 1, 2, 0x0E, false, false, 0, false)
+        )));
+
+        // Frame 5: byte_7E26 — small piece going behind pole
+        // spritePiece -3, 4, 1, 1, $10, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-3, 4, 1, 1, 0x10, false, false, 0, false)
+        )));
+
+        // Frame 6: Invisible hack — mapping table points at byte_7E2C+2 which hits a $00 byte.
+        // Render as empty frame (zero pieces).
+        frames.add(new SpriteMappingFrame(List.of()));
+
+        // Frame 7: byte_7E2C — small piece emerging from behind pole
+        // spritePiece -3, -$C, 1, 1, $11, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-3, -0x0C, 1, 1, 0x11, false, false, 0, false)
         )));
 
         return frames;
