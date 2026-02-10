@@ -26,6 +26,7 @@ import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SpikerDrillObjectInstan
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SolBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.RexonBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2EHZBossInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2MCZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CPZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2ARZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CNZBossInstance;
@@ -308,6 +309,9 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         // EHZ Boss (Object 0x56)
         registerFactory(Sonic2ObjectIds.EHZ_BOSS,
                 (spawn, registry) -> new Sonic2EHZBossInstance(spawn, LevelManager.getInstance()));
+        // MCZ Boss (Object 0x57)
+        registerFactory(Sonic2ObjectIds.MCZ_BOSS,
+                (spawn, registry) -> new Sonic2MCZBossInstance(spawn, LevelManager.getInstance()));
         // CPZ Boss (Object 0x5D)
         registerFactory(Sonic2ObjectIds.CPZ_BOSS,
                 (spawn, registry) -> new Sonic2CPZBossInstance(spawn, LevelManager.getInstance()));
