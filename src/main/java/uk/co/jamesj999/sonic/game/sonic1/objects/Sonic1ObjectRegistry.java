@@ -63,6 +63,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1RockObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.BRIDGE,
                 (spawn, registry) -> new Sonic1BridgeObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SCENERY,
+                (spawn, registry) -> new Sonic1SceneryObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SPIKES,
                 (spawn, registry) -> new Sonic1SpikeObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SPRING,
@@ -89,6 +91,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.BRIDGE -> "Bridge";
             case Sonic1ObjectIds.PLATFORM -> "Platform";
             case Sonic1ObjectIds.COLLAPSING_LEDGE -> "CollapsingLedge";
+            case Sonic1ObjectIds.SCENERY -> "Scenery";
             case Sonic1ObjectIds.CRABMEAT -> "Crabmeat";
             case Sonic1ObjectIds.BUZZ_BOMBER -> "BuzzBomber";
             case Sonic1ObjectIds.BUZZ_BOMBER_MISSILE -> "BuzzBomberMissile";

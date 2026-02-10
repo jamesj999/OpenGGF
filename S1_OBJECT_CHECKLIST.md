@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 14 (17.5%)
-- **Unimplemented:** 66 (82.5%)
+- **Implemented:** 15 (18.8%)
+- **Unimplemented:** 65 (81.2%)
 
 ## Implemented Objects
 
@@ -16,6 +16,7 @@ Generated: 2026-02-09 23:03:25
 | 0x11 | Bridge | 11 | GHZ1, GHZ2, GHZ3 |
 | 0x18 | Platform | 96 | GHZ1, GHZ2, GHZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3 |
 | 0x1A | CollapsingLedge | 19 | GHZ1, GHZ2, GHZ3 |
+| 0x1C | Scenery | 41 | GHZ1, GHZ2, GHZ3, SLZ1, SLZ2, SLZ3 |
 | 0x1F | Crabmeat | 43 | GHZ1, GHZ2, GHZ3, SYZ1, SYZ2, SYZ3 |
 | 0x22 | BuzzBomber | 78 | GHZ1, GHZ2, GHZ3, MZ1, MZ2, MZ3, SYZ1, SYZ2, SYZ3 |
 | 0x25 | Ring | 802 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
@@ -51,7 +52,6 @@ Generated: 2026-02-09 23:03:25
 | 0x47 | Object | Bumper | 43 | SYZ1, SYZ2, SYZ3 |
 | 0x61 | Object | S1_Obj_61 | 43 | LZ1, LZ2, LZ3 |
 | 0x6D | Object | S1_Obj_6D | 42 | SBZ1, SBZ2 |
-| 0x1C | Object | S1_Obj_1C | 41 | GHZ1, GHZ2, GHZ3, SLZ1, SLZ2, SLZ3 |
 | 0x32 | Object | S1_Obj_32 | 38 | LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SYZ1, SYZ3, SBZ1, SBZ2 |
 | 0x2F | Object | S1_Obj_2F | 37 | MZ1, MZ2, MZ3 |
 | 0x55 | Badnik | Batbrain | 37 | MZ1, MZ2, MZ3 |
@@ -106,7 +106,7 @@ Generated: 2026-02-09 23:03:25
 
 #### Act 1
 
-Total: 214 objects | Implemented: 14 | Unimplemented: 6
+Total: 214 objects | Implemented: 15 | Unimplemented: 5
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
@@ -120,7 +120,7 @@ Total: 214 objects | Implemented: 14 | Unimplemented: 6
 - [x] 0x11 Bridge (x3) [0x0C]
 - [x] 0x18 Platform (x20) [5 subtypes]
 - [x] 0x1A CollapsingLedge (x3) [0x00, 0x01]
-- [ ] 0x1C S1_Obj_1C (x6) [0x03]
+- [x] 0x1C Scenery (x6) [0x03]
 - [x] 0x25 Ring (x82) [8 subtypes]
 - [x] 0x26 Monitor (x10) [0x04, 0x05, 0x06]
 - [x] 0x36 Spikes (x23) [0x00, 0x20]
@@ -134,7 +134,7 @@ Total: 214 objects | Implemented: 14 | Unimplemented: 6
 
 #### Act 2
 
-Total: 244 objects | Implemented: 14 | Unimplemented: 8
+Total: 244 objects | Implemented: 15 | Unimplemented: 7
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x4) [0x00]
@@ -149,7 +149,7 @@ Total: 244 objects | Implemented: 14 | Unimplemented: 8
 - [ ] 0x15 S1_Obj_15 (x3) [0x06, 0x08]
 - [x] 0x18 Platform (x9) [0x01, 0x03, 0x0A]
 - [x] 0x1A CollapsingLedge (x4) [0x00, 0x01]
-- [ ] 0x1C S1_Obj_1C (x8) [0x03]
+- [x] 0x1C Scenery (x8) [0x03]
 - [x] 0x25 Ring (x74) [11 subtypes]
 - [x] 0x26 Monitor (x10) [5 subtypes]
 - [x] 0x36 Spikes (x33) [4 subtypes]
@@ -164,7 +164,7 @@ Total: 244 objects | Implemented: 14 | Unimplemented: 8
 
 #### Act 3
 
-Total: 286 objects | Implemented: 12 | Unimplemented: 8
+Total: 286 objects | Implemented: 13 | Unimplemented: 7
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
@@ -178,7 +178,7 @@ Total: 286 objects | Implemented: 12 | Unimplemented: 8
 - [ ] 0x17 S1_Obj_17 (x4) [0x10]
 - [x] 0x18 Platform (x17) [6 subtypes]
 - [x] 0x1A CollapsingLedge (x12) [0x00, 0x01]
-- [ ] 0x1C S1_Obj_1C (x8) [0x03]
+- [x] 0x1C Scenery (x8) [0x03]
 - [x] 0x25 Ring (x74) [6 subtypes]
 - [x] 0x26 Monitor (x20) [5 subtypes]
 - [x] 0x36 Spikes (x19) [5 subtypes]
@@ -378,7 +378,7 @@ Total: 232 objects | Implemented: 6 | Unimplemented: 17
 
 #### Act 1
 
-Total: 223 objects | Implemented: 4 | Unimplemented: 13
+Total: 223 objects | Implemented: 5 | Unimplemented: 12
 
 **Badniks:**
 - [ ] 0x5F Bomb (x13) [0x00]
@@ -387,7 +387,7 @@ Total: 223 objects | Implemented: 4 | Unimplemented: 13
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
 - [ ] 0x13 S1_Obj_13 (x11) [0x36, 0x37]
-- [ ] 0x1C S1_Obj_1C (x11) [0x00]
+- [x] 0x1C Scenery (x11) [0x00]
 - [x] 0x25 Ring (x54) [7 subtypes]
 - [x] 0x26 Monitor (x15) [0x02, 0x05, 0x06]
 - [ ] 0x3C BreakableWall (x4) [0x01]
@@ -403,7 +403,7 @@ Total: 223 objects | Implemented: 4 | Unimplemented: 13
 
 #### Act 2
 
-Total: 187 objects | Implemented: 5 | Unimplemented: 14
+Total: 187 objects | Implemented: 6 | Unimplemented: 13
 
 **Badniks:**
 - [ ] 0x5F Bomb (x20) [0x00]
@@ -413,7 +413,7 @@ Total: 187 objects | Implemented: 5 | Unimplemented: 14
 - [x] 0x0D Signpost (x1) [0x00]
 - [ ] 0x13 S1_Obj_13 (x1) [0x17]
 - [x] 0x18 Platform (x3) [0x03]
-- [ ] 0x1C S1_Obj_1C (x1) [0x00]
+- [x] 0x1C Scenery (x1) [0x00]
 - [x] 0x25 Ring (x65) [8 subtypes]
 - [x] 0x26 Monitor (x8) [0x02, 0x05, 0x06]
 - [x] 0x41 Spring (x15) [0x10, 0x00, 0x02]
@@ -430,7 +430,7 @@ Total: 187 objects | Implemented: 5 | Unimplemented: 14
 
 #### Act 3
 
-Total: 250 objects | Implemented: 5 | Unimplemented: 15
+Total: 250 objects | Implemented: 6 | Unimplemented: 14
 
 **Badniks:**
 - [ ] 0x5F Bomb (x48) [0x00]
@@ -440,7 +440,7 @@ Total: 250 objects | Implemented: 5 | Unimplemented: 15
 - [ ] 0x13 S1_Obj_13 (x7) [0x36, 0x37]
 - [ ] 0x15 S1_Obj_15 (x2) [0x07]
 - [x] 0x18 Platform (x4) [0x03]
-- [ ] 0x1C S1_Obj_1C (x7) [0x00]
+- [x] 0x1C Scenery (x7) [0x00]
 - [x] 0x25 Ring (x65) [11 subtypes]
 - [x] 0x26 Monitor (x17) [4 subtypes]
 - [ ] 0x3C BreakableWall (x4) [0x01]

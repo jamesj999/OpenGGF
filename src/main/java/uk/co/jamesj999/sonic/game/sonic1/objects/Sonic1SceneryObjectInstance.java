@@ -1,0 +1,67 @@
+package uk.co.jamesj999.sonic.game.sonic1.objects;
+
+import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
+import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
+import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+
+import java.util.List;
+
+/**
+ * Sonic 1 Scenery - Object ID 0x1C.
+ * <p>
+ * A purely decorative static object with no collision, no animation, and no movement.
+ * Renders a single sprite frame based on subtype:
+ * <ul>
+ *   <li>Subtypes 0-2: SLZ fireball launcher base (Map_Scen frame 0, 16x32 px)</li>
+ *   <li>Subtype 3: GHZ bridge stump (Map_Bri frame 1, 32x16 px)</li>
+ * </ul>
+ * <p>
+ * From disassembly: Scen_Values table provides per-subtype configuration:
+ * mappings, art tile, frame, width, priority, collision (always 0).
+ * Object only has two routines: init (Scen_Main) and display/delete (Scen_ChkDel).
+ * <p>
+ * Reference: docs/s1disasm/_incObj/1C Scenery.asm
+ */
+public class Sonic1SceneryObjectInstance extends AbstractObjectInstance {
+
+    // From Scen_Values: subtype 3 uses Map_Bri frame 1 (bridge stump)
+    private static final int SUBTYPE_BRIDGE_STUMP = 3;
+
+    // Art key and frame index resolved from subtype
+    private final String artKey;
+    private final int frameIndex;
+
+    public Sonic1SceneryObjectInstance(ObjectSpawn spawn) {
+        super(spawn, "Scenery");
+
+        int subtype = spawn.subtype() & 0xFF;
+        if (subtype == SUBTYPE_BRIDGE_STUMP) {
+            // Subtype 3: GHZ bridge stump - uses Map_Bri, frame 1
+            // From Scen_Values: dc.l Map_Bri / make_art_tile(ArtTile_GHZ_Bridge,2,0) / frame=1
+            artKey = ObjectArtKeys.BRIDGE;
+            frameIndex = 1;
+        } else {
+            // Subtypes 0-2: SLZ fireball launcher - uses Map_Scen, frame 0
+            // From Scen_Values: dc.l Map_Scen / make_art_tile(ArtTile_SLZ_Fireball_Launcher,2,0) / frame=0
+            artKey = ObjectArtKeys.SCENERY;
+            frameIndex = 0;
+        }
+    }
+
+    @Override
+    public void appendRenderCommands(List<GLCommand> commands) {
+        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        if (renderManager == null) {
+            return;
+        }
+        PatternSpriteRenderer renderer = renderManager.getRenderer(artKey);
+        if (renderer == null || !renderer.isReady()) {
+            return;
+        }
+        renderer.drawFrameIndex(frameIndex, getX(), getY(), false, false);
+    }
+}

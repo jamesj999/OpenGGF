@@ -190,6 +190,11 @@ public final class Sonic1Constants {
     // Loaded via PLC_GHZ2: plcm Nem_Bridge, ArtTile_GHZ_Bridge
     public static final int ART_NEM_BRIDGE_ADDR = 0x2FA2C;
 
+    // Nem_SlzCannon: Nemesis-compressed SLZ fireball launcher / lava thrower art
+    // Loaded via PLC_SLZ: plcm Nem_SlzCannon, ArtTile_SLZ_Fireball_Launcher
+    // Verified by RomOffsetFinder --game s1 search Cannon
+    public static final int ART_NEM_SLZ_CANNON_ADDR = 0x34254;
+
     // Nem_Lamp: Nemesis-compressed lamppost art (10 tiles: pole, blue ball, red ball)
     public static final int ART_NEM_LAMPPOST_ADDR = 0x3AE64;
 
