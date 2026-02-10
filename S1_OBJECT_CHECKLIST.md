@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 16 (20.0%)
-- **Unimplemented:** 64 (80.0%)
+- **Implemented:** 17 (21.3%)
+- **Unimplemented:** 63 (78.8%)
 
 ## Implemented Objects
 
@@ -26,6 +26,7 @@ Generated: 2026-02-09 23:03:25
 | 0x2B | Chopper | 14 | GHZ1, GHZ2 |
 | 0x40 | Motobug | 15 | GHZ1, GHZ2, GHZ3 |
 | 0x41 | Spring | 150 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
+| 0x42 | Newtron | 32 | GHZ1, GHZ2, GHZ3 |
 | 0x44 | EdgeWalls | 74 | GHZ1, GHZ2, GHZ3 |
 | 0x79 | Lamppost | 23 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1 |
 
@@ -60,7 +61,6 @@ Generated: 2026-02-09 23:03:25
 | 0x63 | Object | S1_Obj_63 | 36 | LZ1, LZ2, LZ3 |
 | 0x58 | Object | S1_Obj_58 | 34 | SYZ1, SYZ2, SYZ3 |
 | 0x60 | Badnik | Orbinaut | 34 | LZ1, LZ2, LZ3, SLZ1, SLZ2, SLZ3 |
-| 0x42 | Badnik | Newtron | 32 | GHZ1, GHZ2, GHZ3 |
 | 0x51 | Object | S1_Obj_51 | 30 | MZ2, MZ3 |
 | 0x16 | Object | S1_Obj_16 | 28 | LZ1, LZ2, LZ3 |
 | 0x15 | Object | S1_Obj_15 | 26 | GHZ2, GHZ3, MZ2, MZ3, SLZ3, SBZ2 |
@@ -106,14 +106,14 @@ Generated: 2026-02-09 23:03:25
 
 #### Act 1
 
-Total: 214 objects | Implemented: 16 | Unimplemented: 4
+Total: 214 objects | Implemented: 17 | Unimplemented: 3
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
 - [x] 0x22 BuzzBomber (x11) [0x00]
 - [x] 0x2B Chopper (x5) [0x00]
 - [x] 0x40 Motobug (x3) [0x00]
-- [ ] 0x42 Newtron (x10) [0x00, 0x01]
+- [x] 0x42 Newtron (x10) [0x00, 0x01]
 
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
@@ -134,14 +134,14 @@ Total: 214 objects | Implemented: 16 | Unimplemented: 4
 
 #### Act 2
 
-Total: 244 objects | Implemented: 16 | Unimplemented: 6
+Total: 244 objects | Implemented: 17 | Unimplemented: 5
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x4) [0x00]
 - [x] 0x22 BuzzBomber (x12) [0x00]
 - [x] 0x2B Chopper (x9) [0x00]
 - [x] 0x40 Motobug (x6) [0x00]
-- [ ] 0x42 Newtron (x11) [0x00, 0x01]
+- [x] 0x42 Newtron (x11) [0x00, 0x01]
 
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
@@ -164,13 +164,13 @@ Total: 244 objects | Implemented: 16 | Unimplemented: 6
 
 #### Act 3
 
-Total: 286 objects | Implemented: 14 | Unimplemented: 6
+Total: 286 objects | Implemented: 15 | Unimplemented: 5
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
 - [x] 0x22 BuzzBomber (x24) [0x00]
 - [x] 0x40 Motobug (x6) [0x00]
-- [ ] 0x42 Newtron (x11) [0x00, 0x01]
+- [x] 0x42 Newtron (x11) [0x00, 0x01]
 
 **Objects:**
 - [x] 0x11 Bridge (x4) [0x0C]
