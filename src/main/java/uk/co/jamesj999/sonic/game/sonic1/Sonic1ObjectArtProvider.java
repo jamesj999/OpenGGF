@@ -106,6 +106,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load Crabmeat art (GHZ/SYZ badnik + projectile)
         loadCrabmeatArt(rom);
 
+        // Load Chopper art (GHZ badnik)
+        loadChopperArt(rom);
+
         // Load Motobug art (GHZ badnik + exhaust smoke)
         loadMotobugArt(rom);
 
@@ -1169,6 +1172,49 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // spritePiece -8, -8, 2, 2, $40, 0, 0, 0, 0
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-8, -8, 2, 2, 0x40, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads Chopper art (Nem_Chopper) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Chopper.asm (Map_Chop_internal).
+     * 2 frames: mouth shut (frame 0) and mouth open (frame 1).
+     * Each frame is a single 4x4 (32x32 pixel) sprite piece.
+     */
+    private void loadChopperArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_CHOPPER_ADDR, "Chopper");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Chopper art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createChopperMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.CHOPPER, sheet);
+    }
+
+    /**
+     * Creates Chopper sprite mappings from S1 disassembly Map_Chop_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0 (.mouthshut): spritePiece -$10, -$10, 4, 4, 0, 0, 0, 0, 0
+     * Frame 1 (.mouthopen): spritePiece -$10, -$10, 4, 4, $10, 0, 0, 0, 0
+     */
+    private List<SpriteMappingFrame> createChopperMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .mouthshut - Single 32x32 piece, tiles 0x00-0x0F
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x00, false, false, 0, false)
+        )));
+
+        // Frame 1: .mouthopen - Single 32x32 piece, tiles 0x10-0x1F
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x10, false, false, 0, false)
         )));
 
         return frames;
