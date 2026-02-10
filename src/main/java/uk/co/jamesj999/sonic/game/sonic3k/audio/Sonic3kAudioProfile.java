@@ -2,10 +2,15 @@ package uk.co.jamesj999.sonic.game.sonic3k.audio;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.audio.GameAudioProfile;
+import uk.co.jamesj999.sonic.audio.GameSound;
 import uk.co.jamesj999.sonic.audio.smps.SmpsLoader;
 import uk.co.jamesj999.sonic.audio.smps.SmpsSequencerConfig;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.smps.Sonic3kSmpsLoader;
+
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.Map;
 
 /**
  * Sonic 3 &amp; Knuckles audio profile.
@@ -19,6 +24,30 @@ import uk.co.jamesj999.sonic.game.sonic3k.audio.smps.Sonic3kSmpsLoader;
  * </ul>
  */
 public class Sonic3kAudioProfile implements GameAudioProfile {
+
+    private static final Map<GameSound, Integer> SOUND_MAP;
+
+    static {
+        Map<GameSound, Integer> map = new EnumMap<>(GameSound.class);
+        map.put(GameSound.JUMP, Sonic3kSfx.JUMP.id);
+        map.put(GameSound.RING_LEFT, Sonic3kSfx.RING_LEFT.id);
+        map.put(GameSound.RING_RIGHT, Sonic3kSfx.RING_RIGHT.id);
+        map.put(GameSound.RING_SPILL, Sonic3kSfx.RING_LOSS.id);
+        map.put(GameSound.SPINDASH_CHARGE, Sonic3kSfx.SPINDASH.id);
+        map.put(GameSound.SPINDASH_RELEASE, Sonic3kSfx.SPINDASH.id);
+        map.put(GameSound.SKID, Sonic3kSfx.SKID.id);
+        map.put(GameSound.HURT, Sonic3kSfx.SPIKE_HIT.id);
+        map.put(GameSound.HURT_SPIKE, Sonic3kSfx.SPIKE_HIT.id);
+        map.put(GameSound.BADNIK_HIT, Sonic3kSfx.BOSS_HIT.id);
+        map.put(GameSound.CHECKPOINT, Sonic3kSfx.STARPOST.id);
+        map.put(GameSound.SPRING, Sonic3kSfx.SPRING.id);
+        map.put(GameSound.BUMPER, Sonic3kSfx.BUMPER.id);
+        map.put(GameSound.ROLLING, Sonic3kSfx.ROLL.id);
+        map.put(GameSound.SPLASH, Sonic3kSfx.SPLASH.id);
+        map.put(GameSound.DROWN, Sonic3kSfx.DROWN.id);
+        map.put(GameSound.AIR_DING, Sonic3kSfx.AIR_DING.id);
+        SOUND_MAP = Collections.unmodifiableMap(map);
+    }
 
     @Override
     public SmpsLoader createSmpsLoader(Rom rom) {
@@ -80,5 +109,10 @@ public class Sonic3kAudioProfile implements GameAudioProfile {
     @Override
     public int getSpeedMultiplierValue() {
         return 0x08; // Standard speed shoes: 125% speed
+    }
+
+    @Override
+    public Map<GameSound, Integer> getSoundMap() {
+        return SOUND_MAP;
     }
 }
