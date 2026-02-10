@@ -111,6 +111,18 @@ public interface SpecialStageProvider extends MiniGameProvider {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     }
 
+    /**
+     * Returns the ring count to simulate when debug-completing a specific stage.
+     * S2 returns checkpoint-3 ring requirements; S1 returns a nominal value
+     * since emerald collection is position-based, not ring-based.
+     *
+     * @param stageIndex the stage index (0-based)
+     * @return simulated ring count for the debug results screen
+     */
+    default int getDebugCompletionRingCount(int stageIndex) {
+        return 50;
+    }
+
     // ==================== Debug Methods ====================
 
     /**

@@ -21,8 +21,6 @@ import uk.co.jamesj999.sonic.game.NoOpSpecialStageProvider;
 import uk.co.jamesj999.sonic.game.SpecialStageDebugProvider;
 import uk.co.jamesj999.sonic.game.SpecialStageProvider;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
-import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
-import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.debug.PerformanceProfiler;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -235,7 +233,7 @@ public class GameLoop {
         GameServices.debugOverlay().updateInput(inputHandler);
         DebugObjectArtViewer.getInstance().updateInput(inputHandler);
 
-        // Check for Special Stage toggle (HOME by default)
+        // Check for Special Stage toggle (TAB by default)
         if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_KEY))) {
             handleSpecialStageDebugKey();
         }
@@ -451,7 +449,7 @@ public class GameLoop {
     }
 
     /**
-     * Handles the special stage debug key (HOME by default).
+     * Handles the special stage debug key (TAB by default).
      * When in level mode, enters the next special stage.
      * When in special stage mode, exits to results screen (as failure).
      * When in results screen mode, skips back to level.
@@ -546,9 +544,9 @@ public class GameLoop {
         // Force emerald collection state
         ssProvider.setEmeraldCollected(true);
 
-        // Get the ring requirement for this stage and set rings to meet it
+        // Get the ring count for this stage from the active provider
         int stageIndex = ssProvider.getCurrentStage();
-        int ringRequirement = getDebugRingRequirement(stageIndex);
+        int ringRequirement = ssProvider.getDebugCompletionRingCount(stageIndex);
 
         LOGGER.info("DEBUG: Completing Special Stage " + (stageIndex + 1) +
                 " with emerald (forcing " + ringRequirement + " rings)");
@@ -574,28 +572,6 @@ public class GameLoop {
 
         // Enter results screen without emerald and with small ring count
         enterResultsScreenWithDebugRings(false, smallRingCount);
-    }
-
-    /**
-     * Gets the ring requirement for a stage (for debug purposes).
-     * Uses the final checkpoint requirement from the original game.
-     */
-    private int getDebugRingRequirement(int stageIndex) {
-        // Ring requirements at final checkpoint (checkpoint 3) for each stage
-        // From s2.asm Ring_Requirement_Table (solo mode)
-        int[][] requirements = {
-                { 30, 60, 90, 120 }, // Stage 1
-                { 40, 80, 120, 160 }, // Stage 2
-                { 50, 100, 140, 180 }, // Stage 3
-                { 50, 100, 140, 180 }, // Stage 4
-                { 60, 110, 160, 200 }, // Stage 5
-                { 70, 120, 180, 220 }, // Stage 6
-                { 80, 140, 200, 240 } // Stage 7
-        };
-        if (stageIndex >= 0 && stageIndex < requirements.length) {
-            return requirements[stageIndex][3]; // Final checkpoint requirement
-        }
-        return 100; // Default fallback
     }
 
     /**
@@ -1544,8 +1520,6 @@ public class GameLoop {
         int sfxId = ssProvider.getTransitionSfxId();
         if (sfxId >= 0) {
             AudioManager.getInstance().playSfx(sfxId);
-        } else {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.SPECIAL_STAGE_ENTRY.id);
         }
     }
 
@@ -1553,8 +1527,6 @@ public class GameLoop {
         int musicId = ssProvider.getStageMusicId();
         if (musicId >= 0) {
             AudioManager.getInstance().playMusic(musicId);
-        } else {
-            AudioManager.getInstance().playMusic(Sonic2Music.SPECIAL_STAGE.id);
         }
     }
 
@@ -1562,8 +1534,6 @@ public class GameLoop {
         int musicId = ssProvider.getResultsMusicId();
         if (musicId >= 0) {
             AudioManager.getInstance().playMusic(musicId);
-        } else {
-            AudioManager.getInstance().playMusic(Sonic2Music.ACT_CLEAR.id);
         }
     }
 

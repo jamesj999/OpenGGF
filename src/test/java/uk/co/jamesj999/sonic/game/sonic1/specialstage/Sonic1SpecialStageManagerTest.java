@@ -149,6 +149,54 @@ public class Sonic1SpecialStageManagerTest {
     }
 
     @Test
+    public void testAnimCountersMatchRomStartupPhaseAfterFirstUpdate() throws Exception {
+        manager.initialize(0);
+        manager.update();
+
+        Field ringAnimFrameField = Sonic1SpecialStageManager.class.getDeclaredField("ringAnimFrame");
+        Field wallVramAnimFrameField = Sonic1SpecialStageManager.class.getDeclaredField("wallVramAnimFrame");
+        Field ani2FrameField = Sonic1SpecialStageManager.class.getDeclaredField("ani2Frame");
+        Field ani3FrameField = Sonic1SpecialStageManager.class.getDeclaredField("ani3Frame");
+        ringAnimFrameField.setAccessible(true);
+        wallVramAnimFrameField.setAccessible(true);
+        ani2FrameField.setAccessible(true);
+        ani3FrameField.setAccessible(true);
+
+        assertEquals("ani1 should advance to frame 1 on first tick (ROM parity)",
+                1, ringAnimFrameField.getInt(manager));
+        assertEquals("ani0 should wrap to frame 7 on first tick (ROM parity)",
+                7, wallVramAnimFrameField.getInt(manager));
+        assertEquals("ani2 should advance to frame 1 on first tick (ROM parity)",
+                1, ani2FrameField.getInt(manager));
+        assertEquals("ani3 should advance to frame 1 on first tick (ROM parity)",
+                1, ani3FrameField.getInt(manager));
+    }
+
+    @Test
+    public void testDrawForcesSpecialStageShaderState() throws Exception {
+        manager.initialize(0);
+
+        graphicsManager.setUseWaterShader(true);
+        graphicsManager.setUseSpritePriorityShader(true);
+        graphicsManager.setCurrentSpriteHighPriority(true);
+        graphicsManager.setWaterEnabled(true);
+        graphicsManager.setUseUnderwaterPaletteForBackground(true);
+
+        manager.draw();
+
+        assertTrue("S1 special stage draw should disable water shader",
+                !(graphicsManager.getShaderProgram() instanceof uk.co.jamesj999.sonic.graphics.WaterShaderProgram));
+        assertTrue("S1 special stage draw should disable sprite priority mode",
+                !graphicsManager.isUseSpritePriorityShader());
+        assertTrue("S1 special stage draw should clear sprite high-priority state",
+                !graphicsManager.getCurrentSpriteHighPriority());
+        assertTrue("S1 special stage draw should clear water-enabled state",
+                !graphicsManager.isWaterEnabled());
+        assertTrue("S1 special stage draw should disable underwater background palette mode",
+                !graphicsManager.isUseUnderwaterPaletteForBackground());
+    }
+
+    @Test
     public void testCollectingEmeraldTriggersExitSequence() throws Exception {
         manager.initialize(0);
 

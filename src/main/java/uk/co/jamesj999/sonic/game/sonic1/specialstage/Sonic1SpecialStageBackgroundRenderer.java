@@ -73,6 +73,10 @@ public class Sonic1SpecialStageBackgroundRenderer {
     // State
     private boolean initialized = false;
     private final int[] savedViewport = new int[4];
+    private float backdropR;
+    private float backdropG;
+    private float backdropB;
+    private boolean fillTransparentWithBackdrop;
 
     /**
      * Initialize the renderer with FBO and shader.
@@ -146,6 +150,16 @@ public class Sonic1SpecialStageBackgroundRenderer {
     public void setTilemap(byte[] data) {
         this.tilemapData = data;
         this.fboNeedsRedraw = true;
+    }
+
+    public void setBackdropColor(float r, float g, float b) {
+        this.backdropR = r;
+        this.backdropG = g;
+        this.backdropB = b;
+    }
+
+    public void setFillTransparentWithBackdrop(boolean fill) {
+        this.fillTransparentWithBackdrop = fill;
     }
 
     /**
@@ -275,13 +289,29 @@ public class Sonic1SpecialStageBackgroundRenderer {
 
         int[] viewport = new int[4];
         glGetIntegerv(GL_VIEWPORT, viewport);
-        float realWidth = (float) viewport[2];
-        float realHeight = (float) viewport[3];
+        int fullViewportX = viewport[0];
+        int fullViewportY = viewport[1];
+        int fullViewportWidth = viewport[2];
+        int fullViewportHeight = viewport[3];
 
-        shader.setScreenDimensions(realWidth, realHeight);
+        glViewport(fullViewportX, fullViewportY, fullViewportWidth, fullViewportHeight);
+
+        shader.setScreenDimensions((float) fullViewportWidth, (float) fullViewportHeight);
         shader.setBGTextureDimensions(FBO_WIDTH, FBO_HEIGHT);
         shader.setVScrollBG(vScroll);
-        shader.setViewportOffset((float) viewport[0], (float) viewport[1]);
+        shader.setViewportOffset((float) fullViewportX, (float) fullViewportY);
+        shader.setBackdropColor(backdropR, backdropG, backdropB);
+        shader.setFillTransparentWithBackdrop(fillTransparentWithBackdrop);
+
+        boolean blendWasEnabled = glIsEnabled(GL_BLEND);
+        int[] prevBlendSrc = new int[1];
+        int[] prevBlendDst = new int[1];
+        int[] prevBlendEquation = new int[1];
+        glGetIntegerv(GL_BLEND_SRC_ALPHA, prevBlendSrc);
+        glGetIntegerv(GL_BLEND_DST_ALPHA, prevBlendDst);
+        glGetIntegerv(GL_BLEND_EQUATION_RGB, prevBlendEquation);
+        glDisable(GL_BLEND);
+        glBlendEquation(GL_FUNC_ADD);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, fboTextureId);
@@ -293,6 +323,16 @@ public class Sonic1SpecialStageBackgroundRenderer {
         shader.stop();
         hScrollBuffer.unbind(1);
         glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        glBlendEquation(prevBlendEquation[0]);
+        if (blendWasEnabled) {
+            glEnable(GL_BLEND);
+        } else {
+            glDisable(GL_BLEND);
+        }
+        glBlendFunc(prevBlendSrc[0], prevBlendDst[0]);
+        glViewport(fullViewportX, fullViewportY, fullViewportWidth, fullViewportHeight);
     }
 
     /**
@@ -314,6 +354,13 @@ public class Sonic1SpecialStageBackgroundRenderer {
 
     public boolean isInitialized() {
         return initialized;
+    }
+
+    /**
+     * Marks the cached FBO as stale. Useful when palette colors change.
+     */
+    public void markDirty() {
+        fboNeedsRedraw = true;
     }
 
     /**
