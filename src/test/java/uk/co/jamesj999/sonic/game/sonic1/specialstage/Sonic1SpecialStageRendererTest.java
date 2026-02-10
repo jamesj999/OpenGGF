@@ -5,7 +5,11 @@ import org.junit.Before;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 
+import java.lang.reflect.Method;
+
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+import static uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.ARTTILE_RING;
 import static uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.SS_LAYOUT_STRIDE;
 
 public class Sonic1SpecialStageRendererTest {
@@ -78,5 +82,22 @@ public class Sonic1SpecialStageRendererTest {
         } catch (Exception ex) {
             fail("Renderer should handle empty layout without exceptions: " + ex.getMessage());
         }
+    }
+
+    @Test
+    public void testRingArtTileMapsToRingPatternBase() throws Exception {
+        Method mappingMethod = Sonic1SpecialStageRenderer.class
+                .getDeclaredMethod("getPatternBaseForArtTile", int.class);
+        mappingMethod.setAccessible(true);
+
+        int ringBase = (int) mappingMethod.invoke(renderer, ARTTILE_RING);
+        assertEquals("Ring art tile should resolve to dedicated ring pattern base",
+                TEST_PATTERN_BASE + 0xC00, ringBase);
+    }
+
+    @Test
+    public void testH32ViewportUsesCenteredOffset() {
+        assertEquals("S1 special stage should center 256px viewport on 320px output",
+                32, Sonic1SpecialStageRenderer.SCREEN_CENTER_OFFSET);
     }
 }

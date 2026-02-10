@@ -31,6 +31,8 @@ public class Sonic1SpecialStageDataLoader {
     private byte[][] stageLayouts;
     private int[][] startPositions;
     private byte[] ssPalette;
+    private byte[] ssPaletteCycle1;
+    private byte[] ssPaletteCycle2;
 
     // Art pattern caches
     private Pattern[] wallPatterns;
@@ -96,6 +98,28 @@ public class Sonic1SpecialStageDataLoader {
             LOGGER.fine("Loaded SS palette: " + ssPalette.length + " bytes");
         }
         return ssPalette;
+    }
+
+    /**
+     * Gets special stage palette cycle data table 1 (Pal_SSCyc1).
+     */
+    public byte[] getSSPaletteCycle1() throws IOException {
+        if (ssPaletteCycle1 == null) {
+            ssPaletteCycle1 = rom.readBytes(PAL_SS_CYC1_ADDR, PAL_SS_CYC1_SIZE);
+            LOGGER.fine("Loaded SS palette cycle 1: " + ssPaletteCycle1.length + " bytes");
+        }
+        return ssPaletteCycle1;
+    }
+
+    /**
+     * Gets special stage palette cycle data table 2 (Pal_SSCyc2).
+     */
+    public byte[] getSSPaletteCycle2() throws IOException {
+        if (ssPaletteCycle2 == null) {
+            ssPaletteCycle2 = rom.readBytes(PAL_SS_CYC2_ADDR, PAL_SS_CYC2_SIZE);
+            LOGGER.fine("Loaded SS palette cycle 2: " + ssPaletteCycle2.length + " bytes");
+        }
+        return ssPaletteCycle2;
     }
 
     // ---- Art pattern loading ----

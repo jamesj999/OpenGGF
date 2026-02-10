@@ -28,9 +28,10 @@ import static uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.*;
 public class Sonic1SpecialStageRenderer {
     private static final Logger LOGGER = Logger.getLogger(Sonic1SpecialStageRenderer.class.getName());
 
-    // Screen dimensions (Mega Drive H32 mode)
-    private static final int SCREEN_WIDTH = 256;
-    private static final int SCREEN_HEIGHT = 224;
+    // H32 viewport dimensions on the 320x224 output surface.
+    public static final int H32_WIDTH = 256;
+    public static final int H32_HEIGHT = 224;
+    public static final int SCREEN_CENTER_OFFSET = (320 - H32_WIDTH) / 2;
 
     // Grid display size (16x16 blocks visible at once)
     private static final int GRID_SIZE = 16;
@@ -177,8 +178,8 @@ public class Sonic1SpecialStageRenderer {
             -1,
             GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
             BG_R, BG_G, BG_B, 1.0f,
-            0, 0,
-            SCREEN_WIDTH, SCREEN_HEIGHT
+            SCREEN_CENTER_OFFSET, 0,
+            H32_WIDTH, H32_HEIGHT
         ));
     }
 
@@ -271,7 +272,7 @@ public class Sonic1SpecialStageRenderer {
                 // Converting from VDP coords to screen: subtract VDP_BASE=128
                 // Original bounds: x=$70..$1D0 (screen -48..336), y=$70..$170 (screen -48..240)
                 // We use slightly wider bounds to avoid pop-in
-                if (sx < -48 || sx >= SCREEN_WIDTH + 48 || sy < -48 || sy >= SCREEN_HEIGHT + 48) {
+                if (sx < -48 || sx >= H32_WIDTH + 48 || sy < -48 || sy >= H32_HEIGHT + 48) {
                     continue;
                 }
 
@@ -292,7 +293,7 @@ public class Sonic1SpecialStageRenderer {
                 }
                 validBlockCells++;
 
-                renderBlock(blockId, sx, sy, wallRotFrame, ringAnimFrame);
+                renderBlock(blockId, sx + SCREEN_CENTER_OFFSET, sy, wallRotFrame, ringAnimFrame);
                 renderedBlocks++;
             }
         }
@@ -410,6 +411,7 @@ public class Sonic1SpecialStageRenderer {
         if (artTileBase == ARTTILE_SS_W_BLOCK) return wBlockPatternBase;
         if (artTileBase == ARTTILE_SS_GLASS) return glassPatternBase;
         if (artTileBase == ARTTILE_SS_EMERALD) return emeraldPatternBase;
+        if (artTileBase == ARTTILE_RING) return ringPatternBase;
         if (artTileBase == ARTTILE_SS_ZONE_1) return zonePatternBases[0];
         if (artTileBase == ARTTILE_SS_ZONE_2) return zonePatternBases[1];
         if (artTileBase == ARTTILE_SS_ZONE_3) return zonePatternBases[2];
