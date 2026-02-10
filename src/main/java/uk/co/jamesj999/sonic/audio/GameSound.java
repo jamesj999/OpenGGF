@@ -23,6 +23,7 @@ public enum GameSound {
     CNZ_LAUNCH, // SFX 0xE2 - CNZ LauncherSpring (SndID_CNZLaunch)
     CNZ_ELEVATOR, // SFX 0xD6 - CNZ Elevator moving sound
     SLOW_SMASH, // Special stage bomb explosion
+    WALL_SMASH, // Wall smash (S1 sfx_WallSmash 0xCB)
     ERROR, // Error/fail sound (used for checkpoint failure)
     SPLASH, // SFX 0xAA - Water splash (entering/exiting water)
     AIR_DING, // SFX 0xC2 - Air warning ding (underwater countdown warning)

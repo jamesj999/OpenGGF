@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 19 (23.8%)
-- **Unimplemented:** 61 (76.3%)
+- **Implemented:** 20 (25.0%)
+- **Unimplemented:** 60 (75.0%)
 
 ## Implemented Objects
 
@@ -30,6 +30,7 @@ Generated: 2026-02-09 23:03:25
 | 0x44 | EdgeWalls | 74 | GHZ1, GHZ2, GHZ3 |
 | 0x79 | Lamppost | 23 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1 |
 | 0x49 | WaterfallSound | 11 | GHZ1, GHZ2, GHZ3 |
+| 0x3C | BreakableWall | 26 | GHZ2, GHZ3, SLZ1, SLZ3 |
 | 0x4B | GiantRing | 11 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2 |
 
 ## Unimplemented Objects (By Usage)
@@ -66,7 +67,6 @@ Generated: 2026-02-09 23:03:25
 | 0x51 | Object | S1_Obj_51 | 30 | MZ2, MZ3 |
 | 0x16 | Object | S1_Obj_16 | 28 | LZ1, LZ2, LZ3 |
 | 0x15 | Object | S1_Obj_15 | 26 | GHZ2, GHZ3, MZ2, MZ3, SLZ3, SBZ2 |
-| 0x3C | Object | BreakableWall | 26 | GHZ2, GHZ3, SLZ1, SLZ3 |
 | 0x31 | Object | S1_Obj_31 | 23 | MZ1, MZ2, MZ3 |
 | 0x5B | Object | S1_Obj_5B | 23 | SLZ1, SLZ2, SLZ3 |
 | 0x2C | Badnik | Jaws | 22 | LZ1, LZ2, LZ3 |
@@ -134,7 +134,7 @@ Total: 214 objects | Implemented: 18 | Unimplemented: 2
 
 #### Act 2
 
-Total: 244 objects | Implemented: 18 | Unimplemented: 4
+Total: 244 objects | Implemented: 19 | Unimplemented: 3
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x4) [0x00]
@@ -154,7 +154,7 @@ Total: 244 objects | Implemented: 18 | Unimplemented: 4
 - [x] 0x26 Monitor (x10) [5 subtypes]
 - [x] 0x36 Spikes (x33) [4 subtypes]
 - [x] 0x3B Rock (x11) [0x00]
-- [ ] 0x3C BreakableWall (x6) [0x00, 0x01, 0x02]
+- [x] 0x3C BreakableWall (x6) [0x00, 0x01, 0x02]
 - [x] 0x41 Spring (x6) [0x10, 0x00, 0x02]
 - [x] 0x44 EdgeWalls (x22) [5 subtypes]
 - [x] 0x49 WaterfallSound (x4) [0x00]
@@ -164,7 +164,7 @@ Total: 244 objects | Implemented: 18 | Unimplemented: 4
 
 #### Act 3
 
-Total: 286 objects | Implemented: 16 | Unimplemented: 4
+Total: 286 objects | Implemented: 17 | Unimplemented: 3
 
 **Badniks:**
 - [x] 0x1F Crabmeat (x3) [0x00]
@@ -183,7 +183,7 @@ Total: 286 objects | Implemented: 16 | Unimplemented: 4
 - [x] 0x26 Monitor (x20) [5 subtypes]
 - [x] 0x36 Spikes (x19) [5 subtypes]
 - [x] 0x3B Rock (x7) [0x00]
-- [ ] 0x3C BreakableWall (x12) [0x00, 0x01, 0x02]
+- [x] 0x3C BreakableWall (x12) [0x00, 0x01, 0x02]
 - [ ] 0x3E EggPrison (x2) [0x00, 0x01]
 - [x] 0x41 Spring (x13) [0x10, 0x02]
 - [x] 0x44 EdgeWalls (x40) [6 subtypes]
@@ -378,7 +378,7 @@ Total: 232 objects | Implemented: 6 | Unimplemented: 17
 
 #### Act 1
 
-Total: 223 objects | Implemented: 5 | Unimplemented: 12
+Total: 223 objects | Implemented: 6 | Unimplemented: 11
 
 **Badniks:**
 - [ ] 0x5F Bomb (x13) [0x00]
@@ -390,7 +390,7 @@ Total: 223 objects | Implemented: 5 | Unimplemented: 12
 - [x] 0x1C Scenery (x11) [0x00]
 - [x] 0x25 Ring (x54) [7 subtypes]
 - [x] 0x26 Monitor (x15) [0x02, 0x05, 0x06]
-- [ ] 0x3C BreakableWall (x4) [0x01]
+- [x] 0x3C BreakableWall (x4) [0x01]
 - [x] 0x41 Spring (x16) [0x00, 0x10, 0x02]
 - [x] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x53 S1_Obj_53 (x10) [0x81]
@@ -430,7 +430,7 @@ Total: 187 objects | Implemented: 6 | Unimplemented: 13
 
 #### Act 3
 
-Total: 250 objects | Implemented: 6 | Unimplemented: 14
+Total: 250 objects | Implemented: 7 | Unimplemented: 13
 
 **Badniks:**
 - [ ] 0x5F Bomb (x48) [0x00]
@@ -443,7 +443,7 @@ Total: 250 objects | Implemented: 6 | Unimplemented: 14
 - [x] 0x1C Scenery (x7) [0x00]
 - [x] 0x25 Ring (x65) [11 subtypes]
 - [x] 0x26 Monitor (x17) [4 subtypes]
-- [ ] 0x3C BreakableWall (x4) [0x01]
+- [x] 0x3C BreakableWall (x4) [0x01]
 - [ ] 0x3E EggPrison (x2) [0x00, 0x01]
 - [x] 0x41 Spring (x11) [0x10, 0x00, 0x02]
 - [ ] 0x53 S1_Obj_53 (x9) [0x81, 0x01]

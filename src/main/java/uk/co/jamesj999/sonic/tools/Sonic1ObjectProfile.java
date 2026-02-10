@@ -50,6 +50,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.PLATFORM,
             Sonic1ObjectIds.COLLAPSING_LEDGE,
             Sonic1ObjectIds.ROCK,
+            Sonic1ObjectIds.BREAKABLE_WALL,
             Sonic1ObjectIds.EDGE_WALLS,
             Sonic1ObjectIds.BRIDGE,
             Sonic1ObjectIds.SCENERY,

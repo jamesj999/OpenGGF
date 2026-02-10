@@ -107,6 +107,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load purple rock art (GHZ)
         loadPurpleRockArt(rom);
 
+        // Load breakable wall art (GHZ/SLZ)
+        loadBreakableWallArt(rom, zoneIndex);
+
         // Load spike art
         loadSpikeArt(rom);
 
@@ -325,6 +328,103 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-0x18, -0x10, 3, 4, 0, false, false, 0, false),
                 new SpriteMappingPiece(    0, -0x10, 3, 4, 0x0C, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads breakable wall art (Nem_GhzWall1 for GHZ, Nem_SlzWall for SLZ) and creates
+     * S1-format sprite mappings. 3 frames (left/middle/right sections) from
+     * docs/s1disasm/_maps/Smashable Walls.asm.
+     * <p>
+     * GHZ uses patterns at offset 0, SLZ loads separate art at +4 offset.
+     * Each section is 32x64 pixels (2 columns × 4 rows of 2×2 tile pieces).
+     * <p>
+     * Palette line 2 from disassembly: make_art_tile(ArtTile_GHZ_SLZ_Smashable_Wall,2,0)
+     */
+    private void loadBreakableWallArt(Rom rom, int zoneIndex) {
+        // GHZ uses Nem_GhzWall1, SLZ uses Nem_SlzWall (loaded at +4 tile offset)
+        // Both share the same mapping structure
+        int artAddr = (zoneIndex == Sonic1Constants.ZONE_SLZ)
+                ? Sonic1Constants.ART_NEM_SLZ_BREAKABLE_WALL_ADDR
+                : Sonic1Constants.ART_NEM_GHZ_BREAKABLE_WALL_ADDR;
+        String artName = (zoneIndex == Sonic1Constants.ZONE_SLZ) ? "SLZBreakableWall" : "GHZBreakableWall";
+
+        Pattern[] patterns = loadNemesisPatterns(rom, artAddr, artName);
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load breakable wall art");
+            return;
+        }
+
+        // SLZ art loads at ArtTile+4, so its patterns map to indices 4+ in the sheet.
+        // GHZ patterns start at index 0. For SLZ, prepend 4 empty placeholder patterns
+        // so the same tile indices from the mappings work correctly.
+        if (zoneIndex == Sonic1Constants.ZONE_SLZ) {
+            Pattern[] padded = new Pattern[patterns.length + 4];
+            for (int i = 0; i < 4; i++) {
+                padded[i] = new Pattern(); // empty placeholder
+            }
+            System.arraycopy(patterns, 0, padded, 4, patterns.length);
+            patterns = padded;
+        }
+
+        List<SpriteMappingFrame> mappings = createBreakableWallMappings();
+        // Palette line 2 from disassembly: make_art_tile(ArtTile_GHZ_SLZ_Smashable_Wall,2,0)
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.BREAKABLE_WALL, sheet);
+    }
+
+    /**
+     * Creates breakable wall sprite mappings from S1 disassembly Map_Smash_internal.
+     * <p>
+     * Three frames corresponding to subtypes 0/1/2 (left/middle/right wall sections).
+     * Each frame has 8 pieces (2 columns × 4 rows of 2×2 tiles = 32×64 pixels).
+     * <p>
+     * From _maps/Smashable Walls.asm:
+     * <pre>
+     * .left:   col0=tile 0, col1=tile 4
+     * .middle: col0=tile 4, col1=tile 4
+     * .right:  col0=tile 4, col1=tile 8
+     * </pre>
+     */
+    private List<SpriteMappingFrame> createBreakableWallMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.left): left column=tile 0, right column=tile 4
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x20, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x10, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,     0, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,  0x10, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x20, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x10, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(    0,     0, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(    0,  0x10, 2, 2, 4, false, false, 0, false)
+        )));
+
+        // Frame 1 (.middle): both columns=tile 4
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x20, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x10, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,     0, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,  0x10, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x20, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x10, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(    0,     0, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(    0,  0x10, 2, 2, 4, false, false, 0, false)
+        )));
+
+        // Frame 2 (.right): left column=tile 4, right column=tile 8
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x20, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x10, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,     0, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,  0x10, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x20, 2, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x10, 2, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(    0,     0, 2, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(    0,  0x10, 2, 2, 8, false, false, 0, false)
         )));
 
         return frames;
