@@ -191,6 +191,46 @@ public class TestCrabmeatSpawnPosition {
                 totalRange >= 20);
     }
 
+    /**
+     * Regression: destroyed S1 badniks must stay gone after their spawn leaves and
+     * re-enters the spawn window. Sonic 1 uses respawn state persistence for these
+     * objects, so they should not reappear until level reset.
+     */
+    @Test
+    public void destroyedCrabmeatDoesNotRespawnAfterCameraWindowCycle() {
+        final int targetSpawnX = 0x08B0;
+
+        testRunner.stepIdleFrames(1);
+        Sonic1CrabmeatBadnikInstance target = findCrabmeats().stream()
+                .filter(crab -> crab.getSpawn().x() == targetSpawnX)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Target Crabmeat did not spawn"));
+
+        assertEquals("Target Crabmeat should be present before destruction",
+                1, countCrabmeatsAtSpawnX(targetSpawnX));
+
+        // Simulate player destroying the badnik.
+        target.onPlayerAttack(sprite, null);
+        testRunner.stepIdleFrames(2);
+        assertEquals("Destroyed Crabmeat should be removed immediately",
+                0, countCrabmeatsAtSpawnX(targetSpawnX));
+
+        // Move camera far enough that the original spawn leaves the placement window.
+        sprite.setX((short) 0x1500);
+        sprite.setY((short) 0x0350);
+        Camera.getInstance().updatePosition(true);
+        testRunner.stepIdleFrames(4);
+
+        // Return camera so the original spawn is in range again.
+        sprite.setX((short) 0x0800);
+        sprite.setY((short) 0x0350);
+        Camera.getInstance().updatePosition(true);
+        testRunner.stepIdleFrames(6);
+
+        assertEquals("Destroyed Crabmeat must not respawn after window cycle",
+                0, countCrabmeatsAtSpawnX(targetSpawnX));
+    }
+
     private List<Sonic1CrabmeatBadnikInstance> findCrabmeats() {
         ObjectManager objectManager = levelManager.getObjectManager();
         assertNotNull("ObjectManager should exist", objectManager);
@@ -200,5 +240,11 @@ public class TestCrabmeatSpawnPosition {
                 .map(obj -> (Sonic1CrabmeatBadnikInstance) obj)
                 .sorted((a, b) -> Integer.compare(a.getSpawn().x(), b.getSpawn().x()))
                 .toList();
+    }
+
+    private long countCrabmeatsAtSpawnX(int spawnX) {
+        return findCrabmeats().stream()
+                .filter(crab -> crab.getSpawn().x() == spawnX)
+                .count();
     }
 }
