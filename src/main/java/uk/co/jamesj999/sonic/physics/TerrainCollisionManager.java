@@ -25,6 +25,10 @@ public class TerrainCollisionManager {
 		for (int i = 0; i < count; i++) {
 			pooledResults[i] = sensors[i].scan();
 		}
+		// Clear unused slots to prevent stale data from previous calls
+		for (int i = count; i < MAX_SENSORS; i++) {
+			pooledResults[i] = null;
+		}
 		return pooledResults;
 	}
 
