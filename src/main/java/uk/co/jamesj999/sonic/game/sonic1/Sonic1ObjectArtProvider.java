@@ -182,12 +182,18 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadButtonArt(rom, zoneIndex);
         }
 
-        // Load MZ-specific art (fireball, smash block, glass block - MZ only)
+        // Load MZ-specific art (fireball, smash block, push block, glass block - MZ only)
         if (zoneIndex == Sonic1Constants.ZONE_MZ) {
             loadMzFireballArt(rom);
             loadMzSmashBlockArt(rom);
+            loadMzPushBlockArt(rom);
             loadMzGlassBlockArt(rom);
             loadMzChainedStomperArt(rom);
+        }
+
+        // Load LZ-specific art (push block)
+        if (zoneIndex == Sonic1Constants.ZONE_LZ) {
+            loadLzPushBlockArt(rom);
         }
 
         // Load boss art (GHZ: Eggman, weapons/chain anchor, exhaust flame)
@@ -3240,6 +3246,95 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // spritePiece -$10, -$14, 4, 4, $2F, 0, 0, 0, 0
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-0x10, -0x14, 4, 4, 0x2F, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads MZ Pushable Block art (Nem_MzBlock) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/33 Pushable Blocks.asm:
+     * <pre>
+     *     move.w  #make_art_tile(ArtTile_MZ_Block,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_MZ_Block = $2B8, palette line 2.
+     * Shares Nem_MzBlock art with the Smashable Green Block (0x51).
+     * <p>
+     * Mappings from docs/s1disasm/_maps/Pushable Blocks.asm (Map_Push_internal):
+     * <ul>
+     *   <li>Frame 0 (.single): Single 32x32 block - 1 piece of 4x4 tiles at tile 8</li>
+     *   <li>Frame 1 (.four): Row of 4 blocks - 4 pieces of 4x4 tiles spaced 32px apart</li>
+     * </ul>
+     */
+    private void loadMzPushBlockArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_MZ_BLOCK_ADDR, "MzPushBlock");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load MZ push block art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createPushBlockMappings(false);
+        // make_art_tile(ArtTile_MZ_Block, 2, 0) -> palette line 2, no priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.MZ_PUSH_BLOCK, sheet);
+    }
+
+    /**
+     * Loads LZ Pushable Block art (Nem_LzPole) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/33 Pushable Blocks.asm:
+     * <pre>
+     *     move.w  #make_art_tile(ArtTile_LZ_Push_Block,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_LZ_Push_Block = $3DE (same VRAM slot as ArtTile_LZ_Pole), palette line 2.
+     * <p>
+     * Uses the same mappings as MZ but with LZ-specific Nemesis art.
+     * LZ push blocks are always single (subtype 0), but we include both frames for completeness.
+     */
+    private void loadLzPushBlockArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_LZ_POLE_ADDR, "LzPushBlock");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load LZ push block art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createPushBlockMappings(false);
+        // make_art_tile(ArtTile_LZ_Push_Block, 2, 0) -> palette line 2, no priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.LZ_PUSH_BLOCK, sheet);
+    }
+
+    /**
+     * Creates pushable block sprite mappings from S1 disassembly
+     * docs/s1disasm/_maps/Pushable Blocks.asm (Map_Push_internal).
+     * <p>
+     * S1 spritePiece macro: x, y, width, height, startTile, xflip, yflip, pal, pri
+     *
+     * @param highPriority whether frame 1 (4-block row) uses high priority
+     */
+    private List<SpriteMappingFrame> createPushBlockMappings(boolean highPriority) {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.single): Single 32x32 block
+        // spritePiece -$10, -$10, 4, 4, 8, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x08, false, false, 0, false)
+        )));
+
+        // Frame 1 (.four): Row of 4 blocks (32x32 each)
+        // spritePiece -$40, -$10, 4, 4, 8, 0, 0, 0, 0
+        // spritePiece -$20, -$10, 4, 4, 8, 0, 0, 0, 0
+        // spritePiece    0, -$10, 4, 4, 8, 0, 0, 0, 0
+        // spritePiece  $20, -$10, 4, 4, 8, 0, 0, 0, 0
+        // Subtype != 0 sets priority: make_art_tile(ArtTile_MZ_Block, 2, 1)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x40, -0x10, 4, 4, 0x08, false, false, 0, true),
+                new SpriteMappingPiece(-0x20, -0x10, 4, 4, 0x08, false, false, 0, true),
+                new SpriteMappingPiece(    0, -0x10, 4, 4, 0x08, false, false, 0, true),
+                new SpriteMappingPiece( 0x20, -0x10, 4, 4, 0x08, false, false, 0, true)
         )));
 
         return frames;

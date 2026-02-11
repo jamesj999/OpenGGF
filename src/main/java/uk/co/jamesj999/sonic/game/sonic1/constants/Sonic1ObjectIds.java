@@ -30,6 +30,7 @@ public final class Sonic1ObjectIds {
     public static final int MZ_GLASS_BLOCK  = 0x30;
     public static final int CHAINED_STOMPER = 0x31;
     public static final int BUTTON          = 0x32;
+    public static final int PUSH_BLOCK      = 0x33;
     public static final int BURNING_GRASS   = 0x35;
     public static final int SPIKES          = 0x36;
     public static final int ROCK            = 0x3B;

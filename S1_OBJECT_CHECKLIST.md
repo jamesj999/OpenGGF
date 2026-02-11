@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 81
-- **Implemented:** 36 (44.4%)
-- **Unimplemented:** 45 (55.6%)
+- **Implemented:** 37 (45.7%)
+- **Unimplemented:** 44 (54.3%)
 
 ## Implemented Objects
 
@@ -46,6 +46,7 @@ Generated: 2026-02-09 23:03:25
 | 0x30 | MzGlassBlock | 14 | MZ1, MZ2, MZ3 |
 | 0x31 | ChainedStomper | 23 | MZ1, MZ2, MZ3 |
 | 0x32 | Button | 38 | LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SYZ1, SYZ3, SBZ1, SBZ2 |
+| 0x33 | PushBlock | 6 | MZ1, MZ2, MZ3 |
 
 ## Unimplemented Objects (By Usage)
 
@@ -89,7 +90,6 @@ Generated: 2026-02-09 23:03:25
 | 0x62 | Object | S1_Obj_62 | 9 | LZ1, LZ2, LZ3 |
 | 0x67 | Object | S1_Obj_67 | 8 | SBZ2 |
 | 0x72 | Object | S1_Obj_72 | 8 | SBZ2 |
-| 0x33 | Object | S1_Obj_33 | 6 | MZ1, MZ2, MZ3 |
 | 0x6F | Object | S1_Obj_6F | 6 | SBZ1 |
 | 0x0B | Object | S1_Obj_0B | 5 | LZ3 |
 | 0x43 | Object | S1_Obj_43 | 4 | SYZ1, SYZ2 |
@@ -288,7 +288,7 @@ Total: 245 objects | Implemented: 7 | Unimplemented: 14
 
 #### Act 1
 
-Total: 145 objects | Implemented: 15 | Unimplemented: 5
+Total: 145 objects | Implemented: 16 | Unimplemented: 4
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x4) [0x00]
@@ -304,7 +304,7 @@ Total: 145 objects | Implemented: 15 | Unimplemented: 5
 - [x] 0x30 MzGlassBlock (x5) [0x01, 0x02]
 - [x] 0x31 ChainedStomper (x4) [4 subtypes]
 - [x] 0x32 Button (x1) [0x80]
-- [ ] 0x33 S1_Obj_33 (x1) [0x00]
+- [x] 0x33 PushBlock (x1) [0x00]
 - [x] 0x36 Spikes (x2) [0x01, 0x12]
 - [x] 0x46 MzBrick (x26) [4 subtypes]
 - [x] 0x4B GiantRing (x1) [0x00]
@@ -316,7 +316,7 @@ Total: 145 objects | Implemented: 15 | Unimplemented: 5
 
 #### Act 2
 
-Total: 198 objects | Implemented: 17 | Unimplemented: 8
+Total: 198 objects | Implemented: 18 | Unimplemented: 7
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x5) [0x00]
@@ -333,7 +333,7 @@ Total: 198 objects | Implemented: 17 | Unimplemented: 8
 - [x] 0x30 MzGlassBlock (x2) [0x14, 0x04]
 - [x] 0x31 ChainedStomper (x4) [0x11, 0x12]
 - [x] 0x32 Button (x2) [0x00, 0x01]
-- [ ] 0x33 S1_Obj_33 (x3) [0x00, 0x81]
+- [x] 0x33 PushBlock (x3) [0x00, 0x81]
 - [x] 0x36 Spikes (x9) [4 subtypes]
 - [x] 0x41 Spring (x1) [0x10]
 - [x] 0x46 MzBrick (x39) [0x00]
@@ -349,7 +349,7 @@ Total: 198 objects | Implemented: 17 | Unimplemented: 8
 
 #### Act 3
 
-Total: 232 objects | Implemented: 16 | Unimplemented: 7
+Total: 232 objects | Implemented: 17 | Unimplemented: 6
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x3) [0x00]
@@ -365,7 +365,7 @@ Total: 232 objects | Implemented: 16 | Unimplemented: 7
 - [x] 0x30 MzGlassBlock (x7) [0x01, 0x02, 0x14]
 - [x] 0x31 ChainedStomper (x15) [0x11, 0x02, 0x23]
 - [x] 0x32 Button (x1) [0x01]
-- [ ] 0x33 S1_Obj_33 (x2) [0x00]
+- [x] 0x33 PushBlock (x2) [0x00]
 - [x] 0x36 Spikes (x23) [4 subtypes]
 - [x] 0x3E EggPrison (x2) [0x00, 0x01]
 - [x] 0x41 Spring (x1) [0x10]

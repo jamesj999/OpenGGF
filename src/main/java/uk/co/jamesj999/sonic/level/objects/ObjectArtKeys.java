@@ -74,6 +74,8 @@ public final class ObjectArtKeys {
     public static final String MZ_CHAINED_STOMPER = "mz_chained_stomper";
     public static final String MZ_GLASS_BLOCK = "mz_glass_block";
     public static final String MZ_SMASH_BLOCK = "mz_smash_block";
+    public static final String MZ_PUSH_BLOCK = "mz_push_block";
+    public static final String LZ_PUSH_BLOCK = "lz_push_block";
     public static final String BUTTON = "button";
 
     // Badnik art keys

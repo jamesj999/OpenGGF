@@ -219,6 +219,11 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search MzBlock (356 bytes)
     public static final int ART_NEM_MZ_BLOCK_ADDR = 0x33670;
 
+    // Nem_LzPole: Nemesis-compressed LZ breakable pole / push block art
+    // ArtTile_LZ_Pole = ArtTile_LZ_Push_Block = $3DE, loaded via PLC_LZ2
+    // Verified by RomOffsetFinder --game s1 search LzPole (100 bytes)
+    public static final int ART_NEM_LZ_POLE_ADDR = 0x317F2;
+
     // Nem_SlzCannon: Nemesis-compressed SLZ fireball launcher / lava thrower art
     // Loaded via PLC_SLZ: plcm Nem_SlzCannon, ArtTile_SLZ_Fireball_Launcher
     // Verified by RomOffsetFinder --game s1 search Cannon
