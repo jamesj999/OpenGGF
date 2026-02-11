@@ -38,8 +38,10 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
 
     public void setRegion(SmpsSequencer.Region region) {
         this.region = region;
-        for (SmpsSequencer seq : sequencers) {
-            seq.setRegion(region);
+        synchronized (sequencersLock) {
+            for (SmpsSequencer seq : sequencers) {
+                seq.setRegion(region);
+            }
         }
     }
 
