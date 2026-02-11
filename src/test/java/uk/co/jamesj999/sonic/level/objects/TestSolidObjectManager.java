@@ -1,6 +1,9 @@
 package uk.co.jamesj999.sonic.level.objects;
 
 import org.junit.Test;
+import uk.co.jamesj999.sonic.game.GameModule;
+import uk.co.jamesj999.sonic.game.GameModuleRegistry;
+import uk.co.jamesj999.sonic.game.sonic1.Sonic1GameModule;
 import uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1CollapsingLedgeObjectInstance;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.physics.Sensor;
@@ -136,6 +139,72 @@ public class TestSolidObjectManager {
         assertTrue(player.getPushing());
     }
 
+    @Test
+    public void testSonic1TopSolidLandsNearEdgeWithoutSidePriorityMiss() {
+        GameModule previous = GameModuleRegistry.getCurrent();
+        GameModuleRegistry.setCurrent(new Sonic1GameModule());
+        try {
+            SolidObjectParams params = new SolidObjectParams(32, 8, 8);
+            TestSolidObject object = new TestSolidObject(100, 100, params, true);
+            ObjectManager manager = buildManager(object);
+
+            TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+            player.setWidth(20);
+            player.setHeight(20);
+            player.setAir(true);
+            player.setYSpeed((short) 0x100);
+
+            // Near left edge (small absDistX), but within S1 top landing window.
+            player.setCentreX((short) (100 - params.halfWidth() + 5));
+            int maxTop = params.groundHalfHeight() + player.getYRadius();
+            int targetDistY = 10;
+            player.setCentreY((short) (100 - 4 - maxTop + targetDistY));
+
+            manager.updateSolidContacts(player);
+
+            assertTrue(player.isOnObject());
+            assertFalse(player.getAir());
+        } finally {
+            GameModuleRegistry.setCurrent(previous);
+        }
+    }
+
+    @Test
+    public void testLandingFromAirRollOnObjectAdjustsYWhenUnrolling() {
+        GameModule previous = GameModuleRegistry.getCurrent();
+        GameModuleRegistry.setCurrent(new Sonic1GameModule());
+        try {
+            SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+            TestSolidObject object = new TestSolidObject(100, 100, params);
+            ObjectManager manager = buildManager(object);
+
+            TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+            player.setWidth(20);
+            player.setHeight(38);
+            player.setAir(true);
+            player.setYSpeed((short) 0x100);
+            player.setRolling(true);
+
+            // Within top landing window while rolling in air.
+            player.setCentreX((short) 100);
+            int rollingRadius = player.getYRadius(); // 14
+            int distY = 8;
+            int centerY = 100 - 4 - (params.groundHalfHeight() + rollingRadius) + distY;
+            player.setCentreY((short) centerY);
+
+            manager.updateSolidContacts(player);
+
+            assertTrue(player.isOnObject());
+            assertFalse(player.getAir());
+            assertFalse(player.getRolling());
+
+            int expectedStandingCenterY = 100 - params.groundHalfHeight() - 19 - 1;
+            assertEquals(expectedStandingCenterY, player.getCentreY());
+        } finally {
+            GameModuleRegistry.setCurrent(previous);
+        }
+    }
+
     private static void setPrivateInt(Object instance, String fieldName, int value) throws Exception {
         Field field = instance.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
@@ -175,10 +244,16 @@ public class TestSolidObjectManager {
     private static final class TestSolidObject implements ObjectInstance, SolidObjectProvider {
         private final ObjectSpawn spawn;
         private final SolidObjectParams params;
+        private final boolean topSolidOnly;
 
         private TestSolidObject(int x, int y, SolidObjectParams params) {
+            this(x, y, params, false);
+        }
+
+        private TestSolidObject(int x, int y, SolidObjectParams params, boolean topSolidOnly) {
             this.spawn = new ObjectSpawn(x, y, 0, 0, 0, false, 0);
             this.params = params;
+            this.topSolidOnly = topSolidOnly;
         }
 
         @Override
@@ -210,6 +285,11 @@ public class TestSolidObjectManager {
         public SolidObjectParams getSolidParams() {
             return params;
         }
+
+        @Override
+        public boolean isTopSolidOnly() {
+            return topSolidOnly;
+        }
     }
 
     private static final class TestPlayableSprite extends AbstractPlayableSprite {
@@ -232,8 +312,8 @@ public class TestSolidObjectManager {
             minStartRollSpeed = 0;
             minRollSpeed = 0;
             maxRoll = 0;
-            rollHeight = 0;
-            runHeight = 0;
+            rollHeight = 28;
+            runHeight = 38;
         }
 
         @Override

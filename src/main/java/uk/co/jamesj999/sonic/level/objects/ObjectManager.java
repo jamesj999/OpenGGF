@@ -2,6 +2,8 @@ package uk.co.jamesj999.sonic.level.objects;
 
 import static org.lwjgl.opengl.GL11.GL_LINES;
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.CollisionModel;
+import uk.co.jamesj999.sonic.game.PhysicsFeatureSet;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GLCommandGroup;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
@@ -1770,7 +1772,7 @@ public class ObjectManager {
             int playerCenterY = player.getCentreY();
 
             int relX = playerCenterX - anchorX + halfWidth;
-            if (relX < 0 || relX > halfWidth * 2) {
+            if (relX < 0 || relX >= halfWidth * 2) {
                 return null;
             }
 
@@ -1857,9 +1859,7 @@ public class ObjectManager {
                             ") distY=" + distY);
                         player.setGSpeed(player.getXSpeed());
                         player.setAir(false);
-                        if (!player.getPinballMode()) {
-                            player.setRolling(false);
-                        }
+                        clearRollingOnLanding(player);
                         player.setAngle((byte) 0);
                         player.setGroundMode(GroundMode.GROUND);
                     }
@@ -1899,7 +1899,7 @@ public class ObjectManager {
 
             int relX = playerCenterX - anchorX + halfWidth;
             int width2 = halfWidth * 2;
-            if (relX < 0 || relX > width2) {
+            if (relX < 0 || relX >= width2) {
                 return null;
             }
 
@@ -1955,6 +1955,34 @@ public class ObjectManager {
                 absDistY = Math.abs(distY);
             }
 
+            // Sonic 1 top-solid objects use PlatformObject/SlopeObject semantics:
+            // top-landing is resolved purely by X-range + top Y-window (no side-priority compare).
+            if (topSolidOnly && usesUnifiedCollisionModel(player)) {
+                if (player.getYSpeed() < 0) {
+                    return null;
+                }
+                if (distY < 0 || distY >= 0x10) {
+                    return null;
+                }
+                if (apply) {
+                    int newCenterY = playerCenterY - distY + 3;
+                    int newY = newCenterY - (player.getHeight() / 2);
+                    player.setY((short) newY);
+                    if (player.getYSpeed() > 0) {
+                        player.setYSpeed((short) 0);
+                    }
+                    if (player.getAir()) {
+                        player.setGSpeed(player.getXSpeed());
+                        player.setAir(false);
+                        clearRollingOnLanding(player);
+                        player.setAngle((byte) 0);
+                        player.setGroundMode(GroundMode.GROUND);
+                    }
+                    player.setOnObject(true);
+                }
+                return new SolidContact(true, false, false, true, false);
+            }
+
             if (absDistX <= absDistY) {
                 if (instance != null
                         && instance.getSpawn().objectId() == OBJ85_ID
@@ -2000,9 +2028,7 @@ public class ObjectManager {
                             if (player.getAir()) {
                                 player.setGSpeed(player.getXSpeed());
                                 player.setAir(false);
-                                if (!player.getPinballMode()) {
-                                    player.setRolling(false);
-                                }
+                                clearRollingOnLanding(player);
                                 player.setAngle((byte) 0);
                                 player.setGroundMode(GroundMode.GROUND);
                             }
@@ -2048,7 +2074,7 @@ public class ObjectManager {
                     return null;
                 }
 
-                int landingThreshold = 0x18;
+                int landingThreshold = usesUnifiedCollisionModel(player) ? 0x10 : 0x18;
                 if (distY >= landingThreshold) {
                     return null;
                 }
@@ -2065,9 +2091,7 @@ public class ObjectManager {
                             ") distY=" + distY);
                         player.setGSpeed(player.getXSpeed());
                         player.setAir(false);
-                        if (!player.getPinballMode()) {
-                            player.setRolling(false);
-                        }
+                        clearRollingOnLanding(player);
                         player.setAngle((byte) 0);
                         player.setGroundMode(GroundMode.GROUND);
                     }
@@ -2095,6 +2119,22 @@ public class ObjectManager {
                 }
             }
             return new SolidContact(false, false, true, false, false);
+        }
+
+        private boolean usesUnifiedCollisionModel(AbstractPlayableSprite player) {
+            if (player == null) {
+                return false;
+            }
+            PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
+            return featureSet != null && featureSet.collisionModel() == CollisionModel.UNIFIED;
+        }
+
+        private void clearRollingOnLanding(AbstractPlayableSprite player) {
+            if (player == null || player.getPinballMode() || !player.getRolling()) {
+                return;
+            }
+            player.setRolling(false);
+            player.setY((short) (player.getY() - player.getRollHeightAdjustment()));
         }
     }
 }

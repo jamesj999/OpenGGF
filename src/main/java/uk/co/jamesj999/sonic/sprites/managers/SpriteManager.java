@@ -3,6 +3,8 @@ package uk.co.jamesj999.sonic.sprites.managers;
 import uk.co.jamesj999.sonic.Control.InputHandler;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
+import uk.co.jamesj999.sonic.game.CollisionModel;
+import uk.co.jamesj999.sonic.game.PhysicsFeatureSet;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -206,17 +208,16 @@ public class SpriteManager {
 					playable.setDirectionalInputPressed(up, down, left, right);
 				}
 
-				// ROM-accurate collision order:
-				// 1. Solid object collision FIRST (objects can push player)
-				// 2. Terrain collision SECOND (naturally corrects any wall embedding)
-				// 3. Plane switchers THIRD
-				// This matches ROM where object updates (including SolidObject) happen
-				// before Sonic's terrain collision in AnglePos/Sonic_DoLevelCollision.
-				if (levelManager.getObjectManager() != null) {
-					levelManager.getObjectManager().updateSolidContacts(playable);
-				}
+				// Pre-movement solid pass keeps riding/platform delta handling stable.
+				updateSolidContacts(levelManager, playable);
 				playable.getMovementManager().handleMovement(effectiveUp, effectiveDown, effectiveLeft,
 						effectiveRight, effectiveJump, effectiveTest, speedUp, slowDown);
+				// Sonic 1 runs object SolidObject checks after Sonic movement in the object loop
+				// (ExecuteObjects iterates player first, then solid objects). Run a second pass for
+				// UNIFIED collision so top-landing resolves in the same frame.
+				if (shouldRunPostMovementSolidPass(playable)) {
+					updateSolidContacts(levelManager, playable);
+				}
 				// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
 				// This ensures plane switchers check the current frame's position/air state.
 				levelManager.applyPlaneSwitchers(playable);
@@ -234,11 +235,11 @@ public class SpriteManager {
 
 		for (Sprite sprite : sprites) {
 			if (sprite instanceof AbstractPlayableSprite playable) {
-				// ROM-accurate collision order: solid objects first, then terrain
-				if (levelManager.getObjectManager() != null) {
-					levelManager.getObjectManager().updateSolidContacts(playable);
-				}
+				updateSolidContacts(levelManager, playable);
 				playable.getMovementManager().handleMovement(false, false, false, false, false, false, false, false);
+				if (shouldRunPostMovementSolidPass(playable)) {
+					updateSolidContacts(levelManager, playable);
+				}
 				// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
 				levelManager.applyPlaneSwitchers(playable);
 				playable.getAnimationManager().update(frameCounter);
@@ -430,6 +431,24 @@ public class SpriteManager {
 			levelManager = LevelManager.getInstance();
 		}
 		return levelManager;
+	}
+
+	private void updateSolidContacts(LevelManager levelManager, AbstractPlayableSprite playable) {
+		if (levelManager.getObjectManager() != null) {
+			levelManager.getObjectManager().updateSolidContacts(playable);
+		}
+	}
+
+	static boolean requiresPostMovementSolidPass(AbstractPlayableSprite playable) {
+		if (playable == null) {
+			return false;
+		}
+		PhysicsFeatureSet featureSet = playable.getPhysicsFeatureSet();
+		return featureSet != null && featureSet.collisionModel() == CollisionModel.UNIFIED;
+	}
+
+	static boolean shouldRunPostMovementSolidPass(AbstractPlayableSprite playable) {
+		return requiresPostMovementSolidPass(playable) && playable.getAir();
 	}
 
 	public static SensorConfiguration[][] createMovementMappingArray() {
