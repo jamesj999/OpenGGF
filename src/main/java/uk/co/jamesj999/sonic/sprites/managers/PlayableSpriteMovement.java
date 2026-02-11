@@ -1026,7 +1026,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		//   Mode 0x40 (left wall): sub.w d1,x_vel    - adjust X + pushing + inertia=0
 		//   Mode 0x80 (ceiling):   sub.w d1,y_vel    - adjust Y, NO pushing, NO inertia=0
 		//   Mode 0xC0 (right wall): add.w d1,x_vel   - adjust X + pushing + inertia=0
-		int velocityAdjustment = result.distance() << 8;  // asl.w #8,d1
+		// ROM: asl.w #8,d1 — Java's byte-to-int sign-extension matches ROM's 16-bit
+		// word behavior: negative distances (penetration) correctly produce negative adjustments.
+		// The subsequent cast to short at usage sites truncates back to 16-bit range.
+		int velocityAdjustment = result.distance() << 8;
 
 		// Calculate rotated angle based on gSpeed direction (ROM s2.asm:36490-36497)
 		int rotation = (gSpeed < 0) ? 0x40 : 0xC0;  // +0x40 for left, -0x40 (0xC0) for right
@@ -1064,23 +1067,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				sprite.setPushing(true);
 				break;
 		}
-	}
-
-	/**
-	 * Calculate ground mode bits from angle using ROM's complex algorithm.
-	 * This is the same calculation used in AnglePos and CalcRoomInFront.
-	 * ROM: s2.asm lines 42551-42570 and 43493-43513
-	 *
-	 * @param angle The angle (0-255)
-	 * @return Mode bits: 0x00=floor, 0x40=leftwall, 0x80=ceiling, 0xC0=rightwall
-	 */
-	private int calculateModeFromAngle(int angle) {
-		angle = angle & 0xFF;
-		boolean angleIsNegative = angle >= 0x80;
-		int sumWith20 = (angle + 0x20) & 0xFF;
-		boolean sumIsNegative = sumWith20 >= 0x80;
-		int result = (angleIsNegative == sumIsNegative) ? (angle + 0x1F) & 0xFF : sumWith20;
-		return result & 0xC0;
 	}
 
 	/** Airborne landing check */
