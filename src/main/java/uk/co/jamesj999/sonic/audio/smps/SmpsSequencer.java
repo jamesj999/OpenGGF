@@ -1275,7 +1275,13 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 return;
             }
             if (index >= t.loopCounters.length) {
-                int[] newCounters = new int[Math.max(t.loopCounters.length * 2, index + 1)];
+                // Cap at 256 entries (max possible index from a single byte)
+                int newSize = Math.min(256, Math.max(t.loopCounters.length * 2, index + 1));
+                if (index >= newSize) {
+                    // Index exceeds maximum SMPS loop nesting; skip this loop command
+                    return;
+                }
+                int[] newCounters = new int[newSize];
                 System.arraycopy(t.loopCounters, 0, newCounters, 0, t.loopCounters.length);
                 t.loopCounters = newCounters;
             }
