@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 81
-- **Implemented:** 25 (30.9%)
-- **Unimplemented:** 56 (69.1%)
+- **Implemented:** 31 (38.3%)
+- **Unimplemented:** 50 (61.7%)
 
 ## Implemented Objects
 
@@ -24,6 +24,7 @@ Generated: 2026-02-09 23:03:25
 | 0x36 | Spikes | 190 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3 |
 | 0x3B | Rock | 25 | GHZ1, GHZ2, GHZ3 |
 | 0x2B | Chopper | 14 | GHZ1, GHZ2 |
+| 0x2F | MzLargeGrassyPlatform | 37 | MZ1, MZ2, MZ3 |
 | 0x40 | Motobug | 15 | GHZ1, GHZ2, GHZ3 |
 | 0x41 | Spring | 150 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
 | 0x42 | Newtron | 32 | GHZ1, GHZ2, GHZ3 |
@@ -37,13 +38,16 @@ Generated: 2026-02-09 23:03:25
 | 0x3D | GHZBoss | 1 | GHZ3 |
 | 0x3E | EggPrison | 10 | GHZ3, LZ3, MZ3, SLZ3, SYZ3 |
 | 0x7D | HiddenBonus | 60 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2, SBZ1 |
+| 0x54 | LavaTag | 48 | MZ1, MZ2, MZ3 |
+| 0x46 | MzBrick | 99 | MZ1, MZ2, MZ3 |
+| 0x55 | Batbrain | 37 | MZ1, MZ2, MZ3 |
+| 0x78 | Caterkiller | 37 | MZ1, MZ2, MZ3, SBZ1, SBZ2 |
 
 ## Unimplemented Objects (By Usage)
 
 | ID | Category | Name | Total Uses | Zones |
 |----|----------|------|------------|-------|
 | 0x56 | Object | S1_Obj_56 | 224 | LZ1, LZ2, LZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3 |
-| 0x46 | Object | S1_Obj_46 | 99 | MZ1, MZ2, MZ3 |
 | 0x5F | Badnik | Bomb | 99 | SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
 | 0x71 | Object | S1_Obj_71 | 88 | LZ1, LZ3, MZ1, MZ2, MZ3, SYZ2, SYZ3, SBZ1, SBZ2, SBZ3 |
 | 0x5A | Object | S1_Obj_5A | 68 | SLZ1, SLZ2, SLZ3 |
@@ -55,15 +59,11 @@ Generated: 2026-02-09 23:03:25
 | 0x6E | Object | S1_Obj_6E | 52 | SBZ1, SBZ2 |
 | 0x13 | Object | S1_Obj_13 | 51 | MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3 |
 | 0x2D | Badnik | Burrobot | 50 | LZ1, LZ2, LZ3 |
-| 0x54 | Object | S1_Obj_54 | 48 | MZ1, MZ2, MZ3 |
 | 0x53 | Object | S1_Obj_53 | 45 | MZ3, SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
 | 0x47 | Object | Bumper | 43 | SYZ1, SYZ2, SYZ3 |
 | 0x61 | Object | S1_Obj_61 | 43 | LZ1, LZ2, LZ3 |
 | 0x6D | Object | S1_Obj_6D | 42 | SBZ1, SBZ2 |
 | 0x32 | Object | S1_Obj_32 | 38 | LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SYZ1, SYZ3, SBZ1, SBZ2 |
-| 0x2F | Object | S1_Obj_2F | 37 | MZ1, MZ2, MZ3 |
-| 0x55 | Badnik | Batbrain | 37 | MZ1, MZ2, MZ3 |
-| 0x78 | Badnik | Caterkiller | 37 | MZ1, MZ2, MZ3, SBZ1, SBZ2 |
 | 0x5D | Object | S1_Obj_5D | 36 | SLZ1, SLZ2, SLZ3 |
 | 0x63 | Object | S1_Obj_63 | 36 | LZ1, LZ2, LZ3 |
 | 0x58 | Object | S1_Obj_58 | 34 | SYZ1, SYZ2, SYZ3 |
@@ -288,40 +288,40 @@ Total: 245 objects | Implemented: 6 | Unimplemented: 15
 
 #### Act 1
 
-Total: 145 objects | Implemented: 7 | Unimplemented: 13
+Total: 145 objects | Implemented: 12 | Unimplemented: 8
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x4) [0x00]
-- [ ] 0x55 Batbrain (x5) [0x00]
-- [ ] 0x78 Caterkiller (x3) [0x00]
+- [x] 0x55 Batbrain (x5) [0x00]
+- [x] 0x78 Caterkiller (x3) [0x00]
 
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
 - [ ] 0x13 S1_Obj_13 (x4) [0x30, 0x41, 0x42]
 - [x] 0x25 Ring (x35) [5 subtypes]
 - [x] 0x26 Monitor (x10) [0x02, 0x04, 0x06]
-- [ ] 0x2F S1_Obj_2F (x22) [8 subtypes]
+- [x] 0x2F MzLargeGrassyPlatform (x22) [8 subtypes]
 - [ ] 0x30 S1_Obj_30 (x5) [0x01, 0x02]
 - [ ] 0x31 S1_Obj_31 (x4) [4 subtypes]
 - [ ] 0x32 S1_Obj_32 (x1) [0x80]
 - [ ] 0x33 S1_Obj_33 (x1) [0x00]
 - [x] 0x36 Spikes (x2) [0x01, 0x12]
-- [ ] 0x46 S1_Obj_46 (x26) [4 subtypes]
+- [x] 0x46 MzBrick (x26) [4 subtypes]
 - [x] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x52 S1_Obj_52 (x2) [0x41]
-- [ ] 0x54 S1_Obj_54 (x10) [0x01, 0x02]
+- [x] 0x54 LavaTag (x10) [0x01, 0x02]
 - [ ] 0x71 S1_Obj_71 (x3) [0x31, 0x11]
 - [x] 0x79 Lamppost (x1) [0x01]
 - [x] 0x7D HiddenBonus (x5) [0x01, 0x02, 0x03]
 
 #### Act 2
 
-Total: 198 objects | Implemented: 9 | Unimplemented: 16
+Total: 198 objects | Implemented: 13 | Unimplemented: 12
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x5) [0x00]
-- [ ] 0x55 Batbrain (x11) [0x00]
-- [ ] 0x78 Caterkiller (x10) [0x00]
+- [x] 0x55 Batbrain (x11) [0x00]
+- [x] 0x78 Caterkiller (x10) [0x00]
 
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
@@ -329,39 +329,39 @@ Total: 198 objects | Implemented: 9 | Unimplemented: 16
 - [x] 0x15 SwingingPlatform (x4) [0x04, 0x05]
 - [x] 0x25 Ring (x23) [5 subtypes]
 - [x] 0x26 Monitor (x11) [4 subtypes]
-- [ ] 0x2F S1_Obj_2F (x10) [7 subtypes]
+- [x] 0x2F MzLargeGrassyPlatform (x10) [7 subtypes]
 - [ ] 0x30 S1_Obj_30 (x2) [0x14, 0x04]
 - [ ] 0x31 S1_Obj_31 (x4) [0x11, 0x12]
 - [ ] 0x32 S1_Obj_32 (x2) [0x00, 0x01]
 - [ ] 0x33 S1_Obj_33 (x3) [0x00, 0x81]
 - [x] 0x36 Spikes (x9) [4 subtypes]
 - [x] 0x41 Spring (x1) [0x10]
-- [ ] 0x46 S1_Obj_46 (x39) [0x00]
+- [x] 0x46 MzBrick (x39) [0x00]
 - [x] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x4C S1_Obj_4C (x3) [0x01]
 - [ ] 0x4E S1_Obj_4E (x1) [0x00]
 - [ ] 0x51 S1_Obj_51 (x17) [0x00]
 - [ ] 0x52 S1_Obj_52 (x4) [0x41, 0x02]
-- [ ] 0x54 S1_Obj_54 (x17) [0x00, 0x01, 0x02]
+- [x] 0x54 LavaTag (x17) [0x00, 0x01, 0x02]
 - [ ] 0x71 S1_Obj_71 (x4) [0x11, 0x31]
 - [x] 0x79 Lamppost (x1) [0x05]
 - [x] 0x7D HiddenBonus (x5) [0x01, 0x02, 0x03]
 
 #### Act 3
 
-Total: 232 objects | Implemented: 8 | Unimplemented: 15
+Total: 232 objects | Implemented: 12 | Unimplemented: 11
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x3) [0x00]
-- [ ] 0x55 Batbrain (x21) [0x00]
-- [ ] 0x78 Caterkiller (x8) [0x00, 0x10]
+- [x] 0x55 Batbrain (x21) [0x00]
+- [x] 0x78 Caterkiller (x8) [0x00, 0x10]
 
 **Objects:**
 - [ ] 0x13 S1_Obj_13 (x18) [9 subtypes]
 - [x] 0x15 SwingingPlatform (x3) [0x04]
 - [x] 0x25 Ring (x31) [5 subtypes]
 - [x] 0x26 Monitor (x7) [0x02, 0x04, 0x06]
-- [ ] 0x2F S1_Obj_2F (x5) [4 subtypes]
+- [x] 0x2F MzLargeGrassyPlatform (x5) [4 subtypes]
 - [ ] 0x30 S1_Obj_30 (x7) [0x01, 0x02, 0x14]
 - [ ] 0x31 S1_Obj_31 (x15) [0x11, 0x02, 0x23]
 - [ ] 0x32 S1_Obj_32 (x1) [0x01]
@@ -369,12 +369,12 @@ Total: 232 objects | Implemented: 8 | Unimplemented: 15
 - [x] 0x36 Spikes (x23) [4 subtypes]
 - [x] 0x3E EggPrison (x2) [0x00, 0x01]
 - [x] 0x41 Spring (x1) [0x10]
-- [ ] 0x46 S1_Obj_46 (x34) [0x00, 0x02]
+- [x] 0x46 MzBrick (x34) [0x00, 0x02]
 - [ ] 0x4C S1_Obj_4C (x1) [0x01]
 - [ ] 0x51 S1_Obj_51 (x13) [0x00]
 - [ ] 0x52 S1_Obj_52 (x3) [0x01, 0x02]
 - [ ] 0x53 S1_Obj_53 (x5) [0x01]
-- [ ] 0x54 S1_Obj_54 (x21) [0x00, 0x01, 0x02]
+- [x] 0x54 LavaTag (x21) [0x00, 0x01, 0x02]
 - [ ] 0x71 S1_Obj_71 (x6) [0x00, 0x31, 0x11]
 - [x] 0x79 Lamppost (x2) [0x01, 0x02]
 
@@ -546,7 +546,7 @@ Total: 308 objects | Implemented: 6 | Unimplemented: 17
 
 **Badniks:**
 - [ ] 0x5F Bomb (x6) [0x00]
-- [ ] 0x78 Caterkiller (x9) [0x00]
+- [x] 0x78 Caterkiller (x9) [0x00]
 
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
@@ -577,7 +577,7 @@ Total: 292 objects | Implemented: 5 | Unimplemented: 17
 
 **Badniks:**
 - [ ] 0x5F Bomb (x12) [0x00]
-- [ ] 0x78 Caterkiller (x7) [0x00]
+- [x] 0x78 Caterkiller (x7) [0x00]
 
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]

@@ -68,6 +68,9 @@ public final class ObjectArtKeys {
     // Zone objects using level tiles
     public static final String PLATFORM = "platform";
     public static final String COLLAPSING_LEDGE = "collapsing_ledge";
+    public static final String MZ_BRICK = "mz_brick";
+    public static final String MZ_LARGE_GRASSY_PLATFORM = "mz_large_grassy_platform";
+    public static final String MZ_FIREBALL = "mz_fireball";
 
     // Badnik art keys
     public static final String BUZZ_BOMBER = "buzz_bomber";
@@ -77,6 +80,8 @@ public final class ObjectArtKeys {
     public static final String CRABMEAT = "crabmeat";
     public static final String MOTOBUG = "motobug";
     public static final String NEWTRON = "newtron";
+    public static final String CATERKILLER = "caterkiller";
+    public static final String BATBRAIN = "batbrain";
 
     // Animation keys (common across games)
     public static final String ANIM_MONITOR = "monitor";

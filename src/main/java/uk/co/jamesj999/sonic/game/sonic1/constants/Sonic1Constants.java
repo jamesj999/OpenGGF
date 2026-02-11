@@ -256,6 +256,14 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 find Nem_Newtron (2720 bytes decompressed = 85 tiles)
     public static final int ART_NEM_NEWTRON_ADDR = 0x37CB6;
 
+    // Nem_Basaran: Nemesis-compressed Basaran/Batbrain art (MZ, ArtTile_Basaran = $4B8)
+    // Verified by RomOffsetFinder --game s1 search Basaran (763 bytes)
+    public static final int ART_NEM_BASARAN_ADDR = 0x386BC;
+
+    // Nem_Cater: Nemesis-compressed Caterkiller art (MZ/SYZ ArtTile $4FF, SBZ ArtTile $2B0)
+    // Verified by RomOffsetFinder --game s1 search Caterkiller (398 bytes)
+    public static final int ART_NEM_CATERKILLER_ADDR = 0x39076;
+
     // Nem_HSpring: Nemesis-compressed horizontal spring art (up/down springs, 16 tiles)
     // ArtTile_Spring_Horizontal = $523
     public static final int ART_NEM_HSPRING_ADDR = 0x3A80A;
@@ -289,6 +297,11 @@ public final class Sonic1Constants {
     public static final int ART_NEM_SBZ_SPIKED_BALL_ADDR = 0x345A6;
 
     // ---- Boss art (Nemesis compressed) ----
+    // Nem_MzFire: Nemesis-compressed MZ fireball art (ArtTile_MZ_Fireball = $345)
+    // Used by Object 0x35 (Burning Grass) and lava fireballs
+    // Verified by RomOffsetFinder --game s1 search MzFire (734 bytes)
+    public static final int ART_NEM_MZ_FIREBALL_ADDR = 0x32A7C;
+
     // Nem_Eggman: Main Eggman ship + face + flame art (verified by RomOffsetFinder)
     public static final int ART_NEM_EGGMAN_ADDR = 0x5D0FC;
     // Nem_Weapons: Boss weapons art — chain anchor, pipes, spikes (verified)

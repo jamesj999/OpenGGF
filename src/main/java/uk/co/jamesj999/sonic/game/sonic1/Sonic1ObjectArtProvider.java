@@ -144,6 +144,12 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load Newtron art (GHZ badnik - two subtypes: walking + missile-firing)
         loadNewtronArt(rom);
 
+        // Load Caterkiller art (MZ/SBZ badnik - segmented worm)
+        loadCaterkillerArt(rom);
+
+        // Load Batbrain/Basaran art (MZ badnik - ceiling bat)
+        loadBatbrainArt(rom);
+
         // Load results screen art (reuses title card + HUD text)
         loadResultsScreenArt(rom);
 
@@ -169,6 +175,11 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
 
         // Load prison capsule art (all zones - appears in every boss act)
         loadPrisonArt(rom);
+
+        // Load MZ fireball art (Burning Grass, lava fireballs - MZ only)
+        if (zoneIndex == Sonic1Constants.ZONE_MZ) {
+            loadMzFireballArt(rom);
+        }
 
         // Load boss art (GHZ: Eggman, weapons/chain anchor, exhaust flame)
         if (zoneIndex == Sonic1Constants.ZONE_GHZ) {
@@ -2058,6 +2069,146 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
+     * Loads Caterkiller art (Nem_Cater) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Caterkiller.asm (Map_Cat_internal).
+     * 24 frames total:
+     *   Frames 0-7: Head at various Y offsets (bobbing animation)
+     *   Frames 8-15: Body segment at various Y offsets
+     *   Frames 16-23: Body segment with legs (alternate art at tile $6)
+     */
+    private void loadCaterkillerArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_CATERKILLER_ADDR, "Caterkiller");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Caterkiller art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createCaterkillerMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.CATERKILLER, sheet);
+    }
+
+    /**
+     * Creates Caterkiller sprite mappings from S1 disassembly Map_Cat_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * The Caterkiller has 24 mapping frames organized in 3 groups of 8:
+     * <ul>
+     *   <li>Frames 0-7: Head (2x3 tiles at tile 0) - Y offsets from -$E to -$15</li>
+     *   <li>Frames 8-15: Body segment (2x2 tiles at tile $C) - Y offsets from -8 to -$F</li>
+     *   <li>Frames 16-23: Legged body segment (2x3 tiles at tile 6) - Y offsets from -$E to -$15</li>
+     * </ul>
+     * Each group uses 8 Y offsets for the bobbing animation driven by Ani_Cat table.
+     */
+    private List<SpriteMappingFrame> createCaterkillerMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Head frames (0-7): 2x3 tiles at tile 0, varying Y offsets
+        // From Map_Cat_internal byte_16D9E through byte_16DC8
+        int[] headYOffsets = { -0x0E, -0x0F, -0x10, -0x11, -0x12, -0x13, -0x14, -0x15 };
+        for (int yOff : headYOffsets) {
+            frames.add(new SpriteMappingFrame(List.of(
+                    new SpriteMappingPiece(-8, yOff, 2, 3, 0, false, false, 0, false)
+            )));
+        }
+
+        // Body segment frames (8-15): 2x2 tiles at tile $C, varying Y offsets
+        // From Map_Cat_internal byte_16DCE through byte_16DF8
+        int[] bodyYOffsets = { -0x08, -0x09, -0x0A, -0x0B, -0x0C, -0x0D, -0x0E, -0x0F };
+        for (int yOff : bodyYOffsets) {
+            frames.add(new SpriteMappingFrame(List.of(
+                    new SpriteMappingPiece(-8, yOff, 2, 2, 0x0C, false, false, 0, false)
+            )));
+        }
+
+        // Legged body segment frames (16-23): 2x3 tiles at tile 6, varying Y offsets
+        // From Map_Cat_internal byte_16DFE through byte_16E28
+        int[] legYOffsets = { -0x0E, -0x0F, -0x10, -0x11, -0x12, -0x13, -0x14, -0x15 };
+        for (int yOff : legYOffsets) {
+            frames.add(new SpriteMappingFrame(List.of(
+                    new SpriteMappingPiece(-8, yOff, 2, 3, 0x06, false, false, 0, false)
+            )));
+        }
+
+        return frames;
+    }
+
+    /**
+     * Loads Batbrain/Basaran art (Nem_Basaran) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Basaran.asm (Map_Bas_internal).
+     * 4 frames: still (hanging from ceiling), fly1, fly2, fly3.
+     * <p>
+     * From disassembly: make_art_tile(ArtTile_Basaran,0,1) - palette 0, priority bit set.
+     */
+    private void loadBatbrainArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_BASARAN_ADDR, "Batbrain");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Batbrain art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createBatbrainMappings();
+        // make_art_tile(ArtTile_Basaran, 0, 1) - palette line 0
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.BATBRAIN, sheet);
+    }
+
+    /**
+     * Creates Batbrain sprite mappings from S1 disassembly Map_Bas_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0 (.still):  spritePiece -8, -$C, 2, 3, 0, 0, 0, 0, 0
+     * Frame 1 (.fly1):   spritePiece -$C, -$E, 4, 3, 6, 0, 0, 0, 0
+     *                     spritePiece -4, $A, 2, 1, $12, 0, 0, 0, 0
+     *                     spritePiece $C, 2, 1, 1, $27, 0, 0, 0, 0
+     * Frame 2 (.fly2):   spritePiece -8, -8, 2, 1, $14, 0, 0, 0, 0
+     *                     spritePiece -$10, 0, 4, 1, $16, 0, 0, 0, 0
+     *                     spritePiece 0, 8, 2, 1, $1A, 0, 0, 0, 0
+     *                     spritePiece $C, 0, 1, 1, $28, 0, 0, 0, 0
+     * Frame 3 (.fly3):   spritePiece -$B, -$A, 3, 2, $1C, 0, 0, 0, 0
+     *                     spritePiece -$C, 6, 3, 1, $22, 0, 0, 0, 0
+     *                     spritePiece -$C, $E, 2, 1, $25, 0, 0, 0, 0
+     *                     spritePiece $C, -2, 1, 1, $27, 0, 0, 0, 0
+     */
+    private List<SpriteMappingFrame> createBatbrainMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.still): Single 2x3 piece (16x24 pixels) - bat hanging from ceiling
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x08, -0x0C, 2, 3, 0x00, false, false, 0, false)
+        )));
+
+        // Frame 1 (.fly1): 3 pieces - body + feet + wing tip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0E, 4, 3, 0x06, false, false, 0, false),
+                new SpriteMappingPiece(-0x04,  0x0A, 2, 1, 0x12, false, false, 0, false),
+                new SpriteMappingPiece( 0x0C,  0x02, 1, 1, 0x27, false, false, 0, false)
+        )));
+
+        // Frame 2 (.fly2): 4 pieces - head + body + feet + wing tip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x08, -0x08, 2, 1, 0x14, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,  0x00, 4, 1, 0x16, false, false, 0, false),
+                new SpriteMappingPiece( 0x00,  0x08, 2, 1, 0x1A, false, false, 0, false),
+                new SpriteMappingPiece( 0x0C,  0x00, 1, 1, 0x28, false, false, 0, false)
+        )));
+
+        // Frame 3 (.fly3): 4 pieces - body + lower body + feet + wing tip
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0B, -0x0A, 3, 2, 0x1C, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C,  0x06, 3, 1, 0x22, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C,  0x0E, 2, 1, 0x25, false, false, 0, false),
+                new SpriteMappingPiece( 0x0C, -0x02, 1, 1, 0x27, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
      * Loads Buzz Bomber art (Nem_Buzz) and creates sprite sheets for the Buzz Bomber,
      * its missile, and the missile dissolve effect.
      * All three share the same Nemesis-compressed art tile set (ArtTile_Buzz_Bomber = $444).
@@ -2520,6 +2671,223 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 new SpriteMappingPiece(0x20, 0x10, 2, 2, 0xAB, false, false, 0, false),
                 new SpriteMappingPiece(0x10, 0x10, 2, 2, 0xAB, false, false, 0, false),
                 new SpriteMappingPiece(0x00, 0x10, 2, 2, 0xB7, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Registers the MZ large grassy platform sprite sheet using level tile patterns.
+     * Must be called AFTER the level is loaded since these platforms use zone tileset art
+     * (make_art_tile(ArtTile_Level, 2, 1)) -- same tile base as other level objects.
+     * <p>
+     * MZ only. 3 frames from docs/s1disasm/_maps/MZ Large Grassy Platforms.asm:
+     * <ul>
+     *   <li>Frame 0 (.wide): Wide flat platform (13 pieces, width $40)</li>
+     *   <li>Frame 1 (.sloped): Sloped platform that catches fire (10 pieces, width $40)</li>
+     *   <li>Frame 2 (.narrow): Narrow platform (6 pieces, width $20)</li>
+     * </ul>
+     *
+     * @param level     The loaded level to extract patterns from
+     * @param zoneIndex The current zone index
+     */
+    public void registerLargeGrassyPlatformSheet(Level level, int zoneIndex) {
+        if (level == null || zoneIndex != Sonic1Constants.ZONE_MZ) {
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createLargeGrassyPlatformMappings();
+
+        // Highest tile used: 0x57 + (2*3) = 0x5D
+        int maxTileNeeded = 0x5D;
+        int patternCount = level.getPatternCount();
+        int copyCount = Math.min(patternCount, maxTileNeeded);
+        if (copyCount == 0) {
+            LOGGER.warning("No level patterns available for MZ large grassy platform art");
+            return;
+        }
+        Pattern[] patterns = new Pattern[copyCount];
+        for (int i = 0; i < copyCount; i++) {
+            patterns[i] = level.getPattern(i);
+        }
+
+        // Palette line 2, priority 1: make_art_tile(ArtTile_Level, 2, 1)
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.MZ_LARGE_GRASSY_PLATFORM, sheet);
+    }
+
+    /**
+     * MZ Large Grassy Platform mappings from docs/s1disasm/_maps/MZ Large Grassy Platforms.asm.
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     */
+    private List<SpriteMappingFrame> createLargeGrassyPlatformMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.wide): wide platform, 13 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x40, -0x28, 2, 3, 0x57, false, false, 0, false),
+                new SpriteMappingPiece(-0x40, -0x10, 2, 2, 0x53, false, false, 0, false),
+                new SpriteMappingPiece(-0x40, 0x00, 4, 4, 0x01, false, false, 0, false),
+                new SpriteMappingPiece(-0x30, -0x30, 4, 4, 0x27, false, false, 0, false),
+                new SpriteMappingPiece(-0x30, -0x10, 4, 2, 0x37, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x10, 4, 4, 0x01, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x30, 4, 4, 0x11, false, false, 0, false),
+                new SpriteMappingPiece(0x10, -0x30, 4, 4, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(0x10, -0x10, 4, 2, 0x4F, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x10, 4, 4, 0x01, false, false, 0, false),
+                new SpriteMappingPiece(0x20, 0x00, 4, 4, 0x01, false, false, 0, false),
+                new SpriteMappingPiece(0x30, -0x28, 2, 3, 0x57, false, false, 0, false),
+                new SpriteMappingPiece(0x30, -0x10, 2, 2, 0x53, false, false, 0, false)
+        )));
+
+        // Frame 1 (.sloped): sloped platform (catches fire), 10 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x40, -0x30, 4, 4, 0x27, false, false, 0, false),
+                new SpriteMappingPiece(-0x40, -0x10, 4, 2, 0x37, false, false, 0, false),
+                new SpriteMappingPiece(-0x40, 0x00, 4, 4, 0x01, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x40, 4, 4, 0x27, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x20, 4, 2, 0x37, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x10, 4, 4, 0x01, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x40, 4, 4, 0x11, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x20, 4, 4, 0x01, false, false, 0, false),
+                new SpriteMappingPiece(0x20, -0x40, 4, 4, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(0x20, -0x20, 4, 2, 0x4F, false, false, 0, false)
+        )));
+
+        // Frame 2 (.narrow): narrow platform, 6 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x30, 4, 4, 0x11, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x10, 4, 4, 0x01, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0x10, 4, 4, 0x01, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x30, 4, 4, 0x11, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x10, 4, 4, 0x01, false, false, 0, false),
+                new SpriteMappingPiece(0x00, 0x10, 4, 4, 0x01, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads MZ Fireball art (Nem_MzFire) for the Burning Grass object (0x35).
+     * Uses ArtTile_MZ_Fireball ($345) at palette line 0, no priority.
+     * <p>
+     * Mappings from docs/s1disasm/_maps/Fireballs.asm (Map_Fire_internal):
+     * <ul>
+     *   <li>Frame 0 (.vertical1): 2x4 tiles at (-8, -$18), startTile 0</li>
+     *   <li>Frame 1 (.vertical2): 2x4 tiles at (-8, -$18), startTile 8</li>
+     *   <li>Frame 2 (.vertcollide): 2x3 tiles at (-8, -$10), startTile $10</li>
+     *   <li>Frame 3 (.horizontal1): 4x2 tiles at (-$18, -8), startTile $16</li>
+     *   <li>Frame 4 (.horizontal2): 4x2 tiles at (-$18, -8), startTile $1E</li>
+     *   <li>Frame 5 (.horicollide): 3x2 tiles at (-$10, -8), startTile $26</li>
+     * </ul>
+     *
+     * The Burning Grass animation (Ani_GFire) uses frames: {5, 0, $20, 1, $21, afEnd}.
+     * Frame $20 = frame 0 with V-flip, frame $21 = frame 1 with V-flip.
+     * Our engine handles flip at render time, so we only need the 6 base frames.
+     */
+    private void loadMzFireballArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_MZ_FIREBALL_ADDR, "MzFireball");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load MZ fireball art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createFireballMappings();
+        // make_art_tile(ArtTile_MZ_Fireball, 0, 0) -> palette line 0, no priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 0);
+        registerSheet(ObjectArtKeys.MZ_FIREBALL, sheet);
+    }
+
+    /**
+     * Fireball sprite mappings from docs/s1disasm/_maps/Fireballs.asm (Map_Fire_internal).
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     */
+    private List<SpriteMappingFrame> createFireballMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.vertical1): 2x4 tiles at (-8, -$18), startTile 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x18, 2, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 1 (.vertical2): 2x4 tiles at (-8, -$18), startTile 8
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x18, 2, 4, 8, false, false, 0, false)
+        )));
+
+        // Frame 2 (.vertcollide): 2x3 tiles at (-8, -$10), startTile $10
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x10, 2, 3, 0x10, false, false, 0, false)
+        )));
+
+        // Frame 3 (.horizontal1): 4x2 tiles at (-$18, -8), startTile $16
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -8, 4, 2, 0x16, false, false, 0, false)
+        )));
+
+        // Frame 4 (.horizontal2): 4x2 tiles at (-$18, -8), startTile $1E
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -8, 4, 2, 0x1E, false, false, 0, false)
+        )));
+
+        // Frame 5 (.horicollide): 3x2 tiles at (-$10, -8), startTile $26
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -8, 3, 2, 0x26, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Registers the MZ Brick sprite sheet using level tile patterns.
+     * Must be called AFTER the level is loaded since bricks use zone tileset art
+     * (make_art_tile(ArtTile_Level, 2, 0)).
+     * <p>
+     * MZ only. Single frame from docs/s1disasm/_maps/MZ Bricks.asm (Map_Brick_internal):
+     * One 32x32 brick (4x4 piece at tile index 1).
+     *
+     * @param level     The loaded level to extract patterns from
+     * @param zoneIndex The current zone index
+     */
+    public void registerMzBrickSheet(Level level, int zoneIndex) {
+        if (level == null || zoneIndex != Sonic1Constants.ZONE_MZ) {
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createMzBrickMappings();
+
+        // Highest tile: 0x01 + (4*4) = 0x11
+        int maxTileNeeded = 0x11;
+        int patternCount = level.getPatternCount();
+        int copyCount = Math.min(patternCount, maxTileNeeded);
+        if (copyCount == 0) {
+            LOGGER.warning("No level patterns available for MZ brick art");
+            return;
+        }
+        Pattern[] patterns = new Pattern[copyCount];
+        for (int i = 0; i < copyCount; i++) {
+            patterns[i] = level.getPattern(i);
+        }
+
+        // Palette line 2 (make_art_tile(ArtTile_Level, 2, 0))
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.MZ_BRICK, sheet);
+    }
+
+    /**
+     * MZ Brick mappings from docs/s1disasm/_maps/MZ Bricks.asm (Map_Brick_internal).
+     * Single frame: one 32x32 brick piece.
+     * <pre>
+     * .brick: spritePiece -$10, -$10, 4, 4, 1, 0, 0, 0, 0
+     * </pre>
+     */
+    private List<SpriteMappingFrame> createMzBrickMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.brick): single 4x4 piece (32x32 pixels) at tile index 1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x01, false, false, 0, false)
         )));
 
         return frames;
