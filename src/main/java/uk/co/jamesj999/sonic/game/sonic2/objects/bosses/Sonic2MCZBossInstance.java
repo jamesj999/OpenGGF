@@ -108,8 +108,8 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
 
     // Animation frame indices (from ROM Ani_obj57 / Obj57_MapUnc_316EC)
     // Main vehicle body
-    private static final int FRAME_BODY_LIGHT_OFF = 0;   // frame 0: body with light off
-    private static final int FRAME_BODY_LIGHT_ON = 1;    // frame 1: body with light on
+    private static final int FRAME_BODY_LIGHT_ON = 0;     // frame 0: tile $09 = lamp ON
+    private static final int FRAME_BODY_LIGHT_OFF = 1;   // frame 1: tile $00 = lamp OFF
     // Digger frames (vertical)
     private static final int FRAME_DIGGER_VERT_1 = 2;    // frame 2: vertical digger phase 1
     private static final int FRAME_DIGGER_VERT_2 = 3;    // frame 3: vertical digger phase 2
@@ -444,9 +444,9 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         countdown--;
         if (countdown >= 0) {
             // Explosion phase
-            // ROM: Set burnt face and frame 7
+            // ROM: Set burnt face, keep body light off
             faceFrame = FRAME_FACE_BURNT;
-            bodyFrame = FRAME_HOVER_NO_FIRE; // frame 7
+            bodyFrame = FRAME_BODY_LIGHT_OFF;
 
             spawnDefeatExplosion();
         } else {
@@ -560,15 +560,12 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         }
         if (!diggersDetached) {
             diggersDetached = true;
-            // Initialize digger positions to current boss position
-            leftDiggerXFixed = state.xFixed - (DIGGER_X_OFFSET << 16);
+            // ROM: sub5 at boss_x ± $28, sub2 at boss_x (no offset)
+            leftDiggerXFixed = flipped ? state.xFixed + (DIGGER_X_OFFSET << 16)
+                                       : state.xFixed - (DIGGER_X_OFFSET << 16);
             leftDiggerYFixed = state.yFixed;
-            rightDiggerXFixed = state.xFixed + (DIGGER_X_OFFSET << 16);
+            rightDiggerXFixed = state.xFixed; // sub2 has no offset
             rightDiggerYFixed = state.yFixed;
-            if (flipped) {
-                leftDiggerXFixed = state.xFixed + (DIGGER_X_OFFSET << 16);
-                rightDiggerXFixed = state.xFixed - (DIGGER_X_OFFSET << 16);
-            }
         }
 
         // ROM: cmpi.w #$78,(Boss_Countdown).w - only fall apart when countdown < $78
@@ -669,12 +666,13 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
             // FRAME_HOVER_NO_FIRE stays until explicitly changed
         }
 
-        // Body light animation
+        // Body light animation - ROM: default is light OFF (frame 1)
+        // Light ON (frame 0) is briefly shown on phase transitions, then returns to OFF
         if (bodyAnimTimer > 0) {
             bodyAnimTimer--;
-        } else {
-            bodyFrame = (bodyFrame == FRAME_BODY_LIGHT_OFF) ?
-                    FRAME_BODY_LIGHT_ON : FRAME_BODY_LIGHT_OFF;
+        } else if (bodyFrame == FRAME_BODY_LIGHT_ON) {
+            // Subanimation return: switch back to light OFF
+            bodyFrame = FRAME_BODY_LIGHT_OFF;
             bodyAnimTimer = 0x0F;
         }
 
@@ -840,6 +838,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         renderer.drawFrameIndex(faceFrame, bx, by, flipped, false);
 
         // Render diggers
+        // ROM: sub5 at boss_x ± $28, sub2 at boss_x (NO offset), SAME flip on both
         if (diggersDetached) {
             // Diggers are falling apart - use their individual positions
             int leftX = leftDiggerXFixed >> 16;
@@ -851,17 +850,16 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
                 renderer.drawFrameIndex(diggerFrame, leftX, leftY, flipped, false);
             }
             if (rightY < DEBRIS_DELETE_Y) {
-                renderer.drawFrameIndex(diggerFrame, rightX, rightY, !flipped, false);
+                renderer.drawFrameIndex(diggerFrame, rightX, rightY, flipped, false);
             }
         } else {
             // Diggers attached to boss
-            // ROM: sub5 is at x - $28 (left drill), sub2 is at x + $28 (right drill)
-            // When flipped, sub5 is at x + $28
+            // ROM: sub5 at boss_x ± $28, sub2 at boss_x (no offset)
             int leftDiggerX = flipped ? bx + DIGGER_X_OFFSET : bx - DIGGER_X_OFFSET;
-            int rightDiggerX = flipped ? bx - DIGGER_X_OFFSET : bx + DIGGER_X_OFFSET;
+            int rightDiggerX = bx; // sub2 has NO x offset in ROM
 
             renderer.drawFrameIndex(diggerFrame, leftDiggerX, by, flipped, false);
-            renderer.drawFrameIndex(diggerFrame, rightDiggerX, by, !flipped, false);
+            renderer.drawFrameIndex(diggerFrame, rightDiggerX, by, flipped, false);
         }
     }
 }

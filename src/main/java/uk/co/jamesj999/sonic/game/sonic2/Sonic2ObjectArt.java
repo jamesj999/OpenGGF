@@ -5744,8 +5744,28 @@ public class Sonic2ObjectArt {
         if (bossPatterns.length == 0) {
             return null;
         }
+
+        // Load Eggpod patterns (used for Robotnik's face in frames 14-19)
+        // ROM: PlrList_MczBoss loads ArtNem_Eggpod at VRAM tile $0500
+        Pattern[] eggpodPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_EGGPOD_ADDR, "Eggpod");
+
+        // Calculate offset: $500 - $3C0 = $140 = 320 tiles
+        int eggpodOffset = Sonic2Constants.ART_TILE_EGGPOD_4 - Sonic2Constants.ART_TILE_MCZ_BOSS;
+
+        // Create combined array large enough to hold both art sets at correct offsets
+        int combinedSize = Math.max(bossPatterns.length, eggpodOffset + eggpodPatterns.length);
+        Pattern[] combined = new Pattern[combinedSize];
+
+        // Copy MCZ boss patterns starting at index 0
+        System.arraycopy(bossPatterns, 0, combined, 0, bossPatterns.length);
+
+        // Copy Eggpod patterns at offset $140 (320)
+        for (int i = 0; i < eggpodPatterns.length && (eggpodOffset + i) < combinedSize; i++) {
+            combined[eggpodOffset + i] = eggpodPatterns[i];
+        }
+
         List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_MCZ_BOSS_ADDR);
-        return new ObjectSpriteSheet(bossPatterns, mappings, 0, 1);
+        return new ObjectSpriteSheet(combined, mappings, 0, 1);
     }
 
     /**
