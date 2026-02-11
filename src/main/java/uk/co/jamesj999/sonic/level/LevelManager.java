@@ -145,6 +145,7 @@ public class LevelManager {
     private boolean multiAtlasWarningLogged = false;
 
     private boolean specialStageRequestedFromCheckpoint;
+    private boolean specialStageReturnLevelReloadRequested;
     private boolean titleCardRequested;
     private int titleCardZone = -1;
     private int titleCardAct = -1;
@@ -2480,6 +2481,8 @@ public class LevelManager {
      */
     private void loadCurrentLevel(boolean showTitleCard) {
         try {
+            specialStageReturnLevelReloadRequested = false;
+
             // Ensure zone list is populated before accessing it
             if (levels.isEmpty()) {
                 gameModule = GameModuleRegistry.getCurrent();
@@ -2679,6 +2682,7 @@ public class LevelManager {
         if (checkpointState != null) {
             checkpointState.clear();
         }
+        specialStageReturnLevelReloadRequested = true;
     }
 
     public void loadZoneAndAct(int zone, int act) throws IOException {
@@ -2741,6 +2745,18 @@ public class LevelManager {
     public boolean consumeSpecialStageRequest() {
         boolean requested = specialStageRequestedFromCheckpoint;
         specialStageRequestedFromCheckpoint = false;
+        return requested;
+    }
+
+    /**
+     * Consumes and clears the pending level-reload request for special-stage
+     * return.
+     *
+     * @return true if the next act should be loaded before resuming gameplay
+     */
+    public boolean consumeSpecialStageReturnLevelReloadRequest() {
+        boolean requested = specialStageReturnLevelReloadRequested;
+        specialStageReturnLevelReloadRequested = false;
         return requested;
     }
 
@@ -2822,6 +2838,7 @@ public class LevelManager {
         foregroundTilemapDirty = true;
         patternLookupDirty = true;
         specialStageRequestedFromCheckpoint = false;
+        specialStageReturnLevelReloadRequested = false;
         titleCardRequested = false;
         titleCardZone = -1;
         titleCardAct = -1;
