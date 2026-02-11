@@ -98,8 +98,8 @@ public class GameLoop {
         void onGameModeChanged(GameMode oldMode, GameMode newMode);
     }
 
-    private boolean paused = false;      // Window focus pause
-    private boolean userPaused = false;  // Keyboard toggle pause
+    private volatile boolean paused = false;      // Window focus pause
+    private volatile boolean userPaused = false;  // Keyboard toggle pause
 
     public GameLoop() {
     }

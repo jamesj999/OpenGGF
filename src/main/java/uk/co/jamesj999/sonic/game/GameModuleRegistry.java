@@ -24,7 +24,7 @@ public final class GameModuleRegistry {
     private static final Logger LOGGER = Logger.getLogger(GameModuleRegistry.class.getName());
 
     // Default to Sonic 2 for backward compatibility
-    private static volatile GameModule current = new Sonic2GameModule();
+    private static GameModule current = new Sonic2GameModule();
 
     private GameModuleRegistry() {
     }
@@ -34,7 +34,7 @@ public final class GameModuleRegistry {
      *
      * @return the current game module
      */
-    public static GameModule getCurrent() {
+    public static synchronized GameModule getCurrent() {
         return current;
     }
 
