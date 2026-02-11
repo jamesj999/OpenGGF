@@ -113,8 +113,12 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
     private static final int RESULTS_SCORE_DIGIT_TILE_COUNT = RESULTS_SCORE_DIGIT_PAIR_COUNT * 2;
     private static final int HUD_TEXT_E_PAIR_INDEX = 22;
 
-    // SS results palette table index. Pal_SSResult is entry 17 in Pal_Index (loads to palette line 1).
-    private static final int PALETTE_ID_SS_RESULT = 17;
+    // Disassembly palette IDs (REV00). REV01 shifts IDs; resolve via Sonic offset.
+    private static final int DISASM_SONIC_PALETTE_ID = 3;
+    private static final int DISASM_SS_RESULT_PALETTE_ID = 17;
+    private static final int SS_RESULT_PALETTE_OFFSET_FROM_SONIC =
+            DISASM_SS_RESULT_PALETTE_ID - DISASM_SONIC_PALETTE_ID;
+    private static final int PALETTE_RAM_BASE = 0xFB00;
 
     private final Scenario scenario;
     private final int stageIndex;
@@ -385,9 +389,9 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
     }
 
     /**
-     * Ensures art is loaded from ROM and cached to GPU. Also restores the Sonic
-     * palette to GPU line 0 (the SS overwrites it with its own palettes) and
-     * loads the SS results palette to lines 1-3 for emerald colors.
+     * Ensures art is loaded from ROM and cached to GPU. Also restores the
+     * special-stage results palette entry exactly as PalLoad would, so emerald
+     * colors match the original.
      */
     private void ensureArtCached() {
         if (artCached) {
@@ -415,7 +419,7 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
             emeraldRenderer.ensurePatternsCached(graphicsManager, EMERALD_PATTERN_BASE);
         }
 
-        // Restore palettes: Sonic palette to line 0, SS results palette to lines 1-3.
+        // Restore palettes as the ROM does for palid_SSResult.
         restorePalettes(graphicsManager);
 
         artCached = true;
@@ -423,9 +427,8 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
     }
 
     /**
-     * Restores the Sonic character palette to GPU line 0 and loads the SS results
-     * palette (Pal_SSResult) to GPU lines 1-3. Without this, text renders with
-     * the special stage's palette colors instead of the proper white/yellow.
+     * Restores SS result palettes using the palette table destination and size,
+     * matching PalLoad semantics.
      */
     private void restorePalettes(GraphicsManager graphicsManager) {
         try {
@@ -435,32 +438,57 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
             }
             Rom rom = romManager.getRom();
 
-            // Palette line 0: Sonic character palette (white/yellow for text)
-            byte[] sonicPalData = rom.readBytes(
-                    Sonic1Constants.SONIC_PALETTE_ADDR, Palette.PALETTE_SIZE_IN_ROM);
-            Palette sonicPal = new Palette();
-            sonicPal.fromSegaFormat(sonicPalData);
-            graphicsManager.cachePaletteTexture(sonicPal, 0);
+            PaletteEntry entry = resolveSsResultPaletteEntry(rom);
+            if (entry.byteCount <= 0) {
+                return;
+            }
 
-            // Palette lines 1-3: SS results palette (Pal_SSResult, for emerald colors).
-            // Entry 17 in the palette table: 8 bytes per entry, first longword = ROM address.
-            int ssResultPalAddr = rom.read32BitAddr(
-                    Sonic1Constants.PALETTE_TABLE_ADDR + PALETTE_ID_SS_RESULT * 8);
-            // Pal_SSResult is 3 palette lines (96 bytes) loaded to v_palette_line_1
-            byte[] resultsPalData = rom.readBytes(ssResultPalAddr, 3 * Palette.PALETTE_SIZE_IN_ROM);
-            for (int i = 0; i < 3; i++) {
+            byte[] paletteData = rom.readBytes(entry.dataAddress, entry.byteCount);
+            int startLine = Math.max(0, (entry.destination - PALETTE_RAM_BASE) / Palette.PALETTE_SIZE_IN_ROM);
+            int linesToUpload = Math.min(4 - startLine, paletteData.length / Palette.PALETTE_SIZE_IN_ROM);
+            for (int i = 0; i < linesToUpload; i++) {
                 int start = i * Palette.PALETTE_SIZE_IN_ROM;
                 int end = start + Palette.PALETTE_SIZE_IN_ROM;
-                if (end <= resultsPalData.length) {
-                    Palette pal = new Palette();
-                    pal.fromSegaFormat(Arrays.copyOfRange(resultsPalData, start, end));
-                    graphicsManager.cachePaletteTexture(pal, i + 1);
-                }
+                Palette pal = new Palette();
+                pal.fromSegaFormat(Arrays.copyOfRange(paletteData, start, end));
+                graphicsManager.cachePaletteTexture(pal, startLine + i);
             }
 
         } catch (Exception e) {
             LOGGER.warning("Failed to restore palettes: " + e.getMessage());
         }
+    }
+
+    private PaletteEntry resolveSsResultPaletteEntry(Rom rom) throws IOException {
+        int sonicPaletteId = findSonicPaletteId(rom);
+        int ssResultPaletteId = sonicPaletteId + SS_RESULT_PALETTE_OFFSET_FROM_SONIC;
+        return readPaletteEntry(rom, ssResultPaletteId);
+    }
+
+    private int findSonicPaletteId(Rom rom) throws IOException {
+        for (int id = 2; id < 10; id++) {
+            int entryAddr = Sonic1Constants.PALETTE_TABLE_ADDR + id * 8;
+            int destination = rom.read16BitAddr(entryAddr + 4) & 0xFFFF;
+            int countWord = rom.read16BitAddr(entryAddr + 6) & 0xFFFF;
+            int byteCount = (countWord + 1) * 4;
+            if (destination == 0xFB00 && byteCount == Palette.PALETTE_SIZE_IN_ROM) {
+                return id;
+            }
+        }
+        LOGGER.fine("Failed to detect Sonic palette ID from table, using disassembly default");
+        return DISASM_SONIC_PALETTE_ID;
+    }
+
+    private PaletteEntry readPaletteEntry(Rom rom, int paletteId) throws IOException {
+        int entryAddr = Sonic1Constants.PALETTE_TABLE_ADDR + paletteId * 8;
+        int dataAddress = rom.read32BitAddr(entryAddr) & 0x00FFFFFF;
+        int destination = rom.read16BitAddr(entryAddr + 4) & 0xFFFF;
+        int countWord = rom.read16BitAddr(entryAddr + 6) & 0xFFFF;
+        int byteCount = (countWord + 1) * 4;
+        return new PaletteEntry(dataAddress, destination, byteCount);
+    }
+
+    private record PaletteEntry(int dataAddress, int destination, int byteCount) {
     }
 
     // ===== Dynamic number patterns =====
