@@ -1,12 +1,11 @@
 package uk.co.jamesj999.sonic.level.render;
 
-import org.lwjgl.system.MemoryUtil;
+import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.graphics.HScrollBuffer;
 import uk.co.jamesj999.sonic.graphics.ParallaxShaderProgram;
 import uk.co.jamesj999.sonic.graphics.QuadRenderer;
 
 import java.io.IOException;
-import java.nio.IntBuffer;
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.*;
@@ -135,17 +134,12 @@ public class BackgroundRenderer {
         if (!initialized)
             return;
 
-        // Save current viewport to restore later (must query actual GL state)
-        IntBuffer viewportBuffer = MemoryUtil.memAllocInt(4);
-        try {
-            glGetIntegerv(GL_VIEWPORT, viewportBuffer);
-            savedViewport[0] = viewportBuffer.get(0);
-            savedViewport[1] = viewportBuffer.get(1);
-            savedViewport[2] = viewportBuffer.get(2);
-            savedViewport[3] = viewportBuffer.get(3);
-        } finally {
-            MemoryUtil.memFree(viewportBuffer);
-        }
+        // Save current viewport to restore later
+        GraphicsManager gm = GraphicsManager.getInstance();
+        savedViewport[0] = gm.getViewportX();
+        savedViewport[1] = gm.getViewportY();
+        savedViewport[2] = gm.getViewportWidth();
+        savedViewport[3] = gm.getViewportHeight();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fboId);
         glViewport(0, 0, fboWidth, fboHeight);
@@ -199,20 +193,11 @@ public class BackgroundRenderer {
         parallaxShader.setPalette(2);
 
         // Get viewport for resolution independence
-        IntBuffer viewportBuffer = MemoryUtil.memAllocInt(4);
-        float realWidth;
-        float realHeight;
-        float viewportX;
-        float viewportY;
-        try {
-            glGetIntegerv(GL_VIEWPORT, viewportBuffer);
-            viewportX = (float) viewportBuffer.get(0);
-            viewportY = (float) viewportBuffer.get(1);
-            realWidth = (float) viewportBuffer.get(2);
-            realHeight = (float) viewportBuffer.get(3);
-        } finally {
-            MemoryUtil.memFree(viewportBuffer);
-        }
+        GraphicsManager gm = GraphicsManager.getInstance();
+        float viewportX = gm.getViewportX();
+        float viewportY = gm.getViewportY();
+        float realWidth = gm.getViewportWidth();
+        float realHeight = gm.getViewportHeight();
 
         // Set dimensions and scroll
         parallaxShader.setScreenDimensions(realWidth, realHeight);
@@ -267,20 +252,11 @@ public class BackgroundRenderer {
         parallaxShader.setPalette(2);
 
         // Get viewport for resolution independence
-        IntBuffer viewportBuffer = MemoryUtil.memAllocInt(4);
-        float realWidth;
-        float realHeight;
-        float viewportX;
-        float viewportY;
-        try {
-            glGetIntegerv(GL_VIEWPORT, viewportBuffer);
-            viewportX = (float) viewportBuffer.get(0);
-            viewportY = (float) viewportBuffer.get(1);
-            realWidth = (float) viewportBuffer.get(2);
-            realHeight = (float) viewportBuffer.get(3);
-        } finally {
-            MemoryUtil.memFree(viewportBuffer);
-        }
+        GraphicsManager gm = GraphicsManager.getInstance();
+        float viewportX = gm.getViewportX();
+        float viewportY = gm.getViewportY();
+        float realWidth = gm.getViewportWidth();
+        float realHeight = gm.getViewportHeight();
 
         // Set dimensions and scroll
         parallaxShader.setScreenDimensions(realWidth, realHeight);

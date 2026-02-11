@@ -932,10 +932,20 @@ public class GraphicsManager {
 		commands.clear();
 		paletteTextureMap.clear();
 		combinedPaletteTextureId = null;
+		underwaterPaletteTextureId = null;
+		paletteUploadBuffer = null;
+		underwaterPaletteUploadBuffer = null;
+		backgroundRenderer = null;
+		tilemapGpuRenderer = null;
+		instancedPatternRenderer = null;
 		camera = null;
 		useUnderwaterPaletteForBackground = false;
 		useSpritePriorityShader = false;
 		currentSpriteHighPriority = false;
+		waterlineScreenY = 0;
+		windowHeight = 224;
+		screenHeight = 224;
+		waterEnabled = false;
 	}
 
 	/**
