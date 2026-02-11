@@ -207,14 +207,16 @@ public class LWJGLAudioBackend implements AudioBackend {
         boolean isOverride = audioProfile != null && audioProfile.isMusicOverride(musicId);
         if (isOverride) {
             // Stop any playing SFX before pushing state to prevent partial playback on restore
-            if (smpsDriver != null) {
-                smpsDriver.stopAllSfx();
+            synchronized (streamLock) {
+                if (smpsDriver != null) {
+                    smpsDriver.stopAllSfx();
+                }
+                // Also clean up standalone SFX stream (used when SFX played before any music)
+                if (sfxStream instanceof SmpsDriver sfxDriver) {
+                    sfxDriver.stopAll();
+                }
+                sfxStream = null;
             }
-            // Also clean up standalone SFX stream (used when SFX played before any music)
-            if (sfxStream instanceof SmpsDriver sfxDriver) {
-                sfxDriver.stopAll();
-            }
-            sfxStream = null;
             // Only push state if current music is NOT an override (e.g., not already playing 1up jingle).
             boolean currentIsOverride = audioProfile != null && audioProfile.isMusicOverride(currentMusicId);
             if (!currentIsOverride) {
@@ -311,26 +313,28 @@ public class LWJGLAudioBackend implements AudioBackend {
             smpsDriver.addSequencer(seq, true);
         } else {
             // Standalone SFX driver
-            SmpsDriver sfxDriver;
-            if (sfxStream instanceof SmpsDriver) {
-                sfxDriver = (SmpsDriver) sfxStream;
-            } else {
-                sfxDriver = new SmpsDriver(getSmpsOutputRate());
-                sfxDriver.setDacInterpolate(dacInterpolate);
-                sfxStream = sfxDriver;
+            synchronized (streamLock) {
+                SmpsDriver sfxDriver;
+                if (sfxStream instanceof SmpsDriver) {
+                    sfxDriver = (SmpsDriver) sfxStream;
+                } else {
+                    sfxDriver = new SmpsDriver(getSmpsOutputRate());
+                    sfxDriver.setDacInterpolate(dacInterpolate);
+                    sfxStream = sfxDriver;
+                }
+                sfxDriver.setOutputSampleRate(getSmpsOutputRate());
+                applyPsgNoiseConfig(sfxDriver);
+                SmpsSequencer seq = new SmpsSequencer(data, dacData, sfxDriver, requireSmpsConfig());
+                seq.setSampleRate(sfxDriver.getOutputSampleRate());
+                seq.setFm6DacOff(fm6DacOff);
+                seq.setSfxMode(true);
+                seq.setPitch(pitch);
+                seq.setSfxPriority(sfxPriority);
+                if (currentSmps != null) {
+                    seq.setFallbackVoiceData(currentSmps.getSmpsData());
+                }
+                sfxDriver.addSequencer(seq, true);
             }
-            sfxDriver.setOutputSampleRate(getSmpsOutputRate());
-            applyPsgNoiseConfig(sfxDriver);
-            SmpsSequencer seq = new SmpsSequencer(data, dacData, sfxDriver, requireSmpsConfig());
-            seq.setSampleRate(sfxDriver.getOutputSampleRate());
-            seq.setFm6DacOff(fm6DacOff);
-            seq.setSfxMode(true);
-            seq.setPitch(pitch);
-            seq.setSfxPriority(sfxPriority);
-            if (currentSmps != null) {
-                seq.setFallbackVoiceData(currentSmps.getSmpsData());
-            }
-            sfxDriver.addSequencer(seq, true);
         }
 
         // Ensure stream is running
@@ -476,10 +480,10 @@ public class LWJGLAudioBackend implements AudioBackend {
 
                 for (int i = 0; i < streamData.length; i++) {
                     int mixed = streamData[i] + sfxStreamData[i];
-                    if (mixed > 32000)
-                        mixed = 32000;
-                    if (mixed < -32000)
-                        mixed = -32000;
+                    if (mixed > Short.MAX_VALUE)
+                        mixed = Short.MAX_VALUE;
+                    if (mixed < Short.MIN_VALUE)
+                        mixed = Short.MIN_VALUE;
                     streamData[i] = (short) mixed;
                 }
 
@@ -533,7 +537,9 @@ public class LWJGLAudioBackend implements AudioBackend {
      * Returns a debug snapshot of the current SMPS sequencer if one is playing.
      */
     public SmpsSequencer.DebugState getDebugState() {
-        return currentSmps != null ? currentSmps.debugState() : null;
+        synchronized (streamLock) {
+            return currentSmps != null ? currentSmps.debugState() : null;
+        }
     }
 
     @Override
@@ -649,15 +655,19 @@ public class LWJGLAudioBackend implements AudioBackend {
     @Override
     public void setSpeedShoes(boolean enabled) {
         this.speedShoesEnabled = enabled;
-        if (currentSmps != null) {
-            currentSmps.setSpeedShoes(enabled);
+        synchronized (streamLock) {
+            if (currentSmps != null) {
+                currentSmps.setSpeedShoes(enabled);
+            }
         }
     }
 
     @Override
     public void setSpeedMultiplier(int multiplier) {
-        if (currentSmps != null) {
-            currentSmps.setSpeedMultiplier(multiplier);
+        synchronized (streamLock) {
+            if (currentSmps != null) {
+                currentSmps.setSpeedMultiplier(multiplier);
+            }
         }
     }
 
