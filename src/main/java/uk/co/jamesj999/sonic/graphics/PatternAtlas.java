@@ -193,6 +193,7 @@ public class PatternAtlas {
         pages.clear();
         if (patternUploadBuffer != null) {
             MemoryUtil.memFree(patternUploadBuffer);
+            patternUploadBuffer = null;
         }
     }
 

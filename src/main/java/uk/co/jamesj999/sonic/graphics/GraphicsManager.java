@@ -881,13 +881,27 @@ public class GraphicsManager {
 			fadeManager.cancel();
 			fadeManager = null;
 		}
+		// Delete underwater palette texture
+		if (underwaterPaletteTextureId != null) {
+			glDeleteTextures(underwaterPaletteTextureId);
+			underwaterPaletteTextureId = null;
+		}
+		// Delete combined palette texture
+		if (combinedPaletteTextureId != null) {
+			glDeleteTextures(combinedPaletteTextureId);
+			combinedPaletteTextureId = null;
+		}
 		// Free pre-allocated buffers
 		if (paletteUploadBuffer != null) {
 			MemoryUtil.memFree(paletteUploadBuffer);
+			paletteUploadBuffer = null;
 		}
 		if (underwaterPaletteUploadBuffer != null) {
 			MemoryUtil.memFree(underwaterPaletteUploadBuffer);
+			underwaterPaletteUploadBuffer = null;
 		}
+		paletteTextureMap.clear();
+		glInitialized = false;
 	}
 
 	private void ensurePatternAtlas() {
