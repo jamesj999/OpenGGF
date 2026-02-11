@@ -16,6 +16,9 @@ public class KosinskiReader {
     // Size of the sliding window buffer (backsearch buffer)
     private static final int SLIDING_WINDOW_SIZE = 0x2000; // 8192 bytes
 
+    // Maximum decompressed output size (1MB - well above any Mega Drive data)
+    private static final int MAX_OUTPUT_SIZE = 0x100000;
+
     /**
      * Decompresses data from the given ReadableByteChannel using the Kosinski algorithm.
      * This method is thread-safe and statically callable.
@@ -51,6 +54,9 @@ public class KosinskiReader {
 
         // Function to write a byte to the output stream and update the backsearch buffer
         WriteByteFunction writeByte = (byte value) -> {
+            if (state.writePosition >= MAX_OUTPUT_SIZE) {
+                throw new IOException("Kosinski decompression exceeded maximum output size (" + MAX_OUTPUT_SIZE + " bytes)");
+            }
             outputStream.write(value);
             backsearchBuffer[state.writePosition % SLIDING_WINDOW_SIZE] = value;
             state.writePosition++;
@@ -211,6 +217,10 @@ public class KosinskiReader {
         int fullSize = ((data[offset] & 0xFF) << 8) | (data[offset + 1] & 0xFF);
         if (fullSize == 0) {
             return new byte[0];
+        }
+        if (fullSize > MAX_OUTPUT_SIZE) {
+            throw new IOException("Kosinski Moduled header declares " + fullSize +
+                    " bytes, exceeding maximum output size (" + MAX_OUTPUT_SIZE + " bytes)");
         }
 
         ByteArrayOutputStream output = new ByteArrayOutputStream(fullSize);

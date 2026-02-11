@@ -159,13 +159,18 @@ public class ResourceLoader {
      * followed by standard Kosinski modules at 16-byte aligned boundaries.
      */
     private byte[] decompressKosinskiModuled(int romAddr) throws IOException {
-        // Read enough data for decompression - KosM data can be large
-        // We read a generous chunk since we don't know the compressed size upfront
-        byte[] romData = rom.readBytes(romAddr, 0x10000); // 64KB should be enough for any single KosM block
-        if (romData.length < 2) {
+        // Read KosM 2-byte BE header to get total decompressed size
+        byte[] header = rom.readBytes(romAddr, 2);
+        if (header.length < 2) {
             throw new IOException(String.format(
-                    "Insufficient ROM data for KosM decompression at 0x%X: got %d bytes", romAddr, romData.length));
+                    "Insufficient ROM data for KosM header at 0x%X: got %d bytes", romAddr, header.length));
         }
+        int fullSize = ((header[0] & 0xFF) << 8) | (header[1] & 0xFF);
+
+        // Compressed data is smaller than decompressed, so fullSize is a safe upper bound
+        // for input. Add extra for module alignment padding. Cap at 256KB to prevent issues.
+        int inputSize = Math.min(Math.max(fullSize + 256, 0x10000), 0x40000);
+        byte[] romData = rom.readBytes(romAddr, inputSize);
         return KosinskiReader.decompressModuled(romData, 0);
     }
 
