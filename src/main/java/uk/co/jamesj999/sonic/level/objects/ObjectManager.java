@@ -2025,8 +2025,9 @@ public class ObjectManager {
                 boolean pushing = !player.getAir() && movingInto;
 
                 if (nearVerticalEdge) {
-                    // Near top/bottom edge: don't stop player (allows walking onto platforms)
-                    return new SolidContact(false, true, false, false, pushing);
+                    // Near top/bottom edge: don't stop player and don't set pushing.
+                    // This avoids false push-state while stepping across adjacent solid tops.
+                    return new SolidContact(false, true, false, false, false);
                 }
                 if (apply) {
                     if (movingInto) {

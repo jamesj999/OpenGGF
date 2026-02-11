@@ -214,6 +214,11 @@ public final class Sonic1Constants {
     // Loaded via PLC_GHZ2: plcm Nem_Bridge, ArtTile_GHZ_Bridge
     public static final int ART_NEM_BRIDGE_ADDR = 0x2FA2C;
 
+    // Nem_MzBlock: Nemesis-compressed MZ green pushable/smashable block art
+    // ArtTile_MZ_Block = $2B8, loaded via PLC_MZ
+    // Verified by RomOffsetFinder --game s1 search MzBlock (356 bytes)
+    public static final int ART_NEM_MZ_BLOCK_ADDR = 0x33670;
+
     // Nem_SlzCannon: Nemesis-compressed SLZ fireball launcher / lava thrower art
     // Loaded via PLC_SLZ: plcm Nem_SlzCannon, ArtTile_SLZ_Fireball_Launcher
     // Verified by RomOffsetFinder --game s1 search Cannon
@@ -256,6 +261,10 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 find Nem_Newtron (2720 bytes decompressed = 85 tiles)
     public static final int ART_NEM_NEWTRON_ADDR = 0x37CB6;
 
+    // Nem_MzGlass: Nemesis-compressed MZ green glass block art (ArtTile_MZ_Glass_Pillar = $38E)
+    // Verified by RomOffsetFinder --game s1 search MzGlass (183 bytes)
+    public static final int ART_NEM_MZ_GLASS_ADDR = 0x32970;
+
     // Nem_Basaran: Nemesis-compressed Basaran/Batbrain art (MZ, ArtTile_Basaran = $4B8)
     // Verified by RomOffsetFinder --game s1 search Basaran (763 bytes)
     public static final int ART_NEM_BASARAN_ADDR = 0x386BC;
@@ -297,6 +306,11 @@ public final class Sonic1Constants {
     public static final int ART_NEM_SBZ_SPIKED_BALL_ADDR = 0x345A6;
 
     // ---- Boss art (Nemesis compressed) ----
+    // Nem_MzMetal: Nemesis-compressed MZ metal block/chain stomper art (ArtTile_MZ_Spike_Stomper = $300)
+    // Used by Object 0x31 (Chained Stompers) and Object 0x45 (Sideways Stomper)
+    // Verified by RomOffsetFinder --game s1 search MzMetal (654 bytes)
+    public static final int ART_NEM_MZ_METAL_ADDR = 0x32624;
+
     // Nem_MzFire: Nemesis-compressed MZ fireball art (ArtTile_MZ_Fireball = $345)
     // Used by Object 0x35 (Burning Grass) and lava fireballs
     // Verified by RomOffsetFinder --game s1 search MzFire (734 bytes)

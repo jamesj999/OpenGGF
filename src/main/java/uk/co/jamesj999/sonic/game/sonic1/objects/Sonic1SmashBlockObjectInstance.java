@@ -1,0 +1,457 @@
+package uk.co.jamesj999.sonic.game.sonic1.objects;
+
+import uk.co.jamesj999.sonic.audio.AudioManager;
+import uk.co.jamesj999.sonic.audio.GameSound;
+import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.debug.DebugRenderContext;
+import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.GameStateManager;
+import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1AnimationIds;
+import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.graphics.RenderPriority;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
+import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
+import uk.co.jamesj999.sonic.level.objects.ObjectManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
+import uk.co.jamesj999.sonic.level.objects.SolidContact;
+import uk.co.jamesj999.sonic.level.objects.SolidObjectListener;
+import uk.co.jamesj999.sonic.level.objects.SolidObjectParams;
+import uk.co.jamesj999.sonic.level.objects.SolidObjectProvider;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
+import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
+import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+
+import java.awt.Color;
+import java.util.List;
+
+/**
+ * Object 0x51 - Smashable Green Block (MZ).
+ * <p>
+ * A solid green block found in Marble Zone that shatters when Sonic lands on it
+ * while rolling/jumping. Breaking the block spawns 4 fragment objects that scatter
+ * with gravity, awards escalating chain bonus points, and bounces Sonic upward.
+ * <p>
+ * Subtypes (obSubtype -> obFrame):
+ * <ul>
+ *   <li>0 = Standard frame (two 32x16 halves)</li>
+ * </ul>
+ * <p>
+ * Chain bonus system (v_itembonus):
+ * <ul>
+ *   <li>1st block: 100 pts</li>
+ *   <li>2nd block: 200 pts</li>
+ *   <li>3rd block: 500 pts</li>
+ *   <li>4th+ block: 1000 pts</li>
+ *   <li>16th block: 10000 pts (special bonus)</li>
+ * </ul>
+ * <p>
+ * Uses RememberState to persist destruction across respawning.
+ * <p>
+ * Reference: docs/s1disasm/_incObj/51 Smashable Green Block.asm
+ */
+public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
+        implements SolidObjectProvider, SolidObjectListener {
+
+    // From disassembly: move.w #$1B,d1
+    private static final int SOLID_HALF_WIDTH = 0x1B;
+    // From disassembly: move.w #$10,d2
+    private static final int SOLID_HALF_HEIGHT_AIR = 0x10;
+    // From disassembly: move.w #$11,d3
+    private static final int SOLID_HALF_HEIGHT_GROUND = 0x11;
+    // From disassembly: move.b #4,obPriority(a0)
+    private static final int PRIORITY = 4;
+    // From disassembly: move.b #$10,obActWid(a0)
+    private static final int ACTIVE_WIDTH = 0x10;
+
+    // From disassembly: move.w #-$300,obVelY(a1) - player rebound velocity
+    private static final int PLAYER_REBOUND_VEL_Y = -0x300;
+
+    // From disassembly: move.w #$38,d2 - fragment gravity acceleration
+    private static final int FRAGMENT_GRAVITY = 0x38;
+
+    // Fragment count: d1 = 3 means 4 fragments (dbf loop counts down from 3 to 0)
+    private static final int FRAGMENT_COUNT = 4;
+
+    // Smab_Speeds: fragment velocities (x-speed, y-speed) for the 4 quadrants
+    // From disassembly lines 104-107:
+    //   dc.w -$200, -$200   ; top-left
+    //   dc.w -$100, -$100   ; bottom-left
+    //   dc.w  $200, -$200   ; top-right
+    //   dc.w  $100, -$100   ; bottom-right
+    private static final int[][] FRAGMENT_SPEEDS = {
+            {-0x200, -0x200},
+            {-0x100, -0x100},
+            { 0x200, -0x200},
+            { 0x100, -0x100},
+    };
+
+    // Smab_Scores in ROM is stored in x10 score units: dc.w 10,20,50,100.
+    // Engine score uses displayed points, so scale to 100,200,500,1000.
+    private static final int[] CHAIN_SCORES = {100, 200, 500, 1000};
+    // Special bonus for 16th smash: cmpi.w #$20,(v_itembonus).w
+    private static final int SPECIAL_BONUS_THRESHOLD = 0x20;
+    private static final int SPECIAL_BONUS_POINTS = 10000;
+
+    // Mapping frame indices
+    private static final int FRAME_INTACT = 0;
+    private static final int FRAME_FRAGMENTS = 1;
+
+    // id_Roll animation constant - Sonic's rolling animation ID
+    // From disassembly: cmpi.b #id_Roll,sonicAniFrame(a0)
+    // Sonic rolling = animation $02 (from the disassembly constants)
+    // In our engine this is checked via cached pre-collision animation, with
+    // player.getRolling() as a fallback.
+
+    private final int frameIndex;
+    private boolean broken;
+
+    // objoff_34: cached v_itembonus value at start of frame (before potential increment)
+    private int cachedItemBonus;
+    // objoff_32: cached Sonic animation from before SolidObject collision resolution
+    private int cachedSonicAnimationId;
+
+    public Sonic1SmashBlockObjectInstance(ObjectSpawn spawn) {
+        super(spawn, "SmashBlock");
+        // From disassembly: move.b obSubtype(a0),obFrame(a0)
+        this.frameIndex = spawn.subtype() & 0xFF;
+
+        // RememberState: check if already broken
+        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        if (objectManager != null && objectManager.isRemembered(spawn)) {
+            this.broken = true;
+            setDestroyed(true);
+        }
+    }
+
+    @Override
+    public void update(int frameCounter, AbstractPlayableSprite player) {
+        if (broken || player == null) {
+            return;
+        }
+
+        // From disassembly Smab_Solid:
+        // move.w (v_itembonus).w,objoff_34(a0)
+        // move.b (v_player+obAnim).w,sonicAniFrame(a0)
+        // Cache the current item bonus counter
+        cachedItemBonus = GameServices.gameState().getItemBonus();
+        cachedSonicAnimationId = player.getAnimationId();
+    }
+
+    @Override
+    public SolidObjectParams getSolidParams() {
+        // From disassembly:
+        //   move.w #$1B,d1   ; half-width for X check
+        //   move.w #$10,d2   ; half-height for air check
+        //   move.w #$11,d3   ; half-height for ground check
+        return new SolidObjectParams(SOLID_HALF_WIDTH, SOLID_HALF_HEIGHT_AIR, SOLID_HALF_HEIGHT_GROUND);
+    }
+
+    @Override
+    public boolean isSolidFor(AbstractPlayableSprite player) {
+        return !broken;
+    }
+
+    @Override
+    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+        if (broken || player == null) {
+            return;
+        }
+
+        // From disassembly:
+        //   btst #3,obStatus(a0) - has Sonic landed on the block?
+        //   bne.s .smash         - if yes, branch
+        if (!contact.standing()) {
+            return;
+        }
+
+        // From disassembly:
+        //   cmpi.b #id_Roll,sonicAniFrame(a0) - is Sonic rolling/jumping?
+        //   bne.s .notspinning                - if not, branch
+        // The animation check uses the pre-collision animation cached in update(),
+        // matching ROM behavior when landing clears rolling during collision resolution.
+        boolean wasRollAnimating = cachedSonicAnimationId == Sonic1AnimationIds.ROLL;
+        if (!wasRollAnimating && !player.getRolling()) {
+            return;
+        }
+
+        smashBlock(player);
+    }
+
+    /**
+     * Smash the block: spawn fragments, award points, bounce player.
+     * <p>
+     * From disassembly Smab_Solid .smash (lines 45-87).
+     */
+    private void smashBlock(AbstractPlayableSprite player) {
+        broken = true;
+
+        // Mark as remembered (RememberState) so it stays broken on revisit
+        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        if (objectManager != null) {
+            objectManager.markRemembered(spawn);
+        }
+
+        // Restore cached item bonus before incrementing
+        // From disassembly: move.w .count(a0),(v_itembonus).w
+        GameStateManager gameState = GameServices.gameState();
+        gameState.setItemBonus(cachedItemBonus);
+
+        // From disassembly:
+        //   bset #2,obStatus(a1)     ; set player rolling bit
+        //   move.b #$E,obHeight(a1)  ; rolling height
+        //   move.b #7,obWidth(a1)    ; rolling width
+        //   move.b #id_Roll,obAnim(a1) ; make Sonic roll
+        player.setRolling(true);
+
+        // From disassembly: move.w #-$300,obVelY(a1) - rebound upward
+        player.setYSpeed((short) PLAYER_REBOUND_VEL_Y);
+
+        // From disassembly:
+        //   bset #1,obStatus(a1)  ; set in-air flag
+        //   bclr #3,obStatus(a1)  ; clear standing-on-object flag
+        //   move.b #2,obRoutine(a1) ; set player to normal routine
+        player.setAir(true);
+
+        // From disassembly:
+        //   bclr #3,obStatus(a0)  ; clear player-standing flag on block
+        //   clr.b obSolid(a0)     ; disable solidity
+        //   move.b #1,obFrame(a0) ; set to fragment mapping frame
+
+        // Spawn 4 fragment objects using SmashObject subroutine
+        spawnFragments();
+
+        // Award chain bonus points
+        awardChainPoints(objectManager);
+
+        // Mark this object as destroyed
+        setDestroyed(true);
+    }
+
+    /**
+     * Spawn 4 fragment objects that scatter with velocity and gravity.
+     * <p>
+     * Implements SmashObject subroutine (docs/s1disasm/_incObj/sub SmashObject.asm).
+     * Each fragment gets one mapping piece from frame 1 (.four) and an initial
+     * velocity from Smab_Speeds.
+     */
+    private void spawnFragments() {
+        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        if (objectManager == null || renderManager == null) {
+            return;
+        }
+
+        ObjectSpriteSheet sheet = renderManager.getSheet(ObjectArtKeys.MZ_SMASH_BLOCK);
+        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.MZ_SMASH_BLOCK);
+        if (sheet == null || renderer == null) {
+            return;
+        }
+
+        // Get frame 1 (.four) which has 4 pieces for the fragment quadrants
+        SpriteMappingFrame fragFrame = (FRAME_FRAGMENTS < sheet.getFrameCount())
+                ? sheet.getFrame(FRAME_FRAGMENTS) : null;
+        if (fragFrame == null || fragFrame.pieces() == null
+                || fragFrame.pieces().size() < FRAGMENT_COUNT) {
+            return;
+        }
+
+        List<SpriteMappingPiece> pieces = fragFrame.pieces();
+        int blockX = spawn.x();
+        int blockY = spawn.y();
+
+        for (int i = 0; i < FRAGMENT_COUNT; i++) {
+            SpriteMappingPiece piece = pieces.get(i);
+            int velX = FRAGMENT_SPEEDS[i][0];
+            int velY = FRAGMENT_SPEEDS[i][1];
+
+            SmashBlockFragmentInstance fragment = new SmashBlockFragmentInstance(
+                    blockX, blockY, velX, velY, piece, renderer);
+            objectManager.addDynamicObject(fragment);
+        }
+
+        // From disassembly SmashObject .playsnd:
+        //   move.w #sfx_WallSmash,d0 / jmp (QueueSound2).l
+        AudioManager.getInstance().playSfx(GameSound.WALL_SMASH);
+    }
+
+    /**
+     * Award escalating chain bonus points.
+     * <p>
+     * From disassembly lines 64-87 (FindFreeObj -> points popup):
+     * <pre>
+     *     move.w  (v_itembonus).w,d2       ; current chain index
+     *     addq.w  #2,(v_itembonus).w       ; increment for next smash
+     *     cmpi.w  #6,d2                    ; cap at index 6 (4th entry)
+     *     blo.s   .bonus
+     *     moveq   #6,d2
+     * .bonus:
+     *     moveq   #0,d0
+     *     move.w  Smab_Scores(pc,d2.w),d0  ; look up points
+     *     cmpi.w  #$20,(v_itembonus).w     ; 16th smash?
+     *     blo.s   .givepoints
+     *     move.w  #1000,d0                 ; special 1000 (x10 units) => 10000 pts
+     *     moveq   #10,d2                   ; points frame index 5
+     * .givepoints:
+     *     jsr     (AddPoints).l
+     *     lsr.w   #1,d2
+     *     move.b  d2,obFrame(a1)           ; set points display frame
+     * </pre>
+     */
+    private void awardChainPoints(ObjectManager objectManager) {
+        GameStateManager gameState = GameServices.gameState();
+
+        // move.w (v_itembonus).w,d2
+        int d2 = gameState.getItemBonus();
+
+        // addq.w #2,(v_itembonus).w
+        gameState.setItemBonus(d2 + 2);
+
+        // cmpi.w #6,d2 / blo.s .bonus / moveq #6,d2
+        if (d2 >= 6) {
+            d2 = 6;
+        }
+
+        // move.w Smab_Scores(pc,d2.w),d0
+        // d2 is a byte offset into a word table, so d2/2 is the array index
+        int scoreIndex = d2 / 2;
+        int points = CHAIN_SCORES[scoreIndex];
+
+        // cmpi.w #$20,(v_itembonus).w / blo.s .givepoints
+        // Check AFTER increment: if 16th smash, override to special bonus
+        int updatedBonus = gameState.getItemBonus();
+        int pointsFrameIndex;
+        if (updatedBonus >= SPECIAL_BONUS_THRESHOLD) {
+            points = SPECIAL_BONUS_POINTS;
+            d2 = 10; // moveq #10,d2
+        }
+
+        // jsr (AddPoints).l
+        gameState.addScore(points);
+
+        // lsr.w #1,d2 / move.b d2,obFrame(a1)
+        pointsFrameIndex = d2 >> 1;
+
+        // Spawn points popup object
+        if (objectManager != null) {
+            Sonic1PointsObjectInstance pointsObj = new Sonic1PointsObjectInstance(
+                    new ObjectSpawn(spawn.x(), spawn.y(), 0x29, 0, 0, false, 0),
+                    LevelManager.getInstance(), points);
+            // ROM writes obFrame directly from d2>>1 for this path.
+            pointsObj.setScoreFrameIndex(pointsFrameIndex);
+            objectManager.addDynamicObject(pointsObj);
+        }
+    }
+
+    @Override
+    public void appendRenderCommands(List<GLCommand> commands) {
+        if (broken) {
+            return;
+        }
+
+        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        if (renderManager == null) {
+            return;
+        }
+
+        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.MZ_SMASH_BLOCK);
+        if (renderer == null || !renderer.isReady()) {
+            return;
+        }
+
+        // From disassembly: obFrame initially set from obSubtype (always 0 for MZ placements)
+        renderer.drawFrameIndex(frameIndex, getX(), getY(), false, false);
+    }
+
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
+        if (broken) {
+            return;
+        }
+        // Draw solid collision bounds
+        ctx.drawRect(getX(), getY(), SOLID_HALF_WIDTH, SOLID_HALF_HEIGHT_AIR,
+                0.0f, 0.8f, 0.2f);
+        ctx.drawWorldLabel(getX(), getY(), -2,
+                String.format("SmashBlk bonus=%d", cachedItemBonus), Color.GREEN);
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        return RenderPriority.clamp(PRIORITY);
+    }
+
+    /**
+     * Fragment object spawned when the green block shatters.
+     * <p>
+     * From disassembly Smab_Points (Routine 4):
+     * <pre>
+     *     bsr.w   SpeedToPos
+     *     addi.w  #$38,obVelY(a0)     ; gravity
+     *     tst.b   obRender(a0)        ; off-screen check
+     *     bpl.w   DeleteObject
+     * </pre>
+     */
+    static class SmashBlockFragmentInstance extends AbstractObjectInstance {
+
+        private int posX, posY;
+        private int subX, subY;  // 8.8 fixed-point sub-pixel
+        private int velX, velY;  // 8.8 fixed-point velocity
+        private final SpriteMappingPiece piece;
+        private final PatternSpriteRenderer renderer;
+
+        SmashBlockFragmentInstance(int x, int y, int velX, int velY,
+                                   SpriteMappingPiece piece, PatternSpriteRenderer renderer) {
+            super(new ObjectSpawn(x, y, 0x51, 0, 0, false, 0), "SmashBlockFragment");
+            this.posX = x;
+            this.posY = y;
+            this.subX = x << 8;
+            this.subY = y << 8;
+            this.velX = velX;
+            this.velY = velY;
+            this.piece = piece;
+            this.renderer = renderer;
+        }
+
+        @Override
+        public void update(int frameCounter, AbstractPlayableSprite player) {
+            if (isDestroyed()) {
+                return;
+            }
+
+            // SpeedToPos: position += velocity (8.8 fixed point)
+            subX += velX;
+            subY += velY;
+            posX = subX >> 8;
+            posY = subY >> 8;
+
+            // From disassembly: addi.w #$38,obVelY(a0) - gravity
+            velY += FRAGMENT_GRAVITY;
+
+            // From disassembly: tst.b obRender(a0) / bpl.w DeleteObject
+            // Delete when off-screen (render flag bit 7 indicates on-screen)
+            Camera cam = Camera.getInstance();
+            int cameraX = cam.getX();
+            int cameraY = cam.getY();
+            if (posX < cameraX - 64 || posX > cameraX + 320 + 64
+                    || posY > cameraY + 224 + 64) {
+                setDestroyed(true);
+            }
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            if (isDestroyed() || renderer == null || !renderer.isReady()) {
+                return;
+            }
+            renderer.drawPieces(List.of(piece), posX, posY, false, false);
+        }
+
+        @Override
+        public int getPriorityBucket() {
+            return RenderPriority.clamp(PRIORITY);
+        }
+    }
+}

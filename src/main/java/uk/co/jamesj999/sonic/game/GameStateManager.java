@@ -56,6 +56,14 @@ public class GameStateManager {
      */
     private boolean bigRingCollected;
 
+    /**
+     * Item bonus chain counter (ROM: v_itembonus at $FFFFFEB2).
+     * Tracks consecutive block/wall smashes in a level. Incremented by 2 per smash.
+     * Used by Object 0x3C (Smashable Wall) and Object 0x51 (Smashable Green Block)
+     * to award escalating points. Reset on level load.
+     */
+    private int itemBonus;
+
     private GameStateManager() {
         configureSpecialStageProgress(DEFAULT_SPECIAL_STAGE_COUNT, DEFAULT_CHAOS_EMERALD_COUNT);
         resetSession();
@@ -85,6 +93,7 @@ public class GameStateManager {
         this.screenShakeActive = false;
         this.htzScreenShakeActive = false;
         this.bigRingCollected = false;
+        this.itemBonus = 0;
     }
 
     public int getScore() {
@@ -286,6 +295,31 @@ public class GameStateManager {
      */
     public void setBigRingCollected(boolean collected) {
         this.bigRingCollected = collected;
+    }
+
+    /**
+     * Gets the current item bonus chain counter.
+     * ROM: v_itembonus - tracks consecutive block/wall smashes.
+     * Used as a word-sized index into score tables (increments by 2).
+     */
+    public int getItemBonus() {
+        return itemBonus;
+    }
+
+    /**
+     * Sets the item bonus chain counter.
+     * ROM: move.w d2,(v_itembonus).w
+     */
+    public void setItemBonus(int value) {
+        this.itemBonus = value;
+    }
+
+    /**
+     * Resets the item bonus counter to zero.
+     * Called on level load to reset the chain.
+     */
+    public void resetItemBonus() {
+        this.itemBonus = 0;
     }
 }
 

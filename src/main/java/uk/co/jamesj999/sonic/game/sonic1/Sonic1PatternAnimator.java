@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic1;
 
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
+import uk.co.jamesj999.sonic.game.sonic2.OscillationManager;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.Pattern;
@@ -24,8 +25,6 @@ import java.util.List;
  *   <li>MZ - Lava surface (3 frames), Torch (4 frames)</li>
  *   <li>SBZ - Smoke Puff 1 (7 frames + 3s interval), Smoke Puff 2 (7 frames + 2s interval)</li>
  * </ul>
- *
- * <p>MZ magma (oscillation-based pixel shifting) is not yet implemented.
  */
 class Sonic1PatternAnimator implements AnimatedPatternManager {
 
@@ -99,17 +98,18 @@ class Sonic1PatternAnimator implements AnimatedPatternManager {
     // ===== MZ animations =====
 
     private List<AnimHandler> createMzHandlers(RomByteReader reader) {
-        List<AnimHandler> list = new ArrayList<>(2);
+        List<AnimHandler> list = new ArrayList<>(3);
 
-        // Lava surface: 3 frames, 8 tiles each, duration 19
-        list.add(new CyclingAnim(
-                loadArt(reader, Sonic1Constants.ART_UNC_MZ_LAVA1_ADDR, 24),
-                Sonic1Constants.ARTTILE_MZ_ANIMATED_LAVA,
-                8,
-                new int[]{0, 8, 16},
-                19, // 0x14-1
-                null
-        ));
+        // Lava surface: 3 frames, 8 tiles each, duration 19.
+        MzLavaSurfaceAnim lavaSurface = new MzLavaSurfaceAnim(
+                loadArt(reader, Sonic1Constants.ART_UNC_MZ_LAVA1_ADDR, 24));
+        list.add(lavaSurface);
+
+        // Magma body: 16 tiles derived from Art_MzLava2 using oscillation-based row shifts.
+        // Mirrors AniArt_MZ_Magma in the disassembly.
+        list.add(new MzMagmaAnim(
+                loadArt(reader, Sonic1Constants.ART_UNC_MZ_LAVA2_ADDR, 48),
+                lavaSurface));
 
         // Torch: 4 frames, 6 tiles each, duration 7
         list.add(new CyclingAnim(
@@ -120,10 +120,6 @@ class Sonic1PatternAnimator implements AnimatedPatternManager {
                 7, // 8-1
                 null
         ));
-
-        // MZ Magma uses oscillation-based pixel shifting within tiles.
-        // This is a complex effect that requires per-pixel manipulation
-        // based on a sine-wave oscillator. Not yet implemented.
 
         return list;
     }
@@ -231,12 +227,14 @@ class Sonic1PatternAnimator implements AnimatedPatternManager {
             // Set timer for this frame
             timer = (frameDurations != null) ? frameDurations[frame] : defaultDuration;
 
+            onFrameApplied(frame);
             applyFrame(level, gm, frameTileOffsets[frame]);
         }
 
         @Override
         public void prime(Level level, GraphicsManager gm) {
             if (artPatterns.length == 0 || frameTileOffsets.length == 0) return;
+            onFrameApplied(0);
             applyFrame(level, gm, frameTileOffsets[0]);
         }
 
@@ -260,6 +258,151 @@ class Sonic1PatternAnimator implements AnimatedPatternManager {
                     gm.updatePatternTexture(dest, destIndex);
                 }
             }
+        }
+
+        protected void onFrameApplied(int frame) {
+            // Optional hook for handlers that need the active frame index.
+        }
+    }
+
+    /**
+     * Lava surface state holder for MZ.
+     * Exposes current frame index so magma animation can stay phase-locked.
+     */
+    private static final class MzLavaSurfaceAnim extends CyclingAnim {
+        private int currentFrame;
+
+        MzLavaSurfaceAnim(Pattern[] artPatterns) {
+            super(artPatterns, Sonic1Constants.ARTTILE_MZ_ANIMATED_LAVA, 8,
+                    new int[]{0, 8, 16}, 19, null);
+            currentFrame = 0;
+        }
+
+        @Override
+        protected void onFrameApplied(int frame) {
+            currentFrame = frame;
+        }
+
+        int getCurrentFrame() {
+            return currentFrame;
+        }
+    }
+
+    /**
+     * MZ magma body animation from AniArt_MZ_Magma.
+     *
+     * <p>The ROM rebuilds a 16-tile frame every 2 frames using 4 passes of row-wise
+     * circular byte shifts driven by {@code v_oscillate+$A}. This reproduces the
+     * same data transform on decoded Art_MzLava2 source tiles.
+     */
+    private static final class MzMagmaAnim implements AnimHandler {
+        private static final int UPDATE_INTERVAL = 2; // move.b #2-1,v_lani1_time
+        private static final int DEST_TILE_COUNT = 16;
+        private static final int FRAME_BYTES = DEST_TILE_COUNT * Pattern.PATTERN_SIZE_IN_ROM; // 512
+        private static final int ROW_SEGMENT_BYTES = 16;
+        private static final int ROW_COUNT = 32;
+        private static final int PASSES = 4;
+        // AniArt reads (v_oscillate+$A). OscillationManager offsets are based at +2.
+        private static final int MAGMA_OSC_OFFSET = 0x08;
+
+        private final byte[] sourceBytes;
+        private final MzLavaSurfaceAnim lavaSurfaceAnim;
+        private final byte[] transformedFrame = new byte[FRAME_BYTES];
+        private int timer;
+
+        MzMagmaAnim(Pattern[] sourcePatterns, MzLavaSurfaceAnim lavaSurfaceAnim) {
+            this.sourceBytes = toSegaBytes(sourcePatterns);
+            this.lavaSurfaceAnim = lavaSurfaceAnim;
+            this.timer = 0;
+        }
+
+        @Override
+        public void tick(Level level, GraphicsManager gm) {
+            if (sourceBytes.length < FRAME_BYTES) {
+                return;
+            }
+            if (timer > 0) {
+                timer--;
+                return;
+            }
+
+            timer = UPDATE_INTERVAL - 1;
+            applyFrame(level, gm);
+        }
+
+        @Override
+        public void prime(Level level, GraphicsManager gm) {
+            if (sourceBytes.length < FRAME_BYTES) {
+                return;
+            }
+            applyFrame(level, gm);
+        }
+
+        @Override
+        public int requiredPatternCount() {
+            return Sonic1Constants.ARTTILE_MZ_ANIMATED_MAGMA + DEST_TILE_COUNT;
+        }
+
+        private void applyFrame(Level level, GraphicsManager gm) {
+            int sourceFrame = lavaSurfaceAnim != null ? lavaSurfaceAnim.getCurrentFrame() % 3 : 0;
+            int frameBase = sourceFrame * FRAME_BYTES;
+            if (frameBase + FRAME_BYTES > sourceBytes.length) {
+                return;
+            }
+
+            int osc = OscillationManager.getByte(MAGMA_OSC_OFFSET);
+            int writePos = 0;
+            for (int pass = 0; pass < PASSES; pass++) {
+                int shift = osc & 0x0F;
+                for (int row = 0; row < ROW_COUNT; row++) {
+                    int segmentBase = frameBase + row * ROW_SEGMENT_BYTES;
+                    transformedFrame[writePos] = sourceBytes[segmentBase + (shift & 0x0F)];
+                    transformedFrame[writePos + 1] = sourceBytes[segmentBase + ((shift + 1) & 0x0F)];
+                    transformedFrame[writePos + 2] = sourceBytes[segmentBase + ((shift + 2) & 0x0F)];
+                    transformedFrame[writePos + 3] = sourceBytes[segmentBase + ((shift + 3) & 0x0F)];
+                    writePos += 4;
+                }
+                osc = (osc + 4) & 0xFF;
+            }
+
+            int maxPatterns = level.getPatternCount();
+            boolean canUpdateTextures = gm.isGlInitialized();
+            byte[] tileBytes = new byte[Pattern.PATTERN_SIZE_IN_ROM];
+            for (int tile = 0; tile < DEST_TILE_COUNT; tile++) {
+                int destIndex = Sonic1Constants.ARTTILE_MZ_ANIMATED_MAGMA + tile;
+                if (destIndex < 0 || destIndex >= maxPatterns) {
+                    continue;
+                }
+                System.arraycopy(transformedFrame, tile * Pattern.PATTERN_SIZE_IN_ROM,
+                        tileBytes, 0, Pattern.PATTERN_SIZE_IN_ROM);
+                Pattern dest = level.getPattern(destIndex);
+                dest.fromSegaFormat(tileBytes);
+                if (canUpdateTextures) {
+                    gm.updatePatternTexture(dest, destIndex);
+                }
+            }
+        }
+
+        private static byte[] toSegaBytes(Pattern[] patterns) {
+            if (patterns == null || patterns.length == 0) {
+                return new byte[0];
+            }
+            byte[] out = new byte[patterns.length * Pattern.PATTERN_SIZE_IN_ROM];
+            int write = 0;
+            for (Pattern pattern : patterns) {
+                if (pattern == null) {
+                    write += Pattern.PATTERN_SIZE_IN_ROM;
+                    continue;
+                }
+                for (int y = 0; y < Pattern.PATTERN_HEIGHT; y++) {
+                    for (int x = 0; x < Pattern.PATTERN_WIDTH; x += 2) {
+                        int left = pattern.getPixel(x, y) & 0x0F;
+                        int right = pattern.getPixel(x + 1, y) & 0x0F;
+                        out[write++] = (byte) ((left << 4) | right);
+                    }
+                }
+            }
+            return out;
         }
     }
 

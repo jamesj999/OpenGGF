@@ -176,9 +176,12 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load prison capsule art (all zones - appears in every boss act)
         loadPrisonArt(rom);
 
-        // Load MZ fireball art (Burning Grass, lava fireballs - MZ only)
+        // Load MZ-specific art (fireball, smash block, glass block - MZ only)
         if (zoneIndex == Sonic1Constants.ZONE_MZ) {
             loadMzFireballArt(rom);
+            loadMzSmashBlockArt(rom);
+            loadMzGlassBlockArt(rom);
+            loadMzChainedStomperArt(rom);
         }
 
         // Load boss art (GHZ: Eggman, weapons/chain anchor, exhaust flame)
@@ -2834,6 +2837,318 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Frame 5 (.horicollide): 3x2 tiles at (-$10, -8), startTile $26
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-0x10, -8, 3, 2, 0x26, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads MZ Smashable Green Block art (Nem_MzBlock) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/51 Smashable Green Block.asm:
+     * <pre>
+     *     move.w  #make_art_tile(ArtTile_MZ_Block,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_MZ_Block = $2B8, palette line 2.
+     * <p>
+     * Mappings from docs/s1disasm/_maps/Smashable Green Block.asm (Map_Smab_internal):
+     * <ul>
+     *   <li>Frame 0 (.two): Intact block - 2 pieces of 4x2 tiles stacked vertically</li>
+     *   <li>Frame 1 (.four): Fragment layout - 4 pieces of 2x2 tiles in quadrants</li>
+     * </ul>
+     */
+    private void loadMzSmashBlockArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_MZ_BLOCK_ADDR, "MzSmashBlock");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load MZ smashable green block art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSmashBlockMappings();
+        // make_art_tile(ArtTile_MZ_Block, 2, 0) -> palette line 2, no priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.MZ_SMASH_BLOCK, sheet);
+    }
+
+    /**
+     * Creates smashable green block sprite mappings from S1 disassembly
+     * docs/s1disasm/_maps/Smashable Green Block.asm (Map_Smab_internal).
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0 (.two): Intact block - two 32x16 halves stacked vertically.
+     * Both pieces use startTile 0 (same tiles, no flip) and priority bit 0.
+     * <pre>
+     *   spritePiece -$10, -$10, 4, 2, 0, 0, 0, 0, 0
+     *   spritePiece -$10,    0, 4, 2, 0, 0, 0, 0, 0
+     * </pre>
+     * <p>
+     * Frame 1 (.four): Four 16x16 quadrant fragments for SmashObject.
+     * Each piece uses startTile 0 and priority bit 1.
+     * <pre>
+     *   spritePiece -$10, -$10, 2, 2, 0, 0, 0, 0, 1
+     *   spritePiece -$10,    0, 2, 2, 0, 0, 0, 0, 1
+     *   spritePiece    0, -$10, 2, 2, 0, 0, 0, 0, 1
+     *   spritePiece    0,    0, 2, 2, 0, 0, 0, 0, 1
+     * </pre>
+     */
+    private List<SpriteMappingFrame> createSmashBlockMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.two): Intact block (2 pieces of 4x2 tiles)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,     0, 4, 2, 0, false, false, 0, false)
+        )));
+
+        // Frame 1 (.four): Fragment quadrants (4 pieces of 2x2 tiles, priority bit set)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 2, 2, 0, false, false, 0, true),
+                new SpriteMappingPiece(-0x10,     0, 2, 2, 0, false, false, 0, true),
+                new SpriteMappingPiece(    0, -0x10, 2, 2, 0, false, false, 0, true),
+                new SpriteMappingPiece(    0,     0, 2, 2, 0, false, false, 0, true)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads MZ Green Glass Block art (Nem_MzGlass) and creates sprite mappings.
+     * <p>
+     * 3 frames from docs/s1disasm/_maps/MZ Large Green Glass Blocks.asm (Map_Glass_internal):
+     * <ul>
+     *   <li>Frame 0 (.tall): Tall block ($48 half-height), 12 pieces</li>
+     *   <li>Frame 1 (.shine): Reflected shine overlay, 2 pieces</li>
+     *   <li>Frame 2 (.short): Short block ($38 half-height), 10 pieces</li>
+     * </ul>
+     * <p>
+     * obGfx: make_art_tile(ArtTile_MZ_Glass_Pillar, 2, 1) = palette line 2, priority set.
+     * <p>
+     * Reference: docs/s1disasm/_incObj/30 MZ Large Green Glass Blocks.asm
+     */
+    private void loadMzGlassBlockArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_MZ_GLASS_ADDR, "MzGlassBlock");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load MZ glass block art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createMzGlassBlockMappings();
+        // make_art_tile(ArtTile_MZ_Glass_Pillar, 2, 1) -> palette line 2, priority 1
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.MZ_GLASS_BLOCK, sheet);
+    }
+
+    /**
+     * MZ Green Glass Block mappings from docs/s1disasm/_maps/MZ Large Green Glass Blocks.asm.
+     * <p>
+     * S1 spritePiece macro: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * The glass block art (Nem_MzGlass) decompresses to 26 tiles ($1A).
+     * Tile 0-3: top/bottom edge caps (4 tiles).
+     * Tile 4-19: body fill (16 tiles, 4x4 repeated with h-flip).
+     * Tile 20-25 ($14-$19): shine overlay (6 tiles).
+     */
+    private List<SpriteMappingFrame> createMzGlassBlockMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.tall): Tall block, 12 pieces
+        // Total visual height: $48 + $48 = $90 (144px), width: $40 (64px)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x48, 4, 1, 0, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x48, 4, 1, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x40, 4, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x40, 4, 4, 4, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x20, 4, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x20, 4, 4, 4, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0, 4, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece(0, 0, 4, 4, 4, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0x20, 4, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece(0, 0x20, 4, 4, 4, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0x40, 4, 1, 0, false, true, 0, false),
+                new SpriteMappingPiece(0, 0x40, 4, 1, 0, true, true, 0, false)
+        )));
+
+        // Frame 1 (.shine): Reflected shine on block, 2 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, 8, 2, 3, 0x14, false, false, 0, false),
+                new SpriteMappingPiece(0, 0, 2, 3, 0x14, false, false, 0, false)
+        )));
+
+        // Frame 2 (.short): Short block, 10 pieces
+        // Total visual height: $38 + $38 = $70 (112px), width: $40 (64px)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x38, 4, 1, 0, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x38, 4, 1, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x30, 4, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x30, 4, 4, 4, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x10, 4, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x10, 4, 4, 4, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0x10, 4, 4, 4, false, false, 0, false),
+                new SpriteMappingPiece(0, 0x10, 4, 4, 4, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0x30, 4, 1, 0, false, true, 0, false),
+                new SpriteMappingPiece(0, 0x30, 4, 1, 0, true, true, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads MZ Chained Stomper art (Nem_MzMetal) and creates sprite mappings.
+     * <p>
+     * obGfx: make_art_tile(ArtTile_MZ_Spike_Stomper, 0, 0) = palette line 0, no priority.
+     * <p>
+     * 11 frames from docs/s1disasm/_maps/Chained Stompers.asm (Map_CStom_internal):
+     * <ul>
+     *   <li>Frame 0: Wide block (main solid piece)</li>
+     *   <li>Frame 1: Spikes (uses spike art, NOT Nem_MzMetal - handled separately by object)</li>
+     *   <li>Frame 2: Ceiling anchor piece</li>
+     *   <li>Frames 3-7: Chain segments (1-5 links)</li>
+     *   <li>Frame 8: Chain segment (same as frame 7, duplicate in ROM)</li>
+     *   <li>Frame 9: Medium block</li>
+     *   <li>Frame 10: Small block</li>
+     * </ul>
+     * <p>
+     * Reference: docs/s1disasm/_incObj/31 Chained Stompers.asm
+     */
+    private void loadMzChainedStomperArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_MZ_METAL_ADDR, "MzMetal");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load MZ metal block art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createChainedStomperMappings();
+        // make_art_tile(ArtTile_MZ_Spike_Stomper, 0, 0) -> palette line 0, no priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.MZ_CHAINED_STOMPER, sheet);
+    }
+
+    /**
+     * Chained Stomper mappings from docs/s1disasm/_maps/Chained Stompers.asm (Map_CStom_internal).
+     * <p>
+     * S1 spritePiece macro: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Note: Frame 1 (spikes) is included as a placeholder here using spike-shaped tiles
+     * from the Nem_MzMetal art. The spike sub-object uses the spike renderer directly
+     * in the object instance code instead, since spikes come from Nem_Spikes art ($21F
+     * relative to obGfx $300 = ArtTile_Spikes+4 in VRAM).
+     */
+    private List<SpriteMappingFrame> createChainedStomperMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.wideblock): 5 pieces - wide solid block
+        // spritePiece -$38, -$C, 2, 3, 0, 0, 0, 0, 0
+        // spritePiece -$28, -$C, 3, 3, 6, 0, 0, 0, 0
+        // spritePiece -$10, -$14, 4, 4, $F, 0, 0, 0, 0
+        // spritePiece  $10, -$C, 3, 3, 6, 1, 0, 0, 0
+        // spritePiece  $28, -$C, 2, 3, 0, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x38, -0x0C, 2, 3, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x28, -0x0C, 3, 3, 0x06, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x14, 4, 4, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece( 0x10, -0x0C, 3, 3, 0x06, true,  false, 0, false),
+                new SpriteMappingPiece( 0x28, -0x0C, 2, 3, 0x00, true,  false, 0, false)
+        )));
+
+        // Frame 1 (.spikes): 5 spike pieces at tile $21F from spike art
+        // These are rendered separately by the object using the spike renderer.
+        // Included here as empty placeholder to maintain frame index alignment.
+        frames.add(new SpriteMappingFrame(List.of()));
+
+        // Frame 2 (.ceiling): 1 piece - ceiling anchor
+        // spritePiece -$10, -$24, 4, 4, $F, 0, 1, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x24, 4, 4, 0x0F, false, true, 0, false)
+        )));
+
+        // Frame 3 (.chain1): 2 chain link pieces
+        // spritePiece -4, 0, 1, 2, $3F, 0, 0, 0, 0
+        // spritePiece -4, $10, 1, 2, $3F, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, 0x00, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, 0x10, 1, 2, 0x3F, false, false, 0, false)
+        )));
+
+        // Frame 4 (.chain2): 4 chain link pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -0x20, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x10, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4,  0x00, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4,  0x10, 1, 2, 0x3F, false, false, 0, false)
+        )));
+
+        // Frame 5 (.chain3): 6 chain link pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -0x40, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x30, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x20, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x10, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4,  0x00, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4,  0x10, 1, 2, 0x3F, false, false, 0, false)
+        )));
+
+        // Frame 6 (.chain4): 8 chain link pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -0x60, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x50, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x40, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x30, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x20, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x10, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4,  0x00, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4,  0x10, 1, 2, 0x3F, false, false, 0, false)
+        )));
+
+        // Frame 7 (.chain5): 10 chain link pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -0x80, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x70, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x60, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x50, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x40, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x30, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x20, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x10, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4,  0x00, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4,  0x10, 1, 2, 0x3F, false, false, 0, false)
+        )));
+
+        // Frame 8: Same as frame 7 (.chain5 duplicated in ROM mapping table)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -0x80, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x70, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x60, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x50, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x40, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x30, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x20, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x10, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4,  0x00, 1, 2, 0x3F, false, false, 0, false),
+                new SpriteMappingPiece(-4,  0x10, 1, 2, 0x3F, false, false, 0, false)
+        )));
+
+        // Frame 9 (.mediumblock): 5 pieces - medium width block
+        // spritePiece -$30, -$C, 2, 3, 0, 0, 0, 0, 0
+        // spritePiece -$20, -$C, 3, 3, 6, 0, 0, 0, 0
+        // spritePiece   8, -$C, 3, 3, 6, 1, 0, 0, 0
+        // spritePiece  $20, -$C, 2, 3, 0, 1, 0, 0, 0
+        // spritePiece -$10, -$14, 4, 4, $F, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x30, -0x0C, 2, 3, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x0C, 3, 3, 0x06, false, false, 0, false),
+                new SpriteMappingPiece( 0x08, -0x0C, 3, 3, 0x06, true,  false, 0, false),
+                new SpriteMappingPiece( 0x20, -0x0C, 2, 3, 0x00, true,  false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x14, 4, 4, 0x0F, false, false, 0, false)
+        )));
+
+        // Frame 10 (.smallblock): 1 piece - small block
+        // spritePiece -$10, -$14, 4, 4, $2F, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x14, 4, 4, 0x2F, false, false, 0, false)
         )));
 
         return frames;
