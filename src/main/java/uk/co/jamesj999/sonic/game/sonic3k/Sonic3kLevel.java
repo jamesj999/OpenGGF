@@ -449,6 +449,9 @@ public class Sonic3kLevel implements Level {
         }
         int offset = chunkIndex * Sonic3kConstants.COLLISION_INDEX_STRIDE_BYTES;
         if (offset < 0 || offset >= collisionTable.length) {
+            LOG.warning(String.format(
+                    "S3K collision index out of bounds: chunkIndex=%d, offset=0x%X, tableLength=0x%X",
+                    chunkIndex, offset, collisionTable.length));
             return 0;
         }
         return Byte.toUnsignedInt(collisionTable[offset]);
