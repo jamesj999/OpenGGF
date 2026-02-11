@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.tests;
 
 import org.junit.Before;
+
 import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.camera.Camera;
@@ -30,7 +31,8 @@ import static org.junit.Assert.*;
  *   The E(L) sensor appears to incorrectly detect ground on the curved surface.
  * - Expected: Flipper should launch Sonic with Y position reaching below 700
  *
- * This test is expected to FAIL until the underlying bug is fixed.
+ * This test previously failed due to an E(L) sensor ground detection bug on curved surfaces.
+ * The underlying issue has since been fixed and this test now passes.
  */
 @RequiresRom(SonicGame.SONIC_2)
 public class TestCNZFlipperLaunch {

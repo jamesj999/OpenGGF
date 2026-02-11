@@ -61,15 +61,15 @@ public class GroundSensor extends Sensor {
     // ========================================
 
     private SensorResult scanVertical(short x, short y, int solidityBit, Direction direction) {
-        // Check current tile
-        SensorResult result = scanTileVertical(x, y, x, y, solidityBit, direction);
+        // Check current tile (ROM: FindFloor - first pass)
+        SensorResult result = scanTileVertical(x, y, x, y, solidityBit, direction, false);
         if (result != null) {
             return result;
         }
 
-        // Extend to next tile in scan direction
+        // Extend to next tile in scan direction (ROM: FindFloor2 - second pass)
         short nextY = (short) (y + (direction == Direction.DOWN ? 16 : -16));
-        result = scanTileVertical(x, y, x, nextY, solidityBit, direction);
+        result = scanTileVertical(x, y, x, nextY, solidityBit, direction, true);
         if (result != null) {
             return result;
         }
@@ -79,8 +79,13 @@ public class GroundSensor extends Sensor {
         return new SensorResult(FLAGGED_ANGLE, distance, 0, direction);
     }
 
+    /**
+     * @param isExtension true for second-pass (FindFloor2) behavior, false for first-pass (FindFloor).
+     *                    ROM difference: FindFloor2's negfloor with adjusted < 0 returns ~yInTile
+     *                    instead of recursing to the previous tile.
+     */
     private SensorResult scanTileVertical(short origX, short origY, short checkX, short checkY,
-                                          int solidityBit, Direction direction) {
+                                          int solidityBit, Direction direction, boolean isExtension) {
         ChunkDesc desc = levelManager.getChunkDescAt((byte) 0, checkX, checkY, sprite.isLoopLowPlane());
         SolidTile tile = getSolidTile(desc, solidityBit);
         if (tile == null) {
@@ -92,20 +97,29 @@ public class GroundSensor extends Sensor {
             return null;
         }
 
-        // Handle negative metrics (ROM: FindFloor loc_1E85E, s2.asm:43006-43013)
-        // Negative metric means collision starts from opposite edge
+        // Handle negative metrics (ROM: FindFloor loc_1E85E / FindFloor2 loc_1E900)
+        // Negative metric means collision starts from opposite edge (V-flipped tiles)
         if (metric < 0) {
             int yInTile = origY & 0x0F;  // Position within tile (0-15)
             int adjusted = metric + yInTile;
 
             if (adjusted >= 0) {
-                // Sensor hasn't reached collision zone - extend
+                // Both passes: no collision in this tile, extend
+                // ROM FindFloor: bpl → loc_1E7E2 (extend)
+                // ROM FindFloor2: bpl → loc_1E88A (default distance)
                 return null;
             }
 
-            // Sensor is in collision zone - regress to previous tile
+            if (isExtension) {
+                // Second pass (FindFloor2): return ~yInTile distance
+                // ROM: loc_1E900 → not.w d1 where d1 = yInTile
+                byte distance = (byte) ~yInTile;
+                return createResultWithDistance(tile, desc, distance, direction);
+            }
+
+            // First pass (FindFloor): regress to previous tile via FindFloor2
             short prevCheckY = (short) (checkY + (direction == Direction.DOWN ? -16 : 16));
-            SensorResult prevResult = scanTileVertical(origX, origY, checkX, prevCheckY, solidityBit, direction);
+            SensorResult prevResult = scanTileVertical(origX, origY, checkX, prevCheckY, solidityBit, direction, true);
 
             if (prevResult != null) {
                 // Adjust distance by -16 (ROM: subi.w #$10,d1)
@@ -145,6 +159,8 @@ public class GroundSensor extends Sensor {
         return createResultWithDistance(tile, desc, distance, direction);
     }
 
+    // ROM-accurate: distance is a signed byte (move.b), limiting sensor range to -128..+127 pixels.
+    // The 68000 uses the same signed byte range for FindFloor/FindCeiling distances.
     private byte calculateVerticalDistance(byte metric, short origY, short tileY, Direction direction) {
         short tileBase = (short) (tileY & ~0x0F);
         if (direction == Direction.DOWN) {
