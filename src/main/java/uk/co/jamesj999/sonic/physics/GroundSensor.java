@@ -13,7 +13,7 @@ import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
  * with ground mode rotation for slopes.
  */
 public class GroundSensor extends Sensor {
-    private static LevelManager levelManager = LevelManager.getInstance();
+    private static LevelManager levelManager;
 
     // Full-height tile constant
     private static final byte FULL_TILE = 16;
@@ -21,8 +21,15 @@ public class GroundSensor extends Sensor {
     // Default flagged angle for missing tiles (ROM: odd angles trigger cardinal snap)
     private static final byte FLAGGED_ANGLE = 0x03;
 
-    public static void setLevelManager(LevelManager levelManager) {
-        GroundSensor.levelManager = levelManager;
+    public static void setLevelManager(LevelManager lm) {
+        levelManager = lm;
+    }
+
+    private static LevelManager getLevelManager() {
+        if (levelManager == null) {
+            levelManager = LevelManager.getInstance();
+        }
+        return levelManager;
     }
 
     public GroundSensor(AbstractPlayableSprite sprite, Direction direction, byte x, byte y, boolean active) {
@@ -86,7 +93,7 @@ public class GroundSensor extends Sensor {
      */
     private SensorResult scanTileVertical(short origX, short origY, short checkX, short checkY,
                                           int solidityBit, Direction direction, boolean isExtension) {
-        ChunkDesc desc = levelManager.getChunkDescAt((byte) 0, checkX, checkY, sprite.isLoopLowPlane());
+        ChunkDesc desc = getLevelManager().getChunkDescAt((byte) 0, checkX, checkY, sprite.isLoopLowPlane());
         SolidTile tile = getSolidTile(desc, solidityBit);
         if (tile == null) {
             return null;
@@ -136,7 +143,7 @@ public class GroundSensor extends Sensor {
         // Full-height tile: check previous tile for edge detection
         if (metric == FULL_TILE) {
             short prevY = (short) (checkY + (direction == Direction.DOWN ? -16 : 16));
-            ChunkDesc prevDesc = levelManager.getChunkDescAt((byte) 0, checkX, prevY, sprite.isLoopLowPlane());
+            ChunkDesc prevDesc = getLevelManager().getChunkDescAt((byte) 0, checkX, prevY, sprite.isLoopLowPlane());
             SolidTile prevTile = getSolidTile(prevDesc, solidityBit);
             byte prevMetric = getHeightMetric(prevTile, prevDesc, checkX, direction);
 
@@ -208,7 +215,7 @@ public class GroundSensor extends Sensor {
     }
 
     private WallScanResult evaluateWallTile(int x, int y, int solidityBit, Direction direction) {
-        ChunkDesc desc = levelManager.getChunkDescAt((byte) 0, x, y, sprite.isLoopLowPlane());
+        ChunkDesc desc = getLevelManager().getChunkDescAt((byte) 0, x, y, sprite.isLoopLowPlane());
         SolidTile tile = getSolidTile(desc, solidityBit);
 
         if (tile == null) {
@@ -247,7 +254,7 @@ public class GroundSensor extends Sensor {
     }
 
     private WallScanResult scanWallTileSimple(int x, int y, int solidityBit, Direction direction) {
-        ChunkDesc desc = levelManager.getChunkDescAt((byte) 0, x, y, sprite.isLoopLowPlane());
+        ChunkDesc desc = getLevelManager().getChunkDescAt((byte) 0, x, y, sprite.isLoopLowPlane());
         SolidTile tile = getSolidTile(desc, solidityBit);
         int xInTile = x & 0x0F;
         int xAdjusted = (direction == Direction.LEFT) ? (15 - xInTile) : xInTile;
@@ -334,7 +341,7 @@ public class GroundSensor extends Sensor {
         if (desc == null || !desc.isSolidityBitSet(solidityBit)) {
             return null;
         }
-        return levelManager.getSolidTileForChunkDesc(desc, solidityBit);
+        return getLevelManager().getSolidTileForChunkDesc(desc, solidityBit);
     }
 
     private SensorResult createResultWithDistance(SolidTile tile, ChunkDesc desc, byte distance, Direction direction) {
