@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.tests;
 
 import org.junit.Before;
+
 import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.camera.Camera;
