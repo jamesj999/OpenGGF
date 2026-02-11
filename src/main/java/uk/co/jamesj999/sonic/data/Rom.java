@@ -150,46 +150,54 @@ public class Rom implements AutoCloseable {
     }
 
     public byte readByte(long offset) throws IOException {
-        buffer1.clear();
-        fileChannel.position(offset);
-        fileChannel.read(buffer1);
-        buffer1.flip();
-        return buffer1.get();
+        synchronized (this) {
+            buffer1.clear();
+            fileChannel.position(offset);
+            fileChannel.read(buffer1);
+            buffer1.flip();
+            return buffer1.get();
+        }
     }
 
     public byte[] readBytes(long offset, int count) throws IOException {
-        ByteBuffer buffer = ByteBuffer.allocate(count);
-        fileChannel.position(offset);
-        int bytesRead = fileChannel.read(buffer);
-        return Arrays.copyOf(buffer.array(), bytesRead);
+        synchronized (this) {
+            ByteBuffer buffer = ByteBuffer.allocate(count);
+            fileChannel.position(offset);
+            int bytesRead = fileChannel.read(buffer);
+            return Arrays.copyOf(buffer.array(), bytesRead);
+        }
     }
 
     public int read16BitAddr(long offset) throws IOException {
-        buffer2.clear();
-        long fileSize = fileChannel.size();
-        if (offset > fileSize) {
-            LOGGER.fine("offset " + offset + " is longer than current fileSize " + fileSize);
-        }
-        fileChannel.position(offset);
-        fileChannel.read(buffer2);
+        synchronized (this) {
+            buffer2.clear();
+            long fileSize = fileChannel.size();
+            if (offset > fileSize) {
+                LOGGER.fine("offset " + offset + " is longer than current fileSize " + fileSize);
+            }
+            fileChannel.position(offset);
+            fileChannel.read(buffer2);
 
-        buffer2.flip();
-        return (Byte.toUnsignedInt(buffer2.get()) << 8) | Byte.toUnsignedInt(buffer2.get());
+            buffer2.flip();
+            return (Byte.toUnsignedInt(buffer2.get()) << 8) | Byte.toUnsignedInt(buffer2.get());
+        }
     }
 
     public int read32BitAddr(long offset) throws IOException {
-        buffer4.clear();
-        fileChannel.position(offset);
-        fileChannel.read(buffer4);
+        synchronized (this) {
+            buffer4.clear();
+            fileChannel.position(offset);
+            fileChannel.read(buffer4);
 
-        buffer4.flip();
+            buffer4.flip();
 
-        int result = (Byte.toUnsignedInt(buffer4.get()) << 24) |
-                (Byte.toUnsignedInt(buffer4.get()) << 16) |
-                (Byte.toUnsignedInt(buffer4.get()) << 8) |
-                Byte.toUnsignedInt(buffer4.get());
+            int result = (Byte.toUnsignedInt(buffer4.get()) << 24) |
+                    (Byte.toUnsignedInt(buffer4.get()) << 16) |
+                    (Byte.toUnsignedInt(buffer4.get()) << 8) |
+                    Byte.toUnsignedInt(buffer4.get());
 
-        return result;
+            return result;
+        }
     }
 
     public void write16BitAddr(int addr, long offset) throws IOException {
