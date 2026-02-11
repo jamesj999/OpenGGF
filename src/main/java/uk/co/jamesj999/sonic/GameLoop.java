@@ -1526,8 +1526,7 @@ public class GameLoop {
         if (module == null) {
             return NoOpSpecialStageProvider.INSTANCE;
         }
-        SpecialStageProvider provider = module.getSpecialStageProvider();
-        return provider != null ? provider : NoOpSpecialStageProvider.INSTANCE;
+        return module.getSpecialStageProvider();
     }
 
     private void playSpecialStageTransitionSfx(SpecialStageProvider ssProvider) {

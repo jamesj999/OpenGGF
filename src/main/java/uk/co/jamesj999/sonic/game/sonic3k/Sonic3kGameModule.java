@@ -4,7 +4,6 @@ import uk.co.jamesj999.sonic.audio.GameAudioProfile;
 import uk.co.jamesj999.sonic.data.Game;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
-import uk.co.jamesj999.sonic.game.BonusStageProvider;
 import uk.co.jamesj999.sonic.game.DebugModeProvider;
 import uk.co.jamesj999.sonic.game.DebugOverlayProvider;
 import uk.co.jamesj999.sonic.game.GameModule;
@@ -12,12 +11,9 @@ import uk.co.jamesj999.sonic.game.LevelEventProvider;
 import uk.co.jamesj999.sonic.game.PhysicsProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.ObjectArtProvider;
-import uk.co.jamesj999.sonic.game.NoOpSpecialStageProvider;
 import uk.co.jamesj999.sonic.game.RespawnState;
 import uk.co.jamesj999.sonic.game.RomOffsetProvider;
 import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
-import uk.co.jamesj999.sonic.game.SpecialStageProvider;
-import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.ZoneArtProvider;
 import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
 import uk.co.jamesj999.sonic.game.ZoneRegistry;
@@ -101,23 +97,8 @@ public class Sonic3kGameModule implements GameModule {
     }
 
     @Override
-    public TitleCardProvider getTitleCardProvider() {
-        return null;
-    }
-
-    @Override
     public ZoneRegistry getZoneRegistry() {
         return Sonic3kZoneRegistry.getInstance();
-    }
-
-    @Override
-    public SpecialStageProvider getSpecialStageProvider() {
-        return NoOpSpecialStageProvider.INSTANCE;
-    }
-
-    @Override
-    public BonusStageProvider getBonusStageProvider() {
-        return null;
     }
 
     @Override
