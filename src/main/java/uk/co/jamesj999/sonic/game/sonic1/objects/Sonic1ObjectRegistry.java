@@ -2,9 +2,11 @@ package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BuzzBomberBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1CaterkillerBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1ChopperBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1CrabmeatBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1MotobugBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BatbrainBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1NewtronBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1GHZBossInstance;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -91,10 +93,23 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1MotobugBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.NEWTRON,
                 (spawn, registry) -> new Sonic1NewtronBadnikInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.CATERKILLER,
+                (spawn, registry) -> new Sonic1CaterkillerBadnikInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.BATBRAIN,
+                (spawn, registry) -> new Sonic1BatbrainBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.SPIKED_POLE_HELIX,
                 (spawn, registry) -> new Sonic1SpikedPoleHelixObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SWINGING_PLATFORM,
                 (spawn, registry) -> new Sonic1SwingingPlatformObjectInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.MZ_BRICK,
+                (spawn, registry) -> new Sonic1MzBrickObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.LAVA_TAG,
+                (spawn, registry) -> new Sonic1LavaTagObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.MZ_LARGE_GRASSY_PLATFORM,
+                (spawn, registry) -> new Sonic1LargeGrassyPlatformObjectInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.BURNING_GRASS,
+                (spawn, registry) -> new Sonic1GrassFireObjectInstance(
+                        spawn.x(), spawn.y(), 0, null, null, spawn.subtype() == 0));
         factories.put(Sonic1ObjectIds.WATERFALL_SOUND,
                 (spawn, registry) -> new Sonic1WaterfallSoundObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GIANT_RING,
@@ -141,12 +156,16 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.MOTOBUG -> "Motobug";
             case Sonic1ObjectIds.SPRING -> "Spring";
             case Sonic1ObjectIds.EDGE_WALLS -> "EdgeWalls";
+            case Sonic1ObjectIds.MZ_BRICK -> "MzBrick";
             case Sonic1ObjectIds.NEWTRON -> "Newtron";
             case Sonic1ObjectIds.BUMPER -> "Bumper";
             case Sonic1ObjectIds.BOSS_BALL -> "BossBall";
             case Sonic1ObjectIds.WATERFALL_SOUND -> "WaterfallSound";
             case Sonic1ObjectIds.GIANT_RING -> "GiantRing";
             case Sonic1ObjectIds.YADRIN -> "Yadrin";
+            case Sonic1ObjectIds.LAVA_TAG -> "LavaTag";
+            case Sonic1ObjectIds.MZ_LARGE_GRASSY_PLATFORM -> "MzLargeGrassyPlatform";
+            case Sonic1ObjectIds.BURNING_GRASS -> "BurningGrass";
             case Sonic1ObjectIds.BATBRAIN -> "Batbrain";
             case Sonic1ObjectIds.SEESAW -> "Seesaw";
             case Sonic1ObjectIds.BOMB -> "Bomb";

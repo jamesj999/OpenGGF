@@ -527,6 +527,8 @@ public class LevelManager {
             if (provider instanceof uk.co.jamesj999.sonic.game.sonic1.Sonic1ObjectArtProvider sonic1Provider) {
                 sonic1Provider.registerPlatformSheet(level, zoneIndex);
                 sonic1Provider.registerCollapsingLedgeSheet(level, zoneIndex);
+                sonic1Provider.registerMzBrickSheet(level, zoneIndex);
+                sonic1Provider.registerLargeGrassyPlatformSheet(level, zoneIndex);
                 objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
             }
 

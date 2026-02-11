@@ -54,6 +54,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.ROCK,
             Sonic1ObjectIds.BREAKABLE_WALL,
             Sonic1ObjectIds.EDGE_WALLS,
+            Sonic1ObjectIds.MZ_BRICK,
             Sonic1ObjectIds.BRIDGE,
             Sonic1ObjectIds.SCENERY,
             Sonic1ObjectIds.SPIKES,
@@ -63,6 +64,11 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.CRABMEAT,
             Sonic1ObjectIds.MOTOBUG,
             Sonic1ObjectIds.NEWTRON,
+            Sonic1ObjectIds.CATERKILLER,
+            Sonic1ObjectIds.BATBRAIN,
+            Sonic1ObjectIds.MZ_LARGE_GRASSY_PLATFORM,
+            Sonic1ObjectIds.BURNING_GRASS,
+            Sonic1ObjectIds.LAVA_TAG,
             Sonic1ObjectIds.WATERFALL_SOUND,
             Sonic1ObjectIds.GIANT_RING,
             Sonic1ObjectIds.GHZ_BOSS,
@@ -121,12 +127,16 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.MOTOBUG, List.of("Motobug"));
         map.put(Sonic1ObjectIds.SPRING, List.of("Spring"));
         map.put(Sonic1ObjectIds.EDGE_WALLS, List.of("EdgeWalls"));
+        map.put(Sonic1ObjectIds.MZ_BRICK, List.of("MzBrick"));
         map.put(Sonic1ObjectIds.NEWTRON, List.of("Newtron"));
         map.put(Sonic1ObjectIds.BUMPER, List.of("Bumper"));
         map.put(Sonic1ObjectIds.BOSS_BALL, List.of("BossBall"));
         map.put(Sonic1ObjectIds.WATERFALL_SOUND, List.of("WaterfallSound"));
         map.put(Sonic1ObjectIds.GIANT_RING, List.of("GiantRing"));
         map.put(Sonic1ObjectIds.YADRIN, List.of("Yadrin"));
+        map.put(Sonic1ObjectIds.MZ_LARGE_GRASSY_PLATFORM, List.of("MzLargeGrassyPlatform"));
+        map.put(Sonic1ObjectIds.BURNING_GRASS, List.of("BurningGrass"));
+        map.put(Sonic1ObjectIds.LAVA_TAG, List.of("LavaTag"));
         map.put(Sonic1ObjectIds.BATBRAIN, List.of("Batbrain"));
         map.put(Sonic1ObjectIds.SEESAW, List.of("Seesaw"));
         map.put(Sonic1ObjectIds.BOMB, List.of("Bomb"));
