@@ -5,9 +5,12 @@ import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.ParallaxManager;
 import uk.co.jamesj999.sonic.level.WaterSystem;
+
+import java.util.logging.Logger;
 
 /**
  * Sonic 2 implementation of dynamic level events.
@@ -51,27 +54,10 @@ public class LevelEventManager implements LevelEventProvider {
     // CPZ uses zone index 1 in level event ordering (ROM zone ID 0x0D)
     public static final int ZONE_CPZ = 1;
 
-    // CNZ Boss palette data (from docs/s2disasm/art/palettes/CNZ Boss.bin)
-    // This palette replaces palette line 1 during the CNZ boss fight
-    // The electricity effects use colors from this palette
-    private static final byte[] CNZ_BOSS_PALETTE = {
-            (byte) 0x00, (byte) 0x00,  // Color 0: Transparent/black
-            (byte) 0x00, (byte) 0x00,  // Color 1: Black
-            (byte) 0x00, (byte) 0x6e,  // Color 2: Dark blue
-            (byte) 0x00, (byte) 0xae,  // Color 3: Medium blue
-            (byte) 0x00, (byte) 0xee,  // Color 4: Light blue
-            (byte) 0x00, (byte) 0x44,  // Color 5: Dark green
-            (byte) 0x0e, (byte) 0xee,  // Color 6: White/yellow
-            (byte) 0x0a, (byte) 0xaa,  // Color 7: Light gray
-            (byte) 0x08, (byte) 0x88,  // Color 8: Medium gray
-            (byte) 0x04, (byte) 0x44,  // Color 9: Dark gray
-            (byte) 0x06, (byte) 0x66,  // Color 10: Mid gray
-            (byte) 0x0e, (byte) 0xc0,  // Color 11: Orange
-            (byte) 0x00, (byte) 0xee,  // Color 12: Blue/cyan
-            (byte) 0x00, (byte) 0x88,  // Color 13: Dark cyan
-            (byte) 0x0a, (byte) 0x0e,  // Color 14: Purple
-            (byte) 0x00, (byte) 0xe0   // Color 15: Green
-    };
+    private static final Logger LOGGER = Logger.getLogger(LevelEventManager.class.getName());
+
+    /** VDP palette line size: 16 colors × 2 bytes each = 32 bytes */
+    private static final int PALETTE_LINE_SIZE = 32;
 
     private LevelEventManager() {
         this.camera = Camera.getInstance();
@@ -940,6 +926,8 @@ public class LevelEventManager implements LevelEventProvider {
                     // ROM: Set Current_Boss_ID to 5
                     // ROM: Load falling rocks art and MCZ boss PLC/palette
                     // (art loading is handled by Sonic2ObjectArtProvider)
+                    // ROM: PalLoad_Now Pal_MCZ_B -> palette line 1 (s2.asm:21447-21448)
+                    loadBossPalette(1, Sonic2Constants.PAL_MCZ_BOSS_ADDR);
                 }
             }
             case 4 -> {
@@ -1144,8 +1132,7 @@ public class LevelEventManager implements LevelEventProvider {
 
                     // ROM: Load CNZ boss palette (Pal_CNZ_B to palette line 1)
                     // This palette contains the electricity effect colors
-                    uk.co.jamesj999.sonic.level.LevelManager.getInstance()
-                            .updatePalette(1, CNZ_BOSS_PALETTE);
+                    loadBossPalette(1, Sonic2Constants.PAL_CNZ_BOSS_ADDR);
 
                     // Place boss arena walls by modifying level layout (ROM-accurate)
                     // ROM writes block $F9 (solid wall) to layout offsets $C54 and $C50
@@ -1377,6 +1364,20 @@ public class LevelEventManager implements LevelEventProvider {
      */
     public void resetState() {
         initLevel(-1, -1);
+    }
+
+    /**
+     * Loads a boss palette from ROM and applies it to the specified palette line.
+     * ROM equivalent: PalLoad_Now (s2.asm)
+     */
+    private void loadBossPalette(int paletteLine, int romAddr) {
+        try {
+            byte[] paletteData = GameServices.rom().getRom().readBytes(romAddr, PALETTE_LINE_SIZE);
+            uk.co.jamesj999.sonic.level.LevelManager.getInstance().updatePalette(paletteLine, paletteData);
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load boss palette from ROM offset 0x" +
+                    Integer.toHexString(romAddr) + ": " + e.getMessage());
+        }
     }
 
     public static synchronized LevelEventManager getInstance() {

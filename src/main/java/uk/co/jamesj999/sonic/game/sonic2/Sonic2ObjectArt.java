@@ -5764,7 +5764,7 @@ public class Sonic2ObjectArt {
             return null;
         }
         List<SpriteMappingFrame> mappings = createMCZFallingRocksMappings();
-        return new ObjectSpriteSheet(rockPatterns, mappings, 2, 0);
+        return new ObjectSpriteSheet(rockPatterns, mappings, 0, 0);
     }
 
     /**
