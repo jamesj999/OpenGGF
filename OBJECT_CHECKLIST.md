@@ -718,4 +718,3 @@ Total: 5 objects | Implemented: 1 | Unimplemented: 2
 
 **Objects:**
 - [x] 0x2D Barrier (x3) [0x00]
-

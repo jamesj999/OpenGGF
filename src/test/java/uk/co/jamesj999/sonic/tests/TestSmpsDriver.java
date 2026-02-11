@@ -106,4 +106,52 @@ public class TestSmpsDriver {
         // sfx1 writes again but sfx2 still holds the lock (equal priority, sfx2 is newer)
         assertEquals("SFX2 should still hold lock on Ch 0", sfx2, driver.getFmLock(0));
     }
+
+    @Test
+    public void testNormalSfxStealsFromSpecialSfx() {
+        SpyDriver driver = new SpyDriver();
+        AbstractSmpsData dummyData = new Sonic2SmpsData(new byte[100]);
+        DacData dummyDac = new DacData(new HashMap<>(), new HashMap<>());
+
+        SmpsSequencer special = new SmpsSequencer(dummyData, dummyDac, driver, Sonic2SmpsSequencerConfig.CONFIG);
+        special.setSfxPriority(0x80); // S1-style special/non-storing
+        special.setSpecialSfx(true);
+
+        SmpsSequencer normal = new SmpsSequencer(dummyData, dummyDac, driver, Sonic2SmpsSequencerConfig.CONFIG);
+        normal.setSfxPriority(0x70);
+        normal.setSpecialSfx(false);
+
+        driver.addSequencer(special, true);
+        driver.addSequencer(normal, true);
+
+        driver.writeFm(special, 0, 0xA0, 0x10);
+        assertEquals("Special SFX should initially own Ch 0", special, driver.getFmLock(0));
+
+        driver.writeFm(normal, 0, 0xA0, 0x20);
+        assertEquals("Normal SFX should steal Ch 0 from special SFX", normal, driver.getFmLock(0));
+    }
+
+    @Test
+    public void testSpecialSfxDoesNotStealFromNormalSfx() {
+        SpyDriver driver = new SpyDriver();
+        AbstractSmpsData dummyData = new Sonic2SmpsData(new byte[100]);
+        DacData dummyDac = new DacData(new HashMap<>(), new HashMap<>());
+
+        SmpsSequencer normal = new SmpsSequencer(dummyData, dummyDac, driver, Sonic2SmpsSequencerConfig.CONFIG);
+        normal.setSfxPriority(0x70);
+        normal.setSpecialSfx(false);
+
+        SmpsSequencer special = new SmpsSequencer(dummyData, dummyDac, driver, Sonic2SmpsSequencerConfig.CONFIG);
+        special.setSfxPriority(0x80); // Higher numeric priority, but special class
+        special.setSpecialSfx(true);
+
+        driver.addSequencer(normal, true);
+        driver.addSequencer(special, true);
+
+        driver.writeFm(normal, 0, 0xA0, 0x10);
+        assertEquals("Normal SFX should initially own Ch 0", normal, driver.getFmLock(0));
+
+        driver.writeFm(special, 0, 0xA0, 0x20);
+        assertEquals("Special SFX should not steal Ch 0 from normal SFX", normal, driver.getFmLock(0));
+    }
 }

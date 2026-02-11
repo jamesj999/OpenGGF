@@ -41,6 +41,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
     private int maxTicks = Integer.MAX_VALUE;
     private float pitch = 1.0f;
     private int sfxPriority = 0x70; // Default SFX priority (Z80 driver uses 0x70 as common)
+    private boolean specialSfx = false; // Driver-specific "special SFX" class (e.g. S1 0xD0+)
     private boolean isSfx = false; // Cached SFX status for performance (set by SmpsDriver.addSequencer)
     private int psgLatchChannel = -1; // Cached PSG latch channel for performance (set by SmpsDriver.writePsg)
     private int speedMultiplier = 1; // S3K: extra tick calls per tempo frame for speed shoes
@@ -62,6 +63,14 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
 
     public int getSfxPriority() {
         return sfxPriority;
+    }
+
+    public void setSpecialSfx(boolean specialSfx) {
+        this.specialSfx = specialSfx;
+    }
+
+    public boolean isSpecialSfx() {
+        return specialSfx;
     }
 
     /**

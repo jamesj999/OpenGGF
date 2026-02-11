@@ -125,4 +125,10 @@ public class Sonic1AudioProfile implements GameAudioProfile {
     public int getSfxPriority(int soundId) {
         return Sonic1SmpsConstants.getSfxPriority(soundId);
     }
+
+    @Override
+    public boolean isSpecialSfx(int soundId) {
+        return soundId >= Sonic1SmpsConstants.SPECIAL_SFX_ID_BASE
+                && soundId < Sonic1SmpsConstants.SPECIAL_SFX_ID_BASE + Sonic1SmpsConstants.SPECIAL_SFX_COUNT;
+    }
 }

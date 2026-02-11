@@ -298,6 +298,7 @@ public class LWJGLAudioBackend implements AudioBackend {
 
         // Look up SFX priority from game-specific audio profile
         int sfxPriority = (audioProfile != null) ? audioProfile.getSfxPriority(data.getId()) : 0x70;
+        boolean specialSfx = (audioProfile != null) && audioProfile.isSpecialSfx(data.getId());
 
         if (smpsDriver != null && currentStream == smpsDriver) {
             // Mix into current driver
@@ -307,6 +308,7 @@ public class LWJGLAudioBackend implements AudioBackend {
             seq.setSfxMode(true);
             seq.setPitch(pitch);
             seq.setSfxPriority(sfxPriority);
+            seq.setSpecialSfx(specialSfx);
             if (currentSmps != null) {
                 seq.setFallbackVoiceData(currentSmps.getSmpsData());
             }
@@ -330,6 +332,7 @@ public class LWJGLAudioBackend implements AudioBackend {
                 seq.setSfxMode(true);
                 seq.setPitch(pitch);
                 seq.setSfxPriority(sfxPriority);
+                seq.setSpecialSfx(specialSfx);
                 if (currentSmps != null) {
                     seq.setFallbackVoiceData(currentSmps.getSmpsData());
                 }
