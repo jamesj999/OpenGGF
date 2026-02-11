@@ -50,6 +50,16 @@ public interface GameAudioProfile {
     }
 
     /**
+     * Returns true if the SFX ID is a "special" SFX class for this game profile.
+     *
+     * <p>Some drivers (notably Sonic 1 68k) route special SFX through dedicated
+     * tracks with different override rules than normal SFX.
+     */
+    default boolean isSpecialSfx(int soundId) {
+        return false;
+    }
+
+    /**
      * Handle a game-specific system command (e.g., fade out, stop all).
      * Called early in {@code AudioManager.playMusic()} dispatch.
      *

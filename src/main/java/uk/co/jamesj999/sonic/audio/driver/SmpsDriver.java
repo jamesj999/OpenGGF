@@ -361,10 +361,26 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
         if (!isSfx(currentLock))
             return true; // Challenger is SFX, current is Music -> Steal
 
-        // Both are SFX. Use Z80 driver priority system:
-        // Higher priority always wins. For equal priority, newer SFX (added later) wins.
+        // Both are SFX.
+        // Sonic 1 has a dedicated "special SFX" class (e.g. GHZ waterfall) that can be
+        // overridden by normal SFX on shared channels, but not vice versa.
+        boolean currentSpecial = currentLock.isSpecialSfx();
+        boolean challengerSpecial = challenger.isSpecialSfx();
+        if (currentSpecial && !challengerSpecial) {
+            return true;
+        }
+        if (!currentSpecial && challengerSpecial) {
+            return false;
+        }
+
+        // Priority arbitration:
+        // Higher priority steals. If current priority has bit 7 set, treat it as
+        // non-storing/transient (ROM-style), so any subsequent SFX can steal.
         int currentPriority = currentLock.getSfxPriority();
         int challengerPriority = challenger.getSfxPriority();
+        if ((currentPriority & 0x80) != 0) {
+            return true;
+        }
 
         if (challengerPriority > currentPriority) {
             return true; // Higher priority always steals

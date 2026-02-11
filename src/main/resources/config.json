@@ -11,8 +11,8 @@
   "RIGHT": 262,
   "JUMP": 32,
   "TEST": 84,
-  "NEXT_ACT": 266,
-  "NEXT_ZONE": 267,
+  "NEXT_ACT": 88,
+  "NEXT_ZONE": 90,
   "SPECIAL_STAGE_KEY": 258,
   "SPECIAL_STAGE_COMPLETE_KEY": 269,
   "SPECIAL_STAGE_FAIL_KEY": 261,
@@ -31,9 +31,11 @@
   "FM6_DAC_OFF": true,
   "AUDIO_INTERNAL_RATE_OUTPUT": false,
   "PSG_NOISE_SHIFT_EVERY_TOGGLE": true,
-  "SIDEKICK_CHARACTER_CODE": "tails",
+  "SIDEKICK_CHARACTER_CODE": "",
   "SONIC_1_ROM": "Sonic The Hedgehog (W) (REV01) [!].gen",
   "SONIC_2_ROM": "Sonic The Hedgehog 2 (W) (REV01) [!].gen",
   "SONIC_3K_ROM": "Sonic 3 & Knuckles (W) [!].gen",
-  "DEFAULT_ROM": "s2"
+  "DEFAULT_ROM": "s1",
+  "TITLE_SCREEN_ON_STARTUP": true,
+  "LEVEL_SELECT_ON_STARTUP": true
 }
