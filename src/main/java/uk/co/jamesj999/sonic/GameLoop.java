@@ -845,9 +845,15 @@ public class GameLoop {
             return;
         }
 
-        // Restore level palettes (special stage overwrites them) - needed for title
-        // card
-        levelManager.reloadLevelPalettes();
+        boolean reloadLevelBeforeReturn = levelManager.consumeSpecialStageReturnLevelReloadRequest();
+        if (reloadLevelBeforeReturn) {
+            // Giant-ring progression (S1): zone/act was advanced before SS entry.
+            // Load the new act now so player spawn/state matches the title card.
+            levelManager.loadCurrentLevel();
+        } else {
+            // Starpost flow (S2): return to the same act/checkpoint.
+            levelManager.reloadLevelPalettes();
+        }
 
         // Consume any pending title card request to prevent double title card
         // (we're manually entering the title card below)
