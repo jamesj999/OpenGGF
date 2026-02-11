@@ -176,6 +176,12 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load prison capsule art (all zones - appears in every boss act)
         loadPrisonArt(rom);
 
+        // Load button/switch art (MZ, SYZ, LZ, SBZ)
+        if (zoneIndex == Sonic1Constants.ZONE_MZ || zoneIndex == Sonic1Constants.ZONE_SYZ
+                || zoneIndex == Sonic1Constants.ZONE_LZ || zoneIndex == Sonic1Constants.ZONE_SBZ) {
+            loadButtonArt(rom, zoneIndex);
+        }
+
         // Load MZ-specific art (fireball, smash block, glass block - MZ only)
         if (zoneIndex == Sonic1Constants.ZONE_MZ) {
             loadMzFireballArt(rom);
@@ -2134,6 +2140,91 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                     new SpriteMappingPiece(-8, yOff, 2, 3, 0x06, false, false, 0, false)
             )));
         }
+
+        return frames;
+    }
+
+    /**
+     * Loads button/switch art and creates S1-format sprite mappings.
+     * <p>
+     * MZ uses Nem_MzSwitch (palette 2), LZ/SYZ/SBZ use Nem_LzSwitch (palette 0).
+     * Both are loaded to ArtTile_Button+4 in the ROM.
+     * <p>
+     * Reference: docs/s1disasm/_incObj/32 Button.asm (But_Main)
+     * Mappings: docs/s1disasm/_maps/Button.asm (Map_But_internal)
+     */
+    private void loadButtonArt(Rom rom, int zoneIndex) {
+        int artAddr;
+        int paletteIndex;
+        String artName;
+
+        if (zoneIndex == Sonic1Constants.ZONE_MZ) {
+            // MZ: make_art_tile(ArtTile_Button+4,2,0) — palette line 2
+            artAddr = Sonic1Constants.ART_NEM_MZ_SWITCH_ADDR;
+            paletteIndex = 2;
+            artName = "MzSwitch";
+        } else {
+            // SYZ/LZ/SBZ: make_art_tile(ArtTile_Button+4,0,0) — palette line 0
+            artAddr = Sonic1Constants.ART_NEM_LZ_SWITCH_ADDR;
+            paletteIndex = 0;
+            artName = "LzSwitch";
+        }
+
+        Pattern[] patterns = loadNemesisPatterns(rom, artAddr, artName);
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load button art (" + artName + ")");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createButtonMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, paletteIndex, 1);
+        registerSheet(ObjectArtKeys.BUTTON, sheet);
+    }
+
+    /**
+     * Creates button sprite mappings from S1 disassembly Map_But_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0 (unpressed):
+     *   spritePiece -$10, -$B, 2, 2, 0, 0, 0, 0, 0
+     *   spritePiece 0, -$B, 2, 2, 0, 1, 0, 0, 0
+     * Frame 1 (unpressed alternate / pressed with palette offset):
+     *   spritePiece -$10, -$B, 2, 2, 4, 0, 0, 0, 0
+     *   spritePiece 0, -$B, 2, 2, 4, 1, 0, 0, 0
+     * Frame 2 (pressed):
+     *   spritePiece -$10, -$B, 2, 2, $7FC, 1, 1, 3, 1
+     *   spritePiece 0, -$B, 2, 2, $7FC, 0, 0, 0, 0
+     * Frame 3 (reuses frame 1 data):
+     *   spritePiece -$10, -$B, 2, 2, 4, 0, 0, 0, 0
+     *   spritePiece 0, -$B, 2, 2, 4, 1, 0, 0, 0
+     */
+    private List<SpriteMappingFrame> createButtonMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Unpressed (tile 0, left + right mirrored)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x0B, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x0B, 2, 2, 0, true, false, 0, false)
+        )));
+
+        // Frame 1: Alternate unpressed (tile 4, left + right mirrored)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x0B, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x0B, 2, 2, 4, true, false, 0, false)
+        )));
+
+        // Frame 2: Pressed (tile $7FC with flips and alternate palette/priority)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x0B, 2, 2, 0x7FC, true, true, 3, true),
+                new SpriteMappingPiece(0x00, -0x0B, 2, 2, 0x7FC, false, false, 0, false)
+        )));
+
+        // Frame 3: Same as frame 1 (reuses byte_BEB7 data)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x0B, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x0B, 2, 2, 4, true, false, 0, false)
+        )));
 
         return frames;
     }

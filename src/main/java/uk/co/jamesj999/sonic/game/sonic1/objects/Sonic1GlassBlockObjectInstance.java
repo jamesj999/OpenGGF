@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.debug.DebugRenderContext;
+import uk.co.jamesj999.sonic.game.sonic1.Sonic1SwitchManager;
 import uk.co.jamesj999.sonic.game.sonic2.OscillationManager;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
@@ -403,9 +404,6 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
      * When switch is pressed (f_switch[index] != 0), activates and lowers glass_dist
      * by 2 per frame until it reaches 0.
      * <p>
-     * Note: Switch system (f_switch) is not yet implemented in the engine.
-     * Type 04 will remain dormant until switches are added.
-     * <p>
      * Reference: docs/s1disasm/_incObj/30 MZ Large Green Glass Blocks.asm
      *            Glass_ChkSwitch through loc_B5EA
      */
@@ -413,12 +411,10 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
         // Glass_ChkSwitch: tst.b objoff_34(a0) / bne loc_B5E0
         if (!type4Activated) {
             // Check switch state: the high nybble indexes into f_switch
-            // int switchIndex = (fullSubtype >> 4) & 0x0F;
-            // When switch system is implemented:
-            // if (SwitchManager.isSwitchPressed(switchIndex)) {
-            //     type4Activated = true;
-            // }
-            // For now, switch is never pressed -> block stays raised
+            int switchIndex = (fullSubtype >> 4) & 0x0F;
+            if (Sonic1SwitchManager.getInstance().isPressed(switchIndex)) {
+                type4Activated = true;
+            }
         }
 
         if (type4Activated) {

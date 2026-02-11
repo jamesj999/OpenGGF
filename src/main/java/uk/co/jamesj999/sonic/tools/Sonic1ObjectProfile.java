@@ -69,6 +69,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.MZ_LARGE_GRASSY_PLATFORM,
             Sonic1ObjectIds.MZ_GLASS_BLOCK,
             Sonic1ObjectIds.CHAINED_STOMPER,
+            Sonic1ObjectIds.BUTTON,
             Sonic1ObjectIds.BURNING_GRASS,
             Sonic1ObjectIds.SMASH_BLOCK,
             Sonic1ObjectIds.LAVA_TAG,

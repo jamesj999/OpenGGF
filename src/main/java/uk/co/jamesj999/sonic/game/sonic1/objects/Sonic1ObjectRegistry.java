@@ -107,6 +107,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1SmashBlockObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.CHAINED_STOMPER,
                 (spawn, registry) -> new Sonic1ChainedStomperObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.BUTTON,
+                (spawn, registry) -> new Sonic1ButtonObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.MZ_GLASS_BLOCK,
                 (spawn, registry) -> new Sonic1GlassBlockObjectInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.LAVA_TAG,
@@ -172,6 +174,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.MZ_GLASS_BLOCK -> "MzGlassBlock";
             case Sonic1ObjectIds.SMASH_BLOCK -> "SmashBlock";
             case Sonic1ObjectIds.CHAINED_STOMPER -> "ChainedStomper";
+            case Sonic1ObjectIds.BUTTON -> "Button";
             case Sonic1ObjectIds.LAVA_TAG -> "LavaTag";
             case Sonic1ObjectIds.MZ_LARGE_GRASSY_PLATFORM -> "MzLargeGrassyPlatform";
             case Sonic1ObjectIds.BURNING_GRASS -> "BurningGrass";
