@@ -142,13 +142,46 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
     private int currentFrameCounter;
     private int vintRuncount; // pseudo-random counter for stone/spike spawning
 
+    // ── Digger animation sequences (pre-expanded from ROM Ani_obj57 chained anims) ──
+    // Speed byte is always 1, so each data frame shows for 2 ticks.
+
+    /** Startup chain: anims 3->4 (played on init before entering vertical loop) */
+    private static final int[] DIGGER_SEQ_STARTUP = {
+        2,2,2,2,2, 3,3,3,3,3, 4,4,4,4,
+        2,2,2,2, 3,3,3, 4,4,4, 2,2, 3,3
+    };
+
+    /** Vertical->Horizontal transition chain: anims 6->7->8->9 */
+    private static final int[] DIGGER_SEQ_VERT_TO_HORIZ = {
+        2,3,4,4, 2,2, 3,3,3, 4,4,4, 2,2,2,
+        2, 3,3,3,3, 4,4,4,4,4, 2, 8,8,8,
+        9,9,9,9,9, 10,10,10,10,10, 11,11,11,11,
+        9,9,9,9, 10,10,10, 11,11,11, 9,9, 10,10
+    };
+
+    /** Horizontal->Vertical transition chain: anims B->C->3->4 */
+    private static final int[] DIGGER_SEQ_HORIZ_TO_VERT = {
+        9,10,11,11, 9,9, 10,10,10, 11,11,11, 9,9,9,
+        9, 10,10,10,10, 11,11,11,11,11, 9, 8,8,8,8,
+        2,2,2,2,2, 3,3,3,3,3, 4,4,4,4,
+        2,2,2,2, 3,3,3, 4,4,4, 2,2, 3,3
+    };
+
+    /** Vertical steady-state loop: anim 5 cycle {4,2,3} */
+    private static final int[] DIGGER_LOOP_VERT = {4, 2, 3};
+
+    /** Horizontal steady-state loop: anim A cycle {11,9,10} */
+    private static final int[] DIGGER_LOOP_HORIZ = {11, 9, 10};
+
     // Animation state (simplified from ROM's Boss_AnimationArray)
     private int hoverFrame;
     private int hoverAnimTimer;
-    private int diggerFrame;     // Current digger animation frame
-    private int diggerAnimTimer;
-    private int diggerAnimIndex; // Which animation sequence we're in
-    private boolean diggerTransitioning; // true for one tick when showing diagonal transition frame
+    private int diggerFrame;         // Current digger display frame
+    private int diggerAnimTimer;     // Counts down from 1; frame advances when it underflows
+    private int[] diggerSequence;    // Current transition sequence (null = in loop mode)
+    private int diggerSeqIndex;      // Position within diggerSequence
+    private int[] diggerLoopFrames;  // Current steady-state loop array
+    private int diggerLoopIndex;     // Position within diggerLoopFrames
     private int bodyFrame;
     private int faceFrame;
     private int faceAnimTimer;
@@ -200,10 +233,13 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         // Animation 0: hover thingies (fire on) - starts with frames 5,6 alternating
         hoverFrame = FRAME_HOVER_FIRE_ON_1;
         hoverAnimTimer = 1;
-        // Animation 1: digger (vertical) - starts with frame 2
-        diggerFrame = FRAME_DIGGER_VERT_1;
+        // Animation 1: digger - ROM init sets anim 3 which chains 3->4->5 (vertical loop)
+        diggerSequence = DIGGER_SEQ_STARTUP;
+        diggerSeqIndex = 0;
+        diggerFrame = DIGGER_SEQ_STARTUP[0];
         diggerAnimTimer = 1;
-        diggerAnimIndex = 5; // animation 5 = vertical loop
+        diggerLoopFrames = DIGGER_LOOP_VERT;
+        diggerLoopIndex = 0;
         // Animation 2: main vehicle - starts with light OFF
         bodyFrame = FRAME_BODY_LIGHT_OFF;
         // Animation 3: face - starts with frame 14 (normal)
@@ -222,8 +258,11 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         currentFrameCounter = frameCounter;
         vintRuncount++;
 
-        // Update animations
-        updateAnimations();
+        // ROM's AnimateBoss is only called in Sub0/Sub2/Sub4/Sub6.
+        // Sub8/SubA/SubC set mapframes directly and do NOT call AnimateBoss.
+        if (state.routineSecondary < SUB8_DEFEATED) {
+            updateAnimations();
+        }
 
         switch (state.routineSecondary) {
             case SUB0_RISING -> updateSub0Rising(player);
@@ -252,6 +291,9 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
             handleHits();
             return;
         }
+
+        // ROM: move.b #0,(Boss_AnimationArray+5).w - reset body light when countdown expires
+        bodyFrame = FRAME_BODY_LIGHT_OFF;
 
         // Countdown finished - apply movement
         // ROM: bsr.w Boss_MoveObject
@@ -327,9 +369,13 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
             // Transition to horizontal phase
             state.routineSecondary = SUB6_HORIZONTAL;
 
-            // ROM: Set digger animations to horizontal transition (anim 6)
-            diggerAnimIndex = 6;
+            // ROM: Set digger animations to horizontal transition (anim 6->7->8->9->A)
+            diggerSequence = DIGGER_SEQ_VERT_TO_HORIZ;
+            diggerSeqIndex = 0;
+            diggerFrame = DIGGER_SEQ_VERT_TO_HORIZ[0];
             diggerAnimTimer = 1;
+            diggerLoopFrames = DIGGER_LOOP_HORIZ;
+            diggerLoopIndex = 0;
 
             // ROM: Set face to normal
             faceAnimIndex = 0xD;
@@ -377,9 +423,11 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
             if (bossHurtSonic) {
                 bossHurtSonic = false;
                 // ROM: Obj57_Main_Sub6_ReAscend1 (s2.asm:65516-65518)
-                // move.b #$30,7(a1) - only extends face timer, does NOT change face frame
-                // The face stays on its current frame for $30 more ticks before resuming
-                faceAnimTimer = 0x30;
+                // move.b #$30,7(a1) sets anim_frame=3, timer=0. Frame 3 in anim D's data
+                // starts the grin subanimation: alternating $10/$11 for 8 occurrences
+                // at speed 7. Total: 64 ticks of grinning.
+                faceFrame = FRAME_FACE_GRIN_1;
+                faceAnimTimer = 64;
                 reascend();
                 return;
             }
@@ -415,16 +463,21 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         state.xVel = 0;
         state.routineSecondary = SUB0_RISING;
 
-        // ROM: Set digger animations back to vertical transition (anim B)
-        diggerAnimIndex = 0xB;
+        // ROM: Set digger animations back to vertical transition (anim B->C->3->4->5)
+        diggerSequence = DIGGER_SEQ_HORIZ_TO_VERT;
+        diggerSeqIndex = 0;
+        diggerFrame = DIGGER_SEQ_HORIZ_TO_VERT[0];
         diggerAnimTimer = 1;
+        diggerLoopFrames = DIGGER_LOOP_VERT;
+        diggerLoopIndex = 0;
 
         // ROM: hover fire on
         hoverFrame = FRAME_HOVER_FIRE_ON_1;
         hoverAnimTimer = 0;
 
-        // ROM: body light off (Boss_AnimationArray[5] zeroed on reascend)
-        bodyFrame = FRAME_BODY_LIGHT_OFF;
+        // ROM: ReAscend2 does NOT touch Boss_AnimationArray bytes [4]/[5] (body light).
+        // The $FC subanimation loop keeps showing frame 0 (light ON).
+        // Light only turns off in SUB0 when countdown goes negative.
 
         // ROM: face normal
         faceAnimIndex = 0xD;
@@ -446,9 +499,11 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         countdown--;
         if (countdown >= 0) {
             // Explosion phase
-            // ROM: Set burnt face, keep body light off
+            // ROM: move.b #$13,sub4_mapframe(a0) - burnt face
             faceFrame = FRAME_FACE_BURNT;
-            bodyFrame = FRAME_BODY_LIGHT_OFF;
+            // ROM: move.b #7,mainspr_mapframe(a0) - hover no fire
+            hoverFrame = FRAME_HOVER_NO_FIRE;
+            // Body is NOT touched - stays at frame 0 (light ON) from SUB6's $FC animation loop
 
             // ROM: Boss_LoadExplosion checks (Vint_runcount+3) & 7 == 0
             // Only spawn explosion every 8th frame (~22 total over 179 frames)
@@ -495,11 +550,9 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
             state.yVel = 0;
             AudioManager.getInstance().playMusic(Sonic2Music.MYSTIC_CAVE.id);
         } else if (countdown >= 0x20) {
-            // ROM: face normal, hover fire on, transition to escape
-            faceFrame = FRAME_FACE_NORMAL_1;
-            faceAnimIndex = 0xD;
-            hoverFrame = FRAME_HOVER_FIRE_ON_1;
-            hoverAnimTimer = 0;
+            // ROM writes to Boss_AnimationArray bytes here, but AnimateBoss is NEVER
+            // called in SubA or SubC - those writes are inert. The actual mapframes
+            // stay as set in Sub8: face=$12 (hit), hover=7 (no fire), body=0 (light on).
             state.routineSecondary = SUBC_ESCAPE;
         }
 
@@ -648,7 +701,9 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         // ROM: Obj57_HandleHits checks invulnerable_time == $1F for face grin
         if (state.invulnerable && state.invulnerabilityTimer == 0x1F) {
             faceFrame = FRAME_FACE_HIT;
-            faceAnimTimer = 0xC0;
+            // ROM: $C0 encodes anim_frame=$C, timer=$0 in packed format.
+            // Frame $C starts hit-face subanimation: 9 reps of frame $12 at speed 7 = 72 ticks.
+            faceAnimTimer = 72;
         }
     }
 
@@ -672,7 +727,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
             // FRAME_HOVER_NO_FIRE stays until explicitly changed
         }
 
-        // Body light: frame set directly by state transitions (ON in SUB6, OFF on reascend)
+        // Body light: frame set directly by state transitions (ON in SUB4->SUB6, OFF in SUB0 when countdown expires)
         // No auto-cycling needed - ROM uses $FC subanimation loop to hold frame indefinitely
 
         // Digger animation - simplified cycling through vertical or horizontal frames
@@ -693,46 +748,26 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
     }
 
     /**
-     * Update digger frame based on current animation sequence.
+     * Update digger frame based on current animation sequence or loop.
+     * ROM: AnimateBoss processes chained animations via $FD (change anim) and
+     * $FC (loop back) commands. We pre-expand the chains into flat arrays.
      */
     private void updateDiggerAnimation() {
-        // Handle diagonal transition frame: show for exactly one tick, then advance
-        if (diggerTransitioning) {
-            diggerTransitioning = false;
-            if (state.routineSecondary == SUB6_HORIZONTAL) {
-                diggerFrame = FRAME_DIGGER_HORIZ_1;
-                diggerAnimIndex = 8;
+        if (diggerSequence != null) {
+            // Playing a transition sequence
+            diggerSeqIndex++;
+            if (diggerSeqIndex < diggerSequence.length) {
+                diggerFrame = diggerSequence[diggerSeqIndex];
             } else {
-                diggerFrame = FRAME_DIGGER_VERT_1;
-                diggerAnimIndex = 5;
-            }
-            return;
-        }
-
-        if (state.routineSecondary == SUB6_HORIZONTAL) {
-            // Horizontal digger cycle: frames 9, 10, 11
-            if (diggerFrame >= FRAME_DIGGER_HORIZ_1 && diggerFrame <= FRAME_DIGGER_HORIZ_3) {
-                diggerFrame++;
-                if (diggerFrame > FRAME_DIGGER_HORIZ_3) {
-                    diggerFrame = FRAME_DIGGER_HORIZ_1;
-                }
-            } else {
-                // Transitioning: show diagonal for one tick
-                diggerFrame = FRAME_DIGGER_DIAG;
-                diggerTransitioning = true;
+                // Sequence finished - enter steady-state loop
+                diggerSequence = null;
+                diggerLoopIndex = 0;
+                diggerFrame = diggerLoopFrames[0];
             }
         } else {
-            // Vertical digger cycle: frames 2, 3, 4
-            if (diggerFrame >= FRAME_DIGGER_VERT_1 && diggerFrame <= FRAME_DIGGER_VERT_3) {
-                diggerFrame++;
-                if (diggerFrame > FRAME_DIGGER_VERT_3) {
-                    diggerFrame = FRAME_DIGGER_VERT_1;
-                }
-            } else {
-                // Transitioning back: show diagonal for one tick
-                diggerFrame = FRAME_DIGGER_DIAG;
-                diggerTransitioning = true;
-            }
+            // Steady-state loop
+            diggerLoopIndex = (diggerLoopIndex + 1) % diggerLoopFrames.length;
+            diggerFrame = diggerLoopFrames[diggerLoopIndex];
         }
     }
 
@@ -780,7 +815,8 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
     protected void onHitTaken(int remainingHits) {
         // ROM: Obj57_HandleHits - face hit when invulnerability starts
         faceFrame = FRAME_FACE_HIT;
-        faceAnimTimer = 0xC0;
+        // ROM: $C0 encodes anim_frame=$C, timer=$0. Hit-face subanimation = 72 ticks.
+        faceAnimTimer = 72;
         // NOTE: bossHurtSonic is NOT set here. In the ROM, boss_hurt_sonic is set
         // by BossCollision_MCZ when the boss's drills hurt Sonic (checks
         // invulnerable_time(a0) == $78 on the player). It is NOT set when
