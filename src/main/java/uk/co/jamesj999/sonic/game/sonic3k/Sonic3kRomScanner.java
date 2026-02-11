@@ -261,7 +261,8 @@ public class Sonic3kRomScanner {
     private int findLevelLoadBlock() throws IOException {
         // LLB is in the S&K portion at ~0x091F0C, well before romSize/4 (0x100000)
         int searchStart = 0x050000;
-        int searchEnd = romSize - Sonic3kConstants.LEVEL_LOAD_BLOCK_ENTRY_SIZE;
+        // Furthest read is read32BitAddr(i + 24) which reads 4 bytes through i + 27
+        int searchEnd = romSize - Sonic3kConstants.LEVEL_LOAD_BLOCK_ENTRY_SIZE - 4;
 
         for (int i = searchStart; i < searchEnd; i += 2) {
             int word0 = rom.read32BitAddr(i);
