@@ -699,7 +699,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         // Handle diagonal transition frame: show for exactly one tick, then advance
         if (diggerTransitioning) {
             diggerTransitioning = false;
-            if (state.routineSecondary == SUB6_HORIZONTAL || diggerAnimIndex >= 8) {
+            if (state.routineSecondary == SUB6_HORIZONTAL) {
                 diggerFrame = FRAME_DIGGER_HORIZ_1;
                 diggerAnimIndex = 8;
             } else {
@@ -709,7 +709,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
             return;
         }
 
-        if (state.routineSecondary == SUB6_HORIZONTAL || diggerAnimIndex >= 8) {
+        if (state.routineSecondary == SUB6_HORIZONTAL) {
             // Horizontal digger cycle: frames 9, 10, 11
             if (diggerFrame >= FRAME_DIGGER_HORIZ_1 && diggerFrame <= FRAME_DIGGER_HORIZ_3) {
                 diggerFrame++;
