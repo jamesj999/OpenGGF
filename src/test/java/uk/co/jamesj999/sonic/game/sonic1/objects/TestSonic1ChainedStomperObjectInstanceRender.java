@@ -21,8 +21,11 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class TestSonic1ChainedStomperObjectInstanceRender {
@@ -53,10 +56,39 @@ public class TestSonic1ChainedStomperObjectInstanceRender {
                 new ObjectSpawn(100, 100, Sonic1ObjectIds.CHAINED_STOMPER, 0x00, 0, false, 0));
         stomper.appendRenderCommands(new ArrayList<>());
 
-        assertEquals(1, spikeRenderer.drawCount);
-        assertEquals(4, spikeRenderer.lastFrameIndex);
-        assertFalse(spikeRenderer.lastHFlip);
-        assertTrue(spikeRenderer.lastVFlip);
+        assertEquals(5, spikeRenderer.drawCount);
+
+        int[] expectedX = {60, 80, 100, 120, 140};
+        int[] actualX = spikeRenderer.calls.stream().mapToInt(call -> call.originX).toArray();
+        assertArrayEquals(expectedX, actualX);
+
+        for (RecordingRenderer.DrawCall call : spikeRenderer.calls) {
+            assertEquals(2, call.frameIndex);
+            assertFalse(call.hFlip);
+            assertTrue(call.vFlip);
+        }
+    }
+
+    @Test
+    public void chainedStomperSpikeTouchRegionUsesSpikeRowPosition() {
+        Sonic1ChainedStomperObjectInstance stomper = new Sonic1ChainedStomperObjectInstance(
+                new ObjectSpawn(100, 100, Sonic1ObjectIds.CHAINED_STOMPER, 0x01, 0, false, 0));
+
+        var regions = stomper.getMultiTouchRegions();
+        assertNotNull(regions);
+        assertEquals(1, regions.length);
+        assertEquals(100, regions[0].x());
+        assertEquals(128, regions[0].y());
+        assertEquals(0x90, regions[0].collisionFlags());
+    }
+
+    @Test
+    public void chainedStomperSubtype20DisablesSpikeTouchRegion() {
+        Sonic1ChainedStomperObjectInstance stomper = new Sonic1ChainedStomperObjectInstance(
+                new ObjectSpawn(100, 100, Sonic1ObjectIds.CHAINED_STOMPER, 0x21, 0, false, 0));
+
+        assertNull(stomper.getMultiTouchRegions());
+        assertEquals(0, stomper.getCollisionFlags());
     }
 
     private static final class TestLevelManager extends LevelManager {
@@ -149,9 +181,7 @@ public class TestSonic1ChainedStomperObjectInstanceRender {
 
     private static final class RecordingRenderer extends PatternSpriteRenderer {
         private int drawCount;
-        private int lastFrameIndex = -1;
-        private boolean lastHFlip;
-        private boolean lastVFlip;
+        private final List<DrawCall> calls = new ArrayList<>();
 
         private RecordingRenderer() {
             super(dummySheet());
@@ -165,9 +195,23 @@ public class TestSonic1ChainedStomperObjectInstanceRender {
         @Override
         public void drawFrameIndex(int frameIndex, int originX, int originY, boolean hFlip, boolean vFlip) {
             drawCount++;
-            lastFrameIndex = frameIndex;
-            lastHFlip = hFlip;
-            lastVFlip = vFlip;
+            calls.add(new DrawCall(frameIndex, originX, originY, hFlip, vFlip));
+        }
+
+        private static final class DrawCall {
+            private final int frameIndex;
+            private final int originX;
+            private final int originY;
+            private final boolean hFlip;
+            private final boolean vFlip;
+
+            private DrawCall(int frameIndex, int originX, int originY, boolean hFlip, boolean vFlip) {
+                this.frameIndex = frameIndex;
+                this.originX = originX;
+                this.originY = originY;
+                this.hFlip = hFlip;
+                this.vFlip = vFlip;
+            }
         }
 
         private static ObjectSpriteSheet dummySheet() {

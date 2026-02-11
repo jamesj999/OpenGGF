@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic1.objects;
 
+import uk.co.jamesj999.sonic.game.sonic1.Sonic1SwitchManager;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.game.sonic2.OscillationManager;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
@@ -424,8 +425,10 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         // Check delete: cmp.w objoff_2C(a0),d0 / bhs.s .locret
         int bottomBoundary = getBottomBoundary();
         if (workingY > bottomBoundary + FALL_DELETE_OFFSET) {
-            // move.b #6,obRoutine(a0) — Plat_Delete
-            setDestroyed(true);
+            // move.b #6,obRoutine(a0) — Plat_Delete.
+            // Clear the active spawn as well so the platform doesn't recreate
+            // immediately while still inside the placement window.
+            destroyWithWindowGatedRespawn();
         }
     }
 
@@ -433,9 +436,6 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
      * Type 07: Switch-activated rising.
      * High nybble of subtype indexes into f_switch table.
      * When switch is pressed, start 60-frame delay, then transition to type 08.
-     * <p>
-     * Note: Switch system (f_switch) is not yet implemented in the engine.
-     * This type will remain dormant until switches are added.
      */
     private void moveSwitchActivated() {
         if (timer > 0) {
@@ -448,11 +448,10 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         }
 
         // Check switch state: lsr.w #4,d0 / tst.b (a2,d0.w)
-        // TODO: Check f_switch table when switch system is implemented
-        // int switchIndex = (spawn.subtype() >> 4) & 0x0F;
-        // if (isSwitchPressed(switchIndex)) {
-        //     timer = SWITCH_DELAY;
-        // }
+        int switchIndex = (spawn.subtype() >> 4) & 0x0F;
+        if (Sonic1SwitchManager.getInstance().isPressed(switchIndex)) {
+            timer = SWITCH_DELAY;
+        }
     }
 
     /**
@@ -478,6 +477,21 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     private boolean isPlayerRiding() {
         var objectManager = levelManager.getObjectManager();
         return objectManager != null && objectManager.isAnyPlayerRiding(this);
+    }
+
+    /**
+     * Object 18 uses DeleteObject once the faller passes v_limitbtm2+$E0.
+     * Keep the spawn suppressed until it exits the placement window, matching
+     * ROM-style "don't instantly respawn in place" behavior.
+     */
+    private void destroyWithWindowGatedRespawn() {
+        if (!isDestroyed() && levelManager != null) {
+            var objectManager = levelManager.getObjectManager();
+            if (objectManager != null) {
+                objectManager.removeFromActiveSpawns(spawn);
+            }
+        }
+        setDestroyed(true);
     }
 
     /**

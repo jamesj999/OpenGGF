@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.debug.DebugRenderContext;
+import uk.co.jamesj999.sonic.game.sonic1.Sonic1SwitchManager;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
@@ -77,6 +78,16 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
     private static final int FRAME_SPIKES = 1;
     private static final int FRAME_CEILING = 2;
     private static final int FRAME_CHAIN_BASE = 3; // Chain frames 3-7 (1-5 links)
+
+    // Chained Stomper spike rendering uses 5 single-spike pieces from Map_CStom .spikes:
+    // spritePiece -$2C, -$10, 1, 4, $21F, 0, 1, 0, 0
+    // spritePiece -$18, -$10, 1, 4, $21F, 0, 1, 0, 0
+    // spritePiece -4,   -$10, 1, 4, $21F, 0, 1, 0, 0
+    // spritePiece  $10, -$10, 1, 4, $21F, 0, 1, 0, 0
+    // spritePiece  $24, -$10, 1, 4, $21F, 0, 1, 0, 0
+    // We render using spike frame 2 (single upward spike at x=-4) and shift origins.
+    private static final int SPIKE_SINGLE_FRAME = 2;
+    private static final int[] STOMPER_SPIKE_RENDER_X_OFFSETS = {-0x28, -0x14, 0x00, 0x14, 0x28};
 
     // Block size variants from CStom_Var2 (indexed by upper nybble bits 4-6)
     // dc.b width, frame
@@ -187,6 +198,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
 
     // Dynamic spawn for position updates
     private ObjectSpawn dynamicSpawn;
+    private final TouchRegion[] spikeTouchRegion = new TouchRegion[1];
 
     public Sonic1ChainedStomperObjectInstance(ObjectSpawn spawn) {
         super(spawn, "ChainedStomper");
@@ -322,14 +334,10 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
      * <p>
      * When switch is pressed: rises (subtracts $80 from offset).
      * When switch not pressed: falls with gravity until maxFallDistance.
-     * <p>
-     * Note: Switch system (f_switch) is not yet implemented in the engine.
-     * The stomper defaults to "switch not pressed" (falling/resting at bottom).
      */
     private void updateType00(int frameCounter) {
         // In ROM: tst.b (f_switch+switchNumber) / beq.s loc_B8A8
-        // Since switch system is not implemented, treat as unpressed (branch to fall)
-        boolean switchPressed = false;
+        boolean switchPressed = Sonic1SwitchManager.getInstance().isPressed(switchNumber);
 
         if (switchPressed) {
             // Rising behavior
@@ -558,16 +566,14 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
         stomperRenderer.drawFrameIndex(blockFrame, x, y, false, false);
 
         // Render spikes (routine 4)
-        // Spikes use Nem_Spikes art at tile $21F relative to obGfx $300
-        // = ArtTile_Spikes($51B) + 4. Our spike renderer has spike frame 4 (upward spikes
-        // with 6 tiles). The stomper's spike mapping has 5 columns of 1x4 upward spikes.
-        // Since the spike art and mapping frame don't match 1:1, we draw spikes using the
-        // spike renderer's frame 4 (6 upward spikes, same visual pattern) with V flip.
-        // Map_CStom .spikes pieces all use yflip=1.
+        // Use exact Map_CStom .spikes spacing by drawing five single-spike pieces.
+        // All pieces use yflip=1 in disassembly.
         if (spikesHaveCollision) {
             PatternSpriteRenderer spikeRenderer = renderManager.getRenderer(ObjectArtKeys.SPIKE);
             if (spikeRenderer != null && spikeRenderer.isReady()) {
-                spikeRenderer.drawFrameIndex(4, x, spikeY, false, true);
+                for (int xOffset : STOMPER_SPIKE_RENDER_X_OFFSETS) {
+                    spikeRenderer.drawFrameIndex(SPIKE_SINGLE_FRAME, x + xOffset, spikeY, false, true);
+                }
             }
         }
     }
@@ -624,6 +630,16 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
     @Override
     public int getCollisionProperty() {
         return 0;
+    }
+
+    @Override
+    public TouchRegion[] getMultiTouchRegions() {
+        if (!spikesHaveCollision) {
+            return null;
+        }
+        // Only the underside spike row should hurt; the block top remains safe to stand on.
+        spikeTouchRegion[0] = new TouchRegion(x, spikeY, SPIKE_COLLISION_TYPE);
+        return spikeTouchRegion;
     }
 
     // ---- Persistence ----

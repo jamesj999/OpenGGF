@@ -273,6 +273,14 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search Caterkiller (398 bytes)
     public static final int ART_NEM_CATERKILLER_ADDR = 0x39076;
 
+    // Nem_MzSwitch: Nemesis-compressed MZ button/switch art (190 bytes)
+    // Verified by RomOffsetFinder --game s1 search Switch
+    public static final int ART_NEM_MZ_SWITCH_ADDR = 0x328B2;
+
+    // Nem_LzSwitch: Nemesis-compressed button/switch art (LZ/SYZ/SBZ, 225 bytes)
+    // Verified by RomOffsetFinder --game s1 search Switch
+    public static final int ART_NEM_LZ_SWITCH_ADDR = 0x344C4;
+
     // Nem_HSpring: Nemesis-compressed horizontal spring art (up/down springs, 16 tiles)
     // ArtTile_Spring_Horizontal = $523
     public static final int ART_NEM_HSPRING_ADDR = 0x3A80A;

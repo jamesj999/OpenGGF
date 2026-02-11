@@ -257,6 +257,8 @@ public class LevelManager {
                     touchResponseTable);
             // Wire up CollisionSystem with ObjectManager for unified collision pipeline
             CollisionSystem.getInstance().setObjectManager(objectManager);
+            // Reset switch state for new level (Sonic 1 f_switch array)
+            uk.co.jamesj999.sonic.game.sonic1.Sonic1SwitchManager.getInstance().reset();
             // Reset camera state from previous level (signpost may have locked it)
             Camera camera = Camera.getInstance();
             camera.setFrozen(false);
