@@ -31,6 +31,9 @@ public class Rom implements AutoCloseable {
     private final ByteBuffer buffer2 = ByteBuffer.allocate(2);
     private final ByteBuffer buffer4 = ByteBuffer.allocate(4);
 
+    // Cached file size for bounds checking (set on open)
+    private long fileSize = -1;
+
     public boolean open(String spath) {
         try {
             Path path = Path.of(spath);
@@ -48,6 +51,7 @@ public class Rom implements AutoCloseable {
             // when launched from Finder. Write methods exist for ROM tools but
             // are not used during normal engine operation.
             fileChannel = FileChannel.open(path, StandardOpenOption.READ);
+            fileSize = fileChannel.size();
             return true;
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "Failed to open ROM: " + spath, e);
@@ -83,7 +87,7 @@ public class Rom implements AutoCloseable {
     }
 
     public long getSize() throws IOException {
-        return fileChannel.size();
+        return fileSize >= 0 ? fileSize : fileChannel.size();
     }
 
     /**
@@ -150,6 +154,9 @@ public class Rom implements AutoCloseable {
     }
 
     public byte readByte(long offset) throws IOException {
+        if (offset < 0 || offset >= fileSize) {
+            throw new IOException("ROM read out of bounds: offset=" + offset + " size=" + fileSize);
+        }
         synchronized (this) {
             buffer1.clear();
             fileChannel.position(offset);
@@ -160,21 +167,26 @@ public class Rom implements AutoCloseable {
     }
 
     public byte[] readBytes(long offset, int count) throws IOException {
+        if (offset < 0 || offset + count > fileSize) {
+            throw new IOException("ROM read out of bounds: offset=0x" + Long.toHexString(offset) + " + " + count + " > size=" + fileSize);
+        }
         synchronized (this) {
             ByteBuffer buffer = ByteBuffer.allocate(count);
             fileChannel.position(offset);
             int bytesRead = fileChannel.read(buffer);
+            if (bytesRead < count) {
+                throw new IOException("ROM short read at offset 0x" + Long.toHexString(offset) + ": expected " + count + " bytes, got " + bytesRead);
+            }
             return Arrays.copyOf(buffer.array(), bytesRead);
         }
     }
 
     public int read16BitAddr(long offset) throws IOException {
+        if (offset < 0 || offset + 2 > fileSize) {
+            throw new IOException("ROM read out of bounds: offset=0x" + Long.toHexString(offset) + " + 2 > size=" + fileSize);
+        }
         synchronized (this) {
             buffer2.clear();
-            long fileSize = fileChannel.size();
-            if (offset > fileSize) {
-                LOGGER.fine("offset " + offset + " is longer than current fileSize " + fileSize);
-            }
             fileChannel.position(offset);
             fileChannel.read(buffer2);
 
@@ -184,6 +196,9 @@ public class Rom implements AutoCloseable {
     }
 
     public int read32BitAddr(long offset) throws IOException {
+        if (offset < 0 || offset + 4 > fileSize) {
+            throw new IOException("ROM read out of bounds: offset=0x" + Long.toHexString(offset) + " + 4 > size=" + fileSize);
+        }
         synchronized (this) {
             buffer4.clear();
             fileChannel.position(offset);
@@ -221,6 +236,9 @@ public class Rom implements AutoCloseable {
     }
 
     private String readString(long offset, int length) throws IOException {
+        if (offset < 0 || offset + length > fileSize) {
+            throw new IOException("ROM read out of bounds: offset=0x" + Long.toHexString(offset) + " + " + length + " > size=" + fileSize);
+        }
         ByteBuffer buffer = ByteBuffer.allocate(length);
         fileChannel.position(offset);
         fileChannel.read(buffer);

@@ -171,6 +171,9 @@ public class ResourceLoader {
         // for input. Add extra for module alignment padding. Cap at 256KB to prevent issues.
         int inputSize = Math.min(Math.max(fullSize + 256, 0x10000), 0x40000);
         byte[] romData = rom.readBytes(romAddr, inputSize);
+        if (romData.length < inputSize) {
+            throw new IOException("Short read for KosM data at 0x" + Integer.toHexString(romAddr));
+        }
         return KosinskiReader.decompressModuled(romData, 0);
     }
 
