@@ -336,8 +336,9 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setY((short) (sprite.getY() + sprite.getRollHeightAdjustment()));
 		sprite.setSpindash(false);
 
-		int speedIndex = Math.min((sprite.getSpindashCounter() >> 8) & 0xFF, 8);
-		short spindashGSpeed = getSpindashSpeedTable()[speedIndex];
+		short[] table = getSpindashSpeedTable();
+		int speedIndex = Math.min((sprite.getSpindashCounter() >> 8) & 0xFF, table.length - 1);
+		short spindashGSpeed = table[speedIndex];
 
 		Camera.getInstance().setHorizScrollDelay(32 - ((spindashGSpeed - 0x800) >> 7));
 
