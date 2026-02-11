@@ -4,7 +4,6 @@ import uk.co.jamesj999.sonic.audio.GameAudioProfile;
 import uk.co.jamesj999.sonic.data.Game;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
-import uk.co.jamesj999.sonic.game.BonusStageProvider;
 import uk.co.jamesj999.sonic.game.DebugModeProvider;
 import uk.co.jamesj999.sonic.game.DebugOverlayProvider;
 import uk.co.jamesj999.sonic.game.GameModule;
@@ -126,12 +125,6 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public int getChaosEmeraldCount() {
         return 6;
-    }
-
-    @Override
-    public BonusStageProvider getBonusStageProvider() {
-        // Sonic 1 does not have bonus stages
-        return null;
     }
 
     @Override

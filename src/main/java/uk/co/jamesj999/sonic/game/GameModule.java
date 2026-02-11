@@ -54,7 +54,9 @@ public interface GameModule {
      *
      * @return the title card provider
      */
-    TitleCardProvider getTitleCardProvider();
+    default TitleCardProvider getTitleCardProvider() {
+        return NoOpTitleCardProvider.INSTANCE;
+    }
 
     /**
      * Returns the zone registry for this game.
@@ -68,9 +70,11 @@ public interface GameModule {
      * Returns the special stage provider for this game.
      * Special stages award Chaos Emeralds when completed.
      *
-     * @return the special stage provider, or null if this game has no special stages
+     * @return the special stage provider
      */
-    SpecialStageProvider getSpecialStageProvider();
+    default SpecialStageProvider getSpecialStageProvider() {
+        return NoOpSpecialStageProvider.INSTANCE;
+    }
 
     /**
      * Returns the number of special stages used for stage index cycling.
@@ -96,9 +100,11 @@ public interface GameModule {
      * Returns the bonus stage provider for this game.
      * Bonus stages are accessed via checkpoints and award rings, shields, etc.
      *
-     * @return the bonus stage provider, or null if this game has no bonus stages
+     * @return the bonus stage provider
      */
-    BonusStageProvider getBonusStageProvider();
+    default BonusStageProvider getBonusStageProvider() {
+        return NoOpBonusStageProvider.INSTANCE;
+    }
 
     /**
      * Returns the scroll handler provider for this game.
@@ -165,7 +171,7 @@ public interface GameModule {
      * @return the title screen provider, or null if not implemented
      */
     default TitleScreenProvider getTitleScreenProvider() {
-        return null;
+        return NoOpTitleScreenProvider.INSTANCE;
     }
 
     /**
@@ -176,7 +182,7 @@ public interface GameModule {
      * @return the level select provider, or null if not implemented
      */
     default LevelSelectProvider getLevelSelectProvider() {
-        return null;
+        return NoOpLevelSelectProvider.INSTANCE;
     }
 
     /**

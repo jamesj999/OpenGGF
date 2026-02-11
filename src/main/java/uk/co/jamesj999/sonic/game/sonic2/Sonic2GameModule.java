@@ -13,7 +13,6 @@ import uk.co.jamesj999.sonic.game.RespawnState;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.ZoneRegistry;
 import uk.co.jamesj999.sonic.game.SpecialStageProvider;
-import uk.co.jamesj999.sonic.game.BonusStageProvider;
 import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
 import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
 import uk.co.jamesj999.sonic.game.RomOffsetProvider;
@@ -124,12 +123,6 @@ public class Sonic2GameModule implements GameModule {
     @Override
     public int getChaosEmeraldCount() {
         return 7;
-    }
-
-    @Override
-    public BonusStageProvider getBonusStageProvider() {
-        // Sonic 2 does not have bonus stages (uses special stages via checkpoints instead)
-        return null;
     }
 
     @Override

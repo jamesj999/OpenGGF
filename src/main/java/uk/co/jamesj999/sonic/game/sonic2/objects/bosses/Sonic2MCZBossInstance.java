@@ -148,8 +148,8 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
     private int diggerFrame;     // Current digger animation frame
     private int diggerAnimTimer;
     private int diggerAnimIndex; // Which animation sequence we're in
+    private boolean diggerTransitioning; // true for one tick when showing diagonal transition frame
     private int bodyFrame;
-    private int bodyAnimTimer;
     private int faceFrame;
     private int faceAnimTimer;
     private int faceAnimIndex;
@@ -204,9 +204,8 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         diggerFrame = FRAME_DIGGER_VERT_1;
         diggerAnimTimer = 1;
         diggerAnimIndex = 5; // animation 5 = vertical loop
-        // Animation 2: main vehicle - starts with frame 5 (hover fire on)
+        // Animation 2: main vehicle - starts with light OFF
         bodyFrame = FRAME_BODY_LIGHT_OFF;
-        bodyAnimTimer = 0x0F;
         // Animation 3: face - starts with frame 14 (normal)
         faceFrame = FRAME_FACE_NORMAL_1;
         faceAnimTimer = 7;
@@ -337,9 +336,9 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
             faceFrame = FRAME_FACE_NORMAL_1;
             faceAnimTimer = 7;
 
-            // ROM: Set body light on
+            // ROM: Set body light on - stays ON for entire SUB6 phase
+            // ROM: $FC subanimation loop at anim_frame 2 holds frame 0 (light ON) indefinitely
             bodyFrame = FRAME_BODY_LIGHT_ON;
-            bodyAnimTimer = 0x20;
 
             // ROM: hover fire off
             hoverFrame = FRAME_HOVER_NO_FIRE;
@@ -424,6 +423,9 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         hoverFrame = FRAME_HOVER_FIRE_ON_1;
         hoverAnimTimer = 0;
 
+        // ROM: body light off (Boss_AnimationArray[5] zeroed on reascend)
+        bodyFrame = FRAME_BODY_LIGHT_OFF;
+
         // ROM: face normal
         faceAnimIndex = 0xD;
         faceFrame = FRAME_FACE_NORMAL_1;
@@ -448,7 +450,11 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
             faceFrame = FRAME_FACE_BURNT;
             bodyFrame = FRAME_BODY_LIGHT_OFF;
 
-            spawnDefeatExplosion();
+            // ROM: Boss_LoadExplosion checks (Vint_runcount+3) & 7 == 0
+            // Only spawn explosion every 8th frame (~22 total over 179 frames)
+            if ((vintRuncount & 7) == 0) {
+                spawnDefeatExplosion();
+            }
         } else {
             // Countdown finished - transition to hover down
             flipped = true; // ROM: bset x_flip
@@ -666,15 +672,8 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
             // FRAME_HOVER_NO_FIRE stays until explicitly changed
         }
 
-        // Body light animation - ROM: default is light OFF (frame 1)
-        // Light ON (frame 0) is briefly shown on phase transitions, then returns to OFF
-        if (bodyAnimTimer > 0) {
-            bodyAnimTimer--;
-        } else if (bodyFrame == FRAME_BODY_LIGHT_ON) {
-            // Subanimation return: switch back to light OFF
-            bodyFrame = FRAME_BODY_LIGHT_OFF;
-            bodyAnimTimer = 0x0F;
-        }
+        // Body light: frame set directly by state transitions (ON in SUB6, OFF on reascend)
+        // No auto-cycling needed - ROM uses $FC subanimation loop to hold frame indefinitely
 
         // Digger animation - simplified cycling through vertical or horizontal frames
         if (diggerAnimTimer > 0) {
@@ -697,30 +696,42 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
      * Update digger frame based on current animation sequence.
      */
     private void updateDiggerAnimation() {
-        // Simplified: cycle through appropriate frames based on phase
-        if (state.routineSecondary == SUB6_HORIZONTAL || diggerAnimIndex >= 8) {
-            // Horizontal digger cycle: frames 9, 10, 11
-            if (diggerFrame < FRAME_DIGGER_HORIZ_1 || diggerFrame > FRAME_DIGGER_HORIZ_3) {
-                // Transitioning: go through diagonal
-                diggerFrame = FRAME_DIGGER_DIAG;
+        // Handle diagonal transition frame: show for exactly one tick, then advance
+        if (diggerTransitioning) {
+            diggerTransitioning = false;
+            if (state.routineSecondary == SUB6_HORIZONTAL || diggerAnimIndex >= 8) {
+                diggerFrame = FRAME_DIGGER_HORIZ_1;
                 diggerAnimIndex = 8;
             } else {
+                diggerFrame = FRAME_DIGGER_VERT_1;
+                diggerAnimIndex = 5;
+            }
+            return;
+        }
+
+        if (state.routineSecondary == SUB6_HORIZONTAL || diggerAnimIndex >= 8) {
+            // Horizontal digger cycle: frames 9, 10, 11
+            if (diggerFrame >= FRAME_DIGGER_HORIZ_1 && diggerFrame <= FRAME_DIGGER_HORIZ_3) {
                 diggerFrame++;
                 if (diggerFrame > FRAME_DIGGER_HORIZ_3) {
                     diggerFrame = FRAME_DIGGER_HORIZ_1;
                 }
+            } else {
+                // Transitioning: show diagonal for one tick
+                diggerFrame = FRAME_DIGGER_DIAG;
+                diggerTransitioning = true;
             }
         } else {
             // Vertical digger cycle: frames 2, 3, 4
-            if (diggerFrame < FRAME_DIGGER_VERT_1 || diggerFrame > FRAME_DIGGER_VERT_3) {
-                // Transitioning back: go through diagonal
-                diggerFrame = FRAME_DIGGER_DIAG;
-                diggerAnimIndex = 5;
-            } else {
+            if (diggerFrame >= FRAME_DIGGER_VERT_1 && diggerFrame <= FRAME_DIGGER_VERT_3) {
                 diggerFrame++;
                 if (diggerFrame > FRAME_DIGGER_VERT_3) {
                     diggerFrame = FRAME_DIGGER_VERT_1;
                 }
+            } else {
+                // Transitioning back: show diagonal for one tick
+                diggerFrame = FRAME_DIGGER_DIAG;
+                diggerTransitioning = true;
             }
         }
     }
