@@ -4,7 +4,7 @@ import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ExplosionObjectInstance;
-import uk.co.jamesj999.sonic.game.sonic2.objects.PointsObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1PointsObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.AbstractBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.AnimalObjectInstance;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
@@ -483,7 +483,7 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
             GameServices.gameState().addScore(pointsValue);
         }
 
-        PointsObjectInstance points = new PointsObjectInstance(
+        Sonic1PointsObjectInstance points = new Sonic1PointsObjectInstance(
                 new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
         levelManager.getObjectManager().addDynamicObject(points);
 

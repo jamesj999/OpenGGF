@@ -96,6 +96,46 @@ public class TestSolidObjectManager {
         assertFalse(ledge.isSolidFor(null));
     }
 
+    @Test
+    public void testNearTopSideContactDoesNotSetPushingFlag() {
+        SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+        TestSolidObject object = new TestSolidObject(100, 100, params);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setAir(false);
+        player.setXSpeed((short) 0x100);
+        // Left edge of object, near top edge: side graze while walking across tops.
+        player.setCentreX((short) 85);
+        player.setCentreY((short) 71);
+
+        manager.updateSolidContacts(player);
+
+        assertFalse(player.getPushing());
+    }
+
+    @Test
+    public void testMidSideContactStillSetsPushingFlag() {
+        SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+        TestSolidObject object = new TestSolidObject(100, 100, params);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setAir(false);
+        player.setXSpeed((short) 0x100);
+        // Left edge of object, deeper than top-edge buffer: should count as push.
+        player.setCentreX((short) 85);
+        player.setCentreY((short) 81);
+
+        manager.updateSolidContacts(player);
+
+        assertTrue(player.getPushing());
+    }
+
     private static void setPrivateInt(Object instance, String fieldName, int value) throws Exception {
         Field field = instance.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);

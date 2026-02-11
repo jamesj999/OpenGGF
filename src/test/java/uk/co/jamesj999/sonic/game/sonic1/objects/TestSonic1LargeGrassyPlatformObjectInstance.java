@@ -6,6 +6,7 @@ import uk.co.jamesj999.sonic.level.objects.SolidObjectParams;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class TestSonic1LargeGrassyPlatformObjectInstance {
 
@@ -29,6 +30,12 @@ public class TestSonic1LargeGrassyPlatformObjectInstance {
         assertEquals(0x30, params.groundHalfHeight());
         assertEquals(0x30, platform.getSlopeBaseline());
         assertFalse(platform.isTopSolidOnly());
+    }
+
+    @Test
+    public void grassyPlatformUsesHighPrioritySpriteBit() {
+        Sonic1LargeGrassyPlatformObjectInstance platform = create(0x00);
+        assertTrue(platform.isHighPriority());
     }
 
     private static Sonic1LargeGrassyPlatformObjectInstance create(int subtype) {

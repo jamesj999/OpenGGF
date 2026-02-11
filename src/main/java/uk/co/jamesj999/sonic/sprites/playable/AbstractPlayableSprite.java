@@ -231,6 +231,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         public enum DamageCause {
                 NORMAL,
                 SPIKE,
+                CRUSH,
                 DROWN,
                 TIME_OVER,
                 PIT
@@ -696,6 +697,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 // Clear jumping flag when landing
                 if (!air && this.air) {
                         jumping = false;
+                        // S1 ROM parity (Sonic_ResetOnFloor):
+                        // move.w #0,(v_itembonus).w ; clear enemy/block score chain.
+                        GameServices.gameState().resetItemBonus();
                 }
                 this.air = air;
                 // SPG: Push sensor Y offset changes based on air state

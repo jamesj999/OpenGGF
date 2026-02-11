@@ -27,6 +27,8 @@ public final class Sonic1ObjectIds {
     public static final int JAWS            = 0x2C;
     public static final int BURROBOT        = 0x2D;
     public static final int MZ_LARGE_GRASSY_PLATFORM = 0x2F;
+    public static final int MZ_GLASS_BLOCK  = 0x30;
+    public static final int CHAINED_STOMPER = 0x31;
     public static final int BURNING_GRASS   = 0x35;
     public static final int SPIKES          = 0x36;
     public static final int ROCK            = 0x3B;
@@ -43,6 +45,7 @@ public final class Sonic1ObjectIds {
     public static final int WATERFALL_SOUND = 0x49;
     public static final int GIANT_RING      = 0x4B;
     public static final int YADRIN          = 0x50;
+    public static final int SMASH_BLOCK     = 0x51;
     public static final int LAVA_TAG        = 0x54;
     public static final int BATBRAIN        = 0x55;
     public static final int SEESAW          = 0x5E;

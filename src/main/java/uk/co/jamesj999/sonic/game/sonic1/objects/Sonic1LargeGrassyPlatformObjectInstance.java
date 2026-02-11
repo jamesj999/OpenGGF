@@ -313,6 +313,12 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
     }
 
     @Override
+    public boolean isHighPriority() {
+        // ROM: make_art_tile(ArtTile_Level,2,1) sets sprite priority bit.
+        return true;
+    }
+
+    @Override
     public boolean isPersistent() {
         // out_of_range uses lgrass_origX (objoff_2A = spawn X), not current X.
         // Also checks objoff_35 (fireSpawned) flag for special cleanup.

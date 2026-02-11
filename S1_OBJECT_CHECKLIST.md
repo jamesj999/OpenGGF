@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 81
-- **Implemented:** 31 (38.3%)
-- **Unimplemented:** 50 (61.7%)
+- **Implemented:** 35 (43.2%)
+- **Unimplemented:** 46 (56.8%)
 
 ## Implemented Objects
 
@@ -42,6 +42,9 @@ Generated: 2026-02-09 23:03:25
 | 0x46 | MzBrick | 99 | MZ1, MZ2, MZ3 |
 | 0x55 | Batbrain | 37 | MZ1, MZ2, MZ3 |
 | 0x78 | Caterkiller | 37 | MZ1, MZ2, MZ3, SBZ1, SBZ2 |
+| 0x51 | SmashBlock | 30 | MZ2, MZ3 |
+| 0x30 | MzGlassBlock | 14 | MZ1, MZ2, MZ3 |
+| 0x31 | ChainedStomper | 23 | MZ1, MZ2, MZ3 |
 
 ## Unimplemented Objects (By Usage)
 
@@ -68,9 +71,7 @@ Generated: 2026-02-09 23:03:25
 | 0x63 | Object | S1_Obj_63 | 36 | LZ1, LZ2, LZ3 |
 | 0x58 | Object | S1_Obj_58 | 34 | SYZ1, SYZ2, SYZ3 |
 | 0x60 | Badnik | Orbinaut | 34 | LZ1, LZ2, LZ3, SLZ1, SLZ2, SLZ3 |
-| 0x51 | Object | S1_Obj_51 | 30 | MZ2, MZ3 |
 | 0x16 | Object | S1_Obj_16 | 28 | LZ1, LZ2, LZ3 |
-| 0x31 | Object | S1_Obj_31 | 23 | MZ1, MZ2, MZ3 |
 | 0x5B | Object | S1_Obj_5B | 23 | SLZ1, SLZ2, SLZ3 |
 | 0x2C | Badnik | Jaws | 22 | LZ1, LZ2, LZ3 |
 | 0x57 | Object | S1_Obj_57 | 22 | LZ1, LZ2, LZ3, SYZ1, SYZ2, SYZ3 |
@@ -81,7 +82,6 @@ Generated: 2026-02-09 23:03:25
 | 0x59 | Object | S1_Obj_59 | 16 | SLZ1, SLZ2, SLZ3 |
 | 0x5E | Object | Seesaw | 16 | SLZ2, SLZ3 |
 | 0x2A | Object | S1_Obj_2A | 14 | SBZ1, SBZ2 |
-| 0x30 | Object | S1_Obj_30 | 14 | MZ1, MZ2, MZ3 |
 | 0x6A | Object | S1_Obj_6A | 14 | SBZ1, SBZ2 |
 | 0x70 | Object | S1_Obj_70 | 12 | SBZ1 |
 | 0x1E | Object | S1_Obj_1E | 10 | SBZ1, SBZ2 |
@@ -288,7 +288,7 @@ Total: 245 objects | Implemented: 6 | Unimplemented: 15
 
 #### Act 1
 
-Total: 145 objects | Implemented: 12 | Unimplemented: 8
+Total: 145 objects | Implemented: 14 | Unimplemented: 6
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x4) [0x00]
@@ -301,8 +301,8 @@ Total: 145 objects | Implemented: 12 | Unimplemented: 8
 - [x] 0x25 Ring (x35) [5 subtypes]
 - [x] 0x26 Monitor (x10) [0x02, 0x04, 0x06]
 - [x] 0x2F MzLargeGrassyPlatform (x22) [8 subtypes]
-- [ ] 0x30 S1_Obj_30 (x5) [0x01, 0x02]
-- [ ] 0x31 S1_Obj_31 (x4) [4 subtypes]
+- [x] 0x30 MzGlassBlock (x5) [0x01, 0x02]
+- [x] 0x31 ChainedStomper (x4) [4 subtypes]
 - [ ] 0x32 S1_Obj_32 (x1) [0x80]
 - [ ] 0x33 S1_Obj_33 (x1) [0x00]
 - [x] 0x36 Spikes (x2) [0x01, 0x12]
@@ -316,7 +316,7 @@ Total: 145 objects | Implemented: 12 | Unimplemented: 8
 
 #### Act 2
 
-Total: 198 objects | Implemented: 13 | Unimplemented: 12
+Total: 198 objects | Implemented: 16 | Unimplemented: 9
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x5) [0x00]
@@ -330,8 +330,8 @@ Total: 198 objects | Implemented: 13 | Unimplemented: 12
 - [x] 0x25 Ring (x23) [5 subtypes]
 - [x] 0x26 Monitor (x11) [4 subtypes]
 - [x] 0x2F MzLargeGrassyPlatform (x10) [7 subtypes]
-- [ ] 0x30 S1_Obj_30 (x2) [0x14, 0x04]
-- [ ] 0x31 S1_Obj_31 (x4) [0x11, 0x12]
+- [x] 0x30 MzGlassBlock (x2) [0x14, 0x04]
+- [x] 0x31 ChainedStomper (x4) [0x11, 0x12]
 - [ ] 0x32 S1_Obj_32 (x2) [0x00, 0x01]
 - [ ] 0x33 S1_Obj_33 (x3) [0x00, 0x81]
 - [x] 0x36 Spikes (x9) [4 subtypes]
@@ -340,7 +340,7 @@ Total: 198 objects | Implemented: 13 | Unimplemented: 12
 - [x] 0x4B GiantRing (x1) [0x00]
 - [ ] 0x4C S1_Obj_4C (x3) [0x01]
 - [ ] 0x4E S1_Obj_4E (x1) [0x00]
-- [ ] 0x51 S1_Obj_51 (x17) [0x00]
+- [x] 0x51 SmashBlock (x17) [0x00]
 - [ ] 0x52 S1_Obj_52 (x4) [0x41, 0x02]
 - [x] 0x54 LavaTag (x17) [0x00, 0x01, 0x02]
 - [ ] 0x71 S1_Obj_71 (x4) [0x11, 0x31]
@@ -349,7 +349,7 @@ Total: 198 objects | Implemented: 13 | Unimplemented: 12
 
 #### Act 3
 
-Total: 232 objects | Implemented: 12 | Unimplemented: 11
+Total: 232 objects | Implemented: 15 | Unimplemented: 8
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x3) [0x00]
@@ -362,8 +362,8 @@ Total: 232 objects | Implemented: 12 | Unimplemented: 11
 - [x] 0x25 Ring (x31) [5 subtypes]
 - [x] 0x26 Monitor (x7) [0x02, 0x04, 0x06]
 - [x] 0x2F MzLargeGrassyPlatform (x5) [4 subtypes]
-- [ ] 0x30 S1_Obj_30 (x7) [0x01, 0x02, 0x14]
-- [ ] 0x31 S1_Obj_31 (x15) [0x11, 0x02, 0x23]
+- [x] 0x30 MzGlassBlock (x7) [0x01, 0x02, 0x14]
+- [x] 0x31 ChainedStomper (x15) [0x11, 0x02, 0x23]
 - [ ] 0x32 S1_Obj_32 (x1) [0x01]
 - [ ] 0x33 S1_Obj_33 (x2) [0x00]
 - [x] 0x36 Spikes (x23) [4 subtypes]
@@ -371,7 +371,7 @@ Total: 232 objects | Implemented: 12 | Unimplemented: 11
 - [x] 0x41 Spring (x1) [0x10]
 - [x] 0x46 MzBrick (x34) [0x00, 0x02]
 - [ ] 0x4C S1_Obj_4C (x1) [0x01]
-- [ ] 0x51 S1_Obj_51 (x13) [0x00]
+- [x] 0x51 SmashBlock (x13) [0x00]
 - [ ] 0x52 S1_Obj_52 (x3) [0x01, 0x02]
 - [ ] 0x53 S1_Obj_53 (x5) [0x01]
 - [x] 0x54 LavaTag (x21) [0x00, 0x01, 0x02]
