@@ -71,11 +71,16 @@ public final class ObjectArtKeys {
     public static final String MZ_BRICK = "mz_brick";
     public static final String MZ_LARGE_GRASSY_PLATFORM = "mz_large_grassy_platform";
     public static final String MZ_FIREBALL = "mz_fireball";
+    public static final String SLZ_FIREBALL = "slz_fireball";
     public static final String MZ_CHAINED_STOMPER = "mz_chained_stomper";
     public static final String MZ_GLASS_BLOCK = "mz_glass_block";
     public static final String MZ_SMASH_BLOCK = "mz_smash_block";
     public static final String MZ_PUSH_BLOCK = "mz_push_block";
     public static final String LZ_PUSH_BLOCK = "lz_push_block";
+    public static final String MZ_MOVING_BLOCK = "mz_moving_block";
+    public static final String LZ_MOVING_BLOCK = "lz_moving_block";
+    public static final String SBZ_MOVING_BLOCK_SHORT = "sbz_moving_block_short";
+    public static final String SBZ_MOVING_BLOCK_LONG = "sbz_moving_block_long";
     public static final String BUTTON = "button";
 
     // Badnik art keys

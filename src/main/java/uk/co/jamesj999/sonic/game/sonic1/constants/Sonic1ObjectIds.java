@@ -11,6 +11,8 @@ public final class Sonic1ObjectIds {
 
     public static final int SONIC           = 0x01;
     public static final int SIGNPOST        = 0x0D;
+    public static final int LAVA_BALL_MAKER = 0x13;
+    public static final int LAVA_BALL       = 0x14;
     public static final int BRIDGE          = 0x11;
     public static final int SWINGING_PLATFORM = 0x15;
     public static final int SPIKED_POLE_HELIX = 0x17;
@@ -48,11 +50,13 @@ public final class Sonic1ObjectIds {
     public static final int GIANT_RING      = 0x4B;
     public static final int YADRIN          = 0x50;
     public static final int SMASH_BLOCK     = 0x51;
+    public static final int MOVING_BLOCK    = 0x52;
     public static final int LAVA_TAG        = 0x54;
     public static final int BATBRAIN        = 0x55;
     public static final int SEESAW          = 0x5E;
     public static final int BOMB            = 0x5F;
     public static final int ORBINAUT        = 0x60;
+    public static final int INVISIBLE_BARRIER = 0x71;
     public static final int CATERKILLER     = 0x78;
     public static final int LAMPPOST        = 0x79;
     public static final int RING_FLASH      = 0x7C;

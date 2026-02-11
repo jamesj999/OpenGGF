@@ -113,6 +113,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1ButtonObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.MZ_GLASS_BLOCK,
                 (spawn, registry) -> new Sonic1GlassBlockObjectInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.LAVA_BALL_MAKER,
+                (spawn, registry) -> new Sonic1LavaBallMakerObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.LAVA_TAG,
                 (spawn, registry) -> new Sonic1LavaTagObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.MZ_LARGE_GRASSY_PLATFORM,
@@ -126,6 +128,10 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1GiantRingObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.HIDDEN_BONUS,
                 (spawn, registry) -> new Sonic1HiddenBonusObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.MOVING_BLOCK,
+                (spawn, registry) -> new Sonic1MovingBlockObjectInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.INVISIBLE_BARRIER,
+                (spawn, registry) -> new Sonic1InvisibleBarrierObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GHZ_BOSS,
                 (spawn, registry) -> new Sonic1GHZBossInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.EGG_PRISON, (spawn, registry) -> {
@@ -175,9 +181,12 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.YADRIN -> "Yadrin";
             case Sonic1ObjectIds.MZ_GLASS_BLOCK -> "MzGlassBlock";
             case Sonic1ObjectIds.SMASH_BLOCK -> "SmashBlock";
+            case Sonic1ObjectIds.MOVING_BLOCK -> "MovingBlock";
             case Sonic1ObjectIds.CHAINED_STOMPER -> "ChainedStomper";
             case Sonic1ObjectIds.PUSH_BLOCK -> "PushBlock";
             case Sonic1ObjectIds.BUTTON -> "Button";
+            case Sonic1ObjectIds.LAVA_BALL_MAKER -> "LavaBallMaker";
+            case Sonic1ObjectIds.LAVA_BALL -> "LavaBall";
             case Sonic1ObjectIds.LAVA_TAG -> "LavaTag";
             case Sonic1ObjectIds.MZ_LARGE_GRASSY_PLATFORM -> "MzLargeGrassyPlatform";
             case Sonic1ObjectIds.BURNING_GRASS -> "BurningGrass";
@@ -185,6 +194,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.SEESAW -> "Seesaw";
             case Sonic1ObjectIds.BOMB -> "Bomb";
             case Sonic1ObjectIds.ORBINAUT -> "Orbinaut";
+            case Sonic1ObjectIds.INVISIBLE_BARRIER -> "InvisibleBarrier";
             case Sonic1ObjectIds.CATERKILLER -> "Caterkiller";
             case Sonic1ObjectIds.LAMPPOST -> "Lamppost";
             case Sonic1ObjectIds.HIDDEN_BONUS -> "HiddenBonus";
