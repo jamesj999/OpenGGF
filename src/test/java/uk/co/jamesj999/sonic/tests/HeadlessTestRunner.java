@@ -1,8 +1,10 @@
 package uk.co.jamesj999.sonic.tests;
 
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.CollisionModel;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.PhysicsFeatureSet;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.ParallaxManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
@@ -108,6 +110,12 @@ public class HeadlessTestRunner {
         // Player movement
         sprite.getMovementManager().handleMovement(effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump, false, false, false);
 
+        // Sonic 1 parity: SolidObject checks run after Sonic movement in ExecuteObjects,
+        // so apply a second pass for UNIFIED collision to avoid one-frame sink on landing.
+        if (requiresPostMovementSolidPass(sprite) && sprite.getAir() && levelManager.getObjectManager() != null) {
+            levelManager.getObjectManager().updateSolidContacts(sprite);
+        }
+
         // Plane switchers
         levelManager.applyPlaneSwitchers(sprite);
 
@@ -146,5 +154,13 @@ public class HeadlessTestRunner {
      */
     public AbstractPlayableSprite getSprite() {
         return sprite;
+    }
+
+    private static boolean requiresPostMovementSolidPass(AbstractPlayableSprite sprite) {
+        if (sprite == null) {
+            return false;
+        }
+        PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+        return featureSet != null && featureSet.collisionModel() == CollisionModel.UNIFIED;
     }
 }
