@@ -839,38 +839,41 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         int bx = state.x;
         int by = state.y;
 
-        // Render main vehicle body (frame 0 or 1)
-        renderer.drawFrameIndex(bodyFrame, bx, by, flipped, false);
+        // VDP multi-sprite priority (front to back):
+        //   mainspr(hover) > sub2(center digger) > sub3(body) > sub4(face) > sub5(offset digger)
+        // Our engine: later drawFrameIndex calls render in front, so draw back-to-front.
 
-        // Render hover thingies (frame 5, 6, or 7) at same position
-        renderer.drawFrameIndex(hoverFrame, bx, by, flipped, false);
-
-        // Render face (frames 14-19) at same position
-        renderer.drawFrameIndex(faceFrame, bx, by, flipped, false);
-
-        // Render diggers
-        // ROM: sub5 at boss_x ± $28, sub2 at boss_x (NO offset), SAME flip on both
+        // 1. Offset digger (sub5) - BACK
+        // ROM: sub5 at boss_x ± $28
         if (diggersDetached) {
-            // Diggers are falling apart - use their individual positions
             int leftX = leftDiggerXFixed >> 16;
             int leftY = leftDiggerYFixed >> 16;
-            int rightX = rightDiggerXFixed >> 16;
-            int rightY = rightDiggerYFixed >> 16;
-
             if (leftY < DEBRIS_DELETE_Y) {
                 renderer.drawFrameIndex(diggerFrame, leftX, leftY, flipped, false);
             }
+        } else {
+            int offsetDiggerX = flipped ? bx + DIGGER_X_OFFSET : bx - DIGGER_X_OFFSET;
+            renderer.drawFrameIndex(diggerFrame, offsetDiggerX, by, flipped, false);
+        }
+
+        // 2. Face (sub4)
+        renderer.drawFrameIndex(faceFrame, bx, by, flipped, false);
+
+        // 3. Body (sub3)
+        renderer.drawFrameIndex(bodyFrame, bx, by, flipped, false);
+
+        // 4. Center digger (sub2) - no X offset
+        if (diggersDetached) {
+            int rightX = rightDiggerXFixed >> 16;
+            int rightY = rightDiggerYFixed >> 16;
             if (rightY < DEBRIS_DELETE_Y) {
                 renderer.drawFrameIndex(diggerFrame, rightX, rightY, flipped, false);
             }
         } else {
-            // Diggers attached to boss
-            // ROM: sub5 at boss_x ± $28, sub2 at boss_x (no offset)
-            int leftDiggerX = flipped ? bx + DIGGER_X_OFFSET : bx - DIGGER_X_OFFSET;
-            int rightDiggerX = bx; // sub2 has NO x offset in ROM
-
-            renderer.drawFrameIndex(diggerFrame, leftDiggerX, by, flipped, false);
-            renderer.drawFrameIndex(diggerFrame, rightDiggerX, by, flipped, false);
+            renderer.drawFrameIndex(diggerFrame, bx, by, flipped, false);
         }
+
+        // 5. Hover thingies (mainspr) - FRONT
+        renderer.drawFrameIndex(hoverFrame, bx, by, flipped, false);
     }
 }
