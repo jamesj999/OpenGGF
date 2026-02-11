@@ -711,6 +711,12 @@ public class Ym2612Chip {
 
         for (int op = 0; op < 4; op++) {
             Operator sl = ch.ops[op];
+            // Decrement SSG-EG active count before resetting
+            if (sl.ssgEnabled) {
+                ssgEgActiveCount--;
+                sl.ssgEnabled = false;
+                sl.ssgEg = 0;
+            }
             // Fully reset envelope to silent state
             sl.eCnt = ENV_END;
             sl.eInc = 0;
@@ -1812,6 +1818,8 @@ public class Ym2612Chip {
         }
     }
 
+    // TODO: DAC sample transitions can produce audible clicks (no crossfade).
+    // The original hardware exhibits the same behavior, so this is accurate.
     public void playDac(int note) {
         if (dacData == null)
             return;
