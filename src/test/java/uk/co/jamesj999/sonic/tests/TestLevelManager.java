@@ -1,6 +1,6 @@
 package uk.co.jamesj999.sonic.tests;
 
-import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.level.*;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
@@ -13,12 +13,9 @@ import static org.junit.Assert.*;
 
 public class TestLevelManager {
 
-    @After
-    public void tearDown() throws Exception {
-        LevelManager levelManager = LevelManager.getInstance();
-        Field levelField = LevelManager.class.getDeclaredField("level");
-        levelField.setAccessible(true);
-        levelField.set(levelManager, null);
+    @Before
+    public void setUp() {
+        TestEnvironment.resetAll();
     }
 
     @Test

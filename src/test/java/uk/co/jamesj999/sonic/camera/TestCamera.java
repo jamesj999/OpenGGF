@@ -4,8 +4,7 @@ import org.junit.Before;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.sprites.Sprite;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
-
-import java.lang.reflect.Field;
+import uk.co.jamesj999.sonic.tests.TestEnvironment;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
@@ -21,8 +20,8 @@ public class TestCamera {
 
     @Before
     public void setUp() throws Exception {
-        // Reset the singleton for each test
-        resetCameraSingleton();
+        // Reset all singletons for test isolation
+        TestEnvironment.resetAll();
         camera = Camera.getInstance();
 
         // Create a mock sprite for testing
@@ -44,12 +43,6 @@ public class TestCamera {
         camera.setMinY((short) 0);
         camera.setMaxX((short) 6000);
         camera.setMaxY((short) 1000);
-    }
-
-    private void resetCameraSingleton() throws Exception {
-        Field instanceField = Camera.class.getDeclaredField("camera");
-        instanceField.setAccessible(true);
-        instanceField.set(null, null);
     }
 
     // ==================== Basic Position Tests ====================

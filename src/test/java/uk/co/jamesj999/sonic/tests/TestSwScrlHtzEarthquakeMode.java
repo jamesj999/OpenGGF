@@ -21,8 +21,7 @@ public class TestSwScrlHtzEarthquakeMode {
 
     @Before
     public void setUp() throws Exception {
-        resetLevelEventManagerSingleton();
-        GameServices.gameState().resetSession();
+        TestEnvironment.resetAll();
         levelEvents = LevelEventManager.getInstance();
         levelEvents.initLevel(LevelEventManager.ZONE_HTZ, 1);
     }
@@ -78,9 +77,4 @@ public class TestSwScrlHtzEarthquakeMode {
         field.setInt(target, value);
     }
 
-    private static void resetLevelEventManagerSingleton() throws Exception {
-        Field instanceField = LevelEventManager.class.getDeclaredField("instance");
-        instanceField.setAccessible(true);
-        instanceField.set(null, null);
-    }
 }

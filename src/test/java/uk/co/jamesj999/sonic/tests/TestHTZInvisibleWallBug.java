@@ -113,12 +113,7 @@ public class TestHTZInvisibleWallBug {
 
         // Get ChunkDesc at bug location
         ChunkDesc chunkDesc = levelManager.getChunkDescAt((byte) 0, BUG_X, BUG_Y);
-
-        if (chunkDesc == null) {
-            System.out.println("ChunkDesc is NULL at bug location!");
-            System.out.println("This suggests a block lookup failure.");
-            return;
-        }
+        assertNotNull("ChunkDesc should exist at bug location", chunkDesc);
 
         System.out.println("ChunkDesc details:");
         System.out.println("  Raw value: 0x" + Integer.toHexString(chunkDesc.get()));
@@ -423,6 +418,7 @@ public class TestHTZInvisibleWallBug {
         }
 
         System.out.println("Final: (" + sprite.getX() + ", " + sprite.getY() + ")");
+        assertTrue("Sonic should progress past start position", sprite.getX() > 96);
     }
 
     private void findSolidGroundAt(int x, int startY) {
@@ -611,7 +607,9 @@ public class TestHTZInvisibleWallBug {
         System.out.println("\n=== Test Complete ===");
         System.out.println("Final position: (" + sprite.getX() + ", " + sprite.getY() + ")");
 
-        // Verify that when screen shake is active, we have non-zero shakeOffsetY oscillation
+        // Diagnostic only: earthquake trigger depends on camera bounds after ROM level load,
+        // which may clamp camera outside the trigger zone in headless mode.
+        // Manual inspection of the printed offset table above verifies synchronization.
         if (GameServices.gameState().isScreenShakeActive()) {
             int shakeY = parallaxManager.getShakeOffsetY();
             System.out.println("shakeOffsetY during active shake: " + shakeY);
