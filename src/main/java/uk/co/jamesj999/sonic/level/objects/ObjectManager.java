@@ -525,6 +525,9 @@ public class ObjectManager {
     }
 
     static final class Placement extends AbstractPlacementManager<ObjectSpawn> {
+        // ROM: ObjectsManager_GoingForward (s2.asm) uses addi.w #$280,d6 for forward load range.
+        // Unload range in ROM is effectively camera - $80 (going forward) or camera + $220 (going backward).
+        // Engine uses a wider $300 behind to avoid pop-in on fast camera movement; functionally safe.
         private static final int LOAD_AHEAD = 0x280;
         private static final int UNLOAD_BEHIND = 0x300;
 
