@@ -73,6 +73,9 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.BUTTON,
             Sonic1ObjectIds.BURNING_GRASS,
             Sonic1ObjectIds.SMASH_BLOCK,
+            Sonic1ObjectIds.MOVING_BLOCK,
+            Sonic1ObjectIds.INVISIBLE_BARRIER,
+            Sonic1ObjectIds.LAVA_BALL_MAKER,
             Sonic1ObjectIds.LAVA_TAG,
             Sonic1ObjectIds.WATERFALL_SOUND,
             Sonic1ObjectIds.GIANT_RING,
@@ -145,11 +148,14 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.PUSH_BLOCK, List.of("PushBlock"));
         map.put(Sonic1ObjectIds.CHAINED_STOMPER, List.of("ChainedStomper"));
         map.put(Sonic1ObjectIds.BURNING_GRASS, List.of("BurningGrass"));
+        map.put(Sonic1ObjectIds.LAVA_BALL_MAKER, List.of("LavaBallMaker"));
+        map.put(Sonic1ObjectIds.LAVA_BALL, List.of("LavaBall"));
         map.put(Sonic1ObjectIds.LAVA_TAG, List.of("LavaTag"));
         map.put(Sonic1ObjectIds.BATBRAIN, List.of("Batbrain"));
         map.put(Sonic1ObjectIds.SEESAW, List.of("Seesaw"));
         map.put(Sonic1ObjectIds.BOMB, List.of("Bomb"));
         map.put(Sonic1ObjectIds.ORBINAUT, List.of("Orbinaut"));
+        map.put(Sonic1ObjectIds.INVISIBLE_BARRIER, List.of("InvisibleBarrier"));
         map.put(Sonic1ObjectIds.CATERKILLER, List.of("Caterkiller"));
         map.put(Sonic1ObjectIds.LAMPPOST, List.of("Lamppost"));
         map.put(Sonic1ObjectIds.HIDDEN_BONUS, List.of("HiddenBonus"));

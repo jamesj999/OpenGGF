@@ -224,6 +224,21 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search LzPole (100 bytes)
     public static final int ART_NEM_LZ_POLE_ADDR = 0x317F2;
 
+    // Nem_LzBlock3: Nemesis-compressed LZ 32x16 moving block art (182 bytes)
+    // ArtTile_LZ_Moving_Block = $3BC, loaded via PLC_LZ2
+    // Verified by RomOffsetFinder --game s1 search LzBlock3
+    public static final int ART_NEM_LZ_MOVING_BLOCK_ADDR = 0x3153E;
+
+    // Nem_Stomper: Nemesis-compressed SBZ stomper / short moving block art (413 bytes)
+    // ArtTile_SBZ_Moving_Block_Short = $2C0, loaded via PLC_SBZ
+    // Verified by RomOffsetFinder --game s1 search Stomper
+    public static final int ART_NEM_SBZ_STOMPER_ADDR = 0x34D28;
+
+    // Nem_SlideFloor: Nemesis-compressed SBZ sliding floor / long moving block art (88 bytes)
+    // ArtTile_SBZ_Moving_Block_Long = $460, loaded via PLC_SBZ
+    // Verified by RomOffsetFinder --game s1 search SlideFloor
+    public static final int ART_NEM_SBZ_SLIDE_FLOOR_ADDR = 0x35886;
+
     // Nem_SlzCannon: Nemesis-compressed SLZ fireball launcher / lava thrower art
     // Loaded via PLC_SLZ: plcm Nem_SlzCannon, ArtTile_SLZ_Fireball_Launcher
     // Verified by RomOffsetFinder --game s1 search Cannon

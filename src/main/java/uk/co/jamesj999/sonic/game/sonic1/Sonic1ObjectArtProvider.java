@@ -182,18 +182,31 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadButtonArt(rom, zoneIndex);
         }
 
-        // Load MZ-specific art (fireball, smash block, push block, glass block - MZ only)
+        // Load MZ-specific art (fireball, smash block, push block, glass block, moving block - MZ only)
         if (zoneIndex == Sonic1Constants.ZONE_MZ) {
             loadMzFireballArt(rom);
             loadMzSmashBlockArt(rom);
             loadMzPushBlockArt(rom);
             loadMzGlassBlockArt(rom);
             loadMzChainedStomperArt(rom);
+            loadMzMovingBlockArt(rom);
         }
 
-        // Load LZ-specific art (push block)
+        // Load SLZ-specific art (fireball - same Nem_MzFire art at different VRAM tile)
+        if (zoneIndex == Sonic1Constants.ZONE_SLZ) {
+            loadSlzFireballArt(rom);
+        }
+
+        // Load LZ-specific art (push block, moving block)
         if (zoneIndex == Sonic1Constants.ZONE_LZ) {
             loadLzPushBlockArt(rom);
+            loadLzMovingBlockArt(rom);
+        }
+
+        // Load SBZ-specific art (moving blocks - short stomper + long slide floor)
+        if (zoneIndex == Sonic1Constants.ZONE_SBZ) {
+            loadSbzMovingBlockShortArt(rom);
+            loadSbzMovingBlockLongArt(rom);
         }
 
         // Load boss art (GHZ: Eggman, weapons/chain anchor, exhaust flame)
@@ -2940,6 +2953,27 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
+     * Loads SLZ Fireball art (Nem_MzFire at ArtTile_SLZ_Fireball=$480).
+     * Same art data as MZ fireball, loaded under a separate key for SLZ zone.
+     * From PLC_SLZ: plcm Nem_MzFire, ArtTile_SLZ_Fireball
+     * <p>
+     * Uses palette line 0, no priority: make_art_tile(ArtTile_SLZ_Fireball,0,0).
+     */
+    private void loadSlzFireballArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_MZ_FIREBALL_ADDR, "SlzFireball");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SLZ fireball art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createFireballMappings();
+        // make_art_tile(ArtTile_SLZ_Fireball, 0, 0) -> palette line 0, no priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 0);
+        registerSheet(ObjectArtKeys.SLZ_FIREBALL, sheet);
+    }
+
+    /**
      * Loads MZ Smashable Green Block art (Nem_MzBlock) and creates S1-format sprite mappings.
      * <p>
      * From docs/s1disasm/_incObj/51 Smashable Green Block.asm:
@@ -3335,6 +3369,196 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 new SpriteMappingPiece(-0x20, -0x10, 4, 4, 0x08, false, false, 0, true),
                 new SpriteMappingPiece(    0, -0x10, 4, 4, 0x08, false, false, 0, true),
                 new SpriteMappingPiece( 0x20, -0x10, 4, 4, 0x08, false, false, 0, true)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads MZ Moving Block art (Nem_MzBlock, same art as push/smash blocks).
+     * <p>
+     * From docs/s1disasm/_incObj/52 Moving Blocks.asm:
+     * <pre>
+     *   move.w  #make_art_tile(ArtTile_MZ_Block,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_MZ_Block = $2B8, palette line 2.
+     * <p>
+     * Mappings from docs/s1disasm/_maps/Moving Blocks (MZ and SBZ).asm (Map_MBlock_internal):
+     * 5 frames for different block sizes.
+     */
+    private void loadMzMovingBlockArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_MZ_BLOCK_ADDR, "MzMovingBlock");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load MZ moving block art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createMzSbzMovingBlockMappings();
+        // make_art_tile(ArtTile_MZ_Block, 2, 0) -> palette line 2, no priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.MZ_MOVING_BLOCK, sheet);
+    }
+
+    /**
+     * Loads LZ Moving Block art (Nem_LzBlock3).
+     * <p>
+     * From docs/s1disasm/_incObj/52 Moving Blocks.asm:
+     * <pre>
+     *   move.l  #Map_MBlockLZ,obMap(a0)
+     *   move.w  #make_art_tile(ArtTile_LZ_Moving_Block,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_LZ_Moving_Block = $3BC, palette line 2.
+     * <p>
+     * Mappings from docs/s1disasm/_maps/Moving Blocks (LZ).asm (Map_MBlockLZ_internal):
+     * Single frame (32x16 block).
+     */
+    private void loadLzMovingBlockArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_LZ_MOVING_BLOCK_ADDR, "LzMovingBlock");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load LZ moving block art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createLzMovingBlockMappings();
+        // make_art_tile(ArtTile_LZ_Moving_Block, 2, 0) -> palette line 2, no priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.LZ_MOVING_BLOCK, sheet);
+    }
+
+    /**
+     * Loads SBZ Moving Block (short) art (Nem_Stomper).
+     * <p>
+     * From docs/s1disasm/_incObj/52 Moving Blocks.asm:
+     * <pre>
+     *   move.w  #make_art_tile(ArtTile_SBZ_Moving_Block_Short,1,0),obGfx(a0)
+     * </pre>
+     * ArtTile_SBZ_Moving_Block_Short = $2C0, palette line 1.
+     * Used for subtype $28.
+     * <p>
+     * Shares Map_MBlock mappings with MZ, using frame 2.
+     */
+    private void loadSbzMovingBlockShortArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_STOMPER_ADDR, "SbzMovingBlockShort");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ short moving block art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createMzSbzMovingBlockMappings();
+        // make_art_tile(ArtTile_SBZ_Moving_Block_Short, 1, 0) -> palette line 1, no priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 1, 1);
+        registerSheet(ObjectArtKeys.SBZ_MOVING_BLOCK_SHORT, sheet);
+    }
+
+    /**
+     * Loads SBZ Moving Block (long) art (Nem_SlideFloor).
+     * <p>
+     * From docs/s1disasm/_incObj/52 Moving Blocks.asm:
+     * <pre>
+     *   move.w  #make_art_tile(ArtTile_SBZ_Moving_Block_Long,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_SBZ_Moving_Block_Long = $460, palette line 2.
+     * Used for SBZ subtypes other than $28 (e.g., $39).
+     * <p>
+     * Shares Map_MBlock mappings with MZ.
+     */
+    private void loadSbzMovingBlockLongArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_SLIDE_FLOOR_ADDR, "SbzMovingBlockLong");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ long moving block art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createMzSbzMovingBlockMappings();
+        // make_art_tile(ArtTile_SBZ_Moving_Block_Long, 2, 0) -> palette line 2, no priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SBZ_MOVING_BLOCK_LONG, sheet);
+    }
+
+    /**
+     * Creates MZ/SBZ moving block sprite mappings from S1 disassembly
+     * docs/s1disasm/_maps/Moving Blocks (MZ and SBZ).asm (Map_MBlock_internal).
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0 (.mz1): Single 32x16 MZ block (1 piece)
+     * Frame 1 (.mz2): Double 64x16 MZ block (2 pieces)
+     * Frame 2 (.sbz): SBZ short block 64x24 (4 pieces - top row + bottom row, repeated)
+     * Frame 3 (.sbzwide): SBZ wide block 128x24 (4 pieces)
+     * Frame 4 (.mz3): Triple 96x16 MZ block (3 pieces)
+     */
+    private List<SpriteMappingFrame> createMzSbzMovingBlockMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.mz1): 1 piece - 32x32 tile block
+        // spritePiece -$10, -8, 4, 4, 8, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -8, 4, 4, 8, false, false, 0, false)
+        )));
+
+        // Frame 1 (.mz2): 2 pieces - double 64x32 block
+        // spritePiece -$20, -8, 4, 4, 8, 0, 0, 0, 0
+        // spritePiece    0, -8, 4, 4, 8, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -8, 4, 4, 8, false, false, 0, false),
+                new SpriteMappingPiece(    0, -8, 4, 4, 8, false, false, 0, false)
+        )));
+
+        // Frame 2 (.sbz): 4 pieces - SBZ short block
+        // spritePiece -$20, -8, 4, 1, 0, 0, 0, 1, 0
+        // spritePiece -$20,  0, 4, 2, 4, 0, 0, 0, 0
+        // spritePiece    0, -8, 4, 1, 0, 0, 0, 1, 0
+        // spritePiece    0,  0, 4, 2, 4, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -8, 4, 1, 0, false, false, 1, false),
+                new SpriteMappingPiece(-0x20,  0, 4, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(    0, -8, 4, 1, 0, false, false, 1, false),
+                new SpriteMappingPiece(    0,  0, 4, 2, 4, false, false, 0, false)
+        )));
+
+        // Frame 3 (.sbzwide): 4 pieces - SBZ wide block 128x24
+        // spritePiece -$40, -8, 4, 3, 0, 0, 0, 0, 0
+        // spritePiece -$20, -8, 4, 3, 3, 0, 0, 0, 0
+        // spritePiece    0, -8, 4, 3, 3, 0, 0, 0, 0
+        // spritePiece  $20, -8, 4, 3, 0, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x40, -8, 4, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -8, 4, 3, 3, false, false, 0, false),
+                new SpriteMappingPiece(    0, -8, 4, 3, 3, false, false, 0, false),
+                new SpriteMappingPiece( 0x20, -8, 4, 3, 0, true,  false, 0, false)
+        )));
+
+        // Frame 4 (.mz3): 3 pieces - triple 96x32 MZ block
+        // spritePiece -$30, -8, 4, 4, 8, 0, 0, 0, 0
+        // spritePiece -$10, -8, 4, 4, 8, 0, 0, 0, 0
+        // spritePiece  $10, -8, 4, 4, 8, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x30, -8, 4, 4, 8, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -8, 4, 4, 8, false, false, 0, false),
+                new SpriteMappingPiece( 0x10, -8, 4, 4, 8, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Creates LZ moving block sprite mappings from S1 disassembly
+     * docs/s1disasm/_maps/Moving Blocks (LZ).asm (Map_MBlockLZ_internal).
+     * <p>
+     * Single frame: 32x16 block (1 piece).
+     * Note: LZ block uses obHeight=7 in disassembly (shorter collision).
+     */
+    private List<SpriteMappingFrame> createLzMovingBlockMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.f0): 1 piece - 32x16 block
+        // spritePiece -$10, -8, 4, 2, 0, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -8, 4, 2, 0, false, false, 0, false)
         )));
 
         return frames;
