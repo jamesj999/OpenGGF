@@ -296,6 +296,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         private ShieldObjectInstance shieldObject;
         private InvincibilityStarsObjectInstance invincibilityObject;
         protected boolean speedShoes = false;
+        /**
+         * Super Sonic state flag.
+         * Exposed for object scripts that branch on Super Sonic (e.g. ObjB2 jump timing).
+         */
+        protected boolean superSonic = false;
 
         // Physics provider fields — populated from GameModule when available
         private PhysicsProfile physicsProfile;
@@ -308,6 +313,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          * ROM).
          */
         protected boolean forceInputRight = false;
+        /**
+         * ROM-style forced logical input bits set by object scripts.
+         */
+        protected int forcedInputMask = 0;
         /**
          * When true, user inputs are ignored (Control_Locked in ROM).
          */
@@ -460,6 +469,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.highPriority = false;
                 this.priorityBucket = RenderPriority.PLAYER_DEFAULT;
                 this.forceInputRight = false;
+                this.forcedInputMask = 0;
                 this.controlLocked = false;
                 this.moveLockTimer = 0;
                 this.objectControlled = false;
@@ -473,6 +483,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.flipTurned = false;
                 this.inWater = false;
                 this.wasInWater = false;
+                this.superSonic = false;
                 // Reset collision path to Path 0 (primary collision).
                 // Without this, if player was on Path 1 in previous level,
                 // solidity bits would remain 0x0E/0x0F causing collision checks
@@ -541,6 +552,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public boolean hasSpeedShoes() {
                 return speedShoes;
+        }
+
+        public boolean isSuperSonic() {
+                return superSonic;
+        }
+
+        public void setSuperSonic(boolean superSonic) {
+                this.superSonic = superSonic;
         }
 
         public int getRingCount() {
@@ -1215,6 +1234,29 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void setForceInputRight(boolean forceInputRight) {
                 this.forceInputRight = forceInputRight;
+                if (forceInputRight) {
+                        this.forcedInputMask |= INPUT_RIGHT;
+                } else {
+                        this.forcedInputMask &= ~INPUT_RIGHT;
+                }
+        }
+
+        public int getForcedInputMask() {
+                return forcedInputMask;
+        }
+
+        public void setForcedInputMask(int forcedInputMask) {
+                this.forcedInputMask = forcedInputMask & (INPUT_UP | INPUT_DOWN | INPUT_LEFT | INPUT_RIGHT | INPUT_JUMP);
+                this.forceInputRight = (this.forcedInputMask & INPUT_RIGHT) != 0;
+        }
+
+        public void clearForcedInputMask() {
+                this.forcedInputMask = 0;
+                this.forceInputRight = false;
+        }
+
+        public boolean isForcedInputActive(int inputBit) {
+                return (forcedInputMask & inputBit) != 0;
         }
 
         public boolean isControlLocked() {

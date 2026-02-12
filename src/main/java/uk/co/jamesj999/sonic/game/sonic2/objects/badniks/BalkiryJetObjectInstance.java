@@ -1,0 +1,113 @@
+package uk.co.jamesj999.sonic.game.sonic2.objects.badniks;
+
+import uk.co.jamesj999.sonic.debug.DebugRenderContext;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
+import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.graphics.RenderPriority;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
+import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+
+import java.awt.Color;
+import java.util.List;
+
+/**
+ * Balkiry Jet (0x9C) - Jet exhaust child that follows the Balkiry parent.
+ *
+ * Based on disassembly Obj9C (s2.asm lines 74480-74523).
+ *
+ * Main (Obj9C_Main):
+ *   - Read parent address from objoff_2C
+ *   - Check parent is still alive (cmp.b id) - delete if not
+ *   - Copy parent x_pos/y_pos to self
+ *   - AnimateSprite using Ani_obj9C (frames 8,9 at speed 1)
+ *   - Obj_DeleteBehindScreen
+ *
+ * SubObjData: priority 5, width 8, collision 0.
+ * Animation: Ani_obj9C = { 1, 8, 9, $FF }
+ */
+public class BalkiryJetObjectInstance extends AbstractObjectInstance {
+    // Animation from Ani_obj9C: dc.b 1, 8, 9, $FF
+    private static final int ANIM_SPEED = 1; // Animate every 2 frames (speed+1)
+    private static final int FRAME_A = 8; // Map_obj9C_0084: 2x1 tiles
+    private static final int FRAME_B = 9; // Map_obj9C_008E: 1x1 tile
+    // From Obj9C_SubObjData
+    private static final int PRIORITY = 5;
+
+    private final BalkiryBadnikInstance parent;
+    private int animTimer;
+    private int animFrame;
+
+    public BalkiryJetObjectInstance(ObjectSpawn spawn, BalkiryBadnikInstance parent) {
+        super(spawn, "BalkiryJet");
+        this.parent = parent;
+        this.animFrame = FRAME_A;
+        this.animTimer = 0;
+    }
+
+    @Override
+    public void update(int frameCounter, AbstractPlayableSprite player) {
+        // ROM: cmp.b id(a1),d0 / bne.w JmpTo65_DeleteObject
+        if (parent.isDestroyed()) {
+            setDestroyed(true);
+            return;
+        }
+
+        // ROM: AnimateSprite with Ani_obj9C (speed 1, frames 8, 9, loop)
+        animTimer++;
+        if (animTimer > ANIM_SPEED) {
+            animTimer = 0;
+            animFrame = (animFrame == FRAME_A) ? FRAME_B : FRAME_A;
+        }
+
+        // ROM: Obj_DeleteBehindScreen
+        if (!isOnScreenX(64)) {
+            setDestroyed(true);
+        }
+    }
+
+    @Override
+    public int getX() {
+        return parent.getX();
+    }
+
+    @Override
+    public int getY() {
+        return parent.getY();
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        return RenderPriority.clamp(PRIORITY);
+    }
+
+    @Override
+    public void appendRenderCommands(List<GLCommand> commands) {
+        if (isDestroyed()) {
+            return;
+        }
+
+        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        if (renderManager == null) {
+            return;
+        }
+
+        // Jet uses Turtloid sheet (shared mappings from Obj9A_Obj98_MapUnc_37B62)
+        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.TURTLOID);
+        if (renderer == null || !renderer.isReady()) {
+            return;
+        }
+
+        // Jet exhaust art faces left by default (Balkiry always flies left)
+        renderer.drawFrameIndex(animFrame, parent.getX(), parent.getY(), false, false);
+    }
+
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
+        ctx.drawCross(parent.getX(), parent.getY(), 4, 1.0f, 0.5f, 0.0f);
+        ctx.drawWorldLabel(parent.getX(), parent.getY(), -1, "Jet", Color.ORANGE);
+    }
+}

@@ -509,6 +509,12 @@ public class Sonic2Constants {
     // CPZ Pylon (Object 0x7C) - decorative background pylon
     public static final int ART_NEM_CPZ_METAL_THINGS_ADDR = 0x825AE;  // ArtNem_CPZMetalThings (verified)
     public static final int ART_NEM_WFZ_PLATFORM_ADDR = 0x8D96E;    // ArtNem_WfzFloatingPlatform (verified)
+    public static final int ART_NEM_TORNADO_ADDR = 0x8CC44;         // ArtNem_Tornado (ObjB2 main sheet)
+    public static final int ART_NEM_TORNADO_THRUSTER_ADDR = 0x90520; // ArtNem_TornadoThruster (ObjB2 subtype $5C)
+    public static final int ART_NEM_WFZ_THRUST_ADDR = 0x8E0C4;      // ArtNem_WfzThrust (ObjBC/ObjB2 subtype $56/$58)
+    public static final int MAP_UNC_OBJB2_A_ADDR = 0x3AFF2;         // ObjB2_MapUnc_3AFF2
+    public static final int MAP_UNC_OBJB2_B_ADDR = 0x3B292;         // ObjB2_MapUnc_3B292
+    public static final int MAP_UNC_OBJBC_ADDR = 0x3BC08;           // ObjBC_MapUnc_3BC08
     public static final int ART_TILE_CPZ_ELEVATOR = 0x03A0;  // palette 3
     public static final int ART_TILE_OOZ_ELEVATOR = 0x02F4;  // palette 3
     public static final int ART_TILE_WFZ_PLATFORM = 0x046D;  // palette 1, priority
@@ -939,6 +945,12 @@ public class Sonic2Constants {
         offsets.put("ART_NEM_CPZ_STAIRBLOCK_ADDR", ART_NEM_CPZ_STAIRBLOCK_ADDR);
         offsets.put("ART_NEM_CPZ_METAL_THINGS_ADDR", ART_NEM_CPZ_METAL_THINGS_ADDR);
         offsets.put("ART_NEM_WFZ_PLATFORM_ADDR", ART_NEM_WFZ_PLATFORM_ADDR);
+        offsets.put("ART_NEM_TORNADO_ADDR", ART_NEM_TORNADO_ADDR);
+        offsets.put("ART_NEM_TORNADO_THRUSTER_ADDR", ART_NEM_TORNADO_THRUSTER_ADDR);
+        offsets.put("ART_NEM_WFZ_THRUST_ADDR", ART_NEM_WFZ_THRUST_ADDR);
+        offsets.put("MAP_UNC_OBJB2_A_ADDR", MAP_UNC_OBJB2_A_ADDR);
+        offsets.put("MAP_UNC_OBJB2_B_ADDR", MAP_UNC_OBJB2_B_ADDR);
+        offsets.put("MAP_UNC_OBJBC_ADDR", MAP_UNC_OBJBC_ADDR);
         offsets.put("ART_TILE_CPZ_ELEVATOR", ART_TILE_CPZ_ELEVATOR);
         offsets.put("ART_TILE_OOZ_ELEVATOR", ART_TILE_OOZ_ELEVATOR);
         offsets.put("ART_TILE_WFZ_PLATFORM", ART_TILE_WFZ_PLATFORM);

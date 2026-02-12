@@ -167,6 +167,7 @@ public final class Sonic2ObjectIds {
     public static final int ARZ_ROT_PFORMS = 0x83; // Rotating Platforms (Obj83) - 3 platforms orbiting center
 
     // SCZ Objects
+    public static final int TORNADO = 0xB2; // Tornado (ObjB2) - SCZ/WFZ scripted biplane sequence
     public static final int CLOUD = 0xB3; // Cloud (ObjB3) - decorative clouds from Sky Chase Zone
 
     // CNZ/HTZ Objects

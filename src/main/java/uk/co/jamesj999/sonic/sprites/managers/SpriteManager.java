@@ -182,11 +182,17 @@ public class SpriteManager {
 					boolean aiJump = cpuController.getInputJump();
 
 					boolean controlLocked = playable.isControlLocked();
-					effectiveRight = (!controlLocked && aiRight) || playable.isForceInputRight();
-					effectiveLeft = !controlLocked && aiLeft && !playable.isForceInputRight();
-					effectiveUp = !controlLocked && aiUp;
-					effectiveDown = !controlLocked && aiDown;
-					effectiveJump = !controlLocked && aiJump;
+					boolean forcedRight = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_RIGHT)
+							|| playable.isForceInputRight();
+					boolean forcedLeft = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_LEFT);
+					boolean forcedUp = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_UP);
+					boolean forcedDown = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_DOWN);
+					boolean forcedJump = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_JUMP);
+					effectiveRight = (!controlLocked && aiRight) || forcedRight;
+					effectiveLeft = ((!controlLocked && aiLeft) || forcedLeft) && !forcedRight;
+					effectiveUp = (!controlLocked && aiUp) || forcedUp;
+					effectiveDown = (!controlLocked && aiDown) || forcedDown;
+					effectiveJump = (!controlLocked && aiJump) || forcedJump;
 					effectiveTest = false;
 
 					playable.setJumpInputPressed(aiJump);
@@ -194,11 +200,17 @@ public class SpriteManager {
 				} else {
 					// Player-controlled sprite: use keyboard input
 					boolean controlLocked = playable.isControlLocked();
-					effectiveRight = (!controlLocked && right) || playable.isForceInputRight();
-					effectiveLeft = !controlLocked && left && !playable.isForceInputRight();
-					effectiveUp = !controlLocked && up;
-					effectiveDown = !controlLocked && down;
-					effectiveJump = !controlLocked && space;
+					boolean forcedRight = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_RIGHT)
+							|| playable.isForceInputRight();
+					boolean forcedLeft = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_LEFT);
+					boolean forcedUp = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_UP);
+					boolean forcedDown = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_DOWN);
+					boolean forcedJump = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_JUMP);
+					effectiveRight = (!controlLocked && right) || forcedRight;
+					effectiveLeft = ((!controlLocked && left) || forcedLeft) && !forcedRight;
+					effectiveUp = (!controlLocked && up) || forcedUp;
+					effectiveDown = (!controlLocked && down) || forcedDown;
+					effectiveJump = (!controlLocked && space) || forcedJump;
 					effectiveTest = !controlLocked && testButton;
 
 					// Store RAW input state for objects (like flippers) that need to query
