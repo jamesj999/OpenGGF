@@ -344,6 +344,11 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search MzFire (734 bytes)
     public static final int ART_NEM_MZ_FIREBALL_ADDR = 0x32A7C;
 
+    // Nem_Lava: Nemesis-compressed MZ lava geyser art (ArtTile_MZ_Lava = $3A8)
+    // Used by Objects 0x4C (GeyserMaker) and 0x4D (LavaGeyser)
+    // Verified by RomOffsetFinder --game s1 search Lava (2325 bytes)
+    public static final int ART_NEM_LAVA_ADDR = 0x32D5A;
+
     // Nem_Eggman: Main Eggman ship + face + flame art (verified by RomOffsetFinder)
     public static final int ART_NEM_EGGMAN_ADDR = 0x5D0FC;
     // Nem_Weapons: Boss weapons art — chain anchor, pipes, spikes (verified)

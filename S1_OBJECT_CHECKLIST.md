@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 81
-- **Implemented:** 40 (49.4%)
-- **Unimplemented:** 41 (50.6%)
+- **Implemented:** 41 (50.6%)
+- **Unimplemented:** 40 (49.4%)
 
 ## Implemented Objects
 
@@ -50,6 +50,7 @@ Generated: 2026-02-09 23:03:25
 | 0x52 | MovingBlock | 17 | LZ1, MZ1, MZ2, MZ3, SBZ1, SBZ2 |
 | 0x71 | InvisibleBarrier | 88 | LZ1, LZ3, MZ1, MZ2, MZ3, SYZ2, SYZ3, SBZ1, SBZ2, SBZ3 |
 | 0x13 | LavaBallMaker | 51 | MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3 |
+| 0x4C | LavaGeyserMaker | 4 | MZ2, MZ3 |
 
 ## Unimplemented Objects (By Usage)
 
@@ -93,7 +94,6 @@ Generated: 2026-02-09 23:03:25
 | 0x6F | Object | S1_Obj_6F | 6 | SBZ1 |
 | 0x0B | Object | S1_Obj_0B | 5 | LZ3 |
 | 0x43 | Object | S1_Obj_43 | 4 | SYZ1, SYZ2 |
-| 0x4C | Object | S1_Obj_4C | 4 | MZ2, MZ3 |
 | 0x5C | Object | S1_Obj_5C | 3 | SLZ1, SLZ2, SLZ3 |
 | 0x0C | Object | S1_Obj_0C | 2 | LZ2, LZ3 |
 | 0x66 | Object | S1_Obj_66 | 2 | SBZ1 |
@@ -316,7 +316,7 @@ Total: 145 objects | Implemented: 19 | Unimplemented: 1
 
 #### Act 2
 
-Total: 198 objects | Implemented: 21 | Unimplemented: 4
+Total: 198 objects | Implemented: 22 | Unimplemented: 3
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x5) [0x00]
@@ -338,7 +338,7 @@ Total: 198 objects | Implemented: 21 | Unimplemented: 4
 - [x] 0x41 Spring (x1) [0x10]
 - [x] 0x46 MzBrick (x39) [0x00]
 - [x] 0x4B GiantRing (x1) [0x00]
-- [ ] 0x4C S1_Obj_4C (x3) [0x01]
+- [x] 0x4C LavaGeyserMaker (x3) [0x01]
 - [ ] 0x4E S1_Obj_4E (x1) [0x00]
 - [x] 0x51 SmashBlock (x17) [0x00]
 - [x] 0x52 MovingBlock (x4) [0x41, 0x02]
@@ -349,7 +349,7 @@ Total: 198 objects | Implemented: 21 | Unimplemented: 4
 
 #### Act 3
 
-Total: 232 objects | Implemented: 20 | Unimplemented: 3
+Total: 232 objects | Implemented: 21 | Unimplemented: 2
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x3) [0x00]
@@ -370,7 +370,7 @@ Total: 232 objects | Implemented: 20 | Unimplemented: 3
 - [x] 0x3E EggPrison (x2) [0x00, 0x01]
 - [x] 0x41 Spring (x1) [0x10]
 - [x] 0x46 MzBrick (x34) [0x00, 0x02]
-- [ ] 0x4C S1_Obj_4C (x1) [0x01]
+- [x] 0x4C LavaGeyserMaker (x1) [0x01]
 - [x] 0x51 SmashBlock (x13) [0x00]
 - [x] 0x52 MovingBlock (x3) [0x01, 0x02]
 - [ ] 0x53 S1_Obj_53 (x5) [0x01]

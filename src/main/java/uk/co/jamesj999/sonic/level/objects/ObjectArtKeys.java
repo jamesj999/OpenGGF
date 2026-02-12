@@ -71,6 +71,7 @@ public final class ObjectArtKeys {
     public static final String MZ_BRICK = "mz_brick";
     public static final String MZ_LARGE_GRASSY_PLATFORM = "mz_large_grassy_platform";
     public static final String MZ_FIREBALL = "mz_fireball";
+    public static final String MZ_LAVA_GEYSER = "mz_lava_geyser";
     public static final String SLZ_FIREBALL = "slz_fireball";
     public static final String MZ_CHAINED_STOMPER = "mz_chained_stomper";
     public static final String MZ_GLASS_BLOCK = "mz_glass_block";
