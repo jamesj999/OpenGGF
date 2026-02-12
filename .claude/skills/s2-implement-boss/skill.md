@@ -1,6 +1,6 @@
 # Implement Sonic 2 Boss
 
-Implement a Sonic 2 zone boss with complete ROM accuracy. This skill guides complete implementation including LevelEventManager integration, multi-component architecture, hit handling, defeat sequences, and cross-validation against the disassembly.
+Implement a Sonic 2 zone boss with complete ROM accuracy. This skill guides complete implementation including Sonic2LevelEventManager integration, multi-component architecture, hit handling, defeat sequences, and cross-validation against the disassembly.
 
 ## Inputs
 
@@ -15,7 +15,7 @@ $ARGUMENTS: Boss name or zone (e.g., "EHZ boss", "Chemical Plant boss", "0x56")
 
 | Aspect | Regular Objects | Bosses |
 |--------|-----------------|--------|
-| **Spawning** | From level layout data via ObjectManager | Dynamically via LevelEventManager |
+| **Spawning** | From level layout data via ObjectManager | Dynamically via Sonic2LevelEventManager |
 | **Camera** | No camera control | Arena setup with boundary locking |
 | **Components** | Single entity or simple children | Multi-component with AbstractBossChild |
 | **Hits** | 1 hit (badniks) or indestructible | 8 hits with invulnerability periods |
@@ -46,9 +46,9 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 - `Boss_HandleHits` routine usage
 - `routine_secondary` state machine with approach/battle/defeat phases
 
-### Phase 2: LevelEventManager Setup
+### Phase 2: Sonic2LevelEventManager Setup
 
-Bosses are spawned dynamically by zone-specific event handlers in `LevelEventManager.java`.
+Bosses are spawned dynamically by zone-specific event handlers in `Sonic2LevelEventManager.java`.
 
 **Implementation checklist:**
 - [ ] Add zone constant if not present
@@ -61,7 +61,7 @@ Bosses are spawned dynamically by zone-specific event handlers in `LevelEventMan
 **Example event routine pattern:**
 
 ```java
-// In LevelEventManager.java - updateZONE() method
+// In Sonic2LevelEventManager.java - updateZONE() method
 private void updateZONE() {
     if (currentAct != 1) return;  // Act 2 only
 
@@ -269,7 +269,7 @@ Disassembly references:
 - Level events: docs/s2disasm/LevEvents...
 
 Validation checklist:
-1. LevelEventManager arena setup matches LevEvents_ZONE2
+1. Sonic2LevelEventManager arena setup matches LevEvents_ZONE2
 2. State machine transitions match routine_secondary values
 3. All child components spawned correctly
 4. Hit count and invulnerability timing match ROM
@@ -308,7 +308,7 @@ Once cross-validation passes:
 | Boss state context | `src/.../level/objects/boss/BossStateContext.java` |
 | Boss child base | `src/.../level/objects/boss/AbstractBossChild.java` |
 | Boss child interface | `src/.../level/objects/boss/BossChildComponent.java` |
-| Level events | `src/.../game/sonic2/LevelEventManager.java` |
+| Level events | `src/.../game/sonic2/Sonic2LevelEventManager.java` |
 | Boss implementations | `src/.../game/sonic2/objects/bosses/` |
 | Object IDs | `src/.../game/sonic2/constants/Sonic2ObjectIds.java` |
 | ROM offsets | `src/.../game/sonic2/constants/Sonic2Constants.java` |

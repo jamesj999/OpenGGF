@@ -1,8 +1,8 @@
 package uk.co.jamesj999.sonic.game.sonic2;
 
-import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.AbstractLevelEventManager;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.PlayerCharacter;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
@@ -22,21 +22,8 @@ import java.util.logging.Logger;
  *
  * Each zone has its own event routine dispatched via the zone index.
  */
-public class LevelEventManager implements LevelEventProvider {
-    private static LevelEventManager instance;
-
-    private final Camera camera;
-
-    // Current zone and act
-    private int currentZone = -1;
-    private int currentAct = -1;
-
-    // Per-zone event routine state (ROM: Dynamic_Resize_Routine)
-    // Incremented by 2 as each event completes, similar to ROM behavior
-    private int eventRoutine = 0;
-
-    // Internal frame counter for timing purposes
-    private int frameCounter = 0;
+public class Sonic2LevelEventManager extends AbstractLevelEventManager {
+    private static Sonic2LevelEventManager instance;
 
     // Zone constants (matches ROM zone ordering)
     public static final int ZONE_EHZ = 0;
@@ -54,24 +41,41 @@ public class LevelEventManager implements LevelEventProvider {
     // CPZ uses zone index 1 in level event ordering (ROM zone ID 0x0D)
     public static final int ZONE_CPZ = 1;
 
-    private static final Logger LOGGER = Logger.getLogger(LevelEventManager.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(Sonic2LevelEventManager.class.getName());
 
     /** VDP palette line size: 16 colors × 2 bytes each = 32 bytes */
     private static final int PALETTE_LINE_SIZE = 32;
 
-    private LevelEventManager() {
-        this.camera = Camera.getInstance();
+    private Sonic2LevelEventManager() {
+        super();
     }
 
-    /**
-     * Called when entering a new level to reset event state.
-     */
+    // =========================================================================
+    // AbstractLevelEventManager contract
+    // =========================================================================
+
     @Override
-    public void initLevel(int zone, int act) {
-        this.currentZone = zone;
-        this.currentAct = act;
-        this.eventRoutine = 0;
-        this.frameCounter = 0;
+    protected int getRoutineStride() {
+        return 2;
+    }
+
+    @Override
+    protected int getEventDataFgSize() {
+        return 6;
+    }
+
+    @Override
+    protected int getEventDataBgSize() {
+        return 0;
+    }
+
+    @Override
+    public PlayerCharacter getPlayerCharacter() {
+        return PlayerCharacter.SONIC_AND_TAILS;
+    }
+
+    @Override
+    protected void onInitLevel(int zone, int act) {
         this.bossSpawnDelay = 0;
         this.cpzWaterTriggered = false;
         this.cpzBoss = null;
@@ -83,6 +87,7 @@ public class LevelEventManager implements LevelEventProvider {
         this.cnzRightWallX = -1;
         this.cnzRightWallY = -1;
         this.htzBoss = null;
+        this.mczBoss = null;
         // Reset OOZ oil state
         if (zone == ZONE_OOZ) {
             this.oilManager = new OilSurfaceManager();
@@ -98,18 +103,8 @@ public class LevelEventManager implements LevelEventProvider {
         this.htzCurrentBgXOffset = HTZ_BG_X_OFFSET_TOP;
     }
 
-    /**
-     * Called every frame to run dynamic level events.
-     * Must be called BEFORE camera.updateBoundaryEasing().
-     */
     @Override
-    public void update() {
-        frameCounter++;
-
-        if (currentZone < 0) {
-            return;
-        }
-
+    protected void onUpdate() {
         // Dispatch to zone-specific event handler
         switch (currentZone) {
             case ZONE_EHZ -> updateEHZ();
@@ -239,7 +234,7 @@ public class LevelEventManager implements LevelEventProvider {
 
         // Act 2: Boss arena setup
         // ROM: LevEvents_EHZ2 (s2.asm:20363-20503)
-        switch (eventRoutine) {
+        switch (eventRoutineFg) {
             case 0 -> {
                 // Routine 0 (s2.asm:20377-20388): Wait for camera X >= $2780
                 if (camera.getX() >= 0x2780) {
@@ -247,7 +242,7 @@ public class LevelEventManager implements LevelEventProvider {
                     camera.setMinX(camera.getX());
                     // ROM: Set maxY TARGET to $390 (will ease down to boss arena height)
                     camera.setMaxYTarget((short) 0x390);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                 }
             }
             case 2 -> {
@@ -259,7 +254,7 @@ public class LevelEventManager implements LevelEventProvider {
                     // Mark boss fight active when camera locks (enables tight boundary)
                     uk.co.jamesj999.sonic.game.GameServices.gameState().setCurrentBossId(
                         uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds.EHZ_BOSS);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                     bossSpawnDelay = 0;
                     // ROM: Start music fade-out (s2.asm:20404)
                     // Fade runs during the 90-frame spawn delay
@@ -276,7 +271,7 @@ public class LevelEventManager implements LevelEventProvider {
                 bossSpawnDelay++;
                 if (bossSpawnDelay >= 0x5A) {
                     spawnEHZBoss();
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                     // Start boss music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
                         .playMusic(Sonic2Music.BOSS.id);
@@ -287,7 +282,7 @@ public class LevelEventManager implements LevelEventProvider {
                 if (ehzBoss != null && ehzBoss.isDefeated()) {
                     // Boss handles camera unlock and EggPrison spawn in its defeat sequence
                     // No additional action needed here
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                 }
             }
             default -> {
@@ -357,7 +352,7 @@ public class LevelEventManager implements LevelEventProvider {
      * ROM: LevEvents_HTZ1 (s2.asm:20674-20838)
      */
     private void updateHTZAct1() {
-        switch (eventRoutine) {
+        switch (eventRoutineFg) {
             case 0 -> {
                 // Routine 0: Wait for shake trigger
                 // ROM: LevEvents_HTZ_Routine1 checks Camera_Y >= $400 AND Camera_X >= $1800
@@ -368,10 +363,10 @@ public class LevelEventManager implements LevelEventProvider {
                     // Enable screen shake and initialize earthquake
                     ParallaxManager.getInstance().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ1_LAVA_OFFSET_RISEN, HTZ1_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                 } else if (cameraX0 >= HTZ1_SHAKE_EXIT_X) {
                     // Already past earthquake zone (e.g. teleported) - skip to post-shake
-                    eventRoutine = 4;
+                    eventRoutineFg = 4;
                 } else {
                     // Before earthquake zone or Y not met
                     if (uk.co.jamesj999.sonic.game.GameServices.gameState().isHtzScreenShakeActive()) {
@@ -393,10 +388,10 @@ public class LevelEventManager implements LevelEventProvider {
                 // Keep routine 2 active while in [$1800, $1F00), matching disassembly.
                 if (cameraX < HTZ1_SHAKE_TRIGGER_X) {
                     exitHtzEarthquakeArea();
-                    eventRoutine -= 2;
+                    eventRoutineFg -= 2;
                 } else if (cameraX >= HTZ1_SHAKE_EXIT_X) {
                     exitHtzEarthquakeArea();
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                 }
             }
             case 4 -> {
@@ -405,7 +400,7 @@ public class LevelEventManager implements LevelEventProvider {
                 if (camera.getX() < HTZ1_SHAKE_EXIT_X) {
                     ParallaxManager.getInstance().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ1_LAVA_OFFSET_RISEN, HTZ1_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
-                    eventRoutine -= 2;  // Go back to routine 2
+                    eventRoutineFg -= 2;  // Go back to routine 2
                 }
             }
             default -> {
@@ -426,7 +421,7 @@ public class LevelEventManager implements LevelEventProvider {
      * (line 20946-20951: cmpi.w #$380,(Camera_Y_pos).w / blo.s + / addq.w #4,d0)
      */
     private void updateHTZAct2() {
-        switch (eventRoutine) {
+        switch (eventRoutineFg) {
             case 0 -> {
                 // Routine 0: Wait for shake trigger
                 int cameraX0 = camera.getX();
@@ -438,12 +433,12 @@ public class LevelEventManager implements LevelEventProvider {
                         ParallaxManager.getInstance().setHtzScreenShake(true);
                         initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                                 HTZ_BG_X_OFFSET_BOTTOM);
-                        eventRoutine = 8;
+                        eventRoutineFg = 8;
                     } else {
                         // Top area
                         ParallaxManager.getInstance().setHtzScreenShake(true);
                         initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_TOP, HTZ2_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
-                        eventRoutine = 2;
+                        eventRoutineFg = 2;
                     }
                 } else if (cameraX0 >= HTZ2_SHAKE_EXIT_X) {
                     // Already past earthquake zone (e.g. teleported to last checkpoint)
@@ -451,12 +446,12 @@ public class LevelEventManager implements LevelEventProvider {
                     if (camera.getY() >= HTZ2_Y_ZONE_THRESHOLD) {
                         // Bottom zone
                         if (cameraX0 >= HTZ2_BOSS_CUTOFF_X) {
-                            eventRoutine = 12;  // Skip to boss prep
+                            eventRoutineFg = 12;  // Skip to boss prep
                         } else {
-                            eventRoutine = 10;  // Skip to post-shake (bottom)
+                            eventRoutineFg = 10;  // Skip to post-shake (bottom)
                         }
                     } else {
-                        eventRoutine = 4;  // Skip to post-shake (top)
+                        eventRoutineFg = 4;  // Skip to post-shake (top)
                     }
                 } else {
                     // Before earthquake zone
@@ -479,10 +474,10 @@ public class LevelEventManager implements LevelEventProvider {
                 // Keep routine 2 active while in [$14C0, $1B00).
                 if (cameraX < HTZ2_SHAKE_TRIGGER_X) {
                     exitHtzEarthquakeArea();
-                    eventRoutine = 0;
+                    eventRoutineFg = 0;
                 } else if (cameraX >= HTZ2_SHAKE_EXIT_X) {
                     exitHtzEarthquakeArea();
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                 }
             }
             case 4 -> {
@@ -490,7 +485,7 @@ public class LevelEventManager implements LevelEventProvider {
                 if (camera.getX() < HTZ2_SHAKE_EXIT_X) {
                     ParallaxManager.getInstance().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_TOP, HTZ2_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
-                    eventRoutine -= 2;
+                    eventRoutineFg -= 2;
                 }
             }
             case 6 -> {
@@ -500,7 +495,7 @@ public class LevelEventManager implements LevelEventProvider {
                     ParallaxManager.getInstance().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                             HTZ_BG_X_OFFSET_BOTTOM);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                 } else {
                     if (uk.co.jamesj999.sonic.game.GameServices.gameState().isHtzScreenShakeActive()) {
                         exitHtzEarthquakeArea();
@@ -521,10 +516,10 @@ public class LevelEventManager implements LevelEventProvider {
                 // Keep routine 8 active while in [$14C0, $1B00).
                 if (cameraX < HTZ2_SHAKE_TRIGGER_X) {
                     exitHtzEarthquakeArea();
-                    eventRoutine = 6;
+                    eventRoutineFg = 6;
                 } else if (cameraX >= HTZ2_SHAKE_EXIT_X) {
                     exitHtzEarthquakeArea();
-                    eventRoutine = 10;
+                    eventRoutineFg = 10;
                 }
             }
             case 10 -> {
@@ -533,11 +528,11 @@ public class LevelEventManager implements LevelEventProvider {
                     ParallaxManager.getInstance().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                             HTZ_BG_X_OFFSET_BOTTOM);
-                    eventRoutine -= 2;
+                    eventRoutineFg -= 2;
                 } else if (camera.getX() >= HTZ2_BOSS_CUTOFF_X) {
                     // Approaching boss area - advance to boss routines
                     exitHtzEarthquakeArea();
-                    eventRoutine = 12;
+                    eventRoutineFg = 12;
                 }
             }
             case 12 -> {
@@ -548,7 +543,7 @@ public class LevelEventManager implements LevelEventProvider {
                     camera.setMinX(camera.getX());
                     // ROM: Set maxY TARGET to allow boss area access
                     camera.setMaxYTarget((short) HTZ2_BOSS_ARENA_MAX_Y);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                 }
             }
             case 14 -> {
@@ -558,7 +553,7 @@ public class LevelEventManager implements LevelEventProvider {
                     // ROM: Lock camera X boundaries
                     camera.setMinX((short) HTZ2_BOSS_ARENA_LEFT);
                     camera.setMaxX((short) HTZ2_BOSS_ARENA_RIGHT);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance().fadeOutMusic();
@@ -577,7 +572,7 @@ public class LevelEventManager implements LevelEventProvider {
                 bossSpawnDelay++;
                 if (bossSpawnDelay >= 0x5A) {
                     spawnHTZBoss();
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                     // Start boss music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
                             .playMusic(Sonic2Music.BOSS.id);
@@ -824,12 +819,12 @@ public class LevelEventManager implements LevelEventProvider {
     }
 
     private void updateCPZBossEvents() {
-        switch (eventRoutine) {
+        switch (eventRoutineFg) {
             case 0 -> {
                 if (camera.getX() >= 0x2680) {
                     camera.setMinX(camera.getX());
                     camera.setMaxYTarget((short) 0x450);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                 }
             }
             case 2 -> {
@@ -837,7 +832,7 @@ public class LevelEventManager implements LevelEventProvider {
                     // ROM locks camera completely at X=0x2A20 for the entire fight
                     camera.setMinX((short) 0x2A20);
                     camera.setMaxX((short) 0x2A20);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                     bossSpawnDelay = 0;
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance().fadeOutMusic();
                     uk.co.jamesj999.sonic.game.GameServices.gameState().setCurrentBossId(1);
@@ -850,7 +845,7 @@ public class LevelEventManager implements LevelEventProvider {
                 bossSpawnDelay++;
                 if (bossSpawnDelay >= 0x5A) {
                     spawnCPZBoss();
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
                             .playMusic(Sonic2Music.BOSS.id);
                 }
@@ -899,7 +894,7 @@ public class LevelEventManager implements LevelEventProvider {
 
         // Act 2: Boss arena setup
         // ROM: LevEvents_MCZ2 (s2.asm:21384-21483)
-        switch (eventRoutine) {
+        switch (eventRoutineFg) {
             case 0 -> {
                 // Routine 0 (s2.asm LevEvents_MCZ2_Routine1): Wait for camera X >= $2080
                 if (camera.getX() >= 0x2080) {
@@ -907,7 +902,7 @@ public class LevelEventManager implements LevelEventProvider {
                     camera.setMinX(camera.getX());
                     // ROM: Set maxY TARGET to $5D0
                     camera.setMaxYTarget((short) 0x5D0);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                 }
             }
             case 2 -> {
@@ -919,7 +914,7 @@ public class LevelEventManager implements LevelEventProvider {
                     // Mark boss fight active
                     uk.co.jamesj999.sonic.game.GameServices.gameState().setCurrentBossId(
                         uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds.MCZ_BOSS);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance().fadeOutMusic();
@@ -940,7 +935,7 @@ public class LevelEventManager implements LevelEventProvider {
                 bossSpawnDelay++;
                 if (bossSpawnDelay >= 0x5A) {
                     spawnMCZBoss();
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                     // Start boss music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
                         .playMusic(Sonic2Music.BOSS.id);
@@ -959,7 +954,7 @@ public class LevelEventManager implements LevelEventProvider {
                 camera.setMinX(camera.getX());
 
                 if (mczBoss != null && mczBoss.isDefeated()) {
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                 }
             }
             default -> {
@@ -1003,7 +998,7 @@ public class LevelEventManager implements LevelEventProvider {
 
         // Act 2: Boss arena setup
         // ROM: LevEvents_ARZ2 (s2.asm:21723-21790)
-        switch (eventRoutine) {
+        switch (eventRoutineFg) {
             case 0 -> {
                 // Routine 1 (s2.asm:21737-21749): Wait for camera X >= $2810
                 if (camera.getX() >= 0x2810) {
@@ -1011,7 +1006,7 @@ public class LevelEventManager implements LevelEventProvider {
                     camera.setMinX(camera.getX());
                     // ROM: Set maxY TARGET to $400 (boss arena height)
                     camera.setMaxYTarget((short) 0x400);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                     // ROM: move.b #4,(Current_Boss_ID).w
                     uk.co.jamesj999.sonic.game.GameServices.gameState().setCurrentBossId(4);
                     // ROM: LoadPLC for ARZ boss art (handled elsewhere)
@@ -1023,7 +1018,7 @@ public class LevelEventManager implements LevelEventProvider {
                     // ROM: Lock camera X at $2A40 (both min and max)
                     camera.setMinX((short) 0x2A40);
                     camera.setMaxX((short) 0x2A40);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance().fadeOutMusic();
@@ -1040,7 +1035,7 @@ public class LevelEventManager implements LevelEventProvider {
                 // ROM: Increment delay every frame, play boss music at $5A (90) frames
                 bossSpawnDelay++;
                 if (bossSpawnDelay >= 0x5A) {
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                     // Start boss music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
                             .playMusic(Sonic2Music.BOSS.id);
@@ -1105,7 +1100,7 @@ public class LevelEventManager implements LevelEventProvider {
 
         // Act 2: Boss arena setup
         // ROM: LevEvents_CNZ2 (s2.asm:21486-21570)
-        switch (eventRoutine) {
+        switch (eventRoutineFg) {
             case 0 -> {
                 // Routine 1 (s2.asm:21500-21517): Wait for camera X >= $27C0
                 if (camera.getX() >= 0x27C0) {
@@ -1114,7 +1109,7 @@ public class LevelEventManager implements LevelEventProvider {
                     // ROM: Set maxY TARGET to $62E (initial arena height - allows access to floor)
                     // This gets tightened to $5D0 later in routine 4 once fight starts
                     camera.setMaxYTarget((short) 0x62E);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                 }
             }
             case 2 -> {
@@ -1123,7 +1118,7 @@ public class LevelEventManager implements LevelEventProvider {
                     // ROM: Lock camera X boundaries for boss arena
                     camera.setMinX((short) 0x2860);
                     camera.setMaxX((short) 0x28E0);
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance().fadeOutMusic();
@@ -1149,7 +1144,7 @@ public class LevelEventManager implements LevelEventProvider {
                 bossSpawnDelay++;
                 if (bossSpawnDelay >= 0x5A) {
                     spawnCNZBoss();
-                    eventRoutine += 2;
+                    eventRoutineFg += 2;
                     // Start boss music
                     uk.co.jamesj999.sonic.audio.AudioManager.getInstance()
                             .playMusic(Sonic2Music.BOSS.id);
@@ -1352,11 +1347,11 @@ public class LevelEventManager implements LevelEventProvider {
     // =========================================================================
 
     public int getEventRoutine() {
-        return eventRoutine;
+        return eventRoutineFg;
     }
 
     public void setEventRoutine(int routine) {
-        this.eventRoutine = routine;
+        this.eventRoutineFg = routine;
     }
 
     /**
@@ -1380,9 +1375,9 @@ public class LevelEventManager implements LevelEventProvider {
         }
     }
 
-    public static synchronized LevelEventManager getInstance() {
+    public static synchronized Sonic2LevelEventManager getInstance() {
         if (instance == null) {
-            instance = new LevelEventManager();
+            instance = new Sonic2LevelEventManager();
         }
         return instance;
     }

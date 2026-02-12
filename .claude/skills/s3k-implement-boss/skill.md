@@ -61,8 +61,8 @@ S3K has **both mini-bosses (Act 1) and end bosses (Act 2)** per zone — signifi
 | **Hit counter** | `collision_property` (0x29) | `objoff_3C` or similar | `obColProp` |
 | **Object code** | Inline in `sonic3k.asm` | Inline in `s2.asm` | `_incObj/XX Boss - Zone.asm` |
 | **Multi-phase** | Common (LBZ, DEZ have 2-3 phases) | Rare | Rare (FZ only) |
-| **Boss spawning** | Via `Special_events_routine` and screen events | `LevelEventManager` | Object-local camera lock |
-| **Arena setup** | Zone screen event code | `LevEvents_ZONE2` routines | Boss object code |
+| **Boss spawning** | Via `Special_events_routine` and screen events | `Sonic2LevelEventManager` | Object-local camera lock |
+| **Arena setup** | Zone screen event code via `Sonic3kLevelEventManager` | `LevEvents_ZONE2` routines via `Sonic2LevelEventManager` | Boss object code via `Sonic1LevelEventManager` |
 | **Knuckles paths** | Separate boss or variant behavior | N/A | N/A |
 | **Art compression** | Primarily Kosinski Moduled (`kosm`) | Nemesis (`nem`) | Nemesis (`nem`) |
 | **Constants file** | `Sonic3kConstants.java` (to create) | `Sonic2Constants.java` | `Sonic1Constants.java` |
@@ -104,13 +104,12 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 
 ### Phase 2: Arena & Level Event Setup
 
-S3K bosses use zone screen events for arena setup. There are two approaches:
+S3K bosses use `Sonic3kLevelEventManager` (at `game/sonic3k/Sonic3kLevelEventManager.java`) for arena setup and boss spawning. This manager extends `AbstractLevelEventManager`, though per-zone event handlers are still pending implementation.
 
-#### Option A: Add S3K Support to LevelEventManager
-If `LevelEventManager` has been extended for S3K, add zone-specific event handling:
+Add zone-specific event handling in a zone handler method or class:
 
 ```java
-// In LevelEventManager or a Sonic3kLevelEventManager
+// In Sonic3kLevelEventManager or a delegated zone handler class
 private void updateAizAct1Events() {
     switch (eventRoutine) {
         case 0 -> {
@@ -132,19 +131,6 @@ private void updateAizAct1Events() {
         }
         // ...
     }
-}
-```
-
-#### Option B: Self-Contained Boss Setup
-If no S3K LevelEventManager exists yet, the boss object can handle its own arena setup during initialization:
-
-```java
-@Override
-protected void initializeBossState() {
-    Camera camera = Camera.getInstance();
-    camera.setMinX((short) ARENA_MIN_X);
-    camera.setMaxX((short) ARENA_MAX_X);
-    // ... set up arena boundaries from disassembly
 }
 ```
 
@@ -390,6 +376,7 @@ Report any discrepancies with specific line references.
 | Base boss | `src/.../level/objects/boss/AbstractBossInstance.java` |
 | Boss state context | `src/.../level/objects/boss/BossStateContext.java` |
 | Boss child base | `src/.../level/objects/boss/AbstractBossChild.java` |
+| Level events | `src/.../game/sonic3k/Sonic3kLevelEventManager.java` |
 | Object IDs | `src/.../game/sonic3k/constants/Sonic3kObjectIds.java` (to be created) |
 | ROM offsets | `src/.../game/sonic3k/constants/Sonic3kConstants.java` (to be created) |
 | Audio profile | `src/.../game/sonic3k/audio/Sonic3kAudioProfile.java` (to be created) |

@@ -1,7 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic1.events;
 
-import uk.co.jamesj999.sonic.camera.Camera;
-import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.AbstractLevelEventManager;
+import uk.co.jamesj999.sonic.game.PlayerCharacter;
 import uk.co.jamesj999.sonic.game.sonic1.Sonic1LoopManager;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 
@@ -16,12 +16,13 @@ import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
  * The Camera class handles smooth boundary easing for the bottom boundary
  * (matching the ROM's +/-2px/frame behavior). Top, left, and right boundaries
  * are set immediately (no easing) to match the original.
+ *
+ * Note: S1 delegates eventRoutine to per-zone handler classes rather than
+ * using the base class's eventRoutineFg. Each zone handler owns its own
+ * counter, which is needed because S1 zones can revert routines independently.
  */
-public class Sonic1LevelEventManager implements LevelEventProvider {
+public class Sonic1LevelEventManager extends AbstractLevelEventManager {
     private static Sonic1LevelEventManager instance;
-
-    private int currentZone = -1;
-    private int currentAct = -1;
 
     // Zone event handlers (one per zone, each owns its own eventRoutine)
     private final Sonic1GHZEvents ghzEvents;
@@ -35,7 +36,7 @@ public class Sonic1LevelEventManager implements LevelEventProvider {
     private final Sonic1LoopManager loopManager = new Sonic1LoopManager();
 
     private Sonic1LevelEventManager() {
-        Camera camera = Camera.getInstance();
+        super();
         ghzEvents = new Sonic1GHZEvents(camera);
         lzEvents = new Sonic1LZEvents(camera);
         mzEvents = new Sonic1MZEvents(camera);
@@ -44,10 +45,32 @@ public class Sonic1LevelEventManager implements LevelEventProvider {
         sbzEvents = new Sonic1SBZEvents(camera);
     }
 
+    // =========================================================================
+    // AbstractLevelEventManager contract
+    // =========================================================================
+
     @Override
-    public void initLevel(int zone, int act) {
-        this.currentZone = zone;
-        this.currentAct = act;
+    protected int getRoutineStride() {
+        return 2;
+    }
+
+    @Override
+    protected int getEventDataFgSize() {
+        return 0;
+    }
+
+    @Override
+    protected int getEventDataBgSize() {
+        return 0;
+    }
+
+    @Override
+    public PlayerCharacter getPlayerCharacter() {
+        return PlayerCharacter.SONIC_AND_TAILS;
+    }
+
+    @Override
+    protected void onInitLevel(int zone, int act) {
         // Reset all zone handlers (only one is active at a time,
         // but reset all for clean state)
         ghzEvents.init();
@@ -60,10 +83,7 @@ public class Sonic1LevelEventManager implements LevelEventProvider {
     }
 
     @Override
-    public void update() {
-        if (currentZone < 0) {
-            return;
-        }
+    protected void onUpdate() {
         // Dispatch to zone-specific event handler (ROM: DLE_Index)
         switch (currentZone) {
             case Sonic1Constants.ZONE_GHZ -> ghzEvents.update(currentAct);
@@ -79,8 +99,13 @@ public class Sonic1LevelEventManager implements LevelEventProvider {
         }
     }
 
+    // =========================================================================
+    // S1-specific accessors
+    // =========================================================================
+
     /**
      * Get the current zone's event routine counter.
+     * S1 delegates routine counters to per-zone handlers.
      * Used by lamppost save/restore (ROM: v_dle_routine).
      */
     public int getEventRoutine() {

@@ -3,7 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2LevelEventManager;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.camera.Camera;
@@ -183,7 +183,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // y_pos = objoff_32 + Camera_BG_Y_offset (ONLY bgYOffset, no shake)
         // Ripple shake is a global screen-space effect applied via Camera shake offsets,
         // so objects don't add it to their world positions.
-        int bgYOffset = LevelEventManager.getInstance().getCameraBgYOffset();
+        int bgYOffset = Sonic2LevelEventManager.getInstance().getCameraBgYOffset();
         currentY = baseY + bgYOffset;
 
         updateDynamicSpawn();

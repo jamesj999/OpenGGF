@@ -1,7 +1,7 @@
 package uk.co.jamesj999.sonic.level.scroll;
 
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2LevelEventManager;
 
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.*;
 
@@ -322,7 +322,7 @@ public class SwScrlHtz implements ZoneScrollHandler {
      * Reference: s2.asm HTZ_Screen_Shake lines 15975-16029
      */
     private void updateEarthquakeMode(int[] horizScrollBuf, int cameraX, int cameraY, int frameCounter) {
-        LevelEventManager levelEvents = LevelEventManager.getInstance();
+        Sonic2LevelEventManager levelEvents = Sonic2LevelEventManager.getInstance();
         int bgYOffset = levelEvents.getCameraBgYOffset();
         int bgXOffset = levelEvents.getHtzBgXOffset();
 

@@ -3,7 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2LevelEventManager;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
@@ -506,7 +506,7 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
         } else {
             // Transition to bounce phase
             // ROM: Remove arena wall at this point (line 66296 in s2.asm)
-            LevelEventManager.getInstance().onCNZBossDefeated();
+            Sonic2LevelEventManager.getInstance().onCNZBossDefeated();
 
             state.renderFlags |= 1;  // Face right
             state.xVel = 0;

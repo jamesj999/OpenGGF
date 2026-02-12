@@ -136,9 +136,21 @@ To add overlay support for other zones: add ROM offsets to `Sonic2Constants`, cr
 
 Game-specific behavior is isolated behind the `GameModule` interface. `GameModuleRegistry` holds the current module, `RomDetectionService` auto-detects ROM type.
 
-Key providers returned by `GameModule`: `ZoneRegistry`, `ObjectRegistry`, `ScrollHandlerProvider`, `ZoneFeatureProvider`, `RomOffsetProvider`, `LevelEventProvider`, `PhysicsProvider`, `SpecialStageProvider`, `BonusStageProvider`, `TitleCardProvider`, `DebugModeProvider`.
+Key providers returned by `GameModule`: `ZoneRegistry`, `ObjectRegistry`, `ScrollHandlerProvider`, `ZoneFeatureProvider`, `RomOffsetProvider`, `LevelEventProvider` (returns game-specific `AbstractLevelEventManager` subclass), `PhysicsProvider`, `SpecialStageProvider`, `BonusStageProvider`, `TitleCardProvider`, `DebugModeProvider`.
 
 Each game has its own module (`Sonic1GameModule`, `Sonic2GameModule`, `Sonic3kGameModule`) and `RomDetector`.
+
+## Unified Level Event Framework
+
+Level events (boss arena setup, dynamic boundaries, zone transitions) are managed through a shared base class with game-specific subclasses:
+
+- **`AbstractLevelEventManager`** (`game/`) - Shared state machine mechanics: `eventRoutine` counter, zone/act tracking, `initLevel()`/`update()` lifecycle, boss spawn coordination.
+- **`Sonic1LevelEventManager`** (`game/sonic1/events/`) - S1 zone event handlers. Per-zone handler classes.
+- **`Sonic2LevelEventManager`** (`game/sonic2/`) - S2 zone event handlers (HTZ earthquake, boss arenas, EHZ/CPZ/ARZ/CNZ events).
+- **`Sonic3kLevelEventManager`** (`game/sonic3k/`) - S3K zone event handlers (zone handlers pending implementation).
+- **`PlayerCharacter`** enum (`game/`) - Character identity enum (`SONIC`, `TAILS`, `KNUCKLES`) for character-specific branching in event logic.
+
+Each `GameModule` returns its game-specific subclass via `LevelEventProvider`. Call sites use `AbstractLevelEventManager` for polymorphic access.
 
 ## Per-Game Physics Framework
 

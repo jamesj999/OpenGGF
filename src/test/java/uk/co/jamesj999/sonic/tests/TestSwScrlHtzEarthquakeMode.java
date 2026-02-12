@@ -3,7 +3,7 @@ package uk.co.jamesj999.sonic.tests;
 import org.junit.Before;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2LevelEventManager;
 import uk.co.jamesj999.sonic.level.scroll.BackgroundCamera;
 import uk.co.jamesj999.sonic.level.scroll.SwScrlHtz;
 
@@ -17,13 +17,13 @@ import static org.junit.Assert.assertEquals;
  */
 public class TestSwScrlHtzEarthquakeMode {
 
-    private LevelEventManager levelEvents;
+    private Sonic2LevelEventManager levelEvents;
 
     @Before
     public void setUp() throws Exception {
         TestEnvironment.resetAll();
-        levelEvents = LevelEventManager.getInstance();
-        levelEvents.initLevel(LevelEventManager.ZONE_HTZ, 1);
+        levelEvents = Sonic2LevelEventManager.getInstance();
+        levelEvents.initLevel(Sonic2LevelEventManager.ZONE_HTZ, 1);
     }
 
     @Test

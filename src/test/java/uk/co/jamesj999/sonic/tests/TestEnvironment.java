@@ -4,7 +4,7 @@ import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2LevelEventManager;
 import uk.co.jamesj999.sonic.graphics.FadeManager;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -36,7 +36,7 @@ public final class TestEnvironment {
         AudioManager.getInstance().resetState();
 
         // Phase 3: Level subsystems
-        LevelEventManager.getInstance().resetState();
+        Sonic2LevelEventManager.getInstance().resetState();
         ParallaxManager.getInstance().resetState();
         LevelManager.getInstance().resetState();
 
