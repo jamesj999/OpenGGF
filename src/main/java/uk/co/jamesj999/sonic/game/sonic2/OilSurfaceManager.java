@@ -77,21 +77,22 @@ public class OilSurfaceManager {
 
     private void updateOilSurface(AbstractPlayableSprite player) {
         if (player.getDead() || player.isDebugMode()) {
+            clearOilSupport(player);
             return;
         }
 
         if (standingOnOil) {
-            // Player is standing on oil - check if they jumped off
-            if (player.getAir()) {
-                // Player jumped - leave oil surface
-                standingOnOil = false;
+            // Movement runs before this manager and can temporarily set air=true.
+            // Only release support when the player is actually moving upward.
+            if (shouldExitOilSupport(player)) {
+                clearOilSupport(player);
                 return;
             }
 
             // ROM: Obj07_CheckKillChar1 (s2.asm:49691-49694)
             if (submersion <= 0) {
                 // Suffocate - instant death (ROM: JmpTo3_KillCharacter)
-                standingOnOil = false;
+                clearOilSupport(player);
                 player.applyDrownDeath();
                 return;
             }
@@ -101,8 +102,10 @@ public class OilSurfaceManager {
 
             // ROM: PlatformObject_SingleCharacter positions player at:
             // oilY - submersion - y_radius
-            // As submersion decreases from 0x30→0, player sinks into the oil.
+            // As submersion decreases from 0x30 to 0, player sinks into the oil.
             int targetY = oilY - submersion - player.getYRadius();
+            player.setAir(false);
+            player.setOnObject(true);
             player.setCentreY((short) targetY);
             player.setYSpeed((short) 0);
             player.setGSpeed((short) 0);
@@ -158,6 +161,18 @@ public class OilSurfaceManager {
         }
 
         return feetY >= oilSurfaceY;
+    }
+
+    /**
+     * End support only when the player is actively moving upward.
+     */
+    private boolean shouldExitOilSupport(AbstractPlayableSprite player) {
+        return player.getYSpeed() < 0 || player.isJumping();
+    }
+
+    private void clearOilSupport(AbstractPlayableSprite player) {
+        standingOnOil = false;
+        player.setOnObject(false);
     }
 
     // =========================================================================
