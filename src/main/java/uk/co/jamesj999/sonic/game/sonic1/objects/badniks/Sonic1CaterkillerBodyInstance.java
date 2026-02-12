@@ -159,10 +159,15 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
             return;
         }
 
-        // If the head has entered fragment mode (including body-hit trigger), this segment
-        // should also fragment.
-        if (head.isDestroyed() || head.isDeleting() || head.isFragmenting()) {
+        // Cat_BodySeg1/Cat_BodySeg2:
+        // - Parent routine $C -> fragment
+        // - Parent routine $A / deleted -> delete
+        if (head.isFragmenting()) {
             startFragmenting();
+            return;
+        }
+        if (head.isDeleting() || head.isDestroyed()) {
+            markDestroyed();
             return;
         }
 
@@ -326,6 +331,11 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
                 currentY += floorResult.distance();
                 yVelocity = FRAG_Y_VELOCITY; // move.w #-$400,obVelY(a0)
             }
+        }
+
+        // loc_16CC0: fragment objects delete when they leave render range.
+        if (!isOnScreenX(160)) {
+            markDestroyed();
         }
     }
 

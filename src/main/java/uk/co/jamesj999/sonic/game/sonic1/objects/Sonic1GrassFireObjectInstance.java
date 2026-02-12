@@ -60,11 +60,13 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
     private static final int ANIM_SPEED = 6;
 
     /**
-     * Animation sequence: frame 0, frame 0 vflip, frame 1, frame 1 vflip.
-     * The ROM encodes this as { 0, $20, 1, $21 } where bit 5 ($20) means V-flip.
+     * Animation sequence: frame 0, frame 0 H-flip, frame 1, frame 1 H-flip.
+     * The ROM encodes this as { 0, $20, 1, $21 } where bit 5 ($20) maps to
+     * obRender bit 0 (H-flip) via AnimateSprite's rol.b #3 transform.
+     * (Bit 6 = $40 would be V-flip via obRender bit 1.)
      */
     private static final int[] ANIM_FRAMES = {0, 0, 1, 1};
-    private static final boolean[] ANIM_VFLIP = {false, true, false, true};
+    private static final boolean[] ANIM_HFLIP = {false, true, false, true};
 
     /**
      * Walker: X velocity = $10000 subpixels per frame (1 pixel/frame).
@@ -85,13 +87,19 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
     private static final int SLOPE_OFFSET = 0x0C;
 
     /**
-     * Child fire spawns every 8 pixels of walking distance.
-     * From: addi.l #$80000,d0 / andi.l #$FFFFF,d0 / bne.s loc_B2B0
-     * This checks if the X subpixel portion (lower 20 bits after adding $80000)
-     * wraps to zero, which happens every 8 pixels ($80000 = 8.0 in 16.4 format).
-     * With 1px/frame speed, this triggers every 8 frames.
+     * Child fire spawn check replicates the ROM's bit test:
+     * <pre>
+     *   move.l  obX(a0),d0      ; 32-bit X in 16.16 fixed-point
+     *   addi.l  #$80000,d0      ; add 8.0 pixels
+     *   andi.l  #$FFFFF,d0      ; mask lower 20 bits (4 int + 16 frac)
+     *   bne.s   loc_B2B0        ; skip if nonzero
+     * </pre>
+     * Since fraction is always 0 (walker moves exactly $10000/frame), this
+     * reduces to (currentX + 8) & 0xF == 0, i.e. every 16 pixels
+     * (NOT 8 — $FFFFF masks 4 integer bits, not 8).
      */
-    private static final int CHILD_SPAWN_INTERVAL = 8;
+    private static final int SPAWN_CHECK_OFFSET = 8;
+    private static final int SPAWN_CHECK_MASK = 0xF;
 
     // ========================================================================
     // Instance State
@@ -127,9 +135,6 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
     /** Current animation frame index (0-3 into ANIM_FRAMES/ANIM_VFLIP). */
     private int animIndex;
 
-    /** Walker: distance traveled from origin (pixels). */
-    private int walkerDistance;
-
     /** Walker: tracks spawned children for cleanup. */
     private final List<Sonic1GrassFireObjectInstance> children;
 
@@ -161,7 +166,6 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
         this.parentPlatform = parentPlatform;
         this.animTimer = 0;
         this.animIndex = 0;
-        this.walkerDistance = 0;
         this.children = isWalker ? new ArrayList<>() : null;
         this.soundPlayed = false;
     }
@@ -225,12 +229,11 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
 
         // Advance X position: addi.l #$10000,obX(a0) = +1 pixel/frame
         currentX += WALKER_X_SPEED;
-        walkerDistance++;
 
-        // Spawn child fire every 8 pixels while within spawn range (d1 < $80)
-        // ROM checks: cmpi.w #$80,d1 / bhs.s skip, then tests X subpixel
-        // accumulator which wraps every 8 pixels.
-        if (d1 < 0x80 && walkerDistance > 0 && walkerDistance % CHILD_SPAWN_INTERVAL == 0) {
+        // Spawn child fire while within spawn range (d1 < $80).
+        // ROM check: (obX + $80000) & $FFFFF == 0, which with integer-only
+        // movement reduces to (currentX + 8) & 0xF == 0 — every 16 pixels.
+        if (d1 < 0x80 && ((currentX + SPAWN_CHECK_OFFSET) & SPAWN_CHECK_MASK) == 0) {
             spawnChildFire();
         }
     }
@@ -339,8 +342,8 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
         }
 
         int frameIndex = ANIM_FRAMES[animIndex];
-        boolean vFlip = ANIM_VFLIP[animIndex];
-        renderer.drawFrameIndex(frameIndex, currentX, currentY, false, vFlip);
+        boolean hFlip = ANIM_HFLIP[animIndex];
+        renderer.drawFrameIndex(frameIndex, currentX, currentY, hFlip, false);
     }
 
     @Override

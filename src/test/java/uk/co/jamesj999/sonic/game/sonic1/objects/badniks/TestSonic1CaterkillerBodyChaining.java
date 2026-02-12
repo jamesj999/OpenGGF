@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.game.sonic1.objects.badniks;
 
 import org.junit.Test;
 import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.objects.TouchCategory;
 import uk.co.jamesj999.sonic.level.objects.TouchResponseResult;
@@ -66,6 +67,42 @@ public class TestSonic1CaterkillerBodyChaining {
         assertTrue("Body contact should trigger head fragment mode", head.isFragmenting());
         body.update(0, null);
         assertTrue("Body should enter fragment mode after head fragment trigger", body.isFragmenting());
+    }
+
+    @Test
+    public void bodyDeletesWhenHeadIsUnloaded() {
+        AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224);
+        LevelManager levelManager = LevelManager.getInstance();
+        Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
+                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);
+        FakeParentState parentState = new FakeParentState();
+
+        Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
+                head, parentState, 32, 32, true, false, 0, 4, levelManager);
+
+        head.onUnload();
+        body.update(0, null);
+
+        assertTrue("Body should delete when parent head enters delete/unload path", body.isDestroyed());
+        assertFalse("Body should not enter fragment mode when head is unloading", body.isFragmenting());
+    }
+
+    @Test
+    public void fragmentingBodyDeletesWhenOffScreen() {
+        AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224);
+        LevelManager levelManager = LevelManager.getInstance();
+        Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
+                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);
+        FakeParentState parentState = new FakeParentState();
+
+        Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
+                head, parentState, 1000, 0, true, false, 0, 4, levelManager);
+
+        head.triggerFragmentFromBodyHit();
+        body.update(0, null); // enters fragment mode
+        body.update(1, null); // fragment physics + off-screen delete check
+
+        assertTrue("Fragmenting body segments should self-delete once off-screen", body.isDestroyed());
     }
 
     private static final class FakeParentState implements CaterkillerParentState {
