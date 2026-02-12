@@ -523,8 +523,8 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
                         registry.getPrimaryName(spawn.objectId())));
 
         // SCZ Cloud (ObjB3) - decorative scrolling clouds
-//        registerFactory(Sonic2ObjectIds.TORNADO,
-//                (spawn, registry) -> new TornadoObjectInstance(spawn));
+        registerFactory(Sonic2ObjectIds.TORNADO,
+                (spawn, registry) -> new TornadoObjectInstance(spawn));
         registerFactory(Sonic2ObjectIds.CLOUD,
                 (spawn, registry) -> new CloudObjectInstance(spawn));
     }
