@@ -86,6 +86,20 @@ public class Sonic2Constants {
     public static final int CYCLING_PAL_CPZ3_ADDR = 0x002082;  // 16 frames × 2 bytes = 32 bytes (1 color)
     public static final int CYCLING_PAL_CPZ3_LEN = 32;
 
+    // Palette cycling (WFZ - Wing Fortress Zone)
+    // CyclingPal_WFZFire (s2.asm:3098) - Fire palette when WFZ_SCZ_Fire_Toggle == 0
+    public static final int CYCLING_PAL_WFZ_FIRE_ADDR = 0x0020A2;  // 4 frames × 8 bytes = 32 bytes (4 colors)
+    public static final int CYCLING_PAL_WFZ_FIRE_LEN = 32;
+    // CyclingPal_WFZBelt (s2.asm:3101) - Conveyor belt palette when WFZ_SCZ_Fire_Toggle != 0
+    public static final int CYCLING_PAL_WFZ_BELT_ADDR = 0x0020C2;  // 4 frames × 8 bytes = 32 bytes (4 colors)
+    public static final int CYCLING_PAL_WFZ_BELT_LEN = 32;
+    // CyclingPal_WFZ1 (s2.asm:3104) - Flashing light cycle 1 (1 color, 34 frames)
+    public static final int CYCLING_PAL_WFZ1_ADDR = 0x0020E2;  // 34 frames × 2 bytes = 68 bytes
+    public static final int CYCLING_PAL_WFZ1_LEN = 68;
+    // CyclingPal_WFZ2 (s2.asm:3107) - Flashing light cycle 2 (1 color, 12 frames)
+    public static final int CYCLING_PAL_WFZ2_ADDR = 0x002126;  // 12 frames × 2 bytes = 24 bytes
+    public static final int CYCLING_PAL_WFZ2_LEN = 24;
+
     // Palette cycling (HTZ - Hill Top Zone) - Lava animation
     public static final int CYCLING_PAL_LAVA_ADDR = 0x001E9A;  // 16 frames × 8 bytes = 128 bytes
     public static final int CYCLING_PAL_LAVA_LEN = 128;
@@ -519,6 +533,63 @@ public class Sonic2Constants {
     public static final int ART_TILE_OOZ_ELEVATOR = 0x02F4;  // palette 3
     public static final int ART_TILE_WFZ_PLATFORM = 0x046D;  // palette 1, priority
 
+    // WallTurret (Object 0xB8) - wall-mounted turret from WFZ
+    // ROM Reference: s2.asm lines 79665-79776 (ObjB8 code)
+    public static final int ART_NEM_WFZ_WALL_TURRET_ADDR = 0x8D1A0;  // ArtNem_WfzWallTurret (verified via RomOffsetFinder)
+    public static final int MAP_UNC_WFZ_WALL_TURRET_ADDR = 0x3BA46;  // ObjB8_Obj98_MapUnc_3BA46
+    public static final int ART_TILE_WFZ_WALL_TURRET = 0x03AB;       // ArtTile_ArtNem_WfzWallTurret (palette 0)
+
+    // TiltingPlatform (Object 0xB6) - tilting/spinning platform from WFZ
+    // ROM Reference: s2.asm lines 79331-79629 (ObjB6 code)
+    public static final int ART_NEM_WFZ_TILT_PLATFORMS_ADDR = 0x8E010; // ArtNem_WfzTiltPlatforms (verified via RomOffsetFinder)
+    public static final int MAP_UNC_OBJB6_ADDR = 0x3B856;             // ObjB6_MapUnc_3B856
+
+    // VerticalLaser (Object 0xB7) - unused huge vertical laser from WFZ, spawned by ObjB6
+    // ROM Reference: s2.asm lines 79632-79663 (ObjB7 code)
+    public static final int ART_NEM_WFZ_VRTCL_LAZER_ADDR = 0x8DA6E;   // ArtNem_WfzVrtclLazer (verified via RomOffsetFinder)
+    public static final int MAP_UNC_OBJB7_ADDR = 0x3B8E4;             // ObjB7_MapUnc_3B8E4
+
+    // SmallMetalPform (Object 0xBD) - ascending/descending metal platform from WFZ
+    // ROM Reference: s2.asm lines 79938-80074 (ObjBD code)
+    public static final int ART_NEM_WFZ_BELT_PLATFORM_ADDR = 0x8DD0C; // ArtNem_WfzBeltPlatform (verified via RomOffsetFinder)
+
+    // LateralCannon (Object 0xBE) - retracting platform from WFZ
+    // ROM Reference: s2.asm lines 80080-80170 (ObjBE code)
+    public static final int ART_NEM_WFZ_GUN_PLATFORM_ADDR = 0x8D540; // ArtNem_WfzGunPlatform (verified via RomOffsetFinder)
+    public static final int MAP_UNC_OBJBE_ADDR = 0x3BE46;            // ObjBE_MapUnc_3BE46
+
+    // Laser (Object 0xB9) - horizontal laser beam from WFZ
+    // ROM Reference: s2.asm lines 79779-79829 (ObjB9 code)
+    public static final int ART_NEM_WFZ_HRZNTL_LAZER_ADDR = 0x8DC42;  // ArtNem_WfzHrzntlLazer (verified via RomOffsetFinder)
+
+    // SpeedLauncher (Object 0xC0) - catapult platform from WFZ
+    // ROM Reference: s2.asm lines 80215-80381 (ObjC0 code)
+    public static final int ART_NEM_WFZ_LAUNCH_CATAPULT_ADDR = 0x8DCA2; // ArtNem_WfzLaunchCatapult (verified via RomOffsetFinder)
+    public static final int MAP_UNC_OBJC0_ADDR = 0x3C098;               // ObjC0_MapUnc_3C098
+
+    // BreakablePlating (Object 0xC1) - breakable plating from WFZ
+    // ROM Reference: s2.asm lines 80384-80565 (ObjC1 code)
+    public static final int ART_NEM_BREAK_PANELS_ADDR = 0x7FF98; // ArtNem_BreakPanels (verified via RomOffsetFinder)
+    public static final int MAP_UNC_OBJC1_ADDR = 0x3C280;        // ObjC1_MapUnc_3C280
+
+    // Rivet (Object 0xC2) - rivet at end of WFZ that opens the ship when busted
+    // ROM Reference: s2.asm lines 80568-80625 (ObjC2 code)
+    public static final int ART_NEM_WFZ_SWITCH_ADDR = 0x7FF2A; // ArtNem_WfzSwitch (verified via RomOffsetFinder)
+
+    // Clucker (Object 0xAD/0xAE) - chicken turret badnik from WFZ
+    // ROM Reference: s2.asm lines 76778-76960 (ObjAD/ObjAE code)
+    public static final int ART_NEM_WFZ_SCRATCH_ADDR = 0x8B9DC;   // ArtNem_WfzScratch (verified via RomOffsetFinder)
+
+    // Vertical Propeller (Object 0xB4) - vertical spinning blades from WFZ/SCZ
+    public static final int ART_NEM_WFZ_VRTCL_PRPLLR_ADDR = 0x8DEB8;  // ArtNem_WfzVrtclPrpllr (verified via RomOffsetFinder)
+
+    // Horizontal Propeller (Object 0xB5) - horizontal spinning blades from WFZ/SCZ
+    public static final int ART_NEM_WFZ_HRZNTL_PRPLLR_ADDR = 0x8DEE8;  // ArtNem_WfzHrzntlPrpllr (verified via RomOffsetFinder)
+
+    // WFZWheel (Object 0xBA) - conveyor belt wheel from WFZ
+    // ROM Reference: s2.asm lines 79835-79860 (ObjBA code)
+    public static final int ART_NEM_WFZ_CONVEYOR_BELT_WHEEL_ADDR = 0x8D7D8; // ArtNem_WfzConveyorBeltWheel (verified via RomOffsetFinder)
+
     // SCZ Cloud (Object 0xB3) - decorative clouds from Sky Chase Zone
     public static final int ART_NEM_CLOUDS_ADDR = 0x8DAFC;  // ArtNem_Clouds (verified via RomOffsetFinder)
 
@@ -733,6 +804,14 @@ public class Sonic2Constants {
         offsets.put("CYCLING_PAL_CPZ2_LEN", CYCLING_PAL_CPZ2_LEN);
         offsets.put("CYCLING_PAL_CPZ3_ADDR", CYCLING_PAL_CPZ3_ADDR);
         offsets.put("CYCLING_PAL_CPZ3_LEN", CYCLING_PAL_CPZ3_LEN);
+        offsets.put("CYCLING_PAL_WFZ_FIRE_ADDR", CYCLING_PAL_WFZ_FIRE_ADDR);
+        offsets.put("CYCLING_PAL_WFZ_FIRE_LEN", CYCLING_PAL_WFZ_FIRE_LEN);
+        offsets.put("CYCLING_PAL_WFZ_BELT_ADDR", CYCLING_PAL_WFZ_BELT_ADDR);
+        offsets.put("CYCLING_PAL_WFZ_BELT_LEN", CYCLING_PAL_WFZ_BELT_LEN);
+        offsets.put("CYCLING_PAL_WFZ1_ADDR", CYCLING_PAL_WFZ1_ADDR);
+        offsets.put("CYCLING_PAL_WFZ1_LEN", CYCLING_PAL_WFZ1_LEN);
+        offsets.put("CYCLING_PAL_WFZ2_ADDR", CYCLING_PAL_WFZ2_ADDR);
+        offsets.put("CYCLING_PAL_WFZ2_LEN", CYCLING_PAL_WFZ2_LEN);
         offsets.put("CYCLING_PAL_LAVA_ADDR", CYCLING_PAL_LAVA_ADDR);
         offsets.put("CYCLING_PAL_LAVA_LEN", CYCLING_PAL_LAVA_LEN);
         offsets.put("CYCLING_PAL_MTZ1_ADDR", CYCLING_PAL_MTZ1_ADDR);
@@ -990,6 +1069,12 @@ public class Sonic2Constants {
         offsets.put("ART_NEM_NEBULA_ADDR", ART_NEM_NEBULA_ADDR);
         offsets.put("ART_NEM_TURTLOID_ADDR", ART_NEM_TURTLOID_ADDR);
         offsets.put("ART_NEM_CLOUDS_ADDR", ART_NEM_CLOUDS_ADDR);
+        offsets.put("ART_NEM_WFZ_HRZNTL_PRPLLR_ADDR", ART_NEM_WFZ_HRZNTL_PRPLLR_ADDR);
+        offsets.put("ART_NEM_WFZ_WALL_TURRET_ADDR", ART_NEM_WFZ_WALL_TURRET_ADDR);
+        offsets.put("MAP_UNC_WFZ_WALL_TURRET_ADDR", MAP_UNC_WFZ_WALL_TURRET_ADDR);
+        offsets.put("ART_TILE_WFZ_WALL_TURRET", ART_TILE_WFZ_WALL_TURRET);
+        offsets.put("ART_NEM_WFZ_GUN_PLATFORM_ADDR", ART_NEM_WFZ_GUN_PLATFORM_ADDR);
+        offsets.put("MAP_UNC_OBJBE_ADDR", MAP_UNC_OBJBE_ADDR);
         return offsets;
     }
 }

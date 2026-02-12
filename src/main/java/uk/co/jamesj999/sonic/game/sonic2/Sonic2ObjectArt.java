@@ -1343,6 +1343,329 @@ public class Sonic2ObjectArt {
         return new ObjectSpriteSheet(patterns, mappings, 2, 1);
     }
 
+    // ========== WFZ Tilting Platform (Object 0xB6) ==========
+
+    /**
+     * Load WFZ Tilting Platform (ObjB6) sprite sheet.
+     * ROM: ArtNem_WfzTiltPlatforms at 0x8E010, palette line 1, priority bit set.
+     * Art tile: make_art_tile(ArtTile_ArtNem_WfzTiltPlatforms,1,1) = palette 1, priority.
+     * 4 mapping frames: horizontal flat, tilted right, vertical, tilted left.
+     * <p>
+     * Disassembly Reference: s2.asm line 79605 (ObjB6_SubObjData), mappings/sprite/objB6.asm
+     *
+     * @return sprite sheet for WFZ tilting platform, or null on failure
+     */
+    public ObjectSpriteSheet loadWFZTiltPlatformSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_WFZ_TILT_PLATFORMS_ADDR, "WFZTiltPlatforms");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJB6_ADDR);
+        // Palette line 1, priority bit set (from ObjB6_SubObjData)
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    // ========== WFZ Belt Platform (Object 0xBD) ==========
+
+    /**
+     * Load WFZ Belt Platform (ObjBD) sprite sheet - ascending/descending metal platform from WFZ.
+     * ROM: ArtNem_WfzBeltPlatform at 0x8DD0C, palette line 3, priority bit set.
+     * Art tile: make_art_tile(ArtTile_ArtNem_WfzBeltPlatform,3,1) = $040E | palette 3, priority.
+     * 3 mapping frames: folded, mid, unfolded. Each frame has 2 pieces of 3x1 tiles (48x8 px).
+     * <p>
+     * Disassembly Reference: s2.asm line 80062 (ObjBD_SubObjData), mappings/sprite/objBD.asm
+     *
+     * @return sprite sheet for WFZ belt platform, or null on failure
+     */
+    public ObjectSpriteSheet loadWFZBeltPlatformSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_WFZ_BELT_PLATFORM_ADDR, "WFZBeltPlatform");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createWFZBeltPlatformMappings();
+        // Palette line 3 = index 2 in engine (palette 0 is universal)
+        return new ObjectSpriteSheet(patterns, mappings, 2, 1);
+    }
+
+    /**
+     * Creates mappings for WFZ Belt Platform (ObjBD).
+     * From disassembly: mappings/sprite/objBD.asm (ObjBD_MapUnc_3BD3E)
+     * <pre>
+     * Frame 0 (unfolded): spritePiece -$18,-4, 3,1, 0, 0,0,0,0
+     *                      spritePiece   0, -4, 3,1, 3, 0,0,0,0
+     * Frame 1 (mid):      spritePiece -$18,-4, 3,1, 6, 0,0,0,0
+     *                      spritePiece   0, -4, 3,1, 6, 1,0,0,0
+     * Frame 2 (folded):   spritePiece -$18,-4, 3,1, 9, 0,0,0,0
+     *                      spritePiece   0, -4, 3,1, 9, 1,0,0,0
+     * </pre>
+     */
+    private List<SpriteMappingFrame> createWFZBeltPlatformMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (unfolded): two 3x1 pieces, left side tiles 0-2, right side tiles 3-5
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x18, -4, 3, 1, 0, false, false, 0));
+        frame0.add(new SpriteMappingPiece(0, -4, 3, 1, 3, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1 (mid): two 3x1 pieces, tiles 6-8, right side h-flipped
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-0x18, -4, 3, 1, 6, false, false, 0));
+        frame1.add(new SpriteMappingPiece(0, -4, 3, 1, 6, true, false, 0));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2 (folded): two 3x1 pieces, tiles 9-11, right side h-flipped
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-0x18, -4, 3, 1, 9, false, false, 0));
+        frame2.add(new SpriteMappingPiece(0, -4, 3, 1, 9, true, false, 0));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        return frames;
+    }
+
+    // ========== WFZ Laser (Object 0xB9) ==========
+
+    /**
+     * Load WFZ Laser (ObjB9) sprite sheet - horizontal laser beam from Wing Fortress Zone.
+     * ROM: ArtNem_WfzHrzntlLazer at 0x8DC42, palette line 2, priority bit set.
+     * Art tile: make_art_tile(ArtTile_ArtNem_WfzHrzntlLazer,2,1) = $03C3 | palette 2, priority.
+     * Single mapping frame with 6 pieces forming a wide horizontal laser beam.
+     *
+     * @return sprite sheet for WFZ laser, or null on failure
+     */
+    public ObjectSpriteSheet loadWFZLaserSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_WFZ_HRZNTL_LAZER_ADDR, "WFZHrzntlLazer");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createLaserMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 2, 1);
+    }
+
+    /**
+     * Creates mappings for WFZ Laser (ObjB9).
+     * From disassembly: mappings/sprite/objB9.asm (ObjB9_MapUnc_3BB18)
+     *
+     * Single frame: 6 pieces forming a 144px-wide horizontal laser beam.
+     * The beam is symmetric: left tip (1x2), 4 middle sections (4x2 each), right tip (1x2 h-flipped).
+     * Middle sections all share tile index 2. Tips use tile index 0.
+     */
+    private List<SpriteMappingFrame> createLaserMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_objB9_0002): Horizontal laser beam - 6 pieces
+        // spritePiece -$48, -8, 1, 2, 0, 0, 0, 0, 0   -- left tip
+        // spritePiece -$40, -8, 4, 2, 2, 0, 0, 0, 0   -- middle section 1
+        // spritePiece -$20, -8, 4, 2, 2, 0, 0, 0, 0   -- middle section 2
+        // spritePiece    0, -8, 4, 2, 2, 0, 0, 0, 0   -- middle section 3
+        // spritePiece  $20, -8, 4, 2, 2, 0, 0, 0, 0   -- middle section 4
+        // spritePiece  $40, -8, 1, 2, 0, 1, 0, 0, 0   -- right tip (h-flipped)
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x48, -8, 1, 2, 0, false, false, 0, true));
+        f0.add(new SpriteMappingPiece(-0x40, -8, 4, 2, 2, false, false, 0, true));
+        f0.add(new SpriteMappingPiece(-0x20, -8, 4, 2, 2, false, false, 0, true));
+        f0.add(new SpriteMappingPiece(0x00, -8, 4, 2, 2, false, false, 0, true));
+        f0.add(new SpriteMappingPiece(0x20, -8, 4, 2, 2, false, false, 0, true));
+        f0.add(new SpriteMappingPiece(0x40, -8, 1, 2, 0, true, false, 0, true));
+        frames.add(new SpriteMappingFrame(f0));
+
+        return frames;
+    }
+
+    // ========== WFZ VerticalLaser (Object 0xB7) ==========
+
+    /**
+     * Load WFZ Vertical Laser (ObjB7) sprite sheet - huge unused vertical laser from WFZ.
+     * Spawned as a child by ObjB6 (TiltingPlatform) during the fire countdown behavior.
+     * ROM: ArtNem_WfzVrtclLazer at 0x8DA6E, palette line 2, priority bit set.
+     * Art tile: make_art_tile(ArtTile_ArtNem_WfzVrtclLazer,2,1) = palette 2, priority.
+     * Single mapping frame: 16 pieces (8 pairs of 3x4 tiles) forming a tall vertical beam.
+     * width_pixels = $18.
+     * <p>
+     * Disassembly Reference: s2.asm line 79662 (ObjB7_SubObjData), mappings/sprite/objB7.asm
+     *
+     * @return sprite sheet for WFZ vertical laser, or null on failure
+     */
+    public ObjectSpriteSheet loadWFZVerticalLaserSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_WFZ_VRTCL_LAZER_ADDR, "WFZVrtclLazer");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJB7_ADDR);
+        // Palette line 2, priority bit set (from ObjB7_SubObjData)
+        return new ObjectSpriteSheet(patterns, mappings, 2, 1);
+    }
+
+    // ========== WFZ LateralCannon / Retracting Platform (Object 0xBE) ==========
+
+    /**
+     * Load WFZ LateralCannon (ObjBE) sprite sheet - retracting platform from Wing Fortress Zone.
+     * ROM: ArtNem_WfzGunPlatform at 0x8D540, palette line 3, priority bit set.
+     * Mappings at ObjBE_MapUnc_3BE46 (5 frames: retraction/extension animation).
+     * Art tile: make_art_tile(ArtTile_ArtNem_WfzGunPlatform,3,1) = palette 3, priority.
+     */
+    public ObjectSpriteSheet loadWfzGunPlatformSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_WFZ_GUN_PLATFORM_ADDR, "WfzGunPlatform");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJBE_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    // ========== WFZ SpeedLauncher (Object 0xC0) ==========
+
+    /**
+     * Load WFZ SpeedLauncher (ObjC0) sprite sheet - catapult platform from Wing Fortress Zone.
+     * ROM: ArtNem_WfzLaunchCatapult at 0x8DCA2, palette line 1, no priority.
+     * Mappings at ObjC0_MapUnc_3C098 (1 frame: 2 pieces forming the catapult).
+     * Art tile: make_art_tile(ArtTile_ArtNem_WfzLaunchCatapult,1,0) = palette 1, no priority.
+     */
+    public ObjectSpriteSheet loadWfzLaunchCatapultSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_WFZ_LAUNCH_CATAPULT_ADDR, "WfzLaunchCatapult");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJC0_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    // ========== WFZ BreakablePlating (Object 0xC1) ==========
+
+    /**
+     * Load WFZ BreakablePlating (ObjC1) sprite sheet - breakable plating from Wing Fortress Zone.
+     * ROM: ArtNem_BreakPanels at 0x7FF98, palette line 3, priority bit set.
+     * Art tile: make_art_tile(ArtTile_ArtNem_BreakPanels,3,1) = palette 3, priority.
+     * <p>
+     * Mappings at ObjC1_MapUnc_3C280 (6 frames).
+     * <p>
+     * Disassembly Reference: s2.asm line 80560 (ObjC1_SubObjData), mappings/sprite/objC1.asm
+     */
+    public ObjectSpriteSheet loadWfzBreakPanelsSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_BREAK_PANELS_ADDR, "BreakPanels");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJC1_ADDR);
+        // Palette line 3, priority bit set (from ObjC1_SubObjData: make_art_tile(ArtTile_ArtNem_BreakPanels,3,1))
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    // ========== WFZ Rivet (Object 0xC2) ==========
+
+    /**
+     * Load WFZ Rivet (ObjC2) sprite sheet - rivet at end of WFZ that opens the ship when busted.
+     * ROM: ArtNem_WfzSwitch at 0x7FF2A, palette line 1, priority bit set.
+     * Art tile: make_art_tile(ArtTile_ArtNem_WfzSwitch,1,1) = palette 1, priority.
+     * <p>
+     * Mappings: ObjC2_MapUnc_3C3C2 (1 frame, 2 pieces)
+     * <pre>
+     * Frame 0: spritePiece -$10, -8, 2, 2, 0, 0, 0, 0, 0  (left half)
+     *          spritePiece    0, -8, 2, 2, 0, 1, 0, 0, 0  (right half, x-flipped)
+     * </pre>
+     * <p>
+     * Disassembly Reference: s2.asm line 80620 (ObjC2_SubObjData), mappings/sprite/objC2.asm
+     */
+    public ObjectSpriteSheet loadWfzRivetSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_WFZ_SWITCH_ADDR, "WfzSwitch");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createWfzRivetMappings();
+        // Palette line 1, priority bit set (from ObjC2_SubObjData: make_art_tile(ArtTile_ArtNem_WfzSwitch,1,1))
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Creates mappings for WFZ Rivet (ObjC2).
+     * From disassembly: mappings/sprite/objC2.asm (ObjC2_MapUnc_3C3C2)
+     * <pre>
+     * Frame 0 (intact rivet): 2 pieces forming a 32x16 sprite
+     *   spritePiece -$10, -8, 2, 2, 0, 0, 0, 0, 0  (left half: 16x16, tile 0)
+     *   spritePiece    0, -8, 2, 2, 0, 1, 0, 0, 0  (right half: 16x16, tile 0, x-flipped)
+     * </pre>
+     */
+    private List<SpriteMappingFrame> createWfzRivetMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: intact rivet - two 2x2 pieces (left and right halves)
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x10, -8, 2, 2, 0, false, false, 0));
+        frame0.add(new SpriteMappingPiece(0, -8, 2, 2, 0, true, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        return frames;
+    }
+
+    // ========== WFZ Conveyor Belt Wheel (Object 0xBA) ==========
+
+    /**
+     * Load WFZ Conveyor Belt Wheel (ObjBA) sprite sheet - static wheel decoration from Wing Fortress Zone.
+     * ROM: ArtNem_WfzConveyorBeltWheel at 0x8D7D8, palette line 2, priority bit set.
+     * Art tile: make_art_tile(ArtTile_ArtNem_WfzConveyorBeltWheel,2,1) = $03EA | palette 2, priority.
+     * <p>
+     * Single mapping frame: one 4x4 piece (32x32 pixels) at offset (-16, -16) from center.
+     * <p>
+     * Disassembly Reference: s2.asm lines 79855-79860 (ObjBA_SubObjData, ObjBA_MapUnc_3BB70)
+     *
+     * @return sprite sheet for WFZ conveyor belt wheel, or null on failure
+     */
+    public ObjectSpriteSheet loadWFZConveyorBeltWheelSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_WFZ_CONVEYOR_BELT_WHEEL_ADDR, "WFZConveyorBeltWheel");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createWFZConveyorBeltWheelMappings();
+        // Palette line 2 = paletteIndex 2 (engine maps directly to VDP palette lines)
+        return new ObjectSpriteSheet(patterns, mappings, 2, 1);
+    }
+
+    /**
+     * Creates mappings for WFZ Conveyor Belt Wheel (ObjBA).
+     * From disassembly: mappings/sprite/objBA.asm (ObjBA_MapUnc_3BB70)
+     * <pre>
+     * Frame 0: spritePiece -$10, -$10, 4, 4, 0, 0, 0, 0, 0
+     * </pre>
+     * Single frame: one 4x4 piece (32x32 pixels) at (-16, -16).
+     */
+    private List<SpriteMappingFrame> createWFZConveyorBeltWheelMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: single 4x4 piece (32x32 pixels), tile index 0, no flip, no priority override
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        return frames;
+    }
+
+    // ========== WFZ WallTurret (Object 0xB8) ==========
+
+    /**
+     * Load WFZ WallTurret (ObjB8) sprite sheet - wall-mounted turret from Wing Fortress Zone.
+     * ROM: ArtNem_WfzWallTurret at 0x8D1A0, palette line 0.
+     * Mappings at ObjB8_Obj98_MapUnc_3BA46 (5 frames: 3 turret orientations + 2 projectile frames).
+     * Art tile: make_art_tile(ArtTile_ArtNem_WfzWallTurret,0,0) = $03AB | palette 0, no priority.
+     */
+    public ObjectSpriteSheet loadWallTurretSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_WFZ_WALL_TURRET_ADDR, "WFZWallTurret");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_WFZ_WALL_TURRET_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
     // ========== SCZ Cloud (Object 0xB3) ==========
 
     /**
@@ -1399,6 +1722,164 @@ public class Sonic2ObjectArt {
 
         // Frame 3: Duplicate of frame 0 (mappingsTableEntry.w Map_objB3_0008)
         frames.add(frames.get(0));
+
+        return frames;
+    }
+
+    // ========== WFZ Vertical Propeller (Object 0xB4) ==========
+
+    /**
+     * Load WFZ Vertical Propeller sprite sheet (Object 0xB4).
+     * <p>
+     * ROM: ArtNem_WfzVrtclPrpllr at 0x8DEB8, palette line 1, priority bit set.
+     * Art tile: make_art_tile(ArtTile_ArtNem_WfzVrtclPrpllr,1,1) = $0561 | palette 1, priority.
+     * <p>
+     * Disassembly Reference: s2.asm ObjB4_SubObjData (lines 79195-79196)
+     *
+     * @return sprite sheet for vertical propeller, or null on failure
+     */
+    public ObjectSpriteSheet loadVPropellerSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_WFZ_VRTCL_PRPLLR_ADDR, "WfzVrtclPrpllr");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createVPropellerMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Creates mappings for WFZ Vertical Propeller (ObjB4).
+     * From disassembly: mappings/sprite/objB4.asm (ObjB4_MapUnc_3B3BE)
+     * <p>
+     * 3 frames, each with 2 pieces (1x4 tile strips). The propeller is a vertical
+     * column of blades that animates between 3 positions. The second piece in each
+     * frame is y-flipped (mirror of the first piece).
+     * <p>
+     * Frame 0: Top at -0x40, bottom at -0x20 (y-flipped)
+     * Frame 1: Top at -0x20, bottom at 0 (y-flipped)
+     * Frame 2: Top at 0, bottom at 0x20 (y-flipped)
+     */
+    private List<SpriteMappingFrame> createVPropellerMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_objB4_0006): 2 pieces
+        // spritePiece -4, -$40, 1, 4, 0, 0, 0, 0, 0
+        // spritePiece -4, -$20, 1, 4, 0, 0, 1, 0, 0  (y-flipped)
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-4, -0x40, 1, 4, 0, false, false, 0));
+        f0.add(new SpriteMappingPiece(-4, -0x20, 1, 4, 0, false, true, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1 (Map_objB4_0018): 2 pieces
+        // spritePiece -4, -$20, 1, 4, 0, 0, 0, 0, 0
+        // spritePiece -4, 0, 1, 4, 0, 0, 1, 0, 0  (y-flipped)
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-4, -0x20, 1, 4, 0, false, false, 0));
+        f1.add(new SpriteMappingPiece(-4, 0, 1, 4, 0, false, true, 0));
+        frames.add(new SpriteMappingFrame(f1));
+
+        // Frame 2 (Map_objB4_002A): 2 pieces
+        // spritePiece -4, 0, 1, 4, 0, 0, 0, 0, 0
+        // spritePiece -4, $20, 1, 4, 0, 0, 1, 0, 0  (y-flipped)
+        List<SpriteMappingPiece> f2 = new ArrayList<>();
+        f2.add(new SpriteMappingPiece(-4, 0, 1, 4, 0, false, false, 0));
+        f2.add(new SpriteMappingPiece(-4, 0x20, 1, 4, 0, false, true, 0));
+        frames.add(new SpriteMappingFrame(f2));
+
+        return frames;
+    }
+
+    // ========== WFZ/SCZ Horizontal Propeller (Object 0xB5) ==========
+
+    /**
+     * Load HPropeller sprite sheet (Object 0xB5).
+     * Horizontal spinning propeller blades from WFZ/SCZ.
+     * <p>
+     * ROM: ArtNem_WfzHrzntlPrpllr at 0x8DEE8, palette line 1, priority bit set.
+     * SubObjData: make_art_tile(ArtTile_ArtNem_WfzHrzntlPrpllr,1,1)
+     * <p>
+     * Disassembly Reference: s2.asm ObjB5_SubObjData (line 79299)
+     *
+     * @return sprite sheet for HPropeller, or null on failure
+     */
+    public ObjectSpriteSheet loadHPropellerSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_WFZ_HRZNTL_PRPLLR_ADDR, "WfzHrzntlPrpllr");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createHPropellerMappings();
+        // Palette line 1, priority bit set (make_art_tile with pal=1, pri=1)
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Creates mappings for HPropeller (ObjB5).
+     * From disassembly: mappings/sprite/objB5.asm (ObjB5_MapUnc_3B548)
+     * <p>
+     * 6 frames representing horizontal propeller blade rotation:
+     *   Frame 0: Fully extended (4 pieces, 128px wide)
+     *   Frame 1: Retracting (2 pieces, 80px wide)
+     *   Frame 2: Half (2 pieces, 48px wide)
+     *   Frame 3: Center (2 pieces, 32px wide, mirrored)
+     *   Frame 4: Expanding mirrored (2 pieces, 48px wide)
+     *   Frame 5: Nearly full mirrored (2 pieces, 80px wide)
+     */
+    private List<SpriteMappingFrame> createHPropellerMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_objB5_000C): 4 pieces - fully extended
+        // spritePiece -$40, -4, 4, 1, 0, 0, 0, 0, 0
+        // spritePiece -$20, -4, 3, 1, 4, 0, 0, 0, 0
+        // spritePiece    8, -4, 3, 1, 7, 0, 0, 0, 0
+        // spritePiece  $20, -4, 4, 1, $A, 0, 0, 0, 0
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x40, -4, 4, 1, 0x00, false, false, 0));
+        f0.add(new SpriteMappingPiece(-0x20, -4, 3, 1, 0x04, false, false, 0));
+        f0.add(new SpriteMappingPiece(0x08, -4, 3, 1, 0x07, false, false, 0));
+        f0.add(new SpriteMappingPiece(0x20, -4, 4, 1, 0x0A, false, false, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1 (Map_objB5_002E): 2 pieces
+        // spritePiece -$28, -4, 4, 1, $E, 0, 0, 0, 0
+        // spritePiece    8, -4, 4, 1, $12, 0, 0, 0, 0
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-0x28, -4, 4, 1, 0x0E, false, false, 0));
+        f1.add(new SpriteMappingPiece(0x08, -4, 4, 1, 0x12, false, false, 0));
+        frames.add(new SpriteMappingFrame(f1));
+
+        // Frame 2 (Map_objB5_0040): 2 pieces
+        // spritePiece -$18, -4, 3, 1, $16, 0, 0, 0, 0
+        // spritePiece    8, -4, 2, 1, $19, 0, 0, 0, 0
+        List<SpriteMappingPiece> f2h = new ArrayList<>();
+        f2h.add(new SpriteMappingPiece(-0x18, -4, 3, 1, 0x16, false, false, 0));
+        f2h.add(new SpriteMappingPiece(0x08, -4, 2, 1, 0x19, false, false, 0));
+        frames.add(new SpriteMappingFrame(f2h));
+
+        // Frame 3 (Map_objB5_0052): 2 pieces - center, mirrored
+        // spritePiece -$10, -4, 2, 1, $1B, 0, 0, 0, 0
+        // spritePiece    0, -4, 2, 1, $1B, 1, 0, 0, 0
+        List<SpriteMappingPiece> f3 = new ArrayList<>();
+        f3.add(new SpriteMappingPiece(-0x10, -4, 2, 1, 0x1B, false, false, 0));
+        f3.add(new SpriteMappingPiece(0x00, -4, 2, 1, 0x1B, true, false, 0));
+        frames.add(new SpriteMappingFrame(f3));
+
+        // Frame 4 (Map_objB5_0064): 2 pieces - expanding mirrored
+        // spritePiece -$18, -4, 2, 1, $19, 1, 0, 0, 0
+        // spritePiece    0, -4, 3, 1, $16, 1, 0, 0, 0
+        List<SpriteMappingPiece> f4 = new ArrayList<>();
+        f4.add(new SpriteMappingPiece(-0x18, -4, 2, 1, 0x19, true, false, 0));
+        f4.add(new SpriteMappingPiece(0x00, -4, 3, 1, 0x16, true, false, 0));
+        frames.add(new SpriteMappingFrame(f4));
+
+        // Frame 5 (Map_objB5_0076): 2 pieces - nearly full mirrored
+        // spritePiece -$28, -4, 4, 1, $12, 1, 0, 0, 0
+        // spritePiece    8, -4, 4, 1, $E, 1, 0, 0, 0
+        List<SpriteMappingPiece> f5 = new ArrayList<>();
+        f5.add(new SpriteMappingPiece(-0x28, -4, 4, 1, 0x12, true, false, 0));
+        f5.add(new SpriteMappingPiece(0x08, -4, 4, 1, 0x0E, true, false, 0));
+        frames.add(new SpriteMappingFrame(f5));
 
         return frames;
     }
@@ -1970,6 +2451,21 @@ public class Sonic2ObjectArt {
             return null;
         }
         List<SpriteMappingFrame> mappings = createBalkiryMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Load Clucker (ObjAD/ObjAE) sprite sheet - chicken turret badnik from WFZ.
+     * ROM: ArtNem_WfzScratch at 0x8B9DC, palette line 0.
+     * Shared by CluckerBase (frame 12), Clucker (frames 0-11, 21), and projectile (frames 13-20).
+     * 22 frames from Map_objAE (ObjAD_Obj98_MapUnc_395B4).
+     */
+    public ObjectSpriteSheet loadCluckerSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_WFZ_SCRATCH_ADDR, "WfzScratch");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createCluckerMappings();
         return new ObjectSpriteSheet(patterns, mappings, 0, 1);
     }
 
@@ -4214,6 +4710,161 @@ public class Sonic2ObjectArt {
         frame1.add(new SpriteMappingPiece(0x0C, 4, 3, 1, 0x15, false, false, 0, true));
         frame1.add(new SpriteMappingPiece(0x1C, 0x0C, 1, 1, 0x18, false, false, 0, true));
         frames.add(new SpriteMappingFrame(frame1));
+
+        return frames;
+    }
+
+    /**
+     * Creates mappings for Clucker (ObjAD/ObjAE) - chicken turret badnik from WFZ.
+     * Based on mappings/sprite/objAE.asm (S2 disassembly).
+     * 22 frames shared by CluckerBase, Clucker, and projectile:
+     *   Frames  0- 7: Clucker rising from base (Ani_objAE_a)
+     *   Frames  8-11: Clucker shooting (Ani_objAE_b / Ani_objAE_c)
+     *   Frame  12:    CluckerBase solid platform
+     *   Frames 13-20: Projectile bullet animation (Ani_CluckerShot)
+     *   Frame  21:    Clucker hidden/initial frame (base only visible)
+     * Art tile: make_art_tile(ArtTile_ArtNem_WfzScratch,0,0) = palette line 0.
+     */
+    private List<SpriteMappingFrame> createCluckerMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_objAE_002C): Rising step 1 - just emerged
+        // spritePiece -$10, $C, 4, 2, 0, 0, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, 0x0C, 4, 2, 0x00, false, false, 1))));
+
+        // Frame 1 (Map_objAE_0036): Rising step 2
+        // spritePiece -$10, 8, 4, 2, 0, 0, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, 0x08, 4, 2, 0x00, false, false, 1))));
+
+        // Frame 2 (Map_objAE_0040): Rising step 3
+        // spritePiece -$10, 4, 4, 2, 0, 0, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, 0x04, 4, 2, 0x00, false, false, 1))));
+
+        // Frame 3 (Map_objAE_004A): Rising step 4 - body + legs visible
+        // spritePiece -$10, 0, 4, 2, 0, 0, 0, 1, 0
+        // spritePiece -$10, $10, 4, 2, 8, 0, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, 0x00, 4, 2, 0x00, false, false, 1),
+                new SpriteMappingPiece(-0x10, 0x10, 4, 2, 0x08, false, false, 1))));
+
+        // Frame 4 (Map_objAE_005C): Rising step 5
+        // spritePiece -$10, -4, 4, 2, 0, 0, 0, 1, 0
+        // spritePiece -$10, $C, 4, 2, 8, 0, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x04, 4, 2, 0x00, false, false, 1),
+                new SpriteMappingPiece(-0x10, 0x0C, 4, 2, 0x08, false, false, 1))));
+
+        // Frame 5 (Map_objAE_006E): Rising step 6
+        // spritePiece -$10, -8, 4, 2, 0, 0, 0, 1, 0
+        // spritePiece -$10, 8, 4, 2, 8, 0, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x08, 4, 2, 0x00, false, false, 1),
+                new SpriteMappingPiece(-0x10, 0x08, 4, 2, 0x08, false, false, 1))));
+
+        // Frame 6 (Map_objAE_0080): Rising step 7
+        // spritePiece -$10, -$C, 4, 2, 0, 0, 0, 1, 0
+        // spritePiece -$10, 4, 4, 2, 8, 0, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x0C, 4, 2, 0x00, false, false, 1),
+                new SpriteMappingPiece(-0x10, 0x04, 4, 2, 0x08, false, false, 1))));
+
+        // Frame 7 (Map_objAE_0092): Fully risen - body + legs at max height
+        // spritePiece -$10, -$10, 4, 2, 0, 0, 0, 1, 0
+        // spritePiece -$10, 0, 4, 2, 8, 0, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x00, false, false, 1),
+                new SpriteMappingPiece(-0x10, 0x00, 4, 2, 0x08, false, false, 1))));
+
+        // Frame 8 (Map_objAE_00A4): Shooting - beak extended slightly
+        // spritePiece -$10, -$10, 4, 2, 0, 0, 0, 1, 0
+        // spritePiece -$10, 0, 4, 2, 8, 0, 0, 1, 0
+        // spritePiece -$12, 7, 1, 1, $10, 0, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x00, false, false, 1),
+                new SpriteMappingPiece(-0x10, 0x00, 4, 2, 0x08, false, false, 1),
+                new SpriteMappingPiece(-0x12, 0x07, 1, 1, 0x10, false, false, 1))));
+
+        // Frame 9 (Map_objAE_00BE): Beak extended more
+        // spritePiece -$10, -$10, 4, 2, 0, 0, 0, 1, 0
+        // spritePiece -$10, 0, 4, 2, 8, 0, 0, 1, 0
+        // spritePiece -$14, 7, 1, 1, $10, 0, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x00, false, false, 1),
+                new SpriteMappingPiece(-0x10, 0x00, 4, 2, 0x08, false, false, 1),
+                new SpriteMappingPiece(-0x14, 0x07, 1, 1, 0x10, false, false, 1))));
+
+        // Frame 10 (Map_objAE_00D8): Beak extended further (firing position)
+        // spritePiece -$10, -$10, 4, 2, 0, 0, 0, 1, 0
+        // spritePiece -$10, 0, 4, 2, 8, 0, 0, 1, 0
+        // spritePiece -$16, 7, 1, 1, $10, 0, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x00, false, false, 1),
+                new SpriteMappingPiece(-0x10, 0x00, 4, 2, 0x08, false, false, 1),
+                new SpriteMappingPiece(-0x16, 0x07, 1, 1, 0x10, false, false, 1))));
+
+        // Frame 11 (Map_objAE_00F2): Beak fully extended
+        // spritePiece -$10, -$10, 4, 2, 0, 0, 0, 1, 0
+        // spritePiece -$10, 0, 4, 2, 8, 0, 0, 1, 0
+        // spritePiece -$18, 7, 1, 1, $10, 0, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x00, false, false, 1),
+                new SpriteMappingPiece(-0x10, 0x00, 4, 2, 0x08, false, false, 1),
+                new SpriteMappingPiece(-0x18, 0x07, 1, 1, 0x10, false, false, 1))));
+
+        // Frame 12 (Map_objAE_010C): CluckerBase platform
+        // spritePiece -$18, -8, 3, 2, $11, 0, 0, 3, 0
+        // spritePiece 0, -8, 3, 2, $11, 1, 0, 3, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x08, 3, 2, 0x11, false, false, 3),
+                new SpriteMappingPiece(0x00, -0x08, 3, 2, 0x11, true, false, 3))));
+
+        // Frame 13 (Map_objAE_011E): Projectile bullet frame 1
+        // spritePiece -4, -4, 1, 1, $17, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x04, -0x04, 1, 1, 0x17, false, false, 0))));
+
+        // Frame 14 (Map_objAE_0128): Projectile frame 2
+        // spritePiece -4, -4, 1, 1, $18, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x04, -0x04, 1, 1, 0x18, false, false, 0))));
+
+        // Frame 15 (Map_objAE_0132): Projectile frame 3
+        // spritePiece -4, -4, 1, 1, $19, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x04, -0x04, 1, 1, 0x19, false, false, 0))));
+
+        // Frame 16 (Map_objAE_013C): Projectile frame 4 (v-flipped)
+        // spritePiece -4, -4, 1, 1, $18, 0, 1, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x04, -0x04, 1, 1, 0x18, false, true, 0))));
+
+        // Frame 17 (Map_objAE_0146): Projectile frame 5 (v-flipped)
+        // spritePiece -4, -4, 1, 1, $17, 0, 1, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x04, -0x04, 1, 1, 0x17, false, true, 0))));
+
+        // Frame 18 (Map_objAE_0150): Projectile frame 6 (h+v flipped)
+        // spritePiece -4, -4, 1, 1, $18, 1, 1, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x04, -0x04, 1, 1, 0x18, true, true, 0))));
+
+        // Frame 19 (Map_objAE_015A): Projectile frame 7 (h-flipped)
+        // spritePiece -4, -4, 1, 1, $19, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x04, -0x04, 1, 1, 0x19, true, false, 0))));
+
+        // Frame 20 (Map_objAE_0164): Projectile frame 8 (h-flipped)
+        // spritePiece -4, -4, 1, 1, $18, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x04, -0x04, 1, 1, 0x18, true, false, 0))));
+
+        // Frame 21 (Map_objAE_016E): Clucker hidden/initial frame (base visible below)
+        // spritePiece -$10, $10, 4, 2, 0, 0, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, 0x10, 4, 2, 0x00, false, false, 1))));
 
         return frames;
     }

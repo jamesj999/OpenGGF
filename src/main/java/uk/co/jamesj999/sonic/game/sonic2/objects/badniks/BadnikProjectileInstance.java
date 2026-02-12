@@ -29,7 +29,8 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
         AQUIS_BULLET,
         ASTERON_SPIKE,
         TURTLOID_SHOT,
-        NEBULA_BOMB
+        NEBULA_BOMB,
+        CLUCKER_SHOT
     }
 
     private static final int COLLISION_SIZE_STINGER = 0x18; // From disassembly $98 & 0x3F
@@ -40,6 +41,7 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
     private static final int COLLISION_SIZE_AQUIS_BULLET = 0x18; // From disassembly $98 & 0x3F
     private static final int COLLISION_SIZE_ASTERON_SPIKE = 0x18; // From ObjA4_SubObjData2: collision_flags=$98
     private static final int COLLISION_SIZE_NEBULA_BOMB = 0x0B; // From Obj99_SubObjData: collision_flags=$8B
+    private static final int COLLISION_SIZE_CLUCKER_SHOT = 0x18; // From ObjAD_SubObjData3: collision_flags=$98
     private static final int GRAVITY_COCONUT = 0x20; // Obj98_CoconutFall
     private static final int GRAVITY_SPINY_SPIKE = 0x20; // From disassembly +$20 per frame
     private static final int GRAVITY_REXON_FIREBALL = 0x80; // From disassembly $80 per frame
@@ -59,6 +61,8 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
     private int initialDelay; // Frames to wait before moving (Octus bullet: 0x0F)
     private int fixedFrame = -1; // Fixed mapping frame override (Asteron spikes use different frames per projectile)
     private boolean paletteBlink; // Toggles every frame for Nebula bomb (ROM: bchg palette_bit_0)
+    private int cluckerAnimTimer; // Clucker shot animation timer (counts down from duration)
+    private int cluckerAnimIndex; // Clucker shot animation index (0-7, cycles through 8 frames)
 
     /**
      * Create a new projectile.
@@ -123,6 +127,12 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
                 this.gravity = 0x38; // Standard ObjectMoveAndFall gravity
                 this.collisionSizeIndex = COLLISION_SIZE_NEBULA_BOMB;
             }
+            case CLUCKER_SHOT -> {
+                // ObjAD_SubObjData3: collision_flags=$98 -> HURT (0x80) + size 0x18
+                // Obj98_CluckerShotMove: moves with ObjectMove (no gravity)
+                this.gravity = 0;
+                this.collisionSizeIndex = COLLISION_SIZE_CLUCKER_SHOT;
+            }
         }
     }
 
@@ -177,8 +187,23 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
             setDestroyed(true);
         }
 
-        // Simple animation cycling
-        animFrame = ((frameCounter >> 2) & 1);
+        // Animation cycling
+        if (type == ProjectileType.CLUCKER_SHOT) {
+            // Ani_CluckerShot: duration 3, frames $D-$14, end $FF (loop)
+            // 8 frames total, each held for 4 game frames (duration 3 = 3+1 ticks)
+            cluckerAnimTimer--;
+            if (cluckerAnimTimer < 0) {
+                cluckerAnimTimer = 3; // dc.b 3 = duration
+                cluckerAnimIndex++;
+                if (cluckerAnimIndex >= 8) {
+                    // $FF end action = loop (restart animation from beginning)
+                    cluckerAnimIndex = 0;
+                }
+            }
+            animFrame = cluckerAnimIndex;
+        } else {
+            animFrame = ((frameCounter >> 2) & 1);
+        }
 
         // Nebula bomb: toggle palette every frame (ROM: bchg #palette_bit_0)
         if (type == ProjectileType.NEBULA_BOMB) {
@@ -222,6 +247,10 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
 
     @Override
     public int getPriorityBucket() {
+        // ObjAD_SubObjData3: Clucker shot priority = 5; other projectiles default to 4
+        if (type == ProjectileType.CLUCKER_SHOT) {
+            return RenderPriority.clamp(5);
+        }
         return RenderPriority.clamp(4);
     }
 
@@ -286,6 +315,12 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
                 frame = 4;
                 // ROM: bchg #palette_bit_0,art_tile(a0) - toggles palette line every frame
                 paletteOverride = paletteBlink ? 0 : 1;
+                break;
+            case CLUCKER_SHOT:
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.CLUCKER);
+                // Ani_CluckerShot: dc.b 3, $D, $E, $F, $10, $11, $12, $13, $14, $FF
+                // Frames 13-20 cycle with duration 3, end action $FF = loop
+                frame = 13 + (animFrame % 8);
                 break;
             default:
                 return;

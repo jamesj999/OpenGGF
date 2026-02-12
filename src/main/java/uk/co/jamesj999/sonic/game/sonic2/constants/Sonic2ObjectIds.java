@@ -50,6 +50,10 @@ public final class Sonic2ObjectIds {
     public static final int BALKIRY_JET = 0x9C;     // Balkiry's jet exhaust (child of Balkiry, spawned dynamically)
     public static final int BALKIRY = 0xAC;         // Balkiry (jet badnik from SCZ)
 
+    // WFZ Badniks
+    public static final int CLUCKER_BASE = 0xAD;   // CluckerBase (turret platform) from WFZ
+    public static final int CLUCKER = 0xAE;         // Clucker (chicken badnik) from WFZ
+
     // ARZ Badniks
     public static final int CHOP_CHOP = 0x91;
 
@@ -166,9 +170,10 @@ public final class Sonic2ObjectIds {
     // ARZ Rotating Platforms
     public static final int ARZ_ROT_PFORMS = 0x83; // Rotating Platforms (Obj83) - 3 platforms orbiting center
 
-    // SCZ Objects
+    // SCZ/WFZ Objects
     public static final int TORNADO = 0xB2; // Tornado (ObjB2) - SCZ/WFZ scripted biplane sequence
     public static final int CLOUD = 0xB3; // Cloud (ObjB3) - decorative clouds from Sky Chase Zone
+    public static final int HPROPELLER = 0xB5; // HPropeller (ObjB5) - horizontal spinning propeller from WFZ/SCZ
 
     // CNZ/HTZ Objects
     public static final int FORCED_SPIN = 0x84; // ForcedSpin/Pinball Mode (Obj84) - CNZ/HTZ
@@ -179,6 +184,21 @@ public final class Sonic2ObjectIds {
     public static final int SMASHABLE_GROUND = 0x2F;  // Smashable Ground (Obj2F) - breakable rock platform
     public static final int RISING_LAVA = 0x30;       // Rising Lava (Obj30) - invisible solid platform during earthquakes
     public static final int LAVA_MARKER = 0x31;       // Lava Marker (Obj31) - invisible hazard collision zone
+
+    // WFZ Objects
+    public static final int WFZ_PAL_SWITCHER = 0x8B; // WFZPalSwitcher (Obj8B) - cycling palette switcher from WFZ
+    public static final int VPROPELLER = 0xB4; // VPropeller (ObjB4) - vertical propeller platform from WFZ/SCZ
+    public static final int TILTING_PLATFORM = 0xB6; // TiltingPlatform (ObjB6) - tilting/spinning platform from WFZ
+    public static final int WALL_TURRET = 0xB8; // WallTurret (ObjB8) - wall-mounted turret from WFZ
+    public static final int LASER = 0xB9; // Laser (ObjB9) - horizontal laser beam from WFZ that shoots down the Tornado
+    public static final int WFZ_WHEEL = 0xBA; // WFZWheel (ObjBA) - conveyor belt wheel decoration from WFZ
+    public static final int WFZ_SHIP_FIRE = 0xBC; // WFZShipFire (ObjBC) - fire/flame from Robotnik's ship in WFZ
+    public static final int SMALL_METAL_PFORM = 0xBD; // SmallMetalPform (ObjBD) - ascending/descending belt platform from WFZ
+    public static final int LATERAL_CANNON = 0xBE; // LateralCannon (ObjBE) - retracting platform from WFZ
+    public static final int SPEED_LAUNCHER = 0xC0; // SpeedLauncher (ObjC0) - catapult platform from WFZ
+    public static final int BREAKABLE_PLATING = 0xC1; // BreakablePlating (ObjC1) - breakable plating from WFZ / Robotnik's getaway ship
+    public static final int RIVET = 0xC2; // Rivet (ObjC2) - rivet at end of WFZ that opens the ship when busted
+    public static final int GRAB = 0xD9; // Grab (ObjD9) - invisible hang-on point from WFZ
 
     // CNZ/MTZ/WFZ Objects
     public static final int CNZ_CONVEYOR_BELT = 0x72; // Conveyor Belt (Obj72) - invisible velocity zone
