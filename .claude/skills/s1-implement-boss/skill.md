@@ -33,7 +33,7 @@ $ARGUMENTS: Boss name or zone (e.g., "GHZ boss", "Green Hill boss", "0x3D", "Fin
 | **Palette flash** | `v_palette+$22` (line 1, color 1) | Boss-specific palette line |
 | **Hit count** | 8 hits (standard) | 8 hits (standard) |
 | **Arena setup** | Zone-specific camera lock in object code | `LevEvents_ZONE2` routines |
-| **Level events** | No dedicated LevelEventManager for S1 | `LevelEventManager.java` |
+| **Level events** | `Sonic1LevelEventManager` (per-zone handler classes) | `Sonic2LevelEventManager.java` |
 | **Music** | `MUS_BOSS` (0x8C) | `Sonic2AudioConstants.MUS_BOSS` |
 | **Defeat** | Explosion sequence + flee + EggPrison | Similar pattern |
 | **Boss state** | Object-local fields (`obRoutine`, `ob2ndRout`) | `BossStateContext` |
@@ -73,13 +73,12 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 
 ### Phase 2: Arena & Level Event Setup
 
-S1 bosses handle their own camera lock and arena setup, unlike S2 which uses `LevelEventManager`. There are two approaches:
+S1 bosses use `Sonic1LevelEventManager` (at `game/sonic1/events/Sonic1LevelEventManager.java`) for arena setup and boss spawning. This manager extends `AbstractLevelEventManager` and delegates to per-zone handler classes.
 
-#### Option A: Add S1 Support to LevelEventManager
-If `LevelEventManager` has been extended for S1, add zone-specific event handling:
+Add zone-specific event handling in a zone handler class:
 
 ```java
-// In LevelEventManager or a Sonic1LevelEventManager
+// In the zone's event handler class (called from Sonic1LevelEventManager)
 private void updateGhzEvents() {
     if (currentAct != 2) return; // Act 3 (0-indexed act 2)
     switch (eventRoutine) {
@@ -102,20 +101,6 @@ private void updateGhzEvents() {
         }
         // ...
     }
-}
-```
-
-#### Option B: Self-Contained Boss Setup
-If no S1 LevelEventManager exists yet, the boss object can handle its own arena setup during initialization (matching the ROM pattern where bosses directly manipulate camera boundaries):
-
-```java
-@Override
-protected void initializeBossState() {
-    // Lock camera to arena
-    Camera camera = Camera.getInstance();
-    camera.setMinX((short) ARENA_MIN_X);
-    camera.setMaxX((short) ARENA_MAX_X);
-    // ... set up arena boundaries from disassembly
 }
 ```
 
@@ -325,6 +310,7 @@ Report any discrepancies with specific line references.
 | Object IDs | `src/.../game/sonic1/constants/Sonic1ObjectIds.java` |
 | ROM offsets | `src/.../game/sonic1/constants/Sonic1Constants.java` |
 | Audio profile | `src/.../game/sonic1/audio/Sonic1AudioProfile.java` |
+| Level events | `src/.../game/sonic1/events/Sonic1LevelEventManager.java` |
 | Registry | `src/.../game/sonic1/objects/Sonic1ObjectRegistry.java` |
 | S2 boss examples | `src/.../game/sonic2/objects/bosses/` |
 | Disassembly bosses | `docs/s1disasm/_incObj/*Boss*.asm` |

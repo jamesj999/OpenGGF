@@ -4,7 +4,7 @@ import org.junit.Before;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2LevelEventManager;
 
 import java.lang.reflect.Field;
 
@@ -16,17 +16,17 @@ import static org.junit.Assert.assertEquals;
 public class TestHTZBossEventRoutine9 {
 
     private Camera camera;
-    private LevelEventManager levelEvents;
+    private Sonic2LevelEventManager levelEvents;
 
     @Before
     public void setUp() throws Exception {
-        resetLevelEventManagerSingleton();
+        resetSonic2LevelEventManagerSingleton();
         Camera.resetInstance();
         GameServices.gameState().resetSession();
 
         camera = Camera.getInstance();
-        levelEvents = LevelEventManager.getInstance();
-        levelEvents.initLevel(LevelEventManager.ZONE_HTZ, 1); // HTZ Act 2
+        levelEvents = Sonic2LevelEventManager.getInstance();
+        levelEvents.initLevel(Sonic2LevelEventManager.ZONE_HTZ, 1); // HTZ Act 2
         levelEvents.setEventRoutine(18); // Routine 9
     }
 
@@ -62,8 +62,8 @@ public class TestHTZBossEventRoutine9 {
         assertEquals((short) 0x430, camera.getMaxYTarget());
     }
 
-    private static void resetLevelEventManagerSingleton() throws Exception {
-        Field instanceField = LevelEventManager.class.getDeclaredField("instance");
+    private static void resetSonic2LevelEventManagerSingleton() throws Exception {
+        Field instanceField = Sonic2LevelEventManager.class.getDeclaredField("instance");
         instanceField.setAccessible(true);
         instanceField.set(null, null);
     }

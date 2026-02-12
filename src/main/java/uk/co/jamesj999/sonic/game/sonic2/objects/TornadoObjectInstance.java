@@ -3,7 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic2.objects;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.debug.DebugRenderContext;
-import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2LevelEventManager;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AnimationIds;
@@ -556,7 +556,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
 
         if (scriptTimer >= WFZ_SPAWN_EXTRA_CHILDREN_AT && !spawnedWfzDockChildren) {
             spawnedWfzDockChildren = true;
-            LevelEventManager.getInstance().setEventRoutine(6);
+            Sonic2LevelEventManager.getInstance().setEventRoutine(6);
             routineSecondary = 0x10;
             spawnTornadoChild(SUBTYPE_BLINKER, 0x3090, 0x03D0);
             spawnTornadoChild(SUBTYPE_BLINKER, 0x30C0, 0x03F0);

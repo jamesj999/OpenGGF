@@ -1,30 +1,67 @@
 package uk.co.jamesj999.sonic.game.sonic3k;
 
-import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.AbstractLevelEventManager;
+import uk.co.jamesj999.sonic.game.PlayerCharacter;
 
 import java.util.logging.Logger;
 
 /**
- * S3K level events scaffold.
+ * Sonic 3&K implementation of dynamic level events.
+ * ROM equivalent: ScreenEvents (sonic3k.asm:102228)
  *
- * <p>Phase 1 implements bootstrap selection for AIZ1 intro-skip parity.
- * Dynamic zone events are intentionally deferred and will be added incrementally.
+ * S3K uses dual foreground/background event routines (Events_routine_fg
+ * and Events_routine_bg) with a stride of 4 per state transition.
+ * Each zone has two parallel event handlers:
+ * <ul>
+ *   <li>ScreenEvent (FG) - terrain changes, object spawning, camera boundaries</li>
+ *   <li>BackgroundEvent (BG) - parallax, deformation, water level, boss arenas</li>
+ * </ul>
+ *
+ * S3K also uses Boss_flag to gate FG events during boss fights, and
+ * branches on Player_mode for character-specific event paths (Sonic/Tails
+ * vs Knuckles take different routes through most zones).
+ *
+ * Phase 1 implements bootstrap selection for AIZ1 intro-skip parity.
+ * Zone event handlers will be added incrementally per zone.
  */
-public class Sonic3kLevelEventManager implements LevelEventProvider {
+public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     private static final Logger LOG = Logger.getLogger(Sonic3kLevelEventManager.class.getName());
     private static Sonic3kLevelEventManager instance;
 
-    private int currentZone = -1;
-    private int currentAct = -1;
     private Sonic3kLoadBootstrap bootstrap = Sonic3kLoadBootstrap.NONE;
 
     private Sonic3kLevelEventManager() {
+        super();
+    }
+
+    // =========================================================================
+    // AbstractLevelEventManager contract
+    // =========================================================================
+
+    @Override
+    protected int getRoutineStride() {
+        return 4;
     }
 
     @Override
-    public void initLevel(int zone, int act) {
-        currentZone = zone;
-        currentAct = act;
+    protected int getEventDataFgSize() {
+        return 6; // Events_fg_0..5
+    }
+
+    @Override
+    protected int getEventDataBgSize() {
+        return 24; // Events_bg[24]
+    }
+
+    @Override
+    public PlayerCharacter getPlayerCharacter() {
+        // TODO: Query actual player mode once character selection is implemented.
+        // For now, default to Sonic+Tails.
+        return PlayerCharacter.SONIC_AND_TAILS;
+    }
+
+    @Override
+    protected void onInitLevel(int zone, int act) {
         bootstrap = Sonic3kBootstrapResolver.resolve(zone, act);
         if (bootstrap.isAiz1GameplayAfterIntro()) {
             LOG.info("S3K bootstrap: using AIZ1 gameplay-after-intro profile (intro stub skipped).");
@@ -32,21 +69,21 @@ public class Sonic3kLevelEventManager implements LevelEventProvider {
     }
 
     @Override
-    public void update() {
-        // ROM-accurate dynamic S3K events (AIZ intro script, resize handlers, etc.)
-        // are pending implementation.
+    protected void onUpdate() {
+        // ROM: ScreenEvents dispatches to both FG and BG handlers each frame.
+        // Boss_flag gates FG events during boss fights.
+        //
+        // Zone event handlers will be added incrementally per zone.
+        // When implemented, this will dispatch to zone-specific handlers
+        // using the dual eventRoutineFg/eventRoutineBg counters.
     }
+
+    // =========================================================================
+    // S3K-specific accessors
+    // =========================================================================
 
     public Sonic3kLoadBootstrap getBootstrap() {
         return bootstrap;
-    }
-
-    public int getCurrentZone() {
-        return currentZone;
-    }
-
-    public int getCurrentAct() {
-        return currentAct;
     }
 
     public static synchronized Sonic3kLevelEventManager getInstance() {

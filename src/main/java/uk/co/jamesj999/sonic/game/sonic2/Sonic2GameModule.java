@@ -87,7 +87,7 @@ public class Sonic2GameModule implements GameModule {
 
     @Override
     public LevelEventProvider getLevelEventProvider() {
-        return LevelEventManager.getInstance();
+        return Sonic2LevelEventManager.getInstance();
     }
 
     @Override

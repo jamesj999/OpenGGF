@@ -212,7 +212,7 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 **Use the dedicated `/s2-implement-boss` skill** (`.claude/skills/s2-implement-boss/skill.md`) for boss implementations.
 
 Bosses differ significantly from regular objects:
-- Dynamic spawning via `LevelEventManager` (not level layout)
+- Dynamic spawning via `Sonic2LevelEventManager` (not level layout)
 - Camera arena locking with min/max boundaries
 - 8 hits with invulnerability and palette flash
 - Multi-component architecture with `AbstractBossChild`

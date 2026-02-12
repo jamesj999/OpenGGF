@@ -7,7 +7,7 @@ import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2LevelEventManager;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Block;
 import uk.co.jamesj999.sonic.level.Chunk;
@@ -529,7 +529,7 @@ public class TestHTZInvisibleWallBug {
         // Camera typically centers on Sonic with some offset.
         // We need to teleport both Sonic AND the camera to the trigger zone.
 
-        LevelEventManager levelEventManager = LevelEventManager.getInstance();
+        Sonic2LevelEventManager levelEventManager = Sonic2LevelEventManager.getInstance();
         ParallaxManager parallaxManager = ParallaxManager.getInstance();
         Camera camera = Camera.getInstance();
 
@@ -551,7 +551,7 @@ public class TestHTZInvisibleWallBug {
         System.out.println("Teleported Sonic to: (" + sprite.getX() + ", " + sprite.getY() + ")");
         System.out.println("Camera set to: (" + camera.getX() + ", " + camera.getY() + ")");
 
-        // Ensure LevelEventManager is initialized for HTZ
+        // Ensure Sonic2LevelEventManager is initialized for HTZ
         levelEventManager.initLevel(HTZ_ZONE, HTZ_ACT);
 
         // Step frames to trigger earthquake detection
@@ -666,7 +666,7 @@ public class TestHTZInvisibleWallBug {
                     // Log earthquake state
                     boolean htzShake = GameServices.gameState().isHtzScreenShakeActive();
                     boolean screenShake = GameServices.gameState().isScreenShakeActive();
-                    int bgYOffset = LevelEventManager.getInstance().getCameraBgYOffset();
+                    int bgYOffset = Sonic2LevelEventManager.getInstance().getCameraBgYOffset();
                     int shakeY = ParallaxManager.getInstance().getShakeOffsetY();
 
                     System.out.println("HTZ shake active: " + htzShake);

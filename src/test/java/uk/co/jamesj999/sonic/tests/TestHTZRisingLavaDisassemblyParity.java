@@ -4,7 +4,7 @@ import org.junit.Before;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic2.LevelEventManager;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2LevelEventManager;
 import uk.co.jamesj999.sonic.game.sonic2.objects.RisingLavaObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 
@@ -20,21 +20,21 @@ import static org.junit.Assert.assertTrue;
 public class TestHTZRisingLavaDisassemblyParity {
 
     private Camera camera;
-    private LevelEventManager levelEvents;
+    private Sonic2LevelEventManager levelEvents;
 
     @Before
     public void setUp() throws Exception {
-        resetLevelEventManagerSingleton();
+        resetSonic2LevelEventManagerSingleton();
         Camera.resetInstance();
         GameServices.gameState().resetSession();
 
         camera = Camera.getInstance();
-        levelEvents = LevelEventManager.getInstance();
+        levelEvents = Sonic2LevelEventManager.getInstance();
     }
 
     @Test
     public void act1OscillationStartsAt1978NotBefore() throws Exception {
-        levelEvents.initLevel(LevelEventManager.ZONE_HTZ, 0);
+        levelEvents.initLevel(Sonic2LevelEventManager.ZONE_HTZ, 0);
         levelEvents.setEventRoutine(2);
         GameServices.gameState().setHtzScreenShakeActive(true);
 
@@ -58,7 +58,7 @@ public class TestHTZRisingLavaDisassemblyParity {
 
     @Test
     public void act2BottomRouteInitialYOffsetIs300() throws Exception {
-        levelEvents.initLevel(LevelEventManager.ZONE_HTZ, 1);
+        levelEvents.initLevel(Sonic2LevelEventManager.ZONE_HTZ, 1);
         camera.setX((short) 0x14C0);
         camera.setY((short) 0x380);
 
@@ -107,8 +107,8 @@ public class TestHTZRisingLavaDisassemblyParity {
         field.setBoolean(target, value);
     }
 
-    private static void resetLevelEventManagerSingleton() throws Exception {
-        Field instanceField = LevelEventManager.class.getDeclaredField("instance");
+    private static void resetSonic2LevelEventManagerSingleton() throws Exception {
+        Field instanceField = Sonic2LevelEventManager.class.getDeclaredField("instance");
         instanceField.setAccessible(true);
         instanceField.set(null, null);
     }
