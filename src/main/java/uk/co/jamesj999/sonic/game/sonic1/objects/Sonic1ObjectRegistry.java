@@ -121,6 +121,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1LavaGeyserObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.LAVA_TAG,
                 (spawn, registry) -> new Sonic1LavaTagObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.LAVA_WALL,
+                (spawn, registry) -> new Sonic1LavaWallObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.MZ_LARGE_GRASSY_PLATFORM,
                 (spawn, registry) -> new Sonic1LargeGrassyPlatformObjectInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.BURNING_GRASS,
@@ -132,6 +134,9 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1GiantRingObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.HIDDEN_BONUS,
                 (spawn, registry) -> new Sonic1HiddenBonusObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.COLLAPSING_FLOOR,
+                (spawn, registry) -> new Sonic1CollapsingFloorObjectInstance(
+                        spawn, LevelManager.getInstance().getCurrentZone()));
         factories.put(Sonic1ObjectIds.MOVING_BLOCK,
                 (spawn, registry) -> new Sonic1MovingBlockObjectInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.INVISIBLE_BARRIER,
@@ -185,6 +190,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.YADRIN -> "Yadrin";
             case Sonic1ObjectIds.MZ_GLASS_BLOCK -> "MzGlassBlock";
             case Sonic1ObjectIds.SMASH_BLOCK -> "SmashBlock";
+            case Sonic1ObjectIds.COLLAPSING_FLOOR -> "CollapsingFloor";
             case Sonic1ObjectIds.MOVING_BLOCK -> "MovingBlock";
             case Sonic1ObjectIds.CHAINED_STOMPER -> "ChainedStomper";
             case Sonic1ObjectIds.PUSH_BLOCK -> "PushBlock";
@@ -194,6 +200,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.LAVA_GEYSER_MAKER -> "LavaGeyserMaker";
             case Sonic1ObjectIds.LAVA_GEYSER -> "LavaGeyser";
             case Sonic1ObjectIds.LAVA_TAG -> "LavaTag";
+            case Sonic1ObjectIds.LAVA_WALL -> "LavaWall";
             case Sonic1ObjectIds.MZ_LARGE_GRASSY_PLATFORM -> "MzLargeGrassyPlatform";
             case Sonic1ObjectIds.BURNING_GRASS -> "BurningGrass";
             case Sonic1ObjectIds.BATBRAIN -> "Batbrain";

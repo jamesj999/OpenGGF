@@ -5,8 +5,8 @@ Generated: 2026-02-09 23:03:25
 ## Summary
 
 - **Total unique objects found:** 81
-- **Implemented:** 41 (50.6%)
-- **Unimplemented:** 40 (49.4%)
+- **Implemented:** 43 (53.1%)
+- **Unimplemented:** 38 (46.9%)
 
 ## Implemented Objects
 
@@ -51,6 +51,8 @@ Generated: 2026-02-09 23:03:25
 | 0x71 | InvisibleBarrier | 88 | LZ1, LZ3, MZ1, MZ2, MZ3, SYZ2, SYZ3, SBZ1, SBZ2, SBZ3 |
 | 0x13 | LavaBallMaker | 51 | MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3 |
 | 0x4C | LavaGeyserMaker | 4 | MZ2, MZ3 |
+| 0x4E | LavaWall | 1 | MZ2 |
+| 0x53 | CollapsingFloor | 45 | MZ3, SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
 
 ## Unimplemented Objects (By Usage)
 
@@ -66,7 +68,6 @@ Generated: 2026-02-09 23:03:25
 | 0x64 | Object | S1_Obj_64 | 52 | LZ1, LZ2, LZ3 |
 | 0x6E | Object | S1_Obj_6E | 52 | SBZ1, SBZ2 |
 | 0x2D | Badnik | Burrobot | 50 | LZ1, LZ2, LZ3 |
-| 0x53 | Object | S1_Obj_53 | 45 | MZ3, SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
 | 0x47 | Object | Bumper | 43 | SYZ1, SYZ2, SYZ3 |
 | 0x61 | Object | S1_Obj_61 | 43 | LZ1, LZ2, LZ3 |
 | 0x6D | Object | S1_Obj_6D | 42 | SBZ1, SBZ2 |
@@ -97,7 +98,6 @@ Generated: 2026-02-09 23:03:25
 | 0x5C | Object | S1_Obj_5C | 3 | SLZ1, SLZ2, SLZ3 |
 | 0x0C | Object | S1_Obj_0C | 2 | LZ2, LZ3 |
 | 0x66 | Object | S1_Obj_66 | 2 | SBZ1 |
-| 0x4E | Object | S1_Obj_4E | 1 | MZ2 |
 
 ---
 
@@ -316,7 +316,7 @@ Total: 145 objects | Implemented: 19 | Unimplemented: 1
 
 #### Act 2
 
-Total: 198 objects | Implemented: 22 | Unimplemented: 3
+Total: 198 objects | Implemented: 23 | Unimplemented: 2
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x5) [0x00]
@@ -339,7 +339,7 @@ Total: 198 objects | Implemented: 22 | Unimplemented: 3
 - [x] 0x46 MzBrick (x39) [0x00]
 - [x] 0x4B GiantRing (x1) [0x00]
 - [x] 0x4C LavaGeyserMaker (x3) [0x01]
-- [ ] 0x4E S1_Obj_4E (x1) [0x00]
+- [x] 0x4E LavaWall (x1) [0x00]
 - [x] 0x51 SmashBlock (x17) [0x00]
 - [x] 0x52 MovingBlock (x4) [0x41, 0x02]
 - [x] 0x54 LavaTag (x17) [0x00, 0x01, 0x02]
@@ -349,7 +349,7 @@ Total: 198 objects | Implemented: 22 | Unimplemented: 3
 
 #### Act 3
 
-Total: 232 objects | Implemented: 21 | Unimplemented: 2
+Total: 232 objects | Implemented: 22 | Unimplemented: 1
 
 **Badniks:**
 - [x] 0x22 BuzzBomber (x3) [0x00]
@@ -373,7 +373,7 @@ Total: 232 objects | Implemented: 21 | Unimplemented: 2
 - [x] 0x4C LavaGeyserMaker (x1) [0x01]
 - [x] 0x51 SmashBlock (x13) [0x00]
 - [x] 0x52 MovingBlock (x3) [0x01, 0x02]
-- [ ] 0x53 S1_Obj_53 (x5) [0x01]
+- [x] 0x53 CollapsingFloor (x5) [0x01]
 - [x] 0x54 LavaTag (x21) [0x00, 0x01, 0x02]
 - [x] 0x71 InvisibleBarrier (x6) [0x00, 0x31, 0x11]
 - [x] 0x79 Lamppost (x2) [0x01, 0x02]
@@ -382,7 +382,7 @@ Total: 232 objects | Implemented: 21 | Unimplemented: 2
 
 #### Act 1
 
-Total: 223 objects | Implemented: 8 | Unimplemented: 9
+Total: 223 objects | Implemented: 9 | Unimplemented: 8
 
 **Badniks:**
 - [ ] 0x5F Bomb (x13) [0x00]
@@ -397,7 +397,7 @@ Total: 223 objects | Implemented: 8 | Unimplemented: 9
 - [x] 0x3C BreakableWall (x4) [0x01]
 - [x] 0x41 Spring (x16) [0x00, 0x10, 0x02]
 - [x] 0x4B GiantRing (x1) [0x00]
-- [ ] 0x53 S1_Obj_53 (x10) [0x81]
+- [x] 0x53 CollapsingFloor (x10) [0x81]
 - [ ] 0x59 S1_Obj_59 (x5) [4 subtypes]
 - [ ] 0x5A S1_Obj_5A (x44) [8 subtypes]
 - [ ] 0x5B S1_Obj_5B (x15) [0x00, 0x02]
@@ -407,7 +407,7 @@ Total: 223 objects | Implemented: 8 | Unimplemented: 9
 
 #### Act 2
 
-Total: 187 objects | Implemented: 8 | Unimplemented: 11
+Total: 187 objects | Implemented: 9 | Unimplemented: 10
 
 **Badniks:**
 - [ ] 0x5F Bomb (x20) [0x00]
@@ -422,7 +422,7 @@ Total: 187 objects | Implemented: 8 | Unimplemented: 11
 - [x] 0x26 Monitor (x8) [0x02, 0x05, 0x06]
 - [x] 0x41 Spring (x15) [0x10, 0x00, 0x02]
 - [x] 0x4B GiantRing (x1) [0x00]
-- [ ] 0x53 S1_Obj_53 (x8) [0x81]
+- [x] 0x53 CollapsingFloor (x8) [0x81]
 - [ ] 0x56 S1_Obj_56 (x8) [4 subtypes]
 - [ ] 0x59 S1_Obj_59 (x5) [0x00, 0x03]
 - [ ] 0x5A S1_Obj_5A (x16) [8 subtypes]
@@ -434,7 +434,7 @@ Total: 187 objects | Implemented: 8 | Unimplemented: 11
 
 #### Act 3
 
-Total: 250 objects | Implemented: 10 | Unimplemented: 10
+Total: 250 objects | Implemented: 11 | Unimplemented: 9
 
 **Badniks:**
 - [ ] 0x5F Bomb (x48) [0x00]
@@ -450,7 +450,7 @@ Total: 250 objects | Implemented: 10 | Unimplemented: 10
 - [x] 0x3C BreakableWall (x4) [0x01]
 - [x] 0x3E EggPrison (x2) [0x00, 0x01]
 - [x] 0x41 Spring (x11) [0x10, 0x00, 0x02]
-- [ ] 0x53 S1_Obj_53 (x9) [0x81, 0x01]
+- [x] 0x53 CollapsingFloor (x9) [0x81, 0x01]
 - [ ] 0x56 S1_Obj_56 (x16) [4 subtypes]
 - [ ] 0x59 S1_Obj_59 (x6) [4 subtypes]
 - [ ] 0x5A S1_Obj_5A (x8) [8 subtypes]
@@ -542,7 +542,7 @@ Total: 257 objects | Implemented: 10 | Unimplemented: 6
 
 #### Act 1
 
-Total: 308 objects | Implemented: 9 | Unimplemented: 14
+Total: 308 objects | Implemented: 10 | Unimplemented: 13
 
 **Badniks:**
 - [ ] 0x5F Bomb (x6) [0x00]
@@ -557,7 +557,7 @@ Total: 308 objects | Implemented: 9 | Unimplemented: 14
 - [x] 0x32 Button (x4) [0x00, 0x01, 0x02]
 - [x] 0x41 Spring (x3) [0x10, 0x00]
 - [x] 0x52 MovingBlock (x6) [0x39]
-- [ ] 0x53 S1_Obj_53 (x3) [0x01]
+- [x] 0x53 CollapsingFloor (x3) [0x01]
 - [ ] 0x66 S1_Obj_66 (x2) [0x00, 0x02]
 - [ ] 0x69 S1_Obj_69 (x25) [6 subtypes]
 - [ ] 0x6A S1_Obj_6A (x3) [0x03]
@@ -573,7 +573,7 @@ Total: 308 objects | Implemented: 9 | Unimplemented: 14
 
 #### Act 2
 
-Total: 292 objects | Implemented: 8 | Unimplemented: 14
+Total: 292 objects | Implemented: 9 | Unimplemented: 13
 
 **Badniks:**
 - [ ] 0x5F Bomb (x12) [0x00]
@@ -589,7 +589,7 @@ Total: 292 objects | Implemented: 8 | Unimplemented: 14
 - [x] 0x32 Button (x3) [0x00, 0x01, 0x03]
 - [x] 0x41 Spring (x2) [0x10]
 - [x] 0x52 MovingBlock (x1) [0x28]
-- [ ] 0x53 S1_Obj_53 (x10) [0x01]
+- [x] 0x53 CollapsingFloor (x10) [0x01]
 - [ ] 0x67 S1_Obj_67 (x8) [0x40]
 - [ ] 0x68 S1_Obj_68 (x20) [5 subtypes]
 - [ ] 0x69 S1_Obj_69 (x31) [10 subtypes]

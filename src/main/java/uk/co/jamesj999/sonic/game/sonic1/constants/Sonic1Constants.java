@@ -239,6 +239,16 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search SlideFloor
     public static final int ART_NEM_SBZ_SLIDE_FLOOR_ADDR = 0x35886;
 
+    // Nem_SlzBlock: Nemesis-compressed SLZ 32x32 collapsing floor block art (267 bytes)
+    // ArtTile_SLZ_Collapsing_Floor = $4E0, loaded via PLC_SLZ
+    // Verified by RomOffsetFinder --game s1 search SlzBlock
+    public static final int ART_NEM_SLZ_COLLAPSING_FLOOR_ADDR = 0x34148;
+
+    // Nem_SbzFloor: Nemesis-compressed SBZ collapsing floor art (88 bytes)
+    // ArtTile_SBZ_Collapsing_Floor = $3F5, loaded via PLC_SBZ
+    // Verified by RomOffsetFinder --game s1 search SbzFloor
+    public static final int ART_NEM_SBZ_COLLAPSING_FLOOR_ADDR = 0x353D4;
+
     // Nem_SlzCannon: Nemesis-compressed SLZ fireball launcher / lava thrower art
     // Loaded via PLC_SLZ: plcm Nem_SlzCannon, ArtTile_SLZ_Fireball_Launcher
     // Verified by RomOffsetFinder --game s1 search Cannon
