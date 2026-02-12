@@ -26,7 +26,10 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
         SPINY_SPIKE,
         REXON_FIREBALL,
         OCTUS_BULLET,
-        AQUIS_BULLET
+        AQUIS_BULLET,
+        ASTERON_SPIKE,
+        TURTLOID_SHOT,
+        NEBULA_BOMB
     }
 
     private static final int COLLISION_SIZE_STINGER = 0x18; // From disassembly $98 & 0x3F
@@ -35,6 +38,8 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
     private static final int COLLISION_SIZE_REXON_FIREBALL = 0x18; // From disassembly $98 & 0x3F
     private static final int COLLISION_SIZE_OCTUS_BULLET = 0x18; // From disassembly $98 & 0x3F
     private static final int COLLISION_SIZE_AQUIS_BULLET = 0x18; // From disassembly $98 & 0x3F
+    private static final int COLLISION_SIZE_ASTERON_SPIKE = 0x18; // From ObjA4_SubObjData2: collision_flags=$98
+    private static final int COLLISION_SIZE_NEBULA_BOMB = 0x0B; // From Obj99_SubObjData: collision_flags=$8B
     private static final int GRAVITY_COCONUT = 0x20; // Obj98_CoconutFall
     private static final int GRAVITY_SPINY_SPIKE = 0x20; // From disassembly +$20 per frame
     private static final int GRAVITY_REXON_FIREBALL = 0x80; // From disassembly $80 per frame
@@ -52,6 +57,8 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
     private int animFrame;
     private boolean hFlip;
     private int initialDelay; // Frames to wait before moving (Octus bullet: 0x0F)
+    private int fixedFrame = -1; // Fixed mapping frame override (Asteron spikes use different frames per projectile)
+    private boolean paletteBlink; // Toggles every frame for Nebula bomb (ROM: bchg palette_bit_0)
 
     /**
      * Create a new projectile.
@@ -101,6 +108,21 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
                 this.gravity = 0;
                 this.collisionSizeIndex = COLLISION_SIZE_AQUIS_BULLET;
             }
+            case ASTERON_SPIKE -> {
+                this.gravity = 0;
+                this.collisionSizeIndex = COLLISION_SIZE_ASTERON_SPIKE;
+            }
+            case TURTLOID_SHOT -> {
+                // Obj9A_SubObjData2: collision_flags=$98 -> HURT (0x80) + size 0x18
+                this.gravity = 0;
+                this.collisionSizeIndex = COLLISION_SIZE_STINGER; // 0x18
+            }
+            case NEBULA_BOMB -> {
+                // Obj99_SubObjData: collision_flags=$8B -> HURT (0x80) + size 0x0B
+                // Obj98_NebulaBombFall: falls with ObjectMoveAndFall (gravity from engine)
+                this.gravity = 0x38; // Standard ObjectMoveAndFall gravity
+                this.collisionSizeIndex = COLLISION_SIZE_NEBULA_BOMB;
+            }
         }
     }
 
@@ -112,6 +134,17 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
             int x, int y, int xVel, int yVel, boolean gravity, boolean hFlip, int initialDelay) {
         this(spawn, type, x, y, xVel, yVel, gravity, hFlip);
         this.initialDelay = initialDelay;
+    }
+
+    /**
+     * Create a new projectile with a fixed mapping frame (e.g., Asteron spikes use
+     * different frames per projectile direction).
+     */
+    public BadnikProjectileInstance(ObjectSpawn spawn, ProjectileType type,
+            int x, int y, int xVel, int yVel, boolean gravity, boolean hFlip, int initialDelay,
+            int fixedFrame) {
+        this(spawn, type, x, y, xVel, yVel, gravity, hFlip, initialDelay);
+        this.fixedFrame = fixedFrame;
     }
 
     @Override
@@ -146,6 +179,11 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
 
         // Simple animation cycling
         animFrame = ((frameCounter >> 2) & 1);
+
+        // Nebula bomb: toggle palette every frame (ROM: bchg #palette_bit_0)
+        if (type == ProjectileType.NEBULA_BOMB) {
+            paletteBlink = !paletteBlink;
+        }
     }
 
     @Override
@@ -231,6 +269,23 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
                 renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.AQUIS);
                 // Aquis bullet uses frames 5-7 (animation 2: dc.b 3, 5, 6, 7, 6, $FF)
                 frame = 5 + (animFrame % 3);
+                break;
+            case ASTERON_SPIKE:
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.ASTERON);
+                // Each Asteron spike has a fixed frame set at creation (frames 2-4)
+                frame = fixedFrame >= 0 ? fixedFrame : 2;
+                break;
+            case TURTLOID_SHOT:
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.TURTLOID);
+                // Turtloid shot animation: Ani_TurtloidShot = dc.b 1, 4, 5, $FF
+                frame = 4 + animFrame;
+                break;
+            case NEBULA_BOMB:
+                renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.NEBULA);
+                // Nebula bomb uses frame 4 (Map_obj99_0092), palette blinks via Obj98_NebulaBombFall
+                frame = 4;
+                // ROM: bchg #palette_bit_0,art_tile(a0) - toggles palette line every frame
+                paletteOverride = paletteBlink ? 0 : 1;
                 break;
             default:
                 return;

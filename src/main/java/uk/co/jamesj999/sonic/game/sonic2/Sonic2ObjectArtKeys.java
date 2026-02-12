@@ -93,10 +93,20 @@ public final class Sonic2ObjectArtKeys {
     public static final String GROUNDER = "grounder";
     public static final String GROUNDER_ROCK = "grounder_rock";
 
+    // MTZ Badniks
+    public static final String SHELLCRACKER = "shellcracker";
+    public static final String SLICER = "slicer";
+    public static final String ASTERON = "asteron";
+
     // HTZ Badniks
     public static final String SPIKER = "spiker";
     public static final String SOL = "sol";
     public static final String REXON = "rexon";
+
+    // SCZ Badniks
+    public static final String NEBULA = "nebula";
+    public static final String TURTLOID = "turtloid";
+    public static final String BALKIRY = "balkiry";
 
     // CNZ Badniks
     public static final String CRAWL = "crawl";
@@ -110,6 +120,21 @@ public final class Sonic2ObjectArtKeys {
     // ARZ Objects
     public static final String ARROW_SHOOTER = "arrow_shooter";
 
+    // MTZ/MCZ Objects
+    public static final String BUTTON = "button";
+    public static final String MTZ_COG = "mtz_cog";
+    public static final String MTZ_NUT = "mtz_nut";
+    public static final String MTZ_FLOOR_SPIKE = "mtz_floor_spike";
+    public static final String MTZ_SPIKE_BLOCK = "mtz_spike_block";
+    public static final String MTZ_SPIKE = "mtz_spike";
+    public static final String MTZ_LAVA_BUBBLE = "mtz_lava_bubble";
+    public static final String MTZ_STEAM = "mtz_steam";
+    public static final String MTZ_SPIN_TUBE_FLASH = "mtz_spin_tube_flash";
+    public static final String MTZ_STEAM_PISTON = "mtz_steam_piston";
+    public static final String MTZ_WHEEL = "mtz_wheel";
+    public static final String MTZ_WHEEL_INDENT = "mtz_wheel_indent";
+    public static final String MTZ_LAVA_CUP = "mtz_lava_cup";
+
     // MCZ Objects
     public static final String VINE_PULLEY = "vine_pulley";
     public static final String MCZ_CRATE = "mcz_crate";
@@ -118,6 +143,9 @@ public final class Sonic2ObjectArtKeys {
 
     // WFZ Objects
     public static final String WFZ_HOOK = "wfz_hook";
+
+    // SCZ Objects
+    public static final String CLOUDS = "clouds";
 
     // Bosses
     public static final String EHZ_BOSS = "ehz_boss";

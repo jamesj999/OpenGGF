@@ -7,6 +7,7 @@ import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.objects.PlaceholderObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.AsteronBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.AquisBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.OctusBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.MasherBadnikInstance;
@@ -25,6 +26,11 @@ import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SpikerBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SpikerDrillObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SolBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.RexonBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.ShellcrackerBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SlicerBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.NebulaBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.TurtloidBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.BalkiryBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2EHZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2MCZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CPZBossInstance;
@@ -288,11 +294,29 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         registerFactory(Sonic2ObjectIds.CRAWL,
                 (spawn, registry) -> new CrawlBadnikInstance(spawn, LevelManager.getInstance()));
 
+        // MTZ Badniks
+        registerFactory(Sonic2ObjectIds.ASTERON,
+                (spawn, registry) -> new AsteronBadnikInstance(spawn, LevelManager.getInstance()));
+        registerFactory(Sonic2ObjectIds.SHELLCRACKER,
+                (spawn, registry) -> new ShellcrackerBadnikInstance(spawn, LevelManager.getInstance()));
+        registerFactory(Sonic2ObjectIds.SLICER,
+                (spawn, registry) -> new SlicerBadnikInstance(spawn, LevelManager.getInstance()));
+
         // MCZ Badniks
         registerFactory(Sonic2ObjectIds.CRAWLTON,
                 (spawn, registry) -> new CrawltonBadnikInstance(spawn, LevelManager.getInstance()));
         registerFactory(Sonic2ObjectIds.FLASHER,
                 (spawn, registry) -> new FlasherBadnikInstance(spawn, LevelManager.getInstance()));
+
+        // SCZ Badniks
+        registerFactory(Sonic2ObjectIds.NEBULA,
+                (spawn, registry) -> new NebulaBadnikInstance(spawn, LevelManager.getInstance()));
+        registerFactory(Sonic2ObjectIds.TURTLOID,
+                (spawn, registry) -> new TurtloidBadnikInstance(spawn, LevelManager.getInstance()));
+        // Note: TURTLOID_RIDER (0x9B) and Turtloid jet are spawned dynamically by TurtloidBadnikInstance
+        registerFactory(Sonic2ObjectIds.BALKIRY,
+                (spawn, registry) -> new BalkiryBadnikInstance(spawn, LevelManager.getInstance()));
+        // Note: BALKIRY_JET (0x9C) is spawned dynamically by BalkiryBadnikInstance
 
         // Level completion objects
         registerFactory(Sonic2ObjectIds.SIGNPOST,
@@ -335,9 +359,69 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         registerFactory(Sonic2ObjectIds.GENERIC_PLATFORM_B,
                 (spawn, registry) -> new CPZPlatformObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
 
+        // MTZ Twin Stompers (Obj64) - crushing piston pair
+        registerFactory(Sonic2ObjectIds.MTZ_TWIN_STOMPERS,
+                (spawn, registry) -> new MTZTwinStompersObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+
+        // Button (Obj47) - trigger button that activates other objects via ButtonVine_Trigger
+        registerFactory(Sonic2ObjectIds.BUTTON,
+                (spawn, registry) -> new ButtonObjectInstance(spawn));
+
+        // MTZ Spin Tube (Obj67) - tube transport with sinusoidal entry
+        registerFactory(Sonic2ObjectIds.MTZ_SPIN_TUBE,
+                (spawn, registry) -> new MTZSpinTubeObjectInstance(spawn));
+
+        // MTZ spring wall - invisible solid wall that bounces player
+        registerFactory(Sonic2ObjectIds.MTZ_SPRING_WALL,
+                (spawn, registry) -> new MTZSpringWallObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+
+        // MTZ Nut - screw nut that moves vertically when player pushes it
+        registerFactory(Sonic2ObjectIds.NUT,
+                (spawn, registry) -> new NutObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+
+        // MTZ Long Platform (Obj65) - long moving platform with cog child
+        registerFactory(Sonic2ObjectIds.MTZ_LONG_PLATFORM,
+                (spawn, registry) -> {
+                    // Properties index 2 = standalone cog (routine 6 in disassembly)
+                    int propsIndex = ((spawn.subtype() >> 2) & 0x1C) >> 2;
+                    if (propsIndex == 2) {
+                        return new MTZLongPlatformCogInstance(spawn);
+                    }
+                    return new MTZLongPlatformObjectInstance(spawn);
+                });
+
+        // MTZ SpikyBlock (Obj68) - block with rotating spike from MTZ
+        registerFactory(Sonic2ObjectIds.SPIKY_BLOCK,
+                (spawn, registry) -> new SpikyBlockObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+
+        // MTZ SteamSpring (Obj42) - steam-powered spring piston from MTZ
+        registerFactory(Sonic2ObjectIds.STEAM_SPRING,
+                (spawn, registry) -> new SteamSpringObjectInstance(spawn));
+
+        // MTZ Floor Spike (Obj6D) - retractable spike from MTZ
+        registerFactory(Sonic2ObjectIds.FLOOR_SPIKE,
+                (spawn, registry) -> new FloorSpikeObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+
+        // MTZ LargeRotPform (Obj6E) - large rotating platform moving in circle
+        registerFactory(Sonic2ObjectIds.LARGE_ROT_PFORM,
+                (spawn, registry) -> new LargeRotPformObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+
+        // MTZ Cog (Obj70) - giant rotating cog with 8 solid teeth
+        registerFactory(Sonic2ObjectIds.COG,
+                (spawn, registry) -> new CogObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+
         // MTZ/CPZ multi-purpose platform with 12 movement subtypes
         registerFactory(Sonic2ObjectIds.MTZ_PLATFORM,
                 (spawn, registry) -> new MTZPlatformObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
+
+        // MTZ Conveyor (Obj6C) - small platform on pulleys
+        // Subtype bit 7 set = parent spawner (creates children), bit 7 clear = individual platform
+        registerFactory(Sonic2ObjectIds.CONVEYOR,
+                (spawn, registry) -> ConveyorObjectInstance.createOrSpawnChildren(spawn));
+
+        // MTZ Lava Bubble (Obj71) - animated lava bubble scenery
+        registerFactory(Sonic2ObjectIds.MTZ_LAVA_BUBBLE,
+                (spawn, registry) -> new MTZLavaBubbleObjectInstance(spawn));
 
         // CPZ/MCZ horizontal moving platform
         registerFactory(Sonic2ObjectIds.SIDEWAYS_PFORM,
@@ -437,5 +521,9 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         registerFactory(Sonic2ObjectIds.MCZ_DRAWBRIDGE,
                 (spawn, registry) -> new MCZDrawbridgeObjectInstance(spawn,
                         registry.getPrimaryName(spawn.objectId())));
+
+        // SCZ Cloud (ObjB3) - decorative scrolling clouds
+        registerFactory(Sonic2ObjectIds.CLOUD,
+                (spawn, registry) -> new CloudObjectInstance(spawn));
     }
 }

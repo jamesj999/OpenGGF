@@ -1,0 +1,562 @@
+package uk.co.jamesj999.sonic.game.sonic2.objects;
+
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
+import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
+import uk.co.jamesj999.sonic.level.objects.ObjectManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.objects.SolidContact;
+import uk.co.jamesj999.sonic.level.objects.SolidObjectListener;
+import uk.co.jamesj999.sonic.level.objects.SolidObjectParams;
+import uk.co.jamesj999.sonic.level.objects.SolidObjectProvider;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+
+import java.util.List;
+import java.util.logging.Logger;
+
+/**
+ * Object 0x6C - Small platform on pulleys (like at the start of MTZ2).
+ * <p>
+ * Platforms follow a closed-loop path of waypoints. The path is determined by the upper bits
+ * of the subtype, and the starting waypoint within the path is determined by the lower nibble.
+ * Each platform moves at a constant speed of 1 pixel/frame along the dominant axis, with
+ * proportional velocity on the minor axis.
+ * <p>
+ * <b>Disassembly Reference:</b> s2.asm lines 54189-54444 (Obj6C code)
+ * <p>
+ * <b>Subtype encoding (individual platforms, bit 7 clear):</b>
+ * <ul>
+ *   <li>Bits 4-6: Path table index (subtype >> 4, via off_28252)</li>
+ *   <li>Bits 0-3: Starting waypoint (subtype & 0xF) * 4 = byte offset into path</li>
+ * </ul>
+ * <p>
+ * <b>Subtype encoding (parent spawner, bit 7 set):</b>
+ * <ul>
+ *   <li>Bits 0-6: Child layout table index (subtype & 0x7F, via off_282D6)</li>
+ * </ul>
+ * <p>
+ * <b>Collision:</b> Top-solid platform (JmpTo5_PlatformObject), width_pixels=0x10, d3=8.
+ * <p>
+ * <b>Art:</b> ArtNem_LavaCup, palette line 3, single 32x16 frame.
+ */
+public class ConveyorObjectInstance extends AbstractObjectInstance
+        implements SolidObjectProvider, SolidObjectListener {
+
+    private static final Logger LOGGER = Logger.getLogger(ConveyorObjectInstance.class.getName());
+
+    // From disassembly: move.b #$10,width_pixels(a0)
+    private static final int WIDTH_PIXELS = 0x10;
+
+    // From disassembly: moveq #8,d3 (y_radius for PlatformObject)
+    private static final int Y_RADIUS = 8;
+
+    // From disassembly: move.b #4,priority(a0)
+    private static final int PRIORITY = 4;
+
+    // Velocity magnitude (1 pixel/frame in 8.8 fixed point)
+    // From disassembly: move.w #-$100,d2 / move.w #-$100,d3
+    private static final int MOVE_SPEED = 0x100;
+
+    // Movement step size for waypoint advancement
+    // From disassembly: move.b #4,objoff_3A(a0)
+    private static final int WAYPOINT_STEP = 4;
+
+    /**
+     * Path waypoint tables from off_28252.
+     * Each path is an array of (x_offset, y_offset) pairs relative to the base position.
+     * Format: first 2 bytes = total byte length, then waypoints in 4-byte groups (x_word, y_word).
+     * <p>
+     * From disassembly: byte_28258, byte_28282, byte_282AC
+     */
+    private static final int[][][] PATH_WAYPOINTS = {
+            // Path 0 (byte_28258): length=0x28 = 40 bytes = 10 waypoints
+            {
+                    {0x0000, 0x0000}, {0xFFEA, 0x000A}, {0xFFE0, 0x0020}, {0xFFE0, 0x00E0},
+                    {0xFFEA, 0x00F6}, {0x0000, 0x0100}, {0x0016, 0x00F6}, {0x0020, 0x00E0},
+                    {0x0020, 0x0020}, {0x0016, 0x000A},
+            },
+            // Path 1 (byte_28282): length=0x28 = 40 bytes = 10 waypoints
+            {
+                    {0x0000, 0x0000}, {0xFFEA, 0x000A}, {0xFFE0, 0x0020}, {0xFFE0, 0x0160},
+                    {0xFFEA, 0x0176}, {0x0000, 0x0180}, {0x0016, 0x0176}, {0x0020, 0x0160},
+                    {0x0020, 0x0020}, {0x0016, 0x000A},
+            },
+            // Path 2 (byte_282AC): length=0x28 = 40 bytes = 10 waypoints
+            {
+                    {0x0000, 0x0000}, {0xFFEA, 0x000A}, {0xFFE0, 0x0020}, {0xFFE0, 0x01E0},
+                    {0xFFEA, 0x01F6}, {0x0000, 0x0200}, {0x0016, 0x01F6}, {0x0020, 0x01E0},
+                    {0x0020, 0x0020}, {0x0016, 0x000A},
+            },
+    };
+
+    /**
+     * Child layout tables from off_282D6.
+     * Each entry: {x_offset, y_offset, subtype}
+     * <p>
+     * From disassembly: byte_282DC, byte_2830E, byte_28340
+     */
+    private static final int[][][] CHILD_LAYOUTS = {
+            // Layout 0 (byte_282DC): 8 children
+            {
+                    {0x0000, 0x0000, 0x01}, {0xFFE0, 0x003A, 0x03}, {0xFFE0, 0x0080, 0x03},
+                    {0xFFE0, 0x00C6, 0x03}, {0x0000, 0x0100, 0x06}, {0x0020, 0x00C6, 0x08},
+                    {0x0020, 0x0080, 0x08}, {0x0020, 0x003A, 0x08},
+            },
+            // Layout 1 (byte_2830E): 8 children
+            {
+                    {0x0000, 0x0000, 0x11}, {0xFFE0, 0x005A, 0x13}, {0xFFE0, 0x00C0, 0x13},
+                    {0xFFE0, 0x0126, 0x13}, {0x0000, 0x0180, 0x16}, {0x0020, 0x0126, 0x18},
+                    {0x0020, 0x00C0, 0x18}, {0x0020, 0x005A, 0x18},
+            },
+            // Layout 2 (byte_28340): 8 children
+            {
+                    {0x0000, 0x0000, 0x21}, {0xFFE0, 0x007A, 0x23}, {0xFFE0, 0x0100, 0x23},
+                    {0xFFE0, 0x0186, 0x23}, {0x0000, 0x0200, 0x26}, {0x0020, 0x0186, 0x28},
+                    {0x0020, 0x0100, 0x28}, {0x0020, 0x007A, 0x28},
+            },
+    };
+
+    // Instance state
+
+    /** Current pixel position. */
+    private int x;
+    private int y;
+
+    /** Base position (objoff_30, objoff_32) - original spawn position. */
+    private final int baseX;
+    private final int baseY;
+
+    /** Target waypoint position (objoff_34, objoff_36). */
+    private int targetX;
+    private int targetY;
+
+    /** Current waypoint index in bytes (objoff_38). Low byte only. */
+    private int waypointOffset;
+
+    /** Total path byte length (objoff_39). High byte of objoff_38 word. */
+    private final int pathLength;
+
+    /** Waypoint advance direction (objoff_3A): +4 or -4. */
+    private int waypointDelta;
+
+    /** Path waypoint data (objoff_3C pointer). */
+    private final int[][] pathData;
+
+    /** X/Y velocity in 8.8 fixed point. */
+    private int xVel;
+    private int yVel;
+
+    /** Sub-pixel accumulators for 16.16 fixed point movement. */
+    private int xSub;
+    private int ySub;
+
+    /** X-flip from status byte. */
+    private final boolean xFlip;
+
+    /** Dynamic spawn for solid collision tracking. */
+    private ObjectSpawn dynamicSpawn;
+
+    /** Collision params: half-width = width_pixels, d3 = 8. */
+    private static final SolidObjectParams SOLID_PARAMS =
+            new SolidObjectParams(WIDTH_PIXELS, Y_RADIUS, Y_RADIUS + 1);
+
+    public ConveyorObjectInstance(ObjectSpawn spawn, String name) {
+        super(spawn, name);
+        this.baseX = spawn.x();
+        this.baseY = spawn.y();
+        this.xFlip = (spawn.renderFlags() & 0x01) != 0;
+
+        int subtype = spawn.subtype();
+
+        // Determine path table from upper nibble: (subtype >> 3) & 0x1E gives word offset
+        // into off_28252, then load path from that table
+        int pathIndex = (subtype >> 4) & 0x07;
+        if (pathIndex >= PATH_WAYPOINTS.length) {
+            pathIndex = 0;
+        }
+        this.pathData = PATH_WAYPOINTS[pathIndex];
+
+        // Path length in bytes = pathData.length * 4
+        // From disassembly: move.w (a2)+,objoff_38(a0) reads count word
+        // The first word of each path table (e.g. 0x0028) is the byte length
+        this.pathLength = pathData.length * 4;
+
+        // Starting waypoint from lower nibble: (subtype & 0xF) * 4
+        // From disassembly: andi.w #$F,d1; lsl.w #2,d1
+        this.waypointOffset = (subtype & 0x0F) * 4;
+
+        // Waypoint advance direction: +4 normally, -4 if x-flipped
+        // From disassembly: move.b #4,objoff_3A(a0); btst status.npc.x_flip; neg.b
+        this.waypointDelta = WAYPOINT_STEP;
+        if (xFlip) {
+            waypointDelta = -waypointDelta;
+            // Advance one step and wrap (disassembly lines 54239-54249)
+            waypointOffset = wrapWaypointOffset(waypointOffset + waypointDelta);
+        }
+
+        // Set initial position to base + waypoint offset
+        int wpIndex = waypointOffset / 4;
+        this.targetX = baseX + signExtend16(pathData[wpIndex][0]);
+        this.targetY = baseY + signExtend16(pathData[wpIndex][1]);
+
+        // Set current position and calculate initial velocity
+        this.x = spawn.x();
+        this.y = spawn.y();
+        this.xSub = 0;
+        this.ySub = 0;
+        calculateVelocity();
+
+        refreshDynamicSpawn();
+    }
+
+    /**
+     * Static factory method to spawn children for parent subtypes (bit 7 set).
+     * The parent spawner reads child layout data and creates individual conveyor
+     * platform instances, then the parent itself is not added to the object list.
+     *
+     * @param spawn The parent spawner's ObjectSpawn
+     * @return null (children are added via ObjectManager.addDynamicObject)
+     */
+    public static ConveyorObjectInstance createOrSpawnChildren(ObjectSpawn spawn) {
+        int subtype = spawn.subtype();
+
+        if ((subtype & 0x80) == 0) {
+            // Individual platform (bit 7 clear) - create normally
+            return new ConveyorObjectInstance(spawn, "Conveyor");
+        }
+
+        // Parent spawner (bit 7 set) - spawn children and return null
+        int layoutIndex = subtype & 0x7F;
+        if (layoutIndex >= CHILD_LAYOUTS.length) {
+            LOGGER.warning("Conveyor parent subtype 0x" + Integer.toHexString(subtype)
+                    + " has invalid layout index " + layoutIndex);
+            return null;
+        }
+
+        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+        if (manager == null) {
+            return null;
+        }
+
+        int[][] layout = CHILD_LAYOUTS[layoutIndex];
+        int parentX = spawn.x();
+        int parentY = spawn.y();
+        int parentStatus = spawn.renderFlags();
+
+        for (int[] child : layout) {
+            int childX = parentX + signExtend16(child[0]);
+            int childY = parentY + signExtend16(child[1]);
+            int childSubtype = child[2] & 0xFF;
+
+            ObjectSpawn childSpawn = new ObjectSpawn(
+                    childX, childY,
+                    Sonic2ObjectIds.CONVEYOR,
+                    childSubtype,
+                    parentStatus,
+                    false,
+                    spawn.rawYWord());
+
+            ConveyorObjectInstance childInstance = new ConveyorObjectInstance(childSpawn, "Conveyor");
+            manager.addDynamicObject(childInstance);
+        }
+
+        // Parent removes itself: addq.l #4,sp; rts (skips back to caller)
+        return null;
+    }
+
+    @Override
+    public int getX() {
+        return x;
+    }
+
+    @Override
+    public int getY() {
+        return y;
+    }
+
+    @Override
+    public ObjectSpawn getSpawn() {
+        return dynamicSpawn != null ? dynamicSpawn : spawn;
+    }
+
+    @Override
+    public SolidObjectParams getSolidParams() {
+        return SOLID_PARAMS;
+    }
+
+    @Override
+    public boolean isTopSolidOnly() {
+        // Obj6C uses PlatformObject (JmpTo5_PlatformObject) - top-solid only
+        return true;
+    }
+
+    @Override
+    public boolean isSolidFor(AbstractPlayableSprite player) {
+        return !isDestroyed();
+    }
+
+    @Override
+    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+        // No special contact handling needed
+    }
+
+    @Override
+    public void update(int frameCounter, AbstractPlayableSprite player) {
+        if (isDestroyed()) {
+            return;
+        }
+
+        // Obj6C_Main (line 54300): save old x, move, then PlatformObject
+        // loc_2817E: check if arrived at target, advance waypoint if so
+        checkAndAdvanceWaypoint();
+
+        // ObjectMove: apply velocity to position
+        applyVelocity();
+
+        // Off-screen despawn check using base position (objoff_30)
+        // From disassembly: (objoff_30 & $FF80) - Camera_X_pos_coarse > $280
+        if (!isBasePositionOnScreen()) {
+            setDestroyed(true);
+            return;
+        }
+
+        refreshDynamicSpawn();
+    }
+
+    /**
+     * Check if the base position (objoff_30) is within the despawn range of the camera.
+     * Mirrors the ROM's MarkObjGone check: ((baseX & 0xFF80) - cameraCoarse) <= 0x280.
+     */
+    private boolean isBasePositionOnScreen() {
+        uk.co.jamesj999.sonic.camera.Camera camera =
+                uk.co.jamesj999.sonic.camera.Camera.getInstance();
+        if (camera == null) {
+            return true;
+        }
+        int camXCoarse = camera.getX() & 0xFF80;
+        int diff = (baseX & 0xFF80) - camXCoarse;
+        // Unsigned comparison: diff treated as unsigned 16-bit must be <= 0x280
+        return (diff & 0xFFFF) <= 0x280;
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        // From disassembly: move.b #4,priority(a0)
+        return uk.co.jamesj999.sonic.graphics.RenderPriority.clamp(PRIORITY);
+    }
+
+    @Override
+    public void appendRenderCommands(List<GLCommand> commands) {
+        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        PatternSpriteRenderer renderer = null;
+
+        if (renderManager != null) {
+            renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MTZ_LAVA_CUP);
+        }
+
+        if (renderer != null && renderer.isReady()) {
+            renderer.drawFrameIndex(0, x, y, false, false);
+        } else {
+            appendDebug(commands);
+        }
+    }
+
+    /**
+     * Check if the platform has arrived at its target waypoint.
+     * If so, advance to the next waypoint and recalculate velocity.
+     * <p>
+     * From disassembly loc_2817E (line 54310-54338):
+     * Compares x_pos to target X and y_pos to target Y. If both match,
+     * advances the waypoint offset by waypointDelta, wraps around the
+     * path length, reads the next waypoint, and recalculates velocity.
+     */
+    private void checkAndAdvanceWaypoint() {
+        if (x != targetX || y != targetY) {
+            return;
+        }
+
+        // Advance waypoint offset and wrap
+        waypointOffset = wrapWaypointOffset(waypointOffset + waypointDelta);
+
+        // Read new target from path data
+        int wpIndex = waypointOffset / 4;
+        targetX = baseX + signExtend16(pathData[wpIndex][0]);
+        targetY = baseY + signExtend16(pathData[wpIndex][1]);
+
+        // Recalculate velocity toward new target
+        calculateVelocity();
+    }
+
+    /**
+     * Calculate velocity to move from current position to target.
+     * Picks the dominant axis (whichever distance is larger), sets that axis to
+     * +/-0x100 (1 pixel/frame), and calculates proportional velocity for the other axis.
+     * <p>
+     * From disassembly loc_281DA (lines 54345-54398):
+     * <pre>
+     * d0 = |x_pos - targetX|,  d2 = sign(x_pos - targetX) * -$100
+     * d1 = |y_pos - targetY|,  d3 = sign(y_pos - targetY) * -$100
+     * if d1 >= d0:  (Y dominant)
+     *   x_vel = -(x_pos - targetX) * 256 / d1
+     *   y_vel = d3
+     * else:  (X dominant)
+     *   y_vel = -(y_pos - targetY) * 256 / d0
+     *   x_vel = d2
+     * </pre>
+     */
+    private void calculateVelocity() {
+        int dx = x - targetX;
+        int dy = y - targetY;
+
+        int absDx = Math.abs(dx);
+        int absDy = Math.abs(dy);
+
+        // Sign for velocity on dominant axis: move toward target
+        int signX = (dx >= 0) ? -MOVE_SPEED : MOVE_SPEED;
+        int signY = (dy >= 0) ? -MOVE_SPEED : MOVE_SPEED;
+
+        if (absDy >= absDx) {
+            // Y-axis dominant (or equal)
+            yVel = signY;
+            ySub = 0;
+            if (absDy == 0 || dx == 0) {
+                xVel = 0;
+                xSub = 0;
+            } else {
+                // x_vel = -(dx * 256 / |dy|), x_sub = remainder from divs
+                // From disassembly: ext.l d0; asl.l #8,d0; divs.w d1,d0; neg.w d0
+                long scaled = ((long) dx) << 8;
+                int divided = (int) (scaled / absDy);
+                xVel = (short) -divided;
+                // swap d0 → remainder (from divs, same sign as dividend)
+                int remainder = (int) (scaled % absDy);
+                xSub = remainder & 0xFFFF;
+            }
+        } else {
+            // X-axis dominant
+            xVel = signX;
+            xSub = 0;
+            if (absDx == 0 || dy == 0) {
+                yVel = 0;
+                ySub = 0;
+            } else {
+                // y_vel = -(dy * 256 / |dx|), y_sub = remainder from divs
+                long scaled = ((long) dy) << 8;
+                int divided = (int) (scaled / absDx);
+                yVel = (short) -divided;
+                int remainder = (int) (scaled % absDx);
+                ySub = remainder & 0xFFFF;
+            }
+        }
+    }
+
+    /**
+     * Apply velocity to position (ObjectMove equivalent).
+     * <p>
+     * From disassembly ObjectMove (s2.asm line 29990):
+     * Position is stored as 16.16 fixed point (x_pos:x_sub as 32-bit long).
+     * Velocity (x_vel) is sign-extended to 32 bits, shifted left 8, then added.
+     * <pre>
+     * d2 = x_pos:x_sub              ; 32-bit position
+     * d0 = ext.l(x_vel) << 8        ; velocity shifted into middle 16 bits
+     * d2 += d0                       ; add velocity
+     * x_pos:x_sub = d2              ; store back
+     * </pre>
+     */
+    private void applyVelocity() {
+        // Compose 32-bit position, add shifted velocity, decompose
+        // x_vel is a signed 16-bit value; shift left 8 to align with 16.16 format
+        int xPos32 = (x << 16) | (xSub & 0xFFFF);
+        xPos32 += ((short) xVel) << 8;
+        x = xPos32 >> 16;
+        xSub = xPos32 & 0xFFFF;
+
+        int yPos32 = (y << 16) | (ySub & 0xFFFF);
+        yPos32 += ((short) yVel) << 8;
+        y = yPos32 >> 16;
+        ySub = yPos32 & 0xFFFF;
+    }
+
+    /**
+     * Wrap waypoint offset around the path length.
+     * When advancing past the end, wraps to 0. When going before 0, wraps to end.
+     * <p>
+     * From disassembly (lines 54319-54327):
+     * <pre>
+     * add.b objoff_3A(a0),d1   ; d1 = current offset + delta
+     * cmp.b objoff_39(a0),d1   ; compare with path length
+     * blo.s loc_281B0          ; if d1 < length, use it
+     * tst.b d0                 ; check if d1 overflowed (went negative)
+     * bpl.s loc_281B0          ; if positive (just exceeded), use 0
+     * move.b objoff_39(a0),d1  ; if negative (went below 0), use length - 4
+     * subq.b #4,d1
+     * </pre>
+     */
+    private int wrapWaypointOffset(int offset) {
+        // The ROM uses unsigned byte comparison (cmp.b, blo)
+        int offsetByte = offset & 0xFF;
+        int lengthByte = pathLength & 0xFF;
+
+        if (offsetByte < lengthByte) {
+            // Within bounds
+            return offsetByte;
+        }
+
+        // Out of bounds - check direction
+        if (offset >= 0 && offset < 256) {
+            // Exceeded path length going forward: wrap to 0
+            return 0;
+        } else {
+            // Went negative going backward: wrap to last waypoint
+            return (lengthByte - WAYPOINT_STEP) & 0xFF;
+        }
+    }
+
+    private void refreshDynamicSpawn() {
+        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
+            dynamicSpawn = new ObjectSpawn(
+                    x, y,
+                    spawn.objectId(),
+                    spawn.subtype(),
+                    spawn.renderFlags(),
+                    spawn.respawnTracked(),
+                    spawn.rawYWord());
+        }
+    }
+
+    private void appendDebug(List<GLCommand> commands) {
+        int halfWidth = WIDTH_PIXELS;
+        int left = x - halfWidth;
+        int right = x + halfWidth;
+        int top = y - Y_RADIUS;
+        int bottom = y + Y_RADIUS + 1;
+
+        // Green box for platform collision bounds
+        appendLine(commands, left, top, right, top);
+        appendLine(commands, right, top, right, bottom);
+        appendLine(commands, right, bottom, left, bottom);
+        appendLine(commands, left, bottom, left, top);
+
+        // Center cross
+        appendLine(commands, x - 4, y, x + 4, y);
+        appendLine(commands, x, y - 4, x, y + 4);
+    }
+
+    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
+                0.4f, 0.9f, 0.4f, x1, y1, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
+                0.4f, 0.9f, 0.4f, x2, y2, 0, 0));
+    }
+
+    /**
+     * Sign-extend a 16-bit value stored as int to a signed int.
+     */
+    private static int signExtend16(int value) {
+        return (short) value;
+    }
+}

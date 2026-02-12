@@ -277,6 +277,22 @@ public class ParallaxManager {
     }
 
     /**
+     * Get the current Tornado X velocity (pixels per frame) for SCZ objects.
+     * ROM: loc_36776 adds Tornado_Velocity_X to object x_pos each frame.
+     */
+    public int getTornadoVelocityX() {
+        return sczHandler != null ? sczHandler.getTornadoVelocityX() : 0;
+    }
+
+    /**
+     * Get the current Tornado Y velocity (pixels per frame) for SCZ objects.
+     * ROM: loc_36776 adds Tornado_Velocity_Y to object y_pos each frame.
+     */
+    public int getTornadoVelocityY() {
+        return sczHandler != null ? sczHandler.getTornadoVelocityY() : 0;
+    }
+
+    /**
      * Set the screen shake flag for MCZ.
      * @deprecated Use GameServices.gameState().setScreenShakeActive() directly.
      *             Screen shake is now a global state that all zones check.

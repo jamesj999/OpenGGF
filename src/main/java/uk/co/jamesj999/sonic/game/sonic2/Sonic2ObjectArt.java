@@ -1301,6 +1301,66 @@ public class Sonic2ObjectArt {
         return new ObjectSpriteSheet(patterns, mappings, 1, 1);
     }
 
+    // ========== SCZ Cloud (Object 0xB3) ==========
+
+    /**
+     * Load SCZ Cloud sprite sheet.
+     * ROM: ArtNem_Clouds at 0x8DAFC, palette line 2.
+     * Art tile: make_art_tile(ArtTile_ArtNem_Clouds,2,0) = $054F | palette 2, no priority.
+     */
+    public ObjectSpriteSheet loadCloudSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_CLOUDS_ADDR, "Clouds");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createCloudMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 2, 1);
+    }
+
+    /**
+     * Creates mappings for SCZ Cloud (ObjB3).
+     * From disassembly: mappings/sprite/objB3.asm (ObjB3_MapUnc_3B32C)
+     *
+     * 4 frames (index 3 duplicates index 0):
+     *   Frame 0: Large cloud (3 pieces, 80px wide)
+     *   Frame 1: Medium cloud (2 pieces, 48px wide)
+     *   Frame 2: Small cloud (1 piece, 16px wide)
+     *   Frame 3: Duplicate of frame 0
+     */
+    private List<SpriteMappingFrame> createCloudMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_objB3_0008): Large cloud - 3 pieces
+        // spritePiece -$28, -4, 4, 1, 0, 0, 0, 0, 0
+        // spritePiece  -8, -4, 4, 1, 4, 0, 0, 0, 0
+        // spritePiece $18, -4, 2, 1, 8, 0, 0, 0, 0
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x28, -4, 4, 1, 0, false, false, 0));
+        f0.add(new SpriteMappingPiece(-8, -4, 4, 1, 4, false, false, 0));
+        f0.add(new SpriteMappingPiece(0x18, -4, 2, 1, 8, false, false, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1 (Map_objB3_0022): Medium cloud - 2 pieces
+        // spritePiece -$18, -4, 4, 1, $A, 0, 0, 0, 0
+        // spritePiece    8, -4, 2, 1, $E, 0, 0, 0, 0
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-0x18, -4, 4, 1, 0x0A, false, false, 0));
+        f1.add(new SpriteMappingPiece(8, -4, 2, 1, 0x0E, false, false, 0));
+        frames.add(new SpriteMappingFrame(f1));
+
+        // Frame 2 (Map_objB3_0034): Small cloud - 1 piece
+        // spritePiece -8, -4, 2, 1, $10, 0, 0, 0, 0
+        List<SpriteMappingPiece> f2 = new ArrayList<>();
+        f2.add(new SpriteMappingPiece(-8, -4, 2, 1, 0x10, false, false, 0));
+        frames.add(new SpriteMappingFrame(f2));
+
+        // Frame 3: Duplicate of frame 0 (mappingsTableEntry.w Map_objB3_0008)
+        frames.add(frames.get(0));
+
+        return frames;
+    }
+
     /**
      * Load CNZ LauncherSpring vertical sprite sheet (Object 0x85 subtype 0x00).
      * <p>
@@ -1520,6 +1580,71 @@ public class Sonic2ObjectArt {
         }
         List<SpriteMappingFrame> mappings = createFlasherMappings();
         return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Load Asteron (ObjA4) sprite sheet - exploding starfish from MTZ.
+     * ROM: ArtNem_MtzSupernova at 0x8B300, palette line 0.
+     * make_art_tile(ArtTile_ArtNem_MtzSupernova,0,1) - palette 0, priority 1.
+     * 5 frames from ObjA4_Obj98_MapUnc_38A96:
+     *   Frame 0: Body idle (2 pieces: two 2x4 columns = 32x32px)
+     *   Frame 1: Body flash (3 pieces: 1x1 flash + two 2x4 columns)
+     *   Frame 2: Projectile vertical (1x2 = 8x16px)
+     *   Frame 3: Projectile horizontal (2x1 = 16x8px)
+     *   Frame 4: Projectile diagonal (1x2 = 8x16px)
+     */
+    public ObjectSpriteSheet loadAsteronSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_MTZ_SUPERNOVA_ADDR, "MtzSupernova");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createAsteronMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Load Shellcracker (Obj9F/ObjA0) sprite sheet - crab badnik from MTZ.
+     * ROM: ArtNem_Shellcracker at 0x8B058, palette line 0.
+     * make_art_tile(ArtTile_ArtNem_Shellcracker,0,0) - palette 0, priority 0.
+     * 6 frames from Obj9F_MapUnc_38314 (shared by Obj9F body and ObjA0 claw):
+     *   Frame 0: Walking 1 (body with claws + legs down)
+     *   Frame 1: Walking 2 (body with legs mid)
+     *   Frame 2: Walking 3 (body with legs up/reversed)
+     *   Frame 3: Attack pose (body with no top claws, legs down)
+     *   Frame 4: Claw joint piece (1x1 tile)
+     *   Frame 5: Claw segment (3x3 tiles)
+     */
+    public ObjectSpriteSheet loadShellcrackerSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_SHELLCRACKER_ADDR, "Shellcracker");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createShellcrackerMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 0, 0);
+    }
+
+    /**
+     * Load Slicer (ObjA1) sprite sheet - praying mantis badnik from MTZ.
+     * ROM: ArtNem_MtzMantis at 0x8AD80, palette line 1.
+     * make_art_tile(ArtTile_ArtNem_MtzMantis,1,0) - palette 1, priority 0.
+     * 9 frames from ObjA1_MapUnc_385E2 (shared by ObjA1 and ObjA2):
+     *   Frame 0: Walking 1 (body + claws down)
+     *   Frame 1: Walking 2 (body + claws mid)
+     *   Frame 2: Walking 3 (body + claws up)
+     *   Frame 3: Arms raised (preparing to throw)
+     *   Frame 4: Body only (after throw)
+     *   Frame 5: Pincer projectile (claw down-right)
+     *   Frame 6: Pincer projectile (claw down-left)
+     *   Frame 7: Pincer projectile (claw rotated 1)
+     *   Frame 8: Pincer projectile (claw rotated 2)
+     */
+    public ObjectSpriteSheet loadSlicerSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_MTZ_MANTIS_ADDR, "MtzMantis");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createSlicerMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 1, 0);
     }
 
     /**
@@ -1761,6 +1886,52 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load Nebula (Obj99) sprite sheet - bomber badnik from SCZ.
+     * ROM: ArtNem_Nebula at 0x8A142, palette line 1, priority 1.
+     * 5 frames: 0-3 = body with propeller animation, 4 = bomb.
+     * Shared mappings (Obj99_Obj98_MapUnc_3789A) for Nebula and its bomb projectile.
+     */
+    public ObjectSpriteSheet loadNebulaSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_NEBULA_ADDR, "Nebula");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createNebulaMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Load Turtloid (Obj9A) sprite sheet - turtle badnik from SCZ.
+     * ROM: ArtNem_Turtloid at 0x8A362, palette line 0.
+     * Shared mappings (Obj9A_Obj98_MapUnc_37B62 / Map_obj9C) for Turtloid body,
+     * rider, projectile, and jet exhaust (10 frames total).
+     */
+    public ObjectSpriteSheet loadTurtloidSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_TURTLOID_ADDR, "Turtloid");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createTurtloidMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Load Balkiry (ObjAC) sprite sheet - jet badnik from SCZ.
+     * ROM: ArtNem_Balkrie at 0x8BC16, palette line 0, priority 1.
+     * Uses its own mappings (ObjAC_MapUnc_393CC / Map_objAC) with 2 frames:
+     *   Frame 0: Body without exhaust
+     *   Frame 1: Body with exhaust (Balkiry init sets mapping_frame=1)
+     */
+    public ObjectSpriteSheet loadBalkirySheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_BALKIRY_ADDR, "Balkiry");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createBalkiryMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
      * Load Octus (Obj4A) sprite sheet - octopus badnik from OOZ.
      * ROM: ArtNem_Octus at 0x8336A, palette line 1.
      * 7 frames: body poses (0-4), bullet frames (5-6).
@@ -1851,6 +2022,594 @@ public class Sonic2ObjectArt {
         // Reuse the same mappings as the generic barrier - frame 0 is the HTZ mapping
         List<SpriteMappingFrame> mappings = createBarrierMappings();
         return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Load MTZ Cog sprite sheet (Object 0x65 child / standalone cog).
+     * ROM: ArtNem_MtzCog at 0xF178E, palette line 3.
+     * Mappings: Obj65_MapUnc_26F04 (obj65_b.asm) - 3 frames.
+     * <pre>
+     * Frame 0: 2 pieces, tiles 0-5, symmetric (normal + hFlip)
+     * Frame 1: 2 pieces, tiles 6-11, (normal + hFlip+vFlip)
+     * Frame 2: 2 pieces, tiles 6-11, (vFlip + hFlip)
+     * </pre>
+     */
+    public ObjectSpriteSheet loadMTZCogSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MTZ_COG_ADDR, "MtzCog");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMTZCogMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Create MTZ Cog mappings from obj65_b.asm.
+     * Each frame is 32x24 pixels (two 16x24 halves).
+     */
+    private List<SpriteMappingFrame> createMTZCogMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_obj65_b_0006): tile 0 normal + tile 0 hFlip
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x10, -0xC, 2, 3, 0, false, false, 0));
+        f0.add(new SpriteMappingPiece(0, -0xC, 2, 3, 0, true, false, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1 (Map_obj65_b_0018): tile 6 normal + tile 6 hFlip+vFlip
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-0x10, -0xC, 2, 3, 6, false, false, 0));
+        f1.add(new SpriteMappingPiece(0, -0xC, 2, 3, 6, true, true, 0));
+        frames.add(new SpriteMappingFrame(f1));
+
+        // Frame 2 (Map_obj65_b_002A): tile 6 vFlip + tile 6 hFlip
+        List<SpriteMappingPiece> f2 = new ArrayList<>();
+        f2.add(new SpriteMappingPiece(-0x10, -0xC, 2, 3, 6, false, true, 0));
+        f2.add(new SpriteMappingPiece(0, -0xC, 2, 3, 6, true, false, 0));
+        frames.add(new SpriteMappingFrame(f2));
+
+        return frames;
+    }
+
+    /**
+     * Load Button (Obj47) sprite sheet.
+     * ROM: ArtNem_Button at 0x78DAC, palette line 0.
+     * From obj47.asm Map_obj47:
+     *   Frame 0 (unpressed): spritePiece -$10, -$C, 4, 2, 0, 0, 0, 0, 0
+     *   Frame 1 (pressed):   spritePiece -$10, -$C, 4, 2, 8, 0, 0, 0, 0
+     *   Frame 2 (unused):    spritePiece -$10, -8,  4, 2, 0, 0, 0, 0, 0
+     */
+    public ObjectSpriteSheet loadButtonSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_BUTTON_ADDR, "Button");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createButtonMappings();
+        // Palette line 0: make_art_tile(ArtTile_ArtNem_Button,0,0)
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Create Button mappings from obj47.asm.
+     * Three frames: unpressed, pressed, and an unused variant.
+     */
+    private List<SpriteMappingFrame> createButtonMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_obj47_0006): unpressed button (4x2 tiles = 32x16)
+        // spritePiece -$10, -$C, 4, 2, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x10, -0xC, 4, 2, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1 (Map_obj47_0010): pressed button (4x2 tiles = 32x16, pattern offset 8)
+        // spritePiece -$10, -$C, 4, 2, 8, 0, 0, 0, 0
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-0x10, -0xC, 4, 2, 8, false, false, 0));
+        frames.add(new SpriteMappingFrame(f1));
+
+        // Frame 2 (Map_obj47_001A): unused variant (4x2 tiles, y offset -8 instead of -$C)
+        // spritePiece -$10, -8, 4, 2, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> f2 = new ArrayList<>();
+        f2.add(new SpriteMappingPiece(-0x10, -0x8, 4, 2, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(f2));
+
+        return frames;
+    }
+
+    /**
+     * Load MTZ Floor Spike (Obj6D) sprite sheet.
+     * ROM: ArtNem_MtzSpike at 0xF148E, palette line 1.
+     * Shares mappings with Obj68 (SpikyBlock) - uses frame 0 only (vertical spike).
+     * From obj68.asm Map_obj68_000A: spritePiece -4, -$10, 1, 4, 0, 0, 1, 0, 0
+     */
+    public ObjectSpriteSheet loadMTZFloorSpikeSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MTZ_SPIKE_ADDR, "MtzSpike");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMTZFloorSpikeMappings();
+        // Palette line 1: make_art_tile(ArtTile_ArtNem_MtzSpike,1,0)
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Create MTZ Floor Spike mappings from obj68.asm (shared with SpikyBlock).
+     * Only frame 0 is used by Obj6D.
+     */
+    private List<SpriteMappingFrame> createMTZFloorSpikeMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_obj68_000A): vertical spike (1x4 tiles = 8x32)
+        // spritePiece -4, -$10, 1, 4, 0, 0, 1, 0, 0
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-4, -0x10, 1, 4, 0, false, true, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        return frames;
+    }
+
+    /**
+     * Load MTZ SpikyBlock (Obj68) block sprite sheet.
+     * ROM: ArtNem_MtzSpikeBlock at 0xF12B6, palette line 3.
+     * Frame 4 from Map_obj68: 32x32 block (two 16x32 halves, right half hFlipped).
+     */
+    public ObjectSpriteSheet loadMTZSpikeBlockSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MTZ_SPIKE_BLOCK_ADDR, "MtzSpikeBlock");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMTZSpikeBlockMappings();
+        // Palette line 3: make_art_tile(ArtTile_ArtNem_MtzSpikeBlock,3,0)
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    private List<SpriteMappingFrame> createMTZSpikeBlockMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_obj68_0032): 32x32 block
+        // spritePiece -$10, -$10, 2, 4, 0, 0, 0, 0, 0  => left half
+        // spritePiece    0, -$10, 2, 4, 0, 1, 0, 0, 0  => right half (hFlip)
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x10, -0x10, 2, 4, 0, false, false, 0));
+        f0.add(new SpriteMappingPiece(0, -0x10, 2, 4, 0, true, false, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        return frames;
+    }
+
+    /**
+     * Load MTZ Spike child (Obj68 spike part) sprite sheet.
+     * ROM: ArtNem_MtzSpike at 0xF148E, palette line 1.
+     * Frames 0-3 from Map_obj68: directional spikes (Up, Right, Down, Left).
+     */
+    public ObjectSpriteSheet loadMTZSpikeSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MTZ_SPIKE_ADDR, "MtzSpike");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMTZSpikeMappings();
+        // Palette line 1: make_art_tile(ArtTile_ArtNem_MtzSpike,1,0)
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    private List<SpriteMappingFrame> createMTZSpikeMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_obj68_000A): Up spike (1x4=8x32, vFlip)
+        // spritePiece -4, -$10, 1, 4, 0, 0, 1, 0, 0
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-4, -0x10, 1, 4, 0, false, true, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1 (Map_obj68_0014): Right spike (4x1=32x8)
+        // spritePiece -$10, -4, 4, 1, 4, 0, 0, 0, 0
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-0x10, -4, 4, 1, 4, false, false, 0));
+        frames.add(new SpriteMappingFrame(f1));
+
+        // Frame 2 (Map_obj68_001E): Down spike (1x4=8x32)
+        // spritePiece -4, -$10, 1, 4, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> f2 = new ArrayList<>();
+        f2.add(new SpriteMappingPiece(-4, -0x10, 1, 4, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(f2));
+
+        // Frame 3 (Map_obj68_0028): Left spike (4x1=32x8, hFlip)
+        // spritePiece -$10, -4, 4, 1, 4, 1, 0, 0, 0
+        List<SpriteMappingPiece> f3 = new ArrayList<>();
+        f3.add(new SpriteMappingPiece(-0x10, -4, 4, 1, 4, true, false, 0));
+        frames.add(new SpriteMappingFrame(f3));
+
+        return frames;
+    }
+
+    /**
+     * Load MTZ Steam (Obj42 child) sprite sheet.
+     * ROM: ArtNem_MtzSteam at 0xF1384, palette line 1.
+     * Steam puffs use frames 0-6; the piston body (frame 7) uses level art.
+     * From mappings/sprite/obj42.asm (Map_obj42).
+     */
+    public ObjectSpriteSheet loadMTZSteamSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MTZ_STEAM_ADDR, "MtzSteam");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMTZSteamMappings();
+        // Palette line 1: make_art_tile(ArtTile_ArtNem_MtzSteam,1,0)
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Create MTZ Steam mappings from obj42.asm.
+     * Frames 0-6 are steam puff animation frames.
+     */
+    private List<SpriteMappingFrame> createMTZSteamMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_obj42_0010): 1x1 tile at (-0x18, -1)
+        // spritePiece -$18, -1, 1, 1, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x18, -1, 1, 1, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1 (Map_obj42_001A): 2x1 tiles at (-0x18, -1)
+        // spritePiece -$18, -1, 2, 1, 1, 0, 0, 0, 0
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-0x18, -1, 2, 1, 1, false, false, 0));
+        frames.add(new SpriteMappingFrame(f1));
+
+        // Frame 2 (Map_obj42_0024): 2x2 tiles at (-0x14, -4)
+        // spritePiece -$14, -4, 2, 2, 3, 0, 0, 0, 0
+        List<SpriteMappingPiece> f2 = new ArrayList<>();
+        f2.add(new SpriteMappingPiece(-0x14, -4, 2, 2, 3, false, false, 0));
+        frames.add(new SpriteMappingFrame(f2));
+
+        // Frame 3 (Map_obj42_002E): 2 pieces
+        // spritePiece -8, -4, 2, 2, 7, 0, 0, 0, 0
+        // spritePiece -$10, -4, 2, 2, 3, 0, 0, 0, 0
+        List<SpriteMappingPiece> f3 = new ArrayList<>();
+        f3.add(new SpriteMappingPiece(-8, -4, 2, 2, 7, false, false, 0));
+        f3.add(new SpriteMappingPiece(-0x10, -4, 2, 2, 3, false, false, 0));
+        frames.add(new SpriteMappingFrame(f3));
+
+        // Frame 4 (Map_obj42_0040): 2 pieces
+        // spritePiece 0, -4, 2, 2, 7, 0, 1, 0, 0
+        // spritePiece -8, -4, 1, 2, $B, 0, 1, 0, 0
+        List<SpriteMappingPiece> f4 = new ArrayList<>();
+        f4.add(new SpriteMappingPiece(0, -4, 2, 2, 7, false, true, 0));
+        f4.add(new SpriteMappingPiece(-8, -4, 1, 2, 0xB, false, true, 0));
+        frames.add(new SpriteMappingFrame(f4));
+
+        // Frame 5 (Map_obj42_0052): 3 pieces
+        // spritePiece $C, -4, 1, 2, $D, 0, 0, 0, 0
+        // spritePiece 4, -4, 1, 2, $B, 0, 0, 0, 0
+        // spritePiece -4, -4, 1, 2, $D, 1, 1, 0, 0
+        List<SpriteMappingPiece> f5 = new ArrayList<>();
+        f5.add(new SpriteMappingPiece(0xC, -4, 1, 2, 0xD, false, false, 0));
+        f5.add(new SpriteMappingPiece(4, -4, 1, 2, 0xB, false, false, 0));
+        f5.add(new SpriteMappingPiece(-4, -4, 1, 2, 0xD, true, true, 0));
+        frames.add(new SpriteMappingFrame(f5));
+
+        // Frame 6 (Map_obj42_006C): 2 pieces
+        // spritePiece $10, -4, 1, 2, $D, 0, 0, 0, 0
+        // spritePiece 8, -4, 1, 2, $D, 1, 1, 0, 0
+        List<SpriteMappingPiece> f6 = new ArrayList<>();
+        f6.add(new SpriteMappingPiece(0x10, -4, 1, 2, 0xD, false, false, 0));
+        f6.add(new SpriteMappingPiece(8, -4, 1, 2, 0xD, true, true, 0));
+        frames.add(new SpriteMappingFrame(f6));
+
+        return frames;
+    }
+
+    /**
+     * Load MTZ Spin Tube Flash (Obj67) sprite sheet.
+     * ROM: ArtNem_MtzSpinTubeFlash at 0xF1870, palette line 3.
+     * make_art_tile(ArtTile_ArtNem_MtzSpinTubeFlash,3,0) = $056B
+     * From mappings/sprite/obj67.asm (Map_obj67).
+     */
+    public ObjectSpriteSheet loadMTZSpinTubeFlashSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MTZ_SPIN_TUBE_FLASH_ADDR, "MtzSpinTubeFlash");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMTZSpinTubeFlashMappings();
+        // Palette line 3: make_art_tile(ArtTile_ArtNem_MtzSpinTubeFlash,3,0)
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Create MTZ Spin Tube Flash mappings from obj67.asm (Map_obj67).
+     * Frame 0: empty (no pieces).
+     * Frame 1: 6 pieces forming a 4x6 tile (32x48 pixel) flash sprite.
+     */
+    private List<SpriteMappingFrame> createMTZSpinTubeFlashMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_obj67_0004): empty - no sprite pieces
+        frames.add(new SpriteMappingFrame(new ArrayList<>()));
+
+        // Frame 1 (Map_obj67_0006): 6 pieces, each 2x2 tiles
+        // spritePiece -$14, -$20, 2, 2, 0, 0, 0, 0, 0
+        // spritePiece -8, -$20, 2, 2, 0, 0, 0, 0, 0
+        // spritePiece -$14, -$10, 2, 2, 0, 0, 0, 0, 0
+        // spritePiece -8, -$10, 2, 2, 0, 0, 0, 0, 0
+        // spritePiece -$14, 0, 2, 2, 0, 0, 0, 0, 0
+        // spritePiece -8, 0, 2, 2, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-0x14, -0x20, 2, 2, 0, false, false, 0));
+        f1.add(new SpriteMappingPiece(-8, -0x20, 2, 2, 0, false, false, 0));
+        f1.add(new SpriteMappingPiece(-0x14, -0x10, 2, 2, 0, false, false, 0));
+        f1.add(new SpriteMappingPiece(-8, -0x10, 2, 2, 0, false, false, 0));
+        f1.add(new SpriteMappingPiece(-0x14, 0, 2, 2, 0, false, false, 0));
+        f1.add(new SpriteMappingPiece(-8, 0, 2, 2, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(f1));
+
+        return frames;
+    }
+
+    /**
+     * Load MTZ Wheel Indent (Obj6E subtype 3) sprite sheet.
+     * ROM: ArtNem_MtzWheelIndent at 0xF120E, palette line 3.
+     * From obj6E.asm Map_obj6E_007E: spritePiece -$C, -$C, 3, 3, 0, 0, 0, 0, 0
+     */
+    public ObjectSpriteSheet loadMTZWheelIndentSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MTZ_WHEEL_INDENT_ADDR, "MtzWheelIndent");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMTZWheelIndentMappings();
+        // Palette line 3: make_art_tile(ArtTile_ArtNem_MtzWheelIndent,3,0)
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Create MTZ Wheel Indent mappings from obj6E.asm.
+     * Only frame 3 from the original mapping set, but stored as frame 0 in this sheet.
+     */
+    private List<SpriteMappingFrame> createMTZWheelIndentMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Map_obj6E_007E: 3x3 tiles at (-$C, -$C) = 24x24 pixels
+        // spritePiece -$C, -$C, 3, 3, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0xC, -0xC, 3, 3, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        return frames;
+    }
+
+    // ========== MTZ Wheel / Cog (Object 0x70) ==========
+
+    /**
+     * Load MTZ Wheel sprite sheet (Object 0x70 - Giant rotating cog).
+     * ROM: ArtNem_MtzWheel at 0xF0DB6, palette line 3.
+     * Art tile: make_art_tile(ArtTile_ArtNem_MtzWheel,3,0) = $0378
+     * Mappings: Obj70_MapUnc_28786 (obj70.asm) - 32 frames.
+     * <p>
+     * 32 frames representing a cog tooth at different rotation angles.
+     * Mapped from disassembly mappings/sprite/obj70.asm.
+     */
+    public ObjectSpriteSheet loadMTZWheelSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MTZ_WHEEL_ADDR, "MtzWheel");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMTZWheelMappings();
+        // Palette line 3: make_art_tile(ArtTile_ArtNem_MtzWheel,3,0)
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Create MTZ Wheel mappings from obj70.asm (Obj70_MapUnc_28786).
+     * 32 frames representing a tooth at each rotation angle.
+     * Frames 0-7: normal quadrant
+     * Frames 8-15: yflip quadrant
+     * Frames 16-23: xflip+yflip quadrant
+     * Frames 24-31: xflip quadrant
+     */
+    private List<SpriteMappingFrame> createMTZWheelMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_obj70_0040): 2 pieces - vertical tooth facing up
+        // spritePiece -$10, -$10, 2, 4, 0, 0, 0, 0, 0
+        // spritePiece    0, -$10, 2, 4, 0, 1, 0, 0, 0
+        frames.add(frame(
+                piece(-0x10, -0x10, 2, 4, 0, false, false),
+                piece(0, -0x10, 2, 4, 0, true, false)));
+
+        // Frame 1 (Map_obj70_0052): 1 piece
+        // spritePiece -$C, -$10, 3, 4, 8, 1, 0, 0, 0
+        frames.add(frame(piece(-0xC, -0x10, 3, 4, 8, true, false)));
+
+        // Frame 2 (Map_obj70_005C): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $14, 1, 0, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x14, true, false)));
+
+        // Frame 3 (Map_obj70_0066): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $24, 1, 0, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x24, true, false)));
+
+        // Frame 4 (Map_obj70_0070): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $34, 1, 0, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x34, true, false)));
+
+        // Frame 5 (Map_obj70_007A): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $44, 1, 0, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x44, true, false)));
+
+        // Frame 6 (Map_obj70_0084): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $54, 1, 0, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x54, true, false)));
+
+        // Frame 7 (Map_obj70_008E): 1 piece - shorter (3 tiles high)
+        // spritePiece -$10, -$C, 4, 3, $64, 1, 0, 0, 0
+        frames.add(frame(piece(-0x10, -0xC, 4, 3, 0x64, true, false)));
+
+        // Frame 8 (Map_obj70_0098): 2 pieces - horizontal tooth
+        // spritePiece -$10, -$10, 4, 2, $70, 1, 0, 0, 0
+        // spritePiece -$10,    0, 4, 2, $70, 1, 1, 0, 0
+        frames.add(frame(
+                piece(-0x10, -0x10, 4, 2, 0x70, true, false),
+                piece(-0x10, 0, 4, 2, 0x70, true, true)));
+
+        // Frame 9 (Map_obj70_00AA): 1 piece - frame 7 with yflip
+        // spritePiece -$10, -$C, 4, 3, $64, 1, 1, 0, 0
+        frames.add(frame(piece(-0x10, -0xC, 4, 3, 0x64, true, true)));
+
+        // Frame 10 (Map_obj70_00B4): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $54, 1, 1, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x54, true, true)));
+
+        // Frame 11 (Map_obj70_00BE): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $44, 1, 1, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x44, true, true)));
+
+        // Frame 12 (Map_obj70_00C8): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $34, 1, 1, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x34, true, true)));
+
+        // Frame 13 (Map_obj70_00D2): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $24, 1, 1, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x24, true, true)));
+
+        // Frame 14 (Map_obj70_00DC): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $14, 1, 1, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x14, true, true)));
+
+        // Frame 15 (Map_obj70_00E6): 1 piece
+        // spritePiece -$C, -$10, 3, 4, 8, 1, 1, 0, 0
+        frames.add(frame(piece(-0xC, -0x10, 3, 4, 8, true, true)));
+
+        // Frame 16 (Map_obj70_00F0): 2 pieces - vertical tooth facing down
+        // spritePiece -$10, -$10, 2, 4, 0, 0, 1, 0, 0
+        // spritePiece    0, -$10, 2, 4, 0, 1, 1, 0, 0
+        frames.add(frame(
+                piece(-0x10, -0x10, 2, 4, 0, false, true),
+                piece(0, -0x10, 2, 4, 0, true, true)));
+
+        // Frame 17 (Map_obj70_0102): 1 piece
+        // spritePiece -$C, -$10, 3, 4, 8, 0, 1, 0, 0
+        frames.add(frame(piece(-0xC, -0x10, 3, 4, 8, false, true)));
+
+        // Frame 18 (Map_obj70_010C): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $14, 0, 1, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x14, false, true)));
+
+        // Frame 19 (Map_obj70_0116): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $24, 0, 1, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x24, false, true)));
+
+        // Frame 20 (Map_obj70_0120): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $34, 0, 1, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x34, false, true)));
+
+        // Frame 21 (Map_obj70_012A): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $44, 0, 1, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x44, false, true)));
+
+        // Frame 22 (Map_obj70_0134): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $54, 0, 1, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x54, false, true)));
+
+        // Frame 23 (Map_obj70_013E): 1 piece
+        // spritePiece -$10, -$C, 4, 3, $64, 0, 1, 0, 0
+        frames.add(frame(piece(-0x10, -0xC, 4, 3, 0x64, false, true)));
+
+        // Frame 24 (Map_obj70_0148): 2 pieces - horizontal tooth
+        // spritePiece -$10, -$10, 4, 2, $70, 0, 0, 0, 0
+        // spritePiece -$10,    0, 4, 2, $70, 0, 1, 0, 0
+        frames.add(frame(
+                piece(-0x10, -0x10, 4, 2, 0x70, false, false),
+                piece(-0x10, 0, 4, 2, 0x70, false, true)));
+
+        // Frame 25 (Map_obj70_015A): 1 piece
+        // spritePiece -$10, -$C, 4, 3, $64, 0, 0, 0, 0
+        frames.add(frame(piece(-0x10, -0xC, 4, 3, 0x64, false, false)));
+
+        // Frame 26 (Map_obj70_0164): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $54, 0, 0, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x54, false, false)));
+
+        // Frame 27 (Map_obj70_016E): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $44, 0, 0, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x44, false, false)));
+
+        // Frame 28 (Map_obj70_0178): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $34, 0, 0, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x34, false, false)));
+
+        // Frame 29 (Map_obj70_0182): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $24, 0, 0, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x24, false, false)));
+
+        // Frame 30 (Map_obj70_018C): 1 piece
+        // spritePiece -$10, -$10, 4, 4, $14, 0, 0, 0, 0
+        frames.add(frame(piece(-0x10, -0x10, 4, 4, 0x14, false, false)));
+
+        // Frame 31 (Map_obj70_0196): 1 piece
+        // spritePiece -$C, -$10, 3, 4, 8, 0, 0, 0, 0
+        frames.add(frame(piece(-0xC, -0x10, 3, 4, 8, false, false)));
+
+        return frames;
+    }
+
+    private SpriteMappingPiece piece(int x, int y, int w, int h, int tile,
+                                     boolean hFlip, boolean vFlip) {
+        return new SpriteMappingPiece(x, y, w, h, tile, hFlip, vFlip, 0);
+    }
+
+    private SpriteMappingFrame frame(SpriteMappingPiece... pieces) {
+        return new SpriteMappingFrame(List.of(pieces));
+    }
+
+    // ========== MTZ Conveyor / Lava Cup (Object 0x6C) ==========
+
+    /**
+     * Load MTZ Lava Cup sprite sheet (Object 0x6C) - small platform on pulleys.
+     * ROM: ArtNem_LavaCup at 0xF167C, palette line 3.
+     * Art tile: make_art_tile(ArtTile_ArtNem_LavaCup,3,0) = 0x03F9
+     * Mappings: Obj6C_MapUnc_28372 (obj6C.asm) - 1 frame, 2 pieces.
+     * <pre>
+     * Frame 0: 2 pieces (2x2 tiles each), left half at (-$10,-8), right half at (0,-8)
+     * Total: 32x16 pixels
+     * </pre>
+     */
+    public ObjectSpriteSheet loadMTZLavaCupSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MTZ_LAVA_CUP_ADDR, "LavaCup");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMTZLavaCupMappings();
+        // Palette line 3: make_art_tile(ArtTile_ArtNem_LavaCup,3,0)
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Create MTZ Lava Cup mappings from obj6C.asm (Map_obj6C_0002).
+     * Single frame with 2 pieces forming a 32x16 platform.
+     */
+    private List<SpriteMappingFrame> createMTZLavaCupMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Map_obj6C_0002: 2 pieces
+        // spritePiece -$10, -8, 2, 2, 0, 0, 0, 0, 0  -> left half (16x16)
+        // spritePiece    0, -8, 2, 2, 0, 1, 0, 0, 0  -> right half (16x16), hFlip
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x10, -8, 2, 2, 0, false, false, 0));
+        f0.add(new SpriteMappingPiece(0, -8, 2, 2, 0, true, false, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        return frames;
     }
 
     private AnimalType[] resolveZoneAnimals(int zoneIndex) {
@@ -2491,6 +3250,206 @@ public class Sonic2ObjectArt {
      * - Frames 6-7: Spike projectile (shared by both)
      * Uses palette line 1 (from make_art_tile(ArtTile_ArtNem_Spiny,1,0)).
      */
+
+    /**
+     * Creates mappings for Asteron (ObjA4) - exploding starfish from MTZ.
+     * Based on ObjA4_Obj98_MapUnc_38A96 from disassembly.
+     * Sheet palette is 0 (from make_art_tile palette=0).
+     * Body pieces use palette 0, flash piece uses palette 1.
+     */
+    /**
+     * Creates mappings for Slicer (ObjA1/ObjA2) - praying mantis badnik from MTZ.
+     * Based on ObjA1_MapUnc_385E2 (Map_objA2) from disassembly.
+     * Sheet palette is 1 (from make_art_tile palette=1).
+     * spritePiece format: xOff, yOff, width, height, patternIndex, xFlip, yFlip, palette, priority
+     */
+    private List<SpriteMappingFrame> createSlicerMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+        final int pal = 1; // palette line 1
+
+        // Frame 0 (Map_objA2_0012): Walking 1 - body + claws down (7 pieces)
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x0C, -7, 2, 1, 0x1A, false, false, pal));   // right claw top
+        f0.add(new SpriteMappingPiece(-0x0C, 1, 1, 1, 0x1C, false, false, pal));    // right claw bottom
+        f0.add(new SpriteMappingPiece(-0x10, -0x10, 3, 2, 0x00, false, false, pal)); // body top
+        f0.add(new SpriteMappingPiece(-0x10, 0, 3, 2, 0x06, false, false, pal));     // body bottom
+        f0.add(new SpriteMappingPiece(8, 0, 1, 2, 0x0C, false, false, pal));         // tail
+        f0.add(new SpriteMappingPiece(-0x20, -9, 2, 1, 0x1A, false, false, pal));    // left claw top
+        f0.add(new SpriteMappingPiece(-0x20, -1, 1, 1, 0x1C, false, false, pal));    // left claw bottom
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1 (Map_objA2_004C): Walking 2 - body + claws mid (7 pieces)
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-0x0C, -8, 2, 1, 0x1A, false, false, pal));
+        f1.add(new SpriteMappingPiece(-0x0C, 0, 1, 1, 0x1C, false, false, pal));
+        f1.add(new SpriteMappingPiece(-0x10, -0x10, 3, 2, 0x00, false, false, pal));
+        f1.add(new SpriteMappingPiece(-0x10, 0, 3, 2, 0x0E, false, false, pal));
+        f1.add(new SpriteMappingPiece(8, 0, 1, 2, 0x0C, false, false, pal));
+        f1.add(new SpriteMappingPiece(-0x20, -8, 2, 1, 0x1A, false, false, pal));
+        f1.add(new SpriteMappingPiece(-0x20, 0, 1, 1, 0x1C, false, false, pal));
+        frames.add(new SpriteMappingFrame(f1));
+
+        // Frame 2 (Map_objA2_0086): Walking 3 - body + claws up (7 pieces)
+        List<SpriteMappingPiece> f2 = new ArrayList<>();
+        f2.add(new SpriteMappingPiece(-0x0C, -9, 2, 1, 0x1A, false, false, pal));
+        f2.add(new SpriteMappingPiece(-0x0C, -1, 1, 1, 0x1C, false, false, pal));
+        f2.add(new SpriteMappingPiece(-0x10, -0x10, 3, 2, 0x00, false, false, pal));
+        f2.add(new SpriteMappingPiece(-0x10, 0, 3, 2, 0x14, false, false, pal));
+        f2.add(new SpriteMappingPiece(8, 0, 1, 2, 0x0C, false, false, pal));
+        f2.add(new SpriteMappingPiece(-0x20, -7, 2, 1, 0x1A, false, false, pal));
+        f2.add(new SpriteMappingPiece(-0x20, 1, 1, 1, 0x1C, false, false, pal));
+        frames.add(new SpriteMappingFrame(f2));
+
+        // Frame 3 (Map_objA2_00C0): Arms raised - preparing to throw (7 pieces)
+        List<SpriteMappingPiece> f3 = new ArrayList<>();
+        f3.add(new SpriteMappingPiece(-0x0C, -0x20, 2, 1, 0x1E, true, true, pal));
+        f3.add(new SpriteMappingPiece(-4, -0x18, 1, 1, 0x1D, true, true, pal));
+        f3.add(new SpriteMappingPiece(-0x10, -0x10, 3, 2, 0x00, false, false, pal));
+        f3.add(new SpriteMappingPiece(-0x10, 0, 3, 2, 0x06, false, false, pal));
+        f3.add(new SpriteMappingPiece(8, 0, 1, 2, 0x0C, false, false, pal));
+        f3.add(new SpriteMappingPiece(-0x20, -0x20, 2, 1, 0x1E, true, true, pal));
+        f3.add(new SpriteMappingPiece(-0x18, -0x18, 1, 1, 0x1D, true, true, pal));
+        frames.add(new SpriteMappingFrame(f3));
+
+        // Frame 4 (Map_objA2_00FA): Body only - after throw (3 pieces)
+        List<SpriteMappingPiece> f4 = new ArrayList<>();
+        f4.add(new SpriteMappingPiece(-0x10, -0x10, 3, 2, 0x00, false, false, pal));
+        f4.add(new SpriteMappingPiece(-0x10, 0, 3, 2, 0x06, false, false, pal));
+        f4.add(new SpriteMappingPiece(8, 0, 1, 2, 0x0C, false, false, pal));
+        frames.add(new SpriteMappingFrame(f4));
+
+        // Frame 5 (Map_objA2_0114): Pincer projectile - claw anim 1 (2 pieces)
+        List<SpriteMappingPiece> f5 = new ArrayList<>();
+        f5.add(new SpriteMappingPiece(-0x10, -0x10, 2, 1, 0x1A, false, false, pal));
+        f5.add(new SpriteMappingPiece(-0x10, -8, 1, 1, 0x1C, false, false, pal));
+        frames.add(new SpriteMappingFrame(f5));
+
+        // Frame 6 (Map_objA2_0126): Pincer projectile - claw anim 2 (2 pieces)
+        List<SpriteMappingPiece> f6 = new ArrayList<>();
+        f6.add(new SpriteMappingPiece(-0x10, 0, 1, 1, 0x1D, false, false, pal));
+        f6.add(new SpriteMappingPiece(-0x10, 8, 2, 1, 0x1E, false, false, pal));
+        frames.add(new SpriteMappingFrame(f6));
+
+        // Frame 7 (Map_objA2_0138): Pincer projectile - claw anim 3 (2 pieces)
+        List<SpriteMappingPiece> f7 = new ArrayList<>();
+        f7.add(new SpriteMappingPiece(8, 0, 1, 1, 0x1C, true, true, pal));
+        f7.add(new SpriteMappingPiece(0, 8, 2, 1, 0x1A, true, true, pal));
+        frames.add(new SpriteMappingFrame(f7));
+
+        // Frame 8 (Map_objA2_014A): Pincer projectile - claw anim 4 (2 pieces)
+        List<SpriteMappingPiece> f8 = new ArrayList<>();
+        f8.add(new SpriteMappingPiece(0, -0x10, 2, 1, 0x1E, true, true, pal));
+        f8.add(new SpriteMappingPiece(8, -8, 1, 1, 0x1D, true, true, pal));
+        frames.add(new SpriteMappingFrame(f8));
+
+        return frames;
+    }
+
+    /**
+     * Creates mappings for Shellcracker (Obj9F/ObjA0) - crab badnik from MTZ.
+     * Based on Obj9F_MapUnc_38314 (Map_objA0) from disassembly.
+     * Sheet palette is 0 (from make_art_tile palette=0).
+     * spritePiece format: xOff, yOff, width, height, patternIndex, xFlip, yFlip, palette, priority
+     */
+    private List<SpriteMappingFrame> createShellcrackerMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+        final int pal = 0;
+
+        // Frame 0 (Map_objA0_000C): Walking 1 - body + claws + legs down (4 pieces)
+        // spritePiece -$20, -$14, 3, 3, $18, 0, 0, 0, 0
+        // spritePiece    8,   -8, 2, 1, $21, 0, 0, 0, 0
+        // spritePiece -$18,  -$C, 3, 3,   0, 0, 0, 0, 0
+        // spritePiece    0,  -$C, 3, 3,   0, 1, 0, 0, 0
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x20, -0x14, 3, 3, 0x18, false, false, pal));
+        f0.add(new SpriteMappingPiece(8, -8, 2, 1, 0x21, false, false, pal));
+        f0.add(new SpriteMappingPiece(-0x18, -0x0C, 3, 3, 0, false, false, pal));
+        f0.add(new SpriteMappingPiece(0, -0x0C, 3, 3, 0, true, false, pal));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1 (Map_objA0_002E): Walking 2 - body + legs mid (4 pieces)
+        // spritePiece -$20, -$14, 3, 3, $18, 0, 0, 0, 0
+        // spritePiece    8,   -8, 2, 1, $21, 0, 0, 0, 0
+        // spritePiece -$10,  -$C, 2, 3, $12, 1, 0, 0, 0
+        // spritePiece    0,  -$C, 3, 3,   9, 1, 0, 0, 0
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-0x20, -0x14, 3, 3, 0x18, false, false, pal));
+        f1.add(new SpriteMappingPiece(8, -8, 2, 1, 0x21, false, false, pal));
+        f1.add(new SpriteMappingPiece(-0x10, -0x0C, 2, 3, 0x12, true, false, pal));
+        f1.add(new SpriteMappingPiece(0, -0x0C, 3, 3, 0x09, true, false, pal));
+        frames.add(new SpriteMappingFrame(f1));
+
+        // Frame 2 (Map_objA0_0050): Walking 3 - body + legs up (4 pieces)
+        // spritePiece -$20, -$14, 3, 3, $18, 0, 0, 0, 0
+        // spritePiece    8,   -8, 2, 1, $21, 0, 0, 0, 0
+        // spritePiece -$18,  -$C, 3, 3,   9, 0, 0, 0, 0
+        // spritePiece    0,  -$C, 2, 3, $12, 0, 0, 0, 0
+        List<SpriteMappingPiece> f2 = new ArrayList<>();
+        f2.add(new SpriteMappingPiece(-0x20, -0x14, 3, 3, 0x18, false, false, pal));
+        f2.add(new SpriteMappingPiece(8, -8, 2, 1, 0x21, false, false, pal));
+        f2.add(new SpriteMappingPiece(-0x18, -0x0C, 3, 3, 0x09, false, false, pal));
+        f2.add(new SpriteMappingPiece(0, -0x0C, 2, 3, 0x12, false, false, pal));
+        frames.add(new SpriteMappingFrame(f2));
+
+        // Frame 3 (Map_objA0_0072): Attack pose - eye piece + legs, no top claws (3 pieces)
+        // spritePiece    8,   -8, 2, 1, $21, 0, 0, 0, 0
+        // spritePiece -$18,  -$C, 3, 3,   0, 0, 0, 0, 0
+        // spritePiece    0,  -$C, 3, 3,   0, 1, 0, 0, 0
+        List<SpriteMappingPiece> f3 = new ArrayList<>();
+        f3.add(new SpriteMappingPiece(8, -8, 2, 1, 0x21, false, false, pal));
+        f3.add(new SpriteMappingPiece(-0x18, -0x0C, 3, 3, 0, false, false, pal));
+        f3.add(new SpriteMappingPiece(0, -0x0C, 3, 3, 0, true, false, pal));
+        frames.add(new SpriteMappingFrame(f3));
+
+        // Frame 4 (Map_objA0_008C): Small claw joint (1 piece, 1x1 tile)
+        // spritePiece   -4,   -4, 1, 1, $23, 0, 0, 0, 0
+        List<SpriteMappingPiece> f4 = new ArrayList<>();
+        f4.add(new SpriteMappingPiece(-4, -4, 1, 1, 0x23, false, false, pal));
+        frames.add(new SpriteMappingFrame(f4));
+
+        // Frame 5 (Map_objA0_0096): Claw arm segment (1 piece, 3x3 tiles)
+        // spritePiece  -$C,  -$C, 3, 3, $18, 0, 0, 0, 0
+        List<SpriteMappingPiece> f5 = new ArrayList<>();
+        f5.add(new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x18, false, false, pal));
+        frames.add(new SpriteMappingFrame(f5));
+
+        return frames;
+    }
+
+    private List<SpriteMappingFrame> createAsteronMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_objA4_000A): Body idle - 2 pieces (two 2x4 columns = 32x32px)
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x10, -0x10, 2, 4, 0x00, false, false, 0));
+        frame0.add(new SpriteMappingPiece(0x00, -0x10, 2, 4, 0x00, true, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1 (Map_objA4_001C): Body flash - 3 pieces (1x1 flash + two 2x4 columns)
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-0x04, -0x03, 1, 1, 0x0E, false, false, 1));
+        frame1.add(new SpriteMappingPiece(-0x10, -0x10, 2, 4, 0x00, false, false, 0));
+        frame1.add(new SpriteMappingPiece(0x00, -0x10, 2, 4, 0x00, true, false, 0));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2 (Map_objA4_0036): Projectile vertical (1x2 = 8x16px)
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-0x04, -0x08, 1, 2, 0x08, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3 (Map_objA4_0040): Projectile horizontal (2x1 = 16x8px)
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(-0x08, -0x04, 2, 1, 0x0A, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame3));
+
+        // Frame 4 (Map_objA4_004A): Projectile diagonal (1x2 = 8x16px)
+        List<SpriteMappingPiece> frame4 = new ArrayList<>();
+        frame4.add(new SpriteMappingPiece(-0x04, -0x08, 1, 2, 0x0C, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame4));
+
+        return frames;
+    }
+
     private List<SpriteMappingFrame> createSpinyMappings() {
         List<SpriteMappingFrame> frames = new ArrayList<>();
         final int palette = 1;  // Spiny uses palette line 1
@@ -3044,6 +4003,173 @@ public class Sonic2ObjectArt {
         frame3.add(new SpriteMappingPiece(-32, 0, 3, 2, 0x24, true, false, 0));     // Left foot (H-flipped)
         frame3.add(new SpriteMappingPiece(-16, -16, 4, 4, 0x00, false, false, 0));  // Body
         frames.add(new SpriteMappingFrame(frame3));
+
+        return frames;
+    }
+
+    /**
+     * Create sprite mappings for Nebula (Obj99).
+     * From mappings/sprite/obj99.asm (Obj99_Obj98_MapUnc_3789A).
+     * 5 frames: 0-3 = body with propeller animation, 4 = bomb projectile.
+     */
+    private List<SpriteMappingFrame> createNebulaMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_obj99_000A): Body + propeller extended (4 pieces)
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x18, -0x14, 3, 1, 0x12, false, false, 0));
+        frame0.add(new SpriteMappingPiece(0, -0x14, 3, 1, 0x12, true, true, 0));
+        frame0.add(new SpriteMappingPiece(-8, -0x14, 2, 1, 0, false, false, 0));
+        frame0.add(new SpriteMappingPiece(-0x10, -0x0C, 4, 4, 2, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1 (Map_obj99_002C): Body + propeller mid (4 pieces)
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-0x10, -0x14, 2, 1, 0x15, false, false, 0));
+        frame1.add(new SpriteMappingPiece(0, -0x14, 2, 1, 0x15, true, true, 0));
+        frame1.add(new SpriteMappingPiece(-8, -0x14, 2, 1, 0, false, false, 0));
+        frame1.add(new SpriteMappingPiece(-0x10, -0x0C, 4, 4, 2, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2 (Map_obj99_004E): Body + propeller small (4 pieces)
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-8, -0x14, 1, 1, 0x17, false, false, 0));
+        frame2.add(new SpriteMappingPiece(0, -0x14, 1, 1, 0x17, true, false, 0));
+        frame2.add(new SpriteMappingPiece(-8, -0x14, 2, 1, 0, false, false, 0));
+        frame2.add(new SpriteMappingPiece(-0x10, -0x0C, 4, 4, 2, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3 (Map_obj99_0070): Body + propeller mid reversed (4 pieces)
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(-0x10, -0x14, 2, 1, 0x15, false, true, 0));
+        frame3.add(new SpriteMappingPiece(0, -0x14, 2, 1, 0x15, true, false, 0));
+        frame3.add(new SpriteMappingPiece(-8, -0x14, 2, 1, 0, false, false, 0));
+        frame3.add(new SpriteMappingPiece(-0x10, -0x0C, 4, 4, 2, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame3));
+
+        // Frame 4 (Map_obj99_0092): Bomb projectile (1 piece, 2x2 tiles)
+        List<SpriteMappingPiece> frame4 = new ArrayList<>();
+        frame4.add(new SpriteMappingPiece(-8, -8, 2, 2, 0x18, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame4));
+
+        return frames;
+    }
+
+    /**
+     * Creates mappings for Turtloid (Obj9A/9B/9C) - turtle badnik + rider + jet from SCZ.
+     * From mappings/sprite/obj9C.asm (Obj9A_Obj98_MapUnc_37B62 / Map_obj9C).
+     * 10 frames shared by Turtloid body, rider, projectile, and jet exhaust.
+     */
+    private List<SpriteMappingFrame> createTurtloidMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Turtloid body - flying (3 pieces)
+        // spritePiece -$1C, -$10, 3, 2, 0, 0, 0, 1, 1
+        // spritePiece -4, -$10, 4, 4, 6, 0, 0, 1, 1
+        // spritePiece -$1C, 0, 3, 2, $16, 0, 0, 1, 1
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x1C, -0x10, 3, 2, 0x00, false, false, 0));
+        frame0.add(new SpriteMappingPiece(-4, -0x10, 4, 4, 0x06, false, false, 0));
+        frame0.add(new SpriteMappingPiece(-0x1C, 0, 3, 2, 0x16, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1: Turtloid body - neck raised (3 pieces)
+        // spritePiece -$1C, -$10, 3, 2, 0, 0, 0, 1, 1
+        // spritePiece -$1C, 0, 3, 2, $1C, 0, 0, 1, 1
+        // spritePiece -4, -$10, 4, 4, 6, 0, 0, 1, 1
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-0x1C, -0x10, 3, 2, 0x00, false, false, 0));
+        frame1.add(new SpriteMappingPiece(-0x1C, 0, 3, 2, 0x1C, false, false, 0));
+        frame1.add(new SpriteMappingPiece(-4, -0x10, 4, 4, 0x06, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2: Rider - normal pose (1 piece)
+        // spritePiece -$C, -$C, 3, 3, $22, 0, 0, 1, 1
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x22, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        // Frame 3: Rider - shooting pose (1 piece)
+        // spritePiece -$C, -$C, 3, 3, $2B, 0, 0, 1, 1
+        List<SpriteMappingPiece> frame3 = new ArrayList<>();
+        frame3.add(new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x2B, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame3));
+
+        // Frame 4: Shot frame 1 (1 piece)
+        // spritePiece -4, -4, 1, 1, $34, 0, 0, 0, 1
+        List<SpriteMappingPiece> frame4 = new ArrayList<>();
+        frame4.add(new SpriteMappingPiece(-4, -4, 1, 1, 0x34, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame4));
+
+        // Frame 5: Shot frame 2 (1 piece)
+        // spritePiece -4, -4, 1, 1, $35, 0, 0, 0, 1
+        List<SpriteMappingPiece> frame5 = new ArrayList<>();
+        frame5.add(new SpriteMappingPiece(-4, -4, 1, 1, 0x35, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame5));
+
+        // Frame 6: Jet exhaust 1 - Turtloid (1 piece)
+        // spritePiece $1C, 6, 2, 1, $36, 0, 0, 0, 1
+        List<SpriteMappingPiece> frame6 = new ArrayList<>();
+        frame6.add(new SpriteMappingPiece(0x1C, 6, 2, 1, 0x36, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame6));
+
+        // Frame 7: Jet exhaust 2 - Turtloid (1 piece)
+        // spritePiece $1C, 6, 1, 1, $38, 0, 0, 0, 1
+        List<SpriteMappingPiece> frame7 = new ArrayList<>();
+        frame7.add(new SpriteMappingPiece(0x1C, 6, 1, 1, 0x38, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame7));
+
+        // Frame 8: Jet exhaust 1 - Balkiry (1 piece)
+        // spritePiece $1B, -5, 2, 1, $36, 0, 0, 0, 1
+        List<SpriteMappingPiece> frame8 = new ArrayList<>();
+        frame8.add(new SpriteMappingPiece(0x1B, -5, 2, 1, 0x36, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame8));
+
+        // Frame 9: Jet exhaust 2 - Balkiry (1 piece)
+        // spritePiece $1B, -5, 1, 1, $38, 0, 0, 0, 1
+        List<SpriteMappingPiece> frame9 = new ArrayList<>();
+        frame9.add(new SpriteMappingPiece(0x1B, -5, 1, 1, 0x38, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame9));
+
+        return frames;
+    }
+
+    /**
+     * Creates mappings for Balkiry (ObjAC) - jet badnik from SCZ.
+     * Based on objAC.asm (S2 disassembly mappings).
+     * 2 frames from Map_objAC:
+     *   Frame 0: Body without exhaust trail (4 pieces)
+     *   Frame 1: Body with exhaust trail (5 pieces)
+     * Balkiry init sets mapping_frame=1, so frame 1 is the primary display frame.
+     */
+    private List<SpriteMappingFrame> createBalkiryMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_objAC_0004): Body without extended exhaust (4 pieces)
+        // spritePiece -$24, -$C, 4, 2, 0, 0, 0, 0, 1
+        // spritePiece  $C, -$14, 2, 1, 8, 0, 0, 0, 1
+        // spritePiece -4, -$C, 4, 2, $A, 0, 0, 0, 1
+        // spritePiece -4, 4, 3, 1, $12, 0, 0, 0, 1
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x24, -0x0C, 4, 2, 0x00, false, false, 0, true));
+        frame0.add(new SpriteMappingPiece(0x0C, -0x14, 2, 1, 0x08, false, false, 0, true));
+        frame0.add(new SpriteMappingPiece(-4, -0x0C, 4, 2, 0x0A, false, false, 0, true));
+        frame0.add(new SpriteMappingPiece(-4, 4, 3, 1, 0x12, false, false, 0, true));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1 (Map_objAC_0026): Body with extended exhaust (5 pieces)
+        // spritePiece -$24, -$C, 4, 2, 0, 0, 0, 0, 1
+        // spritePiece  $C, -$14, 2, 1, 8, 0, 0, 0, 1
+        // spritePiece -4, -$C, 4, 2, $A, 0, 0, 0, 1
+        // spritePiece  $C, 4, 3, 1, $15, 0, 0, 0, 1
+        // spritePiece  $1C, $C, 1, 1, $18, 0, 0, 0, 1
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-0x24, -0x0C, 4, 2, 0x00, false, false, 0, true));
+        frame1.add(new SpriteMappingPiece(0x0C, -0x14, 2, 1, 0x08, false, false, 0, true));
+        frame1.add(new SpriteMappingPiece(-4, -0x0C, 4, 2, 0x0A, false, false, 0, true));
+        frame1.add(new SpriteMappingPiece(0x0C, 4, 3, 1, 0x15, false, false, 0, true));
+        frame1.add(new SpriteMappingPiece(0x1C, 0x0C, 1, 1, 0x18, false, false, 0, true));
+        frames.add(new SpriteMappingFrame(frame1));
 
         return frames;
     }
@@ -5510,6 +6636,53 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load SteamSpring piston body (Obj42) sprite sheet from level art.
+     * ROM: ArtKos_LevelArt, palette line 3.
+     * Frame 7 from Map_obj42 uses level art tiles 0x15 and 0x1D.
+     */
+    public ObjectSpriteSheet loadSteamSpringPistonSheet(uk.co.jamesj999.sonic.level.Level level) {
+        if (level == null) {
+            return null;
+        }
+
+        // The highest tile index used is 0x1D + (2*4) = 0x25
+        int maxTileNeeded = 0x25;
+        int patternCount = level.getPatternCount();
+        if (patternCount < maxTileNeeded) {
+            LOGGER.warning("Level has fewer patterns than SteamSpring piston needs: "
+                    + patternCount + " < " + maxTileNeeded);
+        }
+
+        int copyCount = Math.min(patternCount, maxTileNeeded + 1);
+        Pattern[] patterns = new Pattern[copyCount];
+        for (int i = 0; i < copyCount; i++) {
+            patterns[i] = level.getPattern(i);
+        }
+
+        List<SpriteMappingFrame> mappings = createSteamSpringPistonMappings();
+        // Palette line 3: make_art_tile(ArtTile_ArtKos_LevelArt,3,0)
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Creates mappings for SteamSpring piston body.
+     * Frame 7 from Map_obj42_007E: 32x32 piston (two 16x32 halves).
+     */
+    private List<SpriteMappingFrame> createSteamSpringPistonMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_obj42_007E): piston body 32x32
+        // spritePiece -$10, -$10, 2, 4, $15, 0, 0, 0, 0
+        // spritePiece    0, -$10, 2, 4, $1D, 0, 0, 0, 0
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x10, -0x10, 2, 4, 0x15, false, false, 0));
+        f0.add(new SpriteMappingPiece(0, -0x10, 2, 4, 0x1D, false, false, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        return frames;
+    }
+
+    /**
      * Load HTZ Boss sprite sheet (Object 0x52) - Lava flamethrower boss.
      * <p>
      * ROM Reference: s2.asm:63619-64207 (Obj52)
@@ -5831,6 +7004,140 @@ public class Sonic2ObjectArt {
         List<SpriteMappingPiece> frame3 = new ArrayList<>();
         frame3.add(new SpriteMappingPiece(-8, -8, 2, 2, 0x0C, false, false, 1));
         frames.add(new SpriteMappingFrame(frame3));
+
+        return frames;
+    }
+
+    // ========== MTZ Nut (Object 0x69) ==========
+
+    /**
+     * Load MTZ Nut sprite sheet.
+     * ROM: ArtNem_MtzAsstBlocks at 0xF1550, palette line 1
+     * Art tile: make_art_tile(ArtTile_ArtNem_MtzAsstBlocks,1,0) = $0500 | palette 1
+     */
+    public ObjectSpriteSheet loadMTZNutSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MTZ_ASST_BLOCKS_ADDR, "MtzAsstBlocks");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMTZNutMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Creates mappings for MTZ Nut (Obj69).
+     * From disassembly: mappings/sprite/obj69.asm (Obj69_MapUnc_27A26)
+     * 4 frames representing the nut at different rotation positions on the screw thread.
+     */
+    private List<SpriteMappingFrame> createMTZNutMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: 2 pieces - full width nut
+        // spritePiece -$20, -$C, 4, 3, 0, 0, 0, 0, 0
+        // spritePiece    0, -$C, 4, 3, $C, 0, 0, 0, 0
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-0x20, -0x0C, 4, 3, 0x00, false, false, 0));
+        f0.add(new SpriteMappingPiece(0x00, -0x0C, 4, 3, 0x0C, false, false, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1: 3 pieces - nut shifted slightly
+        // spritePiece -$20, -$C, 3, 3, 3, 0, 0, 0, 0
+        // spritePiece   -8, -$C, 4, 3, $C, 0, 0, 0, 0
+        // spritePiece  $18, -$C, 1, 3, 9, 1, 0, 0, 0
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-0x20, -0x0C, 3, 3, 0x03, false, false, 0));
+        f1.add(new SpriteMappingPiece(-0x08, -0x0C, 4, 3, 0x0C, false, false, 0));
+        f1.add(new SpriteMappingPiece(0x18, -0x0C, 1, 3, 0x09, true, false, 0));
+        frames.add(new SpriteMappingFrame(f1));
+
+        // Frame 2: 3 pieces - nut rotated further
+        // spritePiece -$20, -$C, 2, 3, $24, 0, 0, 0, 0
+        // spritePiece -$10, -$C, 4, 3, $2A, 0, 0, 0, 0
+        // spritePiece  $10, -$C, 2, 3, $18, 0, 0, 0, 0
+        List<SpriteMappingPiece> f2 = new ArrayList<>();
+        f2.add(new SpriteMappingPiece(-0x20, -0x0C, 2, 3, 0x24, false, false, 0));
+        f2.add(new SpriteMappingPiece(-0x10, -0x0C, 4, 3, 0x2A, false, false, 0));
+        f2.add(new SpriteMappingPiece(0x10, -0x0C, 2, 3, 0x18, false, false, 0));
+        frames.add(new SpriteMappingFrame(f2));
+
+        // Frame 3: 3 pieces - nut at final rotation
+        // spritePiece -$20, -$C, 1, 3, $27, 0, 0, 0, 0
+        // spritePiece -$18, -$C, 4, 3, $18, 0, 0, 0, 0
+        // spritePiece    8, -$C, 3, 3, $2D, 1, 0, 0, 0
+        List<SpriteMappingPiece> f3 = new ArrayList<>();
+        f3.add(new SpriteMappingPiece(-0x20, -0x0C, 1, 3, 0x27, false, false, 0));
+        f3.add(new SpriteMappingPiece(-0x18, -0x0C, 4, 3, 0x18, false, false, 0));
+        f3.add(new SpriteMappingPiece(0x08, -0x0C, 3, 3, 0x2D, true, false, 0));
+        frames.add(new SpriteMappingFrame(f3));
+
+        return frames;
+    }
+
+    // ========== MTZ Lava Bubble (Object 0x71) ==========
+
+    /**
+     * Load MTZ Lava Bubble sprite sheet.
+     * ROM: ArtNem_MtzLavaBubble at 0xF15C6, palette line 2.
+     * Art tile: make_art_tile(ArtTile_ArtNem_MtzLavaBubble,2,0) = $0536 | palette 2, no priority.
+     */
+    public ObjectSpriteSheet loadMTZLavaBubbleSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_MTZ_LAVA_BUBBLE_ADDR, "MtzLavaBubble");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = createMTZLavaBubbleMappings();
+        // Palette line 2: make_art_tile(ArtTile_ArtNem_MtzLavaBubble,2,0)
+        return new ObjectSpriteSheet(patterns, mappings, 2, 1);
+    }
+
+    /**
+     * Creates mappings for MTZ Lava Bubble (Obj71 subtype 2).
+     * From disassembly: mappings/sprite/obj71_b.asm (Obj71_MapUnc_11576)
+     * 7 frames showing a bubble rising and expanding from lava surface.
+     */
+    private List<SpriteMappingFrame> createMTZLavaBubbleMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (Map_obj71_b_000E): small bubble at +2 Y offset
+        // spritePiece -8, 2, 2, 1, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> f0 = new ArrayList<>();
+        f0.add(new SpriteMappingPiece(-8, 2, 2, 1, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(f0));
+
+        // Frame 1 (Map_obj71_b_0018): bubble at 0 Y offset
+        // spritePiece -8, 0, 2, 1, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> f1 = new ArrayList<>();
+        f1.add(new SpriteMappingPiece(-8, 0, 2, 1, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(f1));
+
+        // Frame 2 (Map_obj71_b_0022): bubble at -2 Y offset
+        // spritePiece -8, -2, 2, 1, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> f2 = new ArrayList<>();
+        f2.add(new SpriteMappingPiece(-8, -2, 2, 1, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(f2));
+
+        // Frame 3 (Map_obj71_b_002C): bubble at -4 Y offset
+        // spritePiece -8, -4, 2, 1, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> f3b = new ArrayList<>();
+        f3b.add(new SpriteMappingPiece(-8, -4, 2, 1, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(f3b));
+
+        // Frame 4 (Map_obj71_b_0036): wider bubble at -4 Y offset
+        // spritePiece -$C, -4, 3, 1, 2, 0, 0, 0, 0
+        List<SpriteMappingPiece> f4 = new ArrayList<>();
+        f4.add(new SpriteMappingPiece(-0x0C, -4, 3, 1, 2, false, false, 0));
+        frames.add(new SpriteMappingFrame(f4));
+
+        // Frame 5 (Map_obj71_b_0040): widest bubble at -4 Y offset
+        // spritePiece -$10, -4, 4, 1, 5, 0, 0, 0, 0
+        List<SpriteMappingPiece> f5 = new ArrayList<>();
+        f5.add(new SpriteMappingPiece(-0x10, -4, 4, 1, 5, false, false, 0));
+        frames.add(new SpriteMappingFrame(f5));
+
+        // Frame 6 (Map_obj71_b_004A): empty frame (bubble popped)
+        frames.add(new SpriteMappingFrame(new ArrayList<>()));
 
         return frames;
     }

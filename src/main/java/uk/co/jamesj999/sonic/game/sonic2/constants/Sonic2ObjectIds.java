@@ -4,6 +4,8 @@ public final class Sonic2ObjectIds {
     public static final int LAYER_SWITCHER = 0x03;
     public static final int OIL = 0x07;                  // OOZ oil surface (Obj07)
     public static final int SPRING = 0x41;
+    public static final int STEAM_SPRING = 0x42;   // SteamSpring (Obj42) - MTZ steam-powered spring piston
+    public static final int BUTTON = 0x47;         // Button (Obj47) - trigger button that activates other objects via ButtonVine_Trigger
     public static final int SPIKES = 0x36;
     public static final int MONITOR = 0x26;
     public static final int CHECKPOINT = 0x79;
@@ -29,10 +31,24 @@ public final class Sonic2ObjectIds {
     public static final int CRAWLTON = 0x9E; // Snake badnik from MCZ - lunges at player with trailing body
     public static final int FLASHER = 0xA3;
 
+    // MTZ Badniks
+    public static final int SHELLCRACKER = 0x9F;   // Shellcracker (crab badnik)
+    public static final int SHELLCRACKER_CLAW = 0xA0; // Shellcracker's claw (spawned dynamically)
+    public static final int SLICER = 0xA1;         // Slicer (praying mantis badnik)
+    public static final int SLICER_PINCERS = 0xA2; // Slicer's thrown pincers (projectile)
+    public static final int ASTERON = 0xA4;
+
     // CPZ Badniks
     public static final int SPINY = 0xA5;
     public static final int SPINY_ON_WALL = 0xA6;
     public static final int GRABBER = 0xA7;
+
+    // SCZ Badniks
+    public static final int NEBULA = 0x99;          // Nebula (bomber badnik from SCZ)
+    public static final int TURTLOID = 0x9A;
+    public static final int TURTLOID_RIDER = 0x9B;
+    public static final int BALKIRY_JET = 0x9C;     // Balkiry's jet exhaust (child of Balkiry, spawned dynamically)
+    public static final int BALKIRY = 0xAC;         // Balkiry (jet badnik from SCZ)
 
     // ARZ Badniks
     public static final int CHOP_CHOP = 0x91;
@@ -104,8 +120,17 @@ public final class Sonic2ObjectIds {
     // CPZ Foreground Objects
     public static final int CPZ_PYLON = 0x7C;  // CPZ Pylon (Obj7C) - decorative background pylon
 
-    // MTZ/CPZ Platform Objects
+    // MTZ Objects
+    public static final int MTZ_TWIN_STOMPERS = 0x64; // MTZ Twin Stompers (Obj64) - crushing piston pair from MTZ
+    public static final int MTZ_LONG_PLATFORM = 0x65; // MTZ Long Platform (Obj65) - long moving platform with cog child
+    public static final int MTZ_SPRING_WALL = 0x66;   // MTZ Spring Wall (Obj66) - invisible wall that bounces player
+    public static final int MTZ_SPIN_TUBE = 0x67;     // MTZ Spin Tube (Obj67) - tube transport with sinusoidal entry
+    public static final int FLOOR_SPIKE = 0x6D; // Floor Spike (Obj6D) - retractable floor spike from MTZ
+    public static final int LARGE_ROT_PFORM = 0x6E; // LargeRotPform (Obj6E) - circular moving platform from MTZ
+    public static final int COG = 0x70; // Cog (Obj70) - giant rotating cog from MTZ
     public static final int MTZ_PLATFORM = 0x6B; // MTZ Platform (Obj6B) - multi-purpose platform with 12 movement subtypes
+    public static final int CONVEYOR = 0x6C; // Conveyor (Obj6C) - small platform on pulleys from MTZ
+    public static final int MTZ_LAVA_BUBBLE = 0x71; // MTZ Lava Bubble (Obj71) - animated lava bubble scenery
     public static final int SIDEWAYS_PFORM = 0x7A; // Sideways Platform (Obj7A) - CPZ/MCZ horizontal moving platform
 
     // ARZ Objects
@@ -131,11 +156,18 @@ public final class Sonic2ObjectIds {
     public static final int MCZ_BRIDGE = 0x77;      // MCZ Bridge (Obj77) - horizontal gate triggered by ButtonVine
     public static final int MCZ_DRAWBRIDGE = 0x81;  // MCZ Drawbridge (Obj81) - rotatable drawbridge triggered by ButtonVine
 
+    // MTZ Objects
+    public static final int SPIKY_BLOCK = 0x68; // SpikyBlock (Obj68) - block with rotating spike from MTZ
+    public static final int NUT = 0x69; // Nut (Obj69) - screw nut that moves vertically when player pushes it
+
     // MCZ/MTZ Rotating Platforms
     public static final int MCZ_ROT_PFORMS = 0x6A; // Rotating Platforms (Obj6A) - MCZ wooden crate / MTZ moving platform
 
     // ARZ Rotating Platforms
     public static final int ARZ_ROT_PFORMS = 0x83; // Rotating Platforms (Obj83) - 3 platforms orbiting center
+
+    // SCZ Objects
+    public static final int CLOUD = 0xB3; // Cloud (ObjB3) - decorative clouds from Sky Chase Zone
 
     // CNZ/HTZ Objects
     public static final int FORCED_SPIN = 0x84; // ForcedSpin/Pinball Mode (Obj84) - CNZ/HTZ
