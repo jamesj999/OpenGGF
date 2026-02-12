@@ -2114,7 +2114,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         }
 
         List<SpriteMappingFrame> mappings = createCaterkillerMappings();
-        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 1, 1);
         registerSheet(ObjectArtKeys.CATERKILLER, sheet);
     }
 

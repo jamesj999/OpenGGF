@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic1.objects;
 
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.debug.DebugRenderContext;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
@@ -74,6 +75,9 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
 
     /** Sonic Y proximity check range: subi.w #$170,d1. */
     private static final int PROXIMITY_RANGE = 0x170;
+
+    /** out_of_range compare distance: #128+320+192. */
+    private static final int OUT_OF_RANGE_DISTANCE = 128 + 320 + 192;
 
     /** Debug color for geyser maker (dark orange). */
     private static final Color DEBUG_COLOR = new Color(200, 100, 0);
@@ -234,6 +238,7 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
         } else {
             // Lavafall: addq.b #2,obRoutine(a0) / rts
             routine = 6;
+            checkOutOfRange();
         }
     }
 
@@ -295,8 +300,8 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
      * at routine 4, afRoutine → 6 (MakeLava). At routine 8, afRoutine → 10 (Delete).
      */
     private void displayAndAnimate() {
-        if (!isOnScreen(128)) {
-            setDestroyed(true);
+        checkOutOfRange();
+        if (isDestroyed()) {
             return;
         }
 
@@ -327,13 +332,29 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
             // Repeating lavafall: go back to Wait
             routine = 2;
             timer = timerReload;
+            checkOutOfRange();
         }
     }
 
     private void checkOutOfRange() {
-        if (!isOnScreen(128)) {
+        if (!isWithinOutOfRangeWindow(spawn.x())) {
             setDestroyed(true);
         }
+    }
+
+    /**
+     * ROM out_of_range macro (Macros.asm):
+     * round both X positions to $80 and compare against 128+320+192.
+     */
+    private boolean isWithinOutOfRangeWindow(int objectX) {
+        Camera camera = Camera.getInstance();
+        if (camera == null) {
+            return true;
+        }
+        int objRounded = objectX & 0xFF80;
+        int camRounded = (camera.getX() - 128) & 0xFF80;
+        int distance = (objRounded - camRounded) & 0xFFFF;
+        return distance <= OUT_OF_RANGE_DISTANCE;
     }
 
     // ========================================================================

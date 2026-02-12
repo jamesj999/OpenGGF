@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.debug.DebugRenderContext;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
@@ -80,6 +81,9 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
 
     /** Animation speed for head anims (from Ani_Geyser: dc.b 2). */
     private static final int ANIM_SPEED = 3; // speed byte 2 -> every 3 frames
+
+    /** out_of_range compare distance: #128+320+192. */
+    private static final int OUT_OF_RANGE_DISTANCE = 128 + 320 + 192;
 
     // Animation frames for head pieces
     /** Anim 5 (.bubble4): frames {0x11, 0x12} - geyser head bubbles. */
@@ -301,6 +305,11 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
 
         // AnimateSprite (head animation)
         updateHeadAnimation();
+
+        // Geyser_ChkDel: out_of_range.w DeleteObject
+        if (!isWithinOutOfRangeWindow(currentX)) {
+            setDestroyed(true);
+        }
     }
 
     /**
@@ -390,6 +399,11 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
 
         // move.b obAniFrame(a0),d0 / add.b d1,d0 / move.b d0,obFrame(a0)
         displayFrame = columnAnimFrame + frameBase;
+
+        // Geyser_ChkDel: out_of_range.w DeleteObject
+        if (!isWithinOutOfRangeWindow(currentX)) {
+            setDestroyed(true);
+        }
     }
 
     /**
@@ -471,10 +485,22 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
 
     @Override
     public boolean isPersistent() {
-        if (isDestroyed()) {
-            return false;
+        return !isDestroyed() && isWithinOutOfRangeWindow(currentX);
+    }
+
+    /**
+     * ROM out_of_range macro (Macros.asm):
+     * round both X positions to $80 and compare against 128+320+192.
+     */
+    private boolean isWithinOutOfRangeWindow(int objectX) {
+        Camera camera = Camera.getInstance();
+        if (camera == null) {
+            return true;
         }
-        return isOnScreen(128);
+        int objRounded = objectX & 0xFF80;
+        int camRounded = (camera.getX() - 128) & 0xFF80;
+        int distance = (objRounded - camRounded) & 0xFFFF;
+        return distance <= OUT_OF_RANGE_DISTANCE;
     }
 
     // ========================================================================

@@ -40,8 +40,9 @@ import java.util.List;
  * player on any contact (even rolling/spinning). Only the head ($0B) can be destroyed
  * by rolling. This is a deliberate ROM behavior.
  * <p>
- * When the head is destroyed, all segments enter "fragment" mode - each gets a unique
- * X velocity and bounces around independently.
+ * When a body segment is touched, Caterkiller enters "fragment" mode - each segment
+ * gets a unique X velocity and bounces around independently.
+ * If the head is destroyed normally, body segments delete with it.
  * <p>
  * Based on docs/s1disasm/_incObj/78 Caterkiller.asm.
  * <p>
@@ -498,7 +499,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
     @Override
     protected void destroyBadnik(AbstractPlayableSprite player) {
         destroyed = true;
-        setDestroyed(true);
+        deleting = true;
 
         var objectManager = levelManager.getObjectManager();
         if (objectManager != null) {
@@ -532,8 +533,9 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
 
         AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
 
-        // Head enters fragment mode after destruction
-        startHeadFragment();
+        // Normal head destruction does not use fragment mode in S1; body segments delete.
+        markBodySegmentsForDeletion();
+        setDestroyed(true);
     }
 
     /**
@@ -562,6 +564,23 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
         }
         xVelocity = fragXVel;
         yVelocity = FRAG_Y_VELOCITY;
+    }
+
+    /**
+     * Cat_Delete parity for dynamic children: when head is removed (destroyed or off-screen),
+     * mark all spawned body segments for deletion so they cannot linger in dynamic lists.
+     */
+    private void markBodySegmentsForDeletion() {
+        for (Sonic1CaterkillerBodyInstance body : bodySegments) {
+            body.markDestroyed();
+        }
+        bodySegments.clear();
+    }
+
+    @Override
+    public void onUnload() {
+        deleting = true;
+        markBodySegmentsForDeletion();
     }
 
     /**

@@ -143,6 +143,10 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     // MZ Act 1: whether block is chained to stomper (bit 7 of obSubtype)
     private boolean chainedToStomper;
 
+    // Airborne flag (obStatus bit 1): set by geyser launch, cleared on floor contact.
+    // This is separate from solidState (obSolid) — the block remains solid while airborne.
+    private boolean airborne;
+
     // Zone/act info cached on construction
     private final int zoneIndex;
     private final int actIndex;
@@ -273,22 +277,46 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     /**
      * loc_C046: Lava motion physics (only when objoff_32 != 0).
      * <p>
-     * Handles SpeedToPos (if solidState < 4), then ground handling:
-     * wall collision when sliding, or slow sink when stopped.
-     * The block is never airborne in this path (obStatus bit 1 never set).
+     * Handles SpeedToPos (if solidState < 4), then checks airborne (obStatus bit 1).
+     * If airborne: applies SpeedToPos again + gravity + floor detection.
+     * If grounded: wall collision when sliding, or slow sink when stopped.
      *
      * @return true if the block was deleted (slow sink threshold reached)
      */
     private boolean updateLavaMotion(AbstractPlayableSprite player) {
         // cmpi.b #4,obSolid(a0) / bhs.s loc_C056
-        // States 4/6 handle their own SpeedToPos in the state machine
-        if (solidState < 4) {
+        // States 4/6 handle their own SpeedToPos in the state machine.
+        // Also skip when airborne — the airborne path below runs its own SpeedToPos.
+        if (solidState < 4 && !airborne) {
             applySpeedToPosX();
             applySpeedToPosY();
         }
 
         // btst #1,obStatus(a0) / beq.s loc_C0A0
-        // Block is never airborne in motion path → always ground handling
+        if (airborne) {
+            // Airborne path: SpeedToPos + gravity + floor check
+            applySpeedToPosX();
+            applySpeedToPosY();
+
+            // addi.w #$18,obVelY(a0)
+            yVelocity = (short) (yVelocity + FALL_GRAVITY);
+
+            // jsr (ObjFloorDist).l
+            TerrainCheckResult result = ObjectTerrainUtils.checkFloorDist(x, y, HALF_HEIGHT);
+
+            // tst.w d1 / bpl.s locret_C09E
+            if (result.foundSurface() && result.distance() < 0) {
+                // Floor hit: snap to surface, clear airborne
+                // add.w d1,obY(a0)
+                y += result.distance();
+                ySubpixel = 0;
+                // bclr #1,obStatus(a0)
+                airborne = false;
+                // clr.w obVelY(a0)
+                yVelocity = 0;
+            }
+            return false;
+        }
 
         // loc_C0A0: ground handling
         if (xVelocity != 0) {
@@ -486,6 +514,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         if (isOnScreen(activeWidth + 128)) {
             routine = 2;
             inMotion = false;
+            airborne = false;
             xVelocity = 0;
             yVelocity = 0;
             solidState = 0;
@@ -509,6 +538,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         y = spawnY;
         routine = 4;
         inMotion = false;
+        airborne = false;
         solidState = 0;
         xVelocity = 0;
         yVelocity = 0;
@@ -722,13 +752,17 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     /**
      * Called by GeyserMaker to launch this block upward.
      * ROM: bset #1,obStatus(a1) / move.w #-$580,obVelY(a1)
-     * Sets the block airborne (solidState 4 = falling with gravity) with the given upward velocity.
+     * Sets the block's airborne flag (obStatus bit 1) with the given upward velocity.
+     * <p>
+     * Important: this does NOT change solidState (obSolid). The block remains solid
+     * so Sonic can continue riding it while it rises. The airborne physics (gravity +
+     * floor snap) are handled by updateLavaMotion's airborne path.
      *
      * @param velY upward velocity in subpixels (negative = upward)
      */
     void applyLavaGeyserLaunch(int velY) {
-        // bset #1,obStatus(a1) -> airborne state
-        solidState = 4;
+        // bset #1,obStatus(a1) -> airborne flag (separate from obSolid)
+        airborne = true;
         // move.w #-$580,obVelY(a1)
         yVelocity = (short) velY;
     }
@@ -837,6 +871,8 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             stateLabel = String.format("PushBlk:LAVA vx=%d", xVelocity);
         } else if (solidState == 6) {
             stateLabel = String.format("PushBlk:ALIGN vx=%d", xVelocity);
+        } else if (airborne) {
+            stateLabel = String.format("PushBlk:AIRBORNE vy=%d", yVelocity);
         } else if (solidState == 4) {
             stateLabel = String.format("PushBlk:FALL vy=%d", yVelocity);
         } else if (chainedToStomper) {
