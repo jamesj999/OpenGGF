@@ -48,6 +48,8 @@ public final class Sonic1ObjectIds {
     public static final int BOSS_BALL       = 0x48;
     public static final int WATERFALL_SOUND = 0x49;
     public static final int GIANT_RING      = 0x4B;
+    public static final int LAVA_GEYSER_MAKER = 0x4C;
+    public static final int LAVA_GEYSER     = 0x4D;
     public static final int YADRIN          = 0x50;
     public static final int SMASH_BLOCK     = 0x51;
     public static final int MOVING_BLOCK    = 0x52;

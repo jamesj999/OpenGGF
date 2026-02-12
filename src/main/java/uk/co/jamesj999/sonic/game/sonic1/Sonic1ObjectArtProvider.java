@@ -190,6 +190,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadMzGlassBlockArt(rom);
             loadMzChainedStomperArt(rom);
             loadMzMovingBlockArt(rom);
+            loadMzLavaGeyserArt(rom);
         }
 
         // Load SLZ-specific art (fireball - same Nem_MzFire art at different VRAM tile)
@@ -2971,6 +2972,159 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // make_art_tile(ArtTile_SLZ_Fireball, 0, 0) -> palette line 0, no priority
         ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 0);
         registerSheet(ObjectArtKeys.SLZ_FIREBALL, sheet);
+    }
+
+    /**
+     * Loads MZ Lava Geyser art (Nem_Lava at ArtTile_MZ_Lava=$3A8).
+     * Used by Objects 0x4C (GeyserMaker) and 0x4D (LavaGeyser).
+     * From PLC_MZ: plcm Nem_Lava, ArtTile_MZ_Lava
+     * <p>
+     * Uses palette line 3, priority bit set for maker (make_art_tile(ArtTile_MZ_Lava,3,1)),
+     * no priority for geyser children (make_art_tile(ArtTile_MZ_Lava,3,0)).
+     * We use palette line 3, no priority for the sheet; priority is handled at render time.
+     */
+    private void loadMzLavaGeyserArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_LAVA_ADDR, "MzLavaGeyser");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load MZ lava geyser art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createLavaGeyserMappings();
+        // make_art_tile(ArtTile_MZ_Lava, 3, 0) -> palette line 3, no priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 3, 0);
+        registerSheet(ObjectArtKeys.MZ_LAVA_GEYSER, sheet);
+    }
+
+    /**
+     * Lava geyser sprite mappings from docs/s1disasm/_maps/Lava Geyser.asm (Map_Geyser_internal).
+     * 20 frames: bubbles (0-5), end/splash (6-7), medium columns (8-10),
+     * short columns (11-13), long columns (14-16), geyser head bubbles (17-18), blank (19).
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     */
+    private List<SpriteMappingFrame> createLavaGeyserMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.bubble1): 2 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x14, 3, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x14, 3, 4, 0, true, false, 0, false)
+        )));
+
+        // Frame 1 (.bubble2): 2 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x14, 3, 4, 0x18, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x14, 3, 4, 0x18, true, false, 0, false)
+        )));
+
+        // Frame 2 (.bubble3): 4 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x38, -0x14, 3, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x0C, 4, 3, 0x0C, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x0C, 4, 3, 0x0C, true, false, 0, false),
+                new SpriteMappingPiece(0x20, -0x14, 3, 4, 0, true, false, 0, false)
+        )));
+
+        // Frame 3 (.bubble4): 4 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x38, -0x14, 3, 4, 0x18, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x0C, 4, 3, 0x24, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x0C, 4, 3, 0x24, true, false, 0, false),
+                new SpriteMappingPiece(0x20, -0x14, 3, 4, 0x18, true, false, 0, false)
+        )));
+
+        // Frame 4 (.bubble5): 6 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x38, -0x14, 3, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x0C, 4, 3, 0x0C, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x0C, 4, 3, 0x0C, true, false, 0, false),
+                new SpriteMappingPiece(0x20, -0x14, 3, 4, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x18, 4, 3, 0x90, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x18, 4, 3, 0x90, true, false, 0, false)
+        )));
+
+        // Frame 5 (.bubble6): 6 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x38, -0x14, 3, 4, 0x18, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x0C, 4, 3, 0x24, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x0C, 4, 3, 0x24, true, false, 0, false),
+                new SpriteMappingPiece(0x20, -0x14, 3, 4, 0x18, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x18, 4, 3, 0x90, true, false, 0, false),
+                new SpriteMappingPiece(0, -0x18, 4, 3, 0x90, false, false, 0, false)
+        )));
+
+        // Frame 6 (.end1): 2 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x20, 4, 4, 0x30, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x20, 4, 4, 0x30, true, false, 0, false)
+        )));
+
+        // Frame 7 (.end2): 2 pieces (mirror swapped)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x20, 4, 4, 0x30, true, false, 0, false),
+                new SpriteMappingPiece(0, -0x20, 4, 4, 0x30, false, false, 0, false)
+        )));
+
+        // Frames 8-10 (.medcolumn1-3): 10 pieces each, mirrored 4x4 tiles
+        frames.add(createColumnFrame(0x40, 5));  // Frame 8: medium column, tile 0x40
+        frames.add(createColumnFrame(0x50, 5));  // Frame 9: medium column, tile 0x50
+        frames.add(createColumnFrame(0x60, 5));  // Frame 10: medium column, tile 0x60
+
+        // Frames 11-13 (.shortcolumn1-3): 6 pieces each
+        frames.add(createColumnFrame(0x40, 3));  // Frame 11: short column, tile 0x40
+        frames.add(createColumnFrame(0x50, 3));  // Frame 12: short column, tile 0x50
+        frames.add(createColumnFrame(0x60, 3));  // Frame 13: short column, tile 0x60
+
+        // Frames 14-16 (.longcolumn1-3): 16 pieces each
+        frames.add(createColumnFrame(0x40, 8));  // Frame 14: long column, tile 0x40
+        frames.add(createColumnFrame(0x50, 8));  // Frame 15: long column, tile 0x50
+        frames.add(createColumnFrame(0x60, 8));  // Frame 16: long column, tile 0x60
+
+        // Frame 17 (.bubble7): 6 pieces - geyser head bubbles
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x38, -0x20, 3, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x18, 4, 3, 0x0C, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x18, 4, 3, 0x0C, true, false, 0, false),
+                new SpriteMappingPiece(0x20, -0x20, 3, 4, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x28, 4, 3, 0x90, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x28, 4, 3, 0x90, true, false, 0, false)
+        )));
+
+        // Frame 18 (.bubble8): 6 pieces - geyser head bubbles alt
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x38, -0x20, 3, 4, 0x18, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x18, 4, 3, 0x24, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x18, 4, 3, 0x24, true, false, 0, false),
+                new SpriteMappingPiece(0x20, -0x20, 3, 4, 0x18, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x28, 4, 3, 0x90, true, false, 0, false),
+                new SpriteMappingPiece(0, -0x28, 4, 3, 0x90, false, false, 0, false)
+        )));
+
+        // Frame 19 (.blank): 0 pieces
+        frames.add(new SpriteMappingFrame(List.of()));
+
+        return frames;
+    }
+
+    /**
+     * Creates a column frame with the specified number of mirrored 4x4 tile pairs.
+     * Columns are built from pairs of 4x4 tiles at (-$20, y) and (0, y) with the right piece H-flipped.
+     * Each pair is 0x20 pixels apart vertically, starting at y=-$70.
+     *
+     * @param startTile the starting tile index for this column variant
+     * @param pairCount number of mirrored pairs (3=short, 5=medium, 8=long)
+     */
+    private SpriteMappingFrame createColumnFrame(int startTile, int pairCount) {
+        List<SpriteMappingPiece> pieces = new ArrayList<>();
+        int y = -0x70;
+        for (int i = 0; i < pairCount; i++) {
+            pieces.add(new SpriteMappingPiece(-0x20, y, 4, 4, startTile, false, false, 0, false));
+            pieces.add(new SpriteMappingPiece(0, y, 4, 4, startTile, true, false, 0, false));
+            y += 0x20;
+        }
+        return new SpriteMappingFrame(pieces);
     }
 
     /**

@@ -76,6 +76,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.MOVING_BLOCK,
             Sonic1ObjectIds.INVISIBLE_BARRIER,
             Sonic1ObjectIds.LAVA_BALL_MAKER,
+            Sonic1ObjectIds.LAVA_GEYSER_MAKER,
+            Sonic1ObjectIds.LAVA_GEYSER,
             Sonic1ObjectIds.LAVA_TAG,
             Sonic1ObjectIds.WATERFALL_SOUND,
             Sonic1ObjectIds.GIANT_RING,
@@ -150,6 +152,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.BURNING_GRASS, List.of("BurningGrass"));
         map.put(Sonic1ObjectIds.LAVA_BALL_MAKER, List.of("LavaBallMaker"));
         map.put(Sonic1ObjectIds.LAVA_BALL, List.of("LavaBall"));
+        map.put(Sonic1ObjectIds.LAVA_GEYSER_MAKER, List.of("LavaGeyserMaker"));
+        map.put(Sonic1ObjectIds.LAVA_GEYSER, List.of("LavaGeyser"));
         map.put(Sonic1ObjectIds.LAVA_TAG, List.of("LavaTag"));
         map.put(Sonic1ObjectIds.BATBRAIN, List.of("Batbrain"));
         map.put(Sonic1ObjectIds.SEESAW, List.of("Seesaw"));

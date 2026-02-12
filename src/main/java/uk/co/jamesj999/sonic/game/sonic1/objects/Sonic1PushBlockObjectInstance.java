@@ -158,6 +158,9 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     // Frame counter when push sound was last triggered (throttle restarts)
     private int lastPushSoundFrame = -100;
 
+    // Last X position where a geyser maker was spawned (prevents repeated spawns)
+    private int lastGeyserSpawnX = Integer.MIN_VALUE;
+
     public Sonic1PushBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "PushBlock");
 
@@ -486,6 +489,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             xVelocity = 0;
             yVelocity = 0;
             solidState = 0;
+            lastGeyserSpawnX = Integer.MIN_VALUE;
         }
     }
 
@@ -511,6 +515,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         xSubpixel = 0;
         ySubpixel = 0;
         pushMomentum = 0;
+        lastGeyserSpawnX = Integer.MIN_VALUE;
         refreshDynamicSpawn();
     }
 
@@ -692,11 +697,40 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             return;
         }
 
+        // Guard: prevent spawning multiple makers at the same X position.
+        // The ROM relies on object slot exhaustion to limit this; our engine
+        // has dynamic object lists so we must guard explicitly.
+        if (x == lastGeyserSpawnX) {
+            return;
+        }
+        lastGeyserSpawnX = x;
+
         // PushB_LoadLava: spawn GeyserMaker object
         // _move.b #id_GeyserMaker,obID(a1)
-        // GeyserMaker (0x4C) is not yet implemented - this is a no-op placeholder.
-        // When implemented, it should spawn at (x + xOffset, y + 0x10) with a
-        // reference to this push block instance via objoff_3C.
+        LevelManager levelManager = LevelManager.getInstance();
+        if (levelManager == null || levelManager.getObjectManager() == null) {
+            return;
+        }
+        // move.w obX(a0),obX(a1) / add.w d2,obX(a1)
+        // move.w obY(a0),obY(a1) / addi.w #$10,obY(a1)
+        // move.l a0,objoff_3C(a1)
+        Sonic1LavaGeyserMakerObjectInstance maker = new Sonic1LavaGeyserMakerObjectInstance(
+                x + xOffset, y + 0x10, 0, this);
+        levelManager.getObjectManager().addDynamicObject(maker);
+    }
+
+    /**
+     * Called by GeyserMaker to launch this block upward.
+     * ROM: bset #1,obStatus(a1) / move.w #-$580,obVelY(a1)
+     * Sets the block airborne (solidState 4 = falling with gravity) with the given upward velocity.
+     *
+     * @param velY upward velocity in subpixels (negative = upward)
+     */
+    void applyLavaGeyserLaunch(int velY) {
+        // bset #1,obStatus(a1) -> airborne state
+        solidState = 4;
+        // move.w #-$580,obVelY(a1)
+        yVelocity = (short) velY;
     }
 
     /**
