@@ -1301,6 +1301,48 @@ public class Sonic2ObjectArt {
         return new ObjectSpriteSheet(patterns, mappings, 1, 1);
     }
 
+    /**
+     * Load Tornado main sheet (ObjB2 subtype $50/$52/$54).
+     * ROM: ArtNem_Tornado + ObjB2_MapUnc_3AFF2, palette line 1.
+     */
+    public ObjectSpriteSheet loadTornadoSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_TORNADO_ADDR, "Tornado");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJB2_A_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Load Tornado thruster sheet (ObjB2 subtype $5C).
+     * ROM: ArtNem_TornadoThruster + ObjB2_MapUnc_3B292, palette line 0.
+     */
+    public ObjectSpriteSheet loadTornadoThrusterSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_TORNADO_THRUSTER_ADDR, "TornadoThruster");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJB2_B_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Load WFZ thrust sheet used by ObjB2 subtypes $56/$58.
+     * ROM: ArtNem_WfzThrust + ObjBC_MapUnc_3BC08, palette line 2.
+     */
+    public ObjectSpriteSheet loadWfzThrustSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_WFZ_THRUST_ADDR, "WFZThrust");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJBC_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 2, 1);
+    }
+
     // ========== SCZ Cloud (Object 0xB3) ==========
 
     /**

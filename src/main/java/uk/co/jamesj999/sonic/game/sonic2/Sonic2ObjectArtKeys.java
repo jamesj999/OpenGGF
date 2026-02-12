@@ -143,6 +143,9 @@ public final class Sonic2ObjectArtKeys {
 
     // WFZ Objects
     public static final String WFZ_HOOK = "wfz_hook";
+    public static final String TORNADO = "tornado";
+    public static final String TORNADO_THRUSTER = "tornado_thruster";
+    public static final String WFZ_THRUST = "wfz_thrust";
 
     // SCZ Objects
     public static final String CLOUDS = "clouds";

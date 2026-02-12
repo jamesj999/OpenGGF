@@ -214,6 +214,9 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         // zoneIndex is the ROM zone ID (0x06 for WFZ)
         if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_WFZ) {
             registerSheet(Sonic2ObjectArtKeys.WFZ_HOOK, artLoader.loadWFZHookSheet());
+            registerSheet(Sonic2ObjectArtKeys.TORNADO, artLoader.loadTornadoSheet());
+            registerSheet(Sonic2ObjectArtKeys.TORNADO_THRUSTER, artLoader.loadTornadoThrusterSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_THRUST, artLoader.loadWfzThrustSheet());
         }
         // SCZ objects (Turtloid, Nebula, Balkiry) - only for SCZ
         // zoneIndex is the ROM zone ID (0x10 for SCZ)
@@ -222,6 +225,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             registerSheet(Sonic2ObjectArtKeys.TURTLOID, artLoader.loadTurtloidSheet());
             registerSheet(Sonic2ObjectArtKeys.BALKIRY, artLoader.loadBalkirySheet());
             registerSheet(Sonic2ObjectArtKeys.CLOUDS, artLoader.loadCloudSheet());
+            registerSheet(Sonic2ObjectArtKeys.TORNADO, artLoader.loadTornadoSheet());
         }
 
         // CNZ objects (Sonic 2-specific)
