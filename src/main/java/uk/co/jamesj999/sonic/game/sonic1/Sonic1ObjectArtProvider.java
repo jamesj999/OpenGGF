@@ -182,7 +182,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadButtonArt(rom, zoneIndex);
         }
 
-        // Load MZ-specific art (fireball, smash block, push block, glass block, moving block - MZ only)
+        // Load MZ-specific art (fireball, smash block, push block, glass block, moving block, collapsing floor)
         if (zoneIndex == Sonic1Constants.ZONE_MZ) {
             loadMzFireballArt(rom);
             loadMzSmashBlockArt(rom);
@@ -191,11 +191,13 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadMzChainedStomperArt(rom);
             loadMzMovingBlockArt(rom);
             loadMzLavaGeyserArt(rom);
+            loadMzCollapsingFloorArt(rom);
         }
 
-        // Load SLZ-specific art (fireball - same Nem_MzFire art at different VRAM tile)
+        // Load SLZ-specific art (fireball, collapsing floor)
         if (zoneIndex == Sonic1Constants.ZONE_SLZ) {
             loadSlzFireballArt(rom);
+            loadSlzCollapsingFloorArt(rom);
         }
 
         // Load LZ-specific art (push block, moving block)
@@ -204,10 +206,11 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadLzMovingBlockArt(rom);
         }
 
-        // Load SBZ-specific art (moving blocks - short stomper + long slide floor)
+        // Load SBZ-specific art (moving blocks - short stomper + long slide floor, collapsing floor)
         if (zoneIndex == Sonic1Constants.ZONE_SBZ) {
             loadSbzMovingBlockShortArt(rom);
             loadSbzMovingBlockLongArt(rom);
+            loadSbzCollapsingFloorArt(rom);
         }
 
         // Load boss art (GHZ: Eggman, weapons/chain anchor, exhaust flame)
@@ -3128,6 +3131,126 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
+     * Loads MZ Lava Wall art using level patterns (which include both zone tiles and
+     * Nem_Lava tiles loaded via PLC_MZ at ArtTile_MZ_Lava=$3A8).
+     * <p>
+     * Object 0x4E creates two sub-objects: the main wall (animated leading edge + solid body)
+     * and a trailing section (solid body only, frame 4). The leading edge cycles through
+     * animation frames 0-3 at speed 9 (Ani_LWall). The body uses a single repeated lava
+     * tile from the zone art.
+     * <p>
+     * VDP tile resolution (obGfx = make_art_tile(ArtTile_MZ_Lava,3,0) = $63A8):
+     * <ul>
+     *   <li>Edge tiles: mapping tile $60/$70/$80 + obGfx -> VRAM tile $408/$418/$428</li>
+     *   <li>Body tiles: mapping tile $72A (with pal/pri/flip flags) + obGfx -> VRAM tile $2D2
+     *       (flags cancel via 16-bit add overflow)</li>
+     * </ul>
+     *
+     * @param level     The loaded level to extract patterns from
+     * @param zoneIndex The current zone index
+     */
+    public void registerLavaWallSheet(Level level, int zoneIndex) {
+        if (level == null || zoneIndex != Sonic1Constants.ZONE_MZ) {
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createLavaWallMappings();
+
+        // Highest tile used: $428 + (4*4-1) = $437
+        int maxTileNeeded = 0x438;
+        int patternCount = level.getPatternCount();
+        int copyCount = Math.min(patternCount, maxTileNeeded);
+        if (copyCount == 0) {
+            LOGGER.warning("No level patterns available for MZ lava wall art");
+            return;
+        }
+        Pattern[] patterns = new Pattern[copyCount];
+        for (int i = 0; i < copyCount; i++) {
+            patterns[i] = level.getPattern(i);
+        }
+
+        // Palette line 3: make_art_tile(ArtTile_MZ_Lava, 3, 0)
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 3, 0);
+        registerSheet(ObjectArtKeys.MZ_LAVA_WALL, sheet);
+    }
+
+    /**
+     * MZ Lava Wall mappings from docs/s1disasm/_maps/Wall of Lava.asm (Map_LWall_internal).
+     * 5 frames: 4 animated edge frames (9 pieces each) + 1 trailing body frame (8 pieces).
+     * <p>
+     * Tile indices are final VRAM tile addresses computed from the VDP add.w of
+     * obGfx ($63A8) + mapping pattern word:
+     * <ul>
+     *   <li>$408 = edge variant A (Nem_Lava offset $60)</li>
+     *   <li>$418 = edge variant B (Nem_Lava offset $70)</li>
+     *   <li>$428 = edge variant C (Nem_Lava offset $80)</li>
+     *   <li>$2D2 = solid lava body (zone level tile)</li>
+     * </ul>
+     */
+    private List<SpriteMappingFrame> createLavaWallMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Edge tile VRAM indices (obGfx $63A8 + mapping offset)
+        final int EDGE_A = 0x408; // Nem_Lava + $60
+        final int EDGE_B = 0x418; // Nem_Lava + $70
+        final int EDGE_C = 0x428; // Nem_Lava + $80
+        // Body tile VRAM index (after 16-bit overflow in add.w)
+        final int BODY = 0x2D2;   // zone lava fill tile
+
+        // Frame 0 (byte_F538): edge=A top, edge=B bottom, 7 body
+        frames.add(createLavaWallFrame(EDGE_A, EDGE_B, BODY));
+
+        // Frame 1 (byte_F566): edge=B top, edge=C bottom, 7 body
+        frames.add(createLavaWallFrame(EDGE_B, EDGE_C, BODY));
+
+        // Frame 2 (byte_F594): edge=C top, edge=B bottom, 7 body
+        frames.add(createLavaWallFrame(EDGE_C, EDGE_B, BODY));
+
+        // Frame 3 (byte_F5C2): edge=B top, edge=A bottom, 7 body
+        frames.add(createLavaWallFrame(EDGE_B, EDGE_A, BODY));
+
+        // Frame 4 (byte_F5F0): trailing section - 8 body pieces only (no edge)
+        List<SpriteMappingPiece> trailPieces = new ArrayList<>();
+        trailPieces.add(new SpriteMappingPiece(0x20, -0x20, 4, 4, BODY, false, false, 0, false));
+        trailPieces.add(new SpriteMappingPiece(0x20, 0, 4, 4, BODY, false, false, 0, false));
+        trailPieces.add(new SpriteMappingPiece(0, -0x20, 4, 4, BODY, false, false, 0, false));
+        trailPieces.add(new SpriteMappingPiece(0, 0, 4, 4, BODY, false, false, 0, false));
+        trailPieces.add(new SpriteMappingPiece(-0x20, -0x20, 4, 4, BODY, false, false, 0, false));
+        trailPieces.add(new SpriteMappingPiece(-0x20, 0, 4, 4, BODY, false, false, 0, false));
+        trailPieces.add(new SpriteMappingPiece(-0x40, -0x20, 4, 4, BODY, false, false, 0, false));
+        trailPieces.add(new SpriteMappingPiece(-0x40, 0, 4, 4, BODY, false, false, 0, false));
+        frames.add(new SpriteMappingFrame(trailPieces));
+
+        return frames;
+    }
+
+    /**
+     * Creates a lava wall frame with animated edge pieces (top-right) and solid body pieces.
+     * Layout matches the disassembly: 2 edge pieces + 7 body pieces filling the wall area.
+     *
+     * @param edgeTop    edge tile for the upper right 4x4 block
+     * @param edgeBottom edge tile for the lower right 4x4 block (offset $3C,0 from center)
+     * @param body       body fill tile
+     */
+    private SpriteMappingFrame createLavaWallFrame(int edgeTop, int edgeBottom, int body) {
+        List<SpriteMappingPiece> pieces = new ArrayList<>();
+        // Edge pieces (leading edge of wall)
+        // spritePiece $20, -$20, 4, 4, edgeTop
+        pieces.add(new SpriteMappingPiece(0x20, -0x20, 4, 4, edgeTop, false, false, 0, false));
+        // spritePiece $3C, 0, 4, 4, edgeBottom
+        pieces.add(new SpriteMappingPiece(0x3C, 0, 4, 4, edgeBottom, false, false, 0, false));
+        // Body fill pieces (solid lava)
+        pieces.add(new SpriteMappingPiece(0x20, 0, 4, 4, body, false, false, 0, false));
+        pieces.add(new SpriteMappingPiece(0, -0x20, 4, 4, body, false, false, 0, false));
+        pieces.add(new SpriteMappingPiece(0, 0, 4, 4, body, false, false, 0, false));
+        pieces.add(new SpriteMappingPiece(-0x20, -0x20, 4, 4, body, false, false, 0, false));
+        pieces.add(new SpriteMappingPiece(-0x20, 0, 4, 4, body, false, false, 0, false));
+        pieces.add(new SpriteMappingPiece(-0x40, -0x20, 4, 4, body, false, false, 0, false));
+        pieces.add(new SpriteMappingPiece(-0x40, 0, 4, 4, body, false, false, 0, false));
+        return new SpriteMappingFrame(pieces);
+    }
+
+    /**
      * Loads MZ Smashable Green Block art (Nem_MzBlock) and creates S1-format sprite mappings.
      * <p>
      * From docs/s1disasm/_incObj/51 Smashable Green Block.asm:
@@ -3193,6 +3316,184 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 new SpriteMappingPiece(-0x10,     0, 2, 2, 0, false, false, 0, true),
                 new SpriteMappingPiece(    0, -0x10, 2, 2, 0, false, false, 0, true),
                 new SpriteMappingPiece(    0,     0, 2, 2, 0, false, false, 0, true)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads MZ Collapsing Floor art (Nem_MzBlock) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/53 Collapsing Floors.asm:
+     * <pre>
+     *     move.w  #make_art_tile(ArtTile_MZ_Block,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_MZ_Block = $2B8, palette line 2.
+     * <p>
+     * Uses Map_CFlo frames 0 (intact) and 1 (smash: 8 pieces of 2x2).
+     */
+    private void loadMzCollapsingFloorArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_MZ_BLOCK_ADDR, "MzCollapsingFloor");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load MZ collapsing floor art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createCollapsingFloorMappingsMzSbz();
+        // make_art_tile(ArtTile_MZ_Block, 2, 0) -> palette line 2
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.MZ_COLLAPSING_FLOOR, sheet);
+    }
+
+    /**
+     * Loads SLZ Collapsing Floor art (Nem_SlzBlock) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/53 Collapsing Floors.asm:
+     * <pre>
+     *     move.w  #make_art_tile(ArtTile_SLZ_Collapsing_Floor,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_SLZ_Collapsing_Floor = $4E0, palette line 2.
+     * Uses Map_CFlo frames 2 (intact) and 3 (smash: 8 pieces of 2x2 with varied tiles).
+     */
+    private void loadSlzCollapsingFloorArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SLZ_COLLAPSING_FLOOR_ADDR, "SlzCollapsingFloor");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SLZ collapsing floor art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createCollapsingFloorMappingsSlz();
+        // make_art_tile(ArtTile_SLZ_Collapsing_Floor, 2, 0) -> palette line 2
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SLZ_COLLAPSING_FLOOR, sheet);
+    }
+
+    /**
+     * Loads SBZ Collapsing Floor art (Nem_SbzFloor) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/53 Collapsing Floors.asm:
+     * <pre>
+     *     move.w  #make_art_tile(ArtTile_SBZ_Collapsing_Floor,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_SBZ_Collapsing_Floor = $3F5, palette line 2.
+     * Uses the same mapping layout as MZ (Map_CFlo frames 0 and 1).
+     */
+    private void loadSbzCollapsingFloorArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_COLLAPSING_FLOOR_ADDR, "SbzCollapsingFloor");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ collapsing floor art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createCollapsingFloorMappingsMzSbz();
+        // make_art_tile(ArtTile_SBZ_Collapsing_Floor, 2, 0) -> palette line 2
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SBZ_COLLAPSING_FLOOR, sheet);
+    }
+
+    /**
+     * Creates collapsing floor sprite mappings for MZ and SBZ from
+     * docs/s1disasm/_maps/Collapsing Floors.asm (Map_CFlo_internal).
+     * <p>
+     * MZ and SBZ use frames 0 (intact) and 1 (smash).
+     * <p>
+     * Frame 0 (byte_874E): Intact floor - 4 pieces of 4x2, all startTile=0.
+     * <pre>
+     *   spritePiece -$20, -8, 4, 2, 0, 0, 0, 0, 0
+     *   spritePiece -$20,  8, 4, 2, 0, 0, 0, 0, 0
+     *   spritePiece    0, -8, 4, 2, 0, 0, 0, 0, 0
+     *   spritePiece    0,  8, 4, 2, 0, 0, 0, 0, 0
+     * </pre>
+     * <p>
+     * Frame 1 (byte_8763): Smash - 8 pieces of 2x2.
+     * <pre>
+     *   spritePiece -$20, -8, 2, 2, 0, 0, 0, 0, 0
+     *   spritePiece -$10, -8, 2, 2, 0, 0, 0, 0, 0
+     *   spritePiece    0, -8, 2, 2, 0, 0, 0, 0, 0
+     *   spritePiece  $10, -8, 2, 2, 0, 0, 0, 0, 0
+     *   spritePiece -$20,  8, 2, 2, 0, 0, 0, 0, 0
+     *   spritePiece -$10,  8, 2, 2, 0, 0, 0, 0, 0
+     *   spritePiece    0,  8, 2, 2, 0, 0, 0, 0, 0
+     *   spritePiece  $10,  8, 2, 2, 0, 0, 0, 0, 0
+     * </pre>
+     */
+    private List<SpriteMappingFrame> createCollapsingFloorMappingsMzSbz() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: Intact floor (4 pieces of 4x2 tiles)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -8, 4, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x20,  8, 4, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(    0, -8, 4, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(    0,  8, 4, 2, 0, false, false, 0, false)
+        )));
+
+        // Frame 1: Smash (8 pieces of 2x2 tiles)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -8, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -8, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(    0, -8, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece( 0x10, -8, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x20,  8, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,  8, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(    0,  8, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece( 0x10,  8, 2, 2, 0, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Creates collapsing floor sprite mappings for SLZ from
+     * docs/s1disasm/_maps/Collapsing Floors.asm (Map_CFlo_internal).
+     * <p>
+     * SLZ uses frames 2 (intact) and 3 (smash), but we store them as frames 0 and 1
+     * in the SLZ-specific sprite sheet.
+     * <p>
+     * Frame 2 (byte_878C): SLZ intact - 4 pieces of 4x2. Bottom halves use startTile 8.
+     * <pre>
+     *   spritePiece -$20, -8, 4, 2, 0, 0, 0, 0, 0
+     *   spritePiece -$20,  8, 4, 2, 8, 0, 0, 0, 0
+     *   spritePiece    0, -8, 4, 2, 0, 0, 0, 0, 0
+     *   spritePiece    0,  8, 4, 2, 8, 0, 0, 0, 0
+     * </pre>
+     * <p>
+     * Frame 3 (byte_87A1): SLZ smash - 8 pieces of 2x2 with varied startTiles (0,4,8,$C).
+     * <pre>
+     *   spritePiece -$20, -8, 2, 2, 0, 0, 0, 0, 0
+     *   spritePiece -$10, -8, 2, 2, 4, 0, 0, 0, 0
+     *   spritePiece    0, -8, 2, 2, 0, 0, 0, 0, 0
+     *   spritePiece  $10, -8, 2, 2, 4, 0, 0, 0, 0
+     *   spritePiece -$20,  8, 2, 2, 8, 0, 0, 0, 0
+     *   spritePiece -$10,  8, 2, 2, $C, 0, 0, 0, 0
+     *   spritePiece    0,  8, 2, 2, 8, 0, 0, 0, 0
+     *   spritePiece  $10,  8, 2, 2, $C, 0, 0, 0, 0
+     * </pre>
+     */
+    private List<SpriteMappingFrame> createCollapsingFloorMappingsSlz() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (mapped from Map_CFlo frame 2): SLZ intact
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -8, 4, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x20,  8, 4, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(    0, -8, 4, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(    0,  8, 4, 2, 8, false, false, 0, false)
+        )));
+
+        // Frame 1 (mapped from Map_CFlo frame 3): SLZ smash
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -8, 2, 2,    0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -8, 2, 2,    4, false, false, 0, false),
+                new SpriteMappingPiece(    0, -8, 2, 2,    0, false, false, 0, false),
+                new SpriteMappingPiece( 0x10, -8, 2, 2,    4, false, false, 0, false),
+                new SpriteMappingPiece(-0x20,  8, 2, 2,    8, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,  8, 2, 2, 0x0C, false, false, 0, false),
+                new SpriteMappingPiece(    0,  8, 2, 2,    8, false, false, 0, false),
+                new SpriteMappingPiece( 0x10,  8, 2, 2, 0x0C, false, false, 0, false)
         )));
 
         return frames;

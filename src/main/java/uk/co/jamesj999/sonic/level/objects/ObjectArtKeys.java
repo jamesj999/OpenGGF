@@ -72,10 +72,14 @@ public final class ObjectArtKeys {
     public static final String MZ_LARGE_GRASSY_PLATFORM = "mz_large_grassy_platform";
     public static final String MZ_FIREBALL = "mz_fireball";
     public static final String MZ_LAVA_GEYSER = "mz_lava_geyser";
+    public static final String MZ_LAVA_WALL = "mz_lava_wall";
     public static final String SLZ_FIREBALL = "slz_fireball";
     public static final String MZ_CHAINED_STOMPER = "mz_chained_stomper";
     public static final String MZ_GLASS_BLOCK = "mz_glass_block";
     public static final String MZ_SMASH_BLOCK = "mz_smash_block";
+    public static final String MZ_COLLAPSING_FLOOR = "mz_collapsing_floor";
+    public static final String SLZ_COLLAPSING_FLOOR = "slz_collapsing_floor";
+    public static final String SBZ_COLLAPSING_FLOOR = "sbz_collapsing_floor";
     public static final String MZ_PUSH_BLOCK = "mz_push_block";
     public static final String LZ_PUSH_BLOCK = "lz_push_block";
     public static final String MZ_MOVING_BLOCK = "mz_moving_block";

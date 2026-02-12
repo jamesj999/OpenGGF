@@ -532,6 +532,7 @@ public class LevelManager {
                 sonic1Provider.registerCollapsingLedgeSheet(level, zoneIndex);
                 sonic1Provider.registerMzBrickSheet(level, zoneIndex);
                 sonic1Provider.registerLargeGrassyPlatformSheet(level, zoneIndex);
+                sonic1Provider.registerLavaWallSheet(level, zoneIndex);
                 objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
             }
 
