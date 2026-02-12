@@ -155,6 +155,7 @@ public class LevelManager {
     private boolean nextActRequested;
     private boolean nextZoneRequested;
     private boolean specificZoneActRequested;
+    private boolean levelInactiveForTransition;
     private int requestedZone = -1;
     private int requestedAct = -1;
 
@@ -2488,6 +2489,7 @@ public class LevelManager {
     private void loadCurrentLevel(boolean showTitleCard) {
         try {
             specialStageReturnLevelReloadRequested = false;
+            levelInactiveForTransition = false;
 
             // Ensure zone list is populated before accessing it
             if (levels.isEmpty()) {
@@ -2852,6 +2854,7 @@ public class LevelManager {
         nextActRequested = false;
         nextZoneRequested = false;
         specificZoneActRequested = false;
+        levelInactiveForTransition = false;
         requestedZone = -1;
         requestedAct = -1;
         levels.clear();
@@ -2986,9 +2989,22 @@ public class LevelManager {
      * @param act the act index (0-based)
      */
     public void requestZoneAndAct(int zone, int act) {
+        requestZoneAndAct(zone, act, false);
+    }
+
+    /**
+     * Request transition to a specific zone and act with optional level deactivation
+     * during the pending fade.
+     *
+     * @param zone                the zone index (0-based)
+     * @param act                 the act index (0-based)
+     * @param deactivateLevelNow  true to freeze level updates until the transition completes
+     */
+    public void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow) {
         this.requestedZone = zone;
         this.requestedAct = act;
         this.specificZoneActRequested = true;
+        this.levelInactiveForTransition = deactivateLevelNow;
     }
 
     /**
@@ -3018,6 +3034,14 @@ public class LevelManager {
      */
     public int getRequestedAct() {
         return requestedAct;
+    }
+
+    /**
+     * Returns true while the current level should be treated as inactive for a
+     * pending zone/act transition.
+     */
+    public boolean isLevelInactiveForTransition() {
+        return levelInactiveForTransition;
     }
 
     /**

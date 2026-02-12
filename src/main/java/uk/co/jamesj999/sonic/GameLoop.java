@@ -392,7 +392,9 @@ public class GameLoop {
                     .isEnabled(uk.co.jamesj999.sonic.debug.DebugOverlayToggle.OBJECT_ART_VIEWER);
             // Freeze level updates during special stage entry transition
             boolean freezeForSpecialStage = specialStageTransitionPending;
-            if (!freezeForArtViewer && !freezeForSpecialStage) {
+            // ObjB2 transition parity: freeze gameplay during pending zone-act fade.
+            boolean freezeForZoneActTransition = levelManager.isLevelInactiveForTransition();
+            if (!freezeForArtViewer && !freezeForSpecialStage && !freezeForZoneActTransition) {
                 // Objects must update BEFORE player physics so SolidContacts sees new positions.
                 // This fixes 1-frame lag on fast-moving platforms (SwingingPlatform, CNZ Elevators).
                 profiler.beginSection("objects");

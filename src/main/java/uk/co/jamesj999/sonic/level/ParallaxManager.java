@@ -293,6 +293,14 @@ public class ParallaxManager {
     }
 
     /**
+     * Get the current background camera X offset used by WFZ scripted objects.
+     * ROM equivalent: Camera_BG_X_offset.
+     */
+    public int getCameraBgXOffset() {
+        return bgCamera.getBgXPos();
+    }
+
+    /**
      * Set the screen shake flag for MCZ.
      * @deprecated Use GameServices.gameState().setScreenShakeActive() directly.
      *             Screen shake is now a global state that all zones check.
