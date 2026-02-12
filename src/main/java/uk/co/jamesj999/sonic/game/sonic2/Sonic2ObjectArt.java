@@ -1303,7 +1303,7 @@ public class Sonic2ObjectArt {
 
     /**
      * Load Tornado main sheet (ObjB2 subtype $50/$52/$54).
-     * ROM: ArtNem_Tornado + ObjB2_MapUnc_3AFF2, palette line 1.
+     * ROM: ArtNem_Tornado + ObjB2_MapUnc_3AFF2, palette line 0.
      */
     public ObjectSpriteSheet loadTornadoSheet() {
         Pattern[] patterns = safeLoadNemesisPatterns(
@@ -1312,7 +1312,7 @@ public class Sonic2ObjectArt {
             return null;
         }
         List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJB2_A_ADDR);
-        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
     }
 
     /**
@@ -2712,9 +2712,10 @@ public class Sonic2ObjectArt {
                 boolean hFlip = (tileWord & 0x800) != 0;
                 boolean vFlip = (tileWord & 0x1000) != 0;
                 int paletteIndex = (tileWord >> 13) & 0x3;
+                boolean priority = (tileWord & 0x8000) != 0;
 
                 pieces.add(new SpriteMappingPiece(
-                        xOffset, yOffset, widthTiles, heightTiles, tileIndex, hFlip, vFlip, paletteIndex));
+                        xOffset, yOffset, widthTiles, heightTiles, tileIndex, hFlip, vFlip, paletteIndex, priority));
             }
             frames.add(new SpriteMappingFrame(pieces));
         }
@@ -2767,9 +2768,10 @@ public class Sonic2ObjectArt {
                 boolean hFlip = (tileWord & 0x800) != 0;
                 boolean vFlip = (tileWord & 0x1000) != 0;
                 int paletteIndex = (tileWord >> 13) & 0x3;
+                boolean priority = (tileWord & 0x8000) != 0;
 
                 pieces.add(new SpriteMappingPiece(
-                        xOffset, yOffset, widthTiles, heightTiles, tileIndex, hFlip, vFlip, paletteIndex));
+                        xOffset, yOffset, widthTiles, heightTiles, tileIndex, hFlip, vFlip, paletteIndex, priority));
             }
             frames.add(new SpriteMappingFrame(pieces));
         }
@@ -4110,9 +4112,9 @@ public class Sonic2ObjectArt {
         // spritePiece -4, -$10, 4, 4, 6, 0, 0, 1, 1
         // spritePiece -$1C, 0, 3, 2, $16, 0, 0, 1, 1
         List<SpriteMappingPiece> frame0 = new ArrayList<>();
-        frame0.add(new SpriteMappingPiece(-0x1C, -0x10, 3, 2, 0x00, false, false, 0));
-        frame0.add(new SpriteMappingPiece(-4, -0x10, 4, 4, 0x06, false, false, 0));
-        frame0.add(new SpriteMappingPiece(-0x1C, 0, 3, 2, 0x16, false, false, 0));
+        frame0.add(new SpriteMappingPiece(-0x1C, -0x10, 3, 2, 0x00, false, false, 1, true));
+        frame0.add(new SpriteMappingPiece(-4, -0x10, 4, 4, 0x06, false, false, 1, true));
+        frame0.add(new SpriteMappingPiece(-0x1C, 0, 3, 2, 0x16, false, false, 1, true));
         frames.add(new SpriteMappingFrame(frame0));
 
         // Frame 1: Turtloid body - neck raised (3 pieces)
@@ -4120,57 +4122,57 @@ public class Sonic2ObjectArt {
         // spritePiece -$1C, 0, 3, 2, $1C, 0, 0, 1, 1
         // spritePiece -4, -$10, 4, 4, 6, 0, 0, 1, 1
         List<SpriteMappingPiece> frame1 = new ArrayList<>();
-        frame1.add(new SpriteMappingPiece(-0x1C, -0x10, 3, 2, 0x00, false, false, 0));
-        frame1.add(new SpriteMappingPiece(-0x1C, 0, 3, 2, 0x1C, false, false, 0));
-        frame1.add(new SpriteMappingPiece(-4, -0x10, 4, 4, 0x06, false, false, 0));
+        frame1.add(new SpriteMappingPiece(-0x1C, -0x10, 3, 2, 0x00, false, false, 1, true));
+        frame1.add(new SpriteMappingPiece(-0x1C, 0, 3, 2, 0x1C, false, false, 1, true));
+        frame1.add(new SpriteMappingPiece(-4, -0x10, 4, 4, 0x06, false, false, 1, true));
         frames.add(new SpriteMappingFrame(frame1));
 
         // Frame 2: Rider - normal pose (1 piece)
         // spritePiece -$C, -$C, 3, 3, $22, 0, 0, 1, 1
         List<SpriteMappingPiece> frame2 = new ArrayList<>();
-        frame2.add(new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x22, false, false, 0));
+        frame2.add(new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x22, false, false, 1, true));
         frames.add(new SpriteMappingFrame(frame2));
 
         // Frame 3: Rider - shooting pose (1 piece)
         // spritePiece -$C, -$C, 3, 3, $2B, 0, 0, 1, 1
         List<SpriteMappingPiece> frame3 = new ArrayList<>();
-        frame3.add(new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x2B, false, false, 0));
+        frame3.add(new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x2B, false, false, 1, true));
         frames.add(new SpriteMappingFrame(frame3));
 
         // Frame 4: Shot frame 1 (1 piece)
         // spritePiece -4, -4, 1, 1, $34, 0, 0, 0, 1
         List<SpriteMappingPiece> frame4 = new ArrayList<>();
-        frame4.add(new SpriteMappingPiece(-4, -4, 1, 1, 0x34, false, false, 0));
+        frame4.add(new SpriteMappingPiece(-4, -4, 1, 1, 0x34, false, false, 0, true));
         frames.add(new SpriteMappingFrame(frame4));
 
         // Frame 5: Shot frame 2 (1 piece)
         // spritePiece -4, -4, 1, 1, $35, 0, 0, 0, 1
         List<SpriteMappingPiece> frame5 = new ArrayList<>();
-        frame5.add(new SpriteMappingPiece(-4, -4, 1, 1, 0x35, false, false, 0));
+        frame5.add(new SpriteMappingPiece(-4, -4, 1, 1, 0x35, false, false, 0, true));
         frames.add(new SpriteMappingFrame(frame5));
 
         // Frame 6: Jet exhaust 1 - Turtloid (1 piece)
         // spritePiece $1C, 6, 2, 1, $36, 0, 0, 0, 1
         List<SpriteMappingPiece> frame6 = new ArrayList<>();
-        frame6.add(new SpriteMappingPiece(0x1C, 6, 2, 1, 0x36, false, false, 0));
+        frame6.add(new SpriteMappingPiece(0x1C, 6, 2, 1, 0x36, false, false, 0, true));
         frames.add(new SpriteMappingFrame(frame6));
 
         // Frame 7: Jet exhaust 2 - Turtloid (1 piece)
         // spritePiece $1C, 6, 1, 1, $38, 0, 0, 0, 1
         List<SpriteMappingPiece> frame7 = new ArrayList<>();
-        frame7.add(new SpriteMappingPiece(0x1C, 6, 1, 1, 0x38, false, false, 0));
+        frame7.add(new SpriteMappingPiece(0x1C, 6, 1, 1, 0x38, false, false, 0, true));
         frames.add(new SpriteMappingFrame(frame7));
 
         // Frame 8: Jet exhaust 1 - Balkiry (1 piece)
         // spritePiece $1B, -5, 2, 1, $36, 0, 0, 0, 1
         List<SpriteMappingPiece> frame8 = new ArrayList<>();
-        frame8.add(new SpriteMappingPiece(0x1B, -5, 2, 1, 0x36, false, false, 0));
+        frame8.add(new SpriteMappingPiece(0x1B, -5, 2, 1, 0x36, false, false, 0, true));
         frames.add(new SpriteMappingFrame(frame8));
 
         // Frame 9: Jet exhaust 2 - Balkiry (1 piece)
         // spritePiece $1B, -5, 1, 1, $38, 0, 0, 0, 1
         List<SpriteMappingPiece> frame9 = new ArrayList<>();
-        frame9.add(new SpriteMappingPiece(0x1B, -5, 1, 1, 0x38, false, false, 0));
+        frame9.add(new SpriteMappingPiece(0x1B, -5, 1, 1, 0x38, false, false, 0, true));
         frames.add(new SpriteMappingFrame(frame9));
 
         return frames;

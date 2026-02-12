@@ -448,6 +448,14 @@ public class ObjectManager {
         solidContacts.update(player);
     }
 
+    /**
+     * Refresh the SolidContacts riding tracking position for an object after it has moved itself.
+     * Prevents the delta from that movement being double-applied to riding players.
+     */
+    public void refreshRidingTrackingPosition(ObjectInstance object) {
+        solidContacts.refreshRidingTrackingPosition(object);
+    }
+
     public TouchResponseDebugState getTouchResponseDebugState() {
         return touchResponses != null ? touchResponses.getDebugState() : null;
     }
@@ -1335,6 +1343,25 @@ public class ObjectManager {
             }
         }
 
+        /**
+         * Update the riding tracking position for a specific object without applying any delta.
+         * This is used when an object moves itself (e.g. Tornado horizontal follow) AFTER
+         * the player is already standing on it, to prevent SolidContacts from double-applying
+         * that movement as a riding delta on the next frame.
+         *
+         * In the ROM, SolidObject runs inline during the object's update (before the horizontal
+         * follow), so it never sees the follow delta. In our engine, SolidContacts runs after
+         * all objects update, so we need this to synchronize the tracking position.
+         */
+        void refreshRidingTrackingPosition(ObjectInstance object) {
+            for (var entry : ridingStates.entrySet()) {
+                RidingState state = entry.getValue();
+                if (state != null && state.object == object) {
+                    entry.setValue(new RidingState(object, object.getX(), object.getY(), state.pieceIndex));
+                }
+            }
+        }
+
         ObjectInstance getRidingObject(AbstractPlayableSprite player) {
             if (player == null) return null;
             RidingState state = ridingStates.get(player);
@@ -1385,8 +1412,8 @@ public class ObjectManager {
                     }
 
                     SolidObjectParams params = provider.getSolidParams();
-                    int anchorX = instance.getSpawn().x() + params.offsetX();
-                    int anchorY = instance.getSpawn().y() + params.offsetY();
+                    int anchorX = instance.getX() + params.offsetX();
+                    int anchorY = instance.getY() + params.offsetY();
                     int halfHeight = player.getAir() ? params.airHalfHeight() : params.groundHalfHeight();
                     boolean useStickyBuffer = provider.usesStickyContactBuffer();
                     byte[] slopeData = null;
@@ -1463,8 +1490,8 @@ public class ObjectManager {
                     continue;
                 }
                 SolidObjectParams params = provider.getSolidParams();
-                int anchorX = instance.getSpawn().x() + params.offsetX();
-                int anchorY = instance.getSpawn().y() + params.offsetY();
+                int anchorX = instance.getX() + params.offsetX();
+                int anchorY = instance.getY() + params.offsetY();
                 int halfWidth = params.halfWidth();
                 int halfHeight = params.groundHalfHeight();
 
@@ -1577,7 +1604,12 @@ public class ObjectManager {
 
                 int halfWidth = params.halfWidth();
                 int relX = player.getCentreX() - currentX + halfWidth;
-                boolean inBounds = relX >= 0 && relX < halfWidth * 2;
+                // Keep riding contact with the same sticky X tolerance used by collision
+                // resolution to avoid one-frame edge drops on moving solids.
+                int stickyX = provider.usesStickyContactBuffer() ? 16 : 0;
+                int minRelX = -stickyX;
+                int maxRelXExclusive = (halfWidth * 2) + stickyX;
+                boolean inBounds = relX >= minRelX && relX < maxRelXExclusive;
 
                 if (inBounds && provider.isSolidFor(player)) {
                     int deltaX = currentX - ridingX;
@@ -1629,8 +1661,8 @@ public class ObjectManager {
                 }
 
                 SolidObjectParams params = provider.getSolidParams();
-                int anchorX = instance.getSpawn().x() + params.offsetX();
-                int anchorY = instance.getSpawn().y() + params.offsetY();
+                int anchorX = instance.getX() + params.offsetX();
+                int anchorY = instance.getY() + params.offsetY();
                 int halfHeight = player.getAir() ? params.airHalfHeight() : params.groundHalfHeight();
                 boolean useStickyBuffer = provider.usesStickyContactBuffer();
                 SolidContact contact;
@@ -1771,10 +1803,8 @@ public class ObjectManager {
             int playerCenterX = player.getCentreX();
             int playerCenterY = player.getCentreY();
 
-            int relX = playerCenterX - anchorX + halfWidth;
-            if (relX < 0 || relX >= halfWidth * 2) {
-                return null;
-            }
+            int width2 = halfWidth * 2;
+            int relXRaw = playerCenterX - anchorX + halfWidth;
 
             int playerYRadius = player.getYRadius();
             int maxTop = halfHeight + playerYRadius;
@@ -1788,6 +1818,23 @@ public class ObjectManager {
             // pieceIndex < 0 means single-piece object (always apply sticky buffer if riding)
             int currentRidingPieceIndex = getCurrentPlayerRidingPieceIndex();
             boolean ridingThisPiece = riding && (pieceIndex < 0 || pieceIndex == currentRidingPieceIndex);
+            // Sticky solids approximate SolidObject's old/new X handoff behavior in the
+            // original engine by allowing a small horizontal retention window on the
+            // ridden piece. Without this, fast moving platforms (ObjB2 Tornado, etc.)
+            // can drop contact for one frame at edges.
+            int stickyX = ridingThisPiece ? 16 : 0;
+            if (relXRaw < -stickyX || relXRaw >= width2 + stickyX) {
+                return null;
+            }
+            // Clamp back into the normal box before side/top resolution so all existing
+            // distance math keeps its established behavior.
+            int relX = relXRaw;
+            if (relX < 0) {
+                relX = 0;
+            } else if (relX >= width2) {
+                relX = width2 - 1;
+            }
+
             int minRelY = ridingThisPiece ? -16 : 0;
 
             if (relY < minRelY || relY >= maxTop * 2) {

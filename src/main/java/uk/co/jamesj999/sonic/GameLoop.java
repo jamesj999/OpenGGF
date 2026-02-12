@@ -317,6 +317,10 @@ public class GameLoop {
                 // Still in locked phase - run physics without input
                 // This allows Sonic to settle onto the ground while title card is visible,
                 // preventing camera jitter when title card ends
+                // Keep objects updated during title card lock as well.
+                // SCZ depends on ObjB2 (Tornado) solid updates during this phase so
+                // the player lands on the plane instead of free-falling.
+                levelManager.updateObjectPositions();
                 spriteManager.updateWithoutInput();
                 // Force camera to snap to player position during title card (no smooth
                 // scrolling)

@@ -805,7 +805,13 @@ public class TornadoObjectInstance extends AbstractObjectInstance
                     objectMove();
                 }
             }
+        }
 
+        // ROM: ObjB2_Move_obbey_player (loc_3AE94) moves TORNADO to follow PLAYER.
+        // move.w x_pos(a1),d1 / add.w d3,d1 / move.w d1,x_pos(a0)
+        // d3 = ±16 based on player orientation relative to tornado.
+        // The TORNADO follows the PLAYER (not vice versa).
+        if (mainStandingNow) {
             Orientation orientation = getOrientationToClosestPlayer(player);
             if (orientation.absDistanceX() >= PLAYER_HORIZONTAL_CLAMP
                     && Math.abs(orientation.target().getGSpeed()) < PLAYER_INERTIA_CLAMP) {
@@ -813,7 +819,17 @@ public class TornadoObjectInstance extends AbstractObjectInstance
                         + (orientation.playerIsRight() ? -PLAYER_HORIZONTAL_CLAMP : PLAYER_HORIZONTAL_CLAMP);
                 currentX = targetX;
                 syncFixedFromPosition();
+
+                // Refresh SolidContacts tracking position so the follow delta isn't
+                // double-applied as a riding delta. In the ROM, SolidObject runs inline
+                // before the horizontal follow, so it never sees this delta.
+                ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+                if (objectManager != null) {
+                    objectManager.refreshRidingTrackingPosition(this);
+                }
             }
+        }
+        if (mainStandingNow) {
             return;
         }
 
@@ -1030,6 +1046,8 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         int signedMain = currentX - mainPlayer.getCentreX();
         int absMain = Math.abs(signedMain);
 
+        // ROM: Obj_GetOrientationToPlayer always considers both players,
+        // returning the closest one. No zone-specific filtering.
         AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
         if (sidekick != null && !sidekick.getDead()) {
             int signedSidekick = currentX - sidekick.getCentreX();
@@ -1100,7 +1118,9 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         if (wroteAny) {
             levelManager.invalidateForegroundTilemap();
         }
-        levelLayoutPatched = true;
+        if (wroteAny) {
+            levelLayoutPatched = true;
+        }
     }
 
     private AbstractPlayableSprite getMainPlayer() {

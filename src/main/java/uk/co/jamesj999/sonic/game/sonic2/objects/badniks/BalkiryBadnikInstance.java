@@ -45,8 +45,6 @@ public class BalkiryBadnikInstance extends AbstractBadnikInstance {
     private int subPixelX;
     private int subPixelY;
 
-    private boolean jetSpawned;
-
     public BalkiryBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "Balkiry");
         this.currentX = spawn.x();
@@ -66,17 +64,12 @@ public class BalkiryBadnikInstance extends AbstractBadnikInstance {
         // ROM: move.b #1,mapping_frame(a0)
         this.animFrame = 1;
 
-        this.jetSpawned = false;
+        // ROM: ObjAC_Init falls through to loc_37ABE (jet spawn) in the same frame.
+        spawnJetChild();
     }
 
     @Override
     protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
-        // Spawn jet child on first update (ROM: loc_37ABE called from ObjAC_Init)
-        if (!jetSpawned) {
-            spawnJetChild();
-            jetSpawned = true;
-        }
-
         // ROM: JmpTo26_ObjectMove - apply velocity to position (subpixel precision)
         // x_pos += x_vel (as 16.16 fixed point)
         subPixelX += xVelocity;

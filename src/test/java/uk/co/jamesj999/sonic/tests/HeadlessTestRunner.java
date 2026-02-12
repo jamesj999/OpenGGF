@@ -93,6 +93,8 @@ public class HeadlessTestRunner {
         levelManager.updateObjectPositions();
 
         // Solid object collision FIRST (from SpriteManager.update())
+        boolean wasRidingObject = levelManager.getObjectManager() != null
+                && levelManager.getObjectManager().isRidingObject(sprite);
         if (levelManager.getObjectManager() != null) {
             levelManager.getObjectManager().updateSolidContacts(sprite);
         }
@@ -112,7 +114,10 @@ public class HeadlessTestRunner {
 
         // Sonic 1 parity: SolidObject checks run after Sonic movement in ExecuteObjects,
         // so apply a second pass for UNIFIED collision to avoid one-frame sink on landing.
-        if (requiresPostMovementSolidPass(sprite) && sprite.getAir() && levelManager.getObjectManager() != null) {
+        if (requiresPostMovementSolidPass(sprite)
+                && sprite.getAir()
+                && !wasRidingObject
+                && levelManager.getObjectManager() != null) {
             levelManager.getObjectManager().updateSolidContacts(sprite);
         }
 

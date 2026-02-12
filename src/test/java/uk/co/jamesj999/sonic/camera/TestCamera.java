@@ -232,6 +232,18 @@ public class TestCamera {
     }
 
     @Test
+    public void testWrappedHorizontalBoundsDoNotForceBackwardClamp() {
+        camera.setMinX((short) 146);
+        camera.setMaxX((short) 106); // Wrapped range (ObjB2 SCZ writes Camera_X - $40)
+        when(mockSprite.getCentreX()).thenReturn((short) 304); // Forced target X = 152
+        when(mockSprite.getCentreY()).thenReturn((short) 200);
+
+        camera.updatePosition(true);
+
+        assertEquals("Wrapped bounds should not clamp to max when max < min", 152, camera.getX());
+    }
+
+    @Test
     public void testCameraCannotExceedMaxY() {
         camera.setMaxY((short) 500);
         camera.setY((short) 490);

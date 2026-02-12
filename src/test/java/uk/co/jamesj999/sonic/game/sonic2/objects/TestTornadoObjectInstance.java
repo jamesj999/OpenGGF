@@ -35,15 +35,17 @@ public class TestTornadoObjectInstance {
     }
 
     @Test
-    public void moveObeyPlayerAdjustsTornadoXNotPlayerX() throws Exception {
+    public void moveObeyPlayerClampsPlayerToTornado() throws Exception {
         TornadoObjectInstance tornado = createTornado(100, 0x100, 0x50);
         TestPlayableSprite main = new TestPlayableSprite("main", (short) 200, (short) 100);
 
         invokePrivate(tornado, "moveObeyPlayer",
                 new Class<?>[]{AbstractPlayableSprite.class, boolean.class}, main, true);
 
-        assertEquals("ObjB2_Move_obbey_player writes x_pos(a0), not x_pos(a1)", 184, tornado.getX());
-        assertEquals("Player position must remain unchanged by move_obbey", 200, main.getCentreX());
+        // ROM: move.w x_pos(a1),d1 / add.w d3,d1 / move.w d1,x_pos(a0)
+        // Moves TORNADO to follow PLAYER. Player at 200, tornado follows to 200-16=184.
+        assertEquals("ObjB2_Move_obbey_player should move Tornado to player - 16", 184, tornado.getX());
+        assertEquals("Player should not be moved", 200, main.getCentreX());
     }
 
     @Test
@@ -62,6 +64,30 @@ public class TestTornadoObjectInstance {
 
         assertEquals("ObjB2_Move_below_player should anchor to closest player on transition",
                 149, tornado.getX());
+    }
+
+    @Test
+    public void moveWithPlayerTransitionUsesClosestPlayerInScz() throws Exception {
+        // ROM: Obj_GetOrientationToPlayer always considers both players, even in SCZ.
+        // SpriteManager suppresses CPU sidekick for SCZ, so this tests that the
+        // Tornado correctly uses the main player when sidekick is not available.
+        TornadoObjectInstance tornado = createTornado(150, 0x100, 0x50);
+        TestPlayableSprite main = new TestPlayableSprite("main", (short) 300, (short) 100);
+        TestPlayableSprite sidekick = new TestPlayableSprite("sidekick", (short) 140, (short) 100);
+        sidekick.setCpuControlled(true);
+
+        SpriteManager.getInstance().addSprite(main);
+        SpriteManager.getInstance().addSprite(sidekick);
+        setField(LevelManager.getInstance(), "currentZone", 8);
+        setField(tornado, "standingTransition", true);
+
+        invokePrivate(tornado, "moveWithPlayer",
+                new Class<?>[]{AbstractPlayableSprite.class, boolean.class}, main, false);
+
+        // SCZ suppresses CPU sidekick in SpriteManager.getSidekick(), so the Tornado
+        // anchors to main player. Sidekick at 140 would give smoothOffsetX=-10 (closer),
+        // but it's suppressed, so main at 300 gives smoothOffsetX=150.
+        assertEquals("SCZ Tornado anchors to main when sidekick is suppressed", 151, tornado.getX());
     }
 
     @Test

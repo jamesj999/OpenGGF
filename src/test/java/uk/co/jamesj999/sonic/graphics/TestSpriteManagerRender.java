@@ -1,15 +1,19 @@
 package uk.co.jamesj999.sonic.graphics;
 
 import org.junit.Test;
+import uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants;
+import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.physics.Sensor;
 import uk.co.jamesj999.sonic.sprites.Sprite;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 public class TestSpriteManagerRender {
     @Test
@@ -47,6 +51,46 @@ public class TestSpriteManagerRender {
             spriteManager.removeSprite(lowBucket.getCode());
             spriteManager.removeSprite(npc.getCode());
         }
+    }
+
+    @Test
+    public void testSczSuppressesCpuSidekickFromGameplayAndRender() throws Exception {
+        List<String> drawOrder = new ArrayList<>();
+        SpriteManager spriteManager = SpriteManager.getInstance();
+        LevelManager levelManager = LevelManager.getInstance();
+
+        int originalZone = levelManager.getCurrentZone();
+
+        TestPlayableSprite main = new TestPlayableSprite("main", drawOrder);
+        main.setPriorityBucket(2);
+        main.setHighPriority(false);
+
+        TestPlayableSprite sidekick = new TestPlayableSprite("sidekick", drawOrder);
+        sidekick.setCpuControlled(true);
+        sidekick.setPriorityBucket(2);
+        sidekick.setHighPriority(false);
+
+        spriteManager.addSprite(main);
+        spriteManager.addSprite(sidekick);
+
+        try {
+            setCurrentZone(levelManager, Sonic2ZoneConstants.ZONE_SCZ);
+            assertNull("SCZ should suppress CPU sidekick gameplay instance", spriteManager.getSidekick());
+
+            spriteManager.draw();
+            assertEquals("SCZ should render only the main character sprite", List.of("main"), drawOrder);
+        } finally {
+            drawOrder.clear();
+            setCurrentZone(levelManager, originalZone);
+            spriteManager.removeSprite(main.getCode());
+            spriteManager.removeSprite(sidekick.getCode());
+        }
+    }
+
+    private static void setCurrentZone(LevelManager levelManager, int zone) throws Exception {
+        Field currentZone = LevelManager.class.getDeclaredField("currentZone");
+        currentZone.setAccessible(true);
+        currentZone.setInt(levelManager, zone);
     }
 
     private static final class TestPlayableSprite extends AbstractPlayableSprite {
