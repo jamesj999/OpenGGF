@@ -57,6 +57,15 @@ public class GameStateManager {
     private boolean bigRingCollected;
 
     /**
+     * WFZ/SCZ fire toggle (ROM: WFZ_SCZ_Fire_Toggle at $FFFFF72E).
+     * Controls which palette cycling data is used in Wing Fortress Zone:
+     * false (0) = fire palette (CyclingPal_WFZFire), timer 1
+     * true (1)  = conveyor belt palette (CyclingPal_WFZBelt), timer 5
+     * Toggled by Obj8B (WFZPalSwitcher) when player crosses trigger lines.
+     */
+    private boolean wfzFireToggle;
+
+    /**
      * Item bonus chain counter (ROM: v_itembonus at $FFFFFEB2).
      * Tracks consecutive block/wall smashes in a level. Incremented by 2 per smash.
      * Used by Object 0x3C (Smashable Wall) and Object 0x51 (Smashable Green Block)
@@ -93,6 +102,7 @@ public class GameStateManager {
         this.screenShakeActive = false;
         this.htzScreenShakeActive = false;
         this.bigRingCollected = false;
+        this.wfzFireToggle = false;
         this.itemBonus = 0;
     }
 
@@ -295,6 +305,27 @@ public class GameStateManager {
      */
     public void setBigRingCollected(boolean collected) {
         this.bigRingCollected = collected;
+    }
+
+    /**
+     * Gets the WFZ/SCZ fire toggle state.
+     * ROM: tst.b (WFZ_SCZ_Fire_Toggle).w
+     *
+     * @return true if toggled to conveyor belt palette, false for fire palette
+     */
+    public boolean isWfzFireToggle() {
+        return wfzFireToggle;
+    }
+
+    /**
+     * Sets the WFZ/SCZ fire toggle state.
+     * ROM: move.b #1,(WFZ_SCZ_Fire_Toggle).w or move.b #0,(WFZ_SCZ_Fire_Toggle).w
+     * Toggled by Obj8B (WFZPalSwitcher) when player crosses trigger boundary.
+     *
+     * @param toggle true for conveyor belt palette, false for fire palette
+     */
+    public void setWfzFireToggle(boolean toggle) {
+        this.wfzFireToggle = toggle;
     }
 
     /**

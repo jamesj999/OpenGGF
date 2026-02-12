@@ -54,6 +54,7 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
             case ROM_ZONE_CNZ -> list.addAll(createCnzCycles(reader));
             case ROM_ZONE_CPZ -> list.addAll(createCpzCycles(reader));
             case ROM_ZONE_ARZ -> addIfNotNull(list, createArzWaterCycle(reader));
+            case ROM_ZONE_WFZ -> list.addAll(createWfzCycles(reader));
         }
         return list;
     }
@@ -199,6 +200,37 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
         byte[] data3 = safeSlice(reader, CYCLING_PAL_CPZ3_ADDR, CYCLING_PAL_CPZ3_LEN);
         if (data3.length >= CYCLING_PAL_CPZ3_LEN) {
             cycles.add(new PaletteCycle(data3, 16, 2, 7, 2, new int[]{15}));
+        }
+
+        return cycles;
+    }
+
+    // ========== WFZ (Wing Fortress Zone) ==========
+    // ROM: PalCycle_WFZ (s2.asm:2994-3034) - 3 independent palette cycles
+    private List<PaletteCycle> createWfzCycles(RomByteReader reader) {
+        List<PaletteCycle> cycles = new ArrayList<>();
+
+        // Cycle 1: Fire/Belt toggle cycle - 4 colors at palette line 3 offset $E (indices 7,8,9,10)
+        // ROM switches between CyclingPal_WFZFire and CyclingPal_WFZBelt based on
+        // WFZ_SCZ_Fire_Toggle. Timer is 1 for fire, 5 for belt.
+        byte[] fireData = safeSlice(reader, CYCLING_PAL_WFZ_FIRE_ADDR, CYCLING_PAL_WFZ_FIRE_LEN);
+        byte[] beltData = safeSlice(reader, CYCLING_PAL_WFZ_BELT_ADDR, CYCLING_PAL_WFZ_BELT_LEN);
+        if (fireData.length >= CYCLING_PAL_WFZ_FIRE_LEN && beltData.length >= CYCLING_PAL_WFZ_BELT_LEN) {
+            cycles.add(new WfzFireBeltCycle(fireData, beltData));
+        }
+
+        // Cycle 2: Flashing light 1 - 1 color at palette line 3 offset $1C (index 14)
+        // ROM: PalCycle_Timer2, PalCycle_Frame2, 34 frames, timer 3
+        byte[] wfz1Data = safeSlice(reader, CYCLING_PAL_WFZ1_ADDR, CYCLING_PAL_WFZ1_LEN);
+        if (wfz1Data.length >= CYCLING_PAL_WFZ1_LEN) {
+            cycles.add(new PaletteCycle(wfz1Data, 34, 2, 3, 2, new int[]{14}));
+        }
+
+        // Cycle 3: Flashing light 2 - 1 color at palette line 3 offset $1E (index 15)
+        // ROM: PalCycle_Timer3, PalCycle_Frame3, 12 frames, timer 5
+        byte[] wfz2Data = safeSlice(reader, CYCLING_PAL_WFZ2_ADDR, CYCLING_PAL_WFZ2_LEN);
+        if (wfz2Data.length >= CYCLING_PAL_WFZ2_LEN) {
+            cycles.add(new PaletteCycle(wfz2Data, 12, 2, 5, 2, new int[]{15}));
         }
 
         return cycles;
@@ -437,6 +469,67 @@ class Sonic2PaletteCycler implements AnimatedPaletteManager {
 
             if (dirty && graphicsManager.isGlInitialized()) {
                 graphicsManager.cachePaletteTexture(level.getPalette(3), 3);
+                dirty = false;
+            }
+        }
+    }
+
+    // ========== WFZ Fire/Belt Cycle (toggle-dependent) ==========
+    // ROM: PalCycle_WFZ first section (s2.asm:2994-3010)
+    // When WFZ_SCZ_Fire_Toggle == 0: uses CyclingPal_WFZFire data, timer 1
+    // When WFZ_SCZ_Fire_Toggle != 0: uses CyclingPal_WFZBelt data, timer 5
+    // 4 frames of 8 bytes, writes to Normal_palette_line3+$E (palette line 3, indices 7,8,9,10)
+    private static class WfzFireBeltCycle extends PaletteCycle {
+        private final byte[] fireData;
+        private final byte[] beltData;
+
+        // Timer values from ROM (s2.asm:2997 and s2.asm:3001)
+        private static final int FIRE_TIMER_RESET = 1;
+        private static final int BELT_TIMER_RESET = 5;
+
+        // 4 frames of 8 bytes = 32 bytes. Frame counter wraps at 4 (cmpi.w #$20 with addq.w #8).
+        private static final int FRAME_COUNT = 4;
+        private static final int FRAME_SIZE = 8;
+
+        WfzFireBeltCycle(byte[] fireData, byte[] beltData) {
+            // Palette line 3 (index 2), 4 colors at offset $E = indices 7,8,9,10
+            super(fireData, FRAME_COUNT, FRAME_SIZE, FIRE_TIMER_RESET, 2,
+                    new int[]{7, 8, 9, 10});
+            this.fireData = fireData;
+            this.beltData = beltData;
+        }
+
+        @Override
+        protected void tick(Level level, GraphicsManager graphicsManager) {
+            if (fireData.length == 0 || beltData.length == 0) return;
+
+            if (timer > 0) {
+                timer--;
+            } else {
+                // ROM: tst.b (WFZ_SCZ_Fire_Toggle).w / beq.s +
+                boolean useConveyor = GameServices.gameState().isWfzFireToggle();
+                byte[] activeData = useConveyor ? beltData : fireData;
+                timer = useConveyor ? BELT_TIMER_RESET : FIRE_TIMER_RESET;
+
+                // ROM: addq.w #8,(PalCycle_Frame).w / cmpi.w #$20 wraps at 4 frames
+                int frameIndex = frame % FRAME_COUNT;
+                frame++;
+
+                // ROM: lea (Normal_palette_line3+$E).w,a1
+                // move.l (a0,d0.w),(a1)+ / move.l 4(a0,d0.w),(a1)
+                // Writes 8 bytes (4 colors) to palette line 3, offset $E (indices 7-10)
+                Palette palette = level.getPalette(2);
+                int base = frameIndex * FRAME_SIZE;
+                palette.getColor(7).fromSegaFormat(activeData, base);
+                palette.getColor(8).fromSegaFormat(activeData, base + 2);
+                palette.getColor(9).fromSegaFormat(activeData, base + 4);
+                palette.getColor(10).fromSegaFormat(activeData, base + 6);
+
+                dirty = true;
+            }
+
+            if (dirty && graphicsManager.isGlInitialized()) {
+                graphicsManager.cachePaletteTexture(level.getPalette(2), 2);
                 dirty = false;
             }
         }

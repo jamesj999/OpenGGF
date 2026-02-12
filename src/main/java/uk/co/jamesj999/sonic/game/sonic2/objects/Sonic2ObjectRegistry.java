@@ -31,6 +31,7 @@ import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.SlicerBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.NebulaBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.TurtloidBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.BalkiryBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.CluckerBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2EHZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2MCZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.bosses.Sonic2CPZBossInstance;
@@ -318,6 +319,12 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new BalkiryBadnikInstance(spawn, LevelManager.getInstance()));
         // Note: BALKIRY_JET (0x9C) is spawned dynamically by BalkiryBadnikInstance
 
+        // WFZ Badniks
+        registerFactory(Sonic2ObjectIds.CLUCKER_BASE,
+                (spawn, registry) -> new CluckerBaseObjectInstance(spawn));
+        registerFactory(Sonic2ObjectIds.CLUCKER,
+                (spawn, registry) -> new CluckerBadnikInstance(spawn, LevelManager.getInstance()));
+
         // Level completion objects
         registerFactory(Sonic2ObjectIds.SIGNPOST,
                 (spawn, registry) -> new SignpostObjectInstance(spawn, registry.getPrimaryName(spawn.objectId())));
@@ -527,5 +534,69 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new TornadoObjectInstance(spawn));
         registerFactory(Sonic2ObjectIds.CLOUD,
                 (spawn, registry) -> new CloudObjectInstance(spawn));
+
+        // WFZ/SCZ Vertical Propeller (ObjB4) - animated spinning blade hazard
+        registerFactory(Sonic2ObjectIds.VPROPELLER,
+                (spawn, registry) -> new VPropellerObjectInstance(spawn));
+
+        // WFZ/SCZ Horizontal Propeller (ObjB5) - horizontal spinning blade with upward push
+        registerFactory(Sonic2ObjectIds.HPROPELLER,
+                (spawn, registry) -> new HPropellerObjectInstance(spawn));
+
+        // WFZ Palette Switcher (Obj8B) - cycling palette switcher
+        registerFactory(Sonic2ObjectIds.WFZ_PAL_SWITCHER,
+                (spawn, registry) -> new WFZPalSwitcherObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // WFZ Laser (ObjB9) - horizontal laser beam that fires leftward
+        registerFactory(Sonic2ObjectIds.LASER,
+                (spawn, registry) -> new LaserObjectInstance(spawn));
+
+        // WFZ LateralCannon (ObjBE) - retracting platform
+        registerFactory(Sonic2ObjectIds.LATERAL_CANNON,
+                (spawn, registry) -> new LateralCannonObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // WFZ WallTurret (ObjB8) - wall-mounted turret that shoots projectiles
+        registerFactory(Sonic2ObjectIds.WALL_TURRET,
+                (spawn, registry) -> new WallTurretObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // WFZ SpeedLauncher (ObjC0) - catapult platform that launches player
+        registerFactory(Sonic2ObjectIds.SPEED_LAUNCHER,
+                (spawn, registry) -> new SpeedLauncherObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // WFZ BreakablePlating (ObjC1) - breakable plating / grab point
+        registerFactory(Sonic2ObjectIds.BREAKABLE_PLATING,
+                (spawn, registry) -> new BreakablePlatingObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // WFZ Rivet (ObjC2) - rivet at end of WFZ that opens ship when busted
+        registerFactory(Sonic2ObjectIds.RIVET,
+                (spawn, registry) -> new RivetObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // WFZ SmallMetalPform (ObjBD) - ascending/descending belt platform spawner
+        registerFactory(Sonic2ObjectIds.SMALL_METAL_PFORM,
+                (spawn, registry) -> new SmallMetalPformObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
+
+        // WFZ TiltingPlatform (ObjB6) - tilting/spinning platform with 4 behavior types
+        registerFactory(Sonic2ObjectIds.TILTING_PLATFORM,
+                (spawn, registry) -> new TiltingPlatformObjectInstance(spawn));
+
+        // WFZ ShipFire (ObjBC) - flame from Robotnik's ship, flickers and tracks BG scroll
+        registerFactory(Sonic2ObjectIds.WFZ_SHIP_FIRE,
+                (spawn, registry) -> new WFZShipFireObjectInstance(spawn));
+
+        // WFZ Wheel (ObjBA) - static conveyor belt wheel decoration
+        registerFactory(Sonic2ObjectIds.WFZ_WHEEL,
+                (spawn, registry) -> new WFZWheelObjectInstance(spawn));
+
+        // WFZ Grab (ObjD9) - invisible hang-on point
+        registerFactory(Sonic2ObjectIds.GRAB,
+                (spawn, registry) -> new GrabObjectInstance(spawn,
+                        registry.getPrimaryName(spawn.objectId())));
     }
 }

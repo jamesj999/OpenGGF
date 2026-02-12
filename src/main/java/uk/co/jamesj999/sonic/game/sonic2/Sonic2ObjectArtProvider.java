@@ -217,6 +217,19 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             registerSheet(Sonic2ObjectArtKeys.TORNADO, artLoader.loadTornadoSheet());
             registerSheet(Sonic2ObjectArtKeys.TORNADO_THRUSTER, artLoader.loadTornadoThrusterSheet());
             registerSheet(Sonic2ObjectArtKeys.WFZ_THRUST, artLoader.loadWfzThrustSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_VPROPELLER, artLoader.loadVPropellerSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_HPROPELLER, artLoader.loadHPropellerSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_WALL_TURRET, artLoader.loadWallTurretSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_GUN_PLATFORM, artLoader.loadWfzGunPlatformSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_LASER, artLoader.loadWFZLaserSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_LAUNCH_CATAPULT, artLoader.loadWfzLaunchCatapultSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_BREAK_PANELS, artLoader.loadWfzBreakPanelsSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_RIVET, artLoader.loadWfzRivetSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_BELT_PLATFORM, artLoader.loadWFZBeltPlatformSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_TILT_PLATFORM, artLoader.loadWFZTiltPlatformSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_VERTICAL_LASER, artLoader.loadWFZVerticalLaserSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_CONVEYOR_BELT_WHEEL, artLoader.loadWFZConveyorBeltWheelSheet());
+            registerSheet(Sonic2ObjectArtKeys.CLUCKER, artLoader.loadCluckerSheet());
         }
         // SCZ objects (Turtloid, Nebula, Balkiry) - only for SCZ
         // zoneIndex is the ROM zone ID (0x10 for SCZ)
@@ -226,6 +239,8 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             registerSheet(Sonic2ObjectArtKeys.BALKIRY, artLoader.loadBalkirySheet());
             registerSheet(Sonic2ObjectArtKeys.CLOUDS, artLoader.loadCloudSheet());
             registerSheet(Sonic2ObjectArtKeys.TORNADO, artLoader.loadTornadoSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_VPROPELLER, artLoader.loadVPropellerSheet());
+            registerSheet(Sonic2ObjectArtKeys.WFZ_HPROPELLER, artLoader.loadHPropellerSheet());
         }
 
         // CNZ objects (Sonic 2-specific)

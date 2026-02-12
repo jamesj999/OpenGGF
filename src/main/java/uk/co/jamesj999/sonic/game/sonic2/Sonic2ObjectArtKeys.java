@@ -108,6 +108,9 @@ public final class Sonic2ObjectArtKeys {
     public static final String TURTLOID = "turtloid";
     public static final String BALKIRY = "balkiry";
 
+    // WFZ Badniks
+    public static final String CLUCKER = "clucker";
+
     // CNZ Badniks
     public static final String CRAWL = "crawl";
 
@@ -143,9 +146,21 @@ public final class Sonic2ObjectArtKeys {
 
     // WFZ Objects
     public static final String WFZ_HOOK = "wfz_hook";
+    public static final String WFZ_TILT_PLATFORM = "wfz_tilt_platform";
+    public static final String WFZ_BELT_PLATFORM = "wfz_belt_platform";
+    public static final String WFZ_GUN_PLATFORM = "wfz_gun_platform";
     public static final String TORNADO = "tornado";
     public static final String TORNADO_THRUSTER = "tornado_thruster";
     public static final String WFZ_THRUST = "wfz_thrust";
+    public static final String WFZ_VPROPELLER = "wfz_vpropeller";
+    public static final String WFZ_HPROPELLER = "wfz_hpropeller";
+    public static final String WFZ_WALL_TURRET = "wfz_wall_turret";
+    public static final String WFZ_LASER = "wfz_laser";
+    public static final String WFZ_VERTICAL_LASER = "wfz_vertical_laser";
+    public static final String WFZ_LAUNCH_CATAPULT = "wfz_launch_catapult";
+    public static final String WFZ_BREAK_PANELS = "wfz_break_panels";
+    public static final String WFZ_RIVET = "wfz_rivet";
+    public static final String WFZ_CONVEYOR_BELT_WHEEL = "wfz_conveyor_belt_wheel";
 
     // SCZ Objects
     public static final String CLOUDS = "clouds";
