@@ -179,6 +179,26 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             registerSheet(Sonic2ObjectArtKeys.HTZ_BOSS, artLoader.loadHTZBossSheet());
             registerSheet(Sonic2ObjectArtKeys.HTZ_BOSS_SMOKE, artLoader.loadHTZBossSmokeSheet());
         }
+        // MTZ objects (Object 0x65 long platform cog) - only for MTZ
+        // zoneIndex is the ROM zone ID (0x04 for MTZ, 0x05 for MTZ Act 3)
+        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_MTZ
+                || zoneIndex == 0x05) {
+            registerSheet(Sonic2ObjectArtKeys.BUTTON, artLoader.loadButtonSheet());
+            registerSheet(Sonic2ObjectArtKeys.MTZ_COG, artLoader.loadMTZCogSheet());
+            registerSheet(Sonic2ObjectArtKeys.MTZ_NUT, artLoader.loadMTZNutSheet());
+            registerSheet(Sonic2ObjectArtKeys.MTZ_FLOOR_SPIKE, artLoader.loadMTZFloorSpikeSheet());
+            registerSheet(Sonic2ObjectArtKeys.MTZ_SPIKE_BLOCK, artLoader.loadMTZSpikeBlockSheet());
+            registerSheet(Sonic2ObjectArtKeys.MTZ_SPIKE, artLoader.loadMTZSpikeSheet());
+            registerSheet(Sonic2ObjectArtKeys.ASTERON, artLoader.loadAsteronSheet());
+            registerSheet(Sonic2ObjectArtKeys.SHELLCRACKER, artLoader.loadShellcrackerSheet());
+            registerSheet(Sonic2ObjectArtKeys.SLICER, artLoader.loadSlicerSheet());
+            registerSheet(Sonic2ObjectArtKeys.MTZ_STEAM, artLoader.loadMTZSteamSheet());
+            registerSheet(Sonic2ObjectArtKeys.MTZ_LAVA_BUBBLE, artLoader.loadMTZLavaBubbleSheet());
+            registerSheet(Sonic2ObjectArtKeys.MTZ_WHEEL_INDENT, artLoader.loadMTZWheelIndentSheet());
+            registerSheet(Sonic2ObjectArtKeys.MTZ_WHEEL, artLoader.loadMTZWheelSheet());
+            registerSheet(Sonic2ObjectArtKeys.MTZ_SPIN_TUBE_FLASH, artLoader.loadMTZSpinTubeFlashSheet());
+            registerSheet(Sonic2ObjectArtKeys.MTZ_LAVA_CUP, artLoader.loadMTZLavaCupSheet());
+        }
         // MCZ objects (Object 0x80 vine, Object 0x6A crate, Object 0x81 drawbridge) - only for MCZ
         // zoneIndex is the ROM zone ID (0x0B for MCZ)
         if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_MCZ) {
@@ -194,6 +214,14 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         // zoneIndex is the ROM zone ID (0x06 for WFZ)
         if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_WFZ) {
             registerSheet(Sonic2ObjectArtKeys.WFZ_HOOK, artLoader.loadWFZHookSheet());
+        }
+        // SCZ objects (Turtloid, Nebula, Balkiry) - only for SCZ
+        // zoneIndex is the ROM zone ID (0x10 for SCZ)
+        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_SCZ) {
+            registerSheet(Sonic2ObjectArtKeys.NEBULA, artLoader.loadNebulaSheet());
+            registerSheet(Sonic2ObjectArtKeys.TURTLOID, artLoader.loadTurtloidSheet());
+            registerSheet(Sonic2ObjectArtKeys.BALKIRY, artLoader.loadBalkirySheet());
+            registerSheet(Sonic2ObjectArtKeys.CLOUDS, artLoader.loadCloudSheet());
         }
 
         // CNZ objects (Sonic 2-specific)
@@ -418,6 +446,30 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         ObjectSpriteSheet sheet = artLoader.loadSmashableGroundSheet(level);
         if (sheet != null) {
             registerSheet(Sonic2ObjectArtKeys.SMASHABLE_GROUND, sheet);
+        }
+    }
+
+    /**
+     * Register the SteamSpring piston body sheet for MTZ.
+     * The piston body uses level art patterns (ArtTile_ArtKos_LevelArt) with palette line 3.
+     * Only registers if we're in MTZ (zone 0x04 or 0x05).
+     *
+     * @param level The loaded level to extract patterns from
+     */
+    public void registerSteamSpringPistonSheet(uk.co.jamesj999.sonic.level.Level level) {
+        if (level == null || artLoader == null) {
+            return;
+        }
+
+        int zoneIndex = level.getZoneIndex();
+        if (zoneIndex != uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_MTZ
+                && zoneIndex != 0x05) {
+            return;
+        }
+
+        ObjectSpriteSheet sheet = artLoader.loadSteamSpringPistonSheet(level);
+        if (sheet != null) {
+            registerSheet(Sonic2ObjectArtKeys.MTZ_STEAM_PISTON, sheet);
         }
     }
 }

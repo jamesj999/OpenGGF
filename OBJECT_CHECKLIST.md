@@ -1,12 +1,12 @@
 # Sonic 2 Object Implementation Checklist
 
-Generated: 2026-02-11 00:49:05
+Generated: 2026-02-12 00:52:06
 
 ## Summary
 
 - **Total unique objects found:** 120
-- **Implemented:** 80 (66.7%)
-- **Unimplemented:** 40 (33.3%)
+- **Implemented:** 100 (83.3%)
+- **Unimplemented:** 20 (16.7%)
 
 ## Implemented Objects
 
@@ -46,15 +46,28 @@ Generated: 2026-02-11 00:49:05
 | 0x3F | Fan | 60 | OOZ1, OOZ2 |
 | 0x40 | Springboard | 31 | CPZ2, ARZ1, ARZ2, MCZ2 |
 | 0x41 | Spring | 139 | EHZ1, EHZ2, CPZ1, CPZ2, ARZ1, ARZ2, CNZ1, CNZ2, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3 |
+| 0x42 | SteamSpring | 18 | MTZ1, MTZ2, MTZ3 |
 | 0x44 | Bumper | 117 | CNZ1, CNZ2 |
+| 0x47 | Button | 14 | MTZ1, MTZ2, MTZ3 |
 | 0x48 | LauncherBall | 32 | OOZ1, OOZ2 |
 | 0x49 | EHZWaterfall | 18 | EHZ1, EHZ2 |
 | 0x4A | Octus | 28 | OOZ1, OOZ2 |
 | 0x4B | Buzzer | 23 | EHZ1, EHZ2 |
 | 0x50 | Aquis | 16 | OOZ1, OOZ2 |
 | 0x5C | Masher | 21 | EHZ1, EHZ2 |
+| 0x64 | MTZTwinStompers | 6 | MTZ1, MTZ2, MTZ3 |
+| 0x65 | MTZLongPlatform | 81 | MTZ1, MTZ2, MTZ3 |
+| 0x66 | MTZSpringWall | 60 | MTZ1, MTZ2, MTZ3 |
+| 0x67 | MTZSpinTube | 12 | MTZ1, MTZ2, MTZ3 |
+| 0x68 | SpikyBlock | 22 | MTZ1, MTZ2, MTZ3 |
+| 0x69 | Nut | 28 | MTZ1, MTZ2, MTZ3 |
 | 0x6A | MCZRotPforms | 7 | MCZ1, MCZ2, MTZ3 |
 | 0x6B | MTZPlatform | 58 | CPZ1, CPZ2, MTZ1, MTZ2, MTZ3 |
+| 0x6C | Conveyor | 10 | MTZ2, MTZ3 |
+| 0x6D | FloorSpike | 25 | MTZ1, MTZ2, MTZ3 |
+| 0x6E | LargeRotPform | 28 | MTZ3 |
+| 0x70 | Cog | 14 | MTZ2, MTZ3 |
+| 0x71 | MTZLavaBubble | 15 | MTZ2, MTZ3 |
 | 0x72 | CNZConveyorBelt | 15 | CNZ1, CNZ2, MTZ2, MTZ3, WFZ1 |
 | 0x74 | InvisibleBlock | 113 | CPZ1, CPZ2, CNZ1, CNZ2, HTZ1, HTZ2, MCZ1, MTZ1, MTZ2, MTZ3, WFZ1 |
 | 0x75 | MCZBrick | 19 | MCZ1, MCZ2 |
@@ -79,12 +92,19 @@ Generated: 2026-02-11 00:49:05
 | 0x92 | Spiker | 23 | HTZ1, HTZ2 |
 | 0x95 | Sol | 3 | HTZ1, HTZ2 |
 | 0x96 | Rexon2 | 6 | HTZ1, HTZ2 |
+| 0x99 | Nebula | 23 | SCZ1 |
+| 0x9A | Turtloid | 10 | SCZ1 |
 | 0x9D | Coconuts | 17 | EHZ1, EHZ2 |
 | 0x9E | Crawlton | 12 | MCZ1, MCZ2 |
+| 0x9F | Shellcracker | 9 | MTZ1, MTZ2, MTZ3 |
+| 0xA1 | Slicer | 24 | MTZ1, MTZ2, MTZ3 |
 | 0xA3 | Flasher | 26 | MCZ1, MCZ2 |
+| 0xA4 | Asteron | 90 | MTZ1, MTZ2, MTZ3 |
 | 0xA5 | Spiny | 11 | CPZ1, CPZ2 |
 | 0xA6 | SpinyOnWall | 2 | CPZ1, CPZ2 |
 | 0xA7 | Grabber | 5 | CPZ1, CPZ2 |
+| 0xAC | Balkiry | 19 | SCZ1 |
+| 0xB3 | Cloud | 3 | SCZ1 |
 | 0xC8 | Crawl | 8 | CNZ1, CNZ2 |
 | 0xD2 | CNZRectBlocks | 8 | CNZ1, CNZ2 |
 | 0xD4 | CNZBigBlock | 23 | CNZ1, CNZ2 |
@@ -97,39 +117,19 @@ Generated: 2026-02-11 00:49:05
 
 | ID | Category | Name | Total Uses | Zones |
 |----|----------|------|------------|-------|
-| 0xA4 | Badnik | Asteron | 90 | MTZ1, MTZ2, MTZ3 |
-| 0x65 | Object | MTZLongPlatform | 81 | MTZ1, MTZ2, MTZ3 |
-| 0x66 | Object | MTZSpringWall | 60 | MTZ1, MTZ2, MTZ3 |
-| 0x69 | Object | Nut | 28 | MTZ1, MTZ2, MTZ3 |
-| 0x6E | Object | LargeRotPform | 28 | MTZ3 |
-| 0x6D | Object | FloorSpike | 25 | MTZ1, MTZ2, MTZ3 |
-| 0xA1 | Badnik | Slicer | 24 | MTZ1, MTZ2, MTZ3 |
-| 0x99 | Badnik | Nebula | 23 | SCZ1 |
-| 0x68 | Object | SpikyBlock | 22 | MTZ1, MTZ2, MTZ3 |
-| 0xAC | Badnik | Balkiry | 19 | SCZ1 |
-| 0x42 | Object | SteamSpring | 18 | MTZ1, MTZ2, MTZ3 |
-| 0x71 | Object | MTZLavaBubble | 15 | MTZ2, MTZ3 |
-| 0x47 | Object | Button | 14 | MTZ1, MTZ2, MTZ3 |
-| 0x70 | Object | Cog | 14 | MTZ2, MTZ3 |
 | 0xB4 | Object | VPropeller | 13 | SCZ1, WFZ1 |
-| 0x67 | Object | MTZSpinTube | 12 | MTZ1, MTZ2, MTZ3 |
 | 0x8B | Object | WFZPalSwitcher | 11 | WFZ1 |
-| 0x6C | Object | Conveyor | 10 | MTZ2, MTZ3 |
-| 0x9A | Badnik | Turtloid | 10 | SCZ1 |
 | 0xAD | Badnik | CluckerBase | 10 | WFZ1 |
 | 0xAE | Badnik | Clucker | 10 | WFZ1 |
 | 0xB5 | Object | HPropeller | 10 | SCZ1, WFZ1 |
-| 0x9F | Badnik | Shellcracker | 9 | MTZ1, MTZ2, MTZ3 |
 | 0xC0 | Object | SpeedLauncher | 8 | WFZ1 |
 | 0xBE | Object | LateralCannon | 7 | WFZ1 |
-| 0x64 | Object | MTZTwinStompers | 6 | MTZ1, MTZ2, MTZ3 |
 | 0xB9 | Object | Laser | 6 | WFZ1 |
 | 0xB6 | Object | TiltingPlatform | 5 | WFZ1 |
 | 0xB8 | Object | WallTurret | 5 | WFZ1 |
 | 0xBD | Object | SmallMetalPform | 5 | WFZ1 |
 | 0xC1 | Object | BreakablePlating | 4 | WFZ1 |
 | 0xB2 | Object | Tornado | 3 | SCZ1, WFZ1 |
-| 0xB3 | Object | Cloud | 3 | SCZ1 |
 | 0xD9 | Object | Grab | 3 | WFZ1 |
 | 0xBA | Object | WFZWheel | 2 | WFZ1 |
 | 0xBC | Object | WFZShipFire | 2 | WFZ1 |
@@ -547,12 +547,12 @@ Total: 189 objects | Implemented: 14 | Unimplemented: 0
 
 #### Act 1
 
-Total: 193 objects | Implemented: 10 | Unimplemented: 12
+Total: 193 objects | Implemented: 22 | Unimplemented: 0
 
 **Badniks:**
-- [ ] 0x9F Shellcracker (x3) [0x24]
-- [ ] 0xA1 Slicer (x4) [0x28]
-- [ ] 0xA4 Asteron (x27) [0x2E]
+- [x] 0x9F Shellcracker (x3) [0x24]
+- [x] 0xA1 Slicer (x4) [0x28]
+- [x] 0xA4 Asteron (x27) [0x2E]
 
 **Objects:**
 - [x] 0x06 Spiral (x5) [0x80]
@@ -562,27 +562,27 @@ Total: 193 objects | Implemented: 10 | Unimplemented: 12
 - [x] 0x2D Barrier (x3) [0x01]
 - [x] 0x36 Spikes (x7) [0x10, 0x00, 0x30]
 - [x] 0x41 Spring (x4) [0x20, 0x12, 0x02]
-- [ ] 0x42 SteamSpring (x4) [0x01]
-- [ ] 0x47 Button (x9) [5 subtypes]
-- [ ] 0x64 MTZTwinStompers (x2) [0x01]
-- [ ] 0x65 MTZLongPlatform (x32) [11 subtypes]
-- [ ] 0x66 MTZSpringWall (x30) [0x01, 0x11]
-- [ ] 0x67 MTZSpinTube (x3) [0x00, 0x01, 0x02]
-- [ ] 0x68 SpikyBlock (x9) [4 subtypes]
-- [ ] 0x69 Nut (x9) [7 subtypes]
+- [x] 0x42 SteamSpring (x4) [0x01]
+- [x] 0x47 Button (x9) [5 subtypes]
+- [x] 0x64 MTZTwinStompers (x2) [0x01]
+- [x] 0x65 MTZLongPlatform (x32) [11 subtypes]
+- [x] 0x66 MTZSpringWall (x30) [0x01, 0x11]
+- [x] 0x67 MTZSpinTube (x3) [0x00, 0x01, 0x02]
+- [x] 0x68 SpikyBlock (x9) [4 subtypes]
+- [x] 0x69 Nut (x9) [7 subtypes]
 - [x] 0x6B MTZPlatform (x6) [0x02, 0x07]
-- [ ] 0x6D FloorSpike (x8) [8 subtypes]
+- [x] 0x6D FloorSpike (x8) [8 subtypes]
 - [x] 0x74 InvisibleBlock (x11) [0x71, 0x73, 0x13]
 - [x] 0x79 Checkpoint (x5) [5 subtypes]
 
 #### Act 2
 
-Total: 220 objects | Implemented: 12 | Unimplemented: 15
+Total: 220 objects | Implemented: 27 | Unimplemented: 0
 
 **Badniks:**
-- [ ] 0x9F Shellcracker (x3) [0x24]
-- [ ] 0xA1 Slicer (x7) [0x28]
-- [ ] 0xA4 Asteron (x21) [0x2E]
+- [x] 0x9F Shellcracker (x3) [0x24]
+- [x] 0xA1 Slicer (x7) [0x28]
+- [x] 0xA4 Asteron (x21) [0x2E]
 
 **Objects:**
 - [x] 0x06 Spiral (x4) [0x80]
@@ -593,31 +593,31 @@ Total: 220 objects | Implemented: 12 | Unimplemented: 15
 - [x] 0x31 LavaMarker (x12) [0x01, 0x02]
 - [x] 0x36 Spikes (x11) [0x00, 0x40]
 - [x] 0x41 Spring (x6) [0x00, 0x02]
-- [ ] 0x42 SteamSpring (x5) [0x01]
-- [ ] 0x47 Button (x4) [0x00, 0x01]
-- [ ] 0x64 MTZTwinStompers (x1) [0x01]
-- [ ] 0x65 MTZLongPlatform (x10) [0xB0, 0xB1, 0x13]
-- [ ] 0x66 MTZSpringWall (x19) [0x01, 0x11]
-- [ ] 0x67 MTZSpinTube (x4) [4 subtypes]
-- [ ] 0x68 SpikyBlock (x6) [0x00, 0x01, 0x02]
-- [ ] 0x69 Nut (x9) [6 subtypes]
+- [x] 0x42 SteamSpring (x5) [0x01]
+- [x] 0x47 Button (x4) [0x00, 0x01]
+- [x] 0x64 MTZTwinStompers (x1) [0x01]
+- [x] 0x65 MTZLongPlatform (x10) [0xB0, 0xB1, 0x13]
+- [x] 0x66 MTZSpringWall (x19) [0x01, 0x11]
+- [x] 0x67 MTZSpinTube (x4) [4 subtypes]
+- [x] 0x68 SpikyBlock (x6) [0x00, 0x01, 0x02]
+- [x] 0x69 Nut (x9) [6 subtypes]
 - [x] 0x6B MTZPlatform (x14) [4 subtypes]
-- [ ] 0x6C Conveyor (x9) [0x80, 0x81, 0x82]
-- [ ] 0x6D FloorSpike (x12) [12 subtypes]
-- [ ] 0x70 Cog (x6) [0x00]
-- [ ] 0x71 MTZLavaBubble (x11) [0x22]
+- [x] 0x6C Conveyor (x9) [0x80, 0x81, 0x82]
+- [x] 0x6D FloorSpike (x12) [12 subtypes]
+- [x] 0x70 Cog (x6) [0x00]
+- [x] 0x71 MTZLavaBubble (x11) [0x22]
 - [x] 0x72 CNZConveyorBelt (x2) [0x04, 0x09]
 - [x] 0x74 InvisibleBlock (x12) [0x71, 0x17]
 - [x] 0x79 Checkpoint (x3) [0x01, 0x02, 0x03]
 
 #### Act 3
 
-Total: 270 objects | Implemented: 13 | Unimplemented: 16
+Total: 270 objects | Implemented: 29 | Unimplemented: 0
 
 **Badniks:**
-- [ ] 0x9F Shellcracker (x3) [0x24]
-- [ ] 0xA1 Slicer (x13) [0x28]
-- [ ] 0xA4 Asteron (x42) [0x2E]
+- [x] 0x9F Shellcracker (x3) [0x24]
+- [x] 0xA1 Slicer (x13) [0x28]
+- [x] 0xA4 Asteron (x42) [0x2E]
 
 **Bosses:**
 - [ ] 0x53 MTZBossOrb *(dynamic)* - Bouncing orb projectiles
@@ -632,21 +632,21 @@ Total: 270 objects | Implemented: 13 | Unimplemented: 16
 - [x] 0x36 Spikes (x14) [5 subtypes]
 - [x] 0x3E EggPrison (x1) [0x00]
 - [x] 0x41 Spring (x9) [0x00, 0x10, 0x02]
-- [ ] 0x42 SteamSpring (x9) [0x01]
-- [ ] 0x47 Button (x1) [0x05]
-- [ ] 0x64 MTZTwinStompers (x3) [0x11, 0x01]
-- [ ] 0x65 MTZLongPlatform (x39) [4 subtypes]
-- [ ] 0x66 MTZSpringWall (x11) [0x01, 0x11]
-- [ ] 0x67 MTZSpinTube (x5) [5 subtypes]
-- [ ] 0x68 SpikyBlock (x7) [0x00, 0x02, 0x03]
-- [ ] 0x69 Nut (x10) [5 subtypes]
+- [x] 0x42 SteamSpring (x9) [0x01]
+- [x] 0x47 Button (x1) [0x05]
+- [x] 0x64 MTZTwinStompers (x3) [0x11, 0x01]
+- [x] 0x65 MTZLongPlatform (x39) [4 subtypes]
+- [x] 0x66 MTZSpringWall (x11) [0x01, 0x11]
+- [x] 0x67 MTZSpinTube (x5) [5 subtypes]
+- [x] 0x68 SpikyBlock (x7) [0x00, 0x02, 0x03]
+- [x] 0x69 Nut (x10) [5 subtypes]
 - [x] 0x6A MCZRotPforms (x2) [0x00]
 - [x] 0x6B MTZPlatform (x8) [0x02, 0x04, 0x07]
-- [ ] 0x6C Conveyor (x1) [0x81]
-- [ ] 0x6D FloorSpike (x5) [5 subtypes]
-- [ ] 0x6E LargeRotPform (x28) [4 subtypes]
-- [ ] 0x70 Cog (x8) [0x00]
-- [ ] 0x71 MTZLavaBubble (x4) [0x22]
+- [x] 0x6C Conveyor (x1) [0x81]
+- [x] 0x6D FloorSpike (x5) [5 subtypes]
+- [x] 0x6E LargeRotPform (x28) [4 subtypes]
+- [x] 0x70 Cog (x8) [0x00]
+- [x] 0x71 MTZLavaBubble (x4) [0x22]
 - [x] 0x72 CNZConveyorBelt (x4) [0x09]
 - [x] 0x74 InvisibleBlock (x11) [0x71]
 - [x] 0x79 Checkpoint (x6) [6 subtypes]
@@ -655,17 +655,17 @@ Total: 270 objects | Implemented: 13 | Unimplemented: 16
 
 #### Act 1
 
-Total: 60 objects | Implemented: 1 | Unimplemented: 7
+Total: 60 objects | Implemented: 5 | Unimplemented: 3
 
 **Badniks:**
-- [ ] 0x99 Nebula (x23) [0x12]
-- [ ] 0x9A Turtloid (x10) [0x16]
-- [ ] 0xAC Balkiry (x19) [0x40]
+- [x] 0x99 Nebula (x23) [0x12]
+- [x] 0x9A Turtloid (x10) [0x16]
+- [x] 0xAC Balkiry (x19) [0x40]
 
 **Objects:**
 - [x] 0x03 LayerSwitcher (x1) [0x7B]
 - [ ] 0xB2 Tornado (x1) [0x50]
-- [ ] 0xB3 Cloud (x3) [0x60, 0x62, 0x5E]
+- [x] 0xB3 Cloud (x3) [0x60, 0x62, 0x5E]
 - [ ] 0xB4 VPropeller (x1) [0x64]
 - [ ] 0xB5 HPropeller (x2) [0x68]
 
@@ -718,3 +718,4 @@ Total: 5 objects | Implemented: 1 | Unimplemented: 2
 
 **Objects:**
 - [x] 0x2D Barrier (x3) [0x00]
+

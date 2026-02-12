@@ -2105,8 +2105,33 @@ public class ObjectManager {
                 return null;
             }
 
+            // ROM: SolidObject_InsideBottom (s2.asm:35307-35333)
+            // When y_vel == 0 and player is on ground, the ROM branches to SolidObject_Squash
+            // which checks horizontal overlap and kills the player if sandwiched.
             if (player.getYSpeed() == 0 && !player.getAir()) {
-                return null;
+                // ROM: SolidObject_Squash (s2.asm:35336-35361)
+                // mvabs.w d0,d4; cmpi.w #$10,d4; blo.w SolidObject_LeftRight
+                // If player is near the horizontal edge (absDistX < 16), push sideways instead.
+                if (absDistX < 0x10) {
+                    boolean leftSide = relX < halfWidth;
+                    boolean movingInto = leftSide ? player.getXSpeed() > 0 : player.getXSpeed() < 0;
+                    boolean pushing = !player.getAir() && movingInto;
+                    if (apply) {
+                        if (movingInto) {
+                            player.setXSpeed((short) 0);
+                            player.setGSpeed((short) 0);
+                        }
+                        player.setCentreX((short) (playerCenterX - distX));
+                    }
+                    return new SolidContact(false, true, false, false, pushing);
+                }
+                // Player is well inside horizontally - crush death.
+                // ROM: KillCharacter (s2.asm:84995) - unconditional death.
+                if (apply) {
+                    LOGGER.fine(() -> "SolidObject crush: player sandwiched (absDistX=" + absDistX + ")");
+                    player.applyCrushDeath();
+                }
+                return new SolidContact(false, false, true, false, false);
             }
 
             if (apply) {

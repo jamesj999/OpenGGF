@@ -264,9 +264,19 @@ public class Sonic2Constants {
     public static final int ART_NEM_WHISP_ADDR = 0x895E4;    // Whisp (blowfly from ARZ)
     public static final int ART_NEM_GROUNDER_ADDR = 0x8970E; // Grounder (drill badnik from ARZ)
 
+    // MTZ Badnik Art (Nemesis compressed)
+    public static final int ART_NEM_MTZ_SUPERNOVA_ADDR = 0x8B300; // Asteron (exploding starfish from MTZ)
+    public static final int ART_NEM_MTZ_MANTIS_ADDR = 0x8AD80;    // Slicer (praying mantis from MTZ)
+    public static final int ART_NEM_SHELLCRACKER_ADDR = 0x8B058;  // Shellcracker (crab badnik from MTZ)
+
     // HTZ Badnik Art (Nemesis compressed)
     public static final int ART_NEM_SPIKER_ADDR = 0x89FAA;   // Spiker (drill badnik from HTZ)
     public static final int ART_NEM_REXON_ADDR = 0x89DEC;    // Rexon (lava snake from HTZ)
+
+    // SCZ Badnik Art (Nemesis compressed)
+    public static final int ART_NEM_NEBULA_ADDR = 0x8A142;   // Nebula (bomber badnik from SCZ, verified via RomOffsetFinder)
+    public static final int ART_NEM_TURTLOID_ADDR = 0x8A362; // Turtloid (turtle badnik from SCZ)
+    public static final int ART_NEM_BALKIRY_ADDR = 0x8BC16;   // Balkiry (jet badnik from SCZ, verified via RomOffsetFinder)
 
     // OOZ Badnik Art (Nemesis compressed)
     public static final int ART_NEM_OCTUS_ADDR = 0x8336A;    // Octus (octopus badnik from OOZ)
@@ -454,6 +464,45 @@ public class Sonic2Constants {
     public static final int ART_NEM_CPZ_ELEVATOR_ADDR = 0x82216;    // ArtNem_CPZElevator (verified)
     public static final int ART_NEM_OOZ_ELEVATOR_ADDR = 0x810B8;    // ArtNem_OOZElevator (verified)
 
+    // Button (Object 0x47) - trigger button for MTZ/MCZ
+    public static final int ART_NEM_BUTTON_ADDR = 0x78DAC;  // ArtNem_Button (verified)
+
+    // MTZ Floor Spike (Object 0x6D) - retractable floor spike from Metropolis Zone
+    public static final int ART_NEM_MTZ_SPIKE_ADDR = 0xF148E;  // ArtNem_MtzSpike (verified)
+
+    // MTZ SpikyBlock (Object 0x68) - block with rotating spike from Metropolis Zone
+    public static final int ART_NEM_MTZ_SPIKE_BLOCK_ADDR = 0xF12B6;  // ArtNem_MtzSpikeBlock (verified)
+
+    // MTZ Cog (Object 0x65 child) - small cog attached to long platform
+    public static final int ART_NEM_MTZ_COG_ADDR = 0xF178E;  // ArtNem_MtzCog (verified)
+
+    // MTZ Steam (Object 0x42 child) - steam puff from SteamSpring
+    public static final int ART_NEM_MTZ_STEAM_ADDR = 0xF1384;  // ArtNem_MtzSteam (verified)
+
+    // MTZ Lava Bubble (Object 0x71) - animated lava bubble from Metropolis Zone
+    public static final int ART_NEM_MTZ_LAVA_BUBBLE_ADDR = 0xF15C6;  // ArtNem_MtzLavaBubble (verified)
+
+    // MTZ Spin Tube Flash (Object 0x67) - flash sprite shown during tube entry
+    public static final int ART_NEM_MTZ_SPIN_TUBE_FLASH_ADDR = 0xF1870;  // ArtNem_MtzSpinTubeFlash (verified)
+
+    // MTZ Wheel Indent (Object 0x6E subtype 3) - indent on large spinning wheel
+    public static final int ART_NEM_MTZ_WHEEL_INDENT_ADDR = 0xF120E;  // ArtNem_MtzWheelIndent (verified)
+
+    // MTZ Wheel art (Object 0x70 / Obj6E) - large spinning wheel from MTZ
+    public static final int ART_NEM_MTZ_WHEEL_ADDR = 0xF0DB6;  // ArtNem_MtzWheel (verified)
+
+    // Object 0x6E mappings (Obj6E_MapUnc_2852C) - LargeRotPform sprite mappings
+    public static final int MAP_UNC_OBJ6E_ADDR = 0x2852C;
+
+    // Object 0x70 mappings (Obj70_MapUnc_28786) - Cog sprite mappings
+    public static final int MAP_UNC_OBJ70_ADDR = 0x28786;
+
+    // MTZ Conveyor / Lava Cup (Object 0x6C) - small platform on pulleys
+    public static final int ART_NEM_MTZ_LAVA_CUP_ADDR = 0xF167C;  // ArtNem_LavaCup (verified)
+
+    // MTZ Nut (Object 0x69) - screw nut from Metropolis Zone
+    public static final int ART_NEM_MTZ_ASST_BLOCKS_ADDR = 0xF1550;  // ArtNem_MtzAsstBlocks (verified)
+
     // CPZ Staircase (Object 0x78) - shares appearance with CPZ platform
     public static final int ART_NEM_CPZ_STAIRBLOCK_ADDR = 0x82A46;  // ArtNem_CPZStairBlock (Moving block from CPZ)
 
@@ -463,6 +512,9 @@ public class Sonic2Constants {
     public static final int ART_TILE_CPZ_ELEVATOR = 0x03A0;  // palette 3
     public static final int ART_TILE_OOZ_ELEVATOR = 0x02F4;  // palette 3
     public static final int ART_TILE_WFZ_PLATFORM = 0x046D;  // palette 1, priority
+
+    // SCZ Cloud (Object 0xB3) - decorative clouds from Sky Chase Zone
+    public static final int ART_NEM_CLOUDS_ADDR = 0x8DAFC;  // ArtNem_Clouds (verified via RomOffsetFinder)
 
     // Zone indices (from s2.constants.asm zoneID macro)
     public static final int ZONE_CHEMICAL_PLANT = 0x0D;  // chemical_plant_zone
@@ -762,6 +814,9 @@ public class Sonic2Constants {
         offsets.put("ART_NEM_MASHER_ADDR", ART_NEM_MASHER_ADDR);
         offsets.put("ART_NEM_COCONUTS_ADDR", ART_NEM_COCONUTS_ADDR);
         offsets.put("ART_NEM_ANIMAL_ADDR", ART_NEM_ANIMAL_ADDR);
+        offsets.put("ART_NEM_MTZ_SUPERNOVA_ADDR", ART_NEM_MTZ_SUPERNOVA_ADDR);
+        offsets.put("ART_NEM_MTZ_MANTIS_ADDR", ART_NEM_MTZ_MANTIS_ADDR);
+        offsets.put("ART_NEM_SHELLCRACKER_ADDR", ART_NEM_SHELLCRACKER_ADDR);
         offsets.put("ART_NEM_SPINY_ADDR", ART_NEM_SPINY_ADDR);
         offsets.put("ART_NEM_GRABBER_ADDR", ART_NEM_GRABBER_ADDR);
         offsets.put("ART_NEM_CHOPCHOP_ADDR", ART_NEM_CHOPCHOP_ADDR);
@@ -874,6 +929,13 @@ public class Sonic2Constants {
         offsets.put("MAP_UNC_OBJ19_ADDR", MAP_UNC_OBJ19_ADDR);
         offsets.put("ART_NEM_CPZ_ELEVATOR_ADDR", ART_NEM_CPZ_ELEVATOR_ADDR);
         offsets.put("ART_NEM_OOZ_ELEVATOR_ADDR", ART_NEM_OOZ_ELEVATOR_ADDR);
+        offsets.put("ART_NEM_MTZ_COG_ADDR", ART_NEM_MTZ_COG_ADDR);
+        offsets.put("ART_NEM_MTZ_STEAM_ADDR", ART_NEM_MTZ_STEAM_ADDR);
+        offsets.put("ART_NEM_MTZ_WHEEL_INDENT_ADDR", ART_NEM_MTZ_WHEEL_INDENT_ADDR);
+        offsets.put("ART_NEM_MTZ_SPIN_TUBE_FLASH_ADDR", ART_NEM_MTZ_SPIN_TUBE_FLASH_ADDR);
+        offsets.put("ART_NEM_MTZ_WHEEL_ADDR", ART_NEM_MTZ_WHEEL_ADDR);
+        offsets.put("MAP_UNC_OBJ6E_ADDR", MAP_UNC_OBJ6E_ADDR);
+        offsets.put("MAP_UNC_OBJ70_ADDR", MAP_UNC_OBJ70_ADDR);
         offsets.put("ART_NEM_CPZ_STAIRBLOCK_ADDR", ART_NEM_CPZ_STAIRBLOCK_ADDR);
         offsets.put("ART_NEM_CPZ_METAL_THINGS_ADDR", ART_NEM_CPZ_METAL_THINGS_ADDR);
         offsets.put("ART_NEM_WFZ_PLATFORM_ADDR", ART_NEM_WFZ_PLATFORM_ADDR);
@@ -912,6 +974,10 @@ public class Sonic2Constants {
         offsets.put("HTZ_CLOUDS_TILE_INDEX", HTZ_CLOUDS_TILE_INDEX);
         offsets.put("HTZ_CLOUDS_TILE_COUNT", HTZ_CLOUDS_TILE_COUNT);
         offsets.put("HTZ_DYNAMIC_TILES_END", HTZ_DYNAMIC_TILES_END);
+        offsets.put("ART_NEM_BALKIRY_ADDR", ART_NEM_BALKIRY_ADDR);
+        offsets.put("ART_NEM_NEBULA_ADDR", ART_NEM_NEBULA_ADDR);
+        offsets.put("ART_NEM_TURTLOID_ADDR", ART_NEM_TURTLOID_ADDR);
+        offsets.put("ART_NEM_CLOUDS_ADDR", ART_NEM_CLOUDS_ADDR);
         return offsets;
     }
 }

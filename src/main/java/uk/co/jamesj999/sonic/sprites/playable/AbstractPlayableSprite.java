@@ -1128,6 +1128,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 return applyDeath(DamageCause.PIT);
         }
 
+        /**
+         * Applies instant death from being crushed between a solid object and terrain.
+         * Matches ROM's KillCharacter call in SolidObject_Squash (s2.asm:35348-35356).
+         * Unconditional death - bypasses rings, shields, and invulnerability frames.
+         */
+        public boolean applyCrushDeath() {
+                return applyDeath(DamageCause.CRUSH);
+        }
+
         private boolean applyDeath(DamageCause cause) {
                 if (dead) {
                         return false;
