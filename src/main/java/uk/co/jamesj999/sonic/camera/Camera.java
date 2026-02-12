@@ -86,11 +86,12 @@ public class Camera {
 			x = (short) (focusedSprite.getCentreX() - 152);
 			y = (short) (focusedSprite.getCentreY() - 96);
 
-			// Apply bounds clamping
-			if (x < minX) x = minX;
-			if (y < minY) y = minY;
-			if (x > maxX) x = maxX;
-			if (y > maxY) y = maxY;
+			// Apply bounds clamping.
+			// If max < min, treat the upper bound as wrapped/unbounded for this signed domain.
+			// SCZ ObjB2 writes Camera_Max_X_pos = Camera_X_pos - $40, which can transiently
+			// produce max < min at low X in this engine representation.
+			x = clampAxisWithWrap(x, minX, maxX);
+			y = clampAxisWithWrap(y, minY, maxY);
 			return;
 		}
 
@@ -214,18 +215,21 @@ public class Camera {
 		}
 
 		// Clamp to boundaries (ROM: ScrollHoriz lines 18077-18092, ScrollVerti similar)
-		if (x < minX) {
-			x = minX;
+		x = clampAxisWithWrap(x, minX, maxX);
+		y = clampAxisWithWrap(y, minY, maxY);
+	}
+
+	private short clampAxisWithWrap(short value, short min, short max) {
+		if (max < min) {
+			return value < min ? min : value;
 		}
-		if (y < minY) {
-			y = minY;
+		if (value < min) {
+			return min;
 		}
-		if (x > maxX) {
-			x = maxX;
+		if (value > max) {
+			return max;
 		}
-		if (y > maxY) {
-			y = maxY;
-		}
+		return value;
 	}
 
 	/**

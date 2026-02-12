@@ -82,13 +82,10 @@ public class TurtloidRiderInstance extends AbstractObjectInstance
         if (destroyed) {
             return;
         }
-        // When rider is attacked, destroy both rider and parent
+        // ROM parity: destroying the rider should not destroy the turtle base.
         destroyed = true;
         setDestroyed(true);
-
-        // Destroy parent Turtloid too
-        // The parent's destroyBadnik handles explosion/animal/points
-        parent.onPlayerAttack(player, result);
+        parent.onRiderDestroyed(currentX, currentY, player);
     }
 
     @Override

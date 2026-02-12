@@ -1,7 +1,12 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects.badniks;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.debug.DebugRenderContext;
+import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
+import uk.co.jamesj999.sonic.game.sonic2.objects.ExplosionObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.PointsObjectInstance;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -144,6 +149,12 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
      * Triggers when player is 0-127 pixels to the left (Turtloid is slightly ahead/right).
      */
     private void updateMoving(AbstractPlayableSprite player) {
+        // Rider is the attack/shooting behavior. Once destroyed, keep base as
+        // a moving platform and skip the attack state machine.
+        if (rider == null) {
+            return;
+        }
+
         if (player == null) {
             return;
         }
@@ -219,6 +230,43 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
                 false); // No H-flip
 
         levelManager.getObjectManager().addDynamicObject(projectile);
+    }
+
+    void onRiderDestroyed(int riderX, int riderY, AbstractPlayableSprite player) {
+        rider = null;
+
+        // If the rider was destroyed mid-attack, return to platform movement immediately.
+        if (state == State.PAUSE_BEFORE || state == State.SHOOTING) {
+            state = State.DONE;
+            timer = 0;
+            xVelocity = X_VELOCITY;
+            animFrame = 0;
+        }
+
+        ObjectManager objectManager = levelManager.getObjectManager();
+        if (objectManager == null) {
+            return;
+        }
+
+        ExplosionObjectInstance explosion = new ExplosionObjectInstance(
+                0x27, riderX, riderY, levelManager.getObjectRenderManager());
+        objectManager.addDynamicObject(explosion);
+
+        AnimalObjectInstance animal = new AnimalObjectInstance(
+                new ObjectSpawn(riderX, riderY, 0x28, 0, 0, false, 0), levelManager);
+        objectManager.addDynamicObject(animal);
+
+        int pointsValue = 100;
+        if (player != null) {
+            pointsValue = player.incrementBadnikChain();
+            GameServices.gameState().addScore(pointsValue);
+        }
+
+        PointsObjectInstance points = new PointsObjectInstance(
+                new ObjectSpawn(riderX, riderY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
+        objectManager.addDynamicObject(points);
+
+        AudioManager.getInstance().playSfx(Sonic2Sfx.EXPLOSION.id);
     }
 
     @Override

@@ -7,6 +7,7 @@ import uk.co.jamesj999.sonic.game.CollisionModel;
 import uk.co.jamesj999.sonic.game.PhysicsFeatureSet;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
+import uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.sprites.SensorConfiguration;
@@ -130,6 +131,9 @@ public class SpriteManager {
 	 * @return the sidekick sprite, or null if no sidekick is active
 	 */
 	public AbstractPlayableSprite getSidekick() {
+		if (isCpuSidekickSuppressed()) {
+			return null;
+		}
 		for (Sprite sprite : sprites.values()) {
 			if (sprite instanceof AbstractPlayableSprite playable && playable.isCpuControlled()) {
 				return playable;
@@ -156,6 +160,9 @@ public class SpriteManager {
 		LevelManager levelManager = getLevelManager();
 		for (Sprite sprite : sprites) {
 			if (sprite instanceof AbstractPlayableSprite playable) {
+				if (playable.isCpuControlled() && isCpuSidekickSuppressed()) {
+					continue;
+				}
 				if (debugModePressed) {
 					playable.toggleDebugMode();
 				}
@@ -221,13 +228,15 @@ public class SpriteManager {
 				}
 
 				// Pre-movement solid pass keeps riding/platform delta handling stable.
+				boolean wasRidingObject = levelManager.getObjectManager() != null
+						&& levelManager.getObjectManager().isRidingObject(playable);
 				updateSolidContacts(levelManager, playable);
 				playable.getMovementManager().handleMovement(effectiveUp, effectiveDown, effectiveLeft,
 						effectiveRight, effectiveJump, effectiveTest, speedUp, slowDown);
 				// Sonic 1 runs object SolidObject checks after Sonic movement in the object loop
 				// (ExecuteObjects iterates player first, then solid objects). Run a second pass for
 				// UNIFIED collision so top-landing resolves in the same frame.
-				if (shouldRunPostMovementSolidPass(playable)) {
+				if (shouldRunPostMovementSolidPass(playable, wasRidingObject)) {
 					updateSolidContacts(levelManager, playable);
 				}
 				// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
@@ -247,9 +256,14 @@ public class SpriteManager {
 
 		for (Sprite sprite : sprites) {
 			if (sprite instanceof AbstractPlayableSprite playable) {
+				if (playable.isCpuControlled() && isCpuSidekickSuppressed()) {
+					continue;
+				}
+				boolean wasRidingObject = levelManager.getObjectManager() != null
+						&& levelManager.getObjectManager().isRidingObject(playable);
 				updateSolidContacts(levelManager, playable);
 				playable.getMovementManager().handleMovement(false, false, false, false, false, false, false, false);
-				if (shouldRunPostMovementSolidPass(playable)) {
+				if (shouldRunPostMovementSolidPass(playable, wasRidingObject)) {
 					updateSolidContacts(levelManager, playable);
 				}
 				// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
@@ -264,6 +278,9 @@ public class SpriteManager {
 	public void draw() {
 		Collection<Sprite> sprites = getAllSprites();
 		for (Sprite sprite : sprites) {
+			if (isSuppressedSidekickSprite(sprite)) {
+				continue;
+			}
 			sprite.draw();
 		}
 	}
@@ -424,6 +441,9 @@ public class SpriteManager {
 
 		Collection<Sprite> sprites = getAllSprites();
 		for (Sprite sprite : sprites) {
+			if (isSuppressedSidekickSprite(sprite)) {
+				continue;
+			}
 			if (sprite instanceof AbstractPlayableSprite playable) {
 				int bucket = RenderPriority.clamp(playable.getPriorityBucket());
 				int idx = bucket - RenderPriority.MIN;
@@ -445,6 +465,17 @@ public class SpriteManager {
 		return levelManager;
 	}
 
+	private boolean isCpuSidekickSuppressed() {
+		LevelManager lm = getLevelManager();
+		return lm != null && lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_SCZ;
+	}
+
+	private boolean isSuppressedSidekickSprite(Sprite sprite) {
+		return isCpuSidekickSuppressed()
+				&& sprite instanceof AbstractPlayableSprite playable
+				&& playable.isCpuControlled();
+	}
+
 	private void updateSolidContacts(LevelManager levelManager, AbstractPlayableSprite playable) {
 		if (levelManager.getObjectManager() != null) {
 			levelManager.getObjectManager().updateSolidContacts(playable);
@@ -459,8 +490,8 @@ public class SpriteManager {
 		return featureSet != null && featureSet.collisionModel() == CollisionModel.UNIFIED;
 	}
 
-	static boolean shouldRunPostMovementSolidPass(AbstractPlayableSprite playable) {
-		return requiresPostMovementSolidPass(playable) && playable.getAir();
+	static boolean shouldRunPostMovementSolidPass(AbstractPlayableSprite playable, boolean wasRidingObject) {
+		return requiresPostMovementSolidPass(playable) && playable.getAir() && !wasRidingObject;
 	}
 
 	public static SensorConfiguration[][] createMovementMappingArray() {
