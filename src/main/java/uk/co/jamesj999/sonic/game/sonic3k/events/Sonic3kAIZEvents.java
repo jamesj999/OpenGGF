@@ -2,6 +2,8 @@ package uk.co.jamesj999.sonic.game.sonic3k.events;
 
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kLoadBootstrap;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.AizPlaneIntroInstance;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 
 import java.util.logging.Logger;
 
@@ -52,7 +54,9 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     }
 
     private void spawnIntroObject() {
-        // TODO: spawnObject(new AizPlaneIntroInstance(...));
-        LOG.info("AIZ1 intro: spawning plane intro object");
+        ObjectSpawn spawn = new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0);
+        AizPlaneIntroInstance intro = new AizPlaneIntroInstance(spawn);
+        spawnObject(intro);
+        LOG.info("AIZ1 intro: spawned plane intro object");
     }
 }
