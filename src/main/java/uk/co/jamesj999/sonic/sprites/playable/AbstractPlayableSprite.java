@@ -420,6 +420,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         GameServices.timers().removeTimerForCode("SpeedShoes-" + getCode());
                         defineSpeeds(); // Reset speeds to default
                 }
+                // Clear Super state
+                this.superSonic = false;
+                if (controller != null && controller.getSuperState() != null) {
+                        controller.getSuperState().reset();
+                }
         }
 
         public void resetState() {
@@ -500,6 +505,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void giveShield() {
                 LOGGER.fine("DEBUG: giveShield() called. Current shield state: " + shield);
+                // S2: Super Sonic cannot pick up shields
+                if (superSonic) {
+                        return;
+                }
                 if (hasShield()) {
                         LOGGER.fine("DEBUG: Player already has shield. Returning.");
                         return;
