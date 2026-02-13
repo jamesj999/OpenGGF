@@ -1233,7 +1233,8 @@ public class ObjectManager {
         }
 
         private boolean isPlayerAttacking(AbstractPlayableSprite player) {
-            return player.getInvincibleFrames() > 0
+            return player.isSuperSonic()
+                    || player.getInvincibleFrames() > 0
                     || player.getRolling()
                     || player.getSpindash();
         }

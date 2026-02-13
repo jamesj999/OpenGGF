@@ -918,8 +918,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public boolean getInvulnerable() {
-                // Debug mode makes player completely invulnerable
-                return debugMode || invulnerableFrames > 0 || invincibleFrames > 0 || hurt;
+                // Debug mode and Super Sonic make player completely invulnerable
+                return debugMode || superSonic || invulnerableFrames > 0 || invincibleFrames > 0 || hurt;
         }
 
         public int getInvulnerableFrames() {
