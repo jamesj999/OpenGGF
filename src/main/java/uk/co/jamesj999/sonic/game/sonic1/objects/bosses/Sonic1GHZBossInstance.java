@@ -94,8 +94,8 @@ public class Sonic1GHZBossInstance extends AbstractBossInstance {
 
         sineAngle = 0;
         timer = 0;
-        faceAnim = GHZBossAnimations.ANIM_FACE_NORMAL_1;
-        flameAnim = GHZBossAnimations.ANIM_BLANK;
+        faceAnim = Sonic1BossAnimations.ANIM_FACE_NORMAL_1;
+        flameAnim = Sonic1BossAnimations.ANIM_BLANK;
     }
 
     @Override
@@ -118,7 +118,7 @@ public class Sonic1GHZBossInstance extends AbstractBossInstance {
     protected void onHitTaken(int remainingHits) {
         // ROM: sfx_HitBoss is played by BossHitHandler
         // Face shows hit animation
-        faceAnim = GHZBossAnimations.ANIM_FACE_HIT;
+        faceAnim = Sonic1BossAnimations.ANIM_FACE_HIT;
     }
 
     @Override
@@ -338,31 +338,31 @@ public class Sonic1GHZBossInstance extends AbstractBossInstance {
         if (state.routineSecondary >= STATE_DEFEAT_WAIT) {
             // After defeat: panic face, then defeat face during ascent/escape
             if (state.routineSecondary >= STATE_ASCENT) {
-                faceAnim = GHZBossAnimations.ANIM_FACE_PANIC;
+                faceAnim = Sonic1BossAnimations.ANIM_FACE_PANIC;
             } else {
-                faceAnim = GHZBossAnimations.ANIM_FACE_DEFEAT;
+                faceAnim = Sonic1BossAnimations.ANIM_FACE_DEFEAT;
             }
             return;
         }
 
         // During combat: check if being hit (invulnerable = flash)
         if (state.invulnerable) {
-            faceAnim = GHZBossAnimations.ANIM_FACE_HIT;
+            faceAnim = Sonic1BossAnimations.ANIM_FACE_HIT;
             return;
         }
 
         // ROM: Check if player is hurt (routine >= 4) — laugh
         if (player != null && player.isHurt()) {
-            faceAnim = GHZBossAnimations.ANIM_FACE_LAUGH;
+            faceAnim = Sonic1BossAnimations.ANIM_FACE_LAUGH;
             return;
         }
 
         // Default: normal face (speed 1 during approach, varies)
         if (state.routineSecondary == STATE_APPROACH &&
                 (state.xFixed >> 16) == APPROACH_TARGET_X) {
-            faceAnim = GHZBossAnimations.ANIM_FACE_LAUGH;
+            faceAnim = Sonic1BossAnimations.ANIM_FACE_LAUGH;
         } else {
-            faceAnim = GHZBossAnimations.ANIM_FACE_NORMAL_1;
+            faceAnim = Sonic1BossAnimations.ANIM_FACE_NORMAL_1;
         }
     }
 
@@ -372,11 +372,11 @@ public class Sonic1GHZBossInstance extends AbstractBossInstance {
      */
     private void updateFlameAnimation() {
         if (state.routineSecondary == STATE_ESCAPE) {
-            flameAnim = GHZBossAnimations.ANIM_ESCAPE_FLAME;
+            flameAnim = Sonic1BossAnimations.ANIM_ESCAPE_FLAME;
         } else if (state.xVel != 0) {
-            flameAnim = GHZBossAnimations.ANIM_FLAME_1;
+            flameAnim = Sonic1BossAnimations.ANIM_FLAME_1;
         } else {
-            flameAnim = GHZBossAnimations.ANIM_BLANK;
+            flameAnim = Sonic1BossAnimations.ANIM_BLANK;
         }
     }
 
@@ -437,13 +437,13 @@ public class Sonic1GHZBossInstance extends AbstractBossInstance {
      */
     private int getFaceFrame() {
         return switch (faceAnim) {
-            case GHZBossAnimations.ANIM_FACE_NORMAL_1,
-                 GHZBossAnimations.ANIM_FACE_NORMAL_2,
-                 GHZBossAnimations.ANIM_FACE_NORMAL_3 -> 1; // facenormal1
-            case GHZBossAnimations.ANIM_FACE_LAUGH -> 3; // facelaugh1
-            case GHZBossAnimations.ANIM_FACE_HIT -> 5; // facehit
-            case GHZBossAnimations.ANIM_FACE_PANIC -> 6; // facepanic
-            case GHZBossAnimations.ANIM_FACE_DEFEAT -> 7; // facedefeat
+            case Sonic1BossAnimations.ANIM_FACE_NORMAL_1,
+                 Sonic1BossAnimations.ANIM_FACE_NORMAL_2,
+                 Sonic1BossAnimations.ANIM_FACE_NORMAL_3 -> 1; // facenormal1
+            case Sonic1BossAnimations.ANIM_FACE_LAUGH -> 3; // facelaugh1
+            case Sonic1BossAnimations.ANIM_FACE_HIT -> 5; // facehit
+            case Sonic1BossAnimations.ANIM_FACE_PANIC -> 6; // facepanic
+            case Sonic1BossAnimations.ANIM_FACE_DEFEAT -> 7; // facedefeat
             default -> -1;
         };
     }
@@ -453,10 +453,10 @@ public class Sonic1GHZBossInstance extends AbstractBossInstance {
      */
     private int getFlameFrame() {
         return switch (flameAnim) {
-            case GHZBossAnimations.ANIM_FLAME_1,
-                 GHZBossAnimations.ANIM_FLAME_2 -> 8; // flame1
-            case GHZBossAnimations.ANIM_ESCAPE_FLAME -> 11; // escapeflame1
-            case GHZBossAnimations.ANIM_BLANK -> -1; // no flame
+            case Sonic1BossAnimations.ANIM_FLAME_1,
+                 Sonic1BossAnimations.ANIM_FLAME_2 -> 8; // flame1
+            case Sonic1BossAnimations.ANIM_ESCAPE_FLAME -> 11; // escapeflame1
+            case Sonic1BossAnimations.ANIM_BLANK -> -1; // no flame
             default -> -1;
         };
     }

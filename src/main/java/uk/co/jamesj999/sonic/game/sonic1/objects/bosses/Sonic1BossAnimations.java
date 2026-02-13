@@ -7,7 +7,7 @@ import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
 import java.util.List;
 
 /**
- * Animation scripts for the GHZ boss (Eggman).
+ * Animation scripts for all Sonic 1 bosses (Eggman).
  * From docs/s1disasm/_anim/Eggman.asm (Ani_Eggman).
  *
  * 12 animation scripts:
@@ -24,7 +24,7 @@ import java.util.List;
  * 10  facedefeat   $F, 7, afEnd
  * 11  escapeflame  2, 9, 8, $B, $C, $B, $C, 9, 8, afBack, 2
  */
-final class GHZBossAnimations {
+final class Sonic1BossAnimations {
     // Animation IDs matching the disassembly order
     static final int ANIM_SHIP = 0;
     static final int ANIM_FACE_NORMAL_1 = 1;
@@ -41,7 +41,7 @@ final class GHZBossAnimations {
 
     private static final SpriteAnimationSet EGGMAN_ANIMATIONS = createEggmanAnimations();
 
-    private GHZBossAnimations() {
+    private Sonic1BossAnimations() {
     }
 
     static SpriteAnimationSet getEggmanAnimations() {

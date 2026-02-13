@@ -7,14 +7,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Sprite mapping data for the GHZ boss.
+ * Sprite mapping data for all Sonic 1 bosses (Eggman, weapons, ball).
  * Parsed from docs/s1disasm/_maps/Eggman.asm, _maps/GHZ Ball.asm, _maps/Boss Items.asm.
  *
  * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
  */
-public final class GHZBossMappings {
+public final class Sonic1BossMappings {
 
-    private GHZBossMappings() {
+    private Sonic1BossMappings() {
     }
 
     /**
