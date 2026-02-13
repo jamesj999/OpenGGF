@@ -77,6 +77,11 @@ public class Sonic2GameModule implements GameModule {
     }
 
     @Override
+    public int getCheckpointObjectId() {
+        return Sonic2ObjectIds.CHECKPOINT;
+    }
+
+    @Override
     public PlaneSwitcherConfig getPlaneSwitcherConfig() {
         return new PlaneSwitcherConfig(
                 Sonic2ObjectConstants.PATH0_TOP_SOLID_BIT,

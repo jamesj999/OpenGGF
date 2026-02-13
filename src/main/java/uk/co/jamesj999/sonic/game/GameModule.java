@@ -21,6 +21,16 @@ public interface GameModule {
 
     int getPlaneSwitcherObjectId();
 
+    /**
+     * Returns the object ID used for checkpoints/lampposts in this game.
+     * Used by debug teleportation and respawn logic.
+     *
+     * @return the checkpoint object ID, or 0 if checkpoints are not implemented
+     */
+    default int getCheckpointObjectId() {
+        return 0;
+    }
+
     PlaneSwitcherConfig getPlaneSwitcherConfig();
 
     /**
