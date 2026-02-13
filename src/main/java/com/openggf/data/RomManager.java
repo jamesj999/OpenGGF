@@ -79,29 +79,13 @@ public class RomManager implements AutoCloseable {
     }
 
     /**
-     * Opens a secondary ROM by game ID without changing the active game module.
-     * Used for cross-game feature donation (e.g., loading S2 sprites while playing S1).
+     * Returns the resolved filesystem path of the currently loaded ROM,
+     * or null if no ROM is loaded.
      *
-     * @param gameId "s1", "s2", or "s3k"
-     * @return The open ROM instance
-     * @throws IOException If the ROM cannot be opened
+     * @return the absolute path string, or null
      */
-    public synchronized Rom getSecondaryRom(String gameId) throws IOException {
-        Rom existing = secondaryRoms.get(gameId);
-        if (existing != null && existing.isOpen()) {
-            return existing;
-        }
-        String filename = resolveRomForGame(gameId);
-        if (filename == null || filename.isEmpty()) {
-            throw new IOException("No ROM configured for game: " + gameId);
-        }
-        Rom secondaryRom = new Rom();
-        if (!secondaryRom.open(filename)) {
-            throw new IOException("Failed to open secondary ROM: " + filename);
-        }
-        LOGGER.info("Opened secondary ROM (" + gameId + "): " + secondaryRom.readDomesticName());
-        secondaryRoms.put(gameId, secondaryRom);
-        return secondaryRom;
+    public synchronized String getRomPath() {
+        return (rom != null) ? rom.getFilePath() : null;
     }
 
     /**

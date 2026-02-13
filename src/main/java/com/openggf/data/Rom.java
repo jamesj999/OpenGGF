@@ -34,6 +34,9 @@ public class Rom implements AutoCloseable {
     // Cached file size for bounds checking (set on open)
     private long fileSize = -1;
 
+    // Resolved filesystem path of the ROM file (set on open)
+    private String filePath;
+
     public boolean open(String spath) {
         try {
             Path path = Path.of(spath);
@@ -52,6 +55,7 @@ public class Rom implements AutoCloseable {
             // are not used during normal engine operation.
             fileChannel = FileChannel.open(path, StandardOpenOption.READ);
             fileSize = fileChannel.size();
+            filePath = path.toString();
             return true;
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "Failed to open ROM: " + spath, e);
@@ -80,6 +84,15 @@ public class Rom implements AutoCloseable {
      */
     public boolean isOpen() {
         return fileChannel != null && fileChannel.isOpen();
+    }
+
+    /**
+     * Returns the resolved filesystem path of the ROM file, or null if not opened.
+     *
+     * @return the absolute path string, or null
+     */
+    public String getFilePath() {
+        return filePath;
     }
 
     public FileChannel getFileChannel() {

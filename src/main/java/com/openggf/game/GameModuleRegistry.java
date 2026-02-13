@@ -10,6 +10,7 @@ import uk.co.jamesj999.sonic.game.profile.scanner.RomPatternScanner;
 import uk.co.jamesj999.sonic.game.profile.scanner.ScanResult;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2GameModule;
 
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -104,23 +105,40 @@ public final class GameModuleRegistry {
             // Build defaults from the module's hardcoded constants
             Map<String, Integer> defaults = ProfileGenerator.toResolverDefaults(module.getDefaultOffsets());
 
-            // Attempt profile loading by ROM checksum
+            // Attempt profile loading: user override file first, then classpath by checksum
             RomProfile profile = null;
             byte[] romBytes = null;
             try {
-                romBytes = rom.readAllBytes();
-                String checksum = RomChecksumUtil.sha256(romBytes);
-                LOGGER.info("ROM checksum: " + checksum);
-
                 ProfileLoader loader = new ProfileLoader();
-                profile = loader.loadFromClasspath(checksum);
-                if (profile != null) {
-                    LOGGER.info("Loaded shipped profile: " + profile.getMetadata().name());
+
+                // 1. Try user override: <rom-path>.profile.json next to the ROM file
+                String romPath = rom.getFilePath();
+                if (romPath != null) {
+                    Path userOverridePath = Path.of(romPath + ".profile.json");
+                    profile = loader.loadFromFile(userOverridePath);
+                    if (profile != null) {
+                        LOGGER.info("Loaded user override profile: " + userOverridePath);
+                    }
+                }
+
+                // 2. Fall back to shipped classpath profile by ROM checksum
+                if (profile == null) {
+                    romBytes = rom.readAllBytes();
+                    String checksum = RomChecksumUtil.sha256(romBytes);
+                    LOGGER.info("ROM checksum: " + checksum);
+
+                    profile = loader.loadFromClasspath(checksum);
+                    if (profile != null) {
+                        LOGGER.info("Loaded shipped profile: " + profile.getMetadata().name());
+                    } else {
+                        LOGGER.fine("No shipped profile found for checksum: " + checksum);
+                    }
                 } else {
-                    LOGGER.fine("No shipped profile found for checksum: " + checksum);
+                    // Still need romBytes for the scanner below
+                    romBytes = rom.readAllBytes();
                 }
             } catch (Exception e) {
-                LOGGER.log(Level.WARNING, "Failed to compute ROM checksum or load profile, using defaults only", e);
+                LOGGER.log(Level.WARNING, "Failed to load profile, using defaults only", e);
             }
 
             // Initialize the resolver with profile + defaults
