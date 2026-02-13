@@ -218,6 +218,12 @@ public enum SonicConfiguration {
 	 * Which game to load by default: "s1", "s2", or "s3k".
 	 * Used to select which per-game ROM key (SONIC_1_ROM, etc.) to load.
 	 */
-	DEFAULT_ROM;
+	DEFAULT_ROM,
+
+	/**
+	 * Key to toggle Super Sonic debug mode at runtime (default: U).
+	 * Only active when DEBUG_VIEW_ENABLED is true.
+	 */
+	SUPER_SONIC_DEBUG_KEY;
 
 }
