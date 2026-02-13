@@ -155,9 +155,10 @@ public final class GHZBossMappings {
     }
 
     /**
-     * Boss Items mappings (Map_BossItems_internal) — chain anchor frames.
-     * Used by the wrecking ball base/chain component.
-     * Only frames 0 and 1 are used by GHZ boss.
+     * Boss Items mappings (Map_BossItems_internal) — chain anchor + tube frames.
+     * Frames 0-1: GHZ boss chain anchors.
+     * Frames 2-3: Placeholder (unused intermediate frames).
+     * Frame 4: MZ boss exhaust tube pipe piece.
      */
     public static List<SpriteMappingFrame> createBossItemsMappings() {
         List<SpriteMappingFrame> frames = new ArrayList<>();
@@ -171,6 +172,19 @@ public final class GHZBossMappings {
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-8, -4, 2, 1, 0x04, false, false, 0, false),
                 new SpriteMappingPiece(-8, -8, 2, 2, 0x00, false, false, 0, false)
+        )));
+
+        // Frame 2: placeholder (unused)
+        frames.add(new SpriteMappingFrame(List.of()));
+
+        // Frame 3: placeholder (unused)
+        frames.add(new SpriteMappingFrame(List.of()));
+
+        // Frame 4: .pipe (1 piece — MZ boss exhaust tube)
+        // ROM: spritePiece -8, $14, 2, 2, $D, 0, 0, 0, 0
+        // Uses ArtTile_Eggman_Weapons with palette line 1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, 0x14, 2, 2, 0x0D, false, false, 0, false)
         )));
 
         return frames;

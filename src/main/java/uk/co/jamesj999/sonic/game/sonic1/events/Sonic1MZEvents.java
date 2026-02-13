@@ -1,6 +1,13 @@
 package uk.co.jamesj999.sonic.game.sonic1.events;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
+import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1MZBossInstance;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 
 /**
  * Marble Zone dynamic level events.
@@ -238,15 +245,31 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
 
         // v_limitbtm1 = boss_mz_y (0x210)
         camera.setMaxYTarget((short) BOSS_MZ_Y);
+        // ROM threshold: boss_mz_x-$10 (0x17F0).
         if (camX < BOSS_MZ_X - 0x10) { // 0x17F0
             return; // locret_70E8
         }
 
-        // TODO: Boss spawn code - objects not yet implemented
-        // ROM loads boss object and sets up the arena here
+        // ROM: Spawn boss object at boss_mz_x + $1F0, boss_mz_y + $1C
+        LevelManager lm = LevelManager.getInstance();
+        if (lm != null && lm.getObjectManager() != null) {
+            ObjectSpawn bossSpawn = new ObjectSpawn(
+                    BOSS_MZ_X + 0x1F0, BOSS_MZ_Y + 0x1C,
+                    Sonic1ObjectIds.MZ_BOSS, 0, 0, false, 0);
+            Sonic1MZBossInstance boss = new Sonic1MZBossInstance(bossSpawn, lm);
+            lm.getObjectManager().addDynamicObject(boss);
+        }
 
-        // f_lockscreen = 1 (lock camera)
-        camera.setFrozen(true);
+        // ROM: bgm_Boss — play boss music
+        AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
+
+        // f_lockscreen = 1.
+        // ROM: f_lockscreen limits Sonic's movement range (01 Sonic.asm:824-834) but
+        // does NOT freeze the camera. MoveScreenHoriz still runs, clamped to v_limitright2
+        // ($1800 from LevelSizeArray). DLE_MZ3end ratchets v_limitleft2 forward each
+        // frame. Camera settles at v_limitright2 naturally with no visible snap.
+        // The Java equivalent is isBossFightActive() gating doLevelBoundary's RIGHT_EXTRA.
+        GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.MZ_BOSS);
         eventRoutine += 2; // advance to DLE_MZ3end
     }
 
