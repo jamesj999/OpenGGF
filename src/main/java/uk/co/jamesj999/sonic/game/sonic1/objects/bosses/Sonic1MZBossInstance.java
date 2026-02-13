@@ -100,8 +100,8 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
         timer = 0;
         lavaDropTimer = randomLavaDelay();
         combatSubtype = 0;
-        faceAnim = GHZBossAnimations.ANIM_FACE_NORMAL_1;
-        flameAnim = GHZBossAnimations.ANIM_BLANK;
+        faceAnim = Sonic1BossAnimations.ANIM_FACE_NORMAL_1;
+        flameAnim = Sonic1BossAnimations.ANIM_BLANK;
     }
 
     @Override
@@ -126,7 +126,7 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
 
     @Override
     protected void onHitTaken(int remainingHits) {
-        faceAnim = GHZBossAnimations.ANIM_FACE_HIT;
+        faceAnim = Sonic1BossAnimations.ANIM_FACE_HIT;
     }
 
     @Override
@@ -449,36 +449,36 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
     private void updateFaceAnimation(AbstractPlayableSprite player) {
         if (state.routineSecondary >= STATE_DEFEAT_WAIT) {
             if (state.routineSecondary >= STATE_ASCENT) {
-                faceAnim = GHZBossAnimations.ANIM_FACE_PANIC;
+                faceAnim = Sonic1BossAnimations.ANIM_FACE_PANIC;
             } else {
-                faceAnim = GHZBossAnimations.ANIM_FACE_DEFEAT;
+                faceAnim = Sonic1BossAnimations.ANIM_FACE_DEFEAT;
             }
             return;
         }
         if (state.invulnerable) {
-            faceAnim = GHZBossAnimations.ANIM_FACE_HIT;
+            faceAnim = Sonic1BossAnimations.ANIM_FACE_HIT;
             return;
         }
         if (player != null && player.isHurt()) {
-            faceAnim = GHZBossAnimations.ANIM_FACE_LAUGH;
+            faceAnim = Sonic1BossAnimations.ANIM_FACE_LAUGH;
             return;
         }
         // ROM: Laugh during return-to-center when yVel == 0 (waiting)
         if (state.routineSecondary == STATE_COMBAT
                 && (combatSubtype & 2) != 0 && state.yVel == 0) {
-            faceAnim = GHZBossAnimations.ANIM_FACE_LAUGH;
+            faceAnim = Sonic1BossAnimations.ANIM_FACE_LAUGH;
             return;
         }
-        faceAnim = GHZBossAnimations.ANIM_FACE_NORMAL_1;
+        faceAnim = Sonic1BossAnimations.ANIM_FACE_NORMAL_1;
     }
 
     private void updateFlameAnimation() {
         if (state.routineSecondary == STATE_ESCAPE) {
-            flameAnim = GHZBossAnimations.ANIM_ESCAPE_FLAME;
+            flameAnim = Sonic1BossAnimations.ANIM_ESCAPE_FLAME;
         } else if (state.xVel != 0) {
-            flameAnim = GHZBossAnimations.ANIM_FLAME_1;
+            flameAnim = Sonic1BossAnimations.ANIM_FLAME_1;
         } else {
-            flameAnim = GHZBossAnimations.ANIM_BLANK;
+            flameAnim = Sonic1BossAnimations.ANIM_BLANK;
         }
     }
 
@@ -536,23 +536,23 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
 
     private int getFaceFrame() {
         return switch (faceAnim) {
-            case GHZBossAnimations.ANIM_FACE_NORMAL_1,
-                 GHZBossAnimations.ANIM_FACE_NORMAL_2,
-                 GHZBossAnimations.ANIM_FACE_NORMAL_3 -> 1;
-            case GHZBossAnimations.ANIM_FACE_LAUGH -> 3;
-            case GHZBossAnimations.ANIM_FACE_HIT -> 5;
-            case GHZBossAnimations.ANIM_FACE_PANIC -> 6;
-            case GHZBossAnimations.ANIM_FACE_DEFEAT -> 7;
+            case Sonic1BossAnimations.ANIM_FACE_NORMAL_1,
+                 Sonic1BossAnimations.ANIM_FACE_NORMAL_2,
+                 Sonic1BossAnimations.ANIM_FACE_NORMAL_3 -> 1;
+            case Sonic1BossAnimations.ANIM_FACE_LAUGH -> 3;
+            case Sonic1BossAnimations.ANIM_FACE_HIT -> 5;
+            case Sonic1BossAnimations.ANIM_FACE_PANIC -> 6;
+            case Sonic1BossAnimations.ANIM_FACE_DEFEAT -> 7;
             default -> -1;
         };
     }
 
     private int getFlameFrame() {
         return switch (flameAnim) {
-            case GHZBossAnimations.ANIM_FLAME_1,
-                 GHZBossAnimations.ANIM_FLAME_2 -> 8;
-            case GHZBossAnimations.ANIM_ESCAPE_FLAME -> 11;
-            case GHZBossAnimations.ANIM_BLANK -> -1;
+            case Sonic1BossAnimations.ANIM_FLAME_1,
+                 Sonic1BossAnimations.ANIM_FLAME_2 -> 8;
+            case Sonic1BossAnimations.ANIM_ESCAPE_FLAME -> 11;
+            case Sonic1BossAnimations.ANIM_BLANK -> -1;
             default -> -1;
         };
     }

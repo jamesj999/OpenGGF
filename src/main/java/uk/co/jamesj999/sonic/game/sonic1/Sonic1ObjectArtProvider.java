@@ -5218,7 +5218,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             // Ship body pieces use palette 1, face pieces use palette 0
             // (palette per-piece is encoded in the mappings)
             List<SpriteMappingFrame> mappings =
-                    uk.co.jamesj999.sonic.game.sonic1.objects.bosses.GHZBossMappings.createEggmanMappings();
+                    uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossMappings.createEggmanMappings();
             ObjectSpriteSheet sheet = new ObjectSpriteSheet(mergedPatterns, mappings, 0, mappings.size());
             registerSheet(ObjectArtKeys.EGGMAN, sheet);
         }
@@ -5228,7 +5228,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 Sonic1Constants.ART_NEM_BOSS_WEAPONS_ADDR, "BossWeapons");
         if (weaponsPatterns.length > 0) {
             List<SpriteMappingFrame> mappings =
-                    uk.co.jamesj999.sonic.game.sonic1.objects.bosses.GHZBossMappings.createBossItemsMappings();
+                    uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossMappings.createBossItemsMappings();
             ObjectSpriteSheet sheet = new ObjectSpriteSheet(weaponsPatterns, mappings, 0, mappings.size());
             registerSheet(ObjectArtKeys.BOSS_WEAPONS, sheet);
         }
