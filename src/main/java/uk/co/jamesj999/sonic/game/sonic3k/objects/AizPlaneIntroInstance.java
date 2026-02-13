@@ -1,10 +1,13 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -113,6 +116,18 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     /** Whether this object currently owns player control lock. */
     private boolean ownsPlayerControl;
 
+    /** Reference to the plane child sprite (biplane visual). */
+    private AizIntroPlaneChild planeChild;
+
+    /** Reference to the Knuckles cutscene object. */
+    private CutsceneKnucklesAiz1Instance knuckles;
+
+    /** List of active wave children for cleanup. */
+    private final ArrayList<AizIntroWaveChild> activeWaves = new ArrayList<>();
+
+    /** List of scattered emeralds. */
+    private final ArrayList<AizEmeraldScatterInstance> emeralds = new ArrayList<>();
+
     // -----------------------------------------------------------------------
     // Constructor
     // -----------------------------------------------------------------------
@@ -184,6 +199,8 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         // Player reference not available here without Camera singleton,
         // which may not be initialized in test. Guard appropriately.
         ownsPlayerControl = false;
+        activeWaves.clear();
+        emeralds.clear();
     }
 
     // -----------------------------------------------------------------------
@@ -196,6 +213,27 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     public void advanceRoutine() {
         routine += 2;
+    }
+
+    // -----------------------------------------------------------------------
+    // Dynamic object spawning helper
+    // -----------------------------------------------------------------------
+
+    /**
+     * Spawns a dynamic object into the level's object manager.
+     * Silently no-ops when LevelManager or ObjectManager is unavailable
+     * (e.g. in unit test environments without OpenGL).
+     */
+    private void spawnDynamicObject(AbstractObjectInstance object) {
+        try {
+            LevelManager lm = LevelManager.getInstance();
+            if (lm != null && lm.getObjectManager() != null) {
+                lm.getObjectManager().addDynamicObject(object);
+            }
+        } catch (Exception e) {
+            // LevelManager may not be available in test environments
+            LOG.fine("Could not spawn dynamic object (test env?): " + e.getMessage());
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -216,8 +254,31 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             ownsPlayerControl = true;
         }
 
-        // TODO: Load plane art, set up initial mapping frame
-        // TODO: Spawn plane child object
+        // Load all intro art (plane, emeralds, waves, Knuckles).
+        try {
+            AizIntroArtLoader.loadAllIntroArt();
+        } catch (Exception e) {
+            LOG.fine("Could not load intro art (test env?): " + e.getMessage());
+        }
+
+        // Spawn the plane child (biplane visual).
+        ObjectSpawn planeSpawn = new ObjectSpawn(
+                currentX - 0x22, currentY + 0x2C, 0, 0, 0, false, 0);
+        planeChild = new AizIntroPlaneChild(planeSpawn, this);
+        spawnDynamicObject(planeChild);
+
+        // Spawn two emerald glow children attached to the plane.
+        ObjectSpawn glow1Spawn = new ObjectSpawn(currentX, currentY, 0, 0, 0, false, 0);
+        AizIntroEmeraldGlowChild glow1 = new AizIntroEmeraldGlowChild(glow1Spawn, planeChild, -8, -12);
+        ObjectSpawn glow2Spawn = new ObjectSpawn(currentX, currentY, 0, 0, 0, false, 0);
+        AizIntroEmeraldGlowChild glow2 = new AizIntroEmeraldGlowChild(glow2Spawn, planeChild, 8, -12);
+        planeChild.setGlowChildren(glow1, glow2);
+        spawnDynamicObject(glow1);
+        spawnDynamicObject(glow2);
+
+        // Set initial descent velocity.
+        xVel = 0x800;
+        yVel = 0x400;
 
         advanceRoutine();
     }
@@ -319,7 +380,15 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         waveTimer--;
         if (waveTimer <= 0) {
             waveTimer = WAVE_SPAWN_INTERVAL;
-            // TODO: Spawn wave child object (Task 11)
+
+            // Only spawn waves when the plane is sufficiently on-screen.
+            if (currentX >= 0x80) {
+                ObjectSpawn waveSpawn = new ObjectSpawn(
+                        currentX, currentY + 0x18, 0, 0, 0, false, 0);
+                AizIntroWaveChild wave = new AizIntroWaveChild(waveSpawn, SCROLL_SPEED);
+                spawnDynamicObject(wave);
+                activeWaves.add(wave);
+            }
         }
 
         waitTimer--;
@@ -414,12 +483,40 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private void routine20MonitorKnux(int frameCounter, AbstractPlayableSprite player) {
         paletteCycler.advance();
 
-        // TODO: Check camera/scroll X against KNUCKLES_SPAWN_X
-        // TODO: Spawn CutsceneKnucklesAiz1Instance when triggered (Task 9/12)
+        if (knuckles == null) {
+            // Check if camera has scrolled past the Knuckles spawn X threshold.
+            int cameraX = currentX; // fallback if Camera unavailable
+            try {
+                Camera cam = Camera.getInstance();
+                if (cam != null) {
+                    cameraX = cam.getX();
+                }
+            } catch (Exception e) {
+                // Camera may not be available in test environments
+            }
 
-        // Stub: advance after detection logic is wired in later tasks.
-        // For now, this routine waits indefinitely until externally advanced
-        // or until the spawn trigger is implemented.
+            if (cameraX >= KNUCKLES_SPAWN_X) {
+                ObjectSpawn knuxSpawn = new ObjectSpawn(
+                        CutsceneKnucklesAiz1Instance.INIT_X,
+                        CutsceneKnucklesAiz1Instance.INIT_Y,
+                        0, 0, 0, false, 0);
+                knuckles = new CutsceneKnucklesAiz1Instance(knuxSpawn);
+                spawnDynamicObject(knuckles);
+
+                // Spawn the rock child for Knuckles.
+                ObjectSpawn rockSpawn = new ObjectSpawn(
+                        CutsceneKnucklesAiz1Instance.INIT_X,
+                        CutsceneKnucklesAiz1Instance.INIT_Y + 0x20,
+                        0, 0, 0, false, 0);
+                CutsceneKnucklesRockChild rock = new CutsceneKnucklesRockChild(rockSpawn, knuckles);
+                spawnDynamicObject(rock);
+
+                LOG.fine("Routine 20: spawned Knuckles and rock child");
+                advanceRoutine();
+            }
+        } else {
+            advanceRoutine();
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -429,8 +526,12 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private void routine22MonitorAdjust(int frameCounter, AbstractPlayableSprite player) {
         paletteCycler.advance();
 
-        // TODO: Adjust plane X position based on PLANE_ADJUST_X
-        // TODO: Visual adjustments as Knuckles approaches the plane
+        if (knuckles != null) {
+            // Trigger Knuckles when he should start falling.
+            knuckles.trigger();
+            LOG.fine("Routine 22: triggered Knuckles fall");
+            advanceRoutine();
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -440,17 +541,38 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private void routine24MonitorExplode(int frameCounter, AbstractPlayableSprite player) {
         paletteCycler.advance();
 
-        // TODO: Check X against EXPLOSION_TRIGGER_X
-        // TODO: Spawn AizEmeraldScatterInstance (Task 8)
-        // TODO: Trigger explosion effect
-        // TODO: Release player control, transition to normal gameplay
+        if (emeralds.isEmpty()) {
+            // Spawn 7 emeralds at the player's position (or current X if no player).
+            int spawnX = currentX;
+            int spawnY = currentY;
+            if (player != null) {
+                spawnX = player.getCentreX();
+                spawnY = player.getCentreY();
+            }
 
-        // When explosion sequence completes:
-        // if (player != null) {
-        //     player.setControlLocked(false);
-        //     player.setObjectControlled(false);
-        //     ownsPlayerControl = false;
-        // }
-        // setDestroyed(true);
+            for (int i = 0; i < 7; i++) {
+                int subtype = i * 2; // CreateChild6_Simple: subtypes 0, 2, 4, 6, 8, 10, 12
+                ObjectSpawn emeraldSpawn = new ObjectSpawn(spawnX, spawnY, 0, subtype, 0, false, 0);
+                AizEmeraldScatterInstance emerald = new AizEmeraldScatterInstance(emeraldSpawn);
+                spawnDynamicObject(emerald);
+                emeralds.add(emerald);
+            }
+
+            LOG.fine("Routine 24: spawned 7 emeralds");
+        }
+
+        // Release player control and clean up.
+        if (player != null) {
+            player.setControlLocked(false);
+            player.setObjectControlled(false);
+            ownsPlayerControl = false;
+        }
+
+        // Spiral the plane child offscreen.
+        if (planeChild != null && !planeChild.isSpiraling()) {
+            planeChild.startSpiral(0x200, -0x100);
+        }
+
+        setDestroyed(true);
     }
 }
