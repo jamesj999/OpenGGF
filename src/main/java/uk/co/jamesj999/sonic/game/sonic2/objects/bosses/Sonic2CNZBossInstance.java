@@ -3,8 +3,8 @@ package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.sonic2.Sonic2LevelEventManager;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
+import uk.co.jamesj999.sonic.game.sonic2.events.Sonic2CNZEvents;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
@@ -151,11 +151,22 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
     // Render state
     private int lastFrameCounter;
 
+    private final Sonic2CNZEvents cnzEvents;
+
     /**
-     * Creates the main CNZ boss.
+     * Creates the main CNZ boss (generic factory path, no event handler reference).
      */
     public Sonic2CNZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
+        this(spawn, levelManager, null);
+    }
+
+    /**
+     * Creates the main CNZ boss with a reference to the zone event handler
+     * for boss defeat callbacks.
+     */
+    public Sonic2CNZBossInstance(ObjectSpawn spawn, LevelManager levelManager, Sonic2CNZEvents cnzEvents) {
         super(spawn, levelManager, "CNZ Boss");
+        this.cnzEvents = cnzEvents;
     }
 
     @Override
@@ -506,7 +517,9 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
         } else {
             // Transition to bounce phase
             // ROM: Remove arena wall at this point (line 66296 in s2.asm)
-            Sonic2LevelEventManager.getInstance().onCNZBossDefeated();
+            if (cnzEvents != null) {
+                cnzEvents.onBossDefeated();
+            }
 
             state.renderFlags |= 1;  // Face right
             state.xVel = 0;
