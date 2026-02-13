@@ -3,6 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic3k.objects;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.physics.SwingMotion;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
@@ -140,6 +141,8 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Rendering deferred to integration task (Task 13).
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getPlaneRenderer();
+        if (renderer == null || !renderer.isReady()) return;
+        renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
     }
 }

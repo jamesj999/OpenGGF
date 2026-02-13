@@ -4,6 +4,7 @@ import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.ArrayList;
@@ -127,6 +128,8 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     /** List of scattered emeralds. */
     private final ArrayList<AizEmeraldScatterInstance> emeralds = new ArrayList<>();
 
+    private int mappingFrame;
+
     // -----------------------------------------------------------------------
     // Constructor
     // -----------------------------------------------------------------------
@@ -189,7 +192,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // No-op: art loading and rendering handled in later tasks.
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getPlaneRenderer();
+        if (renderer == null || !renderer.isReady()) return;
+        renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
     }
 
     @Override

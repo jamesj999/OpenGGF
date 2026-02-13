@@ -3,6 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic3k.objects;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -75,7 +76,9 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Rendering deferred - rock art loading handled in integration task (Task 13).
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getKnucklesRenderer();
+        if (renderer == null || !renderer.isReady()) return;
+        renderer.drawFrameIndex(mappingFrame, getX(), getY(), false, false);
     }
 
     // -----------------------------------------------------------------------
