@@ -484,6 +484,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.inWater = false;
                 this.wasInWater = false;
                 this.superSonic = false;
+                if (controller != null && controller.getSuperState() != null) {
+                        controller.getSuperState().reset();
+                }
                 // Reset collision path to Path 0 (primary collision).
                 // Without this, if player was on Path 1 in previous level,
                 // solidity bits would remain 0x0E/0x0F causing collision checks
@@ -667,6 +670,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void setTailsTailsController(TailsTailsController tailsTailsController) {
                 controller.setTailsTails(tailsTailsController);
+        }
+
+        public SuperStateController getSuperStateController() {
+                return controller.getSuperState();
+        }
+
+        public void setSuperStateController(SuperStateController superStateController) {
+                controller.setSuperState(superStateController);
         }
 
         public boolean getRenderHFlip() {
@@ -1027,6 +1038,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         }
                 }
                 // Speed shoes countdown is now handled by SpeedShoesTimer
+
+                // Update Super Sonic state (ring drain, palette cycling, transformation)
+                if (controller != null && controller.getSuperState() != null) {
+                        controller.getSuperState().update();
+                }
         }
 
         public boolean applyHurt(int sourceX) {

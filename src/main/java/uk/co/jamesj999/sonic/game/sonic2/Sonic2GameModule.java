@@ -200,4 +200,10 @@ public class Sonic2GameModule implements GameModule {
         }
         return physicsProvider;
     }
+
+    @Override
+    public uk.co.jamesj999.sonic.sprites.playable.SuperStateController createSuperStateController(
+            uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite player) {
+        return new Sonic2SuperStateController(player);
+    }
 }
