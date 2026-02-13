@@ -1,51 +1,44 @@
 package com.openggf.game.sonic2;
 
-import com.openggf.audio.GameAudioProfile;
-import com.openggf.data.Game;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
-import com.openggf.game.sonic2.constants.Sonic2ObjectConstants;
-import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
-import com.openggf.game.sonic2.credits.Sonic2EndingProvider;
-import com.openggf.game.sonic2.debug.Sonic2DebugModeProvider;
-import com.openggf.game.sonic2.levelselect.LevelSelectManager;
-import com.openggf.game.sonic2.objects.BlueBallsObjectInstance;
-import com.openggf.game.sonic2.objects.BonusBlockObjectInstance;
-import com.openggf.game.sonic2.objects.LauncherBallObjectInstance;
-import com.openggf.game.sonic2.objects.Sonic2ObjectRegistry;
-import com.openggf.game.sonic2.scroll.Sonic2ScrollHandlerProvider;
-import com.openggf.game.sonic2.titlecard.TitleCardManager;
-import com.openggf.game.sonic2.titlescreen.TitleScreenManager;
-import com.openggf.game.CheckpointState;
-import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.EndingProvider;
-import com.openggf.game.GameModule;
-import com.openggf.game.LevelEventProvider;
-import com.openggf.game.WaterDataProvider;
-import com.openggf.game.LevelInitProfile;
-import com.openggf.game.LevelGamestate;
-import com.openggf.game.OscillationManager;
-import com.openggf.game.PhysicsProvider;
-import com.openggf.game.LevelSelectProvider;
-import com.openggf.game.LevelState;
-import com.openggf.game.RespawnState;
-import com.openggf.game.TitleCardProvider;
-import com.openggf.game.ZoneRegistry;
-import com.openggf.game.SpecialStageProvider;
-import com.openggf.game.ScrollHandlerProvider;
-import com.openggf.game.ZoneFeatureProvider;
-import com.openggf.game.RomOffsetProvider;
-import com.openggf.game.DebugModeProvider;
-import com.openggf.game.DebugOverlayProvider;
-import com.openggf.game.ObjectArtProvider;
-import com.openggf.game.ZoneArtProvider;
-import com.openggf.game.TitleScreenProvider;
-import com.openggf.game.sonic2.audio.Sonic2AudioProfile;
-import com.openggf.level.objects.ObjectRegistry;
-import com.openggf.level.objects.PlaneSwitcherConfig;
-import com.openggf.level.objects.TouchResponseTable;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.SuperStateController;
+import uk.co.jamesj999.sonic.audio.GameAudioProfile;
+import uk.co.jamesj999.sonic.data.Game;
+import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.data.RomByteReader;
+import uk.co.jamesj999.sonic.game.GameModule;
+import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.PhysicsProvider;
+import uk.co.jamesj999.sonic.game.LevelSelectProvider;
+import uk.co.jamesj999.sonic.game.LevelState;
+import uk.co.jamesj999.sonic.game.RespawnState;
+import uk.co.jamesj999.sonic.game.TitleCardProvider;
+import uk.co.jamesj999.sonic.game.ZoneRegistry;
+import uk.co.jamesj999.sonic.game.SpecialStageProvider;
+import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
+import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
+import uk.co.jamesj999.sonic.game.RomOffsetProvider;
+import uk.co.jamesj999.sonic.game.DebugModeProvider;
+import uk.co.jamesj999.sonic.game.DebugOverlayProvider;
+import uk.co.jamesj999.sonic.game.ObjectArtProvider;
+import uk.co.jamesj999.sonic.game.ZoneArtProvider;
+import uk.co.jamesj999.sonic.game.sonic2.debug.Sonic2DebugModeProvider;
+import uk.co.jamesj999.sonic.game.TitleScreenProvider;
+import uk.co.jamesj999.sonic.game.sonic2.levelselect.LevelSelectManager;
+import uk.co.jamesj999.sonic.game.sonic2.titlescreen.TitleScreenManager;
+import uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ScrollHandlerProvider;
+import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2AudioProfile;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectConstants;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
+import uk.co.jamesj999.sonic.game.sonic2.objects.BlueBallsObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.LauncherBallObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.BonusBlockObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.Sonic2ObjectRegistry;
+import uk.co.jamesj999.sonic.game.sonic2.titlecard.TitleCardManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
+import uk.co.jamesj999.sonic.level.objects.PlaneSwitcherConfig;
+import uk.co.jamesj999.sonic.level.objects.TouchResponseTable;
+
+import java.util.Map;
 
 public class Sonic2GameModule implements GameModule {
     private final GameAudioProfile audioProfile = new Sonic2AudioProfile();
@@ -242,12 +235,8 @@ public class Sonic2GameModule implements GameModule {
     }
 
     @Override
-    public boolean supportsSidekick() {
-        return true;
-    }
-
-    @Override
-    public EndingProvider getEndingProvider() {
-        return new Sonic2EndingProvider();
+    public Map<String, Integer> getDefaultOffsets() {
+        return Sonic2Constants.getAllOffsets();
     }
 }
+

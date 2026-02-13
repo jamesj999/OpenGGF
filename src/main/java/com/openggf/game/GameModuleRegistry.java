@@ -1,8 +1,15 @@
 package com.openggf.game;
 
-import com.openggf.data.Rom;
-import com.openggf.game.sonic2.Sonic2GameModule;
+import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.game.profile.ProfileGenerator;
+import uk.co.jamesj999.sonic.game.profile.ProfileLoader;
+import uk.co.jamesj999.sonic.game.profile.RomAddressResolver;
+import uk.co.jamesj999.sonic.game.profile.RomChecksumUtil;
+import uk.co.jamesj999.sonic.game.profile.RomProfile;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2GameModule;
 
+import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -55,7 +62,8 @@ public final class GameModuleRegistry {
 
     /**
      * Auto-detects the game from the ROM and sets the appropriate module.
-     * Falls back to Sonic 2 if detection fails.
+     * Falls back to Sonic 2 if detection fails. After module selection,
+     * initializes the {@link RomAddressResolver} with profile and default addresses.
      *
      * @param rom the ROM to detect
      * @return true if detection succeeded, false if using fallback
@@ -66,6 +74,7 @@ public final class GameModuleRegistry {
             LOGGER.warning("ROM detection failed, using default Sonic 2 module");
             setCurrent(new Sonic2GameModule());
         }
+        initializeResolver(rom, current);
         return detected;
     }
 
@@ -77,4 +86,43 @@ public final class GameModuleRegistry {
         setCurrent(new Sonic2GameModule());
         LOGGER.fine("Game module registry reset to Sonic 2 default");
     }
+
+    /**
+     * Initializes the {@link RomAddressResolver} with profile-based and default addresses.
+     * Computes the ROM's SHA-256 checksum, attempts to load a matching shipped profile
+     * from the classpath, and falls back to the module's hardcoded defaults.
+     *
+     * @param rom    the loaded ROM (used for checksum computation)
+     * @param module the active game module (provides default offsets)
+     */
+    private static void initializeResolver(Rom rom, GameModule module) {
+        try {
+            // Build defaults from the module's hardcoded constants
+            Map<String, Integer> defaults = ProfileGenerator.toResolverDefaults(module.getDefaultOffsets());
+
+            // Attempt profile loading by ROM checksum
+            RomProfile profile = null;
+            try {
+                byte[] romBytes = rom.readAllBytes();
+                String checksum = RomChecksumUtil.sha256(romBytes);
+                LOGGER.info("ROM checksum: " + checksum);
+
+                ProfileLoader loader = new ProfileLoader();
+                profile = loader.loadFromClasspath(checksum);
+                if (profile != null) {
+                    LOGGER.info("Loaded shipped profile: " + profile.getMetadata().name());
+                } else {
+                    LOGGER.fine("No shipped profile found for checksum: " + checksum);
+                }
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Failed to compute ROM checksum or load profile, using defaults only", e);
+            }
+
+            // Initialize the resolver with whatever we have
+            RomAddressResolver.getInstance().initialize(profile, defaults);
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Failed to initialize ROM address resolver", e);
+        }
+    }
 }
+

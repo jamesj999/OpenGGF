@@ -11,6 +11,8 @@ import com.openggf.level.objects.TouchResponseTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SuperStateController;
 
+import java.util.Map;
+
 public interface GameModule {
     String getIdentifier();
 
@@ -257,90 +259,14 @@ public interface GameModule {
     }
 
     /**
-     * Returns whether the given zone/act/level combination represents a
-     * "remapped zone" scenario where the physical level data comes from a
-     * different zone than the logical zone.
-     * <p>
-     * Sonic 1 SBZ act 3 is loaded from LZ zone data, so feature systems
-     * (water, palettes) need to be told the logical zone (SBZ) rather than
-     * the physical level zone (LZ).
+     * Returns the default ROM offset map for this game module.
+     * Used to seed the {@link uk.co.jamesj999.sonic.game.profile.RomAddressResolver}
+     * with hardcoded fallback values from the game's constants class.
      *
-     * @param logicalZone the zone the game considers the player to be in
-     * @param act the act index
-     * @param levelZoneIndex the zone index stored in the level data
-     * @return effective zone index for feature lookups, or -1 if no remapping
+     * @return a map of constant names to ROM offset values, or an empty map
      */
-    default int getRemappedFeatureZone(int logicalZone, int act, int levelZoneIndex) {
-        return -1;
-    }
-
-    /**
-     * Returns the effective act for the remapped feature zone, or -1 if no remapping.
-     *
-     * @param logicalZone the zone the game considers the player to be in
-     * @param act the act index
-     * @param levelZoneIndex the zone index stored in the level data
-     * @return effective act for feature lookups, or -1 if no remapping
-     */
-    default int getRemappedFeatureAct(int logicalZone, int act, int levelZoneIndex) {
-        return -1;
-    }
-
-    /**
-     * Returns whether this game supports separate Tails tail art (Obj05 with
-     * independent art/mapping/DPLC). S3K uses a completely separate set;
-     * S2 reuses the main Tails art at a different VRAM base.
-     *
-     * @return true if Tails tail art is loaded from a separate source
-     */
-    default boolean hasSeparateTailsTailArt() {
-        return false;
-    }
-
-    /**
-     * Returns whether this game uses Sonic 2-style inline parallax scroll handlers.
-     * Only Sonic 2 loads zone-specific ParallaxTables-based handlers directly.
-     * Other games use the ScrollHandlerProvider path exclusively.
-     *
-     * @return true if inline parallax handlers should be loaded
-     */
-    default boolean hasInlineParallaxHandlers() {
-        return false;
-    }
-
-    /**
-     * Returns the ending/credits provider for this game.
-     * Manages the full ending sequence: cutscene, credits text,
-     * demo playback, and post-credits screens.
-     *
-     * @return the ending provider, or null if not implemented
-     */
-    default EndingProvider getEndingProvider() {
-        return null;
-    }
-
-    /**
-     * Returns whether invincibility stars use a trail-based animation pattern
-     * (following behind the player) rather than orbital animation.
-     *
-     * @return true if invincibility stars use trail mode
-     */
-    default boolean hasTrailInvincibilityStars() {
-        return false;
-    }
-
-    /**
-     * Returns whether this game natively supports a sidekick character (e.g., Tails).
-     * Games without sidekick art/logic should return false.
-     *
-     * @return true if sidekick characters are supported
-     */
-    default boolean supportsSidekick() {
-        return false;
-    }
-
-    /** Returns the ROM-derived level initialization profile for this game. */
-    default LevelInitProfile getLevelInitProfile() {
-        return AbstractLevelInitProfile.EMPTY;
+    default Map<String, Integer> getDefaultOffsets() {
+        return Map.of();
     }
 }
+
