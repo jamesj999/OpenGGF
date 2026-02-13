@@ -34,32 +34,30 @@ public class Sonic1LoopManager {
 
     /**
      * LoopTileNums table: per-zone { loop1, loop2, roll1, roll2 }.
-     * Index by zone ID (0=GHZ, 1=LZ, 2=MZ, 3=SLZ, 4=SYZ, 5=SBZ, 6=ENDZ, 7=SS).
+     * Indexed by gameplay progression order (matching zone registry):
+     * 0=GHZ, 1=MZ, 2=SYZ, 3=LZ, 4=SLZ, 5=SBZ, 6=FZ.
      * 0x7F = disabled (no loop/roll in that slot).
      */
     private static final int[][] LOOP_TILE_NUMS = {
-        // GHZ
+        // GHZ (gameplay 0)
         { Sonic1Constants.GHZ_LOOP1, Sonic1Constants.GHZ_LOOP2,
           Sonic1Constants.GHZ_ROLL1, Sonic1Constants.GHZ_ROLL2 },
-        // LZ
+        // MZ (gameplay 1)
         { Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED,
           Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED },
-        // MZ
+        // SYZ (gameplay 2)
         { Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED,
           Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED },
-        // SLZ
+        // LZ (gameplay 3)
+        { Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED,
+          Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED },
+        // SLZ (gameplay 4)
         { Sonic1Constants.SLZ_LOOP1, Sonic1Constants.SLZ_LOOP2,
           Sonic1Constants.SLZ_ROLL1, Sonic1Constants.SLZ_ROLL2 },
-        // SYZ
+        // SBZ (gameplay 5)
         { Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED,
           Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED },
-        // SBZ
-        { Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED,
-          Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED },
-        // ENDZ
-        { Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED,
-          Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED },
-        // SS
+        // FZ (gameplay 6)
         { Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED,
           Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED },
     };

@@ -186,29 +186,39 @@ public final class Sonic1TitleCardMappings {
     }
 
     /**
+     * Mapping from gameplay progression index to title card frame index.
+     * Gameplay order: GHZ=0, MZ=1, SYZ=2, LZ=3, SLZ=4, SBZ=5, FZ=6
+     */
+    private static final int[] GAMEPLAY_TO_FRAME = {
+            FRAME_GHZ,  // gameplay 0 = GHZ
+            FRAME_MZ,   // gameplay 1 = MZ
+            FRAME_SYZ,  // gameplay 2 = SYZ
+            FRAME_LZ,   // gameplay 3 = LZ
+            FRAME_SLZ,  // gameplay 4 = SLZ
+            FRAME_SBZ,  // gameplay 5 = SBZ
+            FRAME_FZ,   // gameplay 6 = FZ
+    };
+
+    /**
      * Gets the zone name frame index for a given zone.
      * Handles special cases: SBZ3 (LZ act 3) uses SCRAP BRAIN,
      * Final Zone (SBZ act 2) uses FINAL.
      *
-     * @param zoneIndex S1 zone index (0-6)
+     * @param zoneIndex S1 gameplay zone index (0-6, matching zone registry order)
      * @param actIndex Act index (0-2)
      * @return Frame index for the zone name
      */
     public static int getZoneNameFrame(int zoneIndex, int actIndex) {
-        // SBZ act 2 = Final Zone
+        // SBZ act 2 = Final Zone (gameplay index 5)
         if (zoneIndex == 5 && actIndex == 2) {
             return FRAME_FZ;
         }
-        // LZ act 3 = SBZ3 (Scrap Brain Zone underground)
-        if (zoneIndex == 1 && actIndex == 3) {
+        // LZ act 3 = SBZ3 (Scrap Brain Zone underground, gameplay index 3)
+        if (zoneIndex == 3 && actIndex == 3) {
             return FRAME_SBZ;
         }
-        if (zoneIndex >= 0 && zoneIndex <= 5) {
-            return zoneIndex; // Direct mapping: GHZ=0, LZ=1, MZ=2, SLZ=3, SYZ=4, SBZ=5
-        }
-        // Final Zone (zone 6) uses FZ frame
-        if (zoneIndex == 6) {
-            return FRAME_FZ;
+        if (zoneIndex >= 0 && zoneIndex < GAMEPLAY_TO_FRAME.length) {
+            return GAMEPLAY_TO_FRAME[zoneIndex];
         }
         return FRAME_GHZ; // Default
     }
@@ -228,12 +238,12 @@ public final class Sonic1TitleCardMappings {
      * Returns true if this zone/act should skip the act number.
      * Final Zone has no act number displayed.
      *
-     * @param zoneIndex Zone index
+     * @param zoneIndex Gameplay zone index (0-6, matching zone registry order)
      * @param actIndex Act index
      * @return true if act number should be hidden
      */
     public static boolean shouldHideActNumber(int zoneIndex, int actIndex) {
-        // FZ: SBZ act 2 or zone 6 (Ending) - act element has startX == mainX in ConData
+        // FZ: SBZ act 2 (gameplay index 5) or zone 6 (FZ)
         return (zoneIndex == 5 && actIndex == 2) || zoneIndex == 6;
     }
 
@@ -244,17 +254,18 @@ public final class Sonic1TitleCardMappings {
     // Format: { zoneName_startX, zoneName_targetX, zone_startX, zone_targetX,
     //           act_startX, act_targetX, oval_startX, oval_targetX }
 
+    // Gameplay progression order: GHZ, MZ, SYZ, LZ, SLZ, SBZ, FZ
     private static final int[][] CON_DATA = {
             // GHZ: dc.w 0, $120, $FEFC, $13C, $414, $154, $214, $154
             { -128, 160, -388, 188, 916, 212, 404, 212 },
-            // LZ: dc.w 0, $120, $FEF4, $134, $40C, $14C, $20C, $14C
-            { -128, 160, -396, 180, 908, 204, 396, 204 },
             // MZ: dc.w 0, $120, $FEE0, $120, $3F8, $138, $1F8, $138
             { -128, 160, -416, 160, 888, 184, 376, 184 },
-            // SLZ: dc.w 0, $120, $FEFC, $13C, $414, $154, $214, $154
-            { -128, 160, -388, 188, 916, 212, 404, 212 },
             // SYZ: dc.w 0, $120, $FF04, $144, $41C, $15C, $21C, $15C
             { -128, 160, -380, 196, 924, 220, 412, 220 },
+            // LZ: dc.w 0, $120, $FEF4, $134, $40C, $14C, $20C, $14C
+            { -128, 160, -396, 180, 908, 204, 396, 204 },
+            // SLZ: dc.w 0, $120, $FEFC, $13C, $414, $154, $214, $154
+            { -128, 160, -388, 188, 916, 212, 404, 212 },
             // SBZ: dc.w 0, $120, $FF04, $144, $41C, $15C, $21C, $15C
             { -128, 160, -380, 196, 924, 220, 412, 220 },
             // FZ: dc.w 0, $120, $FEE4, $124, $3EC, $3EC, $1EC, $12C
@@ -283,21 +294,22 @@ public final class Sonic1TitleCardMappings {
     /**
      * Gets the config index for a zone/act combination.
      * Matches Card_CheckSBZ3 / Card_CheckFZ logic from disassembly.
+     * CON_DATA is now in gameplay order, so config index = gameplay zone index.
      *
-     * @param zoneIndex Zone index (0-6)
+     * @param zoneIndex Gameplay zone index (0-6, matching zone registry order)
      * @param actIndex Act index (0-2)
      * @return Config index for CON_DATA (0-6)
      */
     public static int getConfigIndex(int zoneIndex, int actIndex) {
-        // SBZ3 (LZ act 3) uses SBZ config (index 5)
-        if (zoneIndex == 1 && actIndex == 3) {
+        // SBZ3 (LZ act 3, gameplay index 3) uses SBZ config (gameplay index 5)
+        if (zoneIndex == 3 && actIndex == 3) {
             return 5;
         }
-        // FZ (SBZ act 2) uses FZ config (index 6)
+        // FZ (SBZ act 2, gameplay index 5) uses FZ config (gameplay index 6)
         if (zoneIndex == 5 && actIndex == 2) {
             return 6;
         }
-        // Zone 6 (Ending) uses FZ config
+        // Zone 6 (FZ) uses FZ config
         if (zoneIndex == 6) {
             return 6;
         }
