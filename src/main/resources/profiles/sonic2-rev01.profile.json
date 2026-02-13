@@ -1,0 +1,1396 @@
+{
+  "profile" : {
+    "name" : "Sonic The Hedgehog 2 (W) (REV01)",
+    "game" : "sonic2",
+    "checksum" : "placeholder_compute_from_rom",
+    "generatedBy" : "shipped",
+    "complete" : true
+  },
+  "addresses" : {
+    "art" : {
+      "ART_NEM_CNZ_BIG_BLOCK_ADDR" : {
+        "value" : 530120,
+        "confidence" : "verified"
+      },
+      "ART_NEM_TITLE_CARD2_ADDR" : {
+        "value" : 513418,
+        "confidence" : "verified"
+      },
+      "ART_NEM_OCTUS_ADDR" : {
+        "value" : 537450,
+        "confidence" : "verified"
+      },
+      "ART_NEM_BEAR_ADDR" : {
+        "value" : 523408,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_SPIKES_ADDR" : {
+        "value" : 88936,
+        "confidence" : "verified"
+      },
+      "ART_NEM_EGG_PRISON_ADDR" : {
+        "value" : 506418,
+        "confidence" : "verified"
+      },
+      "ART_NEM_WATER_SURFACE_ARZ_ADDR" : {
+        "value" : 536066,
+        "confidence" : "verified"
+      },
+      "ART_TILE_CHECKPOINT" : {
+        "value" : 1148,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SPIKES_ADDR" : {
+        "value" : 498012,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SPIKES_SIDE_ADDR" : {
+        "value" : 502938,
+        "confidence" : "verified"
+      },
+      "ART_NEM_STRIPED_BLOCKS_VERT_ADDR" : {
+        "value" : 525066,
+        "confidence" : "verified"
+      },
+      "ART_UNC_TAILS_ADDR" : {
+        "value" : 410400,
+        "confidence" : "verified"
+      },
+      "ART_NEM_OOZ_FAN_ADDR" : {
+        "value" : 528980,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SPRING_DIAGONAL_ADDR" : {
+        "value" : 495722,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_ARROW_SHOOTER_ADDR" : {
+        "value" : 153604,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_BOSS_EXPLOSION_ADDR" : {
+        "value" : 185610,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CPZ_METAL_THINGS_ADDR" : {
+        "value" : 533934,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_CPZ_BOSS_JETS_ADDR" : {
+        "value" : 192136,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SPEED_BOOSTER_ADDR" : {
+        "value" : 533716,
+        "confidence" : "verified"
+      },
+      "ART_NEM_BUBBLES_ADDR" : {
+        "value" : 503522,
+        "confidence" : "verified"
+      },
+      "ART_NEM_LAUNCH_BALL_ADDR" : {
+        "value" : 526048,
+        "confidence" : "verified"
+      },
+      "ART_NEM_WFZ_GUN_PLATFORM_ADDR" : {
+        "value" : 578880,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJBC_ADDR" : {
+        "value" : 244744,
+        "confidence" : "verified"
+      },
+      "ART_TILE_CNZ_BOSS_FUDGE" : {
+        "value" : 935,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJB2_B_ADDR" : {
+        "value" : 242322,
+        "confidence" : "verified"
+      },
+      "ART_TILE_EGGPOD" : {
+        "value" : 928,
+        "confidence" : "verified"
+      },
+      "ART_TILE_CNZ_BOSS" : {
+        "value" : 1031,
+        "confidence" : "verified"
+      },
+      "MAP_ENI_LEVEL_SELECT_ADDR" : {
+        "value" : 39646,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ32_HTZ_ADDR" : {
+        "value" : 145490,
+        "confidence" : "verified"
+      },
+      "ART_TILE_CNZ_VERT_PLUNGER" : {
+        "value" : 1058,
+        "confidence" : "verified"
+      },
+      "ART_NEM_PIG_ADDR" : {
+        "value" : 522000,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CHOPCHOP_ADDR" : {
+        "value" : 564122,
+        "confidence" : "verified"
+      },
+      "ART_NEM_WHISP_ADDR" : {
+        "value" : 562660,
+        "confidence" : "verified"
+      },
+      "ART_NEM_FLICKY_ADDR" : {
+        "value" : 520032,
+        "confidence" : "verified"
+      },
+      "ART_TILE_CPZ_ELEVATOR" : {
+        "value" : 928,
+        "confidence" : "verified"
+      },
+      "ART_TILE_EHZ_BOSS" : {
+        "value" : 1024,
+        "confidence" : "verified"
+      },
+      "ART_NEM_OOZ_BURN_ADDR" : {
+        "value" : 529684,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_CPZ_BOSS_EGGPOD_ADDR" : {
+        "value" : 191884,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CPZ_ANIMATED_BITS_ADDR" : {
+        "value" : 534628,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ32_CPZ_ADDR" : {
+        "value" : 145542,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SHIELD_ADDR" : {
+        "value" : 466318,
+        "confidence" : "verified"
+      },
+      "ART_NEM_TORNADO_ADDR" : {
+        "value" : 576580,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ15_A_ADDR" : {
+        "value" : 66024,
+        "confidence" : "verified"
+      },
+      "ART_NEM_LEVEL_SELECT_PICS_ADDR" : {
+        "value" : 514576,
+        "confidence" : "verified"
+      },
+      "ART_UNC_COUNTDOWN_ADDR" : {
+        "value" : 503682,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ6E_ADDR" : {
+        "value" : 165164,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ08_ADDR" : {
+        "value" : 122718,
+        "confidence" : "verified"
+      },
+      "ART_NEM_FIERY_EXPLOSION_ADDR" : {
+        "value" : 542864,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_SMALL_BUBBLES_ADDR" : {
+        "value" : 139222,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CNZ_BOSS_ADDR" : {
+        "value" : 555692,
+        "confidence" : "verified"
+      },
+      "ART_NEM_HTZ_ZIPLINE_ADDR" : {
+        "value" : 984578,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJBE_ADDR" : {
+        "value" : 245318,
+        "confidence" : "verified"
+      },
+      "ART_TILE_BOSS_SMOKE_1" : {
+        "value" : 1392,
+        "confidence" : "verified"
+      },
+      "ART_NEM_TORNADO_THRUSTER_ADDR" : {
+        "value" : 591136,
+        "confidence" : "verified"
+      },
+      "ART_NEM_OOZ_COLLAPSING_PLATFORM_ADDR" : {
+        "value" : 526800,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_MONITOR_ADDR" : {
+        "value" : 77110,
+        "confidence" : "verified"
+      },
+      "ART_NEM_HEX_BUMPER_ADDR" : {
+        "value" : 530580,
+        "confidence" : "verified"
+      },
+      "ART_NEM_RABBIT_ADDR" : {
+        "value" : 523730,
+        "confidence" : "verified"
+      },
+      "ART_NEM_STRIPED_BLOCKS_HORIZ_ADDR" : {
+        "value" : 528456,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_CNZ_BOSS_ADDR" : {
+        "value" : 205034,
+        "confidence" : "verified"
+      },
+      "ART_UNC_TAILS_SIZE" : {
+        "value" : 47296,
+        "confidence" : "verified"
+      },
+      "ART_NEM_BUMPER_ADDR" : {
+        "value" : 530718,
+        "confidence" : "verified"
+      },
+      "MAP_R_UNC_SONIC_ADDR" : {
+        "value" : 464096,
+        "confidence" : "verified"
+      },
+      "ART_TILE_CNZ_DIAG_PLUNGER" : {
+        "value" : 1026,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MTZ_COG_ADDR" : {
+        "value" : 989070,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_EGG_PRISON_ADDR" : {
+        "value" : 128054,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_SPRING_RED_ADDR" : {
+        "value" : 102450,
+        "confidence" : "verified"
+      },
+      "MAP_ENI_LEVEL_SELECT_ICON_ADDR" : {
+        "value" : 39986,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_SPEED_BOOSTER_ADDR" : {
+        "value" : 140258,
+        "confidence" : "verified"
+      },
+      "ART_NEM_EHZ_BOSS_ADDR" : {
+        "value" : 544892,
+        "confidence" : "verified"
+      },
+      "ART_TILE_SONIC_DUST" : {
+        "value" : 1180,
+        "confidence" : "verified"
+      },
+      "ART_TILE_ARZ_BOSS" : {
+        "value" : 992,
+        "confidence" : "verified"
+      },
+      "ART_TILE_WFZ_PLATFORM" : {
+        "value" : 1133,
+        "confidence" : "verified"
+      },
+      "ART_NEM_AQUIS_ADDR" : {
+        "value" : 538250,
+        "confidence" : "verified"
+      },
+      "ART_UNC_DEBUG_FONT_SIZE" : {
+        "value" : 512,
+        "confidence" : "verified"
+      },
+      "ART_NEM_BONUS_BLOCK_ADDR" : {
+        "value" : 531916,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_ARZ_BOSS_MAIN_ADDR" : {
+        "value" : 200196,
+        "confidence" : "verified"
+      },
+      "ART_NEM_EAGLE_ADDR" : {
+        "value" : 521698,
+        "confidence" : "verified"
+      },
+      "ART_NEM_EGG_CHOPPERS_ADDR" : {
+        "value" : 546920,
+        "confidence" : "verified"
+      },
+      "ART_NEM_BUBBLE_GENERATOR_ADDR" : {
+        "value" : 503062,
+        "confidence" : "verified"
+      },
+      "ART_UNC_DEBUG_FONT_ADDR" : {
+        "value" : 286068,
+        "confidence" : "verified"
+      },
+      "ART_TILE_EGG_CHOPPERS" : {
+        "value" : 1388,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJB2_A_ADDR" : {
+        "value" : 241650,
+        "confidence" : "verified"
+      },
+      "ART_NEM_FONT_STUFF_ADDR" : {
+        "value" : 508986,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ15_MCZ_ADDR" : {
+        "value" : 66134,
+        "confidence" : "verified"
+      },
+      "ART_UNC_MENU_BACK_SIZE" : {
+        "value" : 1280,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MTZ_WHEEL_ADDR" : {
+        "value" : 986550,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ70_ADDR" : {
+        "value" : 165766,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MINI_SONIC_ADDR" : {
+        "value" : 508074,
+        "confidence" : "verified"
+      },
+      "ART_UNC_SPLASH_DUST_SIZE" : {
+        "value" : 6464,
+        "confidence" : "verified"
+      },
+      "ART_NEM_HTZ_FIREBALL1_ADDR" : {
+        "value" : 983392,
+        "confidence" : "verified"
+      },
+      "ART_NEM_REXON_ADDR" : {
+        "value" : 564716,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ23_ADDR" : {
+        "value" : 154086,
+        "confidence" : "verified"
+      },
+      "ART_NEM_ARROW_SHOOTER_ADDR" : {
+        "value" : 536436,
+        "confidence" : "verified"
+      },
+      "ART_UNC_SPLASH_DUST_ADDR" : {
+        "value" : 466940,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_SPRING_ADDR" : {
+        "value" : 102428,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ19_ADDR" : {
+        "value" : 139818,
+        "confidence" : "verified"
+      },
+      "MAP_ENI_TITLE_BACK_ADDR" : {
+        "value" : 478778,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CPZ_METAL_BLOCK_ADDR" : {
+        "value" : 534456,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_SONIC_ADDR" : {
+        "value" : 457696,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MTZ_WHEEL_INDENT_ADDR" : {
+        "value" : 987662,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_WFZ_WALL_TURRET_ADDR" : {
+        "value" : 244294,
+        "confidence" : "verified"
+      },
+      "ART_NEM_EGGPOD_ADDR" : {
+        "value" : 539638,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_CPZ_BOSS_PARTS_ADDR" : {
+        "value" : 191196,
+        "confidence" : "verified"
+      },
+      "ART_NEM_EXPLOSION_ADDR" : {
+        "value" : 505234,
+        "confidence" : "verified"
+      },
+      "ART_NEM_FLIPPER_ADDR" : {
+        "value" : 532210,
+        "confidence" : "verified"
+      },
+      "ART_NEM_NEBULA_ADDR" : {
+        "value" : 565570,
+        "confidence" : "verified"
+      },
+      "MAP_ENI_MENU_BACK_SIZE" : {
+        "value" : 428,
+        "confidence" : "verified"
+      },
+      "ART_NEM_OOZ_ELEVATOR_ADDR" : {
+        "value" : 528568,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CNZ_VERT_PLUNGER_ADDR" : {
+        "value" : 531606,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CPZ_BOSS_ADDR" : {
+        "value" : 541490,
+        "confidence" : "verified"
+      },
+      "ART_UNC_FALLING_ROCKS_ADDR" : {
+        "value" : 562404,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ82_ADDR" : {
+        "value" : 173174,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SPINY_ADDR" : {
+        "value" : 570416,
+        "confidence" : "verified"
+      },
+      "ART_TILE_OOZ_SWING_PLAT" : {
+        "value" : 995,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CONSTRUCTION_STRIPES_ADDR" : {
+        "value" : 534520,
+        "confidence" : "verified"
+      },
+      "ART_NEM_ANIMAL_ADDR" : {
+        "value" : 523730,
+        "confidence" : "verified"
+      },
+      "ART_UNC_HTZ_CLOUDS_SIZE" : {
+        "value" : 1024,
+        "confidence" : "verified"
+      },
+      "MAP_ENI_MENU_BACK_ADDR" : {
+        "value" : 510848,
+        "confidence" : "verified"
+      },
+      "ART_NEM_GRABBER_ADDR" : {
+        "value" : 571060,
+        "confidence" : "verified"
+      },
+      "ART_TILE_BUBBLES" : {
+        "value" : 1371,
+        "confidence" : "verified"
+      },
+      "ART_NEM_ARZ_BARRIER_ADDR" : {
+        "value" : 536786,
+        "confidence" : "verified"
+      },
+      "ART_UNC_MENU_BACK_ADDR" : {
+        "value" : 511276,
+        "confidence" : "verified"
+      },
+      "ART_NEM_PERFECT_ADDR" : {
+        "value" : 519870,
+        "confidence" : "verified"
+      },
+      "ART_NEM_PIPE_EXIT_SPRING_ADDR" : {
+        "value" : 535558,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SHELLCRACKER_ADDR" : {
+        "value" : 569432,
+        "confidence" : "verified"
+      },
+      "ART_NEM_HTZ_CLIFFS_ADDR" : {
+        "value" : 301588,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SEAL_ADDR" : {
+        "value" : 522310,
+        "confidence" : "verified"
+      },
+      "ART_TILE_WFZ_WALL_TURRET" : {
+        "value" : 939,
+        "confidence" : "verified"
+      },
+      "ART_TILE_EGGPOD_JETS_1" : {
+        "value" : 1048,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SIGNPOST_ADDR" : {
+        "value" : 498654,
+        "confidence" : "verified"
+      },
+      "ART_NEM_PENGUIN_ADDR" : {
+        "value" : 522594,
+        "confidence" : "verified"
+      },
+      "ART_NEM_BRIDGE_ADDR" : {
+        "value" : 984362,
+        "confidence" : "verified"
+      },
+      "ART_NEM_NUMBERS_ADDR" : {
+        "value" : 498092,
+        "confidence" : "verified"
+      },
+      "ART_NEM_WFZ_PLATFORM_ADDR" : {
+        "value" : 579950,
+        "confidence" : "verified"
+      },
+      "ART_UNC_HTZ_CLOUDS_ADDR" : {
+        "value" : 303934,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CPZ_STAIRBLOCK_ADDR" : {
+        "value" : 535110,
+        "confidence" : "verified"
+      },
+      "TAILS_ANIM_DATA_ADDR" : {
+        "value" : 118840,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_CHECKPOINT_ADDR" : {
+        "value" : 128036,
+        "confidence" : "verified"
+      },
+      "ART_NEM_LEVER_SPRING_ADDR" : {
+        "value" : 502602,
+        "confidence" : "verified"
+      },
+      "ART_NEM_BALKIRY_ADDR" : {
+        "value" : 572438,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CPZ_DROPLET_ADDR" : {
+        "value" : 533820,
+        "confidence" : "verified"
+      },
+      "ART_NEM_RESULTS_TEXT_ADDR" : {
+        "value" : 518250,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_TAILS_ADDR" : {
+        "value" : 473570,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_BUBBLES_ADDR" : {
+        "value" : 130210,
+        "confidence" : "verified"
+      },
+      "ART_NEM_EGGPOD_JETS_ADDR" : {
+        "value" : 544536,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ15_TRAP_ADDR" : {
+        "value" : 66270,
+        "confidence" : "verified"
+      },
+      "ART_TILE_EXPLOSION" : {
+        "value" : 1444,
+        "confidence" : "verified"
+      },
+      "ART_NEM_HUD_ADDR" : {
+        "value" : 496190,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CPZ_ELEVATOR_ADDR" : {
+        "value" : 533014,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CHECKPOINT_ADDR" : {
+        "value" : 498310,
+        "confidence" : "verified"
+      },
+      "ART_TILE_TAILS" : {
+        "value" : 1952,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SPIKER_ADDR" : {
+        "value" : 565162,
+        "confidence" : "verified"
+      },
+      "ART_TILE_TAILS_DUST" : {
+        "value" : 1164,
+        "confidence" : "verified"
+      },
+      "ART_NEM_HTZ_SEESAW_ADDR" : {
+        "value" : 985454,
+        "confidence" : "verified"
+      },
+      "ART_TILE_EGGPOD_4" : {
+        "value" : 1280,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MTZ_MANTIS_ADDR" : {
+        "value" : 568704,
+        "confidence" : "verified"
+      },
+      "ART_TILE_EGGPOD_3" : {
+        "value" : 1056,
+        "confidence" : "verified"
+      },
+      "ART_NEM_BUZZER_ADDR" : {
+        "value" : 536938,
+        "confidence" : "verified"
+      },
+      "ART_TILE_SIGNPOST" : {
+        "value" : 1076,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_ARZ_BOSS_PARTS_ADDR" : {
+        "value" : 200040,
+        "confidence" : "verified"
+      },
+      "ART_TILE_SONIC" : {
+        "value" : 1920,
+        "confidence" : "verified"
+      },
+      "ART_TILE_ARROW_SHOOTER" : {
+        "value" : 1047,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CNZ_SNAKE_ADDR" : {
+        "value" : 529920,
+        "confidence" : "verified"
+      },
+      "ART_NEM_TITLE_CARD_ADDR" : {
+        "value" : 512556,
+        "confidence" : "verified"
+      },
+      "ART_UNC_LIVES_NUMBERS_ADDR" : {
+        "value" : 267852,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ2B_ADDR" : {
+        "value" : 154734,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CRAWL_ADDR" : {
+        "value" : 590244,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SOL_ADDR" : {
+        "value" : 986442,
+        "confidence" : "verified"
+      },
+      "ART_NEM_OOZ_SWING_PLAT_ADDR" : {
+        "value" : 527910,
+        "confidence" : "verified"
+      },
+      "ART_UNC_LIVES_NUMBERS_SIZE" : {
+        "value" : 320,
+        "confidence" : "verified"
+      },
+      "ART_TILE_TAILS_TAILS" : {
+        "value" : 1968,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MENU_BOX_ADDR" : {
+        "value" : 514448,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CNZ_DIAG_PLUNGER_ADDR" : {
+        "value" : 531120,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MCZ_COLLAPSING_PLATFORM_ADDR" : {
+        "value" : 989882,
+        "confidence" : "verified"
+      },
+      "ART_NEM_GROUNDER_ADDR" : {
+        "value" : 562958,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CHICKEN_ADDR" : {
+        "value" : 521024,
+        "confidence" : "verified"
+      },
+      "ART_NEM_TITLE_ADDR" : {
+        "value" : 479084,
+        "confidence" : "verified"
+      },
+      "ART_NEM_ARZ_BOSS_ADDR" : {
+        "value" : 549160,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ18_B_ADDR" : {
+        "value" : 67662,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MTZ_SPIN_TUBE_FLASH_ADDR" : {
+        "value" : 989296,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_CHECKPOINT_STAR_ADDR" : {
+        "value" : 128160,
+        "confidence" : "verified"
+      },
+      "ART_NEM_BOSS_SMOKE_ADDR" : {
+        "value" : 544662,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CNZ_CAGE_ADDR" : {
+        "value" : 530470,
+        "confidence" : "verified"
+      },
+      "ART_NEM_TURTLE_ADDR" : {
+        "value" : 522974,
+        "confidence" : "verified"
+      },
+      "ART_NEM_HTZ_ROCK_ADDR" : {
+        "value" : 986132,
+        "confidence" : "verified"
+      },
+      "ART_NEM_INVINCIBILITY_STARS_ADDR" : {
+        "value" : 466708,
+        "confidence" : "verified"
+      },
+      "ART_NEM_EHZ_WATERFALL_ADDR" : {
+        "value" : 983766,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_CPZ_BOSS_SMOKE_ADDR" : {
+        "value" : 192160,
+        "confidence" : "verified"
+      },
+      "TAILS_ANIM_SCRIPT_COUNT" : {
+        "value" : 33,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CNZ_ELEVATOR_ADDR" : {
+        "value" : 530356,
+        "confidence" : "verified"
+      },
+      "ART_TILE_FIERY_EXPLOSION" : {
+        "value" : 1408,
+        "confidence" : "verified"
+      },
+      "ART_NEM_WATER_SURFACE_CPZ_ADDR" : {
+        "value" : 533348,
+        "confidence" : "verified"
+      },
+      "ART_UNC_CNZ_SLOT_PICS_SIZE" : {
+        "value" : 3072,
+        "confidence" : "verified"
+      },
+      "ART_NEM_BURNER_LID_ADDR" : {
+        "value" : 524916,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MONKEY_ADDR" : {
+        "value" : 521378,
+        "confidence" : "verified"
+      },
+      "ART_UNC_CNZ_SLOT_PICS_ADDR" : {
+        "value" : 323326,
+        "confidence" : "verified"
+      },
+      "ART_NEM_TURTLOID_ADDR" : {
+        "value" : 566114,
+        "confidence" : "verified"
+      },
+      "ART_NEM_WFZ_WALL_TURRET_ADDR" : {
+        "value" : 577952,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SPRING_VERTICAL_ADDR" : {
+        "value" : 495236,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_INVINCIBILITY_STARS_ADDR" : {
+        "value" : 122044,
+        "confidence" : "verified"
+      },
+      "MAP_R_UNC_OBJ08_ADDR" : {
+        "value" : 122996,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_MCZ_BOSS_ADDR" : {
+        "value" : 202476,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_BARRIER_ADDR" : {
+        "value" : 71714,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MTZ_STEAM_ADDR" : {
+        "value" : 988036,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SPRING_HORIZONTAL_ADDR" : {
+        "value" : 495520,
+        "confidence" : "verified"
+      },
+      "SONIC_ANIM_SCRIPT_COUNT" : {
+        "value" : 34,
+        "confidence" : "verified"
+      },
+      "ART_UNC_SONIC_ADDR" : {
+        "value" : 327680,
+        "confidence" : "verified"
+      },
+      "ART_NEM_WFZ_THRUST_ADDR" : {
+        "value" : 581828,
+        "confidence" : "verified"
+      },
+      "MAP_R_UNC_TAILS_ADDR" : {
+        "value" : 476268,
+        "confidence" : "verified"
+      },
+      "ART_TILE_EHZ_WATERFALL" : {
+        "value" : 926,
+        "confidence" : "verified"
+      },
+      "ART_NEM_TAILS_LIFE_ADDR" : {
+        "value" : 508428,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SQUIRREL_ADDR" : {
+        "value" : 520354,
+        "confidence" : "verified"
+      },
+      "ART_UNC_HUD_NUMBERS_SIZE" : {
+        "value" : 768,
+        "confidence" : "verified"
+      },
+      "ART_NEM_WFZ_HRZNTL_PRPLLR_ADDR" : {
+        "value" : 581352,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ18_A_ADDR" : {
+        "value" : 67574,
+        "confidence" : "verified"
+      },
+      "ART_TILE_OOZ_ELEVATOR" : {
+        "value" : 756,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MONITOR_ADDR" : {
+        "value" : 496976,
+        "confidence" : "verified"
+      },
+      "ART_NEM_SONIC_LIFE_ADDR" : {
+        "value" : 496454,
+        "confidence" : "verified"
+      },
+      "MAP_ENI_TITLE_LOGO_ADDR" : {
+        "value" : 478854,
+        "confidence" : "verified"
+      },
+      "MAP_UNC_OBJ83_ADDR" : {
+        "value" : 66078,
+        "confidence" : "verified"
+      },
+      "ART_TILE_CPZ_BOSS" : {
+        "value" : 1280,
+        "confidence" : "verified"
+      },
+      "ART_TILE_INVINCIBILITY_STARS" : {
+        "value" : 1472,
+        "confidence" : "verified"
+      },
+      "SONIC_ANIM_DATA_ADDR" : {
+        "value" : 112152,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MCZ_BOSS_ADDR" : {
+        "value" : 551790,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CLOUDS_ADDR" : {
+        "value" : 580348,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MASHER_ADDR" : {
+        "value" : 539114,
+        "confidence" : "verified"
+      },
+      "MAP_ENI_TITLE_SCREEN_ADDR" : {
+        "value" : 478662,
+        "confidence" : "verified"
+      },
+      "ART_NEM_COCONUTS_ADDR" : {
+        "value" : 567418,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MOUSE_ADDR" : {
+        "value" : 520710,
+        "confidence" : "verified"
+      },
+      "ART_NEM_HTZ_VALVE_BARRIER_ADDR" : {
+        "value" : 985334,
+        "confidence" : "verified"
+      },
+      "ART_UNC_SONIC_SIZE" : {
+        "value" : 82720,
+        "confidence" : "verified"
+      },
+      "ART_UNC_HUD_NUMBERS_ADDR" : {
+        "value" : 267084,
+        "confidence" : "verified"
+      },
+      "ART_NEM_MTZ_SUPERNOVA_ADDR" : {
+        "value" : 570112,
+        "confidence" : "verified"
+      },
+      "ART_NEM_CNZ_BONUS_SPIKE_ADDR" : {
+        "value" : 530024,
+        "confidence" : "verified"
+      },
+      "ART_NEM_LEAVES_ADDR" : {
+        "value" : 536296,
+        "confidence" : "verified"
+      }
+    },
+    "misc" : {
+      "HTZ_PATTERNS_BASE_ADDR" : {
+        "value" : 613412,
+        "confidence" : "verified"
+      },
+      "HTZ_DYNAMIC_TILES_END" : {
+        "value" : 1312,
+        "confidence" : "verified"
+      },
+      "CNZ_BUMPERS_ACT1_ADDR" : {
+        "value" : 96282,
+        "confidence" : "verified"
+      },
+      "VRAM_BASE_MINI_CHARACTER" : {
+        "value" : 1524,
+        "confidence" : "verified"
+      },
+      "VRAM_BASE_RESULTS_TEXT" : {
+        "value" : 1456,
+        "confidence" : "verified"
+      },
+      "ZONE_MYSTIC_CAVE" : {
+        "value" : 11,
+        "confidence" : "verified"
+      },
+      "HTZ_CHUNKS_OVERLAY_ADDR" : {
+        "value" : 624036,
+        "confidence" : "verified"
+      },
+      "ZONE_ARZ" : {
+        "value" : 15,
+        "confidence" : "verified"
+      },
+      "RESULTS_BONUS_DIGIT_GROUP_TILES" : {
+        "value" : 8,
+        "confidence" : "verified"
+      },
+      "HTZ_COLLISION_PRIMARY_ADDR" : {
+        "value" : 282192,
+        "confidence" : "verified"
+      },
+      "VRAM_BASE_NUMBERS" : {
+        "value" : 1312,
+        "confidence" : "verified"
+      },
+      "HTZ_BLOCKS_ADDR" : {
+        "value" : 630068,
+        "confidence" : "verified"
+      },
+      "VRAM_BASE_PERFECT" : {
+        "value" : 1344,
+        "confidence" : "verified"
+      },
+      "CNZ_BUMPERS_ACT2_ADDR" : {
+        "value" : 96606,
+        "confidence" : "verified"
+      },
+      "HTZ_CLOUDS_TILE_INDEX" : {
+        "value" : 1304,
+        "confidence" : "verified"
+      },
+      "ZONE_HTZ" : {
+        "value" : 7,
+        "confidence" : "verified"
+      },
+      "VRAM_BASE_HUD_TEXT" : {
+        "value" : 1738,
+        "confidence" : "verified"
+      },
+      "RESULTS_BONUS_DIGIT_TILES" : {
+        "value" : 32,
+        "confidence" : "verified"
+      },
+      "HTZ_CLOUDS_TILE_COUNT" : {
+        "value" : 8,
+        "confidence" : "verified"
+      },
+      "ZONE_AQUATIC_RUIN" : {
+        "value" : 2,
+        "confidence" : "verified"
+      },
+      "HTZ_PATTERNS_OVERLAY_OFFSET" : {
+        "value" : 16256,
+        "confidence" : "verified"
+      },
+      "HTZ_PATTERNS_OVERLAY_ADDR" : {
+        "value" : 625332,
+        "confidence" : "verified"
+      },
+      "ZONE_CNZ" : {
+        "value" : 12,
+        "confidence" : "verified"
+      },
+      "ZONE_OIL_OCEAN" : {
+        "value" : 10,
+        "confidence" : "verified"
+      },
+      "MAPPINGS_EOL_TITLE_CARDS_ADDR" : {
+        "value" : 85180,
+        "confidence" : "verified"
+      },
+      "DEFAULT_ROM_SIZE" : {
+        "value" : 1048576,
+        "confidence" : "verified"
+      },
+      "HTZ_CHUNKS_BASE_ADDR" : {
+        "value" : 609908,
+        "confidence" : "verified"
+      },
+      "HTZ_MOUNTAINS_TILE_INDEX" : {
+        "value" : 1280,
+        "confidence" : "verified"
+      },
+      "VRAM_BASE_TITLE_CARD" : {
+        "value" : 1408,
+        "confidence" : "verified"
+      },
+      "ZONE_CHEMICAL_PLANT" : {
+        "value" : 13,
+        "confidence" : "verified"
+      },
+      "HTZ_COLLISION_SECONDARY_ADDR" : {
+        "value" : 282432,
+        "confidence" : "verified"
+      },
+      "HTZ_MOUNTAINS_TILE_COUNT" : {
+        "value" : 24,
+        "confidence" : "verified"
+      },
+      "ZONE_WING_FORTRESS" : {
+        "value" : 6,
+        "confidence" : "verified"
+      },
+      "HTZ_CHUNKS_OVERLAY_OFFSET" : {
+        "value" : 2432,
+        "confidence" : "verified"
+      }
+    },
+    "palette" : {
+      "CYCLING_PAL_WFZ_BELT_LEN" : {
+        "value" : 32,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_EHZ_ARZ_WATER_LEN" : {
+        "value" : 32,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_EHZ_ARZ_WATER_ADDR" : {
+        "value" : 7802,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CNZ_BOSS2_LEN" : {
+        "value" : 20,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_WFZ1_LEN" : {
+        "value" : 68,
+        "confidence" : "verified"
+      },
+      "PAL_MCZ_BOSS_ADDR" : {
+        "value" : 12418,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CPZ3_ADDR" : {
+        "value" : 8322,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_MTZ3_LEN" : {
+        "value" : 20,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_MTZ1_ADDR" : {
+        "value" : 7978,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CPZ3_LEN" : {
+        "value" : 32,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_OIL_LEN" : {
+        "value" : 16,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CPZ1_LEN" : {
+        "value" : 54,
+        "confidence" : "verified"
+      },
+      "PAL_CNZ_BOSS_ADDR" : {
+        "value" : 12450,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CNZ_BOSS1_LEN" : {
+        "value" : 18,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CNZ_BOSS2_ADDR" : {
+        "value" : 8190,
+        "confidence" : "verified"
+      },
+      "PAL_TITLE_ADDR" : {
+        "value" : 10562,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_WFZ_FIRE_ADDR" : {
+        "value" : 8354,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CNZ3_ADDR" : {
+        "value" : 8114,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CNZ4_ADDR" : {
+        "value" : 8132,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CNZ_BOSS1_ADDR" : {
+        "value" : 8172,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_LANTERN_LEN" : {
+        "value" : 8,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_MTZ2_LEN" : {
+        "value" : 12,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_OIL_ADDR" : {
+        "value" : 8054,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CNZ1_LEN" : {
+        "value" : 36,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CPZ2_LEN" : {
+        "value" : 42,
+        "confidence" : "verified"
+      },
+      "PAL_MENU_ADDR" : {
+        "value" : 12514,
+        "confidence" : "verified"
+      },
+      "PAL_MENU_SIZE" : {
+        "value" : 128,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_WFZ_BELT_ADDR" : {
+        "value" : 8386,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CNZ4_LEN" : {
+        "value" : 40,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_WFZ1_ADDR" : {
+        "value" : 8418,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_LAVA_LEN" : {
+        "value" : 128,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_WFZ2_LEN" : {
+        "value" : 24,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_WFZ_FIRE_LEN" : {
+        "value" : 32,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CNZ_BOSS3_ADDR" : {
+        "value" : 8210,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_LAVA_ADDR" : {
+        "value" : 7834,
+        "confidence" : "verified"
+      },
+      "SONIC_TAILS_PALETTE_ADDR" : {
+        "value" : 10722,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_MTZ1_LEN" : {
+        "value" : 12,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CPZ1_ADDR" : {
+        "value" : 8226,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CNZ1_ADDR" : {
+        "value" : 8078,
+        "confidence" : "verified"
+      },
+      "PAL_LEVEL_ICONS_ADDR" : {
+        "value" : 39040,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CNZ_BOSS3_LEN" : {
+        "value" : 16,
+        "confidence" : "verified"
+      },
+      "PAL_LEVEL_ICONS_SIZE" : {
+        "value" : 480,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_MTZ2_ADDR" : {
+        "value" : 7990,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CNZ3_LEN" : {
+        "value" : 18,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_LANTERN_ADDR" : {
+        "value" : 8070,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_WFZ2_ADDR" : {
+        "value" : 8486,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_MTZ3_ADDR" : {
+        "value" : 8002,
+        "confidence" : "verified"
+      },
+      "CYCLING_PAL_CPZ2_ADDR" : {
+        "value" : 8280,
+        "confidence" : "verified"
+      }
+    },
+    "collision" : {
+      "ALT_COLLISION_LAYOUT_DIR_ADDR" : {
+        "value" : 18988,
+        "confidence" : "verified"
+      },
+      "SOLID_TILE_ANGLE_ADDR" : {
+        "value" : 273744,
+        "confidence" : "verified"
+      },
+      "SOLID_TILE_MAP_SIZE" : {
+        "value" : 4096,
+        "confidence" : "verified"
+      },
+      "SOLID_TILE_ANGLE_SIZE" : {
+        "value" : 256,
+        "confidence" : "verified"
+      },
+      "COLLISION_LAYOUT_DIR_ADDR" : {
+        "value" : 18920,
+        "confidence" : "verified"
+      },
+      "SOLID_TILE_VERTICAL_MAP_ADDR" : {
+        "value" : 274000,
+        "confidence" : "verified"
+      },
+      "SOLID_TILE_HORIZONTAL_MAP_ADDR" : {
+        "value" : 278096,
+        "confidence" : "verified"
+      }
+    },
+    "level" : {
+      "LEVEL_PALETTE_DIR" : {
+        "value" : 10114,
+        "confidence" : "verified"
+      },
+      "LEVEL_DATA_DIR_ENTRY_SIZE" : {
+        "value" : 12,
+        "confidence" : "verified"
+      },
+      "LEVEL_LAYOUT_DIR_SIZE" : {
+        "value" : 68,
+        "confidence" : "verified"
+      },
+      "LEVEL_SELECT_ADDR" : {
+        "value" : 37972,
+        "confidence" : "verified"
+      },
+      "DEFAULT_LEVEL_LAYOUT_DIR_ADDR" : {
+        "value" : 285312,
+        "confidence" : "verified"
+      },
+      "LEVEL_LAYOUT_DIR_ADDR_LOC" : {
+        "value" : 58478,
+        "confidence" : "verified"
+      },
+      "LEVEL_DATA_DIR" : {
+        "value" : 271764,
+        "confidence" : "verified"
+      },
+      "LEVEL_BOUNDARIES_ADDR" : {
+        "value" : 49236,
+        "confidence" : "verified"
+      }
+    },
+    "animation" : {
+      "ANI_OBJ41_SCRIPT_COUNT" : {
+        "value" : 6,
+        "confidence" : "verified"
+      },
+      "ANIM_PAT_MAPS_ADDR" : {
+        "value" : 262992,
+        "confidence" : "verified"
+      },
+      "ANI_OBJ26_SCRIPT_COUNT" : {
+        "value" : 11,
+        "confidence" : "verified"
+      },
+      "ANI_OBJ41_ADDR" : {
+        "value" : 102370,
+        "confidence" : "verified"
+      },
+      "ANI_OBJ79_SCRIPT_COUNT" : {
+        "value" : 3,
+        "confidence" : "verified"
+      },
+      "ANI_OBJ26_ADDR" : {
+        "value" : 77006,
+        "confidence" : "verified"
+      },
+      "ANI_OBJ79_ADDR" : {
+        "value" : 127170,
+        "confidence" : "verified"
+      }
+    },
+    "objects" : {
+      "OBJECT_LAYOUT_DIR_ADDR" : {
+        "value" : 281908,
+        "confidence" : "verified"
+      }
+    },
+    "audio" : {
+      "MUSIC_PLAYLIST_ADDR" : {
+        "value" : 16032,
+        "confidence" : "verified"
+      }
+    }
+  },
+  "zones" : { }
+}
