@@ -62,6 +62,30 @@ public class TestPhysicsProfile {
         assertEquals("runDecel", 0x100, sup.runDecel());
     }
 
+    @Test
+    public void testSonic2SuperSonicProfile_MatchesDisassembly() {
+        PhysicsProfile profile = PhysicsProfile.SONIC_2_SUPER_SONIC;
+        assertEquals("runAccel", (short) 0x30, profile.runAccel());
+        assertEquals("runDecel", (short) 0x100, profile.runDecel());
+        assertEquals("friction", (short) 0x30, profile.friction());
+        assertEquals("max", (short) 0xA00, profile.max());
+        assertEquals("jump", (short) 1664, profile.jump());
+        assertEquals("standYRadius", (short) 19, profile.standYRadius());
+        assertEquals("rollYRadius", (short) 14, profile.rollYRadius());
+    }
+
+    @Test
+    public void testSonic2SuperSonic_MatchesS3kSuperSonic() {
+        // S2 and S3K Super Sonic have identical physics values
+        PhysicsProfile s2 = PhysicsProfile.SONIC_2_SUPER_SONIC;
+        PhysicsProfile s3k = PhysicsProfile.SONIC_3K_SUPER_SONIC;
+        assertEquals("runAccel", s3k.runAccel(), s2.runAccel());
+        assertEquals("runDecel", s3k.runDecel(), s2.runDecel());
+        assertEquals("friction", s3k.friction(), s2.friction());
+        assertEquals("max", s3k.max(), s2.max());
+        assertEquals("jump", s3k.jump(), s2.jump());
+    }
+
     // ========================================
     // PhysicsModifiers math
     // ========================================
