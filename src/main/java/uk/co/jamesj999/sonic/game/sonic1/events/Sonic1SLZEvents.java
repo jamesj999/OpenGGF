@@ -8,6 +8,10 @@ import uk.co.jamesj999.sonic.camera.Camera;
  *
  * Acts 1-2: No events.
  * Act 3: Boss arena with 3-routine state machine.
+ *
+ * TODO: Act 3 boss spawn + arena - DLE_SLZ lines 244-280 in s1disasm.
+ *   Routine 2 spawns boss object (Obj3D) and plays bgm_Boss.
+ *   Boss object and defeat sequence not yet implemented.
  */
 class Sonic1SLZEvents extends Sonic1ZoneEvents {
     // Boss constants
