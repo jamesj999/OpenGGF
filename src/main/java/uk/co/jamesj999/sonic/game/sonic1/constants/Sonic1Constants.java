@@ -224,6 +224,16 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search LzPole (100 bytes)
     public static final int ART_NEM_LZ_POLE_ADDR = 0x317F2;
 
+    // Nem_LzDoor1: Nemesis-compressed LZ vertical door art (161 bytes)
+    // ArtTile_LZ_Door = $3C4, loaded via PLC_LZ
+    // Verified by RomOffsetFinder --game s1 search LzDoor
+    public static final int ART_NEM_LZ_DOOR_VERT_ADDR = 0x315F4;
+
+    // Nem_LzDoor2: Nemesis-compressed LZ horizontal door art (338 bytes)
+    // ArtTile_LZ_Door = $3C4, loaded via PLC_LZ
+    // Verified by RomOffsetFinder --game s1 search LzDoor
+    public static final int ART_NEM_LZ_DOOR_HORIZ_ADDR = 0x31856;
+
     // Nem_LzBlock3: Nemesis-compressed LZ 32x16 moving block art (182 bytes)
     // ArtTile_LZ_Moving_Block = $3BC, loaded via PLC_LZ2
     // Verified by RomOffsetFinder --game s1 search LzBlock3
@@ -294,6 +304,15 @@ public final class Sonic1Constants {
     // Nem_MzGlass: Nemesis-compressed MZ green glass block art (ArtTile_MZ_Glass_Pillar = $38E)
     // Verified by RomOffsetFinder --game s1 search MzGlass (183 bytes)
     public static final int ART_NEM_MZ_GLASS_ADDR = 0x32970;
+
+    // Nem_Bumper: Nemesis-compressed SYZ bumper art (ArtTile_SYZ_Bumper = $380, palette 0)
+    // Same ROM data as ART_NEM_SS_BUMPER_ADDR (reused in special stage)
+    // Verified by RomOffsetFinder --game s1 search Bumper (362 bytes)
+    public static final int ART_NEM_BUMPER_ADDR = 0x342F8;
+
+    // Nem_Yadrin: Nemesis-compressed Yadrin art (SYZ, ArtTile_Yadrin = $47B)
+    // Verified by RomOffsetFinder --game s1 search Yadrin (999 bytes)
+    public static final int ART_NEM_YADRIN_ADDR = 0x382D4;
 
     // Nem_Basaran: Nemesis-compressed Basaran/Batbrain art (MZ, ArtTile_Basaran = $4B8)
     // Verified by RomOffsetFinder --game s1 search Basaran (763 bytes)

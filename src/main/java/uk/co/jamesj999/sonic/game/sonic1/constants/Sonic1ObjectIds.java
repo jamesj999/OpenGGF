@@ -10,6 +10,7 @@ public final class Sonic1ObjectIds {
     }
 
     public static final int SONIC           = 0x01;
+    public static final int SPINNING_LIGHT  = 0x12;
     public static final int SIGNPOST        = 0x0D;
     public static final int LAVA_BALL_MAKER = 0x13;
     public static final int LAVA_BALL       = 0x14;
@@ -57,6 +58,8 @@ public final class Sonic1ObjectIds {
     public static final int COLLAPSING_FLOOR = 0x53;
     public static final int LAVA_TAG        = 0x54;
     public static final int BATBRAIN        = 0x55;
+    public static final int FLOATING_BLOCK  = 0x56;
+    public static final int BIG_SPIKED_BALL = 0x58;
     public static final int SEESAW          = 0x5E;
     public static final int BOMB            = 0x5F;
     public static final int ORBINAUT        = 0x60;
