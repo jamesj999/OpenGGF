@@ -23,6 +23,7 @@ import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
 import uk.co.jamesj999.sonic.game.ZoneRegistry;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1AudioProfile;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
+import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
 import uk.co.jamesj999.sonic.game.sonic1.levelselect.Sonic1LevelSelectManager;
 import uk.co.jamesj999.sonic.game.sonic1.titlescreen.Sonic1TitleScreenManager;
 import uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1ObjectRegistry;
@@ -75,6 +76,11 @@ public class Sonic1GameModule implements GameModule {
     public int getPlaneSwitcherObjectId() {
         // Sonic 1 does not have a dedicated plane switcher object
         return 0;
+    }
+
+    @Override
+    public int getCheckpointObjectId() {
+        return Sonic1ObjectIds.LAMPPOST;
     }
 
     @Override

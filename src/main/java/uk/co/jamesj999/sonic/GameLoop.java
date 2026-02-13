@@ -25,8 +25,6 @@ import uk.co.jamesj999.sonic.debug.PerformanceProfiler;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
-import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2ObjectIds;
-
 import static org.lwjgl.glfw.GLFW.*;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
@@ -480,24 +478,20 @@ public class GameLoop {
             return;
         }
 
-        // Find the furthest right checkpoint (object ID 0x79)
+        // Find the furthest right checkpoint (game-agnostic)
+        int checkpointId = GameModuleRegistry.getCurrent().getCheckpointObjectId();
+        if (checkpointId == 0) {
+            LOGGER.info("DEBUG: Current game has no checkpoint object ID configured");
+            return;
+        }
         ObjectSpawn lastCheckpoint = level.getObjects().stream()
-            .filter(spawn -> spawn.objectId() == Sonic2ObjectIds.CHECKPOINT)
+            .filter(spawn -> spawn.objectId() == checkpointId)
             .max(Comparator.comparingInt(ObjectSpawn::x))
             .orElse(null);
 
         if (lastCheckpoint != null) {
             int checkpointX = lastCheckpoint.x();
             int checkpointY = lastCheckpoint.y();
-
-            // Verify checkpoint is within level bounds
-            int levelWidth = level.getMap().getWidth() * 128;
-            int levelHeight = level.getMap().getHeight() * 128;
-            if (checkpointX < 0 || checkpointX >= levelWidth || checkpointY < 0 || checkpointY >= levelHeight) {
-                LOGGER.warning("DEBUG: Checkpoint at (" + checkpointX + ", " + checkpointY +
-                    ") is outside level bounds (" + levelWidth + "x" + levelHeight + ")");
-                return;
-            }
 
             String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
             if (mainCode == null) mainCode = "sonic";
@@ -513,15 +507,14 @@ public class GameLoop {
                 player.setRolling(false);
 
                 // Move camera to center on player (prevents pit death from camera mismatch)
-                // Camera centers player horizontally and positions them in upper portion vertically
                 int screenWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
                 int screenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
                 int cameraX = checkpointX - (screenWidth / 2);
                 int cameraY = checkpointY - (screenHeight / 2);
 
-                // Clamp camera to level bounds
-                cameraX = Math.max(0, Math.min(cameraX, levelWidth - screenWidth));
-                cameraY = Math.max(0, Math.min(cameraY, levelHeight - screenHeight));
+                // Clamp camera to reasonable range (floor at 0)
+                cameraX = Math.max(0, cameraX);
+                cameraY = Math.max(0, cameraY);
 
                 camera.setX((short) cameraX);
                 camera.setY((short) cameraY);
