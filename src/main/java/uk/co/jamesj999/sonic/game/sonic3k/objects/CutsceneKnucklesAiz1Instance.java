@@ -3,6 +3,9 @@ package uk.co.jamesj999.sonic.game.sonic3k.objects;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.physics.ObjectTerrainUtils;
+import uk.co.jamesj999.sonic.physics.TerrainCheckResult;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -174,7 +177,10 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // No-op: art loading and rendering handled in later tasks (Task 10).
+        if (!visible) return;
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getKnucklesRenderer();
+        if (renderer == null || !renderer.isReady()) return;
+        renderer.drawFrameIndex(mappingFrame, currentX, currentY, facingLeft, false);
     }
 
     // -----------------------------------------------------------------------
@@ -296,12 +302,12 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         currentY += (yVel >> 8) + (yTotal >> 8);
         ySub = yTotal & 0xFF;
 
-        // TODO: ObjCheckFloorDist terrain collision - will be integrated in Task 13.
-        // When floor is hit (d1 < 0):
-        //   snap Y to floor
-        //   mappingFrame = LANDED_MAPPING_FRAME (0x16)
-        //   waitTimer = STAND_TIMER (0x7F)
-        //   routine = 6
+        // ObjCheckFloorDist terrain collision
+        TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
+        if (floor.hasCollision()) {
+            currentY += floor.distance();
+            landOnGround(currentY);
+        }
     }
 
     /**

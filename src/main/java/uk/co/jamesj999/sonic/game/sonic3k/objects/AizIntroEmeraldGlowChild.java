@@ -3,6 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic3k.objects;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -20,6 +21,11 @@ public class AizIntroEmeraldGlowChild extends AbstractObjectInstance {
     private final AizIntroPlaneChild parent;
     private final int xOffset;
     private final int yOffset;
+
+    private static final int[] GLOW_FRAMES = {0, 5, 6};
+    private static final int ANIM_FRAME_DURATION = 3;
+    private int animTimer;
+    private int animIndex;
 
     /**
      * @param spawn   spawn data (position is overridden by parent tracking)
@@ -52,15 +58,20 @@ public class AizIntroEmeraldGlowChild extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        // Follow parent automatically via getX()/getY().
-        // Self-destruct when parent plane is destroyed.
-        if (parent.isDestroyed()) {
-            setDestroyed(true);
+        animTimer++;
+        if (animTimer >= ANIM_FRAME_DURATION) {
+            animTimer = 0;
+            animIndex++;
+            if (animIndex >= GLOW_FRAMES.length) {
+                animIndex = 0;
+            }
         }
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Rendering deferred to integration task (Task 13).
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getEmeraldRenderer();
+        if (renderer == null || !renderer.isReady()) return;
+        renderer.drawFrameIndex(GLOW_FRAMES[animIndex], getX(), getY(), false, false);
     }
 }

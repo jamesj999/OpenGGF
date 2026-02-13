@@ -3,6 +3,9 @@ package uk.co.jamesj999.sonic.game.sonic3k.objects;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.physics.ObjectTerrainUtils;
+import uk.co.jamesj999.sonic.physics.TerrainCheckResult;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -140,7 +143,9 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Rendering deferred to art loading task (Task 10).
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getEmeraldRenderer();
+        if (renderer == null || !renderer.isReady()) return;
+        renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
     }
 
     // -----------------------------------------------------------------------
@@ -165,9 +170,11 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
         currentY += (yVel >> 8) + (yTotal >> 8);
         ySub = yTotal & 0xFF;
 
-        // TODO: ObjCheckFloorDist terrain collision - will be integrated in Task 13.
-        // For now, the phase transition from FALLING to GROUNDED will be wired
-        // when terrain collision is available during full integration.
+        // ObjCheckFloorDist terrain collision
+        TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
+        if (floor.hasCollision()) {
+            landOnGround(currentY + floor.distance());
+        }
     }
 
     /**
