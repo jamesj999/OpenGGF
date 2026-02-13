@@ -1,5 +1,8 @@
 package uk.co.jamesj999.sonic.game.profile;
 
+import uk.co.jamesj999.sonic.game.GameModuleRegistry;
+import uk.co.jamesj999.sonic.game.ZoneRegistry;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -245,6 +248,50 @@ public class RomAddressResolver {
     public String getZoneBehavior(int zoneId) {
         ZoneMapping mapping = zoneMappings.get(zoneId);
         return mapping != null ? mapping.behaviorMapping() : null;
+    }
+
+    /**
+     * Resolves the behavior key for a zone slot, with fallback to the zone registry.
+     *
+     * <p>Resolution order:
+     * <ol>
+     *   <li>If the profile defines a zone mapping with a non-null {@code behaviorMapping}
+     *       for this zone ID, return that mapping (e.g. a ROM hack putting CPZ data in
+     *       zone slot 0 would map zone 0 → "cpz").</li>
+     *   <li>Otherwise, query the current game module's {@link ZoneRegistry} for the
+     *       zone name at this index, and return it lowercased as the behavior key.</li>
+     *   <li>If the zone ID is out of range for the registry, return {@code null}.</li>
+     * </ol>
+     *
+     * <p><strong>Usage by call sites:</strong> Where the engine currently uses a raw zone ID
+     * to look up scroll handlers, event managers, or zone features (e.g.
+     * {@code ScrollHandlerProvider.getHandler(zoneId)}), it can instead call
+     * {@code resolveZoneBehavior(zoneId)} to get the behavior key, then use that key
+     * to select the appropriate handler. This allows ROM hacks that rearrange zone data
+     * to still get the correct behavior for each zone slot.
+     *
+     * @param zoneId the zone slot index
+     * @return the behavior key string (lowercase), or null if unmapped and out of registry range
+     */
+    public String resolveZoneBehavior(int zoneId) {
+        // Check profile zone mapping first
+        String profileBehavior = getZoneBehavior(zoneId);
+        if (profileBehavior != null) {
+            return profileBehavior;
+        }
+
+        // Fall back to zone registry default
+        try {
+            ZoneRegistry registry = GameModuleRegistry.getCurrent().getZoneRegistry();
+            if (registry != null && zoneId >= 0 && zoneId < registry.getZoneCount()) {
+                String zoneName = registry.getZoneName(zoneId);
+                return zoneName != null ? zoneName.toLowerCase().replace(" ", "_") : null;
+            }
+        } catch (Exception e) {
+            logger.fine(() -> "Could not resolve zone behavior from registry for zone " + zoneId + ": " + e.getMessage());
+        }
+
+        return null;
     }
 
     /**
