@@ -1,38 +1,33 @@
 package com.openggf.game.sonic3k;
 
-import com.openggf.audio.GameAudioProfile;
-import com.openggf.data.Game;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
-import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
-import com.openggf.game.DebugModeProvider;
-import com.openggf.game.DebugOverlayProvider;
-import com.openggf.game.GameModule;
-import com.openggf.game.LevelEventProvider;
-import com.openggf.game.LevelInitProfile;
-import com.openggf.game.PhysicsProvider;
-import com.openggf.game.WaterDataProvider;
-import com.openggf.game.LevelState;
-import com.openggf.game.ObjectArtProvider;
-import com.openggf.game.RespawnState;
-import com.openggf.game.RomOffsetProvider;
-import com.openggf.game.ScrollHandlerProvider;
-import com.openggf.game.ZoneArtProvider;
-import com.openggf.game.ZoneFeatureProvider;
-import com.openggf.game.ZoneRegistry;
-import com.openggf.game.CheckpointState;
-import com.openggf.game.LevelGamestate;
-import com.openggf.game.TitleCardProvider;
-import com.openggf.game.sonic3k.constants.Sonic3kConstants;
-import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
-import com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry;
-import com.openggf.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
-import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
-import com.openggf.level.objects.ObjectRegistry;
-import com.openggf.level.objects.PlaneSwitcherConfig;
-import com.openggf.level.objects.TouchResponseTable;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.SuperStateController;
+import uk.co.jamesj999.sonic.audio.GameAudioProfile;
+import uk.co.jamesj999.sonic.data.Game;
+import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.data.RomByteReader;
+import uk.co.jamesj999.sonic.game.DebugModeProvider;
+import uk.co.jamesj999.sonic.game.DebugOverlayProvider;
+import uk.co.jamesj999.sonic.game.GameModule;
+import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.PhysicsProvider;
+import uk.co.jamesj999.sonic.game.LevelState;
+import uk.co.jamesj999.sonic.game.ObjectArtProvider;
+import uk.co.jamesj999.sonic.game.RespawnState;
+import uk.co.jamesj999.sonic.game.RomOffsetProvider;
+import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
+import uk.co.jamesj999.sonic.game.ZoneArtProvider;
+import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
+import uk.co.jamesj999.sonic.game.ZoneRegistry;
+import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
+import uk.co.jamesj999.sonic.game.sonic2.LevelGamestate;
+import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioProfile;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
+import uk.co.jamesj999.sonic.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
+import uk.co.jamesj999.sonic.game.profile.scanner.RomPatternScanner;
+import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
+import uk.co.jamesj999.sonic.level.objects.PlaneSwitcherConfig;
+import uk.co.jamesj999.sonic.level.objects.TouchResponseTable;
+
+import java.util.Map;
 
 /**
  * GameModule for Sonic 3 &amp; Knuckles.
@@ -191,7 +186,22 @@ public class Sonic3kGameModule implements GameModule {
     }
 
     @Override
-    public boolean supportsSidekick() {
-        return true;
+    public Map<String, Integer> getDefaultOffsets() {
+        return Sonic3kConstants.getAllOffsets();
+    }
+
+    /**
+     * S3K scan patterns are not registered here because the existing
+     * {@link Sonic3kRomScanner} uses cascading discovery logic (one found
+     * address leads to the next) that does not map to simple byte-pattern
+     * matching. The scanner runs during {@link Sonic3k} construction and
+     * updates {@link Sonic3kConstants} static fields directly. Those updated
+     * values can then be applied to the resolver via
+     * {@link Sonic3kConstants#initFromResolver(uk.co.jamesj999.sonic.game.profile.RomAddressResolver)}.
+     */
+    @Override
+    public void registerScanPatterns(RomPatternScanner scanner) {
+        // No-op: S3K uses Sonic3kRomScanner for cascading pattern discovery.
+        // See class Javadoc above.
     }
 }

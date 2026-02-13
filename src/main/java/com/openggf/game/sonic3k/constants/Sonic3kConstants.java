@@ -1,5 +1,11 @@
 package com.openggf.game.sonic3k.constants;
 
+import com.openggf.game.profile.ProfileGenerator;
+import com.openggf.game.profile.RomAddressResolver;
+
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * ROM offset constants for Sonic 3 &amp; Knuckles (combined S3K ROM).
  *
@@ -598,5 +604,56 @@ public class Sonic3kConstants {
 
     public static void setScanned(boolean value) {
         scanned = value;
+    }
+
+    /**
+     * Returns all mutable ROM offset fields as a name-to-value map.
+     * Used by {@link com.openggf.game.sonic3k.Sonic3kGameModule#getDefaultOffsets()}
+     * to seed the resolver with hardcoded fallback values.
+     *
+     * <p>Only includes mutable (non-final) address fields that can be
+     * overridden by the ROM scanner or resolver profiles.
+     */
+    public static Map<String, Integer> getAllOffsets() {
+        Map<String, Integer> offsets = new HashMap<>();
+        offsets.put("LEVEL_LOAD_BLOCK_ADDR", LEVEL_LOAD_BLOCK_ADDR);
+        offsets.put("LEVEL_SIZES_ADDR", LEVEL_SIZES_ADDR);
+        offsets.put("SONIC_START_LOCATIONS_ADDR", SONIC_START_LOCATIONS_ADDR);
+        offsets.put("KNUX_START_LOCATIONS_ADDR", KNUX_START_LOCATIONS_ADDR);
+        offsets.put("SPRITE_LOC_PTRS_ADDR", SPRITE_LOC_PTRS_ADDR);
+        offsets.put("RING_LOC_PTRS_ADDR", RING_LOC_PTRS_ADDR);
+        offsets.put("LEVEL_PTRS_ADDR", LEVEL_PTRS_ADDR);
+        offsets.put("SOLID_INDEXES_ADDR", SOLID_INDEXES_ADDR);
+        offsets.put("SOLID_TILE_ANGLE_ADDR", SOLID_TILE_ANGLE_ADDR);
+        offsets.put("SOLID_TILE_VERTICAL_MAP_ADDR", SOLID_TILE_VERTICAL_MAP_ADDR);
+        offsets.put("SOLID_TILE_HORIZONTAL_MAP_ADDR", SOLID_TILE_HORIZONTAL_MAP_ADDR);
+        offsets.put("PAL_POINTERS_ADDR", PAL_POINTERS_ADDR);
+        offsets.put("SONIC_PALETTE_ADDR", SONIC_PALETTE_ADDR);
+        offsets.put("KNUCKLES_PALETTE_ADDR", KNUCKLES_PALETTE_ADDR);
+        return offsets;
+    }
+
+    /**
+     * Overrides mutable ROM address fields from the resolver.
+     * Fields not present in the resolver keep their current values
+     * (which may already be updated by {@link com.openggf.game.sonic3k.Sonic3kRomScanner}).
+     *
+     * @param resolver the address resolver (must be initialized)
+     */
+    public static void initFromResolver(RomAddressResolver resolver) {
+        LEVEL_LOAD_BLOCK_ADDR = resolver.getAddress(ProfileGenerator.categorize("LEVEL_LOAD_BLOCK_ADDR"), "LEVEL_LOAD_BLOCK_ADDR", LEVEL_LOAD_BLOCK_ADDR);
+        LEVEL_SIZES_ADDR = resolver.getAddress(ProfileGenerator.categorize("LEVEL_SIZES_ADDR"), "LEVEL_SIZES_ADDR", LEVEL_SIZES_ADDR);
+        SONIC_START_LOCATIONS_ADDR = resolver.getAddress(ProfileGenerator.categorize("SONIC_START_LOCATIONS_ADDR"), "SONIC_START_LOCATIONS_ADDR", SONIC_START_LOCATIONS_ADDR);
+        KNUX_START_LOCATIONS_ADDR = resolver.getAddress(ProfileGenerator.categorize("KNUX_START_LOCATIONS_ADDR"), "KNUX_START_LOCATIONS_ADDR", KNUX_START_LOCATIONS_ADDR);
+        SPRITE_LOC_PTRS_ADDR = resolver.getAddress(ProfileGenerator.categorize("SPRITE_LOC_PTRS_ADDR"), "SPRITE_LOC_PTRS_ADDR", SPRITE_LOC_PTRS_ADDR);
+        RING_LOC_PTRS_ADDR = resolver.getAddress(ProfileGenerator.categorize("RING_LOC_PTRS_ADDR"), "RING_LOC_PTRS_ADDR", RING_LOC_PTRS_ADDR);
+        LEVEL_PTRS_ADDR = resolver.getAddress(ProfileGenerator.categorize("LEVEL_PTRS_ADDR"), "LEVEL_PTRS_ADDR", LEVEL_PTRS_ADDR);
+        SOLID_INDEXES_ADDR = resolver.getAddress(ProfileGenerator.categorize("SOLID_INDEXES_ADDR"), "SOLID_INDEXES_ADDR", SOLID_INDEXES_ADDR);
+        SOLID_TILE_ANGLE_ADDR = resolver.getAddress(ProfileGenerator.categorize("SOLID_TILE_ANGLE_ADDR"), "SOLID_TILE_ANGLE_ADDR", SOLID_TILE_ANGLE_ADDR);
+        SOLID_TILE_VERTICAL_MAP_ADDR = resolver.getAddress(ProfileGenerator.categorize("SOLID_TILE_VERTICAL_MAP_ADDR"), "SOLID_TILE_VERTICAL_MAP_ADDR", SOLID_TILE_VERTICAL_MAP_ADDR);
+        SOLID_TILE_HORIZONTAL_MAP_ADDR = resolver.getAddress(ProfileGenerator.categorize("SOLID_TILE_HORIZONTAL_MAP_ADDR"), "SOLID_TILE_HORIZONTAL_MAP_ADDR", SOLID_TILE_HORIZONTAL_MAP_ADDR);
+        PAL_POINTERS_ADDR = resolver.getAddress(ProfileGenerator.categorize("PAL_POINTERS_ADDR"), "PAL_POINTERS_ADDR", PAL_POINTERS_ADDR);
+        SONIC_PALETTE_ADDR = resolver.getAddress(ProfileGenerator.categorize("SONIC_PALETTE_ADDR"), "SONIC_PALETTE_ADDR", SONIC_PALETTE_ADDR);
+        KNUCKLES_PALETTE_ADDR = resolver.getAddress(ProfileGenerator.categorize("KNUCKLES_PALETTE_ADDR"), "KNUCKLES_PALETTE_ADDR", KNUCKLES_PALETTE_ADDR);
     }
 }
