@@ -249,6 +249,66 @@ public class Sonic2PlayerArt {
         return set;
     }
 
+    /**
+     * Loads Super Sonic animation scripts from ROM.
+     * Returns null if the ROM address is not yet known (SUPER_SONIC_ANIM_DATA_ADDR == 0).
+     */
+    private SpriteAnimationSet loadSuperSonicAnimations() {
+        int base = Sonic2Constants.SUPER_SONIC_ANIM_DATA_ADDR;
+        int count = Sonic2Constants.SUPER_SONIC_ANIM_SCRIPT_COUNT;
+        if (base == 0) {
+            return null;
+        }
+        SpriteAnimationSet set = new SpriteAnimationSet();
+
+        for (int i = 0; i < count; i++) {
+            int scriptAddr = base + reader.readU16BE(base + i * 2);
+            int delay = reader.readU8(scriptAddr);
+            scriptAddr += 1;
+
+            List<Integer> frames = new ArrayList<>();
+            SpriteAnimationEndAction endAction = SpriteAnimationEndAction.LOOP;
+            int endParam = 0;
+
+            while (true) {
+                int value = reader.readU8(scriptAddr);
+                scriptAddr += 1;
+                if (value >= 0xF0) {
+                    if (value == 0xFF) {
+                        endAction = SpriteAnimationEndAction.LOOP;
+                        break;
+                    }
+                    if (value == 0xFE) {
+                        endAction = SpriteAnimationEndAction.LOOP_BACK;
+                        endParam = reader.readU8(scriptAddr);
+                        scriptAddr += 1;
+                        break;
+                    }
+                    if (value == 0xFD) {
+                        endAction = SpriteAnimationEndAction.SWITCH;
+                        endParam = reader.readU8(scriptAddr);
+                        scriptAddr += 1;
+                        break;
+                    }
+                    endAction = SpriteAnimationEndAction.HOLD;
+                    break;
+                }
+                frames.add(value);
+            }
+
+            set.addScript(i, new SpriteAnimationScript(delay, frames, endAction, endParam));
+        }
+        return set;
+    }
+
+    /**
+     * Loads the Super Sonic animation set for external use.
+     * Returns null if the ROM address is not yet known.
+     */
+    public SpriteAnimationSet loadSuperSonicAnimationSet() {
+        return loadSuperSonicAnimations();
+    }
+
     private SpriteAnimationSet loadTailsAnimations() {
         SpriteAnimationSet set = new SpriteAnimationSet();
         int base = Sonic2Constants.TAILS_ANIM_DATA_ADDR;
