@@ -138,7 +138,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1HiddenBonusObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.COLLAPSING_FLOOR,
                 (spawn, registry) -> new Sonic1CollapsingFloorObjectInstance(
-                        spawn, LevelManager.getInstance().getCurrentZone()));
+                        spawn, LevelManager.getInstance().getRomZoneId()));
         factories.put(Sonic1ObjectIds.MOVING_BLOCK,
                 (spawn, registry) -> new Sonic1MovingBlockObjectInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.INVISIBLE_BARRIER,

@@ -2371,6 +2371,17 @@ public class LevelManager {
         return currentZone;
     }
 
+    /**
+     * Returns the ROM zone ID for the currently loaded level.
+     * Unlike {@link #getCurrentZone()} which returns the zone registry progression
+     * index, this returns the game-specific zone identifier from the ROM data
+     * (e.g. Sonic1Constants.ZONE_MZ = 2 for Marble Zone regardless of gameplay order).
+     * Use this when comparing against game-specific zone constants.
+     */
+    public int getRomZoneId() {
+        return level != null ? level.getZoneIndex() : -1;
+    }
+
     public int getCurrentAct() {
         return currentAct;
     }

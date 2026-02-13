@@ -131,7 +131,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     public Sonic1PlatformObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, "Platform");
         this.levelManager = levelManager;
-        this.zoneIndex = levelManager.getCurrentZone();
+        this.zoneIndex = levelManager.getRomZoneId();
 
         this.baseX = spawn.x();
         this.baseY = spawn.y();

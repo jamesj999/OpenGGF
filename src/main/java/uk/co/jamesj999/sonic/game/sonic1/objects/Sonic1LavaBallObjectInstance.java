@@ -246,7 +246,7 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
         // Determine art key based on current zone
         // ROM: cmpi.b #id_SLZ,(v_zone).w / bne.s .notSLZ
         LevelManager lm = LevelManager.getInstance();
-        int zoneIndex = (lm != null) ? lm.getCurrentZone() : Sonic1Constants.ZONE_MZ;
+        int zoneIndex = (lm != null) ? lm.getRomZoneId() : Sonic1Constants.ZONE_MZ;
         this.artKey = (zoneIndex == Sonic1Constants.ZONE_SLZ)
                 ? ObjectArtKeys.SLZ_FIREBALL : ObjectArtKeys.MZ_FIREBALL;
 

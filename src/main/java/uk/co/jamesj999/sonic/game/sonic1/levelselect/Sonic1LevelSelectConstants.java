@@ -1,6 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic1.levelselect;
 
-import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
+import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ZoneConstants;
 
 /**
  * Constants and data tables for the Sonic 1 Level Select screen.
@@ -62,7 +62,10 @@ public final class Sonic1LevelSelectConstants {
 
     /**
      * Level order table - maps menu index to zone/act word (Rev01).
-     * High byte = zone ID, Low byte = act number (0-based).
+     * High byte = zone registry index, Low byte = act number (0-based).
+     *
+     * <p>Uses {@link Sonic1ZoneConstants} (gameplay progression order) since
+     * {@code LevelManager.loadZoneAndAct()} expects registry indices.
      *
      * <pre>
      * From sonic.asm LevSel_Ptrs (Revision!=0):
@@ -72,34 +75,34 @@ public final class Sonic1LevelSelectConstants {
      *   9-11:  LZ Acts 1-3
      *   12-14: SLZ Acts 1-3
      *   15-16: SBZ Acts 1-2
-     *   17:    SBZ Act 3 (actually LZ Act 4 in ROM: id_LZ, 3)
-     *   18:    Final Zone (id_SBZ, 2 in ROM)
+     *   17:    SBZ Act 3 (LZ Act 4 in ROM, registered as SBZ act 2)
+     *   18:    Final Zone (registered as FZ act 0)
      *   19:    Special Stage
      *   20:    Sound Test
      * </pre>
      */
     public static final int[] LEVEL_ORDER = {
-            (Sonic1Constants.ZONE_GHZ << 8) | 0,  // 0  - Green Hill Act 1
-            (Sonic1Constants.ZONE_GHZ << 8) | 1,  // 1  - Green Hill Act 2
-            (Sonic1Constants.ZONE_GHZ << 8) | 2,  // 2  - Green Hill Act 3
-            (Sonic1Constants.ZONE_MZ << 8) | 0,   // 3  - Marble Act 1
-            (Sonic1Constants.ZONE_MZ << 8) | 1,   // 4  - Marble Act 2
-            (Sonic1Constants.ZONE_MZ << 8) | 2,   // 5  - Marble Act 3
-            (Sonic1Constants.ZONE_SYZ << 8) | 0,  // 6  - Spring Yard Act 1
-            (Sonic1Constants.ZONE_SYZ << 8) | 1,  // 7  - Spring Yard Act 2
-            (Sonic1Constants.ZONE_SYZ << 8) | 2,  // 8  - Spring Yard Act 3
-            (Sonic1Constants.ZONE_LZ << 8) | 0,   // 9  - Labyrinth Act 1
-            (Sonic1Constants.ZONE_LZ << 8) | 1,   // 10 - Labyrinth Act 2
-            (Sonic1Constants.ZONE_LZ << 8) | 2,   // 11 - Labyrinth Act 3
-            (Sonic1Constants.ZONE_SLZ << 8) | 0,  // 12 - Star Light Act 1
-            (Sonic1Constants.ZONE_SLZ << 8) | 1,  // 13 - Star Light Act 2
-            (Sonic1Constants.ZONE_SLZ << 8) | 2,  // 14 - Star Light Act 3
-            (Sonic1Constants.ZONE_SBZ << 8) | 0,  // 15 - Scrap Brain Act 1
-            (Sonic1Constants.ZONE_SBZ << 8) | 1,  // 16 - Scrap Brain Act 2
-            (Sonic1Constants.ZONE_LZ << 8) | 3,   // 17 - Scrap Brain Act 3 (LZ Act 4)
-            (Sonic1Constants.ZONE_SBZ << 8) | 2,  // 18 - Final Zone (SBZ Act 3)
-            SPECIAL_STAGE_VALUE,                   // 19 - Special Stage
-            SOUND_TEST_VALUE                       // 20 - Sound Test
+            (Sonic1ZoneConstants.ZONE_GHZ << 8) | 0,  // 0  - Green Hill Act 1
+            (Sonic1ZoneConstants.ZONE_GHZ << 8) | 1,  // 1  - Green Hill Act 2
+            (Sonic1ZoneConstants.ZONE_GHZ << 8) | 2,  // 2  - Green Hill Act 3
+            (Sonic1ZoneConstants.ZONE_MZ << 8) | 0,   // 3  - Marble Act 1
+            (Sonic1ZoneConstants.ZONE_MZ << 8) | 1,   // 4  - Marble Act 2
+            (Sonic1ZoneConstants.ZONE_MZ << 8) | 2,   // 5  - Marble Act 3
+            (Sonic1ZoneConstants.ZONE_SYZ << 8) | 0,  // 6  - Spring Yard Act 1
+            (Sonic1ZoneConstants.ZONE_SYZ << 8) | 1,  // 7  - Spring Yard Act 2
+            (Sonic1ZoneConstants.ZONE_SYZ << 8) | 2,  // 8  - Spring Yard Act 3
+            (Sonic1ZoneConstants.ZONE_LZ << 8) | 0,   // 9  - Labyrinth Act 1
+            (Sonic1ZoneConstants.ZONE_LZ << 8) | 1,   // 10 - Labyrinth Act 2
+            (Sonic1ZoneConstants.ZONE_LZ << 8) | 2,   // 11 - Labyrinth Act 3
+            (Sonic1ZoneConstants.ZONE_SLZ << 8) | 0,  // 12 - Star Light Act 1
+            (Sonic1ZoneConstants.ZONE_SLZ << 8) | 1,  // 13 - Star Light Act 2
+            (Sonic1ZoneConstants.ZONE_SLZ << 8) | 2,  // 14 - Star Light Act 3
+            (Sonic1ZoneConstants.ZONE_SBZ << 8) | 0,  // 15 - Scrap Brain Act 1
+            (Sonic1ZoneConstants.ZONE_SBZ << 8) | 1,  // 16 - Scrap Brain Act 2
+            (Sonic1ZoneConstants.ZONE_SBZ << 8) | 2,  // 17 - Scrap Brain Act 3 (LZ Act 4 in ROM)
+            (Sonic1ZoneConstants.ZONE_FZ << 8) | 0,   // 18 - Final Zone
+            SPECIAL_STAGE_VALUE,                       // 19 - Special Stage
+            SOUND_TEST_VALUE                           // 20 - Sound Test
     };
 
     /**

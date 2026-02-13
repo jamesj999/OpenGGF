@@ -333,8 +333,9 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
             }
         }
 
-        // loc_16CC0: fragment objects delete when they leave render range.
-        if (!isOnScreenX(160)) {
+        // loc_16CE0: tst.b obRender(a0) / bpl.w Cat_ChkGone
+        // ROM checks both X and Y via obRender on-screen flag.
+        if (!isOnScreen(160)) {
             markDestroyed();
         }
     }
@@ -417,7 +418,8 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
         }
         if (fragmenting) {
             // tst.b obRender(a0) / bpl.w Cat_ChkGone
-            return isOnScreenX(160);
+            // ROM checks both X and Y via obRender on-screen flag.
+            return isOnScreen(160);
         }
         // Body segments persist as long as head exists
         return !head.isDestroyed() && !head.isDeleting();
