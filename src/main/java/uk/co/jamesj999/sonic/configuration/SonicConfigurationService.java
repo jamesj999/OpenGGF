@@ -193,6 +193,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.SONIC_3K_ROM, "Sonic 3 & Knuckles (W) [!].gen");
 		putDefault(SonicConfiguration.S3K_SKIP_AIZ1_INTRO, true);
 		putDefault(SonicConfiguration.DEFAULT_ROM, "s2");
+		putDefault(SonicConfiguration.SUPER_SONIC_DEBUG_KEY, GLFW_KEY_U);
 	}
 
 	private void putDefault(SonicConfiguration key, Object value) {
