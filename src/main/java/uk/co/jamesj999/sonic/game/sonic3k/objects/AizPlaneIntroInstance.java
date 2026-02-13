@@ -1,6 +1,5 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
-import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
@@ -201,6 +200,12 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         ownsPlayerControl = false;
         activeWaves.clear();
         emeralds.clear();
+        // Release cached art data so it can be reloaded on next level entry.
+        try {
+            AizIntroArtLoader.reset();
+        } catch (Exception e) {
+            // Ignore in test environments
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -267,14 +272,14 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         planeChild = new AizIntroPlaneChild(planeSpawn, this);
         spawnDynamicObject(planeChild);
 
-        // Spawn two emerald glow children attached to the plane.
+        // Create two emerald glow children attached to the plane.
+        // These are NOT spawned as dynamic objects to avoid double-update;
+        // the plane child manages their update() calls directly.
         ObjectSpawn glow1Spawn = new ObjectSpawn(currentX, currentY, 0, 0, 0, false, 0);
         AizIntroEmeraldGlowChild glow1 = new AizIntroEmeraldGlowChild(glow1Spawn, planeChild, -8, -12);
         ObjectSpawn glow2Spawn = new ObjectSpawn(currentX, currentY, 0, 0, 0, false, 0);
         AizIntroEmeraldGlowChild glow2 = new AizIntroEmeraldGlowChild(glow2Spawn, planeChild, 8, -12);
         planeChild.setGlowChildren(glow1, glow2);
-        spawnDynamicObject(glow1);
-        spawnDynamicObject(glow2);
 
         // Set initial descent velocity.
         xVel = 0x800;
@@ -484,18 +489,13 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         paletteCycler.advance();
 
         if (knuckles == null) {
-            // Check if camera has scrolled past the Knuckles spawn X threshold.
-            int cameraX = currentX; // fallback if Camera unavailable
-            try {
-                Camera cam = Camera.getInstance();
-                if (cam != null) {
-                    cameraX = cam.getX();
-                }
-            } catch (Exception e) {
-                // Camera may not be available in test environments
+            // ROM checks Player_1.x_pos against KNUCKLES_SPAWN_X.
+            int checkX = currentX; // fallback if no player (test env)
+            if (player != null) {
+                checkX = player.getCentreX();
             }
 
-            if (cameraX >= KNUCKLES_SPAWN_X) {
+            if (checkX >= KNUCKLES_SPAWN_X) {
                 ObjectSpawn knuxSpawn = new ObjectSpawn(
                         CutsceneKnucklesAiz1Instance.INIT_X,
                         CutsceneKnucklesAiz1Instance.INIT_Y,
@@ -526,10 +526,19 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private void routine22MonitorAdjust(int frameCounter, AbstractPlayableSprite player) {
         paletteCycler.advance();
 
-        if (knuckles != null) {
-            // Trigger Knuckles when he should start falling.
+        // ROM checks player X against PLANE_ADJUST_X before triggering Knuckles.
+        int checkX = currentX;
+        if (player != null) {
+            checkX = player.getCentreX();
+        }
+
+        if (knuckles != null && checkX >= PLANE_ADJUST_X) {
+            // Adjust plane Y position down by 0x20 (ROM: y_pos -= 0x20).
+            currentY -= 0x20;
+
+            // Trigger Knuckles to start falling.
             knuckles.trigger();
-            LOG.fine("Routine 22: triggered Knuckles fall");
+            LOG.fine("Routine 22: triggered Knuckles fall, adjusted plane Y");
             advanceRoutine();
         }
     }
