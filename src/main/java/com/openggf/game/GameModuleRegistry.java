@@ -6,9 +6,13 @@ import uk.co.jamesj999.sonic.game.profile.ProfileLoader;
 import uk.co.jamesj999.sonic.game.profile.RomAddressResolver;
 import uk.co.jamesj999.sonic.game.profile.RomChecksumUtil;
 import uk.co.jamesj999.sonic.game.profile.RomProfile;
+import uk.co.jamesj999.sonic.game.profile.scanner.RomPatternScanner;
+import uk.co.jamesj999.sonic.game.profile.scanner.ScanResult;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2GameModule;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -88,12 +92,12 @@ public final class GameModuleRegistry {
     }
 
     /**
-     * Initializes the {@link RomAddressResolver} with profile-based and default addresses.
-     * Computes the ROM's SHA-256 checksum, attempts to load a matching shipped profile
-     * from the classpath, and falls back to the module's hardcoded defaults.
+     * Initializes the {@link RomAddressResolver} with profile-based and default addresses,
+     * then runs the ROM pattern scanner to discover additional addresses. The scanner fills
+     * gaps between profile and default layers without overriding profile values.
      *
-     * @param rom    the loaded ROM (used for checksum computation)
-     * @param module the active game module (provides default offsets)
+     * @param rom    the loaded ROM (used for checksum computation and scanning)
+     * @param module the active game module (provides default offsets and scan patterns)
      */
     private static void initializeResolver(Rom rom, GameModule module) {
         try {
@@ -102,8 +106,9 @@ public final class GameModuleRegistry {
 
             // Attempt profile loading by ROM checksum
             RomProfile profile = null;
+            byte[] romBytes = null;
             try {
-                byte[] romBytes = rom.readAllBytes();
+                romBytes = rom.readAllBytes();
                 String checksum = RomChecksumUtil.sha256(romBytes);
                 LOGGER.info("ROM checksum: " + checksum);
 
@@ -118,8 +123,31 @@ public final class GameModuleRegistry {
                 LOGGER.log(Level.WARNING, "Failed to compute ROM checksum or load profile, using defaults only", e);
             }
 
-            // Initialize the resolver with whatever we have
-            RomAddressResolver.getInstance().initialize(profile, defaults);
+            // Initialize the resolver with profile + defaults
+            RomAddressResolver resolver = RomAddressResolver.getInstance();
+            resolver.initialize(profile, defaults);
+
+            // Run pattern scanner to discover additional addresses
+            if (romBytes != null) {
+                try {
+                    RomPatternScanner scanner = new RomPatternScanner();
+                    module.registerScanPatterns(scanner);
+
+                    Set<String> alreadyResolved = resolver.getResolvedKeys();
+                    Map<String, ScanResult> scanResults = scanner.scan(romBytes, alreadyResolved);
+
+                    if (!scanResults.isEmpty()) {
+                        Map<String, Integer> scannedAddresses = new LinkedHashMap<>();
+                        for (Map.Entry<String, ScanResult> entry : scanResults.entrySet()) {
+                            scannedAddresses.put(entry.getKey(), entry.getValue().value());
+                        }
+                        resolver.addScannedAddresses(scannedAddresses);
+                        LOGGER.info("ROM scanner discovered " + scanResults.size() + " address(es)");
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "ROM pattern scan failed, continuing with profile/defaults", e);
+                }
+            }
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Failed to initialize ROM address resolver", e);
         }

@@ -268,5 +268,19 @@ public interface GameModule {
     default Map<String, Integer> getDefaultOffsets() {
         return Map.of();
     }
+
+    /**
+     * Registers game-specific byte patterns with the ROM pattern scanner.
+     * Called during resolver initialization to discover addresses by scanning
+     * the ROM for known data patterns. Game modules override this to register
+     * patterns specific to their ROM format.
+     *
+     * <p>Default implementation registers no patterns.
+     *
+     * @param scanner the scanner to register patterns with
+     */
+    default void registerScanPatterns(uk.co.jamesj999.sonic.game.profile.scanner.RomPatternScanner scanner) {
+        // Default no-op
+    }
 }
 

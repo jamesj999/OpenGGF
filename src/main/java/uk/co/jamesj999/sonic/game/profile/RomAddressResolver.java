@@ -1,7 +1,9 @@
 package uk.co.jamesj999.sonic.game.profile;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Logger;
 
 /**
@@ -132,6 +134,18 @@ public class RomAddressResolver {
             resolved.put(key, entry.getValue());
             sources.put(key, "scanned");
         }
+    }
+
+    /**
+     * Returns an unmodifiable view of all currently resolved keys.
+     * Keys are composite strings in the form "category.name". This is
+     * useful for building a skip-set when running pattern scans, so
+     * the scanner does not re-scan for addresses that are already known.
+     *
+     * @return unmodifiable set of resolved keys
+     */
+    public Set<String> getResolvedKeys() {
+        return Collections.unmodifiableSet(resolved.keySet());
     }
 
     /**
