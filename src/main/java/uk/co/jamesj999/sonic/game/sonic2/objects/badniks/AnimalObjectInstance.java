@@ -163,8 +163,12 @@ public class AnimalObjectInstance extends uk.co.jamesj999.sonic.level.objects.Ab
     private boolean onScreen(int margin) {
         Camera camera = Camera.getInstance();
         int cameraX = camera.getX();
+        int cameraY = camera.getY();
         int screenWidth = 320;
+        int screenHeight = 224;
         if (currentX < cameraX - margin || currentX > cameraX + screenWidth + margin)
+            return false;
+        if (currentY < cameraY - margin || currentY > cameraY + screenHeight + margin)
             return false;
         return true;
     }

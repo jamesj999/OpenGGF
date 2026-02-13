@@ -174,7 +174,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         this.y = spawn.y();
 
         LevelManager lm = LevelManager.getInstance();
-        this.zoneIndex = lm != null ? lm.getCurrentZone() : 0;
+        this.zoneIndex = lm != null ? lm.getRomZoneId() : 0;
         this.actIndex = lm != null ? lm.getCurrentAct() : 0;
         this.isLZ = (zoneIndex == Sonic1Constants.ZONE_LZ);
         this.isMZ = (zoneIndex == Sonic1Constants.ZONE_MZ);

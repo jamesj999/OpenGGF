@@ -138,7 +138,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
 
     public Sonic1MovingBlockObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, "MovingBlock");
-        this.zoneIndex = levelManager.getCurrentZone();
+        this.zoneIndex = levelManager.getRomZoneId();
 
         int fullSubtype = spawn.subtype() & 0xFF;
 

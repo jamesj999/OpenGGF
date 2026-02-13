@@ -123,7 +123,7 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
     public Sonic1SwingingPlatformObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, "SwingingPlatform");
 
-        int zoneIndex = levelManager.getCurrentZone();
+        int zoneIndex = levelManager.getRomZoneId();
         int subtype = spawn.subtype() & 0xFF;
         this.chainCount = subtype & 0x0F;
         boolean isGiantBall = (subtype & 0x10) != 0;

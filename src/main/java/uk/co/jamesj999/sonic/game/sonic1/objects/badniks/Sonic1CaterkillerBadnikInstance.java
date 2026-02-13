@@ -606,7 +606,8 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
         }
         if (fragmenting) {
             // tst.b obRender(a0) / bpl.w Cat_ChkGone
-            return isOnScreenX(160);
+            // ROM checks both X and Y via obRender on-screen flag.
+            return isOnScreen(160);
         }
         return !destroyed && isOnScreenX(160);
     }
