@@ -525,18 +525,22 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			}
 
 			// Standing still handling (ROM: Sonic_Lookup, Sonic_Duck, Obj01_ResetScr)
-			// Camera pan has a 120-frame (2 second) delay before starting (s2.asm:36402-36405)
+			// S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp/Sonic_Duck)
+			// S2/S3K: 120-frame (2 second) delay before panning (s2.asm:36402-36405)
 			if (isOnFlatGround() && gSpeed == 0) {
 				sprite.setPushing(false);
 				short lookDelay = sprite.getLookDelayCounter();
+				PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+				short lookScrollDelay = (featureSet != null) ? featureSet.lookScrollDelay()
+						: PhysicsFeatureSet.LOOK_SCROLL_DELAY_S2;
 				if (inputUp) {
-					// ROM: Sonic_Lookup (s2.asm:36398-36409)
-					// Animation is set immediately, camera pan has delay
+					// ROM: Sonic_Lookup (s2.asm:36398-36409, s1.asm: Sonic_LookUp)
+					// Animation is set immediately, camera pan may have delay
 					sprite.setLookingUp(true);
 					lookDelay++;
 					if (camera != null) {
-						if (lookDelay >= 0x78) {
-							lookDelay = 0x78;  // Cap at 120 frames
+						if (lookDelay >= lookScrollDelay) {
+							lookDelay = lookScrollDelay;
 							camera.incrementLookUpBias();
 						} else {
 							// During delay, bias still eases toward default
@@ -544,13 +548,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 						}
 					}
 				} else if (inputDown) {
-					// ROM: Sonic_Duck (s2.asm:36412-36423)
+					// ROM: Sonic_Duck (s2.asm:36412-36423, s1.asm: Sonic_Duck)
 					// Animation (crouching) is handled by updateCrouchState()
 					sprite.setLookingUp(false);
 					lookDelay++;
 					if (camera != null) {
-						if (lookDelay >= 0x78) {
-							lookDelay = 0x78;  // Cap at 120 frames
+						if (lookDelay >= lookScrollDelay) {
+							lookDelay = lookScrollDelay;
 							camera.decrementLookDownBias();
 						} else {
 							// During delay, bias still eases toward default
