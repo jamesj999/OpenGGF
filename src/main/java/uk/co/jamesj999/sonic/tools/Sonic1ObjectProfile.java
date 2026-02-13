@@ -68,6 +68,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.CATERKILLER,
             Sonic1ObjectIds.BATBRAIN,
             Sonic1ObjectIds.YADRIN,
+            Sonic1ObjectIds.ROLLER,
             Sonic1ObjectIds.MZ_LARGE_GRASSY_PLATFORM,
             Sonic1ObjectIds.MZ_GLASS_BLOCK,
             Sonic1ObjectIds.CHAINED_STOMPER,
@@ -77,6 +78,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.SMASH_BLOCK,
             Sonic1ObjectIds.MOVING_BLOCK,
             Sonic1ObjectIds.COLLAPSING_FLOOR,
+            Sonic1ObjectIds.SPIKED_BALL_CHAIN,
             Sonic1ObjectIds.BIG_SPIKED_BALL,
             Sonic1ObjectIds.INVISIBLE_BARRIER,
             Sonic1ObjectIds.LAVA_BALL_MAKER,
@@ -104,6 +106,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.MOTOBUG,
             Sonic1ObjectIds.NEWTRON,
             Sonic1ObjectIds.YADRIN,
+            Sonic1ObjectIds.ROLLER,
             Sonic1ObjectIds.BATBRAIN,
             Sonic1ObjectIds.BOMB,
             Sonic1ObjectIds.ORBINAUT,
@@ -151,6 +154,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.EDGE_WALLS, List.of("EdgeWalls"));
         map.put(Sonic1ObjectIds.MZ_BRICK, List.of("MzBrick"));
         map.put(Sonic1ObjectIds.NEWTRON, List.of("Newtron"));
+        map.put(Sonic1ObjectIds.ROLLER, List.of("Roller"));
         map.put(Sonic1ObjectIds.BUMPER, List.of("Bumper"));
         map.put(Sonic1ObjectIds.BOSS_BALL, List.of("BossBall"));
         map.put(Sonic1ObjectIds.WATERFALL_SOUND, List.of("WaterfallSound"));

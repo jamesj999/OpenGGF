@@ -45,6 +45,7 @@ public final class Sonic1ObjectIds {
     public static final int EDGE_WALLS      = 0x44;
     public static final int MZ_BRICK        = 0x46;
     public static final int NEWTRON         = 0x42;
+    public static final int ROLLER          = 0x43;
     public static final int BUMPER          = 0x47;
     public static final int BOSS_BALL       = 0x48;
     public static final int WATERFALL_SOUND = 0x49;
@@ -59,6 +60,7 @@ public final class Sonic1ObjectIds {
     public static final int LAVA_TAG        = 0x54;
     public static final int BATBRAIN        = 0x55;
     public static final int FLOATING_BLOCK  = 0x56;
+    public static final int SPIKED_BALL_CHAIN = 0x57;
     public static final int BIG_SPIKED_BALL = 0x58;
     public static final int SEESAW          = 0x5E;
     public static final int BOMB            = 0x5F;

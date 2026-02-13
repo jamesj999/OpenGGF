@@ -8,6 +8,7 @@ import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1CrabmeatBadnikIns
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1MotobugBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BatbrainBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1NewtronBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1RollerBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1YadrinBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossFireInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1GHZBossInstance;
@@ -104,6 +105,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1BatbrainBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.YADRIN,
                 (spawn, registry) -> new Sonic1YadrinBadnikInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.ROLLER,
+                (spawn, registry) -> new Sonic1RollerBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.BUMPER,
                 (spawn, registry) -> new Sonic1BumperObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.FLOATING_BLOCK,
@@ -151,6 +154,9 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                         spawn, LevelManager.getInstance().getRomZoneId()));
         factories.put(Sonic1ObjectIds.MOVING_BLOCK,
                 (spawn, registry) -> new Sonic1MovingBlockObjectInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.SPIKED_BALL_CHAIN,
+                (spawn, registry) -> new Sonic1SpikedBallChainObjectInstance(spawn,
+                        LevelManager.getInstance().getRomZoneId()));
         factories.put(Sonic1ObjectIds.BIG_SPIKED_BALL,
                 (spawn, registry) -> new Sonic1BigSpikedBallObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.INVISIBLE_BARRIER,
@@ -204,6 +210,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.EDGE_WALLS -> "EdgeWalls";
             case Sonic1ObjectIds.MZ_BRICK -> "MzBrick";
             case Sonic1ObjectIds.NEWTRON -> "Newtron";
+            case Sonic1ObjectIds.ROLLER -> "Roller";
             case Sonic1ObjectIds.BUMPER -> "Bumper";
             case Sonic1ObjectIds.BOSS_BALL -> "BossBall";
             case Sonic1ObjectIds.WATERFALL_SOUND -> "WaterfallSound";
@@ -226,6 +233,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.BURNING_GRASS -> "BurningGrass";
             case Sonic1ObjectIds.BATBRAIN -> "Batbrain";
             case Sonic1ObjectIds.FLOATING_BLOCK -> "FloatingBlock";
+            case Sonic1ObjectIds.SPIKED_BALL_CHAIN -> "SpikedBallChain";
             case Sonic1ObjectIds.BIG_SPIKED_BALL -> "BigSpikedBall";
             case Sonic1ObjectIds.SEESAW -> "Seesaw";
             case Sonic1ObjectIds.BOMB -> "Bomb";
