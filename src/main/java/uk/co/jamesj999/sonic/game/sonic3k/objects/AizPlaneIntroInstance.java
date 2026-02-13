@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
 import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
@@ -188,6 +189,25 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
                 // Invalid routine - no-op
             }
         }
+
+        // Keep player positioned on the plane while we own control
+        if (ownsPlayerControl && player != null) {
+            player.setCentreX((short) currentX);
+            player.setCentreY((short) (currentY - 0x14)); // Player stands on plane surface
+        }
+
+        // Progressive camera unlock — allow scrolling as far as the plane travels
+        try {
+            Camera camera = Camera.getInstance();
+            if (camera != null && currentX > 0) {
+                short maxX = (short) (currentX + 160); // 160px lookahead (half screen)
+                if (maxX > camera.getMaxX()) {
+                    camera.setMaxX(maxX);
+                }
+            }
+        } catch (Exception ignored) {
+            // Camera may not be available in test environments
+        }
     }
 
     @Override
@@ -199,10 +219,17 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     @Override
     public void onUnload() {
-        // Release player control if we own it.
-        // Player reference not available here without Camera singleton,
-        // which may not be initialized in test. Guard appropriately.
-        ownsPlayerControl = false;
+        // Safety net: release player control if we still own it.
+        if (ownsPlayerControl) {
+            try {
+                var focusedSprite = uk.co.jamesj999.sonic.camera.Camera.getInstance().getFocusedSprite();
+                if (focusedSprite instanceof uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite ps) {
+                    ps.setControlLocked(false);
+                    ps.setObjectControlled(false);
+                }
+            } catch (Exception ignored) {}
+            ownsPlayerControl = false;
+        }
         activeWaves.clear();
         emeralds.clear();
         // Release cached art data so it can be reloaded on next level entry.
@@ -267,6 +294,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         // Load all intro art (plane, emeralds, waves, Knuckles).
         try {
             AizIntroArtLoader.loadAllIntroArt();
+            AizIntroArtLoader.applyEmeraldPalette();
         } catch (Exception e) {
             LOG.fine("Could not load intro art (test env?): " + e.getMessage());
         }

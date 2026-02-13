@@ -5,6 +5,7 @@ import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
+import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
@@ -476,6 +477,38 @@ public class AizIntroArtLoader {
     /** Returns whether all intro art has been loaded. */
     public static boolean isLoaded() {
         return loaded;
+    }
+
+    // -----------------------------------------------------------------------
+    // Palette application
+    // -----------------------------------------------------------------------
+
+    /**
+     * Applies the cutscene Knuckles palette to palette line 1.
+     * Safe to call before GL is initialized (no-ops gracefully).
+     */
+    public static void applyKnucklesPalette() {
+        byte[] data = getCutsceneKnucklesPalette();
+        if (data == null || data.length == 0) return;
+        GraphicsManager gm = GraphicsManager.getInstance();
+        if (gm == null || !gm.isGlInitialized()) return;
+        Palette palette = new Palette();
+        palette.fromSegaFormat(data);
+        gm.cachePaletteTexture(palette, 1);
+    }
+
+    /**
+     * Applies the emerald palette to palette line 2.
+     * Safe to call before GL is initialized (no-ops gracefully).
+     */
+    public static void applyEmeraldPalette() {
+        byte[] data = getEmeraldPalette();
+        if (data == null || data.length == 0) return;
+        GraphicsManager gm = GraphicsManager.getInstance();
+        if (gm == null || !gm.isGlInitialized()) return;
+        Palette palette = new Palette();
+        palette.fromSegaFormat(data);
+        gm.cachePaletteTexture(palette, 2);
     }
 
     // -----------------------------------------------------------------------
