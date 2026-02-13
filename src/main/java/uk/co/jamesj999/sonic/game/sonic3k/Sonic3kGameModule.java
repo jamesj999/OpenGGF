@@ -146,4 +146,10 @@ public class Sonic3kGameModule implements GameModule {
         }
         return physicsProvider;
     }
+
+    @Override
+    public uk.co.jamesj999.sonic.sprites.playable.SuperStateController createSuperStateController(
+            uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite player) {
+        return new Sonic3kSuperStateController(player);
+    }
 }
