@@ -4,8 +4,10 @@ import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
+import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.level.render.SpriteDplcFrame;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
@@ -78,6 +80,14 @@ public class AizIntroArtLoader {
 
     private static boolean loaded = false;
 
+    // Renderer cache — lazy-initialized on first render call
+    private static final int INTRO_PATTERN_BASE = 0x40000;
+    private static PatternSpriteRenderer planeRenderer;
+    private static PatternSpriteRenderer emeraldRenderer;
+    private static PatternSpriteRenderer introSpritesRenderer;
+    private static PatternSpriteRenderer knucklesRenderer;
+    private static boolean renderersCached;
+
     private AizIntroArtLoader() {}
 
     // -----------------------------------------------------------------------
@@ -137,6 +147,11 @@ public class AizIntroArtLoader {
         emeraldSheet = null;
         introSpritesSheet = null;
         knucklesSheet = null;
+        planeRenderer = null;
+        emeraldRenderer = null;
+        introSpritesRenderer = null;
+        knucklesRenderer = null;
+        renderersCached = false;
         loaded = false;
     }
 
@@ -461,6 +476,67 @@ public class AizIntroArtLoader {
     /** Returns whether all intro art has been loaded. */
     public static boolean isLoaded() {
         return loaded;
+    }
+
+    // -----------------------------------------------------------------------
+    // Renderer cache
+    // -----------------------------------------------------------------------
+
+    /**
+     * Lazily creates PatternSpriteRenderers and uploads patterns to GPU.
+     * Safe to call every frame — no-ops if already cached.
+     */
+    public static void ensureRenderersCached() {
+        if (renderersCached || !loaded) return;
+        GraphicsManager gm = GraphicsManager.getInstance();
+        if (gm == null || !gm.isGlInitialized()) return;
+
+        int nextBase = INTRO_PATTERN_BASE;
+
+        planeRenderer = new PatternSpriteRenderer(planeSheet);
+        planeRenderer.ensurePatternsCached(gm, nextBase);
+        nextBase += planePatterns.length;
+
+        emeraldRenderer = new PatternSpriteRenderer(emeraldSheet);
+        emeraldRenderer.ensurePatternsCached(gm, nextBase);
+        nextBase += emeraldPatterns.length;
+
+        introSpritesRenderer = new PatternSpriteRenderer(introSpritesSheet);
+        introSpritesRenderer.ensurePatternsCached(gm, nextBase);
+        nextBase += introSpritesPatterns.length;
+
+        knucklesRenderer = new PatternSpriteRenderer(knucklesSheet);
+        knucklesRenderer.ensurePatternsCached(gm, nextBase);
+
+        renderersCached = true;
+        LOG.info("AIZ intro renderers cached. Pattern bases: plane=" +
+                Integer.toHexString(INTRO_PATTERN_BASE) + " total patterns=" +
+                (planePatterns.length + emeraldPatterns.length +
+                 introSpritesPatterns.length + knucklesPatterns.length));
+    }
+
+    /** Returns the plane renderer, lazily caching if needed. */
+    public static PatternSpriteRenderer getPlaneRenderer() {
+        ensureRenderersCached();
+        return planeRenderer;
+    }
+
+    /** Returns the emerald renderer, lazily caching if needed. */
+    public static PatternSpriteRenderer getEmeraldRenderer() {
+        ensureRenderersCached();
+        return emeraldRenderer;
+    }
+
+    /** Returns the intro sprites (waves) renderer, lazily caching if needed. */
+    public static PatternSpriteRenderer getIntroSpritesRenderer() {
+        ensureRenderersCached();
+        return introSpritesRenderer;
+    }
+
+    /** Returns the Knuckles renderer, lazily caching if needed. */
+    public static PatternSpriteRenderer getKnucklesRenderer() {
+        ensureRenderersCached();
+        return knucklesRenderer;
     }
 
     // -----------------------------------------------------------------------
