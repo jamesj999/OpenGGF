@@ -78,13 +78,8 @@ public class Sonic2SuperStateController extends SuperStateController {
         transformFramesRemaining = 0;
     }
 
-    /**
-     * Loads Super Sonic palette cycling data from the ROM.
-     * Must be called after ROM is loaded and before transformation can occur.
-     *
-     * @param reader ROM byte reader for data access
-     */
-    public void loadPaletteData(RomByteReader reader) {
+    @Override
+    public void loadRomData(RomByteReader reader) {
         int addr = Sonic2Constants.CYCLING_PAL_SS_TRANSFORMATION_ADDR;
         int len = Sonic2Constants.CYCLING_PAL_SS_TRANSFORMATION_LEN;
         if (addr == 0 || addr + len > reader.size()) {

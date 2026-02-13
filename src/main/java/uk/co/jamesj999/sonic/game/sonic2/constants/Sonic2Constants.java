@@ -145,7 +145,7 @@ public class Sonic2Constants {
     public static final int ART_NEM_SUPER_SONIC_STARS_ADDR = 0x7393C;
 
     // Super Sonic animation data (separate table from normal Sonic, SuperSonicAniData s2.asm:38415)
-    public static final int SUPER_SONIC_ANIM_DATA_ADDR = 0; // TODO: find via manual ROM search (code label, not include)
+    public static final int SUPER_SONIC_ANIM_DATA_ADDR = 0x1B7C6; // SuperSonicAniData (code label, verified via ROM pattern search)
     public static final int SUPER_SONIC_ANIM_SCRIPT_COUNT = 32; // Scripts 0-31 (0x00-0x1F)
 
     // Ring drain frame interval

@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.sprites.playable;
 
+import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameStateManager;
 import uk.co.jamesj999.sonic.game.PhysicsProfile;
 
@@ -27,7 +28,7 @@ public abstract class SuperStateController {
             case NORMAL -> checkTransformationTrigger();
             case TRANSFORMING -> updateTransformation();
             case SUPER -> updateSuper();
-            case REVERTING -> updateRevert();
+            default -> {} // REVERTING not used (revert is instant in ROM)
         }
     }
 
@@ -51,6 +52,16 @@ public abstract class SuperStateController {
         if (state == SuperState.NORMAL) return;
         revertToNormal();
         LOGGER.info("Debug: Super Sonic deactivated");
+    }
+
+    /**
+     * Loads game-specific ROM data (palette cycling, etc.).
+     * Called once during level initialization. Default is no-op.
+     *
+     * @param reader ROM byte reader for data access
+     */
+    public void loadRomData(RomByteReader reader) {
+        // Default: no ROM data needed
     }
 
     // --- Template methods for subclasses ---
@@ -101,21 +112,15 @@ public abstract class SuperStateController {
         ringDrainCounter--;
         if (ringDrainCounter <= 0) {
             ringDrainCounter = getRingDrainInterval();
-            int rings = player.getRingCount();
-            if (rings <= 0) {
+            player.addRings(-1);
+            if (player.getRingCount() <= 0) {
                 revertToNormal();
                 return;
             }
-            player.addRings(-1);
         }
     }
 
-    private void updateRevert() {
-        state = SuperState.NORMAL;
-    }
-
     private void revertToNormal() {
-        state = SuperState.REVERTING;
         player.setSuperSonic(false);
         player.applyExternalPhysicsProfile(getNormalProfile());
         onRevertStarted();

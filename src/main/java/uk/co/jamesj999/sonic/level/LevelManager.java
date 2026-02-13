@@ -516,14 +516,14 @@ public class LevelManager {
         var superCtrl = gameModule.createSuperStateController(playable);
         playable.setSuperStateController(superCtrl);
 
-        // Load ROM palette data for Super Sonic cycling (S2-specific)
-        if (superCtrl instanceof uk.co.jamesj999.sonic.game.sonic2.Sonic2SuperStateController s2Ctrl) {
+        // Load game-specific ROM data (palette cycling, etc.)
+        if (superCtrl != null) {
             try {
                 Rom rom = GameServices.rom().getRom();
                 RomByteReader reader = RomByteReader.fromRom(rom);
-                s2Ctrl.loadPaletteData(reader);
+                superCtrl.loadRomData(reader);
             } catch (Exception e) {
-                LOGGER.fine("Could not load Super Sonic palette data: " + e.getMessage());
+                LOGGER.fine("Could not load Super Sonic ROM data: " + e.getMessage());
             }
         }
     }
