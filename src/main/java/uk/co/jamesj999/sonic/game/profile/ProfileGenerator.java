@@ -79,7 +79,7 @@ public class ProfileGenerator {
      * @param fieldName the constant field name to categorize
      * @return the category string
      */
-    static String categorize(String fieldName) {
+    public static String categorize(String fieldName) {
         // Character animation data addresses (must check before generic prefixes)
         if (fieldName.startsWith("SONIC_ANIM_") || fieldName.startsWith("TAILS_ANIM_")) {
             return "art";

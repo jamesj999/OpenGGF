@@ -54,17 +54,16 @@ public class Sonic2ZoneArtProvider implements ZoneArtProvider {
      * Each zone uses different art and potentially different palettes.
      */
     private ObjectArtConfig getPlatformArt(int zoneId) {
-        return switch (zoneId) {
-            case Sonic2Constants.ZONE_OIL_OCEAN ->
-                    ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_OOZ_ELEVATOR_ADDR, 3);
-            case Sonic2Constants.ZONE_WING_FORTRESS ->
-                    ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_WFZ_PLATFORM_ADDR, 1);
-            case Sonic2Constants.ZONE_CHEMICAL_PLANT ->
-                    ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_CPZ_ELEVATOR_ADDR, 3);
-            default ->
-                    // Default to CPZ art for other zones (object may not appear but provides fallback)
-                    ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_CPZ_ELEVATOR_ADDR, 3);
-        };
+        if (zoneId == Sonic2Constants.ZONE_OIL_OCEAN) {
+            return ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_OOZ_ELEVATOR_ADDR, 3);
+        } else if (zoneId == Sonic2Constants.ZONE_WING_FORTRESS) {
+            return ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_WFZ_PLATFORM_ADDR, 1);
+        } else if (zoneId == Sonic2Constants.ZONE_CHEMICAL_PLANT) {
+            return ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_CPZ_ELEVATOR_ADDR, 3);
+        } else {
+            // Default to CPZ art for other zones (object may not appear but provides fallback)
+            return ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_CPZ_ELEVATOR_ADDR, 3);
+        }
     }
 
     /**
@@ -72,14 +71,13 @@ public class Sonic2ZoneArtProvider implements ZoneArtProvider {
      * HTZ uses rock art (palette 2), CPZ uses metal block art (palette 3).
      */
     private ObjectArtConfig getBreakableBlockArt(int zoneId) {
-        return switch (zoneId) {
-            case Sonic2Constants.ZONE_HTZ ->
-                    ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_HTZ_ROCK_ADDR, 2);
-            case Sonic2Constants.ZONE_CHEMICAL_PLANT ->
-                    ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_CPZ_METAL_BLOCK_ADDR, 3);
-            default ->
-                    // Default to CPZ art for other zones (object may not appear but provides fallback)
-                    ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_CPZ_METAL_BLOCK_ADDR, 3);
-        };
+        if (zoneId == Sonic2Constants.ZONE_HTZ) {
+            return ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_HTZ_ROCK_ADDR, 2);
+        } else if (zoneId == Sonic2Constants.ZONE_CHEMICAL_PLANT) {
+            return ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_CPZ_METAL_BLOCK_ADDR, 3);
+        } else {
+            // Default to CPZ art for other zones (object may not appear but provides fallback)
+            return ObjectArtConfig.nemesis(Sonic2Constants.ART_NEM_CPZ_METAL_BLOCK_ADDR, 3);
+        }
     }
 }

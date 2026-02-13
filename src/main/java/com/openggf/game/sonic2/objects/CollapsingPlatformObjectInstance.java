@@ -276,12 +276,15 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
                 ? manager.getCurrentLevel().getZoneIndex()
                 : -1;
 
-        config = switch (zoneIndex) {
-            case Sonic2Constants.ZONE_OIL_OCEAN -> OOZ_CONFIG;
-            case Sonic2Constants.ZONE_MYSTIC_CAVE -> MCZ_CONFIG;
-            case Sonic2Constants.ZONE_ARZ -> ARZ_CONFIG;
-            default -> DEFAULT_CONFIG;
-        };
+        if (zoneIndex == Sonic2Constants.ZONE_OIL_OCEAN) {
+            config = OOZ_CONFIG;
+        } else if (zoneIndex == Sonic2Constants.ZONE_MYSTIC_CAVE) {
+            config = MCZ_CONFIG;
+        } else if (zoneIndex == Sonic2Constants.ZONE_ARZ) {
+            config = ARZ_CONFIG;
+        } else {
+            config = DEFAULT_CONFIG;
+        }
 
         LOGGER.fine(() -> String.format("CollapsingPlatform at (%d,%d) using %s config",
                 spawn.x(), spawn.y(),

@@ -89,11 +89,11 @@ public final class Sonic2LevelResourcePlans {
      * @return The LevelResourcePlan for the zone, or null if the zone uses standard loading
      */
     public static LevelResourcePlan getPlanForZone(int romZoneId) {
-        return switch (romZoneId) {
-            case Sonic2Constants.ZONE_HTZ -> createHtzPlan();
-            // Other zones use standard loading via ROM directory tables
-            default -> null;
-        };
+        if (romZoneId == Sonic2Constants.ZONE_HTZ) {
+            return createHtzPlan();
+        }
+        // Other zones use standard loading via ROM directory tables
+        return null;
     }
 
     /**
