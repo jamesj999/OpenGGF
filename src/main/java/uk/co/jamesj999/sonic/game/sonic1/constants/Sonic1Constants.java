@@ -310,6 +310,10 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search Bumper (362 bytes)
     public static final int ART_NEM_BUMPER_ADDR = 0x342F8;
 
+    // Nem_Roller: Nemesis-compressed Roller art (SYZ, ArtTile_Roller = $4B8)
+    // Verified by RomOffsetFinder --game s1 search Roller (1316 bytes)
+    public static final int ART_NEM_ROLLER_ADDR = 0x37508;
+
     // Nem_Yadrin: Nemesis-compressed Yadrin art (SYZ, ArtTile_Yadrin = $47B)
     // Verified by RomOffsetFinder --game s1 search Yadrin (999 bytes)
     public static final int ART_NEM_YADRIN_ADDR = 0x382D4;
@@ -356,6 +360,16 @@ public final class Sonic1Constants {
     // Nem_SlzSwing: Nemesis-compressed SLZ swinging platform art (482 bytes, ArtTile $3DC)
     // Verified by RomOffsetFinder --game s1 search Swing
     public static final int ART_NEM_SLZ_SWING_ADDR = 0x33F66;
+
+    // Nem_SyzSpike2: Nemesis-compressed SYZ small spikeball on chain art (98 bytes, ArtTile $3BA)
+    // Used by Object 0x57 (Spiked Ball and Chain) in SYZ
+    // Verified by RomOffsetFinder --game s1 search SpikeBall
+    public static final int ART_NEM_SYZ_SMALL_SPIKEBALL_ADDR = 0x34462;
+
+    // Nem_LzSpikeBall: Nemesis-compressed LZ spiked ball & chain art (384 bytes, ArtTile $310)
+    // Used by Object 0x57 (Spiked Ball and Chain) in LZ
+    // Verified by RomOffsetFinder --game s1 search SpikeBall
+    public static final int ART_NEM_LZ_SPIKEBALL_ADDR = 0x30BFE;
 
     // Nem_SyzSpike1: Nemesis-compressed SYZ large spikeball / SBZ spiked ball art (654 bytes, ArtTile $391)
     // Used by swinging platform object in SBZ (spiked ball on a chain)

@@ -153,6 +153,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load Yadrin art (SYZ badnik - spiky hedgehog)
         loadYadrinArt(rom);
 
+        // Load Roller art (SYZ badnik - rolling armadillo)
+        loadRollerArt(rom);
+
         // Load results screen art (reuses title card + HUD text)
         loadResultsScreenArt(rom);
 
@@ -209,10 +212,16 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadLzMovingBlockArt(rom);
         }
 
-        // Load SYZ-specific art (bumper, big spiked ball)
+        // Load SYZ-specific art (bumper, big spiked ball, small spikeball chain)
         if (zoneIndex == Sonic1Constants.ZONE_SYZ) {
             loadBumperArt(rom);
             loadBigSpikedBallArt(rom);
+            loadSyzSpikeballChainArt(rom);
+        }
+
+        // Load LZ-specific spikeball chain art
+        if (zoneIndex == Sonic1Constants.ZONE_LZ) {
+            loadLzSpikeballChainArt(rom);
         }
 
         // Load SBZ-specific art (moving blocks - short stomper + long slide floor, collapsing floor)
@@ -2180,7 +2189,8 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * Loads button/switch art and creates S1-format sprite mappings.
      * <p>
      * MZ uses Nem_MzSwitch (palette 2), LZ/SYZ/SBZ use Nem_LzSwitch (palette 0).
-     * Both are loaded to ArtTile_Button+4 in the ROM.
+     * MZ PLC loads at ArtTile_Button+4; non-MZ PLCs load at ArtTile_Button.
+     * The object always references ArtTile_Button+4, so non-MZ art needs a 4-tile skip.
      * <p>
      * Reference: docs/s1disasm/_incObj/32 Button.asm (But_Main)
      * Mappings: docs/s1disasm/_maps/Button.asm (Map_But_internal)
@@ -2206,6 +2216,14 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load button art (" + artName + ")");
             return;
+        }
+
+        // Non-MZ zones load Nem_LzSwitch at ArtTile_Button (PLC offset +0), but the
+        // object references ArtTile_Button+4 via make_art_tile. Skip the first 4 tiles
+        // so sprite sheet tile indices align with the mapping frames.
+        // MZ loads Nem_MzSwitch directly at ArtTile_Button+4 so no skip is needed.
+        if (zoneIndex != Sonic1Constants.ZONE_MZ && patterns.length > 4) {
+            patterns = Arrays.copyOfRange(patterns, 4, patterns.length);
         }
 
         List<SpriteMappingFrame> mappings = createButtonMappings();
@@ -2418,6 +2436,74 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 new SpriteMappingPiece(-0x04, -0x14, 2, 1, 0x0F, false, false, 0, false),
                 new SpriteMappingPiece( 0x0C, -0x0C, 1, 3, 0x11, false, false, 0, false),
                 new SpriteMappingPiece(-0x04,  0x04, 3, 2, 0x37, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads Roller art (Nem_Roller) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Roller.asm (Map_Roll_internal).
+     * 5 frames: stand, fold, roll1, roll2, roll3.
+     * <p>
+     * From disassembly: make_art_tile(ArtTile_Roller,0,0) - palette 0, no priority bit.
+     */
+    private void loadRollerArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_ROLLER_ADDR, "Roller");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Roller art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createRollerMappings();
+        // make_art_tile(ArtTile_Roller, 0, 0) - palette line 0
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.ROLLER, sheet);
+    }
+
+    /**
+     * Creates Roller sprite mappings from S1 disassembly Map_Roll_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * 5 frames: Stand, Fold, Roll1, Roll2, Roll3.
+     */
+    private List<SpriteMappingFrame> createRollerMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (M_Roll_Stand): 2 pieces - standing pose
+        // spritePiece -$10, -$22, 4, 3, 0, 0, 0, 0, 0
+        // spritePiece -$10, -$A,  4, 3, $C, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x22, 4, 3, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x0A, 4, 3, 0x0C, false, false, 0, false)
+        )));
+
+        // Frame 1 (M_Roll_Fold): 2 pieces - folding pose
+        // spritePiece -$10, -$1A, 4, 3, 0, 0, 0, 0, 0
+        // spritePiece -$10, -2,   4, 2, $18, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x1A, 4, 3, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x02, 4, 2, 0x18, false, false, 0, false)
+        )));
+
+        // Frame 2 (M_Roll_Roll1): 1 piece - rolling frame 1
+        // spritePiece -$10, -$10, 4, 4, $20, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x20, false, false, 0, false)
+        )));
+
+        // Frame 3 (M_Roll_Roll2): 1 piece - rolling frame 2
+        // spritePiece -$10, -$10, 4, 4, $30, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x30, false, false, 0, false)
+        )));
+
+        // Frame 4 (M_Roll_Roll3): 1 piece - rolling frame 3
+        // spritePiece -$10, -$10, 4, 4, $40, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x40, false, false, 0, false)
         )));
 
         return frames;
@@ -4804,6 +4890,93 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
             registerSheet(ObjectArtKeys.SYZ_BIG_SPIKED_BALL, sheet);
         }
+    }
+
+    /**
+     * Loads SYZ spiked ball and chain art (Nem_SyzSpike2, Object 0x57).
+     * <p>
+     * From Pattern Load Cues: plcm Nem_SyzSpike2, ArtTile_SYZ_Spikeball_Chain
+     * Map_SBall has 1 frame: 16x16 ball (same art for chain links and end ball in SYZ).
+     * Palette line 0. Collision type $98 (hurt + size 0x18).
+     */
+    private void loadSyzSpikeballChainArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SYZ_SMALL_SPIKEBALL_ADDR, "SYZSmallSpikeball");
+        if (patterns.length > 0) {
+            List<SpriteMappingFrame> mappings = createSyzSpikeballChainMappings();
+            // make_art_tile(ArtTile_SYZ_Spikeball_Chain, 0, 0) — palette line 0
+            ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+            registerSheet(ObjectArtKeys.SYZ_SPIKEBALL_CHAIN, sheet);
+        }
+    }
+
+    /**
+     * SYZ spiked ball chain mappings from docs/s1disasm/_maps/Spiked Ball and Chain (SYZ).asm.
+     * <p>
+     * Frame 0 (.f0): 16x16 ball — 1 piece (2x2 tiles, start tile 0)
+     */
+    private List<SpriteMappingFrame> createSyzSpikeballChainMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .f0 — spikeball (1 piece of 2x2 tiles)
+        // spritePiece -8, -8, 2, 2, 0, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads LZ spiked ball and chain art (Nem_LzSpikeBall, Object 0x57).
+     * <p>
+     * From Pattern Load Cues: plcm Nem_LzSpikeBall, ArtTile_LZ_Spikeball_Chain
+     * Map_SBall2 has 3 frames:
+     *   Frame 0: chain link (16x16, tile 0)
+     *   Frame 1: large spikeball (32x32, tile 4)
+     *   Frame 2: wall base/attachment (16x16, tile $14)
+     * Palette line 0.
+     */
+    private void loadLzSpikeballChainArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_LZ_SPIKEBALL_ADDR, "LZSpikeball");
+        if (patterns.length > 0) {
+            List<SpriteMappingFrame> mappings = createLzSpikeballChainMappings();
+            // make_art_tile(ArtTile_LZ_Spikeball_Chain, 0, 0) — palette line 0
+            ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+            registerSheet(ObjectArtKeys.LZ_SPIKEBALL_CHAIN, sheet);
+        }
+    }
+
+    /**
+     * LZ spiked ball chain mappings from docs/s1disasm/_maps/Spiked Ball and Chain (LZ).asm.
+     * <p>
+     * Frame 0 (.chain):     Chain link — 1 piece (2x2, tile 0)
+     * Frame 1 (.spikeball): Large spikeball — 1 piece (4x4, tile 4)
+     * Frame 2 (.base):      Wall attachment — 1 piece (2x2, tile $14)
+     */
+    private List<SpriteMappingFrame> createLzSpikeballChainMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: .chain — chain link (1 piece of 2x2 tiles)
+        // spritePiece -8, -8, 2, 2, 0, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 0, false)
+        )));
+
+        // Frame 1: .spikeball — large spikeball (1 piece of 4x4 tiles)
+        // spritePiece -$10, -$10, 4, 4, 4, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 4, false, false, 0, false)
+        )));
+
+        // Frame 2: .base — wall attachment (1 piece of 2x2 tiles)
+        // spritePiece -8, -8, 2, 2, $14, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x14, false, false, 0, false)
+        )));
+
+        return frames;
     }
 
     /**

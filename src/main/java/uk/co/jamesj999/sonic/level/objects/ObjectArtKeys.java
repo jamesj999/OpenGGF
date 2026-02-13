@@ -62,6 +62,10 @@ public final class ObjectArtKeys {
     // SYZ big spiked ball (uses same art/mappings as SBZ ball on chain)
     public static final String SYZ_BIG_SPIKED_BALL = "syz_big_spiked_ball";
 
+    // Spiked ball and chain (Object 0x57)
+    public static final String SYZ_SPIKEBALL_CHAIN = "syz_spikeball_chain";
+    public static final String LZ_SPIKEBALL_CHAIN = "lz_spikeball_chain";
+
     // Boss art keys (S1 GHZ boss)
     public static final String EGGMAN = "eggman";
     public static final String BOSS_WEAPONS = "boss_weapons";
@@ -107,6 +111,7 @@ public final class ObjectArtKeys {
     public static final String NEWTRON = "newtron";
     public static final String CATERKILLER = "caterkiller";
     public static final String BATBRAIN = "batbrain";
+    public static final String ROLLER = "roller";
     public static final String YADRIN = "yadrin";
 
     // Animation keys (common across games)
