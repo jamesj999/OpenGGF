@@ -27,9 +27,9 @@ import java.util.List;
  * Walks along terrain, pauses for 1 second, toggles direction, and resumes.
  * Uses wall detection to reverse when hitting a wall.
  * <p>
- * Collision type $CC: enemy category with size index $0C.
- * The $C0 upper bits mark this as a "dangerous" enemy (spiky) - player gets
- * hurt when touching sides/below but can destroy from above when attacking.
+ * Collision type $CC in ROM. In S1, the $C0 upper bits route to React_Special
+ * which implements a spiky-top check: if Sonic hits the spikes from above he
+ * gets hurt even while rolling, otherwise standard React_Enemy applies.
  * <p>
  * Based on docs/s1disasm/_incObj/50 Yadrin.asm.
  * <p>
@@ -292,10 +292,13 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public int getCollisionFlags() {
-        // obColType = $CC: category $C0 (dangerous enemy) + size $0C
-        // In the engine, $C0 maps to BOSS category which gives correct behavior:
-        // player attacking -> destroy + bounce, player not attacking -> hurt
-        return 0xC0 | (getCollisionSizeIndex() & 0x3F);
+        // obColType = $CC in ROM. In S1, the $C0 upper bits route to React_Special,
+        // which for Yadrin falls through to React_Enemy (standard enemy) for most contacts.
+        // The engine's $C0 maps to BOSS (S2 convention) causing incorrect boss bounce
+        // that negates both X and Y velocity. Use ENEMY category (0x00) for correct
+        // S1 behavior: only Y velocity modified on enemy bounce.
+        // TODO: Implement React_Special spiky-top check (hurts even rolling Sonic from above).
+        return 0x00 | (getCollisionSizeIndex() & 0x3F);
     }
 
     @Override
