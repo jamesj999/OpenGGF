@@ -143,7 +143,8 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
         int d0 = (status & 0xFF);
         // ror.b #2: rotate right 2 bits within byte
         d0 = ((d0 >>> 2) | (d0 << 6)) & 0xFF;
-        this.angle = d0 & 0xC0;
+        // move.b d0,obAngle(a0) — writes to high byte of word (68000 big-endian)
+        this.angle = (d0 & 0xC0) << 8;
 
         refreshDynamicSpawn();
     }
@@ -163,16 +164,12 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
         return dynamicSpawn != null ? dynamicSpawn : spawn;
     }
 
-    // Temporary debug counter — remove after investigation
-    private int debugFrames = 0;
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
             return;
         }
 
-        int prevX = x, prevY = y;
         switch (moveType) {
             case 0 -> {} // type00: rts (static, no movement)
             case 1 -> updateType01();
@@ -180,14 +177,6 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
             case 3 -> updateType03();
             default -> {} // types 4-7: not defined in disasm jump table, but index has only 4 entries
         }
-
-        // Temporary debug trace — print first 10 frames then every 60th
-        if (debugFrames < 10 || debugFrames % 60 == 0) {
-            int oscByte = OscillationManager.getByte(OSC_OFFSET) & 0xFF;
-            System.err.printf("[BBall] type=%d flipped=%s origX=%04X origY=%04X osc=%02X x=%04X y=%04X dx=%d dy=%d frame=%d%n",
-                    moveType, flipped, origX, origY, oscByte, x, y, x - prevX, y - prevY, debugFrames);
-        }
-        debugFrames++;
 
         refreshDynamicSpawn();
     }
@@ -273,8 +262,8 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
         // add.w d0,obAngle(a0) — 16-bit angle accumulation
         angle = (angle + speed) & 0xFFFF;
 
-        // move.b obAngle(a0),d0 — only low byte used for CalcSine
-        int angleByte = angle & 0xFF;
+        // move.b obAngle(a0),d0 — reads high byte of word (68000 big-endian)
+        int angleByte = (angle >> 8) & 0xFF;
 
         // CalcSine: d0 = sine, d1 = cosine
         int sin = SINE_TABLE[angleByte];
