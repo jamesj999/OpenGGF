@@ -8,7 +8,9 @@ import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1CrabmeatBadnikIns
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1MotobugBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BatbrainBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1NewtronBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossFireInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1GHZBossInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1MZBossInstance;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectFactory;
 import uk.co.jamesj999.sonic.level.objects.ObjectInstance;
@@ -143,6 +145,10 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1InvisibleBarrierObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GHZ_BOSS,
                 (spawn, registry) -> new Sonic1GHZBossInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.MZ_BOSS,
+                (spawn, registry) -> new Sonic1MZBossInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.BOSS_FIRE,
+                (spawn, registry) -> new Sonic1BossFireInstance(spawn));
         factories.put(Sonic1ObjectIds.EGG_PRISON, (spawn, registry) -> {
             // ROM placement has two entries: subtype 0 (body) and subtype 1 (button).
             // Pri_Main creates sub-objects from Pri_Var; our engine loads each entry separately.
@@ -177,6 +183,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.ROCK -> "Rock";
             case Sonic1ObjectIds.BREAKABLE_WALL -> "BreakableWall";
             case Sonic1ObjectIds.GHZ_BOSS -> "GHZBoss";
+            case Sonic1ObjectIds.MZ_BOSS -> "MZBoss";
+            case Sonic1ObjectIds.BOSS_FIRE -> "BossFire";
             case Sonic1ObjectIds.EGG_PRISON -> "EggPrison";
             case Sonic1ObjectIds.MOTOBUG -> "Motobug";
             case Sonic1ObjectIds.SPRING -> "Spring";

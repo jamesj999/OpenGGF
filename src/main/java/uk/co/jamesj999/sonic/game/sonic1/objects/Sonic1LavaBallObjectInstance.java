@@ -190,6 +190,10 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
 
     /** Art key to use for rendering (zone-dependent: MZ_FIREBALL or SLZ_FIREBALL). */
     private final String artKey;
+    /** Boss-spawned variant uses subtype word $00FF in ROM. */
+    private final boolean bossDroppedVariant;
+    /** Priority bucket can be elevated for boss-spawned lava. */
+    private final int priorityBucket;
 
     public Sonic1LavaBallObjectInstance(ObjectSpawn spawn) {
         super(spawn, "LavaBall");
@@ -199,6 +203,13 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
         this.originY = spawn.y();  // objoff_30: move.w obY(a0),objoff_30(a0)
 
         int subtype = spawn.subtype() & 0xFF;
+        // BossMarble_MakeLava writes obSubtype as a WORD ($00FF).
+        // In the original object layout this sets obSubtype=0 and objoff_29=$FF.
+        // Model this explicitly so boss lava uses vertical type-0 motion.
+        this.bossDroppedVariant = (subtype == 0xFF);
+        if (bossDroppedVariant) {
+            subtype = 0;
+        }
         // Clamp to valid speed table range
         int speedIndex = Math.min(subtype, SPEEDS.length - 1);
         this.currentSubtype = subtype;
@@ -222,6 +233,9 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
         this.animTimer = 0;
         this.inCollisionAnim = false;
         this.collisionAnimTimer = 0;
+        this.priorityBucket = bossDroppedVariant
+                ? RenderPriority.clamp(PRIORITY_NORMAL + 2)
+                : RenderPriority.clamp(PRIORITY_NORMAL);
 
         // Initialize obStatus flip bits based on velocity direction
         // Vertical: V-flip when moving up (velY < 0)
@@ -543,7 +557,7 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
 
     @Override
     public int getPriorityBucket() {
-        return RenderPriority.clamp(PRIORITY_NORMAL);
+        return priorityBucket;
     }
 
     @Override

@@ -214,7 +214,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         }
 
         // Load boss art (GHZ: Eggman, weapons/chain anchor, exhaust flame)
-        if (zoneIndex == Sonic1Constants.ZONE_GHZ) {
+        if (zoneIndex == Sonic1Constants.ZONE_GHZ || zoneIndex == Sonic1Constants.ZONE_MZ) {
             loadBossArt(rom);
         }
 
