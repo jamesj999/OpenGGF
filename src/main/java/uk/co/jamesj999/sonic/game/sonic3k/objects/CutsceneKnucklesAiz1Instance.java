@@ -247,7 +247,9 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         mappingFrame = INIT_MAPPING_FRAME;
 
         // TODO: Spawn rock child object (ChildObjDat_6659A via CreateChild1_Normal) - Task 12
-        // TODO: Load palette via sub_65DD6
+
+        // Load Knuckles palette to palette line 1.
+        AizIntroArtLoader.applyKnucklesPalette();
 
         routine = 2;
     }
@@ -274,7 +276,8 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         yVel = FALL_INIT_Y_VEL;
         xVel = FALL_INIT_X_VEL;
 
-        // TODO: Load Pal_CutsceneKnux to palette line 1
+        // Refresh Knuckles palette to palette line 1 (in case it was overwritten).
+        AizIntroArtLoader.applyKnucklesPalette();
 
         routine = 4;
     }
