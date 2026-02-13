@@ -78,10 +78,10 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
     public List<String> getTitleCards() {
         return List.of(
                 "Green Hill Zone - Act 1", "Green Hill Zone - Act 2", "Green Hill Zone - Act 3",
-                "Labyrinth Zone - Act 1", "Labyrinth Zone - Act 2", "Labyrinth Zone - Act 3",
                 "Marble Zone - Act 1", "Marble Zone - Act 2", "Marble Zone - Act 3",
-                "Star Light Zone - Act 1", "Star Light Zone - Act 2", "Star Light Zone - Act 3",
                 "Spring Yard Zone - Act 1", "Spring Yard Zone - Act 2", "Spring Yard Zone - Act 3",
+                "Labyrinth Zone - Act 1", "Labyrinth Zone - Act 2", "Labyrinth Zone - Act 3",
+                "Star Light Zone - Act 1", "Star Light Zone - Act 2", "Star Light Zone - Act 3",
                 "Scrap Brain Zone - Act 1", "Scrap Brain Zone - Act 2", "Scrap Brain Zone - Act 3",
                 "Final Zone");
     }

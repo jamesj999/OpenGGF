@@ -3,7 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic1.events;
 import uk.co.jamesj999.sonic.game.AbstractLevelEventManager;
 import uk.co.jamesj999.sonic.game.PlayerCharacter;
 import uk.co.jamesj999.sonic.game.sonic1.Sonic1LoopManager;
-import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
+import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ZoneConstants;
 
 /**
  * Sonic 1 implementation of dynamic level events.
@@ -85,16 +85,17 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
     @Override
     protected void onUpdate() {
         // Dispatch to zone-specific event handler (ROM: DLE_Index)
+        // currentZone is the gameplay progression index from LevelManager
         switch (currentZone) {
-            case Sonic1Constants.ZONE_GHZ -> ghzEvents.update(currentAct);
-            case Sonic1Constants.ZONE_LZ -> lzEvents.update(currentAct);
-            case Sonic1Constants.ZONE_MZ -> mzEvents.update(currentAct);
-            case Sonic1Constants.ZONE_SLZ -> slzEvents.update(currentAct);
-            case Sonic1Constants.ZONE_SYZ -> syzEvents.update(currentAct);
-            case Sonic1Constants.ZONE_SBZ -> sbzEvents.update(currentAct);
-            // Zone 6 (ENDZ) = Final Zone in our engine
+            case Sonic1ZoneConstants.ZONE_GHZ -> ghzEvents.update(currentAct);
+            case Sonic1ZoneConstants.ZONE_LZ -> lzEvents.update(currentAct);
+            case Sonic1ZoneConstants.ZONE_MZ -> mzEvents.update(currentAct);
+            case Sonic1ZoneConstants.ZONE_SLZ -> slzEvents.update(currentAct);
+            case Sonic1ZoneConstants.ZONE_SYZ -> syzEvents.update(currentAct);
+            case Sonic1ZoneConstants.ZONE_SBZ -> sbzEvents.update(currentAct);
+            // Zone 6 (FZ) = Final Zone in our engine
             // ROM treats FZ as SBZ act 2; our engine has it as zone 6
-            case Sonic1Constants.ZONE_ENDZ -> sbzEvents.updateFZ();
+            case Sonic1ZoneConstants.ZONE_FZ -> sbzEvents.updateFZ();
             default -> { /* DLE_Ending: rts */ }
         }
     }
@@ -125,12 +126,12 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
 
     private Sonic1ZoneEvents getActiveHandler() {
         return switch (currentZone) {
-            case Sonic1Constants.ZONE_GHZ -> ghzEvents;
-            case Sonic1Constants.ZONE_LZ -> lzEvents;
-            case Sonic1Constants.ZONE_MZ -> mzEvents;
-            case Sonic1Constants.ZONE_SLZ -> slzEvents;
-            case Sonic1Constants.ZONE_SYZ -> syzEvents;
-            case Sonic1Constants.ZONE_SBZ, Sonic1Constants.ZONE_ENDZ -> sbzEvents;
+            case Sonic1ZoneConstants.ZONE_GHZ -> ghzEvents;
+            case Sonic1ZoneConstants.ZONE_LZ -> lzEvents;
+            case Sonic1ZoneConstants.ZONE_MZ -> mzEvents;
+            case Sonic1ZoneConstants.ZONE_SLZ -> slzEvents;
+            case Sonic1ZoneConstants.ZONE_SYZ -> syzEvents;
+            case Sonic1ZoneConstants.ZONE_SBZ, Sonic1ZoneConstants.ZONE_FZ -> sbzEvents;
             default -> null;
         };
     }
