@@ -223,6 +223,9 @@ public class RomProfileIntrospector {
      * @return parsed options
      * @throws IllegalArgumentException if required arguments are missing
      */
+    private static final java.util.Set<String> VALID_GAME_TYPES = java.util.Set.of("sonic1", "sonic2", "sonic3k");
+    private static final long MAX_ROM_SIZE = 8 * 1024 * 1024; // 8MB - generous upper bound for Genesis ROMs
+
     static CliOptions parseArgs(String[] args) {
         String romPath = null;
         String outputPath = null;
@@ -231,18 +234,24 @@ public class RomProfileIntrospector {
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--rom" -> {
-                    if (i + 1 < args.length) {
-                        romPath = args[++i];
+                    if (i + 1 >= args.length || args[i + 1].startsWith("--")) {
+                        throw new IllegalArgumentException("--rom requires a path value");
                     }
+                    romPath = args[++i];
                 }
                 case "--output" -> {
-                    if (i + 1 < args.length) {
-                        outputPath = args[++i];
+                    if (i + 1 >= args.length || args[i + 1].startsWith("--")) {
+                        throw new IllegalArgumentException("--output requires a path value");
                     }
+                    outputPath = args[++i];
                 }
                 case "--game" -> {
-                    if (i + 1 < args.length) {
-                        game = args[++i];
+                    if (i + 1 >= args.length || args[i + 1].startsWith("--")) {
+                        throw new IllegalArgumentException("--game requires a value (sonic1, sonic2, sonic3k)");
+                    }
+                    game = args[++i];
+                    if (!VALID_GAME_TYPES.contains(game)) {
+                        throw new IllegalArgumentException("Unknown game type: " + game + ". Valid: sonic1, sonic2, sonic3k");
                     }
                 }
                 default -> {
@@ -284,6 +293,11 @@ public class RomProfileIntrospector {
         Path romFile = Path.of(options.romPath());
         if (!Files.exists(romFile)) {
             System.err.println("ROM file not found: " + romFile);
+            System.exit(1);
+        }
+        long fileSize = Files.size(romFile);
+        if (fileSize > MAX_ROM_SIZE) {
+            System.err.println("File too large to be a Mega Drive ROM: " + fileSize + " bytes (max " + MAX_ROM_SIZE + ")");
             System.exit(1);
         }
         byte[] rom = Files.readAllBytes(romFile);

@@ -70,7 +70,8 @@ public class Sonic2LevelChain implements IntrospectionChain {
         // Scan through reasonable ROM range for the level data directory
         // The directory is in the 0x040000-0x050000 range for standard Sonic 2
         int searchStart = 0x040000;
-        int searchEnd = Math.min(0x060000, rom.length - tableSize);
+        int searchEnd = RomReadUtil.safeSearchEnd(0x060000, rom.length, tableSize);
+        if (searchEnd < searchStart) return;
 
         for (int offset = searchStart; offset < searchEnd; offset += 2) {
             if (isValidLevelDataDir(rom, offset, entrySize, entryCount)) {
@@ -131,7 +132,8 @@ public class Sonic2LevelChain implements IntrospectionChain {
         // and many entries are 0x00 or 0xFF
 
         int searchStart = 0x040000;
-        int searchEnd = Math.min(0x050000, rom.length - 0x2100);
+        int searchEnd = RomReadUtil.safeSearchEnd(0x050000, rom.length, 0x2100);
+        if (searchEnd < searchStart) return;
 
         for (int offset = searchStart; offset < searchEnd; offset += 2) {
             if (isValidAngleMap(rom, offset)) {
@@ -248,7 +250,8 @@ public class Sonic2LevelChain implements IntrospectionChain {
 
         // Search in the typical code region for the boundaries table
         int searchStart = 0x00C000;
-        int searchEnd = Math.min(0x010000, rom.length - entrySize * minEntries);
+        int searchEnd = RomReadUtil.safeSearchEnd(0x010000, rom.length, entrySize * minEntries);
+        if (searchEnd < searchStart) return;
 
         for (int offset = searchStart; offset < searchEnd; offset += 2) {
             if (isValidBoundariesTable(rom, offset, entrySize, minEntries)) {
@@ -307,7 +310,8 @@ public class Sonic2LevelChain implements IntrospectionChain {
 
         // Search in the typical code region
         int searchStart = 0x009000;
-        int searchEnd = Math.min(0x010000, rom.length - entrySize * entryCount);
+        int searchEnd = RomReadUtil.safeSearchEnd(0x010000, rom.length, entrySize * entryCount);
+        if (searchEnd < searchStart) return;
 
         for (int offset = searchStart; offset < searchEnd; offset += 2) {
             if (isValidStartLocationArray(rom, offset, entrySize, entryCount)) {
@@ -355,22 +359,13 @@ public class Sonic2LevelChain implements IntrospectionChain {
         return validEntries >= entryCount * 3 / 5;
     }
 
-    // ---- Utility methods ----
+    // ---- Utility methods (delegate to shared RomReadUtil) ----
 
-    /**
-     * Reads a big-endian 32-bit value from the ROM.
-     */
     static int readBigEndian32(byte[] rom, int offset) {
-        return ((rom[offset] & 0xFF) << 24)
-                | ((rom[offset + 1] & 0xFF) << 16)
-                | ((rom[offset + 2] & 0xFF) << 8)
-                | (rom[offset + 3] & 0xFF);
+        return RomReadUtil.readBigEndian32(rom, offset);
     }
 
-    /**
-     * Reads a big-endian 16-bit value from the ROM.
-     */
     static int readBigEndian16(byte[] rom, int offset) {
-        return ((rom[offset] & 0xFF) << 8) | (rom[offset + 1] & 0xFF);
+        return RomReadUtil.readBigEndian16(rom, offset);
     }
 }

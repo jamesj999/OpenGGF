@@ -122,6 +122,16 @@ public class RomPatternScanner {
      * @return the read value (unsigned for BYTE/16, signed for 32)
      */
     int readValue(byte[] rom, int offset, ScanPattern.ReadMode mode) {
+        int bytesNeeded = switch (mode) {
+            case BYTE -> 1;
+            case BIG_ENDIAN_16 -> 2;
+            case BIG_ENDIAN_32 -> 4;
+        };
+        if (offset < 0 || offset + bytesNeeded > rom.length) {
+            LOG.fine(() -> String.format("readValue out of bounds: offset=0x%X, need=%d, romLen=%d",
+                    offset, bytesNeeded, rom.length));
+            return -1;
+        }
         return switch (mode) {
             case BYTE -> rom[offset] & 0xFF;
             case BIG_ENDIAN_16 -> ((rom[offset] & 0xFF) << 8) | (rom[offset + 1] & 0xFF);

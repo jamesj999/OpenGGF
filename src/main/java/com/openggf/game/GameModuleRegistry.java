@@ -9,6 +9,9 @@ import uk.co.jamesj999.sonic.game.profile.RomProfile;
 import uk.co.jamesj999.sonic.game.profile.scanner.RomPatternScanner;
 import uk.co.jamesj999.sonic.game.profile.scanner.ScanResult;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2GameModule;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
+import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kGameModule;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -97,6 +100,10 @@ public final class GameModuleRegistry {
      * then runs the ROM pattern scanner to discover additional addresses. The scanner fills
      * gaps between profile and default layers without overriding profile values.
      *
+     * <p><strong>Fallback behavior:</strong> If profile loading or scanning fails, the resolver
+     * falls back to defaults from {@link GameModule#getDefaultOffsets()}. The engine will
+     * continue running with hardcoded REV01 addresses.
+     *
      * @param rom    the loaded ROM (used for checksum computation and scanning)
      * @param module the active game module (provides default offsets and scan patterns)
      */
@@ -105,10 +112,14 @@ public final class GameModuleRegistry {
             // Build defaults from the module's hardcoded constants
             Map<String, Integer> defaults = ProfileGenerator.toResolverDefaults(module.getDefaultOffsets());
 
-            // Attempt profile loading: user override file first, then classpath by checksum
+            // Read ROM bytes once (needed for checksum and scanner)
             RomProfile profile = null;
             byte[] romBytes = null;
             try {
+                romBytes = rom.readAllBytes();
+                String checksum = RomChecksumUtil.sha256(romBytes);
+                LOGGER.info("ROM checksum: " + checksum);
+
                 ProfileLoader loader = new ProfileLoader();
 
                 // 1. Try user override: <rom-path>.profile.json next to the ROM file
@@ -123,19 +134,12 @@ public final class GameModuleRegistry {
 
                 // 2. Fall back to shipped classpath profile by ROM checksum
                 if (profile == null) {
-                    romBytes = rom.readAllBytes();
-                    String checksum = RomChecksumUtil.sha256(romBytes);
-                    LOGGER.info("ROM checksum: " + checksum);
-
                     profile = loader.loadFromClasspath(checksum);
                     if (profile != null) {
                         LOGGER.info("Loaded shipped profile: " + profile.getMetadata().name());
                     } else {
                         LOGGER.fine("No shipped profile found for checksum: " + checksum);
                     }
-                } else {
-                    // Still need romBytes for the scanner below
-                    romBytes = rom.readAllBytes();
                 }
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Failed to load profile, using defaults only", e);
@@ -165,6 +169,13 @@ public final class GameModuleRegistry {
                 } catch (Exception e) {
                     LOGGER.log(Level.WARNING, "ROM pattern scan failed, continuing with profile/defaults", e);
                 }
+            }
+
+            // Propagate resolved addresses back to the static constants fields
+            if (module instanceof Sonic2GameModule) {
+                Sonic2Constants.initFromResolver(resolver);
+            } else if (module instanceof Sonic3kGameModule) {
+                Sonic3kConstants.initFromResolver(resolver);
             }
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Failed to initialize ROM address resolver", e);

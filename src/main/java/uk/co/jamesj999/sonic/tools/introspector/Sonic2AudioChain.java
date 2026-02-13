@@ -74,7 +74,8 @@ public class Sonic2AudioChain implements IntrospectionChain {
         int entrySize = 4;
         int minEntries = 10; // Sonic 2 has many music tracks
         int searchStart = 0x0E0000;
-        int searchEnd = Math.min(0x0F0000, rom.length - entrySize * minEntries);
+        int searchEnd = RomReadUtil.safeSearchEnd(0x0F0000, rom.length, entrySize * minEntries);
+        if (searchEnd < searchStart) return;
 
         for (int offset = searchStart; offset < searchEnd; offset += 2) {
             if (isValidMusicPtrTable(rom, offset, entrySize, minEntries)) {
@@ -134,7 +135,8 @@ public class Sonic2AudioChain implements IntrospectionChain {
         // The music flags table is typically 30-50 bytes of flag values
         // Search near the end of the 0x0EC000 range
         int searchStart = 0x0EC000;
-        int searchEnd = Math.min(0x0ED000, rom.length - 64);
+        int searchEnd = RomReadUtil.safeSearchEnd(0x0ED000, rom.length, 64);
+        if (searchEnd < searchStart) return;
 
         for (int offset = searchStart; offset < searchEnd; offset++) {
             if (isValidMusicFlagsTable(rom, offset, 20)) {
@@ -186,7 +188,8 @@ public class Sonic2AudioChain implements IntrospectionChain {
 
         // SFX pointer table is typically in 0x0FE000-0x0FF000
         int searchStart = 0x0FE000;
-        int searchEnd = Math.min(0x0FF000, rom.length - entrySize * minEntries);
+        int searchEnd = RomReadUtil.safeSearchEnd(0x0FF000, rom.length, entrySize * minEntries);
+        if (searchEnd < searchStart) return;
 
         for (int offset = searchStart; offset < searchEnd; offset += 2) {
             if (isValidSfxPtrTable(rom, offset, entrySize, minEntries)) {
@@ -237,7 +240,8 @@ public class Sonic2AudioChain implements IntrospectionChain {
         // PCM sample pointer table: 4-byte ROM pointers to PCM data
         // PCM data is in the 0x0E0000 range
         int searchStart = 0x0EC000;
-        int searchEnd = Math.min(0x0ED000, rom.length - 32);
+        int searchEnd = RomReadUtil.safeSearchEnd(0x0ED000, rom.length, 32);
+        if (searchEnd < searchStart) return;
 
         for (int offset = searchStart; offset < searchEnd; offset += 2) {
             if (isValidPcmSampleTable(rom, offset, 7)) {
@@ -287,7 +291,8 @@ public class Sonic2AudioChain implements IntrospectionChain {
     void tracePsgEnvelopeTable(byte[] rom, List<IntrospectionResult> results) {
         int minEntries = 5;
         int searchStart = 0x0F2000;
-        int searchEnd = Math.min(0x0F4000, rom.length - minEntries * 4);
+        int searchEnd = RomReadUtil.safeSearchEnd(0x0F4000, rom.length, minEntries * 4);
+        if (searchEnd < searchStart) return;
 
         for (int offset = searchStart; offset < searchEnd; offset += 2) {
             if (isValidPsgEnvelopeTable(rom, offset, minEntries)) {
@@ -326,22 +331,13 @@ public class Sonic2AudioChain implements IntrospectionChain {
         return true;
     }
 
-    // ---- Utility methods ----
+    // ---- Utility methods (delegate to shared RomReadUtil) ----
 
-    /**
-     * Reads a big-endian 32-bit value from the ROM.
-     */
     static int readBigEndian32(byte[] rom, int offset) {
-        return ((rom[offset] & 0xFF) << 24)
-                | ((rom[offset + 1] & 0xFF) << 16)
-                | ((rom[offset + 2] & 0xFF) << 8)
-                | (rom[offset + 3] & 0xFF);
+        return RomReadUtil.readBigEndian32(rom, offset);
     }
 
-    /**
-     * Reads a big-endian 16-bit value from the ROM.
-     */
     static int readBigEndian16(byte[] rom, int offset) {
-        return ((rom[offset] & 0xFF) << 8) | (rom[offset + 1] & 0xFF);
+        return RomReadUtil.readBigEndian16(rom, offset);
     }
 }

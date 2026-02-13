@@ -62,7 +62,7 @@ public class ProfileGenerator {
      *
      * <p>Categorization rules (checked in order, first match wins):</p>
      * <ul>
-     *   <li>{@code SONIC_ANIM_*}, {@code TAILS_ANIM_*} &rarr; "art"</li>
+     *   <li>{@code SONIC_ANIM_*}, {@code TAILS_ANIM_*}, {@code SUPER_SONIC_ANIM_*} &rarr; "art"</li>
      *   <li>{@code ART_*}, {@code MAP_*}, {@code DPLC_*} &rarr; "art"</li>
      *   <li>{@code ANIM_PAT_*}, {@code ANI_*} &rarr; "animation"</li>
      *   <li>{@code LEVEL_*}, {@code DEFAULT_LEVEL_*}, {@code BG_SCROLL_*},
@@ -81,7 +81,8 @@ public class ProfileGenerator {
      */
     public static String categorize(String fieldName) {
         // Character animation data addresses (must check before generic prefixes)
-        if (fieldName.startsWith("SONIC_ANIM_") || fieldName.startsWith("TAILS_ANIM_")) {
+        if (fieldName.startsWith("SONIC_ANIM_") || fieldName.startsWith("TAILS_ANIM_")
+                || fieldName.startsWith("SUPER_SONIC_ANIM_")) {
             return "art";
         }
 

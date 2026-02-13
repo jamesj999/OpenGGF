@@ -3,7 +3,6 @@ package uk.co.jamesj999.sonic.game.profile;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.game.ZoneRegistry;
 
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -23,6 +22,10 @@ import java.util.logging.Logger;
  *
  * <p>Keys are composite strings in the form {@code "category.name"}, e.g.
  * {@code "level.LEVEL_LAYOUT_INDEX_ADDR"}.</p>
+ *
+ * <p><strong>Thread Safety:</strong> All instance methods are synchronized. The typical
+ * usage pattern is single-threaded initialization at boot ({@code initialize()} then
+ * {@code addScannedAddresses()}) followed by read-only access during gameplay.
  */
 public class RomAddressResolver {
 
@@ -72,7 +75,7 @@ public class RomAddressResolver {
      * @param profile  the ROM profile (may be null if no profile is available)
      * @param defaults default addresses keyed by "category.name"
      */
-    public void initialize(RomProfile profile, Map<String, Integer> defaults) {
+    public synchronized void initialize(RomProfile profile, Map<String, Integer> defaults) {
         resolved.clear();
         sources.clear();
         zoneMappings.clear();
@@ -124,7 +127,7 @@ public class RomAddressResolver {
      *
      * @param scanned scanned addresses keyed by "category.name"
      */
-    public void addScannedAddresses(Map<String, Integer> scanned) {
+    public synchronized void addScannedAddresses(Map<String, Integer> scanned) {
         if (scanned == null) {
             return;
         }
@@ -147,8 +150,8 @@ public class RomAddressResolver {
      *
      * @return unmodifiable set of resolved keys
      */
-    public Set<String> getResolvedKeys() {
-        return Collections.unmodifiableSet(resolved.keySet());
+    public synchronized Set<String> getResolvedKeys() {
+        return Set.copyOf(resolved.keySet());
     }
 
     /**
@@ -158,7 +161,7 @@ public class RomAddressResolver {
      * @param name     the address name within the category
      * @return the resolved address value, or -1 if not found
      */
-    public int getAddress(String category, String name) {
+    public synchronized int getAddress(String category, String name) {
         return getAddress(category, name, -1);
     }
 
@@ -171,7 +174,7 @@ public class RomAddressResolver {
      * @param defaultValue the value to return if the address is not resolved
      * @return the resolved address value, or {@code defaultValue} if not found
      */
-    public int getAddress(String category, String name, int defaultValue) {
+    public synchronized int getAddress(String category, String name, int defaultValue) {
         String key = category + "." + name;
         Integer value = resolved.get(key);
         return value != null ? value : defaultValue;
@@ -183,7 +186,7 @@ public class RomAddressResolver {
      * @param name the address name
      * @return the resolved address value, or -1 if not found
      */
-    public int getLevelAddress(String name) {
+    public synchronized int getLevelAddress(String name) {
         return getAddress("level", name);
     }
 
@@ -194,7 +197,7 @@ public class RomAddressResolver {
      * @param defaultValue the value to return if the address is not resolved
      * @return the resolved address value, or {@code defaultValue} if not found
      */
-    public int getLevelAddress(String name, int defaultValue) {
+    public synchronized int getLevelAddress(String name, int defaultValue) {
         return getAddress("level", name, defaultValue);
     }
 
@@ -204,7 +207,7 @@ public class RomAddressResolver {
      * @param name the address name
      * @return the resolved address value, or -1 if not found
      */
-    public int getAudioAddress(String name) {
+    public synchronized int getAudioAddress(String name) {
         return getAddress("audio", name);
     }
 
@@ -214,7 +217,7 @@ public class RomAddressResolver {
      * @param name the address name
      * @return the resolved address value, or -1 if not found
      */
-    public int getArtAddress(String name) {
+    public synchronized int getArtAddress(String name) {
         return getAddress("art", name);
     }
 
@@ -224,7 +227,7 @@ public class RomAddressResolver {
      * @param name the address name
      * @return the resolved address value, or -1 if not found
      */
-    public int getCollisionAddress(String name) {
+    public synchronized int getCollisionAddress(String name) {
         return getAddress("collision", name);
     }
 
@@ -234,7 +237,7 @@ public class RomAddressResolver {
      * @param name the address name
      * @return the resolved address value, or -1 if not found
      */
-    public int getPaletteAddress(String name) {
+    public synchronized int getPaletteAddress(String name) {
         return getAddress("palette", name);
     }
 
@@ -245,7 +248,7 @@ public class RomAddressResolver {
      * @return the behavior mapping string, or null if the zone is not mapped
      *         or has a null behavior mapping
      */
-    public String getZoneBehavior(int zoneId) {
+    public synchronized String getZoneBehavior(int zoneId) {
         ZoneMapping mapping = zoneMappings.get(zoneId);
         return mapping != null ? mapping.behaviorMapping() : null;
     }
@@ -273,7 +276,7 @@ public class RomAddressResolver {
      * @param zoneId the zone slot index
      * @return the behavior key string (lowercase), or null if unmapped and out of registry range
      */
-    public String resolveZoneBehavior(int zoneId) {
+    public synchronized String resolveZoneBehavior(int zoneId) {
         // Check profile zone mapping first
         String profileBehavior = getZoneBehavior(zoneId);
         if (profileBehavior != null) {
@@ -299,7 +302,7 @@ public class RomAddressResolver {
      *
      * @return the resolution report
      */
-    public ResolutionReport getReport() {
+    public synchronized ResolutionReport getReport() {
         int fromProfile = 0;
         int fromScanned = 0;
         int fromDefaults = 0;
@@ -326,8 +329,9 @@ public class RomAddressResolver {
     private void logResolutionSummary() {
         ResolutionReport report = getReport();
         logger.info(() -> String.format(
-                "ROM address resolution: %d from profile, %d from defaults, %d missing (total expected: %d)",
-                report.fromProfile(), report.fromDefaults(), report.missing(), report.totalExpected()
+                "ROM address resolution: %d from profile, %d scanned, %d from defaults, %d missing (total: %d)",
+                report.fromProfile(), report.fromScanned(), report.fromDefaults(),
+                report.missing(), report.totalExpected()
         ));
     }
 }
