@@ -586,7 +586,7 @@ public class Camera {
 	/**
 	 * Gradually increases bias toward the look-up target (0xC8 = 200).
 	 * ROM: s2.asm:36406-36408 - adds 2 to bias each frame until reaching 0xC8.
-	 * Call this each frame while looking up AND look delay counter >= 0x78.
+	 * Call this each frame while looking up AND look delay counter has elapsed.
 	 */
 	public void incrementLookUpBias() {
 		if (yPosBias < LOOK_UP_BIAS) {
@@ -600,7 +600,7 @@ public class Camera {
 	/**
 	 * Gradually decreases bias toward the look-down target (8).
 	 * ROM: s2.asm:36420-36422 - subtracts 2 from bias each frame until reaching 8.
-	 * Call this each frame while looking down AND look delay counter >= 0x78.
+	 * Call this each frame while looking down AND look delay counter has elapsed.
 	 */
 	public void decrementLookDownBias() {
 		if (yPosBias > LOOK_DOWN_BIAS) {
