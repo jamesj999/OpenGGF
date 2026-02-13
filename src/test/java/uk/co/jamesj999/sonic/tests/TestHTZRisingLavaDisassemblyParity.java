@@ -40,9 +40,10 @@ public class TestHTZRisingLavaDisassemblyParity {
 
         camera.setX((short) 0x1900); // < $1978, should not oscillate
         camera.setY((short) 0x410);
-        setPrivateInt(levelEvents, "cameraBgYOffset", 300);
-        setPrivateBoolean(levelEvents, "htzTerrainSinking", false);
-        setPrivateInt(levelEvents, "htzTerrainDelay", 0);
+        Object htzHandler = getHtzHandler(levelEvents);
+        setPrivateInt(htzHandler, "cameraBgYOffset", 300);
+        setPrivateBoolean(htzHandler, "htzTerrainSinking", false);
+        setPrivateInt(htzHandler, "htzTerrainDelay", 0);
 
         for (int i = 0; i < 16; i++) {
             levelEvents.update();
@@ -70,7 +71,8 @@ public class TestHTZRisingLavaDisassemblyParity {
         assertTrue(GameServices.gameState().isHtzScreenShakeActive());
         assertEquals(0, levelEvents.getHtzBgVerticalShift());
 
-        setPrivateInt(levelEvents, "cameraBgYOffset", 0x2F0);
+        Object htzHandler = getHtzHandler(levelEvents);
+        setPrivateInt(htzHandler, "cameraBgYOffset", 0x2F0);
         assertEquals(0x10, levelEvents.getHtzBgVerticalShift());
     }
 
@@ -93,6 +95,12 @@ public class TestHTZRisingLavaDisassemblyParity {
 
     private static ObjectSpawn spawnWithSubtype(int subtype) {
         return new ObjectSpawn(0x1800, 0x420, 0x30, subtype, 0, false, 0);
+    }
+
+    private static Object getHtzHandler(Object manager) throws Exception {
+        Field f = manager.getClass().getDeclaredField("htzEvents");
+        f.setAccessible(true);
+        return f.get(manager);
     }
 
     private static void setPrivateInt(Object target, String fieldName, int value) throws Exception {

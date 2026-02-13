@@ -11,6 +11,15 @@ import uk.co.jamesj999.sonic.camera.Camera;
  * Act 3 (DLE_SBZ3): Zone transition to Final Zone (ROM: LZ act 3).
  * FZ   (DLE_FZ):    5-routine boss sequence with left boundary locking.
  *
+ * TODO: Act 2 boss spawn + collapsing floor - DLE_SBZ lines 323-400 in s1disasm.
+ *   Routine 2 spawns collapsing floor object; routine 4 spawns Eggman boss.
+ *   Boss objects not yet implemented.
+ * TODO: Act 3 zone transition to FZ - DLE_SBZ3.
+ *   Needs lamppost clearing, zone restart with id_SBZ act 3 (= FZ).
+ * TODO: FZ boss spawn + Robotnik sequence - DLE_FZ / DLE_Ending lines 401+.
+ *   Routine 0 loads FZ boss patterns; routine 2 spawns FZ boss.
+ *   Boss objects, defeat sequence, and ending not yet implemented.
+ *
  * SBZ and FZ are separate zones in our engine (zone 5 and zone 6), but
  * share this event handler. Since each zone triggers a fresh level load
  * (which calls init()), the inherited eventRoutine is safely reused for
