@@ -150,6 +150,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // Load Batbrain/Basaran art (MZ badnik - ceiling bat)
         loadBatbrainArt(rom);
 
+        // Load Yadrin art (SYZ badnik - spiky hedgehog)
+        loadYadrinArt(rom);
+
         // Load results screen art (reuses title card + HUD text)
         loadResultsScreenArt(rom);
 
@@ -204,6 +207,12 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         if (zoneIndex == Sonic1Constants.ZONE_LZ) {
             loadLzPushBlockArt(rom);
             loadLzMovingBlockArt(rom);
+        }
+
+        // Load SYZ-specific art (bumper, big spiked ball)
+        if (zoneIndex == Sonic1Constants.ZONE_SYZ) {
+            loadBumperArt(rom);
+            loadBigSpikedBallArt(rom);
         }
 
         // Load SBZ-specific art (moving blocks - short stomper + long slide floor, collapsing floor)
@@ -2326,6 +2335,95 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
+     * Loads Yadrin art (Nem_Yadrin) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Yadrin.asm (Map_Yad_internal).
+     * 6 frames: walk0-walk5, used in two animations (stand + walk).
+     * <p>
+     * From disassembly: make_art_tile(ArtTile_Yadrin,1,0) - palette 1, no priority bit.
+     */
+    private void loadYadrinArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_YADRIN_ADDR, "Yadrin");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Yadrin art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createYadrinMappings();
+        // make_art_tile(ArtTile_Yadrin, 1, 0) - palette line 1
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 1, 1);
+        registerSheet(ObjectArtKeys.YADRIN, sheet);
+    }
+
+    /**
+     * Creates Yadrin sprite mappings from S1 disassembly Map_Yad_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * 6 frames: walk0 through walk5.
+     * Frames 0-2 use tile $31 for feet; frames 3-5 use tile $37 for feet.
+     */
+    private List<SpriteMappingFrame> createYadrinMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.walk0): 5 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 1, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x14, -0x04, 4, 3, 0x03, false, false, 0, false),
+                new SpriteMappingPiece(-0x04, -0x14, 2, 1, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece( 0x0C, -0x0C, 1, 3, 0x11, false, false, 0, false),
+                new SpriteMappingPiece(-0x04,  0x04, 3, 2, 0x31, false, false, 0, false)
+        )));
+
+        // Frame 1 (.walk1): 5 pieces - different head/body art
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 1, 0x14, false, false, 0, false),
+                new SpriteMappingPiece(-0x14, -0x04, 4, 3, 0x17, false, false, 0, false),
+                new SpriteMappingPiece(-0x04, -0x14, 2, 1, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece( 0x0C, -0x0C, 1, 3, 0x11, false, false, 0, false),
+                new SpriteMappingPiece(-0x04,  0x04, 3, 2, 0x31, false, false, 0, false)
+        )));
+
+        // Frame 2 (.walk2): 5 pieces - body top is 3x2 instead of 3x1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 2, 0x23, false, false, 0, false),
+                new SpriteMappingPiece(-0x14,  0x04, 4, 2, 0x29, false, false, 0, false),
+                new SpriteMappingPiece(-0x04, -0x14, 2, 1, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece( 0x0C, -0x0C, 1, 3, 0x11, false, false, 0, false),
+                new SpriteMappingPiece(-0x04,  0x04, 3, 2, 0x31, false, false, 0, false)
+        )));
+
+        // Frame 3 (.walk3): Same as frame 0 but with tile $37 feet
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 1, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x14, -0x04, 4, 3, 0x03, false, false, 0, false),
+                new SpriteMappingPiece(-0x04, -0x14, 2, 1, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece( 0x0C, -0x0C, 1, 3, 0x11, false, false, 0, false),
+                new SpriteMappingPiece(-0x04,  0x04, 3, 2, 0x37, false, false, 0, false)
+        )));
+
+        // Frame 4 (.walk4): Same as frame 1 but with tile $37 feet
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 1, 0x14, false, false, 0, false),
+                new SpriteMappingPiece(-0x14, -0x04, 4, 3, 0x17, false, false, 0, false),
+                new SpriteMappingPiece(-0x04, -0x14, 2, 1, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece( 0x0C, -0x0C, 1, 3, 0x11, false, false, 0, false),
+                new SpriteMappingPiece(-0x04,  0x04, 3, 2, 0x37, false, false, 0, false)
+        )));
+
+        // Frame 5 (.walk5): Same as frame 2 but with tile $37 feet
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 2, 0x23, false, false, 0, false),
+                new SpriteMappingPiece(-0x14,  0x04, 4, 2, 0x29, false, false, 0, false),
+                new SpriteMappingPiece(-0x04, -0x14, 2, 1, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece( 0x0C, -0x0C, 1, 3, 0x11, false, false, 0, false),
+                new SpriteMappingPiece(-0x04,  0x04, 3, 2, 0x37, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
      * Loads Buzz Bomber art (Nem_Buzz) and creates sprite sheets for the Buzz Bomber,
      * its missile, and the missile dissolve effect.
      * All three share the same Nemesis-compressed art tile set (ArtTile_Buzz_Bomber = $444).
@@ -4074,6 +4172,70 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
+     * Registers the SYZ spinning light sprite sheet using level tile patterns.
+     * Must be called AFTER the level is loaded since the lamp uses zone tileset art
+     * (make_art_tile(ArtTile_Level,0,0)).
+     * <p>
+     * 6 frames of 32x16 animation. Each frame has two 4x1 tile pieces,
+     * the second v-flipped. Tile indices progress by 4 per frame:
+     * 0x31, 0x35, 0x39, 0x3D, 0x41, 0x45.
+     * <p>
+     * Reference: docs/s1disasm/_incObj/12 Light.asm, docs/s1disasm/_maps/Light.asm
+     *
+     * @param level the loaded level to extract patterns from
+     */
+    public void registerSpinningLightSheet(Level level) {
+        if (level == null) {
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSpinningLightMappings();
+        // Highest tile: 0x45 + 4 = 0x49
+        int maxTileNeeded = 0x49;
+
+        int patternCount = level.getPatternCount();
+        int copyCount = Math.min(patternCount, maxTileNeeded);
+        if (copyCount == 0) {
+            LOGGER.warning("No level patterns available for spinning light art");
+            return;
+        }
+        Pattern[] patterns = new Pattern[copyCount];
+        for (int i = 0; i < copyCount; i++) {
+            patterns[i] = level.getPattern(i);
+        }
+
+        // Palette line 0 (make_art_tile(ArtTile_Level, 0, 0))
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.SYZ_SPINNING_LIGHT, sheet);
+    }
+
+    /**
+     * Creates spinning light sprite mappings from docs/s1disasm/_maps/Light.asm.
+     * <p>
+     * Each of the 6 frames has 2 pieces (4 tiles wide, 1 tile tall each):
+     * <pre>
+     * .f0: spritePiece -$10, -8, 4, 1, $31, 0, 0, 0, 0
+     *      spritePiece -$10,  0, 4, 1, $31, 0, 1, 0, 0
+     * .f1: spritePiece -$10, -8, 4, 1, $35, 0, 0, 0, 0
+     *      spritePiece -$10,  0, 4, 1, $35, 0, 1, 0, 0
+     * ... (tiles advance by 4 each frame)
+     * </pre>
+     */
+    private List<SpriteMappingFrame> createSpinningLightMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        int[] baseTiles = {0x31, 0x35, 0x39, 0x3D, 0x41, 0x45};
+        for (int tile : baseTiles) {
+            frames.add(new SpriteMappingFrame(List.of(
+                    new SpriteMappingPiece(-0x10, -8, 4, 1, tile, false, false, 0, false),
+                    new SpriteMappingPiece(-0x10,  0, 4, 1, tile, false, true,  0, false)
+            )));
+        }
+
+        return frames;
+    }
+
+    /**
      * Loads Giant Ring art (Art_BigRing) - uncompressed 98-tile ring sprite.
      * Mappings from docs/s1disasm/_maps/Giant Ring.asm (Map_GRing_internal).
      * 4 frames: front view, angled, edge-on, angled reverse.
@@ -4560,6 +4722,91 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
+     * Loads big spiked ball art for SYZ (Object 0x58).
+     * Uses same Nemesis art (Nem_SyzSpike1) and mappings (Map_BBall) as SBZ ball on chain,
+     * but loaded at ArtTile_SYZ_Big_Spikeball ($396) instead of ArtTile_SBZ_Swing ($391).
+     * Only uses frame 0 (the ball sprite), but all 3 frames are registered for completeness.
+     */
+    /**
+     * Loads SYZ pinball bumper art (Nem_Bumper) and creates S1-format sprite mappings.
+     * <p>
+     * Reference: docs/s1disasm/_incObj/47 Bumper.asm (Bump_Main)
+     * Art: make_art_tile(ArtTile_SYZ_Bumper,0,0) = $380, palette line 0
+     * Mappings from docs/s1disasm/_maps/Bumper.asm (Map_Bump_internal)
+     * <p>
+     * 3 frames:
+     * <ul>
+     *   <li>Frame 0 (.normal): 32x32 idle (2 pieces)</li>
+     *   <li>Frame 1 (.bumped1): 24x24 compressed hit (2 pieces)</li>
+     *   <li>Frame 2 (.bumped2): 32x32 expanded hit (2 pieces)</li>
+     * </ul>
+     */
+    private void loadBumperArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_BUMPER_ADDR, "Bumper");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SYZ bumper art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createBumperMappings();
+        // make_art_tile(ArtTile_SYZ_Bumper,0,0) — palette line 0
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.BUMPER, sheet);
+    }
+
+    /**
+     * Creates SYZ bumper sprite mappings from docs/s1disasm/_maps/Bumper.asm.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0 (.normal):  2 pieces, 32x32 idle bumper
+     * Frame 1 (.bumped1): 2 pieces, 24x24 compressed (hit animation frame 1)
+     * Frame 2 (.bumped2): 2 pieces, 32x32 expanded (hit animation frame 2)
+     */
+    private List<SpriteMappingFrame> createBumperMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.normal): 32x32 idle
+        // spritePiece -$10, -$10, 2, 4, 0, 0, 0, 0, 0
+        // spritePiece   0, -$10, 2, 4, 0, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 2, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x10, 2, 4, 0, true,  false, 0, false)
+        )));
+
+        // Frame 1 (.bumped1): 24x24 compressed hit
+        // spritePiece -$C, -$C, 2, 3, 8, 0, 0, 0, 0
+        // spritePiece   4, -$C, 1, 3, 8, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 2, 3, 8, false, false, 0, false),
+                new SpriteMappingPiece(  0x4, -0x0C, 1, 3, 8, true,  false, 0, false)
+        )));
+
+        // Frame 2 (.bumped2): 32x32 expanded hit
+        // spritePiece -$10, -$10, 2, 4, $E, 0, 0, 0, 0
+        // spritePiece    0, -$10, 2, 4, $E, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 2, 4, 0x0E, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x10, 2, 4, 0x0E, true,  false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    private void loadBigSpikedBallArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_SPIKED_BALL_ADDR, "SYZBigSpikeBall");
+        if (patterns.length > 0) {
+            // Reuses same Map_BBall mappings as SBZ ball (createSbzBallMappings)
+            List<SpriteMappingFrame> mappings = createSbzBallMappings();
+            // make_art_tile(ArtTile_SYZ_Big_Spikeball, 0, 0) — palette line 0
+            ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+            registerSheet(ObjectArtKeys.SYZ_BIG_SPIKED_BALL, sheet);
+        }
+    }
+
+    /**
      * GHZ giant ball mappings from docs/s1disasm/_maps/GHZ Ball.asm.
      * <p>
      * Frame 0 (.shiny):  Ball with shine — 6 pieces (48x48)
@@ -4754,6 +5001,221 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             registerSheet(uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys.BOSS_EXPLOSION,
                     explosionSheet);
         }
+    }
+
+    /**
+     * Registers the floating block/door sprite sheets.
+     * <p>
+     * SYZ/SLZ blocks use level tile patterns (ArtTile_Level), so this must be called
+     * AFTER the level is loaded. LZ doors use dedicated Nemesis-compressed art
+     * (Nem_LzDoor1 for vertical doors, both combined for the full frame set).
+     * <p>
+     * Mappings from docs/s1disasm/_maps/Floating Blocks and Doors.asm (Map_FBlock):
+     * <ul>
+     *   <li>Frame 0 (.syz1x1):     1 piece,  SYZ 32x32 square block</li>
+     *   <li>Frame 1 (.syz2x2):     4 pieces, SYZ 64x64 quad block</li>
+     *   <li>Frame 2 (.syz1x2):     2 pieces, SYZ 32x64 tall block</li>
+     *   <li>Frame 3 (.syzrect2x2): 4 pieces, SYZ 64x52 rectangular blocks (tile $81)</li>
+     *   <li>Frame 4 (.syzrect1x3): 3 pieces, SYZ 32x78 tall rectangular blocks (tile $81)</li>
+     *   <li>Frame 5 (.slz):        1 piece,  SLZ 32x32 square block (tile $21)</li>
+     *   <li>Frame 6 (.lzvert):     2 pieces, LZ 16x64 vertical door</li>
+     *   <li>Frame 7 (.lzhoriz):    4 pieces, LZ 128x32 horizontal door (tile $22)</li>
+     * </ul>
+     *
+     * @param level     The loaded level to extract patterns from (for SYZ/SLZ)
+     * @param zoneIndex The current zone index
+     */
+    public void registerFloatingBlockSheet(Level level, int zoneIndex) {
+        if (zoneIndex == Sonic1Constants.ZONE_LZ) {
+            // LZ doors: load dedicated Nemesis art (both vert and horiz combined)
+            try {
+                Rom rom = GameServices.rom().getRom();
+                if (rom != null) {
+                    registerLzFloatingBlockSheet(rom);
+                }
+            } catch (IOException e) {
+                LOGGER.warning("Failed to get ROM for LZ floating block art: " + e.getMessage());
+            }
+        } else {
+            // SYZ/SLZ: use level tile patterns
+            registerSyzSlzFloatingBlockSheet(level);
+        }
+    }
+
+    /**
+     * Registers the SYZ/SLZ floating block sheet using level tile patterns.
+     * These blocks use make_art_tile(ArtTile_Level,2,0) — palette line 2.
+     */
+    private void registerSyzSlzFloatingBlockSheet(Level level) {
+        if (level == null) {
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createFloatingBlockMappingsSyzSlz();
+
+        // Highest tile index used: frame 3/4 use tile $81 + (4*4-1) = $90
+        int maxTileNeeded = 0x91;
+        int patternCount = level.getPatternCount();
+        int copyCount = Math.min(patternCount, maxTileNeeded);
+        if (copyCount == 0) {
+            LOGGER.warning("No level patterns available for floating block art");
+            return;
+        }
+        Pattern[] patterns = new Pattern[copyCount];
+        for (int i = 0; i < copyCount; i++) {
+            patterns[i] = level.getPattern(i);
+        }
+
+        // Palette line 2 (make_art_tile(ArtTile_Level, 2, 0))
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SYZ_FLOATING_BLOCK, sheet);
+    }
+
+    /**
+     * Registers the LZ floating block (door) sheet using dedicated Nemesis art.
+     * LZ doors use make_art_tile(ArtTile_LZ_Door,2,0) — palette line 2.
+     * Both vertical door (Nem_LzDoor1) and horizontal door (Nem_LzDoor2) art
+     * are loaded and combined into a single pattern array.
+     */
+    private void registerLzFloatingBlockSheet(Rom rom) {
+        // Load vertical door art
+        Pattern[] vertPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_LZ_DOOR_VERT_ADDR, "LzDoorVert");
+        // Load horizontal door art
+        Pattern[] horizPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_LZ_DOOR_HORIZ_ADDR, "LzDoorHoriz");
+
+        // Combine: vert patterns first, then horiz patterns
+        // Vertical door art starts at tile 0, horizontal door art at tile $22
+        // The mappings reference tile 0 for vertical and tile $22 for horizontal
+        int totalPatterns = Math.max(vertPatterns.length, 0x22) + horizPatterns.length;
+        Pattern[] combined = new Pattern[totalPatterns];
+        // Copy vertical patterns
+        for (int i = 0; i < vertPatterns.length; i++) {
+            combined[i] = vertPatterns[i];
+        }
+        // Fill gap with blank patterns if needed
+        for (int i = vertPatterns.length; i < 0x22; i++) {
+            combined[i] = new Pattern();
+        }
+        // Copy horizontal patterns at offset $22
+        for (int i = 0; i < horizPatterns.length; i++) {
+            combined[0x22 + i] = horizPatterns[i];
+        }
+
+        List<SpriteMappingFrame> mappings = createFloatingBlockMappingsLz();
+
+        // Palette line 2 (make_art_tile(ArtTile_LZ_Door, 2, 0))
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(combined, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.LZ_FLOATING_BLOCK, sheet);
+    }
+
+    /**
+     * SYZ/SLZ floating block mappings from docs/s1disasm/_maps/Floating Blocks and Doors.asm.
+     * These use level tile patterns (ArtTile_Level = 0).
+     * Returns frames 0-5 (SYZ variants + SLZ).
+     */
+    private List<SpriteMappingFrame> createFloatingBlockMappingsSyzSlz() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.syz1x1): 1 piece, SYZ 32x32 square block
+        // spritePiece -$10, -$10, 4, 4, $61, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x61, false, false, 0, false)
+        )));
+
+        // Frame 1 (.syz2x2): 4 pieces, SYZ 64x64 quad block
+        // spritePiece -$20, -$20, 4, 4, $61, 0, 0, 0, 0
+        // spritePiece    0, -$20, 4, 4, $61, 0, 0, 0, 0
+        // spritePiece -$20,    0, 4, 4, $61, 0, 0, 0, 0
+        // spritePiece    0,    0, 4, 4, $61, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x20, 4, 4, 0x61, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x20, 4, 4, 0x61, false, false, 0, false),
+                new SpriteMappingPiece(-0x20,     0, 4, 4, 0x61, false, false, 0, false),
+                new SpriteMappingPiece(    0,     0, 4, 4, 0x61, false, false, 0, false)
+        )));
+
+        // Frame 2 (.syz1x2): 2 pieces, SYZ 32x64 tall block
+        // spritePiece -$10, -$20, 4, 4, $61, 0, 0, 0, 0
+        // spritePiece -$10,    0, 4, 4, $61, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x20, 4, 4, 0x61, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,     0, 4, 4, 0x61, false, false, 0, false)
+        )));
+
+        // Frame 3 (.syzrect2x2): 4 pieces, SYZ 64x52 rectangular blocks (tile $81)
+        // spritePiece -$20, -$1A, 4, 4, $81, 0, 0, 0, 0
+        // spritePiece    0, -$1A, 4, 4, $81, 0, 0, 0, 0
+        // spritePiece -$20,    0, 4, 4, $81, 0, 0, 0, 0
+        // spritePiece    0,    0, 4, 4, $81, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x1A, 4, 4, 0x81, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x1A, 4, 4, 0x81, false, false, 0, false),
+                new SpriteMappingPiece(-0x20,     0, 4, 4, 0x81, false, false, 0, false),
+                new SpriteMappingPiece(    0,     0, 4, 4, 0x81, false, false, 0, false)
+        )));
+
+        // Frame 4 (.syzrect1x3): 3 pieces, SYZ 32x78 tall rectangular blocks (tile $81)
+        // spritePiece -$10, -$27, 4, 4, $81, 0, 0, 0, 0
+        // spritePiece -$10,  -$D, 4, 4, $81, 0, 0, 0, 0
+        // spritePiece -$10,  $0D, 4, 4, $81, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x27, 4, 4, 0x81, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,  -0xD, 4, 4, 0x81, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,   0xD, 4, 4, 0x81, false, false, 0, false)
+        )));
+
+        // Frame 5 (.slz): 1 piece, SLZ 32x32 square block (tile $21)
+        // spritePiece -$10, -$10, 4, 4, $21, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x21, false, false, 0, false)
+        )));
+
+        // Frames 6-7 are LZ-specific and handled separately
+        // Add placeholder frames so frame indexing matches
+        // Frame 6: empty (LZ vert door - not used in SYZ/SLZ)
+        frames.add(new SpriteMappingFrame(List.of()));
+        // Frame 7: empty (LZ horiz door - not used in SYZ/SLZ)
+        frames.add(new SpriteMappingFrame(List.of()));
+
+        return frames;
+    }
+
+    /**
+     * LZ floating block (door) mappings from docs/s1disasm/_maps/Floating Blocks and Doors.asm.
+     * These use dedicated Nem_LzDoor1/Nem_LzDoor2 art.
+     * Returns 8 frames but only frames 6-7 have actual pieces for LZ.
+     */
+    private List<SpriteMappingFrame> createFloatingBlockMappingsLz() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frames 0-5 are SYZ/SLZ-specific, add empty placeholders
+        for (int i = 0; i < 6; i++) {
+            frames.add(new SpriteMappingFrame(List.of()));
+        }
+
+        // Frame 6 (.lzvert): 2 pieces, LZ 16x64 vertical door
+        // spritePiece -8, -$20, 2, 4, 0, 0, 0, 0, 0
+        // spritePiece -8,    0, 2, 4, 0, 0, 1, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x20, 2, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(-8,     0, 2, 4, 0, false, true,  0, false)
+        )));
+
+        // Frame 7 (.lzhoriz): 4 pieces, LZ 128x32 horizontal door (tile $22)
+        // spritePiece -$40, -$10, 4, 4, $22, 0, 0, 0, 0
+        // spritePiece -$20, -$10, 4, 4, $22, 0, 0, 0, 0
+        // spritePiece    0, -$10, 4, 4, $22, 0, 0, 0, 0
+        // spritePiece  $20, -$10, 4, 4, $22, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x40, -0x10, 4, 4, 0x22, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x10, 4, 4, 0x22, false, false, 0, false),
+                new SpriteMappingPiece(    0, -0x10, 4, 4, 0x22, false, false, 0, false),
+                new SpriteMappingPiece( 0x20, -0x10, 4, 4, 0x22, false, false, 0, false)
+        )));
+
+        return frames;
     }
 
     private void registerSheet(String key, ObjectSpriteSheet sheet) {

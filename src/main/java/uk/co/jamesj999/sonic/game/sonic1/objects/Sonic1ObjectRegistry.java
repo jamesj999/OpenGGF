@@ -8,6 +8,7 @@ import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1CrabmeatBadnikIns
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1MotobugBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BatbrainBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1NewtronBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1YadrinBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossFireInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1GHZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1MZBossInstance;
@@ -59,6 +60,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
     }
 
     private void registerDefaultFactories() {
+        factories.put(Sonic1ObjectIds.SPINNING_LIGHT,
+                (spawn, registry) -> new Sonic1SpinningLightObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.LAMPPOST,
                 (spawn, registry) -> new Sonic1LamppostObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SIGNPOST,
@@ -99,6 +102,13 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1CaterkillerBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.BATBRAIN,
                 (spawn, registry) -> new Sonic1BatbrainBadnikInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.YADRIN,
+                (spawn, registry) -> new Sonic1YadrinBadnikInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.BUMPER,
+                (spawn, registry) -> new Sonic1BumperObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.FLOATING_BLOCK,
+                (spawn, registry) -> new Sonic1FloatingBlockObjectInstance(spawn,
+                        LevelManager.getInstance().getRomZoneId()));
         factories.put(Sonic1ObjectIds.SPIKED_POLE_HELIX,
                 (spawn, registry) -> new Sonic1SpikedPoleHelixObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SWINGING_PLATFORM,
@@ -141,6 +151,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                         spawn, LevelManager.getInstance().getRomZoneId()));
         factories.put(Sonic1ObjectIds.MOVING_BLOCK,
                 (spawn, registry) -> new Sonic1MovingBlockObjectInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.BIG_SPIKED_BALL,
+                (spawn, registry) -> new Sonic1BigSpikedBallObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.INVISIBLE_BARRIER,
                 (spawn, registry) -> new Sonic1InvisibleBarrierObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GHZ_BOSS,
@@ -163,6 +175,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
     public String getPrimaryName(int objectId) {
         return switch (objectId) {
             case Sonic1ObjectIds.SONIC -> "Sonic";
+            case Sonic1ObjectIds.SPINNING_LIGHT -> "SpinningLight";
             case Sonic1ObjectIds.SIGNPOST -> "Signpost";
             case Sonic1ObjectIds.BRIDGE -> "Bridge";
             case Sonic1ObjectIds.SPIKED_POLE_HELIX -> "SpikedPoleHelix";
@@ -212,6 +225,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.MZ_LARGE_GRASSY_PLATFORM -> "MzLargeGrassyPlatform";
             case Sonic1ObjectIds.BURNING_GRASS -> "BurningGrass";
             case Sonic1ObjectIds.BATBRAIN -> "Batbrain";
+            case Sonic1ObjectIds.FLOATING_BLOCK -> "FloatingBlock";
+            case Sonic1ObjectIds.BIG_SPIKED_BALL -> "BigSpikedBall";
             case Sonic1ObjectIds.SEESAW -> "Seesaw";
             case Sonic1ObjectIds.BOMB -> "Bomb";
             case Sonic1ObjectIds.ORBINAUT -> "Orbinaut";

@@ -59,6 +59,9 @@ public final class ObjectArtKeys {
     public static final String SWING_SBZ_BALL = "swing_sbz_ball";
     public static final String SWING_GIANT_BALL = "swing_giant_ball";
 
+    // SYZ big spiked ball (uses same art/mappings as SBZ ball on chain)
+    public static final String SYZ_BIG_SPIKED_BALL = "syz_big_spiked_ball";
+
     // Boss art keys (S1 GHZ boss)
     public static final String EGGMAN = "eggman";
     public static final String BOSS_WEAPONS = "boss_weapons";
@@ -87,6 +90,12 @@ public final class ObjectArtKeys {
     public static final String SBZ_MOVING_BLOCK_SHORT = "sbz_moving_block_short";
     public static final String SBZ_MOVING_BLOCK_LONG = "sbz_moving_block_long";
     public static final String BUTTON = "button";
+    public static final String SYZ_FLOATING_BLOCK = "syz_floating_block";
+    public static final String LZ_FLOATING_BLOCK = "lz_floating_block";
+    public static final String SYZ_SPINNING_LIGHT = "syz_spinning_light";
+
+    // SYZ bumper (S1)
+    public static final String BUMPER = "bumper";
 
     // Badnik art keys
     public static final String BUZZ_BOMBER = "buzz_bomber";
@@ -98,6 +107,7 @@ public final class ObjectArtKeys {
     public static final String NEWTRON = "newtron";
     public static final String CATERKILLER = "caterkiller";
     public static final String BATBRAIN = "batbrain";
+    public static final String YADRIN = "yadrin";
 
     // Animation keys (common across games)
     public static final String ANIM_MONITOR = "monitor";

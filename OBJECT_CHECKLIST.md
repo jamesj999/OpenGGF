@@ -1,12 +1,12 @@
 # Sonic 2 Object Implementation Checklist
 
-Generated: 2026-02-12 00:52:06
+Generated: 2026-02-13 15:22:04
 
 ## Summary
 
 - **Total unique objects found:** 120
-- **Implemented:** 100 (83.3%)
-- **Unimplemented:** 20 (16.7%)
+- **Implemented:** 117 (97.5%)
+- **Unimplemented:** 3 (2.5%)
 
 ## Implemented Objects
 
@@ -85,6 +85,7 @@ Generated: 2026-02-12 00:52:06
 | 0x84 | ForcedSpin | 42 | CNZ1, CNZ2, HTZ1, HTZ2 |
 | 0x85 | LauncherSpring | 14 | CNZ1, CNZ2 |
 | 0x86 | Flipper | 63 | CNZ1, CNZ2 |
+| 0x8B | WFZPalSwitcher | 11 | WFZ1 |
 | 0x8C | Whisp | 25 | ARZ1, ARZ2 |
 | 0x8D | GrounderInWall | 8 | ARZ1, ARZ2 |
 | 0x8E | GrounderInWall2 | 20 | ARZ1, ARZ2 |
@@ -104,7 +105,22 @@ Generated: 2026-02-12 00:52:06
 | 0xA6 | SpinyOnWall | 2 | CPZ1, CPZ2 |
 | 0xA7 | Grabber | 5 | CPZ1, CPZ2 |
 | 0xAC | Balkiry | 19 | SCZ1 |
+| 0xAD | CluckerBase | 10 | WFZ1 |
+| 0xAE | Clucker | 10 | WFZ1 |
+| 0xB2 | Tornado | 3 | SCZ1, WFZ1 |
 | 0xB3 | Cloud | 3 | SCZ1 |
+| 0xB4 | VPropeller | 13 | SCZ1, WFZ1 |
+| 0xB5 | HPropeller | 10 | SCZ1, WFZ1 |
+| 0xB6 | TiltingPlatform | 5 | WFZ1 |
+| 0xB8 | WallTurret | 5 | WFZ1 |
+| 0xB9 | Laser | 6 | WFZ1 |
+| 0xBA | WFZWheel | 2 | WFZ1 |
+| 0xBC | WFZShipFire | 2 | WFZ1 |
+| 0xBD | SmallMetalPform | 5 | WFZ1 |
+| 0xBE | LateralCannon | 7 | WFZ1 |
+| 0xC0 | SpeedLauncher | 8 | WFZ1 |
+| 0xC1 | BreakablePlating | 4 | WFZ1 |
+| 0xC2 | Rivet | 1 | WFZ1 |
 | 0xC8 | Crawl | 8 | CNZ1, CNZ2 |
 | 0xD2 | CNZRectBlocks | 8 | CNZ1, CNZ2 |
 | 0xD4 | CNZBigBlock | 23 | CNZ1, CNZ2 |
@@ -112,28 +128,12 @@ Generated: 2026-02-12 00:52:06
 | 0xD6 | PointPokey | 29 | CNZ1, CNZ2 |
 | 0xD7 | HexBumper | 18 | CNZ1, CNZ2 |
 | 0xD8 | BonusBlock | 98 | CNZ1, CNZ2 |
+| 0xD9 | Grab | 3 | WFZ1 |
 
 ## Unimplemented Objects (By Usage)
 
 | ID | Category | Name | Total Uses | Zones |
 |----|----------|------|------------|-------|
-| 0xB4 | Object | VPropeller | 13 | SCZ1, WFZ1 |
-| 0x8B | Object | WFZPalSwitcher | 11 | WFZ1 |
-| 0xAD | Badnik | CluckerBase | 10 | WFZ1 |
-| 0xAE | Badnik | Clucker | 10 | WFZ1 |
-| 0xB5 | Object | HPropeller | 10 | SCZ1, WFZ1 |
-| 0xC0 | Object | SpeedLauncher | 8 | WFZ1 |
-| 0xBE | Object | LateralCannon | 7 | WFZ1 |
-| 0xB9 | Object | Laser | 6 | WFZ1 |
-| 0xB6 | Object | TiltingPlatform | 5 | WFZ1 |
-| 0xB8 | Object | WallTurret | 5 | WFZ1 |
-| 0xBD | Object | SmallMetalPform | 5 | WFZ1 |
-| 0xC1 | Object | BreakablePlating | 4 | WFZ1 |
-| 0xB2 | Object | Tornado | 3 | SCZ1, WFZ1 |
-| 0xD9 | Object | Grab | 3 | WFZ1 |
-| 0xBA | Object | WFZWheel | 2 | WFZ1 |
-| 0xBC | Object | WFZShipFire | 2 | WFZ1 |
-| 0xC2 | Object | Rivet | 1 | WFZ1 |
 | 0xC5 | Boss | WFZBoss | 1 | WFZ1 |
 | 0xC6 | Boss | Eggman | 1 | DEZ1 |
 | 0xC7 | Boss | Eggrobo | 1 | DEZ1 |
@@ -655,7 +655,7 @@ Total: 270 objects | Implemented: 29 | Unimplemented: 0
 
 #### Act 1
 
-Total: 60 objects | Implemented: 5 | Unimplemented: 3
+Total: 60 objects | Implemented: 8 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x99 Nebula (x23) [0x12]
@@ -664,20 +664,20 @@ Total: 60 objects | Implemented: 5 | Unimplemented: 3
 
 **Objects:**
 - [x] 0x03 LayerSwitcher (x1) [0x7B]
-- [ ] 0xB2 Tornado (x1) [0x50]
+- [x] 0xB2 Tornado (x1) [0x50]
 - [x] 0xB3 Cloud (x3) [0x60, 0x62, 0x5E]
-- [ ] 0xB4 VPropeller (x1) [0x64]
-- [ ] 0xB5 HPropeller (x2) [0x68]
+- [x] 0xB4 VPropeller (x1) [0x64]
+- [x] 0xB5 HPropeller (x2) [0x68]
 
 ### Wing Fortress Zone
 
 #### Act 1
 
-Total: 157 objects | Implemented: 7 | Unimplemented: 18
+Total: 157 objects | Implemented: 24 | Unimplemented: 1
 
 **Badniks:**
-- [ ] 0xAD CluckerBase (x10) [0x42]
-- [ ] 0xAE Clucker (x10) [0x44]
+- [x] 0xAD CluckerBase (x10) [0x42]
+- [x] 0xAE Clucker (x10) [0x44]
 
 **Bosses:**
 - [ ] 0xC5 WFZBoss (x1) [0x92]
@@ -690,21 +690,21 @@ Total: 157 objects | Implemented: 7 | Unimplemented: 18
 - [x] 0x74 InvisibleBlock (x5) [0x03, 0x07, 0x18]
 - [x] 0x79 Checkpoint (x3) [0x01, 0x02, 0x03]
 - [x] 0x80 MovingVine (x10) [0x00, 0x10, 0x11]
-- [ ] 0x8B WFZPalSwitcher (x11) [4 subtypes]
-- [ ] 0xB2 Tornado (x2) [0x52, 0x54]
-- [ ] 0xB4 VPropeller (x12) [0x64]
-- [ ] 0xB5 HPropeller (x8) [0x66]
-- [ ] 0xB6 TiltingPlatform (x5) [5 subtypes]
-- [ ] 0xB8 WallTurret (x5) [0x74]
-- [ ] 0xB9 Laser (x6) [0x76]
-- [ ] 0xBA WFZWheel (x2) [0x78]
-- [ ] 0xBC WFZShipFire (x2) [0x7C]
-- [ ] 0xBD SmallMetalPform (x5) [0x80, 0x7E]
-- [ ] 0xBE LateralCannon (x7) [7 subtypes]
-- [ ] 0xC0 SpeedLauncher (x8) [5 subtypes]
-- [ ] 0xC1 BreakablePlating (x4) [0x02]
-- [ ] 0xC2 Rivet (x1) [0x8A]
-- [ ] 0xD9 Grab (x3) [0x00]
+- [x] 0x8B WFZPalSwitcher (x11) [4 subtypes]
+- [x] 0xB2 Tornado (x2) [0x52, 0x54]
+- [x] 0xB4 VPropeller (x12) [0x64]
+- [x] 0xB5 HPropeller (x8) [0x66]
+- [x] 0xB6 TiltingPlatform (x5) [5 subtypes]
+- [x] 0xB8 WallTurret (x5) [0x74]
+- [x] 0xB9 Laser (x6) [0x76]
+- [x] 0xBA WFZWheel (x2) [0x78]
+- [x] 0xBC WFZShipFire (x2) [0x7C]
+- [x] 0xBD SmallMetalPform (x5) [0x80, 0x7E]
+- [x] 0xBE LateralCannon (x7) [7 subtypes]
+- [x] 0xC0 SpeedLauncher (x8) [5 subtypes]
+- [x] 0xC1 BreakablePlating (x4) [0x02]
+- [x] 0xC2 Rivet (x1) [0x8A]
+- [x] 0xD9 Grab (x3) [0x00]
 
 ### Death Egg Zone
 
