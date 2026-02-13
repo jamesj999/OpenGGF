@@ -187,6 +187,15 @@ public final class GHZBossMappings {
                 new SpriteMappingPiece(-8, 0x14, 2, 2, 0x0D, false, false, 0, false)
         )));
 
+        // Frame 5: .spike (4 pieces — SYZ boss spike)
+        // ROM: _maps/Boss Items.asm
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x10, 2, 1, 0x11, false, false, 0, false),
+                new SpriteMappingPiece(-8,    -8, 1, 2, 0x13, false, false, 0, false),
+                new SpriteMappingPiece( 0,    -8, 1, 2, 0x13, true,  false, 0, false),
+                new SpriteMappingPiece(-8,     8, 2, 1, 0x15, false, false, 0, false)
+        )));
+
         return frames;
     }
 }
