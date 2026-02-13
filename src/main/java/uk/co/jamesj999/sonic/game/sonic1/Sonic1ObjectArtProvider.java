@@ -231,8 +231,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadSbzCollapsingFloorArt(rom);
         }
 
-        // Load boss art (GHZ: Eggman, weapons/chain anchor, exhaust flame)
-        if (zoneIndex == Sonic1Constants.ZONE_GHZ || zoneIndex == Sonic1Constants.ZONE_MZ) {
+        // Load boss art (GHZ/MZ/SYZ: Eggman, weapons/chain anchor, exhaust flame)
+        if (zoneIndex == Sonic1Constants.ZONE_GHZ || zoneIndex == Sonic1Constants.ZONE_MZ
+                || zoneIndex == Sonic1Constants.ZONE_SYZ) {
             loadBossArt(rom);
         }
 
@@ -4315,6 +4316,80 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             frames.add(new SpriteMappingFrame(List.of(
                     new SpriteMappingPiece(-0x10, -8, 4, 1, tile, false, false, 0, false),
                     new SpriteMappingPiece(-0x10,  0, 4, 1, tile, false, true,  0, false)
+            )));
+        }
+
+        return frames;
+    }
+
+    /**
+     * Registers the SYZ boss block sprite sheet using level tile patterns.
+     * Must be called AFTER the level is loaded since the block uses zone tileset art
+     * (make_art_tile(ArtTile_Level,2,0)).
+     * <p>
+     * 5 frames: whole block (32x32) + 4 quarter fragments (16x16 each).
+     * Tile indices start at $71 from the zone tileset. Palette line 2.
+     * <p>
+     * Reference: docs/s1disasm/_incObj/76 SYZ Boss Blocks.asm,
+     * docs/s1disasm/_maps/SYZ Boss Blocks.asm
+     *
+     * @param level the loaded level to extract patterns from
+     */
+    public void registerBossBlockSheet(Level level) {
+        if (level == null) {
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createBossBlockMappings();
+        // Highest tile: $7D + (2*2) = $81
+        int maxTileNeeded = 0x81;
+
+        int patternCount = level.getPatternCount();
+        int copyCount = Math.min(patternCount, maxTileNeeded);
+        if (copyCount == 0) {
+            LOGGER.warning("No level patterns available for boss block art");
+            return;
+        }
+        Pattern[] patterns = new Pattern[copyCount];
+        for (int i = 0; i < copyCount; i++) {
+            patterns[i] = level.getPattern(i);
+        }
+
+        // make_art_tile(ArtTile_Level,2,0) — palette line 2
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 3);
+        registerSheet(ObjectArtKeys.SYZ_BOSS_BLOCK, sheet);
+    }
+
+    /**
+     * Creates boss block sprite mappings from docs/s1disasm/_maps/SYZ Boss Blocks.asm.
+     * <p>
+     * Frame 0 (.whole): 32x32 block as 2 pieces (4x2 tiles each):
+     * <pre>
+     * spritePiece -$10, -$10, 4, 2, $71, 0, 0, 0, 0   ; top half
+     * spritePiece -$10,    0, 4, 2, $79, 0, 0, 0, 0   ; bottom half
+     * </pre>
+     * Frames 1-4 (.quarter fragments): 16x16 as 1 piece (2x2 tiles each):
+     * <pre>
+     * Frame 1: spritePiece -8, -8, 2, 2, $71, 0, 0, 0, 0  ; top-left
+     * Frame 2: spritePiece -8, -8, 2, 2, $75, 0, 0, 0, 0  ; top-right
+     * Frame 3: spritePiece -8, -8, 2, 2, $79, 0, 0, 0, 0  ; bottom-left
+     * Frame 4: spritePiece -8, -8, 2, 2, $7D, 0, 0, 0, 0  ; bottom-right
+     * </pre>
+     */
+    private List<SpriteMappingFrame> createBossBlockMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: whole block (32x32 = two 4x2 pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x71, false, false, 2, false),
+                new SpriteMappingPiece(-0x10,     0, 4, 2, 0x79, false, false, 2, false)
+        )));
+
+        // Frames 1-4: quarter fragments (16x16 = one 2x2 piece each)
+        int[] fragTiles = {0x71, 0x75, 0x79, 0x7D};
+        for (int tile : fragTiles) {
+            frames.add(new SpriteMappingFrame(List.of(
+                    new SpriteMappingPiece(-8, -8, 2, 2, tile, false, false, 2, false)
             )));
         }
 

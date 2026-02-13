@@ -1,0 +1,310 @@
+package uk.co.jamesj999.sonic.game.sonic1.objects.bosses;
+
+import uk.co.jamesj999.sonic.audio.AudioManager;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
+import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
+import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
+import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
+import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.objects.SolidObjectParams;
+import uk.co.jamesj999.sonic.level.objects.SolidObjectProvider;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+
+import java.util.List;
+
+/**
+ * Object 0x76 — SYZ Boss blocks that Eggman picks up.
+ * ROM: docs/s1disasm/_incObj/76 SYZ Boss Blocks.asm
+ *
+ * 10 blocks spawned in a row at boss_syz_x + $10, spacing $20, Y = $582.
+ * Each block has a column index (0-9).
+ *
+ * States:
+ *   SOLID    — normal solid platform, player can stand on it
+ *   GRABBED  — held by boss, follows boss position at Y + $2C
+ *   BREAKING — spawns 4 quarter fragments, then deletes
+ *   FRAGMENT — falling quarter piece with gravity (routine 4 in ROM)
+ *
+ * Solid collision: d1=$1B, d2=$10, d3=$11
+ * Art: Map_BossBlock, make_art_tile(ArtTile_Level,2,0) — level art, palette line 2
+ */
+public class Sonic1BossBlockInstance extends AbstractObjectInstance
+        implements SolidObjectProvider {
+
+    // Block states
+    private static final int STATE_SOLID = 0;
+    private static final int STATE_GRABBED = 1;
+    private static final int STATE_BREAKING = 2;
+    private static final int STATE_FRAGMENT = 3;
+
+    // Solid collision: d1=$1B, d2=$10, d3=$11
+    private static final SolidObjectParams SOLID_PARAMS =
+            new SolidObjectParams(0x1B, 0x10, 0x11);
+
+    // Arena constants
+    private static final int BOSS_SYZ_X = 0x2C00;
+    private static final int BLOCK_START_X = BOSS_SYZ_X + 0x10;
+    private static final int BLOCK_SPACING = 0x20;
+    private static final int BLOCK_Y = 0x582;
+    private static final int BLOCK_COUNT = 10;
+
+    // Y offset below boss when grabbed
+    private static final int GRAB_Y_OFFSET = 0x2C;
+
+    // ROM: BossBlock_FragSpeed — xVel, yVel for each of 4 fragments
+    private static final int[][] FRAG_VELOCITIES = {
+            {-0x180, -0x200},
+            { 0x180, -0x200},
+            {-0x100, -0x100},
+            { 0x100, -0x100}
+    };
+
+    // ROM: BossBlock_FragPos — x, y offset for each of 4 fragments
+    private static final int[][] FRAG_POSITIONS = {
+            { -8, -8},
+            {0x10,   0},
+            {   0, 0x10},
+            {0x10, 0x10}
+    };
+
+    // ROM: ObjectFall gravity constant
+    private static final int GRAVITY = 0x38;
+
+    // Mutable position (blocks can move when grabbed, fragments fall)
+    private int x;
+    private int y;
+
+    // Instance fields
+    private final int blockColumn;   // 0-9, from low byte of obSubtype
+    private int blockState;
+    private Sonic1SYZBossInstance grabbingBoss;
+
+    // Fragment physics (only used in FRAGMENT state)
+    private int xVel;
+    private int yVel;
+    private int xFixed;
+    private int yFixed;
+    private int fragmentFrame;       // 1-4 for quarter pieces
+
+    /**
+     * Create a single boss block at the specified column.
+     * ROM: BossBlock_MakeBlock
+     */
+    public Sonic1BossBlockInstance(int column) {
+        super(new ObjectSpawn(
+                BLOCK_START_X + (column * BLOCK_SPACING),
+                BLOCK_Y,
+                Sonic1ObjectIds.SYZ_BOSS_BLOCK,
+                column,  // subtype = column index
+                0, false, 0),
+                "BossBlock");
+        this.blockColumn = column;
+        this.blockState = STATE_SOLID;
+        this.x = BLOCK_START_X + (column * BLOCK_SPACING);
+        this.y = BLOCK_Y;
+    }
+
+    /**
+     * Private constructor for fragment pieces.
+     */
+    private Sonic1BossBlockInstance(int x, int y, int xVel, int yVel, int frame) {
+        super(new ObjectSpawn(x, y, Sonic1ObjectIds.SYZ_BOSS_BLOCK, 0, 0, false, 0),
+                "BossBlockFrag");
+        this.blockColumn = -1;
+        this.blockState = STATE_FRAGMENT;
+        this.x = x;
+        this.y = y;
+        this.xVel = xVel;
+        this.yVel = yVel;
+        this.xFixed = x << 16;
+        this.yFixed = y << 16;
+        this.fragmentFrame = frame;
+    }
+
+    /**
+     * Spawn all 10 boss blocks and add them to the object manager.
+     * Called from level events (DLE_SYZ3main).
+     * ROM: BossBlock_Main spawning loop.
+     */
+    public static void spawnAllBlocks(LevelManager levelManager) {
+        if (levelManager.getObjectManager() == null) {
+            return;
+        }
+        for (int col = 0; col < BLOCK_COUNT; col++) {
+            Sonic1BossBlockInstance block = new Sonic1BossBlockInstance(col);
+            levelManager.getObjectManager().addDynamicObject(block);
+        }
+    }
+
+    // ========================================================================
+    // Position overrides (mutable position for grabbed/fragment states)
+    // ========================================================================
+
+    @Override
+    public int getX() {
+        return x;
+    }
+
+    @Override
+    public int getY() {
+        return y;
+    }
+
+    // ========================================================================
+    // Public accessors for boss interaction
+    // ========================================================================
+
+    public int getBlockColumn() {
+        return blockColumn;
+    }
+
+    public boolean isGrabbed() {
+        return blockState == STATE_GRABBED;
+    }
+
+    /**
+     * Called by boss when grabbing this block.
+     * ROM: move.b #-1,objoff_29(a1) + move.l a0,objoff_34(a1)
+     */
+    public void setGrabbedByBoss(Sonic1SYZBossInstance boss) {
+        this.grabbingBoss = boss;
+        this.blockState = STATE_GRABBED;
+    }
+
+    /**
+     * Called by boss when releasing the block — triggers break into 4 fragments.
+     * ROM: move.b #$A,objoff_29(a1) → BossBlock_Break
+     */
+    public void releaseAndBreak() {
+        this.blockState = STATE_BREAKING;
+    }
+
+    // ========================================================================
+    // SolidObjectProvider
+    // ========================================================================
+
+    @Override
+    public SolidObjectParams getSolidParams() {
+        return SOLID_PARAMS;
+    }
+
+    @Override
+    public boolean isSolidFor(AbstractPlayableSprite player) {
+        return blockState == STATE_SOLID;
+    }
+
+    // ========================================================================
+    // Update logic
+    // ========================================================================
+
+    @Override
+    public void update(int frameCounter, AbstractPlayableSprite player) {
+        switch (blockState) {
+            case STATE_SOLID -> { /* Solid collision handled by engine */ }
+            case STATE_GRABBED -> updateGrabbed();
+            case STATE_BREAKING -> doBreak();
+            case STATE_FRAGMENT -> updateFragment();
+        }
+    }
+
+    /**
+     * ROM: loc_19718 — Track boss position while grabbed.
+     * Block follows boss X, boss Y + $2C.
+     * Also adds boss Y velocity displacement for smooth tracking.
+     */
+    private void updateGrabbed() {
+        if (grabbingBoss == null || grabbingBoss.isDefeated()) {
+            // ROM: tst.b obColProp(a1) / beq.s → break if boss hitcount 0
+            blockState = STATE_BREAKING;
+            return;
+        }
+
+        // ROM: move.w obX(a1),obX(a0) / move.w obY(a1),obY(a0) / addi.w #$2C,obY(a0)
+        x = grabbingBoss.getState().x;
+        y = grabbingBoss.getState().y + GRAB_Y_OFFSET;
+
+        // ROM: move.w obVelY(a1),d0 / ext.l d0 / asr.l #8,d0 / add.w d0,obY(a0)
+        // Add boss Y velocity as pixel displacement for smooth tracking
+        int bossYVel = grabbingBoss.getState().yVel;
+        y += (bossYVel >> 8);
+    }
+
+    /**
+     * ROM: BossBlock_Break — Create 4 quarter fragments with velocities.
+     */
+    private void doBreak() {
+        LevelManager lm = LevelManager.getInstance();
+        if (lm != null && lm.getObjectManager() != null) {
+            for (int i = 0; i < 4; i++) {
+                int fragX = x + FRAG_POSITIONS[i][0];
+                int fragY = y + FRAG_POSITIONS[i][1];
+                int fragXVel = FRAG_VELOCITIES[i][0];
+                int fragYVel = FRAG_VELOCITIES[i][1];
+                int fragFrame = i + 1; // frames 1-4 for quarter pieces
+
+                Sonic1BossBlockInstance frag = new Sonic1BossBlockInstance(
+                        fragX, fragY, fragXVel, fragYVel, fragFrame);
+                lm.getObjectManager().addDynamicObject(frag);
+            }
+        }
+
+        // ROM: sfx_WallSmash
+        AudioManager.getInstance().playSfx(Sonic1Sfx.WALL_SMASH.id);
+
+        // Delete this block
+        setDestroyed(true);
+    }
+
+    /**
+     * ROM: loc_19762 (Routine 4) — ObjectFall + DisplaySprite.
+     * Fragment falls with gravity and deletes when off screen.
+     */
+    private void updateFragment() {
+        // ROM: tst.b obRender(a0) / bpl.s BossBlock_Delete
+        if (!isOnScreen()) {
+            setDestroyed(true);
+            return;
+        }
+
+        // ROM: ObjectFall — apply gravity and move
+        yVel += GRAVITY;
+        xFixed += (xVel << 8);
+        yFixed += (yVel << 8);
+        x = xFixed >> 16;
+        y = yFixed >> 16;
+    }
+
+    // ========================================================================
+    // Rendering
+    // ========================================================================
+
+    @Override
+    public void appendRenderCommands(List<GLCommand> commands) {
+        LevelManager lm = LevelManager.getInstance();
+        if (lm == null) {
+            return;
+        }
+        ObjectRenderManager renderManager = lm.getObjectRenderManager();
+        if (renderManager == null) {
+            return;
+        }
+
+        // Use SYZ_BOSS_BLOCK art key (loaded from level patterns)
+        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SYZ_BOSS_BLOCK);
+        if (renderer == null || !renderer.isReady()) {
+            return;
+        }
+
+        int frame = (blockState == STATE_FRAGMENT) ? fragmentFrame : 0;
+        renderer.drawFrameIndex(frame, x, y, false, false);
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        return 3; // ROM: obPriority = 3
+    }
+}
