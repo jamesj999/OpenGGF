@@ -210,6 +210,14 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     }
 
     /**
+     * Returns whether the trigger flag (status bit 7) has been set.
+     * Polled by the rock child to know when to break.
+     */
+    public boolean isTriggered() {
+        return triggered;
+    }
+
+    /**
      * Called by the parent intro object to signal the trigger (status bit 7).
      * Knuckles transitions from wait to fall on the next update.
      */
