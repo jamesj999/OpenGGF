@@ -1621,6 +1621,33 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         /**
+         * Applies an external physics profile, overwriting current speed values.
+         * Used by SuperStateController to swap between normal and Super physics.
+         */
+        public void applyExternalPhysicsProfile(PhysicsProfile profile) {
+                if (profile == null) return;
+                this.physicsProfile = profile;
+                this.runAccel = profile.runAccel();
+                this.runDecel = profile.runDecel();
+                this.friction = profile.friction();
+                this.max = profile.max();
+                this.jump = profile.jump();
+                this.slopeRunning = profile.slopeRunning();
+                this.slopeRollingUp = profile.slopeRollingUp();
+                this.slopeRollingDown = profile.slopeRollingDown();
+                this.rollDecel = profile.rollDecel();
+                this.minStartRollSpeed = profile.minStartRollSpeed();
+                this.minRollSpeed = profile.minRollSpeed();
+                this.maxRoll = profile.maxRoll();
+                this.rollHeight = profile.rollHeight();
+                this.runHeight = profile.runHeight();
+                this.standXRadius = profile.standXRadius();
+                this.standYRadius = profile.standYRadius();
+                this.rollXRadius = profile.rollXRadius();
+                this.rollYRadius = profile.rollYRadius();
+        }
+
+        /**
          * Returns the physics feature set (spindash availability, etc.) for the current game.
          * May be null if no GameModule provider is active.
          */
