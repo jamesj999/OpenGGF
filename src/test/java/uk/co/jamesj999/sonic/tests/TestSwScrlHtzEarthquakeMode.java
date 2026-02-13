@@ -31,8 +31,9 @@ public class TestSwScrlHtzEarthquakeMode {
         GameServices.gameState().setHtzScreenShakeActive(true);
         GameServices.gameState().setScreenShakeActive(false);
 
-        setPrivateInt(levelEvents, "cameraBgYOffset", 0x140);
-        setPrivateInt(levelEvents, "htzCurrentBgXOffset", 0);
+        Object htzHandler = getHtzHandler(levelEvents);
+        setPrivateInt(htzHandler, "cameraBgYOffset", 0x140);
+        setPrivateInt(htzHandler, "htzCurrentBgXOffset", 0);
 
         SwScrlHtz handler = new SwScrlHtz(null, new BackgroundCamera());
         int[] hScroll = new int[224];
@@ -56,8 +57,9 @@ public class TestSwScrlHtzEarthquakeMode {
         GameServices.gameState().setHtzScreenShakeActive(true);
         GameServices.gameState().setScreenShakeActive(false);
 
-        setPrivateInt(levelEvents, "cameraBgYOffset", 0x300);
-        setPrivateInt(levelEvents, "htzCurrentBgXOffset", -0x680);
+        Object htzHandler = getHtzHandler(levelEvents);
+        setPrivateInt(htzHandler, "cameraBgYOffset", 0x300);
+        setPrivateInt(htzHandler, "htzCurrentBgXOffset", -0x680);
 
         SwScrlHtz handler = new SwScrlHtz(null, new BackgroundCamera());
         int[] hScroll = new int[224];
@@ -69,6 +71,12 @@ public class TestSwScrlHtzEarthquakeMode {
         int expectedPacked = ((expectedFg & 0xFFFF) << 16) | (expectedBg & 0xFFFF);
         assertEquals(expectedPacked, hScroll[0]);
         assertEquals(expectedPacked, hScroll[223]);
+    }
+
+    private static Object getHtzHandler(Object manager) throws Exception {
+        Field f = manager.getClass().getDeclaredField("htzEvents");
+        f.setAccessible(true);
+        return f.get(manager);
     }
 
     private static void setPrivateInt(Object target, String fieldName, int value) throws Exception {

@@ -9,6 +9,11 @@ import uk.co.jamesj999.sonic.camera.Camera;
  * Act 1: No events.
  * Act 2: Bottom boundary adjusts based on camera X and player Y.
  * Act 3: Boss arena with 3-routine state machine.
+ *
+ * TODO: Act 3 boss spawn + arena - DLE_SYZ lines 283-320 in s1disasm.
+ *   Routine 0 spawns boss arena block object.
+ *   Routine 2 spawns boss object and plays bgm_Boss.
+ *   Boss objects and defeat sequence not yet implemented.
  */
 class Sonic1SYZEvents extends Sonic1ZoneEvents {
     // Boss constants

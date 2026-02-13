@@ -9,6 +9,10 @@ import uk.co.jamesj999.sonic.camera.Camera;
  * Acts 1-2: No events.
  * Act 3: Switch-triggered layout change + boss arena.
  *
+ * TODO: Water switch system (all acts) - DLE_LZ lines 155-186 in s1disasm.
+ *   The ROM checks switch flags (f_switch+$F) and modifies level layout
+ *   when switches are pressed, opening alternate paths.
+ *
  * Note: LZ Act 4 (SBZ3) in the ROM is handled by {@code Sonic1SBZEvents}
  * in our engine, since SBZ3 is SBZ zone act 2 rather than LZ act 3.
  */
