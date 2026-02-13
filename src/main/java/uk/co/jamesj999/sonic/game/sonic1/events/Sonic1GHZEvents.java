@@ -163,11 +163,10 @@ class Sonic1GHZEvents extends Sonic1ZoneEvents {
         }
         AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
 
-        // f_lockscreen = 1 (lock camera)
-        camera.setFrozen(true);
-        // Lock right boundary to current camera position so player can't walk off-screen.
-        // ROM: v_limitright2 stays at camera X when f_lockscreen is set.
-        camera.setMaxX((short) camera.getX());
+        // ROM: f_lockscreen = 1 — locks horizontal scrolling only.
+        // Vertical scrolling and maxY boundary easing continue normally.
+        camera.setMinX(camera.getX());
+        camera.setMaxX(camera.getX());
         GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.GHZ_BOSS);
         eventRoutine += 2; // advance to DLE_GHZ3end
     }

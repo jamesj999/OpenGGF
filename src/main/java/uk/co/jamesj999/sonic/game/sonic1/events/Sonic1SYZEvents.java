@@ -1,6 +1,12 @@
 package uk.co.jamesj999.sonic.game.sonic1.events;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossBlockInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1SYZBossInstance;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 
 /**
  * Spring Yard Zone dynamic level events.
@@ -9,11 +15,6 @@ import uk.co.jamesj999.sonic.camera.Camera;
  * Act 1: No events.
  * Act 2: Bottom boundary adjusts based on camera X and player Y.
  * Act 3: Boss arena with 3-routine state machine.
- *
- * TODO: Act 3 boss spawn + arena - DLE_SYZ lines 283-320 in s1disasm.
- *   Routine 0 spawns boss arena block object.
- *   Routine 2 spawns boss object and plays bgm_Boss.
- *   Boss objects and defeat sequence not yet implemented.
  */
 class Sonic1SYZEvents extends Sonic1ZoneEvents {
     // Boss constants
@@ -78,7 +79,8 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
     /**
      * DLE_SYZ3main: Pre-boss trigger.
      * When camera X reaches boss_syz_x - 0x140 (0x2AC0),
-     * advances to boss phase.
+     * spawn boss arena blocks and advance to boss phase.
+     * ROM: move.w #id_BossBlock,(v_lvlobjspace+$40).w
      */
     private void updateAct3Main() {
         int camX = camera.getX() & 0xFFFF;
@@ -87,15 +89,20 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
             return; // locret_71CE
         }
 
-        // TODO: Spawn boss blocks object (not yet implemented)
-        // ROM loads boss arena block object here
+        // ROM: Spawn boss block object which self-replicates into 10 blocks
+        LevelManager lm = LevelManager.getInstance();
+        if (lm != null) {
+            Sonic1BossBlockInstance.spawnAllBlocks(lm);
+        }
 
         eventRoutine += 2; // advance to DLE_SYZ3boss
     }
 
     /**
      * DLE_SYZ3boss: Boss encounter phase.
-     * When camera X reaches boss_syz_x, locks the camera and spawns the boss.
+     * When camera X reaches boss_syz_x, locks the camera, spawns the boss,
+     * and plays boss music.
+     * ROM: DLE_SYZ3boss
      */
     private void updateAct3Boss() {
         int camX = camera.getX() & 0xFFFF;
@@ -107,14 +114,25 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
         // v_limitbtm1 = boss_syz_y
         camera.setMaxYTarget((short) BOSS_SYZ_Y);
 
-        // TODO: Boss spawn code - objects not yet implemented
-        // ROM loads boss object and sets up the arena here
+        // ROM: Spawn boss object
+        LevelManager lm = LevelManager.getInstance();
+        if (lm != null && lm.getObjectManager() != null) {
+            // Create boss at spawn position (boss_syz_x + $1B0, boss_syz_y + $E)
+            ObjectSpawn bossSpawn = new ObjectSpawn(
+                    BOSS_SYZ_X + 0x1B0, BOSS_SYZ_Y + 0x0E,
+                    0x75, 0, 0, false, 0);
+            Sonic1SYZBossInstance boss = new Sonic1SYZBossInstance(bossSpawn, lm);
+            lm.getObjectManager().addDynamicObject(boss);
+        }
 
-        // TODO: QueueSound1 bgm_Boss - play boss music
-        // AudioManager.getInstance().queueSound(bgm_Boss);
+        // ROM: QueueSound1 bgm_Boss
+        AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
 
-        // f_lockscreen = 1 (lock camera)
-        camera.setFrozen(true);
+        // ROM: f_lockscreen = 1 — locks horizontal scrolling only.
+        // Vertical scrolling and maxY boundary easing continue normally,
+        // allowing the camera to track the boss arena height (boss_syz_y = $4CC).
+        camera.setMinX(camera.getX());
+        camera.setMaxX(camera.getX());
         eventRoutine += 2; // advance to DLE_SYZ3end
     }
 

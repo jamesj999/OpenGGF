@@ -97,6 +97,7 @@ public final class ObjectArtKeys {
     public static final String SYZ_FLOATING_BLOCK = "syz_floating_block";
     public static final String LZ_FLOATING_BLOCK = "lz_floating_block";
     public static final String SYZ_SPINNING_LIGHT = "syz_spinning_light";
+    public static final String SYZ_BOSS_BLOCK = "syz_boss_block";
 
     // SYZ bumper (S1)
     public static final String BUMPER = "bumper";

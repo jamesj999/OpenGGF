@@ -68,6 +68,8 @@ public final class Sonic1ObjectIds {
     public static final int INVISIBLE_BARRIER = 0x71;
     public static final int MZ_BOSS           = 0x73; // id_BossMarble
     public static final int BOSS_FIRE         = 0x74; // id_BossFire
+    public static final int SYZ_BOSS          = 0x75; // id_BossSpringYard
+    public static final int SYZ_BOSS_BLOCK    = 0x76; // id_BossBlock
     public static final int CATERKILLER     = 0x78;
     public static final int LAMPPOST        = 0x79;
     public static final int RING_FLASH      = 0x7C;
