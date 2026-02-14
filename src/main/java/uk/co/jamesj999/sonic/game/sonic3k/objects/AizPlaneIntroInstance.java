@@ -1,11 +1,11 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
-import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
-import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.physics.SwingMotion;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.ArrayList;
@@ -15,73 +15,103 @@ import java.util.logging.Logger;
 /**
  * Object for the AIZ1 intro cinematic - master state machine.
  *
- * Disassembly reference: sonic3k.asm Obj_intPlane (loc_67490 onward).
+ * Disassembly reference: s3.asm Obj_intPlane (loc_45888).
  *
- * The ROM uses stride-2 routine dispatch (0x00, 0x02, 0x04, ..., 0x18).
+ * The ROM uses stride-2 routine dispatch (0x00, 0x02, 0x04, ..., 0x1A).
  * We mirror that convention directly so routine values match the disassembly.
  *
- * This is a SKELETON state machine. Art loading, child object spawning,
- * and rendering are handled in later tasks. For now, appendRenderCommands
- * is a no-op and per-routine methods contain only state transition logic.
- *
- * Routine overview:
- *   0x00 - Init: set position, lock player, init palette cycler, start wait timer
- *   0x02 - Descend: plane descends with deceleration, player locked on plane
- *   0x04 - Swing: pendulum swing motion after descent
- *   0x06 - H-decel: horizontal deceleration after swing ends
- *   0x08 - H-stop: horizontal velocity reaches zero, wait period
- *   0x0A - Timer+waves: countdown timer, spawn wave children periodically
- *   0x0C - Walk right: Sonic walks right as Super Sonic
- *   0x0E - Flash: Super Sonic palette flash / transformation visual
- *   0x10 - Walk left: Sonic walks left toward plane
- *   0x12 - Pause: brief pause before Knuckles arrives
- *   0x14 - Monitor Knux: watch for Knuckles X position trigger
- *   0x16 - Monitor adjust: plane adjusts position as Knuckles approaches
- *   0x18 - Monitor explode: explosion trigger, emeralds scatter, cleanup
+ * Routine overview (ROM-accurate):
+ *   0x00 - Init: set position (0x60,0x30), lock player, timer=0x40, load art
+ *   0x02 - Wait: Obj_Wait 65 frames, then spawn plane child + set velocity
+ *   0x04 - Descent: y_vel -= 0x18/frame, MoveSprite2. When y_vel==0 -> Swing_Setup1
+ *   0x06 - Swing+Wait: Swing_UpAndDown + MoveSprite2 + Obj_Wait(0x5F)
+ *   0x08 - Lift off: x_vel=0x400 y_vel=-0x400, x_vel-=0x40, MoveSprite(+gravity). Land at y>=0x130
+ *   0x0A - Ground decel: x_vel -= 0x40, MoveSprite2. When x<0x40 -> Super setup
+ *   0x0C - Super flash: secondaryTimer countdown (0x3F=63 frames)
+ *   0x0E - Walk right: x+=4/frame, wave spawns. Until x>=0x200
+ *   0x10 - Wait: secondaryTimer countdown (0x1F=31 frames)
+ *   0x12 - Walk left: x-=4/frame. Until x<=0x120
+ *   0x14 - Wait: secondaryTimer countdown (0x1F=31 frames)
+ *   0x16 - Monitor Knux: wait until player.x>=0x918, spawn Knuckles
+ *   0x18 - Monitor approach: wait until player.x>=0x1240, y_pos-=0x20
+ *   0x1A - Explosion: wait until player.x>=0x13D0, release player, scatter emeralds, delete
  */
 public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     private static final Logger LOG = Logger.getLogger(AizPlaneIntroInstance.class.getName());
 
     // -----------------------------------------------------------------------
-    // Constants from ROM (sonic3k.asm Obj_intPlane)
+    // Constants from ROM (s3.asm Obj_intPlane)
     // -----------------------------------------------------------------------
 
-    /** Frames between wave child spawns during routine 0x0A. */
+    /** Frames between wave child spawns. */
     static final int WAVE_SPAWN_INTERVAL = 5;
 
-    /** X coordinate at which Knuckles is spawned (routine 0x14 trigger). */
+    /** X coordinate at which Knuckles is spawned (routine 0x16 trigger). */
     static final int KNUCKLES_SPAWN_X = 0x918;
 
-    /** X coordinate for plane horizontal adjustment (routine 0x16). */
+    /** X coordinate for plane vertical adjustment (routine 0x18). */
     static final int PLANE_ADJUST_X = 0x1240;
 
-    /** X coordinate at which explosion is triggered (routine 0x18). */
+    /** X coordinate at which explosion is triggered (routine 0x1A). */
     static final int EXPLOSION_TRIGGER_X = 0x13D0;
 
-    /** Target X for Sonic's rightward walk (routine 0x0C). */
+    /** Target X for walk right (routine 0x0E). */
     static final int WALK_RIGHT_TARGET = 0x200;
 
-    /** Target X for Sonic's leftward walk (routine 0x10). */
+    /** Target X for walk left (routine 0x12). */
     static final int WALK_LEFT_TARGET = 0x120;
 
-    /** Pixels per frame for Sonic's walk during cutscene. */
+    /** Pixels per frame for walk during cutscene. */
     static final int WALK_SPEED = 4;
 
     /** Y velocity deceleration per frame during descent (subpixels). */
     static final int DESCENT_DECEL = 0x18;
 
-    /** X velocity deceleration per frame during H-decel (subpixels). */
+    /** X velocity deceleration per frame during ground decel and lift-off (subpixels). */
     static final int HORIZ_DECEL = 0x40;
 
     /** Y coordinate of the ground level. */
     static final int GROUND_Y = 0x130;
 
-    /** Initial wait timer value for routine 0x00. */
+    /** Standard S3K gravity in subpixels per frame. */
+    static final int GRAVITY = 0x38;
+
+    /** Initial wait timer value for routine 0x00 ($2E timer = 0x40). */
     static final int INIT_WAIT_TIMER = 0x40;
 
     /** Screen scroll speed value ($40 from ROM). */
     static final int SCROLL_SPEED = 8;
+
+    /** Swing acceleration per frame (ROM: Swing_Setup1). */
+    static final int SWING_ACCEL = 0x10;
+
+    /** Swing max velocity (ROM: Swing_Setup1). */
+    static final int SWING_MAX_VEL = 0xC0;
+
+    /** Initial X velocity for descent (ROM: loc_458F0). */
+    static final int DESCENT_X_VEL = 0x300;
+
+    /** Initial Y velocity for descent (ROM: loc_458F0). */
+    static final int DESCENT_Y_VEL = 0x600;
+
+    /** Swing+wait timer (ROM: 0x5F = 95 frames). */
+    static final int SWING_WAIT_TIMER = 0x5F;
+
+    /** Lift-off X velocity (ROM: loc_45970). */
+    static final int LIFTOFF_X_VEL = 0x400;
+
+    /** Lift-off Y velocity (ROM: loc_45970, negative = upward). */
+    static final int LIFTOFF_Y_VEL = -0x400;
+
+    /** Super flash timer (ROM: $3A = 0x3F = 63 frames). */
+    static final int SUPER_FLASH_TIMER = 0x3F;
+
+    /** Short wait timer (ROM: 0x1F = 31 frames). */
+    static final int SHORT_WAIT_TIMER = 0x1F;
+
+    /** Minimum X for wave spawning. */
+    static final int WAVE_SPAWN_MIN_X = 0x80;
 
     // -----------------------------------------------------------------------
     // Mutable state
@@ -90,7 +120,13 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private int currentX;
     private int currentY;
 
-    /** Routine counter (stride-2: 0, 2, 4, ..., 24). */
+    /** Fractional X accumulator (subpixels, 0-255). */
+    private int xSub;
+
+    /** Fractional Y accumulator (subpixels, 0-255). */
+    private int ySub;
+
+    /** Routine counter (stride-2: 0, 2, 4, ..., 26). */
     private int routine;
 
     /** X velocity in subpixels (256 = 1 pixel). */
@@ -99,17 +135,29 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     /** Y velocity in subpixels (256 = 1 pixel). */
     private int yVel;
 
-    /** General-purpose countdown timer. */
+    /** General-purpose countdown timer ($2E in ROM). */
     private int waitTimer;
 
     /** Wave spawn countdown (resets to WAVE_SPAWN_INTERVAL). */
     private int waveTimer;
 
-    /** Secondary timer ($3A in ROM) for swing/flash sequences. */
+    /** Secondary timer ($3A in ROM) for flash/wait sequences. */
     private int secondaryTimer;
 
-    /** Swing direction flag for pendulum motion. */
+    /** Swing velocity for parent bob motion (routine 6). */
+    private int swingVelocity;
+
+    /** Swing direction for parent (true=down/positive). */
     private boolean swingDirectionDown;
+
+    /** When true, plane child stops following parent position. */
+    private boolean planeDetached;
+
+    /** When true, plane child walks left off-screen. */
+    private boolean planeWalkLeft;
+
+    /** Whether Super Sonic visual mode is active. */
+    private boolean superSonicActive;
 
     /** Palette cycler for Super Sonic visual effect (routines 0x0C+). */
     private final AizIntroPaletteCycler paletteCycler;
@@ -131,6 +179,18 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     private int mappingFrame;
 
+    /** ROM $40 field — scroll speed. Changes at routine transitions. */
+    private int scrollSpeed = 8;
+
+    /** ROM Events_fg_1 accumulator — starts at 0xE918 (-5864), gates FG scroll. */
+    private int eventsFg1 = (short) 0xE918;
+
+    /** Current intro scroll offset for SwScrlAiz BG parallax. */
+    private static int introScrollOffset = 0;
+
+    /** Returns the current Events_fg_1 accumulator value for BG parallax. */
+    public static int getIntroScrollOffset() { return introScrollOffset; }
+
     // -----------------------------------------------------------------------
     // Constructor
     // -----------------------------------------------------------------------
@@ -142,10 +202,16 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         this.routine = 0;
         this.xVel = 0;
         this.yVel = 0;
+        this.xSub = 0;
+        this.ySub = 0;
         this.waitTimer = 0;
         this.waveTimer = 0;
         this.secondaryTimer = 0;
+        this.swingVelocity = 0;
         this.swingDirectionDown = false;
+        this.planeDetached = false;
+        this.planeWalkLeft = false;
+        this.superSonicActive = false;
         this.paletteCycler = new AizIntroPaletteCycler();
         this.ownsPlayerControl = false;
     }
@@ -173,48 +239,31 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     public void update(int frameCounter, AbstractPlayableSprite player) {
         switch (routine) {
             case 0  -> routine0Init(player);
-            case 2  -> routine2Descend(player);
-            case 4  -> routine4Swing(player);
-            case 6  -> routine6HDecel(player);
-            case 8  -> routine8HStop(player);
-            case 10 -> routine10TimerWaves(frameCounter, player);
-            case 12 -> routine12WalkRight(frameCounter, player);
-            case 14 -> routine14Flash(frameCounter, player);
-            case 16 -> routine16WalkLeft(frameCounter, player);
-            case 18 -> routine18Pause(frameCounter, player);
-            case 20 -> routine20MonitorKnux(frameCounter, player);
-            case 22 -> routine22MonitorAdjust(frameCounter, player);
-            case 24 -> routine24MonitorExplode(frameCounter, player);
+            case 2  -> routine2Wait(player);
+            case 4  -> routine4Descent(player);
+            case 6  -> routine6SwingWait(player);
+            case 8  -> routine8LiftOff(player);
+            case 10 -> routine10GroundDecel(player);
+            case 12 -> routine12SuperFlash(player);
+            case 14 -> routine14WalkRight(player);
+            case 16 -> routine16Wait(player);
+            case 18 -> routine18WalkLeft(player);
+            case 20 -> routine20Wait(player);
+            case 22 -> routine22MonitorKnux(player);
+            case 24 -> routine24MonitorApproach(player);
+            case 26 -> routine26Explode(player);
             default -> {
                 // Invalid routine - no-op
             }
         }
 
-        // Keep player positioned on the plane while we own control
-        if (ownsPlayerControl && player != null) {
-            player.setCentreX((short) currentX);
-            player.setCentreY((short) (currentY - 0x14)); // Player stands on plane surface
-        }
-
-        // Progressive camera unlock — allow scrolling as far as the plane travels
-        try {
-            Camera camera = Camera.getInstance();
-            if (camera != null && currentX > 0) {
-                short maxX = (short) (currentX + 160); // 160px lookahead (half screen)
-                if (maxX > camera.getMaxX()) {
-                    camera.setMaxX(maxX);
-                }
-            }
-        } catch (Exception ignored) {
-            // Camera may not be available in test environments
-        }
+        // ROM: sub_45DE4 called unconditionally after routine dispatch
+        scrollVelocity(player);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        PatternSpriteRenderer renderer = AizIntroArtLoader.getPlaneRenderer();
-        if (renderer == null || !renderer.isReady()) return;
-        renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
+        // Parent is an orchestrator only — the child AizIntroPlaneChild renders the plane visual.
     }
 
     @Override
@@ -222,16 +271,20 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         // Safety net: release player control if we still own it.
         if (ownsPlayerControl) {
             try {
-                var focusedSprite = uk.co.jamesj999.sonic.camera.Camera.getInstance().getFocusedSprite();
+                var focusedSprite = Camera.getInstance().getFocusedSprite();
                 if (focusedSprite instanceof uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite ps) {
                     ps.setControlLocked(false);
                     ps.setObjectControlled(false);
+                    ps.setHidden(false);
                 }
             } catch (Exception ignored) {}
             ownsPlayerControl = false;
         }
         activeWaves.clear();
         emeralds.clear();
+        // Reset static intro state
+        introScrollOffset = 0;
+        try { Camera.getInstance().setFrozen(false); } catch (Exception ignored) {}
         // Release cached art data so it can be reloaded on next level entry.
         try {
             AizIntroArtLoader.reset();
@@ -252,15 +305,20 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         routine += 2;
     }
 
+    /** Returns true when plane child should stop following parent. */
+    public boolean isPlaneDetached() {
+        return planeDetached;
+    }
+
+    /** Returns true when plane child should walk left off-screen. */
+    public boolean isPlaneShouldWalkLeft() {
+        return planeWalkLeft;
+    }
+
     // -----------------------------------------------------------------------
     // Dynamic object spawning helper
     // -----------------------------------------------------------------------
 
-    /**
-     * Spawns a dynamic object into the level's object manager.
-     * Silently no-ops when LevelManager or ObjectManager is unavailable
-     * (e.g. in unit test environments without OpenGL).
-     */
     private void spawnDynamicObject(AbstractObjectInstance object) {
         try {
             LevelManager lm = LevelManager.getInstance();
@@ -268,9 +326,76 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
                 lm.getObjectManager().addDynamicObject(object);
             }
         } catch (Exception e) {
-            // LevelManager may not be available in test environments
             LOG.fine("Could not spawn dynamic object (test env?): " + e.getMessage());
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // MoveSprite helpers (subpixel position updates)
+    // -----------------------------------------------------------------------
+
+    /** MoveSprite2: apply x_vel and y_vel to position with subpixel accumulation. No gravity. */
+    private void moveSprite2() {
+        int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
+        currentX += (xVel >> 8) + (xTotal >> 8);
+        xSub = xTotal & 0xFF;
+
+        int yTotal = (ySub & 0xFF) + (yVel & 0xFF);
+        currentY += (yVel >> 8) + (yTotal >> 8);
+        ySub = yTotal & 0xFF;
+    }
+
+    /** MoveSprite: same as moveSprite2 but applies gravity to y_vel first. */
+    private void moveSprite() {
+        yVel += GRAVITY;
+        moveSprite2();
+    }
+
+    /**
+     * ROM sub_45DE4: scroll velocity helper.
+     * Accumulates scrollSpeed into eventsFg1 (starts at -5864). While negative,
+     * the BG scrolls via introScrollOffset but the player/camera stay still.
+     * Once eventsFg1 reaches >= 0 (~733 frames), the camera unfreezes and the
+     * player starts scrolling rightward.
+     */
+    private void scrollVelocity(AbstractPlayableSprite player) {
+        eventsFg1 += scrollSpeed;
+        introScrollOffset = eventsFg1;
+        if (eventsFg1 >= 0) {
+            // Gate reached — stop BG intro parallax, start moving player
+            introScrollOffset = 0;
+            if (player != null) {
+                player.setCentreX((short) (player.getCentreX() + scrollSpeed));
+            }
+            try { Camera.getInstance().setFrozen(false); } catch (Exception ignored) {}
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Wave spawn helper
+    // -----------------------------------------------------------------------
+
+    private void tickWaveSpawn() {
+        waveTimer--;
+        if (waveTimer < 0) {
+            waveTimer = WAVE_SPAWN_INTERVAL;
+            if (currentX >= WAVE_SPAWN_MIN_X) {
+                ObjectSpawn waveSpawn = new ObjectSpawn(
+                        currentX, currentY + 0x18, 0, 0, 0, false, 0);
+                AizIntroWaveChild wave = new AizIntroWaveChild(waveSpawn, SCROLL_SPEED);
+                spawnDynamicObject(wave);
+                activeWaves.add(wave);
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Super Sonic palette animation helper (sub_45D94 equivalent)
+    // -----------------------------------------------------------------------
+
+    private void superSonicPaletteAnim() {
+        paletteCycler.advance();
+        paletteCycler.applyToGpu();
     }
 
     // -----------------------------------------------------------------------
@@ -280,311 +405,355 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private void routine0Init(AbstractPlayableSprite player) {
         LOG.fine("Routine 0: initializing intro sequence");
 
+        // ROM: set position (0x60, 0x30)
+        currentX = 0x60;
+        currentY = 0x30;
+
+        // ROM: timer = 0x40 (wait happens in routine 2)
         waitTimer = INIT_WAIT_TIMER;
         waveTimer = WAVE_SPAWN_INTERVAL;
         paletteCycler.init();
 
         // Lock player control for the duration of the intro.
+        // ROM: player.object_control = $53 (fully suppressed)
         if (player != null) {
             player.setControlLocked(true);
             player.setObjectControlled(true);
+            player.setHidden(true);
             ownsPlayerControl = true;
         }
 
-        // Load all intro art (plane, emeralds, waves, Knuckles).
+        // Load all intro art.
         try {
             AizIntroArtLoader.loadAllIntroArt();
-            AizIntroArtLoader.applyEmeraldPalette();
         } catch (Exception e) {
             LOG.fine("Could not load intro art (test env?): " + e.getMessage());
         }
 
-        // Spawn the plane child (biplane visual).
-        ObjectSpawn planeSpawn = new ObjectSpawn(
-                currentX - 0x22, currentY + 0x2C, 0, 0, 0, false, 0);
-        planeChild = new AizIntroPlaneChild(planeSpawn, this);
-        spawnDynamicObject(planeChild);
+        // Freeze camera at (0,0) — ROM camera never moves during intro.
+        try { Camera.getInstance().setFrozen(true); } catch (Exception ignored) {}
 
-        // Create two emerald glow children attached to the plane.
-        // These are NOT spawned as dynamic objects to avoid double-update;
-        // the plane child manages their update() calls directly.
-        ObjectSpawn glow1Spawn = new ObjectSpawn(currentX, currentY, 0, 0, 0, false, 0);
-        AizIntroEmeraldGlowChild glow1 = new AizIntroEmeraldGlowChild(glow1Spawn, planeChild, -8, -12);
-        ObjectSpawn glow2Spawn = new ObjectSpawn(currentX, currentY, 0, 0, 0, false, 0);
-        AizIntroEmeraldGlowChild glow2 = new AizIntroEmeraldGlowChild(glow2Spawn, planeChild, 8, -12);
-        planeChild.setGlowChildren(glow1, glow2);
-
-        // Set initial descent velocity.
-        xVel = 0x800;
-        yVel = 0x400;
+        // Do NOT spawn plane child here — that happens after the wait in routine 2.
+        // Do NOT set velocity here — that happens after the wait in routine 2.
 
         advanceRoutine();
     }
 
     // -----------------------------------------------------------------------
-    // Routine 0x02: Descend
+    // Routine 0x02: Wait (Obj_Wait 65 frames, then spawn child + set velocity)
     // -----------------------------------------------------------------------
 
-    private void routine2Descend(AbstractPlayableSprite player) {
-        // Plane descends with decelerating Y velocity.
-        if (yVel > 0) {
-            yVel -= DESCENT_DECEL;
-            if (yVel < 0) {
-                yVel = 0;
-            }
+    private void routine2Wait(AbstractPlayableSprite player) {
+        waitTimer--;
+        if (waitTimer < 0) {
+            // Wait complete — spawn plane child and set descent velocity
+            LOG.fine("Routine 2: wait complete, spawning plane child");
+
+            // Set descent velocity
+            xVel = DESCENT_X_VEL;
+            yVel = DESCENT_Y_VEL;
+
+            // Spawn the plane child (biplane visual)
+            ObjectSpawn planeSpawn = new ObjectSpawn(
+                    currentX - 0x22, currentY + 0x2C, 0, 0, 0, false, 0);
+            planeChild = new AizIntroPlaneChild(planeSpawn, this);
+            spawnDynamicObject(planeChild);
+
+            // Create two emerald glow children attached to the plane
+            ObjectSpawn glow1Spawn = new ObjectSpawn(currentX, currentY, 0, 0, 0, false, 0);
+            AizIntroEmeraldGlowChild glow1 = new AizIntroEmeraldGlowChild(glow1Spawn, planeChild, -8, -12);
+            ObjectSpawn glow2Spawn = new ObjectSpawn(currentX, currentY, 0, 0, 0, false, 0);
+            AizIntroEmeraldGlowChild glow2 = new AizIntroEmeraldGlowChild(glow2Spawn, planeChild, 8, -12);
+            planeChild.setGlowChildren(glow1, glow2);
+
+            advanceRoutine();
         }
+    }
 
-        // Apply velocity to position (subpixel -> pixel).
-        currentY += yVel >> 8;
+    // -----------------------------------------------------------------------
+    // Routine 0x04: Descent (y_vel -= 0x18/frame, MoveSprite2)
+    // -----------------------------------------------------------------------
 
-        // Check if we've reached ground level.
+    private void routine4Descent(AbstractPlayableSprite player) {
+        // ROM: y_vel -= 0x18 each frame
+        yVel -= DESCENT_DECEL;
+
+        // Apply velocity to position (subpixel accumulation, no gravity)
+        moveSprite2();
+
+        // ROM: when y_vel == 0 -> Swing_Setup1
+        if (yVel <= 0) {
+            yVel = 0;
+            // Swing_Setup1: maxVel=0xC0, accel=0x10, initial y_vel=0xC0, direction=up
+            swingVelocity = SWING_MAX_VEL;
+            swingDirectionDown = false;
+            xVel = 0; // Stop horizontal movement during swing
+
+            // Set swing+wait timer
+            waitTimer = SWING_WAIT_TIMER;
+
+            LOG.fine("Routine 4: descent complete at y=" + currentY + ", advancing to swing");
+            advanceRoutine();
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Routine 0x06: Swing + Wait (Swing_UpAndDown + MoveSprite2 + Obj_Wait)
+    // -----------------------------------------------------------------------
+
+    private void routine6SwingWait(AbstractPlayableSprite player) {
+        // Swing_UpAndDown on parent
+        SwingMotion.Result result = SwingMotion.update(
+                SWING_ACCEL, swingVelocity, SWING_MAX_VEL, swingDirectionDown);
+        swingVelocity = result.velocity();
+        swingDirectionDown = result.directionDown();
+
+        // Apply swing velocity as y_vel for MoveSprite2
+        yVel = swingVelocity;
+        moveSprite2();
+
+        // Obj_Wait: decrement timer
+        waitTimer--;
+        if (waitTimer < 0) {
+            // Set lift-off velocity
+            xVel = LIFTOFF_X_VEL;
+            yVel = LIFTOFF_Y_VEL;
+
+            // Detach plane child from parent tracking
+            planeDetached = true;
+
+            LOG.fine("Routine 6: swing complete, advancing to lift-off");
+            advanceRoutine();
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Routine 0x08: Lift off (x_vel-=0x40, MoveSprite with gravity)
+    // -----------------------------------------------------------------------
+
+    private void routine8LiftOff(AbstractPlayableSprite player) {
+        // ROM: x_vel -= 0x40 each frame (decelerate, then go negative = leftward)
+        xVel -= HORIZ_DECEL;
+
+        // MoveSprite (with gravity)
+        moveSprite();
+
+        // ROM: check y >= 0x130 (landed)
         if (currentY >= GROUND_Y) {
             currentY = GROUND_Y;
             yVel = 0;
-            LOG.fine("Routine 2: descent complete, advancing to swing");
-            advanceRoutine();
-        }
-
-        // TODO: Update plane child position to match
-        // TODO: Keep player locked on plane surface
-    }
-
-    // -----------------------------------------------------------------------
-    // Routine 0x04: Swing (pendulum motion)
-    // -----------------------------------------------------------------------
-
-    private void routine4Swing(AbstractPlayableSprite player) {
-        // Pendulum swing after landing - oscillates plane visually.
-        secondaryTimer++;
-
-        // TODO: Apply SwingMotion utility for pendulum angle calculation
-        // TODO: Update plane sprite angle
-
-        // Swing completes after a set number of oscillation frames.
-        // The exact threshold comes from SwingMotion convergence.
-        if (secondaryTimer >= 0x40) {
-            secondaryTimer = 0;
-            LOG.fine("Routine 4: swing complete, advancing to H-decel");
+            LOG.fine("Routine 8: landed at ground, advancing to ground decel");
             advanceRoutine();
         }
     }
 
     // -----------------------------------------------------------------------
-    // Routine 0x06: Horizontal deceleration
+    // Routine 0x0A: Ground decel (x_vel -= 0x40, MoveSprite2)
     // -----------------------------------------------------------------------
 
-    private void routine6HDecel(AbstractPlayableSprite player) {
-        // Decelerate horizontal velocity toward zero.
-        if (xVel > 0) {
-            xVel -= HORIZ_DECEL;
-            if (xVel < 0) {
-                xVel = 0;
-            }
-        } else if (xVel < 0) {
-            xVel += HORIZ_DECEL;
-            if (xVel > 0) {
-                xVel = 0;
-            }
-        }
+    private void routine10GroundDecel(AbstractPlayableSprite player) {
+        // ROM: x_vel -= 0x40
+        xVel -= HORIZ_DECEL;
 
-        currentX += xVel >> 8;
+        // MoveSprite2 (no gravity — on ground)
+        yVel = 0;
+        moveSprite2();
 
-        if (xVel == 0) {
-            LOG.fine("Routine 6: H-decel complete, advancing to H-stop");
+        // ROM: check x < 0x40
+        if (currentX < 0x40) {
+            currentX = 0x40;
+
+            // Set up Super Sonic
+            setupSuperSonic();
+
+            // Set flash timer
+            secondaryTimer = SUPER_FLASH_TIMER;
+
+            // Signal plane child to walk left
+            planeWalkLeft = true;
+
+            LOG.fine("Routine 10: ground decel complete, advancing to super flash");
             advanceRoutine();
         }
     }
 
+    /**
+     * ROM loc_45D72: Set up Super Sonic visuals.
+     * Initiates palette cycling. The actual visual switching
+     * (Map_SuperSonic frames) is handled by the palette cycler.
+     */
+    private void setupSuperSonic() {
+        superSonicActive = true;
+        paletteCycler.init();
+    }
+
     // -----------------------------------------------------------------------
-    // Routine 0x08: Horizontal stop / brief wait
+    // Routine 0x0C: Super flash (wait 63 frames)
     // -----------------------------------------------------------------------
 
-    private void routine8HStop(AbstractPlayableSprite player) {
-        waitTimer--;
-        if (waitTimer <= 0) {
-            waitTimer = 0;
-            LOG.fine("Routine 8: wait complete, advancing to timer+waves");
-            advanceRoutine();
+    private void routine12SuperFlash(AbstractPlayableSprite player) {
+        // ROM: $3A countdown, no position movement
+        secondaryTimer--;
+        if (secondaryTimer < 0) {
+            // Set up for walk right
             waveTimer = WAVE_SPAWN_INTERVAL;
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Routine 0x0A: Timer countdown + wave spawning
-    // -----------------------------------------------------------------------
-
-    private void routine10TimerWaves(int frameCounter, AbstractPlayableSprite player) {
-        // Spawn wave children at regular intervals.
-        waveTimer--;
-        if (waveTimer <= 0) {
-            waveTimer = WAVE_SPAWN_INTERVAL;
-
-            // Only spawn waves when the plane is sufficiently on-screen.
-            if (currentX >= 0x80) {
-                ObjectSpawn waveSpawn = new ObjectSpawn(
-                        currentX, currentY + 0x18, 0, 0, 0, false, 0);
-                AizIntroWaveChild wave = new AizIntroWaveChild(waveSpawn, SCROLL_SPEED);
-                spawnDynamicObject(wave);
-                activeWaves.add(wave);
-            }
-        }
-
-        waitTimer--;
-        if (waitTimer <= 0) {
-            waitTimer = 0;
-            LOG.fine("Routine 10: timer+waves complete, advancing to walk right");
+            LOG.fine("Routine 12: super flash complete, advancing to walk right");
             advanceRoutine();
         }
     }
 
     // -----------------------------------------------------------------------
-    // Routine 0x0C: Sonic walks right (as Super Sonic)
+    // Routine 0x0E: Walk right (x += 4/frame + wave spawns)
     // -----------------------------------------------------------------------
 
-    private void routine12WalkRight(int frameCounter, AbstractPlayableSprite player) {
-        paletteCycler.advance();
+    private void routine14WalkRight(AbstractPlayableSprite player) {
+        superSonicPaletteAnim();
 
+        // Walk right
+        currentX += WALK_SPEED;
+
+        // Wave spawn callback
+        tickWaveSpawn();
+
+        // ROM: when x >= 0x200
+        if (currentX >= WALK_RIGHT_TARGET) {
+            secondaryTimer = SHORT_WAIT_TIMER;
+            LOG.fine("Routine 14: walk right complete, advancing to wait");
+            advanceRoutine();
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Routine 0x10: Wait (31 frames)
+    // -----------------------------------------------------------------------
+
+    private void routine16Wait(AbstractPlayableSprite player) {
+        superSonicPaletteAnim();
+        tickWaveSpawn();
+
+        secondaryTimer--;
+        if (secondaryTimer < 0) {
+            // ROM: scroll speed increases to 0x0C at routine 0x12
+            scrollSpeed = 0x0C;
+            LOG.fine("Routine 16: wait complete, advancing to walk left");
+            advanceRoutine();
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Routine 0x12: Walk left (x -= 4/frame)
+    // -----------------------------------------------------------------------
+
+    private void routine18WalkLeft(AbstractPlayableSprite player) {
+        superSonicPaletteAnim();
+        tickWaveSpawn();
+
+        // Walk left
+        currentX -= WALK_SPEED;
+
+        // ROM: when x <= 0x120
+        if (currentX <= WALK_LEFT_TARGET) {
+            // ROM: scroll speed increases to 0x10 at routine 0x14
+            scrollSpeed = 0x10;
+            secondaryTimer = SHORT_WAIT_TIMER;
+            LOG.fine("Routine 18: walk left complete, advancing to wait");
+            advanceRoutine();
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Routine 0x14: Wait (31 frames)
+    // -----------------------------------------------------------------------
+
+    private void routine20Wait(AbstractPlayableSprite player) {
+        superSonicPaletteAnim();
+        tickWaveSpawn();
+
+        secondaryTimer--;
+        if (secondaryTimer < 0) {
+            LOG.fine("Routine 20: wait complete, advancing to monitor Knux");
+            advanceRoutine();
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Routine 0x16: Monitor Knuckles trigger
+    // -----------------------------------------------------------------------
+
+    private void routine22MonitorKnux(AbstractPlayableSprite player) {
+        superSonicPaletteAnim();
+        tickWaveSpawn();
+
+        // ROM: check Player_1.x_pos >= 0x918
+        int checkX = currentX; // fallback if no player (test env)
         if (player != null) {
-            int playerX = player.getCentreX();
-            if (playerX < WALK_RIGHT_TARGET) {
-                // TODO: Set player walking-right animation
-                // TODO: Move player rightward at WALK_SPEED
-            } else {
-                LOG.fine("Routine 12: walk right complete, advancing to flash");
-                advanceRoutine();
-            }
-        } else {
-            // No player in test mode - advance immediately.
+            checkX = player.getCentreX();
+        }
+
+        if (checkX >= KNUCKLES_SPAWN_X) {
+            // Spawn Knuckles
+            ObjectSpawn knuxSpawn = new ObjectSpawn(
+                    CutsceneKnucklesAiz1Instance.INIT_X,
+                    CutsceneKnucklesAiz1Instance.INIT_Y,
+                    0, 0, 0, false, 0);
+            knuckles = new CutsceneKnucklesAiz1Instance(knuxSpawn);
+            spawnDynamicObject(knuckles);
+            // Rock child is spawned by Knuckles' own routine0Init
+
+            LOG.fine("Routine 22: spawned Knuckles");
             advanceRoutine();
         }
     }
 
     // -----------------------------------------------------------------------
-    // Routine 0x0E: Flash / Super Sonic transformation visual
+    // Routine 0x18: Monitor approach
     // -----------------------------------------------------------------------
 
-    private void routine14Flash(int frameCounter, AbstractPlayableSprite player) {
-        paletteCycler.advance();
+    private void routine24MonitorApproach(AbstractPlayableSprite player) {
+        superSonicPaletteAnim();
 
-        secondaryTimer++;
-
-        // TODO: Apply palette flash effect (white-out / fade)
-        // TODO: Update Super Sonic mapping frame via paletteCycler.getMappingFrame()
-
-        if (secondaryTimer >= 0x20) {
-            secondaryTimer = 0;
-            LOG.fine("Routine 14: flash complete, advancing to walk left");
-            advanceRoutine();
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Routine 0x10: Sonic walks left toward plane
-    // -----------------------------------------------------------------------
-
-    private void routine16WalkLeft(int frameCounter, AbstractPlayableSprite player) {
-        paletteCycler.advance();
-
-        if (player != null) {
-            int playerX = player.getCentreX();
-            if (playerX > WALK_LEFT_TARGET) {
-                // TODO: Set player walking-left animation
-                // TODO: Move player leftward at WALK_SPEED
-            } else {
-                LOG.fine("Routine 16: walk left complete, advancing to pause");
-                advanceRoutine();
-            }
-        } else {
-            advanceRoutine();
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Routine 0x12: Brief pause before Knuckles
-    // -----------------------------------------------------------------------
-
-    private void routine18Pause(int frameCounter, AbstractPlayableSprite player) {
-        paletteCycler.advance();
-
-        waitTimer--;
-        if (waitTimer <= 0) {
-            waitTimer = 0;
-            LOG.fine("Routine 18: pause complete, advancing to monitor Knux");
-            advanceRoutine();
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Routine 0x14: Monitor for Knuckles spawn trigger
-    // -----------------------------------------------------------------------
-
-    private void routine20MonitorKnux(int frameCounter, AbstractPlayableSprite player) {
-        paletteCycler.advance();
-
-        if (knuckles == null) {
-            // ROM checks Player_1.x_pos against KNUCKLES_SPAWN_X.
-            int checkX = currentX; // fallback if no player (test env)
-            if (player != null) {
-                checkX = player.getCentreX();
-            }
-
-            if (checkX >= KNUCKLES_SPAWN_X) {
-                ObjectSpawn knuxSpawn = new ObjectSpawn(
-                        CutsceneKnucklesAiz1Instance.INIT_X,
-                        CutsceneKnucklesAiz1Instance.INIT_Y,
-                        0, 0, 0, false, 0);
-                knuckles = new CutsceneKnucklesAiz1Instance(knuxSpawn);
-                spawnDynamicObject(knuckles);
-
-                // Spawn the rock child for Knuckles.
-                ObjectSpawn rockSpawn = new ObjectSpawn(
-                        CutsceneKnucklesAiz1Instance.INIT_X,
-                        CutsceneKnucklesAiz1Instance.INIT_Y + 0x20,
-                        0, 0, 0, false, 0);
-                CutsceneKnucklesRockChild rock = new CutsceneKnucklesRockChild(rockSpawn, knuckles);
-                spawnDynamicObject(rock);
-
-                LOG.fine("Routine 20: spawned Knuckles and rock child");
-                advanceRoutine();
-            }
-        } else {
-            advanceRoutine();
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Routine 0x16: Monitor/adjust plane as Knuckles approaches
-    // -----------------------------------------------------------------------
-
-    private void routine22MonitorAdjust(int frameCounter, AbstractPlayableSprite player) {
-        paletteCycler.advance();
-
-        // ROM checks player X against PLANE_ADJUST_X before triggering Knuckles.
+        // ROM: check Player_1.x_pos >= 0x1240
         int checkX = currentX;
         if (player != null) {
             checkX = player.getCentreX();
         }
 
-        if (knuckles != null && checkX >= PLANE_ADJUST_X) {
-            // Adjust plane Y position down by 0x20 (ROM: y_pos -= 0x20).
+        if (checkX >= PLANE_ADJUST_X) {
+            // ROM: y_pos -= 0x20
             currentY -= 0x20;
 
-            // Trigger Knuckles to start falling.
-            knuckles.trigger();
-            LOG.fine("Routine 22: triggered Knuckles fall, adjusted plane Y");
+            LOG.fine("Routine 24: triggered approach adjustment");
             advanceRoutine();
         }
     }
 
     // -----------------------------------------------------------------------
-    // Routine 0x18: Explosion trigger, emerald scatter, cleanup
+    // Routine 0x1A: Explosion (release player, scatter emeralds, delete)
     // -----------------------------------------------------------------------
 
-    private void routine24MonitorExplode(int frameCounter, AbstractPlayableSprite player) {
-        paletteCycler.advance();
+    private void routine26Explode(AbstractPlayableSprite player) {
+        superSonicPaletteAnim();
 
-        if (emeralds.isEmpty()) {
-            // Spawn 7 emeralds at the player's position (or current X if no player).
+        // ROM: check Player_1.x_pos >= 0x13D0
+        int checkX = currentX;
+        if (player != null) {
+            checkX = player.getCentreX();
+        }
+
+        if (checkX >= EXPLOSION_TRIGGER_X) {
+            // Release player with specific velocity
+            if (player != null) {
+                player.setHidden(false);
+                player.setObjectControlled(false);
+                player.setYSpeed((short) -0x400);
+                player.setXSpeed((short) -0x200);
+                player.setGSpeed((short) 0);
+                // Controls still locked — player bounces but can't move
+                // player.setControlLocked remains true
+                ownsPlayerControl = false;
+            }
+
+            // Spawn 7 emeralds
             int spawnX = currentX;
             int spawnY = currentY;
             if (player != null) {
@@ -593,28 +762,22 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             }
 
             for (int i = 0; i < 7; i++) {
-                int subtype = i * 2; // CreateChild6_Simple: subtypes 0, 2, 4, 6, 8, 10, 12
+                int subtype = i * 2;
                 ObjectSpawn emeraldSpawn = new ObjectSpawn(spawnX, spawnY, 0, subtype, 0, false, 0);
                 AizEmeraldScatterInstance emerald = new AizEmeraldScatterInstance(emeraldSpawn);
+                emerald.setKnuckles(knuckles);
                 spawnDynamicObject(emerald);
                 emeralds.add(emerald);
             }
 
-            LOG.fine("Routine 24: spawned 7 emeralds");
-        }
+            // Trigger Knuckles (ROM: btst #7,status(parent) — signals rock child to break)
+            if (knuckles != null) {
+                knuckles.trigger();
+            }
 
-        // Release player control and clean up.
-        if (player != null) {
-            player.setControlLocked(false);
-            player.setObjectControlled(false);
-            ownsPlayerControl = false;
-        }
+            LOG.fine("Routine 26: explosion triggered, spawned emeralds, releasing player");
 
-        // Spiral the plane child offscreen.
-        if (planeChild != null && !planeChild.isSpiraling()) {
-            planeChild.startSpiral(0x200, -0x100);
+            setDestroyed(true);
         }
-
-        setDestroyed(true);
     }
 }

@@ -11,7 +11,7 @@ import java.util.logging.Logger;
  * Angel Island Zone dynamic level events.
  * ROM: ScreenEvent_AIZ (sonic3k.asm)
  *
- * Act 1: Intro cinematic (when bootstrap is NONE + Sonic character).
+ * Act 1: Intro cinematic (when bootstrap is not skipping intro + Sonic character).
  * Act 2: Boss arena + fire transition (future work).
  */
 public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
@@ -44,13 +44,13 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     /**
      * Returns whether the intro cinematic should be spawned for the given act.
-     * The intro only runs on Act 1 (act==0) when bootstrap is NONE
-     * (i.e., a fresh game start, not an intro-skip scenario).
+     * The intro only runs on Act 1 (act==0) when the bootstrap is not
+     * skipping the intro (i.e., a fresh game start, not an intro-skip scenario).
      *
      * Package-private for test access.
      */
     boolean shouldSpawnIntro(int act) {
-        return act == 0 && !bootstrap.isAiz1GameplayAfterIntro();
+        return act == 0 && !bootstrap.isSkipIntro();
     }
 
     private void spawnIntroObject() {

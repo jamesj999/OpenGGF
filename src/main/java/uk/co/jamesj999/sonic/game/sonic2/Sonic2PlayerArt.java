@@ -253,16 +253,46 @@ public class Sonic2PlayerArt {
      * Loads Super Sonic animation scripts from ROM.
      * Returns null if the ROM address is not yet known (SUPER_SONIC_ANIM_DATA_ADDR == 0).
      */
-    private SpriteAnimationSet loadSuperSonicAnimations() {
+    /**
+     * Loads the Super Sonic animation set, merged with normal Sonic animations.
+     *
+     * <p>SuperSonicAniData has entries that reference unique SupSon scripts (walk, run,
+     * wait, balance, look up) and entries that back-reference SonicAniData scripts
+     * (roll, duck, spring, etc.) via negative offsets. Back-references are detected
+     * by their large unsigned offset (>= 0x8000) and skipped - the normal Sonic
+     * script is used instead.
+     *
+     * @return merged animation set, or null if ROM address is unknown
+     */
+    public SpriteAnimationSet loadSuperSonicAnimationSet() {
         int base = Sonic2Constants.SUPER_SONIC_ANIM_DATA_ADDR;
         int count = Sonic2Constants.SUPER_SONIC_ANIM_SCRIPT_COUNT;
         if (base == 0) {
             return null;
         }
-        SpriteAnimationSet set = new SpriteAnimationSet();
 
+        // Start with a copy of normal Sonic animations as fallback
+        SpriteAnimationSet normalSet = loadSonicAnimations();
+        SpriteAnimationSet set = new SpriteAnimationSet();
+        for (var entry : normalSet.getAllScripts().entrySet()) {
+            set.addScript(entry.getKey(), entry.getValue());
+        }
+
+        // Overlay unique Super Sonic scripts (skip back-references to SonicAniData)
+        int ptrTableSize = count * 2;
         for (int i = 0; i < count; i++) {
-            int scriptAddr = base + reader.readU16BE(base + i * 2);
+            int offset = reader.readU16BE(base + i * 2);
+            // Back-references to SonicAniData are negative offsets stored as unsigned,
+            // so they appear as values >= 0x8000. Also skip offsets smaller than the
+            // pointer table size (would overlap the table itself).
+            if (offset >= 0x8000 || offset < ptrTableSize) {
+                continue;
+            }
+            int scriptAddr = base + offset;
+            if (scriptAddr + 2 > reader.size()) {
+                continue;
+            }
+
             int delay = reader.readU8(scriptAddr);
             scriptAddr += 1;
 
@@ -299,14 +329,6 @@ public class Sonic2PlayerArt {
             set.addScript(i, new SpriteAnimationScript(delay, frames, endAction, endParam));
         }
         return set;
-    }
-
-    /**
-     * Loads the Super Sonic animation set for external use.
-     * Returns null if the ROM address is not yet known.
-     */
-    public SpriteAnimationSet loadSuperSonicAnimationSet() {
-        return loadSuperSonicAnimations();
     }
 
     private SpriteAnimationSet loadTailsAnimations() {

@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic3k.scroll;
 
+import uk.co.jamesj999.sonic.game.sonic3k.objects.AizPlaneIntroInstance;
 import uk.co.jamesj999.sonic.level.scroll.ZoneScrollHandler;
 
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.*;
@@ -25,7 +26,16 @@ public class SwScrlAiz implements ZoneScrollHandler {
         maxScrollOffset = Integer.MIN_VALUE;
 
         short fgScroll = negWord(cameraX);
-        short bgScroll = asrWord(fgScroll, 1); // BG at half FG speed
+
+        // During intro, ROM AIZ1_IntroDeform uses Events_fg_1 / 2 for BG parallax.
+        // Once intro is done (introScrollOffset == 0), normal half-speed parallax.
+        int introOffset = AizPlaneIntroInstance.getIntroScrollOffset();
+        short bgScroll;
+        if (introOffset < 0) {
+            bgScroll = asrWord(introOffset, 1);
+        } else {
+            bgScroll = asrWord(fgScroll, 1);
+        }
 
         vscrollFactorBG = 0;
 

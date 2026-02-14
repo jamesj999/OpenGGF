@@ -4,8 +4,11 @@ import uk.co.jamesj999.sonic.audio.GameSound;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.data.Game;
+import uk.co.jamesj999.sonic.data.PlayerSpriteArtProvider;
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.DynamicStartPositionProvider;
+import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioProfile;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.level.Level;
@@ -28,10 +31,11 @@ import java.util.logging.Logger;
  * <p>Phase 1 supports terrain, collision, and basic palettes. No objects,
  * rings, or zone-specific features.
  */
-public class Sonic3k extends Game implements DynamicStartPositionProvider {
+public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicStartPositionProvider {
     private static final Logger LOG = Logger.getLogger(Sonic3k.class.getName());
 
     private final Rom rom;
+    private Sonic3kPlayerArt playerArt;
 
     public Sonic3k(Rom rom) throws IOException {
         this.rom = rom;
@@ -91,6 +95,14 @@ public class Sonic3k extends Game implements DynamicStartPositionProvider {
     }
 
     @Override
+    public SpriteArtSet loadPlayerSpriteArt(String characterCode) throws IOException {
+        if (playerArt == null) {
+            playerArt = new Sonic3kPlayerArt(RomByteReader.fromRom(rom));
+        }
+        return playerArt.loadForCharacter(characterCode);
+    }
+
+    @Override
     public Level loadLevel(int levelIdx) throws IOException {
         // Convert levelIdx to zone/act
         int s3kIdx = levelIdx;
@@ -125,7 +137,7 @@ public class Sonic3k extends Game implements DynamicStartPositionProvider {
         int secondaryChunksAddr = word5 & 0x00FFFFFF;
         Sonic3kLoadBootstrap bootstrap = Sonic3kBootstrapResolver.resolve(zone, act);
 
-        if (bootstrap.isAiz1GameplayAfterIntro()) {
+        if (bootstrap.isSkipIntro() && zone == 0 && act == 0) {
             Aiz1GameplayOverlay override = readAiz1GameplayOverlayFromIntroEntry();
             if (override != null) {
                 // Intro-skip parity bridge:
@@ -235,6 +247,11 @@ public class Sonic3k extends Game implements DynamicStartPositionProvider {
 
     @Override
     public int[] getStartPosition(int zoneIndex, int actIndex) throws IOException {
+        Sonic3kLoadBootstrap bootstrap = Sonic3kBootstrapResolver.resolve(zoneIndex, actIndex);
+        if (bootstrap.hasIntroStartPosition()) {
+            return bootstrap.introStartPosition();
+        }
+
         int startTableAddr = getCharacterStartTableAddr();
         if (!isReadable(startTableAddr, Sonic3kConstants.START_LOCATION_ENTRY_SIZE)) {
             return null;
@@ -470,11 +487,12 @@ public class Sonic3k extends Game implements DynamicStartPositionProvider {
             return 0;
         }
 
-        if (bootstrap != null && bootstrap.isAiz1GameplayAfterIntro()) {
-            // Intro-skip bridge:
-            // AIZ1 post-intro spawn (X=$13A0, Y=$041A) requires the intro-profile
-            // vertical limits (yEnd=$1000). Act 1 limits (yEnd=$0390) cause immediate
-            // pit-death checks before full resize scripting is implemented.
+        if (bootstrap != null && bootstrap.mode() != Sonic3kLoadBootstrap.Mode.NORMAL
+                && zone == 0 && act == 0) {
+            // AIZ1 intro boundaries (index 26): minX=0x0000, maxY=0x1000.
+            // Normal AIZ1 boundaries (index 0) have minX=0x1308 (gameplay start),
+            // which clips the camera for both intro spawn (X=$0060) and
+            // skip-intro spawn (Y=$041A > normal maxY=$0390).
             int introIndex = Sonic3kConstants.LEVEL_SIZES_AIZ1_INTRO_INDEX;
             return levelSizesAddr + introIndex * Sonic3kConstants.LEVEL_SIZES_ENTRY_SIZE;
         }

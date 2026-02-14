@@ -76,6 +76,11 @@ public class Sonic2AudioProfile implements GameAudioProfile {
     }
 
     @Override
+    public int getSuperSonicMusicId() {
+        return Sonic2Music.SUPER_SONIC.id;
+    }
+
+    @Override
     public int getSfxPriority(int soundId) {
         return Sonic2SmpsConstants.getSfxPriority(soundId);
     }

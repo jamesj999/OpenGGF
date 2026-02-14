@@ -1,5 +1,10 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.graphics.GraphicsManager;
+import uk.co.jamesj999.sonic.level.Level;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.Palette;
+
 /**
  * Palette cycling for the AIZ1 intro's Super Sonic visual effect.
  * Port of sub_679B8 (sonic3k.asm:135904).
@@ -15,6 +20,15 @@ public class AizIntroPaletteCycler {
     private static final int CYCLE_MAX = 0x36;     // cycling range end (inclusive)
     private static final int MAPPING_FRAME_EVEN = 0x21;
     private static final int MAPPING_FRAME_ODD = 0x22;
+
+    /** Sonic palette line index (line 0). */
+    private static final int SONIC_PALETTE_INDEX = 0;
+
+    /** First color index within the palette line to overwrite (colors 2, 3, 4). */
+    private static final int FIRST_COLOR_INDEX = 2;
+
+    /** Number of colors written per cycle step (3 MD colors = 6 bytes). */
+    private static final int COLORS_PER_STEP = 3;
 
     private int paletteTimer;
     private int paletteFrame;
@@ -36,6 +50,45 @@ public class AizIntroPaletteCycler {
             if (paletteFrame > CYCLE_MAX) {
                 paletteFrame = CYCLE_MIN;
             }
+        }
+    }
+
+    /**
+     * Writes the current palette cycle colors to the GPU.
+     * Reads 3 Mega Drive colors from the cycle data at the current frame offset
+     * and writes them to palette line 0, colors 2-4.
+     *
+     * Reference: Sonic2SuperStateController.applyPaletteFrame() pattern.
+     */
+    public void applyToGpu() {
+        byte[] data = AizIntroArtLoader.getSuperSonicPaletteCycleData();
+        if (data == null || data.length == 0) return;
+
+        // paletteFrame is byte offset into the cycle data (range CYCLE_MIN..CYCLE_MAX)
+        // Convert to 0-based entry index
+        int entryIndex = (paletteFrame - CYCLE_MIN) / FRAME_ADVANCE;
+        int offset = entryIndex * COLORS_PER_STEP * 2; // 3 colors * 2 bytes each
+        if (offset + COLORS_PER_STEP * 2 > data.length) return;
+
+        try {
+            LevelManager lm = LevelManager.getInstance();
+            if (lm == null) return;
+            Level level = lm.getCurrentLevel();
+            if (level == null) return;
+            Palette palette = level.getPalette(SONIC_PALETTE_INDEX);
+            if (palette == null) return;
+
+            for (int i = 0; i < COLORS_PER_STEP; i++) {
+                palette.getColor(FIRST_COLOR_INDEX + i)
+                        .fromSegaFormat(data, offset + i * 2);
+            }
+
+            GraphicsManager gfx = GraphicsManager.getInstance();
+            if (gfx.isGlInitialized()) {
+                gfx.cachePaletteTexture(palette, SONIC_PALETTE_INDEX);
+            }
+        } catch (Exception ignored) {
+            // May not be available in test environments
         }
     }
 

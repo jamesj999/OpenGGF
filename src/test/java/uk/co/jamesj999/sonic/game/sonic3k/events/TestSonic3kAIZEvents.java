@@ -11,24 +11,24 @@ public class TestSonic3kAIZEvents {
     public void initWithIntroSkipDoesNotSpawnIntroObject() {
         Camera camera = Camera.getInstance();
         var events = new Sonic3kAIZEvents(camera,
-                new Sonic3kLoadBootstrap(Sonic3kLoadBootstrap.Mode.AIZ1_GAMEPLAY_AFTER_INTRO));
+                new Sonic3kLoadBootstrap(Sonic3kLoadBootstrap.Mode.SKIP_INTRO, null));
         events.init(0);
         // No crash, no spawn (ObjectManager is null in test)
         assertEquals(0, events.getEventRoutine());
     }
 
     @Test
-    public void initForAct1WithNoneBootstrapRequestsIntro() {
+    public void initForAct1WithNormalBootstrapRequestsIntro() {
         Camera camera = Camera.getInstance();
-        var events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NONE);
-        // When bootstrap is NONE and act is 0, intro should be requested
+        var events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
+        // When bootstrap is NORMAL and act is 0, intro should be requested
         assertTrue(events.shouldSpawnIntro(0));
     }
 
     @Test
     public void initForAct2DoesNotRequestIntro() {
         Camera camera = Camera.getInstance();
-        var events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NONE);
+        var events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
         assertFalse(events.shouldSpawnIntro(1));
     }
 }

@@ -98,6 +98,9 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
     /** Current phase of this emerald's lifecycle. */
     private Phase phase;
 
+    /** Reference to the Knuckles cutscene object for proximity collection. */
+    private CutsceneKnucklesAiz1Instance knuckles;
+
     // -----------------------------------------------------------------------
     // Constructor
     // -----------------------------------------------------------------------
@@ -182,9 +185,11 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
      * Collection logic delegates to canBeCollectedByVelocity().
      */
     private void updateGrounded() {
-        // Knuckles proximity check will be wired in Task 13 (full integration)
-        // when the CutsceneKnucklesAiz1Instance reference is available.
-        // The core direction-matching logic is exposed via canBeCollectedByVelocity().
+        if (knuckles == null || knuckles.isDestroyed()) return;
+        int dx = Math.abs(knuckles.getX() - currentX);
+        if (dx <= PICKUP_PROXIMITY && canBeCollectedByVelocity(knuckles.getXVel())) {
+            setDestroyed(true);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -241,6 +246,13 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
 
     public int getYVel() {
         return yVel;
+    }
+
+    /**
+     * Sets the Knuckles reference for proximity collection checks.
+     */
+    public void setKnuckles(CutsceneKnucklesAiz1Instance knux) {
+        this.knuckles = knux;
     }
 
     /**

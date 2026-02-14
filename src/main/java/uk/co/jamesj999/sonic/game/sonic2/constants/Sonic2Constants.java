@@ -143,6 +143,10 @@ public class Sonic2Constants {
 
     // Super Sonic stars art (Nemesis compressed, ArtNem_SuperSonic_stars, s2.asm:89802)
     public static final int ART_NEM_SUPER_SONIC_STARS_ADDR = 0x7393C;
+    // Super Sonic stars mappings (uncompressed, Obj7E_MapUnc_1E1BE)
+    public static final int MAP_UNC_SUPER_SONIC_STARS_ADDR = 0x1E1BE;
+    // Super Sonic stars VRAM art tile (from s2.constants.asm)
+    public static final int ART_TILE_SUPER_SONIC_STARS = 0x05F2;
 
     // Super Sonic animation data (separate table from normal Sonic, SuperSonicAniData s2.asm:38415)
     public static final int SUPER_SONIC_ANIM_DATA_ADDR = 0x1B7C6; // SuperSonicAniData (code label, verified via ROM pattern search)
