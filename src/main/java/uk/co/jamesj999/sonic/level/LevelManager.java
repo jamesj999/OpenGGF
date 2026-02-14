@@ -15,6 +15,7 @@ import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameModule;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
+import uk.co.jamesj999.sonic.game.PhysicsFeatureSet;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.ObjectArtProvider;
@@ -290,11 +291,12 @@ public class LevelManager {
             checkpointState.clear();
             levelGamestate = gameModule.createLevelState();
 
-            // Initialize water system for this level
-            // Use level.getZoneIndex() which returns the ROM zone ID (e.g., 0x0D for CPZ,
-            // 0x0F for ARZ)
+            // Initialize water system for this level (S2/S3K only).
+            // S1 water is already loaded by the ZoneFeatureProvider above.
             WaterSystem waterSystem = WaterSystem.getInstance();
-            waterSystem.loadForLevel(rom, level.getZoneIndex(), currentAct, level.getObjects());
+            if (!waterSystem.hasWater(level.getZoneIndex(), currentAct)) {
+                waterSystem.loadForLevel(rom, level.getZoneIndex(), currentAct, level.getObjects());
+            }
         } catch (IOException e) {
             LOGGER.log(SEVERE, "Failed to load level " + levelIndex, e);
             throw e;
@@ -1011,6 +1013,18 @@ public class LevelManager {
             // Offset by -8 to include the 8px tall water surface sprite in underwater palette
             float waterlineScreenY = (float) (waterLevel - camera.getY() - 8);
 
+            // Determine shimmer style from current game module's physics feature set.
+            // 0 = S2/S3K smooth sine wave, 1 = S1 integer-snapped shimmer
+            int shimmerStyle = 0;
+            GameModule currentModule = GameModuleRegistry.getCurrent();
+            if (currentModule != null && currentModule.getPhysicsProvider() != null) {
+                PhysicsFeatureSet featureSet = currentModule.getPhysicsProvider().getFeatureSet();
+                if (featureSet != null && featureSet.waterShimmerEnabled()) {
+                    shimmerStyle = 1;
+                }
+            }
+            final int capturedShimmerStyle = shimmerStyle;
+
             graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
                 // Enable water shader at execution time
                 graphicsManager.setUseWaterShader(true);
@@ -1028,6 +1042,7 @@ public class LevelManager {
                 shader.setWaterlineScreenY(waterlineScreenY);
                 shader.setFrameCounter(frameCounter);
                 shader.setDistortionAmplitude(0.0f);
+                shader.setShimmerStyle(capturedShimmerStyle);
                 shader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
                 shader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
                         screenHeightPixels);
@@ -1062,6 +1077,7 @@ public class LevelManager {
                     instancedShader.setWaterlineScreenY(waterlineScreenY);
                     instancedShader.setFrameCounter(frameCounter);
                     instancedShader.setDistortionAmplitude(0.0f);
+                    instancedShader.setShimmerStyle(capturedShimmerStyle);
                     instancedShader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
                     instancedShader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
                             (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS));

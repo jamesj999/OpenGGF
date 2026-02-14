@@ -1740,17 +1740,24 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         /**
          * Returns the base gravity value applied by ObjectMoveAndFall.
-         * This method returns the FULL gravity (0x38) regardless of water state.
+         * This method returns the FULL gravity regardless of water state.
          * Underwater gravity reduction is handled separately in PlayableSpriteMovement.modeAirborne()
-         * by subtracting 0x28 AFTER applying gravity, matching ROM behavior exactly:
-         *   - ROM: ObjectMoveAndFall adds 0x38 to y_vel
-         *   - ROM: Then Obj01_MdAir subtracts 0x28 if underwater
+         * by subtracting a reduction AFTER applying gravity, matching ROM behavior exactly:
+         *
+         * Normal airborne:
+         *   - ROM: ObjectMoveAndFall adds 0x38 to y_vel (s2.asm:29950)
+         *   - ROM: Then Obj01_MdAir subtracts 0x28 if underwater (s2.asm:36170)
          *   - Net underwater gravity = 0x38 - 0x28 = 0x10
          *
-         * Normal: 0x38 (56 subpixels)
-         * Hurt: 0x30 (48 subpixels) - per SPG hurt_gravity_force
+         * Hurt airborne:
+         *   - ROM: Obj01_Hurt adds 0x30 to y_vel (s2.asm:37799)
+         *   - ROM: Then subtracts 0x20 if underwater (s2.asm:37802)
+         *   - Net hurt underwater gravity = 0x30 - 0x20 = 0x10
          *
-         * @see docs/s2disasm/s2.asm lines 29950 (ObjectMoveAndFall) and 36170 (underwater adjustment)
+         * Normal: 0x38 (56 subpixels)
+         * Hurt: 0x30 (48 subpixels)
+         *
+         * @see docs/s2disasm/s2.asm lines 29950 (ObjectMoveAndFall), 36170 (normal underwater), 37799-37802 (hurt + underwater)
          */
         @Override
         public float getGravity() {

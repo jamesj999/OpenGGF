@@ -14,6 +14,7 @@ public record PhysicsModifiers(
         float waterMaxMul,
         short waterJump,
         short waterGravityReduction,
+        short waterHurtGravityReduction,
         float shoesAccelMul,
         float shoesDecelMul,
         float shoesFrictionMul,
@@ -30,7 +31,8 @@ public record PhysicsModifiers(
             0.5f,       // waterFrictionMul
             0.5f,       // waterMaxMul
             (short) 0x380, // waterJump (absolute)
-            (short) 0x28,  // waterGravityReduction
+            (short) 0x28,  // waterGravityReduction (normal airborne: $38-$28=$10)
+            (short) 0x20,  // waterHurtGravityReduction (hurt: $30-$20=$10; s2.asm:37802, s1:01 Sonic.asm:1410)
             2.0f,       // shoesAccelMul
             1.0f,       // shoesDecelMul (unchanged)
             2.0f,       // shoesFrictionMul

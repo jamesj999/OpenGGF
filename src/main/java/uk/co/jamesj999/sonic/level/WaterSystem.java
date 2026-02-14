@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.level;
 
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 
 import java.util.HashMap;
@@ -9,9 +10,15 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 /**
- * Manages water configuration for Sonic 2 levels.
+ * Manages water configuration for Sonic 1 and Sonic 2 levels.
  * Extracts water heights and underwater palettes from ROM data.
  * Provides deterministic water distortion parameters.
+ *
+ * <p>S2 levels use {@link #loadForLevel(Rom, int, int, List)} which reads water
+ * heights from a ROM table and object layouts.
+ *
+ * <p>S1 levels use {@link #loadForLevelS1(Rom, int, int)} which uses hardcoded
+ * water heights baked into the assembly (LZWaterFeatures.asm lines 49-52).
  */
 public class WaterSystem {
     private static final Logger LOGGER = Logger.getLogger(WaterSystem.class.getName());
@@ -36,9 +43,13 @@ public class WaterSystem {
     private static final int ARZ_UNDERWATER_PALETTE_ADDR = 0x2FA2;
     private static final int PALETTE_SIZE_BYTES = 128; // 64 colors * 2 bytes per color
 
-    // ROM zone IDs (from SPGSonic2Overlay.Lua ZONE_NAMES table)
+    // ROM zone IDs - Sonic 2 (from SPGSonic2Overlay.Lua ZONE_NAMES table)
     private static final int ZONE_ID_CPZ = 0x0D; // Chemical Plant Zone
     private static final int ZONE_ID_ARZ = 0x0F; // Aquatic Ruin Zone
+
+    // ROM zone IDs - Sonic 1 (from Constants.asm: id_LZ = 1, id_SBZ = 5)
+    private static final int S1_ZONE_ID_LZ  = Sonic1Constants.ZONE_LZ;  // 0x01 - Labyrinth Zone
+    private static final int S1_ZONE_ID_SBZ = Sonic1Constants.ZONE_SBZ; // 0x05 - Scrap Brain Zone
 
     // Singleton instance
     private static WaterSystem instance;
@@ -163,6 +174,119 @@ public class WaterSystem {
         LOGGER.info(String.format("Zone %d Act %d: Water detected at Y=%d, palette=%s",
                 zoneId, actId, waterHeight,
                 (underwaterPalette != null ? "loaded" : "none")));
+    }
+
+    /**
+     * Load water configuration for Sonic 1 levels using hardcoded heights.
+     * S1 water heights are defined in LZWaterFeatures.asm (lines 49-52) rather
+     * than a ROM table like S2. Only LZ acts 1-3 and SBZ3 have water.
+     *
+     * @param rom    ROM data (used for loading underwater palettes)
+     * @param zoneId S1 ROM zone ID (e.g., Sonic1Constants.ZONE_LZ)
+     * @param actId  Act index (0-based)
+     */
+    public void loadForLevelS1(Rom rom, int zoneId, int actId) {
+        String key = makeKey(zoneId, actId);
+
+        Integer waterHeight = getS1WaterHeight(zoneId, actId);
+        if (waterHeight == null) {
+            waterConfigs.put(key, new WaterConfig(false, 0, null));
+            return;
+        }
+
+        Palette[] underwaterPalette = loadS1UnderwaterPalette(rom, zoneId);
+        waterConfigs.put(key, new WaterConfig(true, waterHeight, underwaterPalette));
+        dynamicWaterStates.put(key, new DynamicWaterState(waterHeight));
+
+        LOGGER.info(String.format("S1 Zone %d Act %d: Water at Y=%d (0x%X), palette=%s",
+                zoneId, actId, waterHeight, waterHeight,
+                underwaterPalette != null ? "loaded" : "none"));
+    }
+
+    /**
+     * Get the hardcoded initial water height for a Sonic 1 level.
+     * Values from LZWaterFeatures.asm WaterHeight table (lines 49-52).
+     * <p>
+     * The table has 4 entries indexed by act (0-2 for LZ acts 1-3, 3 for SBZ3).
+     * SBZ act 3 reuses the LZ water system with its own height.
+     *
+     * @param zoneId S1 ROM zone ID
+     * @param actId  Act index (0-based)
+     * @return Water height in pixels, or null if no water in this level
+     */
+    private Integer getS1WaterHeight(int zoneId, int actId) {
+        if (zoneId == S1_ZONE_ID_LZ) {
+            return switch (actId) {
+                case 0 -> Sonic1Constants.WATER_HEIGHT_LZ1;  // 0x00B8
+                case 1 -> Sonic1Constants.WATER_HEIGHT_LZ2;  // 0x0328
+                case 2 -> Sonic1Constants.WATER_HEIGHT_LZ3;  // 0x0900
+                default -> null;
+            };
+        }
+        // SBZ Act 3 (actId == 2) reuses LZ water mechanics
+        if (zoneId == S1_ZONE_ID_SBZ && actId == 2) {
+            return Sonic1Constants.WATER_HEIGHT_SBZ3; // 0x0228
+        }
+        return null;
+    }
+
+    /**
+     * Load the underwater palette for a Sonic 1 water zone from ROM.
+     * <p>
+     * S1 has two separate underwater palette sets:
+     * <ul>
+     *   <li>Pal_LZWater (128 bytes at 0x2460): zone palette lines 0-3 for LZ</li>
+     *   <li>Pal_SBZ3Water (128 bytes at 0x27A0): zone palette lines 0-3 for SBZ3</li>
+     * </ul>
+     * Additionally, S1 has separate Sonic underwater palettes (Pal_LZSonWater,
+     * Pal_SBZ3SonWat) which replace palette line 0. These are loaded into the
+     * main underwater palette array at index 0.
+     *
+     * @param rom    ROM data
+     * @param zoneId S1 ROM zone ID
+     * @return 4-line underwater palette, or null if no underwater palette
+     */
+    private Palette[] loadS1UnderwaterPalette(Rom rom, int zoneId) {
+        int zoneUnderwaterAddr;
+        int sonicUnderwaterAddr;
+
+        if (zoneId == S1_ZONE_ID_LZ) {
+            zoneUnderwaterAddr = Sonic1Constants.PAL_LZ_UNDERWATER_ADDR;    // 0x2460
+            sonicUnderwaterAddr = Sonic1Constants.PAL_LZ_SONIC_UNDERWATER_ADDR; // 0x2820
+        } else if (zoneId == S1_ZONE_ID_SBZ) {
+            zoneUnderwaterAddr = Sonic1Constants.PAL_SBZ3_UNDERWATER_ADDR;  // 0x27A0
+            sonicUnderwaterAddr = Sonic1Constants.PAL_SBZ3_SONIC_UNDERWATER_ADDR; // 0x2840
+        } else {
+            return null;
+        }
+
+        try {
+            // Load the 4-line zone underwater palette (128 bytes)
+            byte[] paletteData = rom.readBytes(zoneUnderwaterAddr, PALETTE_SIZE_BYTES);
+            Palette[] palettes = new Palette[4];
+            for (int i = 0; i < 4; i++) {
+                byte[] lineData = new byte[32];
+                System.arraycopy(paletteData, i * 32, lineData, 0, 32);
+                palettes[i] = new Palette();
+                palettes[i].fromSegaFormat(lineData);
+            }
+
+            // Load Sonic's underwater palette (32 bytes = 1 palette line) into line 0.
+            // In S1, the Sonic underwater palette replaces palette line 0 (the sprite
+            // palette line containing Sonic's colors). The zone underwater palette at
+            // destinationPaletteLine=0 covers all 4 lines, then the Sonic-specific
+            // palette overwrites line 0 with Sonic's underwater colors.
+            byte[] sonicPalData = rom.readBytes(sonicUnderwaterAddr, 32);
+            palettes[0] = new Palette();
+            palettes[0].fromSegaFormat(sonicPalData);
+
+            return palettes;
+        } catch (Exception e) {
+            LOGGER.warning(String.format(
+                    "Failed to load S1 underwater palette for zone %d at 0x%X: %s",
+                    zoneId, zoneUnderwaterAddr, e.getMessage()));
+            return null;
+        }
     }
 
     /**
@@ -349,29 +473,42 @@ public class WaterSystem {
      * This is used for rendering the water surface sprites and palette/shader
      * split.
      * <p>
-     * CPZ water bobs up and down by about the height of a ring (~16 pixels total).
-     * ARZ water does NOT oscillate - it remains at a fixed level.
+     * S2 CPZ and S1 LZ water bobs up and down using oscillation data.
+     * S2 ARZ water does NOT oscillate - it remains at a fixed level.
+     * <p>
+     * S1 LZ oscillation (from LZWaterFeatures.asm):
+     * <pre>
+     *   move.b (v_oscillate+2).w,d0   ; get oscillation byte
+     *   lsr.w  #1,d0                   ; divide by 2
+     *   add.w  (v_waterpos2).w,d0      ; add to base water position
+     * </pre>
      * <p>
      * Note: This does NOT affect gameplay - Sonic's underwater detection uses
      * the fixed water level from {@link #getWaterLevelY(int, int)}.
-     * 
-     * @return Visual water level Y in pixels with oscillation offset applied (CPZ
-     *         only)
+     *
+     * @return Visual water level Y in pixels with oscillation offset applied
      */
     public int getVisualWaterLevelY(int zoneId, int actId) {
         int baseLevel = getWaterLevelY(zoneId, actId);
         if (baseLevel == 0) {
             return 0; // No water
         }
-        // Only CPZ has water oscillation - ARZ water stays fixed
+        // S2 CPZ: water oscillation using oscillator 0
         if (zoneId == ZONE_ID_CPZ) {
             // Apply oscillation offset from oscillator index 0 (limit=0x10, 0-16 range)
             // Center around 0 by subtracting half the limit (8)
-            // Result is ±8 pixels (~16 pixels total bobbing, ring height)
+            // Result is +/-8 pixels (~16 pixels total bobbing, ring height)
             int oscillation = uk.co.jamesj999.sonic.game.sonic2.OscillationManager.getByte(0);
             return baseLevel + (oscillation - 8);
         }
-        return baseLevel; // ARZ: no oscillation
+        // S1 LZ: water surface bobs using oscillator data (v_oscillate+2).
+        // The ROM reads byte at v_oscillate+2, shifts right by 1 (divides by 2),
+        // and adds to v_waterpos2. This produces a gentle vertical bob.
+        if (zoneId == S1_ZONE_ID_LZ) {
+            int oscillation = uk.co.jamesj999.sonic.game.sonic2.OscillationManager.getByte(0);
+            return baseLevel + (oscillation >> 1);
+        }
+        return baseLevel; // ARZ, SBZ3, etc: no oscillation
     }
 
     /**
@@ -435,9 +572,39 @@ public class WaterSystem {
         DynamicWaterState state = dynamicWaterStates.get(key);
         if (state != null) {
             state.setTarget(targetY);
-            LOGGER.info(String.format("Zone %d Act %d: Water target set to %d (0x%X)",
-                    zoneId, actId, targetY, targetY));
         }
+    }
+
+    /**
+     * Set the current water level directly (instant, no gradual movement).
+     * ROM equivalent: writing directly to v_waterpos2.
+     * Used by Sonic 1 LZ water events where the ROM sets both v_waterpos2
+     * and v_waterpos3 simultaneously for instant water level changes.
+     *
+     * @param zoneId   Zone index
+     * @param actId    Act index
+     * @param currentY Current water Y position to set immediately
+     */
+    public void setWaterLevelDirect(int zoneId, int actId, int currentY) {
+        String key = makeKey(zoneId, actId);
+        DynamicWaterState state = dynamicWaterStates.get(key);
+        if (state != null) {
+            state.currentLevel = currentY;
+            LOGGER.info(String.format("Zone %d Act %d: Water level set directly to %d (0x%X)",
+                    zoneId, actId, currentY, currentY));
+        }
+    }
+
+    /**
+     * Get the current target water level (v_waterpos3 equivalent).
+     *
+     * @param zoneId Zone index
+     * @param actId  Act index
+     * @return Target water Y position, or 0 if no water
+     */
+    public int getWaterLevelTarget(int zoneId, int actId) {
+        DynamicWaterState state = dynamicWaterStates.get(makeKey(zoneId, actId));
+        return state != null ? state.targetLevel : 0;
     }
 
     /**

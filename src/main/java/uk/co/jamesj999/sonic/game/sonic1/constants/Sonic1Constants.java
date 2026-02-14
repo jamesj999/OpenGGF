@@ -567,6 +567,28 @@ public final class Sonic1Constants {
      */
     public static final int[] SS_SCROLL_BAND_WIDTHS = {6, 0x30, 0x30, 0x30, 0x28, 0x18, 0x18, 0x18};
 
+    // ---- Labyrinth Zone water heights (LZWaterFeatures.asm lines 49-52) ----
+    // Values are Y position in pixels from level top.
+    // S1 bakes these into the ASM rather than a ROM table (unlike S2).
+    public static final int WATER_HEIGHT_LZ1  = 0x00B8; // LZ Act 1: 184px
+    public static final int WATER_HEIGHT_LZ2  = 0x0328; // LZ Act 2: 808px
+    public static final int WATER_HEIGHT_LZ3  = 0x0900; // LZ Act 3: 2304px
+    public static final int WATER_HEIGHT_SBZ3 = 0x0228; // SBZ Act 3 (reuses LZ water): 552px
+
+    // ---- Underwater palette ROM addresses (verified by RomOffsetFinder --game s1) ----
+    // Pal_LZWater: 128 bytes (4 palette lines), all underwater palette lines for LZ
+    public static final int PAL_LZ_UNDERWATER_ADDR      = 0x2460;
+    public static final int PAL_LZ_UNDERWATER_SIZE      = 128;
+    // Pal_SBZ3Water: 128 bytes (4 palette lines), underwater palette lines for SBZ3
+    public static final int PAL_SBZ3_UNDERWATER_ADDR    = 0x27A0;
+    public static final int PAL_SBZ3_UNDERWATER_SIZE    = 128;
+    // Pal_LZSonWater: 32 bytes (1 palette line), Sonic's underwater palette for LZ
+    public static final int PAL_LZ_SONIC_UNDERWATER_ADDR  = 0x2820;
+    public static final int PAL_LZ_SONIC_UNDERWATER_SIZE  = 32;
+    // Pal_SBZ3SonWat: 32 bytes (1 palette line), Sonic's underwater palette for SBZ3
+    public static final int PAL_SBZ3_SONIC_UNDERWATER_ADDR = 0x2840;
+    public static final int PAL_SBZ3_SONIC_UNDERWATER_SIZE = 32;
+
     // ---- Special Stage physics constants (from Obj09) ----
     public static final int SS_ACCEL           = 0x0C;   // movement acceleration
     public static final int SS_BRAKE           = 0x40;   // braking deceleration

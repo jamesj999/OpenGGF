@@ -13,6 +13,7 @@ uniform float ScreenWidth;              // Screen width in pixels (e.g. 320)
 uniform float IndexedTextureWidth;      // Width of indexed texture in pixels (atlas width)
 uniform int FrameCounter;               // For animation
 uniform float DistortionAmplitude;      // Amplitude of ripple in pixels
+uniform int ShimmerStyle;               // 0 = S2/S3K (smooth sine), 1 = S1 (integer-snapped shimmer)
 uniform float WindowHeight;             // Physical window height in pixels
 
 // World-space water uniforms for FBO rendering
@@ -51,18 +52,22 @@ void main()
 
     // Check if below waterline
     if (pixelYFromTop >= waterlineY) {
-        // Calculate procedural sine wave distortion
-        // Frequency: roughly 4 scanlines per cycle looks good for Sonic
-        // Speed: FrameCounter moves the phase
-
         float scanlinesBelow = pixelYFromTop - waterlineY;
 
-        // Formula similar to Genesis sine table lookups
-        // Using FrameCounter to shift phase
-        float angle = (scanlinesBelow * 0.15) + (float(FrameCounter) * 0.2);
-
-        // Amplitude: typically 1-2 pixels
-        distortion = sin(angle) * DistortionAmplitude;
+        if (ShimmerStyle == 1) {
+            // S1: Integer-snapped shimmer effect
+            // Tighter frequency (~8 pixel wavelength), scrolls downward
+            // The original uses a lookup table indexed by (scanline + frame),
+            // creating chunky pixel-stepped waves
+            float angle = (scanlinesBelow * 0.785) + (float(FrameCounter) * 0.08);
+            float rawDistortion = sin(angle) * 1.5;
+            // Snap to integer pixels for authentic Genesis look
+            distortion = floor(rawDistortion + 0.5);
+        } else {
+            // S2/S3K: Smooth procedural sine wave (existing behavior)
+            float angle = (scanlinesBelow * 0.15) + (float(FrameCounter) * 0.2);
+            distortion = sin(angle) * DistortionAmplitude;
+        }
     }
 
     // Apply distortion to U coordinate

@@ -137,8 +137,8 @@ public class Sonic1SYZBossInstance extends AbstractBossInstance {
         justReturnedFlag = 0;
         grabbedBlock = null;
 
-        faceAnim = GHZBossAnimations.ANIM_FACE_NORMAL_1;
-        flameAnim = GHZBossAnimations.ANIM_BLANK;
+        faceAnim = Sonic1BossAnimations.ANIM_FACE_NORMAL_1;
+        flameAnim = Sonic1BossAnimations.ANIM_BLANK;
 
         // Spawn spike child component
         spawnSpikeChild();
@@ -161,7 +161,7 @@ public class Sonic1SYZBossInstance extends AbstractBossInstance {
 
     @Override
     protected void onHitTaken(int remainingHits) {
-        faceAnim = GHZBossAnimations.ANIM_FACE_HIT;
+        faceAnim = Sonic1BossAnimations.ANIM_FACE_HIT;
     }
 
     @Override
@@ -627,18 +627,18 @@ public class Sonic1SYZBossInstance extends AbstractBossInstance {
                 // ROM: loc_1955A — depends on drop sub-phase
                 if (dropSubPhase == DROP_SUB_HOLD) {
                     // During hold: panic face
-                    faceAnim = GHZBossAnimations.ANIM_FACE_PANIC;
+                    faceAnim = Sonic1BossAnimations.ANIM_FACE_PANIC;
                 } else {
                     faceAnim = resolveNormalFace(player);
                 }
             }
             case STATE_DEFEAT_WAIT, STATE_ASCENT -> {
                 // ROM: loc_19552 — defeat face ($A)
-                faceAnim = GHZBossAnimations.ANIM_FACE_DEFEAT;
+                faceAnim = Sonic1BossAnimations.ANIM_FACE_DEFEAT;
             }
             case STATE_ESCAPE -> {
                 // ROM: loc_19556 — panic face (6)
-                faceAnim = GHZBossAnimations.ANIM_FACE_PANIC;
+                faceAnim = Sonic1BossAnimations.ANIM_FACE_PANIC;
             }
         }
     }
@@ -650,13 +650,13 @@ public class Sonic1SYZBossInstance extends AbstractBossInstance {
     private int resolveNormalFace(AbstractPlayableSprite player) {
         // ROM: tst.b obColType(a1) / bne.s — if invulnerable, show hit face
         if (state.invulnerable) {
-            return GHZBossAnimations.ANIM_FACE_HIT;
+            return Sonic1BossAnimations.ANIM_FACE_HIT;
         }
         // ROM: cmpi.b #4,(v_player+obRoutine).w — if player hurt, laugh
         if (player != null && player.isHurt()) {
-            return GHZBossAnimations.ANIM_FACE_LAUGH;
+            return Sonic1BossAnimations.ANIM_FACE_LAUGH;
         }
-        return GHZBossAnimations.ANIM_FACE_NORMAL_1;
+        return Sonic1BossAnimations.ANIM_FACE_NORMAL_1;
     }
 
     /**
@@ -666,12 +666,12 @@ public class Sonic1SYZBossInstance extends AbstractBossInstance {
     private void updateFlameAnimation() {
         if (state.routineSecondary == STATE_ESCAPE) {
             // ROM: cmpi.b #$A,ob2ndRout → heavy escape flame
-            flameAnim = GHZBossAnimations.ANIM_ESCAPE_FLAME;
+            flameAnim = Sonic1BossAnimations.ANIM_ESCAPE_FLAME;
         } else if (state.xVel != 0) {
             // ROM: tst.w obVelX → active flame
-            flameAnim = GHZBossAnimations.ANIM_FLAME_1;
+            flameAnim = Sonic1BossAnimations.ANIM_FLAME_1;
         } else {
-            flameAnim = GHZBossAnimations.ANIM_BLANK;
+            flameAnim = Sonic1BossAnimations.ANIM_BLANK;
         }
     }
 
@@ -712,23 +712,23 @@ public class Sonic1SYZBossInstance extends AbstractBossInstance {
 
     private int getFaceFrame() {
         return switch (faceAnim) {
-            case GHZBossAnimations.ANIM_FACE_NORMAL_1,
-                 GHZBossAnimations.ANIM_FACE_NORMAL_2,
-                 GHZBossAnimations.ANIM_FACE_NORMAL_3 -> 1;
-            case GHZBossAnimations.ANIM_FACE_LAUGH -> 3;
-            case GHZBossAnimations.ANIM_FACE_HIT -> 5;
-            case GHZBossAnimations.ANIM_FACE_PANIC -> 6;
-            case GHZBossAnimations.ANIM_FACE_DEFEAT -> 7;
+            case Sonic1BossAnimations.ANIM_FACE_NORMAL_1,
+                 Sonic1BossAnimations.ANIM_FACE_NORMAL_2,
+                 Sonic1BossAnimations.ANIM_FACE_NORMAL_3 -> 1;
+            case Sonic1BossAnimations.ANIM_FACE_LAUGH -> 3;
+            case Sonic1BossAnimations.ANIM_FACE_HIT -> 5;
+            case Sonic1BossAnimations.ANIM_FACE_PANIC -> 6;
+            case Sonic1BossAnimations.ANIM_FACE_DEFEAT -> 7;
             default -> -1;
         };
     }
 
     private int getFlameFrame() {
         return switch (flameAnim) {
-            case GHZBossAnimations.ANIM_FLAME_1,
-                 GHZBossAnimations.ANIM_FLAME_2 -> 8;
-            case GHZBossAnimations.ANIM_ESCAPE_FLAME -> 11;
-            case GHZBossAnimations.ANIM_BLANK -> -1;
+            case Sonic1BossAnimations.ANIM_FLAME_1,
+                 Sonic1BossAnimations.ANIM_FLAME_2 -> 8;
+            case Sonic1BossAnimations.ANIM_ESCAPE_FLAME -> 11;
+            case Sonic1BossAnimations.ANIM_BLANK -> -1;
             default -> -1;
         };
     }
