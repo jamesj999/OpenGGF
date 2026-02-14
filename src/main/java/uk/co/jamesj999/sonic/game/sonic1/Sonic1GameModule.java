@@ -140,8 +140,7 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public ZoneFeatureProvider getZoneFeatureProvider() {
-        // No zone-specific features implemented yet (water in LZ, etc.)
-        return null;
+        return new Sonic1ZoneFeatureProvider();
     }
 
     @Override
