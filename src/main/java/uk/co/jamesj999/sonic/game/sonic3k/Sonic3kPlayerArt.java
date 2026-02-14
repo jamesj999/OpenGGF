@@ -71,10 +71,14 @@ public class Sonic3kPlayerArt {
         List<SpriteMappingFrame> mappingFrames = loadMappingFrames(Sonic3kConstants.MAP_SONIC_ADDR);
         List<SpriteDplcFrame> dplcFrames = loadDplcFrames(Sonic3kConstants.DPLC_SONIC_ADDR);
 
-        // S3K DPLC tables contain both 1P and 2P offset tables concatenated.
-        // The first offset value (offsetTableSize) covers BOTH tables, so
-        // loadDplcFrames() returns more frames than needed. Trim to match
-        // the mapping frame count (only 1P frames are valid).
+        // S3K mapping/DPLC tables are combined 1P+2P: the offset table contains
+        // N entries for 1P followed by N entries for 2P (total 2N). The first word
+        // covers both halves, so the parser returns 2N frames. Only the first half
+        // (1P frames) is valid for single-player mode.
+        int onePlayerCount = mappingFrames.size() / 2;
+        if (onePlayerCount > 0 && mappingFrames.size() > onePlayerCount) {
+            mappingFrames = new ArrayList<>(mappingFrames.subList(0, onePlayerCount));
+        }
         if (dplcFrames.size() > mappingFrames.size()) {
             dplcFrames = new ArrayList<>(dplcFrames.subList(0, mappingFrames.size()));
         }
@@ -299,26 +303,29 @@ public class Sonic3kPlayerArt {
     }
 
     private int resolveBankSize(List<SpriteDplcFrame> dplcFrames, List<SpriteMappingFrame> mappingFrames) {
-        int maxTiles = 0;
+        // Max tiles loaded by any single DPLC frame
+        int maxDplcTotal = 0;
         for (SpriteDplcFrame frame : dplcFrames) {
             int total = 0;
             for (TileLoadRequest request : frame.requests()) {
                 total += Math.max(0, request.count());
             }
-            maxTiles = Math.max(maxTiles, total);
+            maxDplcTotal = Math.max(maxDplcTotal, total);
         }
 
-        if (maxTiles > 0) {
-            return maxTiles;
-        }
-
-        int maxIndex = 0;
+        // Max tile index referenced by any mapping piece.
+        // The ROM uses incremental DPLCs: each frame's DPLC only loads CHANGED
+        // tiles, leaving previously-loaded tiles in VRAM. The bank must be large
+        // enough to hold ALL positions any mapping frame might reference, not just
+        // the most tiles any single DPLC loads.
+        int maxMappingIndex = 0;
         for (SpriteMappingFrame frame : mappingFrames) {
             for (SpriteMappingPiece piece : frame.pieces()) {
                 int tileCount = piece.widthTiles() * piece.heightTiles();
-                maxIndex = Math.max(maxIndex, piece.tileIndex() + tileCount);
+                maxMappingIndex = Math.max(maxMappingIndex, piece.tileIndex() + tileCount);
             }
         }
-        return Math.max(0, maxIndex);
+
+        return Math.max(maxDplcTotal, maxMappingIndex);
     }
 }

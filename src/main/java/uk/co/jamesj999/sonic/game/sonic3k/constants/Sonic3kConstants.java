@@ -233,11 +233,13 @@ public class Sonic3kConstants {
     public static final int ART_UNC_SONIC_EXTRA_SIZE = 15520;
     public static final int ART_UNC_SONIC_EXTRA_TILE_COUNT = 485;
 
-    // Map_Sonic_ - Sonic sprite mappings (6-byte pieces, no 2P tile word)
-    // 251 frames, offset table at start
-    public static final int MAP_SONIC_ADDR = 0x146816;
+    // Map_Sonic - Sonic sprite mappings (6-byte pieces, no 2P tile word)
+    // Combined 1P+2P offset table: 502 entries (first 251 = 1P, second 251 = 2P).
+    // Machine code at ROM 0x010B16: move.l #$146620, mappings(a0)
+    public static final int MAP_SONIC_ADDR = 0x146620;
 
-    // PLC_Sonic_ - Sonic dynamic pattern load cues
+    // PLC_Sonic - Sonic dynamic pattern load cues
+    // Combined 1P+2P offset table: 502 entries (first 251 = 1P, second 251 = 2P).
     // Same DPLC format as S2 (offset table + per-frame tile load request lists)
     public static final int DPLC_SONIC_ADDR = 0x148182;
 
