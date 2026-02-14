@@ -259,9 +259,57 @@ public class Sonic3kConstants {
     // ROM: LoadSonicDynPLC checks frame >= $DA for Extra art
     public static final int SONIC_EXTRA_ART_FRAME_THRESHOLD = 0xDA;
 
+    // Map_SuperSonic - Super Sonic sprite mappings (standalone 251-entry table)
+    // Immediately follows Map_Sonic_'s 251 1P offset entries in ROM.
+    // First word = 0x01F6 (251 entries), standard parser works without trimming.
+    public static final int MAP_SUPER_SONIC_ADDR = 0x146816; // MAP_SONIC_ADDR + 251*2
+
+    // PLC_SuperSonic - Super Sonic dynamic pattern load cues (standalone 251-entry table)
+    // Immediately follows PLC_Sonic_'s 251 1P offset entries in ROM.
+    // First word is a frame data offset (NOT entry count), so explicit count is required.
+    public static final int DPLC_SUPER_SONIC_ADDR = 0x148378; // DPLC_SONIC_ADDR + 251*2
+
+    // Super Sonic table entry count (same frame indexing as normal Sonic)
+    public static final int SUPER_SONIC_FRAME_COUNT = 251;
+
     // Super Sonic constants
     public static final int SUPER_SONIC_RING_DRAIN_INTERVAL = 60;
     public static final int SUPER_SONIC_MIN_RINGS = 50;
+
+    // ===== Tails Player Sprite Art =====
+    // ArtUnc_Tails - Main Tails body art (uncompressed, S3 ROM portion)
+    public static final int ART_UNC_TAILS_ADDR = 0x3200E0;
+    public static final int ART_UNC_TAILS_SIZE = 0x16540;    // 91,456 bytes = 2858 tiles
+
+    // ArtUnc_Tails_Extra - Super Tails / extra art frames (uncompressed, S&K portion)
+    public static final int ART_UNC_TAILS_EXTRA_ADDR = 0x143D00;
+    public static final int ART_UNC_TAILS_EXTRA_SIZE = 0x2920;  // 10,528 bytes = 329 tiles
+
+    // Map_Tails - Tails body mappings (6-byte pieces)
+    // Combined 1P+2P offset table: 502 entries (first 251 = 1P, second 251 = 2P).
+    public static final int MAP_TAILS_ADDR = 0x148EB8;
+
+    // PLC_Tails - Tails body dynamic pattern load cues
+    // Combined 1P+2P offset table: 502 entries (first 251 = 1P, second 251 = 2P).
+    public static final int DPLC_TAILS_ADDR = 0x14A08A;
+
+    // ArtTile_Player_2 - VRAM base tile for Tails (from sonic3k.constants.asm)
+    public static final int ART_TILE_TAILS = 0x06A0;
+
+    // AniTails - Animation script table (42 entries: 0x00-0x29)
+    // Verified by ROM pattern search + lea ($15AB0).l,a1 instruction at 0x015864
+    public static final int TAILS_ANIM_DATA_ADDR = 0x015AB0;
+    public static final int TAILS_ANIM_SCRIPT_COUNT = 42;
+
+    // Extra art frame threshold - frames >= this use Extra art tiles
+    // ROM: Tails_Load_PLC checks frame index >= $D1
+    public static final int TAILS_EXTRA_ART_FRAME_THRESHOLD = 0xD1;
+
+    // ===== Tails Tail Appendage (separate sprite object, future use) =====
+    public static final int ART_UNC_TAILS_TAIL_ADDR = 0x336620;
+    public static final int ART_UNC_TAILS_TAIL_SIZE = 0x1160;   // 4,448 bytes = 139 tiles
+    public static final int MAP_TAILS_TAIL_ADDR = 0x344BB8;
+    public static final int DPLC_TAILS_TAIL_ADDR = 0x344D74;
 
     // ===== Known pattern data for ROM scanning =====
     // AIZ1 LevelSizes first entry: $1308, $6000, $0000, $0390

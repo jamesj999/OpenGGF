@@ -1,15 +1,19 @@
 package uk.co.jamesj999.sonic.game.sonic3k;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.PhysicsProfile;
+import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kMusic;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
+import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.SuperStateController;
+import uk.co.jamesj999.sonic.sprites.render.PlayerSpriteRenderer;
 
 import java.util.logging.Logger;
 
@@ -47,6 +51,11 @@ public class Sonic3kSuperStateController extends SuperStateController {
     private SpriteAnimationSet superAnimSet;
     /** Normal animation set (saved on activation, restored on revert). */
     private SpriteAnimationSet normalAnimSet;
+
+    /** Super Sonic sprite renderer (loaded from ROM, uses Map_SuperSonic / PLC_SuperSonic). */
+    private PlayerSpriteRenderer superRenderer;
+    /** Normal sprite renderer (saved on activation, restored on revert). */
+    private PlayerSpriteRenderer normalRenderer;
 
     /** Palette line index where Sonic's colors reside. */
     private static final int SONIC_PALETTE_INDEX = 0;
@@ -93,6 +102,16 @@ public class Sonic3kSuperStateController extends SuperStateController {
         if (superAnimSet != null) {
             LOGGER.fine("Loaded S3K Super Sonic animation set");
         }
+
+        try {
+            SpriteArtSet superArtSet = playerArt.loadSuperSonicArtSet();
+            if (superArtSet != null) {
+                superRenderer = new PlayerSpriteRenderer(superArtSet);
+                LOGGER.fine("Loaded S3K Super Sonic sprite renderer");
+            }
+        } catch (Exception e) {
+            LOGGER.warning("Could not load Super Sonic art set: " + e.getMessage());
+        }
     }
 
     @Override
@@ -134,10 +153,21 @@ public class Sonic3kSuperStateController extends SuperStateController {
     protected void onSuperActivated() {
         paletteState = -1;
         paletteTimer = 6;
+        // Play invincibility music (S3K Super Sonic uses mus_Invincibility)
+        try {
+            AudioManager.getInstance().playMusic(Sonic3kMusic.INVINCIBILITY.id);
+        } catch (Exception e) {
+            LOGGER.fine("Could not play Super Sonic music: " + e.getMessage());
+        }
         player.setInvincibleFrames(0);
         if (superAnimSet != null) {
             normalAnimSet = player.getAnimationSet();
             player.setAnimationSet(superAnimSet);
+        }
+        // Swap to Super Sonic sprite renderer (different mappings/DPLCs)
+        if (superRenderer != null) {
+            normalRenderer = player.getSpriteRenderer();
+            player.setSpriteRenderer(superRenderer);
         }
         player.setShieldVisible(false);
         LOGGER.info("Super Sonic activated (S3K)");
@@ -172,7 +202,18 @@ public class Sonic3kSuperStateController extends SuperStateController {
             player.setAnimationSet(normalAnimSet);
             normalAnimSet = null;
         }
+        // Restore normal sprite renderer
+        if (normalRenderer != null) {
+            player.setSpriteRenderer(normalRenderer);
+            normalRenderer = null;
+        }
         player.setShieldVisible(true);
+        // Revert to zone music
+        try {
+            AudioManager.getInstance().endMusicOverride(Sonic3kMusic.INVINCIBILITY.id);
+        } catch (Exception e) {
+            LOGGER.fine("Could not revert Super Sonic music: " + e.getMessage());
+        }
         LOGGER.info("Super Sonic deactivated (S3K)");
     }
 
