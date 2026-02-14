@@ -36,6 +36,8 @@ import java.util.Locale;
 public class Sonic3kPlayerArt {
     private final RomByteReader reader;
     private SpriteArtSet cachedSonic;
+    private SpriteArtSet cachedSuperSonic;
+    private SpriteArtSet cachedTails;
 
     public Sonic3kPlayerArt(RomByteReader reader) {
         this.reader = reader;
@@ -48,6 +50,7 @@ public class Sonic3kPlayerArt {
         String normalized = characterCode.trim().toLowerCase(Locale.ROOT);
         return switch (normalized) {
             case "sonic" -> loadSonic();
+            case "tails" -> loadTails();
             default -> null;
         };
     }
@@ -135,6 +138,160 @@ public class Sonic3kPlayerArt {
                 animationProfile,
                 animationSet);
         return cachedSonic;
+    }
+
+    public SpriteArtSet loadTails() throws IOException {
+        if (cachedTails != null) {
+            return cachedTails;
+        }
+
+        // Load main + extra art tiles and concatenate
+        Pattern[] mainTiles = loadArtTiles(
+                Sonic3kConstants.ART_UNC_TAILS_ADDR,
+                Sonic3kConstants.ART_UNC_TAILS_SIZE);
+        Pattern[] extraTiles = loadArtTiles(
+                Sonic3kConstants.ART_UNC_TAILS_EXTRA_ADDR,
+                Sonic3kConstants.ART_UNC_TAILS_EXTRA_SIZE);
+        Pattern[] allTiles = new Pattern[mainTiles.length + extraTiles.length];
+        System.arraycopy(mainTiles, 0, allTiles, 0, mainTiles.length);
+        System.arraycopy(extraTiles, 0, allTiles, mainTiles.length, extraTiles.length);
+
+        List<SpriteMappingFrame> mappingFrames = loadMappingFrames(Sonic3kConstants.MAP_TAILS_ADDR);
+        List<SpriteDplcFrame> dplcFrames = loadDplcFrames(Sonic3kConstants.DPLC_TAILS_ADDR);
+
+        // Post-process DPLCs: frames >= threshold use Extra art tiles
+        int mainTileCount = mainTiles.length;
+        int threshold = Sonic3kConstants.TAILS_EXTRA_ART_FRAME_THRESHOLD;
+        for (int i = threshold; i < dplcFrames.size(); i++) {
+            SpriteDplcFrame original = dplcFrames.get(i);
+            List<TileLoadRequest> adjusted = new ArrayList<>(original.requests().size());
+            for (TileLoadRequest req : original.requests()) {
+                adjusted.add(new TileLoadRequest(req.startTile() + mainTileCount, req.count()));
+            }
+            dplcFrames.set(i, new SpriteDplcFrame(adjusted));
+        }
+
+        int bankSize = resolveBankSize(dplcFrames, mappingFrames);
+        SpriteAnimationSet animationSet = loadTailsAnimations();
+
+        SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile(
+                Sonic3kAnimationIds.WAIT,      // idleAnimId
+                Sonic3kAnimationIds.WALK,      // walkAnimId
+                Sonic3kAnimationIds.RUN,       // runAnimId
+                Sonic3kAnimationIds.ROLL,      // rollAnimId
+                Sonic3kAnimationIds.ROLL2,     // roll2AnimId
+                Sonic3kAnimationIds.PUSH,      // pushAnimId
+                Sonic3kAnimationIds.DUCK,      // duckAnimId
+                Sonic3kAnimationIds.LOOK_UP,   // lookUpAnimId
+                Sonic3kAnimationIds.SPINDASH,  // spindashAnimId
+                Sonic3kAnimationIds.SPRING,    // springAnimId
+                Sonic3kAnimationIds.DEATH,     // deathAnimId
+                Sonic3kAnimationIds.HURT,      // hurtAnimId
+                Sonic3kAnimationIds.SKID,      // skidAnimId
+                Sonic3kAnimationIds.WALK,      // airAnimId
+                Sonic3kAnimationIds.BALANCE,   // balanceAnimId
+                Sonic3kAnimationIds.BALANCE2,  // balance2AnimId
+                Sonic3kAnimationIds.BALANCE3,  // balance3AnimId
+                Sonic3kAnimationIds.BALANCE4,  // balance4AnimId
+                0x40,                          // walkSpeedThreshold
+                0x600,                         // runSpeedThreshold
+                0,                             // fallbackFrame
+                false);                        // anglePreAdjust (S3K: no subq.b #1,d0)
+
+        cachedTails = new SpriteArtSet(
+                allTiles,
+                mappingFrames,
+                dplcFrames,
+                0,                             // paletteIndex
+                Sonic3kConstants.ART_TILE_TAILS,
+                1,                             // frameDelay
+                bankSize,
+                animationProfile,
+                animationSet);
+        return cachedTails;
+    }
+
+    /**
+     * Loads the complete Super Sonic art set (mappings, DPLCs, animations).
+     *
+     * <p>Super Sonic uses the same concatenated main+extra art tiles as normal Sonic,
+     * but has its own mapping and DPLC tables ({@code Map_SuperSonic} / {@code PLC_SuperSonic}).
+     * These are standalone 251-entry tables (not combined 1P+2P), so no trimming is needed.
+     */
+    public SpriteArtSet loadSuperSonicArtSet() throws IOException {
+        if (cachedSuperSonic != null) {
+            return cachedSuperSonic;
+        }
+
+        // Reuse the same concatenated art tiles as normal Sonic
+        Pattern[] mainTiles = loadArtTiles(
+                Sonic3kConstants.ART_UNC_SONIC_ADDR,
+                Sonic3kConstants.ART_UNC_SONIC_SIZE);
+        Pattern[] extraTiles = loadArtTiles(
+                Sonic3kConstants.ART_UNC_SONIC_EXTRA_ADDR,
+                Sonic3kConstants.ART_UNC_SONIC_EXTRA_SIZE);
+        Pattern[] allTiles = new Pattern[mainTiles.length + extraTiles.length];
+        System.arraycopy(mainTiles, 0, allTiles, 0, mainTiles.length);
+        System.arraycopy(extraTiles, 0, allTiles, mainTiles.length, extraTiles.length);
+
+        // Load Super Sonic mappings - standalone 251-entry table, standard parser works
+        List<SpriteMappingFrame> mappingFrames = loadMappingFrames(Sonic3kConstants.MAP_SUPER_SONIC_ADDR);
+
+        // Load Super Sonic DPLCs with explicit count (first word is NOT entry count)
+        List<SpriteDplcFrame> dplcFrames = loadDplcFrames(
+                Sonic3kConstants.DPLC_SUPER_SONIC_ADDR,
+                Sonic3kConstants.SUPER_SONIC_FRAME_COUNT);
+
+        // Post-process DPLCs: frames >= threshold use Extra art tiles
+        int mainTileCount = mainTiles.length;
+        int threshold = Sonic3kConstants.SONIC_EXTRA_ART_FRAME_THRESHOLD;
+        for (int i = threshold; i < dplcFrames.size(); i++) {
+            SpriteDplcFrame original = dplcFrames.get(i);
+            List<TileLoadRequest> adjusted = new ArrayList<>(original.requests().size());
+            for (TileLoadRequest req : original.requests()) {
+                adjusted.add(new TileLoadRequest(req.startTile() + mainTileCount, req.count()));
+            }
+            dplcFrames.set(i, new SpriteDplcFrame(adjusted));
+        }
+
+        int bankSize = resolveBankSize(dplcFrames, mappingFrames);
+        SpriteAnimationSet animationSet = loadSuperSonicAnimationSet();
+
+        SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile(
+                Sonic3kAnimationIds.WAIT,      // idleAnimId
+                Sonic3kAnimationIds.WALK,      // walkAnimId
+                Sonic3kAnimationIds.RUN,       // runAnimId
+                Sonic3kAnimationIds.ROLL,      // rollAnimId
+                Sonic3kAnimationIds.ROLL2,     // roll2AnimId
+                Sonic3kAnimationIds.PUSH,      // pushAnimId
+                Sonic3kAnimationIds.DUCK,      // duckAnimId
+                Sonic3kAnimationIds.LOOK_UP,   // lookUpAnimId
+                Sonic3kAnimationIds.SPINDASH,  // spindashAnimId
+                Sonic3kAnimationIds.SPRING,    // springAnimId
+                Sonic3kAnimationIds.DEATH,     // deathAnimId
+                Sonic3kAnimationIds.HURT,      // hurtAnimId
+                Sonic3kAnimationIds.SKID,      // skidAnimId
+                Sonic3kAnimationIds.WALK,      // airAnimId
+                Sonic3kAnimationIds.BALANCE,   // balanceAnimId
+                Sonic3kAnimationIds.BALANCE2,  // balance2AnimId
+                Sonic3kAnimationIds.BALANCE3,  // balance3AnimId
+                Sonic3kAnimationIds.BALANCE4,  // balance4AnimId
+                0x40,                          // walkSpeedThreshold
+                0x600,                         // runSpeedThreshold
+                0,                             // fallbackFrame
+                false);                        // anglePreAdjust
+
+        cachedSuperSonic = new SpriteArtSet(
+                allTiles,
+                mappingFrames,
+                dplcFrames,
+                0,                             // paletteIndex
+                Sonic3kConstants.ART_TILE_SONIC,
+                1,                             // frameDelay
+                bankSize,
+                animationProfile,
+                animationSet);
+        return cachedSuperSonic;
     }
 
     /**
@@ -252,12 +409,51 @@ public class Sonic3kPlayerArt {
         return frames;
     }
 
+    /**
+     * Loads DPLC frames with an explicit frame count instead of reading it from the first word.
+     *
+     * <p>Used for tables like PLC_SuperSonic where the first word is a frame data offset
+     * rather than an entry count (because the frame data region is non-contiguous with the
+     * normal Sonic DPLC data sitting in between).
+     */
+    private List<SpriteDplcFrame> loadDplcFrames(int dplcAddr, int frameCount) {
+        List<SpriteDplcFrame> frames = new ArrayList<>(frameCount);
+        for (int i = 0; i < frameCount; i++) {
+            int frameAddr = dplcAddr + reader.readU16BE(dplcAddr + i * 2);
+            int requestCount = reader.readU16BE(frameAddr);
+            frameAddr += 2;
+            List<TileLoadRequest> requests = new ArrayList<>(requestCount);
+            for (int r = 0; r < requestCount; r++) {
+                int entry = reader.readU16BE(frameAddr);
+                frameAddr += 2;
+                int count = ((entry >> 12) & 0xF) + 1;
+                int startTile = entry & 0x0FFF;
+                requests.add(new TileLoadRequest(startTile, count));
+            }
+            frames.add(new SpriteDplcFrame(requests));
+        }
+        return frames;
+    }
+
     // ===== Animation loading (identical format to S2) =====
 
     private SpriteAnimationSet loadSonicAnimations() {
         SpriteAnimationSet set = new SpriteAnimationSet();
         int base = Sonic3kConstants.SONIC_ANIM_DATA_ADDR;
         int count = Sonic3kConstants.SONIC_ANIM_SCRIPT_COUNT;
+
+        for (int i = 0; i < count; i++) {
+            int scriptAddr = base + reader.readU16BE(base + i * 2);
+            SpriteAnimationScript script = parseAnimationScript(scriptAddr);
+            set.addScript(i, script);
+        }
+        return set;
+    }
+
+    private SpriteAnimationSet loadTailsAnimations() {
+        SpriteAnimationSet set = new SpriteAnimationSet();
+        int base = Sonic3kConstants.TAILS_ANIM_DATA_ADDR;
+        int count = Sonic3kConstants.TAILS_ANIM_SCRIPT_COUNT;
 
         for (int i = 0; i < count; i++) {
             int scriptAddr = base + reader.readU16BE(base + i * 2);
