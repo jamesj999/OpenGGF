@@ -19,6 +19,8 @@ import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
 import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
 import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
+import org.junit.After;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -32,11 +34,13 @@ public class TestS3kAiz1SpawnStability {
     private AbstractPlayableSprite sprite;
     private HeadlessTestRunner runner;
     private LevelManager levelManager;
+    private Object oldSkipIntros;
 
     @Before
     public void setUp() throws Exception {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
-        config.setConfigValue(SonicConfiguration.S3K_SKIP_AIZ1_INTRO, true);
+        oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
+        config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
         String mainCharacter = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
 
         GraphicsManager.getInstance().initHeadless();
@@ -56,6 +60,11 @@ public class TestS3kAiz1SpawnStability {
                 SpriteManager.getInstance().getSprite(mainCharacter));
 
         runner = new HeadlessTestRunner(sprite);
+    }
+
+    @After
+    public void tearDown() {
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, oldSkipIntros != null ? oldSkipIntros : false);
     }
 
     @Test

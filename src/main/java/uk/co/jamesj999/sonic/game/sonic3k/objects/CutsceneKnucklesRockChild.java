@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
 import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
@@ -18,10 +19,6 @@ import java.util.logging.Logger;
  *
  * Phase 2 (Break): When the parent is triggered, increments mapping_frame,
  * calls BreakObjectToPieces to scatter fragment sprites, and deletes self.
- *
- * The actual BreakObjectToPieces creates fragment sprites with scattered
- * velocities. For now we mark the rock as destroyed when triggered; the
- * fragment visual effect is cosmetic and can be refined later.
  */
 public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
     private static final Logger LOG = Logger.getLogger(CutsceneKnucklesRockChild.class.getName());
@@ -69,8 +66,31 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
             mappingFrame++;
             broken = true;
             LOG.fine("Rock child: breaking apart (mapping_frame=" + mappingFrame + ")");
-            // TODO: Spawn fragment sprites with scattered velocities (BreakObjectToPieces)
+
+            // BreakObjectToPieces: spawn 4 fragments with scattered velocities
+            spawnFragments();
             setDestroyed(true);
+        }
+    }
+
+    /**
+     * Spawns rock fragment children with scattered velocities from
+     * ROM word_2A8B0 (12 entries), implementing BreakObjectToPieces.
+     */
+    private void spawnFragments() {
+        try {
+            LevelManager lm = LevelManager.getInstance();
+            if (lm == null || lm.getObjectManager() == null) return;
+
+            for (int[] vel : AizRockFragmentChild.FRAGMENT_VELOCITIES) {
+                ObjectSpawn fragSpawn = new ObjectSpawn(
+                        getX(), getY(), 0, 0, 0, false, 0);
+                AizRockFragmentChild frag = new AizRockFragmentChild(
+                        fragSpawn, vel[0], vel[1], mappingFrame);
+                lm.getObjectManager().addDynamicObject(frag);
+            }
+        } catch (Exception e) {
+            LOG.fine("Could not spawn rock fragments (test env?): " + e.getMessage());
         }
     }
 

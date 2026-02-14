@@ -219,6 +219,48 @@ public class Sonic3kConstants {
     public static final int OBJ_VELOCITY_INDEX_ADDR = 0x0852F4;
     public static final int EMERALD_SCATTER_VELOCITY_OFFSET = 0x40;
 
+    // ===== Player Sprite Art =====
+    // ArtUnc_Sonic - Main Sonic sprite art (uncompressed)
+    // 131,296 bytes = 4103 tiles x 32 bytes per tile
+    public static final int ART_UNC_SONIC_ADDR = 0x100000;
+    public static final int ART_UNC_SONIC_SIZE = 131296;
+    public static final int ART_UNC_SONIC_TILE_COUNT = 4103;
+
+    // ArtUnc_Sonic_Extra - Super Sonic / extra art frames (uncompressed)
+    // 15,520 bytes = 485 tiles x 32 bytes per tile
+    // Used for mapping frames >= SONIC_EXTRA_ART_FRAME_THRESHOLD
+    public static final int ART_UNC_SONIC_EXTRA_ADDR = 0x140060;
+    public static final int ART_UNC_SONIC_EXTRA_SIZE = 15520;
+    public static final int ART_UNC_SONIC_EXTRA_TILE_COUNT = 485;
+
+    // Map_Sonic_ - Sonic sprite mappings (6-byte pieces, no 2P tile word)
+    // 251 frames, offset table at start
+    public static final int MAP_SONIC_ADDR = 0x146816;
+
+    // PLC_Sonic_ - Sonic dynamic pattern load cues
+    // Same DPLC format as S2 (offset table + per-frame tile load request lists)
+    public static final int DPLC_SONIC_ADDR = 0x148182;
+
+    // ArtTile_Player_1 - VRAM base tile index for Sonic
+    public static final int ART_TILE_SONIC = 0x0680;
+
+    // AniSonic_ - Animation script table (36 entries: 0x00-0x23)
+    public static final int SONIC_ANIM_DATA_ADDR = 0x012AA6;
+    public static final int SONIC_ANIM_SCRIPT_COUNT = 36;
+
+    // AniSuperSonic - Super Sonic animation table (32 entries: 0x00-0x1F)
+    // Entries with offsets >= 0x8000 are back-references to regular AniSonic scripts
+    public static final int SUPER_SONIC_ANIM_DATA_ADDR = 0x012C3A;
+    public static final int SUPER_SONIC_ANIM_SCRIPT_COUNT = 32;
+
+    // Extra art frame threshold - mapping frames >= this use Extra art tiles
+    // ROM: LoadSonicDynPLC checks frame >= $DA for Extra art
+    public static final int SONIC_EXTRA_ART_FRAME_THRESHOLD = 0xDA;
+
+    // Super Sonic constants
+    public static final int SUPER_SONIC_RING_DRAIN_INTERVAL = 60;
+    public static final int SUPER_SONIC_MIN_RINGS = 50;
+
     // ===== Known pattern data for ROM scanning =====
     // AIZ1 LevelSizes first entry: $1308, $6000, $0000, $0390
     public static final byte[] LEVEL_SIZES_AIZ1_PATTERN = {

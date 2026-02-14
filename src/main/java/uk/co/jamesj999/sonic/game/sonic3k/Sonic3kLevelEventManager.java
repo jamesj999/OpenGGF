@@ -30,7 +30,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     private static final Logger LOG = Logger.getLogger(Sonic3kLevelEventManager.class.getName());
     private static Sonic3kLevelEventManager instance;
 
-    private Sonic3kLoadBootstrap bootstrap = Sonic3kLoadBootstrap.NONE;
+    private Sonic3kLoadBootstrap bootstrap = Sonic3kLoadBootstrap.NORMAL;
     private Sonic3kAIZEvents aizEvents;
 
     private Sonic3kLevelEventManager() {
@@ -66,8 +66,8 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     @Override
     protected void onInitLevel(int zone, int act) {
         bootstrap = Sonic3kBootstrapResolver.resolve(zone, act);
-        if (bootstrap.isAiz1GameplayAfterIntro()) {
-            LOG.info("S3K bootstrap: using AIZ1 gameplay-after-intro profile (intro stub skipped).");
+        if (bootstrap.isSkipIntro()) {
+            LOG.info("S3K bootstrap: skipping intro for zone " + zone + " act " + act);
         }
 
         // Create zone-specific event handlers after bootstrap resolution

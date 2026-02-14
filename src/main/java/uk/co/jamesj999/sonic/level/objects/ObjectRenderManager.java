@@ -146,6 +146,10 @@ public class ObjectRenderManager {
         return provider.getRenderer(ObjectArtKeys.INVINCIBILITY_STARS);
     }
 
+    public PatternSpriteRenderer getSuperSonicStarsRenderer() {
+        return provider.getRenderer(uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys.SUPER_SONIC_STARS);
+    }
+
     public PatternSpriteRenderer getBridgeRenderer() {
         return provider.getRenderer(ObjectArtKeys.BRIDGE);
     }

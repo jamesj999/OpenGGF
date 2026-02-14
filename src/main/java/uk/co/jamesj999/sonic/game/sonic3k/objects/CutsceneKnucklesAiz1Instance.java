@@ -1,6 +1,11 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
@@ -120,6 +125,22 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     private boolean visible;
 
     // -----------------------------------------------------------------------
+    // Animation state (Animate_RawNoSST equivalent)
+    // -----------------------------------------------------------------------
+
+    /** Frame countdown before advancing to next animation frame. */
+    private int animTimer;
+
+    /** Current index into the active animation frame array. */
+    private int animIndex;
+
+    /** Active animation frame sequence (mapping frame indices). */
+    private int[] currentAnimFrames;
+
+    /** Duration (in game frames) per animation frame, from ROM script byte 0. */
+    private int animDuration;
+
+    // -----------------------------------------------------------------------
     // Constructor
     // -----------------------------------------------------------------------
 
@@ -232,6 +253,78 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     }
 
     // -----------------------------------------------------------------------
+    // Animation helpers (Animate_RawNoSST equivalent)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Loads a ROM animation script and starts playing it.
+     *
+     * ROM script format: first byte = duration, subsequent bytes = frame indices
+     * until terminator $FC (loop) or $F4 (end/hold last frame).
+     *
+     * @param romAddr ROM address of the animation script
+     */
+    private void loadAnimScript(int romAddr) {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            animDuration = rom.readByte(romAddr) & 0xFF;
+            animTimer = animDuration;
+            animIndex = 0;
+
+            // Read frame indices until terminator
+            int addr = romAddr + 1;
+            int count = 0;
+            int[] temp = new int[32];
+            while (count < temp.length) {
+                int b = rom.readByte(addr + count) & 0xFF;
+                if (b == 0xFC || b == 0xF4) break;
+                temp[count++] = b;
+            }
+
+            currentAnimFrames = new int[count];
+            System.arraycopy(temp, 0, currentAnimFrames, 0, count);
+            if (count > 0) {
+                mappingFrame = currentAnimFrames[0];
+            }
+        } catch (Exception e) {
+            LOG.fine("Could not load anim script at 0x" + Integer.toHexString(romAddr) + ": " + e.getMessage());
+            currentAnimFrames = null;
+        }
+    }
+
+    /**
+     * Advances the animation by one game frame (Animate_RawNoSST).
+     * Decrements timer; on expiry, advances to next frame index and loops.
+     */
+    private void tickAnimation() {
+        if (currentAnimFrames == null || currentAnimFrames.length == 0) return;
+        animTimer--;
+        if (animTimer < 0) {
+            animTimer = animDuration;
+            animIndex++;
+            if (animIndex >= currentAnimFrames.length) {
+                animIndex = 0;
+            }
+            mappingFrame = currentAnimFrames[animIndex];
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Dynamic object spawning helper
+    // -----------------------------------------------------------------------
+
+    private void spawnDynamicObject(AbstractObjectInstance object) {
+        try {
+            LevelManager lm = LevelManager.getInstance();
+            if (lm != null && lm.getObjectManager() != null) {
+                lm.getObjectManager().addDynamicObject(object);
+            }
+        } catch (Exception e) {
+            LOG.fine("Could not spawn dynamic object (test env?): " + e.getMessage());
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Routine 0 (loc_61DBE): Init
     // -----------------------------------------------------------------------
 
@@ -246,10 +339,14 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         currentY = INIT_Y;
         mappingFrame = INIT_MAPPING_FRAME;
 
-        // TODO: Spawn rock child object (ChildObjDat_6659A via CreateChild1_Normal) - Task 12
+        // Spawn rock child object (ChildObjDat_6659A via CreateChild1_Normal)
+        ObjectSpawn rockSpawn = new ObjectSpawn(
+                INIT_X, INIT_Y + 0x20, 0, 0, 0, false, 0);
+        CutsceneKnucklesRockChild rock = new CutsceneKnucklesRockChild(rockSpawn, this);
+        spawnDynamicObject(rock);
 
-        // Load Knuckles palette to palette line 1.
-        AizIntroArtLoader.applyKnucklesPalette();
+        // Palettes are NOT overwritten here — the intro level's LevelLoadBlock
+        // already loads the correct palette lines during level init.
 
         routine = 2;
     }
@@ -276,8 +373,8 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         yVel = FALL_INIT_Y_VEL;
         xVel = FALL_INIT_X_VEL;
 
-        // Refresh Knuckles palette to palette line 1 (in case it was overwritten).
-        AizIntroArtLoader.applyKnucklesPalette();
+        // Load react/fall animation (byte_666AF)
+        loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_REACT_ADDR);
 
         routine = 4;
     }
@@ -291,7 +388,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      * On floor collision: snap Y, mapping_frame = 0x16, timer = 0x7F.
      */
     private void routine4Fall() {
-        // TODO: Animate fall frames (byte_666AF)
+        tickAnimation();
 
         // MoveSprite: apply velocity to position with subpixel accumulation.
         // X movement
@@ -348,7 +445,8 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             xVel = -PACE_VELOCITY;
             paceReturnPhase = false;
 
-            // TODO: Set walk animation (byte_666A9)
+            // Load walk animation (byte_666A9)
+            loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_WALK_ADDR);
 
             routine = 8;
             LOG.fine("Routine 6: stand complete, starting pace left");
@@ -366,7 +464,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      * Return pass (right): walk right for 0x29 frames, then transition to laugh.
      */
     private void routine8Pace() {
-        // TODO: Animate walk frames
+        tickAnimation();
 
         // MoveSprite2: apply velocity to position (no gravity).
         int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
@@ -385,12 +483,12 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             } else {
                 // Return pass complete: transition to laugh
                 xVel = 0;
-                mappingFrame = LANDED_MAPPING_FRAME;
                 waitTimer = LAUGH_TIMER;
                 routine = 10;
                 LOG.fine("Routine 8: pace right complete, transitioning to laugh");
 
-                // TODO: Load laugh animation (loc_62056)
+                // Load look/laugh animation (byte_666B9)
+                loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_LOOK_ADDR);
             }
         }
     }
@@ -405,14 +503,16 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      * Spawn Obj_Song_Fade_ToLevelMusic (fade to AIZ music).
      */
     private void routine10Laugh() {
-        // TODO: Animate laugh frames
+        tickAnimation();
 
         waitTimer--;
         if (waitTimer <= 0) {
             xVel = PACE_VELOCITY;
             facingLeft = false;
 
-            // TODO: Set walk animation (byte_666A9)
+            // Load walk animation for exit (byte_666A9)
+            loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_WALK_ADDR);
+
             // TODO: Spawn Obj_Song_Fade_ToLevelMusic (fade to AIZ music)
 
             routine = 12;
@@ -434,7 +534,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      * - Delete self
      */
     private void routine12Exit() {
-        // TODO: Animate walk frames
+        tickAnimation();
 
         // MoveSprite2: apply velocity to position (no gravity).
         int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
@@ -445,12 +545,51 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         if (!isOnScreen()) {
             LOG.fine("Routine 12: offscreen, cleaning up");
 
-            // TODO: Clear Palette_cycle_counters
-            // TODO: Unlock player controls
-            // TODO: Spawn title card
-            // TODO: Set Level_started_flag = 0x91
+            // Unlock player controls (ROM: player.object_control = 0)
+            unlockPlayerControls();
+
+            // Restore full level boundaries (ROM: Level_started_flag = 0x91)
+            restoreLevelBoundaries();
+
+            // TODO: Spawn title card (S3K title card system not yet implemented)
 
             setDestroyed(true);
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Intro→gameplay transition helpers
+    // -----------------------------------------------------------------------
+
+    /**
+     * Unlocks player movement controls after the intro cutscene completes.
+     * ROM equivalent: clearing player.object_control and control_locked.
+     */
+    private void unlockPlayerControls() {
+        try {
+            var sprite = Camera.getInstance().getFocusedSprite();
+            if (sprite instanceof AbstractPlayableSprite ps) {
+                ps.setControlLocked(false);
+                ps.setObjectControlled(false);
+                ps.setHidden(false);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Restores full AIZ1 level boundaries after the intro's restricted camera area.
+     * ROM equivalent: setting Level_started_flag = 0x91 which removes intro constraints.
+     */
+    private void restoreLevelBoundaries() {
+        try {
+            Camera camera = Camera.getInstance();
+            LevelManager lm = LevelManager.getInstance();
+            if (lm != null && lm.getCurrentLevel() != null) {
+                camera.setMinX((short) 0);
+                // Set max to full level width (map width * 128px block size)
+                int levelWidth = lm.getCurrentLevel().getMap().getWidth() * 128;
+                camera.setMaxX((short) Math.min(levelWidth, Short.MAX_VALUE));
+            }
+        } catch (Exception ignored) {}
     }
 }

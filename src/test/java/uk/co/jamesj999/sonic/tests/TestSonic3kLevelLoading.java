@@ -18,6 +18,8 @@ import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
 import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
 import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
+import org.junit.After;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotEquals;
@@ -30,12 +32,20 @@ public class TestSonic3kLevelLoading {
     public RequiresRomRule romRule = new RequiresRomRule();
 
     private Game game;
+    private Object oldSkipIntros;
 
     @Before
     public void setUp() throws Exception {
-        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.S3K_SKIP_AIZ1_INTRO, true);
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
+        config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
         Rom rom = romRule.rom();
         game = new Sonic3k(rom);
+    }
+
+    @After
+    public void tearDown() {
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, oldSkipIntros != null ? oldSkipIntros : false);
     }
 
     @Test

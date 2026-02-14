@@ -5,10 +5,12 @@ import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.PhysicsProfile;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AudioConstants;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
+import uk.co.jamesj999.sonic.game.sonic2.objects.SuperSonicStarsObjectInstance;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.Palette;
+import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.SuperStateController;
 
@@ -54,6 +56,13 @@ public class Sonic2SuperStateController extends SuperStateController {
      */
     private byte[] paletteData;
 
+    /** Super Sonic animation set (loaded from ROM). */
+    private SpriteAnimationSet superAnimSet;
+    /** Normal animation set (saved on activation, restored on revert). */
+    private SpriteAnimationSet normalAnimSet;
+    /** Super Sonic stars sparkle effect object (Obj7E). */
+    private SuperSonicStarsObjectInstance starsObject;
+
     /** Palette line index where Sonic's colors reside (line 1 = index 0). */
     private static final int SONIC_PALETTE_INDEX = 0;
     /** First color index to write (Normal_palette+4 = 2 words from start). */
@@ -90,6 +99,13 @@ public class Sonic2SuperStateController extends SuperStateController {
         paletteData = reader.slice(addr, len);
         LOGGER.fine("Loaded Super Sonic palette data: " + len + " bytes from ROM 0x"
                 + Integer.toHexString(addr));
+
+        // Load Super Sonic animation set
+        Sonic2PlayerArt playerArt = new Sonic2PlayerArt(reader);
+        superAnimSet = playerArt.loadSuperSonicAnimationSet();
+        if (superAnimSet != null) {
+            LOGGER.fine("Loaded Super Sonic animation set");
+        }
     }
 
     @Override
@@ -145,6 +161,18 @@ public class Sonic2SuperStateController extends SuperStateController {
         }
         // Clear invincibility timer - Super Sonic has inherent invincibility
         player.setInvincibleFrames(0);
+        // Swap to Super Sonic animation set
+        if (superAnimSet != null) {
+            normalAnimSet = player.getAnimationSet();
+            player.setAnimationSet(superAnimSet);
+        }
+        // Hide shield - Super Sonic doesn't display shields
+        player.setShieldVisible(false);
+        // Spawn Super Sonic stars sparkle effect (Obj7E)
+        if (starsObject == null) {
+            starsObject = new SuperSonicStarsObjectInstance(player);
+            LevelManager.getInstance().getObjectManager().addDynamicObject(starsObject);
+        }
         LOGGER.info("Super Sonic activated (S2)");
     }
 
@@ -175,10 +203,29 @@ public class Sonic2SuperStateController extends SuperStateController {
     @Override
     protected void onRevertStarted() {
         paletteState = 2;
-        // ROM starts revert from current paletteFrame position
-        // The paletteFrame is already set from the cycling state
+        // ROM: move.w #$28,(Palette_frame).w on revert
+        paletteFrame = 0x28;
+        paletteTimer = 3;
         // 1-frame invincibility grace period to prevent instant damage on revert
         player.setInvincibleFrames(1);
+        // Restore normal animation set
+        if (normalAnimSet != null) {
+            player.setAnimationSet(normalAnimSet);
+            normalAnimSet = null;
+        }
+        // Re-show shield
+        player.setShieldVisible(true);
+        // Destroy Super Sonic stars
+        if (starsObject != null) {
+            starsObject.destroy();
+            starsObject = null;
+        }
+        // Revert to zone music
+        try {
+            AudioManager.getInstance().endMusicOverride(Sonic2AudioConstants.MUS_SUPER_SONIC);
+        } catch (Exception e) {
+            LOGGER.fine("Could not revert Super Sonic music: " + e.getMessage());
+        }
         LOGGER.info("Super Sonic deactivated (S2)");
     }
 
@@ -263,6 +310,16 @@ public class Sonic2SuperStateController extends SuperStateController {
         GraphicsManager gfx = GraphicsManager.getInstance();
         if (gfx.isGlInitialized()) {
             gfx.cachePaletteTexture(palette, SONIC_PALETTE_INDEX);
+        }
+    }
+
+    @Override
+    protected void updatePostRevertEffects() {
+        // Continue palette fade-out after state returns to NORMAL.
+        // Only handle state 2 (fading out) - states 1 and -1 are handled
+        // by updateTransformationAnimation() and updateSuperPalette() respectively.
+        if (paletteState == 2) {
+            updatePaletteFade();
         }
     }
 

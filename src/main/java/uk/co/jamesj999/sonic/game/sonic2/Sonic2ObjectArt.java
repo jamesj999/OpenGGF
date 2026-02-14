@@ -6621,6 +6621,21 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load Super Sonic Stars sprite sheet (Obj7E).
+     * ROM: ArtNem_SuperSonic_stars at 0x7393C, mappings at Obj7E_MapUnc_1E1BE.
+     * 6 mapping frames: 0=small(8x8), 1=medium(16x16), 2=large(24x24), 3=medium, 4=small, 5=empty.
+     */
+    public ObjectSpriteSheet loadSuperSonicStarsSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_SUPER_SONIC_STARS_ADDR, "SuperSonicStars");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> rawMappings = loadMappingFrames(Sonic2Constants.MAP_UNC_SUPER_SONIC_STARS_ADDR);
+        List<SpriteMappingFrame> mappings = normalizeMappings(rawMappings);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
      * Creates mapping frames for Egg Prison (Obj3E).
      * Based on mappings/sprite/obj3E.asm from the disassembly.
      *

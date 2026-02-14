@@ -209,10 +209,10 @@ public enum SonicConfiguration {
 	SONIC_3K_ROM,
 
 	/**
-	 * If true, AIZ1 intro setup is skipped and gameplay-ready bootstrap data is used.
-	 * This is a temporary parity bridge until full AIZ1 intro events are implemented.
+	 * If true, zone intro sequences (AIZ biplane, etc.) are skipped and
+	 * gameplay-ready bootstrap data is used instead.
 	 */
-	S3K_SKIP_AIZ1_INTRO,
+	S3K_SKIP_INTROS,
 
 	/**
 	 * Which game to load by default: "s1", "s2", or "s3k".
