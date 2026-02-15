@@ -734,6 +734,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/** Sonic_LevelBound: Check level boundaries (s2.asm:36890) */
 	private void doLevelBoundary() {
+		// ROM: When object_control is set, level boundary checks are skipped
+		// (Obj01_Control skips movement routines entirely).
+		if (sprite.isObjectControlled()) {
+			return;
+		}
 		Camera camera = Camera.getInstance();
 		if (camera == null) return;
 
@@ -765,12 +770,16 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// while camera boundary is still easing down. Without this fix, falling
 		// faster than the camera can adjust its maxY limit causes death.
 		// See s2.asm:36913-36922 (Sonic_Boundary_CheckBottom)
-		short effectiveMaxY = (short) Math.max(camera.getMaxY(), camera.getMaxYTarget());
-		if (sprite.getY() > effectiveMaxY + 224) {
-			if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
-				sprite.getCpuController().despawn();
-			} else {
-				sprite.applyPitDeath();
+		// ROM: When Level_started_flag is clear, boundary death is suppressed
+		// (camera boundaries may not reflect actual level extents during intro).
+		if (camera.isLevelStarted()) {
+			short effectiveMaxY = (short) Math.max(camera.getMaxY(), camera.getMaxYTarget());
+			if (sprite.getY() > effectiveMaxY + 224) {
+				if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
+					sprite.getCpuController().despawn();
+				} else {
+					sprite.applyPitDeath();
+				}
 			}
 		}
 	}
@@ -1411,8 +1420,16 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	private void checkPitDeath() {
+		// ROM: When object_control is set, the main Sonic update loop (Obj01_Control)
+		// skips movement routines entirely, so pit death checks never run.
+		if (sprite.isObjectControlled()) {
+			return;
+		}
 		Camera camera = Camera.getInstance();
-		if (camera != null && sprite.getY() > camera.getY() + camera.getHeight()) {
+		// ROM: When Level_started_flag is clear (intro/cutscene flow), pit death checks
+		// are suppressed for the controlled player.
+		if (camera != null && camera.isLevelStarted()
+				&& sprite.getY() > camera.getY() + camera.getHeight()) {
 			if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
 				sprite.getCpuController().despawn();
 			} else {

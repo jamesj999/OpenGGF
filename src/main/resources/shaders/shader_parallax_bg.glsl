@@ -12,6 +12,7 @@
 
 // Background rendered to FBO (RGBA, wider than screen)
 uniform sampler2D BackgroundTexture;
+uniform sampler2D Palette;
 
 // 1D texture containing per-scanline scroll values (224 entries)
 uniform sampler1D HScrollTexture;
@@ -37,6 +38,8 @@ uniform float VScroll;
 // Viewport offset (for letterboxing/pillarboxing support)
 uniform float ViewportOffsetX;
 uniform float ViewportOffsetY;
+uniform vec3 BackdropColor;
+uniform float FillTransparentWithBackdrop;
 
 out vec4 FragColor;
 
@@ -57,16 +60,19 @@ void main()
     float scanlineTexCoord = (scanline + 0.5) / 224.0;
     float hScrollThis = texture(HScrollTexture, scanlineTexCoord).r * 32767.0;
 
-    // hScroll contains negative values (e.g., -cameraX * parallaxFactor)
-    // To get world X position: worldX = screenX - hScroll
-    // Since hScroll is negative, this adds the absolute value
+    // hScroll contains signed scroll values from the zone handler.
+    // Convert back to world-space sample coordinate.
     float worldX = gameX - hScrollThis;
 
     // Apply vertical scroll offset (sub-chunk alignment)
     float fboY = gameY + VScroll;
 
-    // Wrap X within the background map period (FBO width)
-    float fboX = mod(worldX, BGTextureWidth);
+    // Background tile pass may render from a shifted world origin.
+    // ScrollMidpoint/ExtraBuffer define that origin for intro paths.
+    float fboWorldOffsetX = -ScrollMidpoint - ExtraBuffer;
+
+    // Wrap X within the background period rendered into the FBO.
+    float fboX = mod(worldX - fboWorldOffsetX, BGTextureWidth);
     if (fboX < 0.0) fboX += BGTextureWidth;
 
     // Clamp Y to valid range
@@ -81,6 +87,10 @@ void main()
 
     // Alpha test
     if (color.a < 0.1) {
+        if (FillTransparentWithBackdrop > 0.5) {
+            FragColor = vec4(BackdropColor, 1.0);
+            return;
+        }
         discard;
     }
 

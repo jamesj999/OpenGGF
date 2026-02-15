@@ -12,10 +12,12 @@ import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioProfile;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.level.Level;
+import uk.co.jamesj999.sonic.level.resources.CompressionType;
 import uk.co.jamesj999.sonic.level.resources.LevelResourcePlan;
 import uk.co.jamesj999.sonic.level.resources.LoadOp;
 import uk.co.jamesj999.sonic.level.resources.ResourceLoader;
 
+import java.util.LinkedHashSet;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -112,11 +114,16 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
 
         int zone = s3kIdx / 2;
         int act = s3kIdx % 2;
+        Sonic3kLoadBootstrap bootstrap = Sonic3kBootstrapResolver.resolve(zone, act);
 
         LOG.info(String.format("Loading S3K level: zone=%d act=%d (levelIdx=0x%X)", zone, act, levelIdx));
 
         // Read LevelLoadBlock entry for this zone/act
-        int llbIndex = zone * Sonic3kConstants.ACTS_PER_ZONE_STRIDE + act;
+        int llbIndex = resolveLevelLoadBlockIndex(zone, act, bootstrap);
+        if (llbIndex != zone * Sonic3kConstants.ACTS_PER_ZONE_STRIDE + act) {
+            LOG.info(String.format("  Using alternate LevelLoadBlock index %d for bootstrap mode %s",
+                    llbIndex, bootstrap.mode()));
+        }
         int llbAddr = Sonic3kConstants.LEVEL_LOAD_BLOCK_ADDR
                 + llbIndex * Sonic3kConstants.LEVEL_LOAD_BLOCK_ENTRY_SIZE;
 
@@ -128,6 +135,8 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
         int word4 = rom.read32BitAddr(llbAddr + 16);  // primaryChunksAddr
         int word5 = rom.read32BitAddr(llbAddr + 20);  // secondaryChunksAddr
 
+        int plcPrimary = (word0 >>> 24) & 0xFF;
+        int plcSecondary = (word1 >>> 24) & 0xFF;
         int primaryArtAddr = word0 & 0x00FFFFFF;
         int secondaryArtAddr = word1 & 0x00FFFFFF;
         int paletteIndex = (word2 >> 24) & 0xFF;
@@ -135,25 +144,30 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
         int secondaryBlocksAddr = word3 & 0x00FFFFFF;
         int primaryChunksAddr = word4 & 0x00FFFFFF;
         int secondaryChunksAddr = word5 & 0x00FFFFFF;
-        Sonic3kLoadBootstrap bootstrap = Sonic3kBootstrapResolver.resolve(zone, act);
 
-        if (bootstrap.isSkipIntro() && zone == 0 && act == 0) {
+        boolean applyAiz1OverlayBridge = zone == 0
+                && act == 0
+                && bootstrap != null
+                && llbIndex != Sonic3kConstants.LEVEL_LOAD_BLOCK_AIZ1_INTRO_INDEX
+                && bootstrap.isSkipIntro();
+        if (applyAiz1OverlayBridge) {
             Aiz1GameplayOverlay override = readAiz1GameplayOverlayFromIntroEntry();
             if (override != null) {
-                // Intro-skip parity bridge:
-                // ROM intro transition swaps in AIZ1 "main level" overlays for 8x8/16x16 data.
-                // Until full intro events are implemented, we bootstrap those resources directly.
+                // AIZ1 parity bridge:
+                // Skip-intro bootstrap should immediately use AIZ1 "main level" overlays
+                // for 8x8/16x16 terrain resources.
                 secondaryArtAddr = override.secondaryArtAddr();
                 secondaryBlocksAddr = override.secondaryBlocksAddr();
-                LOG.info(String.format("  Bootstrap AIZ1 gameplay overlays: art2=0x%06X blocks2=0x%06X",
+                LOG.info(String.format("  AIZ1 overlay bridge active: art2=0x%06X blocks2=0x%06X",
                         secondaryArtAddr, secondaryBlocksAddr));
             } else {
-                LOG.warning("  AIZ1 gameplay bootstrap requested but intro overlay entry was invalid.");
+                LOG.warning("  AIZ1 overlay bridge requested but intro overlay entry was invalid.");
             }
         }
 
-        LOG.info(String.format("  LLB entry: art1=0x%06X art2=0x%06X blocks1=0x%06X blocks2=0x%06X " +
-                        "chunks1=0x%06X chunks2=0x%06X pal=%d",
+        LOG.info(String.format("  LLB entry: plc1=0x%02X plc2=0x%02X art1=0x%06X art2=0x%06X " +
+                        "blocks1=0x%06X blocks2=0x%06X chunks1=0x%06X chunks2=0x%06X pal=%d",
+                plcPrimary, plcSecondary,
                 primaryArtAddr, secondaryArtAddr, primaryBlocksAddr, secondaryBlocksAddr,
                 primaryChunksAddr, secondaryChunksAddr, paletteIndex));
 
@@ -175,20 +189,29 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
                     secondaryArtSize, secondaryArtSize, secondaryArtSize / 32));
             planBuilder.addPatternOp(LoadOp.kosinskiMOverlay(secondaryArtAddr, primaryArtSize));
         }
+        addLevelPlcPatternOps(planBuilder, zone, act, bootstrap, plcPrimary, plcSecondary);
 
-        // Blocks (16x16, Kosinski) - "chunks" in engine terminology
+        // Blocks (16x16, Kosinski) - "chunks" in engine terminology.
+        // ROM LoadLevelLoadBlock2 reuses a1 across both Kos_Decomp calls, so the
+        // second stream appends immediately after the first in Block_table.
         planBuilder.addChunkOp(LoadOp.kosinskiBase(primaryBlocksAddr));
         if (secondaryBlocksAddr != primaryBlocksAddr && secondaryBlocksAddr > 0) {
             int primaryBlocksSize = resourceLoader.loadSingle(LoadOp.kosinskiBase(primaryBlocksAddr)).length;
-            LOG.info(String.format("  Primary 16x16 size: 0x%04X (%d bytes)", primaryBlocksSize, primaryBlocksSize));
+            int secondaryBlocksSize = resourceLoader.loadSingle(LoadOp.kosinskiBase(secondaryBlocksAddr)).length;
+            LOG.info(String.format("  16x16 sizes: primary=0x%04X (%d bytes) secondary=0x%04X (%d bytes) append@0x%04X",
+                    primaryBlocksSize, primaryBlocksSize, secondaryBlocksSize, secondaryBlocksSize, primaryBlocksSize));
             planBuilder.addChunkOp(LoadOp.kosinskiOverlay(secondaryBlocksAddr, primaryBlocksSize));
         }
 
-        // Chunks (128x128, Kosinski) - "blocks" in engine terminology
+        // Chunks (128x128, Kosinski) - "blocks" in engine terminology.
+        // Same as above: destination pointer is preserved by Kos_Decomp, so
+        // the secondary stream appends after primary in RAM_start.
         planBuilder.addBlockOp(LoadOp.kosinskiBase(primaryChunksAddr));
         if (secondaryChunksAddr != primaryChunksAddr && secondaryChunksAddr > 0) {
             int primaryChunksSize = resourceLoader.loadSingle(LoadOp.kosinskiBase(primaryChunksAddr)).length;
-            LOG.info(String.format("  Primary 128x128 size: 0x%04X (%d bytes)", primaryChunksSize, primaryChunksSize));
+            int secondaryChunksSize = resourceLoader.loadSingle(LoadOp.kosinskiBase(secondaryChunksAddr)).length;
+            LOG.info(String.format("  128x128 sizes: primary=0x%04X (%d bytes) secondary=0x%04X (%d bytes) append@0x%04X",
+                    primaryChunksSize, primaryChunksSize, secondaryChunksSize, secondaryChunksSize, primaryChunksSize));
             planBuilder.addBlockOp(LoadOp.kosinskiOverlay(secondaryChunksAddr, primaryChunksSize));
         }
 
@@ -206,6 +229,14 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
 
         // Get level boundaries address from LevelSizes
         int boundariesAddr = getLevelBoundariesAddr(zone, act, bootstrap);
+        Integer boundariesMinXOverride = null;
+        if (zone == 0 && act == 0
+                && bootstrap != null
+                && bootstrap.mode() == Sonic3kLoadBootstrap.Mode.INTRO) {
+            // ROM Get_LevelSizeStart uses AIZ intro LevelSizes profile, then overrides min X to 0
+            // for the intro start (x=$40, y=$420).
+            boundariesMinXOverride = 0;
+        }
 
         // Get palette address
         int levelPaletteAddr = getLevelPaletteAddr(paletteIndex);
@@ -216,7 +247,8 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
         return new Sonic3kLevel(rom, zone, plan,
                 primaryCollisionAddr, secondaryCollisionAddr, interleavedCollision,
                 layoutAddr, boundariesAddr,
-                characterPaletteAddr, levelPaletteAddr);
+                characterPaletteAddr, levelPaletteAddr,
+                boundariesMinXOverride);
     }
 
     @Override
@@ -478,6 +510,22 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
         return ptr;
     }
 
+    static int resolveLevelLoadBlockIndex(int zone, int act, Sonic3kLoadBootstrap bootstrap) {
+        int baseIndex = zone * Sonic3kConstants.ACTS_PER_ZONE_STRIDE + act;
+
+        // ROM parity (LoadLevelLoadBlock / LoadLevelLoadBlock2):
+        // For AIZ1 Sonic/Tails with no starpost (intro path), d0 is NOT overridden
+        // to $0D00, so resources come from normal AIZ1 (zone/act entry 0).
+        // The $0D00 override (entry 26) applies to post-intro/skip-intro paths.
+        if (zone == 0
+                && act == 0
+                && bootstrap != null
+                && bootstrap.mode() == Sonic3kLoadBootstrap.Mode.SKIP_INTRO) {
+            return Sonic3kConstants.LEVEL_LOAD_BLOCK_AIZ1_INTRO_INDEX;
+        }
+        return baseIndex;
+    }
+
     /**
      * Gets the level boundaries address from the LevelSizes table.
      */
@@ -487,17 +535,20 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
             return 0;
         }
 
-        if (bootstrap != null && bootstrap.mode() != Sonic3kLoadBootstrap.Mode.NORMAL
-                && zone == 0 && act == 0) {
-            // AIZ1 intro boundaries (index 26): minX=0x0000, maxY=0x1000.
-            // Normal AIZ1 boundaries (index 0) have minX=0x1308 (gameplay start),
-            // which clips the camera for both intro spawn (X=$0060) and
-            // skip-intro spawn (Y=$041A > normal maxY=$0390).
-            int introIndex = Sonic3kConstants.LEVEL_SIZES_AIZ1_INTRO_INDEX;
-            return levelSizesAddr + introIndex * Sonic3kConstants.LEVEL_SIZES_ENTRY_SIZE;
-        }
-
         int index = zone * Sonic3kConstants.ACTS_PER_ZONE_STRIDE + act;
+        if (zone == 0 && act == 0 && bootstrap != null) {
+            if (bootstrap.mode() == Sonic3kLoadBootstrap.Mode.SKIP_INTRO) {
+                // Intro-skip bootstrap parity bridge:
+                // keep the wider intro profile so gameplay-after-intro bootstrap
+                // remains valid without full intro transition state.
+                index = Sonic3kConstants.LEVEL_SIZES_AIZ1_INTRO_INDEX;
+            } else if (bootstrap.mode() == Sonic3kLoadBootstrap.Mode.INTRO) {
+                // ROM Get_LevelSizeStart intro startup:
+                // use normal AIZ1 LevelSizes bounds and then override min X to 0.
+                // (Do not use LevelSizes intro index for the full intro path.)
+                index = zone * Sonic3kConstants.ACTS_PER_ZONE_STRIDE + act;
+            }
+        }
         return levelSizesAddr + index * Sonic3kConstants.LEVEL_SIZES_ENTRY_SIZE;
     }
 
@@ -518,5 +569,118 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
         }
         int entryAddr = palPointersAddr + paletteIndex * 8;
         return rom.read32BitAddr(entryAddr) & 0x00FFFFFF;
+    }
+
+    private void addLevelPlcPatternOps(LevelResourcePlan.Builder planBuilder,
+                                       int zone,
+                                       int act,
+                                       Sonic3kLoadBootstrap bootstrap,
+                                       int plcPrimary,
+                                       int plcSecondary) {
+        boolean aizIntro = zone == 0
+                && act == 0
+                && bootstrap != null
+                && bootstrap.mode() == Sonic3kLoadBootstrap.Mode.INTRO;
+        if (aizIntro) {
+            // ROM Level startup sequence for AIZ intro:
+            // 1) Level PLC is requested from LevelLoadBlock (PLC_0B for AIZ1),
+            // 2) then Load_PLC_2 #1 clears the queue and loads common HUD art,
+            // 3) then Load_PLC #$0A appends intro-sprite art.
+            // So effective startup overlays are PLC_01 + PLC_0A only.
+            appendPlcPatternOps(planBuilder, 0x01);
+            appendPlcPatternOps(planBuilder, 0x0A);
+            return;
+        }
+
+        LinkedHashSet<Integer> plcOrder = new LinkedHashSet<>();
+        if (plcPrimary != 0) {
+            plcOrder.add(plcPrimary);
+        }
+        if (plcSecondary != 0 && plcSecondary != plcPrimary) {
+            plcOrder.add(plcSecondary);
+        }
+        // ROM startup path always loads active-character PLC after level PLC setup.
+        plcOrder.add(resolveStartupCharacterPlcIndex());
+
+        for (int plcIndex : plcOrder) {
+            appendPlcPatternOps(planBuilder, plcIndex);
+        }
+    }
+
+    private int resolveStartupCharacterPlcIndex() {
+        String mainCharacterCode = SonicConfigurationService.getInstance()
+                .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if ("knuckles".equalsIgnoreCase(mainCharacterCode)) {
+            return 0x05;
+        }
+        if ("tails".equalsIgnoreCase(mainCharacterCode)) {
+            return 0x07;
+        }
+        return 0x01;
+    }
+
+    private void appendPlcPatternOps(LevelResourcePlan.Builder planBuilder, int plcIndex) {
+        switch (plcIndex & 0xFF) {
+            case 0x01 -> {
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_PLAYER_LIFE_ICON,
+                        Sonic3kConstants.ART_NEM_SONIC_LIFE_ICON_ADDR);
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_MONITORS,
+                        Sonic3kConstants.ART_NEM_MONITORS_ADDR);
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_RING,
+                        Sonic3kConstants.ART_NEM_RING_HUD_TEXT_ADDR);
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_STARPOST,
+                        Sonic3kConstants.ART_NEM_ENEMY_PTS_STARPOST_ADDR);
+            }
+            case 0x05, 0x07 -> {
+                // TODO: Use character-specific life icon Nemesis sources for strict HUD parity.
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_PLAYER_LIFE_ICON,
+                        Sonic3kConstants.ART_NEM_SONIC_LIFE_ICON_ADDR);
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_MONITORS,
+                        Sonic3kConstants.ART_NEM_MONITORS_ADDR);
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_RING,
+                        Sonic3kConstants.ART_NEM_RING_HUD_TEXT_ADDR);
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_STARPOST,
+                        Sonic3kConstants.ART_NEM_ENEMY_PTS_STARPOST_ADDR);
+            }
+            case 0x0A -> addNemesisPatternOverlay(planBuilder,
+                    Sonic3kConstants.ARTTILE_AIZ_INTRO_SPRITES,
+                    Sonic3kConstants.ART_NEM_AIZ_INTRO_SPRITES_ADDR);
+            case 0x0B -> {
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_AIZ_SWING_VINE,
+                        Sonic3kConstants.ART_NEM_AIZ_SWING_VINE_ADDR);
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_AIZ_SLIDE_ROPE,
+                        Sonic3kConstants.ART_NEM_AIZ_SLIDE_ROPE_ADDR);
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_AIZ_MISC1,
+                        Sonic3kConstants.ART_NEM_AIZ_MISC1_ADDR);
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_AIZ_FALLING_LOG,
+                        Sonic3kConstants.ART_NEM_AIZ_FALLING_LOG_ADDR);
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_BUBBLES,
+                        Sonic3kConstants.ART_NEM_BUBBLES_ADDR);
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_AIZ_FLOATING_PLATFORM,
+                        Sonic3kConstants.ART_NEM_AIZ_CORK_FLOOR_ADDR);
+            }
+            default -> {
+                // Other PLC groups are not yet mapped into the level pattern bank.
+            }
+        }
+    }
+
+    private void addNemesisPatternOverlay(LevelResourcePlan.Builder planBuilder, int tileIndex, int romAddr) {
+        int destOffset = tileIndex * 32;
+        planBuilder.addPatternOp(LoadOp.overlay(romAddr, CompressionType.NEMESIS, destOffset));
     }
 }

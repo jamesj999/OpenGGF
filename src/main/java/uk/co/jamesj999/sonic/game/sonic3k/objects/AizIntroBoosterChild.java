@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
@@ -61,7 +62,15 @@ public class AizIntroBoosterChild {
         PatternSpriteRenderer renderer = AizIntroArtLoader.getPlaneRenderer();
         if (renderer == null || !renderer.isReady()) return;
         int frame = animSequence[animIndex];
-        renderer.drawFrameIndex(frame, currentX, currentY, false, false);
+        // Screen-space coordinates use the ROM +128 sprite-table bias.
+        int renderX = currentX;
+        int renderY = currentY;
+        try {
+            Camera camera = Camera.getInstance();
+            renderX += camera.getX() - 128;
+            renderY += camera.getY() - 128;
+        } catch (Exception ignored) {}
+        renderer.drawFrameIndex(frame, renderX, renderY, false, false);
     }
 
     public int getCurrentX() {

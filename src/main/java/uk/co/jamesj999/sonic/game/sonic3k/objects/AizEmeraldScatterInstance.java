@@ -167,10 +167,11 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
         currentX += (xVel >> 8) + (xTotal >> 8);
         xSub = xTotal & 0xFF;
 
-        // Y: apply gravity first, then update position
+        // MoveSprite order: move with old y_vel, then apply gravity.
+        int oldYVel = yVel;
         yVel += GRAVITY;
-        int yTotal = (ySub & 0xFF) + (yVel & 0xFF);
-        currentY += (yVel >> 8) + (yTotal >> 8);
+        int yTotal = (ySub & 0xFF) + (oldYVel & 0xFF);
+        currentY += (oldYVel >> 8) + (yTotal >> 8);
         ySub = yTotal & 0xFF;
 
         // ObjCheckFloorDist terrain collision

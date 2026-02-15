@@ -201,8 +201,14 @@ public class RomOffsetFinder {
         if (searchResults.size() > 1) {
             System.out.println("Multiple matches found, using first: " + item.getLabel());
             for (DisassemblySearchResult r : searchResults) {
-                System.out.println("  - " + r.getLabel() + ": " + r.getFilePath());
+                System.out.println("  - " + r.getLabel() + ": " + (r.getFilePath() != null ? r.getFilePath() : "(label-only)"));
             }
+        }
+
+        // Label-only results (Offs_*, PLC_*) have no binary data to search for
+        if (!item.hasBinclude()) {
+            return OffsetFinderResult.notFound(labelPattern,
+                    "Label-only result (no binary data): " + item.getLabel());
         }
 
         byte[] referenceData;
@@ -300,6 +306,11 @@ public class RomOffsetFinder {
         String label = item.getLabel();
         if (label == null) {
             return VerificationResult.error(labelPattern, "Item has no label");
+        }
+
+        // Label-only results (Offs_*, PLC_*) have no binary data to verify
+        if (!item.hasBinclude()) {
+            return VerificationResult.error(label, "Label-only result (no binary data to verify)");
         }
 
         // 2. Calculate offset using the calculator
@@ -891,39 +902,45 @@ public class RomOffsetFinder {
 
         for (DisassemblySearchResult result : results) {
             System.out.printf("Label:       %s%n", result.getLabel() != null ? result.getLabel() : "(none)");
-            System.out.printf("File:        %s%n", result.getFilePath());
-            System.out.printf("Compression: %s%n", result.getCompressionType().getDisplayName());
-            System.out.printf("ASM Source:  %s:%d%n", result.getAsmFilePath(), result.getAsmLineNumber());
 
-            try {
-                long size = finder.searchTool.getFileSize(result.getFilePath());
-                System.out.printf("File Size:   %d bytes%n", size);
-            } catch (IOException e) {
-                System.out.printf("File Size:   (not found)%n");
+            if (result.hasBinclude()) {
+                System.out.printf("File:        %s%n", result.getFilePath());
+                System.out.printf("Compression: %s%n", result.getCompressionType().getDisplayName());
+            } else {
+                System.out.printf("Type:        Label-only (no binary data)%n");
             }
 
-            // Get verified ROM offset by searching the ROM directly
-            if (result.getLabel() != null) {
+            System.out.printf("ASM Source:  %s:%d%n", result.getAsmFilePath(), result.getAsmLineNumber());
+
+            if (result.hasBinclude()) {
                 try {
-                    VerificationResult vr = finder.verify(result.getLabel());
-                    switch (vr.getStatus()) {
-                        case VERIFIED:
-                            // For VERIFIED, calculatedOffset was correct
-                            System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getCalculatedOffset());
-                            break;
-                        case MISMATCH:
-                            // Calculation was wrong, but we found the actual offset
-                            System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getVerifiedOffset());
-                            break;
-                        case NOT_FOUND:
-                            System.out.printf("ROM Offset:  (not found in ROM)%n");
-                            break;
-                        case ERROR:
-                            System.out.printf("ROM Offset:  (error: %s)%n", vr.getMessage());
-                            break;
-                    }
+                    long size = finder.searchTool.getFileSize(result.getFilePath());
+                    System.out.printf("File Size:   %d bytes%n", size);
                 } catch (IOException e) {
-                    // Ignore verification errors
+                    System.out.printf("File Size:   (not found)%n");
+                }
+
+                // Get verified ROM offset by searching the ROM directly
+                if (result.getLabel() != null) {
+                    try {
+                        VerificationResult vr = finder.verify(result.getLabel());
+                        switch (vr.getStatus()) {
+                            case VERIFIED:
+                                System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getCalculatedOffset());
+                                break;
+                            case MISMATCH:
+                                System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getVerifiedOffset());
+                                break;
+                            case NOT_FOUND:
+                                System.out.printf("ROM Offset:  (not found in ROM)%n");
+                                break;
+                            case ERROR:
+                                System.out.printf("ROM Offset:  (error: %s)%n", vr.getMessage());
+                                break;
+                        }
+                    } catch (IOException e) {
+                        // Ignore verification errors
+                    }
                 }
             }
 
@@ -1007,8 +1024,8 @@ public class RomOffsetFinder {
         for (DisassemblySearchResult result : results) {
             System.out.printf("%-40s %-12s %s%n",
                     result.getLabel() != null ? result.getLabel() : "(no label)",
-                    result.getCompressionType().getDisplayName(),
-                    result.getFilePath());
+                    result.getCompressionType() != null ? result.getCompressionType().getDisplayName() : "N/A",
+                    result.getFilePath() != null ? result.getFilePath() : "(label-only)");
         }
 
         System.out.println();

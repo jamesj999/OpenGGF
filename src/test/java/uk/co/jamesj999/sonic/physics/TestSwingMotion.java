@@ -18,8 +18,8 @@ public class TestSwingMotion {
     public void reversesAtMaxVelocity() {
         // direction=true (down), vel is near max
         var result = SwingMotion.update(0x18, 0xF0, 0x100, true);
-        // 0xF0 + 0x18 = 0x108 >= 0x100, should reverse
-        assertEquals(0xF0 + 0x18, result.velocity()); // velocity still updated
+        // ROM cancels the overshoot step when switching direction.
+        assertEquals(0xF0, result.velocity());
         assertFalse(result.directionDown()); // direction flipped
         assertTrue(result.directionChanged());
     }
@@ -37,7 +37,8 @@ public class TestSwingMotion {
     public void reversesAtNegativeMaxVelocity() {
         // direction=false (up), vel is near -max
         var result = SwingMotion.update(0x18, -0xF0, 0x100, false);
-        // -0xF0 - 0x18 = -0x108, magnitude >= 0x100, should reverse
+        // ROM cancels the overshoot step when switching direction.
+        assertEquals(-0xF0, result.velocity());
         assertTrue(result.directionDown());
         assertTrue(result.directionChanged());
     }

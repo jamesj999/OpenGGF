@@ -138,6 +138,23 @@ public class Sonic3kConstants {
     // ArtNem_AIZIntroSprites - Wave/water spray sprite art (Nemesis compressed)
     // Decompresses to 11008 bytes (344 tiles)
     public static final int ART_NEM_AIZ_INTRO_SPRITES_ADDR = 0x3481A0;
+    public static final int ART_NEM_AIZ_SWING_VINE_ADDR = 0x38D8BC;
+    public static final int ART_NEM_AIZ_SLIDE_ROPE_ADDR = 0x38DA22;
+    public static final int ART_NEM_AIZ_MISC1_ADDR = 0x38DC90;
+    public static final int ART_NEM_AIZ_FALLING_LOG_ADDR = 0x38E4D8;
+    public static final int ART_NEM_AIZ_CORK_FLOOR_ADDR = 0x38D586;
+    public static final int ART_NEM_AIZ_CORK_FLOOR_2_ADDR = 0x38D72A;
+
+    // Map_AIZCorkFloor - Cork floor sprite mappings (2 frames: intact + broken)
+    // Frame labels: Frame_229B64 (intact, 6 pieces), Frame_229B8A (broken, 12 pieces)
+    // Used by rock child object (ObjDat3_66432) during AIZ1 intro
+    public static final int MAP_AIZ_CORK_FLOOR_ADDR = 0x229B60;
+
+    public static final int ART_NEM_SONIC_LIFE_ICON_ADDR = 0x190D34;
+    public static final int ART_NEM_MONITORS_ADDR = 0x190F4A;
+    public static final int ART_NEM_BUBBLES_ADDR = 0x191B46;
+    public static final int ART_NEM_RING_HUD_TEXT_ADDR = 0x192AEE;
+    public static final int ART_NEM_ENEMY_PTS_STARPOST_ADDR = 0x192D2A;
 
     // ArtUnc_CutsceneKnux - Cutscene Knuckles sprite art (uncompressed, DPLC-driven)
     // 0x4EE0 bytes = 631 tiles
@@ -186,6 +203,16 @@ public class Sonic3kConstants {
     public static final int ARTTILE_AIZ_INTRO_PLANE = 0x0529;    // ArtTile_AIZIntroPlane
     public static final int ARTTILE_AIZ_INTRO_EMERALDS = 0x05B1; // ArtTile_AIZIntroEmeralds
     public static final int ARTTILE_CUTSCENE_KNUX = 0x04DA;      // ArtTile_CutsceneKnux
+    public static final int ARTTILE_AIZ_SLIDE_ROPE = 0x0324;
+    public static final int ARTTILE_AIZ_MISC1 = 0x0333;
+    public static final int ARTTILE_AIZ_FALLING_LOG = 0x03CF;
+    public static final int ARTTILE_AIZ_FLOATING_PLATFORM = 0x03F7;
+    public static final int ARTTILE_AIZ_SWING_VINE = 0x041B;
+    public static final int ARTTILE_BUBBLES = 0x045C;
+    public static final int ARTTILE_MONITORS = 0x04C4;
+    public static final int ARTTILE_STARPOST = 0x05E4;
+    public static final int ARTTILE_RING = 0x06BC;
+    public static final int ARTTILE_PLAYER_LIFE_ICON = 0x07D4;
 
     // --- Animation scripts (inline data in S3 code space) ---
     // Knuckles cutscene animation scripts

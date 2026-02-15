@@ -39,6 +39,8 @@ public class Sonic3kLevel implements Level {
     private Block[] blocks;
     private SolidTile[] solidTiles;
     private Map map;
+    private byte[] primaryCollisionIndexTable = new byte[0];
+    private byte[] secondaryCollisionIndexTable = new byte[0];
     private final List<ObjectSpawn> objects;
     private final List<RingSpawn> rings;
     private RingSpriteSheet ringSpriteSheet;
@@ -52,6 +54,11 @@ public class Sonic3kLevel implements Level {
     private int maxX;
     private int minY;
     private int maxY;
+    private final Integer minXOverride;
+    private int fgLayoutWidthBlocks = Sonic3kConstants.MAP_WIDTH;
+    private int fgLayoutHeightBlocks = Sonic3kConstants.MAP_HEIGHT;
+    private int bgLayoutWidthBlocks = Sonic3kConstants.MAP_WIDTH;
+    private int bgLayoutHeightBlocks = Sonic3kConstants.MAP_HEIGHT;
 
     /**
      * Creates an S3K level using a LevelResourcePlan for resource loading.
@@ -67,6 +74,7 @@ public class Sonic3kLevel implements Level {
      * @param levelBoundariesAddr    ROM address of level boundaries (8 bytes)
      * @param characterPaletteAddr   ROM address of character palette
      * @param levelPaletteAddr       ROM address of level palette data
+     * @param minXOverride           Optional override for loaded minX boundary
      */
     public Sonic3kLevel(Rom rom,
                         int zoneIndex,
@@ -77,11 +85,13 @@ public class Sonic3kLevel implements Level {
                         int layoutAddr,
                         int levelBoundariesAddr,
                         int characterPaletteAddr,
-                        int levelPaletteAddr) throws IOException {
+                        int levelPaletteAddr,
+                        Integer minXOverride) throws IOException {
         this.zoneIndex = zoneIndex;
         this.objects = Collections.emptyList();
         this.rings = Collections.emptyList();
         this.ringSpriteSheet = null;
+        this.minXOverride = minXOverride;
 
         loadPalettes(rom, characterPaletteAddr, levelPaletteAddr);
         loadPatternsWithPlan(rom, resourcePlan);
@@ -185,6 +195,16 @@ public class Sonic3kLevel implements Level {
 
     @Override
     public int getZoneIndex() { return zoneIndex; }
+
+    @Override
+    public int getLayerWidthBlocks(int layer) {
+        return layer == 1 ? bgLayoutWidthBlocks : fgLayoutWidthBlocks;
+    }
+
+    @Override
+    public int getLayerHeightBlocks(int layer) {
+        return layer == 1 ? bgLayoutHeightBlocks : fgLayoutHeightBlocks;
+    }
 
     // ===== Loading methods =====
 
@@ -317,6 +337,8 @@ public class Sonic3kLevel implements Level {
         byte[] secondaryCollision = secondaryCollisionAddr > 0
                 ? rom.readBytes(secondaryCollisionAddr, tableSize)
                 : new byte[0];
+        primaryCollisionIndexTable = Arrays.copyOf(primaryCollision, primaryCollision.length);
+        secondaryCollisionIndexTable = Arrays.copyOf(secondaryCollision, secondaryCollision.length);
 
         chunks = new Chunk[chunkCount];
         for (int i = 0; i < chunkCount; i++) {
@@ -329,6 +351,97 @@ public class Sonic3kLevel implements Level {
         }
 
         LOG.info("S3K chunk count: " + chunkCount + " (" + chunkBuffer.length + " bytes)");
+    }
+
+    /**
+     * Applies an 8x8 pattern overlay at runtime.
+     * Used by AIZ intro to swap secondary terrain tiles to the "main level" set.
+     */
+    public synchronized void applyPatternOverlay(byte[] overlayData, int destOffsetBytes) {
+        if (overlayData == null || overlayData.length == 0 || destOffsetBytes < 0) {
+            return;
+        }
+
+        if (destOffsetBytes % Pattern.PATTERN_SIZE_IN_ROM != 0) {
+            LOG.warning("Pattern overlay offset is not 32-byte aligned: 0x"
+                    + Integer.toHexString(destOffsetBytes));
+            return;
+        }
+
+        int usableLength = (overlayData.length / Pattern.PATTERN_SIZE_IN_ROM) * Pattern.PATTERN_SIZE_IN_ROM;
+        int startPatternIndex = destOffsetBytes / Pattern.PATTERN_SIZE_IN_ROM;
+        int overlayPatternCount = usableLength / Pattern.PATTERN_SIZE_IN_ROM;
+        int requiredPatternCount = startPatternIndex + overlayPatternCount;
+        ensurePatternCapacity(requiredPatternCount);
+
+        GraphicsManager graphics = GraphicsManager.getInstance();
+        byte[] tileBytes = new byte[Pattern.PATTERN_SIZE_IN_ROM];
+        for (int i = 0; i < overlayPatternCount; i++) {
+            int src = i * Pattern.PATTERN_SIZE_IN_ROM;
+            System.arraycopy(overlayData, src, tileBytes, 0, Pattern.PATTERN_SIZE_IN_ROM);
+
+            int patternIndex = startPatternIndex + i;
+            Pattern pattern = patterns[patternIndex];
+            if (pattern == null) {
+                pattern = new Pattern();
+                patterns[patternIndex] = pattern;
+            }
+            pattern.fromSegaFormat(tileBytes);
+
+            if (graphics.isGlInitialized()) {
+                graphics.cachePatternTexture(pattern, patternIndex);
+            }
+        }
+    }
+
+    /**
+     * Applies a 16x16 block-map overlay at runtime.
+     * In engine terminology this updates {@link Chunk} data.
+     */
+    public synchronized void applyChunkOverlay(byte[] overlayData, int destOffsetBytes) {
+        if (overlayData == null || overlayData.length == 0 || destOffsetBytes < 0) {
+            return;
+        }
+        if (destOffsetBytes % Chunk.CHUNK_SIZE_IN_ROM != 0) {
+            LOG.warning("Chunk overlay offset is not 8-byte aligned: 0x"
+                    + Integer.toHexString(destOffsetBytes));
+            return;
+        }
+
+        int usableLength = (overlayData.length / Chunk.CHUNK_SIZE_IN_ROM) * Chunk.CHUNK_SIZE_IN_ROM;
+        int startChunkIndex = destOffsetBytes / Chunk.CHUNK_SIZE_IN_ROM;
+        int overlayChunkCount = usableLength / Chunk.CHUNK_SIZE_IN_ROM;
+        int requiredChunkCount = startChunkIndex + overlayChunkCount;
+        ensureChunkCapacity(requiredChunkCount);
+
+        byte[] chunkBytes = new byte[Chunk.CHUNK_SIZE_IN_ROM];
+        for (int i = 0; i < overlayChunkCount; i++) {
+            int src = i * Chunk.CHUNK_SIZE_IN_ROM;
+            System.arraycopy(overlayData, src, chunkBytes, 0, Chunk.CHUNK_SIZE_IN_ROM);
+
+            int chunkIndex = startChunkIndex + i;
+            Chunk chunk = chunks[chunkIndex];
+            if (chunk == null) {
+                chunk = new Chunk();
+                chunks[chunkIndex] = chunk;
+            }
+
+            int solidIndex = readCollisionIndex(primaryCollisionIndexTable, chunkIndex);
+            int altSolidIndex = readCollisionIndex(secondaryCollisionIndexTable, chunkIndex);
+            chunk.fromSegaFormat(chunkBytes, solidIndex, altSolidIndex);
+        }
+    }
+
+    private void ensureChunkCapacity(int minCount) {
+        if (minCount <= chunkCount) {
+            return;
+        }
+        int oldCount = chunkCount;
+        chunks = Arrays.copyOf(chunks, minCount);
+        for (int i = oldCount; i < minCount; i++) {
+            chunks[i] = new Chunk();
+        }
+        chunkCount = minCount;
     }
 
     private void loadBlocksWithPlan(Rom rom, LevelResourcePlan plan) throws IOException {
@@ -345,11 +458,6 @@ public class Sonic3kLevel implements Level {
             byte[] subArray = Arrays.copyOfRange(blockBuffer, i * LevelConstants.BLOCK_SIZE_IN_ROM,
                     (i + 1) * LevelConstants.BLOCK_SIZE_IN_ROM);
             blocks[i].fromSegaFormat(subArray);
-        }
-
-        // Sanitize Block 0 (empty)
-        if (blockCount > 0) {
-            blocks[0] = new Block();
         }
 
         LOG.info("S3K block count: " + blockCount + " (" + blockBuffer.length + " bytes)");
@@ -382,6 +490,11 @@ public class Sonic3kLevel implements Level {
         int fgRows = ((layoutData[4] & 0xFF) << 8) | (layoutData[5] & 0xFF);
         int bgRows = ((layoutData[6] & 0xFF) << 8) | (layoutData[7] & 0xFF);
 
+        fgLayoutWidthBlocks = clampLayoutDimension(fgColsPerRow, Sonic3kConstants.MAP_WIDTH);
+        fgLayoutHeightBlocks = clampLayoutDimension(fgRows, Sonic3kConstants.MAP_HEIGHT);
+        bgLayoutWidthBlocks = clampLayoutDimension(bgColsPerRow, Sonic3kConstants.MAP_WIDTH);
+        bgLayoutHeightBlocks = clampLayoutDimension(bgRows, Sonic3kConstants.MAP_HEIGHT);
+
         LOG.info(String.format("S3K layout header: FG %dx%d, BG %dx%d",
                 fgColsPerRow, fgRows, bgColsPerRow, bgRows));
 
@@ -400,6 +513,13 @@ public class Sonic3kLevel implements Level {
         parseLayoutLayer(layoutData, Sonic3kConstants.LEVEL_LAYOUT_HEADER_SIZE + 2,
                 4, bgColsPerRow, bgRows, map, 1, mapWidth, mapHeight);
         LOG.info("S3K map loaded successfully");
+    }
+
+    private static int clampLayoutDimension(int value, int fallback) {
+        if (value <= 0) {
+            return fallback;
+        }
+        return Math.min(value, fallback);
     }
 
     /**
@@ -519,11 +639,14 @@ public class Sonic3kLevel implements Level {
             maxX = 0x6000;
             minY = 0;
             maxY = 0x0800;
-            return;
+        } else {
+            this.minX = rom.read16BitAddr(levelBoundariesAddr);
+            this.maxX = rom.read16BitAddr(levelBoundariesAddr + 2);
+            this.minY = (short) rom.read16BitAddr(levelBoundariesAddr + 4);
+            this.maxY = (short) rom.read16BitAddr(levelBoundariesAddr + 6);
         }
-        this.minX = rom.read16BitAddr(levelBoundariesAddr);
-        this.maxX = rom.read16BitAddr(levelBoundariesAddr + 2);
-        this.minY = (short) rom.read16BitAddr(levelBoundariesAddr + 4);
-        this.maxY = (short) rom.read16BitAddr(levelBoundariesAddr + 6);
+        if (minXOverride != null) {
+            this.minX = minXOverride;
+        }
     }
 }

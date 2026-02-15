@@ -259,8 +259,12 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     /**
      * Loads a ROM animation script and starts playing it.
      *
-     * ROM script format: first byte = duration, subsequent bytes = frame indices
+     * <p>ROM script format: first byte = duration, subsequent bytes = frame indices
      * until terminator $FC (loop) or $F4 (end/hold last frame).
+     *
+     * <p>Special command $F8 (AnimateRaw_Jump): next byte is an offset from the
+     * script start. Continues reading from the target address (which starts with
+     * a new duration byte, then more frames). Only one jump level is supported.
      *
      * @param romAddr ROM address of the animation script
      */
@@ -274,10 +278,23 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             // Read frame indices until terminator
             int addr = romAddr + 1;
             int count = 0;
-            int[] temp = new int[32];
+            int[] temp = new int[64];
             while (count < temp.length) {
                 int b = rom.readByte(addr + count) & 0xFF;
                 if (b == 0xFC || b == 0xF4) break;
+                if (b == 0xF8) {
+                    // AnimateRaw_Jump: read offset, jump to scriptStart + offset
+                    int jumpOffset = rom.readByte(addr + count + 1) & 0xFF;
+                    int target = romAddr + jumpOffset;
+                    // Target starts with a new duration byte, then frames
+                    // Use the new duration (overwrite if different)
+                    animDuration = rom.readByte(target) & 0xFF;
+                    animTimer = animDuration;
+                    // Continue reading frames from target + 1
+                    addr = target + 1;
+                    count = collectFrames(rom, addr, temp, count);
+                    break;
+                }
                 temp[count++] = b;
             }
 
@@ -290,6 +307,22 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             LOG.fine("Could not load anim script at 0x" + Integer.toHexString(romAddr) + ": " + e.getMessage());
             currentAnimFrames = null;
         }
+    }
+
+    /**
+     * Reads frame indices from ROM into the temp array starting at the given offset.
+     * Returns the new count after appending frames until a terminator is found.
+     */
+    private int collectFrames(Rom rom, int addr, int[] temp, int startCount) throws java.io.IOException {
+        int count = startCount;
+        int pos = 0;
+        while (count < temp.length) {
+            int b = rom.readByte(addr + pos) & 0xFF;
+            if (b == 0xFC || b == 0xF4 || b == 0xF8) break;
+            temp[count++] = b;
+            pos++;
+        }
+        return count;
     }
 
     /**
@@ -373,6 +406,10 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         yVel = FALL_INIT_Y_VEL;
         xVel = FALL_INIT_X_VEL;
 
+        // Apply Knuckles palette (Pal_CutsceneKnux → palette line 1).
+        // ROM does this in init, but GL may not be ready then; trigger time is equivalent.
+        AizIntroArtLoader.applyKnucklesPalette();
+
         // Load react/fall animation (byte_666AF)
         loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_REACT_ADDR);
 
@@ -396,10 +433,11 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         currentX += (xVel >> 8) + (xTotal >> 8);
         xSub = xTotal & 0xFF;
 
-        // Y movement with gravity
+        // MoveSprite order: move with old y_vel, then apply gravity.
+        int oldYVel = yVel;
         yVel += GRAVITY;
-        int yTotal = (ySub & 0xFF) + (yVel & 0xFF);
-        currentY += (yVel >> 8) + (yTotal >> 8);
+        int yTotal = (ySub & 0xFF) + (oldYVel & 0xFF);
+        currentY += (oldYVel >> 8) + (yTotal >> 8);
         ySub = yTotal & 0xFF;
 
         // ObjCheckFloorDist terrain collision
@@ -548,8 +586,10 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             // Unlock player controls (ROM: player.object_control = 0)
             unlockPlayerControls();
 
-            // Restore full level boundaries (ROM: Level_started_flag = 0x91)
-            restoreLevelBoundaries();
+            // ROM: Level_started_flag = 0x91 — re-enable camera tracking
+            // ROM does NOT change level boundaries here — intro bounds stay in effect
+            Camera.getInstance().setLevelStarted(true);
+            Camera.getInstance().updatePosition(true);
 
             // TODO: Spawn title card (S3K title card system not yet implemented)
 
@@ -560,6 +600,15 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     // -----------------------------------------------------------------------
     // Intro→gameplay transition helpers
     // -----------------------------------------------------------------------
+
+    @Override
+    public void onUnload() {
+        // Knuckles is the last intro object to destroy itself (routine 12),
+        // so it owns cleanup of the shared intro art cache.
+        try {
+            AizIntroArtLoader.reset();
+        } catch (Exception ignored) {}
+    }
 
     /**
      * Unlocks player movement controls after the intro cutscene completes.
@@ -576,20 +625,4 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         } catch (Exception ignored) {}
     }
 
-    /**
-     * Restores full AIZ1 level boundaries after the intro's restricted camera area.
-     * ROM equivalent: setting Level_started_flag = 0x91 which removes intro constraints.
-     */
-    private void restoreLevelBoundaries() {
-        try {
-            Camera camera = Camera.getInstance();
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null && lm.getCurrentLevel() != null) {
-                camera.setMinX((short) 0);
-                // Set max to full level width (map width * 128px block size)
-                int levelWidth = lm.getCurrentLevel().getMap().getWidth() * 128;
-                camera.setMaxX((short) Math.min(levelWidth, Short.MAX_VALUE));
-            }
-        } catch (Exception ignored) {}
-    }
 }

@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
@@ -27,20 +28,22 @@ public class AizIntroWaveChild extends AbstractObjectInstance {
 
     /** Animation frame duration in frames. */
     private static final int ANIM_FRAME_DURATION = 3;
+    /** Intro wave mapping frames are 0..5 (byte_67A9B). */
+    private static final int WAVE_FRAME_COUNT = 6;
 
-    private final int scrollSpeed;
+    private final AizPlaneIntroInstance parent;
     private int currentX;
     private int currentY;
     private int animFrame;
     private int animTimer;
 
     /**
-     * @param spawn       spawn position for the wave
-     * @param scrollSpeed pixels per frame to scroll left (from parent's SCROLL_SPEED)
+     * @param spawn  spawn position for the wave
+     * @param parent parent intro object (provides live scroll speed via $40(a0))
      */
-    public AizIntroWaveChild(ObjectSpawn spawn, int scrollSpeed) {
+    public AizIntroWaveChild(ObjectSpawn spawn, AizPlaneIntroInstance parent) {
         super(spawn, "AIZIntroWave");
-        this.scrollSpeed = scrollSpeed;
+        this.parent = parent;
         this.currentX = spawn.x();
         this.currentY = spawn.y();
     }
@@ -61,13 +64,13 @@ public class AizIntroWaveChild extends AbstractObjectInstance {
             return;
         }
 
-        // Scroll left by parent's scroll speed
-        currentX -= scrollSpeed;
+        // ROM: subtract parent.$40 each frame (speed changes from 8 -> 12 -> 16).
+        currentX -= parent.getScrollSpeed();
 
         // Animate through wave frames
         if (++animTimer >= ANIM_FRAME_DURATION) {
             animTimer = 0;
-            animFrame++;
+            animFrame = (animFrame + 1) % WAVE_FRAME_COUNT;
         }
 
         // Self-delete when scrolled off left side of screen
@@ -84,6 +87,14 @@ public class AizIntroWaveChild extends AbstractObjectInstance {
     public void appendRenderCommands(List<GLCommand> commands) {
         PatternSpriteRenderer renderer = AizIntroArtLoader.getIntroSpritesRenderer();
         if (renderer == null || !renderer.isReady()) return;
-        renderer.drawFrameIndex(animFrame, currentX, currentY, false, false);
+        // Screen-space coordinates use the ROM +128 sprite-table bias.
+        int renderX = currentX;
+        int renderY = currentY;
+        try {
+            Camera camera = Camera.getInstance();
+            renderX += camera.getX() - 128;
+            renderY += camera.getY() - 128;
+        } catch (Exception ignored) {}
+        renderer.drawFrameIndex(animFrame, renderX, renderY, false, false);
     }
 }
