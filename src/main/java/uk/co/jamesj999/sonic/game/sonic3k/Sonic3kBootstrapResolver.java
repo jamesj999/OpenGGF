@@ -11,6 +11,10 @@ import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kZoneIds;
  * {@link #getIntroStartPosition(int, int)} to support its intro sequence.
  */
 public final class Sonic3kBootstrapResolver {
+    // ROM source of truth: sonic3k.asm:38174-38177 (Level_FromSavedGame override)
+    // move.w #$40,(Player_1+x_pos).w / move.w #$420,(Player_1+y_pos).w
+    private static final int[] AIZ1_INTRO_START_POS = new int[]{0x40, 0x420};
+
     private Sonic3kBootstrapResolver() {
     }
 
@@ -37,7 +41,7 @@ public final class Sonic3kBootstrapResolver {
 
     /** Per-zone intro start positions. Returns null if zone has no intro. */
     private static int[] getIntroStartPosition(int zone, int act) {
-        if (zone == Sonic3kZoneIds.ZONE_AIZ && act == 0) return new int[]{0x60, 0x30};
+        if (zone == Sonic3kZoneIds.ZONE_AIZ && act == 0) return AIZ1_INTRO_START_POS.clone();
         // Future zones: add entries here
         return null;
     }

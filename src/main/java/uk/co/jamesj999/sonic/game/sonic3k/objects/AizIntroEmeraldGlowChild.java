@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
@@ -72,6 +73,14 @@ public class AizIntroEmeraldGlowChild extends AbstractObjectInstance {
     public void appendRenderCommands(List<GLCommand> commands) {
         PatternSpriteRenderer renderer = AizIntroArtLoader.getEmeraldRenderer();
         if (renderer == null || !renderer.isReady()) return;
-        renderer.drawFrameIndex(GLOW_FRAMES[animIndex], getX(), getY(), false, false);
+        // Screen-space coordinates use the ROM +128 sprite-table bias.
+        int renderX = getX();
+        int renderY = getY();
+        try {
+            Camera camera = Camera.getInstance();
+            renderX += camera.getX() - 128;
+            renderY += camera.getY() - 128;
+        } catch (Exception ignored) {}
+        renderer.drawFrameIndex(GLOW_FRAMES[animIndex], renderX, renderY, false, false);
     }
 }

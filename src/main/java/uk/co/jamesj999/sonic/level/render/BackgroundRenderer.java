@@ -50,6 +50,9 @@ public class BackgroundRenderer {
 
     private boolean initialized = false;
     private final int[] savedViewport = new int[4];
+    private float backdropR = 0.0f;
+    private float backdropG = 0.0f;
+    private float backdropB = 0.0f;
 
     /**
      * Initialize the background renderer with FBO and shader.
@@ -79,6 +82,15 @@ public class BackgroundRenderer {
 
     public ParallaxShaderProgram getParallaxShader() {
         return parallaxShader;
+    }
+
+    /**
+     * Sets the backdrop color used when transparent background pixels are resolved.
+     */
+    public void setBackdropColor(float r, float g, float b) {
+        this.backdropR = r;
+        this.backdropG = g;
+        this.backdropB = b;
     }
 
     /**
@@ -202,8 +214,12 @@ public class BackgroundRenderer {
         // Set dimensions and scroll
         parallaxShader.setScreenDimensions(realWidth, realHeight);
         parallaxShader.setBGTextureDimensions(fboWidth, fboHeight);
+        parallaxShader.setScrollMidpoint(0);
+        parallaxShader.setExtraBuffer(0);
         parallaxShader.setVScrollBG(vScrollBG);
         parallaxShader.setViewportOffset(viewportX, viewportY);
+        parallaxShader.setBackdropColor(backdropR, backdropG, backdropB);
+        parallaxShader.setFillTransparentWithBackdrop(true);
 
         // Bind textures
         glActiveTexture(GL_TEXTURE0);
@@ -267,6 +283,8 @@ public class BackgroundRenderer {
         parallaxShader.setExtraBuffer(extraBuffer);
         parallaxShader.setVScroll((float) fboVScroll);
         parallaxShader.setViewportOffset(viewportX, viewportY);
+        parallaxShader.setBackdropColor(backdropR, backdropG, backdropB);
+        parallaxShader.setFillTransparentWithBackdrop(true);
 
         // Bind textures
         glActiveTexture(GL_TEXTURE0);

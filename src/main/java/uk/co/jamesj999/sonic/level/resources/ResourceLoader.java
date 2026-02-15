@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.level.resources;
 
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.tools.KosinskiReader;
+import uk.co.jamesj999.sonic.tools.NemesisReader;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -149,8 +150,12 @@ public class ResourceLoader {
      */
     private byte[] decompressKosinski(int romAddr) throws IOException {
         FileChannel channel = rom.getFileChannel();
-        channel.position(romAddr);
-        return KosinskiReader.decompress(channel, KOS_DEBUG_LOG);
+        // Rom exposes a shared FileChannel; lock around seek+decode so concurrent
+        // readers cannot move the channel position mid-stream.
+        synchronized (rom) {
+            channel.position(romAddr);
+            return KosinskiReader.decompress(channel, KOS_DEBUG_LOG);
+        }
     }
 
     /**
@@ -179,11 +184,15 @@ public class ResourceLoader {
 
     /**
      * Decompresses Nemesis-compressed data from the specified ROM address.
-     * Currently throws UnsupportedOperationException as Nemesis is not used for level data.
      */
     private byte[] decompressNemesis(int romAddr) throws IOException {
-        throw new UnsupportedOperationException(
-                "Nemesis decompression not yet implemented in ResourceLoader");
+        FileChannel channel = rom.getFileChannel();
+        // Rom exposes a shared FileChannel; lock around seek+decode so concurrent
+        // readers cannot move the channel position mid-stream.
+        synchronized (rom) {
+            channel.position(romAddr);
+            return NemesisReader.decompress(channel);
+        }
     }
 
     /**

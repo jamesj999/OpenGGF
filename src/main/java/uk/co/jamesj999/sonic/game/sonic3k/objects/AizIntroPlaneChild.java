@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
@@ -92,17 +93,7 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
         if (walkLeft) {
             // Walk left mode: move left 4px/frame, continue swinging
             currentX -= 4;
-
-            // Continue swing oscillation
-            SwingMotion.Result result = SwingMotion.update(
-                    SWING_ACCELERATION, swingVelocity, SWING_MAX_VELOCITY, swingDirectionDown);
-            swingVelocity = result.velocity();
-            swingDirectionDown = result.directionDown();
-
-            // Subpixel Y accumulation for swing
-            int yTotal = (ySub & 0xFF) + (swingVelocity & 0xFF);
-            currentY += (swingVelocity >> 8) + (yTotal >> 8);
-            ySub = yTotal & 0xFF;
+            applySwingMove();
 
             // Self-delete when walked off-screen
             if (currentX < DELETE_X) {
@@ -111,30 +102,13 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
             }
         } else if (detached) {
             // Detached mode: swing independently, don't follow parent
-            SwingMotion.Result result = SwingMotion.update(
-                    SWING_ACCELERATION, swingVelocity, SWING_MAX_VELOCITY, swingDirectionDown);
-            swingVelocity = result.velocity();
-            swingDirectionDown = result.directionDown();
-
-            // Subpixel Y accumulation for swing
-            int yTotal = (ySub & 0xFF) + (swingVelocity & 0xFF);
-            currentY += (swingVelocity >> 8) + (yTotal >> 8);
-            ySub = yTotal & 0xFF;
+            applySwingMove();
         } else {
-            // Normal mode: follow parent position with offset
+            // ROM order: Swing_UpAndDown + MoveSprite2, then Refresh_ChildPosition
+            // while attached. Refresh_ChildPosition overrides X/Y to parent+offset.
+            applySwingMove();
             currentX = parent.getX() + PARENT_X_OFFSET;
             currentY = parent.getY() + PARENT_Y_OFFSET;
-
-            // Apply swing oscillation to Y
-            SwingMotion.Result result = SwingMotion.update(
-                    SWING_ACCELERATION, swingVelocity, SWING_MAX_VELOCITY, swingDirectionDown);
-            swingVelocity = result.velocity();
-            swingDirectionDown = result.directionDown();
-
-            // Subpixel Y accumulation for swing
-            int yTotal = (ySub & 0xFF) + (swingVelocity & 0xFF);
-            currentY += (swingVelocity >> 8) + (yTotal >> 8);
-            ySub = yTotal & 0xFF;
         }
 
         // Update booster flame children
@@ -185,11 +159,30 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
         this.mappingFrame = mappingFrame;
     }
 
+    private void applySwingMove() {
+        SwingMotion.Result result = SwingMotion.update(
+                SWING_ACCELERATION, swingVelocity, SWING_MAX_VELOCITY, swingDirectionDown);
+        swingVelocity = result.velocity();
+        swingDirectionDown = result.directionDown();
+
+        int yTotal = (ySub & 0xFF) + (swingVelocity & 0xFF);
+        currentY += (swingVelocity >> 8) + (yTotal >> 8);
+        ySub = yTotal & 0xFF;
+    }
+
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         PatternSpriteRenderer renderer = AizIntroArtLoader.getPlaneRenderer();
         if (renderer == null || !renderer.isReady()) return;
-        renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
+        // Screen-space coordinates use the ROM +128 sprite-table bias.
+        int renderX = currentX;
+        int renderY = currentY;
+        try {
+            Camera camera = Camera.getInstance();
+            renderX += camera.getX() - 128;
+            renderY += camera.getY() - 128;
+        } catch (Exception ignored) {}
+        renderer.drawFrameIndex(mappingFrame, renderX, renderY, false, false);
 
         // Render booster flames
         if (booster1 != null) {

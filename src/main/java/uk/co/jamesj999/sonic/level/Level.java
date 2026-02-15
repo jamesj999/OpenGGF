@@ -84,6 +84,24 @@ public interface Level {
     default int getChunksPerBlockSide() { return 8; }
 
     /**
+     * Returns layout width in 128x128 blocks for the given layer.
+     * Default implementation uses the shared map dimensions.
+     */
+    default int getLayerWidthBlocks(int layer) {
+        Map map = getMap();
+        return map != null ? map.getWidth() : 0;
+    }
+
+    /**
+     * Returns layout height in 128x128 blocks for the given layer.
+     * Default implementation uses the shared map dimensions.
+     */
+    default int getLayerHeightBlocks(int layer) {
+        Map map = getMap();
+        return map != null ? map.getHeight() : 0;
+    }
+
+    /**
      * Resolves the collision block index for a given map cell.
      * In Sonic 1, loop-flagged blocks use the next block (index + 1) for
      * collision when the player is on the "low plane."

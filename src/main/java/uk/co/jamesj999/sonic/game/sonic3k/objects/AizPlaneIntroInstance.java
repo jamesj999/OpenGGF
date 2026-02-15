@@ -1,12 +1,16 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.data.RomByteReader;
+import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kPlayerArt;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.physics.SwingMotion;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+import uk.co.jamesj999.sonic.sprites.render.PlayerSpriteRenderer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -112,6 +116,10 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     /** Minimum X for wave spawning. */
     static final int WAVE_SPAWN_MIN_X = 0x80;
+    /** Intro mapping frame used before the Super Sonic phase. */
+    static final int INTRO_MAPPING_FRAME = 0xBA;
+    /** Super Sonic intro mapping frame base (sub_679B8 alternates 0x21/0x22). */
+    static final int SUPER_MAPPING_FRAME_BASE = 0x21;
 
     // -----------------------------------------------------------------------
     // Mutable state
@@ -178,6 +186,10 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private final ArrayList<AizEmeraldScatterInstance> emeralds = new ArrayList<>();
 
     private int mappingFrame;
+    private int lastFrameCounter;
+    private PlayerSpriteRenderer sonicRenderer;
+    private PlayerSpriteRenderer superSonicRenderer;
+    private boolean renderersLoaded;
 
     /** ROM $40 field — scroll speed. Changes at routine transitions. */
     private int scrollSpeed = 8;
@@ -187,9 +199,19 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     /** Current intro scroll offset for SwScrlAiz BG parallax. */
     private static int introScrollOffset = 0;
+    /** Set once intro transitions to the post-$1400 main-level phase. */
+    private static boolean mainLevelPhaseActive = false;
+    /** Prevent repeated terrain swap attempts. */
+    private static boolean mainLevelTerrainSwapAttempted = false;
 
     /** Returns the current Events_fg_1 accumulator value for BG parallax. */
     public static int getIntroScrollOffset() { return introScrollOffset; }
+    public static boolean isMainLevelPhaseActive() { return mainLevelPhaseActive; }
+    public static void resetIntroPhaseState() {
+        introScrollOffset = 0;
+        mainLevelPhaseActive = false;
+        mainLevelTerrainSwapAttempted = false;
+    }
 
     // -----------------------------------------------------------------------
     // Constructor
@@ -214,6 +236,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         this.superSonicActive = false;
         this.paletteCycler = new AizIntroPaletteCycler();
         this.ownsPlayerControl = false;
+        this.mappingFrame = INTRO_MAPPING_FRAME;
+        this.lastFrameCounter = 0;
+        this.renderersLoaded = false;
     }
 
     // -----------------------------------------------------------------------
@@ -237,33 +262,71 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
+        lastFrameCounter = frameCounter;
+        AbstractPlayableSprite trackedPlayer = resolveTrackedPlayer(player);
+
+        // ROM: sub_67A08 (scroll velocity) runs BEFORE routine dispatch
+        scrollVelocity(trackedPlayer);
+        maybeActivateMainLevelPhase();
+
         switch (routine) {
-            case 0  -> routine0Init(player);
-            case 2  -> routine2Wait(player);
-            case 4  -> routine4Descent(player);
-            case 6  -> routine6SwingWait(player);
-            case 8  -> routine8LiftOff(player);
-            case 10 -> routine10GroundDecel(player);
-            case 12 -> routine12SuperFlash(player);
-            case 14 -> routine14WalkRight(player);
-            case 16 -> routine16Wait(player);
-            case 18 -> routine18WalkLeft(player);
-            case 20 -> routine20Wait(player);
-            case 22 -> routine22MonitorKnux(player);
-            case 24 -> routine24MonitorApproach(player);
-            case 26 -> routine26Explode(player);
+            case 0  -> routine0Init(trackedPlayer);
+            case 2  -> routine2Wait(trackedPlayer);
+            case 4  -> routine4Descent(trackedPlayer);
+            case 6  -> routine6SwingWait(trackedPlayer);
+            case 8  -> routine8LiftOff(trackedPlayer);
+            case 10 -> routine10GroundDecel(trackedPlayer);
+            case 12 -> routine12SuperFlash(trackedPlayer);
+            case 14 -> routine14WalkRight(trackedPlayer);
+            case 16 -> routine16Wait(trackedPlayer);
+            case 18 -> routine18WalkLeft(trackedPlayer);
+            case 20 -> routine20Wait(trackedPlayer);
+            case 22 -> routine22MonitorKnux(trackedPlayer);
+            case 24 -> routine24MonitorApproach(trackedPlayer);
+            case 26 -> routine26Explode(trackedPlayer);
             default -> {
                 // Invalid routine - no-op
             }
         }
+    }
 
-        // ROM: sub_45DE4 called unconditionally after routine dispatch
-        scrollVelocity(player);
+    /**
+     * Resolve the intro-controlled player.
+     *
+     * Prefer the camera-focused sprite because that's what camera follow uses.
+     * This prevents intro progression from stalling when the caller passes null
+     * (or a non-focused sprite) during object updates.
+     */
+    private AbstractPlayableSprite resolveTrackedPlayer(AbstractPlayableSprite candidate) {
+        try {
+            AbstractPlayableSprite focused = Camera.getInstance().getFocusedSprite();
+            if (focused != null) {
+                return focused;
+            }
+        } catch (Exception ignored) {
+            // Fall through to candidate.
+        }
+        return candidate;
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Parent is an orchestrator only — the child AizIntroPlaneChild renders the plane visual.
+        ensureIntroSonicRenderersLoaded();
+        PlayerSpriteRenderer renderer = superSonicActive ? superSonicRenderer : sonicRenderer;
+        if (renderer == null) {
+            return;
+        }
+        // ROM render_flags bit 2 clear uses screen-space coordinates in the
+        // sprite table domain where (128,128) maps to top-left screen origin.
+        // Convert that to our world-space render input.
+        int renderX = currentX;
+        int renderY = currentY;
+        try {
+            Camera camera = Camera.getInstance();
+            renderX += camera.getX() - 128;
+            renderY += camera.getY() - 128;
+        } catch (Exception ignored) {}
+        renderer.drawFrame(mappingFrame, renderX, renderY, false, false);
     }
 
     @Override
@@ -282,15 +345,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         }
         activeWaves.clear();
         emeralds.clear();
-        // Reset static intro state
-        introScrollOffset = 0;
-        try { Camera.getInstance().setFrozen(false); } catch (Exception ignored) {}
-        // Release cached art data so it can be reloaded on next level entry.
-        try {
-            AizIntroArtLoader.reset();
-        } catch (Exception e) {
-            // Ignore in test environments
-        }
+        // Art reset moved to CutsceneKnucklesAiz1Instance.onUnload() —
+        // Knuckles (and emeralds, rock child) still need the shared art data
+        // after the plane parent destroys itself mid-cutscene.
     }
 
     // -----------------------------------------------------------------------
@@ -299,6 +356,20 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     public int getRoutine() {
         return routine;
+    }
+
+    int getScrollSpeed() {
+        return scrollSpeed;
+    }
+
+    /** Returns whether intro Super Sonic visual mode is currently active. */
+    public boolean isSuperSonicVisualActive() {
+        return superSonicActive;
+    }
+
+    /** Returns the current intro mapping frame used for rendering. */
+    public int getMappingFrame() {
+        return mappingFrame;
     }
 
     public void advanceRoutine() {
@@ -330,6 +401,21 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         }
     }
 
+    private void ensureIntroSonicRenderersLoaded() {
+        if (renderersLoaded) {
+            return;
+        }
+        try {
+            var rom = GameServices.rom().getRom();
+            Sonic3kPlayerArt art = new Sonic3kPlayerArt(RomByteReader.fromRom(rom));
+            sonicRenderer = new PlayerSpriteRenderer(art.loadSonic());
+            superSonicRenderer = new PlayerSpriteRenderer(art.loadSuperSonicArtSet());
+            renderersLoaded = true;
+        } catch (Exception e) {
+            LOG.fine("Could not load AIZ intro Sonic renderers: " + e.getMessage());
+        }
+    }
+
     // -----------------------------------------------------------------------
     // MoveSprite helpers (subpixel position updates)
     // -----------------------------------------------------------------------
@@ -345,29 +431,73 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         ySub = yTotal & 0xFF;
     }
 
-    /** MoveSprite: same as moveSprite2 but applies gravity to y_vel first. */
+    /** MoveSprite: add old velocity to position, then apply gravity to y_vel. */
     private void moveSprite() {
+        int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
+        currentX += (xVel >> 8) + (xTotal >> 8);
+        xSub = xTotal & 0xFF;
+
+        int oldYVel = yVel;
         yVel += GRAVITY;
-        moveSprite2();
+        int yTotal = (ySub & 0xFF) + (oldYVel & 0xFF);
+        currentY += (oldYVel >> 8) + (yTotal >> 8);
+        ySub = yTotal & 0xFF;
     }
 
     /**
-     * ROM sub_45DE4: scroll velocity helper.
+     * ROM sub_67A08: scroll velocity helper.
      * Accumulates scrollSpeed into eventsFg1 (starts at -5864). While negative,
-     * the BG scrolls via introScrollOffset but the player/camera stay still.
-     * Once eventsFg1 reaches >= 0 (~733 frames), the camera unfreezes and the
-     * player starts scrolling rightward.
+     * the BG scrolls via introScrollOffset but the player stays still.
+     * Once eventsFg1 reaches >= 0 (~733 frames at 8px/frame), the player
+     * starts scrolling rightward and the camera naturally follows.
+     *
+     * ROM only touches Events_fg_1 and Player_1+x_pos — no camera writes.
      */
     private void scrollVelocity(AbstractPlayableSprite player) {
-        eventsFg1 += scrollSpeed;
-        introScrollOffset = eventsFg1;
-        if (eventsFg1 >= 0) {
-            // Gate reached — stop BG intro parallax, start moving player
-            introScrollOffset = 0;
-            if (player != null) {
-                player.setCentreX((short) (player.getCentreX() + scrollSpeed));
-            }
-            try { Camera.getInstance().setFrozen(false); } catch (Exception ignored) {}
+        if (eventsFg1 < 0) {
+            eventsFg1 += scrollSpeed;
+            introScrollOffset = eventsFg1;
+            return;
+        }
+        // Gate reached: stop BG intro parallax, start moving player.
+        introScrollOffset = 0;
+        if (player != null) {
+            player.setCentreX((short) (player.getCentreX() + scrollSpeed));
+        }
+    }
+
+    /**
+     * ROM dynamic-resize transition point:
+     * once camera reaches X >= $1400, switch to main-level terrain overlays and
+     * leave the intro deformation phase.
+     */
+    public static void updateMainLevelPhaseForCameraX(int cameraX) {
+        if (mainLevelPhaseActive) {
+            return;
+        }
+        if ((cameraX & 0xFFFF) < 0x1400) {
+            return;
+        }
+
+        mainLevelPhaseActive = true;
+        if (mainLevelTerrainSwapAttempted) {
+            return;
+        }
+
+        mainLevelTerrainSwapAttempted = true;
+        boolean swapped = AizIntroTerrainSwap.applyMainLevelOverlays();
+        if (swapped) {
+            LOG.info("AIZ intro: main-level terrain overlays applied at cameraX >= 0x1400");
+        } else {
+            LOG.warning("AIZ intro: failed to apply main-level terrain overlays at transition point.");
+        }
+    }
+
+    private void maybeActivateMainLevelPhase() {
+        try {
+            updateMainLevelPhaseForCameraX(Camera.getInstance().getX());
+        } catch (Exception ignored) {
+            // Ignore camera access issues in isolated test paths.
         }
     }
 
@@ -382,7 +512,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             if (currentX >= WAVE_SPAWN_MIN_X) {
                 ObjectSpawn waveSpawn = new ObjectSpawn(
                         currentX, currentY + 0x18, 0, 0, 0, false, 0);
-                AizIntroWaveChild wave = new AizIntroWaveChild(waveSpawn, SCROLL_SPEED);
+                AizIntroWaveChild wave = new AizIntroWaveChild(waveSpawn, this);
                 spawnDynamicObject(wave);
                 activeWaves.add(wave);
             }
@@ -396,6 +526,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private void superSonicPaletteAnim() {
         paletteCycler.advance();
         paletteCycler.applyToGpu();
+        mappingFrame = paletteCycler.getMappingFrame(lastFrameCounter);
     }
 
     // -----------------------------------------------------------------------
@@ -404,6 +535,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     private void routine0Init(AbstractPlayableSprite player) {
         LOG.fine("Routine 0: initializing intro sequence");
+        resetIntroPhaseState();
 
         // ROM: set position (0x60, 0x30)
         currentX = 0x60;
@@ -413,6 +545,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         waitTimer = INIT_WAIT_TIMER;
         waveTimer = WAVE_SPAWN_INTERVAL;
         paletteCycler.init();
+        superSonicActive = false;
+        mappingFrame = INTRO_MAPPING_FRAME;
+        ensureIntroSonicRenderersLoaded();
 
         // Lock player control for the duration of the intro.
         // ROM: player.object_control = $53 (fully suppressed)
@@ -430,8 +565,12 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             LOG.fine("Could not load intro art (test env?): " + e.getMessage());
         }
 
-        // Freeze camera at (0,0) — ROM camera never moves during intro.
-        try { Camera.getInstance().setFrozen(true); } catch (Exception ignored) {}
+        // ROM: SpawnLevelMainSprites clears Level_started_flag for AIZ1 intro.
+        // This gates intro/HUD/start-state flow; camera scrolling still runs.
+        // CutsceneKnucklesAiz1Instance sets the flag back to $91 on exit.
+        try {
+            Camera.getInstance().setLevelStarted(false);
+        } catch (Exception ignored) {}
 
         // Do NOT spawn plane child here — that happens after the wait in routine 2.
         // Do NOT set velocity here — that happens after the wait in routine 2.
@@ -585,6 +724,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private void setupSuperSonic() {
         superSonicActive = true;
         paletteCycler.init();
+        mappingFrame = SUPER_MAPPING_FRAME_BASE;
     }
 
     // -----------------------------------------------------------------------
@@ -667,7 +807,6 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     private void routine20Wait(AbstractPlayableSprite player) {
         superSonicPaletteAnim();
-        tickWaveSpawn();
 
         secondaryTimer--;
         if (secondaryTimer < 0) {
@@ -682,7 +821,6 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     private void routine22MonitorKnux(AbstractPlayableSprite player) {
         superSonicPaletteAnim();
-        tickWaveSpawn();
 
         // ROM: check Player_1.x_pos >= 0x918
         int checkX = currentX; // fallback if no player (test env)
@@ -753,6 +891,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
                 ownsPlayerControl = false;
             }
 
+            // Apply emerald palette now (overwrites intro palette on line 3)
+            AizIntroArtLoader.applyEmeraldPalette();
+
             // Spawn 7 emeralds
             int spawnX = currentX;
             int spawnY = currentY;
@@ -781,3 +922,4 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         }
     }
 }
+

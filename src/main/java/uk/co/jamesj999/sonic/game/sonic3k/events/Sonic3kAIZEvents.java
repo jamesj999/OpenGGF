@@ -29,6 +29,9 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     public void init(int act) {
         super.init(act);
         introSpawned = false;
+        if (act == 0) {
+            AizPlaneIntroInstance.resetIntroPhaseState();
+        }
         if (shouldSpawnIntro(act)) {
             LOG.info("AIZ1 intro: will spawn intro object");
         }
@@ -36,6 +39,11 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     @Override
     public void update(int act, int frameCounter) {
+        if (act == 0 && shouldSpawnIntro(act)) {
+            // ROM parity: the AIZ1 transition check (camera X >= $1400) belongs to
+            // the level resize/event flow, not the plane object's lifetime.
+            AizPlaneIntroInstance.updateMainLevelPhaseForCameraX(camera.getX());
+        }
         if (act == 0 && !introSpawned && shouldSpawnIntro(act)) {
             spawnIntroObject();
             introSpawned = true;

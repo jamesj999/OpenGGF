@@ -64,6 +64,7 @@ import uk.co.jamesj999.sonic.sprites.Sprite;
 import uk.co.jamesj999.sonic.sprites.SensorConfiguration;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.AizPlaneIntroInstance;
 import uk.co.jamesj999.sonic.sprites.managers.SpindashDustController;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.managers.TailsTailsController;
@@ -94,6 +95,7 @@ public class LevelManager {
     private static final float SWITCHER_DEBUG_ALPHA = 0.35f;
     private static final int OBJECT_PATTERN_BASE = 0x20000;
     private static final int HUD_PATTERN_BASE = 0x28000;
+    private static final Palette.Color BLACK_BACKDROP = new Palette.Color((byte) 0, (byte) 0, (byte) 0);
     private static LevelManager levelManager;
     private Level level;
     private int blockPixelSize = 128;  // cached from level
@@ -1119,18 +1121,31 @@ public class LevelManager {
             return;
 
         Camera camera = Camera.getInstance();
+        Palette.Color backdropColor = resolveLevelBackdropColor();
+        bgRenderer.setBackdropColor(
+                backdropColor.rFloat(),
+                backdropColor.gFloat(),
+                backdropColor.bFloat());
 
-        // FBO is wider than screen to accommodate per-scanline scroll range
-        // For EHZ, scroll difference can be up to cameraX pixels between sky and ground
-        // Using 1024px width gives us 352px buffer on each side
-        int fboWidth = 1024; // Wide enough for most scroll ranges
+        ensureBackgroundTilemapData();
+
+        int[] hScrollData = parallaxManager.getHScrollForShader();
+        int bgPeriodWidthPixels = backgroundTilemapWidthTiles * Pattern.PATTERN_WIDTH;
+        if (isS3kAizIntroOceanPhase()) {
+            // ROM intro uses a 64x32 VDP plane redraw model; wrapping against full
+            // layout width causes sampling into empty trailing chunks ("staircase" strips).
+            bgPeriodWidthPixels = VDP_BG_PLANE_WIDTH_PX;
+        }
+        int fboWidth = Math.max(cachedScreenWidth, bgPeriodWidthPixels);
         // Add CHUNK_HEIGHT (16px) to cover VScroll range
         // This prevents bottom clipping when VScroll > 0 (max VScroll = 15, max gameY = 223, max fboY = 238 < 272)
         int fboHeight = 256 + LevelConstants.CHUNK_HEIGHT;
+        int shaderScrollMidpoint = 0;
+        int shaderExtraBuffer = 0;
+        float bgTilemapWorldOffsetX = 0.0f;
 
-        // Extra buffer on each side
-        int extraBuffer = (fboWidth - 320) / 2; // 352 pixels on each side
-
+        // ROM parity: use the full background plane period and direct wrap sampling.
+        // The intro path still uses the same VDP hscroll semantics as normal gameplay.
         // Get pattern renderer's screen height for correct Y coordinate handling
         int screenHeightPixels = cachedScreenHeight;
 
@@ -1139,9 +1154,13 @@ public class LevelManager {
         int actualBgScrollY = parallaxManager.getVscrollFactorBG();
 
         // 1. Resize FBO
+        final int finalFboWidth = fboWidth;
         final int finalFboHeight = fboHeight;
+        final float finalBgTilemapWorldOffsetX = bgTilemapWorldOffsetX;
+        final int finalShaderScrollMidpoint = shaderScrollMidpoint;
+        final int finalShaderExtraBuffer = shaderExtraBuffer;
         graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-            bgRenderer.resizeFBO(fboWidth, finalFboHeight);
+            bgRenderer.resizeFBO(finalFboWidth, finalFboHeight);
         }));
 
         // 2. Begin Tile Pass (Bind FBO)
@@ -1165,7 +1184,6 @@ public class LevelManager {
         int vOffset = actualBgScrollY - alignedBgY;
         final float fboWaterlineY = (float) ((waterLevelWorldY - camera.getY()) + vOffset);
 
-        ensureBackgroundTilemapData();
         graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
             bgRenderer.beginTilePass(screenHeightPixels, true);
             TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
@@ -1179,13 +1197,13 @@ public class LevelManager {
                     glGetIntegerv(GL_VIEWPORT, viewport);
                     tilemapRenderer.render(
                             TilemapGpuRenderer.Layer.BACKGROUND,
-                            fboWidth,
+                            finalFboWidth,
                             fboHeight,
                             viewport[0],
                             viewport[1],
                             viewport[2],
                             viewport[3],
-                            0.0f,
+                            finalBgTilemapWorldOffsetX,
                             (float) alignedBgYFinal,
                             graphicsManager.getPatternAtlasWidth(),
                             graphicsManager.getPatternAtlasHeight(),
@@ -1206,13 +1224,6 @@ public class LevelManager {
         // 5. Render the FBO with Parallax Shader
         Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
 
-        // Get the hScroll data and base scroll value (last line = furthest right in
-        // level)
-        int[] hScrollData = parallaxManager.getHScrollForShader();
-        int baseScrollForShader = (hScrollData != null && hScrollData.length > 0)
-                ? (short) (hScrollData[hScrollData.length - 1] & 0xFFFF)
-                : 0; // Use last line (bottom) as base
-
         if (paletteId != null) {
             int pId = paletteId;
             int screenW = cachedScreenWidth;
@@ -1228,11 +1239,26 @@ public class LevelManager {
             final int finalVOffset = shaderVOffset;
 
             graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx2, cy2, cw2, ch2) -> {
-                bgRenderer.renderWithScrollWide(hScrollData, baseScrollForShader, extraBuffer, finalVOffset, pId,
+                bgRenderer.renderWithScrollWide(hScrollData, finalShaderScrollMidpoint, finalShaderExtraBuffer,
+                        finalVOffset, pId,
                         screenW,
                         screenH);
             }));
         }
+    }
+
+    private boolean isS3kAizIntroOceanPhase() {
+        if (gameModule == null || !"Sonic3k".equals(gameModule.getIdentifier())) {
+            return false;
+        }
+        if (currentZone != 0 || currentAct != 0) {
+            return false;
+        }
+        if (AizPlaneIntroInstance.isMainLevelPhaseActive()) {
+            return false;
+        }
+        int introOffset = AizPlaneIntroInstance.getIntroScrollOffset();
+        return introOffset < 0;
     }
 
     private void enqueueForegroundTilemapPass(Camera camera, int priorityPass) {
@@ -1564,16 +1590,19 @@ public class LevelManager {
     }
 
     // VDP plane size for Sonic 2 normal levels: 64x32 cells = 512x256 pixels.
-    // The background tilemap wraps at this width to match original hardware.
+    // The background tilemap wraps at this width for Sonic 2's redraw-style pipeline.
     private static final int VDP_BG_PLANE_WIDTH_PX = 512;
 
     private TilemapData buildTilemapData(byte layerIndex) {
-        int fullLevelWidth = level.getMap().getWidth() * blockPixelSize;
-        int levelHeight = level.getMap().getHeight() * blockPixelSize;
+        int layerLevelWidth = getLayerLevelWidthPx(layerIndex);
+        int levelHeight = getLayerLevelHeightPx(layerIndex);
 
-        // Background wraps at VDP plane width (512px) to match original hardware.
-        // Foreground uses full level width.
-        int levelWidth = (layerIndex == 1) ? VDP_BG_PLANE_WIDTH_PX : fullLevelWidth;
+        // Keep Sonic 2's 512px BG wrap behavior (VDP plane redraw model).
+        // S3K uses a different background data flow in AIZ intro and needs full-width BG data.
+        boolean sonic2BgWrap = layerIndex == 1
+                && gameModule != null
+                && "Sonic2".equals(gameModule.getIdentifier());
+        int levelWidth = sonic2BgWrap ? VDP_BG_PLANE_WIDTH_PX : layerLevelWidth;
 
         int widthTiles = levelWidth / Pattern.PATTERN_WIDTH;
         int heightTiles = levelHeight / Pattern.PATTERN_HEIGHT;
@@ -1598,7 +1627,7 @@ public class LevelManager {
                 ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
                 int chunkIndex = chunkDesc.getChunkIndex();
 
-                if (chunkIndex == 0 || chunkIndex >= level.getChunkCount()) {
+                if (chunkIndex < 0 || chunkIndex >= level.getChunkCount()) {
                     writeEmptyChunk(data, widthTiles, heightTiles, chunkX, chunkY);
                     continue;
                 }
@@ -1738,7 +1767,7 @@ public class LevelManager {
                 ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
 
                 int chunkIndex = chunkDesc.getChunkIndex();
-                if (chunkIndex == 0 || chunkIndex >= level.getChunkCount()) {
+                if (chunkIndex < 0 || chunkIndex >= level.getChunkCount()) {
                     continue;
                 }
 
@@ -1923,7 +1952,7 @@ public class LevelManager {
                 ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
 
                 int chunkIndex = chunkDesc.getChunkIndex();
-                if (chunkIndex == 0 || chunkIndex >= level.getChunkCount()) {
+                if (chunkIndex < 0 || chunkIndex >= level.getChunkCount()) {
                     continue;
                 }
 
@@ -2202,14 +2231,30 @@ public class LevelManager {
      * @param y     the y-coordinate in pixels
      * @return the Block at the specified position, or null if not found
      */
+    private int getLayerLevelWidthPx(byte layer) {
+        if (level == null) {
+            return blockPixelSize;
+        }
+        int widthBlocks = Math.max(1, level.getLayerWidthBlocks(layer));
+        return widthBlocks * blockPixelSize;
+    }
+
+    private int getLayerLevelHeightPx(byte layer) {
+        if (level == null) {
+            return blockPixelSize;
+        }
+        int heightBlocks = Math.max(1, level.getLayerHeightBlocks(layer));
+        return heightBlocks * blockPixelSize;
+    }
+
     private Block getBlockAtPosition(byte layer, int x, int y) {
         if (level == null || level.getMap() == null) {
             LOGGER.warning("Level or Map is not initialized.");
             return null;
         }
 
-        int levelWidth = level.getMap().getWidth() * blockPixelSize;
-        int levelHeight = level.getMap().getHeight() * blockPixelSize;
+        int levelWidth = getLayerLevelWidthPx(layer);
+        int levelHeight = getLayerLevelHeightPx(layer);
 
         // Handle wrapping for X
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
@@ -2258,8 +2303,8 @@ public class LevelManager {
         if (level == null || level.getMap() == null) {
             return -1;
         }
-        int levelWidth = level.getMap().getWidth() * blockPixelSize;
-        int levelHeight = level.getMap().getHeight() * blockPixelSize;
+        int levelWidth = getLayerLevelWidthPx((byte) 0);
+        int levelHeight = getLayerLevelHeightPx((byte) 0);
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         if (y < 0 || y >= levelHeight) {
             return -1;
@@ -2276,12 +2321,12 @@ public class LevelManager {
             return null;
         }
 
-        int levelWidth = level.getMap().getWidth() * blockPixelSize;
+        int levelWidth = getLayerLevelWidthPx(layer);
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
 
         if (layer == 1) {
-            int levelHeight = level.getMap().getHeight() * blockPixelSize;
+            int levelHeight = getLayerLevelHeightPx(layer);
             wrappedY = ((y % levelHeight) + levelHeight) % levelHeight;
         }
 
@@ -2310,8 +2355,8 @@ public class LevelManager {
             return null;
         }
 
-        int levelWidth = level.getMap().getWidth() * blockPixelSize;
-        int levelHeight = level.getMap().getHeight() * blockPixelSize;
+        int levelWidth = getLayerLevelWidthPx((byte) 0);
+        int levelHeight = getLayerLevelHeightPx((byte) 0);
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
         if (wrappedY < 0 || wrappedY >= levelHeight) {
@@ -2452,6 +2497,17 @@ public class LevelManager {
     }
 
     /**
+     * Marks background/foreground tilemaps and pattern lookup as dirty.
+     * Use this after runtime terrain art/chunk overlays so the GPU tilemap
+     * data is rebuilt on the next render.
+     */
+    public void invalidateAllTilemaps() {
+        backgroundTilemapDirty = true;
+        foregroundTilemapDirty = true;
+        patternLookupDirty = true;
+    }
+
+    /**
      * Gets the music ID for the current level.
      * Returns -1 if no level is loaded or music ID cannot be determined.
      */
@@ -2556,16 +2612,13 @@ public class LevelManager {
             frameCounter = 0;
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
 
-            // Use checkpoint position if available, otherwise level start
-            // Note: Spawn Y coordinates from ROM data represent the sprite's CENTER
-            // position,
-            // but our setY() sets the top-left. We need to subtract yRadius to convert.
-            int yRadius = 19; // Sonic's standing yRadius
+            // Use checkpoint position if available, otherwise level start.
+            // ROM start/checkpoint coordinates are center-based.
             if (hasCheckpoint) {
-                player.setX((short) checkpointX);
-                player.setY((short) (checkpointY - yRadius));
+                player.setCentreX((short) checkpointX);
+                player.setCentreY((short) checkpointY);
                 LOGGER.info("Set player position from checkpoint: X=" + checkpointX + ", Y=" + checkpointY +
-                        " (adjusted by yRadius=" + yRadius + ")");
+                        " (center coordinates)");
             } else {
                 int spawnX = levelData.getStartXPos();
                 int spawnY = levelData.getStartYPos();
@@ -2583,11 +2636,11 @@ public class LevelManager {
                     }
                 }
 
-                player.setX((short) spawnX);
-                player.setY((short) (spawnY - yRadius));
+                player.setCentreX((short) spawnX);
+                player.setCentreY((short) spawnY);
                 LOGGER.info("Set player position from level start: X=" + spawnX +
-                        ", Y=" + spawnY + " (adjusted by yRadius=" + yRadius +
-                        ", level: " + levelData.name() + ")");
+                        ", Y=" + spawnY + " (center coordinates)" +
+                        ", level: " + levelData.name());
             }
 
             if (player instanceof AbstractPlayableSprite) {
@@ -2665,13 +2718,29 @@ public class LevelManager {
             // checkpoint)
             // In headless mode, skip title card by default to avoid control locking
             // during tests
-            if (showTitleCard && !graphicsManager.isHeadlessMode()) {
+            if (showTitleCard
+                    && !graphicsManager.isHeadlessMode()
+                    && !shouldSuppressInitialTitleCard()) {
                 requestTitleCard(currentZone, currentAct);
             }
 
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private boolean shouldSuppressInitialTitleCard() {
+        if (gameModule == null || !"Sonic3k".equals(gameModule.getIdentifier())) {
+            return false;
+        }
+        if (currentZone != 0 || currentAct != 0) {
+            return false;
+        }
+        if (configService.getBoolean(SonicConfiguration.S3K_SKIP_INTROS)) {
+            return false;
+        }
+        String mainCharacter = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        return mainCharacter != null && "sonic".equalsIgnoreCase(mainCharacter.trim());
     }
 
     public void nextAct() throws IOException {
@@ -2923,23 +2992,33 @@ public class LevelManager {
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             return;
         }
-        boolean forceBlack = false;
+        Palette.Color backdrop = resolveLevelBackdropColor();
+        glClearColor(backdrop.rFloat(), backdrop.gFloat(), backdrop.bFloat(), 1.0f);
+    }
 
+    private Palette.Color resolveLevelBackdropColor() {
+        if (level == null) {
+            return BLACK_BACKDROP;
+        }
+
+        if (isForceBlackBackdrop()) {
+            return BLACK_BACKDROP;
+        }
+
+        if (level.getPaletteCount() > 2) {
+            // VDP register 7 = $8720: backdrop is palette line 2, color 0.
+            return level.getPalette(2).getColor(0);
+        }
+        return BLACK_BACKDROP;
+    }
+
+    private boolean isForceBlackBackdrop() {
         if (level instanceof uk.co.jamesj999.sonic.game.sonic2.Sonic2Level) {
             int zoneId = ((uk.co.jamesj999.sonic.game.sonic2.Sonic2Level) level).getZoneIndex();
             // Zone 11 (0xB) is MCZ
-            if (zoneId == 11) {
-                forceBlack = true;
-            }
+            return zoneId == 11;
         }
-
-        if (!forceBlack && level.getPaletteCount() > 2) {
-            // VDP register 7 = $8720: backdrop is palette line 2, color 0.
-            Palette.Color backdrop = level.getPalette(2).getColor(0);
-            glClearColor(backdrop.rFloat(), backdrop.gFloat(), backdrop.bFloat(), 1.0f);
-        } else {
-            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        }
+        return false;
     }
 
     /**
@@ -3198,3 +3277,4 @@ public class LevelManager {
         }
     }
 }
+

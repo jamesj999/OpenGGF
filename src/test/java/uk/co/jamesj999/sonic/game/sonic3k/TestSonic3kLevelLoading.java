@@ -8,6 +8,8 @@ import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.game.sonic3k.scroll.Sonic3kZoneConstants;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
+import uk.co.jamesj999.sonic.level.Block;
+import uk.co.jamesj999.sonic.level.Chunk;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.physics.GroundSensor;
@@ -70,6 +72,96 @@ public class TestSonic3kLevelLoading {
     public void aizLoads() throws Exception {
         assertZoneLoads(Sonic3kZoneConstants.ZONE_AIZ, 0, "Angel Island Act 1");
         assertZoneLoads(Sonic3kZoneConstants.ZONE_AIZ, 1, "Angel Island Act 2");
+    }
+
+    @Test
+    public void aizIntroLayoutDimensionsMatchHeader() throws Exception {
+        Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
+        SpriteManager.getInstance().addSprite(sprite);
+        Camera camera = Camera.getInstance();
+        camera.setFocusedSprite(sprite);
+        camera.setFrozen(false);
+
+        levelManager.loadZoneAndAct(Sonic3kZoneConstants.ZONE_AIZ, 0);
+        GroundSensor.setLevelManager(levelManager);
+        camera.updatePosition(true);
+
+        Level level = levelManager.getCurrentLevel();
+        assertNotNull("AIZ1 level should not be null", level);
+        assertTrue("AIZ1 should load as Sonic3kLevel", level instanceof Sonic3kLevel);
+
+        // skdisasm AIZ intro layout header: FG 97x13, BG 66x11
+        assertEquals("AIZ1 FG layout width", 97, level.getLayerWidthBlocks(0));
+        assertEquals("AIZ1 FG layout height", 13, level.getLayerHeightBlocks(0));
+        assertEquals("AIZ1 BG layout width", 66, level.getLayerWidthBlocks(1));
+        assertEquals("AIZ1 BG layout height", 11, level.getLayerHeightBlocks(1));
+    }
+
+    @Test
+    public void aizIntroBlockZeroIsNotSanitizedEmpty() throws Exception {
+        Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
+        SpriteManager.getInstance().addSprite(sprite);
+        Camera camera = Camera.getInstance();
+        camera.setFocusedSprite(sprite);
+        camera.setFrozen(false);
+
+        levelManager.loadZoneAndAct(Sonic3kZoneConstants.ZONE_AIZ, 0);
+        GroundSensor.setLevelManager(levelManager);
+        camera.updatePosition(true);
+
+        Level level = levelManager.getCurrentLevel();
+        assertNotNull("AIZ1 level should not be null", level);
+
+        Block block0 = level.getBlock(0);
+        assertNotNull("Block 0 should exist", block0);
+        assertNotEquals("S3K AIZ intro uses non-empty block 0 in layout data", 0, block0.getChunkDesc(0, 0).get());
+    }
+
+    @Test
+    public void aizIntroChunkZeroIsValidAndReferenced() throws Exception {
+        Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
+        SpriteManager.getInstance().addSprite(sprite);
+        Camera camera = Camera.getInstance();
+        camera.setFocusedSprite(sprite);
+        camera.setFrozen(false);
+
+        levelManager.loadZoneAndAct(Sonic3kZoneConstants.ZONE_AIZ, 0);
+        GroundSensor.setLevelManager(levelManager);
+        camera.updatePosition(true);
+
+        Level level = levelManager.getCurrentLevel();
+        assertNotNull("AIZ1 level should not be null", level);
+
+        Chunk chunk0 = level.getChunk(0);
+        assertNotNull("Chunk 0 should exist", chunk0);
+
+        boolean chunk0HasPatternData = false;
+        for (int py = 0; py < 2 && !chunk0HasPatternData; py++) {
+            for (int px = 0; px < 2; px++) {
+                if (chunk0.getPatternDesc(px, py).get() != 0) {
+                    chunk0HasPatternData = true;
+                    break;
+                }
+            }
+        }
+        assertTrue("S3K AIZ intro uses non-empty chunk 0 data", chunk0HasPatternData);
+
+        boolean chunk0ReferencedByBlocks = false;
+        for (int blockIndex = 0; blockIndex < level.getBlockCount() && !chunk0ReferencedByBlocks; blockIndex++) {
+            Block block = level.getBlock(blockIndex);
+            if (block == null) {
+                continue;
+            }
+            for (int cy = 0; cy < 8 && !chunk0ReferencedByBlocks; cy++) {
+                for (int cx = 0; cx < 8; cx++) {
+                    if (block.getChunkDesc(cx, cy).getChunkIndex() == 0) {
+                        chunk0ReferencedByBlocks = true;
+                        break;
+                    }
+                }
+            }
+        }
+        assertTrue("S3K AIZ intro block data references chunk index 0", chunk0ReferencedByBlocks);
     }
 
     @Test

@@ -69,15 +69,15 @@ public class AizRockFragmentChild extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        // MoveSprite with gravity
-        yVel += GRAVITY;
-
         int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
         currentX += (xVel >> 8) + (xTotal >> 8);
         xSub = xTotal & 0xFF;
 
-        int yTotal = (ySub & 0xFF) + (yVel & 0xFF);
-        currentY += (yVel >> 8) + (yTotal >> 8);
+        // MoveSprite order: move with old y_vel, then apply gravity.
+        int oldYVel = yVel;
+        yVel += GRAVITY;
+        int yTotal = (ySub & 0xFF) + (oldYVel & 0xFF);
+        currentY += (oldYVel >> 8) + (yTotal >> 8);
         ySub = yTotal & 0xFF;
 
         // Delete when offscreen
@@ -88,7 +88,7 @@ public class AizRockFragmentChild extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        PatternSpriteRenderer renderer = AizIntroArtLoader.getKnucklesRenderer();
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getCorkFloorRenderer();
         if (renderer == null || !renderer.isReady()) return;
         renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
     }
