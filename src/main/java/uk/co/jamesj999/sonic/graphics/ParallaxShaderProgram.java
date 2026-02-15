@@ -32,6 +32,9 @@ public class ParallaxShaderProgram {
     private int viewportOffsetYLocation = -1;
     private int backdropColorLocation = -1;
     private int fillTransparentWithBackdropLocation = -1;
+    private int frameCounterLocation = -1;
+    private int shimmerStyleLocation = -1;
+    private int waterlineScreenYLocation = -1;
 
     private static final String FULLSCREEN_VERTEX_SHADER = "shaders/shader_fullscreen.vert";
 
@@ -90,6 +93,9 @@ public class ParallaxShaderProgram {
         viewportOffsetYLocation = glGetUniformLocation(programId, "ViewportOffsetY");
         backdropColorLocation = glGetUniformLocation(programId, "BackdropColor");
         fillTransparentWithBackdropLocation = glGetUniformLocation(programId, "FillTransparentWithBackdrop");
+        frameCounterLocation = glGetUniformLocation(programId, "FrameCounter");
+        shimmerStyleLocation = glGetUniformLocation(programId, "ShimmerStyle");
+        waterlineScreenYLocation = glGetUniformLocation(programId, "WaterlineScreenY");
 
         uniformsCached = true;
     }
@@ -180,6 +186,18 @@ public class ParallaxShaderProgram {
     public void setBackdropColor(float r, float g, float b) {
         if (backdropColorLocation >= 0) {
             glUniform3f(backdropColorLocation, r, g, b);
+        }
+    }
+
+    public void setShimmerParams(int frameCounter, int shimmerStyle, float waterlineScreenY) {
+        if (frameCounterLocation >= 0) {
+            glUniform1i(frameCounterLocation, frameCounter);
+        }
+        if (shimmerStyleLocation >= 0) {
+            glUniform1i(shimmerStyleLocation, shimmerStyle);
+        }
+        if (waterlineScreenYLocation >= 0) {
+            glUniform1f(waterlineScreenYLocation, waterlineScreenY);
         }
     }
 

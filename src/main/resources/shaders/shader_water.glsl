@@ -55,13 +55,13 @@ void main()
         float scanlinesBelow = pixelYFromTop - waterlineY;
 
         if (ShimmerStyle == 1) {
-            // S1: Integer-snapped shimmer effect
-            // Tighter frequency (~8 pixel wavelength), scrolls downward
-            // The original uses a lookup table indexed by (scanline + frame),
-            // creating chunky pixel-stepped waves
-            float angle = (scanlinesBelow * 0.785) + (float(FrameCounter) * 0.08);
-            float rawDistortion = sin(angle) * 1.5;
-            // Snap to integer pixels for authentic Genesis look
+            // S1-style shimmer enhancement. The original S1 does NOT use per-scanline
+            // horizontal distortion (underwater effect is purely palette swap + water
+            // surface sprite animation). This is an enhancement: broad waves (~125px
+            // wavelength) with integer pixel snapping, creating 1-2 visible ±1px
+            // shift bands that scroll upward with large undistorted gaps between them.
+            float angle = (scanlinesBelow * 0.05) + (float(FrameCounter) * 0.04);
+            float rawDistortion = sin(angle) * 2.0;
             distortion = floor(rawDistortion + 0.5);
         } else {
             // S2/S3K: Smooth procedural sine wave (existing behavior)

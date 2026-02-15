@@ -31,6 +31,8 @@ public class TilemapShaderProgram extends ShaderProgram {
     private int maskOutputLocation = -1;
     private int useUnderwaterPaletteLocation = -1;
     private int waterlineScreenYLocation = -1;
+    private int frameCounterLocation = -1;
+    private int shimmerStyleLocation = -1;
 
     private static final String FULLSCREEN_VERTEX_SHADER = "shaders/shader_fullscreen.vert";
 
@@ -65,6 +67,8 @@ public class TilemapShaderProgram extends ShaderProgram {
         maskOutputLocation = glGetUniformLocation(programId, "MaskOutput");
         useUnderwaterPaletteLocation = glGetUniformLocation(programId, "UseUnderwaterPalette");
         waterlineScreenYLocation = glGetUniformLocation(programId, "WaterlineScreenY");
+        frameCounterLocation = glGetUniformLocation(programId, "FrameCounter");
+        shimmerStyleLocation = glGetUniformLocation(programId, "ShimmerStyle");
     }
 
     public void setTextureUnits(int tilemapUnit, int lookupUnit, int atlasUnit, int paletteUnit,
@@ -158,6 +162,15 @@ public class TilemapShaderProgram extends ShaderProgram {
     public void setMaskOutput(boolean maskOutput) {
         if (maskOutputLocation >= 0) {
             glUniform1i(maskOutputLocation, maskOutput ? 1 : 0);
+        }
+    }
+
+    public void setShimmerParams(int frameCounter, int shimmerStyle) {
+        if (frameCounterLocation >= 0) {
+            glUniform1i(frameCounterLocation, frameCounter);
+        }
+        if (shimmerStyleLocation >= 0) {
+            glUniform1i(shimmerStyleLocation, shimmerStyle);
         }
     }
 
