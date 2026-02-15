@@ -65,6 +65,7 @@ public final class Sonic1ObjectIds {
     public static final int SEESAW          = 0x5E;
     public static final int BOMB            = 0x5F;
     public static final int ORBINAUT        = 0x60;
+    public static final int BUBBLES         = 0x64;
     public static final int INVISIBLE_BARRIER = 0x71;
     public static final int MZ_BOSS           = 0x73; // id_BossMarble
     public static final int BOSS_FIRE         = 0x74; // id_BossFire

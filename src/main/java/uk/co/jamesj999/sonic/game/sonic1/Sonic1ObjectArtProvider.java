@@ -206,10 +206,11 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadSlzCollapsingFloorArt(rom);
         }
 
-        // Load LZ-specific art (push block, moving block)
+        // Load LZ-specific art (push block, moving block, bubbles)
         if (zoneIndex == Sonic1Constants.ZONE_LZ) {
             loadLzPushBlockArt(rom);
             loadLzMovingBlockArt(rom);
+            loadBubblesArt(rom);
         }
 
         // Load SYZ-specific art (bumper, big spiked ball, small spikeball chain)
@@ -4065,6 +4066,134 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // make_art_tile(ArtTile_LZ_Moving_Block, 2, 0) -> palette line 2, no priority
         ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
         registerSheet(ObjectArtKeys.LZ_MOVING_BLOCK, sheet);
+    }
+
+    /**
+     * Loads LZ Bubbles art (Nem_Bubbles) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/64 Bubbles.asm:
+     * <pre>
+     *   move.w  #make_art_tile(ArtTile_LZ_Bubbles,0,1),obGfx(a0)
+     * </pre>
+     * ArtTile_LZ_Bubbles = $348, palette line 0, priority 1.
+     * <p>
+     * Mappings from docs/s1disasm/_maps/Bubbles.asm (Map_Bub_internal).
+     * 23 mapping frames: bubble growth (0-6), burst (7-8), countdown numbers (9-18),
+     * bubble maker (19-21), blank (22).
+     */
+    private void loadBubblesArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_LZ_BUBBLES_ADDR, "Bubbles");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load LZ bubbles art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createBubblesMappings();
+        // make_art_tile(ArtTile_LZ_Bubbles, 0, 1) -> palette line 0, priority 1
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.LZ_BUBBLES, sheet);
+    }
+
+    /**
+     * Creates sprite mappings for LZ Bubbles from docs/s1disasm/_maps/Bubbles.asm.
+     * S1 mapping format: 5 bytes per piece (y, size, pattern_hi, pattern_lo, x).
+     * <p>
+     * 23 frames total:
+     * 0-6: Bubble growth stages (1x1 to 4x4)
+     * 7-8: Burst animation (4-piece mirrored quads)
+     * 9-12: Small (partially formed) countdown numbers
+     * 13-18: Full countdown numbers (palette 1)
+     * 19-21: Bubble maker animation
+     * 22: Blank frame (no pieces)
+     */
+    private List<SpriteMappingFrame> createBubblesMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (bubble1): 1x1 at (-4,-4), tile 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -4, 1, 1, 0x00, false, false, 0, false))));
+        // Frame 1 (bubble2): 1x1 at (-4,-4), tile 1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -4, 1, 1, 0x01, false, false, 0, false))));
+        // Frame 2 (bubble3): 1x1 at (-4,-4), tile 2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -4, 1, 1, 0x02, false, false, 0, false))));
+        // Frame 3 (bubble4): 2x2 at (-8,-8), tile 3
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x03, false, false, 0, false))));
+        // Frame 4 (bubble5): 2x2 at (-8,-8), tile 7
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x07, false, false, 0, false))));
+        // Frame 5 (bubble6): 3x3 at (-12,-12), tile 0x0B
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-12, -12, 3, 3, 0x0B, false, false, 0, false))));
+        // Frame 6 (bubblefull): 4x4 at (-16,-16), tile 0x14
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-16, -16, 4, 4, 0x14, false, false, 0, false))));
+
+        // Frame 7 (burst1): 4 pieces - 2x2 mirrored quad, tile 0x24
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-16, -16, 2, 2, 0x24, false, false, 0, false),
+                new SpriteMappingPiece(  0, -16, 2, 2, 0x24, true,  false, 0, false),
+                new SpriteMappingPiece(-16,   0, 2, 2, 0x24, false, true,  0, false),
+                new SpriteMappingPiece(  0,   0, 2, 2, 0x24, true,  true,  0, false))));
+        // Frame 8 (burst2): 4 pieces - 2x2 mirrored quad, tile 0x28
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-16, -16, 2, 2, 0x28, false, false, 0, false),
+                new SpriteMappingPiece(  0, -16, 2, 2, 0x28, true,  false, 0, false),
+                new SpriteMappingPiece(-16,   0, 2, 2, 0x28, false, true,  0, false),
+                new SpriteMappingPiece(  0,   0, 2, 2, 0x28, true,  true,  0, false))));
+
+        // Frames 9-12: Small (partially-formed) countdown numbers, palette 0
+        // Frame 9 (zero_sm): 2x3 at (-8,-12), tile 0x2C
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -12, 2, 3, 0x2C, false, false, 0, false))));
+        // Frame 10 (five_sm): 2x3 at (-8,-12), tile 0x32
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -12, 2, 3, 0x32, false, false, 0, false))));
+        // Frame 11 (three_sm): 2x3 at (-8,-12), tile 0x38
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -12, 2, 3, 0x38, false, false, 0, false))));
+        // Frame 12 (one_sm): 2x3 at (-8,-12), tile 0x3E
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -12, 2, 3, 0x3E, false, false, 0, false))));
+
+        // Frames 13-18: Full countdown numbers, palette 1 (priority bit set in mapping)
+        // Frame 13 (zero): 2x3 at (-8,-12), tile 0x44, pal 1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -12, 2, 3, 0x44, false, false, 1, false))));
+        // Frame 14 (five): 2x3 at (-8,-12), tile 0x4A, pal 1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -12, 2, 3, 0x4A, false, false, 1, false))));
+        // Frame 15 (four): 2x3 at (-8,-12), tile 0x50, pal 1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -12, 2, 3, 0x50, false, false, 1, false))));
+        // Frame 16 (three): 2x3 at (-8,-12), tile 0x56, pal 1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -12, 2, 3, 0x56, false, false, 1, false))));
+        // Frame 17 (two): 2x3 at (-8,-12), tile 0x5C, pal 1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -12, 2, 3, 0x5C, false, false, 1, false))));
+        // Frame 18 (one): 2x3 at (-8,-12), tile 0x62, pal 1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -12, 2, 3, 0x62, false, false, 1, false))));
+
+        // Frames 19-21: Bubble maker animation, palette 0
+        // Frame 19 (bubmaker1): 2x2 at (-8,-8), tile 0x68
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x68, false, false, 0, false))));
+        // Frame 20 (bubmaker2): 2x2 at (-8,-8), tile 0x6C
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x6C, false, false, 0, false))));
+        // Frame 21 (bubmaker3): 2x2 at (-8,-8), tile 0x70
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x70, false, false, 0, false))));
+
+        // Frame 22 (blank): no pieces
+        frames.add(new SpriteMappingFrame(List.of()));
+
+        return frames;
     }
 
     /**

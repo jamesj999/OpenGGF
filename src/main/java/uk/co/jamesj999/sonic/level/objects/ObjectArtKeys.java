@@ -99,6 +99,9 @@ public final class ObjectArtKeys {
     public static final String SYZ_SPINNING_LIGHT = "syz_spinning_light";
     public static final String SYZ_BOSS_BLOCK = "syz_boss_block";
 
+    // LZ bubbles (S1)
+    public static final String LZ_BUBBLES = "lz_bubbles";
+
     // SYZ bumper (S1)
     public static final String BUMPER = "bumper";
 

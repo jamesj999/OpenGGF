@@ -161,6 +161,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                         LevelManager.getInstance().getRomZoneId()));
         factories.put(Sonic1ObjectIds.BIG_SPIKED_BALL,
                 (spawn, registry) -> new Sonic1BigSpikedBallObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.BUBBLES,
+                (spawn, registry) -> new Sonic1BubblesObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.INVISIBLE_BARRIER,
                 (spawn, registry) -> new Sonic1InvisibleBarrierObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GHZ_BOSS,
@@ -246,6 +248,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.SEESAW -> "Seesaw";
             case Sonic1ObjectIds.BOMB -> "Bomb";
             case Sonic1ObjectIds.ORBINAUT -> "Orbinaut";
+            case Sonic1ObjectIds.BUBBLES -> "Bubbles";
             case Sonic1ObjectIds.INVISIBLE_BARRIER -> "InvisibleBarrier";
             case Sonic1ObjectIds.CATERKILLER -> "Caterkiller";
             case Sonic1ObjectIds.LAMPPOST -> "Lamppost";

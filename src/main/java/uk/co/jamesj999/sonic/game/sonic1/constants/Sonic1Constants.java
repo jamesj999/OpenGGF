@@ -567,6 +567,11 @@ public final class Sonic1Constants {
      */
     public static final int[] SS_SCROLL_BAND_WIDTHS = {6, 0x30, 0x30, 0x30, 0x28, 0x18, 0x18, 0x18};
 
+    // Nem_Bubbles: Nemesis-compressed LZ bubble & countdown art (1622 bytes)
+    // ArtTile_LZ_Bubbles = $348, loaded via PLC_LZ
+    // Verified by RomOffsetFinder --game s1 search Bubbles
+    public static final int ART_NEM_LZ_BUBBLES_ADDR = 0x30EE8;
+
     // ---- Labyrinth Zone water surface art (Nemesis compressed) ----
     // Nem_Water: 292 bytes compressed, 16 tiles decompressed (2 sets of 8 tiles).
     // Loaded into VRAM at ArtTile_LZ_Water_Surface ($300) via PLC_LZ.
