@@ -1,8 +1,8 @@
 package uk.co.jamesj999.sonic.sprites.playable;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
+import uk.co.jamesj999.sonic.audio.GameAudioProfile;
 import uk.co.jamesj999.sonic.audio.GameSound;
-import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 import uk.co.jamesj999.sonic.game.sonic2.objects.BreathingBubbleInstance;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.physics.Direction;
@@ -138,8 +138,11 @@ public class DrowningController {
 
         // Check for drowning music
         if (remainingAir == DROWNING_MUSIC_LEVEL && !drowningMusicStarted) {
-            AudioManager.getInstance().playMusic(Sonic2Music.UNDERWATER.id);
-            drowningMusicStarted = true;
+            GameAudioProfile audioProfile = AudioManager.getInstance().getAudioProfile();
+            if (audioProfile != null) {
+                AudioManager.getInstance().playMusic(audioProfile.getDrowningMusicId());
+                drowningMusicStarted = true;
+            }
         }
 
         // Check for countdown bubble
