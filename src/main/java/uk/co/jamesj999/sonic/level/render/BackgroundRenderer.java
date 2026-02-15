@@ -41,8 +41,13 @@ public class BackgroundRenderer {
     private int fboTextureId = -1;
     private int fboDepthId = -1;
 
-    private int fboWidth = DEFAULT_FBO_WIDTH;
-    private int fboHeight = DEFAULT_FBO_HEIGHT;
+    // GPU allocation dimensions (grow-only, may be larger than current render area)
+    private int fboAllocWidth = DEFAULT_FBO_WIDTH;
+    private int fboAllocHeight = DEFAULT_FBO_HEIGHT;
+
+    // Current render viewport dimensions (set per-frame via beginTilePass)
+    private int renderWidth = DEFAULT_FBO_WIDTH;
+    private int renderHeight = DEFAULT_FBO_HEIGHT;
 
     private HScrollBuffer hScrollBuffer;
     private ParallaxShaderProgram parallaxShader;
@@ -74,10 +79,10 @@ public class BackgroundRenderer {
         quadRenderer.init();
 
         // Create FBO for background tile rendering
-        createFBO(fboWidth, fboHeight);
+        createFBO(fboAllocWidth, fboAllocHeight);
 
         initialized = true;
-        LOGGER.info("BackgroundRenderer initialized with FBO " + fboWidth + "x" + fboHeight);
+        LOGGER.info("BackgroundRenderer initialized with FBO " + fboAllocWidth + "x" + fboAllocHeight);
     }
 
     public ParallaxShaderProgram getParallaxShader() {
@@ -139,12 +144,16 @@ public class BackgroundRenderer {
      * Begin the tile rendering pass - binds FBO and clears it.
      * After calling this, render background tiles using GPU tilemap.
      *
-     * @param displayHeight The display pixel height (unused, kept for API compatibility)
-     * @param gpuTilemap    True (always, GPU tilemap is the only supported path)
+     * @param width      The rendering viewport width (may be smaller than FBO allocation)
+     * @param height     The rendering viewport height
+     * @param gpuTilemap True (always, GPU tilemap is the only supported path)
      */
-    public void beginTilePass(int displayHeight, boolean gpuTilemap) {
+    public void beginTilePass(int width, int height, boolean gpuTilemap) {
         if (!initialized)
             return;
+
+        this.renderWidth = width;
+        this.renderHeight = height;
 
         // Save current viewport to restore later
         GraphicsManager gm = GraphicsManager.getInstance();
@@ -154,7 +163,7 @@ public class BackgroundRenderer {
         savedViewport[3] = gm.getViewportHeight();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fboId);
-        glViewport(0, 0, fboWidth, fboHeight);
+        glViewport(0, 0, renderWidth, renderHeight);
 
         // Note: The tilemap shader uses gl_FragCoord for positioning,
         // so no projection matrix uniform is needed. The viewport setup above
@@ -212,8 +221,10 @@ public class BackgroundRenderer {
         float realHeight = gm.getViewportHeight();
 
         // Set dimensions and scroll
+        // BGTextureWidth = renderWidth (wrap period), FBOAllocationWidth = fboAllocWidth (UV mapping)
         parallaxShader.setScreenDimensions(realWidth, realHeight);
-        parallaxShader.setBGTextureDimensions(fboWidth, fboHeight);
+        parallaxShader.setBGTextureDimensions(renderWidth, renderHeight);
+        parallaxShader.setFBOAllocationWidth(fboAllocWidth);
         parallaxShader.setScrollMidpoint(0);
         parallaxShader.setExtraBuffer(0);
         parallaxShader.setVScrollBG(vScrollBG);
@@ -275,8 +286,10 @@ public class BackgroundRenderer {
         float realHeight = gm.getViewportHeight();
 
         // Set dimensions and scroll
+        // BGTextureWidth = renderWidth (wrap period), FBOAllocationWidth = fboAllocWidth (UV mapping)
         parallaxShader.setScreenDimensions(realWidth, realHeight);
-        parallaxShader.setBGTextureDimensions(fboWidth, fboHeight);
+        parallaxShader.setBGTextureDimensions(renderWidth, renderHeight);
+        parallaxShader.setFBOAllocationWidth(fboAllocWidth);
 
         // Pass scroll midpoint and extra buffer to shader
         parallaxShader.setScrollMidpoint(scrollMidpoint);
@@ -315,12 +328,17 @@ public class BackgroundRenderer {
     }
 
     /**
-     * Resize the FBO for zones with larger backgrounds.
+     * Ensure the FBO is at least the given size. Grow-only — never shrinks.
+     * Call once at level load time to pre-allocate for the maximum BG width,
+     * avoiding mid-frame GPU reallocation hitches.
      */
-    public void resizeFBO(int width, int height) {
-        if (width == fboWidth && height == fboHeight) {
+    public void ensureCapacity(int width, int height) {
+        if (width <= fboAllocWidth && height <= fboAllocHeight) {
             return;
         }
+
+        int newWidth = Math.max(width, fboAllocWidth);
+        int newHeight = Math.max(height, fboAllocHeight);
 
         // Delete old FBO resources
         if (fboId > 0) {
@@ -333,11 +351,11 @@ public class BackgroundRenderer {
             glDeleteRenderbuffers(fboDepthId);
         }
 
-        fboWidth = width;
-        fboHeight = height;
-        createFBO(width, height);
+        fboAllocWidth = newWidth;
+        fboAllocHeight = newHeight;
+        createFBO(newWidth, newHeight);
 
-        LOGGER.info("BackgroundRenderer FBO resized to " + width + "x" + height);
+        LOGGER.info("BackgroundRenderer FBO grown to " + newWidth + "x" + newHeight);
     }
 
     /**
@@ -345,6 +363,13 @@ public class BackgroundRenderer {
      */
     public int getFBOTextureId() {
         return fboTextureId;
+    }
+
+    /**
+     * Get the FBO allocation width (for callers that need the actual GPU texture size).
+     */
+    public int getFBOAllocWidth() {
+        return fboAllocWidth;
     }
 
     /**

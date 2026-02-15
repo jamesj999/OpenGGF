@@ -776,10 +776,16 @@ public class AizIntroArtLoader {
     // -----------------------------------------------------------------------
 
     /**
-     * Parses S3K DPLC (Dynamic Pattern Loading Cue) frames from ROM.
+     * Parses S3K <b>object</b> DPLC (Dynamic Pattern Loading Cue) frames from ROM.
      *
-     * <p>Format is the same as S2 DPLCs: word-sized offset table, then per-frame
-     * entries with a word count followed by word-sized (count-1|startTile) entries.
+     * <p>This uses the {@code Perform_DPLC} format (sonic3k.asm:178910), which differs
+     * from the player DPLC format used by {@code Sonic_Load_PLC}:
+     * <pre>
+     * Player format: count-1 in high 4 bits, startTile in low 12 bits (subq #1,d5)
+     * Object format: startTile in high 12 bits, count-1 in low 4 bits (NO subq)
+     * </pre>
+     *
+     * <p>The request count word is already (count-1) for dbf — no subq adjustment.
      *
      * @param reader   ROM byte reader
      * @param dplcAddr ROM address of the DPLC table
@@ -792,15 +798,17 @@ public class AizIntroArtLoader {
         List<SpriteDplcFrame> frames = new ArrayList<>(frameCount);
         for (int i = 0; i < frameCount; i++) {
             int frameAddr = dplcAddr + reader.readU16BE(dplcAddr + i * 2);
-            int requestCount = reader.readU16BE(frameAddr);
+            // Request count is already (count-1) for dbf — add 1 to get actual count
+            int requestCount = reader.readU16BE(frameAddr) + 1;
             frameAddr += 2;
 
             List<TileLoadRequest> requests = new ArrayList<>(requestCount);
             for (int r = 0; r < requestCount; r++) {
                 int entry = reader.readU16BE(frameAddr);
                 frameAddr += 2;
-                int count = ((entry >> 12) & 0xF) + 1;
-                int startTile = entry & 0x0FFF;
+                // Object DPLC format: startTile in upper 12 bits, (count-1) in lower 4 bits
+                int startTile = (entry >> 4) & 0xFFF;
+                int count = (entry & 0xF) + 1;
                 requests.add(new TileLoadRequest(startTile, count));
             }
             frames.add(new SpriteDplcFrame(requests));

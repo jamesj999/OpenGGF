@@ -20,6 +20,12 @@ import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
 import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
 import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
+import uk.co.jamesj999.sonic.level.Chunk;
+import uk.co.jamesj999.sonic.level.ChunkDesc;
+import uk.co.jamesj999.sonic.level.Pattern;
+import uk.co.jamesj999.sonic.level.PatternDesc;
+
+import java.util.LinkedHashMap;
 import java.util.TreeSet;
 
 import static org.junit.Assert.assertEquals;
@@ -115,8 +121,7 @@ public class TestS3kAizIntroCoverage {
             }
         }
 
-        assertTrue("Expected intro startup profile to have unresolved later-map chunk references",
-                initialInvalidRefs > 0);
+        assertEquals("Initial AIZ chunk array should cover all block references", 0, initialInvalidRefs);
 
         // Run until the intro reaches the ROM transition point (camera X >= $1400),
         // then allow a short settle period for overlay application.
@@ -144,6 +149,187 @@ public class TestS3kAizIntroCoverage {
                 + " invalidColumns=" + invalidColumns);
 
         assertEquals("Post-transition AIZ map should not reference missing 16x16 chunks", 0, postInvalidRefs);
+    }
+
+    /**
+     * Diagnostic: dump the full BG tile data chain before and after the terrain swap.
+     * Traces Map → Block → ChunkDesc → Chunk → PatternDesc → Pattern for every
+     * BG tile, comparing pre- and post-transition states to find exactly which
+     * tiles change and whether any produce corrupt references.
+     */
+    @Test
+    public void diagnoseBgTileChainAtTransition() throws Exception {
+        Sonic sonic = new Sonic("sonic", (short) 0, (short) 0);
+        SpriteManager.getInstance().addSprite(sonic);
+
+        Camera camera = Camera.getInstance();
+        camera.setFocusedSprite(sonic);
+        camera.setFrozen(false);
+
+        LevelManager levelManager = LevelManager.getInstance();
+        levelManager.loadZoneAndAct(0, 0);
+        GroundSensor.setLevelManager(levelManager);
+        camera.updatePosition(true);
+
+        Level level = levelManager.getCurrentLevel();
+        assertNotNull(level);
+        Map map = level.getMap();
+        assertNotNull(map);
+
+        int bgWidth = Math.max(1, level.getLayerWidthBlocks(1));
+        int bgHeight = Math.max(1, level.getLayerHeightBlocks(1));
+
+        System.out.println("=== BG DIAGNOSTIC ===");
+        System.out.println("BG map dimensions: " + bgWidth + "x" + bgHeight + " blocks"
+                + " (" + (bgWidth * 128) + "x" + (bgHeight * 128) + " px)");
+        System.out.println("chunkCount=" + level.getChunkCount()
+                + " patternCount=" + level.getPatternCount());
+
+        // Snapshot BG tile chain BEFORE transition
+        java.util.Map<String, int[]> preTiles = snapshotBgTiles(level, map, bgWidth, bgHeight);
+
+        // Run to transition
+        HeadlessTestRunner runner = new HeadlessTestRunner(sonic);
+        int guard = 5000;
+        while (guard-- > 0 && (camera.getX() & 0xFFFF) < 0x1400) {
+            runner.stepFrame(false, false, false, false, false);
+        }
+        for (int i = 0; i < 32; i++) {
+            runner.stepFrame(false, false, false, false, false);
+        }
+
+        Level postLevel = levelManager.getCurrentLevel();
+        System.out.println("POST chunkCount=" + postLevel.getChunkCount()
+                + " patternCount=" + postLevel.getPatternCount());
+
+        // Snapshot BG tile chain AFTER transition
+        java.util.Map<String, int[]> postTiles = snapshotBgTiles(postLevel, map, bgWidth, bgHeight);
+
+        // Compare: find tiles that changed
+        int changedTiles = 0;
+        int patternOutOfRange = 0;
+        int chunkOutOfRange = 0;
+        int nonEmptyFromEmptyChunk = 0;
+        int emptyPatternButVisible = 0;
+
+        StringBuilder details = new StringBuilder();
+        for (var entry : postTiles.entrySet()) {
+            String key = entry.getKey();
+            int[] post = entry.getValue();
+            int[] pre = preTiles.get(key);
+
+            int chunkIdx = post[0];
+            int patternIdx = post[1];
+            int patternCount = postLevel.getPatternCount();
+            int chunkCount = postLevel.getChunkCount();
+
+            if (chunkIdx >= chunkCount) {
+                chunkOutOfRange++;
+                if (details.length() < 2000) {
+                    details.append("  CHUNK_OOR ").append(key)
+                            .append(" chunkIdx=").append(chunkIdx)
+                            .append(" >= chunkCount=").append(chunkCount).append('\n');
+                }
+            }
+
+            if (patternIdx >= patternCount && patternIdx != 0) {
+                patternOutOfRange++;
+                if (details.length() < 2000) {
+                    details.append("  PATTERN_OOR ").append(key)
+                            .append(" patternIdx=").append(patternIdx)
+                            .append(" >= patternCount=").append(patternCount).append('\n');
+                }
+            }
+
+            // Check if a tile from an extended (empty) chunk has non-zero pattern index
+            if (chunkIdx >= 600 && patternIdx != 0) {
+                nonEmptyFromEmptyChunk++;
+                if (details.length() < 2000) {
+                    details.append("  NONEMPTY_FROM_EXTENDED ").append(key)
+                            .append(" chunkIdx=").append(chunkIdx)
+                            .append(" patternIdx=").append(patternIdx).append('\n');
+                }
+            }
+
+            // Check if pattern data is truly empty (all zero pixels)
+            if (patternIdx > 0 && patternIdx < patternCount) {
+                Pattern pattern = postLevel.getPattern(patternIdx);
+                boolean allZero = true;
+                for (int py = 0; py < 8 && allZero; py++) {
+                    for (int px = 0; px < 8 && allZero; px++) {
+                        if (pattern.getPixel(px, py) != 0) {
+                            allZero = false;
+                        }
+                    }
+                }
+                // If pattern was cleared but chunk still references it with non-zero desc
+                if (allZero && pre != null && pre[1] != patternIdx) {
+                    emptyPatternButVisible++;
+                }
+            }
+
+            if (pre != null && (pre[0] != post[0] || pre[1] != post[1])) {
+                changedTiles++;
+            }
+        }
+
+        System.out.println("BG tile changes: " + changedTiles + " tiles changed");
+        System.out.println("  chunkOutOfRange=" + chunkOutOfRange
+                + " patternOutOfRange=" + patternOutOfRange
+                + " nonEmptyFromEmptyChunk=" + nonEmptyFromEmptyChunk
+                + " emptyPatternButVisible=" + emptyPatternButVisible);
+        if (details.length() > 0) {
+            System.out.println("Details:\n" + details);
+        }
+
+        // Dump a sample of BG tiles to understand what patterns are used
+        System.out.println("=== BG PATTERN INDEX HISTOGRAM (post-transition) ===");
+        java.util.Map<Integer, Integer> histogram = new LinkedHashMap<>();
+        for (int[] tile : postTiles.values()) {
+            histogram.merge(tile[1], 1, Integer::sum);
+        }
+        histogram.entrySet().stream()
+                .sorted((a, b) -> b.getValue() - a.getValue())
+                .limit(20)
+                .forEach(e -> System.out.println("  patternIdx=" + e.getKey()
+                        + " count=" + e.getValue()
+                        + (e.getKey() >= postLevel.getPatternCount() ? " OOR!" : "")));
+
+        assertEquals("No BG chunk references should be out of range", 0, chunkOutOfRange);
+        assertEquals("No BG pattern references should be out of range", 0, patternOutOfRange);
+    }
+
+    /**
+     * Snapshot all BG tiles as key→[chunkIndex, patternIndex].
+     * Key format: "bX_bY_cX_cY_pX_pY" (block pos, chunk-in-block pos, pattern-in-chunk pos).
+     */
+    private static java.util.Map<String, int[]> snapshotBgTiles(
+            Level level, Map map, int bgWidth, int bgHeight) {
+        java.util.Map<String, int[]> tiles = new LinkedHashMap<>();
+        for (int by = 0; by < bgHeight; by++) {
+            for (int bx = 0; bx < bgWidth; bx++) {
+                int blockIndex = Byte.toUnsignedInt(map.getValue(1, bx, by));
+                if (blockIndex >= level.getBlockCount()) continue;
+                Block block = level.getBlock(blockIndex);
+                for (int cy = 0; cy < 8; cy++) {
+                    for (int cx = 0; cx < 8; cx++) {
+                        ChunkDesc chunkDesc = block.getChunkDesc(cx, cy);
+                        int chunkIdx = chunkDesc.getChunkIndex();
+                        if (chunkIdx < level.getChunkCount()) {
+                            Chunk chunk = level.getChunk(chunkIdx);
+                            for (int py = 0; py < 2; py++) {
+                                for (int px = 0; px < 2; px++) {
+                                    PatternDesc pd = chunk.getPatternDesc(px, py);
+                                    String key = bx + "_" + by + "_" + cx + "_" + cy + "_" + px + "_" + py;
+                                    tiles.put(key, new int[]{chunkIdx, pd.getPatternIndex()});
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return tiles;
     }
 
     private static int scanLayer(Level level,

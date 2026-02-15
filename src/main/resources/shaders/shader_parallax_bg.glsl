@@ -41,6 +41,9 @@ uniform float ViewportOffsetY;
 uniform vec3 BackdropColor;
 uniform float FillTransparentWithBackdrop;
 
+// FBO allocation width (actual GPU texture size, may be larger than BGTextureWidth)
+uniform float FBOAllocationWidth;
+
 out vec4 FragColor;
 
 void main()
@@ -79,7 +82,10 @@ void main()
     fboY = clamp(fboY, 0.0, BGTextureHeight - 1.0);
 
     // Sample FBO with half-pixel offset to avoid edge artifacts
-    float fboU = fboX / BGTextureWidth;
+    // Use FBOAllocationWidth for UV mapping (actual texture size) while BGTextureWidth
+    // was used above for wrapping (the rendered region may be smaller than the allocation)
+    float uvWidth = FBOAllocationWidth > 0.0 ? FBOAllocationWidth : BGTextureWidth;
+    float fboU = fboX / uvWidth;
     float fboV = 1.0 - ((fboY + 0.5) / BGTextureHeight);  // Add 0.5 for pixel center
     fboV = clamp(fboV, 0.5 / BGTextureHeight, 1.0 - 0.5 / BGTextureHeight);  // Stay within texture
 

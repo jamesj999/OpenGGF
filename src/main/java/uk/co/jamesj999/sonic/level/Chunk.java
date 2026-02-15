@@ -33,10 +33,7 @@ public class Chunk {
 
         for (int i = 0; i < PATTERNS_PER_CHUNK; i++) {
             int index = ((buffer[i * 2] & 0xFF) << 8) | (buffer[i * 2 + 1] & 0xFF);  // Big-endian
-            if (index != 0) {
-                patternDescs[i] = new PatternDesc(index);
-            }
-
+            patternDescs[i] = new PatternDesc(index);
         }
         this.solidTileIndex = solidTileIndex;
         this.solidTileAltIndex = altSolidTileIndex;

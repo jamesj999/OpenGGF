@@ -37,6 +37,13 @@ public class PatternAtlas {
     private ByteBuffer patternUploadBuffer;
     private boolean initialized = false;
 
+    // Batch upload support: CPU-side pixel buffer mirrors the GPU atlas.
+    // During batch mode, uploadPattern() writes to cpuPixels only (no GL calls).
+    // endBatch() uploads each dirty page with a single glTexSubImage2D.
+    private byte[][] cpuPixels;      // per-atlas-page pixel data [atlasWidth * atlasHeight]
+    private boolean[] dirtyPages;    // tracks which pages were written during batch
+    private boolean batchMode = false;
+
     public PatternAtlas(int atlasWidth, int atlasHeight) {
         if (atlasWidth % TILE_SIZE != 0 || atlasHeight % TILE_SIZE != 0) {
             throw new IllegalArgumentException("Atlas size must be divisible by tile size");
@@ -58,6 +65,20 @@ public class PatternAtlas {
             patternUploadBuffer = MemoryUtil.memAlloc(TILE_SIZE * TILE_SIZE);
         }
         return patternUploadBuffer;
+    }
+
+    // Lazily allocated full-page upload buffer for endBatch()
+    private ByteBuffer fullPageUploadBuffer;
+
+    private ByteBuffer ensureFullPageUploadBuffer() {
+        int pagePixels = atlasWidth * atlasHeight;
+        if (fullPageUploadBuffer == null || fullPageUploadBuffer.capacity() < pagePixels) {
+            if (fullPageUploadBuffer != null) {
+                MemoryUtil.memFree(fullPageUploadBuffer);
+            }
+            fullPageUploadBuffer = MemoryUtil.memAlloc(pagePixels);
+        }
+        return fullPageUploadBuffer;
     }
 
     public int getAtlasWidth() {
@@ -189,11 +210,18 @@ public class PatternAtlas {
 
     private void cleanupCommon() {
         initialized = false;
+        batchMode = false;
         entries.clear();
         pages.clear();
+        cpuPixels = null;
+        dirtyPages = null;
         if (patternUploadBuffer != null) {
             MemoryUtil.memFree(patternUploadBuffer);
             patternUploadBuffer = null;
+        }
+        if (fullPageUploadBuffer != null) {
+            MemoryUtil.memFree(fullPageUploadBuffer);
+            fullPageUploadBuffer = null;
         }
     }
 
@@ -226,7 +254,76 @@ public class PatternAtlas {
         return entry;
     }
 
+    /**
+     * Begin batch mode. Pattern uploads write to a CPU-side buffer only.
+     * Call {@link #endBatch()} to flush everything to the GPU in one call per page.
+     */
+    public void beginBatch() {
+        if (cpuPixels == null) {
+            int pagePixels = atlasWidth * atlasHeight;
+            cpuPixels = new byte[MAX_ATLASES][pagePixels];
+            dirtyPages = new boolean[MAX_ATLASES];
+        }
+        batchMode = true;
+    }
+
+    /**
+     * End batch mode and upload every dirty atlas page to the GPU
+     * with a single {@code glTexSubImage2D} per page.
+     */
+    public void endBatch() {
+        if (!batchMode) {
+            return;
+        }
+        batchMode = false;
+        if (cpuPixels == null || dirtyPages == null) {
+            return;
+        }
+        int pagePixels = atlasWidth * atlasHeight;
+        ByteBuffer buf = ensureFullPageUploadBuffer();
+        for (int i = 0; i < pages.size(); i++) {
+            if (!dirtyPages[i]) {
+                continue;
+            }
+            int textureId = getTextureId(i);
+            if (textureId == 0) {
+                continue;
+            }
+            buf.clear();
+            buf.put(cpuPixels[i], 0, pagePixels);
+            buf.flip();
+            glBindTexture(GL_TEXTURE_2D, textureId);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, atlasWidth, atlasHeight,
+                    GL_RED, GL_UNSIGNED_BYTE, buf);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            dirtyPages[i] = false;
+        }
+    }
+
     private void uploadPattern(Pattern pattern, Entry entry) {
+        int pixelX = entry.tileX() * TILE_SIZE;
+        int pixelY = entry.tileY() * TILE_SIZE;
+
+        // Always write to the CPU-side buffer (keeps it in sync for future batches)
+        if (cpuPixels != null && entry.atlasIndex() < cpuPixels.length) {
+            byte[] page = cpuPixels[entry.atlasIndex()];
+            for (int col = 0; col < TILE_SIZE; col++) {
+                int dstRowStart = (pixelY + col) * atlasWidth + pixelX;
+                for (int row = 0; row < TILE_SIZE; row++) {
+                    page[dstRowStart + row] = pattern.getPixel(row, col);
+                }
+            }
+        }
+
+        if (batchMode) {
+            // Mark page dirty — actual GL upload deferred to endBatch()
+            if (dirtyPages != null && entry.atlasIndex() < dirtyPages.length) {
+                dirtyPages[entry.atlasIndex()] = true;
+            }
+            return;
+        }
+
+        // Immediate upload (non-batch path)
         ByteBuffer patternBuffer = ensurePatternUploadBuffer();
         patternBuffer.clear();
         for (int col = 0; col < TILE_SIZE; col++) {
@@ -236,9 +333,6 @@ public class PatternAtlas {
             }
         }
         patternBuffer.flip();
-
-        int pixelX = entry.tileX() * TILE_SIZE;
-        int pixelY = entry.tileY() * TILE_SIZE;
 
         int textureId = getTextureId(entry.atlasIndex());
         glBindTexture(GL_TEXTURE_2D, textureId);

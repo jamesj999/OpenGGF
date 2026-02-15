@@ -18,12 +18,28 @@ import java.util.logging.Logger;
  * ROM behavior: once camera X reaches $1400, AIZ loads "Main Level" overlays
  * for both 16x16 and 8x8 terrain data.
  */
-final class AizIntroTerrainSwap {
+public final class AizIntroTerrainSwap {
     private static final Logger LOG = Logger.getLogger(AizIntroTerrainSwap.class.getName());
 
     private static OverlayData cachedOverlayData;
 
     private AizIntroTerrainSwap() {
+    }
+
+    /**
+     * Pre-decompress the overlay data during level load so that the
+     * transition frame doesn't pay the Kosinski decompression cost.
+     */
+    public static synchronized void preloadOverlayData() {
+        if (cachedOverlayData != null) {
+            return;
+        }
+        try {
+            cachedOverlayData = loadOverlayData();
+            LOG.info("AIZ intro overlay data pre-loaded successfully");
+        } catch (IOException e) {
+            LOG.warning("AIZ intro overlay preload failed (will retry on transition): " + e.getMessage());
+        }
     }
 
     static synchronized boolean applyMainLevelOverlays() {

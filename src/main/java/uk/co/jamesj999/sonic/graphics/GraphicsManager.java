@@ -344,6 +344,28 @@ public class GraphicsManager {
 	}
 
 	/**
+	 * Begin batching pattern atlas uploads. While active, individual
+	 * {@code cachePatternTexture} calls write to a CPU-side buffer only.
+	 * Call {@link #endPatternAtlasBatch()} to upload everything in one GL call.
+	 */
+	public void beginPatternAtlasBatch() {
+		if (headlessMode || !glInitialized || patternAtlas == null) {
+			return;
+		}
+		patternAtlas.beginBatch();
+	}
+
+	/**
+	 * Flush the batched pattern atlas uploads to the GPU.
+	 */
+	public void endPatternAtlasBatch() {
+		if (headlessMode || !glInitialized || patternAtlas == null) {
+			return;
+		}
+		patternAtlas.endBatch();
+	}
+
+	/**
 	 * Remove a pattern from the atlas cache.
 	 * This causes the renderer to skip this pattern (getEntry returns null).
 	 * Used by CNZ slot machine to clear the tilemap at VRAM 0x0550-0x057F
