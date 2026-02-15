@@ -76,6 +76,11 @@ public class Sonic2AudioProfile implements GameAudioProfile {
     }
 
     @Override
+    public int getDrowningMusicId() {
+        return Sonic2Music.UNDERWATER.id;
+    }
+
+    @Override
     public int getSfxPriority(int soundId) {
         return Sonic2SmpsConstants.getSfxPriority(soundId);
     }
