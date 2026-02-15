@@ -1,8 +1,10 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kMusic;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -124,6 +126,12 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     /** Whether Knuckles is visible (render_flags bit 7). */
     private boolean visible;
 
+    /** Countdown timer for delayed music start after fade-out (-1 = inactive). */
+    private int musicFadeTimer = -1;
+
+    /** Music ID to play when musicFadeTimer reaches zero. */
+    private int pendingMusicId = -1;
+
     // -----------------------------------------------------------------------
     // Animation state (Animate_RawNoSST equivalent)
     // -----------------------------------------------------------------------
@@ -182,6 +190,15 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
+        // Process music fade timer (Obj_Song_Fade_Transition equivalent)
+        if (musicFadeTimer > 0) {
+            musicFadeTimer--;
+            if (musicFadeTimer == 0) {
+                AudioManager.getInstance().playMusic(pendingMusicId);
+                musicFadeTimer = -1;
+            }
+        }
+
         switch (routine) {
             case 0  -> routine0Init();
             case 2  -> routine2WaitTrigger();
@@ -381,6 +398,12 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         // Palettes are NOT overwritten here — the intro level's LevelLoadBlock
         // already loads the correct palette lines during level init.
 
+        // ROM: sub_65DD6 (line 134086) — fade out current music, play Knuckles' theme
+        // after 90 frames (via Obj_Song_Fade_Transition)
+        AudioManager.getInstance().fadeOutMusic(0x28, 6);
+        musicFadeTimer = 90;
+        pendingMusicId = Sonic3kMusic.KNUCKLES.id;
+
         routine = 2;
     }
 
@@ -440,9 +463,16 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         currentY += (oldYVel >> 8) + (yTotal >> 8);
         ySub = yTotal & 0xFF;
 
-        // ObjCheckFloorDist terrain collision
+        // ROM: tst.l d0 / bmi.s locret_61E42 — skip floor check while moving upward.
+        // d0 after MoveSprite = old_yVel << 8, so negative when yVel was negative.
+        if (oldYVel < 0) {
+            return;
+        }
+
+        // ObjCheckFloorDist terrain collision.
+        // ROM uses bmi (d1 < 0) — snap only when distance is strictly negative.
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
-        if (floor.hasCollision()) {
+        if (floor.foundSurface() && floor.distance() < 0) {
             currentY += floor.distance();
             landOnGround(currentY);
         }
@@ -551,7 +581,11 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             // Load walk animation for exit (byte_666A9)
             loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_WALK_ADDR);
 
-            // TODO: Spawn Obj_Song_Fade_ToLevelMusic (fade to AIZ music)
+            // ROM: Obj_Song_Fade_ToLevelMusic (line 180305) — fade out Knuckles' theme,
+            // play AIZ1 music after 120 frames (2 seconds)
+            AudioManager.getInstance().fadeOutMusic(0x28, 6);
+            musicFadeTimer = 120;
+            pendingMusicId = Sonic3kMusic.AIZ1.id;
 
             routine = 12;
             LOG.fine("Routine 10: laugh complete, transitioning to exit");
@@ -603,6 +637,12 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
 
     @Override
     public void onUnload() {
+        // If music transition was pending (Knuckles walks offscreen before timer expires),
+        // play it immediately so the level music resumes.
+        if (musicFadeTimer > 0 && pendingMusicId >= 0) {
+            AudioManager.getInstance().playMusic(pendingMusicId);
+            musicFadeTimer = -1;
+        }
         // Knuckles is the last intro object to destroy itself (routine 12),
         // so it owns cleanup of the shared intro art cache.
         try {

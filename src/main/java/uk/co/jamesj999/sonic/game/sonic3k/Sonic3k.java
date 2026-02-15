@@ -244,11 +244,22 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
         // Character palette
         int characterPaletteAddr = Sonic3kConstants.SONIC_PALETTE_ADDR;
 
-        return new Sonic3kLevel(rom, zone, plan,
+        Sonic3kLevel level = new Sonic3kLevel(rom, zone, plan,
                 primaryCollisionAddr, secondaryCollisionAddr, interleavedCollision,
                 layoutAddr, boundariesAddr,
                 characterPaletteAddr, levelPaletteAddr,
                 boundariesMinXOverride);
+
+        // Pre-decompress AIZ intro overlay data during level load so the
+        // terrain swap at camera X=0x1400 doesn't cause a frame hitch.
+        boolean isAizIntro = zone == 0 && act == 0
+                && bootstrap != null
+                && bootstrap.mode() == Sonic3kLoadBootstrap.Mode.INTRO;
+        if (isAizIntro) {
+            uk.co.jamesj999.sonic.game.sonic3k.objects.AizIntroTerrainSwap.preloadOverlayData();
+        }
+
+        return level;
     }
 
     @Override

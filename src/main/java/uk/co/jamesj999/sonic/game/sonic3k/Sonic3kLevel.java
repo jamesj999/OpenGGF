@@ -375,22 +375,44 @@ public class Sonic3kLevel implements Level {
         ensurePatternCapacity(requiredPatternCount);
 
         GraphicsManager graphics = GraphicsManager.getInstance();
-        byte[] tileBytes = new byte[Pattern.PATTERN_SIZE_IN_ROM];
-        for (int i = 0; i < overlayPatternCount; i++) {
-            int src = i * Pattern.PATTERN_SIZE_IN_ROM;
-            System.arraycopy(overlayData, src, tileBytes, 0, Pattern.PATTERN_SIZE_IN_ROM);
+        graphics.beginPatternAtlasBatch();
+        try {
+            byte[] tileBytes = new byte[Pattern.PATTERN_SIZE_IN_ROM];
+            for (int i = 0; i < overlayPatternCount; i++) {
+                int src = i * Pattern.PATTERN_SIZE_IN_ROM;
+                System.arraycopy(overlayData, src, tileBytes, 0, Pattern.PATTERN_SIZE_IN_ROM);
 
-            int patternIndex = startPatternIndex + i;
-            Pattern pattern = patterns[patternIndex];
-            if (pattern == null) {
-                pattern = new Pattern();
-                patterns[patternIndex] = pattern;
-            }
-            pattern.fromSegaFormat(tileBytes);
+                int patternIndex = startPatternIndex + i;
+                Pattern pattern = patterns[patternIndex];
+                if (pattern == null) {
+                    pattern = new Pattern();
+                    patterns[patternIndex] = pattern;
+                }
+                pattern.fromSegaFormat(tileBytes);
 
-            if (graphics.isGlInitialized()) {
-                graphics.cachePatternTexture(pattern, patternIndex);
+                if (graphics.isGlInitialized()) {
+                    graphics.cachePatternTexture(pattern, patternIndex);
+                }
             }
+
+            // ROM parity: on the Mega Drive, VRAM tiles beyond the DMA write pointer
+            // are implicitly zero. Clear stale patterns so they render as transparent,
+            // but keep the array size unchanged — blocks may reference chunk indices
+            // whose PatternDescs point to these higher pattern slots.  Shrinking the
+            // array would shrink the GPU pattern-lookup texture, causing the shader to
+            // clamp out-of-range indices to the last entry and show wrong tiles.
+            if (requiredPatternCount < patternCount) {
+                for (int i = requiredPatternCount; i < patternCount; i++) {
+                    if (patterns[i] != null) {
+                        patterns[i].clear();
+                        if (graphics.isGlInitialized()) {
+                            graphics.cachePatternTexture(patterns[i], i);
+                        }
+                    }
+                }
+            }
+        } finally {
+            graphics.endPatternAtlasBatch();
         }
     }
 
@@ -429,6 +451,20 @@ public class Sonic3kLevel implements Level {
             int solidIndex = readCollisionIndex(primaryCollisionIndexTable, chunkIndex);
             int altSolidIndex = readCollisionIndex(secondaryCollisionIndexTable, chunkIndex);
             chunk.fromSegaFormat(chunkBytes, solidIndex, altSolidIndex);
+        }
+
+        // ROM parity: on the Mega Drive, VRAM beyond the DMA write pointer is
+        // implicitly zero.  Clear stale chunks so their PatternDescs become 0
+        // (transparent), but keep the array size unchanged — blocks reference
+        // chunk indices across the full range and shrinking the array would turn
+        // valid block references into out-of-range nulls.
+        if (requiredChunkCount < chunkCount) {
+            byte[] emptyChunkBytes = new byte[Chunk.CHUNK_SIZE_IN_ROM];
+            for (int i = requiredChunkCount; i < chunkCount; i++) {
+                if (chunks[i] != null) {
+                    chunks[i].fromSegaFormat(emptyChunkBytes, 0, 0);
+                }
+            }
         }
     }
 
@@ -623,9 +659,14 @@ public class Sonic3kLevel implements Level {
             LOG.warning("S3K map references block " + maxMapBlockIndex +
                     " but blockCount is " + blockCount);
         }
+        // ROM parity: on the Mega Drive the chunk table is a fixed-size RAM buffer.
+        // Block ChunkDescs may reference indices beyond the decompressed data;
+        // those slots are implicitly zero (transparent).  Extend the array so
+        // that every block reference resolves to a valid (empty) Chunk.
         if (maxBlockChunkIndex >= chunkCount) {
-            LOG.warning("S3K blocks reference chunk " + maxBlockChunkIndex +
-                    " but chunkCount is " + chunkCount);
+            LOG.info("S3K extending chunk array from " + chunkCount +
+                    " to " + (maxBlockChunkIndex + 1) + " to cover all block references");
+            ensureChunkCapacity(maxBlockChunkIndex + 1);
         }
         if (maxChunkPatternIndex >= patternCount) {
             LOG.warning("S3K chunks reference pattern " + maxChunkPatternIndex +

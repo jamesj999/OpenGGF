@@ -297,6 +297,16 @@ public class LevelManager {
             // 0x0F for ARZ)
             WaterSystem waterSystem = WaterSystem.getInstance();
             waterSystem.loadForLevel(rom, level.getZoneIndex(), currentAct, level.getObjects());
+
+            // Pre-allocate the background FBO at maximum required size to avoid
+            // mid-frame GPU reallocation hitches (e.g., AIZ intro ocean->beach transition)
+            BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
+            if (bgRenderer != null && bgRenderer.isInitialized()) {
+                int maxBgWidth = Math.max(cachedScreenWidth, getLayerLevelWidthPx((byte) 1));
+                int fboHeight = 256 + LevelConstants.CHUNK_HEIGHT;
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM,
+                        (cx, cy, cw, ch) -> bgRenderer.ensureCapacity(maxBgWidth, fboHeight)));
+            }
         } catch (IOException e) {
             LOGGER.log(SEVERE, "Failed to load level " + levelIndex, e);
             throw e;
@@ -1136,10 +1146,10 @@ public class LevelManager {
             // layout width causes sampling into empty trailing chunks ("staircase" strips).
             bgPeriodWidthPixels = VDP_BG_PLANE_WIDTH_PX;
         }
-        int fboWidth = Math.max(cachedScreenWidth, bgPeriodWidthPixels);
+        int renderWidth = Math.max(cachedScreenWidth, bgPeriodWidthPixels);
         // Add CHUNK_HEIGHT (16px) to cover VScroll range
         // This prevents bottom clipping when VScroll > 0 (max VScroll = 15, max gameY = 223, max fboY = 238 < 272)
-        int fboHeight = 256 + LevelConstants.CHUNK_HEIGHT;
+        int renderHeight = 256 + LevelConstants.CHUNK_HEIGHT;
         int shaderScrollMidpoint = 0;
         int shaderExtraBuffer = 0;
         float bgTilemapWorldOffsetX = 0.0f;
@@ -1153,14 +1163,14 @@ public class LevelManager {
         // This ensures zones like MCZ use their act-dependent BG Y calculations
         int actualBgScrollY = parallaxManager.getVscrollFactorBG();
 
-        // 1. Resize FBO
-        final int finalFboWidth = fboWidth;
-        final int finalFboHeight = fboHeight;
+        // 1. Ensure FBO capacity (grow-only, no per-frame reallocation)
+        final int finalRenderWidth = renderWidth;
+        final int finalRenderHeight = renderHeight;
         final float finalBgTilemapWorldOffsetX = bgTilemapWorldOffsetX;
         final int finalShaderScrollMidpoint = shaderScrollMidpoint;
         final int finalShaderExtraBuffer = shaderExtraBuffer;
         graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-            bgRenderer.resizeFBO(finalFboWidth, finalFboHeight);
+            bgRenderer.ensureCapacity(finalRenderWidth, finalRenderHeight);
         }));
 
         // 2. Begin Tile Pass (Bind FBO)
@@ -1185,7 +1195,7 @@ public class LevelManager {
         final float fboWaterlineY = (float) ((waterLevelWorldY - camera.getY()) + vOffset);
 
         graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-            bgRenderer.beginTilePass(screenHeightPixels, true);
+            bgRenderer.beginTilePass(finalRenderWidth, finalRenderHeight, true);
             TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
             if (tilemapRenderer != null) {
                 Integer atlasId = graphicsManager.getPatternAtlasTextureId();
@@ -1197,8 +1207,8 @@ public class LevelManager {
                     glGetIntegerv(GL_VIEWPORT, viewport);
                     tilemapRenderer.render(
                             TilemapGpuRenderer.Layer.BACKGROUND,
-                            finalFboWidth,
-                            fboHeight,
+                            finalRenderWidth,
+                            finalRenderHeight,
                             viewport[0],
                             viewport[1],
                             viewport[2],
@@ -1257,8 +1267,12 @@ public class LevelManager {
         if (AizPlaneIntroInstance.isMainLevelPhaseActive()) {
             return false;
         }
-        int introOffset = AizPlaneIntroInstance.getIntroScrollOffset();
-        return introOffset < 0;
+        // ROM parity: VDP BG plane wraps at 512px for the ENTIRE intro, not
+        // just while introScrollOffset is negative.  The intro is active when
+        // Level_started_flag is clear (set by routine0Init, cleared by Knuckles).
+        // Using the same gate as SwScrlAiz.introMode keeps the wrap period in
+        // sync with the scroll handler.
+        return !Camera.getInstance().isLevelStarted();
     }
 
     private void enqueueForegroundTilemapPass(Camera camera, int priorityPass) {
