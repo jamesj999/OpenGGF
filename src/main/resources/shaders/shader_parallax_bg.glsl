@@ -38,6 +38,11 @@ uniform float VScroll;
 uniform float ViewportOffsetX;
 uniform float ViewportOffsetY;
 
+// Shimmer distortion uniforms
+uniform int FrameCounter;            // For shimmer animation
+uniform int ShimmerStyle;            // 0 = none, 1 = S1 shimmer (larger waves for BG)
+uniform float WaterlineScreenY;      // Screen Y where water starts (0 = top, game coords)
+
 out vec4 FragColor;
 
 void main()
@@ -60,7 +65,21 @@ void main()
     // hScroll contains negative values (e.g., -cameraX * parallaxFactor)
     // To get world X position: worldX = screenX - hScroll
     // Since hScroll is negative, this adds the absolute value
-    float worldX = gameX - hScrollThis;
+    // Apply underwater shimmer distortion to background layer
+    // BG uses broader, slower waves than FG for a parallax-like distortion effect
+    float bgShimmerDistortion = 0.0;
+    if (ShimmerStyle > 0 && gameY >= WaterlineScreenY) {
+        float scanlinesBelow = gameY - WaterlineScreenY;
+        if (ShimmerStyle == 1) {
+            // S1-style BG shimmer: broader wavelength (~200px) and higher amplitude
+            // than FG, creating a layered distortion parallax effect
+            float angle = (scanlinesBelow * 0.031) + (float(FrameCounter) * 0.025);
+            float rawDistortion = sin(angle) * 3.0;
+            bgShimmerDistortion = floor(rawDistortion + 0.5);
+        }
+    }
+
+    float worldX = gameX - hScrollThis + bgShimmerDistortion;
 
     // Apply vertical scroll offset (sub-chunk alignment)
     float fboY = gameY + VScroll;

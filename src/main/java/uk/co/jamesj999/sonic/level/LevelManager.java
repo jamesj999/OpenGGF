@@ -119,6 +119,7 @@ public class LevelManager {
     private int currentAct = 0;
     private int currentZone = 0;
     private int frameCounter = 0;
+    private int currentShimmerStyle = 0;
     private ObjectManager objectManager;
     private RingManager ringManager;
     private ZoneFeatureProvider zoneFeatureProvider;
@@ -808,7 +809,28 @@ public class LevelManager {
         graphicsManager.setUseSpritePriorityShader(false);
         profiler.endSection("render.sprites");
 
-        // Draw water surface sprites at the water line (CPZ2, ARZ1, ARZ2)
+        // Disable shimmer distortion for water surface sprites - they should render
+        // without horizontal distortion (matching original hardware behavior where the
+        // water surface object is not affected by per-scanline scroll offsets).
+        // Keep the water shader active for palette swap (underwater palette below waterline).
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+            WaterShaderProgram waterShader = graphicsManager.getWaterShaderProgram();
+            if (waterShader != null) {
+                waterShader.use();
+                waterShader.setShimmerStyle(0);  // S2 mode with DistortionAmplitude=0 → no distortion
+            }
+            WaterShaderProgram instancedWaterShader = graphicsManager.getInstancedWaterShaderProgram();
+            if (instancedWaterShader != null) {
+                instancedWaterShader.use();
+                instancedWaterShader.setShimmerStyle(0);
+            }
+            if (waterShader != null) {
+                waterShader.use();
+            }
+            PatternRenderCommand.resetFrameState();
+        }));
+
+        // Draw water surface sprites at the water line
         // Rendered last (after all sprites and tiles) so it appears in front of everything
         if (zoneFeatureProvider != null) {
             zoneFeatureProvider.render(camera, frameCounter);
@@ -1010,19 +1032,27 @@ public class LevelManager {
             // Set uniforms via custom command - this also enables the water shader
             // Use visual water level (with oscillation) for rendering effects
             int waterLevel = waterSystem.getVisualWaterLevelY(zoneId, currentAct);
-            // Offset by -8 to include the 8px tall water surface sprite in underwater palette
-            float waterlineScreenY = (float) (waterLevel - camera.getY() - 8);
 
             // Determine shimmer style from current game module's physics feature set.
             // 0 = S2/S3K smooth sine wave, 1 = S1 integer-snapped shimmer
             int shimmerStyle = 0;
+            PhysicsFeatureSet featureSet = null;
             GameModule currentModule = GameModuleRegistry.getCurrent();
             if (currentModule != null && currentModule.getPhysicsProvider() != null) {
-                PhysicsFeatureSet featureSet = currentModule.getPhysicsProvider().getFeatureSet();
+                featureSet = currentModule.getPhysicsProvider().getFeatureSet();
                 if (featureSet != null && featureSet.waterShimmerEnabled()) {
                     shimmerStyle = 1;
                 }
             }
+
+            // S2/S3K split starts 8px above water level so the surface strip is tinted.
+            // S1 uses v_waterpos1 directly as the underwater split (ROM-accurate boundary).
+            float waterlineOffset = -8.0f;
+            if (featureSet != null && featureSet.waterShimmerEnabled()) {
+                waterlineOffset = 0.0f;
+            }
+            float waterlineScreenY = (float) (waterLevel - camera.getY() + waterlineOffset);
+            currentShimmerStyle = shimmerStyle;
             final int capturedShimmerStyle = shimmerStyle;
 
             graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
@@ -1069,6 +1099,12 @@ public class LevelManager {
                     }
                 }
 
+                // Set shimmer state on tilemap renderer so tile rendering also gets distortion
+                TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+                if (tilemapRenderer != null) {
+                    tilemapRenderer.setShimmerState(frameCounter, capturedShimmerStyle);
+                }
+
                 WaterShaderProgram instancedShader = graphicsManager.getInstancedWaterShaderProgram();
                 if (instancedShader != null) {
                     instancedShader.use();
@@ -1099,6 +1135,7 @@ public class LevelManager {
             }));
         } else {
             // No water in this zone - disable underwater palette for sprite priority shader
+            currentShimmerStyle = 0;
             graphicsManager.setWaterEnabled(false);
         }
         // Note: We don't disable water shader here - that's done later before HUD
@@ -1160,11 +1197,20 @@ public class LevelManager {
         int vOffset = actualBgScrollY - alignedBgY;
         final float fboWaterlineY = (float) ((waterLevelWorldY - camera.getY()) + vOffset);
 
+        // Compute screen-space waterline for BG parallax shimmer
+        final float bgWaterlineScreenY = (float) (waterLevelWorldY - camera.getY());
+        final int capturedBgShimmerStyle = currentShimmerStyle;
+
         ensureBackgroundTilemapData();
         graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
             bgRenderer.beginTilePass(screenHeightPixels, true);
             TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
             if (tilemapRenderer != null) {
+                // Disable shimmer for BG FBO tilemap render - shimmer distortion is applied
+                // in the parallax compositing pass instead (with different, larger wave params)
+                int savedShimmerStyle = tilemapRenderer.getShimmerStyle();
+                tilemapRenderer.setShimmerState(frameCounter, 0);
+
                 Integer atlasId = graphicsManager.getPatternAtlasTextureId();
                 Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
                 Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
@@ -1193,12 +1239,18 @@ public class LevelManager {
                             useUnderwaterPalette,
                             fboWaterlineY);
                 }
+
+                // Restore shimmer for subsequent FG tilemap renders
+                tilemapRenderer.setShimmerState(frameCounter, savedShimmerStyle);
             }
             bgRenderer.endTilePass();
             graphicsManager.setUseUnderwaterPaletteForBackground(false);
         }));
 
-        // 5. Render the FBO with Parallax Shader
+        // 5. Set shimmer state on BG renderer for parallax compositing pass
+        bgRenderer.setShimmerState(frameCounter, capturedBgShimmerStyle, bgWaterlineScreenY);
+
+        // 6. Render the FBO with Parallax Shader
         Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
 
         // Get the hScroll data and base scroll value (last line = furthest right in

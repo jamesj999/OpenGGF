@@ -44,6 +44,9 @@ public class TilemapGpuRenderer {
     private int lookupSize;
     private boolean lookupDirty = false;
 
+    private int shimmerFrameCounter = 0;
+    private int shimmerStyle = 0;
+
     public void init(String shaderPath) throws IOException {
         if (shader == null) {
             shader = new TilemapShaderProgram(shaderPath);
@@ -82,6 +85,20 @@ public class TilemapGpuRenderer {
             this.backgroundHeightTiles = heightTiles;
             this.backgroundDirty = true;
         }
+    }
+
+    /**
+     * Set shimmer state for underwater distortion. Called once per frame.
+     * The shader gates shimmer on UseUnderwaterPalette, so only water zone
+     * renders with underwater palette enabled will apply the distortion.
+     */
+    public void setShimmerState(int frameCounter, int shimmerStyle) {
+        this.shimmerFrameCounter = frameCounter;
+        this.shimmerStyle = shimmerStyle;
+    }
+
+    public int getShimmerStyle() {
+        return shimmerStyle;
     }
 
     public void setPatternLookupData(byte[] data, int size) {
@@ -147,6 +164,7 @@ public class TilemapGpuRenderer {
         shader.setPriorityPass(priorityPass);
         shader.setMaskOutput(maskOutput);
         shader.setWaterSplit(useUnderwaterPalette, waterlineScreenY);
+        shader.setShimmerParams(shimmerFrameCounter, shimmerStyle);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, tilemapTexture.getTextureId());

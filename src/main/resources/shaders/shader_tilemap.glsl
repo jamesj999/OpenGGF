@@ -24,8 +24,40 @@ uniform int PriorityPass;            // -1 = all, 0 = low, 1 = high
 uniform int MaskOutput;              // 1 = output white mask, 0 = output actual color
 uniform int UseUnderwaterPalette;
 uniform float WaterlineScreenY;
+uniform int FrameCounter;            // For shimmer animation
+uniform int ShimmerStyle;            // 0 = none, 1 = S1 integer-snapped shimmer
 
 out vec4 FragColor;
+
+// Sonic 1 LZ/SBZ3 foreground underwater scroll table (Lz_Scroll_Data).
+// Reference: s1disasm/_inc/DeformLayers.asm (Deform_LZ).
+int sampleS1LzForegroundShimmer(int index8)
+{
+    int idx = index8 & 0xFF;
+    bool negativeBand = (idx >= 128 && idx < 144);
+    bool positiveBand = (idx < 16) || (idx >= 160 && idx < 176);
+
+    if (!negativeBand && !positiveBand) {
+        return 0;
+    }
+
+    int local = idx & 0x0F;
+    int magnitude = 0;
+
+    if (local < 2) {
+        magnitude = 1;
+    } else if (local < 4) {
+        magnitude = 2;
+    } else if (local < 8) {
+        magnitude = 3;
+    } else if (local < 10) {
+        magnitude = 2;
+    } else if (local < 12) {
+        magnitude = 1;
+    }
+
+    return negativeBand ? -magnitude : magnitude;
+}
 
 void main()
 {
@@ -44,7 +76,27 @@ void main()
     float pixelX = viewportX / scaleX;
     float pixelYFromTop = (ViewportHeight - 1.0 - viewportY) / scaleY;
 
-    float worldX = WorldOffsetX + pixelX;
+    // Apply underwater shimmer distortion to horizontal position
+    float shimmerDistortion = 0.0;
+    if (UseUnderwaterPalette == 1 && pixelYFromTop >= WaterlineScreenY && ShimmerStyle > 0) {
+        if (ShimmerStyle == 1) {
+            // ROM-accurate S1 foreground shimmer:
+            // Deform_LZ writes FG underwater HScroll as:
+            //   fgScroll = -screenposx + Lz_Scroll_Data[(v_lz_deform + screenposy + line) & 0xFF]
+            // with v_lz_deform incrementing by +0x80 each frame.
+            // On 68000, move.b from a word address reads the high byte first (big-endian),
+            // so the sampled phase advances by +1 every 2 frames (not 0/128 flip).
+            int deformPhase = (FrameCounter >> 1) & 0xFF;
+            int worldLine = int(floor(WorldOffsetY + pixelYFromTop));
+            int tableIndex = (worldLine + deformPhase) & 0xFF;
+            int tableOffset = sampleS1LzForegroundShimmer(tableIndex);
+
+            // Convert HScroll delta to world-space sample offset.
+            shimmerDistortion = -float(tableOffset);
+        }
+    }
+
+    float worldX = WorldOffsetX + pixelX + shimmerDistortion;
     float worldY = WorldOffsetY + pixelYFromTop;
 
     float tileXf = floor(worldX / 8.0);
