@@ -239,6 +239,30 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search LzBlock3
     public static final int ART_NEM_LZ_MOVING_BLOCK_ADDR = 0x3153E;
 
+    // Nem_LzBlock2: Nemesis-compressed LZ Blocks art (695 bytes)
+    // ArtTile_LZ_Blocks = $3E6, loaded via PLC_LZ2 (large horizontal door tiles)
+    // Also used by Object 0x61 (LabyrinthBlock) for sinkblock frame (tile 0)
+    // Verified by RomOffsetFinder --game s1 search LzBlock2
+    public static final int ART_NEM_LZ_BLOCKS_ADDR = 0x31FFA;
+
+    // Nem_LzBlock1: Nemesis-compressed LZ 32x32 Block art (271 bytes)
+    // ArtTile_LZ_Block_1 = $1E0, loaded via PLC_LZ
+    // Used by Object 0x61 frame 3 (.block) via VRAM wraparound: $3E6+$5FA=$9E0&$7FF=$1E0
+    // Verified by RomOffsetFinder --game s1 search LzBlock1
+    public static final int ART_NEM_LZ_BLOCK1_ADDR = 0x32514;
+
+    // Nem_LzPlatfm: Nemesis-compressed LZ Rising Platform art (312 bytes)
+    // ArtTile_LZ_Rising_Platform = $3E6+$69 = $44F, loaded via PLC_LZ2
+    // Used by Object 0x61 frame 1 (.riseplatform)
+    // Verified by RomOffsetFinder --game s1 search LzPlatfm
+    public static final int ART_NEM_LZ_RISING_PLATFORM_ADDR = 0x322B2;
+
+    // Nem_Cork: Nemesis-compressed LZ Cork art (298 bytes)
+    // ArtTile_LZ_Cork = $3E6+$11A = $500, loaded via PLC_LZ2
+    // Used by Object 0x61 frame 2 (.cork)
+    // Verified by RomOffsetFinder --game s1 search Cork
+    public static final int ART_NEM_LZ_CORK_ADDR = 0x323EA;
+
     // Nem_Stomper: Nemesis-compressed SBZ stomper / short moving block art (413 bytes)
     // ArtTile_SBZ_Moving_Block_Short = $2C0, loaded via PLC_SBZ
     // Verified by RomOffsetFinder --game s1 search Stomper
@@ -566,6 +590,29 @@ public final class Sonic1Constants {
      * Widths: 48,48,48,40,24,24,24 = 256 total.
      */
     public static final int[] SS_SCROLL_BAND_WIDTHS = {6, 0x30, 0x30, 0x30, 0x28, 0x18, 0x18, 0x18};
+
+    // Nem_Jaws: Nemesis-compressed Jaws badnik art (LZ, 650 bytes)
+    // ArtTile_Jaws = $486, palette line 1, loaded via PLC_LZ2
+    // Verified by RomOffsetFinder --game s1 search Jaws
+    public static final int ART_NEM_JAWS_ADDR = 0x3727E;
+
+    // Nem_Harpoon: Nemesis-compressed LZ harpoon spike trap art (347 bytes)
+    // ArtTile_LZ_Harpoon = $3CC, loaded via PLC_LZ
+    // Verified by RomOffsetFinder --game s1 search Harpoon
+    public static final int ART_NEM_LZ_HARPOON_ADDR = 0x31696;
+
+    // Nem_Gargoyle: Nemesis-compressed LZ gargoyle head & fireball art (367 bytes)
+    // ArtTile_LZ_Gargoyle = $2E9, loaded via PLC_LZ2
+    // Verified by RomOffsetFinder --game s1 search Gargoyle
+    public static final int ART_NEM_LZ_GARGOYLE_ADDR = 0x31E8A;
+
+    // Nem_LzWheel: Nemesis-compressed LZ conveyor belt wheel/platform art (1249 bytes)
+    // ArtTile_LZ_Conveyor_Belt = $3F6, loaded via PLC_LZ2
+    // Verified by RomOffsetFinder --game s1 search LzWheel
+    public static final int ART_NEM_LZ_WHEEL_ADDR = 0x319A8;
+
+    // ArtTile_LZ_Conveyor_Belt VDP tile index (from Constants.asm)
+    public static final int ARTTILE_LZ_CONVEYOR_BELT = 0x3F6;
 
     // Nem_Bubbles: Nemesis-compressed LZ bubble & countdown art (1622 bytes)
     // ArtTile_LZ_Bubbles = $348, loaded via PLC_LZ

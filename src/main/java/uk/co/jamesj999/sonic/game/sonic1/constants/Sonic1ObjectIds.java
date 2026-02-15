@@ -16,6 +16,7 @@ public final class Sonic1ObjectIds {
     public static final int LAVA_BALL       = 0x14;
     public static final int BRIDGE          = 0x11;
     public static final int SWINGING_PLATFORM = 0x15;
+    public static final int HARPOON           = 0x16;
     public static final int SPIKED_POLE_HELIX = 0x17;
     public static final int PLATFORM        = 0x18;
     public static final int COLLAPSING_LEDGE = 0x1A;
@@ -65,6 +66,9 @@ public final class Sonic1ObjectIds {
     public static final int SEESAW          = 0x5E;
     public static final int BOMB            = 0x5F;
     public static final int ORBINAUT        = 0x60;
+    public static final int LABYRINTH_BLOCK = 0x61; // id_LabyrinthBlock
+    public static final int GARGOYLE        = 0x62;
+    public static final int LZ_CONVEYOR     = 0x63; // id_LabyrinthConvey
     public static final int BUBBLES         = 0x64;
     public static final int INVISIBLE_BARRIER = 0x71;
     public static final int MZ_BOSS           = 0x73; // id_BossMarble
