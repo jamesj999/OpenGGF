@@ -16,6 +16,7 @@ import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1YadrinBadnikInsta
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossBlockInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossFireInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1GHZBossInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1LZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1MZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1SYZBossInstance;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -194,6 +195,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1MZBossInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.SYZ_BOSS,
                 (spawn, registry) -> new Sonic1SYZBossInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.LZ_BOSS,
+                (spawn, registry) -> new Sonic1LZBossInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.SYZ_BOSS_BLOCK,
                 (spawn, registry) -> new Sonic1BossBlockInstance(spawn.subtype()));
         factories.put(Sonic1ObjectIds.BOSS_FIRE,
@@ -239,6 +242,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.MZ_BOSS -> "MZBoss";
             case Sonic1ObjectIds.BOSS_FIRE -> "BossFire";
             case Sonic1ObjectIds.SYZ_BOSS -> "SYZBoss";
+            case Sonic1ObjectIds.LZ_BOSS -> "LZBoss";
             case Sonic1ObjectIds.SYZ_BOSS_BLOCK -> "BossBlock";
             case Sonic1ObjectIds.EGG_PRISON -> "EggPrison";
             case Sonic1ObjectIds.MOTOBUG -> "Motobug";

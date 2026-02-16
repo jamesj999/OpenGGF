@@ -2,11 +2,16 @@ package uk.co.jamesj999.sonic.game.sonic1.events;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic1.Sonic1SwitchManager;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
+import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1LZBossInstance;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.Map;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 
 /**
  * Labyrinth Zone dynamic level events.
@@ -115,6 +120,23 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
      * Uses eventRoutine as a state machine:
      *   0 = waiting for camera to reach boss trigger position
      *   2+ = boss already spawned, skip further checks
+     *
+     * ROM: DynamicLevelEvents.asm lines 206-230
+     * <pre>
+     *   tst.b   (v_dle_routine).w
+     *   bne.s   locret_6F64
+     *   cmpi.w  #boss_lz_x-$140,(v_screenposx).w
+     *   blo.s   locret_6F62
+     *   cmpi.w  #boss_lz_y+$540,(v_screenposy).w
+     *   bhs.s   locret_6F62
+     *   bsr.w   FindFreeObj
+     *   bne.s   locret_6F62
+     *   move.b  #id_BossLabyrinth,(a1)
+     *   QueueSound1 bgm_Boss
+     *   move.b  #1,(f_lockscreen).w
+     *   addq.b  #2,(v_dle_routine).w
+     *   bra.w   LoadPLC_P2 plcid_Boss
+     * </pre>
      */
     private void checkBossSpawn() {
         // loc_6F28: tst.b (v_dle_routine).w
@@ -135,11 +157,28 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
             return; // locret_6F62: camera Y too high, skip
         }
 
-        // TODO: Boss spawn not yet implemented
-        // ROM: QueueSound1 bgm_Boss (play boss music, MUS_BOSS = 0x8C)
+        // ROM: FindFreeObj -> move.b #id_BossLabyrinth,(a1)
+        // Boss spawns at its initial position (set in initializeBossState)
+        LevelManager lm = LevelManager.getInstance();
+        ObjectSpawn bossSpawn = new ObjectSpawn(
+                BOSS_LZ_X + 0x30,         // boss_lz_x + $30
+                BOSS_LZ_Y + 0x500,        // boss_lz_y + $500
+                Sonic1ObjectIds.LZ_BOSS, 0, 0, false, 0);
+        Sonic1LZBossInstance boss = new Sonic1LZBossInstance(bossSpawn, lm);
+        if (lm.getObjectManager() != null) {
+            lm.getObjectManager().addDynamicObject(boss);
+        }
 
-        // f_lockscreen = 1 (lock camera)
-        camera.setFrozen(true);
+        // ROM: QueueSound1 bgm_Boss — play boss music
+        AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
+
+        // ROM: f_lockscreen = 1 — prevents the right camera boundary from
+        // extending further. Does NOT freeze the camera entirely.
+        // For the LZ vertical chase, we lock the left boundary (can't scroll back)
+        // but leave maxX alone so camera follows Sonic rightward and upward.
+        camera.setMinX(camera.getX());
+
+        GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.LZ_BOSS);
 
         // addq.b #2,(v_dle_routine).w
         eventRoutine += 2;

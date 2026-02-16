@@ -119,9 +119,6 @@ public abstract class AbstractSprite implements Sprite {
 	}
 
 	public final void setY(short y) {
-		if (y < 0) {
-			this.yPixel = 0;
-		}
 		this.yPixel = y;
 		this.ySubpixel = 0;
 	}
@@ -148,15 +145,10 @@ public abstract class AbstractSprite implements Sprite {
 		xPixel = updatedXPixel;
 		xSubpixel = updatedXSubpixel;
 
-		// Y boundary: prevent going above Y=0 (top of level)
-		// X boundary enforcement is handled by PlayableSpriteMovement.doLevelBoundary()
-		if (updatedYPixel < 0) {
-			yPixel = 0;
-			ySubpixel = 0;
-		} else {
-			yPixel = updatedYPixel;
-			ySubpixel = updatedYSubpixel;
-		}
+		// ROM: Y is signed 16-bit — sprites can have negative Y (above camera view).
+		// Camera handles its own Y clamping via minY; sprites are not restricted.
+		yPixel = updatedYPixel;
+		ySubpixel = updatedYSubpixel;
 
 	}
 

@@ -3,6 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic1.objects;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.debug.DebugRenderContext;
+import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
 import uk.co.jamesj999.sonic.game.sonic2.objects.EggPrisonAnimalInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ExplosionObjectInstance;
@@ -139,11 +140,25 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
             levelGamestate.pauseTimer();
         }
 
-        // ROM: clr.b (f_lockscreen).w — unlock camera (stop boss arena lock)
+        // Lock the camera at the current position so it stays on the prison
+        // while Sonic runs off the right side of the screen.
+        // ROM: clr.b (f_lockscreen).w — in the ROM this clears the scroll lock,
+        // but the camera stays put because v_limitleft2 = v_limitright2.
         Camera camera = Camera.getInstance();
-        if (camera != null && camera.getFrozen()) {
-            camera.setFrozen(false);
+        if (camera != null) {
+            if (camera.getFrozen()) {
+                camera.setFrozen(false);
+            }
+            // Lock camera horizontally at current position
+            camera.setMinX(camera.getX());
+            camera.setMaxX(camera.getX());
         }
+
+        // Clear boss fight state so doLevelBoundary allows Sonic to exceed
+        // the right screen edge (+64 extra when boss fight is not active).
+        // This is needed even if the boss was never "defeated" (e.g. LZ boss
+        // just escapes without being hit 8 times).
+        GameServices.gameState().setCurrentBossId(0);
 
         // ROM: move.b #1,(f_lockctrl).w — lock player controls
         // ROM: move.w #(btnR<<8),(v_jpadhold2).w — force right input
