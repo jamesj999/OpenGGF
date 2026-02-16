@@ -133,9 +133,11 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
      * ROM: loc_45C00 booster at (+0x38,+4), loc_45C3E booster at (+0x18,+0x18).
      */
     private void spawnBoosters() {
-        // Booster 1: animation sequence {2, 3, 4, 3, 2} (byte_45E6B)
+        // Booster 1: animation sequence from byte_45E6B (timer=0, frames: 1,2,3,4,3,2)
+        // ROM Animate_RawNoSST skips data[1] on first iter, then AnimateRaw_Restart
+        // sets mapping_frame = data[1] = 1 on subsequent loops.
         booster1 = new AizIntroBoosterChild(this, 0x38, 4,
-                new int[]{2, 3, 4, 3, 2});
+                new int[]{1, 2, 3, 4, 3, 2});
 
         // Booster 2: animation sequence {5, 6} (byte_45E73)
         booster2 = new AizIntroBoosterChild(this, 0x18, 0x18,
@@ -192,12 +194,9 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
             booster2.appendRenderCommands(commands);
         }
 
-        // Render emerald glow children
-        if (glowChild1 != null) {
-            glowChild1.appendRenderCommands(commands);
-        }
-        if (glowChild2 != null) {
-            glowChild2.appendRenderCommands(commands);
-        }
+        // Emerald glow children are NOT rendered here — their positions
+        // overlap Tails' face on the plane sprite and their partially-
+        // transparent pixels bleed through.  The ROM's glow effect uses
+        // VDP link chain ordering that suppresses this; for now, omit them.
     }
 }

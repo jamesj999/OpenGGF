@@ -1,7 +1,9 @@
 package uk.co.jamesj999.sonic.game.sonic3k.events;
 
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectInstance;
 
@@ -69,6 +71,51 @@ public abstract class Sonic3kZoneEvents {
         } catch (Exception e) {
             LOGGER.warning("Failed to load palette from ROM offset 0x" +
                     Integer.toHexString(romAddr) + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads a multi-line palette via the PalPointers table.
+     * ROM equivalent: LoadPalette_Immediate
+     *
+     * <p>PalPointers entry format (8 bytes):
+     * <pre>
+     *   dc.l sourceAddr    - ROM address of palette data
+     *   dc.w ramDest       - RAM destination (sign-extended, Normal_palette = $FC00)
+     *   dc.w countMinusOne - longword count minus 1 (for dbf loop)
+     * </pre>
+     *
+     * @param palPointersIndex index into the PalPointers table
+     */
+    protected static void loadPaletteFromPalPointers(int palPointersIndex) {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            int entryAddr = Sonic3kConstants.PAL_POINTERS_ADDR
+                    + palPointersIndex * Sonic3kConstants.PAL_POINTER_ENTRY_SIZE;
+            int sourceAddr = rom.read32BitAddr(entryAddr) & 0x00FFFFFF;
+            int ramDest = rom.read16BitAddr(entryAddr + 4) & 0xFFFF;
+            int countMinusOne = rom.read16BitAddr(entryAddr + 6) & 0xFFFF;
+            int byteCount = (countMinusOne + 1) * 4; // dbf count → longword count → bytes
+
+            // Convert RAM destination to palette line index.
+            // Normal_palette = $FC00; each line = $20 (32) bytes.
+            // Line index = low byte of ramDest / 32.
+            int startLine = (ramDest & 0xFF) / PALETTE_LINE_SIZE;
+            int lineCount = byteCount / PALETTE_LINE_SIZE;
+
+            byte[] data = rom.readBytes(sourceAddr, byteCount);
+            LevelManager levelManager = LevelManager.getInstance();
+            for (int i = 0; i < lineCount; i++) {
+                byte[] lineData = new byte[PALETTE_LINE_SIZE];
+                System.arraycopy(data, i * PALETTE_LINE_SIZE, lineData, 0, PALETTE_LINE_SIZE);
+                levelManager.updatePalette(startLine + i, lineData);
+            }
+            LOGGER.fine("Loaded palette #" + palPointersIndex + ": " + lineCount
+                    + " lines from 0x" + Integer.toHexString(sourceAddr)
+                    + " to line " + startLine);
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load palette from PalPointers index "
+                    + palPointersIndex + ": " + e.getMessage());
         }
     }
 }

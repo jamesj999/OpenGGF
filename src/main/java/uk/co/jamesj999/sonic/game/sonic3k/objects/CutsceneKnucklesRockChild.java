@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
+import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kSfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
@@ -66,6 +68,11 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
             mappingFrame++;
             broken = true;
             LOG.fine("Rock child: breaking apart (mapping_frame=" + mappingFrame + ")");
+
+            // ROM: BreakObjectToPieces plays sfx_Collapse (0x59) as its first action
+            try {
+                AudioManager.getInstance().playSfx(Sonic3kSfx.COLLAPSE.id);
+            } catch (Exception ignored) {}
 
             // BreakObjectToPieces: spawn fragments with scattered velocities
             spawnFragments();

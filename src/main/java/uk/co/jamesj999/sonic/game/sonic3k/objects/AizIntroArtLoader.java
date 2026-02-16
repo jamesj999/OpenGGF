@@ -179,6 +179,8 @@ public class AizIntroArtLoader {
         if (planePatterns != null) return;
         try {
             byte[] data = decompressKosinskiModuled(Sonic3kConstants.ART_KOSM_AIZ_INTRO_PLANE_ADDR);
+            LOG.fine("Plane art decompressed: " + data.length + " bytes (" + (data.length / 32) +
+                    " tiles, expected 136 tiles / 4352 bytes)");
             planePatterns = bytesToPatterns(data);
             LOG.fine("Loaded plane art: " + planePatterns.length + " patterns");
         } catch (Exception e) {

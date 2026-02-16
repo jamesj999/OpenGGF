@@ -21,10 +21,23 @@ public class SwScrlAiz implements ZoneScrollHandler {
     private static final int INTRO_DEFORM_TERMINATOR = 0x7FFF;
     private static final int[] INTRO_DEFORM_SEGMENTS = buildIntroDeformSegments();
 
+    /** AIZ1_DeformArray heights (bit 15 stripped from $800D entry). */
+    private static final int[] DEFORM_HEIGHTS = {
+            0xD0, 0x20, 0x30, 0x30, 0x10, 0x10, 0x10,
+            0x0D, 0x0F, 0x06, 0x0E, 0x50, 0x20
+    };
+    private static final int DEFORM_BAND_COUNT = DEFORM_HEIGHTS.length;
+
+    /** Origin X for AIZ1_Deform base calculation (subi.w #$1300,d0). */
+    private static final int DEFORM_ORIGIN_X = 0x1300;
+
     private short vscrollFactorBG;
     private int minScrollOffset;
     private int maxScrollOffset;
     private final short[] introBandValues = new short[INTRO_DEFORM_BANDS];
+
+    /** Persistent wave accumulator (ROM: HScroll_table+$03C, advances $2000/frame). */
+    private long waveAccum;
 
     @Override
     public void update(int[] horizScrollBuf,
@@ -53,15 +66,109 @@ public class SwScrlAiz implements ZoneScrollHandler {
             vscrollFactorBG = wordOf(cameraY);
             writeIntroScroll(horizScrollBuf, fgScroll, cameraY);
         } else {
-            // Non-intro mode follows AIZ1_Deform's half-speed vertical camera.
-            short bgScroll = asrWord(fgScroll, 1);
+            // AIZ1_Deform: multi-band BG parallax with per-band speeds.
+            // BG vertical scroll = camera Y / 2.
             vscrollFactorBG = asrWord(cameraY, 1);
-            int packed = packScrollWords(fgScroll, bgScroll);
-            trackOffset(fgScroll, bgScroll);
+            computeAiz1Deform(horizScrollBuf, fgScroll, cameraX, cameraY);
+        }
+    }
 
-            for (int line = 0; line < VISIBLE_LINES; line++) {
-                horizScrollBuf[line] = packed;
+    /**
+     * AIZ1_Deform: compute multi-band BG scroll values and distribute across scanlines.
+     *
+     * <p>ROM reference: Screen Events.asm line 576-636 + ApplyDeformation.
+     *
+     * <p>Computes 13 band BG scroll values at varying speeds relative to
+     * {@code cameraX - $1300}. Bands 0-5 (tree canopy) include a per-frame
+     * wave animation. Band 6 is a transition band. Bands 7-12 (mountains/sky)
+     * increase linearly.
+     */
+    private void computeAiz1Deform(int[] horizScrollBuf, short fgScroll,
+                                    int cameraX, int cameraY) {
+        // base = (cameraX - $1300) << 11 in 16.16 fixed-point
+        int relative = (short) (cameraX - DEFORM_ORIGIN_X);
+        long base = ((long) relative << 16) >> 5; // = relative << 11
+
+        short[] bandValues = new short[DEFORM_BAND_COUNT];
+
+        // --- Tree bands (indices 0-6): second block of ROM code ---
+        // Band 6 = base >> 16 (transition band, no wave)
+        bandValues[6] = (short) (base >> 16);
+
+        // Wave accumulator persists across frames (ROM: HScroll_table+$03C += $2000)
+        long d3 = waveAccum;
+        waveAccum += 0x2000;
+
+        // Bands 5→0: increasingly fast tree parallax with wave motion.
+        // ROM: d0 starts at base/2, each iteration adds d3 (wave) before write,
+        //      then adds base after write.
+        long d0 = base >> 1; // base / 2
+        for (int i = 5; i >= 0; i--) {
+            d0 += d3;
+            bandValues[i] = (short) (d0 >> 16);
+            d0 += base;
+        }
+
+        // --- Mountain/sky bands (indices 7-12): third block of ROM code ---
+        // ROM: d0 starts at base, d2 = base/8, each iteration d0 += d2
+        long increment = base >> 3; // base / 8
+        d0 = base;
+        for (int i = 7; i < DEFORM_BAND_COUNT; i++) {
+            d0 += increment;
+            bandValues[i] = (short) (d0 >> 16);
+        }
+
+        // Distribute band values across scanlines using AIZ1_DeformArray heights.
+        // ApplyDeformation: skip bands above BG camera Y, then write visible lines.
+        writeDeformBands(horizScrollBuf, fgScroll, bandValues, cameraY);
+    }
+
+    /**
+     * Distribute band BG scroll values across visible scanlines using
+     * DEFORM_HEIGHTS (AIZ1_DeformArray).
+     *
+     * <p>ROM: ApplyDeformation reads Camera_Y_pos_BG_copy to determine which
+     * bands are above the visible area, then writes packed (FG,BG) entries
+     * for each visible scanline. BG values are negated (ROM: neg.w d3).
+     */
+    private void writeDeformBands(int[] horizScrollBuf, short fgScroll,
+                                   short[] bandValues, int cameraY) {
+        // BG camera Y = cameraY / 2 (set as vscrollFactorBG)
+        int remainingY = (short) vscrollFactorBG;
+        int lineIndex = 0;
+        int bandIndex = 0;
+
+        // Skip bands above the visible area
+        while (bandIndex < DEFORM_BAND_COUNT) {
+            int height = DEFORM_HEIGHTS[bandIndex];
+            int next = remainingY - height;
+            if (next < 0) {
+                // Top of screen is within this band
+                int visibleLines = -next;
+                short bgScroll = negWord(bandValues[bandIndex]);
+                lineIndex = writeSegment(horizScrollBuf, lineIndex, visibleLines, fgScroll, bgScroll);
+                bandIndex++;
+                break;
             }
+            remainingY = next;
+            bandIndex++;
+        }
+
+        // Write remaining visible bands
+        while (lineIndex < VISIBLE_LINES && bandIndex < DEFORM_BAND_COUNT) {
+            int height = DEFORM_HEIGHTS[bandIndex];
+            int count = Math.min(height, VISIBLE_LINES - lineIndex);
+            short bgScroll = negWord(bandValues[bandIndex]);
+            lineIndex = writeSegment(horizScrollBuf, lineIndex, count, fgScroll, bgScroll);
+            bandIndex++;
+        }
+
+        // Pad remaining lines with the last band value
+        short lastBg = negWord(bandValues[Math.min(bandIndex, DEFORM_BAND_COUNT) - 1]);
+        while (lineIndex < VISIBLE_LINES) {
+            int packed = packScrollWords(fgScroll, lastBg);
+            trackOffset(fgScroll, lastBg);
+            horizScrollBuf[lineIndex++] = packed;
         }
     }
 

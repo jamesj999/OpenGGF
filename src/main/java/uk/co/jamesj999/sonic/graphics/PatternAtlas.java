@@ -121,6 +121,13 @@ public class PatternAtlas {
                 }
             }
         }
+        // Eagerly allocate CPU-side pixel buffer so ALL uploads
+        // (initial load + batch overlays) populate it.
+        if (cpuPixels == null) {
+            int pagePixels = atlasWidth * atlasHeight;
+            cpuPixels = new byte[MAX_ATLASES][pagePixels];
+            dirtyPages = new boolean[MAX_ATLASES];
+        }
         initialized = true;
     }
 

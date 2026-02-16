@@ -119,6 +119,6 @@ public class AizIntroWaveChild extends AbstractObjectInstance {
             renderX += camera.getX() - 128;
             renderY += camera.getY() - 128;
         } catch (Exception ignored) {}
-        renderer.drawFrameIndex(mappingFrame, renderX, renderY, false, false);
+        renderer.drawFrameIndex(mappingFrame, renderX, renderY, true, false);
     }
 }
