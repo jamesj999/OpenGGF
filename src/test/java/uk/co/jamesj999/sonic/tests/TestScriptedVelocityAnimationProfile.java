@@ -48,31 +48,26 @@ public class TestScriptedVelocityAnimationProfile {
     }
 
     private static ScriptedVelocityAnimationProfile createProfile() {
-        return new ScriptedVelocityAnimationProfile(
-                0,   // idle
-                1,   // walk
-                2,   // run
-                3,   // roll
-                4,   // roll2
-                5,   // push
-                6,   // duck
-                7,   // lookUp
-                8,   // spindash
-                9,   // spring
-                10,  // death
-                11,  // hurt
-                12,  // skid
-                13,  // slide
-                14,  // air
-                -1,  // balance
-                -1,  // balance2
-                -1,  // balance3
-                -1,  // balance4
-                0x40,
-                0x600,
-                0,
-                true
-        );
+        return new ScriptedVelocityAnimationProfile()
+                .setIdleAnimId(0)
+                .setWalkAnimId(1)
+                .setRunAnimId(2)
+                .setRollAnimId(3)
+                .setRoll2AnimId(4)
+                .setPushAnimId(5)
+                .setDuckAnimId(6)
+                .setLookUpAnimId(7)
+                .setSpindashAnimId(8)
+                .setSpringAnimId(9)
+                .setDeathAnimId(10)
+                .setHurtAnimId(11)
+                .setSkidAnimId(12)
+                .setSlideAnimId(13)
+                .setAirAnimId(14)
+                .setWalkSpeedThreshold(0x40)
+                .setRunSpeedThreshold(0x600)
+                .setFallbackFrame(0)
+                .setAnglePreAdjust(true);
     }
 
     private static class TestSprite extends AbstractPlayableSprite {
