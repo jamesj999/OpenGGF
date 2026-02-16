@@ -123,6 +123,12 @@ public class Sonic3kLevel implements Level {
     }
 
     @Override
+    public Palette.Color getBackdropColor() {
+        // VDP register 7 = $8700: palette line 0, color 0
+        return getPalette(0).getColor(0);
+    }
+
+    @Override
     public int getPatternCount() { return patternCount; }
 
     @Override

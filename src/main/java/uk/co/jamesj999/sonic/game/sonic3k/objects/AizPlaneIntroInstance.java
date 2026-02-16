@@ -226,14 +226,23 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
      */
     private static int decompressionCountdown = 0;
 
+    /**
+     * When true, CPU-controlled Tails sidekick is suppressed (ROM: Tails_CPU_routine = $20).
+     * Set during intro init, cleared when Knuckles spawns (routine >= 22).
+     */
+    private static boolean sidekickSuppressed = false;
+
     /** Returns the current Events_fg_1 accumulator value for BG parallax. */
     public static int getIntroScrollOffset() { return introScrollOffset; }
     public static boolean isMainLevelPhaseActive() { return mainLevelPhaseActive; }
+    public static boolean isSidekickSuppressed() { return sidekickSuppressed; }
+    public static void setSidekickSuppressed(boolean suppressed) { sidekickSuppressed = suppressed; }
     public static void resetIntroPhaseState() {
         introScrollOffset = 0;
         mainLevelPhaseActive = false;
         mainLevelTerrainSwapAttempted = false;
         decompressionCountdown = 0;
+        sidekickSuppressed = false;
     }
 
     // -----------------------------------------------------------------------
@@ -314,9 +323,11 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         // on the explosion frame with scrollSpeed intact, adding 16px to player X.
         scrollVelocity(trackedPlayer);
 
-        if (!isDestroyed()) {
-            maybeActivateMainLevelPhase();
-        }
+        // ROM: main-level phase transition is managed by the FG/BG event
+        // handlers (Sonic3kAIZEvents), not by Obj_intPlane. Do NOT call
+        // maybeActivateMainLevelPhase() here — it would double-decrement
+        // the decompression countdown since events already call
+        // updateMainLevelPhaseForCameraX() once per frame.
     }
 
     /**
@@ -500,28 +511,36 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
      */
     private static final int DECOMPRESSION_FRAMES = 30;
 
+    /**
+     * When true, simulates the ROM's KosinskiM decompression queue delay.
+     * The ROM queues 2 items (16x16 blocks + 8x8 patterns) at camera X >= $1400,
+     * then the BG event handler (AIZ1BGE_Intro) polls Kos_decomp_queue_count
+     * each frame and stays in intro deformation until the queue drains.
+     * Set to false to skip the delay for faster testing.
+     */
+    private static boolean simulateDecompressionLoading = true;
+
     public static void updateMainLevelPhaseForCameraX(int cameraX) {
         if (mainLevelPhaseActive) {
             return;
         }
 
-        // TODO: ROM gates this transition on Kos_decomp_queue_count == 0
-        // (AIZ1BGE_Intro, s3.asm line 70004). The BG event handler stays in
-        // intro deformation mode while art decompression is still queued.
-        // Uncomment the countdown block below to simulate this delay.
-        //
-        // if (decompressionCountdown > 0) {
-        //     decompressionCountdown--;
-        //     if (decompressionCountdown <= 0) {
-        //         mainLevelPhaseActive = true;
-        //     }
-        //     return;
-        // }
+        // ROM gate: while Kos_decomp_queue_count > 0, stay in intro deformation.
+        // The BG event handler (AIZ1BGE_Intro, s3.asm line 70004) polls this
+        // each frame and keeps using AIZ1_IntroDeform until the queue empties.
+        if (decompressionCountdown > 0) {
+            decompressionCountdown--;
+            if (decompressionCountdown <= 0) {
+                mainLevelPhaseActive = true;
+            }
+            return;
+        }
 
         if ((cameraX & 0xFFFF) < 0x1400) {
             return;
         }
 
+        // ROM: FG event queues terrain overlays when camera reaches $1400
         if (!mainLevelTerrainSwapAttempted) {
             mainLevelTerrainSwapAttempted = true;
             boolean swapped = AizIntroTerrainSwap.applyMainLevelOverlays();
@@ -532,15 +551,13 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             }
         }
 
-        mainLevelPhaseActive = true;
-        // decompressionCountdown = DECOMPRESSION_FRAMES;
-    }
-
-    private void maybeActivateMainLevelPhase() {
-        try {
-            updateMainLevelPhaseForCameraX(Camera.getInstance().getX());
-        } catch (Exception ignored) {
-            // Ignore camera access issues in isolated test paths.
+        if (simulateDecompressionLoading) {
+            // Start simulated decompression queue drain — mainLevelPhaseActive
+            // stays false for DECOMPRESSION_FRAMES ticks, matching the ROM's
+            // incremental Kos processing across VBlanks.
+            decompressionCountdown = DECOMPRESSION_FRAMES;
+        } else {
+            mainLevelPhaseActive = true;
         }
     }
 
@@ -579,6 +596,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private void routine0Init(AbstractPlayableSprite player) {
         LOG.fine("Routine 0: initializing intro sequence");
         resetIntroPhaseState();
+        sidekickSuppressed = true;
 
         // ROM: set position (0x60, 0x30)
         currentX = 0x60;
@@ -900,6 +918,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         }
 
         if (checkX >= KNUCKLES_SPAWN_X) {
+            // ROM: Tails regains control when Knuckles appears
+            sidekickSuppressed = false;
+
             // Spawn Knuckles
             ObjectSpawn knuxSpawn = new ObjectSpawn(
                     CutsceneKnucklesAiz1Instance.INIT_X,
@@ -981,11 +1002,17 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             // Apply emerald palette now (overwrites intro palette on line 3)
             AizIntroArtLoader.applyEmeraldPalette();
 
-            // Spawn 7 emeralds
+            // Spawn 7 emeralds.
+            // ROM: CreateChild6_Simple places emeralds in later object slots.
+            // The emerald init code (loc_67900) reads Player_1.x_pos when that
+            // slot is first processed — AFTER this object's scrollVelocity has
+            // already added scrollSpeed to Player_1. We account for this by
+            // adding scrollSpeed to the spawn X here, since our constructor
+            // runs before scrollVelocity.
             int spawnX = currentX;
             int spawnY = currentY;
             if (player != null) {
-                spawnX = player.getCentreX();
+                spawnX = player.getCentreX() + scrollSpeed;
                 spawnY = player.getCentreY();
             }
 

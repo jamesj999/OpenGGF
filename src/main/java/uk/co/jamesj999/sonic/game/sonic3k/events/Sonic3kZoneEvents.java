@@ -110,7 +110,7 @@ public abstract class Sonic3kZoneEvents {
                 System.arraycopy(data, i * PALETTE_LINE_SIZE, lineData, 0, PALETTE_LINE_SIZE);
                 levelManager.updatePalette(startLine + i, lineData);
             }
-            LOGGER.fine("Loaded palette #" + palPointersIndex + ": " + lineCount
+            LOGGER.info("Loaded palette #" + palPointersIndex + ": " + lineCount
                     + " lines from 0x" + Integer.toHexString(sourceAddr)
                     + " to line " + startLine);
         } catch (Exception e) {
