@@ -457,7 +457,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         mappingFrame = LANDED_MAPPING_FRAME;
         waitTimer = STAND_TIMER;
         routine = 6;
-        LOG.fine("Routine 4: landed at Y=" + groundY + ", transitioning to stand");
+        LOG.fine("Routine 4: landed at X=" + currentX + " Y=" + groundY + ", transitioning to stand");
     }
 
     // -----------------------------------------------------------------------
@@ -483,7 +483,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_WALK_ADDR);
 
             routine = 8;
-            LOG.fine("Routine 6: stand complete, starting pace left");
+            LOG.fine("Routine 6: stand complete at X=" + currentX + ", starting pace left");
         }
     }
 

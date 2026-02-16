@@ -186,6 +186,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     private int mappingFrame;
     private int lastFrameCounter;
+    private int previousDiagnosticRoutine = -1;
     private PlayerSpriteRenderer sonicRenderer;
     private PlayerSpriteRenderer superSonicRenderer;
     private boolean renderersLoaded;
@@ -259,15 +260,23 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         return true;
     }
 
+    /** Frame counter for diagnostic logging (counts update() calls). */
+    private int diagnosticFrameCount;
+
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         lastFrameCounter = frameCounter;
+        diagnosticFrameCount++;
         AbstractPlayableSprite trackedPlayer = resolveTrackedPlayer(player);
 
-        // ROM: sub_67A08 (scroll velocity) runs BEFORE routine dispatch
-        scrollVelocity(trackedPlayer);
-        maybeActivateMainLevelPhase();
+        // Diagnostic logging for timing comparison against ROM
+        if (diagnosticFrameCount % 60 == 0 || routine != previousDiagnosticRoutine) {
+            LOG.info(String.format("AIZ intro: frame=%d routine=0x%02X speed=%d eventsFg1=%d introScrollOffset=%d",
+                    diagnosticFrameCount, routine, scrollSpeed, eventsFg1, introScrollOffset));
+            previousDiagnosticRoutine = routine;
+        }
 
+        // ROM: routine dispatch FIRST (s3.asm line 81188-81195)
         switch (routine) {
             case 0  -> routine0Init(trackedPlayer);
             case 2  -> routine2Wait(trackedPlayer);
@@ -286,6 +295,13 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             default -> {
                 // Invalid routine - no-op
             }
+        }
+
+        // ROM: sub_45DE4 (scrollVelocity) runs AFTER routine dispatch.
+        // Go_Delete_Sprite in routine 0x1A prevents this from running post-explosion.
+        if (!isDestroyed()) {
+            scrollVelocity(trackedPlayer);
+            maybeActivateMainLevelPhase();
         }
     }
 
@@ -871,12 +887,19 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
         if (checkX >= EXPLOSION_TRIGGER_X) {
             // Release player with specific velocity
+            // ROM (s3.asm line 81414-81423): sets routine=4 (hurt), Status_InAir,
+            // velocities, anim=$1A (hurt), clears object_control
             if (player != null) {
                 player.setHidden(false);
                 player.setObjectControlled(false);
                 player.setYSpeed((short) -0x400);
                 player.setXSpeed((short) -0x200);
                 player.setGSpeed((short) 0);
+                // ROM: move.b #4,routine(a1) + bset Status_InAir
+                // Without these, landing converts xSpeed to gSpeed causing backward walk.
+                // ROM's Sonic_HurtStop zeros ground_vel on landing from hurt state.
+                player.setHurt(true);
+                player.setAir(true);
                 // Controls still locked — player bounces but can't move
                 // player.setControlLocked remains true
                 ownsPlayerControl = false;

@@ -1167,7 +1167,16 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/** Landing gSpeed calculation (s2.asm:37584) */
 	private void calculateLanding(AbstractPlayableSprite sprite) {
+		// ROM: Sonic_HurtStop — when landing from hurt state, zero all velocity.
+		// Must check before resetOnFloor() which clears the hurt flag via setAir(false).
+		boolean wasHurt = sprite.isHurt();
 		resetOnFloor();
+		if (wasHurt) {
+			sprite.setGSpeed((short) 0);
+			sprite.setXSpeed((short) 0);
+			sprite.setYSpeed((short) 0);
+			return;
+		}
 
 		short ySpeed = sprite.getYSpeed();
 		short xSpeed = sprite.getXSpeed();

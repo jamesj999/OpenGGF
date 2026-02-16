@@ -66,11 +66,6 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (AizPlaneIntroInstance.isMainLevelPhaseActive()) {
             return false;
         }
-        // ROM parity: VDP BG plane wraps at 512px for the ENTIRE intro, not
-        // just while introScrollOffset is negative.  The intro is active when
-        // Level_started_flag is clear (set by routine0Init, cleared by Knuckles).
-        // Using the same gate as SwScrlAiz.introMode keeps the wrap period in
-        // sync with the scroll handler.
         return !Camera.getInstance().isLevelStarted();
     }
 
