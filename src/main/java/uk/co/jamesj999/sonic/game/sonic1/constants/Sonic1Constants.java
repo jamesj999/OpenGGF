@@ -293,6 +293,21 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search SbzFloor
     public static final int ART_NEM_SBZ_COLLAPSING_FLOOR_ADDR = 0x353D4;
 
+    // Nem_Seesaw: Nemesis-compressed SLZ seesaw art (572 bytes, ArtTile_SLZ_Seesaw = $374)
+    // Verified by RomOffsetFinder --game s1 search Seesaw
+    public static final int ART_NEM_SLZ_SEESAW_ADDR = 0x3385C;
+
+    // Nem_SlzSpike: Nemesis-compressed SLZ seesaw spikeball art (326 bytes, ArtTile_SLZ_Spikeball = $4F0)
+    // Verified by RomOffsetFinder --game s1 search SlzSpike
+    public static final int ART_NEM_SLZ_SPIKEBALL_ADDR = 0x33A98;
+
+    // Nem_Pylon: Nemesis-compressed SLZ foreground pylon art (225 bytes, ArtTile_SLZ_Pylon = $3CC)
+    // Verified by RomOffsetFinder --game s1 search Pylon
+    public static final int ART_NEM_SLZ_PYLON_ADDR = 0x33E84;
+
+    // ArtTile_SLZ_Pylon VDP tile index (from Constants.asm)
+    public static final int ARTTILE_SLZ_PYLON = 0x3CC;
+
     // Nem_Fan: Nemesis-compressed SLZ fan art (579 bytes, ArtTile_SLZ_Fan = $3A0)
     // Verified by RomOffsetFinder --game s1 search Fan
     public static final int ART_NEM_SLZ_FAN_ADDR = 0x33BDE;

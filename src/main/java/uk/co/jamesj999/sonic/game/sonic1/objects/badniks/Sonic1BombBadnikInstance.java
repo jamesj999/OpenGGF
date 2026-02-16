@@ -136,6 +136,7 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
     private int xSubpixel;
     private int ySubpixel;
     private boolean facingLeft;
+    private boolean ceilingBomb; // obStatus bit 1: bomb is upside-down on ceiling
     private boolean destroyed;
 
     private int state;          // ob2ndRout / 2
@@ -159,6 +160,9 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
         // So facingLeft = (new bit == 0) = (original bit == 1) = spawnBit0.
         boolean spawnBit0 = (spawn.renderFlags() & 1) != 0;
         this.facingLeft = spawnBit0;
+        // obStatus bit 1: ceiling bomb (upside-down). Used for V-flip rendering
+        // and negating fuse Y velocity. From: btst #1,obStatus(a0)
+        this.ceilingBomb = (spawn.renderFlags() & 2) != 0;
         this.destroyed = false;
 
         int subtype = spawn.subtype();
@@ -387,8 +391,10 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
             return;
         }
 
+        // btst #1,obStatus(a0) / beq.s .normal / neg.w obVelY(a1)
+        int fuseYSpeed = ceilingBomb ? -FUSE_Y_SPEED : FUSE_Y_SPEED;
         Sonic1BombFuseInstance fuse = new Sonic1BombFuseInstance(
-                currentX, currentY, facingLeft, FUSE_TIME, FUSE_Y_SPEED, this, levelManager);
+                currentX, currentY, facingLeft, ceilingBomb, FUSE_TIME, fuseYSpeed, this, levelManager);
         objectManager.addDynamicObject(fuse);
     }
 
@@ -558,9 +564,9 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
         }
 
         int frame = getMappingFrame();
-        // ori.b #4,obRender(a0): bit 2 set = use obStatus bit 0 for X flip
-        // facingLeft = true when status bit 0 is clear
-        renderer.drawFrameIndex(frame, currentX, currentY, !facingLeft, false);
+        // ori.b #4,obRender(a0): bit 2 set = use obStatus for flipping
+        // obStatus bit 0 = X flip, obStatus bit 1 = Y flip (ceiling bomb)
+        renderer.drawFrameIndex(frame, currentX, currentY, !facingLeft, ceilingBomb);
     }
 
     @Override

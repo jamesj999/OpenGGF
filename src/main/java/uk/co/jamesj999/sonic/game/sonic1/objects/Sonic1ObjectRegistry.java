@@ -176,8 +176,12 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                         LevelManager.getInstance().getRomZoneId()));
         factories.put(Sonic1ObjectIds.BIG_SPIKED_BALL,
                 (spawn, registry) -> new Sonic1BigSpikedBallObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SLZ_ELEVATOR,
+                (spawn, registry) -> new Sonic1ElevatorObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SLZ_CIRCLING_PLATFORM,
                 (spawn, registry) -> new Sonic1CirclingPlatformObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SLZ_STAIRCASE,
+                (spawn, registry) -> new Sonic1StaircaseObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.LABYRINTH_BLOCK,
                 (spawn, registry) -> new Sonic1LabyrinthBlockObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GARGOYLE,
@@ -188,8 +192,12 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1BubblesObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.WATERFALL,
                 (spawn, registry) -> new Sonic1WaterfallObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.PYLON,
+                (spawn, registry) -> new Sonic1PylonObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.FAN,
                 (spawn, registry) -> new Sonic1FanObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SEESAW,
+                (spawn, registry) -> new Sonic1SeesawObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.BOMB,
                 (spawn, registry) -> new Sonic1BombBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.ORBINAUT,
@@ -282,7 +290,10 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.FLOATING_BLOCK -> "FloatingBlock";
             case Sonic1ObjectIds.SPIKED_BALL_CHAIN -> "SpikedBallChain";
             case Sonic1ObjectIds.BIG_SPIKED_BALL -> "BigSpikedBall";
+            case Sonic1ObjectIds.SLZ_ELEVATOR -> "Elevator";
             case Sonic1ObjectIds.SLZ_CIRCLING_PLATFORM -> "CirclingPlatform";
+            case Sonic1ObjectIds.SLZ_STAIRCASE -> "Staircase";
+            case Sonic1ObjectIds.PYLON -> "Pylon";
             case Sonic1ObjectIds.FAN -> "Fan";
             case Sonic1ObjectIds.SEESAW -> "Seesaw";
             case Sonic1ObjectIds.BOMB -> "Bomb";
