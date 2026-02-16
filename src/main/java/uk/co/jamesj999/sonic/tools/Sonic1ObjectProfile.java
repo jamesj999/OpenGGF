@@ -85,7 +85,9 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.COLLAPSING_FLOOR,
             Sonic1ObjectIds.SPIKED_BALL_CHAIN,
             Sonic1ObjectIds.BIG_SPIKED_BALL,
+            Sonic1ObjectIds.SLZ_ELEVATOR,
             Sonic1ObjectIds.SLZ_CIRCLING_PLATFORM,
+            Sonic1ObjectIds.SLZ_STAIRCASE,
             Sonic1ObjectIds.INVISIBLE_BARRIER,
             Sonic1ObjectIds.LAVA_BALL_MAKER,
             Sonic1ObjectIds.LAVA_GEYSER_MAKER,
@@ -100,6 +102,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.BUMPER,
             Sonic1ObjectIds.FLOATING_BLOCK,
             Sonic1ObjectIds.FAN,
+            Sonic1ObjectIds.SEESAW,
+            Sonic1ObjectIds.PYLON,
             Sonic1ObjectIds.WATERFALL_SOUND,
             Sonic1ObjectIds.ORBINAUT,
             Sonic1ObjectIds.BOMB,
@@ -201,7 +205,10 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.BUBBLES, List.of("Bubbles"));
         map.put(Sonic1ObjectIds.WATERFALL, List.of("Waterfall"));
         map.put(Sonic1ObjectIds.BATBRAIN, List.of("Batbrain"));
+        map.put(Sonic1ObjectIds.SLZ_ELEVATOR, List.of("Elevator"));
         map.put(Sonic1ObjectIds.SLZ_CIRCLING_PLATFORM, List.of("CirclingPlatform"));
+        map.put(Sonic1ObjectIds.SLZ_STAIRCASE, List.of("Staircase"));
+        map.put(Sonic1ObjectIds.PYLON, List.of("Pylon"));
         map.put(Sonic1ObjectIds.FAN, List.of("Fan"));
         map.put(Sonic1ObjectIds.SEESAW, List.of("Seesaw"));
         map.put(Sonic1ObjectIds.BOMB, List.of("Bomb"));

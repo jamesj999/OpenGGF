@@ -46,6 +46,7 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
     private int timer;              // bom_time
     private int animTickCounter;
     private boolean facingLeft;
+    private boolean ceilingBomb;    // obStatus bit 1: parent is upside-down
     private boolean destroyed;
 
     /**
@@ -54,13 +55,15 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
      * @param x             Bomb X position
      * @param y             Bomb Y position
      * @param facingLeft    Bomb's facing direction (status bit 0)
+     * @param ceilingBomb   Whether parent is upside-down (status bit 1)
      * @param fuseTime      Countdown timer (143 frames)
      * @param fuseYSpeed    Vertical speed ($10 or -$10 for upside-down)
      * @param parent        Parent bomb instance for shrapnel spawning
      * @param levelManager  Level manager reference
      */
-    public Sonic1BombFuseInstance(int x, int y, boolean facingLeft, int fuseTime,
-                                  int fuseYSpeed, Sonic1BombBadnikInstance parent,
+    public Sonic1BombFuseInstance(int x, int y, boolean facingLeft, boolean ceilingBomb,
+                                  int fuseTime, int fuseYSpeed,
+                                  Sonic1BombBadnikInstance parent,
                                   LevelManager levelManager) {
         super(new ObjectSpawn(x, y, 0x5F, 4, 0, false, 0), "BombFuse");
         this.levelManager = levelManager;
@@ -72,6 +75,7 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
         this.ySubpixel = 0;
         this.timer = fuseTime;
         this.facingLeft = facingLeft;
+        this.ceilingBomb = ceilingBomb;
         this.animTickCounter = 0;
         this.destroyed = false;
     }
@@ -144,7 +148,8 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
         }
 
         int frame = getMappingFrame();
-        renderer.drawFrameIndex(frame, currentX, currentY, !facingLeft, false);
+        // obStatus bit 1 inherited from parent: V-flip for ceiling bombs
+        renderer.drawFrameIndex(frame, currentX, currentY, !facingLeft, ceilingBomb);
     }
 
     @Override

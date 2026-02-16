@@ -200,11 +200,14 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadMzCollapsingFloorArt(rom);
         }
 
-        // Load SLZ-specific art (fan, fireball, collapsing floor)
+        // Load SLZ-specific art (fan, pylon, fireball, collapsing floor, seesaw)
         if (zoneIndex == Sonic1Constants.ZONE_SLZ) {
             loadSlzFanArt(rom);
+            loadSlzPylonArt(rom);
             loadSlzFireballArt(rom);
             loadSlzCollapsingFloorArt(rom);
+            loadSlzSeesawArt(rom);
+            loadSlzSeesawBallArt(rom);
         }
 
         // Load LZ-specific art (breakable pole, flapping door, waterfall, push block, moving block,
@@ -663,6 +666,116 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * Subtype bit 0 selects frame offset: 0 = frames 0-2 (left), 1 = frames 2-4 (right variant).
      * The disassembly adds obAniFrame to a base of 0 or 2 depending on subtype bit 0.
      */
+    /**
+     * Loads SLZ seesaw art (Nem_Seesaw) and creates S1-format sprite mappings.
+     * From Pattern Load Cues: plcm Nem_Seesaw, ArtTile_SLZ_Seesaw
+     * Palette line 0 from disassembly: make_art_tile(ArtTile_SLZ_Seesaw,0,0)
+     *
+     * Mapping table has 4 entries but only 2 unique frames (sloping and flat):
+     *   Frame 0 = .sloping (tilted left/right, 7 pieces)
+     *   Frame 1 = .flat (level, 4 pieces)
+     *   Frame 2 = .sloping (same as frame 0, but rendered with x-flip)
+     *   Frame 3 = .flat (same as frame 1)
+     */
+    private void loadSlzSeesawArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SLZ_SEESAW_ADDR, "SlzSeesaw");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SLZ seesaw art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSlzSeesawMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.SLZ_SEESAW, sheet);
+    }
+
+    /**
+     * Creates SLZ seesaw sprite mappings from docs/s1disasm/_maps/Seesaw.asm (Map_Seesaw_internal).
+     * Frame 0 (.sloping): 7 pieces - tilted seesaw
+     * Frame 1 (.flat): 4 pieces - level seesaw
+     * Frame 2 = .sloping (duplicate, rendered with x-flip by the object)
+     * Frame 3 = .flat (duplicate)
+     */
+    private List<SpriteMappingFrame> createSlzSeesawMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.sloping)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x2D, -0x2C, 2, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x1D, -0x24, 2, 3, 6, false, false, 0, false),
+                new SpriteMappingPiece(-0x0D, -0x1C, 2, 1, 0xC, false, false, 0, false),
+                new SpriteMappingPiece(-0x0D, -0x14, 4, 2, 0xE, false, false, 0, false),
+                new SpriteMappingPiece(-0x05, -0x04, 3, 1, 0x16, false, false, 0, false),
+                new SpriteMappingPiece(0x13, -0x0C, 2, 3, 6, false, false, 0, false),
+                new SpriteMappingPiece(0x23, -0x04, 2, 2, 0x19, false, false, 0, false)
+        )));
+
+        // Frame 1 (.flat)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x30, -0x1A, 3, 3, 0x1D, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, -0x1A, 3, 3, 0x23, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x1A, 3, 3, 0x23, true, false, 0, false),
+                new SpriteMappingPiece(0x18, -0x1A, 3, 3, 0x1D, true, false, 0, false)
+        )));
+
+        // Frame 2 = .sloping (duplicate of frame 0)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x2D, -0x2C, 2, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x1D, -0x24, 2, 3, 6, false, false, 0, false),
+                new SpriteMappingPiece(-0x0D, -0x1C, 2, 1, 0xC, false, false, 0, false),
+                new SpriteMappingPiece(-0x0D, -0x14, 4, 2, 0xE, false, false, 0, false),
+                new SpriteMappingPiece(-0x05, -0x04, 3, 1, 0x16, false, false, 0, false),
+                new SpriteMappingPiece(0x13, -0x0C, 2, 3, 6, false, false, 0, false),
+                new SpriteMappingPiece(0x23, -0x04, 2, 2, 0x19, false, false, 0, false)
+        )));
+
+        // Frame 3 = .flat (duplicate of frame 1)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x30, -0x1A, 3, 3, 0x1D, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, -0x1A, 3, 3, 0x23, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x1A, 3, 3, 0x23, true, false, 0, false),
+                new SpriteMappingPiece(0x18, -0x1A, 3, 3, 0x1D, true, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads SLZ seesaw spikeball art (Nem_SlzSpike) and creates S1-format sprite mappings.
+     * From Pattern Load Cues: plcm Nem_SlzSpike, ArtTile_SLZ_Spikeball
+     * Palette line 0: make_art_tile(ArtTile_SLZ_Spikeball,0,0)
+     * Frame 0 (.red): 3x3 tile 0; Frame 1 (.silver): 3x3 tile 9
+     */
+    private void loadSlzSeesawBallArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SLZ_SPIKEBALL_ADDR, "SlzSpikeball");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SLZ seesaw spikeball art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSlzSeesawBallMappings();
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.SLZ_SEESAW_BALL, sheet);
+    }
+
+    private List<SpriteMappingFrame> createSlzSeesawBallMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.red): spritePiece -$C, -$C, 3, 3, 0, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0, false, false, 0, false)
+        )));
+
+        // Frame 1 (.silver): spritePiece -$C, -$C, 3, 3, 9, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 9, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
     private void loadSlzFanArt(Rom rom) {
         Pattern[] patterns = loadNemesisPatterns(rom,
                 Sonic1Constants.ART_NEM_SLZ_FAN_ADDR, "SlzFan");
@@ -729,6 +842,67 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-8, -0x10, 3, 2, 0, false, false, 0, false),
                 new SpriteMappingPiece(-0x10, 0, 4, 2, 6, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads SLZ foreground pylon art (Nem_Pylon) and creates S1-format sprite mappings.
+     * The pylon is a tall decorative metal structure that renders in the foreground with
+     * parallax scrolling in Star Light Zone.
+     * <p>
+     * Mappings from docs/s1disasm/_maps/Pylon.asm (Map_Pylon_internal).
+     * <p>
+     * Palette line 0, priority=1 from disassembly:
+     * make_art_tile(ArtTile_SLZ_Pylon,0,1)
+     */
+    private void loadSlzPylonArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SLZ_PYLON_ADDR, "SlzPylon");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SLZ pylon art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSlzPylonMappings();
+        // Palette line 0, priority=1 from disassembly: make_art_tile(ArtTile_SLZ_Pylon,0,1)
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.SLZ_PYLON, sheet);
+    }
+
+    /**
+     * Creates SLZ pylon sprite mappings from S1 disassembly Map_Pylon_internal.
+     * <p>
+     * Single frame (.pylon): 9 pieces, all 4x4 tiles (32x32 pixels), stacked vertically.
+     * Pieces alternate vertical flip for visual symmetry. All use tile index 0.
+     * <pre>
+     * spritePiece -$10, -$80, 4, 4, 0, 0, 0, 0, 0
+     * spritePiece -$10, -$60, 4, 4, 0, 0, 1, 0, 0   (vflip)
+     * spritePiece -$10, -$40, 4, 4, 0, 0, 0, 0, 0
+     * spritePiece -$10, -$20, 4, 4, 0, 0, 1, 0, 0   (vflip)
+     * spritePiece -$10,    0, 4, 4, 0, 0, 0, 0, 0
+     * spritePiece -$10,  $20, 4, 4, 0, 0, 1, 0, 0   (vflip)
+     * spritePiece -$10,  $40, 4, 4, 0, 0, 0, 0, 0
+     * spritePiece -$10,  $60, 4, 4, 0, 0, 1, 0, 0   (vflip)
+     * spritePiece -$10,  $7F, 4, 4, 0, 0, 0, 0, 0
+     * </pre>
+     * Total height: from y=-$80 to y=$7F+32 = 287 pixels.
+     */
+    private List<SpriteMappingFrame> createSlzPylonMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.pylon): 9 pieces stacked vertically
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x80, 4, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x60, 4, 4, 0, false, true,  0, false),
+                new SpriteMappingPiece(-0x10, -0x40, 4, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x20, 4, 4, 0, false, true,  0, false),
+                new SpriteMappingPiece(-0x10,     0, 4, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,  0x20, 4, 4, 0, false, true,  0, false),
+                new SpriteMappingPiece(-0x10,  0x40, 4, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10,  0x60, 4, 4, 0, false, true,  0, false),
+                new SpriteMappingPiece(-0x10,  0x7F, 4, 4, 0, false, false, 0, false)
         )));
 
         return frames;
@@ -3450,6 +3624,64 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * @param level     The loaded level to extract patterns from
      * @param zoneIndex The current zone index
      */
+    /**
+     * Registers the SLZ elevator sprite sheet using level tile patterns.
+     * Must be called AFTER the level is loaded since elevators use zone tileset art
+     * (make_art_tile(ArtTile_Level,2,0)).
+     * <p>
+     * SLZ only. 1 frame from docs/s1disasm/_maps/SLZ Elevators.asm:
+     * <ul>
+     *   <li>Frame 0 (.elevator): 80x32 platform (3 pieces using tile $41)</li>
+     * </ul>
+     *
+     * @param level     The loaded level to extract patterns from
+     * @param zoneIndex The current zone index
+     */
+    public void registerElevatorSheet(Level level, int zoneIndex) {
+        if (level == null || zoneIndex != Sonic1Constants.ZONE_SLZ) {
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createElevatorMappings();
+
+        // Highest tile: $41 + (4*4) = $51
+        int maxTileNeeded = 0x51;
+        int patternCount = level.getPatternCount();
+        int copyCount = Math.min(patternCount, maxTileNeeded);
+        if (copyCount == 0) {
+            LOGGER.warning("No level patterns available for SLZ elevator art");
+            return;
+        }
+        Pattern[] patterns = new Pattern[copyCount];
+        for (int i = 0; i < copyCount; i++) {
+            patterns[i] = level.getPattern(i);
+        }
+
+        // Palette line 2 (make_art_tile(ArtTile_Level, 2, 0))
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SLZ_ELEVATOR, sheet);
+    }
+
+    /**
+     * SLZ elevator mappings from docs/s1disasm/_maps/SLZ Elevators.asm.
+     * Frame 0 (.elevator): 80x32 platform using 3 pieces, all starting at tile $41.
+     */
+    private List<SpriteMappingFrame> createElevatorMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // .elevator:
+        //   spritePiece -$28, -8, 4, 4, $41, 0, 0, 0, 0
+        //   spritePiece   -8, -8, 4, 4, $41, 0, 0, 0, 0
+        //   spritePiece  $18, -8, 2, 4, $41, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x28, -0x08, 4, 4, 0x41, false, false, 0, false),
+                new SpriteMappingPiece(-0x08, -0x08, 4, 4, 0x41, false, false, 0, false),
+                new SpriteMappingPiece(0x18, -0x08, 2, 4, 0x41, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
     public void registerCirclingPlatformSheet(Level level, int zoneIndex) {
         if (level == null || zoneIndex != Sonic1Constants.ZONE_SLZ) {
             return;
@@ -3488,6 +3720,60 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-0x18, -0x08, 3, 2, 0x51, false, false, 0, false),
                 new SpriteMappingPiece(0x00, -0x08, 3, 2, 0x51, true, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Registers the SLZ staircase sprite sheet using level tile patterns.
+     * Must be called AFTER the level is loaded since the staircase uses zone tileset art
+     * (make_art_tile(ArtTile_Level,2,0)).
+     * <p>
+     * SLZ only. 1 frame from docs/s1disasm/_maps/Staircase.asm:
+     * <ul>
+     *   <li>Frame 0 (.block): 32x32 block (1 piece of 4x4 tiles at tile $21)</li>
+     * </ul>
+     *
+     * @param level     The loaded level to extract patterns from
+     * @param zoneIndex The current zone index
+     */
+    public void registerStaircaseSheet(Level level, int zoneIndex) {
+        if (level == null || zoneIndex != Sonic1Constants.ZONE_SLZ) {
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createStaircaseMappings();
+
+        // Highest tile: $21 + (4*4) = $31
+        int maxTileNeeded = 0x31;
+        int patternCount = level.getPatternCount();
+        int copyCount = Math.min(patternCount, maxTileNeeded);
+        if (copyCount == 0) {
+            LOGGER.warning("No level patterns available for SLZ staircase art");
+            return;
+        }
+        Pattern[] patterns = new Pattern[copyCount];
+        for (int i = 0; i < copyCount; i++) {
+            patterns[i] = level.getPattern(i);
+        }
+
+        // Palette line 2 (make_art_tile(ArtTile_Level, 2, 0))
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SLZ_STAIRCASE, sheet);
+    }
+
+    /**
+     * SLZ staircase mappings from docs/s1disasm/_maps/Staircase.asm.
+     * Frame 0 (.block): 32x32 block (1 piece of 4x4 tiles at tile $21)
+     */
+    private List<SpriteMappingFrame> createStaircaseMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // .block:
+        //   spritePiece -$10, -$10, 4, 4, $21, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x21, false, false, 0, false)
         )));
 
         return frames;

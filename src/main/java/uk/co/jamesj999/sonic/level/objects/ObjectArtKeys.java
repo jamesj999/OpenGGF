@@ -123,8 +123,21 @@ public final class ObjectArtKeys {
     // LZ waterfall/splash object art (S1 Object 0x65)
     public static final String LZ_WATERFALL = "lz_waterfall";
 
+    // SLZ elevator (S1 Object 0x59)
+    public static final String SLZ_ELEVATOR = "slz_elevator";
+
+    // SLZ staircase (S1 Object 0x5B)
+    public static final String SLZ_STAIRCASE = "slz_staircase";
+
     // SLZ circling platform (S1 Object 0x5A)
     public static final String SLZ_CIRCLING_PLATFORM = "slz_circling_platform";
+
+    // SLZ seesaw (S1 Object 0x5E)
+    public static final String SLZ_SEESAW = "slz_seesaw";
+    public static final String SLZ_SEESAW_BALL = "slz_seesaw_ball";
+
+    // SLZ pylon (S1 Object 0x5C)
+    public static final String SLZ_PYLON = "slz_pylon";
 
     // SLZ fan (S1 Object 0x5D)
     public static final String SLZ_FAN = "slz_fan";
