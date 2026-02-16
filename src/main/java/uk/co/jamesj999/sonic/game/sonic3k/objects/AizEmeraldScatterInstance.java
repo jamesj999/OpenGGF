@@ -21,8 +21,9 @@ import java.util.logging.Logger;
  * with subtypes 0, 2, 4, 6, 8, 10, 12. The mapping frame is derived from
  * the subtype (subtype >> 1), giving frames 0-6 for the seven emerald colors.
  *
- * All seven emeralds receive the same initial velocity: x_vel = -0x40,
- * y_vel = -0x700 (from Obj_VelocityIndex at byte offset 0x40).
+ * Each emerald receives a unique X velocity from Set_IndexedVelocity
+ * (Obj_VelocityIndex at 0x40 + subtype * 2), creating a leftward fan scatter.
+ * Y velocity is -0x700 for all emeralds.
  *
  * Three phases:
  *
@@ -62,13 +63,23 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
     public static final int Y_RADIUS = 4;
 
     /** Standard S3K gravity in subpixels per frame. */
-    public static final int GRAVITY = 0x38;
+    public static final int GRAVITY = SubpixelMotion.S3K_GRAVITY;
 
-    /** Initial X velocity in subpixels (from Obj_VelocityIndex offset 0x40). */
-    private static final int INIT_X_VEL = -0x40;
-
-    /** Initial Y velocity in subpixels (from Obj_VelocityIndex offset 0x40). */
-    private static final int INIT_Y_VEL = -0x700;
+    /**
+     * Per-emerald velocity table from Set_IndexedVelocity / Obj_VelocityIndex.
+     * ROM indexes by 0x40 + subtype * 2, giving each emerald a different X velocity
+     * so they scatter in a leftward fan pattern.
+     * Format: {xVel, yVel} indexed by subtype >> 1 (0-6).
+     */
+    private static final int[][] VELOCITY_TABLE = {
+        {-0x0040, -0x0700},  // subtype 0
+        {-0x0080, -0x0700},  // subtype 2
+        {-0x0180, -0x0700},  // subtype 4
+        {-0x0100, -0x0700},  // subtype 6
+        {-0x0200, -0x0700},  // subtype 8
+        {-0x0280, -0x0700},  // subtype 10
+        {-0x0300, -0x0700},  // subtype 12
+    };
 
     // -----------------------------------------------------------------------
     // Mutable state
@@ -111,9 +122,10 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
         this.currentY = spawn.y();
         this.xSub = 0;
         this.ySub = 0;
-        this.xVel = INIT_X_VEL;
-        this.yVel = INIT_Y_VEL;
-        this.mappingFrame = spawn.subtype() >> 1;
+        int velIndex = spawn.subtype() >> 1;  // 0-6
+        this.xVel = VELOCITY_TABLE[velIndex][0];
+        this.yVel = VELOCITY_TABLE[velIndex][1];
+        this.mappingFrame = velIndex;
         this.phase = Phase.FALLING;
     }
 
@@ -155,24 +167,23 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
     // Phase logic
     // -----------------------------------------------------------------------
 
+    /** Shared state object for SubpixelMotion calls. */
+    private final SubpixelMotion.State motionState = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
+
     /**
      * FALLING phase (loc_67938): Apply gravity via MoveSprite equivalent.
      * Check floor with ObjCheckFloorDist. When floor hit (d1 < 0), snap Y
      * and transition to GROUNDED.
      */
     private void updateFalling() {
-        // MoveSprite: add velocity to position with subpixel accumulation.
-        // X: position += xVel (16:16 fixed point)
-        int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
-        currentX += (xVel >> 8) + (xTotal >> 8);
-        xSub = xTotal & 0xFF;
-
-        // MoveSprite order: move with old y_vel, then apply gravity.
-        int oldYVel = yVel;
-        yVel += GRAVITY;
-        int yTotal = (ySub & 0xFF) + (oldYVel & 0xFF);
-        currentY += (oldYVel >> 8) + (yTotal >> 8);
-        ySub = yTotal & 0xFF;
+        // MoveSprite: add velocity to position with subpixel accumulation + gravity.
+        motionState.x = currentX; motionState.y = currentY;
+        motionState.xSub = xSub;  motionState.ySub = ySub;
+        motionState.xVel = xVel;  motionState.yVel = yVel;
+        SubpixelMotion.moveSprite(motionState, GRAVITY);
+        currentX = motionState.x; currentY = motionState.y;
+        xSub = motionState.xSub;  ySub = motionState.ySub;
+        xVel = motionState.xVel;  yVel = motionState.yVel;
 
         // ObjCheckFloorDist terrain collision
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);

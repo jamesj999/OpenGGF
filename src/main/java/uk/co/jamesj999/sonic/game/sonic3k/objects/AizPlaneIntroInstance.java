@@ -5,7 +5,6 @@ import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kPlayerArt;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
-import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.physics.SwingMotion;
@@ -79,7 +78,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     static final int GROUND_Y = 0x130;
 
     /** Standard S3K gravity in subpixels per frame. */
-    static final int GRAVITY = 0x38;
+    static final int GRAVITY = SubpixelMotion.S3K_GRAVITY;
 
     /** Initial wait timer value for routine 0x00 ($2E timer = 0x40). */
     static final int INIT_WAIT_TIMER = 0x40;
@@ -192,7 +191,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private boolean renderersLoaded;
 
     /** ROM $40 field — scroll speed. Changes at routine transitions. */
-    private int scrollSpeed = 8;
+    private int scrollSpeed = SCROLL_SPEED;
 
     /** ROM Events_fg_1 accumulator — starts at 0xE918 (-5864), gates FG scroll. */
     private int eventsFg1 = (short) 0xE918;
@@ -386,21 +385,6 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         return planeWalkLeft;
     }
 
-    // -----------------------------------------------------------------------
-    // Dynamic object spawning helper
-    // -----------------------------------------------------------------------
-
-    private void spawnDynamicObject(AbstractObjectInstance object) {
-        try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null && lm.getObjectManager() != null) {
-                lm.getObjectManager().addDynamicObject(object);
-            }
-        } catch (Exception e) {
-            LOG.fine("Could not spawn dynamic object (test env?): " + e.getMessage());
-        }
-    }
-
     private void ensureIntroSonicRenderersLoaded() {
         if (renderersLoaded) {
             return;
@@ -420,28 +404,35 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     // MoveSprite helpers (subpixel position updates)
     // -----------------------------------------------------------------------
 
+    /** Shared state object for SubpixelMotion calls — avoids per-frame allocation. */
+    private final SubpixelMotion.State motionState = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
+
+    /** Syncs local fields into the shared motion state before a SubpixelMotion call. */
+    private void syncToMotionState() {
+        motionState.x = currentX; motionState.y = currentY;
+        motionState.xSub = xSub;  motionState.ySub = ySub;
+        motionState.xVel = xVel;  motionState.yVel = yVel;
+    }
+
+    /** Syncs shared motion state back into local fields after a SubpixelMotion call. */
+    private void syncFromMotionState() {
+        currentX = motionState.x; currentY = motionState.y;
+        xSub = motionState.xSub;  ySub = motionState.ySub;
+        xVel = motionState.xVel;  yVel = motionState.yVel;
+    }
+
     /** MoveSprite2: apply x_vel and y_vel to position with subpixel accumulation. No gravity. */
     private void moveSprite2() {
-        int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
-        currentX += (xVel >> 8) + (xTotal >> 8);
-        xSub = xTotal & 0xFF;
-
-        int yTotal = (ySub & 0xFF) + (yVel & 0xFF);
-        currentY += (yVel >> 8) + (yTotal >> 8);
-        ySub = yTotal & 0xFF;
+        syncToMotionState();
+        SubpixelMotion.moveSprite2(motionState);
+        syncFromMotionState();
     }
 
     /** MoveSprite: add old velocity to position, then apply gravity to y_vel. */
     private void moveSprite() {
-        int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
-        currentX += (xVel >> 8) + (xTotal >> 8);
-        xSub = xTotal & 0xFF;
-
-        int oldYVel = yVel;
-        yVel += GRAVITY;
-        int yTotal = (ySub & 0xFF) + (oldYVel & 0xFF);
-        currentY += (oldYVel >> 8) + (yTotal >> 8);
-        ySub = yTotal & 0xFF;
+        syncToMotionState();
+        SubpixelMotion.moveSprite(motionState, GRAVITY);
+        syncFromMotionState();
     }
 
     /**

@@ -132,7 +132,7 @@ public class Sonic3kLevel implements Level {
     }
 
     @Override
-    public void ensurePatternCapacity(int minCount) {
+    public synchronized void ensurePatternCapacity(int minCount) {
         if (minCount <= patternCount) return;
         patterns = Arrays.copyOf(patterns, minCount);
         GraphicsManager graphicsMan = GraphicsManager.getInstance();
@@ -468,6 +468,27 @@ public class Sonic3kLevel implements Level {
         }
     }
 
+    /**
+     * Saves the state of all chunks as a 2D int array.
+     * Used for snapshot/restore during pre-computation of transition tilemaps.
+     */
+    public int[][] snapshotChunks() {
+        int[][] snapshot = new int[chunkCount][];
+        for (int i = 0; i < chunkCount; i++) {
+            snapshot[i] = chunks[i].saveState();
+        }
+        return snapshot;
+    }
+
+    /**
+     * Restores all chunks from a previously saved snapshot.
+     */
+    public void restoreChunks(int[][] snapshot) {
+        for (int i = 0; i < snapshot.length && i < chunkCount; i++) {
+            chunks[i].restoreState(snapshot[i]);
+        }
+    }
+
     private void ensureChunkCapacity(int minCount) {
         if (minCount <= chunkCount) {
             return;
@@ -683,6 +704,8 @@ public class Sonic3kLevel implements Level {
         } else {
             this.minX = rom.read16BitAddr(levelBoundariesAddr);
             this.maxX = rom.read16BitAddr(levelBoundariesAddr + 2);
+            // Y boundaries use (short) cast for sign extension: S3K zones can have
+            // negative Y bounds (e.g., AIZ intro minY), unlike X which is always >= 0.
             this.minY = (short) rom.read16BitAddr(levelBoundariesAddr + 4);
             this.maxY = (short) rom.read16BitAddr(levelBoundariesAddr + 6);
         }

@@ -64,7 +64,6 @@ import uk.co.jamesj999.sonic.sprites.Sprite;
 import uk.co.jamesj999.sonic.sprites.SensorConfiguration;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
-import uk.co.jamesj999.sonic.game.sonic3k.objects.AizPlaneIntroInstance;
 import uk.co.jamesj999.sonic.sprites.managers.SpindashDustController;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.managers.TailsTailsController;
@@ -145,6 +144,14 @@ public class LevelManager {
     private int patternLookupSize;
     private boolean patternLookupDirty = true;
     private boolean multiAtlasWarningLogged = false;
+
+    // Pre-built tilemap data for stutter-free terrain transitions (AIZ intro)
+    private byte[] prebuiltFgTilemap;
+    private int prebuiltFgWidth;
+    private int prebuiltFgHeight;
+    private byte[] prebuiltBgTilemap;
+    private int prebuiltBgWidth;
+    private int prebuiltBgHeight;
 
     private boolean specialStageRequestedFromCheckpoint;
     private boolean specialStageReturnLevelReloadRequested;
@@ -249,6 +256,8 @@ public class LevelManager {
         backgroundTilemapData = null;
             foregroundTilemapData = null;
             patternLookupData = null;
+            prebuiltFgTilemap = null;
+            prebuiltBgTilemap = null;
             initAnimatedPatterns();
             initAnimatedPalettes();
             RomByteReader romReader = RomByteReader.fromRom(rom);
@@ -1141,7 +1150,7 @@ public class LevelManager {
 
         int[] hScrollData = parallaxManager.getHScrollForShader();
         int bgPeriodWidthPixels = backgroundTilemapWidthTiles * Pattern.PATTERN_WIDTH;
-        if (isS3kAizIntroOceanPhase()) {
+        if (zoneFeatureProvider != null && zoneFeatureProvider.isIntroOceanPhaseActive(currentZone, currentAct)) {
             // ROM intro uses a 64x32 VDP plane redraw model; wrapping against full
             // layout width causes sampling into empty trailing chunks ("staircase" strips).
             bgPeriodWidthPixels = VDP_BG_PLANE_WIDTH_PX;
@@ -1232,13 +1241,7 @@ public class LevelManager {
         }));
 
         // 5. Render the FBO with Parallax Shader
-        Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
-
-        if (paletteId != null) {
-            int pId = paletteId;
-            int screenW = cachedScreenWidth;
-            int screenH = screenHeightPixels;
-
+        if (graphicsManager.getCombinedPaletteTextureId() != null) {
             // Calculate vertical scroll offset (sub-chunk) for shader
             // The FBO is rendered aligned to 16-pixel chunk boundaries
             // The shader needs to shift the view by the remaining offset
@@ -1250,30 +1253,11 @@ public class LevelManager {
 
             graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx2, cy2, cw2, ch2) -> {
                 bgRenderer.renderWithScrollWide(hScrollData, finalShaderScrollMidpoint, finalShaderExtraBuffer,
-                        finalVOffset, pId,
-                        screenW,
-                        screenH);
+                        finalVOffset);
             }));
         }
     }
 
-    private boolean isS3kAizIntroOceanPhase() {
-        if (gameModule == null || !"Sonic3k".equals(gameModule.getIdentifier())) {
-            return false;
-        }
-        if (currentZone != 0 || currentAct != 0) {
-            return false;
-        }
-        if (AizPlaneIntroInstance.isMainLevelPhaseActive()) {
-            return false;
-        }
-        // ROM parity: VDP BG plane wraps at 512px for the ENTIRE intro, not
-        // just while introScrollOffset is negative.  The intro is active when
-        // Level_started_flag is clear (set by routine0Init, cleared by Knuckles).
-        // Using the same gate as SwScrlAiz.introMode keeps the wrap period in
-        // sync with the scroll handler.
-        return !Camera.getInstance().isLevelStarted();
-    }
 
     private void enqueueForegroundTilemapPass(Camera camera, int priorityPass) {
         TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
@@ -1613,10 +1597,10 @@ public class LevelManager {
 
         // Keep Sonic 2's 512px BG wrap behavior (VDP plane redraw model).
         // S3K uses a different background data flow in AIZ intro and needs full-width BG data.
-        boolean sonic2BgWrap = layerIndex == 1
-                && gameModule != null
-                && "Sonic2".equals(gameModule.getIdentifier());
-        int levelWidth = sonic2BgWrap ? VDP_BG_PLANE_WIDTH_PX : layerLevelWidth;
+        boolean bgWrap = layerIndex == 1
+                && zoneFeatureProvider != null
+                && zoneFeatureProvider.bgWrapsHorizontally();
+        int levelWidth = bgWrap ? VDP_BG_PLANE_WIDTH_PX : layerLevelWidth;
 
         int widthTiles = levelWidth / Pattern.PATTERN_WIDTH;
         int heightTiles = levelHeight / Pattern.PATTERN_HEIGHT;
@@ -2522,6 +2506,73 @@ public class LevelManager {
     }
 
     /**
+     * Pre-builds FG and BG tilemap data from the current level state.
+     * The pre-built data can later be swapped in via {@link #swapToPrebuiltTilemaps()}
+     * to avoid the expensive full-level tilemap rebuild on the transition frame.
+     */
+    public void prebuildTransitionTilemaps() {
+        if (level == null || level.getMap() == null) {
+            return;
+        }
+        TilemapData fg = buildTilemapData((byte) 0);
+        prebuiltFgTilemap = fg.data.clone();
+        prebuiltFgWidth = fg.widthTiles;
+        prebuiltFgHeight = fg.heightTiles;
+
+        TilemapData bg = buildTilemapData((byte) 1);
+        prebuiltBgTilemap = bg.data.clone();
+        prebuiltBgWidth = bg.widthTiles;
+        prebuiltBgHeight = bg.heightTiles;
+    }
+
+    /**
+     * Swaps pre-built tilemap data into the live arrays, uploads to GPU,
+     * and clears FG/BG dirty flags. Still marks pattern lookup dirty
+     * (cheap rebuild, needed if pattern count changed from the overlay).
+     *
+     * @return true if pre-built data was available and swapped in
+     */
+    public boolean swapToPrebuiltTilemaps() {
+        if (prebuiltFgTilemap == null || prebuiltBgTilemap == null) {
+            return false;
+        }
+
+        foregroundTilemapData = prebuiltFgTilemap;
+        foregroundTilemapWidthTiles = prebuiltFgWidth;
+        foregroundTilemapHeightTiles = prebuiltFgHeight;
+        foregroundTilemapDirty = false;
+
+        backgroundTilemapData = prebuiltBgTilemap;
+        backgroundTilemapWidthTiles = prebuiltBgWidth;
+        backgroundTilemapHeightTiles = prebuiltBgHeight;
+        backgroundTilemapDirty = false;
+
+        patternLookupDirty = true;
+
+        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
+        if (renderer != null) {
+            ensurePatternLookupData();
+            renderer.setTilemapData(TilemapGpuRenderer.Layer.FOREGROUND,
+                    foregroundTilemapData, foregroundTilemapWidthTiles, foregroundTilemapHeightTiles);
+            renderer.setTilemapData(TilemapGpuRenderer.Layer.BACKGROUND,
+                    backgroundTilemapData, backgroundTilemapWidthTiles, backgroundTilemapHeightTiles);
+            renderer.setPatternLookupData(patternLookupData, patternLookupSize);
+        }
+
+        // Release pre-built data (one-shot use)
+        prebuiltFgTilemap = null;
+        prebuiltBgTilemap = null;
+        return true;
+    }
+
+    /**
+     * Returns whether pre-built transition tilemap data is available.
+     */
+    public boolean hasPrebuiltTilemaps() {
+        return prebuiltFgTilemap != null && prebuiltBgTilemap != null;
+    }
+
+    /**
      * Gets the music ID for the current level.
      * Returns -1 if no level is loaded or music ID cannot be determined.
      */
@@ -2734,27 +2785,13 @@ public class LevelManager {
             // during tests
             if (showTitleCard
                     && !graphicsManager.isHeadlessMode()
-                    && !shouldSuppressInitialTitleCard()) {
+                    && !(zoneFeatureProvider != null && zoneFeatureProvider.shouldSuppressInitialTitleCard(currentZone, currentAct))) {
                 requestTitleCard(currentZone, currentAct);
             }
 
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private boolean shouldSuppressInitialTitleCard() {
-        if (gameModule == null || !"Sonic3k".equals(gameModule.getIdentifier())) {
-            return false;
-        }
-        if (currentZone != 0 || currentAct != 0) {
-            return false;
-        }
-        if (configService.getBoolean(SonicConfiguration.S3K_SKIP_INTROS)) {
-            return false;
-        }
-        String mainCharacter = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        return mainCharacter != null && "sonic".equalsIgnoreCase(mainCharacter.trim());
     }
 
     public void nextAct() throws IOException {
@@ -2959,6 +2996,8 @@ public class LevelManager {
         backgroundTilemapData = null;
         foregroundTilemapData = null;
         patternLookupData = null;
+        prebuiltFgTilemap = null;
+        prebuiltBgTilemap = null;
         currentZone = 0;
         currentAct = 0;
         frameCounter = 0;

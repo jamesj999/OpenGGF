@@ -12,7 +12,6 @@
 
 // Background rendered to FBO (RGBA, wider than screen)
 uniform sampler2D BackgroundTexture;
-uniform sampler2D Palette;
 
 // 1D texture containing per-scanline scroll values (224 entries)
 uniform sampler1D HScrollTexture;
@@ -28,7 +27,6 @@ uniform float BGTextureHeight;
 // Scroll midpoint - the hScroll value that corresponds to FBO center
 uniform float ScrollMidpoint;
 
-// Extra buffer pixels on each side of the FBO
 // Extra buffer pixels on each side of the FBO
 uniform float ExtraBuffer;
 

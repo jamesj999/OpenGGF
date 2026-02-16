@@ -182,12 +182,13 @@ public class SwScrlAizTest {
     private void activateIntroScrollState() {
         AizPlaneIntroInstance intro = new AizPlaneIntroInstance(
                 new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0));
+        // First update: routine 0 → init (resets introScrollOffset to 0, advances to routine 2)
         intro.update(0, null);
+        // Second update: scrollVelocity runs before routine 2, sets introScrollOffset < 0
+        intro.update(1, null);
     }
 
     private void resetIntroScrollState() {
-        AizPlaneIntroInstance intro = new AizPlaneIntroInstance(
-                new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0));
-        intro.onUnload();
+        AizPlaneIntroInstance.resetIntroPhaseState();
     }
 }

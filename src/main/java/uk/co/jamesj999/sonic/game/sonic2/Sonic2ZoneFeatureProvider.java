@@ -305,5 +305,10 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
         return Integer.MAX_VALUE;
     }
 
+    @Override
+    public boolean bgWrapsHorizontally() {
+        return true;
+    }
+
     // Intentionally no public accessors for bumper system.
 }

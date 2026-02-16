@@ -16,6 +16,7 @@ import uk.co.jamesj999.sonic.level.resources.CompressionType;
 import uk.co.jamesj999.sonic.level.resources.LevelResourcePlan;
 import uk.co.jamesj999.sonic.level.resources.LoadOp;
 import uk.co.jamesj999.sonic.level.resources.ResourceLoader;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.AizIntroTerrainSwap;
 
 import java.util.LinkedHashSet;
 import java.io.IOException;
@@ -256,7 +257,8 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
                 && bootstrap != null
                 && bootstrap.mode() == Sonic3kLoadBootstrap.Mode.INTRO;
         if (isAizIntro) {
-            uk.co.jamesj999.sonic.game.sonic3k.objects.AizIntroTerrainSwap.preloadOverlayData();
+            AizIntroTerrainSwap.preloadOverlayData();
+            AizIntroTerrainSwap.precomputeTransitionTilemaps();
         }
 
         return level;
@@ -553,12 +555,9 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
                 // keep the wider intro profile so gameplay-after-intro bootstrap
                 // remains valid without full intro transition state.
                 index = Sonic3kConstants.LEVEL_SIZES_AIZ1_INTRO_INDEX;
-            } else if (bootstrap.mode() == Sonic3kLoadBootstrap.Mode.INTRO) {
-                // ROM Get_LevelSizeStart intro startup:
-                // use normal AIZ1 LevelSizes bounds and then override min X to 0.
-                // (Do not use LevelSizes intro index for the full intro path.)
-                index = zone * Sonic3kConstants.ACTS_PER_ZONE_STRIDE + act;
             }
+            // Mode.INTRO uses the normal AIZ1 LevelSizes bounds (already set above)
+            // and then overrides min X to 0 via boundariesMinXOverride.
         }
         return levelSizesAddr + index * Sonic3kConstants.LEVEL_SIZES_ENTRY_SIZE;
     }
@@ -632,22 +631,8 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
 
     private void appendPlcPatternOps(LevelResourcePlan.Builder planBuilder, int plcIndex) {
         switch (plcIndex & 0xFF) {
-            case 0x01 -> {
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_PLAYER_LIFE_ICON,
-                        Sonic3kConstants.ART_NEM_SONIC_LIFE_ICON_ADDR);
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_MONITORS,
-                        Sonic3kConstants.ART_NEM_MONITORS_ADDR);
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_RING,
-                        Sonic3kConstants.ART_NEM_RING_HUD_TEXT_ADDR);
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_STARPOST,
-                        Sonic3kConstants.ART_NEM_ENEMY_PTS_STARPOST_ADDR);
-            }
-            case 0x05, 0x07 -> {
-                // TODO: Use character-specific life icon Nemesis sources for strict HUD parity.
+            // TODO: Use character-specific life icon Nemesis sources for strict HUD parity.
+            case 0x01, 0x05, 0x07 -> {
                 addNemesisPatternOverlay(planBuilder,
                         Sonic3kConstants.ARTTILE_PLAYER_LIFE_ICON,
                         Sonic3kConstants.ART_NEM_SONIC_LIFE_ICON_ADDR);
