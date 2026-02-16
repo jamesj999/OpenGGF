@@ -62,6 +62,7 @@ public class Sonic1SceneryObjectInstance extends AbstractObjectInstance {
         if (renderer == null || !renderer.isReady()) {
             return;
         }
-        renderer.drawFrameIndex(frameIndex, getX(), getY(), false, false);
+        boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
+        renderer.drawFrameIndex(frameIndex, getX(), getY(), hFlip, false);
     }
 }
