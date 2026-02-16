@@ -127,6 +127,9 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     /** Shared state object for SubpixelMotion calls. */
     private final SubpixelMotion.State motionState = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
+    /** Diagnostic: frame counter for fall phase. */
+    private int fallFrameCount;
+
     // -----------------------------------------------------------------------
     // Animation state (Animate_RawNoSST equivalent)
     // -----------------------------------------------------------------------
@@ -417,6 +420,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      * On floor collision: snap Y, mapping_frame = 0x16, timer = 0x7F.
      */
     private void routine4Fall() {
+        fallFrameCount++;
         tickAnimation();
 
         // MoveSprite: apply velocity to position with subpixel accumulation + gravity.
@@ -438,7 +442,14 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         // ObjCheckFloorDist terrain collision.
         // ROM uses bmi (d1 < 0) — snap only when distance is strictly negative.
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
+        System.out.println("DIAG-KNUX-FALL: frame=" + fallFrameCount
+                + " X=" + currentX + " Y=" + currentY
+                + " yVel=" + oldYVel
+                + " floorFound=" + floor.foundSurface()
+                + " floorDist=" + floor.distance());
         if (floor.foundSurface() && floor.distance() < 0) {
+            System.out.println("DIAG-KNUX-FALL: LANDED at frame=" + fallFrameCount
+                    + " X=" + currentX + " Y=" + (currentY + floor.distance()));
             currentY += floor.distance();
             landOnGround(currentY);
         }
@@ -483,7 +494,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_WALK_ADDR);
 
             routine = 8;
-            LOG.fine("Routine 6: stand complete at X=" + currentX + ", starting pace left");
+            System.out.println("DIAG: Knuckles pace start X=" + currentX);
         }
     }
 
