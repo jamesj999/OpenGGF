@@ -53,6 +53,7 @@ mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFind
 # export <type> [prefix] - Export verified offsets as Java constants
 # verify-batch [type]  - Batch verify all/filtered items
 # find <label> [offset] - Find ROM offset by decompression search
+# search-rom <hex> [start] [end] - Search ROM for hex byte pattern (inline data, pointer tables, etc.)
 ```
 
 Game selection: `--game s1`, `--game s2` (default), or `--game s3k`. Auto-detects from disasm path if not specified.
