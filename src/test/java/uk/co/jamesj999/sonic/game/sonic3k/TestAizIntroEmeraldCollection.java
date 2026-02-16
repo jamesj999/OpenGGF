@@ -37,10 +37,11 @@ import static org.junit.Assert.assertTrue;
  * Once he walks offscreen, leftover emeralds are despawned by ObjectManager,
  * hiding any collection failure.
  *
- * Known bug: The Obj_Wait off-by-one ({@code <= 0} vs {@code < 0}) shortens
- * Knuckles' pacing by 6 pixels per direction. The leftmost emerald (subtype 12,
- * xVel = -0x300) lands at the edge of his reach, so this 6px shortfall leaves
- * it uncollected. This test detects that failure.
+ * Root cause was a ROM mismatch in the plane descent routine: the ROM's
+ * {@code beq.s Swing_Setup1} skips MoveSprite2 when yVel reaches 0, but Java
+ * called moveSprite2() unconditionally, adding 3 extra pixels to the plane's X.
+ * This shifted the player's position at the explosion trigger, putting the
+ * leftmost emerald (subtype 12, xVel=-0x300) beyond Knuckles' pacing reach.
  */
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestAizIntroEmeraldCollection {
