@@ -403,6 +403,11 @@ public class GameLoop {
                 levelManager.updateObjectPositions();
                 profiler.endSection("objects");
 
+                // ROM order: LZWaterFeatures runs before ExecuteObjects (sonic.asm:3043-3044).
+                // Water slides and wind tunnels must set f_slidemode and obInertia before
+                // Sonic_Move executes so the sliding flag is visible to input handling.
+                levelManager.updateZoneFeaturesPrePhysics();
+
                 profiler.beginSection("physics");
                 spriteManager.update(inputHandler);
                 profiler.endSection("physics");

@@ -256,9 +256,10 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadSbzCollapsingFloorArt(rom);
         }
 
-        // Load boss art (GHZ/MZ/SYZ/LZ: Eggman, weapons/chain anchor, exhaust flame)
+        // Load boss art (GHZ/MZ/SYZ/LZ/SLZ: Eggman, weapons/chain anchor, exhaust flame)
         if (zoneIndex == Sonic1Constants.ZONE_GHZ || zoneIndex == Sonic1Constants.ZONE_MZ
-                || zoneIndex == Sonic1Constants.ZONE_SYZ || zoneIndex == Sonic1Constants.ZONE_LZ) {
+                || zoneIndex == Sonic1Constants.ZONE_SYZ || zoneIndex == Sonic1Constants.ZONE_LZ
+                || zoneIndex == Sonic1Constants.ZONE_SLZ) {
             loadBossArt(rom);
         }
 

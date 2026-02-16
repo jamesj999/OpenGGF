@@ -338,6 +338,22 @@ public class LevelManager {
         }
     }
 
+    /**
+     * Runs pre-physics zone feature updates (e.g., LZ water slides and wind tunnels).
+     *
+     * <p>ROM order: {@code LZWaterFeatures} runs before {@code ExecuteObjects},
+     * so water slides set {@code f_slidemode} and {@code obInertia} before
+     * {@code Sonic_Move} executes. This method must be called before
+     * {@code spriteManager.update()} to match that ordering.
+     */
+    public void updateZoneFeaturesPrePhysics() {
+        if (zoneFeatureProvider != null && level != null) {
+            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
+            zoneFeatureProvider.updatePrePhysics(playable, Camera.getInstance().getX(), level.getZoneIndex());
+        }
+    }
+
     public void update() {
         // NOTE: OscillationManager and objectManager are now updated via updateObjectPositions()
         // which is called earlier in GameLoop to fix platform riding sync (1-frame lag fix).
