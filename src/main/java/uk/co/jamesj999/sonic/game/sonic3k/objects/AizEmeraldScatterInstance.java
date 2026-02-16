@@ -177,6 +177,9 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
      */
     private void updateFalling() {
         // MoveSprite: add velocity to position with subpixel accumulation + gravity.
+        // ROM: tst.l d0 / bmi.s — d0 holds old y_vel (pre-gravity); skip floor check
+        // if still moving upward.
+        int preGravityYVel = yVel;
         motionState.x = currentX; motionState.y = currentY;
         motionState.xSub = xSub;  motionState.ySub = ySub;
         motionState.xVel = xVel;  motionState.yVel = yVel;
@@ -185,9 +188,13 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
         xSub = motionState.xSub;  ySub = motionState.ySub;
         xVel = motionState.xVel;  yVel = motionState.yVel;
 
+        // ROM: tst.l d0 / bmi.s — skip floor check while moving upward
+        if (preGravityYVel < 0) return;
+
         // ObjCheckFloorDist terrain collision
+        // ROM: tst.w d1 / bpl.s — land when d1 < 0 (strictly negative)
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
-        if (floor.hasCollision()) {
+        if (floor.foundSurface() && floor.distance() < 0) {
             landOnGround(currentY + floor.distance());
         }
     }

@@ -1150,18 +1150,35 @@ public class LevelManager {
 
         int[] hScrollData = parallaxManager.getHScrollForShader();
         int bgPeriodWidthPixels = backgroundTilemapWidthTiles * Pattern.PATTERN_WIDTH;
+        int shaderScrollMidpoint = 0;
+        int shaderExtraBuffer = 0;
+        float bgTilemapWorldOffsetX = 0.0f;
         if (zoneFeatureProvider != null && zoneFeatureProvider.isIntroOceanPhaseActive(currentZone, currentAct)) {
-            // ROM intro uses a 64x32 VDP plane redraw model; wrapping against full
-            // layout width causes sampling into empty trailing chunks ("staircase" strips).
+            // VDP-accurate 512px wrapping with sliding origin.
+            // The ROM BG plane is 64 cells wide (512px). During the intro, all scanlines
+            // wrap within 512px regardless of deformation spread. We emulate this by
+            // sliding a 512px window to follow the BG camera position — beach tiles appear
+            // naturally as the window slides rightward, while wrapping prevents staircase
+            // corruption from parallax deformation bands sampling invalid positions.
             bgPeriodWidthPixels = VDP_BG_PLANE_WIDTH_PX;
+
+            int minS = parallaxManager.getMinScroll();
+            int maxS = parallaxManager.getMaxScroll();
+            if (minS != Integer.MAX_VALUE && maxS != Integer.MIN_VALUE) {
+                int midScroll = (minS + maxS) / 2;
+                int cameraX = camera.getX();
+                int bgCenterWorldX = 160 + cameraX - midScroll;
+                int tilemapWidthPx = backgroundTilemapWidthTiles * Pattern.PATTERN_WIDTH;
+                int maxOrigin = Math.max(0, tilemapWidthPx - VDP_BG_PLANE_WIDTH_PX);
+                bgTilemapWorldOffsetX = Math.max(0, Math.min(bgCenterWorldX - 256, maxOrigin));
+                shaderScrollMidpoint = -(int) bgTilemapWorldOffsetX;
+                shaderExtraBuffer = 0;
+            }
         }
         int renderWidth = Math.max(cachedScreenWidth, bgPeriodWidthPixels);
         // Add CHUNK_HEIGHT (16px) to cover VScroll range
         // This prevents bottom clipping when VScroll > 0 (max VScroll = 15, max gameY = 223, max fboY = 238 < 272)
         int renderHeight = 256 + LevelConstants.CHUNK_HEIGHT;
-        int shaderScrollMidpoint = 0;
-        int shaderExtraBuffer = 0;
-        float bgTilemapWorldOffsetX = 0.0f;
 
         // ROM parity: use the full background plane period and direct wrap sampling.
         // The intro path still uses the same VDP hscroll semantics as normal gameplay.
