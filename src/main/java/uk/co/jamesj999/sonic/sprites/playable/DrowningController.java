@@ -3,8 +3,12 @@ package uk.co.jamesj999.sonic.sprites.playable;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.audio.GameAudioProfile;
 import uk.co.jamesj999.sonic.audio.GameSound;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
 import uk.co.jamesj999.sonic.game.sonic2.objects.BreathingBubbleInstance;
 import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
+import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.physics.Direction;
 
 import java.util.Random;
@@ -50,6 +54,24 @@ public class DrowningController {
     /** Maximum delay before second bubble spawns */
     private static final int SECOND_BUBBLE_MAX_DELAY = 16;
 
+    /**
+     * Sonic 2 countdown frame mapping: countdownNumber (0-5) -> art frame index.
+     * S2 bubble art: frames 6-11 are countdown numbers (6="5", 7="4", ..., 11="0").
+     */
+    private static final int[] S2_COUNTDOWN_FRAMES = {11, 10, 9, 8, 7, 6};
+
+    /**
+     * Sonic 1 countdown frame mapping: countdownNumber (0-5) -> art frame index.
+     * S1 bubble art: frames 13-18 are full countdown numbers (13="0", 14="5", 15="4", 16="3", 17="2", 18="1").
+     */
+    private static final int[] S1_COUNTDOWN_FRAMES = {13, 18, 17, 16, 15, 14};
+
+    /** Max bubble growth frame for S2 art (frames 0-3) */
+    private static final int S2_MAX_BUBBLE_FRAME = 3;
+
+    /** Max bubble growth frame for S1 art (frames 0-5) */
+    private static final int S1_MAX_BUBBLE_FRAME = 5;
+
     private final AbstractPlayableSprite player;
     private final Random random = new Random();
 
@@ -71,6 +93,18 @@ public class DrowningController {
     /** Countdown number for pending second bubble (-1 if regular bubble) */
     private int pendingCountdownNumber;
 
+    /** Resolved bubble art key (lazily determined from available renderers) */
+    private String bubbleArtKey;
+
+    /** Resolved countdown frame mapping (lazily determined) */
+    private int[] bubbleCountdownFrames;
+
+    /** Resolved max bubble growth frame (lazily determined) */
+    private int bubbleMaxFrame;
+
+    /** Whether bubble config has been resolved */
+    private boolean bubbleConfigResolved;
+
     public DrowningController(AbstractPlayableSprite player) {
         this.player = player;
         reset();
@@ -86,6 +120,8 @@ public class DrowningController {
         secondBubbleDelay = 0;
         pendingSecondBubble = false;
         pendingCountdownNumber = -1;
+        // Reset bubble config so it re-resolves for the current zone's art
+        bubbleConfigResolved = false;
     }
 
     /**
@@ -218,6 +254,16 @@ public class DrowningController {
             return;
         }
 
+        // Resolve bubble art config if not yet determined
+        if (!bubbleConfigResolved) {
+            resolveBubbleConfig(levelManager);
+        }
+
+        // No bubble art available for this zone
+        if (bubbleArtKey == null) {
+            return;
+        }
+
         // Calculate spawn position at player's mouth
         int xOffset = player.getDirection() == Direction.LEFT ? -BUBBLE_X_OFFSET : BUBBLE_X_OFFSET;
         int bubbleX = player.getCentreX() + xOffset;
@@ -226,12 +272,47 @@ public class DrowningController {
         // Determine if sine wave should start moving away from player
         boolean startMovingLeft = player.getDirection() == Direction.RIGHT;
 
-        // Create bubble
+        // Create bubble with game-specific art configuration
         BreathingBubbleInstance bubble = new BreathingBubbleInstance(
-            bubbleX, bubbleY, startMovingLeft, countdownNumber
+            bubbleX, bubbleY, startMovingLeft, countdownNumber,
+            bubbleArtKey, bubbleCountdownFrames, bubbleMaxFrame
         );
 
         levelManager.getObjectManager().addDynamicObject(bubble);
+    }
+
+    /**
+     * Resolves the bubble art configuration by checking which renderer is available.
+     * This allows breathing bubbles to work with both S1 (LZ_BUBBLES) and S2 (BUBBLES) art.
+     */
+    private void resolveBubbleConfig(LevelManager levelManager) {
+        bubbleConfigResolved = true;
+        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        if (renderManager == null) {
+            return;
+        }
+
+        // Check for S1 bubble art (LZ_BUBBLES)
+        PatternSpriteRenderer s1Renderer = renderManager.getRenderer(ObjectArtKeys.LZ_BUBBLES);
+        if (s1Renderer != null && s1Renderer.isReady()) {
+            bubbleArtKey = ObjectArtKeys.LZ_BUBBLES;
+            bubbleCountdownFrames = S1_COUNTDOWN_FRAMES;
+            bubbleMaxFrame = S1_MAX_BUBBLE_FRAME;
+            return;
+        }
+
+        // Check for S2 bubble art (BUBBLES)
+        PatternSpriteRenderer s2Renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.BUBBLES);
+        if (s2Renderer != null && s2Renderer.isReady()) {
+            bubbleArtKey = Sonic2ObjectArtKeys.BUBBLES;
+            bubbleCountdownFrames = S2_COUNTDOWN_FRAMES;
+            bubbleMaxFrame = S2_MAX_BUBBLE_FRAME;
+            return;
+        }
+
+        // No bubble art available
+        LOGGER.fine("No bubble art renderer available for breathing bubbles");
+        bubbleArtKey = null;
     }
 
     /**
