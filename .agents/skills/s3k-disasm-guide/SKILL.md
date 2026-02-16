@@ -93,6 +93,18 @@ mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFind
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k export nem ART_" -q
 ```
 
+### Search ROM Binary
+
+Use `search-rom` to find inline assembly data (pointer tables, animation scripts, AniPLC tables, `dc.w`/`dc.b` directives) that have no binary file — the `search` and `find` commands only work with `binclude` items. This is especially useful for S3K where many data structures are inline.
+
+```bash
+# Search for known hex byte pattern (spaces optional)
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search-rom \"0002 FF2A 2940 5CC0\"" -q
+
+# Restrict search to a specific ROM range
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search-rom \"0002\" 0x28000 0x29000" -q
+```
+
 ## Label Naming Conventions
 
 S3K uses different label prefixes from S1 and S2:

@@ -97,6 +97,18 @@ mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFind
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="export nem ART_" -q
 ```
 
+### Search ROM Binary
+
+Use `search-rom` to find inline assembly data (pointer tables, animation scripts, `dc.w`/`dc.b` directives) that have no binary file — the `search` and `find` commands only work with `binclude` items.
+
+```bash
+# Search for known hex byte pattern (spaces optional)
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search-rom \"07 72 73 26 15 08\"" -q
+
+# Restrict search to a specific ROM range
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search-rom \"0002\" 0x28000 0x29000" -q
+```
+
 ## Label Naming Conventions
 
 Labels follow consistent prefixes that indicate data type and compression:
