@@ -83,6 +83,8 @@ public final class Sonic2AudioConstants {
     public static final int MUS_UNDERWATER = 0xDC;
 
     // Special stage sounds
+    public static final int SFX_SUPER_TRANSFORM = 0xDF; // Transformation sound effect (SndID_SuperTransform)
+
     public static final int SFX_SPECIAL_STAGE_ENTRY = 0xCA; // SndID_SpecStageEntry - warp in/out sound
 
     public static final int CMD_SPEED_UP = 0xFB;

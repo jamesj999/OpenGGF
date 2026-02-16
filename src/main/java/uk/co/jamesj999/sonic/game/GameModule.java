@@ -207,6 +207,18 @@ public interface GameModule {
     }
 
     /**
+     * Creates a Super Sonic state controller for the given player sprite.
+     * Returns null if this game does not support Super Sonic.
+     *
+     * @param player the player sprite
+     * @return a new SuperStateController, or null
+     */
+    default uk.co.jamesj999.sonic.sprites.playable.SuperStateController createSuperStateController(
+            uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite player) {
+        return null;
+    }
+
+    /**
      * Called when a level is loaded to reset any game-specific object state.
      * Use this to clear static state in object classes that persists across
      * object load/unload cycles (e.g., sibling spawn tracking, timing sync).

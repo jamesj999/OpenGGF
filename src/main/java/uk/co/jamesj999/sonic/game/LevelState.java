@@ -65,6 +65,13 @@ public interface LevelState {
     void pauseTimer();
 
     /**
+     * Returns whether the level timer is paused.
+     * ROM equivalent: Update_HUD_timer == 0.
+     * Set by the signpost and egg prison at end of act.
+     */
+    boolean isTimerPaused();
+
+    /**
      * Gets the total elapsed time in seconds.
      * @return elapsed seconds
      */

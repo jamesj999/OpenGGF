@@ -133,6 +133,30 @@ public class Sonic2Constants {
     public static final int CYCLING_PAL_CNZ4_ADDR = 0x001FC4;  // 18 frames × varying = 40 bytes
     public static final int CYCLING_PAL_CNZ4_LEN = 40;
 
+    // Super Sonic transformation palette data (CyclingPal_SSTransformation, s2.asm:3236)
+    public static final int CYCLING_PAL_SS_TRANSFORMATION_ADDR = 0x2246; // 128 bytes (16 frames * 8 bytes)
+    public static final int CYCLING_PAL_SS_TRANSFORMATION_LEN = 0x80;
+    // CPZ underwater variant (CyclingPal_CPZUWTransformation, s2.asm:3242)
+    public static final int CYCLING_PAL_CPZ_UW_SS_TRANSFORMATION_ADDR = 0x22C6;
+    // ARZ underwater variant (CyclingPal_ARZUWTransformation, s2.asm:3248)
+    public static final int CYCLING_PAL_ARZ_UW_SS_TRANSFORMATION_ADDR = 0x2346;
+
+    // Super Sonic stars art (Nemesis compressed, ArtNem_SuperSonic_stars, s2.asm:89802)
+    public static final int ART_NEM_SUPER_SONIC_STARS_ADDR = 0x7393C;
+    // Super Sonic stars mappings (uncompressed, Obj7E_MapUnc_1E1BE)
+    public static final int MAP_UNC_SUPER_SONIC_STARS_ADDR = 0x1E1BE;
+    // Super Sonic stars VRAM art tile (from s2.constants.asm)
+    public static final int ART_TILE_SUPER_SONIC_STARS = 0x05F2;
+
+    // Super Sonic animation data (separate table from normal Sonic, SuperSonicAniData s2.asm:38415)
+    public static final int SUPER_SONIC_ANIM_DATA_ADDR = 0x1B7C6; // SuperSonicAniData (code label, verified via ROM pattern search)
+    public static final int SUPER_SONIC_ANIM_SCRIPT_COUNT = 32; // Scripts 0-31 (0x00-0x1F)
+
+    // Ring drain frame interval
+    public static final int SUPER_SONIC_RING_DRAIN_INTERVAL = 60; // 1 ring per second at 60fps
+    // Minimum rings to transform
+    public static final int SUPER_SONIC_MIN_RINGS = 50;
+
     public static final int ART_NEM_INVINCIBILITY_STARS_ADDR = 0x71F14;
     public static final int MAP_UNC_INVINCIBILITY_STARS_ADDR = 0x1DCBC;
     public static final int ART_TILE_INVINCIBILITY_STARS = 0x05C0;

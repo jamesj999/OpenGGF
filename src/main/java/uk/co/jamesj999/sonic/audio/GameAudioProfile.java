@@ -42,8 +42,15 @@ public interface GameAudioProfile {
      */
     int getDrowningMusicId();
 
+    /** Returns the Super Sonic music ID, or -1 if not applicable. */
+    default int getSuperSonicMusicId() {
+        return -1;
+    }
+
     default boolean isMusicOverride(int musicId) {
-        return musicId == getInvincibilityMusicId() || musicId == getExtraLifeMusicId();
+        return musicId == getInvincibilityMusicId()
+                || musicId == getExtraLifeMusicId()
+                || musicId == getSuperSonicMusicId();
     }
 
     /**

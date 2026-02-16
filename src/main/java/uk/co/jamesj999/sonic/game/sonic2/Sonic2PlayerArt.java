@@ -250,6 +250,88 @@ public class Sonic2PlayerArt {
         return set;
     }
 
+    /**
+     * Loads Super Sonic animation scripts from ROM.
+     * Returns null if the ROM address is not yet known (SUPER_SONIC_ANIM_DATA_ADDR == 0).
+     */
+    /**
+     * Loads the Super Sonic animation set, merged with normal Sonic animations.
+     *
+     * <p>SuperSonicAniData has entries that reference unique SupSon scripts (walk, run,
+     * wait, balance, look up) and entries that back-reference SonicAniData scripts
+     * (roll, duck, spring, etc.) via negative offsets. Back-references are detected
+     * by their large unsigned offset (>= 0x8000) and skipped - the normal Sonic
+     * script is used instead.
+     *
+     * @return merged animation set, or null if ROM address is unknown
+     */
+    public SpriteAnimationSet loadSuperSonicAnimationSet() {
+        int base = Sonic2Constants.SUPER_SONIC_ANIM_DATA_ADDR;
+        int count = Sonic2Constants.SUPER_SONIC_ANIM_SCRIPT_COUNT;
+        if (base == 0) {
+            return null;
+        }
+
+        // Start with a copy of normal Sonic animations as fallback
+        SpriteAnimationSet normalSet = loadSonicAnimations();
+        SpriteAnimationSet set = new SpriteAnimationSet();
+        for (var entry : normalSet.getAllScripts().entrySet()) {
+            set.addScript(entry.getKey(), entry.getValue());
+        }
+
+        // Overlay unique Super Sonic scripts (skip back-references to SonicAniData)
+        int ptrTableSize = count * 2;
+        for (int i = 0; i < count; i++) {
+            int offset = reader.readU16BE(base + i * 2);
+            // Back-references to SonicAniData are negative offsets stored as unsigned,
+            // so they appear as values >= 0x8000. Also skip offsets smaller than the
+            // pointer table size (would overlap the table itself).
+            if (offset >= 0x8000 || offset < ptrTableSize) {
+                continue;
+            }
+            int scriptAddr = base + offset;
+            if (scriptAddr + 2 > reader.size()) {
+                continue;
+            }
+
+            int delay = reader.readU8(scriptAddr);
+            scriptAddr += 1;
+
+            List<Integer> frames = new ArrayList<>();
+            SpriteAnimationEndAction endAction = SpriteAnimationEndAction.LOOP;
+            int endParam = 0;
+
+            while (true) {
+                int value = reader.readU8(scriptAddr);
+                scriptAddr += 1;
+                if (value >= 0xF0) {
+                    if (value == 0xFF) {
+                        endAction = SpriteAnimationEndAction.LOOP;
+                        break;
+                    }
+                    if (value == 0xFE) {
+                        endAction = SpriteAnimationEndAction.LOOP_BACK;
+                        endParam = reader.readU8(scriptAddr);
+                        scriptAddr += 1;
+                        break;
+                    }
+                    if (value == 0xFD) {
+                        endAction = SpriteAnimationEndAction.SWITCH;
+                        endParam = reader.readU8(scriptAddr);
+                        scriptAddr += 1;
+                        break;
+                    }
+                    endAction = SpriteAnimationEndAction.HOLD;
+                    break;
+                }
+                frames.add(value);
+            }
+
+            set.addScript(i, new SpriteAnimationScript(delay, frames, endAction, endParam));
+        }
+        return set;
+    }
+
     private SpriteAnimationSet loadTailsAnimations() {
         SpriteAnimationSet set = new SpriteAnimationSet();
         int base = Sonic2Constants.TAILS_ANIM_DATA_ADDR;

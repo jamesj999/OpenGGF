@@ -122,6 +122,195 @@ public class Sonic3kConstants {
     public static int SONIC_PALETTE_ADDR = 0x0A8A3C;  // Pal_SonicTails (64 bytes)
     public static int KNUCKLES_PALETTE_ADDR = 0x0A8AFC; // Pal_Knuckles (32 bytes)
 
+    // ===== AIZ Intro Cinematic =====================================================
+    // Addresses verified 2026-02-13 by ROM binary pattern search and LockOn Pointer
+    // cumulative offset calculation, cross-checked against disassembly frame labels.
+
+    // --- Art addresses ---
+    // ArtKosM_AIZIntroPlane - Tornado biplane sprite art (KosinskiM compressed)
+    // Decompresses to 4352 bytes (136 tiles, 8x8 @ 4bpp)
+    public static final int ART_KOSM_AIZ_INTRO_PLANE_ADDR = 0x382624;
+
+    // ArtKosM_AIZIntroEmeralds - Chaos Emerald sprite art (KosinskiM compressed)
+    // Decompresses to 224 bytes (7 tiles)
+    public static final int ART_KOSM_AIZ_INTRO_EMERALDS_ADDR = 0x387CA6;
+
+    // ArtNem_AIZIntroSprites - Wave/water spray sprite art (Nemesis compressed)
+    // Decompresses to 11008 bytes (344 tiles)
+    public static final int ART_NEM_AIZ_INTRO_SPRITES_ADDR = 0x3481A0;
+
+    // ArtUnc_CutsceneKnux - Cutscene Knuckles sprite art (uncompressed, DPLC-driven)
+    // 0x4EE0 bytes = 631 tiles
+    public static final int ART_UNC_CUTSCENE_KNUX_ADDR = 0x382DC6;
+    public static final int ART_UNC_CUTSCENE_KNUX_SIZE = 0x4EE0;
+
+    // --- Mapping addresses ---
+    // Map_AIZIntroPlane - Tornado biplane sprite mappings (0xF2 bytes, 11 frames)
+    public static final int MAP_AIZ_INTRO_PLANE_ADDR = 0x364470;
+
+    // Map_AIZIntroEmeralds - Emerald sprite mappings (0x46 bytes, 7 frames)
+    public static final int MAP_AIZ_INTRO_EMERALDS_ADDR = 0x364562;
+
+    // Map_AIZIntroWaves - Water wave/spray sprite mappings (0x3750 bytes, 6 frames)
+    public static final int MAP_AIZ_INTRO_WAVES_ADDR = 0x22119A;
+
+    // Map_CutsceneKnux - Cutscene Knuckles sprite mappings (0x2F8 bytes)
+    public static final int MAP_CUTSCENE_KNUX_ADDR = 0x364016;
+
+    // DPLC_CutsceneKnux - Cutscene Knuckles dynamic pattern load cues (0x162 bytes)
+    public static final int DPLC_CUTSCENE_KNUX_ADDR = 0x36430E;
+
+    // --- Palette addresses ---
+    // Pal_AIZIntro - AIZ intro zone palette (96 bytes, palette index 10)
+    // Loaded via PalPoint table at PAL_POINTERS_ADDR + 10*8
+    public static final int PAL_AIZ_INTRO_ADDR = 0x0A8B1C;
+    public static final int PAL_AIZ_INTRO_INDEX = 10;
+    public static final int PAL_AIZ_INTRO_SIZE = 96;
+
+    // Pal_CutsceneKnux - Knuckles cutscene palette (32 bytes = 16 colors)
+    public static final int PAL_CUTSCENE_KNUX_ADDR = 0x066912;
+
+    // Pal_AIZIntroEmeralds - Emerald palette (32 bytes = 16 colors)
+    public static final int PAL_AIZ_INTRO_EMERALDS_ADDR = 0x067AAA;
+
+    // PalCycle_SuperSonic - Super Sonic palette cycle data
+    // 10 entries x 3 words (6 bytes each) = 60 bytes total
+    // Entries 0-5: fade-in, entries 6-9: cycling loop (loop starts at offset $24)
+    public static final int PAL_CYCLE_SUPER_SONIC_ADDR = 0x00398E;
+    public static final int PAL_CYCLE_SUPER_SONIC_ENTRY_COUNT = 10;
+    public static final int PAL_CYCLE_SUPER_SONIC_ENTRY_SIZE = 6; // 3 words
+
+    // --- VRAM art tile destinations ---
+    // VDP tile indices where art is loaded in VRAM during the intro
+    public static final int ARTTILE_AIZ_INTRO_SPRITES = 0x03D1;  // ArtTile_AIZIntroSprites
+    public static final int ARTTILE_AIZ_INTRO_PLANE = 0x0529;    // ArtTile_AIZIntroPlane
+    public static final int ARTTILE_AIZ_INTRO_EMERALDS = 0x05B1; // ArtTile_AIZIntroEmeralds
+    public static final int ARTTILE_CUTSCENE_KNUX = 0x04DA;      // ArtTile_CutsceneKnux
+
+    // --- Animation scripts (inline data in S3 code space) ---
+    // Knuckles cutscene animation scripts
+    // Format: dc.b duration, frame0, frame1, ..., $FC (loop) or $F4 (end)
+    public static final int ANIM_CUTSCENE_KNUX_WALK_ADDR = 0x0666A9;   // byte_666A9
+    public static final int ANIM_CUTSCENE_KNUX_REACT_ADDR = 0x0666AF;  // byte_666AF
+    public static final int ANIM_CUTSCENE_KNUX_LOOK_ADDR = 0x0666B9;   // byte_666B9
+
+    // Wave animation script (used for water spray child objects)
+    public static final int ANIM_AIZ_INTRO_WAVES_ADDR = 0x067A9B;      // byte_67A9B
+
+    // Emerald sparkle/glow animation scripts
+    public static final int ANIM_EMERALD_SPARKLE_ADDR = 0x067A84;      // byte_67A84
+    public static final int ANIM_EMERALD_GLOW_ADDR = 0x067A8F;         // byte_67A8F
+
+    // --- Object data tables ---
+    // ObjDat3_67A4E - Emerald object attributes (Map ptr, art_tile, size, render_flags)
+    public static final int OBJDAT_AIZ_INTRO_EMERALDS_ADDR = 0x067A4E;
+
+    // ChildObjDat tables for creating child objects during intro
+    public static final int CHILD_OBJDAT_SUPER_GLOW_ADDR = 0x067A5A;   // ChildObjDat_67A5A
+    public static final int CHILD_OBJDAT_PLANE_CHILDREN_ADDR = 0x067A62; // ChildObjDat_67A62
+    public static final int CHILD_OBJDAT_WAKE_SPLASH_ADDR = 0x067A70;  // ChildObjDat_67A70
+    public static final int CHILD_OBJDAT_CUTSCENE_KNUX_ADDR = 0x067A78; // ChildObjDat_67A78
+    public static final int CHILD_OBJDAT_EMERALDS_ADDR = 0x067A7E;     // ChildObjDat_67A7E (7 children)
+
+    // --- Velocity data ---
+    // Obj_VelocityIndex - Shared velocity table for object scatter effects
+    // Each entry is 4 bytes: dc.w x_vel, y_vel
+    // Emerald scatter uses entries at offset $40 (subtypes 0-6 with stride 4 bytes each)
+    public static final int OBJ_VELOCITY_INDEX_ADDR = 0x0852F4;
+    public static final int EMERALD_SCATTER_VELOCITY_OFFSET = 0x40;
+
+    // ===== Player Sprite Art =====
+    // ArtUnc_Sonic - Main Sonic sprite art (uncompressed)
+    // 131,296 bytes = 4103 tiles x 32 bytes per tile
+    public static final int ART_UNC_SONIC_ADDR = 0x100000;
+    public static final int ART_UNC_SONIC_SIZE = 131296;
+    public static final int ART_UNC_SONIC_TILE_COUNT = 4103;
+
+    // ArtUnc_Sonic_Extra - Super Sonic / extra art frames (uncompressed)
+    // 15,520 bytes = 485 tiles x 32 bytes per tile
+    // Used for mapping frames >= SONIC_EXTRA_ART_FRAME_THRESHOLD
+    public static final int ART_UNC_SONIC_EXTRA_ADDR = 0x140060;
+    public static final int ART_UNC_SONIC_EXTRA_SIZE = 15520;
+    public static final int ART_UNC_SONIC_EXTRA_TILE_COUNT = 485;
+
+    // Map_Sonic - Sonic sprite mappings (6-byte pieces, no 2P tile word)
+    // Combined 1P+2P offset table: 502 entries (first 251 = 1P, second 251 = 2P).
+    // Machine code at ROM 0x010B16: move.l #$146620, mappings(a0)
+    public static final int MAP_SONIC_ADDR = 0x146620;
+
+    // PLC_Sonic - Sonic dynamic pattern load cues
+    // Combined 1P+2P offset table: 502 entries (first 251 = 1P, second 251 = 2P).
+    // Same DPLC format as S2 (offset table + per-frame tile load request lists)
+    public static final int DPLC_SONIC_ADDR = 0x148182;
+
+    // ArtTile_Player_1 - VRAM base tile index for Sonic
+    public static final int ART_TILE_SONIC = 0x0680;
+
+    // AniSonic_ - Animation script table (36 entries: 0x00-0x23)
+    public static final int SONIC_ANIM_DATA_ADDR = 0x012AA6;
+    public static final int SONIC_ANIM_SCRIPT_COUNT = 36;
+
+    // AniSuperSonic - Super Sonic animation table (32 entries: 0x00-0x1F)
+    // Entries with offsets >= 0x8000 are back-references to regular AniSonic scripts
+    public static final int SUPER_SONIC_ANIM_DATA_ADDR = 0x012C3A;
+    public static final int SUPER_SONIC_ANIM_SCRIPT_COUNT = 32;
+
+    // Extra art frame threshold - mapping frames >= this use Extra art tiles
+    // ROM: LoadSonicDynPLC checks frame >= $DA for Extra art
+    public static final int SONIC_EXTRA_ART_FRAME_THRESHOLD = 0xDA;
+
+    // Map_SuperSonic - Super Sonic sprite mappings (standalone 251-entry table)
+    // Immediately follows Map_Sonic_'s 251 1P offset entries in ROM.
+    // First word = 0x01F6 (251 entries), standard parser works without trimming.
+    public static final int MAP_SUPER_SONIC_ADDR = 0x146816; // MAP_SONIC_ADDR + 251*2
+
+    // PLC_SuperSonic - Super Sonic dynamic pattern load cues (standalone 251-entry table)
+    // Immediately follows PLC_Sonic_'s 251 1P offset entries in ROM.
+    // First word is a frame data offset (NOT entry count), so explicit count is required.
+    public static final int DPLC_SUPER_SONIC_ADDR = 0x148378; // DPLC_SONIC_ADDR + 251*2
+
+    // Super Sonic table entry count (same frame indexing as normal Sonic)
+    public static final int SUPER_SONIC_FRAME_COUNT = 251;
+
+    // Super Sonic constants
+    public static final int SUPER_SONIC_RING_DRAIN_INTERVAL = 60;
+    public static final int SUPER_SONIC_MIN_RINGS = 50;
+
+    // ===== Tails Player Sprite Art =====
+    // ArtUnc_Tails - Main Tails body art (uncompressed, S3 ROM portion)
+    public static final int ART_UNC_TAILS_ADDR = 0x3200E0;
+    public static final int ART_UNC_TAILS_SIZE = 0x16540;    // 91,456 bytes = 2858 tiles
+
+    // ArtUnc_Tails_Extra - Super Tails / extra art frames (uncompressed, S&K portion)
+    public static final int ART_UNC_TAILS_EXTRA_ADDR = 0x143D00;
+    public static final int ART_UNC_TAILS_EXTRA_SIZE = 0x2920;  // 10,528 bytes = 329 tiles
+
+    // Map_Tails - Tails body mappings (6-byte pieces)
+    // Combined 1P+2P offset table: 502 entries (first 251 = 1P, second 251 = 2P).
+    public static final int MAP_TAILS_ADDR = 0x148EB8;
+
+    // PLC_Tails - Tails body dynamic pattern load cues
+    // Combined 1P+2P offset table: 502 entries (first 251 = 1P, second 251 = 2P).
+    public static final int DPLC_TAILS_ADDR = 0x14A08A;
+
+    // ArtTile_Player_2 - VRAM base tile for Tails (from sonic3k.constants.asm)
+    public static final int ART_TILE_TAILS = 0x06A0;
+
+    // AniTails - Animation script table (42 entries: 0x00-0x29)
+    // Verified by ROM pattern search + lea ($15AB0).l,a1 instruction at 0x015864
+    public static final int TAILS_ANIM_DATA_ADDR = 0x015AB0;
+    public static final int TAILS_ANIM_SCRIPT_COUNT = 42;
+
+    // Extra art frame threshold - frames >= this use Extra art tiles
+    // ROM: Tails_Load_PLC checks frame index >= $D1
+    public static final int TAILS_EXTRA_ART_FRAME_THRESHOLD = 0xD1;
+
+    // ===== Tails Tail Appendage (separate sprite object, future use) =====
+    public static final int ART_UNC_TAILS_TAIL_ADDR = 0x336620;
+    public static final int ART_UNC_TAILS_TAIL_SIZE = 0x1160;   // 4,448 bytes = 139 tiles
+    public static final int MAP_TAILS_TAIL_ADDR = 0x344BB8;
+    public static final int DPLC_TAILS_TAIL_ADDR = 0x344D74;
+
     // ===== Known pattern data for ROM scanning =====
     // AIZ1 LevelSizes first entry: $1308, $6000, $0000, $0390
     public static final byte[] LEVEL_SIZES_AIZ1_PATTERN = {

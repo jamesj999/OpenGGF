@@ -55,6 +55,7 @@ public class SpriteManager {
 	private int jumpKey;
 	private int testKey;
 	private int debugModeKey;
+	private int superSonicDebugKey;
 	private int frameCounter;
 
 	private SpriteManager() {
@@ -70,6 +71,7 @@ public class SpriteManager {
 		jumpKey = configService.getInt(SonicConfiguration.JUMP);
 		testKey = configService.getInt(SonicConfiguration.TEST);
 		debugModeKey = configService.getInt(SonicConfiguration.DEBUG_MODE_KEY);
+		superSonicDebugKey = configService.getInt(SonicConfiguration.SUPER_SONIC_DEBUG_KEY);
 	}
 
 	/**
@@ -156,6 +158,7 @@ public class SpriteManager {
 		boolean speedUp = handler.isKeyDown(KeyEvent.VK_SHIFT);
 		boolean slowDown = handler.isKeyDown(KeyEvent.VK_CONTROL);
 		boolean debugModePressed = handler.isKeyPressed(debugModeKey);
+		boolean superSonicDebugPressed = handler.isKeyPressed(superSonicDebugKey);
 
 		LevelManager levelManager = getLevelManager();
 		for (Sprite sprite : sprites) {
@@ -165,6 +168,17 @@ public class SpriteManager {
 				}
 				if (debugModePressed) {
 					playable.toggleDebugMode();
+				}
+				// Super Sonic debug toggle (only for player 1, not CPU sidekicks)
+				if (superSonicDebugPressed && !playable.isCpuControlled()) {
+					var superCtrl = playable.getSuperStateController();
+					if (superCtrl != null) {
+						if (superCtrl.isSuper()) {
+							superCtrl.debugDeactivate();
+						} else {
+							superCtrl.debugActivate();
+						}
+					}
 				}
 
 				boolean effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump, effectiveTest;

@@ -81,6 +81,11 @@ public class LevelGamestate implements LevelState {
     }
 
     @Override
+    public boolean isTimerPaused() {
+        return timer.isPaused();
+    }
+
+    @Override
     public int getElapsedSeconds() {
         return timer.getElapsedSeconds();
     }

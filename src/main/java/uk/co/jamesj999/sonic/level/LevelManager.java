@@ -428,6 +428,7 @@ public class LevelManager {
             playable.setAnimationTick(0);
             initSpindashDust(playable);
             initTailsTails(playable, artSet);
+            initSuperState(playable);
         } catch (IOException e) {
             LOGGER.log(SEVERE, "Failed to load player sprite art.", e);
         }
@@ -451,6 +452,7 @@ public class LevelManager {
                     sidekick.setAnimationTick(0);
                     initSpindashDust(sidekick);
                     initTailsTails(sidekick, sidekickArt);
+                    initSuperState(sidekick);
                 }
             } catch (IOException e) {
                 LOGGER.log(SEVERE, "Failed to load sidekick sprite art.", e);
@@ -513,6 +515,25 @@ public class LevelManager {
         PlayerSpriteRenderer tailsRenderer = new PlayerSpriteRenderer(tailsArt);
         tailsRenderer.ensureCached(graphicsManager);
         playable.setTailsTailsController(new TailsTailsController(playable, tailsRenderer));
+    }
+
+    private void initSuperState(AbstractPlayableSprite playable) {
+        if (gameModule == null) {
+            return;
+        }
+        var superCtrl = gameModule.createSuperStateController(playable);
+        playable.setSuperStateController(superCtrl);
+
+        // Load game-specific ROM data (palette cycling, etc.)
+        if (superCtrl != null) {
+            try {
+                Rom rom = GameServices.rom().getRom();
+                RomByteReader reader = RomByteReader.fromRom(rom);
+                superCtrl.loadRomData(reader);
+            } catch (Exception e) {
+                LOGGER.fine("Could not load Super Sonic ROM data: " + e.getMessage());
+            }
+        }
     }
 
     private void initObjectArt() {

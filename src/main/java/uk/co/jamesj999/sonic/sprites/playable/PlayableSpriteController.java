@@ -11,6 +11,7 @@ public class PlayableSpriteController {
     private final DrowningController drowning;
     private SpindashDustController spindashDust;
     private TailsTailsController tailsTails;
+    private SuperStateController superState;
 
     public PlayableSpriteController(AbstractPlayableSprite sprite) {
         this.movement = new PlayableSpriteMovement(sprite);
@@ -44,5 +45,13 @@ public class PlayableSpriteController {
 
     public void setTailsTails(TailsTailsController tailsTails) {
         this.tailsTails = tailsTails;
+    }
+
+    public SuperStateController getSuperState() {
+        return superState;
+    }
+
+    public void setSuperState(SuperStateController superState) {
+        this.superState = superState;
     }
 }

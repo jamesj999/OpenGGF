@@ -37,5 +37,8 @@ docs/screenshots/
 # Claude Code workspace
 .claude/
 
+# Git worktrees
+.worktrees/
+
 # Savestates
 *.gs2

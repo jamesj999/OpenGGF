@@ -92,4 +92,26 @@ public record PhysicsProfile(
             (short) 7,     // rollXRadius
             (short) 14     // rollYRadius
     );
+
+    // S2 Super Sonic (same values as S3K: max=0xA00, accel=0x30, decel=0x100)
+    public static final PhysicsProfile SONIC_2_SUPER_SONIC = new PhysicsProfile(
+            (short) 0x30,  // runAccel
+            (short) 0x100, // runDecel
+            (short) 0x30,  // friction (same as accel for Super)
+            (short) 0xA00, // max
+            (short) 1664,  // jump (unchanged)
+            (short) 32,    // slopeRunning
+            (short) 20,    // slopeRollingUp
+            (short) 80,    // slopeRollingDown
+            (short) 32,    // rollDecel
+            (short) 128,   // minStartRollSpeed
+            (short) 128,   // minRollSpeed
+            (short) 4096,  // maxRoll
+            (short) 28,    // rollHeight
+            (short) 38,    // runHeight
+            (short) 9,     // standXRadius
+            (short) 19,    // standYRadius
+            (short) 7,     // rollXRadius
+            (short) 14     // rollYRadius
+    );
 }

@@ -278,8 +278,11 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
                 AudioManager.getInstance().playMusic(Sonic2SmpsConstants.CMD_SPEED_UP);
             }
             case INVINCIBILITY -> {
-                player.giveInvincibility();
-                AudioManager.getInstance().playMusic(Sonic2Music.INVINCIBILITY.id);
+                // ROM: tst.b (Super_Sonic_flag).w / bne.s +++ - skip when Super Sonic
+                if (!player.isSuperSonic()) {
+                    player.giveInvincibility();
+                    AudioManager.getInstance().playMusic(Sonic2Music.INVINCIBILITY.id);
+                }
             }
             case SONIC, TAILS -> {
                 AudioManager.getInstance().playMusic(Sonic2Music.EXTRA_LIFE.id);

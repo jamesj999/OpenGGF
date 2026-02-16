@@ -17,6 +17,8 @@ import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
 import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
 import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
+import org.junit.After;
+
 import static org.junit.Assert.*;
 
 /**
@@ -31,14 +33,37 @@ public class TestSonic3kLevelLoading {
 
     private LevelManager levelManager;
     private String mainCharacter;
+    private Object oldSkipIntros;
 
     @Before
     public void setUp() {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
-        config.setConfigValue(SonicConfiguration.S3K_SKIP_AIZ1_INTRO, true);
+        oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
+        config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
         mainCharacter = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         GraphicsManager.getInstance().initHeadless();
         levelManager = LevelManager.getInstance();
+    }
+
+    @After
+    public void tearDown() {
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, oldSkipIntros != null ? oldSkipIntros : false);
+    }
+
+    @Test
+    public void playerSpriteArtLoadsSuccessfully() throws Exception {
+        Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
+        SpriteManager.getInstance().addSprite(sprite);
+        Camera camera = Camera.getInstance();
+        camera.setFocusedSprite(sprite);
+        camera.setFrozen(false);
+
+        levelManager.loadZoneAndAct(Sonic3kZoneConstants.ZONE_AIZ, 0);
+        GroundSensor.setLevelManager(levelManager);
+        camera.updatePosition(true);
+
+        assertNotNull("Sprite renderer should be set after loading S3K level",
+                sprite.getSpriteRenderer());
     }
 
     @Test

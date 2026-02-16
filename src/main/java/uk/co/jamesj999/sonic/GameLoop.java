@@ -1289,6 +1289,12 @@ public class GameLoop {
             return;
         }
 
+        // Don't start another fade if one is already in progress
+        FadeManager fadeManager = FadeManager.getInstance();
+        if (fadeManager.isActive()) {
+            return;
+        }
+
         if (levelSelect.isSpecialStageSelected()) {
             // Enter special stage
             levelSelect.reset();
