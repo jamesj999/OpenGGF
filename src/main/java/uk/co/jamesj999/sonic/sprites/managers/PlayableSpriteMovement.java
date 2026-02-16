@@ -515,11 +515,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 					}
 				} else {
 					sprite.setSkidding(false);
-					// Only accelerate if below max - don't cap existing high speed
-					if (gSpeed > -max) {
-						gSpeed -= runAccel;
-						if (gSpeed < -max) gSpeed = (short) -max;
-					}
+					gSpeed = accelerateLeft(gSpeed, runAccel, max);
 				}
 			}
 
@@ -533,11 +529,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 					}
 				} else {
 					sprite.setSkidding(false);
-					// Only accelerate if below max - don't cap existing high speed
-					if (gSpeed < max) {
-						gSpeed += runAccel;
-						if (gSpeed > max) gSpeed = max;
-					}
+					gSpeed = accelerateRight(gSpeed, runAccel, max);
 				}
 			}
 
@@ -1491,6 +1483,61 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				uk.co.jamesj999.sonic.level.LevelManager.getInstance().requestRespawn();
 			}
 		}
+	}
+
+	/**
+	 * Accelerate left (negative direction) with per-game speed capping.
+	 *
+	 * S1 (inputAlwaysCapsGroundSpeed=true): Always clamps to -max, even if
+	 * speed was already beyond max from slopes/springs.
+	 * ROM: s1disasm/_incObj/01 Sonic.asm:507-512 — unconditional clamp.
+	 *
+	 * S2/S3K (inputAlwaysCapsGroundSpeed=false): Preserves speeds above max.
+	 * ROM: s2.asm:36547-36556 — undo accel if was already >= max.
+	 */
+	private short accelerateLeft(short gSpeed, short runAccel, short max) {
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		boolean alwaysCap = featureSet != null && featureSet.inputAlwaysCapsGroundSpeed();
+
+		if (alwaysCap) {
+			// S1: sub, then unconditional clamp
+			gSpeed -= runAccel;
+			if (gSpeed < -max) gSpeed = (short) -max;
+		} else {
+			// S2/S3K: only accelerate if below max — preserve existing high speed
+			if (gSpeed > -max) {
+				gSpeed -= runAccel;
+				if (gSpeed < -max) gSpeed = (short) -max;
+			}
+		}
+		return gSpeed;
+	}
+
+	/**
+	 * Accelerate right (positive direction) with per-game speed capping.
+	 *
+	 * S1 (inputAlwaysCapsGroundSpeed=true): Always clamps to max.
+	 * ROM: s1disasm/_incObj/01 Sonic.asm:555-558 — unconditional clamp.
+	 *
+	 * S2/S3K (inputAlwaysCapsGroundSpeed=false): Preserves speeds above max.
+	 * ROM: s2.asm:36610-36616 — undo accel if was already >= max.
+	 */
+	private short accelerateRight(short gSpeed, short runAccel, short max) {
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		boolean alwaysCap = featureSet != null && featureSet.inputAlwaysCapsGroundSpeed();
+
+		if (alwaysCap) {
+			// S1: add, then unconditional clamp
+			gSpeed += runAccel;
+			if (gSpeed > max) gSpeed = max;
+		} else {
+			// S2/S3K: only accelerate if below max — preserve existing high speed
+			if (gSpeed < max) {
+				gSpeed += runAccel;
+				if (gSpeed > max) gSpeed = max;
+			}
+		}
+		return gSpeed;
 	}
 
 	private short applyFriction(short speed, short friction) {
