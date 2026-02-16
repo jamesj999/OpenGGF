@@ -109,6 +109,7 @@ public class Sonic2PlayerArt {
                 .setSpindashAnimId(Sonic2AnimationIds.SPINDASH)
                 .setSpringAnimId(Sonic2AnimationIds.SPRING)
                 .setDeathAnimId(Sonic2AnimationIds.DEATH)
+                .setDrownAnimId(Sonic2AnimationIds.DROWN)
                 .setHurtAnimId(hurtAnimId)
                 .setSkidAnimId(Sonic2AnimationIds.SKID)
                 .setSlideAnimId(Sonic2AnimationIds.SLIDE)

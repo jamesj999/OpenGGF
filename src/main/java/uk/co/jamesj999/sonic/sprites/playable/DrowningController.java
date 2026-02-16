@@ -269,6 +269,16 @@ public class DrowningController {
     }
 
     /**
+     * Called when the player drowns. Resumes zone music if drowning countdown music was playing.
+     */
+    public void onDrown() {
+        if (drowningMusicStarted) {
+            restartZoneMusic();
+            drowningMusicStarted = false;
+        }
+    }
+
+    /**
      * Replenishes air (e.g., from collecting an air bubble).
      */
     public void replenishAir() {

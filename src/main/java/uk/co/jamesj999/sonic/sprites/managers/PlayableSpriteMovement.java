@@ -161,6 +161,19 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short originalX = sprite.getX();
 		short originalY = sprite.getY();
 
+		// ROM-accurate drowning pre-death: 120 frames of slow sinking before death
+		// ROM ref: s2.asm:41729-41768 - addi.w #$10,y_vel; no terrain, no input
+		if (sprite.isDrowningPreDeath()) {
+			sprite.setYSpeed((short) (sprite.getYSpeed() + 0x10));
+			if (sprite.tickDrownPreDeath()) {
+				// Timer expired - transition to dead state (no upward bounce)
+				sprite.setDead(true);
+			}
+			sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
+			sprite.updateSensors(originalX, originalY);
+			return;
+		}
+
 		if (sprite.getDead()) {
 			applyDeathMovement();
 			sprite.move(sprite.getXSpeed(), sprite.getYSpeed());

@@ -216,6 +216,20 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         protected boolean dead = false;
 
         /**
+         * Whether the player is in the drowning pre-death phase.
+         * ROM: 120-frame countdown where controls are locked, ySpeed increases by $10/frame,
+         * and the drown animation (0x17) plays. After 120 frames, transitions to dead=true.
+         * ROM ref: s2.asm:41729-41768, s1disasm/0A Drowning Countdown.asm:229-264
+         */
+        protected boolean drowningDeath = false;
+
+        /**
+         * Timer for the drowning pre-death phase. Counts down from 120 frames.
+         * When it reaches 0, the player transitions to the dead state.
+         */
+        protected int drownPreDeathTimer = 0;
+
+        /**
          * Whether or not this sprite is in the hurt/knockback state.
          * Mirrors ROM routine=4 check. Invulnerability is set when landing from hurt.
          */
@@ -446,6 +460,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.invulnerableFrames = 0;
                 // Ring count is managed by LevelGamestate and reset by LevelManager
                 this.dead = false;
+                this.drowningDeath = false;
+                this.drownPreDeathTimer = 0;
                 this.hurt = false;
                 this.deathCountdown = 0;
                 this.air = false;
@@ -980,6 +996,32 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.dead = dead;
         }
 
+        /**
+         * Whether the player is in the drowning pre-death phase (120-frame sink before death).
+         */
+        public boolean isDrowningPreDeath() {
+                return drowningDeath && drownPreDeathTimer > 0;
+        }
+
+        /**
+         * Whether this death is a drowning death (used for animation selection).
+         * True during both the pre-death sink phase and the subsequent dead fall.
+         */
+        public boolean isDrowningDeath() {
+                return drowningDeath;
+        }
+
+        /**
+         * Ticks the drown pre-death timer. Returns true when the timer expires (transition to dead).
+         */
+        public boolean tickDrownPreDeath() {
+                if (drownPreDeathTimer > 0) {
+                        drownPreDeathTimer--;
+                        return drownPreDeathTimer <= 0;
+                }
+                return false;
+        }
+
         public boolean isHurt() {
                 return hurt;
         }
@@ -1174,7 +1216,54 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 return !ignoreIFrames && (invulnerableFrames > 0 || hurt);
         }
 
+        /**
+         * Initiates the ROM-accurate drowning death sequence.
+         * ROM ref: s2.asm:41729-41768 (KillCharacter_Drown / Obj01_ChkDrown)
+         *
+         * Instead of immediate death, enters a 120-frame pre-death phase:
+         * - Controls locked, velocities zeroed
+         * - Gentle gravity ($10/frame) causes slow sinking
+         * - Drowning animation (0x17) plays throughout
+         * - After 120 frames, transitions to dead (no upward bounce)
+         */
         public boolean applyDrownDeath() {
+                if (dead || drownPreDeathTimer > 0) {
+                        return false;
+                }
+                drowningDeath = true;
+                controlLocked = true;
+                gSpeed = 0;
+                xSpeed = 0;
+                ySpeed = 0;
+                setAir(true);
+                setHighPriority(true);
+                setSpringing(0);
+                setSpindash(false);
+                setRolling(false);
+                setCrouching(false);
+                setPushing(false);
+                drownPreDeathTimer = 120;
+                // Lock camera - prevent following the sinking player
+                if (!cpuControlled) {
+                        uk.co.jamesj999.sonic.camera.Camera.getInstance().setFrozen(true);
+                }
+                // ROM order: resume zone music first, then play drown SFX.
+                // playMusic() replaces the SMPS driver, so any SFX queued on the
+                // old driver would be lost. Playing SFX after ensures it lands on
+                // the new driver.
+                if (controller.getDrowning() != null) {
+                        controller.getDrowning().onDrown();
+                }
+                AudioManager.getInstance().playSfx(GameSound.DROWN);
+                return true;
+        }
+
+        /**
+         * Applies instant death from OOZ oil suffocation.
+         * ROM: JmpTo3_KillCharacter (s2.asm:49694) - standard instant kill, NOT the
+         * water drowning pre-death sequence. Uses DROWN sound.
+         */
+        public boolean applyOilSuffocateDeath() {
                 return applyDeath(DamageCause.DROWN);
         }
 
@@ -2337,7 +2426,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 }
 
                 // Update drowning manager each frame while underwater
-                if (inWater && !dead && controller.getDrowning() != null) {
+                // Skip during drowning pre-death phase to prevent re-triggering
+                if (inWater && !dead && !isDrowningPreDeath() && controller.getDrowning() != null) {
                         boolean shouldDrown = controller.getDrowning().update();
                         if (shouldDrown) {
                                 applyDrownDeath();

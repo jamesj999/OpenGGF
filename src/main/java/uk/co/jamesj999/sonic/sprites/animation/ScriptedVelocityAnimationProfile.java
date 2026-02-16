@@ -20,6 +20,7 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
     private int hurtAnimId = -1;
     private int skidAnimId = -1;
     private int slideAnimId = -1;
+    private int drownAnimId = -1;
     private int airAnimId;
     // Balance animations (ROM s2.asm:36246-36373)
     private int balanceAnimId = -1;   // 0x06 - facing toward edge, safe distance
@@ -50,6 +51,7 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
     public ScriptedVelocityAnimationProfile setHurtAnimId(int hurtAnimId) { this.hurtAnimId = hurtAnimId; return this; }
     public ScriptedVelocityAnimationProfile setSkidAnimId(int skidAnimId) { this.skidAnimId = skidAnimId; return this; }
     public ScriptedVelocityAnimationProfile setSlideAnimId(int slideAnimId) { this.slideAnimId = slideAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setDrownAnimId(int drownAnimId) { this.drownAnimId = drownAnimId; return this; }
     public ScriptedVelocityAnimationProfile setAirAnimId(int airAnimId) { this.airAnimId = airAnimId; return this; }
     public ScriptedVelocityAnimationProfile setBalanceAnimId(int balanceAnimId) { this.balanceAnimId = balanceAnimId; return this; }
     public ScriptedVelocityAnimationProfile setBalance2AnimId(int balance2AnimId) { this.balance2AnimId = balance2AnimId; return this; }
@@ -62,6 +64,10 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
 
     @Override
     public Integer resolveAnimationId(AbstractPlayableSprite sprite, int frameCounter, int scriptCount) {
+        // Drowning uses its own animation (0x17) throughout both pre-death and dead phases
+        if (sprite.isDrowningDeath() && drownAnimId >= 0) {
+            return drownAnimId;
+        }
         if (sprite.getDead() && deathAnimId >= 0) {
             return deathAnimId;
         }
@@ -191,6 +197,10 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         return skidAnimId;
     }
 
+    public int getDrownAnimId() {
+        return drownAnimId;
+    }
+
     public int getAirAnimId() {
         return airAnimId;
     }
@@ -243,6 +253,7 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         copy.hurtAnimId = this.hurtAnimId;
         copy.skidAnimId = this.skidAnimId;
         copy.slideAnimId = this.slideAnimId;
+        copy.drownAnimId = this.drownAnimId;
         copy.airAnimId = this.airAnimId;
         copy.balanceAnimId = this.balanceAnimId;
         copy.balance2AnimId = this.balance2AnimId;
