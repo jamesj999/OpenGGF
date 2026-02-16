@@ -360,9 +360,13 @@ public class PlayableSpriteAnimation {
         // Derive the offset multiplier from the animation script's frame count.
         // Walk: S2 has 8 frames/set → d0*(8/2)=d0*4, S1 has 6 frames/set → d0*(6/2)=d0*3
         // Run:  Both have 4 frames/set → d0*(4/2)=d0*2
+        // Super Run: 2 frames/set → d0>>1 (ROM: lsr.b #1,d0 at SAnim_SuperRun)
         int framesPerSet = (activeScript != null && !activeScript.frames().isEmpty())
                 ? activeScript.frames().size()
                 : 4;
+        if (framesPerSet < 4) {
+            return d0 >> 1;
+        }
         return d0 * (framesPerSet / 2);
     }
 

@@ -2,6 +2,8 @@ package uk.co.jamesj999.sonic.game.sonic3k;
 
 import uk.co.jamesj999.sonic.game.AbstractLevelEventManager;
 import uk.co.jamesj999.sonic.game.PlayerCharacter;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kZoneIds;
+import uk.co.jamesj999.sonic.game.sonic3k.events.Sonic3kAIZEvents;
 
 import java.util.logging.Logger;
 
@@ -28,7 +30,8 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     private static final Logger LOG = Logger.getLogger(Sonic3kLevelEventManager.class.getName());
     private static Sonic3kLevelEventManager instance;
 
-    private Sonic3kLoadBootstrap bootstrap = Sonic3kLoadBootstrap.NONE;
+    private Sonic3kLoadBootstrap bootstrap = Sonic3kLoadBootstrap.NORMAL;
+    private Sonic3kAIZEvents aizEvents;
 
     private Sonic3kLevelEventManager() {
         super();
@@ -63,8 +66,16 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     @Override
     protected void onInitLevel(int zone, int act) {
         bootstrap = Sonic3kBootstrapResolver.resolve(zone, act);
-        if (bootstrap.isAiz1GameplayAfterIntro()) {
-            LOG.info("S3K bootstrap: using AIZ1 gameplay-after-intro profile (intro stub skipped).");
+        if (bootstrap.isSkipIntro()) {
+            LOG.info("S3K bootstrap: skipping intro for zone " + zone + " act " + act);
+        }
+
+        // Create zone-specific event handlers after bootstrap resolution
+        if (zone == Sonic3kZoneIds.ZONE_AIZ) {
+            aizEvents = new Sonic3kAIZEvents(camera, bootstrap);
+            aizEvents.init(act);
+        } else {
+            aizEvents = null;
         }
     }
 
@@ -72,10 +83,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     protected void onUpdate() {
         // ROM: ScreenEvents dispatches to both FG and BG handlers each frame.
         // Boss_flag gates FG events during boss fights.
-        //
-        // Zone event handlers will be added incrementally per zone.
-        // When implemented, this will dispatch to zone-specific handlers
-        // using the dual eventRoutineFg/eventRoutineBg counters.
+        if (aizEvents != null && currentZone == Sonic3kZoneIds.ZONE_AIZ) {
+            aizEvents.update(currentAct, frameCounter);
+        }
     }
 
     // =========================================================================

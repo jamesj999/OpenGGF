@@ -420,6 +420,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         GameServices.timers().removeTimerForCode("SpeedShoes-" + getCode());
                         defineSpeeds(); // Reset speeds to default
                 }
+                // Clear Super state
+                this.superSonic = false;
+                if (controller != null && controller.getSuperState() != null) {
+                        controller.getSuperState().reset();
+                }
         }
 
         public void resetState() {
@@ -484,6 +489,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.inWater = false;
                 this.wasInWater = false;
                 this.superSonic = false;
+                if (controller != null && controller.getSuperState() != null) {
+                        controller.getSuperState().reset();
+                }
                 // Reset collision path to Path 0 (primary collision).
                 // Without this, if player was on Path 1 in previous level,
                 // solidity bits would remain 0x0E/0x0F causing collision checks
@@ -497,6 +505,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void giveShield() {
                 LOGGER.fine("DEBUG: giveShield() called. Current shield state: " + shield);
+                // S2: Super Sonic cannot pick up shields
+                if (superSonic) {
+                        return;
+                }
                 if (hasShield()) {
                         LOGGER.fine("DEBUG: Player already has shield. Returning.");
                         return;
@@ -548,6 +560,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public boolean hasShield() {
                 return shield;
+        }
+
+        /**
+         * Shows or hides the shield object without removing the shield power-up.
+         * Used by Super Sonic (hides shield while active, re-shows on revert).
+         */
+        public void setShieldVisible(boolean visible) {
+                if (shieldObject != null) {
+                        shieldObject.setVisible(visible);
+                }
         }
 
         public boolean hasSpeedShoes() {
@@ -667,6 +689,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void setTailsTailsController(TailsTailsController tailsTailsController) {
                 controller.setTailsTails(tailsTailsController);
+        }
+
+        public SuperStateController getSuperStateController() {
+                return controller.getSuperState();
+        }
+
+        public void setSuperStateController(SuperStateController superStateController) {
+                controller.setSuperState(superStateController);
         }
 
         public boolean getRenderHFlip() {
@@ -918,8 +948,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public boolean getInvulnerable() {
-                // Debug mode makes player completely invulnerable
-                return debugMode || invulnerableFrames > 0 || invincibleFrames > 0 || hurt;
+                // Debug mode and Super Sonic make player completely invulnerable
+                return debugMode || superSonic || invulnerableFrames > 0 || invincibleFrames > 0 || hurt;
         }
 
         public int getInvulnerableFrames() {
@@ -1027,6 +1057,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         }
                 }
                 // Speed shoes countdown is now handled by SpeedShoesTimer
+
+                // Update Super Sonic state (ring drain, palette cycling, transformation)
+                if (controller != null && controller.getSuperState() != null) {
+                        controller.getSuperState().update();
+                }
         }
 
         public boolean applyHurt(int sourceX) {
@@ -1621,6 +1656,33 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         /**
+         * Applies an external physics profile, overwriting current speed values.
+         * Used by SuperStateController to swap between normal and Super physics.
+         */
+        public void applyExternalPhysicsProfile(PhysicsProfile profile) {
+                if (profile == null) return;
+                this.physicsProfile = profile;
+                this.runAccel = profile.runAccel();
+                this.runDecel = profile.runDecel();
+                this.friction = profile.friction();
+                this.max = profile.max();
+                this.jump = profile.jump();
+                this.slopeRunning = profile.slopeRunning();
+                this.slopeRollingUp = profile.slopeRollingUp();
+                this.slopeRollingDown = profile.slopeRollingDown();
+                this.rollDecel = profile.rollDecel();
+                this.minStartRollSpeed = profile.minStartRollSpeed();
+                this.minRollSpeed = profile.minRollSpeed();
+                this.maxRoll = profile.maxRoll();
+                this.rollHeight = profile.rollHeight();
+                this.runHeight = profile.runHeight();
+                this.standXRadius = profile.standXRadius();
+                this.standYRadius = profile.standYRadius();
+                this.rollXRadius = profile.rollXRadius();
+                this.rollYRadius = profile.rollYRadius();
+        }
+
+        /**
          * Returns the physics feature set (spindash availability, etc.) for the current game.
          * May be null if no GameModule provider is active.
          */
@@ -1674,23 +1736,28 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public short getRunAccel() {
+                // ROM: Speed shoes have no physics effect when Super Sonic is active.
+                // The shoes timer/music still run, but Super profile values take priority.
+                // (s2.asm:36014 — expiry code restores Super values, confirming this design)
+                boolean effectiveShoes = hasSpeedShoes() && !isSuperSonic();
                 if (physicsModifiers != null) {
-                        return physicsModifiers.effectiveAccel(runAccel, inWater, hasSpeedShoes());
+                        return physicsModifiers.effectiveAccel(runAccel, inWater, effectiveShoes);
                 }
                 // Fallback: inline logic (Water: halved, Speed shoes: doubled)
                 short value = runAccel;
                 if (inWater) {
                         value = (short) (value / 2);
                 }
-                if (hasSpeedShoes()) {
+                if (effectiveShoes) {
                         value = (short) (value * 2);
                 }
                 return value;
         }
 
         public short getRunDecel() {
+                boolean effectiveShoes = hasSpeedShoes() && !isSuperSonic();
                 if (physicsModifiers != null) {
-                        return physicsModifiers.effectiveDecel(runDecel, inWater, hasSpeedShoes());
+                        return physicsModifiers.effectiveDecel(runDecel, inWater, effectiveShoes);
                 }
                 // Fallback: Water halved, speed shoes don't affect decel
                 return inWater ? (short) (runDecel / 2) : runDecel;
@@ -1709,30 +1776,32 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public short getFriction() {
+                boolean effectiveShoes = hasSpeedShoes() && !isSuperSonic();
                 if (physicsModifiers != null) {
-                        return physicsModifiers.effectiveFriction(friction, inWater, hasSpeedShoes());
+                        return physicsModifiers.effectiveFriction(friction, inWater, effectiveShoes);
                 }
                 // Fallback: inline logic (Water: halved, Speed shoes: doubled)
                 short value = friction;
                 if (inWater) {
                         value = (short) (value / 2);
                 }
-                if (hasSpeedShoes()) {
+                if (effectiveShoes) {
                         value = (short) (value * 2);
                 }
                 return value;
         }
 
         public short getMax() {
+                boolean effectiveShoes = hasSpeedShoes() && !isSuperSonic();
                 if (physicsModifiers != null) {
-                        return physicsModifiers.effectiveMax(max, inWater, hasSpeedShoes());
+                        return physicsModifiers.effectiveMax(max, inWater, effectiveShoes);
                 }
                 // Fallback: inline logic (Water: halved, Speed shoes: doubled)
                 short value = max;
                 if (inWater) {
                         value = (short) (value / 2);
                 }
-                if (hasSpeedShoes()) {
+                if (effectiveShoes) {
                         value = (short) (value * 2);
                 }
                 return value;

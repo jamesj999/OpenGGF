@@ -111,6 +111,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         registerSheet(Sonic2ObjectArtKeys.BOSS_EXPLOSION, artLoader.loadBossExplosionSheet());
         registerSheet(ObjectArtKeys.SHIELD, artData.shieldSheet());
         registerSheet(ObjectArtKeys.INVINCIBILITY_STARS, artData.invincibilityStarsSheet());
+        registerSheet(Sonic2ObjectArtKeys.SUPER_SONIC_STARS, artLoader.loadSuperSonicStarsSheet());
         registerSheet(ObjectArtKeys.BRIDGE, artData.bridgeSheet());
         registerSheet(Sonic2ObjectArtKeys.WATERFALL, artData.waterfallSheet());
         registerSheet(ObjectArtKeys.CHECKPOINT, artData.checkpointSheet());

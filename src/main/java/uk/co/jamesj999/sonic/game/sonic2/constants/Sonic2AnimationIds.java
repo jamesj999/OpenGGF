@@ -27,6 +27,19 @@ public final class Sonic2AnimationIds {
     public static final int BALANCE4 = 0x1E;  // Balancing on edge, facing away, more precarious
     public static final int FLY = 0x20;       // Tails helicopter fly (Tails only)
 
+    // Super Sonic animation IDs (indices into SuperSonicAniData table, s2.asm:38415)
+    public static final int SUPER_WALK = 0x00;
+    public static final int SUPER_RUN = 0x01;
+    public static final int SUPER_ROLL = 0x02;
+    public static final int SUPER_ROLL2 = 0x03;
+    public static final int SUPER_PUSH = 0x04;
+    public static final int SUPER_STAND = 0x05;
+    public static final int SUPER_BALANCE = 0x06;
+    public static final int SUPER_LOOK_UP = 0x07;
+    public static final int SUPER_DUCK = 0x08;
+    public static final int SUPER_SPINDASH = 0x09;
+    public static final int SUPER_TRANSFORM = 0x1F; // AniIDSupSonAni_Transform (index 31 in normal table)
+
     private Sonic2AnimationIds() {
     }
 }

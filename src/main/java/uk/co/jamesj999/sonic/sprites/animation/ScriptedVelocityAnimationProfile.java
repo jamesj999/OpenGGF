@@ -388,4 +388,13 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
     public boolean isAnglePreAdjust() {
         return anglePreAdjust;
     }
+
+    public ScriptedVelocityAnimationProfile withRunSpeedThreshold(int newThreshold) {
+        return new ScriptedVelocityAnimationProfile(
+                idleAnimId, walkAnimId, runAnimId, rollAnimId, roll2AnimId,
+                pushAnimId, duckAnimId, lookUpAnimId, spindashAnimId, springAnimId,
+                deathAnimId, hurtAnimId, skidAnimId, slideAnimId, airAnimId,
+                balanceAnimId, balance2AnimId, balance3AnimId, balance4AnimId,
+                walkSpeedThreshold, newThreshold, fallbackFrame, anglePreAdjust);
+    }
 }

@@ -85,9 +85,8 @@ public class Sonic3kAudioProfile implements GameAudioProfile {
     }
 
     @Override
-    public boolean isMusicOverride(int musicId) {
-        return musicId == Sonic3kMusic.INVINCIBILITY.id
-                || musicId == Sonic3kMusic.EXTRA_LIFE.id;
+    public int getSuperSonicMusicId() {
+        return Sonic3kMusic.INVINCIBILITY.id;
     }
 
     @Override
