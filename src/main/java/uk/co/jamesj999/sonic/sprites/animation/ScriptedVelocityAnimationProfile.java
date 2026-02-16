@@ -19,6 +19,7 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
     private final int deathAnimId;
     private final int hurtAnimId;
     private final int skidAnimId;
+    private final int slideAnimId;
     private final int airAnimId;
     // Balance animations (ROM s2.asm:36246-36373)
     private final int balanceAnimId;   // 0x06 - facing toward edge, safe distance
@@ -136,7 +137,7 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
             int runSpeedThreshold,
             int fallbackFrame) {
         this(idleAnimId, walkAnimId, runAnimId, rollAnimId, roll2AnimId, pushAnimId, duckAnimId, -1,
-                spindashAnimId, springAnimId, deathAnimId, hurtAnimId, skidAnimId, airAnimId,
+                spindashAnimId, springAnimId, deathAnimId, hurtAnimId, skidAnimId, -1, airAnimId,
                 walkSpeedThreshold, runSpeedThreshold, fallbackFrame);
     }
 
@@ -154,12 +155,13 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
             int deathAnimId,
             int hurtAnimId,
             int skidAnimId,
+            int slideAnimId,
             int airAnimId,
             int walkSpeedThreshold,
             int runSpeedThreshold,
             int fallbackFrame) {
         this(idleAnimId, walkAnimId, runAnimId, rollAnimId, roll2AnimId, pushAnimId, duckAnimId, lookUpAnimId,
-                spindashAnimId, springAnimId, deathAnimId, hurtAnimId, skidAnimId, airAnimId,
+                spindashAnimId, springAnimId, deathAnimId, hurtAnimId, skidAnimId, slideAnimId, airAnimId,
                 -1, -1, -1, -1,  // balance animations disabled by default
                 walkSpeedThreshold, runSpeedThreshold, fallbackFrame, true);
     }
@@ -185,6 +187,7 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
             int deathAnimId,
             int hurtAnimId,
             int skidAnimId,
+            int slideAnimId,
             int airAnimId,
             int balanceAnimId,
             int balance2AnimId,
@@ -207,6 +210,7 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         this.deathAnimId = Math.max(-1, deathAnimId);
         this.hurtAnimId = Math.max(-1, hurtAnimId);
         this.skidAnimId = Math.max(-1, skidAnimId);
+        this.slideAnimId = Math.max(-1, slideAnimId);
         this.airAnimId = Math.max(0, airAnimId);
         this.balanceAnimId = Math.max(-1, balanceAnimId);
         this.balance2AnimId = Math.max(-1, balance2AnimId);
@@ -232,6 +236,9 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         }
         if (sprite.getSpindash() && spindashAnimId >= 0) {
             return spindashAnimId;
+        }
+        if (sprite.isSliding() && slideAnimId >= 0) {
+            return slideAnimId;
         }
         if (sprite.getRolling()) {
             return rollAnimId;

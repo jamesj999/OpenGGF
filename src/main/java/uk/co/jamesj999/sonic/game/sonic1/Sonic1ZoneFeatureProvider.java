@@ -6,6 +6,7 @@ import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.game.sonic1.events.Sonic1LZWaterEvents;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
+import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.WaterSystem;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
@@ -98,10 +99,18 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
             }
 
             // 2. Water slides (chunk-based slide mechanic)
-            // Pass -1 for now since chunk ID reading is not yet exposed.
-            // When the collision system supports reading the ground chunk ID,
-            // pass the actual chunk ID here.
-            waterEvents.checkWaterSlide(-1);
+            // ROM reads from v_lvllayout using obX/obY. In our engine, use the
+            // player's centre position to query the equivalent layout block ID.
+            int chunkIdAtPlayer = -1;
+            int fallbackChunkId = -1;
+            LevelManager levelManager = LevelManager.getInstance();
+            if (levelManager != null) {
+                chunkIdAtPlayer = levelManager.getBlockIdAt(player.getCentreX(), player.getCentreY());
+                // ROM uses obX/obY directly; in this engine we also sample sprite-origin
+                // to avoid transient misses from coordinate representation differences.
+                fallbackChunkId = levelManager.getBlockIdAt(player.getX(), player.getY());
+            }
+            waterEvents.checkWaterSlide(chunkIdAtPlayer, fallbackChunkId);
         }
 
         // 3. Dynamic water level state machine + gradual movement

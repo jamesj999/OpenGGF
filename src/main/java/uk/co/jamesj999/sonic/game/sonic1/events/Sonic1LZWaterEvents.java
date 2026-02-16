@@ -5,6 +5,9 @@ import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic1.Sonic1SwitchManager;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1AnimationIds;
+import uk.co.jamesj999.sonic.level.Level;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.Map;
 import uk.co.jamesj999.sonic.level.WaterSystem;
 import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
@@ -87,6 +90,12 @@ public class Sonic1LZWaterEvents {
      */
     private boolean waterSlideActive;
 
+    /**
+     * Small hysteresis for slide exit to prevent one-frame animation pops when
+     * chunk sampling briefly misses during movement.
+     */
+    private int slideExitGraceFrames;
+
     // =========================================================================
     // Wind tunnel region definitions (ROM: LZWind_Data, lines 377-383)
     //
@@ -159,6 +168,12 @@ public class Sonic1LZWaterEvents {
      * Positive = rightward, negative = leftward (and sets facing-left flag).
      */
     private static final int[] SLIDE_SPEEDS = {10, -11, 10, -10, -11, -12, 11};
+    private static final int SLIDE_EXIT_GRACE_MAX = 6;
+
+    // Layout gap position: v_lvllayout + $80*2 + 6 = FG row 2, column 6.
+    // Shared by DynWater_LZ3 routine 0 (writes $4B) and DLE_LZ3 (writes 7).
+    private static final int LAYOUT_GAP_X = 6;
+    private static final int LAYOUT_GAP_Y = 2;
 
     public Sonic1LZWaterEvents(Camera camera) {
         this.camera = camera;
@@ -178,6 +193,7 @@ public class Sonic1LZWaterEvents {
         this.windTunnelDisabled = false;
         this.windTunnelSoundTimer = 0;
         this.waterSlideActive = false;
+        this.slideExitGraceFrames = 0;
     }
 
     /**
@@ -457,8 +473,8 @@ public class Sonic1LZWaterEvents {
                 target = 0x4C8; // move.w #$4C8,d1
 
                 // move.b #$4B,(v_lvllayout+$80*2+6).w
-                // TODO: Level layout modification not yet implemented
-                // This opens a path in the level by changing a chunk
+                // Write water slide chunk to layout position FG row 2, column 6
+                writeLayoutChunk(0x4B);
 
                 // move.b #1,(v_wtr_routine).w
                 waterRoutine = 1;
@@ -909,39 +925,35 @@ public class Sonic1LZWaterEvents {
      * <p>Slide speeds (ROM: Slide_Speeds): 10, -11, 10, -10, -11, -12, 11
      * <p>Positive speed = rightward, negative = leftward.
      *
-     * @param chunkIdAtPlayer the 128x128 block ID at the player's ground position,
-     *                        or -1 if not available (skips slide check)
+     * @param chunkIdAtPlayer primary 128x128 block ID sample at player position,
+     *                        or -1 if not available
+     * @param fallbackChunkId secondary block ID sample used to reduce transient
+     *                        detection misses from coordinate differences, or -1
      */
-    public void checkWaterSlide(int chunkIdAtPlayer) {
+    public void checkWaterSlide(int chunkIdAtPlayer, int fallbackChunkId) {
         AbstractPlayableSprite player = camera.getFocusedSprite();
         if (player == null) {
             return;
         }
 
-        // ROM: btst #1,obStatus(a1) / bne.s loc_3F6A
-        // Skip slide logic if Sonic is in the air (jumping)
-        if (player.getAir()) {
-            handleSlideExit(player);
-            return;
-        }
-
-        // If chunk ID is not available, skip slide detection
-        if (chunkIdAtPlayer < 0) {
-            handleSlideExit(player);
-            return;
-        }
-
-        // ROM: Scan Slide_Chunks table (searched backwards in ROM, we search forward)
         int matchIndex = -1;
-        for (int i = 0; i < SLIDE_CHUNK_IDS.length; i++) {
-            if (SLIDE_CHUNK_IDS[i] == chunkIdAtPlayer) {
-                matchIndex = i;
-                break;
+        // ROM: btst #1,obStatus(a1) / bne.s loc_3F6A
+        // We only attempt chunk matching while grounded and with a valid chunk ID.
+        if (!player.getAir()) {
+            matchIndex = findSlideChunkIndex(chunkIdAtPlayer);
+            if (matchIndex < 0 && fallbackChunkId >= 0 && fallbackChunkId != chunkIdAtPlayer) {
+                matchIndex = findSlideChunkIndex(fallbackChunkId);
             }
         }
 
         if (matchIndex < 0) {
             // No slide chunk matched
+            if (waterSlideActive && slideExitGraceFrames > 0) {
+                slideExitGraceFrames--;
+                player.setSliding(true);
+                player.setAnimationId(Sonic1AnimationIds.WATER_SLIDE);
+                return;
+            }
             handleSlideExit(player);
             return;
         }
@@ -968,9 +980,11 @@ public class Sonic1LZWaterEvents {
 
         // ROM: move.b #id_WaterSlide,obAnim(a1)
         player.setAnimationId(Sonic1AnimationIds.WATER_SLIDE);
+        player.setSliding(true);
 
         // ROM: move.b #1,(f_slidemode).w
         waterSlideActive = true;
+        slideExitGraceFrames = SLIDE_EXIT_GRACE_MAX;
 
         // ROM: play waterfall SFX every $20 (32) frames
         // move.b (v_vbla_byte).w,d0 / andi.b #$1F,d0 / bne.s locret_3FBE
@@ -999,6 +1013,21 @@ public class Sonic1LZWaterEvents {
 
         // ROM: clr.b (f_slidemode).w
         waterSlideActive = false;
+        slideExitGraceFrames = 0;
+        player.setSliding(false);
+    }
+
+    private int findSlideChunkIndex(int chunkId) {
+        if (chunkId < 0) {
+            return -1;
+        }
+        // ROM scans table backwards; forward scan is equivalent for membership.
+        for (int i = 0; i < SLIDE_CHUNK_IDS.length; i++) {
+            if (SLIDE_CHUNK_IDS[i] == chunkId) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     // =========================================================================
@@ -1073,6 +1102,24 @@ public class Sonic1LZWaterEvents {
      */
     private void setDirect(int currentY) {
         WaterSystem.getInstance().setWaterLevelDirect(zoneId, actId, currentY);
+    }
+
+    /**
+     * Write a chunk ID to the layout gap position (v_lvllayout+$80*2+6).
+     * Used by DynWater_LZ3 routine 0 to write $4B (water slide chunk).
+     */
+    private void writeLayoutChunk(int chunkId) {
+        LevelManager lm = LevelManager.getInstance();
+        Level level = lm.getCurrentLevel();
+        if (level == null) {
+            return;
+        }
+        Map map = level.getMap();
+        if (map == null) {
+            return;
+        }
+        map.setValue(0, LAYOUT_GAP_X, LAYOUT_GAP_Y, (byte) chunkId);
+        lm.invalidateForegroundTilemap();
     }
 
     /**

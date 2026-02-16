@@ -157,6 +157,9 @@ public class LevelManager {
     private boolean nextActRequested;
     private boolean nextZoneRequested;
     private boolean specificZoneActRequested;
+
+    // ROM: LZ3/SBZ2 vertical wrapping — FG layer wraps Y instead of clamping
+    private boolean verticalWrapEnabled = false;
     private boolean levelInactiveForTransition;
     private int requestedZone = -1;
     private int requestedAct = -1;
@@ -1335,7 +1338,7 @@ public class LevelManager {
                     paletteId,
                     underwaterPaletteId != null ? underwaterPaletteId : 0,
                     priorityPass,
-                    false,
+                    verticalWrapEnabled,  // ROM: LZ3/SBZ2 FG wraps vertically
                     false,  // maskOutput = false for screen rendering
                     useUnderwaterPalette,
                     waterlineScreenY);
@@ -1509,7 +1512,7 @@ public class LevelManager {
                     paletteId,
                     0,      // no underwater palette for FBO
                     1,      // priority pass = 1 (high priority only)
-                    false,  // no wrap Y
+                    verticalWrapEnabled,  // ROM: LZ3/SBZ2 FG wraps vertically
                     true,   // maskOutput = true for priority FBO
                     false,  // no underwater palette
                     0.0f);  // no waterline
@@ -2268,6 +2271,9 @@ public class LevelManager {
         if (layer == 1) {
             // Background loops vertically
             wrappedY = ((wrappedY % levelHeight) + levelHeight) % levelHeight;
+        } else if (verticalWrapEnabled) {
+            // ROM: LZ3/SBZ2 — FG also wraps vertically
+            wrappedY = ((wrappedY % levelHeight) + levelHeight) % levelHeight;
         } else {
             // Foreground Clamps
             if (wrappedY < 0 || wrappedY >= levelHeight)
@@ -2310,12 +2316,15 @@ public class LevelManager {
         int levelWidth = level.getMap().getWidth() * blockPixelSize;
         int levelHeight = level.getMap().getHeight() * blockPixelSize;
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
-        if (y < 0 || y >= levelHeight) {
+        int wrappedY = y;
+        if (verticalWrapEnabled) {
+            wrappedY = ((wrappedY % levelHeight) + levelHeight) % levelHeight;
+        } else if (wrappedY < 0 || wrappedY >= levelHeight) {
             return -1;
         }
         Map map = level.getMap();
         int mapX = wrappedX / blockPixelSize;
-        int mapY = y / blockPixelSize;
+        int mapY = wrappedY / blockPixelSize;
         return map.getValue(0, mapX, mapY) & 0xFF;
     }
 
@@ -2329,7 +2338,7 @@ public class LevelManager {
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
 
-        if (layer == 1) {
+        if (layer == 1 || (layer == 0 && verticalWrapEnabled)) {
             int levelHeight = level.getMap().getHeight() * blockPixelSize;
             wrappedY = ((y % levelHeight) + levelHeight) % levelHeight;
         }
@@ -2363,7 +2372,9 @@ public class LevelManager {
         int levelHeight = level.getMap().getHeight() * blockPixelSize;
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
-        if (wrappedY < 0 || wrappedY >= levelHeight) {
+        if (verticalWrapEnabled) {
+            wrappedY = ((wrappedY % levelHeight) + levelHeight) % levelHeight;
+        } else if (wrappedY < 0 || wrappedY >= levelHeight) {
             return null;
         }
 
@@ -2685,6 +2696,8 @@ public class LevelManager {
                     camera.setMaxX((short) currentLevel.getMaxX());
                     camera.setMinY((short) currentLevel.getMinY());
                     camera.setMaxY((short) currentLevel.getMaxY());
+                    // ROM: LZ3/SBZ2 vertical wrapping — enabled when top boundary is negative
+                    verticalWrapEnabled = camera.isVerticalWrapEnabled();
                     // Re-apply camera placement after level bounds are set.
                     // Some starts (notably S3K AIZ1 intro-skip) are far below Y=0 and
                     // must be clamped with the correct maxY before pit checks run.
@@ -2881,6 +2894,13 @@ public class LevelManager {
     }
 
     /**
+     * @return true if vertical wrapping is active (ROM: LZ3/SBZ2 loop sections)
+     */
+    public boolean isVerticalWrapEnabled() {
+        return verticalWrapEnabled;
+    }
+
+    /**
      * Consumes and clears the title card request flag.
      *
      * @return true if a title card was requested since last check
@@ -2944,6 +2964,7 @@ public class LevelManager {
         nextActRequested = false;
         nextZoneRequested = false;
         specificZoneActRequested = false;
+        verticalWrapEnabled = false;
         levelInactiveForTransition = false;
         requestedZone = -1;
         requestedAct = -1;
