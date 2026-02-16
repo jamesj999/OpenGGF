@@ -89,6 +89,7 @@ public class Sonic1PlayerArt {
                 .setLookUpAnimId(Sonic1AnimationIds.LOOK_UP)
                 .setSpringAnimId(Sonic1AnimationIds.SPRING)
                 .setDeathAnimId(Sonic1AnimationIds.DEATH)
+                .setDrownAnimId(Sonic1AnimationIds.DROWN)
                 .setHurtAnimId(Sonic1AnimationIds.HURT)
                 .setSkidAnimId(Sonic1AnimationIds.STOP)
                 .setSlideAnimId(Sonic1AnimationIds.WATER_SLIDE)
