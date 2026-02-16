@@ -113,6 +113,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.SYZ_BOSS,
             Sonic1ObjectIds.SYZ_BOSS_BLOCK,
             Sonic1ObjectIds.LZ_BOSS,
+            Sonic1ObjectIds.SLZ_BOSS,
             Sonic1ObjectIds.BOSS_FIRE,
             Sonic1ObjectIds.EGG_PRISON,
             Sonic1ObjectIds.HIDDEN_BONUS
@@ -138,7 +139,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.GHZ_BOSS,
             Sonic1ObjectIds.MZ_BOSS,
             Sonic1ObjectIds.SYZ_BOSS,
-            Sonic1ObjectIds.LZ_BOSS
+            Sonic1ObjectIds.LZ_BOSS,
+            Sonic1ObjectIds.SLZ_BOSS
     );
 
     private static final Map<String, List<DynamicBoss>> DYNAMIC_BOSSES = Map.of();
@@ -175,6 +177,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.MZ_BOSS, List.of("MZBoss"));
         map.put(Sonic1ObjectIds.SYZ_BOSS, List.of("SYZBoss"));
         map.put(Sonic1ObjectIds.SYZ_BOSS_BLOCK, List.of("BossBlock"));
+        map.put(Sonic1ObjectIds.SLZ_BOSS, List.of("SLZBoss", "BossStarLight"));
+        map.put(Sonic1ObjectIds.SLZ_BOSS_SPIKEBALL, List.of("BossSpikeball"));
         map.put(Sonic1ObjectIds.BOSS_FIRE, List.of("BossFire"));
         map.put(Sonic1ObjectIds.EGG_PRISON, List.of("EggPrison"));
         map.put(Sonic1ObjectIds.MOTOBUG, List.of("Motobug"));

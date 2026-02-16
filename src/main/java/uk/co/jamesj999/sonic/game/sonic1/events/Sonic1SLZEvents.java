@@ -1,6 +1,13 @@
 package uk.co.jamesj999.sonic.game.sonic1.events;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Music;
+import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1SLZBossInstance;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 
 /**
  * Star Light Zone dynamic level events.
@@ -9,9 +16,9 @@ import uk.co.jamesj999.sonic.camera.Camera;
  * Acts 1-2: No events.
  * Act 3: Boss arena with 3-routine state machine.
  *
- * TODO: Act 3 boss spawn + arena - DLE_SLZ lines 244-280 in s1disasm.
- *   Routine 2 spawns boss object (Obj3D) and plays bgm_Boss.
- *   Boss object and defeat sequence not yet implemented.
+ * The event handler spawns the boss object (0x7A) via FindFreeObj,
+ * manages camera boundaries and boss music. The boss object handles all
+ * combat behavior, seesaw scanning, and defeat sequence internally.
  */
 class Sonic1SLZEvents extends Sonic1ZoneEvents {
     // Boss constants
@@ -61,7 +68,10 @@ class Sonic1SLZEvents extends Sonic1ZoneEvents {
 
     /**
      * DLE_SLZ3boss: Boss encounter phase.
-     * When camera X reaches boss_slz_x, locks the camera and spawns the boss.
+     * When camera X reaches boss_slz_x, spawns the boss, locks the camera
+     * and plays boss music.
+     * ROM: DLE_SLZ3boss — FindFreeObj, set id_BossStarLight, QueueSound1 bgm_Boss,
+     * f_lockscreen = 1, AddPLC plcid_Boss.
      */
     private void updateAct3Boss() {
         int camX = camera.getX() & 0xFFFF;
@@ -70,14 +80,26 @@ class Sonic1SLZEvents extends Sonic1ZoneEvents {
             return; // locret_715C
         }
 
-        // TODO: Boss spawn code - objects not yet implemented
-        // ROM loads boss object (Obj3D - Orbinaut/boss) and sets up arena here
+        // ROM: FindFreeObj + move.b #id_BossStarLight,obID(a1)
+        // BossStarLight_Main sets X = boss_slz_x+$188, Y = boss_slz_y+$18
+        int bossSpawnX = BOSS_SLZ_X + 0x188; // $2188
+        int bossSpawnY = BOSS_SLZ_Y + 0x18;  // $228
+        LevelManager lm = LevelManager.getInstance();
+        ObjectSpawn bossSpawn = new ObjectSpawn(
+                bossSpawnX, bossSpawnY,
+                Sonic1ObjectIds.SLZ_BOSS, 0, 0, false, 0);
+        Sonic1SLZBossInstance boss = new Sonic1SLZBossInstance(bossSpawn, lm);
+        if (lm.getObjectManager() != null) {
+            lm.getObjectManager().addDynamicObject(boss);
+        }
 
-        // TODO: QueueSound1 bgm_Boss - play boss music
-        // AudioManager.getInstance().queueSound(bgm_Boss);
+        // ROM: QueueSound1 bgm_Boss — play boss music
+        AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
 
-        // f_lockscreen = 1 (lock camera)
-        camera.setFrozen(true);
+        // ROM: f_lockscreen = 1 — locks horizontal scrolling.
+        camera.setMinX(camera.getX());
+        camera.setMaxX(camera.getX());
+        GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.SLZ_BOSS);
         eventRoutine += 2; // advance to DLE_SLZ3end
     }
 

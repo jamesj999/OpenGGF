@@ -86,6 +86,8 @@ public final class Sonic1ObjectIds {
     public static final int LZ_BOSS           = 0x77; // id_BossLabyrinth
     public static final int CATERKILLER     = 0x78;
     public static final int LAMPPOST        = 0x79;
+    public static final int SLZ_BOSS          = 0x7A; // id_BossStarLight
+    public static final int SLZ_BOSS_SPIKEBALL = 0x7B; // id_BossSpikeball (dynamically spawned by SLZ boss)
     public static final int RING_FLASH      = 0x7C;
     public static final int HIDDEN_BONUS    = 0x7D;
 }

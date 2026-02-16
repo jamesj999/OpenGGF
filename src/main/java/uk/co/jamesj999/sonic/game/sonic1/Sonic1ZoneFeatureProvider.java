@@ -77,17 +77,24 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
         }
     }
 
+    /**
+     * Pre-physics update: wind tunnels and water slides.
+     *
+     * <p>ROM order (sonic.asm:3042-3044):
+     * <ol>
+     *   <li>{@code LZWaterFeatures} — sets {@code f_slidemode} and {@code obInertia}</li>
+     *   <li>{@code ExecuteObjects} — runs Sonic's movement (sees slide flag)</li>
+     * </ol>
+     * Wind tunnels and water slides must run before player physics so that
+     * {@code Sonic_Move} / {@code Sonic_RollSpeed} see the correct sliding state
+     * and gSpeed when they execute.
+     */
     @Override
-    public void update(AbstractPlayableSprite player, int cameraX, int zoneIndex) {
+    public void updatePrePhysics(AbstractPlayableSprite player, int cameraX, int zoneIndex) {
         if (!hasWater(zoneIndex)) {
             return;
         }
 
-        // ROM call order in LZWaterFeatures:
-        //   1. LZWindTunnels (water currents)
-        //   2. LZWaterSlides (slide chunks)
-        //   3. LZDynamicWater (water level state machine)
-        // Only called if Sonic has not just died (obRoutine < 6).
         boolean playerAlive = player != null && !player.getDead();
 
         if (waterEvents != null && playerAlive) {
@@ -111,6 +118,13 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
                 fallbackChunkId = levelManager.getBlockIdAt(player.getX(), player.getY());
             }
             waterEvents.checkWaterSlide(chunkIdAtPlayer, fallbackChunkId);
+        }
+    }
+
+    @Override
+    public void update(AbstractPlayableSprite player, int cameraX, int zoneIndex) {
+        if (!hasWater(zoneIndex)) {
+            return;
         }
 
         // 3. Dynamic water level state machine + gradual movement

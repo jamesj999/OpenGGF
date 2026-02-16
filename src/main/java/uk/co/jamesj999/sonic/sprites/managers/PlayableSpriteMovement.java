@@ -490,6 +490,18 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/** Sonic_Move: Ground input handling, accel/decel, wall collision (s2.asm:36220) */
 	private void doGroundMove() {
 		short gSpeed = sprite.getGSpeed();
+
+		// ROM: _btst #status_secondary.sliding,status_secondary(a0) / _bne.w Obj01_Traction
+		// (s2.asm:36224-36225, s1.asm:309-310)
+		// When sliding (water slides, wind tunnels), skip ALL input processing and
+		// friction — go straight to velocity conversion and wall collision.
+		if (sprite.isSliding()) {
+			sprite.setGSpeed(gSpeed);
+			calculateXYFromGSpeed();
+			doWallCollisionGround();
+			return;
+		}
+
 		short runAccel = sprite.getRunAccel();
 		short runDecel = sprite.getRunDecel();
 		short friction = sprite.getFriction();
@@ -640,6 +652,21 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private void doRollSpeed() {
 		short gSpeed = sprite.getGSpeed();
 		Camera.getInstance().easeYBiasToDefault();
+
+		// ROM: tst.b (f_slidemode).w / bne.w loc_131CC (s1.asm:602-603)
+		// When sliding, skip input and friction — go straight to velocity conversion.
+		if (sprite.isSliding()) {
+			sprite.setGSpeed(gSpeed);
+			// Convert to X/Y with cap (same as below)
+			int hexAngle = sprite.getAngle() & 0xFF;
+			short xVel = (short) ((gSpeed * TrigLookupTable.cosHex(hexAngle)) >> 8);
+			short yVel = (short) ((gSpeed * TrigLookupTable.sinHex(hexAngle)) >> 8);
+			xVel = (short) Math.max(-0x1000, Math.min(0x1000, xVel));
+			sprite.setXSpeed(xVel);
+			sprite.setYSpeed(yVel);
+			doWallCollisionGround();
+			return;
+		}
 
 		boolean inputAllowed = sprite.getMoveLockTimer() == 0;
 
