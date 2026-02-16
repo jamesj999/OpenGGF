@@ -37,13 +37,13 @@ import static org.junit.Assert.assertTrue;
  * Once he walks offscreen, leftover emeralds are despawned by ObjectManager,
  * hiding any collection failure.
  *
- * Root cause was a ROM mismatch in Go_Delete_Sprite behavior: the S3K ROM's
- * Go_Delete_Sprite returns via rts (scheduling deletion for the next frame),
- * so scrollVelocity (sub_45DE4) still runs on the explosion frame with
- * scrollSpeed=16, adding 16px to the player's X. Java's setDestroyed(true)
- * prevented scrollVelocity from running, leaving the player 16px behind.
- * This shifted the emerald spawn position, putting the leftmost emerald
- * (subtype 12, xVel=-0x300) beyond Knuckles' pacing reach.
+ * Root cause was a ROM mismatch in object slot processing order: the S3K ROM's
+ * CreateChild6_Simple places emeralds in later object slots. The emerald init
+ * code (loc_67900) reads Player_1.x_pos when that slot is first processed —
+ * AFTER the plane's scrollVelocity (sub_45DE4) has already added scrollSpeed
+ * (16) to Player_1. Java's constructor ran before scrollVelocity, so emeralds
+ * spawned 16px too far left. The fix adds scrollSpeed to the spawn X in
+ * routine26Explode to compensate for this ordering difference.
  */
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestAizIntroEmeraldCollection {

@@ -38,6 +38,7 @@ public class Sonic3kPlayerArt {
     private SpriteArtSet cachedSonic;
     private SpriteArtSet cachedSuperSonic;
     private SpriteArtSet cachedTails;
+    private SpriteArtSet cachedTailsTail;
 
     public Sonic3kPlayerArt(RomByteReader reader) {
         this.reader = reader;
@@ -209,6 +210,43 @@ public class Sonic3kPlayerArt {
                 animationProfile,
                 animationSet);
         return cachedTails;
+    }
+
+    /**
+     * Loads the separate Tails tail appendage art (Obj05 in S3K).
+     *
+     * <p>S3K uses a completely separate art/mapping/DPLC set for the tail overlay,
+     * unlike S2 which reuses the main Tails body art. The tail art is uncompressed
+     * at {@code ART_UNC_TAILS_TAIL_ADDR} (139 tiles) with its own
+     * {@code Map_Tails_Tail} and {@code DPLC_Tails_Tail} tables.
+     */
+    public SpriteArtSet loadTailsTail() throws IOException {
+        if (cachedTailsTail != null) {
+            return cachedTailsTail;
+        }
+
+        Pattern[] tiles = loadArtTiles(
+                Sonic3kConstants.ART_UNC_TAILS_TAIL_ADDR,
+                Sonic3kConstants.ART_UNC_TAILS_TAIL_SIZE);
+
+        // Map_Tails_Tail / DPLC_Tails_Tail are standalone tables (NOT combined 1P+2P).
+        // A separate Map_Tails_tail_2P exists for 2P mode. No trimming needed.
+        List<SpriteMappingFrame> mappingFrames = loadMappingFrames(Sonic3kConstants.MAP_TAILS_TAIL_ADDR);
+        List<SpriteDplcFrame> dplcFrames = loadDplcFrames(Sonic3kConstants.DPLC_TAILS_TAIL_ADDR);
+
+        int bankSize = resolveBankSize(dplcFrames, mappingFrames);
+
+        cachedTailsTail = new SpriteArtSet(
+                tiles,
+                mappingFrames,
+                dplcFrames,
+                0,                                      // paletteIndex
+                Sonic3kConstants.ART_TILE_TAILS_TAIL,
+                1,                                      // frameDelay
+                bankSize,
+                null,                                   // no animation profile needed
+                null);                                  // no animation set needed
+        return cachedTailsTail;
     }
 
     /**

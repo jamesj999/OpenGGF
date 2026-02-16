@@ -64,6 +64,8 @@ import uk.co.jamesj999.sonic.sprites.Sprite;
 import uk.co.jamesj999.sonic.sprites.SensorConfiguration;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
+import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kGameModule;
+import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kPlayerArt;
 import uk.co.jamesj999.sonic.sprites.managers.SpindashDustController;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.managers.TailsTailsController;
@@ -513,21 +515,36 @@ public class LevelManager {
             playable.setTailsTailsController(null);
             return;
         }
-        // Obj05 uses same mappings/DPLCs/art as Tails but at a different VRAM base
-        SpriteArtSet tailsArt = new SpriteArtSet(
-                artSet.artTiles(),
-                artSet.mappingFrames(),
-                artSet.dplcFrames(),
-                artSet.paletteIndex(),
-                Sonic2Constants.ART_TILE_TAILS_TAILS,
-                artSet.frameDelay(),
-                artSet.bankSize(),
-                null,
-                null
-        );
+        boolean isS3k = gameModule instanceof Sonic3kGameModule;
+        SpriteArtSet tailsArt;
+        if (isS3k) {
+            // S3K: Obj05 uses a completely separate art/mapping/DPLC set
+            try {
+                Rom rom = GameServices.rom().getRom();
+                Sonic3kPlayerArt s3kArt = new Sonic3kPlayerArt(RomByteReader.fromRom(rom));
+                tailsArt = s3kArt.loadTailsTail();
+            } catch (Exception e) {
+                LOGGER.log(SEVERE, "Failed to load S3K tails tail art.", e);
+                playable.setTailsTailsController(null);
+                return;
+            }
+        } else {
+            // S2: Obj05 uses same mappings/DPLCs/art as Tails but at a different VRAM base
+            tailsArt = new SpriteArtSet(
+                    artSet.artTiles(),
+                    artSet.mappingFrames(),
+                    artSet.dplcFrames(),
+                    artSet.paletteIndex(),
+                    Sonic2Constants.ART_TILE_TAILS_TAILS,
+                    artSet.frameDelay(),
+                    artSet.bankSize(),
+                    null,
+                    null
+            );
+        }
         PlayerSpriteRenderer tailsRenderer = new PlayerSpriteRenderer(tailsArt);
         tailsRenderer.ensureCached(graphicsManager);
-        playable.setTailsTailsController(new TailsTailsController(playable, tailsRenderer));
+        playable.setTailsTailsController(new TailsTailsController(playable, tailsRenderer, isS3k));
     }
 
     private void initSuperState(AbstractPlayableSprite playable) {
@@ -3070,16 +3087,10 @@ public class LevelManager {
         if (level == null) {
             return BLACK_BACKDROP;
         }
-
         if (isForceBlackBackdrop()) {
             return BLACK_BACKDROP;
         }
-
-        if (level.getPaletteCount() > 2) {
-            // VDP register 7 = $8720: backdrop is palette line 2, color 0.
-            return level.getPalette(2).getColor(0);
-        }
-        return BLACK_BACKDROP;
+        return level.getBackdropColor();
     }
 
     private boolean isForceBlackBackdrop() {

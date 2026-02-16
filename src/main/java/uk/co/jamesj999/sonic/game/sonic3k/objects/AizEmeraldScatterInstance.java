@@ -9,7 +9,6 @@ import uk.co.jamesj999.sonic.physics.TerrainCheckResult;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.logging.Logger;
 
 /**
  * Chaos Emerald scatter object for the AIZ1 intro cinematic.
@@ -40,8 +39,6 @@ import java.util.logging.Logger;
  *    - Subtype bit 1 = 1: collected when Knuckles moves LEFT (negative x_vel)
  */
 public class AizEmeraldScatterInstance extends AbstractObjectInstance {
-
-    private static final Logger LOG = Logger.getLogger(AizEmeraldScatterInstance.class.getName());
 
     // -----------------------------------------------------------------------
     // Phase enum
@@ -116,8 +113,6 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
     // Constructor
     // -----------------------------------------------------------------------
 
-    private int fallFrames; // DIAG
-
     public AizEmeraldScatterInstance(ObjectSpawn spawn) {
         super(spawn, "AIZEmeraldScatter");
         this.currentX = spawn.x();
@@ -129,10 +124,6 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
         this.yVel = VELOCITY_TABLE[velIndex][1];
         this.mappingFrame = velIndex;
         this.phase = Phase.FALLING;
-        if (mappingFrame == 6) {
-            System.out.println("DIAG-EM6: spawn X=" + currentX + " Y=" + currentY
-                    + " xVel=" + xVel + " yVel=" + yVel);
-        }
     }
 
     // -----------------------------------------------------------------------
@@ -182,7 +173,6 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
      * and transition to GROUNDED.
      */
     private void updateFalling() {
-        fallFrames++; // DIAG
         // MoveSprite: add velocity to position with subpixel accumulation + gravity.
         // ROM: tst.l d0 / bmi.s — d0 holds old y_vel (pre-gravity); skip floor check
         // if still moving upward.
@@ -197,10 +187,6 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
 
         // ROM: tst.l d0 / bmi.s — skip floor check while moving upward
         if (preGravityYVel < 0) {
-            if (mappingFrame == 6) {
-                System.out.println("DIAG-EM6: frame=" + fallFrames + " X=" + currentX
-                        + " Y=" + currentY + " yVel=" + yVel + " (ascending)");
-            }
             return;
         }
 
@@ -208,17 +194,7 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
         // ROM: tst.w d1 / bpl.s — land when d1 < 0 (strictly negative)
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
 
-        if (mappingFrame == 6) {
-            System.out.println("DIAG-EM6: frame=" + fallFrames + " X=" + currentX
-                    + " Y=" + currentY + " yVel=" + yVel
-                    + " floor=" + (floor.foundSurface() ? floor.distance() : "none"));
-        }
-
         if (floor.foundSurface() && floor.distance() < 0) {
-            if (mappingFrame == 6) {
-                System.out.println("DIAG-EM6: LANDED at frame=" + fallFrames
-                        + " X=" + currentX + " groundY=" + (currentY + floor.distance()));
-            }
             landOnGround(currentY + floor.distance());
         }
     }

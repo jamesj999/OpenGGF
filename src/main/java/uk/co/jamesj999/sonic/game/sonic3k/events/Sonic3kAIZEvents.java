@@ -25,7 +25,10 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     // --- ROM constants (s3.asm AIZ1_Resize) ---
 
-    /** Camera X threshold for palette swap (routine 0). */
+    /** Camera X threshold to begin tracking minX (routine 0). */
+    private static final int MIN_X_TRACK_START = 0x1000;
+
+    /** Camera X threshold for palette swap and minX lock (routine 0 → 1). */
     private static final int PALETTE_SWAP_X = 0x1308;
 
     /** PalPointers index for Pal_AIZ (main AIZ palette, 3 lines → palette 1-3). */
@@ -68,6 +71,9 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             AizPlaneIntroInstance.resetIntroPhaseState();
         }
         if (shouldSpawnIntro(act)) {
+            // Suppress Tails sidekick immediately so he doesn't appear before
+            // the intro object's first update(). ROM: Tails_CPU_routine = $20.
+            AizPlaneIntroInstance.setSidekickSuppressed(true);
             LOG.info("AIZ1 intro: will spawn intro object");
         }
     }
@@ -88,6 +94,18 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
         int cameraX = camera.getX();
 
+        // --- Routine 0→1: MinX tracking during intro panning ---
+        // ROM (s3.asm AIZ1_Resize Stage 0): Once camera X >= $1000,
+        // Camera_min_X_pos tracks camera X to prevent backtracking.
+        // At camera X >= $1308 (Stage 1): lock Camera_min_X_pos = $1308.
+        if (shouldSpawnIntro(0)) {
+            if (cameraX >= PALETTE_SWAP_X) {
+                camera.setMinX((short) PALETTE_SWAP_X);
+            } else if (cameraX >= MIN_X_TRACK_START) {
+                camera.setMinX((short) cameraX);
+            }
+        }
+
         // --- Routine 0: Palette swap at camera X >= $1308 ---
         if (!paletteSwapped && cameraX >= PALETTE_SWAP_X) {
             loadPaletteFromPalPointers(PAL_AIZ_INDEX);
@@ -103,10 +121,16 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
 
         // --- Routine 4: Y boundary unlock + dynamic max Y ---
+        // Also re-apply main palette here to overwrite cutscene residue:
+        // applyEmeraldPalette() (at player X=$13D0 during routine26Explode)
+        // writes directly to GPU line 3, bypassing level.setPalette(), which
+        // overwrites the Pal_AIZ loaded at $1308. Re-applying at $1400
+        // ensures lines 1-3 are correct for the main level.
         if (AizPlaneIntroInstance.isMainLevelPhaseActive() && !boundariesUnlocked) {
+            loadPaletteFromPalPointers(PAL_AIZ_INDEX);
             camera.setMinY((short) 0);
             boundariesUnlocked = true;
-            LOG.info("AIZ1: unlocked Y boundaries (minY=0)");
+            LOG.info("AIZ1: unlocked Y boundaries (minY=0), re-applied main palette");
         }
         if (boundariesUnlocked) {
             resizeMaxYFromX(cameraX);

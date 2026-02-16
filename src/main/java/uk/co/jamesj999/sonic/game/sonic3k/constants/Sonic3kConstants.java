@@ -332,7 +332,11 @@ public class Sonic3kConstants {
     // ROM: Tails_Load_PLC checks frame index >= $D1
     public static final int TAILS_EXTRA_ART_FRAME_THRESHOLD = 0xD1;
 
-    // ===== Tails Tail Appendage (separate sprite object, future use) =====
+    // ArtTile_Player_2_Tail - VRAM base tile for Tails tail appendage (Obj05)
+    // From sonic3k.constants.asm line 1409
+    public static final int ART_TILE_TAILS_TAIL = 0x06B0;
+
+    // ===== Tails Tail Appendage (separate sprite object) =====
     public static final int ART_UNC_TAILS_TAIL_ADDR = 0x336620;
     public static final int ART_UNC_TAILS_TAIL_SIZE = 0x1160;   // 4,448 bytes = 139 tiles
     public static final int MAP_TAILS_TAIL_ADDR = 0x344BB8;
