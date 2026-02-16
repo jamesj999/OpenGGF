@@ -5,6 +5,17 @@ public interface TouchResponseProvider {
     int getCollisionProperty();
 
     /**
+     * Returns whether touch callbacks should fire every frame while overlapping.
+     * <p>
+     * Default behavior is edge-triggered (fires only when overlap begins),
+     * which matches most touch objects. Some objects rely on per-frame
+     * "collision_property"-style polling and need continuous callbacks.
+     */
+    default boolean requiresContinuousTouchCallbacks() {
+        return false;
+    }
+
+    /**
      * Optional multi-region touch collision for objects with multiple independent
      * collision areas (e.g., spiked pole helix where each spike has its own hitbox).
      * <p>

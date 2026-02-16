@@ -5,13 +5,15 @@ Generated: 2026-02-13 14:52:02
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 53 (66.3%)
-- **Unimplemented:** 27 (33.8%)
+- **Implemented:** 58 (72.5%)
+- **Unimplemented:** 22 (27.5%)
 
 ## Implemented Objects
 
 | ID | Name | Total Uses | Zones |
 |----|------|------------|-------|
+| 0x0B | PoleThatBreaks | 5 | LZ3 |
+| 0x0C | FlappingDoor | 2 | LZ2, LZ3 |
 | 0x0D | Signpost | 13 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2, SBZ1, SBZ2 |
 | 0x11 | Bridge | 11 | GHZ1, GHZ2, GHZ3 |
 | 0x12 | S1_Obj_12 | 21 | SYZ1, SYZ2, SYZ3 |
@@ -28,6 +30,7 @@ Generated: 2026-02-13 14:52:02
 | 0x26 | Monitor | 199 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
 | 0x2B | Chopper | 14 | GHZ1, GHZ2 |
 | 0x2C | Jaws | 22 | LZ1, LZ2, LZ3 |
+| 0x2D | Burrobot | 50 | LZ1, LZ2, LZ3 |
 | 0x2F | MzLargeGrassyPlatform | 37 | MZ1, MZ2, MZ3 |
 | 0x30 | MzGlassBlock | 14 | MZ1, MZ2, MZ3 |
 | 0x31 | ChainedStomper | 23 | MZ1, MZ2, MZ3 |
@@ -57,6 +60,7 @@ Generated: 2026-02-13 14:52:02
 | 0x56 | S1_Obj_56 | 224 | LZ1, LZ2, LZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3 |
 | 0x57 | SpikedBallChain | 22 | LZ1, LZ2, LZ3, SYZ1, SYZ2, SYZ3 |
 | 0x58 | S1_Obj_58 | 34 | SYZ1, SYZ2, SYZ3 |
+| 0x60 | Orbinaut | 34 | LZ1, LZ2, LZ3, SLZ1, SLZ2, SLZ3 |
 | 0x71 | InvisibleBarrier | 88 | LZ1, LZ3, MZ1, MZ2, MZ3, SYZ2, SYZ3, SBZ1, SBZ2, SBZ3 |
 | 0x78 | Caterkiller | 37 | MZ1, MZ2, MZ3, SBZ1, SBZ2 |
 | 0x79 | Lamppost | 23 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1 |
@@ -64,6 +68,7 @@ Generated: 2026-02-13 14:52:02
 | 0x62 | Gargoyle | 9 | LZ1, LZ2, LZ3 |
 | 0x63 | LZConveyor | 36 | LZ1, LZ2, LZ3 |
 | 0x64 | Bubbles | 52 | LZ1, LZ2, LZ3 |
+| 0x65 | Waterfall | 60 | LZ1, LZ2, LZ3 |
 | 0x7D | HiddenBonus | 60 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2, SBZ1 |
 
 ## Unimplemented Objects (By Usage)
@@ -73,14 +78,11 @@ Generated: 2026-02-13 14:52:02
 | 0x5F | Badnik | Bomb | 99 | SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
 | 0x5A | Object | S1_Obj_5A | 68 | SLZ1, SLZ2, SLZ3 |
 | 0x6C | Object | S1_Obj_6C | 64 | SBZ1, SBZ2 |
-| 0x65 | Object | S1_Obj_65 | 60 | LZ1, LZ2, LZ3 |
 | 0x28 | Object | S1_Obj_28 | 57 | FZ1 |
 | 0x69 | Object | S1_Obj_69 | 56 | SBZ1, SBZ2 |
 | 0x6E | Object | S1_Obj_6E | 52 | SBZ1, SBZ2 |
-| 0x2D | Badnik | Burrobot | 50 | LZ1, LZ2, LZ3 |
 | 0x6D | Object | S1_Obj_6D | 42 | SBZ1, SBZ2 |
 | 0x5D | Object | S1_Obj_5D | 36 | SLZ1, SLZ2, SLZ3 |
-| 0x60 | Badnik | Orbinaut | 34 | LZ1, LZ2, LZ3, SLZ1, SLZ2, SLZ3 |
 | 0x5B | Object | S1_Obj_5B | 23 | SLZ1, SLZ2, SLZ3 |
 | 0x68 | Object | S1_Obj_68 | 20 | SBZ2 |
 | 0x6B | Object | S1_Obj_6B | 17 | SBZ1, SBZ2 |
@@ -93,9 +95,7 @@ Generated: 2026-02-13 14:52:02
 | 0x67 | Object | S1_Obj_67 | 8 | SBZ2 |
 | 0x72 | Object | S1_Obj_72 | 8 | SBZ2 |
 | 0x6F | Object | S1_Obj_6F | 6 | SBZ1 |
-| 0x0B | Object | S1_Obj_0B | 5 | LZ3 |
 | 0x5C | Object | S1_Obj_5C | 3 | SLZ1, SLZ2, SLZ3 |
-| 0x0C | Object | S1_Obj_0C | 2 | LZ2, LZ3 |
 | 0x66 | Object | S1_Obj_66 | 2 | SBZ1 |
 
 ---
@@ -194,12 +194,12 @@ Total: 286 objects | Implemented: 20 | Unimplemented: 0
 
 #### Act 1
 
-Total: 189 objects | Implemented: 19 | Unimplemented: 3
+Total: 189 objects | Implemented: 22 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x2C Jaws (x8) [4 subtypes]
-- [ ] 0x2D Burrobot (x21) [0x00]
-- [ ] 0x60 Orbinaut (x1) [0x00]
+- [x] 0x2D Burrobot (x21) [0x00]
+- [x] 0x60 Orbinaut (x1) [0x00]
 
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
@@ -217,22 +217,22 @@ Total: 189 objects | Implemented: 19 | Unimplemented: 3
 - [x] 0x62 Gargoyle (x2) [0x01]
 - [x] 0x63 LZConveyor (x13) [0x80, 0x81, 0x7F]
 - [x] 0x64 Bubbles (x16) [0x80, 0x81]
-- [ ] 0x65 S1_Obj_65 (x8) [0x07, 0x08, 0x09]
+- [x] 0x65 Waterfall (x8) [0x07, 0x08, 0x09]
 - [x] 0x71 InvisibleBarrier (x4) [0x31]
 - [x] 0x79 Lamppost (x1) [0x01]
 - [x] 0x7D HiddenBonus (x5) [0x01, 0x02, 0x03]
 
 #### Act 2
 
-Total: 138 objects | Implemented: 17 | Unimplemented: 4
+Total: 138 objects | Implemented: 21 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x2C Jaws (x7) [4 subtypes]
-- [ ] 0x2D Burrobot (x4) [0x00]
-- [ ] 0x60 Orbinaut (x4) [0x00]
+- [x] 0x2D Burrobot (x4) [0x00]
+- [x] 0x60 Orbinaut (x4) [0x00]
 
 **Objects:**
-- [ ] 0x0C S1_Obj_0C (x1) [0x02]
+- [x] 0x0C FlappingDoor (x1) [0x02]
 - [x] 0x0D Signpost (x1) [0x00]
 - [x] 0x16 Harpoon (x6) [0x00, 0x02]
 - [x] 0x25 Ring (x15) [6 subtypes]
@@ -247,22 +247,22 @@ Total: 138 objects | Implemented: 17 | Unimplemented: 4
 - [x] 0x62 Gargoyle (x2) [0x02, 0x04]
 - [x] 0x63 LZConveyor (x10) [0x82, 0x83, 0x7F]
 - [x] 0x64 Bubbles (x15) [0x80, 0x81, 0x82]
-- [ ] 0x65 S1_Obj_65 (x17) [6 subtypes]
+- [x] 0x65 Waterfall (x17) [6 subtypes]
 - [x] 0x79 Lamppost (x1) [0x01]
 - [x] 0x7D HiddenBonus (x5) [0x01, 0x02, 0x03]
 
 #### Act 3
 
-Total: 245 objects | Implemented: 16 | Unimplemented: 5
+Total: 245 objects | Implemented: 21 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x2C Jaws (x7) [0x08, 0x0C]
-- [ ] 0x2D Burrobot (x25) [0x00]
-- [ ] 0x60 Orbinaut (x1) [0x00]
+- [x] 0x2D Burrobot (x25) [0x00]
+- [x] 0x60 Orbinaut (x1) [0x00]
 
 **Objects:**
-- [ ] 0x0B S1_Obj_0B (x5) [0x04]
-- [ ] 0x0C S1_Obj_0C (x1) [0x02]
+- [x] 0x0B PoleThatBreaks (x5) [0x04]
+- [x] 0x0C FlappingDoor (x1) [0x02]
 - [x] 0x16 Harpoon (x14) [0x00, 0x02]
 - [x] 0x25 Ring (x6) [4 subtypes]
 - [x] 0x26 Monitor (x17) [4 subtypes]
@@ -276,7 +276,7 @@ Total: 245 objects | Implemented: 16 | Unimplemented: 5
 - [x] 0x62 Gargoyle (x5) [0x03]
 - [x] 0x63 LZConveyor (x13) [0x84, 0x85, 0x7F]
 - [x] 0x64 Bubbles (x21) [0x80, 0x81]
-- [ ] 0x65 S1_Obj_65 (x35) [9 subtypes]
+- [x] 0x65 Waterfall (x35) [9 subtypes]
 - [x] 0x71 InvisibleBarrier (x3) [0x31, 0x11]
 - [x] 0x79 Lamppost (x2) [0x01, 0x02]
 
@@ -378,11 +378,11 @@ Total: 232 objects | Implemented: 23 | Unimplemented: 0
 
 #### Act 1
 
-Total: 223 objects | Implemented: 10 | Unimplemented: 7
+Total: 223 objects | Implemented: 11 | Unimplemented: 6
 
 **Badniks:**
 - [ ] 0x5F Bomb (x13) [0x00]
-- [ ] 0x60 Orbinaut (x9) [0x02]
+- [x] 0x60 Orbinaut (x9) [0x02]
 
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
@@ -403,11 +403,11 @@ Total: 223 objects | Implemented: 10 | Unimplemented: 7
 
 #### Act 2
 
-Total: 187 objects | Implemented: 11 | Unimplemented: 8
+Total: 187 objects | Implemented: 12 | Unimplemented: 7
 
 **Badniks:**
 - [ ] 0x5F Bomb (x20) [0x00]
-- [ ] 0x60 Orbinaut (x7) [0x02]
+- [x] 0x60 Orbinaut (x7) [0x02]
 
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
@@ -430,11 +430,11 @@ Total: 187 objects | Implemented: 11 | Unimplemented: 8
 
 #### Act 3
 
-Total: 250 objects | Implemented: 12 | Unimplemented: 8
+Total: 250 objects | Implemented: 13 | Unimplemented: 7
 
 **Badniks:**
 - [ ] 0x5F Bomb (x48) [0x00]
-- [ ] 0x60 Orbinaut (x12) [0x02]
+- [x] 0x60 Orbinaut (x12) [0x02]
 
 **Objects:**
 - [x] 0x13 LavaBallMaker (x7) [0x36, 0x37]
@@ -612,4 +612,3 @@ Total: 57 objects | Implemented: 0 | Unimplemented: 1
 
 **Objects:**
 - [ ] 0x28 S1_Obj_28 (x57) [10 subtypes]
-

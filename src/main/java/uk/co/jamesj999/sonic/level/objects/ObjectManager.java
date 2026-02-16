@@ -919,9 +919,11 @@ public class ObjectManager {
                 }
 
                 building.add(instance);
-                // ROM touch checks run every frame for bosses. Keep edge-triggering for other
-                // categories to avoid repeated side effects from listeners.
-                boolean shouldTrigger = category == TouchCategory.BOSS || !overlapping.contains(instance);
+                // ROM touch checks run every frame for bosses. Most other objects are
+                // edge-triggered, but some special objects need per-frame polling behavior.
+                boolean shouldTrigger = category == TouchCategory.BOSS
+                        || provider.requiresContinuousTouchCallbacks()
+                        || !overlapping.contains(instance);
                 if (shouldTrigger) {
                     TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
@@ -993,7 +995,10 @@ public class ObjectManager {
                 }
 
                 sidekickBuilding.add(instance);
-                if (!sidekickOverlapping.contains(instance)) {
+                boolean shouldTrigger = category == TouchCategory.BOSS
+                        || provider.requiresContinuousTouchCallbacks()
+                        || !sidekickOverlapping.contains(instance);
+                if (shouldTrigger) {
                     TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
                     handleTouchResponseSidekick(sidekick, instance, listener, result);
@@ -1142,7 +1147,9 @@ public class ObjectManager {
                 }
 
                 building.add(instance);
-                boolean shouldTrigger = category == TouchCategory.BOSS || !overlapping.contains(instance);
+                boolean shouldTrigger = category == TouchCategory.BOSS
+                        || provider.requiresContinuousTouchCallbacks()
+                        || !overlapping.contains(instance);
                 if (shouldTrigger) {
                     TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
@@ -1176,7 +1183,10 @@ public class ObjectManager {
                 }
 
                 sidekickBuilding.add(instance);
-                if (!sidekickOverlapping.contains(instance)) {
+                boolean shouldTrigger = category == TouchCategory.BOSS
+                        || provider.requiresContinuousTouchCallbacks()
+                        || !sidekickOverlapping.contains(instance);
+                if (shouldTrigger) {
                     TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
                     handleTouchResponseSidekick(sidekick, instance, listener, result);

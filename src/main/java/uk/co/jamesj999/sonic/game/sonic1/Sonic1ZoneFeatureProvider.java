@@ -178,4 +178,21 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
         }
         return Integer.MAX_VALUE;
     }
+
+    /**
+     * Sets the LZ wind tunnel disable flag (ROM: f_wtunnelallow) when water events
+     * are active. No-op outside water-enabled zones.
+     */
+    public void setWindTunnelDisabled(boolean disabled) {
+        if (waterEvents != null) {
+            waterEvents.setWindTunnelDisabled(disabled);
+        }
+    }
+
+    /**
+     * Returns the current LZ wind tunnel disable flag (ROM: f_wtunnelallow).
+     */
+    public boolean isWindTunnelDisabled() {
+        return waterEvents != null && waterEvents.isWindTunnelDisabled();
+    }
 }

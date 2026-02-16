@@ -224,6 +224,16 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search LzPole (100 bytes)
     public static final int ART_NEM_LZ_POLE_ADDR = 0x317F2;
 
+    // Nem_Splash: Nemesis-compressed LZ waterfall/splash art
+    // ArtTile_LZ_Splash = $259, loaded via PLC_LZ
+    // Verified by RomOffsetFinder --game s1 search Nem_Splash
+    public static final int ART_NEM_LZ_SPLASH_ADDR = 0x3040A;
+
+    // Nem_FlapDoor: Nemesis-compressed LZ flapping door art
+    // ArtTile_LZ_Flapping_Door = $328, loaded via PLC_LZ
+    // Verified by RomOffsetFinder --game s1 search Nem_FlapDoor
+    public static final int ART_NEM_LZ_FLAP_DOOR_ADDR = 0x30D7E;
+
     // Nem_LzDoor1: Nemesis-compressed LZ vertical door art (161 bytes)
     // ArtTile_LZ_Door = $3C4, loaded via PLC_LZ
     // Verified by RomOffsetFinder --game s1 search LzDoor
@@ -317,6 +327,10 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search Chopper (616 bytes, 1024 decompressed)
     public static final int ART_NEM_CHOPPER_ADDR = 0x37016;
 
+    // Nem_Burrobot: Nemesis-compressed Burrobot art (LZ, ArtTile_Burrobot = $4A6)
+    // Verified by RomOffsetFinder --game s1 search Nem_Burrobot
+    public static final int ART_NEM_BURROBOT_ADDR = 0x3692C;
+
     // Nem_Motobug: Nemesis-compressed Motobug art (GHZ, ArtTile $4F0)
     // Verified by RomOffsetFinder --game s1 search Motobug
     public static final int ART_NEM_MOTOBUG_ADDR = 0x37A2C;
@@ -349,6 +363,11 @@ public final class Sonic1Constants {
     // Nem_Cater: Nemesis-compressed Caterkiller art (MZ/SYZ ArtTile $4FF, SBZ ArtTile $2B0)
     // Verified by RomOffsetFinder --game s1 search Caterkiller (398 bytes)
     public static final int ART_NEM_CATERKILLER_ADDR = 0x39076;
+
+    // Nem_Orbinaut: Nemesis-compressed Orbinaut art (LZ/SLZ/SBZ)
+    // ArtTile_LZ_Orbinaut = $467, ArtTile_SLZ_Orbinaut = $429, ArtTile_SBZ_Orbinaut = $429
+    // Verified by RomOffsetFinder --game s1 search Nem_Orbinaut
+    public static final int ART_NEM_ORBINAUT_ADDR = 0x38E98;
 
     // Nem_MzSwitch: Nemesis-compressed MZ button/switch art (190 bytes)
     // Verified by RomOffsetFinder --game s1 search Switch

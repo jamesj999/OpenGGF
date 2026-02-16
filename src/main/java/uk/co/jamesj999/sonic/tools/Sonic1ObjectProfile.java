@@ -45,6 +45,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
     private static final Set<Integer> IMPLEMENTED_IDS = Set.of(
             Sonic1ObjectIds.LAMPPOST,
             Sonic1ObjectIds.SPINNING_LIGHT,
+            Sonic1ObjectIds.BREAKABLE_POLE,
+            Sonic1ObjectIds.FLAPPING_DOOR,
             Sonic1ObjectIds.SIGNPOST,
             Sonic1ObjectIds.MONITOR,
             Sonic1ObjectIds.RING,
@@ -64,6 +66,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.BUZZ_BOMBER,
             Sonic1ObjectIds.CHOPPER,
             Sonic1ObjectIds.JAWS,
+            Sonic1ObjectIds.BURROBOT,
             Sonic1ObjectIds.CRABMEAT,
             Sonic1ObjectIds.MOTOBUG,
             Sonic1ObjectIds.NEWTRON,
@@ -92,9 +95,11 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.GARGOYLE,
             Sonic1ObjectIds.LZ_CONVEYOR,
             Sonic1ObjectIds.BUBBLES,
+            Sonic1ObjectIds.WATERFALL,
             Sonic1ObjectIds.BUMPER,
             Sonic1ObjectIds.FLOATING_BLOCK,
             Sonic1ObjectIds.WATERFALL_SOUND,
+            Sonic1ObjectIds.ORBINAUT,
             Sonic1ObjectIds.GIANT_RING,
             Sonic1ObjectIds.GHZ_BOSS,
             Sonic1ObjectIds.MZ_BOSS,
@@ -135,6 +140,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
     private static Map<Integer, List<String>> buildNames() {
         Map<Integer, List<String>> map = new HashMap<>();
         map.put(Sonic1ObjectIds.SONIC, List.of("Sonic"));
+        map.put(Sonic1ObjectIds.BREAKABLE_POLE, List.of("PoleThatBreaks"));
+        map.put(Sonic1ObjectIds.FLAPPING_DOOR, List.of("FlappingDoor"));
         map.put(Sonic1ObjectIds.SIGNPOST, List.of("Signpost"));
         map.put(Sonic1ObjectIds.BRIDGE, List.of("Bridge"));
         map.put(Sonic1ObjectIds.HARPOON, List.of("Harpoon"));
@@ -187,6 +194,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.LABYRINTH_BLOCK, List.of("LabyrinthBlock"));
         map.put(Sonic1ObjectIds.LZ_CONVEYOR, List.of("LZConveyor"));
         map.put(Sonic1ObjectIds.BUBBLES, List.of("Bubbles"));
+        map.put(Sonic1ObjectIds.WATERFALL, List.of("Waterfall"));
         map.put(Sonic1ObjectIds.BATBRAIN, List.of("Batbrain"));
         map.put(Sonic1ObjectIds.SEESAW, List.of("Seesaw"));
         map.put(Sonic1ObjectIds.BOMB, List.of("Bomb"));

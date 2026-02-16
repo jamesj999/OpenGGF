@@ -10,6 +10,8 @@ public final class Sonic1ObjectIds {
     }
 
     public static final int SONIC           = 0x01;
+    public static final int BREAKABLE_POLE  = 0x0B;
+    public static final int FLAPPING_DOOR   = 0x0C;
     public static final int SPINNING_LIGHT  = 0x12;
     public static final int SIGNPOST        = 0x0D;
     public static final int LAVA_BALL_MAKER = 0x13;
@@ -70,6 +72,7 @@ public final class Sonic1ObjectIds {
     public static final int GARGOYLE        = 0x62;
     public static final int LZ_CONVEYOR     = 0x63; // id_LabyrinthConvey
     public static final int BUBBLES         = 0x64;
+    public static final int WATERFALL       = 0x65;
     public static final int INVISIBLE_BARRIER = 0x71;
     public static final int MZ_BOSS           = 0x73; // id_BossMarble
     public static final int BOSS_FIRE         = 0x74; // id_BossFire
