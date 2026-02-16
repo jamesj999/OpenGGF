@@ -473,7 +473,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      */
     private void routine6Stand() {
         waitTimer--;
-        if (waitTimer <= 0) {
+        if (waitTimer < 0) {
             waitTimer = PACE_TIMER;
             facingLeft = true;
             xVel = -PACE_VELOCITY;
@@ -506,7 +506,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         currentX = motionState.x; xSub = motionState.xSub;
 
         waitTimer--;
-        if (waitTimer <= 0) {
+        if (waitTimer < 0) {
             if (!paceReturnPhase) {
                 // First pass complete: reverse to walk right
                 xVel = PACE_VELOCITY;
@@ -540,7 +540,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         tickAnimation();
 
         waitTimer--;
-        if (waitTimer <= 0) {
+        if (waitTimer < 0) {
             xVel = PACE_VELOCITY;
             facingLeft = false;
 
