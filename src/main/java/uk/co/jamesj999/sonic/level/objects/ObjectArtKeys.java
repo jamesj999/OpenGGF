@@ -102,6 +102,12 @@ public final class ObjectArtKeys {
     // LZ harpoon spike trap (S1)
     public static final String LZ_HARPOON = "lz_harpoon";
 
+    // LZ breakable pole (S1 Object 0x0B)
+    public static final String LZ_BREAKABLE_POLE = "lz_breakable_pole";
+
+    // LZ flapping door (S1 Object 0x0C)
+    public static final String LZ_FLAPPING_DOOR = "lz_flapping_door";
+
     // LZ gargoyle head & fireball (S1)
     public static final String LZ_GARGOYLE = "lz_gargoyle";
 
@@ -113,6 +119,9 @@ public final class ObjectArtKeys {
 
     // LZ bubbles (S1)
     public static final String LZ_BUBBLES = "lz_bubbles";
+
+    // LZ waterfall/splash object art (S1 Object 0x65)
+    public static final String LZ_WATERFALL = "lz_waterfall";
 
     // SYZ bumper (S1)
     public static final String BUMPER = "bumper";
@@ -130,6 +139,8 @@ public final class ObjectArtKeys {
     public static final String ROLLER = "roller";
     public static final String YADRIN = "yadrin";
     public static final String JAWS = "jaws";
+    public static final String BURROBOT = "burrobot";
+    public static final String ORBINAUT = "orbinaut";
 
     // Animation keys (common across games)
     public static final String ANIM_MONITOR = "monitor";

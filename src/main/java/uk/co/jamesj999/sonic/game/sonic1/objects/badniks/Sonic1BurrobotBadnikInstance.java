@@ -1,0 +1,320 @@
+package uk.co.jamesj999.sonic.game.sonic1.objects.badniks;
+
+import uk.co.jamesj999.sonic.audio.AudioManager;
+import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
+import uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1PointsObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.ExplosionObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.AbstractBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic2.objects.badniks.AnimalObjectInstance;
+import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.graphics.RenderPriority;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
+import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.physics.ObjectTerrainUtils;
+import uk.co.jamesj999.sonic.physics.TerrainCheckResult;
+import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+
+import java.util.List;
+
+/**
+ * Sonic 1 Badnik 0x2D - Burrobot (LZ).
+ * <p>
+ * ROM reference: docs/s1disasm/_incObj/2D Burrobot.asm
+ */
+public class Sonic1BurrobotBadnikInstance extends AbstractBadnikInstance {
+
+    private static final int COLLISION_SIZE_INDEX = 0x05;
+    private static final int Y_RADIUS = 0x13;
+
+    private static final int WALK_SPEED = 0x80;
+    private static final int JUMP_VELOCITY = -0x400;
+    private static final int GRAVITY = 0x18;
+
+    // Burro .index states (ob2ndRout / 2).
+    private static final int STATE_CHANGEDIR = 0;
+    private static final int STATE_MOVE = 1;
+    private static final int STATE_JUMP = 2;
+    private static final int STATE_CHECK_SONIC = 3;
+
+    // Ani_Burro animation IDs.
+    private static final int ANIM_WALK1 = 0;
+    private static final int ANIM_WALK2 = 1;
+    private static final int ANIM_DIGGING = 2;
+    private static final int ANIM_FALL = 3;
+
+    private int state;
+    private int stateTimer;
+
+    private int xSubpixel;
+    private int ySubpixel;
+    private boolean floorProbeToggle;
+
+    private int animationId;
+    private int animationTick;
+
+    public Sonic1BurrobotBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
+        super(spawn, levelManager, "Burrobot");
+        this.currentX = spawn.x();
+        this.currentY = spawn.y();
+
+        // S1 obStatus bit 0: 0 = facing left, 1 = facing right.
+        this.facingLeft = (spawn.renderFlags() & 0x01) == 0;
+
+        this.state = STATE_CHECK_SONIC;
+        this.stateTimer = 0;
+
+        this.xSubpixel = 0;
+        this.ySubpixel = 0;
+        this.floorProbeToggle = false;
+
+        this.animationId = ANIM_DIGGING;
+        this.animationTick = 0;
+    }
+
+    @Override
+    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+        switch (state) {
+            case STATE_CHANGEDIR -> updateChangeDir();
+            case STATE_MOVE -> updateMove(frameCounter);
+            case STATE_JUMP -> updateJump(player);
+            case STATE_CHECK_SONIC -> updateCheckSonic(player);
+            default -> {
+            }
+        }
+    }
+
+    private void updateChangeDir() {
+        stateTimer--;
+        if (stateTimer >= 0) {
+            return;
+        }
+
+        state = STATE_MOVE;
+        stateTimer = 255;
+        animationId = ANIM_WALK2;
+
+        facingLeft = !facingLeft;
+        xVelocity = facingLeft ? -WALK_SPEED : WALK_SPEED;
+    }
+
+    private void updateMove(int frameCounter) {
+        stateTimer--;
+        if (stateTimer < 0) {
+            enterMoveEndBranch(frameCounter);
+            return;
+        }
+
+        applySpeedToPos();
+
+        floorProbeToggle = !floorProbeToggle;
+        int probeX = currentX + (facingLeft ? -0x0C : 0x0C);
+
+        if (!floorProbeToggle) {
+            TerrainCheckResult aheadFloor = ObjectTerrainUtils.checkFloorDist(probeX, currentY, Y_RADIUS);
+            if (!aheadFloor.foundSurface() || aheadFloor.distance() >= 0x0C) {
+                enterMoveEndBranch(frameCounter);
+            }
+            return;
+        }
+
+        TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
+        if (floor.foundSurface()) {
+            currentY += floor.distance();
+        }
+    }
+
+    private void enterMoveEndBranch(int frameCounter) {
+        if ((frameCounter & 0x04) != 0) {
+            state = STATE_CHANGEDIR;
+            stateTimer = 59;
+            xVelocity = 0;
+            animationId = ANIM_WALK1;
+            return;
+        }
+
+        state = STATE_JUMP;
+        yVelocity = JUMP_VELOCITY;
+        animationId = ANIM_DIGGING;
+    }
+
+    private void updateJump(AbstractPlayableSprite player) {
+        applySpeedToPos();
+        yVelocity += GRAVITY;
+
+        if (yVelocity < 0) {
+            return;
+        }
+
+        animationId = ANIM_FALL;
+
+        TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
+        if (!floor.foundSurface() || floor.distance() >= 0) {
+            return;
+        }
+
+        currentY += floor.distance();
+        yVelocity = 0;
+        animationId = ANIM_WALK2;
+        stateTimer = 255;
+        state = STATE_MOVE;
+
+        // Burro_ChkSonic2 is used here to update facing based on player side.
+        resolvePlayerDirectionAndVelocity(player, 0x80);
+    }
+
+    private void updateCheckSonic(AbstractPlayableSprite player) {
+        int jumpVelocity = resolvePlayerDirectionAndVelocity(player, 0x60);
+        if (player == null) {
+            return;
+        }
+
+        // bcc.s locret_AE20 - exit if player is outside horizontal range ($60)
+        int dx = player.getCentreX() - currentX;
+        if (dx < 0) dx = -dx;
+        if (dx >= 0x60) {
+            return;
+        }
+
+        int dy = player.getCentreY() - currentY;
+        if (dy >= 0 || dy < -0x80) {
+            return;
+        }
+
+        if (player.isDebugMode()) {
+            return;
+        }
+
+        state = STATE_JUMP;
+        xVelocity = jumpVelocity;
+        yVelocity = JUMP_VELOCITY;
+        animationId = ANIM_DIGGING;
+    }
+
+    /**
+     * Equivalent of Burro_ChkSonic2: resolve facing direction from player side and
+     * return signed horizontal speed (+$80 right, -$80 left).
+     */
+    private int resolvePlayerDirectionAndVelocity(AbstractPlayableSprite player, int distanceLimit) {
+        int speed = WALK_SPEED;
+        if (player == null) {
+            return facingLeft ? -speed : speed;
+        }
+
+        int dx = player.getCentreX() - currentX;
+        if (dx < 0) {
+            dx = -dx;
+            speed = -speed;
+            facingLeft = true;
+        } else {
+            facingLeft = false;
+        }
+
+        if (dx > distanceLimit) {
+            return facingLeft ? -WALK_SPEED : WALK_SPEED;
+        }
+
+        return speed;
+    }
+
+    private void applySpeedToPos() {
+        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
+        xPos24 += xVelocity;
+        currentX = xPos24 >> 8;
+        xSubpixel = xPos24 & 0xFF;
+
+        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
+        yPos24 += yVelocity;
+        currentY = yPos24 >> 8;
+        ySubpixel = yPos24 & 0xFF;
+    }
+
+    @Override
+    protected void updateAnimation(int frameCounter) {
+        animationTick++;
+    }
+
+    private int getMappingFrame() {
+        int step = (animationTick / 4);
+        return switch (animationId) {
+            case ANIM_WALK1 -> (step & 1) == 0 ? 0 : 6;
+            case ANIM_WALK2 -> (step & 1) == 0 ? 0 : 1;
+            case ANIM_DIGGING -> (step & 1) == 0 ? 2 : 3;
+            case ANIM_FALL -> 4;
+            default -> 0;
+        };
+    }
+
+    @Override
+    protected int getCollisionSizeIndex() {
+        return COLLISION_SIZE_INDEX;
+    }
+
+    @Override
+    protected void destroyBadnik(AbstractPlayableSprite player) {
+        destroyed = true;
+        setDestroyed(true);
+
+        var objectManager = levelManager.getObjectManager();
+        if (objectManager != null) {
+            if (spawn.respawnTracked()) {
+                objectManager.markRemembered(spawn);
+            } else {
+                objectManager.removeFromActiveSpawns(spawn);
+            }
+        }
+
+        ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,
+                levelManager.getObjectRenderManager());
+        levelManager.getObjectManager().addDynamicObject(explosion);
+
+        AnimalObjectInstance animal = new AnimalObjectInstance(
+                new ObjectSpawn(currentX, currentY, 0x28, 0, 0, false, 0), levelManager);
+        levelManager.getObjectManager().addDynamicObject(animal);
+
+        int pointsValue = 100;
+        if (player != null) {
+            pointsValue = player.incrementBadnikChain();
+            GameServices.gameState().addScore(pointsValue);
+        }
+
+        Sonic1PointsObjectInstance points = new Sonic1PointsObjectInstance(
+                new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
+        levelManager.getObjectManager().addDynamicObject(points);
+
+        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
+    }
+
+    @Override
+    public boolean isPersistent() {
+        return !destroyed && isOnScreenX(192);
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        return RenderPriority.clamp(4);
+    }
+
+    @Override
+    public void appendRenderCommands(List<GLCommand> commands) {
+        if (destroyed) {
+            return;
+        }
+
+        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        if (renderManager == null) {
+            return;
+        }
+
+        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.BURROBOT);
+        if (renderer == null || !renderer.isReady()) {
+            return;
+        }
+
+        int frame = getMappingFrame();
+        renderer.drawFrameIndex(frame, currentX, currentY, !facingLeft, false);
+    }
+}

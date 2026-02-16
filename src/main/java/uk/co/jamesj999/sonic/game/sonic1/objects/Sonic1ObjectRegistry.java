@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
+import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BurrobotBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BuzzBomberBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1CaterkillerBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1ChopperBadnikInstance;
@@ -9,6 +10,7 @@ import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1JawsBadnikInstanc
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1MotobugBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BatbrainBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1NewtronBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1OrbinautBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1RollerBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1YadrinBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossBlockInstance;
@@ -64,6 +66,10 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
     }
 
     private void registerDefaultFactories() {
+        factories.put(Sonic1ObjectIds.BREAKABLE_POLE,
+                (spawn, registry) -> new Sonic1PoleThatBreaksObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.FLAPPING_DOOR,
+                (spawn, registry) -> new Sonic1FlappingDoorObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SPINNING_LIGHT,
                 (spawn, registry) -> new Sonic1SpinningLightObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.LAMPPOST,
@@ -96,6 +102,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1ChopperBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.JAWS,
                 (spawn, registry) -> new Sonic1JawsBadnikInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.BURROBOT,
+                (spawn, registry) -> new Sonic1BurrobotBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.BUZZ_BOMBER,
                 (spawn, registry) -> new Sonic1BuzzBomberBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.CRABMEAT,
@@ -174,6 +182,10 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1LZConveyorObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.BUBBLES,
                 (spawn, registry) -> new Sonic1BubblesObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.WATERFALL,
+                (spawn, registry) -> new Sonic1WaterfallObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.ORBINAUT,
+                (spawn, registry) -> new Sonic1OrbinautBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.INVISIBLE_BARRIER,
                 (spawn, registry) -> new Sonic1InvisibleBarrierObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GHZ_BOSS,
@@ -200,6 +212,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
     public String getPrimaryName(int objectId) {
         return switch (objectId) {
             case Sonic1ObjectIds.SONIC -> "Sonic";
+            case Sonic1ObjectIds.BREAKABLE_POLE -> "PoleThatBreaks";
+            case Sonic1ObjectIds.FLAPPING_DOOR -> "FlappingDoor";
             case Sonic1ObjectIds.SPINNING_LIGHT -> "SpinningLight";
             case Sonic1ObjectIds.SIGNPOST -> "Signpost";
             case Sonic1ObjectIds.BRIDGE -> "Bridge";
@@ -264,6 +278,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.GARGOYLE -> "Gargoyle";
             case Sonic1ObjectIds.LZ_CONVEYOR -> "LZConveyor";
             case Sonic1ObjectIds.BUBBLES -> "Bubbles";
+            case Sonic1ObjectIds.WATERFALL -> "Waterfall";
             case Sonic1ObjectIds.INVISIBLE_BARRIER -> "InvisibleBarrier";
             case Sonic1ObjectIds.CATERKILLER -> "Caterkiller";
             case Sonic1ObjectIds.LAMPPOST -> "Lamppost";

@@ -34,10 +34,10 @@ import java.util.List;
  * of 30, 60, 90, 120, 150, 180, 210, or 240 frames.
  * <p>
  * <b>Facing direction:</b>
- * obStatus bit 0 (from spawn renderFlags bit 0): 0 = facing right (fireball goes left),
- * 1 = facing left (fireball goes right). The ROM checks: "btst #0,obStatus(a0) / bne.s .noflip"
- * meaning bit 0 SET = NOT flipped = fireball goes right. Bit 0 CLEAR = fireball goes left
- * (velocity is negated).
+ * obStatus bit 0 (from spawn renderFlags bit 0): 0 = facing left, 1 = facing right.
+ * The ROM checks "btst #0,obStatus(a0) / bne.s .noflip" after setting velocity to +$200.
+ * So bit 0 SET keeps positive X velocity (fireball moves right), and bit 0 CLEAR negates
+ * velocity (fireball moves left).
  * <p>
  * Reference: docs/s1disasm/_incObj/62 Gargoyle.asm
  */
@@ -75,7 +75,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
     /** Countdown timer. Stored in obTimeFrame. */
     private int timer;
 
-    /** Whether gargoyle faces right (obStatus bit 0). */
+    /** Whether gargoyle faces right (obStatus bit 0: 0=left, 1=right). */
     private final boolean facingRight;
 
     public Sonic1GargoyleObjectInstance(ObjectSpawn spawn) {
@@ -93,8 +93,8 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
         // move.b obDelayAni(a0),obTimeFrame(a0)
         this.timer = spitDelay;
 
-        // obStatus bit 0 from spawn renderFlags bit 0
-        // btst #0,obStatus(a0) / bne.s .noflip -> bit 0 set = facing right (no neg)
+        // obStatus bit 0 from spawn renderFlags bit 0.
+        // S1 convention: bit 0 clear = facing left, bit 0 set = facing right.
         this.facingRight = (spawn.renderFlags() & 1) != 0;
     }
 
@@ -152,10 +152,11 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        // Head uses frame 0, with H-flip based on facing direction
+        // Head uses frame 0. Gargoyle art is authored facing left by default, so apply
+        // H-flip when obStatus bit 0 is set (facing right).
         // ori.b #4,obRender(a0) -> bit 2 set = uses screen-space coords
-        // The render flag bit 0 in ROM controls H-flip for display
-        renderer.drawFrameIndex(HEAD_FRAME, spawn.x(), spawn.y(), !facingRight, false);
+        // The render flag bit 0 in ROM controls X-flip for display.
+        renderer.drawFrameIndex(HEAD_FRAME, spawn.x(), spawn.y(), facingRight, false);
     }
 
     @Override
@@ -279,8 +280,8 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
             // btst #0,obStatus(a0) ; is gargoyle facing left?
             // bne.s .noflip ; if not, branch
             // neg.w obVelX(a0)
-            // Bit 0 SET = facing right = no neg -> velX = +$200 (rightward)
-            // Bit 0 CLEAR = facing left -> velX = -$200 (leftward)
+            // Bit 0 SET = facing right = no neg -> velX = +$200 (rightward).
+            // Bit 0 CLEAR = facing left -> velX = -$200 (leftward).
             this.movingRight = facingRight;
             this.velX = facingRight ? FIREBALL_SPEED : -FIREBALL_SPEED;
 
@@ -353,11 +354,14 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
                 return;
             }
 
-            // Fireball has no directional flip in its rendering;
-            // it uses the same frame regardless of direction.
+            // Fireball has no directional flip in its rendering; it uses the same frame
+            // regardless of direction.
             // The ROM copies obRender from the head, but only bit 2 (screen coords)
             // is relevant. H-flip for the fireball sprite is not applied.
-            renderer.drawFrameIndex(currentFrame, currentX, currentY, false, false);
+            //
+            // ROM parity: Gar_FireBall sets obGfx to make_art_tile(..., 0, 0), so
+            // fireballs must render with palette line 0 (not the head's palette line 2).
+            renderer.drawFrameIndex(currentFrame, currentX, currentY, false, false, 0);
         }
 
         @Override

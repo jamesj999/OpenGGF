@@ -2532,6 +2532,10 @@ public class LevelManager {
         return ringManager;
     }
 
+    public ZoneFeatureProvider getZoneFeatureProvider() {
+        return zoneFeatureProvider;
+    }
+
     public boolean areAllRingsCollected() {
         return ringManager != null && ringManager.areAllCollected();
     }

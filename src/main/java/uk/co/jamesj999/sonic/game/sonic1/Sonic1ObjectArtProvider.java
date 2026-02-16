@@ -206,16 +206,26 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadSlzCollapsingFloorArt(rom);
         }
 
-        // Load LZ-specific art (push block, moving block, labyrinth block, conveyor, bubbles, jaws, gargoyle, harpoon)
+        // Load LZ-specific art (breakable pole, flapping door, waterfall, push block, moving block,
+        // labyrinth block, conveyor, bubbles, jaws, burrobot, orbinaut, gargoyle, harpoon)
         if (zoneIndex == Sonic1Constants.ZONE_LZ) {
             loadLzPushBlockArt(rom);
+            loadLzFlappingDoorArt(rom);
+            loadLzWaterfallArt(rom);
             loadLzMovingBlockArt(rom);
             loadLabyrinthBlockArt(rom);
             loadLzConveyorArt(rom);
             loadBubblesArt(rom);
             loadJawsArt(rom);
+            loadBurrobotArt(rom);
+            loadOrbinautArt(rom, zoneIndex);
             loadGargoyleArt(rom);
             loadHarpoonArt(rom);
+        }
+
+        // Orbinaut appears in LZ/SLZ/SBZ with zone-specific palette usage.
+        if (zoneIndex == Sonic1Constants.ZONE_SLZ || zoneIndex == Sonic1Constants.ZONE_SBZ) {
+            loadOrbinautArt(rom, zoneIndex);
         }
 
         // Load SYZ-specific art (bumper, big spiked ball, small spikeball chain)
@@ -1970,6 +1980,199 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-0x10, -0x0C, 4, 3, 0x0C, false, false, 0, false),
                 new SpriteMappingPiece( 0x10, -0x0B, 2, 2, 0x1C, false, true,  0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads Burrobot art (Nem_Burrobot) and creates S1 mappings from Map_Burro.
+     */
+    private void loadBurrobotArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_BURROBOT_ADDR, "Burrobot");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Burrobot art");
+            return;
+        }
+
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, createBurrobotMappings(), 0, 1);
+        registerSheet(ObjectArtKeys.BURROBOT, sheet);
+    }
+
+    private List<SpriteMappingFrame> createBurrobotMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x14, 3, 3, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C, 0x04, 3, 2, 0x09, false, false, 0, false)
+        )));
+
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x14, 3, 3, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C, 0x04, 3, 2, 0x18, false, false, 0, false)
+        )));
+
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x18, 3, 3, 0x1E, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C, 0x00, 3, 3, 0x27, false, false, 0, false)
+        )));
+
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x18, 3, 3, 0x30, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C, 0x00, 3, 3, 0x39, false, false, 0, false)
+        )));
+
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x18, 3, 3, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C, 0x00, 3, 3, 0x42, false, false, 0, false)
+        )));
+
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x0C, 2, 3, 0x4B, false, false, 0, false),
+                new SpriteMappingPiece(-0x08, -0x0C, 3, 3, 0x51, false, false, 0, false)
+        )));
+
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x14, 3, 3, 0x0F, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C, 0x04, 3, 2, 0x09, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads Orbinaut art (Nem_Orbinaut) and creates S1 mappings from Map_Orb.
+     * LZ/SBZ use palette 0, SLZ uses palette 1.
+     */
+    private void loadOrbinautArt(Rom rom, int zoneIndex) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_ORBINAUT_ADDR, "Orbinaut");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Orbinaut art");
+            return;
+        }
+
+        int paletteLine = zoneIndex == Sonic1Constants.ZONE_SLZ ? 1 : 0;
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, createOrbinautMappings(), paletteLine, 1);
+        registerSheet(ObjectArtKeys.ORBINAUT, sheet);
+    }
+
+    private List<SpriteMappingFrame> createOrbinautMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x00, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x09, false, false, 1, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x12, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x08, -0x08, 2, 2, 0x1B, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads LZ flapping door art (Nem_FlapDoor) and mappings from Map_Flap.
+     */
+    private void loadLzFlappingDoorArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_LZ_FLAP_DOOR_ADDR, "FlapDoor");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load LZ flapping door art");
+            return;
+        }
+
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, createLzFlappingDoorMappings(), 2, 1);
+        registerSheet(ObjectArtKeys.LZ_FLAPPING_DOOR, sheet);
+    }
+
+    private List<SpriteMappingFrame> createLzFlappingDoorMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>(3);
+
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x08, -0x20, 2, 4, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x08, 0x00, 2, 4, 0x00, false, true, 0, false)
+        )));
+
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x05, -0x26, 4, 4, 0x08, false, false, 0, false),
+                new SpriteMappingPiece(-0x05, 0x06, 4, 4, 0x08, false, true, 0, false)
+        )));
+
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x00, -0x28, 4, 2, 0x18, false, false, 0, false),
+                new SpriteMappingPiece(0x00, 0x18, 4, 2, 0x18, false, true, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads LZ waterfall/splash art (Nem_Splash) and mappings from Map_WFall.
+     */
+    private void loadLzWaterfallArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_LZ_SPLASH_ADDR, "Waterfall");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load LZ waterfall art");
+            return;
+        }
+
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, createLzWaterfallMappings(), 2, 1);
+        registerSheet(ObjectArtKeys.LZ_WATERFALL, sheet);
+    }
+
+    private List<SpriteMappingFrame> createLzWaterfallMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>(12);
+
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x08, -0x10, 2, 4, 0x00, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x04, -0x08, 2, 1, 0x08, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C, 0x00, 3, 1, 0x0A, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x00, -0x08, 1, 1, 0x08, false, false, 0, false),
+                new SpriteMappingPiece(-0x08, 0x00, 2, 1, 0x0D, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x00, -0x08, 1, 2, 0x0F, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x00, -0x08, 1, 1, 0x08, false, false, 0, false),
+                new SpriteMappingPiece(-0x08, 0x00, 2, 1, 0x0D, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x00, -0x08, 1, 2, 0x11, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x00, -0x08, 1, 2, 0x13, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x08, -0x10, 2, 4, 0x15, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0A, -0x08, 4, 1, 0x1D, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, 0x00, 4, 1, 0x21, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x10, 3, 4, 0x25, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x10, 3, 4, 0x31, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x10, 3, 4, 0x3D, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x10, 3, 4, 0x49, false, false, 0, false)
+        )));
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x10, 3, 4, 0x55, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x10, 3, 4, 0x61, false, false, 0, false)
         )));
 
         return frames;
@@ -4154,16 +4357,14 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
-     * Loads LZ Pushable Block art (Nem_LzPole) and creates S1-format sprite mappings.
+     * Loads LZ Pushable Block art (Nem_LzPole) and related LZ pole mappings.
      * <p>
-     * From docs/s1disasm/_incObj/33 Pushable Blocks.asm:
-     * <pre>
-     *     move.w  #make_art_tile(ArtTile_LZ_Push_Block,2,0),obGfx(a0)
-     * </pre>
-     * ArtTile_LZ_Push_Block = $3DE (same VRAM slot as ArtTile_LZ_Pole), palette line 2.
-     * <p>
-     * Uses the same mappings as MZ but with LZ-specific Nemesis art.
-     * LZ push blocks are always single (subtype 0), but we include both frames for completeness.
+     * This Nemesis set is shared by:
+     * <ul>
+     *   <li>Object 0x33 push blocks ({@code ArtTile_LZ_Push_Block})</li>
+     *   <li>Object 0x0B breakable pole ({@code ArtTile_LZ_Pole})</li>
+     * </ul>
+     * Both use palette line 2 and VRAM base $3DE.
      */
     private void loadLzPushBlockArt(Rom rom) {
         Pattern[] patterns = loadNemesisPatterns(rom,
@@ -4177,6 +4378,38 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // make_art_tile(ArtTile_LZ_Push_Block, 2, 0) -> palette line 2, no priority
         ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
         registerSheet(ObjectArtKeys.LZ_PUSH_BLOCK, sheet);
+
+        // Object 0x0B uses the same art source with Map_Pole mappings.
+        List<SpriteMappingFrame> poleMappings = createLzBreakablePoleMappings();
+        ObjectSpriteSheet poleSheet = new ObjectSpriteSheet(patterns, poleMappings, 2, 1);
+        registerSheet(ObjectArtKeys.LZ_BREAKABLE_POLE, poleSheet);
+    }
+
+    /**
+     * Creates breakable pole mappings from docs/s1disasm/_maps/Pole that Breaks.asm
+     * ({@code Map_Pole_internal}).
+     * <p>
+     * Frame 0 (.normal): 2 pieces, intact pole.
+     * Frame 1 (.broken): 4 pieces, broken center section.
+     */
+    private List<SpriteMappingFrame> createLzBreakablePoleMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>(2);
+
+        // Frame 0 (.normal)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -0x20, 1, 4, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-4, 0x00, 1, 4, 0x00, false, true, 0, false)
+        )));
+
+        // Frame 1 (.broken)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -0x20, 1, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x10, 2, 2, 0x04, false, false, 0, false),
+                new SpriteMappingPiece(-4, 0x00, 2, 2, 0x04, false, true, 0, false),
+                new SpriteMappingPiece(-4, 0x10, 1, 2, 0x00, false, true, 0, false)
+        )));
+
+        return frames;
     }
 
     /**
