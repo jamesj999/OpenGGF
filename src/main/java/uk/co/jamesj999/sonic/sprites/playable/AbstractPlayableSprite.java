@@ -754,6 +754,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (!air && this.air && hurt) {
                         hurt = false;
                         setHighPriority(false);
+                        // ROM: Sonic_HurtStop resets invulnerable_time to $78 on landing.
+                        // All 120 frames of post-hit flashing occur after landing.
+                        invulnerableFrames = 0x78;
                 }
                 // Reset rolling jump flag when landing
                 if (!air && this.air) {
@@ -1072,7 +1075,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public void tickStatus() {
-                if (invulnerableFrames > 0) {
+                // ROM: invulnerable_time only decrements in Sonic_Display (routine 2).
+                // During hurt routine (routine 4), DisplaySprite is called directly,
+                // so the timer stays frozen until Sonic lands.
+                if (invulnerableFrames > 0 && !hurt) {
                         invulnerableFrames--;
                 }
                 if (invincibleFrames > 0) {
@@ -1213,7 +1219,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (debugMode || invincibleFrames > 0) {
                         return true;
                 }
-                return !ignoreIFrames && (invulnerableFrames > 0 || hurt);
+                // ROM: Touch_ChkHurt only checks invulnerable_time, not routine number.
+                // With the timer frozen during hurt (see tickStatus), invulnerableFrames
+                // is always > 0 while hurt, so the hurt flag check is unnecessary.
+                return !ignoreIFrames && invulnerableFrames > 0;
         }
 
         /**

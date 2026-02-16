@@ -21,9 +21,10 @@ public class Tails extends AbstractPlayableSprite {
 		if (getTailsTailsController() != null) {
 			getTailsTailsController().draw();
 		}
-		// Skip rendering on certain frames during invulnerability (blink effect)
-		// Pattern: (frames & 0x04) creates ~8-frame on/off cycle
-		if (getInvulnerableFrames() > 0 && (getInvulnerableFrames() & 0x04) != 0) {
+		// ROM: During hurt bounce (routine 4), DisplaySprite is called directly
+		// (always visible). Flashing only occurs after landing (routine 2) via
+		// Tails_Display: lsr.w #3,d0 / bcc = visible when (timer & 0x04) != 0.
+		if (!isHurt() && getInvulnerableFrames() > 0 && (getInvulnerableFrames() & 0x04) == 0) {
 			// Still draw spindash dust even when blinking
 			if (getSpindashDustController() != null) {
 				getSpindashDustController().draw();
