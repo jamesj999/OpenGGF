@@ -56,15 +56,21 @@ public class TestSonic1PoleThatBreaksObjectInstance {
     }
 
     @Test
-    public void subtypeOneBreaksNextFrameAfterGrab() throws Exception {
+    public void subtypeOneBreaksAfterSixtyFrames() throws Exception {
         Sonic1PoleThatBreaksObjectInstance pole = createPole(200, 320, 1);
         TestPlayableSprite player = new TestPlayableSprite();
         player.setCentreX((short) 240);
         player.setCentreY((short) 320);
 
         pole.onTouchResponse(player, TOUCH_RESULT, 1);
-        pole.update(1, player); // grab
-        pole.update(2, player); // timer 1 -> 0, break + release
+        pole.update(1, player); // grab (poleTime = 60)
+        // Decrement 59 times (poleTime 60 -> 1), still grabbed
+        for (int i = 2; i <= 60; i++) {
+            pole.update(i, player);
+        }
+        assertTrue(player.isObjectControlled());
+        // 60th decrement: poleTime 1 -> 0, break + release
+        pole.update(61, player);
 
         assertFalse(player.isObjectControlled());
         assertEquals(0, pole.getCollisionFlags());
