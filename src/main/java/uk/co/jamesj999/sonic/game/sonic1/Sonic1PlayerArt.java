@@ -92,6 +92,7 @@ public class Sonic1PlayerArt {
                 Sonic1AnimationIds.DEATH,      // deathAnimId
                 Sonic1AnimationIds.HURT,       // hurtAnimId
                 Sonic1AnimationIds.STOP,       // skidAnimId
+                Sonic1AnimationIds.WATER_SLIDE, // slideAnimId
                 Sonic1AnimationIds.WALK,       // airAnimId
                 Sonic1AnimationIds.BALANCE,    // balanceAnimId
                 -1,                            // balance2AnimId (S1 has only 1 balance anim)

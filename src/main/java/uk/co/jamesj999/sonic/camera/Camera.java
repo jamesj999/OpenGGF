@@ -42,6 +42,17 @@ public class Camera {
 	// This is separate from horizScrollDelayFrames which only affects horizontal scroll.
 	private boolean frozen = false;
 
+	// ROM: LZ3/SBZ2 vertical wrapping (DeformLayers.asm lines 542-580)
+	// When top boundary is negative (e.g. 0xFF00 = -256), coordinates wrap modularly
+	// to create an infinite-falling effect. The wrap range is 0x800 (2048 pixels).
+	private boolean verticalWrapEnabled = false;
+	private static final int VERTICAL_WRAP_RANGE = 0x800;  // 2048 pixels
+	private static final int VERTICAL_WRAP_MASK = 0x7FF;   // AND mask for camera/player Y
+	private static final int VERTICAL_WRAP_BG_MASK = 0x3FF; // AND mask for BG Y
+	// Tracks whether a wrap occurred this frame, and the delta applied
+	private boolean lastFrameWrapped = false;
+	private short wrapDeltaY = 0;
+
 	private AbstractPlayableSprite focusedSprite;
 
 	private short width;
@@ -214,9 +225,40 @@ public class Camera {
 			// else: ROM: .doNotScroll - player is at bias, no scroll needed
 		}
 
+		// ROM: LZ3/SBZ2 vertical wrapping (DeformLayers.asm lines 542-580)
+		// When wrapping is active, coordinate masking replaces normal Y clamping.
+		lastFrameWrapped = false;
+		wrapDeltaY = 0;
+		if (verticalWrapEnabled) {
+			// Upward wrap: camera Y went below -256 (0xFF00 signed)
+			// ROM: cmp.w (Camera_Y_pos).w,d1 / bge.s .noupwrap / and.w d0,y
+			if (y < -0x100) {
+				short oldY = y;
+				y = (short) (y & VERTICAL_WRAP_MASK);
+				if (focusedSprite != null) {
+					focusedSprite.setCentreY((short) (focusedSprite.getCentreY() & VERTICAL_WRAP_MASK));
+				}
+				lastFrameWrapped = true;
+				wrapDeltaY = (short) (y - oldY);
+			}
+			// Downward wrap: camera Y reached bottom boundary (0x800)
+			// ROM: cmp.w (Camera_Max_Y_pos).w,d1 / blt.s .nodownwrap / sub.w d0,y
+			else if (y >= VERTICAL_WRAP_RANGE) {
+				short oldY = y;
+				y = (short) (y - VERTICAL_WRAP_RANGE);
+				if (focusedSprite != null) {
+					focusedSprite.setCentreY((short) (focusedSprite.getCentreY() & VERTICAL_WRAP_MASK));
+				}
+				lastFrameWrapped = true;
+				wrapDeltaY = (short) (y - oldY);
+			}
+		}
+
 		// Clamp to boundaries (ROM: ScrollHoriz lines 18077-18092, ScrollVerti similar)
 		x = clampAxisWithWrap(x, minX, maxX);
-		y = clampAxisWithWrap(y, minY, maxY);
+		if (!verticalWrapEnabled) {
+			y = clampAxisWithWrap(y, minY, maxY);
+		}
 	}
 
 	private short clampAxisWithWrap(short value, short min, short max) {
@@ -474,10 +516,14 @@ public class Camera {
 	/**
 	 * Sets minY immediately (both current and target).
 	 * Use setMinYTarget() for smooth easing.
+	 *
+	 * ROM: When minY is negative (e.g. LZ3 top=0xFF00=-256), vertical wrapping
+	 * is automatically enabled (DeformLayers.asm lines 542-580).
 	 */
 	public void setMinY(short minY) {
 		this.minY = minY;
 		this.minYTarget = minY;
+		this.verticalWrapEnabled = (minY < 0);
 	}
 
 	/**
@@ -676,6 +722,41 @@ public class Camera {
 		return LOOK_DOWN_BIAS;
 	}
 
+	/**
+	 * @return true if vertical wrapping is active (LZ3/SBZ2 loop sections)
+	 */
+	public boolean isVerticalWrapEnabled() {
+		return verticalWrapEnabled;
+	}
+
+	/**
+	 * @return true if a vertical wrap occurred during the last updatePosition() call
+	 */
+	public boolean didWrapLastFrame() {
+		return lastFrameWrapped;
+	}
+
+	/**
+	 * @return the Y delta applied by wrapping last frame (e.g. -0x800 for downward wrap), or 0
+	 */
+	public short getWrapDeltaY() {
+		return wrapDeltaY;
+	}
+
+	/**
+	 * @return the vertical wrap range (0x800 = 2048 pixels)
+	 */
+	public static int getVerticalWrapRange() {
+		return VERTICAL_WRAP_RANGE;
+	}
+
+	/**
+	 * @return the BG Y mask for vertical wrapping (0x3FF)
+	 */
+	public static int getVerticalWrapBgMask() {
+		return VERTICAL_WRAP_BG_MASK;
+	}
+
 	public static synchronized Camera getInstance() {
 		if (camera == null) {
 			camera = new Camera();
@@ -705,6 +786,9 @@ public class Camera {
 		frozen = false;
 		focusedSprite = null;
 		yPosBias = DEFAULT_Y_BIAS;
+		verticalWrapEnabled = false;
+		lastFrameWrapped = false;
+		wrapDeltaY = 0;
 	}
 
 	/**

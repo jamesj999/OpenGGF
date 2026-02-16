@@ -590,7 +590,7 @@ public class WaterSystem {
         DynamicWaterState state = dynamicWaterStates.get(key);
         if (state != null) {
             state.currentLevel = currentY;
-            LOGGER.info(String.format("Zone %d Act %d: Water level set directly to %d (0x%X)",
+            LOGGER.fine(String.format("Zone %d Act %d: Water level set directly to %d (0x%X)",
                     zoneId, actId, currentY, currentY));
         }
     }

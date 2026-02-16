@@ -2,7 +2,9 @@ package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
+import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.Map;
 import uk.co.jamesj999.sonic.level.WaterSystem;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
@@ -28,6 +30,13 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
     private static final int SPLASH_FRAME_START = 9;
     private static final int SPLASH_FRAME_END = 11;
     private static final int SPLASH_FRAME_DURATION = 5;
+
+    // Layout gap position checked by ROUTINE_SPECIAL (subtype $A9).
+    // ROM: cmpi.b #7,(v_lvllayout+$80*2+6).w
+    // When chunk == 7, the gap is open and splash renders with high priority.
+    private static final int LAYOUT_GAP_X = 6;
+    private static final int LAYOUT_GAP_Y = 2;
+    private static final int CHUNK_ID_GAP = 7;
 
     private int routine;
     private int x;
@@ -105,8 +114,12 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
                 animateSplash();
             }
             case ROUTINE_SPECIAL -> {
-                // The ROM toggles an obGfx bit from level layout state.
-                // Keep this behavior approximate: keep splash animation active.
+                // ROM (loc_12B36): Toggle obGfx bit 7 based on layout chunk.
+                // bclr #7,obGfx(a0)
+                // cmpi.b #7,(v_lvllayout+$80*2+6).w
+                // bne.s .animate
+                // bset #7,obGfx(a0)
+                highPriority = isLayoutGapOpen();
                 animateSplash();
             }
             case ROUTINE_ANIMATE -> animateSplash();
@@ -137,6 +150,14 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
+        // For ROUTINE_SPECIAL: only render when the gap is open (highPriority set).
+        // Before the button is pressed, the splash is hidden behind the wall;
+        // we skip rendering entirely since the engine can't replicate VDP
+        // priority layering that would hide it behind high-priority BG tiles.
+        if (routine == ROUTINE_SPECIAL && !highPriority) {
+            return;
+        }
+
         ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
         if (renderManager == null) {
             return;
@@ -165,6 +186,26 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
     @Override
     public boolean isPersistent() {
         return !isDestroyed() && isOnScreenX(192);
+    }
+
+    /**
+     * Check if the layout gap at (v_lvllayout+$80*2+6) is chunk 7 (open).
+     * ROM: cmpi.b #7,(v_lvllayout+$80*2+6).w
+     */
+    private boolean isLayoutGapOpen() {
+        LevelManager lm = LevelManager.getInstance();
+        if (lm == null) {
+            return false;
+        }
+        Level level = lm.getCurrentLevel();
+        if (level == null) {
+            return false;
+        }
+        Map map = level.getMap();
+        if (map == null) {
+            return false;
+        }
+        return (map.getValue(0, LAYOUT_GAP_X, LAYOUT_GAP_Y) & 0xFF) == CHUNK_ID_GAP;
     }
 
     private int getWaterLevel() {

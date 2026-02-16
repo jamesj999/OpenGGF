@@ -111,6 +111,7 @@ public class Sonic2PlayerArt {
                 Sonic2AnimationIds.DEATH,     // deathAnimId
                 hurtAnimId,                   // hurtAnimId
                 Sonic2AnimationIds.SKID,      // skidAnimId
+                Sonic2AnimationIds.SLIDE,     // slideAnimId
                 Sonic2AnimationIds.WALK,      // airAnimId
                 Sonic2AnimationIds.BALANCE,   // balanceAnimId - facing edge, safe distance
                 Sonic2AnimationIds.BALANCE2,  // balance2AnimId - facing edge, closer to falling

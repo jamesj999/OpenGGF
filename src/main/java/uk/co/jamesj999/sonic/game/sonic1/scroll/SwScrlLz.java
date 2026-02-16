@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic1.scroll;
 
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.level.scroll.ZoneScrollHandler;
 
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.*;
@@ -62,6 +63,20 @@ public class SwScrlLz implements ZoneScrollHandler {
         // Compute deltas
         int deltaX = cameraX - lastCameraX;
         int deltaY = cameraY - lastCameraY;
+
+        // ROM: When vertical wrapping is active (LZ3/SBZ2), a wrap can cause a
+        // huge delta (e.g. camera jumps from ~2047 to ~0). Detect and correct
+        // by checking if |deltaY| exceeds half the wrap range.
+        Camera camera = Camera.getInstance();
+        if (camera.isVerticalWrapEnabled()) {
+            int halfRange = Camera.getVerticalWrapRange() / 2; // 0x400
+            if (deltaY > halfRange) {
+                deltaY -= Camera.getVerticalWrapRange();
+            } else if (deltaY < -halfRange) {
+                deltaY += Camera.getVerticalWrapRange();
+            }
+        }
+
         lastCameraX = cameraX;
         lastCameraY = cameraY;
 
@@ -72,6 +87,13 @@ public class SwScrlLz implements ZoneScrollHandler {
 
         int bgX = (int) (bgXPos >> 16);
         int bgY = (int) (bgYPos >> 16);
+
+        // ROM: When vertical wrapping is active, apply BG Y mask (AND 0x3FF)
+        if (camera.isVerticalWrapEnabled()) {
+            bgY &= Camera.getVerticalWrapBgMask();
+            // Also constrain the accumulator to prevent drift
+            bgYPos = (long) bgY << 16 | (bgYPos & 0xFFFF);
+        }
 
         vscrollFactorBG = (short) bgY;
 
