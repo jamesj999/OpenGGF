@@ -1,13 +1,11 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
-import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kMusic;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
-import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
@@ -72,7 +70,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     public static final int INIT_Y = 0x440;
 
     /** Standard S3K gravity in subpixels per frame. */
-    private static final int GRAVITY = 0x38;
+    private static final int GRAVITY = SubpixelMotion.S3K_GRAVITY;
 
     /** Y collision radius from ROM (y_radius = 0x13). */
     private static final int Y_RADIUS = 0x13;
@@ -126,11 +124,8 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     /** Whether Knuckles is visible (render_flags bit 7). */
     private boolean visible;
 
-    /** Countdown timer for delayed music start after fade-out (-1 = inactive). */
-    private int musicFadeTimer = -1;
-
-    /** Music ID to play when musicFadeTimer reaches zero. */
-    private int pendingMusicId = -1;
+    /** Shared state object for SubpixelMotion calls. */
+    private final SubpixelMotion.State motionState = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     // -----------------------------------------------------------------------
     // Animation state (Animate_RawNoSST equivalent)
@@ -190,15 +185,6 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        // Process music fade timer (Obj_Song_Fade_Transition equivalent)
-        if (musicFadeTimer > 0) {
-            musicFadeTimer--;
-            if (musicFadeTimer == 0) {
-                AudioManager.getInstance().playMusic(pendingMusicId);
-                musicFadeTimer = -1;
-            }
-        }
-
         switch (routine) {
             case 0  -> routine0Init();
             case 2  -> routine2WaitTrigger();
@@ -360,21 +346,6 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     }
 
     // -----------------------------------------------------------------------
-    // Dynamic object spawning helper
-    // -----------------------------------------------------------------------
-
-    private void spawnDynamicObject(AbstractObjectInstance object) {
-        try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null && lm.getObjectManager() != null) {
-                lm.getObjectManager().addDynamicObject(object);
-            }
-        } catch (Exception e) {
-            LOG.fine("Could not spawn dynamic object (test env?): " + e.getMessage());
-        }
-    }
-
-    // -----------------------------------------------------------------------
     // Routine 0 (loc_61DBE): Init
     // -----------------------------------------------------------------------
 
@@ -399,10 +370,8 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         // already loads the correct palette lines during level init.
 
         // ROM: sub_65DD6 (line 134086) — fade out current music, play Knuckles' theme
-        // after 90 frames (via Obj_Song_Fade_Transition)
-        AudioManager.getInstance().fadeOutMusic(0x28, 6);
-        musicFadeTimer = 90;
-        pendingMusicId = Sonic3kMusic.KNUCKLES.id;
+        // after 90 frames. Spawned as independent object so it outlives Knuckles if needed.
+        spawnDynamicObject(new SongFadeTransitionInstance(90, Sonic3kMusic.KNUCKLES.id));
 
         routine = 2;
     }
@@ -450,18 +419,15 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     private void routine4Fall() {
         tickAnimation();
 
-        // MoveSprite: apply velocity to position with subpixel accumulation.
-        // X movement
-        int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
-        currentX += (xVel >> 8) + (xTotal >> 8);
-        xSub = xTotal & 0xFF;
-
-        // MoveSprite order: move with old y_vel, then apply gravity.
+        // MoveSprite: apply velocity to position with subpixel accumulation + gravity.
         int oldYVel = yVel;
-        yVel += GRAVITY;
-        int yTotal = (ySub & 0xFF) + (oldYVel & 0xFF);
-        currentY += (oldYVel >> 8) + (yTotal >> 8);
-        ySub = yTotal & 0xFF;
+        motionState.x = currentX; motionState.y = currentY;
+        motionState.xSub = xSub;  motionState.ySub = ySub;
+        motionState.xVel = xVel;  motionState.yVel = yVel;
+        SubpixelMotion.moveSprite(motionState, GRAVITY);
+        currentX = motionState.x; currentY = motionState.y;
+        xSub = motionState.xSub;  ySub = motionState.ySub;
+        yVel = motionState.yVel;
 
         // ROM: tst.l d0 / bmi.s locret_61E42 — skip floor check while moving upward.
         // d0 after MoveSprite = old_yVel << 8, so negative when yVel was negative.
@@ -534,10 +500,10 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     private void routine8Pace() {
         tickAnimation();
 
-        // MoveSprite2: apply velocity to position (no gravity).
-        int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
-        currentX += (xVel >> 8) + (xTotal >> 8);
-        xSub = xTotal & 0xFF;
+        // MoveX: apply X velocity to position (no gravity, no Y movement).
+        motionState.x = currentX; motionState.xSub = xSub; motionState.xVel = xVel;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x; xSub = motionState.xSub;
 
         waitTimer--;
         if (waitTimer <= 0) {
@@ -582,10 +548,8 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_WALK_ADDR);
 
             // ROM: Obj_Song_Fade_ToLevelMusic (line 180305) — fade out Knuckles' theme,
-            // play AIZ1 music after 120 frames (2 seconds)
-            AudioManager.getInstance().fadeOutMusic(0x28, 6);
-            musicFadeTimer = 120;
-            pendingMusicId = Sonic3kMusic.AIZ1.id;
+            // play AIZ1 music after 120 frames. Independent object survives Knuckles' destruction.
+            spawnDynamicObject(new SongFadeTransitionInstance(120, Sonic3kMusic.AIZ1.id));
 
             routine = 12;
             LOG.fine("Routine 10: laugh complete, transitioning to exit");
@@ -608,10 +572,10 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     private void routine12Exit() {
         tickAnimation();
 
-        // MoveSprite2: apply velocity to position (no gravity).
-        int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
-        currentX += (xVel >> 8) + (xTotal >> 8);
-        xSub = xTotal & 0xFF;
+        // MoveX: apply X velocity to position (no gravity, no Y movement).
+        motionState.x = currentX; motionState.xSub = xSub; motionState.xVel = xVel;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x; xSub = motionState.xSub;
 
         // Check if offscreen (render_flags bit 7 clear).
         if (!isOnScreen()) {
@@ -637,12 +601,6 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
 
     @Override
     public void onUnload() {
-        // If music transition was pending (Knuckles walks offscreen before timer expires),
-        // play it immediately so the level music resumes.
-        if (musicFadeTimer > 0 && pendingMusicId >= 0) {
-            AudioManager.getInstance().playMusic(pendingMusicId);
-            musicFadeTimer = -1;
-        }
         // Knuckles is the last intro object to destroy itself (routine 12),
         // so it owns cleanup of the shared intro art cache.
         try {

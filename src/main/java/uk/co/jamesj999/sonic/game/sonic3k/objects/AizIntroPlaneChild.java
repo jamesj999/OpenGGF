@@ -191,5 +191,13 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
         if (booster2 != null) {
             booster2.appendRenderCommands(commands);
         }
+
+        // Render emerald glow children
+        if (glowChild1 != null) {
+            glowChild1.appendRenderCommands(commands);
+        }
+        if (glowChild2 != null) {
+            glowChild2.appendRenderCommands(commands);
+        }
     }
 }

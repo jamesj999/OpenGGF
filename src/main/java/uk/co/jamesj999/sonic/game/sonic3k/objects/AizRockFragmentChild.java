@@ -18,7 +18,7 @@ import java.util.List;
 public class AizRockFragmentChild extends AbstractObjectInstance {
 
     /** Standard S3K gravity in subpixels per frame. */
-    private static final int GRAVITY = 0x38;
+    private static final int GRAVITY = SubpixelMotion.S3K_GRAVITY;
 
     /**
      * ROM velocity table word_2A8B0 for 12 fragments (BreakObjectToPieces).
@@ -40,6 +40,9 @@ public class AizRockFragmentChild extends AbstractObjectInstance {
     private int xVel;
     private int yVel;
     private final int mappingFrame;
+
+    /** Shared state object for SubpixelMotion calls. */
+    private final SubpixelMotion.State motionState = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     public AizRockFragmentChild(ObjectSpawn spawn, int xVel, int yVel, int mappingFrame) {
         super(spawn, "RockFragment");
@@ -69,16 +72,13 @@ public class AizRockFragmentChild extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
-        currentX += (xVel >> 8) + (xTotal >> 8);
-        xSub = xTotal & 0xFF;
-
-        // MoveSprite order: move with old y_vel, then apply gravity.
-        int oldYVel = yVel;
-        yVel += GRAVITY;
-        int yTotal = (ySub & 0xFF) + (oldYVel & 0xFF);
-        currentY += (oldYVel >> 8) + (yTotal >> 8);
-        ySub = yTotal & 0xFF;
+        motionState.x = currentX; motionState.y = currentY;
+        motionState.xSub = xSub;  motionState.ySub = ySub;
+        motionState.xVel = xVel;  motionState.yVel = yVel;
+        SubpixelMotion.moveSprite(motionState, GRAVITY);
+        currentX = motionState.x; currentY = motionState.y;
+        xSub = motionState.xSub;  ySub = motionState.ySub;
+        yVel = motionState.yVel;
 
         // Delete when offscreen
         if (!isOnScreen()) {

@@ -111,7 +111,7 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public ZoneFeatureProvider getZoneFeatureProvider() {
-        return null;
+        return new Sonic3kZoneFeatureProvider();
     }
 
     @Override

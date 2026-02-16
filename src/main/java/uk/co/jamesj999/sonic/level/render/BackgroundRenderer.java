@@ -188,81 +188,16 @@ public class BackgroundRenderer {
     }
 
     /**
-     * Execute the scroll pass - renders the FBO with per-scanline scrolling.
-     *
-     * @param hScroll          Packed horizontal scroll array from ParallaxManager
-     * @param vScrollBG        Vertical scroll offset for background
-     * @param paletteTextureId ID of the combined palette texture
-     * @param screenWidth      UNUSED (legacy)
-     * @param screenHeight     UNUSED (legacy)
-     */
-    public void renderWithScroll(int[] hScroll, float vScrollBG,
-            int paletteTextureId, int screenWidth, int screenHeight) {
-        if (!initialized)
-            return;
-
-        // Upload scroll data to GPU
-        hScrollBuffer.upload(hScroll);
-
-        // Bind shader and set uniforms
-        parallaxShader.use();
-        parallaxShader.cacheUniformLocations();
-
-        // Set texture units
-        parallaxShader.setBackgroundTexture(0);
-        parallaxShader.setHScrollTexture(1);
-        parallaxShader.setPalette(2);
-
-        // Get viewport for resolution independence
-        GraphicsManager gm = GraphicsManager.getInstance();
-        float viewportX = gm.getViewportX();
-        float viewportY = gm.getViewportY();
-        float realWidth = gm.getViewportWidth();
-        float realHeight = gm.getViewportHeight();
-
-        // Set dimensions and scroll
-        // BGTextureWidth = renderWidth (wrap period), FBOAllocationWidth = fboAllocWidth (UV mapping)
-        parallaxShader.setScreenDimensions(realWidth, realHeight);
-        parallaxShader.setBGTextureDimensions(renderWidth, renderHeight);
-        parallaxShader.setFBOAllocationWidth(fboAllocWidth);
-        parallaxShader.setScrollMidpoint(0);
-        parallaxShader.setExtraBuffer(0);
-        parallaxShader.setVScrollBG(vScrollBG);
-        parallaxShader.setViewportOffset(viewportX, viewportY);
-        parallaxShader.setBackdropColor(backdropR, backdropG, backdropB);
-        parallaxShader.setFillTransparentWithBackdrop(true);
-
-        // Bind textures
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, fboTextureId);
-
-        hScrollBuffer.bind(1);
-
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, paletteTextureId);
-
-        // Draw fullscreen quad
-        drawFullscreenQuad();
-
-        // Cleanup
-        parallaxShader.stop();
-        hScrollBuffer.unbind(1);
-        glActiveTexture(GL_TEXTURE0);
-    }
-
-    /**
      * Execute the scroll pass with wider FBO for per-scanline scrolling.
      *
      * @param hScroll          Packed horizontal scroll array from ParallaxManager
      * @param scrollMidpoint   The midpoint of the scroll range (hScroll values are
      *                         relative to this)
      * @param extraBuffer      Extra pixels on each side of the FBO
-     * @param paletteTextureId ID of the combined palette texture
-     * @param screenWidth      Display width in pixels
-     * @param screenHeight     Display height in pixels
+     * @param fboVScroll       Vertical scroll offset for background
      */
     public void renderWithScrollWide(int[] hScroll, int scrollMidpoint, int extraBuffer,
-            int fboVScroll, int paletteTextureId, int screenWidth, int screenHeight) {
+            int fboVScroll) {
         if (!initialized)
             return;
 
@@ -276,7 +211,6 @@ public class BackgroundRenderer {
         // Set texture units
         parallaxShader.setBackgroundTexture(0);
         parallaxShader.setHScrollTexture(1);
-        parallaxShader.setPalette(2);
 
         // Get viewport for resolution independence
         GraphicsManager gm = GraphicsManager.getInstance();
@@ -304,9 +238,6 @@ public class BackgroundRenderer {
         glBindTexture(GL_TEXTURE_2D, fboTextureId);
 
         hScrollBuffer.bind(1);
-
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, paletteTextureId);
 
         // Draw fullscreen quad
         drawFullscreenQuad();

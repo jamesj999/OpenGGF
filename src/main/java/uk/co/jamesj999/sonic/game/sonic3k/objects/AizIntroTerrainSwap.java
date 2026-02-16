@@ -21,6 +21,12 @@ import java.util.logging.Logger;
 public final class AizIntroTerrainSwap {
     private static final Logger LOG = Logger.getLogger(AizIntroTerrainSwap.class.getName());
 
+    // LevelLoadBlock entry field offsets (24-byte entries, 4-byte pointers)
+    private static final int LLB_PRIMARY_ART = 0;
+    private static final int LLB_SECONDARY_ART = 4;
+    private static final int LLB_PRIMARY_BLOCKS = 8;
+    private static final int LLB_SECONDARY_BLOCKS = 12;
+
     private static OverlayData cachedOverlayData;
 
     private AizIntroTerrainSwap() {
@@ -40,6 +46,39 @@ public final class AizIntroTerrainSwap {
         } catch (IOException e) {
             LOG.warning("AIZ intro overlay preload failed (will retry on transition): " + e.getMessage());
         }
+    }
+
+    /**
+     * Pre-computes the post-transition tilemap data by temporarily applying the
+     * chunk overlay, building tilemaps, then restoring the original chunks.
+     * This moves the expensive tilemap rebuild from the transition frame to level load.
+     */
+    public static synchronized void precomputeTransitionTilemaps() {
+        preloadOverlayData();
+        OverlayData overlay = cachedOverlayData;
+        if (overlay == null) {
+            return;
+        }
+
+        LevelManager levelManager = LevelManager.getInstance();
+        Level level = levelManager.getCurrentLevel();
+        if (!(level instanceof Sonic3kLevel sonic3kLevel)) {
+            return;
+        }
+
+        // Snapshot current chunk state
+        int[][] snapshot = sonic3kLevel.snapshotChunks();
+
+        // Temporarily apply the chunk overlay
+        sonic3kLevel.applyChunkOverlay(overlay.mainLevelBlocks16x16(), overlay.chunkOverlayOffsetBytes());
+
+        // Build and cache the post-transition tilemaps
+        levelManager.prebuildTransitionTilemaps();
+
+        // Restore original chunks
+        sonic3kLevel.restoreChunks(snapshot);
+
+        LOG.info("AIZ intro transition tilemaps pre-computed successfully");
     }
 
     static synchronized boolean applyMainLevelOverlays() {
@@ -62,7 +101,9 @@ public final class AizIntroTerrainSwap {
 
         sonic3kLevel.applyChunkOverlay(overlay.mainLevelBlocks16x16(), overlay.chunkOverlayOffsetBytes());
         sonic3kLevel.applyPatternOverlay(overlay.mainLevelTiles8x8(), overlay.patternOverlayOffsetBytes());
-        levelManager.invalidateAllTilemaps();
+        if (!levelManager.swapToPrebuiltTilemaps()) {
+            levelManager.invalidateAllTilemaps();
+        }
         return true;
     }
 
@@ -74,11 +115,11 @@ public final class AizIntroTerrainSwap {
         int introEntryAddr = Sonic3kConstants.LEVEL_LOAD_BLOCK_ADDR
                 + Sonic3kConstants.LEVEL_LOAD_BLOCK_AIZ1_INTRO_INDEX * Sonic3kConstants.LEVEL_LOAD_BLOCK_ENTRY_SIZE;
 
-        int baseWord0 = rom.read32BitAddr(baseEntryAddr);
-        int baseWord2 = rom.read32BitAddr(baseEntryAddr + 8);
+        int baseWord0 = rom.read32BitAddr(baseEntryAddr + LLB_PRIMARY_ART);
+        int baseWord2 = rom.read32BitAddr(baseEntryAddr + LLB_PRIMARY_BLOCKS);
 
-        int introWord1 = rom.read32BitAddr(introEntryAddr + 4);
-        int introWord3 = rom.read32BitAddr(introEntryAddr + 12);
+        int introWord1 = rom.read32BitAddr(introEntryAddr + LLB_SECONDARY_ART);
+        int introWord3 = rom.read32BitAddr(introEntryAddr + LLB_SECONDARY_BLOCKS);
 
         int primaryArtAddr = baseWord0 & 0x00FFFFFF;
         int primaryBlocksAddr = baseWord2 & 0x00FFFFFF;

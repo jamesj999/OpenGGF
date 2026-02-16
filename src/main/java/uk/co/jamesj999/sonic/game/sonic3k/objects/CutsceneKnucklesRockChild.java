@@ -67,7 +67,7 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
             broken = true;
             LOG.fine("Rock child: breaking apart (mapping_frame=" + mappingFrame + ")");
 
-            // BreakObjectToPieces: spawn 4 fragments with scattered velocities
+            // BreakObjectToPieces: spawn fragments with scattered velocities
             spawnFragments();
             setDestroyed(true);
         }
