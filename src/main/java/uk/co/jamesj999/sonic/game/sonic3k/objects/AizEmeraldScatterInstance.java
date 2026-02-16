@@ -112,12 +112,11 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
     /** Reference to the Knuckles cutscene object for proximity collection. */
     private CutsceneKnucklesAiz1Instance knuckles;
 
-    /** Diagnostic: frame counter for falling phase. */
-    private int fallFrameCount;
-
     // -----------------------------------------------------------------------
     // Constructor
     // -----------------------------------------------------------------------
+
+    private int fallFrames; // DIAG
 
     public AizEmeraldScatterInstance(ObjectSpawn spawn) {
         super(spawn, "AIZEmeraldScatter");
@@ -130,6 +129,10 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
         this.yVel = VELOCITY_TABLE[velIndex][1];
         this.mappingFrame = velIndex;
         this.phase = Phase.FALLING;
+        if (mappingFrame == 6) {
+            System.out.println("DIAG-EM6: spawn X=" + currentX + " Y=" + currentY
+                    + " xVel=" + xVel + " yVel=" + yVel);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -179,7 +182,7 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
      * and transition to GROUNDED.
      */
     private void updateFalling() {
-        fallFrameCount++;
+        fallFrames++; // DIAG
         // MoveSprite: add velocity to position with subpixel accumulation + gravity.
         // ROM: tst.l d0 / bmi.s — d0 holds old y_vel (pre-gravity); skip floor check
         // if still moving upward.
@@ -193,26 +196,28 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
         xVel = motionState.xVel;  yVel = motionState.yVel;
 
         // ROM: tst.l d0 / bmi.s — skip floor check while moving upward
-        if (preGravityYVel < 0) return;
+        if (preGravityYVel < 0) {
+            if (mappingFrame == 6) {
+                System.out.println("DIAG-EM6: frame=" + fallFrames + " X=" + currentX
+                        + " Y=" + currentY + " yVel=" + yVel + " (ascending)");
+            }
+            return;
+        }
 
         // ObjCheckFloorDist terrain collision
         // ROM: tst.w d1 / bpl.s — land when d1 < 0 (strictly negative)
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
 
-        // DIAG: trace subtype 12 emerald trajectory
         if (mappingFrame == 6) {
-            System.out.println("DIAG-EM6: frame=" + fallFrameCount
-                    + " X=" + currentX + " Y=" + currentY
-                    + " yVel=" + preGravityYVel
-                    + " floorFound=" + floor.foundSurface()
-                    + " floorDist=" + floor.distance());
+            System.out.println("DIAG-EM6: frame=" + fallFrames + " X=" + currentX
+                    + " Y=" + currentY + " yVel=" + yVel
+                    + " floor=" + (floor.foundSurface() ? floor.distance() : "none"));
         }
 
         if (floor.foundSurface() && floor.distance() < 0) {
             if (mappingFrame == 6) {
-                System.out.println("DIAG-EM6: LANDED at frame=" + fallFrameCount
-                        + " X=" + currentX + " Y=" + (currentY + floor.distance())
-                        + " floorDist=" + floor.distance());
+                System.out.println("DIAG-EM6: LANDED at frame=" + fallFrames
+                        + " X=" + currentX + " groundY=" + (currentY + floor.distance()));
             }
             landOnGround(currentY + floor.distance());
         }

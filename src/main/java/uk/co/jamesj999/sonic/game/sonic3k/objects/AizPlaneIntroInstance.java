@@ -121,6 +121,13 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     /** Super Sonic intro mapping frame base (sub_679B8 alternates 0x21/0x22). */
     static final int SUPER_MAPPING_FRAME_BASE = 0x21;
 
+    /**
+     * ROM byte_45E60: animation sequence for lift-off (routine 8).
+     * Timer reset = 3, frame count = 8, then 8 Map_Sonic frame indices.
+     */
+    private static final int[] LIFTOFF_ANIM_FRAMES = {0x97, 0x96, 0x98, 0x96, 0x99, 0x96, 0x9A, 0x96};
+    private static final int LIFTOFF_ANIM_TIMER_RESET = 3;
+
     // -----------------------------------------------------------------------
     // Mutable state
     // -----------------------------------------------------------------------
@@ -167,6 +174,12 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     /** Whether Super Sonic visual mode is active. */
     private boolean superSonicActive;
 
+    /** Lift-off animation frame countdown timer (ROM $30 callback). */
+    private int liftoffAnimTimer;
+
+    /** Current index into LIFTOFF_ANIM_FRAMES. */
+    private int liftoffAnimIndex;
+
     /** Palette cycler for Super Sonic visual effect (routines 0x0C+). */
     private final AizIntroPaletteCycler paletteCycler;
 
@@ -187,7 +200,6 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     private int mappingFrame;
     private int lastFrameCounter;
-    private int previousDiagnosticRoutine = -1;
     private PlayerSpriteRenderer sonicRenderer;
     private PlayerSpriteRenderer superSonicRenderer;
     private boolean renderersLoaded;
@@ -271,21 +283,10 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         return true;
     }
 
-    /** Frame counter for diagnostic logging (counts update() calls). */
-    private int diagnosticFrameCount;
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         lastFrameCounter = frameCounter;
-        diagnosticFrameCount++;
         AbstractPlayableSprite trackedPlayer = resolveTrackedPlayer(player);
-
-        // Diagnostic logging for timing comparison against ROM
-        if (diagnosticFrameCount % 60 == 0 || routine != previousDiagnosticRoutine) {
-            LOG.info(String.format("AIZ intro: frame=%d routine=0x%02X speed=%d eventsFg1=%d introScrollOffset=%d",
-                    diagnosticFrameCount, routine, scrollSpeed, eventsFg1, introScrollOffset));
-            previousDiagnosticRoutine = routine;
-        }
 
         // ROM: routine dispatch FIRST (s3.asm line 81188-81195)
         switch (routine) {
@@ -309,9 +310,11 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         }
 
         // ROM: sub_45DE4 (scrollVelocity) runs AFTER routine dispatch.
-        // Go_Delete_Sprite in routine 0x1A prevents this from running post-explosion.
+        // S3K Go_Delete_Sprite returns via rts — scrollVelocity still executes
+        // on the explosion frame with scrollSpeed intact, adding 16px to player X.
+        scrollVelocity(trackedPlayer);
+
         if (!isDestroyed()) {
-            scrollVelocity(trackedPlayer);
             maybeActivateMainLevelPhase();
         }
     }
@@ -471,19 +474,10 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
      *
      * ROM only touches Events_fg_1 and Player_1+x_pos — no camera writes.
      */
-    private boolean scrollGateLogged = false;
-
     private void scrollVelocity(AbstractPlayableSprite player) {
         if (eventsFg1 < 0) {
             eventsFg1 += scrollSpeed;
             introScrollOffset = eventsFg1;
-            if (eventsFg1 >= 0 && !scrollGateLogged) {
-                scrollGateLogged = true;
-                System.out.println("DIAG: scroll gate reached at frame=" + diagnosticFrameCount
-                        + " eventsFg1=" + eventsFg1 + " ss=" + scrollSpeed
-                        + " playerX=" + (player != null ? player.getCentreX() : "null")
-                        + " routine=0x" + Integer.toHexString(routine));
-            }
             return;
         }
         // Gate reached: stop BG intro parallax, start moving player.
@@ -713,6 +707,12 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             // Detach plane child from parent tracking
             planeDetached = true;
 
+            // ROM: bset #3,$38(a0) + move.l #byte_45E60,$30(a0)
+            // Initialize lift-off animation (loc_45DFC callback)
+            liftoffAnimTimer = 0; // trigger immediately on first frame
+            liftoffAnimIndex = 0;
+            mappingFrame = LIFTOFF_ANIM_FRAMES[0];
+
             LOG.fine("Routine 6: swing complete, advancing to lift-off");
             advanceRoutine();
         }
@@ -723,6 +723,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     // -----------------------------------------------------------------------
 
     private void routine8LiftOff(AbstractPlayableSprite player) {
+        // ROM loc_45DFC: animation callback runs BEFORE movement
+        updateLiftOffAnimation();
+
         // ROM: x_vel -= 0x40 each frame (decelerate, then go negative = leftward)
         xVel -= HORIZ_DECEL;
 
@@ -735,6 +738,22 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             yVel = 0;
             LOG.fine("Routine 8: landed at ground, advancing to ground decel");
             advanceRoutine();
+        }
+    }
+
+    /**
+     * ROM loc_45DFC: lift-off animation callback.
+     * Cycles through LIFTOFF_ANIM_FRAMES at LIFTOFF_ANIM_TIMER_RESET interval.
+     */
+    private void updateLiftOffAnimation() {
+        liftoffAnimTimer--;
+        if (liftoffAnimTimer < 0) {
+            liftoffAnimTimer = LIFTOFF_ANIM_TIMER_RESET;
+            liftoffAnimIndex++;
+            if (liftoffAnimIndex >= LIFTOFF_ANIM_FRAMES.length) {
+                liftoffAnimIndex = 0;
+            }
+            mappingFrame = LIFTOFF_ANIM_FRAMES[liftoffAnimIndex];
         }
     }
 
@@ -759,9 +778,6 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
             // Set flash timer
             secondaryTimer = SUPER_FLASH_TIMER;
-
-            // Signal plane child to walk left
-            planeWalkLeft = true;
 
             LOG.fine("Routine 10: ground decel complete, advancing to super flash");
             advanceRoutine();
@@ -828,6 +844,8 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         if (secondaryTimer < 0) {
             // ROM: scroll speed increases to 0x0C at routine 0x12
             scrollSpeed = 0x0C;
+            // ROM (loc_45A2A): bset #2,$38(a0) — signal plane child to walk left
+            planeWalkLeft = true;
             LOG.fine("Routine 16: wait complete, advancing to walk left");
             advanceRoutine();
         }
@@ -984,11 +1002,6 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             if (knuckles != null) {
                 knuckles.trigger();
             }
-
-            System.out.println("DIAG: explosion playerX=" + spawnX + " playerY=" + spawnY
-                    + " planeX=" + currentX + " planeY=" + currentY
-                    + " knucklesX=" + (knuckles != null ? knuckles.getX() : "null")
-                    + " frame=" + diagnosticFrameCount);
 
             setDestroyed(true);
         }
