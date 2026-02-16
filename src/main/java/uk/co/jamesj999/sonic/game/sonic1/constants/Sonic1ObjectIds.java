@@ -65,6 +65,8 @@ public final class Sonic1ObjectIds {
     public static final int FLOATING_BLOCK  = 0x56;
     public static final int SPIKED_BALL_CHAIN = 0x57;
     public static final int BIG_SPIKED_BALL = 0x58;
+    public static final int SLZ_CIRCLING_PLATFORM = 0x5A;
+    public static final int FAN             = 0x5D;
     public static final int SEESAW          = 0x5E;
     public static final int BOMB            = 0x5F;
     public static final int ORBINAUT        = 0x60;

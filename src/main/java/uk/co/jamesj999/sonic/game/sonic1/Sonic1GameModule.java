@@ -31,6 +31,7 @@ import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ScrollHandlerProvider;
 import uk.co.jamesj999.sonic.game.sonic1.specialstage.Sonic1SpecialStageProvider;
 import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
 import uk.co.jamesj999.sonic.game.sonic2.LevelGamestate;
+import uk.co.jamesj999.sonic.game.sonic2.OscillationManager;
 import uk.co.jamesj999.sonic.game.sonic1.titlecard.Sonic1TitleCardManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
 import uk.co.jamesj999.sonic.level.objects.PlaneSwitcherConfig;
@@ -177,6 +178,14 @@ public class Sonic1GameModule implements GameModule {
     public void applyPlaneSwitching(uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite player) {
         uk.co.jamesj999.sonic.game.sonic1.events.Sonic1LevelEventManager.getInstance()
                 .getLoopManager().update(player);
+    }
+
+    @Override
+    public void onLevelLoad() {
+        // Reset oscillation values to Sonic 1 settings.
+        // S1 differs from S2 in oscillators 8+ (amplitude, initial values).
+        // Reference: docs/s1disasm/_inc/Oscillatory Routines.asm
+        OscillationManager.resetForSonic1();
     }
 
     @Override

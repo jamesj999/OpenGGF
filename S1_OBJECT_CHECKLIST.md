@@ -5,8 +5,8 @@ Generated: 2026-02-13 14:52:02
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 58 (72.5%)
-- **Unimplemented:** 22 (27.5%)
+- **Implemented:** 61 (76.3%)
+- **Unimplemented:** 19 (23.8%)
 
 ## Implemented Objects
 
@@ -60,6 +60,8 @@ Generated: 2026-02-13 14:52:02
 | 0x56 | S1_Obj_56 | 224 | LZ1, LZ2, LZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3 |
 | 0x57 | SpikedBallChain | 22 | LZ1, LZ2, LZ3, SYZ1, SYZ2, SYZ3 |
 | 0x58 | S1_Obj_58 | 34 | SYZ1, SYZ2, SYZ3 |
+| 0x5A | CirclingPlatform | 68 | SLZ1, SLZ2, SLZ3 |
+| 0x5D | Fan | 36 | SLZ1, SLZ2, SLZ3 |
 | 0x60 | Orbinaut | 34 | LZ1, LZ2, LZ3, SLZ1, SLZ2, SLZ3 |
 | 0x71 | InvisibleBarrier | 88 | LZ1, LZ3, MZ1, MZ2, MZ3, SYZ2, SYZ3, SBZ1, SBZ2, SBZ3 |
 | 0x78 | Caterkiller | 37 | MZ1, MZ2, MZ3, SBZ1, SBZ2 |
@@ -69,20 +71,18 @@ Generated: 2026-02-13 14:52:02
 | 0x63 | LZConveyor | 36 | LZ1, LZ2, LZ3 |
 | 0x64 | Bubbles | 52 | LZ1, LZ2, LZ3 |
 | 0x65 | Waterfall | 60 | LZ1, LZ2, LZ3 |
+| 0x5F | Bomb | 99 | SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
 | 0x7D | HiddenBonus | 60 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2, SBZ1 |
 
 ## Unimplemented Objects (By Usage)
 
 | ID | Category | Name | Total Uses | Zones |
 |----|----------|------|------------|-------|
-| 0x5F | Badnik | Bomb | 99 | SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
-| 0x5A | Object | S1_Obj_5A | 68 | SLZ1, SLZ2, SLZ3 |
 | 0x6C | Object | S1_Obj_6C | 64 | SBZ1, SBZ2 |
 | 0x28 | Object | S1_Obj_28 | 57 | FZ1 |
 | 0x69 | Object | S1_Obj_69 | 56 | SBZ1, SBZ2 |
 | 0x6E | Object | S1_Obj_6E | 52 | SBZ1, SBZ2 |
 | 0x6D | Object | S1_Obj_6D | 42 | SBZ1, SBZ2 |
-| 0x5D | Object | S1_Obj_5D | 36 | SLZ1, SLZ2, SLZ3 |
 | 0x5B | Object | S1_Obj_5B | 23 | SLZ1, SLZ2, SLZ3 |
 | 0x68 | Object | S1_Obj_68 | 20 | SBZ2 |
 | 0x6B | Object | S1_Obj_6B | 17 | SBZ1, SBZ2 |
@@ -378,10 +378,10 @@ Total: 232 objects | Implemented: 23 | Unimplemented: 0
 
 #### Act 1
 
-Total: 223 objects | Implemented: 11 | Unimplemented: 6
+Total: 223 objects | Implemented: 14 | Unimplemented: 3
 
 **Badniks:**
-- [ ] 0x5F Bomb (x13) [0x00]
+- [x] 0x5F Bomb (x13) [0x00]
 - [x] 0x60 Orbinaut (x9) [0x02]
 
 **Objects:**
@@ -395,18 +395,18 @@ Total: 223 objects | Implemented: 11 | Unimplemented: 6
 - [x] 0x4B GiantRing (x1) [0x00]
 - [x] 0x53 S1_Obj_53 (x10) [0x81]
 - [ ] 0x59 S1_Obj_59 (x5) [4 subtypes]
-- [ ] 0x5A S1_Obj_5A (x44) [8 subtypes]
+- [x] 0x5A CirclingPlatform (x44) [8 subtypes]
 - [ ] 0x5B S1_Obj_5B (x15) [0x00, 0x02]
 - [ ] 0x5C S1_Obj_5C (x1) [0x00]
-- [ ] 0x5D S1_Obj_5D (x8) [0x00, 0x02]
+- [x] 0x5D Fan (x8) [0x00, 0x02]
 - [x] 0x7D HiddenBonus (x5) [0x01, 0x02, 0x03]
 
 #### Act 2
 
-Total: 187 objects | Implemented: 12 | Unimplemented: 7
+Total: 187 objects | Implemented: 15 | Unimplemented: 4
 
 **Badniks:**
-- [ ] 0x5F Bomb (x20) [0x00]
+- [x] 0x5F Bomb (x20) [0x00]
 - [x] 0x60 Orbinaut (x7) [0x02]
 
 **Objects:**
@@ -421,19 +421,19 @@ Total: 187 objects | Implemented: 12 | Unimplemented: 7
 - [x] 0x53 S1_Obj_53 (x8) [0x81]
 - [x] 0x56 S1_Obj_56 (x8) [4 subtypes]
 - [ ] 0x59 S1_Obj_59 (x5) [0x00, 0x03]
-- [ ] 0x5A S1_Obj_5A (x16) [8 subtypes]
+- [x] 0x5A CirclingPlatform (x16) [8 subtypes]
 - [ ] 0x5B S1_Obj_5B (x3) [0x00]
 - [ ] 0x5C S1_Obj_5C (x1) [0x00]
-- [ ] 0x5D S1_Obj_5D (x14) [0x00, 0x01, 0x02]
+- [x] 0x5D Fan (x14) [0x00, 0x01, 0x02]
 - [ ] 0x5E Seesaw (x5) [0x00]
 - [x] 0x7D HiddenBonus (x5) [0x01, 0x02, 0x03]
 
 #### Act 3
 
-Total: 250 objects | Implemented: 13 | Unimplemented: 7
+Total: 250 objects | Implemented: 16 | Unimplemented: 4
 
 **Badniks:**
-- [ ] 0x5F Bomb (x48) [0x00]
+- [x] 0x5F Bomb (x48) [0x00]
 - [x] 0x60 Orbinaut (x12) [0x02]
 
 **Objects:**
@@ -449,10 +449,10 @@ Total: 250 objects | Implemented: 13 | Unimplemented: 7
 - [x] 0x53 S1_Obj_53 (x9) [0x81, 0x01]
 - [x] 0x56 S1_Obj_56 (x16) [4 subtypes]
 - [ ] 0x59 S1_Obj_59 (x6) [4 subtypes]
-- [ ] 0x5A S1_Obj_5A (x8) [8 subtypes]
+- [x] 0x5A CirclingPlatform (x8) [8 subtypes]
 - [ ] 0x5B S1_Obj_5B (x5) [0x00, 0x02]
 - [ ] 0x5C S1_Obj_5C (x1) [0x00]
-- [ ] 0x5D S1_Obj_5D (x14) [0x00, 0x01, 0x02]
+- [x] 0x5D Fan (x14) [0x00, 0x01, 0x02]
 - [ ] 0x5E Seesaw (x11) [0x00, 0xFF]
 - [x] 0x79 Lamppost (x1) [0x01]
 
@@ -538,10 +538,10 @@ Total: 257 objects | Implemented: 16 | Unimplemented: 0
 
 #### Act 1
 
-Total: 308 objects | Implemented: 11 | Unimplemented: 12
+Total: 308 objects | Implemented: 12 | Unimplemented: 11
 
 **Badniks:**
-- [ ] 0x5F Bomb (x6) [0x00]
+- [x] 0x5F Bomb (x6) [0x00]
 - [x] 0x78 Caterkiller (x9) [0x00]
 
 **Objects:**
@@ -569,10 +569,10 @@ Total: 308 objects | Implemented: 11 | Unimplemented: 12
 
 #### Act 2
 
-Total: 292 objects | Implemented: 10 | Unimplemented: 12
+Total: 292 objects | Implemented: 11 | Unimplemented: 11
 
 **Badniks:**
-- [ ] 0x5F Bomb (x12) [0x00]
+- [x] 0x5F Bomb (x12) [0x00]
 - [x] 0x78 Caterkiller (x7) [0x00]
 
 **Objects:**

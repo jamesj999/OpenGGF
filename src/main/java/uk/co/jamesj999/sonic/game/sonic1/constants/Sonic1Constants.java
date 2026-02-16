@@ -293,6 +293,13 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search SbzFloor
     public static final int ART_NEM_SBZ_COLLAPSING_FLOOR_ADDR = 0x353D4;
 
+    // Nem_Fan: Nemesis-compressed SLZ fan art (579 bytes, ArtTile_SLZ_Fan = $3A0)
+    // Verified by RomOffsetFinder --game s1 search Fan
+    public static final int ART_NEM_SLZ_FAN_ADDR = 0x33BDE;
+
+    // ArtTile_SLZ_Fan VDP tile index (from Constants.asm)
+    public static final int ARTTILE_SLZ_FAN = 0x3A0;
+
     // Nem_SlzCannon: Nemesis-compressed SLZ fireball launcher / lava thrower art
     // Loaded via PLC_SLZ: plcm Nem_SlzCannon, ArtTile_SLZ_Fireball_Launcher
     // Verified by RomOffsetFinder --game s1 search Cannon
@@ -359,6 +366,10 @@ public final class Sonic1Constants {
     // Nem_Basaran: Nemesis-compressed Basaran/Batbrain art (MZ, ArtTile_Basaran = $4B8)
     // Verified by RomOffsetFinder --game s1 search Basaran (763 bytes)
     public static final int ART_NEM_BASARAN_ADDR = 0x386BC;
+
+    // Nem_Bomb: Nemesis-compressed Bomb enemy art (SLZ/SBZ, ArtTile_Bomb)
+    // Verified by RomOffsetFinder --game s1 search Bomb (664 bytes)
+    public static final int ART_NEM_BOMB_ADDR = 0x38C00;
 
     // Nem_Cater: Nemesis-compressed Caterkiller art (MZ/SYZ ArtTile $4FF, SBZ ArtTile $2B0)
     // Verified by RomOffsetFinder --game s1 search Caterkiller (398 bytes)

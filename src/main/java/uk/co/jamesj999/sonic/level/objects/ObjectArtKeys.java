@@ -123,6 +123,12 @@ public final class ObjectArtKeys {
     // LZ waterfall/splash object art (S1 Object 0x65)
     public static final String LZ_WATERFALL = "lz_waterfall";
 
+    // SLZ circling platform (S1 Object 0x5A)
+    public static final String SLZ_CIRCLING_PLATFORM = "slz_circling_platform";
+
+    // SLZ fan (S1 Object 0x5D)
+    public static final String SLZ_FAN = "slz_fan";
+
     // SYZ bumper (S1)
     public static final String BUMPER = "bumper";
 
@@ -141,6 +147,7 @@ public final class ObjectArtKeys {
     public static final String JAWS = "jaws";
     public static final String BURROBOT = "burrobot";
     public static final String ORBINAUT = "orbinaut";
+    public static final String BOMB = "bomb";
 
     // Animation keys (common across games)
     public static final String ANIM_MONITOR = "monitor";
