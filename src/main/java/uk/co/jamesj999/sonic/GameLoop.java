@@ -312,14 +312,18 @@ public class GameLoop {
                 exitTitleCard();
                 // Continue to LEVEL mode processing this frame (fall through)
             } else {
-                // Still in locked phase - run physics without input
-                // This allows Sonic to settle onto the ground while title card is visible,
-                // preventing camera jitter when title card ends
-                // Keep objects updated during title card lock as well.
+                // Still in locked phase.
+                // Keep objects updated during title card lock.
                 // SCZ depends on ObjB2 (Tornado) solid updates during this phase so
                 // the player lands on the plane instead of free-falling.
                 levelManager.updateObjectPositions();
-                spriteManager.updateWithoutInput();
+                // Run player physics only if the title card provider allows it.
+                // S2: runs physics so Sonic settles onto ground / Tornado (SCZ).
+                // S1: ROM title card is blocking; player stays at spawn position
+                //     until the title card ends (important for SBZ3 airborne spawn).
+                if (tcpCard.shouldRunPlayerPhysics()) {
+                    spriteManager.updateWithoutInput();
+                }
                 // Force camera to snap to player position during title card (no smooth
                 // scrolling)
                 camera.updatePosition(true);
