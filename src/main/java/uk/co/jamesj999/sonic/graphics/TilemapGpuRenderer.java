@@ -26,9 +26,10 @@ public class TilemapGpuRenderer {
     private final PatternLookupBuffer patternLookup = new PatternLookupBuffer();
     private final QuadRenderer quadRenderer = new QuadRenderer();
 
-    // Dummy 1x1 texture used as fallback when no real texture is available.
+    // Dummy 1x1 textures used as fallback when no real texture is available.
     // This prevents macOS OpenGL driver warnings about unbound samplers.
     private int dummyTextureId = 0;
+    private int dummyTexture1dId = 0;
 
     private byte[] backgroundData;
     private int backgroundWidthTiles;
@@ -74,6 +75,22 @@ public class TilemapGpuRenderer {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glBindTexture(GL_TEXTURE_2D, 0);
+
+            // Create a dummy 1x1 1D texture for HScrollTexture when per-line scroll
+            // is not active. Without this, macOS rejects the draw call due to
+            // sampler1D bound to a GL_TEXTURE_2D target on unit 0.
+            dummyTexture1dId = glGenTextures();
+            glBindTexture(GL_TEXTURE_1D, dummyTexture1dId);
+            ByteBuffer pixel1d = MemoryUtil.memAlloc(4);
+            try {
+                pixel1d.put((byte) 0).put((byte) 0).put((byte) 0).put((byte) 0).flip();
+                glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel1d);
+            } finally {
+                MemoryUtil.memFree(pixel1d);
+            }
+            glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glBindTexture(GL_TEXTURE_1D, 0);
 
             LOGGER.info("Tilemap GPU renderer initialized.");
         }
@@ -188,8 +205,9 @@ public class TilemapGpuRenderer {
         shader.setPerLineScroll(perLineScroll);
         shader.setVdpWrapWidth(perLineScroll ? perLineVdpWrapWidth : 0.0f);
         shader.setNametableBase(perLineScroll ? perLineNametableBase : 0.0f);
+        // Always assign HScrollTexture to unit 5 to satisfy macOS sampler validation.
+        shader.setHScrollTexture(5);
         if (perLineScroll) {
-            shader.setHScrollTexture(5);
             shader.setScreenHeight(perLineScreenHeight);
         }
         shader.setShimmerParams(shimmerFrameCounter, shimmerStyle);
@@ -211,18 +229,20 @@ public class TilemapGpuRenderer {
         // macOS OpenGL driver warnings about unbound samplers.
         glBindTexture(GL_TEXTURE_2D, underwaterPaletteTextureId != 0 ? underwaterPaletteTextureId : dummyTextureId);
 
+        // Always bind HScrollTexture to unit 5 to satisfy macOS sampler validation.
+        // Use dummy 1D texture when per-line scroll is not active.
+        glActiveTexture(GL_TEXTURE5);
         if (perLineScroll) {
-            glActiveTexture(GL_TEXTURE5);
             glBindTexture(GL_TEXTURE_1D, perLineHScrollTextureId);
+        } else {
+            glBindTexture(GL_TEXTURE_1D, dummyTexture1dId);
         }
 
         quadRenderer.draw(0, 0, windowWidth, windowHeight);
 
-        if (perLineScroll) {
-            glActiveTexture(GL_TEXTURE5);
-            glBindTexture(GL_TEXTURE_1D, 0);
-            perLineScroll = false; // Reset for next frame
-        }
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_1D, 0);
+        perLineScroll = false; // Reset for next frame
         glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE4);
@@ -245,6 +265,10 @@ public class TilemapGpuRenderer {
         if (dummyTextureId != 0) {
             glDeleteTextures(dummyTextureId);
             dummyTextureId = 0;
+        }
+        if (dummyTexture1dId != 0) {
+            glDeleteTextures(dummyTexture1dId);
+            dummyTexture1dId = 0;
         }
         backgroundTexture.cleanup();
         foregroundTexture.cleanup();
