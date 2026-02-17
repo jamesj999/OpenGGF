@@ -220,7 +220,7 @@ public class DebugRenderer {
                 }
                 ObjectRegistry registry = GameModuleRegistry.getCurrent().createObjectRegistry();
                 java.util.Collection<ObjectSpawn> spawns = levelManager.getActiveObjectSpawns();
-                if (spawns.isEmpty()) {
+                if (registry == null || spawns.isEmpty()) {
                         return;
                 }
                 Camera camera = Camera.getInstance();

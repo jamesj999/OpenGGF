@@ -57,6 +57,11 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
     }
 
     @Override
+    public int getPriorityBucket() {
+        return 3; // ROM priority 0x180
+    }
+
+    @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (broken || isDestroyed()) {
             return;
@@ -95,6 +100,8 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
                 AizRockFragmentChild frag = new AizRockFragmentChild(
                         fragSpawn, vel[0], vel[1], mappingFrame);
                 lm.getObjectManager().addDynamicObject(frag);
+                // Compensate for pendingDynamicAdditions delay
+                frag.update(0, null);
             }
         } catch (Exception e) {
             LOG.fine("Could not spawn rock fragments (test env?): " + e.getMessage());

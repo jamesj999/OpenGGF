@@ -130,6 +130,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             loadPaletteFromPalPointers(PAL_AIZ_INDEX);
             camera.setMinY((short) 0);
             boundariesUnlocked = true;
+            // Title card is spawned by CutsceneKnucklesAiz1Instance.routine12Exit()
+            // when Knuckles goes offscreen, matching the ROM's Obj_TitleCard allocation.
             LOG.info("AIZ1: unlocked Y boundaries (minY=0), re-applied main palette");
         }
         if (boundariesUnlocked) {

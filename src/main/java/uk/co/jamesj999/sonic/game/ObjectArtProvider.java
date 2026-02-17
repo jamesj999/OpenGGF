@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.game;
 
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Pattern;
+import uk.co.jamesj999.sonic.level.objects.HudRenderManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
@@ -129,5 +130,15 @@ public interface ObjectArtProvider {
      */
     default int getHudFlashPaletteLine() {
         return 0;
+    }
+
+    /**
+     * Gets the HUD flash mode for warning indicators (rings=0, time>=9:00).
+     * S1/S2 use palette swap (red flash), S3K hides the text label entirely.
+     *
+     * @return the flash mode, default PALETTE_SWAP (S1/S2 behavior)
+     */
+    default HudRenderManager.HudFlashMode getHudFlashMode() {
+        return HudRenderManager.HudFlashMode.PALETTE_SWAP;
     }
 }
