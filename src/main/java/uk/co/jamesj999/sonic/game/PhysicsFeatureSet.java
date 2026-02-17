@@ -13,7 +13,8 @@ public record PhysicsFeatureSet(
         CollisionModel collisionModel,
         boolean fixedAnglePosThreshold,
         short lookScrollDelay,
-        boolean waterShimmerEnabled
+        boolean waterShimmerEnabled,
+        boolean elementalShieldsEnabled
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -22,17 +23,17 @@ public record PhysicsFeatureSet(
 
     /** Sonic 1: no spindash, single collision path, fixed AnglePos threshold, instant look scroll, water shimmer. */
     public static final PhysicsFeatureSet SONIC_1 = new PhysicsFeatureSet(
-            false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true);
+            false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, false);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll. */
     public static final PhysicsFeatureSet SONIC_2 = new PhysicsFeatureSet(true, new short[]{
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
-    }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false);
+    }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false);
 
-    /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll. */
+    /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll, elemental shields. */
     public static final PhysicsFeatureSet SONIC_3K = new PhysicsFeatureSet(true, new short[]{
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
-    }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false);
+    }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, true);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {

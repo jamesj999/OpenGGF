@@ -21,6 +21,7 @@ import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
 import uk.co.jamesj999.sonic.game.sonic2.LevelGamestate;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioProfile;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kObjectIds;
 import uk.co.jamesj999.sonic.game.sonic3k.objects.Sonic3kObjectRegistry;
 import uk.co.jamesj999.sonic.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
@@ -69,7 +70,9 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public TouchResponseTable createTouchResponseTable(RomByteReader romReader) {
-        return new TouchResponseTable(romReader, 0, 1);
+        return new TouchResponseTable(romReader,
+                Sonic3kConstants.TOUCH_SIZES_ADDR,
+                Sonic3kConstants.TOUCH_SIZES_COUNT);
     }
 
     @Override
