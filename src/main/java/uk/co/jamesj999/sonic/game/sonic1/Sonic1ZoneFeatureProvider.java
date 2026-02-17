@@ -62,8 +62,9 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
                 waterEvents.init(zoneIndex, actIndex);
             }
 
-            // ROM only spawns WaterSurface objects in LZ (Level_ChkWater in sonic.asm).
-            if (zoneIndex == Sonic1Constants.ZONE_LZ) {
+            // ROM spawns WaterSurface objects in LZ (Level_ChkWater in sonic.asm).
+            // SBZ3 reuses LZ layout and water, so it also needs the surface sprite.
+            if (zoneIndex == Sonic1Constants.ZONE_LZ || isSBZ3) {
                 try {
                     waterSurfaceManager = new Sonic1WaterSurfaceManager(rom, zoneIndex, actIndex);
                 } catch (Exception e) {
