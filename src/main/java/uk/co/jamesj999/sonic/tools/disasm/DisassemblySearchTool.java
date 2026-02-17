@@ -27,7 +27,15 @@ public class DisassemblySearchTool {
             Pattern.CASE_INSENSITIVE
     );
 
-    // Label on its own line (for multiline label+binclude resolution in S3K)
+    // Matches labeled include directives (assembly text includes)
+    private static final Pattern INCLUDE_PATTERN = Pattern.compile(
+            "^\\s*(\\w+):\\s*include\\s+\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
+
+    // Matches unlabeled include directives
+    private static final Pattern INCLUDE_NO_LABEL_PATTERN = Pattern.compile(
+            "^\\s*include\\s+\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
+
+    // Label on its own line (for multiline label+binclude/include resolution in S3K)
     private static final Pattern STANDALONE_LABEL_PATTERN = Pattern.compile(
             "^(\\w+):\\s*$"
     );
@@ -241,6 +249,61 @@ public class DisassemblySearchTool {
                     continue;
                 }
 
+                // 2b. Same-line label+include (assembly text include)
+                Matcher includeMatcher = INCLUDE_PATTERN.matcher(line);
+                if (includeMatcher.find()) {
+                    pendingLabel = null;
+                    String label = includeMatcher.group(1);
+                    String filePath = includeMatcher.group(2);
+                    String matchTarget = matchLabel ? label.toLowerCase() : filePath.toLowerCase();
+
+                    if (matchTarget.contains(pattern)) {
+                        results.add(new DisassemblySearchResult(
+                                label,
+                                filePath,
+                                CompressionType.ASSEMBLY_DATA,
+                                disasmRoot.relativize(asmFile).toString(),
+                                lineNumber,
+                                line.trim()
+                        ));
+                    }
+                    continue;
+                }
+
+                // 2c. Unlabeled include — associate with pendingLabel if available
+                Matcher includeNoLabelMatcher = INCLUDE_NO_LABEL_PATTERN.matcher(line);
+                if (includeNoLabelMatcher.find()) {
+                    String filePath = includeNoLabelMatcher.group(1);
+                    String resolvedLabel = pendingLabel;
+                    pendingLabel = null;
+
+                    if (resolvedLabel != null) {
+                        String matchTarget = matchLabel ? resolvedLabel.toLowerCase() : filePath.toLowerCase();
+                        if (matchTarget.contains(pattern)) {
+                            results.add(new DisassemblySearchResult(
+                                    resolvedLabel,
+                                    filePath,
+                                    CompressionType.ASSEMBLY_DATA,
+                                    disasmRoot.relativize(asmFile).toString(),
+                                    pendingLabelLine,
+                                    line.trim()
+                            ));
+                        }
+                    } else {
+                        if (!matchLabel && filePath.toLowerCase().contains(pattern)) {
+                            results.add(new DisassemblySearchResult(
+                                    null,
+                                    filePath,
+                                    CompressionType.ASSEMBLY_DATA,
+                                    disasmRoot.relativize(asmFile).toString(),
+                                    lineNumber,
+                                    line.trim()
+                            ));
+                        }
+                    }
+                    continue;
+                }
+
                 // 3. Standalone label — check for Offs_ immediate emit, otherwise store as pending
                 Matcher standaloneMatcher = STANDALONE_LABEL_PATTERN.matcher(line);
                 if (standaloneMatcher.find()) {
@@ -352,6 +415,63 @@ public class DisassemblySearchTool {
                                     null,
                                     filePath,
                                     CompressionType.fromExtension(filePath),
+                                    disasmRoot.relativize(asmFile).toString(),
+                                    lineNumber,
+                                    line.trim()
+                            ));
+                        }
+                    }
+                    continue;
+                }
+
+                // 2b. Same-line label+include (assembly text include)
+                Matcher includeMatcher = INCLUDE_PATTERN.matcher(line);
+                if (includeMatcher.find()) {
+                    pendingLabel = null;
+                    String label = includeMatcher.group(1);
+                    String filePath = includeMatcher.group(2);
+
+                    if (pattern.isEmpty() ||
+                        label.toLowerCase().contains(pattern) ||
+                        filePath.toLowerCase().contains(pattern)) {
+                        results.add(new DisassemblySearchResult(
+                                label,
+                                filePath,
+                                CompressionType.ASSEMBLY_DATA,
+                                disasmRoot.relativize(asmFile).toString(),
+                                lineNumber,
+                                line.trim()
+                        ));
+                    }
+                    continue;
+                }
+
+                // 2c. Unlabeled include — associate with pendingLabel if available
+                Matcher includeNoLabelMatcher = INCLUDE_NO_LABEL_PATTERN.matcher(line);
+                if (includeNoLabelMatcher.find()) {
+                    String filePath = includeNoLabelMatcher.group(1);
+                    String resolvedLabel = pendingLabel;
+                    pendingLabel = null;
+
+                    if (resolvedLabel != null) {
+                        if (pattern.isEmpty() ||
+                            resolvedLabel.toLowerCase().contains(pattern) ||
+                            filePath.toLowerCase().contains(pattern)) {
+                            results.add(new DisassemblySearchResult(
+                                    resolvedLabel,
+                                    filePath,
+                                    CompressionType.ASSEMBLY_DATA,
+                                    disasmRoot.relativize(asmFile).toString(),
+                                    pendingLabelLine,
+                                    line.trim()
+                            ));
+                        }
+                    } else {
+                        if (pattern.isEmpty() || filePath.toLowerCase().contains(pattern)) {
+                            results.add(new DisassemblySearchResult(
+                                    null,
+                                    filePath,
+                                    CompressionType.ASSEMBLY_DATA,
                                     disasmRoot.relativize(asmFile).toString(),
                                     lineNumber,
                                     line.trim()
@@ -522,6 +642,46 @@ public class DisassemblySearchTool {
                         ));
                     }
                     continue;
+                }
+
+                // 2b. Same-line label+include (assembly text include)
+                if (type == CompressionType.ASSEMBLY_DATA) {
+                    Matcher includeMatcher = INCLUDE_PATTERN.matcher(line);
+                    if (includeMatcher.find()) {
+                        pendingLabel = null;
+                        String label = includeMatcher.group(1);
+                        String filePath = includeMatcher.group(2);
+
+                        results.add(new DisassemblySearchResult(
+                                label,
+                                filePath,
+                                CompressionType.ASSEMBLY_DATA,
+                                disasmRoot.relativize(asmFile).toString(),
+                                lineNumber,
+                                line.trim()
+                        ));
+                        continue;
+                    }
+                }
+
+                // 2c. Unlabeled include — associate with pendingLabel if available
+                if (type == CompressionType.ASSEMBLY_DATA) {
+                    Matcher includeNoLabelMatcher = INCLUDE_NO_LABEL_PATTERN.matcher(line);
+                    if (includeNoLabelMatcher.find()) {
+                        String filePath = includeNoLabelMatcher.group(1);
+                        String resolvedLabel = pendingLabel;
+                        pendingLabel = null;
+
+                        results.add(new DisassemblySearchResult(
+                                resolvedLabel,
+                                filePath,
+                                CompressionType.ASSEMBLY_DATA,
+                                disasmRoot.relativize(asmFile).toString(),
+                                resolvedLabel != null ? pendingLabelLine : lineNumber,
+                                line.trim()
+                        ));
+                        continue;
+                    }
                 }
 
                 // 3. Standalone label — store as pending (no compression type to match for label-only)

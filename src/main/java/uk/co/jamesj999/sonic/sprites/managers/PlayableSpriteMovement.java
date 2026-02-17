@@ -1255,6 +1255,9 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// ROM: Sonic_HurtStop — when landing from hurt state, zero all velocity.
 		// Must check before resetOnFloor() which clears the hurt flag via setAir(false).
 		boolean wasHurt = sprite.isHurt();
+		// Save doubleJumpFlag BEFORE resetOnFloor() clears it via setAir(false).
+		// ROM (s3.asm:21849-21859) tests the flag before clearing.
+		int savedDoubleJumpFlag = sprite.getDoubleJumpFlag();
 		resetOnFloor();
 		if (wasHurt) {
 			sprite.setGSpeed((short) 0);
@@ -1309,6 +1312,41 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				sprite.setYSpeed(halfYSpeed);
 			}
 		}
+
+		// Bubble shield bounce check (s3.asm:21849-21859 Player_TouchFloor tail)
+		PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+		if (fs != null && fs.elementalShieldsEnabled() && savedDoubleJumpFlag != 0) {
+			if (sprite.hasShield() && sprite.getShieldType() == ShieldType.BUBBLE) {
+				applyBubbleShieldBounce(sprite);
+			}
+			// Flag already cleared by resetOnFloor→setAir(false), no extra clear needed
+		}
+	}
+
+	/**
+	 * BubbleShield_Bounce: Re-launch player perpendicular to surface (s3.asm:21866-21900).
+	 * On flat ground (angle 0x00): bounces straight up at 0x780 velocity.
+	 * On slopes: bounce direction follows surface normal.
+	 * Underwater: reduced velocity (0x400).
+	 */
+	private void applyBubbleShieldBounce(AbstractPlayableSprite sprite) {
+		int velocity = sprite.isInWater() ? 0x400 : 0x780;
+		int angle = sprite.getAngle() & 0xFF;
+		// Rotate 90° CCW to get surface normal direction (s3.asm:21873: subi.b #$40,d0)
+		int rotated = (angle - 0x40) & 0xFF;
+		int sin = TrigLookupTable.sinHex(rotated);
+		int cos = TrigLookupTable.cosHex(rotated);
+		sprite.setXSpeed((short) (sprite.getXSpeed() + ((cos * velocity) >> 8)));
+		sprite.setYSpeed((short) (sprite.getYSpeed() + ((sin * velocity) >> 8)));
+		// Re-launch into air (s3.asm:21885-21892)
+		sprite.setAir(true);
+		sprite.setJumping(true);
+		sprite.setPushing(false);
+		if (!sprite.getRolling()) {
+			sprite.setRolling(true);
+			sprite.setY((short) (sprite.getY() + sprite.getRollHeightAdjustment()));
+		}
+		audioManager.playSfx(GameSound.BUBBLE_ATTACK);
 	}
 
 	// ========================================

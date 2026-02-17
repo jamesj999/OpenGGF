@@ -7,6 +7,7 @@ public enum CompressionType {
     ENIGMA(".eni", "Enigma"),
     SAXMAN(".sax", "Saxman"),
     UNCOMPRESSED(".bin", "Uncompressed"),
+    ASSEMBLY_DATA(".asm", "Assembly Data"),
     UNKNOWN("", "Unknown");
 
     private final String extension;
@@ -33,6 +34,7 @@ public enum CompressionType {
         if (lower.endsWith(".eni")) return ENIGMA;
         if (lower.endsWith(".sax")) return SAXMAN;
         if (lower.endsWith(".bin")) return UNCOMPRESSED;
+        if (lower.endsWith(".asm")) return ASSEMBLY_DATA;
         return UNKNOWN;
     }
 

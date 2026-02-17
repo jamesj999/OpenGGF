@@ -443,6 +443,50 @@ public class Sonic3kConstants {
     public static final int VRAM_TITLE_CARD_ACT_NUM = 0x53D;     // Act number art
     public static final int VRAM_TITLE_CARD_ZONE_ART = 0x54D;    // Zone-specific letters
 
+    // ===== Shield Art (uncompressed binclude in S3 data region) =====
+    // Verified by binary pattern match against skdisasm .bin files, 2026-02-17
+
+    // ArtUnc_FireShield - Fire Shield.bin (269 tiles)
+    public static final int ART_UNC_FIRE_SHIELD_ADDR = 0x18C704;
+    public static final int ART_UNC_FIRE_SHIELD_SIZE = 8608;
+
+    // ArtUnc_LightningShield - Lightning Shield.bin (130 tiles)
+    public static final int ART_UNC_LIGHTNING_SHIELD_ADDR = 0x18E8A4;
+    public static final int ART_UNC_LIGHTNING_SHIELD_SIZE = 4160;
+
+    // ArtUnc_LightningShield_Sparks - Sparks.bin (5 tiles)
+    public static final int ART_UNC_LIGHTNING_SHIELD_SPARKS_ADDR = 0x18F8E4;
+    public static final int ART_UNC_LIGHTNING_SHIELD_SPARKS_SIZE = 160;
+
+    // ArtUnc_BubbleShield - Bubble Shield.bin (138 tiles)
+    public static final int ART_UNC_BUBBLE_SHIELD_ADDR = 0x18F984;
+    public static final int ART_UNC_BUBBLE_SHIELD_SIZE = 4416;
+
+    // ===== Shield Mappings, DPLCs, Animations =====
+    // Verified by ROM binary search for offset table patterns, 2026-02-17
+
+    // Fire Shield: 25 mapping frames, 25 DPLC frames, 2 animations
+    public static final int ANI_FIRE_SHIELD_ADDR = 0x019A02;
+    public static final int ANI_FIRE_SHIELD_COUNT = 2;
+    public static final int MAP_FIRE_SHIELD_ADDR = 0x019AC6;
+    public static final int DPLC_FIRE_SHIELD_ADDR = 0x019CE6;
+
+    // Lightning Shield: 24 mapping frames, 23 DPLC frames, 3 animations
+    public static final int ANI_LIGHTNING_SHIELD_ADDR = 0x019A2A;
+    public static final int ANI_LIGHTNING_SHIELD_COUNT = 3;
+    public static final int MAP_LIGHTNING_SHIELD_ADDR = 0x019DC8;
+    public static final int DPLC_LIGHTNING_SHIELD_ADDR = 0x019EFA;
+
+    // Bubble Shield: 13 mapping frames, 13 DPLC frames, 3 animations
+    public static final int ANI_BUBBLE_SHIELD_ADDR = 0x019A7A;
+    public static final int ANI_BUBBLE_SHIELD_COUNT = 3;
+    public static final int MAP_BUBBLE_SHIELD_ADDR = 0x019F82;
+    public static final int DPLC_BUBBLE_SHIELD_ADDR = 0x01A076;
+
+    // VRAM tile destinations for shields
+    public static final int ART_TILE_SHIELD = 0x079C;
+    public static final int ART_TILE_SHIELD_SPARKS = 0x07BB;
+
     // ===== Known pattern data for ROM scanning =====
     // AIZ1 LevelSizes first entry: $1308, $6000, $0000, $0390
     public static final byte[] LEVEL_SIZES_AIZ1_PATTERN = {

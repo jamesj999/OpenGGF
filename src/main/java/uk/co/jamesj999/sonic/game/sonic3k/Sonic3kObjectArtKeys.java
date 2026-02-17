@@ -12,6 +12,9 @@ public final class Sonic3kObjectArtKeys {
     public static final String SPRING_DIAGONAL = "s3k_spring_diagonal";
     public static final String SPRING_DIAGONAL_YELLOW = "s3k_spring_diagonal_yellow";
     public static final String AIZ_FOREGROUND_PLANT = "aiz_foreground_plant";
+    public static final String FIRE_SHIELD = "fire_shield";
+    public static final String LIGHTNING_SHIELD = "lightning_shield";
+    public static final String BUBBLE_SHIELD = "bubble_shield";
 
     private Sonic3kObjectArtKeys() {
     }

@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic3k;
 
 import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.ObjectArtProvider;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
@@ -11,11 +12,14 @@ import uk.co.jamesj999.sonic.level.objects.HudRenderManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.level.render.SpriteDplcFrame;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationEndAction;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationScript;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
+import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
+import uk.co.jamesj999.sonic.sprites.render.PlayerSpriteRenderer;
 import uk.co.jamesj999.sonic.tools.NemesisReader;
 
 import java.io.IOException;
@@ -46,6 +50,10 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     private final List<ObjectSpriteSheet> sheetOrder = new ArrayList<>();
     private final List<PatternSpriteRenderer> rendererOrder = new ArrayList<>();
 
+    // Shield DPLC-driven renderers and art sets
+    private final Map<String, PlayerSpriteRenderer> dplcRenderers = new HashMap<>();
+    private final Map<String, SpriteArtSet> shieldArtSets = new HashMap<>();
+
     // HUD pattern caches
     private Pattern[] hudDigitPatterns;
     private Pattern[] hudTextPatterns;
@@ -66,6 +74,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         rendererKeys.clear();
         sheetOrder.clear();
         rendererOrder.clear();
+        dplcRenderers.clear();
+        shieldArtSets.clear();
 
         // Load HUD art (same for all zones)
         loadHudArt();
@@ -73,6 +83,9 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         // Load shared object art (Nemesis compressed from ROM)
         loadExplosionArt();
         loadMonitorArt();
+
+        // Load shield art (DPLC-driven, same for all zones)
+        loadShieldArt();
 
         // Level-art sheets are registered later via registerLevelArtSheets()
         // since the level must be loaded first
@@ -341,6 +354,79 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
+     * Loads shield art (fire, lightning, bubble) from ROM using DPLC-driven rendering.
+     * Each shield has its own uncompressed art, mappings, DPLCs, and animation scripts.
+     */
+    private void loadShieldArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) {
+                return;
+            }
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            loadSingleShieldArt(reader, Sonic3kObjectArtKeys.FIRE_SHIELD,
+                    Sonic3kConstants.ART_UNC_FIRE_SHIELD_ADDR, Sonic3kConstants.ART_UNC_FIRE_SHIELD_SIZE,
+                    Sonic3kConstants.MAP_FIRE_SHIELD_ADDR, Sonic3kConstants.DPLC_FIRE_SHIELD_ADDR,
+                    Sonic3kConstants.ANI_FIRE_SHIELD_ADDR, Sonic3kConstants.ANI_FIRE_SHIELD_COUNT,
+                    Sonic3kConstants.ART_TILE_SHIELD, 0);
+
+            loadSingleShieldArt(reader, Sonic3kObjectArtKeys.LIGHTNING_SHIELD,
+                    Sonic3kConstants.ART_UNC_LIGHTNING_SHIELD_ADDR, Sonic3kConstants.ART_UNC_LIGHTNING_SHIELD_SIZE,
+                    Sonic3kConstants.MAP_LIGHTNING_SHIELD_ADDR, Sonic3kConstants.DPLC_LIGHTNING_SHIELD_ADDR,
+                    Sonic3kConstants.ANI_LIGHTNING_SHIELD_ADDR, Sonic3kConstants.ANI_LIGHTNING_SHIELD_COUNT,
+                    Sonic3kConstants.ART_TILE_SHIELD, 0);
+
+            loadSingleShieldArt(reader, Sonic3kObjectArtKeys.BUBBLE_SHIELD,
+                    Sonic3kConstants.ART_UNC_BUBBLE_SHIELD_ADDR, Sonic3kConstants.ART_UNC_BUBBLE_SHIELD_SIZE,
+                    Sonic3kConstants.MAP_BUBBLE_SHIELD_ADDR, Sonic3kConstants.DPLC_BUBBLE_SHIELD_ADDR,
+                    Sonic3kConstants.ANI_BUBBLE_SHIELD_ADDR, Sonic3kConstants.ANI_BUBBLE_SHIELD_COUNT,
+                    Sonic3kConstants.ART_TILE_SHIELD, 0);
+        } catch (IOException e) {
+            LOG.warning("Failed to load shield art: " + e.getMessage());
+        }
+    }
+
+    private void loadSingleShieldArt(RomByteReader reader, String key,
+            int artAddr, int artSize, int mapAddr, int dplcAddr,
+            int animAddr, int animCount, int baseTile, int paletteIndex) throws IOException {
+        Pattern[] tiles = S3kSpriteDataLoader.loadArtTiles(reader, artAddr, artSize);
+        List<SpriteMappingFrame> mappings = S3kSpriteDataLoader.loadMappingFrames(reader, mapAddr);
+        List<SpriteDplcFrame> dplcs = S3kSpriteDataLoader.loadDplcFrames(reader, dplcAddr);
+
+        // Ensure DPLC count doesn't exceed mapping count
+        if (dplcs.size() > mappings.size()) {
+            dplcs = new ArrayList<>(dplcs.subList(0, mappings.size()));
+        }
+        // Pad DPLC list if shorter than mappings (empty DPLC = reuse previous tiles)
+        while (dplcs.size() < mappings.size()) {
+            dplcs.add(new SpriteDplcFrame(List.of()));
+        }
+
+        int bankSize = S3kSpriteDataLoader.resolveBankSize(dplcs, mappings);
+        SpriteAnimationSet animSet = S3kSpriteDataLoader.loadAnimationSet(reader, animAddr, animCount);
+
+        SpriteArtSet artSet = new SpriteArtSet(tiles, mappings, dplcs,
+                paletteIndex, baseTile, 1, bankSize, null, animSet);
+        PlayerSpriteRenderer renderer = new PlayerSpriteRenderer(artSet);
+
+        shieldArtSets.put(key, artSet);
+        dplcRenderers.put(key, renderer);
+
+        LOG.info("Loaded " + key + " art: " + tiles.length + " tiles, "
+                + mappings.size() + " mapping frames, " + animCount + " animations");
+    }
+
+    /** Returns the DPLC-driven renderer for a shield type, or null. */
+    public PlayerSpriteRenderer getShieldDplcRenderer(String key) {
+        return dplcRenderers.get(key);
+    }
+
+    /** Returns the art set for a shield type, or null. */
+    public SpriteArtSet getShieldArtSet(String key) {
+        return shieldArtSets.get(key);
+    }
+
+    /**
      * Registers object sprite sheets that use level patterns.
      * Must be called AFTER the level is loaded.
      *
@@ -444,6 +530,10 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             PatternSpriteRenderer renderer = rendererOrder.get(i);
             renderer.ensurePatternsCached(graphicsManager, next);
             next += sheet.getPatterns().length;
+        }
+        // Also cache DPLC-driven shield renderers
+        for (PlayerSpriteRenderer dplcRenderer : dplcRenderers.values()) {
+            dplcRenderer.ensureCached(graphicsManager);
         }
         return next;
     }

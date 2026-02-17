@@ -206,9 +206,15 @@ public class RomOffsetFinder {
         }
 
         // Label-only results (Offs_*, PLC_*) have no binary data to search for
-        if (!item.hasBinclude()) {
+        if (!item.hasFile()) {
             return OffsetFinderResult.notFound(labelPattern,
                     "Label-only result (no binary data): " + item.getLabel());
+        }
+
+        // Assembly text includes don't have a direct ROM offset
+        if (item.getCompressionType() == CompressionType.ASSEMBLY_DATA) {
+            return OffsetFinderResult.notFound(labelPattern,
+                    "Assembly text include (no direct ROM offset): " + item.getLabel());
         }
 
         byte[] referenceData;
@@ -309,8 +315,13 @@ public class RomOffsetFinder {
         }
 
         // Label-only results (Offs_*, PLC_*) have no binary data to verify
-        if (!item.hasBinclude()) {
+        if (!item.hasFile()) {
             return VerificationResult.error(label, "Label-only result (no binary data to verify)");
+        }
+
+        // Assembly text includes don't have a direct ROM offset to verify
+        if (item.getCompressionType() == CompressionType.ASSEMBLY_DATA) {
+            return VerificationResult.error(label, "Assembly text include (no direct ROM offset to verify)");
         }
 
         // 2. Calculate offset using the calculator
@@ -1029,7 +1040,7 @@ public class RomOffsetFinder {
         for (DisassemblySearchResult result : results) {
             System.out.printf("Label:       %s%n", result.getLabel() != null ? result.getLabel() : "(none)");
 
-            if (result.hasBinclude()) {
+            if (result.hasFile()) {
                 System.out.printf("File:        %s%n", result.getFilePath());
                 System.out.printf("Compression: %s%n", result.getCompressionType().getDisplayName());
             } else {
@@ -1038,34 +1049,39 @@ public class RomOffsetFinder {
 
             System.out.printf("ASM Source:  %s:%d%n", result.getAsmFilePath(), result.getAsmLineNumber());
 
-            if (result.hasBinclude()) {
-                try {
-                    long size = finder.searchTool.getFileSize(result.getFilePath());
-                    System.out.printf("File Size:   %d bytes%n", size);
-                } catch (IOException e) {
-                    System.out.printf("File Size:   (not found)%n");
-                }
-
-                // Get verified ROM offset by searching the ROM directly
-                if (result.getLabel() != null) {
+            if (result.hasFile()) {
+                if (result.getCompressionType() == CompressionType.ASSEMBLY_DATA) {
+                    // Assembly includes don't have a direct ROM offset to verify
+                    System.out.printf("Note:        Assembly text include (no direct ROM offset)%n");
+                } else {
                     try {
-                        VerificationResult vr = finder.verify(result.getLabel());
-                        switch (vr.getStatus()) {
-                            case VERIFIED:
-                                System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getCalculatedOffset());
-                                break;
-                            case MISMATCH:
-                                System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getVerifiedOffset());
-                                break;
-                            case NOT_FOUND:
-                                System.out.printf("ROM Offset:  (not found in ROM)%n");
-                                break;
-                            case ERROR:
-                                System.out.printf("ROM Offset:  (error: %s)%n", vr.getMessage());
-                                break;
-                        }
+                        long size = finder.searchTool.getFileSize(result.getFilePath());
+                        System.out.printf("File Size:   %d bytes%n", size);
                     } catch (IOException e) {
-                        // Ignore verification errors
+                        System.out.printf("File Size:   (not found)%n");
+                    }
+
+                    // Get verified ROM offset by searching the ROM directly
+                    if (result.getLabel() != null) {
+                        try {
+                            VerificationResult vr = finder.verify(result.getLabel());
+                            switch (vr.getStatus()) {
+                                case VERIFIED:
+                                    System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getCalculatedOffset());
+                                    break;
+                                case MISMATCH:
+                                    System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getVerifiedOffset());
+                                    break;
+                                case NOT_FOUND:
+                                    System.out.printf("ROM Offset:  (not found in ROM)%n");
+                                    break;
+                                case ERROR:
+                                    System.out.printf("ROM Offset:  (error: %s)%n", vr.getMessage());
+                                    break;
+                            }
+                        } catch (IOException e) {
+                            // Ignore verification errors
+                        }
                     }
                 }
             }
@@ -1309,6 +1325,8 @@ public class RomOffsetFinder {
             case "bin":
             case "raw":
                 return CompressionType.UNCOMPRESSED;
+            case "asm":
+                return CompressionType.ASSEMBLY_DATA;
             default:
                 return null;
         }
@@ -1335,7 +1353,7 @@ public class RomOffsetFinder {
         System.out.println("  -Dgame=s1          Alternative via system property");
         System.out.println("  (auto-detected from disasm path if --game not specified)");
         System.out.println();
-        System.out.println("Compression types: nem, kos, kosm, eni, sax, bin, auto");
+        System.out.println("Compression types: nem, kos, kosm, eni, sax, bin, asm, auto");
         System.out.println();
         System.out.println("System properties:");
         System.out.println("  -Drom.path=<path>            Path to ROM file");
