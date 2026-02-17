@@ -31,6 +31,11 @@ public class TilemapShaderProgram extends ShaderProgram {
     private int maskOutputLocation = -1;
     private int useUnderwaterPaletteLocation = -1;
     private int waterlineScreenYLocation = -1;
+    private int hScrollTextureLocation = -1;
+    private int perLineScrollLocation = -1;
+    private int screenHeightLocation = -1;
+    private int vdpWrapWidthLocation = -1;
+    private int nametableBaseLocation = -1;
 
     private static final String FULLSCREEN_VERTEX_SHADER = "shaders/shader_fullscreen.vert";
 
@@ -65,6 +70,11 @@ public class TilemapShaderProgram extends ShaderProgram {
         maskOutputLocation = glGetUniformLocation(programId, "MaskOutput");
         useUnderwaterPaletteLocation = glGetUniformLocation(programId, "UseUnderwaterPalette");
         waterlineScreenYLocation = glGetUniformLocation(programId, "WaterlineScreenY");
+        hScrollTextureLocation = glGetUniformLocation(programId, "HScrollTexture");
+        perLineScrollLocation = glGetUniformLocation(programId, "PerLineScroll");
+        screenHeightLocation = glGetUniformLocation(programId, "ScreenHeight");
+        vdpWrapWidthLocation = glGetUniformLocation(programId, "VDPWrapWidth");
+        nametableBaseLocation = glGetUniformLocation(programId, "NametableBase");
     }
 
     public void setTextureUnits(int tilemapUnit, int lookupUnit, int atlasUnit, int paletteUnit,
@@ -158,6 +168,36 @@ public class TilemapShaderProgram extends ShaderProgram {
     public void setMaskOutput(boolean maskOutput) {
         if (maskOutputLocation >= 0) {
             glUniform1i(maskOutputLocation, maskOutput ? 1 : 0);
+        }
+    }
+
+    public void setHScrollTexture(int textureUnit) {
+        if (hScrollTextureLocation >= 0) {
+            glUniform1i(hScrollTextureLocation, textureUnit);
+        }
+    }
+
+    public void setPerLineScroll(boolean enabled) {
+        if (perLineScrollLocation >= 0) {
+            glUniform1i(perLineScrollLocation, enabled ? 1 : 0);
+        }
+    }
+
+    public void setScreenHeight(float height) {
+        if (screenHeightLocation >= 0) {
+            glUniform1f(screenHeightLocation, height);
+        }
+    }
+
+    public void setVdpWrapWidth(float width) {
+        if (vdpWrapWidthLocation >= 0) {
+            glUniform1f(vdpWrapWidthLocation, width);
+        }
+    }
+
+    public void setNametableBase(float base) {
+        if (nametableBaseLocation >= 0) {
+            glUniform1f(nametableBaseLocation, base);
         }
     }
 

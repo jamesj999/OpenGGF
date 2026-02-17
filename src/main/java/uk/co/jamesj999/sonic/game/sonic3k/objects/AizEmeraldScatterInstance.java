@@ -146,6 +146,11 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
     }
 
     @Override
+    public int getPriorityBucket() {
+        return 5; // ROM priority 0x280
+    }
+
+    @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         switch (phase) {
             case FALLING -> updateFalling();

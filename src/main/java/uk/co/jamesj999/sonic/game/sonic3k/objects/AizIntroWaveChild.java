@@ -64,6 +64,11 @@ public class AizIntroWaveChild extends AbstractObjectInstance {
     }
 
     @Override
+    public int getPriorityBucket() {
+        return 3;
+    }
+
+    @Override
     public int getX() {
         return currentX;
     }

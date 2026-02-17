@@ -303,11 +303,13 @@ public class LevelManager {
             checkpointState.clear();
             levelGamestate = gameModule.createLevelState();
 
-            // Initialize water system for this level
-            // Use level.getZoneIndex() which returns the ROM zone ID (e.g., 0x0D for CPZ,
-            // 0x0F for ARZ)
+            // Initialize water system for this level (only for zones that have water)
             WaterSystem waterSystem = WaterSystem.getInstance();
-            waterSystem.loadForLevel(rom, level.getZoneIndex(), currentAct, level.getObjects());
+            if (zoneFeatureProvider != null && zoneFeatureProvider.hasWater(level.getZoneIndex())) {
+                waterSystem.loadForLevel(rom, level.getZoneIndex(), currentAct, level.getObjects());
+            } else {
+                waterSystem.reset();
+            }
 
             // Pre-allocate the background FBO at maximum required size to avoid
             // mid-frame GPU reallocation hitches (e.g., AIZ intro ocean->beach transition)
@@ -382,7 +384,9 @@ public class LevelManager {
             zoneFeatureProvider.update(playable, Camera.getInstance().getX(), level.getZoneIndex());
         }
         if (levelGamestate != null) {
-            levelGamestate.update();
+            if (!isHudSuppressed()) {
+                levelGamestate.update();
+            }
             if (levelGamestate.isTimeOver() && playable != null && !playable.getDead()) {
                 playable.applyHurtOrDeath(0, AbstractPlayableSprite.DamageCause.TIME_OVER, false);
             }
@@ -600,9 +604,14 @@ public class LevelManager {
                 }
                 objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
             }
+            if (provider instanceof uk.co.jamesj999.sonic.game.sonic3k.Sonic3kObjectArtProvider s3kProvider) {
+                s3kProvider.registerLevelArtSheets(level, zoneIndex);
+                objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
+            }
 
             hudRenderManager = new HudRenderManager(graphicsManager);
             hudRenderManager.setHudPalettes(provider.getHudTextPaletteLine(), provider.getHudFlashPaletteLine());
+            hudRenderManager.setHudFlashMode(provider.getHudFlashMode());
             // Wire up HUD to unified UI render pipeline
             if (graphicsManager.getUiRenderPipeline() != null) {
                 graphicsManager.getUiRenderPipeline().setHudRenderManager(hudRenderManager);
@@ -654,6 +663,11 @@ public class LevelManager {
             LOGGER.log(SEVERE, "Failed to load object art.", e);
             objectRenderManager = null;
         }
+    }
+
+    private boolean isHudSuppressed() {
+        return zoneFeatureProvider != null
+                && zoneFeatureProvider.shouldSuppressHud(currentZone, currentAct);
     }
 
     private void initAnimatedPatterns() {
@@ -883,7 +897,7 @@ public class LevelManager {
         }));
 
         profiler.beginSection("render.hud");
-        if (hudRenderManager != null) {
+        if (hudRenderManager != null && !isHudSuppressed()) {
             AbstractPlayableSprite focusedPlayer = camera.getFocusedSprite();
             hudRenderManager.draw(levelGamestate, focusedPlayer);
         }
@@ -1170,27 +1184,33 @@ public class LevelManager {
         int shaderScrollMidpoint = 0;
         int shaderExtraBuffer = 0;
         float bgTilemapWorldOffsetX = 0.0f;
+        boolean perLineScrollActive = false;
+        float vdpWrapWidthTiles = 0.0f;
+        float nametableBaseTile = 0.0f;
         if (zoneFeatureProvider != null && zoneFeatureProvider.isIntroOceanPhaseActive(currentZone, currentAct)) {
-            // VDP-accurate 512px wrapping with sliding origin.
-            // The ROM BG plane is 64 cells wide (512px). During the intro, all scanlines
-            // wrap within 512px regardless of deformation spread. We emulate this by
-            // sliding a 512px window to follow the BG camera position — beach tiles appear
-            // naturally as the window slides rightward, while wrapping prevents staircase
-            // corruption from parallax deformation bands sampling invalid positions.
-            bgPeriodWidthPixels = VDP_BG_PLANE_WIDTH_PX;
+            // Per-scanline HScroll in the tilemap shader, matching VDP behavior.
+            // Each pixel computes worldX = pixelX - hScroll[scanline] directly,
+            // then looks up the correct tile from the full-width tilemap.
+            bgPeriodWidthPixels = cachedScreenWidth;
+            bgTilemapWorldOffsetX = 0;
+            shaderScrollMidpoint = 0;
+            shaderExtraBuffer = 0;
+            perLineScrollActive = true;
 
-            int minS = parallaxManager.getMinScroll();
-            int maxS = parallaxManager.getMaxScroll();
-            if (minS != Integer.MAX_VALUE && maxS != Integer.MIN_VALUE) {
-                int midScroll = (minS + maxS) / 2;
-                int cameraX = camera.getX();
-                int bgCenterWorldX = 160 + cameraX - midScroll;
-                int tilemapWidthPx = backgroundTilemapWidthTiles * Pattern.PATTERN_WIDTH;
-                int maxOrigin = Math.max(0, tilemapWidthPx - VDP_BG_PLANE_WIDTH_PX);
-                bgTilemapWorldOffsetX = Math.max(0, Math.min(bgCenterWorldX - 256, maxOrigin));
-                shaderScrollMidpoint = -(int) bgTilemapWorldOffsetX;
-                shaderExtraBuffer = 0;
-            }
+            // VDP nametable ring buffer: overflow count tracks how many positions
+            // have been overwritten with beach tiles as the camera advances.
+            // Ocean phase (introScrollOffset < 0): overflow=0 (all ocean).
+            // Camera tracking: overflow gradually increases, revealing beach tiles.
+            vdpWrapWidthTiles = 64.0f;
+            nametableBaseTile = zoneFeatureProvider.getVdpNametableBase(
+                    currentZone, currentAct, camera.getX(), backgroundTilemapWidthTiles);
+        }
+        // Cap BG period at VDP nametable width for parallax scroll wrapping.
+        // On the Mega Drive, BG art repeats at the 64-tile nametable width.
+        // Without this cap, the parallax shader wraps at the full tilemap width,
+        // exposing empty tile regions beyond the valid BG art pattern.
+        if (!perLineScrollActive && bgPeriodWidthPixels > VDP_BG_PLANE_WIDTH_PX) {
+            bgPeriodWidthPixels = VDP_BG_PLANE_WIDTH_PX;
         }
         int renderWidth = Math.max(cachedScreenWidth, bgPeriodWidthPixels);
         // Add CHUNK_HEIGHT (16px) to cover VScroll range
@@ -1212,6 +1232,9 @@ public class LevelManager {
         final float finalBgTilemapWorldOffsetX = bgTilemapWorldOffsetX;
         final int finalShaderScrollMidpoint = shaderScrollMidpoint;
         final int finalShaderExtraBuffer = shaderExtraBuffer;
+        final boolean finalPerLineScroll = perLineScrollActive;
+        final float finalVdpWrapWidth = vdpWrapWidthTiles;
+        final float finalNametableBase = nametableBaseTile;
         graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
             bgRenderer.ensureCapacity(finalRenderWidth, finalRenderHeight);
         }));
@@ -1246,6 +1269,12 @@ public class LevelManager {
                 Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
                 boolean useUnderwaterPalette = hasWater && underwaterPaletteId != null;
                 if (atlasId != null && paletteId != null) {
+                    if (finalPerLineScroll) {
+                        bgRenderer.uploadHScroll(hScrollData);
+                        tilemapRenderer.enablePerLineScroll(
+                                bgRenderer.getHScrollTextureId(), 224.0f,
+                                finalVdpWrapWidth, finalNametableBase);
+                    }
                     int[] viewport = new int[4];
                     glGetIntegerv(GL_VIEWPORT, viewport);
                     tilemapRenderer.render(
@@ -1287,7 +1316,7 @@ public class LevelManager {
 
             graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx2, cy2, cw2, ch2) -> {
                 bgRenderer.renderWithScrollWide(hScrollData, finalShaderScrollMidpoint, finalShaderExtraBuffer,
-                        finalVOffset);
+                        finalVOffset, finalPerLineScroll);
             }));
         }
     }

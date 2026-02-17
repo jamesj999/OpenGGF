@@ -44,6 +44,13 @@ public class TilemapGpuRenderer {
     private int lookupSize;
     private boolean lookupDirty = false;
 
+    // Per-line scroll state (set before render, reset after)
+    private boolean perLineScroll = false;
+    private int perLineHScrollTextureId = 0;
+    private float perLineScreenHeight = 224.0f;
+    private float perLineVdpWrapWidth = 0.0f;
+    private float perLineNametableBase = 0.0f;
+
     public void init(String shaderPath) throws IOException {
         if (shader == null) {
             shader = new TilemapShaderProgram(shaderPath);
@@ -82,6 +89,20 @@ public class TilemapGpuRenderer {
             this.backgroundHeightTiles = heightTiles;
             this.backgroundDirty = true;
         }
+    }
+
+    /**
+     * Enable per-scanline horizontal scroll for the next render() call.
+     * The tilemap shader will sample hScroll per-scanline instead of using WorldOffsetX.
+     * Automatically resets after render().
+     */
+    public void enablePerLineScroll(int hScrollTextureId, float screenHeight,
+            float vdpWrapWidth, float nametableBase) {
+        this.perLineScroll = true;
+        this.perLineHScrollTextureId = hScrollTextureId;
+        this.perLineScreenHeight = screenHeight;
+        this.perLineVdpWrapWidth = vdpWrapWidth;
+        this.perLineNametableBase = nametableBase;
     }
 
     public void setPatternLookupData(byte[] data, int size) {
@@ -147,6 +168,13 @@ public class TilemapGpuRenderer {
         shader.setPriorityPass(priorityPass);
         shader.setMaskOutput(maskOutput);
         shader.setWaterSplit(useUnderwaterPalette, waterlineScreenY);
+        shader.setPerLineScroll(perLineScroll);
+        shader.setVdpWrapWidth(perLineScroll ? perLineVdpWrapWidth : 0.0f);
+        shader.setNametableBase(perLineScroll ? perLineNametableBase : 0.0f);
+        if (perLineScroll) {
+            shader.setHScrollTexture(5);
+            shader.setScreenHeight(perLineScreenHeight);
+        }
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, tilemapTexture.getTextureId());
@@ -165,8 +193,18 @@ public class TilemapGpuRenderer {
         // macOS OpenGL driver warnings about unbound samplers.
         glBindTexture(GL_TEXTURE_2D, underwaterPaletteTextureId != 0 ? underwaterPaletteTextureId : dummyTextureId);
 
+        if (perLineScroll) {
+            glActiveTexture(GL_TEXTURE5);
+            glBindTexture(GL_TEXTURE_1D, perLineHScrollTextureId);
+        }
+
         quadRenderer.draw(0, 0, windowWidth, windowHeight);
 
+        if (perLineScroll) {
+            glActiveTexture(GL_TEXTURE5);
+            glBindTexture(GL_TEXTURE_1D, 0);
+            perLineScroll = false; // Reset for next frame
+        }
         glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE4);

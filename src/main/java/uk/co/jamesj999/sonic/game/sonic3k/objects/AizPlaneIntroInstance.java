@@ -1023,6 +1023,10 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
                 emerald.setKnuckles(knuckles);
                 spawnDynamicObject(emerald);
                 emeralds.add(emerald);
+
+                // Compensate for pendingDynamicAdditions delay: ROM processes each
+                // emerald's first movement in the same frame via CreateChild6_Simple.
+                emerald.update(0, player);
             }
 
             // Trigger Knuckles (ROM: btst #7,status(parent) — signals rock child to break)

@@ -19,8 +19,11 @@ import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
 import uk.co.jamesj999.sonic.game.ZoneRegistry;
 import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
 import uk.co.jamesj999.sonic.game.sonic2.LevelGamestate;
+import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioProfile;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.Sonic3kObjectRegistry;
 import uk.co.jamesj999.sonic.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
+import uk.co.jamesj999.sonic.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
 import uk.co.jamesj999.sonic.level.objects.PlaneSwitcherConfig;
 import uk.co.jamesj999.sonic.level.objects.TouchResponseTable;
@@ -55,7 +58,7 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public ObjectRegistry createObjectRegistry() {
-        return null;
+        return new Sonic3kObjectRegistry();
     }
 
     @Override
@@ -110,6 +113,11 @@ public class Sonic3kGameModule implements GameModule {
     }
 
     @Override
+    public TitleCardProvider getTitleCardProvider() {
+        return Sonic3kTitleCardManager.getInstance();
+    }
+
+    @Override
     public ZoneFeatureProvider getZoneFeatureProvider() {
         return new Sonic3kZoneFeatureProvider();
     }
@@ -136,7 +144,7 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public ObjectArtProvider getObjectArtProvider() {
-        return null;
+        return new Sonic3kObjectArtProvider();
     }
 
     @Override

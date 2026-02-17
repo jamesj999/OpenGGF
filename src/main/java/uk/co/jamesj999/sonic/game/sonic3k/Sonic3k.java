@@ -3,6 +3,8 @@ package uk.co.jamesj999.sonic.game.sonic3k;
 import uk.co.jamesj999.sonic.audio.GameSound;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
+import uk.co.jamesj999.sonic.data.AnimatedPaletteProvider;
+import uk.co.jamesj999.sonic.data.AnimatedPatternProvider;
 import uk.co.jamesj999.sonic.data.Game;
 import uk.co.jamesj999.sonic.data.PlayerSpriteArtProvider;
 import uk.co.jamesj999.sonic.data.Rom;
@@ -12,6 +14,9 @@ import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioProfile;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.level.Level;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.animation.AnimatedPaletteManager;
+import uk.co.jamesj999.sonic.level.animation.AnimatedPatternManager;
 import uk.co.jamesj999.sonic.level.resources.CompressionType;
 import uk.co.jamesj999.sonic.level.resources.LevelResourcePlan;
 import uk.co.jamesj999.sonic.level.resources.LoadOp;
@@ -34,11 +39,16 @@ import java.util.logging.Logger;
  * <p>Phase 1 supports terrain, collision, and basic palettes. No objects,
  * rings, or zone-specific features.
  */
-public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicStartPositionProvider {
+public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicStartPositionProvider,
+        AnimatedPatternProvider, AnimatedPaletteProvider {
     private static final Logger LOG = Logger.getLogger(Sonic3k.class.getName());
 
     private final Rom rom;
     private Sonic3kPlayerArt playerArt;
+    private Sonic3kRingArt ringArt;
+    private Sonic3kLevelAnimationManager levelAnimationManager;
+    private Level levelAnimationLevel;
+    private int levelAnimationZone = -1;
 
     public Sonic3k(Rom rom) throws IOException {
         this.rom = rom;
@@ -103,6 +113,37 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
             playerArt = new Sonic3kPlayerArt(RomByteReader.fromRom(rom));
         }
         return playerArt.loadForCharacter(characterCode);
+    }
+
+    @Override
+    public AnimatedPatternManager loadAnimatedPatternManager(Level level, int zoneIndex) throws IOException {
+        if (level == null) {
+            return null;
+        }
+        return getOrCreateLevelAnimationManager(level, zoneIndex);
+    }
+
+    @Override
+    public AnimatedPaletteManager loadAnimatedPaletteManager(Level level, int zoneIndex) throws IOException {
+        if (level == null) {
+            return null;
+        }
+        return getOrCreateLevelAnimationManager(level, zoneIndex);
+    }
+
+    private Sonic3kLevelAnimationManager getOrCreateLevelAnimationManager(Level level, int zoneIndex) throws IOException {
+        if (levelAnimationManager != null
+                && levelAnimationLevel == level
+                && levelAnimationZone == zoneIndex) {
+            return levelAnimationManager;
+        }
+        int actIndex = LevelManager.getInstance().getCurrentAct();
+        Sonic3kLoadBootstrap bootstrap = Sonic3kBootstrapResolver.resolve(zoneIndex, actIndex);
+        levelAnimationManager = new Sonic3kLevelAnimationManager(
+                RomByteReader.fromRom(rom), level, zoneIndex, actIndex, bootstrap.isSkipIntro());
+        levelAnimationLevel = level;
+        levelAnimationZone = zoneIndex;
+        return levelAnimationManager;
     }
 
     @Override
@@ -245,11 +286,28 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
         // Character palette
         int characterPaletteAddr = Sonic3kConstants.SONIC_PALETTE_ADDR;
 
+        // Load objects and rings
+        RomByteReader romReader = RomByteReader.fromRom(rom);
+        var objectPlacement = new Sonic3kObjectPlacement(romReader);
+        var objectSpawns = objectPlacement.load(zone, act);
+
+        var ringPlacement = new Sonic3kRingPlacement(romReader);
+        var ringSpawns = ringPlacement.load(zone, act);
+
+        if (ringArt == null) {
+            ringArt = new Sonic3kRingArt(rom);
+        }
+        var ringSpriteSheet = ringArt.load();
+
+        LOG.info(String.format("  S3K loaded %d objects, %d rings for zone=%d act=%d",
+                objectSpawns.size(), ringSpawns.size(), zone, act));
+
         Sonic3kLevel level = new Sonic3kLevel(rom, zone, plan,
                 primaryCollisionAddr, secondaryCollisionAddr, interleavedCollision,
                 layoutAddr, boundariesAddr,
                 characterPaletteAddr, levelPaletteAddr,
-                boundariesMinXOverride);
+                boundariesMinXOverride,
+                objectSpawns, ringSpawns, ringSpriteSheet);
 
         // Pre-decompress AIZ intro overlay data during level load so the
         // terrain swap at camera X=0x1400 doesn't cause a frame hitch.

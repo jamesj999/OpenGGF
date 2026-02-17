@@ -82,6 +82,11 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
     }
 
     @Override
+    public int getPriorityBucket() {
+        return 4;
+    }
+
+    @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
             return;

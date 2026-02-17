@@ -8,16 +8,19 @@ import uk.co.jamesj999.sonic.game.sonic3k.objects.AizPlaneIntroInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.VISIBLE_LINES;
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.asrWord;
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.negWord;
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.packScrollWords;
+import static uk.co.jamesj999.sonic.level.scroll.M68KMath.unpackBG;
 
 public class SwScrlAizTest {
 
     private static final int INTRO_DEFORM_BANDS = 0x25;
     private static final int INTRO_DEFORM_CAP = 0x580;
+    private static final int DEFORM_ORIGIN_X = 0x1300;
 
     private SwScrlAiz handler;
 
@@ -65,7 +68,7 @@ public class SwScrlAizTest {
     }
 
     @Test
-    public void normalModeUsesHalfSpeedParallaxAndHalfVerticalCamera() {
+    public void normalModeUsesPerBandParallaxAndHalfVerticalCamera() {
         Camera.getInstance().setLevelStarted(true);
         int[] buffer = new int[VISIBLE_LINES];
         int cameraX = 0x200;
@@ -73,17 +76,109 @@ public class SwScrlAizTest {
 
         handler.update(buffer, cameraX, cameraY, 0, 0);
 
-        short fgScroll = negWord(cameraX);
-        short bgScroll = asrWord(fgScroll, 1);
-        int expectedPacked = packScrollWords(fgScroll, bgScroll);
-        int expectedOffset = bgScroll - fgScroll;
-
+        // vscrollFactorBG = cameraY / 2
         assertEquals(asrWord(cameraY, 1), handler.getVscrollFactorBG());
-        assertEquals(expectedOffset, handler.getMinScrollOffset());
-        assertEquals(expectedOffset, handler.getMaxScrollOffset());
-        for (int line = 0; line < VISIBLE_LINES; line++) {
-            assertEquals(expectedPacked, buffer[line]);
+
+        // Compute expected band values from AIZ1_Deform formula
+        short fgScroll = negWord(cameraX);
+        int relative = (short) (cameraX - DEFORM_ORIGIN_X);
+        long base = ((long) relative << 16) >> 5;
+
+        // Tree bands (wave=0 on first call): d0 = base/2, loop adds wave+base
+        long d0 = base >> 1;
+        short[] treeBands = new short[6];
+        for (int i = 5; i >= 0; i--) {
+            // d3 (wave) = 0 on first frame
+            treeBands[i] = (short) (d0 >> 16);
+            d0 += base;
         }
+
+        // bgY=64: band 0 (208px) → 144 visible lines, band 1 (32px), band 2 (48px)
+        short bg0 = negWord(treeBands[0]);
+        short bg1 = negWord(treeBands[1]);
+        short bg2 = negWord(treeBands[2]);
+
+        int expected0 = packScrollWords(fgScroll, bg0);
+        int expected1 = packScrollWords(fgScroll, bg1);
+        int expected2 = packScrollWords(fgScroll, bg2);
+
+        // Band 0: lines 0-143
+        assertEquals("Band 0 start", expected0, buffer[0]);
+        assertEquals("Band 0 end", expected0, buffer[143]);
+        // Band 1: lines 144-175
+        assertEquals("Band 1 start", expected1, buffer[144]);
+        assertEquals("Band 1 end", expected1, buffer[175]);
+        // Band 2: lines 176-223
+        assertEquals("Band 2 start", expected2, buffer[176]);
+        assertEquals("Band 2 end", expected2, buffer[223]);
+
+        // Different bands have different scroll speeds
+        assertNotEquals("Bands 0 and 1 differ", buffer[143], buffer[144]);
+        assertNotEquals("Bands 1 and 2 differ", buffer[175], buffer[176]);
+    }
+
+    @Test
+    public void mountainBandsUseCorrectMultipliers() {
+        Camera.getInstance().setLevelStarted(true);
+        int[] buffer = new int[VISIBLE_LINES];
+        // cameraX=0x1400: relative=256, base=256*2048=524288 (base>>16=8)
+        // cameraY=640: bgY=320, which skips bands 0-2 fully and part of band 3
+        int cameraX = 0x1400;
+        int cameraY = 640;
+
+        handler.update(buffer, cameraX, cameraY, 0, 0);
+
+        short fgScroll = negWord(cameraX);
+        int relative = (short) (cameraX - DEFORM_ORIGIN_X);
+        long base = ((long) relative << 16) >> 5;
+
+        // --- Band 7: per-line gradient (lines 64-76) ---
+        // 13 distinct values: base*9/8 through base*21/8
+        long inc = base >> 3;
+        long d0 = base;
+        for (int line = 64; line <= 76; line++) {
+            d0 += inc;
+            short expectedBg = negWord((short) (d0 >> 16));
+            short actualBg = unpackBG(buffer[line]);
+            assertEquals("Band 7 per-line at scanline " + line, expectedBg, actualBg);
+        }
+
+        // Verify band 7 lines are distinct (per-line gradient, not repeated)
+        assertNotEquals("Band 7 lines differ",
+                unpackBG(buffer[64]), unpackBG(buffer[65]));
+
+        // --- Band 8 (lines 77-91): base*14 ---
+        long d1 = base + base;
+        long mountain = (d1 << 3) - d1; // base*14
+        short bg8 = negWord((short) (mountain >> 16));
+        for (int line = 77; line <= 91; line++) {
+            assertEquals("Band 8 at line " + line, bg8, unpackBG(buffer[line]));
+        }
+
+        // --- Band 9 (lines 92-97): base*16 ---
+        mountain += d1;
+        short bg9 = negWord((short) (mountain >> 16));
+        assertEquals("Band 9", bg9, unpackBG(buffer[92]));
+
+        // --- Band 10 (lines 98-111): base*18 ---
+        mountain += d1;
+        short bg10 = negWord((short) (mountain >> 16));
+        assertEquals("Band 10", bg10, unpackBG(buffer[98]));
+
+        // --- Band 11 (lines 112-191): base*20 ---
+        mountain += d1;
+        short bg11 = negWord((short) (mountain >> 16));
+        assertEquals("Band 11 start", bg11, unpackBG(buffer[112]));
+        assertEquals("Band 11 end", bg11, unpackBG(buffer[191]));
+
+        // --- Band 12 (lines 192-223): base*18 (same as band 10) ---
+        assertEquals("Band 12 = base*18", bg10, unpackBG(buffer[192]));
+        assertEquals("Band 12 end", bg10, unpackBG(buffer[223]));
+
+        // Mountain bands are much faster than tree bands
+        // base*14 >> 16 = 112, which is 14x the base speed of 8
+        assertEquals("Band 8 speed = base*14", (short) -112, bg8);
+        assertEquals("Band 11 speed = base*20", (short) -160, bg11);
     }
 
     private int[] buildExpectedIntroBuffer(int cameraX, int cameraY, int source) {

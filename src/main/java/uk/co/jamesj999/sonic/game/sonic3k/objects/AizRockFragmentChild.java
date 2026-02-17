@@ -71,6 +71,11 @@ public class AizRockFragmentChild extends AbstractObjectInstance {
     }
 
     @Override
+    public int getPriorityBucket() {
+        return 3; // ROM priority 0x180
+    }
+
+    @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         motionState.x = currentX; motionState.y = currentY;
         motionState.xSub = xSub;  motionState.ySub = ySub;

@@ -188,6 +188,23 @@ public class BackgroundRenderer {
     }
 
     /**
+     * Upload HScroll data to GPU early (before the tile pass), so the tilemap
+     * shader can sample per-scanline scroll values when PerLineScroll is active.
+     */
+    public void uploadHScroll(int[] hScroll) {
+        if (initialized && hScrollBuffer != null) {
+            hScrollBuffer.upload(hScroll);
+        }
+    }
+
+    /**
+     * Get the HScroll texture ID for binding in the tilemap shader.
+     */
+    public int getHScrollTextureId() {
+        return hScrollBuffer != null ? hScrollBuffer.getTextureId() : 0;
+    }
+
+    /**
      * Execute the scroll pass with wider FBO for per-scanline scrolling.
      *
      * @param hScroll          Packed horizontal scroll array from ParallaxManager
@@ -198,6 +215,17 @@ public class BackgroundRenderer {
      */
     public void renderWithScrollWide(int[] hScroll, int scrollMidpoint, int extraBuffer,
             int fboVScroll) {
+        renderWithScrollWide(hScroll, scrollMidpoint, extraBuffer, fboVScroll, false);
+    }
+
+    /**
+     * Execute the scroll pass, optionally skipping per-line HScroll sampling.
+     *
+     * @param noHScroll When true, the parallax shader skips HScroll sampling
+     *                  (used when per-line scroll was already applied in the tile pass)
+     */
+    public void renderWithScrollWide(int[] hScroll, int scrollMidpoint, int extraBuffer,
+            int fboVScroll, boolean noHScroll) {
         if (!initialized)
             return;
 
@@ -232,6 +260,7 @@ public class BackgroundRenderer {
         parallaxShader.setViewportOffset(viewportX, viewportY);
         parallaxShader.setBackdropColor(backdropR, backdropG, backdropB);
         parallaxShader.setFillTransparentWithBackdrop(true);
+        parallaxShader.setNoHScroll(noHScroll);
 
         // Bind textures
         glActiveTexture(GL_TEXTURE0);

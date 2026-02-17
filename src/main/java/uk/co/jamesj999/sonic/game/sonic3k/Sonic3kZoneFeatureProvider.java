@@ -70,6 +70,33 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     }
 
     @Override
+    public float getVdpNametableBase(int zoneIndex, int actIndex, int cameraX, int tilemapWidthTiles) {
+        if (zoneIndex != 0 || actIndex != 0) {
+            return 0.0f;
+        }
+        int introOffset = AizPlaneIntroInstance.getIntroScrollOffset();
+        if (introOffset < 0) {
+            return 0.0f;  // Pure ocean phase: no positions overwritten
+        }
+        // Overflow = total number of nametable column overwrites since scrolling began.
+        // BG tile = cameraX / 16 (BG at half speed, 8px/tile).
+        // First overwrite when bgTile = VDP_WRAP(64) - SCREEN_TILES(40) + 1 = 25.
+        // NOT clamped: the shader decomposes overflow into gen/partial to handle
+        // multiple wrap cycles (each position gets overwritten every 64 scroll steps).
+        int bgTile = Math.floorDiv(cameraX, 16);
+        return Math.max(0.0f, (float) (bgTile - 24));
+    }
+
+    @Override
+    public boolean shouldSuppressHud(int zoneIndex, int actIndex) {
+        if (zoneIndex != 0 || actIndex != 0) {
+            return false;
+        }
+        // Hide HUD during AIZ intro until Camera marks level as started
+        return !Camera.getInstance().isLevelStarted();
+    }
+
+    @Override
     public boolean shouldSuppressInitialTitleCard(int zoneIndex, int actIndex) {
         if (zoneIndex != 0 || actIndex != 0) {
             return false;
