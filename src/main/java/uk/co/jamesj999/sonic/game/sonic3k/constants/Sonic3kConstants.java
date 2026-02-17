@@ -168,6 +168,12 @@ public class Sonic3kConstants {
     public static final int ART_NEM_BUBBLES_ADDR = 0x191B46;
     public static final int ART_NEM_RING_HUD_TEXT_ADDR = 0x192AEE;
     public static final int ART_NEM_ENEMY_PTS_STARPOST_ADDR = 0x192D2A;
+    public static final int ART_NEM_SPIKES_SPRINGS_ADDR = 0x1927FE;
+
+    // VRAM tile index for SpikesSprings shared art (spikes start at +8)
+    public static final int ARTTILE_SPIKES_SPRINGS = 0x0494;
+    // VRAM tile index for diagonal spring art (separate from SpikesSprings)
+    public static final int ARTTILE_DIAGONAL_SPRING = 0x043A;
 
     // ArtUnc_CutsceneKnux - Cutscene Knuckles sprite art (uncompressed, DPLC-driven)
     // 0x4EE0 bytes = 631 tiles

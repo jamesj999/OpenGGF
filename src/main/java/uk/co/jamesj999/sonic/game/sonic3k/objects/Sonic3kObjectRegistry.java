@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.game.sonic3k.constants.S3kZoneSet;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kObjectIds;
 import uk.co.jamesj999.sonic.level.objects.ObjectFactory;
 import uk.co.jamesj999.sonic.level.objects.ObjectInstance;
@@ -56,6 +57,11 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
     }
 
     private void registerDefaultFactories() {
+        factories.put(Sonic3kObjectIds.PATH_SWAP, (spawn, registry) -> null);
+        factories.put(Sonic3kObjectIds.SPRING,
+                (spawn, registry) -> new Sonic3kSpringObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.SPIKES,
+                (spawn, registry) -> new Sonic3kSpikeObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AIZ1_TREE,
                 (spawn, registry) -> new Aiz1TreeObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AIZ1_ZIPLINE_PEG,
@@ -63,8 +69,21 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
     }
 
     /**
-     * Returns the object name from the SK Set 1 pointer table.
+     * Returns the object name for the given zone set.
+     * For S3KL (zones 0-6), delegates to {@link #getPrimaryName(int)}.
+     * For SKL (zones 7-13), uses the SK Set 2 pointer table names.
+     */
+    public String getPrimaryName(int objectId, S3kZoneSet zoneSet) {
+        if (zoneSet == S3kZoneSet.SKL) {
+            return getSklName(objectId);
+        }
+        return getPrimaryName(objectId);
+    }
+
+    /**
+     * Returns the object name from the SK Set 1 pointer table (S3KL).
      * Names match the disassembly label with the {@code Obj_} prefix stripped.
+     * Used for zones 0-6 (AIZ, HCZ, MGZ, CNZ, FBZ, ICZ, LBZ).
      */
     @Override
     public String getPrimaryName(int objectId) {
@@ -289,6 +308,188 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
             case 0xEC -> "PachinkoMagnetOrb";
             case 0xED -> "PachinkoItemOrb";
             case 0xFF -> "FBZMagneticPendulum";
+            default -> String.format("S3K_Obj_%02X", objectId & 0xFF);
+        };
+    }
+
+    /**
+     * Returns the object name from the SK Set 2 pointer table (SKL).
+     * Used for zones 7-13 (MHZ, SOZ, LRZ, SSZ, DEZ, DDZ).
+     * Shared objects (Ring, Monitor, Spring, etc.) return the same name as S3KL.
+     */
+    private String getSklName(int objectId) {
+        return switch (objectId) {
+            case 0x00 -> "Ring";
+            case 0x01 -> "Monitor";
+            case 0x02 -> "PathSwap";
+            case 0x03 -> "MHZTwistedVine";
+            case 0x04 -> "CollapsingPlatform";
+            case 0x05 -> "AIZLRZEMZRock";
+            case 0x06 -> "MHZPulleyLift";
+            case 0x07 -> "Spring";
+            case 0x08 -> "Spikes";
+            case 0x09 -> "MHZCurledVine";
+            case 0x0A -> "MHZStickyVine";
+            case 0x0B -> "MHZSwingBarHorizontal";
+            case 0x0C -> "MHZSwingBarVertical";
+            case 0x0D -> "BreakableWall";
+            case 0x0E -> "TwistedRamp";
+            case 0x0F -> "CollapsingBridge";
+            case 0x10 -> "MHZSwingVine";
+            case 0x11 -> "MHZMushroomPlatform";
+            case 0x12 -> "MHZMushroomParachute";
+            case 0x13 -> "MHZMushroomCatapult";
+            case 0x14 -> "Updraft";
+            case 0x15 -> "LRZCorkscrew";
+            case 0x16 -> "LRZWallRide";
+            case 0x17 -> "LRZSinkingRock";
+            case 0x18 -> "LRZFallingSpike";
+            case 0x19 -> "LRZDoor";
+            case 0x1A -> "LRZBigDoor";
+            case 0x1B -> "LRZFireballLauncher";
+            case 0x1C -> "LRZButtonHorizontal";
+            case 0x1D -> "LRZShootingTrigger";
+            case 0x1E -> "LRZDashElevator";
+            case 0x1F -> "LRZLavaFall";
+            case 0x20 -> "LRZSwingingSpikeBall";
+            case 0x21 -> "LRZSmashingSpikePlatform";
+            case 0x22 -> "LRZSpikeBall";
+            case 0x23 -> "MHZMushroomCap";
+            case 0x24 -> "AutomaticTunnel";
+            case 0x25 -> "LRZChainedPlatforms";
+            case 0x26 -> "AutoSpin";
+            case 0x27 -> "S2LavaMarker";
+            case 0x28 -> "InvisibleBlock";
+            case 0x29 -> "LRZFlameThrower";
+            case 0x2A -> "CorkFloor";
+            case 0x2B -> "LRZOrbitingSpikeBallH";
+            case 0x2C -> "LRZOrbitingSpikeBallV";
+            case 0x2D -> "LRZSolidMovingPlatforms";
+            case 0x2E -> "LRZSolidRock";
+            case 0x2F -> "StillSprite";
+            case 0x30 -> "AnimatedStillSprite";
+            case 0x31 -> "LRZCollapsingBridge";
+            case 0x32 -> "LRZTurbineSprites";
+            case 0x33 -> "Button";
+            case 0x34 -> "StarPost";
+            case 0x35 -> "AIZForegroundPlant";
+            case 0x36 -> "HCZBreakableBar";
+            case 0x37 -> "LRZSpikeBallLauncher";
+            case 0x38 -> "SOZQuicksand";
+            case 0x39 -> "SOZSpawningSandBlocks";
+            case 0x3A -> "SOZPathSwap";
+            case 0x3B -> "SOZLoopFallthrough";
+            case 0x3C -> "Door";
+            case 0x3D -> "RetractingSpring";
+            case 0x3E -> "SOZPushableRock";
+            case 0x3F -> "SOZSpringVine";
+            case 0x40 -> "SOZRisingSandWall";
+            case 0x41 -> "SOZLightSwitch";
+            case 0x42 -> "SOZFloatingPillar";
+            case 0x43 -> "SOZSwingingPlatform";
+            case 0x44 -> "SOZBreakableSandRock";
+            case 0x45 -> "SOZPushSwitch";
+            case 0x46 -> "SOZDoor";
+            case 0x47 -> "SOZSandCork";
+            case 0x48 -> "SOZRapelWire";
+            case 0x49 -> "SOZSolidSprites";
+            case 0x4A -> "DEZFloatingPlatform";
+            case 0x4B -> "DEZTiltingBridge";
+            case 0x4C -> "DEZHangCarrier";
+            case 0x4D -> "DEZTorpedoLauncher";
+            case 0x4E -> "DEZLiftPad";
+            case 0x4F -> "DEZStaircase";
+            case 0x50 -> "DEZConveyorBelt";
+            case 0x51 -> "FloatingPlatform";
+            case 0x52 -> "DEZLightning";
+            case 0x53 -> "DEZConveyorPad";
+            case 0x54 -> "Bubbler";
+            case 0x55 -> "DEZEnergyBridge";
+            case 0x56 -> "DEZEnergyBridgeCurved";
+            case 0x57 -> "DEZTunnelLauncher";
+            case 0x58 -> "DEZGravitySwitch";
+            case 0x59 -> "DEZTeleporter";
+            case 0x5A -> "DEZGravityTube";
+            case 0x5B -> "DEZGravitySwap";
+            case 0x5C -> "DEZGravityHub";
+            case 0x5D -> "DEZRetractingSpring";
+            case 0x5E -> "DEZHoverMachine";
+            case 0x5F -> "DEZGravityRoom";
+            case 0x60 -> "DEZBumperWall";
+            case 0x61 -> "DEZGravityPuzzle";
+            case 0x6A -> "InvisibleHurtBlockH";
+            case 0x6B -> "InvisibleHurtBlockV";
+            case 0x6C -> "TensionBridge";
+            case 0x6D -> "InvisibleShockBlock";
+            case 0x6E -> "InvisibleLavaBlock";
+            case 0x74 -> "SSZRetractingSpring";
+            case 0x75 -> "SSZSwingingCarrier";
+            case 0x76 -> "SSZRotatingPlatform";
+            case 0x77 -> "SSZCutsceneBridge";
+            case 0x78 -> "FBZDEZPlayerLauncher";
+            case 0x79 -> "SSZHPZTeleporter";
+            case 0x7A -> "SSZElevatorBar";
+            case 0x7B -> "SSZCollapsingBridgeDiagonal";
+            case 0x7C -> "SSZCollapsingBridge";
+            case 0x7D -> "SSZBouncyCloud";
+            case 0x7E -> "SSZCollapsingColumn";
+            case 0x7F -> "SSZFloatingPlatform";
+            case 0x80 -> "HiddenMonitor";
+            case 0x81 -> "EggCapsule";
+            case 0x82 -> "CutsceneKnuckles";
+            case 0x83 -> "CutsceneButton";
+            case 0x84 -> "AIZPlaneIntro";
+            case 0x85 -> "SSEntryRing";
+            case 0x86 -> "GumballMachine";
+            case 0x87 -> "GumballTriangleBumper";
+            case 0x88 -> "CNZWaterLevelCorkFloor";
+            case 0x89 -> "CNZWaterLevelButton";
+            case 0x8A -> "FBZExitHall";
+            case 0x8B -> "SpriteMask";
+            case 0x8C -> "Madmole";
+            case 0x8D -> "Mushmeanie";
+            case 0x8E -> "Dragonfly";
+            case 0x8F -> "Butterdroid";
+            case 0x90 -> "Cluckoid";
+            case 0x91 -> "MHZMinibossTree";
+            case 0x92 -> "MHZMiniboss";
+            case 0x93 -> "MHZEndBoss";
+            case 0x94 -> "Skorp";
+            case 0x95 -> "Sandworm";
+            case 0x96 -> "Rockn";
+            case 0x97 -> "SOZMiniboss";
+            case 0x98 -> "SOZEndBoss";
+            case 0x99 -> "Fireworm";
+            case 0x9A -> "Iwamodoki";
+            case 0x9B -> "Toxomister";
+            case 0x9C -> "LRZRockCrusher";
+            case 0x9D -> "LRZMiniboss";
+            case 0x9E -> "LRZ3Autoscroll";
+            case 0xA0 -> "EggRobo";
+            case 0xA1 -> "SSZGHZBoss";
+            case 0xA2 -> "SSZMTZBoss";
+            case 0xA3 -> "SSZEndBoss";
+            case 0xA4 -> "Spikebonker";
+            case 0xA5 -> "Chainspike";
+            case 0xA6 -> "DEZMiniboss";
+            case 0xA7 -> "DEZEndBoss";
+            case 0xA8 -> "MHZ1CutsceneKnuckles";
+            case 0xA9 -> "MHZ1CutsceneButton";
+            case 0xAA -> "Hyudoro";
+            case 0xAB -> "SOZCapsuleHyudoro";
+            case 0xAC -> "SOZCapsule";
+            case 0xAD -> "LRZ3Platform";
+            case 0xAE -> "LRZ2CutsceneKnuckles";
+            case 0xAF -> "SSZCutsceneButton";
+            case 0xB0 -> "HPZMasterEmerald";
+            case 0xB1 -> "HPZPaletteControl";
+            case 0xB2 -> "KnuxFinalBossCrane";
+            case 0xB3 -> "StartNewLevel";
+            case 0xB4 -> "HPZSuperEmerald";
+            case 0xB5 -> "HPZSSEntryControl";
+            case 0xB6 -> "DDZEndBoss";
+            case 0xB7 -> "DDZAsteroid";
+            case 0xB8 -> "DDZMissile";
             default -> String.format("S3K_Obj_%02X", objectId & 0xFF);
         };
     }

@@ -73,6 +73,15 @@ public class GameStateManager {
      */
     private int itemBonus;
 
+    /**
+     * Reverse gravity flag (ROM: Reverse_gravity_flag at $FFFFF768).
+     * When active, gravity is inverted for players and Y-dependent objects
+     * must flip their behavior (e.g., up springs become down springs).
+     * Used in S3K DEZ gravity-flip sections.
+     * Currently always false - will be activated by level events when implemented.
+     */
+    private boolean reverseGravityActive;
+
     private GameStateManager() {
         configureSpecialStageProgress(DEFAULT_SPECIAL_STAGE_COUNT, DEFAULT_CHAOS_EMERALD_COUNT);
         resetSession();
@@ -104,6 +113,7 @@ public class GameStateManager {
         this.bigRingCollected = false;
         this.wfzFireToggle = false;
         this.itemBonus = 0;
+        this.reverseGravityActive = false;
     }
 
     public int getScore() {
@@ -351,6 +361,26 @@ public class GameStateManager {
      */
     public void resetItemBonus() {
         this.itemBonus = 0;
+    }
+
+    /**
+     * Gets the reverse gravity flag.
+     * ROM: tst.b (Reverse_gravity_flag).w at $FFFFF768
+     *
+     * @return true if reverse gravity is active
+     */
+    public boolean isReverseGravityActive() {
+        return reverseGravityActive;
+    }
+
+    /**
+     * Sets the reverse gravity flag.
+     * ROM: move.b #1,(Reverse_gravity_flag).w to enable
+     *
+     * @param active true to enable reverse gravity, false to disable
+     */
+    public void setReverseGravityActive(boolean active) {
+        this.reverseGravityActive = active;
     }
 }
 

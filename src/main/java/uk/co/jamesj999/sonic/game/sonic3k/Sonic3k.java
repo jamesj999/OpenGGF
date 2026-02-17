@@ -703,6 +703,9 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
                 addNemesisPatternOverlay(planBuilder,
                         Sonic3kConstants.ARTTILE_STARPOST,
                         Sonic3kConstants.ART_NEM_ENEMY_PTS_STARPOST_ADDR);
+                addNemesisPatternOverlay(planBuilder,
+                        Sonic3kConstants.ARTTILE_SPIKES_SPRINGS,
+                        Sonic3kConstants.ART_NEM_SPIKES_SPRINGS_ADDR);
             }
             case 0x0A -> addNemesisPatternOverlay(planBuilder,
                     Sonic3kConstants.ARTTILE_AIZ_INTRO_SPRITES,

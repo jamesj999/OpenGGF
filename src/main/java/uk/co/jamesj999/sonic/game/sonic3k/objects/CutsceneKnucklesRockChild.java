@@ -88,19 +88,25 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
     /**
      * Spawns rock fragment children with scattered velocities from
      * ROM word_2A8B0 (12 entries), implementing BreakObjectToPieces.
+     *
+     * ROM (sonic3k.asm:45772): each fragment gets a unique mapping piece
+     * from the parent's broken frame (frame 1 has 12 pieces). Piece index
+     * matches the velocity table index (0-11).
      */
     private void spawnFragments() {
         try {
             LevelManager lm = LevelManager.getInstance();
             if (lm == null || lm.getObjectManager() == null) return;
 
-            for (int[] vel : AizRockFragmentChild.FRAGMENT_VELOCITIES) {
+            int[][] velocities = AizRockFragmentChild.FRAGMENT_VELOCITIES;
+            for (int i = 0; i < velocities.length; i++) {
                 ObjectSpawn fragSpawn = new ObjectSpawn(
                         getX(), getY(), 0, 0, 0, false, 0);
                 AizRockFragmentChild frag = new AizRockFragmentChild(
-                        fragSpawn, vel[0], vel[1], mappingFrame);
+                        fragSpawn, velocities[i][0], velocities[i][1], mappingFrame, i);
                 lm.getObjectManager().addDynamicObject(frag);
-                // Compensate for pendingDynamicAdditions delay
+                // Compensate for pendingDynamicAdditions delay: ROM processes
+                // each fragment's first movement in the same frame as creation.
                 frag.update(0, null);
             }
         } catch (Exception e) {

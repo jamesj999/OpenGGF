@@ -87,6 +87,13 @@ public class ObjectDiscoveryToolTest {
         }
     }
 
+    private static ObjectDiscoveryTool.ObjectStats findStatsByObjectId(
+            ObjectDiscoveryTool.DiscoveryReport report, int objectId) {
+        return report.globalStats().values().stream()
+                .filter(s -> s.objectId == objectId)
+                .findFirst().orElse(null);
+    }
+
     @Test
     public void verifyKnownBadniksPresent() throws IOException {
         Assume.assumeTrue("ROM not found at " + ROM_PATH, Files.exists(ROM_PATH));
@@ -99,21 +106,19 @@ public class ObjectDiscoveryToolTest {
 
             ObjectDiscoveryTool.DiscoveryReport report = tool.scan();
 
-            // Check known EHZ badniks are found
-            assertTrue("Should find Buzzer (0x4B)",
-                    report.globalStats().containsKey(0x4B));
-            assertTrue("Should find Masher (0x5C)",
-                    report.globalStats().containsKey(0x5C));
-            assertTrue("Should find Coconuts (0x9D)",
-                    report.globalStats().containsKey(0x9D));
+            // Check known EHZ badniks are found (global stats uses "id:name" composite keys)
+            ObjectDiscoveryTool.ObjectStats buzzer = findStatsByObjectId(report, 0x4B);
+            ObjectDiscoveryTool.ObjectStats masher = findStatsByObjectId(report, 0x5C);
+            ObjectDiscoveryTool.ObjectStats coconuts = findStatsByObjectId(report, 0x9D);
+
+            assertNotNull("Should find Buzzer (0x4B)", buzzer);
+            assertNotNull("Should find Masher (0x5C)", masher);
+            assertNotNull("Should find Coconuts (0x9D)", coconuts);
 
             // EHZ badniks should be marked as implemented
-            assertTrue("Buzzer should be implemented",
-                    report.globalStats().get(0x4B).implemented);
-            assertTrue("Masher should be implemented",
-                    report.globalStats().get(0x5C).implemented);
-            assertTrue("Coconuts should be implemented",
-                    report.globalStats().get(0x9D).implemented);
+            assertTrue("Buzzer should be implemented", buzzer.implemented);
+            assertTrue("Masher should be implemented", masher.implemented);
+            assertTrue("Coconuts should be implemented", coconuts.implemented);
         }
     }
 }
