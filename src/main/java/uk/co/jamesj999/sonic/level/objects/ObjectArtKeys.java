@@ -167,6 +167,9 @@ public final class ObjectArtKeys {
     // SBZ girder block (S1 Object 0x70)
     public static final String SBZ_GIRDER = "sbz_girder";
 
+    // SBZ running disc spot (S1 Object 0x67)
+    public static final String SBZ_RUNNING_DISC = "sbz_running_disc";
+
     // SYZ bumper (S1)
     public static final String BUMPER = "bumper";
 
