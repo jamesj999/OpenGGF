@@ -3,9 +3,15 @@ package uk.co.jamesj999.sonic.game.sonic3k.objects;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kLevel;
+import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kObjectArtKeys;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
+import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.level.resources.CompressionType;
 import uk.co.jamesj999.sonic.level.resources.LoadOp;
 import uk.co.jamesj999.sonic.level.resources.ResourceLoader;
 
@@ -16,7 +22,8 @@ import java.util.logging.Logger;
  * Runtime terrain swap helper for AIZ1 intro.
  *
  * ROM behavior: once camera X reaches $1400, AIZ loads "Main Level" overlays
- * for both 16x16 and 8x8 terrain data.
+ * for both 16x16 and 8x8 terrain data, and the zone art PLCs (PLC 0x0B)
+ * become active for objects like foreground plants, zipline pegs, etc.
  */
 public final class AizIntroTerrainSwap {
     private static final Logger LOG = Logger.getLogger(AizIntroTerrainSwap.class.getName());
@@ -101,10 +108,91 @@ public final class AizIntroTerrainSwap {
 
         sonic3kLevel.applyChunkOverlay(overlay.mainLevelBlocks16x16(), overlay.chunkOverlayOffsetBytes());
         sonic3kLevel.applyPatternOverlay(overlay.mainLevelTiles8x8(), overlay.patternOverlayOffsetBytes());
+
+        // Apply PLC 0x0B (zone art) Nemesis overlays. During the intro, Load_PLC_2
+        // clears the PLC queue before PLC 0x0B is decompressed, so zone object art
+        // (foreground plants, zipline pegs, vines, etc.) isn't available until now.
+        applyZoneArtOverlays(sonic3kLevel);
+
+        // The Nemesis overlays updated Pattern objects in-place (the same objects
+        // referenced by object sprite sheets), but the renderers' GPU textures are
+        // stale — applyPatternOverlay only re-uploads at the level's pattern indices,
+        // not at the renderer's separate patternBase. Re-upload now.
+        refreshObjectRendererTextures(levelManager);
+
         if (!levelManager.swapToPrebuiltTilemaps()) {
             levelManager.invalidateAllTilemaps();
         }
         return true;
+    }
+
+    /**
+     * Decompresses and applies PLC 0x0B (AIZ1 zone art) Nemesis overlays onto
+     * the level pattern buffer. Matches the entries in sonic3k.asm PLC_0B.
+     */
+    private static void applyZoneArtOverlays(Sonic3kLevel level) {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            ResourceLoader loader = new ResourceLoader(rom);
+
+            applyNemesisOverlay(loader, level,
+                    Sonic3kConstants.ARTTILE_AIZ_SWING_VINE,
+                    Sonic3kConstants.ART_NEM_AIZ_SWING_VINE_ADDR);
+            applyNemesisOverlay(loader, level,
+                    Sonic3kConstants.ARTTILE_AIZ_SLIDE_ROPE,
+                    Sonic3kConstants.ART_NEM_AIZ_SLIDE_ROPE_ADDR);
+            applyNemesisOverlay(loader, level,
+                    Sonic3kConstants.ARTTILE_AIZ_MISC1,
+                    Sonic3kConstants.ART_NEM_AIZ_MISC1_ADDR);
+            applyNemesisOverlay(loader, level,
+                    Sonic3kConstants.ARTTILE_AIZ_FALLING_LOG,
+                    Sonic3kConstants.ART_NEM_AIZ_FALLING_LOG_ADDR);
+            applyNemesisOverlay(loader, level,
+                    Sonic3kConstants.ARTTILE_BUBBLES,
+                    Sonic3kConstants.ART_NEM_BUBBLES_ADDR);
+            applyNemesisOverlay(loader, level,
+                    Sonic3kConstants.ARTTILE_AIZ_FLOATING_PLATFORM,
+                    Sonic3kConstants.ART_NEM_AIZ_CORK_FLOOR_ADDR);
+
+            LOG.info("AIZ1 zone art (PLC 0x0B) Nemesis overlays applied");
+        } catch (IOException e) {
+            LOG.warning("Failed to apply PLC 0x0B zone art overlays: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Re-uploads GPU textures for object renderers whose backing Pattern data
+     * was modified by the PLC 0x0B Nemesis overlays.
+     */
+    private static void refreshObjectRendererTextures(LevelManager levelManager) {
+        GraphicsManager gfx = GraphicsManager.getInstance();
+        if (gfx == null || !gfx.isGlInitialized()) {
+            return;
+        }
+        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        if (renderManager == null) {
+            return;
+        }
+
+        refreshRenderer(gfx, renderManager, Sonic3kObjectArtKeys.AIZ_FOREGROUND_PLANT);
+        refreshRenderer(gfx, renderManager, Sonic3kObjectArtKeys.AIZ1_ZIPLINE_PEG);
+    }
+
+    private static void refreshRenderer(GraphicsManager gfx, ObjectRenderManager renderManager, String key) {
+        PatternSpriteRenderer renderer = renderManager.getRenderer(key);
+        if (renderer != null && renderer.isReady()) {
+            ObjectSpriteSheet sheet = renderManager.getSheet(key);
+            if (sheet != null) {
+                renderer.updatePatternRange(gfx, 0, sheet.getPatterns().length);
+            }
+        }
+    }
+
+    private static void applyNemesisOverlay(ResourceLoader loader, Sonic3kLevel level,
+                                            int tileIndex, int romAddr) throws IOException {
+        byte[] data = loader.loadSingle(
+                LoadOp.overlay(romAddr, CompressionType.NEMESIS, 0));
+        level.applyPatternOverlay(data, tileIndex * 32);
     }
 
     private static OverlayData loadOverlayData() throws IOException {

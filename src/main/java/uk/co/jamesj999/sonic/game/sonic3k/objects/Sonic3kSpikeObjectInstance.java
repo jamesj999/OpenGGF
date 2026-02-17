@@ -46,6 +46,10 @@ public class Sonic3kSpikeObjectInstance extends AbstractObjectInstance
     private static final int SPIKE_RETRACT_MAX = 0x2000;
     private static final int SPIKE_RETRACT_DELAY = 60;
 
+    // Push mode constants (ROM: sub_2438A)
+    private static final int PUSH_RATE_PERIOD = 0x10;   // $3A reset value: every 17 frames
+    private static final int PUSH_MAX_DISTANCE = 0x20;  // $3C init: 32 pixels total
+
     private final int baseX;
     private final int baseY;
     private int currentX;
@@ -54,6 +58,11 @@ public class Sonic3kSpikeObjectInstance extends AbstractObjectInstance
     private int retractState;
     private int retractTimer;
     private ObjectSpawn dynamicSpawn;
+
+    // Push mode state (ROM: $3A rate limiter, $3C distance remaining, $3E/$3F prev status)
+    private boolean contactPushingActive;   // Set by onSolidContact, consumed by next update()
+    private int pushRateTimer;              // $3A: frames until next push allowed
+    private int pushDistanceRemaining = PUSH_MAX_DISTANCE; // $3C: remaining 1px pushes
 
     public Sonic3kSpikeObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Spikes");
@@ -68,6 +77,12 @@ public class Sonic3kSpikeObjectInstance extends AbstractObjectInstance
     public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
         if (player == null) {
             return;
+        }
+        // Track push contact for push mode (before hurt check, since side contact
+        // doesn't trigger shouldHurt for upright spikes but does drive push logic).
+        // ROM: status(a0) pushing bits are set by SolidObjectFull, read next frame.
+        if (isPushMode() && contact.pushing()) {
+            contactPushingActive = true;
         }
         if (!shouldHurt(contact)) {
             return;
@@ -89,7 +104,7 @@ public class Sonic3kSpikeObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        moveSpikes();
+        moveSpikes(player);
         updateDynamicSpawn();
     }
 
@@ -147,6 +162,10 @@ public class Sonic3kSpikeObjectInstance extends AbstractObjectInstance
         return contact.standing();
     }
 
+    private boolean isPushMode() {
+        return (spawn.subtype() & 0xF) == 3;
+    }
+
     private boolean isSideways() {
         return ((spawn.subtype() >> 4) & 0xF) >= 4;
     }
@@ -160,12 +179,12 @@ public class Sonic3kSpikeObjectInstance extends AbstractObjectInstance
         return table[entry];
     }
 
-    private void moveSpikes() {
+    private void moveSpikes(AbstractPlayableSprite player) {
         int behavior = spawn.subtype() & 0xF;
         switch (behavior) {
             case 1 -> moveSpikesVertical();
             case 2 -> moveSpikesHorizontal();
-            case 3 -> moveSpikesPush();
+            case 3 -> moveSpikesPush(player);
             default -> {
                 currentX = baseX;
                 currentY = baseY;
@@ -186,13 +205,44 @@ public class Sonic3kSpikeObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Behavior 3: pushing mode. Same retract/extend cycle as vertical/horizontal,
-     * but pushes the player along as a solid platform.
+     * Behavior 3: player-driven pushing mode (ROM: loc_24356 / sub_2438A).
+     * <p>
+     * Unlike vertical/horizontal oscillation, push spikes only move when a player
+     * actively pushes against them from the left. Movement is rate-limited to 1 pixel
+     * every 17 frames, with a maximum total displacement of 32 pixels.
      */
-    private void moveSpikesPush() {
-        moveSpikesDelay();
-        currentX = baseX;
-        currentY = baseY + (retractOffset >> 8);
+    private void moveSpikesPush(AbstractPlayableSprite player) {
+        // contactPushingActive is set by onSolidContact (previous frame's solid resolution).
+        // Consume it now; will be re-set by this frame's onSolidContact if still pushing.
+        boolean wasPushing = contactPushingActive;
+        contactPushingActive = false;
+
+        if (!wasPushing || player == null) {
+            return;
+        }
+        // ROM: btst #5,d0 - player must have been in pushing state (from previous solid resolution)
+        if (!player.getPushing()) {
+            return;
+        }
+        // ROM: cmp.w x_pos(a1),d2 / blo.s - spike must be at or to the right of the player
+        int playerX = player.getCentreX();
+        if (currentX < playerX) {
+            return;
+        }
+        // ROM: subq.w #1,$3A(a0) / bpl.s - rate limiter (first push is immediate, then every 17 frames)
+        pushRateTimer--;
+        if (pushRateTimer >= 0) {
+            return;
+        }
+        pushRateTimer = PUSH_RATE_PERIOD;
+        // ROM: tst.w $3C(a0) / beq.s - check remaining push distance
+        if (pushDistanceRemaining <= 0) {
+            return;
+        }
+        // ROM: subq.w #1,$3C(a0) / addq.w #1,x_pos(a0) / addq.w #1,x_pos(a1)
+        pushDistanceRemaining--;
+        currentX++;
+        player.setCentreX((short) (playerX + 1));
     }
 
     private void moveSpikesDelay() {
