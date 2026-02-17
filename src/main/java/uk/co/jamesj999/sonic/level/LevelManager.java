@@ -310,11 +310,16 @@ public class LevelManager {
             checkpointState.clear();
             levelGamestate = gameModule.createLevelState();
 
-            // Initialize water system for this level (S2/S3K only).
+            // Initialize water system for this level.
+            // Only attempt water loading for zones the game module declares as water zones,
+            // otherwise S3K object IDs (e.g. 0x04 = CollapsingPlatform) get misinterpreted
+            // as water surface objects by WaterSystem.extractWaterHeight().
             // S1 water is already loaded by the ZoneFeatureProvider above.
             WaterSystem waterSystem = WaterSystem.getInstance();
-            if (!waterSystem.hasWater(level.getZoneIndex(), currentAct)) {
-                waterSystem.loadForLevel(rom, level.getZoneIndex(), currentAct, level.getObjects());
+            if (zoneFeatureProvider != null && zoneFeatureProvider.hasWater(level.getZoneIndex())) {
+                if (!waterSystem.hasWater(level.getZoneIndex(), currentAct)) {
+                    waterSystem.loadForLevel(rom, level.getZoneIndex(), currentAct, level.getObjects());
+                }
             }
 
             // Pre-allocate the background FBO at maximum required size to avoid
