@@ -539,7 +539,6 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public void giveShield(ShieldType type) {
-                LOGGER.fine("DEBUG: giveShield(" + type + ") called. Current shield state: " + shield);
                 // S2: Super Sonic cannot pick up shields
                 if (superSonic) {
                         return;

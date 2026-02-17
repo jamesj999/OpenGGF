@@ -367,6 +367,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         if (zoneIndex == 0x00) {
             registerSheet(Sonic3kObjectArtKeys.AIZ1_TREE, art.buildAiz1TreeSheet());
             registerSheet(Sonic3kObjectArtKeys.AIZ1_ZIPLINE_PEG, art.buildAiz1ZiplinePegSheet());
+            registerSheet(Sonic3kObjectArtKeys.AIZ_FOREGROUND_PLANT, art.buildAizForegroundPlantSheet());
         }
 
         LOG.info("Sonic3kObjectArtProvider registered " + rendererKeys.size()

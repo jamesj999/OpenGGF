@@ -262,6 +262,46 @@ public class Sonic3kObjectArt {
         return buildLevelArtSheet(Sonic3kConstants.ARTTILE_DIAGONAL_SPRING, 0, frames, 0, 0x1C);
     }
 
+    /**
+     * Builds the AIZForegroundPlant sprite sheet.
+     * <p>
+     * From disassembly (Map - AIZ Foreground Plant.asm):
+     * art_tile = make_art_tile(ArtTile_AIZMisc1, 2, 0) → base tile 0x333, palette 2
+     * Mapping: 2 frames (0=with flowers, 1=without flowers), 8 pieces each.
+     * Tile range: 0x64 to 0x9B (56 patterns from level art).
+     */
+    public ObjectSpriteSheet buildAizForegroundPlantSheet() {
+        // Frame 0: with flowers (8 pieces)
+        List<SpriteMappingPiece> frame0Pieces = List.of(
+                new SpriteMappingPiece(-32, -48, 4, 3, 0x64, false, false, 0),
+                new SpriteMappingPiece(-32, -24, 4, 4, 0x70, false, false, 0),
+                new SpriteMappingPiece(-24, 8, 3, 2, 0x80, false, false, 0),
+                new SpriteMappingPiece(-8, 24, 1, 3, 0x86, false, false, 0),
+                new SpriteMappingPiece(16, -24, 2, 1, 0x89, false, false, 0),
+                new SpriteMappingPiece(0, -16, 4, 2, 0x8B, false, false, 0),
+                new SpriteMappingPiece(0, 0, 3, 2, 0x93, false, false, 0),
+                new SpriteMappingPiece(0, 16, 1, 3, 0x99, false, false, 0));
+
+        // Frame 1: without flowers (8 pieces)
+        List<SpriteMappingPiece> frame1Pieces = List.of(
+                new SpriteMappingPiece(0, -60, 4, 3, 0x64, true, false, 0),
+                new SpriteMappingPiece(0, -36, 4, 4, 0x70, true, false, 0),
+                new SpriteMappingPiece(0, -4, 3, 2, 0x80, true, false, 0),
+                new SpriteMappingPiece(0, 12, 1, 3, 0x86, true, false, 0),
+                new SpriteMappingPiece(-32, -36, 4, 3, 0x64, false, false, 0),
+                new SpriteMappingPiece(-32, -12, 4, 4, 0x70, false, false, 0),
+                new SpriteMappingPiece(-24, 20, 3, 2, 0x80, false, false, 0),
+                new SpriteMappingPiece(-8, 36, 1, 3, 0x86, false, false, 0));
+
+        List<SpriteMappingFrame> frames = List.of(
+                new SpriteMappingFrame(frame0Pieces),
+                new SpriteMappingFrame(frame1Pieces));
+
+        // art_tile base = 0x333, palette = 2
+        // Tile range: 0x64 to 0x9C (exclusive) = 56 patterns
+        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_AIZ_MISC1, 2, frames, 0x64, 0x9C);
+    }
+
     private List<SpriteMappingFrame> adjustTileIndices(List<SpriteMappingFrame> frames, int adjustment) {
         if (adjustment == 0) {
             return frames;

@@ -60,7 +60,8 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             0x07, // Spring
             0x08, // Spikes
             0x09, // AIZ1Tree
-            0x0A  // AIZ1ZiplinePeg
+            0x0A, // AIZ1ZiplinePeg
+            0x35  // AIZForegroundPlant
     );
 
     // S3KL badniks (SK Set 1, zones 0-6: AIZ through LBZ)
