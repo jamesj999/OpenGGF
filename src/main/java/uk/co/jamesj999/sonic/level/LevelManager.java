@@ -2711,14 +2711,16 @@ public class LevelManager {
             // position,
             // but our setY() sets the top-left. We need to subtract yRadius to convert.
             int yRadius = 19; // Sonic's standing yRadius
+            int spawnY = -1; // Track spawn Y for airborne detection
             if (hasCheckpoint) {
                 player.setX((short) checkpointX);
                 player.setY((short) (checkpointY - yRadius));
+                spawnY = checkpointY;
                 LOGGER.info("Set player position from checkpoint: X=" + checkpointX + ", Y=" + checkpointY +
                         " (adjusted by yRadius=" + yRadius + ")");
             } else {
                 int spawnX = levelData.getStartXPos();
-                int spawnY = levelData.getStartYPos();
+                spawnY = levelData.getStartYPos();
 
                 if (game instanceof DynamicStartPositionProvider dynamicStartProvider) {
                     int[] dynamicStart = dynamicStartProvider.getStartPosition(currentZone, currentAct);
@@ -2748,7 +2750,11 @@ public class LevelManager {
                 playable.setXSpeed((short) 0);
                 playable.setYSpeed((short) 0);
                 playable.setGSpeed((short) 0);
-                playable.setAir(false);
+                // ROM: air state is determined by first frame of physics.
+                // For most levels, Sonic spawns on solid ground (air=false).
+                // For SBZ3 (spawnY=0), Sonic spawns at the top of the level with
+                // no ground and must fall — set air=true so gravity applies.
+                playable.setAir(spawnY == 0);
                 LOGGER.info("Player state after loadCurrentLevel: air=" + playable.getAir() +
                         ", ySpeed=" + playable.getYSpeed() + ", layer=" + player.getLayer());
                 playable.setRolling(false);
