@@ -55,7 +55,6 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
     );
 
     private static final Set<Integer> IMPLEMENTED_IDS = Set.of(
-            0x01, // Monitor
             0x02, // PathSwap
             0x07, // Spring
             0x08, // Spikes

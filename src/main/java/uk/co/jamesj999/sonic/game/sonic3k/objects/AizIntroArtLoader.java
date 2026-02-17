@@ -5,6 +5,7 @@ import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
+import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
@@ -179,6 +180,8 @@ public class AizIntroArtLoader {
         if (planePatterns != null) return;
         try {
             byte[] data = decompressKosinskiModuled(Sonic3kConstants.ART_KOSM_AIZ_INTRO_PLANE_ADDR);
+            LOG.fine("Plane art decompressed: " + data.length + " bytes (" + (data.length / 32) +
+                    " tiles, expected 136 tiles / 4352 bytes)");
             planePatterns = bytesToPatterns(data);
             LOG.fine("Loaded plane art: " + planePatterns.length + " patterns");
         } catch (Exception e) {
@@ -247,40 +250,41 @@ public class AizIntroArtLoader {
     }
 
     /**
-     * Decompresses Nemesis art for the AIZ cork floor sprite (used by rock child).
-     * ROM addresses: {@link Sonic3kConstants#ART_NEM_AIZ_CORK_FLOOR_ADDR} (Cork Floor 1, 20 tiles)
-     *                {@link Sonic3kConstants#ART_NEM_AIZ_CORK_FLOOR_2_ADDR} (Cork Floor 2, ~20 tiles)
+     * Loads cork floor art from the level's 8x8 pattern data (not Nemesis sprite art).
      *
-     * <p>The ROM's PLC system loads both files adjacently in VRAM. The mapping at
-     * {@link Sonic3kConstants#MAP_AIZ_CORK_FLOOR_ADDR} references tile indices 0x1C-0x37
-     * (28 unique tiles), requiring both files concatenated. A tile offset of -0x1C is
-     * applied in {@link #loadCorkFloorMappings()} to remap indices to 0-based.
+     * <p>The cork floor object's {@code art_tile = make_art_tile($001,2,0)} adds +1 to
+     * mapping tile indices. Mapping tiles $1C-$37 → VRAM tiles $1D-$38 → level pattern
+     * indices 0x1D-0x38. These are loaded as part of AIZ's KosinskiM primary 8x8 patterns.
      *
-     * <p>ObjDat3_66432 assigns {@code make_art_tile($001,2,0)} — palette line 2, no DPLCs.
+     * <p>A tile offset of -0x1C is applied in {@link #loadCorkFloorMappings()} to remap
+     * mapping indices to 0-based into our pattern array.
      */
     public static void loadCorkFloorArt() {
         if (corkFloorPatterns != null) return;
         try {
-            Rom rom = GameServices.rom().getRom();
-            FileChannel channel = rom.getFileChannel();
-            Pattern[] part1, part2;
-            synchronized (rom) {
-                channel.position(Sonic3kConstants.ART_NEM_AIZ_CORK_FLOOR_ADDR);
-                byte[] data1 = NemesisReader.decompress(channel);
-                part1 = bytesToPatterns(data1);
-
-                channel.position(Sonic3kConstants.ART_NEM_AIZ_CORK_FLOOR_2_ADDR);
-                byte[] data2 = NemesisReader.decompress(channel);
-                part2 = bytesToPatterns(data2);
+            // Cork floor tiles come from the LEVEL's pattern data, not Nemesis sprite art.
+            // art_tile = make_art_tile($001,2,0) adds +1 to mapping tile indices.
+            // Mapping tiles $1C-$37 → VRAM tiles $1D-$38 → level pattern indices 0x1D-0x38.
+            var lm = LevelManager.getInstance();
+            var level = (lm != null) ? lm.getCurrentLevel() : null;
+            if (level == null || level.getPatternCount() < 0x39) {
+                LOG.warning("Level patterns not available for cork floor (count="
+                        + (level != null ? level.getPatternCount() : 0) + ")");
+                corkFloorPatterns = new Pattern[0];
+                return;
             }
-            // Concatenate both cork floor art files
-            corkFloorPatterns = new Pattern[part1.length + part2.length];
-            System.arraycopy(part1, 0, corkFloorPatterns, 0, part1.length);
-            System.arraycopy(part2, 0, corkFloorPatterns, part1.length, part2.length);
-            LOG.fine("Loaded cork floor art: " + part1.length + " + " + part2.length +
-                    " = " + corkFloorPatterns.length + " patterns");
+            int startTile = 0x1D;  // art_tile base (1) + lowest mapping tile (0x1C)
+            int tileCount = 28;    // 0x1D through 0x38 inclusive
+            corkFloorPatterns = new Pattern[tileCount];
+            for (int i = 0; i < tileCount; i++) {
+                corkFloorPatterns[i] = new Pattern();
+                corkFloorPatterns[i].copyFrom(level.getPattern(startTile + i));
+            }
+            LOG.fine("Loaded cork floor art from level patterns: " + tileCount
+                    + " tiles (level indices 0x" + Integer.toHexString(startTile)
+                    + "-0x" + Integer.toHexString(startTile + tileCount - 1) + ")");
         } catch (Exception e) {
-            LOG.log(Level.SEVERE, "Failed to load cork floor art", e);
+            LOG.log(Level.SEVERE, "Failed to load cork floor art from level patterns", e);
             corkFloorPatterns = new Pattern[0];
         }
     }

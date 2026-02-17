@@ -10,7 +10,9 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Tool for testing decompression of data at various ROM offsets.
@@ -158,6 +160,32 @@ public class CompressionTestTool {
         }
 
         return -1;
+    }
+
+    /**
+     * Search the ROM for ALL exact byte matches of the pattern.
+     *
+     * @param pattern     Byte pattern to search for
+     * @param startOffset Start of search range (inclusive)
+     * @param endOffset   End of search range (exclusive), or Long.MAX_VALUE for entire ROM
+     * @return list of ROM offsets where the pattern occurs
+     */
+    public List<Long> findAllRawMatches(byte[] pattern, long startOffset, long endOffset) throws IOException {
+        List<Long> matches = new ArrayList<>();
+        if (pattern == null || pattern.length == 0) {
+            return matches;
+        }
+
+        long searchFrom = startOffset;
+        while (true) {
+            long offset = findRawMatch(pattern, searchFrom, endOffset);
+            if (offset < 0) {
+                break;
+            }
+            matches.add(offset);
+            searchFrom = offset + 1;
+        }
+        return matches;
     }
 
     private boolean matchesAt(byte[] data, byte[] referenceData, int offset) {

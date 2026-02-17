@@ -5,6 +5,7 @@ import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.game.CollisionModel;
 import uk.co.jamesj999.sonic.game.PhysicsFeatureSet;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.AizPlaneIntroInstance;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants;
@@ -45,6 +46,7 @@ public class SpriteManager {
 	private final List<Sprite>[] highPriorityBuckets = new ArrayList[BUCKET_COUNT];
 	private final List<Sprite> nonPlayableSprites = new ArrayList<>();
 	private boolean bucketsDirty = true;
+	private boolean lastSidekickSuppressed = false;
 
 	private LevelManager levelManager;
 
@@ -442,6 +444,11 @@ public class SpriteManager {
 	}
 
 	private void bucketSprites() {
+		boolean currentSuppressed = isCpuSidekickSuppressed();
+		if (currentSuppressed != lastSidekickSuppressed) {
+			bucketsDirty = true;
+			lastSidekickSuppressed = currentSuppressed;
+		}
 		if (!bucketsDirty) {
 			return;
 		}
@@ -481,7 +488,10 @@ public class SpriteManager {
 
 	private boolean isCpuSidekickSuppressed() {
 		LevelManager lm = getLevelManager();
-		return lm != null && lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_SCZ;
+		if (lm == null) return false;
+		if (lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_SCZ) return true;
+		if (AizPlaneIntroInstance.isSidekickSuppressed()) return true;
+		return false;
 	}
 
 	private boolean isSuppressedSidekickSprite(Sprite sprite) {

@@ -26,16 +26,31 @@ public class AizIntroWaveChild extends AbstractObjectInstance {
     /** X threshold below which the wave self-deletes. */
     static final int DELETE_X = 0x60;
 
-    /** Animation frame duration in frames. */
-    private static final int ANIM_FRAME_DURATION = 3;
-    /** Intro wave mapping frames are 0..5 (byte_67A9B). */
-    private static final int WAVE_FRAME_COUNT = 6;
+    /**
+     * ROM animation data from byte_67A9B (sonic3k.asm:136013).
+     * Pairs of (mapping_frame, delay). Delay value N means N+1 frames.
+     * First pair (0,1) is skipped on first call (anim_frame starts at 0, incremented to 2).
+     * Sentinel -1 means delete sprite.
+     */
+    private static final int[] ANIM_DATA = {
+        0, 1,   // offset 0: skipped
+        0, 0,   // offset 2: frame 0, 1 tick
+        1, 1,   // offset 4: frame 1, 2 ticks
+        2, 2,   // offset 6: frame 2, 3 ticks
+        3, 2,   // offset 8: frame 3, 3 ticks
+        4, 1,   // offset 10: frame 4, 2 ticks
+        5, 1,   // offset 12: frame 5, 2 ticks
+        -1       // sentinel: delete
+    };
 
     private final AizPlaneIntroInstance parent;
     private int currentX;
     private int currentY;
-    private int animFrame;
+    /** Index into ANIM_DATA (advances by 2 per animation step). */
+    private int animIndex;
     private int animTimer;
+    /** Current mapping frame to render. */
+    private int mappingFrame;
 
     /**
      * @param spawn  spawn position for the wave
@@ -46,6 +61,11 @@ public class AizIntroWaveChild extends AbstractObjectInstance {
         this.parent = parent;
         this.currentX = spawn.x();
         this.currentY = spawn.y();
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        return 3;
     }
 
     @Override
@@ -64,23 +84,32 @@ public class AizIntroWaveChild extends AbstractObjectInstance {
             return;
         }
 
+        // ROM order (loc_678DA): check delete threshold, subtract scroll, animate, draw.
+        // Check x < DELETE_X before scroll subtraction to match ROM
+        if (currentX < DELETE_X) {
+            setDestroyed(true);
+            return;
+        }
+
         // ROM: subtract parent.$40 each frame (speed changes from 8 -> 12 -> 16).
         currentX -= parent.getScrollSpeed();
 
-        // Animate through wave frames
-        if (++animTimer >= ANIM_FRAME_DURATION) {
-            animTimer = 0;
-            animFrame = (animFrame + 1) % WAVE_FRAME_COUNT;
-        }
-
-        // Self-delete when scrolled off left side of screen
-        if (currentX < DELETE_X) {
-            setDestroyed(true);
+        // Animate_RawMultiDelay: decrement timer, advance on expiry
+        if (--animTimer < 0) {
+            // Advance to next animation entry
+            animIndex += 2;
+            if (animIndex >= ANIM_DATA.length || ANIM_DATA[animIndex] == -1) {
+                // Sentinel: delete sprite
+                setDestroyed(true);
+                return;
+            }
+            mappingFrame = ANIM_DATA[animIndex];
+            animTimer = ANIM_DATA[animIndex + 1];
         }
     }
 
     public int getAnimFrame() {
-        return animFrame;
+        return mappingFrame;
     }
 
     @Override
@@ -95,6 +124,6 @@ public class AizIntroWaveChild extends AbstractObjectInstance {
             renderX += camera.getX() - 128;
             renderY += camera.getY() - 128;
         } catch (Exception ignored) {}
-        renderer.drawFrameIndex(animFrame, renderX, renderY, false, false);
+        renderer.drawFrameIndex(mappingFrame, renderX, renderY, true, false);
     }
 }

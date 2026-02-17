@@ -5,6 +5,7 @@ import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kMusic;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
+import uk.co.jamesj999.sonic.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
@@ -181,6 +182,11 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     @Override
     public boolean isPersistent() {
         return true;
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        return 3; // ROM priority 0x180
     }
 
     @Override
@@ -406,6 +412,11 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_REACT_ADDR);
 
         routine = 4;
+
+        // Compensate for pendingDynamicAdditions 1-frame spawn delay:
+        // ROM processes Knuckles' first fall movement in the same frame as
+        // trigger detection. Execute first fall frame immediately.
+        routine4Fall();
     }
 
     // -----------------------------------------------------------------------
@@ -483,7 +494,6 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_WALK_ADDR);
 
             routine = 8;
-            LOG.fine("Routine 6: stand complete at X=" + currentX + ", starting pace left");
         }
     }
 
@@ -589,7 +599,8 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             Camera.getInstance().setLevelStarted(true);
             Camera.getInstance().updatePosition(true);
 
-            // TODO: Spawn title card (S3K title card system not yet implemented)
+            // ROM: AllocateObject + move.l #Obj_TitleCard,(a1)
+            Sonic3kTitleCardManager.getInstance().initializeInLevel(0, 0);
 
             setDestroyed(true);
         }

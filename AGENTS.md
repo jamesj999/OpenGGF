@@ -198,6 +198,7 @@ GameModuleRegistry.detectAndSetModule(rom);
 
 ### Sonic 3&K Bring-up Notes (Critical)
 
+- **Dual object pointer tables (zone-set system):** S3K uses two object pointer tables that remap many IDs by zone. `S3kZoneSet` enum: `S3KL` (zones 0-6: AIZ-LBZ) and `SKL` (zones 7-13: MHZ-DDZ). `Sonic3kObjectRegistry.getPrimaryName(id, zoneSet)` resolves zone-set-aware names. `Sonic3kObjectProfile` uses per-level resolution for names, badnik IDs, and boss IDs. Disasm source files: `Levels/Misc/Object pointers - SK Set 1.asm` (S3KL, 256 entries) and `Object pointers - SK Set 2.asm` (SKL, 185 entries).
 - `Sonic3kLevel.loadMap(...)` must decode layout row pointers as interleaved FG/BG words per row:
   - FG pointer word at `header + row * 4`
   - BG pointer word at `header + 2 + row * 4`
@@ -304,6 +305,7 @@ Use `--game s1`, `--game s2` (default), or `--game s3k` to select the target gam
 | `[--game s1\|s2\|s3k] verify <label>` | Verify a calculated offset against ROM data |
 | `[--game s1\|s2\|s3k] verify-batch [type]` | Batch verify all offsets (optionally filtered by type) |
 | `[--game s1\|s2\|s3k] export <type> [prefix]` | Export verified offsets as Java constants |
+| `[--game s1\|s2\|s3k] search-rom <hex> [start] [end]` | Search ROM binary for hex byte pattern |
 
 ### Usage via Maven
 
@@ -322,6 +324,10 @@ mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFind
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search AIZ" -q
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k list nem" -q
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k verify ArtNem_TitleScreenText" -q
+
+# Search ROM binary for hex byte patterns (inline data, pointer tables, etc.)
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search-rom \"07 72 73 26 15 08 FF 05\"" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search-rom \"0002 FF2A\" 0x28000 0x29000" -q
 
 # Other commands (work with all games)
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify-batch nem" -q
@@ -358,6 +364,11 @@ mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFind
 
 # Sonic 3&K: Verify a specific offset against ROM
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k verify ArtNem_TitleScreenText" -q
+
+# Search ROM for inline data (pointer tables, animation scripts, etc.)
+# Useful when disassembly labels point to inline dc.w/dc.b data, not binclude files
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search-rom \"07 72 73 26 15 08 FF 05\"" -q
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search-rom \"0002 FF2A\" 0x28000 0x29000" -q
 ```
 
 ### Verification Status Codes

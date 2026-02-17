@@ -42,6 +42,9 @@ uniform float FillTransparentWithBackdrop;
 // FBO allocation width (actual GPU texture size, may be larger than BGTextureWidth)
 uniform float FBOAllocationWidth;
 
+// When 1, skip HScroll sampling (per-line scroll already applied in tile pass)
+uniform int NoHScroll;
+
 out vec4 FragColor;
 
 void main()
@@ -57,9 +60,12 @@ void main()
     float gameY = (1.0 - normY) * 224.0;  // Flip Y for Genesis coords (Y=0 at top)
 
     // Get the scroll value for this scanline
-    float scanline = clamp(gameY, 0.0, 223.0);  // Clamp to valid scanline range
-    float scanlineTexCoord = (scanline + 0.5) / 224.0;
-    float hScrollThis = texture(HScrollTexture, scanlineTexCoord).r * 32767.0;
+    float hScrollThis = 0.0;
+    if (NoHScroll == 0) {
+        float scanline = clamp(gameY, 0.0, 223.0);  // Clamp to valid scanline range
+        float scanlineTexCoord = (scanline + 0.5) / 224.0;
+        hScrollThis = texture(HScrollTexture, scanlineTexCoord).r * 32767.0;
+    }
 
     // hScroll contains signed scroll values from the zone handler.
     // Convert back to world-space sample coordinate.

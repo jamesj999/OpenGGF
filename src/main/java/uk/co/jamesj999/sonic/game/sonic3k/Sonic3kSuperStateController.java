@@ -217,6 +217,18 @@ public class Sonic3kSuperStateController extends SuperStateController {
         LOGGER.info("Super Sonic deactivated (S3K)");
     }
 
+    /**
+     * Begin a palette fade-out from an external trigger (e.g. AIZ intro Knuckles hit).
+     * Matches ROM: {@code move.b #2,(Super_palette_status)} + {@code move.w #$1E,(Palette_frame)}.
+     *
+     * @param startFrame byte offset into PalCycle_SuperSonic to start the backwards fade from
+     */
+    public void beginPaletteRevert(int startFrame) {
+        paletteState = 2;
+        paletteFrame = startFrame;
+        paletteTimer = 3;
+    }
+
     @Override
     protected void updatePostRevertEffects() {
         if (paletteState == 2) {
