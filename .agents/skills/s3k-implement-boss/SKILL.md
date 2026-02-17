@@ -81,6 +81,12 @@ S3K has **both mini-bosses (Act 1) and end bosses (Act 2)** per zone — signifi
 | **Constants file** | `Sonic3kConstants.java` | `Sonic2Constants.java` | `Sonic1Constants.java` |
 | **Registry** | `Sonic3kObjectRegistry.java` | `Sonic2ObjectRegistry.java` | `Sonic1ObjectRegistry.java` |
 
+## Critical: Use S&K-Side ROM Addresses
+
+The locked-on ROM has two halves: **S&K** (0x000000–0x1FFFFF) and **S3** (0x200000–0x3FFFFF). Many shared assets exist in both halves with identical data. **Always use S&K-side addresses (< 0x200000)** for all ROM constants in `Sonic3kConstants.java`.
+
+When RomOffsetFinder returns results from both `sonic3k.asm` and `s3.asm`, always use the `sonic3k.asm` address. When reading boss disassembly, always use the `sonic3k.asm` version (S3KL code path), as it may contain zone-specific overrides or Knuckles variants absent from the S3 standalone version.
+
 ## Implementation Process
 
 ### Phase 1: Research & Discovery

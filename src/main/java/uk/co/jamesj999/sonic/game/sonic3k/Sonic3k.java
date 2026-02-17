@@ -655,8 +655,14 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
             // 2) then Load_PLC_2 #1 clears the queue and loads common HUD art,
             // 3) then Load_PLC #$0A appends intro-sprite art.
             // So effective startup overlays are PLC_01 + PLC_0A only.
-            appendPlcPatternOps(planBuilder, 0x01);
+            //
+            // PLC 0x0A (intro waves, 344 tiles at $03D1-$0528) overlaps with
+            // PLC 0x01's spikes/springs ($0494-$04C3). In the ROM, PLCs process
+            // incrementally over VBlanks so the overwrite is staggered. In our
+            // engine, all overlays apply at once, so we load intro sprites FIRST
+            // and character PLC LAST to keep spikes/springs correct for gameplay.
             appendPlcPatternOps(planBuilder, 0x0A);
+            appendPlcPatternOps(planBuilder, 0x01);
             return;
         }
 

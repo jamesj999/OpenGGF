@@ -165,6 +165,7 @@ public class Sonic3kConstants {
 
     public static final int ART_NEM_SONIC_LIFE_ICON_ADDR = 0x190D34;
     public static final int ART_NEM_MONITORS_ADDR = 0x190F4A;
+    public static final int ART_NEM_EXPLOSION_ADDR = 0x19200A;
     public static final int ART_NEM_BUBBLES_ADDR = 0x191B46;
     public static final int ART_NEM_RING_HUD_TEXT_ADDR = 0x192AEE;
     public static final int ART_NEM_ENEMY_PTS_STARPOST_ADDR = 0x192D2A;

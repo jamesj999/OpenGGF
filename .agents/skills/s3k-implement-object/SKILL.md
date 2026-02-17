@@ -21,6 +21,12 @@ When delegating agents to explore the disassembly, instruct them to use the **s3
 
 ## Implementation Process
 
+### Critical: Use S&K-Side ROM Addresses
+
+The locked-on ROM has two halves: **S&K** (0x000000–0x1FFFFF) and **S3** (0x200000–0x3FFFFF). Many shared assets exist in both halves with identical data. **Always use S&K-side addresses (< 0x200000)** for all ROM constants in `Sonic3kConstants.java`.
+
+When RomOffsetFinder returns results from both `sonic3k.asm` and `s3.asm`, always use the `sonic3k.asm` address. When reading object disassembly, always use the `sonic3k.asm` version (S3KL code path), as it may contain zone-specific overrides absent from the S3 standalone version.
+
 ### Phase 1: Research & Discovery
 
 **Important — Zone-Set-Aware Object IDs:** S3K uses **two object pointer tables** that remap many IDs by zone:

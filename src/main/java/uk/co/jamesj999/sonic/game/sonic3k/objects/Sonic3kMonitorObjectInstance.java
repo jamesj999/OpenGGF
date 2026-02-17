@@ -58,9 +58,10 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
     // Super monitor gives 50 rings
     private static final int SUPER_RING_REWARD = 50;
 
-    // Icon frame offset: icon mapping frame = type.animId + 2
+    // Icon frame offset: icon mapping frame = type.animId + 1
+    // ROM: addq.b #1,d0 (sonic3k.asm line 40699)
     // (Mapping frames: 0=box, 1=eggman, 2=1up, 3=eggman2, 4=rings, ...)
-    private static final int ICON_FRAME_OFFSET = 2;
+    private static final int ICON_FRAME_OFFSET = 1;
 
     private final MonitorType type;
     private final ObjectAnimationState animationState;
@@ -172,7 +173,8 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
             objectManager.addDynamicObject(
                     new ExplosionObjectInstance(0x27, spawn.x(), spawn.y(), renderManager));
         }
-        AudioManager.getInstance().playSfx(Sonic3kSfx.EXPLODE.id);
+        // ROM: Obj_Explosion loc_1E61A plays sfx_Break ($3D)
+        AudioManager.getInstance().playSfx(Sonic3kSfx.BREAK.id);
     }
 
     /**
@@ -265,31 +267,34 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            appendFallbackBox(commands);
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getMonitorRenderer();
-        if (renderer == null || !renderer.isReady()) {
-            appendFallbackBox(commands);
-            return;
-        }
+        PatternSpriteRenderer renderer = renderManager != null ? renderManager.getMonitorRenderer() : null;
+        boolean hasRenderer = renderer != null && renderer.isReady();
 
-        // Draw monitor body (broken shell or animated frame)
-        int frameIndex = broken ? BROKEN_FRAME : mappingFrame;
-        renderer.drawFrameIndex(frameIndex, spawn.x(), spawn.y(), false, false);
+        if (hasRenderer) {
+            // Draw monitor body (broken shell or animated frame)
+            int frameIndex = broken ? BROKEN_FRAME : mappingFrame;
+            renderer.drawFrameIndex(frameIndex, spawn.x(), spawn.y(), false, false);
+        } else {
+            // Fallback: full box when intact, half-height shell when broken
+            appendFallbackBox(commands, broken);
+        }
 
         // Draw rising icon
         if (iconActive) {
-            int iconFrame = resolveIconFrame();
-            ObjectSpriteSheet sheet = renderManager.getMonitorSheet();
-            if (iconFrame >= 0 && sheet != null && iconFrame < sheet.getFrameCount()) {
-                SpriteMappingFrame frame = sheet.getFrame(iconFrame);
-                if (frame != null && !frame.pieces().isEmpty()) {
-                    // Draw only the first piece (the icon overlay, not the box base)
-                    SpriteMappingPiece iconPiece = frame.pieces().get(0);
-                    renderer.drawPieces(List.of(iconPiece), spawn.x(), iconSubY >> 8, false, false);
+            if (hasRenderer) {
+                int iconFrame = resolveIconFrame();
+                ObjectSpriteSheet sheet = renderManager.getMonitorSheet();
+                if (iconFrame >= 0 && sheet != null && iconFrame < sheet.getFrameCount()) {
+                    SpriteMappingFrame frame = sheet.getFrame(iconFrame);
+                    if (frame != null && !frame.pieces().isEmpty()) {
+                        // Draw only the first piece (the icon overlay, not the box base)
+                        SpriteMappingPiece iconPiece = frame.pieces().get(0);
+                        renderer.drawPieces(List.of(iconPiece), spawn.x(), iconSubY >> 8, false, false);
+                    }
                 }
+            } else {
+                // Fallback: small box for rising icon
+                appendFallbackIcon(commands, spawn.x(), iconSubY >> 8);
             }
         }
     }
@@ -302,15 +307,30 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
         return type.animId + ICON_FRAME_OFFSET;
     }
 
-    private void appendFallbackBox(List<GLCommand> commands) {
+    private void appendFallbackBox(List<GLCommand> commands, boolean isBroken) {
         int cx = spawn.x();
         int cy = spawn.y();
         int half = 0x0E;
         int left = cx - half;
         int right = cx + half;
-        int top = cy - half;
+        // Broken shell: bottom half only (y to y+half)
+        int top = isBroken ? cy : cy - half;
         int bottom = cy + half;
-        float r = 0.4f, g = 0.9f, b = 1.0f;
+        float r = isBroken ? 0.6f : 0.4f;
+        float g = isBroken ? 0.6f : 0.9f;
+        float b = isBroken ? 0.6f : 1.0f;
+        appendWireRect(commands, left, top, right, bottom, r, g, b);
+    }
+
+    private void appendFallbackIcon(List<GLCommand> commands, int cx, int cy) {
+        int half = 6;
+        appendWireRect(commands, cx - half, cy - half, cx + half, cy + half,
+                1.0f, 1.0f, 0.4f);
+    }
+
+    private void appendWireRect(List<GLCommand> commands,
+            int left, int top, int right, int bottom,
+            float r, float g, float b) {
         commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, left, top, 0, 0));
         commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, right, top, 0, 0));
         commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, right, top, 0, 0));
@@ -323,10 +343,10 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
 
     // -- Collision interfaces --
 
-    // From disassembly: obColType = $46
+    // From disassembly: obColType = $46; cleared to 0 when broken (line 40642)
     @Override
     public int getCollisionFlags() {
-        return 0x46;
+        return broken ? 0 : 0x46;
     }
 
     @Override
