@@ -247,8 +247,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short originalX = sprite.getX();
 		short originalY = sprite.getY();
 
-		doJumpHeight();
-		doChgJumpDir();
+		// ROM hurt routine (routine 4) skips both Sonic_JumpHeight and
+		// Sonic_ChgJumpDir — only applies gravity + collision.
+		if (!sprite.isHurt()) {
+			doJumpHeight();
+			doChgJumpDir();
+		}
 		doLevelBoundary();
 		doObjectMoveAndFall();
 

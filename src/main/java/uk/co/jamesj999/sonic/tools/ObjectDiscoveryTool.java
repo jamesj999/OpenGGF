@@ -41,15 +41,20 @@ public class ObjectDiscoveryTool {
      */
     public DiscoveryReport scan() {
         List<ZoneReport> zoneReports = new ArrayList<>();
-        Map<Integer, ObjectStats> globalStats = new TreeMap<>();
+        Map<String, ObjectStats> globalStats = new LinkedHashMap<>();
 
         for (LevelConfig level : profile.getLevels()) {
             ZoneReport report = scanLevel(level);
             zoneReports.add(report);
 
             for (ObjectUsage usage : report.objects) {
-                globalStats.computeIfAbsent(usage.objectId,
-                        id -> new ObjectStats(id, getName(id), getAliases(id), isImplemented(id)))
+                // Composite key: same ID + same name merge; same ID + different name = separate entries
+                String key = usage.objectId + ":" + usage.name;
+                globalStats.computeIfAbsent(key,
+                        k -> new ObjectStats(usage.objectId, usage.name,
+                                getAliases(usage.objectId, level),
+                                isImplemented(usage.objectId),
+                                getCategory(usage.objectId, level)))
                         .addZoneUsage(level.shortName() + level.act(), usage.count, usage.subtypes);
             }
         }
@@ -73,7 +78,7 @@ public class ObjectDiscoveryTool {
             Set<Integer> subtypes = instances.stream()
                     .map(ObjectSpawn::subtype)
                     .collect(Collectors.toSet());
-            usages.add(new ObjectUsage(id, getName(id), instances.size(), isImplemented(id), subtypes));
+            usages.add(new ObjectUsage(id, getName(id, level), instances.size(), isImplemented(id), subtypes));
         }
 
         usages.sort(Comparator.comparingInt(u -> u.objectId));
@@ -82,8 +87,8 @@ public class ObjectDiscoveryTool {
         return new ZoneReport(level, usages, spawns.size(), implementedCount, usages.size() - implementedCount);
     }
 
-    private String getName(int objectId) {
-        Map<Integer, List<String>> names = profile.getObjectNames();
+    private String getName(int objectId, LevelConfig level) {
+        Map<Integer, List<String>> names = profile.getObjectNames(level);
         List<String> nameList = names.get(objectId);
         if (nameList != null && !nameList.isEmpty()) {
             return nameList.get(0);
@@ -91,8 +96,8 @@ public class ObjectDiscoveryTool {
         return String.format("%s_Obj_%02X", profile.gameId().toUpperCase(), objectId);
     }
 
-    private List<String> getAliases(int objectId) {
-        Map<Integer, List<String>> names = profile.getObjectNames();
+    private List<String> getAliases(int objectId, LevelConfig level) {
+        Map<Integer, List<String>> names = profile.getObjectNames(level);
         List<String> nameList = names.get(objectId);
         return (nameList != null && nameList.size() > 1) ? nameList.subList(1, nameList.size()) : List.of();
     }
@@ -101,9 +106,9 @@ public class ObjectDiscoveryTool {
         return profile.getImplementedIds().contains(objectId);
     }
 
-    private String getCategory(int objectId) {
-        if (profile.getBossIds().contains(objectId)) return "Boss";
-        if (profile.getBadnikIds().contains(objectId)) return "Badnik";
+    private String getCategory(int objectId, LevelConfig level) {
+        if (profile.getBossIds(level).contains(objectId)) return "Boss";
+        if (profile.getBadnikIds(level).contains(objectId)) return "Badnik";
         return "Object";
     }
 
@@ -146,7 +151,7 @@ public class ObjectDiscoveryTool {
                 .toList();
         for (ObjectStats stats : unimplemented) {
             sb.append(String.format("| 0x%02X | %s | %s | %d | %s |%n",
-                    stats.objectId, getCategory(stats.objectId), stats.name, stats.totalCount,
+                    stats.objectId, stats.category, stats.name, stats.totalCount,
                     String.join(", ", stats.zoneUsage.keySet())));
         }
         sb.append("\n");
@@ -167,7 +172,7 @@ public class ObjectDiscoveryTool {
                     zr.totalObjects, zr.implementedCount, zr.unimplementedCount));
 
             Map<String, List<ObjectUsage>> byCategory = zr.objects.stream()
-                    .collect(Collectors.groupingBy(u -> getCategory(u.objectId)));
+                    .collect(Collectors.groupingBy(u -> getCategory(u.objectId, zr.level)));
 
             for (String category : List.of("Badnik", "Boss", "Object")) {
                 List<ObjectUsage> items = byCategory.getOrDefault(category, List.of());
@@ -298,7 +303,7 @@ public class ObjectDiscoveryTool {
     public record ZoneReport(LevelConfig level, List<ObjectUsage> objects,
                              int totalObjects, int implementedCount, int unimplementedCount) {}
 
-    public record DiscoveryReport(List<ZoneReport> zoneReports, Map<Integer, ObjectStats> globalStats,
+    public record DiscoveryReport(List<ZoneReport> zoneReports, Map<String, ObjectStats> globalStats,
                                   int implemented, int unimplemented, LocalDateTime scanTime) {}
 
     public record DynamicBoss(int objectId, String name, String description) {}
@@ -308,15 +313,17 @@ public class ObjectDiscoveryTool {
         final String name;
         final List<String> aliases;
         final boolean implemented;
+        final String category;
         int totalCount;
         final Map<String, Integer> zoneUsage = new LinkedHashMap<>();
         final Set<Integer> allSubtypes = new TreeSet<>();
 
-        ObjectStats(int objectId, String name, List<String> aliases, boolean implemented) {
+        ObjectStats(int objectId, String name, List<String> aliases, boolean implemented, String category) {
             this.objectId = objectId;
             this.name = name;
             this.aliases = aliases;
             this.implemented = implemented;
+            this.category = category;
         }
 
         void addZoneUsage(String zone, int count, Set<Integer> subtypes) {

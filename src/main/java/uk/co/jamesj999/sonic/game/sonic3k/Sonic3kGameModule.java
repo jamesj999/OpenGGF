@@ -21,6 +21,7 @@ import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
 import uk.co.jamesj999.sonic.game.sonic2.LevelGamestate;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioProfile;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kObjectIds;
 import uk.co.jamesj999.sonic.game.sonic3k.objects.Sonic3kObjectRegistry;
 import uk.co.jamesj999.sonic.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
 import uk.co.jamesj999.sonic.game.sonic3k.titlecard.Sonic3kTitleCardManager;
@@ -73,12 +74,12 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public int getPlaneSwitcherObjectId() {
-        return 0;
+        return Sonic3kObjectIds.PATH_SWAP;
     }
 
     @Override
     public PlaneSwitcherConfig getPlaneSwitcherConfig() {
-        return new PlaneSwitcherConfig((byte) 0, (byte) 0, (byte) 0, (byte) 0);
+        return new PlaneSwitcherConfig((byte) 0x0C, (byte) 0x0D, (byte) 0x0E, (byte) 0x0F);
     }
 
     @Override

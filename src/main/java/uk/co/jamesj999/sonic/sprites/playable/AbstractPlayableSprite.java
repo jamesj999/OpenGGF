@@ -293,6 +293,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         private int priorityBucket = RenderPriority.PLAYER_DEFAULT;
 
         protected boolean shield = false;
+        private ShieldType shieldType = null;
         private ShieldObjectInstance shieldObject;
         private InvincibilityStarsObjectInstance invincibilityObject;
         protected boolean speedShoes = false;
@@ -404,6 +405,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         public void clearPowerUps() {
                 // Clear shield
                 this.shield = false;
+                this.shieldType = null;
                 if (this.shieldObject != null) {
                         this.shieldObject.destroy();
                         this.shieldObject = null;
@@ -429,6 +431,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void resetState() {
                 this.shield = false;
+                this.shieldType = null;
                 if (this.shieldObject != null) {
                         this.shieldObject.destroy();
                         this.shieldObject = null;
@@ -504,17 +507,25 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public void giveShield() {
-                LOGGER.fine("DEBUG: giveShield() called. Current shield state: " + shield);
+                giveShield(ShieldType.BASIC);
+        }
+
+        public void giveShield(ShieldType type) {
+                LOGGER.fine("DEBUG: giveShield(" + type + ") called. Current shield state: " + shield);
                 // S2: Super Sonic cannot pick up shields
                 if (superSonic) {
                         return;
                 }
+                // Remove existing shield before granting new one
                 if (hasShield()) {
-                        LOGGER.fine("DEBUG: Player already has shield. Returning.");
-                        return;
+                        if (shieldObject != null) {
+                                shieldObject.destroy();
+                                shieldObject = null;
+                        }
                 }
                 this.shield = true;
-                LOGGER.fine("DEBUG: Shield flag set to true.");
+                this.shieldType = type;
+                LOGGER.fine("DEBUG: Shield flag set to true, type=" + type);
                 try {
                         this.shieldObject = new ShieldObjectInstance(this);
                         LOGGER.fine("DEBUG: ShieldObjectInstance created successfully: " + shieldObject);
@@ -529,6 +540,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         e.printStackTrace();
                         throw e;
                 }
+        }
+
+        public ShieldType getShieldType() {
+                return shieldType;
         }
 
         public void giveSpeedShoes() {
@@ -1100,6 +1115,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (shield) {
                         LOGGER.fine("DEBUG: applyHurt called. removing shield.");
                         shield = false;
+                        shieldType = null;
                         if (shieldObject != null) {
                                 shieldObject.destroy();
                                 shieldObject = null;

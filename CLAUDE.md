@@ -224,6 +224,7 @@ Pattern: add ROM address to `Sonic2Constants`, add key to `Sonic2ObjectArtKeys`,
 
 Critical constraints for current S3K support:
 
+- **Dual object pointer tables (zone-set system):** S3K uses two object pointer tables that remap many IDs by zone. `S3kZoneSet` enum: `S3KL` (zones 0-6: AIZ-LBZ) and `SKL` (zones 7-13: MHZ-DDZ). `Sonic3kObjectRegistry.getPrimaryName(id, zoneSet)` resolves zone-set-aware names. `Sonic3kObjectProfile` uses per-level resolution for names, badnik IDs, and boss IDs via `GameObjectProfile` default methods. The `ObjectDiscoveryTool` uses composite keys (`"objectId:name"`) so same-ID-different-name objects get separate checklist entries.
 - **Layout decoding:** `Sonic3kLevel.loadMap()` parses FG/BG row pointers as interleaved pairs (`FG: header + row*4`, `BG: header + 2 + row*4`), NOT contiguous tables.
 - **AIZ1 intro skip:** `Sonic3k.loadLevel()` can bootstrap to post-intro gameplay. `getLevelBoundariesAddr()` must use `LEVEL_SIZES_AIZ1_INTRO_INDEX` (26) when active.
 - **Camera bounds timing:** Camera placement must be refreshed AFTER assigning level bounds (`camera.updatePosition(true)`).

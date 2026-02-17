@@ -19,6 +19,12 @@ When delegating agents to explore the disassembly, instruct them to use the **s3
 
 ### Phase 1: Research & Discovery
 
+**Important — Zone-Set-Aware Object IDs:** S3K uses **two object pointer tables** that remap many IDs by zone:
+- **S3KL** (S3K-Level Object Set): Zones 0-6 (AIZ, HCZ, MGZ, CNZ, FBZ, ICZ, LBZ)
+- **SKL** (SK-Level Object Set): Zones 7-13 (MHZ, SOZ, LRZ, SSZ, DEZ, DDZ)
+
+The same ID can mean different objects depending on the zone set. For example, 0x8F = CaterKillerJr (S3KL) vs Butterdroid (SKL). Use `S3kZoneSet.forZone(zoneId)` to determine which set applies, and `Sonic3kObjectRegistry.getPrimaryName(id, zoneSet)` to resolve the correct name.
+
 Delegate multiple agents to explore the disassembly. **Include this instruction in each agent prompt:**
 
 > Use the s3k-disasm-guide skill (`.claude/skills/s3k-disasm-guide/skill.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
@@ -26,8 +32,8 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 Agents should:
 
 1. **Identify the object** - Parse $ARGUMENTS to determine the object name
-   - Search `Sonic3kObjectIds.java` for ID/name mapping (if it exists)
-   - Search `Sonic3kObjectRegistry.java` for existing registration (if it exists)
+   - Search `Sonic3kObjectIds.java` for ID/name mapping
+   - Search `Sonic3kObjectRegistry.java` for existing registration
    - If ambiguous, search the disassembly for the object:
      ```bash
      grep -n "Obj_ObjectName" docs/skdisasm/sonic3k.asm
@@ -95,30 +101,16 @@ public final class Sonic3kObjectIds {
 
 #### 2.2 Art Loading
 
-**Note:** Sonic 3&K art infrastructure does not yet exist. Create these files following the Sonic 2 pattern:
+S3K art infrastructure exists: `Sonic3kObjectArt.java` (loader methods), `Sonic3kObjectArtProvider.java` (registration/access), `Sonic3kObjectArtKeys.java` (string keys). Follow the existing pattern.
 
-1. **Create `Sonic3kObjectArtKeys.java`** (if needed):
-   ```java
-   package uk.co.jamesj999.sonic.game.sonic3k;
+Key differences from S2:
+- Use `Sonic3kConstants` for ROM addresses
+- S3K primarily uses Kosinski Moduled compression (not regular Kosinski)
+- S3K mappings use 6-byte piece format with word header (same as S2)
+- Use `safeLoadKosinskiModuledPatterns()` for `ArtKosM_` data
+- Use `safeLoadNemesisPatterns()` for `ArtNem_` data
 
-   public final class Sonic3kObjectArtKeys {
-       private Sonic3kObjectArtKeys() {}
-       public static final String OBJECT_NAME = "objectname";
-   }
-   ```
-
-2. **Create `Sonic3kObjectArt.java`** (if needed):
-   Follow the pattern in `Sonic2ObjectArt.java`. Key differences:
-   - Use `Sonic3kConstants` for ROM addresses
-   - S3K primarily uses Kosinski Moduled compression (not regular Kosinski)
-   - S3K mappings use 6-byte piece format with word header (same as S2)
-   - Use `safeLoadKosinskiModuledPatterns()` for `ArtKosM_` data
-   - Use `safeLoadNemesisPatterns()` for `ArtNem_` data
-
-3. **Create `Sonic3kObjectArtProvider.java`** (if needed):
-   Follow `Sonic2ObjectArtProvider.java` pattern.
-
-4. **Add loader method** to `Sonic3kObjectArt.java`:
+**Add loader method** to `Sonic3kObjectArt.java`:
    ```java
    public ObjectSpriteSheet loadObjectNameSheet() {
        // S3K primarily uses Kosinski Moduled for object art
@@ -255,7 +247,7 @@ public void appendDebugRenderCommands(List<GLCommand> commands) {
 
 #### 2.5 Factory Registration
 
-Register in `Sonic3kObjectRegistry`. If this file does not exist, create it following `Sonic2ObjectRegistry` with `registerFactory()` and `registerDefaultFactories()`:
+Register in `Sonic3kObjectRegistry`:
 
 ```java
 registerFactory(Sonic3kObjectIds.OBJECT_NAME,
@@ -345,20 +337,30 @@ Once cross-validation is confirmed bug-free:
 |---------|----------|
 | **Disassembly guide** | `.claude/skills/s3k-disasm-guide/skill.md` |
 | **Boss skill** | `.claude/skills/s3k-implement-boss/skill.md` |
-| Object IDs | `src/.../game/sonic3k/constants/Sonic3kObjectIds.java` (to be created) |
-| ROM offsets | `src/.../game/sonic3k/constants/Sonic3kConstants.java` (to be created) |
-| Registry | `src/.../game/sonic3k/objects/Sonic3kObjectRegistry.java` (to be created) |
+| Zone set enum | `src/.../game/sonic3k/constants/S3kZoneSet.java` |
+| Object IDs | `src/.../game/sonic3k/constants/Sonic3kObjectIds.java` |
+| ROM offsets | `src/.../game/sonic3k/constants/Sonic3kConstants.java` |
+| Registry | `src/.../game/sonic3k/objects/Sonic3kObjectRegistry.java` |
+| Art loader | `src/.../game/sonic3k/Sonic3kObjectArt.java` |
+| Art keys | `src/.../game/sonic3k/Sonic3kObjectArtKeys.java` |
+| Art provider | `src/.../game/sonic3k/Sonic3kObjectArtProvider.java` |
 | Audio profile | `src/.../game/sonic3k/audio/Sonic3kAudioProfile.java` (to be created) |
 | Base badnik | `src/.../game/sonic2/objects/badniks/AbstractBadnikInstance.java` (shared) |
 | Disassembly main | `docs/skdisasm/sonic3k.asm` |
 | Disassembly constants | `docs/skdisasm/sonic3k.constants.asm` |
+| Object ptr table (S3KL) | `docs/skdisasm/Levels/Misc/Object pointers - SK Set 1.asm` |
+| Object ptr table (SKL) | `docs/skdisasm/Levels/Misc/Object pointers - SK Set 2.asm` |
 | Shared sprites | `docs/skdisasm/General/Sprites/` |
 | Zone-specific data | `docs/skdisasm/Levels/{ZONE}/Misc Object Data/` |
 | Implemented IDs | `src/.../tools/Sonic3kObjectProfile.java` (IMPLEMENTED_IDS set) |
 
-## S3K Badnik List (from General/Sprites/)
+## S3K Badnik List (Zone-Set-Aware)
 
-Batbot, Blaster, Blastoid, Bloominator, Bubbles Badnik, Buggernaut, Butterdroid, Caterkiller Jr, Chainspike, Clamer, Cluckoid, Corkey, Dragonfly, Fireworm, Flybot767, Iwamodoki, Jawz, Madmole, Mantis, Mega Chopper, Monkey Dude, Mushmeanie, Orbinaut, Penguinator, Pointdexter, Rhinobot, Ribot, Rockn, Sandworm, Skorp, Snale Blaster, SOZ Ghosts, Spikebonker, Spiker, Star Pointer, Technosqueek, Toxomister, Turbo Spiker
+**S3KL badniks** (zones 0-6: AIZ through LBZ):
+Batbot, Blaster, Blastoid, Bloominator, Bubbles Badnik, Buggernaut, Caterkiller Jr, Clamer, Corkey, Flybot767, Jawz, Mantis, Mega Chopper, Monkey Dude, Orbinaut, Penguinator, Pointdexter, Rhinobot, Ribot, Snale Blaster, Sparkle, Spiker, Star Pointer, Technosqueek, Turbo Spiker
+
+**SKL badniks** (zones 7-13: MHZ through DDZ):
+Butterdroid, Chainspike, Cluckoid, Dragonfly, Fireworm, Iwamodoki, Madmole, Mushmeanie, Rockn, Sandworm, Skorp, Spikebonker, Toxomister
 
 ## S3K vs S2 vs S1 Key Differences Summary
 
@@ -374,7 +376,8 @@ Batbot, Blaster, Blastoid, Bloominator, Bubbles Badnik, Buggernaut, Butterdroid,
 | Character IDs | 0=Sonic, 1=Tails, 2=Knuckles | N/A | N/A |
 | Object size | `$4A` bytes | `$4A` bytes | `$40` bytes |
 | RomOffsetFinder | `--game s3k` required | Default (no flag) | `--game s1` required |
-| Constants file | `Sonic3kConstants.java` (to create) | `Sonic2Constants.java` | `Sonic1Constants.java` |
-| Object IDs file | `Sonic3kObjectIds.java` (to create) | `Sonic2ObjectIds.java` | `Sonic1ObjectIds.java` |
-| Registry | `Sonic3kObjectRegistry.java` (to create) | `Sonic2ObjectRegistry.java` | `Sonic1ObjectRegistry.java` |
-| Art infrastructure | Not yet established (to create) | Fully established | May need creating |
+| Object pointer tables | 2 tables (S3KL + SKL) by zone | Single table | Single table |
+| Constants file | `Sonic3kConstants.java` | `Sonic2Constants.java` | `Sonic1Constants.java` |
+| Object IDs file | `Sonic3kObjectIds.java` | `Sonic2ObjectIds.java` | `Sonic1ObjectIds.java` |
+| Registry | `Sonic3kObjectRegistry.java` | `Sonic2ObjectRegistry.java` | `Sonic1ObjectRegistry.java` |
+| Art infrastructure | Established (`Sonic3kObjectArt/Provider/Keys`) | Fully established | May need creating |

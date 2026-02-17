@@ -204,6 +204,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private PlayerSpriteRenderer superSonicRenderer;
     private boolean renderersLoaded;
 
+    /** Deferred explosion phase: 0=not triggered, 1=hurt pending (next frame). */
+    private int explodeFrame;
+
     /** ROM $40 field — scroll speed. Changes at routine transitions. */
     private int scrollSpeed = SCROLL_SPEED;
 
@@ -964,6 +967,22 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private void routine26Explode(AbstractPlayableSprite player) {
         superSonicPaletteAnim();
 
+        // Phase B: deferred hurt activation (one frame after explosion).
+        // ROM processes Sonic (slot 0) BEFORE objects, so hurt set by an object
+        // takes effect on the NEXT frame's Sonic update. We defer to match.
+        if (explodeFrame == 1) {
+            if (player != null) {
+                player.setYSpeed((short) -0x400);
+                player.setXSpeed((short) -0x200);
+                player.setGSpeed((short) 0);
+                // ROM: move.b #4,routine(a1) + bset Status_InAir
+                player.setHurt(true);
+                player.setAir(true);
+            }
+            setDestroyed(true);
+            return;
+        }
+
         // ROM: check Player_1.x_pos >= 0x13D0
         int checkX = currentX;
         if (player != null) {
@@ -971,20 +990,11 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         }
 
         if (checkX >= EXPLOSION_TRIGGER_X) {
-            // Release player with specific velocity
-            // ROM (s3.asm line 81414-81423): sets routine=4 (hurt), Status_InAir,
-            // velocities, anim=$1A (hurt), clears object_control
+            // Phase A: release player visually, spawn emeralds, trigger Knuckles.
+            // Hurt state is deferred to Phase B (next frame) to match ROM slot order.
             if (player != null) {
                 player.setHidden(false);
                 player.setObjectControlled(false);
-                player.setYSpeed((short) -0x400);
-                player.setXSpeed((short) -0x200);
-                player.setGSpeed((short) 0);
-                // ROM: move.b #4,routine(a1) + bset Status_InAir
-                // Without these, landing converts xSpeed to gSpeed causing backward walk.
-                // ROM's Sonic_HurtStop zeros ground_vel on landing from hurt state.
-                player.setHurt(true);
-                player.setAir(true);
                 // Controls still locked — player bounces but can't move
                 // player.setControlLocked remains true
                 ownsPlayerControl = false;
@@ -1034,7 +1044,8 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
                 knuckles.trigger();
             }
 
-            setDestroyed(true);
+            // Defer hurt to next frame (Phase B)
+            explodeFrame = 1;
         }
     }
 }
