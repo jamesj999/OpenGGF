@@ -36,6 +36,8 @@ public class TilemapShaderProgram extends ShaderProgram {
     private int screenHeightLocation = -1;
     private int vdpWrapWidthLocation = -1;
     private int nametableBaseLocation = -1;
+    private int frameCounterLocation = -1;
+    private int shimmerStyleLocation = -1;
 
     private static final String FULLSCREEN_VERTEX_SHADER = "shaders/shader_fullscreen.vert";
 
@@ -75,6 +77,8 @@ public class TilemapShaderProgram extends ShaderProgram {
         screenHeightLocation = glGetUniformLocation(programId, "ScreenHeight");
         vdpWrapWidthLocation = glGetUniformLocation(programId, "VDPWrapWidth");
         nametableBaseLocation = glGetUniformLocation(programId, "NametableBase");
+        frameCounterLocation = glGetUniformLocation(programId, "FrameCounter");
+        shimmerStyleLocation = glGetUniformLocation(programId, "ShimmerStyle");
     }
 
     public void setTextureUnits(int tilemapUnit, int lookupUnit, int atlasUnit, int paletteUnit,
@@ -198,6 +202,15 @@ public class TilemapShaderProgram extends ShaderProgram {
     public void setNametableBase(float base) {
         if (nametableBaseLocation >= 0) {
             glUniform1f(nametableBaseLocation, base);
+        }
+    }
+
+    public void setShimmerParams(int frameCounter, int shimmerStyle) {
+        if (frameCounterLocation >= 0) {
+            glUniform1i(frameCounterLocation, frameCounter);
+        }
+        if (shimmerStyleLocation >= 0) {
+            glUniform1i(shimmerStyleLocation, shimmerStyle);
         }
     }
 

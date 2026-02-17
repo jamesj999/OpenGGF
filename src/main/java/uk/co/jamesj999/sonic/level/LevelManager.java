@@ -15,6 +15,7 @@ import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameModule;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
+import uk.co.jamesj999.sonic.game.PhysicsFeatureSet;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
 import uk.co.jamesj999.sonic.game.ObjectArtProvider;
@@ -121,6 +122,7 @@ public class LevelManager {
     private int currentAct = 0;
     private int currentZone = 0;
     private int frameCounter = 0;
+    private int currentShimmerStyle = 0;
     private ObjectManager objectManager;
     private RingManager ringManager;
     private ZoneFeatureProvider zoneFeatureProvider;
@@ -166,6 +168,9 @@ public class LevelManager {
     private boolean nextActRequested;
     private boolean nextZoneRequested;
     private boolean specificZoneActRequested;
+
+    // ROM: LZ3/SBZ2 vertical wrapping — FG layer wraps Y instead of clamping
+    private boolean verticalWrapEnabled = false;
     private boolean levelInactiveForTransition;
     private int requestedZone = -1;
     private int requestedAct = -1;
@@ -273,6 +278,8 @@ public class LevelManager {
             CollisionSystem.getInstance().setObjectManager(objectManager);
             // Reset switch state for new level (Sonic 1 f_switch array)
             uk.co.jamesj999.sonic.game.sonic1.Sonic1SwitchManager.getInstance().reset();
+            // Reset conveyor belt state for new level (Sonic 1 f_conveyrev + v_obj63)
+            uk.co.jamesj999.sonic.game.sonic1.Sonic1ConveyorState.getInstance().reset();
             // Reset camera state from previous level (signpost may have locked it)
             Camera camera = Camera.getInstance();
             camera.setFrozen(false);
@@ -303,12 +310,11 @@ public class LevelManager {
             checkpointState.clear();
             levelGamestate = gameModule.createLevelState();
 
-            // Initialize water system for this level (only for zones that have water)
+            // Initialize water system for this level (S2/S3K only).
+            // S1 water is already loaded by the ZoneFeatureProvider above.
             WaterSystem waterSystem = WaterSystem.getInstance();
-            if (zoneFeatureProvider != null && zoneFeatureProvider.hasWater(level.getZoneIndex())) {
+            if (!waterSystem.hasWater(level.getZoneIndex(), currentAct)) {
                 waterSystem.loadForLevel(rom, level.getZoneIndex(), currentAct, level.getObjects());
-            } else {
-                waterSystem.reset();
             }
 
             // Pre-allocate the background FBO at maximum required size to avoid
@@ -879,7 +885,28 @@ public class LevelManager {
         graphicsManager.setUseSpritePriorityShader(false);
         profiler.endSection("render.sprites");
 
-        // Draw water surface sprites at the water line (CPZ2, ARZ1, ARZ2)
+        // Disable shimmer distortion for water surface sprites - they should render
+        // without horizontal distortion (matching original hardware behavior where the
+        // water surface object is not affected by per-scanline scroll offsets).
+        // Keep the water shader active for palette swap (underwater palette below waterline).
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+            WaterShaderProgram waterShader = graphicsManager.getWaterShaderProgram();
+            if (waterShader != null) {
+                waterShader.use();
+                waterShader.setShimmerStyle(0);  // S2 mode with DistortionAmplitude=0 → no distortion
+            }
+            WaterShaderProgram instancedWaterShader = graphicsManager.getInstancedWaterShaderProgram();
+            if (instancedWaterShader != null) {
+                instancedWaterShader.use();
+                instancedWaterShader.setShimmerStyle(0);
+            }
+            if (waterShader != null) {
+                waterShader.use();
+            }
+            PatternRenderCommand.resetFrameState();
+        }));
+
+        // Draw water surface sprites at the water line
         // Rendered last (after all sprites and tiles) so it appears in front of everything
         if (zoneFeatureProvider != null) {
             zoneFeatureProvider.render(camera, frameCounter);
@@ -1081,8 +1108,28 @@ public class LevelManager {
             // Set uniforms via custom command - this also enables the water shader
             // Use visual water level (with oscillation) for rendering effects
             int waterLevel = waterSystem.getVisualWaterLevelY(zoneId, currentAct);
-            // Offset by -8 to include the 8px tall water surface sprite in underwater palette
-            float waterlineScreenY = (float) (waterLevel - camera.getY() - 8);
+
+            // Determine shimmer style from current game module's physics feature set.
+            // 0 = S2/S3K smooth sine wave, 1 = S1 integer-snapped shimmer
+            int shimmerStyle = 0;
+            PhysicsFeatureSet featureSet = null;
+            GameModule currentModule = GameModuleRegistry.getCurrent();
+            if (currentModule != null && currentModule.getPhysicsProvider() != null) {
+                featureSet = currentModule.getPhysicsProvider().getFeatureSet();
+                if (featureSet != null && featureSet.waterShimmerEnabled()) {
+                    shimmerStyle = 1;
+                }
+            }
+
+            // S2/S3K split starts 8px above water level so the surface strip is tinted.
+            // S1 uses v_waterpos1 directly as the underwater split (ROM-accurate boundary).
+            float waterlineOffset = -8.0f;
+            if (featureSet != null && featureSet.waterShimmerEnabled()) {
+                waterlineOffset = 0.0f;
+            }
+            float waterlineScreenY = (float) (waterLevel - camera.getY() + waterlineOffset);
+            currentShimmerStyle = shimmerStyle;
+            final int capturedShimmerStyle = shimmerStyle;
 
             graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
                 // Enable water shader at execution time
@@ -1101,6 +1148,7 @@ public class LevelManager {
                 shader.setWaterlineScreenY(waterlineScreenY);
                 shader.setFrameCounter(frameCounter);
                 shader.setDistortionAmplitude(0.0f);
+                shader.setShimmerStyle(capturedShimmerStyle);
                 shader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
                 shader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
                         screenHeightPixels);
@@ -1127,6 +1175,12 @@ public class LevelManager {
                     }
                 }
 
+                // Set shimmer state on tilemap renderer so tile rendering also gets distortion
+                TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+                if (tilemapRenderer != null) {
+                    tilemapRenderer.setShimmerState(frameCounter, capturedShimmerStyle);
+                }
+
                 WaterShaderProgram instancedShader = graphicsManager.getInstancedWaterShaderProgram();
                 if (instancedShader != null) {
                     instancedShader.use();
@@ -1135,6 +1189,7 @@ public class LevelManager {
                     instancedShader.setWaterlineScreenY(waterlineScreenY);
                     instancedShader.setFrameCounter(frameCounter);
                     instancedShader.setDistortionAmplitude(0.0f);
+                    instancedShader.setShimmerStyle(capturedShimmerStyle);
                     instancedShader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
                     instancedShader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
                             (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS));
@@ -1156,6 +1211,7 @@ public class LevelManager {
             }));
         } else {
             // No water in this zone - disable underwater palette for sprite priority shader
+            currentShimmerStyle = 0;
             graphicsManager.setWaterEnabled(false);
         }
         // Note: We don't disable water shader here - that's done later before HUD
@@ -1260,10 +1316,20 @@ public class LevelManager {
         int vOffset = actualBgScrollY - alignedBgY;
         final float fboWaterlineY = (float) ((waterLevelWorldY - camera.getY()) + vOffset);
 
+        // Compute screen-space waterline for BG parallax shimmer
+        final float bgWaterlineScreenY = (float) (waterLevelWorldY - camera.getY());
+        final int capturedBgShimmerStyle = currentShimmerStyle;
+
+        ensureBackgroundTilemapData();
         graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
             bgRenderer.beginTilePass(finalRenderWidth, finalRenderHeight, true);
             TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
             if (tilemapRenderer != null) {
+                // Disable shimmer for BG FBO tilemap render - shimmer distortion is applied
+                // in the parallax compositing pass instead (with different, larger wave params)
+                int savedShimmerStyle = tilemapRenderer.getShimmerStyle();
+                tilemapRenderer.setShimmerState(frameCounter, 0);
+
                 Integer atlasId = graphicsManager.getPatternAtlasTextureId();
                 Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
                 Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
@@ -1298,12 +1364,18 @@ public class LevelManager {
                             useUnderwaterPalette,
                             fboWaterlineY);
                 }
+
+                // Restore shimmer for subsequent FG tilemap renders
+                tilemapRenderer.setShimmerState(frameCounter, savedShimmerStyle);
             }
             bgRenderer.endTilePass();
             graphicsManager.setUseUnderwaterPaletteForBackground(false);
         }));
 
-        // 5. Render the FBO with Parallax Shader
+        // 5. Set shimmer state on BG renderer for parallax compositing pass
+        bgRenderer.setShimmerState(frameCounter, capturedBgShimmerStyle, bgWaterlineScreenY);
+
+        // 6. Render the FBO with Parallax Shader
         if (graphicsManager.getCombinedPaletteTextureId() != null) {
             // Calculate vertical scroll offset (sub-chunk) for shader
             // The FBO is rendered aligned to 16-pixel chunk boundaries
@@ -1373,7 +1445,7 @@ public class LevelManager {
                     paletteId,
                     underwaterPaletteId != null ? underwaterPaletteId : 0,
                     priorityPass,
-                    false,
+                    verticalWrapEnabled,  // ROM: LZ3/SBZ2 FG wraps vertically
                     false,  // maskOutput = false for screen rendering
                     useUnderwaterPalette,
                     waterlineScreenY);
@@ -1547,7 +1619,7 @@ public class LevelManager {
                     paletteId,
                     0,      // no underwater palette for FBO
                     1,      // priority pass = 1 (high priority only)
-                    false,  // no wrap Y
+                    verticalWrapEnabled,  // ROM: LZ3/SBZ2 FG wraps vertically
                     true,   // maskOutput = true for priority FBO
                     false,  // no underwater palette
                     0.0f);  // no waterline
@@ -2325,6 +2397,9 @@ public class LevelManager {
         if (layer == 1) {
             // Background loops vertically
             wrappedY = ((wrappedY % levelHeight) + levelHeight) % levelHeight;
+        } else if (verticalWrapEnabled) {
+            // ROM: LZ3/SBZ2 — FG also wraps vertically
+            wrappedY = ((wrappedY % levelHeight) + levelHeight) % levelHeight;
         } else {
             // Foreground Clamps
             if (wrappedY < 0 || wrappedY >= levelHeight)
@@ -2367,12 +2442,15 @@ public class LevelManager {
         int levelWidth = getLayerLevelWidthPx((byte) 0);
         int levelHeight = getLayerLevelHeightPx((byte) 0);
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
-        if (y < 0 || y >= levelHeight) {
+        int wrappedY = y;
+        if (verticalWrapEnabled) {
+            wrappedY = ((wrappedY % levelHeight) + levelHeight) % levelHeight;
+        } else if (wrappedY < 0 || wrappedY >= levelHeight) {
             return -1;
         }
         Map map = level.getMap();
         int mapX = wrappedX / blockPixelSize;
-        int mapY = y / blockPixelSize;
+        int mapY = wrappedY / blockPixelSize;
         return map.getValue(0, mapX, mapY) & 0xFF;
     }
 
@@ -2386,7 +2464,7 @@ public class LevelManager {
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
 
-        if (layer == 1) {
+        if (layer == 1 || (layer == 0 && verticalWrapEnabled)) {
             int levelHeight = getLayerLevelHeightPx(layer);
             wrappedY = ((y % levelHeight) + levelHeight) % levelHeight;
         }
@@ -2420,7 +2498,9 @@ public class LevelManager {
         int levelHeight = getLayerLevelHeightPx((byte) 0);
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
-        if (wrappedY < 0 || wrappedY >= levelHeight) {
+        if (verticalWrapEnabled) {
+            wrappedY = ((wrappedY % levelHeight) + levelHeight) % levelHeight;
+        } else if (wrappedY < 0 || wrappedY >= levelHeight) {
             return null;
         }
 
@@ -2667,6 +2747,10 @@ public class LevelManager {
         return ringManager;
     }
 
+    public ZoneFeatureProvider getZoneFeatureProvider() {
+        return zoneFeatureProvider;
+    }
+
     public boolean areAllRingsCollected() {
         return ringManager != null && ringManager.areAllCollected();
     }
@@ -2813,6 +2897,8 @@ public class LevelManager {
                     camera.setMaxX((short) currentLevel.getMaxX());
                     camera.setMinY((short) currentLevel.getMinY());
                     camera.setMaxY((short) currentLevel.getMaxY());
+                    // ROM: LZ3/SBZ2 vertical wrapping — enabled when top boundary is negative
+                    verticalWrapEnabled = camera.isVerticalWrapEnabled();
                     // Re-apply camera placement after level bounds are set.
                     // Some starts (notably S3K AIZ1 intro-skip) are far below Y=0 and
                     // must be clamped with the correct maxY before pit checks run.
@@ -3011,6 +3097,13 @@ public class LevelManager {
     }
 
     /**
+     * @return true if vertical wrapping is active (ROM: LZ3/SBZ2 loop sections)
+     */
+    public boolean isVerticalWrapEnabled() {
+        return verticalWrapEnabled;
+    }
+
+    /**
      * Consumes and clears the title card request flag.
      *
      * @return true if a title card was requested since last check
@@ -3076,6 +3169,7 @@ public class LevelManager {
         nextActRequested = false;
         nextZoneRequested = false;
         specificZoneActRequested = false;
+        verticalWrapEnabled = false;
         levelInactiveForTransition = false;
         requestedZone = -1;
         requestedAct = -1;

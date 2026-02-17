@@ -161,6 +161,19 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short originalX = sprite.getX();
 		short originalY = sprite.getY();
 
+		// ROM-accurate drowning pre-death: 120 frames of slow sinking before death
+		// ROM ref: s2.asm:41729-41768 - addi.w #$10,y_vel; no terrain, no input
+		if (sprite.isDrowningPreDeath()) {
+			sprite.setYSpeed((short) (sprite.getYSpeed() + 0x10));
+			if (sprite.tickDrownPreDeath()) {
+				// Timer expired - transition to dead state (no upward bounce)
+				sprite.setDead(true);
+			}
+			sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
+			sprite.updateSensors(originalX, originalY);
+			return;
+		}
+
 		if (sprite.getDead()) {
 			applyDeathMovement();
 			sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
@@ -256,12 +269,20 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		doLevelBoundary();
 		doObjectMoveAndFall();
 
-		// Underwater gravity reduction (net gravity = 0x38 - 0x28 = 0x10)
+		// Underwater gravity reduction
+		// Normal airborne: net gravity = 0x38 - 0x28 = 0x10 (s2.asm:36170)
+		// Hurt airborne:   net gravity = 0x30 - 0x20 = 0x10 (s2.asm:37802, s1:01 Sonic.asm:1410)
+		// The ROM hurt routine (Obj01_Hurt) uses a separate code path with $20 reduction,
+		// NOT the $28 used in Obj01_MdAir/MdJump. All three games (S1/S2/S3K) are identical.
 		if (sprite.isInWater()) {
 			short reduction = 0x28;
 			var modifiers = sprite.getPhysicsModifiers();
 			if (modifiers != null) {
-				reduction = modifiers.waterGravityReduction();
+				reduction = sprite.isHurt()
+						? modifiers.waterHurtGravityReduction()
+						: modifiers.waterGravityReduction();
+			} else if (sprite.isHurt()) {
+				reduction = 0x20;
 			}
 			sprite.setYSpeed((short) (sprite.getYSpeed() - reduction));
 		}

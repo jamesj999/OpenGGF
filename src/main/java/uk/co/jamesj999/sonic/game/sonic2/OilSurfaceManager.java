@@ -93,7 +93,7 @@ public class OilSurfaceManager {
             if (submersion <= 0) {
                 // Suffocate - instant death (ROM: JmpTo3_KillCharacter)
                 clearOilSupport(player);
-                player.applyDrownDeath();
+                player.applyOilSuffocateDeath();
                 return;
             }
 

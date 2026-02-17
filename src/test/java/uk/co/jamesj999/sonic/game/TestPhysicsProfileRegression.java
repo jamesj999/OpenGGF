@@ -148,6 +148,7 @@ public class TestPhysicsProfileRegression {
     public void testPhysicsModifiers_IsSet() {
         assertNotNull("Modifiers should be populated", sprite.getPhysicsModifiers());
         assertEquals("Water gravity reduction", 0x28, sprite.getPhysicsModifiers().waterGravityReduction());
+        assertEquals("Water hurt gravity reduction", 0x20, sprite.getPhysicsModifiers().waterHurtGravityReduction());
     }
 
     /**

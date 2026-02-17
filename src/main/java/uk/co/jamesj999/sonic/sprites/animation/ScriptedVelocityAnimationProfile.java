@@ -6,220 +6,68 @@ import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
  * Chooses animation script IDs based on simple movement state.
  */
 public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile {
-    private final int idleAnimId;
-    private final int walkAnimId;
-    private final int runAnimId;
-    private final int rollAnimId;
-    private final int roll2AnimId;
-    private final int pushAnimId;
-    private final int duckAnimId;
-    private final int lookUpAnimId;
-    private final int spindashAnimId;
-    private final int springAnimId;
-    private final int deathAnimId;
-    private final int hurtAnimId;
-    private final int skidAnimId;
-    private final int airAnimId;
+    private int idleAnimId;
+    private int walkAnimId;
+    private int runAnimId;
+    private int rollAnimId;
+    private int roll2AnimId = -1;
+    private int pushAnimId = -1;
+    private int duckAnimId = -1;
+    private int lookUpAnimId = -1;
+    private int spindashAnimId = -1;
+    private int springAnimId = -1;
+    private int deathAnimId = -1;
+    private int hurtAnimId = -1;
+    private int skidAnimId = -1;
+    private int slideAnimId = -1;
+    private int drownAnimId = -1;
+    private int airAnimId;
     // Balance animations (ROM s2.asm:36246-36373)
-    private final int balanceAnimId;   // 0x06 - facing toward edge, safe distance
-    private final int balance2AnimId;  // 0x0C - facing toward edge, closer to falling
-    private final int balance3AnimId;  // 0x1D - facing away from edge, safe distance
-    private final int balance4AnimId;  // 0x1E - facing away from edge, closer to falling
-    private final int runSpeedThreshold;
-    private final int walkSpeedThreshold;
-    private final int fallbackFrame;
+    private int balanceAnimId = -1;   // 0x06 - facing toward edge, safe distance
+    private int balance2AnimId = -1;  // 0x0C - facing toward edge, closer to falling
+    private int balance3AnimId = -1;  // 0x1D - facing away from edge, safe distance
+    private int balance4AnimId = -1;  // 0x1E - facing away from edge, closer to falling
+    private int runSpeedThreshold;
+    private int walkSpeedThreshold;
+    private int fallbackFrame;
     // S2 adjusts the angle by -1 for positive values before computing the slope frame
     // offset (subq.b #1,d0 at s2.asm:38080). S1 does not do this.
-    private final boolean anglePreAdjust;
+    private boolean anglePreAdjust;
 
-    public ScriptedVelocityAnimationProfile(
-            int idleAnimId,
-            int walkAnimId,
-            int runAnimId,
-            int rollAnimId,
-            int airAnimId,
-            int walkSpeedThreshold,
-            int runSpeedThreshold,
-            int fallbackFrame) {
-        this(idleAnimId, walkAnimId, runAnimId, rollAnimId, rollAnimId, -1, -1, -1, -1, airAnimId,
-                walkSpeedThreshold,
-                runSpeedThreshold, fallbackFrame);
+    public ScriptedVelocityAnimationProfile() {
     }
 
-    public ScriptedVelocityAnimationProfile(
-            int idleAnimId,
-            int walkAnimId,
-            int runAnimId,
-            int rollAnimId,
-            int roll2AnimId,
-            int pushAnimId,
-            int airAnimId,
-            int walkSpeedThreshold,
-            int runSpeedThreshold,
-            int fallbackFrame) {
-        this(idleAnimId, walkAnimId, runAnimId, rollAnimId, roll2AnimId, pushAnimId, -1, -1, -1, airAnimId,
-                walkSpeedThreshold, runSpeedThreshold, fallbackFrame);
-    }
-
-    public ScriptedVelocityAnimationProfile(
-            int idleAnimId,
-            int walkAnimId,
-            int runAnimId,
-            int rollAnimId,
-            int roll2AnimId,
-            int pushAnimId,
-            int duckAnimId,
-            int spindashAnimId,
-            int springAnimId,
-            int airAnimId,
-            int walkSpeedThreshold,
-            int runSpeedThreshold,
-            int fallbackFrame) {
-        this(idleAnimId, walkAnimId, runAnimId, rollAnimId, roll2AnimId, pushAnimId, duckAnimId, spindashAnimId,
-                springAnimId, -1, airAnimId, walkSpeedThreshold, runSpeedThreshold, fallbackFrame);
-    }
-
-    public ScriptedVelocityAnimationProfile(
-            int idleAnimId,
-            int walkAnimId,
-            int runAnimId,
-            int rollAnimId,
-            int roll2AnimId,
-            int pushAnimId,
-            int duckAnimId,
-            int spindashAnimId,
-            int springAnimId,
-            int deathAnimId,
-            int airAnimId,
-            int walkSpeedThreshold,
-            int runSpeedThreshold,
-            int fallbackFrame) {
-        this(idleAnimId, walkAnimId, runAnimId, rollAnimId, roll2AnimId, pushAnimId, duckAnimId, spindashAnimId,
-                springAnimId, deathAnimId, -1, airAnimId, walkSpeedThreshold, runSpeedThreshold, fallbackFrame);
-    }
-
-    public ScriptedVelocityAnimationProfile(
-            int idleAnimId,
-            int walkAnimId,
-            int runAnimId,
-            int rollAnimId,
-            int roll2AnimId,
-            int pushAnimId,
-            int duckAnimId,
-            int spindashAnimId,
-            int springAnimId,
-            int deathAnimId,
-            int hurtAnimId,
-            int airAnimId,
-            int walkSpeedThreshold,
-            int runSpeedThreshold,
-            int fallbackFrame) {
-        this(idleAnimId, walkAnimId, runAnimId, rollAnimId, roll2AnimId, pushAnimId, duckAnimId, spindashAnimId,
-                springAnimId, deathAnimId, hurtAnimId, -1, airAnimId, walkSpeedThreshold, runSpeedThreshold, fallbackFrame);
-    }
-
-    public ScriptedVelocityAnimationProfile(
-            int idleAnimId,
-            int walkAnimId,
-            int runAnimId,
-            int rollAnimId,
-            int roll2AnimId,
-            int pushAnimId,
-            int duckAnimId,
-            int spindashAnimId,
-            int springAnimId,
-            int deathAnimId,
-            int hurtAnimId,
-            int skidAnimId,
-            int airAnimId,
-            int walkSpeedThreshold,
-            int runSpeedThreshold,
-            int fallbackFrame) {
-        this(idleAnimId, walkAnimId, runAnimId, rollAnimId, roll2AnimId, pushAnimId, duckAnimId, -1,
-                spindashAnimId, springAnimId, deathAnimId, hurtAnimId, skidAnimId, airAnimId,
-                walkSpeedThreshold, runSpeedThreshold, fallbackFrame);
-    }
-
-    public ScriptedVelocityAnimationProfile(
-            int idleAnimId,
-            int walkAnimId,
-            int runAnimId,
-            int rollAnimId,
-            int roll2AnimId,
-            int pushAnimId,
-            int duckAnimId,
-            int lookUpAnimId,
-            int spindashAnimId,
-            int springAnimId,
-            int deathAnimId,
-            int hurtAnimId,
-            int skidAnimId,
-            int airAnimId,
-            int walkSpeedThreshold,
-            int runSpeedThreshold,
-            int fallbackFrame) {
-        this(idleAnimId, walkAnimId, runAnimId, rollAnimId, roll2AnimId, pushAnimId, duckAnimId, lookUpAnimId,
-                spindashAnimId, springAnimId, deathAnimId, hurtAnimId, skidAnimId, airAnimId,
-                -1, -1, -1, -1,  // balance animations disabled by default
-                walkSpeedThreshold, runSpeedThreshold, fallbackFrame, true);
-    }
-
-    /**
-     * Full constructor with balance animation support.
-     * Balance animations are ROM-accurate (s2.asm:36246-36373).
-     *
-     * @param anglePreAdjust if true, subtract 1 from positive angles before
-     *     computing slope frame offsets (S2 behavior). S1 does not do this.
-     */
-    public ScriptedVelocityAnimationProfile(
-            int idleAnimId,
-            int walkAnimId,
-            int runAnimId,
-            int rollAnimId,
-            int roll2AnimId,
-            int pushAnimId,
-            int duckAnimId,
-            int lookUpAnimId,
-            int spindashAnimId,
-            int springAnimId,
-            int deathAnimId,
-            int hurtAnimId,
-            int skidAnimId,
-            int airAnimId,
-            int balanceAnimId,
-            int balance2AnimId,
-            int balance3AnimId,
-            int balance4AnimId,
-            int walkSpeedThreshold,
-            int runSpeedThreshold,
-            int fallbackFrame,
-            boolean anglePreAdjust) {
-        this.idleAnimId = Math.max(0, idleAnimId);
-        this.walkAnimId = Math.max(0, walkAnimId);
-        this.runAnimId = Math.max(0, runAnimId);
-        this.rollAnimId = Math.max(0, rollAnimId);
-        this.roll2AnimId = Math.max(-1, roll2AnimId);
-        this.pushAnimId = Math.max(-1, pushAnimId);
-        this.duckAnimId = Math.max(-1, duckAnimId);
-        this.lookUpAnimId = Math.max(-1, lookUpAnimId);
-        this.spindashAnimId = Math.max(-1, spindashAnimId);
-        this.springAnimId = Math.max(-1, springAnimId);
-        this.deathAnimId = Math.max(-1, deathAnimId);
-        this.hurtAnimId = Math.max(-1, hurtAnimId);
-        this.skidAnimId = Math.max(-1, skidAnimId);
-        this.airAnimId = Math.max(0, airAnimId);
-        this.balanceAnimId = Math.max(-1, balanceAnimId);
-        this.balance2AnimId = Math.max(-1, balance2AnimId);
-        this.balance3AnimId = Math.max(-1, balance3AnimId);
-        this.balance4AnimId = Math.max(-1, balance4AnimId);
-        this.walkSpeedThreshold = Math.max(0, walkSpeedThreshold);
-        this.runSpeedThreshold = Math.max(0, runSpeedThreshold);
-        this.fallbackFrame = Math.max(0, fallbackFrame);
-        this.anglePreAdjust = anglePreAdjust;
-    }
+    public ScriptedVelocityAnimationProfile setIdleAnimId(int idleAnimId) { this.idleAnimId = idleAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setWalkAnimId(int walkAnimId) { this.walkAnimId = walkAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setRunAnimId(int runAnimId) { this.runAnimId = runAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setRollAnimId(int rollAnimId) { this.rollAnimId = rollAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setRoll2AnimId(int roll2AnimId) { this.roll2AnimId = roll2AnimId; return this; }
+    public ScriptedVelocityAnimationProfile setPushAnimId(int pushAnimId) { this.pushAnimId = pushAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setDuckAnimId(int duckAnimId) { this.duckAnimId = duckAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setLookUpAnimId(int lookUpAnimId) { this.lookUpAnimId = lookUpAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setSpindashAnimId(int spindashAnimId) { this.spindashAnimId = spindashAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setSpringAnimId(int springAnimId) { this.springAnimId = springAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setDeathAnimId(int deathAnimId) { this.deathAnimId = deathAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setHurtAnimId(int hurtAnimId) { this.hurtAnimId = hurtAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setSkidAnimId(int skidAnimId) { this.skidAnimId = skidAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setSlideAnimId(int slideAnimId) { this.slideAnimId = slideAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setDrownAnimId(int drownAnimId) { this.drownAnimId = drownAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setAirAnimId(int airAnimId) { this.airAnimId = airAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setBalanceAnimId(int balanceAnimId) { this.balanceAnimId = balanceAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setBalance2AnimId(int balance2AnimId) { this.balance2AnimId = balance2AnimId; return this; }
+    public ScriptedVelocityAnimationProfile setBalance3AnimId(int balance3AnimId) { this.balance3AnimId = balance3AnimId; return this; }
+    public ScriptedVelocityAnimationProfile setBalance4AnimId(int balance4AnimId) { this.balance4AnimId = balance4AnimId; return this; }
+    public ScriptedVelocityAnimationProfile setRunSpeedThreshold(int runSpeedThreshold) { this.runSpeedThreshold = runSpeedThreshold; return this; }
+    public ScriptedVelocityAnimationProfile setWalkSpeedThreshold(int walkSpeedThreshold) { this.walkSpeedThreshold = walkSpeedThreshold; return this; }
+    public ScriptedVelocityAnimationProfile setFallbackFrame(int fallbackFrame) { this.fallbackFrame = fallbackFrame; return this; }
+    public ScriptedVelocityAnimationProfile setAnglePreAdjust(boolean anglePreAdjust) { this.anglePreAdjust = anglePreAdjust; return this; }
 
     @Override
     public Integer resolveAnimationId(AbstractPlayableSprite sprite, int frameCounter, int scriptCount) {
+        // Drowning uses its own animation (0x17) throughout both pre-death and dead phases
+        if (sprite.isDrowningDeath() && drownAnimId >= 0) {
+            return drownAnimId;
+        }
         if (sprite.getDead() && deathAnimId >= 0) {
             return deathAnimId;
         }
@@ -232,6 +80,9 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         }
         if (sprite.getSpindash() && spindashAnimId >= 0) {
             return spindashAnimId;
+        }
+        if (sprite.isSliding() && slideAnimId >= 0) {
+            return slideAnimId;
         }
         if (sprite.getRolling()) {
             return rollAnimId;
@@ -346,6 +197,10 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         return skidAnimId;
     }
 
+    public int getDrownAnimId() {
+        return drownAnimId;
+    }
+
     public int getAirAnimId() {
         return airAnimId;
     }
@@ -383,11 +238,31 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
     }
 
     public ScriptedVelocityAnimationProfile withRunSpeedThreshold(int newThreshold) {
-        return new ScriptedVelocityAnimationProfile(
-                idleAnimId, walkAnimId, runAnimId, rollAnimId, roll2AnimId,
-                pushAnimId, duckAnimId, lookUpAnimId, spindashAnimId, springAnimId,
-                deathAnimId, hurtAnimId, skidAnimId, airAnimId,
-                balanceAnimId, balance2AnimId, balance3AnimId, balance4AnimId,
-                walkSpeedThreshold, newThreshold, fallbackFrame, anglePreAdjust);
+        ScriptedVelocityAnimationProfile copy = new ScriptedVelocityAnimationProfile();
+        copy.idleAnimId = this.idleAnimId;
+        copy.walkAnimId = this.walkAnimId;
+        copy.runAnimId = this.runAnimId;
+        copy.rollAnimId = this.rollAnimId;
+        copy.roll2AnimId = this.roll2AnimId;
+        copy.pushAnimId = this.pushAnimId;
+        copy.duckAnimId = this.duckAnimId;
+        copy.lookUpAnimId = this.lookUpAnimId;
+        copy.spindashAnimId = this.spindashAnimId;
+        copy.springAnimId = this.springAnimId;
+        copy.deathAnimId = this.deathAnimId;
+        copy.hurtAnimId = this.hurtAnimId;
+        copy.skidAnimId = this.skidAnimId;
+        copy.slideAnimId = this.slideAnimId;
+        copy.drownAnimId = this.drownAnimId;
+        copy.airAnimId = this.airAnimId;
+        copy.balanceAnimId = this.balanceAnimId;
+        copy.balance2AnimId = this.balance2AnimId;
+        copy.balance3AnimId = this.balance3AnimId;
+        copy.balance4AnimId = this.balance4AnimId;
+        copy.walkSpeedThreshold = this.walkSpeedThreshold;
+        copy.runSpeedThreshold = newThreshold;
+        copy.fallbackFrame = this.fallbackFrame;
+        copy.anglePreAdjust = this.anglePreAdjust;
+        return copy;
     }
 }

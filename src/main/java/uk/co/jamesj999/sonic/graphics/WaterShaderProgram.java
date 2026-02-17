@@ -25,6 +25,9 @@ public class WaterShaderProgram extends ShaderProgram {
     private int renderWorldYOffsetLocation = -1;
     private int useWorldSpaceWaterLocation = -1;
 
+    // S1 shimmer style
+    private int shimmerStyleLocation = -1;
+
     public WaterShaderProgram(String vertexShaderPath, String fragmentShaderPath) throws IOException {
         super(vertexShaderPath, fragmentShaderPath);
     }
@@ -50,6 +53,9 @@ public class WaterShaderProgram extends ShaderProgram {
         waterLevelWorldYLocation = glGetUniformLocation(programId, "WaterLevelWorldY");
         renderWorldYOffsetLocation = glGetUniformLocation(programId, "RenderWorldYOffset");
         useWorldSpaceWaterLocation = glGetUniformLocation(programId, "UseWorldSpaceWater");
+
+        // Shimmer style
+        shimmerStyleLocation = glGetUniformLocation(programId, "ShimmerStyle");
     }
 
     public int getUnderwaterPaletteLocation() {
@@ -92,6 +98,17 @@ public class WaterShaderProgram extends ShaderProgram {
     public void setWindowHeight(float height) {
         if (windowHeightLocation != -1) {
             glUniform1f(windowHeightLocation, height);
+        }
+    }
+
+    /**
+     * Set the shimmer style for the water distortion effect.
+     *
+     * @param style 0 = S2/S3K smooth sine wave, 1 = S1 integer-snapped shimmer
+     */
+    public void setShimmerStyle(int style) {
+        if (shimmerStyleLocation != -1) {
+            glUniform1i(shimmerStyleLocation, style);
         }
     }
 
