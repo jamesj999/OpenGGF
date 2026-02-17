@@ -61,6 +61,11 @@ public class Pattern {
         pixels[y * PATTERN_WIDTH + x] = value;
     }
 
+    /** Reset all pixels to zero (transparent). Matches ROM VRAM zero state. */
+    public void clear() {
+        Arrays.fill(pixels, (byte) 0);
+    }
+
     public void copyFrom(Pattern other) {
         if (other == null) {
             return;

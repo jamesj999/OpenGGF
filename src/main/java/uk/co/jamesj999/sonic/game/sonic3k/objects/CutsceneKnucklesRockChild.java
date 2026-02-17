@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
+import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kSfx;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
@@ -55,6 +57,11 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
     }
 
     @Override
+    public int getPriorityBucket() {
+        return 3; // ROM priority 0x180
+    }
+
+    @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (broken || isDestroyed()) {
             return;
@@ -67,7 +74,12 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
             broken = true;
             LOG.fine("Rock child: breaking apart (mapping_frame=" + mappingFrame + ")");
 
-            // BreakObjectToPieces: spawn 4 fragments with scattered velocities
+            // ROM: BreakObjectToPieces plays sfx_Collapse (0x59) as its first action
+            try {
+                AudioManager.getInstance().playSfx(Sonic3kSfx.COLLAPSE.id);
+            } catch (Exception ignored) {}
+
+            // BreakObjectToPieces: spawn fragments with scattered velocities
             spawnFragments();
             setDestroyed(true);
         }
@@ -76,18 +88,26 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
     /**
      * Spawns rock fragment children with scattered velocities from
      * ROM word_2A8B0 (12 entries), implementing BreakObjectToPieces.
+     *
+     * ROM (sonic3k.asm:45772): each fragment gets a unique mapping piece
+     * from the parent's broken frame (frame 1 has 12 pieces). Piece index
+     * matches the velocity table index (0-11).
      */
     private void spawnFragments() {
         try {
             LevelManager lm = LevelManager.getInstance();
             if (lm == null || lm.getObjectManager() == null) return;
 
-            for (int[] vel : AizRockFragmentChild.FRAGMENT_VELOCITIES) {
+            int[][] velocities = AizRockFragmentChild.FRAGMENT_VELOCITIES;
+            for (int i = 0; i < velocities.length; i++) {
                 ObjectSpawn fragSpawn = new ObjectSpawn(
                         getX(), getY(), 0, 0, 0, false, 0);
                 AizRockFragmentChild frag = new AizRockFragmentChild(
-                        fragSpawn, vel[0], vel[1], mappingFrame);
+                        fragSpawn, velocities[i][0], velocities[i][1], mappingFrame, i);
                 lm.getObjectManager().addDynamicObject(frag);
+                // Compensate for pendingDynamicAdditions delay: ROM processes
+                // each fragment's first movement in the same frame as creation.
+                frag.update(0, null);
             }
         } catch (Exception e) {
             LOG.fine("Could not spawn rock fragments (test env?): " + e.getMessage());
@@ -96,7 +116,7 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        PatternSpriteRenderer renderer = AizIntroArtLoader.getKnucklesRenderer();
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getCorkFloorRenderer();
         if (renderer == null || !renderer.isReady()) return;
         renderer.drawFrameIndex(mappingFrame, getX(), getY(), false, false);
     }

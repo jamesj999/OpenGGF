@@ -28,7 +28,6 @@ uniform float BGTextureHeight;
 uniform float ScrollMidpoint;
 
 // Extra buffer pixels on each side of the FBO
-// Extra buffer pixels on each side of the FBO
 uniform float ExtraBuffer;
 
 // Vertical scroll offset (sub-chunk alignment)
@@ -37,6 +36,14 @@ uniform float VScroll;
 // Viewport offset (for letterboxing/pillarboxing support)
 uniform float ViewportOffsetX;
 uniform float ViewportOffsetY;
+uniform vec3 BackdropColor;
+uniform float FillTransparentWithBackdrop;
+
+// FBO allocation width (actual GPU texture size, may be larger than BGTextureWidth)
+uniform float FBOAllocationWidth;
+
+// When 1, skip HScroll sampling (per-line scroll already applied in tile pass)
+uniform int NoHScroll;
 
 // Shimmer distortion uniforms
 uniform int FrameCounter;            // For shimmer animation
@@ -58,13 +65,15 @@ void main()
     float gameY = (1.0 - normY) * 224.0;  // Flip Y for Genesis coords (Y=0 at top)
 
     // Get the scroll value for this scanline
-    float scanline = clamp(gameY, 0.0, 223.0);  // Clamp to valid scanline range
-    float scanlineTexCoord = (scanline + 0.5) / 224.0;
-    float hScrollThis = texture(HScrollTexture, scanlineTexCoord).r * 32767.0;
+    float hScrollThis = 0.0;
+    if (NoHScroll == 0) {
+        float scanline = clamp(gameY, 0.0, 223.0);  // Clamp to valid scanline range
+        float scanlineTexCoord = (scanline + 0.5) / 224.0;
+        hScrollThis = texture(HScrollTexture, scanlineTexCoord).r * 32767.0;
+    }
 
-    // hScroll contains negative values (e.g., -cameraX * parallaxFactor)
-    // To get world X position: worldX = screenX - hScroll
-    // Since hScroll is negative, this adds the absolute value
+    // hScroll contains signed scroll values from the zone handler.
+    // Convert back to world-space sample coordinate.
     // Apply underwater shimmer distortion to background layer
     // BG uses broader, slower waves than FG for a parallax-like distortion effect
     float bgShimmerDistortion = 0.0;
@@ -84,15 +93,22 @@ void main()
     // Apply vertical scroll offset (sub-chunk alignment)
     float fboY = gameY + VScroll;
 
-    // Wrap X within the background map period (FBO width)
-    float fboX = mod(worldX, BGTextureWidth);
+    // Background tile pass may render from a shifted world origin.
+    // ScrollMidpoint/ExtraBuffer define that origin for intro paths.
+    float fboWorldOffsetX = -ScrollMidpoint - ExtraBuffer;
+
+    // Wrap X within the background period rendered into the FBO.
+    float fboX = mod(worldX - fboWorldOffsetX, BGTextureWidth);
     if (fboX < 0.0) fboX += BGTextureWidth;
 
     // Clamp Y to valid range
     fboY = clamp(fboY, 0.0, BGTextureHeight - 1.0);
 
     // Sample FBO with half-pixel offset to avoid edge artifacts
-    float fboU = fboX / BGTextureWidth;
+    // Use FBOAllocationWidth for UV mapping (actual texture size) while BGTextureWidth
+    // was used above for wrapping (the rendered region may be smaller than the allocation)
+    float uvWidth = FBOAllocationWidth > 0.0 ? FBOAllocationWidth : BGTextureWidth;
+    float fboU = fboX / uvWidth;
     float fboV = 1.0 - ((fboY + 0.5) / BGTextureHeight);  // Add 0.5 for pixel center
     fboV = clamp(fboV, 0.5 / BGTextureHeight, 1.0 - 0.5 / BGTextureHeight);  // Stay within texture
 
@@ -100,6 +116,10 @@ void main()
 
     // Alpha test
     if (color.a < 0.1) {
+        if (FillTransparentWithBackdrop > 0.5) {
+            FragColor = vec4(BackdropColor, 1.0);
+            return;
+        }
         discard;
     }
 

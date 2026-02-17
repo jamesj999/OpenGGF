@@ -28,5 +28,12 @@ public enum GameSound {
     SPLASH, // SFX 0xAA - Water splash (entering/exiting water)
     AIR_DING, // SFX 0xC2 - Air warning ding (underwater countdown warning)
     CASINO_BONUS, // SFX 0xC0 - Casino cage points sound (SndID_CasinoBonus)
-    OIL_SLIDE // SFX 0xF0 - OOZ oil slide (SndID_OilSlide)
+    OIL_SLIDE, // SFX 0xF0 - OOZ oil slide (SndID_OilSlide)
+    FIRE_SHIELD,
+    LIGHTNING_SHIELD,
+    BUBBLE_SHIELD,
+    FIRE_ATTACK,
+    LIGHTNING_ATTACK,
+    BUBBLE_ATTACK,
+    INSTA_SHIELD
 }

@@ -17,6 +17,7 @@ import uk.co.jamesj999.sonic.sprites.animation.ScriptedVelocityAnimationProfile;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationProfile;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.GroundMode;
+import uk.co.jamesj999.sonic.sprites.playable.ShieldType;
 
 import java.util.logging.Logger;
 
@@ -72,6 +73,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	// Input tracking
 	private boolean jumpPressed;
 	private boolean jumpPrevious;
+	private boolean jumpReleasedSinceJump;
 	private boolean testKeyPressed;
 
 	// Current frame input state
@@ -260,8 +262,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short originalX = sprite.getX();
 		short originalY = sprite.getY();
 
-		doJumpHeight();
-		doChgJumpDir();
+		// ROM hurt routine (routine 4) skips both Sonic_JumpHeight and
+		// Sonic_ChgJumpDir — only applies gravity + collision.
+		if (!sprite.isHurt()) {
+			doJumpHeight();
+			doChgJumpDir();
+		}
 		doLevelBoundary();
 		doObjectMoveAndFall();
 
@@ -441,6 +447,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setPushing(false);
 		sprite.setJumping(true);
 		jumpPressed = true;
+		jumpReleasedSinceJump = false;
 		sprite.setStickToConvex(false);
 		audioManager.playSfx(GameSound.JUMP);
 
@@ -462,12 +469,69 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			if (sprite.getYSpeed() < -ySpeedCap && !inputJump) {
 				sprite.setYSpeed((short) -ySpeedCap);
 			}
+			// Track jump release for shield ability detection
+			if (!inputJump) {
+				jumpReleasedSinceJump = true;
+			}
+			// Shield ability: re-press jump after release while airborne (s3.asm:21059)
+			if (jumpReleasedSinceJump && inputJumpPress && sprite.getDoubleJumpFlag() == 0) {
+				if (tryShieldAbility()) {
+					jumpReleasedSinceJump = false;
+					return;
+				}
+			}
 			if (!sprite.getAir() && !inputJump) {
 				jumpPressed = false;
+				jumpReleasedSinceJump = false;
 			}
 		} else {
 			applyUpwardVelocityCap();
 		}
+	}
+
+	/**
+	 * Sonic_ShieldMoves: Try to activate the player's shield ability (s3.asm:21059-21159).
+	 * @return true if an ability was activated
+	 */
+	private boolean tryShieldAbility() {
+		PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+		if (fs == null || !fs.elementalShieldsEnabled()) {
+			return false;
+		}
+		ShieldType shield = sprite.getShieldType();
+		if (shield == null) {
+			return false;
+		}
+		switch (shield) {
+			case FIRE -> fireShieldDash();
+			case LIGHTNING -> lightningShieldJump();
+			case BUBBLE -> bubbleShieldBounce();
+			default -> { return false; }
+		}
+		sprite.setDoubleJumpFlag(1);
+		return true;
+	}
+
+	/** Fire dash: horizontal burst in facing direction (s3.asm:21072-21091) */
+	private void fireShieldDash() {
+		int dir = sprite.getDirection() == Direction.RIGHT ? 1 : -1;
+		sprite.setXSpeed((short) (0x800 * dir));
+		sprite.setYSpeed((short) 0);
+		audioManager.playSfx(GameSound.FIRE_ATTACK);
+	}
+
+	/** Lightning double jump: upward velocity boost (s3.asm:21094-21102) */
+	private void lightningShieldJump() {
+		sprite.setYSpeed((short) -0x580);
+		audioManager.playSfx(GameSound.LIGHTNING_ATTACK);
+	}
+
+	/** Bubble bounce: slam downward (s3.asm:21105-21114) */
+	private void bubbleShieldBounce() {
+		sprite.setXSpeed((short) 0);
+		sprite.setGSpeed((short) 0);
+		sprite.setYSpeed((short) 0x800);
+		audioManager.playSfx(GameSound.BUBBLE_ATTACK);
 	}
 
 	// ========================================
@@ -774,6 +838,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/** Sonic_LevelBound: Check level boundaries (s2.asm:36890) */
 	private void doLevelBoundary() {
+		// ROM: When object_control is set, level boundary checks are skipped
+		// (Obj01_Control skips movement routines entirely).
+		if (sprite.isObjectControlled()) {
+			return;
+		}
 		Camera camera = Camera.getInstance();
 		if (camera == null) return;
 
@@ -805,12 +874,16 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// while camera boundary is still easing down. Without this fix, falling
 		// faster than the camera can adjust its maxY limit causes death.
 		// See s2.asm:36913-36922 (Sonic_Boundary_CheckBottom)
-		short effectiveMaxY = (short) Math.max(camera.getMaxY(), camera.getMaxYTarget());
-		if (sprite.getY() > effectiveMaxY + 224) {
-			if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
-				sprite.getCpuController().despawn();
-			} else {
-				sprite.applyPitDeath();
+		// ROM: When Level_started_flag is clear, boundary death is suppressed
+		// (camera boundaries may not reflect actual level extents during intro).
+		if (camera.isLevelStarted()) {
+			short effectiveMaxY = (short) Math.max(camera.getMaxY(), camera.getMaxYTarget());
+			if (sprite.getY() > effectiveMaxY + 224) {
+				if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
+					sprite.getCpuController().despawn();
+				} else {
+					sprite.applyPitDeath();
+				}
 			}
 		}
 	}
@@ -1198,7 +1271,19 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/** Landing gSpeed calculation (s2.asm:37584) */
 	private void calculateLanding(AbstractPlayableSprite sprite) {
+		// ROM: Sonic_HurtStop — when landing from hurt state, zero all velocity.
+		// Must check before resetOnFloor() which clears the hurt flag via setAir(false).
+		boolean wasHurt = sprite.isHurt();
+		// Save doubleJumpFlag BEFORE resetOnFloor() clears it via setAir(false).
+		// ROM (s3.asm:21849-21859) tests the flag before clearing.
+		int savedDoubleJumpFlag = sprite.getDoubleJumpFlag();
 		resetOnFloor();
+		if (wasHurt) {
+			sprite.setGSpeed((short) 0);
+			sprite.setXSpeed((short) 0);
+			sprite.setYSpeed((short) 0);
+			return;
+		}
 
 		short ySpeed = sprite.getYSpeed();
 		short xSpeed = sprite.getXSpeed();
@@ -1246,6 +1331,41 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				sprite.setYSpeed(halfYSpeed);
 			}
 		}
+
+		// Bubble shield bounce check (s3.asm:21849-21859 Player_TouchFloor tail)
+		PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+		if (fs != null && fs.elementalShieldsEnabled() && savedDoubleJumpFlag != 0) {
+			if (sprite.hasShield() && sprite.getShieldType() == ShieldType.BUBBLE) {
+				applyBubbleShieldBounce(sprite);
+			}
+			// Flag already cleared by resetOnFloor→setAir(false), no extra clear needed
+		}
+	}
+
+	/**
+	 * BubbleShield_Bounce: Re-launch player perpendicular to surface (s3.asm:21866-21900).
+	 * On flat ground (angle 0x00): bounces straight up at 0x780 velocity.
+	 * On slopes: bounce direction follows surface normal.
+	 * Underwater: reduced velocity (0x400).
+	 */
+	private void applyBubbleShieldBounce(AbstractPlayableSprite sprite) {
+		int velocity = sprite.isInWater() ? 0x400 : 0x780;
+		int angle = sprite.getAngle() & 0xFF;
+		// Rotate 90° CCW to get surface normal direction (s3.asm:21873: subi.b #$40,d0)
+		int rotated = (angle - 0x40) & 0xFF;
+		int sin = TrigLookupTable.sinHex(rotated);
+		int cos = TrigLookupTable.cosHex(rotated);
+		sprite.setXSpeed((short) (sprite.getXSpeed() + ((cos * velocity) >> 8)));
+		sprite.setYSpeed((short) (sprite.getYSpeed() + ((sin * velocity) >> 8)));
+		// Re-launch into air (s3.asm:21885-21892)
+		sprite.setAir(true);
+		sprite.setJumping(true);
+		sprite.setPushing(false);
+		if (!sprite.getRolling()) {
+			sprite.setRolling(true);
+			sprite.setY((short) (sprite.getY() + sprite.getRollHeightAdjustment()));
+		}
+		audioManager.playSfx(GameSound.BUBBLE_ATTACK);
 	}
 
 	// ========================================
@@ -1451,8 +1571,16 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	private void checkPitDeath() {
+		// ROM: When object_control is set, the main Sonic update loop (Obj01_Control)
+		// skips movement routines entirely, so pit death checks never run.
+		if (sprite.isObjectControlled()) {
+			return;
+		}
 		Camera camera = Camera.getInstance();
-		if (camera != null && sprite.getY() > camera.getY() + camera.getHeight()) {
+		// ROM: When Level_started_flag is clear (intro/cutscene flow), pit death checks
+		// are suppressed for the controlled player.
+		if (camera != null && camera.isLevelStarted()
+				&& sprite.getY() > camera.getY() + camera.getHeight()) {
 			if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
 				sprite.getCpuController().despawn();
 			} else {

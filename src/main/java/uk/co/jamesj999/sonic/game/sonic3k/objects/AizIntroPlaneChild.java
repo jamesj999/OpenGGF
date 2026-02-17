@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
@@ -81,6 +82,11 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
     }
 
     @Override
+    public int getPriorityBucket() {
+        return 4;
+    }
+
+    @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
             return;
@@ -92,17 +98,7 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
         if (walkLeft) {
             // Walk left mode: move left 4px/frame, continue swinging
             currentX -= 4;
-
-            // Continue swing oscillation
-            SwingMotion.Result result = SwingMotion.update(
-                    SWING_ACCELERATION, swingVelocity, SWING_MAX_VELOCITY, swingDirectionDown);
-            swingVelocity = result.velocity();
-            swingDirectionDown = result.directionDown();
-
-            // Subpixel Y accumulation for swing
-            int yTotal = (ySub & 0xFF) + (swingVelocity & 0xFF);
-            currentY += (swingVelocity >> 8) + (yTotal >> 8);
-            ySub = yTotal & 0xFF;
+            applySwingMove();
 
             // Self-delete when walked off-screen
             if (currentX < DELETE_X) {
@@ -111,30 +107,13 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
             }
         } else if (detached) {
             // Detached mode: swing independently, don't follow parent
-            SwingMotion.Result result = SwingMotion.update(
-                    SWING_ACCELERATION, swingVelocity, SWING_MAX_VELOCITY, swingDirectionDown);
-            swingVelocity = result.velocity();
-            swingDirectionDown = result.directionDown();
-
-            // Subpixel Y accumulation for swing
-            int yTotal = (ySub & 0xFF) + (swingVelocity & 0xFF);
-            currentY += (swingVelocity >> 8) + (yTotal >> 8);
-            ySub = yTotal & 0xFF;
+            applySwingMove();
         } else {
-            // Normal mode: follow parent position with offset
+            // ROM order: Swing_UpAndDown + MoveSprite2, then Refresh_ChildPosition
+            // while attached. Refresh_ChildPosition overrides X/Y to parent+offset.
+            applySwingMove();
             currentX = parent.getX() + PARENT_X_OFFSET;
             currentY = parent.getY() + PARENT_Y_OFFSET;
-
-            // Apply swing oscillation to Y
-            SwingMotion.Result result = SwingMotion.update(
-                    SWING_ACCELERATION, swingVelocity, SWING_MAX_VELOCITY, swingDirectionDown);
-            swingVelocity = result.velocity();
-            swingDirectionDown = result.directionDown();
-
-            // Subpixel Y accumulation for swing
-            int yTotal = (ySub & 0xFF) + (swingVelocity & 0xFF);
-            currentY += (swingVelocity >> 8) + (yTotal >> 8);
-            ySub = yTotal & 0xFF;
         }
 
         // Update booster flame children
@@ -159,9 +138,11 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
      * ROM: loc_45C00 booster at (+0x38,+4), loc_45C3E booster at (+0x18,+0x18).
      */
     private void spawnBoosters() {
-        // Booster 1: animation sequence {2, 3, 4, 3, 2} (byte_45E6B)
+        // Booster 1: animation sequence from byte_45E6B (timer=0, frames: 1,2,3,4,3,2)
+        // ROM Animate_RawNoSST skips data[1] on first iter, then AnimateRaw_Restart
+        // sets mapping_frame = data[1] = 1 on subsequent loops.
         booster1 = new AizIntroBoosterChild(this, 0x38, 4,
-                new int[]{2, 3, 4, 3, 2});
+                new int[]{1, 2, 3, 4, 3, 2});
 
         // Booster 2: animation sequence {5, 6} (byte_45E73)
         booster2 = new AizIntroBoosterChild(this, 0x18, 0x18,
@@ -185,11 +166,30 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
         this.mappingFrame = mappingFrame;
     }
 
+    private void applySwingMove() {
+        SwingMotion.Result result = SwingMotion.update(
+                SWING_ACCELERATION, swingVelocity, SWING_MAX_VELOCITY, swingDirectionDown);
+        swingVelocity = result.velocity();
+        swingDirectionDown = result.directionDown();
+
+        int yTotal = (ySub & 0xFF) + (swingVelocity & 0xFF);
+        currentY += (swingVelocity >> 8) + (yTotal >> 8);
+        ySub = yTotal & 0xFF;
+    }
+
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         PatternSpriteRenderer renderer = AizIntroArtLoader.getPlaneRenderer();
         if (renderer == null || !renderer.isReady()) return;
-        renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
+        // Screen-space coordinates use the ROM +128 sprite-table bias.
+        int renderX = currentX;
+        int renderY = currentY;
+        try {
+            Camera camera = Camera.getInstance();
+            renderX += camera.getX() - 128;
+            renderY += camera.getY() - 128;
+        } catch (Exception ignored) {}
+        renderer.drawFrameIndex(mappingFrame, renderX, renderY, false, false);
 
         // Render booster flames
         if (booster1 != null) {
@@ -198,5 +198,10 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
         if (booster2 != null) {
             booster2.appendRenderCommands(commands);
         }
+
+        // Emerald glow children are NOT rendered here — their positions
+        // overlap Tails' face on the plane sprite and their partially-
+        // transparent pixels bleed through.  The ROM's glow effect uses
+        // VDP link chain ordering that suppresses this; for now, omit them.
     }
 }

@@ -24,6 +24,11 @@ uniform int PriorityPass;            // -1 = all, 0 = low, 1 = high
 uniform int MaskOutput;              // 1 = output white mask, 0 = output actual color
 uniform int UseUnderwaterPalette;
 uniform float WaterlineScreenY;
+uniform sampler1D HScrollTexture;    // Per-scanline BG scroll (R32F, 224 entries)
+uniform int PerLineScroll;           // 1 = per-scanline HScroll, 0 = uniform WorldOffsetX
+uniform float ScreenHeight;          // Visible scanline count (224.0)
+uniform float VDPWrapWidth;          // VDP nametable width in tiles (64.0), 0 = use TilemapWidth
+uniform float NametableBase;         // Starting tilemap column for VDP-style wrapping
 uniform int FrameCounter;            // For shimmer animation
 uniform int ShimmerStyle;            // 0 = none, 1 = S1 integer-snapped shimmer
 
@@ -96,14 +101,48 @@ void main()
         }
     }
 
-    float worldX = WorldOffsetX + pixelX + shimmerDistortion;
+    float worldX;
+    if (PerLineScroll == 1) {
+        // Per-scanline horizontal scroll: each scanline has its own BG offset.
+        // Matches VDP behavior where HScroll RAM provides per-line offsets.
+        float scanline = clamp(pixelYFromTop, 0.0, ScreenHeight - 1.0);
+        float scanlineTexCoord = (scanline + 0.5) / ScreenHeight;
+        float hScrollThis = texture(HScrollTexture, scanlineTexCoord).r * 32767.0;
+        worldX = pixelX - hScrollThis;
+    } else {
+        worldX = WorldOffsetX + pixelX + shimmerDistortion;
+    }
     float worldY = WorldOffsetY + pixelYFromTop;
 
     float tileXf = floor(worldX / 8.0);
     float tileYf = floor(worldY / 8.0);
 
-    tileXf = mod(tileXf, TilemapWidth);
-    if (tileXf < 0.0) tileXf += TilemapWidth;
+    if (VDPWrapWidth > 0.0) {
+        // VDP nametable simulation for AIZ ocean-to-beach transition.
+        // Two modes based on whether the camera has started revealing beach tiles:
+        //
+        // Transition (NametableBase > 0) with tileXf >= 0:
+        //   Read tiles directly from the level layout. The layout already has
+        //   ocean at low positions and beach further right, so per-line HScroll
+        //   naturally produces the correct mix without any ring-buffer boundary
+        //   artifacts (no staircase).
+        //
+        // Ocean phase (NametableBase == 0) or negative tileXf:
+        //   Wrap within VDP width so the 64-tile ocean pattern repeats.
+        //   Deep bands with negative worldX always see ocean here, which is
+        //   the visually correct result for underwater scroll layers.
+        if (NametableBase > 0.0 && tileXf >= 0.0) {
+            tileXf = mod(tileXf, TilemapWidth);
+            if (tileXf < 0.0) tileXf += TilemapWidth;
+        } else {
+            float pos = mod(tileXf, VDPWrapWidth);
+            if (pos < 0.0) pos += VDPWrapWidth;
+            tileXf = pos;
+        }
+    } else {
+        tileXf = mod(tileXf, TilemapWidth);
+        if (tileXf < 0.0) tileXf += TilemapWidth;
+    }
 
     if (WrapY == 1) {
         tileYf = mod(tileYf, TilemapHeight);

@@ -14,6 +14,8 @@ public class TilemapTexture {
     private int textureId = 0;
     private int widthTiles = 0;
     private int heightTiles = 0;
+    private ByteBuffer uploadBuffer;
+    private int uploadBufferCapacity;
 
     public void init(int widthTiles, int heightTiles) {
         if (widthTiles <= 0 || heightTiles <= 0) {
@@ -42,17 +44,20 @@ public class TilemapTexture {
         if (textureId == 0 || this.widthTiles != widthTiles || this.heightTiles != heightTiles) {
             init(widthTiles, heightTiles);
         }
-        ByteBuffer buffer = MemoryUtil.memAlloc(data.length);
-        try {
-            buffer.put(data);
-            buffer.flip();
-            glBindTexture(GL_TEXTURE_2D, textureId);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, widthTiles, heightTiles,
-                    GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-            glBindTexture(GL_TEXTURE_2D, 0);
-        } finally {
-            MemoryUtil.memFree(buffer);
+        if (uploadBuffer == null || uploadBufferCapacity < data.length) {
+            if (uploadBuffer != null) {
+                MemoryUtil.memFree(uploadBuffer);
+            }
+            uploadBuffer = MemoryUtil.memAlloc(data.length);
+            uploadBufferCapacity = data.length;
         }
+        uploadBuffer.clear();
+        uploadBuffer.put(data);
+        uploadBuffer.flip();
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, widthTiles, heightTiles,
+                GL_RGBA, GL_UNSIGNED_BYTE, uploadBuffer);
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 
     public int getTextureId() {
@@ -74,5 +79,10 @@ public class TilemapTexture {
         textureId = 0;
         widthTiles = 0;
         heightTiles = 0;
+        if (uploadBuffer != null) {
+            MemoryUtil.memFree(uploadBuffer);
+            uploadBuffer = null;
+            uploadBufferCapacity = 0;
+        }
     }
 }

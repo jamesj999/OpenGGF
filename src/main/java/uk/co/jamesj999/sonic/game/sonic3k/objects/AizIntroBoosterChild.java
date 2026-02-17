@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
@@ -20,7 +21,13 @@ import java.util.List;
  */
 public class AizIntroBoosterChild {
 
-    private static final int ANIM_FRAME_DURATION = 3;
+    /**
+     * ROM byte_45E6B/byte_45E73 both have timer reset = 0.
+     * Animate_RawNoSST decrements timer each frame; when it goes negative
+     * the frame advances and timer reloads from data[0].  Timer=0 means
+     * every frame: subq.b #1 → -1 → advance → reload 0.
+     */
+    private static final int ANIM_FRAME_DURATION = 1;
 
     private final AizIntroPlaneChild parent;
     private final int xOffset;
@@ -61,7 +68,15 @@ public class AizIntroBoosterChild {
         PatternSpriteRenderer renderer = AizIntroArtLoader.getPlaneRenderer();
         if (renderer == null || !renderer.isReady()) return;
         int frame = animSequence[animIndex];
-        renderer.drawFrameIndex(frame, currentX, currentY, false, false);
+        // Screen-space coordinates use the ROM +128 sprite-table bias.
+        int renderX = currentX;
+        int renderY = currentY;
+        try {
+            Camera camera = Camera.getInstance();
+            renderX += camera.getX() - 128;
+            renderY += camera.getY() - 128;
+        } catch (Exception ignored) {}
+        renderer.drawFrameIndex(frame, renderX, renderY, false, false);
     }
 
     public int getCurrentX() {

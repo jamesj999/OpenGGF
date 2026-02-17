@@ -45,12 +45,31 @@ public class DisassemblySearchResult {
     }
 
     public String getFileName() {
-        return Path.of(filePath).getFileName().toString();
+        return filePath != null ? Path.of(filePath).getFileName().toString() : null;
+    }
+
+    /**
+     * Whether this result has an associated file path (binclude or include).
+     * Label-only results (Offs_*, PLC_*) return false.
+     */
+    public boolean hasFile() {
+        return filePath != null;
+    }
+
+    /**
+     * Whether this result has an associated binclude file path.
+     * Label-only results (Offs_*, PLC_*) return false.
+     * @deprecated Use {@link #hasFile()} instead.
+     */
+    public boolean hasBinclude() {
+        return hasFile();
     }
 
     @Override
     public String toString() {
+        String fileName = filePath != null ? getFileName() : "(label-only)";
+        String compression = compressionType != null ? compressionType.getDisplayName() : "N/A";
         return String.format("DisassemblySearchResult{label='%s', file='%s', compression=%s, asmLine=%d}",
-                label, getFileName(), compressionType.getDisplayName(), asmLineNumber);
+                label, fileName, compression, asmLineNumber);
     }
 }

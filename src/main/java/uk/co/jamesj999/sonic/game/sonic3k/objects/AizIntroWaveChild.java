@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
@@ -25,24 +26,46 @@ public class AizIntroWaveChild extends AbstractObjectInstance {
     /** X threshold below which the wave self-deletes. */
     static final int DELETE_X = 0x60;
 
-    /** Animation frame duration in frames. */
-    private static final int ANIM_FRAME_DURATION = 3;
+    /**
+     * ROM animation data from byte_67A9B (sonic3k.asm:136013).
+     * Pairs of (mapping_frame, delay). Delay value N means N+1 frames.
+     * First pair (0,1) is skipped on first call (anim_frame starts at 0, incremented to 2).
+     * Sentinel -1 means delete sprite.
+     */
+    private static final int[] ANIM_DATA = {
+        0, 1,   // offset 0: skipped
+        0, 0,   // offset 2: frame 0, 1 tick
+        1, 1,   // offset 4: frame 1, 2 ticks
+        2, 2,   // offset 6: frame 2, 3 ticks
+        3, 2,   // offset 8: frame 3, 3 ticks
+        4, 1,   // offset 10: frame 4, 2 ticks
+        5, 1,   // offset 12: frame 5, 2 ticks
+        -1       // sentinel: delete
+    };
 
-    private final int scrollSpeed;
+    private final AizPlaneIntroInstance parent;
     private int currentX;
     private int currentY;
-    private int animFrame;
+    /** Index into ANIM_DATA (advances by 2 per animation step). */
+    private int animIndex;
     private int animTimer;
+    /** Current mapping frame to render. */
+    private int mappingFrame;
 
     /**
-     * @param spawn       spawn position for the wave
-     * @param scrollSpeed pixels per frame to scroll left (from parent's SCROLL_SPEED)
+     * @param spawn  spawn position for the wave
+     * @param parent parent intro object (provides live scroll speed via $40(a0))
      */
-    public AizIntroWaveChild(ObjectSpawn spawn, int scrollSpeed) {
+    public AizIntroWaveChild(ObjectSpawn spawn, AizPlaneIntroInstance parent) {
         super(spawn, "AIZIntroWave");
-        this.scrollSpeed = scrollSpeed;
+        this.parent = parent;
         this.currentX = spawn.x();
         this.currentY = spawn.y();
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        return 3;
     }
 
     @Override
@@ -61,29 +84,46 @@ public class AizIntroWaveChild extends AbstractObjectInstance {
             return;
         }
 
-        // Scroll left by parent's scroll speed
-        currentX -= scrollSpeed;
-
-        // Animate through wave frames
-        if (++animTimer >= ANIM_FRAME_DURATION) {
-            animTimer = 0;
-            animFrame++;
-        }
-
-        // Self-delete when scrolled off left side of screen
+        // ROM order (loc_678DA): check delete threshold, subtract scroll, animate, draw.
+        // Check x < DELETE_X before scroll subtraction to match ROM
         if (currentX < DELETE_X) {
             setDestroyed(true);
+            return;
+        }
+
+        // ROM: subtract parent.$40 each frame (speed changes from 8 -> 12 -> 16).
+        currentX -= parent.getScrollSpeed();
+
+        // Animate_RawMultiDelay: decrement timer, advance on expiry
+        if (--animTimer < 0) {
+            // Advance to next animation entry
+            animIndex += 2;
+            if (animIndex >= ANIM_DATA.length || ANIM_DATA[animIndex] == -1) {
+                // Sentinel: delete sprite
+                setDestroyed(true);
+                return;
+            }
+            mappingFrame = ANIM_DATA[animIndex];
+            animTimer = ANIM_DATA[animIndex + 1];
         }
     }
 
     public int getAnimFrame() {
-        return animFrame;
+        return mappingFrame;
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         PatternSpriteRenderer renderer = AizIntroArtLoader.getIntroSpritesRenderer();
         if (renderer == null || !renderer.isReady()) return;
-        renderer.drawFrameIndex(animFrame, currentX, currentY, false, false);
+        // Screen-space coordinates use the ROM +128 sprite-table bias.
+        int renderX = currentX;
+        int renderY = currentY;
+        try {
+            Camera camera = Camera.getInstance();
+            renderX += camera.getX() - 128;
+            renderY += camera.getY() - 128;
+        } catch (Exception ignored) {}
+        renderer.drawFrameIndex(mappingFrame, renderX, renderY, true, false);
     }
 }

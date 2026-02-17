@@ -196,6 +196,11 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
     }
 
     @Override
+    public boolean bgWrapsHorizontally() {
+        return true;
+    }
+
+    @Override
     public int getWaterLevel(int zoneIndex, int actIndex) {
         if (hasWater(zoneIndex)) {
             return WaterSystem.getInstance().getWaterLevelY(zoneIndex, actIndex);

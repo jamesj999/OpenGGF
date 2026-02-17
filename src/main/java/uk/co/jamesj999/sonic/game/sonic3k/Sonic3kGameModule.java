@@ -19,8 +19,13 @@ import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
 import uk.co.jamesj999.sonic.game.ZoneRegistry;
 import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
 import uk.co.jamesj999.sonic.game.sonic2.LevelGamestate;
+import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioProfile;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kObjectIds;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.Sonic3kObjectRegistry;
 import uk.co.jamesj999.sonic.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
+import uk.co.jamesj999.sonic.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
 import uk.co.jamesj999.sonic.level.objects.PlaneSwitcherConfig;
 import uk.co.jamesj999.sonic.level.objects.TouchResponseTable;
@@ -36,6 +41,7 @@ public class Sonic3kGameModule implements GameModule {
     private Sonic3kScrollHandlerProvider scrollHandlerProvider;
     private Sonic3kLevelEventManager levelEventManager;
     private PhysicsProvider physicsProvider;
+    private Sonic3kObjectArtProvider objectArtProvider;
 
     @Override
     public String getIdentifier() {
@@ -55,7 +61,7 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public ObjectRegistry createObjectRegistry() {
-        return null;
+        return new Sonic3kObjectRegistry();
     }
 
     @Override
@@ -65,17 +71,19 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public TouchResponseTable createTouchResponseTable(RomByteReader romReader) {
-        return new TouchResponseTable(romReader, 0, 1);
+        return new TouchResponseTable(romReader,
+                Sonic3kConstants.TOUCH_SIZES_ADDR,
+                Sonic3kConstants.TOUCH_SIZES_COUNT);
     }
 
     @Override
     public int getPlaneSwitcherObjectId() {
-        return 0;
+        return Sonic3kObjectIds.PATH_SWAP;
     }
 
     @Override
     public PlaneSwitcherConfig getPlaneSwitcherConfig() {
-        return new PlaneSwitcherConfig((byte) 0, (byte) 0, (byte) 0, (byte) 0);
+        return new PlaneSwitcherConfig((byte) 0x0C, (byte) 0x0D, (byte) 0x0E, (byte) 0x0F);
     }
 
     @Override
@@ -110,8 +118,13 @@ public class Sonic3kGameModule implements GameModule {
     }
 
     @Override
+    public TitleCardProvider getTitleCardProvider() {
+        return Sonic3kTitleCardManager.getInstance();
+    }
+
+    @Override
     public ZoneFeatureProvider getZoneFeatureProvider() {
-        return null;
+        return new Sonic3kZoneFeatureProvider();
     }
 
     @Override
@@ -136,7 +149,10 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public ObjectArtProvider getObjectArtProvider() {
-        return null;
+        if (objectArtProvider == null) {
+            objectArtProvider = new Sonic3kObjectArtProvider();
+        }
+        return objectArtProvider;
     }
 
     @Override

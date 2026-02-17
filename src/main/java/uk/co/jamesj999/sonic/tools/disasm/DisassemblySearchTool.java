@@ -27,6 +27,29 @@ public class DisassemblySearchTool {
             Pattern.CASE_INSENSITIVE
     );
 
+    // Matches labeled include directives (assembly text includes)
+    private static final Pattern INCLUDE_PATTERN = Pattern.compile(
+            "^\\s*(\\w+):\\s*include\\s+\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
+
+    // Matches unlabeled include directives
+    private static final Pattern INCLUDE_NO_LABEL_PATTERN = Pattern.compile(
+            "^\\s*include\\s+\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
+
+    // Label on its own line (for multiline label+binclude/include resolution in S3K)
+    private static final Pattern STANDALONE_LABEL_PATTERN = Pattern.compile(
+            "^(\\w+):\\s*$"
+    );
+
+    // Offset table labels: "Offs_Foo:" standalone or "Offs_Foo: dc.w ..."
+    private static final Pattern OFFSET_TABLE_PATTERN = Pattern.compile(
+            "^(Offs_\\w+):(?:\\s+dc\\.w\\s+.*)?\\s*$"
+    );
+
+    // PLC macro labels: "PLC_0A: plrlistheader" or "PLCKosM_AIZ: plrlistheader"
+    private static final Pattern PLC_LABEL_PATTERN = Pattern.compile(
+            "^((?:PLC|PLCKosM)_\\w+):\\s+plrlistheader"
+    );
+
     // Pattern for S2 palette macro: "Label: palette path[,path2] [; comment]"
     // The macro expands to BINCLUDE "art/palettes/{path}"
     // path can contain spaces, stops at comma, semicolon, or end of line
@@ -166,10 +189,15 @@ public class DisassemblySearchTool {
         try (BufferedReader reader = Files.newBufferedReader(asmFile)) {
             String line;
             int lineNumber = 0;
+            String pendingLabel = null;
+            int pendingLabelLine = 0;
             while ((line = reader.readLine()) != null) {
                 lineNumber++;
+
+                // 1. Same-line label+binclude
                 Matcher matcher = BINCLUDE_PATTERN.matcher(line);
                 if (matcher.find()) {
+                    pendingLabel = null;
                     String label = matcher.group(1);
                     String filePath = matcher.group(2);
                     String matchTarget = matchLabel ? label.toLowerCase() : filePath.toLowerCase();
@@ -184,10 +212,29 @@ public class DisassemblySearchTool {
                                 line.trim()
                         ));
                     }
-                } else {
-                    Matcher noLabelMatcher = BINCLUDE_NO_LABEL_PATTERN.matcher(line);
-                    if (noLabelMatcher.find()) {
-                        String filePath = noLabelMatcher.group(1);
+                    continue;
+                }
+
+                // 2. Unlabeled binclude — associate with pendingLabel if available
+                Matcher noLabelMatcher = BINCLUDE_NO_LABEL_PATTERN.matcher(line);
+                if (noLabelMatcher.find()) {
+                    String filePath = noLabelMatcher.group(1);
+                    String resolvedLabel = pendingLabel;
+                    pendingLabel = null;
+
+                    if (resolvedLabel != null) {
+                        String matchTarget = matchLabel ? resolvedLabel.toLowerCase() : filePath.toLowerCase();
+                        if (matchTarget.contains(pattern)) {
+                            results.add(new DisassemblySearchResult(
+                                    resolvedLabel,
+                                    filePath,
+                                    CompressionType.fromLabelAndExtension(resolvedLabel, filePath),
+                                    disasmRoot.relativize(asmFile).toString(),
+                                    pendingLabelLine,
+                                    line.trim()
+                            ));
+                        }
+                    } else {
                         if (!matchLabel && filePath.toLowerCase().contains(pattern)) {
                             results.add(new DisassemblySearchResult(
                                     null,
@@ -199,6 +246,112 @@ public class DisassemblySearchTool {
                             ));
                         }
                     }
+                    continue;
+                }
+
+                // 2b. Same-line label+include (assembly text include)
+                Matcher includeMatcher = INCLUDE_PATTERN.matcher(line);
+                if (includeMatcher.find()) {
+                    pendingLabel = null;
+                    String label = includeMatcher.group(1);
+                    String filePath = includeMatcher.group(2);
+                    String matchTarget = matchLabel ? label.toLowerCase() : filePath.toLowerCase();
+
+                    if (matchTarget.contains(pattern)) {
+                        results.add(new DisassemblySearchResult(
+                                label,
+                                filePath,
+                                CompressionType.ASSEMBLY_DATA,
+                                disasmRoot.relativize(asmFile).toString(),
+                                lineNumber,
+                                line.trim()
+                        ));
+                    }
+                    continue;
+                }
+
+                // 2c. Unlabeled include — associate with pendingLabel if available
+                Matcher includeNoLabelMatcher = INCLUDE_NO_LABEL_PATTERN.matcher(line);
+                if (includeNoLabelMatcher.find()) {
+                    String filePath = includeNoLabelMatcher.group(1);
+                    String resolvedLabel = pendingLabel;
+                    pendingLabel = null;
+
+                    if (resolvedLabel != null) {
+                        String matchTarget = matchLabel ? resolvedLabel.toLowerCase() : filePath.toLowerCase();
+                        if (matchTarget.contains(pattern)) {
+                            results.add(new DisassemblySearchResult(
+                                    resolvedLabel,
+                                    filePath,
+                                    CompressionType.ASSEMBLY_DATA,
+                                    disasmRoot.relativize(asmFile).toString(),
+                                    pendingLabelLine,
+                                    line.trim()
+                            ));
+                        }
+                    } else {
+                        if (!matchLabel && filePath.toLowerCase().contains(pattern)) {
+                            results.add(new DisassemblySearchResult(
+                                    null,
+                                    filePath,
+                                    CompressionType.ASSEMBLY_DATA,
+                                    disasmRoot.relativize(asmFile).toString(),
+                                    lineNumber,
+                                    line.trim()
+                            ));
+                        }
+                    }
+                    continue;
+                }
+
+                // 3. Standalone label — check for Offs_ immediate emit, otherwise store as pending
+                Matcher standaloneMatcher = STANDALONE_LABEL_PATTERN.matcher(line);
+                if (standaloneMatcher.find()) {
+                    String label = standaloneMatcher.group(1);
+                    if (label.startsWith("Offs_")) {
+                        pendingLabel = null;
+                        if (matchLabel && label.toLowerCase().contains(pattern)) {
+                            results.add(new DisassemblySearchResult(
+                                    label, null, null,
+                                    disasmRoot.relativize(asmFile).toString(),
+                                    lineNumber, line.trim()
+                            ));
+                        }
+                    } else {
+                        pendingLabel = label;
+                        pendingLabelLine = lineNumber;
+                    }
+                    continue;
+                }
+
+                // 4. Any other line — clear pendingLabel, check extended patterns
+                pendingLabel = null;
+
+                // Offs_Foo: dc.w ... (same-line offset table)
+                Matcher offsMatcher = OFFSET_TABLE_PATTERN.matcher(line);
+                if (offsMatcher.find()) {
+                    String label = offsMatcher.group(1);
+                    if (matchLabel && label.toLowerCase().contains(pattern)) {
+                        results.add(new DisassemblySearchResult(
+                                label, null, null,
+                                disasmRoot.relativize(asmFile).toString(),
+                                lineNumber, line.trim()
+                        ));
+                    }
+                    continue;
+                }
+
+                // PLC macro labels
+                Matcher plcMatcher = PLC_LABEL_PATTERN.matcher(line);
+                if (plcMatcher.find()) {
+                    String label = plcMatcher.group(1);
+                    if (matchLabel && label.toLowerCase().contains(pattern)) {
+                        results.add(new DisassemblySearchResult(
+                                label, null, null,
+                                disasmRoot.relativize(asmFile).toString(),
+                                lineNumber, line.trim()
+                        ));
+                    }
                 }
             }
         }
@@ -209,10 +362,15 @@ public class DisassemblySearchTool {
         try (BufferedReader reader = Files.newBufferedReader(asmFile)) {
             String line;
             int lineNumber = 0;
+            String pendingLabel = null;
+            int pendingLabelLine = 0;
             while ((line = reader.readLine()) != null) {
                 lineNumber++;
+
+                // 1. Same-line label+binclude
                 Matcher matcher = BINCLUDE_PATTERN.matcher(line);
                 if (matcher.find()) {
+                    pendingLabel = null;
                     String label = matcher.group(1);
                     String filePath = matcher.group(2);
 
@@ -228,10 +386,30 @@ public class DisassemblySearchTool {
                                 line.trim()
                         ));
                     }
-                } else {
-                    Matcher noLabelMatcher = BINCLUDE_NO_LABEL_PATTERN.matcher(line);
-                    if (noLabelMatcher.find()) {
-                        String filePath = noLabelMatcher.group(1);
+                    continue;
+                }
+
+                // 2. Unlabeled binclude — associate with pendingLabel if available
+                Matcher noLabelMatcher = BINCLUDE_NO_LABEL_PATTERN.matcher(line);
+                if (noLabelMatcher.find()) {
+                    String filePath = noLabelMatcher.group(1);
+                    String resolvedLabel = pendingLabel;
+                    pendingLabel = null;
+
+                    if (resolvedLabel != null) {
+                        if (pattern.isEmpty() ||
+                            resolvedLabel.toLowerCase().contains(pattern) ||
+                            filePath.toLowerCase().contains(pattern)) {
+                            results.add(new DisassemblySearchResult(
+                                    resolvedLabel,
+                                    filePath,
+                                    CompressionType.fromLabelAndExtension(resolvedLabel, filePath),
+                                    disasmRoot.relativize(asmFile).toString(),
+                                    pendingLabelLine,
+                                    line.trim()
+                            ));
+                        }
+                    } else {
                         if (pattern.isEmpty() || filePath.toLowerCase().contains(pattern)) {
                             results.add(new DisassemblySearchResult(
                                     null,
@@ -242,12 +420,123 @@ public class DisassemblySearchTool {
                                     line.trim()
                             ));
                         }
-                    } else if (hasPaletteMacro()) {
-                        // Check for S2 palette macro (S1 uses bincludePalette, caught above)
-                        Matcher paletteMatcher = PALETTE_PATTERN.matcher(line);
-                        if (paletteMatcher.find()) {
-                            parsePaletteMacroResults(paletteMatcher, asmFile, lineNumber, line, pattern, results);
+                    }
+                    continue;
+                }
+
+                // 2b. Same-line label+include (assembly text include)
+                Matcher includeMatcher = INCLUDE_PATTERN.matcher(line);
+                if (includeMatcher.find()) {
+                    pendingLabel = null;
+                    String label = includeMatcher.group(1);
+                    String filePath = includeMatcher.group(2);
+
+                    if (pattern.isEmpty() ||
+                        label.toLowerCase().contains(pattern) ||
+                        filePath.toLowerCase().contains(pattern)) {
+                        results.add(new DisassemblySearchResult(
+                                label,
+                                filePath,
+                                CompressionType.ASSEMBLY_DATA,
+                                disasmRoot.relativize(asmFile).toString(),
+                                lineNumber,
+                                line.trim()
+                        ));
+                    }
+                    continue;
+                }
+
+                // 2c. Unlabeled include — associate with pendingLabel if available
+                Matcher includeNoLabelMatcher = INCLUDE_NO_LABEL_PATTERN.matcher(line);
+                if (includeNoLabelMatcher.find()) {
+                    String filePath = includeNoLabelMatcher.group(1);
+                    String resolvedLabel = pendingLabel;
+                    pendingLabel = null;
+
+                    if (resolvedLabel != null) {
+                        if (pattern.isEmpty() ||
+                            resolvedLabel.toLowerCase().contains(pattern) ||
+                            filePath.toLowerCase().contains(pattern)) {
+                            results.add(new DisassemblySearchResult(
+                                    resolvedLabel,
+                                    filePath,
+                                    CompressionType.ASSEMBLY_DATA,
+                                    disasmRoot.relativize(asmFile).toString(),
+                                    pendingLabelLine,
+                                    line.trim()
+                            ));
                         }
+                    } else {
+                        if (pattern.isEmpty() || filePath.toLowerCase().contains(pattern)) {
+                            results.add(new DisassemblySearchResult(
+                                    null,
+                                    filePath,
+                                    CompressionType.ASSEMBLY_DATA,
+                                    disasmRoot.relativize(asmFile).toString(),
+                                    lineNumber,
+                                    line.trim()
+                            ));
+                        }
+                    }
+                    continue;
+                }
+
+                // 3. Standalone label
+                Matcher standaloneMatcher = STANDALONE_LABEL_PATTERN.matcher(line);
+                if (standaloneMatcher.find()) {
+                    String label = standaloneMatcher.group(1);
+                    if (label.startsWith("Offs_")) {
+                        pendingLabel = null;
+                        if (pattern.isEmpty() || label.toLowerCase().contains(pattern)) {
+                            results.add(new DisassemblySearchResult(
+                                    label, null, null,
+                                    disasmRoot.relativize(asmFile).toString(),
+                                    lineNumber, line.trim()
+                            ));
+                        }
+                    } else {
+                        pendingLabel = label;
+                        pendingLabelLine = lineNumber;
+                    }
+                    continue;
+                }
+
+                // 4. Any other line — clear pendingLabel, check extended patterns
+                pendingLabel = null;
+
+                // Offs_Foo: dc.w ... (same-line offset table)
+                Matcher offsMatcher = OFFSET_TABLE_PATTERN.matcher(line);
+                if (offsMatcher.find()) {
+                    String label = offsMatcher.group(1);
+                    if (pattern.isEmpty() || label.toLowerCase().contains(pattern)) {
+                        results.add(new DisassemblySearchResult(
+                                label, null, null,
+                                disasmRoot.relativize(asmFile).toString(),
+                                lineNumber, line.trim()
+                        ));
+                    }
+                    continue;
+                }
+
+                // PLC macro labels
+                Matcher plcMatcher = PLC_LABEL_PATTERN.matcher(line);
+                if (plcMatcher.find()) {
+                    String label = plcMatcher.group(1);
+                    if (pattern.isEmpty() || label.toLowerCase().contains(pattern)) {
+                        results.add(new DisassemblySearchResult(
+                                label, null, null,
+                                disasmRoot.relativize(asmFile).toString(),
+                                lineNumber, line.trim()
+                        ));
+                    }
+                    continue;
+                }
+
+                if (hasPaletteMacro()) {
+                    // Check for S2 palette macro (S1 uses bincludePalette, caught above)
+                    Matcher paletteMatcher = PALETTE_PATTERN.matcher(line);
+                    if (paletteMatcher.find()) {
+                        parsePaletteMacroResults(paletteMatcher, asmFile, lineNumber, line, pattern, results);
                     }
                 }
             }
@@ -305,10 +594,15 @@ public class DisassemblySearchTool {
         try (BufferedReader reader = Files.newBufferedReader(asmFile)) {
             String line;
             int lineNumber = 0;
+            String pendingLabel = null;
+            int pendingLabelLine = 0;
             while ((line = reader.readLine()) != null) {
                 lineNumber++;
+
+                // 1. Same-line label+binclude
                 Matcher matcher = BINCLUDE_PATTERN.matcher(line);
                 if (matcher.find()) {
+                    pendingLabel = null;
                     String label = matcher.group(1);
                     String filePath = matcher.group(2);
                     CompressionType fileType = CompressionType.fromLabelAndExtension(label, filePath);
@@ -323,29 +617,96 @@ public class DisassemblySearchTool {
                                 line.trim()
                         ));
                     }
-                } else {
-                    Matcher noLabelMatcher = BINCLUDE_NO_LABEL_PATTERN.matcher(line);
-                    if (noLabelMatcher.find()) {
-                        String filePath = noLabelMatcher.group(1);
-                        CompressionType fileType = CompressionType.fromExtension(filePath);
+                    continue;
+                }
 
-                        if (fileType == type) {
-                            results.add(new DisassemblySearchResult(
-                                    null,
-                                    filePath,
-                                    fileType,
-                                    disasmRoot.relativize(asmFile).toString(),
-                                    lineNumber,
-                                    line.trim()
-                            ));
-                        }
-                    } else if (hasPaletteMacro()) {
-                        // Check for S2 palette macro (palettes are UNCOMPRESSED)
-                        if (type == CompressionType.UNCOMPRESSED) {
-                            Matcher paletteMatcher = PALETTE_PATTERN.matcher(line);
-                            if (paletteMatcher.find()) {
-                                parsePaletteMacroResultsForType(paletteMatcher, asmFile, lineNumber, line, results);
-                            }
+                // 2. Unlabeled binclude — associate with pendingLabel if available
+                Matcher noLabelMatcher = BINCLUDE_NO_LABEL_PATTERN.matcher(line);
+                if (noLabelMatcher.find()) {
+                    String filePath = noLabelMatcher.group(1);
+                    String resolvedLabel = pendingLabel;
+                    pendingLabel = null;
+
+                    CompressionType fileType = resolvedLabel != null
+                            ? CompressionType.fromLabelAndExtension(resolvedLabel, filePath)
+                            : CompressionType.fromExtension(filePath);
+
+                    if (fileType == type) {
+                        results.add(new DisassemblySearchResult(
+                                resolvedLabel,
+                                filePath,
+                                fileType,
+                                disasmRoot.relativize(asmFile).toString(),
+                                resolvedLabel != null ? pendingLabelLine : lineNumber,
+                                line.trim()
+                        ));
+                    }
+                    continue;
+                }
+
+                // 2b. Same-line label+include (assembly text include)
+                if (type == CompressionType.ASSEMBLY_DATA) {
+                    Matcher includeMatcher = INCLUDE_PATTERN.matcher(line);
+                    if (includeMatcher.find()) {
+                        pendingLabel = null;
+                        String label = includeMatcher.group(1);
+                        String filePath = includeMatcher.group(2);
+
+                        results.add(new DisassemblySearchResult(
+                                label,
+                                filePath,
+                                CompressionType.ASSEMBLY_DATA,
+                                disasmRoot.relativize(asmFile).toString(),
+                                lineNumber,
+                                line.trim()
+                        ));
+                        continue;
+                    }
+                }
+
+                // 2c. Unlabeled include — associate with pendingLabel if available
+                if (type == CompressionType.ASSEMBLY_DATA) {
+                    Matcher includeNoLabelMatcher = INCLUDE_NO_LABEL_PATTERN.matcher(line);
+                    if (includeNoLabelMatcher.find()) {
+                        String filePath = includeNoLabelMatcher.group(1);
+                        String resolvedLabel = pendingLabel;
+                        pendingLabel = null;
+
+                        results.add(new DisassemblySearchResult(
+                                resolvedLabel,
+                                filePath,
+                                CompressionType.ASSEMBLY_DATA,
+                                disasmRoot.relativize(asmFile).toString(),
+                                resolvedLabel != null ? pendingLabelLine : lineNumber,
+                                line.trim()
+                        ));
+                        continue;
+                    }
+                }
+
+                // 3. Standalone label — store as pending (no compression type to match for label-only)
+                Matcher standaloneMatcher = STANDALONE_LABEL_PATTERN.matcher(line);
+                if (standaloneMatcher.find()) {
+                    String label = standaloneMatcher.group(1);
+                    if (label.startsWith("Offs_")) {
+                        pendingLabel = null;
+                        // Label-only results have no compression type — skip for compression filter
+                    } else {
+                        pendingLabel = label;
+                        pendingLabelLine = lineNumber;
+                    }
+                    continue;
+                }
+
+                // 4. Any other line — clear pendingLabel, check palette macro
+                pendingLabel = null;
+
+                if (hasPaletteMacro()) {
+                    // Check for S2 palette macro (palettes are UNCOMPRESSED)
+                    if (type == CompressionType.UNCOMPRESSED) {
+                        Matcher paletteMatcher = PALETTE_PATTERN.matcher(line);
+                        if (paletteMatcher.find()) {
+                            parsePaletteMacroResultsForType(paletteMatcher, asmFile, lineNumber, line, results);
                         }
                     }
                 }

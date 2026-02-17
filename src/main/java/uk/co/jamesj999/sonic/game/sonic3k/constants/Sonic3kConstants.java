@@ -138,6 +138,48 @@ public class Sonic3kConstants {
     // ArtNem_AIZIntroSprites - Wave/water spray sprite art (Nemesis compressed)
     // Decompresses to 11008 bytes (344 tiles)
     public static final int ART_NEM_AIZ_INTRO_SPRITES_ADDR = 0x3481A0;
+    public static final int ART_NEM_AIZ_SWING_VINE_ADDR = 0x38D8BC;
+    public static final int ART_NEM_AIZ_SLIDE_ROPE_ADDR = 0x38DA22;
+    public static final int ART_NEM_AIZ_MISC1_ADDR = 0x38DC90;
+    public static final int ART_NEM_AIZ_FALLING_LOG_ADDR = 0x38E4D8;
+    public static final int ART_NEM_AIZ_CORK_FLOOR_ADDR = 0x38D586;
+    public static final int ART_NEM_AIZ_CORK_FLOOR_2_ADDR = 0x38D72A;
+
+    // Map_AIZCorkFloor - Cork floor sprite mappings (2 frames: intact + broken)
+    // Frame labels: Frame_229B64 (intact, 6 pieces), Frame_229B8A (broken, 12 pieces)
+    // Used by rock child object (ObjDat3_66432) during AIZ1 intro
+    public static final int MAP_AIZ_CORK_FLOOR_ADDR = 0x229B60;
+
+    // ===== HUD Art =====
+    // ArtUnc_HUDDigits - Score/Time/Ring digits (0-9, colon, E)
+    // 768 bytes = 24 tiles (12 characters x 2 tiles each, column-major 8x16)
+    // Verified via RomOffsetFinder binary match
+    public static final int ART_UNC_HUD_DIGITS_ADDR = 0xE18A;
+    public static final int ART_UNC_HUD_DIGITS_SIZE = 768;
+
+    // ArtUnc_LivesDigits - Small 8x8 digits (0-9) for lives counter
+    // 320 bytes = 10 tiles
+    // Verified via RomOffsetFinder binary match
+    public static final int ART_UNC_LIVES_DIGITS_ADDR = 0xE48A;
+    public static final int ART_UNC_LIVES_DIGITS_SIZE = 320;
+
+    // Touch_Sizes table: 58 entries of 2 bytes (width, height radius)
+    // sonic3k.asm line 20713, verified via ROM binary search
+    public static final int TOUCH_SIZES_ADDR = 0x00FF62;
+    public static final int TOUCH_SIZES_COUNT = 58;
+
+    public static final int ART_NEM_SONIC_LIFE_ICON_ADDR = 0x190D34;
+    public static final int ART_NEM_MONITORS_ADDR = 0x190F4A;
+    public static final int ART_NEM_EXPLOSION_ADDR = 0x19200A;
+    public static final int ART_NEM_BUBBLES_ADDR = 0x191B46;
+    public static final int ART_NEM_RING_HUD_TEXT_ADDR = 0x192AEE;
+    public static final int ART_NEM_ENEMY_PTS_STARPOST_ADDR = 0x192D2A;
+    public static final int ART_NEM_SPIKES_SPRINGS_ADDR = 0x1927FE;
+
+    // VRAM tile index for SpikesSprings shared art (spikes start at +8)
+    public static final int ARTTILE_SPIKES_SPRINGS = 0x0494;
+    // VRAM tile index for diagonal spring art (separate from SpikesSprings)
+    public static final int ARTTILE_DIAGONAL_SPRING = 0x043A;
 
     // ArtUnc_CutsceneKnux - Cutscene Knuckles sprite art (uncompressed, DPLC-driven)
     // 0x4EE0 bytes = 631 tiles
@@ -186,6 +228,16 @@ public class Sonic3kConstants {
     public static final int ARTTILE_AIZ_INTRO_PLANE = 0x0529;    // ArtTile_AIZIntroPlane
     public static final int ARTTILE_AIZ_INTRO_EMERALDS = 0x05B1; // ArtTile_AIZIntroEmeralds
     public static final int ARTTILE_CUTSCENE_KNUX = 0x04DA;      // ArtTile_CutsceneKnux
+    public static final int ARTTILE_AIZ_SLIDE_ROPE = 0x0324;
+    public static final int ARTTILE_AIZ_MISC1 = 0x0333;
+    public static final int ARTTILE_AIZ_FALLING_LOG = 0x03CF;
+    public static final int ARTTILE_AIZ_FLOATING_PLATFORM = 0x03F7;
+    public static final int ARTTILE_AIZ_SWING_VINE = 0x041B;
+    public static final int ARTTILE_BUBBLES = 0x045C;
+    public static final int ARTTILE_MONITORS = 0x04C4;
+    public static final int ARTTILE_STARPOST = 0x05E4;
+    public static final int ARTTILE_RING = 0x06BC;
+    public static final int ARTTILE_PLAYER_LIFE_ICON = 0x07D4;
 
     // --- Animation scripts (inline data in S3 code space) ---
     // Knuckles cutscene animation scripts
@@ -305,11 +357,135 @@ public class Sonic3kConstants {
     // ROM: Tails_Load_PLC checks frame index >= $D1
     public static final int TAILS_EXTRA_ART_FRAME_THRESHOLD = 0xD1;
 
-    // ===== Tails Tail Appendage (separate sprite object, future use) =====
+    // ArtTile_Player_2_Tail - VRAM base tile for Tails tail appendage (Obj05)
+    // From sonic3k.constants.asm line 1409
+    public static final int ART_TILE_TAILS_TAIL = 0x06B0;
+
+    // ===== Tails Tail Appendage (separate sprite object) =====
     public static final int ART_UNC_TAILS_TAIL_ADDR = 0x336620;
     public static final int ART_UNC_TAILS_TAIL_SIZE = 0x1160;   // 4,448 bytes = 139 tiles
     public static final int MAP_TAILS_TAIL_ADDR = 0x344BB8;
     public static final int DPLC_TAILS_TAIL_ADDR = 0x344D74;
+
+    // ===== Animated palette cycling data (AnPal tables) =====
+    // AIZ1 waterfall (palette 2, colors 11-14): 4 frames x 8 bytes = 32 bytes
+    public static final int ANPAL_AIZ1_1_ADDR = 0x002AF6;
+    public static final int ANPAL_AIZ1_1_SIZE = 32;
+    // AIZ1 secondary water (palette 3, colors 12-14): 8 frames x 6 bytes = 48 bytes
+    public static final int ANPAL_AIZ1_2_ADDR = 0x002BF6;
+    public static final int ANPAL_AIZ1_2_SIZE = 48;
+    // AIZ1 fire mode (palette 3, colors 2-5): 10 frames x 8 bytes = 80 bytes
+    public static final int ANPAL_AIZ1_3_ADDR = 0x002B16;
+    public static final int ANPAL_AIZ1_3_SIZE = 80;
+    // AIZ1 fire mode (palette 3, colors 13-15): 10 frames x 6 bytes = 60 bytes
+    public static final int ANPAL_AIZ1_4_ADDR = 0x002B96;
+    public static final int ANPAL_AIZ1_4_SIZE = 60;
+    // AIZ2 water (palette 3, colors 12-15): 4 frames x 8 bytes = 32 bytes
+    public static final int ANPAL_AIZ2_1_ADDR = 0x002C26;
+    public static final int ANPAL_AIZ2_1_SIZE = 32;
+    // AIZ2 water trickle pre-fire (pal 2: colors 4,8; pal 3: color 11): 8 frames x 6 bytes = 48 bytes
+    public static final int ANPAL_AIZ2_2_ADDR = 0x002C46;
+    public static final int ANPAL_AIZ2_2_SIZE = 48;
+    // AIZ2 water trickle post-fire (same targets): 8 frames x 6 bytes = 48 bytes
+    public static final int ANPAL_AIZ2_3_ADDR = 0x002C76;
+    public static final int ANPAL_AIZ2_3_SIZE = 48;
+    // AIZ2 torch glow pre-fire (palette 3, color 1): 26 frames x 2 bytes = 52 bytes
+    public static final int ANPAL_AIZ2_4_ADDR = 0x002CA6;
+    public static final int ANPAL_AIZ2_4_SIZE = 52;
+    // AIZ2 torch glow post-fire (palette 3, color 1): 26 frames x 2 bytes = 52 bytes
+    public static final int ANPAL_AIZ2_5_ADDR = 0x002CD8;
+    public static final int ANPAL_AIZ2_5_SIZE = 52;
+
+    // ===== Animated pattern scripts (AniPLC tables) =====
+    // AniPLC_AIZ1: 3 scripts (waterfall cascade, waterfall offset, wave ripple)
+    // Verified by ROM binary search for frame data pattern (5CC0 090C 3C4F 3005)
+    public static final int ANIPLC_AIZ1_ADDR = 0x028750;
+
+    // AniPLC_AIZ2: 5 scripts (fire/explosion, waterfall cascade, waterfall offset, fire small, fire large)
+    // Verified by ROM binary search for frame data pattern (1660 0417 0017 2E45)
+    public static final int ANIPLC_AIZ2_ADDR = 0x02879C;
+
+    // ArtUnc_AniAIZ2_FirstTree: Static tree art for AIZ2 near-spawn area (camera X < 0x1C0)
+    // 0x460 bytes = 35 tiles, loaded to VRAM tile $0CA
+    // Verified by move.l #addr,d1 instruction at ROM 0x02786A
+    public static final int ART_UNC_AIZ2_FIRST_TREE_ADDR = 0x2A5880;
+    public static final int ART_UNC_AIZ2_FIRST_TREE_SIZE = 0x460;
+    public static final int ART_UNC_AIZ2_FIRST_TREE_DEST_TILE = 0x0CA;
+
+    // ===== Title Card Art (KosinskiM compressed) =====
+    // Shared art loaded to VRAM $500+
+    public static final int ART_KOSM_TITLE_CARD_RED_ACT_ADDR = 0x0D6F28;   // Red banner + ACT text
+    public static final int ART_KOSM_TITLE_CARD_S3K_ZONE_ADDR = 0x15C3A2;  // "ZONE" shared letters
+    public static final int ART_KOSM_TITLE_CARD_NUM1_ADDR = 0x0D6D84;      // Act 1 number art
+    public static final int ART_KOSM_TITLE_CARD_NUM2_ADDR = 0x0D6E46;      // Act 2 number art
+
+    // Zone-specific title card letter art, indexed by zone (0=AIZ, 1=HCZ, ...)
+    public static final int[] TITLE_CARD_ZONE_ART_ADDRS = {
+            0x39BDC8,  // 0  AIZ - ArtKosM_AIZTitleCard (960 bytes)
+            0x39BEDA,  // 1  HCZ - ArtKosM_HCZTitleCard (1248 bytes)
+            0x39C02C,  // 2  MGZ - ArtKosM_MGZTitleCard (1344 bytes)
+            0x39C1EE,  // 3  CNZ - ArtKosM_CNZTitleCard (1536 bytes)
+            0x0D710A,  // 4  FBZ - ArtKosM_FBZTitleCard (1536 bytes)
+            0x39C4E2,  // 5  ICZ - ArtKosM_ICZTitleCard (672 bytes)
+            0x39C5B4,  // 6  LBZ - ArtKosM_LBZTitleCard (1248 bytes)
+            0x15C454,  // 7  MHZ - ArtKosM_MHZTitleCard (1248 bytes)
+            0x15C5D6,  // 8  SOZ - ArtKosM_SOZTitleCard (960 bytes)
+            0x15C6E8,  // 9  LRZ - ArtKosM_LRZTitleCard (864 bytes)
+            0x15C7FA,  // 10 SSZ - ArtKosM_SSZTitleCard (1536 bytes)
+            0x15C9BC,  // 11 DEZ - ArtKosM_DEZTitleCard (960 bytes)
+            0x15CA9E,  // 12 DDZ - ArtKosM_DDZTitleCard (1440 bytes)
+            0x15CC30,  // 13 HPZ - ArtKosM_HPZTitleCard (1152 bytes)
+    };
+
+    // VRAM tile destinations for title card art blocks
+    public static final int VRAM_TITLE_CARD_BASE = 0x500;       // RedAct base
+    public static final int VRAM_TITLE_CARD_ZONE_TEXT = 0x510;   // S3KZone text overwrites
+    public static final int VRAM_TITLE_CARD_ACT_NUM = 0x53D;     // Act number art
+    public static final int VRAM_TITLE_CARD_ZONE_ART = 0x54D;    // Zone-specific letters
+
+    // ===== Shield Art (uncompressed binclude in S3 data region) =====
+    // Verified by binary pattern match against skdisasm .bin files, 2026-02-17
+
+    // ArtUnc_FireShield - Fire Shield.bin (269 tiles)
+    public static final int ART_UNC_FIRE_SHIELD_ADDR = 0x18C704;
+    public static final int ART_UNC_FIRE_SHIELD_SIZE = 8608;
+
+    // ArtUnc_LightningShield - Lightning Shield.bin (130 tiles)
+    public static final int ART_UNC_LIGHTNING_SHIELD_ADDR = 0x18E8A4;
+    public static final int ART_UNC_LIGHTNING_SHIELD_SIZE = 4160;
+
+    // ArtUnc_LightningShield_Sparks - Sparks.bin (5 tiles)
+    public static final int ART_UNC_LIGHTNING_SHIELD_SPARKS_ADDR = 0x18F8E4;
+    public static final int ART_UNC_LIGHTNING_SHIELD_SPARKS_SIZE = 160;
+
+    // ArtUnc_BubbleShield - Bubble Shield.bin (138 tiles)
+    public static final int ART_UNC_BUBBLE_SHIELD_ADDR = 0x18F984;
+    public static final int ART_UNC_BUBBLE_SHIELD_SIZE = 4416;
+
+    // ===== Shield Mappings, DPLCs, Animations =====
+    // Verified by ROM binary search for offset table patterns, 2026-02-17
+
+    // Fire Shield: 25 mapping frames, 25 DPLC frames, 2 animations
+    public static final int ANI_FIRE_SHIELD_ADDR = 0x019A02;
+    public static final int ANI_FIRE_SHIELD_COUNT = 2;
+    public static final int MAP_FIRE_SHIELD_ADDR = 0x019AC6;
+    public static final int DPLC_FIRE_SHIELD_ADDR = 0x019CE6;
+
+    // Lightning Shield: 24 mapping frames, 23 DPLC frames, 3 animations
+    public static final int ANI_LIGHTNING_SHIELD_ADDR = 0x019A2A;
+    public static final int ANI_LIGHTNING_SHIELD_COUNT = 3;
+    public static final int MAP_LIGHTNING_SHIELD_ADDR = 0x019DC8;
+    public static final int DPLC_LIGHTNING_SHIELD_ADDR = 0x019EFA;
+
+    // Bubble Shield: 13 mapping frames, 13 DPLC frames, 3 animations
+    public static final int ANI_BUBBLE_SHIELD_ADDR = 0x019A7A;
+    public static final int ANI_BUBBLE_SHIELD_COUNT = 3;
+    public static final int MAP_BUBBLE_SHIELD_ADDR = 0x019F82;
+    public static final int DPLC_BUBBLE_SHIELD_ADDR = 0x01A076;
+
+    // VRAM tile destinations for shields
+    public static final int ART_TILE_SHIELD = 0x079C;
+    public static final int ART_TILE_SHIELD_SPARKS = 0x07BB;
 
     // ===== Known pattern data for ROM scanning =====
     // AIZ1 LevelSizes first entry: $1308, $6000, $0000, $0390

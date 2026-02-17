@@ -42,6 +42,11 @@ public class Camera {
 	// This is separate from horizScrollDelayFrames which only affects horizontal scroll.
 	private boolean frozen = false;
 
+	// ROM: Level_started_flag.
+	// Used by HUD/start-state flow and intro/cutscene sequencing.
+	// This flag does NOT freeze camera scroll; use `frozen` for camera suppression.
+	private boolean levelStarted = true;
+
 	// ROM: LZ3/SBZ2 vertical wrapping (DeformLayers.asm lines 542-580)
 	// When top boundary is negative (e.g. 0xFF00 = -256), coordinates wrap modularly
 	// to create an infinite-falling effect. The wrap range is 0x800 (2048 pixels).
@@ -315,6 +320,24 @@ public class Camera {
 	 */
 	public boolean getFrozen() {
 		return frozen;
+	}
+
+	/**
+	 * Sets the level-started flag (ROM: Level_started_flag).
+	 * This flag is used by level/HUD flow and intro state logic; it does not
+	 * directly control camera scrolling.
+	 *
+	 * @param levelStarted true when level is considered started
+	 */
+	public void setLevelStarted(boolean levelStarted) {
+		this.levelStarted = levelStarted;
+	}
+
+	/**
+	 * @return true if Level_started_flag is set
+	 */
+	public boolean isLevelStarted() {
+		return levelStarted;
 	}
 
 	/**
@@ -784,6 +807,7 @@ public class Camera {
 		maxYChanging = false;
 		horizScrollDelayFrames = 0;
 		frozen = false;
+		levelStarted = true;
 		focusedSprite = null;
 		yPosBias = DEFAULT_Y_BIAS;
 		verticalWrapEnabled = false;

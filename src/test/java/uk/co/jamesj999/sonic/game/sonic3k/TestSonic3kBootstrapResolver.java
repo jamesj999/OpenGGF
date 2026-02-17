@@ -71,7 +71,7 @@ public class TestSonic3kBootstrapResolver {
             Sonic3kLoadBootstrap bootstrap = Sonic3kBootstrapResolver.resolve(0, 0);
             assertEquals(Sonic3kLoadBootstrap.Mode.INTRO, bootstrap.mode());
             assertTrue(bootstrap.hasIntroStartPosition());
-            assertArrayEquals(new int[]{0x60, 0x30}, bootstrap.introStartPosition());
+            assertArrayEquals(new int[]{0x40, 0x420}, bootstrap.introStartPosition());
         } finally {
             config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, oldSkip);
             config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, oldChar);

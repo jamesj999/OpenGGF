@@ -201,8 +201,20 @@ public class RomOffsetFinder {
         if (searchResults.size() > 1) {
             System.out.println("Multiple matches found, using first: " + item.getLabel());
             for (DisassemblySearchResult r : searchResults) {
-                System.out.println("  - " + r.getLabel() + ": " + r.getFilePath());
+                System.out.println("  - " + r.getLabel() + ": " + (r.getFilePath() != null ? r.getFilePath() : "(label-only)"));
             }
+        }
+
+        // Label-only results (Offs_*, PLC_*) have no binary data to search for
+        if (!item.hasFile()) {
+            return OffsetFinderResult.notFound(labelPattern,
+                    "Label-only result (no binary data): " + item.getLabel());
+        }
+
+        // Assembly text includes don't have a direct ROM offset
+        if (item.getCompressionType() == CompressionType.ASSEMBLY_DATA) {
+            return OffsetFinderResult.notFound(labelPattern,
+                    "Assembly text include (no direct ROM offset): " + item.getLabel());
         }
 
         byte[] referenceData;
@@ -300,6 +312,16 @@ public class RomOffsetFinder {
         String label = item.getLabel();
         if (label == null) {
             return VerificationResult.error(labelPattern, "Item has no label");
+        }
+
+        // Label-only results (Offs_*, PLC_*) have no binary data to verify
+        if (!item.hasFile()) {
+            return VerificationResult.error(label, "Label-only result (no binary data to verify)");
+        }
+
+        // Assembly text includes don't have a direct ROM offset to verify
+        if (item.getCompressionType() == CompressionType.ASSEMBLY_DATA) {
+            return VerificationResult.error(label, "Assembly text include (no direct ROM offset to verify)");
         }
 
         // 2. Calculate offset using the calculator
@@ -525,6 +547,10 @@ public class RomOffsetFinder {
                     }
                     String exportPrefix = args.length > 2 ? args[2] : "";
                     handleExport(finder, args[1], exportPrefix);
+                    break;
+
+                case "search-rom":
+                    handleSearchRom(finder, args);
                     break;
 
                 case "verify-audio":
@@ -878,6 +904,128 @@ public class RomOffsetFinder {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // search-rom: Search ROM binary for hex byte patterns
+    // -----------------------------------------------------------------------
+
+    private static void handleSearchRom(RomOffsetFinder finder, String[] args) throws IOException {
+        if (args.length < 2) {
+            System.out.println("Usage: search-rom <hex-bytes> [startOffset] [endOffset]");
+            System.out.println("  hex-bytes: hex string, e.g. \"0002 5CC0 090C\" or \"00025CC0\"");
+            return;
+        }
+
+        byte[] pattern;
+        try {
+            pattern = parseHexString(args[1]);
+        } catch (IllegalArgumentException e) {
+            System.out.println("Invalid hex string: " + e.getMessage());
+            return;
+        }
+
+        if (pattern.length == 0) {
+            System.out.println("Empty pattern.");
+            return;
+        }
+
+        long startOffset = args.length > 2 ? parseOffset(args[2]) : 0;
+        long endOffset = args.length > 3 ? parseOffset(args[3]) : Long.MAX_VALUE;
+
+        // Print header
+        StringBuilder patternHex = new StringBuilder();
+        for (int i = 0; i < pattern.length; i++) {
+            if (i > 0) patternHex.append(' ');
+            patternHex.append(String.format("%02X", pattern[i] & 0xFF));
+        }
+        System.out.printf("Searching ROM for pattern: %s (%d bytes)%n", patternHex, pattern.length);
+        if (startOffset > 0 || endOffset < Long.MAX_VALUE) {
+            System.out.printf("Range: 0x%06X - 0x%06X%n", startOffset,
+                    endOffset < Long.MAX_VALUE ? endOffset : 0);
+        }
+        System.out.println();
+
+        List<Long> matches = finder.testTool.findAllRawMatches(pattern, startOffset, endOffset);
+
+        if (matches.isEmpty()) {
+            System.out.println("No matches found.");
+            return;
+        }
+
+        System.out.printf("Found %d match(es):%n%n", matches.size());
+
+        int contextSize = 16;
+        for (int m = 0; m < matches.size(); m++) {
+            long offset = matches.get(m);
+            System.out.printf("Match %d at 0x%06X:%n", m + 1, offset);
+
+            // Context line: bytes before | MATCH | bytes after
+            long contextStart = Math.max(0, offset - contextSize);
+            int beforeLen = (int) (offset - contextStart);
+            byte[] beforeBytes = beforeLen > 0 ? finder.testTool.readRomBytes(contextStart, beforeLen) : new byte[0];
+            byte[] afterBytes = finder.testTool.readRomBytes(offset + pattern.length, contextSize);
+
+            StringBuilder ctxLine = new StringBuilder("  Context: ");
+            if (beforeBytes != null && beforeBytes.length > 0) {
+                ctxLine.append("...");
+                for (byte b : beforeBytes) ctxLine.append(String.format(" %02X", b & 0xFF));
+                ctxLine.append(' ');
+            }
+            ctxLine.append('|');
+            for (byte b : pattern) ctxLine.append(String.format("%02X ", b & 0xFF));
+            ctxLine.setLength(ctxLine.length() - 1); // trim trailing space
+            ctxLine.append('|');
+            if (afterBytes != null && afterBytes.length > 0) {
+                for (byte b : afterBytes) ctxLine.append(String.format(" %02X", b & 0xFF));
+                ctxLine.append(" ...");
+            }
+            System.out.println(ctxLine);
+
+            // Hex dump line: 32 bytes at match offset
+            int dumpLen = 32;
+            byte[] dumpBytes = finder.testTool.readRomBytes(offset, dumpLen);
+            if (dumpBytes != null) {
+                StringBuilder dumpLine = new StringBuilder();
+                dumpLine.append(String.format("  Hex dump (%d bytes at offset):%n    %06X:", dumpLen, offset));
+                for (int i = 0; i < dumpBytes.length; i++) {
+                    if (i > 0 && i % 16 == 0) {
+                        dumpLine.append(String.format("%n    %06X:", offset + i));
+                    } else if (i > 0 && i % 8 == 0) {
+                        dumpLine.append(' ');
+                    }
+                    dumpLine.append(String.format(" %02X", dumpBytes[i] & 0xFF));
+                }
+                System.out.println(dumpLine);
+            }
+
+            System.out.println();
+        }
+    }
+
+    /**
+     * Parse a hex string into a byte array.
+     * Accepts formats: "0002 5CC0", "00025CC0", "00 02 5C C0"
+     */
+    static byte[] parseHexString(String hex) {
+        String stripped = hex.replaceAll("\\s+", "");
+        if (stripped.isEmpty()) {
+            return new byte[0];
+        }
+        if (stripped.length() % 2 != 0) {
+            throw new IllegalArgumentException("Hex string must have even length (got " + stripped.length() + ")");
+        }
+        for (int i = 0; i < stripped.length(); i++) {
+            char c = stripped.charAt(i);
+            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
+                throw new IllegalArgumentException("Invalid hex character: '" + c + "' at position " + i);
+            }
+        }
+        byte[] result = new byte[stripped.length() / 2];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = (byte) Integer.parseInt(stripped.substring(i * 2, i * 2 + 2), 16);
+        }
+        return result;
+    }
+
     private static void handleSearch(RomOffsetFinder finder, String pattern) throws IOException {
         List<DisassemblySearchResult> results = finder.search(pattern);
 
@@ -891,39 +1039,50 @@ public class RomOffsetFinder {
 
         for (DisassemblySearchResult result : results) {
             System.out.printf("Label:       %s%n", result.getLabel() != null ? result.getLabel() : "(none)");
-            System.out.printf("File:        %s%n", result.getFilePath());
-            System.out.printf("Compression: %s%n", result.getCompressionType().getDisplayName());
-            System.out.printf("ASM Source:  %s:%d%n", result.getAsmFilePath(), result.getAsmLineNumber());
 
-            try {
-                long size = finder.searchTool.getFileSize(result.getFilePath());
-                System.out.printf("File Size:   %d bytes%n", size);
-            } catch (IOException e) {
-                System.out.printf("File Size:   (not found)%n");
+            if (result.hasFile()) {
+                System.out.printf("File:        %s%n", result.getFilePath());
+                System.out.printf("Compression: %s%n", result.getCompressionType().getDisplayName());
+            } else {
+                System.out.printf("Type:        Label-only (no binary data)%n");
             }
 
-            // Get verified ROM offset by searching the ROM directly
-            if (result.getLabel() != null) {
-                try {
-                    VerificationResult vr = finder.verify(result.getLabel());
-                    switch (vr.getStatus()) {
-                        case VERIFIED:
-                            // For VERIFIED, calculatedOffset was correct
-                            System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getCalculatedOffset());
-                            break;
-                        case MISMATCH:
-                            // Calculation was wrong, but we found the actual offset
-                            System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getVerifiedOffset());
-                            break;
-                        case NOT_FOUND:
-                            System.out.printf("ROM Offset:  (not found in ROM)%n");
-                            break;
-                        case ERROR:
-                            System.out.printf("ROM Offset:  (error: %s)%n", vr.getMessage());
-                            break;
+            System.out.printf("ASM Source:  %s:%d%n", result.getAsmFilePath(), result.getAsmLineNumber());
+
+            if (result.hasFile()) {
+                if (result.getCompressionType() == CompressionType.ASSEMBLY_DATA) {
+                    // Assembly includes don't have a direct ROM offset to verify
+                    System.out.printf("Note:        Assembly text include (no direct ROM offset)%n");
+                } else {
+                    try {
+                        long size = finder.searchTool.getFileSize(result.getFilePath());
+                        System.out.printf("File Size:   %d bytes%n", size);
+                    } catch (IOException e) {
+                        System.out.printf("File Size:   (not found)%n");
                     }
-                } catch (IOException e) {
-                    // Ignore verification errors
+
+                    // Get verified ROM offset by searching the ROM directly
+                    if (result.getLabel() != null) {
+                        try {
+                            VerificationResult vr = finder.verify(result.getLabel());
+                            switch (vr.getStatus()) {
+                                case VERIFIED:
+                                    System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getCalculatedOffset());
+                                    break;
+                                case MISMATCH:
+                                    System.out.printf("ROM Offset:  0x%X (verified)%n", vr.getVerifiedOffset());
+                                    break;
+                                case NOT_FOUND:
+                                    System.out.printf("ROM Offset:  (not found in ROM)%n");
+                                    break;
+                                case ERROR:
+                                    System.out.printf("ROM Offset:  (error: %s)%n", vr.getMessage());
+                                    break;
+                            }
+                        } catch (IOException e) {
+                            // Ignore verification errors
+                        }
+                    }
                 }
             }
 
@@ -1007,8 +1166,8 @@ public class RomOffsetFinder {
         for (DisassemblySearchResult result : results) {
             System.out.printf("%-40s %-12s %s%n",
                     result.getLabel() != null ? result.getLabel() : "(no label)",
-                    result.getCompressionType().getDisplayName(),
-                    result.getFilePath());
+                    result.getCompressionType() != null ? result.getCompressionType().getDisplayName() : "N/A",
+                    result.getFilePath() != null ? result.getFilePath() : "(label-only)");
         }
 
         System.out.println();
@@ -1166,6 +1325,8 @@ public class RomOffsetFinder {
             case "bin":
             case "raw":
                 return CompressionType.UNCOMPRESSED;
+            case "asm":
+                return CompressionType.ASSEMBLY_DATA;
             default:
                 return null;
         }
@@ -1182,6 +1343,7 @@ public class RomOffsetFinder {
         System.out.println("  [--game s1|s2|s3k] verify <label>         Verify calculated offset against ROM");
         System.out.println("  [--game s1|s2|s3k] verify-batch [type]    Batch verify all items (by type)");
         System.out.println("  [--game s1|s2|s3k] export <type> [prefix] Export verified offsets as constants");
+        System.out.println("  [--game s1|s2|s3k] search-rom <hex> [start] [end]  Search ROM for hex byte pattern");
         System.out.println("  --game s1 verify-audio                    Verify Sonic 1 audio ROM addresses");
         System.out.println();
         System.out.println("Game selection:");
@@ -1191,7 +1353,7 @@ public class RomOffsetFinder {
         System.out.println("  -Dgame=s1          Alternative via system property");
         System.out.println("  (auto-detected from disasm path if --game not specified)");
         System.out.println();
-        System.out.println("Compression types: nem, kos, kosm, eni, sax, bin, auto");
+        System.out.println("Compression types: nem, kos, kosm, eni, sax, bin, asm, auto");
         System.out.println();
         System.out.println("System properties:");
         System.out.println("  -Drom.path=<path>            Path to ROM file");
@@ -1216,6 +1378,11 @@ public class RomOffsetFinder {
         System.out.println("  --game s3k list nem             List all S3K Nemesis files");
         System.out.println("  --game s3k search Pal_AIZ       Find AIZ palette");
         System.out.println("  --game s3k verify ArtNem_TitleScreenText  Verify S3K offset against ROM");
+        System.out.println();
+        System.out.println("Examples (search-rom):");
+        System.out.println("  --game s1 search-rom \"07 72 73 26 15 08 FF 05\"   Find SpeedUpIndex pattern");
+        System.out.println("  --game s3k search-rom \"0002 5CC0 090C\"           Find AniPLC_AIZ1 table");
+        System.out.println("  --game s3k search-rom \"0002\" 0x28000 0x29000     Restrict search range");
     }
 
     /**

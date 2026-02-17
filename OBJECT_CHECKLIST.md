@@ -1,6 +1,6 @@
 # Sonic 2 Object Implementation Checklist
 
-Generated: 2026-02-16 17:34:28
+Generated: 2026-02-17 22:11:58
 
 ## Summary
 
@@ -14,103 +14,110 @@ Generated: 2026-02-16 17:34:28
 |----|------|------------|-------|
 | 0x03 | LayerSwitcher | 299 | EHZ1, EHZ2, CPZ1, CPZ2, ARZ1, ARZ2, CNZ1, CNZ2, HTZ1, HTZ2, SCZ1 |
 | 0x06 | Spiral | 18 | EHZ1, EHZ2, MTZ1, MTZ2, MTZ3 |
-| 0x0B | TippingFloor | 18 | CPZ1, CPZ2 |
 | 0x0D | GoalPlate | 13 | EHZ1, EHZ2, CPZ1, ARZ1, CNZ1, CNZ2, HTZ1, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2 |
 | 0x11 | Bridge | 14 | EHZ1, EHZ2 |
-| 0x14 | Seesaw | 13 | HTZ1, HTZ2 |
-| 0x15 | SwingingPlatform | 7 | ARZ2, MCZ1, MCZ2 |
-| 0x16 | HTZLift | 14 | HTZ1, HTZ2 |
 | 0x18 | ARZPlatform | 71 | EHZ1, EHZ2, ARZ1, ARZ2, HTZ1, HTZ2 |
+| 0x1C | Scenery | 135 | EHZ1, EHZ2, HTZ1, HTZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3 |
+| 0x26 | Monitor | 245 | EHZ1, EHZ2, CPZ1, CPZ2, ARZ1, ARZ2, CNZ1, CNZ2, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3, WFZ1 |
+| 0x36 | Spikes | 204 | EHZ1, EHZ2, CPZ2, ARZ1, CNZ1, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3 |
+| 0x41 | Spring | 139 | EHZ1, EHZ2, CPZ1, CPZ2, ARZ1, ARZ2, CNZ1, CNZ2, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3 |
+| 0x49 | EHZWaterfall | 18 | EHZ1, EHZ2 |
+| 0x4B | Buzzer | 23 | EHZ1, EHZ2 |
+| 0x5C | Masher | 21 | EHZ1, EHZ2 |
+| 0x79 | Checkpoint | 61 | EHZ1, EHZ2, CPZ1, CPZ2, ARZ1, ARZ2, CNZ1, CNZ2, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3, WFZ1 |
+| 0x9D | Coconuts | 17 | EHZ1, EHZ2 |
+| 0x3E | EggPrison | 7 | EHZ2, CPZ2, ARZ2, CNZ2, HTZ2, MCZ2, MTZ3 |
+| 0x0B | TippingFloor | 18 | CPZ1, CPZ2 |
 | 0x19 | CPZPlatform | 55 | CPZ1, CPZ2, OOZ1, OOZ2, WFZ1 |
 | 0x1B | SpeedBooster | 20 | CPZ1, CPZ2 |
-| 0x1C | Scenery | 135 | EHZ1, EHZ2, HTZ1, HTZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3 |
 | 0x1D | BlueBalls | 7 | CPZ1 |
 | 0x1E | CPZSpinTube | 16 | CPZ1, CPZ2 |
+| 0x2D | Barrier | 35 | CPZ1, CPZ2, HTZ1, HTZ2, MTZ1, MTZ2, MTZ3, WFZ1, DEZ1 |
+| 0x32 | BreakableBlock | 28 | CPZ1, CPZ2, HTZ1, HTZ2 |
+| 0x6B | MTZPlatform | 58 | CPZ1, CPZ2, MTZ1, MTZ2, MTZ3 |
+| 0x74 | InvisibleBlock | 113 | CPZ1, CPZ2, CNZ1, CNZ2, HTZ1, HTZ2, MCZ1, MTZ1, MTZ2, MTZ3, WFZ1 |
+| 0x78 | CPZStaircase | 6 | CPZ1, CPZ2 |
+| 0x7B | PipeExitSpring | 9 | CPZ1, CPZ2 |
+| 0xA5 | Spiny | 11 | CPZ1, CPZ2 |
+| 0xA6 | SpinyOnWall | 2 | CPZ1, CPZ2 |
+| 0xA7 | Grabber | 5 | CPZ1, CPZ2 |
+| 0x40 | Springboard | 31 | CPZ2, ARZ1, ARZ2, MCZ2 |
+| 0x7A | SidewaysPform | 9 | CPZ2, MCZ1, MCZ2 |
 | 0x1F | CollapsPform | 84 | ARZ1, ARZ2, MCZ1, MCZ2, OOZ1, OOZ2 |
 | 0x22 | ArrowShooter | 24 | ARZ1, ARZ2 |
 | 0x23 | FallingPillar | 16 | ARZ1, ARZ2 |
 | 0x24 | Bubbles | 20 | ARZ1, ARZ2 |
-| 0x26 | Monitor | 245 | EHZ1, EHZ2, CPZ1, CPZ2, ARZ1, ARZ2, CNZ1, CNZ2, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3, WFZ1 |
-| 0x2A | Stomper | 13 | MCZ1, MCZ2 |
 | 0x2B | RisingPillar | 11 | ARZ1, ARZ2 |
 | 0x2C | LeavesGenerator | 43 | ARZ1, ARZ2 |
-| 0x2D | Barrier | 35 | CPZ1, CPZ2, HTZ1, HTZ2, MTZ1, MTZ2, MTZ3, WFZ1, DEZ1 |
+| 0x82 | SwingingPform | 15 | ARZ1, ARZ2 |
+| 0x83 | ARZRotPforms | 4 | ARZ1, ARZ2 |
+| 0x8C | Whisp | 25 | ARZ1, ARZ2 |
+| 0x8D | GrounderInWall | 8 | ARZ1, ARZ2 |
+| 0x8E | GrounderInWall2 | 20 | ARZ1, ARZ2 |
+| 0x91 | ChopChop | 38 | ARZ1, ARZ2 |
+| 0x15 | SwingingPlatform | 7 | ARZ2, MCZ1, MCZ2 |
+| 0x44 | Bumper | 117 | CNZ1, CNZ2 |
+| 0x72 | CNZConveyorBelt | 15 | CNZ1, CNZ2, MTZ2, MTZ3, WFZ1 |
+| 0x84 | ForcedSpin | 42 | CNZ1, CNZ2, HTZ1, HTZ2 |
+| 0x85 | LauncherSpring | 14 | CNZ1, CNZ2 |
+| 0x86 | Flipper | 63 | CNZ1, CNZ2 |
+| 0xC8 | Crawl | 8 | CNZ1, CNZ2 |
+| 0xD2 | CNZRectBlocks | 8 | CNZ1, CNZ2 |
+| 0xD4 | CNZBigBlock | 23 | CNZ1, CNZ2 |
+| 0xD5 | Elevator | 16 | CNZ1, CNZ2 |
+| 0xD6 | PointPokey | 29 | CNZ1, CNZ2 |
+| 0xD7 | HexBumper | 18 | CNZ1, CNZ2 |
+| 0xD8 | BonusBlock | 98 | CNZ1, CNZ2 |
+| 0x14 | Seesaw | 13 | HTZ1, HTZ2 |
+| 0x16 | HTZLift | 14 | HTZ1, HTZ2 |
 | 0x2F | SmashableGround | 40 | HTZ1, HTZ2 |
 | 0x30 | RisingLava | 7 | HTZ1, HTZ2 |
 | 0x31 | LavaMarker | 50 | HTZ1, HTZ2, MTZ2, MTZ3 |
-| 0x32 | BreakableBlock | 28 | CPZ1, CPZ2, HTZ1, HTZ2 |
+| 0x92 | Spiker | 23 | HTZ1, HTZ2 |
+| 0x95 | Sol | 3 | HTZ1, HTZ2 |
+| 0x96 | Rexon2 | 6 | HTZ1, HTZ2 |
+| 0x2A | Stomper | 13 | MCZ1, MCZ2 |
+| 0x6A | MCZRotPforms | 7 | MCZ1, MCZ2, MTZ3 |
+| 0x75 | MCZBrick | 19 | MCZ1, MCZ2 |
+| 0x76 | SlidingSpikes | 14 | MCZ1, MCZ2 |
+| 0x77 | MCZBridge | 5 | MCZ1, MCZ2 |
+| 0x7F | VineSwitch | 11 | MCZ1, MCZ2 |
+| 0x80 | MovingVine | 24 | MCZ1, MCZ2, WFZ1 |
+| 0x81 | MCZDrawbridge | 12 | MCZ1, MCZ2 |
+| 0x9E | Crawlton | 12 | MCZ1, MCZ2 |
+| 0xA3 | Flasher | 26 | MCZ1, MCZ2 |
 | 0x33 | OOZPoppingPform | 22 | OOZ1, OOZ2 |
-| 0x36 | Spikes | 204 | EHZ1, EHZ2, CPZ2, ARZ1, CNZ1, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3 |
 | 0x3D | OOZLauncher | 6 | OOZ1, OOZ2 |
-| 0x3E | EggPrison | 7 | EHZ2, CPZ2, ARZ2, CNZ2, HTZ2, MCZ2, MTZ3 |
 | 0x3F | Fan | 60 | OOZ1, OOZ2 |
-| 0x40 | Springboard | 31 | CPZ2, ARZ1, ARZ2, MCZ2 |
-| 0x41 | Spring | 139 | EHZ1, EHZ2, CPZ1, CPZ2, ARZ1, ARZ2, CNZ1, CNZ2, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3 |
-| 0x42 | SteamSpring | 18 | MTZ1, MTZ2, MTZ3 |
-| 0x44 | Bumper | 117 | CNZ1, CNZ2 |
-| 0x47 | Button | 14 | MTZ1, MTZ2, MTZ3 |
 | 0x48 | LauncherBall | 32 | OOZ1, OOZ2 |
-| 0x49 | EHZWaterfall | 18 | EHZ1, EHZ2 |
 | 0x4A | Octus | 28 | OOZ1, OOZ2 |
-| 0x4B | Buzzer | 23 | EHZ1, EHZ2 |
 | 0x50 | Aquis | 16 | OOZ1, OOZ2 |
-| 0x5C | Masher | 21 | EHZ1, EHZ2 |
+| 0x42 | SteamSpring | 18 | MTZ1, MTZ2, MTZ3 |
+| 0x47 | Button | 14 | MTZ1, MTZ2, MTZ3 |
 | 0x64 | MTZTwinStompers | 6 | MTZ1, MTZ2, MTZ3 |
 | 0x65 | MTZLongPlatform | 81 | MTZ1, MTZ2, MTZ3 |
 | 0x66 | MTZSpringWall | 60 | MTZ1, MTZ2, MTZ3 |
 | 0x67 | MTZSpinTube | 12 | MTZ1, MTZ2, MTZ3 |
 | 0x68 | SpikyBlock | 22 | MTZ1, MTZ2, MTZ3 |
 | 0x69 | Nut | 28 | MTZ1, MTZ2, MTZ3 |
-| 0x6A | MCZRotPforms | 7 | MCZ1, MCZ2, MTZ3 |
-| 0x6B | MTZPlatform | 58 | CPZ1, CPZ2, MTZ1, MTZ2, MTZ3 |
-| 0x6C | Conveyor | 10 | MTZ2, MTZ3 |
 | 0x6D | FloorSpike | 25 | MTZ1, MTZ2, MTZ3 |
-| 0x6E | LargeRotPform | 28 | MTZ3 |
-| 0x70 | Cog | 14 | MTZ2, MTZ3 |
-| 0x71 | MTZLavaBubble | 15 | MTZ2, MTZ3 |
-| 0x72 | CNZConveyorBelt | 15 | CNZ1, CNZ2, MTZ2, MTZ3, WFZ1 |
-| 0x74 | InvisibleBlock | 113 | CPZ1, CPZ2, CNZ1, CNZ2, HTZ1, HTZ2, MCZ1, MTZ1, MTZ2, MTZ3, WFZ1 |
-| 0x75 | MCZBrick | 19 | MCZ1, MCZ2 |
-| 0x76 | SlidingSpikes | 14 | MCZ1, MCZ2 |
-| 0x77 | MCZBridge | 5 | MCZ1, MCZ2 |
-| 0x78 | CPZStaircase | 6 | CPZ1, CPZ2 |
-| 0x79 | Checkpoint | 61 | EHZ1, EHZ2, CPZ1, CPZ2, ARZ1, ARZ2, CNZ1, CNZ2, HTZ1, HTZ2, MCZ1, MCZ2, OOZ1, OOZ2, MTZ1, MTZ2, MTZ3, WFZ1 |
-| 0x7A | SidewaysPform | 9 | CPZ2, MCZ1, MCZ2 |
-| 0x7B | PipeExitSpring | 9 | CPZ1, CPZ2 |
-| 0x7F | VineSwitch | 11 | MCZ1, MCZ2 |
-| 0x80 | MovingVine | 24 | MCZ1, MCZ2, WFZ1 |
-| 0x81 | MCZDrawbridge | 12 | MCZ1, MCZ2 |
-| 0x82 | SwingingPform | 15 | ARZ1, ARZ2 |
-| 0x83 | ARZRotPforms | 4 | ARZ1, ARZ2 |
-| 0x84 | ForcedSpin | 42 | CNZ1, CNZ2, HTZ1, HTZ2 |
-| 0x85 | LauncherSpring | 14 | CNZ1, CNZ2 |
-| 0x86 | Flipper | 63 | CNZ1, CNZ2 |
-| 0x8B | WFZPalSwitcher | 11 | WFZ1 |
-| 0x8C | Whisp | 25 | ARZ1, ARZ2 |
-| 0x8D | GrounderInWall | 8 | ARZ1, ARZ2 |
-| 0x8E | GrounderInWall2 | 20 | ARZ1, ARZ2 |
-| 0x91 | ChopChop | 38 | ARZ1, ARZ2 |
-| 0x92 | Spiker | 23 | HTZ1, HTZ2 |
-| 0x95 | Sol | 3 | HTZ1, HTZ2 |
-| 0x96 | Rexon2 | 6 | HTZ1, HTZ2 |
-| 0x99 | Nebula | 23 | SCZ1 |
-| 0x9A | Turtloid | 10 | SCZ1 |
-| 0x9D | Coconuts | 17 | EHZ1, EHZ2 |
-| 0x9E | Crawlton | 12 | MCZ1, MCZ2 |
 | 0x9F | Shellcracker | 9 | MTZ1, MTZ2, MTZ3 |
 | 0xA1 | Slicer | 24 | MTZ1, MTZ2, MTZ3 |
-| 0xA3 | Flasher | 26 | MCZ1, MCZ2 |
 | 0xA4 | Asteron | 90 | MTZ1, MTZ2, MTZ3 |
-| 0xA5 | Spiny | 11 | CPZ1, CPZ2 |
-| 0xA6 | SpinyOnWall | 2 | CPZ1, CPZ2 |
-| 0xA7 | Grabber | 5 | CPZ1, CPZ2 |
+| 0x6C | Conveyor | 10 | MTZ2, MTZ3 |
+| 0x70 | Cog | 14 | MTZ2, MTZ3 |
+| 0x71 | MTZLavaBubble | 15 | MTZ2, MTZ3 |
+| 0x6E | LargeRotPform | 28 | MTZ3 |
+| 0x99 | Nebula | 23 | SCZ1 |
+| 0x9A | Turtloid | 10 | SCZ1 |
 | 0xAC | Balkiry | 19 | SCZ1 |
-| 0xAD | CluckerBase | 10 | WFZ1 |
-| 0xAE | Clucker | 10 | WFZ1 |
 | 0xB2 | Tornado | 3 | SCZ1, WFZ1 |
 | 0xB3 | Cloud | 3 | SCZ1 |
 | 0xB4 | VPropeller | 13 | SCZ1, WFZ1 |
 | 0xB5 | HPropeller | 10 | SCZ1, WFZ1 |
+| 0x8B | WFZPalSwitcher | 11 | WFZ1 |
+| 0xAD | CluckerBase | 10 | WFZ1 |
+| 0xAE | Clucker | 10 | WFZ1 |
 | 0xB6 | TiltingPlatform | 5 | WFZ1 |
 | 0xB8 | WallTurret | 5 | WFZ1 |
 | 0xB9 | Laser | 6 | WFZ1 |
@@ -121,13 +128,6 @@ Generated: 2026-02-16 17:34:28
 | 0xC0 | SpeedLauncher | 8 | WFZ1 |
 | 0xC1 | BreakablePlating | 4 | WFZ1 |
 | 0xC2 | Rivet | 1 | WFZ1 |
-| 0xC8 | Crawl | 8 | CNZ1, CNZ2 |
-| 0xD2 | CNZRectBlocks | 8 | CNZ1, CNZ2 |
-| 0xD4 | CNZBigBlock | 23 | CNZ1, CNZ2 |
-| 0xD5 | Elevator | 16 | CNZ1, CNZ2 |
-| 0xD6 | PointPokey | 29 | CNZ1, CNZ2 |
-| 0xD7 | HexBumper | 18 | CNZ1, CNZ2 |
-| 0xD8 | BonusBlock | 98 | CNZ1, CNZ2 |
 | 0xD9 | Grab | 3 | WFZ1 |
 
 ## Unimplemented Objects (By Usage)

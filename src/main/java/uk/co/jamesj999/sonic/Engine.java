@@ -17,6 +17,7 @@ import uk.co.jamesj999.sonic.debug.DebugState;
 import uk.co.jamesj999.sonic.game.SpecialStageDebugProvider;
 import uk.co.jamesj999.sonic.game.SpecialStageProvider;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
+import uk.co.jamesj999.sonic.graphics.ScreenshotCapture;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
@@ -30,6 +31,7 @@ import uk.co.jamesj999.sonic.game.TitleScreenProvider;
 
 import java.io.IOException;
 import java.nio.IntBuffer;
+import java.util.logging.Logger;
 
 import static org.lwjgl.glfw.Callbacks.*;
 import static org.lwjgl.glfw.GLFW.*;
@@ -47,6 +49,7 @@ import static org.lwjgl.system.MemoryUtil.*;
  * @author james
  */
 public class Engine {
+	private static final Logger LOGGER = Logger.getLogger(Engine.class.getName());
 	public static final String RESOURCES_SHADERS_PIXEL_SHADER_GLSL = "shaders/shader_the_hedgehog.glsl";
 	private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
 	private final SpriteManager spriteManager = SpriteManager.getInstance();
@@ -525,6 +528,21 @@ public class Engine {
 			glUseProgram(0);
 		}
 		profiler.endSection("debug");
+
+		// F12 screenshot capture (after all rendering is complete)
+		if (inputHandler != null && inputHandler.isKeyPressed(GLFW_KEY_F12)) {
+			try {
+				java.awt.image.BufferedImage screenshot = ScreenshotCapture.captureFramebuffer(
+						viewportWidth, viewportHeight);
+				String timestamp = java.time.LocalDateTime.now()
+						.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+				java.nio.file.Path path = java.nio.file.Path.of("screenshot_" + timestamp + ".png");
+				ScreenshotCapture.savePNG(screenshot, path);
+				LOGGER.info("Screenshot saved: " + path);
+			} catch (Exception e) {
+				LOGGER.warning("Screenshot failed: " + e.getMessage());
+			}
+		}
 
 		profiler.endFrame();
 		overlayStateReady = false;
