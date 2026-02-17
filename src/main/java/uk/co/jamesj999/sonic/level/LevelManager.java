@@ -265,6 +265,8 @@ public class LevelManager {
             CollisionSystem.getInstance().setObjectManager(objectManager);
             // Reset switch state for new level (Sonic 1 f_switch array)
             uk.co.jamesj999.sonic.game.sonic1.Sonic1SwitchManager.getInstance().reset();
+            // Reset v_obj6B singleton flag for SBZ3 StomperDoor
+            uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1StomperDoorObjectInstance.resetSbz3Flag();
             // Reset conveyor belt state for new level (Sonic 1 f_conveyrev + v_obj63)
             uk.co.jamesj999.sonic.game.sonic1.Sonic1ConveyorState.getInstance().reset();
             // Reset camera state from previous level (signpost may have locked it)
@@ -282,7 +284,7 @@ public class LevelManager {
             // Initialize zone-specific features (CNZ bumpers, CPZ pylon, water surface, etc.)
             zoneFeatureProvider = gameModule.getZoneFeatureProvider();
             if (zoneFeatureProvider != null) {
-                zoneFeatureProvider.initZoneFeatures(rom, level.getZoneIndex(), currentAct, camera.getX());
+                zoneFeatureProvider.initZoneFeatures(rom, getFeatureZoneId(), getFeatureActId(), camera.getX());
                 // Cache zone feature patterns (water surface, etc.)
                 int waterPatternBase = 0x30000; // High offset to avoid collision
                 zoneFeatureProvider.ensurePatternsCached(graphicsManager, waterPatternBase);
@@ -300,8 +302,8 @@ public class LevelManager {
             // Initialize water system for this level (S2/S3K only).
             // S1 water is already loaded by the ZoneFeatureProvider above.
             WaterSystem waterSystem = WaterSystem.getInstance();
-            if (!waterSystem.hasWater(level.getZoneIndex(), currentAct)) {
-                waterSystem.loadForLevel(rom, level.getZoneIndex(), currentAct, level.getObjects());
+            if (!waterSystem.hasWater(getFeatureZoneId(), getFeatureActId())) {
+                waterSystem.loadForLevel(rom, getFeatureZoneId(), getFeatureActId(), level.getObjects());
             }
         } catch (IOException e) {
             LOGGER.log(SEVERE, "Failed to load level " + levelIndex, e);
@@ -350,7 +352,7 @@ public class LevelManager {
         if (zoneFeatureProvider != null && level != null) {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
-            zoneFeatureProvider.updatePrePhysics(playable, Camera.getInstance().getX(), level.getZoneIndex());
+            zoneFeatureProvider.updatePrePhysics(playable, Camera.getInstance().getX(), getFeatureZoneId());
         }
     }
 
@@ -380,7 +382,7 @@ public class LevelManager {
         }
         // Update zone-specific features (CNZ bumpers, etc.)
         if (zoneFeatureProvider != null && level != null) {
-            zoneFeatureProvider.update(playable, Camera.getInstance().getX(), level.getZoneIndex());
+            zoneFeatureProvider.update(playable, Camera.getInstance().getX(), getFeatureZoneId());
         }
         if (levelGamestate != null) {
             levelGamestate.update();
@@ -389,12 +391,14 @@ public class LevelManager {
             }
         }
 
-        // Update water state for player
-        // Use level.getZoneIndex() which returns the ROM zone ID
-        // Use getVisualWaterLevelY() so collision matches the oscillating water surface (CPZ2)
+        // Update water state for player.
+        // Use effective feature zone/act so S1 SBZ3 (loaded from LZ act 4 slot)
+        // resolves to SBZ3 water behavior while retaining LZ tile/object resources.
         WaterSystem waterSystem = WaterSystem.getInstance();
-        if (level != null && playable != null && waterSystem.hasWater(level.getZoneIndex(), currentAct)) {
-            int waterY = waterSystem.getVisualWaterLevelY(level.getZoneIndex(), currentAct);
+        int featureZone = getFeatureZoneId();
+        int featureAct = getFeatureActId();
+        if (level != null && playable != null && waterSystem.hasWater(featureZone, featureAct)) {
+            int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
             playable.updateWaterState(waterY);
         }
     }
@@ -586,6 +590,10 @@ public class LevelManager {
                 if (zoneIndex == uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.ZONE_SYZ) {
                     sonic1Provider.registerSpinningLightSheet(level);
                     sonic1Provider.registerBossBlockSheet(level);
+                }
+                // SBZ3 (LZ zone slot) big diagonal door uses level tile art
+                if (zoneIndex == uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.ZONE_LZ) {
+                    sonic1Provider.registerSbz3BigDoorSheet(level, zoneIndex);
                 }
                 objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
             }
@@ -1071,12 +1079,13 @@ public class LevelManager {
 
     private void updateWaterShaderState(Camera camera) {
         WaterSystem waterSystem = WaterSystem.getInstance();
-        int zoneId = level.getZoneIndex();
+        int zoneId = getFeatureZoneId();
+        int actId = getFeatureActId();
 
-        if (waterSystem.hasWater(zoneId, currentAct)) {
+        if (waterSystem.hasWater(zoneId, actId)) {
             // Set uniforms via custom command - this also enables the water shader
             // Use visual water level (with oscillation) for rendering effects
-            int waterLevel = waterSystem.getVisualWaterLevelY(zoneId, currentAct);
+            int waterLevel = waterSystem.getVisualWaterLevelY(zoneId, actId);
 
             // Determine shimmer style from current game module's physics feature set.
             // 0 = S2/S3K smooth sine wave, 1 = S1 integer-snapped shimmer
@@ -1224,9 +1233,11 @@ public class LevelManager {
         // 2. Begin Tile Pass (Bind FBO)
         // Use water shader in screen-space mode for FBO, with adjusted waterline
         WaterSystem waterSystem = WaterSystem.getInstance();
-        boolean hasWater = waterSystem.hasWater(level.getZoneIndex(), currentAct);
+        int featureZone = getFeatureZoneId();
+        int featureAct = getFeatureActId();
+        boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
         // Use visual water level (with oscillation) for background rendering
-        int waterLevelWorldY = hasWater ? waterSystem.getVisualWaterLevelY(level.getZoneIndex(), currentAct) : 9999;
+        int waterLevelWorldY = hasWater ? waterSystem.getVisualWaterLevelY(featureZone, featureAct) : 9999;
 
         // Calculate chunk-aligned Y for tilemap rendering
         int chunkHeight = LevelConstants.CHUNK_HEIGHT;
@@ -1334,8 +1345,10 @@ public class LevelManager {
         }
 
         WaterSystem waterSystem = WaterSystem.getInstance();
-        boolean hasWater = waterSystem.hasWater(level.getZoneIndex(), currentAct);
-        int waterLevel = hasWater ? waterSystem.getVisualWaterLevelY(level.getZoneIndex(), currentAct) : 0;
+        int featureZone = getFeatureZoneId();
+        int featureAct = getFeatureActId();
+        boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
+        int waterLevel = hasWater ? waterSystem.getVisualWaterLevelY(featureZone, featureAct) : 0;
         // Use shake-adjusted Y for water line calculation
         float waterlineScreenY = (float) (waterLevel - camera.getYWithShake());
 
@@ -2506,6 +2519,39 @@ public class LevelManager {
      */
     public int getRomZoneId() {
         return level != null ? level.getZoneIndex() : -1;
+    }
+
+    /**
+     * Returns the effective zone ID for zone features/water logic.
+     *
+     * <p>Sonic 1 SBZ3 uses the LZ zone slot ({@code id_LZ act 3}) for map/art data,
+     * but gameplay systems treat it as SBZ act 3. For feature systems that are keyed
+     * by zone/act (water palettes/heights), map that specific case back to SBZ.
+     */
+    private int getFeatureZoneId() {
+        if (isSonic1Sbz3Context()) {
+            return uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.ZONE_SBZ;
+        }
+        return level != null ? level.getZoneIndex() : -1;
+    }
+
+    /**
+     * Returns the effective act index for zone features/water logic.
+     */
+    private int getFeatureActId() {
+        if (isSonic1Sbz3Context()) {
+            return 2;
+        }
+        return currentAct;
+    }
+
+    private boolean isSonic1Sbz3Context() {
+        if (level == null || game == null || !"Sonic1".equals(game.getIdentifier())) {
+            return false;
+        }
+        return currentZone == uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ZoneConstants.ZONE_SBZ
+                && currentAct == 2
+                && level.getZoneIndex() == uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.ZONE_LZ;
     }
 
     public int getCurrentAct() {

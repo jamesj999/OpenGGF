@@ -116,7 +116,17 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.SLZ_BOSS,
             Sonic1ObjectIds.BOSS_FIRE,
             Sonic1ObjectIds.EGG_PRISON,
-            Sonic1ObjectIds.HIDDEN_BONUS
+            Sonic1ObjectIds.HIDDEN_BONUS,
+            Sonic1ObjectIds.ELECTROCUTER,
+            Sonic1ObjectIds.SBZ_SMALL_DOOR,
+            Sonic1ObjectIds.SBZ_CONVEYOR_BELT,
+            Sonic1ObjectIds.SBZ_SPINNING_PLATFORM,
+            Sonic1ObjectIds.SBZ_SAW,
+            Sonic1ObjectIds.SBZ_STOMPER_DOOR,
+            Sonic1ObjectIds.SBZ_VANISHING_PLATFORM,
+            Sonic1ObjectIds.FLAMETHROWER,
+            Sonic1ObjectIds.GIRDER,
+            Sonic1ObjectIds.BALL_HOG
     );
 
     private static final Set<Integer> BADNIK_IDS = Set.of(
@@ -132,7 +142,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.BATBRAIN,
             Sonic1ObjectIds.BOMB,
             Sonic1ObjectIds.ORBINAUT,
-            Sonic1ObjectIds.CATERKILLER
+            Sonic1ObjectIds.CATERKILLER,
+            Sonic1ObjectIds.BALL_HOG
     );
 
     private static final Set<Integer> BOSS_IDS = Set.of(
@@ -218,6 +229,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.BOMB, List.of("Bomb"));
         map.put(Sonic1ObjectIds.ORBINAUT, List.of("Orbinaut"));
         map.put(Sonic1ObjectIds.INVISIBLE_BARRIER, List.of("InvisibleBarrier"));
+        map.put(Sonic1ObjectIds.ELECTROCUTER, List.of("Electrocuter"));
+        map.put(Sonic1ObjectIds.SBZ_SMALL_DOOR, List.of("SmallDoor", "AutoDoor"));
         map.put(Sonic1ObjectIds.CATERKILLER, List.of("Caterkiller"));
         map.put(Sonic1ObjectIds.LAMPPOST, List.of("Lamppost"));
         map.put(Sonic1ObjectIds.HIDDEN_BONUS, List.of("HiddenBonus"));

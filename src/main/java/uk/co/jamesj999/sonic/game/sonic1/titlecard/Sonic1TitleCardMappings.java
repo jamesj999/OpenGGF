@@ -201,21 +201,16 @@ public final class Sonic1TitleCardMappings {
 
     /**
      * Gets the zone name frame index for a given zone.
-     * Handles special cases: SBZ3 (LZ act 3) uses SCRAP BRAIN,
-     * Final Zone (SBZ act 2) uses FINAL.
+     * Handles special cases: Final Zone uses FINAL.
      *
      * @param zoneIndex S1 gameplay zone index (0-6, matching zone registry order)
      * @param actIndex Act index (0-2)
      * @return Frame index for the zone name
      */
     public static int getZoneNameFrame(int zoneIndex, int actIndex) {
-        // SBZ act 2 = Final Zone (gameplay index 5)
-        if (zoneIndex == 5 && actIndex == 2) {
+        // Final Zone (gameplay index 6)
+        if (zoneIndex == 6) {
             return FRAME_FZ;
-        }
-        // LZ act 3 = SBZ3 (Scrap Brain Zone underground, gameplay index 3)
-        if (zoneIndex == 3 && actIndex == 3) {
-            return FRAME_SBZ;
         }
         if (zoneIndex >= 0 && zoneIndex < GAMEPLAY_TO_FRAME.length) {
             return GAMEPLAY_TO_FRAME[zoneIndex];
@@ -243,8 +238,8 @@ public final class Sonic1TitleCardMappings {
      * @return true if act number should be hidden
      */
     public static boolean shouldHideActNumber(int zoneIndex, int actIndex) {
-        // FZ: SBZ act 2 (gameplay index 5) or zone 6 (FZ)
-        return (zoneIndex == 5 && actIndex == 2) || zoneIndex == 6;
+        // Final Zone has no act number.
+        return zoneIndex == 6;
     }
 
     // ========== Per-zone element configuration ==========
@@ -301,14 +296,6 @@ public final class Sonic1TitleCardMappings {
      * @return Config index for CON_DATA (0-6)
      */
     public static int getConfigIndex(int zoneIndex, int actIndex) {
-        // SBZ3 (LZ act 3, gameplay index 3) uses SBZ config (gameplay index 5)
-        if (zoneIndex == 3 && actIndex == 3) {
-            return 5;
-        }
-        // FZ (SBZ act 2, gameplay index 5) uses FZ config (gameplay index 6)
-        if (zoneIndex == 5 && actIndex == 2) {
-            return 6;
-        }
         // Zone 6 (FZ) uses FZ config
         if (zoneIndex == 6) {
             return 6;

@@ -5,8 +5,8 @@ Generated: 2026-02-13 14:52:02
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 67 (83.8%)
-- **Unimplemented:** 13 (16.3%)
+- **Implemented:** 75 (93.8%)
+- **Unimplemented:** 5 (6.3%)
 
 ## Implemented Objects
 
@@ -24,10 +24,12 @@ Generated: 2026-02-13 14:52:02
 | 0x18 | Platform | 96 | GHZ1, GHZ2, GHZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3 |
 | 0x1A | CollapsingLedge | 19 | GHZ1, GHZ2, GHZ3 |
 | 0x1C | Scenery | 41 | GHZ1, GHZ2, GHZ3, SLZ1, SLZ2, SLZ3 |
+| 0x1E | BallHog | 10 | SBZ1, SBZ2 |
 | 0x1F | Crabmeat | 43 | GHZ1, GHZ2, GHZ3, SYZ1, SYZ2, SYZ3 |
 | 0x22 | BuzzBomber | 78 | GHZ1, GHZ2, GHZ3, MZ1, MZ2, MZ3, SYZ1, SYZ2, SYZ3 |
 | 0x25 | Ring | 802 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
 | 0x26 | Monitor | 199 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
+| 0x2A | SmallDoor | 14 | SBZ1, SBZ2 |
 | 0x2B | Chopper | 14 | GHZ1, GHZ2 |
 | 0x2C | Jaws | 22 | LZ1, LZ2, LZ3 |
 | 0x2D | Burrobot | 50 | LZ1, LZ2, LZ3 |
@@ -66,6 +68,7 @@ Generated: 2026-02-13 14:52:02
 | 0x5D | Fan | 36 | SLZ1, SLZ2, SLZ3 |
 | 0x5E | Seesaw | 16 | SLZ2, SLZ3 |
 | 0x60 | Orbinaut | 34 | LZ1, LZ2, LZ3, SLZ1, SLZ2, SLZ3 |
+| 0x6E | Electrocuter | 52 | SBZ1, SBZ2 |
 | 0x71 | InvisibleBarrier | 88 | LZ1, LZ3, MZ1, MZ2, MZ3, SYZ2, SYZ3, SBZ1, SBZ2, SBZ3 |
 | 0x78 | Caterkiller | 37 | MZ1, MZ2, MZ3, SBZ1, SBZ2 |
 | 0x79 | Lamppost | 23 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1 |
@@ -77,22 +80,19 @@ Generated: 2026-02-13 14:52:02
 | 0x5F | Bomb | 99 | SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
 | 0x7D | HiddenBonus | 60 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2, SBZ1 |
 | 0x5C | Pylon | 3 | SLZ1, SLZ2, SLZ3 |
+| 0x68 | ConveyorBelt | 20 | SBZ2 |
+| 0x69 | SpinPlatform | 56 | SBZ1, SBZ2 |
+| 0x6A | Saw | 14 | SBZ1, SBZ2 |
+| 0x6B | StomperDoor | 17 | SBZ1, SBZ2 |
+| 0x6C | VanishingPlatform | 64 | SBZ1, SBZ2 |
+| 0x6D | Flamethrower | 42 | SBZ1, SBZ2 |
+| 0x70 | Girder | 12 | SBZ1 |
 
 ## Unimplemented Objects (By Usage)
 
 | ID | Category | Name | Total Uses | Zones |
 |----|----------|------|------------|-------|
-| 0x6C | Object | S1_Obj_6C | 64 | SBZ1, SBZ2 |
 | 0x28 | Object | S1_Obj_28 | 57 | FZ1 |
-| 0x69 | Object | S1_Obj_69 | 56 | SBZ1, SBZ2 |
-| 0x6E | Object | S1_Obj_6E | 52 | SBZ1, SBZ2 |
-| 0x6D | Object | S1_Obj_6D | 42 | SBZ1, SBZ2 |
-| 0x68 | Object | S1_Obj_68 | 20 | SBZ2 |
-| 0x6B | Object | S1_Obj_6B | 17 | SBZ1, SBZ2 |
-| 0x2A | Object | S1_Obj_2A | 14 | SBZ1, SBZ2 |
-| 0x6A | Object | S1_Obj_6A | 14 | SBZ1, SBZ2 |
-| 0x70 | Object | S1_Obj_70 | 12 | SBZ1 |
-| 0x1E | Object | S1_Obj_1E | 10 | SBZ1, SBZ2 |
 | 0x67 | Object | S1_Obj_67 | 8 | SBZ2 |
 | 0x72 | Object | S1_Obj_72 | 8 | SBZ2 |
 | 0x6F | Object | S1_Obj_6F | 6 | SBZ1 |
@@ -538,62 +538,62 @@ Total: 257 objects | Implemented: 16 | Unimplemented: 0
 
 #### Act 1
 
-Total: 308 objects | Implemented: 12 | Unimplemented: 11
+Total: 308 objects | Implemented: 21 | Unimplemented: 2
 
 **Badniks:**
+- [x] 0x1E BallHog (x4) [0x06]
 - [x] 0x5F Bomb (x6) [0x00]
 - [x] 0x78 Caterkiller (x9) [0x00]
 
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
-- [ ] 0x1E S1_Obj_1E (x4) [0x06]
 - [x] 0x25 Ring (x45) [9 subtypes]
 - [x] 0x26 Monitor (x15) [0x04, 0x06]
-- [ ] 0x2A S1_Obj_2A (x8) [0x00]
+- [x] 0x2A SmallDoor (x8) [0x00]
 - [x] 0x32 S1_Obj_32 (x4) [0x00, 0x01, 0x02]
 - [x] 0x41 Spring (x3) [0x10, 0x00]
 - [x] 0x52 S1_Obj_52 (x6) [0x39]
 - [x] 0x53 S1_Obj_53 (x3) [0x01]
 - [ ] 0x66 S1_Obj_66 (x2) [0x00, 0x02]
-- [ ] 0x69 S1_Obj_69 (x25) [6 subtypes]
-- [ ] 0x6A S1_Obj_6A (x3) [0x03]
-- [ ] 0x6B S1_Obj_6B (x11) [5 subtypes]
-- [ ] 0x6C S1_Obj_6C (x48) [4 subtypes]
-- [ ] 0x6D S1_Obj_6D (x23) [0x43]
-- [ ] 0x6E S1_Obj_6E (x17) [0x08]
+- [x] 0x69 SpinPlatform (x25) [6 subtypes]
+- [x] 0x6A Saw (x3) [0x03]
+- [x] 0x6B StomperDoor (x11) [5 subtypes]
+- [x] 0x6C VanishingPlatform (x48) [4 subtypes]
+- [x] 0x6D Flamethrower (x23) [0x43]
+- [x] 0x6E Electrocuter (x17) [0x08]
 - [ ] 0x6F S1_Obj_6F (x6) [6 subtypes]
-- [ ] 0x70 S1_Obj_70 (x12) [0x00]
+- [x] 0x70 Girder (x12) [0x00]
 - [x] 0x71 InvisibleBarrier (x50) [7 subtypes]
 - [x] 0x79 Lamppost (x2) [0x01, 0x02]
 - [x] 0x7D HiddenBonus (x5) [0x01, 0x02, 0x03]
 
 #### Act 2
 
-Total: 292 objects | Implemented: 11 | Unimplemented: 11
+Total: 292 objects | Implemented: 20 | Unimplemented: 2
 
 **Badniks:**
+- [x] 0x1E BallHog (x6) [0x08]
 - [x] 0x5F Bomb (x12) [0x00]
 - [x] 0x78 Caterkiller (x7) [0x00]
 
 **Objects:**
 - [x] 0x0D Signpost (x1) [0x00]
 - [x] 0x15 SwingingPlatform (x12) [0x06, 0x07]
-- [ ] 0x1E S1_Obj_1E (x6) [0x08]
 - [x] 0x25 Ring (x49) [0x10, 0x12, 0x14]
 - [x] 0x26 Monitor (x25) [8 subtypes]
-- [ ] 0x2A S1_Obj_2A (x6) [0x00]
+- [x] 0x2A SmallDoor (x6) [0x00]
 - [x] 0x32 S1_Obj_32 (x3) [0x00, 0x01, 0x03]
 - [x] 0x41 Spring (x2) [0x10]
 - [x] 0x52 S1_Obj_52 (x1) [0x28]
 - [x] 0x53 S1_Obj_53 (x10) [0x01]
 - [ ] 0x67 S1_Obj_67 (x8) [0x40]
-- [ ] 0x68 S1_Obj_68 (x20) [5 subtypes]
-- [ ] 0x69 S1_Obj_69 (x31) [10 subtypes]
-- [ ] 0x6A S1_Obj_6A (x11) [0x01, 0x02, 0x03]
-- [ ] 0x6B S1_Obj_6B (x6) [5 subtypes]
-- [ ] 0x6C S1_Obj_6C (x16) [7 subtypes]
-- [ ] 0x6D S1_Obj_6D (x19) [0x43]
-- [ ] 0x6E S1_Obj_6E (x35) [0x02, 0x04, 0x08]
+- [x] 0x68 ConveyorBelt (x20) [5 subtypes]
+- [x] 0x69 SpinPlatform (x31) [10 subtypes]
+- [x] 0x6A Saw (x11) [0x01, 0x02, 0x03]
+- [x] 0x6B StomperDoor (x6) [5 subtypes]
+- [x] 0x6C VanishingPlatform (x16) [7 subtypes]
+- [x] 0x6D Flamethrower (x19) [0x43]
+- [x] 0x6E Electrocuter (x35) [0x02, 0x04, 0x08]
 - [x] 0x71 InvisibleBarrier (x4) [4 subtypes]
 - [ ] 0x72 S1_Obj_72 (x8) [8 subtypes]
 
