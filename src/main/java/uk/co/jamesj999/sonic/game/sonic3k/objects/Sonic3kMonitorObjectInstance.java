@@ -126,6 +126,11 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
             return;
         }
 
+        // ROM: CPU sidekick cannot break monitors (s2.asm Touch_Monitor check)
+        if (player.isCpuControlled()) {
+            return;
+        }
+
         // S&K: check if player can break monitors
         // Must be rolling (spinning), spindashing, or Knuckles gliding/sliding
         boolean canBreak = player.getRolling() || player.getSpindash();

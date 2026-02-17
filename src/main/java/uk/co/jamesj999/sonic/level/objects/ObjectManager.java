@@ -466,9 +466,9 @@ public class ObjectManager {
         for (ObjectSpawn spawn : activeSpawns) {
             if (!activeObjects.containsKey(spawn)) {
                 // Don't recreate instances for remembered spawns - they've been destroyed
-                // and shouldn't respawn. This handles cases where shouldStayActiveWhenRemembered()
-                // kept the spawn in active during the object's destruction sequence.
-                if (placement.isRemembered(spawn)) {
+                // and shouldn't respawn. Exception: stayActive spawns (e.g. broken monitors)
+                // should be re-created when the player scrolls back into their area.
+                if (placement.isRemembered(spawn) && !placement.isStayActive(spawn)) {
                     continue;
                 }
                 ObjectInstance instance = registry != null ? registry.create(spawn) : null;
@@ -542,6 +542,8 @@ public class ObjectManager {
         private static final int UNLOAD_BEHIND = 0x300;
 
         private final BitSet remembered = new BitSet();
+        /** Tracks spawns that should stay in active even when remembered (e.g. broken monitors). */
+        private final BitSet stayActive = new BitSet();
         /** Tracks spawns destroyed while in the window - prevents respawn until they leave the window. */
         private final BitSet destroyedInWindow = new BitSet();
         private int cursorIndex = 0;
@@ -554,6 +556,7 @@ public class ObjectManager {
         void reset(int cameraX) {
             active.clear();
             remembered.clear();
+            stayActive.clear();
             destroyedInWindow.clear();
             cursorIndex = 0;
             lastCameraX = cameraX;
@@ -604,11 +607,19 @@ public class ObjectManager {
                 return;
             }
             remembered.set(index);
+            if (instance.shouldStayActiveWhenRemembered()) {
+                stayActive.set(index);
+            }
         }
 
         boolean isRemembered(ObjectSpawn spawn) {
             int index = getSpawnIndex(spawn);
             return index >= 0 && remembered.get(index);
+        }
+
+        boolean isStayActive(ObjectSpawn spawn) {
+            int index = getSpawnIndex(spawn);
+            return index >= 0 && stayActive.get(index);
         }
 
         void clearRemembered() {
@@ -672,7 +683,7 @@ public class ObjectManager {
 
         private void trySpawn(int index) {
             ObjectSpawn spawn = spawns.get(index);
-            if (remembered.get(index) && spawn.objectId() != 0x26) {
+            if (remembered.get(index) && !stayActive.get(index)) {
                 return;
             }
             // Don't respawn if destroyed while still in the window

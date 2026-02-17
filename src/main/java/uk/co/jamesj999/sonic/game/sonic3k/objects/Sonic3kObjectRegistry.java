@@ -68,6 +68,8 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Aiz1TreeObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AIZ1_ZIPLINE_PEG,
                 (spawn, registry) -> new Aiz1ZiplinePegObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.AIZ_FOREGROUND_PLANT,
+                (spawn, registry) -> new AizForegroundPlantInstance(spawn));
     }
 
     /**
