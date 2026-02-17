@@ -75,8 +75,8 @@ public final class Sonic1LevelSelectConstants {
      *   9-11:  LZ Acts 1-3
      *   12-14: SLZ Acts 1-3
      *   15-16: SBZ Acts 1-2
-     *   17:    SBZ Act 3 (LZ Act 4 in ROM, registered as SBZ act 2)
-     *   18:    Final Zone (registered as FZ act 0)
+     *   17:    SBZ Act 3 (mapped to LZ Act 4 in ROM)
+     *   18:    Final Zone (mapped to SBZ Act 3 in ROM)
      *   19:    Special Stage
      *   20:    Sound Test
      * </pre>
@@ -99,8 +99,8 @@ public final class Sonic1LevelSelectConstants {
             (Sonic1ZoneConstants.ZONE_SLZ << 8) | 2,  // 14 - Star Light Act 3
             (Sonic1ZoneConstants.ZONE_SBZ << 8) | 0,  // 15 - Scrap Brain Act 1
             (Sonic1ZoneConstants.ZONE_SBZ << 8) | 1,  // 16 - Scrap Brain Act 2
-            (Sonic1ZoneConstants.ZONE_FZ << 8) | 0,   // 17 - Scrap Brain Act 3 (LZ4 in ROM; loads ending - LZ4 not yet registered)
-            (Sonic1ZoneConstants.ZONE_SBZ << 8) | 2,  // 18 - Final Zone (SBZ act 2 = boss fight)
+            (Sonic1ZoneConstants.ZONE_SBZ << 8) | 2,  // 17 - Scrap Brain Act 3 (LZ act 3 slot in ROM data)
+            (Sonic1ZoneConstants.ZONE_FZ << 8) | 0,   // 18 - Final Zone (SBZ act 2 in ROM data)
             SPECIAL_STAGE_VALUE,                       // 19 - Special Stage
             SOUND_TEST_VALUE                           // 20 - Sound Test
     };

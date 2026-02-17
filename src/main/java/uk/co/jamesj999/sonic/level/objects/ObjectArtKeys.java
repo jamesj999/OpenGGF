@@ -87,12 +87,14 @@ public final class ObjectArtKeys {
     public static final String MZ_COLLAPSING_FLOOR = "mz_collapsing_floor";
     public static final String SLZ_COLLAPSING_FLOOR = "slz_collapsing_floor";
     public static final String SBZ_COLLAPSING_FLOOR = "sbz_collapsing_floor";
+    public static final String SBZ_VANISHING_PLATFORM = "sbz_vanishing_platform";
     public static final String MZ_PUSH_BLOCK = "mz_push_block";
     public static final String LZ_PUSH_BLOCK = "lz_push_block";
     public static final String MZ_MOVING_BLOCK = "mz_moving_block";
     public static final String LZ_MOVING_BLOCK = "lz_moving_block";
     public static final String SBZ_MOVING_BLOCK_SHORT = "sbz_moving_block_short";
     public static final String SBZ_MOVING_BLOCK_LONG = "sbz_moving_block_long";
+    public static final String SBZ_ELECTROCUTER = "sbz_electrocuter";
     public static final String BUTTON = "button";
     public static final String SYZ_FLOATING_BLOCK = "syz_floating_block";
     public static final String LZ_FLOATING_BLOCK = "lz_floating_block";
@@ -142,6 +144,29 @@ public final class ObjectArtKeys {
     // SLZ fan (S1 Object 0x5D)
     public static final String SLZ_FAN = "slz_fan";
 
+    // SBZ small vertical door (S1 Object 0x2A)
+    public static final String SBZ_SMALL_DOOR = "sbz_small_door";
+
+    // SBZ trapdoor (S1 Object 0x69 - subtype < 0x80)
+    public static final String SBZ_TRAP_DOOR = "sbz_trap_door";
+
+    // SBZ spinning platform (S1 Object 0x69 - subtype >= 0x80)
+    public static final String SBZ_SPINNING_PLATFORM = "sbz_spinning_platform";
+
+    // SBZ saw / pizza cutter (S1 Object 0x6A)
+    public static final String SBZ_SAW = "sbz_saw";
+
+    // SBZ stomper and sliding door (S1 Object 0x6B)
+    public static final String SBZ_STOMPER_DOOR = "sbz_stomper_door";
+    // SBZ3 big diagonal door (S1 Object 0x6B subtype 4, level tile art)
+    public static final String SBZ3_BIG_DOOR = "sbz3_big_door";
+
+    // SBZ flamethrower (S1 Object 0x6D)
+    public static final String SBZ_FLAMETHROWER = "sbz_flamethrower";
+
+    // SBZ girder block (S1 Object 0x70)
+    public static final String SBZ_GIRDER = "sbz_girder";
+
     // SYZ bumper (S1)
     public static final String BUMPER = "bumper";
 
@@ -161,6 +186,7 @@ public final class ObjectArtKeys {
     public static final String BURROBOT = "burrobot";
     public static final String ORBINAUT = "orbinaut";
     public static final String BOMB = "bomb";
+    public static final String BALL_HOG = "ball_hog";
 
     // Animation keys (common across games)
     public static final String ANIM_MONITOR = "monitor";

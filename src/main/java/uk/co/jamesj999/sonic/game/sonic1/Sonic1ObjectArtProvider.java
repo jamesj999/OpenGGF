@@ -249,11 +249,21 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadLzSpikeballChainArt(rom);
         }
 
-        // Load SBZ-specific art (moving blocks - short stomper + long slide floor, collapsing floor)
+        // Load SBZ-specific art (moving blocks - short stomper + long slide floor, collapsing floor, vanishing platform)
         if (zoneIndex == Sonic1Constants.ZONE_SBZ) {
             loadSbzMovingBlockShortArt(rom);
             loadSbzMovingBlockLongArt(rom);
             loadSbzCollapsingFloorArt(rom);
+            loadSbzVanishingPlatformArt(rom);
+            loadSbzTrapDoorArt(rom);
+            loadSbzSpinningPlatformArt(rom);
+            loadSbzSmallDoorArt(rom);
+            loadSbzElectrocuterArt(rom);
+            loadSbzFlamethrowerArt(rom);
+            loadSbzGirderArt(rom);
+            loadSbzSawArt(rom);
+            loadSbzStomperDoorArt(rom);
+            loadBallHogArt(rom);
         }
 
         // Load boss art (GHZ/MZ/SYZ/LZ/SLZ: Eggman, weapons/chain anchor, exhaust flame)
@@ -3137,6 +3147,90 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
+     * Loads Ball Hog art (Nem_BallHog) and creates S1-format sprite mappings.
+     * Mappings from docs/s1disasm/_maps/Ball Hog.asm (Map_Hog_internal).
+     * 6 frames: Stand, Open, Squat, Leap, Ball1, Ball2.
+     * The Ball Hog and its cannonball share the same sprite sheet.
+     * <p>
+     * From disassembly: make_art_tile(ArtTile_Ball_Hog,1,0) - palette 1, no priority bit.
+     */
+    private void loadBallHogArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_BALL_HOG_ADDR, "BallHog");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load Ball Hog art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createBallHogMappings();
+        // make_art_tile(ArtTile_Ball_Hog, 1, 0) - palette line 1
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 1, 1);
+        registerSheet(ObjectArtKeys.BALL_HOG, sheet);
+    }
+
+    /**
+     * Creates Ball Hog sprite mappings from S1 disassembly Map_Hog_internal.
+     * <p>
+     * spritePiece format: x, y, width, height, startTile, xflip, yflip, pal, pri
+     * <p>
+     * Frame 0 (M_Hog_Stand): Ball hog standing
+     *   spritePiece -$C, -$11, 3, 2, 0, 0, 0, 0, 0
+     *   spritePiece -$C, -1, 3, 3, 6, 0, 0, 0, 0
+     * Frame 1 (M_Hog_Open): Ball hog with hatch open
+     *   spritePiece -$C, -$11, 3, 2, 0, 0, 0, 0, 0
+     *   spritePiece -$C, -1, 3, 3, $F, 0, 0, 0, 0
+     * Frame 2 (M_Hog_Squat): Ball hog squatting
+     *   spritePiece -$C, -$C, 3, 2, 0, 0, 0, 0, 0
+     *   spritePiece -$C, 4, 3, 2, $18, 0, 0, 0, 0
+     * Frame 3 (M_Hog_Leap): Ball hog leaping
+     *   spritePiece -$C, -$1C, 3, 2, 0, 0, 0, 0, 0
+     *   spritePiece -$C, -$C, 3, 3, $1E, 0, 0, 0, 0
+     * Frame 4 (M_Hog_Ball1): Cannonball (black)
+     *   spritePiece -8, -8, 2, 2, $27, 0, 0, 0, 0
+     * Frame 5 (M_Hog_Ball2): Cannonball (red)
+     *   spritePiece -8, -8, 2, 2, $2B, 0, 0, 0, 0
+     */
+    private List<SpriteMappingFrame> createBallHogMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (M_Hog_Stand): 2 pieces - upper body 3x2 + lower body 3x3
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x11, 3, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C,  -0x01, 3, 3, 0x06, false, false, 0, false)
+        )));
+
+        // Frame 1 (M_Hog_Open): 2 pieces - upper body 3x2 + lower body open 3x3
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x11, 3, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C,  -0x01, 3, 3, 0x0F, false, false, 0, false)
+        )));
+
+        // Frame 2 (M_Hog_Squat): 2 pieces - upper body 3x2 + lower squatting 3x2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C,  0x04, 3, 2, 0x18, false, false, 0, false)
+        )));
+
+        // Frame 3 (M_Hog_Leap): 2 pieces - upper body 3x2 + lower leaping 3x3
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x1C, 3, 2, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C, -0x0C, 3, 3, 0x1E, false, false, 0, false)
+        )));
+
+        // Frame 4 (M_Hog_Ball1): 1 piece - cannonball black 2x2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x08, -0x08, 2, 2, 0x27, false, false, 0, false)
+        )));
+
+        // Frame 5 (M_Hog_Ball2): 1 piece - cannonball red 2x2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x08, -0x08, 2, 2, 0x2B, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
      * Loads Yadrin art (Nem_Yadrin) and creates S1-format sprite mappings.
      * Mappings from docs/s1disasm/_maps/Yadrin.asm (Map_Yad_internal).
      * 6 frames: walk0-walk5, used in two animations (stand + walk).
@@ -4531,6 +4625,791 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
+     * Loads SBZ Vanishing Platform art (Nem_SbzBlock) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/6C SBZ Vanishing Platforms.asm:
+     * <pre>
+     *     move.w  #make_art_tile(ArtTile_SBZ_Vanishing_Block,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_SBZ_Vanishing_Block = $4C3, palette line 2.
+     * <p>
+     * Mappings from docs/s1disasm/_maps/SBZ Vanishing Platforms.asm (Map_VanP_internal):
+     * <pre>
+     *   Frame 0 (.whole):   spritePiece -$10, -8, 4, 4, 0, 0, 0, 0, 0   (32x32)
+     *   Frame 1 (.half):    spritePiece   -8, -8, 2, 4, $10, 0, 0, 0, 0 (16x32)
+     *   Frame 2 (.quarter): spritePiece   -4, -8, 1, 4, $18, 0, 0, 0, 0 (8x32)
+     *   Frame 3 (.gone):    (empty - no sprite pieces)
+     * </pre>
+     */
+    private void loadSbzVanishingPlatformArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_VANISHING_BLOCK_ADDR, "SbzVanishingBlock");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ vanishing platform art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSbzVanishingPlatformMappings();
+        // make_art_tile(ArtTile_SBZ_Vanishing_Block, 2, 0) -> palette line 2
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SBZ_VANISHING_PLATFORM, sheet);
+    }
+
+    /**
+     * Creates SBZ Vanishing Platform sprite mappings from
+     * docs/s1disasm/_maps/SBZ Vanishing Platforms.asm (Map_VanP_internal).
+     * <p>
+     * Four frames representing the vanishing sequence:
+     * <ul>
+     *   <li>Frame 0 (.whole): Full 32x32 block</li>
+     *   <li>Frame 1 (.half): Half 16x32 block (tiles start at $10)</li>
+     *   <li>Frame 2 (.quarter): Quarter 8x32 block (tiles start at $18)</li>
+     *   <li>Frame 3 (.gone): Empty (fully vanished)</li>
+     * </ul>
+     */
+    private List<SpriteMappingFrame> createSbzVanishingPlatformMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.whole): 1 piece, 4x4 tiles (32x32 pixels)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -8, 4, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 1 (.half): 1 piece, 2x4 tiles (16x32 pixels)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 4, 0x10, false, false, 0, false)
+        )));
+
+        // Frame 2 (.quarter): 1 piece, 1x4 tiles (8x32 pixels)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -8, 1, 4, 0x18, false, false, 0, false)
+        )));
+
+        // Frame 3 (.gone): empty (no pieces)
+        frames.add(new SpriteMappingFrame(List.of()));
+
+        return frames;
+    }
+
+    /**
+     * Loads SBZ Electrocuter art (Nem_Electric) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/6E Electrocuter.asm:
+     * <pre>
+     *     move.w  #make_art_tile(ArtTile_SBZ_Electric_Orb,0,0),obGfx(a0)
+     * </pre>
+     * ArtTile_SBZ_Electric_Orb = $47E, palette line 0.
+     */
+    private void loadSbzElectrocuterArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_ELECTROCUTER_ADDR, "SbzElectrocuter");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ electrocuter art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSbzElectrocuterMappings();
+        // make_art_tile(ArtTile_SBZ_Electric_Orb, 0, 0) -> palette line 0
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.SBZ_ELECTROCUTER, sheet);
+    }
+
+    /**
+     * Creates SBZ Electrocuter sprite mappings from
+     * docs/s1disasm/_maps/Electrocuter.asm (Map_Elec_internal).
+     * <p>
+     * Six frames:
+     * <ul>
+     *   <li>Frame 0 (.normal): Base orb only - 2 pieces</li>
+     *   <li>Frame 1 (.zap1): Small zap above orb - 3 pieces</li>
+     *   <li>Frame 2 (.zap2): Medium zap with side bolts - 5 pieces</li>
+     *   <li>Frame 3 (.zap3): Orb with side bolts (no top zap) - 4 pieces</li>
+     *   <li>Frame 4 (.zap4): Orb with flipped side bolts + extended bolts - 6 pieces</li>
+     *   <li>Frame 5 (.zap5): Orb with flipped extended bolts - 4 pieces</li>
+     * </ul>
+     * <p>
+     * spritePiece args: xpos, ypos, width, height, tile, xflip, yflip, pal, pri
+     */
+    private List<SpriteMappingFrame> createSbzElectrocuterMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.normal): 2 pieces - base orb
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 1, 0, false, false, 3, false),
+                new SpriteMappingPiece(-8, 0, 2, 3, 2, false, false, 2, false)
+        )));
+
+        // Frame 1 (.zap1): 3 pieces - small zap above orb
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(-8, -8, 2, 1, 0, false, false, 3, false),
+                new SpriteMappingPiece(-8, 0, 2, 3, 2, false, false, 2, false)
+        )));
+
+        // Frame 2 (.zap2): 5 pieces - medium zap with side bolts
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(-8, -8, 2, 1, 0, false, false, 3, false),
+                new SpriteMappingPiece(-8, 0, 2, 3, 2, false, false, 2, false),
+                new SpriteMappingPiece(8, -0xA, 4, 2, 0xC, false, false, 0, false),
+                new SpriteMappingPiece(-0x24, -0xA, 4, 2, 0xC, true, false, 0, false)
+        )));
+
+        // Frame 3 (.zap3): 4 pieces - orb with side bolts (no top zap)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 1, 0, false, false, 3, false),
+                new SpriteMappingPiece(-8, 0, 2, 3, 2, false, false, 2, false),
+                new SpriteMappingPiece(8, -0xA, 4, 2, 0xC, false, false, 0, false),
+                new SpriteMappingPiece(-0x24, -0xA, 4, 2, 0xC, true, false, 0, false)
+        )));
+
+        // Frame 4 (.zap4): 6 pieces - orb with flipped side bolts + extended bolts
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 1, 0, false, false, 3, false),
+                new SpriteMappingPiece(-8, 0, 2, 3, 2, false, false, 2, false),
+                new SpriteMappingPiece(8, -0xA, 4, 2, 0xC, false, true, 0, false),
+                new SpriteMappingPiece(-0x24, -0xA, 4, 2, 0xC, true, true, 0, false),
+                new SpriteMappingPiece(0x24, -0xA, 4, 2, 0xC, false, false, 0, false),
+                new SpriteMappingPiece(-0x40, -0xA, 4, 2, 0xC, true, false, 0, false)
+        )));
+
+        // Frame 5 (.zap5): 4 pieces - orb with flipped extended bolts
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 1, 0, false, false, 3, false),
+                new SpriteMappingPiece(-8, 0, 2, 3, 2, false, false, 2, false),
+                new SpriteMappingPiece(0x24, -0xA, 4, 2, 0xC, false, true, 0, false),
+                new SpriteMappingPiece(-0x40, -0xA, 4, 2, 0xC, true, true, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads SBZ Saw / Pizza Cutter art (Nem_Cutter) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/6A Saws and Pizza Cutters.asm:
+     * <pre>
+     *     move.w  #make_art_tile(ArtTile_SBZ_Saw,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_SBZ_Saw = $3B5, palette line 2, no priority bit.
+     * <p>
+     * Mappings from docs/s1disasm/_maps/Saws and Pizza Cutters.asm (Map_Saw_internal):
+     * 4 frames: pizzacutter1, pizzacutter2, groundsaw1, groundsaw2.
+     */
+    private void loadSbzSawArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_SAW_ADDR, "SbzSaw");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ saw art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSbzSawMappings();
+        // make_art_tile(ArtTile_SBZ_Saw, 2, 0) -> palette line 2, no priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SBZ_SAW, sheet);
+    }
+
+    /**
+     * Creates SBZ Saw / Pizza Cutter sprite mappings from
+     * docs/s1disasm/_maps/Saws and Pizza Cutters.asm (Map_Saw_internal).
+     * <p>
+     * Four frames:
+     * <ul>
+     *   <li>Frame 0 (.pizzacutter1): Pizza cutter with pole + blade (tile $00) - 7 pieces</li>
+     *   <li>Frame 1 (.pizzacutter2): Pizza cutter with pole + rotated blade (tile $10) - 7 pieces</li>
+     *   <li>Frame 2 (.groundsaw1): Ground saw blade only (tile $00) - 4 pieces</li>
+     *   <li>Frame 3 (.groundsaw2): Ground saw rotated blade (tile $10) - 4 pieces</li>
+     * </ul>
+     * <p>
+     * spritePiece args: xpos, ypos, width, height, tile, xflip, yflip, pal, pri
+     */
+    private List<SpriteMappingFrame> createSbzSawMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.pizzacutter1): 7 pieces - pole + blade tile $00
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -0x3C, 1, 2, 0x20, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x2C, 1, 2, 0x20, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x1C, 1, 4, 0x20, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x20, 4, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x20, 4, 4, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0, 4, 4, 0, false, true, 0, false),
+                new SpriteMappingPiece(0, 0, 4, 4, 0, true, true, 0, false)
+        )));
+
+        // Frame 1 (.pizzacutter2): 7 pieces - pole + rotated blade tile $10
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -0x3C, 1, 2, 0x20, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x2C, 1, 2, 0x20, false, false, 0, false),
+                new SpriteMappingPiece(-4, -0x1C, 1, 4, 0x20, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x20, 4, 4, 0x10, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x20, 4, 4, 0x10, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0, 4, 4, 0x10, false, true, 0, false),
+                new SpriteMappingPiece(0, 0, 4, 4, 0x10, true, true, 0, false)
+        )));
+
+        // Frame 2 (.groundsaw1): 4 pieces - blade only tile $00
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x20, 4, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x20, 4, 4, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0, 4, 4, 0, false, true, 0, false),
+                new SpriteMappingPiece(0, 0, 4, 4, 0, true, true, 0, false)
+        )));
+
+        // Frame 3 (.groundsaw2): 4 pieces - rotated blade tile $10
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x20, 4, 4, 0x10, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x20, 4, 4, 0x10, true, false, 0, false),
+                new SpriteMappingPiece(-0x20, 0, 4, 4, 0x10, false, true, 0, false),
+                new SpriteMappingPiece(0, 0, 4, 4, 0x10, true, true, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads SBZ Flamethrower art (Nem_FlamePipe) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/6D Flamethrower.asm:
+     * <pre>
+     *     move.w  #make_art_tile(ArtTile_SBZ_Flamethrower,0,1),obGfx(a0)
+     * </pre>
+     * ArtTile_SBZ_Flamethrower = $3D9, palette line 0, priority bit set.
+     * <p>
+     * Mappings from docs/s1disasm/_maps/Flamethrower.asm (Map_Flame_internal):
+     * 22 frames total - 11 pipe frames (0-10) and 11 valve frames (11-21).
+     */
+    private void loadSbzFlamethrowerArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_FLAMETHROWER_ADDR, "SbzFlamethrower");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ flamethrower art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSbzFlamethrowerMappings();
+        // make_art_tile(ArtTile_SBZ_Flamethrower, 0, 1) -> palette line 0, priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.SBZ_FLAMETHROWER, sheet);
+    }
+
+    /**
+     * Creates SBZ Flamethrower sprite mappings from
+     * docs/s1disasm/_maps/Flamethrower.asm (Map_Flame_internal).
+     * <p>
+     * 22 frames total:
+     * <ul>
+     *   <li>Frames 0-10 (.pipe1-.pipe11): Broken pipe flamethrower</li>
+     *   <li>Frames 11-21 (.valve1-.valve11): Valve flamethrower</li>
+     * </ul>
+     * <p>
+     * spritePiece args: xpos, ypos, width, height, tile, xflip, yflip, pal, pri
+     * <p>
+     * Pipe nozzle base tile: $14 (palette 2, priority).
+     * Valve nozzle base tile: $18 (palette 2, priority).
+     * Flame tiles: 0 (1x2), 2 (2x3), 8 (3x4).
+     */
+    private List<SpriteMappingFrame> createSbzFlamethrowerMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // ---- PIPE FRAMES (0-10) ----
+
+        // Frame 0 (.pipe1): 1 piece - pipe nozzle only
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-5, 0x28, 2, 2, 0x14, false, false, 2, false)
+        )));
+
+        // Frame 1 (.pipe2): 2 pieces - small flame + pipe nozzle
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-3, 0x20, 1, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-5, 0x28, 2, 2, 0x14, false, false, 2, false)
+        )));
+
+        // Frame 2 (.pipe3): 2 pieces - small flame (hflip) + pipe nozzle
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, 0x20, 1, 2, 0, true, false, 0, false),
+                new SpriteMappingPiece(-5, 0x28, 2, 2, 0x14, false, false, 2, false)
+        )));
+
+        // Frame 3 (.pipe4): 3 pieces - medium flame + small flame + pipe nozzle
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-3, 0x20, 1, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-5, 0x28, 2, 2, 0x14, false, false, 2, false)
+        )));
+
+        // Frame 4 (.pipe5): 3 pieces - medium flame (hflip) + small flame (hflip) + pipe nozzle
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-4, 0x20, 1, 2, 0, true, false, 0, false),
+                new SpriteMappingPiece(-5, 0x28, 2, 2, 0x14, false, false, 2, false)
+        )));
+
+        // Frame 5 (.pipe6): 4 pieces - two medium flames + small flame + pipe nozzle
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, 8, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-3, 0x20, 1, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-5, 0x28, 2, 2, 0x14, false, false, 2, false)
+        )));
+
+        // Frame 6 (.pipe7): 4 pieces - two medium flames (hflip) + small flame (hflip) + pipe nozzle
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, 8, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-4, 0x20, 1, 2, 0, true, false, 0, false),
+                new SpriteMappingPiece(-5, 0x28, 2, 2, 0x14, false, false, 2, false)
+        )));
+
+        // Frame 7 (.pipe8): 5 pieces - large flame + medium + medium + small + pipe nozzle
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -8, 3, 4, 8, false, false, 0, false),
+                new SpriteMappingPiece(-8, 8, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-3, 0x20, 1, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-5, 0x28, 2, 2, 0x14, false, false, 2, false)
+        )));
+
+        // Frame 8 (.pipe9): 5 pieces - large flame (hflip) + all (hflip) + pipe nozzle
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -8, 3, 4, 8, true, false, 0, false),
+                new SpriteMappingPiece(-8, 8, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-4, 0x20, 1, 2, 0, true, false, 0, false),
+                new SpriteMappingPiece(-5, 0x28, 2, 2, 0x14, false, false, 2, false)
+        )));
+
+        // Frame 9 (.pipe10): 6 pieces - two large flames + two medium + small + pipe nozzle
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x18, 3, 4, 8, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C, -9, 3, 4, 8, false, false, 0, false),
+                new SpriteMappingPiece(-8, 8, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-8, 0x0F, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-3, 0x20, 1, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-5, 0x28, 2, 2, 0x14, false, false, 2, false)
+        )));
+
+        // Frame 10 (.pipe11): 6 pieces - two large flames (hflip) + all (hflip) + pipe nozzle
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x19, 3, 4, 8, true, false, 0, false),
+                new SpriteMappingPiece(-0x0C, -8, 3, 4, 8, true, false, 0, false),
+                new SpriteMappingPiece(-8, 7, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-4, 0x20, 1, 2, 0, true, false, 0, false),
+                new SpriteMappingPiece(-5, 0x28, 2, 2, 0x14, false, false, 2, false)
+        )));
+
+        // ---- VALVE FRAMES (11-21) ----
+
+        // Frame 11 (.valve1): 1 piece - valve nozzle only
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-7, 0x28, 2, 2, 0x18, false, false, 2, false)
+        )));
+
+        // Frame 12 (.valve2): 2 pieces - valve nozzle + small flame
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-7, 0x28, 2, 2, 0x18, false, false, 2, false),
+                new SpriteMappingPiece(-3, 0x20, 1, 2, 0, false, false, 0, false)
+        )));
+
+        // Frame 13 (.valve3): 2 pieces - valve nozzle + small flame (hflip)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-7, 0x28, 2, 2, 0x18, false, false, 2, false),
+                new SpriteMappingPiece(-4, 0x20, 1, 2, 0, true, false, 0, false)
+        )));
+
+        // Frame 14 (.valve4): 3 pieces - medium flame + valve nozzle + small flame
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-7, 0x28, 2, 2, 0x18, false, false, 2, false),
+                new SpriteMappingPiece(-3, 0x20, 1, 2, 0, false, false, 0, false)
+        )));
+
+        // Frame 15 (.valve5): 3 pieces - medium flame (hflip) + valve nozzle + small flame (hflip)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-7, 0x28, 2, 2, 0x18, false, false, 2, false),
+                new SpriteMappingPiece(-4, 0x20, 1, 2, 0, true, false, 0, false)
+        )));
+
+        // Frame 16 (.valve6): 4 pieces - two medium flames + valve nozzle + small flame
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, 8, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-7, 0x28, 2, 2, 0x18, false, false, 2, false),
+                new SpriteMappingPiece(-3, 0x20, 1, 2, 0, false, false, 0, false)
+        )));
+
+        // Frame 17 (.valve7): 4 pieces - two medium flames (hflip) + valve nozzle + small flame (hflip)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, 8, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-7, 0x28, 2, 2, 0x18, false, false, 2, false),
+                new SpriteMappingPiece(-4, 0x20, 1, 2, 0, true, false, 0, false)
+        )));
+
+        // Frame 18 (.valve8): 5 pieces - large + two medium + valve nozzle + small
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -8, 3, 4, 8, false, false, 0, false),
+                new SpriteMappingPiece(-8, 8, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-7, 0x28, 2, 2, 0x18, false, false, 2, false),
+                new SpriteMappingPiece(-3, 0x20, 1, 2, 0, false, false, 0, false)
+        )));
+
+        // Frame 19 (.valve9): 5 pieces - large (hflip) + two medium (hflip) + valve nozzle + small (hflip)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -8, 3, 4, 8, true, false, 0, false),
+                new SpriteMappingPiece(-8, 8, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-7, 0x28, 2, 2, 0x18, false, false, 2, false),
+                new SpriteMappingPiece(-4, 0x20, 1, 2, 0, true, false, 0, false)
+        )));
+
+        // Frame 20 (.valve10): 6 pieces - two large + two medium + valve nozzle + small
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x18, 3, 4, 8, false, false, 0, false),
+                new SpriteMappingPiece(-0x0C, -9, 3, 4, 8, false, false, 0, false),
+                new SpriteMappingPiece(-8, 8, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-8, 0x0F, 2, 3, 2, false, false, 0, false),
+                new SpriteMappingPiece(-7, 0x28, 2, 2, 0x18, false, false, 2, false),
+                new SpriteMappingPiece(-3, 0x20, 1, 2, 0, false, false, 0, false)
+        )));
+
+        // Frame 21 (.valve11): 6 pieces - two large (hflip) + two medium (hflip) + valve nozzle + small (hflip)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, -0x19, 3, 4, 8, true, false, 0, false),
+                new SpriteMappingPiece(-0x0C, -8, 3, 4, 8, true, false, 0, false),
+                new SpriteMappingPiece(-8, 7, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-8, 0x10, 2, 3, 2, true, false, 0, false),
+                new SpriteMappingPiece(-7, 0x28, 2, 2, 0x18, false, false, 2, false),
+                new SpriteMappingPiece(-4, 0x20, 1, 2, 0, true, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads SBZ Girder Block art (Nem_Girder) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/70 Girder Block.asm:
+     * <pre>
+     *   move.l  #Map_Gird,obMap(a0)
+     *   move.w  #make_art_tile(ArtTile_SBZ_Girder,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_SBZ_Girder = $2F0, palette line 2.
+     */
+    private void loadSbzGirderArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_GIRDER_ADDR, "SbzGirder");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ girder art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSbzGirderMappings();
+        // make_art_tile(ArtTile_SBZ_Girder, 2, 0) -> palette line 2
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SBZ_GIRDER, sheet);
+    }
+
+    /**
+     * Creates SBZ Girder Block sprite mappings from
+     * docs/s1disasm/_maps/Girder Block.asm (Map_Gird_internal).
+     * <p>
+     * Single frame: 12 pieces forming a 192x48 pixel girder block.
+     * 6 columns (x: -0x60 to +0x40) x 2 rows (top y=-0x18, bottom y=0).
+     * Each piece is 4x3 tiles (32x24 pixels).
+     * First column uses tile 0; all other columns reuse tile 6.
+     * Bottom row pieces are y-flipped.
+     * <p>
+     * spritePiece args: xpos, ypos, width, height, tile, xflip, yflip, pal, pri
+     */
+    private List<SpriteMappingFrame> createSbzGirderMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.girder): 12 pieces - full girder block
+        frames.add(new SpriteMappingFrame(List.of(
+                // Column 1 (x=-0x60): unique end tiles
+                new SpriteMappingPiece(-0x60, -0x18, 4, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x60,     0, 4, 3, 0, false,  true, 0, false),
+                // Column 2 (x=-0x40): repeated mid tiles
+                new SpriteMappingPiece(-0x40, -0x18, 4, 3, 6, false, false, 0, false),
+                new SpriteMappingPiece(-0x40,     0, 4, 3, 6, false,  true, 0, false),
+                // Column 3 (x=-0x20): repeated mid tiles
+                new SpriteMappingPiece(-0x20, -0x18, 4, 3, 6, false, false, 0, false),
+                new SpriteMappingPiece(-0x20,     0, 4, 3, 6, false,  true, 0, false),
+                // Column 4 (x=0): repeated mid tiles
+                new SpriteMappingPiece(    0, -0x18, 4, 3, 6, false, false, 0, false),
+                new SpriteMappingPiece(    0,     0, 4, 3, 6, false,  true, 0, false),
+                // Column 5 (x=0x20): repeated mid tiles
+                new SpriteMappingPiece( 0x20, -0x18, 4, 3, 6, false, false, 0, false),
+                new SpriteMappingPiece( 0x20,     0, 4, 3, 6, false,  true, 0, false),
+                // Column 6 (x=0x40): repeated mid tiles
+                new SpriteMappingPiece( 0x40, -0x18, 4, 3, 6, false, false, 0, false),
+                new SpriteMappingPiece( 0x40,     0, 4, 3, 6, false,  true, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads SBZ Trap Door art (Nem_TrapDoor) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/69 SBZ Spinning Platforms.asm:
+     * <pre>
+     *   move.l  #Map_Trap,obMap(a0)
+     *   move.w  #make_art_tile(ArtTile_SBZ_Trap_Door,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_SBZ_Trap_Door = $492, palette line 2.
+     */
+    private void loadSbzTrapDoorArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_TRAP_DOOR_ADDR, "SbzTrapDoor");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ trap door art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSbzTrapDoorMappings();
+        // make_art_tile(ArtTile_SBZ_Trap_Door, 2, 0) -> palette line 2
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SBZ_TRAP_DOOR, sheet);
+    }
+
+    /**
+     * Creates SBZ Trap Door sprite mappings from
+     * docs/s1disasm/_maps/Trapdoor.asm (Map_Trap_internal).
+     * <p>
+     * Three frames:
+     * <ul>
+     *   <li>Frame 0 (.closed): 4 pieces of 4x3 (128x24 platform)</li>
+     *   <li>Frame 1 (.half): 8 pieces - doors partially open</li>
+     *   <li>Frame 2 (.open): 4 pieces of 3x4 - doors fully open/vertical</li>
+     * </ul>
+     */
+    private List<SpriteMappingFrame> createSbzTrapDoorMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.closed): 4 pieces of 4x3 tiles
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x40, -0xC, 4, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0xC, 4, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(0, -0xC, 4, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(0x20, -0xC, 4, 3, 0, true, false, 0, false)
+        )));
+
+        // Frame 1 (.half): 8 pieces - doors partially open
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x4A, -0xE, 4, 4, 0xC, false, false, 0, false),
+                new SpriteMappingPiece(-0x2A, 0x1A, 4, 4, 0xC, true, true, 0, false),
+                new SpriteMappingPiece(-0x2A, 0x02, 3, 3, 0x1C, false, false, 0, false),
+                new SpriteMappingPiece(-0x42, 0x12, 3, 3, 0x1C, true, true, 0, false),
+                new SpriteMappingPiece(0x2A, -0x0E, 4, 4, 0xC, true, false, 0, false),
+                new SpriteMappingPiece(0x0A, 0x1A, 4, 4, 0xC, false, true, 0, false),
+                new SpriteMappingPiece(0x12, 0x02, 3, 3, 0x1C, true, false, 0, false),
+                new SpriteMappingPiece(0x2A, 0x12, 3, 3, 0x1C, false, true, 0, false)
+        )));
+
+        // Frame 2 (.open): 4 pieces of 3x4 tiles - fully open
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x4C, 0, 3, 4, 0x25, false, false, 0, false),
+                new SpriteMappingPiece(-0x4C, 0x20, 3, 4, 0x25, false, true, 0, false),
+                new SpriteMappingPiece(0x34, 0, 3, 4, 0x25, false, false, 0, false),
+                new SpriteMappingPiece(0x34, 0x20, 3, 4, 0x25, false, true, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads SBZ Small Door art (Nem_SbzDoor1) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/2A SBZ Small Door.asm:
+     * <pre>
+     *   move.l  #Map_ADoor,obMap(a0)
+     *   move.w  #make_art_tile(ArtTile_SBZ_Door,2,0),obGfx(a0)
+     * </pre>
+     * ArtTile_SBZ_Door = $2E8, palette line 2.
+     */
+    private void loadSbzSmallDoorArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_SMALL_DOOR_ADDR, "SbzSmallDoor");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ small door art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSbzSmallDoorMappings();
+        // make_art_tile(ArtTile_SBZ_Door, 2, 0) -> palette line 2
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SBZ_SMALL_DOOR, sheet);
+    }
+
+    /**
+     * Creates SBZ Small Door sprite mappings from
+     * docs/s1disasm/_maps/SBZ Small Door.asm (Map_ADoor_internal).
+     * <p>
+     * 9 frames total: frame 0 (closed) through frame 8 (fully open).
+     * Each frame has 2 pieces of size 2x4 tiles (16x32 pixels).
+     * The two door halves slide apart vertically as the door opens.
+     * <p>
+     * spritePiece format (SonicMappingsVer=1):
+     *   xpos, ypos, width, height, tile, xflip, yflip, pal, pri
+     */
+    private List<SpriteMappingFrame> createSbzSmallDoorMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.closed): two 2x4 halves flush together
+        // spritePiece -8, -$20, 2, 4, 0, 1, 0, 0, 0
+        // spritePiece -8,    0, 2, 4, 0, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x20, 2, 4, 0, true, false, 0, false),
+                new SpriteMappingPiece(-8,     0, 2, 4, 0, true, false, 0, false)
+        )));
+
+        // Frame 1 (.f01): halves spread by 4px each
+        // spritePiece -8, -$24, 2, 4, 0, 1, 0, 0, 0
+        // spritePiece -8,    4, 2, 4, 0, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x24, 2, 4, 0, true, false, 0, false),
+                new SpriteMappingPiece(-8,   0x4, 2, 4, 0, true, false, 0, false)
+        )));
+
+        // Frame 2 (.f02)
+        // spritePiece -8, -$28, 2, 4, 0, 1, 0, 0, 0
+        // spritePiece -8,    8, 2, 4, 0, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x28, 2, 4, 0, true, false, 0, false),
+                new SpriteMappingPiece(-8,   0x8, 2, 4, 0, true, false, 0, false)
+        )));
+
+        // Frame 3 (.f03)
+        // spritePiece -8, -$2C, 2, 4, 0, 1, 0, 0, 0
+        // spritePiece -8,   $C, 2, 4, 0, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x2C, 2, 4, 0, true, false, 0, false),
+                new SpriteMappingPiece(-8,   0xC, 2, 4, 0, true, false, 0, false)
+        )));
+
+        // Frame 4 (.f04)
+        // spritePiece -8, -$30, 2, 4, 0, 1, 0, 0, 0
+        // spritePiece -8,  $10, 2, 4, 0, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x30, 2, 4, 0, true, false, 0, false),
+                new SpriteMappingPiece(-8,  0x10, 2, 4, 0, true, false, 0, false)
+        )));
+
+        // Frame 5 (.f05)
+        // spritePiece -8, -$34, 2, 4, 0, 1, 0, 0, 0
+        // spritePiece -8,  $14, 2, 4, 0, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x34, 2, 4, 0, true, false, 0, false),
+                new SpriteMappingPiece(-8,  0x14, 2, 4, 0, true, false, 0, false)
+        )));
+
+        // Frame 6 (.f06)
+        // spritePiece -8, -$38, 2, 4, 0, 1, 0, 0, 0
+        // spritePiece -8,  $18, 2, 4, 0, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x38, 2, 4, 0, true, false, 0, false),
+                new SpriteMappingPiece(-8,  0x18, 2, 4, 0, true, false, 0, false)
+        )));
+
+        // Frame 7 (.f07)
+        // spritePiece -8, -$3C, 2, 4, 0, 1, 0, 0, 0
+        // spritePiece -8,  $1C, 2, 4, 0, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x3C, 2, 4, 0, true, false, 0, false),
+                new SpriteMappingPiece(-8,  0x1C, 2, 4, 0, true, false, 0, false)
+        )));
+
+        // Frame 8 (.open): fully open, halves far apart
+        // spritePiece -8, -$40, 2, 4, 0, 1, 0, 0, 0
+        // spritePiece -8,  $20, 2, 4, 0, 1, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x40, 2, 4, 0, true, false, 0, false),
+                new SpriteMappingPiece(-8,  0x20, 2, 4, 0, true, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads SBZ Spinning Platform art (Nem_SpinPform) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/69 SBZ Spinning Platforms.asm:
+     * <pre>
+     *   move.l  #Map_Spin,obMap(a0)
+     *   move.w  #make_art_tile(ArtTile_SBZ_Spinning_Platform,0,0),obGfx(a0)
+     * </pre>
+     * ArtTile_SBZ_Spinning_Platform = $4DF, palette line 0.
+     */
+    private void loadSbzSpinningPlatformArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_SPINNING_PLATFORM_ADDR, "SbzSpinningPlatform");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ spinning platform art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = createSbzSpinningPlatformMappings();
+        // make_art_tile(ArtTile_SBZ_Spinning_Platform, 0, 0) -> palette line 0
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        registerSheet(ObjectArtKeys.SBZ_SPINNING_PLATFORM, sheet);
+    }
+
+    /**
+     * Creates SBZ Spinning Platform sprite mappings from
+     * docs/s1disasm/_maps/SBZ Spinning Platforms.asm (Map_Spin_internal).
+     * <p>
+     * Five frames representing the spinning disc rotation:
+     * <ul>
+     *   <li>Frame 0 (.flat): 2 pieces of 2x2 - disc seen from above (solid)</li>
+     *   <li>Frame 1 (.spin1): 2 pieces of 4x2 - first rotation frame</li>
+     *   <li>Frame 2 (.spin2): 2 pieces of 3x2 - second rotation frame</li>
+     *   <li>Frame 3 (.spin3): 2 pieces of 3x2 - third rotation frame</li>
+     *   <li>Frame 4 (.spin4): 2 pieces of 2x2 - fourth rotation frame (edge-on)</li>
+     * </ul>
+     */
+    private List<SpriteMappingFrame> createSbzSpinningPlatformMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.flat): 2 pieces of 2x2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -8, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(0, -8, 2, 2, 0, true, false, 0, false)
+        )));
+
+        // Frame 1 (.spin1): 2 pieces of 4x2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 2, 0x14, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, 0, 4, 2, 0x1C, false, false, 0, false)
+        )));
+
+        // Frame 2 (.spin2): 2 pieces of 3x2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 3, 2, 0x04, false, false, 0, false),
+                new SpriteMappingPiece(-0x08, 0, 3, 2, 0x0A, false, false, 0, false)
+        )));
+
+        // Frame 3 (.spin3): 2 pieces of 3x2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 3, 2, 0x24, false, false, 0, false),
+                new SpriteMappingPiece(-0x08, 0, 3, 2, 0x2A, false, false, 0, false)
+        )));
+
+        // Frame 4 (.spin4): 2 pieces of 2x2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x08, -0x10, 2, 2, 0x10, false, false, 0, false),
+                new SpriteMappingPiece(-0x08, 0, 2, 2, 0x10, false, true, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
      * Creates collapsing floor sprite mappings for MZ and SBZ from
      * docs/s1disasm/_maps/Collapsing Floors.asm (Map_CFlo_internal).
      * <p>
@@ -5474,6 +6353,212 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 new SpriteMappingPiece(-0x30, -8, 4, 4, 8, false, false, 0, false),
                 new SpriteMappingPiece(-0x10, -8, 4, 4, 8, false, false, 0, false),
                 new SpriteMappingPiece( 0x10, -8, 4, 4, 8, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads SBZ Stomper and Door art (Object 0x6B).
+     * <p>
+     * Combines two Nemesis art blocks into one sprite sheet:
+     * <ul>
+     *   <li>Nem_Stomper (ArtTile_SBZ_Moving_Block_Short = $2C0) - stomper block frames</li>
+     *   <li>Nem_SbzDoor2 (ArtTile_SBZ_Horizontal_Door = $46F) - horizontal sliding door frame</li>
+     * </ul>
+     * <p>
+     * The stomper patterns occupy the first N indices. The door patterns are appended
+     * starting at index N. Mapping tile indices for the door frame are remapped from
+     * their original VRAM offsets ($1AF, $1B2 relative to $2C0) to the compact array.
+     * <p>
+     * obGfx: make_art_tile(ArtTile_SBZ_Moving_Block_Short,1,0) -> palette line 1.
+     * <p>
+     * Map_Stomp has 5 frames:
+     * <ul>
+     *   <li>Frame 0 (.door): 4 pieces using Nem_SbzDoor2 tiles (horizontal sliding door)</li>
+     *   <li>Frame 1-3 (.stomper): 8 pieces each using Nem_Stomper tiles (stomper block)</li>
+     *   <li>Frame 4 (.bigdoor): SBZ3 diagonal door using level tiles (separate sheet)</li>
+     * </ul>
+     * <p>
+     * Reference: docs/s1disasm/_incObj/6B SBZ Stomper and Door.asm
+     * Reference: docs/s1disasm/_maps/SBZ Stomper and Door.asm
+     */
+    private void loadSbzStomperDoorArt(Rom rom) {
+        Pattern[] stomperPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_STOMPER_ADDR, "SbzStomperDoor_Stomper");
+        Pattern[] doorPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_HORIZONTAL_DOOR_ADDR, "SbzStomperDoor_Door2");
+        if (stomperPatterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ stomper art for Object 0x6B");
+            return;
+        }
+
+        // Build combined patterns array: [stomperPatterns..., doorPatterns...]
+        int stomperCount = stomperPatterns.length;
+        int doorCount = doorPatterns.length;
+        Pattern[] combined = new Pattern[stomperCount + doorCount];
+        System.arraycopy(stomperPatterns, 0, combined, 0, stomperCount);
+        System.arraycopy(doorPatterns, 0, combined, stomperCount, doorCount);
+
+        // Remap door tile indices:
+        // Original: tile $1AF relative to ArtTile_SBZ_Moving_Block_Short ($2C0)
+        //   -> absolute VRAM tile = $2C0 + $1AF = $46F = ArtTile_SBZ_Horizontal_Door
+        //   -> door pattern index 0 in Nem_SbzDoor2
+        //   -> in combined array: stomperCount + 0
+        // Original: tile $1B2 -> absolute $472 -> door pattern index 3
+        //   -> in combined array: stomperCount + 3
+        int doorBase = stomperCount;
+
+        List<SpriteMappingFrame> mappings = createStomperDoorMappings(doorBase);
+        // make_art_tile(ArtTile_SBZ_Moving_Block_Short, 1, 0) -> palette line 1
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(combined, mappings, 1, 1);
+        registerSheet(ObjectArtKeys.SBZ_STOMPER_DOOR, sheet);
+    }
+
+    /**
+     * Creates sprite mappings for the SBZ Stomper and Door (Object 0x6B).
+     * <p>
+     * From docs/s1disasm/_maps/SBZ Stomper and Door.asm (Map_Stomp_internal):
+     * <ul>
+     *   <li>Frame 0 (.door): 4 pieces, 128x24 horizontal sliding door</li>
+     *   <li>Frame 1 (.stomper): 8 pieces, 56x64 stomper block with yellow/black stripes</li>
+     *   <li>Frame 2 (.stomper): Same as frame 1 (duplicate entry in table)</li>
+     *   <li>Frame 3 (.stomper): Same as frame 1 (duplicate entry in table)</li>
+     * </ul>
+     * <p>
+     * Frame 4 (.bigdoor) is excluded; it uses level tiles and is handled
+     * by a separate sheet registered via {@link #registerSbz3BigDoorSheet}.
+     *
+     * @param doorBase index in the combined pattern array where Nem_SbzDoor2 starts
+     */
+    private List<SpriteMappingFrame> createStomperDoorMappings(int doorBase) {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (.door): 4 pieces - horizontal sliding door (128x24)
+        // Original tiles: $1AF, $1B2 relative to ArtTile_SBZ_Moving_Block_Short
+        // Remapped: doorBase + 0, doorBase + 3
+        // spritePiece -$40, -$C, 4, 3, $1AF, 0, 0, 1, 0
+        // spritePiece -$20, -$C, 4, 3, $1B2, 0, 0, 1, 0
+        // spritePiece    0, -$C, 4, 3, $1B2, 0, 0, 1, 0
+        // spritePiece  $20, -$C, 4, 3, $1AF, 1, 0, 1, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x40, -0x0C, 4, 3, doorBase,     false, false, 1, false),
+                new SpriteMappingPiece(-0x20, -0x0C, 4, 3, doorBase + 3, false, false, 1, false),
+                new SpriteMappingPiece(    0, -0x0C, 4, 3, doorBase + 3, false, false, 1, false),
+                new SpriteMappingPiece( 0x20, -0x0C, 4, 3, doorBase,     true,  false, 1, false)
+        )));
+
+        // Frame 1 (.stomper): 8 pieces - stomper block with yellow/black stripes (56x64)
+        // Tiles are direct indices into Nem_Stomper (at offset 0 in combined array)
+        // spritePiece -$1C, -$20, 4, 1, $C, 0, 0, 0, 0
+        // spritePiece    4, -$20, 3, 1, $10, 0, 0, 0, 0
+        // spritePiece -$1C, -$18, 4, 3, $13, 0, 0, 1, 0
+        // spritePiece    4, -$18, 3, 3, $1F, 0, 0, 1, 0
+        // spritePiece -$1C,    0, 4, 3, $13, 0, 0, 1, 0
+        // spritePiece    4,    0, 3, 3, $1F, 0, 0, 1, 0
+        // spritePiece -$1C,  $18, 4, 1, $C, 0, 0, 0, 0
+        // spritePiece    4,  $18, 3, 1, $10, 0, 0, 0, 0
+        SpriteMappingFrame stomperFrame = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x1C, -0x20, 4, 1, 0x0C, false, false,  0, false),
+                new SpriteMappingPiece( 0x04, -0x20, 3, 1, 0x10, false, false,  0, false),
+                new SpriteMappingPiece(-0x1C, -0x18, 4, 3, 0x13, false, false,  1, false),
+                new SpriteMappingPiece( 0x04, -0x18, 3, 3, 0x1F, false, false,  1, false),
+                new SpriteMappingPiece(-0x1C,  0x00, 4, 3, 0x13, false, false,  1, false),
+                new SpriteMappingPiece( 0x04,  0x00, 3, 3, 0x1F, false, false,  1, false),
+                new SpriteMappingPiece(-0x1C,  0x18, 4, 1, 0x0C, false, false,  0, false),
+                new SpriteMappingPiece( 0x04,  0x18, 3, 1, 0x10, false, false,  0, false)
+        ));
+        // Frames 1, 2, 3 all reference the same .stomper mapping in the table
+        frames.add(stomperFrame);
+        frames.add(stomperFrame);
+        frames.add(stomperFrame);
+
+        return frames;
+    }
+
+    /**
+     * Registers the SBZ3 Big Door sprite sheet using level tile patterns.
+     * Must be called AFTER the level is loaded since the big door uses level art at
+     * {@code ArtTile_Level+$1F0} (palette line 2).
+     * <p>
+     * Only relevant when zone == LZ (SBZ3 reuses the LZ zone slot).
+     * <p>
+     * Frame 4 (.bigdoor) from docs/s1disasm/_maps/SBZ Stomper and Door.asm:
+     * 14 pieces forming a 256x128 diagonal door.
+     * <p>
+     * Reference: docs/s1disasm/_incObj/6B SBZ Stomper and Door.asm (.isSBZ3)
+     *
+     * @param level     The loaded level to extract patterns from
+     * @param zoneIndex The current zone index
+     */
+    public void registerSbz3BigDoorSheet(Level level, int zoneIndex) {
+        if (level == null || zoneIndex != Sonic1Constants.ZONE_LZ) {
+            return;
+        }
+
+        // Big door tiles start at ArtTile_Level + $1F0
+        // Highest tile offset in .bigdoor: $58 + (4*4 - 1) = $67
+        // Absolute max pattern index = $1F0 + $67 = $257
+        int tileBase = 0x1F0;
+        int maxTileNeeded = tileBase + 0x68;
+        int patternCount = level.getPatternCount();
+        int copyCount = Math.min(patternCount, maxTileNeeded);
+        if (copyCount <= tileBase) {
+            LOGGER.warning("Not enough level patterns for SBZ3 big door");
+            return;
+        }
+        Pattern[] patterns = new Pattern[copyCount];
+        for (int i = 0; i < copyCount; i++) {
+            patterns[i] = level.getPattern(i);
+        }
+
+        List<SpriteMappingFrame> mappings = createSbz3BigDoorMappings(tileBase);
+        // make_art_tile(ArtTile_Level+$1F0, 2, 0) -> palette line 2
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SBZ3_BIG_DOOR, sheet);
+    }
+
+    /**
+     * Creates sprite mapping for the SBZ3 big diagonal door.
+     * <p>
+     * From docs/s1disasm/_maps/SBZ Stomper and Door.asm (.bigdoor):
+     * 14 pieces forming a 256x128 diagonal sliding door.
+     *
+     * @param tileBase the base tile index ($1F0) in the patterns array
+     */
+    private List<SpriteMappingFrame> createSbz3BigDoorMappings(int tileBase) {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // .bigdoor: 14 pieces
+        // spritePiece -$80, -$40, 4, 4,    0, 0, 0, 0, 0
+        // spritePiece -$60, -$40, 4, 4,  $10, 0, 0, 0, 0
+        // spritePiece -$40, -$40, 4, 4,  $20, 0, 0, 0, 0
+        // spritePiece -$20, -$40, 4, 4,  $10, 0, 0, 0, 0
+        // spritePiece    0, -$40, 4, 4,  $20, 0, 0, 0, 0
+        // spritePiece  $20, -$40, 4, 4,  $10, 0, 0, 0, 0
+        // spritePiece  $40, -$40, 4, 4,  $30, 0, 0, 0, 0
+        // spritePiece  $60, -$40, 4, 2,  $40, 0, 0, 0, 0
+        // spritePiece -$80, -$20, 4, 4,  $48, 0, 0, 0, 0
+        // spritePiece -$40, -$20, 4, 4,  $48, 0, 0, 0, 0
+        // spritePiece    0, -$20, 4, 4,  $58, 0, 0, 0, 0
+        // spritePiece -$80,    0, 4, 4,  $48, 0, 0, 0, 0
+        // spritePiece -$40,    0, 4, 4,  $58, 0, 0, 0, 0
+        // spritePiece -$80,  $20, 4, 4,  $58, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x80, -0x40, 4, 4, tileBase + 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x60, -0x40, 4, 4, tileBase + 0x10, false, false, 0, false),
+                new SpriteMappingPiece(-0x40, -0x40, 4, 4, tileBase + 0x20, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x40, 4, 4, tileBase + 0x10, false, false, 0, false),
+                new SpriteMappingPiece( 0x00, -0x40, 4, 4, tileBase + 0x20, false, false, 0, false),
+                new SpriteMappingPiece( 0x20, -0x40, 4, 4, tileBase + 0x10, false, false, 0, false),
+                new SpriteMappingPiece( 0x40, -0x40, 4, 4, tileBase + 0x30, false, false, 0, false),
+                new SpriteMappingPiece( 0x60, -0x40, 4, 2, tileBase + 0x40, false, false, 0, false),
+                new SpriteMappingPiece(-0x80, -0x20, 4, 4, tileBase + 0x48, false, false, 0, false),
+                new SpriteMappingPiece(-0x40, -0x20, 4, 4, tileBase + 0x48, false, false, 0, false),
+                new SpriteMappingPiece( 0x00, -0x20, 4, 4, tileBase + 0x58, false, false, 0, false),
+                new SpriteMappingPiece(-0x80,  0x00, 4, 4, tileBase + 0x48, false, false, 0, false),
+                new SpriteMappingPiece(-0x40,  0x00, 4, 4, tileBase + 0x58, false, false, 0, false),
+                new SpriteMappingPiece(-0x80,  0x20, 4, 4, tileBase + 0x58, false, false, 0, false)
         )));
 
         return frames;
