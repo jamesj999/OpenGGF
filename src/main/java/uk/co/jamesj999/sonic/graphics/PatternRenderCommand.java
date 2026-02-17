@@ -182,6 +182,38 @@ public class PatternRenderCommand implements GLCommandable {
                 glUniform2f(cameraOffsetLoc, -cameraX, cameraY);
             }
 
+            // Mirror instanced-path priority uniforms for non-instanced/multi-atlas sprites.
+            if (shaderProgram instanceof SpritePriorityShaderProgram priorityShader) {
+                GraphicsManager gm = getGraphicsManager();
+                TilePriorityFBO fbo = gm.getTilePriorityFBO();
+                if (fbo != null && fbo.isInitialized()) {
+                    glActiveTexture(GL_TEXTURE5);
+                    glBindTexture(GL_TEXTURE_2D, fbo.getTextureId());
+                    priorityShader.setTilePriorityTexture(5);
+                    glActiveTexture(GL_TEXTURE0);
+                }
+
+                priorityShader.setSpriteHighPriority(gm.getCurrentSpriteHighPriority());
+                priorityShader.setScreenSize(gm.getViewportWidth(), gm.getViewportHeight());
+                priorityShader.setViewportOffset(gm.getViewportX(), gm.getViewportY());
+
+                Integer underwaterPaletteId = gm.getUnderwaterPaletteTextureId();
+                if (underwaterPaletteId != null) {
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_2D, underwaterPaletteId);
+                    int loc = priorityShader.getUnderwaterPaletteLocation();
+                    if (loc != -1) {
+                        glUniform1i(loc, 2);
+                    }
+                    glActiveTexture(GL_TEXTURE0);
+                }
+
+                priorityShader.setWaterEnabled(gm.isWaterEnabled());
+                priorityShader.setWaterlineScreenY(gm.getWaterlineScreenY());
+                priorityShader.setWindowHeight(gm.getWindowHeight());
+                priorityShader.setScreenHeight(gm.getScreenHeight());
+            }
+
             // Bind VAO
             glBindVertexArray(vaoId);
 

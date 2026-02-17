@@ -65,6 +65,8 @@ import uk.co.jamesj999.sonic.sprites.Sprite;
 import uk.co.jamesj999.sonic.sprites.SensorConfiguration;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
+import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kGameModule;
+import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kPlayerArt;
 import uk.co.jamesj999.sonic.sprites.managers.SpindashDustController;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
 import uk.co.jamesj999.sonic.sprites.managers.TailsTailsController;
@@ -95,6 +97,7 @@ public class LevelManager {
     private static final float SWITCHER_DEBUG_ALPHA = 0.35f;
     private static final int OBJECT_PATTERN_BASE = 0x20000;
     private static final int HUD_PATTERN_BASE = 0x28000;
+    private static final Palette.Color BLACK_BACKDROP = new Palette.Color((byte) 0, (byte) 0, (byte) 0);
     private static LevelManager levelManager;
     private Level level;
     private int blockPixelSize = 128;  // cached from level
@@ -145,6 +148,14 @@ public class LevelManager {
     private int patternLookupSize;
     private boolean patternLookupDirty = true;
     private boolean multiAtlasWarningLogged = false;
+
+    // Pre-built tilemap data for stutter-free terrain transitions (AIZ intro)
+    private byte[] prebuiltFgTilemap;
+    private int prebuiltFgWidth;
+    private int prebuiltFgHeight;
+    private byte[] prebuiltBgTilemap;
+    private int prebuiltBgWidth;
+    private int prebuiltBgHeight;
 
     private boolean specialStageRequestedFromCheckpoint;
     private boolean specialStageReturnLevelReloadRequested;
@@ -252,6 +263,8 @@ public class LevelManager {
         backgroundTilemapData = null;
             foregroundTilemapData = null;
             patternLookupData = null;
+            prebuiltFgTilemap = null;
+            prebuiltBgTilemap = null;
             initAnimatedPatterns();
             initAnimatedPalettes();
             RomByteReader romReader = RomByteReader.fromRom(rom);
@@ -299,11 +312,35 @@ public class LevelManager {
             checkpointState.clear();
             levelGamestate = gameModule.createLevelState();
 
-            // Initialize water system for this level (S2/S3K only).
+            // Initialize water system for this level.
+            // Only attempt water loading for zones the game module declares as water zones,
+            // otherwise S3K object IDs (e.g. 0x04 = CollapsingPlatform) get misinterpreted
+            // as water surface objects by WaterSystem.extractWaterHeight().
             // S1 water is already loaded by the ZoneFeatureProvider above.
             WaterSystem waterSystem = WaterSystem.getInstance();
-            if (!waterSystem.hasWater(getFeatureZoneId(), getFeatureActId())) {
-                waterSystem.loadForLevel(rom, getFeatureZoneId(), getFeatureActId(), level.getObjects());
+            if (zoneFeatureProvider != null && zoneFeatureProvider.hasWater(getFeatureZoneId())) {
+                if (!waterSystem.hasWater(getFeatureZoneId(), getFeatureActId())) {
+                    waterSystem.loadForLevel(rom, getFeatureZoneId(), getFeatureActId(), level.getObjects());
+                }
+            }
+
+            // Pre-allocate the background FBO at maximum required size to avoid
+            // mid-frame GPU reallocation hitches (e.g., AIZ intro ocean->beach transition)
+            BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
+            if (bgRenderer != null && bgRenderer.isInitialized()) {
+                int maxBgWidth;
+                if (zoneFeatureProvider != null && !zoneFeatureProvider.bgWrapsHorizontally()) {
+                    // S3K uses full-width BG data (e.g., AIZ intro ocean-to-beach transition)
+                    maxBgWidth = Math.max(cachedScreenWidth, getLayerLevelWidthPx((byte) 1));
+                } else {
+                    // S1/S2 use VDP-width (512px) background periods.
+                    // Pre-allocating to full level width can exceed GPU max texture size
+                    // (S2: 128 blocks * 128px = 16384, right at GPU limit).
+                    maxBgWidth = Math.max(cachedScreenWidth, VDP_BG_PLANE_WIDTH_PX);
+                }
+                int fboHeight = 256 + LevelConstants.CHUNK_HEIGHT;
+                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM,
+                        (cx, cy, cw, ch) -> bgRenderer.ensureCapacity(maxBgWidth, fboHeight)));
             }
         } catch (IOException e) {
             LOGGER.log(SEVERE, "Failed to load level " + levelIndex, e);
@@ -385,7 +422,9 @@ public class LevelManager {
             zoneFeatureProvider.update(playable, Camera.getInstance().getX(), getFeatureZoneId());
         }
         if (levelGamestate != null) {
-            levelGamestate.update();
+            if (!isHudSuppressed()) {
+                levelGamestate.update();
+            }
             if (levelGamestate.isTimeOver() && playable != null && !playable.getDead()) {
                 playable.applyHurtOrDeath(0, AbstractPlayableSprite.DamageCause.TIME_OVER, false);
             }
@@ -520,21 +559,36 @@ public class LevelManager {
             playable.setTailsTailsController(null);
             return;
         }
-        // Obj05 uses same mappings/DPLCs/art as Tails but at a different VRAM base
-        SpriteArtSet tailsArt = new SpriteArtSet(
-                artSet.artTiles(),
-                artSet.mappingFrames(),
-                artSet.dplcFrames(),
-                artSet.paletteIndex(),
-                Sonic2Constants.ART_TILE_TAILS_TAILS,
-                artSet.frameDelay(),
-                artSet.bankSize(),
-                null,
-                null
-        );
+        boolean isS3k = gameModule instanceof Sonic3kGameModule;
+        SpriteArtSet tailsArt;
+        if (isS3k) {
+            // S3K: Obj05 uses a completely separate art/mapping/DPLC set
+            try {
+                Rom rom = GameServices.rom().getRom();
+                Sonic3kPlayerArt s3kArt = new Sonic3kPlayerArt(RomByteReader.fromRom(rom));
+                tailsArt = s3kArt.loadTailsTail();
+            } catch (Exception e) {
+                LOGGER.log(SEVERE, "Failed to load S3K tails tail art.", e);
+                playable.setTailsTailsController(null);
+                return;
+            }
+        } else {
+            // S2: Obj05 uses same mappings/DPLCs/art as Tails but at a different VRAM base
+            tailsArt = new SpriteArtSet(
+                    artSet.artTiles(),
+                    artSet.mappingFrames(),
+                    artSet.dplcFrames(),
+                    artSet.paletteIndex(),
+                    Sonic2Constants.ART_TILE_TAILS_TAILS,
+                    artSet.frameDelay(),
+                    artSet.bankSize(),
+                    null,
+                    null
+            );
+        }
         PlayerSpriteRenderer tailsRenderer = new PlayerSpriteRenderer(tailsArt);
         tailsRenderer.ensureCached(graphicsManager);
-        playable.setTailsTailsController(new TailsTailsController(playable, tailsRenderer));
+        playable.setTailsTailsController(new TailsTailsController(playable, tailsRenderer, isS3k));
     }
 
     private void initSuperState(AbstractPlayableSprite playable) {
@@ -597,9 +651,14 @@ public class LevelManager {
                 }
                 objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
             }
+            if (provider instanceof uk.co.jamesj999.sonic.game.sonic3k.Sonic3kObjectArtProvider s3kProvider) {
+                s3kProvider.registerLevelArtSheets(level, zoneIndex);
+                objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
+            }
 
             hudRenderManager = new HudRenderManager(graphicsManager);
             hudRenderManager.setHudPalettes(provider.getHudTextPaletteLine(), provider.getHudFlashPaletteLine());
+            hudRenderManager.setHudFlashMode(provider.getHudFlashMode());
             // Wire up HUD to unified UI render pipeline
             if (graphicsManager.getUiRenderPipeline() != null) {
                 graphicsManager.getUiRenderPipeline().setHudRenderManager(hudRenderManager);
@@ -651,6 +710,11 @@ public class LevelManager {
             LOGGER.log(SEVERE, "Failed to load object art.", e);
             objectRenderManager = null;
         }
+    }
+
+    private boolean isHudSuppressed() {
+        return zoneFeatureProvider != null
+                && zoneFeatureProvider.shouldSuppressHud(currentZone, currentAct);
     }
 
     private void initAnimatedPatterns() {
@@ -901,7 +965,7 @@ public class LevelManager {
         }));
 
         profiler.beginSection("render.hud");
-        if (hudRenderManager != null) {
+        if (hudRenderManager != null && !isHudSuppressed()) {
             AbstractPlayableSprite focusedPlayer = camera.getFocusedSprite();
             hudRenderManager.draw(levelGamestate, focusedPlayer);
         }
@@ -1205,18 +1269,54 @@ public class LevelManager {
             return;
 
         Camera camera = Camera.getInstance();
+        Palette.Color backdropColor = resolveLevelBackdropColor();
+        bgRenderer.setBackdropColor(
+                backdropColor.rFloat(),
+                backdropColor.gFloat(),
+                backdropColor.bFloat());
 
-        // FBO is wider than screen to accommodate per-scanline scroll range
-        // For EHZ, scroll difference can be up to cameraX pixels between sky and ground
-        // Using 1024px width gives us 352px buffer on each side
-        int fboWidth = 1024; // Wide enough for most scroll ranges
+        ensureBackgroundTilemapData();
+
+        int[] hScrollData = parallaxManager.getHScrollForShader();
+        int bgPeriodWidthPixels = backgroundTilemapWidthTiles * Pattern.PATTERN_WIDTH;
+        int shaderScrollMidpoint = 0;
+        int shaderExtraBuffer = 0;
+        float bgTilemapWorldOffsetX = 0.0f;
+        boolean perLineScrollActive = false;
+        float vdpWrapWidthTiles = 0.0f;
+        float nametableBaseTile = 0.0f;
+        if (zoneFeatureProvider != null && zoneFeatureProvider.isIntroOceanPhaseActive(currentZone, currentAct)) {
+            // Per-scanline HScroll in the tilemap shader, matching VDP behavior.
+            // Each pixel computes worldX = pixelX - hScroll[scanline] directly,
+            // then looks up the correct tile from the full-width tilemap.
+            bgPeriodWidthPixels = cachedScreenWidth;
+            bgTilemapWorldOffsetX = 0;
+            shaderScrollMidpoint = 0;
+            shaderExtraBuffer = 0;
+            perLineScrollActive = true;
+
+            // VDP nametable ring buffer: overflow count tracks how many positions
+            // have been overwritten with beach tiles as the camera advances.
+            // Ocean phase (introScrollOffset < 0): overflow=0 (all ocean).
+            // Camera tracking: overflow gradually increases, revealing beach tiles.
+            vdpWrapWidthTiles = 64.0f;
+            nametableBaseTile = zoneFeatureProvider.getVdpNametableBase(
+                    currentZone, currentAct, camera.getX(), backgroundTilemapWidthTiles);
+        }
+        // Cap BG period at VDP nametable width for parallax scroll wrapping.
+        // On the Mega Drive, BG art repeats at the 64-tile nametable width.
+        // Without this cap, the parallax shader wraps at the full tilemap width,
+        // exposing empty tile regions beyond the valid BG art pattern.
+        if (!perLineScrollActive && bgPeriodWidthPixels > VDP_BG_PLANE_WIDTH_PX) {
+            bgPeriodWidthPixels = VDP_BG_PLANE_WIDTH_PX;
+        }
+        int renderWidth = Math.max(cachedScreenWidth, bgPeriodWidthPixels);
         // Add CHUNK_HEIGHT (16px) to cover VScroll range
         // This prevents bottom clipping when VScroll > 0 (max VScroll = 15, max gameY = 223, max fboY = 238 < 272)
-        int fboHeight = 256 + LevelConstants.CHUNK_HEIGHT;
+        int renderHeight = 256 + LevelConstants.CHUNK_HEIGHT;
 
-        // Extra buffer on each side
-        int extraBuffer = (fboWidth - 320) / 2; // 352 pixels on each side
-
+        // ROM parity: use the full background plane period and direct wrap sampling.
+        // The intro path still uses the same VDP hscroll semantics as normal gameplay.
         // Get pattern renderer's screen height for correct Y coordinate handling
         int screenHeightPixels = cachedScreenHeight;
 
@@ -1224,10 +1324,17 @@ public class LevelManager {
         // This ensures zones like MCZ use their act-dependent BG Y calculations
         int actualBgScrollY = parallaxManager.getVscrollFactorBG();
 
-        // 1. Resize FBO
-        final int finalFboHeight = fboHeight;
+        // 1. Ensure FBO capacity (grow-only, no per-frame reallocation)
+        final int finalRenderWidth = renderWidth;
+        final int finalRenderHeight = renderHeight;
+        final float finalBgTilemapWorldOffsetX = bgTilemapWorldOffsetX;
+        final int finalShaderScrollMidpoint = shaderScrollMidpoint;
+        final int finalShaderExtraBuffer = shaderExtraBuffer;
+        final boolean finalPerLineScroll = perLineScrollActive;
+        final float finalVdpWrapWidth = vdpWrapWidthTiles;
+        final float finalNametableBase = nametableBaseTile;
         graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-            bgRenderer.resizeFBO(fboWidth, finalFboHeight);
+            bgRenderer.ensureCapacity(finalRenderWidth, finalRenderHeight);
         }));
 
         // 2. Begin Tile Pass (Bind FBO)
@@ -1259,7 +1366,7 @@ public class LevelManager {
 
         ensureBackgroundTilemapData();
         graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-            bgRenderer.beginTilePass(screenHeightPixels, true);
+            bgRenderer.beginTilePass(finalRenderWidth, finalRenderHeight, true);
             TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
             if (tilemapRenderer != null) {
                 // Disable shimmer for BG FBO tilemap render - shimmer distortion is applied
@@ -1272,17 +1379,23 @@ public class LevelManager {
                 Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
                 boolean useUnderwaterPalette = hasWater && underwaterPaletteId != null;
                 if (atlasId != null && paletteId != null) {
+                    if (finalPerLineScroll) {
+                        bgRenderer.uploadHScroll(hScrollData);
+                        tilemapRenderer.enablePerLineScroll(
+                                bgRenderer.getHScrollTextureId(), 224.0f,
+                                finalVdpWrapWidth, finalNametableBase);
+                    }
                     int[] viewport = new int[4];
                     glGetIntegerv(GL_VIEWPORT, viewport);
                     tilemapRenderer.render(
                             TilemapGpuRenderer.Layer.BACKGROUND,
-                            fboWidth,
-                            fboHeight,
+                            finalRenderWidth,
+                            finalRenderHeight,
                             viewport[0],
                             viewport[1],
                             viewport[2],
                             viewport[3],
-                            0.0f,
+                            finalBgTilemapWorldOffsetX,
                             (float) alignedBgYFinal,
                             graphicsManager.getPatternAtlasWidth(),
                             graphicsManager.getPatternAtlasHeight(),
@@ -1307,20 +1420,7 @@ public class LevelManager {
         bgRenderer.setShimmerState(frameCounter, capturedBgShimmerStyle, bgWaterlineScreenY);
 
         // 6. Render the FBO with Parallax Shader
-        Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
-
-        // Get the hScroll data and base scroll value (last line = furthest right in
-        // level)
-        int[] hScrollData = parallaxManager.getHScrollForShader();
-        int baseScrollForShader = (hScrollData != null && hScrollData.length > 0)
-                ? (short) (hScrollData[hScrollData.length - 1] & 0xFFFF)
-                : 0; // Use last line (bottom) as base
-
-        if (paletteId != null) {
-            int pId = paletteId;
-            int screenW = cachedScreenWidth;
-            int screenH = screenHeightPixels;
-
+        if (graphicsManager.getCombinedPaletteTextureId() != null) {
             // Calculate vertical scroll offset (sub-chunk) for shader
             // The FBO is rendered aligned to 16-pixel chunk boundaries
             // The shader needs to shift the view by the remaining offset
@@ -1331,12 +1431,12 @@ public class LevelManager {
             final int finalVOffset = shaderVOffset;
 
             graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx2, cy2, cw2, ch2) -> {
-                bgRenderer.renderWithScrollWide(hScrollData, baseScrollForShader, extraBuffer, finalVOffset, pId,
-                        screenW,
-                        screenH);
+                bgRenderer.renderWithScrollWide(hScrollData, finalShaderScrollMidpoint, finalShaderExtraBuffer,
+                        finalVOffset, finalPerLineScroll);
             }));
         }
     }
+
 
     private void enqueueForegroundTilemapPass(Camera camera, int priorityPass) {
         TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
@@ -1669,16 +1769,19 @@ public class LevelManager {
     }
 
     // VDP plane size for Sonic 2 normal levels: 64x32 cells = 512x256 pixels.
-    // The background tilemap wraps at this width to match original hardware.
+    // The background tilemap wraps at this width for Sonic 2's redraw-style pipeline.
     private static final int VDP_BG_PLANE_WIDTH_PX = 512;
 
     private TilemapData buildTilemapData(byte layerIndex) {
-        int fullLevelWidth = level.getMap().getWidth() * blockPixelSize;
-        int levelHeight = level.getMap().getHeight() * blockPixelSize;
+        int layerLevelWidth = getLayerLevelWidthPx(layerIndex);
+        int levelHeight = getLayerLevelHeightPx(layerIndex);
 
-        // Background wraps at VDP plane width (512px) to match original hardware.
-        // Foreground uses full level width.
-        int levelWidth = (layerIndex == 1) ? VDP_BG_PLANE_WIDTH_PX : fullLevelWidth;
+        // Keep Sonic 2's 512px BG wrap behavior (VDP plane redraw model).
+        // S3K uses a different background data flow in AIZ intro and needs full-width BG data.
+        boolean bgWrap = layerIndex == 1
+                && zoneFeatureProvider != null
+                && zoneFeatureProvider.bgWrapsHorizontally();
+        int levelWidth = bgWrap ? VDP_BG_PLANE_WIDTH_PX : layerLevelWidth;
 
         int widthTiles = levelWidth / Pattern.PATTERN_WIDTH;
         int heightTiles = levelHeight / Pattern.PATTERN_HEIGHT;
@@ -1703,7 +1806,7 @@ public class LevelManager {
                 ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
                 int chunkIndex = chunkDesc.getChunkIndex();
 
-                if (chunkIndex == 0 || chunkIndex >= level.getChunkCount()) {
+                if (chunkIndex < 0 || chunkIndex >= level.getChunkCount()) {
                     writeEmptyChunk(data, widthTiles, heightTiles, chunkX, chunkY);
                     continue;
                 }
@@ -1843,7 +1946,7 @@ public class LevelManager {
                 ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
 
                 int chunkIndex = chunkDesc.getChunkIndex();
-                if (chunkIndex == 0 || chunkIndex >= level.getChunkCount()) {
+                if (chunkIndex < 0 || chunkIndex >= level.getChunkCount()) {
                     continue;
                 }
 
@@ -2028,7 +2131,7 @@ public class LevelManager {
                 ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
 
                 int chunkIndex = chunkDesc.getChunkIndex();
-                if (chunkIndex == 0 || chunkIndex >= level.getChunkCount()) {
+                if (chunkIndex < 0 || chunkIndex >= level.getChunkCount()) {
                     continue;
                 }
 
@@ -2307,14 +2410,30 @@ public class LevelManager {
      * @param y     the y-coordinate in pixels
      * @return the Block at the specified position, or null if not found
      */
+    private int getLayerLevelWidthPx(byte layer) {
+        if (level == null) {
+            return blockPixelSize;
+        }
+        int widthBlocks = Math.max(1, level.getLayerWidthBlocks(layer));
+        return widthBlocks * blockPixelSize;
+    }
+
+    private int getLayerLevelHeightPx(byte layer) {
+        if (level == null) {
+            return blockPixelSize;
+        }
+        int heightBlocks = Math.max(1, level.getLayerHeightBlocks(layer));
+        return heightBlocks * blockPixelSize;
+    }
+
     private Block getBlockAtPosition(byte layer, int x, int y) {
         if (level == null || level.getMap() == null) {
             LOGGER.warning("Level or Map is not initialized.");
             return null;
         }
 
-        int levelWidth = level.getMap().getWidth() * blockPixelSize;
-        int levelHeight = level.getMap().getHeight() * blockPixelSize;
+        int levelWidth = getLayerLevelWidthPx(layer);
+        int levelHeight = getLayerLevelHeightPx(layer);
 
         // Handle wrapping for X
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
@@ -2366,8 +2485,8 @@ public class LevelManager {
         if (level == null || level.getMap() == null) {
             return -1;
         }
-        int levelWidth = level.getMap().getWidth() * blockPixelSize;
-        int levelHeight = level.getMap().getHeight() * blockPixelSize;
+        int levelWidth = getLayerLevelWidthPx((byte) 0);
+        int levelHeight = getLayerLevelHeightPx((byte) 0);
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
         if (verticalWrapEnabled) {
@@ -2387,12 +2506,12 @@ public class LevelManager {
             return null;
         }
 
-        int levelWidth = level.getMap().getWidth() * blockPixelSize;
+        int levelWidth = getLayerLevelWidthPx(layer);
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
 
         if (layer == 1 || (layer == 0 && verticalWrapEnabled)) {
-            int levelHeight = level.getMap().getHeight() * blockPixelSize;
+            int levelHeight = getLayerLevelHeightPx(layer);
             wrappedY = ((y % levelHeight) + levelHeight) % levelHeight;
         }
 
@@ -2421,8 +2540,8 @@ public class LevelManager {
             return null;
         }
 
-        int levelWidth = level.getMap().getWidth() * blockPixelSize;
-        int levelHeight = level.getMap().getHeight() * blockPixelSize;
+        int levelWidth = getLayerLevelWidthPx((byte) 0);
+        int levelHeight = getLayerLevelHeightPx((byte) 0);
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
         if (verticalWrapEnabled) {
@@ -2598,6 +2717,84 @@ public class LevelManager {
     }
 
     /**
+     * Marks background/foreground tilemaps and pattern lookup as dirty.
+     * Use this after runtime terrain art/chunk overlays so the GPU tilemap
+     * data is rebuilt on the next render.
+     */
+    public void invalidateAllTilemaps() {
+        backgroundTilemapDirty = true;
+        foregroundTilemapDirty = true;
+        patternLookupDirty = true;
+    }
+
+    /**
+     * Pre-builds FG and BG tilemap data from the current level state.
+     * The pre-built data can later be swapped in via {@link #swapToPrebuiltTilemaps()}
+     * to avoid the expensive full-level tilemap rebuild on the transition frame.
+     */
+    public void prebuildTransitionTilemaps() {
+        if (level == null || level.getMap() == null) {
+            return;
+        }
+        TilemapData fg = buildTilemapData((byte) 0);
+        prebuiltFgTilemap = fg.data.clone();
+        prebuiltFgWidth = fg.widthTiles;
+        prebuiltFgHeight = fg.heightTiles;
+
+        TilemapData bg = buildTilemapData((byte) 1);
+        prebuiltBgTilemap = bg.data.clone();
+        prebuiltBgWidth = bg.widthTiles;
+        prebuiltBgHeight = bg.heightTiles;
+    }
+
+    /**
+     * Swaps pre-built tilemap data into the live arrays, uploads to GPU,
+     * and clears FG/BG dirty flags. Still marks pattern lookup dirty
+     * (cheap rebuild, needed if pattern count changed from the overlay).
+     *
+     * @return true if pre-built data was available and swapped in
+     */
+    public boolean swapToPrebuiltTilemaps() {
+        if (prebuiltFgTilemap == null || prebuiltBgTilemap == null) {
+            return false;
+        }
+
+        foregroundTilemapData = prebuiltFgTilemap;
+        foregroundTilemapWidthTiles = prebuiltFgWidth;
+        foregroundTilemapHeightTiles = prebuiltFgHeight;
+        foregroundTilemapDirty = false;
+
+        backgroundTilemapData = prebuiltBgTilemap;
+        backgroundTilemapWidthTiles = prebuiltBgWidth;
+        backgroundTilemapHeightTiles = prebuiltBgHeight;
+        backgroundTilemapDirty = false;
+
+        patternLookupDirty = true;
+
+        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
+        if (renderer != null) {
+            ensurePatternLookupData();
+            renderer.setTilemapData(TilemapGpuRenderer.Layer.FOREGROUND,
+                    foregroundTilemapData, foregroundTilemapWidthTiles, foregroundTilemapHeightTiles);
+            renderer.setTilemapData(TilemapGpuRenderer.Layer.BACKGROUND,
+                    backgroundTilemapData, backgroundTilemapWidthTiles, backgroundTilemapHeightTiles);
+            renderer.setPatternLookupData(patternLookupData, patternLookupSize);
+        }
+
+        // Release pre-built data (one-shot use)
+        prebuiltFgTilemap = null;
+        prebuiltBgTilemap = null;
+        return true;
+    }
+
+    /**
+     * Returns whether pre-built transition tilemap data is available.
+     */
+    public boolean hasPrebuiltTilemaps() {
+        return prebuiltFgTilemap != null && prebuiltBgTilemap != null;
+    }
+
+    /**
      * Gets the music ID for the current level.
      * Returns -1 if no level is loaded or music ID cannot be determined.
      */
@@ -2706,18 +2903,15 @@ public class LevelManager {
             frameCounter = 0;
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
 
-            // Use checkpoint position if available, otherwise level start
-            // Note: Spawn Y coordinates from ROM data represent the sprite's CENTER
-            // position,
-            // but our setY() sets the top-left. We need to subtract yRadius to convert.
-            int yRadius = 19; // Sonic's standing yRadius
+            // Use checkpoint position if available, otherwise level start.
+            // ROM start/checkpoint coordinates are center-based.
             int spawnY = -1; // Track spawn Y for airborne detection
             if (hasCheckpoint) {
-                player.setX((short) checkpointX);
-                player.setY((short) (checkpointY - yRadius));
+                player.setCentreX((short) checkpointX);
+                player.setCentreY((short) checkpointY);
                 spawnY = checkpointY;
                 LOGGER.info("Set player position from checkpoint: X=" + checkpointX + ", Y=" + checkpointY +
-                        " (adjusted by yRadius=" + yRadius + ")");
+                        " (center coordinates)");
             } else {
                 int spawnX = levelData.getStartXPos();
                 spawnY = levelData.getStartYPos();
@@ -2735,11 +2929,11 @@ public class LevelManager {
                     }
                 }
 
-                player.setX((short) spawnX);
-                player.setY((short) (spawnY - yRadius));
+                player.setCentreX((short) spawnX);
+                player.setCentreY((short) spawnY);
                 LOGGER.info("Set player position from level start: X=" + spawnX +
-                        ", Y=" + spawnY + " (adjusted by yRadius=" + yRadius +
-                        ", level: " + levelData.name() + ")");
+                        ", Y=" + spawnY + " (center coordinates)" +
+                        ", level: " + levelData.name());
             }
 
             if (player instanceof AbstractPlayableSprite) {
@@ -2823,7 +3017,9 @@ public class LevelManager {
             // checkpoint)
             // In headless mode, skip title card by default to avoid control locking
             // during tests
-            if (showTitleCard && !graphicsManager.isHeadlessMode()) {
+            if (showTitleCard
+                    && !graphicsManager.isHeadlessMode()
+                    && !(zoneFeatureProvider != null && zoneFeatureProvider.shouldSuppressInitialTitleCard(currentZone, currentAct))) {
                 requestTitleCard(currentZone, currentAct);
             }
 
@@ -3041,6 +3237,8 @@ public class LevelManager {
         backgroundTilemapData = null;
         foregroundTilemapData = null;
         patternLookupData = null;
+        prebuiltFgTilemap = null;
+        prebuiltBgTilemap = null;
         currentZone = 0;
         currentAct = 0;
         frameCounter = 0;
@@ -3089,23 +3287,27 @@ public class LevelManager {
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             return;
         }
-        boolean forceBlack = false;
+        Palette.Color backdrop = resolveLevelBackdropColor();
+        glClearColor(backdrop.rFloat(), backdrop.gFloat(), backdrop.bFloat(), 1.0f);
+    }
 
+    private Palette.Color resolveLevelBackdropColor() {
+        if (level == null) {
+            return BLACK_BACKDROP;
+        }
+        if (isForceBlackBackdrop()) {
+            return BLACK_BACKDROP;
+        }
+        return level.getBackdropColor();
+    }
+
+    private boolean isForceBlackBackdrop() {
         if (level instanceof uk.co.jamesj999.sonic.game.sonic2.Sonic2Level) {
             int zoneId = ((uk.co.jamesj999.sonic.game.sonic2.Sonic2Level) level).getZoneIndex();
             // Zone 11 (0xB) is MCZ
-            if (zoneId == 11) {
-                forceBlack = true;
-            }
+            return zoneId == 11;
         }
-
-        if (!forceBlack && level.getPaletteCount() > 2) {
-            // VDP register 7 = $8720: backdrop is palette line 2, color 0.
-            Palette.Color backdrop = level.getPalette(2).getColor(0);
-            glClearColor(backdrop.rFloat(), backdrop.gFloat(), backdrop.bFloat(), 1.0f);
-        } else {
-            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        }
+        return false;
     }
 
     /**
@@ -3364,3 +3566,4 @@ public class LevelManager {
         }
     }
 }
+

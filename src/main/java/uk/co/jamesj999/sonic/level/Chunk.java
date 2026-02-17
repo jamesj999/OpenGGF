@@ -33,10 +33,7 @@ public class Chunk {
 
         for (int i = 0; i < PATTERNS_PER_CHUNK; i++) {
             int index = ((buffer[i * 2] & 0xFF) << 8) | (buffer[i * 2 + 1] & 0xFF);  // Big-endian
-            if (index != 0) {
-                patternDescs[i] = new PatternDesc(index);
-            }
-
+            patternDescs[i] = new PatternDesc(index);
         }
         this.solidTileIndex = solidTileIndex;
         this.solidTileAltIndex = altSolidTileIndex;
@@ -64,5 +61,30 @@ public class Chunk {
 
     public void setSolidTileAltIndex(int solidTileAltIndex) {
         this.solidTileAltIndex = solidTileAltIndex;
+    }
+
+    /**
+     * Saves the chunk state (pattern descriptors + collision indices) as a compact int array.
+     * Used for snapshot/restore during pre-computation of transition tilemaps.
+     */
+    public int[] saveState() {
+        int[] state = new int[PATTERNS_PER_CHUNK + 2];
+        for (int i = 0; i < PATTERNS_PER_CHUNK; i++) {
+            state[i] = patternDescs[i].get();
+        }
+        state[PATTERNS_PER_CHUNK] = solidTileIndex;
+        state[PATTERNS_PER_CHUNK + 1] = solidTileAltIndex;
+        return state;
+    }
+
+    /**
+     * Restores chunk state from a previously saved snapshot.
+     */
+    public void restoreState(int[] state) {
+        for (int i = 0; i < PATTERNS_PER_CHUNK; i++) {
+            patternDescs[i] = new PatternDesc(state[i]);
+        }
+        solidTileIndex = state[PATTERNS_PER_CHUNK];
+        solidTileAltIndex = state[PATTERNS_PER_CHUNK + 1];
     }
 }

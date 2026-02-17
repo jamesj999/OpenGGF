@@ -97,4 +97,24 @@ public class ShieldObjectInstance extends AbstractObjectInstance {
     public void destroy() {
         setDestroyed(true);
     }
+
+    protected AbstractPlayableSprite getPlayer() {
+        return player;
+    }
+
+    protected boolean hasRenderer() {
+        return renderer != null;
+    }
+
+    protected boolean isShieldDestroyed() {
+        return destroyed;
+    }
+
+    protected boolean isShieldVisible() {
+        return visible;
+    }
+
+    protected int getSequenceIndex() {
+        return sequenceIndex;
+    }
 }

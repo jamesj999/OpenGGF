@@ -9,6 +9,18 @@ import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 public class HudRenderManager {
+
+    /**
+     * Controls how the HUD warns the player when rings=0 or time>=9:00.
+     * S1/S2 swap the label palette (red flash), S3K hides the label text entirely.
+     */
+    public enum HudFlashMode {
+        /** S1/S2: label switches to icon palette (red flash) */
+        PALETTE_SWAP,
+        /** S3K: label text is hidden on blink frames (toggled every 8 frames) */
+        TEXT_HIDE
+    }
+
     private static final int DIGIT_ZERO = 0; // Relative to loaded HUD digit patterns
     private static final int DIGIT_COLON = 10; // Assuming colon is after 9
 
@@ -55,6 +67,8 @@ public class HudRenderManager {
     private PatternDesc iconPatternDesc = new PatternDesc(0x8000); // default: Priority 1, Pal 0
     private PatternDesc hudPatternDesc = new PatternDesc(0xA000);  // default: Priority 1, Pal 1
 
+    private HudFlashMode flashMode = HudFlashMode.PALETTE_SWAP;
+
     public HudRenderManager(GraphicsManager graphicsManager) {
         this.graphicsManager = graphicsManager;
     }
@@ -69,6 +83,10 @@ public class HudRenderManager {
     public void setHudPalettes(int textPalLine, int flashPalLine) {
         this.hudPatternDesc = new PatternDesc(0x8000 | (textPalLine << 13));
         this.iconPatternDesc = new PatternDesc(0x8000 | (flashPalLine << 13));
+    }
+
+    public void setHudFlashMode(HudFlashMode mode) {
+        this.flashMode = mode;
     }
 
     private int textPatternCount;
@@ -178,7 +196,7 @@ public class HudRenderManager {
 
             // Draw Time below the debug coordinates
             boolean flashTime = levelGamestate.shouldFlashTimer();
-            drawHudString(16, 24, "TIME", flashTime ? iconPatternDesc : hudPatternDesc);
+            drawTimeLabel(flashTime, levelGamestate.getFlashCycle());
             drawTime(56, 24, levelGamestate.getDisplayTime());
         } else {
             // Normal gameplay: Draw Score
@@ -187,7 +205,7 @@ public class HudRenderManager {
 
             // Draw Time
             boolean flashTime = levelGamestate.shouldFlashTimer();
-            drawHudString(16, 24, "TIME", flashTime ? iconPatternDesc : hudPatternDesc);
+            drawTimeLabel(flashTime, levelGamestate.getFlashCycle());
             drawTime(56, 24, levelGamestate.getDisplayTime());
         }
 
@@ -195,10 +213,30 @@ public class HudRenderManager {
         drawLives(GameServices.gameState().getLives());
     }
 
+    private void drawTimeLabel(boolean flashTime, boolean flashCycle) {
+        if (flashMode == HudFlashMode.TEXT_HIDE) {
+            // S3K: hide TIME label entirely on blink frames
+            if (!(flashTime && flashCycle)) {
+                drawHudString(16, 24, "TIME", hudPatternDesc);
+            }
+        } else {
+            // S1/S2: swap palette to red on flash
+            drawHudString(16, 24, "TIME", flashTime ? iconPatternDesc : hudPatternDesc);
+        }
+    }
+
     private void drawCores(int rings, boolean flashCycle) {
-        boolean flash = (rings == 0);
-        PatternDesc desc = (flash && flashCycle) ? iconPatternDesc : hudPatternDesc;
-        drawHudString(16, 40, "RINGS", desc);
+        if (flashMode == HudFlashMode.TEXT_HIDE) {
+            // S3K: hide RINGS label entirely on blink frames when rings=0
+            if (!(rings == 0 && flashCycle)) {
+                drawHudString(16, 40, "RINGS", hudPatternDesc);
+            }
+        } else {
+            // S1/S2: swap palette to red on flash
+            boolean flash = (rings == 0);
+            PatternDesc desc = (flash && flashCycle) ? iconPatternDesc : hudPatternDesc;
+            drawHudString(16, 40, "RINGS", desc);
+        }
         drawNumberRightAligned(64, 40, rings, 3);
     }
 

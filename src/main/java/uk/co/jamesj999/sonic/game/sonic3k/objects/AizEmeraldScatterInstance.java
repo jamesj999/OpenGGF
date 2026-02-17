@@ -9,7 +9,6 @@ import uk.co.jamesj999.sonic.physics.TerrainCheckResult;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.logging.Logger;
 
 /**
  * Chaos Emerald scatter object for the AIZ1 intro cinematic.
@@ -21,8 +20,9 @@ import java.util.logging.Logger;
  * with subtypes 0, 2, 4, 6, 8, 10, 12. The mapping frame is derived from
  * the subtype (subtype >> 1), giving frames 0-6 for the seven emerald colors.
  *
- * All seven emeralds receive the same initial velocity: x_vel = -0x40,
- * y_vel = -0x700 (from Obj_VelocityIndex at byte offset 0x40).
+ * Each emerald receives a unique X velocity from Set_IndexedVelocity
+ * (Obj_VelocityIndex at 0x40 + subtype * 2), creating a leftward fan scatter.
+ * Y velocity is -0x700 for all emeralds.
  *
  * Three phases:
  *
@@ -39,8 +39,6 @@ import java.util.logging.Logger;
  *    - Subtype bit 1 = 1: collected when Knuckles moves LEFT (negative x_vel)
  */
 public class AizEmeraldScatterInstance extends AbstractObjectInstance {
-
-    private static final Logger LOG = Logger.getLogger(AizEmeraldScatterInstance.class.getName());
 
     // -----------------------------------------------------------------------
     // Phase enum
@@ -62,13 +60,23 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
     public static final int Y_RADIUS = 4;
 
     /** Standard S3K gravity in subpixels per frame. */
-    public static final int GRAVITY = 0x38;
+    public static final int GRAVITY = SubpixelMotion.S3K_GRAVITY;
 
-    /** Initial X velocity in subpixels (from Obj_VelocityIndex offset 0x40). */
-    private static final int INIT_X_VEL = -0x40;
-
-    /** Initial Y velocity in subpixels (from Obj_VelocityIndex offset 0x40). */
-    private static final int INIT_Y_VEL = -0x700;
+    /**
+     * Per-emerald velocity table from Set_IndexedVelocity / Obj_VelocityIndex.
+     * ROM indexes by 0x40 + subtype * 2, giving each emerald a different X velocity
+     * so they scatter in a leftward fan pattern.
+     * Format: {xVel, yVel} indexed by subtype >> 1 (0-6).
+     */
+    private static final int[][] VELOCITY_TABLE = {
+        {-0x0040, -0x0700},  // subtype 0
+        {-0x0080, -0x0700},  // subtype 2
+        {-0x0180, -0x0700},  // subtype 4
+        {-0x0100, -0x0700},  // subtype 6
+        {-0x0200, -0x0700},  // subtype 8
+        {-0x0280, -0x0700},  // subtype 10
+        {-0x0300, -0x0700},  // subtype 12
+    };
 
     // -----------------------------------------------------------------------
     // Mutable state
@@ -111,9 +119,10 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
         this.currentY = spawn.y();
         this.xSub = 0;
         this.ySub = 0;
-        this.xVel = INIT_X_VEL;
-        this.yVel = INIT_Y_VEL;
-        this.mappingFrame = spawn.subtype() >> 1;
+        int velIndex = spawn.subtype() >> 1;  // 0-6
+        this.xVel = VELOCITY_TABLE[velIndex][0];
+        this.yVel = VELOCITY_TABLE[velIndex][1];
+        this.mappingFrame = velIndex;
         this.phase = Phase.FALLING;
     }
 
@@ -137,6 +146,11 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
     }
 
     @Override
+    public int getPriorityBucket() {
+        return 5; // ROM priority 0x280
+    }
+
+    @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         switch (phase) {
             case FALLING -> updateFalling();
@@ -155,27 +169,37 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
     // Phase logic
     // -----------------------------------------------------------------------
 
+    /** Shared state object for SubpixelMotion calls. */
+    private final SubpixelMotion.State motionState = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
+
     /**
      * FALLING phase (loc_67938): Apply gravity via MoveSprite equivalent.
      * Check floor with ObjCheckFloorDist. When floor hit (d1 < 0), snap Y
      * and transition to GROUNDED.
      */
     private void updateFalling() {
-        // MoveSprite: add velocity to position with subpixel accumulation.
-        // X: position += xVel (16:16 fixed point)
-        int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
-        currentX += (xVel >> 8) + (xTotal >> 8);
-        xSub = xTotal & 0xFF;
+        // MoveSprite: add velocity to position with subpixel accumulation + gravity.
+        // ROM: tst.l d0 / bmi.s — d0 holds old y_vel (pre-gravity); skip floor check
+        // if still moving upward.
+        int preGravityYVel = yVel;
+        motionState.x = currentX; motionState.y = currentY;
+        motionState.xSub = xSub;  motionState.ySub = ySub;
+        motionState.xVel = xVel;  motionState.yVel = yVel;
+        SubpixelMotion.moveSprite(motionState, GRAVITY);
+        currentX = motionState.x; currentY = motionState.y;
+        xSub = motionState.xSub;  ySub = motionState.ySub;
+        xVel = motionState.xVel;  yVel = motionState.yVel;
 
-        // Y: apply gravity first, then update position
-        yVel += GRAVITY;
-        int yTotal = (ySub & 0xFF) + (yVel & 0xFF);
-        currentY += (yVel >> 8) + (yTotal >> 8);
-        ySub = yTotal & 0xFF;
+        // ROM: tst.l d0 / bmi.s — skip floor check while moving upward
+        if (preGravityYVel < 0) {
+            return;
+        }
 
         // ObjCheckFloorDist terrain collision
+        // ROM: tst.w d1 / bpl.s — land when d1 < 0 (strictly negative)
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
-        if (floor.hasCollision()) {
+
+        if (floor.foundSurface() && floor.distance() < 0) {
             landOnGround(currentY + floor.distance());
         }
     }

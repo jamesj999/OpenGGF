@@ -16,6 +16,9 @@ import uk.co.jamesj999.sonic.audio.GameSound;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.game.sonic2.objects.InvincibilityStarsObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic2.objects.ShieldObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.FireShieldObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.LightningShieldObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.BubbleShieldObjectInstance;
 import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.physics.Sensor;
 import uk.co.jamesj999.sonic.physics.TrigLookupTable;
@@ -154,6 +157,13 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         protected boolean jumping = false;
 
         /**
+         * ROM: $2F double_jump_flag. 0=available, 1=used.
+         * Prevents shield abilities from triggering more than once per jump.
+         * Reset on landing and on damage.
+         */
+        protected int doubleJumpFlag = 0;
+
+        /**
          * Whether this sprite is standing on a solid object (platform, moving block).
          * ROM: status.player.on_object
          * When true, AnglePos skips terrain collision - the object handles positioning.
@@ -248,7 +258,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 CRUSH,
                 DROWN,
                 TIME_OVER,
-                PIT
+                PIT,
+                FIRE
         }
 
         /**
@@ -307,6 +318,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         private int priorityBucket = RenderPriority.PLAYER_DEFAULT;
 
         protected boolean shield = false;
+        private ShieldType shieldType = null;
         private ShieldObjectInstance shieldObject;
         private InvincibilityStarsObjectInstance invincibilityObject;
         protected boolean speedShoes = false;
@@ -418,6 +430,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         public void clearPowerUps() {
                 // Clear shield
                 this.shield = false;
+                this.shieldType = null;
                 if (this.shieldObject != null) {
                         this.shieldObject.destroy();
                         this.shieldObject = null;
@@ -443,6 +456,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void resetState() {
                 this.shield = false;
+                this.shieldType = null;
                 if (this.shieldObject != null) {
                         this.shieldObject.destroy();
                         this.shieldObject = null;
@@ -466,6 +480,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.deathCountdown = 0;
                 this.air = false;
                 this.jumping = false;
+                this.doubleJumpFlag = 0;
                 this.onObject = false;
                 this.sliding = false;
                 this.stickToConvex = false;
@@ -520,19 +535,35 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public void giveShield() {
-                LOGGER.fine("DEBUG: giveShield() called. Current shield state: " + shield);
+                giveShield(ShieldType.BASIC);
+        }
+
+        public void giveShield(ShieldType type) {
                 // S2: Super Sonic cannot pick up shields
                 if (superSonic) {
                         return;
                 }
+                // Remove existing shield before granting new one
                 if (hasShield()) {
-                        LOGGER.fine("DEBUG: Player already has shield. Returning.");
-                        return;
+                        if (shieldObject != null) {
+                                shieldObject.destroy();
+                                shieldObject = null;
+                        }
                 }
                 this.shield = true;
-                LOGGER.fine("DEBUG: Shield flag set to true.");
+                this.shieldType = type;
+                LOGGER.fine("DEBUG: Shield flag set to true, type=" + type);
+                // Bubble shield replenishes air (s3.asm:34877 Player_ResetAirTimer)
+                if (type == ShieldType.BUBBLE && controller != null && controller.getDrowning() != null) {
+                        controller.getDrowning().replenishAir();
+                }
                 try {
-                        this.shieldObject = new ShieldObjectInstance(this);
+                        this.shieldObject = switch (type) {
+                                case FIRE -> new FireShieldObjectInstance(this);
+                                case LIGHTNING -> new LightningShieldObjectInstance(this);
+                                case BUBBLE -> new BubbleShieldObjectInstance(this);
+                                default -> new ShieldObjectInstance(this);
+                        };
                         LOGGER.fine("DEBUG: ShieldObjectInstance created successfully: " + shieldObject);
                         LevelManager.getInstance().getObjectManager().addDynamicObject(shieldObject);
                         LOGGER.fine("DEBUG: ShieldObjectInstance added to ObjectManager.");
@@ -545,6 +576,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         e.printStackTrace();
                         throw e;
                 }
+        }
+
+        public ShieldType getShieldType() {
+                return shieldType;
         }
 
         public void giveSpeedShoes() {
@@ -762,9 +797,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (!air && this.air) {
                         rollingJump = false;
                 }
-                // Clear jumping flag when landing
+                // Clear jumping flag and double-jump flag when landing
                 if (!air && this.air) {
                         jumping = false;
+                        doubleJumpFlag = 0;
                         // S1 ROM parity (Sonic_ResetOnFloor):
                         // move.w #0,(v_itembonus).w ; clear enemy/block score chain.
                         GameServices.gameState().resetItemBonus();
@@ -788,6 +824,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void setJumping(boolean jumping) {
                 this.jumping = jumping;
+        }
+
+        public int getDoubleJumpFlag() {
+                return doubleJumpFlag;
+        }
+
+        public void setDoubleJumpFlag(int doubleJumpFlag) {
+                this.doubleJumpFlag = doubleJumpFlag;
         }
 
         public boolean isOnObject() {
@@ -1145,9 +1189,17 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         return false;
                 }
 
+                // Fire shield blocks fire damage (s3.asm shield_reaction bit 4)
+                PhysicsFeatureSet fs = getPhysicsFeatureSet();
+                if (cause == DamageCause.FIRE && shield && shieldType == ShieldType.FIRE
+                                && fs != null && fs.elementalShieldsEnabled()) {
+                        return false;
+                }
+
                 if (shield) {
                         LOGGER.fine("DEBUG: applyHurt called. removing shield.");
                         shield = false;
+                        shieldType = null;
                         if (shieldObject != null) {
                                 shieldObject.destroy();
                                 shieldObject = null;
@@ -1161,6 +1213,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 }
 
                 hurt = true;
+                doubleJumpFlag = 0;
                 setInvulnerableFrames(0x78); // Set invulnerability immediately (ROM: s2.asm line 84954)
                 setSpringing(0);
                 setSpindash(false);
@@ -2437,9 +2490,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 // Update drowning manager each frame while underwater
                 // Skip during drowning pre-death phase to prevent re-triggering
                 if (inWater && !dead && !isDrowningPreDeath() && controller.getDrowning() != null) {
-                        boolean shouldDrown = controller.getDrowning().update();
-                        if (shouldDrown) {
-                                applyDrownDeath();
+                        // Bubble shield prevents drowning (s3.asm: Player_ResetAirTimer)
+                        PhysicsFeatureSet wfs = getPhysicsFeatureSet();
+                        if (wfs != null && wfs.elementalShieldsEnabled()
+                                        && shield && shieldType == ShieldType.BUBBLE) {
+                                controller.getDrowning().replenishAir();
+                        } else {
+                                boolean shouldDrown = controller.getDrowning().update();
+                                if (shouldDrown) {
+                                        applyDrownDeath();
+                                }
                         }
                 }
         }
@@ -2450,6 +2510,19 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          */
         protected void onEnterWater() {
                 LOGGER.fine("Player entered water");
+
+                // Fire and Lightning shields dissipate on water entry (s3.asm:34693, 34780)
+                PhysicsFeatureSet fs = getPhysicsFeatureSet();
+                if (shield && shieldType != null && fs != null && fs.elementalShieldsEnabled()) {
+                        if (shieldType == ShieldType.FIRE || shieldType == ShieldType.LIGHTNING) {
+                                shield = false;
+                                shieldType = null;
+                                if (shieldObject != null) {
+                                        shieldObject.destroy();
+                                        shieldObject = null;
+                                }
+                        }
+                }
 
                 // ROM: asr.w x_vel(a0) - halve horizontal velocity once
                 xSpeed = (short) (xSpeed / 2);

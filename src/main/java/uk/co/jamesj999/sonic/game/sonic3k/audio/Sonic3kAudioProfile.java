@@ -46,6 +46,13 @@ public class Sonic3kAudioProfile implements GameAudioProfile {
         map.put(GameSound.SPLASH, Sonic3kSfx.SPLASH.id);
         map.put(GameSound.DROWN, Sonic3kSfx.DROWN.id);
         map.put(GameSound.AIR_DING, Sonic3kSfx.AIR_DING.id);
+        map.put(GameSound.FIRE_SHIELD, Sonic3kSfx.FIRE_SHIELD.id);
+        map.put(GameSound.LIGHTNING_SHIELD, Sonic3kSfx.LIGHTNING_SHIELD.id);
+        map.put(GameSound.BUBBLE_SHIELD, Sonic3kSfx.BUBBLE_SHIELD.id);
+        map.put(GameSound.FIRE_ATTACK, Sonic3kSfx.FIRE_ATTACK.id);
+        map.put(GameSound.LIGHTNING_ATTACK, Sonic3kSfx.ELECTRIC_ATTACK.id);
+        map.put(GameSound.BUBBLE_ATTACK, Sonic3kSfx.BUBBLE_ATTACK.id);
+        map.put(GameSound.INSTA_SHIELD, Sonic3kSfx.INSTA_SHIELD.id);
         SOUND_MAP = Collections.unmodifiableMap(map);
     }
 

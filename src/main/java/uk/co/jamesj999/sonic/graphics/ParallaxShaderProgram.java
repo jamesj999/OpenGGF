@@ -32,6 +32,8 @@ public class ParallaxShaderProgram {
     private int viewportOffsetYLocation = -1;
     private int backdropColorLocation = -1;
     private int fillTransparentWithBackdropLocation = -1;
+    private int fboAllocationWidthLocation = -1;
+    private int noHScrollLocation = -1;
     private int frameCounterLocation = -1;
     private int shimmerStyleLocation = -1;
     private int waterlineScreenYLocation = -1;
@@ -93,6 +95,8 @@ public class ParallaxShaderProgram {
         viewportOffsetYLocation = glGetUniformLocation(programId, "ViewportOffsetY");
         backdropColorLocation = glGetUniformLocation(programId, "BackdropColor");
         fillTransparentWithBackdropLocation = glGetUniformLocation(programId, "FillTransparentWithBackdrop");
+        fboAllocationWidthLocation = glGetUniformLocation(programId, "FBOAllocationWidth");
+        noHScrollLocation = glGetUniformLocation(programId, "NoHScroll");
         frameCounterLocation = glGetUniformLocation(programId, "FrameCounter");
         shimmerStyleLocation = glGetUniformLocation(programId, "ShimmerStyle");
         waterlineScreenYLocation = glGetUniformLocation(programId, "WaterlineScreenY");
@@ -204,6 +208,18 @@ public class ParallaxShaderProgram {
     public void setFillTransparentWithBackdrop(boolean fill) {
         if (fillTransparentWithBackdropLocation >= 0) {
             glUniform1f(fillTransparentWithBackdropLocation, fill ? 1.0f : 0.0f);
+        }
+    }
+
+    public void setFBOAllocationWidth(float width) {
+        if (fboAllocationWidthLocation >= 0) {
+            glUniform1f(fboAllocationWidthLocation, width);
+        }
+    }
+
+    public void setNoHScroll(boolean noHScroll) {
+        if (noHScrollLocation >= 0) {
+            glUniform1i(noHScrollLocation, noHScroll ? 1 : 0);
         }
     }
 

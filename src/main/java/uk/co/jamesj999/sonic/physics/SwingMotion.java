@@ -22,24 +22,37 @@ public final class SwingMotion {
      * @return updated velocity, direction, and whether direction changed this frame
      */
     public static Result update(int acceleration, int velocity, int maxVelocity, boolean directionDown) {
+        int d0 = acceleration;
+        int d1 = velocity;
+        int d2 = maxVelocity;
         boolean changed = false;
 
+        // ROM: if bit0 clear, apply upward acceleration first.
         if (!directionDown) {
-            // Swinging up: subtract acceleration
-            velocity -= acceleration;
-            if (velocity <= -maxVelocity) {
+            d0 = -d0;
+            d1 += d0;
+            d2 = -d2;
+            if (d1 <= d2) {
+                // Hit upper bound: flip direction and cancel the overshoot step.
                 directionDown = true;
+                d0 = -d0;
+                d2 = -d2;
                 changed = true;
-            }
-        } else {
-            // Swinging down: add acceleration
-            velocity += acceleration;
-            if (velocity >= maxVelocity) {
-                directionDown = false;
-                changed = true;
+            } else {
+                return new Result(d1, false, false);
             }
         }
 
-        return new Result(velocity, directionDown, changed);
+        // Downward phase (also entered immediately after an upper-bound flip).
+        d1 += d0;
+        if (d1 >= d2) {
+            // Hit lower bound: flip direction and cancel the overshoot step.
+            directionDown = false;
+            d0 = -d0;
+            d1 += d0;
+            changed = true;
+        }
+
+        return new Result(d1, directionDown, changed);
     }
 }

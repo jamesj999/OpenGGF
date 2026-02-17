@@ -5,6 +5,7 @@ import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
+import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
@@ -62,11 +63,13 @@ public class AizIntroArtLoader {
     private static Pattern[] emeraldPatterns;
     private static Pattern[] introSpritesPatterns;
     private static Pattern[] knucklesPatterns;
+    private static Pattern[] corkFloorPatterns;
 
     private static List<SpriteMappingFrame> planeMappings;
     private static List<SpriteMappingFrame> emeraldMappings;
     private static List<SpriteMappingFrame> waveMappings;
     private static List<SpriteMappingFrame> knucklesMappings;
+    private static List<SpriteMappingFrame> corkFloorMappings;
 
     private static List<SpriteDplcFrame> knucklesDplcFrames;
 
@@ -78,6 +81,7 @@ public class AizIntroArtLoader {
     private static ObjectSpriteSheet emeraldSheet;
     private static ObjectSpriteSheet introSpritesSheet;
     private static ObjectSpriteSheet knucklesSheet;
+    private static ObjectSpriteSheet corkFloorSheet;
 
     private static boolean loaded = false;
 
@@ -87,6 +91,7 @@ public class AizIntroArtLoader {
     private static PatternSpriteRenderer emeraldRenderer;
     private static PatternSpriteRenderer introSpritesRenderer;
     private static PatternSpriteRenderer knucklesRenderer;
+    private static PatternSpriteRenderer corkFloorRenderer;
     private static boolean renderersCached;
 
     private AizIntroArtLoader() {}
@@ -110,12 +115,14 @@ public class AizIntroArtLoader {
         loadEmeraldArt();
         loadIntroSpritesArt();
         loadKnucklesArt();
+        loadCorkFloorArt();
 
         loadPlaneMappings();
         loadEmeraldMappings();
         loadWaveMappings();
         loadKnucklesMappings();
         loadKnucklesDplc();
+        loadCorkFloorMappings();
 
         loadSuperSonicPaletteCycleData();
         loadCutsceneKnucklesPalette();
@@ -136,10 +143,12 @@ public class AizIntroArtLoader {
         emeraldPatterns = null;
         introSpritesPatterns = null;
         knucklesPatterns = null;
+        corkFloorPatterns = null;
         planeMappings = null;
         emeraldMappings = null;
         waveMappings = null;
         knucklesMappings = null;
+        corkFloorMappings = null;
         knucklesDplcFrames = null;
         superSonicPaletteCycleData = null;
         cutsceneKnucklesPalette = null;
@@ -148,10 +157,12 @@ public class AizIntroArtLoader {
         emeraldSheet = null;
         introSpritesSheet = null;
         knucklesSheet = null;
+        corkFloorSheet = null;
         planeRenderer = null;
         emeraldRenderer = null;
         introSpritesRenderer = null;
         knucklesRenderer = null;
+        corkFloorRenderer = null;
         renderersCached = false;
         loaded = false;
     }
@@ -169,6 +180,8 @@ public class AizIntroArtLoader {
         if (planePatterns != null) return;
         try {
             byte[] data = decompressKosinskiModuled(Sonic3kConstants.ART_KOSM_AIZ_INTRO_PLANE_ADDR);
+            LOG.fine("Plane art decompressed: " + data.length + " bytes (" + (data.length / 32) +
+                    " tiles, expected 136 tiles / 4352 bytes)");
             planePatterns = bytesToPatterns(data);
             LOG.fine("Loaded plane art: " + planePatterns.length + " patterns");
         } catch (Exception e) {
@@ -233,6 +246,46 @@ public class AizIntroArtLoader {
         } catch (Exception e) {
             LOG.log(Level.SEVERE, "Failed to load Knuckles art", e);
             knucklesPatterns = new Pattern[0];
+        }
+    }
+
+    /**
+     * Loads cork floor art from the level's 8x8 pattern data (not Nemesis sprite art).
+     *
+     * <p>The cork floor object's {@code art_tile = make_art_tile($001,2,0)} adds +1 to
+     * mapping tile indices. Mapping tiles $1C-$37 → VRAM tiles $1D-$38 → level pattern
+     * indices 0x1D-0x38. These are loaded as part of AIZ's KosinskiM primary 8x8 patterns.
+     *
+     * <p>A tile offset of -0x1C is applied in {@link #loadCorkFloorMappings()} to remap
+     * mapping indices to 0-based into our pattern array.
+     */
+    public static void loadCorkFloorArt() {
+        if (corkFloorPatterns != null) return;
+        try {
+            // Cork floor tiles come from the LEVEL's pattern data, not Nemesis sprite art.
+            // art_tile = make_art_tile($001,2,0) adds +1 to mapping tile indices.
+            // Mapping tiles $1C-$37 → VRAM tiles $1D-$38 → level pattern indices 0x1D-0x38.
+            var lm = LevelManager.getInstance();
+            var level = (lm != null) ? lm.getCurrentLevel() : null;
+            if (level == null || level.getPatternCount() < 0x39) {
+                LOG.warning("Level patterns not available for cork floor (count="
+                        + (level != null ? level.getPatternCount() : 0) + ")");
+                corkFloorPatterns = new Pattern[0];
+                return;
+            }
+            int startTile = 0x1D;  // art_tile base (1) + lowest mapping tile (0x1C)
+            int tileCount = 28;    // 0x1D through 0x38 inclusive
+            corkFloorPatterns = new Pattern[tileCount];
+            for (int i = 0; i < tileCount; i++) {
+                corkFloorPatterns[i] = new Pattern();
+                corkFloorPatterns[i].copyFrom(level.getPattern(startTile + i));
+            }
+            LOG.fine("Loaded cork floor art from level patterns: " + tileCount
+                    + " tiles (level indices 0x" + Integer.toHexString(startTile)
+                    + "-0x" + Integer.toHexString(startTile + tileCount - 1) + ")");
+        } catch (Exception e) {
+            LOG.log(Level.SEVERE, "Failed to load cork floor art from level patterns", e);
+            corkFloorPatterns = new Pattern[0];
         }
     }
 
@@ -301,6 +354,28 @@ public class AizIntroArtLoader {
         } catch (Exception e) {
             LOG.log(Level.SEVERE, "Failed to load Knuckles mappings", e);
             knucklesMappings = List.of();
+        }
+    }
+
+    /**
+     * Parses S3K sprite mappings for the cork floor (rock child).
+     * ROM address: {@link Sonic3kConstants#MAP_AIZ_CORK_FLOOR_ADDR}
+     *
+     * <p>2 frames: frame 0 = intact rock (6 pieces), frame 1 = broken rock (12 pieces).
+     * No DPLCs — tile indices reference VRAM positions directly. The ROM loads cork floor
+     * art starting at VRAM tile 0x1C (via PLCs), so mapping tile indices are 0x1C-based.
+     * We apply a tile offset of -0x1C to remap to our 0-based pattern array.
+     */
+    public static void loadCorkFloorMappings() {
+        if (corkFloorMappings != null) return;
+        try {
+            RomByteReader reader = getReader();
+            corkFloorMappings = loadS3kMappingFramesWithTileOffset(
+                    reader, Sonic3kConstants.MAP_AIZ_CORK_FLOOR_ADDR, -0x1C);
+            LOG.fine("Loaded cork floor mappings: " + corkFloorMappings.size() + " frames");
+        } catch (Exception e) {
+            LOG.log(Level.SEVERE, "Failed to load cork floor mappings", e);
+            corkFloorMappings = List.of();
         }
     }
 
@@ -410,6 +485,11 @@ public class AizIntroArtLoader {
         return knucklesSheet;
     }
 
+    /** Returns the cork floor sprite sheet, or null if not loaded. */
+    public static ObjectSpriteSheet getCorkFloorSheet() {
+        return corkFloorSheet;
+    }
+
     // -----------------------------------------------------------------------
     // Raw data accessors (for callers that need direct access)
     // -----------------------------------------------------------------------
@@ -498,7 +578,9 @@ public class AizIntroArtLoader {
     }
 
     /**
-     * Applies the emerald palette to palette line 2.
+     * Applies the emerald palette to palette line 3.
+     * ROM: loc_67764 loads Pal_AIZIntroEmeralds to Normal_palette_line_4 (Java line 3).
+     * Emerald ObjDat art_tile = 0x65B1 → palette bits 14-13 = 11 = palette 3.
      * Safe to call before GL is initialized (no-ops gracefully).
      */
     public static void applyEmeraldPalette() {
@@ -508,7 +590,7 @@ public class AizIntroArtLoader {
         if (gm == null || !gm.isGlInitialized()) return;
         Palette palette = new Palette();
         palette.fromSegaFormat(data);
-        gm.cachePaletteTexture(palette, 2);
+        gm.cachePaletteTexture(palette, 3);
     }
 
     // -----------------------------------------------------------------------
@@ -540,12 +622,17 @@ public class AizIntroArtLoader {
 
         knucklesRenderer = new PatternSpriteRenderer(knucklesSheet);
         knucklesRenderer.ensurePatternsCached(gm, nextBase);
+        nextBase += knucklesPatterns.length;
+
+        corkFloorRenderer = new PatternSpriteRenderer(corkFloorSheet);
+        corkFloorRenderer.ensurePatternsCached(gm, nextBase);
 
         renderersCached = true;
         LOG.info("AIZ intro renderers cached. Pattern bases: plane=" +
                 Integer.toHexString(INTRO_PATTERN_BASE) + " total patterns=" +
                 (planePatterns.length + emeraldPatterns.length +
-                 introSpritesPatterns.length + knucklesPatterns.length));
+                 introSpritesPatterns.length + knucklesPatterns.length +
+                 corkFloorPatterns.length));
     }
 
     /** Returns the plane renderer, lazily caching if needed. */
@@ -570,6 +657,12 @@ public class AizIntroArtLoader {
     public static PatternSpriteRenderer getKnucklesRenderer() {
         ensureRenderersCached();
         return knucklesRenderer;
+    }
+
+    /** Returns the cork floor renderer (for rock child objects), lazily caching if needed. */
+    public static PatternSpriteRenderer getCorkFloorRenderer() {
+        ensureRenderersCached();
+        return corkFloorRenderer;
     }
 
     // -----------------------------------------------------------------------
@@ -687,10 +780,16 @@ public class AizIntroArtLoader {
     // -----------------------------------------------------------------------
 
     /**
-     * Parses S3K DPLC (Dynamic Pattern Loading Cue) frames from ROM.
+     * Parses S3K <b>object</b> DPLC (Dynamic Pattern Loading Cue) frames from ROM.
      *
-     * <p>Format is the same as S2 DPLCs: word-sized offset table, then per-frame
-     * entries with a word count followed by word-sized (count-1|startTile) entries.
+     * <p>This uses the {@code Perform_DPLC} format (sonic3k.asm:178910), which differs
+     * from the player DPLC format used by {@code Sonic_Load_PLC}:
+     * <pre>
+     * Player format: count-1 in high 4 bits, startTile in low 12 bits (subq #1,d5)
+     * Object format: startTile in high 12 bits, count-1 in low 4 bits (NO subq)
+     * </pre>
+     *
+     * <p>The request count word is already (count-1) for dbf — no subq adjustment.
      *
      * @param reader   ROM byte reader
      * @param dplcAddr ROM address of the DPLC table
@@ -703,15 +802,17 @@ public class AizIntroArtLoader {
         List<SpriteDplcFrame> frames = new ArrayList<>(frameCount);
         for (int i = 0; i < frameCount; i++) {
             int frameAddr = dplcAddr + reader.readU16BE(dplcAddr + i * 2);
-            int requestCount = reader.readU16BE(frameAddr);
+            // Request count is already (count-1) for dbf — add 1 to get actual count
+            int requestCount = reader.readU16BE(frameAddr) + 1;
             frameAddr += 2;
 
             List<TileLoadRequest> requests = new ArrayList<>(requestCount);
             for (int r = 0; r < requestCount; r++) {
                 int entry = reader.readU16BE(frameAddr);
                 frameAddr += 2;
-                int count = ((entry >> 12) & 0xF) + 1;
-                int startTile = entry & 0x0FFF;
+                // Object DPLC format: startTile in upper 12 bits, (count-1) in lower 4 bits
+                int startTile = (entry >> 4) & 0xFFF;
+                int count = (entry & 0xF) + 1;
                 requests.add(new TileLoadRequest(startTile, count));
             }
             frames.add(new SpriteDplcFrame(requests));
@@ -789,9 +890,9 @@ public class AizIntroArtLoader {
             planeSheet = new ObjectSpriteSheet(planePatterns, planeMappings, 0, 1);
         }
 
-        // Emerald sheet: palette index 2 (emerald palette line), frame delay 1
+        // Emerald sheet: palette index 3 (ROM: art_tile 0x65B1, pal bits = 3), frame delay 1
         if (emeraldPatterns != null && emeraldMappings != null) {
-            emeraldSheet = new ObjectSpriteSheet(emeraldPatterns, emeraldMappings, 2, 1);
+            emeraldSheet = new ObjectSpriteSheet(emeraldPatterns, emeraldMappings, 3, 1);
         }
 
         // Intro sprites (waves) sheet: palette index 0, frame delay 1
@@ -800,8 +901,135 @@ public class AizIntroArtLoader {
         }
 
         // Knuckles sheet: palette index 1 (Knuckles palette line), frame delay 1
+        // Apply DPLC remapping so mapping tile indices reference the correct source tiles.
         if (knucklesPatterns != null && knucklesMappings != null) {
-            knucklesSheet = new ObjectSpriteSheet(knucklesPatterns, knucklesMappings, 1, 1);
+            List<SpriteMappingFrame> remapped = applyDplcRemap(knucklesMappings, knucklesDplcFrames);
+            knucklesSheet = new ObjectSpriteSheet(knucklesPatterns, remapped, 1, 1);
         }
+
+        // Cork floor sheet: palette index 2 (ROM: make_art_tile($001,2,0)), frame delay 1
+        // No DPLCs — static art, tile indices reference Nemesis patterns directly.
+        if (corkFloorPatterns != null && corkFloorMappings != null) {
+            corkFloorSheet = new ObjectSpriteSheet(corkFloorPatterns, corkFloorMappings, 2, 1);
+        }
+    }
+
+    /**
+     * Remaps mapping tile indices through DPLC data.
+     *
+     * <p>In the ROM, DPLCs specify which subset of tiles from the full art set to load
+     * into VRAM for each animation frame. Mapping tile indices are relative to the
+     * DPLC-loaded VRAM position (0-based). Without remapping, the mappings reference
+     * the wrong tiles in our full art array.
+     *
+     * <p>For each mapping frame, the corresponding DPLC frame lists tile load requests.
+     * These requests define a contiguous VRAM layout:
+     * <pre>
+     *   VRAM slot 0..N-1  = request[0].startTile .. startTile+count-1
+     *   VRAM slot N..N+M-1 = request[1].startTile .. startTile+count-1
+     *   ...
+     * </pre>
+     * The mapping's tileIndex is an index into this virtual VRAM, which we remap
+     * to the actual source tile index in the full art array.
+     *
+     * @param mappings  original mapping frames with VRAM-relative tile indices
+     * @param dplcFrames DPLC frames (one per mapping frame), or null/empty to skip
+     * @return remapped mapping frames with absolute tile indices into the art array
+     */
+    private static List<SpriteMappingFrame> applyDplcRemap(
+            List<SpriteMappingFrame> mappings, List<SpriteDplcFrame> dplcFrames) {
+        if (dplcFrames == null || dplcFrames.isEmpty()) {
+            LOG.warning("No DPLC frames available for remapping — tile indices may be wrong");
+            return mappings;
+        }
+
+        List<SpriteMappingFrame> remapped = new ArrayList<>(mappings.size());
+        for (int i = 0; i < mappings.size(); i++) {
+            SpriteMappingFrame frame = mappings.get(i);
+
+            if (i >= dplcFrames.size()) {
+                // No corresponding DPLC frame — keep original
+                remapped.add(frame);
+                continue;
+            }
+
+            // Build VRAM-slot → source-tile remap table from DPLC requests
+            SpriteDplcFrame dplc = dplcFrames.get(i);
+            int totalSlots = 0;
+            for (TileLoadRequest req : dplc.requests()) {
+                totalSlots += req.count();
+            }
+
+            int[] vramToSource = new int[totalSlots];
+            int slot = 0;
+            for (TileLoadRequest req : dplc.requests()) {
+                for (int t = 0; t < req.count(); t++) {
+                    vramToSource[slot++] = req.startTile() + t;
+                }
+            }
+
+            // Remap each piece's tileIndex through the DPLC table.
+            // Multi-tile pieces (e.g., 4x4 = 16 tiles) use tileIndex + offset for
+            // each tile. If the DPLC-remapped tiles are contiguous, we keep the piece
+            // as-is. If they span non-contiguous DPLC requests, we must split into
+            // individual 1x1 sub-pieces with correct remapped tile indices.
+            List<SpriteMappingPiece> remappedPieces = new ArrayList<>(frame.pieces().size());
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                int tileIdx = piece.tileIndex();
+                int wTiles = piece.widthTiles();
+                int hTiles = piece.heightTiles();
+                int tileCount = wTiles * hTiles;
+
+                if (tileIdx < 0 || tileIdx >= vramToSource.length) {
+                    LOG.fine("DPLC remap: frame " + i + " piece tileIndex " + tileIdx +
+                            " exceeds VRAM slots (" + vramToSource.length + ")");
+                    remappedPieces.add(piece);
+                    continue;
+                }
+
+                int remappedBase = vramToSource[tileIdx];
+
+                // Check if all tiles in this piece are contiguous after remapping
+                boolean contiguous = true;
+                for (int t = 1; t < tileCount; t++) {
+                    int vramSlot = tileIdx + t;
+                    if (vramSlot >= vramToSource.length ||
+                            vramToSource[vramSlot] != remappedBase + t) {
+                        contiguous = false;
+                        break;
+                    }
+                }
+
+                if (contiguous) {
+                    // All tiles map contiguously — just remap the base index
+                    remappedPieces.add(new SpriteMappingPiece(
+                            piece.xOffset(), piece.yOffset(),
+                            wTiles, hTiles,
+                            remappedBase, piece.hFlip(), piece.vFlip(),
+                            piece.paletteIndex(), piece.priority()));
+                } else {
+                    // Non-contiguous — split into 1x1 sub-pieces.
+                    // VDP uses column-major ordering: tileOffset = tx * heightTiles + ty
+                    for (int tx = 0; tx < wTiles; tx++) {
+                        for (int ty = 0; ty < hTiles; ty++) {
+                            int tileOffset = tx * hTiles + ty;
+                            int vramSlot = tileIdx + tileOffset;
+                            int remappedTile = (vramSlot < vramToSource.length)
+                                    ? vramToSource[vramSlot] : tileIdx + tileOffset;
+                            int xOff = piece.xOffset() + tx * 8;
+                            int yOff = piece.yOffset() + ty * 8;
+                            remappedPieces.add(new SpriteMappingPiece(
+                                    xOff, yOff, 1, 1,
+                                    remappedTile, piece.hFlip(), piece.vFlip(),
+                                    piece.paletteIndex(), piece.priority()));
+                        }
+                    }
+                }
+            }
+            remapped.add(new SpriteMappingFrame(remappedPieces));
+        }
+
+        LOG.fine("Applied DPLC remap to " + remapped.size() + " Knuckles mapping frames");
+        return remapped;
     }
 }

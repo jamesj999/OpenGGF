@@ -150,17 +150,6 @@ public class GraphicsManager {
 		this.defaultShaderProgram = new ShaderProgram(BASIC_VERTEX_SHADER_PATH, pixelShaderPath); // Load default shader
 		this.defaultShaderProgram.cacheUniformLocations();
 
-		// Debug: print shader info
-		int pid = this.defaultShaderProgram.getProgramId();
-		System.out.println("=== SHADER DEBUG ===");
-		System.out.println("Default shader program ID: " + pid);
-		System.out.println("  Link status: " + org.lwjgl.opengl.GL20.glGetProgrami(pid, org.lwjgl.opengl.GL20.GL_LINK_STATUS));
-		System.out.println("  ProjectionMatrix loc: " + org.lwjgl.opengl.GL20.glGetUniformLocation(pid, "ProjectionMatrix"));
-		System.out.println("  CameraOffset loc: " + org.lwjgl.opengl.GL20.glGetUniformLocation(pid, "CameraOffset"));
-		System.out.println("  Palette loc: " + this.defaultShaderProgram.getPaletteLocation());
-		System.out.println("  IndexedColorTexture loc: " + this.defaultShaderProgram.getIndexedColorTextureLocation());
-		System.out.println("=== END SHADER DEBUG ===");
-
 		this.waterShaderProgram = new WaterShaderProgram(BASIC_VERTEX_SHADER_PATH, WATER_SHADER_PATH); // Load water shader
 		this.waterShaderProgram.cacheUniformLocations();
 
@@ -341,6 +330,28 @@ public class GraphicsManager {
 			return;
 		}
 		patternAtlas.updatePattern(pattern, patternId);
+	}
+
+	/**
+	 * Begin batching pattern atlas uploads. While active, individual
+	 * {@code cachePatternTexture} calls write to a CPU-side buffer only.
+	 * Call {@link #endPatternAtlasBatch()} to upload everything in one GL call.
+	 */
+	public void beginPatternAtlasBatch() {
+		if (headlessMode || !glInitialized || patternAtlas == null) {
+			return;
+		}
+		patternAtlas.beginBatch();
+	}
+
+	/**
+	 * Flush the batched pattern atlas uploads to the GPU.
+	 */
+	public void endPatternAtlasBatch() {
+		if (headlessMode || !glInitialized || patternAtlas == null) {
+			return;
+		}
+		patternAtlas.endBatch();
 	}
 
 	/**

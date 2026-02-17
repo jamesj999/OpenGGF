@@ -25,12 +25,14 @@ public class TailsTailsController {
     private static final int ANIM_SKIDDING = 8;
     private static final int ANIM_PUSHING = 9;
     private static final int ANIM_HANGING = 10;
+    private static final int ANIM_FLY1 = 0xB;
+    private static final int ANIM_FLY2 = 0xC;
 
     /**
      * Obj05AniSelection: maps parent animation ID to Obj05 animation.
-     * ROM: byte_1D29E
+     * ROM (S2): byte_1D29E
      */
-    private static final int[] ANI_SELECTION = {
+    private static final int[] ANI_SELECTION_S2 = {
         0,  // 0x00 Walk -> Blank
         0,  // 0x01 Run -> Blank
         3,  // 0x02 Roll -> Directional
@@ -66,12 +68,71 @@ public class TailsTailsController {
         0,  // 0x20 Fly -> Blank
     };
 
-    // Obj05 animation frame data (mapping frame indices from MapUnc_Tails)
-    private static final int[] SWISH_FRAMES = { 0x09, 0x0A, 0x0B, 0x0C, 0x0D };
-    private static final int[] FLICK_FRAMES = { 0x09, 0x0A, 0x0B, 0x0C, 0x0D };
-    private static final int[] DIRECTIONAL_FRAMES = { 0x49, 0x4A, 0x4B, 0x4C };
-    private static final int[] SPINDASH_FRAMES = { 0x81, 0x82, 0x83, 0x84 };
-    private static final int[] SKID_PUSH_FRAMES = { 0x87, 0x88, 0x89, 0x8A };
+    /**
+     * Obj_Tails_Tail_AniSelection: maps parent animation ID to Obj05 animation.
+     * ROM (S3K): sonic3k.asm:30076
+     */
+    private static final int[] ANI_SELECTION_S3K = {
+        0,     // 0x00 Walk -> Blank
+        0,     // 0x01 Run -> Blank
+        3,     // 0x02 Roll -> Directional
+        3,     // 0x03 Roll2 -> Directional
+        9,     // 0x04 Push -> Pushing
+        1,     // 0x05 Wait -> Swish
+        0,     // 0x06 Balance -> Blank
+        2,     // 0x07 LookUp -> Flick
+        1,     // 0x08 Duck -> Swish
+        7,     // 0x09 Spindash -> Spindash
+        0,     // 0x0A Dummy1 -> Blank
+        0,     // 0x0B Dummy2 -> Blank
+        0,     // 0x0C Dummy3 -> Blank
+        8,     // 0x0D Stop/Skid -> Skidding
+        0,     // 0x0E Float -> Blank
+        0,     // 0x0F Float2 -> Blank
+        0,     // 0x10 Spring -> Blank
+        0,     // 0x11 Hang -> Blank
+        0,     // 0x12 -> Blank
+        0,     // 0x13 Victory -> Blank
+        10,    // 0x14 Hang2 -> Hanging
+        0,     // 0x15 Bubble -> Blank
+        0,     // 0x16 Death -> Blank
+        0,     // 0x17 Death2 -> Blank
+        0,     // 0x18 Death3 -> Blank
+        0,     // 0x19 Slide2 -> Blank
+        0,     // 0x1A Hurt -> Blank
+        0,     // 0x1B Slide -> Blank
+        0,     // 0x1C Blank -> Blank
+        0,     // 0x1D Dummy4 -> Blank
+        0,     // 0x1E Dummy5 -> Blank
+        0,     // 0x1F HaulAss -> Blank
+        0xB,   // 0x20 Fly -> Fly1
+        0xC,   // 0x21 Fly2 -> Fly2
+        0xB,   // 0x22 Carry -> Fly1
+        0xC,   // 0x23 Ascend -> Fly2
+        0xB,   // 0x24 Tired -> Fly1
+        0,     // 0x25 Swim -> Blank
+        0,     // 0x26 Swim2 -> Blank
+        0,     // 0x27 Tired2 -> Blank
+        0,     // 0x28 Tired3 -> Blank
+    };
+
+    // --- S2 frame data (mapping frame indices from MapUnc_Tails) ---
+    private static final int[] SWISH_FRAMES_S2 = { 0x09, 0x0A, 0x0B, 0x0C, 0x0D };
+    private static final int[] FLICK_FRAMES_S2 = { 0x09, 0x0A, 0x0B, 0x0C, 0x0D };
+    private static final int[] DIRECTIONAL_FRAMES_S2 = { 0x49, 0x4A, 0x4B, 0x4C };
+    private static final int[] SPINDASH_FRAMES_S2 = { 0x81, 0x82, 0x83, 0x84 };
+    private static final int[] SKID_PUSH_FRAMES_S2 = { 0x87, 0x88, 0x89, 0x8A };
+
+    // --- S3K frame data (mapping frame indices from Map_Tails_Tail) ---
+    // Verified against Anim - Tails Tail.asm (AniTails_Tail01..0C)
+    private static final int[] SWISH_FRAMES_S3K = { 0x22, 0x23, 0x24, 0x25, 0x26 };
+    private static final int[] FLICK_FRAMES_S3K = { 0x22, 0x23, 0x24, 0x25, 0x26 };
+    private static final int[] DIRECTIONAL_FRAMES_S3K = { 5, 6, 7, 8 };  // AniTails_Tail03
+    private static final int[] SPINDASH_FRAMES_S3K = { 1, 2, 3, 4 };     // AniTails_Tail07
+    private static final int[] SKID_FRAMES_S3K = { 0x1A, 0x1B, 0x1C, 0x1D };  // AniTails_Tail08
+    private static final int[] PUSH_FRAMES_S3K = { 0x1E, 0x1F, 0x20, 0x21 };  // AniTails_Tail09
+    private static final int[] HANG_FRAMES_S3K = { 0x29, 0x2A, 0x2B, 0x2C };  // AniTails_Tail0A
+    private static final int[] FLY_FRAMES_S3K = { 0x27, 0x28 };                // AniTails_Tail0B/0C
 
     // Animation delays (frame duration)
     private static final int SWISH_DELAY = 7;
@@ -81,9 +142,12 @@ public class TailsTailsController {
     private static final int SKID_DELAY = 2;
     private static final int PUSH_DELAY = 9;
     private static final int HANG_DELAY = 9;
+    private static final int FLY1_DELAY = 1;
+    private static final int FLY2_DELAY = 0;
 
     private final AbstractPlayableSprite sprite;
     private final PlayerSpriteRenderer renderer;
+    private final boolean isS3k;
 
     private int currentAnim = ANIM_BLANK;
     private int lastParentAnim = -1;
@@ -91,8 +155,13 @@ public class TailsTailsController {
     private int frameTick;
 
     public TailsTailsController(AbstractPlayableSprite sprite, PlayerSpriteRenderer renderer) {
+        this(sprite, renderer, false);
+    }
+
+    public TailsTailsController(AbstractPlayableSprite sprite, PlayerSpriteRenderer renderer, boolean isS3k) {
         this.sprite = sprite;
         this.renderer = renderer;
+        this.isS3k = isS3k;
     }
 
     public void update() {
@@ -176,18 +245,33 @@ public class TailsTailsController {
     }
 
     private int resolveObj05Animation(int parentAnimId) {
-        if (parentAnimId >= 0 && parentAnimId < ANI_SELECTION.length) {
-            return ANI_SELECTION[parentAnimId];
+        int[] table = isS3k ? ANI_SELECTION_S3K : ANI_SELECTION_S2;
+        if (parentAnimId >= 0 && parentAnimId < table.length) {
+            return table[parentAnimId];
         }
         return ANIM_BLANK;
     }
 
     private int[] getFrames(int anim) {
+        if (isS3k) {
+            return switch (anim) {
+                case ANIM_SWISH -> SWISH_FRAMES_S3K;
+                case ANIM_FLICK -> FLICK_FRAMES_S3K;
+                case ANIM_DIRECTIONAL -> DIRECTIONAL_FRAMES_S3K;
+                case ANIM_SPINDASH -> SPINDASH_FRAMES_S3K;
+                case ANIM_SKIDDING -> SKID_FRAMES_S3K;
+                case ANIM_PUSHING -> PUSH_FRAMES_S3K;
+                case ANIM_HANGING -> HANG_FRAMES_S3K;
+                case ANIM_FLY1, ANIM_FLY2 -> FLY_FRAMES_S3K;
+                default -> null;
+            };
+        }
         return switch (anim) {
-            case ANIM_SWISH, ANIM_FLICK -> (anim == ANIM_SWISH) ? SWISH_FRAMES : FLICK_FRAMES;
-            case ANIM_DIRECTIONAL -> DIRECTIONAL_FRAMES;
-            case ANIM_SPINDASH, ANIM_HANGING -> SPINDASH_FRAMES;
-            case ANIM_SKIDDING, ANIM_PUSHING -> SKID_PUSH_FRAMES;
+            case ANIM_SWISH -> SWISH_FRAMES_S2;
+            case ANIM_FLICK -> FLICK_FRAMES_S2;
+            case ANIM_DIRECTIONAL -> DIRECTIONAL_FRAMES_S2;
+            case ANIM_SPINDASH, ANIM_HANGING -> SPINDASH_FRAMES_S2;
+            case ANIM_SKIDDING, ANIM_PUSHING -> SKID_PUSH_FRAMES_S2;
             default -> null;
         };
     }
@@ -201,6 +285,8 @@ public class TailsTailsController {
             case ANIM_SKIDDING -> SKID_DELAY;
             case ANIM_PUSHING -> PUSH_DELAY;
             case ANIM_HANGING -> HANG_DELAY;
+            case ANIM_FLY1 -> FLY1_DELAY;
+            case ANIM_FLY2 -> FLY2_DELAY;
             default -> 0;
         };
     }

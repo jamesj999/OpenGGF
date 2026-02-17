@@ -3,9 +3,10 @@ package uk.co.jamesj999.sonic.game.sonic3k.objects;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kMusic;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
+import uk.co.jamesj999.sonic.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
-import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
@@ -70,7 +71,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     public static final int INIT_Y = 0x440;
 
     /** Standard S3K gravity in subpixels per frame. */
-    private static final int GRAVITY = 0x38;
+    private static final int GRAVITY = SubpixelMotion.S3K_GRAVITY;
 
     /** Y collision radius from ROM (y_radius = 0x13). */
     private static final int Y_RADIUS = 0x13;
@@ -123,6 +124,9 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
 
     /** Whether Knuckles is visible (render_flags bit 7). */
     private boolean visible;
+
+    /** Shared state object for SubpixelMotion calls. */
+    private final SubpixelMotion.State motionState = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     // -----------------------------------------------------------------------
     // Animation state (Animate_RawNoSST equivalent)
@@ -178,6 +182,11 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     @Override
     public boolean isPersistent() {
         return true;
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        return 3; // ROM priority 0x180
     }
 
     @Override
@@ -259,8 +268,12 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     /**
      * Loads a ROM animation script and starts playing it.
      *
-     * ROM script format: first byte = duration, subsequent bytes = frame indices
+     * <p>ROM script format: first byte = duration, subsequent bytes = frame indices
      * until terminator $FC (loop) or $F4 (end/hold last frame).
+     *
+     * <p>Special command $F8 (AnimateRaw_Jump): next byte is an offset from the
+     * script start. Continues reading from the target address (which starts with
+     * a new duration byte, then more frames). Only one jump level is supported.
      *
      * @param romAddr ROM address of the animation script
      */
@@ -274,10 +287,23 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             // Read frame indices until terminator
             int addr = romAddr + 1;
             int count = 0;
-            int[] temp = new int[32];
+            int[] temp = new int[64];
             while (count < temp.length) {
                 int b = rom.readByte(addr + count) & 0xFF;
                 if (b == 0xFC || b == 0xF4) break;
+                if (b == 0xF8) {
+                    // AnimateRaw_Jump: read offset, jump to scriptStart + offset
+                    int jumpOffset = rom.readByte(addr + count + 1) & 0xFF;
+                    int target = romAddr + jumpOffset;
+                    // Target starts with a new duration byte, then frames
+                    // Use the new duration (overwrite if different)
+                    animDuration = rom.readByte(target) & 0xFF;
+                    animTimer = animDuration;
+                    // Continue reading frames from target + 1
+                    addr = target + 1;
+                    count = collectFrames(rom, addr, temp, count);
+                    break;
+                }
                 temp[count++] = b;
             }
 
@@ -290,6 +316,22 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             LOG.fine("Could not load anim script at 0x" + Integer.toHexString(romAddr) + ": " + e.getMessage());
             currentAnimFrames = null;
         }
+    }
+
+    /**
+     * Reads frame indices from ROM into the temp array starting at the given offset.
+     * Returns the new count after appending frames until a terminator is found.
+     */
+    private int collectFrames(Rom rom, int addr, int[] temp, int startCount) throws java.io.IOException {
+        int count = startCount;
+        int pos = 0;
+        while (count < temp.length) {
+            int b = rom.readByte(addr + pos) & 0xFF;
+            if (b == 0xFC || b == 0xF4 || b == 0xF8) break;
+            temp[count++] = b;
+            pos++;
+        }
+        return count;
     }
 
     /**
@@ -306,21 +348,6 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
                 animIndex = 0;
             }
             mappingFrame = currentAnimFrames[animIndex];
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Dynamic object spawning helper
-    // -----------------------------------------------------------------------
-
-    private void spawnDynamicObject(AbstractObjectInstance object) {
-        try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null && lm.getObjectManager() != null) {
-                lm.getObjectManager().addDynamicObject(object);
-            }
-        } catch (Exception e) {
-            LOG.fine("Could not spawn dynamic object (test env?): " + e.getMessage());
         }
     }
 
@@ -348,6 +375,10 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         // Palettes are NOT overwritten here — the intro level's LevelLoadBlock
         // already loads the correct palette lines during level init.
 
+        // ROM: sub_65DD6 (line 134086) — fade out current music, play Knuckles' theme
+        // after 90 frames. Spawned as independent object so it outlives Knuckles if needed.
+        spawnDynamicObject(new SongFadeTransitionInstance(90, Sonic3kMusic.KNUCKLES.id));
+
         routine = 2;
     }
 
@@ -373,10 +404,19 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         yVel = FALL_INIT_Y_VEL;
         xVel = FALL_INIT_X_VEL;
 
+        // Apply Knuckles palette (Pal_CutsceneKnux → palette line 1).
+        // ROM does this in init, but GL may not be ready then; trigger time is equivalent.
+        AizIntroArtLoader.applyKnucklesPalette();
+
         // Load react/fall animation (byte_666AF)
         loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_REACT_ADDR);
 
         routine = 4;
+
+        // Compensate for pendingDynamicAdditions 1-frame spawn delay:
+        // ROM processes Knuckles' first fall movement in the same frame as
+        // trigger detection. Execute first fall frame immediately.
+        routine4Fall();
     }
 
     // -----------------------------------------------------------------------
@@ -390,21 +430,26 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     private void routine4Fall() {
         tickAnimation();
 
-        // MoveSprite: apply velocity to position with subpixel accumulation.
-        // X movement
-        int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
-        currentX += (xVel >> 8) + (xTotal >> 8);
-        xSub = xTotal & 0xFF;
+        // MoveSprite: apply velocity to position with subpixel accumulation + gravity.
+        int oldYVel = yVel;
+        motionState.x = currentX; motionState.y = currentY;
+        motionState.xSub = xSub;  motionState.ySub = ySub;
+        motionState.xVel = xVel;  motionState.yVel = yVel;
+        SubpixelMotion.moveSprite(motionState, GRAVITY);
+        currentX = motionState.x; currentY = motionState.y;
+        xSub = motionState.xSub;  ySub = motionState.ySub;
+        yVel = motionState.yVel;
 
-        // Y movement with gravity
-        yVel += GRAVITY;
-        int yTotal = (ySub & 0xFF) + (yVel & 0xFF);
-        currentY += (yVel >> 8) + (yTotal >> 8);
-        ySub = yTotal & 0xFF;
+        // ROM: tst.l d0 / bmi.s locret_61E42 — skip floor check while moving upward.
+        // d0 after MoveSprite = old_yVel << 8, so negative when yVel was negative.
+        if (oldYVel < 0) {
+            return;
+        }
 
-        // ObjCheckFloorDist terrain collision
+        // ObjCheckFloorDist terrain collision.
+        // ROM uses bmi (d1 < 0) — snap only when distance is strictly negative.
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
-        if (floor.hasCollision()) {
+        if (floor.foundSurface() && floor.distance() < 0) {
             currentY += floor.distance();
             landOnGround(currentY);
         }
@@ -423,7 +468,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         mappingFrame = LANDED_MAPPING_FRAME;
         waitTimer = STAND_TIMER;
         routine = 6;
-        LOG.fine("Routine 4: landed at Y=" + groundY + ", transitioning to stand");
+        LOG.fine("Routine 4: landed at X=" + currentX + " Y=" + groundY + ", transitioning to stand");
     }
 
     // -----------------------------------------------------------------------
@@ -439,7 +484,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      */
     private void routine6Stand() {
         waitTimer--;
-        if (waitTimer <= 0) {
+        if (waitTimer < 0) {
             waitTimer = PACE_TIMER;
             facingLeft = true;
             xVel = -PACE_VELOCITY;
@@ -449,7 +494,6 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_WALK_ADDR);
 
             routine = 8;
-            LOG.fine("Routine 6: stand complete, starting pace left");
         }
     }
 
@@ -466,13 +510,13 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     private void routine8Pace() {
         tickAnimation();
 
-        // MoveSprite2: apply velocity to position (no gravity).
-        int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
-        currentX += (xVel >> 8) + (xTotal >> 8);
-        xSub = xTotal & 0xFF;
+        // MoveX: apply X velocity to position (no gravity, no Y movement).
+        motionState.x = currentX; motionState.xSub = xSub; motionState.xVel = xVel;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x; xSub = motionState.xSub;
 
         waitTimer--;
-        if (waitTimer <= 0) {
+        if (waitTimer < 0) {
             if (!paceReturnPhase) {
                 // First pass complete: reverse to walk right
                 xVel = PACE_VELOCITY;
@@ -506,14 +550,16 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         tickAnimation();
 
         waitTimer--;
-        if (waitTimer <= 0) {
+        if (waitTimer < 0) {
             xVel = PACE_VELOCITY;
             facingLeft = false;
 
             // Load walk animation for exit (byte_666A9)
             loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_WALK_ADDR);
 
-            // TODO: Spawn Obj_Song_Fade_ToLevelMusic (fade to AIZ music)
+            // ROM: Obj_Song_Fade_ToLevelMusic (line 180305) — fade out Knuckles' theme,
+            // play AIZ1 music after 120 frames. Independent object survives Knuckles' destruction.
+            spawnDynamicObject(new SongFadeTransitionInstance(120, Sonic3kMusic.AIZ1.id));
 
             routine = 12;
             LOG.fine("Routine 10: laugh complete, transitioning to exit");
@@ -536,10 +582,10 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     private void routine12Exit() {
         tickAnimation();
 
-        // MoveSprite2: apply velocity to position (no gravity).
-        int xTotal = (xSub & 0xFF) + (xVel & 0xFF);
-        currentX += (xVel >> 8) + (xTotal >> 8);
-        xSub = xTotal & 0xFF;
+        // MoveX: apply X velocity to position (no gravity, no Y movement).
+        motionState.x = currentX; motionState.xSub = xSub; motionState.xVel = xVel;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x; xSub = motionState.xSub;
 
         // Check if offscreen (render_flags bit 7 clear).
         if (!isOnScreen()) {
@@ -548,10 +594,13 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             // Unlock player controls (ROM: player.object_control = 0)
             unlockPlayerControls();
 
-            // Restore full level boundaries (ROM: Level_started_flag = 0x91)
-            restoreLevelBoundaries();
+            // ROM: Level_started_flag = 0x91 — re-enable camera tracking
+            // ROM does NOT change level boundaries here — intro bounds stay in effect
+            Camera.getInstance().setLevelStarted(true);
+            Camera.getInstance().updatePosition(true);
 
-            // TODO: Spawn title card (S3K title card system not yet implemented)
+            // ROM: AllocateObject + move.l #Obj_TitleCard,(a1)
+            Sonic3kTitleCardManager.getInstance().initializeInLevel(0, 0);
 
             setDestroyed(true);
         }
@@ -560,6 +609,15 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     // -----------------------------------------------------------------------
     // Intro→gameplay transition helpers
     // -----------------------------------------------------------------------
+
+    @Override
+    public void onUnload() {
+        // Knuckles is the last intro object to destroy itself (routine 12),
+        // so it owns cleanup of the shared intro art cache.
+        try {
+            AizIntroArtLoader.reset();
+        } catch (Exception ignored) {}
+    }
 
     /**
      * Unlocks player movement controls after the intro cutscene completes.
@@ -576,20 +634,4 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         } catch (Exception ignored) {}
     }
 
-    /**
-     * Restores full AIZ1 level boundaries after the intro's restricted camera area.
-     * ROM equivalent: setting Level_started_flag = 0x91 which removes intro constraints.
-     */
-    private void restoreLevelBoundaries() {
-        try {
-            Camera camera = Camera.getInstance();
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null && lm.getCurrentLevel() != null) {
-                camera.setMinX((short) 0);
-                // Set max to full level width (map width * 128px block size)
-                int levelWidth = lm.getCurrentLevel().getMap().getWidth() * 128;
-                camera.setMaxX((short) Math.min(levelWidth, Short.MAX_VALUE));
-            }
-        } catch (Exception ignored) {}
-    }
 }

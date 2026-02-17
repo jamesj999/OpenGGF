@@ -45,6 +45,30 @@ public interface GameObjectProfile {
     /** Object name lookup: ID -> [primary name, alias1, alias2, ...]. */
     Map<Integer, List<String>> getObjectNames();
 
+    /**
+     * Object name lookup for a specific level. Games with zone-set-dependent
+     * object tables (e.g. S3K) override this to return the correct names.
+     */
+    default Map<Integer, List<String>> getObjectNames(LevelConfig level) {
+        return getObjectNames();
+    }
+
+    /**
+     * Badnik IDs for a specific level. Games with zone-set-dependent
+     * tables override this.
+     */
+    default Set<Integer> getBadnikIds(LevelConfig level) {
+        return getBadnikIds();
+    }
+
+    /**
+     * Boss IDs for a specific level. Games with zone-set-dependent
+     * tables override this.
+     */
+    default Set<Integer> getBossIds(LevelConfig level) {
+        return getBossIds();
+    }
+
     /** Load object placements for the given level. */
     List<ObjectSpawn> loadObjects(RomByteReader rom, LevelConfig level);
 

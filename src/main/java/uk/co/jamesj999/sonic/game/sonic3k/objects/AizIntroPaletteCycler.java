@@ -64,10 +64,8 @@ public class AizIntroPaletteCycler {
         byte[] data = AizIntroArtLoader.getSuperSonicPaletteCycleData();
         if (data == null || data.length == 0) return;
 
-        // paletteFrame is byte offset into the cycle data (range CYCLE_MIN..CYCLE_MAX)
-        // Convert to 0-based entry index
-        int entryIndex = (paletteFrame - CYCLE_MIN) / FRAME_ADVANCE;
-        int offset = entryIndex * COLORS_PER_STEP * 2; // 3 colors * 2 bytes each
+        // paletteFrame is already the correct byte offset into cycle data (range 0x24..0x36)
+        int offset = paletteFrame;
         if (offset + COLORS_PER_STEP * 2 > data.length) return;
 
         try {

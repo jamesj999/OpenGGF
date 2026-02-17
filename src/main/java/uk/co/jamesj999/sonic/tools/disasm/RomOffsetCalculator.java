@@ -34,6 +34,10 @@ public class RomOffsetCalculator {
             "^\\s*even\\b",
             Pattern.CASE_INSENSITIVE
     );
+    // Label on its own line (for multiline label+binclude resolution in S3K)
+    private static final Pattern STANDALONE_LABEL_PATTERN = Pattern.compile(
+            "^(\\w+):\\s*$"
+    );
 
     // Pattern for S2 palette macro: "Label: palette path[,path2] [; comment]"
     // The macro expands to BINCLUDE "art/palettes/{path}"
@@ -320,10 +324,15 @@ public class RomOffsetCalculator {
         try (BufferedReader reader = Files.newBufferedReader(s2asm)) {
             String line;
             int lineNumber = 0;
+            String pendingLabel = null;
+            int pendingLabelLine = 0;
             while ((line = reader.readLine()) != null) {
                 lineNumber++;
+
+                // 1. Same-line label+binclude
                 Matcher matcher = BINCLUDE_PATTERN.matcher(line);
                 if (matcher.find()) {
+                    pendingLabel = null;
                     entries.add(new BincludeEntry(
                             matcher.group(1),
                             matcher.group(2),
@@ -332,16 +341,28 @@ public class RomOffsetCalculator {
                     continue;
                 }
 
+                // 2. Unlabeled binclude — associate with pendingLabel if available
                 Matcher noLabelMatcher = BINCLUDE_NO_LABEL_PATTERN.matcher(line);
                 if (noLabelMatcher.find()) {
+                    String resolvedLabel = pendingLabel;
+                    pendingLabel = null;
                     entries.add(new BincludeEntry(
-                            null,
+                            resolvedLabel,
                             noLabelMatcher.group(1),
-                            lineNumber
+                            resolvedLabel != null ? pendingLabelLine : lineNumber
                     ));
                     continue;
                 }
 
+                // 3. Standalone label — store as pending for next binclude
+                Matcher standaloneMatcher = STANDALONE_LABEL_PATTERN.matcher(line);
+                if (standaloneMatcher.find()) {
+                    pendingLabel = standaloneMatcher.group(1);
+                    pendingLabelLine = lineNumber;
+                    continue;
+                }
+
+                // 4. Alignment directives — don't clear pendingLabel (can appear between label and binclude)
                 Matcher alignMatcher = ALIGN_PATTERN.matcher(line);
                 if (alignMatcher.find()) {
                     int alignment = parseAlignment(alignMatcher.group(1));
@@ -356,6 +377,9 @@ public class RomOffsetCalculator {
                     entries.add(BincludeEntry.alignment(2, lineNumber));
                     continue;
                 }
+
+                // 5. Any other line — clear pendingLabel
+                pendingLabel = null;
 
                 // Check for S2 palette macro (S1 uses bincludePalette, caught by BINCLUDE regex)
                 if (hasPaletteMacro()) {

@@ -122,4 +122,67 @@ public interface ZoneFeatureProvider {
      * @return next available pattern index after caching
      */
     int ensurePatternsCached(GraphicsManager graphicsManager, int baseIndex);
+
+    /**
+     * Whether the background layer wraps horizontally at VDP plane width (512px).
+     * Sonic 2 uses a VDP plane redraw model where BG wraps at 512px.
+     * Other games use full-width BG data.
+     *
+     * @return true if BG should wrap at VDP plane width
+     */
+    default boolean bgWrapsHorizontally() {
+        return false;
+    }
+
+    /**
+     * Whether the intro ocean phase is currently active (e.g. AIZ intro in S3K).
+     * When active, the BG plane wraps at VDP width instead of full layout width.
+     *
+     * @param zoneIndex the current zone
+     * @param actIndex the current act
+     * @return true if an intro ocean phase is active
+     */
+    default boolean isIntroOceanPhaseActive(int zoneIndex, int actIndex) {
+        return false;
+    }
+
+    /**
+     * Returns the VDP nametable base tile for per-line-scroll BG wrapping.
+     * During intro sequences with per-line scroll, this controls which 64-tile
+     * window of the BG tilemap is visible, matching the VDP ring buffer position.
+     *
+     * @param zoneIndex the current zone
+     * @param actIndex the current act
+     * @param cameraX the camera X position
+     * @param tilemapWidthTiles the BG tilemap width in tiles
+     * @return the nametable base tile (0.0 by default)
+     */
+    default float getVdpNametableBase(int zoneIndex, int actIndex, int cameraX, int tilemapWidthTiles) {
+        return 0.0f;
+    }
+
+    /**
+     * Whether the initial title card should be suppressed for the given zone/act.
+     * Used for intro sequences (e.g. AIZ intro in S3K) that should not show a title card.
+     *
+     * @param zoneIndex the current zone
+     * @param actIndex the current act
+     * @return true if the title card should be suppressed
+     */
+    default boolean shouldSuppressInitialTitleCard(int zoneIndex, int actIndex) {
+        return false;
+    }
+
+    /**
+     * Whether the HUD should be hidden for the given zone/act.
+     * Used during intro cinematics (e.g. AIZ intro in S3K) where the HUD
+     * should not be visible until gameplay begins.
+     *
+     * @param zoneIndex the current zone
+     * @param actIndex the current act
+     * @return true if the HUD should be hidden
+     */
+    default boolean shouldSuppressHud(int zoneIndex, int actIndex) {
+        return false;
+    }
 }

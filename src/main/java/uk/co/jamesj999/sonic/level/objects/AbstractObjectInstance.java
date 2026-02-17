@@ -1,11 +1,15 @@
 package uk.co.jamesj999.sonic.level.objects;
 
 import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 public abstract class AbstractObjectInstance implements ObjectInstance {
+    private static final Logger LOG = Logger.getLogger(AbstractObjectInstance.class.getName());
+
     /**
      * Cached camera bounds, updated once per frame by ObjectManager.
      * Avoids repeated Camera.getInstance() calls when checking visibility.
@@ -96,6 +100,23 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      */
     protected boolean isOnScreen(int margin) {
         return cameraBounds.contains(getX(), getY(), margin);
+    }
+
+    /**
+     * Adds a dynamically-created object to the level's object manager.
+     * Safe to call in test environments where LevelManager may not be initialized.
+     *
+     * @param object the object instance to spawn
+     */
+    protected static void spawnDynamicObject(AbstractObjectInstance object) {
+        try {
+            LevelManager lm = LevelManager.getInstance();
+            if (lm != null && lm.getObjectManager() != null) {
+                lm.getObjectManager().addDynamicObject(object);
+            }
+        } catch (Exception e) {
+            LOG.fine("Could not spawn dynamic object (test env?): " + e.getMessage());
+        }
     }
 }
 
