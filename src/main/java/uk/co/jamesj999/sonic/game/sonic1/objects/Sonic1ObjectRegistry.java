@@ -225,8 +225,12 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
         factories.put(Sonic1ObjectIds.SBZ_STOMPER_DOOR,
                 (spawn, registry) -> new Sonic1StomperDoorObjectInstance(spawn,
                         LevelManager.getInstance().getRomZoneId()));
+        factories.put(Sonic1ObjectIds.RUNNING_DISC,
+                (spawn, registry) -> new Sonic1RunningDiscObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.INVISIBLE_BARRIER,
                 (spawn, registry) -> new Sonic1InvisibleBarrierObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.TELEPORTER,
+                (spawn, registry) -> new Sonic1TeleporterObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GHZ_BOSS,
                 (spawn, registry) -> new Sonic1GHZBossInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.MZ_BOSS,
@@ -332,6 +336,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.LZ_CONVEYOR -> "LZConveyor";
             case Sonic1ObjectIds.BUBBLES -> "Bubbles";
             case Sonic1ObjectIds.WATERFALL -> "Waterfall";
+            case Sonic1ObjectIds.RUNNING_DISC -> "RunningDisc";
             case Sonic1ObjectIds.SBZ_SMALL_DOOR -> "SmallDoor";
             case Sonic1ObjectIds.SBZ_CONVEYOR_BELT -> "ConveyorBelt";
             case Sonic1ObjectIds.SBZ_SPINNING_PLATFORM -> "SpinPlatform";
@@ -342,6 +347,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.ELECTROCUTER -> "Electrocuter";
             case Sonic1ObjectIds.GIRDER -> "Girder";
             case Sonic1ObjectIds.INVISIBLE_BARRIER -> "InvisibleBarrier";
+            case Sonic1ObjectIds.TELEPORTER -> "Teleporter";
             case Sonic1ObjectIds.CATERKILLER -> "Caterkiller";
             case Sonic1ObjectIds.LAMPPOST -> "Lamppost";
             case Sonic1ObjectIds.HIDDEN_BONUS -> "HiddenBonus";

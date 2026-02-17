@@ -263,6 +263,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadSbzGirderArt(rom);
             loadSbzSawArt(rom);
             loadSbzStomperDoorArt(rom);
+            loadSbzRunningDiscArt(rom);
             loadBallHogArt(rom);
         }
 
@@ -6383,6 +6384,39 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * Reference: docs/s1disasm/_incObj/6B SBZ Stomper and Door.asm
      * Reference: docs/s1disasm/_maps/SBZ Stomper and Door.asm
      */
+    /**
+     * Loads SBZ Running Disc spot art (Nem_SbzWheel1) and creates S1-format sprite mappings.
+     * <p>
+     * From docs/s1disasm/_incObj/67 Running Disc.asm:
+     * <pre>
+     *   move.l  #Map_Disc,obMap(a0)
+     *   move.w  #make_art_tile(ArtTile_SBZ_Disc,2,1),obGfx(a0)
+     * </pre>
+     * ArtTile_SBZ_Disc = $344, palette line 2, priority bit 1.
+     * <p>
+     * The mappings consist of a single frame: one 2x2 (16x16) piece at (-8,-8).
+     * From docs/s1disasm/_maps/Running Disc.asm: spritePiece -8, -8, 2, 2, 0, 0, 0, 0, 0
+     */
+    private void loadSbzRunningDiscArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_RUNNING_DISC_ADDR, "SbzRunningDisc");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ running disc art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = new ArrayList<>();
+        // Frame 0 (.spot): single 2x2 piece (16x16 pixels)
+        // spritePiece -8, -8, 2, 2, 0, 0, 0, 0, 0
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 0, false)
+        )));
+
+        // make_art_tile(ArtTile_SBZ_Disc, 2, 1) -> palette line 2, priority bit 1
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SBZ_RUNNING_DISC, sheet);
+    }
+
     private void loadSbzStomperDoorArt(Rom rom) {
         Pattern[] stomperPatterns = loadNemesisPatterns(rom,
                 Sonic1Constants.ART_NEM_SBZ_STOMPER_ADDR, "SbzStomperDoor_Stomper");
