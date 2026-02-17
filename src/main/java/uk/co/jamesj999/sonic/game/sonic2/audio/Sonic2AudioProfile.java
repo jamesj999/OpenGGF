@@ -76,6 +76,11 @@ public class Sonic2AudioProfile implements GameAudioProfile {
     }
 
     @Override
+    public int getDrowningMusicId() {
+        return Sonic2Music.UNDERWATER.id;
+    }
+
+    @Override
     public int getSuperSonicMusicId() {
         return Sonic2Music.SUPER_SONIC.id;
     }

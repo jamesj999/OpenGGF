@@ -59,6 +59,11 @@ public class BackgroundRenderer {
     private float backdropG = 0.0f;
     private float backdropB = 0.0f;
 
+    // Shimmer state for parallax compositing pass
+    private int shimmerFrameCounter = 0;
+    private int shimmerStyle = 0;
+    private float shimmerWaterlineScreenY = 9999.0f;
+
     /**
      * Initialize the background renderer with FBO and shader.
      *
@@ -83,6 +88,16 @@ public class BackgroundRenderer {
 
         initialized = true;
         LOGGER.info("BackgroundRenderer initialized with FBO " + fboAllocWidth + "x" + fboAllocHeight);
+    }
+
+    /**
+     * Set shimmer state for the parallax compositing pass.
+     * Called once per frame before renderWithScroll/renderWithScrollWide.
+     */
+    public void setShimmerState(int frameCounter, int shimmerStyle, float waterlineScreenY) {
+        this.shimmerFrameCounter = frameCounter;
+        this.shimmerStyle = shimmerStyle;
+        this.shimmerWaterlineScreenY = waterlineScreenY;
     }
 
     public ParallaxShaderProgram getParallaxShader() {
@@ -261,6 +276,7 @@ public class BackgroundRenderer {
         parallaxShader.setBackdropColor(backdropR, backdropG, backdropB);
         parallaxShader.setFillTransparentWithBackdrop(true);
         parallaxShader.setNoHScroll(noHScroll);
+        parallaxShader.setShimmerParams(shimmerFrameCounter, shimmerStyle, shimmerWaterlineScreenY);
 
         // Bind textures
         glActiveTexture(GL_TEXTURE0);

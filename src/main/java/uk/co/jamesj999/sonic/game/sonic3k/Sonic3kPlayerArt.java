@@ -104,29 +104,28 @@ public class Sonic3kPlayerArt {
         int bankSize = resolveBankSize(dplcFrames, mappingFrames);
         SpriteAnimationSet animationSet = loadSonicAnimations();
 
-        SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile(
-                Sonic3kAnimationIds.WAIT,      // idleAnimId
-                Sonic3kAnimationIds.WALK,      // walkAnimId
-                Sonic3kAnimationIds.RUN,       // runAnimId
-                Sonic3kAnimationIds.ROLL,      // rollAnimId
-                Sonic3kAnimationIds.ROLL2,     // roll2AnimId
-                Sonic3kAnimationIds.PUSH,      // pushAnimId
-                Sonic3kAnimationIds.DUCK,      // duckAnimId
-                Sonic3kAnimationIds.LOOK_UP,   // lookUpAnimId
-                Sonic3kAnimationIds.SPINDASH,  // spindashAnimId
-                Sonic3kAnimationIds.SPRING,    // springAnimId
-                Sonic3kAnimationIds.DEATH,     // deathAnimId
-                Sonic3kAnimationIds.HURT,      // hurtAnimId
-                Sonic3kAnimationIds.SKID,      // skidAnimId
-                Sonic3kAnimationIds.WALK,      // airAnimId
-                Sonic3kAnimationIds.BALANCE,   // balanceAnimId
-                Sonic3kAnimationIds.BALANCE2,  // balance2AnimId
-                Sonic3kAnimationIds.BALANCE3,  // balance3AnimId
-                Sonic3kAnimationIds.BALANCE4,  // balance4AnimId
-                0x40,                          // walkSpeedThreshold
-                0x600,                         // runSpeedThreshold
-                0,                             // fallbackFrame
-                false);                        // anglePreAdjust (S3K: no subq.b #1,d0)
+        SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile()
+                .setIdleAnimId(Sonic3kAnimationIds.WAIT)
+                .setWalkAnimId(Sonic3kAnimationIds.WALK)
+                .setRunAnimId(Sonic3kAnimationIds.RUN)
+                .setRollAnimId(Sonic3kAnimationIds.ROLL)
+                .setRoll2AnimId(Sonic3kAnimationIds.ROLL2)
+                .setPushAnimId(Sonic3kAnimationIds.PUSH)
+                .setDuckAnimId(Sonic3kAnimationIds.DUCK)
+                .setLookUpAnimId(Sonic3kAnimationIds.LOOK_UP)
+                .setSpindashAnimId(Sonic3kAnimationIds.SPINDASH)
+                .setSpringAnimId(Sonic3kAnimationIds.SPRING)
+                .setDeathAnimId(Sonic3kAnimationIds.DEATH)
+                .setHurtAnimId(Sonic3kAnimationIds.HURT)
+                .setSkidAnimId(Sonic3kAnimationIds.SKID)
+                .setAirAnimId(Sonic3kAnimationIds.WALK)
+                .setBalanceAnimId(Sonic3kAnimationIds.BALANCE)
+                .setBalance2AnimId(Sonic3kAnimationIds.BALANCE2)
+                .setBalance3AnimId(Sonic3kAnimationIds.BALANCE3)
+                .setBalance4AnimId(Sonic3kAnimationIds.BALANCE4)
+                .setWalkSpeedThreshold(0x40)
+                .setRunSpeedThreshold(0x600)
+                .setFallbackFrame(0);
 
         cachedSonic = new SpriteArtSet(
                 allTiles,
@@ -175,29 +174,28 @@ public class Sonic3kPlayerArt {
         int bankSize = resolveBankSize(dplcFrames, mappingFrames);
         SpriteAnimationSet animationSet = loadTailsAnimations();
 
-        SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile(
-                Sonic3kAnimationIds.WAIT,      // idleAnimId
-                Sonic3kAnimationIds.WALK,      // walkAnimId
-                Sonic3kAnimationIds.RUN,       // runAnimId
-                Sonic3kAnimationIds.ROLL,      // rollAnimId
-                Sonic3kAnimationIds.ROLL2,     // roll2AnimId
-                Sonic3kAnimationIds.PUSH,      // pushAnimId
-                Sonic3kAnimationIds.DUCK,      // duckAnimId
-                Sonic3kAnimationIds.LOOK_UP,   // lookUpAnimId
-                Sonic3kAnimationIds.SPINDASH,  // spindashAnimId
-                Sonic3kAnimationIds.SPRING,    // springAnimId
-                Sonic3kAnimationIds.DEATH,     // deathAnimId
-                Sonic3kAnimationIds.HURT,      // hurtAnimId
-                Sonic3kAnimationIds.SKID,      // skidAnimId
-                Sonic3kAnimationIds.WALK,      // airAnimId
-                Sonic3kAnimationIds.BALANCE,   // balanceAnimId
-                Sonic3kAnimationIds.BALANCE2,  // balance2AnimId
-                Sonic3kAnimationIds.BALANCE3,  // balance3AnimId
-                Sonic3kAnimationIds.BALANCE4,  // balance4AnimId
-                0x40,                          // walkSpeedThreshold
-                0x600,                         // runSpeedThreshold
-                0,                             // fallbackFrame
-                false);                        // anglePreAdjust (S3K: no subq.b #1,d0)
+        SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile()
+                .setIdleAnimId(Sonic3kAnimationIds.WAIT)
+                .setWalkAnimId(Sonic3kAnimationIds.WALK)
+                .setRunAnimId(Sonic3kAnimationIds.RUN)
+                .setRollAnimId(Sonic3kAnimationIds.ROLL)
+                .setRoll2AnimId(Sonic3kAnimationIds.ROLL2)
+                .setPushAnimId(Sonic3kAnimationIds.PUSH)
+                .setDuckAnimId(Sonic3kAnimationIds.DUCK)
+                .setLookUpAnimId(Sonic3kAnimationIds.LOOK_UP)
+                .setSpindashAnimId(Sonic3kAnimationIds.SPINDASH)
+                .setSpringAnimId(Sonic3kAnimationIds.SPRING)
+                .setDeathAnimId(Sonic3kAnimationIds.DEATH)
+                .setHurtAnimId(Sonic3kAnimationIds.HURT)
+                .setSkidAnimId(Sonic3kAnimationIds.SKID)
+                .setAirAnimId(Sonic3kAnimationIds.WALK)
+                .setBalanceAnimId(Sonic3kAnimationIds.BALANCE)
+                .setBalance2AnimId(Sonic3kAnimationIds.BALANCE2)
+                .setBalance3AnimId(Sonic3kAnimationIds.BALANCE3)
+                .setBalance4AnimId(Sonic3kAnimationIds.BALANCE4)
+                .setWalkSpeedThreshold(0x40)
+                .setRunSpeedThreshold(0x600)
+                .setFallbackFrame(0);
 
         cachedTails = new SpriteArtSet(
                 allTiles,
@@ -295,29 +293,28 @@ public class Sonic3kPlayerArt {
         int bankSize = resolveBankSize(dplcFrames, mappingFrames);
         SpriteAnimationSet animationSet = loadSuperSonicAnimationSet();
 
-        SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile(
-                Sonic3kAnimationIds.WAIT,      // idleAnimId
-                Sonic3kAnimationIds.WALK,      // walkAnimId
-                Sonic3kAnimationIds.RUN,       // runAnimId
-                Sonic3kAnimationIds.ROLL,      // rollAnimId
-                Sonic3kAnimationIds.ROLL2,     // roll2AnimId
-                Sonic3kAnimationIds.PUSH,      // pushAnimId
-                Sonic3kAnimationIds.DUCK,      // duckAnimId
-                Sonic3kAnimationIds.LOOK_UP,   // lookUpAnimId
-                Sonic3kAnimationIds.SPINDASH,  // spindashAnimId
-                Sonic3kAnimationIds.SPRING,    // springAnimId
-                Sonic3kAnimationIds.DEATH,     // deathAnimId
-                Sonic3kAnimationIds.HURT,      // hurtAnimId
-                Sonic3kAnimationIds.SKID,      // skidAnimId
-                Sonic3kAnimationIds.WALK,      // airAnimId
-                Sonic3kAnimationIds.BALANCE,   // balanceAnimId
-                Sonic3kAnimationIds.BALANCE2,  // balance2AnimId
-                Sonic3kAnimationIds.BALANCE3,  // balance3AnimId
-                Sonic3kAnimationIds.BALANCE4,  // balance4AnimId
-                0x40,                          // walkSpeedThreshold
-                0x600,                         // runSpeedThreshold
-                0,                             // fallbackFrame
-                false);                        // anglePreAdjust
+        SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile()
+                .setIdleAnimId(Sonic3kAnimationIds.WAIT)
+                .setWalkAnimId(Sonic3kAnimationIds.WALK)
+                .setRunAnimId(Sonic3kAnimationIds.RUN)
+                .setRollAnimId(Sonic3kAnimationIds.ROLL)
+                .setRoll2AnimId(Sonic3kAnimationIds.ROLL2)
+                .setPushAnimId(Sonic3kAnimationIds.PUSH)
+                .setDuckAnimId(Sonic3kAnimationIds.DUCK)
+                .setLookUpAnimId(Sonic3kAnimationIds.LOOK_UP)
+                .setSpindashAnimId(Sonic3kAnimationIds.SPINDASH)
+                .setSpringAnimId(Sonic3kAnimationIds.SPRING)
+                .setDeathAnimId(Sonic3kAnimationIds.DEATH)
+                .setHurtAnimId(Sonic3kAnimationIds.HURT)
+                .setSkidAnimId(Sonic3kAnimationIds.SKID)
+                .setAirAnimId(Sonic3kAnimationIds.WALK)
+                .setBalanceAnimId(Sonic3kAnimationIds.BALANCE)
+                .setBalance2AnimId(Sonic3kAnimationIds.BALANCE2)
+                .setBalance3AnimId(Sonic3kAnimationIds.BALANCE3)
+                .setBalance4AnimId(Sonic3kAnimationIds.BALANCE4)
+                .setWalkSpeedThreshold(0x40)
+                .setRunSpeedThreshold(0x600)
+                .setFallbackFrame(0);
 
         cachedSuperSonic = new SpriteArtSet(
                 allTiles,

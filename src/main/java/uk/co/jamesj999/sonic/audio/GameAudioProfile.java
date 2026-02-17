@@ -28,6 +28,20 @@ public interface GameAudioProfile {
 
     int getExtraLifeMusicId();
 
+    /**
+     * Returns the drowning countdown music ID for this game.
+     *
+     * <p>Examples:
+     * <ul>
+     *   <li>Sonic 1: 0x92</li>
+     *   <li>Sonic 2: 0xDC</li>
+     *   <li>Sonic 3&amp;K: 0x31</li>
+     * </ul>
+     *
+     * @return music ID to play when underwater air reaches the countdown threshold
+     */
+    int getDrowningMusicId();
+
     /** Returns the Super Sonic music ID, or -1 if not applicable. */
     default int getSuperSonicMusicId() {
         return -1;

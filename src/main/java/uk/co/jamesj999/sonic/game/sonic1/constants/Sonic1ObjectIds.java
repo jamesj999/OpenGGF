@@ -10,12 +10,15 @@ public final class Sonic1ObjectIds {
     }
 
     public static final int SONIC           = 0x01;
+    public static final int BREAKABLE_POLE  = 0x0B;
+    public static final int FLAPPING_DOOR   = 0x0C;
     public static final int SPINNING_LIGHT  = 0x12;
     public static final int SIGNPOST        = 0x0D;
     public static final int LAVA_BALL_MAKER = 0x13;
     public static final int LAVA_BALL       = 0x14;
     public static final int BRIDGE          = 0x11;
     public static final int SWINGING_PLATFORM = 0x15;
+    public static final int HARPOON           = 0x16;
     public static final int SPIKED_POLE_HELIX = 0x17;
     public static final int PLATFORM        = 0x18;
     public static final int COLLAPSING_LEDGE = 0x1A;
@@ -65,11 +68,17 @@ public final class Sonic1ObjectIds {
     public static final int SEESAW          = 0x5E;
     public static final int BOMB            = 0x5F;
     public static final int ORBINAUT        = 0x60;
+    public static final int LABYRINTH_BLOCK = 0x61; // id_LabyrinthBlock
+    public static final int GARGOYLE        = 0x62;
+    public static final int LZ_CONVEYOR     = 0x63; // id_LabyrinthConvey
+    public static final int BUBBLES         = 0x64;
+    public static final int WATERFALL       = 0x65;
     public static final int INVISIBLE_BARRIER = 0x71;
     public static final int MZ_BOSS           = 0x73; // id_BossMarble
     public static final int BOSS_FIRE         = 0x74; // id_BossFire
     public static final int SYZ_BOSS          = 0x75; // id_BossSpringYard
     public static final int SYZ_BOSS_BLOCK    = 0x76; // id_BossBlock
+    public static final int LZ_BOSS           = 0x77; // id_BossLabyrinth
     public static final int CATERKILLER     = 0x78;
     public static final int LAMPPOST        = 0x79;
     public static final int RING_FLASH      = 0x7C;

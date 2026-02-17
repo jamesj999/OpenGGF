@@ -188,6 +188,14 @@ public class TestPhysicsProfile {
         assertEquals("Water gravity reduction", 0x28, m.waterGravityReduction());
     }
 
+    @Test
+    public void testStandardModifiers_WaterHurtGravityReduction() {
+        PhysicsModifiers m = PhysicsModifiers.STANDARD;
+        // ROM: Obj01_Hurt subtracts $20 when underwater (s2.asm:37802, s1:01 Sonic.asm:1410)
+        // Net hurt underwater gravity = $30 - $20 = $10 (same as normal $38 - $28 = $10)
+        assertEquals("Water hurt gravity reduction", 0x20, m.waterHurtGravityReduction());
+    }
+
     // ========================================
     // PhysicsFeatureSet flags
     // ========================================

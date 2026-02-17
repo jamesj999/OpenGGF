@@ -298,6 +298,20 @@ public class TestTouchResponseManager {
     }
 
     @Test
+    public void testContinuousTouchCallbacksTriggerEveryFrameWhenRequested() {
+        MockContinuousTouchObject obj = new MockContinuousTouchObject(160, 112, 0x48);
+        setupTableSize(8, 16, 16);
+        objectManager.addDynamicObject(obj);
+
+        objectManager.update(0, player, null, 1);
+        assertTrue("First update should trigger touch", obj.wasTouched);
+
+        obj.wasTouched = false;
+        objectManager.update(0, player, null, 2);
+        assertTrue("Continuous callback object should trigger again while still overlapping", obj.wasTouched);
+    }
+
+    @Test
     public void testTouchTriggersAgainAfterExitAndReenter() {
         MockTouchObject obj = new MockTouchObject(160, 112, 0x48);
         setupTableSize(8, 16, 16);
@@ -408,5 +422,15 @@ public class TestTouchResponseManager {
             wasAttacked = true;
         }
     }
-}
 
+    private static class MockContinuousTouchObject extends MockTouchObject {
+        public MockContinuousTouchObject(int x, int y, int flags) {
+            super(x, y, flags);
+        }
+
+        @Override
+        public boolean requiresContinuousTouchCallbacks() {
+            return true;
+        }
+    }
+}

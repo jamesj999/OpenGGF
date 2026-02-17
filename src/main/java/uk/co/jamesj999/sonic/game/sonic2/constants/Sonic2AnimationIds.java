@@ -19,6 +19,7 @@ public final class Sonic2AnimationIds {
     public static final int HANG = 0x11;      // Hanging from horizontal bar
     public static final int HANG2 = 0x14;     // Alternate hang
     public static final int BUBBLE = 0x15;    // Breathing air bubble underwater
+    public static final int DROWN = 0x17;     // Drowning animation (pre-death sink)
     public static final int DEATH = 0x18;
     public static final int HURT = 0x19;
     public static final int HURT2 = 0x1A;     // Tails: frame $5C (distinct from death frame $5D)

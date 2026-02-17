@@ -230,16 +230,6 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
                 // move.w #$80,fb_height(a0)
                 this.fbHeight = 0x80;
             }
-
-            // Check respawn state (v_objstate)
-            // If bit 0 is set in respawn state, the door has already been activated
-            if (spawn.respawnTracked()) {
-                // In the engine, respawn state tracking means the switch was already pressed
-                // addq.b #1,obSubtype(a0) -> advance to type 06 or 0D (retracted state)
-                this.moveType++;
-                // clr.w fb_height(a0) -> fully retracted
-                this.fbHeight = 0;
-            }
         } else {
             // SYZ/SLZ: low nybble is the movement type directly
             this.moveType = fullSubtype & 0x0F;
@@ -407,7 +397,8 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
 
             // Check switch state
             Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
-            if (switches.isPressed(fbType)) {
+            // ROM: btst #0,(f_switch+fb_type)
+            if ((switches.getRaw(fbType) & 0x01) != 0) {
                 // Switch pressed - begin activation
                 activated = true;
             }
@@ -570,7 +561,8 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
     private void moveType0CSwitchLeft() {
         if (!activated) {
             Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
-            if (switches.isPressed(fbType)) {
+            // ROM: btst #0,(f_switch+fb_type)
+            if ((switches.getRaw(fbType) & 0x01) != 0) {
                 activated = true;
             }
         }

@@ -97,29 +97,31 @@ public class Sonic2PlayerArt {
                 ? Sonic2AnimationIds.HURT2
                 : Sonic2AnimationIds.HURT;
 
-        SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile(
-                Sonic2AnimationIds.WAIT,      // idleAnimId
-                Sonic2AnimationIds.WALK,      // walkAnimId
-                Sonic2AnimationIds.RUN,       // runAnimId
-                Sonic2AnimationIds.ROLL,      // rollAnimId
-                Sonic2AnimationIds.ROLL2,     // roll2AnimId
-                Sonic2AnimationIds.PUSH,      // pushAnimId
-                Sonic2AnimationIds.DUCK,      // duckAnimId
-                Sonic2AnimationIds.LOOK_UP,   // lookUpAnimId
-                Sonic2AnimationIds.SPINDASH,  // spindashAnimId
-                Sonic2AnimationIds.SPRING,    // springAnimId
-                Sonic2AnimationIds.DEATH,     // deathAnimId
-                hurtAnimId,                   // hurtAnimId
-                Sonic2AnimationIds.SKID,      // skidAnimId
-                Sonic2AnimationIds.WALK,      // airAnimId
-                Sonic2AnimationIds.BALANCE,   // balanceAnimId - facing edge, safe distance
-                Sonic2AnimationIds.BALANCE2,  // balance2AnimId - facing edge, closer to falling
-                Sonic2AnimationIds.BALANCE3,  // balance3AnimId - facing away, safe distance
-                Sonic2AnimationIds.BALANCE4,  // balance4AnimId - facing away, closer to falling
-                0x40,                         // walkSpeedThreshold
-                0x600,                        // runSpeedThreshold
-                0,                            // fallbackFrame
-                true);                        // anglePreAdjust (S2: subq.b #1,d0 at s2.asm:38080)
+        SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile()
+                .setIdleAnimId(Sonic2AnimationIds.WAIT)
+                .setWalkAnimId(Sonic2AnimationIds.WALK)
+                .setRunAnimId(Sonic2AnimationIds.RUN)
+                .setRollAnimId(Sonic2AnimationIds.ROLL)
+                .setRoll2AnimId(Sonic2AnimationIds.ROLL2)
+                .setPushAnimId(Sonic2AnimationIds.PUSH)
+                .setDuckAnimId(Sonic2AnimationIds.DUCK)
+                .setLookUpAnimId(Sonic2AnimationIds.LOOK_UP)
+                .setSpindashAnimId(Sonic2AnimationIds.SPINDASH)
+                .setSpringAnimId(Sonic2AnimationIds.SPRING)
+                .setDeathAnimId(Sonic2AnimationIds.DEATH)
+                .setDrownAnimId(Sonic2AnimationIds.DROWN)
+                .setHurtAnimId(hurtAnimId)
+                .setSkidAnimId(Sonic2AnimationIds.SKID)
+                .setSlideAnimId(Sonic2AnimationIds.SLIDE)
+                .setAirAnimId(Sonic2AnimationIds.WALK)
+                .setBalanceAnimId(Sonic2AnimationIds.BALANCE)
+                .setBalance2AnimId(Sonic2AnimationIds.BALANCE2)
+                .setBalance3AnimId(Sonic2AnimationIds.BALANCE3)
+                .setBalance4AnimId(Sonic2AnimationIds.BALANCE4)
+                .setWalkSpeedThreshold(0x40)
+                .setRunSpeedThreshold(0x600)
+                .setFallbackFrame(0)
+                .setAnglePreAdjust(true);
 
         return new SpriteArtSet(
                 artTiles,
