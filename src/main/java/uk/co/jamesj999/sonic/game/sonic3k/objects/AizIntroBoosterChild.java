@@ -21,7 +21,13 @@ import java.util.List;
  */
 public class AizIntroBoosterChild {
 
-    private static final int ANIM_FRAME_DURATION = 3;
+    /**
+     * ROM byte_45E6B/byte_45E73 both have timer reset = 0.
+     * Animate_RawNoSST decrements timer each frame; when it goes negative
+     * the frame advances and timer reloads from data[0].  Timer=0 means
+     * every frame: subq.b #1 → -1 → advance → reload 0.
+     */
+    private static final int ANIM_FRAME_DURATION = 1;
 
     private final AizIntroPlaneChild parent;
     private final int xOffset;

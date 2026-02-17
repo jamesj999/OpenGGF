@@ -75,6 +75,9 @@ public class Sonic3kLevel implements Level {
      * @param characterPaletteAddr   ROM address of character palette
      * @param levelPaletteAddr       ROM address of level palette data
      * @param minXOverride           Optional override for loaded minX boundary
+     * @param objects                Object spawn list for this zone/act
+     * @param rings                  Ring spawn list for this zone/act
+     * @param ringSpriteSheet        Ring art and frame mappings
      */
     public Sonic3kLevel(Rom rom,
                         int zoneIndex,
@@ -86,11 +89,14 @@ public class Sonic3kLevel implements Level {
                         int levelBoundariesAddr,
                         int characterPaletteAddr,
                         int levelPaletteAddr,
-                        Integer minXOverride) throws IOException {
+                        Integer minXOverride,
+                        List<ObjectSpawn> objects,
+                        List<RingSpawn> rings,
+                        RingSpriteSheet ringSpriteSheet) throws IOException {
         this.zoneIndex = zoneIndex;
-        this.objects = Collections.emptyList();
-        this.rings = Collections.emptyList();
-        this.ringSpriteSheet = null;
+        this.objects = objects != null ? objects : Collections.emptyList();
+        this.rings = rings != null ? rings : Collections.emptyList();
+        this.ringSpriteSheet = ringSpriteSheet;
         this.minXOverride = minXOverride;
 
         loadPalettes(rom, characterPaletteAddr, levelPaletteAddr);

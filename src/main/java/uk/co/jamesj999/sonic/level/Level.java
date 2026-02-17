@@ -102,6 +102,18 @@ public interface Level {
     }
 
     /**
+     * Returns the VDP backdrop color for this level.
+     * VDP register 7 determines which palette line/color is the backdrop.
+     * S2/S1 default: $8720 = palette line 2, color 0.
+     */
+    default Palette.Color getBackdropColor() {
+        if (getPaletteCount() > 2) {
+            return getPalette(2).getColor(0);
+        }
+        return new Palette.Color((byte) 0, (byte) 0, (byte) 0);
+    }
+
+    /**
      * Resolves the collision block index for a given map cell.
      * In Sonic 1, loop-flagged blocks use the next block (index + 1) for
      * collision when the player is on the "low plane."

@@ -93,6 +93,18 @@ mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFind
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k export nem ART_" -q
 ```
 
+### Search ROM Binary
+
+Use `search-rom` to find inline assembly data (pointer tables, animation scripts, AniPLC tables, `dc.w`/`dc.b` directives) that have no binary file — the `search` and `find` commands only work with `binclude` items. This is especially useful for S3K where many data structures are inline.
+
+```bash
+# Search for known hex byte pattern (spaces optional)
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search-rom \"0002 FF2A 2940 5CC0\"" -q
+
+# Restrict search to a specific ROM range
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search-rom \"0002\" 0x28000 0x29000" -q
+```
+
 ## Label Naming Conventions
 
 S3K uses different label prefixes from S1 and S2:
@@ -154,6 +166,26 @@ S3K uses different label prefixes from S1 and S2:
 | DPZ | Desert Palace Zone | S3-only |
 | EMZ | Endless Mine Zone | S3-only |
 | ALZ | Azure Lake Zone | S3-only competition |
+
+## Dual Object Pointer Tables (Zone-Set System)
+
+S3K uses **two separate object pointer tables** that remap many IDs depending on the zone:
+
+| Set | Disasm Name | Engine Name | Zones | File |
+|-----|------------|-------------|-------|------|
+| SK Set 1 | `Sprite_Listing3` | S3KL (S3K-Level Object Set) | 0-6 (AIZ through LBZ) | `Levels/Misc/Object pointers - SK Set 1.asm` (256 entries) |
+| SK Set 2 | `Sprite_ListingK` | SKL (SK-Level Object Set) | 7-13 (MHZ through DDZ) | `Levels/Misc/Object pointers - SK Set 2.asm` (185 entries) |
+
+**Selection logic** (sonic3k.asm line ~37411): Purely zone-based, NOT game-mode-based. Zones 0-6 use S3KL, zones 7+ use SKL.
+
+The same numeric object ID can map to completely different objects:
+- 0x03: AIZHollowTree (S3KL) vs MHZTwistedVine (SKL)
+- 0x8F: CaterKillerJr (S3KL) vs Butterdroid (SKL)
+- 0x9C: Spiker (S3KL) vs LRZRockCrusher (SKL)
+
+Many IDs are shared between both sets (Ring, Monitor, PathSwap, Spring, Spikes, etc.).
+
+**Engine support:** `S3kZoneSet` enum (`S3KL`/`SKL`), `Sonic3kObjectRegistry.getPrimaryName(id, zoneSet)`, and `Sonic3kObjectProfile` with per-level name/badnik/boss resolution.
 
 ## Object Code Organization
 

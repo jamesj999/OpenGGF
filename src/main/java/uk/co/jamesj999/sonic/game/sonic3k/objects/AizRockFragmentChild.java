@@ -14,11 +14,23 @@ import java.util.List;
  *
  * Each fragment receives a scattered velocity from a ROM velocity table
  * and falls with gravity until offscreen, then deletes itself.
+ *
+ * ROM: BreakObjectToPieces (sonic3k.asm:45772) gives each fragment a unique
+ * mapping piece from the parent's broken frame. The cork floor's frame 1 has
+ * 12 pieces, one per fragment. Each fragment renders only its assigned piece
+ * via {@code drawFramePieceByIndex}.
+ *
+ * ROM also sets high_priority on fragment art tiles (ori.w #high_priority),
+ * so fragments render in front of high-priority FG tiles.
  */
 public class AizRockFragmentChild extends AbstractObjectInstance {
 
-    /** Standard S3K gravity in subpixels per frame. */
-    private static final int GRAVITY = SubpixelMotion.S3K_GRAVITY;
+    /**
+     * Fragment-specific gravity: 0x18 subpixels/frame.
+     * ROM (sonic3k.asm:58588): loc_2A5F8 uses MoveSprite2 (no gravity) then
+     * {@code addi.w #$18,y_vel(a0)} — much lighter than standard S3K gravity (0x38).
+     */
+    private static final int GRAVITY = 0x18;
 
     /**
      * ROM velocity table word_2A8B0 for 12 fragments (BreakObjectToPieces).
@@ -40,11 +52,12 @@ public class AizRockFragmentChild extends AbstractObjectInstance {
     private int xVel;
     private int yVel;
     private final int mappingFrame;
+    private final int pieceIndex;
 
     /** Shared state object for SubpixelMotion calls. */
     private final SubpixelMotion.State motionState = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
-    public AizRockFragmentChild(ObjectSpawn spawn, int xVel, int yVel, int mappingFrame) {
+    public AizRockFragmentChild(ObjectSpawn spawn, int xVel, int yVel, int mappingFrame, int pieceIndex) {
         super(spawn, "RockFragment");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
@@ -53,6 +66,7 @@ public class AizRockFragmentChild extends AbstractObjectInstance {
         this.xVel = xVel;
         this.yVel = yVel;
         this.mappingFrame = mappingFrame;
+        this.pieceIndex = pieceIndex;
     }
 
     @Override
@@ -68,6 +82,11 @@ public class AizRockFragmentChild extends AbstractObjectInstance {
     @Override
     public boolean isPersistent() {
         return false;
+    }
+
+    @Override
+    public boolean isHighPriority() {
+        return true; // ROM: ori.w #high_priority,art_tile(a1)
     }
 
     @Override
@@ -90,6 +109,6 @@ public class AizRockFragmentChild extends AbstractObjectInstance {
     public void appendRenderCommands(List<GLCommand> commands) {
         PatternSpriteRenderer renderer = AizIntroArtLoader.getCorkFloorRenderer();
         if (renderer == null || !renderer.isReady()) return;
-        renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
+        renderer.drawFramePieceByIndex(mappingFrame, pieceIndex, currentX, currentY, false, false);
     }
 }

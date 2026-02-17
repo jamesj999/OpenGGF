@@ -127,6 +127,21 @@ public interface ZoneFeatureProvider {
     }
 
     /**
+     * Returns the VDP nametable base tile for per-line-scroll BG wrapping.
+     * During intro sequences with per-line scroll, this controls which 64-tile
+     * window of the BG tilemap is visible, matching the VDP ring buffer position.
+     *
+     * @param zoneIndex the current zone
+     * @param actIndex the current act
+     * @param cameraX the camera X position
+     * @param tilemapWidthTiles the BG tilemap width in tiles
+     * @return the nametable base tile (0.0 by default)
+     */
+    default float getVdpNametableBase(int zoneIndex, int actIndex, int cameraX, int tilemapWidthTiles) {
+        return 0.0f;
+    }
+
+    /**
      * Whether the initial title card should be suppressed for the given zone/act.
      * Used for intro sequences (e.g. AIZ intro in S3K) that should not show a title card.
      *
@@ -135,6 +150,19 @@ public interface ZoneFeatureProvider {
      * @return true if the title card should be suppressed
      */
     default boolean shouldSuppressInitialTitleCard(int zoneIndex, int actIndex) {
+        return false;
+    }
+
+    /**
+     * Whether the HUD should be hidden for the given zone/act.
+     * Used during intro cinematics (e.g. AIZ intro in S3K) where the HUD
+     * should not be visible until gameplay begins.
+     *
+     * @param zoneIndex the current zone
+     * @param actIndex the current act
+     * @return true if the HUD should be hidden
+     */
+    default boolean shouldSuppressHud(int zoneIndex, int actIndex) {
         return false;
     }
 }

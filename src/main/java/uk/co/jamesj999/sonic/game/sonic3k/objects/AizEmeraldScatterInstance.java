@@ -9,7 +9,6 @@ import uk.co.jamesj999.sonic.physics.TerrainCheckResult;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.logging.Logger;
 
 /**
  * Chaos Emerald scatter object for the AIZ1 intro cinematic.
@@ -40,8 +39,6 @@ import java.util.logging.Logger;
  *    - Subtype bit 1 = 1: collected when Knuckles moves LEFT (negative x_vel)
  */
 public class AizEmeraldScatterInstance extends AbstractObjectInstance {
-
-    private static final Logger LOG = Logger.getLogger(AizEmeraldScatterInstance.class.getName());
 
     // -----------------------------------------------------------------------
     // Phase enum
@@ -149,6 +146,11 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
     }
 
     @Override
+    public int getPriorityBucket() {
+        return 5; // ROM priority 0x280
+    }
+
+    @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         switch (phase) {
             case FALLING -> updateFalling();
@@ -189,11 +191,14 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
         xVel = motionState.xVel;  yVel = motionState.yVel;
 
         // ROM: tst.l d0 / bmi.s — skip floor check while moving upward
-        if (preGravityYVel < 0) return;
+        if (preGravityYVel < 0) {
+            return;
+        }
 
         // ObjCheckFloorDist terrain collision
         // ROM: tst.w d1 / bpl.s — land when d1 < 0 (strictly negative)
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
+
         if (floor.foundSurface() && floor.distance() < 0) {
             landOnGround(currentY + floor.distance());
         }

@@ -91,6 +91,18 @@ mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFind
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 export nem ART_" -q
 ```
 
+### Search ROM Binary
+
+Use `search-rom` to find inline assembly data (pointer tables, animation scripts, `dc.w`/`dc.b` directives) that have no binary file — the `search` and `find` commands only work with `binclude` items.
+
+```bash
+# Search for SpeedUpIndex pattern
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search-rom \"07 72 73 26 15 08 FF 05\"" -q
+
+# Restrict search to a specific ROM range
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search-rom \"0002\" 0x71000 0x72000" -q
+```
+
 ## Label Naming Conventions
 
 Sonic 1 uses different label prefixes from Sonic 2:

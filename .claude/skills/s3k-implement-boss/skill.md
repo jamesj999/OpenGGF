@@ -11,6 +11,14 @@ $ARGUMENTS: Boss name or zone (e.g., "AIZ mini-boss", "Angel Island end boss", "
 - **s3k-disasm-guide** (`.claude/skills/s3k-disasm-guide/skill.md`) - Disassembly navigation, label conventions, RomOffsetFinder
 - **s3k-implement-object** (`.claude/skills/s3k-implement-object/skill.md`) - For non-boss Sonic 3&K objects and badniks
 
+## Zone-Set-Aware Boss IDs
+
+S3K uses **two object pointer tables** that remap boss IDs by zone:
+- **S3KL** (zones 0-6: AIZ through LBZ): Boss IDs 0x90-0xCD
+- **SKL** (zones 7-13: MHZ through DDZ): Boss IDs 0x91-0xB6
+
+The same numeric ID maps to different bosses depending on the zone set. Use `S3kZoneSet.forZone(zoneId)` and `Sonic3kObjectRegistry.getPrimaryName(id, zoneSet)` for correct resolution.
+
 ## Sonic 3&K Boss List
 
 S3K has **both mini-bosses (Act 1) and end bosses (Act 2)** per zone — significantly more bosses than S1/S2.
@@ -65,8 +73,9 @@ S3K has **both mini-bosses (Act 1) and end bosses (Act 2)** per zone — signifi
 | **Arena setup** | Zone screen event code via `Sonic3kLevelEventManager` | `LevEvents_ZONE2` routines via `Sonic2LevelEventManager` | Boss object code via `Sonic1LevelEventManager` |
 | **Knuckles paths** | Separate boss or variant behavior | N/A | N/A |
 | **Art compression** | Primarily Kosinski Moduled (`kosm`) | Nemesis (`nem`) | Nemesis (`nem`) |
-| **Constants file** | `Sonic3kConstants.java` (to create) | `Sonic2Constants.java` | `Sonic1Constants.java` |
-| **Registry** | `Sonic3kObjectRegistry.java` (to create) | `Sonic2ObjectRegistry.java` | `Sonic1ObjectRegistry.java` |
+| **Object pointer tables** | 2 tables (S3KL + SKL) by zone | Single table | Single table |
+| **Constants file** | `Sonic3kConstants.java` | `Sonic2Constants.java` | `Sonic1Constants.java` |
+| **Registry** | `Sonic3kObjectRegistry.java` | `Sonic2ObjectRegistry.java` | `Sonic1ObjectRegistry.java` |
 
 ## Implementation Process
 
@@ -377,10 +386,11 @@ Report any discrepancies with specific line references.
 | Boss state context | `src/.../level/objects/boss/BossStateContext.java` |
 | Boss child base | `src/.../level/objects/boss/AbstractBossChild.java` |
 | Level events | `src/.../game/sonic3k/Sonic3kLevelEventManager.java` |
-| Object IDs | `src/.../game/sonic3k/constants/Sonic3kObjectIds.java` (to be created) |
-| ROM offsets | `src/.../game/sonic3k/constants/Sonic3kConstants.java` (to be created) |
+| Zone set enum | `src/.../game/sonic3k/constants/S3kZoneSet.java` |
+| Object IDs | `src/.../game/sonic3k/constants/Sonic3kObjectIds.java` |
+| ROM offsets | `src/.../game/sonic3k/constants/Sonic3kConstants.java` |
+| Registry | `src/.../game/sonic3k/objects/Sonic3kObjectRegistry.java` |
 | Audio profile | `src/.../game/sonic3k/audio/Sonic3kAudioProfile.java` (to be created) |
-| Registry | `src/.../game/sonic3k/objects/Sonic3kObjectRegistry.java` (to be created) |
 | S2 boss examples | `src/.../game/sonic2/objects/bosses/` |
 | Disassembly main | `docs/skdisasm/sonic3k.asm` |
 | Shared sprites | `docs/skdisasm/General/Sprites/` |

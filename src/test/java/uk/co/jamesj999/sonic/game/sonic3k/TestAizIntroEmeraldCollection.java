@@ -37,10 +37,13 @@ import static org.junit.Assert.assertTrue;
  * Once he walks offscreen, leftover emeralds are despawned by ObjectManager,
  * hiding any collection failure.
  *
- * Known bug: The Obj_Wait off-by-one ({@code <= 0} vs {@code < 0}) shortens
- * Knuckles' pacing by 6 pixels per direction. The leftmost emerald (subtype 12,
- * xVel = -0x300) lands at the edge of his reach, so this 6px shortfall leaves
- * it uncollected. This test detects that failure.
+ * Root cause was a ROM mismatch in object slot processing order: the S3K ROM's
+ * CreateChild6_Simple places emeralds in later object slots. The emerald init
+ * code (loc_67900) reads Player_1.x_pos when that slot is first processed —
+ * AFTER the plane's scrollVelocity (sub_45DE4) has already added scrollSpeed
+ * (16) to Player_1. Java's constructor ran before scrollVelocity, so emeralds
+ * spawned 16px too far left. The fix adds scrollSpeed to the spawn X in
+ * routine26Explode to compensate for this ordering difference.
  */
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestAizIntroEmeraldCollection {
