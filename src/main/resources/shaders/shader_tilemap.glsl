@@ -81,7 +81,6 @@ void main()
     float pixelX = viewportX / scaleX;
     float pixelYFromTop = (ViewportHeight - 1.0 - viewportY) / scaleY;
 
-<<<<<<< HEAD
     // Apply underwater shimmer distortion to horizontal position
     float shimmerDistortion = 0.0;
     if (UseUnderwaterPalette == 1 && pixelYFromTop >= WaterlineScreenY && ShimmerStyle > 0) {
