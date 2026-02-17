@@ -10,6 +10,7 @@ import uk.co.jamesj999.sonic.level.objects.TouchResponseTable;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.level.spawn.AbstractPlacementManager;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+import uk.co.jamesj999.sonic.sprites.playable.ShieldType;
 import uk.co.jamesj999.sonic.camera.Camera;
 
 import java.util.Arrays;
@@ -22,10 +23,15 @@ import java.util.List;
  * Handles ring collection state, sparkle animation, rendering, and lost-ring behavior.
  */
 public class RingManager {
+    private static final int MAX_ATTRACTED_RINGS = 32;
+    private static final int RING_ATTRACT_RADIUS = 64;
+    private static final int RING_ATTRACT_SPEED = 3;
+
     private final RingPlacement placement;
     private final RingRenderer renderer;
     private final LostRingPool lostRings;
     private PatternSpriteRenderer.FrameBounds spinBounds;
+    private final AttractedRing[] attractedRings;
 
     public RingManager(List<RingSpawn> spawns, RingSpriteSheet spriteSheet,
             LevelManager levelManager, TouchResponseTable touchResponseTable) {
@@ -34,12 +40,19 @@ public class RingManager {
                 ? new RingRenderer(spriteSheet)
                 : null;
         this.lostRings = new LostRingPool(levelManager, this.renderer, touchResponseTable);
+        this.attractedRings = new AttractedRing[MAX_ATTRACTED_RINGS];
+        for (int i = 0; i < MAX_ATTRACTED_RINGS; i++) {
+            attractedRings[i] = new AttractedRing();
+        }
     }
 
     public void reset(int cameraX) {
         placement.reset(cameraX);
         lostRings.reset();
         spinBounds = null;
+        for (AttractedRing ar : attractedRings) {
+            ar.active = false;
+        }
     }
 
     public void ensurePatternsCached(GraphicsManager graphicsManager, int basePatternIndex) {
@@ -91,6 +104,25 @@ public class RingManager {
             AudioManager.getInstance().playSfx(GameSound.RING);
             player.addRings(1);
         }
+
+        // Lightning shield ring attraction
+        if (player.getShieldType() == ShieldType.LIGHTNING) {
+            int pcx = player.getCentreX();
+            int pcy = player.getCentreY();
+            for (RingSpawn ring : active) {
+                int index = placement.getSpawnIndex(ring);
+                if (index < 0 || placement.isCollected(index)) {
+                    continue;
+                }
+                int dx = pcx - ring.x();
+                int dy = pcy - ring.y();
+                if (dx * dx + dy * dy <= RING_ATTRACT_RADIUS * RING_ATTRACT_RADIUS) {
+                    placement.markCollected(index);
+                    addAttractedRing(index, ring.x(), ring.y());
+                }
+            }
+            updateAttractedRings(player, frameCounter);
+        }
     }
 
     public void updateLostRings(AbstractPlayableSprite player, int frameCounter) {
@@ -133,6 +165,14 @@ public class RingManager {
             }
             int sparkleFrameIndex = renderer.getSparkleStartIndex() + sparkleFrameOffset;
             renderer.drawFrameIndex(sparkleFrameIndex, ring.x(), ring.y());
+        }
+
+        // Draw attracted rings (being pulled toward player)
+        int attractSpinFrame = renderer.getSpinFrameIndex(frameCounter);
+        for (AttractedRing ar : attractedRings) {
+            if (ar.active) {
+                renderer.drawFrameIndex(attractSpinFrame, ar.x, ar.y);
+            }
         }
     }
 
@@ -269,6 +309,43 @@ public class RingManager {
 
     public Collection<RingSpawn> getActiveSpawns() {
         return placement.getActiveSpawns();
+    }
+
+    private void addAttractedRing(int sourceIndex, int x, int y) {
+        for (AttractedRing ar : attractedRings) {
+            if (!ar.active) {
+                ar.sourceIndex = sourceIndex;
+                ar.x = x;
+                ar.y = y;
+                ar.active = true;
+                return;
+            }
+        }
+    }
+
+    private void updateAttractedRings(AbstractPlayableSprite player, int frameCounter) {
+        int pcx = player.getCentreX();
+        int pcy = player.getCentreY();
+        for (AttractedRing ar : attractedRings) {
+            if (!ar.active) continue;
+            int dx = pcx - ar.x;
+            int dy = pcy - ar.y;
+            double dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 4) {
+                player.addRings(1);
+                AudioManager.getInstance().playSfx(GameSound.RING);
+                ar.active = false;
+            } else {
+                ar.x += (int)(RING_ATTRACT_SPEED * dx / dist);
+                ar.y += (int)(RING_ATTRACT_SPEED * dy / dist);
+            }
+        }
+    }
+
+    private static final class AttractedRing {
+        int sourceIndex;
+        int x, y;
+        boolean active;
     }
 
     private static final class RingPlacement extends AbstractPlacementManager<RingSpawn> {

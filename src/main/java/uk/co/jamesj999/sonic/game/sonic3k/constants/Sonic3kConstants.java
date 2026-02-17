@@ -163,6 +163,11 @@ public class Sonic3kConstants {
     public static final int ART_UNC_LIVES_DIGITS_ADDR = 0xE48A;
     public static final int ART_UNC_LIVES_DIGITS_SIZE = 320;
 
+    // Touch_Sizes table: 58 entries of 2 bytes (width, height radius)
+    // sonic3k.asm line 20713, verified via ROM binary search
+    public static final int TOUCH_SIZES_ADDR = 0x00FF62;
+    public static final int TOUCH_SIZES_COUNT = 58;
+
     public static final int ART_NEM_SONIC_LIFE_ICON_ADDR = 0x190D34;
     public static final int ART_NEM_MONITORS_ADDR = 0x190F4A;
     public static final int ART_NEM_EXPLOSION_ADDR = 0x19200A;

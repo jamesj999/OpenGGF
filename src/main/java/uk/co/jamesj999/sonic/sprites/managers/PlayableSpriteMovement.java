@@ -17,6 +17,7 @@ import uk.co.jamesj999.sonic.sprites.animation.ScriptedVelocityAnimationProfile;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationProfile;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.GroundMode;
+import uk.co.jamesj999.sonic.sprites.playable.ShieldType;
 
 import java.util.logging.Logger;
 
@@ -72,6 +73,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	// Input tracking
 	private boolean jumpPressed;
 	private boolean jumpPrevious;
+	private boolean jumpReleasedSinceJump;
 	private boolean testKeyPressed;
 
 	// Current frame input state
@@ -445,6 +447,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setPushing(false);
 		sprite.setJumping(true);
 		jumpPressed = true;
+		jumpReleasedSinceJump = false;
 		sprite.setStickToConvex(false);
 		audioManager.playSfx(GameSound.JUMP);
 
@@ -466,12 +469,69 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			if (sprite.getYSpeed() < -ySpeedCap && !inputJump) {
 				sprite.setYSpeed((short) -ySpeedCap);
 			}
+			// Track jump release for shield ability detection
+			if (!inputJump) {
+				jumpReleasedSinceJump = true;
+			}
+			// Shield ability: re-press jump after release while airborne (s3.asm:21059)
+			if (jumpReleasedSinceJump && inputJumpPress && sprite.getDoubleJumpFlag() == 0) {
+				if (tryShieldAbility()) {
+					jumpReleasedSinceJump = false;
+					return;
+				}
+			}
 			if (!sprite.getAir() && !inputJump) {
 				jumpPressed = false;
+				jumpReleasedSinceJump = false;
 			}
 		} else {
 			applyUpwardVelocityCap();
 		}
+	}
+
+	/**
+	 * Sonic_ShieldMoves: Try to activate the player's shield ability (s3.asm:21059-21159).
+	 * @return true if an ability was activated
+	 */
+	private boolean tryShieldAbility() {
+		PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+		if (fs == null || !fs.elementalShieldsEnabled()) {
+			return false;
+		}
+		ShieldType shield = sprite.getShieldType();
+		if (shield == null) {
+			return false;
+		}
+		switch (shield) {
+			case FIRE -> fireShieldDash();
+			case LIGHTNING -> lightningShieldJump();
+			case BUBBLE -> bubbleShieldBounce();
+			default -> { return false; }
+		}
+		sprite.setDoubleJumpFlag(1);
+		return true;
+	}
+
+	/** Fire dash: horizontal burst in facing direction (s3.asm:21072-21091) */
+	private void fireShieldDash() {
+		int dir = sprite.getDirection() == Direction.RIGHT ? 1 : -1;
+		sprite.setXSpeed((short) (0x800 * dir));
+		sprite.setYSpeed((short) 0);
+		audioManager.playSfx(GameSound.FIRE_ATTACK);
+	}
+
+	/** Lightning double jump: upward velocity boost (s3.asm:21094-21102) */
+	private void lightningShieldJump() {
+		sprite.setYSpeed((short) -0x580);
+		audioManager.playSfx(GameSound.LIGHTNING_ATTACK);
+	}
+
+	/** Bubble bounce: slam downward (s3.asm:21105-21114) */
+	private void bubbleShieldBounce() {
+		sprite.setXSpeed((short) 0);
+		sprite.setGSpeed((short) 0);
+		sprite.setYSpeed((short) 0x800);
+		audioManager.playSfx(GameSound.BUBBLE_ATTACK);
 	}
 
 	// ========================================

@@ -239,15 +239,15 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
             }
             case FIRE_SHIELD -> {
                 player.giveShield(ShieldType.FIRE);
-                AudioManager.getInstance().playSfx(Sonic3kSfx.FIRE_SHIELD.id);
+                AudioManager.getInstance().playSfx(GameSound.FIRE_SHIELD);
             }
             case LIGHTNING_SHIELD -> {
                 player.giveShield(ShieldType.LIGHTNING);
-                AudioManager.getInstance().playSfx(Sonic3kSfx.LIGHTNING_SHIELD.id);
+                AudioManager.getInstance().playSfx(GameSound.LIGHTNING_SHIELD);
             }
             case BUBBLE_SHIELD -> {
                 player.giveShield(ShieldType.BUBBLE);
-                AudioManager.getInstance().playSfx(Sonic3kSfx.BUBBLE_SHIELD.id);
+                AudioManager.getInstance().playSfx(GameSound.BUBBLE_SHIELD);
             }
             case INVINCIBILITY -> {
                 // Skip invincibility if player is already Super Sonic

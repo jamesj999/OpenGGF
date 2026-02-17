@@ -203,7 +203,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
 
         // ROM: Hurt_Sidekick - CPU Tails only gets knockback, no ring scatter or death
         if (player.isCpuControlled()) {
-            player.applyHurt(getX());
+            player.applyHurt(getX(), AbstractPlayableSprite.DamageCause.FIRE);
             return;
         }
         // Check if player has rings
@@ -211,8 +211,8 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         if (hadRings && !player.hasShield()) {
             LevelManager.getInstance().spawnLostRings(player, lastFrameCounter);
         }
-        // Apply hurt - lava is not spikes, so spikeHit = false
-        player.applyHurtOrDeath(getX(), false, hadRings);
+        // Apply hurt - lava uses DamageCause.FIRE for fire shield immunity
+        player.applyHurtOrDeath(getX(), AbstractPlayableSprite.DamageCause.FIRE, hadRings);
     }
 
     // ========================================================================
