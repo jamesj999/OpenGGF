@@ -70,7 +70,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         // Load HUD art (same for all zones)
         loadHudArt();
 
-        // Load monitor art (shared across all zones, Nemesis compressed from ROM)
+        // Load shared object art (Nemesis compressed from ROM)
+        loadExplosionArt();
         loadMonitorArt();
 
         // Level-art sheets are registered later via registerLevelArtSheets()
@@ -159,6 +160,38 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             patterns[i].fromSegaFormat(tile);
         }
         return patterns;
+    }
+
+    /**
+     * Loads S3K explosion art from ROM (Nemesis compressed).
+     * <p>
+     * Art: ArtNem_Explosion at 0x19200A.
+     * Mappings: Map - Explosion.asm (5 frames, same layout as S2).
+     * <p>
+     * The explosion object itself plays sfx_Break (0x3D) — see Obj_Explosion loc_1E61A.
+     */
+    private void loadExplosionArt() throws IOException {
+        Rom rom = GameServices.rom().getRom();
+        if (rom == null) {
+            return;
+        }
+
+        Pattern[] patterns = loadNemesisPatterns(rom, Sonic3kConstants.ART_NEM_EXPLOSION_ADDR);
+
+        // 5 frames from Map - Explosion.asm (identical to S2)
+        List<SpriteMappingFrame> frames = new ArrayList<>(5);
+        // Frame 0: 2x2 at tile 0 (-8, -8)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0, false, false, 0))));
+        // Frames 1-4: 4x4 at tiles 4, 0x14, 0x24, 0x34 (-16, -16)
+        for (int tile : new int[]{4, 0x14, 0x24, 0x34}) {
+            frames.add(new SpriteMappingFrame(List.of(
+                    new SpriteMappingPiece(-16, -16, 4, 4, tile, false, false, 0))));
+        }
+
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, frames, 0, 1);
+        registerSheet(ObjectArtKeys.EXPLOSION, sheet);
+        LOG.info("Loaded S3K explosion art: " + patterns.length + " patterns, 5 frames");
     }
 
     /**

@@ -2,6 +2,16 @@
 
 This skill provides guidance on finding, identifying, and interpreting items in the Sonic 3 & Knuckles disassembly (`docs/skdisasm/`).
 
+## S&K vs S3 ROM Halves — Address Selection Rule
+
+The locked-on ROM ("Sonic and Knuckles & Sonic 3") contains **two halves**:
+- **S&K half** (0x000000–0x1FFFFF): The primary S&K code and data — this is what the engine runs
+- **S3 half** (0x200000–0x3FFFFF): The Sonic 3 standalone code and data
+
+Many shared assets (art, mappings, palettes) exist in **both halves** with identical binary content. **Always use S&K-side addresses (< 0x200000)** for all ROM constants. The S3 copies at >= 0x200000 are not referenced by the S3KL code path.
+
+When RomOffsetFinder returns multiple results for the same label — one from `sonic3k.asm` (S&K) and one from `s3.asm` (S3) — always use the `sonic3k.asm` result. Similarly, when reading disassembly source, prefer `sonic3k.asm` over `s3.asm` for object code, as the S3KL versions may contain zone-specific overrides (e.g., FBZ art tile) absent from the S3 version.
+
 ## Directory Structure
 
 S3K is organized very differently from S1/S2 — per-zone directories under `Levels/`:

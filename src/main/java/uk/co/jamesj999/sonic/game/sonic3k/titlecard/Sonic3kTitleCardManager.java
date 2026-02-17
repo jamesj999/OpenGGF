@@ -438,8 +438,12 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
         int centerX = elemX[elemIdx];
         int centerY = elemY[elemIdx];
 
-        for (SpritePiece piece : pieces) {
-            renderSpritePiece(gm, piece, centerX, centerY);
+        // Render back-to-front: VDP sprites earlier in the mapping have higher
+        // priority (appear in front). Drawing in reverse ensures the highest-priority
+        // pieces (e.g. game name text on the banner) end up on top of lower-priority
+        // pieces (e.g. the red fill blocks).
+        for (int i = pieces.length - 1; i >= 0; i--) {
+            renderSpritePiece(gm, pieces[i], centerX, centerY);
         }
     }
 
