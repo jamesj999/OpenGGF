@@ -1,6 +1,8 @@
 package uk.co.jamesj999.sonic.game.sonic1.events;
 
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ZoneConstants;
+import uk.co.jamesj999.sonic.level.LevelManager;
 
 /**
  * Scrap Brain Zone + Final Zone dynamic level events.
@@ -14,8 +16,8 @@ import uk.co.jamesj999.sonic.camera.Camera;
  * TODO: Act 2 boss spawn + collapsing floor - DLE_SBZ lines 323-400 in s1disasm.
  *   Routine 2 spawns collapsing floor object; routine 4 spawns Eggman boss.
  *   Boss objects not yet implemented.
- * TODO: Act 3 zone transition to FZ - DLE_SBZ3.
- *   Needs lamppost clearing, zone restart with id_SBZ act 3 (= FZ).
+ * Act 3 zone transition to FZ - DLE_SBZ3: implemented.
+ *   Locks player, clears checkpoint, restarts into Final Zone.
  * TODO: FZ boss spawn + Robotnik sequence - DLE_FZ / DLE_Ending lines 401+.
  *   Routine 0 loads FZ boss patterns; routine 2 spawns FZ boss.
  *   Boss objects, defeat sequence, and ending not yet implemented.
@@ -32,8 +34,17 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
     private static final int BOSS_FZ_X = 0x2450;
     private static final int BOSS_FZ_Y = 0x510;
 
+    // Guard against re-triggering the SBZ3->FZ transition during fade
+    private boolean fzTransitionRequested;
+
     Sonic1SBZEvents(Camera camera) {
         super(camera);
+    }
+
+    @Override
+    void init() {
+        super.init();
+        fzTransitionRequested = false;
     }
 
     @Override
@@ -189,6 +200,13 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
      * Note: ROM treats SBZ3 as LZ act 3 (id_SBZ << 8 + 2).
      */
     private void updateAct3() {
+        // Guard: ROM sets f_restart which immediately restarts on the next
+        // frame. Our transition is fade-coordinated (async), so we must
+        // prevent re-requesting across the frames until the fade completes.
+        if (fzTransitionRequested) {
+            return;
+        }
+
         int camX = camera.getX() & 0xFFFF;
 
         // cmpi.w #$D00,(v_screenposx).w
@@ -203,11 +221,16 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
             return; // locret_6F8C
         }
 
-        // TODO: Zone transition to Final Zone (not yet implemented)
-        // ROM code:
-        //   clr.b  (v_lastlamp).w        ; clear lamppost
-        //   move.w #1,(f_restart).w       ; restart level
-        //   move.w #(id_SBZ<<8)+2,(v_zone).w  ; set zone to SBZ act 3 (= FZ)
+        fzTransitionRequested = true;
+
+        // ROM: move.b #1,(f_playerctrl).w - lock player controls
+        camera.getFocusedSprite().setControlLocked(true);
+
+        // ROM: clr.b (v_lastlamp).w - checkpoint cleared by requestZoneAndAct
+        // ROM: move.w #(id_SBZ<<8)+2,(v_zone).w - FZ is zone 6 act 0 in our engine
+        // ROM: move.w #1,(f_restart).w - restart level
+        LevelManager.getInstance().requestZoneAndAct(
+                Sonic1ZoneConstants.ZONE_FZ, 0);
     }
 
     // ---- Final Zone (DLE_FZ) ----
