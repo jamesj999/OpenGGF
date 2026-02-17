@@ -326,7 +326,16 @@ public class LevelManager {
             // mid-frame GPU reallocation hitches (e.g., AIZ intro ocean->beach transition)
             BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
             if (bgRenderer != null && bgRenderer.isInitialized()) {
-                int maxBgWidth = Math.max(cachedScreenWidth, getLayerLevelWidthPx((byte) 1));
+                int maxBgWidth;
+                if (zoneFeatureProvider != null && !zoneFeatureProvider.bgWrapsHorizontally()) {
+                    // S3K uses full-width BG data (e.g., AIZ intro ocean-to-beach transition)
+                    maxBgWidth = Math.max(cachedScreenWidth, getLayerLevelWidthPx((byte) 1));
+                } else {
+                    // S1/S2 use VDP-width (512px) background periods.
+                    // Pre-allocating to full level width can exceed GPU max texture size
+                    // (S2: 128 blocks * 128px = 16384, right at GPU limit).
+                    maxBgWidth = Math.max(cachedScreenWidth, VDP_BG_PLANE_WIDTH_PX);
+                }
                 int fboHeight = 256 + LevelConstants.CHUNK_HEIGHT;
                 graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM,
                         (cx, cy, cw, ch) -> bgRenderer.ensureCapacity(maxBgWidth, fboHeight)));
