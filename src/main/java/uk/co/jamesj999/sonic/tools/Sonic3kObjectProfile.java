@@ -2,6 +2,8 @@ package uk.co.jamesj999.sonic.tools;
 
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kObjectPlacement;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.S3kZoneSet;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.Sonic3kObjectRegistry;
 import uk.co.jamesj999.sonic.level.LevelData;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.tools.ObjectDiscoveryTool.DynamicBoss;
@@ -14,6 +16,13 @@ import java.util.Set;
 
 /**
  * Sonic 3&amp;K object profile for the ObjectDiscoveryTool.
+ *
+ * <p>S3K uses two object pointer tables that remap many IDs by zone:
+ * <ul>
+ *   <li><b>S3KL</b> (SK Set 1): Zones 0-6 (AIZ through LBZ)</li>
+ *   <li><b>SKL</b> (SK Set 2): Zones 7-13 (MHZ through DDZ)</li>
+ * </ul>
+ * Names, badnik IDs, and boss IDs are resolved per-level via the zone set.
  */
 public class Sonic3kObjectProfile implements GameObjectProfile {
 
@@ -45,88 +54,131 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             new LevelConfig(LevelData.S3K_DOOMSDAY, "DDZ", "The Doomsday Zone", 1)
     );
 
-    // No S3K objects implemented yet
-    private static final Set<Integer> IMPLEMENTED_IDS = Set.of();
-
-    // Known badnik IDs from skdisasm Obj_ labels
-    private static final Set<Integer> BADNIK_IDS = Set.of(
-            0x01, // MonkeyDude (AIZ)
-            0x02, // Caterkiller Jr. (MGZ)
-            0x03, // Rhinobot (AIZ)
-            0x04, // Bloominator (AIZ/MGZ)
-            0x50, // Jawz (HCZ)
-            0x51, // Buggernaut (MGZ)
-            0x52, // TurboSpiker (HCZ)
-            0x53, // MegaChopper (AIZ)
-            0x54, // Pointdexter (HCZ)
-            0x55, // Blaster (CNZ)
-            0x56, // Sparkle (ICZ)
-            0x58, // Batbot (CNZ)
-            0x59, // Orbinaut (LBZ)
-            0x5A, // Ribot (FBZ)
-            0x5E, // Mushmeanie (MHZ)
-            0x61, // Sandworm (SOZ)
-            0x63, // Skorp (SOZ)
-            0x65  // Fireworm (LRZ)
+    private static final Set<Integer> IMPLEMENTED_IDS = Set.of(
+            0x01, // Monitor
+            0x02, // PathSwap
+            0x07, // Spring
+            0x08, // Spikes
+            0x09, // AIZ1Tree
+            0x0A  // AIZ1ZiplinePeg
     );
 
-    private static final Set<Integer> BOSS_IDS = Set.of();
+    // S3KL badniks (SK Set 1, zones 0-6: AIZ through LBZ)
+    private static final Set<Integer> S3KL_BADNIK_IDS = Set.of(
+            0x8C, // Bloominator
+            0x8D, // Rhinobot
+            0x8E, // MonkeyDude
+            0x8F, // CaterKillerJr
+            0x93, // Jawz
+            0x94, // Blastoid
+            0x95, // Buggernaut
+            0x96, // TurboSpiker
+            0x97, // MegaChopper
+            0x98, // Poindexter
+            0x9B, // BubblesBadnik
+            0x9C, // Spiker
+            0x9D, // Mantis
+            0x9E, // Tunnelbot
+            0xA3, // Clamer
+            0xA4, // Sparkle
+            0xA5, // Batbot
+            0xA8, // Blaster
+            0xA9, // TechnoSqueek
+            0xAD, // Penguinator
+            0xAE, // StarPointer
+            0xBE, // SnaleBlaster
+            0xBF, // Ribot
+            0xC0, // Orbinaut
+            0xC1, // Corkey
+            0xC2  // Flybot767
+    );
+
+    // SKL badniks (SK Set 2, zones 7-13: MHZ through DDZ)
+    private static final Set<Integer> SKL_BADNIK_IDS = Set.of(
+            0x8C, // Madmole
+            0x8D, // Mushmeanie
+            0x8E, // Dragonfly
+            0x8F, // Butterdroid
+            0x90, // Cluckoid
+            0x94, // Skorp
+            0x95, // Sandworm
+            0x96, // Rockn
+            0x99, // Fireworm
+            0x9A, // Iwamodoki
+            0x9B, // Toxomister
+            0xA4, // Spikebonker
+            0xA5  // Chainspike
+    );
+
+    // S3KL bosses (SK Set 1, zones 0-6)
+    private static final Set<Integer> S3KL_BOSS_IDS = Set.of(
+            0x90, // AIZMinibossCutscene
+            0x91, // AIZMiniboss
+            0x92, // AIZEndBoss
+            0x99, // HCZMiniboss
+            0x9A, // HCZEndBoss
+            0x9F, // MGZMiniboss
+            0xA0, // MGZ2DrillingRobotnik
+            0xA1, // MGZEndBoss
+            0xA2, // MGZEndBossKnux
+            0xA6, // CNZMiniboss
+            0xA7, // CNZEndBoss
+            0xAA, // FBZMiniboss
+            0xAB, // FBZ2Subboss
+            0xAC, // FBZEndBoss
+            0xBC, // ICZMiniboss
+            0xBD, // ICZEndBoss
+            0xC3, // LBZ1Robotnik
+            0xC4, // LBZMinibossBox
+            0xC5, // LBZMinibossBoxKnux
+            0xC6, // LBZ2RobotnikShip
+            0xC9, // LBZMiniboss
+            0xCA, // LBZFinalBoss1
+            0xCB, // LBZEndBoss
+            0xCC, // LBZFinalBoss2
+            0xCD  // LBZFinalBossKnux
+    );
+
+    // SKL bosses (SK Set 2, zones 7-13)
+    private static final Set<Integer> SKL_BOSS_IDS = Set.of(
+            0x91, // MHZMinibossTree
+            0x92, // MHZMiniboss
+            0x93, // MHZEndBoss
+            0x97, // SOZMiniboss
+            0x98, // SOZEndBoss
+            0x9C, // LRZRockCrusher
+            0x9D, // LRZMiniboss
+            0x9E, // LRZ3Autoscroll
+            0xA0, // EggRobo
+            0xA1, // SSZGHZBoss
+            0xA2, // SSZMTZBoss
+            0xA3, // SSZEndBoss
+            0xA6, // DEZMiniboss
+            0xA7, // DEZEndBoss
+            0xB6  // DDZEndBoss
+    );
 
     private static final Map<String, List<DynamicBoss>> DYNAMIC_BOSSES = Map.of();
 
-    /** Known S3K object names from skdisasm Obj_ labels. */
-    private static final Map<Integer, List<String>> OBJECT_NAMES = buildNames();
+    /** S3KL names built from the registry (SK Set 1). */
+    private static final Map<Integer, List<String>> S3KL_NAMES = buildNames(S3kZoneSet.S3KL);
+    /** SKL names built from the registry (SK Set 2). */
+    private static final Map<Integer, List<String>> SKL_NAMES = buildNames(S3kZoneSet.SKL);
 
-    private static Map<Integer, List<String>> buildNames() {
+    private static Map<Integer, List<String>> buildNames(S3kZoneSet zoneSet) {
+        Sonic3kObjectRegistry registry = new Sonic3kObjectRegistry();
         Map<Integer, List<String>> map = new HashMap<>();
-        // AIZ objects
-        map.put(0x01, List.of("MonkeyDude"));
-        map.put(0x02, List.of("CaterkillerJr"));
-        map.put(0x03, List.of("Rhinobot"));
-        map.put(0x04, List.of("Bloominator"));
-        // Common objects
-        map.put(0x0D, List.of("Signpost"));
-        map.put(0x18, List.of("Platform"));
-        map.put(0x22, List.of("CollapsingPlatform"));
-        map.put(0x25, List.of("Ring"));
-        map.put(0x26, List.of("Monitor"));
-        map.put(0x2F, List.of("Spring"));
-        map.put(0x36, List.of("Spikes"));
-        map.put(0x3E, List.of("EggPrison"));
-        // HCZ objects
-        map.put(0x50, List.of("Jawz"));
-        map.put(0x51, List.of("Buggernaut"));
-        map.put(0x52, List.of("TurboSpiker"));
-        map.put(0x53, List.of("MegaChopper"));
-        map.put(0x54, List.of("Pointdexter"));
-        // CNZ objects
-        map.put(0x55, List.of("Blaster"));
-        map.put(0x56, List.of("Sparkle"));
-        map.put(0x58, List.of("Batbot"));
-        // LBZ/FBZ objects
-        map.put(0x59, List.of("Orbinaut"));
-        map.put(0x5A, List.of("Ribot"));
-        // MHZ objects
-        map.put(0x5E, List.of("Mushmeanie"));
-        // SOZ objects
-        map.put(0x61, List.of("Sandworm"));
-        map.put(0x63, List.of("Skorp"));
-        // LRZ objects
-        map.put(0x65, List.of("Fireworm"));
-        // Misc common
-        map.put(0x06, List.of("Spiral"));
-        map.put(0x07, List.of("Bumper"));
-        map.put(0x09, List.of("LayerSwitcher"));
-        map.put(0x0A, List.of("Bridge"));
-        map.put(0x11, List.of("SwingingPlatform"));
-        map.put(0x12, List.of("SpindashDust", "Splash"));
-        map.put(0x14, List.of("Starpost"));
-        map.put(0x1F, List.of("BreakableWall"));
+        for (int id = 0; id <= 0xFF; id++) {
+            String name = registry.getPrimaryName(id, zoneSet);
+            if (!name.startsWith("S3K_Obj_")) {
+                map.put(id, List.of(name));
+            }
+        }
         return Map.copyOf(map);
     }
 
     /** Map S3K LevelData to zone/act indices for the pointer table. */
-    private static final Map<LevelData, int[]> LEVEL_ZONE_ACT = Map.ofEntries(
+    static final Map<LevelData, int[]> LEVEL_ZONE_ACT = Map.ofEntries(
             Map.entry(LevelData.S3K_ANGEL_ISLAND_1, new int[]{0, 0}),
             Map.entry(LevelData.S3K_ANGEL_ISLAND_2, new int[]{0, 1}),
             Map.entry(LevelData.S3K_HYDROCITY_1, new int[]{1, 0}),
@@ -154,16 +206,42 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             Map.entry(LevelData.S3K_DOOMSDAY, new int[]{12, 0})
     );
 
+    private S3kZoneSet zoneSetForLevel(LevelConfig level) {
+        int[] za = LEVEL_ZONE_ACT.get(level.levelData());
+        return S3kZoneSet.forZone(za[0]);
+    }
+
     @Override public String gameName() { return "Sonic 3&K"; }
     @Override public String gameId() { return "s3k"; }
     @Override public String defaultRomPath() { return "Sonic and Knuckles & Sonic 3 (W) [!].gen"; }
     @Override public String outputFilename() { return "S3K_OBJECT_CHECKLIST.md"; }
     @Override public List<LevelConfig> getLevels() { return LEVELS; }
     @Override public Set<Integer> getImplementedIds() { return IMPLEMENTED_IDS; }
-    @Override public Set<Integer> getBadnikIds() { return BADNIK_IDS; }
-    @Override public Set<Integer> getBossIds() { return BOSS_IDS; }
     @Override public Map<String, List<DynamicBoss>> getDynamicBosses() { return DYNAMIC_BOSSES; }
-    @Override public Map<Integer, List<String>> getObjectNames() { return OBJECT_NAMES; }
+
+    @Override
+    public Set<Integer> getBadnikIds() { return S3KL_BADNIK_IDS; }
+
+    @Override
+    public Set<Integer> getBadnikIds(LevelConfig level) {
+        return zoneSetForLevel(level) == S3kZoneSet.SKL ? SKL_BADNIK_IDS : S3KL_BADNIK_IDS;
+    }
+
+    @Override
+    public Set<Integer> getBossIds() { return S3KL_BOSS_IDS; }
+
+    @Override
+    public Set<Integer> getBossIds(LevelConfig level) {
+        return zoneSetForLevel(level) == S3kZoneSet.SKL ? SKL_BOSS_IDS : S3KL_BOSS_IDS;
+    }
+
+    @Override
+    public Map<Integer, List<String>> getObjectNames() { return S3KL_NAMES; }
+
+    @Override
+    public Map<Integer, List<String>> getObjectNames(LevelConfig level) {
+        return zoneSetForLevel(level) == S3kZoneSet.SKL ? SKL_NAMES : S3KL_NAMES;
+    }
 
     @Override
     public List<ObjectSpawn> loadObjects(RomByteReader rom, LevelConfig level) {
