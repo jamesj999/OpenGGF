@@ -7,10 +7,8 @@ import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.render.SpriteDplcFrame;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
-import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
 import uk.co.jamesj999.sonic.level.render.TileLoadRequest;
 import uk.co.jamesj999.sonic.sprites.animation.ScriptedVelocityAnimationProfile;
-import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationEndAction;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationProfile;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationScript;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
@@ -367,107 +365,22 @@ public class Sonic3kPlayerArt {
         return set;
     }
 
-    // ===== Art tile loading (identical to S2) =====
+    // ===== Delegating loaders (implementations in S3kSpriteDataLoader) =====
 
     private Pattern[] loadArtTiles(int artAddr, int artSize) throws IOException {
-        if (artSize % Pattern.PATTERN_SIZE_IN_ROM != 0) {
-            throw new IOException("Inconsistent player art tile data");
-        }
-        int tileCount = artSize / Pattern.PATTERN_SIZE_IN_ROM;
-        Pattern[] patterns = new Pattern[tileCount];
-        for (int i = 0; i < tileCount; i++) {
-            patterns[i] = new Pattern();
-            int start = i * Pattern.PATTERN_SIZE_IN_ROM;
-            patterns[i].fromSegaFormat(reader.slice(artAddr + start, Pattern.PATTERN_SIZE_IN_ROM));
-        }
-        return patterns;
+        return S3kSpriteDataLoader.loadArtTiles(reader, artAddr, artSize);
     }
-
-    // ===== Mapping loading (S3K: 6-byte pieces) =====
 
     private List<SpriteMappingFrame> loadMappingFrames(int mappingAddr) {
-        int offsetTableSize = reader.readU16BE(mappingAddr);
-        int frameCount = offsetTableSize / 2;
-        List<SpriteMappingFrame> frames = new ArrayList<>(frameCount);
-        for (int i = 0; i < frameCount; i++) {
-            int frameAddr = mappingAddr + reader.readU16BE(mappingAddr + i * 2);
-            int pieceCount = reader.readU16BE(frameAddr);
-            frameAddr += 2;
-            List<SpriteMappingPiece> pieces = new ArrayList<>(pieceCount);
-            for (int p = 0; p < pieceCount; p++) {
-                int yOffset = (byte) reader.readU8(frameAddr);
-                frameAddr += 1;
-                int size = reader.readU8(frameAddr);
-                frameAddr += 1;
-                int tileWord = reader.readU16BE(frameAddr);
-                frameAddr += 2;
-                // S3K: NO 2P tile word (S2 has +2 skip here)
-                int xOffset = (short) reader.readU16BE(frameAddr);
-                frameAddr += 2;
-
-                int widthTiles = ((size >> 2) & 0x3) + 1;
-                int heightTiles = (size & 0x3) + 1;
-
-                int tileIndex = tileWord & 0x7FF;
-                boolean hFlip = (tileWord & 0x800) != 0;
-                boolean vFlip = (tileWord & 0x1000) != 0;
-                int paletteIndex = (tileWord >> 13) & 0x3;
-
-                pieces.add(new SpriteMappingPiece(
-                        xOffset, yOffset, widthTiles, heightTiles, tileIndex, hFlip, vFlip, paletteIndex));
-            }
-            frames.add(new SpriteMappingFrame(pieces));
-        }
-        return frames;
+        return S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr);
     }
-
-    // ===== DPLC loading (identical to S2) =====
 
     private List<SpriteDplcFrame> loadDplcFrames(int dplcAddr) {
-        int offsetTableSize = reader.readU16BE(dplcAddr);
-        int frameCount = offsetTableSize / 2;
-        List<SpriteDplcFrame> frames = new ArrayList<>(frameCount);
-        for (int i = 0; i < frameCount; i++) {
-            int frameAddr = dplcAddr + reader.readU16BE(dplcAddr + i * 2);
-            int requestCount = reader.readU16BE(frameAddr);
-            frameAddr += 2;
-            List<TileLoadRequest> requests = new ArrayList<>(requestCount);
-            for (int r = 0; r < requestCount; r++) {
-                int entry = reader.readU16BE(frameAddr);
-                frameAddr += 2;
-                int count = ((entry >> 12) & 0xF) + 1;
-                int startTile = entry & 0x0FFF;
-                requests.add(new TileLoadRequest(startTile, count));
-            }
-            frames.add(new SpriteDplcFrame(requests));
-        }
-        return frames;
+        return S3kSpriteDataLoader.loadDplcFrames(reader, dplcAddr);
     }
 
-    /**
-     * Loads DPLC frames with an explicit frame count instead of reading it from the first word.
-     *
-     * <p>Used for tables like PLC_SuperSonic where the first word is a frame data offset
-     * rather than an entry count (because the frame data region is non-contiguous with the
-     * normal Sonic DPLC data sitting in between).
-     */
     private List<SpriteDplcFrame> loadDplcFrames(int dplcAddr, int frameCount) {
-        List<SpriteDplcFrame> frames = new ArrayList<>(frameCount);
-        for (int i = 0; i < frameCount; i++) {
-            int frameAddr = dplcAddr + reader.readU16BE(dplcAddr + i * 2);
-            int requestCount = reader.readU16BE(frameAddr);
-            frameAddr += 2;
-            List<TileLoadRequest> requests = new ArrayList<>(requestCount);
-            for (int r = 0; r < requestCount; r++) {
-                int entry = reader.readU16BE(frameAddr);
-                frameAddr += 2;
-                int count = ((entry >> 12) & 0xF) + 1;
-                int startTile = entry & 0x0FFF;
-                requests.add(new TileLoadRequest(startTile, count));
-            }
-            frames.add(new SpriteDplcFrame(requests));
-        }
-        return frames;
+        return S3kSpriteDataLoader.loadDplcFrames(reader, dplcAddr, frameCount);
     }
 
     // ===== Animation loading (identical format to S2) =====
@@ -499,64 +412,10 @@ public class Sonic3kPlayerArt {
     }
 
     private SpriteAnimationScript parseAnimationScript(int scriptAddr) {
-        int delay = reader.readU8(scriptAddr);
-        scriptAddr += 1;
-
-        List<Integer> frames = new ArrayList<>();
-        SpriteAnimationEndAction endAction = SpriteAnimationEndAction.LOOP;
-        int endParam = 0;
-
-        while (true) {
-            int value = reader.readU8(scriptAddr);
-            scriptAddr += 1;
-            if (value >= 0xF0) {
-                if (value == 0xFF) {
-                    endAction = SpriteAnimationEndAction.LOOP;
-                    break;
-                }
-                if (value == 0xFE) {
-                    endAction = SpriteAnimationEndAction.LOOP_BACK;
-                    endParam = reader.readU8(scriptAddr);
-                    break;
-                }
-                if (value == 0xFD) {
-                    endAction = SpriteAnimationEndAction.SWITCH;
-                    endParam = reader.readU8(scriptAddr);
-                    break;
-                }
-                endAction = SpriteAnimationEndAction.HOLD;
-                break;
-            }
-            frames.add(value);
-        }
-
-        return new SpriteAnimationScript(delay, frames, endAction, endParam);
+        return S3kSpriteDataLoader.parseAnimationScript(reader, scriptAddr);
     }
 
     private int resolveBankSize(List<SpriteDplcFrame> dplcFrames, List<SpriteMappingFrame> mappingFrames) {
-        // Max tiles loaded by any single DPLC frame
-        int maxDplcTotal = 0;
-        for (SpriteDplcFrame frame : dplcFrames) {
-            int total = 0;
-            for (TileLoadRequest request : frame.requests()) {
-                total += Math.max(0, request.count());
-            }
-            maxDplcTotal = Math.max(maxDplcTotal, total);
-        }
-
-        // Max tile index referenced by any mapping piece.
-        // The ROM uses incremental DPLCs: each frame's DPLC only loads CHANGED
-        // tiles, leaving previously-loaded tiles in VRAM. The bank must be large
-        // enough to hold ALL positions any mapping frame might reference, not just
-        // the most tiles any single DPLC loads.
-        int maxMappingIndex = 0;
-        for (SpriteMappingFrame frame : mappingFrames) {
-            for (SpriteMappingPiece piece : frame.pieces()) {
-                int tileCount = piece.widthTiles() * piece.heightTiles();
-                maxMappingIndex = Math.max(maxMappingIndex, piece.tileIndex() + tileCount);
-            }
-        }
-
-        return Math.max(maxDplcTotal, maxMappingIndex);
+        return S3kSpriteDataLoader.resolveBankSize(dplcFrames, mappingFrames);
     }
 }

@@ -49,11 +49,20 @@ public class DisassemblySearchResult {
     }
 
     /**
-     * Whether this result has an associated binclude file path.
+     * Whether this result has an associated file path (binclude or include).
      * Label-only results (Offs_*, PLC_*) return false.
      */
-    public boolean hasBinclude() {
+    public boolean hasFile() {
         return filePath != null;
+    }
+
+    /**
+     * Whether this result has an associated binclude file path.
+     * Label-only results (Offs_*, PLC_*) return false.
+     * @deprecated Use {@link #hasFile()} instead.
+     */
+    public boolean hasBinclude() {
+        return hasFile();
     }
 
     @Override
