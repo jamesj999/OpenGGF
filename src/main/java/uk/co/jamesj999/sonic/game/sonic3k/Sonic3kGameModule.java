@@ -41,6 +41,7 @@ public class Sonic3kGameModule implements GameModule {
     private Sonic3kScrollHandlerProvider scrollHandlerProvider;
     private Sonic3kLevelEventManager levelEventManager;
     private PhysicsProvider physicsProvider;
+    private Sonic3kObjectArtProvider objectArtProvider;
 
     @Override
     public String getIdentifier() {
@@ -148,7 +149,10 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public ObjectArtProvider getObjectArtProvider() {
-        return new Sonic3kObjectArtProvider();
+        if (objectArtProvider == null) {
+            objectArtProvider = new Sonic3kObjectArtProvider();
+        }
+        return objectArtProvider;
     }
 
     @Override

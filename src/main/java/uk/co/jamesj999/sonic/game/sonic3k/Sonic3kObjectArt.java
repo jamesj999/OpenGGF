@@ -266,7 +266,7 @@ public class Sonic3kObjectArt {
      * Builds the AIZForegroundPlant sprite sheet.
      * <p>
      * From disassembly (Map - AIZ Foreground Plant.asm):
-     * art_tile = make_art_tile(ArtTile_AIZMisc1, 2, 0) → base tile 0x333, palette 2
+     * art_tile = make_art_tile(ArtTile_AIZMisc1, 2, 1) → base tile 0x333, palette 2, priority
      * Mapping: 2 frames (0=with flowers, 1=without flowers), 8 pieces each.
      * Tile range: 0x64 to 0x9B (56 patterns from level art).
      */

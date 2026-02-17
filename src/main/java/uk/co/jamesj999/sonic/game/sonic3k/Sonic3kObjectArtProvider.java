@@ -62,9 +62,6 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
 
     @Override
     public void loadArtForZone(int zoneIndex) throws IOException {
-        if (zoneIndex == currentZoneIndex) {
-            return;
-        }
         currentZoneIndex = zoneIndex;
 
         // Clear previous registrations
