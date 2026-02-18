@@ -33,6 +33,11 @@ public class ObjectRenderManager {
         this.provider = provider;
     }
 
+    /** Returns the underlying game-specific art provider. */
+    public ObjectArtProvider getArtProvider() {
+        return provider;
+    }
+
     public int ensurePatternsCached(GraphicsManager graphicsManager, int basePatternIndex) {
         return provider.ensurePatternsCached(graphicsManager, basePatternIndex);
     }

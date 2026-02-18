@@ -582,6 +582,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 return shieldType;
         }
 
+        public ShieldObjectInstance getShieldObject() {
+                return shieldObject;
+        }
+
         public void giveSpeedShoes() {
                 this.speedShoes = true;
                 // Register speed shoes timer using the existing timer framework

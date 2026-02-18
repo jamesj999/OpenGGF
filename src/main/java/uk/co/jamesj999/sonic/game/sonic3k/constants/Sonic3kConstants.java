@@ -168,6 +168,16 @@ public class Sonic3kConstants {
     public static final int TOUCH_SIZES_ADDR = 0x00FF62;
     public static final int TOUCH_SIZES_COUNT = 58;
 
+    // ===== Pattern Load Cue (PLC) tables =====
+    // Offs_PLC: 2-byte offset table, 124 entries (IDs 0x00-0x7B)
+    // Each word is an offset from Offs_PLC to the PLC data block.
+    // PLC data block: dc.w count-1, then count × 6-byte entries:
+    //   dc.l nemesis_rom_addr, dc.w vram_dest_bytes (tile_index * 32)
+    // Verified by ROM binary search for PLC_01 fingerprint: 0x09249E - 0x112 = 0x09238C
+    public static final int OFFS_PLC_ADDR = 0x09238C;
+    public static final int OFFS_PLC_ENTRY_COUNT = 124;
+    public static final int PLC_ENTRY_SIZE = 6; // 4-byte ROM addr + 2-byte VRAM dest
+
     public static final int ART_NEM_SONIC_LIFE_ICON_ADDR = 0x190D34;
     public static final int ART_NEM_MONITORS_ADDR = 0x190F4A;
     public static final int ART_NEM_EXPLOSION_ADDR = 0x19200A;
@@ -230,6 +240,8 @@ public class Sonic3kConstants {
     public static final int ARTTILE_CUTSCENE_KNUX = 0x04DA;      // ArtTile_CutsceneKnux
     public static final int ARTTILE_AIZ_SLIDE_ROPE = 0x0324;
     public static final int ARTTILE_AIZ_MISC1 = 0x0333;
+    public static final int ARTTILE_AIZ_MISC2 = 0x02E9;
+    public static final int ARTTILE_LRZ2_MISC = 0x040D;
     public static final int ARTTILE_AIZ_FALLING_LOG = 0x03CF;
     public static final int ARTTILE_AIZ_FLOATING_PLATFORM = 0x03F7;
     public static final int ARTTILE_AIZ_SWING_VINE = 0x041B;
@@ -482,6 +494,38 @@ public class Sonic3kConstants {
     public static final int ANI_BUBBLE_SHIELD_COUNT = 3;
     public static final int MAP_BUBBLE_SHIELD_ADDR = 0x019F82;
     public static final int DPLC_BUBBLE_SHIELD_ADDR = 0x01A076;
+
+    // ===== Collapsing Platform Mappings (Object 0x04) =====
+    // Verified by ROM binary pattern search for offset table fingerprints, 2026-02-17
+
+    // Map_AIZCollapsingPlatform - AIZ Act 1 collapsing platform mappings (4 frames)
+    // Frames 0,1 = intact variants, frames 2,3 = fragment variants
+    public static final int MAP_AIZ_COLLAPSING_PLATFORM_ADDR = 0x21E6C8;
+
+    // Map_AIZCollapsingPlatform2 - AIZ Act 2 collapsing platform mappings (4 frames)
+    public static final int MAP_AIZ_COLLAPSING_PLATFORM2_ADDR = 0x21E7AC;
+
+    // Map_ICZCollapsingBridge - ICZ collapsing platform mappings (6 frames)
+    public static final int MAP_ICZ_COLLAPSING_BRIDGE_ADDR = 0x21F2F2;
+
+    // ===== Level Object Mappings (parsed at runtime by S3kSpriteDataLoader) =====
+    // Verified by ROM binary pattern search for offset table fingerprints, 2026-02-17
+
+    // Map_AIZRock - AIZ Act 1 rock mappings (7 frames: 3 intact + 4 debris)
+    // Referenced at s3.asm:36232: move.l #Map_AIZRock,mappings(a0)
+    public static final int MAP_AIZ_ROCK_ADDR = 0x21DCDC;
+
+    // Map_AIZRock2 - AIZ Act 2 rock mappings (7 frames: 3 intact + 4 debris)
+    // Referenced at s3.asm:36240: move.l #Map_AIZRock2,mappings(a0)
+    public static final int MAP_AIZ_ROCK2_ADDR = 0x21DD64;
+
+    // Map_LRZBreakableRock - LRZ Act 1 breakable rock mappings (11 frames)
+    // Referenced at sonic3k.asm:43871: move.l #Map_LRZBreakableRock,mappings(a0)
+    public static final int MAP_LRZ_BREAKABLE_ROCK_ADDR = 0x0203D8;
+
+    // Map_LRZBreakableRock2 - LRZ Act 2 breakable rock mappings (12 frames)
+    // Referenced at sonic3k.asm:43876: move.l #Map_LRZBreakableRock2,mappings(a0)
+    public static final int MAP_LRZ_BREAKABLE_ROCK2_ADDR = 0x02047A;
 
     // VRAM tile destinations for shields
     public static final int ART_TILE_SHIELD = 0x079C;

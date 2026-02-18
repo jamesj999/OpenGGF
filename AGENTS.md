@@ -214,6 +214,7 @@ GameModuleRegistry.detectAndSetModule(rom);
 - S3K collision index pointers:
   - Use `Sonic3k.decodeCollisionPointer(...)` marker logic (low-bit/high-bit marker + address threshold).
   - `Sonic3kLevel.readCollisionIndex(...)` uses stride-2 indexing, matching the original code path for chunk collision references.
+- **PLC system:** See `s3k-plc-system` skill for Pattern Load Cue system docs (runtime art loading, act transitions, boss art).
 - Current known limitation:
   - `validateResourceReferences()` may still log high chunk pattern references in some S3K acts (`maxChunkPatternIndex > patternCount`), indicating dynamic art/PLC parity is still incomplete.
 - Regression tests to keep:
@@ -262,6 +263,14 @@ Game objects use a factory pattern with game-specific registries.
    ```
 
 **DO NOT** add badnik/enemy sheets to `ObjectArtData` - it should remain game-agnostic.
+
+**S2 object art:** Prefer `S2SpriteDataLoader.loadMappingFrames(reader, mappingAddr)` to parse S2 mappings from ROM. Object instance files should use `S2SpriteDataLoader` directly instead of inline parser copies.
+
+**S1 object art:** Use `Sonic1ObjectArt.buildArtSheet(artAddr, mappings, palette, bankSize)` for Nemesis art with mappings. Use `S1SpriteDataLoader.loadMappingFrames(reader, mappingAddr)` for ROM-parsed S1 mappings. Note: most S1 object mappings are inline assembly macros, so many objects still use hardcoded mappings.
+
+**S3K level-art objects:** Prefer `Sonic3kObjectArt.buildLevelArtSheetFromRom(mappingAddr, artTileBase, palette)` to parse S3K mappings from ROM at runtime. Add mapping ROM address to `Sonic3kConstants.java` (use RomOffsetFinder). Extract art_tile base and palette from the object code's `make_art_tile()` call. Only hardcode mapping pieces when the ROM table can't be used directly.
+
+**PLC system:** `PlcParser` in `level.resources` provides game-agnostic PLC parsing. See `plc-system` skill for cross-game reference, `s3k-plc-system` for S3K-specific details.
 
 ### Constants Files
 | File | Contents |

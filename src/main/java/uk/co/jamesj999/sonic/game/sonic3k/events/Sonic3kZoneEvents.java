@@ -3,10 +3,15 @@ package uk.co.jamesj999.sonic.game.sonic3k.events;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.GameServices;
+import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kLevel;
+import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kPlcLoader;
+import uk.co.jamesj999.sonic.level.resources.PlcParser.PlcDefinition;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
+import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectInstance;
 
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -87,6 +92,29 @@ public abstract class Sonic3kZoneEvents {
      *
      * @param palPointersIndex index into the PalPointers table
      */
+    /**
+     * Parses and applies a Pattern Load Cue to the current level, then
+     * refreshes any affected object renderers' GPU textures.
+     * ROM equivalent: Load_PLC (append) or Load_PLC_2 (clear+load).
+     *
+     * @param plcId the PLC ID (0x00–0x7B)
+     */
+    protected static void applyPlc(int plcId) {
+        try {
+            LevelManager levelManager = LevelManager.getInstance();
+            Level level = levelManager.getCurrentLevel();
+            if (!(level instanceof Sonic3kLevel sonic3kLevel)) {
+                return;
+            }
+            Rom rom = GameServices.rom().getRom();
+            PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, plcId);
+            List<Sonic3kPlcLoader.TileRange> modified = Sonic3kPlcLoader.applyToLevel(plc, sonic3kLevel);
+            Sonic3kPlcLoader.refreshAffectedRenderers(modified, levelManager);
+        } catch (Exception e) {
+            LOGGER.warning(String.format("Failed to apply PLC 0x%02X: %s", plcId, e.getMessage()));
+        }
+    }
+
     protected static void loadPaletteFromPalPointers(int palPointersIndex) {
         try {
             Rom rom = GameServices.rom().getRom();

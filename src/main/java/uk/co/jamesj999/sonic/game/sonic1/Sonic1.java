@@ -18,6 +18,9 @@ import uk.co.jamesj999.sonic.level.rings.RingSpawn;
 import uk.co.jamesj999.sonic.level.rings.RingSpriteSheet;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 
+import uk.co.jamesj999.sonic.level.resources.PlcParser;
+import uk.co.jamesj999.sonic.level.resources.PlcParser.PlcEntry;
+
 import java.io.IOException;
 import java.util.ArrayList;
 
@@ -123,7 +126,7 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
         // Read pattern load cues from both primary and secondary ArtLoadCues.
         // Primary PLC = level art loaded during init; Secondary PLC = object/sprite art.
         // Both are needed since chunks may reference tiles from either.
-        List<Sonic1Level.PatternLoadCue> patternCues = readPatternLoadCues(plcId);
+        List<PlcEntry> patternCues = readPatternLoadCues(plcId);
         patternCues.addAll(readPatternLoadCues(plc2Id));
 
         // Get collision index for this zone
@@ -289,25 +292,10 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
      * <p>Returns all entries for the given PLC ID. The caller (Sonic1Level) filters
      * to only contiguous level tile entries.
      */
-    private List<Sonic1Level.PatternLoadCue> readPatternLoadCues(int plcId) throws IOException {
-        int tableAddr = Sonic1Constants.ART_LOAD_CUES_ADDR;
-        int plcOffset = rom.read16BitAddr(tableAddr + plcId * 2);
-        int plcAddr = tableAddr + plcOffset;
-
-        int entryCount = (rom.read16BitAddr(plcAddr) & 0xFFFF) + 1;
-
-        List<Sonic1Level.PatternLoadCue> entries = new ArrayList<>();
-        for (int i = 0; i < entryCount; i++) {
-            int entryAddr = plcAddr + 2 + i * 6;
-            int romAddr = rom.read32BitAddr(entryAddr);
-            int vramByteOffset = rom.read16BitAddr(entryAddr + 4) & 0xFFFF;
-            int tileOffset = vramByteOffset / 0x20; // Convert VRAM byte offset to tile index
-            entries.add(new Sonic1Level.PatternLoadCue(romAddr, tileOffset));
-        }
-
-        LOG.fine("PLC " + plcId + " at 0x" + Integer.toHexString(plcAddr) +
-                ": " + entryCount + " entries");
-        return entries;
+    private List<PlcEntry> readPatternLoadCues(int plcId) throws IOException {
+        PlcParser.PlcDefinition definition = PlcParser.parse(rom, Sonic1Constants.ART_LOAD_CUES_ADDR, plcId);
+        LOG.fine("PLC " + plcId + ": " + definition.entries().size() + " entries");
+        return new ArrayList<>(definition.entries());
     }
 
     /**

@@ -76,6 +76,8 @@ public static final int OBJECT_NAME = 0xXX;
 
 #### 2.2 Art Loading (if needed)
 
+**PLC note:** S2 art is loaded via ArtLoadCues (PLCs) in the ROM. Currently hardcoded in `Sonic2ObjectArt`; future refactor will use `PlcParser`. See `plc-system` skill.
+
 If the object needs new art:
 
 1. Add art key to `Sonic2ObjectArtKeys.java`:

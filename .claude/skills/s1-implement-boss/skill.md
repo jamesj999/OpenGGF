@@ -210,6 +210,8 @@ The hit response typically:
 
 ### Phase 6: Art Loading
 
+**PLC note:** S1 boss art has dedicated PLC IDs in ArtLoadCues. The shared `PlcParser` utility handles parsing. See `plc-system` skill.
+
 ```bash
 # Find boss art
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_Eggman" -q

@@ -106,14 +106,20 @@ public class LavaBubbleObjectInstance extends AbstractObjectInstance implements 
             return;
         }
 
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SOL);
-        if (renderer == null || !renderer.isReady()) {
-            return;
+        // ROM: Obj20 uses ArtNem_HtzFireball2 with Obj20_MapUnc_23254 mappings.
+        // After boss transformation, switches to ArtNem_HtzFireball1 (frames 3-4).
+        // Try the dedicated LAVA_BUBBLE sheet first, fall back to SOL frames.
+        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.LAVA_BUBBLE);
+        int frame;
+        if (renderer != null && renderer.isReady()) {
+            frame = animFrame; // Frames 0-1 in the dedicated sheet
+        } else {
+            renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SOL);
+            if (renderer == null || !renderer.isReady()) {
+                return;
+            }
+            frame = 3 + animFrame; // Fallback to SOL fireball frames
         }
-
-        // ROM: Obj20 uses ArtNem_HtzFireball1 after transformation.
-        // SOL sheet frames 3 and 4 are the two fireball frames using the same art source.
-        int frame = 3 + animFrame;
 
         renderer.drawFrameIndex(frame, x, y, false, false);
     }

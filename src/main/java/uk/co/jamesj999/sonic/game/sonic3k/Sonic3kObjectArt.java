@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic3k;
 
+import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.Pattern;
@@ -19,10 +20,27 @@ public class Sonic3kObjectArt {
     private static final Logger LOG = Logger.getLogger(Sonic3kObjectArt.class.getName());
 
     private final Level level;
+    private final RomByteReader reader;
 
     public Sonic3kObjectArt(Level level) {
-        this.level = level;
+        this(level, null);
     }
+
+    public Sonic3kObjectArt(Level level, RomByteReader reader) {
+        this.level = level;
+        this.reader = reader;
+    }
+
+    // Tracks the level tile range of the most recently built sheet,
+    // so callers can record which tiles each sheet depends on.
+    private int lastBuildStartTile = -1;
+    private int lastBuildTileCount = -1;
+
+    /** Returns the starting level tile index of the last built sheet, or -1. */
+    public int getLastBuildStartTile() { return lastBuildStartTile; }
+
+    /** Returns the tile count of the last built sheet, or -1. */
+    public int getLastBuildTileCount() { return lastBuildTileCount; }
 
     /**
      * Builds a sprite sheet from level patterns for an object that uses level art.
@@ -37,12 +55,17 @@ public class Sonic3kObjectArt {
     public ObjectSpriteSheet buildLevelArtSheet(int artTileBase, int sheetPalette,
             List<SpriteMappingFrame> frames, int minTile, int maxTileExclusive) {
         if (level == null) {
+            lastBuildStartTile = -1;
+            lastBuildTileCount = -1;
             return null;
         }
 
         int patternCount = maxTileExclusive - minTile;
         Pattern[] patterns = new Pattern[patternCount];
         int levelPatternCount = level.getPatternCount();
+
+        lastBuildStartTile = artTileBase + minTile;
+        lastBuildTileCount = patternCount;
 
         for (int i = 0; i < patternCount; i++) {
             int levelIndex = artTileBase + minTile + i;
@@ -57,6 +80,35 @@ public class Sonic3kObjectArt {
         // Adjust tile indices in frames by -minTile so they're 0-based
         List<SpriteMappingFrame> adjusted = adjustTileIndices(frames, -minTile);
         return new ObjectSpriteSheet(patterns, adjusted, sheetPalette, 1);
+    }
+
+    /**
+     * Builds a sprite sheet by parsing S3K mapping frames from ROM at runtime.
+     * Automatically computes the tile range from all pieces in the mapping.
+     *
+     * @param mappingAddr   ROM address of the S3K mapping table
+     * @param artTileBase   the art_tile base index (VRAM tile destination)
+     * @param sheetPalette  the sheet palette line (0-3)
+     * @return the sprite sheet, or null if reader is unavailable or mapping is empty
+     */
+    public ObjectSpriteSheet buildLevelArtSheetFromRom(int mappingAddr,
+            int artTileBase, int sheetPalette) {
+        if (reader == null) return null;
+        List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr);
+        if (frames.isEmpty()) return null;
+
+        int minTile = Integer.MAX_VALUE;
+        int maxTile = Integer.MIN_VALUE;
+        for (SpriteMappingFrame frame : frames) {
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                minTile = Math.min(minTile, piece.tileIndex());
+                int pieceTiles = piece.widthTiles() * piece.heightTiles();
+                maxTile = Math.max(maxTile, piece.tileIndex() + pieceTiles);
+            }
+        }
+        if (minTile == Integer.MAX_VALUE) return null;
+
+        return buildLevelArtSheet(artTileBase, sheetPalette, frames, minTile, maxTile);
     }
 
     /**
@@ -300,6 +352,70 @@ public class Sonic3kObjectArt {
         // art_tile base = 0x333, palette = 2
         // Tile range: 0x64 to 0x9C (exclusive) = 56 patterns
         return buildLevelArtSheet(Sonic3kConstants.ARTTILE_AIZ_MISC1, 2, frames, 0x64, 0x9C);
+    }
+
+    // ===== Collapsing Platform sprite sheets (parsed from ROM) =====
+
+    /**
+     * Builds the AIZ Act 1 Collapsing Platform sprite sheet (Map_AIZCollapsingPlatform, 4 frames).
+     * art_tile = make_art_tile($001, 2, 0) → base tile 1, palette 2.
+     */
+    public ObjectSpriteSheet buildCollapsingPlatformAiz1Sheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_COLLAPSING_PLATFORM_ADDR, 1, 2);
+    }
+
+    /**
+     * Builds the AIZ Act 2 Collapsing Platform sprite sheet (Map_AIZCollapsingPlatform2, 4 frames).
+     * art_tile = make_art_tile($001, 2, 0) → base tile 1, palette 2.
+     */
+    public ObjectSpriteSheet buildCollapsingPlatformAiz2Sheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_COLLAPSING_PLATFORM2_ADDR, 1, 2);
+    }
+
+    /**
+     * Builds the ICZ Collapsing Platform sprite sheet (Map_ICZCollapsingBridge, 6 frames).
+     * art_tile = make_art_tile($001, 2, 0) → base tile 1, palette 2.
+     */
+    public ObjectSpriteSheet buildCollapsingPlatformIczSheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_ICZ_COLLAPSING_BRIDGE_ADDR, 1, 2);
+    }
+
+    // ===== AIZ/LRZ Rock sprite sheets (parsed from ROM) =====
+
+    /**
+     * Builds the AIZ Act 1 Rock sprite sheet (Map_AIZRock, 7 frames).
+     * art_tile = ArtTile_AIZ_Misc1 ($0333), palette 1.
+     */
+    public ObjectSpriteSheet buildAiz1RockSheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_ROCK_ADDR,
+                Sonic3kConstants.ARTTILE_AIZ_MISC1, 1);
+    }
+
+    /**
+     * Builds the AIZ Act 2 Rock sprite sheet (Map_AIZRock2, 7 frames).
+     * art_tile = ArtTile_AIZ_Misc2 ($02E9), palette 2.
+     */
+    public ObjectSpriteSheet buildAiz2RockSheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_ROCK2_ADDR,
+                Sonic3kConstants.ARTTILE_AIZ_MISC2, 2);
+    }
+
+    /**
+     * Builds the LRZ Act 1 Breakable Rock sprite sheet (Map_LRZBreakableRock, 11 frames).
+     * art_tile = $00D3, palette 2.
+     */
+    public ObjectSpriteSheet buildLrz1RockSheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_LRZ_BREAKABLE_ROCK_ADDR,
+                0x00D3, 2);
+    }
+
+    /**
+     * Builds the LRZ Act 2 Breakable Rock sprite sheet (Map_LRZBreakableRock2, 12 frames).
+     * art_tile = ArtTile_LRZ2_MISC ($040D), palette 3.
+     */
+    public ObjectSpriteSheet buildLrz2RockSheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_LRZ_BREAKABLE_ROCK2_ADDR,
+                Sonic3kConstants.ARTTILE_LRZ2_MISC, 3);
     }
 
     private List<SpriteMappingFrame> adjustTileIndices(List<SpriteMappingFrame> frames, int adjustment) {

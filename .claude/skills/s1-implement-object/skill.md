@@ -75,6 +75,8 @@ public static final int OBJECT_NAME = 0xXX;
 
 #### 2.2 Art Loading
 
+**PLC note:** S1 loads object art via ArtLoadCues (PLCs) during level init. The shared `PlcParser` utility handles parsing. See `plc-system` skill.
+
 **Note:** Sonic 1 art infrastructure is not yet fully established. If `Sonic1ObjectArt.java`, `Sonic1ObjectArtKeys.java`, and `Sonic1ObjectArtProvider.java` do not exist, create them following the Sonic 2 pattern:
 
 1. **Create `Sonic1ObjectArtKeys.java`** (if needed):
