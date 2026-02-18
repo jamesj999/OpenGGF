@@ -214,6 +214,6 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
             return y;
         }
         WaterSystem waterSystem = WaterSystem.getInstance();
-        return waterSystem.getVisualWaterLevelY(lm.getRomZoneId(), lm.getCurrentAct());
+        return waterSystem.getVisualWaterLevelY(lm.getFeatureZoneId(), lm.getFeatureActId());
     }
 }

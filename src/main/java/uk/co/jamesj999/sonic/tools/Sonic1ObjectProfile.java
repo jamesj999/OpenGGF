@@ -85,6 +85,9 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.COLLAPSING_FLOOR,
             Sonic1ObjectIds.SPIKED_BALL_CHAIN,
             Sonic1ObjectIds.BIG_SPIKED_BALL,
+            Sonic1ObjectIds.SLZ_ELEVATOR,
+            Sonic1ObjectIds.SLZ_CIRCLING_PLATFORM,
+            Sonic1ObjectIds.SLZ_STAIRCASE,
             Sonic1ObjectIds.INVISIBLE_BARRIER,
             Sonic1ObjectIds.LAVA_BALL_MAKER,
             Sonic1ObjectIds.LAVA_GEYSER_MAKER,
@@ -98,17 +101,36 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.WATERFALL,
             Sonic1ObjectIds.BUMPER,
             Sonic1ObjectIds.FLOATING_BLOCK,
+            Sonic1ObjectIds.FAN,
+            Sonic1ObjectIds.SEESAW,
+            Sonic1ObjectIds.PYLON,
             Sonic1ObjectIds.WATERFALL_SOUND,
             Sonic1ObjectIds.ORBINAUT,
+            Sonic1ObjectIds.BOMB,
             Sonic1ObjectIds.GIANT_RING,
             Sonic1ObjectIds.GHZ_BOSS,
             Sonic1ObjectIds.MZ_BOSS,
             Sonic1ObjectIds.SYZ_BOSS,
             Sonic1ObjectIds.SYZ_BOSS_BLOCK,
             Sonic1ObjectIds.LZ_BOSS,
+            Sonic1ObjectIds.SLZ_BOSS,
             Sonic1ObjectIds.BOSS_FIRE,
             Sonic1ObjectIds.EGG_PRISON,
-            Sonic1ObjectIds.HIDDEN_BONUS
+            Sonic1ObjectIds.HIDDEN_BONUS,
+            Sonic1ObjectIds.ELECTROCUTER,
+            Sonic1ObjectIds.SBZ_SMALL_DOOR,
+            Sonic1ObjectIds.SBZ_CONVEYOR_BELT,
+            Sonic1ObjectIds.SBZ_SPINNING_PLATFORM,
+            Sonic1ObjectIds.SBZ_SAW,
+            Sonic1ObjectIds.SBZ_STOMPER_DOOR,
+            Sonic1ObjectIds.SBZ_VANISHING_PLATFORM,
+            Sonic1ObjectIds.FLAMETHROWER,
+            Sonic1ObjectIds.GIRDER,
+            Sonic1ObjectIds.BALL_HOG,
+            Sonic1ObjectIds.TELEPORTER,
+            Sonic1ObjectIds.RUNNING_DISC,
+            Sonic1ObjectIds.SBZ_SPIN_CONVEYOR,
+            Sonic1ObjectIds.JUNCTION
     );
 
     private static final Set<Integer> BADNIK_IDS = Set.of(
@@ -124,14 +146,16 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.BATBRAIN,
             Sonic1ObjectIds.BOMB,
             Sonic1ObjectIds.ORBINAUT,
-            Sonic1ObjectIds.CATERKILLER
+            Sonic1ObjectIds.CATERKILLER,
+            Sonic1ObjectIds.BALL_HOG
     );
 
     private static final Set<Integer> BOSS_IDS = Set.of(
             Sonic1ObjectIds.GHZ_BOSS,
             Sonic1ObjectIds.MZ_BOSS,
             Sonic1ObjectIds.SYZ_BOSS,
-            Sonic1ObjectIds.LZ_BOSS
+            Sonic1ObjectIds.LZ_BOSS,
+            Sonic1ObjectIds.SLZ_BOSS
     );
 
     private static final Map<String, List<DynamicBoss>> DYNAMIC_BOSSES = Map.of();
@@ -168,6 +192,8 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.MZ_BOSS, List.of("MZBoss"));
         map.put(Sonic1ObjectIds.SYZ_BOSS, List.of("SYZBoss"));
         map.put(Sonic1ObjectIds.SYZ_BOSS_BLOCK, List.of("BossBlock"));
+        map.put(Sonic1ObjectIds.SLZ_BOSS, List.of("SLZBoss", "BossStarLight"));
+        map.put(Sonic1ObjectIds.SLZ_BOSS_SPIKEBALL, List.of("BossSpikeball"));
         map.put(Sonic1ObjectIds.BOSS_FIRE, List.of("BossFire"));
         map.put(Sonic1ObjectIds.EGG_PRISON, List.of("EggPrison"));
         map.put(Sonic1ObjectIds.MOTOBUG, List.of("Motobug"));
@@ -198,13 +224,22 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.BUBBLES, List.of("Bubbles"));
         map.put(Sonic1ObjectIds.WATERFALL, List.of("Waterfall"));
         map.put(Sonic1ObjectIds.BATBRAIN, List.of("Batbrain"));
+        map.put(Sonic1ObjectIds.SLZ_ELEVATOR, List.of("Elevator"));
+        map.put(Sonic1ObjectIds.SLZ_CIRCLING_PLATFORM, List.of("CirclingPlatform"));
+        map.put(Sonic1ObjectIds.SLZ_STAIRCASE, List.of("Staircase"));
+        map.put(Sonic1ObjectIds.PYLON, List.of("Pylon"));
+        map.put(Sonic1ObjectIds.FAN, List.of("Fan"));
         map.put(Sonic1ObjectIds.SEESAW, List.of("Seesaw"));
         map.put(Sonic1ObjectIds.BOMB, List.of("Bomb"));
         map.put(Sonic1ObjectIds.ORBINAUT, List.of("Orbinaut"));
         map.put(Sonic1ObjectIds.INVISIBLE_BARRIER, List.of("InvisibleBarrier"));
+        map.put(Sonic1ObjectIds.TELEPORTER, List.of("Teleporter"));
+        map.put(Sonic1ObjectIds.ELECTROCUTER, List.of("Electrocuter"));
+        map.put(Sonic1ObjectIds.SBZ_SMALL_DOOR, List.of("SmallDoor", "AutoDoor"));
         map.put(Sonic1ObjectIds.CATERKILLER, List.of("Caterkiller"));
         map.put(Sonic1ObjectIds.LAMPPOST, List.of("Lamppost"));
         map.put(Sonic1ObjectIds.HIDDEN_BONUS, List.of("HiddenBonus"));
+        map.put(Sonic1ObjectIds.SBZ_SPIN_CONVEYOR, List.of("SpinConveyor", "SpinConvey"));
         return Map.copyOf(map);
     }
 

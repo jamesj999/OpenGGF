@@ -1,7 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects;
 
 import uk.co.jamesj999.sonic.camera.Camera;
-import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.WaterSystem;
@@ -22,6 +21,9 @@ import java.util.List;
  * <p>
  * For countdown bubbles (showing numbers 5-0), the bubble locks its position on screen
  * when the number forms, staying visible until the animation ends.
+ * <p>
+ * Art key and countdown frame mapping are data-driven, allowing this class to work
+ * with both Sonic 1 (LZ_BUBBLES) and Sonic 2 (BUBBLES) bubble art sheets.
  */
 public class BreathingBubbleInstance extends AbstractObjectInstance {
     /** Upward velocity in pixels per frame */
@@ -73,15 +75,31 @@ public class BreathingBubbleInstance extends AbstractObjectInstance {
     /** Total lifetime in frames */
     private int lifetime;
 
+    /** Art key for the bubble renderer (game-specific) */
+    private final String artKey;
+
     /**
-     * Creates a breathing bubble.
-     *
-     * @param x                World X coordinate (player's mouth position)
-     * @param y                World Y coordinate (player's Y position)
-     * @param startMovingLeft  True if sine wave should start moving left
-     * @param countdownNumber  Countdown number to display (-1 for regular bubble)
+     * Countdown frame mapping: index = countdown number (0-5), value = art frame index.
+     * Null for regular (non-countdown) bubbles.
      */
-    public BreathingBubbleInstance(int x, int y, boolean startMovingLeft, int countdownNumber) {
+    private final int[] countdownFrameMap;
+
+    /** Maximum frame index for regular bubble growth animation */
+    private final int maxBubbleFrame;
+
+    /**
+     * Creates a breathing bubble with game-specific art configuration.
+     *
+     * @param x                 World X coordinate (player's mouth position)
+     * @param y                 World Y coordinate (player's Y position)
+     * @param startMovingLeft   True if sine wave should start moving left
+     * @param countdownNumber   Countdown number to display (-1 for regular bubble)
+     * @param artKey            Art renderer key for this game's bubble sprites
+     * @param countdownFrameMap Maps countdown number (0-5) to art frame index, or null
+     * @param maxBubbleFrame    Maximum frame index for regular bubble growth
+     */
+    public BreathingBubbleInstance(int x, int y, boolean startMovingLeft, int countdownNumber,
+                                   String artKey, int[] countdownFrameMap, int maxBubbleFrame) {
         super(new ObjectSpawn(x, y, 0x0A, 0, 0, false, 0), "BreathingBubble");
         this.currentX = x;
         this.currentY = y;
@@ -92,6 +110,9 @@ public class BreathingBubbleInstance extends AbstractObjectInstance {
         this.countdownFrame = 0;
         this.numberFormed = false;
         this.lifetime = 0;
+        this.artKey = artKey;
+        this.countdownFrameMap = countdownFrameMap;
+        this.maxBubbleFrame = maxBubbleFrame;
     }
 
     @Override
@@ -184,39 +205,34 @@ public class BreathingBubbleInstance extends AbstractObjectInstance {
             return;
         }
 
-        // Get the bubble renderer
+        // Get the bubble renderer using game-specific art key
         ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
         if (renderManager == null) {
             return;
         }
 
-        // Use the correct bubble art from Sonic2ObjectArtKeys
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.BUBBLES);
+        PatternSpriteRenderer renderer = renderManager.getRenderer(artKey);
         if (renderer == null || !renderer.isReady()) {
             return;
         }
 
         // Determine which frame to render
         int frameIndex;
-        if (countdownNumber >= 0) {
+        if (countdownNumber >= 0 && countdownFrameMap != null) {
             // Countdown bubble - show animation frames then number
             int formFrame = COUNTDOWN_BUBBLE_FRAMES * COUNTDOWN_FRAME_DELAY;
             if (countdownFrame >= formFrame) {
-                // Show the countdown number (frames 6-11 = numbers 5,4,3,2,1,0)
-                // countdownNumber is already 0-5 where 0=0, 1=1, etc.
-                // Frame mapping: frame 6 = "5", frame 7 = "4", ..., frame 11 = "0"
-                frameIndex = 6 + (5 - countdownNumber);
+                // Show the countdown number using game-specific frame mapping
+                frameIndex = countdownFrameMap[countdownNumber];
             } else {
                 // Bubble growing animation - cycle through bubble sizes
                 int animFrame = countdownFrame / COUNTDOWN_FRAME_DELAY;
-                // Use frames 0-5 for bubble growth (small to large)
-                frameIndex = Math.min(animFrame / 3, 5);
+                frameIndex = Math.min(animFrame / 3, maxBubbleFrame);
             }
         } else {
             // Regular small bubble - grow through frames as bubble rises
-            // Frame 0: tiny (1x1), Frame 1: small (1x1), Frame 2: medium (2x2), Frame 3: large (2x2)
             int growthStage = lifetime / 30;  // Change frame every 30 ticks (~0.5 sec)
-            frameIndex = Math.min(growthStage, 3);  // Cap at frame 3
+            frameIndex = Math.min(growthStage, maxBubbleFrame);
         }
 
         // Render the sprite

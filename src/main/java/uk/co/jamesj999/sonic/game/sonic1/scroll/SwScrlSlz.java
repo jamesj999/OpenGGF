@@ -88,33 +88,43 @@ public class SwScrlSlz implements ZoneScrollHandler {
         short fgScroll = negWord(cameraX);
 
         // ==================== Build scroll buffer (Deform_SLZ_2) ====================
-        // d2 = -screenposx (negated camera X)
-        int d2 = -cameraX;
+        // d2.w = neg.w screenposx (16-bit negation, matching move.w/neg.w)
+        short d2 = negWord(cameraX);
 
         // Band 1: 28 lines (0x1B + 1) - perspective interpolation
         // From d2 (full speed) to d2>>3 (1/8 speed)
-        // Increment: ((d2>>3 - d2) * 16 / 28) << 8, applied as 16.16 fixed point
+        //
+        // Disasm (Deform_SLZ_2):
+        //   d0.w = d2 >> 3         ; asr.w #3,d0
+        //   d0.w = d0 - d2         ; sub.w d2,d0 → (d2>>3) - d2
+        //   ext.l d0               ; sign-extend to long
+        //   d0 <<= 4              ; asl.l #4
+        //   d0 = d0 / 28          ; divs.w #$1C (32/16 signed, quotient in low word)
+        //   ext.l d0               ; sign-extend quotient, discard remainder
+        //   d0 <<= 4              ; asl.l #4
+        //   d0 <<= 8              ; asl.l #8  → total <<12 after division
+        //
+        // d3 = {0, d2}, loop: write d3.w, swap, add.l d0, swap
         {
-            int startVal = d2;
-            int endVal = d2 >> 3;
-            int diff = endVal - startVal;
+            short shifted = (short) (d2 >> 3);              // asr.w #3,d0
+            short diff = (short) (shifted - d2);            // sub.w d2,d0
+            int d0 = diff;                                  // ext.l d0
+            d0 <<= 4;                                       // asl.l #4
+            d0 = (short) (d0 / 28);                         // divs.w #$1C; ext.l (quotient only)
+            int increment = d0 << 12;                        // asl.l #4; asl.l #8
 
-            // disasm: d0 = (d2>>3 - d2), asl.l #4 → diff * 16, divs.w #$1C → /28
-            // then asl.l #4, asl.l #8 → total shift of 12 more bits = 16.16 increment
-            long increment = 0;
-            if (diff != 0) {
-                // (diff << 4) / 28 then << 12 = (diff << 16) / 28
-                increment = ((long) diff << 16) / 28;
-            }
-
-            long current = (long) startVal << 16;
+            // d3 = moveq #0,d3; move.w d2,d3 → high word 0, low word d2
+            int d3 = d2 & 0xFFFF;
             for (int i = 0; i < 28; i++) {
-                scrollBuffer[i] = (short) (current >> 16);
-                current += increment;
+                scrollBuffer[i] = (short) d3;               // move.w d3,(a1)+
+                // swap d3; add.l d0,d3; swap d3
+                d3 = ((d3 << 16) | ((d3 >>> 16) & 0xFFFF)); // swap
+                d3 += increment;                              // add.l
+                d3 = ((d3 << 16) | ((d3 >>> 16) & 0xFFFF)); // swap
             }
         }
 
-        // Band 2: 5 lines - 1/8 speed
+        // Band 2: 5 lines - 1/8 speed (asr.w #3,d0)
         {
             short val = (short) (d2 >> 3);
             for (int i = 28; i < 33; i++) {
@@ -122,7 +132,7 @@ public class SwScrlSlz implements ZoneScrollHandler {
             }
         }
 
-        // Band 3: 5 lines - 1/4 speed
+        // Band 3: 5 lines - 1/4 speed (asr.w #2,d0)
         {
             short val = (short) (d2 >> 2);
             for (int i = 33; i < 38; i++) {
@@ -130,7 +140,7 @@ public class SwScrlSlz implements ZoneScrollHandler {
             }
         }
 
-        // Band 4: 30 lines (0x1D + 1) - 1/2 speed
+        // Band 4: 30 lines (0x1D + 1) - 1/2 speed (asr.w #1,d0)
         {
             short val = (short) (d2 >> 1);
             for (int i = 38; i < 68; i++) {
@@ -142,11 +152,16 @@ public class SwScrlSlz implements ZoneScrollHandler {
         // The scroll buffer represents a virtual 68-entry background strip.
         // The BG Y position determines which part is visible.
         //
-        // From disasm: offset = ((bgscreenposy - 0xC0) & 0x3F0) >> 3
-        // Each buffer entry covers 16 screen lines (groups of 16).
-        // The Y alignment within the first group is handled by the jump table.
+        // Disasm (Deform_SLZ):
+        //   d0 = bgscreenposy - 0xC0
+        //   d0 &= 0x3F0           ; always a multiple of 16
+        //   d0 >>= 3              ; BYTE offset into word array (0, 2, 4, ..., 126)
+        //   lea (a2,d0.w),a2      ; advance pointer by d0 bytes
+        //
+        // Since each buffer entry is a word (2 bytes), the word index = byte_offset / 2.
+        // Use >> 4 (not >> 3) to convert directly to an array index.
 
-        int yOffset = ((bgY - 0xC0) & 0x3F0) >> 3;
+        int yOffset = ((bgY - 0xC0) & 0x3F0) >> 4;
         int subAlign = bgY & 0xF; // Sub-16-line alignment
 
         int lineIndex = 0;

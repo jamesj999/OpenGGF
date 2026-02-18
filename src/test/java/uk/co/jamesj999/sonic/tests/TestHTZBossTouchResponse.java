@@ -81,7 +81,7 @@ public class TestHTZBossTouchResponse {
 
         assertEquals(7, boss.getState().hitCount);
         assertTrue(boss.getState().invulnerable);
-        verify(player).setAir(true);
+        // ROM-accurate: boss bounce only modifies velocities, does not set air flag
         verify(player).setXSpeed(eq((short) -0x200));
         verify(player).setYSpeed(eq((short) 0x300));
     }

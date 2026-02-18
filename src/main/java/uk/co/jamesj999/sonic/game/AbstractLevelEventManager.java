@@ -313,14 +313,12 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
     /**
      * Trigger a transition to a different zone/act.
      * Used by S1 SBZ3->FZ and S3K inter-act transitions (LRZ1->2, DEZ1->2).
+     *
+     * Requests a fade-coordinated level restart via LevelManager.
+     * The checkpoint is cleared automatically by the transition.
      */
     protected void transitionToZone(int zone, int act) {
-        // TODO: Implement zone transition via GameStateManager or LevelManager
-        // This will need to trigger a level restart with the new zone/act.
-        // For now, log and defer - the specific transition mechanism depends
-        // on how the game loop handles level restarts.
-        java.util.logging.Logger.getLogger(getClass().getName())
-                .info("Zone transition requested: zone=" + zone + " act=" + act);
+        LevelManager.getInstance().requestZoneAndAct(zone, act);
     }
 
     // =========================================================================
