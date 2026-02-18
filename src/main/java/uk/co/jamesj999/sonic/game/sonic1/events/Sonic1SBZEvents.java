@@ -1,8 +1,12 @@
 package uk.co.jamesj999.sonic.game.sonic1.events;
 
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1FZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ZoneConstants;
+import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 
 /**
  * Scrap Brain Zone + Final Zone dynamic level events.
@@ -18,9 +22,8 @@ import uk.co.jamesj999.sonic.level.LevelManager;
  *   Boss objects not yet implemented.
  * Act 3 zone transition to FZ - DLE_SBZ3: implemented.
  *   Locks player, clears checkpoint, restarts into Final Zone.
- * TODO: FZ boss spawn + Robotnik sequence - DLE_FZ / DLE_Ending lines 401+.
- *   Routine 0 loads FZ boss patterns; routine 2 spawns FZ boss.
- *   Boss objects, defeat sequence, and ending not yet implemented.
+ * FZ boss spawn: routine 2 spawns FZ boss (Object 0x85).
+ *   Defeat sequence and ending handled by Sonic1FZBossInstance.
  *
  * SBZ and FZ are separate zones in our engine (zone 5 and zone 6), but
  * share this event handler. Since each zone triggers a fresh level load
@@ -166,7 +169,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
             eventRoutine += 2;
 
             // loc_72B0: move.b #1,(f_lockscreen).w
-            camera.setFrozen(true);
+            camera.setMaxX(camera.getX());
         }
 
         // Fall through to loc_72C2: lock left boundary
@@ -281,14 +284,22 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
 
         // cmpi.w #boss_fz_x-$150,(v_screenposx).w = 0x2300
         if (camX >= (BOSS_FZ_X - 0x150)) {
-            // TODO: Spawn FZ boss object (not yet implemented)
-            // ROM spawns the Final Zone boss (Eggman machine) here
+            // ROM: Spawn FZ boss (Object 0x85)
+            LevelManager lm = LevelManager.getInstance();
+            ObjectSpawn bossSpawn = new ObjectSpawn(
+                    BOSS_FZ_X + 0x160, BOSS_FZ_Y + 0x80,
+                    Sonic1ObjectIds.FZ_BOSS, 0, 0, false, 0);
+            lm.getObjectManager().addDynamicObject(
+                    new Sonic1FZBossInstance(bossSpawn, lm));
+            GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.FZ_BOSS);
 
             // addq.b #2,(v_dle_routine).w
             eventRoutine += 2;
 
-            // move.b #1,(f_lockscreen).w
-            camera.setFrozen(true);
+            // ROM: move.b #1,(f_lockscreen).w — prevents right boundary from
+            // extending further, but does NOT cap it to current camera X.
+            // The lockLeftBoundary() call already creates a one-way rightward
+            // scroll, and the level's natural right boundary constrains the camera.
         }
 
         // bra.s loc_72C2 - lock left boundary

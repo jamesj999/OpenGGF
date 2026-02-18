@@ -522,6 +522,22 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search Lava (2325 bytes)
     public static final int ART_NEM_LAVA_ADDR = 0x32D5A;
 
+    // ---- Final Zone boss art & constants ----
+    // Nem_FzBoss: Nemesis-compressed FZ boss art (cylinders, plasma, cockpit)
+    public static final int ART_NEM_FZ_BOSS_ADDR = 0x5ECFA;
+    // FZ boss VRAM tile addresses (from Constants.asm)
+    public static final int ART_TILE_FZ_BOSS             = 0x300;
+    public static final int ART_TILE_FZ_EGGMAN_FLEEING   = 0x3A0;
+    public static final int ART_TILE_FZ_EGGMAN_NO_VEHICLE = 0x470;
+    // FZ boss arena constants
+    public static final int BOSS_FZ_X   = 0x2450;
+    public static final int BOSS_FZ_Y   = 0x510;
+    public static final int BOSS_FZ_END = BOSS_FZ_X + 0x2B0; // 0x2700
+
+    // Nem_Sbz2Eggman: Eggman without vehicle (SBZ2/FZ) — loaded at ArtTile_FZ_Eggman_No_Vehicle
+    // PLC: Nem_Sbz2Eggman -> ArtTile_FZ_Eggman_No_Vehicle ($470) — used by Map_SEgg
+    public static final int ART_NEM_SBZ2_EGGMAN_ADDR = 0x5E4CE;
+
     // Nem_Eggman: Main Eggman ship + face + flame art (verified by RomOffsetFinder)
     public static final int ART_NEM_EGGMAN_ADDR = 0x5D0FC;
     // Nem_Weapons: Boss weapons art — chain anchor, pipes, spikes (verified)

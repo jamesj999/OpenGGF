@@ -275,6 +275,12 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadBossArt(rom);
         }
 
+        // Load FZ boss art (Final Zone: Eggman machine, cylinders, plasma)
+        // ROM treats FZ as SBZ act 2 (resolveRomZoneAct maps level 0x92 to ZONE_SBZ, act 2)
+        if (zoneIndex == Sonic1Constants.ZONE_SBZ) {
+            loadFZBossArt(rom);
+        }
+
         loaded = true;
         LOGGER.info("Sonic1ObjectArtProvider loaded: digits=" +
                 (hudDigitPatterns != null ? hudDigitPatterns.length : 0) +
@@ -7876,6 +7882,67 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             registerSheet(uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys.BOSS_EXPLOSION,
                     explosionSheet);
         }
+    }
+
+    /**
+     * Loads FZ boss art and creates sprite sheets for all FZ components.
+     * Art comes from multiple Nemesis banks:
+     *   Nem_FzBoss      -> ArtTile_FZ_Boss ($300): cylinders, plasma, cockpit
+     *   Nem_Sbz2Eggman  -> ArtTile_FZ_Eggman_No_Vehicle ($470): Eggman body (Map_SEgg)
+     *   Nem_Eggman      -> ArtTile_Eggman: standard boss ship (escape phase)
+     * PLC reference: _inc/Pattern Load Cues.asm line 387
+     */
+    private void loadFZBossArt(Rom rom) {
+        // Nem_FzBoss: Art for cylinders, plasma, cockpit shell
+        Pattern[] fzPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_FZ_BOSS_ADDR, "FzBoss");
+        if (fzPatterns.length == 0) return;
+
+        // Nem_Sbz2Eggman: Eggman body without vehicle — used by Map_SEgg
+        // PLC loads this to ArtTile_FZ_Eggman_No_Vehicle ($470)
+        Pattern[] seggPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ2_EGGMAN_ADDR, "Sbz2Eggman");
+
+        // FZ_SEGG: Eggman in machine (Map_SEgg) — combat phase rendering
+        List<SpriteMappingFrame> seggMappings =
+                uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossMappings.createSEggMappings();
+        Pattern[] seggSource = seggPatterns.length > 0 ? seggPatterns : fzPatterns;
+        registerSheet(ObjectArtKeys.FZ_SEGG,
+                new ObjectSpriteSheet(seggSource, seggMappings, 0, seggMappings.size()));
+
+        // FZ_CYLINDER: Crushing cylinders (Map_EggCyl)
+        List<SpriteMappingFrame> cylMappings =
+                uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossMappings.createEggCylMappings();
+        registerSheet(ObjectArtKeys.FZ_CYLINDER,
+                new ObjectSpriteSheet(fzPatterns, cylMappings, 0, cylMappings.size()));
+
+        // FZ_PLASMA_LAUNCHER: Plasma turret (Map_PLaunch)
+        List<SpriteMappingFrame> launchMappings =
+                uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossMappings.createPLaunchMappings();
+        registerSheet(ObjectArtKeys.FZ_PLASMA_LAUNCHER,
+                new ObjectSpriteSheet(fzPatterns, launchMappings, 0, launchMappings.size()));
+
+        // FZ_PLASMA: Energy ball projectiles (Map_Plasma)
+        List<SpriteMappingFrame> plasmaMappings =
+                uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossMappings.createPlasmaMappings();
+        registerSheet(ObjectArtKeys.FZ_PLASMA,
+                new ObjectSpriteSheet(fzPatterns, plasmaMappings, 0, plasmaMappings.size()));
+
+        // FZ_LEGS: Escape ship legs (Map_FZLegs)
+        List<SpriteMappingFrame> legsMappings =
+                uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossMappings.createFZLegsMappings();
+        registerSheet(ObjectArtKeys.FZ_LEGS,
+                new ObjectSpriteSheet(fzPatterns, legsMappings, 0, legsMappings.size()));
+
+        // FZ_DAMAGED: Damage overlay (Map_FZDamaged)
+        List<SpriteMappingFrame> damagedMappings =
+                uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossMappings.createFZDamagedMappings();
+        registerSheet(ObjectArtKeys.FZ_DAMAGED,
+                new ObjectSpriteSheet(fzPatterns, damagedMappings, 0, damagedMappings.size()));
+
+        // Standard Eggman art for escape phase (Map_Eggman)
+        // Also loads exhaust flame merged at tile offset $12A
+        loadBossArt(rom);
     }
 
     /**
