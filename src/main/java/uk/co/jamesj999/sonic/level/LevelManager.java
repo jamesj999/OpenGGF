@@ -2647,7 +2647,7 @@ public class LevelManager {
      * but gameplay systems treat it as SBZ act 3. For feature systems that are keyed
      * by zone/act (water palettes/heights), map that specific case back to SBZ.
      */
-    private int getFeatureZoneId() {
+    public int getFeatureZoneId() {
         if (isSonic1Sbz3Context()) {
             return uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.ZONE_SBZ;
         }
@@ -2657,7 +2657,7 @@ public class LevelManager {
     /**
      * Returns the effective act index for zone features/water logic.
      */
-    private int getFeatureActId() {
+    public int getFeatureActId() {
         if (isSonic1Sbz3Context()) {
             return 2;
         }

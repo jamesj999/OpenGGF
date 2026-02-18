@@ -616,8 +616,8 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
             return 0;
         }
         WaterSystem waterSystem = WaterSystem.getInstance();
-        int zoneId = lm.getRomZoneId();
-        int actId = lm.getCurrentAct();
+        int zoneId = lm.getFeatureZoneId();
+        int actId = lm.getFeatureActId();
         return waterSystem.getVisualWaterLevelY(zoneId, actId);
     }
 
