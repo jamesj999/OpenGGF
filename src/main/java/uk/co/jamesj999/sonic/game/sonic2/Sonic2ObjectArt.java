@@ -2763,6 +2763,16 @@ public class Sonic2ObjectArt {
     }
 
     /**
+     * Load HTZ Ground Fire (Obj20 routine $A) sprite sheet.
+     * ROM: art_tile = make_art_tile(ArtTile_ArtNem_HtzFireball1, 0, 1) — palette 0, priority 1.
+     * Mappings: Obj20_MapUnc_23294 (6 frames of 2x4 tile sprites = 16x32px).
+     */
+    public ObjectSpriteSheet loadGroundFireSheet() {
+        return buildArtSheetFromRom(Sonic2Constants.ART_NEM_HTZ_FIREBALL1_ADDR,
+                Sonic2Constants.MAP_UNC_GROUND_FIRE_ADDR, 0, 1);
+    }
+
+    /**
      * Load MCZ Boss sprite sheet.
      * Uses ArtNem_MCZBoss with mappings from Obj57_MapUnc_316EC.
      * ROM: art_tile = make_art_tile(ArtTile_ArtNem_MCZBoss,0,0) = $03C0

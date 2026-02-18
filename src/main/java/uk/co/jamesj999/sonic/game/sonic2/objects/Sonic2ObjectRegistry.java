@@ -274,6 +274,10 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new GrounderBadnikInstance(spawn, LevelManager.getInstance(), true));
         // Note: GROUNDER_WALL (0x8F) and GROUNDER_ROCKS (0x90) are spawned dynamically
 
+        // HTZ Fire Shooter (Obj20) - fire source that shoots paired fireballs
+        registerFactory(Sonic2ObjectIds.LAVA_BUBBLE,
+                (spawn, registry) -> new HtzFireShooterObjectInstance(spawn));
+
         // HTZ Badniks
         registerFactory(Sonic2ObjectIds.SPIKER,
                 (spawn, registry) -> new SpikerBadnikInstance(spawn, LevelManager.getInstance()));
