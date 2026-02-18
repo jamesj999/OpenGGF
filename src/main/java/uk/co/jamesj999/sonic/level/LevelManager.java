@@ -2399,8 +2399,6 @@ public class LevelManager {
      * Retrieves the block at a given position.
      *
      * @param layer the layer to retrieve the block from
-     * @param x     the x-coordinate in pixels
-     * @param y     the y-coordinate in pixels
      * @return the Block at the specified position, or null if not found
      */
     private int getLayerLevelWidthPx(byte layer) {
