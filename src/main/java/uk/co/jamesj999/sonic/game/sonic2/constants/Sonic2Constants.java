@@ -883,7 +883,8 @@ public class Sonic2Constants {
     public static final int MAP_UNC_EHZ_BOSS_B_ADDR = 0x2FA58;       // Obj56_MapUnc_2FA58 (ground vehicle/wheels/spike)
     public static final int MAP_UNC_EHZ_BOSS_C_ADDR = 0x2FAF8;       // Obj56_MapUnc_2FAF8 (flying vehicle/Eggman)
     public static final int MAP_UNC_SMASHABLE_GROUND_A_ADDR = 0x236FA; // Obj2F_MapUnc_236FA (SmashableGround)
-    public static final int MAP_UNC_LAVA_BUBBLE_ADDR = 0x23254;       // Obj20_MapUnc_23254 (HTZ Lava Bubble)
+    public static final int MAP_UNC_LAVA_BUBBLE_ADDR = 0x23254;       // Obj20_MapUnc_23254 (HTZ Lava Bubble / fire source)
+    public static final int MAP_UNC_GROUND_FIRE_ADDR = 0x23294;       // Obj20_MapUnc_23294 (HTZ ground fire)
     public static final int MAP_UNC_MTZ_NUT_ADDR = 0x27A26;          // Obj69_MapUnc_27A26
     public static final int MAP_UNC_MTZ_LAVA_BUBBLE_A_ADDR = 0x11396; // Obj71_MapUnc_11396
     public static final int MAP_UNC_MTZ_LAVA_BUBBLE_B_ADDR = 0x11576; // Obj71_MapUnc_11576 (MTZ lava bubble)

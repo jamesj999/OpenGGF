@@ -155,6 +155,8 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             if (htzBarrierSheet != null) {
                 registerSheet(Sonic2ObjectArtKeys.BARRIER, htzBarrierSheet);
             }
+            // Ground fire (Obj20 routine $A) uses different art/mappings than fire source
+            registerSheet(Sonic2ObjectArtKeys.GROUND_FIRE, artLoader.loadGroundFireSheet());
         }
 
         // === Boss art (zone-conditional, Phase 3 would use boss PLCs) ===

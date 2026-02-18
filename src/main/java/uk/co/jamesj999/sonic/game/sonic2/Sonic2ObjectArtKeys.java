@@ -182,6 +182,7 @@ public final class Sonic2ObjectArtKeys {
 
     // Lava objects (HTZ)
     public static final String LAVA_BUBBLE = "lava_bubble";
+    public static final String GROUND_FIRE = "ground_fire";
 
     // Super Sonic stars (Object 0x7E)
     public static final String SUPER_SONIC_STARS = "super_sonic_stars";
