@@ -53,7 +53,7 @@ public class ObjectDiscoveryTool {
                 globalStats.computeIfAbsent(key,
                         k -> new ObjectStats(usage.objectId, usage.name,
                                 getAliases(usage.objectId, level),
-                                isImplemented(usage.objectId),
+                                isImplemented(usage.objectId, level),
                                 getCategory(usage.objectId, level)))
                         .addZoneUsage(level.shortName() + level.act(), usage.count, usage.subtypes);
             }
@@ -78,7 +78,7 @@ public class ObjectDiscoveryTool {
             Set<Integer> subtypes = instances.stream()
                     .map(ObjectSpawn::subtype)
                     .collect(Collectors.toSet());
-            usages.add(new ObjectUsage(id, getName(id, level), instances.size(), isImplemented(id), subtypes));
+            usages.add(new ObjectUsage(id, getName(id, level), instances.size(), isImplemented(id, level), subtypes));
         }
 
         usages.sort(Comparator.comparingInt(u -> u.objectId));
@@ -102,8 +102,8 @@ public class ObjectDiscoveryTool {
         return (nameList != null && nameList.size() > 1) ? nameList.subList(1, nameList.size()) : List.of();
     }
 
-    private boolean isImplemented(int objectId) {
-        return profile.getImplementedIds().contains(objectId);
+    private boolean isImplemented(int objectId, LevelConfig level) {
+        return profile.getImplementedIds(level).contains(objectId);
     }
 
     private String getCategory(int objectId, LevelConfig level) {
@@ -197,7 +197,7 @@ public class ObjectDiscoveryTool {
                 }
 
                 for (DynamicBoss boss : dynamicBosses) {
-                    String check = isImplemented(boss.objectId()) ? "x" : " ";
+                    String check = isImplemented(boss.objectId(), zr.level) ? "x" : " ";
                     sb.append(String.format("- [%s] 0x%02X %s *(dynamic)* - %s%n",
                             check, boss.objectId(), boss.name(), boss.description()));
                 }

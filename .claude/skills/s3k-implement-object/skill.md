@@ -327,11 +327,29 @@ Once cross-validation is confirmed bug-free:
 
 1. **Verify registration** in `Sonic3kObjectRegistry` - ensure the factory is registered and the object is no longer returned as a `PlaceholderObjectInstance`.
 
-2. **Add to IMPLEMENTED_IDS** in `Sonic3kObjectProfile.java` (the `IMPLEMENTED_IDS` set):
+2. **Add to the correct IMPLEMENTED_IDS set** in `Sonic3kObjectProfile.java`:
+   - `SHARED_IMPLEMENTED_IDS` — for objects that work in **both** zone sets (e.g., Monitor, Spring, Spikes)
+   - `S3KL_IMPLEMENTED_IDS` static block — for S3KL-only objects (zones 0-6: AIZ through LBZ)
+   - `SKL_IMPLEMENTED_IDS` static block — for SKL-only objects (zones 7-13: MHZ through DDZ)
+
+   S3K reuses object IDs across zone sets (e.g., 0x8C = Bloominator in S3KL, Madmole in SKL).
+   The `getImplementedIds(LevelConfig level)` override routes to the correct set per zone.
+   **Never add a zone-set-specific ID to `SHARED_IMPLEMENTED_IDS`** — it would falsely mark
+   the other zone set's object as implemented.
+
    ```java
-   0xXX  // ObjectName
+   // Example: adding an S3KL-only badnik
+   static {
+       var s3kl = new HashSet<>(SHARED_IMPLEMENTED_IDS);
+       s3kl.addAll(Set.of(
+               0x8C, // Bloominator
+               0xXX  // NewObject  <-- add here
+       ));
+       S3KL_IMPLEMENTED_IDS = Set.copyOf(s3kl);
+       // ...
+   }
    ```
-   Keep the set entries sorted numerically.
+   Keep entries sorted numerically within each set.
 
 3. **Build and test**:
    ```bash
@@ -361,7 +379,7 @@ Once cross-validation is confirmed bug-free:
 | Object ptr table (SKL) | `docs/skdisasm/Levels/Misc/Object pointers - SK Set 2.asm` |
 | Shared sprites | `docs/skdisasm/General/Sprites/` |
 | Zone-specific data | `docs/skdisasm/Levels/{ZONE}/Misc Object Data/` |
-| Implemented IDs | `src/.../tools/Sonic3kObjectProfile.java` (IMPLEMENTED_IDS set) |
+| Implemented IDs | `src/.../tools/Sonic3kObjectProfile.java` (zone-set-aware: `S3KL_IMPLEMENTED_IDS`, `SKL_IMPLEMENTED_IDS`, `SHARED_IMPLEMENTED_IDS`) |
 
 ## S3K Badnik List (Zone-Set-Aware)
 
