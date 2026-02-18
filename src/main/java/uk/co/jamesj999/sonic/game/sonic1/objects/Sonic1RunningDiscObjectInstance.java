@@ -117,13 +117,6 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
 
     // disc_sonic_attached = objoff_3A: whether Sonic is currently attached
     private boolean sonicAttached;
-    // Suppress the S2-derived ground wall check (doWallCollisionGround) while
-    // Sonic traverses the disc. S1's ROM has no CalcRoomInFront, so the push
-    // sensors falsely detect the disc's curved tiles as walls. Re-asserted
-    // every frame because other systems (Sonic1LoopManager) may clear it.
-    private boolean tunnelModeApplied;
-    private boolean tunnelModePrevious;
-    private AbstractPlayableSprite attachedPlayer;
 
     // Dynamic spawn for position tracking
     private ObjectSpawn dynamicSpawn;
@@ -251,7 +244,6 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
                 player.setStickToConvex(false);
                 sonicAttached = false;
             }
-            restoreTunnelMode();
             return;
         }
 
@@ -266,7 +258,6 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
         if (!sonicAttached) {
             // First frame of attachment
             sonicAttached = true;
-            attachedPlayer = player;
 
             // btst #2,obStatus(a1) — check rolling status
             if (!player.getRolling()) {
@@ -283,16 +274,6 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
             // move.b #1,stick_to_convex(a1) — set stick to convex flag
             player.setStickToConvex(true);
         }
-
-        // Suppress the S2-derived ground wall check every frame while attached.
-        // S1's ROM has no CalcRoomInFront so push sensors falsely detect the
-        // disc's curved tiles as walls. Re-assert each frame in case external
-        // systems (Sonic1LoopManager) clear it between object and player updates.
-        if (!tunnelModeApplied) {
-            tunnelModePrevious = player.isTunnelMode();
-            tunnelModeApplied = true;
-        }
-        player.setTunnelMode(true);
 
         // loc_155E2: Clamp Sonic's inertia (ground speed) to min/max range
         clampSonicSpeed(player);
@@ -421,20 +402,6 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(DISPLAY_PRIORITY);
-    }
-
-    @Override
-    public void onUnload() {
-        restoreTunnelMode();
-    }
-
-    private void restoreTunnelMode() {
-        if (tunnelModeApplied && attachedPlayer != null) {
-            attachedPlayer.setTunnelMode(tunnelModePrevious);
-        }
-        tunnelModeApplied = false;
-        tunnelModePrevious = false;
-        attachedPlayer = null;
     }
 
     // ---- Persistence ----
