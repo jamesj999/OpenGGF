@@ -16,6 +16,26 @@ public final class SpritePieceRenderer {
         void render(int patternIndex, boolean hFlip, boolean vFlip, int paletteIndex, int drawX, int drawY);
     }
 
+    /**
+     * Renders a single sprite piece without wrapping in a list.
+     */
+    public static void renderPiece(
+            SpriteFramePiece piece,
+            int originX,
+            int originY,
+            int basePatternIndex,
+            int defaultPaletteIndex,
+            boolean frameHFlip,
+            boolean frameVFlip,
+            TileConsumer consumer
+    ) {
+        if (piece == null || consumer == null) {
+            return;
+        }
+        renderPieceInternal(piece, originX, originY, basePatternIndex, defaultPaletteIndex,
+                frameHFlip, frameVFlip, consumer);
+    }
+
     public static void renderPieces(
             List<? extends SpriteFramePiece> pieces,
             int originX,
@@ -30,45 +50,59 @@ public final class SpritePieceRenderer {
             return;
         }
         for (SpriteFramePiece piece : pieces) {
-            int widthTiles = piece.widthTiles();
-            int heightTiles = piece.heightTiles();
-            int widthPixels = widthTiles * Pattern.PATTERN_WIDTH;
-            int heightPixels = heightTiles * Pattern.PATTERN_HEIGHT;
+            renderPieceInternal(piece, originX, originY, basePatternIndex, defaultPaletteIndex,
+                    frameHFlip, frameVFlip, consumer);
+        }
+    }
 
-            int pieceXOffset = piece.xOffset();
-            int pieceYOffset = piece.yOffset();
-            boolean pieceHFlip = piece.hFlip();
-            boolean pieceVFlip = piece.vFlip();
+    private static void renderPieceInternal(
+            SpriteFramePiece piece,
+            int originX,
+            int originY,
+            int basePatternIndex,
+            int defaultPaletteIndex,
+            boolean frameHFlip,
+            boolean frameVFlip,
+            TileConsumer consumer
+    ) {
+        int widthTiles = piece.widthTiles();
+        int heightTiles = piece.heightTiles();
+        int widthPixels = widthTiles * Pattern.PATTERN_WIDTH;
+        int heightPixels = heightTiles * Pattern.PATTERN_HEIGHT;
 
-            if (frameHFlip) {
-                pieceXOffset = -pieceXOffset - widthPixels;
-                pieceHFlip = !pieceHFlip;
-            }
-            if (frameVFlip) {
-                pieceYOffset = -pieceYOffset - heightPixels;
-                pieceVFlip = !pieceVFlip;
-            }
+        int pieceXOffset = piece.xOffset();
+        int pieceYOffset = piece.yOffset();
+        boolean pieceHFlip = piece.hFlip();
+        boolean pieceVFlip = piece.vFlip();
 
-            int pieceX = originX + pieceXOffset;
-            int pieceY = originY + pieceYOffset;
-            // If defaultPaletteIndex is negative, use piece's palette directly (absolute).
-            // Otherwise, ADD piece's palette to the default (matching Sonic 2 art_tile behavior
-            // where the pattern name word is added to art_tile, including palette bits).
-            int paletteIndex = defaultPaletteIndex < 0 ? piece.paletteIndex()
-                    : ((piece.paletteIndex() + defaultPaletteIndex) & 3);
+        if (frameHFlip) {
+            pieceXOffset = -pieceXOffset - widthPixels;
+            pieceHFlip = !pieceHFlip;
+        }
+        if (frameVFlip) {
+            pieceYOffset = -pieceYOffset - heightPixels;
+            pieceVFlip = !pieceVFlip;
+        }
 
-            for (int ty = 0; ty < heightTiles; ty++) {
-                for (int tx = 0; tx < widthTiles; tx++) {
-                    int srcX = pieceHFlip ? (widthTiles - 1 - tx) : tx;
-                    int srcY = pieceVFlip ? (heightTiles - 1 - ty) : ty;
-                    int tileOffset = (tx * heightTiles) + ty;
-                    int patternIndex = basePatternIndex + piece.tileIndex() + tileOffset;
+        int pieceX = originX + pieceXOffset;
+        int pieceY = originY + pieceYOffset;
+        // If defaultPaletteIndex is negative, use piece's palette directly (absolute).
+        // Otherwise, ADD piece's palette to the default (matching Sonic 2 art_tile behavior
+        // where the pattern name word is added to art_tile, including palette bits).
+        int paletteIndex = defaultPaletteIndex < 0 ? piece.paletteIndex()
+                : ((piece.paletteIndex() + defaultPaletteIndex) & 3);
 
-                    int drawX = pieceX + (srcX * Pattern.PATTERN_WIDTH);
-                    int drawY = pieceY + (srcY * Pattern.PATTERN_HEIGHT);
+        for (int ty = 0; ty < heightTiles; ty++) {
+            for (int tx = 0; tx < widthTiles; tx++) {
+                int srcX = pieceHFlip ? (widthTiles - 1 - tx) : tx;
+                int srcY = pieceVFlip ? (heightTiles - 1 - ty) : ty;
+                int tileOffset = (tx * heightTiles) + ty;
+                int patternIndex = basePatternIndex + piece.tileIndex() + tileOffset;
 
-                    consumer.render(patternIndex, pieceHFlip, pieceVFlip, paletteIndex, drawX, drawY);
-                }
+                int drawX = pieceX + (srcX * Pattern.PATTERN_WIDTH);
+                int drawY = pieceY + (srcY * Pattern.PATTERN_HEIGHT);
+
+                consumer.render(patternIndex, pieceHFlip, pieceVFlip, paletteIndex, drawX, drawY);
             }
         }
     }
