@@ -17,8 +17,9 @@ public class Sonic1ZoneConstants implements ZoneConstants {
     public static final int ZONE_SLZ = 4;  // Star Light
     public static final int ZONE_SBZ = 5;  // Scrap Brain
     public static final int ZONE_FZ  = 6;  // Final Zone
+    public static final int ZONE_ENDING = 7; // Ending sequence (id_EndZ variants)
 
-    public static final int ZONE_COUNT = 7;
+    public static final int ZONE_COUNT = 8;
 
     private static final String[] ZONE_NAMES = {
             "Green Hill",
@@ -27,7 +28,8 @@ public class Sonic1ZoneConstants implements ZoneConstants {
             "Labyrinth",
             "Star Light",
             "Scrap Brain",
-            "Final"
+            "Final",
+            "Ending"
     };
 
     private Sonic1ZoneConstants() {

@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic1;
 
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
+import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ZoneConstants;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -16,6 +17,7 @@ import java.util.List;
  * <p>Supported zones:
  * <ul>
  *   <li>GHZ - Water/waterfall body cycling (4 colors in palette line 2)</li>
+ *   <li>Ending - Uses GHZ palette cycling (ROM: PalCycle_GHZ)</li>
  *   <li>LZ - Waterfall cycling (4 colors in palette line 2)</li>
  *   <li>SLZ - Neon light cycling (3 non-contiguous colors in palette line 2)</li>
  *   <li>SYZ - Two synchronized groups (palette line 3)</li>
@@ -48,6 +50,7 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
     private List<PaletteCycle> createCycles(int zoneIndex) {
         return switch (zoneIndex) {
             case Sonic1Constants.ZONE_GHZ -> List.of(createGhzCycle());
+            case Sonic1ZoneConstants.ZONE_ENDING -> List.of(createGhzCycle());
             case Sonic1Constants.ZONE_LZ -> createLzCycles();
             case Sonic1Constants.ZONE_SLZ -> List.of(new SlzCycle());
             case Sonic1Constants.ZONE_SYZ -> List.of(new SyzCycle());
@@ -102,9 +105,14 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
      */
     private List<PaletteCycle> createSbzCycles() {
         int act = LevelManager.getInstance().getCurrentAct();
+        int zone = LevelManager.getInstance().getCurrentZone();
         List<PaletteCycle> list = new ArrayList<>();
 
-        if (act == 0) {
+        // FZ is engine zone 6 act 0, but maps to ROM zone SBZ act 2.
+        // PalCycle_SBZ branches on act != 0 for the Act 2 cycle list.
+        boolean isAct1 = (act == 0) && (zone != Sonic1ZoneConstants.ZONE_FZ);
+
+        if (isAct1) {
             // Pal_SBZCycList1: 9 per-entry cycles
             list.add(new SbzColorCycle(PAL_SBZ_CYC1, 0, 8, 7, 2, 8));
             list.add(new SbzColorCycle(PAL_SBZ_CYC2, 0, 8, 13, 2, 9));

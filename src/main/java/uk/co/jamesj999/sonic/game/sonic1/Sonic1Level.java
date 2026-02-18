@@ -36,6 +36,7 @@ import java.util.logging.Logger;
  */
 public class Sonic1Level implements Level {
     private static final int PALETTE_COUNT = 4;
+    private static final int V_PALETTE_RAM_ADDR = 0xFB00;
     private static final int S1_CHUNKS_PER_BLOCK = 256; // 16x16 grid
     private static final int S1_BLOCK_SIZE_IN_ROM = S1_CHUNKS_PER_BLOCK * LevelConstants.BYTES_PER_CHUNK; // 512 bytes
     private static final int S1_GRID_SIDE = 16;
@@ -79,8 +80,8 @@ public class Sonic1Level implements Level {
 
     public Sonic1Level(Rom rom,
                        int zoneIndex,
-                       int sonicPaletteAddr,
-                       int levelPaletteAddr,
+                       int sonicPaletteId,
+                       int levelPaletteId,
                        List<PatternLoadCue> patternCues,
                        int chunksAddr,
                        int blocksAddr,
@@ -99,7 +100,7 @@ public class Sonic1Level implements Level {
         this.rings = List.copyOf(ringSpawns);
         this.ringSpriteSheet = ringSpriteSheet;
 
-        loadPalettes(rom, sonicPaletteAddr, levelPaletteAddr);
+        loadPalettes(rom, sonicPaletteId, levelPaletteId);
         loadPatterns(rom, patternCues);
         loadSolidTiles(rom, solidTileHeightsAddr, solidTileWidthsAddr, solidTileAnglesAddr);
         loadChunks(rom, chunksAddr, collisionIndexAddr);
@@ -301,32 +302,20 @@ public class Sonic1Level implements Level {
     // ===== Loading methods =====
 
     /**
-     * Loads palettes. Sonic 1 has a character palette and a level palette.
-     * We load the Sonic palette as palette 0 and the level palette data
-     * as palettes 1-3 (3 palette lines, 32 bytes each).
+     * Loads palettes by applying PalPointers entries in ROM order.
+     * ROM parity path:
+     * 1) PalLoad_Fade(palid_Sonic)
+     * 2) PalLoad_Fade(level palette id from LevelDataLoad)
      */
-    private void loadPalettes(Rom rom, int sonicPaletteAddr, int levelPaletteAddr) throws IOException {
+    private void loadPalettes(Rom rom, int sonicPaletteId, int levelPaletteId) throws IOException {
         palettes = new Palette[PALETTE_COUNT];
         GraphicsManager graphicsMan = GraphicsManager.getInstance();
 
-        // Palette 0: Sonic/character palette (32 bytes = 16 colors)
-        byte[] buffer = rom.readBytes(sonicPaletteAddr, Palette.PALETTE_SIZE_IN_ROM);
-        palettes[0] = new Palette();
-        palettes[0].fromSegaFormat(buffer);
-
-        // Palettes 1-3: Level palettes (3 lines of 32 bytes each = 96 bytes)
-        int levelPaletteSize = 3 * Palette.PALETTE_SIZE_IN_ROM;
-        buffer = rom.readBytes(levelPaletteAddr, levelPaletteSize);
-
-        for (int i = 0; i < 3; i++) {
-            palettes[i + 1] = new Palette();
-            int start = i * Palette.PALETTE_SIZE_IN_ROM;
-            int end = start + Palette.PALETTE_SIZE_IN_ROM;
-            if (end <= buffer.length) {
-                byte[] subArray = Arrays.copyOfRange(buffer, start, end);
-                palettes[i + 1].fromSegaFormat(subArray);
-            }
+        for (int i = 0; i < PALETTE_COUNT; i++) {
+            palettes[i] = new Palette();
         }
+        applyPaletteEntry(rom, sonicPaletteId);
+        applyPaletteEntry(rom, levelPaletteId);
 
         if (graphicsMan.isGlInitialized()) {
             for (int i = 0; i < palettes.length; i++) {
@@ -345,6 +334,33 @@ public class Sonic1Level implements Level {
             }
             sb.append("...");
             LOG.info(sb.toString());
+        }
+    }
+
+    private void applyPaletteEntry(Rom rom, int paletteId) throws IOException {
+        int entryAddr = Sonic1Constants.PALETTE_TABLE_ADDR + paletteId * 8;
+        int sourceAddr = rom.read32BitAddr(entryAddr);
+        int destinationAddr = rom.read16BitAddr(entryAddr + 4) & 0xFFFF;
+        int countWord = rom.read16BitAddr(entryAddr + 6) & 0xFFFF;
+        int dataBytes = (countWord + 1) * 4;
+
+        byte[] data = rom.readBytes(sourceAddr, dataBytes);
+        int destinationOffset = destinationAddr - V_PALETTE_RAM_ADDR;
+
+        for (int dataOffset = 0; dataOffset + 1 < data.length; dataOffset += Palette.BYTES_PER_COLOR) {
+            int paletteByteOffset = destinationOffset + dataOffset;
+            if (paletteByteOffset < 0) {
+                continue;
+            }
+            int paletteIndex = paletteByteOffset / Palette.PALETTE_SIZE_IN_ROM;
+            if (paletteIndex < 0 || paletteIndex >= PALETTE_COUNT) {
+                continue;
+            }
+            int colorIndex = (paletteByteOffset % Palette.PALETTE_SIZE_IN_ROM) / Palette.BYTES_PER_COLOR;
+            if (colorIndex < 0 || colorIndex >= Palette.PALETTE_SIZE) {
+                continue;
+            }
+            palettes[paletteIndex].getColor(colorIndex).fromSegaFormat(data, dataOffset);
         }
     }
 

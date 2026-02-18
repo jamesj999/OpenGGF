@@ -631,3 +631,12 @@ Total: 57 objects | Implemented: 0 | Unimplemented: 1
 
 **Objects:**
 - [ ] 0x28 S1_Obj_28 (x57) [10 subtypes]
+
+### Ending Sequence (Post-FZ, Scripted)
+
+These are spawned by `GM_Ending` script flow (not standard `ObjPos_Index` placement), so they are tracked separately from the usage totals above.
+
+**Ending objects to implement:**
+- [ ] 0x87 EndingSequenceSonic (`_incObj/87 Ending Sequence Sonic.asm`)
+- [ ] 0x88 EndingSequenceEmeralds (`_incObj/88 Ending Sequence Emeralds.asm`)
+- [ ] 0x89 EndingSequenceSTH (`_incObj/89 Ending Sequence STH.asm`)

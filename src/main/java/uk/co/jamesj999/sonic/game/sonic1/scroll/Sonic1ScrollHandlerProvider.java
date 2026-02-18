@@ -62,6 +62,8 @@ public class Sonic1ScrollHandlerProvider implements ScrollHandlerProvider {
             case Sonic1ZoneConstants.ZONE_SYZ -> syzHandler;
             case Sonic1ZoneConstants.ZONE_SBZ -> sbzHandler;
             case Sonic1ZoneConstants.ZONE_FZ -> fzHandler;
+            // ROM ending sequence uses Deform_GHZ scroll behavior.
+            case Sonic1ZoneConstants.ZONE_ENDING -> ghzHandler;
             default -> null;
         };
     }

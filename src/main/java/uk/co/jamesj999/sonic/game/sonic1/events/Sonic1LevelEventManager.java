@@ -31,6 +31,7 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
     private final Sonic1SLZEvents slzEvents;
     private final Sonic1SYZEvents syzEvents;
     private final Sonic1SBZEvents sbzEvents;
+    private final Sonic1EndingEvents endingEvents;
 
     // Loop/plane switching manager
     private final Sonic1LoopManager loopManager = new Sonic1LoopManager();
@@ -43,6 +44,7 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
         slzEvents = new Sonic1SLZEvents(camera);
         syzEvents = new Sonic1SYZEvents(camera);
         sbzEvents = new Sonic1SBZEvents(camera);
+        endingEvents = new Sonic1EndingEvents(camera);
     }
 
     // =========================================================================
@@ -79,6 +81,7 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
         slzEvents.init();
         syzEvents.init();
         sbzEvents.init();
+        endingEvents.init();
         loopManager.initLevel(zone, act);
     }
 
@@ -96,6 +99,7 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
             // Zone 6 (FZ) = Final Zone in our engine
             // ROM treats FZ as SBZ act 2; our engine has it as zone 6
             case Sonic1ZoneConstants.ZONE_FZ -> sbzEvents.updateFZ();
+            case Sonic1ZoneConstants.ZONE_ENDING -> endingEvents.update(currentAct);
             default -> { /* DLE_Ending: rts */ }
         }
     }
@@ -132,6 +136,7 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
             case Sonic1ZoneConstants.ZONE_SLZ -> slzEvents;
             case Sonic1ZoneConstants.ZONE_SYZ -> syzEvents;
             case Sonic1ZoneConstants.ZONE_SBZ, Sonic1ZoneConstants.ZONE_FZ -> sbzEvents;
+            case Sonic1ZoneConstants.ZONE_ENDING -> endingEvents;
             default -> null;
         };
     }

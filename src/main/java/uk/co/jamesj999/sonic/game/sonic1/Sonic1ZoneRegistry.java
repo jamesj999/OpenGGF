@@ -8,12 +8,12 @@ import java.util.List;
 
 /**
  * Zone registry for Sonic the Hedgehog 1.
- * Defines all 6 main zones plus Final Zone / Scrap Brain Act 3.
+ * Defines all main gameplay zones, Final Zone, and the ending sequence variants.
  */
 public class Sonic1ZoneRegistry implements ZoneRegistry {
     private static final Sonic1ZoneRegistry INSTANCE = new Sonic1ZoneRegistry();
 
-    // Gameplay progression order: GHZ → MZ → SYZ → LZ → SLZ → SBZ → FZ
+    // Gameplay progression order: GHZ → MZ → SYZ → LZ → SLZ → SBZ → FZ → ENDING
     private final List<List<LevelData>> zones = List.of(
             List.of(LevelData.S1_GREEN_HILL_1, LevelData.S1_GREEN_HILL_2, LevelData.S1_GREEN_HILL_3),
             List.of(LevelData.S1_MARBLE_1, LevelData.S1_MARBLE_2, LevelData.S1_MARBLE_3),
@@ -21,7 +21,8 @@ public class Sonic1ZoneRegistry implements ZoneRegistry {
             List.of(LevelData.S1_LABYRINTH_1, LevelData.S1_LABYRINTH_2, LevelData.S1_LABYRINTH_3),
             List.of(LevelData.S1_STAR_LIGHT_1, LevelData.S1_STAR_LIGHT_2, LevelData.S1_STAR_LIGHT_3),
             List.of(LevelData.S1_SCRAP_BRAIN_1, LevelData.S1_SCRAP_BRAIN_2, LevelData.S1_SCRAP_BRAIN_3),
-            List.of(LevelData.S1_FINAL_ZONE)
+            List.of(LevelData.S1_FINAL_ZONE),
+            List.of(LevelData.S1_ENDING_FLOWERS, LevelData.S1_ENDING_NO_EMERALDS)
     );
 
     private static final String[] ZONE_NAMES = {
@@ -31,7 +32,8 @@ public class Sonic1ZoneRegistry implements ZoneRegistry {
             "LABYRINTH",
             "STAR LIGHT",
             "SCRAP BRAIN",
-            "FINAL"
+            "FINAL",
+            "ENDING"
     };
 
     private static final int[] ZONE_MUSIC = {
@@ -41,7 +43,8 @@ public class Sonic1ZoneRegistry implements ZoneRegistry {
             Sonic1Music.LZ.id,   // Labyrinth
             Sonic1Music.SLZ.id,  // Star Light
             Sonic1Music.SBZ.id,  // Scrap Brain
-            Sonic1Music.FZ.id    // Final Zone
+            Sonic1Music.FZ.id,   // Final Zone
+            Sonic1Music.ENDING.id // Ending sequence
     };
 
     private Sonic1ZoneRegistry() {

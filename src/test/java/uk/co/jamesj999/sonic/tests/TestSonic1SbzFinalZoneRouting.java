@@ -17,6 +17,7 @@ import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelData;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.Palette;
+import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.WaterSystem;
 import uk.co.jamesj999.sonic.physics.GroundSensor;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
@@ -34,9 +35,11 @@ import static org.junit.Assert.assertTrue;
  */
 @RequiresRom(SonicGame.SONIC_1)
 public class TestSonic1SbzFinalZoneRouting {
+    private static final int V_PALETTE_RAM_ADDR = 0xFB00;
     private static final int DISASM_SONIC_PALID = 3;
     private static final int DISASM_PALID_SBZ3 = 0x0C;
     private static final int DISASM_PALID_SBZ2 = 0x0E;
+    private static final int DISASM_PALID_ENDING = 0x13;
 
     @Rule
     public RequiresRomRule romRule = new RequiresRomRule();
@@ -75,6 +78,34 @@ public class TestSonic1SbzFinalZoneRouting {
 
         Palette expectedLine1 = readLevelPaletteLineForDisasmId(DISASM_PALID_SBZ2);
         assertPaletteEquals(expectedLine1, level.getPalette(1));
+    }
+
+    @Test
+    public void testEndingVariantsLoadEndZoneSlotsAndEndingPalette() throws Exception {
+        Level endingFlowers = sonic1.loadLevel(LevelData.S1_ENDING_FLOWERS.getLevelIndex());
+        assertEquals("Ending flowers variant should load from ENDZ ROM slot",
+                Sonic1Constants.ZONE_ENDZ, endingFlowers.getZoneIndex());
+
+        Level endingNoEmeralds = sonic1.loadLevel(LevelData.S1_ENDING_NO_EMERALDS.getLevelIndex());
+        assertEquals("Ending no-emerald variant should load from ENDZ ROM slot",
+                Sonic1Constants.ZONE_ENDZ, endingNoEmeralds.getZoneIndex());
+
+        Palette[] expectedPalette = readExpectedMainPaletteAfterLoads(DISASM_PALID_ENDING);
+        for (int line = 0; line < 4; line++) {
+            assertPaletteEquals(expectedPalette[line], endingFlowers.getPalette(line));
+            assertPaletteEquals(expectedPalette[line], endingNoEmeralds.getPalette(line));
+        }
+    }
+
+    @Test
+    public void testEndingVariantsPopulateLowTileRange() throws Exception {
+        Level endingFlowers = sonic1.loadLevel(LevelData.S1_ENDING_FLOWERS.getLevelIndex());
+        Level endingNoEmeralds = sonic1.loadLevel(LevelData.S1_ENDING_NO_EMERALDS.getLevelIndex());
+
+        assertTrue("Ending flowers should load visible level art into low tile indices",
+                hasAnyVisibleTileInRange(endingFlowers, 0x00, 0x40));
+        assertTrue("Ending no-emeralds should load visible level art into low tile indices",
+                hasAnyVisibleTileInRange(endingNoEmeralds, 0x00, 0x40));
     }
 
     @Test
@@ -119,6 +150,18 @@ public class TestSonic1SbzFinalZoneRouting {
         assertEquals(0x05AC, fzStart[1]);
         assertEquals(fzStart[0], LevelData.S1_FINAL_ZONE.getStartXPos());
         assertEquals(fzStart[1], LevelData.S1_FINAL_ZONE.getStartYPos());
+
+        int[] endingFlowersStart = readStartLocArrayEntry(Sonic1Constants.ZONE_ENDZ, 0);
+        assertEquals(0x0620, endingFlowersStart[0]);
+        assertEquals(0x016B, endingFlowersStart[1]);
+        assertEquals(endingFlowersStart[0], LevelData.S1_ENDING_FLOWERS.getStartXPos());
+        assertEquals(endingFlowersStart[1], LevelData.S1_ENDING_FLOWERS.getStartYPos());
+
+        int[] endingNoEmeraldsStart = readStartLocArrayEntry(Sonic1Constants.ZONE_ENDZ, 1);
+        assertEquals(0x0EE0, endingNoEmeraldsStart[0]);
+        assertEquals(0x016C, endingNoEmeraldsStart[1]);
+        assertEquals(endingNoEmeraldsStart[0], LevelData.S1_ENDING_NO_EMERALDS.getStartXPos());
+        assertEquals(endingNoEmeraldsStart[1], LevelData.S1_ENDING_NO_EMERALDS.getStartYPos());
     }
 
     @Test
@@ -170,6 +213,60 @@ public class TestSonic1SbzFinalZoneRouting {
         int x = rom.read16BitAddr(addr) & 0xFFFF;
         int y = rom.read16BitAddr(addr + 2) & 0xFFFF;
         return new int[] { x, y };
+    }
+
+    private Palette[] readExpectedMainPaletteAfterLoads(int disasmLevelPaletteId) throws Exception {
+        int sonicPaletteId = findSonicPaletteId();
+        int levelPaletteId = adjustPaletteId(disasmLevelPaletteId);
+        Palette[] lines = new Palette[] { new Palette(), new Palette(), new Palette(), new Palette() };
+        applyPalettePointerEntry(lines, sonicPaletteId);
+        applyPalettePointerEntry(lines, levelPaletteId);
+        return lines;
+    }
+
+    private void applyPalettePointerEntry(Palette[] lines, int paletteId) throws Exception {
+        int entryAddr = Sonic1Constants.PALETTE_TABLE_ADDR + paletteId * 8;
+        int sourceAddr = rom.read32BitAddr(entryAddr);
+        int destinationAddr = rom.read16BitAddr(entryAddr + 4) & 0xFFFF;
+        int countWord = rom.read16BitAddr(entryAddr + 6) & 0xFFFF;
+        int dataBytes = (countWord + 1) * 4;
+        byte[] data = rom.readBytes(sourceAddr, dataBytes);
+        int destinationOffset = destinationAddr - V_PALETTE_RAM_ADDR;
+
+        for (int dataOffset = 0; dataOffset + 1 < data.length; dataOffset += Palette.BYTES_PER_COLOR) {
+            int paletteByteOffset = destinationOffset + dataOffset;
+            if (paletteByteOffset < 0) {
+                continue;
+            }
+            int line = paletteByteOffset / Palette.PALETTE_SIZE_IN_ROM;
+            if (line < 0 || line >= 4) {
+                continue;
+            }
+            int color = (paletteByteOffset % Palette.PALETTE_SIZE_IN_ROM) / Palette.BYTES_PER_COLOR;
+            if (color < 0 || color >= Palette.PALETTE_SIZE) {
+                continue;
+            }
+            lines[line].getColor(color).fromSegaFormat(data, dataOffset);
+        }
+    }
+
+    private boolean hasAnyVisibleTileInRange(Level level, int startInclusive, int endExclusive) {
+        int safeStart = Math.max(0, startInclusive);
+        int safeEnd = Math.min(level.getPatternCount(), endExclusive);
+        for (int i = safeStart; i < safeEnd; i++) {
+            Pattern pattern = level.getPattern(i);
+            if (pattern == null) {
+                continue;
+            }
+            for (int y = 0; y < Pattern.PATTERN_HEIGHT; y++) {
+                for (int x = 0; x < Pattern.PATTERN_WIDTH; x++) {
+                    if ((pattern.getPixel(x, y) & 0x0F) != 0) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private void assertPaletteEquals(Palette expected, Palette actual) {
