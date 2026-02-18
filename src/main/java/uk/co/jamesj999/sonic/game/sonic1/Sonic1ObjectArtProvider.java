@@ -264,6 +264,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadSbzSawArt(rom);
             loadSbzStomperDoorArt(rom);
             loadSbzRunningDiscArt(rom);
+            loadSbzJunctionArt(rom);
             loadBallHogArt(rom);
         }
 
@@ -4610,6 +4611,15 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * </pre>
      * ArtTile_SBZ_Collapsing_Floor = $3F5, palette line 2.
      * Uses the same mapping layout as MZ (Map_CFlo frames 0 and 1).
+     * <p>
+     * Nem_SbzFloor decompresses to only 4 patterns, but the intact floor frame uses
+     * 4x2 tile pieces requiring 8 tiles. On real hardware, both SBZ PLCs load the same
+     * art at adjacent offsets to provide the full 8 tiles:
+     * <pre>
+     *     PLC_SBZ:  plcm Nem_SbzFloor, ArtTile_SBZ_Collapsing_Floor     ; tiles 0-3
+     *     PLC_SBZ2: plcm Nem_SbzFloor, ArtTile_SBZ_Collapsing_Floor+4   ; tiles 4-7
+     * </pre>
+     * We replicate this by appending a second copy of the patterns.
      */
     private void loadSbzCollapsingFloorArt(Rom rom) {
         Pattern[] patterns = loadNemesisPatterns(rom,
@@ -4618,6 +4628,12 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             LOGGER.warning("Failed to load SBZ collapsing floor art");
             return;
         }
+
+        // Duplicate patterns to match dual PLC loading (Nem_SbzFloor loaded at +0 and +4)
+        Pattern[] doubled = new Pattern[patterns.length * 2];
+        System.arraycopy(patterns, 0, doubled, 0, patterns.length);
+        System.arraycopy(patterns, 0, doubled, patterns.length, patterns.length);
+        patterns = doubled;
 
         List<SpriteMappingFrame> mappings = createCollapsingFloorMappingsMzSbz();
         // make_art_tile(ArtTile_SBZ_Collapsing_Floor, 2, 0) -> palette line 2
@@ -6415,6 +6431,204 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // make_art_tile(ArtTile_SBZ_Disc, 2, 1) -> palette line 2, priority bit 1
         ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
         registerSheet(ObjectArtKeys.SBZ_RUNNING_DISC, sheet);
+    }
+
+    /**
+     * Loads SBZ junction wheel art (Object 0x66).
+     * Nemesis art: Nem_SbzWheel2 at ART_NEM_SBZ_JUNCTION_ADDR.
+     * Art tile: make_art_tile(ArtTile_SBZ_Junction, 2, 0) -> palette line 2, no priority.
+     * 17 mapping frames: 0-15 = gap at 16 rotational positions, 16 = full circle (child display).
+     * Reference: docs/s1disasm/_maps/Rotating Junction.asm
+     */
+    private void loadSbzJunctionArt(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_SBZ_JUNCTION_ADDR, "SbzJunction");
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load SBZ junction art");
+            return;
+        }
+
+        List<SpriteMappingFrame> mappings = new ArrayList<>();
+
+        // Frame 0 (.gap0): gap at top-left
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x30, -0x18, 2, 2, 0x22, false, false, 0, false),
+                new SpriteMappingPiece(-0x30, 0x08, 2, 2, 0x22, false, true, 0, false),
+                new SpriteMappingPiece(-0x38, -0x18, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x18, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x38, 0x00, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(-0x20, 0x00, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 1 (.gap1)
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x30, -0x08, 1, 4, 0x26, false, false, 0, false),
+                new SpriteMappingPiece(-0x28, 0x18, 2, 2, 0x2A, false, false, 0, false),
+                new SpriteMappingPiece(-0x36, -0x0A, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x1E, -0x0A, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x36, 0x0E, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(-0x1E, 0x0E, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 2 (.gap2)
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x30, 0x00, 2, 3, 0x2E, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, 0x20, 3, 2, 0x34, false, false, 0, false),
+                new SpriteMappingPiece(-0x30, 0x00, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, 0x00, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x30, 0x18, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(-0x18, 0x18, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 3 (.gap3)
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x28, 0x08, 2, 4, 0x3A, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, 0x28, 3, 1, 0x42, false, false, 0, false),
+                new SpriteMappingPiece(-0x26, 0x06, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x0E, 0x06, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x26, 0x1E, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(-0x0E, 0x1E, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 4 (.gap4): gap at bottom
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, 0x20, 2, 2, 0x45, false, false, 0, false),
+                new SpriteMappingPiece(0x08, 0x20, 2, 2, 0x45, true, false, 0, false),
+                new SpriteMappingPiece(-0x18, 0x08, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(0x00, 0x08, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x18, 0x20, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(0x00, 0x20, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 5 (.gap5)
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x08, 0x28, 3, 1, 0x42, true, false, 0, false),
+                new SpriteMappingPiece(0x18, 0x08, 2, 4, 0x3A, true, false, 0, false),
+                new SpriteMappingPiece(-0x0A, 0x06, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(0x0E, 0x06, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x0A, 0x1E, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(0x0E, 0x1E, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 6 (.gap6)
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x00, 0x20, 3, 2, 0x34, true, false, 0, false),
+                new SpriteMappingPiece(0x20, 0x00, 2, 3, 0x2E, true, false, 0, false),
+                new SpriteMappingPiece(0x00, 0x00, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(0x18, 0x00, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(0x00, 0x18, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(0x18, 0x18, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 7 (.gap7): gap at right
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x18, 0x18, 2, 2, 0x2A, true, false, 0, false),
+                new SpriteMappingPiece(0x28, -0x08, 1, 4, 0x26, true, false, 0, false),
+                new SpriteMappingPiece(0x06, -0x0A, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(0x1E, -0x0A, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(0x06, 0x0E, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(0x1E, 0x0E, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 8 (.gap8): gap at top-right
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x20, -0x18, 2, 2, 0x22, true, false, 0, false),
+                new SpriteMappingPiece(0x20, 0x08, 2, 2, 0x22, true, true, 0, false),
+                new SpriteMappingPiece(0x08, -0x18, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(0x20, -0x18, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(0x08, 0x00, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(0x20, 0x00, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 9 (.gap9)
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x18, -0x28, 2, 2, 0x2A, true, true, 0, false),
+                new SpriteMappingPiece(0x28, -0x18, 1, 4, 0x26, true, true, 0, false),
+                new SpriteMappingPiece(0x06, -0x26, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(0x1E, -0x26, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(0x06, -0x0E, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(0x1E, -0x0E, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 10 (.gapA)
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0x00, -0x30, 3, 2, 0x34, true, true, 0, false),
+                new SpriteMappingPiece(0x20, -0x18, 2, 3, 0x2E, true, true, 0, false),
+                new SpriteMappingPiece(0x00, -0x30, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(0x18, -0x30, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x18, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(0x18, -0x18, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 11 (.gapB)
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x08, -0x30, 3, 1, 0x42, true, true, 0, false),
+                new SpriteMappingPiece(0x18, -0x28, 2, 4, 0x3A, true, true, 0, false),
+                new SpriteMappingPiece(-0x0A, -0x36, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(0x0E, -0x36, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x0A, -0x1E, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(0x0E, -0x1E, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 12 (.gapC): gap at top
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -0x30, 2, 2, 0x45, false, true, 0, false),
+                new SpriteMappingPiece(0x08, -0x30, 2, 2, 0x45, true, true, 0, false),
+                new SpriteMappingPiece(-0x18, -0x38, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x38, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x18, -0x20, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(0x00, -0x20, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 13 (.gapD)
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x28, -0x28, 2, 4, 0x3A, false, true, 0, false),
+                new SpriteMappingPiece(-0x10, -0x30, 3, 1, 0x42, false, true, 0, false),
+                new SpriteMappingPiece(-0x26, -0x36, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x0E, -0x36, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x26, -0x1E, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(-0x0E, -0x1E, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 14 (.gapE)
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x30, -0x18, 2, 3, 0x2E, false, true, 0, false),
+                new SpriteMappingPiece(-0x18, -0x30, 3, 2, 0x34, false, true, 0, false),
+                new SpriteMappingPiece(-0x30, -0x30, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, -0x30, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x30, -0x18, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(-0x18, -0x18, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 15 (.gapF)
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x30, -0x18, 1, 4, 0x26, false, true, 0, false),
+                new SpriteMappingPiece(-0x28, -0x28, 2, 2, 0x2A, false, true, 0, false),
+                new SpriteMappingPiece(-0x36, -0x26, 3, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x1E, -0x26, 3, 3, 0, true, false, 0, false),
+                new SpriteMappingPiece(-0x36, -0x0E, 3, 3, 0, false, true, 0, false),
+                new SpriteMappingPiece(-0x1E, -0x0E, 3, 3, 0, true, true, 0, false)
+        )));
+
+        // Frame 16 (.circle): full circle used by child display object
+        mappings.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x20, -0x38, 4, 2, 0x09, false, false, 0, false),
+                new SpriteMappingPiece(-0x30, -0x30, 3, 3, 0x11, false, false, 0, false),
+                new SpriteMappingPiece(-0x38, -0x20, 2, 4, 0x1A, false, false, 0, false),
+                new SpriteMappingPiece(0x00, -0x38, 4, 2, 0x09, true, false, 0, false),
+                new SpriteMappingPiece(0x18, -0x30, 3, 3, 0x11, true, false, 0, false),
+                new SpriteMappingPiece(0x28, -0x20, 2, 4, 0x1A, true, false, 0, false),
+                new SpriteMappingPiece(-0x38, 0x00, 2, 4, 0x1A, false, true, 0, false),
+                new SpriteMappingPiece(-0x30, 0x18, 3, 3, 0x11, false, true, 0, false),
+                new SpriteMappingPiece(-0x20, 0x28, 4, 2, 0x09, false, true, 0, false),
+                new SpriteMappingPiece(0x00, 0x28, 4, 2, 0x09, true, true, 0, false),
+                new SpriteMappingPiece(0x18, 0x18, 3, 3, 0x11, true, true, 0, false),
+                new SpriteMappingPiece(0x28, 0x00, 2, 4, 0x1A, true, true, 0, false)
+        )));
+
+        // make_art_tile(ArtTile_SBZ_Junction, 2, 0) -> palette line 2, no priority
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 2, 1);
+        registerSheet(ObjectArtKeys.SBZ_JUNCTION, sheet);
     }
 
     private void loadSbzStomperDoorArt(Rom rom) {

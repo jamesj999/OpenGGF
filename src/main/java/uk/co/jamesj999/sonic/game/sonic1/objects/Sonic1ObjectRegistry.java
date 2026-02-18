@@ -216,6 +216,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1FlamethrowerObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.ELECTROCUTER,
                 (spawn, registry) -> new Sonic1ElectrocuterObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SBZ_SPIN_CONVEYOR,
+                (spawn, registry) -> new Sonic1SpinConveyorObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SBZ_SAW,
                 (spawn, registry) -> new Sonic1SawObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GIRDER,
@@ -225,6 +227,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
         factories.put(Sonic1ObjectIds.SBZ_STOMPER_DOOR,
                 (spawn, registry) -> new Sonic1StomperDoorObjectInstance(spawn,
                         LevelManager.getInstance().getRomZoneId()));
+        factories.put(Sonic1ObjectIds.JUNCTION,
+                (spawn, registry) -> new Sonic1JunctionObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.RUNNING_DISC,
                 (spawn, registry) -> new Sonic1RunningDiscObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.INVISIBLE_BARRIER,
@@ -336,6 +340,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.LZ_CONVEYOR -> "LZConveyor";
             case Sonic1ObjectIds.BUBBLES -> "Bubbles";
             case Sonic1ObjectIds.WATERFALL -> "Waterfall";
+            case Sonic1ObjectIds.JUNCTION -> "Junction";
             case Sonic1ObjectIds.RUNNING_DISC -> "RunningDisc";
             case Sonic1ObjectIds.SBZ_SMALL_DOOR -> "SmallDoor";
             case Sonic1ObjectIds.SBZ_CONVEYOR_BELT -> "ConveyorBelt";
@@ -345,6 +350,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.SBZ_VANISHING_PLATFORM -> "VanishingPlatform";
             case Sonic1ObjectIds.FLAMETHROWER -> "Flamethrower";
             case Sonic1ObjectIds.ELECTROCUTER -> "Electrocuter";
+            case Sonic1ObjectIds.SBZ_SPIN_CONVEYOR -> "SpinConveyor";
             case Sonic1ObjectIds.GIRDER -> "Girder";
             case Sonic1ObjectIds.INVISIBLE_BARRIER -> "InvisibleBarrier";
             case Sonic1ObjectIds.TELEPORTER -> "Teleporter";

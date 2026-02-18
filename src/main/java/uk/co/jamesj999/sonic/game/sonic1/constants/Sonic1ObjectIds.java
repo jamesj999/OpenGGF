@@ -81,6 +81,7 @@ public final class Sonic1ObjectIds {
     public static final int LZ_CONVEYOR     = 0x63; // id_LabyrinthConvey
     public static final int BUBBLES         = 0x64;
     public static final int WATERFALL       = 0x65;
+    public static final int JUNCTION        = 0x66; // id_Junction - rotating disc junction that grabs Sonic (SBZ)
     public static final int RUNNING_DISC    = 0x67; // id_RunningDisc - disc spot that orbits in a circle (SBZ)
     public static final int SBZ_CONVEYOR_BELT = 0x68; // id_Conveyor - conveyor belts (SBZ)
     public static final int SBZ_SPINNING_PLATFORM = 0x69; // id_SpinPlatform - trapdoors & spinning platforms
@@ -89,6 +90,7 @@ public final class Sonic1ObjectIds {
     public static final int SBZ_VANISHING_PLATFORM = 0x6C; // id_VanishPlatform - vanishing platforms
     public static final int FLAMETHROWER    = 0x6D; // id_Flamethrower - flame thrower (SBZ)
     public static final int ELECTROCUTER    = 0x6E; // id_Electro - electrocution orbs (SBZ)
+    public static final int SBZ_SPIN_CONVEYOR = 0x6F; // id_SpinConvey - spinning platforms on conveyor belt (SBZ)
     public static final int GIRDER          = 0x70; // id_Girder - large girder block (SBZ)
     public static final int INVISIBLE_BARRIER = 0x71;
     public static final int TELEPORTER        = 0x72; // id_Teleport - teleporter tubes (SBZ)

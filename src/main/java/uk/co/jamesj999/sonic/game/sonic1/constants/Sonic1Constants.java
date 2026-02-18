@@ -501,6 +501,11 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search Disc
     public static final int ART_NEM_SBZ_RUNNING_DISC_ADDR = 0x34834;
 
+    // Nem_SbzWheel2: Nemesis-compressed SBZ junction wheel art (668 bytes)
+    // ArtTile_SBZ_Junction = $348, palette line 2
+    // Verified by RomOffsetFinder --game s1 search Junction
+    public static final int ART_NEM_SBZ_JUNCTION_ADDR = 0x34888;
+
     // ---- Boss art (Nemesis compressed) ----
     // Nem_MzMetal: Nemesis-compressed MZ metal block/chain stomper art (ArtTile_MZ_Spike_Stomper = $300)
     // Used by Object 0x31 (Chained Stompers) and Object 0x45 (Sideways Stomper)

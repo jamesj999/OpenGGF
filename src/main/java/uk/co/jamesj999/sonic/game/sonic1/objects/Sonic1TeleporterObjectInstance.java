@@ -148,6 +148,7 @@ public class Sonic1TeleporterObjectInstance extends AbstractObjectInstance {
     // pixel position and the next 8 bits are subpixel. We emulate this as 24-bit (16.8).
     private int posX_16_8;
     private int posY_16_8;
+    private AbstractPlayableSprite controlledPlayer;
 
     public Sonic1TeleporterObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Teleporter");
@@ -263,6 +264,7 @@ public class Sonic1TeleporterObjectInstance extends AbstractObjectInstance {
 
         // move.b #id_Roll,obAnim(a1)
         player.setAnimationId(CAPTURE_ANIMATION);
+        player.setForcedAnimationId(CAPTURE_ANIMATION);
 
         // move.w #$800,obInertia(a1)
         player.setGSpeed((short) CAPTURE_INERTIA);
@@ -285,6 +287,7 @@ public class Sonic1TeleporterObjectInstance extends AbstractObjectInstance {
 
         // clr.b objoff_32(a0)
         sineAngle = 0;
+        controlledPlayer = player;
 
         // move.w #sfx_Roll,d0 / jsr (QueueSound2).l
         AudioManager.getInstance().playSfx(Sonic1Sfx.ROLL.id);
@@ -430,6 +433,8 @@ public class Sonic1TeleporterObjectInstance extends AbstractObjectInstance {
         // clr.b (f_playerctrl).w
         player.setObjectControlled(false);
         player.setControlLocked(false);
+        player.setForcedAnimationId(-1);
+        controlledPlayer = null;
 
         // move.w #0,obVelX(a1) / move.w #$200,obVelY(a1)
         player.setXSpeed((short) 0);
@@ -592,7 +597,13 @@ public class Sonic1TeleporterObjectInstance extends AbstractObjectInstance {
         // we should not leave the player locked. However, isPersistent()
         // prevents this during active transport. This is a safety net.
         if (routine != Routine.WAIT) {
+            if (controlledPlayer != null) {
+                controlledPlayer.setObjectControlled(false);
+                controlledPlayer.setControlLocked(false);
+                controlledPlayer.setForcedAnimationId(-1);
+            }
             routine = Routine.WAIT;
+            controlledPlayer = null;
         }
     }
 
