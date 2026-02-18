@@ -46,6 +46,7 @@ public class Sonic2GameModule implements GameModule {
     private Sonic2ObjectArtProvider objectArtProvider;
     private Sonic2ZoneFeatureProvider zoneFeatureProvider;
     private PhysicsProvider physicsProvider;
+    private ObjectRegistry objectRegistry;
 
     @Override
     public String getIdentifier() {
@@ -59,7 +60,10 @@ public class Sonic2GameModule implements GameModule {
 
     @Override
     public ObjectRegistry createObjectRegistry() {
-        return new Sonic2ObjectRegistry();
+        if (objectRegistry == null) {
+            objectRegistry = new Sonic2ObjectRegistry();
+        }
+        return objectRegistry;
     }
 
     @Override

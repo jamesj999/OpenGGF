@@ -7621,8 +7621,19 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         if (sheet == null) {
             return;
         }
-        sheets.put(key, sheet);
         PatternSpriteRenderer renderer = new PatternSpriteRenderer(sheet);
+
+        int existingIndex = rendererKeys.indexOf(key);
+        if (existingIndex >= 0) {
+            // Replace in-place to keep pattern cache order stable across re-registration.
+            sheets.put(key, sheet);
+            renderers.put(key, renderer);
+            sheetOrder.set(existingIndex, sheet);
+            rendererOrder.set(existingIndex, renderer);
+            return;
+        }
+
+        sheets.put(key, sheet);
         renderers.put(key, renderer);
         rendererKeys.add(key);
         sheetOrder.add(sheet);

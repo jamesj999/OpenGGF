@@ -44,7 +44,6 @@ public class Sonic1GameModule implements GameModule {
     private final GameAudioProfile audioProfile = new Sonic1AudioProfile();
     private final SpecialStageProvider specialStageProvider = new Sonic1SpecialStageProvider();
     private PhysicsProvider physicsProvider;
-    private Sonic1ObjectArtProvider objectArtProvider;
 
     @Override
     public String getIdentifier() {
@@ -172,10 +171,8 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public ObjectArtProvider getObjectArtProvider() {
-        if (objectArtProvider == null) {
-            objectArtProvider = new Sonic1ObjectArtProvider();
-        }
-        return objectArtProvider;
+        // Keep provider per-load to avoid stale same-zone state carrying across restarts.
+        return new Sonic1ObjectArtProvider();
     }
 
     @Override
