@@ -168,6 +168,11 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         return currentY;
     }
 
+    // Cached debug label to avoid per-frame String allocation
+    private String cachedDebugLabel;
+    private int cachedDebugAnimFrame = -1;
+    private boolean cachedDebugFacingLeft;
+
     @Override
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Yellow hitbox rectangle (default 16x16 half-size)
@@ -180,10 +185,13 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
             ctx.drawArrow(currentX, currentY, endX, endY, 0f, 1f, 1f);
         }
 
-        // Yellow text label: name + frame + facing
-        String dir = facingLeft ? "L" : "R";
-        String label = name + " f" + animFrame + " " + dir;
-        ctx.drawWorldLabel(currentX, currentY, -2, label, Color.YELLOW);
+        // Yellow text label: name + frame + facing (cached until state changes)
+        if (animFrame != cachedDebugAnimFrame || facingLeft != cachedDebugFacingLeft) {
+            cachedDebugLabel = name + " f" + animFrame + " " + (facingLeft ? "L" : "R");
+            cachedDebugAnimFrame = animFrame;
+            cachedDebugFacingLeft = facingLeft;
+        }
+        ctx.drawWorldLabel(currentX, currentY, -2, cachedDebugLabel, Color.YELLOW);
     }
 
     /**

@@ -53,6 +53,9 @@ public class PerformanceProfiler {
     /** Circular buffer of per-section timing per frame (for rolling average) */
     private final Map<String, long[]> sectionHistories = new LinkedHashMap<>();
 
+    /** Reusable snapshot — populated in-place each frame to avoid allocation */
+    private final ProfileSnapshot reusableSnapshot = new ProfileSnapshot();
+
     private PerformanceProfiler() {
     }
 
@@ -173,46 +176,12 @@ public class PerformanceProfiler {
     public ProfileSnapshot getSnapshot() {
         int effectiveFrames = Math.min(frameCount, AVERAGING_FRAMES);
         if (effectiveFrames == 0) {
-            return ProfileSnapshot.empty();
+            return reusableSnapshot;
         }
 
-        // Calculate total frame time from all sections
-        long totalSectionNanos = 0;
-        Map<String, SectionStats> sections = new LinkedHashMap<>();
-
-        for (Map.Entry<String, Long> entry : rollingSums.entrySet()) {
-            String name = entry.getKey();
-            long sumNanos = entry.getValue();
-            double avgNanos = (double) sumNanos / effectiveFrames;
-            double avgMs = avgNanos / 1_000_000.0;
-            sections.put(name, new SectionStats(name, avgMs, 0)); // Percentage calculated below
-            totalSectionNanos += sumNanos;
-        }
-
-        // Calculate percentages
-        double totalMs = (double) totalSectionNanos / effectiveFrames / 1_000_000.0;
-        if (totalMs > 0) {
-            Map<String, SectionStats> withPercentages = new LinkedHashMap<>();
-            for (Map.Entry<String, SectionStats> entry : sections.entrySet()) {
-                SectionStats stats = entry.getValue();
-                double pct = (stats.timeMs() / totalMs) * 100.0;
-                withPercentages.put(entry.getKey(), new SectionStats(stats.name(), stats.timeMs(), pct));
-            }
-            sections = withPercentages;
-        }
-
-        // Copy frame history for the snapshot
-        float[] historyCopy = new float[HISTORY_SIZE];
-        System.arraycopy(frameHistory, 0, historyCopy, 0, HISTORY_SIZE);
-
-        // Calculate actual FPS from frame-to-frame time (not work time)
-        double fps = 0;
-        if (effectiveFrames > 0 && actualFrameTimeSum > 0) {
-            double avgActualFrameNanos = (double) actualFrameTimeSum / effectiveFrames;
-            fps = 1_000_000_000.0 / avgActualFrameNanos;
-        }
-
-        return new ProfileSnapshot(sections, totalMs, fps, historyCopy, historyIndex, frameCount);
+        reusableSnapshot.populate(rollingSums, effectiveFrames,
+                frameHistory, historyIndex, frameCount, actualFrameTimeSum);
+        return reusableSnapshot;
     }
 
     /**

@@ -101,6 +101,12 @@ public class LevelManager {
     private Level level;
     private int blockPixelSize = 128;  // cached from level
     private int chunksPerBlockSide = 8;
+    // Cached level pixel dimensions (immutable once level loads).
+    // Avoids repeated getLayerWidthBlocks()*blockPixelSize in hot-path collision lookups.
+    private int cachedFgWidthPx;
+    private int cachedFgHeightPx;
+    private int cachedBgWidthPx;
+    private int cachedBgHeightPx;
     private Game game;
     private GameModule gameModule;
 
@@ -116,6 +122,8 @@ public class LevelManager {
     private final SpriteManager spriteManager = SpriteManager.getInstance();
     private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
     private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
+    // Reusable context for per-object debug rendering (avoids per-frame allocation)
+    private final DebugRenderContext reusableDebugCtx = new DebugRenderContext();
     private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
     private final List<List<LevelData>> levels = new ArrayList<>();
     private int currentAct = 0;
@@ -200,6 +208,368 @@ public class LevelManager {
     // Camera reference for frustum culling
     private final Camera camera = Camera.getInstance();
 
+    // Pre-allocated viewport buffer to avoid per-frame int[4] allocations inside GL commands
+    private final int[] viewportBuffer = new int[4];
+
+    // Pre-allocated GLCommand objects to avoid per-frame lambda/command allocations.
+    // These are safe to reuse because the command list is cleared each frame in flushWithCamera().
+
+    // Disable shimmer distortion for water surface sprites (no per-frame captures)
+    private final GLCommand disableShimmerCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+        WaterShaderProgram waterShader = graphicsManager.getWaterShaderProgram();
+        if (waterShader != null) {
+            waterShader.use();
+            waterShader.setShimmerStyle(0);
+        }
+        WaterShaderProgram instancedWaterShader = graphicsManager.getInstancedWaterShaderProgram();
+        if (instancedWaterShader != null) {
+            instancedWaterShader.use();
+            instancedWaterShader.setShimmerStyle(0);
+        }
+        if (waterShader != null) {
+            waterShader.use();
+        }
+        PatternRenderCommand.resetFrameState();
+    });
+
+    // Revert to default shader for HUD rendering (no per-frame captures)
+    private final GLCommand disableWaterShaderCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+        graphicsManager.setUseWaterShader(false);
+        PatternRenderCommand.resetFrameState();
+    });
+
+    // Mutable state for pre-allocated water shader setup command
+    private float pendingWaterlineScreenY;
+    private int pendingWaterShimmerStyle;
+    private final GLCommand waterShaderSetupCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+        graphicsManager.setUseWaterShader(true);
+
+        WaterShaderProgram shader = graphicsManager.getWaterShaderProgram();
+        shader.use();
+
+        glGetIntegerv(GL_VIEWPORT, viewportBuffer);
+        float windowHeight = (float) viewportBuffer[3];
+        float screenHeightPixels = (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+
+        shader.setWindowHeight(windowHeight);
+        shader.setWaterlineScreenY(pendingWaterlineScreenY);
+        shader.setFrameCounter(frameCounter);
+        shader.setDistortionAmplitude(0.0f);
+        shader.setShimmerStyle(pendingWaterShimmerStyle);
+        shader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
+        shader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
+                screenHeightPixels);
+
+        graphicsManager.setWaterEnabled(true);
+        graphicsManager.setWaterlineScreenY(pendingWaterlineScreenY);
+        graphicsManager.setWindowHeight(windowHeight);
+        graphicsManager.setScreenHeight(screenHeightPixels);
+
+        WaterSystem waterSystem = WaterSystem.getInstance();
+        int zoneId = getFeatureZoneId();
+        Palette[] underwater = waterSystem.getUnderwaterPalette(zoneId, currentAct);
+        if (underwater != null) {
+            graphicsManager.cacheUnderwaterPaletteTexture(underwater);
+            Integer texId = graphicsManager.getUnderwaterPaletteTextureId();
+            int loc = shader.getUnderwaterPaletteLocation();
+
+            if (texId != null && loc != -1) {
+                glActiveTexture(GL_TEXTURE2);
+                glBindTexture(GL_TEXTURE_2D, texId);
+                glUniform1i(loc, 2);
+                glActiveTexture(GL_TEXTURE0);
+            }
+        }
+
+        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        if (tilemapRenderer != null) {
+            tilemapRenderer.setShimmerState(frameCounter, pendingWaterShimmerStyle);
+        }
+
+        WaterShaderProgram instancedShader = graphicsManager.getInstancedWaterShaderProgram();
+        if (instancedShader != null) {
+            instancedShader.use();
+            instancedShader.cacheUniformLocations();
+            instancedShader.setWindowHeight(windowHeight);
+            instancedShader.setWaterlineScreenY(pendingWaterlineScreenY);
+            instancedShader.setFrameCounter(frameCounter);
+            instancedShader.setDistortionAmplitude(0.0f);
+            instancedShader.setShimmerStyle(pendingWaterShimmerStyle);
+            instancedShader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
+            instancedShader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
+                    (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS));
+
+            Palette[] underwaterInstanced = waterSystem.getUnderwaterPalette(zoneId, currentAct);
+            if (underwaterInstanced != null) {
+                graphicsManager.cacheUnderwaterPaletteTexture(underwaterInstanced);
+                Integer texId = graphicsManager.getUnderwaterPaletteTextureId();
+                int loc = instancedShader.getUnderwaterPaletteLocation();
+                if (texId != null && loc != -1) {
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_2D, texId);
+                    glUniform1i(loc, 2);
+                    glActiveTexture(GL_TEXTURE0);
+                }
+            }
+            shader.use();
+        }
+    });
+
+    // Mutable state for pre-allocated BG ensureCapacity command
+    private int pendingBgRenderWidth;
+    private int pendingBgRenderHeight;
+    private final GLCommand bgEnsureCapacityCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+        BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
+        if (bgRenderer != null) {
+            bgRenderer.ensureCapacity(pendingBgRenderWidth, pendingBgRenderHeight);
+        }
+    });
+
+    // Mutable state for pre-allocated BG renderWithScrollWide command
+    private int[] pendingBgHScrollData;
+    private int pendingBgShaderScrollMidpoint;
+    private int pendingBgShaderExtraBuffer;
+    private int pendingBgVOffset;
+    private boolean pendingBgPerLineScroll;
+    private final GLCommand bgRenderWithScrollCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+        BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
+        if (bgRenderer != null) {
+            bgRenderer.renderWithScrollWide(pendingBgHScrollData, pendingBgShaderScrollMidpoint,
+                    pendingBgShaderExtraBuffer, pendingBgVOffset, pendingBgPerLineScroll);
+        }
+    });
+
+    // Mutable state for pre-allocated FG tilemap pass commands (two instances needed: low + high priority)
+    private float pendingFgWorldOffsetX_low;
+    private float pendingFgWorldOffsetY_low;
+    private int pendingFgScreenW_low;
+    private int pendingFgScreenH_low;
+    private int pendingFgPriorityPass_low;
+    private boolean pendingFgUseUnderwater_low;
+    private float pendingFgWaterlineScreenY_low;
+    private Integer pendingFgAtlasId_low;
+    private Integer pendingFgPaletteId_low;
+    private Integer pendingFgUnderwaterPaletteId_low;
+    private final GLCommand fgTilemapPassLowCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        if (tilemapRenderer == null) {
+            return;
+        }
+        glGetIntegerv(GL_VIEWPORT, viewportBuffer);
+        tilemapRenderer.render(
+                TilemapGpuRenderer.Layer.FOREGROUND,
+                pendingFgScreenW_low,
+                pendingFgScreenH_low,
+                viewportBuffer[0],
+                viewportBuffer[1],
+                viewportBuffer[2],
+                viewportBuffer[3],
+                pendingFgWorldOffsetX_low,
+                pendingFgWorldOffsetY_low,
+                graphicsManager.getPatternAtlasWidth(),
+                graphicsManager.getPatternAtlasHeight(),
+                pendingFgAtlasId_low,
+                pendingFgPaletteId_low,
+                pendingFgUnderwaterPaletteId_low != null ? pendingFgUnderwaterPaletteId_low : 0,
+                pendingFgPriorityPass_low,
+                verticalWrapEnabled,
+                false,
+                pendingFgUseUnderwater_low,
+                pendingFgWaterlineScreenY_low);
+    });
+
+    private float pendingFgWorldOffsetX_high;
+    private float pendingFgWorldOffsetY_high;
+    private int pendingFgScreenW_high;
+    private int pendingFgScreenH_high;
+    private int pendingFgPriorityPass_high;
+    private boolean pendingFgUseUnderwater_high;
+    private float pendingFgWaterlineScreenY_high;
+    private Integer pendingFgAtlasId_high;
+    private Integer pendingFgPaletteId_high;
+    private Integer pendingFgUnderwaterPaletteId_high;
+    private final GLCommand fgTilemapPassHighCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        if (tilemapRenderer == null) {
+            return;
+        }
+        glGetIntegerv(GL_VIEWPORT, viewportBuffer);
+        tilemapRenderer.render(
+                TilemapGpuRenderer.Layer.FOREGROUND,
+                pendingFgScreenW_high,
+                pendingFgScreenH_high,
+                viewportBuffer[0],
+                viewportBuffer[1],
+                viewportBuffer[2],
+                viewportBuffer[3],
+                pendingFgWorldOffsetX_high,
+                pendingFgWorldOffsetY_high,
+                graphicsManager.getPatternAtlasWidth(),
+                graphicsManager.getPatternAtlasHeight(),
+                pendingFgAtlasId_high,
+                pendingFgPaletteId_high,
+                pendingFgUnderwaterPaletteId_high != null ? pendingFgUnderwaterPaletteId_high : 0,
+                pendingFgPriorityPass_high,
+                verticalWrapEnabled,
+                false,
+                pendingFgUseUnderwater_high,
+                pendingFgWaterlineScreenY_high);
+    });
+
+    // Mutable state for pre-allocated high-priority FBO command
+    private int pendingFboScreenW;
+    private int pendingFboScreenH;
+    private float pendingFboFgWorldOffsetX;
+    private float pendingFboFgWorldOffsetY;
+    private float pendingFboBgWorldOffsetX;
+    private float pendingFboBgWorldOffsetY;
+    private boolean pendingFboBgPassEnabled;
+    private Integer pendingFboAtlasId;
+    private Integer pendingFboPaletteId;
+    private final GLCommand highPriorityFboCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+        TilePriorityFBO tileFbo = graphicsManager.getTilePriorityFBO();
+        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        if (tileFbo == null || tilemapRenderer == null) {
+            return;
+        }
+
+        tileFbo.begin();
+
+        glEnable(GL_BLEND);
+        glBlendEquation(GL_MAX);
+        glBlendFunc(GL_ONE, GL_ONE);
+
+        if (pendingFboBgPassEnabled) {
+            tilemapRenderer.render(
+                    TilemapGpuRenderer.Layer.BACKGROUND,
+                    pendingFboScreenW,
+                    pendingFboScreenH,
+                    0, 0, pendingFboScreenW, pendingFboScreenH,
+                    pendingFboBgWorldOffsetX,
+                    pendingFboBgWorldOffsetY,
+                    graphicsManager.getPatternAtlasWidth(),
+                    graphicsManager.getPatternAtlasHeight(),
+                    pendingFboAtlasId,
+                    pendingFboPaletteId,
+                    0, 1, false, true, false, 0.0f);
+        }
+
+        tilemapRenderer.render(
+                TilemapGpuRenderer.Layer.FOREGROUND,
+                pendingFboScreenW,
+                pendingFboScreenH,
+                0, 0, pendingFboScreenW, pendingFboScreenH,
+                pendingFboFgWorldOffsetX,
+                pendingFboFgWorldOffsetY,
+                graphicsManager.getPatternAtlasWidth(),
+                graphicsManager.getPatternAtlasHeight(),
+                pendingFboAtlasId,
+                pendingFboPaletteId,
+                0, 1, verticalWrapEnabled, true, false, 0.0f);
+
+        glBlendEquation(GL_FUNC_ADD);
+        glDisable(GL_BLEND);
+
+        tileFbo.end();
+    });
+
+    // Mutable state for pre-allocated BG tile pass command
+    private int pendingBgTilePassRenderWidth;
+    private int pendingBgTilePassRenderHeight;
+    private boolean pendingBgTilePassHasWater;
+    private float pendingBgTilePassFboWaterlineY;
+    private int pendingBgTilePassAlignedBgY;
+    private float pendingBgTilePassBgTilemapWorldOffsetX;
+    private boolean pendingBgTilePassPerLineScroll;
+    private int[] pendingBgTilePassHScrollData;
+    private float pendingBgTilePassVdpWrapWidth;
+    private float pendingBgTilePassNametableBase;
+    private final GLCommand bgTilePassCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+        BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
+        if (bgRenderer == null) {
+            return;
+        }
+        bgRenderer.beginTilePass(pendingBgTilePassRenderWidth, pendingBgTilePassRenderHeight, true);
+        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        if (tilemapRenderer != null) {
+            int savedShimmerStyle = tilemapRenderer.getShimmerStyle();
+            tilemapRenderer.setShimmerState(frameCounter, 0);
+
+            Integer atlasId = graphicsManager.getPatternAtlasTextureId();
+            Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
+            Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
+            boolean useUnderwaterPalette = pendingBgTilePassHasWater && underwaterPaletteId != null;
+            if (atlasId != null && paletteId != null) {
+                if (pendingBgTilePassPerLineScroll) {
+                    bgRenderer.uploadHScroll(pendingBgTilePassHScrollData);
+                    tilemapRenderer.enablePerLineScroll(
+                            bgRenderer.getHScrollTextureId(), 224.0f,
+                            pendingBgTilePassVdpWrapWidth, pendingBgTilePassNametableBase);
+                }
+                glGetIntegerv(GL_VIEWPORT, viewportBuffer);
+                tilemapRenderer.render(
+                        TilemapGpuRenderer.Layer.BACKGROUND,
+                        pendingBgTilePassRenderWidth,
+                        pendingBgTilePassRenderHeight,
+                        viewportBuffer[0],
+                        viewportBuffer[1],
+                        viewportBuffer[2],
+                        viewportBuffer[3],
+                        pendingBgTilePassBgTilemapWorldOffsetX,
+                        (float) pendingBgTilePassAlignedBgY,
+                        graphicsManager.getPatternAtlasWidth(),
+                        graphicsManager.getPatternAtlasHeight(),
+                        atlasId,
+                        paletteId,
+                        underwaterPaletteId != null ? underwaterPaletteId : 0,
+                        -1,
+                        true,
+                        false,
+                        useUnderwaterPalette,
+                        pendingBgTilePassFboWaterlineY);
+            }
+
+            tilemapRenderer.setShimmerState(frameCounter, savedShimmerStyle);
+        }
+        bgRenderer.endTilePass();
+        graphicsManager.setUseUnderwaterPaletteForBackground(false);
+    });
+
+    // Mutable state for pre-allocated HTZ earthquake BG overlay command
+    private float pendingHtzBgWorldOffsetX;
+    private float pendingHtzBgWorldOffsetY;
+    private int pendingHtzScreenW;
+    private int pendingHtzScreenH;
+    private Integer pendingHtzAtlasId;
+    private Integer pendingHtzPaletteId;
+    private final GLCommand htzBgOverlayCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        if (tilemapRenderer == null) {
+            return;
+        }
+        glGetIntegerv(GL_VIEWPORT, viewportBuffer);
+        tilemapRenderer.render(
+                TilemapGpuRenderer.Layer.BACKGROUND,
+                pendingHtzScreenW,
+                pendingHtzScreenH,
+                viewportBuffer[0],
+                viewportBuffer[1],
+                viewportBuffer[2],
+                viewportBuffer[3],
+                pendingHtzBgWorldOffsetX,
+                pendingHtzBgWorldOffsetY,
+                graphicsManager.getPatternAtlasWidth(),
+                graphicsManager.getPatternAtlasHeight(),
+                pendingHtzAtlasId,
+                pendingHtzPaletteId,
+                0,
+                1,
+                false,
+                false,
+                false,
+                0.0f);
+    });
+
     /**
      * Checks if a point is within the visible camera frustum with optional padding.
      * Used to cull debug overlay commands for off-screen objects.
@@ -255,6 +625,7 @@ public class LevelManager {
             level = game.loadLevel(levelIndex);
             blockPixelSize = level.getBlockPixelSize();
             chunksPerBlockSide = level.getChunksPerBlockSide();
+            cacheLevelDimensions();
         backgroundTilemapDirty = true;
         foregroundTilemapDirty = true;
         patternLookupDirty = true;
@@ -923,22 +1294,7 @@ public class LevelManager {
         // without horizontal distortion (matching original hardware behavior where the
         // water surface object is not affected by per-scanline scroll offsets).
         // Keep the water shader active for palette swap (underwater palette below waterline).
-        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-            WaterShaderProgram waterShader = graphicsManager.getWaterShaderProgram();
-            if (waterShader != null) {
-                waterShader.use();
-                waterShader.setShimmerStyle(0);  // S2 mode with DistortionAmplitude=0 → no distortion
-            }
-            WaterShaderProgram instancedWaterShader = graphicsManager.getInstancedWaterShaderProgram();
-            if (instancedWaterShader != null) {
-                instancedWaterShader.use();
-                instancedWaterShader.setShimmerStyle(0);
-            }
-            if (waterShader != null) {
-                waterShader.use();
-            }
-            PatternRenderCommand.resetFrameState();
-        }));
+        graphicsManager.registerCommand(disableShimmerCommand);
 
         // Draw water surface sprites at the water line
         // Rendered last (after all sprites and tiles) so it appears in front of everything
@@ -952,10 +1308,7 @@ public class LevelManager {
         // IMPORTANT: Must be queued as a command so it executes AFTER pattern batches
         // Also reset PatternRenderCommand state so next pattern will reinitialize with
         // the default shader
-        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-            graphicsManager.setUseWaterShader(false);
-            PatternRenderCommand.resetFrameState();
-        }));
+        graphicsManager.registerCommand(disableWaterShaderCommand);
 
         profiler.beginSection("render.hud");
         if (hudRenderManager != null && !isHudSuppressed()) {
@@ -1015,19 +1368,21 @@ public class LevelManager {
         // Per-object debug rendering (hitboxes, velocity vectors, AI state labels)
         if (objectManager != null && overlayEnabled
                 && overlayManager.isEnabled(DebugOverlayToggle.OBJECT_DEBUG)) {
-            DebugRenderContext debugCtx = new DebugRenderContext();
+            reusableDebugCtx.clear();
             for (ObjectInstance instance : objectManager.getActiveObjects()) {
                 if (!isInCameraFrustum(instance.getX(), instance.getY(), 64)) {
                     continue;
                 }
-                instance.appendDebugRenderCommands(debugCtx);
+                instance.appendDebugRenderCommands(reusableDebugCtx);
             }
-            if (debugCtx.hasGeometry()) {
+            if (reusableDebugCtx.hasGeometry()) {
                 graphicsManager.enqueueDebugLineState();
-                graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, debugCtx.getGeometryCommands()));
+                graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, reusableDebugCtx.getGeometryCommands()));
             }
-            if (debugCtx.hasText()) {
-                overlayManager.setObjectDebugTextEntries(new ArrayList<>(debugCtx.getTextEntries()));
+            if (reusableDebugCtx.hasText()) {
+                // Transfer ownership - the overlay manager holds this list until
+                // DebugRenderer consumes it, then we clear() on the next frame.
+                overlayManager.setObjectDebugTextEntries(reusableDebugCtx.getTextEntries());
             } else {
                 overlayManager.clearObjectDebugTextEntries();
             }
@@ -1164,86 +1519,11 @@ public class LevelManager {
             }
             float waterlineScreenY = (float) (waterLevel - camera.getY() + waterlineOffset);
             currentShimmerStyle = shimmerStyle;
-            final int capturedShimmerStyle = shimmerStyle;
 
-            graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-                // Enable water shader at execution time
-                graphicsManager.setUseWaterShader(true);
-
-                WaterShaderProgram shader = graphicsManager.getWaterShaderProgram();
-                shader.use();
-
-                // Query actual window height from GL state to correct shader coordinates
-                int[] viewport = new int[4];
-                glGetIntegerv(GL_VIEWPORT, viewport);
-                float windowHeight = (float) viewport[3];
-                float screenHeightPixels = (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
-
-                shader.setWindowHeight(windowHeight);
-                shader.setWaterlineScreenY(waterlineScreenY);
-                shader.setFrameCounter(frameCounter);
-                shader.setDistortionAmplitude(0.0f);
-                shader.setShimmerStyle(capturedShimmerStyle);
-                shader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
-                shader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
-                        screenHeightPixels);
-
-                // Cache water state values in GraphicsManager for sprite priority shader
-                graphicsManager.setWaterEnabled(true);
-                graphicsManager.setWaterlineScreenY(waterlineScreenY);
-                graphicsManager.setWindowHeight(windowHeight);
-                graphicsManager.setScreenHeight(screenHeightPixels);
-
-                // Underwater Palette
-                Palette[] underwater = waterSystem.getUnderwaterPalette(zoneId, currentAct);
-                if (underwater != null) {
-                    graphicsManager.cacheUnderwaterPaletteTexture(underwater);
-                    Integer texId = graphicsManager.getUnderwaterPaletteTextureId();
-                    int loc = shader.getUnderwaterPaletteLocation();
-
-                    if (texId != null && loc != -1) {
-                        // Bind to TU2
-                        glActiveTexture(GL_TEXTURE2);
-                        glBindTexture(GL_TEXTURE_2D, texId);
-                        glUniform1i(loc, 2);
-                        glActiveTexture(GL_TEXTURE0);
-                    }
-                }
-
-                // Set shimmer state on tilemap renderer so tile rendering also gets distortion
-                TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
-                if (tilemapRenderer != null) {
-                    tilemapRenderer.setShimmerState(frameCounter, capturedShimmerStyle);
-                }
-
-                WaterShaderProgram instancedShader = graphicsManager.getInstancedWaterShaderProgram();
-                if (instancedShader != null) {
-                    instancedShader.use();
-                    instancedShader.cacheUniformLocations();
-                    instancedShader.setWindowHeight(windowHeight);
-                    instancedShader.setWaterlineScreenY(waterlineScreenY);
-                    instancedShader.setFrameCounter(frameCounter);
-                    instancedShader.setDistortionAmplitude(0.0f);
-                    instancedShader.setShimmerStyle(capturedShimmerStyle);
-                    instancedShader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
-                    instancedShader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
-                            (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS));
-
-                    Palette[] underwaterInstanced = waterSystem.getUnderwaterPalette(zoneId, currentAct);
-                    if (underwaterInstanced != null) {
-                        graphicsManager.cacheUnderwaterPaletteTexture(underwaterInstanced);
-                        Integer texId = graphicsManager.getUnderwaterPaletteTextureId();
-                        int loc = instancedShader.getUnderwaterPaletteLocation();
-                        if (texId != null && loc != -1) {
-                            glActiveTexture(GL_TEXTURE2);
-                            glBindTexture(GL_TEXTURE_2D, texId);
-                            glUniform1i(loc, 2);
-                            glActiveTexture(GL_TEXTURE0);
-                        }
-                    }
-                    shader.use();
-                }
-            }));
+            // Set mutable state for pre-allocated water shader setup command
+            pendingWaterlineScreenY = waterlineScreenY;
+            pendingWaterShimmerStyle = shimmerStyle;
+            graphicsManager.registerCommand(waterShaderSetupCommand);
         } else {
             // No water in this zone - disable underwater palette for sprite priority shader
             currentShimmerStyle = 0;
@@ -1318,17 +1598,9 @@ public class LevelManager {
         int actualBgScrollY = parallaxManager.getVscrollFactorBG();
 
         // 1. Ensure FBO capacity (grow-only, no per-frame reallocation)
-        final int finalRenderWidth = renderWidth;
-        final int finalRenderHeight = renderHeight;
-        final float finalBgTilemapWorldOffsetX = bgTilemapWorldOffsetX;
-        final int finalShaderScrollMidpoint = shaderScrollMidpoint;
-        final int finalShaderExtraBuffer = shaderExtraBuffer;
-        final boolean finalPerLineScroll = perLineScrollActive;
-        final float finalVdpWrapWidth = vdpWrapWidthTiles;
-        final float finalNametableBase = nametableBaseTile;
-        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-            bgRenderer.ensureCapacity(finalRenderWidth, finalRenderHeight);
-        }));
+        pendingBgRenderWidth = renderWidth;
+        pendingBgRenderHeight = renderHeight;
+        graphicsManager.registerCommand(bgEnsureCapacityCommand);
 
         // 2. Begin Tile Pass (Bind FBO)
         // Use water shader in screen-space mode for FBO, with adjusted waterline
@@ -1345,72 +1617,31 @@ public class LevelManager {
         if (actualBgScrollY < 0 && actualBgScrollY % chunkHeight != 0) {
             alignedBgY -= chunkHeight; // Handle negative rounding
         }
-        final int alignedBgYFinal = alignedBgY;
 
         // Calculate waterline for FBO - use SCREEN-SPACE waterline PLUS parallax offset
         // The parallax shader shifts the FBO sampling by (actualBgScrollY - alignedBgY)
         // so we must shift the waterline by the same amount to keep it steady on screen
         int vOffset = actualBgScrollY - alignedBgY;
-        final float fboWaterlineY = (float) ((waterLevelWorldY - camera.getY()) + vOffset);
+        float fboWaterlineY = (float) ((waterLevelWorldY - camera.getY()) + vOffset);
 
         // Compute screen-space waterline for BG parallax shimmer
-        final float bgWaterlineScreenY = (float) (waterLevelWorldY - camera.getY());
-        final int capturedBgShimmerStyle = currentShimmerStyle;
+        float bgWaterlineScreenY = (float) (waterLevelWorldY - camera.getY());
 
         ensureBackgroundTilemapData();
-        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-            bgRenderer.beginTilePass(finalRenderWidth, finalRenderHeight, true);
-            TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
-            if (tilemapRenderer != null) {
-                // Disable shimmer for BG FBO tilemap render - shimmer distortion is applied
-                // in the parallax compositing pass instead (with different, larger wave params)
-                int savedShimmerStyle = tilemapRenderer.getShimmerStyle();
-                tilemapRenderer.setShimmerState(frameCounter, 0);
-
-                Integer atlasId = graphicsManager.getPatternAtlasTextureId();
-                Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
-                Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
-                boolean useUnderwaterPalette = hasWater && underwaterPaletteId != null;
-                if (atlasId != null && paletteId != null) {
-                    if (finalPerLineScroll) {
-                        bgRenderer.uploadHScroll(hScrollData);
-                        tilemapRenderer.enablePerLineScroll(
-                                bgRenderer.getHScrollTextureId(), 224.0f,
-                                finalVdpWrapWidth, finalNametableBase);
-                    }
-                    int[] viewport = new int[4];
-                    glGetIntegerv(GL_VIEWPORT, viewport);
-                    tilemapRenderer.render(
-                            TilemapGpuRenderer.Layer.BACKGROUND,
-                            finalRenderWidth,
-                            finalRenderHeight,
-                            viewport[0],
-                            viewport[1],
-                            viewport[2],
-                            viewport[3],
-                            finalBgTilemapWorldOffsetX,
-                            (float) alignedBgYFinal,
-                            graphicsManager.getPatternAtlasWidth(),
-                            graphicsManager.getPatternAtlasHeight(),
-                            atlasId,
-                            paletteId,
-                            underwaterPaletteId != null ? underwaterPaletteId : 0,
-                            -1,
-                            true,
-                            false,  // maskOutput = false for screen rendering
-                            useUnderwaterPalette,
-                            fboWaterlineY);
-                }
-
-                // Restore shimmer for subsequent FG tilemap renders
-                tilemapRenderer.setShimmerState(frameCounter, savedShimmerStyle);
-            }
-            bgRenderer.endTilePass();
-            graphicsManager.setUseUnderwaterPaletteForBackground(false);
-        }));
+        pendingBgTilePassRenderWidth = renderWidth;
+        pendingBgTilePassRenderHeight = renderHeight;
+        pendingBgTilePassHasWater = hasWater;
+        pendingBgTilePassFboWaterlineY = fboWaterlineY;
+        pendingBgTilePassAlignedBgY = alignedBgY;
+        pendingBgTilePassBgTilemapWorldOffsetX = bgTilemapWorldOffsetX;
+        pendingBgTilePassPerLineScroll = perLineScrollActive;
+        pendingBgTilePassHScrollData = hScrollData;
+        pendingBgTilePassVdpWrapWidth = vdpWrapWidthTiles;
+        pendingBgTilePassNametableBase = nametableBaseTile;
+        graphicsManager.registerCommand(bgTilePassCommand);
 
         // 5. Set shimmer state on BG renderer for parallax compositing pass
-        bgRenderer.setShimmerState(frameCounter, capturedBgShimmerStyle, bgWaterlineScreenY);
+        bgRenderer.setShimmerState(frameCounter, currentShimmerStyle, bgWaterlineScreenY);
 
         // 6. Render the FBO with Parallax Shader
         if (graphicsManager.getCombinedPaletteTextureId() != null) {
@@ -1421,12 +1652,12 @@ public class LevelManager {
             if (shaderVOffset < 0)
                 shaderVOffset += LevelConstants.CHUNK_HEIGHT; // Handle negative modulo
 
-            final int finalVOffset = shaderVOffset;
-
-            graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx2, cy2, cw2, ch2) -> {
-                bgRenderer.renderWithScrollWide(hScrollData, finalShaderScrollMidpoint, finalShaderExtraBuffer,
-                        finalVOffset, finalPerLineScroll);
-            }));
+            pendingBgHScrollData = hScrollData;
+            pendingBgShaderScrollMidpoint = shaderScrollMidpoint;
+            pendingBgShaderExtraBuffer = shaderExtraBuffer;
+            pendingBgVOffset = shaderVOffset;
+            pendingBgPerLineScroll = perLineScrollActive;
+            graphicsManager.registerCommand(bgRenderWithScrollCommand);
         }
     }
 
@@ -1461,34 +1692,33 @@ public class LevelManager {
             return;
         }
 
-        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-            TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
-            if (tilemapRenderer == null) {
-                return;
-            }
-            int[] viewport = new int[4];
-            glGetIntegerv(GL_VIEWPORT, viewport);
-            tilemapRenderer.render(
-                    TilemapGpuRenderer.Layer.FOREGROUND,
-                    screenW,
-                    screenH,
-                    viewport[0],
-                    viewport[1],
-                    viewport[2],
-                    viewport[3],
-                    worldOffsetX,
-                    worldOffsetY,
-                    graphicsManager.getPatternAtlasWidth(),
-                    graphicsManager.getPatternAtlasHeight(),
-                    atlasId,
-                    paletteId,
-                    underwaterPaletteId != null ? underwaterPaletteId : 0,
-                    priorityPass,
-                    verticalWrapEnabled,  // ROM: LZ3/SBZ2 FG wraps vertically
-                    false,  // maskOutput = false for screen rendering
-                    useUnderwaterPalette,
-                    waterlineScreenY);
-        }));
+        // Use separate pre-allocated commands for low (0) and high (1) priority passes
+        // since both are registered in the same frame
+        if (priorityPass == 0) {
+            pendingFgWorldOffsetX_low = worldOffsetX;
+            pendingFgWorldOffsetY_low = worldOffsetY;
+            pendingFgScreenW_low = screenW;
+            pendingFgScreenH_low = screenH;
+            pendingFgPriorityPass_low = priorityPass;
+            pendingFgUseUnderwater_low = useUnderwaterPalette;
+            pendingFgWaterlineScreenY_low = waterlineScreenY;
+            pendingFgAtlasId_low = atlasId;
+            pendingFgPaletteId_low = paletteId;
+            pendingFgUnderwaterPaletteId_low = underwaterPaletteId;
+            graphicsManager.registerCommand(fgTilemapPassLowCommand);
+        } else {
+            pendingFgWorldOffsetX_high = worldOffsetX;
+            pendingFgWorldOffsetY_high = worldOffsetY;
+            pendingFgScreenW_high = screenW;
+            pendingFgScreenH_high = screenH;
+            pendingFgPriorityPass_high = priorityPass;
+            pendingFgUseUnderwater_high = useUnderwaterPalette;
+            pendingFgWaterlineScreenY_high = waterlineScreenY;
+            pendingFgAtlasId_high = atlasId;
+            pendingFgPaletteId_high = paletteId;
+            pendingFgUnderwaterPaletteId_high = underwaterPaletteId;
+            graphicsManager.registerCommand(fgTilemapPassHighCommand);
+        }
     }
 
     /**
@@ -1524,34 +1754,13 @@ public class LevelManager {
         int screenW = cachedScreenWidth;
         int screenH = cachedScreenHeight;
 
-        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-            TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
-            if (tilemapRenderer == null) {
-                return;
-            }
-            int[] viewport = new int[4];
-            glGetIntegerv(GL_VIEWPORT, viewport);
-            tilemapRenderer.render(
-                    TilemapGpuRenderer.Layer.BACKGROUND,
-                    screenW,
-                    screenH,
-                    viewport[0],
-                    viewport[1],
-                    viewport[2],
-                    viewport[3],
-                    bgWorldOffsetX,
-                    bgWorldOffsetY,
-                    graphicsManager.getPatternAtlasWidth(),
-                    graphicsManager.getPatternAtlasHeight(),
-                    atlasId,
-                    paletteId,
-                    0,
-                    1,
-                    false,
-                    false,
-                    false,
-                    0.0f);
-        }));
+        pendingHtzBgWorldOffsetX = bgWorldOffsetX;
+        pendingHtzBgWorldOffsetY = bgWorldOffsetY;
+        pendingHtzScreenW = screenW;
+        pendingHtzScreenH = screenH;
+        pendingHtzAtlasId = atlasId;
+        pendingHtzPaletteId = paletteId;
+        graphicsManager.registerCommand(htzBgOverlayCommand);
     }
 
     /**
@@ -1585,91 +1794,30 @@ public class LevelManager {
         // This avoids HTZ earthquake desync where BG high-priority mask can drift
         // relative to the actual background rendering and incorrectly hide sprites.
         float bgWorldOffsetY = parallaxManager.getVscrollFactorBG();
-        float bgWorldOffsetXMutable = fgWorldOffsetX;
+        float bgWorldOffsetX = fgWorldOffsetX;
         int[] hScrollData = parallaxManager.getHScrollForShader();
         if (hScrollData != null && hScrollData.length > 0) {
             short bgScroll = (short) (hScrollData[hScrollData.length - 1] & 0xFFFF);
-            bgWorldOffsetXMutable = -bgScroll;
+            bgWorldOffsetX = -bgScroll;
         }
-        final float bgWorldOffsetX = bgWorldOffsetXMutable;
 
         // BG high-priority FBO pass is only valid when BG scroll is flat (earthquake mode).
         // In normal mode, per-scanline parallax means a single BG offset can't match the
         // actual on-screen tile positions, causing the sprite priority shader to hide sprites
         // behind misaligned mask pixels.
-        final boolean bgFboPassEnabled =
+        boolean bgFboPassEnabled =
                 currentZone == ParallaxManager.ZONE_HTZ && GameServices.gameState().isHtzScreenShakeActive();
 
-        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-            TilePriorityFBO tileFbo = graphicsManager.getTilePriorityFBO();
-            TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
-            if (tileFbo == null || tilemapRenderer == null) {
-                return;
-            }
-
-            // Begin rendering to FBO
-            tileFbo.begin();
-
-            // Enable max blending so both layers contribute to priority mask
-            // This ensures high-priority tiles from BOTH background AND foreground
-            // will occlude low-priority sprites (matching VDP behavior)
-            glEnable(GL_BLEND);
-            glBlendEquation(GL_MAX);
-            glBlendFunc(GL_ONE, GL_ONE);
-
-            // First pass: background high-priority tiles (only when BG scroll is flat)
-            if (bgFboPassEnabled) {
-                tilemapRenderer.render(
-                        TilemapGpuRenderer.Layer.BACKGROUND,
-                        screenW,
-                        screenH,
-                        0,      // viewport X (FBO uses full size)
-                        0,      // viewport Y
-                        screenW,  // viewport width
-                        screenH,  // viewport height
-                        bgWorldOffsetX,
-                        bgWorldOffsetY,
-                        graphicsManager.getPatternAtlasWidth(),
-                        graphicsManager.getPatternAtlasHeight(),
-                        atlasId,
-                        paletteId,
-                        0,      // no underwater palette for FBO
-                        1,      // priority pass = 1 (high priority only)
-                        false,  // no wrap Y
-                        true,   // maskOutput = true for priority FBO
-                        false,  // no underwater palette
-                        0.0f);  // no waterline
-            }
-
-            // Second pass: foreground high-priority tiles
-            tilemapRenderer.render(
-                    TilemapGpuRenderer.Layer.FOREGROUND,
-                    screenW,
-                    screenH,
-                    0,      // viewport X (FBO uses full size)
-                    0,      // viewport Y
-                    screenW,  // viewport width
-                    screenH,  // viewport height
-                    fgWorldOffsetX,
-                    fgWorldOffsetY,
-                    graphicsManager.getPatternAtlasWidth(),
-                    graphicsManager.getPatternAtlasHeight(),
-                    atlasId,
-                    paletteId,
-                    0,      // no underwater palette for FBO
-                    1,      // priority pass = 1 (high priority only)
-                    verticalWrapEnabled,  // ROM: LZ3/SBZ2 FG wraps vertically
-                    true,   // maskOutput = true for priority FBO
-                    false,  // no underwater palette
-                    0.0f);  // no waterline
-
-            // Restore default blend state
-            glBlendEquation(GL_FUNC_ADD);
-            glDisable(GL_BLEND);
-
-            // End rendering to FBO
-            tileFbo.end();
-        }));
+        pendingFboScreenW = screenW;
+        pendingFboScreenH = screenH;
+        pendingFboFgWorldOffsetX = fgWorldOffsetX;
+        pendingFboFgWorldOffsetY = fgWorldOffsetY;
+        pendingFboBgWorldOffsetX = bgWorldOffsetX;
+        pendingFboBgWorldOffsetY = bgWorldOffsetY;
+        pendingFboBgPassEnabled = bgFboPassEnabled;
+        pendingFboAtlasId = atlasId;
+        pendingFboPaletteId = paletteId;
+        graphicsManager.registerCommand(highPriorityFboCommand);
     }
 
     private void ensureBackgroundTilemapData() {
@@ -2220,9 +2368,9 @@ public class LevelManager {
             if (sensor == null) {
                 continue;
             }
-            short[] rotatedOffset = sensor.getRotatedOffset();
-            int originX = collisionCenterX + rotatedOffset[0];
-            int originY = collisionCenterY + rotatedOffset[1];
+            sensor.computeRotatedOffset();
+            int originX = collisionCenterX + sensor.getRotatedX();
+            int originY = collisionCenterY + sensor.getRotatedY();
 
             float[] color = DebugOverlayPalette.sensorLineColor(i, sensor.isActive());
             appendCross(sensorCommands, originX, originY, 1, color[0], color[1], color[2]);
@@ -2417,14 +2565,42 @@ public class LevelManager {
         return heightBlocks * blockPixelSize;
     }
 
+    /**
+     * Populates cached FG/BG pixel dimensions from the current level.
+     * Must be called after a level is loaded (dimensions are immutable during gameplay).
+     */
+    private void cacheLevelDimensions() {
+        if (level != null) {
+            cachedFgWidthPx = getLayerLevelWidthPx((byte) 0);
+            cachedFgHeightPx = getLayerLevelHeightPx((byte) 0);
+            cachedBgWidthPx = getLayerLevelWidthPx((byte) 1);
+            cachedBgHeightPx = getLayerLevelHeightPx((byte) 1);
+        } else {
+            cachedFgWidthPx = blockPixelSize;
+            cachedFgHeightPx = blockPixelSize;
+            cachedBgWidthPx = blockPixelSize;
+            cachedBgHeightPx = blockPixelSize;
+        }
+    }
+
+    /** Fast cached getter for layer pixel width (avoids per-call getLayerWidthBlocks). */
+    private int getCachedLayerWidthPx(byte layer) {
+        return layer == 0 ? cachedFgWidthPx : cachedBgWidthPx;
+    }
+
+    /** Fast cached getter for layer pixel height (avoids per-call getLayerHeightBlocks). */
+    private int getCachedLayerHeightPx(byte layer) {
+        return layer == 0 ? cachedFgHeightPx : cachedBgHeightPx;
+    }
+
     private Block getBlockAtPosition(byte layer, int x, int y) {
         if (level == null || level.getMap() == null) {
             LOGGER.warning("Level or Map is not initialized.");
             return null;
         }
 
-        int levelWidth = getLayerLevelWidthPx(layer);
-        int levelHeight = getLayerLevelHeightPx(layer);
+        int levelWidth = getCachedLayerWidthPx(layer);
+        int levelHeight = getCachedLayerHeightPx(layer);
 
         // Handle wrapping for X
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
@@ -2476,8 +2652,8 @@ public class LevelManager {
         if (level == null || level.getMap() == null) {
             return -1;
         }
-        int levelWidth = getLayerLevelWidthPx((byte) 0);
-        int levelHeight = getLayerLevelHeightPx((byte) 0);
+        int levelWidth = cachedFgWidthPx;
+        int levelHeight = cachedFgHeightPx;
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
         if (verticalWrapEnabled) {
@@ -2492,23 +2668,50 @@ public class LevelManager {
     }
 
     public ChunkDesc getChunkDescAt(byte layer, int x, int y) {
-        Block block = getBlockAtPosition(layer, x, y);
+        if (level == null || level.getMap() == null) {
+            return null;
+        }
+
+        int levelWidth = getCachedLayerWidthPx(layer);
+        int levelHeight = getCachedLayerHeightPx(layer);
+
+        // Wrap X (always wraps)
+        int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
+
+        // Wrap or clamp Y depending on layer
+        int wrappedY = y;
+        if (layer == 1) {
+            // Background loops vertically
+            wrappedY = ((wrappedY % levelHeight) + levelHeight) % levelHeight;
+        } else if (verticalWrapEnabled) {
+            // ROM: LZ3/SBZ2 — FG also wraps vertically
+            wrappedY = ((wrappedY % levelHeight) + levelHeight) % levelHeight;
+        } else {
+            // Foreground clamps
+            if (wrappedY < 0 || wrappedY >= levelHeight)
+                return null;
+        }
+
+        // Block lookup (inlined from getBlockAtPosition to reuse wrappedX/wrappedY)
+        Map map = level.getMap();
+        int mapX = wrappedX / blockPixelSize;
+        int mapY = wrappedY / blockPixelSize;
+
+        byte value = map.getValue(layer, mapX, mapY);
+        int blockIndex = value & 0xFF;
+
+        if (blockIndex >= level.getBlockCount()) {
+            return null;
+        }
+
+        Block block = level.getBlock(blockIndex);
         if (block == null) {
             return null;
         }
 
-        int levelWidth = getLayerLevelWidthPx(layer);
-        int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
-        int wrappedY = y;
-
-        if (layer == 1 || (layer == 0 && verticalWrapEnabled)) {
-            int levelHeight = getLayerLevelHeightPx(layer);
-            wrappedY = ((y % levelHeight) + levelHeight) % levelHeight;
-        }
-
-        ChunkDesc chunkDesc = block.getChunkDesc((wrappedX % blockPixelSize) / LevelConstants.CHUNK_WIDTH,
+        // Intra-block position (reuses already-wrapped coordinates)
+        return block.getChunkDesc((wrappedX % blockPixelSize) / LevelConstants.CHUNK_WIDTH,
                 (wrappedY % blockPixelSize) / LevelConstants.CHUNK_HEIGHT);
-        return chunkDesc;
     }
 
     /**
@@ -2531,8 +2734,8 @@ public class LevelManager {
             return null;
         }
 
-        int levelWidth = getLayerLevelWidthPx((byte) 0);
-        int levelHeight = getLayerLevelHeightPx((byte) 0);
+        int levelWidth = cachedFgWidthPx;
+        int levelHeight = cachedFgHeightPx;
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
         if (verticalWrapEnabled) {
@@ -3242,6 +3445,7 @@ public class LevelManager {
         levelInactiveForTransition = false;
         requestedZone = -1;
         requestedAct = -1;
+        cacheLevelDimensions();
         levels.clear();
     }
 

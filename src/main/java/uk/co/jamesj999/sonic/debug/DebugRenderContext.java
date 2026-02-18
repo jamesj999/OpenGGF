@@ -17,6 +17,60 @@ public class DebugRenderContext {
     private final List<GLCommand> geometryCommands = new ArrayList<>();
     private final List<DebugTextEntry> textEntries = new ArrayList<>();
 
+    // Shared StringBuilder for callers to build labels without per-frame allocation
+    private final StringBuilder labelBuilder = new StringBuilder(64);
+
+    /**
+     * Clears all accumulated commands and text entries for reuse next frame.
+     */
+    public void clear() {
+        geometryCommands.clear();
+        textEntries.clear();
+    }
+
+    /**
+     * Returns a shared StringBuilder, reset to empty. Callers can append label
+     * text and pass the result to {@link #drawWorldLabel}. Avoids per-call
+     * StringBuilder allocation. The returned builder is only valid until the
+     * next call to this method.
+     */
+    public StringBuilder getLabelBuilder() {
+        labelBuilder.setLength(0);
+        return labelBuilder;
+    }
+
+    /**
+     * Appends a 2-digit uppercase hex value (00-FF) to the given builder.
+     */
+    public static void appendHex2(StringBuilder sb, int value) {
+        int hi = (value >> 4) & 0xF;
+        int lo = value & 0xF;
+        sb.append((char) (hi < 10 ? '0' + hi : 'A' + hi - 10));
+        sb.append((char) (lo < 10 ? '0' + lo : 'A' + lo - 10));
+    }
+
+    /**
+     * Appends a float with 2 decimal places without String.format.
+     * Handles negative values. Range limited to reasonable debug values.
+     */
+    public static void appendFixed2(StringBuilder sb, float value) {
+        if (value < 0) { sb.append('-'); value = -value; }
+        long scaled = Math.round(value * 100.0);
+        sb.append(scaled / 100).append('.');
+        long frac = scaled % 100;
+        if (frac < 10) sb.append('0');
+        sb.append(frac);
+    }
+
+    /**
+     * Appends a float with 1 decimal place without String.format.
+     */
+    public static void appendFixed1(StringBuilder sb, float value) {
+        if (value < 0) { sb.append('-'); value = -value; }
+        long scaled = Math.round(value * 10.0);
+        sb.append(scaled / 10).append('.').append(scaled % 10);
+    }
+
     /**
      * A text label positioned in world coordinates.
      */
