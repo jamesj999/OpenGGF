@@ -5,8 +5,8 @@ Generated: 2026-02-13 14:52:02
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 77 (96.3%)
-- **Unimplemented:** 3 (3.8%)
+- **Implemented:** 79 (98.8%)
+- **Unimplemented:** 1 (1.3%)
 
 ## Implemented Objects
 
@@ -88,15 +88,15 @@ Generated: 2026-02-13 14:52:02
 | 0x6D | Flamethrower | 42 | SBZ1, SBZ2 |
 | 0x67 | RunningDisc | 8 | SBZ2 |
 | 0x70 | Girder | 12 | SBZ1 |
+| 0x6F | SpinConveyor | 6 | SBZ1 |
 | 0x72 | Teleporter | 8 | SBZ2 |
+| 0x66 | Junction | 2 | SBZ1 |
 
 ## Unimplemented Objects (By Usage)
 
 | ID | Category | Name | Total Uses | Zones |
 |----|----------|------|------------|-------|
 | 0x28 | Object | S1_Obj_28 | 57 | FZ1 |
-| 0x6F | Object | S1_Obj_6F | 6 | SBZ1 |
-| 0x66 | Object | S1_Obj_66 | 2 | SBZ1 |
 
 ---
 
@@ -538,7 +538,7 @@ Total: 257 objects | Implemented: 16 | Unimplemented: 0
 
 #### Act 1
 
-Total: 308 objects | Implemented: 21 | Unimplemented: 2
+Total: 308 objects | Implemented: 23 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x1E BallHog (x4) [0x06]
@@ -554,14 +554,14 @@ Total: 308 objects | Implemented: 21 | Unimplemented: 2
 - [x] 0x41 Spring (x3) [0x10, 0x00]
 - [x] 0x52 S1_Obj_52 (x6) [0x39]
 - [x] 0x53 S1_Obj_53 (x3) [0x01]
-- [ ] 0x66 S1_Obj_66 (x2) [0x00, 0x02]
+- [x] 0x66 Junction (x2) [0x00, 0x02]
 - [x] 0x69 SpinPlatform (x25) [6 subtypes]
 - [x] 0x6A Saw (x3) [0x03]
 - [x] 0x6B StomperDoor (x11) [5 subtypes]
 - [x] 0x6C VanishingPlatform (x48) [4 subtypes]
 - [x] 0x6D Flamethrower (x23) [0x43]
 - [x] 0x6E Electrocuter (x17) [0x08]
-- [ ] 0x6F S1_Obj_6F (x6) [6 subtypes]
+- [x] 0x6F SpinConveyor (x6) [6 subtypes]
 - [x] 0x70 Girder (x12) [0x00]
 - [x] 0x71 InvisibleBarrier (x50) [7 subtypes]
 - [x] 0x79 Lamppost (x2) [0x01, 0x02]

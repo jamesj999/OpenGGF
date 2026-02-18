@@ -170,6 +170,9 @@ public final class ObjectArtKeys {
     // SBZ running disc spot (S1 Object 0x67)
     public static final String SBZ_RUNNING_DISC = "sbz_running_disc";
 
+    // SBZ rotating junction wheel (S1 Object 0x66)
+    public static final String SBZ_JUNCTION = "sbz_junction";
+
     // SYZ bumper (S1)
     public static final String BUMPER = "bumper";
 
