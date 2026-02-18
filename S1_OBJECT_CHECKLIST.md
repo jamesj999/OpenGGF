@@ -1,6 +1,6 @@
 # Sonic 1 Object Implementation Checklist
 
-Generated: 2026-02-13 14:52:02
+Generated: 2026-02-18 18:08:32
 
 ## Summary
 
@@ -12,85 +12,85 @@ Generated: 2026-02-13 14:52:02
 
 | ID | Name | Total Uses | Zones |
 |----|------|------------|-------|
-| 0x0B | PoleThatBreaks | 5 | LZ3 |
-| 0x0C | FlappingDoor | 3 | LZ2, LZ3, SBZ3 |
 | 0x0D | Signpost | 13 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2, SBZ1, SBZ2 |
 | 0x11 | Bridge | 11 | GHZ1, GHZ2, GHZ3 |
-| 0x12 | S1_Obj_12 | 21 | SYZ1, SYZ2, SYZ3 |
-| 0x13 | LavaBallMaker | 51 | MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3 |
-| 0x15 | SwingingPlatform | 26 | GHZ2, GHZ3, MZ2, MZ3, SLZ3, SBZ2 |
-| 0x16 | Harpoon | 30 | LZ1, LZ2, LZ3, SBZ3 |
-| 0x17 | SpikedPoleHelix | 4 | GHZ3 |
 | 0x18 | Platform | 96 | GHZ1, GHZ2, GHZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3 |
 | 0x1A | CollapsingLedge | 19 | GHZ1, GHZ2, GHZ3 |
 | 0x1C | Scenery | 41 | GHZ1, GHZ2, GHZ3, SLZ1, SLZ2, SLZ3 |
-| 0x1E | BallHog | 10 | SBZ1, SBZ2 |
 | 0x1F | Crabmeat | 43 | GHZ1, GHZ2, GHZ3, SYZ1, SYZ2, SYZ3 |
 | 0x22 | BuzzBomber | 78 | GHZ1, GHZ2, GHZ3, MZ1, MZ2, MZ3, SYZ1, SYZ2, SYZ3 |
-| 0x25 | Ring | 830 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2, SBZ3 |
-| 0x26 | Monitor | 206 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2, SBZ3 |
-| 0x2A | SmallDoor | 14 | SBZ1, SBZ2 |
+| 0x25 | Ring | 802 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
+| 0x26 | Monitor | 199 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
 | 0x2B | Chopper | 14 | GHZ1, GHZ2 |
-| 0x2C | Jaws | 34 | LZ1, LZ2, LZ3, SBZ3 |
-| 0x2D | Burrobot | 81 | LZ1, LZ2, LZ3, SBZ3 |
+| 0x36 | Spikes | 190 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3 |
+| 0x3B | Rock | 25 | GHZ1, GHZ2, GHZ3 |
+| 0x40 | Motobug | 15 | GHZ1, GHZ2, GHZ3 |
+| 0x41 | Spring | 150 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2 |
+| 0x42 | Newtron | 32 | GHZ1, GHZ2, GHZ3 |
+| 0x44 | EdgeWalls | 74 | GHZ1, GHZ2, GHZ3 |
+| 0x49 | WaterfallSound | 11 | GHZ1, GHZ2, GHZ3 |
+| 0x4B | GiantRing | 11 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2 |
+| 0x79 | Lamppost | 23 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1 |
+| 0x7D | HiddenBonus | 60 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2, SBZ1 |
+| 0x15 | SwingingPlatform | 26 | GHZ2, GHZ3, MZ2, MZ3, SLZ3, SBZ2 |
+| 0x3C | BreakableWall | 26 | GHZ2, GHZ3, SLZ1, SLZ3 |
+| 0x17 | SpikedPoleHelix | 4 | GHZ3 |
+| 0x3E | EggPrison | 10 | GHZ3, LZ3, MZ3, SLZ3, SYZ3 |
+| 0x16 | Harpoon | 28 | LZ1, LZ2, LZ3 |
+| 0x2C | Jaws | 22 | LZ1, LZ2, LZ3 |
+| 0x2D | Burrobot | 50 | LZ1, LZ2, LZ3 |
+| 0x32 | S1_Obj_32 | 38 | LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SYZ1, SYZ3, SBZ1, SBZ2 |
+| 0x52 | S1_Obj_52 | 17 | LZ1, MZ1, MZ2, MZ3, SBZ1, SBZ2 |
+| 0x56 | S1_Obj_56 | 224 | LZ1, LZ2, LZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3 |
+| 0x57 | S1_Obj_57 | 22 | LZ1, LZ2, LZ3, SYZ1, SYZ2, SYZ3 |
+| 0x60 | Orbinaut | 34 | LZ1, LZ2, LZ3, SLZ1, SLZ2, SLZ3 |
+| 0x61 | LabyrinthBlock | 43 | LZ1, LZ2, LZ3 |
+| 0x62 | S1_Obj_62 | 9 | LZ1, LZ2, LZ3 |
+| 0x63 | LZConveyor | 36 | LZ1, LZ2, LZ3 |
+| 0x64 | Bubbles | 52 | LZ1, LZ2, LZ3 |
+| 0x65 | Waterfall | 60 | LZ1, LZ2, LZ3 |
+| 0x71 | InvisibleBarrier | 88 | LZ1, LZ3, MZ1, MZ2, MZ3, SYZ2, SYZ3, SBZ1, SBZ2, SBZ3 |
+| 0x0C | FlappingDoor | 2 | LZ2, LZ3 |
+| 0x0B | PoleThatBreaks | 5 | LZ3 |
+| 0x13 | LavaBallMaker | 51 | MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3 |
 | 0x2F | MzLargeGrassyPlatform | 37 | MZ1, MZ2, MZ3 |
 | 0x30 | MzGlassBlock | 14 | MZ1, MZ2, MZ3 |
 | 0x31 | ChainedStomper | 23 | MZ1, MZ2, MZ3 |
-| 0x32 | S1_Obj_32 | 49 | LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SYZ1, SYZ3, SBZ1, SBZ2, SBZ3 |
 | 0x33 | PushBlock | 6 | MZ1, MZ2, MZ3 |
-| 0x36 | Spikes | 205 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SBZ3 |
-| 0x3B | Rock | 25 | GHZ1, GHZ2, GHZ3 |
-| 0x3C | BreakableWall | 26 | GHZ2, GHZ3, SLZ1, SLZ3 |
-| 0x3E | EggPrison | 10 | GHZ3, LZ3, MZ3, SLZ3, SYZ3 |
-| 0x40 | Motobug | 15 | GHZ1, GHZ2, GHZ3 |
-| 0x41 | Spring | 159 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2, SBZ3 |
-| 0x42 | Newtron | 32 | GHZ1, GHZ2, GHZ3 |
-| 0x43 | Roller | 4 | SYZ1, SYZ2 |
-| 0x44 | EdgeWalls | 74 | GHZ1, GHZ2, GHZ3 |
 | 0x46 | MzBrick | 99 | MZ1, MZ2, MZ3 |
-| 0x47 | Bumper | 43 | SYZ1, SYZ2, SYZ3 |
-| 0x49 | WaterfallSound | 11 | GHZ1, GHZ2, GHZ3 |
-| 0x4B | GiantRing | 11 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2 |
-| 0x4C | LavaGeyserMaker | 4 | MZ2, MZ3 |
-| 0x4E | LavaWall | 1 | MZ2 |
-| 0x50 | Yadrin | 10 | SYZ1, SYZ2, SYZ3 |
-| 0x51 | SmashBlock | 30 | MZ2, MZ3 |
-| 0x52 | S1_Obj_52 | 18 | LZ1, MZ1, MZ2, MZ3, SBZ1, SBZ2, SBZ3 |
-| 0x53 | S1_Obj_53 | 45 | MZ3, SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
 | 0x54 | LavaTag | 48 | MZ1, MZ2, MZ3 |
 | 0x55 | Batbrain | 37 | MZ1, MZ2, MZ3 |
-| 0x56 | S1_Obj_56 | 234 | LZ1, LZ2, LZ3, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ3 |
-| 0x57 | SpikedBallChain | 38 | LZ1, LZ2, LZ3, SYZ1, SYZ2, SYZ3, SBZ3 |
-| 0x58 | S1_Obj_58 | 34 | SYZ1, SYZ2, SYZ3 |
+| 0x78 | Caterkiller | 37 | MZ1, MZ2, MZ3, SBZ1, SBZ2 |
+| 0x4C | LavaGeyserMaker | 4 | MZ2, MZ3 |
+| 0x4E | LavaWall | 1 | MZ2 |
+| 0x51 | SmashBlock | 30 | MZ2, MZ3 |
+| 0x53 | S1_Obj_53 | 45 | MZ3, SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
 | 0x59 | Elevator | 16 | SLZ1, SLZ2, SLZ3 |
 | 0x5A | CirclingPlatform | 68 | SLZ1, SLZ2, SLZ3 |
 | 0x5B | Staircase | 23 | SLZ1, SLZ2, SLZ3 |
-| 0x5D | Fan | 36 | SLZ1, SLZ2, SLZ3 |
-| 0x5E | Seesaw | 16 | SLZ2, SLZ3 |
-| 0x60 | Orbinaut | 39 | LZ1, LZ2, LZ3, SLZ1, SLZ2, SLZ3, SBZ3 |
-| 0x6E | Electrocuter | 52 | SBZ1, SBZ2 |
-| 0x71 | InvisibleBarrier | 86 | LZ1, LZ3, MZ1, MZ2, MZ3, SYZ2, SYZ3, SBZ1, SBZ2 |
-| 0x78 | Caterkiller | 37 | MZ1, MZ2, MZ3, SBZ1, SBZ2 |
-| 0x79 | Lamppost | 25 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ3 |
-| 0x61 | LabyrinthBlock | 58 | LZ1, LZ2, LZ3, SBZ3 |
-| 0x62 | Gargoyle | 21 | LZ1, LZ2, LZ3, SBZ3 |
-| 0x63 | LZConveyor | 36 | LZ1, LZ2, LZ3 |
-| 0x64 | Bubbles | 68 | LZ1, LZ2, LZ3, SBZ3 |
-| 0x65 | Waterfall | 60 | LZ1, LZ2, LZ3 |
-| 0x5F | Bomb | 99 | SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
-| 0x7D | HiddenBonus | 60 | GHZ1, GHZ2, LZ1, LZ2, MZ1, MZ2, SLZ1, SLZ2, SYZ1, SYZ2, SBZ1 |
 | 0x5C | Pylon | 3 | SLZ1, SLZ2, SLZ3 |
-| 0x68 | ConveyorBelt | 20 | SBZ2 |
-| 0x69 | SpinPlatform | 56 | SBZ1, SBZ2 |
-| 0x6A | Saw | 14 | SBZ1, SBZ2 |
-| 0x6B | StomperDoor | 19 | SBZ1, SBZ2, SBZ3 |
-| 0x6C | VanishingPlatform | 64 | SBZ1, SBZ2 |
-| 0x6D | Flamethrower | 42 | SBZ1, SBZ2 |
-| 0x67 | RunningDisc | 8 | SBZ2 |
-| 0x70 | Girder | 12 | SBZ1 |
+| 0x5D | Fan | 36 | SLZ1, SLZ2, SLZ3 |
+| 0x5F | Bomb | 99 | SLZ1, SLZ2, SLZ3, SBZ1, SBZ2 |
+| 0x5E | Seesaw | 16 | SLZ2, SLZ3 |
+| 0x12 | S1_Obj_12 | 21 | SYZ1, SYZ2, SYZ3 |
+| 0x43 | Roller | 4 | SYZ1, SYZ2 |
+| 0x47 | Bumper | 43 | SYZ1, SYZ2, SYZ3 |
+| 0x50 | Yadrin | 10 | SYZ1, SYZ2, SYZ3 |
+| 0x58 | S1_Obj_58 | 34 | SYZ1, SYZ2, SYZ3 |
+| 0x1E | S1_Obj_1E | 10 | SBZ1, SBZ2 |
+| 0x2A | SmallDoor | 14 | SBZ1, SBZ2 |
+| 0x66 | S1_Obj_66 | 2 | SBZ1 |
+| 0x69 | S1_Obj_69 | 56 | SBZ1, SBZ2 |
+| 0x6A | S1_Obj_6A | 14 | SBZ1, SBZ2 |
+| 0x6B | S1_Obj_6B | 17 | SBZ1, SBZ2 |
+| 0x6C | S1_Obj_6C | 64 | SBZ1, SBZ2 |
+| 0x6D | S1_Obj_6D | 42 | SBZ1, SBZ2 |
+| 0x6E | Electrocuter | 52 | SBZ1, SBZ2 |
 | 0x6F | SpinConveyor | 6 | SBZ1 |
+| 0x70 | S1_Obj_70 | 12 | SBZ1 |
+| 0x67 | S1_Obj_67 | 8 | SBZ2 |
+| 0x68 | S1_Obj_68 | 20 | SBZ2 |
 | 0x72 | Teleporter | 8 | SBZ2 |
-| 0x66 | Junction | 2 | SBZ1 |
 
 ## Unimplemented Objects (By Usage)
 
@@ -212,9 +212,9 @@ Total: 189 objects | Implemented: 22 | Unimplemented: 0
 - [x] 0x4B GiantRing (x1) [0x00]
 - [x] 0x52 S1_Obj_52 (x1) [0x07]
 - [x] 0x56 S1_Obj_56 (x10) [10 subtypes]
-- [x] 0x57 SpikedBallChain (x4) [0xD4, 0xD5, 0xB5]
+- [x] 0x57 S1_Obj_57 (x4) [0xD4, 0xD5, 0xB5]
 - [x] 0x61 LabyrinthBlock (x21) [0x30, 0x13, 0x27]
-- [x] 0x62 Gargoyle (x2) [0x01]
+- [x] 0x62 S1_Obj_62 (x2) [0x01]
 - [x] 0x63 LZConveyor (x13) [0x80, 0x81, 0x7F]
 - [x] 0x64 Bubbles (x16) [0x80, 0x81]
 - [x] 0x65 Waterfall (x8) [0x07, 0x08, 0x09]
@@ -242,9 +242,9 @@ Total: 138 objects | Implemented: 21 | Unimplemented: 0
 - [x] 0x41 Spring (x2) [0x10, 0x00]
 - [x] 0x4B GiantRing (x1) [0x00]
 - [x] 0x56 S1_Obj_56 (x3) [0xF0, 0xF1, 0xE2]
-- [x] 0x57 SpikedBallChain (x5) [4 subtypes]
+- [x] 0x57 S1_Obj_57 (x5) [4 subtypes]
 - [x] 0x61 LabyrinthBlock (x3) [0x01, 0x13]
-- [x] 0x62 Gargoyle (x2) [0x02, 0x04]
+- [x] 0x62 S1_Obj_62 (x2) [0x02, 0x04]
 - [x] 0x63 LZConveyor (x10) [0x82, 0x83, 0x7F]
 - [x] 0x64 Bubbles (x15) [0x80, 0x81, 0x82]
 - [x] 0x65 Waterfall (x17) [6 subtypes]
@@ -271,9 +271,9 @@ Total: 245 objects | Implemented: 21 | Unimplemented: 0
 - [x] 0x3E EggPrison (x2) [0x00, 0x01]
 - [x] 0x41 Spring (x3) [0x00]
 - [x] 0x56 S1_Obj_56 (x9) [9 subtypes]
-- [x] 0x57 SpikedBallChain (x8) [5 subtypes]
+- [x] 0x57 S1_Obj_57 (x8) [5 subtypes]
 - [x] 0x61 LabyrinthBlock (x19) [0x30, 0x01, 0x27]
-- [x] 0x62 Gargoyle (x5) [0x03]
+- [x] 0x62 S1_Obj_62 (x5) [0x03]
 - [x] 0x63 LZConveyor (x13) [0x84, 0x85, 0x7F]
 - [x] 0x64 Bubbles (x21) [0x80, 0x81]
 - [x] 0x65 Waterfall (x35) [9 subtypes]
@@ -378,7 +378,7 @@ Total: 232 objects | Implemented: 23 | Unimplemented: 0
 
 #### Act 1
 
-Total: 223 objects | Implemented: 15 | Unimplemented: 2
+Total: 223 objects | Implemented: 17 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x5F Bomb (x13) [0x00]
@@ -403,7 +403,7 @@ Total: 223 objects | Implemented: 15 | Unimplemented: 2
 
 #### Act 2
 
-Total: 187 objects | Implemented: 16 | Unimplemented: 3
+Total: 187 objects | Implemented: 19 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x5F Bomb (x20) [0x00]
@@ -430,7 +430,7 @@ Total: 187 objects | Implemented: 16 | Unimplemented: 3
 
 #### Act 3
 
-Total: 250 objects | Implemented: 17 | Unimplemented: 3
+Total: 250 objects | Implemented: 20 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x5F Bomb (x48) [0x00]
@@ -479,7 +479,7 @@ Total: 193 objects | Implemented: 18 | Unimplemented: 0
 - [x] 0x47 Bumper (x13) [0x00]
 - [x] 0x4B GiantRing (x1) [0x00]
 - [x] 0x56 S1_Obj_56 (x41) [5 subtypes]
-- [x] 0x57 SpikedBallChain (x2) [0x54]
+- [x] 0x57 S1_Obj_57 (x2) [0x54]
 - [x] 0x58 S1_Obj_58 (x8) [4 subtypes]
 - [x] 0x79 Lamppost (x2) [0x01, 0x02]
 - [x] 0x7D HiddenBonus (x5) [0x01, 0x02, 0x03]
@@ -504,7 +504,7 @@ Total: 230 objects | Implemented: 18 | Unimplemented: 0
 - [x] 0x47 Bumper (x13) [0x00]
 - [x] 0x4B GiantRing (x2) [0x00]
 - [x] 0x56 S1_Obj_56 (x57) [4 subtypes]
-- [x] 0x57 SpikedBallChain (x1) [0x54]
+- [x] 0x57 S1_Obj_57 (x1) [0x54]
 - [x] 0x58 S1_Obj_58 (x12) [4 subtypes]
 - [x] 0x71 InvisibleBarrier (x3) [0x11, 0x31]
 - [x] 0x79 Lamppost (x1) [0x01]
@@ -529,7 +529,7 @@ Total: 257 objects | Implemented: 16 | Unimplemented: 0
 - [x] 0x41 Spring (x17) [0x00, 0x02, 0x12]
 - [x] 0x47 Bumper (x17) [0x00]
 - [x] 0x56 S1_Obj_56 (x80) [7 subtypes]
-- [x] 0x57 SpikedBallChain (x2) [0x54]
+- [x] 0x57 S1_Obj_57 (x2) [0x54]
 - [x] 0x58 S1_Obj_58 (x14) [5 subtypes]
 - [x] 0x71 InvisibleBarrier (x9) [0x31, 0x13]
 - [x] 0x79 Lamppost (x2) [0x01, 0x02]
@@ -541,7 +541,7 @@ Total: 257 objects | Implemented: 16 | Unimplemented: 0
 Total: 308 objects | Implemented: 23 | Unimplemented: 0
 
 **Badniks:**
-- [x] 0x1E BallHog (x4) [0x06]
+- [x] 0x1E S1_Obj_1E (x4) [0x06]
 - [x] 0x5F Bomb (x6) [0x00]
 - [x] 0x78 Caterkiller (x9) [0x00]
 
@@ -554,25 +554,25 @@ Total: 308 objects | Implemented: 23 | Unimplemented: 0
 - [x] 0x41 Spring (x3) [0x10, 0x00]
 - [x] 0x52 S1_Obj_52 (x6) [0x39]
 - [x] 0x53 S1_Obj_53 (x3) [0x01]
-- [x] 0x66 Junction (x2) [0x00, 0x02]
-- [x] 0x69 SpinPlatform (x25) [6 subtypes]
-- [x] 0x6A Saw (x3) [0x03]
-- [x] 0x6B StomperDoor (x11) [5 subtypes]
-- [x] 0x6C VanishingPlatform (x48) [4 subtypes]
-- [x] 0x6D Flamethrower (x23) [0x43]
+- [x] 0x66 S1_Obj_66 (x2) [0x00, 0x02]
+- [x] 0x69 S1_Obj_69 (x25) [6 subtypes]
+- [x] 0x6A S1_Obj_6A (x3) [0x03]
+- [x] 0x6B S1_Obj_6B (x11) [5 subtypes]
+- [x] 0x6C S1_Obj_6C (x48) [4 subtypes]
+- [x] 0x6D S1_Obj_6D (x23) [0x43]
 - [x] 0x6E Electrocuter (x17) [0x08]
 - [x] 0x6F SpinConveyor (x6) [6 subtypes]
-- [x] 0x70 Girder (x12) [0x00]
+- [x] 0x70 S1_Obj_70 (x12) [0x00]
 - [x] 0x71 InvisibleBarrier (x50) [7 subtypes]
 - [x] 0x79 Lamppost (x2) [0x01, 0x02]
 - [x] 0x7D HiddenBonus (x5) [0x01, 0x02, 0x03]
 
 #### Act 2
 
-Total: 292 objects | Implemented: 21 | Unimplemented: 1
+Total: 292 objects | Implemented: 22 | Unimplemented: 0
 
 **Badniks:**
-- [x] 0x1E BallHog (x6) [0x08]
+- [x] 0x1E S1_Obj_1E (x6) [0x08]
 - [x] 0x5F Bomb (x12) [0x00]
 - [x] 0x78 Caterkiller (x7) [0x00]
 
@@ -586,42 +586,23 @@ Total: 292 objects | Implemented: 21 | Unimplemented: 1
 - [x] 0x41 Spring (x2) [0x10]
 - [x] 0x52 S1_Obj_52 (x1) [0x28]
 - [x] 0x53 S1_Obj_53 (x10) [0x01]
-- [x] 0x67 RunningDisc (x8) [0x40]
-- [x] 0x68 ConveyorBelt (x20) [5 subtypes]
-- [x] 0x69 SpinPlatform (x31) [10 subtypes]
-- [x] 0x6A Saw (x11) [0x01, 0x02, 0x03]
-- [x] 0x6B StomperDoor (x6) [5 subtypes]
-- [x] 0x6C VanishingPlatform (x16) [7 subtypes]
-- [x] 0x6D Flamethrower (x19) [0x43]
+- [x] 0x67 S1_Obj_67 (x8) [0x40]
+- [x] 0x68 S1_Obj_68 (x20) [5 subtypes]
+- [x] 0x69 S1_Obj_69 (x31) [10 subtypes]
+- [x] 0x6A S1_Obj_6A (x11) [0x01, 0x02, 0x03]
+- [x] 0x6B S1_Obj_6B (x6) [5 subtypes]
+- [x] 0x6C S1_Obj_6C (x16) [7 subtypes]
+- [x] 0x6D S1_Obj_6D (x19) [0x43]
 - [x] 0x6E Electrocuter (x35) [0x02, 0x04, 0x08]
 - [x] 0x71 InvisibleBarrier (x4) [4 subtypes]
 - [x] 0x72 Teleporter (x8) [8 subtypes]
 
 #### Act 3
 
-Total: 195 objects | Implemented: 18 | Unimplemented: 0
-
-**Badniks:**
-- [x] 0x2C Jaws (x12) [3 subtypes]
-- [x] 0x2D Burrobot (x31) [0x00]
-- [x] 0x60 Orbinaut (x5) [0x00]
+Total: 2 objects | Implemented: 1 | Unimplemented: 0
 
 **Objects:**
-- [x] 0x0C FlappingDoor (x1) [0x02]
-- [x] 0x16 Harpoon (x2) [0x00]
-- [x] 0x25 Ring (x28) [6 subtypes]
-- [x] 0x26 Monitor (x7) [0x02, 0x06]
-- [x] 0x32 S1_Obj_32 (x11) [11 subtypes]
-- [x] 0x36 Spikes (x15) [0x00, 0x30]
-- [x] 0x41 Spring (x9) [0x00]
-- [x] 0x52 S1_Obj_52 (x1) [0x04]
-- [x] 0x56 S1_Obj_56 (x10) [10 subtypes]
-- [x] 0x57 SpikedBallChain (x16) [9 subtypes]
-- [x] 0x61 LabyrinthBlock (x15) [0x01, 0x13, 0x30]
-- [x] 0x62 Gargoyle (x12) [0x02, 0x03, 0x04]
-- [x] 0x64 Bubbles (x16) [0x81, 0x82]
-- [x] 0x6B StomperDoor (x2) [0x40, 0xCB]
-- [x] 0x79 Lamppost (x2) [0x01, 0x02]
+- [x] 0x71 InvisibleBarrier (x2) [0x31]
 
 ### Final Zone
 
@@ -631,3 +612,4 @@ Total: 57 objects | Implemented: 0 | Unimplemented: 1
 
 **Objects:**
 - [ ] 0x28 S1_Obj_28 (x57) [10 subtypes]
+

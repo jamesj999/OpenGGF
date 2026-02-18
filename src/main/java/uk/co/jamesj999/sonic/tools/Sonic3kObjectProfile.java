@@ -63,7 +63,10 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             0x08, // Spikes
             0x09, // AIZ1Tree
             0x0A, // AIZ1ZiplinePeg
-            0x35  // AIZForegroundPlant
+            0x35, // AIZForegroundPlant
+            0x8C, // Bloominator
+            0x8D, // Rhinobot
+            0x8E  // MonkeyDude
     );
 
     // S3KL badniks (SK Set 1, zones 0-6: AIZ through LBZ)

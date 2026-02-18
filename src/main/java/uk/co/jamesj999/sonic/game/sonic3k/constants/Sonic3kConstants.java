@@ -527,6 +527,25 @@ public class Sonic3kConstants {
     // Referenced at sonic3k.asm:43876: move.l #Map_LRZBreakableRock2,mappings(a0)
     public static final int MAP_LRZ_BREAKABLE_ROCK2_ADDR = 0x02047A;
 
+    // ===== AIZ Badnik mappings (SK side, verified from LockOn Pointers) =====
+    // Map_Rhinobot - 8 mapping frames (DPLC-driven)
+    public static final int MAP_RHINOBOT_ADDR = 0x3615A8;
+    // DPLC_Rhinobot - object DPLC table (startTile in upper 12 bits)
+    public static final int DPLC_RHINOBOT_ADDR = 0x36156E;
+    // Map_Bloominator - 5 mapping frames (frame 4 is projectile seed)
+    public static final int MAP_BLOOMINATOR_ADDR = 0x3616C0;
+    // Map_MonkeyDude - 7 mapping frames (frame 6 is coconut projectile)
+    public static final int MAP_MONKEY_DUDE_ADDR = 0x361776;
+
+    // ===== AIZ Badnik dedicated art (SK side, verified from LockOn Pointers) =====
+    // ArtUnc_AIZRhinobot - uncompressed source art used with DPLC_Rhinobot.
+    public static final int ART_UNC_AIZ_RHINOBOT_ADDR = 0x36732A;
+    public static final int ART_UNC_AIZ_RHINOBOT_SIZE = 0x0AA0;
+    // ArtKosM_AIZ_Bloominator - Kosinski Moduled compressed art.
+    public static final int ART_KOSM_AIZ_BLOOMINATOR_ADDR = 0x367DCA;
+    // ArtKosM_AIZ_MonkeyDude - Kosinski Moduled compressed art.
+    public static final int ART_KOSM_AIZ_MONKEY_DUDE_ADDR = 0x36800C;
+
     // VRAM tile destinations for shields
     public static final int ART_TILE_SHIELD = 0x079C;
     public static final int ART_TILE_SHIELD_SPARKS = 0x07BB;

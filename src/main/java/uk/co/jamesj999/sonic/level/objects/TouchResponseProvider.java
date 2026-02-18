@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.level.objects;
 
+import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+
 public interface TouchResponseProvider {
     int getCollisionFlags();
     int getCollisionProperty();
@@ -27,6 +29,23 @@ public interface TouchResponseProvider {
      */
     default TouchRegion[] getMultiTouchRegions() {
         return null;
+    }
+
+    /**
+     * Shield reaction flags, mirroring the S3K shield_reaction byte semantics.
+     * Bit 3 indicates this object should be deflected by shield touch checks.
+     */
+    default int getShieldReactionFlags() {
+        return 0;
+    }
+
+    /**
+     * Called when the object is deflected by shield touch handling.
+     *
+     * @return true if the deflect was applied and regular hurt handling should be skipped
+     */
+    default boolean onShieldDeflect(AbstractPlayableSprite player) {
+        return false;
     }
 
     /**
