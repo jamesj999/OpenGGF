@@ -1340,10 +1340,6 @@ public class Sonic2ObjectArt {
      * ROM: ArtNem_Flasher at 0x8AC5E, palette line 0.
      */
     public ObjectSpriteSheet loadFlasherSheet() {
-        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_FLASHER_ADDR, "Flasher");
-        if (patterns.length == 0) {
-            return null;
-        }
         return buildArtSheetFromRom(Sonic2Constants.ART_NEM_FLASHER_ADDR,
                 Sonic2Constants.MAP_UNC_FLASHER_ADDR, 0, 1);
     }

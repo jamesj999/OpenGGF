@@ -39,12 +39,22 @@ public final class PlcParser {
         int offsetWord = rom.read16BitAddr(tableAddr + plcId * 2);
         int plcDataAddr = tableAddr + offsetWord;
 
+        if (plcDataAddr < tableAddr || plcDataAddr >= (int) rom.getSize()) {
+            LOG.warning(String.format("PLC 0x%02X data address 0x%06X out of ROM bounds", plcId, plcDataAddr));
+            return new PlcDefinition(plcId, List.of());
+        }
+
         int countMinusOne = rom.read16BitAddr(plcDataAddr);
         if ((countMinusOne & 0x8000) != 0) {
             return new PlcDefinition(plcId, List.of());
         }
 
         int entryCount = (countMinusOne & 0xFFFF) + 1;
+        if (entryCount > 256) {
+            LOG.warning(String.format("PLC 0x%02X has implausible entry count %d (raw word=0x%04X) - corrupt data?",
+                    plcId, entryCount, countMinusOne));
+            return new PlcDefinition(plcId, List.of());
+        }
         List<PlcEntry> entries = new ArrayList<>(entryCount);
         int entryBase = plcDataAddr + 2;
 

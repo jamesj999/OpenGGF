@@ -4,6 +4,7 @@ import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kObjectArtKeys;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kSfx;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kObjectIds;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kZoneIds;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -136,6 +137,7 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
     // State machine: 0=normal, 1=collapsing(timer), 2=fragmented(falling)
     private int state;
     private int collapseTimer;
+    // Note: triggered flag is set alongside state=1 in onSolidContact() - kept for clarity
     private boolean triggered;  // player has stood on platform ($3A flag)
     private boolean fragmented;
 
@@ -352,12 +354,13 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
             if (lm != null) {
                 int zone = lm.getCurrentZone();
                 int act = lm.getCurrentAct();
-                if (zone == 0x00) { // AIZ
+                if (zone == Sonic3kZoneIds.ZONE_AIZ) {
                     return act == 0 ? AIZ1_CONFIG : AIZ2_CONFIG;
                 }
-                if (zone == 0x05) { // ICZ
+                if (zone == Sonic3kZoneIds.ZONE_ICZ) {
                     return ICZ_CONFIG;
                 }
+                LOG.warning("CollapsingPlatform: unknown zone 0x" + Integer.toHexString(zone) + ", defaulting to AIZ1 config");
             }
         } catch (Exception e) {
             LOG.fine("Could not resolve zone config: " + e.getMessage());

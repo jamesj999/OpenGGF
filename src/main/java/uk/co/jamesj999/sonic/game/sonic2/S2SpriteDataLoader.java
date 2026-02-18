@@ -34,45 +34,7 @@ public final class S2SpriteDataLoader {
      * @return list of mapping frames
      */
     public static List<SpriteMappingFrame> loadMappingFrames(RomByteReader reader, int mappingAddr) {
-        int offsetTableSize = reader.readU16BE(mappingAddr);
-        int frameCount = offsetTableSize / 2;
-        if (frameCount > 512) {
-            throw new IllegalArgumentException(String.format(
-                    "S2 mapping table at 0x%X has implausible frame count %d (first word=0x%04X) - wrong address?",
-                    mappingAddr, frameCount, offsetTableSize));
-        }
-        List<SpriteMappingFrame> frames = new ArrayList<>(frameCount);
-        for (int i = 0; i < frameCount; i++) {
-            int frameAddr = mappingAddr + reader.readU16BE(mappingAddr + i * 2);
-            int pieceCount = reader.readU16BE(frameAddr);
-            frameAddr += 2;
-            List<SpriteMappingPiece> pieces = new ArrayList<>(pieceCount);
-            for (int p = 0; p < pieceCount; p++) {
-                int yOffset = (byte) reader.readU8(frameAddr);
-                frameAddr += 1;
-                int size = reader.readU8(frameAddr);
-                frameAddr += 1;
-                int tileWord = reader.readU16BE(frameAddr);
-                frameAddr += 2;
-                frameAddr += 2; // 2P tile word, unused in 1P
-                int xOffset = (short) reader.readU16BE(frameAddr);
-                frameAddr += 2;
-
-                int widthTiles = ((size >> 2) & 0x3) + 1;
-                int heightTiles = (size & 0x3) + 1;
-
-                int tileIndex = tileWord & 0x7FF;
-                boolean hFlip = (tileWord & 0x800) != 0;
-                boolean vFlip = (tileWord & 0x1000) != 0;
-                int paletteIndex = (tileWord >> 13) & 0x3;
-                boolean priority = (tileWord & 0x8000) != 0;
-
-                pieces.add(new SpriteMappingPiece(
-                        xOffset, yOffset, widthTiles, heightTiles, tileIndex, hFlip, vFlip, paletteIndex, priority));
-            }
-            frames.add(new SpriteMappingFrame(pieces));
-        }
-        return frames;
+        return loadMappingFramesWithTileOffset(reader, mappingAddr, 0);
     }
 
     /**
@@ -88,10 +50,15 @@ public final class S2SpriteDataLoader {
             RomByteReader reader, int mappingAddr, int tileOffset) {
         int offsetTableSize = reader.readU16BE(mappingAddr);
         int frameCount = offsetTableSize / 2;
+        if (frameCount > 512) {
+            throw new IllegalArgumentException(String.format(
+                    "S2 mapping table at 0x%X has implausible frame count %d (first word=0x%04X) - wrong address?",
+                    mappingAddr, frameCount, offsetTableSize));
+        }
         List<SpriteMappingFrame> frames = new ArrayList<>(frameCount);
         for (int i = 0; i < frameCount; i++) {
             int rawOffset = reader.readU16BE(mappingAddr + i * 2);
-            int signedOffset = (rawOffset > 32767) ? rawOffset - 65536 : rawOffset;
+            int signedOffset = (short) rawOffset;
 
             int frameAddr = mappingAddr + signedOffset;
             int pieceCount = reader.readU16BE(frameAddr);

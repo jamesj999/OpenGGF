@@ -76,7 +76,19 @@ public final class Sonic3kPlcLoader {
      * @return list of tile ranges that were modified
      */
     public static List<TileRange> applyToLevel(PlcDefinition definition, Sonic3kLevel level) throws IOException {
-        Rom rom = GameServices.rom().getRom();
+        return applyToLevel(definition, level, GameServices.rom().getRom());
+    }
+
+    /**
+     * Applies a PLC definition to a level by decompressing Nemesis entries
+     * into the level's pattern buffer, using an explicitly provided ROM.
+     *
+     * @param definition the parsed PLC
+     * @param level the target level
+     * @param rom the ROM to read from
+     * @return list of tile ranges that were modified
+     */
+    public static List<TileRange> applyToLevel(PlcDefinition definition, Sonic3kLevel level, Rom rom) throws IOException {
         ResourceLoader loader = new ResourceLoader(rom);
         List<TileRange> modified = new ArrayList<>();
 
@@ -101,7 +113,18 @@ public final class Sonic3kPlcLoader {
      * Use {@link #applyPreDecompressed} later for frame-hitch-free application.
      */
     public static List<PreDecompressedEntry> preDecompress(PlcDefinition definition) throws IOException {
-        Rom rom = GameServices.rom().getRom();
+        return preDecompress(definition, GameServices.rom().getRom());
+    }
+
+    /**
+     * Pre-decompresses all entries in a PLC definition without applying them,
+     * using an explicitly provided ROM.
+     * Use {@link #applyPreDecompressed} later for frame-hitch-free application.
+     *
+     * @param definition the parsed PLC
+     * @param rom the ROM to read from
+     */
+    public static List<PreDecompressedEntry> preDecompress(PlcDefinition definition, Rom rom) throws IOException {
         ResourceLoader loader = new ResourceLoader(rom);
         List<PreDecompressedEntry> result = new ArrayList<>(definition.entries().size());
         int totalBytes = 0;

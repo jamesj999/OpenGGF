@@ -41,9 +41,9 @@ public final class Sonic2PlcLoader {
     }
 
     /**
-     * Extracts PLC IDs from the LevelArtPointers table for a given zone.
+     * Extracts PLC IDs from the LEVEL_DATA_DIR table for a given zone.
      *
-     * <p>Each 12-byte LevelArtPointers entry has the structure:
+     * <p>Each 12-byte LEVEL_DATA_DIR entry has the structure:
      * <pre>
      *   Byte 0: PLC1 ID (primary zone art)
      *   Bytes 1-3: 24-bit ROM address for art data 1
@@ -53,10 +53,14 @@ public final class Sonic2PlcLoader {
      * </pre>
      *
      * @param rom       the ROM to read from
-     * @param zoneIndex the zone index (0-based, matches LevelArtPointers table row)
+     * @param zoneIndex the zone index (0-based, 0-16 for the 17-entry LEVEL_DATA_DIR table)
      * @return array of [plc1Id, plc2Id]
      */
     public static int[] getZonePlcIds(Rom rom, int zoneIndex) throws IOException {
+        if (zoneIndex < 0 || zoneIndex >= 17) {
+            LOG.warning("Zone index " + zoneIndex + " out of range for LEVEL_DATA_DIR (max 16)");
+            return new int[]{0, 0};
+        }
         int base = Sonic2Constants.LEVEL_DATA_DIR + zoneIndex * Sonic2Constants.LEVEL_DATA_DIR_ENTRY_SIZE;
         // The first byte of each 4-byte longword holds the PLC ID
         // (the remaining 3 bytes are the ROM art address, already handled by level loader)

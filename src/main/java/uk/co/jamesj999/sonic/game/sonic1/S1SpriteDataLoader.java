@@ -63,6 +63,11 @@ public final class S1SpriteDataLoader {
     public static List<SpriteMappingFrame> loadMappingFrames(RomByteReader reader, int mappingAddr) {
         int firstOffset = reader.readU16BE(mappingAddr);
         int frameCount = firstOffset / 2;
+        if (frameCount <= 0 || frameCount > 512) {
+            throw new IllegalArgumentException(String.format(
+                    "S1 mapping table at 0x%X has implausible frame count %d (first word=0x%04X) - wrong address?",
+                    mappingAddr, frameCount, firstOffset));
+        }
         return loadMappingFrames(reader, mappingAddr, frameCount);
     }
 
