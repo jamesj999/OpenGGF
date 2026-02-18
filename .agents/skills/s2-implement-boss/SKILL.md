@@ -230,6 +230,8 @@ public class BossChildName extends AbstractBossChild {
 
 ### Phase 5: Art Loading
 
+**PLC note:** S2 boss art has dedicated PLC IDs in ArtLoadCues. Currently hardcoded; future refactor will use `PlcParser`. See `plc-system` skill.
+
 **Implementation checklist:**
 - [ ] Add ROM address constants to `Sonic2Constants.java`
 - [ ] Add art keys to `Sonic2ObjectArtKeys.java`

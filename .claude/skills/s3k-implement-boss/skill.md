@@ -288,6 +288,8 @@ private void transitionToNextPhase() {
 
 ### Phase 7: Art Loading
 
+**PLC note:** Boss art is often loaded via PLCs (IDs 0x53-0x7B). Zone screen events call `applyPlc()` from `Sonic3kZoneEvents` to load boss PLCs at runtime. See `plc-system` and `s3k-plc-system` skills.
+
 ```bash
 # Find boss art
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_ZONEBoss" -q

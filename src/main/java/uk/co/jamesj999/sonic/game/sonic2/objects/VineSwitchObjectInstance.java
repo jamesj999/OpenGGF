@@ -11,6 +11,7 @@ import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic2.ButtonVineTriggerManager;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2AnimationIds;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Sfx;
+import uk.co.jamesj999.sonic.game.sonic2.S2SpriteDataLoader;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
@@ -433,95 +434,12 @@ public class VineSwitchObjectInstance extends AbstractObjectInstance {
             RomByteReader reader = RomByteReader.fromRom(rom);
 
             // Load mappings (2 frames)
-            mappings = loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ7F_ADDR);
+            mappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ7F_ADDR);
             LOGGER.fine("Loaded " + mappings.size() + " VineSwitch mapping frames");
 
         } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load VineSwitch mappings: " + e.getMessage());
         }
-    }
-
-    /**
-     * Loads mapping frames from ROM.
-     * <p>
-     * Format: offset table (word per frame) followed by frame data.
-     * Each frame: piece count (word), then 8 bytes per piece.
-     * <p>
-     * ROM Reference: Standard VDP mapping format used throughout Sonic 2
-     *
-     * @param reader      ROM byte reader
-     * @param mappingAddr Base address of mapping table
-     * @return List of mapping frames
-     */
-    private static List<SpriteMappingFrame> loadMappingFrames(RomByteReader reader, int mappingAddr) {
-        int firstOffset = reader.readU16BE(mappingAddr);
-        if (firstOffset == 0) {
-            return List.of(new SpriteMappingFrame(List.of()));
-        }
-        int frameCount = firstOffset / 2;
-
-        // Sanity check
-        if (frameCount > 100) {
-            LOGGER.warning("Suspicious frameCount=" + frameCount + " at mapping addr 0x" +
-                    Integer.toHexString(mappingAddr));
-            return List.of(new SpriteMappingFrame(List.of()));
-        }
-
-        List<SpriteMappingFrame> frames = new ArrayList<>(frameCount);
-
-        for (int i = 0; i < frameCount; i++) {
-            int offset = reader.readS16BE(mappingAddr + (i * 2));
-            int frameAddr = mappingAddr + offset;
-
-            int pieceCount = reader.readU16BE(frameAddr);
-            frameAddr += 2;
-
-            // Sanity check
-            if (pieceCount > 200) {
-                LOGGER.warning("Suspicious pieceCount=" + pieceCount + " at frame " + i);
-                pieceCount = 0;
-            }
-
-            List<SpriteMappingPiece> pieces = new ArrayList<>(pieceCount);
-
-            for (int p = 0; p < pieceCount; p++) {
-                int yOffset = (byte) reader.readU8(frameAddr);
-                frameAddr += 1;
-
-                int size = reader.readU8(frameAddr);
-                frameAddr += 1;
-
-                int tileWord = reader.readU16BE(frameAddr);
-                frameAddr += 2;
-
-                frameAddr += 2;  // Skip 2P tile word
-
-                int xOffset = (short) reader.readU16BE(frameAddr);
-                frameAddr += 2;
-
-                int widthTiles = ((size >> 2) & 0x3) + 1;
-                int heightTiles = (size & 0x3) + 1;
-
-                int tileIndex = tileWord & 0x7FF;
-                boolean pieceHFlip = (tileWord & 0x800) != 0;
-                boolean pieceVFlip = (tileWord & 0x1000) != 0;
-                int paletteIndex = (tileWord >> 13) & 0x3;
-
-                pieces.add(new SpriteMappingPiece(
-                        xOffset,
-                        yOffset,
-                        widthTiles,
-                        heightTiles,
-                        tileIndex,
-                        pieceHFlip,
-                        pieceVFlip,
-                        paletteIndex));
-            }
-
-            frames.add(new SpriteMappingFrame(pieces));
-        }
-
-        return frames;
     }
 
     /**

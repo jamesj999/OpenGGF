@@ -60,6 +60,10 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
         factories.put(Sonic3kObjectIds.MONITOR,
                 (spawn, registry) -> new Sonic3kMonitorObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.PATH_SWAP, (spawn, registry) -> null);
+        factories.put(Sonic3kObjectIds.COLLAPSING_PLATFORM,
+                (spawn, registry) -> new Sonic3kCollapsingPlatformObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.AIZLRZ_ROCK,
+                (spawn, registry) -> new AizLrzRockObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.SPRING,
                 (spawn, registry) -> new Sonic3kSpringObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.SPIKES,

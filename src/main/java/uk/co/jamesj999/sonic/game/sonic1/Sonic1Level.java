@@ -5,6 +5,7 @@ import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.*;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.resources.PlcParser.PlcEntry;
 import uk.co.jamesj999.sonic.level.rings.RingSpawn;
 import uk.co.jamesj999.sonic.level.rings.RingSpriteSheet;
 import uk.co.jamesj999.sonic.tools.EnigmaReader;
@@ -43,15 +44,6 @@ public class Sonic1Level implements Level {
 
     private static final Logger LOG = Logger.getLogger(Sonic1Level.class.getName());
 
-    /**
-     * A pattern load cue entry from the ArtLoadCues table.
-     * Each entry specifies a Nemesis-compressed art source and its destination tile offset.
-     *
-     * @param romAddr    ROM address of Nemesis-compressed data
-     * @param tileOffset destination tile index (VRAM byte offset / 0x20)
-     */
-    public record PatternLoadCue(int romAddr, int tileOffset) {}
-
     private final int zoneIndex;
     private Palette[] palettes;
     private Pattern[] patterns;
@@ -81,7 +73,7 @@ public class Sonic1Level implements Level {
                        int zoneIndex,
                        int sonicPaletteAddr,
                        int levelPaletteAddr,
-                       List<PatternLoadCue> patternCues,
+                       List<PlcEntry> patternCues,
                        int chunksAddr,
                        int blocksAddr,
                        int fgLayoutAddr,
@@ -357,33 +349,33 @@ public class Sonic1Level implements Level {
      *
      * <p>Any gaps between entries are filled with empty patterns.
      */
-    private void loadPatterns(Rom rom, List<PatternLoadCue> cues) throws IOException {
+    private void loadPatterns(Rom rom, List<PlcEntry> cues) throws IOException {
         GraphicsManager graphicsMan = GraphicsManager.getInstance();
         FileChannel channel = rom.getFileChannel();
 
         // Sort cues by tile offset
-        List<PatternLoadCue> sorted = new ArrayList<>(cues);
-        sorted.sort(Comparator.comparingInt(PatternLoadCue::tileOffset));
+        List<PlcEntry> sorted = new ArrayList<>(cues);
+        sorted.sort(Comparator.comparingInt(PlcEntry::tileIndex));
 
         // Decompress all PLC entries and place at their specified tile offsets
         List<byte[]> decompressedData = new ArrayList<>();
-        List<PatternLoadCue> usedCues = new ArrayList<>();
+        List<PlcEntry> usedCues = new ArrayList<>();
         int maxTileIndex = 0;
 
-        for (PatternLoadCue cue : sorted) {
+        for (PlcEntry cue : sorted) {
             channel.position(cue.romAddr());
             byte[] data = NemesisReader.decompress(channel);
             decompressedData.add(data);
             usedCues.add(cue);
 
             int tileCount = data.length / Pattern.PATTERN_SIZE_IN_ROM;
-            int endTile = cue.tileOffset() + tileCount;
+            int endTile = cue.tileIndex() + tileCount;
             if (endTile > maxTileIndex) {
                 maxTileIndex = endTile;
             }
 
             LOG.info("PLC entry: romAddr=0x" + Integer.toHexString(cue.romAddr()) +
-                    " tileOffset=0x" + Integer.toHexString(cue.tileOffset()) +
+                    " tileOffset=0x" + Integer.toHexString(cue.tileIndex()) +
                     " tiles=" + tileCount + " endTile=0x" + Integer.toHexString(endTile));
         }
 
@@ -392,12 +384,12 @@ public class Sonic1Level implements Level {
         patterns = new Pattern[patternCount];
 
         for (int i = 0; i < usedCues.size(); i++) {
-            PatternLoadCue cue = usedCues.get(i);
+            PlcEntry cue = usedCues.get(i);
             byte[] data = decompressedData.get(i);
             int tileCount = data.length / Pattern.PATTERN_SIZE_IN_ROM;
 
             for (int t = 0; t < tileCount; t++) {
-                int patIdx = cue.tileOffset() + t;
+                int patIdx = cue.tileIndex() + t;
                 if (patIdx >= patternCount) break;
                 patterns[patIdx] = new Pattern();
                 byte[] subArray = Arrays.copyOfRange(data, t * Pattern.PATTERN_SIZE_IN_ROM,

@@ -87,6 +87,28 @@ public class LightningShieldObjectInstance extends ShieldObjectInstance {
         }
     }
 
+    /**
+     * Obj_LightningShield_CreateSpark (sonic3k.asm:34811-34858).
+     * Creates 4 spark particles with diagonal velocities; shield stays on script 0.
+     */
+    public void triggerSparks() {
+        if (dplcRenderer == null || animSet == null) return;
+        AbstractPlayableSprite player = getPlayer();
+        if (player == null) return;
+        int cx = player.getCentreX();
+        int cy = player.getCentreY();
+        // ROM velocity table (sonic3k.asm:34840-34844)
+        int[][] velocities = {
+            {-0x200, -0x200}, {0x200, -0x200},
+            {-0x200,  0x200}, {0x200,  0x200}
+        };
+        for (int[] vel : velocities) {
+            LightningSparkObjectInstance spark = new LightningSparkObjectInstance(
+                    cx, cy, vel[0], vel[1], dplcRenderer, animSet);
+            spawnDynamicObject(spark);
+        }
+    }
+
     private void initAnimation(int animId) {
         currentAnimId = animId;
         frameIndex = 0;

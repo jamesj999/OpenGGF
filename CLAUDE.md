@@ -133,6 +133,8 @@ Some zones share level resources with overlays (e.g., HTZ shares base data with 
 
 To add overlay support for other zones: add ROM offsets to `Sonic2Constants`, create a plan in `Sonic2LevelResourcePlans`, update `getPlanForZone()`.
 
+- **PLC system:** `PlcParser` in `level.resources` provides game-agnostic PLC parsing. See `plc-system` skill for cross-game reference, `s3k-plc-system` for S3K-specific details.
+
 ## Multi-Game Support Architecture
 
 Game-specific behavior is isolated behind the `GameModule` interface. `GameModuleRegistry` holds the current module, `RomDetectionService` auto-detects ROM type.
@@ -216,6 +218,12 @@ To add objects: add ID to `Sonic2ObjectIds`, create instance class, register fac
 
 Pattern: add ROM address to `Sonic2Constants`, add key to `Sonic2ObjectArtKeys`, add loader method in `Sonic2ObjectArt`, register in `Sonic2ObjectArtProvider.loadArtForZone()`.
 
+**S2 object art:** Prefer `S2SpriteDataLoader.loadMappingFrames(reader, mappingAddr)` to parse S2 mappings from ROM at runtime. Add mapping ROM address to `Sonic2Constants.java`, then call the shared utility from `Sonic2ObjectArt`. Object instance files should use `S2SpriteDataLoader` directly instead of inline parser copies. The `loadMappingFramesWithTileOffset()` variant supports VRAM tile index adjustment.
+
+**S1 object art:** Use `Sonic1ObjectArt.buildArtSheet(artAddr, mappings, palette, bankSize)` for Nemesis-compressed art with mappings. Use `S1SpriteDataLoader.loadMappingFrames(reader, mappingAddr)` for ROM-parsed S1 mappings (5-byte pieces, byte piece count). Note: most S1 object mappings are inline `spritePiece` macros in the assembly (not separate binary tables), so `buildArtSheetFromRom()` is available but many objects still use hardcoded mappings with `buildArtSheet()`.
+
+**S3K level-art objects:** Prefer `Sonic3kObjectArt.buildLevelArtSheetFromRom(mappingAddr, artTileBase, palette)` to parse S3K mappings from ROM at runtime. Add mapping ROM address to `Sonic3kConstants.java` (use RomOffsetFinder). Extract art_tile base and palette from the object code's `make_art_tile()` call. Only hardcode mapping pieces when the ROM table can't be used directly.
+
 ### Constants Files (`game.sonic2.constants`)
 
 `Sonic2Constants` (ROM offsets), `Sonic2ObjectIds` (object type IDs), `Sonic2ObjectConstants` (touch collision data), `Sonic2AnimationIds` (animation scripts), `Sonic2AudioConstants` (music/SFX IDs).
@@ -229,6 +237,7 @@ Critical constraints for current S3K support:
 - **AIZ1 intro skip:** `Sonic3k.loadLevel()` can bootstrap to post-intro gameplay. `getLevelBoundariesAddr()` must use `LEVEL_SIZES_AIZ1_INTRO_INDEX` (26) when active.
 - **Camera bounds timing:** Camera placement must be refreshed AFTER assigning level bounds (`camera.updatePosition(true)`).
 - **Collision decoding:** Keep `Sonic3k.decodeCollisionPointer()` marker logic and stride-2 reads in `Sonic3kLevel.readCollisionIndex()`.
+- **PLC system:** See `s3k-plc-system` skill for Pattern Load Cue system docs (runtime art loading, act transitions, boss art).
 - **Known limitation:** Some S3K levels log `maxChunkPatternIndex > patternCount` (dynamic art/PLC parity incomplete).
 
 **Keep these S3K tests green:**

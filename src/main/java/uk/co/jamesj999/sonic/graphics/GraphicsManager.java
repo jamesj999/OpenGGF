@@ -957,6 +957,14 @@ public class GraphicsManager {
 		windowHeight = 224;
 		screenHeight = 224;
 		waterEnabled = false;
+		if (patternAtlas != null) {
+			if (headlessMode) {
+				patternAtlas.cleanupHeadless();
+			} else {
+				patternAtlas.cleanup();
+			}
+			patternAtlas = null;
+		}
 	}
 
 	/**

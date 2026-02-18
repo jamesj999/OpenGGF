@@ -116,26 +116,42 @@ Key differences from S2:
 - Use `safeLoadKosinskiModuledPatterns()` for `ArtKosM_` data
 - Use `safeLoadNemesisPatterns()` for `ArtNem_` data
 
-**Add loader method** to `Sonic3kObjectArt.java`:
+**PLC-loaded art:** Some objects use art loaded by zone PLCs at runtime rather than at level load. If the object's art comes from a zone PLC (e.g., PLC 0x0B for AIZ1 objects), it may need runtime PLC application for act transitions or boss arenas. See the **`s3k-plc-system`** skill for PLC system docs.
+
+##### For level-art objects (art loaded by PLCs or level init):
+
+These objects use patterns already loaded into the level's pattern table. Parse mappings directly from ROM:
+
+1. Find mapping ROM address with RomOffsetFinder: `--game s3k find Map_ObjectName`
+2. Add `MAP_*_ADDR` constant to `Sonic3kConstants.java`
+3. Extract `artTileBase` and `palette` from the object code's `make_art_tile(base, pal, pri)` instruction
+4. Add builder method to `Sonic3kObjectArt.java`:
    ```java
-   public ObjectSpriteSheet loadObjectNameSheet() {
-       // S3K primarily uses Kosinski Moduled for object art
-       Pattern[] patterns = safeLoadKosinskiModuledPatterns(
-           Sonic3kConstants.ART_KOSM_OBJECTNAME_ADDR, "ObjectName");
-       if (patterns.length == 0) return null;
-       List<SpriteMappingFrame> mappings = createObjectNameMappings();
-       return new ObjectSpriteSheet(patterns, mappings, paletteIndex, 1);
+   public ObjectSpriteSheet buildObjectNameSheet() {
+       return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_OBJECT_NAME_ADDR,
+               artTileBase, palette);
    }
    ```
 
-5. **Create mappings method** - Parse from `General/Sprites/{Name}/Map - Name.asm` or `Misc Object Data/Map - Name.asm`:
-   ```java
-   private List<SpriteMappingFrame> createObjectNameMappings() {
-       // S3K format: word piece_count, then per piece (6 bytes):
-       //   byte y_offset, byte size, word pattern, word x_offset
-       // Same format as S2
-   }
-   ```
+`buildLevelArtSheetFromRom()` calls `S3kSpriteDataLoader.loadMappingFrames()` to parse S3K 6-byte mapping frames from ROM, automatically computes tile ranges, and delegates to `buildLevelArtSheet()`.
+
+##### For dedicated-art objects (own compressed art):
+
+These objects have self-contained art that doesn't depend on level patterns:
+
+```java
+public ObjectSpriteSheet loadObjectNameSheet() {
+    Pattern[] patterns = safeLoadKosinskiModuledPatterns(
+        Sonic3kConstants.ART_KOSM_OBJECTNAME_ADDR, "ObjectName");
+    if (patterns.length == 0) return null;
+    List<SpriteMappingFrame> mappings = createObjectNameMappings();
+    return new ObjectSpriteSheet(patterns, mappings, paletteIndex, 1);
+}
+```
+
+##### Fallback: hardcoded mappings
+
+Only hardcode mapping pieces when the ROM mapping table can't be used directly (e.g., dynamically constructed frames, or mappings that combine data from multiple sources).
 
 #### 2.3 Object Instance Class
 

@@ -8,6 +8,7 @@ import uk.co.jamesj999.sonic.debug.DebugOverlayManager;
 import uk.co.jamesj999.sonic.debug.DebugOverlayToggle;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
+import uk.co.jamesj999.sonic.game.sonic2.S2SpriteDataLoader;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
@@ -556,71 +557,11 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         try {
             Rom rom = manager.getGame().getRom();
             RomByteReader reader = RomByteReader.fromRom(rom);
-            mappings = loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ82_ADDR);
+            mappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ82_ADDR);
             LOGGER.fine("Loaded " + mappings.size() + " Obj82 mapping frames");
         } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load Obj82 mappings: " + e.getMessage());
         }
-    }
-
-    /**
-     * Load mapping frames from ROM.
-     * Format: offset table (word per frame) followed by frame data.
-     * Each frame: piece count (word), then 8 bytes per piece.
-     */
-    private static List<SpriteMappingFrame> loadMappingFrames(RomByteReader reader, int mappingAddr) {
-        int firstOffset = reader.readU16BE(mappingAddr);
-        int frameCount = firstOffset / 2;
-
-        List<SpriteMappingFrame> frames = new ArrayList<>(frameCount);
-
-        for (int i = 0; i < frameCount; i++) {
-            int offset = reader.readU16BE(mappingAddr + (i * 2));
-            int frameAddr = mappingAddr + offset;
-
-            int pieceCount = reader.readU16BE(frameAddr);
-            frameAddr += 2;
-
-            List<SpriteMappingPiece> pieces = new ArrayList<>(pieceCount);
-
-            for (int p = 0; p < pieceCount; p++) {
-                int yOffset = (byte) reader.readU8(frameAddr);
-                frameAddr += 1;
-
-                int size = reader.readU8(frameAddr);
-                frameAddr += 1;
-
-                int tileWord = reader.readU16BE(frameAddr);
-                frameAddr += 2;
-
-                frameAddr += 2;  // Skip 2P tile word
-
-                int xOffset = (short) reader.readU16BE(frameAddr);
-                frameAddr += 2;
-
-                int widthTiles = ((size >> 2) & 0x3) + 1;
-                int heightTiles = (size & 0x3) + 1;
-
-                int tileIndex = tileWord & 0x7FF;
-                boolean pieceHFlip = (tileWord & 0x800) != 0;
-                boolean pieceVFlip = (tileWord & 0x1000) != 0;
-                int paletteIndex = (tileWord >> 13) & 0x3;
-
-                pieces.add(new SpriteMappingPiece(
-                        xOffset,
-                        yOffset,
-                        widthTiles,
-                        heightTiles,
-                        tileIndex,
-                        pieceHFlip,
-                        pieceVFlip,
-                        paletteIndex));
-            }
-
-            frames.add(new SpriteMappingFrame(pieces));
-        }
-
-        return frames;
     }
 
     private void appendDebug(List<GLCommand> commands) {
