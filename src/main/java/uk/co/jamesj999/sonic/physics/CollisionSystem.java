@@ -130,9 +130,10 @@ public class CollisionSystem {
     public SensorResult[] terrainProbes(AbstractPlayableSprite sprite, Sensor[] sensors, String sensorType) {
         SensorResult[] results = terrainCollisionManager.getSensorResult(sensors);
 
-        // Record each sensor result
-        for (int i = 0; i < results.length; i++) {
-            trace.onTerrainProbeResult(sensorType + "_" + i, results[i]);
+        if (trace != NoOpCollisionTrace.INSTANCE) {
+            for (int i = 0; i < results.length; i++) {
+                trace.onTerrainProbeResult(sensorType + "_" + i, results[i]);
+            }
         }
 
         return results;

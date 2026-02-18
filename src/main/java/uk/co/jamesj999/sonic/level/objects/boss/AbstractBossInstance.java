@@ -463,6 +463,13 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         }
     }
 
+    // Cached debug labels to avoid per-frame String allocation
+    private String cachedHpLabel;
+    private int cachedDebugHitCount = -1;
+    private int cachedDebugRoutine = -1;
+    private String cachedInvulnLabel;
+    private int cachedInvulnTimer = -1;
+
     @Override
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Hitbox rectangle colored by state
@@ -476,14 +483,21 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         }
         ctx.drawRect(state.x, state.y, 24, 24, r, g, b);
 
-        // Red text: name + HP + routine
-        String hpLabel = name + " HP:" + state.hitCount + " R:" + state.routine;
-        ctx.drawWorldLabel(state.x, state.y, -3, hpLabel, Color.RED);
+        // Red text: name + HP + routine (cached until state changes)
+        if (state.hitCount != cachedDebugHitCount || state.routine != cachedDebugRoutine) {
+            cachedHpLabel = name + " HP:" + state.hitCount + " R:" + state.routine;
+            cachedDebugHitCount = state.hitCount;
+            cachedDebugRoutine = state.routine;
+        }
+        ctx.drawWorldLabel(state.x, state.y, -3, cachedHpLabel, Color.RED);
 
-        // Orange invulnerability timer when invulnerable
+        // Orange invulnerability timer when invulnerable (cached until timer changes)
         if (state.invulnerable) {
-            String invulnLabel = "Invuln:" + state.invulnerabilityTimer;
-            ctx.drawWorldLabel(state.x, state.y, -2, invulnLabel, Color.ORANGE);
+            if (state.invulnerabilityTimer != cachedInvulnTimer) {
+                cachedInvulnLabel = "Invuln:" + state.invulnerabilityTimer;
+                cachedInvulnTimer = state.invulnerabilityTimer;
+            }
+            ctx.drawWorldLabel(state.x, state.y, -2, cachedInvulnLabel, Color.ORANGE);
         }
 
         // Blue lines from parent to each child component

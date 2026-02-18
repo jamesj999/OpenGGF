@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.level.scroll;
 
+import java.util.Arrays;
+
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.*;
 
 /**
@@ -63,6 +65,9 @@ public class SwScrlWfz implements ZoneScrollHandler {
     // Camera X threshold for array selection
     private static final int TRANSITION_THRESHOLD = 0x2700;
 
+    // Pre-allocated array for per-frame layer scroll values
+    private final int[] layerScrollWord = new int[5];
+
     public SwScrlWfz(ParallaxTables tables, BackgroundCamera bgCamera) {
         this.tables = tables;
         this.bgCamera = bgCamera;
@@ -102,7 +107,7 @@ public class SwScrlWfz implements ZoneScrollHandler {
         // Build the 5 scroll word values (high word of each 32-bit longword)
         // The original reads with: move.w (a2,d3.w),d0 where d3 is the byte offset
         // This reads the HIGH word (integer part) of the longword at that offset
-        int[] layerScrollWord = new int[5];
+        Arrays.fill(layerScrollWord, 0);
         layerScrollWord[LAYER_STATIC_BG] = (bgXPosLong >> 16) & 0xFFFF;
         layerScrollWord[LAYER_SHIP] = (bgXPosLong >> 16) & 0xFFFF;
         layerScrollWord[LAYER_LARGE_CLOUD] = (largeCloudAccum >> 16) & 0xFFFF;

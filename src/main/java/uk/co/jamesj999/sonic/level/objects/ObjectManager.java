@@ -2,6 +2,8 @@ package uk.co.jamesj999.sonic.level.objects;
 
 import static org.lwjgl.opengl.GL11.GL_LINES;
 import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.debug.DebugOverlayManager;
+import uk.co.jamesj999.sonic.debug.DebugOverlayToggle;
 import uk.co.jamesj999.sonic.game.CollisionModel;
 import uk.co.jamesj999.sonic.game.PhysicsFeatureSet;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
@@ -149,6 +151,8 @@ public class ObjectManager {
         // after movement but before animation. This ensures pushing flag is set correctly
         // for both terrain and solid objects before animation resolves.
         if (touchResponses != null) {
+            touchResponses.debugState.setEnabled(
+                    DebugOverlayManager.getInstance().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
             touchResponses.update(player, touchFrameCounter);
             // ROM: Both players participate in touch responses.
             // Sidekick uses separate overlap tracking and special hurt handling.
@@ -923,8 +927,10 @@ public class ObjectManager {
                 // position, not its spawn position. Use getX()/getY() which moving objects
                 // (badniks, projectiles, boss children) override to return current coords.
                 boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getX(), instance.getY(), width, height);
-                debugState.addHit(
-                        new TouchResponseDebugHit(instance.getSpawn(), flags, sizeIndex, width, height, category, overlap));
+                if (debugState.isEnabled()) {
+                    debugState.addHit(
+                            new TouchResponseDebugHit(instance.getSpawn(), flags, sizeIndex, width, height, category, overlap));
+                }
                 if (!overlap) {
                     continue;
                 }
@@ -1937,7 +1943,7 @@ public class ObjectManager {
                     // ROM: bset #status.player.on_object (s2.asm:35739)
                     player.setOnObject(true);
                 }
-                return new SolidContact(true, false, false, true, false);
+                return SolidContact.STANDING;
             }
 
             // SPG: Monitors never push player downward, only to sides
@@ -1956,7 +1962,7 @@ public class ObjectManager {
                 int pushDist = leftSide ? -absDistX : absDistX;
                 player.setCentreX((short) (playerCenterX + pushDist));
             }
-            return new SolidContact(false, true, false, false, pushing);
+            return pushing ? SolidContact.SIDE_PUSH : SolidContact.SIDE_NO_PUSH;
         }
 
         private SolidContact resolveSlopedContact(AbstractPlayableSprite player, int anchorX, int anchorY, int halfWidth,
@@ -2051,7 +2057,7 @@ public class ObjectManager {
                     }
                     player.setOnObject(true);
                 }
-                return new SolidContact(true, false, false, true, false);
+                return SolidContact.STANDING;
             }
 
             if (absDistX <= absDistY) {
@@ -2105,7 +2111,7 @@ public class ObjectManager {
                             }
                             player.setOnObject(true);
                         }
-                        return new SolidContact(true, false, false, true, false);
+                        return SolidContact.STANDING;
                     }
                 }
 
@@ -2124,7 +2130,7 @@ public class ObjectManager {
                 if (nearVerticalEdge) {
                     // Near top/bottom edge: don't stop player and don't set pushing.
                     // This avoids false push-state while stepping across adjacent solid tops.
-                    return new SolidContact(false, true, false, false, false);
+                    return SolidContact.SIDE_NO_PUSH;
                 }
                 if (apply) {
                     if (movingInto) {
@@ -2133,7 +2139,7 @@ public class ObjectManager {
                     }
                     player.setCentreX((short) (playerCenterX - distX));
                 }
-                return new SolidContact(false, true, false, false, pushing);
+                return pushing ? SolidContact.SIDE_PUSH : SolidContact.SIDE_NO_PUSH;
             }
 
             if (distY >= 0 || (sticky && distY >= -16)) {
@@ -2169,7 +2175,7 @@ public class ObjectManager {
                     // ROM: bset #status.player.on_object (s2.asm:35739)
                     player.setOnObject(true);
                 }
-                return new SolidContact(true, false, false, true, false);
+                return SolidContact.STANDING;
             }
 
             if (topSolidOnly) {
@@ -2194,7 +2200,7 @@ public class ObjectManager {
                         }
                         player.setCentreX((short) (playerCenterX - distX));
                     }
-                    return new SolidContact(false, true, false, false, pushing);
+                    return pushing ? SolidContact.SIDE_PUSH : SolidContact.SIDE_NO_PUSH;
                 }
                 // Player is well inside horizontally - crush death.
                 // ROM: KillCharacter (s2.asm:84995) - unconditional death.
@@ -2202,7 +2208,7 @@ public class ObjectManager {
                     LOGGER.fine(() -> "SolidObject crush: player sandwiched (absDistX=" + absDistX + ")");
                     player.applyCrushDeath();
                 }
-                return new SolidContact(false, false, true, false, false);
+                return SolidContact.CEILING;
             }
 
             if (apply) {
@@ -2214,7 +2220,7 @@ public class ObjectManager {
                     player.setYSpeed((short) 0);
                 }
             }
-            return new SolidContact(false, false, true, false, false);
+            return SolidContact.CEILING;
         }
 
         private boolean usesUnifiedCollisionModel(AbstractPlayableSprite player) {

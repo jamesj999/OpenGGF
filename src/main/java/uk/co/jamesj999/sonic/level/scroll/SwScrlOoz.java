@@ -1,5 +1,7 @@
 package uk.co.jamesj999.sonic.level.scroll;
 
+import java.util.Arrays;
+
 import static uk.co.jamesj999.sonic.level.scroll.M68KMath.*;
 
 /**
@@ -43,6 +45,9 @@ public class SwScrlOoz implements ZoneScrollHandler {
 
     // Last frame counter used for phase update detection
     private int lastFrameForPhaseUpdate = -1;
+
+    // Pre-allocated buffer for per-scanline BG scroll values (bottom-to-top order)
+    private final short[] bgScrollValues = new short[VISIBLE_LINES];
 
     // Camera_BG_X_pos tracking (16.16 fixed-point for subpixel accuracy)
     // Initialized to 0 by InitCam_OOZ, updated each frame at 1/4 FG speed
@@ -150,8 +155,8 @@ public class SwScrlOoz implements ZoneScrollHandler {
         // We track remaining lines (starts at 223, counts down)
         // But we fill the array in the correct order (final result)
 
-        // Build a temp array representing bottom-to-top order
-        short[] bgScrollValues = new short[VISIBLE_LINES];
+        // Clear pre-allocated buffer for bottom-to-top order fill
+        Arrays.fill(bgScrollValues, (short) 0);
         int lineFromBottom = 0;  // 0 = bottom line (screen line 223)
 
         // Segment 0: Factory (variable height)

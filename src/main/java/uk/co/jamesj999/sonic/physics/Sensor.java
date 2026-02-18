@@ -12,6 +12,9 @@ public abstract class Sensor {
 
     protected SensorResult currentResult;
 
+    private short rotatedX;
+    private short rotatedY;
+
     protected abstract SensorResult doScan(short dx, short dy);
 
     public SensorResult scan() {
@@ -35,28 +38,21 @@ public abstract class Sensor {
         return direction;
     }
 
-    public short[] getRotatedOffset() {
+    public void computeRotatedOffset() {
         short xOffset = x;
         short yOffset = y;
 
         GroundMode mode = sprite.getGroundMode();
         switch (mode) {
             case RIGHTWALL -> {
-                // ROM: (x, y) -> (y, x) - swap axes only, no negation
-                // s2.asm Sonic_WalkVertR (42684-42712): sensors at (x+y_rad, y-x_rad) / (x+y_rad, y+x_rad)
-                // Left sensor (-9, 19) → (19, -9), Right sensor (9, 19) → (19, 9)
                 short temp = xOffset;
                 xOffset = yOffset;
                 yOffset = temp;
             }
             case CEILING -> {
-                // ROM: (x, y) -> (x, -y) - only negate Y, X stays the same
-                // s2.asm Sonic_WalkCeiling (42750-42779): sensors at (x+x_rad, y-y_rad) / (x-x_rad, y-y_rad)
                 yOffset = (short) -yOffset;
             }
             case LEFTWALL -> {
-                // ROM: (x, y) -> (-y, x) - negate Y, then swap
-                // s2.asm Sonic_WalkVertL (42817-42846): sensors at (x-y_rad, y-x_rad) / (x-y_rad, y+x_rad)
                 short temp = xOffset;
                 xOffset = (short) -yOffset;
                 yOffset = temp;
@@ -64,7 +60,22 @@ public abstract class Sensor {
             default -> { }
         }
 
-        return new short[] { xOffset, yOffset };
+        this.rotatedX = xOffset;
+        this.rotatedY = yOffset;
+    }
+
+    public short getRotatedX() {
+        return rotatedX;
+    }
+
+    public short getRotatedY() {
+        return rotatedY;
+    }
+
+    @Deprecated
+    public short[] getRotatedOffset() {
+        computeRotatedOffset();
+        return new short[] { rotatedX, rotatedY };
     }
 
     public SensorResult getCurrentResult() {

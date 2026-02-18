@@ -17,7 +17,7 @@ import static org.lwjgl.opengl.GL30.*;
  * Uses VAO/VBO with the debug color shader for core profile compatibility.
  */
 public class GLCommand implements GLCommandable {
-	private static final ThreadLocal<Boolean> IN_GROUP = ThreadLocal.withInitial(() -> Boolean.FALSE);
+	private static boolean inGroup = false;
 	// Cached screen dimensions to avoid repeated synchronized getInstance() calls
 	private static final int SCREEN_HEIGHT_PIXELS = SonicConfigurationService.getInstance()
 			.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
@@ -33,11 +33,11 @@ public class GLCommand implements GLCommandable {
 	}
 
 	public static void setInGroup(boolean inGroup) {
-		IN_GROUP.set(inGroup);
+		GLCommand.inGroup = inGroup;
 	}
 
 	public static boolean isInGroup() {
-		return IN_GROUP.get();
+		return inGroup;
 	}
 
 	public BlendType getBlendMode() {

@@ -269,6 +269,16 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         // DAC mute state for fade-in
         public boolean dacMuted;
 
+        // Mutable result fields for stepCustomModulation() – avoids per-tick allocation
+        boolean modStepInEffect;
+        boolean modStepChanged;
+        int modStepDelta;
+
+        // Mutable result fields for stepModEnvelope() – avoids per-tick allocation
+        boolean modEnvStepInEffect;
+        boolean modEnvStepChanged;
+        int modEnvStepDelta;
+
         Track(int pos, TrackType type, int channelId) {
             this.pos = pos;
             this.type = type;
@@ -2139,20 +2149,6 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         // Adding Key On here caused re-keying during rests, breaking SFX like 0xAD.
     }
 
-    private static class ModulationStep {
-        private static final ModulationStep NONE = new ModulationStep(false, false, 0);
-
-        final boolean inEffect;
-        final boolean changed;
-        final int delta;
-
-        ModulationStep(boolean inEffect, boolean changed, int delta) {
-            this.inEffect = inEffect;
-            this.changed = changed;
-            this.delta = delta;
-        }
-    }
-
     private void applyModulation(Track t) {
         if (!t.modEnabled)
             return;
@@ -2161,15 +2157,15 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         if (t.note == 0x80)  // 0x80 = rest note
             return;
 
-        ModulationStep custom = stepCustomModulation(t);
-        ModulationStep env = stepModEnvelope(t);
-        if (!custom.inEffect && !env.inEffect) {
+        stepCustomModulation(t);
+        stepModEnvelope(t);
+        if (!t.modStepInEffect && !t.modEnvStepInEffect) {
             t.modEnabled = false;
             return;
         }
 
-        int freqDelta = custom.delta + env.delta;
-        boolean changed = custom.changed || env.changed;
+        int freqDelta = t.modStepDelta + t.modEnvStepDelta;
+        boolean changed = t.modStepChanged || t.modEnvStepChanged;
         if (!changed) {
             return;
         }
@@ -2201,14 +2197,20 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         }
     }
 
-    private ModulationStep stepCustomModulation(Track t) {
+    private void stepCustomModulation(Track t) {
         if (!t.customModEnabled) {
-            return ModulationStep.NONE;
+            t.modStepInEffect = false;
+            t.modStepChanged = false;
+            t.modStepDelta = 0;
+            return;
         }
 
         if (t.modDelay > 0) {
             t.modDelay--;
-            return new ModulationStep(true, false, t.modAccumulator);
+            t.modStepInEffect = true;
+            t.modStepChanged = false;
+            t.modStepDelta = t.modAccumulator;
+            return;
         }
 
         if (t.modRateCounter > 0) {
@@ -2225,7 +2227,10 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 if (t.modStepCounter == 0) {
                     t.modStepCounter = t.modStepsFull; // reload from RAW (ModData[0x03])
                     t.modCurrentDelta = -t.modCurrentDelta;
-                    return new ModulationStep(true, false, t.modAccumulator);
+                    t.modStepInEffect = true;
+                    t.modStepChanged = false;
+                    t.modStepDelta = t.modAccumulator;
+                    return;
                 }
             } else {
                 // S1/S2 (MODALGO_68K): pre-check, then decrement.
@@ -2233,26 +2238,40 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 if (t.modStepCounter == 0) {
                     t.modStepCounter = t.modStepsFull; // reload from RAW (ModData[0x03])
                     t.modCurrentDelta = -t.modCurrentDelta;
-                    return new ModulationStep(true, false, t.modAccumulator);
+                    t.modStepInEffect = true;
+                    t.modStepChanged = false;
+                    t.modStepDelta = t.modAccumulator;
+                    return;
                 }
                 t.modStepCounter--;
             }
 
             t.modAccumulator += t.modCurrentDelta;
             t.modAccumulator = (short) t.modAccumulator; // 16-bit signed wrap
-            return new ModulationStep(true, true, t.modAccumulator);
+            t.modStepInEffect = true;
+            t.modStepChanged = true;
+            t.modStepDelta = t.modAccumulator;
+            return;
         }
 
-        return new ModulationStep(true, false, t.modAccumulator);
+        t.modStepInEffect = true;
+        t.modStepChanged = false;
+        t.modStepDelta = t.modAccumulator;
     }
 
-    private ModulationStep stepModEnvelope(Track t) {
+    private void stepModEnvelope(Track t) {
         if (t.modEnvId == 0 || t.modEnvData == null || t.modEnvData.length == 0) {
-            return ModulationStep.NONE;
+            t.modEnvStepInEffect = false;
+            t.modEnvStepChanged = false;
+            t.modEnvStepDelta = 0;
+            return;
         }
 
         if (t.modEnvHold) {
-            return new ModulationStep(true, false, t.modEnvCache);
+            t.modEnvStepInEffect = true;
+            t.modEnvStepChanged = false;
+            t.modEnvStepDelta = t.modEnvCache;
+            return;
         }
 
         int safety = 0;
@@ -2268,7 +2287,10 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 int envVal = (byte) value;
                 int multiplier = t.modEnvMult + 1; // S3K DefDrv: EnvMult = Z80
                 t.modEnvCache = (short) (envVal * multiplier);
-                return new ModulationStep(true, true, t.modEnvCache);
+                t.modEnvStepInEffect = true;
+                t.modEnvStepChanged = true;
+                t.modEnvStepDelta = t.modEnvCache;
+                return;
             }
 
             switch (value) {
@@ -2279,14 +2301,20 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                 case 0x83: // VOLSTOP_MODHOLD => HOLD for modulation envelopes
                     t.modEnvPos--;
                     t.modEnvHold = true;
-                    return new ModulationStep(true, false, t.modEnvCache);
+                    t.modEnvStepInEffect = true;
+                    t.modEnvStepChanged = false;
+                    t.modEnvStepDelta = t.modEnvCache;
+                    return;
                 case 0x82: // LOOP xx
                     if (t.modEnvPos < t.modEnvData.length) {
                         t.modEnvPos = t.modEnvData[t.modEnvPos] & 0xFF;
                         continue;
                     }
                     t.modEnvHold = true;
-                    return new ModulationStep(true, false, t.modEnvCache);
+                    t.modEnvStepInEffect = true;
+                    t.modEnvStepChanged = false;
+                    t.modEnvStepDelta = t.modEnvCache;
+                    return;
                 case 0x84: // CHG_MULT xx
                     if (t.modEnvPos < t.modEnvData.length) {
                         t.modEnvMult = (t.modEnvMult + (t.modEnvData[t.modEnvPos] & 0xFF)) & 0xFF;
@@ -2294,15 +2322,23 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                         continue;
                     }
                     t.modEnvHold = true;
-                    return new ModulationStep(true, false, t.modEnvCache);
+                    t.modEnvStepInEffect = true;
+                    t.modEnvStepChanged = false;
+                    t.modEnvStepDelta = t.modEnvCache;
+                    return;
                 default:
                     t.modEnvHold = true;
-                    return new ModulationStep(true, false, t.modEnvCache);
+                    t.modEnvStepInEffect = true;
+                    t.modEnvStepChanged = false;
+                    t.modEnvStepDelta = t.modEnvCache;
+                    return;
             }
         }
 
         t.modEnvHold = true;
-        return new ModulationStep(true, false, t.modEnvCache);
+        t.modEnvStepInEffect = true;
+        t.modEnvStepChanged = false;
+        t.modEnvStepDelta = t.modEnvCache;
     }
 
     private int getPacked(Track t, int modulationDelta) {
