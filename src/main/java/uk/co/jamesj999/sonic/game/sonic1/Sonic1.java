@@ -43,6 +43,10 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
     private static final int ACT_SLOTS_PER_ZONE = 4;
     private static final int S1_LEVEL_INDEX_SBZ3 = 0x91;
     private static final int S1_LEVEL_INDEX_FINAL = 0x92;
+    private static final int S1_LEVEL_INDEX_ENDING_FLOWERS = 0x95;
+    private static final int S1_LEVEL_INDEX_ENDING_NO_EMERALDS = 0x96;
+    // ROM: plcid_Ending in _inc/Pattern Load Cues.asm
+    private static final int S1_PLCID_ENDING = 0x1C;
     private static final int DISASM_SONIC_PALID = 3;
     private static final int DISASM_PALID_SBZ3 = 0x0C;
     private static final int DISASM_PALID_SBZ2 = 0x0E;
@@ -88,7 +92,9 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
                 "Labyrinth Zone - Act 1", "Labyrinth Zone - Act 2", "Labyrinth Zone - Act 3",
                 "Star Light Zone - Act 1", "Star Light Zone - Act 2", "Star Light Zone - Act 3",
                 "Scrap Brain Zone - Act 1", "Scrap Brain Zone - Act 2", "Scrap Brain Zone - Act 3",
-                "Final Zone");
+                "Final Zone",
+                "Ending Sequence - Flowers",
+                "Ending Sequence - No Emeralds");
     }
 
     @Override
@@ -130,11 +136,19 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
         int headerPaletteId = rom.readByte(headerAddr + 15) & 0xFF;
         int paletteId = resolveLevelPaletteId(zone, act, headerPaletteId);
 
-        // Read pattern load cues from both primary and secondary ArtLoadCues.
-        // Primary PLC = level art loaded during init; Secondary PLC = object/sprite art.
-        // Both are needed since chunks may reference tiles from either.
-        List<Sonic1Level.PatternLoadCue> patternCues = readPatternLoadCues(plcId);
-        patternCues.addAll(readPatternLoadCues(plc2Id));
+        // Read pattern load cues from ArtLoadCues.
+        // For normal levels, we combine primary + secondary cues.
+        // Ending is special: GM_Ending uses QuickPLC(plcid_Ending), while LevelHeaders keeps plc1/plc2 as 0.
+        List<Sonic1Level.PatternLoadCue> patternCues = new ArrayList<>();
+        if (zone == Sonic1Constants.ZONE_ENDZ) {
+            patternCues.addAll(readPatternLoadCues(S1_PLCID_ENDING));
+        } else {
+            patternCues.addAll(readPatternLoadCues(plcId));
+            // ROM LevelDataLoad skips AddPLC when plc2==0.
+            if (plc2Id != 0) {
+                patternCues.addAll(readPatternLoadCues(plc2Id));
+            }
+        }
 
         // Get collision index for this zone
         int collisionIndexAddr = getCollisionIndexAddr(zone);
@@ -180,7 +194,7 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
                 " blocks=0x" + Integer.toHexString(blocksAddr) +
                 " rings=" + rings.size() + " objects=" + objects.size());
 
-        return new Sonic1Level(rom, zone, sonicPaletteAddr, levelPaletteAddr,
+        return new Sonic1Level(rom, zone, sonicPaletteId, adjustedPaletteId,
                 patternCues, chunksAddr, blocksAddr,
                 fgLayoutAddr, bgLayoutAddr, collisionIndexAddr,
                 Sonic1Constants.COLLISION_ARRAY_NORMAL_ADDR,
@@ -199,6 +213,11 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
         if (levelIdx == 0x91) return Sonic1Music.SBZ.id;
         // Final Zone (level 0x92)
         if (levelIdx == 0x92) return Sonic1Music.FZ.id;
+        // Ending sequence variants (level 0x95 / 0x96)
+        if (levelIdx == S1_LEVEL_INDEX_ENDING_FLOWERS
+                || levelIdx == S1_LEVEL_INDEX_ENDING_NO_EMERALDS) {
+            return Sonic1Music.ENDING.id;
+        }
         int zone = offset / 3;
         return switch (zone) {
             case 0 -> Sonic1Music.GHZ.id;
@@ -430,6 +449,12 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
         }
         if (levelIdx == S1_LEVEL_INDEX_FINAL) {
             return new int[] { Sonic1Constants.ZONE_SBZ, 2 };
+        }
+        if (levelIdx == S1_LEVEL_INDEX_ENDING_FLOWERS) {
+            return new int[] { Sonic1Constants.ZONE_ENDZ, 0 };
+        }
+        if (levelIdx == S1_LEVEL_INDEX_ENDING_NO_EMERALDS) {
+            return new int[] { Sonic1Constants.ZONE_ENDZ, 1 };
         }
         return new int[] { zone, act };
     }

@@ -7,6 +7,7 @@ import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1AnimationIds;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
+import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ZoneConstants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
@@ -62,6 +63,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     private static final int BOSS_FZ_X = Sonic1Constants.BOSS_FZ_X;     // 0x2450
     private static final int BOSS_FZ_Y = Sonic1Constants.BOSS_FZ_Y;     // 0x510
     private static final int BOSS_FZ_END = Sonic1Constants.BOSS_FZ_END; // 0x2700
+    private static final int ENDING_ACT_FLOWERS = 0;
+    private static final int ENDING_ACT_NO_EMERALDS = 1;
 
     // Cylinder lookup table: word_19FD6 — maps random index to cylinder pair
     // Random & $C gives 0, 4, 8, or 12 -> lookup gives cylinder pair indices
@@ -104,6 +107,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     // obColProp flag for escape phase hittability
     private boolean escapeHittable;
     private int escapeHitTimer;
+    private boolean endingTransitionRequested;
 
     public Sonic1FZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "FZ Boss");
@@ -134,6 +138,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         showDamaged = false;
         escapeHittable = false;
         escapeHitTimer = 0;
+        endingTransitionRequested = false;
 
         // Initialize arrays before spawning (field initializers haven't run yet
         // because AbstractBossInstance constructor calls initializeBossState())
@@ -582,8 +587,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
 
         // ROM: cmpi.w #boss_fz_end+$200,obX — trigger ending
         if (state.x >= BOSS_FZ_END + 0x200 && !isBossOnScreen()) {
-            // ROM: move.b #id_Ending,(v_gamemode).w
-            // Ending sequence not yet implemented — destroy boss and let level events handle aftermath
+            requestEndingTransition();
             setDestroyed(true);
             return;
         }
@@ -682,6 +686,20 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
      */
     public boolean isBossDefeated() {
         return state.hitCount <= 0;
+    }
+
+    private void requestEndingTransition() {
+        if (endingTransitionRequested) {
+            return;
+        }
+        endingTransitionRequested = true;
+
+        int endingAct = GameServices.gameState().hasAllEmeralds()
+                ? ENDING_ACT_FLOWERS
+                : ENDING_ACT_NO_EMERALDS;
+        // ROM: move.b #id_Ending,(v_gamemode).w
+        // Engine parity path: transition to the dedicated ending zone/act variant.
+        levelManager.requestZoneAndAct(Sonic1ZoneConstants.ZONE_ENDING, endingAct, true);
     }
 
     // === SolidObjectProvider interface ===

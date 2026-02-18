@@ -35,7 +35,7 @@ public class Sonic1LoopManager {
     /**
      * LoopTileNums table: per-zone { loop1, loop2, roll1, roll2 }.
      * Indexed by gameplay progression order (matching zone registry):
-     * 0=GHZ, 1=MZ, 2=SYZ, 3=LZ, 4=SLZ, 5=SBZ, 6=FZ.
+     * 0=GHZ, 1=MZ, 2=SYZ, 3=LZ, 4=SLZ, 5=SBZ, 6=FZ, 7=Ending.
      * 0x7F = disabled (no loop/roll in that slot).
      */
     private static final int[][] LOOP_TILE_NUMS = {
@@ -58,6 +58,9 @@ public class Sonic1LoopManager {
         { Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED,
           Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED },
         // FZ (gameplay 6)
+        { Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED,
+          Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED },
+        // Ending (gameplay 7)
         { Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED,
           Sonic1Constants.LOOP_DISABLED, Sonic1Constants.LOOP_DISABLED },
     };

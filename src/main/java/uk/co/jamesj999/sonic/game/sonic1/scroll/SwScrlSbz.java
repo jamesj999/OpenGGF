@@ -21,9 +21,10 @@ import static uk.co.jamesj999.sonic.level.scroll.M68KMath.*;
  *   d5 = d5 &lt;&lt; 1                  ; * 32
  * </pre>
  *
- * BgScroll_SBZ initial setup:
+ * BgScroll_SBZ initial setup (16.16 fixed point):
  * <pre>
- *   bgscreenposy = (screenposy &lt;&lt; 4 &lt;&lt; 1) &gt;&gt; 8 = screenposy * 32 / 256
+ *   bgscreenposy.l = (word)(screenposy &lt;&lt; 4) &lt;&lt; 1
+ *   integer part = high word of result
  * </pre>
  */
 public class SwScrlSbz implements ZoneScrollHandler {
@@ -41,11 +42,16 @@ public class SwScrlSbz implements ZoneScrollHandler {
     private boolean initialized = false;
 
     public void init(int cameraX, int cameraY) {
-        // BgScrollSpeed: bgscreenposx = screenposx
+        // BgScrollSpeed default: bgscreenposx = screenposx (word write to high word)
         bgXPos = (long) cameraX << 16;
-        // BgScroll_SBZ: bgscreenposy = (screenposy << 4 << 1) >> 8 = screenposy * 32 / 256
-        int initialBgY = (cameraY * 32) >> 8;
-        bgYPos = (long) initialBgY << 16;
+        // BgScroll_SBZ in 68k (16.16 fixed point):
+        //   move.w screenposy,d0  ; d0.w = cameraY, upper word = 0
+        //   asl.w  #4,d0          ; word-only shift left 4
+        //   asl.l  #1,d0          ; long shift left 1
+        //   move.l d0,bgscreenposy ; store full 32-bit as 16.16
+        // Integer part = high word of result (NOT cameraY*32/256)
+        int wordShifted = (cameraY << 4) & 0xFFFF;  // asl.w #4
+        bgYPos = ((long) wordShifted) << 1;          // asl.l #1 → 16.16 fixed point
         lastCameraX = cameraX;
         lastCameraY = cameraY;
         initialized = true;

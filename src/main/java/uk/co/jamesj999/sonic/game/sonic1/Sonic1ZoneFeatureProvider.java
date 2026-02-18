@@ -5,6 +5,7 @@ import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.game.sonic1.events.Sonic1LZWaterEvents;
+import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ZoneConstants;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.WaterSystem;
@@ -206,6 +207,16 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
             return WaterSystem.getInstance().getWaterLevelY(zoneIndex, actIndex);
         }
         return Integer.MAX_VALUE;
+    }
+
+    @Override
+    public boolean shouldSuppressInitialTitleCard(int zoneIndex, int actIndex) {
+        return zoneIndex == Sonic1ZoneConstants.ZONE_ENDING;
+    }
+
+    @Override
+    public boolean shouldSuppressHud(int zoneIndex, int actIndex) {
+        return zoneIndex == Sonic1ZoneConstants.ZONE_ENDING;
     }
 
     /**
