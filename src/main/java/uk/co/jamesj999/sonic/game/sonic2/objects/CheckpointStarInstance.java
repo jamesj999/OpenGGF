@@ -1,6 +1,6 @@
 package uk.co.jamesj999.sonic.game.sonic2.objects;
 
-import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
+import uk.co.jamesj999.sonic.game.CheckpointState;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;

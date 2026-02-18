@@ -179,6 +179,7 @@ public class AudioRegressionTest {
      */
     @Test
     public void benchmarkAudioRendering() {
+        assumeTrue("ROM not available, skipping benchmark", loader != null);
         AbstractSmpsData musicData = loader.loadMusic(MUSIC_EHZ);
         assertNotNull("Music data should load", musicData);
 

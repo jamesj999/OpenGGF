@@ -25,7 +25,7 @@ public final class RomTestUtils {
     // Per-game ROM filenames
     private static final String S1_ROM_FILENAME = "Sonic The Hedgehog (W) (REV01) [!].gen";
     private static final String S2_ROM_FILENAME = "Sonic The Hedgehog 2 (W) (REV01) [!].gen";
-    private static final String S3K_ROM_FILENAME = "Sonic 3 & Knuckles (W) [!].gen";
+    private static final String S3K_ROM_FILENAME = "Sonic and Knuckles & Sonic 3 (W) [!].gen";
 
     // Per-game system properties
     private static final String S1_ROM_PATH_PROPERTY = "sonic1.rom.path";

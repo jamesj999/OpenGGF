@@ -158,7 +158,6 @@ public class ParallaxManager {
 
         // Get the game-specific scroll handler provider
         GameModule module = GameModuleRegistry.getCurrent();
-        String gameId = (module != null) ? module.getIdentifier() : null;
 
         if (module != null) {
             scrollProvider = module.getScrollHandlerProvider();
@@ -175,7 +174,7 @@ public class ParallaxManager {
 
         // Load Sonic 2-specific inline handlers (ParallaxTables, zone-specific post-processing).
         // Only for Sonic 2 - other games use the provider path exclusively.
-        if ("Sonic2".equals(gameId)) {
+        if (module != null && module.hasInlineParallaxHandlers()) {
             try {
                 tables = new ParallaxTables(rom);
                 arzHandler = new SwScrlArz(tables);

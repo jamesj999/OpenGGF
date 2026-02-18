@@ -20,7 +20,7 @@ VRAM destination stores `tile_index * 32`. To recover tile index: `vramDest / 32
 | Game | Constant | Address | Entry Count |
 |------|----------|---------|-------------|
 | S1 | `Sonic1Constants.ART_LOAD_CUES_ADDR` | `0x01DD86` | ~16 PLC IDs |
-| S2 | `Sonic2Constants.ART_LOAD_CUES_ADDR` | TBD (see Future Path below) | ~67 PLC IDs |
+| S2 | `Sonic2Constants.ART_LOAD_CUES_ADDR` | `0x42660` | ~67 PLC IDs |
 | S3K | `Sonic3kConstants.OFFS_PLC_ADDR` | `0x09238C` | 124 PLC IDs (0x00-0x7B) |
 
 ## PlcParser API
@@ -51,14 +51,15 @@ PLCs are parsed during level loading in `Sonic1.readPatternLoadCues()` via `PlcP
 - **Pre-decompression:** `Sonic3kPlcLoader.preDecompress()` for hitch-free transitions (AIZ intro)
 - See `s3k-plc-system` skill for S3K-specific PLC ID catalog and runtime patterns
 
-### S2 (Future)
-S2 has ArtLoadCues in ROM (~67 PLC IDs). Currently hardcoded in `Sonic2ObjectArt` with `ART_NEM_*` constants. Future refactor will use `PlcParser` -- see S2 PLC future path documentation.
+### S2 (Level Init)
+S2 ArtLoadCues are parsed via `Sonic2PlcLoader.java`, which uses `PlcParser.parse()` with `Sonic2Constants.ART_LOAD_CUES_ADDR`. Zone-specific PLCs are loaded during level init.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
 | `level/resources/PlcParser.java` | Shared PLC format parser |
+| `game/sonic2/Sonic2PlcLoader.java` | S2-specific PLC parsing via `PlcParser` |
 | `game/sonic3k/Sonic3kPlcLoader.java` | S3K-specific PLC application, GPU refresh |
 | `game/sonic1/Sonic1.java` | S1 PLC parsing via `PlcParser` |
 | `game/sonic1/Sonic1Level.java` | S1 pattern loading from PLC entries |

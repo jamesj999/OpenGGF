@@ -14,7 +14,7 @@ A Java-based Sonic the Hedgehog game engine that faithfully recreates the origin
 mvn package                          # Build (creates executable JAR with dependencies)
 mvn test                             # Run tests
 mvn test -Dtest=TestCollisionLogic   # Run a single test class
-java -jar target/sonic-engine-0.3.20260206-jar-with-dependencies.jar  # Run (requires ROM)
+java -jar target/sonic-engine-0.4.prerelease-jar-with-dependencies.jar  # Run (requires ROM)
 ```
 
 ## ROM Requirement
@@ -90,13 +90,15 @@ GameServices.debugOverlay() // DebugOverlayManager - debug rendering
 | `level` | Level structures, rendering, scrolling |
 | `level.objects` | Game object management, rendering, factories |
 | `audio` | SMPS driver, YM2612/PSG chip emulation |
-| `data` | ROM loading, decompression (Kosinski, Nemesis, Saxman) |
+| `data` | ROM loading/reading (`Rom`, `RomManager`, `RomByteReader`), `Game`/`GameFactory`, art provider interfaces |
 | `game` | Core game-agnostic interfaces and providers |
 | `game.sonic2` | Sonic 2-specific implementations |
 | `game.sonic2.objects` | Object factories, instance classes, badnik AI |
 | `game.sonic2.constants` | ROM offsets, object IDs, audio constants |
+| `game.sonic1` | Sonic 1 game module, level loading, loop/switch managers, zone features |
 | `game.sonic3k` | Sonic 3&K game module, level loading, bootstrap |
-| `tools` | Compression utilities, disassembly tools |
+| `graphics` | OpenGL rendering, shaders, pattern atlas, tilemap GPU renderer, FBO management |
+| `tools` | Compression utilities (Kosinski, Nemesis, Saxman), disassembly tools |
 
 ### Consolidated Subsystems
 
@@ -120,7 +122,7 @@ GameServices.debugOverlay() // DebugOverlayManager - debug rendering
 - **Block** = 128x128 pixel area (composed of Chunks)
 
 ### Configuration
-`SonicConfigurationService` loads from `config.json`: `DEBUG_VIEW_ENABLED`, `DEBUG_MODE_KEY` (68 = GLFW_KEY_D for free-fly debug mode), `AUDIO_ENABLED`, `ROM_FILENAME`, `S3K_SKIP_AIZ1_INTRO`.
+`SonicConfigurationService` loads from `config.json`: `DEBUG_VIEW_ENABLED`, `DEBUG_MODE_KEY` (68 = GLFW_KEY_D for free-fly debug mode), `AUDIO_ENABLED`, `SONIC_1_ROM`, `SONIC_2_ROM`, `SONIC_3K_ROM`, `DEFAULT_ROM`, `S3K_SKIP_INTROS`.
 
 ## Level Resource Overlay System
 
@@ -139,7 +141,7 @@ To add overlay support for other zones: add ROM offsets to `Sonic2Constants`, cr
 
 Game-specific behavior is isolated behind the `GameModule` interface. `GameModuleRegistry` holds the current module, `RomDetectionService` auto-detects ROM type.
 
-Key providers returned by `GameModule`: `ZoneRegistry`, `ObjectRegistry`, `ScrollHandlerProvider`, `ZoneFeatureProvider`, `RomOffsetProvider`, `LevelEventProvider` (returns game-specific `AbstractLevelEventManager` subclass), `PhysicsProvider`, `SpecialStageProvider`, `BonusStageProvider`, `TitleCardProvider`, `DebugModeProvider`.
+Key providers returned by `GameModule`: `ZoneRegistry`, `ObjectRegistry`, `GameAudioProfile`, `TouchResponseTable`, `PlaneSwitcherConfig`, `ScrollHandlerProvider`, `ZoneFeatureProvider`, `RomOffsetProvider`, `LevelEventProvider` (returns game-specific `AbstractLevelEventManager` subclass), `PhysicsProvider`, `SpecialStageProvider`, `BonusStageProvider`, `TitleCardProvider`, `TitleScreenProvider`, `LevelSelectProvider`, `DebugModeProvider`, `DebugOverlayProvider`, `ZoneArtProvider`, `ObjectArtProvider`, `RespawnState`, `LevelState`, `SuperStateController`.
 
 Each game has its own module (`Sonic1GameModule`, `Sonic2GameModule`, `Sonic3kGameModule`) and `RomDetector`.
 
@@ -147,11 +149,11 @@ Each game has its own module (`Sonic1GameModule`, `Sonic2GameModule`, `Sonic3kGa
 
 Level events (boss arena setup, dynamic boundaries, zone transitions) are managed through a shared base class with game-specific subclasses:
 
-- **`AbstractLevelEventManager`** (`game/`) - Shared state machine mechanics: `eventRoutine` counter, zone/act tracking, `initLevel()`/`update()` lifecycle, boss spawn coordination.
+- **`AbstractLevelEventManager`** (`game/`) - Shared state machine mechanics: dual routine counters (`eventRoutineFg` and `eventRoutineBg`; S1/S2 only use Fg, S3K uses both), zone/act tracking, `initLevel()`/`update()` lifecycle, boss spawn coordination.
 - **`Sonic1LevelEventManager`** (`game/sonic1/events/`) - S1 zone event handlers. Per-zone handler classes.
 - **`Sonic2LevelEventManager`** (`game/sonic2/`) - S2 zone event handlers (HTZ earthquake, boss arenas, EHZ/CPZ/ARZ/CNZ events).
 - **`Sonic3kLevelEventManager`** (`game/sonic3k/`) - S3K zone event handlers (zone handlers pending implementation).
-- **`PlayerCharacter`** enum (`game/`) - Character identity enum (`SONIC`, `TAILS`, `KNUCKLES`) for character-specific branching in event logic.
+- **`PlayerCharacter`** enum (`game/`) - Character identity enum (`SONIC_AND_TAILS`, `SONIC_ALONE`, `TAILS_ALONE`, `KNUCKLES`) matching ROM's `Player_mode` variable for character-specific branching in event logic.
 
 Each `GameModule` returns its game-specific subclass via `LevelEventProvider`. Call sites use `AbstractLevelEventManager` for polymorphic access.
 
@@ -182,6 +184,10 @@ Physics differences across S1/S2/S3K are handled through a layered provider syst
 | `spindashSpeedTable` | `null` | 9-entry | 9-entry | Release speeds |
 | `collisionModel` | `UNIFIED` | `DUAL_PATH` | `DUAL_PATH` | Collision path architecture |
 | `fixedAnglePosThreshold` | `true` | `false` | `false` | S1: fixed 14px; S2/S3K: speed-dependent |
+| `lookScrollDelay` | `0` (none) | `0x78` (120f) | `0x78` (120f) | Delay before camera pans on look up/down |
+| `waterShimmerEnabled` | `true` | `false` | `false` | S1 underwater palette shimmer effect |
+| `inputAlwaysCapsGroundSpeed` | `true` | `false` | `false` | S1: input always caps ground speed; S2/S3K: preserves high speed |
+| `elementalShieldsEnabled` | `false` | `false` | `true` | S3K fire/lightning/bubble shield mechanics |
 | `angleDiffCardinalSnap` | `false` | `true` | `true` | S2/S3K: snap to cardinal when sensor angle diff >= 0x20 |
 
 ### Collision Model: UNIFIED vs DUAL_PATH

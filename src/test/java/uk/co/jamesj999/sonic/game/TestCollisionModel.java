@@ -1,11 +1,12 @@
 package uk.co.jamesj999.sonic.game;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.game.sonic1.Sonic1GameModule;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2GameModule;
 import uk.co.jamesj999.sonic.game.sonic2.objects.SpringHelper;
-import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+import uk.co.jamesj999.sonic.tests.TestablePlayableSprite;
 
 import static org.junit.Assert.*;
 
@@ -21,6 +22,11 @@ public class TestCollisionModel {
     public void setUp() {
         // Default to Sonic 2
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
+    }
+
+    @After
+    public void tearDown() {
+        GameModuleRegistry.reset();
     }
 
     // ========================================
@@ -55,7 +61,7 @@ public class TestCollisionModel {
     @Test
     public void testSonic1_SetTopSolidBitIgnored() {
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
-        TestableSprite sprite = new TestableSprite("test", (short) 100, (short) 100);
+        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         assertEquals("Initial topSolidBit", 0x0C, sprite.getTopSolidBit());
         sprite.setTopSolidBit((byte) 0x0E);
@@ -65,7 +71,7 @@ public class TestCollisionModel {
     @Test
     public void testSonic1_SetLrbSolidBitIgnored() {
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
-        TestableSprite sprite = new TestableSprite("test", (short) 100, (short) 100);
+        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         assertEquals("Initial lrbSolidBit", 0x0D, sprite.getLrbSolidBit());
         sprite.setLrbSolidBit((byte) 0x0F);
@@ -79,7 +85,7 @@ public class TestCollisionModel {
     @Test
     public void testSonic2_SetTopSolidBitWorks() {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
-        TestableSprite sprite = new TestableSprite("test", (short) 100, (short) 100);
+        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         assertEquals("Initial topSolidBit", 0x0C, sprite.getTopSolidBit());
         sprite.setTopSolidBit((byte) 0x0E);
@@ -89,7 +95,7 @@ public class TestCollisionModel {
     @Test
     public void testSonic2_SetLrbSolidBitWorks() {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
-        TestableSprite sprite = new TestableSprite("test", (short) 100, (short) 100);
+        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         assertEquals("Initial lrbSolidBit", 0x0D, sprite.getLrbSolidBit());
         sprite.setLrbSolidBit((byte) 0x0F);
@@ -104,7 +110,7 @@ public class TestCollisionModel {
     public void testModuleSwitch_S2toS1_SettersBecomGuarded() {
         // Start with S2 where setters work
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
-        TestableSprite sprite = new TestableSprite("test", (short) 100, (short) 100);
+        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         sprite.setTopSolidBit((byte) 0x0E);
         assertEquals("S2 allows change", 0x0E, sprite.getTopSolidBit());
@@ -128,7 +134,7 @@ public class TestCollisionModel {
     @Test
     public void testSpringHelper_NoOpInSonic1() {
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
-        TestableSprite sprite = new TestableSprite("test", (short) 100, (short) 100);
+        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         // Subtype 0x08 would normally switch to secondary layer
         SpringHelper.applyCollisionLayerBits(sprite, 0x08);
@@ -139,7 +145,7 @@ public class TestCollisionModel {
     @Test
     public void testSpringHelper_WorksInSonic2() {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
-        TestableSprite sprite = new TestableSprite("test", (short) 100, (short) 100);
+        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         // Subtype 0x08 switches to secondary layer
         SpringHelper.applyCollisionLayerBits(sprite, 0x08);
@@ -147,43 +153,4 @@ public class TestCollisionModel {
         assertEquals("lrbSolidBit changed by spring in S2", 0x0F, sprite.getLrbSolidBit());
     }
 
-    // ========================================
-    // TestableSprite (same pattern as TestSpindashGating)
-    // ========================================
-
-    private static class TestableSprite extends AbstractPlayableSprite {
-        public TestableSprite(String code, short x, short y) {
-            super(code, x, y);
-        }
-
-        @Override
-        public void draw() {
-        }
-
-        @Override
-        public void defineSpeeds() {
-            runAccel = 12;
-            runDecel = 128;
-            friction = 12;
-            max = 1536;
-            jump = 1664;
-            slopeRunning = 32;
-            slopeRollingDown = 80;
-            slopeRollingUp = 20;
-            rollDecel = 32;
-            minStartRollSpeed = 128;
-            minRollSpeed = 128;
-            maxRoll = 4096;
-            rollHeight = 28;
-            runHeight = 38;
-            standXRadius = 9;
-            standYRadius = 19;
-            rollXRadius = 7;
-            rollYRadius = 14;
-        }
-
-        @Override
-        protected void createSensorLines() {
-        }
-    }
 }

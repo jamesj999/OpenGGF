@@ -351,7 +351,6 @@ public class Sonic1Level implements Level {
      */
     private void loadPatterns(Rom rom, List<PlcEntry> cues) throws IOException {
         GraphicsManager graphicsMan = GraphicsManager.getInstance();
-        FileChannel channel = rom.getFileChannel();
 
         // Sort cues by tile offset
         List<PlcEntry> sorted = new ArrayList<>(cues);
@@ -363,8 +362,12 @@ public class Sonic1Level implements Level {
         int maxTileIndex = 0;
 
         for (PlcEntry cue : sorted) {
-            channel.position(cue.romAddr());
-            byte[] data = NemesisReader.decompress(channel);
+            byte[] data;
+            synchronized (rom) {
+                FileChannel channel = rom.getFileChannel();
+                channel.position(cue.romAddr());
+                data = NemesisReader.decompress(channel);
+            }
             decompressedData.add(data);
             usedCues.add(cue);
 
@@ -423,10 +426,12 @@ public class Sonic1Level implements Level {
      * Both primary and secondary collision paths use the same index in Sonic 1.
      */
     private void loadChunks(Rom rom, int chunksAddr, int collisionIndexAddr) throws IOException {
-        FileChannel channel = rom.getFileChannel();
-        channel.position(chunksAddr);
-
-        byte[] chunkBuffer = EnigmaReader.decompress(channel, 0);
+        byte[] chunkBuffer;
+        synchronized (rom) {
+            FileChannel channel = rom.getFileChannel();
+            channel.position(chunksAddr);
+            chunkBuffer = EnigmaReader.decompress(channel, 0);
+        }
 
         chunkCount = chunkBuffer.length / Chunk.CHUNK_SIZE_IN_ROM;
         if (chunkBuffer.length % Chunk.CHUNK_SIZE_IN_ROM != 0) {
@@ -468,10 +473,12 @@ public class Sonic1Level implements Level {
      * {@code SSTT YXII IIII IIII}
      */
     private void loadBlocks(Rom rom, int blocksAddr) throws IOException {
-        FileChannel channel = rom.getFileChannel();
-        channel.position(blocksAddr);
-
-        byte[] blockBuffer = KosinskiReader.decompress(channel, false);
+        byte[] blockBuffer;
+        synchronized (rom) {
+            FileChannel channel = rom.getFileChannel();
+            channel.position(blocksAddr);
+            blockBuffer = KosinskiReader.decompress(channel, false);
+        }
 
         int dataBlockCount = blockBuffer.length / S1_BLOCK_SIZE_IN_ROM;
         if (blockBuffer.length % S1_BLOCK_SIZE_IN_ROM != 0) {

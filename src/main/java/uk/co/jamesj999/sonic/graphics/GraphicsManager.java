@@ -942,8 +942,24 @@ public class GraphicsManager {
 	public void resetState() {
 		commands.clear();
 		paletteTextureMap.clear();
+		// Delete GPU textures before nulling references
+		if (!headlessMode && glInitialized) {
+			if (combinedPaletteTextureId != null) {
+				glDeleteTextures(combinedPaletteTextureId);
+			}
+			if (underwaterPaletteTextureId != null) {
+				glDeleteTextures(underwaterPaletteTextureId);
+			}
+		}
 		combinedPaletteTextureId = null;
 		underwaterPaletteTextureId = null;
+		// Free native memory before nulling references
+		if (paletteUploadBuffer != null) {
+			MemoryUtil.memFree(paletteUploadBuffer);
+		}
+		if (underwaterPaletteUploadBuffer != null) {
+			MemoryUtil.memFree(underwaterPaletteUploadBuffer);
+		}
 		paletteUploadBuffer = null;
 		underwaterPaletteUploadBuffer = null;
 		backgroundRenderer = null;

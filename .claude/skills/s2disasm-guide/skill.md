@@ -134,7 +134,7 @@ Labels follow consistent prefixes that indicate data type and compression:
 | CNZ | Casino Night Zone | 0x0C |
 | HTZ | Hill Top Zone | 0x07 |
 | MCZ | Mystic Cave Zone | 0x0B |
-| OOZ | Oil Ocean Zone | 0x08 |
+| OOZ | Oil Ocean Zone | 0x0A |
 | MTZ | Metropolis Zone | 0x04 |
 | SCZ | Sky Chase Zone | 0x10 |
 | WFZ | Wing Fortress Zone | 0x11 |

@@ -80,29 +80,16 @@ Agents should:
 
 #### 2.1 Constants (if needed)
 
-Add ROM address to `Sonic3kConstants.java`. If this file does not exist, create it following `Sonic2Constants.java`:
+Add ROM address to `Sonic3kConstants.java`:
 
 ```java
-package uk.co.jamesj999.sonic.game.sonic3k.constants;
-
-public final class Sonic3kConstants {
-    private Sonic3kConstants() {}
-
-    // Object art ROM addresses
-    public static final int ART_KOSM_OBJECTNAME_ADDR = 0xXXXXX;
-}
+public static final int ART_KOSM_OBJECTNAME_ADDR = 0xXXXXX;
 ```
 
-Add to `Sonic3kObjectIds.java`. If this file does not exist, create it following `Sonic2ObjectIds.java`:
+Add to `Sonic3kObjectIds.java`:
 
 ```java
-package uk.co.jamesj999.sonic.game.sonic3k.constants;
-
-public final class Sonic3kObjectIds {
-    private Sonic3kObjectIds() {}
-
-    public static final int OBJECT_NAME = 0xXX;
-}
+public static final int OBJECT_NAME = 0xXX;
 ```
 
 #### 2.2 Art Loading
@@ -366,7 +353,7 @@ Once cross-validation is confirmed bug-free:
 | Art loader | `src/.../game/sonic3k/Sonic3kObjectArt.java` |
 | Art keys | `src/.../game/sonic3k/Sonic3kObjectArtKeys.java` |
 | Art provider | `src/.../game/sonic3k/Sonic3kObjectArtProvider.java` |
-| Audio profile | `src/.../game/sonic3k/audio/Sonic3kAudioProfile.java` (to be created) |
+| Audio profile | `src/.../game/sonic3k/audio/Sonic3kAudioProfile.java` |
 | Base badnik | `src/.../game/sonic2/objects/badniks/AbstractBadnikInstance.java` (shared) |
 | Disassembly main | `docs/skdisasm/sonic3k.asm` |
 | Disassembly constants | `docs/skdisasm/sonic3k.constants.asm` |

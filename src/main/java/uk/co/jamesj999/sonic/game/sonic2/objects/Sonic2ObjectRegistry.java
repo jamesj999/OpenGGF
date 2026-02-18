@@ -50,7 +50,6 @@ import java.util.logging.Logger;
 
 public class Sonic2ObjectRegistry implements ObjectRegistry {
     private static final Logger LOGGER = Logger.getLogger(Sonic2ObjectRegistry.class.getName());
-    private static Sonic2ObjectRegistry instance;
 
     private final Map<Integer, List<String>> namesById = new HashMap<>();
     private final Map<Integer, ObjectFactory> factories = new HashMap<>();
@@ -60,14 +59,7 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
     private final ObjectFactory defaultFactory = (spawn, registry) -> new PlaceholderObjectInstance(spawn,
             registry.getPrimaryName(spawn.objectId()));
 
-    private Sonic2ObjectRegistry() {
-    }
-
-    public static synchronized Sonic2ObjectRegistry getInstance() {
-        if (instance == null) {
-            instance = new Sonic2ObjectRegistry();
-        }
-        return instance;
+    public Sonic2ObjectRegistry() {
     }
 
     public ObjectInstance create(ObjectSpawn spawn) {

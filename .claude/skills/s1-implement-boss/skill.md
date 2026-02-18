@@ -239,7 +239,7 @@ registerFactory(Sonic1ObjectIds.ZONE_BOSS,
     (spawn, registry) -> new Sonic1ZoneBossInstance(spawn, LevelManager.getInstance()));
 ```
 
-If `Sonic1ObjectRegistry` doesn't yet support factories, refactor it following `Sonic2ObjectRegistry` pattern.
+`Sonic1ObjectRegistry` already has `registerDefaultFactories()` — add your factory registration there.
 
 ### Phase 8: Code Quality
 

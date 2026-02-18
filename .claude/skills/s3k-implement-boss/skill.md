@@ -321,7 +321,7 @@ registerFactory(Sonic3kObjectIds.ZONE_ENDBOSS,
     (spawn, registry) -> new Sonic3kZoneEndBossInstance(spawn, LevelManager.getInstance()));
 ```
 
-If `Sonic3kObjectRegistry` doesn't exist yet, create it following `Sonic2ObjectRegistry` pattern.
+Register your factory in existing `Sonic3kObjectRegistry.registerDefaultFactories()`.
 
 ### Phase 9: Code Quality
 
@@ -398,7 +398,7 @@ Report any discrepancies with specific line references.
 | Object IDs | `src/.../game/sonic3k/constants/Sonic3kObjectIds.java` |
 | ROM offsets | `src/.../game/sonic3k/constants/Sonic3kConstants.java` |
 | Registry | `src/.../game/sonic3k/objects/Sonic3kObjectRegistry.java` |
-| Audio profile | `src/.../game/sonic3k/audio/Sonic3kAudioProfile.java` (to be created) |
+| Audio profile | `src/.../game/sonic3k/audio/Sonic3kAudioProfile.java` |
 | S2 boss examples | `src/.../game/sonic2/objects/bosses/` |
 | Disassembly main | `docs/skdisasm/sonic3k.asm` |
 | Shared sprites | `docs/skdisasm/General/Sprites/` |
