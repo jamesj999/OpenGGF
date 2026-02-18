@@ -33,6 +33,15 @@ public interface GameObjectProfile {
     /** Object IDs that have factory or manager-based implementations. */
     Set<Integer> getImplementedIds();
 
+    /**
+     * Implemented IDs for a specific level. Games with zone-set-dependent
+     * object tables (e.g. S3K) override this to avoid false positives
+     * when the same ID maps to different objects per zone set.
+     */
+    default Set<Integer> getImplementedIds(LevelConfig level) {
+        return getImplementedIds();
+    }
+
     /** Object IDs classified as badniks. */
     Set<Integer> getBadnikIds();
 
