@@ -72,6 +72,15 @@ public final class ObjectArtKeys {
     public static final String BOSS_EXHAUST = "boss_exhaust";
     public static final String BOSS_BALL = "boss_ball";
 
+    // FZ boss art keys (S1 Final Zone)
+    public static final String FZ_BOSS = "fz_boss";
+    public static final String FZ_CYLINDER = "fz_cylinder";
+    public static final String FZ_PLASMA_LAUNCHER = "fz_plasma_launcher";
+    public static final String FZ_PLASMA = "fz_plasma";
+    public static final String FZ_LEGS = "fz_legs";
+    public static final String FZ_DAMAGED = "fz_damaged";
+    public static final String FZ_SEGG = "fz_segg";
+
     // Zone objects using level tiles
     public static final String PLATFORM = "platform";
     public static final String COLLAPSING_LEDGE = "collapsing_ledge";

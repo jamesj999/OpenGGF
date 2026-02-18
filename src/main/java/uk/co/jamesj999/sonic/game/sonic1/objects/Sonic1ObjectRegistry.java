@@ -22,6 +22,9 @@ import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1LZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1MZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1SLZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1SYZBossInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1FZBossInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.FZCylinder;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.FZPlasmaLauncher;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectFactory;
 import uk.co.jamesj999.sonic.level.objects.ObjectInstance;
@@ -249,6 +252,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1BossBlockInstance(spawn.subtype()));
         factories.put(Sonic1ObjectIds.BOSS_FIRE,
                 (spawn, registry) -> new Sonic1BossFireInstance(spawn));
+        factories.put(Sonic1ObjectIds.FZ_BOSS,
+                (spawn, registry) -> new Sonic1FZBossInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.EGG_PRISON, (spawn, registry) -> {
             // ROM placement has two entries: subtype 0 (body) and subtype 1 (button).
             // Pri_Main creates sub-objects from Pri_Var; our engine loads each entry separately.
@@ -294,6 +299,9 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.SYZ_BOSS -> "SYZBoss";
             case Sonic1ObjectIds.LZ_BOSS -> "LZBoss";
             case Sonic1ObjectIds.SLZ_BOSS -> "SLZBoss";
+            case Sonic1ObjectIds.FZ_BOSS -> "FZBoss";
+            case Sonic1ObjectIds.EGGMAN_CYLINDER -> "EggmanCylinder";
+            case Sonic1ObjectIds.BOSS_PLASMA -> "BossPlasma";
             case Sonic1ObjectIds.SLZ_BOSS_SPIKEBALL -> "BossSpikeball";
             case Sonic1ObjectIds.SYZ_BOSS_BLOCK -> "BossBlock";
             case Sonic1ObjectIds.EGG_PRISON -> "EggPrison";
