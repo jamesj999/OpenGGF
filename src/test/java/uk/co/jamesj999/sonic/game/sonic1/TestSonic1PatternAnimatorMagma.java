@@ -4,7 +4,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
-import uk.co.jamesj999.sonic.game.sonic2.OscillationManager;
+import uk.co.jamesj999.sonic.game.OscillationManager;
 import uk.co.jamesj999.sonic.level.Block;
 import uk.co.jamesj999.sonic.level.Chunk;
 import uk.co.jamesj999.sonic.level.Level;

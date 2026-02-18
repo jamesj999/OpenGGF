@@ -118,25 +118,27 @@ public class DynamicHtz {
     }
 
     private void loadCloudArt(Rom rom) throws IOException {
-        FileChannel channel = rom.getFileChannel();
-        channel.position(Sonic2Constants.ART_UNC_HTZ_CLOUDS_ADDR);
-
         cloudArtData = new byte[Sonic2Constants.ART_UNC_HTZ_CLOUDS_SIZE];
-        ByteBuffer buffer = ByteBuffer.wrap(cloudArtData);
-        while (buffer.hasRemaining()) {
-            int read = channel.read(buffer);
-            if (read < 0) {
-                throw new IOException("Unexpected EOF reading HTZ cloud art");
+        synchronized (rom) {
+            FileChannel channel = rom.getFileChannel();
+            channel.position(Sonic2Constants.ART_UNC_HTZ_CLOUDS_ADDR);
+            ByteBuffer buffer = ByteBuffer.wrap(cloudArtData);
+            while (buffer.hasRemaining()) {
+                int read = channel.read(buffer);
+                if (read < 0) {
+                    throw new IOException("Unexpected EOF reading HTZ cloud art");
+                }
             }
         }
         LOG.fine("Loaded HTZ cloud art from ROM: " + cloudArtData.length + " bytes");
     }
 
     private void loadCliffArt(Rom rom) throws IOException {
-        FileChannel channel = rom.getFileChannel();
-        channel.position(Sonic2Constants.ART_NEM_HTZ_CLIFFS_ADDR);
-
-        cliffArtData = NemesisReader.decompress(channel);
+        synchronized (rom) {
+            FileChannel channel = rom.getFileChannel();
+            channel.position(Sonic2Constants.ART_NEM_HTZ_CLIFFS_ADDR);
+            cliffArtData = NemesisReader.decompress(channel);
+        }
         LOG.fine("Loaded and decompressed HTZ cliff art from ROM: " + cliffArtData.length + " bytes");
     }
 

@@ -65,7 +65,6 @@ import uk.co.jamesj999.sonic.sprites.Sprite;
 import uk.co.jamesj999.sonic.sprites.SensorConfiguration;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
-import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kGameModule;
 import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kPlayerArt;
 import uk.co.jamesj999.sonic.sprites.managers.SpindashDustController;
 import uk.co.jamesj999.sonic.sprites.managers.SpriteManager;
@@ -276,12 +275,6 @@ public class LevelManager {
                     touchResponseTable);
             // Wire up CollisionSystem with ObjectManager for unified collision pipeline
             CollisionSystem.getInstance().setObjectManager(objectManager);
-            // Reset switch state for new level (Sonic 1 f_switch array)
-            uk.co.jamesj999.sonic.game.sonic1.Sonic1SwitchManager.getInstance().reset();
-            // Reset v_obj6B singleton flag for SBZ3 StomperDoor
-            uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1StomperDoorObjectInstance.resetSbz3Flag();
-            // Reset conveyor belt state for new level (Sonic 1 f_conveyrev + v_obj63)
-            uk.co.jamesj999.sonic.game.sonic1.Sonic1ConveyorState.getInstance().reset();
             // Reset camera state from previous level (signpost may have locked it)
             Camera camera = Camera.getInstance();
             camera.setFrozen(false);
@@ -367,7 +360,7 @@ public class LevelManager {
     public void updateObjectPositions() {
         // Update global oscillation values used by moving platforms, water surface, etc.
         // Must run before objects so SwingingPlatform reads current oscillation values.
-        uk.co.jamesj999.sonic.game.sonic2.OscillationManager.update(frameCounter);
+        uk.co.jamesj999.sonic.game.OscillationManager.update(frameCounter);
 
         if (objectManager != null) {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
@@ -559,7 +552,7 @@ public class LevelManager {
             playable.setTailsTailsController(null);
             return;
         }
-        boolean isS3k = gameModule instanceof Sonic3kGameModule;
+        boolean isS3k = gameModule.hasSeparateTailsTailArt();
         SpriteArtSet tailsArt;
         if (isS3k) {
             // S3K: Obj05 uses a completely separate art/mapping/DPLC set
@@ -2648,29 +2641,22 @@ public class LevelManager {
      * by zone/act (water palettes/heights), map that specific case back to SBZ.
      */
     public int getFeatureZoneId() {
-        if (isSonic1Sbz3Context()) {
-            return uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.ZONE_SBZ;
+        if (level == null || gameModule == null) {
+            return level != null ? level.getZoneIndex() : -1;
         }
-        return level != null ? level.getZoneIndex() : -1;
+        int remapped = gameModule.getRemappedFeatureZone(currentZone, currentAct, level.getZoneIndex());
+        return remapped >= 0 ? remapped : level.getZoneIndex();
     }
 
     /**
      * Returns the effective act index for zone features/water logic.
      */
     public int getFeatureActId() {
-        if (isSonic1Sbz3Context()) {
-            return 2;
+        if (level == null || gameModule == null) {
+            return currentAct;
         }
-        return currentAct;
-    }
-
-    private boolean isSonic1Sbz3Context() {
-        if (level == null || game == null || !"Sonic1".equals(game.getIdentifier())) {
-            return false;
-        }
-        return currentZone == uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ZoneConstants.ZONE_SBZ
-                && currentAct == 2
-                && level.getZoneIndex() == uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants.ZONE_LZ;
+        int remapped = gameModule.getRemappedFeatureAct(currentZone, currentAct, level.getZoneIndex());
+        return remapped >= 0 ? remapped : currentAct;
     }
 
     public int getCurrentAct() {

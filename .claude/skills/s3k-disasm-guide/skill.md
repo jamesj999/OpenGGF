@@ -253,7 +253,7 @@ S3K uses **S2-style field names** (same as S2, different from S1):
 | `routine_secondary` | 0x3C | byte | Secondary routine |
 | `parent` | 0x42 | word | Parent object address |
 
-**Object size:** `$4A` bytes (larger than S2's `$4A`).
+**Object size:** `$4A` bytes (same as S2).
 
 ### S3K-Specific Features
 

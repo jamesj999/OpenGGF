@@ -29,9 +29,9 @@ import uk.co.jamesj999.sonic.game.sonic1.titlescreen.Sonic1TitleScreenManager;
 import uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1ObjectRegistry;
 import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ScrollHandlerProvider;
 import uk.co.jamesj999.sonic.game.sonic1.specialstage.Sonic1SpecialStageProvider;
-import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
-import uk.co.jamesj999.sonic.game.sonic2.LevelGamestate;
-import uk.co.jamesj999.sonic.game.sonic2.OscillationManager;
+import uk.co.jamesj999.sonic.game.CheckpointState;
+import uk.co.jamesj999.sonic.game.LevelGamestate;
+import uk.co.jamesj999.sonic.game.OscillationManager;
 import uk.co.jamesj999.sonic.game.sonic1.titlecard.Sonic1TitleCardManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
 import uk.co.jamesj999.sonic.level.objects.PlaneSwitcherConfig;
@@ -190,6 +190,12 @@ public class Sonic1GameModule implements GameModule {
         // S1 differs from S2 in oscillators 8+ (amplitude, initial values).
         // Reference: docs/s1disasm/_inc/Oscillatory Routines.asm
         OscillationManager.resetForSonic1();
+        // Reset switch state for new level (Sonic 1 f_switch array)
+        Sonic1SwitchManager.getInstance().reset();
+        // Reset v_obj6B singleton flag for SBZ3 StomperDoor
+        uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1StomperDoorObjectInstance.resetSbz3Flag();
+        // Reset conveyor belt state for new level (Sonic 1 f_conveyrev + v_obj63)
+        Sonic1ConveyorState.getInstance().reset();
     }
 
     @Override
@@ -198,5 +204,31 @@ public class Sonic1GameModule implements GameModule {
             physicsProvider = new Sonic1PhysicsProvider();
         }
         return physicsProvider;
+    }
+
+    @Override
+    public int getRemappedFeatureZone(int logicalZone, int act, int levelZoneIndex) {
+        // S1 SBZ act 3 is loaded from LZ zone data; remap to SBZ for feature lookups
+        if (logicalZone == uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ZoneConstants.ZONE_SBZ
+                && act == 2
+                && levelZoneIndex == Sonic1Constants.ZONE_LZ) {
+            return Sonic1Constants.ZONE_SBZ;
+        }
+        return -1;
+    }
+
+    @Override
+    public int getRemappedFeatureAct(int logicalZone, int act, int levelZoneIndex) {
+        if (logicalZone == uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ZoneConstants.ZONE_SBZ
+                && act == 2
+                && levelZoneIndex == Sonic1Constants.ZONE_LZ) {
+            return 2;
+        }
+        return -1;
+    }
+
+    @Override
+    public boolean hasTrailInvincibilityStars() {
+        return true;
     }
 }

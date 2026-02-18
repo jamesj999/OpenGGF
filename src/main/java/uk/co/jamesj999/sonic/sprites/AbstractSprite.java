@@ -83,8 +83,9 @@ public abstract class AbstractSprite implements Sprite {
 	public final void setX(short x) {
 		if (x < 0) {
 			this.xPixel = 0;
+		} else {
+			this.xPixel = x;
 		}
-		this.xPixel = x;
 		this.xSubpixel = 0;
 	}
 

@@ -340,9 +340,12 @@ public class Sonic2ObjectArt {
     }
 
     private Pattern[] loadNemesisPatterns(int artAddr) throws IOException {
-        FileChannel channel = rom.getFileChannel();
-        channel.position(artAddr);
-        byte[] result = NemesisReader.decompress(channel);
+        byte[] result;
+        synchronized (rom) {
+            FileChannel channel = rom.getFileChannel();
+            channel.position(artAddr);
+            result = NemesisReader.decompress(channel);
+        }
 
         if (result.length % Pattern.PATTERN_SIZE_IN_ROM != 0) {
             throw new IOException("Inconsistent object art tile data");
@@ -363,14 +366,16 @@ public class Sonic2ObjectArt {
         if (length <= 0) {
             return new Pattern[0];
         }
-        FileChannel channel = rom.getFileChannel();
-        channel.position(artAddr);
         byte[] result = new byte[length];
         java.nio.ByteBuffer buffer = java.nio.ByteBuffer.wrap(result);
-        while (buffer.hasRemaining()) {
-            int read = channel.read(buffer);
-            if (read < 0) {
-                break;
+        synchronized (rom) {
+            FileChannel channel = rom.getFileChannel();
+            channel.position(artAddr);
+            while (buffer.hasRemaining()) {
+                int read = channel.read(buffer);
+                if (read < 0) {
+                    break;
+                }
             }
         }
         if (buffer.hasRemaining()) {
