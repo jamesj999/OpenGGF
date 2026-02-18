@@ -1261,7 +1261,9 @@ public class ObjectManager {
         }
 
         private void applyEnemyBounce(AbstractPlayableSprite player, ObjectInstance instance) {
-            player.setAir(true);
+            // ROM-accurate: React_Enemy (s1.asm) only modifies obVelY, it does NOT
+            // set the air flag. Letting the collision system handle air state naturally
+            // preserves rolling through enemy bounces (ground roll into badnik).
             short ySpeed = player.getYSpeed();
             if (ySpeed < 0) {
                 player.setYSpeed((short) (ySpeed + 0x100));
@@ -1280,9 +1282,9 @@ public class ObjectManager {
         /**
          * ROM-accurate boss bounce: negate both X and Y velocities.
          * From s2.asm Touch_Enemy_Part2 lines 84806-84807.
+         * Does not set air flag - ROM only modifies velocities here.
          */
         private void applyBossBounce(AbstractPlayableSprite player) {
-            player.setAir(true);
             player.setXSpeed((short) -player.getXSpeed());
             player.setYSpeed((short) -player.getYSpeed());
         }
