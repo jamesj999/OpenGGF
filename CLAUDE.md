@@ -182,6 +182,7 @@ Physics differences across S1/S2/S3K are handled through a layered provider syst
 | `spindashSpeedTable` | `null` | 9-entry | 9-entry | Release speeds |
 | `collisionModel` | `UNIFIED` | `DUAL_PATH` | `DUAL_PATH` | Collision path architecture |
 | `fixedAnglePosThreshold` | `true` | `false` | `false` | S1: fixed 14px; S2/S3K: speed-dependent |
+| `angleDiffCardinalSnap` | `false` | `true` | `true` | S2/S3K: snap to cardinal when sensor angle diff >= 0x20 |
 
 ### Collision Model: UNIFIED vs DUAL_PATH
 

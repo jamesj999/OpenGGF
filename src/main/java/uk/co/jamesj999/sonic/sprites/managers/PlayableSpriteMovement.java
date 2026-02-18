@@ -564,6 +564,18 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/** Sonic_Move: Ground input handling, accel/decel, wall collision (s2.asm:36220) */
 	private void doGroundMove() {
 		short gSpeed = sprite.getGSpeed();
+
+		// ROM: _btst #status_secondary.sliding,status_secondary(a0) / _bne.w Obj01_Traction
+		// (s2.asm:36224-36225, s1.asm:309-310)
+		// When sliding (water slides, wind tunnels), skip ALL input processing and
+		// friction — go straight to velocity conversion and wall collision.
+		if (sprite.isSliding()) {
+			sprite.setGSpeed(gSpeed);
+			calculateXYFromGSpeed();
+			doWallCollisionGround();
+			return;
+		}
+
 		short runAccel = sprite.getRunAccel();
 		short runDecel = sprite.getRunDecel();
 		short friction = sprite.getFriction();
@@ -589,11 +601,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 					}
 				} else {
 					sprite.setSkidding(false);
-					// Only accelerate if below max - don't cap existing high speed
-					if (gSpeed > -max) {
-						gSpeed -= runAccel;
-						if (gSpeed < -max) gSpeed = (short) -max;
-					}
+					gSpeed = accelerateLeft(gSpeed, runAccel, max);
 				}
 			}
 
@@ -607,11 +615,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 					}
 				} else {
 					sprite.setSkidding(false);
-					// Only accelerate if below max - don't cap existing high speed
-					if (gSpeed < max) {
-						gSpeed += runAccel;
-						if (gSpeed > max) gSpeed = max;
-					}
+					gSpeed = accelerateRight(gSpeed, runAccel, max);
 				}
 			}
 
@@ -722,6 +726,21 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private void doRollSpeed() {
 		short gSpeed = sprite.getGSpeed();
 		Camera.getInstance().easeYBiasToDefault();
+
+		// ROM: tst.b (f_slidemode).w / bne.w loc_131CC (s1.asm:602-603)
+		// When sliding, skip input and friction — go straight to velocity conversion.
+		if (sprite.isSliding()) {
+			sprite.setGSpeed(gSpeed);
+			// Convert to X/Y with cap (same as below)
+			int hexAngle = sprite.getAngle() & 0xFF;
+			short xVel = (short) ((gSpeed * TrigLookupTable.cosHex(hexAngle)) >> 8);
+			short yVel = (short) ((gSpeed * TrigLookupTable.sinHex(hexAngle)) >> 8);
+			xVel = (short) Math.max(-0x1000, Math.min(0x1000, xVel));
+			sprite.setXSpeed(xVel);
+			sprite.setYSpeed(yVel);
+			doWallCollisionGround();
+			return;
+		}
 
 		boolean inputAllowed = sprite.getMoveLockTimer() == 0;
 
@@ -895,6 +914,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		SensorResult selectedResult = selectSensorWithAngle(rightSensor, leftSensor);
 
 		if (selectedResult == null) {
+			// ROM's FindFloor/FindWall always return a distance (never null).
+			// Our sensors can return null at ground-mode transitions on tight
+			// curves. When stick_to_convex is set (e.g. Running Disc), the ROM
+			// would hit the >14px threshold path and stay grounded (S1 AnglePos
+			// loc_146CC: tst.b stick_to_convex / bne.s snap). Match that here.
+			if (sprite.isStickToConvex()) {
+				return;
+			}
 			if (!hasObjectSupport()) {
 				sprite.setAir(true);
 				sprite.setPushing(false);
@@ -1057,6 +1084,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// detections against the narrow tunnel walls. S1's ROM has no separate
 		// ground wall check (01 Sonic.asm: Sonic_MdNormal has no CalcRoomInFront).
 		if (sprite.isTunnelMode()) {
+			return;
+		}
+		// stick_to_convex: Sonic is on a convex loop surface (e.g. Running Disc in SBZ).
+		// S1's ROM has no CalcRoomInFront, so when stick_to_convex is active the wall
+		// check must be suppressed to prevent push sensors from detecting the disc's
+		// curved terrain as walls — which zeros gSpeed and disrupts traversal.
+		// In S2/S3K, objects that set stick_to_convex also set tunnelMode (caught above).
+		if (sprite.isStickToConvex()) {
 			return;
 		}
 		Sensor[] pushSensors = sprite.getPushSensors();
@@ -1418,26 +1453,42 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		return selected;
 	}
 
-	/** Apply angle with ROM's snapping logic (s2.asm:42649-42674) */
+	/**
+	 * Apply angle from terrain sensor with game-specific snapping logic.
+	 *
+	 * S1 (Sonic_Angle in s1disasm/_incObj/Sonic AnglePos.asm:164-183):
+	 *   - Flagged angles (odd): cardinal snap from current angle
+	 *   - Non-flagged angles: directly apply sensor angle (no diff check)
+	 *
+	 * S2/S3K (Sonic_Angle in s2.asm:42649-42674):
+	 *   - Flagged angles (odd): cardinal snap from current angle
+	 *   - Non-flagged angles: apply directly only if diff < 0x20,
+	 *     otherwise cardinal snap (prevents jarring jumps on convex surfaces)
+	 */
 	private void applyAngleFromSensor(byte sensorAngle) {
-		// Flagged angles (odd) snap to cardinal using current angle
+		// Flagged angles (odd) snap to cardinal using current angle (both S1 and S2)
 		if ((sensorAngle & 0x01) != 0) {
 			sprite.setAngle((byte) ((sprite.getAngle() + 0x20) & 0xC0));
 			return;
 		}
 
-		int currentAngle = sprite.getAngle() & 0xFF;
-		int newAngle = sensorAngle & 0xFF;
-		int diff = Math.abs(newAngle - currentAngle);
-		if (diff > 0x80) diff = 0x100 - diff;
+		// S2/S3K: large-diff cardinal snap (s2.asm:42658-42664)
+		// S1 lacks this check — directly applies sensor angle
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		if (featureSet == null || featureSet.angleDiffCardinalSnap()) {
+			int currentAngle = sprite.getAngle() & 0xFF;
+			int newAngle = sensorAngle & 0xFF;
+			int diff = Math.abs(newAngle - currentAngle);
+			if (diff > 0x80) diff = 0x100 - diff;
 
-		if (diff >= 0x20) {
-			// ROM uses CURRENT angle to determine cardinal snap direction (s2.asm:42670)
-			// This prevents premature ground mode transitions on sharp curves
-			sprite.setAngle((byte) ((currentAngle + 0x20) & 0xC0));
-		} else {
-			sprite.setAngle(sensorAngle);
+			if (diff >= 0x20) {
+				// ROM uses CURRENT angle to determine cardinal snap direction (s2.asm:42670)
+				sprite.setAngle((byte) ((currentAngle + 0x20) & 0xC0));
+				return;
+			}
 		}
+
+		sprite.setAngle(sensorAngle);
 	}
 
 	/** ROM-accurate ground mode from angle (s2.asm:42551) */
@@ -1631,6 +1682,61 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				uk.co.jamesj999.sonic.level.LevelManager.getInstance().requestRespawn();
 			}
 		}
+	}
+
+	/**
+	 * Accelerate left (negative direction) with per-game speed capping.
+	 *
+	 * S1 (inputAlwaysCapsGroundSpeed=true): Always clamps to -max, even if
+	 * speed was already beyond max from slopes/springs.
+	 * ROM: s1disasm/_incObj/01 Sonic.asm:507-512 — unconditional clamp.
+	 *
+	 * S2/S3K (inputAlwaysCapsGroundSpeed=false): Preserves speeds above max.
+	 * ROM: s2.asm:36547-36556 — undo accel if was already >= max.
+	 */
+	private short accelerateLeft(short gSpeed, short runAccel, short max) {
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		boolean alwaysCap = featureSet != null && featureSet.inputAlwaysCapsGroundSpeed();
+
+		if (alwaysCap) {
+			// S1: sub, then unconditional clamp
+			gSpeed -= runAccel;
+			if (gSpeed < -max) gSpeed = (short) -max;
+		} else {
+			// S2/S3K: only accelerate if below max — preserve existing high speed
+			if (gSpeed > -max) {
+				gSpeed -= runAccel;
+				if (gSpeed < -max) gSpeed = (short) -max;
+			}
+		}
+		return gSpeed;
+	}
+
+	/**
+	 * Accelerate right (positive direction) with per-game speed capping.
+	 *
+	 * S1 (inputAlwaysCapsGroundSpeed=true): Always clamps to max.
+	 * ROM: s1disasm/_incObj/01 Sonic.asm:555-558 — unconditional clamp.
+	 *
+	 * S2/S3K (inputAlwaysCapsGroundSpeed=false): Preserves speeds above max.
+	 * ROM: s2.asm:36610-36616 — undo accel if was already >= max.
+	 */
+	private short accelerateRight(short gSpeed, short runAccel, short max) {
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		boolean alwaysCap = featureSet != null && featureSet.inputAlwaysCapsGroundSpeed();
+
+		if (alwaysCap) {
+			// S1: add, then unconditional clamp
+			gSpeed += runAccel;
+			if (gSpeed > max) gSpeed = max;
+		} else {
+			// S2/S3K: only accelerate if below max — preserve existing high speed
+			if (gSpeed < max) {
+				gSpeed += runAccel;
+				if (gSpeed > max) gSpeed = max;
+			}
+		}
+		return gSpeed;
 	}
 
 	private short applyFriction(short speed, short friction) {

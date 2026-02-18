@@ -44,6 +44,11 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
     private static final int ACTS_PER_ZONE = 3;
     // Number of act slots in ROM tables (Level_Index, LevelSizeArray, ObjPos_Index) per zone
     private static final int ACT_SLOTS_PER_ZONE = 4;
+    private static final int S1_LEVEL_INDEX_SBZ3 = 0x91;
+    private static final int S1_LEVEL_INDEX_FINAL = 0x92;
+    private static final int DISASM_SONIC_PALID = 3;
+    private static final int DISASM_PALID_SBZ3 = 0x0C;
+    private static final int DISASM_PALID_SBZ2 = 0x0E;
 
     private final Rom rom;
     private RomByteReader romReader;
@@ -91,7 +96,8 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
 
     @Override
     public Level loadLevel(int levelIdx) throws IOException {
-        int zone, act;
+        int zone;
+        int act;
         if (levelIdx >= S1_LEVEL_INDEX_BASE) {
             int s1Idx = levelIdx - S1_LEVEL_INDEX_BASE;
             zone = s1Idx / ACTS_PER_ZONE;
@@ -100,6 +106,9 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
             zone = 0;
             act = 0;
         }
+        int[] romZoneAct = resolveRomZoneAct(levelIdx, zone, act);
+        zone = romZoneAct[0];
+        act = romZoneAct[1];
 
         ensureHelpers();
 
@@ -121,7 +130,8 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
         int blocksAddr = rom.read32BitAddr(headerAddr + 8);
 
         // Byte 15: palette index
-        int paletteId = rom.readByte(headerAddr + 15) & 0xFF;
+        int headerPaletteId = rom.readByte(headerAddr + 15) & 0xFF;
+        int paletteId = resolveLevelPaletteId(zone, act, headerPaletteId);
 
         // Read pattern load cues from both primary and secondary ArtLoadCues.
         // Primary PLC = level art loaded during init; Secondary PLC = object/sprite art.
@@ -149,12 +159,12 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
         int sonicPaletteAddr = getPaletteDataAddr(sonicPaletteId);
         // Adjust level palette ID: header uses disassembly IDs (Sonic=3 based),
         // so offset by the difference between expected and actual Sonic position.
-        int DISASM_SONIC_PALID = 3;
         int adjustedPaletteId = sonicPaletteId + (paletteId - DISASM_SONIC_PALID);
         int levelPaletteAddr = getPaletteDataAddr(adjustedPaletteId);
         LOG.info("Palette addresses: sonic(id=" + sonicPaletteId + ")=0x" +
                 Integer.toHexString(sonicPaletteAddr) +
-                " level(headerId=" + paletteId + " adjusted=" + adjustedPaletteId +
+                " level(headerId=" + headerPaletteId + " effective=" + paletteId +
+                " adjusted=" + adjustedPaletteId +
                 ")=0x" + Integer.toHexString(levelPaletteAddr));
 
         // Load object spawns, then extract ring objects into RingSpawn records
@@ -188,8 +198,8 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
         // Zone = (levelIdx - 0x80) / 3, except special cases
         int offset = levelIdx - 0x80;
         if (offset < 0) return 0;
-        // SBZ Act 3 (level 0x91) reuses LZ music
-        if (levelIdx == 0x91) return Sonic1Music.LZ.id;
+        // SBZ Act 3 (level 0x91) uses SBZ music in-game
+        if (levelIdx == 0x91) return Sonic1Music.SBZ.id;
         // Final Zone (level 0x92)
         if (levelIdx == 0x92) return Sonic1Music.FZ.id;
         int zone = offset / 3;
@@ -393,5 +403,39 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
     private int getPaletteDataAddr(int paletteId) throws IOException {
         int tableAddr = Sonic1Constants.PALETTE_TABLE_ADDR;
         return rom.read32BitAddr(tableAddr + paletteId * 8);
+    }
+
+    /**
+     * Resolves engine level indices to the ROM zone/act pair.
+     *
+     * <p>In Sonic 1, SBZ3 is stored as {@code id_LZ act 3}, and Final Zone is
+     * stored as {@code id_SBZ act 2}. The engine exposes these as dedicated
+     * entries (0x91, 0x92), so we remap them before reading ROM tables.
+     */
+    private int[] resolveRomZoneAct(int levelIdx, int zone, int act) {
+        if (levelIdx == S1_LEVEL_INDEX_SBZ3) {
+            return new int[] { Sonic1Constants.ZONE_LZ, 3 };
+        }
+        if (levelIdx == S1_LEVEL_INDEX_FINAL) {
+            return new int[] { Sonic1Constants.ZONE_SBZ, 2 };
+        }
+        return new int[] { zone, act };
+    }
+
+    /**
+     * ROM palette selection parity with {@code LevelDataLoad}:
+     * <ul>
+     *   <li>SBZ3 (LZ act 3): force palid_SBZ3</li>
+     *   <li>SBZ2 and Final Zone (SBZ acts 1/2): force palid_SBZ2</li>
+     * </ul>
+     */
+    private int resolveLevelPaletteId(int zone, int act, int headerPaletteId) {
+        if (zone == Sonic1Constants.ZONE_LZ && act == 3) {
+            return DISASM_PALID_SBZ3;
+        }
+        if (zone == Sonic1Constants.ZONE_SBZ && (act == 1 || act == 2)) {
+            return DISASM_PALID_SBZ2;
+        }
+        return headerPaletteId;
     }
 }

@@ -445,6 +445,15 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
         return state == Sonic1TitleCardState.COMPLETE;
     }
 
+    /**
+     * S1 ROM: title card is a blocking routine (TitleCard in sonic.asm).
+     * Player physics does NOT run until the title card completes.
+     */
+    @Override
+    public boolean shouldRunPlayerPhysics() {
+        return false;
+    }
+
     @Override
     public void reset() {
         state = Sonic1TitleCardState.COMPLETE;

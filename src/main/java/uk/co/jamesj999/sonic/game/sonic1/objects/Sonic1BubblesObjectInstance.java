@@ -676,8 +676,10 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
         }
 
         WaterSystem waterSystem = WaterSystem.getInstance();
-        int zoneId = levelManager.getCurrentLevel().getZoneIndex();
-        int actId = levelManager.getCurrentAct();
+        // Use feature zone/act so SBZ3 (ROM zone LZ act 3) resolves to the
+        // water config stored under ZONE_SBZ act 2.
+        int zoneId = levelManager.getFeatureZoneId();
+        int actId = levelManager.getFeatureActId();
 
         if (waterSystem.hasWater(zoneId, actId)) {
             return waterSystem.getWaterLevelY(zoneId, actId);

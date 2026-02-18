@@ -52,6 +52,24 @@ public interface TitleCardProvider {
     void draw();
 
     /**
+     * Returns true if player movement physics should run during the
+     * title card's locked phase.
+     *
+     * <p>S1 ROM: title card is a blocking routine; player physics does NOT
+     * run, so Sonic stays at his spawn position until the title card ends.
+     * This is important for SBZ3 where Sonic spawns at Y=0 and must fall
+     * after the title card.
+     *
+     * <p>S2 ROM: player physics runs during the title card so Sonic can
+     * settle onto the Tornado in SCZ, and onto ground in other zones.
+     *
+     * @return true to run player physics during lock, false to skip
+     */
+    default boolean shouldRunPlayerPhysics() {
+        return true;
+    }
+
+    /**
      * Resets the manager state.
      */
     void reset();

@@ -3,6 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic1;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Level;
+import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.Palette;
 import uk.co.jamesj999.sonic.level.animation.AnimatedPaletteManager;
 
@@ -18,10 +19,10 @@ import java.util.List;
  *   <li>LZ - Waterfall cycling (4 colors in palette line 2)</li>
  *   <li>SLZ - Neon light cycling (3 non-contiguous colors in palette line 2)</li>
  *   <li>SYZ - Two synchronized groups (palette line 3)</li>
+ *   <li>SBZ - Per-entry script system (Acts 1 &amp; 2) plus conveyor belt rotation</li>
  * </ul>
  *
- * <p>MZ has no palette cycling. SBZ uses a complex per-entry script system
- * that is not yet implemented. LZ conveyor belt cycling (direction-dependent)
+ * <p>MZ has no palette cycling. LZ conveyor belt cycling (direction-dependent)
  * is not yet implemented.
  *
  * <p>Palette cycle data is embedded directly from the s1disasm binary files
@@ -50,6 +51,7 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
             case Sonic1Constants.ZONE_LZ -> createLzCycles();
             case Sonic1Constants.ZONE_SLZ -> List.of(new SlzCycle());
             case Sonic1Constants.ZONE_SYZ -> List.of(new SyzCycle());
+            case Sonic1Constants.ZONE_SBZ -> createSbzCycles();
             default -> List.of();
         };
     }
@@ -81,6 +83,53 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
     private List<PaletteCycle> createLzCycles() {
         List<PaletteCycle> list = new ArrayList<>(1);
         list.add(new SimpleCycle(PAL_LZ_CYC1, 4, 8, 2, 2, new int[]{11, 12, 13, 14}));
+        return list;
+    }
+
+    // ===== SBZ =====
+
+    /**
+     * SBZ palette cycling (PalCycle_SBZ from _inc/PaletteCycle.asm:194-266).
+     *
+     * <p>Two components run each frame:
+     * <ol>
+     *   <li>Per-entry script: each entry independently cycles one palette color
+     *       through a source data table at its own rate. Act 1 has 9 entries,
+     *       Act 2 has 7 entries (from Pal_SBZCycList1 / Pal_SBZCycList2).</li>
+     *   <li>Conveyor belt: rotates 3 colors at palette line 2, colors 12-14.
+     *       Act 1 uses SBZCyc4 every 2 frames, Act 2 uses SBZCyc10 every frame.</li>
+     * </ol>
+     */
+    private List<PaletteCycle> createSbzCycles() {
+        int act = LevelManager.getInstance().getCurrentAct();
+        List<PaletteCycle> list = new ArrayList<>();
+
+        if (act == 0) {
+            // Pal_SBZCycList1: 9 per-entry cycles
+            list.add(new SbzColorCycle(PAL_SBZ_CYC1, 0, 8, 7, 2, 8));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC2, 0, 8, 13, 2, 9));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC3, 0, 8, 14, 3, 7));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC5, 0, 8, 11, 3, 8));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC6, 0, 8, 7, 3, 9));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC7, 0, 16, 28, 3, 15));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC8, 0, 3, 3, 3, 12));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC8, 2, 3, 3, 3, 13));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC8, 4, 3, 3, 3, 14));
+            // Conveyor: SBZCyc4, timer reset 1 (every 2 frames)
+            list.add(new SbzConveyorCycle(PAL_SBZ_CYC4, 1));
+        } else {
+            // Pal_SBZCycList2: 7 per-entry cycles
+            list.add(new SbzColorCycle(PAL_SBZ_CYC1, 0, 8, 7, 2, 8));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC2, 0, 8, 13, 2, 9));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC9, 0, 8, 9, 3, 8));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC6, 0, 8, 7, 3, 9));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC8, 0, 3, 3, 3, 12));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC8, 2, 3, 3, 3, 13));
+            list.add(new SbzColorCycle(PAL_SBZ_CYC8, 4, 3, 3, 3, 14));
+            // Conveyor: SBZCyc10, timer reset 0 (every frame)
+            list.add(new SbzConveyorCycle(PAL_SBZ_CYC10, 0));
+        }
+
         return list;
     }
 
@@ -238,6 +287,110 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
         }
     }
 
+    // ===== SBZ per-entry color cycle (single palette color, own timer/frame) =====
+
+    /**
+     * Cycles a single palette color through a source data table.
+     * Matches the assembly per-entry script loop at PalCycle_SBZ (loc_1AE0):
+     * <pre>
+     * v_pal_buffer layout per entry: [timer_byte, frame_byte]
+     * On timer underflow: reset timer, increment frame (before use, wrapping
+     * at frameCount), write sourceData[dataOffset + frame*2] to palette slot.
+     * </pre>
+     */
+    private static class SbzColorCycle implements PaletteCycle {
+        private final byte[] data;
+        private final int dataOffset;
+        private final int frameCount;
+        private final int timerReset;
+        private final int paletteIndex;
+        private final int colorIndex;
+        private int timer;  // starts at 0; first subq underflows to -1 → immediate trigger
+        private int frame;  // starts at 0; incremented before use so first displayed is 1
+
+        SbzColorCycle(byte[] data, int dataOffset, int frameCount, int timerReset,
+                      int paletteIndex, int colorIndex) {
+            this.data = data;
+            this.dataOffset = dataOffset;
+            this.frameCount = frameCount;
+            this.timerReset = timerReset;
+            this.paletteIndex = paletteIndex;
+            this.colorIndex = colorIndex;
+        }
+
+        @Override
+        public void tick(Level level, GraphicsManager gm) {
+            // subq.b #1,(a1) / bmi.s loc_1AEA
+            timer--;
+            if (timer >= 0) return;
+
+            // Reset timer to duration
+            timer = timerReset;
+
+            // Increment frame before use (addq.b #1,d0), wrap at frameCount
+            frame++;
+            if (frame >= frameCount) frame = 0;
+
+            // Write single color: move.w (a0,d0.w),(a3)
+            Palette palette = level.getPalette(paletteIndex);
+            palette.getColor(colorIndex).fromSegaFormat(data, dataOffset + frame * 2);
+
+            if (gm.isGlInitialized()) {
+                gm.cachePaletteTexture(palette, paletteIndex);
+            }
+        }
+    }
+
+    // ===== SBZ conveyor belt cycling (3-color rotation) =====
+
+    /**
+     * Rotates 3 colors at palette line 2, colors 12-14 using a sliding window
+     * over doubled source data (6 words = 3 unique colors repeated).
+     * <pre>
+     * PalCycle_SBZ conveyor section (loc_1B2E-loc_1B64):
+     * Default direction = -1 (frame sequence: 2,1,0,2,1,0...)
+     * Act 1: SBZCyc4, timer reset 1 (every 2 frames)
+     * Act 2: SBZCyc10, timer reset 0 (every frame)
+     * </pre>
+     * Conveyor reversal (f_conveyrev) is not yet wired to object system.
+     */
+    private static class SbzConveyorCycle implements PaletteCycle {
+        private final byte[] data;
+        private final int timerReset;
+        private int timer;  // starts at 0
+        private int frame;  // 0-2
+
+        SbzConveyorCycle(byte[] data, int timerReset) {
+            this.data = data;
+            this.timerReset = timerReset;
+        }
+
+        @Override
+        public void tick(Level level, GraphicsManager gm) {
+            // subq.w #1,(v_pcyc_time).w / bpl.s locret_1B64
+            timer--;
+            if (timer >= 0) return;
+            timer = timerReset;
+
+            // Advance frame with direction -1, wrapping 0-2
+            // Assembly: d0 = frame & 3, d0 += direction, wrap if out of range
+            int d0 = frame - 1;  // direction = -1
+            if (d0 < 0) d0 = 2;
+            frame = d0;
+
+            // Sliding window: move.l (a0,d0.w),(a1)+ / move.w 4(a0,d0.w),(a1)
+            int offset = frame * 2;
+            Palette palette = level.getPalette(2);
+            palette.getColor(12).fromSegaFormat(data, offset);
+            palette.getColor(13).fromSegaFormat(data, offset + 2);
+            palette.getColor(14).fromSegaFormat(data, offset + 4);
+
+            if (gm.isGlInitialized()) {
+                gm.cachePaletteTexture(palette, 2);
+            }
+        }
+    }
+
     // ===== Embedded palette cycle data (from s1disasm/palette/Cycle - *.bin) =====
 
     /** GHZ: 32 bytes, 4 frames x 8 bytes (4 colors each). Rotation pattern. */
@@ -278,5 +431,69 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
     private static final byte[] PAL_SYZ_CYC2 = {
             0x00, 0x0e, 0x0e, (byte) 0xee, 0x06, 0x6e, 0x0e, (byte) 0x88,
             0x0e, (byte) 0xee, 0x0c, 0x00, 0x06, 0x6e, 0x0e, (byte) 0x88
+    };
+
+    // ===== SBZ palette cycle data (from s1disasm/palette/Cycle - SBZ *.bin) =====
+
+    /** SBZCyc1: 16 bytes, 8 frames x 1 color. Palette line 2, color 8. */
+    private static final byte[] PAL_SBZ_CYC1 = {
+            0x00, 0x44, 0x0e, (byte) 0xa0, 0x00, 0x44, 0x0e, (byte) 0xa0,
+            0x00, (byte) 0xe8, 0x00, (byte) 0xe8, 0x00, 0x44, 0x0e, 0x4e
+    };
+
+    /** SBZCyc2: 16 bytes, 8 frames x 1 color. Palette line 2, color 9. */
+    private static final byte[] PAL_SBZ_CYC2 = {
+            0x00, (byte) 0xee, 0x00, (byte) 0x8e, 0x00, 0x0e, 0x00, 0x08,
+            0x00, 0x08, 0x00, 0x0e, 0x00, (byte) 0x8e, 0x00, (byte) 0xee
+    };
+
+    /** SBZCyc3: 16 bytes, 8 frames x 1 color. Palette line 3, color 7 (Act 1 only). */
+    private static final byte[] PAL_SBZ_CYC3 = {
+            0x00, 0x0a, 0x00, 0x0a, 0x00, 0x08, 0x00, 0x06,
+            0x00, 0x04, 0x00, 0x04, 0x00, 0x06, 0x00, 0x08
+    };
+
+    /** SBZCyc4: 12 bytes, 3 unique colors doubled. Conveyor belt for Act 1. */
+    private static final byte[] PAL_SBZ_CYC4 = {
+            0x0c, (byte) 0xaa, 0x08, 0x66, 0x04, 0x22,
+            0x0c, (byte) 0xaa, 0x08, 0x66, 0x04, 0x22
+    };
+
+    /** SBZCyc5: 16 bytes, 8 frames x 1 color. Palette line 3, color 8 (Act 1 only). */
+    private static final byte[] PAL_SBZ_CYC5 = {
+            0x00, 0x0e, 0x00, 0x0e, 0x00, 0x0a, 0x00, 0x08,
+            0x00, 0x06, 0x00, 0x06, 0x00, 0x08, 0x00, 0x0a
+    };
+
+    /** SBZCyc6: 16 bytes, 8 frames x 1 color. Palette line 3, color 9. */
+    private static final byte[] PAL_SBZ_CYC6 = {
+            0x0c, (byte) 0xe6, 0x0c, (byte) 0xe6, 0x0a, (byte) 0xc4, 0x08, (byte) 0xa2,
+            0x06, (byte) 0x80, 0x06, (byte) 0x80, 0x08, (byte) 0xa2, 0x0a, (byte) 0xc4
+    };
+
+    /** SBZCyc7: 32 bytes, 16 frames x 1 color. Palette line 3, color 15 (Act 1 only). */
+    private static final byte[] PAL_SBZ_CYC7 = {
+            0x0e, (byte) 0xa0, 0x0e, (byte) 0x86, 0x0e, 0x6a, 0x0e, 0x4e,
+            0x08, (byte) 0x8e, 0x04, (byte) 0xae, 0x02, (byte) 0xce, 0x00, (byte) 0xee,
+            0x00, (byte) 0xee, 0x02, (byte) 0xce, 0x04, (byte) 0xae, 0x08, (byte) 0x8e,
+            0x0e, 0x4e, 0x0e, 0x6a, 0x0e, (byte) 0x86, 0x0e, (byte) 0xa0
+    };
+
+    /** SBZCyc8: 10 bytes, shared by 3 entries with sliding offset. Palette line 3, colors 12-14. */
+    private static final byte[] PAL_SBZ_CYC8 = {
+            0x0e, (byte) 0xae, 0x0e, 0x4e, 0x08, 0x08,
+            0x0e, (byte) 0xae, 0x0e, 0x4e
+    };
+
+    /** SBZCyc9: 16 bytes, 8 frames x 1 color. Palette line 3, color 8 (Act 2 only). */
+    private static final byte[] PAL_SBZ_CYC9 = {
+            0x0e, (byte) 0xa0, 0x0e, (byte) 0xa0, 0x0a, 0x64, 0x06, 0x4a,
+            0x00, 0x0e, 0x00, 0x0e, 0x06, 0x4a, 0x0a, 0x64
+    };
+
+    /** SBZCyc10: 12 bytes, 3 unique colors doubled. Conveyor belt for Act 2. */
+    private static final byte[] PAL_SBZ_CYC10 = {
+            0x0e, (byte) 0xec, 0x0a, (byte) 0xa6, 0x06, 0x60,
+            0x0e, (byte) 0xec, 0x0a, (byte) 0xa6, 0x06, 0x60
     };
 }

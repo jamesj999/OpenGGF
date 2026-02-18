@@ -293,6 +293,12 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search SlideFloor
     public static final int ART_NEM_SBZ_SLIDE_FLOOR_ADDR = 0x35886;
 
+    // Nem_SbzDoor2: Nemesis-compressed SBZ large horizontal door art (252 bytes)
+    // ArtTile_SBZ_Horizontal_Door = $46F, loaded via PLC_SBZ2
+    // Used by Object 0x6B (ScrapStomp) frame 0 (.door)
+    // Verified by RomOffsetFinder --game s1 search SbzDoor2
+    public static final int ART_NEM_SBZ_HORIZONTAL_DOOR_ADDR = 0x358DE;
+
     // Nem_SlzBlock: Nemesis-compressed SLZ 32x32 collapsing floor block art (267 bytes)
     // ArtTile_SLZ_Collapsing_Floor = $4E0, loaded via PLC_SLZ
     // Verified by RomOffsetFinder --game s1 search SlzBlock
@@ -302,6 +308,43 @@ public final class Sonic1Constants {
     // ArtTile_SBZ_Collapsing_Floor = $3F5, loaded via PLC_SBZ
     // Verified by RomOffsetFinder --game s1 search SbzFloor
     public static final int ART_NEM_SBZ_COLLAPSING_FLOOR_ADDR = 0x353D4;
+
+    // Nem_SbzBlock: Nemesis-compressed SBZ vanishing block art (253 bytes)
+    // ArtTile_SBZ_Vanishing_Block = $4C3, palette line 2, loaded via PLC_SBZ
+    // Verified by RomOffsetFinder --game s1 search SbzBlock
+    public static final int ART_NEM_SBZ_VANISHING_BLOCK_ADDR = 0x355AC;
+
+    // Nem_Electric: Nemesis-compressed SBZ electrocution orb art (384 bytes)
+    // ArtTile_SBZ_Electric_Orb = $47E, palette line 0
+    // Verified by RomOffsetFinder --game s1 search Nem_Electric
+    public static final int ART_NEM_SBZ_ELECTROCUTER_ADDR = 0x3542C;
+
+    // Nem_FlamePipe: Nemesis-compressed SBZ flaming pipe art (395 bytes)
+    // ArtTile_SBZ_Flamethrower = $3D9, palette line 0, priority bit 1
+    // Verified by RomOffsetFinder --game s1 search FlamePipe
+    public static final int ART_NEM_SBZ_FLAMETHROWER_ADDR = 0x356AA;
+
+    // Nem_Seesaw: Nemesis-compressed SLZ seesaw art (572 bytes, ArtTile_SLZ_Seesaw = $374)
+    // Verified by RomOffsetFinder --game s1 search Seesaw
+    public static final int ART_NEM_SLZ_SEESAW_ADDR = 0x3385C;
+
+    // Nem_SlzSpike: Nemesis-compressed SLZ seesaw spikeball art (326 bytes, ArtTile_SLZ_Spikeball = $4F0)
+    // Verified by RomOffsetFinder --game s1 search SlzSpike
+    public static final int ART_NEM_SLZ_SPIKEBALL_ADDR = 0x33A98;
+
+    // Nem_Pylon: Nemesis-compressed SLZ foreground pylon art (225 bytes, ArtTile_SLZ_Pylon = $3CC)
+    // Verified by RomOffsetFinder --game s1 search Pylon
+    public static final int ART_NEM_SLZ_PYLON_ADDR = 0x33E84;
+
+    // ArtTile_SLZ_Pylon VDP tile index (from Constants.asm)
+    public static final int ARTTILE_SLZ_PYLON = 0x3CC;
+
+    // Nem_Fan: Nemesis-compressed SLZ fan art (579 bytes, ArtTile_SLZ_Fan = $3A0)
+    // Verified by RomOffsetFinder --game s1 search Fan
+    public static final int ART_NEM_SLZ_FAN_ADDR = 0x33BDE;
+
+    // ArtTile_SLZ_Fan VDP tile index (from Constants.asm)
+    public static final int ARTTILE_SLZ_FAN = 0x3A0;
 
     // Nem_SlzCannon: Nemesis-compressed SLZ fireball launcher / lava thrower art
     // Loaded via PLC_SLZ: plcm Nem_SlzCannon, ArtTile_SLZ_Fireball_Launcher
@@ -370,6 +413,15 @@ public final class Sonic1Constants {
     // Verified by RomOffsetFinder --game s1 search Basaran (763 bytes)
     public static final int ART_NEM_BASARAN_ADDR = 0x386BC;
 
+    // Nem_BallHog: Nemesis-compressed Ball Hog enemy art (SBZ, ArtTile_Ball_Hog = $302)
+    // 960 bytes compressed, palette line 1. Ball Hog + cannonball share this sprite sheet.
+    // Verified by RomOffsetFinder --game s1 search BallHog
+    public static final int ART_NEM_BALL_HOG_ADDR = 0x35AF0;
+
+    // Nem_Bomb: Nemesis-compressed Bomb enemy art (SLZ/SBZ, ArtTile_Bomb)
+    // Verified by RomOffsetFinder --game s1 search Bomb (664 bytes)
+    public static final int ART_NEM_BOMB_ADDR = 0x38C00;
+
     // Nem_Cater: Nemesis-compressed Caterkiller art (MZ/SYZ ArtTile $4FF, SBZ ArtTile $2B0)
     // Verified by RomOffsetFinder --game s1 search Caterkiller (398 bytes)
     public static final int ART_NEM_CATERKILLER_ADDR = 0x39076;
@@ -428,6 +480,41 @@ public final class Sonic1Constants {
     // Used by swinging platform object in SBZ (spiked ball on a chain)
     // Verified by RomOffsetFinder --game s1 search Ball
     public static final int ART_NEM_SBZ_SPIKED_BALL_ADDR = 0x345A6;
+
+    // Nem_SbzDoor1: Nemesis-compressed SBZ small vertical door art (79 bytes)
+    // ArtTile_SBZ_Door = $2E8, palette line 2
+    // Verified by RomOffsetFinder --game s1 search SbzDoor1
+    public static final int ART_NEM_SBZ_SMALL_DOOR_ADDR = 0x35836;
+
+    // Nem_TrapDoor: Nemesis-compressed SBZ trapdoor art (477 bytes)
+    // ArtTile_SBZ_Trap_Door = $492, palette line 2
+    // Verified by RomOffsetFinder --game s1 search TrapDoor
+    public static final int ART_NEM_SBZ_TRAP_DOOR_ADDR = 0x351F6;
+
+    // Nem_Girder: Nemesis-compressed SBZ large girder block art (277 bytes)
+    // ArtTile_SBZ_Girder = $2F0, palette line 2
+    // Verified by RomOffsetFinder --game s1 search Girder
+    public static final int ART_NEM_SBZ_GIRDER_ADDR = 0x359DA;
+
+    // Nem_Cutter: Nemesis-compressed SBZ pizza cutter / ground saw art (515 bytes)
+    // ArtTile_SBZ_Saw = $3B5, palette line 2
+    // Verified by RomOffsetFinder --game s1 search Cutter
+    public static final int ART_NEM_SBZ_SAW_ADDR = 0x34B24;
+
+    // Nem_SpinPform: Nemesis-compressed SBZ spinning platform art (816 bytes)
+    // ArtTile_SBZ_Spinning_Platform = $4DF, palette line 0
+    // Verified by RomOffsetFinder --game s1 search SpinPform
+    public static final int ART_NEM_SBZ_SPINNING_PLATFORM_ADDR = 0x34EC6;
+
+    // Nem_SbzWheel1: Nemesis-compressed SBZ running disc spot art (83 bytes)
+    // ArtTile_SBZ_Disc = $344, palette line 2, priority bit 1
+    // Verified by RomOffsetFinder --game s1 search Disc
+    public static final int ART_NEM_SBZ_RUNNING_DISC_ADDR = 0x34834;
+
+    // Nem_SbzWheel2: Nemesis-compressed SBZ junction wheel art (668 bytes)
+    // ArtTile_SBZ_Junction = $348, palette line 2
+    // Verified by RomOffsetFinder --game s1 search Junction
+    public static final int ART_NEM_SBZ_JUNCTION_ADDR = 0x34888;
 
     // ---- Boss art (Nemesis compressed) ----
     // Nem_MzMetal: Nemesis-compressed MZ metal block/chain stomper art (ArtTile_MZ_Spike_Stomper = $300)

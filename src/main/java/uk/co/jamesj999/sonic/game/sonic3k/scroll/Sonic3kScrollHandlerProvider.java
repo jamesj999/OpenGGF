@@ -17,6 +17,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
     private boolean loaded = false;
 
     private SwScrlAiz aizHandler;
+    private SwScrlMgz mgzHandler;
     private SwScrlS3kDefault defaultHandler;
 
     @Override
@@ -25,6 +26,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
             return;
         }
         aizHandler = new SwScrlAiz();
+        mgzHandler = new SwScrlMgz();
         defaultHandler = new SwScrlS3kDefault();
         loaded = true;
         LOGGER.info("Sonic 3K scroll handlers loaded.");
@@ -38,6 +40,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
 
         return switch (zoneIndex) {
             case Sonic3kZoneConstants.ZONE_AIZ -> aizHandler;
+            case Sonic3kZoneConstants.ZONE_MGZ -> mgzHandler;
             default -> defaultHandler;
         };
     }

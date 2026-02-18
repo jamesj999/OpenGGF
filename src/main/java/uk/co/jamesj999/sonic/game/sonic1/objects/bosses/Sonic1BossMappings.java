@@ -174,11 +174,18 @@ public final class Sonic1BossMappings {
                 new SpriteMappingPiece(-8, -8, 2, 2, 0x00, false, false, 0, false)
         )));
 
-        // Frame 2: placeholder (unused)
-        frames.add(new SpriteMappingFrame(List.of()));
+        // Frame 2: .cross (1 piece — small cross marker)
+        // ROM: spritePiece -4, -4, 1, 1, 6, 0, 0, 0, 0
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -4, 1, 1, 0x06, false, false, 0, false)
+        )));
 
-        // Frame 3: placeholder (unused)
-        frames.add(new SpriteMappingFrame(List.of()));
+        // Frame 3: .widepipe (1 piece — SLZ boss exhaust tube)
+        // ROM: spritePiece -$C, $14, 3, 2, 7, 0, 0, 0, 0
+        // Uses ArtTile_Eggman_Weapons with palette line 1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x0C, 0x14, 3, 2, 0x07, false, false, 0, false)
+        )));
 
         // Frame 4: .pipe (1 piece — MZ boss exhaust tube)
         // ROM: spritePiece -8, $14, 2, 2, $D, 0, 0, 0, 0

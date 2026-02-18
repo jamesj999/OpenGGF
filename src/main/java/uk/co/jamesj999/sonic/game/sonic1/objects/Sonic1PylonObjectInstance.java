@@ -1,0 +1,159 @@
+package uk.co.jamesj999.sonic.game.sonic1.objects;
+
+import uk.co.jamesj999.sonic.camera.Camera;
+import uk.co.jamesj999.sonic.debug.DebugRenderContext;
+import uk.co.jamesj999.sonic.graphics.GLCommand;
+import uk.co.jamesj999.sonic.graphics.RenderPriority;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;
+import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
+import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+
+import java.awt.Color;
+import java.util.List;
+
+/**
+ * Object 0x5C - Metal Pylons in foreground (SLZ).
+ * <p>
+ * A tall decorative metal pylon that renders in the foreground of Star Light Zone.
+ * Uses parallax scrolling to create a depth effect: the pylon moves faster than
+ * the background, appearing to be between the player and the camera.
+ * <p>
+ * The pylon has no collision, no animation, and no subtypes. It recalculates
+ * its position every frame based on camera position.
+ * <p>
+ * <b>Parallax calculation from disassembly:</b>
+ * <pre>
+ * X: move.l (v_screenposx).w,d1  ; Load camera X as 16.16 fixed-point
+ *    add.l  d1,d1                  ; Double it
+ *    swap   d1                     ; Take high word = 2 * cameraX
+ *    neg.w  d1                     ; Negate
+ *    move.w d1,obX(a0)            ; obX = -(2 * cameraX)
+ *
+ * Y: move.l (v_screenposy).w,d1  ; Load camera Y as 16.16 fixed-point
+ *    add.l  d1,d1                  ; Double it
+ *    swap   d1                     ; Take high word = 2 * cameraY
+ *    andi.w #$3F,d1               ; Mask to 0-63
+ *    neg.w  d1                     ; Negate
+ *    addi.w #$100,d1              ; Add base offset
+ *    move.w d1,obScreenY(a0)      ; Screen-relative Y
+ * </pre>
+ * <p>
+ * DisplaySprite then renders at:
+ * - Screen X = obX - cameraX = -(2*cameraX) - cameraX = -(3*cameraX)
+ * - Screen Y = obScreenY (used directly, not camera-relative)
+ * <p>
+ * Reference: docs/s1disasm/_incObj/5C Pylon.asm
+ */
+public class Sonic1PylonObjectInstance extends AbstractObjectInstance {
+
+    // From disassembly: move.b #$10,obActWid(a0)
+    private static final int ACTIVE_WIDTH = 0x10;
+
+    // From disassembly: andi.w #$3F,d1 — Y parallax mask
+    private static final int CAMERA_Y_MASK = 0x3F;
+
+    // From disassembly: addi.w #$100,d1 — base Y screen offset
+    private static final int BASE_SCREEN_Y = 0x100;
+
+    public Sonic1PylonObjectInstance(ObjectSpawn spawn) {
+        super(spawn, "Pylon");
+    }
+
+    /**
+     * Calculates the screen-space X position using parallax.
+     * From disassembly: obX = -(2 * cameraX), then DisplaySprite subtracts cameraX,
+     * giving effective screen X = -(3 * cameraX).
+     * <p>
+     * The add.l/swap sequence extracts the integer part of (2 * camera_16.16),
+     * which includes subpixel carry for smooth scrolling.
+     */
+    private int getScreenX() {
+        Camera camera = Camera.getInstance();
+        int cameraX = camera.getX();
+        // Screen X = -(3 * cameraX)
+        // Wraps at 16-bit boundary as in original hardware
+        return (short) (-(3 * cameraX));
+    }
+
+    /**
+     * Calculates the screen-space Y position using parallax.
+     * From disassembly: screenY = 0x100 - ((2 * cameraY) & 0x3F)
+     * <p>
+     * The masking to 0x3F creates a small vertical oscillation (0-63 pixels)
+     * that repeats as the camera scrolls vertically.
+     */
+    private int getScreenY() {
+        Camera camera = Camera.getInstance();
+        int cameraY = camera.getY();
+        // (2 * cameraY) masked to 6 bits, negated, offset by 0x100
+        int yOffset = (2 * cameraY) & CAMERA_Y_MASK;
+        return BASE_SCREEN_Y - yOffset;
+    }
+
+    @Override
+    public void update(int frameCounter, AbstractPlayableSprite player) {
+        // Purely decorative — no update logic needed
+    }
+
+    @Override
+    public boolean isHighPriority() {
+        // The pylon uses VDP high-priority bit (priority=1 in make_art_tile),
+        // rendering in front of high-priority level tiles.
+        return true;
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        // Render at highest bucket (furthest back among high-priority sprites)
+        // to layer behind other foreground sprites but in front of tiles.
+        return RenderPriority.MAX;
+    }
+
+    @Override
+    public void appendRenderCommands(List<GLCommand> commands) {
+        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        if (renderManager == null) {
+            return;
+        }
+        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SLZ_PYLON);
+        if (renderer == null || !renderer.isReady()) {
+            return;
+        }
+
+        Camera camera = Camera.getInstance();
+        int cameraX = camera.getX();
+        int cameraY = camera.getY();
+
+        // Convert screen-space positions to world-space for the renderer.
+        // The renderer subtracts camera position internally, so:
+        // worldX = cameraX + screenX, worldY = cameraY + screenY
+        int screenX = getScreenX();
+        int screenY = getScreenY();
+        int worldX = cameraX + screenX;
+        int worldY = cameraY + screenY;
+
+        // Render frame 0 (the single frame containing all 9 pieces)
+        renderer.drawFrameIndex(0, worldX, worldY, false, false);
+    }
+
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
+        Camera camera = Camera.getInstance();
+        int cameraX = camera.getX();
+        int cameraY = camera.getY();
+
+        int screenX = getScreenX();
+        int screenY = getScreenY();
+        int worldX = cameraX + screenX;
+        int worldY = cameraY + screenY;
+
+        ctx.drawCross(worldX, worldY, 4, 0.8f, 0.5f, 1.0f);
+        ctx.drawWorldLabel(worldX, worldY, -1,
+                String.format("Pylon sx=%d sy=%d", screenX, screenY),
+                Color.MAGENTA);
+    }
+}

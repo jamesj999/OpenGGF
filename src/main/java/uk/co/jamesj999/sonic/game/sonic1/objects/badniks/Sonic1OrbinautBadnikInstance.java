@@ -82,8 +82,14 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
         }
 
         if (routine == ROUTINE_CHK_SONIC && shouldBecomeAngry(player)) {
-            animationId = 1;
-            animationTimer = ANIM_SPEED;
+            // ROM: move.b #1,obAnim(a0) — AnimateSprite only resets when obAnim
+            // changes. On first transition, immediately set frame 1 (ROM's
+            // AnimateSprite sets the first frame instantly on animation change).
+            if (animationId != 1) {
+                animationId = 1;
+                animationFrame = 1;         // Immediately show angry face
+                animationTimer = ANIM_SPEED; // Timer for transition to frame 2
+            }
         }
 
         if (routine >= ROUTINE_MOVE) {
@@ -123,14 +129,20 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
             return;
         }
 
+        // ROM animation: .angers: dc.b $F, 1, 2, afBack, 1
+        // Plays frame 1 once, then stays at frame 2 permanently (afBack loops
+        // back to frame 2). Frame 1 is set immediately in updateMovement when
+        // the orbinaut first gets angry.
+        if (animationFrame >= 2) {
+            return; // afBack: stay at frame 2 permanently
+        }
+
         animationTimer--;
         if (animationTimer > 0) {
             return;
         }
         animationTimer = ANIM_SPEED;
-
-        // .angers: 1,2,afBack,1
-        animationFrame = (animationFrame == 1) ? 2 : 1;
+        animationFrame = 2; // Advance from frame 1 to frame 2
     }
 
     private void spawnSatellites() {

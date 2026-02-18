@@ -1,6 +1,8 @@
 package uk.co.jamesj999.sonic.game.sonic1.objects;
 
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
+import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BallHogBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BombBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BurrobotBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1BuzzBomberBadnikInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.badniks.Sonic1CaterkillerBadnikInstance;
@@ -18,6 +20,7 @@ import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossFireInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1GHZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1LZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1MZBossInstance;
+import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1SLZBossInstance;
 import uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1SYZBossInstance;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectFactory;
@@ -175,6 +178,12 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                         LevelManager.getInstance().getRomZoneId()));
         factories.put(Sonic1ObjectIds.BIG_SPIKED_BALL,
                 (spawn, registry) -> new Sonic1BigSpikedBallObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SLZ_ELEVATOR,
+                (spawn, registry) -> new Sonic1ElevatorObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SLZ_CIRCLING_PLATFORM,
+                (spawn, registry) -> new Sonic1CirclingPlatformObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SLZ_STAIRCASE,
+                (spawn, registry) -> new Sonic1StaircaseObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.LABYRINTH_BLOCK,
                 (spawn, registry) -> new Sonic1LabyrinthBlockObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GARGOYLE,
@@ -185,10 +194,47 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1BubblesObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.WATERFALL,
                 (spawn, registry) -> new Sonic1WaterfallObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SBZ_SMALL_DOOR,
+                (spawn, registry) -> new Sonic1SmallDoorObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SBZ_CONVEYOR_BELT,
+                (spawn, registry) -> new Sonic1ConveyorBeltObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SBZ_SPINNING_PLATFORM,
+                (spawn, registry) -> new Sonic1SpinPlatformObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SBZ_VANISHING_PLATFORM,
+                (spawn, registry) -> new Sonic1VanishingPlatformObjectInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.PYLON,
+                (spawn, registry) -> new Sonic1PylonObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.FAN,
+                (spawn, registry) -> new Sonic1FanObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SEESAW,
+                (spawn, registry) -> new Sonic1SeesawObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.BOMB,
+                (spawn, registry) -> new Sonic1BombBadnikInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.ORBINAUT,
                 (spawn, registry) -> new Sonic1OrbinautBadnikInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.FLAMETHROWER,
+                (spawn, registry) -> new Sonic1FlamethrowerObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.ELECTROCUTER,
+                (spawn, registry) -> new Sonic1ElectrocuterObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SBZ_SPIN_CONVEYOR,
+                (spawn, registry) -> new Sonic1SpinConveyorObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.SBZ_SAW,
+                (spawn, registry) -> new Sonic1SawObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.GIRDER,
+                (spawn, registry) -> new Sonic1GirderBlockObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.BALL_HOG,
+                (spawn, registry) -> new Sonic1BallHogBadnikInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.SBZ_STOMPER_DOOR,
+                (spawn, registry) -> new Sonic1StomperDoorObjectInstance(spawn,
+                        LevelManager.getInstance().getRomZoneId()));
+        factories.put(Sonic1ObjectIds.JUNCTION,
+                (spawn, registry) -> new Sonic1JunctionObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.RUNNING_DISC,
+                (spawn, registry) -> new Sonic1RunningDiscObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.INVISIBLE_BARRIER,
                 (spawn, registry) -> new Sonic1InvisibleBarrierObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.TELEPORTER,
+                (spawn, registry) -> new Sonic1TeleporterObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GHZ_BOSS,
                 (spawn, registry) -> new Sonic1GHZBossInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.MZ_BOSS,
@@ -197,6 +243,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1SYZBossInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.LZ_BOSS,
                 (spawn, registry) -> new Sonic1LZBossInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.SLZ_BOSS,
+                (spawn, registry) -> new Sonic1SLZBossInstance(spawn, LevelManager.getInstance()));
         factories.put(Sonic1ObjectIds.SYZ_BOSS_BLOCK,
                 (spawn, registry) -> new Sonic1BossBlockInstance(spawn.subtype()));
         factories.put(Sonic1ObjectIds.BOSS_FIRE,
@@ -226,7 +274,9 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.PLATFORM -> "Platform";
             case Sonic1ObjectIds.COLLAPSING_LEDGE -> "CollapsingLedge";
             case Sonic1ObjectIds.SCENERY -> "Scenery";
+            case Sonic1ObjectIds.BALL_HOG -> "BallHog";
             case Sonic1ObjectIds.CRABMEAT -> "Crabmeat";
+            case Sonic1ObjectIds.CANNONBALL -> "Cannonball";
             case Sonic1ObjectIds.BUZZ_BOMBER -> "BuzzBomber";
             case Sonic1ObjectIds.BUZZ_BOMBER_MISSILE -> "BuzzBomberMissile";
             case Sonic1ObjectIds.MISSILE_DISSOLVE -> "MissileDissolve";
@@ -243,6 +293,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.BOSS_FIRE -> "BossFire";
             case Sonic1ObjectIds.SYZ_BOSS -> "SYZBoss";
             case Sonic1ObjectIds.LZ_BOSS -> "LZBoss";
+            case Sonic1ObjectIds.SLZ_BOSS -> "SLZBoss";
+            case Sonic1ObjectIds.SLZ_BOSS_SPIKEBALL -> "BossSpikeball";
             case Sonic1ObjectIds.SYZ_BOSS_BLOCK -> "BossBlock";
             case Sonic1ObjectIds.EGG_PRISON -> "EggPrison";
             case Sonic1ObjectIds.MOTOBUG -> "Motobug";
@@ -275,6 +327,11 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.FLOATING_BLOCK -> "FloatingBlock";
             case Sonic1ObjectIds.SPIKED_BALL_CHAIN -> "SpikedBallChain";
             case Sonic1ObjectIds.BIG_SPIKED_BALL -> "BigSpikedBall";
+            case Sonic1ObjectIds.SLZ_ELEVATOR -> "Elevator";
+            case Sonic1ObjectIds.SLZ_CIRCLING_PLATFORM -> "CirclingPlatform";
+            case Sonic1ObjectIds.SLZ_STAIRCASE -> "Staircase";
+            case Sonic1ObjectIds.PYLON -> "Pylon";
+            case Sonic1ObjectIds.FAN -> "Fan";
             case Sonic1ObjectIds.SEESAW -> "Seesaw";
             case Sonic1ObjectIds.BOMB -> "Bomb";
             case Sonic1ObjectIds.ORBINAUT -> "Orbinaut";
@@ -283,7 +340,20 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.LZ_CONVEYOR -> "LZConveyor";
             case Sonic1ObjectIds.BUBBLES -> "Bubbles";
             case Sonic1ObjectIds.WATERFALL -> "Waterfall";
+            case Sonic1ObjectIds.JUNCTION -> "Junction";
+            case Sonic1ObjectIds.RUNNING_DISC -> "RunningDisc";
+            case Sonic1ObjectIds.SBZ_SMALL_DOOR -> "SmallDoor";
+            case Sonic1ObjectIds.SBZ_CONVEYOR_BELT -> "ConveyorBelt";
+            case Sonic1ObjectIds.SBZ_SPINNING_PLATFORM -> "SpinPlatform";
+            case Sonic1ObjectIds.SBZ_SAW -> "Saw";
+            case Sonic1ObjectIds.SBZ_STOMPER_DOOR -> "StomperDoor";
+            case Sonic1ObjectIds.SBZ_VANISHING_PLATFORM -> "VanishingPlatform";
+            case Sonic1ObjectIds.FLAMETHROWER -> "Flamethrower";
+            case Sonic1ObjectIds.ELECTROCUTER -> "Electrocuter";
+            case Sonic1ObjectIds.SBZ_SPIN_CONVEYOR -> "SpinConveyor";
+            case Sonic1ObjectIds.GIRDER -> "Girder";
             case Sonic1ObjectIds.INVISIBLE_BARRIER -> "InvisibleBarrier";
+            case Sonic1ObjectIds.TELEPORTER -> "Teleporter";
             case Sonic1ObjectIds.CATERKILLER -> "Caterkiller";
             case Sonic1ObjectIds.LAMPPOST -> "Lamppost";
             case Sonic1ObjectIds.HIDDEN_BONUS -> "HiddenBonus";

@@ -83,6 +83,26 @@ public interface ZoneFeatureProvider {
     void render(Camera camera, int frameCounter);
 
     /**
+     * Updates zone features that must run BEFORE player physics.
+     *
+     * <p>In the ROM, certain zone features (LZ water slides, wind tunnels) run before
+     * Sonic's movement code ({@code ExecuteObjects}). These features set flags like
+     * {@code f_slidemode} and overwrite {@code obInertia} so that {@code Sonic_Move}
+     * sees the correct state when it runs.
+     *
+     * <p>Implementations should move any logic that modifies player velocity or
+     * movement flags here. The default implementation does nothing, so existing
+     * providers (S2, S3K) are unaffected.
+     *
+     * @param player the player sprite (may be null)
+     * @param cameraX the camera X position
+     * @param zoneIndex the current zone
+     */
+    default void updatePrePhysics(AbstractPlayableSprite player, int cameraX, int zoneIndex) {
+        // Default implementation does nothing
+    }
+
+    /**
      * Queues render commands for zone features that should appear after foreground tiles
      * but before sprites (e.g., slot machine display that covers corrupted tiles).
      * Called after high-priority foreground tilemap pass but before sprite passes.
