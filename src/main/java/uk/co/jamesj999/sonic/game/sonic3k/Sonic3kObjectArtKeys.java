@@ -19,6 +19,9 @@ public final class Sonic3kObjectArtKeys {
     public static final String AIZ2_ROCK = "aiz2_rock";
     public static final String LRZ1_ROCK = "lrz1_rock";
     public static final String LRZ2_ROCK = "lrz2_rock";
+    public static final String BLOOMINATOR = "aiz_bloominator";
+    public static final String RHINOBOT = "aiz_rhinobot";
+    public static final String MONKEY_DUDE = "aiz_monkey_dude";
     public static final String FIRE_SHIELD = "fire_shield";
     public static final String LIGHTNING_SHIELD = "lightning_shield";
     public static final String BUBBLE_SHIELD = "bubble_shield";

@@ -849,6 +849,9 @@ public class ObjectManager {
         private Set<ObjectInstance> sidekickOverlapping = sidekickBufferA;
         private Set<ObjectInstance> sidekickBuilding = sidekickBufferB;
         private final TouchResponseDebugState debugState = new TouchResponseDebugState();
+        private static final int SHIELD_TOUCH_HALF_SIZE = 0x18;
+        private static final int SHIELD_TOUCH_SIZE = SHIELD_TOUCH_HALF_SIZE * 2;
+        private static final int SHIELD_REACTION_BOUNCE_BIT = 1 << 3;
         private int currentFrameCounter;
 
         TouchResponses(ObjectManager objectManager, TouchResponseTable table) {
@@ -922,6 +925,10 @@ public class ObjectManager {
                 int width = table.getWidthRadius(sizeIndex);
                 int height = table.getHeightRadius(sizeIndex);
                 TouchCategory category = decodeCategory(flags);
+                if (category == TouchCategory.HURT
+                        && tryShieldDeflect(player, instance, provider, width, height)) {
+                    continue;
+                }
 
                 // ROM: Touch_CheckCollision uses x_pos(a1)/y_pos(a1) — the object's current
                 // position, not its spawn position. Use getX()/getY() which moving objects
@@ -1005,6 +1012,10 @@ public class ObjectManager {
                 int width = table.getWidthRadius(sizeIndex);
                 int height = table.getHeightRadius(sizeIndex);
                 TouchCategory category = decodeCategory(flags);
+                if (category == TouchCategory.HURT
+                        && tryShieldDeflect(sidekick, instance, provider, width, height)) {
+                    continue;
+                }
 
                 boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getX(), instance.getY(), width, height);
                 if (!overlap) {
@@ -1025,6 +1036,25 @@ public class ObjectManager {
             Set<ObjectInstance> temp = sidekickOverlapping;
             sidekickOverlapping = sidekickBuilding;
             sidekickBuilding = temp;
+        }
+
+        private boolean tryShieldDeflect(AbstractPlayableSprite player, ObjectInstance instance,
+                TouchResponseProvider provider, int objectWidth, int objectHeight) {
+            if (player == null || !player.hasShield()) {
+                return false;
+            }
+            if ((provider.getShieldReactionFlags() & SHIELD_REACTION_BOUNCE_BIT) == 0) {
+                return false;
+            }
+
+            int shieldLeft = player.getCentreX() - SHIELD_TOUCH_HALF_SIZE;
+            int shieldTop = player.getCentreY() - SHIELD_TOUCH_HALF_SIZE;
+            boolean overlap = isRectOverlapping(shieldLeft, shieldTop, SHIELD_TOUCH_SIZE, SHIELD_TOUCH_SIZE,
+                    instance.getX(), instance.getY(), objectWidth, objectHeight);
+            if (!overlap) {
+                return false;
+            }
+            return provider.onShieldDeflect(player);
         }
 
         /**
@@ -1107,6 +1137,20 @@ public class ObjectManager {
             }
 
             return true;
+        }
+
+        private boolean isRectOverlapping(int playerLeft, int playerTop, int playerWidth, int playerHeight,
+                int objectX, int objectY, int objectWidth, int objectHeight) {
+            int playerRight = playerLeft + playerWidth;
+            int playerBottom = playerTop + playerHeight;
+            int objectLeft = objectX - objectWidth;
+            int objectRight = objectX + objectWidth;
+            int objectTop = objectY - objectHeight;
+            int objectBottom = objectY + objectHeight;
+            return playerRight >= objectLeft
+                    && playerLeft <= objectRight
+                    && playerBottom >= objectTop
+                    && playerTop <= objectBottom;
         }
 
         /**

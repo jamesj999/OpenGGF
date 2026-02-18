@@ -1,14 +1,20 @@
 package uk.co.jamesj999.sonic.game.sonic3k;
 
+import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
+import uk.co.jamesj999.sonic.level.render.SpriteDplcFrame;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
+import uk.co.jamesj999.sonic.level.render.TileLoadRequest;
+import uk.co.jamesj999.sonic.tools.KosinskiReader;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -416,6 +422,226 @@ public class Sonic3kObjectArt {
     public ObjectSpriteSheet buildLrz2RockSheet() {
         return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_LRZ_BREAKABLE_ROCK2_ADDR,
                 Sonic3kConstants.ARTTILE_LRZ2_MISC, 3);
+    }
+
+    // ===== AIZ badnik dedicated-art sprite sheets =====
+
+    /**
+     * Loads Bloominator (Obj $8C) dedicated art sheet.
+     * Art: ArtKosM_AIZ_Bloominator, map: Map_Bloominator.
+     */
+    public ObjectSpriteSheet loadBloominatorSheet(Rom rom) {
+        if (rom == null || reader == null) {
+            return null;
+        }
+        try {
+            Pattern[] patterns = loadKosinskiModuledPatterns(rom, Sonic3kConstants.ART_KOSM_AIZ_BLOOMINATOR_ADDR);
+            if (patterns.length == 0) {
+                return null;
+            }
+            List<SpriteMappingFrame> mappings =
+                    S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_BLOOMINATOR_ADDR);
+            return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+        } catch (IOException e) {
+            LOG.warning("Failed loading Bloominator art: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Loads Monkey Dude (Obj $8E) dedicated art sheet.
+     * Art: ArtKosM_AIZ_MonkeyDude, map: Map_MonkeyDude.
+     */
+    public ObjectSpriteSheet loadMonkeyDudeSheet(Rom rom) {
+        if (rom == null || reader == null) {
+            return null;
+        }
+        try {
+            Pattern[] patterns = loadKosinskiModuledPatterns(rom, Sonic3kConstants.ART_KOSM_AIZ_MONKEY_DUDE_ADDR);
+            if (patterns.length == 0) {
+                return null;
+            }
+            List<SpriteMappingFrame> mappings =
+                    S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_MONKEY_DUDE_ADDR);
+            return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+        } catch (IOException e) {
+            LOG.warning("Failed loading Monkey Dude art: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Loads Rhinobot (Obj $8D) dedicated art sheet.
+     * Uses object-format DPLC remap (Perform_DPLC path).
+     */
+    public ObjectSpriteSheet loadRhinobotSheet(Rom rom) {
+        if (rom == null || reader == null) {
+            return null;
+        }
+        try {
+            Pattern[] patterns = loadUncompressedPatterns(rom,
+                    Sonic3kConstants.ART_UNC_AIZ_RHINOBOT_ADDR,
+                    Sonic3kConstants.ART_UNC_AIZ_RHINOBOT_SIZE);
+            if (patterns.length == 0) {
+                return null;
+            }
+            List<SpriteMappingFrame> rawMappings =
+                    S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_RHINOBOT_ADDR);
+            List<SpriteDplcFrame> dplcFrames = loadObjectDplcFrames(reader, Sonic3kConstants.DPLC_RHINOBOT_ADDR);
+            List<SpriteMappingFrame> remapped = applyDplcRemap(rawMappings, dplcFrames);
+            return new ObjectSpriteSheet(patterns, remapped, 1, 1);
+        } catch (IOException e) {
+            LOG.warning("Failed loading Rhinobot art: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private Pattern[] loadKosinskiModuledPatterns(Rom rom, int romAddr) throws IOException {
+        byte[] header = rom.readBytes(romAddr, 2);
+        if (header.length < 2) {
+            return new Pattern[0];
+        }
+        int fullSize = ((header[0] & 0xFF) << 8) | (header[1] & 0xFF);
+        int inputSize = Math.min(Math.max(fullSize + 256, 0x10000), 0x40000);
+        long romSize = rom.getSize();
+        if (romAddr + inputSize > romSize) {
+            inputSize = (int) (romSize - romAddr);
+        }
+        byte[] compressed = rom.readBytes(romAddr, inputSize);
+        byte[] data = KosinskiReader.decompressModuled(compressed, 0);
+        return bytesToPatterns(data);
+    }
+
+    private Pattern[] loadUncompressedPatterns(Rom rom, int romAddr, int size) throws IOException {
+        byte[] data = rom.readBytes(romAddr, size);
+        return bytesToPatterns(data);
+    }
+
+    private Pattern[] bytesToPatterns(byte[] data) {
+        if (data == null || data.length == 0) {
+            return new Pattern[0];
+        }
+        int count = data.length / Pattern.PATTERN_SIZE_IN_ROM;
+        Pattern[] patterns = new Pattern[count];
+        for (int i = 0; i < count; i++) {
+            patterns[i] = new Pattern();
+            byte[] tile = Arrays.copyOfRange(
+                    data,
+                    i * Pattern.PATTERN_SIZE_IN_ROM,
+                    (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
+            patterns[i].fromSegaFormat(tile);
+        }
+        return patterns;
+    }
+
+    /**
+     * S3K object DPLC parser (Perform_DPLC format):
+     * startTile in upper 12 bits, (count-1) in lower 4 bits.
+     */
+    private static List<SpriteDplcFrame> loadObjectDplcFrames(RomByteReader reader, int dplcAddr) {
+        int offsetTableSize = reader.readU16BE(dplcAddr);
+        int frameCount = offsetTableSize / 2;
+
+        List<SpriteDplcFrame> frames = new ArrayList<>(frameCount);
+        for (int i = 0; i < frameCount; i++) {
+            int frameAddr = dplcAddr + reader.readU16BE(dplcAddr + i * 2);
+            int requestCount = reader.readU16BE(frameAddr) + 1;
+            frameAddr += 2;
+
+            List<TileLoadRequest> requests = new ArrayList<>(requestCount);
+            for (int r = 0; r < requestCount; r++) {
+                int entry = reader.readU16BE(frameAddr);
+                frameAddr += 2;
+                int startTile = (entry >> 4) & 0xFFF;
+                int count = (entry & 0xF) + 1;
+                requests.add(new TileLoadRequest(startTile, count));
+            }
+            frames.add(new SpriteDplcFrame(requests));
+        }
+        return frames;
+    }
+
+    /**
+     * Remaps mapping tile indices through object DPLC requests.
+     */
+    private static List<SpriteMappingFrame> applyDplcRemap(
+            List<SpriteMappingFrame> mappings, List<SpriteDplcFrame> dplcFrames) {
+        if (dplcFrames == null || dplcFrames.isEmpty()) {
+            return mappings;
+        }
+
+        List<SpriteMappingFrame> remapped = new ArrayList<>(mappings.size());
+        for (int i = 0; i < mappings.size(); i++) {
+            SpriteMappingFrame frame = mappings.get(i);
+            if (i >= dplcFrames.size()) {
+                remapped.add(frame);
+                continue;
+            }
+
+            SpriteDplcFrame dplc = dplcFrames.get(i);
+            int totalSlots = 0;
+            for (TileLoadRequest req : dplc.requests()) {
+                totalSlots += req.count();
+            }
+
+            int[] vramToSource = new int[totalSlots];
+            int slot = 0;
+            for (TileLoadRequest req : dplc.requests()) {
+                for (int t = 0; t < req.count(); t++) {
+                    vramToSource[slot++] = req.startTile() + t;
+                }
+            }
+
+            List<SpriteMappingPiece> remappedPieces = new ArrayList<>(frame.pieces().size());
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                int tileIdx = piece.tileIndex();
+                int wTiles = piece.widthTiles();
+                int hTiles = piece.heightTiles();
+                int tileCount = wTiles * hTiles;
+
+                if (tileIdx < 0 || tileIdx >= vramToSource.length) {
+                    remappedPieces.add(piece);
+                    continue;
+                }
+
+                int remappedBase = vramToSource[tileIdx];
+                boolean contiguous = true;
+                for (int t = 1; t < tileCount; t++) {
+                    int vramSlot = tileIdx + t;
+                    if (vramSlot >= vramToSource.length || vramToSource[vramSlot] != remappedBase + t) {
+                        contiguous = false;
+                        break;
+                    }
+                }
+
+                if (contiguous) {
+                    remappedPieces.add(new SpriteMappingPiece(
+                            piece.xOffset(), piece.yOffset(),
+                            wTiles, hTiles,
+                            remappedBase, piece.hFlip(), piece.vFlip(),
+                            piece.paletteIndex(), piece.priority()));
+                    continue;
+                }
+
+                for (int tx = 0; tx < wTiles; tx++) {
+                    for (int ty = 0; ty < hTiles; ty++) {
+                        int tileOffset = tx * hTiles + ty;
+                        int vramSlot = tileIdx + tileOffset;
+                        int remappedTile = vramSlot < vramToSource.length
+                                ? vramToSource[vramSlot]
+                                : tileIdx + tileOffset;
+                        remappedPieces.add(new SpriteMappingPiece(
+                                piece.xOffset() + tx * 8,
+                                piece.yOffset() + ty * 8,
+                                1, 1,
+                                remappedTile, piece.hFlip(), piece.vFlip(),
+                                piece.paletteIndex(), piece.priority()));
+                    }
+                }
+            }
+            remapped.add(new SpriteMappingFrame(remappedPieces));
+        }
+        return remapped;
     }
 
     private List<SpriteMappingFrame> adjustTileIndices(List<SpriteMappingFrame> frames, int adjustment) {

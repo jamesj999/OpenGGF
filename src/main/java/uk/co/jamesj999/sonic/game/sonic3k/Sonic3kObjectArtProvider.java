@@ -90,9 +90,30 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         // Load shield art (DPLC-driven, same for all zones)
         loadShieldArt();
 
+        if (zoneIndex == 0x00) {
+            loadAizBadnikArt();
+        }
+
         // Level-art sheets are registered later via registerLevelArtSheets()
         // since the level must be loaded first
         LOG.info("Sonic3kObjectArtProvider initialized for zone " + zoneIndex);
+    }
+
+    private void loadAizBadnikArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) {
+                return;
+            }
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            Sonic3kObjectArt art = new Sonic3kObjectArt(null, reader);
+            registerSheet(Sonic3kObjectArtKeys.BLOOMINATOR, art.loadBloominatorSheet(rom));
+            registerSheet(Sonic3kObjectArtKeys.RHINOBOT, art.loadRhinobotSheet(rom));
+            registerSheet(Sonic3kObjectArtKeys.MONKEY_DUDE, art.loadMonkeyDudeSheet(rom));
+            LOG.info("Loaded AIZ badnik art sheets (Bloominator, Rhinobot, MonkeyDude)");
+        } catch (IOException e) {
+            LOG.warning("Failed to load AIZ badnik art: " + e.getMessage());
+        }
     }
 
     private void loadHudArt() throws IOException {
