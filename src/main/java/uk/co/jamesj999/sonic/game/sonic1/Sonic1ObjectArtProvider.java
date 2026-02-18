@@ -209,12 +209,10 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         if (zoneIndex == Sonic1Constants.ZONE_SLZ) {
             loadSlzFireballArt(art);
             loadSlzCollapsingFloorArt(art);
-            loadSlzFanArt(rom);
-            loadSlzPylonArt(rom);
-            loadSlzFireballArt(rom);
-            loadSlzCollapsingFloorArt(rom);
-            loadSlzSeesawArt(rom);
-            loadSlzSeesawBallArt(rom);
+            loadSlzFanArt(art);
+            loadSlzPylonArt(art);
+            loadSlzSeesawArt(art);
+            loadSlzSeesawBallArt(art);
         }
 
         // Load LZ-specific art (breakable pole, flapping door, waterfall, push block, moving block,
@@ -241,7 +239,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
 
         // Bomb enemy appears in SLZ and SBZ
         if (zoneIndex == Sonic1Constants.ZONE_SLZ || zoneIndex == Sonic1Constants.ZONE_SBZ) {
-            loadBombArt(rom);
+            loadBombArt(art);
         }
 
         // Load SYZ-specific art (bumper, big spiked ball, small spikeball chain)
@@ -261,25 +259,25 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadSbzMovingBlockShortArt(art);
             loadSbzMovingBlockLongArt(art);
             loadSbzCollapsingFloorArt(art);
-            loadSbzVanishingPlatformArt(rom);
-            loadSbzTrapDoorArt(rom);
-            loadSbzSpinningPlatformArt(rom);
-            loadSbzSmallDoorArt(rom);
-            loadSbzElectrocuterArt(rom);
-            loadSbzFlamethrowerArt(rom);
-            loadSbzGirderArt(rom);
-            loadSbzSawArt(rom);
-            loadSbzStomperDoorArt(rom);
-            loadSbzRunningDiscArt(rom);
-            loadSbzJunctionArt(rom);
-            loadBallHogArt(rom);
+            loadSbzVanishingPlatformArt(art);
+            loadSbzTrapDoorArt(art);
+            loadSbzSpinningPlatformArt(art);
+            loadSbzSmallDoorArt(art);
+            loadSbzElectrocuterArt(art);
+            loadSbzFlamethrowerArt(art);
+            loadSbzGirderArt(art);
+            loadSbzSawArt(art);
+            loadSbzStomperDoorArt(art);
+            loadSbzRunningDiscArt(art);
+            loadSbzJunctionArt(art);
+            loadBallHogArt(art);
         }
 
         // Load boss art (GHZ/MZ/SYZ/LZ/SLZ: Eggman, weapons/chain anchor, exhaust flame)
         if (zoneIndex == Sonic1Constants.ZONE_GHZ || zoneIndex == Sonic1Constants.ZONE_MZ
                 || zoneIndex == Sonic1Constants.ZONE_SYZ || zoneIndex == Sonic1Constants.ZONE_LZ
                 || zoneIndex == Sonic1Constants.ZONE_SLZ) {
-            loadBossArt(rom);
+            loadBossArt(art);
         }
 
         currentZoneIndex = zoneIndex;
@@ -449,9 +447,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      *   Frame 2 = .sloping (same as frame 0, but rendered with x-flip)
      *   Frame 3 = .flat (same as frame 1)
      */
-    private void loadSlzSeesawArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SLZ_SEESAW_ADDR, "SlzSeesaw");
+    private void loadSlzSeesawArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SLZ_SEESAW_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SLZ seesaw art");
             return;
@@ -519,9 +517,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * Palette line 0: make_art_tile(ArtTile_SLZ_Spikeball,0,0)
      * Frame 0 (.red): 3x3 tile 0; Frame 1 (.silver): 3x3 tile 9
      */
-    private void loadSlzSeesawBallArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SLZ_SPIKEBALL_ADDR, "SlzSpikeball");
+    private void loadSlzSeesawBallArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SLZ_SPIKEBALL_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SLZ seesaw spikeball art");
             return;
@@ -548,9 +546,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         return frames;
     }
 
-    private void loadSlzFanArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SLZ_FAN_ADDR, "SlzFan");
+    private void loadSlzFanArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SLZ_FAN_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SLZ fan art");
             return;
@@ -629,9 +627,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * Palette line 0, priority=1 from disassembly:
      * make_art_tile(ArtTile_SLZ_Pylon,0,1)
      */
-    private void loadSlzPylonArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SLZ_PYLON_ADDR, "SlzPylon");
+    private void loadSlzPylonArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SLZ_PYLON_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SLZ pylon art");
             return;
@@ -2561,9 +2559,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * <p>
      * From disassembly: make_art_tile(ArtTile_Bomb,0,0) - palette 0, no priority bit.
      */
-    private void loadBombArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_BOMB_ADDR, "Bomb");
+    private void loadBombArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_BOMB_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load Bomb art");
             return;
@@ -2680,9 +2678,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * <p>
      * From disassembly: make_art_tile(ArtTile_Ball_Hog,1,0) - palette 1, no priority bit.
      */
-    private void loadBallHogArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_BALL_HOG_ADDR, "BallHog");
+    private void loadBallHogArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_BALL_HOG_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load Ball Hog art");
             return;
@@ -4182,9 +4180,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      *   Frame 3 (.gone):    (empty - no sprite pieces)
      * </pre>
      */
-    private void loadSbzVanishingPlatformArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SBZ_VANISHING_BLOCK_ADDR, "SbzVanishingBlock");
+    private void loadSbzVanishingPlatformArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SBZ_VANISHING_BLOCK_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SBZ vanishing platform art");
             return;
@@ -4241,9 +4239,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * </pre>
      * ArtTile_SBZ_Electric_Orb = $47E, palette line 0.
      */
-    private void loadSbzElectrocuterArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SBZ_ELECTROCUTER_ADDR, "SbzElectrocuter");
+    private void loadSbzElectrocuterArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SBZ_ELECTROCUTER_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SBZ electrocuter art");
             return;
@@ -4337,9 +4335,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * Mappings from docs/s1disasm/_maps/Saws and Pizza Cutters.asm (Map_Saw_internal):
      * 4 frames: pizzacutter1, pizzacutter2, groundsaw1, groundsaw2.
      */
-    private void loadSbzSawArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SBZ_SAW_ADDR, "SbzSaw");
+    private void loadSbzSawArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SBZ_SAW_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SBZ saw art");
             return;
@@ -4421,9 +4419,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * Mappings from docs/s1disasm/_maps/Flamethrower.asm (Map_Flame_internal):
      * 22 frames total - 11 pipe frames (0-10) and 11 valve frames (11-21).
      */
-    private void loadSbzFlamethrowerArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SBZ_FLAMETHROWER_ADDR, "SbzFlamethrower");
+    private void loadSbzFlamethrowerArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SBZ_FLAMETHROWER_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SBZ flamethrower art");
             return;
@@ -4641,9 +4639,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * </pre>
      * ArtTile_SBZ_Girder = $2F0, palette line 2.
      */
-    private void loadSbzGirderArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SBZ_GIRDER_ADDR, "SbzGirder");
+    private void loadSbzGirderArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SBZ_GIRDER_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SBZ girder art");
             return;
@@ -4705,9 +4703,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * </pre>
      * ArtTile_SBZ_Trap_Door = $492, palette line 2.
      */
-    private void loadSbzTrapDoorArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SBZ_TRAP_DOOR_ADDR, "SbzTrapDoor");
+    private void loadSbzTrapDoorArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SBZ_TRAP_DOOR_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SBZ trap door art");
             return;
@@ -4774,9 +4772,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * </pre>
      * ArtTile_SBZ_Door = $2E8, palette line 2.
      */
-    private void loadSbzSmallDoorArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SBZ_SMALL_DOOR_ADDR, "SbzSmallDoor");
+    private void loadSbzSmallDoorArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SBZ_SMALL_DOOR_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SBZ small door art");
             return;
@@ -4887,9 +4885,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * </pre>
      * ArtTile_SBZ_Spinning_Platform = $4DF, palette line 0.
      */
-    private void loadSbzSpinningPlatformArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SBZ_SPINNING_PLATFORM_ADDR, "SbzSpinningPlatform");
+    private void loadSbzSpinningPlatformArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SBZ_SPINNING_PLATFORM_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SBZ spinning platform art");
             return;
@@ -5937,9 +5935,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * The mappings consist of a single frame: one 2x2 (16x16) piece at (-8,-8).
      * From docs/s1disasm/_maps/Running Disc.asm: spritePiece -8, -8, 2, 2, 0, 0, 0, 0, 0
      */
-    private void loadSbzRunningDiscArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SBZ_RUNNING_DISC_ADDR, "SbzRunningDisc");
+    private void loadSbzRunningDiscArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SBZ_RUNNING_DISC_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SBZ running disc art");
             return;
@@ -5964,9 +5962,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * 17 mapping frames: 0-15 = gap at 16 rotational positions, 16 = full circle (child display).
      * Reference: docs/s1disasm/_maps/Rotating Junction.asm
      */
-    private void loadSbzJunctionArt(Rom rom) {
-        Pattern[] patterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SBZ_JUNCTION_ADDR, "SbzJunction");
+    private void loadSbzJunctionArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SBZ_JUNCTION_ADDR);
         if (patterns.length == 0) {
             LOGGER.warning("Failed to load SBZ junction art");
             return;
@@ -6155,11 +6153,11 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         registerSheet(ObjectArtKeys.SBZ_JUNCTION, sheet);
     }
 
-    private void loadSbzStomperDoorArt(Rom rom) {
-        Pattern[] stomperPatterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SBZ_STOMPER_ADDR, "SbzStomperDoor_Stomper");
-        Pattern[] doorPatterns = loadNemesisPatterns(rom,
-                Sonic1Constants.ART_NEM_SBZ_HORIZONTAL_DOOR_ADDR, "SbzStomperDoor_Door2");
+    private void loadSbzStomperDoorArt(Sonic1ObjectArt art) {
+        Pattern[] stomperPatterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SBZ_STOMPER_ADDR);
+        Pattern[] doorPatterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_SBZ_HORIZONTAL_DOOR_ADDR);
         if (stomperPatterns.length == 0) {
             LOGGER.warning("Failed to load SBZ stomper art for Object 0x6B");
             return;

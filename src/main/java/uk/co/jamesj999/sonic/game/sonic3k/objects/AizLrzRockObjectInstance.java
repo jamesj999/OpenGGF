@@ -3,6 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic3k.objects;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kObjectArtKeys;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kSfx;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kZoneIds;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -198,6 +199,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         int idx = Math.clamp(sizeIndex, 0, SIZE_TABLE.length - 1);
         int halfWidth = SIZE_TABLE[idx][0];
         int halfHeight = SIZE_TABLE[idx][1];
+        // TODO: Verify +0x0B offset against s3k disassembly sub_200A2 - may be from a different code path
         return new SolidObjectParams(halfWidth + 0x0B, halfHeight, halfHeight + 1);
     }
 
@@ -298,6 +300,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
 
             int debrisFrame = debrisStartFrame + (i % debrisFrameCount);
 
+            // TODO: Should use per-piece rendering (AizRockFragmentChild pattern) for ROM-accurate debris
             ObjectSpawn debrisSpawn = new ObjectSpawn(
                     currentX, currentY, 0, 0, 0, false, 0);
             RockDebrisChild debris = new RockDebrisChild(
@@ -310,6 +313,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
      * Pushable rock movement. ROM: sub_200A2.
      * Rate-limited to 1px every 17 frames, max 32px total.
      */
+    // TODO: ROM sub_200A2 may support bidirectional push - currently only pushes right
     private void handlePush(AbstractPlayableSprite player) {
         boolean wasPushing = contactPushingActive;
         contactPushingActive = false;
@@ -369,10 +373,10 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
             }
             int zone = lm.getCurrentZone();
             int act = lm.getCurrentAct();
-            if (zone == 0x00) { // AIZ
+            if (zone == Sonic3kZoneIds.ZONE_AIZ) {
                 return act == 0 ? ZoneVariant.AIZ1 : ZoneVariant.AIZ2;
             }
-            if (zone == 0x09) { // LRZ
+            if (zone == Sonic3kZoneIds.ZONE_LRZ) {
                 return act == 0 ? ZoneVariant.LRZ1 : ZoneVariant.LRZ2;
             }
         } catch (Exception e) {

@@ -113,7 +113,7 @@ public class TestSonic2PlcParser {
             for (PlcEntry entry : plc.entries()) {
                 assertTrue(String.format("PLC %d entry has invalid ROM address: 0x%06X",
                         i, entry.romAddr()),
-                        entry.romAddr() > 0 && entry.romAddr() < 0x100000);
+                        entry.romAddr() > 0 && entry.romAddr() < Sonic2Constants.DEFAULT_ROM_SIZE);
                 assertTrue(String.format("PLC %d entry has invalid tile index: 0x%03X",
                         i, entry.tileIndex()),
                         entry.tileIndex() >= 0 && entry.tileIndex() < 0x800);

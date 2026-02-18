@@ -34,7 +34,7 @@ public final class Sonic2PlcArtRegistry {
 
     static {
         // ===== Universal objects (Std1/Std2 PLCs) =====
-        // Note: HUD (ART_NEM_HUD_ADDR), life icons, ring art, numbers are raw patterns,
+        // Note: HUD (ART_NEM_HUD_ADDR), life icons, ring art are raw patterns,
         // not sprite sheets — they are loaded manually, not via this registry.
 
         reg(Sonic2Constants.ART_NEM_SPIKES_ADDR,
@@ -284,9 +284,6 @@ public final class Sonic2PlcArtRegistry {
                 Sonic2ObjectArtKeys.CNZ_BOSS, Sonic2ObjectArt::loadCNZBossSheet);
         reg(Sonic2Constants.ART_NEM_MCZ_BOSS_ADDR,
                 Sonic2ObjectArtKeys.MCZ_BOSS, Sonic2ObjectArt::loadMCZBossSheet);
-        // EggChoppers share EHZ boss key — in practice only one appears per PLC
-        reg(Sonic2Constants.ART_NEM_EGG_CHOPPERS_ADDR,
-                Sonic2ObjectArtKeys.EHZ_BOSS, Sonic2ObjectArt::loadEHZBossSheet);
     }
 
     /**

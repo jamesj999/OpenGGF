@@ -157,6 +157,9 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             }
             // Ground fire (Obj20 routine $A) uses different art/mappings than fire source
             registerSheet(Sonic2ObjectArtKeys.GROUND_FIRE, artLoader.loadGroundFireSheet());
+            // Lava bubble / fire shooter (Obj20) - ensure explicitly loaded for HTZ
+            // even if PLC timing hasn't triggered yet
+            registerIfAbsent(Sonic2ObjectArtKeys.LAVA_BUBBLE, artLoader::loadLavaBubbleSheet);
         }
 
         // === Boss art (zone-conditional, Phase 3 would use boss PLCs) ===

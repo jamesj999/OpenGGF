@@ -25,6 +25,9 @@ import java.util.logging.Logger;
 public class Sonic1ObjectArt {
     private static final Logger LOG = Logger.getLogger(Sonic1ObjectArt.class.getName());
 
+    // Read buffer for Nemesis decompression - NemesisReader stops at stream end
+    private static final int NEMESIS_READ_BUFFER_SIZE = 8192;
+
     private final Rom rom;
     private final RomByteReader reader;
 
@@ -47,7 +50,14 @@ public class Sonic1ObjectArt {
         Pattern[] patterns = loadNemesisPatterns(artAddr);
         if (patterns.length == 0) return null;
 
-        List<SpriteMappingFrame> frames = S1SpriteDataLoader.loadMappingFrames(reader, mappingAddr);
+        List<SpriteMappingFrame> frames;
+        try {
+            frames = S1SpriteDataLoader.loadMappingFrames(reader, mappingAddr);
+        } catch (IllegalArgumentException e) {
+            LOG.warning("Failed to load S1 mappings at 0x" + Integer.toHexString(mappingAddr)
+                    + ": " + e.getMessage());
+            return null;
+        }
         if (frames.isEmpty()) return null;
 
         return new ObjectSpriteSheet(patterns, frames, paletteIndex, bankSize);
@@ -93,7 +103,7 @@ public class Sonic1ObjectArt {
      */
     public Pattern[] loadNemesisPatterns(int address) {
         try {
-            byte[] compressed = rom.readBytes(address, 8192);
+            byte[] compressed = rom.readBytes(address, NEMESIS_READ_BUFFER_SIZE);
             try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
                  ReadableByteChannel channel = Channels.newChannel(bais)) {
                 byte[] decompressed = NemesisReader.decompress(channel);

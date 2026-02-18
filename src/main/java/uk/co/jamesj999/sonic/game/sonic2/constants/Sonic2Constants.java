@@ -61,33 +61,36 @@ public class Sonic2Constants {
     public static final int PLC_SCZ2 = 37;
     public static final int PLC_RESULTS = 38;        // Results screen
     public static final int PLC_SIGNPOST = 39;       // Signpost/goal plate
-    public static final int PLC_EHZ_BOSS = 40;       // Eggpod + EHZ boss + choppers + fiery explosion
-    public static final int PLC_HTZ_BOSS = 41;
-    public static final int PLC_MTZ_BOSS = 42;
-    public static final int PLC_OOZ_BOSS = 43;
+    // Boss PLCs (verified against s2disasm ArtLoadCues offset table, s2.asm:88676-88704)
+    public static final int PLC_CPZ_BOSS = 40;       // Eggpod + CPZ boss drip + pipes + jets + smoke
+    public static final int PLC_EHZ_BOSS = 41;       // EHZ boss car + choppers
+    public static final int PLC_HTZ_BOSS = 42;
+    public static final int PLC_ARZ_BOSS = 43;
     public static final int PLC_MCZ_BOSS = 44;
     public static final int PLC_CNZ_BOSS = 45;
-    public static final int PLC_CPZ_BOSS = 46;
-    public static final int PLC_DEZ_BOSS = 47;
-    public static final int PLC_ARZ_BOSS = 48;
-    public static final int PLC_WFZ_BOSS = 49;
-    public static final int PLC_ANIMALS_EHZ = 50;    // Per-zone animal pairs
-    public static final int PLC_ANIMALS_MTZ = 51;
-    public static final int PLC_ANIMALS_WFZ = 52;
-    public static final int PLC_ANIMALS_HTZ = 53;
+    public static final int PLC_MTZ_BOSS = 46;
+    public static final int PLC_OOZ_BOSS = 47;
+    public static final int PLC_FIERY_EXPLOSION = 48;
+    public static final int PLC_DEZ_BOSS = 49;
+    // Per-zone animal pairs (verified against s2disasm, s2.asm:88686-88697)
+    public static final int PLC_ANIMALS_EHZ = 50;
+    public static final int PLC_ANIMALS_MCZ = 51;
+    public static final int PLC_ANIMALS_HTZ_MTZ_WFZ = 52; // HTZ, MTZ, WFZ share one animal PLC
+    public static final int PLC_ANIMALS_DEZ = 53;
     public static final int PLC_ANIMALS_HPZ = 54;
     public static final int PLC_ANIMALS_OOZ = 55;
-    public static final int PLC_ANIMALS_MCZ = 56;
+    public static final int PLC_ANIMALS_SCZ = 56;
     public static final int PLC_ANIMALS_CNZ = 57;
     public static final int PLC_ANIMALS_CPZ = 58;
     public static final int PLC_ANIMALS_ARZ = 59;
-    public static final int PLC_ANIMALS_SCZ = 60;
-    public static final int PLC_ANIMALS_DEZ = 61;
-    public static final int PLC_SPECIAL_STAGE = 62;
-    public static final int PLC_SPECIAL_STAGE_RESULTS = 63;
-    public static final int PLC_ENDING = 64;
-    public static final int PLC_TITLE = 65;
-    public static final int PLC_CREDITS = 66;
+    // Special stage and misc PLCs (verified against s2disasm, s2.asm:88698-88704)
+    public static final int PLC_SPECIAL_STAGE = 60;
+    public static final int PLC_SPECIAL_STAGE_BOMBS = 61;
+    public static final int PLC_WFZ_BOSS = 62;
+    public static final int PLC_TORNADO = 63;
+    public static final int PLC_CAPSULE = 64;
+    public static final int PLC_EXPLOSION = 65;
+    public static final int PLC_RESULTS_TAILS = 66;
 
     public static final int LEVEL_PALETTE_DIR = 0x2782;
     public static final int SONIC_TAILS_PALETTE_ADDR = 0x29E2;
