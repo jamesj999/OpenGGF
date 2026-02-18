@@ -468,6 +468,19 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
         return SOLID_PARAMS;
     }
 
+    /**
+     * Disable solid collision while Sonic is grabbed and being rotated.
+     * In the ROM, SolidObject is only called during Jun_Action (routine 2),
+     * NOT during Jun_Release (routine 6). Without this gate, the solid
+     * contact system pushes Sonic outward from the disc center (causing the
+     * "too far from centre" offset) and can crush him on counter-clockwise
+     * rotations.
+     */
+    @Override
+    public boolean isSolidFor(AbstractPlayableSprite player) {
+        return routine != Routine.RELEASE;
+    }
+
     // ========================================================================
     // SolidObjectListener
     // ========================================================================
