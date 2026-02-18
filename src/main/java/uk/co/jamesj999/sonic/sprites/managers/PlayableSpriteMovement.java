@@ -904,6 +904,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		SensorResult selectedResult = selectSensorWithAngle(rightSensor, leftSensor);
 
 		if (selectedResult == null) {
+			// ROM's FindFloor/FindWall always return a distance (never null).
+			// Our sensors can return null at ground-mode transitions on tight
+			// curves. When stick_to_convex is set (e.g. Running Disc), the ROM
+			// would hit the >14px threshold path and stay grounded (S1 AnglePos
+			// loc_146CC: tst.b stick_to_convex / bne.s snap). Match that here.
+			if (sprite.isStickToConvex()) {
+				return;
+			}
 			if (!hasObjectSupport()) {
 				sprite.setAir(true);
 				sprite.setPushing(false);
@@ -1066,6 +1074,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// detections against the narrow tunnel walls. S1's ROM has no separate
 		// ground wall check (01 Sonic.asm: Sonic_MdNormal has no CalcRoomInFront).
 		if (sprite.isTunnelMode()) {
+			return;
+		}
+		// stick_to_convex: Sonic is on a convex loop surface (e.g. Running Disc in SBZ).
+		// S1's ROM has no CalcRoomInFront, so when stick_to_convex is active the wall
+		// check must be suppressed to prevent push sensors from detecting the disc's
+		// curved terrain as walls — which zeros gSpeed and disrupts traversal.
+		// In S2/S3K, objects that set stick_to_convex also set tunnelMode (caught above).
+		if (sprite.isStickToConvex()) {
 			return;
 		}
 		Sensor[] pushSensors = sprite.getPushSensors();
@@ -1425,26 +1441,42 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		return selected;
 	}
 
-	/** Apply angle with ROM's snapping logic (s2.asm:42649-42674) */
+	/**
+	 * Apply angle from terrain sensor with game-specific snapping logic.
+	 *
+	 * S1 (Sonic_Angle in s1disasm/_incObj/Sonic AnglePos.asm:164-183):
+	 *   - Flagged angles (odd): cardinal snap from current angle
+	 *   - Non-flagged angles: directly apply sensor angle (no diff check)
+	 *
+	 * S2/S3K (Sonic_Angle in s2.asm:42649-42674):
+	 *   - Flagged angles (odd): cardinal snap from current angle
+	 *   - Non-flagged angles: apply directly only if diff < 0x20,
+	 *     otherwise cardinal snap (prevents jarring jumps on convex surfaces)
+	 */
 	private void applyAngleFromSensor(byte sensorAngle) {
-		// Flagged angles (odd) snap to cardinal using current angle
+		// Flagged angles (odd) snap to cardinal using current angle (both S1 and S2)
 		if ((sensorAngle & 0x01) != 0) {
 			sprite.setAngle((byte) ((sprite.getAngle() + 0x20) & 0xC0));
 			return;
 		}
 
-		int currentAngle = sprite.getAngle() & 0xFF;
-		int newAngle = sensorAngle & 0xFF;
-		int diff = Math.abs(newAngle - currentAngle);
-		if (diff > 0x80) diff = 0x100 - diff;
+		// S2/S3K: large-diff cardinal snap (s2.asm:42658-42664)
+		// S1 lacks this check — directly applies sensor angle
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		if (featureSet == null || featureSet.angleDiffCardinalSnap()) {
+			int currentAngle = sprite.getAngle() & 0xFF;
+			int newAngle = sensorAngle & 0xFF;
+			int diff = Math.abs(newAngle - currentAngle);
+			if (diff > 0x80) diff = 0x100 - diff;
 
-		if (diff >= 0x20) {
-			// ROM uses CURRENT angle to determine cardinal snap direction (s2.asm:42670)
-			// This prevents premature ground mode transitions on sharp curves
-			sprite.setAngle((byte) ((currentAngle + 0x20) & 0xC0));
-		} else {
-			sprite.setAngle(sensorAngle);
+			if (diff >= 0x20) {
+				// ROM uses CURRENT angle to determine cardinal snap direction (s2.asm:42670)
+				sprite.setAngle((byte) ((currentAngle + 0x20) & 0xC0));
+				return;
+			}
 		}
+
+		sprite.setAngle(sensorAngle);
 	}
 
 	/** ROM-accurate ground mode from angle (s2.asm:42551) */
