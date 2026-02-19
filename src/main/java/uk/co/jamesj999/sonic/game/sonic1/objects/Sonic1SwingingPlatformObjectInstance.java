@@ -353,8 +353,11 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
 
         // Render chain links from anchor toward platform
         // Iterate in reverse so links closer to anchor render first (behind)
+        // Disasm: bclr #6,obGfx(a1) clears palette bit 14 for all children (palette 0);
+        //         bset #6,obGfx(a1) restores it only for the anchor (palette 2).
         for (int i = chainDistances.length - 1; i >= 0; i--) {
-            renderer.drawFrameIndex(linkFrame[i], linkX[i], linkY[i], false, false);
+            int palOverride = (linkFrame[i] == 1) ? 0 : -1;
+            renderer.drawFrameIndex(linkFrame[i], linkX[i], linkY[i], false, false, palOverride);
         }
 
         // Render platform/ball at end of chain (frame 0)
