@@ -1,8 +1,7 @@
-package uk.co.jamesj999.sonic.game.sonic2;
+package uk.co.jamesj999.sonic.game;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
-import uk.co.jamesj999.sonic.game.GameServices;
-import uk.co.jamesj999.sonic.game.LevelState;
+import uk.co.jamesj999.sonic.game.sonic2.LevelTimer;
 import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 
 /**
@@ -90,4 +89,3 @@ public class LevelGamestate implements LevelState {
         return timer.getElapsedSeconds();
     }
 }
-

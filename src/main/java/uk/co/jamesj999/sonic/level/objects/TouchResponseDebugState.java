@@ -10,7 +10,11 @@ public class TouchResponseDebugState {
     private int playerHeight;
     private int playerYRadius;
     private boolean crouching;
+    private boolean enabled;
     private final List<TouchResponseDebugHit> hits = new ArrayList<>();
+
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
     void setPlayer(int playerX, int playerY, int playerHeight, int playerYRadius, boolean crouching) {
         this.playerX = playerX;

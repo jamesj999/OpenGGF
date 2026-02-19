@@ -146,25 +146,33 @@ public class MemoryStats {
         activeSection = null;
     }
 
+    // Reusable list for top allocators to avoid per-call allocation
+    private final List<SectionAllocation> topAllocatorsCache = new ArrayList<>();
+
     /**
      * Get top allocating sections sorted by bytes allocated (descending).
+     * The returned list is reused across calls — do not hold references.
      */
     public List<SectionAllocation> getTopAllocators(int limit) {
+        topAllocatorsCache.clear();
         int effectiveFrames = Math.min(frameCount, AVERAGING_FRAMES);
         if (effectiveFrames == 0) {
-            return List.of();
+            return topAllocatorsCache;
         }
 
-        List<SectionAllocation> result = new ArrayList<>();
         for (Map.Entry<String, Long> entry : sectionAllocSums.entrySet()) {
             long avgBytes = entry.getValue() / effectiveFrames;
             if (avgBytes > 0) {
-                result.add(new SectionAllocation(entry.getKey(), avgBytes));
+                topAllocatorsCache.add(new SectionAllocation(entry.getKey(), avgBytes));
             }
         }
 
-        result.sort(Comparator.comparingLong(SectionAllocation::bytesPerFrame).reversed());
-        return result.size() <= limit ? result : result.subList(0, limit);
+        topAllocatorsCache.sort(Comparator.comparingLong(SectionAllocation::bytesPerFrame).reversed());
+        if (topAllocatorsCache.size() > limit) {
+            // Trim in-place rather than creating a subList view
+            topAllocatorsCache.subList(limit, topAllocatorsCache.size()).clear();
+        }
+        return topAllocatorsCache;
     }
 
     public record SectionAllocation(String name, long bytesPerFrame) {
@@ -223,28 +231,39 @@ public class MemoryStats {
         return allocationRateBytesPerSec / (1024.0 * 1024.0);
     }
 
+    // Reusable snapshot to avoid per-frame record allocation
+    private final Snapshot reusableSnapshot = new Snapshot();
+
     /**
-     * Returns a snapshot of current memory stats for display.
+     * Returns a reusable snapshot of current memory stats for display.
+     * The returned object is reused — do not hold references across frames.
      */
     public Snapshot snapshot() {
-        return new Snapshot(
-                getHeapUsedMB(),
-                getHeapMaxMB(),
-                getHeapPercentage(),
-                getTotalGcCount(),
-                getTotalGcTimeMs(),
-                getAllocationRateMBPerSec(),
-                getTopAllocators(5)
-        );
+        reusableSnapshot.heapUsedMB = getHeapUsedMB();
+        reusableSnapshot.heapMaxMB = getHeapMaxMB();
+        reusableSnapshot.heapPercentage = getHeapPercentage();
+        reusableSnapshot.gcCount = getTotalGcCount();
+        reusableSnapshot.gcTimeMs = getTotalGcTimeMs();
+        reusableSnapshot.allocationRateMBPerSec = getAllocationRateMBPerSec();
+        reusableSnapshot.topAllocators = getTopAllocators(5);
+        return reusableSnapshot;
     }
 
-    public record Snapshot(
-            double heapUsedMB,
-            double heapMaxMB,
-            int heapPercentage,
-            long gcCount,
-            long gcTimeMs,
-            double allocationRateMBPerSec,
-            List<SectionAllocation> topAllocators
-    ) {}
+    public static class Snapshot {
+        double heapUsedMB;
+        double heapMaxMB;
+        int heapPercentage;
+        long gcCount;
+        long gcTimeMs;
+        double allocationRateMBPerSec;
+        List<SectionAllocation> topAllocators = List.of();
+
+        public double heapUsedMB() { return heapUsedMB; }
+        public double heapMaxMB() { return heapMaxMB; }
+        public int heapPercentage() { return heapPercentage; }
+        public long gcCount() { return gcCount; }
+        public long gcTimeMs() { return gcTimeMs; }
+        public double allocationRateMBPerSec() { return allocationRateMBPerSec; }
+        public List<SectionAllocation> topAllocators() { return topAllocators; }
+    }
 }

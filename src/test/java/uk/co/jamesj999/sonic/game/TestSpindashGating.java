@@ -1,10 +1,11 @@
 package uk.co.jamesj999.sonic.game;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import uk.co.jamesj999.sonic.game.sonic1.Sonic1GameModule;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2GameModule;
-import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+import uk.co.jamesj999.sonic.tests.TestablePlayableSprite;
 
 import static org.junit.Assert.*;
 
@@ -21,10 +22,15 @@ public class TestSpindashGating {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
     }
 
+    @After
+    public void tearDown() {
+        GameModuleRegistry.reset();
+    }
+
     @Test
     public void testSonic1Module_SpindashDisabled() {
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
-        TestableSprite sprite = new TestableSprite("test", (short) 100, (short) 100);
+        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
         assertNotNull("Feature set should be set", fs);
@@ -35,7 +41,7 @@ public class TestSpindashGating {
     @Test
     public void testSonic2Module_SpindashEnabled() {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
-        TestableSprite sprite = new TestableSprite("test", (short) 100, (short) 100);
+        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
         assertNotNull("Feature set should be set", fs);
@@ -47,7 +53,7 @@ public class TestSpindashGating {
     @Test
     public void testSonic1Module_SpindashFlagNeverSet() {
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
-        TestableSprite sprite = new TestableSprite("test", (short) 100, (short) 100);
+        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         // Simulate ducking + jump press scenario:
         // In S1, even if the sprite is crouching, the spindash flag should never be set
@@ -59,7 +65,7 @@ public class TestSpindashGating {
     public void testModuleSwitch_UpdatesFeatureSet() {
         // Start with S2
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
-        TestableSprite sprite = new TestableSprite("test", (short) 100, (short) 100);
+        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
         assertTrue("Initially S2 spindash", sprite.getPhysicsFeatureSet().spindashEnabled());
 
         // Switch to S1 and reset state
@@ -68,39 +74,4 @@ public class TestSpindashGating {
         assertFalse("After switch to S1, spindash disabled", sprite.getPhysicsFeatureSet().spindashEnabled());
     }
 
-    private static class TestableSprite extends AbstractPlayableSprite {
-        public TestableSprite(String code, short x, short y) {
-            super(code, x, y);
-        }
-
-        @Override
-        public void draw() {
-        }
-
-        @Override
-        public void defineSpeeds() {
-            runAccel = 12;
-            runDecel = 128;
-            friction = 12;
-            max = 1536;
-            jump = 1664;
-            slopeRunning = 32;
-            slopeRollingDown = 80;
-            slopeRollingUp = 20;
-            rollDecel = 32;
-            minStartRollSpeed = 128;
-            minRollSpeed = 128;
-            maxRoll = 4096;
-            rollHeight = 28;
-            runHeight = 38;
-            standXRadius = 9;
-            standYRadius = 19;
-            rollXRadius = 7;
-            rollYRadius = 14;
-        }
-
-        @Override
-        protected void createSensorLines() {
-        }
-    }
 }

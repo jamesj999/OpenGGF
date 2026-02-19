@@ -82,6 +82,16 @@ public final class Sonic1Constants {
     // Sonic's Dynamic Pattern Load Cues (S1 format: byte header)
     public static final int DPLC_SONIC_ADDR = 0x22310;
 
+    // ---- Object sprite mapping addresses (S1 format, verified via ROM binary pattern search) ----
+    public static final int MAP_LAMPPOST_ADDR    = 0x0178A4; // Map_Lamp (Obj79: 4 frames)
+    public static final int MAP_SIGNPOST_ADDR    = 0x00F3C4; // Map_Sign (Obj0D: 5 frames)
+    public static final int MAP_PURPLE_ROCK_ADDR = 0x00D79C; // Map_PRock (Obj3B: 2 frames)
+    public static final int MAP_CHOPPER_ADDR     = 0x00B254; // Map_Chop (Obj2B: 2 frames)
+    public static final int MAP_GHZ_EDGE_WALL_ADDR = 0x00E8DF; // Map_Edge (Obj44: 3 frames)
+    public static final int MAP_BRIDGE_ADDR      = 0x007FB2; // Map_Bri (Obj11: 3 frames)
+    public static final int MAP_SPIKE_ADDR       = 0x00D676; // Map_Spike (Obj36: 6 frames)
+    public static final int MAP_MONITOR_ADDR     = 0x00AC14; // Map_Monitor (Obj26: 12 frames)
+
     // Sonic's animation scripts (31 animations)
     public static final int SONIC_ANIM_DATA_ADDR = 0x1421C;
     public static final int SONIC_ANIM_SCRIPT_COUNT = 31;

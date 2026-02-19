@@ -14,6 +14,7 @@ public class PatternSpriteRenderer {
     private int patternBase = -1;
     private final FrameBounds[] frameBoundsCache;
     private final PatternBounds[] patternBoundsCache;
+    private final PatternDesc reusableDesc = new PatternDesc();
 
     public PatternSpriteRenderer(SpriteSheet<? extends SpriteFrame<? extends SpriteFramePiece>> spriteSheet) {
         this.spriteSheet = spriteSheet;
@@ -108,7 +109,7 @@ public class PatternSpriteRenderer {
             return;
         }
         SpriteFramePiece piece = pieces.get(pieceIndex);
-        drawFramePieces(List.of(piece), originX, originY, hFlip, vFlip, spriteSheet.getPaletteIndex());
+        drawSinglePiece(piece, originX, originY, hFlip, vFlip, spriteSheet.getPaletteIndex());
     }
 
     public void drawPatternIndex(int patternIndex, int drawX, int drawY, int paletteIndex) {
@@ -124,9 +125,9 @@ public class PatternSpriteRenderer {
         // Build PatternDesc with masked index (for flip/palette flags)
         int descIndex = fullPatternId & 0x7FF;
         descIndex |= (palette & 0x3) << 13;
-        PatternDesc desc = new PatternDesc(descIndex);
+        reusableDesc.set(descIndex);
         // Use full pattern ID for texture lookup (avoids 11-bit limit)
-        GraphicsManager.getInstance().renderPatternWithId(fullPatternId, desc, drawX, drawY);
+        GraphicsManager.getInstance().renderPatternWithId(fullPatternId, reusableDesc, drawX, drawY);
     }
 
     private void cachePatterns(GraphicsManager graphicsManager, int basePatternIndex) {
@@ -156,6 +157,38 @@ public class PatternSpriteRenderer {
         drawFramePieces(frame.pieces(), originX, originY, hFlip, vFlip, paletteIndex);
     }
 
+    private void drawSinglePiece(SpriteFramePiece piece,
+            int originX,
+            int originY,
+            boolean hFlip,
+            boolean vFlip,
+            int paletteIndex) {
+        boolean piecePriority = piece.priority();
+        SpritePieceRenderer.renderPiece(
+                piece,
+                originX,
+                originY,
+                patternBase,
+                paletteIndex,
+                hFlip,
+                vFlip,
+                (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {
+                    int descIndex = patternIdx & 0x7FF;
+                    if (piecePriority) {
+                        descIndex |= 0x8000;
+                    }
+                    if (pieceHFlip) {
+                        descIndex |= 0x800;
+                    }
+                    if (pieceVFlip) {
+                        descIndex |= 0x1000;
+                    }
+                    descIndex |= (palIdx & 0x3) << 13;
+                    reusableDesc.set(descIndex);
+                    GraphicsManager.getInstance().renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
+                });
+    }
+
     private void drawFramePieces(List<? extends SpriteFramePiece> pieces,
             int originX,
             int originY,
@@ -168,9 +201,10 @@ public class PatternSpriteRenderer {
         // sprite index = higher priority.
         for (int i = pieces.size() - 1; i >= 0; i--) {
             SpriteFramePiece piece = pieces.get(i);
+            boolean piecePriority = piece.priority();
             // VDP priority is independent of palette selection; keep the configured palette.
-            SpritePieceRenderer.renderPieces(
-                    List.of(piece),
+            SpritePieceRenderer.renderPiece(
+                    piece,
                     originX,
                     originY,
                     patternBase,
@@ -180,7 +214,7 @@ public class PatternSpriteRenderer {
                     (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {
                         // Build PatternDesc with masked index (for flip/palette flags)
                         int descIndex = patternIdx & 0x7FF;
-                        if (piece.priority()) {
+                        if (piecePriority) {
                             descIndex |= 0x8000;
                         }
                         if (pieceHFlip) {
@@ -190,9 +224,9 @@ public class PatternSpriteRenderer {
                             descIndex |= 0x1000;
                         }
                         descIndex |= (palIdx & 0x3) << 13;
-                        PatternDesc desc = new PatternDesc(descIndex);
+                        reusableDesc.set(descIndex);
                         // Use full patternIndex for texture lookup (avoids 11-bit limit)
-                        GraphicsManager.getInstance().renderPatternWithId(patternIdx, desc, drawX, drawY);
+                        GraphicsManager.getInstance().renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
                     });
         }
     }

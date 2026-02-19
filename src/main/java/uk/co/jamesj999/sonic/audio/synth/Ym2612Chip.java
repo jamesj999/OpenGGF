@@ -401,6 +401,7 @@ public class Ym2612Chip {
 
     private DacData dacData;
     private int currentDacSampleId = -1;
+    private byte[] currentDacSampleData;
     private int dacLatchedValue;
     private double dacPos;
     private double dacStep = 1.0;
@@ -902,6 +903,7 @@ public class Ym2612Chip {
                 dacLatchedValue = (val & 0xFF) - 128;
                 dacHasLatched = true;
                 currentDacSampleId = -1;
+                currentDacSampleData = null;
                 break;
             case 0x2B:
                 dacEnabled = (val & 0x80) != 0;
@@ -1758,6 +1760,10 @@ public class Ym2612Chip {
 
     }
 
+    private static int getVoiceByte(byte[] v, int idx) {
+        return (idx >= 0 && idx < v.length) ? (v[idx] & 0xFF) : 0;
+    }
+
     public void setInstrument(int chIdx, byte[] voice) {
         if (chIdx < 0 || chIdx >= 6 || voice.length < 1)
             return;
@@ -1787,10 +1793,7 @@ public class Ym2612Chip {
             voice = voicePadScratch;
         }
 
-        final byte[] v = voice;
-        java.util.function.IntUnaryOperator get = (idx) -> (idx >= 0 && idx < v.length) ? (v[idx] & 0xFF) : 0;
-
-        int val00 = get.applyAsInt(0);
+        int val00 = getVoiceByte(voice, 0);
         int feedback = (val00 >> 3) & 7;
         int algo = val00 & 7;
 
@@ -1799,12 +1802,12 @@ public class Ym2612Chip {
         // Map SMPS voice data to YM operator order using static index arrays
         // and instance scratch arrays to avoid per-call allocations
         for (int i = 0; i < 4; i++) {
-            scratchDt[i] = get.applyAsInt(DT_IDX[i]);
-            scratchTl[i] = hasTl ? get.applyAsInt(TL_IDX[i]) : 0;
-            scratchRsAr[i] = get.applyAsInt(RS_AR_IDX[i]);
-            scratchAmD1[i] = get.applyAsInt(AM_D1R_IDX[i]);
-            scratchD2r[i] = get.applyAsInt(D2R_IDX[i]);
-            scratchD1lRr[i] = get.applyAsInt(D1L_RR_IDX[i]);
+            scratchDt[i] = getVoiceByte(voice, DT_IDX[i]);
+            scratchTl[i] = hasTl ? getVoiceByte(voice, TL_IDX[i]) : 0;
+            scratchRsAr[i] = getVoiceByte(voice, RS_AR_IDX[i]);
+            scratchAmD1[i] = getVoiceByte(voice, AM_D1R_IDX[i]);
+            scratchD2r[i] = getVoiceByte(voice, D2R_IDX[i]);
+            scratchD1lRr[i] = getVoiceByte(voice, D1L_RR_IDX[i]);
         }
 
         for (int slot = 0; slot < 4; slot++) {
@@ -1826,6 +1829,7 @@ public class Ym2612Chip {
         DacData.DacEntry entry = dacData.mapping.get(note);
         if (entry != null) {
             this.currentDacSampleId = entry.sampleId;
+            this.currentDacSampleData = dacData.samples.get(entry.sampleId);
             this.dacPos = 0;
             int rateByte = entry.rate & 0xFF;
             // Z80 djnz loops (N-1) times; first iteration is in BaseCycles.
@@ -1843,6 +1847,7 @@ public class Ym2612Chip {
 
     public void stopDac() {
         currentDacSampleId = -1;
+        currentDacSampleData = null;
         dacHasLatched = false;
         dacPos = 0;
     }
@@ -1853,7 +1858,7 @@ public class Ym2612Chip {
         }
         int sample = 0;
         if (currentDacSampleId != -1 && dacData != null) {
-            byte[] data = dacData.samples.get(currentDacSampleId);
+            byte[] data = currentDacSampleData;
             if (data != null && dacPos < data.length) {
                 int idx = (int) dacPos;
                 double frac = dacPos - idx;
@@ -1861,13 +1866,14 @@ public class Ym2612Chip {
                 if (dacInterpolate) {
                     int s2 = (idx + 1 < data.length) ? ((data[idx + 1] & 0xFF) - 128) : s1;
                     double lerp = s1 * (1.0 - frac) + s2 * frac;
-                    sample = (int) Math.round(lerp);
+                    sample = lerp >= 0 ? (int)(lerp + 0.5) : (int)(lerp - 0.5);
                 } else {
                     sample = s1;
                 }
                 dacPos += dacStep;
                 if (dacPos >= data.length) {
                     currentDacSampleId = -1;
+                    currentDacSampleData = null;
                     dacPos = 0;
                 }
             }

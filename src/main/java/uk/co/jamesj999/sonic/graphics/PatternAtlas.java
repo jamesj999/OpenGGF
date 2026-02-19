@@ -5,6 +5,7 @@ import uk.co.jamesj999.sonic.level.Pattern;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +32,11 @@ public class PatternAtlas {
     private final int tilesPerColumn;
     private final int maxSlots;
 
-    private final Map<Integer, Entry> entries = new HashMap<>();
+    // Tiered lookup: flat array for dense low IDs (level tiles), HashMap for sparse high IDs.
+    // Eliminates Integer autoboxing on the hot path (level tile rendering, 1000-2000+ lookups/frame).
+    private static final int FAST_ENTRIES_SIZE = 8192;
+    private Entry[] fastEntries = new Entry[FAST_ENTRIES_SIZE];
+    private final Map<Integer, Entry> sparseEntries = new HashMap<>();
     private final List<AtlasPage> pages = new ArrayList<>();
     // Lazily allocated to avoid LWJGL native library loading in headless tests
     private ByteBuffer patternUploadBuffer;
@@ -155,7 +160,10 @@ public class PatternAtlas {
     }
 
     public Entry getEntry(int patternId) {
-        return entries.get(patternId);
+        if (patternId >= 0 && patternId < FAST_ENTRIES_SIZE) {
+            return fastEntries[patternId];
+        }
+        return sparseEntries.get(patternId);
     }
 
     /**
@@ -167,7 +175,12 @@ public class PatternAtlas {
      * @return true if the pattern was removed, false if it wasn't cached
      */
     public boolean removeEntry(int patternId) {
-        return entries.remove(patternId) != null;
+        if (patternId >= 0 && patternId < FAST_ENTRIES_SIZE) {
+            Entry old = fastEntries[patternId];
+            fastEntries[patternId] = null;
+            return old != null;
+        }
+        return sparseEntries.remove(patternId) != null;
     }
 
     /**
@@ -184,17 +197,17 @@ public class PatternAtlas {
      */
     public boolean aliasEntry(int aliasId, int targetId) {
         // Don't overwrite existing entries (e.g., ring patterns)
-        if (entries.containsKey(aliasId)) {
+        if (getEntry(aliasId) != null) {
             return false;
         }
-        Entry target = entries.get(targetId);
+        Entry target = getEntry(targetId);
         if (target == null) {
             return false;
         }
         // Create a new entry with the alias ID but same atlas coordinates as target
         Entry alias = new Entry(aliasId, target.atlasIndex(), target.slot(),
                 target.tileX(), target.tileY(), target.u0(), target.v0(), target.u1(), target.v1());
-        entries.put(aliasId, alias);
+        putEntry(aliasId, alias);
         return true;
     }
 
@@ -218,7 +231,8 @@ public class PatternAtlas {
     private void cleanupCommon() {
         initialized = false;
         batchMode = false;
-        entries.clear();
+        Arrays.fill(fastEntries, null);
+        sparseEntries.clear();
         pages.clear();
         cpuPixels = null;
         dirtyPages = null;
@@ -233,7 +247,7 @@ public class PatternAtlas {
     }
 
     private Entry ensureEntry(int patternId, boolean headless) {
-        Entry existing = entries.get(patternId);
+        Entry existing = getEntry(patternId);
         if (existing != null) {
             return existing;
         }
@@ -257,8 +271,16 @@ public class PatternAtlas {
         float v1 = (pixelY + TILE_SIZE - UV_INSET_PIXELS) / (float) atlasHeight;
 
         Entry entry = new Entry(patternId, page.atlasIndex(), slot, tileX, tileY, u0, v0, u1, v1);
-        entries.put(patternId, entry);
+        putEntry(patternId, entry);
         return entry;
+    }
+
+    private void putEntry(int patternId, Entry entry) {
+        if (patternId >= 0 && patternId < FAST_ENTRIES_SIZE) {
+            fastEntries[patternId] = entry;
+        } else {
+            sparseEntries.put(patternId, entry);
+        }
     }
 
     /**

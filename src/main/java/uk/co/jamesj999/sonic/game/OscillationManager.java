@@ -1,4 +1,4 @@
-package uk.co.jamesj999.sonic.game.sonic2;
+package uk.co.jamesj999.sonic.game;
 
 /**
  * Tracks the global oscillating values used by multiple Sonic 1/2 objects.

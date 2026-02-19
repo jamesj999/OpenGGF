@@ -241,10 +241,12 @@ public class LWJGLAudioBackend implements AudioBackend {
             // Clean up standalone SFX stream - stopStream() only handles currentStream/smpsDriver,
             // but SFX played before any music was active use a separate sfxStream SmpsDriver.
             // Without this, the sfxStream persists and keeps rendering into fillBuffer() indefinitely.
-            if (sfxStream instanceof SmpsDriver sfxDriver) {
-                sfxDriver.stopAll();
+            synchronized (streamLock) {
+                if (sfxStream instanceof SmpsDriver sfxDriver) {
+                    sfxDriver.stopAll();
+                }
+                sfxStream = null;
             }
-            sfxStream = null;
         }
 
         smpsDriver = new SmpsDriver(getSmpsOutputRate());
@@ -399,7 +401,11 @@ public class LWJGLAudioBackend implements AudioBackend {
             return;
         }
 
-        if (currentStream != null || sfxStream != null) {
+        boolean hasStream;
+        synchronized (streamLock) {
+            hasStream = currentStream != null || sfxStream != null;
+        }
+        if (hasStream) {
             int state = alGetSourcei(musicSource, AL_SOURCE_STATE);
             int processed = alGetSourcei(musicSource, AL_BUFFERS_PROCESSED);
 
@@ -520,17 +526,19 @@ public class LWJGLAudioBackend implements AudioBackend {
 
     private double getStreamSampleRate() {
         double rate = deviceSampleRate;  // Use device rate as fallback to match getSmpsOutputRate()
-        SmpsDriver musicDriver = (currentStream instanceof SmpsDriver driver) ? driver : null;
-        SmpsDriver sfxDriver = (sfxStream instanceof SmpsDriver driver) ? driver : null;
-        if (musicDriver != null) {
-            rate = musicDriver.getOutputSampleRate();
-        } else if (sfxDriver != null) {
-            rate = sfxDriver.getOutputSampleRate();
-        }
-        if (musicDriver != null && sfxDriver != null) {
-            double sfxRate = sfxDriver.getOutputSampleRate();
-            if (Math.abs(rate - sfxRate) > 1e-6) {
-                LOGGER.warning("Audio stream sample rate mismatch: music=" + rate + " sfx=" + sfxRate);
+        synchronized (streamLock) {
+            SmpsDriver musicDriver = (currentStream instanceof SmpsDriver driver) ? driver : null;
+            SmpsDriver sfxDriver = (sfxStream instanceof SmpsDriver driver) ? driver : null;
+            if (musicDriver != null) {
+                rate = musicDriver.getOutputSampleRate();
+            } else if (sfxDriver != null) {
+                rate = sfxDriver.getOutputSampleRate();
+            }
+            if (musicDriver != null && sfxDriver != null) {
+                double sfxRate = sfxDriver.getOutputSampleRate();
+                if (Math.abs(rate - sfxRate) > 1e-6) {
+                    LOGGER.warning("Audio stream sample rate mismatch: music=" + rate + " sfx=" + sfxRate);
+                }
             }
         }
         return rate;
@@ -869,10 +877,12 @@ public class LWJGLAudioBackend implements AudioBackend {
             smpsDriver.stopAllSfx();
         }
         // Stop standalone SFX stream (used when SFX played before any music started)
-        if (sfxStream instanceof SmpsDriver sfxDriver) {
-            sfxDriver.stopAll();
+        synchronized (streamLock) {
+            if (sfxStream instanceof SmpsDriver sfxDriver) {
+                sfxDriver.stopAll();
+            }
+            sfxStream = null;
         }
-        sfxStream = null;
     }
 
     @Override

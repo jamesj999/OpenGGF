@@ -1,13 +1,20 @@
 package uk.co.jamesj999.sonic.game.sonic3k;
 
+import uk.co.jamesj999.sonic.data.Rom;
+import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
+import uk.co.jamesj999.sonic.level.render.SpriteDplcFrame;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
+import uk.co.jamesj999.sonic.level.render.TileLoadRequest;
+import uk.co.jamesj999.sonic.tools.KosinskiReader;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -19,10 +26,27 @@ public class Sonic3kObjectArt {
     private static final Logger LOG = Logger.getLogger(Sonic3kObjectArt.class.getName());
 
     private final Level level;
+    private final RomByteReader reader;
 
     public Sonic3kObjectArt(Level level) {
-        this.level = level;
+        this(level, null);
     }
+
+    public Sonic3kObjectArt(Level level, RomByteReader reader) {
+        this.level = level;
+        this.reader = reader;
+    }
+
+    // Tracks the level tile range of the most recently built sheet,
+    // so callers can record which tiles each sheet depends on.
+    private int lastBuildStartTile = -1;
+    private int lastBuildTileCount = -1;
+
+    /** Returns the starting level tile index of the last built sheet, or -1. */
+    public int getLastBuildStartTile() { return lastBuildStartTile; }
+
+    /** Returns the tile count of the last built sheet, or -1. */
+    public int getLastBuildTileCount() { return lastBuildTileCount; }
 
     /**
      * Builds a sprite sheet from level patterns for an object that uses level art.
@@ -37,12 +61,17 @@ public class Sonic3kObjectArt {
     public ObjectSpriteSheet buildLevelArtSheet(int artTileBase, int sheetPalette,
             List<SpriteMappingFrame> frames, int minTile, int maxTileExclusive) {
         if (level == null) {
+            lastBuildStartTile = -1;
+            lastBuildTileCount = -1;
             return null;
         }
 
         int patternCount = maxTileExclusive - minTile;
         Pattern[] patterns = new Pattern[patternCount];
         int levelPatternCount = level.getPatternCount();
+
+        lastBuildStartTile = artTileBase + minTile;
+        lastBuildTileCount = patternCount;
 
         for (int i = 0; i < patternCount; i++) {
             int levelIndex = artTileBase + minTile + i;
@@ -57,6 +86,35 @@ public class Sonic3kObjectArt {
         // Adjust tile indices in frames by -minTile so they're 0-based
         List<SpriteMappingFrame> adjusted = adjustTileIndices(frames, -minTile);
         return new ObjectSpriteSheet(patterns, adjusted, sheetPalette, 1);
+    }
+
+    /**
+     * Builds a sprite sheet by parsing S3K mapping frames from ROM at runtime.
+     * Automatically computes the tile range from all pieces in the mapping.
+     *
+     * @param mappingAddr   ROM address of the S3K mapping table
+     * @param artTileBase   the art_tile base index (VRAM tile destination)
+     * @param sheetPalette  the sheet palette line (0-3)
+     * @return the sprite sheet, or null if reader is unavailable or mapping is empty
+     */
+    public ObjectSpriteSheet buildLevelArtSheetFromRom(int mappingAddr,
+            int artTileBase, int sheetPalette) {
+        if (reader == null) return null;
+        List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr);
+        if (frames.isEmpty()) return null;
+
+        int minTile = Integer.MAX_VALUE;
+        int maxTile = Integer.MIN_VALUE;
+        for (SpriteMappingFrame frame : frames) {
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                minTile = Math.min(minTile, piece.tileIndex());
+                int pieceTiles = piece.widthTiles() * piece.heightTiles();
+                maxTile = Math.max(maxTile, piece.tileIndex() + pieceTiles);
+            }
+        }
+        if (minTile == Integer.MAX_VALUE) return null;
+
+        return buildLevelArtSheet(artTileBase, sheetPalette, frames, minTile, maxTile);
     }
 
     /**
@@ -300,6 +358,290 @@ public class Sonic3kObjectArt {
         // art_tile base = 0x333, palette = 2
         // Tile range: 0x64 to 0x9C (exclusive) = 56 patterns
         return buildLevelArtSheet(Sonic3kConstants.ARTTILE_AIZ_MISC1, 2, frames, 0x64, 0x9C);
+    }
+
+    // ===== Collapsing Platform sprite sheets (parsed from ROM) =====
+
+    /**
+     * Builds the AIZ Act 1 Collapsing Platform sprite sheet (Map_AIZCollapsingPlatform, 4 frames).
+     * art_tile = make_art_tile($001, 2, 0) → base tile 1, palette 2.
+     */
+    public ObjectSpriteSheet buildCollapsingPlatformAiz1Sheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_COLLAPSING_PLATFORM_ADDR, 1, 2);
+    }
+
+    /**
+     * Builds the AIZ Act 2 Collapsing Platform sprite sheet (Map_AIZCollapsingPlatform2, 4 frames).
+     * art_tile = make_art_tile($001, 2, 0) → base tile 1, palette 2.
+     */
+    public ObjectSpriteSheet buildCollapsingPlatformAiz2Sheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_COLLAPSING_PLATFORM2_ADDR, 1, 2);
+    }
+
+    /**
+     * Builds the ICZ Collapsing Platform sprite sheet (Map_ICZCollapsingBridge, 6 frames).
+     * art_tile = make_art_tile($001, 2, 0) → base tile 1, palette 2.
+     */
+    public ObjectSpriteSheet buildCollapsingPlatformIczSheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_ICZ_COLLAPSING_BRIDGE_ADDR, 1, 2);
+    }
+
+    // ===== AIZ/LRZ Rock sprite sheets (parsed from ROM) =====
+
+    /**
+     * Builds the AIZ Act 1 Rock sprite sheet (Map_AIZRock, 7 frames).
+     * art_tile = ArtTile_AIZ_Misc1 ($0333), palette 1.
+     */
+    public ObjectSpriteSheet buildAiz1RockSheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_ROCK_ADDR,
+                Sonic3kConstants.ARTTILE_AIZ_MISC1, 1);
+    }
+
+    /**
+     * Builds the AIZ Act 2 Rock sprite sheet (Map_AIZRock2, 7 frames).
+     * art_tile = ArtTile_AIZ_Misc2 ($02E9), palette 2.
+     */
+    public ObjectSpriteSheet buildAiz2RockSheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_ROCK2_ADDR,
+                Sonic3kConstants.ARTTILE_AIZ_MISC2, 2);
+    }
+
+    /**
+     * Builds the LRZ Act 1 Breakable Rock sprite sheet (Map_LRZBreakableRock, 11 frames).
+     * art_tile = $00D3, palette 2.
+     */
+    public ObjectSpriteSheet buildLrz1RockSheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_LRZ_BREAKABLE_ROCK_ADDR,
+                0x00D3, 2);
+    }
+
+    /**
+     * Builds the LRZ Act 2 Breakable Rock sprite sheet (Map_LRZBreakableRock2, 12 frames).
+     * art_tile = ArtTile_LRZ2_MISC ($040D), palette 3.
+     */
+    public ObjectSpriteSheet buildLrz2RockSheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_LRZ_BREAKABLE_ROCK2_ADDR,
+                Sonic3kConstants.ARTTILE_LRZ2_MISC, 3);
+    }
+
+    // ===== AIZ badnik dedicated-art sprite sheets =====
+
+    /**
+     * Loads Bloominator (Obj $8C) dedicated art sheet.
+     * Art: ArtKosM_AIZ_Bloominator, map: Map_Bloominator.
+     */
+    public ObjectSpriteSheet loadBloominatorSheet(Rom rom) {
+        if (rom == null || reader == null) {
+            return null;
+        }
+        try {
+            Pattern[] patterns = loadKosinskiModuledPatterns(rom, Sonic3kConstants.ART_KOSM_AIZ_BLOOMINATOR_ADDR);
+            if (patterns.length == 0) {
+                return null;
+            }
+            List<SpriteMappingFrame> mappings =
+                    S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_BLOOMINATOR_ADDR);
+            return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+        } catch (IOException e) {
+            LOG.warning("Failed loading Bloominator art: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Loads Monkey Dude (Obj $8E) dedicated art sheet.
+     * Art: ArtKosM_AIZ_MonkeyDude, map: Map_MonkeyDude.
+     */
+    public ObjectSpriteSheet loadMonkeyDudeSheet(Rom rom) {
+        if (rom == null || reader == null) {
+            return null;
+        }
+        try {
+            Pattern[] patterns = loadKosinskiModuledPatterns(rom, Sonic3kConstants.ART_KOSM_AIZ_MONKEY_DUDE_ADDR);
+            if (patterns.length == 0) {
+                return null;
+            }
+            List<SpriteMappingFrame> mappings =
+                    S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_MONKEY_DUDE_ADDR);
+            return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+        } catch (IOException e) {
+            LOG.warning("Failed loading Monkey Dude art: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Loads Rhinobot (Obj $8D) dedicated art sheet.
+     * Uses object-format DPLC remap (Perform_DPLC path).
+     */
+    public ObjectSpriteSheet loadRhinobotSheet(Rom rom) {
+        if (rom == null || reader == null) {
+            return null;
+        }
+        try {
+            Pattern[] patterns = loadUncompressedPatterns(rom,
+                    Sonic3kConstants.ART_UNC_AIZ_RHINOBOT_ADDR,
+                    Sonic3kConstants.ART_UNC_AIZ_RHINOBOT_SIZE);
+            if (patterns.length == 0) {
+                return null;
+            }
+            List<SpriteMappingFrame> rawMappings =
+                    S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_RHINOBOT_ADDR);
+            List<SpriteDplcFrame> dplcFrames = loadObjectDplcFrames(reader, Sonic3kConstants.DPLC_RHINOBOT_ADDR);
+            List<SpriteMappingFrame> remapped = applyDplcRemap(rawMappings, dplcFrames);
+            return new ObjectSpriteSheet(patterns, remapped, 1, 1);
+        } catch (IOException e) {
+            LOG.warning("Failed loading Rhinobot art: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private Pattern[] loadKosinskiModuledPatterns(Rom rom, int romAddr) throws IOException {
+        byte[] header = rom.readBytes(romAddr, 2);
+        if (header.length < 2) {
+            return new Pattern[0];
+        }
+        int fullSize = ((header[0] & 0xFF) << 8) | (header[1] & 0xFF);
+        int inputSize = Math.min(Math.max(fullSize + 256, 0x10000), 0x40000);
+        long romSize = rom.getSize();
+        if (romAddr + inputSize > romSize) {
+            inputSize = (int) (romSize - romAddr);
+        }
+        byte[] compressed = rom.readBytes(romAddr, inputSize);
+        byte[] data = KosinskiReader.decompressModuled(compressed, 0);
+        return bytesToPatterns(data);
+    }
+
+    private Pattern[] loadUncompressedPatterns(Rom rom, int romAddr, int size) throws IOException {
+        byte[] data = rom.readBytes(romAddr, size);
+        return bytesToPatterns(data);
+    }
+
+    private Pattern[] bytesToPatterns(byte[] data) {
+        if (data == null || data.length == 0) {
+            return new Pattern[0];
+        }
+        int count = data.length / Pattern.PATTERN_SIZE_IN_ROM;
+        Pattern[] patterns = new Pattern[count];
+        for (int i = 0; i < count; i++) {
+            patterns[i] = new Pattern();
+            byte[] tile = Arrays.copyOfRange(
+                    data,
+                    i * Pattern.PATTERN_SIZE_IN_ROM,
+                    (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
+            patterns[i].fromSegaFormat(tile);
+        }
+        return patterns;
+    }
+
+    /**
+     * S3K object DPLC parser (Perform_DPLC format):
+     * startTile in upper 12 bits, (count-1) in lower 4 bits.
+     */
+    private static List<SpriteDplcFrame> loadObjectDplcFrames(RomByteReader reader, int dplcAddr) {
+        int offsetTableSize = reader.readU16BE(dplcAddr);
+        int frameCount = offsetTableSize / 2;
+
+        List<SpriteDplcFrame> frames = new ArrayList<>(frameCount);
+        for (int i = 0; i < frameCount; i++) {
+            int frameAddr = dplcAddr + reader.readU16BE(dplcAddr + i * 2);
+            int requestCount = reader.readU16BE(frameAddr) + 1;
+            frameAddr += 2;
+
+            List<TileLoadRequest> requests = new ArrayList<>(requestCount);
+            for (int r = 0; r < requestCount; r++) {
+                int entry = reader.readU16BE(frameAddr);
+                frameAddr += 2;
+                int startTile = (entry >> 4) & 0xFFF;
+                int count = (entry & 0xF) + 1;
+                requests.add(new TileLoadRequest(startTile, count));
+            }
+            frames.add(new SpriteDplcFrame(requests));
+        }
+        return frames;
+    }
+
+    /**
+     * Remaps mapping tile indices through object DPLC requests.
+     */
+    private static List<SpriteMappingFrame> applyDplcRemap(
+            List<SpriteMappingFrame> mappings, List<SpriteDplcFrame> dplcFrames) {
+        if (dplcFrames == null || dplcFrames.isEmpty()) {
+            return mappings;
+        }
+
+        List<SpriteMappingFrame> remapped = new ArrayList<>(mappings.size());
+        for (int i = 0; i < mappings.size(); i++) {
+            SpriteMappingFrame frame = mappings.get(i);
+            if (i >= dplcFrames.size()) {
+                remapped.add(frame);
+                continue;
+            }
+
+            SpriteDplcFrame dplc = dplcFrames.get(i);
+            int totalSlots = 0;
+            for (TileLoadRequest req : dplc.requests()) {
+                totalSlots += req.count();
+            }
+
+            int[] vramToSource = new int[totalSlots];
+            int slot = 0;
+            for (TileLoadRequest req : dplc.requests()) {
+                for (int t = 0; t < req.count(); t++) {
+                    vramToSource[slot++] = req.startTile() + t;
+                }
+            }
+
+            List<SpriteMappingPiece> remappedPieces = new ArrayList<>(frame.pieces().size());
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                int tileIdx = piece.tileIndex();
+                int wTiles = piece.widthTiles();
+                int hTiles = piece.heightTiles();
+                int tileCount = wTiles * hTiles;
+
+                if (tileIdx < 0 || tileIdx >= vramToSource.length) {
+                    remappedPieces.add(piece);
+                    continue;
+                }
+
+                int remappedBase = vramToSource[tileIdx];
+                boolean contiguous = true;
+                for (int t = 1; t < tileCount; t++) {
+                    int vramSlot = tileIdx + t;
+                    if (vramSlot >= vramToSource.length || vramToSource[vramSlot] != remappedBase + t) {
+                        contiguous = false;
+                        break;
+                    }
+                }
+
+                if (contiguous) {
+                    remappedPieces.add(new SpriteMappingPiece(
+                            piece.xOffset(), piece.yOffset(),
+                            wTiles, hTiles,
+                            remappedBase, piece.hFlip(), piece.vFlip(),
+                            piece.paletteIndex(), piece.priority()));
+                    continue;
+                }
+
+                for (int tx = 0; tx < wTiles; tx++) {
+                    for (int ty = 0; ty < hTiles; ty++) {
+                        int tileOffset = tx * hTiles + ty;
+                        int vramSlot = tileIdx + tileOffset;
+                        int remappedTile = vramSlot < vramToSource.length
+                                ? vramToSource[vramSlot]
+                                : tileIdx + tileOffset;
+                        remappedPieces.add(new SpriteMappingPiece(
+                                piece.xOffset() + tx * 8,
+                                piece.yOffset() + ty * 8,
+                                1, 1,
+                                remappedTile, piece.hFlip(), piece.vFlip(),
+                                piece.paletteIndex(), piece.priority()));
+                    }
+                }
+            }
+            remapped.add(new SpriteMappingFrame(remappedPieces));
+        }
+        return remapped;
     }
 
     private List<SpriteMappingFrame> adjustTileIndices(List<SpriteMappingFrame> frames, int adjustment) {

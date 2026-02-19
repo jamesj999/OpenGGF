@@ -7,14 +7,14 @@ This project is a faithful recreation of the **Sonic the Hedgehog** game engine 
 3.  Eventually support user-made characters and level editing tools.
 
 ## Current Status
-The project is in an **alpha** state. Core systems are functional with 291 passing tests. Recent consolidation work has unified several subsystems (ObjectManager, RingManager, SpriteManager, per-sprite controllers) to reduce complexity while maintaining ROM accuracy.
+The project is in an **alpha** state. Core systems are functional with 962 passing tests. Recent consolidation work has unified several subsystems (ObjectManager, RingManager, SpriteManager, per-sprite controllers) to reduce complexity while maintaining ROM accuracy. All three games (Sonic 1, Sonic 2, Sonic 3&K) are supported with game-specific modules, level loading, objects, audio, and scroll handlers.
 
 ### Rendering
 *   **Status:** ✅ Functional.
 *   **Level Data:** Patterns, chunks, and blocks load correctly from ROM via Kosinski decompression.
 *   **Flipping Logic:** Horizontal/vertical flip implemented in `PatternRenderCommand`, `BatchedPatternRenderer`, and `SpritePieceRenderer`.
 *   **Sprite Rendering:** Player sprites render with DPLC-based animation via `PlayerSpriteRenderer` and `SpritePieceRenderer`.
-*   **Supported Zones:** EHZ, CPZ, ARZ have zone-specific scroll handlers.
+*   **Supported Zones:** All Sonic 2 zones load and render. All Sonic 1 zones (GHZ through FZ/SBZ) load and render. Sonic 3&K zones load via LevelLoadBlock parsing (AIZ, HCZ, MGZ, etc.).
 
 ### Decompression
 *   **Status:** ✅ Complete.
@@ -23,24 +23,25 @@ The project is in an **alpha** state. Core systems are functional with 291 passi
 ### Camera
 *   **Status:** ✅ ROM-accurate (core logic).
 *   Deadzone following, spindash lag buffer.
-*   **Per-zone parallax:** Incomplete – EHZ, CPZ, ARZ implemented; other zones need scroll handlers.
+*   **Per-zone parallax:** S2 has dedicated scroll handlers for EHZ, CPZ, ARZ, DEZ, MCZ (via `Sonic2ScrollHandlerProvider`) plus HTZ, OOZ, WFZ, SCZ, CNZ (inline classes). S1 has scroll handlers for all zones (GHZ, LZ, MZ, SLZ, SYZ, FZ, SBZ). S3K has AIZ, MGZ, and a default handler.
 
 ### Physics
-*   **Status:** ⚠️ Functional (needs validation).
-*   Ground speed model, slope handling, 360° sensor array (A-F), loop ground modes, springs.
-*   **TODO:** Validate against original ROM behavior for accuracy.
+*   **Status:** ✅ ROM-accurate with extensive validation.
+*   Ground speed model, slope handling, 360° sensor array (A-F), loop ground modes, springs, spindash.
+*   Per-game physics via `PhysicsProfile`, `PhysicsFeatureSet`, and `PhysicsModifiers`. 35+ physics unit tests validate against disassembly.
 
 ### Audio
-*   **Status:** ✅ Implemented (parity testing ongoing).
-*   YM2612 FM synthesis, SN76489 PSG, SMPS driver/sequencer.
-*   Reference: `docs/MUSIC_IMPLEMENTATION.md`, `docs/AudioParityPlan.md`.
+*   **Status:** ✅ Fully implemented.
+*   YM2612 FM synthesis (hardware-accurate), SN76489 PSG, SMPS driver/sequencer with DAC playback.
+*   Supports S1, S2, and S3K music and SFX. Game-specific SMPS configs handle tempo modes, base note differences, and PSG envelope formats.
+*   Reference: `docs/SMPS-rips/SMPSPlay/` (SMPSPlay source), `docs/SMPS-rips/` (ripped audio data).
 
 ### Suggested Tasks
-1.  **Audio parity testing** – Compare output against SMPSPlay reference.
-2.  **Additional zone support** – Implement scroll handlers for remaining zones.
-3.  **Game objects** – Enemies, bosses, zone-specific gimmicks.
-4.  **Title screen / menus** – Implement game flow beyond level play.
-5.  **Special Stage completion** – Finish special stage mechanics and results screen.
+1.  **S3K object implementation** – Implement zone-specific objects, badniks, and bosses for S3K zones.
+2.  **S3K scroll handlers** – Add dedicated scroll handlers for remaining S3K zones beyond AIZ and MGZ.
+3.  **S2 remaining bosses** – Implement bosses for OOZ, WFZ, SCZ, DEZ (EHZ, CPZ, HTZ, ARZ, CNZ, MCZ done).
+4.  **Level select / save system** – Implement S3K save file system and level select menus.
+5.  **Special Stage polish** – S2 special stage is functional; S1 special stage rendering is in progress.
 
 ## Agent Directives
 1.  **Branching:** Always create pull requests from the same branch within a session. Use the following naming convention:
@@ -51,15 +52,17 @@ The project is in an **alpha** state. Core systems are functional with 291 passi
 ## Key information
 *   **Entry point:** `uk.co.jamesj999.sonic.Engine` (declared in the manifest). A `main` method creates a GLFW window with a manual timing game loop.
 *   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 4).
-*   **Run:** `java -jar target/sonic-engine-0.05-BETA-jar-with-dependencies.jar`.
+*   **Run:** `java -jar target/sonic-engine-0.4.prerelease-jar-with-dependencies.jar`.
 *   **ROM Requirement:** The engine now supports Sonic 1, Sonic 2, and Sonic 3&K modules. Keep the relevant ROM in the project root (typically gitignored): `Sonic The Hedgehog 2 (W) (REV01) [!].gen`, `Sonic The Hedgehog (W) (REV01) [!].gen`, and `Sonic and Knuckles & Sonic 3 (W) [!].gen`. S3K-focused tests should pass `-Ds3k.rom.path="Sonic and Knuckles & Sonic 3 (W) [!].gen"` when needed.
 *   **Important packages** under `src/main/java/uk/co/jamesj999/sonic`:
     *   `Control` – input handling
     *   `camera` – camera logic
     *   `configuration` – game settings via `SonicConfiguration` and `SonicConfigurationService`
-    *   `data` – ROM loaders and game classes
+    *   `audio` – SMPS driver, YM2612 FM synthesis, SN76489 PSG, sequencer, DAC playback
+    *   `data` – ROM loading (`Rom`, `RomManager`, `RomByteReader`), game interface, art providers
     *   `debug` – debug overlay (`DebugRenderer`), enabled via the `DEBUG_VIEW_ENABLED` configuration flag
     *   `game` – core game-agnostic interfaces, providers, and `GameServices` façade
+    *   `game.sonic1` – Sonic 1 game module, zone registry, level events, objects, badniks, bosses, scroll handlers, audio, title screen, special stage
     *   `game.sonic2` – Sonic 2-specific implementations
     *   `game.sonic2.objects` – object factories and instance classes
     *   `game.sonic2.objects.badniks` – badnik AI implementations
@@ -75,7 +78,7 @@ The project is in an **alpha** state. Core systems are functional with 291 passi
     *   `sprites` – sprite classes, including playable character logic
     *   `sprites.playable` – `PlayableSpriteController` coordinates movement, animation, drowning
     *   `timer` – utility timers for events
-    *   `tools` – utilities such as `KosinskiReader` for decompressing Sega data
+    *   `tools` – decompression utilities (Kosinski, Nemesis, Enigma, Saxman, DCM), `LevelDataFactory`, `ObjectDiscoveryTool`, disassembly tools
 *   **Tests:** Live under `src/test/java/uk/co/jamesj999/sonic/tests` and cover ROM loading, decompression, and collision.
 
 ## Headless Testing with HeadlessTestRunner
@@ -214,6 +217,7 @@ GameModuleRegistry.detectAndSetModule(rom);
 - S3K collision index pointers:
   - Use `Sonic3k.decodeCollisionPointer(...)` marker logic (low-bit/high-bit marker + address threshold).
   - `Sonic3kLevel.readCollisionIndex(...)` uses stride-2 indexing, matching the original code path for chunk collision references.
+- **PLC system:** See `s3k-plc-system` skill for Pattern Load Cue system docs (runtime art loading, act transitions, boss art).
 - Current known limitation:
   - `validateResourceReferences()` may still log high chunk pattern references in some S3K acts (`maxChunkPatternIndex > patternCount`), indicating dynamic art/PLC parity is still incomplete.
 - Regression tests to keep:
@@ -263,6 +267,14 @@ Game objects use a factory pattern with game-specific registries.
 
 **DO NOT** add badnik/enemy sheets to `ObjectArtData` - it should remain game-agnostic.
 
+**S2 object art:** Prefer `S2SpriteDataLoader.loadMappingFrames(reader, mappingAddr)` to parse S2 mappings from ROM. Object instance files should use `S2SpriteDataLoader` directly instead of inline parser copies.
+
+**S1 object art:** Use `Sonic1ObjectArt.buildArtSheet(artAddr, mappings, palette, bankSize)` for Nemesis art with mappings. Use `S1SpriteDataLoader.loadMappingFrames(reader, mappingAddr)` for ROM-parsed S1 mappings. Note: most S1 object mappings are inline assembly macros, so many objects still use hardcoded mappings.
+
+**S3K level-art objects:** Prefer `Sonic3kObjectArt.buildLevelArtSheetFromRom(mappingAddr, artTileBase, palette)` to parse S3K mappings from ROM at runtime. Add mapping ROM address to `Sonic3kConstants.java` (use RomOffsetFinder). Extract art_tile base and palette from the object code's `make_art_tile()` call. Only hardcode mapping pieces when the ROM table can't be used directly.
+
+**PLC system:** `PlcParser` in `level.resources` provides game-agnostic PLC parsing. See `plc-system` skill for cross-game reference, `s3k-plc-system` for S3K-specific details.
+
 ### Constants Files
 | File | Contents |
 |------|----------|
@@ -281,7 +293,7 @@ To add support for a new game:
 4. Register detector in `RomDetectionService.registerBuiltInDetectors()`
 5. Add a `GameProfile` factory method in `RomOffsetFinder.GameProfile` for the ROM Offset Finder tool
 
-Sonic 1 support is actively being developed on the `feature/sonic-1-support` branch with `Sonic1GameModule`, `Sonic1ZoneRegistry`, and related providers already in place. The ROM Offset Finder tool supports S1, S2, and S3K via `GameProfile` factory methods (`sonic1()`, `sonic2()`, `sonic3k()`).
+All three games are fully supported: `Sonic1GameModule`, `Sonic2GameModule`, and `Sonic3kGameModule` are merged and functional on `master`. Each module provides its own `ZoneRegistry`, `ObjectRegistry`, `ScrollHandlerProvider`, audio profile, and related providers. The ROM Offset Finder tool supports S1, S2, and S3K via `GameProfile` factory methods (`sonic1()`, `sonic2()`, `sonic3k()`).
 
 ## ROM Offset Finder Tool
 
@@ -435,7 +447,7 @@ exporter.exportAsJavaConstants(batch, "", new PrintWriter(System.out), s1);
 ```
 
 ## Audio Engine hints
-*   **Useful locations:** Work In Progress.
+*   **Useful locations:**
     *   `docs` – Contains lots of information about the audio engine in saved htm files.
 	*   `docs/YM2612.java.example` – Contains a port of the Gens emulator's YM2612 implementation. Missing PCM functionality. May not be correct!
 	*   `docs/SMPS-rips` – Contains ripped audio for various games, including `Sonic the Hedgehog 2`. Contains configurations for SMPSPlay.
@@ -455,6 +467,6 @@ exporter.exportAsJavaConstants(batch, "", new PrintWriter(System.out), s1);
 *   **Dependencies:** Running the engine requires LWJGL (OpenGL, OpenAL, GLFW bindings) and JOML (math library), already declared as dependencies in `pom.xml`.
 *   **Debug:** `DEBUG_VIEW_ENABLED` (true by default) overlays sensor and collision info during gameplay.
 *   **Level Loading:** Performed by `LevelManager`, which reads from the ROM through classes in `uk.co.jamesj999.sonic.data`.
-*   **Skipped Tests**: `TestCollisionLogic` is skipped in the test environment because it requires a valid ROM file, which is not available. This is a known and accepted test outcome.
+*   **Conditional Tests**: `TestCollisionLogic` uses `Assume.assumeTrue` to skip when a ROM file is not present. This is a known and accepted conditional skip, not a hard `@Ignore`.
 *   **File Endings**: Ensure all source code files end with a newline character.
 

@@ -1,7 +1,6 @@
-package uk.co.jamesj999.sonic.game.sonic2;
+package uk.co.jamesj999.sonic.game;
 
 import uk.co.jamesj999.sonic.camera.Camera;
-import uk.co.jamesj999.sonic.game.RespawnState;
 import uk.co.jamesj999.sonic.game.sonic2.objects.CheckpointObjectInstance;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 

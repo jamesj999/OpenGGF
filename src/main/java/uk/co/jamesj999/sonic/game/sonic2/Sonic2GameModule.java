@@ -4,8 +4,11 @@ import uk.co.jamesj999.sonic.audio.GameAudioProfile;
 import uk.co.jamesj999.sonic.data.Game;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
+import uk.co.jamesj999.sonic.game.CheckpointState;
 import uk.co.jamesj999.sonic.game.GameModule;
 import uk.co.jamesj999.sonic.game.LevelEventProvider;
+import uk.co.jamesj999.sonic.game.LevelGamestate;
+import uk.co.jamesj999.sonic.game.OscillationManager;
 import uk.co.jamesj999.sonic.game.PhysicsProvider;
 import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.LevelState;
@@ -43,6 +46,7 @@ public class Sonic2GameModule implements GameModule {
     private Sonic2ObjectArtProvider objectArtProvider;
     private Sonic2ZoneFeatureProvider zoneFeatureProvider;
     private PhysicsProvider physicsProvider;
+    private ObjectRegistry objectRegistry;
 
     @Override
     public String getIdentifier() {
@@ -56,7 +60,10 @@ public class Sonic2GameModule implements GameModule {
 
     @Override
     public ObjectRegistry createObjectRegistry() {
-        return Sonic2ObjectRegistry.getInstance();
+        if (objectRegistry == null) {
+            objectRegistry = new Sonic2ObjectRegistry();
+        }
+        return objectRegistry;
     }
 
     @Override
@@ -199,6 +206,11 @@ public class Sonic2GameModule implements GameModule {
             physicsProvider = new Sonic2PhysicsProvider();
         }
         return physicsProvider;
+    }
+
+    @Override
+    public boolean hasInlineParallaxHandlers() {
+        return true;
     }
 
     @Override

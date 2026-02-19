@@ -9,6 +9,7 @@ import static org.lwjgl.opengl.GL30.glDeleteVertexArrays;
 import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 
 import org.lwjgl.system.MemoryUtil;
+import uk.co.jamesj999.sonic.Engine;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.level.PatternDesc;
@@ -32,6 +33,23 @@ import java.util.ArrayDeque;
  * - Uses vertex arrays for efficient geometry transfer
  */
 public class BatchedPatternRenderer {
+
+    private static GraphicsManager cachedGm;
+    private static Engine cachedEngine;
+
+    private static GraphicsManager getGm() {
+        if (cachedGm == null) {
+            cachedGm = GraphicsManager.getInstance();
+        }
+        return cachedGm;
+    }
+
+    private static Engine getEngine() {
+        if (cachedEngine == null) {
+            cachedEngine = Engine.getInstance();
+        }
+        return cachedEngine;
+    }
 
     // Maximum patterns per batch
     private static final int MAX_PATTERNS_PER_BATCH = 4096;
@@ -84,7 +102,7 @@ public class BatchedPatternRenderer {
      * Otherwise returns the normal screen height.
      */
     private int getCurrentDisplayHeight() {
-        uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
+        Engine engine = getEngine();
         if (engine != null && engine.isFBOProjectionActive()) {
             return engine.getCurrentDisplayHeight();
         }
@@ -366,7 +384,7 @@ public class BatchedPatternRenderer {
             return null;
         }
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = getGm();
         boolean usePriority = gm.isUseSpritePriorityShader();
 
         BatchRenderCommand command = obtainBatchCommand();
@@ -577,6 +595,11 @@ public class BatchedPatternRenderer {
         private static final int ATTRIB_TEXCOORD = 1;
         private static final int ATTRIB_PALETTE = 2;
 
+        // Cached uniform locations to avoid per-batch glGetUniformLocation calls
+        private int cachedProjectionLoc = -2;  // -2 = not yet cached (-1 is valid GL "not found")
+        private int cachedCameraOffsetLoc = -2;
+        private int cachedShaderProgramId = -1;
+
         private void load(float[] vertexData, float[] texCoordData, float[] paletteCoordData,
                           int patternCount, boolean usePriorityShader) {
             this.patternCount = patternCount;
@@ -611,7 +634,7 @@ public class BatchedPatternRenderer {
             }
             ensureVbos();
 
-            GraphicsManager gm = GraphicsManager.getInstance();
+            GraphicsManager gm = getGm();
             // Use captured priority shader state from batch creation time
             ShaderProgram shader;
             if (usePriorityShader) {
@@ -642,12 +665,19 @@ public class BatchedPatternRenderer {
             glUniform1i(shader.getIndexedColorTextureLocation(), 1);
             shader.setPaletteLine(-1.0f);
 
+            // Cache uniform locations per shader program to avoid per-batch string lookups
+            int programId = shader.getProgramId();
+            if (programId != cachedShaderProgramId) {
+                cachedProjectionLoc = glGetUniformLocation(programId, "ProjectionMatrix");
+                cachedCameraOffsetLoc = glGetUniformLocation(programId, "CameraOffset");
+                cachedShaderProgramId = programId;
+            }
+
             // Set projection matrix uniform - REQUIRED for correct rendering
-            int projectionLoc = glGetUniformLocation(shader.getProgramId(), "ProjectionMatrix");
-            if (projectionLoc != -1) {
+            if (cachedProjectionLoc != -1) {
                 float[] projMatrix = gm.getProjectionMatrixBuffer();
                 if (projMatrix != null) {
-                    glUniformMatrix4fv(projectionLoc, false, projMatrix);
+                    glUniformMatrix4fv(cachedProjectionLoc, false, projMatrix);
                 }
             }
 
@@ -655,9 +685,8 @@ public class BatchedPatternRenderer {
             // X is negated to scroll objects left when camera moves right
             // Y is NOT negated because vertex Y is already in screen space (flipped from Genesis coords)
             // When camera moves down in Genesis (cameraY increases), objects should move UP on screen
-            int cameraOffsetLoc = glGetUniformLocation(shader.getProgramId(), "CameraOffset");
-            if (cameraOffsetLoc != -1) {
-                glUniform2f(cameraOffsetLoc, -cameraX, cameraY);
+            if (cachedCameraOffsetLoc != -1) {
+                glUniform2f(cachedCameraOffsetLoc, -cameraX, cameraY);
             }
 
             // Set priority uniform if using sprite priority shader
@@ -861,6 +890,11 @@ public class BatchedPatternRenderer {
         private static final int ATTRIB_POSITION = 0;
         private static final int ATTRIB_TEXCOORD = 1;
 
+        // Cached uniform locations to avoid per-batch glGetUniformLocation calls
+        private int cachedProjectionLoc = -2;  // -2 = not yet cached (-1 is valid GL "not found")
+        private int cachedCameraOffsetLoc = -2;
+        private int cachedShaderProgramId = -1;
+
         private void load(float[] vertexData, float[] texCoordData, int patternCount) {
             this.patternCount = patternCount;
             this.vertexFloatCount = patternCount * FLOATS_PER_PATTERN_VERTS;
@@ -885,7 +919,7 @@ public class BatchedPatternRenderer {
             }
             ensureVbos();
 
-            GraphicsManager gm = GraphicsManager.getInstance();
+            GraphicsManager gm = getGm();
             ShaderProgram shadowShader = gm.getShadowShaderProgram();
 
             // Setup state for shadow rendering
@@ -904,21 +938,27 @@ public class BatchedPatternRenderer {
                 glUniform1i(indexedTexLoc, 0);
             }
 
+            // Cache uniform locations per shader program to avoid per-batch string lookups
+            int programId = shadowShader.getProgramId();
+            if (programId != cachedShaderProgramId) {
+                cachedProjectionLoc = glGetUniformLocation(programId, "ProjectionMatrix");
+                cachedCameraOffsetLoc = glGetUniformLocation(programId, "CameraOffset");
+                cachedShaderProgramId = programId;
+            }
+
             // Set projection matrix uniform - REQUIRED for correct rendering
-            int projectionLoc = glGetUniformLocation(shadowShader.getProgramId(), "ProjectionMatrix");
-            if (projectionLoc != -1) {
+            if (cachedProjectionLoc != -1) {
                 float[] projMatrix = gm.getProjectionMatrixBuffer();
                 if (projMatrix != null) {
-                    glUniformMatrix4fv(projectionLoc, false, projMatrix);
+                    glUniformMatrix4fv(cachedProjectionLoc, false, projMatrix);
                 }
             }
 
             // Set camera offset uniform (replaces glTranslatef)
             // X is negated to scroll objects left when camera moves right
             // Y is NOT negated because vertex Y is already in screen space (flipped from Genesis coords)
-            int cameraOffsetLoc = glGetUniformLocation(shadowShader.getProgramId(), "CameraOffset");
-            if (cameraOffsetLoc != -1) {
-                glUniform2f(cameraOffsetLoc, -cameraX, cameraY);
+            if (cachedCameraOffsetLoc != -1) {
+                glUniform2f(cachedCameraOffsetLoc, -cameraX, cameraY);
             }
 
             // Bind VAO (required for core profile)

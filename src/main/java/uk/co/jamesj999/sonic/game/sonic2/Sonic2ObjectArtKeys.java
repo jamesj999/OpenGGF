@@ -19,6 +19,8 @@ public final class Sonic2ObjectArtKeys {
     public static final String HEX_BUMPER = "hex_bumper";
     public static final String BONUS_BLOCK = "bonus_block";
     public static final String FLIPPER = "flipper";
+    // Animation keys intentionally alias the base sprite sheet keys - animations and sheets
+    // are stored in separate maps, so the same string key is used for both lookups.
     public static final String ANIM_FLIPPER = "flipper";
     public static final String LAUNCHER_SPRING_VERT = "launcher_spring_vert";
     public static final String LAUNCHER_SPRING_DIAG = "launcher_spring_diag";
@@ -182,6 +184,7 @@ public final class Sonic2ObjectArtKeys {
 
     // Lava objects (HTZ)
     public static final String LAVA_BUBBLE = "lava_bubble";
+    public static final String GROUND_FIRE = "ground_fire";
 
     // Super Sonic stars (Object 0x7E)
     public static final String SUPER_SONIC_STARS = "super_sonic_stars";

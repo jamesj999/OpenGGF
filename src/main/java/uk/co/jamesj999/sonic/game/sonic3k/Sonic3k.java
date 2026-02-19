@@ -17,7 +17,6 @@ import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.animation.AnimatedPaletteManager;
 import uk.co.jamesj999.sonic.level.animation.AnimatedPatternManager;
-import uk.co.jamesj999.sonic.level.resources.CompressionType;
 import uk.co.jamesj999.sonic.level.resources.LevelResourcePlan;
 import uk.co.jamesj999.sonic.level.resources.LoadOp;
 import uk.co.jamesj999.sonic.level.resources.ResourceLoader;
@@ -657,12 +656,13 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
             // So effective startup overlays are PLC_01 + PLC_0A only.
             //
             // PLC 0x0A (intro waves, 344 tiles at $03D1-$0528) overlaps with
-            // PLC 0x01's spikes/springs ($0494-$04C3). In the ROM, PLCs process
+            // spikes/springs ($0494-$04C3). In the ROM, PLCs process
             // incrementally over VBlanks so the overwrite is staggered. In our
             // engine, all overlays apply at once, so we load intro sprites FIRST
-            // and character PLC LAST to keep spikes/springs correct for gameplay.
+            // and spikes/springs PLC LAST to keep them correct for gameplay.
             appendPlcPatternOps(planBuilder, 0x0A);
             appendPlcPatternOps(planBuilder, 0x01);
+            appendPlcPatternOps(planBuilder, 0x4E);
             return;
         }
 
@@ -675,6 +675,10 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
         }
         // ROM startup path always loads active-character PLC after level PLC setup.
         plcOrder.add(resolveStartupCharacterPlcIndex());
+        // PLC 0x4E (spikes/springs art). In the ROM this is loaded at runtime by
+        // specific objects (signpost, boss defeat) via Load_PLC_Raw, but since those
+        // aren't implemented yet, load it at startup so spikes/springs render.
+        plcOrder.add(0x4E);
 
         for (int plcIndex : plcOrder) {
             appendPlcPatternOps(planBuilder, plcIndex);
@@ -694,56 +698,14 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
     }
 
     private void appendPlcPatternOps(LevelResourcePlan.Builder planBuilder, int plcIndex) {
-        switch (plcIndex & 0xFF) {
-            // TODO: Use character-specific life icon Nemesis sources for strict HUD parity.
-            case 0x01, 0x05, 0x07 -> {
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_PLAYER_LIFE_ICON,
-                        Sonic3kConstants.ART_NEM_SONIC_LIFE_ICON_ADDR);
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_MONITORS,
-                        Sonic3kConstants.ART_NEM_MONITORS_ADDR);
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_RING,
-                        Sonic3kConstants.ART_NEM_RING_HUD_TEXT_ADDR);
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_STARPOST,
-                        Sonic3kConstants.ART_NEM_ENEMY_PTS_STARPOST_ADDR);
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_SPIKES_SPRINGS,
-                        Sonic3kConstants.ART_NEM_SPIKES_SPRINGS_ADDR);
+        try {
+            var plc = Sonic3kPlcLoader.parsePlc(rom, plcIndex);
+            List<LoadOp> ops = Sonic3kPlcLoader.toPatternOps(plc);
+            for (LoadOp op : ops) {
+                planBuilder.addPatternOp(op);
             }
-            case 0x0A -> addNemesisPatternOverlay(planBuilder,
-                    Sonic3kConstants.ARTTILE_AIZ_INTRO_SPRITES,
-                    Sonic3kConstants.ART_NEM_AIZ_INTRO_SPRITES_ADDR);
-            case 0x0B -> {
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_AIZ_SWING_VINE,
-                        Sonic3kConstants.ART_NEM_AIZ_SWING_VINE_ADDR);
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_AIZ_SLIDE_ROPE,
-                        Sonic3kConstants.ART_NEM_AIZ_SLIDE_ROPE_ADDR);
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_AIZ_MISC1,
-                        Sonic3kConstants.ART_NEM_AIZ_MISC1_ADDR);
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_AIZ_FALLING_LOG,
-                        Sonic3kConstants.ART_NEM_AIZ_FALLING_LOG_ADDR);
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_BUBBLES,
-                        Sonic3kConstants.ART_NEM_BUBBLES_ADDR);
-                addNemesisPatternOverlay(planBuilder,
-                        Sonic3kConstants.ARTTILE_AIZ_FLOATING_PLATFORM,
-                        Sonic3kConstants.ART_NEM_AIZ_CORK_FLOOR_ADDR);
-            }
-            default -> {
-                // Other PLC groups are not yet mapped into the level pattern bank.
-            }
+        } catch (IOException e) {
+            LOG.warning(String.format("Failed to parse PLC 0x%02X from ROM: %s", plcIndex, e.getMessage()));
         }
-    }
-
-    private void addNemesisPatternOverlay(LevelResourcePlan.Builder planBuilder, int tileIndex, int romAddr) {
-        int destOffset = tileIndex * 32;
-        planBuilder.addPatternOp(LoadOp.overlay(romAddr, CompressionType.NEMESIS, destOffset));
     }
 }

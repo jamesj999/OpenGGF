@@ -75,28 +75,16 @@ public static final int OBJECT_NAME = 0xXX;
 
 #### 2.2 Art Loading
 
-**Note:** Sonic 1 art infrastructure is not yet fully established. If `Sonic1ObjectArt.java`, `Sonic1ObjectArtKeys.java`, and `Sonic1ObjectArtProvider.java` do not exist, create them following the Sonic 2 pattern:
+**PLC note:** S1 loads object art via ArtLoadCues (PLCs) during level init. The shared `PlcParser` utility handles parsing. See `plc-system` skill.
 
-1. **Create `Sonic1ObjectArtKeys.java`** (if needed):
+**S1 art infrastructure exists:** `Sonic1ObjectArt.java`, `Sonic1ObjectArtKeys.java`, and `Sonic1ObjectArtProvider.java` are established. Follow the existing pattern:
+
+1. **Add art key** to `Sonic1ObjectArtKeys.java`:
    ```java
-   package uk.co.jamesj999.sonic.game.sonic1;
-
-   public final class Sonic1ObjectArtKeys {
-       private Sonic1ObjectArtKeys() {}
-       public static final String OBJECT_NAME = "objectname";
-   }
+   public static final String OBJECT_NAME = "objectname";
    ```
 
-2. **Create `Sonic1ObjectArt.java`** (if needed):
-   Follow the pattern in `Sonic2ObjectArt.java`. Key differences:
-   - Use `Sonic1Constants` for ROM addresses
-   - S1 mappings use 5-byte piece format (byte header, 5 bytes per piece)
-   - Parse mappings accordingly
-
-3. **Create `Sonic1ObjectArtProvider.java`** (if needed):
-   Follow `Sonic2ObjectArtProvider.java` pattern.
-
-4. **Add loader method** to `Sonic1ObjectArt.java`:
+2. **Add loader method** to `Sonic1ObjectArt.java`:
    ```java
    public ObjectSpriteSheet loadObjectNameSheet() {
        Pattern[] patterns = safeLoadNemesisPatterns(
@@ -225,15 +213,12 @@ public void appendDebugRenderCommands(List<GLCommand> commands) {
 
 #### 2.5 Factory Registration
 
-Register in `Sonic1ObjectRegistry`. The current registry returns `PlaceholderObjectInstance` for all objects. Add factory registration by converting to a factory-based pattern (following `Sonic2ObjectRegistry`):
+Register in `Sonic1ObjectRegistry.registerDefaultFactories()`:
 
 ```java
-// In Sonic1ObjectRegistry - add factory support
 registerFactory(Sonic1ObjectIds.OBJECT_NAME,
     (spawn, registry) -> new ObjectNameObjectInstance(spawn));
 ```
-
-If `Sonic1ObjectRegistry` doesn't support factories yet, refactor it to match the `Sonic2ObjectRegistry` pattern with `registerFactory()` and `registerDefaultFactories()`.
 
 ### Phase 3: Code Quality
 
@@ -345,4 +330,4 @@ Once cross-validation is confirmed bug-free:
 | Object IDs file | `Sonic1ObjectIds.java` | `Sonic2ObjectIds.java` |
 | SFX constants | `Sonic1AudioProfile.java` | `Sonic2AudioConstants.java` |
 | Registry | `Sonic1ObjectRegistry.java` | `Sonic2ObjectRegistry.java` |
-| Art infrastructure | May need creating | Fully established |
+| Art infrastructure | Established (`Sonic1ObjectArt/Provider/Keys`) | Fully established |

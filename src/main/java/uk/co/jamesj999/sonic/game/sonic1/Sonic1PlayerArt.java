@@ -6,17 +6,12 @@ import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.render.SpriteDplcFrame;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
-import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
-import uk.co.jamesj999.sonic.level.render.TileLoadRequest;
 import uk.co.jamesj999.sonic.sprites.animation.ScriptedVelocityAnimationProfile;
-import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationEndAction;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationProfile;
-import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationScript;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.logging.Logger;
@@ -118,162 +113,36 @@ public class Sonic1PlayerArt {
     }
 
     private Pattern[] loadArtTiles(int artAddr, int artSize) throws IOException {
-        if (artSize % Pattern.PATTERN_SIZE_IN_ROM != 0) {
-            throw new IOException("Inconsistent S1 player art tile data");
-        }
-        int tileCount = artSize / Pattern.PATTERN_SIZE_IN_ROM;
-        Pattern[] patterns = new Pattern[tileCount];
-        for (int i = 0; i < tileCount; i++) {
-            patterns[i] = new Pattern();
-            int start = i * Pattern.PATTERN_SIZE_IN_ROM;
-            patterns[i].fromSegaFormat(reader.slice(artAddr + start, Pattern.PATTERN_SIZE_IN_ROM));
-        }
-        return patterns;
+        return S1SpriteDataLoader.loadArtTiles(reader, artAddr, artSize);
     }
 
     /**
      * Loads S1-format sprite mappings.
-     *
-     * <p>S1 format (SonicMappingsVer=1):
-     * <ul>
-     *   <li>Offset table: {@code frameCount} × word (offset from table start to frame data)</li>
-     *   <li>Per frame: byte (piece count) + pieces × 5 bytes</li>
-     *   <li>Piece format: y:signed_byte, size:byte, tileHi:byte, tileLo:byte, x:signed_byte</li>
-     * </ul>
+     * Delegates to {@link S1SpriteDataLoader#loadMappingFrames(RomByteReader, int, int)}.
      */
     private List<SpriteMappingFrame> loadS1MappingFrames(int tableAddr, int frameCount) {
-        List<SpriteMappingFrame> frames = new ArrayList<>(frameCount);
-        for (int i = 0; i < frameCount; i++) {
-            int frameOffset = reader.readU16BE(tableAddr + i * 2);
-            int frameAddr = tableAddr + frameOffset;
-            int pieceCount = reader.readU8(frameAddr);
-            frameAddr += 1;
-
-            List<SpriteMappingPiece> pieces = new ArrayList<>(pieceCount);
-            for (int p = 0; p < pieceCount; p++) {
-                int yOffset = (byte) reader.readU8(frameAddr);     // signed byte
-                int size = reader.readU8(frameAddr + 1);
-                int tileHi = reader.readU8(frameAddr + 2);
-                int tileLo = reader.readU8(frameAddr + 3);
-                int xOffset = (byte) reader.readU8(frameAddr + 4); // signed byte
-                frameAddr += 5;
-
-                int widthTiles = ((size >> 2) & 0x3) + 1;
-                int heightTiles = (size & 0x3) + 1;
-
-                int tileWord = (tileHi << 8) | tileLo;
-                int tileIndex = tileWord & 0x7FF;
-                boolean hFlip = (tileWord & 0x800) != 0;
-                boolean vFlip = (tileWord & 0x1000) != 0;
-                int paletteIndex = (tileWord >> 13) & 0x3;
-
-                pieces.add(new SpriteMappingPiece(
-                        xOffset, yOffset, widthTiles, heightTiles,
-                        tileIndex, hFlip, vFlip, paletteIndex));
-            }
-            frames.add(new SpriteMappingFrame(pieces));
-        }
-        return frames;
+        return S1SpriteDataLoader.loadMappingFrames(reader, tableAddr, frameCount);
     }
 
     /**
      * Loads S1-format DPLCs.
-     *
-     * <p>S1 format (SonicDplcVer=1):
-     * <ul>
-     *   <li>Offset table: {@code frameCount} × word (offset from table start to frame data)</li>
-     *   <li>Per frame: byte (entry count) + entries × 2 bytes</li>
-     *   <li>Entry format: bits 12-15 = tile_count-1, bits 0-11 = start_tile</li>
-     * </ul>
+     * Delegates to {@link S1SpriteDataLoader#loadDplcFrames(RomByteReader, int, int)}.
      */
     private List<SpriteDplcFrame> loadS1DplcFrames(int tableAddr, int frameCount) {
-        List<SpriteDplcFrame> frames = new ArrayList<>(frameCount);
-        for (int i = 0; i < frameCount; i++) {
-            int frameOffset = reader.readU16BE(tableAddr + i * 2);
-            int frameAddr = tableAddr + frameOffset;
-            int entryCount = reader.readU8(frameAddr);
-            frameAddr += 1;
-
-            List<TileLoadRequest> requests = new ArrayList<>(entryCount);
-            for (int r = 0; r < entryCount; r++) {
-                int entry = reader.readU16BE(frameAddr);
-                frameAddr += 2;
-                int count = ((entry >> 12) & 0xF) + 1;
-                int startTile = entry & 0x0FFF;
-                requests.add(new TileLoadRequest(startTile, count));
-            }
-            frames.add(new SpriteDplcFrame(requests));
-        }
-        return frames;
+        return S1SpriteDataLoader.loadDplcFrames(reader, tableAddr, frameCount);
     }
 
     /**
      * Loads Sonic 1 animation scripts from ROM.
-     * The format is the same as Sonic 2: a table of word offsets, each pointing to
-     * a script with delay byte + frame IDs + end action byte.
+     * Delegates to {@link S1SpriteDataLoader#loadAnimationSet(RomByteReader, int, int)}.
      */
     private SpriteAnimationSet loadSonicAnimations() {
-        SpriteAnimationSet set = new SpriteAnimationSet();
-        int base = Sonic1Constants.SONIC_ANIM_DATA_ADDR;
-        int count = Sonic1Constants.SONIC_ANIM_SCRIPT_COUNT;
-
-        for (int i = 0; i < count; i++) {
-            int scriptAddr = base + reader.readU16BE(base + i * 2);
-            int delay = reader.readU8(scriptAddr);
-            scriptAddr += 1;
-
-            List<Integer> frames = new ArrayList<>();
-            SpriteAnimationEndAction endAction = SpriteAnimationEndAction.LOOP;
-            int endParam = 0;
-
-            while (true) {
-                int value = reader.readU8(scriptAddr);
-                scriptAddr += 1;
-                if (value >= 0xF0) {
-                    if (value == 0xFF) {
-                        endAction = SpriteAnimationEndAction.LOOP;
-                        break;
-                    }
-                    if (value == 0xFE) {
-                        endAction = SpriteAnimationEndAction.LOOP_BACK;
-                        endParam = reader.readU8(scriptAddr);
-                        break;
-                    }
-                    if (value == 0xFD) {
-                        endAction = SpriteAnimationEndAction.SWITCH;
-                        endParam = reader.readU8(scriptAddr);
-                        break;
-                    }
-                    endAction = SpriteAnimationEndAction.HOLD;
-                    break;
-                }
-                frames.add(value);
-            }
-
-            set.addScript(i, new SpriteAnimationScript(delay, frames, endAction, endParam));
-        }
-        return set;
+        return S1SpriteDataLoader.loadAnimationSet(reader,
+                Sonic1Constants.SONIC_ANIM_DATA_ADDR,
+                Sonic1Constants.SONIC_ANIM_SCRIPT_COUNT);
     }
 
     private int resolveBankSize(List<SpriteDplcFrame> dplcFrames, List<SpriteMappingFrame> mappingFrames) {
-        int maxTiles = 0;
-        for (SpriteDplcFrame frame : dplcFrames) {
-            int total = 0;
-            for (TileLoadRequest request : frame.requests()) {
-                total += Math.max(0, request.count());
-            }
-            maxTiles = Math.max(maxTiles, total);
-        }
-        if (maxTiles > 0) {
-            return maxTiles;
-        }
-        int maxIndex = 0;
-        for (SpriteMappingFrame frame : mappingFrames) {
-            for (SpriteMappingPiece piece : frame.pieces()) {
-                int tileCount = piece.widthTiles() * piece.heightTiles();
-                maxIndex = Math.max(maxIndex, piece.tileIndex() + tileCount);
-            }
-        }
-        return Math.max(0, maxIndex);
+        return S1SpriteDataLoader.resolveBankSize(dplcFrames, mappingFrames);
     }
 }

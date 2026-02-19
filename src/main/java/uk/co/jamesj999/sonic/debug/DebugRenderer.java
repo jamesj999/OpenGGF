@@ -56,6 +56,8 @@ public class DebugRenderer {
         // Reusable StringBuilders for string construction
         private final StringBuilder stateFlagsBuilder = new StringBuilder(64);
         private final StringBuilder objectLabelBuilder = new StringBuilder(32);
+        private final StringBuilder sensorLabelBuilder = new StringBuilder(32);
+        private final StringBuilder panelLineBuilder = new StringBuilder(64);
 
         private final int baseWidth = configService
                         .getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
@@ -153,19 +155,20 @@ public class DebugRenderer {
                                                                         playable.getGroundMode(),
                                                                         sensor.getDirection());
                                         Direction globalDirection = sensorConfiguration.direction();
-                                        short[] rotatedOffset = sensor.getRotatedOffset();
+                                        sensor.computeRotatedOffset();
 
-                                        short worldX = (short) (playable.getCentreX() + rotatedOffset[0]);
-                                        short worldY = (short) (playable.getCentreY() + rotatedOffset[1]);
+                                        short worldX = (short) (playable.getCentreX() + sensor.getRotatedX());
+                                        short worldY = (short) (playable.getCentreY() + sensor.getRotatedY());
                                         short xAdjusted = (short) (worldX - camera.getX());
                                         short yAdjusted = (short) (worldY - camera.getY());
 
-                                        String angleHex = String.format("%02X", result.angle() & 0xFF);
-                                        String label = String.format("%s(%s) d:%d a:%s",
-                                                        SENSOR_LABELS[i],
-                                                        globalDirection.name().substring(0, 1),
-                                                        result.distance(),
-                                                        angleHex);
+                                        sensorLabelBuilder.setLength(0);
+                                        sensorLabelBuilder.append(SENSOR_LABELS[i]).append('(')
+                                                        .append(globalDirection.name().charAt(0))
+                                                        .append(") d:").append(result.distance())
+                                                        .append(" a:");
+                                        DebugRenderContext.appendHex2(sensorLabelBuilder, result.angle() & 0xFF);
+                                        String label = sensorLabelBuilder.toString();
 
                                         Color sensorColor = DebugOverlayPalette.sensorLabelColor(i, true);
                                         int screenX = toScreenX(xAdjusted);
@@ -238,8 +241,9 @@ public class DebugRenderer {
 
                         String name = registry.getPrimaryName(spawn.objectId());
                         objectLabelBuilder.setLength(0);
-                        objectLabelBuilder.append(String.format("%02X:%02X",
-                                        spawn.objectId(), spawn.subtype()));
+                        DebugRenderContext.appendHex2(objectLabelBuilder, spawn.objectId());
+                        objectLabelBuilder.append(':');
+                        DebugRenderContext.appendHex2(objectLabelBuilder, spawn.subtype());
                         if (spawn.renderFlags() != 0) {
                                 objectLabelBuilder.append(" F").append(Integer.toHexString(spawn.renderFlags()).toUpperCase());
                         }
@@ -392,33 +396,71 @@ public class DebugRenderer {
                 float angleDeg = ((256 - angleByte) * 360f / 256f) % 360f;
 
                 lines.add("== PLAYER ==");
-                lines.add(String.format("Pos: %d.%02X  %d.%02X",
-                                (int) sprite.getX(), sprite.getXSubpixel() & 0xFF,
-                                (int) sprite.getY(), sprite.getYSubpixel() & 0xFF));
-                lines.add(String.format("Spd: X %d (%.2f)",
-                                sprite.getXSpeed(), sprite.getXSpeed() / 256f));
-                lines.add(String.format("Spd: Y %d (%.2f)",
-                                sprite.getYSpeed(), sprite.getYSpeed() / 256f));
-                lines.add(String.format("GSpd: %d (%.2f)",
-                                sprite.getGSpeed(), sprite.getGSpeed() / 256f));
-                lines.add(String.format("Angle: %02X (%.1f°)", angleByte, angleDeg));
+                StringBuilder pb = panelLineBuilder;
+
+                pb.setLength(0);
+                pb.append("Pos: ").append((int) sprite.getX()).append('.');
+                DebugRenderContext.appendHex2(pb, sprite.getXSubpixel() & 0xFF);
+                pb.append("  ").append((int) sprite.getY()).append('.');
+                DebugRenderContext.appendHex2(pb, sprite.getYSubpixel() & 0xFF);
+                lines.add(pb.toString());
+
+                pb.setLength(0);
+                pb.append("Spd: X ").append(sprite.getXSpeed()).append(" (");
+                DebugRenderContext.appendFixed2(pb, sprite.getXSpeed() / 256f);
+                pb.append(')');
+                lines.add(pb.toString());
+
+                pb.setLength(0);
+                pb.append("Spd: Y ").append(sprite.getYSpeed()).append(" (");
+                DebugRenderContext.appendFixed2(pb, sprite.getYSpeed() / 256f);
+                pb.append(')');
+                lines.add(pb.toString());
+
+                pb.setLength(0);
+                pb.append("GSpd: ").append(sprite.getGSpeed()).append(" (");
+                DebugRenderContext.appendFixed2(pb, sprite.getGSpeed() / 256f);
+                pb.append(')');
+                lines.add(pb.toString());
+
+                pb.setLength(0);
+                pb.append("Angle: ");
+                DebugRenderContext.appendHex2(pb, angleByte);
+                pb.append(" (");
+                DebugRenderContext.appendFixed1(pb, angleDeg);
+                pb.append("°)");
+                lines.add(pb.toString());
+
                 lines.add("Mode: " + sprite.getGroundMode());
                 lines.add("Dir: " + sprite.getDirection());
                 lines.add("State: " + formatStateFlags(sprite));
-                lines.add(String.format("Layer: %c  Prio: %c",
-                                formatLayer(sprite.getLayer()),
-                                formatPriority(sprite.isHighPriority())));
-                lines.add(String.format("Solidity: top %02X lrb %02X",
-                                sprite.getTopSolidBit() & 0xFF,
-                                sprite.getLrbSolidBit() & 0xFF));
-                lines.add(String.format("Radii: x %d y %d", sprite.getXRadius(), sprite.getYRadius()));
-                lines.add(String.format("Anim: id %d frame %d/%d tick %d",
-                                sprite.getAnimationId(),
-                                sprite.getAnimationFrameIndex(),
-                                sprite.getAnimationFrameCount(),
-                                sprite.getAnimationTick()));
-                lines.add(String.format("MapFrame: %d", sprite.getMappingFrame()));
-                lines.add(String.format("Rings: %d", ringCount));
+
+                pb.setLength(0);
+                pb.append("Layer: ").append(formatLayer(sprite.getLayer()))
+                  .append("  Prio: ").append(formatPriority(sprite.isHighPriority()));
+                lines.add(pb.toString());
+
+                pb.setLength(0);
+                pb.append("Solidity: top ");
+                DebugRenderContext.appendHex2(pb, sprite.getTopSolidBit() & 0xFF);
+                pb.append(" lrb ");
+                DebugRenderContext.appendHex2(pb, sprite.getLrbSolidBit() & 0xFF);
+                lines.add(pb.toString());
+
+                pb.setLength(0);
+                pb.append("Radii: x ").append(sprite.getXRadius())
+                  .append(" y ").append(sprite.getYRadius());
+                lines.add(pb.toString());
+
+                pb.setLength(0);
+                pb.append("Anim: id ").append(sprite.getAnimationId())
+                  .append(" frame ").append(sprite.getAnimationFrameIndex())
+                  .append('/').append(sprite.getAnimationFrameCount())
+                  .append(" tick ").append(sprite.getAnimationTick());
+                lines.add(pb.toString());
+
+                lines.add("MapFrame: " + sprite.getMappingFrame());
+                lines.add("Rings: " + ringCount);
                 lines.add("== SENSORS ==");
 
                 Sensor[] sensors = sprite.getAllSensors();
@@ -442,7 +484,10 @@ public class DebugRenderer {
                                 lines.add(prefix + "??");
                                 continue;
                         }
-                        lines.add(String.format("%sd:%d a:%02X", prefix, result.distance(), result.angle() & 0xFF));
+                        pb.setLength(0);
+                        pb.append(prefix).append("d:").append(result.distance()).append(" a:");
+                        DebugRenderContext.appendHex2(pb, result.angle() & 0xFF);
+                        lines.add(pb.toString());
                 }
 
                 int startX = uiX(6);
@@ -475,12 +520,22 @@ public class DebugRenderer {
 
                 touchResponseLines.clear();
                 List<String> lines = touchResponseLines;
+                StringBuilder tb = panelLineBuilder;
                 lines.add("== TOUCH RESP ==");
                 String crouch = state.isCrouching() ? "C" : "-";
-                lines.add(String.format("Player: x %d y %d h %d yR %d %s",
-                                state.getPlayerX(), state.getPlayerY(),
-                                state.getPlayerHeight(), state.getPlayerYRadius(), crouch));
-                lines.add(String.format("Objects: %d Hits: %d", hits.size(), hitCount));
+
+                tb.setLength(0);
+                tb.append("Player: x ").append(state.getPlayerX())
+                  .append(" y ").append(state.getPlayerY())
+                  .append(" h ").append(state.getPlayerHeight())
+                  .append(" yR ").append(state.getPlayerYRadius())
+                  .append(' ').append(crouch);
+                lines.add(tb.toString());
+
+                tb.setLength(0);
+                tb.append("Objects: ").append(hits.size())
+                  .append(" Hits: ").append(hitCount);
+                lines.add(tb.toString());
 
                 ObjectRegistry registry = GameModuleRegistry.getCurrent().createObjectRegistry();
                 int maxLines = 12;
@@ -496,9 +551,18 @@ public class DebugRenderer {
                         }
                         String status = hit.overlapping() ? "HIT" : "--";
                         String category = formatTouchCategory(hit.category());
-                        lines.add(String.format("%02X:%02X %s %s %02X %2d,%2d %s",
-                                        spawn.objectId(), spawn.subtype(), status, category,
-                                        hit.sizeIndex(), hit.width(), hit.height(), name));
+                        tb.setLength(0);
+                        DebugRenderContext.appendHex2(tb, spawn.objectId());
+                        tb.append(':');
+                        DebugRenderContext.appendHex2(tb, spawn.subtype());
+                        tb.append(' ').append(status).append(' ').append(category).append(' ');
+                        DebugRenderContext.appendHex2(tb, hit.sizeIndex());
+                        tb.append(' ');
+                        if (hit.width() < 10) tb.append(' ');
+                        tb.append(hit.width()).append(',');
+                        if (hit.height() < 10) tb.append(' ');
+                        tb.append(hit.height()).append(' ').append(name);
+                        lines.add(tb.toString());
                         shown++;
                 }
 

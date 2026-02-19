@@ -6,7 +6,6 @@ import uk.co.jamesj999.sonic.audio.GameSound;
 import uk.co.jamesj999.sonic.data.AnimatedPaletteProvider;
 import uk.co.jamesj999.sonic.data.AnimatedPatternProvider;
 import uk.co.jamesj999.sonic.data.Game;
-import uk.co.jamesj999.sonic.data.ZoneAwareObjectArtProvider;
 import uk.co.jamesj999.sonic.data.PlayerSpriteArtProvider;
 import uk.co.jamesj999.sonic.data.SpindashDustArtProvider;
 import uk.co.jamesj999.sonic.data.Rom;
@@ -14,7 +13,6 @@ import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.level.Level;
 import uk.co.jamesj999.sonic.level.animation.AnimatedPaletteManager;
 import uk.co.jamesj999.sonic.level.animation.AnimatedPatternManager;
-import uk.co.jamesj999.sonic.level.objects.ObjectArtData;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.resources.LevelResourcePlan;
 import uk.co.jamesj999.sonic.level.rings.RingSpawn;
@@ -30,7 +28,7 @@ import uk.co.jamesj999.sonic.game.sonic2.audio.Sonic2Music;
 import static uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants.*;
 
 public class Sonic2 extends Game implements PlayerSpriteArtProvider, SpindashDustArtProvider,
-        ZoneAwareObjectArtProvider, AnimatedPatternProvider, AnimatedPaletteProvider {
+        AnimatedPatternProvider, AnimatedPaletteProvider {
 
     private final Rom rom;
     private RomByteReader romReader;
@@ -41,6 +39,13 @@ public class Sonic2 extends Game implements PlayerSpriteArtProvider, SpindashDus
     private Sonic2DustArt dustArt;
     private Sonic2ObjectArt objectArt;
     private static final int BG_SCROLL_TABLE_ADDR = 0x00C296;
+
+    // Cached BG scroll lookup values (level-constant, avoids per-frame ROM I/O)
+    private int cachedBgScrollLevelIdx = -1;
+    private int cachedBgScrollZoneIdx;
+    private int cachedBgScrollActIdx;
+    private int cachedBgScrollOffset;
+    private final int[] bgScrollResult = new int[2];
 
     public Sonic2(Rom rom) {
         this.rom = rom;
@@ -173,15 +178,22 @@ public class Sonic2 extends Game implements PlayerSpriteArtProvider, SpindashDus
     @Override
     public int[] getBackgroundScroll(int levelIdx, int cameraX, int cameraY) {
         try {
-            int zoneIdx = rom.readByte(LEVEL_SELECT_ADDR + levelIdx * 2) & 0xFF;
-            int actIdx = rom.readByte(LEVEL_SELECT_ADDR + levelIdx * 2 + 1) & 0xFF;
-
-            if (zoneIdx > 16) {
-                return new int[] { 0, 0 };
+            if (levelIdx != cachedBgScrollLevelIdx) {
+                cachedBgScrollZoneIdx = rom.readByte(LEVEL_SELECT_ADDR + levelIdx * 2) & 0xFF;
+                cachedBgScrollActIdx = rom.readByte(LEVEL_SELECT_ADDR + levelIdx * 2 + 1) & 0xFF;
+                if (cachedBgScrollZoneIdx <= 16) {
+                    cachedBgScrollOffset = rom.read16BitAddr(BG_SCROLL_TABLE_ADDR + cachedBgScrollZoneIdx * 2);
+                }
+                cachedBgScrollLevelIdx = levelIdx;
             }
 
-            int offset = rom.read16BitAddr(BG_SCROLL_TABLE_ADDR + zoneIdx * 2);
-            int routineAddr = BG_SCROLL_TABLE_ADDR + offset;
+            if (cachedBgScrollZoneIdx > 16) {
+                bgScrollResult[0] = 0;
+                bgScrollResult[1] = 0;
+                return bgScrollResult;
+            }
+
+            int routineAddr = BG_SCROLL_TABLE_ADDR + cachedBgScrollOffset;
 
             int d0 = cameraX;
             int d1 = cameraY;
@@ -218,7 +230,7 @@ public class Sonic2 extends Game implements PlayerSpriteArtProvider, SpindashDus
 
                 case 0x00C332: // Act-dependent baseline shift
                     ee08 = 0;
-                    if (actIdx != 0) {
+                    if (cachedBgScrollActIdx != 0) {
                         // Act 2: RTS, so use 0 (or previous? but we assume init so 0)
                     } else {
                         d0 = (d0 | 0x0003) & 0xFFFF;
@@ -253,7 +265,7 @@ public class Sonic2 extends Game implements PlayerSpriteArtProvider, SpindashDus
                     ee0c = (int) ((mulRes >> 8) & 0xFFFF);
 
                     // Camera_BG_Y_pos is act-dependent
-                    if (actIdx != 0) {
+                    if (cachedBgScrollActIdx != 0) {
                         // Act 2: Camera_BG_Y_pos = (Camera_Y_pos - $E0) >> 1
                         ee08 = ((d1 - 0x00E0) >>> 1) & 0xFFFF;
                     } else {
@@ -267,9 +279,13 @@ public class Sonic2 extends Game implements PlayerSpriteArtProvider, SpindashDus
                     break;
             }
 
-            return new int[] { ee0c, ee08 };
+            bgScrollResult[0] = ee0c;
+            bgScrollResult[1] = ee08;
+            return bgScrollResult;
         } catch (IOException e) {
-            return new int[] { 0, 0 };
+            bgScrollResult[0] = 0;
+            bgScrollResult[1] = 0;
+            return bgScrollResult;
         }
     }
 
@@ -289,20 +305,6 @@ public class Sonic2 extends Game implements PlayerSpriteArtProvider, SpindashDus
             return null;
         }
         return dustArt.loadForCharacter(characterCode);
-    }
-
-    @Override
-    public ObjectArtData loadObjectArt() throws IOException {
-        return loadObjectArt(-1);
-    }
-
-    @Override
-    public ObjectArtData loadObjectArt(int zoneIndex) throws IOException {
-        ensurePlacementHelpers();
-        if (objectArt == null) {
-            return null;
-        }
-        return objectArt.loadForZone(zoneIndex);
     }
 
     private Sonic2LevelAnimationManager levelAnimationManager;

@@ -2,6 +2,10 @@ package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
 import uk.co.jamesj999.sonic.game.sonic3k.constants.S3kZoneSet;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kObjectIds;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.badniks.BloominatorBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.badniks.MonkeyDudeBadnikInstance;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.badniks.RhinobotBadnikInstance;
+import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectFactory;
 import uk.co.jamesj999.sonic.level.objects.ObjectInstance;
 import uk.co.jamesj999.sonic.level.objects.ObjectRegistry;
@@ -60,6 +64,10 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
         factories.put(Sonic3kObjectIds.MONITOR,
                 (spawn, registry) -> new Sonic3kMonitorObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.PATH_SWAP, (spawn, registry) -> null);
+        factories.put(Sonic3kObjectIds.COLLAPSING_PLATFORM,
+                (spawn, registry) -> new Sonic3kCollapsingPlatformObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.AIZLRZ_ROCK,
+                (spawn, registry) -> new AizLrzRockObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.SPRING,
                 (spawn, registry) -> new Sonic3kSpringObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.SPIKES,
@@ -70,6 +78,38 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Aiz1ZiplinePegObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AIZ_FOREGROUND_PLANT,
                 (spawn, registry) -> new AizForegroundPlantInstance(spawn));
+        factories.put(Sonic3kObjectIds.BLOOMINATOR,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new BloominatorBadnikInstance(spawn, LevelManager.getInstance());
+                });
+        factories.put(Sonic3kObjectIds.RHINOBOT,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new RhinobotBadnikInstance(spawn, LevelManager.getInstance());
+                });
+        factories.put(Sonic3kObjectIds.MONKEY_DUDE,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new MonkeyDudeBadnikInstance(spawn, LevelManager.getInstance());
+                });
+    }
+
+    private S3kZoneSet getCurrentZoneSet() {
+        int romZoneId = LevelManager.getInstance().getRomZoneId();
+        if (romZoneId < 0) {
+            return S3kZoneSet.S3KL;
+        }
+        return S3kZoneSet.forZone(romZoneId);
     }
 
     /**

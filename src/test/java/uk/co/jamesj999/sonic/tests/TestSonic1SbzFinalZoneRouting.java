@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.tests;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -51,6 +52,13 @@ public class TestSonic1SbzFinalZoneRouting {
     public void setUp() {
         rom = romRule.rom();
         sonic1 = new Sonic1(rom);
+    }
+
+    @After
+    public void tearDown() {
+        GraphicsManager.resetInstance();
+        Camera.resetInstance();
+        SpriteManager.getInstance().resetState();
     }
 
     @Test
