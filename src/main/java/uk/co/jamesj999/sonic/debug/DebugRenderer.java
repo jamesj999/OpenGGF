@@ -106,10 +106,6 @@ public class DebugRenderer {
                 if (!showOverlay) {
                         if (showShortcuts) {
                                 renderOverlayShortcuts(true);
-                        } else {
-                                glyphBatch.drawTextOutlined(
-                                                "Overlay Off (" + DebugOverlayToggle.OVERLAY.shortcutLabel() + ")",
-                                                uiX(6), uiY(baseHeight - 6), Color.WHITE, PANEL_FONT);
                         }
                         glyphBatch.end();
                         return;
