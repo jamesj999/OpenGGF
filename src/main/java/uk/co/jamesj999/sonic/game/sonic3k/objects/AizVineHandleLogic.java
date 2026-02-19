@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
 import uk.co.jamesj999.sonic.audio.AudioManager;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kAnimationIds;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kSfx;
 import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.physics.TrigLookupTable;
@@ -130,7 +131,9 @@ final class AizVineHandleLogic {
         player.setGSpeed((short) 0);
         player.setCentreX((short) handle.x);
         player.setCentreY((short) (handle.y + PLAYER_HANG_Y_OFFSET));
-        player.setAnimationId(0x14);
+        player.setAnimationId(Sonic3kAnimationIds.HANG2);
+        player.setForcedAnimationId(Sonic3kAnimationIds.HANG2);
+        player.setObjectMappingFrameControl(true);
         player.setSpindash(false);
         player.setObjectControlled(true);
         player.setControlLocked(true);
@@ -234,6 +237,7 @@ final class AizVineHandleLogic {
         if (player.getDirection() == Direction.LEFT) {
             angle = (-angle) & 0xFF;
         }
+        player.setForcedAnimationId(Sonic3kAnimationIds.HANG2);
         int index = ((angle + 8) & 0xFF) >> 4;
         player.setMappingFrame(MODE0_PLAYER_FRAMES[index]);
     }
@@ -253,13 +257,16 @@ final class AizVineHandleLogic {
             offsetX = -offsetX;
         }
 
-        player.setAnimationId(0x00);
+        player.setAnimationId(Sonic3kAnimationIds.WALK);
+        player.setForcedAnimationId(Sonic3kAnimationIds.WALK);
         player.setMappingFrame(frame);
         player.setCentreX((short) (handle.x + offsetX));
         player.setCentreY((short) (handle.y + offsetY));
     }
 
     private static void clearPlayerControl(AbstractPlayableSprite player) {
+        player.setObjectMappingFrameControl(false);
+        player.setForcedAnimationId(-1);
         player.setControlLocked(false);
         player.setObjectControlled(false);
     }
