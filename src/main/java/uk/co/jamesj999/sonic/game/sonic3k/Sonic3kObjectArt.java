@@ -11,8 +11,10 @@ import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingPiece;
 import uk.co.jamesj999.sonic.level.render.TileLoadRequest;
 import uk.co.jamesj999.sonic.tools.KosinskiReader;
+import uk.co.jamesj999.sonic.tools.NemesisReader;
 
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -537,6 +539,13 @@ public class Sonic3kObjectArt {
             LOG.warning("Failed loading Rhinobot art: " + e.getMessage());
             return null;
         }
+    }
+
+    private Pattern[] loadNemesisPatterns(Rom rom, int addr) throws IOException {
+        FileChannel channel = rom.getFileChannel();
+        channel.position(addr);
+        byte[] data = NemesisReader.decompress(channel);
+        return bytesToPatterns(data);
     }
 
     private Pattern[] loadKosinskiModuledPatterns(Rom rom, int romAddr) throws IOException {

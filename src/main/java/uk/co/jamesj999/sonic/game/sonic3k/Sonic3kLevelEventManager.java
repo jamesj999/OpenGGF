@@ -96,6 +96,11 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         return bootstrap;
     }
 
+    /** Returns the AIZ zone events handler, or null if not in AIZ. */
+    public Sonic3kAIZEvents getAizEvents() {
+        return aizEvents;
+    }
+
     public static synchronized Sonic3kLevelEventManager getInstance() {
         if (instance == null) {
             instance = new Sonic3kLevelEventManager();

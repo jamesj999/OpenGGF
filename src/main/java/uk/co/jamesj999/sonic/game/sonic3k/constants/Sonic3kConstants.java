@@ -567,6 +567,20 @@ public class Sonic3kConstants {
     };
 
     // ===== Scanning state =====
+    // ===== AIZ Miniboss (Object 0x90/0x91) =====
+    // PLC 0x5A loads: ArtNem_AIZMiniboss, ArtNem_AIZMinibossSmall,
+    //                 ArtNem_AIZBossFire, ArtNem_BossExplosion
+    // Art addresses and VRAM tile indices are derived from PLC entries at runtime.
+    public static final int PLC_AIZ_MINIBOSS = 0x5A;
+    // Pal_AIZMiniboss - Boss palette (32 bytes = 16 colors)
+    public static final int PAL_AIZ_MINIBOSS_ADDR = 0x6917C;
+    // Map_AIZMiniboss - Boss sprite mappings (18 frames, 0x11A bytes)
+    public static final int MAP_AIZ_MINIBOSS_ADDR = 0x3624D0;
+    // Map_AIZMinibossFlame - Flame sprite mappings (5 frames, 0x64 bytes)
+    public static final int MAP_AIZ_MINIBOSS_FLAME_ADDR = 0x36165C;
+    // Map_AIZMinibossSmall - Small debris mappings (3 frames, 0x1E bytes)
+    public static final int MAP_AIZ_MINIBOSS_SMALL_ADDR = 0x3625EA;
+
     private static boolean scanned = false;
 
     public static boolean isScanned() {

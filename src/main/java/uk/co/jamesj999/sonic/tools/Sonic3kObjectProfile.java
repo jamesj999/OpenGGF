@@ -81,7 +81,8 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x35, // AIZForegroundPlant
                 0x8C, // Bloominator
                 0x8D, // Rhinobot
-                0x8E  // MonkeyDude
+                0x8E, // MonkeyDude
+                0x90  // AIZMinibossCutscene
         ));
         S3KL_IMPLEMENTED_IDS = Set.copyOf(s3kl);
 
