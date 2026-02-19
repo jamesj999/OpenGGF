@@ -78,7 +78,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
 
         int absGroundSpeed = Math.abs(player.getGSpeed());
         if (absGroundSpeed < MIN_CAPTURE_X_SPEED) {
-            if ((progress[slot] & 0xFFFF) >= 0x400) {
+            if (progressWord(progress[slot]) >= 0x400) {
                 fallOffTree(player, slot);
                 return;
             }
@@ -164,14 +164,15 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        if ((progressValue & 0xFFFF) >= 0x400) {
+        int progressWord = progressWord(progressValue);
+        if (progressWord >= 0x400) {
             Camera camera = Camera.getInstance();
             camera.setMinX((short) CAMERA_RELEASE_MIN_X);
             camera.setMaxX((short) CAMERA_RELEASE_MAX_X);
         }
 
         int oldX = player.getCentreX();
-        int angle = ((progressValue & 0xFFFF) >>> 1) & 0xFF;
+        int angle = (progressWord >>> 1) & 0xFF;
         int sin = TrigLookupTable.sinHex(angle);
         int xOffset = (sin * 0x7000) >> 16;
         int newX = treeX + xOffset;
@@ -179,12 +180,12 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         player.setXSpeed((short) ((newX - oldX) << 8));
 
         int oldY = player.getCentreY();
-        int yOffset = 0x90 - ((progressValue & 0xFFFF) >>> 2);
+        int yOffset = 0x90 - (progressWord >>> 2);
         int newY = treeY + yOffset;
         player.setCentreY((short) newY);
         player.setYSpeed((short) ((newY - oldY) << 8));
 
-        int frameIndex = (((progressValue & 0xFFFF) >>> 1) / 0x0B);
+        int frameIndex = ((progressWord >>> 1) / 0x0B);
         frameIndex = Math.clamp(frameIndex, 0, PLAYER_FRAMES.length - 1);
         player.setMappingFrame(PLAYER_FRAMES[frameIndex]);
     }
@@ -206,6 +207,11 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         player.setObjectControlled(false);
         player.setXSpeed((short) (player.getXSpeed() >> 1));
         player.setYSpeed((short) (player.getYSpeed() >> 1));
+    }
+
+    // 68k move.w (a2) over a long reads the upper 16 bits (big-endian layout).
+    private static int progressWord(int progressLong) {
+        return (progressLong >>> 16) & 0xFFFF;
     }
 
     private void updateCameraLock(AbstractPlayableSprite mainPlayer) {
