@@ -519,6 +519,11 @@ public class Sonic3kConstants {
     // Referenced at s3.asm:36240: move.l #Map_AIZRock2,mappings(a0)
     public static final int MAP_AIZ_ROCK2_ADDR = 0x21DD64;
 
+    // Map_AIZMHZRideVine - AIZ/MHZ ride-vine mappings (36 frames).
+    // Referenced at sonic3k.asm:46152 and 46802.
+    // Base address derived from map include: first frame at 0x22BE6 with 0x48-byte offset table.
+    public static final int MAP_AIZ_MHZ_RIDE_VINE_ADDR = 0x022B9E;
+
     // Map_LRZBreakableRock - LRZ Act 1 breakable rock mappings (11 frames)
     // Referenced at sonic3k.asm:43871: move.l #Map_LRZBreakableRock,mappings(a0)
     public static final int MAP_LRZ_BREAKABLE_ROCK_ADDR = 0x0203D8;

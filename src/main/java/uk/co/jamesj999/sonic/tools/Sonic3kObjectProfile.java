@@ -73,8 +73,11 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
     static {
         var s3kl = new HashSet<>(SHARED_IMPLEMENTED_IDS);
         s3kl.addAll(Set.of(
+                0x03, // AIZHollowTree
+                0x06, // AIZRideVine
                 0x09, // AIZ1Tree
                 0x0A, // AIZ1ZiplinePeg
+                0x0C, // AIZGiantRideVine
                 0x35, // AIZForegroundPlant
                 0x8C, // Bloominator
                 0x8D, // Rhinobot

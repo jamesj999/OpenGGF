@@ -3,6 +3,8 @@ package uk.co.jamesj999.sonic.game.sonic3k;
 public final class Sonic3kObjectArtKeys {
     public static final String MONITOR = "monitor";
     public static final String SPIKES = "s3k_spikes";
+    public static final String AIZ_RIDE_VINE = "aiz_ride_vine";
+    public static final String ANIMATED_STILL_SPRITES = "animated_still_sprites";
     public static final String AIZ1_TREE = "aiz1_tree";
     public static final String AIZ1_ZIPLINE_PEG = "aiz1_zipline_peg";
     public static final String SPRING_VERTICAL = "s3k_spring_vertical";

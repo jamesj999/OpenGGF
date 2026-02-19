@@ -484,6 +484,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
 
         // AIZ objects (zone index 0 = AIZ in S3K)
         if (zoneIndex == 0x00) {
+            registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ_RIDE_VINE, art.buildAizRideVineSheet(), art);
+            registerLevelArtSheet(Sonic3kObjectArtKeys.ANIMATED_STILL_SPRITES, art.buildAnimatedStillSpritesSheet(), art);
             registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ1_TREE, art.buildAiz1TreeSheet(), art);
             registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ1_ZIPLINE_PEG, art.buildAiz1ZiplinePegSheet(), art);
             registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ_FOREGROUND_PLANT, art.buildAizForegroundPlantSheet(), art);
