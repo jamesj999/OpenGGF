@@ -170,6 +170,78 @@ public class TestSolidObjectManager {
     }
 
     @Test
+    public void testNarrowTopLandingWidthRejectsOuterEdgeStanding() {
+        SolidObjectParams params = new SolidObjectParams(0x2B, 0x60, 0x61);
+        TestSolidObject object = new TestSolidObject(100, 100, params, false, 0x20);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setAir(true);
+        player.setYSpeed((short) 0x100);
+
+        // Inside collision width ($2B), but outside standable width ($20).
+        player.setCentreX((short) (100 + 0x28));
+        int maxTop = params.groundHalfHeight() + player.getYRadius();
+        player.setCentreY((short) (100 - 4 - maxTop + 8));
+
+        manager.updateSolidContacts(player);
+
+        assertFalse(player.isOnObject());
+        assertTrue(player.getAir());
+    }
+
+    @Test
+    public void testNarrowTopLandingWidthStillAllowsCenterStanding() {
+        SolidObjectParams params = new SolidObjectParams(0x2B, 0x60, 0x61);
+        TestSolidObject object = new TestSolidObject(100, 100, params, false, 0x20);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setAir(true);
+        player.setYSpeed((short) 0x100);
+
+        player.setCentreX((short) (100 + 0x18));
+        int maxTop = params.groundHalfHeight() + player.getYRadius();
+        player.setCentreY((short) (100 - 4 - maxTop + 8));
+
+        manager.updateSolidContacts(player);
+
+        assertTrue(player.isOnObject());
+        assertFalse(player.getAir());
+    }
+
+    @Test
+    public void testRidingStateClearsWhenLeavingNarrowTopSurface() {
+        SolidObjectParams params = new SolidObjectParams(0x2B, 0x60, 0x61);
+        TestSolidObject object = new TestSolidObject(100, 100, params, false, 0x20);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setAir(true);
+        player.setYSpeed((short) 0x100);
+
+        int maxTop = params.groundHalfHeight() + player.getYRadius();
+
+        // Land first to establish riding state.
+        player.setCentreX((short) (100 + 0x10));
+        player.setCentreY((short) (100 - 4 - maxTop + 8));
+        manager.updateSolidContacts(player);
+        assertTrue(manager.isRidingObject(player));
+
+        // Move to X that is still inside collision width but outside top-standing width.
+        player.setCentreX((short) (100 + 0x28));
+        manager.updateSolidContacts(player);
+
+        assertFalse(manager.isRidingObject(player));
+    }
+
+    @Test
     public void testLandingFromAirRollOnObjectAdjustsYWhenUnrolling() {
         GameModule previous = GameModuleRegistry.getCurrent();
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
@@ -245,15 +317,22 @@ public class TestSolidObjectManager {
         private final ObjectSpawn spawn;
         private final SolidObjectParams params;
         private final boolean topSolidOnly;
+        private final Integer topLandingHalfWidth;
 
         private TestSolidObject(int x, int y, SolidObjectParams params) {
-            this(x, y, params, false);
+            this(x, y, params, false, null);
         }
 
         private TestSolidObject(int x, int y, SolidObjectParams params, boolean topSolidOnly) {
+            this(x, y, params, topSolidOnly, null);
+        }
+
+        private TestSolidObject(int x, int y, SolidObjectParams params, boolean topSolidOnly,
+                Integer topLandingHalfWidth) {
             this.spawn = new ObjectSpawn(x, y, 0, 0, 0, false, 0);
             this.params = params;
             this.topSolidOnly = topSolidOnly;
+            this.topLandingHalfWidth = topLandingHalfWidth;
         }
 
         @Override
@@ -289,6 +368,11 @@ public class TestSolidObjectManager {
         @Override
         public boolean isTopSolidOnly() {
             return topSolidOnly;
+        }
+
+        @Override
+        public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+            return topLandingHalfWidth != null ? topLandingHalfWidth : collisionHalfWidth;
         }
     }
 

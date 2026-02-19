@@ -25,16 +25,21 @@ public final class Sonic1CreditsDemoData {
     // Each entry is a word: high byte = zone, low byte = act
     // ========================================================================
 
-    /** Zone indices for each credit demo (0-7). */
+    /**
+     * Zone indices for each credit demo (0-7).
+     * These use Sonic1ZoneRegistry indices (gameplay progression order),
+     * NOT ROM zone IDs. The ROM uses GHZ=0,LZ=1,MZ=2,SLZ=3,SYZ=4,SBZ=5
+     * but the registry uses GHZ=0,MZ=1,SYZ=2,LZ=3,SLZ=4,SBZ=5.
+     */
     public static final int[] DEMO_ZONE = {
-        0x00, // Credit 0: GHZ
-        0x02, // Credit 1: MZ
-        0x04, // Credit 2: SYZ
-        0x01, // Credit 3: LZ
-        0x03, // Credit 4: SLZ
-        0x05, // Credit 5: SBZ
-        0x05, // Credit 6: SBZ
-        0x00, // Credit 7: GHZ
+        0, // Credit 0: GHZ  (ROM zone 0x00, registry index 0)
+        1, // Credit 1: MZ   (ROM zone 0x02, registry index 1)
+        2, // Credit 2: SYZ  (ROM zone 0x04, registry index 2)
+        3, // Credit 3: LZ   (ROM zone 0x01, registry index 3)
+        4, // Credit 4: SLZ  (ROM zone 0x03, registry index 4)
+        5, // Credit 5: SBZ  (ROM zone 0x05, registry index 5)
+        5, // Credit 6: SBZ  (ROM zone 0x05, registry index 5)
+        0, // Credit 7: GHZ  (ROM zone 0x00, registry index 0)
     };
 
     /** Act indices for each credit demo (0-7). */
@@ -81,16 +86,20 @@ public final class Sonic1CreditsDemoData {
     // Demo timers (frames)
     // ========================================================================
 
-    /** Demo playback duration for each credit (frames). SLZ gets 510; others 540. */
+    /**
+     * Demo playback duration for each credit (frames).
+     * ROM: sonic.asm:2987-2990 — checks v_creditsnum==4 (already incremented),
+     * so the 510-frame timer applies to original credit 3 (LZ Act 3).
+     */
     public static final int[] DEMO_TIMER = {
-        540, // Credit 0
-        540, // Credit 1
-        540, // Credit 2
-        540, // Credit 3
-        510, // Credit 4 (SLZ — shorter)
-        540, // Credit 5
-        540, // Credit 6
-        540, // Credit 7
+        540, // Credit 0: GHZ1
+        540, // Credit 1: MZ2
+        540, // Credit 2: SYZ3
+        510, // Credit 3: LZ3 (shorter — ROM: v_creditsnum==4 after increment)
+        540, // Credit 4: SLZ3
+        540, // Credit 5: SBZ1
+        540, // Credit 6: SBZ2
+        540, // Credit 7: GHZ1
     };
 
     // ========================================================================
@@ -122,24 +131,27 @@ public final class Sonic1CreditsDemoData {
     };
 
     // ========================================================================
-    // SLZ lamppost state (credit 4 only)
+    // LZ lamppost state (credit 3 only)
     // From EndDemo_LampVar (sonic.asm:4176-4187)
+    // ROM checks v_creditsnum==4 (already incremented) → original credit 3 (LZ Act 3).
+    // Despite the s1disasm label saying "Star Light Zone", the water height (0x308)
+    // and position data confirm this is for Labyrinth Zone.
     // ========================================================================
 
-    /** SLZ demo lamppost number. */
-    public static final int SLZ_LAMP_NUM        = 1;
-    /** SLZ demo lamppost X position. */
-    public static final int SLZ_LAMP_X          = 0x0A00;
-    /** SLZ demo lamppost Y position. */
-    public static final int SLZ_LAMP_Y          = 0x062C;
-    /** SLZ demo ring count at lamppost. */
-    public static final int SLZ_LAMP_RINGS      = 13;
-    /** SLZ demo bottom boundary at lamppost. */
-    public static final int SLZ_LAMP_BOTTOM_BND = 0x0800;
-    /** SLZ demo camera X at lamppost. */
-    public static final int SLZ_LAMP_CAMERA_X   = 0x0957;
-    /** SLZ demo camera Y at lamppost. */
-    public static final int SLZ_LAMP_CAMERA_Y   = 0x05CC;
+    /** LZ demo lamppost number. */
+    public static final int LZ_LAMP_NUM         = 1;
+    /** LZ demo lamppost X position. */
+    public static final int LZ_LAMP_X           = 0x0A00;
+    /** LZ demo lamppost Y position. */
+    public static final int LZ_LAMP_Y           = 0x062C;
+    /** LZ demo ring count at lamppost. */
+    public static final int LZ_LAMP_RINGS       = 13;
+    /** LZ demo bottom boundary at lamppost. */
+    public static final int LZ_LAMP_BOTTOM_BND  = 0x0800;
+    /** LZ demo camera X at lamppost. */
+    public static final int LZ_LAMP_CAMERA_X    = 0x0957;
+    /** LZ demo camera Y at lamppost. */
+    public static final int LZ_LAMP_CAMERA_Y    = 0x05CC;
 
     /** Text display duration (frames). ROM: move.w #120,(v_generictimer).w */
     public static final int TEXT_DISPLAY_FRAMES = 120;

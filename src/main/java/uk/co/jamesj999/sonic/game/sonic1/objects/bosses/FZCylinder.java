@@ -46,6 +46,8 @@ public class FZCylinder extends AbstractBossChild implements SolidObjectProvider
 
     // SolidObject params: d1=$2B, d2=$60, d3=$61
     private static final SolidObjectParams SOLID_PARAMS = new SolidObjectParams(0x2B, 0x60, 0x61);
+    // ROM: obActWid = $20; Solid_Landed uses this narrower width for top-standing checks.
+    private static final int TOP_LANDING_HALF_WIDTH = 0x20;
 
     private final int subtype;      // 0, 2, 4, or 6
     private final boolean isBottom;  // subtypes 0-2 are bottom, 4-6 are top
@@ -248,6 +250,11 @@ public class FZCylinder extends AbstractBossChild implements SolidObjectProvider
     @Override
     public SolidObjectParams getSolidParams() {
         return SOLID_PARAMS;
+    }
+
+    @Override
+    public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+        return TOP_LANDING_HALF_WIDTH;
     }
 
     @Override

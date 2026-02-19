@@ -67,8 +67,12 @@ public class Sonic1CreditsManager {
         requestTextReturn = false;
         requestFinished = false;
 
-        // Initialize text renderer from title screen data
+        // Initialize text renderer from title screen data.
+        // Ensure data is loaded (it normally is from the title screen, but be safe).
         Sonic1TitleScreenDataLoader dataLoader = Sonic1TitleScreenManager.getInstance().getDataLoader();
+        if (dataLoader != null && !dataLoader.isDataLoaded()) {
+            dataLoader.loadData();
+        }
         textRenderer.initialize(dataLoader);
 
         // Play credits music (ROM: move.w #MusID_Credits,d0; jsr PlaySound)
@@ -100,7 +104,11 @@ public class Sonic1CreditsManager {
                 // Waiting for GameLoop to load the demo zone
             }
             case DEMO_FADE_IN -> {
-                // Waiting for FadeManager callback to advance to DEMO_PLAYING
+                // ROM runs MoveSonicInDemo during fade-in — advance demo input
+                // so timing stays in sync with physics (which also runs during fade)
+                if (demoInputPlayer != null) {
+                    demoInputPlayer.advanceFrame();
+                }
             }
             case DEMO_PLAYING -> updateDemoPlaying();
             case DEMO_FADING_OUT -> {
@@ -166,15 +174,12 @@ public class Sonic1CreditsManager {
      * Initializes demo input, positions the player, and starts fade-in.
      */
     public void onDemoZoneLoaded() {
-        // Load demo input data from ROM
+        // Load demo input data from ROM (bulk read for atomicity)
         int addr = Sonic1CreditsDemoData.DEMO_DATA_ADDR[creditsNum];
         int size = Sonic1CreditsDemoData.DEMO_DATA_SIZE[creditsNum];
-        byte[] demoData = new byte[size];
+        byte[] demoData;
         try {
-            var rom = GameServices.rom().getRom();
-            for (int i = 0; i < size; i++) {
-                demoData[i] = rom.readByte(addr + i);
-            }
+            demoData = GameServices.rom().getRom().readBytes(addr, size);
         } catch (IOException e) {
             LOGGER.warning("Failed to read demo data for credit " + creditsNum + ": " + e.getMessage());
             demoData = new byte[] { 0, 0 }; // Terminator
@@ -190,8 +195,16 @@ public class Sonic1CreditsManager {
             state = State.DEMO_PLAYING;
         });
 
+        // Diagnostic: log credit index, ROM address, and first bytes for verification
+        StringBuilder hex = new StringBuilder();
+        for (int i = 0; i < Math.min(8, demoData.length); i++) {
+            hex.append(String.format("%02X ", demoData[i] & 0xFF));
+        }
         LOGGER.info("Demo zone loaded for credit " + creditsNum +
-                ", timer=" + timer + " frames");
+                " addr=0x" + Integer.toHexString(addr) +
+                " size=" + size +
+                " timer=" + timer +
+                " firstBytes=[" + hex.toString().trim() + "]");
     }
 
     /**
@@ -200,6 +213,9 @@ public class Sonic1CreditsManager {
      */
     public void onReturnToText() {
         demoInputPlayer = null;
+
+        // Zone loading during demo phase overwrites GPU patterns/palette
+        textRenderer.markGpuDirty();
 
         // Start fade from black to reveal credit text
         state = State.TEXT_FADE_IN;
@@ -312,10 +328,12 @@ public class Sonic1CreditsManager {
     }
 
     /**
-     * Returns true if the current credit demo is the SLZ demo (credit 4),
+     * Returns true if the current credit demo is the LZ demo (credit 3),
      * which requires special lamppost state setup.
+     * ROM: sonic.asm:4153 checks v_creditsnum==4 (already incremented),
+     * which corresponds to original credit 3 (LZ Act 3).
      */
-    public boolean isSlzDemo() {
-        return creditsNum == 4;
+    public boolean isLzDemo() {
+        return creditsNum == 3;
     }
 }

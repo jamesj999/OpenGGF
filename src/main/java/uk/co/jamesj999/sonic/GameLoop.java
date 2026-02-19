@@ -1751,7 +1751,10 @@ public class GameLoop {
         if (mainCode == null) mainCode = "sonic";
         var sprite = spriteManager.getSprite(mainCode);
         if (sprite instanceof AbstractPlayableSprite player) {
-            player.setControlLocked(true);
+            // ROM does NOT set obj_control during demos — it writes demo input
+            // directly to jpadhold1/jpadpress1 (MoveSonicInDemo.asm).
+            // Do NOT use controlLocked here: PlayableSpriteMovement re-reads it
+            // and would zero out left/right/jump, overriding the forced input.
             player.setForcedInputMask(creditsManager.getDemoInputMask());
         }
 
@@ -1794,6 +1797,8 @@ public class GameLoop {
         int startY = creditsManager.getDemoStartY();
 
         try {
+            // Suppress zone music — credits music should continue playing
+            levelManager.setSuppressNextMusicChange(true);
             levelManager.loadZoneAndAct(zone, act);
             // Consume the title card request since we don't want a title card
             levelManager.consumeTitleCardRequest();
@@ -1815,19 +1820,22 @@ public class GameLoop {
             player.setXSpeed((short) 0);
             player.setYSpeed((short) 0);
             player.setGSpeed((short) 0);
-            player.setControlLocked(true);
+            // Don't set controlLocked — ROM doesn't use obj_control during demos.
+            // PlayableSpriteMovement re-reads obj_control and would block all input.
+            player.setControlLocked(false);
             player.setForcedInputMask(0);
 
-            if (creditsManager.isSlzDemo()) {
-                // SLZ demo (credit 4): use lamppost position, not startpos
+            if (creditsManager.isLzDemo()) {
+                // LZ demo (credit 3): use lamppost position, not startpos
                 // ROM: EndDemo_LampVar (sonic.asm:4176-4187) — lamppost is pre-loaded
-                // so the level code uses lamppost position instead of startpos
-                player.setCentreX((short) Sonic1CreditsDemoData.SLZ_LAMP_X);
-                player.setCentreY((short) Sonic1CreditsDemoData.SLZ_LAMP_Y);
-                player.setRingCount(Sonic1CreditsDemoData.SLZ_LAMP_RINGS);
-                camera.setX((short) Sonic1CreditsDemoData.SLZ_LAMP_CAMERA_X);
-                camera.setY((short) Sonic1CreditsDemoData.SLZ_LAMP_CAMERA_Y);
-                camera.setMaxY((short) Sonic1CreditsDemoData.SLZ_LAMP_BOTTOM_BND);
+                // so the level code uses lamppost position instead of startpos.
+                // ROM checks v_creditsnum==4 (already incremented) = original credit 3.
+                player.setCentreX((short) Sonic1CreditsDemoData.LZ_LAMP_X);
+                player.setCentreY((short) Sonic1CreditsDemoData.LZ_LAMP_Y);
+                player.setRingCount(Sonic1CreditsDemoData.LZ_LAMP_RINGS);
+                camera.setX((short) Sonic1CreditsDemoData.LZ_LAMP_CAMERA_X);
+                camera.setY((short) Sonic1CreditsDemoData.LZ_LAMP_CAMERA_Y);
+                camera.setMaxY((short) Sonic1CreditsDemoData.LZ_LAMP_BOTTOM_BND);
             } else {
                 // All other demos: use startpos (center coordinates)
                 player.setCentreX((short) startX);
@@ -1835,8 +1843,8 @@ public class GameLoop {
             }
         }
 
-        // Snap camera to player position (unless SLZ which has explicit camera coords)
-        if (!creditsManager.isSlzDemo()) {
+        // Snap camera to player position (unless LZ which has explicit camera coords)
+        if (!creditsManager.isLzDemo()) {
             camera.updatePosition(true);
         }
 

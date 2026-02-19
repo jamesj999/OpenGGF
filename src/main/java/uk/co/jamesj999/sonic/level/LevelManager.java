@@ -173,6 +173,7 @@ public class LevelManager {
     private boolean specificZoneActRequested;
     private boolean creditsRequested;
     private boolean forceHudSuppressed;
+    private boolean suppressNextMusicChange;
 
     // ROM: LZ3/SBZ2 vertical wrapping — FG layer wraps Y instead of clamping
     private boolean verticalWrapEnabled = false;
@@ -257,7 +258,10 @@ public class LevelManager {
             audioManager.setRom(rom);
             audioManager.setSoundMap(game.getSoundMap());
             audioManager.resetRingSound();
-            audioManager.playMusic(game.getMusicId(levelIndex));
+            if (!suppressNextMusicChange) {
+                audioManager.playMusic(game.getMusicId(levelIndex));
+            }
+            suppressNextMusicChange = false;
             level = game.loadLevel(levelIndex);
             blockPixelSize = level.getBlockPixelSize();
             chunksPerBlockSide = level.getChunksPerBlockSide();
@@ -3517,6 +3521,15 @@ public class LevelManager {
      */
     public void setForceHudSuppressed(boolean suppressed) {
         this.forceHudSuppressed = suppressed;
+    }
+
+    /**
+     * Suppresses the zone music that normally plays on the next loadLevel() call.
+     * Resets after one use. Used by credits sequence to prevent zone music from
+     * overriding the credits music.
+     */
+    public void setSuppressNextMusicChange(boolean suppress) {
+        this.suppressNextMusicChange = suppress;
     }
 
     /**

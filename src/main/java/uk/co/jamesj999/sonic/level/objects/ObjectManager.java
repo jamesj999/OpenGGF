@@ -1627,12 +1627,20 @@ public class ObjectManager {
                 }
 
                 int halfWidth = params.halfWidth();
-                int relX = player.getCentreX() - currentX + halfWidth;
+                int ridingHalfWidth = halfWidth;
+                int topLandingHalfWidth = provider.getTopLandingHalfWidth(player, halfWidth);
+                if (topLandingHalfWidth >= 0 && topLandingHalfWidth < halfWidth) {
+                    ridingHalfWidth = topLandingHalfWidth;
+                }
+
+                int relX = player.getCentreX() - currentX + ridingHalfWidth;
                 // Keep riding contact with the same sticky X tolerance used by collision
                 // resolution to avoid one-frame edge drops on moving solids.
-                int stickyX = provider.usesStickyContactBuffer() ? 16 : 0;
+                // For objects with a narrowed top-standing area, avoid extending beyond
+                // that standable surface while riding.
+                int stickyX = (provider.usesStickyContactBuffer() && ridingHalfWidth == halfWidth) ? 16 : 0;
                 int minRelX = -stickyX;
-                int maxRelXExclusive = (halfWidth * 2) + stickyX;
+                int maxRelXExclusive = (ridingHalfWidth * 2) + stickyX;
                 boolean inBounds = relX >= minRelX && relX < maxRelXExclusive;
 
                 if (inBounds && provider.isSolidFor(player)) {
@@ -2035,6 +2043,9 @@ public class ObjectManager {
                 if (distY < 0 || distY >= 0x10) {
                     return null;
                 }
+                if (!isWithinTopLandingWidth(instance, player, relX, halfWidth)) {
+                    return null;
+                }
                 if (apply) {
                     int newCenterY = playerCenterY - distY + 3;
                     int newY = newCenterY - (player.getHeight() / 2);
@@ -2089,6 +2100,9 @@ public class ObjectManager {
                         }
                     }
                     if (landingFrame > 0) {
+                        if (!isWithinTopLandingWidth(instance, player, relX, halfWidth)) {
+                            return null;
+                        }
                         if (apply) {
                             int newCenterY = anchorY - maxTop - 1;
                             int newY = newCenterY - (player.getHeight() / 2);
@@ -2147,6 +2161,9 @@ public class ObjectManager {
 
                 int landingThreshold = usesUnifiedCollisionModel(player) ? 0x10 : 0x18;
                 if (distY >= landingThreshold) {
+                    return null;
+                }
+                if (!isWithinTopLandingWidth(instance, player, relX, halfWidth)) {
                     return null;
                 }
 
@@ -2215,6 +2232,22 @@ public class ObjectManager {
                 }
             }
             return new SolidContact(false, false, true, false, false);
+        }
+
+        private boolean isWithinTopLandingWidth(ObjectInstance instance, AbstractPlayableSprite player, int relX,
+                int collisionHalfWidth) {
+            if (!(instance instanceof SolidObjectProvider provider)) {
+                return true;
+            }
+
+            int configuredHalfWidth = provider.getTopLandingHalfWidth(player, collisionHalfWidth);
+            int allowedHalfWidth = Math.max(0, Math.min(configuredHalfWidth, collisionHalfWidth));
+            if (allowedHalfWidth >= collisionHalfWidth) {
+                return true;
+            }
+
+            int xFromCenter = relX - collisionHalfWidth;
+            return Math.abs(xFromCenter) <= allowedHalfWidth;
         }
 
         private boolean usesUnifiedCollisionModel(AbstractPlayableSprite player) {
