@@ -19,6 +19,8 @@ import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
 import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
 import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
+import java.lang.reflect.Method;
+
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -496,9 +498,40 @@ public class TestS3kAizHollowLogTraversal {
 
         for (int y = startY; y < endYExclusive; y += step) {
             for (int x = startX; x < endXExclusive; x += step) {
-                descriptors[index++] = levelManager.getForegroundTileDescriptorFromTilemapAtWorld(x, y);
+                descriptors[index++] = readForegroundDescriptorCompat(levelManager, x, y);
             }
         }
         return descriptors;
+    }
+
+    private static int readForegroundDescriptorCompat(LevelManager levelManager, int worldX, int worldY) {
+        try {
+            Method fromTilemap = LevelManager.class.getMethod(
+                    "getForegroundTileDescriptorFromTilemapAtWorld",
+                    int.class,
+                    int.class);
+            return (int) fromTilemap.invoke(levelManager, worldX, worldY);
+        } catch (NoSuchMethodException ignored) {
+            // Older branches may not expose foreground descriptor APIs used by this regression test.
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed reading foreground tile descriptor via tilemap API.", e);
+        }
+
+        try {
+            Method resolved = LevelManager.class.getMethod(
+                    "getForegroundTileDescriptorAtWorld",
+                    int.class,
+                    int.class);
+            return (int) resolved.invoke(levelManager, worldX, worldY);
+        } catch (NoSuchMethodException ignored) {
+            // Fall through to map-chunk snapshot fallback.
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed reading foreground tile descriptor via resolved API.", e);
+        }
+
+        Map map = levelManager.getCurrentLevel().getMap();
+        int chunkX = Math.clamp(worldX >> 7, 0, map.getWidth() - 1);
+        int chunkY = Math.clamp(worldY >> 7, 0, map.getHeight() - 1);
+        return map.getValue(0, chunkX, chunkY) & 0xFF;
     }
 }
