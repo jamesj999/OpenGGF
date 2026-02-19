@@ -26,6 +26,11 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
     private static final int CAMERA_LOCK_TIMER = 0x3C;
 
     private static final int MIN_CAPTURE_X_SPEED = 0x600;
+    private static final int TOP_EXIT_SOFT_PROGRESS_WORD = 0x3C0;
+    private static final int TOP_EXIT_PROGRESS_WORD = 0x400;
+    private static final int TOP_EXIT_X_NUDGE = 2;
+    private static final int TOP_EXIT_Y_NUDGE = 1;
+    private static final int TOP_EXIT_MIN_X_SPEED = 0x180;
 
     // AIZTree_PlayerFrames table.
     private static final int[] PLAYER_FRAMES = {
@@ -38,11 +43,14 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
 
     private static final int PLAYER_SLOT_MAIN = 0;
     private static final int PLAYER_SLOT_SIDEKICK = 1;
+    // ROM global event word used by Obj_AIZ1TreeRevealControl and AIZ1_ScreenEvent.
+    private static int eventsFg4;
 
     private final int treeX;
     private final int treeY;
     private final int[] progress = new int[2];
     private final boolean[] riding = new boolean[2];
+    private final boolean[] releaseObjectControlPending = new boolean[2];
 
     private int cameraLockTimer;
 
@@ -50,6 +58,18 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         super(spawn, "AIZHollowTree");
         this.treeX = spawn.x();
         this.treeY = spawn.y();
+    }
+
+    public static void resetTreeRevealCounter() {
+        eventsFg4 = 0;
+    }
+
+    public static int getTreeRevealCounter() {
+        return eventsFg4;
+    }
+
+    public static void setTreeRevealCounter(int value) {
+        eventsFg4 = Math.max(0, value);
     }
 
     @Override
@@ -69,6 +89,15 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
             boolean mainPlayer) {
         if (player == null) {
             return;
+        }
+
+        if (releaseObjectControlPending[slot]) {
+            // Engine update order runs objects before movement. Defer object-control clear
+            // until the next frame so AIZTree_FallOff release velocity applies from the
+            // same frame boundary as the ROM object list ordering.
+            releaseObjectControlPending[slot] = false;
+            player.setObjectControlled(false);
+            player.setSuppressGroundWallCheck(false);
         }
 
         if (!riding[slot]) {
@@ -124,18 +153,25 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         if (player.getXSpeed() < MIN_CAPTURE_X_SPEED) {
             return;
         }
-        if (player.isObjectControlled() || player.isControlLocked()) {
+        if (isObjectControlActive(player)) {
             return;
         }
 
         riding[slot] = true;
         progress[slot] = 0;
+        releaseObjectControlPending[slot] = false;
 
         player.setOnObject(true);
+        player.setAngle((byte) 0);
+        player.setYSpeed((short) 0);
         player.setObjectMappingFrameControl(true);
         player.setForcedAnimationId(0);
-        player.setObjectControlled(false);
-        player.setControlLocked(true);
+        // Engine update order runs objects before player movement; keep movement disabled while
+        // riding so AIZTree_SetPlayerPos writes are not overwritten later in the frame.
+        player.setObjectControlled(true);
+        player.setControlLocked(false);
+        player.setSuppressGroundWallCheck(true);
+        player.setAir(false);
         // RideObject_SetRide semantics: preserve horizontal inertia as ground speed.
         player.setGSpeed(player.getXSpeed());
         player.setAnimationId(0);
@@ -191,10 +227,26 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
     }
 
     private void fallOffTree(AbstractPlayableSprite player, int slot) {
+        int exitProgressWord = progressWord(progress[slot]);
+        boolean topExit = exitProgressWord >= TOP_EXIT_PROGRESS_WORD
+                || exitProgressWord >= TOP_EXIT_SOFT_PROGRESS_WORD;
         riding[slot] = false;
         progress[slot] = 0;
 
+        if (topExit) {
+            // Keep top lip clearance on hollow-tree exit to match ROM traversal envelope.
+            int xSign = player.getXSpeed() < 0 ? -1 : 1;
+            player.setCentreX((short) (player.getCentreX() + (xSign * TOP_EXIT_X_NUDGE)));
+            player.setCentreY((short) (player.getCentreY() - TOP_EXIT_Y_NUDGE));
+        }
+
         player.setAir(true);
+        // Hollow-tree fall-off in ROM updates collision radius (center-based) directly.
+        // In this engine, unrolling changes sprite height from top-left coordinates;
+        // offset by half the height delta to keep center alignment equivalent.
+        if (player.getRolling()) {
+            player.setY((short) (player.getY() - (player.getRollHeightAdjustment() / 2)));
+        }
         player.setRolling(false);
         player.applyStandingRadii(false);
         player.setAnimationId(1);
@@ -204,14 +256,30 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         player.setForcedAnimationId(-1);
         player.setObjectMappingFrameControl(false);
         player.setControlLocked(false);
-        player.setObjectControlled(false);
+        // Keep these until next object tick (see updatePlayer deferred clear above).
+        releaseObjectControlPending[slot] = true;
+        if (topExit && Math.abs(player.getXSpeed()) < TOP_EXIT_MIN_X_SPEED) {
+            // Preserve forward momentum when release occurs near the top arc where
+            // geometric delta-X can quantize to near zero in one frame.
+            player.setXSpeed(player.getGSpeed());
+        }
         player.setXSpeed((short) (player.getXSpeed() >> 1));
         player.setYSpeed((short) (player.getYSpeed() >> 1));
+        player.setGSpeed(player.getXSpeed());
     }
 
     // 68k move.w (a2) over a long reads the upper 16 bits (big-endian layout).
     private static int progressWord(int progressLong) {
         return (progressLong >>> 16) & 0xFFFF;
+    }
+
+    private static boolean isObjectControlActive(AbstractPlayableSprite player) {
+        // Disasm capture gate is "tst.b object_control(a1)" (any bit set).
+        // In the engine, bit-0 control lock and full object control are separate flags,
+        // and bit-1 parity for this object maps to objectMappingFrameControl ownership.
+        return player.isObjectControlled()
+                || player.isControlLocked()
+                || player.isObjectMappingFrameControl();
     }
 
     private void updateCameraLock(AbstractPlayableSprite mainPlayer) {
@@ -249,9 +317,8 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
      * Tracks the Events_fg_4 counter used by AIZ terrain reveal scripting.
      */
     private static final class AizTreeRevealControlObjectInstance extends AbstractObjectInstance {
-        private static int eventsFg4;
-        private int timer2E;
-        private boolean forceIncrement;
+        // Mirrors object RAM word $2E (with low byte at $2F used for odd/even gating).
+        private int timer2EWord;
 
         private AizTreeRevealControlObjectInstance(int x, int y) {
             super(new ObjectSpawn(x, y, 0, 0, 0, false, 0), "AIZ1TreeRevealControl");
@@ -259,18 +326,21 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void update(int frameCounter, AbstractPlayableSprite player) {
-            if (timer2E != 0 && eventsFg4 == 0) {
+            if (timer2EWord != 0 && eventsFg4 == 0) {
                 setDestroyed(true);
                 return;
             }
 
-            timer2E--;
+            timer2EWord = (timer2EWord - 1) & 0xFFFF;
             if (player == null) {
                 return;
             }
 
-            int target = ((0x480 - player.getCentreY()) >> 3) + 3;
-            if (eventsFg4 > target && !forceIncrement) {
+            // Disasm parity:
+            // move.w #$480,d0 / sub.w (Player_1+y_pos).w,d0 / lsr.w #3,d0 / addq.w #3,d0
+            int target = (0x480 - (player.getY() & 0xFFFF)) & 0xFFFF;
+            target = (target >>> 3) + 3;
+            if (Integer.compareUnsigned(target, eventsFg4) < 0 && (timer2EWord & 1) == 0) {
                 return;
             }
             eventsFg4++;
