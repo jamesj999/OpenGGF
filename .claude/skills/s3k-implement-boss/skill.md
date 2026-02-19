@@ -371,11 +371,16 @@ Report any discrepancies with specific line references.
 
 1. **Verify registration** in `Sonic3kObjectRegistry`
 
-2. **Add to IMPLEMENTED_IDS** in `Sonic3kObjectProfile.java` (the `IMPLEMENTED_IDS` set):
-   ```java
-   0xXX  // ZoneName Boss
-   ```
-   Keep the set entries sorted numerically.
+2. **Add to the correct IMPLEMENTED_IDS set** in `Sonic3kObjectProfile.java`:
+   - `SHARED_IMPLEMENTED_IDS` — for objects that work in **both** zone sets
+   - `S3KL_IMPLEMENTED_IDS` static block — for S3KL-only bosses (zones 0-6: AIZ through LBZ)
+   - `SKL_IMPLEMENTED_IDS` static block — for SKL-only bosses (zones 7-13: MHZ through DDZ)
+
+   S3K reuses boss IDs across zone sets (e.g., 0x91 = AIZMiniboss in S3KL, MHZMinibossTree in SKL).
+   The `getImplementedIds(LevelConfig level)` override routes to the correct set per zone.
+   **Never add a zone-set-specific ID to `SHARED_IMPLEMENTED_IDS`.**
+
+   Keep entries sorted numerically within each set.
 
 3. **Build and test**:
    ```bash
@@ -403,7 +408,7 @@ Report any discrepancies with specific line references.
 | Disassembly main | `docs/skdisasm/sonic3k.asm` |
 | Shared sprites | `docs/skdisasm/General/Sprites/` |
 | Zone-specific data | `docs/skdisasm/Levels/{ZONE}/Misc Object Data/` |
-| Implemented IDs | `src/.../tools/Sonic3kObjectProfile.java` (IMPLEMENTED_IDS set) |
+| Implemented IDs | `src/.../tools/Sonic3kObjectProfile.java` (zone-set-aware: `S3KL_IMPLEMENTED_IDS`, `SKL_IMPLEMENTED_IDS`, `SHARED_IMPLEMENTED_IDS`) |
 
 ## Boss-Specific Notes
 

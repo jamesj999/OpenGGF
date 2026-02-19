@@ -10,6 +10,7 @@ import uk.co.jamesj999.sonic.tools.ObjectDiscoveryTool.DynamicBoss;
 import uk.co.jamesj999.sonic.tools.ObjectDiscoveryTool.LevelConfig;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -54,20 +55,39 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             new LevelConfig(LevelData.S3K_DOOMSDAY, "DDZ", "The Doomsday Zone", 1)
     );
 
-    private static final Set<Integer> IMPLEMENTED_IDS = Set.of(
+    // Shared objects implemented for both zone sets
+    private static final Set<Integer> SHARED_IMPLEMENTED_IDS = Set.of(
             0x01, // Monitor
             0x02, // PathSwap
             0x04, // CollapsingPlatform
             0x05, // AIZLRZEMZRock
             0x07, // Spring
-            0x08, // Spikes
-            0x09, // AIZ1Tree
-            0x0A, // AIZ1ZiplinePeg
-            0x35, // AIZForegroundPlant
-            0x8C, // Bloominator
-            0x8D, // Rhinobot
-            0x8E  // MonkeyDude
+            0x08  // Spikes
     );
+
+    // S3KL-only implementations (zones 0-6: AIZ through LBZ)
+    private static final Set<Integer> S3KL_IMPLEMENTED_IDS;
+    // SKL-only implementations (zones 7-13: MHZ through DDZ)
+    private static final Set<Integer> SKL_IMPLEMENTED_IDS;
+
+    static {
+        var s3kl = new HashSet<>(SHARED_IMPLEMENTED_IDS);
+        s3kl.addAll(Set.of(
+                0x03, // AIZHollowTree
+                0x06, // AIZRideVine
+                0x09, // AIZ1Tree
+                0x0A, // AIZ1ZiplinePeg
+                0x0C, // AIZGiantRideVine
+                0x35, // AIZForegroundPlant
+                0x8C, // Bloominator
+                0x8D, // Rhinobot
+                0x8E  // MonkeyDude
+        ));
+        S3KL_IMPLEMENTED_IDS = Set.copyOf(s3kl);
+
+        // No SKL-specific objects implemented yet
+        SKL_IMPLEMENTED_IDS = Set.copyOf(SHARED_IMPLEMENTED_IDS);
+    }
 
     // S3KL badniks (SK Set 1, zones 0-6: AIZ through LBZ)
     private static final Set<Integer> S3KL_BADNIK_IDS = Set.of(
@@ -222,7 +242,10 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
     @Override public String defaultRomPath() { return "Sonic and Knuckles & Sonic 3 (W) [!].gen"; }
     @Override public String outputFilename() { return "S3K_OBJECT_CHECKLIST.md"; }
     @Override public List<LevelConfig> getLevels() { return LEVELS; }
-    @Override public Set<Integer> getImplementedIds() { return IMPLEMENTED_IDS; }
+    @Override public Set<Integer> getImplementedIds() { return S3KL_IMPLEMENTED_IDS; }
+    @Override public Set<Integer> getImplementedIds(LevelConfig level) {
+        return zoneSetForLevel(level) == S3kZoneSet.SKL ? SKL_IMPLEMENTED_IDS : S3KL_IMPLEMENTED_IDS;
+    }
     @Override public Map<String, List<DynamicBoss>> getDynamicBosses() { return DYNAMIC_BOSSES; }
 
     @Override

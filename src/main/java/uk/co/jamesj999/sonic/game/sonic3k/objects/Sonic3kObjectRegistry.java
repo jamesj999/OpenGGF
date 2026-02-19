@@ -64,10 +64,14 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
         factories.put(Sonic3kObjectIds.MONITOR,
                 (spawn, registry) -> new Sonic3kMonitorObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.PATH_SWAP, (spawn, registry) -> null);
+        factories.put(Sonic3kObjectIds.AIZ_HOLLOW_TREE,
+                (spawn, registry) -> new AizHollowTreeObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.COLLAPSING_PLATFORM,
                 (spawn, registry) -> new Sonic3kCollapsingPlatformObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AIZLRZ_ROCK,
                 (spawn, registry) -> new AizLrzRockObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.AIZ_RIDE_VINE,
+                (spawn, registry) -> new AizRideVineObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.SPRING,
                 (spawn, registry) -> new Sonic3kSpringObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.SPIKES,
@@ -76,6 +80,8 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Aiz1TreeObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AIZ1_ZIPLINE_PEG,
                 (spawn, registry) -> new Aiz1ZiplinePegObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.AIZ_GIANT_RIDE_VINE,
+                (spawn, registry) -> new AizGiantRideVineObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AIZ_FOREGROUND_PLANT,
                 (spawn, registry) -> new AizForegroundPlantInstance(spawn));
         factories.put(Sonic3kObjectIds.BLOOMINATOR,

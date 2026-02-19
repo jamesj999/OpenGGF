@@ -44,11 +44,17 @@ public class PlayableSpriteAnimation {
                 sprite.setAnimationId(desiredAnimId);
                 resetScriptState();
             }
+            if (sprite.isObjectMappingFrameControl()) {
+                return;
+            }
             updateScriptedAnimation(frameCounter);
             return;
         }
 
         if (profile == null) {
+            return;
+        }
+        if (sprite.isObjectMappingFrameControl()) {
             return;
         }
         int frameCount = sprite.getAnimationFrameCount();
