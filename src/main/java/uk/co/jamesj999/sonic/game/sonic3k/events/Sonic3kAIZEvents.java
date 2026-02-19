@@ -100,6 +100,14 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     // Tracks one-shot application of AIZ1SE_ChangeChunk4/3/2/1.
     private int appliedTreeRevealChunkCopiesMask;
 
+    // --- Boss / fire transition state ---
+    /** ROM: (Events_fg_5).w - set by boss exit sequence to trigger fire transition. */
+    private boolean eventsFg5;
+    /** True while fire transition palette/BG changes are active. */
+    private boolean fireTransitionActive;
+    /** Boss_flag equivalent - set when boss is present, cleared on cleanup. */
+    private boolean bossFlag;
+
     public Sonic3kAIZEvents(Camera camera, Sonic3kLoadBootstrap bootstrap) {
         super(camera);
         this.bootstrap = bootstrap;
@@ -112,6 +120,9 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         paletteSwapped = false;
         boundariesUnlocked = false;
         appliedTreeRevealChunkCopiesMask = 0;
+        eventsFg5 = false;
+        fireTransitionActive = false;
+        bossFlag = false;
         if (act == 0) {
             AizPlaneIntroInstance.resetIntroPhaseState();
             AizHollowTreeObjectInstance.resetTreeRevealCounter();
@@ -360,5 +371,31 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     }
 
     private record TreeRevealStepResult(boolean changed, boolean reachedEnd) {
+    }
+
+    // --- Boss / fire transition accessors ---
+
+    /** Called by the boss object to signal that the fire transition should begin. */
+    public void setEventsFg5(boolean flag) {
+        this.eventsFg5 = flag;
+        if (flag) {
+            LOG.info("AIZ1: Events_fg_5 set - fire transition signaled");
+        }
+    }
+
+    public boolean isEventsFg5() {
+        return eventsFg5;
+    }
+
+    public void setBossFlag(boolean flag) {
+        this.bossFlag = flag;
+    }
+
+    public boolean isBossFlag() {
+        return bossFlag;
+    }
+
+    public boolean isFireTransitionActive() {
+        return fireTransitionActive;
     }
 }

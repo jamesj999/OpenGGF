@@ -1,12 +1,12 @@
 # Sonic 3&K Object Implementation Checklist
 
-Generated: 2026-02-18 18:08:32
+Generated: 2026-02-18 20:01:54
 
 ## Summary
 
 - **Total unique objects found:** 303
-- **Implemented:** 11 (3.6%)
-- **Unimplemented:** 292 (96.4%)
+- **Implemented:** 12 (4.0%)
+- **Unimplemented:** 291 (96.0%)
 
 ## Implemented Objects
 
@@ -21,8 +21,9 @@ Generated: 2026-02-18 18:08:32
 | 0x09 | AIZ1Tree | 1 | AIZ1 |
 | 0x0A | AIZ1ZiplinePeg | 1 | AIZ1 |
 | 0x35 | AIZForegroundPlant | 64 | AIZ1 |
-| 0x09 | MHZCurledVine | 23 | MHZ1, MHZ2 |
-| 0x0A | MHZStickyVine | 7 | MHZ1, MHZ2 |
+| 0x8C | Bloominator | 13 | AIZ1, AIZ2 |
+| 0x8D | Rhinobot | 12 | AIZ1, AIZ2 |
+| 0x8E | MonkeyDude | 6 | AIZ1, AIZ2 |
 
 ## Unimplemented Objects (By Usage)
 
@@ -116,6 +117,7 @@ Generated: 2026-02-18 18:08:32
 | 0x31 | Object | LBZRollingDrum | 24 | LBZ1, LBZ2 |
 | 0x96 | Badnik | TurboSpiker | 23 | HCZ1, HCZ2 |
 | 0x9C | Badnik | Spiker | 23 | MGZ1, MGZ2 |
+| 0x09 | Object | MHZCurledVine | 23 | MHZ1, MHZ2 |
 | 0x71 | Object | FBZFloatingPlatform | 22 | FBZ1, FBZ2 |
 | 0x7A | Object | FBZScrewDoor | 22 | FBZ1, FBZ2 |
 | 0xB2 | Object | ICZFreezer | 22 | ICZ1, ICZ2 |
@@ -152,7 +154,6 @@ Generated: 2026-02-18 18:08:32
 | 0x21 | Object | LRZSmashingSpikePlatform | 15 | LRZ1 |
 | 0x8F | Badnik | CaterKillerJr | 14 | AIZ2 |
 | 0x8C | Badnik | Madmole | 14 | MHZ1, MHZ2 |
-| 0x8C | Badnik | Bloominator | 13 | AIZ1, AIZ2 |
 | 0x4F | Object | SinkingMud | 13 | MGZ1, MGZ2 |
 | 0x6F | Object | FBZWireCage | 13 | FBZ1, FBZ2 |
 | 0x17 | Object | LBZRideGrapple | 13 | LBZ1, LBZ2 |
@@ -160,7 +161,6 @@ Generated: 2026-02-18 18:08:32
 | 0x90 | Badnik | Cluckoid | 13 | MHZ2 |
 | 0x50 | Object | DEZConveyorBelt | 13 | DEZ1, DEZ2 |
 | 0x5D | Object | DEZRetractingSpring | 13 | DEZ2 |
-| 0x8D | Badnik | Rhinobot | 12 | AIZ1, AIZ2 |
 | 0x3A | Object | HCZHandLauncher | 12 | HCZ1, HCZ2 |
 | 0xE2 | Object | FBZElevator | 12 | FBZ2 |
 | 0xB1 | Object | ICZBreakableWall | 12 | ICZ1 |
@@ -217,6 +217,7 @@ Generated: 2026-02-18 18:08:32
 | 0xE3 | Object | FBZTrapSpring | 7 | FBZ2 |
 | 0x10 | Object | LBZTubeElevator | 7 | LBZ1 |
 | 0x20 | Object | MGZLBZSmashingPillar | 7 | LBZ1 |
+| 0x0A | Object | MHZStickyVine | 7 | MHZ1, MHZ2 |
 | 0x10 | Object | MHZSwingVine | 7 | MHZ1, MHZ2 |
 | 0x13 | Object | MHZMushroomCatapult | 7 | MHZ1, MHZ2 |
 | 0x8D | Badnik | Mushmeanie | 7 | MHZ1, MHZ2 |
@@ -224,7 +225,6 @@ Generated: 2026-02-18 18:08:32
 | 0x76 | Object | SSZRotatingPlatform | 7 | SSZ1 |
 | 0x4E | Object | DEZLiftPad | 7 | DEZ1 |
 | 0x57 | Object | DEZTunnelLauncher | 7 | DEZ1, DEZ2 |
-| 0x8E | Badnik | MonkeyDude | 6 | AIZ1, AIZ2 |
 | 0x29 | Object | AIZDisappearingFloor | 6 | AIZ2 |
 | 0x3F | Object | HCZConveyorSpike | 6 | HCZ1 |
 | 0x5C | Object | MGZTopLauncher | 6 | MGZ1, MGZ2 |
@@ -329,12 +329,12 @@ Generated: 2026-02-18 18:08:32
 
 #### Act 1
 
-Total: 153 objects | Implemented: 9 | Unimplemented: 14
+Total: 153 objects | Implemented: 12 | Unimplemented: 11
 
 **Badniks:**
-- [ ] 0x8C Bloominator (x2) [0x00]
-- [ ] 0x8D Rhinobot (x3) [0x00]
-- [ ] 0x8E MonkeyDude (x5) [0x10]
+- [x] 0x8C Bloominator (x2) [0x00]
+- [x] 0x8D Rhinobot (x3) [0x00]
+- [x] 0x8E MonkeyDude (x5) [0x10]
 
 **Bosses:**
 - [ ] 0x90 AIZMinibossCutscene (x1) [0x00]
@@ -362,12 +362,12 @@ Total: 153 objects | Implemented: 9 | Unimplemented: 14
 
 #### Act 2
 
-Total: 751 objects | Implemented: 6 | Unimplemented: 26
+Total: 751 objects | Implemented: 9 | Unimplemented: 23
 
 **Badniks:**
-- [ ] 0x8C Bloominator (x11) [0x00]
-- [ ] 0x8D Rhinobot (x9) [0x00]
-- [ ] 0x8E MonkeyDude (x1) [0x10]
+- [x] 0x8C Bloominator (x11) [0x00]
+- [x] 0x8D Rhinobot (x9) [0x00]
+- [x] 0x8E MonkeyDude (x1) [0x10]
 - [ ] 0x8F CaterKillerJr (x14) [0x00]
 
 **Bosses:**
@@ -910,7 +910,7 @@ Total: 489 objects | Implemented: 4 | Unimplemented: 31
 
 #### Act 1
 
-Total: 589 objects | Implemented: 6 | Unimplemented: 25
+Total: 589 objects | Implemented: 4 | Unimplemented: 27
 
 **Badniks:**
 - [ ] 0x8C Madmole (x11) [0x00]
@@ -928,8 +928,8 @@ Total: 589 objects | Implemented: 6 | Unimplemented: 25
 - [ ] 0x06 MHZPulleyLift (x4) [4 subtypes]
 - [x] 0x07 Spring (x37) [7 subtypes]
 - [x] 0x08 Spikes (x16) [5 subtypes]
-- [x] 0x09 MHZCurledVine (x12) [0x00]
-- [x] 0x0A MHZStickyVine (x3) [0x00]
+- [ ] 0x09 MHZCurledVine (x12) [0x00]
+- [ ] 0x0A MHZStickyVine (x3) [0x00]
 - [ ] 0x0B MHZSwingBarHorizontal (x11) [0x00]
 - [ ] 0x0C MHZSwingBarVertical (x3) [0x00]
 - [ ] 0x0D BreakableWall (x7) [0x00]
@@ -951,7 +951,7 @@ Total: 589 objects | Implemented: 6 | Unimplemented: 25
 
 #### Act 2
 
-Total: 554 objects | Implemented: 6 | Unimplemented: 24
+Total: 554 objects | Implemented: 4 | Unimplemented: 26
 
 **Badniks:**
 - [ ] 0x8C Madmole (x3) [0x00]
@@ -970,8 +970,8 @@ Total: 554 objects | Implemented: 6 | Unimplemented: 24
 - [ ] 0x06 MHZPulleyLift (x4) [4 subtypes]
 - [x] 0x07 Spring (x41) [8 subtypes]
 - [x] 0x08 Spikes (x30) [7 subtypes]
-- [x] 0x09 MHZCurledVine (x11) [0x00]
-- [x] 0x0A MHZStickyVine (x4) [0x00]
+- [ ] 0x09 MHZCurledVine (x11) [0x00]
+- [ ] 0x0A MHZStickyVine (x4) [0x00]
 - [ ] 0x0B MHZSwingBarHorizontal (x10) [0x00]
 - [ ] 0x0C MHZSwingBarVertical (x2) [0x00]
 - [ ] 0x0D BreakableWall (x12) [0x00]

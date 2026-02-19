@@ -27,6 +27,9 @@ public final class Sonic3kObjectArtKeys {
     public static final String FIRE_SHIELD = "fire_shield";
     public static final String LIGHTNING_SHIELD = "lightning_shield";
     public static final String BUBBLE_SHIELD = "bubble_shield";
+    public static final String AIZ_MINIBOSS = "aiz_miniboss";
+    public static final String AIZ_MINIBOSS_FLAME = "aiz_miniboss_flame";
+    public static final String AIZ_MINIBOSS_SMALL = "aiz_miniboss_small";
 
     private Sonic3kObjectArtKeys() {
     }

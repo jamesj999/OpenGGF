@@ -11,6 +11,8 @@ import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.objects.HudRenderManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
+import uk.co.jamesj999.sonic.level.resources.PlcParser.PlcDefinition;
+import uk.co.jamesj999.sonic.level.resources.PlcParser.PlcEntry;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.level.render.SpriteDplcFrame;
 import uk.co.jamesj999.sonic.level.render.SpriteMappingFrame;
@@ -493,6 +495,9 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ2_ROCK, art.buildAiz2RockSheet(), art);
             registerLevelArtSheet(Sonic3kObjectArtKeys.COLLAPSING_PLATFORM_AIZ1, art.buildCollapsingPlatformAiz1Sheet(), art);
             registerLevelArtSheet(Sonic3kObjectArtKeys.COLLAPSING_PLATFORM_AIZ2, art.buildCollapsingPlatformAiz2Sheet(), art);
+
+            // AIZ Miniboss art via PLC 0x5A (ROM: Load_PLC in loc_4645E)
+            loadAizMinibossArtFromPlc(level, art);
         }
 
         // ICZ objects (zone index 5 = ICZ in S3K)
@@ -518,6 +523,57 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         if (sheet != null && art.getLastBuildStartTile() >= 0) {
             levelArtTileRanges.put(key, new Sonic3kPlcLoader.TileRange(
                     art.getLastBuildStartTile(), art.getLastBuildTileCount()));
+        }
+    }
+
+    /**
+     * Loads AIZ miniboss art via PLC 0x5A, matching the ROM's Load_PLC call.
+     * PLC entries provide both the Nemesis art ROM addresses and VRAM tile destinations,
+     * eliminating the need for hardcoded art/tile constants.
+     *
+     * <p>PLC 0x5A contains 4 entries:
+     * <ol start="0">
+     *   <li>ArtNem_AIZMiniboss → ArtTile_AIZMiniboss (main boss)</li>
+     *   <li>ArtNem_AIZMinibossSmall → ArtTile_AIZMinibossSmall (debris)</li>
+     *   <li>ArtNem_AIZBossFire → ArtTile_AIZBossFire (flames)</li>
+     *   <li>ArtNem_BossExplosion → ArtTile_BossExplosion2 (shared explosion)</li>
+     * </ol>
+     */
+    private void loadAizMinibossArtFromPlc(Level level, Sonic3kObjectArt art) {
+        if (!(level instanceof Sonic3kLevel s3kLevel)) {
+            return;
+        }
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return;
+
+            // Parse and apply PLC 0x5A to decompress Nemesis art into level patterns
+            PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, Sonic3kConstants.PLC_AIZ_MINIBOSS);
+            List<PlcEntry> entries = plc.entries();
+            if (entries.size() < 3) {
+                LOG.warning("PLC 0x5A has fewer than 3 entries (" + entries.size() + "), skipping miniboss art");
+                return;
+            }
+
+            Sonic3kPlcLoader.applyToLevel(plc, s3kLevel, rom);
+
+            // Build sprite sheets from the PLC-loaded level patterns.
+            // The PLC entry tileIndex is the VRAM destination used as artTileBase.
+            int mainTile = entries.get(0).tileIndex();   // ArtTile_AIZMiniboss
+            int smallTile = entries.get(1).tileIndex();  // ArtTile_AIZMinibossSmall
+            int flameTile = entries.get(2).tileIndex();  // ArtTile_AIZBossFire
+
+            registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ_MINIBOSS,
+                    art.buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_MINIBOSS_ADDR, mainTile, 1), art);
+            registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ_MINIBOSS_SMALL,
+                    art.buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_MINIBOSS_SMALL_ADDR, smallTile, 0), art);
+            registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ_MINIBOSS_FLAME,
+                    art.buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_MINIBOSS_FLAME_ADDR, flameTile, 1), art);
+
+            LOG.info(String.format("Loaded AIZ miniboss art via PLC 0x5A: main=0x%03X, small=0x%03X, flame=0x%03X",
+                    mainTile, smallTile, flameTile));
+        } catch (IOException e) {
+            LOG.warning("Failed to load AIZ miniboss art from PLC: " + e.getMessage());
         }
     }
 

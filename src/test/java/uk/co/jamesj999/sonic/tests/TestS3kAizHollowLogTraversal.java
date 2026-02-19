@@ -43,6 +43,9 @@ public class TestS3kAizHollowLogTraversal {
     private static final short WAYPOINT_X = (short) 11412;
     private static final short WAYPOINT_Y = (short) 1070;
     private static final int TARGET_EXIT_Y = 808;
+    private static final int AIZ_MINIBOSS_TRIGGER_X = 0x2F10;
+    private static final int TOP_EXIT_CHECK_MAX_FRAMES = 96;
+    private static final int TOP_EXIT_CHECK_MAX_X = AIZ_MINIBOSS_TRIGGER_X - 0x20;
 
     @Rule
     public RequiresRomRule romRule = new RequiresRomRule();
@@ -372,12 +375,16 @@ public class TestS3kAizHollowLogTraversal {
         int releaseFrame = releasedFromRide ? 0 : -1;
         int maxForwardGain = 0;
         int groundedNearTopZeroSpeedFrames = 0;
+        int finalCheckedX = exitX;
+        int finalCheckedFrame = -1;
 
-        for (int frame = 0; frame < TIMEOUT_FRAMES; frame++) {
+        for (int frame = 0; frame < TOP_EXIT_CHECK_MAX_FRAMES; frame++) {
             runner.stepFrame(false, false, false, true, false);
 
             int x = sprite.getX();
             int y = sprite.getY();
+            finalCheckedX = x;
+            finalCheckedFrame = frame;
             int forwardGain = x - exitX;
             if (forwardGain > maxForwardGain) {
                 maxForwardGain = forwardGain;
@@ -402,6 +409,12 @@ public class TestS3kAizHollowLogTraversal {
             } else {
                 groundedNearTopZeroSpeedFrames = 0;
             }
+
+            // Keep this regression scoped to hollow-log exit behavior; beyond this point,
+            // AIZ miniboss scripting can legitimately alter camera/movement state.
+            if (x >= TOP_EXIT_CHECK_MAX_X) {
+                break;
+            }
         }
 
         assertTrue("Expected ride release to occur shortly after top-exit traversal."
@@ -412,6 +425,8 @@ public class TestS3kAizHollowLogTraversal {
         assertTrue("Expected continued forward traversal after top exit while holding Right."
                         + " maxForwardGain=" + maxForwardGain
                         + " releaseFrame=" + releaseFrame
+                        + " finalCheckedFrame=" + finalCheckedFrame
+                        + " finalCheckedX=0x" + Integer.toHexString(finalCheckedX)
                         + " exitX=" + exitX
                         + " exitY=" + exitY,
                 maxForwardGain >= 48);
