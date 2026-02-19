@@ -50,7 +50,6 @@ import java.util.logging.Logger;
 
 public class Sonic2ObjectRegistry implements ObjectRegistry {
     private static final Logger LOGGER = Logger.getLogger(Sonic2ObjectRegistry.class.getName());
-    private static Sonic2ObjectRegistry instance;
 
     private final Map<Integer, List<String>> namesById = new HashMap<>();
     private final Map<Integer, ObjectFactory> factories = new HashMap<>();
@@ -60,14 +59,7 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
     private final ObjectFactory defaultFactory = (spawn, registry) -> new PlaceholderObjectInstance(spawn,
             registry.getPrimaryName(spawn.objectId()));
 
-    private Sonic2ObjectRegistry() {
-    }
-
-    public static synchronized Sonic2ObjectRegistry getInstance() {
-        if (instance == null) {
-            instance = new Sonic2ObjectRegistry();
-        }
-        return instance;
+    public Sonic2ObjectRegistry() {
     }
 
     public ObjectInstance create(ObjectSpawn spawn) {
@@ -273,6 +265,10 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         registerFactory(Sonic2ObjectIds.GROUNDER_IN_WALL2,
                 (spawn, registry) -> new GrounderBadnikInstance(spawn, LevelManager.getInstance(), true));
         // Note: GROUNDER_WALL (0x8F) and GROUNDER_ROCKS (0x90) are spawned dynamically
+
+        // HTZ Fire Shooter (Obj20) - fire source that shoots paired fireballs
+        registerFactory(Sonic2ObjectIds.LAVA_BUBBLE,
+                (spawn, registry) -> new HtzFireShooterObjectInstance(spawn));
 
         // HTZ Badniks
         registerFactory(Sonic2ObjectIds.SPIKER,

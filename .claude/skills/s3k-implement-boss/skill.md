@@ -288,6 +288,8 @@ private void transitionToNextPhase() {
 
 ### Phase 7: Art Loading
 
+**PLC note:** Boss art is often loaded via PLCs (IDs 0x53-0x7B). Zone screen events call `applyPlc()` from `Sonic3kZoneEvents` to load boss PLCs at runtime. See `plc-system` and `s3k-plc-system` skills.
+
 ```bash
 # Find boss art
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_ZONEBoss" -q
@@ -319,7 +321,7 @@ registerFactory(Sonic3kObjectIds.ZONE_ENDBOSS,
     (spawn, registry) -> new Sonic3kZoneEndBossInstance(spawn, LevelManager.getInstance()));
 ```
 
-If `Sonic3kObjectRegistry` doesn't exist yet, create it following `Sonic2ObjectRegistry` pattern.
+Register your factory in existing `Sonic3kObjectRegistry.registerDefaultFactories()`.
 
 ### Phase 9: Code Quality
 
@@ -396,7 +398,7 @@ Report any discrepancies with specific line references.
 | Object IDs | `src/.../game/sonic3k/constants/Sonic3kObjectIds.java` |
 | ROM offsets | `src/.../game/sonic3k/constants/Sonic3kConstants.java` |
 | Registry | `src/.../game/sonic3k/objects/Sonic3kObjectRegistry.java` |
-| Audio profile | `src/.../game/sonic3k/audio/Sonic3kAudioProfile.java` (to be created) |
+| Audio profile | `src/.../game/sonic3k/audio/Sonic3kAudioProfile.java` |
 | S2 boss examples | `src/.../game/sonic2/objects/bosses/` |
 | Disassembly main | `docs/skdisasm/sonic3k.asm` |
 | Shared sprites | `docs/skdisasm/General/Sprites/` |

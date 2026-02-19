@@ -11,6 +11,7 @@ import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationEndAction;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationScript;
 import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
 import uk.co.jamesj999.sonic.sprites.art.SpriteArtSet;
+import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.render.PlayerSpriteRenderer;
 
@@ -64,7 +65,8 @@ public class FireShieldObjectInstance extends ShieldObjectInstance {
             if (player == null) return;
             int cx = player.getCentreX();
             int cy = player.getCentreY();
-            dplcRenderer.drawFrame(currentMappingFrame, cx, cy, false, false);
+            boolean hFlip = player.getDirection() == Direction.LEFT;
+            dplcRenderer.drawFrame(currentMappingFrame, cx, cy, hFlip, false);
             return;
         }
         if (hasRenderer()) {

@@ -210,6 +210,8 @@ The hit response typically:
 
 ### Phase 6: Art Loading
 
+**PLC note:** S1 boss art has dedicated PLC IDs in ArtLoadCues. The shared `PlcParser` utility handles parsing. See `plc-system` skill.
+
 ```bash
 # Find boss art
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_Eggman" -q
@@ -237,7 +239,7 @@ registerFactory(Sonic1ObjectIds.ZONE_BOSS,
     (spawn, registry) -> new Sonic1ZoneBossInstance(spawn, LevelManager.getInstance()));
 ```
 
-If `Sonic1ObjectRegistry` doesn't yet support factories, refactor it following `Sonic2ObjectRegistry` pattern.
+`Sonic1ObjectRegistry` already has `registerDefaultFactories()` — add your factory registration there.
 
 ### Phase 8: Code Quality
 

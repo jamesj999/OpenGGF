@@ -11,6 +11,87 @@ public class Sonic2Constants {
     public static final int LEVEL_SELECT_ADDR = 0x9454;
     public static final int LEVEL_DATA_DIR = 0x42594;
     public static final int LEVEL_DATA_DIR_ENTRY_SIZE = 12;
+
+    // PLC (Pattern Load Cue) table address - immediately follows LEVEL_DATA_DIR
+    // ArtLoadCues table at s2.asm line 88634 (word_42660)
+    // LEVEL_DATA_DIR (0x42594) + 17 entries * 12 bytes = 0x42660
+    public static final int ART_LOAD_CUES_ADDR = 0x42660;
+    public static final int ART_LOAD_CUES_ENTRY_COUNT = 67;
+
+    // PLC ID constants (from s2disasm ArtLoadCues offset table)
+    // Standard PLCs (loaded for all zones)
+    public static final int PLC_STD1 = 0;           // HUD, life icon, ring, numbers
+    public static final int PLC_STD2 = 1;           // Checkpoint, signpost, monitors, shield, stars, explosion
+    public static final int PLC_STD_WATER = 2;      // Explosion, super sonic stars, bubbles
+    public static final int PLC_GAME_OVER = 3;      // Game over / time over text
+    // Zone PLCs (2 per zone: primary + secondary)
+    public static final int PLC_EHZ1 = 4;
+    public static final int PLC_EHZ2 = 5;
+    public static final int PLC_LVL1_1 = 6;         // Unused level 1
+    public static final int PLC_LVL1_2 = 7;
+    public static final int PLC_WZ1 = 8;            // Wood Zone (unused)
+    public static final int PLC_WZ2 = 9;
+    public static final int PLC_LVL3_1 = 10;        // Unused level 3
+    public static final int PLC_LVL3_2 = 11;
+    public static final int PLC_MTZ1 = 12;
+    public static final int PLC_MTZ2 = 13;
+    public static final int PLC_MTZ3_1 = 14;        // MTZ Act 3 (zone ID 5)
+    public static final int PLC_MTZ3_2 = 15;
+    public static final int PLC_WFZ1 = 16;
+    public static final int PLC_WFZ2 = 17;
+    public static final int PLC_HTZ1 = 18;
+    public static final int PLC_HTZ2 = 19;
+    public static final int PLC_HPZ1 = 20;          // Hidden Palace (unused)
+    public static final int PLC_HPZ2 = 21;
+    public static final int PLC_LVL9_1 = 22;        // Unused level 9
+    public static final int PLC_LVL9_2 = 23;
+    public static final int PLC_OOZ1 = 24;
+    public static final int PLC_OOZ2 = 25;
+    public static final int PLC_MCZ1 = 26;
+    public static final int PLC_MCZ2 = 27;
+    public static final int PLC_CNZ1 = 28;
+    public static final int PLC_CNZ2 = 29;
+    public static final int PLC_CPZ1 = 30;
+    public static final int PLC_CPZ2 = 31;
+    public static final int PLC_DEZ1 = 32;
+    public static final int PLC_DEZ2 = 33;
+    public static final int PLC_ARZ1 = 34;
+    public static final int PLC_ARZ2 = 35;
+    public static final int PLC_SCZ1 = 36;
+    public static final int PLC_SCZ2 = 37;
+    public static final int PLC_RESULTS = 38;        // Results screen
+    public static final int PLC_SIGNPOST = 39;       // Signpost/goal plate
+    // Boss PLCs (verified against s2disasm ArtLoadCues offset table, s2.asm:88676-88704)
+    public static final int PLC_CPZ_BOSS = 40;       // Eggpod + CPZ boss drip + pipes + jets + smoke
+    public static final int PLC_EHZ_BOSS = 41;       // EHZ boss car + choppers
+    public static final int PLC_HTZ_BOSS = 42;
+    public static final int PLC_ARZ_BOSS = 43;
+    public static final int PLC_MCZ_BOSS = 44;
+    public static final int PLC_CNZ_BOSS = 45;
+    public static final int PLC_MTZ_BOSS = 46;
+    public static final int PLC_OOZ_BOSS = 47;
+    public static final int PLC_FIERY_EXPLOSION = 48;
+    public static final int PLC_DEZ_BOSS = 49;
+    // Per-zone animal pairs (verified against s2disasm, s2.asm:88686-88697)
+    public static final int PLC_ANIMALS_EHZ = 50;
+    public static final int PLC_ANIMALS_MCZ = 51;
+    public static final int PLC_ANIMALS_HTZ_MTZ_WFZ = 52; // HTZ, MTZ, WFZ share one animal PLC
+    public static final int PLC_ANIMALS_DEZ = 53;
+    public static final int PLC_ANIMALS_HPZ = 54;
+    public static final int PLC_ANIMALS_OOZ = 55;
+    public static final int PLC_ANIMALS_SCZ = 56;
+    public static final int PLC_ANIMALS_CNZ = 57;
+    public static final int PLC_ANIMALS_CPZ = 58;
+    public static final int PLC_ANIMALS_ARZ = 59;
+    // Special stage and misc PLCs (verified against s2disasm, s2.asm:88698-88704)
+    public static final int PLC_SPECIAL_STAGE = 60;
+    public static final int PLC_SPECIAL_STAGE_BOMBS = 61;
+    public static final int PLC_WFZ_BOSS = 62;
+    public static final int PLC_TORNADO = 63;
+    public static final int PLC_CAPSULE = 64;
+    public static final int PLC_EXPLOSION = 65;
+    public static final int PLC_RESULTS_TAILS = 66;
+
     public static final int LEVEL_PALETTE_DIR = 0x2782;
     public static final int SONIC_TAILS_PALETTE_ADDR = 0x29E2;
     public static final int COLLISION_LAYOUT_DIR_ADDR = 0x49E8;
@@ -201,7 +282,7 @@ public class Sonic2Constants {
 
     // Egg Prison / Capsule (Object 0x3E)
     public static final int ART_NEM_EGG_PRISON_ADDR = 0x7BA32; // Egg Prison.nem (verified via RomOffsetFinder)
-    public static final int MAP_UNC_EGG_PRISON_ADDR = 0x1F436;  // Obj3E_MapUnc_3F436 (relative offset in s2.asm)
+    public static final int MAP_UNC_EGG_PRISON_ADDR = 0x3F436;  // Obj3E_MapUnc_3F436
     public static final int ART_TILE_SIGNPOST = 0x0434;
 
     // Results Screen Art (Obj3A)
@@ -460,7 +541,7 @@ public class Sonic2Constants {
     public static final int ART_NEM_BUBBLES_ADDR = 0x7AEE2;  // ArtNem_Bubbles - small breathing bubbles
     public static final int ART_NEM_BUBBLE_GENERATOR_ADDR = 0x7AD16;  // ArtNem_BubbleGenerator - large bubbles (37 tiles)
     public static final int ART_UNC_COUNTDOWN_ADDR = 0x7AF82;  // Countdown numbers for drowning (uncompressed)
-    public static final int MAP_UNC_SMALL_BUBBLES_ADDR = 0x21FD6;  // Obj0A_MapUnc - small breathing bubbles
+    public static final int MAP_UNC_SMALL_BUBBLES_ADDR = 0x1FBF6;  // Obj24_MapUnc_1FBF6 - Sonic breathing bubbles (shared with Obj24)
     public static final int MAP_UNC_BUBBLES_ADDR = 0x1FCA2;  // Obj24_MapUnc - bubble generator / countdown bubbles
     public static final int ART_TILE_BUBBLES = 0x055B;  // ArtTile_ArtNem_BigBubbles - VRAM tile base (original)
 
@@ -707,6 +788,7 @@ public class Sonic2Constants {
     public static final int ART_NEM_HTZ_SEESAW_ADDR = 0xF096E;  // Nemesis compressed
     public static final int ART_NEM_SOL_ADDR = 0xF0D4A;         // Ball uses Sol badnik art
     public static final int ART_NEM_HTZ_FIREBALL1_ADDR = 0xF0160; // ArtNem_HtzFireball1 (Sol fireball)
+    public static final int ART_NEM_HTZ_FIREBALL2_ADDR = 0xF03DC; // ArtNem_HtzFireball2 (Lava Bubble Obj20)
 
     // HTZ Zipline Lift (Object 0x16)
     public static final int ART_NEM_HTZ_ZIPLINE_ADDR = 0xF0602;  // Nemesis compressed
@@ -720,6 +802,97 @@ public class Sonic2Constants {
     public static final int HTZ_CLOUDS_TILE_INDEX = 0x0518;     // Tile index 1304
     public static final int HTZ_CLOUDS_TILE_COUNT = 8;          // 8 tiles
     public static final int HTZ_DYNAMIC_TILES_END = 0x0520;     // First tile after dynamic art (1312)
+
+    // ROM-parsed mapping addresses (from s2disasm MapUnc labels)
+    public static final int MAP_UNC_EXPLOSION_ADDR = 0x21120;       // Obj27_MapUnc_21120
+    public static final int MAP_UNC_SHIELD_ADDR = 0x1DBE4;           // Obj38_MapUnc_1DBE4
+    public static final int MAP_UNC_BRIDGE_ADDR = 0xFC70;            // Obj11_MapUnc_FC70
+    public static final int MAP_UNC_BUMPER_ADDR = 0x1F85A;           // Obj44_MapUnc_1F85A
+    public static final int MAP_UNC_HEX_BUMPER_ADDR = 0x2C626;       // ObjD7_MapUnc_2C626
+    public static final int MAP_UNC_BONUS_BLOCK_ADDR = 0x2C8C4;      // ObjD8_MapUnc_2C8C4
+    public static final int MAP_UNC_WATERFALL_ADDR = 0x20C50;        // Obj49_MapUnc_20C50
+    public static final int MAP_UNC_MASHER_ADDR = 0x2D442;           // Obj5C_MapUnc_2D442 (Masher = Obj5C)
+    public static final int MAP_UNC_OCTUS_ADDR = 0x2CBFE;            // Obj4A_MapUnc_2CBFE
+    public static final int MAP_UNC_BUZZER_ADDR = 0x2D2EA;           // Obj4B_MapUnc_2D2EA
+    public static final int MAP_UNC_COCONUTS_ADDR = 0x37D96;         // Obj9D_Obj98_MapUnc_37D96
+    public static final int MAP_UNC_CRAWLTON_ADDR = 0x37FF2;         // Obj9E_MapUnc_37FF2
+    public static final int MAP_UNC_FLASHER_ADDR = 0x388F0;          // ObjA3_MapUnc_388F0
+    public static final int MAP_UNC_ASTERON_ADDR = 0x38A96;          // ObjA4_Obj98_MapUnc_38A96
+    public static final int MAP_UNC_SHELLCRACKER_ADDR = 0x38314;     // Obj9F_MapUnc_38314
+    public static final int MAP_UNC_SLICER_ADDR = 0x385E2;           // ObjA1_MapUnc_385E2
+    public static final int MAP_UNC_SPINY_ADDR = 0x38CCA;            // ObjA5_ObjA6_Obj98_MapUnc_38CCA
+    public static final int MAP_UNC_GRABBER_ADDR = 0x3921A;          // ObjA7_ObjA8_ObjA9_Obj98_MapUnc_3921A
+    public static final int MAP_UNC_GRABBER_STRING_ADDR = 0x39228;   // ObjAA_MapUnc_39228
+    public static final int MAP_UNC_CHOPCHOP_ADDR = 0x36EF6;         // Obj91_MapUnc_36EF6
+    public static final int MAP_UNC_WHISP_ADDR = 0x36A4E;            // Obj8C_MapUnc_36A4E
+    public static final int MAP_UNC_GROUNDER_ADDR = 0x36CF0;         // Obj8D_MapUnc_36CF0
+    public static final int MAP_UNC_GROUNDER_ROCK_ADDR = 0x36CFA;    // Obj90_MapUnc_36CFA
+    public static final int MAP_UNC_SPIKER_ADDR = 0x37092;           // Obj92_Obj93_MapUnc_37092
+    public static final int MAP_UNC_SOL_ADDR = 0x372E6;              // Obj95_MapUnc_372E6
+    public static final int MAP_UNC_REXON_ADDR = 0x37678;            // Obj94_Obj98_MapUnc_37678
+    public static final int MAP_UNC_CRAWL_ADDR = 0x3D450;            // ObjC8_MapUnc_3D450
+    public static final int MAP_UNC_AQUIS_ADDR = 0x2CF94;            // Obj50_MapUnc_2CF94
+    public static final int MAP_UNC_NEBULA_ADDR = 0x3789A;           // Obj99_Obj98_MapUnc_3789A
+    public static final int MAP_UNC_TURTLOID_ADDR = 0x37B62;         // Obj9A_Obj98_MapUnc_37B62
+    public static final int MAP_UNC_BALKIRY_ADDR = 0x393CC;          // ObjAC_MapUnc_393CC
+    public static final int MAP_UNC_CLUCKER_ADDR = 0x395B4;          // ObjAD_Obj98_MapUnc_395B4 (shared with Turtloid)
+    public static final int MAP_UNC_SEESAW_ADDR = 0x21CF0;           // Obj14_MapUnc_21CF0
+    public static final int MAP_UNC_SEESAW_BALL_ADDR = 0x21D7C;      // Obj14_MapUnc_21D7C
+    public static final int MAP_UNC_HTZ_LIFT_ADDR = 0x21F14;         // Obj16_MapUnc_21F14
+    public static final int MAP_UNC_POINTS_ADDR = 0x11ED0;           // Obj29_MapUnc_11ED0
+    public static final int MAP_UNC_SIGNPOST_A_ADDR = 0x195BE;       // Obj0D_MapUnc_195BE
+    public static final int MAP_UNC_FLIPPER_ADDR = 0x2B45A;          // Obj86_MapUnc_2B45A
+    public static final int MAP_UNC_CNZ_RECT_BLOCKS_ADDR = 0x2B694;  // ObjD2_MapUnc_2B694
+    public static final int MAP_UNC_CNZ_BIG_BLOCK_ADDR = 0x2B9CA;    // ObjD4_MapUnc_2B9CA
+    public static final int MAP_UNC_CNZ_ELEVATOR_ADDR = 0x2BB40;     // ObjD5_MapUnc_2BB40
+    public static final int MAP_UNC_CNZ_CAGE_ADDR = 0x2BEBC;         // ObjD6_MapUnc_2BEBC
+    public static final int MAP_UNC_CNZ_BONUS_SPIKE_ADDR = 0x2B8D4;  // ObjD3_MapUnc_2B8D4
+    public static final int MAP_UNC_LAUNCHER_SPRING_VERT_ADDR = 0x2B07E; // Obj85_MapUnc_2B07E
+    public static final int MAP_UNC_LAUNCHER_SPRING_DIAG_ADDR = 0x2B0EC; // Obj85_MapUnc_2B0EC
+    public static final int MAP_UNC_BLUE_BALLS_ADDR = 0x22576;       // Obj1D_MapUnc_22576
+    public static final int MAP_UNC_CPZ_STAIR_BLOCK_ADDR = 0x29564;  // Obj7A_MapUnc_29564
+    public static final int MAP_UNC_CPZ_PYLON_ADDR = 0x2103C;        // Obj7C_MapUnc_2103C
+    public static final int MAP_UNC_PIPE_EXIT_SPRING_ADDR = 0x29780; // Obj7B_MapUnc_29780
+    public static final int MAP_UNC_TIPPING_FLOOR_ADDR = 0x201A0;    // Obj0B_MapUnc_201A0
+    public static final int MAP_UNC_SPRINGBOARD_ADDR = 0x265F4;      // Obj40_MapUnc_265F4
+    public static final int MAP_UNC_LEAVES_ADDR = 0x2631E;           // Obj2C_MapUnc_2631E
+    public static final int MAP_UNC_OBJ33_A_ADDR = 0x23DDC;          // Obj33_MapUnc_23DDC (Burner Lid)
+    public static final int MAP_UNC_OBJ33_B_ADDR = 0x23DF0;          // Obj33_MapUnc_23DF0 (Burn Flame)
+    public static final int MAP_UNC_OBJ3F_HORIZ_ADDR = 0x2AA12;      // Obj3F_MapUnc_2AA12 (Fan Horiz)
+    public static final int MAP_UNC_OBJ3F_VERT_ADDR = 0x2AAC4;       // Obj3F_MapUnc_2AAC4 (Fan Vert)
+    public static final int MAP_UNC_LAUNCH_BALL_ADDR = 0x254FE;      // Obj48_MapUnc_254FE
+    public static final int MAP_UNC_OBJ3D_ADDR = 0x250BA;            // Obj3D_MapUnc_250BA (OOZ Launcher)
+    public static final int MAP_UNC_OBJ1F_A_ADDR = 0x10F0C;          // Obj1F_MapUnc_10F0C (OOZ Collapsing)
+    public static final int MAP_UNC_OBJ1F_B_ADDR = 0x110C6;          // Obj1F_MapUnc_110C6 (MCZ Collapsing)
+    public static final int MAP_UNC_OBJ1F_C_ADDR = 0x11106;          // Obj1F_MapUnc_11106 (MCZ Collapsing Platform)
+    public static final int MAP_UNC_CRATE_ADDR = 0x27D30;            // Obj6A_MapUnc_27D30
+    public static final int MAP_UNC_OBJ1A_A_ADDR = 0x10C6C;          // Obj1A_MapUnc_10C6C (MCZ Bridge)
+    public static final int MAP_UNC_OBJBD_ADDR = 0x3BD3E;            // ObjBD_MapUnc_3BD3E (WFZ Belt Platform)
+    public static final int MAP_UNC_OBJB9_ADDR = 0x3BB18;            // ObjB9_MapUnc_3BB18 (WFZ Laser)
+    public static final int MAP_UNC_OBJC2_ADDR = 0x3C3C2;            // ObjC2_MapUnc_3C3C2 (WFZ Rivet)
+    public static final int MAP_UNC_OBJBA_ADDR = 0x3BB70;            // ObjBA_MapUnc_3BB70 (WFZ Conveyor Belt Wheel)
+    public static final int MAP_UNC_CLOUD_ADDR = 0x3B32C;            // ObjB3_MapUnc_3B32C
+    public static final int MAP_UNC_VPROPELLER_ADDR = 0x3B3BE;       // ObjB4_MapUnc_3B3BE
+    public static final int MAP_UNC_HPROPELLER_ADDR = 0x3B548;       // ObjB5_MapUnc_3B548
+    public static final int MAP_UNC_MTZ_COG_ADDR = 0x26EC8;          // Obj65_Obj6A_Obj6B_MapUnc_26EC8
+    public static final int MAP_UNC_BUTTON_ADDR = 0x24D96;           // Obj47_MapUnc_24D96
+    public static final int MAP_UNC_MTZ_FLOOR_SPIKE_ADDR = 0x27750;  // Obj68_Obj6D_MapUnc_27750
+    public static final int MAP_UNC_MTZ_SPIKE_BLOCK_ADDR = MAP_UNC_MTZ_FLOOR_SPIKE_ADDR; // Same table (Obj68)
+    public static final int MAP_UNC_MTZ_SPIKE_ADDR = 0x27120;        // Obj66_MapUnc_27120
+    public static final int MAP_UNC_MTZ_STEAM_ADDR = 0x2686C;        // Obj42_MapUnc_2686C
+    public static final int MAP_UNC_MTZ_SPIN_TUBE_FLASH_ADDR = 0x27548; // Obj67_MapUnc_27548
+    public static final int MAP_UNC_MTZ_LAVA_CUP_ADDR = 0x28372;     // Obj6C_MapUnc_28372
+    public static final int MAP_UNC_EHZ_BOSS_A_ADDR = 0x2F970;       // Obj56_MapUnc_2F970 (propellers/EggChoppers)
+    public static final int MAP_UNC_EHZ_BOSS_B_ADDR = 0x2FA58;       // Obj56_MapUnc_2FA58 (ground vehicle/wheels/spike)
+    public static final int MAP_UNC_EHZ_BOSS_C_ADDR = 0x2FAF8;       // Obj56_MapUnc_2FAF8 (flying vehicle/Eggman)
+    public static final int MAP_UNC_SMASHABLE_GROUND_A_ADDR = 0x236FA; // Obj2F_MapUnc_236FA (SmashableGround)
+    public static final int MAP_UNC_LAVA_BUBBLE_ADDR = 0x23254;       // Obj20_MapUnc_23254 (HTZ Lava Bubble / fire source)
+    public static final int MAP_UNC_GROUND_FIRE_ADDR = 0x23294;       // Obj20_MapUnc_23294 (HTZ ground fire)
+    public static final int MAP_UNC_MTZ_NUT_ADDR = 0x27A26;          // Obj69_MapUnc_27A26
+    public static final int MAP_UNC_MTZ_LAVA_BUBBLE_A_ADDR = 0x11396; // Obj71_MapUnc_11396
+    public static final int MAP_UNC_MTZ_LAVA_BUBBLE_B_ADDR = 0x11576; // Obj71_MapUnc_11576 (MTZ lava bubble)
+    public static final int MAP_UNC_OBJBB_ADDR = 0x3BBA0;            // ObjBB_MapUnc_3BBA0 (WFZ Thrust)
+    public static final int MAP_UNC_OBJBF_ADDR = 0x3BEE0;            // ObjBF_MapUnc_3BEE0 (WFZ BreakPanels)
 
     public static final int[][] START_POSITIONS = {
             { 0x0060, 0x028F }, // 0 Emerald Hill 1 (EHZ_1.bin)
@@ -1099,6 +1272,8 @@ public class Sonic2Constants {
         offsets.put("ART_TILE_WFZ_WALL_TURRET", ART_TILE_WFZ_WALL_TURRET);
         offsets.put("ART_NEM_WFZ_GUN_PLATFORM_ADDR", ART_NEM_WFZ_GUN_PLATFORM_ADDR);
         offsets.put("MAP_UNC_OBJBE_ADDR", MAP_UNC_OBJBE_ADDR);
+        offsets.put("ART_LOAD_CUES_ADDR", ART_LOAD_CUES_ADDR);
+        offsets.put("ART_LOAD_CUES_ENTRY_COUNT", ART_LOAD_CUES_ENTRY_COUNT);
         return offsets;
     }
 }

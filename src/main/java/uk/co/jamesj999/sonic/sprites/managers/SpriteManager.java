@@ -1,5 +1,10 @@
 package uk.co.jamesj999.sonic.sprites.managers;
 
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_CONTROL;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_CONTROL;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT;
+
 import uk.co.jamesj999.sonic.Control.InputHandler;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
@@ -17,7 +22,6 @@ import uk.co.jamesj999.sonic.sprites.Sprite;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.GroundMode;
 
-import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -160,8 +164,8 @@ public class SpriteManager {
 		boolean right = handler.isKeyDown(rightKey);
 		boolean space = handler.isKeyDown(jumpKey);
 		boolean testButton = handler.isKeyDown(testKey);
-		boolean speedUp = handler.isKeyDown(KeyEvent.VK_SHIFT);
-		boolean slowDown = handler.isKeyDown(KeyEvent.VK_CONTROL);
+		boolean speedUp = isDebugSpeedUpModifierDown(handler);
+		boolean slowDown = isDebugSlowDownModifierDown(handler);
 		boolean debugModePressed = handler.isKeyPressed(debugModeKey);
 		boolean superSonicDebugPressed = handler.isKeyPressed(superSonicDebugKey);
 		boolean giveEmeraldsPressed = handler.isKeyPressed(giveEmeraldsKey);
@@ -303,6 +307,14 @@ public class SpriteManager {
 				playable.endOfTick();
 			}
 		}
+	}
+
+	static boolean isDebugSpeedUpModifierDown(InputHandler handler) {
+		return handler.isKeyDown(GLFW_KEY_LEFT_SHIFT) || handler.isKeyDown(GLFW_KEY_RIGHT_SHIFT);
+	}
+
+	static boolean isDebugSlowDownModifierDown(InputHandler handler) {
+		return handler.isKeyDown(GLFW_KEY_LEFT_CONTROL) || handler.isKeyDown(GLFW_KEY_RIGHT_CONTROL);
 	}
 
 	public void draw() {

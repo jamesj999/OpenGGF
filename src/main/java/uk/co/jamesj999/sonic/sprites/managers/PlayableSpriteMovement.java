@@ -18,6 +18,10 @@ import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationProfile;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.sprites.playable.GroundMode;
 import uk.co.jamesj999.sonic.sprites.playable.ShieldType;
+import uk.co.jamesj999.sonic.game.sonic2.objects.ShieldObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.FireShieldObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.LightningShieldObjectInstance;
+import uk.co.jamesj999.sonic.game.sonic3k.objects.BubbleShieldObjectInstance;
 
 import java.util.logging.Logger;
 
@@ -518,12 +522,16 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setXSpeed((short) (0x800 * dir));
 		sprite.setYSpeed((short) 0);
 		audioManager.playSfx(GameSound.FIRE_ATTACK);
+		ShieldObjectInstance shield = sprite.getShieldObject();
+		if (shield instanceof FireShieldObjectInstance fire) fire.setAnimation(1);
 	}
 
 	/** Lightning double jump: upward velocity boost (s3.asm:21094-21102) */
 	private void lightningShieldJump() {
 		sprite.setYSpeed((short) -0x580);
 		audioManager.playSfx(GameSound.LIGHTNING_ATTACK);
+		ShieldObjectInstance shield = sprite.getShieldObject();
+		if (shield instanceof LightningShieldObjectInstance lightning) lightning.triggerSparks();
 	}
 
 	/** Bubble bounce: slam downward (s3.asm:21105-21114) */
@@ -532,6 +540,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setGSpeed((short) 0);
 		sprite.setYSpeed((short) 0x800);
 		audioManager.playSfx(GameSound.BUBBLE_ATTACK);
+		ShieldObjectInstance shield = sprite.getShieldObject();
+		if (shield instanceof BubbleShieldObjectInstance bubble) bubble.setAnimation(1);
 	}
 
 	// ========================================
@@ -1382,6 +1392,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			sprite.setY((short) (sprite.getY() + sprite.getRollHeightAdjustment()));
 		}
 		audioManager.playSfx(GameSound.BUBBLE_ATTACK);
+		ShieldObjectInstance shield = sprite.getShieldObject();
+		if (shield instanceof BubbleShieldObjectInstance bubble) bubble.setAnimation(2);
 	}
 
 	// ========================================

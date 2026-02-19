@@ -17,8 +17,8 @@ import uk.co.jamesj999.sonic.game.ScrollHandlerProvider;
 import uk.co.jamesj999.sonic.game.ZoneArtProvider;
 import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
 import uk.co.jamesj999.sonic.game.ZoneRegistry;
-import uk.co.jamesj999.sonic.game.sonic2.CheckpointState;
-import uk.co.jamesj999.sonic.game.sonic2.LevelGamestate;
+import uk.co.jamesj999.sonic.game.CheckpointState;
+import uk.co.jamesj999.sonic.game.LevelGamestate;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kAudioProfile;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
@@ -161,6 +161,11 @@ public class Sonic3kGameModule implements GameModule {
             physicsProvider = new Sonic3kPhysicsProvider();
         }
         return physicsProvider;
+    }
+
+    @Override
+    public boolean hasSeparateTailsTailArt() {
+        return true;
     }
 
     @Override

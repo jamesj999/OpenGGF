@@ -4,6 +4,8 @@ import org.junit.Test;
 import org.junit.Assume;
 import uk.co.jamesj999.sonic.tools.KosinskiReader;
 
+import static org.junit.Assert.*;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -39,6 +41,25 @@ public class TestCollisionLogic {
             collisionArray[i] = Byte.toUnsignedInt(collisionBuffer[i]);
         }
 
+        // Verify decompressed data is non-empty and contains valid collision indices
+        assertTrue("Decompressed collision buffer should not be empty", collisionBuffer.length > 0);
+        assertTrue("Collision array should have entries", collisionArray.length > 0);
+
+        // EHZ collision data uses collision block indices; verify some are non-zero
+        boolean hasNonZero = false;
+        for (int value : collisionArray) {
+            if (value != 0) {
+                hasNonZero = true;
+                break;
+            }
+        }
+        assertTrue("Collision array should contain non-zero entries", hasNonZero);
+
+        // All values should be valid unsigned byte range (0-255)
+        for (int i = 0; i < collisionBuffer.length; i++) {
+            assertTrue("Collision value at index " + i + " should be in range 0-255",
+                    collisionArray[i] >= 0 && collisionArray[i] <= 255);
+        }
     }
 
 }

@@ -3,7 +3,7 @@ package uk.co.jamesj999.sonic.game.sonic1.objects;
 import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.debug.DebugRenderContext;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
-import uk.co.jamesj999.sonic.game.sonic2.OscillationManager;
+import uk.co.jamesj999.sonic.game.OscillationManager;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.AbstractObjectInstance;

@@ -103,7 +103,7 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
         } else {
             this.renderer = null;
         }
-        this.sonic1TrailMode = isSonic1Module();
+        this.sonic1TrailMode = isTrailMode();
     }
 
     @Override
@@ -182,9 +182,9 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
         return 1 + (normalizedStar * S1_TRAIL_PHASE_COUNT) + normalizedPhase;
     }
 
-    private static boolean isSonic1Module() {
+    private static boolean isTrailMode() {
         try {
-            return "Sonic1".equals(GameModuleRegistry.getCurrent().getIdentifier());
+            return GameModuleRegistry.getCurrent().hasTrailInvincibilityStars();
         } catch (Exception ignored) {
             return false;
         }

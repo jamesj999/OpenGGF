@@ -15,6 +15,7 @@ public class PlayerSpriteRenderer {
     private final SpriteArtSet artSet;
     private final DynamicPatternBank patternBank;
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
+    private final PatternDesc reusableDesc = new PatternDesc();
     private int lastFrame = -1;
 
     public PlayerSpriteRenderer(SpriteArtSet artSet) {
@@ -70,8 +71,8 @@ public class PlayerSpriteRenderer {
                     }
                     descIndex |= (paletteIndex & 0x3) << 13;
 
-                    PatternDesc desc = new PatternDesc(descIndex);
-                    graphicsManager.renderPattern(desc, drawX, drawY);
+                    reusableDesc.set(descIndex);
+                    graphicsManager.renderPattern(reusableDesc, drawX, drawY);
                 }
         );
     }

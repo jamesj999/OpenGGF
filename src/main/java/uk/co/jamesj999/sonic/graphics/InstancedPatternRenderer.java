@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.graphics;
 
 import org.lwjgl.system.MemoryUtil;
+import uk.co.jamesj999.sonic.Engine;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.level.PatternDesc;
@@ -26,6 +27,23 @@ import static org.lwjgl.opengl.GL33.*;
  */
 public class InstancedPatternRenderer {
     private static final Logger LOGGER = Logger.getLogger(InstancedPatternRenderer.class.getName());
+
+    private static GraphicsManager cachedGm;
+    private static Engine cachedEngine;
+
+    private static GraphicsManager getGm() {
+        if (cachedGm == null) {
+            cachedGm = GraphicsManager.getInstance();
+        }
+        return cachedGm;
+    }
+
+    private static Engine getEngine() {
+        if (cachedEngine == null) {
+            cachedEngine = Engine.getInstance();
+        }
+        return cachedEngine;
+    }
 
     private static final int MAX_PATTERNS_PER_BATCH = 4096;
     private static final int FLOATS_PER_INSTANCE = 10; // x,y,w,h,u0,v0,u1,v1,palette,highPriority
@@ -85,7 +103,7 @@ public class InstancedPatternRenderer {
      * Otherwise returns the normal screen height.
      */
     private int getCurrentDisplayHeight() {
-        uk.co.jamesj999.sonic.Engine engine = uk.co.jamesj999.sonic.Engine.getInstance();
+        Engine engine = getEngine();
         if (engine != null && engine.isFBOProjectionActive()) {
             return engine.getCurrentDisplayHeight();
         }
@@ -187,7 +205,7 @@ public class InstancedPatternRenderer {
         }
 
         // Get current sprite priority from GraphicsManager
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = getGm();
         float highPriority = gm.getCurrentSpriteHighPriority() ? 1.0f : 0.0f;
 
         int offset = instanceCount * FLOATS_PER_INSTANCE;
@@ -241,7 +259,7 @@ public class InstancedPatternRenderer {
         }
 
         // Get current sprite priority from GraphicsManager
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = getGm();
         float highPriority = gm.getCurrentSpriteHighPriority() ? 1.0f : 0.0f;
 
         int offset = instanceCount * FLOATS_PER_INSTANCE;
@@ -273,7 +291,7 @@ public class InstancedPatternRenderer {
             batchActive = false;
             return null;
         }
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = getGm();
         boolean usePriority = gm.isUseSpritePriorityShader() && instancedPriorityShader != null;
 
         InstancedBatchCommand command = obtainCommand();
@@ -451,7 +469,7 @@ public class InstancedPatternRenderer {
 
             // Clear any accumulated GL errors from previous operations
             while (glGetError() != GL_NO_ERROR) { /* drain errors */ }
-            GraphicsManager gm = GraphicsManager.getInstance();
+            GraphicsManager gm = getGm();
             boolean useWaterShader = gm.getShaderProgram() instanceof WaterShaderProgram;
             // Use captured priority shader state from batch creation time
             boolean usePriorityShader = this.usePriorityShader;
@@ -598,7 +616,14 @@ public class InstancedPatternRenderer {
             // Set camera offset uniform (replaces glTranslatef)
             // X is negated to scroll objects left when camera moves right
             // Y is NOT negated because vertex Y is already in screen space (flipped from Genesis coords)
-            int cameraOffsetLoc = glGetUniformLocation(shader.getProgramId(), "CameraOffset");
+            int cameraOffsetLoc;
+            if (usePriorityShader) {
+                cameraOffsetLoc = cachedPriorityCameraOffsetLoc;
+            } else if (useWaterShader) {
+                cameraOffsetLoc = cachedWaterCameraOffsetLoc;
+            } else {
+                cameraOffsetLoc = cachedDefaultCameraOffsetLoc;
+            }
             if (cameraOffsetLoc != -1) {
                 glUniform2f(cameraOffsetLoc, -cameraX, cameraY);
             }

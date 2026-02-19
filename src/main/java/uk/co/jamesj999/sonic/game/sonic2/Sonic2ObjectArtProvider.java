@@ -4,8 +4,8 @@ import uk.co.jamesj999.sonic.game.GameServices;
 
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
-import uk.co.jamesj999.sonic.data.RomManager;
 import uk.co.jamesj999.sonic.game.ObjectArtProvider;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
 import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.objects.ObjectArtData;
@@ -80,7 +80,6 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
 
     @Override
     public void loadArtForZone(int zoneIndex) throws IOException {
-        // Check if already loaded for this zone
         if (artData != null && zoneIndex == currentZoneIndex) {
             return;
         }
@@ -97,245 +96,161 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         sheetOrder.clear();
         rendererOrder.clear();
 
-        // Register all sheets and renderers
+        // === Manual art (not in PLCs or needs complex construction) ===
         registerSheet(ObjectArtKeys.MONITOR, artData.monitorSheet());
-        registerSheet(ObjectArtKeys.SPIKE, artData.spikeSheet());
-        registerSheet(ObjectArtKeys.SPIKE_SIDE, artData.spikeSideSheet());
-        registerSheet(ObjectArtKeys.SPRING_VERTICAL, artData.springVerticalSheet());
-        registerSheet(ObjectArtKeys.SPRING_HORIZONTAL, artData.springHorizontalSheet());
-        registerSheet(ObjectArtKeys.SPRING_DIAGONAL, artData.springDiagonalSheet());
+        registerSheet(Sonic2ObjectArtKeys.WATERFALL, artData.waterfallSheet());
+        registerSheet(ObjectArtKeys.ANIMAL, artData.animalSheet());
+        registerSheet(Sonic2ObjectArtKeys.BREAKABLE_BLOCK, artData.breakableBlockSheet());
+        registerSheet(Sonic2ObjectArtKeys.CPZ_PLATFORM, artData.cpzPlatformSheet());
+        registerSheet(Sonic2ObjectArtKeys.SIDEWAYS_PFORM, artData.sidewaysPformSheet());
+        // Red spring variants (share base spring art, different mappings — not PLC entries)
         registerSheet(ObjectArtKeys.SPRING_VERTICAL_RED, artData.springVerticalRedSheet());
         registerSheet(ObjectArtKeys.SPRING_HORIZONTAL_RED, artData.springHorizontalRedSheet());
         registerSheet(ObjectArtKeys.SPRING_DIAGONAL_RED, artData.springDiagonalRedSheet());
-        registerSheet(ObjectArtKeys.EXPLOSION, artData.explosionSheet());
-        registerSheet(Sonic2ObjectArtKeys.BOSS_EXPLOSION, artLoader.loadBossExplosionSheet());
-        registerSheet(ObjectArtKeys.SHIELD, artData.shieldSheet());
-        registerSheet(ObjectArtKeys.INVINCIBILITY_STARS, artData.invincibilityStarsSheet());
-        registerSheet(Sonic2ObjectArtKeys.SUPER_SONIC_STARS, artLoader.loadSuperSonicStarsSheet());
-        registerSheet(ObjectArtKeys.BRIDGE, artData.bridgeSheet());
-        registerSheet(Sonic2ObjectArtKeys.WATERFALL, artData.waterfallSheet());
-        registerSheet(ObjectArtKeys.CHECKPOINT, artData.checkpointSheet());
+        // Checkpoint star (same art as checkpoint, different mappings)
         registerSheet(ObjectArtKeys.CHECKPOINT_STAR, artData.checkpointStarSheet());
-
-        // Badnik sheets (Sonic 2-specific) - loaded directly via artLoader
-        registerSheet(Sonic2ObjectArtKeys.MASHER, artLoader.loadMasherSheet());
-        registerSheet(Sonic2ObjectArtKeys.BUZZER, artLoader.loadBuzzerSheet());
-        registerSheet(Sonic2ObjectArtKeys.COCONUTS, artLoader.loadCoconutsSheet());
-        registerSheet(Sonic2ObjectArtKeys.CRAWLTON, artLoader.loadCrawltonSheet());
-        registerSheet(Sonic2ObjectArtKeys.FLASHER, artLoader.loadFlasherSheet());
-        registerSheet(Sonic2ObjectArtKeys.SPINY, artLoader.loadSpinySheet());
-        registerSheet(Sonic2ObjectArtKeys.GRABBER, artLoader.loadGrabberSheet());
-        registerSheet(Sonic2ObjectArtKeys.GRABBER_STRING, artLoader.loadGrabberStringSheet());
-        registerSheet(Sonic2ObjectArtKeys.CHOP_CHOP, artLoader.loadChopChopSheet());
-        registerSheet(Sonic2ObjectArtKeys.WHISP, artLoader.loadWhispSheet());
-        registerSheet(Sonic2ObjectArtKeys.GROUNDER, artLoader.loadGrounderSheet());
-        registerSheet(Sonic2ObjectArtKeys.GROUNDER_ROCK, artLoader.loadGrounderRockSheet());
-        registerSheet(Sonic2ObjectArtKeys.SPIKER, artLoader.loadSpikerSheet());
-        registerSheet(Sonic2ObjectArtKeys.CRAWL, artLoader.loadCrawlSheet());
-        registerSheet(Sonic2ObjectArtKeys.ARROW_SHOOTER, artLoader.loadArrowShooterSheet());
-        registerSheet(ObjectArtKeys.ANIMAL, artData.animalSheet());
-        registerSheet(ObjectArtKeys.POINTS, artData.pointsSheet());
-
-        // Signpost
-        registerSheet(ObjectArtKeys.SIGNPOST, artData.signpostSheet());
-
-        // Egg Prison / Capsule (Object 0x3E)
+        // Explosion, boss explosion, and Super Sonic stars are in PLCStdWtr (PLC 2),
+        // not zone PLCs, but the old code loaded them unconditionally for all zones.
+        registerSheet(ObjectArtKeys.EXPLOSION, artLoader.loadExplosionSheet());
+        registerSheet(Sonic2ObjectArtKeys.BOSS_EXPLOSION, artLoader.loadBossExplosionSheet());
+        registerSheet(Sonic2ObjectArtKeys.SUPER_SONIC_STARS, artLoader.loadSuperSonicStarsSheet());
+        // Signpost (PLC 39) and EggPrison (PLC 64) are loaded on-demand in the ROM
+        // (at end-of-level and after boss defeat), but the engine loads them at zone init.
+        registerSheet(ObjectArtKeys.SIGNPOST, artLoader.loadSignpostSheet());
         registerSheet(ObjectArtKeys.EGG_PRISON, artLoader.loadEggPrisonSheet());
 
-        // EHZ Boss (Object 0x56) - only for EHZ Act 2
-        // zoneIndex is the ROM zone ID (see Sonic2ZoneConstants)
-        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_EHZ) {
-            registerSheet(Sonic2ObjectArtKeys.EHZ_BOSS, artLoader.loadEHZBossSheet());
+        // === PLC-driven art loading ===
+        Rom rom = GameServices.rom().getRom();
+        int[] plcIds = Sonic2PlcLoader.getZonePlcIds(rom, zoneIndex);
+        loadPlcEntries(rom, Sonic2Constants.PLC_STD1);
+        loadPlcEntries(rom, Sonic2Constants.PLC_STD2);
+        loadPlcEntries(rom, plcIds[0]);  // Zone primary PLC
+        loadPlcEntries(rom, plcIds[1]);  // Zone secondary PLC
+
+        // === Art derivatives (same ROM art as PLC parent, different mappings) ===
+        // Only load when the parent art was loaded by PLCs for this zone.
+        if (sheets.containsKey(Sonic2ObjectArtKeys.GRABBER)) {
+            registerSheet(Sonic2ObjectArtKeys.GRABBER_STRING, artLoader.loadGrabberStringSheet());
         }
-        // CPZ Boss (Object 0x5D) - only for CPZ Act 2
-        // zoneIndex is the ROM zone ID (0x0D for CPZ)
-        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_CPZ) {
-            registerSheet(Sonic2ObjectArtKeys.CPZ_BOSS_EGGPOD, artLoader.loadCPZBossEggpodSheet());
-            registerSheet(Sonic2ObjectArtKeys.CPZ_BOSS_PARTS, artLoader.loadCPZBossPartsSheet());
-            registerSheet(Sonic2ObjectArtKeys.CPZ_BOSS_JETS, artLoader.loadCPZBossJetsSheet());
-            registerSheet(Sonic2ObjectArtKeys.CPZ_BOSS_SMOKE, artLoader.loadCPZBossSmokeSheet());
+        if (sheets.containsKey(Sonic2ObjectArtKeys.GROUNDER)) {
+            registerSheet(Sonic2ObjectArtKeys.GROUNDER_ROCK, artLoader.loadGrounderRockSheet());
         }
-        // ARZ Boss (Object 0x89) - only for ARZ Act 2
-        // zoneIndex is the ROM zone ID (0x0F for ARZ)
-        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_ARZ) {
-            registerSheet(Sonic2ObjectArtKeys.ARZ_BOSS_MAIN, artLoader.loadARZBossMainSheet());
-            registerSheet(Sonic2ObjectArtKeys.ARZ_BOSS_PARTS, artLoader.loadARZBossPartsSheet());
+        if (sheets.containsKey(Sonic2ObjectArtKeys.OOZ_FAN_HORIZ)) {
+            registerSheet(Sonic2ObjectArtKeys.OOZ_FAN_VERT, artLoader.loadOOZFanVertSheet());
         }
-        // CNZ Boss (Object 0x51) - only for CNZ Act 2
-        // zoneIndex is the ROM zone ID (0x0C for CNZ)
-        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_CNZ) {
-            registerSheet(Sonic2ObjectArtKeys.CNZ_BOSS, artLoader.loadCNZBossSheet());
-        }
-        // HTZ objects (Object 0x14, 0x16, 0x2F) - only for HTZ
-        // zoneIndex is the ROM zone ID (0x07 for HTZ)
-        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_HTZ) {
-            registerSheet(Sonic2ObjectArtKeys.SEESAW, artLoader.loadSeesawSheet());
+        if (sheets.containsKey(Sonic2ObjectArtKeys.SEESAW)) {
             registerSheet(Sonic2ObjectArtKeys.SEESAW_BALL, artLoader.loadSeesawBallSheet());
-            registerSheet(Sonic2ObjectArtKeys.HTZ_LIFT, artLoader.loadHTZLiftSheet());
-            registerSheet(Sonic2ObjectArtKeys.SOL, artLoader.loadSolSheet());
-            registerSheet(Sonic2ObjectArtKeys.REXON, artLoader.loadRexonSheet());
-            // SmashableGround uses level patterns - must be loaded after level is available
-            // This is registered separately via registerSmashableGroundSheet()
-            // HTZ Boss (Object 0x52)
-            registerSheet(Sonic2ObjectArtKeys.HTZ_BOSS, artLoader.loadHTZBossSheet());
-            registerSheet(Sonic2ObjectArtKeys.HTZ_BOSS_SMOKE, artLoader.loadHTZBossSmokeSheet());
         }
-        // MTZ objects (Object 0x65 long platform cog) - only for MTZ
-        // zoneIndex is the ROM zone ID (0x04 for MTZ, 0x05 for MTZ Act 3)
-        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_MTZ
-                || zoneIndex == 0x05) {
-            registerSheet(Sonic2ObjectArtKeys.BUTTON, artLoader.loadButtonSheet());
-            registerSheet(Sonic2ObjectArtKeys.MTZ_COG, artLoader.loadMTZCogSheet());
-            registerSheet(Sonic2ObjectArtKeys.MTZ_NUT, artLoader.loadMTZNutSheet());
-            registerSheet(Sonic2ObjectArtKeys.MTZ_FLOOR_SPIKE, artLoader.loadMTZFloorSpikeSheet());
-            registerSheet(Sonic2ObjectArtKeys.MTZ_SPIKE_BLOCK, artLoader.loadMTZSpikeBlockSheet());
-            registerSheet(Sonic2ObjectArtKeys.MTZ_SPIKE, artLoader.loadMTZSpikeSheet());
-            registerSheet(Sonic2ObjectArtKeys.ASTERON, artLoader.loadAsteronSheet());
-            registerSheet(Sonic2ObjectArtKeys.SHELLCRACKER, artLoader.loadShellcrackerSheet());
-            registerSheet(Sonic2ObjectArtKeys.SLICER, artLoader.loadSlicerSheet());
-            registerSheet(Sonic2ObjectArtKeys.MTZ_STEAM, artLoader.loadMTZSteamSheet());
-            registerSheet(Sonic2ObjectArtKeys.MTZ_LAVA_BUBBLE, artLoader.loadMTZLavaBubbleSheet());
-            registerSheet(Sonic2ObjectArtKeys.MTZ_WHEEL_INDENT, artLoader.loadMTZWheelIndentSheet());
-            registerSheet(Sonic2ObjectArtKeys.MTZ_WHEEL, artLoader.loadMTZWheelSheet());
-            registerSheet(Sonic2ObjectArtKeys.MTZ_SPIN_TUBE_FLASH, artLoader.loadMTZSpinTubeFlashSheet());
-            registerSheet(Sonic2ObjectArtKeys.MTZ_LAVA_CUP, artLoader.loadMTZLavaCupSheet());
-        }
-        // MCZ objects (Object 0x80 vine, Object 0x6A crate, Object 0x81 drawbridge) - only for MCZ
-        // zoneIndex is the ROM zone ID (0x0B for MCZ)
-        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_MCZ) {
-            registerSheet(Sonic2ObjectArtKeys.VINE_PULLEY, artLoader.loadVinePulleySheet());
-            registerSheet(Sonic2ObjectArtKeys.MCZ_CRATE, artLoader.loadMCZCrateSheet());
+        if (sheets.containsKey(Sonic2ObjectArtKeys.MCZ_DRAWBRIDGE)) {
             registerSheet(Sonic2ObjectArtKeys.MCZ_BRIDGE, artLoader.loadMCZBridgeSheet());
-            registerSheet(Sonic2ObjectArtKeys.MCZ_DRAWBRIDGE, artLoader.loadMCZDrawbridgeSheet());
-            // MCZ Boss (Object 0x57)
-            registerSheet(Sonic2ObjectArtKeys.MCZ_BOSS, artLoader.loadMCZBossSheet());
-            registerSheet(Sonic2ObjectArtKeys.MCZ_FALLING_ROCKS, artLoader.loadMCZFallingRocksSheet());
         }
-        // WFZ objects (Object 0x80 hook) - only for WFZ
-        // zoneIndex is the ROM zone ID (0x06 for WFZ)
-        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_WFZ) {
-            registerSheet(Sonic2ObjectArtKeys.WFZ_HOOK, artLoader.loadWFZHookSheet());
-            registerSheet(Sonic2ObjectArtKeys.TORNADO, artLoader.loadTornadoSheet());
-            registerSheet(Sonic2ObjectArtKeys.TORNADO_THRUSTER, artLoader.loadTornadoThrusterSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_THRUST, artLoader.loadWfzThrustSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_VPROPELLER, artLoader.loadVPropellerSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_HPROPELLER, artLoader.loadHPropellerSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_WALL_TURRET, artLoader.loadWallTurretSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_GUN_PLATFORM, artLoader.loadWfzGunPlatformSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_LASER, artLoader.loadWFZLaserSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_LAUNCH_CATAPULT, artLoader.loadWfzLaunchCatapultSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_BREAK_PANELS, artLoader.loadWfzBreakPanelsSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_RIVET, artLoader.loadWfzRivetSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_BELT_PLATFORM, artLoader.loadWFZBeltPlatformSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_TILT_PLATFORM, artLoader.loadWFZTiltPlatformSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_VERTICAL_LASER, artLoader.loadWFZVerticalLaserSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_CONVEYOR_BELT_WHEEL, artLoader.loadWFZConveyorBeltWheelSheet());
-            registerSheet(Sonic2ObjectArtKeys.CLUCKER, artLoader.loadCluckerSheet());
-        }
-        // SCZ objects (Turtloid, Nebula, Balkiry) - only for SCZ
-        // zoneIndex is the ROM zone ID (0x10 for SCZ)
-        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_SCZ) {
-            registerSheet(Sonic2ObjectArtKeys.NEBULA, artLoader.loadNebulaSheet());
-            registerSheet(Sonic2ObjectArtKeys.TURTLOID, artLoader.loadTurtloidSheet());
-            registerSheet(Sonic2ObjectArtKeys.BALKIRY, artLoader.loadBalkirySheet());
-            registerSheet(Sonic2ObjectArtKeys.CLOUDS, artLoader.loadCloudSheet());
-            registerSheet(Sonic2ObjectArtKeys.TORNADO, artLoader.loadTornadoSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_VPROPELLER, artLoader.loadVPropellerSheet());
-            registerSheet(Sonic2ObjectArtKeys.WFZ_HPROPELLER, artLoader.loadHPropellerSheet());
+        if (sheets.containsKey(Sonic2ObjectArtKeys.MTZ_FLOOR_SPIKE)) {
+            registerSheet(Sonic2ObjectArtKeys.MTZ_SPIKE, artLoader.loadMTZSpikeSheet());
         }
 
-        // CNZ objects (Sonic 2-specific)
-        registerSheet(Sonic2ObjectArtKeys.BUMPER, artData.bumperSheet());
-        registerSheet(Sonic2ObjectArtKeys.HEX_BUMPER, artData.hexBumperSheet());
-        registerSheet(Sonic2ObjectArtKeys.BONUS_BLOCK, artData.bonusBlockSheet());
-        registerSheet(Sonic2ObjectArtKeys.FLIPPER, artData.flipperSheet());
-        registerSheet(Sonic2ObjectArtKeys.LAUNCHER_SPRING_VERT, artLoader.loadLauncherSpringVertSheet());
-        registerSheet(Sonic2ObjectArtKeys.LAUNCHER_SPRING_DIAG, artLoader.loadLauncherSpringDiagSheet());
-        registerSheet(Sonic2ObjectArtKeys.CNZ_RECT_BLOCKS, artLoader.loadCNZRectBlocksSheet());
-        registerSheet(Sonic2ObjectArtKeys.CNZ_BIG_BLOCK, artLoader.loadCNZBigBlockSheet());
-        registerSheet(Sonic2ObjectArtKeys.CNZ_ELEVATOR, artLoader.loadCNZElevatorSheet());
-        registerSheet(Sonic2ObjectArtKeys.CNZ_CAGE, artLoader.loadCNZCageSheet());
-        registerSheet(Sonic2ObjectArtKeys.CNZ_BONUS_SPIKE, artLoader.loadCNZBonusSpikeSheet());
-
-        // CPZ objects (Sonic 2-specific)
-        registerSheet(Sonic2ObjectArtKeys.SPEED_BOOSTER, artData.speedBoosterSheet());
-        registerSheet(Sonic2ObjectArtKeys.BLUE_BALLS, artData.blueBallsSheet());
-        registerSheet(Sonic2ObjectArtKeys.BREAKABLE_BLOCK, artData.breakableBlockSheet());
-        registerSheet(Sonic2ObjectArtKeys.CPZ_PLATFORM, artData.cpzPlatformSheet());
-        registerSheet(Sonic2ObjectArtKeys.CPZ_STAIR_BLOCK, artData.cpzStairBlockSheet());
-        registerSheet(Sonic2ObjectArtKeys.SIDEWAYS_PFORM, artData.sidewaysPformSheet());
-        registerSheet(Sonic2ObjectArtKeys.CPZ_PYLON, artData.cpzPylonSheet());
-        registerSheet(Sonic2ObjectArtKeys.PIPE_EXIT_SPRING, artData.pipeExitSpringSheet());
-        registerSheet(Sonic2ObjectArtKeys.TIPPING_FLOOR, artData.tippingFloorSheet());
-        registerSheet(Sonic2ObjectArtKeys.BARRIER, artData.barrierSheet());
-        // HTZ barrier uses zone-specific art (ArtNem_HtzValveBarrier) instead of CPZ ConstructionStripes
+        // === Zone-specific overrides ===
+        // HTZ barrier uses zone-specific art instead of CPZ ConstructionStripes
         if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_HTZ) {
             ObjectSpriteSheet htzBarrierSheet = artLoader.loadHTZBarrierSheet();
             if (htzBarrierSheet != null) {
                 registerSheet(Sonic2ObjectArtKeys.BARRIER, htzBarrierSheet);
             }
-        }
-        registerSheet(Sonic2ObjectArtKeys.SPRINGBOARD, artData.springboardSheet());
-
-        // Underwater bubbles
-        registerSheet(Sonic2ObjectArtKeys.BUBBLES, artData.bubblesSheet());
-
-        // ARZ leaves
-        registerSheet(Sonic2ObjectArtKeys.LEAVES, artData.leavesSheet());
-
-        // OOZ LauncherBall (Object 0x48) and OOZ Launcher (Object 0x3D) - only for OOZ
-        if (zoneIndex == uk.co.jamesj999.sonic.game.sonic2.scroll.Sonic2ZoneConstants.ROM_ZONE_OOZ) {
-            registerSheet(Sonic2ObjectArtKeys.LAUNCH_BALL, artLoader.loadLaunchBallSheet());
-            registerSheet(Sonic2ObjectArtKeys.OOZ_LAUNCHER_VERT, artLoader.loadOOZLauncherVertSheet());
-            registerSheet(Sonic2ObjectArtKeys.OOZ_LAUNCHER_HORIZ, artLoader.loadOOZLauncherHorizSheet());
-            // OOZ Popping Platform (Object 0x33) - burner lid + flame
-            registerSheet(Sonic2ObjectArtKeys.OOZ_BURNER_LID, artLoader.loadOOZBurnerLidSheet());
-            registerSheet(Sonic2ObjectArtKeys.OOZ_BURN_FLAME, artLoader.loadOOZBurnFlameSheet());
-            // OOZ Fan (Object 0x3F) - horizontal and vertical wind fans
-            registerSheet(Sonic2ObjectArtKeys.OOZ_FAN_HORIZ, artLoader.loadOOZFanHorizSheet());
-            registerSheet(Sonic2ObjectArtKeys.OOZ_FAN_VERT, artLoader.loadOOZFanVertSheet());
-            // OOZ Octus badnik (Object 0x4A)
-            registerSheet(Sonic2ObjectArtKeys.OCTUS, artLoader.loadOctusSheet());
-            // OOZ Aquis badnik (Object 0x50)
-            registerSheet(Sonic2ObjectArtKeys.AQUIS, artLoader.loadAquisSheet());
+            // Ground fire (Obj20 routine $A) uses different art/mappings than fire source
+            registerSheet(Sonic2ObjectArtKeys.GROUND_FIRE, artLoader.loadGroundFireSheet());
+            // Lava bubble / fire shooter (Obj20) - ensure explicitly loaded for HTZ
+            // even if PLC timing hasn't triggered yet
+            registerIfAbsent(Sonic2ObjectArtKeys.LAVA_BUBBLE, artLoader::loadLavaBubbleSheet);
         }
 
-        // Collapsing Platform art (Object 0x1F) - zone-specific
-        ObjectSpriteSheet oozCollapsingPlatformSheet = artLoader.loadOOZCollapsingPlatformSheet();
-        if (oozCollapsingPlatformSheet != null) {
-            registerSheet(Sonic2ObjectArtKeys.OOZ_COLLAPSING_PLATFORM, oozCollapsingPlatformSheet);
-        }
-        ObjectSpriteSheet mczCollapsingPlatformSheet = artLoader.loadMCZCollapsingPlatformSheet();
-        if (mczCollapsingPlatformSheet != null) {
-            registerSheet(Sonic2ObjectArtKeys.MCZ_COLLAPSING_PLATFORM, mczCollapsingPlatformSheet);
-        }
+        // === Boss art (zone-conditional, Phase 3 would use boss PLCs) ===
+        loadBossArt(zoneIndex);
 
-        // Results screen - stored separately, not in sheetOrder
+        // === Results screen (separate namespace) ===
         resultsSheet = artData.resultsSheet();
         resultsRenderer = new PatternSpriteRenderer(resultsSheet);
         sheets.put(ObjectArtKeys.RESULTS, resultsSheet);
         renderers.put(ObjectArtKeys.RESULTS, resultsRenderer);
         rendererKeys.add(ObjectArtKeys.RESULTS);
 
-        // Register animations (common)
+        // === Animations ===
         animations.put(ObjectArtKeys.ANIM_MONITOR, artData.monitorAnimations());
         animations.put(ObjectArtKeys.ANIM_SPRING, artData.springAnimations());
         animations.put(ObjectArtKeys.ANIM_CHECKPOINT, artData.checkpointAnimations());
         animations.put(ObjectArtKeys.ANIM_SIGNPOST, artData.signpostAnimations());
-        // Register animations (Sonic 2-specific)
         animations.put(Sonic2ObjectArtKeys.ANIM_FLIPPER, artData.flipperAnimations());
         animations.put(Sonic2ObjectArtKeys.ANIM_PIPE_EXIT_SPRING, artData.pipeExitSpringAnimations());
         animations.put(Sonic2ObjectArtKeys.ANIM_TIPPING_FLOOR, artData.tippingFloorAnimations());
         animations.put(Sonic2ObjectArtKeys.ANIM_SPRINGBOARD, artData.springboardAnimations());
 
-        // Store HUD patterns
+        // === HUD patterns ===
         hudDigitPatterns = artData.getHudDigitPatterns();
         hudTextPatterns = artData.getHudTextPatterns();
         hudLivesPatterns = artData.getHudLivesPatterns();
         hudLivesNumbers = artData.getHudLivesNumbers();
 
         LOGGER.info("Sonic2ObjectArtProvider loaded for zone " + zoneIndex +
-                " with " + rendererKeys.size() + " renderers");
+                " with " + rendererKeys.size() + " renderers (PLC-driven)");
+    }
+
+    /**
+     * Loads art entries from a PLC definition, dispatching through the art registry.
+     * Skips entries whose art key is already registered (prevents double-loading).
+     */
+    private void loadPlcEntries(Rom rom, int plcId) throws IOException {
+        var plc = Sonic2PlcLoader.parsePlc(rom, plcId);
+        for (var entry : plc.entries()) {
+            var registration = Sonic2PlcArtRegistry.lookup(entry.romAddr());
+            if (registration != null && !sheets.containsKey(registration.key())) {
+                ObjectSpriteSheet sheet = registration.builder().build(artLoader);
+                registerSheet(registration.key(), sheet);
+            }
+        }
+    }
+
+    /**
+     * Registers a sheet if the key is not already present.
+     * Used for boss art that may already have been loaded by PLCs.
+     */
+    private void registerIfAbsent(String key, java.util.function.Supplier<ObjectSpriteSheet> supplier) {
+        if (!sheets.containsKey(key)) {
+            ObjectSpriteSheet sheet = supplier.get();
+            if (sheet != null) {
+                registerSheet(key, sheet);
+            }
+        }
+    }
+
+    /**
+     * Loads boss art for the given zone. Boss art is currently zone-conditional;
+     * a future Phase 3 could load this via boss PLCs instead.
+     */
+    private void loadBossArt(int zoneIndex) {
+        switch (zoneIndex) {
+            case 0x00: // ROM_ZONE_EHZ
+                registerIfAbsent(Sonic2ObjectArtKeys.EHZ_BOSS, artLoader::loadEHZBossSheet);
+                break;
+            case 0x0D: // ROM_ZONE_CPZ
+                registerIfAbsent(Sonic2ObjectArtKeys.CPZ_BOSS_EGGPOD, artLoader::loadCPZBossEggpodSheet);
+                registerIfAbsent(Sonic2ObjectArtKeys.CPZ_BOSS_PARTS, artLoader::loadCPZBossPartsSheet);
+                registerIfAbsent(Sonic2ObjectArtKeys.CPZ_BOSS_JETS, artLoader::loadCPZBossJetsSheet);
+                registerIfAbsent(Sonic2ObjectArtKeys.CPZ_BOSS_SMOKE, artLoader::loadCPZBossSmokeSheet);
+                break;
+            case 0x0F: // ROM_ZONE_ARZ
+                registerIfAbsent(Sonic2ObjectArtKeys.ARZ_BOSS_MAIN, artLoader::loadARZBossMainSheet);
+                registerIfAbsent(Sonic2ObjectArtKeys.ARZ_BOSS_PARTS, artLoader::loadARZBossPartsSheet);
+                break;
+            case 0x0C: // ROM_ZONE_CNZ
+                registerIfAbsent(Sonic2ObjectArtKeys.CNZ_BOSS, artLoader::loadCNZBossSheet);
+                break;
+            case 0x07: // ROM_ZONE_HTZ
+                registerIfAbsent(Sonic2ObjectArtKeys.HTZ_BOSS, artLoader::loadHTZBossSheet);
+                registerIfAbsent(Sonic2ObjectArtKeys.HTZ_BOSS_SMOKE, artLoader::loadHTZBossSmokeSheet);
+                break;
+            case 0x0B: // ROM_ZONE_MCZ
+                registerIfAbsent(Sonic2ObjectArtKeys.MCZ_BOSS, artLoader::loadMCZBossSheet);
+                registerIfAbsent(Sonic2ObjectArtKeys.MCZ_FALLING_ROCKS, artLoader::loadMCZFallingRocksSheet);
+                break;
+        }
     }
 
     private void registerSheet(String key, ObjectSpriteSheet sheet) {

@@ -11,7 +11,6 @@ import static org.junit.Assert.*;
  */
 public class WaterPhysicsTest {
 
-    // Mock playable sprite for testing water physics
     private TestablePlayableSprite sprite;
 
     @Before
@@ -214,37 +213,4 @@ public class WaterPhysicsTest {
         assertEquals("Underwater hurt gravity should be 0x10", 0x10, gravity);
     }
 
-    /**
-     * Minimal test subclass of AbstractPlayableSprite for physics testing.
-     */
-    private static class TestablePlayableSprite extends uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite {
-
-        public TestablePlayableSprite(String code, short x, short y) {
-            super(code, x, y);
-        }
-
-        @Override
-        public void draw() {
-            // No-op for testing
-        }
-
-        @Override
-        public void defineSpeeds() {
-            // Set standard Sonic values
-            runAccel = 12;
-            runDecel = 128;
-            friction = 12;
-            max = 1536;
-            jump = 1664;
-        }
-
-        @Override
-        protected void createSensorLines() {
-            // No-op for testing
-        }
-
-        public void setTestY(short y) {
-            this.yPixel = y;
-        }
-    }
 }
