@@ -97,7 +97,6 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
             // same frame boundary as the ROM object list ordering.
             releaseObjectControlPending[slot] = false;
             player.setObjectControlled(false);
-            player.setSuppressGroundWallCheck(false);
         }
 
         if (!riding[slot]) {
@@ -170,7 +169,6 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         // riding so AIZTree_SetPlayerPos writes are not overwritten later in the frame.
         player.setObjectControlled(true);
         player.setControlLocked(false);
-        player.setSuppressGroundWallCheck(true);
         player.setAir(false);
         // RideObject_SetRide semantics: preserve horizontal inertia as ground speed.
         player.setGSpeed(player.getXSpeed());
