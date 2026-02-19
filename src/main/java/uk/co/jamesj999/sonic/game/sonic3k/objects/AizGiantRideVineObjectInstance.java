@@ -144,7 +144,7 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance {
         int sin = TrigLookupTable.sinHex(angleByte);
         first.angle = asSigned16(sin * 0x2C);
         first.value3A = first.angle >> 3;
-        first.mappingFrame = ((first.angle + 4) & 0xFF) >> 3;
+        first.mappingFrame = ((angleByte(first.angle) + 4) & 0xFF) >> 3;
         first.x = currentX;
         first.y = currentY;
 
@@ -152,7 +152,7 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance {
         for (Segment segment : chain) {
             segment.value3A = parent.value3A;
             segment.angle = asSigned16(parent.angle + segment.value3A);
-            segment.mappingFrame = ((segment.angle + 4) & 0xFF) >> 3;
+            segment.mappingFrame = ((angleByte(segment.angle) + 4) & 0xFF) >> 3;
             int[] offset = offsetFromAngle(parent.angle);
             segment.x = parent.x + offset[0];
             segment.y = parent.y + offset[1];
@@ -219,8 +219,12 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance {
         return (short) value;
     }
 
+    private static int angleByte(int angleWord) {
+        return (angleWord >> 8) & 0xFF;
+    }
+
     private static int[] offsetFromAngle(int angle) {
-        int byteAngle = (angle + 4) & 0xF8;
+        int byteAngle = (angleByte(angle) + 4) & 0xF8;
         int sin = TrigLookupTable.sinHex(byteAngle);
         int cos = TrigLookupTable.cosHex(byteAngle);
         return new int[]{(-sin + 8) >> 4, (cos + 8) >> 4};
