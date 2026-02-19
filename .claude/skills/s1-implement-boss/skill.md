@@ -63,6 +63,11 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
   mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_BossItems" -q
   mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Boss" -q
   ```
+  - Use `plc` command to see which PLCs load boss art:
+    ```bash
+    mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 plc PLC_GHZ" -q
+    ```
+  - Search results now show PLC cross-references inline
 
 **Key disassembly patterns to identify:**
 - `obColType` set to boss collision category
@@ -210,7 +215,7 @@ The hit response typically:
 
 ### Phase 6: Art Loading
 
-**PLC note:** S1 boss art has dedicated PLC IDs in ArtLoadCues. The shared `PlcParser` utility handles parsing. See `plc-system` skill.
+**PLC-based art loading:** S1 boss art has dedicated PLC IDs in ArtLoadCues. Use the shared `PlcParser` API for standalone decompression to avoid VRAM tile conflicts. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI.
 
 ```bash
 # Find boss art
@@ -223,10 +228,21 @@ S1 bosses typically use shared Eggman art plus zone-specific boss weapon art:
 - `Nem_BossItems` - Shared boss accessories (explosions, etc.)
 - Zone-specific art (e.g., `Nem_GHZBoss_Wrecking_Ball` for GHZ)
 
+**Standalone PLC pattern (preferred):**
+```java
+PlcDefinition plc = PlcParser.parse(rom, Sonic1Constants.ART_LOAD_CUES_ADDR, plcId);
+List<Pattern[]> artArrays = PlcParser.decompressAll(rom, plc);
+ObjectSpriteSheet sheet = new ObjectSpriteSheet(
+    artArrays.get(entryIndex),
+    S1SpriteDataLoader.loadMappingFrames(reader, mappingAddr),
+    paletteIndex, 1);
+```
+
 **Implementation checklist:**
-- [ ] Add ROM address constants to `Sonic1Constants.java`
+- [ ] Find the boss PLC ID in the disassembly's ArtLoadCues
+- [ ] Add PLC ID or ROM address constants to `Sonic1Constants.java`
 - [ ] Add art keys (create `Sonic1ObjectArtKeys.java` if needed)
-- [ ] Create loader method (create `Sonic1ObjectArt.java` if needed)
+- [ ] Use `PlcParser.decompressAll()` for standalone `Pattern[]` (preferred), or create loader method in `Sonic1ObjectArt.java` for direct Nemesis loading
 - [ ] Create mappings method (parse from `_maps/Eggman.asm`, `_maps/Boss Items.asm`)
 - [ ] Register in art provider
 

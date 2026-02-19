@@ -9,10 +9,9 @@ import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.tools.ObjectDiscoveryTool.DynamicBoss;
 import uk.co.jamesj999.sonic.tools.ObjectDiscoveryTool.LevelConfig;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import uk.co.jamesj999.sonic.level.resources.PlcParser;
+
+import java.util.*;
 
 /**
  * Sonic 1 object profile for the ObjectDiscoveryTool.
@@ -164,6 +163,79 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.FZ_BOSS
     );
 
+    /**
+     * Maps Nemesis ROM addresses to object IDs that use that art.
+     * Built from s1disasm Pattern Load Cues (ArtNem_* entries).
+     */
+    private static final Map<Integer, Set<Integer>> NEM_ADDR_TO_OBJECTS = Map.ofEntries(
+            // Universal objects (Std PLCs)
+            Map.entry(Sonic1Constants.ART_NEM_SPIKES_ADDR, Set.of(Sonic1ObjectIds.SPIKES)),
+            Map.entry(Sonic1Constants.ART_NEM_HSPRING_ADDR, Set.of(Sonic1ObjectIds.SPRING)),
+            Map.entry(Sonic1Constants.ART_NEM_VSPRING_ADDR, Set.of(Sonic1ObjectIds.SPRING)),
+            Map.entry(Sonic1Constants.ART_NEM_SIGNPOST_ADDR, Set.of(Sonic1ObjectIds.SIGNPOST)),
+            Map.entry(Sonic1Constants.ART_NEM_LAMPPOST_ADDR, Set.of(Sonic1ObjectIds.LAMPPOST)),
+            Map.entry(Sonic1Constants.ART_NEM_MONITOR_ADDR, Set.of(Sonic1ObjectIds.MONITOR)),
+            Map.entry(Sonic1Constants.ART_NEM_POINTS_ADDR, Set.of(Sonic1ObjectIds.HIDDEN_BONUS)),
+            // GHZ objects
+            Map.entry(Sonic1Constants.ART_NEM_BRIDGE_ADDR, Set.of(Sonic1ObjectIds.BRIDGE)),
+            Map.entry(Sonic1Constants.ART_NEM_SWING_ADDR, Set.of(Sonic1ObjectIds.SWINGING_PLATFORM)),
+            Map.entry(Sonic1Constants.ART_NEM_SPIKE_POLE_ADDR, Set.of(Sonic1ObjectIds.SPIKED_POLE_HELIX)),
+            Map.entry(Sonic1Constants.ART_NEM_PURPLE_ROCK_ADDR, Set.of(Sonic1ObjectIds.ROCK)),
+            Map.entry(Sonic1Constants.ART_NEM_GHZ_BREAKABLE_WALL_ADDR, Set.of(Sonic1ObjectIds.BREAKABLE_WALL)),
+            Map.entry(Sonic1Constants.ART_NEM_GHZ_EDGE_WALL_ADDR, Set.of(Sonic1ObjectIds.EDGE_WALLS)),
+            // Badniks
+            Map.entry(Sonic1Constants.ART_NEM_MOTOBUG_ADDR, Set.of(Sonic1ObjectIds.MOTOBUG)),
+            Map.entry(Sonic1Constants.ART_NEM_CRABMEAT_ADDR, Set.of(Sonic1ObjectIds.CRABMEAT)),
+            Map.entry(Sonic1Constants.ART_NEM_BUZZ_BOMBER_ADDR, Set.of(Sonic1ObjectIds.BUZZ_BOMBER)),
+            Map.entry(Sonic1Constants.ART_NEM_CHOPPER_ADDR, Set.of(Sonic1ObjectIds.CHOPPER)),
+            Map.entry(Sonic1Constants.ART_NEM_JAWS_ADDR, Set.of(Sonic1ObjectIds.JAWS)),
+            Map.entry(Sonic1Constants.ART_NEM_BURROBOT_ADDR, Set.of(Sonic1ObjectIds.BURROBOT)),
+            Map.entry(Sonic1Constants.ART_NEM_NEWTRON_ADDR, Set.of(Sonic1ObjectIds.NEWTRON)),
+            Map.entry(Sonic1Constants.ART_NEM_ROLLER_ADDR, Set.of(Sonic1ObjectIds.ROLLER)),
+            Map.entry(Sonic1Constants.ART_NEM_YADRIN_ADDR, Set.of(Sonic1ObjectIds.YADRIN)),
+            Map.entry(Sonic1Constants.ART_NEM_BASARAN_ADDR, Set.of(Sonic1ObjectIds.BATBRAIN)),
+            Map.entry(Sonic1Constants.ART_NEM_CATERKILLER_ADDR, Set.of(Sonic1ObjectIds.CATERKILLER)),
+            Map.entry(Sonic1Constants.ART_NEM_BOMB_ADDR, Set.of(Sonic1ObjectIds.BOMB)),
+            Map.entry(Sonic1Constants.ART_NEM_ORBINAUT_ADDR, Set.of(Sonic1ObjectIds.ORBINAUT)),
+            Map.entry(Sonic1Constants.ART_NEM_BALL_HOG_ADDR, Set.of(Sonic1ObjectIds.BALL_HOG)),
+            // MZ objects
+            Map.entry(Sonic1Constants.ART_NEM_MZ_GLASS_ADDR, Set.of(Sonic1ObjectIds.MZ_GLASS_BLOCK)),
+            Map.entry(Sonic1Constants.ART_NEM_MZ_SWITCH_ADDR, Set.of(Sonic1ObjectIds.BUTTON)),
+            Map.entry(Sonic1Constants.ART_NEM_MZ_FIREBALL_ADDR, Set.of(Sonic1ObjectIds.LAVA_BALL_MAKER)),
+            Map.entry(Sonic1Constants.ART_NEM_LAVA_ADDR, Set.of(Sonic1ObjectIds.LAVA_TAG)),
+            // LZ objects
+            Map.entry(Sonic1Constants.ART_NEM_LZ_HARPOON_ADDR, Set.of(Sonic1ObjectIds.HARPOON)),
+            Map.entry(Sonic1Constants.ART_NEM_LZ_GARGOYLE_ADDR, Set.of(Sonic1ObjectIds.GARGOYLE)),
+            Map.entry(Sonic1Constants.ART_NEM_LZ_WHEEL_ADDR, Set.of(Sonic1ObjectIds.LZ_CONVEYOR)),
+            Map.entry(Sonic1Constants.ART_NEM_LZ_BUBBLES_ADDR, Set.of(Sonic1ObjectIds.BUBBLES)),
+            Map.entry(Sonic1Constants.ART_NEM_LZ_POLE_ADDR, Set.of(Sonic1ObjectIds.BREAKABLE_POLE)),
+            Map.entry(Sonic1Constants.ART_NEM_LZ_FLAP_DOOR_ADDR, Set.of(Sonic1ObjectIds.FLAPPING_DOOR)),
+            Map.entry(Sonic1Constants.ART_NEM_LZ_SWITCH_ADDR, Set.of(Sonic1ObjectIds.BUTTON)),
+            Map.entry(Sonic1Constants.ART_NEM_LZ_SPIKEBALL_ADDR, Set.of(Sonic1ObjectIds.SPIKED_BALL_CHAIN)),
+            // SLZ objects
+            Map.entry(Sonic1Constants.ART_NEM_SLZ_SEESAW_ADDR, Set.of(Sonic1ObjectIds.SEESAW)),
+            Map.entry(Sonic1Constants.ART_NEM_SLZ_SPIKEBALL_ADDR, Set.of(Sonic1ObjectIds.BIG_SPIKED_BALL)),
+            Map.entry(Sonic1Constants.ART_NEM_SLZ_PYLON_ADDR, Set.of(Sonic1ObjectIds.PYLON)),
+            Map.entry(Sonic1Constants.ART_NEM_SLZ_FAN_ADDR, Set.of(Sonic1ObjectIds.FAN)),
+            // SYZ objects
+            Map.entry(Sonic1Constants.ART_NEM_BUMPER_ADDR, Set.of(Sonic1ObjectIds.BUMPER)),
+            Map.entry(Sonic1Constants.ART_NEM_SYZ_SMALL_SPIKEBALL_ADDR, Set.of(Sonic1ObjectIds.SPIKED_BALL_CHAIN)),
+            // SBZ objects
+            Map.entry(Sonic1Constants.ART_NEM_SBZ_STOMPER_ADDR, Set.of(Sonic1ObjectIds.SBZ_STOMPER_DOOR)),
+            Map.entry(Sonic1Constants.ART_NEM_SBZ_SAW_ADDR, Set.of(Sonic1ObjectIds.SBZ_SAW)),
+            Map.entry(Sonic1Constants.ART_NEM_SBZ_SPINNING_PLATFORM_ADDR, Set.of(Sonic1ObjectIds.SBZ_SPINNING_PLATFORM)),
+            Map.entry(Sonic1Constants.ART_NEM_SBZ_RUNNING_DISC_ADDR, Set.of(Sonic1ObjectIds.RUNNING_DISC)),
+            Map.entry(Sonic1Constants.ART_NEM_SBZ_JUNCTION_ADDR, Set.of(Sonic1ObjectIds.JUNCTION)),
+            Map.entry(Sonic1Constants.ART_NEM_SBZ_SMALL_DOOR_ADDR, Set.of(Sonic1ObjectIds.SBZ_SMALL_DOOR)),
+            Map.entry(Sonic1Constants.ART_NEM_SBZ_ELECTROCUTER_ADDR, Set.of(Sonic1ObjectIds.ELECTROCUTER)),
+            Map.entry(Sonic1Constants.ART_NEM_SBZ_FLAMETHROWER_ADDR, Set.of(Sonic1ObjectIds.FLAMETHROWER)),
+            Map.entry(Sonic1Constants.ART_NEM_SBZ_GIRDER_ADDR, Set.of(Sonic1ObjectIds.GIRDER)),
+            Map.entry(Sonic1Constants.ART_NEM_SBZ_VANISHING_BLOCK_ADDR, Set.of(Sonic1ObjectIds.SBZ_VANISHING_PLATFORM)),
+            // Bosses
+            Map.entry(Sonic1Constants.ART_NEM_EGGMAN_ADDR, Set.of(Sonic1ObjectIds.GHZ_BOSS)),
+            Map.entry(Sonic1Constants.ART_NEM_FZ_BOSS_ADDR, Set.of(Sonic1ObjectIds.FZ_BOSS))
+    );
+
     private static final Map<String, List<DynamicBoss>> DYNAMIC_BOSSES = Map.of();
 
     /** Object names from Sonic1ObjectRegistry.getPrimaryName() switch cases. */
@@ -289,6 +361,33 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
     @Override public Set<Integer> getBossIds() { return BOSS_IDS; }
     @Override public Map<String, List<DynamicBoss>> getDynamicBosses() { return DYNAMIC_BOSSES; }
     @Override public Map<Integer, List<String>> getObjectNames() { return OBJECT_NAMES; }
+
+    @Override
+    public List<PlcObjectMapping> getPlcObjectMappings(RomByteReader rom, LevelConfig level) {
+        int[] za = LEVEL_ZONE_ACT.get(level.levelData());
+        int zoneIdx = za[0];
+
+        // Extract PLC IDs from LevelHeaders (byte[0] = plc1, byte[4] = plc2)
+        int base = Sonic1Constants.LEVEL_HEADERS_ADDR + zoneIdx * 16;
+        int plc1Id = (rom.readU32BE(base) >> 24) & 0xFF;
+        int plc2Id = (rom.readU32BE(base + 4) >> 24) & 0xFF;
+
+        Set<Integer> plcIds = new LinkedHashSet<>();
+        plcIds.add(plc1Id);
+        plcIds.add(plc2Id);
+
+        List<PlcObjectMapping> mappings = new ArrayList<>();
+        for (int plcId : plcIds) {
+            PlcParser.PlcDefinition def = PlcParser.parse(rom, Sonic1Constants.ART_LOAD_CUES_ADDR, plcId);
+            for (PlcParser.PlcEntry entry : def.entries()) {
+                Set<Integer> objIds = NEM_ADDR_TO_OBJECTS.get(entry.romAddr());
+                if (objIds != null && !objIds.isEmpty()) {
+                    mappings.add(new PlcObjectMapping(plcId, entry.romAddr(), objIds));
+                }
+            }
+        }
+        return mappings;
+    }
 
     @Override
     public List<ObjectSpawn> loadObjects(RomByteReader rom, LevelConfig level) {

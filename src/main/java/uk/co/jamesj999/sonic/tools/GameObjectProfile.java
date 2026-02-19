@@ -83,4 +83,16 @@ public interface GameObjectProfile {
 
     /** Whether this level is the final act of its zone (for dynamic boss display). */
     boolean isFinalAct(LevelConfig level);
+
+    /** A PLC entry cross-referenced with the object IDs it loads art for. */
+    record PlcObjectMapping(int plcId, int nemesisRomAddr, Set<Integer> objectIds) {}
+
+    /**
+     * Returns PLC entries cross-referenced with object IDs for a given level.
+     * Each mapping associates a PLC entry's Nemesis ROM address with the object
+     * IDs that use that art. Default returns empty (opt-in per game).
+     */
+    default List<PlcObjectMapping> getPlcObjectMappings(RomByteReader rom, LevelConfig level) {
+        return List.of();
+    }
 }

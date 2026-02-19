@@ -3,17 +3,15 @@ package uk.co.jamesj999.sonic.tools;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kObjectPlacement;
 import uk.co.jamesj999.sonic.game.sonic3k.constants.S3kZoneSet;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.game.sonic3k.objects.Sonic3kObjectRegistry;
 import uk.co.jamesj999.sonic.level.LevelData;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.resources.PlcParser;
 import uk.co.jamesj999.sonic.tools.ObjectDiscoveryTool.DynamicBoss;
 import uk.co.jamesj999.sonic.tools.ObjectDiscoveryTool.LevelConfig;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Sonic 3&amp;K object profile for the ObjectDiscoveryTool.
@@ -185,6 +183,23 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             0xB6  // DDZEndBoss
     );
 
+    /**
+     * Maps Nemesis ROM addresses to object IDs that use that art.
+     * Built from skdisasm PLC definitions (plreq ArtTile_X, ArtNem_Y entries).
+     * Expand incrementally as more objects are identified.
+     */
+    private static final Map<Integer, Set<Integer>> NEM_ADDR_TO_OBJECTS = Map.ofEntries(
+            // Universal objects (PLC_STD / PLC_STD2)
+            Map.entry(Sonic3kConstants.ART_NEM_SPIKES_SPRINGS_ADDR, Set.of(0x07, 0x08)),  // Springs + Spikes
+            Map.entry(Sonic3kConstants.ART_NEM_MONITORS_ADDR, Set.of(0x01)),               // Monitor
+            // AIZ objects
+            Map.entry(Sonic3kConstants.ART_NEM_AIZ_FALLING_LOG_ADDR, Set.of(0x03)),        // AIZHollowTree
+            Map.entry(Sonic3kConstants.ART_NEM_AIZ_SWING_VINE_ADDR, Set.of(0x06)),         // AIZRideVine
+            Map.entry(Sonic3kConstants.ART_NEM_AIZ_SLIDE_ROPE_ADDR, Set.of(0x0A)),         // AIZ1ZiplinePeg
+            Map.entry(Sonic3kConstants.ART_NEM_AIZ_CORK_FLOOR_ADDR, Set.of(0x04)),         // CollapsingPlatform
+            Map.entry(Sonic3kConstants.ART_NEM_AIZ_MISC1_ADDR, Set.of(0x05, 0x09))         // AIZLRZEMZRock, AIZ1Tree
+    );
+
     private static final Map<String, List<DynamicBoss>> DYNAMIC_BOSSES = Map.of();
 
     /** S3KL names built from the registry (SK Set 1). */
@@ -271,6 +286,34 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
     @Override
     public Map<Integer, List<String>> getObjectNames(LevelConfig level) {
         return zoneSetForLevel(level) == S3kZoneSet.SKL ? SKL_NAMES : S3KL_NAMES;
+    }
+
+    @Override
+    public List<PlcObjectMapping> getPlcObjectMappings(RomByteReader rom, LevelConfig level) {
+        int[] za = LEVEL_ZONE_ACT.get(level.levelData());
+        // LevelLoadBlock index: zone * 2 + act
+        int llbIndex = za[0] * 2 + za[1];
+        int base = Sonic3kConstants.LEVEL_LOAD_BLOCK_ADDR + llbIndex * Sonic3kConstants.LEVEL_LOAD_BLOCK_ENTRY_SIZE;
+
+        // Extract PLC IDs from upper byte of first two longwords
+        int plc1Id = (rom.readU32BE(base) >> 24) & 0xFF;
+        int plc2Id = (rom.readU32BE(base + 4) >> 24) & 0xFF;
+
+        Set<Integer> plcIds = new LinkedHashSet<>();
+        plcIds.add(plc1Id);
+        plcIds.add(plc2Id);
+
+        List<PlcObjectMapping> mappings = new ArrayList<>();
+        for (int plcId : plcIds) {
+            PlcParser.PlcDefinition def = PlcParser.parse(rom, Sonic3kConstants.OFFS_PLC_ADDR, plcId);
+            for (PlcParser.PlcEntry entry : def.entries()) {
+                Set<Integer> objIds = NEM_ADDR_TO_OBJECTS.get(entry.romAddr());
+                if (objIds != null && !objIds.isEmpty()) {
+                    mappings.add(new PlcObjectMapping(plcId, entry.romAddr(), objIds));
+                }
+            }
+        }
+        return mappings;
     }
 
     @Override

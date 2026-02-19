@@ -549,6 +549,14 @@ public class RomOffsetFinder {
                     handleExport(finder, args[1], exportPrefix);
                     break;
 
+                case "plc":
+                    if (args.length < 2) {
+                        System.out.println("Usage: plc <name>    Show contents of a PLC definition");
+                        return;
+                    }
+                    handlePlc(finder, args[1]);
+                    break;
+
                 case "search-rom":
                     handleSearchRom(finder, args);
                     break;
@@ -905,6 +913,32 @@ public class RomOffsetFinder {
     }
 
     // -----------------------------------------------------------------------
+    // plc: Show contents of PLC definitions
+    // -----------------------------------------------------------------------
+
+    private static void handlePlc(RomOffsetFinder finder, String pattern) throws IOException {
+        Map<String, List<String>> forwardIndex = finder.searchTool.getPlcArtForwardIndex();
+
+        String lowerPattern = pattern.toLowerCase();
+        List<Map.Entry<String, List<String>>> matches = forwardIndex.entrySet().stream()
+                .filter(e -> e.getKey().toLowerCase().contains(lowerPattern))
+                .toList();
+
+        if (matches.isEmpty()) {
+            System.out.println("No PLCs found matching: " + pattern);
+            return;
+        }
+
+        for (Map.Entry<String, List<String>> entry : matches) {
+            System.out.printf("PLC: %s (%d entries)%n", entry.getKey(), entry.getValue().size());
+            for (String artLabel : entry.getValue()) {
+                System.out.printf("  %s%n", artLabel);
+            }
+            System.out.println();
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // search-rom: Search ROM binary for hex byte patterns
     // -----------------------------------------------------------------------
 
@@ -1026,6 +1060,22 @@ public class RomOffsetFinder {
         return result;
     }
 
+    /**
+     * Format PLC cross-references for an art label, or null if none found.
+     */
+    private static String formatPlcReferences(DisassemblySearchTool searchTool, String label) {
+        if (label == null) return null;
+        try {
+            Set<String> plcs = searchTool.getPlcArtReverseIndex().get(label);
+            if (plcs != null && !plcs.isEmpty()) {
+                return String.join(", ", plcs);
+            }
+        } catch (IOException e) {
+            // PLC cross-referencing unavailable
+        }
+        return null;
+    }
+
     private static void handleSearch(RomOffsetFinder finder, String pattern) throws IOException {
         List<DisassemblySearchResult> results = finder.search(pattern);
 
@@ -1086,6 +1136,11 @@ public class RomOffsetFinder {
                 }
             }
 
+            String plcRefs = formatPlcReferences(finder.searchTool, result.getLabel());
+            if (plcRefs != null) {
+                System.out.printf("PLCs:        %s%n", plcRefs);
+            }
+
             System.out.println();
         }
     }
@@ -1107,6 +1162,11 @@ public class RomOffsetFinder {
             System.out.printf("ROM Offset:       0x%X%n", result.getTestResult().getRomOffset());
             System.out.printf("Compressed Size:  %d bytes%n", result.getTestResult().getCompressedSize());
             System.out.printf("Decompressed Size:%d bytes%n", result.getTestResult().getDecompressedSize());
+
+            String plcRefs = formatPlcReferences(finder.searchTool, result.getSearchResult().getLabel());
+            if (plcRefs != null) {
+                System.out.printf("PLCs:             %s%n", plcRefs);
+            }
         } else {
             System.out.println("=== NOT FOUND ===");
             System.out.println("Pattern: " + result.getSearchPattern());
@@ -1181,21 +1241,31 @@ public class RomOffsetFinder {
         VerificationResult result = finder.verify(pattern);
 
         switch (result.getStatus()) {
-            case VERIFIED:
+            case VERIFIED: {
                 System.out.println("=== VERIFIED ===");
                 System.out.printf("Label:       %s%n", result.getLabel());
                 System.out.printf("Offset:      0x%X%n", result.getCalculatedOffset());
                 System.out.printf("Type:        %s%n", result.getCompressionType().getDisplayName());
                 System.out.printf("File Size:   %d bytes%n", result.getFileSize());
+                String plcRefs = formatPlcReferences(finder.searchTool, result.getLabel());
+                if (plcRefs != null) {
+                    System.out.printf("PLCs:        %s%n", plcRefs);
+                }
                 break;
-            case MISMATCH:
+            }
+            case MISMATCH: {
                 System.out.println("=== MISMATCH ===");
                 System.out.printf("Label:       %s%n", result.getLabel());
                 System.out.printf("Calculated:  0x%X%n", result.getCalculatedOffset());
                 System.out.printf("Actual:      0x%X%n", result.getVerifiedOffset());
                 System.out.printf("Difference:  %+d bytes%n",
                         result.getVerifiedOffset() - result.getCalculatedOffset());
+                String plcRefs2 = formatPlcReferences(finder.searchTool, result.getLabel());
+                if (plcRefs2 != null) {
+                    System.out.printf("PLCs:        %s%n", plcRefs2);
+                }
                 break;
+            }
             case NOT_FOUND:
                 System.out.println("=== NOT FOUND ===");
                 System.out.printf("Label:       %s%n", result.getLabel());
@@ -1343,6 +1413,7 @@ public class RomOffsetFinder {
         System.out.println("  [--game s1|s2|s3k] verify <label>         Verify calculated offset against ROM");
         System.out.println("  [--game s1|s2|s3k] verify-batch [type]    Batch verify all items (by type)");
         System.out.println("  [--game s1|s2|s3k] export <type> [prefix] Export verified offsets as constants");
+        System.out.println("  [--game s1|s2|s3k] plc <name>             Show contents of a PLC definition");
         System.out.println("  [--game s1|s2|s3k] search-rom <hex> [start] [end]  Search ROM for hex byte pattern");
         System.out.println("  --game s1 verify-audio                    Verify Sonic 1 audio ROM addresses");
         System.out.println();
@@ -1366,6 +1437,12 @@ public class RomOffsetFinder {
         System.out.println("  test 0x41A4C nem              Test Nemesis decompression at 0x41A4C");
         System.out.println("  list nem                      List all Nemesis-compressed files");
         System.out.println("  verify ArtNem_SpecialHUD      Verify offset of ArtNem_SpecialHUD");
+        System.out.println();
+        System.out.println("Examples (PLC cross-referencing):");
+        System.out.println("  search ArtNem_Ring             Shows which PLCs load Ring art");
+        System.out.println("  plc PlrList_Htz1               List art entries in HTZ Act 1 PLC");
+        System.out.println("  --game s3k plc PLCKosM_AIZ     List art entries in AIZ PLC");
+        System.out.println("  --game s1 plc PLC_GHZ          List art entries in GHZ PLC");
         System.out.println();
         System.out.println("Examples (Sonic 1):");
         System.out.println("  --game s1 search Nem_GHZ      Search S1 disassembly for GHZ art");

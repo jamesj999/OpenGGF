@@ -67,6 +67,11 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
   mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_BossItems" -q
   mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Boss" -q
   ```
+  - Use `plc` command to see which PLCs load boss art:
+    ```bash
+    mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 plc PLC_GHZ" -q
+    ```
+  - Search results now show PLC cross-references inline
 
 **Key disassembly patterns to identify:**
 - `obColType` set to boss collision category
@@ -229,7 +234,7 @@ The hit response typically:
 
 ### Phase 6: Art Loading
 
-**PLC note:** S1 boss art has dedicated PLC IDs in ArtLoadCues. The shared `PlcParser` utility handles parsing. See `plc-system` skill.
+**PLC note:** S1 boss art has dedicated PLC IDs in ArtLoadCues. The shared `PlcParser` utility handles parsing. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI.
 
 ```bash
 # Find boss art

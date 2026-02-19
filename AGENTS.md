@@ -318,6 +318,7 @@ Use `--game s1`, `--game s2` (default), or `--game s3k` to select the target gam
 | `[--game s1\|s2\|s3k] verify-batch [type]` | Batch verify all offsets (optionally filtered by type) |
 | `[--game s1\|s2\|s3k] export <type> [prefix]` | Export verified offsets as Java constants |
 | `[--game s1\|s2\|s3k] search-rom <hex> [start] [end]` | Search ROM binary for hex byte pattern |
+| `[--game s1\|s2\|s3k] plc <name>` | Show PLC definition contents and list art entries |
 
 ### Usage via Maven
 
@@ -381,6 +382,24 @@ mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFind
 # Useful when disassembly labels point to inline dc.w/dc.b data, not binclude files
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search-rom \"07 72 73 26 15 08 FF 05\"" -q
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search-rom \"0002 FF2A\" 0x28000 0x29000" -q
+```
+
+### PLC Cross-Referencing
+
+Search results for art labels automatically show which PLCs reference that art:
+```bash
+# Search shows PLC references inline
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search ArtNem_Ring" -q
+# Output includes: PLCs: PlrList_Std1, PlrList_Std2
+
+# Show all art entries in a specific PLC definition
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="plc PlrList_Htz1" -q
+
+# S1 PLC lookup
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 plc PLC_GHZ" -q
+
+# S3K PLC lookup
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k plc PLCKosM_AIZ" -q
 ```
 
 ### Verification Status Codes

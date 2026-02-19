@@ -107,6 +107,11 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
   mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ZONEBoss" -q
   mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
   ```
+  - Use `plc` command to see which PLCs load boss art:
+    ```bash
+    mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k plc PLCKosM_AIZBoss" -q
+    ```
+  - Search results now show PLC cross-references inline
 
 **Key disassembly patterns to identify:**
 - `collision_flags` set to boss collision category
@@ -288,26 +293,44 @@ private void transitionToNextPhase() {
 
 ### Phase 7: Art Loading
 
-**PLC note:** Boss art is often loaded via PLCs (IDs 0x53-0x7B). Zone screen events call `applyPlc()` from `Sonic3kZoneEvents` to load boss PLCs at runtime. See `plc-system` and `s3k-plc-system` skills.
+**Preferred: Standalone PLC decompression.** Boss art is loaded via PLCs (IDs 0x53-0x7B). Use the shared `PlcParser.decompressAll()` API to decompress PLC entries into standalone `Pattern[]` arrays without writing to the level's shared pattern buffer. This avoids VRAM overlap conflicts (e.g., boss fire art overwriting spike/spring tiles).
+
+See `plc-system` and `s3k-plc-system` skills for full PLC system docs. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI.
 
 ```bash
-# Find boss art
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_ZONEBoss" -q
+# Find the boss PLC ID and art addresses
+mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ZONEBoss" -q
 mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
 ```
 
-S3K bosses typically use:
-- Shared Eggman art (`ArtKosM_Eggman` or similar)
-- Zone-specific boss weapon/vehicle art
-- **Kosinski Moduled** compression (primary for S3K, not Nemesis)
+**Standalone PLC pattern (preferred for boss art):**
+```java
+// In Sonic3kObjectArtProvider — load boss art from PLC without level buffer writes
+private void loadBossArtFromPlc() {
+    PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, PLC_BOSS_ID);
+    List<Pattern[]> decompressed = PlcParser.decompressAll(rom, plc);
+
+    // Each PLC entry becomes a standalone ObjectSpriteSheet
+    registerSheet(BOSS_KEY, new ObjectSpriteSheet(
+        decompressed.get(0),
+        S3kSpriteDataLoader.loadMappingFrames(reader, MAP_BOSS_ADDR),
+        paletteIndex, 1));
+}
+```
+
+**Why standalone:** On real hardware, boss PLCs overwrite existing VRAM tiles (the ROM restores them via `Load_PLC(PLC_Monitors)` after defeat). Standalone `Pattern[]` arrays avoid this conflict entirely — no restoration step needed.
+
+**When PLC isn't available:** Some boss art uses Kosinski Moduled compression (`ArtKosM_`). Use `safeLoadKosinskiModuledPatterns()` for those.
 
 **Implementation checklist:**
-- [ ] Add ROM address constants to `Sonic3kConstants.java` (create if needed)
-- [ ] Add art keys (create `Sonic3kObjectArtKeys.java` if needed)
-- [ ] Create loader method (create `Sonic3kObjectArt.java` if needed)
-- [ ] Use `safeLoadKosinskiModuledPatterns()` for `ArtKosM_` data
-- [ ] Create mappings method (parse from `General/Sprites/` or `Misc Object Data/`)
-- [ ] Register in art provider
+- [ ] Find the boss PLC ID (0x53-0x7B range) in the disassembly's `Load_PLC` call
+- [ ] Add PLC ID constant to `Sonic3kConstants.java` (e.g., `PLC_AIZ_MINIBOSS = 0x5A`)
+- [ ] Add mapping address constants (not in PLCs — need `MAP_*_ADDR` separately)
+- [ ] Add art keys to `Sonic3kObjectArtKeys.java`
+- [ ] Use `PlcParser.decompressAll()` for standalone `Pattern[]` arrays
+- [ ] Pair patterns with `S3kSpriteDataLoader.loadMappingFrames()` to build `ObjectSpriteSheet`
+- [ ] Register sheets in `Sonic3kObjectArtProvider`
+- [ ] For `ArtKosM_` art (not PLC-loaded): use `safeLoadKosinskiModuledPatterns()` instead
 
 ### Phase 8: Factory Registration
 

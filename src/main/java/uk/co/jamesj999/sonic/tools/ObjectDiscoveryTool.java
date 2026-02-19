@@ -4,6 +4,7 @@ import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
 import uk.co.jamesj999.sonic.level.LevelData;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.tools.GameObjectProfile.PlcObjectMapping;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -55,7 +56,7 @@ public class ObjectDiscoveryTool {
                                 getAliases(usage.objectId, level),
                                 isImplemented(usage.objectId, level),
                                 getCategory(usage.objectId, level)))
-                        .addZoneUsage(level.shortName() + level.act(), usage.count, usage.subtypes);
+                        .addZoneUsage(level.shortName() + level.act(), usage.count, usage.subtypes, usage.plcIds);
             }
         }
 
@@ -68,6 +69,15 @@ public class ObjectDiscoveryTool {
     private ZoneReport scanLevel(LevelConfig level) {
         List<ObjectSpawn> spawns = profile.loadObjects(rom, level);
 
+        // Build objectId -> plcIds mapping from PLC cross-references
+        Map<Integer, Set<Integer>> objPlcMap = new HashMap<>();
+        List<PlcObjectMapping> plcMappings = profile.getPlcObjectMappings(rom, level);
+        for (PlcObjectMapping mapping : plcMappings) {
+            for (int objId : mapping.objectIds()) {
+                objPlcMap.computeIfAbsent(objId, k -> new TreeSet<>()).add(mapping.plcId());
+            }
+        }
+
         Map<Integer, List<ObjectSpawn>> byId = spawns.stream()
                 .collect(Collectors.groupingBy(ObjectSpawn::objectId));
 
@@ -78,7 +88,8 @@ public class ObjectDiscoveryTool {
             Set<Integer> subtypes = instances.stream()
                     .map(ObjectSpawn::subtype)
                     .collect(Collectors.toSet());
-            usages.add(new ObjectUsage(id, getName(id, level), instances.size(), isImplemented(id, level), subtypes));
+            Set<Integer> plcIds = objPlcMap.getOrDefault(id, Set.of());
+            usages.add(new ObjectUsage(id, getName(id, level), instances.size(), isImplemented(id, level), subtypes, plcIds));
         }
 
         usages.sort(Comparator.comparingInt(u -> u.objectId));
@@ -130,12 +141,13 @@ public class ObjectDiscoveryTool {
 
         // Implemented objects
         sb.append("## Implemented Objects\n\n");
-        sb.append("| ID | Name | Total Uses | Zones |\n");
-        sb.append("|----|------|------------|-------|\n");
+        sb.append("| ID | Name | Total Uses | PLC | Zones |\n");
+        sb.append("|----|------|------------|-----|-------|\n");
         for (ObjectStats stats : report.globalStats.values()) {
             if (stats.implemented) {
-                sb.append(String.format("| 0x%02X | %s | %d | %s |%n",
+                sb.append(String.format("| 0x%02X | %s | %d | %s | %s |%n",
                         stats.objectId, stats.name, stats.totalCount,
+                        formatPlcIdsInline(stats.allPlcIds),
                         String.join(", ", stats.zoneUsage.keySet())));
             }
         }
@@ -143,15 +155,16 @@ public class ObjectDiscoveryTool {
 
         // Unimplemented by priority
         sb.append("## Unimplemented Objects (By Usage)\n\n");
-        sb.append("| ID | Category | Name | Total Uses | Zones |\n");
-        sb.append("|----|----------|------|------------|-------|\n");
+        sb.append("| ID | Category | Name | Total Uses | PLC | Zones |\n");
+        sb.append("|----|----------|------|------------|-----|-------|\n");
         List<ObjectStats> unimplemented = report.globalStats.values().stream()
                 .filter(s -> !s.implemented)
                 .sorted((a, b) -> Integer.compare(b.totalCount, a.totalCount))
                 .toList();
         for (ObjectStats stats : unimplemented) {
-            sb.append(String.format("| 0x%02X | %s | %s | %d | %s |%n",
+            sb.append(String.format("| 0x%02X | %s | %s | %d | %s | %s |%n",
                     stats.objectId, stats.category, stats.name, stats.totalCount,
+                    formatPlcIdsInline(stats.allPlcIds),
                     String.join(", ", stats.zoneUsage.keySet())));
         }
         sb.append("\n");
@@ -192,8 +205,9 @@ public class ObjectDiscoveryTool {
                     String subtypeStr = u.subtypes.size() <= 3
                             ? u.subtypes.stream().map(s -> String.format("0x%02X", s)).collect(Collectors.joining(", "))
                             : u.subtypes.size() + " subtypes";
-                    sb.append(String.format("- [%s] 0x%02X %s (x%d) [%s]%n",
-                            check, u.objectId, u.name, u.count, subtypeStr));
+                    String plcStr = formatPlcIds(u.plcIds);
+                    sb.append(String.format("- [%s] 0x%02X %s (x%d) [%s]%s%n",
+                            check, u.objectId, u.name, u.count, subtypeStr, plcStr));
                 }
 
                 for (DynamicBoss boss : dynamicBosses) {
@@ -207,6 +221,23 @@ public class ObjectDiscoveryTool {
         }
 
         return sb.toString();
+    }
+
+    /** Formats PLC IDs as a suffix string for per-zone entries (e.g. " PLC:0x0B,0x01"). */
+    private static String formatPlcIds(Set<Integer> plcIds) {
+        if (plcIds == null || plcIds.isEmpty()) return "";
+        String ids = plcIds.stream()
+                .map(id -> String.format("0x%02X", id))
+                .collect(Collectors.joining(","));
+        return " PLC:" + ids;
+    }
+
+    /** Formats PLC IDs inline for table cells (e.g. "0x0B, 0x01" or empty string). */
+    private static String formatPlcIdsInline(Set<Integer> plcIds) {
+        if (plcIds == null || plcIds.isEmpty()) return "";
+        return plcIds.stream()
+                .map(id -> String.format("0x%02X", id))
+                .collect(Collectors.joining(", "));
     }
 
     private static final Map<String, GameObjectProfile> PROFILES = Map.of(
@@ -298,7 +329,7 @@ public class ObjectDiscoveryTool {
 
     public record LevelConfig(LevelData levelData, String shortName, String fullName, int act) {}
 
-    public record ObjectUsage(int objectId, String name, int count, boolean implemented, Set<Integer> subtypes) {}
+    public record ObjectUsage(int objectId, String name, int count, boolean implemented, Set<Integer> subtypes, Set<Integer> plcIds) {}
 
     public record ZoneReport(LevelConfig level, List<ObjectUsage> objects,
                              int totalObjects, int implementedCount, int unimplementedCount) {}
@@ -317,6 +348,7 @@ public class ObjectDiscoveryTool {
         int totalCount;
         final Map<String, Integer> zoneUsage = new LinkedHashMap<>();
         final Set<Integer> allSubtypes = new TreeSet<>();
+        final Set<Integer> allPlcIds = new TreeSet<>();
 
         ObjectStats(int objectId, String name, List<String> aliases, boolean implemented, String category) {
             this.objectId = objectId;
@@ -326,10 +358,11 @@ public class ObjectDiscoveryTool {
             this.category = category;
         }
 
-        void addZoneUsage(String zone, int count, Set<Integer> subtypes) {
+        void addZoneUsage(String zone, int count, Set<Integer> subtypes, Set<Integer> plcIds) {
             zoneUsage.merge(zone, count, Integer::sum);
             totalCount += count;
             allSubtypes.addAll(subtypes);
+            allPlcIds.addAll(plcIds);
         }
     }
 }

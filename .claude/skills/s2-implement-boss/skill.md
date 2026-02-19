@@ -39,6 +39,11 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 - [ ] Document state machine (`routine_secondary`) transitions
 - [ ] Note defeat sequence timing (explosion duration, flee direction)
 - [ ] Find boss-specific art addresses (`ArtNem_XXXBoss`, `Map_XXXBoss`)
+- [ ] Use `plc` command to identify which PLCs load boss art:
+  ```bash
+  mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="plc PlrList_EhzBoss" -q
+  ```
+  Search results show PLC cross-references inline
 
 **Key disassembly patterns to identify:**
 - `collision_flags` set to `$C0 | size_index` (boss category)
@@ -226,12 +231,23 @@ public class BossChildName extends AbstractBossChild {
 
 ### Phase 5: Art Loading
 
-**PLC note:** S2 boss art has dedicated PLC IDs in ArtLoadCues. Currently hardcoded; future refactor will use `PlcParser`. See `plc-system` skill.
+**PLC-based art loading:** S2 boss art has dedicated PLC IDs in ArtLoadCues. Use the shared `PlcParser` API for standalone decompression — this avoids VRAM overlap conflicts where boss art tiles overwrite other object tiles. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI.
+
+**Standalone PLC pattern (preferred):**
+```java
+PlcDefinition plc = PlcParser.parse(rom, Sonic2Constants.ART_LOAD_CUES_ADDR, plcId);
+List<Pattern[]> artArrays = PlcParser.decompressAll(rom, plc);
+ObjectSpriteSheet sheet = new ObjectSpriteSheet(
+    artArrays.get(entryIndex),
+    S2SpriteDataLoader.loadMappingFrames(reader, mappingAddr),
+    paletteIndex, 1);
+```
 
 **Implementation checklist:**
-- [ ] Add ROM address constants to `Sonic2Constants.java`
+- [ ] Find the boss PLC ID in the disassembly's `LoadPLC` call
+- [ ] Add PLC ID or ROM address constants to `Sonic2Constants.java`
 - [ ] Add art keys to `Sonic2ObjectArtKeys.java`
-- [ ] Create loader method in `Sonic2ObjectArt.java`
+- [ ] Use `PlcParser.decompressAll()` for standalone `Pattern[]` (preferred), or create loader method in `Sonic2ObjectArt.java` for direct Nemesis loading
 - [ ] Create mappings method (parse from `Map_XXXBoss`)
 - [ ] Register in `Sonic2ObjectArtProvider.loadArtForZone()`
 
