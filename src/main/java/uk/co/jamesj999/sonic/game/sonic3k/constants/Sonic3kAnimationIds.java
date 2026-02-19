@@ -20,6 +20,8 @@ public final class Sonic3kAnimationIds {
     public static final int BALANCE2 = 0x0C;
     public static final int SKID = 0x0D;
     public static final int SPRING = 0x10;
+    public static final int HANG = 0x11;
+    public static final int HANG2 = 0x14;
     public static final int DEATH = 0x18;
     public static final int HURT = 0x19;
     public static final int BALANCE3 = 0x1D;

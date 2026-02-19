@@ -310,6 +310,12 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         private int animationId = 0;
         /** When >= 0, overrides profile-based animation resolution (e.g., Tails CPU fly anim). */
         private int forcedAnimationId = -1;
+        /**
+         * When true, object code owns mapping_frame updates for this player.
+         * Animation manager still handles flip state and controllers, but does not
+         * overwrite mapping_frame.
+         */
+        private boolean objectMappingFrameControl = false;
         private int animationFrameIndex = 0;
         private int animationTick = 0;
         private boolean renderHFlip = false;
@@ -712,6 +718,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public void setForcedAnimationId(int forcedAnimationId) {
                 this.forcedAnimationId = forcedAnimationId;
+        }
+
+        public boolean isObjectMappingFrameControl() {
+                return objectMappingFrameControl;
+        }
+
+        public void setObjectMappingFrameControl(boolean objectMappingFrameControl) {
+                this.objectMappingFrameControl = objectMappingFrameControl;
         }
 
         public int getAnimationFrameIndex() {
