@@ -132,6 +132,8 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         progress[slot] = 0;
 
         player.setOnObject(true);
+        player.setObjectMappingFrameControl(true);
+        player.setForcedAnimationId(0);
         player.setObjectControlled(false);
         player.setControlLocked(true);
         // RideObject_SetRide semantics: preserve horizontal inertia as ground speed.
@@ -148,9 +150,11 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
     }
 
     private void setPlayerOnTree(AbstractPlayableSprite player, int slot) {
-        if (!player.isOnObject()) {
-            return;
-        }
+        // This object is logic-only and not a SolidObjectProvider, so SolidContacts would
+        // otherwise clear onObject each frame. Keep this sticky while the tree ride is active.
+        player.setOnObject(true);
+        player.setObjectMappingFrameControl(true);
+        player.setForcedAnimationId(0);
 
         int progressValue = progress[slot];
         progressValue += player.getGSpeed() << 8;
@@ -196,6 +200,8 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         player.setOnObject(false);
         player.setFlipsRemaining(0);
         player.setFlipSpeed(4);
+        player.setForcedAnimationId(-1);
+        player.setObjectMappingFrameControl(false);
         player.setControlLocked(false);
         player.setObjectControlled(false);
         player.setXSpeed((short) (player.getXSpeed() >> 1));
