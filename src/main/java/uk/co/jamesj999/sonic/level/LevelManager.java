@@ -2904,6 +2904,207 @@ public class LevelManager {
     }
 
     /**
+     * Reads the foreground tile descriptor currently represented by level data at world coordinates.
+     * This resolves block/chunk indirection plus chunk descriptor flips, matching tilemap build logic.
+     */
+    public int getForegroundTileDescriptorAtWorld(int worldX, int worldY) {
+        if (level == null || level.getMap() == null) {
+            return 0;
+        }
+
+        int levelWidth = getLayerLevelWidthPx((byte) 0);
+        int levelHeight = getLayerLevelHeightPx((byte) 0);
+        if (levelWidth <= 0 || levelHeight <= 0) {
+            return 0;
+        }
+
+        int wrappedX = Math.floorMod(worldX, levelWidth);
+        int wrappedY = worldY;
+        if (verticalWrapEnabled) {
+            wrappedY = Math.floorMod(worldY, levelHeight);
+        } else if (wrappedY < 0 || wrappedY >= levelHeight) {
+            return 0;
+        }
+
+        Block block = getBlockAtPosition((byte) 0, wrappedX, wrappedY);
+        if (block == null) {
+            return 0;
+        }
+
+        int xBlockBit = (wrappedX % blockPixelSize) / LevelConstants.CHUNK_WIDTH;
+        int yBlockBit = (wrappedY % blockPixelSize) / LevelConstants.CHUNK_HEIGHT;
+        ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
+        if (chunkDesc == null) {
+            return 0;
+        }
+
+        int chunkIndex = chunkDesc.getChunkIndex();
+        if (chunkIndex < 0 || chunkIndex >= level.getChunkCount()) {
+            return 0;
+        }
+
+        Chunk chunk = level.getChunk(chunkIndex);
+        if (chunk == null) {
+            return 0;
+        }
+
+        int tileX = (wrappedX & (LevelConstants.CHUNK_WIDTH - 1)) / Pattern.PATTERN_WIDTH;
+        int tileY = (wrappedY & (LevelConstants.CHUNK_HEIGHT - 1)) / Pattern.PATTERN_HEIGHT;
+        int logicalX = chunkDesc.getHFlip() ? 1 - tileX : tileX;
+        int logicalY = chunkDesc.getVFlip() ? 1 - tileY : tileY;
+        PatternDesc patternDesc = chunk.getPatternDesc(logicalX, logicalY);
+        if (patternDesc == null) {
+            return 0;
+        }
+
+        int descriptor = patternDesc.get();
+        if (chunkDesc.getHFlip()) {
+            descriptor ^= 0x800;
+        }
+        if (chunkDesc.getVFlip()) {
+            descriptor ^= 0x1000;
+        }
+        return descriptor & 0xFFFF;
+    }
+
+    /**
+     * Overwrites one foreground tile descriptor at world coordinates in the live FG tilemap buffer.
+     * Call {@link #uploadForegroundTilemap()} once after batching writes.
+     *
+     * @return true if tilemap bytes changed
+     */
+    public boolean setForegroundTileDescriptorAtWorld(int worldX, int worldY, int descriptor) {
+        if (level == null || level.getMap() == null) {
+            return false;
+        }
+
+        ensureForegroundTilemapData();
+        if (foregroundTilemapData == null) {
+            return false;
+        }
+
+        int levelWidth = getLayerLevelWidthPx((byte) 0);
+        int levelHeight = getLayerLevelHeightPx((byte) 0);
+        if (levelWidth <= 0 || levelHeight <= 0) {
+            return false;
+        }
+
+        int wrappedX = Math.floorMod(worldX, levelWidth);
+        int wrappedY = worldY;
+        if (verticalWrapEnabled) {
+            wrappedY = Math.floorMod(worldY, levelHeight);
+        } else if (wrappedY < 0 || wrappedY >= levelHeight) {
+            return false;
+        }
+
+        int tileX = wrappedX / Pattern.PATTERN_WIDTH;
+        int tileY = wrappedY / Pattern.PATTERN_HEIGHT;
+        if (tileX < 0 || tileY < 0
+                || tileX >= foregroundTilemapWidthTiles
+                || tileY >= foregroundTilemapHeightTiles) {
+            return false;
+        }
+
+        int offset = (tileY * foregroundTilemapWidthTiles + tileX) * 4;
+        int patternIndex = descriptor & 0x7FF;
+        int paletteIndex = (descriptor >> 13) & 0x3;
+        int g = ((patternIndex >> 8) & 0x7)
+                | ((paletteIndex & 0x3) << 3)
+                | ((descriptor & 0x800) != 0 ? 0x20 : 0)
+                | ((descriptor & 0x1000) != 0 ? 0x40 : 0)
+                | ((descriptor & 0x8000) != 0 ? 0x80 : 0);
+        byte rByte = (byte) (patternIndex & 0xFF);
+        byte gByte = (byte) g;
+
+        if (foregroundTilemapData[offset] == rByte
+                && foregroundTilemapData[offset + 1] == gByte
+                && foregroundTilemapData[offset + 2] == 0
+                && foregroundTilemapData[offset + 3] == (byte) 0xFF) {
+            return false;
+        }
+
+        foregroundTilemapData[offset] = rByte;
+        foregroundTilemapData[offset + 1] = gByte;
+        foregroundTilemapData[offset + 2] = 0;
+        foregroundTilemapData[offset + 3] = (byte) 0xFF;
+        return true;
+    }
+
+    /**
+     * Reads a foreground tile descriptor from the live foreground tilemap buffer at world coordinates.
+     * Unlike {@link #getForegroundTileDescriptorAtWorld(int, int)}, this returns the currently visible
+     * descriptor after runtime tilemap writes.
+     */
+    public int getForegroundTileDescriptorFromTilemapAtWorld(int worldX, int worldY) {
+        if (level == null || level.getMap() == null) {
+            return 0;
+        }
+
+        ensureForegroundTilemapData();
+        if (foregroundTilemapData == null) {
+            return 0;
+        }
+
+        int levelWidth = getLayerLevelWidthPx((byte) 0);
+        int levelHeight = getLayerLevelHeightPx((byte) 0);
+        if (levelWidth <= 0 || levelHeight <= 0) {
+            return 0;
+        }
+
+        int wrappedX = Math.floorMod(worldX, levelWidth);
+        int wrappedY = worldY;
+        if (verticalWrapEnabled) {
+            wrappedY = Math.floorMod(worldY, levelHeight);
+        } else if (wrappedY < 0 || wrappedY >= levelHeight) {
+            return 0;
+        }
+
+        int tileX = wrappedX / Pattern.PATTERN_WIDTH;
+        int tileY = wrappedY / Pattern.PATTERN_HEIGHT;
+        if (tileX < 0 || tileY < 0
+                || tileX >= foregroundTilemapWidthTiles
+                || tileY >= foregroundTilemapHeightTiles) {
+            return 0;
+        }
+
+        int offset = (tileY * foregroundTilemapWidthTiles + tileX) * 4;
+        int r = foregroundTilemapData[offset] & 0xFF;
+        int g = foregroundTilemapData[offset + 1] & 0xFF;
+        int patternIndex = r | ((g & 0x7) << 8);
+        int paletteIndex = (g >> 3) & 0x3;
+
+        int descriptor = patternIndex | (paletteIndex << 13);
+        if ((g & 0x20) != 0) {
+            descriptor |= 0x800;
+        }
+        if ((g & 0x40) != 0) {
+            descriptor |= 0x1000;
+        }
+        if ((g & 0x80) != 0) {
+            descriptor |= 0x8000;
+        }
+        return descriptor & 0xFFFF;
+    }
+
+    /**
+     * Uploads the current foreground tilemap bytes to the GPU renderer (if active).
+     * No-op in headless mode.
+     */
+    public void uploadForegroundTilemap() {
+        if (foregroundTilemapData == null) {
+            return;
+        }
+        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
+        if (renderer == null) {
+            return;
+        }
+        ensurePatternLookupData();
+        renderer.setTilemapData(TilemapGpuRenderer.Layer.FOREGROUND, foregroundTilemapData,
+                foregroundTilemapWidthTiles, foregroundTilemapHeightTiles);
+        renderer.setPatternLookupData(patternLookupData, patternLookupSize);
+    }
+
+    /**
      * Marks background/foreground tilemaps and pattern lookup as dirty.
      * Use this after runtime terrain art/chunk overlays so the GPU tilemap
      * data is rebuilt on the next render.
