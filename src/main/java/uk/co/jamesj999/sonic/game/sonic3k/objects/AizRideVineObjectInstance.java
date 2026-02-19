@@ -184,12 +184,12 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
 
     private void updateSwingDamped() {
         int d0 = root3A;
-        int d1 = Math.abs((byte) rootAngle);
+        int d1 = Math.abs(signedAngleByte(rootAngle));
         d0 -= d1 + d1;
         rootAngle = asSigned16(rootAngle - d0);
 
         if (!AizVineHandleLogic.anyGrabbed(handle)) {
-            int angleByte = ((byte) rootAngle + 8) & 0xFF;
+            int angleByte = (angleByte(rootAngle) + 8) & 0xFF;
             if (angleByte < 0x10) {
                 state = State.PENDULUM_DECAY;
                 root42 = 0;
@@ -202,13 +202,13 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
     }
 
     private void updatePendulumDecay() {
-        int d2 = root38 & 0xFF;
+        int d2 = angleByte(root38);
         int d0 = root44;
         if (root2E == 0) {
             d0 += d2;
             root44 = asSigned16(d0);
             root42 = asSigned16(root42 + root44);
-            if ((byte) root42 >= 0) {
+            if (signedAngleByte(root42) >= 0) {
                 int damp = root44 >> 4;
                 root44 = asSigned16(root44 - damp);
                 root2E = 1;
@@ -224,7 +224,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
             d0 -= d2;
             root44 = asSigned16(d0);
             root42 = asSigned16(root42 + root44);
-            if ((byte) root42 < 0) {
+            if (signedAngleByte(root42) < 0) {
                 int damp = root44 >> 4;
                 root44 = asSigned16(root44 - damp);
                 root2E = 0;
@@ -244,7 +244,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
     }
 
     private void updateSinSwing() {
-        int angle = root38 & 0xFF;
+        int angle = angleByte(root38);
         root38 = asSigned16(root38 + 0x200);
         int sin = TrigLookupTable.sinHex(angle) << 2;
         if (sin == 0x400) {
@@ -262,7 +262,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         for (Segment segment : chain) {
             segment.value3A = parent.value3A;
             segment.angle = asSigned16(parent.angle + segment.value3A);
-            segment.mappingFrame = ((segment.angle + 4) & 0xFF) >> 3;
+            segment.mappingFrame = ((angleByte(segment.angle) + 4) & 0xFF) >> 3;
             int[] offset = offsetFromAngle(parent.angle);
             segment.x = parent.x + offset[0];
             segment.y = parent.y + offset[1];
@@ -275,7 +275,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
             first.angle = rootAngle;
         } else {
             if (first2E == 0) {
-                int angle = first38 & 0xFF;
+                int angle = angleByte(first38);
                 first38 = asSigned16(first38 + 0x200);
                 int sin = TrigLookupTable.sinHex(angle) << 2;
                 if (sin == 0x400) {
@@ -283,7 +283,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
                 }
                 first3A = asSigned16(sin);
             } else {
-                int angle = first38 & 0xFF;
+                int angle = angleByte(first38);
                 first38 = asSigned16(first38 + 0x100);
                 first3A = asSigned16(TrigLookupTable.sinHex(angle) << 3);
             }
@@ -291,7 +291,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         }
 
         first.value3A = first3A;
-        first.mappingFrame = ((first.angle + 4) & 0xFF) >> 3;
+        first.mappingFrame = ((angleByte(first.angle) + 4) & 0xFF) >> 3;
         first.x = currentX;
         first.y = currentY;
     }
@@ -396,8 +396,16 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         return (short) value;
     }
 
+    private static int angleByte(int angleWord) {
+        return (angleWord >> 8) & 0xFF;
+    }
+
+    private static int signedAngleByte(int angleWord) {
+        return (byte) angleByte(angleWord);
+    }
+
     private static int[] offsetFromAngle(int angle) {
-        int byteAngle = (angle + 4) & 0xF8;
+        int byteAngle = (angleByte(angle) + 4) & 0xF8;
         int sin = TrigLookupTable.sinHex(byteAngle);
         int cos = TrigLookupTable.cosHex(byteAngle);
         return new int[]{(-sin + 8) >> 4, (cos + 8) >> 4};

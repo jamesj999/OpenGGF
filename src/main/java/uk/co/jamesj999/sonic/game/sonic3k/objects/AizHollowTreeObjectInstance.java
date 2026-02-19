@@ -132,8 +132,10 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         progress[slot] = 0;
 
         player.setOnObject(true);
-        player.setObjectControlled(true);
+        player.setObjectControlled(false);
         player.setControlLocked(true);
+        // RideObject_SetRide semantics: preserve horizontal inertia as ground speed.
+        player.setGSpeed(player.getXSpeed());
         player.setAnimationId(0);
 
         if (mainPlayer) {

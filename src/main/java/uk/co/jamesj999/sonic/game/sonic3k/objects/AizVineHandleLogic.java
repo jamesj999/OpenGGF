@@ -61,7 +61,7 @@ final class AizVineHandleLogic {
     static void positionFromParent(State state, int parentX, int parentY, int parentAngle) {
         int oldX = state.x;
         int oldY = state.y;
-        int angle = (parentAngle + 4) & 0xF8;
+        int angle = (angleByte(parentAngle) + 4) & 0xF8;
         int sin = TrigLookupTable.sinHex(angle);
         int cos = TrigLookupTable.cosHex(angle);
 
@@ -202,8 +202,9 @@ final class AizVineHandleLogic {
 
     private static void launchPlayer(State handle, AbstractPlayableSprite player, int parentAngle) {
         if (handle.mode == 1) {
-            int sin = TrigLookupTable.sinHex(parentAngle);
-            int cos = TrigLookupTable.cosHex(parentAngle);
+            int angle = angleByte(parentAngle);
+            int sin = TrigLookupTable.sinHex(angle);
+            int cos = TrigLookupTable.cosHex(angle);
             player.setXSpeed((short) (cos << 3));
             player.setYSpeed((short) (sin << 3));
         } else {
@@ -229,7 +230,7 @@ final class AizVineHandleLogic {
         player.setCentreX((short) handle.x);
         player.setCentreY((short) (handle.y + PLAYER_HANG_Y_OFFSET));
 
-        int angle = parentAngle & 0xFF;
+        int angle = angleByte(parentAngle);
         if (player.getDirection() == Direction.LEFT) {
             angle = (-angle) & 0xFF;
         }
@@ -238,7 +239,7 @@ final class AizVineHandleLogic {
     }
 
     private static void setPlayerHeldMode1(State handle, AbstractPlayableSprite player, int parentAngle) {
-        int angle = parentAngle & 0xFF;
+        int angle = angleByte(parentAngle);
         if (player.getDirection() == Direction.LEFT) {
             angle = (-angle) & 0xFF;
         }
@@ -261,5 +262,9 @@ final class AizVineHandleLogic {
     private static void clearPlayerControl(AbstractPlayableSprite player) {
         player.setControlLocked(false);
         player.setObjectControlled(false);
+    }
+
+    private static int angleByte(int angleWord) {
+        return (angleWord >> 8) & 0xFF;
     }
 }
