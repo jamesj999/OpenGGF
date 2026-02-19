@@ -68,6 +68,12 @@ Agents should:
      ```bash
      mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ObjectName" -q
      ```
+   - Search results now show **PLC cross-references** - which PLCs load this art
+   - Use `plc <name>` command to see all art entries in a PLC:
+     ```bash
+     mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k plc PLCKosM_AIZ" -q
+     ```
+   - The ObjectDiscoveryTool checklist also shows PLC IDs per object per zone
    - Parse mappings from `General/Sprites/{Name}/Map - Name.asm` or `Levels/{ZONE}/Misc Object Data/Map - Name.asm`
    - S3K mappings use 6-byte piece format with word header (same as S2)
    - Check if art is zone-specific or shared
@@ -103,7 +109,18 @@ Key differences from S2:
 - Use `safeLoadKosinskiModuledPatterns()` for `ArtKosM_` data
 - Use `safeLoadNemesisPatterns()` for `ArtNem_` data
 
-**PLC-loaded art:** Some objects use art loaded by zone PLCs at runtime rather than at level load. If the object's art comes from a zone PLC (e.g., PLC 0x0B for AIZ1 objects), it may need runtime PLC application for act transitions or boss arenas. See the **`s3k-plc-system`** skill for PLC system docs.
+**PLC-loaded art:** Some objects use art loaded by zone PLCs at runtime rather than at level load. If the object's art comes from a zone PLC (e.g., PLC 0x0B for AIZ1 objects), it may need runtime PLC application for act transitions or boss arenas. See the **`s3k-plc-system`** skill for PLC system docs. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI. The ObjectDiscoveryTool checklist shows PLC IDs per object.
+
+**Standalone PLC decompression (preferred for dedicated object art):** When an object's art comes from a PLC but shouldn't overwrite level pattern buffer tiles (common for boss art, shared art), use `PlcParser.decompressAll()` to get standalone `Pattern[]` arrays:
+```java
+PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, PLC_ID);
+List<Pattern[]> artArrays = PlcParser.decompressAll(rom, plc);
+ObjectSpriteSheet sheet = new ObjectSpriteSheet(
+    artArrays.get(entryIndex),
+    S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr),
+    paletteIndex, 1);
+```
+This avoids VRAM overlap conflicts where PLC art tiles overlap with spike/spring/other object tiles. See `plc-system` skill for the full standalone vs level-buffer comparison.
 
 ##### For level-art objects (art loaded by PLCs or level init):
 

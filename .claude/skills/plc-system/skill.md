@@ -36,8 +36,42 @@ Located in `uk.co.jamesj999.sonic.level.resources.PlcParser`.
 // Parse a PLC definition from any game's ROM
 PlcParser.PlcDefinition parse(Rom rom, int tableAddr, int plcId)
 
-// Convert entries to LoadOps for LevelResourcePlan
+// Convert entries to LoadOps for LevelResourcePlan (writes to level pattern buffer)
 List<LoadOp> toPatternOps(PlcParser.PlcDefinition definition)
+
+// --- Standalone decompression (no level buffer involvement) ---
+
+// Decompress a single entry into standalone Pattern[] (no VRAM conflicts)
+Pattern[] decompressEntry(Rom rom, PlcEntry entry)
+
+// Batch decompress all entries into List<Pattern[]> (one array per entry)
+List<Pattern[]> decompressAll(Rom rom, PlcDefinition definition)
+
+// Decompress a single entry into raw bytes (for level buffer application)
+byte[] decompressEntryRaw(Rom rom, PlcEntry entry)
+```
+
+### Standalone vs Level-Buffer Decompression
+
+PLCs can be used in two ways:
+
+| Mode | Method | Use Case |
+|------|--------|----------|
+| **Level buffer** | `toPatternOps()` / `decompressEntryRaw()` | Level init, act transitions — writes into shared level pattern buffer |
+| **Standalone** | `decompressEntry()` / `decompressAll()` | Object/boss art — returns independent `Pattern[]` arrays |
+
+**Why standalone matters:** On real hardware, boss PLCs intentionally overwrite existing VRAM tiles (e.g., boss fire art at 0x0482 overwrites spike/spring art at 0x0494). The ROM restores the overwritten art after the boss is defeated. Standalone decompression avoids this conflict entirely by keeping art in separate `Pattern[]` arrays, paired with mappings to create `ObjectSpriteSheet` instances.
+
+**Pattern for standalone PLC art loading:**
+```java
+PlcDefinition plc = PlcParser.parse(rom, tableAddr, plcId);
+List<Pattern[]> artArrays = PlcParser.decompressAll(rom, plc);
+
+// Pair each entry's patterns with its mappings
+ObjectSpriteSheet sheet = new ObjectSpriteSheet(
+    artArrays.get(entryIndex),
+    S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr),
+    paletteIndex, 1);
 ```
 
 ## Per-Game Integration
@@ -52,7 +86,7 @@ PLCs are parsed during level loading in `Sonic1.readPatternLoadCues()` via `PlcP
 - See `s3k-plc-system` skill for S3K-specific PLC ID catalog and runtime patterns
 
 ### S2 (Level Init)
-S2 ArtLoadCues are parsed via `Sonic2PlcLoader.java`, which uses `PlcParser.parse()` with `Sonic2Constants.ART_LOAD_CUES_ADDR`. Zone-specific PLCs are loaded during level init.
+S2 ArtLoadCues are parsed via `Sonic2PlcLoader.java`, which uses `PlcParser.parse()` with `Sonic2Constants.ART_LOAD_CUES_ADDR`. Zone-specific PLCs are loaded during level init. S2 can also use `PlcParser.decompressEntry()` for standalone boss/object art loading.
 
 ## Key Files
 

@@ -166,6 +166,50 @@ List<TileRange> modified = Sonic3kPlcLoader.applyPreDecompressed(cached, level);
 Sonic3kPlcLoader.refreshAffectedRenderers(modified, levelManager);
 ```
 
+## Standalone Art Loading from PLCs (Object/Boss Art)
+
+Boss and object art is often delivered via PLCs but must NOT be written into the level's shared pattern buffer, because PLC tile ranges can overlap (e.g., boss fire art at 0x0482 overwrites spike/spring art at 0x0494). Use standalone decompression via the shared `PlcParser` API:
+
+```java
+// Parse PLC to discover art ROM addresses and tile destinations
+PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, PLC_ID);
+
+// Decompress all entries into standalone Pattern[] arrays (no level buffer writes)
+List<Pattern[]> artArrays = PlcParser.decompressAll(rom, plc);
+
+// Pair each entry's patterns with its ROM-parsed mappings
+ObjectSpriteSheet sheet = new ObjectSpriteSheet(
+    artArrays.get(entryIndex),
+    S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr),
+    paletteIndex, 1);
+```
+
+**Benefits over hardcoded art addresses:**
+- PLC ID is the single source of truth — no need for separate `ART_NEM_*` and `ARTTILE_*` constants
+- Only mapping addresses and palette indices need constants (these aren't in PLCs)
+- Avoids VRAM overlap conflicts that happen with level buffer application
+- The ROM restores overwritten tiles via `Load_PLC(PLC_Monitors)` after boss defeat; standalone arrays make this unnecessary
+
+**Example: AIZ miniboss (PLC 0x5A)**
+```java
+// PLC 0x5A has 4 entries: main boss, small debris, flame, boss explosion
+PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, Sonic3kConstants.PLC_AIZ_MINIBOSS);
+List<Pattern[]> decompressed = PlcParser.decompressAll(rom, plc);
+
+registerSheet(KEY_MAIN,  new ObjectSpriteSheet(decompressed.get(0), mainMappings,  1, 1));
+registerSheet(KEY_SMALL, new ObjectSpriteSheet(decompressed.get(1), smallMappings, 0, 1));
+registerSheet(KEY_FLAME, new ObjectSpriteSheet(decompressed.get(2), flameMappings, 1, 1));
+```
+
+**When to use standalone vs level buffer:**
+
+| Use Case | Method | Writes to Level Buffer? |
+|----------|--------|------------------------|
+| Level init PLCs (zone art) | `toPatternOps()` → `LevelResourcePlan` | Yes |
+| Runtime act transitions | `applyToLevel()` + `refreshAffectedRenderers()` | Yes |
+| Boss/object art | `PlcParser.decompressAll()` → `ObjectSpriteSheet` | No |
+| Hitch-free preload | `preDecompress()` → `applyPreDecompressed()` | Yes (deferred) |
+
 ## Integration with Zone Event Handlers
 
 Zone event handlers inherit `applyPlc(int plcId)` from `Sonic3kZoneEvents`. Future zone handlers become one-liners:

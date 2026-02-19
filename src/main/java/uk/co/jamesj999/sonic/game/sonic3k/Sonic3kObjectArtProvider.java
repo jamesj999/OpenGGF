@@ -11,6 +11,7 @@ import uk.co.jamesj999.sonic.level.Pattern;
 import uk.co.jamesj999.sonic.level.objects.HudRenderManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
+import uk.co.jamesj999.sonic.level.resources.PlcParser;
 import uk.co.jamesj999.sonic.level.resources.PlcParser.PlcDefinition;
 import uk.co.jamesj999.sonic.level.resources.PlcParser.PlcEntry;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
@@ -94,6 +95,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
 
         if (zoneIndex == 0x00) {
             loadAizBadnikArt();
+            loadAizMinibossArtFromPlc();
         }
 
         // Level-art sheets are registered later via registerLevelArtSheets()
@@ -495,9 +497,6 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ2_ROCK, art.buildAiz2RockSheet(), art);
             registerLevelArtSheet(Sonic3kObjectArtKeys.COLLAPSING_PLATFORM_AIZ1, art.buildCollapsingPlatformAiz1Sheet(), art);
             registerLevelArtSheet(Sonic3kObjectArtKeys.COLLAPSING_PLATFORM_AIZ2, art.buildCollapsingPlatformAiz2Sheet(), art);
-
-            // AIZ Miniboss art via PLC 0x5A (ROM: Load_PLC in loc_4645E)
-            loadAizMinibossArtFromPlc(level, art);
         }
 
         // ICZ objects (zone index 5 = ICZ in S3K)
@@ -531,6 +530,12 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
      * PLC entries provide both the Nemesis art ROM addresses and VRAM tile destinations,
      * eliminating the need for hardcoded art/tile constants.
      *
+     * <p>On real hardware, the boss PLC decompresses into shared VRAM, overwriting
+     * spike/spring tiles at 0x0494+ (the boss fire art at 0x0482 overlaps). We avoid
+     * this by decompressing into standalone Pattern[] arrays instead of the level's
+     * pattern buffer. The ROM restores spike/spring art via Load_PLC(PLC_Monitors)
+     * after the boss is defeated; with standalone arrays we don't need that.
+     *
      * <p>PLC 0x5A contains 4 entries:
      * <ol start="0">
      *   <li>ArtNem_AIZMiniboss → ArtTile_AIZMiniboss (main boss)</li>
@@ -539,15 +544,13 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
      *   <li>ArtNem_BossExplosion → ArtTile_BossExplosion2 (shared explosion)</li>
      * </ol>
      */
-    private void loadAizMinibossArtFromPlc(Level level, Sonic3kObjectArt art) {
-        if (!(level instanceof Sonic3kLevel s3kLevel)) {
-            return;
-        }
+    private void loadAizMinibossArtFromPlc() {
         try {
             Rom rom = GameServices.rom().getRom();
             if (rom == null) return;
+            RomByteReader reader = RomByteReader.fromRom(rom);
 
-            // Parse and apply PLC 0x5A to decompress Nemesis art into level patterns
+            // Parse PLC 0x5A to get art ROM addresses (no level application)
             PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, Sonic3kConstants.PLC_AIZ_MINIBOSS);
             List<PlcEntry> entries = plc.entries();
             if (entries.size() < 3) {
@@ -555,26 +558,47 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                 return;
             }
 
-            Sonic3kPlcLoader.applyToLevel(plc, s3kLevel, rom);
+            // Decompress each entry's Nemesis art into standalone Pattern[] arrays
+            // via PlcParser.decompressEntry() — not into the level's pattern buffer,
+            // to avoid overwriting spike/spring tiles at 0x0494+
+            List<Pattern[]> decompressed = PlcParser.decompressAll(rom, plc);
 
-            // Build sprite sheets from the PLC-loaded level patterns.
-            // The PLC entry tileIndex is the VRAM destination used as artTileBase.
-            int mainTile = entries.get(0).tileIndex();   // ArtTile_AIZMiniboss
-            int smallTile = entries.get(1).tileIndex();  // ArtTile_AIZMinibossSmall
-            int flameTile = entries.get(2).tileIndex();  // ArtTile_AIZBossFire
+            // Entry 0: main boss art
+            registerSheet(Sonic3kObjectArtKeys.AIZ_MINIBOSS,
+                    buildSheetFromPatterns(decompressed.get(0), reader,
+                            Sonic3kConstants.MAP_AIZ_MINIBOSS_ADDR, 1));
 
-            registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ_MINIBOSS,
-                    art.buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_MINIBOSS_ADDR, mainTile, 1), art);
-            registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ_MINIBOSS_SMALL,
-                    art.buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_MINIBOSS_SMALL_ADDR, smallTile, 0), art);
-            registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ_MINIBOSS_FLAME,
-                    art.buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_MINIBOSS_FLAME_ADDR, flameTile, 1), art);
+            // Entry 1: small debris art
+            registerSheet(Sonic3kObjectArtKeys.AIZ_MINIBOSS_SMALL,
+                    buildSheetFromPatterns(decompressed.get(1), reader,
+                            Sonic3kConstants.MAP_AIZ_MINIBOSS_SMALL_ADDR, 0));
 
-            LOG.info(String.format("Loaded AIZ miniboss art via PLC 0x5A: main=0x%03X, small=0x%03X, flame=0x%03X",
-                    mainTile, smallTile, flameTile));
+            // Entry 2: flame art
+            registerSheet(Sonic3kObjectArtKeys.AIZ_MINIBOSS_FLAME,
+                    buildSheetFromPatterns(decompressed.get(2), reader,
+                            Sonic3kConstants.MAP_AIZ_MINIBOSS_FLAME_ADDR, 1));
+
+            LOG.info(String.format("Loaded AIZ miniboss art via PLC 0x5A (standalone): " +
+                            "main=%d tiles, small=%d tiles, flame=%d tiles",
+                    decompressed.get(0).length,
+                    decompressed.get(1).length,
+                    decompressed.get(2).length));
         } catch (IOException e) {
             LOG.warning("Failed to load AIZ miniboss art from PLC: " + e.getMessage());
         }
+    }
+
+    /**
+     * Builds a sprite sheet from standalone Pattern[] and ROM mappings.
+     * Use with {@link PlcParser#decompressEntry} or {@link PlcParser#decompressAll}
+     * for PLC-based art loading without level buffer involvement.
+     */
+    private static ObjectSpriteSheet buildSheetFromPatterns(
+            Pattern[] patterns, RomByteReader reader, int mappingAddr, int paletteIndex) {
+        if (patterns == null || patterns.length == 0) return null;
+        List<SpriteMappingFrame> mappings =
+                S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr);
+        return new ObjectSpriteSheet(patterns, mappings, paletteIndex, 1);
     }
 
     /**

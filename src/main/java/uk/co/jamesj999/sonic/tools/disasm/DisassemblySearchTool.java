@@ -3,8 +3,7 @@ package uk.co.jamesj999.sonic.tools.disasm;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -50,6 +49,26 @@ public class DisassemblySearchTool {
             "^((?:PLC|PLCKosM)_\\w+):\\s+plrlistheader"
     );
 
+    // Broad PLC header: any label followed by plrlistheader (S2 PlrList_*, S3K PLCKosM_*)
+    private static final Pattern PLC_HEADER_PATTERN = Pattern.compile(
+            "^(\\w+):\\s+plrlistheader"
+    );
+
+    // S1 PLC header: "PLC_xxx: dc.w ((End-Start-2)/6)-1"
+    private static final Pattern S1_PLC_HEADER_PATTERN = Pattern.compile(
+            "^(PLC_\\w+):\\s+dc\\.w\\s+"
+    );
+
+    // S2/S3K PLC entry: "plreq ArtTile_X, ArtNem_Y" — captures second param (art label)
+    private static final Pattern PLREQ_ENTRY_PATTERN = Pattern.compile(
+            "^\\s+plreq\\s+\\S+\\s*,\\s*(\\w+)"
+    );
+
+    // S1 PLC entry: "plcm Nem_X, ArtTile_Y" — captures first param (art label)
+    private static final Pattern PLCM_ENTRY_PATTERN = Pattern.compile(
+            "^\\s+plcm\\s+(\\w+)\\s*,"
+    );
+
     // Pattern for S2 palette macro: "Label: palette path[,path2] [; comment]"
     // The macro expands to BINCLUDE "art/palettes/{path}"
     // path can contain spaces, stops at comma, semicolon, or end of line
@@ -60,6 +79,10 @@ public class DisassemblySearchTool {
 
     private final Path disasmRoot;
     private final RomOffsetFinder.GameProfile profile;
+
+    // Cached PLC art cross-reference indexes (built lazily)
+    private Map<String, Set<String>> plcArtReverseIndex;
+    private Map<String, List<String>> plcArtForwardIndex;
 
     public DisassemblySearchTool(Path disasmRoot) {
         this(disasmRoot, null);
@@ -745,6 +768,108 @@ public class DisassemblySearchTool {
                     lineNumber,
                     line.trim()
             ));
+        }
+    }
+
+    /**
+     * Get the reverse PLC art index: art label -> set of PLC labels that reference it.
+     * Built lazily on first call and cached.
+     */
+    public Map<String, Set<String>> getPlcArtReverseIndex() throws IOException {
+        if (plcArtReverseIndex == null) {
+            buildPlcArtIndex();
+        }
+        return plcArtReverseIndex;
+    }
+
+    /**
+     * Get the forward PLC art index: PLC label -> ordered list of art labels.
+     * Built lazily on first call and cached.
+     */
+    public Map<String, List<String>> getPlcArtForwardIndex() throws IOException {
+        if (plcArtForwardIndex == null) {
+            buildPlcArtIndex();
+        }
+        return plcArtForwardIndex;
+    }
+
+    private void buildPlcArtIndex() throws IOException {
+        plcArtReverseIndex = new LinkedHashMap<>();
+        plcArtForwardIndex = new LinkedHashMap<>();
+        for (Path asmFile : findAsmFiles()) {
+            parsePlcDefinitions(asmFile);
+        }
+    }
+
+    private void parsePlcDefinitions(Path asmFile) throws IOException {
+        try (BufferedReader reader = Files.newBufferedReader(asmFile)) {
+            String line;
+            String currentPlcLabel = null;
+            List<String> currentEntries = null;
+
+            while ((line = reader.readLine()) != null) {
+                // Check for S2/S3K PLC header: "Label: plrlistheader"
+                Matcher headerMatcher = PLC_HEADER_PATTERN.matcher(line);
+                if (headerMatcher.find()) {
+                    savePlcBlock(currentPlcLabel, currentEntries);
+                    currentPlcLabel = headerMatcher.group(1);
+                    currentEntries = new ArrayList<>();
+                    continue;
+                }
+
+                // Check for S1 PLC header: "PLC_xxx: dc.w ..."
+                Matcher s1HeaderMatcher = S1_PLC_HEADER_PATTERN.matcher(line);
+                if (s1HeaderMatcher.find()) {
+                    savePlcBlock(currentPlcLabel, currentEntries);
+                    currentPlcLabel = s1HeaderMatcher.group(1);
+                    currentEntries = new ArrayList<>();
+                    continue;
+                }
+
+                if (currentPlcLabel == null) continue;
+
+                // Parse S2/S3K plreq entry: "plreq ArtTile_X, ArtNem_Y"
+                Matcher plreqMatcher = PLREQ_ENTRY_PATTERN.matcher(line);
+                if (plreqMatcher.find()) {
+                    String artLabel = plreqMatcher.group(1);
+                    currentEntries.add(artLabel);
+                    plcArtReverseIndex.computeIfAbsent(artLabel, k -> new LinkedHashSet<>())
+                            .add(currentPlcLabel);
+                    continue;
+                }
+
+                // Parse S1 plcm entry: "plcm Nem_X, ArtTile_Y"
+                Matcher plcmMatcher = PLCM_ENTRY_PATTERN.matcher(line);
+                if (plcmMatcher.find()) {
+                    String artLabel = plcmMatcher.group(1);
+                    currentEntries.add(artLabel);
+                    plcArtReverseIndex.computeIfAbsent(artLabel, k -> new LinkedHashSet<>())
+                            .add(currentPlcLabel);
+                    continue;
+                }
+
+                // Skip blank lines, comments, conditional assembly, and alignment directives
+                String trimmed = line.trim();
+                if (trimmed.isEmpty() || trimmed.startsWith(";") ||
+                        trimmed.startsWith("if ") || trimmed.equals("endif") ||
+                        trimmed.equals("else") || trimmed.startsWith("even")) {
+                    continue;
+                }
+
+                // Any other line ends the current PLC block
+                savePlcBlock(currentPlcLabel, currentEntries);
+                currentPlcLabel = null;
+                currentEntries = null;
+            }
+
+            // Save final block
+            savePlcBlock(currentPlcLabel, currentEntries);
+        }
+    }
+
+    private void savePlcBlock(String label, List<String> entries) {
+        if (label != null && entries != null && !entries.isEmpty()) {
+            plcArtForwardIndex.put(label, List.copyOf(entries));
         }
     }
 }

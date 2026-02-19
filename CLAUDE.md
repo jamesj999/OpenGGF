@@ -54,11 +54,14 @@ mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFind
 # verify-batch [type]  - Batch verify all/filtered items
 # find <label> [offset] - Find ROM offset by decompression search
 # search-rom <hex> [start] [end] - Search ROM for hex byte pattern (inline data, pointer tables, etc.)
+# plc <name>           - Show PLC definition contents and list art entries
 ```
 
 Game selection: `--game s1`, `--game s2` (default), or `--game s3k`. Auto-detects from disasm path if not specified.
 
 **S3K note:** Compression type is encoded in label suffix (e.g., `AIZ1_8x8_Primary_KosM`) rather than file extension. The tool auto-infers from label.
+
+**PLC cross-referencing:** Search results for art labels automatically show which PLCs reference that art. Use `plc <name>` to display all art entries within a specific PLC definition.
 
 See `uk.co.jamesj999.sonic.tools.disasm` package for programmatic API.
 
@@ -98,7 +101,7 @@ GameServices.debugOverlay() // DebugOverlayManager - debug rendering
 | `game.sonic1` | Sonic 1 game module, level loading, loop/switch managers, zone features |
 | `game.sonic3k` | Sonic 3&K game module, level loading, bootstrap |
 | `graphics` | OpenGL rendering, shaders, pattern atlas, tilemap GPU renderer, FBO management |
-| `tools` | Compression utilities (Kosinski, Nemesis, Saxman), disassembly tools |
+| `tools` | Compression utilities (Kosinski, Nemesis, Saxman), `ObjectDiscoveryTool`, disassembly tools |
 
 ### Consolidated Subsystems
 

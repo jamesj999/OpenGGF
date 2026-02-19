@@ -1,17 +1,20 @@
 package uk.co.jamesj999.sonic.tools;
 
 import uk.co.jamesj999.sonic.data.RomByteReader;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectArtKeys;
 import uk.co.jamesj999.sonic.game.sonic2.Sonic2ObjectPlacement;
+import uk.co.jamesj999.sonic.game.sonic2.Sonic2PlcArtRegistry;
 import uk.co.jamesj999.sonic.game.sonic2.ZoneAct;
+import uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants;
 import uk.co.jamesj999.sonic.game.sonic2.objects.Sonic2ObjectRegistryData;
 import uk.co.jamesj999.sonic.level.LevelData;
+import uk.co.jamesj999.sonic.level.objects.ObjectArtKeys;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
+import uk.co.jamesj999.sonic.level.resources.PlcParser;
 import uk.co.jamesj999.sonic.tools.ObjectDiscoveryTool.DynamicBoss;
 import uk.co.jamesj999.sonic.tools.ObjectDiscoveryTool.LevelConfig;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static uk.co.jamesj999.sonic.game.sonic2.constants.Sonic2Constants.LEVEL_SELECT_ADDR;
 
@@ -80,6 +83,123 @@ public class Sonic2ObjectProfile implements GameObjectProfile {
             "SCZ", List.of()
     );
 
+    /** Maps art key strings to the object IDs that use that art. */
+    private static final Map<String, Set<Integer>> ART_KEY_TO_OBJECTS = buildArtKeyToObjects();
+
+    private static Map<String, Set<Integer>> buildArtKeyToObjects() {
+        Map<String, Set<Integer>> m = new HashMap<>();
+        // Universal objects (Std PLCs)
+        m.put(ObjectArtKeys.SPIKE, Set.of(0x36));
+        m.put(ObjectArtKeys.SPIKE_SIDE, Set.of(0x36));
+        m.put(ObjectArtKeys.SPRING_VERTICAL, Set.of(0x41));
+        m.put(ObjectArtKeys.SPRING_HORIZONTAL, Set.of(0x41));
+        m.put(ObjectArtKeys.SPRING_DIAGONAL, Set.of(0x41));
+        m.put(ObjectArtKeys.CHECKPOINT, Set.of(0x79));
+        m.put(ObjectArtKeys.POINTS, Set.of(0x29));
+        // EHZ
+        m.put(ObjectArtKeys.BRIDGE, Set.of(0x11));
+        m.put(Sonic2ObjectArtKeys.BUZZER, Set.of(0x4B));
+        m.put(Sonic2ObjectArtKeys.COCONUTS, Set.of(0x9D));
+        m.put(Sonic2ObjectArtKeys.MASHER, Set.of(0x5C));
+        // HTZ
+        m.put(Sonic2ObjectArtKeys.SEESAW, Set.of(0x14));
+        m.put(Sonic2ObjectArtKeys.SOL, Set.of(0x95));
+        m.put(Sonic2ObjectArtKeys.HTZ_LIFT, Set.of(0x16));
+        m.put(Sonic2ObjectArtKeys.SPIKER, Set.of(0x92));
+        m.put(Sonic2ObjectArtKeys.LAVA_BUBBLE, Set.of(0x20));
+        m.put(Sonic2ObjectArtKeys.REXON, Set.of(0x94));
+        // CPZ
+        m.put(Sonic2ObjectArtKeys.SPEED_BOOSTER, Set.of(0x1B));
+        m.put(Sonic2ObjectArtKeys.BLUE_BALLS, Set.of(0x1D));
+        m.put(Sonic2ObjectArtKeys.CPZ_STAIR_BLOCK, Set.of(0x78));
+        m.put(Sonic2ObjectArtKeys.CPZ_PYLON, Set.of(0x7C));
+        m.put(Sonic2ObjectArtKeys.PIPE_EXIT_SPRING, Set.of(0x7B));
+        m.put(Sonic2ObjectArtKeys.TIPPING_FLOOR, Set.of(0x0B));
+        m.put(Sonic2ObjectArtKeys.BARRIER, Set.of(0x2D));
+        m.put(Sonic2ObjectArtKeys.SPRINGBOARD, Set.of(0x40));
+        m.put(Sonic2ObjectArtKeys.SPINY, Set.of(0xA5));
+        m.put(Sonic2ObjectArtKeys.GRABBER, Set.of(0xA7));
+        // ARZ
+        m.put(Sonic2ObjectArtKeys.CHOP_CHOP, Set.of(0x91));
+        m.put(Sonic2ObjectArtKeys.WHISP, Set.of(0x8C));
+        m.put(Sonic2ObjectArtKeys.GROUNDER, Set.of(0x8D));
+        m.put(Sonic2ObjectArtKeys.ARROW_SHOOTER, Set.of(0x22));
+        m.put(Sonic2ObjectArtKeys.LEAVES, Set.of(0x2C));
+        m.put(Sonic2ObjectArtKeys.BUBBLES, Set.of(0x24));
+        // CNZ
+        m.put(Sonic2ObjectArtKeys.BUMPER, Set.of(0x44));
+        m.put(Sonic2ObjectArtKeys.HEX_BUMPER, Set.of(0xD7));
+        m.put(Sonic2ObjectArtKeys.BONUS_BLOCK, Set.of(0xD8));
+        m.put(Sonic2ObjectArtKeys.FLIPPER, Set.of(0x86));
+        m.put(Sonic2ObjectArtKeys.CNZ_RECT_BLOCKS, Set.of(0xD2));
+        m.put(Sonic2ObjectArtKeys.CNZ_BIG_BLOCK, Set.of(0xD4));
+        m.put(Sonic2ObjectArtKeys.CNZ_ELEVATOR, Set.of(0xD5));
+        m.put(Sonic2ObjectArtKeys.CNZ_CAGE, Set.of(0xD6));
+        m.put(Sonic2ObjectArtKeys.CNZ_BONUS_SPIKE, Set.of(0xD3));
+        m.put(Sonic2ObjectArtKeys.LAUNCHER_SPRING_VERT, Set.of(0x85));
+        m.put(Sonic2ObjectArtKeys.LAUNCHER_SPRING_DIAG, Set.of(0x85));
+        m.put(Sonic2ObjectArtKeys.CRAWL, Set.of(0xC8));
+        // OOZ
+        m.put(Sonic2ObjectArtKeys.LAUNCH_BALL, Set.of(0x48));
+        m.put(Sonic2ObjectArtKeys.OOZ_FAN_HORIZ, Set.of(0x3F));
+        m.put(Sonic2ObjectArtKeys.OOZ_BURNER_LID, Set.of(0x33));
+        m.put(Sonic2ObjectArtKeys.OOZ_BURN_FLAME, Set.of(0x33));
+        m.put(Sonic2ObjectArtKeys.OOZ_LAUNCHER_VERT, Set.of(0x3D));
+        m.put(Sonic2ObjectArtKeys.OOZ_LAUNCHER_HORIZ, Set.of(0x3D));
+        m.put(Sonic2ObjectArtKeys.OOZ_COLLAPSING_PLATFORM, Set.of(0x1F));
+        m.put(Sonic2ObjectArtKeys.OCTUS, Set.of(0x4A));
+        m.put(Sonic2ObjectArtKeys.AQUIS, Set.of(0x50));
+        // MCZ
+        m.put(Sonic2ObjectArtKeys.VINE_PULLEY, Set.of(0x7F, 0x80));
+        m.put(Sonic2ObjectArtKeys.MCZ_CRATE, Set.of(0x6A));
+        m.put(Sonic2ObjectArtKeys.MCZ_DRAWBRIDGE, Set.of(0x81));
+        m.put(Sonic2ObjectArtKeys.MCZ_COLLAPSING_PLATFORM, Set.of(0x1F));
+        m.put(Sonic2ObjectArtKeys.CRAWLTON, Set.of(0x9E));
+        m.put(Sonic2ObjectArtKeys.FLASHER, Set.of(0xA3));
+        m.put(Sonic2ObjectArtKeys.BUTTON, Set.of(0x47));
+        // MTZ
+        m.put(Sonic2ObjectArtKeys.MTZ_COG, Set.of(0x70));
+        m.put(Sonic2ObjectArtKeys.MTZ_NUT, Set.of(0x69));
+        m.put(Sonic2ObjectArtKeys.MTZ_FLOOR_SPIKE, Set.of(0x6D));
+        m.put(Sonic2ObjectArtKeys.MTZ_SPIKE_BLOCK, Set.of(0x68));
+        m.put(Sonic2ObjectArtKeys.MTZ_STEAM, Set.of(0x42));
+        m.put(Sonic2ObjectArtKeys.MTZ_LAVA_BUBBLE, Set.of(0x71));
+        m.put(Sonic2ObjectArtKeys.MTZ_SPIN_TUBE_FLASH, Set.of(0x67));
+        m.put(Sonic2ObjectArtKeys.ASTERON, Set.of(0xA4));
+        m.put(Sonic2ObjectArtKeys.SLICER, Set.of(0xA1));
+        m.put(Sonic2ObjectArtKeys.SHELLCRACKER, Set.of(0x9F));
+        // WFZ
+        m.put(Sonic2ObjectArtKeys.WFZ_HOOK, Set.of(0x80));
+        m.put(Sonic2ObjectArtKeys.TORNADO, Set.of(0xB2));
+        m.put(Sonic2ObjectArtKeys.TORNADO_THRUSTER, Set.of(0xB2));
+        m.put(Sonic2ObjectArtKeys.WFZ_VPROPELLER, Set.of(0xB4));
+        m.put(Sonic2ObjectArtKeys.WFZ_HPROPELLER, Set.of(0xB5));
+        m.put(Sonic2ObjectArtKeys.WFZ_WALL_TURRET, Set.of(0xB8));
+        m.put(Sonic2ObjectArtKeys.WFZ_LASER, Set.of(0xB9));
+        m.put(Sonic2ObjectArtKeys.WFZ_VERTICAL_LASER, Set.of(0xB9));
+        m.put(Sonic2ObjectArtKeys.WFZ_LAUNCH_CATAPULT, Set.of(0xC0));
+        m.put(Sonic2ObjectArtKeys.WFZ_BREAK_PANELS, Set.of(0xC1));
+        m.put(Sonic2ObjectArtKeys.WFZ_RIVET, Set.of(0xC2));
+        m.put(Sonic2ObjectArtKeys.WFZ_BELT_PLATFORM, Set.of(0xBD));
+        m.put(Sonic2ObjectArtKeys.WFZ_TILT_PLATFORM, Set.of(0xB6));
+        m.put(Sonic2ObjectArtKeys.WFZ_CONVEYOR_BELT_WHEEL, Set.of(0xBA));
+        m.put(Sonic2ObjectArtKeys.CLUCKER, Set.of(0xAD, 0xAE));
+        // SCZ
+        m.put(Sonic2ObjectArtKeys.NEBULA, Set.of(0x99));
+        m.put(Sonic2ObjectArtKeys.TURTLOID, Set.of(0x9A));
+        m.put(Sonic2ObjectArtKeys.BALKIRY, Set.of(0xAC));
+        m.put(Sonic2ObjectArtKeys.CLOUDS, Set.of(0xB3));
+        // Bosses
+        m.put(Sonic2ObjectArtKeys.EHZ_BOSS, Set.of(0x56));
+        m.put(Sonic2ObjectArtKeys.HTZ_BOSS, Set.of(0x52));
+        m.put(Sonic2ObjectArtKeys.CPZ_BOSS_EGGPOD, Set.of(0x5D));
+        m.put(Sonic2ObjectArtKeys.CPZ_BOSS_PARTS, Set.of(0x5D));
+        m.put(Sonic2ObjectArtKeys.ARZ_BOSS_MAIN, Set.of(0x89));
+        m.put(Sonic2ObjectArtKeys.CNZ_BOSS, Set.of(0x51));
+        m.put(Sonic2ObjectArtKeys.MCZ_BOSS, Set.of(0x57));
+        return Map.copyOf(m);
+    }
+
     @Override public String gameName() { return "Sonic 2"; }
     @Override public String gameId() { return "s2"; }
     @Override public String defaultRomPath() { return "Sonic The Hedgehog 2 (W) (REV01) [!].gen"; }
@@ -98,6 +218,39 @@ public class Sonic2ObjectProfile implements GameObjectProfile {
         int actIdx = rom.readU8(LEVEL_SELECT_ADDR + levelIdx * 2 + 1);
         ZoneAct zoneAct = new ZoneAct(zoneIdx, actIdx);
         return new Sonic2ObjectPlacement(rom).load(zoneAct);
+    }
+
+    @Override
+    public List<PlcObjectMapping> getPlcObjectMappings(RomByteReader rom, LevelConfig level) {
+        int levelIdx = level.levelData().getLevelIndex();
+        int zoneIdx = rom.readU8(LEVEL_SELECT_ADDR + levelIdx * 2);
+
+        // Extract PLC IDs from LEVEL_DATA_DIR (byte[0] = plc1, byte[4] = plc2)
+        int base = Sonic2Constants.LEVEL_DATA_DIR + zoneIdx * Sonic2Constants.LEVEL_DATA_DIR_ENTRY_SIZE;
+        int plc1Id = rom.readU8(base);
+        int plc2Id = rom.readU8(base + 4);
+
+        // Collect zone PLCs + standard PLCs
+        Set<Integer> plcIds = new LinkedHashSet<>();
+        plcIds.add(Sonic2Constants.PLC_STD1);
+        plcIds.add(Sonic2Constants.PLC_STD2);
+        plcIds.add(plc1Id);
+        plcIds.add(plc2Id);
+
+        List<PlcObjectMapping> mappings = new ArrayList<>();
+        for (int plcId : plcIds) {
+            PlcParser.PlcDefinition def = PlcParser.parse(rom, Sonic2Constants.ART_LOAD_CUES_ADDR, plcId);
+            for (PlcParser.PlcEntry entry : def.entries()) {
+                Sonic2PlcArtRegistry.ArtRegistration reg = Sonic2PlcArtRegistry.lookup(entry.romAddr());
+                if (reg != null) {
+                    Set<Integer> objIds = ART_KEY_TO_OBJECTS.get(reg.key());
+                    if (objIds != null && !objIds.isEmpty()) {
+                        mappings.add(new PlcObjectMapping(plcId, entry.romAddr(), objIds));
+                    }
+                }
+            }
+        }
+        return mappings;
     }
 
     @Override

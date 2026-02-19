@@ -56,6 +56,12 @@ Agents should:
      ```bash
      mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search ObjectName" -q
      ```
+   - Search results now show **PLC cross-references** - which PLCs load this art
+   - Use `plc <name>` command to see all art entries in a PLC:
+     ```bash
+     mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="plc PlrList_Ehz1" -q
+     ```
+   - The ObjectDiscoveryTool checklist also shows PLC IDs per object per zone
    - Check existing art keys in `Sonic2ObjectArtKeys.java`
    - Check if art is zone-specific or shared
 
@@ -76,7 +82,7 @@ public static final int OBJECT_NAME = 0xXX;
 
 #### 2.2 Art Loading (if needed)
 
-**PLC note:** S2 art is loaded via ArtLoadCues (PLCs) in the ROM. Currently hardcoded in `Sonic2ObjectArt`; future refactor will use `PlcParser`. See `plc-system` skill.
+**PLC note:** S2 art is loaded via ArtLoadCues (PLCs) in the ROM. The shared `PlcParser` utility handles parsing. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI. The ObjectDiscoveryTool checklist shows PLC IDs per object.
 
 If the object needs new art:
 

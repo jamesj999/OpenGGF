@@ -111,6 +111,11 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
   mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ZONEBoss" -q
   mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
   ```
+  - Use `plc` command to see which PLCs load boss art:
+    ```bash
+    mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k plc PLCKosM_AIZBoss" -q
+    ```
+  - Search results now show PLC cross-references inline
 
 **Key disassembly patterns to identify:**
 - `collision_flags` set to boss collision category
@@ -306,7 +311,7 @@ private void transitionToNextPhase() {
 
 ### Phase 7: Art Loading
 
-**PLC note:** Boss art is often loaded via PLCs (IDs 0x53-0x7B). Zone screen events call `applyPlc()` from `Sonic3kZoneEvents` to load boss PLCs at runtime. See `plc-system` and `s3k-plc-system` skills.
+**PLC note:** Boss art is often loaded via PLCs (IDs 0x53-0x7B). Zone screen events call `applyPlc()` from `Sonic3kZoneEvents` to load boss PLCs at runtime. See `plc-system` and `s3k-plc-system` skills. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI.
 
 ```bash
 # Find boss art

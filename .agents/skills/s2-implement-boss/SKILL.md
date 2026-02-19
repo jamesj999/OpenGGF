@@ -43,6 +43,11 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 - [ ] Document state machine (`routine_secondary`) transitions
 - [ ] Note defeat sequence timing (explosion duration, flee direction)
 - [ ] Find boss-specific art addresses (`ArtNem_XXXBoss`, `Map_XXXBoss`)
+- [ ] Use `plc` command to identify which PLCs load boss art:
+  ```bash
+  mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="plc PlrList_EhzBoss" -q
+  ```
+  Search results show PLC cross-references inline
 
 **Key disassembly patterns to identify:**
 - `collision_flags` set to `$C0 | size_index` (boss category)
@@ -230,7 +235,7 @@ public class BossChildName extends AbstractBossChild {
 
 ### Phase 5: Art Loading
 
-**PLC note:** S2 boss art has dedicated PLC IDs in ArtLoadCues. Currently hardcoded; future refactor will use `PlcParser`. See `plc-system` skill.
+**PLC note:** S2 boss art has dedicated PLC IDs in ArtLoadCues. The shared `PlcParser` utility handles parsing. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI.
 
 **Implementation checklist:**
 - [ ] Add ROM address constants to `Sonic2Constants.java`

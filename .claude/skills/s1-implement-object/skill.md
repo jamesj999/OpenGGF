@@ -52,6 +52,12 @@ Agents should:
      ```bash
      mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search ObjectName" -q
      ```
+   - Search results now show **PLC cross-references** - which PLCs load this art
+   - Use `plc <name>` command to see all art entries in a PLC:
+     ```bash
+     mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 plc PLC_GHZ" -q
+     ```
+   - The ObjectDiscoveryTool checklist also shows PLC IDs per object per zone
    - Parse mappings from `_maps/Name.asm` (5-byte piece format, byte header)
    - Check if art is zone-specific or shared
 
@@ -75,7 +81,7 @@ public static final int OBJECT_NAME = 0xXX;
 
 #### 2.2 Art Loading
 
-**PLC note:** S1 loads object art via ArtLoadCues (PLCs) during level init. The shared `PlcParser` utility handles parsing. See `plc-system` skill.
+**PLC note:** S1 loads object art via ArtLoadCues (PLCs) during level init. The shared `PlcParser` utility handles parsing. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI. The ObjectDiscoveryTool checklist shows PLC IDs per object. For dedicated object art that shouldn't overwrite level pattern tiles, use standalone decompression: `PlcParser.decompressAll(rom, plc)` returns independent `Pattern[]` arrays per PLC entry.
 
 **S1 art infrastructure exists:** `Sonic1ObjectArt.java`, `Sonic1ObjectArtKeys.java`, and `Sonic1ObjectArtProvider.java` are established. Follow the existing pattern:
 

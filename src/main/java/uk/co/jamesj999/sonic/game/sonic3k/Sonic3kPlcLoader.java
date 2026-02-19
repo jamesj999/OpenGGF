@@ -8,12 +8,10 @@ import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpriteSheet;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
-import uk.co.jamesj999.sonic.level.resources.CompressionType;
 import uk.co.jamesj999.sonic.level.resources.LoadOp;
 import uk.co.jamesj999.sonic.level.resources.PlcParser;
 import uk.co.jamesj999.sonic.level.resources.PlcParser.PlcDefinition;
 import uk.co.jamesj999.sonic.level.resources.PlcParser.PlcEntry;
-import uk.co.jamesj999.sonic.level.resources.ResourceLoader;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -89,12 +87,10 @@ public final class Sonic3kPlcLoader {
      * @return list of tile ranges that were modified
      */
     public static List<TileRange> applyToLevel(PlcDefinition definition, Sonic3kLevel level, Rom rom) throws IOException {
-        ResourceLoader loader = new ResourceLoader(rom);
         List<TileRange> modified = new ArrayList<>();
 
         for (PlcEntry entry : definition.entries()) {
-            byte[] data = loader.loadSingle(
-                    LoadOp.overlay(entry.romAddr(), CompressionType.NEMESIS, 0));
+            byte[] data = PlcParser.decompressEntryRaw(rom, entry);
             int tileCount = data.length / 32;
             level.applyPatternOverlay(data, entry.tileIndex() * 32);
             modified.add(new TileRange(entry.tileIndex(), tileCount));
@@ -125,13 +121,11 @@ public final class Sonic3kPlcLoader {
      * @param rom the ROM to read from
      */
     public static List<PreDecompressedEntry> preDecompress(PlcDefinition definition, Rom rom) throws IOException {
-        ResourceLoader loader = new ResourceLoader(rom);
         List<PreDecompressedEntry> result = new ArrayList<>(definition.entries().size());
         int totalBytes = 0;
 
         for (PlcEntry entry : definition.entries()) {
-            byte[] data = loader.loadSingle(
-                    LoadOp.overlay(entry.romAddr(), CompressionType.NEMESIS, 0));
+            byte[] data = PlcParser.decompressEntryRaw(rom, entry);
             result.add(new PreDecompressedEntry(entry.tileIndex(), data));
             totalBytes += data.length;
         }
