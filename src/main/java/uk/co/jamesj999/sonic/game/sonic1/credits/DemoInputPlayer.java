@@ -29,6 +29,7 @@ public class DemoInputPlayer {
     private int remainingFrames;
     private int currentButtons;
     private boolean complete;
+    private boolean needsAdvance;
 
     /**
      * Creates a demo input player from raw ROM demo data.
@@ -50,15 +51,27 @@ public class DemoInputPlayer {
 
     /**
      * Advances one frame. Call once per game frame to step through the demo.
+     * <p>
+     * ROM order (MoveSonicInDemo.asm lines 64-84): read current buttons,
+     * apply to joypad, THEN decrement timer and advance on underflow.
+     * We mirror this by deferring pair advances to the start of the next
+     * frame so getInputMask() still returns the old pair's buttons on the
+     * underflow frame.
      */
     public void advanceFrame() {
         if (complete) {
             return;
         }
-        remainingFrames--;
-        if (remainingFrames < 0) {
+        // Deferred advance: load next pair at the START of the next frame,
+        // so the previous frame's getInputMask() returned the old buttons.
+        if (needsAdvance) {
             dataOffset += 2;
             loadNextPair();
+            needsAdvance = false;
+        }
+        remainingFrames--;
+        if (remainingFrames < 0) {
+            needsAdvance = true;
         }
     }
 

@@ -83,6 +83,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     // Solid collision params for escape phases: d1=$1B, d2=$70, d3=$71
     private static final SolidObjectParams ESCAPE_SOLID_PARAMS =
             new SolidObjectParams(0x1B, 0x70, 0x71);
+    private static final int COMBAT_TOP_LANDING_HALF_WIDTH = 0x20;
 
     // Damage cooldown (objoff_35 in ROM)
     private int damageCooldown;
@@ -863,6 +864,14 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
                         state.routineSecondary < STATE_SHIP_TRANSFORM);
     }
 
+    @Override
+    public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+        if (state.routineSecondary == STATE_CYLINDER_ATTACK) {
+            return COMBAT_TOP_LANDING_HALF_WIDTH;
+        }
+        return collisionHalfWidth;
+    }
+
     // === Rendering ===
 
     private boolean isBossOnScreen() {
@@ -894,9 +903,11 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
             if (eggmanRenderer != null && eggmanRenderer.isReady()) {
                 boolean flipped = (state.renderFlags & 1) != 0;
 
+                // Keep the base escape ship body visible in all escape-hit states.
+                eggmanRenderer.drawFrameIndex(0, state.x, state.y, flipped, false);
+
                 if (!showDamaged) {
-                    // Ship body (frame 0) + panic face (frame 6) before escape hit.
-                    eggmanRenderer.drawFrameIndex(0, state.x, state.y, flipped, false);
+                    // Panic face (frame 6) before escape hit.
                     eggmanRenderer.drawFrameIndex(6, state.x, state.y, flipped, false);
                 }
 
@@ -913,7 +924,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
                 }
             }
 
-            // Post-hit escape visuals use Map_FZDamaged as the primary ship mapping.
+            // Post-hit escape visuals overlay Map_FZDamaged on top of the base ship.
             if (showDamaged) {
                 PatternSpriteRenderer damagedRenderer = renderManager.getRenderer(ObjectArtKeys.FZ_DAMAGED);
                 if (damagedRenderer != null && damagedRenderer.isReady()) {

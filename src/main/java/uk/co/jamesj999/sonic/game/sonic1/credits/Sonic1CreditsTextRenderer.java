@@ -28,6 +28,7 @@ public class Sonic1CreditsTextRenderer {
     private List<SpriteMappingFrame> mappingFrames;
     private Sonic1TitleScreenDataLoader dataLoaderRef;
     private boolean initialized;
+    private boolean gpuDirty; // Set when zone loading may have overwritten GPU patterns/palette
 
     /**
      * Initializes the renderer. Loads credit text patterns and creates
@@ -82,16 +83,26 @@ public class Sonic1CreditsTextRenderer {
             return;
         }
 
-        // Ensure title screen palette is uploaded to GPU for correct text colors
-        // (ROM: PalLoad_Fade with palid_Sonic at GM_Credits)
-        if (dataLoaderRef != null) {
+        // Re-upload patterns and palette if a zone load has dirtied the GPU cache
+        if (gpuDirty && dataLoaderRef != null) {
+            dataLoaderRef.resetCache();
+            dataLoaderRef.cacheCreditTextToGpu();
             dataLoaderRef.cachePalettesToGpu();
+            gpuDirty = false;
         }
 
         GraphicsManager gm = GraphicsManager.getInstance();
         gm.beginPatternBatch();
         renderer.drawFrameIndex(creditsNum, SCREEN_CENTER_X, SCREEN_CENTER_Y);
         gm.flushPatternBatch();
+    }
+
+    /**
+     * Marks the GPU pattern/palette cache as dirty. Call this when a zone load
+     * has overwritten the GPU state (e.g., between CREDITS_DEMO and CREDITS_TEXT phases).
+     */
+    public void markGpuDirty() {
+        gpuDirty = true;
     }
 
     public boolean isReady() {

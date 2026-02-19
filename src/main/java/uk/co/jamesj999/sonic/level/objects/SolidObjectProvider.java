@@ -33,4 +33,14 @@ public interface SolidObjectProvider {
     default boolean usesStickyContactBuffer() {
         return true;
     }
+
+    /**
+     * Half-width of the standable top surface used by landing checks.
+     * <p>
+     * Defaults to the full collision half-width. Override for objects whose
+     * side/body collision is intentionally wider than their top landing area.
+     */
+    default int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+        return collisionHalfWidth;
+    }
 }
