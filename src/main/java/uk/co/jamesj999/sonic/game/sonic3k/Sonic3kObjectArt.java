@@ -168,6 +168,49 @@ public class Sonic3kObjectArt {
     }
 
     /**
+     * Builds the AIZ Ride Vine / Giant Ride Vine sprite sheet.
+     * <p>
+     * From disassembly:
+     * Obj_AIZRideVine / Obj_AIZGiantRideVine:
+     * art_tile = make_art_tile(ArtTile_AIZSwingVine, 0, 0)
+     * mappings = Map_AIZMHZRideVine
+     */
+    public ObjectSpriteSheet buildAizRideVineSheet() {
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_AIZ_MHZ_RIDE_VINE_ADDR,
+                Sonic3kConstants.ARTTILE_AIZ_SWING_VINE,
+                0);
+    }
+
+    /**
+     * Builds the Animated Still Sprites sheet used by AIZ ride-vine negative subtype.
+     *
+     * <p>Disassembly reference:
+     * Map_AnimatedStillSprites / Ani_AnimatedStillSprites (sonic3k.asm:60424+).
+     * Obj_AIZRideVine still path uses art_tile = make_art_tile(ArtTile_AIZMisc2,3,0)
+     * and anim script index 1 (frames 5-8).
+     */
+    public ObjectSpriteSheet buildAnimatedStillSpritesSheet() {
+        List<SpriteMappingFrame> frames = new ArrayList<>(9);
+        frames.add(singlePieceFrame(-8, -12, 3, 2, 0x0EA, false)); // frame 0
+        frames.add(singlePieceFrame(-8, -12, 3, 2, 0x0F0, false)); // frame 1
+        frames.add(singlePieceFrame(-8, -12, 3, 2, 0x0F6, false)); // frame 2
+        frames.add(singlePieceFrame(-8, -12, 3, 2, 0x0FC, false)); // frame 3
+        frames.add(singlePieceFrame(-8, -12, 3, 2, 0x0F0, true));  // frame 4
+        frames.add(singlePieceFrame(-8, -16, 4, 2, 0x102, false)); // frame 5
+        frames.add(singlePieceFrame(-8, -16, 4, 2, 0x10A, false)); // frame 6
+        frames.add(singlePieceFrame(-8, -16, 4, 2, 0x112, false)); // frame 7
+        frames.add(singlePieceFrame(-8, -16, 4, 2, 0x11A, false)); // frame 8
+
+        return buildLevelArtSheet(
+                Sonic3kConstants.ARTTILE_AIZ_MISC2,
+                3,
+                frames,
+                0x0EA,
+                0x122);
+    }
+
+    /**
      * Builds the Spikes sprite sheet.
      * <p>
      * From disassembly (Map - Spikes.asm / Obj_Spikes), 8 frames:
@@ -642,6 +685,13 @@ public class Sonic3kObjectArt {
             remapped.add(new SpriteMappingFrame(remappedPieces));
         }
         return remapped;
+    }
+
+    private static SpriteMappingFrame singlePieceFrame(
+            int xOffset, int yOffset, int widthTiles, int heightTiles, int tileIndex, boolean hFlip) {
+        SpriteMappingPiece piece = new SpriteMappingPiece(
+                xOffset, yOffset, widthTiles, heightTiles, tileIndex, hFlip, false, 0);
+        return new SpriteMappingFrame(List.of(piece));
     }
 
     private List<SpriteMappingFrame> adjustTileIndices(List<SpriteMappingFrame> frames, int adjustment) {
