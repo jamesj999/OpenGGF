@@ -102,9 +102,9 @@ public class FZCylinder extends AbstractBossChild implements SolidObjectProvider
         } else {
             // ROM: Routine 4 — extending/retracting
             if (isBottom) {
-                updateBottomCylinder();
+                updateBottomCylinder(frameCounter);
             } else {
-                updateTopCylinder();
+                updateTopCylinder(frameCounter);
             }
         }
 
@@ -131,13 +131,14 @@ public class FZCylinder extends AbstractBossChild implements SolidObjectProvider
      * Bottom cylinder extension logic (subtypes 0-2).
      * ROM: loc_1A598 (retracting) / loc_1A5D4 (extending)
      */
-    private void updateBottomCylinder() {
+    private void updateBottomCylinder(int frameCounter) {
         Sonic1FZBossInstance fzParent = (Sonic1FZBossInstance) parent;
 
         if (direction == 0) {
             // Retracting (ROM: loc_1A598 — direction cleared, returning to base)
             if (fzParent.isBossDefeated()) {
-                // ROM: BossDefeated — spawn explosions
+                // ROM: BossDefeated — spawn explosions during post-defeat retraction
+                fzParent.triggerBossDefeatedExplosion(frameCounter, currentX, currentY);
                 // ROM: subi.l #$10000,objoff_3C — counter-force
                 extensionFixed -= 0x10000;
             }
@@ -175,13 +176,14 @@ public class FZCylinder extends AbstractBossChild implements SolidObjectProvider
      * Top cylinder extension logic (subtypes 4-6).
      * ROM: loc_1A604 (retracting) / loc_1A646 (extending)
      */
-    private void updateTopCylinder() {
+    private void updateTopCylinder(int frameCounter) {
         Sonic1FZBossInstance fzParent = (Sonic1FZBossInstance) parent;
 
         if (direction == 0) {
             // Retracting (ROM: loc_1A604)
             if (fzParent.isBossDefeated()) {
-                // ROM: BossDefeated + addi.l #$10000
+                // ROM: BossDefeated + addi.l #$10000 during post-defeat retraction
+                fzParent.triggerBossDefeatedExplosion(frameCounter, currentX, currentY);
                 extensionFixed += 0x10000;
             }
 

@@ -21,5 +21,11 @@ public enum GameMode {
     TITLE_SCREEN,
 
     /** Level Select Screen (debug menu for selecting zone/act) */
-    LEVEL_SELECT
+    LEVEL_SELECT,
+
+    /** Credits text display on black screen (ending sequence) */
+    CREDITS_TEXT,
+
+    /** Demo playback during ending credits */
+    CREDITS_DEMO
 }

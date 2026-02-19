@@ -85,6 +85,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1SignpostObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.MONITOR,
                 (spawn, registry) -> new Sonic1MonitorObjectInstance(spawn));
+        factories.put(Sonic1ObjectIds.ANIMALS,
+                (spawn, registry) -> new Sonic1AnimalsObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.ROCK,
                 (spawn, registry) -> new Sonic1RockObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.BRIDGE,
@@ -254,6 +256,12 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1BossFireInstance(spawn));
         factories.put(Sonic1ObjectIds.FZ_BOSS,
                 (spawn, registry) -> new Sonic1FZBossInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.END_SONIC,
+                (spawn, registry) -> new Sonic1EndingSonicObjectInstance(spawn.x(), spawn.y()));
+        factories.put(Sonic1ObjectIds.END_CHAOS,
+                (spawn, registry) -> new Sonic1EndingEmeraldsObjectInstance(spawn.x(), spawn.y(), 0, 1));
+        factories.put(Sonic1ObjectIds.END_STH,
+                (spawn, registry) -> new Sonic1EndingSTHObjectInstance());
         factories.put(Sonic1ObjectIds.EGG_PRISON, (spawn, registry) -> {
             // ROM placement has two entries: subtype 0 (body) and subtype 1 (button).
             // Pri_Main creates sub-objects from Pri_Var; our engine loads each entry separately.
@@ -287,6 +295,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.MISSILE_DISSOLVE -> "MissileDissolve";
             case Sonic1ObjectIds.RING -> "Ring";
             case Sonic1ObjectIds.MONITOR -> "Monitor";
+            case Sonic1ObjectIds.ANIMALS -> "Animals";
             case Sonic1ObjectIds.CHOPPER -> "Chopper";
             case Sonic1ObjectIds.JAWS -> "Jaws";
             case Sonic1ObjectIds.BURROBOT -> "Burrobot";
@@ -365,6 +374,9 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.CATERKILLER -> "Caterkiller";
             case Sonic1ObjectIds.LAMPPOST -> "Lamppost";
             case Sonic1ObjectIds.HIDDEN_BONUS -> "HiddenBonus";
+            case Sonic1ObjectIds.END_SONIC -> "EndSonic";
+            case Sonic1ObjectIds.END_CHAOS -> "EndChaos";
+            case Sonic1ObjectIds.END_STH -> "EndSTH";
             default -> String.format("S1_Obj_%02X", objectId & 0xFF);
         };
     }

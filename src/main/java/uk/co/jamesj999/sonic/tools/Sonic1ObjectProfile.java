@@ -49,6 +49,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.FLAPPING_DOOR,
             Sonic1ObjectIds.SIGNPOST,
             Sonic1ObjectIds.MONITOR,
+            Sonic1ObjectIds.ANIMALS,
             Sonic1ObjectIds.RING,
             Sonic1ObjectIds.HARPOON,
             Sonic1ObjectIds.SPIKED_POLE_HELIX,
@@ -131,7 +132,10 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
             Sonic1ObjectIds.TELEPORTER,
             Sonic1ObjectIds.RUNNING_DISC,
             Sonic1ObjectIds.SBZ_SPIN_CONVEYOR,
-            Sonic1ObjectIds.JUNCTION
+            Sonic1ObjectIds.JUNCTION,
+            Sonic1ObjectIds.END_SONIC,
+            Sonic1ObjectIds.END_CHAOS,
+            Sonic1ObjectIds.END_STH
     );
 
     private static final Set<Integer> BADNIK_IDS = Set.of(
@@ -184,6 +188,7 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.MISSILE_DISSOLVE, List.of("MissileDissolve"));
         map.put(Sonic1ObjectIds.RING, List.of("Ring"));
         map.put(Sonic1ObjectIds.MONITOR, List.of("Monitor"));
+        map.put(Sonic1ObjectIds.ANIMALS, List.of("Animals", "Animal"));
         map.put(Sonic1ObjectIds.CHOPPER, List.of("Chopper"));
         map.put(Sonic1ObjectIds.JAWS, List.of("Jaws"));
         map.put(Sonic1ObjectIds.BURROBOT, List.of("Burrobot"));
@@ -245,6 +250,9 @@ public class Sonic1ObjectProfile implements GameObjectProfile {
         map.put(Sonic1ObjectIds.LAMPPOST, List.of("Lamppost"));
         map.put(Sonic1ObjectIds.HIDDEN_BONUS, List.of("HiddenBonus"));
         map.put(Sonic1ObjectIds.SBZ_SPIN_CONVEYOR, List.of("SpinConveyor", "SpinConvey"));
+        map.put(Sonic1ObjectIds.END_SONIC, List.of("EndSonic"));
+        map.put(Sonic1ObjectIds.END_CHAOS, List.of("EndChaos"));
+        map.put(Sonic1ObjectIds.END_STH, List.of("EndSTH"));
         return Map.copyOf(map);
     }
 

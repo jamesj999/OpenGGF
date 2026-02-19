@@ -224,6 +224,11 @@ public enum SonicConfiguration {
 	 * Key to toggle Super Sonic debug mode at runtime (default: U).
 	 * Only active when DEBUG_VIEW_ENABLED is true.
 	 */
-	SUPER_SONIC_DEBUG_KEY;
+	SUPER_SONIC_DEBUG_KEY,
+
+	/**
+	 * Key to give all chaos emeralds (debug, default: E).
+	 */
+	GIVE_EMERALDS_KEY;
 
 }

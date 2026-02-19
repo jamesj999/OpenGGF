@@ -39,6 +39,15 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     private static final int RESULTS_SCORE_DIGIT_PAIR_COUNT = 8;
     private static final int RESULTS_SCORE_DIGIT_TILE_COUNT = RESULTS_SCORE_DIGIT_PAIR_COUNT * 2;
     private static final int HUD_TEXT_E_PAIR_INDEX = 22;
+    private static final AnimalType[] ENDING_ANIMAL_ORDER = {
+            AnimalType.FLICKY,
+            AnimalType.RABBIT,
+            AnimalType.PENGUIN,
+            AnimalType.SEAL,
+            AnimalType.PIG,
+            AnimalType.CHICKEN,
+            AnimalType.SQUIRREL
+    };
     private static final AnimalType[] DEFAULT_ANIMALS = { AnimalType.RABBIT, AnimalType.FLICKY };
     private static final AnimalType[][] ZONE_ANIMALS = {
             { AnimalType.RABBIT, AnimalType.FLICKY },   // GHZ
@@ -1420,6 +1429,13 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 1);
         registerSheet(ObjectArtKeys.ANIMAL, animalSheet);
 
+        ObjectSpriteSheet endingAnimalSheet = createEndingAnimalSheet(rom);
+        registerSheet(ObjectArtKeys.ANIMAL_ENDING, endingAnimalSheet);
+
+        registerSheet(ObjectArtKeys.END_SONIC, createEndingSonicSheet(rom));
+        registerSheet(ObjectArtKeys.END_EMERALDS, createEndingEmeraldsSheet(rom));
+        registerSheet(ObjectArtKeys.END_STH, createEndingSTHSheet(rom));
+
         Pattern[] pointsPatterns = loadNemesisPatterns(rom, Sonic1Constants.ART_NEM_POINTS_ADDR, "Points");
         if (pointsPatterns.length == 0) {
             LOGGER.warning("Failed to load S1 points art");
@@ -1468,6 +1484,40 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             combined[firstLength + i] = second[i];
         }
         return combined;
+    }
+
+    private ObjectSpriteSheet createEndingAnimalSheet(Rom rom) {
+        Pattern[] patterns = createEndingAnimalPatterns(rom);
+        if (patterns.length == 0) {
+            return null;
+        }
+        return new ObjectSpriteSheet(patterns, createEndingAnimalMappings(), 0, 1);
+    }
+
+    private Pattern[] createEndingAnimalPatterns(Rom rom) {
+        Pattern[] combined = new Pattern[ENDING_ANIMAL_ORDER.length * ANIMAL_TILE_BANK_SIZE];
+        for (int i = 0; i < combined.length; i++) {
+            combined[i] = new Pattern();
+        }
+
+        for (int i = 0; i < ENDING_ANIMAL_ORDER.length; i++) {
+            Pattern[] speciesPatterns = loadAnimalPatterns(rom, ENDING_ANIMAL_ORDER[i]);
+            int copyLength = Math.min(ANIMAL_TILE_BANK_SIZE, speciesPatterns.length);
+            int destination = i * ANIMAL_TILE_BANK_SIZE;
+            if (copyLength > 0) {
+                System.arraycopy(speciesPatterns, 0, combined, destination, copyLength);
+            }
+        }
+        return combined;
+    }
+
+    private List<SpriteMappingFrame> createEndingAnimalMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+        for (int i = 0; i < ENDING_ANIMAL_ORDER.length; i++) {
+            int tileOffset = i * ANIMAL_TILE_BANK_SIZE;
+            addAnimalSetFrames(frames, ENDING_ANIMAL_ORDER[i].mappingSet(), tileOffset);
+        }
+        return frames;
     }
 
     private List<SpriteMappingFrame> createAnimalMappings() {
@@ -7888,6 +7938,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * Loads FZ boss art and creates sprite sheets for all FZ components.
      * Art comes from multiple Nemesis banks:
      *   Nem_FzBoss      -> ArtTile_FZ_Boss ($300): cylinders, plasma, cockpit
+     *   Nem_FzEggman    -> ArtTile_FZ_Eggman_Fleeing ($3A0): escape legs + damaged ship
      *   Nem_Sbz2Eggman  -> ArtTile_FZ_Eggman_No_Vehicle ($470): Eggman body (Map_SEgg)
      *   Nem_Eggman      -> ArtTile_Eggman: standard boss ship (escape phase)
      * PLC reference: _inc/Pattern Load Cues.asm line 387
@@ -7903,12 +7954,36 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         Pattern[] seggPatterns = loadNemesisPatterns(rom,
                 Sonic1Constants.ART_NEM_SBZ2_EGGMAN_ADDR, "Sbz2Eggman");
 
-        // FZ_SEGG: Eggman in machine (Map_SEgg) — combat phase rendering
-        List<SpriteMappingFrame> seggMappings =
+        // Nem_FzEggman: escape legs and damaged ship overlays (Map_FZLegs/Map_FZDamaged)
+        // PLC loads this to ArtTile_FZ_Eggman_Fleeing ($3A0).
+        Pattern[] fzEggmanPatterns = loadNemesisPatterns(rom,
+                Sonic1Constants.ART_NEM_FZ_EGGMAN_ADDR, "FzEggman");
+
+        // FZ_SEGG: Eggman in machine (Map_SEgg) — combat phase rendering.
+        // Map_SEgg's intube frame uses pattern word $6F0. On hardware this is added to
+        // obGfx (ArtTile_FZ_Eggman_No_Vehicle = $470), wrapping in 11-bit VRAM tile space
+        // and spilling into flag bits. To preserve ROM behavior, build a combined tile bank
+        // anchored at ArtTile_FZ_Boss ($300) and pre-resolve mapping words through the same
+        // add.w behavior.
+        List<SpriteMappingFrame> seggRawMappings =
                 uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossMappings.createSEggMappings();
         Pattern[] seggSource = seggPatterns.length > 0 ? seggPatterns : fzPatterns;
+        int virtualBaseTile = Sonic1Constants.ART_TILE_FZ_BOSS;
+        int seggBaseOffset = Sonic1Constants.ART_TILE_FZ_EGGMAN_NO_VEHICLE - virtualBaseTile;
+        int combinedSeggSize = Math.max(fzPatterns.length, seggBaseOffset + seggSource.length);
+        Pattern[] seggCombined = new Pattern[combinedSeggSize];
+        for (int i = 0; i < seggCombined.length; i++) {
+            seggCombined[i] = new Pattern();
+        }
+        System.arraycopy(fzPatterns, 0, seggCombined, 0, fzPatterns.length);
+        System.arraycopy(seggSource, 0, seggCombined, seggBaseOffset, seggSource.length);
+        List<SpriteMappingFrame> seggMappings = remapMappingsForObjectBase(
+                seggRawMappings,
+                Sonic1Constants.ART_TILE_FZ_EGGMAN_NO_VEHICLE,
+                virtualBaseTile
+        );
         registerSheet(ObjectArtKeys.FZ_SEGG,
-                new ObjectSpriteSheet(seggSource, seggMappings, 0, seggMappings.size()));
+                new ObjectSpriteSheet(seggCombined, seggMappings, 0, seggMappings.size()));
 
         // FZ_CYLINDER: Crushing cylinders (Map_EggCyl)
         List<SpriteMappingFrame> cylMappings =
@@ -7928,21 +8003,62 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         registerSheet(ObjectArtKeys.FZ_PLASMA,
                 new ObjectSpriteSheet(fzPatterns, plasmaMappings, 0, plasmaMappings.size()));
 
-        // FZ_LEGS: Escape ship legs (Map_FZLegs)
-        List<SpriteMappingFrame> legsMappings =
-                uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossMappings.createFZLegsMappings();
-        registerSheet(ObjectArtKeys.FZ_LEGS,
-                new ObjectSpriteSheet(fzPatterns, legsMappings, 0, legsMappings.size()));
-
-        // FZ_DAMAGED: Damage overlay (Map_FZDamaged)
-        List<SpriteMappingFrame> damagedMappings =
-                uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossMappings.createFZDamagedMappings();
-        registerSheet(ObjectArtKeys.FZ_DAMAGED,
-                new ObjectSpriteSheet(fzPatterns, damagedMappings, 0, damagedMappings.size()));
+        // FZ_LEGS: Escape ship legs (Map_FZLegs), sourced from Nem_FzEggman.
+        if (fzEggmanPatterns.length > 0) {
+            List<SpriteMappingFrame> legsMappings =
+                    uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossMappings.createFZLegsMappings();
+            registerSheet(ObjectArtKeys.FZ_LEGS,
+                    new ObjectSpriteSheet(fzEggmanPatterns, legsMappings, 0, legsMappings.size()));
+        }
 
         // Standard Eggman art for escape phase (Map_Eggman)
         // Also loads exhaust flame merged at tile offset $12A
         loadBossArt(rom);
+
+        // FZ_DAMAGED: Damaged ship mapping (Map_FZDamaged), sourced from Nem_FzEggman.
+        if (fzEggmanPatterns.length > 0) {
+            List<SpriteMappingFrame> damagedMappings =
+                    uk.co.jamesj999.sonic.game.sonic1.objects.bosses.Sonic1BossMappings.createFZDamagedMappings();
+            registerSheet(ObjectArtKeys.FZ_DAMAGED,
+                    new ObjectSpriteSheet(fzEggmanPatterns, damagedMappings, 0, damagedMappings.size()));
+        }
+    }
+
+    private static List<SpriteMappingFrame> remapMappingsForObjectBase(List<SpriteMappingFrame> sourceMappings,
+                                                                        int objectBaseTile,
+                                                                        int virtualBaseTile) {
+        List<SpriteMappingFrame> remapped = new ArrayList<>(sourceMappings.size());
+        for (SpriteMappingFrame frame : sourceMappings) {
+            List<SpriteMappingPiece> remappedPieces = new ArrayList<>(frame.pieces().size());
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                int rawPatternWord = (piece.tileIndex() & 0x7FF)
+                        | (piece.hFlip() ? 0x0800 : 0)
+                        | (piece.vFlip() ? 0x1000 : 0)
+                        | ((piece.paletteIndex() & 0x3) << 13)
+                        | (piece.priority() ? 0x8000 : 0);
+                int summedPatternWord = (objectBaseTile + rawPatternWord) & 0xFFFF;
+
+                int remappedTile = (summedPatternWord & 0x7FF) - virtualBaseTile;
+                boolean remappedHFlip = (summedPatternWord & 0x0800) != 0;
+                boolean remappedVFlip = (summedPatternWord & 0x1000) != 0;
+                int remappedPalette = (summedPatternWord >> 13) & 0x3;
+                boolean remappedPriority = (summedPatternWord & 0x8000) != 0;
+
+                remappedPieces.add(new SpriteMappingPiece(
+                        piece.xOffset(),
+                        piece.yOffset(),
+                        piece.widthTiles(),
+                        piece.heightTiles(),
+                        remappedTile,
+                        remappedHFlip,
+                        remappedVFlip,
+                        remappedPalette,
+                        remappedPriority
+                ));
+            }
+            remapped.add(new SpriteMappingFrame(remappedPieces));
+        }
+        return remapped;
     }
 
     /**
@@ -8293,5 +8409,176 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     @Override
     public int getHudFlashPaletteLine() {
         return 0; // Sonic 1: life icon and flash both use palette line 0 (Sonic's palette)
+    }
+
+    // ========================================================================
+    // Ending sequence art (Obj87, Obj88, Obj89)
+    // ========================================================================
+
+    private ObjectSpriteSheet createEndingSonicSheet(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom, Sonic1Constants.ART_NEM_END_SONIC_ADDR, "EndSonic");
+        if (patterns.length == 0) {
+            return null;
+        }
+        return new ObjectSpriteSheet(patterns, createEndingSonicMappings(), 0, 1);
+    }
+
+    /**
+     * Sprite mappings from docs/s1disasm/_maps/Ending Sequence Sonic.asm.
+     * 8 frames: Hold1, Hold2, Up, Conf1, Conf2, Leap1, Leap2, Leap3.
+     */
+    private List<SpriteMappingFrame> createEndingSonicMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: M_ESon_Hold1 - holding emeralds
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x14, 3, 4, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, 0x0C, 4, 1, 0x0C, false, false, 0, false)
+        )));
+
+        // Frame 1: M_ESon_Hold2 - holding emeralds (glowing)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -4, 4, 2, 0x10, false, false, 0, false),
+                new SpriteMappingPiece(-8, -0x14, 3, 4, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, 0x0C, 4, 1, 0x0C, false, false, 0, false)
+        )));
+
+        // Frame 2: M_ESon_Up - looking up
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x14, 3, 2, 0x18, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -4, 4, 3, 0x1E, false, false, 0, false)
+        )));
+
+        // Frame 3: M_ESon_Conf1 - confused
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x14, 3, 2, 0x2A, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -4, 4, 3, 0x30, false, false, 0, false)
+        )));
+
+        // Frame 4: M_ESon_Conf2 - confused #2 (h-flipped pieces)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x14, 3, 2, 0x2A, true, false, 0, false),
+                new SpriteMappingPiece(-0x10, -4, 4, 3, 0x30, true, false, 0, false)
+        )));
+
+        // Frame 5: M_ESon_Leap1 - leaping
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x14, 2, 3, 0x3C, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x14, 2, 3, 0x3C, true, false, 0, false),
+                new SpriteMappingPiece(-0x10, 4, 4, 2, 0x42, false, false, 0, false)
+        )));
+
+        // Frame 6: M_ESon_Leap2 - leaping #2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x4E, 4, 1, 0x4A, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x46, 4, 4, 0x4E, false, false, 0, false),
+                new SpriteMappingPiece(0x10, -0x46, 2, 2, 0x5E, false, false, 0, false),
+                new SpriteMappingPiece(0x10, -0x36, 1, 3, 0x62, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x26, 4, 1, 0x65, false, false, 0, false),
+                new SpriteMappingPiece(-8, -0x1E, 3, 1, 0x69, false, false, 0, false),
+                new SpriteMappingPiece(-8, -0x16, 2, 2, 0x6C, false, false, 0, false)
+        )));
+
+        // Frame 7: M_ESon_Leap3 - leaping #3 (large multi-piece)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -0x80, 4, 4, 0x70, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x70, 3, 4, 0x80, false, false, 0, false),
+                new SpriteMappingPiece(0x18, -0x70, 3, 4, 0x8C, false, false, 0, false),
+                new SpriteMappingPiece(0x30, -0x68, 3, 4, 0x98, false, false, 0, false),
+                new SpriteMappingPiece(0x58, -0x60, 4, 4, 0xA4, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x78, 1, 1, 0xB4, false, false, 0, false),
+                new SpriteMappingPiece(0x18, -0x80, 2, 2, 0xB5, false, false, 0, false),
+                new SpriteMappingPiece(-8, -0x60, 4, 4, 0xB9, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x50, 3, 4, 0xC9, false, false, 0, false),
+                new SpriteMappingPiece(0x38, -0x48, 4, 4, 0xD5, false, false, 0, false),
+                new SpriteMappingPiece(0x48, -0x58, 2, 2, 0xE5, false, false, 0, false),
+                new SpriteMappingPiece(0x58, -0x40, 1, 3, 0xE9, false, false, 0, false),
+                new SpriteMappingPiece(-8, -0x40, 4, 4, 0xEC, false, false, 0, false),
+                new SpriteMappingPiece(0x18, -0x48, 4, 4, 0xFC, false, false, 0, false),
+                new SpriteMappingPiece(0x18, -0x50, 3, 1, 0x10C, false, false, 0, false),
+                new SpriteMappingPiece(0x30, -0x28, 4, 2, 0x10F, false, false, 0, false),
+                new SpriteMappingPiece(0x18, -0x28, 3, 1, 0x117, false, false, 0, false),
+                new SpriteMappingPiece(-0x28, -0x28, 4, 4, 0x11A, false, false, 0, false),
+                new SpriteMappingPiece(-8, -0x20, 4, 2, 0x12A, false, false, 0, false),
+                new SpriteMappingPiece(0x28, -0x20, 1, 1, 0x132, false, false, 0, false),
+                new SpriteMappingPiece(-0x20, -0x30, 2, 1, 0x133, false, false, 0, false),
+                new SpriteMappingPiece(-0x38, -0x18, 2, 2, 0x135, false, false, 0, false),
+                new SpriteMappingPiece(-0x38, -8, 4, 1, 0x139, false, false, 0, false),
+                new SpriteMappingPiece(-8, -0x10, 2, 3, 0x13D, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    private ObjectSpriteSheet createEndingEmeraldsSheet(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom, Sonic1Constants.ART_NEM_END_EMERALDS_ADDR, "EndEmeralds");
+        if (patterns.length == 0) {
+            return null;
+        }
+        return new ObjectSpriteSheet(patterns, createEndingEmeraldsMappings(), 0, 1);
+    }
+
+    /**
+     * Sprite mappings from docs/s1disasm/_maps/Ending Sequence Emeralds.asm.
+     * 7 frames (index 0 unused by ROM, indices 1-6 for the 6 emeralds).
+     */
+    private List<SpriteMappingFrame> createEndingEmeraldsMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: M_ECha_1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x00, false, false, 0, false)
+        )));
+        // Frame 1: M_ECha_2
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x04, false, false, 0, false)
+        )));
+        // Frame 2: M_ECha_3 (palette 2)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x10, false, false, 2, false)
+        )));
+        // Frame 3: M_ECha_4 (palette 1)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x18, false, false, 1, false)
+        )));
+        // Frame 4: M_ECha_5 (palette 2)
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x14, false, false, 2, false)
+        )));
+        // Frame 5: M_ECha_6
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x08, false, false, 0, false)
+        )));
+        // Frame 6: M_ECha_7
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x0C, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    private ObjectSpriteSheet createEndingSTHSheet(Rom rom) {
+        Pattern[] patterns = loadNemesisPatterns(rom, Sonic1Constants.ART_NEM_END_STH_ADDR, "EndSTH");
+        if (patterns.length == 0) {
+            return null;
+        }
+        return new ObjectSpriteSheet(patterns, createEndingSTHMappings(), 0, 1);
+    }
+
+    /**
+     * Sprite mappings from docs/s1disasm/_maps/Ending Sequence STH.asm.
+     * Single frame: three 4x4-tile pieces spelling "SONIC THE HEDGEHOG".
+     */
+    private List<SpriteMappingFrame> createEndingSTHMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: M_ESth_1
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x30, -0x10, 4, 4, 0x00, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x10, false, false, 0, false),
+                new SpriteMappingPiece(0x10, -0x10, 4, 4, 0x20, false, false, 0, false)
+        )));
+
+        return frames;
     }
 }

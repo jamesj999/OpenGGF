@@ -471,6 +471,9 @@ public class Engine {
 			if (levelSelect != null) {
 				levelSelect.setClearColor();
 			}
+		} else if (getCurrentGameMode() == GameMode.CREDITS_TEXT) {
+			// Credits text is drawn on a black background
+			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		} else if (getCurrentGameMode() == GameMode.TITLE_CARD) {
 			levelManager.setClearColor();
 		} else {
@@ -614,6 +617,17 @@ public class Engine {
 			if (levelSelect != null) {
 				levelSelect.draw();
 			}
+		} else if (getCurrentGameMode() == GameMode.CREDITS_TEXT) {
+			// Black screen with credit text overlay — reset camera to screen-space origin
+			camera.setX((short) 0);
+			camera.setY((short) 0);
+			var creditsManager = gameLoop.getCreditsManager();
+			if (creditsManager != null) {
+				creditsManager.drawCreditText();
+			}
+		} else if (getCurrentGameMode() == GameMode.CREDITS_DEMO) {
+			// Normal level rendering (HUD suppressed via zone feature provider)
+			levelManager.drawWithSpritePriority(spriteManager);
 		} else if (getCurrentGameMode() == GameMode.TITLE_CARD) {
 			levelManager.drawWithSpritePriority(spriteManager);
 

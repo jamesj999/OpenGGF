@@ -7,6 +7,7 @@ import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1AnimationIds;
 import uk.co.jamesj999.sonic.game.sonic1.audio.Sonic1Sfx;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1Constants;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1ObjectIds;
+import uk.co.jamesj999.sonic.game.sonic2.objects.BossExplosionObjectInstance;
 import uk.co.jamesj999.sonic.game.sonic1.scroll.Sonic1ZoneConstants;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -17,8 +18,11 @@ import uk.co.jamesj999.sonic.level.objects.SolidObjectListener;
 import uk.co.jamesj999.sonic.level.objects.SolidObjectParams;
 import uk.co.jamesj999.sonic.level.objects.SolidObjectProvider;
 import uk.co.jamesj999.sonic.level.objects.SolidContact;
+import uk.co.jamesj999.sonic.level.objects.TouchResponseResult;
 import uk.co.jamesj999.sonic.level.objects.boss.AbstractBossInstance;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationScript;
+import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -48,6 +52,7 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class Sonic1FZBossInstance extends AbstractBossInstance
         implements SolidObjectProvider, SolidObjectListener {
+    private static final SpriteAnimationSet SEGG_ANIMATIONS = Sonic1BossAnimations.getSEggAnimations();
 
     // State machine constants (objoff_34 values in the ROM)
     private static final int STATE_WAIT = 0;
@@ -65,6 +70,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     private static final int BOSS_FZ_END = Sonic1Constants.BOSS_FZ_END; // 0x2700
     private static final int ENDING_ACT_FLOWERS = 0;
     private static final int ENDING_ACT_NO_EMERALDS = 1;
+    private static final int ESCAPE_COLLISION_FLAGS = 0xC0 | 0x0F;
 
     // Cylinder lookup table: word_19FD6 — maps random index to cylinder pair
     // Random & $C gives 0, 4, 8, or 12 -> lookup gives cylinder pair indices
@@ -94,6 +100,10 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
 
     // Current SEgg animation
     private int seggAnim;
+    private int seggAnimPrev;
+    private int seggAnimScriptFrame;
+    private int seggAnimTimeFrame;
+    private int seggFrame;
 
     // Whether we've transitioned to Map_Eggman (escape ship form)
     private boolean escapingInShip;
@@ -107,6 +117,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     // obColProp flag for escape phase hittability
     private boolean escapeHittable;
     private int escapeHitTimer;
+    private int escapeCollisionFlags;
     private boolean endingTransitionRequested;
 
     public Sonic1FZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
@@ -132,12 +143,17 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
 
         damageCooldown = 0;
         seggAnim = Sonic1BossAnimations.ANIM_SEGG_STAND;
+        seggAnimPrev = -1;
+        seggAnimScriptFrame = 0;
+        seggAnimTimeFrame = 0;
+        seggFrame = 0;
         escapingInShip = false;
         legsFrame = 0;
         legsTimer = 0;
         showDamaged = false;
         escapeHittable = false;
         escapeHitTimer = 0;
+        escapeCollisionFlags = 0;
         endingTransitionRequested = false;
 
         // Initialize arrays before spawning (field initializers haven't run yet
@@ -194,9 +210,22 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         // during combat). Damage is handled via SolidObject push + roll check.
         // During escape (state 14), obColType=$F is set for hittability.
         if (state.routineSecondary == STATE_FINAL_FLIGHT && escapeHittable) {
-            return 0xC0 | 0x0F;
+            return escapeCollisionFlags;
         }
         return 0;
+    }
+
+    @Override
+    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+        // ROM: In state 14, a successful player hit clears obColType, starting objoff_30 timer.
+        if (state.routineSecondary != STATE_FINAL_FLIGHT || !escapeHittable || escapeCollisionFlags == 0) {
+            return;
+        }
+        escapeCollisionFlags = 0;
+        escapeHitTimer = 0x1E;
+        escapeHittable = false;
+        showDamaged = true;
+        AudioManager.getInstance().playSfx(Sonic1Sfx.HIT_BOSS.id);
     }
 
     @Override
@@ -333,6 +362,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
             // ROM: move.b #1,obAnim — normal laugh (default combat anim)
             seggAnim = Sonic1BossAnimations.ANIM_SEGG_LAUGH;
         }
+        updateSeggAnimation();
     }
 
     // === State 4: PLASMA_PHASE (loc_19FE6) ===
@@ -373,6 +403,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
 
         // ROM: move.b #6,obFrame — starjump frame
         seggAnim = Sonic1BossAnimations.ANIM_SEGG_STARJUMP;
+        seggFrame = 6;
 
         // ROM: addi.w #$10,obVelY — gravity
         state.yVel += 0x10;
@@ -465,6 +496,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
 
         // Expand camera boundary + solid collision (ROM: loc_1A15C -> loc_1A166)
         expandCameraBoundary();
+        updateSeggAnimation();
     }
 
     // === State 10: FINAL_ASCENT (loc_1A112) ===
@@ -501,6 +533,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
 
         // Expand camera boundary + animate (ROM: loc_1A15C -> loc_1A166)
         expandCameraBoundary();
+        updateSeggAnimation();
     }
 
     // === State 12: SHIP_TRANSFORM (loc_1A192) ===
@@ -525,10 +558,14 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
             state.routineSecondary = STATE_FINAL_FLIGHT;
             escapeHittable = true;
             escapeHitTimer = 0;
+            escapeCollisionFlags = ESCAPE_COLLISION_FLAGS;
         }
+
+        updateEscapeLegs();
 
         // Expand camera boundary + animate
         expandCameraBoundary();
+        updateSeggAnimation();
     }
 
     // === State 14: FINAL_FLIGHT (loc_1A1D4) ===
@@ -551,18 +588,12 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
                     state.yVel = 0x60;
                 } else {
                     escapeHittable = true;
+                    escapeCollisionFlags = ESCAPE_COLLISION_FLAGS;
                 }
             }
         }
 
-        // ROM: Check if boss was hit (obColType cleared by hit system)
-        // If hit during escape, pause briefly then continue
-        if (escapeHittable && getCollisionFlags() == 0 && state.routineSecondary == STATE_FINAL_FLIGHT) {
-            // Boss was hit — set timer
-            escapeHitTimer = 0x1E;
-            escapeHittable = false;
-            AudioManager.getInstance().playSfx(Sonic1Sfx.HIT_BOSS.id);
-        }
+        updateEscapeLegs();
 
         // ROM: Player control lock when player X >= boss_fz_end + $90
         if (player != null) {
@@ -595,9 +626,79 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         // Expand camera boundary
         expandCameraBoundary();
 
-        // Spawn defeat explosions during escape (ROM: BossDefeated in sub-objects)
-        if ((frameCounter & 7) == 0) {
-            spawnDefeatExplosion();
+        // ROM: sub-object routine 6 keeps calling BossDefeated while damaged escape sprite is active.
+        if (showDamaged) {
+            triggerBossDefeatedExplosion(frameCounter);
+        }
+
+        updateSeggAnimation();
+    }
+
+    private void updateEscapeLegs() {
+        if (!escapingInShip || legsFrame > 2) {
+            return;
+        }
+        if (legsTimer == 0) {
+            legsTimer = 0x14;
+        }
+        legsTimer--;
+        if (legsTimer <= 0) {
+            legsFrame++;
+        }
+    }
+
+    private void updateSeggAnimation() {
+        SpriteAnimationScript script = SEGG_ANIMATIONS.getScript(seggAnim);
+        if (script == null || script.frames().isEmpty()) {
+            return;
+        }
+
+        if (seggAnim != seggAnimPrev) {
+            seggAnimPrev = seggAnim;
+            seggAnimScriptFrame = 0;
+            seggAnimTimeFrame = 0;
+        }
+
+        seggAnimTimeFrame--;
+        if (seggAnimTimeFrame >= 0) {
+            return;
+        }
+
+        seggAnimTimeFrame = script.delay() & 0xFF;
+
+        if (seggAnimScriptFrame < 0 || seggAnimScriptFrame >= script.frames().size()) {
+            seggAnimScriptFrame = 0;
+        }
+
+        seggFrame = script.frames().get(seggAnimScriptFrame) & 0x1F;
+        seggAnimScriptFrame++;
+
+        if (seggAnimScriptFrame < script.frames().size()) {
+            return;
+        }
+
+        switch (script.endAction()) {
+            case HOLD -> seggAnimScriptFrame = script.frames().size() - 1;
+            case LOOP_BACK -> {
+                int loopBack = script.endParam();
+                if (loopBack <= 0) {
+                    seggAnimScriptFrame = 0;
+                } else {
+                    int target = script.frames().size() - loopBack;
+                    seggAnimScriptFrame = Math.max(target, 0);
+                }
+            }
+            case SWITCH -> {
+                int nextAnim = script.endParam();
+                if (nextAnim == seggAnim) {
+                    seggAnimScriptFrame = 0;
+                } else {
+                    seggAnim = nextAnim;
+                    seggAnimPrev = -1;
+                }
+            }
+            case LOOP -> seggAnimScriptFrame = 0;
+            default -> seggAnimScriptFrame = 0;
         }
     }
 
@@ -688,6 +789,41 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         return state.hitCount <= 0;
     }
 
+    /**
+     * ROM BossDefeated helper used by FZ child objects during post-defeat sequences.
+     * Runs on an 8-frame cadence like v_vbla_byte&7 in the original routine.
+     */
+    void triggerBossDefeatedExplosion(int frameCounter) {
+        if ((frameCounter & 7) == 0) {
+            spawnDefeatExplosionAt(state.x, state.y);
+        }
+    }
+
+    /**
+     * ROM BossDefeated helper for FZ child components with independent positions.
+     */
+    void triggerBossDefeatedExplosion(int frameCounter, int sourceX, int sourceY) {
+        if ((frameCounter & 7) == 0) {
+            spawnDefeatExplosionAt(sourceX, sourceY);
+        }
+    }
+
+    private void spawnDefeatExplosionAt(int sourceX, int sourceY) {
+        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        if (renderManager == null || levelManager.getObjectManager() == null) {
+            return;
+        }
+
+        int random = ThreadLocalRandom.current().nextInt(0x10000);
+        int xOffset = ((random & 0xFF) >> 2) - 0x20;
+        int yOffset = (((random >> 8) & 0xFF) >> 2) - 0x20;
+        BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(
+                sourceX + xOffset,
+                sourceY + yOffset,
+                renderManager);
+        levelManager.getObjectManager().addDynamicObject(explosion);
+    }
+
     private void requestEndingTransition() {
         if (endingTransitionRequested) {
             return;
@@ -750,9 +886,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
             PatternSpriteRenderer seggRenderer = renderManager.getRenderer(ObjectArtKeys.FZ_SEGG);
             if (seggRenderer != null && seggRenderer.isReady()) {
                 boolean flipped = (state.renderFlags & 1) != 0;
-                // Draw based on current SEgg animation frame
-                int frame = getSeggFrame();
-                seggRenderer.drawFrameIndex(frame, state.x, state.y, flipped, false);
+                seggRenderer.drawFrameIndex(seggFrame, state.x, state.y, flipped, false);
             }
         } else {
             // Draw using Map_Eggman (standard Eggman escape ship)
@@ -760,18 +894,18 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
             if (eggmanRenderer != null && eggmanRenderer.isReady()) {
                 boolean flipped = (state.renderFlags & 1) != 0;
 
-                // Ship body (frame 0)
-                eggmanRenderer.drawFrameIndex(0, state.x, state.y, flipped, false);
-
-                // Face overlay — panic face during escape
-                eggmanRenderer.drawFrameIndex(6, state.x, state.y, flipped, false);
+                if (!showDamaged) {
+                    // Ship body (frame 0) + panic face (frame 6) before escape hit.
+                    eggmanRenderer.drawFrameIndex(0, state.x, state.y, flipped, false);
+                    eggmanRenderer.drawFrameIndex(6, state.x, state.y, flipped, false);
+                }
 
                 // Flame overlay — escape flame
                 eggmanRenderer.drawFrameIndex(11, state.x, state.y, flipped, false);
             }
 
             // Draw FZ legs overlay if legs are visible (sub-object routine 8)
-            if (state.routineSecondary >= STATE_SHIP_TRANSFORM) {
+            if (!showDamaged && state.routineSecondary >= STATE_SHIP_TRANSFORM && legsFrame <= 2) {
                 PatternSpriteRenderer legsRenderer = renderManager.getRenderer(ObjectArtKeys.FZ_LEGS);
                 if (legsRenderer != null && legsRenderer.isReady()) {
                     boolean flipped = (state.renderFlags & 1) != 0;
@@ -779,30 +913,15 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
                 }
             }
 
-            // Draw damaged overlay during defeat
+            // Post-hit escape visuals use Map_FZDamaged as the primary ship mapping.
             if (showDamaged) {
                 PatternSpriteRenderer damagedRenderer = renderManager.getRenderer(ObjectArtKeys.FZ_DAMAGED);
                 if (damagedRenderer != null && damagedRenderer.isReady()) {
                     boolean flipped = (state.renderFlags & 1) != 0;
-                    damagedRenderer.drawFrameIndex(0, state.x, state.y, flipped, false);
+                    damagedRenderer.drawFrameIndex((state.lastUpdatedFrame >> 2) & 1, state.x, state.y, flipped, false);
                 }
             }
         }
     }
 
-    /**
-     * Map SEgg animation ID to current mapping frame.
-     */
-    private int getSeggFrame() {
-        return switch (seggAnim) {
-            case Sonic1BossAnimations.ANIM_SEGG_STAND -> 0;
-            case Sonic1BossAnimations.ANIM_SEGG_LAUGH -> 1; // cycles 1-2, simplified
-            case Sonic1BossAnimations.ANIM_SEGG_JUMP1 -> 3;
-            case Sonic1BossAnimations.ANIM_SEGG_INTUBE -> 9;
-            case Sonic1BossAnimations.ANIM_SEGG_RUNNING -> 7; // cycles 7-8, simplified
-            case Sonic1BossAnimations.ANIM_SEGG_JUMP2 -> 4;
-            case Sonic1BossAnimations.ANIM_SEGG_STARJUMP -> 6;
-            default -> 0;
-        };
-    }
 }

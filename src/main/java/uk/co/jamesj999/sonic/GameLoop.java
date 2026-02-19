@@ -31,6 +31,9 @@ import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.timer.TimerManager;
 import uk.co.jamesj999.sonic.graphics.FadeManager;
 
+import uk.co.jamesj999.sonic.game.sonic1.credits.Sonic1CreditsDemoData;
+import uk.co.jamesj999.sonic.game.sonic1.credits.Sonic1CreditsManager;
+
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.logging.Logger;
@@ -85,6 +88,9 @@ public class GameLoop {
 
     // Flag to freeze level updates during special stage entry transition
     private boolean specialStageTransitionPending = false;
+
+    // Ending credits manager (Sonic 1)
+    private Sonic1CreditsManager creditsManager;
 
     // Listener for game mode changes (used by Engine to update projection)
     private GameModeChangeListener gameModeChangeListener;
@@ -354,6 +360,14 @@ public class GameLoop {
             }
             inputHandler.update();
             return; // Don't process LEVEL mode logic
+        } else if (currentGameMode == GameMode.CREDITS_TEXT) {
+            updateCreditsText();
+            inputHandler.update();
+            return;
+        } else if (currentGameMode == GameMode.CREDITS_DEMO) {
+            updateCreditsDemo();
+            inputHandler.update();
+            return;
         }
 
         profiler.endSection("input");
@@ -390,6 +404,10 @@ public class GameLoop {
                 }
                 if (levelManager.consumeZoneActRequest()) {
                     startZoneActFade(levelManager.getRequestedZone(), levelManager.getRequestedAct());
+                    return;
+                }
+                if (levelManager.consumeCreditsRequest()) {
+                    startCreditsFade();
                     return;
                 }
             }
@@ -1663,6 +1681,266 @@ public class GameLoop {
 
         LOGGER.info(String.format("Lag compensation: %.0f%% (effective ~%.1f updates/sec)",
                 ssProvider.getLagCompensation() * 100, effectiveUpdates));
+    }
+
+    // ==================== Credits Sequence Methods ====================
+
+    /**
+     * Starts the fade-to-black transition to enter the credits sequence.
+     * Called when the STH logo timer expires in the ending cutscene.
+     */
+    private void startCreditsFade() {
+        LOGGER.info("Starting fade-to-black for credits sequence");
+        AudioManager.getInstance().fadeOutMusic();
+        FadeManager.getInstance().startFadeToBlack(() -> {
+            doEnterCredits();
+        });
+    }
+
+    /**
+     * Actually enters the credits sequence after fade-to-black completes.
+     */
+    private void doEnterCredits() {
+        GameMode oldMode = currentGameMode;
+        currentGameMode = GameMode.CREDITS_TEXT;
+
+        creditsManager = new Sonic1CreditsManager();
+        creditsManager.initialize();
+
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+
+        LOGGER.info("Entered credits text mode");
+    }
+
+    /**
+     * Updates the CREDITS_TEXT mode each frame.
+     */
+    private void updateCreditsText() {
+        if (creditsManager == null) {
+            return;
+        }
+
+        creditsManager.update();
+
+        // Check if the manager wants to load a demo zone
+        if (creditsManager.consumeDemoLoadRequest()) {
+            loadCreditsDemoZone();
+        }
+
+        // Check if finished (after "PRESENTED BY SEGA")
+        if (creditsManager.consumeFinishedRequest()) {
+            exitCreditsToTitleScreen();
+        }
+    }
+
+    /**
+     * Updates the CREDITS_DEMO mode each frame.
+     * Runs level physics with demo input override.
+     */
+    private void updateCreditsDemo() {
+        if (creditsManager == null) {
+            return;
+        }
+
+        creditsManager.update();
+
+        // Apply demo input to player
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if (mainCode == null) mainCode = "sonic";
+        var sprite = spriteManager.getSprite(mainCode);
+        if (sprite instanceof AbstractPlayableSprite player) {
+            player.setControlLocked(true);
+            player.setForcedInputMask(creditsManager.getDemoInputMask());
+        }
+
+        // Run level physics (objects + player)
+        levelManager.updateObjectPositions();
+        levelManager.updateZoneFeaturesPrePhysics();
+        spriteManager.update(inputHandler);
+
+        // Level events
+        LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        if (levelEvents != null) {
+            levelEvents.update();
+        }
+
+        // Camera/scroll only if not frozen (during fadeout, scroll freezes)
+        if (!creditsManager.isScrollFrozen()) {
+            camera.updateBoundaryEasing();
+            camera.updatePosition();
+            levelManager.update();
+        }
+
+        // Check if returning to text phase
+        if (creditsManager.consumeTextReturnRequest()) {
+            returnToCreditsText();
+        }
+
+        // Check if finished
+        if (creditsManager.consumeFinishedRequest()) {
+            exitCreditsToTitleScreen();
+        }
+    }
+
+    /**
+     * Loads the demo zone for the current credit and transitions to CREDITS_DEMO mode.
+     */
+    private void loadCreditsDemoZone() {
+        int zone = creditsManager.getDemoZone();
+        int act = creditsManager.getDemoAct();
+        int startX = creditsManager.getDemoStartX();
+        int startY = creditsManager.getDemoStartY();
+
+        try {
+            levelManager.loadZoneAndAct(zone, act);
+            // Consume the title card request since we don't want a title card
+            levelManager.consumeTitleCardRequest();
+        } catch (IOException e) {
+            LOGGER.severe("Failed to load credits demo zone " + zone + " act " + act + ": " + e.getMessage());
+            return;
+        }
+
+        // Suppress HUD during credits demos (ROM: HUD is never drawn during credits)
+        levelManager.setForceHudSuppressed(true);
+
+        // Position the player at the demo start position (ROM uses center coordinates)
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if (mainCode == null) mainCode = "sonic";
+        var sprite = spriteManager.getSprite(mainCode);
+        if (sprite instanceof AbstractPlayableSprite player) {
+            // ROM: EndingDemoLoad clears rings, time, score, lamppost (sonic.asm:4148-4152)
+            player.setRingCount(0);
+            player.setXSpeed((short) 0);
+            player.setYSpeed((short) 0);
+            player.setGSpeed((short) 0);
+            player.setControlLocked(true);
+            player.setForcedInputMask(0);
+
+            if (creditsManager.isSlzDemo()) {
+                // SLZ demo (credit 4): use lamppost position, not startpos
+                // ROM: EndDemo_LampVar (sonic.asm:4176-4187) — lamppost is pre-loaded
+                // so the level code uses lamppost position instead of startpos
+                player.setCentreX((short) Sonic1CreditsDemoData.SLZ_LAMP_X);
+                player.setCentreY((short) Sonic1CreditsDemoData.SLZ_LAMP_Y);
+                player.setRingCount(Sonic1CreditsDemoData.SLZ_LAMP_RINGS);
+                camera.setX((short) Sonic1CreditsDemoData.SLZ_LAMP_CAMERA_X);
+                camera.setY((short) Sonic1CreditsDemoData.SLZ_LAMP_CAMERA_Y);
+                camera.setMaxY((short) Sonic1CreditsDemoData.SLZ_LAMP_BOTTOM_BND);
+            } else {
+                // All other demos: use startpos (center coordinates)
+                player.setCentreX((short) startX);
+                player.setCentreY((short) startY);
+            }
+        }
+
+        // Snap camera to player position (unless SLZ which has explicit camera coords)
+        if (!creditsManager.isSlzDemo()) {
+            camera.updatePosition(true);
+        }
+
+        // Switch to CREDITS_DEMO mode
+        GameMode oldMode = currentGameMode;
+        currentGameMode = GameMode.CREDITS_DEMO;
+
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+
+        // Notify credits manager that zone is loaded
+        creditsManager.onDemoZoneLoaded();
+
+        LOGGER.info("Loaded credits demo zone " + zone + " act " + act +
+                " at (" + startX + ", " + startY + ")");
+    }
+
+    /**
+     * Returns from CREDITS_DEMO to CREDITS_TEXT for the next credit.
+     */
+    private void returnToCreditsText() {
+        // Unlock player control and clear HUD suppression
+        levelManager.setForceHudSuppressed(false);
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if (mainCode == null) mainCode = "sonic";
+        var sprite = spriteManager.getSprite(mainCode);
+        if (sprite instanceof AbstractPlayableSprite player) {
+            player.setControlLocked(false);
+            player.clearForcedInputMask();
+        }
+
+        GameMode oldMode = currentGameMode;
+        currentGameMode = GameMode.CREDITS_TEXT;
+
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+
+        creditsManager.onReturnToText();
+
+        LOGGER.info("Returned to credits text for credit " + creditsManager.getCreditsNum());
+    }
+
+    /**
+     * Exits the credits sequence and returns to the title screen.
+     */
+    private void exitCreditsToTitleScreen() {
+        LOGGER.info("Credits complete, returning to title screen");
+
+        // Clean up
+        levelManager.setForceHudSuppressed(false);
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if (mainCode == null) mainCode = "sonic";
+        var sprite = spriteManager.getSprite(mainCode);
+        if (sprite instanceof AbstractPlayableSprite player) {
+            player.setControlLocked(false);
+            player.clearForcedInputMask();
+        }
+
+        creditsManager = null;
+
+        // Fade out credits music
+        AudioManager.getInstance().fadeOutMusic();
+
+        FadeManager fadeManager = FadeManager.getInstance();
+        if (!fadeManager.isActive()) {
+            fadeManager.startFadeToBlack(() -> {
+                doExitCreditsToTitleScreen();
+            });
+        } else {
+            // Already faded (from "PRESENTED BY SEGA" text fadeout)
+            doExitCreditsToTitleScreen();
+        }
+    }
+
+    /**
+     * Actually transitions to the title screen after fade completes.
+     */
+    private void doExitCreditsToTitleScreen() {
+        GameMode oldMode = currentGameMode;
+        currentGameMode = GameMode.TITLE_SCREEN;
+
+        camera.setX((short) 0);
+        camera.setY((short) 0);
+
+        TitleScreenProvider titleScreen = getTitleScreenProviderLazy();
+        if (titleScreen != null) {
+            titleScreen.initialize();
+        }
+
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+
+        FadeManager.getInstance().startFadeFromBlack(null);
+        LOGGER.info("Credits -> Title Screen");
+    }
+
+    /**
+     * Gets the credits manager (for rendering).
+     */
+    public Sonic1CreditsManager getCreditsManager() {
+        return creditsManager;
     }
 }
 

@@ -125,6 +125,14 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
         return instance;
     }
 
+    /**
+     * Returns the title screen data loader. Used by the credits text renderer
+     * to access the credit text font patterns loaded during title screen init.
+     */
+    public Sonic1TitleScreenDataLoader getDataLoader() {
+        return dataLoader;
+    }
+
     @Override
     public void initialize() {
         LOGGER.info("Initializing Sonic 1 Title Screen");

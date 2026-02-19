@@ -10,6 +10,8 @@ import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
 import uk.co.jamesj999.sonic.level.objects.TouchResponseProvider;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
+import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationScript;
+import uk.co.jamesj999.sonic.sprites.animation.SpriteAnimationSet;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -30,6 +32,7 @@ import java.util.List;
 public class FZPlasmaBall extends AbstractObjectInstance implements TouchResponseProvider {
 
     private static final int BOSS_FZ_Y = Sonic1Constants.BOSS_FZ_Y;
+    private static final SpriteAnimationSet PLASMA_ANIMATIONS = Sonic1BossAnimations.getPlasmaAnimations();
 
     private final LevelManager levelManager;
     private final FZPlasmaLauncher launcher;
@@ -48,9 +51,12 @@ public class FZPlasmaBall extends AbstractObjectInstance implements TouchRespons
     private int posX;       // Pixel X (posXFixed >> 16)
     private int posY;       // Pixel Y (posYFixed >> 16)
 
-    // Animation
-    private int animFrame;
-    private int animTimer;
+    // Animation state (AnimateSprite-style)
+    private int animId;          // obAnim
+    private int animPrevId;      // obPrevAni
+    private int animScriptFrame; // obAniFrame
+    private int animTimeFrame;   // obTimeFrame
+    private int animFrame;       // obFrame (mapping frame)
     private boolean hasCollision; // Whether touch response is active
 
     public FZPlasmaBall(FZPlasmaLauncher launcher, LevelManager levelManager,
@@ -68,8 +74,11 @@ public class FZPlasmaBall extends AbstractObjectInstance implements TouchRespons
         this.xVel = 0;
         this.yVel = 0;
         this.lifetime = 0;
+        this.animId = Sonic1BossAnimations.ANIM_PLASMA_FULL;
+        this.animPrevId = -1;
+        this.animScriptFrame = 0;
+        this.animTimeFrame = 0;
         this.animFrame = 0;
-        this.animTimer = 0;
         this.hasCollision = false;
     }
 
@@ -119,7 +128,7 @@ public class FZPlasmaBall extends AbstractObjectInstance implements TouchRespons
         }
 
         // ROM: move.b #0,obAnim — full plasma animation
-        animFrame = 0;
+        animId = Sonic1BossAnimations.ANIM_PLASMA_FULL;
 
         // ROM: subq.w #1,obSubtype — decrement lifetime
         lifetime--;
@@ -136,6 +145,7 @@ public class FZPlasmaBall extends AbstractObjectInstance implements TouchRespons
     private void startChase(AbstractPlayableSprite player) {
         phase = 4;
         hasCollision = true; // ROM: move.b #$9A,obColType
+        animId = Sonic1BossAnimations.ANIM_PLASMA_SHORT; // ROM: move.b #1,obAnim
 
         // ROM: Calculate chase velocity
         if (player != null) {
@@ -181,15 +191,60 @@ public class FZPlasmaBall extends AbstractObjectInstance implements TouchRespons
     }
 
     private void updateAnimation() {
-        animTimer++;
-        // Simple frame cycling — the ROM uses Ani_Plasma which has complex sequences
-        // Simplified to cycle through key frames
-        if (phase <= 2) {
-            // Full plasma animation (anim 0): cycles through fuzzy/white frames
-            animFrame = ((animTimer >> 1) % 6); // Cycle 0-5
-        } else {
-            // Short plasma animation (anim 1): smaller frames
-            animFrame = 6 + ((animTimer >> 1) % 2); // Frames 6-7
+        SpriteAnimationScript script = PLASMA_ANIMATIONS.getScript(animId);
+        if (script == null || script.frames().isEmpty()) {
+            return;
+        }
+
+        if (animId != animPrevId) {
+            // ROM: animation changed -> reset obAniFrame/obTimeFrame
+            animPrevId = animId;
+            animScriptFrame = 0;
+            animTimeFrame = 0;
+        }
+
+        // ROM: subq.b #1,obTimeFrame(a0) / bpl.s Anim_Wait
+        animTimeFrame--;
+        if (animTimeFrame >= 0) {
+            return;
+        }
+
+        animTimeFrame = script.delay() & 0xFF;
+
+        if (animScriptFrame < 0 || animScriptFrame >= script.frames().size()) {
+            animScriptFrame = 0;
+        }
+
+        // ROM: andi.b #$1F,d0 before writing obFrame
+        animFrame = script.frames().get(animScriptFrame) & 0x1F;
+        animScriptFrame++;
+
+        if (animScriptFrame < script.frames().size()) {
+            return;
+        }
+
+        switch (script.endAction()) {
+            case HOLD -> animScriptFrame = script.frames().size() - 1;
+            case LOOP_BACK -> {
+                int loopBack = script.endParam();
+                if (loopBack <= 0) {
+                    animScriptFrame = 0;
+                } else {
+                    int target = script.frames().size() - loopBack;
+                    animScriptFrame = Math.max(target, 0);
+                }
+            }
+            case SWITCH -> {
+                int nextAnim = script.endParam();
+                if (nextAnim == animId) {
+                    animScriptFrame = 0;
+                } else {
+                    animId = nextAnim;
+                    animPrevId = -1;
+                }
+            }
+            case LOOP -> animScriptFrame = 0;
+            default -> animScriptFrame = 0;
         }
     }
 

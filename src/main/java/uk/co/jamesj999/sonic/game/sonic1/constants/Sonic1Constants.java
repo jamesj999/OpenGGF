@@ -525,6 +525,9 @@ public final class Sonic1Constants {
     // ---- Final Zone boss art & constants ----
     // Nem_FzBoss: Nemesis-compressed FZ boss art (cylinders, plasma, cockpit)
     public static final int ART_NEM_FZ_BOSS_ADDR = 0x5ECFA;
+    // Nem_FzEggman: Nemesis-compressed "Eggman after FZ fight" art (legs + damaged ship)
+    // Verified by RomOffsetFinder --game s1 search Nem_FzEggman
+    public static final int ART_NEM_FZ_EGGMAN_ADDR = 0x5F462;
     // FZ boss VRAM tile addresses (from Constants.asm)
     public static final int ART_TILE_FZ_BOSS             = 0x300;
     public static final int ART_TILE_FZ_EGGMAN_FLEEING   = 0x3A0;
@@ -533,6 +536,14 @@ public final class Sonic1Constants {
     public static final int BOSS_FZ_X   = 0x2450;
     public static final int BOSS_FZ_Y   = 0x510;
     public static final int BOSS_FZ_END = BOSS_FZ_X + 0x2B0; // 0x2700
+
+    // ---- Ending sequence art (Nemesis compressed) ----
+    // Nem_EndSonic: Ending Sonic sprite art (4574 bytes, verified by RomOffsetFinder)
+    public static final int ART_NEM_END_SONIC_ADDR = 0x5FD00;
+    // Nem_EndEm: Ending chaos emeralds art (509 bytes, verified by RomOffsetFinder)
+    public static final int ART_NEM_END_EMERALDS_ADDR = 0x5FB02;
+    // Nem_EndStH: Ending "SONIC THE HEDGEHOG" logo art (647 bytes, verified by RomOffsetFinder)
+    public static final int ART_NEM_END_STH_ADDR = 0x62638;
 
     // Nem_Sbz2Eggman: Eggman without vehicle (SBZ2/FZ) — loaded at ArtTile_FZ_Eggman_No_Vehicle
     // PLC: Nem_Sbz2Eggman -> ArtTile_FZ_Eggman_No_Vehicle ($470) — used by Map_SEgg

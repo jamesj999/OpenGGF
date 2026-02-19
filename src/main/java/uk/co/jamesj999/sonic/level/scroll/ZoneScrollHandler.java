@@ -45,8 +45,24 @@ public interface ZoneScrollHandler {
     /**
      * Get maximum BG scroll offset relative to FG for this frame.
      * Used by LevelManager to determine tile loading bounds.
-     * 
+     *
      * @return Maximum (BG - FG) scroll offset
      */
     int getMaxScrollOffset();
+
+    /**
+     * Get the main BG camera X position (v_bgscreenposx equivalent).
+     * Used by LevelManager to determine which region of a wide BG map
+     * to render into the 512px VDP nametable tilemap.
+     *
+     * <p>Zones with BG maps wider than 512px that do NOT tile at 512px
+     * (e.g., SBZ with 15360px BG) must override this to return the
+     * current BG camera X so the tilemap contains the correct tiles.
+     *
+     * @return BG camera X in pixels, or Integer.MIN_VALUE if the BG
+     *         tiles naturally at 512px (default, no offset needed)
+     */
+    default int getBgCameraX() {
+        return Integer.MIN_VALUE;
+    }
 }

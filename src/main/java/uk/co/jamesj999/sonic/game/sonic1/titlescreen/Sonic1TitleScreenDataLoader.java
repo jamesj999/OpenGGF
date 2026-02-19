@@ -51,7 +51,7 @@ public class Sonic1TitleScreenDataLoader {
     static final int SPRITE_PATTERN_BASE = 0xA0000;
 
     /** Pattern base ID for credit text font. */
-    static final int CREDIT_TEXT_PATTERN_BASE = 0xB0000;
+    public static final int CREDIT_TEXT_PATTERN_BASE = 0xB0000;
 
     /** Pattern base ID for TM symbol. */
     static final int TM_PATTERN_BASE = 0xC0000;
