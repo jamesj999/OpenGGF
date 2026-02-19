@@ -136,7 +136,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
 
         // ROM cull path in loc_21F38/loc_21F52.
         int coarse = (currentX & 0xFF80) - Camera.getInstance().getX();
-        if (coarse < 0 || coarse > 0x280) {
+        if ((coarse < 0 || coarse > 0x280) && !AizVineHandleLogic.anyGrabbed(handle)) {
             setDestroyed(true);
         }
     }
