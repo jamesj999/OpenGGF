@@ -5,8 +5,8 @@ Generated: 2026-02-13 14:52:02
 ## Summary
 
 - **Total unique objects found:** 80
-- **Implemented:** 79 (98.8%)
-- **Unimplemented:** 1 (1.3%)
+- **Implemented:** 80 (100.0%)
+- **Unimplemented:** 0 (0.0%)
 
 ## Implemented Objects
 
@@ -29,6 +29,7 @@ Generated: 2026-02-13 14:52:02
 | 0x22 | BuzzBomber | 78 | GHZ1, GHZ2, GHZ3, MZ1, MZ2, MZ3, SYZ1, SYZ2, SYZ3 |
 | 0x25 | Ring | 830 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2, SBZ3 |
 | 0x26 | Monitor | 206 | GHZ1, GHZ2, GHZ3, LZ1, LZ2, LZ3, MZ1, MZ2, MZ3, SLZ1, SLZ2, SLZ3, SYZ1, SYZ2, SYZ3, SBZ1, SBZ2, SBZ3 |
+| 0x28 | Animals | 57 | FZ1 |
 | 0x2A | SmallDoor | 14 | SBZ1, SBZ2 |
 | 0x2B | Chopper | 14 | GHZ1, GHZ2 |
 | 0x2C | Jaws | 34 | LZ1, LZ2, LZ3, SBZ3 |
@@ -96,7 +97,6 @@ Generated: 2026-02-13 14:52:02
 
 | ID | Category | Name | Total Uses | Zones |
 |----|----------|------|------------|-------|
-| 0x28 | Object | S1_Obj_28 | 57 | FZ1 |
 
 ---
 
@@ -627,16 +627,16 @@ Total: 195 objects | Implemented: 18 | Unimplemented: 0
 
 #### Act 1
 
-Total: 57 objects | Implemented: 0 | Unimplemented: 1
+Total: 57 objects | Implemented: 1 | Unimplemented: 0
 
 **Objects:**
-- [ ] 0x28 S1_Obj_28 (x57) [10 subtypes]
+- [x] 0x28 Animals (x57) [10 subtypes]
 
 ### Ending Sequence (Post-FZ, Scripted)
 
 These are spawned by `GM_Ending` script flow (not standard `ObjPos_Index` placement), so they are tracked separately from the usage totals above.
 
-**Ending objects to implement:**
-- [ ] 0x87 EndingSequenceSonic (`_incObj/87 Ending Sequence Sonic.asm`)
-- [ ] 0x88 EndingSequenceEmeralds (`_incObj/88 Ending Sequence Emeralds.asm`)
-- [ ] 0x89 EndingSequenceSTH (`_incObj/89 Ending Sequence STH.asm`)
+**Ending objects:**
+- [x] 0x87 EndingSequenceSonic (`_incObj/87 Ending Sequence Sonic.asm`)
+- [x] 0x88 EndingSequenceEmeralds (`_incObj/88 Ending Sequence Emeralds.asm`)
+- [x] 0x89 EndingSequenceSTH (`_incObj/89 Ending Sequence STH.asm`)

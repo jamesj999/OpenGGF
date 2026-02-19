@@ -31,6 +31,7 @@ public final class Sonic1ObjectIds {
     public static final int MISSILE_DISSOLVE = 0x24;
     public static final int RING            = 0x25;
     public static final int MONITOR         = 0x26;
+    public static final int ANIMALS         = 0x28; // id_Animals - escaped animals (badnik/capsule + ending)
     public static final int SBZ_SMALL_DOOR  = 0x2A; // id_AutoDoor - small vertical door (SBZ)
     public static final int CHOPPER         = 0x2B;
     public static final int JAWS            = 0x2C;
@@ -108,4 +109,7 @@ public final class Sonic1ObjectIds {
     public static final int EGGMAN_CYLINDER = 0x84; // id_EggmanCylinder - FZ crushing cylinders
     public static final int FZ_BOSS         = 0x85; // id_BossFinal - Final Zone boss
     public static final int BOSS_PLASMA     = 0x86; // id_BossPlasma - FZ plasma ball launcher
+    public static final int END_SONIC       = 0x87; // id_EndSonic - Ending sequence Sonic
+    public static final int END_CHAOS       = 0x88; // id_EndChaos - Ending sequence chaos emeralds
+    public static final int END_STH         = 0x89; // id_EndSTH - Ending sequence "SONIC THE HEDGEHOG" text
 }

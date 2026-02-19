@@ -11,6 +11,7 @@ import uk.co.jamesj999.sonic.level.objects.SolidObjectProvider;
 import uk.co.jamesj999.sonic.level.objects.boss.AbstractBossChild;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
+import uk.co.jamesj999.sonic.game.sonic2.objects.BossExplosionObjectInstance;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +52,7 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
 
     // Balls spawned tracking
     private final List<FZPlasmaBall> activeBalls = new ArrayList<>();
+    private boolean explodedOnDefeat;
 
     public FZPlasmaLauncher(Sonic1FZBossInstance parent, LevelManager levelManager) {
         super(parent, "FZ Plasma Launcher", 3, Sonic1ObjectIds.BOSS_PLASMA);
@@ -62,6 +64,7 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
         this.activeBallCount = 0;
         this.animFrame = 0;
         this.animTimer = 0;
+        this.explodedOnDefeat = false;
     }
 
     /**
@@ -98,6 +101,14 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
     private void updateGenerator(Sonic1FZBossInstance fzParent) {
         // ROM: cmpi.b #6,objoff_34(a1) — if boss defeated, become explosion
         if (fzParent.isBossDefeated()) {
+            if (!explodedOnDefeat) {
+                ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+                if (renderManager != null && levelManager.getObjectManager() != null) {
+                    levelManager.getObjectManager().addDynamicObject(
+                            new BossExplosionObjectInstance(currentX, currentY, renderManager));
+                }
+                explodedOnDefeat = true;
+            }
             setDestroyed(true);
             return;
         }

@@ -20,10 +20,12 @@ import static uk.co.jamesj999.sonic.level.scroll.M68KMath.*;
  *   <li>H-scroll: uniform (all 224 lines same)</li>
  * </ul>
  *
- * BgScroll_SBZ initial setup (16.16 fixed point):
+ * BgScroll_SBZ initial setup (from LevelSizeLoad &amp; BgScrollSpeed.asm):
  * <pre>
- *   bgscreenposy.l = (word)(screenposy &lt;&lt; 4) &lt;&lt; 1
- *   integer part = high word of result
+ *   asl.l  #4,d0          ; d0 = cameraY * 16 (long shift)
+ *   asl.l  #1,d0          ; d0 = cameraY * 32
+ *   asr.l  #8,d0          ; d0 = cameraY * 32 / 256
+ *   move.w d0,bgscreenposy
  * </pre>
  */
 public class SwScrlFz implements ZoneScrollHandler {
@@ -41,16 +43,12 @@ public class SwScrlFz implements ZoneScrollHandler {
     private boolean initialized = false;
 
     public void init(int cameraX, int cameraY) {
-        // BgScrollSpeed default: bgscreenposx = screenposx (word write to high word)
+        // BgScrollSpeed default: bgscreenposx = screenposx
         bgXPos = (long) cameraX << 16;
-        // BgScroll_SBZ in 68k (16.16 fixed point):
-        //   move.w screenposy,d0  ; d0.w = cameraY, upper word = 0
-        //   asl.w  #4,d0          ; word-only shift left 4
-        //   asl.l  #1,d0          ; long shift left 1
-        //   move.l d0,bgscreenposy ; store full 32-bit as 16.16
-        // Integer part = high word of result (NOT cameraY*32/256)
-        int wordShifted = (cameraY << 4) & 0xFFFF;  // asl.w #4
-        bgYPos = ((long) wordShifted) << 1;          // asl.l #1 → 16.16 fixed point
+        // BgScroll_SBZ: asl.l #4,d0; asl.l #1,d0; asr.l #8,d0; move.w d0,bgscreenposy
+        // = cameraY * 32 / 256 (12.5% of camera Y)
+        int bgYInit = (cameraY * 32) >> 8;
+        bgYPos = (long) bgYInit << 16;
         lastCameraX = cameraX;
         lastCameraY = cameraY;
         initialized = true;
@@ -112,5 +110,10 @@ public class SwScrlFz implements ZoneScrollHandler {
     @Override
     public int getMaxScrollOffset() {
         return maxScrollOffset;
+    }
+
+    @Override
+    public int getBgCameraX() {
+        return (int) (bgXPos >> 16);
     }
 }

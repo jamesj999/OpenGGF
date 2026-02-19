@@ -2,6 +2,9 @@ package uk.co.jamesj999.sonic.game.sonic1.events;
 
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic1.constants.Sonic1AnimationIds;
+import uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1EndingSonicObjectInstance;
+import uk.co.jamesj999.sonic.level.LevelManager;
+import uk.co.jamesj999.sonic.level.objects.ObjectManager;
 import uk.co.jamesj999.sonic.physics.Direction;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
@@ -9,9 +12,10 @@ import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
  * Sonic 1 ending sequence bootstrap events.
  * ROM: End_MoveSonic in sonic.asm (GM_Ending main loop).
  *
- * <p>This implements the transition choreography right after entering id_EndZ:
- * force Sonic to run left, switch to right at X < 0x90, then stop at X >= 0xA0.
- * The later Obj87/Obj88/Obj89 ending object chain is intentionally out of scope.
+ * <p>Implements the transition choreography right after entering id_EndZ:
+ * force Sonic to run left, switch to right at X &lt; 0x90, then stop at X &gt;= 0xA0.
+ * Once stopped, hides the player sprite and spawns Object 87 (EndSonic) which
+ * manages the remainder of the ending cutscene (emeralds, STH logo, credits).
  */
 class Sonic1EndingEvents extends Sonic1ZoneEvents {
     private static final int END_MOVE_RUN_LEFT = 0;
@@ -20,6 +24,7 @@ class Sonic1EndingEvents extends Sonic1ZoneEvents {
     private static final int END_MOVE_DONE = 6;
 
     private boolean bootstrapApplied;
+    private boolean endingSonicSpawned;
 
     Sonic1EndingEvents(Camera camera) {
         super(camera);
@@ -29,6 +34,7 @@ class Sonic1EndingEvents extends Sonic1ZoneEvents {
     void init() {
         super.init();
         bootstrapApplied = false;
+        endingSonicSpawned = false;
     }
 
     @Override
@@ -46,7 +52,8 @@ class Sonic1EndingEvents extends Sonic1ZoneEvents {
         switch (eventRoutine) {
             case END_MOVE_RUN_LEFT -> updateRunLeft(player);
             case END_MOVE_RUN_RIGHT -> updateRunRight(player);
-            case END_MOVE_STOP, END_MOVE_DONE -> updateStopped(player);
+            case END_MOVE_STOP -> updateStop(player);
+            case END_MOVE_DONE -> { }
             default -> { }
         }
     }
@@ -88,16 +95,34 @@ class Sonic1EndingEvents extends Sonic1ZoneEvents {
         player.setAnimationFrameIndex(0);
     }
 
-    private void updateStopped(AbstractPlayableSprite player) {
-        // Hold at the ROM handoff point until Obj87 parity is implemented.
+    /**
+     * ROM End_MoveSonic state 4 → 6: Transform player into Obj87 (EndSonic).
+     * In the ROM, this overwrites the player's object ID. In the engine, we
+     * hide the player and spawn a separate EndingSonic object at the same position.
+     */
+    private void updateStop(AbstractPlayableSprite player) {
         player.setCentreX((short) 0x00A0);
         player.setGSpeed((short) 0);
         player.setXSpeed((short) 0);
         player.clearForcedInputMask();
         player.setControlLocked(true);
 
-        if (eventRoutine == END_MOVE_STOP) {
-            eventRoutine = END_MOVE_DONE;
+        eventRoutine = END_MOVE_DONE;
+
+        // ROM: move.b #id_EndSonic,obID+v_player / clr.b obRoutine+v_player
+        // Hide the player sprite and spawn the ending Sonic object.
+        if (!endingSonicSpawned) {
+            endingSonicSpawned = true;
+            player.setHidden(true);
+
+            int sonicX = player.getCentreX() & 0xFFFF;
+            int sonicY = player.getCentreY() & 0xFFFF;
+            Sonic1EndingSonicObjectInstance endSonic =
+                    new Sonic1EndingSonicObjectInstance(sonicX, sonicY);
+            ObjectManager om = LevelManager.getInstance().getObjectManager();
+            if (om != null) {
+                om.addDynamicObject(endSonic);
+            }
         }
     }
 }

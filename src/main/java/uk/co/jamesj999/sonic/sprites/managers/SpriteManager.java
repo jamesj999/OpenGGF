@@ -4,6 +4,7 @@ import uk.co.jamesj999.sonic.Control.InputHandler;
 import uk.co.jamesj999.sonic.configuration.SonicConfiguration;
 import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.game.CollisionModel;
+import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.PhysicsFeatureSet;
 import uk.co.jamesj999.sonic.game.sonic3k.objects.AizPlaneIntroInstance;
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
@@ -58,6 +59,7 @@ public class SpriteManager {
 	private int testKey;
 	private int debugModeKey;
 	private int superSonicDebugKey;
+	private int giveEmeraldsKey;
 	private int frameCounter;
 
 	private SpriteManager() {
@@ -74,6 +76,7 @@ public class SpriteManager {
 		testKey = configService.getInt(SonicConfiguration.TEST);
 		debugModeKey = configService.getInt(SonicConfiguration.DEBUG_MODE_KEY);
 		superSonicDebugKey = configService.getInt(SonicConfiguration.SUPER_SONIC_DEBUG_KEY);
+		giveEmeraldsKey = configService.getInt(SonicConfiguration.GIVE_EMERALDS_KEY);
 	}
 
 	/**
@@ -161,6 +164,17 @@ public class SpriteManager {
 		boolean slowDown = handler.isKeyDown(KeyEvent.VK_CONTROL);
 		boolean debugModePressed = handler.isKeyPressed(debugModeKey);
 		boolean superSonicDebugPressed = handler.isKeyPressed(superSonicDebugKey);
+		boolean giveEmeraldsPressed = handler.isKeyPressed(giveEmeraldsKey);
+
+		// Give all chaos emeralds (debug)
+		if (giveEmeraldsPressed) {
+			var gsm = GameServices.gameState();
+			if (!gsm.hasAllEmeralds()) {
+				for (int i = 0; i < gsm.getChaosEmeraldCount(); i++) {
+					gsm.markEmeraldCollected(i);
+				}
+			}
+		}
 
 		LevelManager levelManager = getLevelManager();
 		for (Sprite sprite : sprites) {

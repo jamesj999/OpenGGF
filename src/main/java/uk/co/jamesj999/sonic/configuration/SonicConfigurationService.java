@@ -201,6 +201,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.S3K_SKIP_INTROS, false);
 		putDefault(SonicConfiguration.DEFAULT_ROM, "s2");
 		putDefault(SonicConfiguration.SUPER_SONIC_DEBUG_KEY, GLFW_KEY_U);
+		putDefault(SonicConfiguration.GIVE_EMERALDS_KEY, GLFW_KEY_E);
 	}
 
 	private void putDefault(SonicConfiguration key, Object value) {

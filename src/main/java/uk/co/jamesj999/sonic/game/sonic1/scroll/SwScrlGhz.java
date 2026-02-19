@@ -44,11 +44,15 @@ public class SwScrlGhz implements ZoneScrollHandler {
 
     /**
      * Initialize BG camera positions.
-     * REV01 BgScroll_GHZ clears all GHZ BG position accumulators.
+     * BgScroll_GHZ (JP1) clears bgscreenposx, bgscreenposy, and cloud counters,
+     * but bg2screenposx and bg3screenposx retain their values from BgScrollSpeed
+     * (= cameraX).
      */
     public void init(int cameraX) {
-        bg2XPos = 0;
-        bg3XPos = 0;
+        // BgScrollSpeed sets bg2screenposx = bg3screenposx = cameraX.
+        // BgScroll_GHZ does NOT clear these, only bgscreenposx.
+        bg2XPos = (long) cameraX << 16;
+        bg3XPos = (long) cameraX << 16;
         cloudLayer1Counter = 0;
         cloudLayer2Counter = 0;
         cloudLayer3Counter = 0;

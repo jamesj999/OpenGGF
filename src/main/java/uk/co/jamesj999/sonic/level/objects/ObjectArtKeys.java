@@ -31,6 +31,12 @@ public final class ObjectArtKeys {
     public static final String CHECKPOINT_STAR = "checkpoint_star";
     public static final String SIGNPOST = "signpost";
     public static final String ANIMAL = "animal";
+    public static final String ANIMAL_ENDING = "animal_ending";
+
+    // Ending sequence objects (S1)
+    public static final String END_SONIC = "end_sonic";
+    public static final String END_EMERALDS = "end_emeralds";
+    public static final String END_STH = "end_sth";
     public static final String POINTS = "points";
     public static final String BRIDGE = "bridge";
     public static final String ROCK = "rock";

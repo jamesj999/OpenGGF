@@ -138,6 +138,9 @@ public class LevelManager {
     private int backgroundTilemapWidthTiles;
     private int backgroundTilemapHeightTiles;
     private boolean backgroundTilemapDirty = true;
+    // X offset (in pixels, 512-aligned) for BG tilemap building.
+    // Wide BG maps (> 512px) need tiles from the correct region, not always from position 0.
+    private int bgTilemapBaseX = 0;
 
     private byte[] foregroundTilemapData;
     private int foregroundTilemapWidthTiles;
@@ -168,6 +171,8 @@ public class LevelManager {
     private boolean nextActRequested;
     private boolean nextZoneRequested;
     private boolean specificZoneActRequested;
+    private boolean creditsRequested;
+    private boolean forceHudSuppressed;
 
     // ROM: LZ3/SBZ2 vertical wrapping — FG layer wraps Y instead of clamping
     private boolean verticalWrapEnabled = false;
@@ -257,6 +262,7 @@ public class LevelManager {
             blockPixelSize = level.getBlockPixelSize();
             chunksPerBlockSide = level.getChunksPerBlockSide();
         backgroundTilemapDirty = true;
+        bgTilemapBaseX = 0;
         foregroundTilemapDirty = true;
         patternLookupDirty = true;
         multiAtlasWarningLogged = false;
@@ -713,8 +719,9 @@ public class LevelManager {
     }
 
     private boolean isHudSuppressed() {
-        return zoneFeatureProvider != null
-                && zoneFeatureProvider.shouldSuppressHud(currentZone, currentAct);
+        return forceHudSuppressed
+                || (zoneFeatureProvider != null
+                    && zoneFeatureProvider.shouldSuppressHud(currentZone, currentAct));
     }
 
     private void initAnimatedPatterns() {
@@ -1275,11 +1282,36 @@ public class LevelManager {
                 backdropColor.gFloat(),
                 backdropColor.bFloat());
 
+        int[] hScrollData = parallaxManager.getHScrollForShader();
+
+        // For zones with BG maps wider than 512px (e.g., SBZ/FZ with 15360px BG),
+        // the 512px tilemap must contain tiles from the correct BG map region.
+        // Use the scroll handler's BG camera X (v_bgscreenposx equivalent) to
+        // determine which tiles to load, then pass the offset to the shader so
+        // it can correctly index into the tilemap via fboWorldOffsetX.
+        int bgCameraX = parallaxManager.getBgCameraX();
+        if (bgCameraX != Integer.MIN_VALUE
+                && zoneFeatureProvider != null && zoneFeatureProvider.bgWrapsHorizontally()) {
+            // 16px-aligned base offset. The tilemap is 512px wide, viewport is 320px.
+            // This leaves 192px of headroom for the viewport within the tilemap.
+            int newBase = Math.floorDiv(bgCameraX, 16) * 16;
+            if (newBase != bgTilemapBaseX) {
+                bgTilemapBaseX = newBase;
+                backgroundTilemapDirty = true;
+            }
+        } else if (bgTilemapBaseX != 0) {
+            // Zone doesn't need offset - reset to 0 if previously set
+            bgTilemapBaseX = 0;
+            backgroundTilemapDirty = true;
+        }
+
         ensureBackgroundTilemapData();
 
-        int[] hScrollData = parallaxManager.getHScrollForShader();
         int bgPeriodWidthPixels = backgroundTilemapWidthTiles * Pattern.PATTERN_WIDTH;
-        int shaderScrollMidpoint = 0;
+        // Pass bgTilemapBaseX to the shader so it offsets worldX before wrapping.
+        // Shader: fboWorldOffsetX = -ScrollMidpoint - ExtraBuffer
+        // We want fboWorldOffsetX = bgTilemapBaseX, so ScrollMidpoint = -bgTilemapBaseX.
+        int shaderScrollMidpoint = -bgTilemapBaseX;
         int shaderExtraBuffer = 0;
         float bgTilemapWorldOffsetX = 0.0f;
         boolean perLineScrollActive = false;
@@ -1783,6 +1815,13 @@ public class LevelManager {
                 && zoneFeatureProvider.bgWrapsHorizontally();
         int levelWidth = bgWrap ? VDP_BG_PLANE_WIDTH_PX : layerLevelWidth;
 
+        // For BG layers wider than 512px (e.g., SBZ 15360px), the 64-tile tilemap
+        // must contain tiles from the correct BG map region, not always from position 0.
+        // bgTilemapBaseX is the 16px-aligned offset into the BG map (matching the
+        // BG camera X from the scroll handler). The shader uses this same offset
+        // (via ScrollMidpoint → fboWorldOffsetX) to index into the tilemap correctly.
+        int bgXQueryOffset = (layerIndex == 1 && bgWrap) ? bgTilemapBaseX : 0;
+
         int widthTiles = levelWidth / Pattern.PATTERN_WIDTH;
         int heightTiles = levelHeight / Pattern.PATTERN_HEIGHT;
         byte[] data = new byte[widthTiles * heightTiles * 4];
@@ -1795,13 +1834,16 @@ public class LevelManager {
             for (int x = 0; x < levelWidth; x += chunkWidth) {
                 int chunkX = x / chunkWidth;
 
-                Block block = getBlockAtPosition(layerIndex, x, y);
+                // Query the BG map at the offset position (wrapping handled by getBlockAtPosition)
+                int queryX = x + bgXQueryOffset;
+                Block block = getBlockAtPosition(layerIndex, queryX, y);
                 if (block == null) {
                     writeEmptyChunk(data, widthTiles, heightTiles, chunkX, chunkY);
                     continue;
                 }
 
-                int xBlockBit = (x % blockPixelSize) / chunkWidth;
+                // xBlockBit uses the query position to select the correct chunk within the block.
+                int xBlockBit = (queryX % blockPixelSize) / chunkWidth;
                 int yBlockBit = (y % blockPixelSize) / chunkHeight;
                 ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
                 int chunkIndex = chunkDesc.getChunkIndex();
@@ -3243,6 +3285,7 @@ public class LevelManager {
         currentAct = 0;
         frameCounter = 0;
         backgroundTilemapDirty = true;
+        bgTilemapBaseX = 0;
         foregroundTilemapDirty = true;
         patternLookupDirty = true;
         specialStageRequestedFromCheckpoint = false;
@@ -3447,6 +3490,33 @@ public class LevelManager {
      */
     public boolean isLevelInactiveForTransition() {
         return levelInactiveForTransition;
+    }
+
+    /**
+     * Request transition to ending credits sequence.
+     * Called by Sonic1EndingSTHObjectInstance after the STH logo timer expires.
+     */
+    public void requestCreditsTransition() {
+        this.creditsRequested = true;
+    }
+
+    /**
+     * Check and consume credits transition request.
+     *
+     * @return true if credits were requested
+     */
+    public boolean consumeCreditsRequest() {
+        boolean requested = creditsRequested;
+        creditsRequested = false;
+        return requested;
+    }
+
+    /**
+     * Force-suppress HUD rendering. Used during credits demo playback
+     * where the HUD should not appear regardless of zone settings.
+     */
+    public void setForceHudSuppressed(boolean suppressed) {
+        this.forceHudSuppressed = suppressed;
     }
 
     /**
