@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.*;
@@ -152,12 +153,19 @@ public class MasterTitleScreen {
             cloudSmallWidth = PngTextureLoader.getLastWidth();
             cloudSmallHeight = PngTextureLoader.getLastHeight();
 
-            // Create cloud sprites at various positions and speeds
-            clouds.add(new CloudSprite(cloudLargeTextureId, 20, 95, 0.3f, cloudLargeWidth, cloudLargeHeight));
-            clouds.add(new CloudSprite(cloudSmallTextureId, 180, 80, 0.5f, cloudSmallWidth, cloudSmallHeight));
-            clouds.add(new CloudSprite(cloudLargeTextureId, 260, 110, 0.2f, cloudLargeWidth, cloudLargeHeight));
-            clouds.add(new CloudSprite(cloudSmallTextureId, 80, 120, 0.4f, cloudSmallWidth, cloudSmallHeight));
-            clouds.add(new CloudSprite(cloudSmallTextureId, -30, 90, 0.6f, cloudSmallWidth, cloudSmallHeight));
+            // Randomly generate clouds with varied positions and speeds
+            Random rng = new Random();
+            int cloudCount = 5 + rng.nextInt(3); // 5-7 clouds
+            for (int i = 0; i < cloudCount; i++) {
+                boolean large = rng.nextBoolean();
+                int texId = large ? cloudLargeTextureId : cloudSmallTextureId;
+                int cw = large ? cloudLargeWidth : cloudSmallWidth;
+                int ch = large ? cloudLargeHeight : cloudSmallHeight;
+                float x = rng.nextFloat() * (SCREEN_W + cw) - cw;
+                float y = 55 + rng.nextFloat() * 100; // y range 55-155
+                float speed = 0.08f + rng.nextFloat() * 0.4f; // speed 0.08-0.48
+                clouds.add(new CloudSprite(texId, x, y, speed, cw, ch));
+            }
 
             state = State.FADE_IN;
             LOGGER.info("Master title screen initialized");
@@ -287,11 +295,19 @@ public class MasterTitleScreen {
         int scaledEmblemW = (int)(emblemWidth * emblemScale);
         int scaledEmblemH = (int)(emblemHeight * emblemScale);
         float emblemX = (SCREEN_W - scaledEmblemW) / 2f;
-        float emblemGlY = titleGlY - scaledEmblemH + 28;
+        float emblemGlY = titleGlY - scaledEmblemH + 12;
         renderer.drawTexture(emblemTextureId, emblemX, emblemGlY, scaledEmblemW, scaledEmblemH);
 
         // 5. Title text "OpenGGF" (centered, top) - drawn after emblem so it appears in front
         renderer.drawTexture(titleTextId, titleX, titleGlY, scaledTitleW, scaledTitleH);
+
+        // 6. Subtitle text, right-aligned to title's right edge - drawn after title (no overlap)
+        int titleRightEdge = (int)(titleX + scaledTitleW)-8;
+        int subtitleY = (int)(SCREEN_H - titleGlY) - 6;
+        int line1X = titleRightEdge - font.measureWidth("Open-Source");
+        int line2X = titleRightEdge - font.measureWidth("Sonic Engine");
+        font.drawText("Open-Source", line1X, subtitleY-8, 0.8f, 0.8f, 0.8f, 0.9f);
+        font.drawText("Sonic Engine", line2X, subtitleY + 2, 0.8f, 0.8f, 0.8f, 0.9f);
 
         // 5. Game selection menu at bottom
         drawGameMenu();
