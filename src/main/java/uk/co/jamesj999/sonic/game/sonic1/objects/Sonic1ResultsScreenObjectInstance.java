@@ -317,6 +317,10 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
                     }
                 }
             }
+
+            // Keep transition atomic: once post-results routing is decided,
+            // immediately reveal the next scene instead of persisting HOLD_BLACK.
+            fadeManager.startFadeFromBlack(null);
         });
     }
 
