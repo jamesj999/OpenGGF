@@ -111,8 +111,9 @@ public class TestPhysicsProfile {
     @Test
     public void testStandardModifiers_AccelWaterAndSpeedShoes() {
         PhysicsModifiers m = PhysicsModifiers.STANDARD;
-        // Water halves first (12 -> 6), then shoes double (6 -> 12)
-        assertEquals("Water+shoes accel", 12, m.effectiveAccel((short) 12, true, true));
+        // ROM: water entry replaces speed constants with absolute underwater values;
+        // shoes are irrelevant while submerged (s1:01 Sonic.asm:206-208)
+        assertEquals("Water+shoes accel (water wins)", 6, m.effectiveAccel((short) 12, true, true));
     }
 
     @Test

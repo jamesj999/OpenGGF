@@ -538,15 +538,17 @@ public class Engine {
 
 		glColorMask(true, true, true, true);
 
-		profiler.beginSection("update");
-		update();
-		profiler.endSection("update");
-
-		// Update fade via unified UI render pipeline
+		// Update fade via unified UI render pipeline — process fade state first so
+		// that callbacks (e.g. credits transition flags) are available to step()
+		// in the same frame, preventing 1-frame gaps where the overlay would drop.
 		var uiPipeline = graphicsManager.getUiRenderPipeline();
 		if (uiPipeline != null) {
 			uiPipeline.updateFade();
 		}
+
+		profiler.beginSection("update");
+		update();
+		profiler.endSection("update");
 
 		profiler.beginSection("render");
 		draw();

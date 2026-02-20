@@ -152,6 +152,10 @@ public final class Sonic1CreditsDemoData {
     public static final int LZ_LAMP_CAMERA_X    = 0x0957;
     /** LZ demo camera Y at lamppost. */
     public static final int LZ_LAMP_CAMERA_Y    = 0x05CC;
+    /** LZ demo water height at lamppost. ROM: EndDemo_LampVar dc.w $308 */
+    public static final int LZ_LAMP_WATER_HEIGHT = 0x0308;
+    /** LZ demo water routine at lamppost. ROM: EndDemo_LampVar dc.b 1 (v_wtr_routine) */
+    public static final int LZ_LAMP_WATER_ROUTINE = 1;
 
     /** Text display duration (frames). ROM: move.w #120,(v_generictimer).w */
     public static final int TEXT_DISPLAY_FRAMES = 120;
