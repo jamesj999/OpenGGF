@@ -391,12 +391,39 @@ public class FadeManager {
             holdFrameCount = 0;
             return;
         }
-        state = FadeState.NONE;
 
+        // For "from" fades: clear overlay and transition to NONE
+        if (previousState == FadeState.FADING_FROM_BLACK || previousState == FadeState.FADING_FROM_WHITE) {
+            state = FadeState.NONE;
+            fadeR = 0f;
+            fadeG = 0f;
+            fadeB = 0f;
+            if (onFadeComplete != null) {
+                Runnable callback = onFadeComplete;
+                onFadeComplete = null;
+                callback.run();
+            }
+            return;
+        }
+
+        // For HOLD states (from completed "to" fades):
+        // Execute callback, then persist overlay if callback didn't start a new fade.
+        // On original hardware the palette stays faded until explicitly unfaded.
         if (onFadeComplete != null) {
             Runnable callback = onFadeComplete;
             onFadeComplete = null;
             callback.run();
+
+            // If callback started a new fade, state has already changed
+            if (state != previousState) {
+                return;
+            }
+            // Callback didn't start a new fade — persist overlay indefinitely
+            // until the next startFade*() or cancel() clears it
+            holdDuration = Integer.MAX_VALUE;
+        } else {
+            // No callback — nothing to keep the overlay for, transition to NONE
+            state = FadeState.NONE;
         }
     }
 

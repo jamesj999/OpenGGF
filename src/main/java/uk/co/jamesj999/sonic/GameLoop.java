@@ -31,8 +31,11 @@ import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import uk.co.jamesj999.sonic.timer.TimerManager;
 import uk.co.jamesj999.sonic.graphics.FadeManager;
 
+import uk.co.jamesj999.sonic.game.ZoneFeatureProvider;
+import uk.co.jamesj999.sonic.game.sonic1.Sonic1ZoneFeatureProvider;
 import uk.co.jamesj999.sonic.game.sonic1.credits.Sonic1CreditsDemoData;
 import uk.co.jamesj999.sonic.game.sonic1.credits.Sonic1CreditsManager;
+import uk.co.jamesj999.sonic.level.WaterSystem;
 
 import java.io.IOException;
 import java.util.Comparator;
@@ -1836,6 +1839,21 @@ public class GameLoop {
                 camera.setX((short) Sonic1CreditsDemoData.LZ_LAMP_CAMERA_X);
                 camera.setY((short) Sonic1CreditsDemoData.LZ_LAMP_CAMERA_Y);
                 camera.setMaxY((short) Sonic1CreditsDemoData.LZ_LAMP_BOTTOM_BND);
+
+                // Restore lamppost water state (ROM: EndDemo_LampVar dc.w $308 / dc.b 1,1)
+                // Level loading sets water to default LZ3 height (0x0900), but the demo
+                // starts at a lamppost where water has risen to 0x0308 with routine 1.
+                int featureZone = levelManager.getFeatureZoneId();
+                int featureAct = levelManager.getFeatureActId();
+                WaterSystem waterSystem = WaterSystem.getInstance();
+                waterSystem.setWaterLevelDirect(featureZone, featureAct,
+                        Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
+                waterSystem.setWaterLevelTarget(featureZone, featureAct,
+                        Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
+                ZoneFeatureProvider zfp = levelManager.getZoneFeatureProvider();
+                if (zfp instanceof Sonic1ZoneFeatureProvider s1zfp && s1zfp.getWaterEvents() != null) {
+                    s1zfp.getWaterEvents().setWaterRoutine(Sonic1CreditsDemoData.LZ_LAMP_WATER_ROUTINE);
+                }
             } else {
                 // All other demos: use startpos (center coordinates)
                 player.setCentreX((short) startX);

@@ -235,4 +235,12 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
     public boolean isWindTunnelDisabled() {
         return waterEvents != null && waterEvents.isWindTunnelDisabled();
     }
+
+    /**
+     * Returns the LZ water events instance, or null if not in a water zone.
+     * Used by credits demo to restore lamppost water routine state.
+     */
+    public Sonic1LZWaterEvents getWaterEvents() {
+        return waterEvents;
+    }
 }
