@@ -39,52 +39,62 @@ public record PhysicsModifiers(
             2.0f        // shoesMaxMul
     );
 
-    /** Computes effective acceleration given water and speed shoes state. */
+    /**
+     * Computes effective acceleration given water and speed shoes state.
+     * ROM: water entry replaces speed constants with absolute underwater values
+     * (s1:01 Sonic.asm:206-208, s2.asm:36063-36070). Speed shoes are irrelevant
+     * while submerged — only the water values apply.
+     */
     public short effectiveAccel(short base, boolean inWater, boolean speedShoes) {
-        short value = base;
         if (inWater) {
-            value = (short) (value * waterAccelMul);
+            return (short) (base * waterAccelMul);
         }
         if (speedShoes) {
-            value = (short) (value * shoesAccelMul);
+            return (short) (base * shoesAccelMul);
         }
-        return value;
+        return base;
     }
 
-    /** Computes effective deceleration given water and speed shoes state. */
+    /**
+     * Computes effective deceleration given water and speed shoes state.
+     * Same override semantics as effectiveAccel — water wins over shoes.
+     */
     public short effectiveDecel(short base, boolean inWater, boolean speedShoes) {
-        short value = base;
         if (inWater) {
-            value = (short) (value * waterDecelMul);
+            return (short) (base * waterDecelMul);
         }
         if (speedShoes) {
-            value = (short) (value * shoesDecelMul);
+            return (short) (base * shoesDecelMul);
         }
-        return value;
+        return base;
     }
 
-    /** Computes effective friction given water and speed shoes state. */
+    /**
+     * Computes effective friction given water and speed shoes state.
+     * Same override semantics as effectiveAccel — water wins over shoes.
+     */
     public short effectiveFriction(short base, boolean inWater, boolean speedShoes) {
-        short value = base;
         if (inWater) {
-            value = (short) (value * waterFrictionMul);
+            return (short) (base * waterFrictionMul);
         }
         if (speedShoes) {
-            value = (short) (value * shoesFrictionMul);
+            return (short) (base * shoesFrictionMul);
         }
-        return value;
+        return base;
     }
 
-    /** Computes effective max speed given water and speed shoes state. */
+    /**
+     * Computes effective max speed given water and speed shoes state.
+     * Same override semantics as effectiveAccel — water wins over shoes.
+     */
     public short effectiveMax(short base, boolean inWater, boolean speedShoes) {
-        short value = base;
         if (inWater) {
-            value = (short) (value * waterMaxMul);
+            return (short) (base * waterMaxMul);
         }
         if (speedShoes) {
-            value = (short) (value * shoesMaxMul);
+            return (short) (base * shoesMaxMul);
         }
-        return value;
+        return base;
     }
 
     /** Computes effective jump force given water state. Speed shoes do not affect jump. */
