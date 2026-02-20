@@ -27,5 +27,8 @@ public enum GameMode {
     CREDITS_TEXT,
 
     /** Demo playback during ending credits */
-    CREDITS_DEMO
+    CREDITS_DEMO,
+
+    /** Master title screen for game selection (before any ROM is loaded) */
+    MASTER_TITLE_SCREEN
 }

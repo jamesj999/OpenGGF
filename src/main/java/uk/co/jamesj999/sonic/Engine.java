@@ -26,6 +26,7 @@ import uk.co.jamesj999.sonic.sprites.playable.Tails;
 import uk.co.jamesj999.sonic.sprites.playable.TailsCpuController;
 import uk.co.jamesj999.sonic.game.GameMode;
 import uk.co.jamesj999.sonic.game.LevelSelectProvider;
+import uk.co.jamesj999.sonic.game.MasterTitleScreen;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.TitleScreenProvider;
 
@@ -93,6 +94,9 @@ public class Engine {
 	// Input handler for keyboard input
 	private InputHandler inputHandler;
 
+	// Master title screen (game selection before ROM loading)
+	private MasterTitleScreen masterTitleScreen;
+
 	// Viewport parameters for aspect-ratio-correct rendering
 	private int viewportX = 0;
 	private int viewportY = 0;
@@ -152,6 +156,8 @@ public class Engine {
 	}
 
 	private void init() {
+		// === PHASE 1: Window, GL context, input (always runs) ===
+
 		// CRITICAL: Initialize AWT BEFORE GLFW on macOS.
 		// Java2D uses Core Graphics which conflicts with GLFW's Cocoa event handling
 		// if AWT initializes after GLFW. Pre-loading AWT fixes the freeze.
@@ -267,6 +273,54 @@ public class Engine {
 			throw new RuntimeException(e);
 		}
 
+		// Create input handler and set it
+		inputHandler = new InputHandler();
+		setInputHandler(inputHandler);
+
+		// Initial reshape
+		try (MemoryStack stack = stackPush()) {
+			IntBuffer pWidth = stack.mallocInt(1);
+			IntBuffer pHeight = stack.mallocInt(1);
+			glfwGetFramebufferSize(window, pWidth, pHeight);
+			reshape(pWidth.get(0), pHeight.get(0));
+		}
+
+		// === Check master title screen before Phase 2 ===
+		boolean masterTitleOnStartup = configService.getBoolean(SonicConfiguration.MASTER_TITLE_SCREEN_ON_STARTUP);
+		if (masterTitleOnStartup) {
+			masterTitleScreen = new MasterTitleScreen();
+			masterTitleScreen.initialize();
+			gameLoop.setGameMode(GameMode.MASTER_TITLE_SCREEN);
+			// Skip Phase 2 entirely - will be called on game selection
+		} else {
+			// === PHASE 2: ROM loading, sprites, audio, level ===
+			initializeGame();
+		}
+
+		// Eagerly initialize debug renderer BEFORE the main loop starts.
+		// This is critical on macOS: the GlyphAtlas uses Java2D which conflicts
+		// with GLFW's event loop if initialized lazily during glfwPollEvents().
+		// Skip in native-image builds where AWT/Java2D is not available.
+		if (debugViewEnabled && !isNativeImage()) {
+			getDebugRenderer().updateViewport(viewportWidth, viewportHeight);
+			getDebugRenderer().eagerInit();
+			// Force GL sync and unbind all state
+			glFinish();
+			glBindTexture(GL_TEXTURE_2D, 0);
+			glBindVertexArray(0);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glUseProgram(0);
+		}
+
+		lastFrameTime = System.nanoTime();
+	}
+
+	/**
+	 * Phase 2 initialization: loads ROM, creates sprites, initializes audio, loads level.
+	 * Called either directly from init() (no master title screen) or from
+	 * exitMasterTitleScreen() after game selection.
+	 */
+	public void initializeGame() {
 		if (configService.getBoolean(SonicConfiguration.AUDIO_ENABLED)) {
 			AudioManager.getInstance().setBackend(new LWJGLAudioBackend());
 		}
@@ -300,10 +354,6 @@ public class Engine {
 		camera.setFocusedSprite(mainSprite);
 		camera.updatePosition(true);
 
-		// Create input handler and set it (needed before level select initialization)
-		inputHandler = new InputHandler();
-		setInputHandler(inputHandler);
-
 		// Check startup mode: title screen takes priority when enabled
 		boolean titleScreenOnStartup = configService.getBoolean(SonicConfiguration.TITLE_SCREEN_ON_STARTUP);
 		boolean levelSelectOnStartup = configService.getBoolean(SonicConfiguration.LEVEL_SELECT_ON_STARTUP);
@@ -314,38 +364,38 @@ public class Engine {
 			// Start in level select mode - no level loaded initially
 			gameLoop.initializeLevelSelectMode();
 		} else {
-			// Load Emerald Hill Zone Act 1 as the default starting level
+			// Load zone 0 act 0 as the default starting level
 			try {
 				levelManager.loadZoneAndAct(0, 0);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
 		}
+	}
 
-		// Initial reshape
-		try (MemoryStack stack = stackPush()) {
-			IntBuffer pWidth = stack.mallocInt(1);
-			IntBuffer pHeight = stack.mallocInt(1);
-			glfwGetFramebufferSize(window, pWidth, pHeight);
-			reshape(pWidth.get(0), pHeight.get(0));
+	/**
+	 * Gets the master title screen instance (for GameLoop to call update/draw).
+	 */
+	public MasterTitleScreen getMasterTitleScreen() {
+		return masterTitleScreen;
+	}
+
+	/**
+	 * Called by GameLoop when the user selects a game from the master title screen.
+	 * Performs the Phase 2 init for the selected game.
+	 */
+	public void exitMasterTitleScreen(String gameId) {
+		// Set the DEFAULT_ROM config to the selected game
+		configService.setConfigValue(SonicConfiguration.DEFAULT_ROM, gameId);
+
+		// Clean up master title screen GL resources
+		if (masterTitleScreen != null) {
+			masterTitleScreen.cleanup();
+			masterTitleScreen = null;
 		}
 
-		// Eagerly initialize debug renderer BEFORE the main loop starts.
-		// This is critical on macOS: the GlyphAtlas uses Java2D which conflicts
-		// with GLFW's event loop if initialized lazily during glfwPollEvents().
-		// Skip in native-image builds where AWT/Java2D is not available.
-		if (debugViewEnabled && !isNativeImage()) {
-			getDebugRenderer().updateViewport(viewportWidth, viewportHeight);
-			getDebugRenderer().eagerInit();
-			// Force GL sync and unbind all state
-			glFinish();
-			glBindTexture(GL_TEXTURE_2D, 0);
-			glBindVertexArray(0);
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			glUseProgram(0);
-		}
-
-		lastFrameTime = System.nanoTime();
+		// Phase 2: load ROM, sprites, audio, level
+		initializeGame();
 	}
 
 	private void reshape(int width, int height) {
@@ -474,6 +524,8 @@ public class Engine {
 		} else if (getCurrentGameMode() == GameMode.CREDITS_TEXT) {
 			// Credits text is drawn on a black background
 			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		} else if (getCurrentGameMode() == GameMode.MASTER_TITLE_SCREEN) {
+			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		} else if (getCurrentGameMode() == GameMode.TITLE_CARD) {
 			levelManager.setClearColor();
 		} else {
@@ -573,6 +625,14 @@ public class Engine {
 	}
 
 	public void draw() {
+		if (getCurrentGameMode() == GameMode.MASTER_TITLE_SCREEN) {
+			camera.setX((short) 0);
+			camera.setY((short) 0);
+			if (masterTitleScreen != null) {
+				masterTitleScreen.draw();
+			}
+			return;
+		}
 		if (getCurrentGameMode() == GameMode.SPECIAL_STAGE) {
 			SpecialStageProvider ssProvider = gameLoop.getActiveSpecialStageProvider();
 			if (ssProvider.isSpriteDebugMode()) {
@@ -691,6 +751,10 @@ public class Engine {
 	}
 
 	private void cleanup() {
+		if (masterTitleScreen != null) {
+			masterTitleScreen.cleanup();
+			masterTitleScreen = null;
+		}
 		graphicsManager.cleanup();
 		AudioManager.getInstance().destroy();
 
