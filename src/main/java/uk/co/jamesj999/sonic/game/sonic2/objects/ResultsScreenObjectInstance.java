@@ -150,6 +150,10 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
                     LOGGER.severe("Failed to load next level: " + e.getMessage());
                 }
             }
+
+            // Keep transition atomic: once the new level is loaded, immediately
+            // start the reveal fade to avoid remaining in HOLD_BLACK.
+            fadeManager.startFadeFromBlack(null);
         });
     }
 
