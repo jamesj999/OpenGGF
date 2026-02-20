@@ -2190,12 +2190,22 @@ public class ObjectManager {
                     // This avoids false push-state while stepping across adjacent solid tops.
                     return SolidContact.SIDE_NO_PUSH;
                 }
-                if (apply) {
+                // ROM: Solid_Centre (sub SolidObject.asm:189-196)
+                // When d0=0, the ROM does "sub.w d0,obX(a1)" (no-op) and does NOT zero
+                // obInertia/obVelX. Speed zeroing only happens at Solid_Left (d0 != 0 and
+                // moving into). Skipping when distX=0 lets the player accumulate subpixels
+                // at the block edge, matching the ROM's push cadence (~1 push per 4 frames).
+                if (apply && distX != 0) {
                     if (movingInto) {
                         player.setXSpeed((short) 0);
                         player.setGSpeed((short) 0);
                     }
-                    player.setCentreX((short) (playerCenterX - distX));
+                    // ROM: sub.w d0,obX(a1) only modifies the pixel word, preserving
+                    // the subpixel byte. Use move() instead of setCentreX() which zeros
+                    // subpixels. Zeroing creates a left/right asymmetry: adding positive
+                    // subpixels from 0 takes many frames to reach 256, but subtracting
+                    // from 0 immediately underflows, causing a spurious pixel shift.
+                    player.move((short)(-distX * 256), (short) 0);
                 }
                 return pushing ? SolidContact.SIDE_PUSH : SolidContact.SIDE_NO_PUSH;
             }
@@ -2254,12 +2264,13 @@ public class ObjectManager {
                     boolean leftSide = relX < halfWidth;
                     boolean movingInto = leftSide ? player.getXSpeed() > 0 : player.getXSpeed() < 0;
                     boolean pushing = !player.getAir() && movingInto;
-                    if (apply) {
+                    if (apply && distX != 0) {
                         if (movingInto) {
                             player.setXSpeed((short) 0);
                             player.setGSpeed((short) 0);
                         }
-                        player.setCentreX((short) (playerCenterX - distX));
+                        // Preserve subpixels (see main side contact path comment above)
+                        player.move((short)(-distX * 256), (short) 0);
                     }
                     return pushing ? SolidContact.SIDE_PUSH : SolidContact.SIDE_NO_PUSH;
                 }
