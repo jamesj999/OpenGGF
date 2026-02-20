@@ -1912,15 +1912,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (physicsModifiers != null) {
                         return physicsModifiers.effectiveAccel(runAccel, inWater, effectiveShoes);
                 }
-                // Fallback: inline logic (Water: halved, Speed shoes: doubled)
-                short value = runAccel;
+                // Fallback: Water overrides shoes (ROM sets absolute values on water entry)
                 if (inWater) {
-                        value = (short) (value / 2);
+                        return (short) (runAccel / 2);
                 }
                 if (effectiveShoes) {
-                        value = (short) (value * 2);
+                        return (short) (runAccel * 2);
                 }
-                return value;
+                return runAccel;
         }
 
         public short getRunDecel() {
@@ -1928,8 +1927,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (physicsModifiers != null) {
                         return physicsModifiers.effectiveDecel(runDecel, inWater, effectiveShoes);
                 }
-                // Fallback: Water halved, speed shoes don't affect decel
-                return inWater ? (short) (runDecel / 2) : runDecel;
+                // Fallback: Water overrides shoes
+                if (inWater) {
+                        return (short) (runDecel / 2);
+                }
+                return runDecel;
         }
 
         public short getSlopeRunning() {
@@ -1949,15 +1951,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (physicsModifiers != null) {
                         return physicsModifiers.effectiveFriction(friction, inWater, effectiveShoes);
                 }
-                // Fallback: inline logic (Water: halved, Speed shoes: doubled)
-                short value = friction;
+                // Fallback: Water overrides shoes (ROM sets absolute values on water entry)
                 if (inWater) {
-                        value = (short) (value / 2);
+                        return (short) (friction / 2);
                 }
                 if (effectiveShoes) {
-                        value = (short) (value * 2);
+                        return (short) (friction * 2);
                 }
-                return value;
+                return friction;
         }
 
         public short getMax() {
@@ -1965,15 +1966,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (physicsModifiers != null) {
                         return physicsModifiers.effectiveMax(max, inWater, effectiveShoes);
                 }
-                // Fallback: inline logic (Water: halved, Speed shoes: doubled)
-                short value = max;
+                // Fallback: Water overrides shoes (ROM sets absolute values on water entry)
                 if (inWater) {
-                        value = (short) (value / 2);
+                        return (short) (max / 2);
                 }
                 if (effectiveShoes) {
-                        value = (short) (value * 2);
+                        return (short) (max * 2);
                 }
-                return value;
+                return max;
         }
 
         /**
@@ -2723,56 +2723,53 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          * Speed shoes: doubled
          */
         public short getEffectiveRunAccel() {
-                short value = runAccel;
+                // Water overrides shoes (ROM sets absolute values on water entry)
                 if (inWater) {
-                        value = (short) (value / 2);
+                        return (short) (runAccel / 2);
                 }
                 if (speedShoes) {
-                        value = (short) (value * 2);
+                        return (short) (runAccel * 2);
                 }
-                return value;
+                return runAccel;
         }
 
         /**
          * Returns effective run deceleration, accounting for modifiers.
          */
         public short getEffectiveRunDecel() {
-                short value = runDecel;
                 if (inWater) {
-                        value = (short) (value / 2);
+                        return (short) (runDecel / 2);
                 }
                 // Speed shoes don't affect decel in original
-                return value;
+                return runDecel;
         }
 
         /**
          * Returns effective friction, accounting for modifiers.
          */
         public short getEffectiveFriction() {
-                short value = friction;
+                // Water overrides shoes (ROM sets absolute values on water entry)
                 if (inWater) {
-                        value = (short) (value / 2);
+                        return (short) (friction / 2);
                 }
                 if (speedShoes) {
-                        value = (short) (value * 2);
+                        return (short) (friction * 2);
                 }
-                return value;
+                return friction;
         }
 
         /**
          * Returns effective max speed, accounting for modifiers.
-         * Underwater: halved
-         * Speed shoes: doubled
          */
         public short getEffectiveMax() {
-                short value = max;
+                // Water overrides shoes (ROM sets absolute values on water entry)
                 if (inWater) {
-                        value = (short) (value / 2);
+                        return (short) (max / 2);
                 }
                 if (speedShoes) {
-                        value = (short) (value * 2);
+                        return (short) (max * 2);
                 }
-                return value;
+                return max;
         }
 
         /**

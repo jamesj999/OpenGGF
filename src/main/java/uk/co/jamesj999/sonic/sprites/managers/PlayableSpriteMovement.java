@@ -61,7 +61,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	// Movement constants
 	private static final int MOVE_LOCK_FRAMES = 0x1E;
 	private static final int DEBUG_MOVE_SPEED = 3;
-	private static final int CONTROLLED_ROLL_DECEL = 0x20;
+	// Controlled roll deceleration: derived per-frame from sprite.getRunDecel() >> 2
+	// (s1:01 Sonic.asm:595-601 — rollDecel = decel/4 = $80/4 = $20)
 
 	private final CollisionSystem collisionSystem = CollisionSystem.getInstance();
 	private final AudioManager audioManager = AudioManager.getInstance();
@@ -214,7 +215,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 
 		updateFacingDirection();
-		checkPitDeath();
 		sprite.updateSensors(originalX, originalY);
 	}
 
@@ -745,12 +745,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		boolean inputAllowed = sprite.getMoveLockTimer() == 0;
 
 		// Controlled deceleration
+		short rollDecel = (short) (sprite.getRunDecel() >> 2);
 		if (inputAllowed && inputLeft && gSpeed > 0) {
-			gSpeed -= CONTROLLED_ROLL_DECEL;
+			gSpeed -= rollDecel;
 			if (gSpeed <= 0) gSpeed = (short) -128;
 		}
 		if (inputAllowed && inputRight && gSpeed < 0) {
-			gSpeed += CONTROLLED_ROLL_DECEL;
+			gSpeed += rollDecel;
 			if (gSpeed >= 0) gSpeed = (short) 128;
 		}
 
@@ -1611,25 +1612,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			sprite.setDirection(!sprite.getAir() && sprite.getGSpeed() > 0 ? Direction.RIGHT : Direction.LEFT);
 		} else if (inputRight && !inputLeft) {
 			sprite.setDirection(!sprite.getAir() && sprite.getGSpeed() < 0 ? Direction.LEFT : Direction.RIGHT);
-		}
-	}
-
-	private void checkPitDeath() {
-		// ROM: When object_control is set, the main Sonic update loop (Obj01_Control)
-		// skips movement routines entirely, so pit death checks never run.
-		if (sprite.isObjectControlled()) {
-			return;
-		}
-		Camera camera = Camera.getInstance();
-		// ROM: When Level_started_flag is clear (intro/cutscene flow), pit death checks
-		// are suppressed for the controlled player.
-		if (camera != null && camera.isLevelStarted()
-				&& sprite.getY() > camera.getY() + camera.getHeight()) {
-			if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
-				sprite.getCpuController().despawn();
-			} else {
-				sprite.applyPitDeath();
-			}
 		}
 	}
 

@@ -122,16 +122,17 @@ public class TestPhysicsProfileRegression {
     public void testWaterAndShoes_RunAccel() {
         sprite.setInWater(true);
         sprite.setTestSpeedShoes(true);
-        // Water halves (12->6), then shoes double (6->12)
-        assertEquals(12, sprite.getRunAccel());
+        // ROM: water overrides shoes — only water values apply while submerged
+        // (s1:01 Sonic.asm:206-208, s2.asm:36063-36070)
+        assertEquals(6, sprite.getRunAccel());
     }
 
     @Test
     public void testWaterAndShoes_Max() {
         sprite.setInWater(true);
         sprite.setTestSpeedShoes(true);
-        // Water halves (0x600->0x300), then shoes double (0x300->0x600)
-        assertEquals(0x600, sprite.getMax());
+        // ROM: water overrides shoes — 0x600 halved to 0x300
+        assertEquals(0x300, sprite.getMax());
     }
 
     // ========================================

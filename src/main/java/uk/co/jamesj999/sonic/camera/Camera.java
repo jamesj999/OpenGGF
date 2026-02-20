@@ -689,11 +689,10 @@ public class Camera {
 	 */
 	public void easeYBiasToDefault() {
 		if (yPosBias < DEFAULT_Y_BIAS) {
-			// ROM: addq.w #4, then subq.w #2 = net +2
-			yPosBias += 2;
-			if (yPosBias > DEFAULT_Y_BIAS) {
-				yPosBias = DEFAULT_Y_BIAS;
-			}
+			// ROM: addq.w #4, subq.w #2 = net +2, no intermediate clamp
+			// (s2.asm:36431-36438, Obj01_ResetScr_Part2)
+			yPosBias += 4;
+			yPosBias -= 2;
 		} else if (yPosBias > DEFAULT_Y_BIAS) {
 			// ROM: subq.w #2
 			yPosBias -= 2;
