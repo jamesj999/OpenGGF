@@ -1,8 +1,12 @@
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
+import uk.co.jamesj999.sonic.audio.AudioManager;
 import uk.co.jamesj999.sonic.camera.Camera;
-import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kObjectArtKeys;
+import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kLevelEventManager;
+import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kObjectArtKeys;
+import uk.co.jamesj999.sonic.game.sonic3k.audio.Sonic3kMusic;
+import uk.co.jamesj999.sonic.game.sonic3k.constants.Sonic3kConstants;
 import uk.co.jamesj999.sonic.game.sonic3k.events.Sonic3kAIZEvents;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
@@ -14,72 +18,51 @@ import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
 import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.logging.Logger;
 
 /**
- * AIZ Act 1 Miniboss Cutscene (Object 0x90).
- * ROM: s3.asm loc_68508 (Obj_AIZMinibossCutscene)
+ * AIZ Act 1 miniboss cutscene object (0x90).
  *
- * <p>This is the fire-breathing tree stump robot near the end of AIZ Act 1.
- * It is a scripted set-piece that cannot be destroyed (collision_property=0x60).
- * After a timed sequence, it exits and triggers the fire transition via Events_fg_5.
- *
- * <p>State machine:
- * <ul>
- *   <li>0 INIT: setup attributes, Boss_flag=1</li>
- *   <li>2 WAIT_TRIGGER: poll Camera_X_pos >= 0x2F10</li>
- *   <li>4 CAMERA_WAIT: 180-frame countdown after trigger</li>
- *   <li>6 DESCEND: descend at y_vel=0x100 for 175 frames</li>
- *   <li>8 SWING: oscillate via Swing_UpAndDown for 127 frames</li>
- *   <li>10 PRE_EXIT: 16-frame pause with explosion</li>
- *   <li>12 EXIT: fly right at x_vel=0x400 for 288 frames</li>
- *   <li>14 CLEANUP: clear Boss_flag, restore music, delete self</li>
- * </ul>
+ * ROM: Obj_AIZMinibossCutscene (sonic3k.asm):
+ * - loc_68508 init
+ * - loc_6852C trigger
+ * - loc_68574 Obj_Wait
+ * - loc_685B8 MoveWaitTouch
+ * - loc_685FC Swing_UpAndDown + MoveWaitTouch
+ * - loc_68646/loc_68690 exit + cleanup
  */
 public class AizMinibossCutsceneInstance extends AbstractBossInstance {
-    private static final Logger LOG = Logger.getLogger(AizMinibossCutsceneInstance.class.getName());
+    private static final int ROUTINE_INIT = 0;
+    private static final int ROUTINE_WAIT_TRIGGER = 2;
+    private static final int ROUTINE_WAIT = 4;
+    private static final int ROUTINE_DESCEND = 6;
+    private static final int ROUTINE_SWING = 8;
+    private static final int ROUTINE_EXIT = 10;
 
-    // --- State constants ---
-    private static final int STATE_INIT = 0;
-    private static final int STATE_WAIT_TRIGGER = 2;
-    private static final int STATE_CAMERA_WAIT = 4;
-    private static final int STATE_DESCEND = 6;
-    private static final int STATE_SWING = 8;
-    private static final int STATE_PRE_EXIT = 10;
-    private static final int STATE_EXIT = 12;
-    private static final int STATE_CLEANUP = 14;
-
-    // --- ROM constants ---
-    /** Camera X threshold to trigger boss appearance. */
+    private static final int COLLISION_PROPERTY_UNKILLABLE = 0x60;
+    private static final int COLLISION_SIZE = 0x0F;
     private static final int TRIGGER_X = 0x2F10;
-    /** Timer after trigger before boss descends. */
-    private static final int CAMERA_WAIT_TIMER = 180;
-    /** Timer for descent phase. */
-    private static final int DESCEND_TIMER = 0xAF; // 175
-    /** Descent velocity (8.8 fixed-point). */
-    private static final int DESCEND_VELOCITY = 0x100;
-    /** Timer for swing phase. */
-    private static final int SWING_TIMER = 0x7F; // 127
-    /** Timer for pre-exit explosion. */
-    private static final int PRE_EXIT_TIMER = 0x10; // 16
-    /** Timer for exit phase (Act 1). */
-    private static final int EXIT_TIMER = 0x120; // 288
-    /** Exit velocity. */
-    private static final int EXIT_VELOCITY = 0x400;
-    /** collision_property for unkillable boss (96 HP). */
-    private static final int COLLISION_PROPERTY = 0x60;
+    private static final int WAIT_AFTER_TRIGGER = 3 * 60;
+    private static final int DESCEND_VEL = 0x100;
+    private static final int DESCEND_TIME = 0xAF;
+    private static final int SWING_TIME = 0x7F;
+    private static final int PRE_EXIT_TIME = 0x10;
+    private static final int EXIT_VEL = 0x400;
+    private static final int EXIT_TIME_AIZ1 = 0x120;
+    private static final int EXIT_TIME_OTHER = 0x40;
 
-    // Custom memory flag for barrel activation
-    private static final int FLAG_ADDR = 0x38;
+    private static final int FLAG_PARENT_BITS = 0x38;
+    private static final int PARENT_BIT_BARREL_ACTIVATE = 1 << 1;
+    private static final int FLAG_PARENT_COUNTER = 0x39;
 
-    // --- Debris spawn data (from ChildObjDat_6906A) ---
     private static final int[] DEBRIS_X_OFFSETS = {-0x20, -0x68, -0x10, -0x58, -8, -0x50};
-    private static final int[] DEBRIS_Y_OFFSETS = {0x310, 0x310, 0x31C, 0x31C, 0x328, 0x328};
-    private static final int[] DEBRIS_VELOCITIES = {0x200, 0x200, 0x180, 0x180, 0x100, 0x100};
+    private static final int[] DEBRIS_Y_POSITIONS = {0x310, 0x310, 0x31C, 0x31C, 0x328, 0x328};
+    private static final int[] DEBRIS_X_VELOCITIES = {0x200, 0x200, 0x180, 0x180, 0x100, 0x100};
     private static final int[] DEBRIS_FRAMES = {0, 0, 1, 1, 2, 2};
 
     private final AizMinibossSwingMotion swingMotion = new AizMinibossSwingMotion();
-    private int stateTimer;
+
+    private int waitTimer = -1;
+    private Runnable waitCallback;
     private int savedCameraMaxX;
 
     public AizMinibossCutsceneInstance(ObjectSpawn spawn, LevelManager levelManager) {
@@ -88,15 +71,26 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
 
     @Override
     protected void initializeBossState() {
-        state.routine = STATE_INIT;
-        state.hitCount = COLLISION_PROPERTY;
-        stateTimer = 0;
+        state.routine = ROUTINE_INIT;
+        state.hitCount = COLLISION_PROPERTY_UNKILLABLE;
+        waitTimer = -1;
+        waitCallback = null;
         savedCameraMaxX = 0;
     }
 
     @Override
     protected int getInitialHitCount() {
-        return COLLISION_PROPERTY;
+        return COLLISION_PROPERTY_UNKILLABLE;
+    }
+
+    @Override
+    protected void onHitTaken(int remainingHits) {
+        // Cutscene variant is effectively unkillable in normal play.
+    }
+
+    @Override
+    protected int getCollisionSizeIndex() {
+        return COLLISION_SIZE;
     }
 
     @Override
@@ -105,38 +99,25 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     @Override
-    protected int getCollisionSizeIndex() {
-        return 0x0C;
-    }
-
-    @Override
-    protected void onHitTaken(int remainingHits) {
-        // Cosmetic only - boss can't be defeated
-    }
-
-    @Override
     protected int getPaletteLineForFlash() {
-        return 2; // ROM: Pal_AIZMiniboss flash on palette line 2
+        return 2;
     }
 
     @Override
     protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
         switch (state.routine) {
-            case STATE_INIT -> updateInit();
-            case STATE_WAIT_TRIGGER -> updateWaitTrigger();
-            case STATE_CAMERA_WAIT -> updateCameraWait();
-            case STATE_DESCEND -> updateDescend();
-            case STATE_SWING -> updateSwing();
-            case STATE_PRE_EXIT -> updatePreExit();
-            case STATE_EXIT -> updateExit();
-            case STATE_CLEANUP -> updateCleanup();
+            case ROUTINE_INIT -> updateInit();
+            case ROUTINE_WAIT_TRIGGER -> updateWaitTrigger();
+            case ROUTINE_WAIT -> updateWaitOnly();
+            case ROUTINE_DESCEND -> updateMoveAndWait(false);
+            case ROUTINE_SWING -> updateMoveAndWait(true);
+            case ROUTINE_EXIT -> updateExit();
+            default -> {
+            }
         }
     }
 
-    // --- State handlers ---
-
     private void updateInit() {
-        // Save current camera max X, set Boss_flag
         Camera camera = Camera.getInstance();
         savedCameraMaxX = camera.getMaxX();
 
@@ -145,56 +126,124 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             events.setBossFlag(true);
         }
 
-        state.routine = STATE_WAIT_TRIGGER;
-        LOG.info("AIZ Miniboss: initialized, waiting for trigger at X=0x" +
-                Integer.toHexString(TRIGGER_X));
+        state.routine = ROUTINE_WAIT_TRIGGER;
     }
 
     private void updateWaitTrigger() {
         Camera camera = Camera.getInstance();
-        int cameraX = camera.getX();
+        if (camera.getX() < TRIGGER_X) {
+            return;
+        }
 
-        if (cameraX >= TRIGGER_X) {
-            // Spawn 6 debris pieces
-            spawnDebris(camera);
+        spawnDebris();
+        loadBossPalette();
 
-            // Lock camera
-            camera.setMinX((short) TRIGGER_X);
-            camera.setMaxX((short) TRIGGER_X);
+        camera.setMinX((short) TRIGGER_X);
+        camera.setMaxX((short) TRIGGER_X);
+        AudioManager.getInstance().fadeOutMusic();
 
-            // Start timer
-            stateTimer = CAMERA_WAIT_TIMER;
-            state.routine = STATE_CAMERA_WAIT;
-            LOG.info("AIZ Miniboss: triggered at cameraX=0x" + Integer.toHexString(cameraX));
+        state.routine = ROUTINE_WAIT;
+        setWait(WAIT_AFTER_TRIGGER, this::onInitialDelayComplete);
+    }
+
+    private void onInitialDelayComplete() {
+        state.routine = ROUTINE_DESCEND;
+        state.yVel = DESCEND_VEL;
+        setWait(DESCEND_TIME, this::onDescendComplete);
+
+        var objectManager = levelManager.getObjectManager();
+        spawnChild(new AizMinibossBodyChild(this), objectManager);
+        spawnChild(new AizMinibossArmChild(this), objectManager);
+        for (int i = 0; i < 3; i++) {
+            spawnChild(new AizMinibossFlameBarrelChild(this, i, true), objectManager);
+        }
+
+        AudioManager.getInstance().playMusic(Sonic3kMusic.MINIBOSS.id);
+    }
+
+    private void onDescendComplete() {
+        setCustomFlag(FLAG_PARENT_COUNTER, 3);
+        setCustomFlag(FLAG_PARENT_BITS, getCustomFlag(FLAG_PARENT_BITS) | PARENT_BIT_BARREL_ACTIVATE);
+        state.routine = ROUTINE_SWING;
+        state.yVel = 0;
+        swingMotion.setup1(state);
+        setWait(SWING_TIME, this::onSwingComplete);
+    }
+
+    private void onSwingComplete() {
+        setWait(PRE_EXIT_TIME, this::onPreExitComplete);
+        spawnDefeatExplosion();
+    }
+
+    private void onPreExitComplete() {
+        state.routine = ROUTINE_EXIT;
+        state.xVel = EXIT_VEL;
+        state.yVel = 0;
+
+        loadBossPalette();
+        AudioManager.getInstance().fadeOutMusic();
+
+        int exitFrames = isAiz1() ? EXIT_TIME_AIZ1 : EXIT_TIME_OTHER;
+        setWait(exitFrames, this::onExitComplete);
+
+        Sonic3kAIZEvents events = getAizEvents();
+        if (events != null) {
+            events.setEventsFg5(true);
         }
     }
 
-    private void updateCameraWait() {
-        stateTimer--;
-        if (stateTimer <= 0) {
-            var objectManager = levelManager.getObjectManager();
+    private void updateWaitOnly() {
+        tickWait();
+    }
 
-            // Spawn structural children (body + arm)
-            spawnChild(new AizMinibossBodyChild(this), objectManager);
-            spawnChild(new AizMinibossArmChild(this), objectManager);
+    private void updateMoveAndWait(boolean applySwing) {
+        if (applySwing) {
+            swingMotion.update(state);
+        }
+        state.applyVelocity();
+        tickWait();
+    }
 
-            // Spawn 3 flame barrels
-            for (int i = 0; i < 3; i++) {
-                spawnChild(new AizMinibossFlameBarrelChild(this, i), objectManager);
-            }
+    private void updateExit() {
+        state.applyVelocity();
+        tickWait();
+    }
 
-            // Set descent velocity
-            state.yVel = DESCEND_VELOCITY;
-            stateTimer = DESCEND_TIMER;
+    private void onExitComplete() {
+        Sonic3kAIZEvents events = getAizEvents();
+        if (events != null) {
+            events.setBossFlag(false);
+        }
 
-            // TODO: Play mus_Miniboss when S3K audio IDs are defined
+        AudioManager.getInstance().getBackend().restoreMusic();
 
-            state.routine = STATE_DESCEND;
-            LOG.info("AIZ Miniboss: spawned children, descending");
+        Camera camera = Camera.getInstance();
+        camera.setMinX((short) 0);
+        camera.setMaxX((short) savedCameraMaxX);
+
+        setDestroyed(true);
+    }
+
+    private void setWait(int frames, Runnable callback) {
+        waitTimer = frames;
+        waitCallback = callback;
+    }
+
+    private void tickWait() {
+        if (waitTimer < 0) {
+            return;
+        }
+        waitTimer--;
+        if (waitTimer >= 0) {
+            return;
+        }
+        Runnable callback = waitCallback;
+        waitCallback = null;
+        if (callback != null) {
+            callback.run();
         }
     }
 
-    /** Register a child with both the boss lifecycle and the ObjectManager render/collision pass. */
     private void spawnChild(AbstractBossChild child,
                             uk.co.jamesj999.sonic.level.objects.ObjectManager objectManager) {
         childComponents.add(child);
@@ -203,106 +252,32 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         }
     }
 
-    private void updateDescend() {
-        // Move with velocity
-        state.yFixed += (state.yVel << 8);
-        state.updatePositionFromFixed();
-
-        stateTimer--;
-        if (stateTimer <= 0) {
-            // Activate flame barrels
-            setCustomFlag(FLAG_ADDR, getCustomFlag(FLAG_ADDR) | 0x02);
-
-            // Setup swing motion - reset yVel before oscillation (ROM: Swing_Setup1 sets y_vel=speed)
-            state.yVel = 0;
-            swingMotion.setup1();
-            stateTimer = SWING_TIMER;
-
-            state.routine = STATE_SWING;
-            LOG.info("AIZ Miniboss: swing phase started");
-        }
-    }
-
-    private void updateSwing() {
-        swingMotion.update(state);
-
-        // Move with velocity
-        state.yFixed += (state.yVel << 8);
-        state.updatePositionFromFixed();
-
-        stateTimer--;
-        if (stateTimer <= 0) {
-            stateTimer = PRE_EXIT_TIMER;
-            state.routine = STATE_PRE_EXIT;
-
-            // Spawn explosion effect
-            spawnDefeatExplosion();
-        }
-    }
-
-    private void updatePreExit() {
-        stateTimer--;
-        if (stateTimer <= 0) {
-            // Set Events_fg_5 to trigger fire transition
-            Sonic3kAIZEvents events = getAizEvents();
-            if (events != null) {
-                events.setEventsFg5(true);
-            }
-
-            // Begin exit: fly right
-            state.xVel = EXIT_VELOCITY;
-            state.yVel = 0;
-            stateTimer = EXIT_TIMER;
-
-            state.routine = STATE_EXIT;
-            LOG.info("AIZ Miniboss: exiting, Events_fg_5 set");
-        }
-    }
-
-    private void updateExit() {
-        // Fly right
-        state.xFixed += (state.xVel << 8);
-        state.updatePositionFromFixed();
-
-        stateTimer--;
-        if (stateTimer <= 0) {
-            state.routine = STATE_CLEANUP;
-        }
-    }
-
-    private void updateCleanup() {
-        // Clear Boss_flag
-        Sonic3kAIZEvents events = getAizEvents();
-        if (events != null) {
-            events.setBossFlag(false);
-        }
-
-        // Restore camera boundaries (ROM: Camera_stored_max_X_pos)
-        Camera camera = Camera.getInstance();
-        camera.setMinX((short) 0);
-        camera.setMaxX((short) savedCameraMaxX);
-
-        // TODO: Restore level music when S3K audio IDs are defined
-        // TODO: Load_PLC(PLC_Monitors)
-
-        setDestroyed(true);
-        LOG.info("AIZ Miniboss: cleaned up and destroyed");
-    }
-
-    // --- Helper methods ---
-
-    private void spawnDebris(Camera camera) {
+    private void spawnDebris() {
         var objectManager = levelManager.getObjectManager();
-        if (objectManager == null) return;
-
-        int cameraX = camera.getX();
-        for (int i = 0; i < 6; i++) {
-            int debrisX = cameraX + DEBRIS_X_OFFSETS[i];
-            int debrisY = DEBRIS_Y_OFFSETS[i];
-            AizMinibossDebrisChild debris = new AizMinibossDebrisChild(
-                    debrisX, debrisY, DEBRIS_VELOCITIES[i], DEBRIS_FRAMES[i]);
-            objectManager.addDynamicObject(debris);
+        if (objectManager == null) {
+            return;
         }
+        int cameraX = Camera.getInstance().getX();
+        for (int i = 0; i < DEBRIS_X_OFFSETS.length; i++) {
+            int x = cameraX + DEBRIS_X_OFFSETS[i];
+            int y = DEBRIS_Y_POSITIONS[i];
+            objectManager.addDynamicObject(new AizMinibossDebrisChild(
+                    x, y, DEBRIS_X_VELOCITIES[i], DEBRIS_FRAMES[i]));
+        }
+    }
+
+    private void loadBossPalette() {
+        try {
+            byte[] line = GameServices.rom().getRom().readBytes(
+                    Sonic3kConstants.PAL_AIZ_MINIBOSS_ADDR, 32);
+            levelManager.updatePalette(1, line);
+        } catch (Exception ignored) {
+            // Palette load failures should not crash gameplay.
+        }
+    }
+
+    private boolean isAiz1() {
+        return levelManager.getCurrentZone() == 0 && levelManager.getCurrentAct() == 0;
     }
 
     private Sonic3kAIZEvents getAizEvents() {
@@ -311,33 +286,23 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Don't render during init/wait states or after cleanup
-        if (state.routine <= STATE_CAMERA_WAIT || isDestroyed()) {
+        if (state.routine < ROUTINE_DESCEND || isDestroyed()) {
             return;
         }
-
         ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
         if (renderManager == null) {
             return;
         }
-
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic3kObjectArtKeys.AIZ_MINIBOSS);
         if (renderer == null || !renderer.isReady()) {
             return;
         }
-
-        // Main boss head/top frame (frame index depends on state)
-        boolean hFlip = state.xVel > 0; // face direction of movement
-        renderer.drawFrameIndex(getMappingFrame(), state.x, state.y, hFlip, false);
+        boolean hFlip = (state.renderFlags & 1) != 0;
+        renderer.drawFrameIndex(0, state.x, state.y, hFlip, false);
     }
 
-    private int getMappingFrame() {
-        return switch (state.routine) {
-            case STATE_DESCEND -> 4;    // descending frame
-            case STATE_SWING -> 5;      // active/swinging frame
-            case STATE_PRE_EXIT -> 6;   // pre-exit frame
-            case STATE_EXIT -> 7;       // flying away frame
-            default -> 4;
-        };
+    @Override
+    public int getPriorityBucket() {
+        return 2;
     }
 }

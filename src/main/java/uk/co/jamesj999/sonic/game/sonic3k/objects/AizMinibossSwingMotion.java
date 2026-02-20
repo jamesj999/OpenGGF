@@ -4,16 +4,22 @@ import uk.co.jamesj999.sonic.level.objects.boss.BossStateContext;
 
 /**
  * Shared swing motion utility for AIZ miniboss objects (0x90 and 0x91).
- * Implements Swing_UpAndDown from ROM: oscillates y_vel between -speed and +speed.
+ * Implements Swing_Setup1 / Swing_UpAndDown from ROM.
  */
 public class AizMinibossSwingMotion {
     private int speed;
     private int accel;
 
-    /** Initialize with Swing_Setup1 parameters: speed=0xC0, accel=0x10. */
-    public void setup1() {
+    /**
+     * ROM: Swing_Setup1
+     * - speed = 0xC0
+     * - y_vel = speed
+     * - accel = 0x10
+     */
+    public void setup1(BossStateContext state) {
         this.speed = 0xC0;
         this.accel = 0x10;
+        state.yVel = speed;
     }
 
     /**

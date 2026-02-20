@@ -15,39 +15,38 @@ import java.util.List;
  * AIZ Miniboss (0x90) - Debris fragment.
  * Six instances spawned with specific offsets from camera position.
  * Uses AIZ_MINIBOSS_SMALL art key with 3 frames.
- * Has a wait phase then drifts upward, eventually self-destructs.
+ *
+ * ROM: loc_68DFA / loc_68E8C
+ * - Spawns with fixed Y rows and per-piece X velocity (word_68E60)
+ * - Immediately transitions to MoveSprite2 movement (no drift/wait phase)
  */
 public class AizMinibossDebrisChild extends AbstractObjectInstance {
     private int worldX;
     private int worldY;
+    private int xFixed;
+    private int yFixed;
+    private final int xVel;
     private final int mappingFrame;
-    private int timer;
-    private boolean drifting;
-    private int lifeTimer;
 
-    public AizMinibossDebrisChild(int x, int y, int yVel, int mappingFrame) {
+    public AizMinibossDebrisChild(int x, int y, int xVel, int mappingFrame) {
         super(new ObjectSpawn(x, y, 0x90, 0, 0, false, 0), "AIZMinibossDebris");
         this.worldX = x;
         this.worldY = y;
+        this.xFixed = x << 16;
+        this.yFixed = y << 16;
+        this.xVel = xVel;
         this.mappingFrame = mappingFrame;
-        this.timer = yVel; // wait time = velocity value
-        this.drifting = false;
-        this.lifeTimer = 0;
     }
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        lifeTimer++;
-        if (!drifting) {
-            timer--;
-            if (timer <= 0) {
-                drifting = true;
-            }
-        } else {
-            worldY -= 1; // drift upward
-            if (lifeTimer > 300) {
-                setDestroyed(true);
-            }
+        xFixed += (xVel << 8);
+        worldX = xFixed >> 16;
+        worldY = yFixed >> 16;
+
+        // ROM removes these once they scroll far from the camera window.
+        if (!isOnScreen(256)) {
+            setDestroyed(true);
         }
     }
 

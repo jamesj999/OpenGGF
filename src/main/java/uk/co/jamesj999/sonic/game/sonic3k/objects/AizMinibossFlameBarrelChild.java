@@ -12,38 +12,60 @@ import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import java.util.List;
 
 /**
- * AIZ Miniboss (0x90) - Flame barrel child.
- * Three instances are spawned at different offsets from the parent.
- * Uses a 7-state machine: INIT -> WAIT_ACTIVATE -> OPEN -> SPAWN_FLAMES -> CLOSE -> COOLDOWN -> repeat.
- * Activates when the parent sets custom flag 0x38 bit 1.
- * Each barrel spawns 4 flame projectiles when it fires.
+ * AIZ miniboss flame barrel child.
+ *
+ * ROM:
+ * - Cutscene barrel: loc_6872C (ChildObjDat_69072)
+ * - Miniboss barrel: loc_68C12 (ChildObjDat_69086)
  */
 public class AizMinibossFlameBarrelChild extends AbstractBossChild {
+    private static final int FLAG_PARENT_BITS = 0x38;
+    private static final int PARENT_BIT_BARREL_ACTIVATE = 1 << 1;
+
+    private static final int[] START_DELAYS = {0, 0x10, 0x20}; // word_68ECE
     private static final int[][] BARREL_OFFSETS = {
             {0, -0x20}, {9, -0x1C}, {0x12, -0x18}
     };
-    private static final int[] FLAME_X_OFFSETS = {-0x64, -0x54, -0x44, -0x2C};
-    private static final int[] FLAME_Y_OFFSETS = {4, 4, 4, 3};
 
-    private enum BarrelState {
-        INIT, WAIT_ACTIVATE, OPEN, SPAWN_FLAMES, CLOSE, COOLDOWN, IDLE
+    private enum State {
+        INIT,
+        WAIT_ACTIVATE,
+        START_DELAY,
+        OPENING,
+        FIRING_CUTSCENE,
+        FIRING_MINIBOSS,
+        BETWEEN_SHOTS,
+        CLOSING,
+        IDLE
     }
 
     private final int barrelIndex;
-    private BarrelState barrelState = BarrelState.INIT;
-    private int stateTimer;
+    private final boolean cutsceneVariant;
 
-    public AizMinibossFlameBarrelChild(AbstractBossInstance parent, int barrelIndex) {
+    private State state = State.INIT;
+    private int timer;
+    private int mappingFrame = 3;
+    private int cutsceneCounter;
+
+    public AizMinibossFlameBarrelChild(AbstractBossInstance parent, int barrelIndex, boolean cutsceneVariant) {
         super(parent, "AIZMinibossBarrel" + barrelIndex, 4, 0x90);
-        this.barrelIndex = Math.min(barrelIndex, 2);
+        this.barrelIndex = Math.max(0, Math.min(2, barrelIndex));
+        this.cutsceneVariant = cutsceneVariant;
     }
 
     @Override
     public void syncPositionWithParent() {
-        if (parent != null && !parent.isDestroyed()) {
-            this.currentX = parent.getX() + BARREL_OFFSETS[barrelIndex][0];
-            this.currentY = parent.getY() + BARREL_OFFSETS[barrelIndex][1];
+        if (parent == null || parent.isDestroyed()) {
+            return;
         }
+        int xOffset = BARREL_OFFSETS[barrelIndex][0];
+        int yOffset = BARREL_OFFSETS[barrelIndex][1];
+        boolean hFlip = (parent.getState().renderFlags & 1) != 0;
+        if (hFlip) {
+            xOffset = -xOffset;
+        }
+        this.currentX = parent.getX() + xOffset;
+        this.currentY = parent.getY() + yOffset;
     }
 
     @Override
@@ -51,75 +73,123 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
         if (!shouldUpdate(frameCounter)) {
             return;
         }
+
         syncPositionWithParent();
 
-        // Stop firing when parent enters pre-exit or later (routine >= 10)
-        if (barrelState != BarrelState.INIT && barrelState != BarrelState.WAIT_ACTIVATE
-                && barrelState != BarrelState.IDLE
-                && parent.getState().routine >= 10) {
-            barrelState = BarrelState.IDLE;
+        if (parent == null || parent.getState().defeated) {
+            state = State.IDLE;
+            mappingFrame = 3;
+            updateDynamicSpawn();
+            return;
         }
 
-        switch (barrelState) {
+        switch (state) {
             case INIT -> {
-                barrelState = BarrelState.WAIT_ACTIVATE;
+                state = State.WAIT_ACTIVATE;
+                mappingFrame = 3;
             }
             case WAIT_ACTIVATE -> {
-                // Wait for parent to set activation flag (bit 1 of custom flag 0x38)
-                if ((parent.getCustomFlag(0x38) & 0x02) != 0) {
-                    barrelState = BarrelState.OPEN;
-                    stateTimer = 16;
+                mappingFrame = 3;
+                if (!isActivatedByParent()) {
+                    break;
+                }
+                timer = START_DELAYS[barrelIndex];
+                state = State.START_DELAY;
+            }
+            case START_DELAY -> {
+                if (--timer >= 0) {
+                    break;
+                }
+                timer = 8;
+                mappingFrame = 4;
+                state = State.OPENING;
+            }
+            case OPENING -> {
+                if (--timer > 0) {
+                    mappingFrame = 4;
+                    break;
+                }
+                mappingFrame = 5;
+                if (cutsceneVariant) {
+                    cutsceneCounter = 3;
+                    state = State.FIRING_CUTSCENE;
+                } else {
+                    state = State.FIRING_MINIBOSS;
                 }
             }
-            case OPEN -> {
-                stateTimer--;
-                if (stateTimer <= 0) {
-                    barrelState = BarrelState.SPAWN_FLAMES;
+            case FIRING_CUTSCENE -> {
+                fireCutsceneShot();
+                timer = 0x1C;
+                state = State.BETWEEN_SHOTS;
+            }
+            case FIRING_MINIBOSS -> {
+                spawnShot(AizMinibossBarrelShotChild.Mode.ADVANCED_COLLIDING);
+                timer = 10;
+                state = State.CLOSING;
+            }
+            case BETWEEN_SHOTS -> {
+                if (--timer >= 0) {
+                    break;
+                }
+                if (cutsceneCounter < 0) {
+                    timer = 10;
+                    state = State.CLOSING;
+                } else {
+                    state = State.FIRING_CUTSCENE;
                 }
             }
-            case SPAWN_FLAMES -> {
-                spawnFlames();
-                barrelState = BarrelState.CLOSE;
-                stateTimer = 16;
-            }
-            case CLOSE -> {
-                stateTimer--;
-                if (stateTimer <= 0) {
-                    barrelState = BarrelState.COOLDOWN;
-                    stateTimer = 30 + barrelIndex * 10; // stagger re-fire
+            case CLOSING -> {
+                mappingFrame = 4;
+                if (--timer > 0) {
+                    break;
+                }
+                mappingFrame = 3;
+                if (cutsceneVariant) {
+                    state = State.IDLE;
+                } else {
+                    clearParentActivationBit();
+                    state = State.WAIT_ACTIVATE;
                 }
             }
-            case COOLDOWN -> {
-                stateTimer--;
-                if (stateTimer <= 0) {
-                    barrelState = BarrelState.OPEN;
-                    stateTimer = 16;
-                }
-            }
-            case IDLE -> { /* do nothing */ }
+            case IDLE -> mappingFrame = 3;
         }
 
         updateDynamicSpawn();
     }
 
-    private void spawnFlames() {
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null || lm.getObjectManager() == null) {
+    private void fireCutsceneShot() {
+        // loc_687B6: counter decremented before child selection.
+        cutsceneCounter--;
+        if (cutsceneCounter == 1) {
+            // loc_68C96 path spawned from ChildObjDat_690A8, but cutscene parent
+            // clears collision_flags in loc_68CD0.
+            spawnShot(AizMinibossBarrelShotChild.Mode.ADVANCED_NON_COLLIDING);
+        } else {
+            // loc_68844 path from ChildObjDat_6909A.
+            spawnShot(AizMinibossBarrelShotChild.Mode.SIMPLE);
+        }
+    }
+
+    private void spawnShot(AizMinibossBarrelShotChild.Mode mode) {
+        LevelManager levelManager = LevelManager.getInstance();
+        if (levelManager == null || levelManager.getObjectManager() == null) {
             return;
         }
-        for (int i = 0; i < FLAME_X_OFFSETS.length; i++) {
-            int flameX = currentX + FLAME_X_OFFSETS[i];
-            int flameY = currentY + FLAME_Y_OFFSETS[i];
-            AizMinibossFlameChild flame = new AizMinibossFlameChild(flameX, flameY, i);
-            lm.getObjectManager().addDynamicObject(flame);
-        }
+        levelManager.getObjectManager().addDynamicObject(
+                new AizMinibossBarrelShotChild(parent, barrelIndex, currentX, currentY + 4, mode));
+    }
+
+    private boolean isActivatedByParent() {
+        return (parent.getCustomFlag(FLAG_PARENT_BITS) & PARENT_BIT_BARREL_ACTIVATE) != 0;
+    }
+
+    private void clearParentActivationBit() {
+        int flags = parent.getCustomFlag(FLAG_PARENT_BITS);
+        parent.setCustomFlag(FLAG_PARENT_BITS, flags & ~PARENT_BIT_BARREL_ACTIVATE);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (barrelState == BarrelState.INIT || barrelState == BarrelState.WAIT_ACTIVATE) {
-            return;
-        }
         ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
         if (rm == null) {
             return;
@@ -128,13 +198,7 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
         if (renderer == null || !renderer.isReady()) {
             return;
         }
-        // Use barrel-related frames from the main mapping (frames 2-5 are barrel animation)
-        int frame = switch (barrelState) {
-            case OPEN -> 2;
-            case SPAWN_FLAMES, CLOSE -> 3;
-            case COOLDOWN -> 2;
-            default -> 2;
-        };
-        renderer.drawFrameIndex(frame, currentX, currentY, false, false);
+        boolean hFlip = (parent != null) && ((parent.getState().renderFlags & 1) != 0);
+        renderer.drawFrameIndex(mappingFrame, currentX, currentY, hFlip, false);
     }
 }

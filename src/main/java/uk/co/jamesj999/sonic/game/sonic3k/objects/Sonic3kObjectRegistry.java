@@ -116,6 +116,14 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                     }
                     return new AizMinibossCutsceneInstance(spawn, LevelManager.getInstance());
                 });
+        factories.put(Sonic3kObjectIds.AIZ_MINIBOSS,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new AizMinibossInstance(spawn, LevelManager.getInstance());
+                });
     }
 
     private S3kZoneSet getCurrentZoneSet() {
