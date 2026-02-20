@@ -229,6 +229,11 @@ public enum SonicConfiguration {
 	/**
 	 * Key to give all chaos emeralds (debug, default: E).
 	 */
-	GIVE_EMERALDS_KEY;
+	GIVE_EMERALDS_KEY,
+
+	/**
+	 * Whether to show the master title screen (game selection) on startup.
+	 */
+	MASTER_TITLE_SCREEN_ON_STARTUP;
 
 }

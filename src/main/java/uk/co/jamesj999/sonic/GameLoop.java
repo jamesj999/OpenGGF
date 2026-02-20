@@ -142,6 +142,17 @@ public class GameLoop {
     }
 
     /**
+     * Sets the game mode directly. Used for master title screen initialization.
+     */
+    public void setGameMode(GameMode mode) {
+        GameMode oldMode = currentGameMode;
+        currentGameMode = mode;
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, mode);
+        }
+    }
+
+    /**
      * Pauses the game loop due to window losing focus.
      * Audio is also paused to prevent music continuing while game is frozen.
      */
@@ -207,7 +218,22 @@ public class GameLoop {
             throw new IllegalStateException("InputHandler must be set before calling step()");
         }
 
-        // Handle pause toggle first - must work even when paused
+        // Master title screen mode - runs before any ROM/game systems are loaded.
+        // Must be checked before pause handling since Enter is both confirm and pause.
+        if (currentGameMode == GameMode.MASTER_TITLE_SCREEN) {
+            uk.co.jamesj999.sonic.game.MasterTitleScreen masterScreen =
+                    Engine.getInstance().getMasterTitleScreen();
+            if (masterScreen != null) {
+                masterScreen.update(inputHandler);
+                if (masterScreen.isGameSelected()) {
+                    exitMasterTitleScreen(masterScreen);
+                }
+            }
+            inputHandler.update();
+            return;
+        }
+
+        // Handle pause toggle - must work even when paused
         int pauseKey = configService.getInt(SonicConfiguration.PAUSE_KEY);
         if (inputHandler.isKeyPressed(pauseKey)) {
             toggleUserPause();
@@ -1044,6 +1070,51 @@ public class GameLoop {
         if (gameModeChangeListener != null) {
             gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
         }
+    }
+
+    // ==================== Master Title Screen Methods ====================
+
+    /**
+     * Exits the master title screen after the user selects a game.
+     * Performs a fade-to-black, then initializes the selected game (Phase 2),
+     * and transitions to the game-specific title screen.
+     */
+    private void exitMasterTitleScreen(uk.co.jamesj999.sonic.game.MasterTitleScreen masterScreen) {
+        FadeManager fadeManager = FadeManager.getInstance();
+        if (fadeManager.isActive()) {
+            return;
+        }
+
+        String selectedGameId = masterScreen.getSelectedGameId();
+
+        fadeManager.startFadeToBlack(() -> {
+            doExitMasterTitleScreen(selectedGameId);
+        });
+
+        LOGGER.info("Starting fade-to-black for master title screen exit (game: " + selectedGameId + ")");
+    }
+
+    /**
+     * Actually performs the master title screen exit after fade-to-black completes.
+     */
+    private void doExitMasterTitleScreen(String selectedGameId) {
+        Engine engine = Engine.getInstance();
+        if (engine != null) {
+            engine.exitMasterTitleScreen(selectedGameId);
+        }
+
+        // When TITLE_SCREEN_ON_STARTUP or LEVEL_SELECT_ON_STARTUP is true,
+        // initializeGame() sets currentGameMode via initializeTitleScreenMode/
+        // initializeLevelSelectMode. Otherwise, loadZoneAndAct() does NOT set
+        // currentGameMode directly (it fires a title card request for the next
+        // frame). Force mode to LEVEL so step() can process the pending request.
+        if (currentGameMode == GameMode.MASTER_TITLE_SCREEN) {
+            currentGameMode = GameMode.LEVEL;
+        }
+
+        FadeManager.getInstance().startFadeFromBlack(null);
+
+        LOGGER.info("Exited master title screen, now in mode: " + currentGameMode);
     }
 
     // ==================== Title Screen Methods ====================
