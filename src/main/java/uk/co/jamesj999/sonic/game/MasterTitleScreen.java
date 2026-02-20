@@ -295,11 +295,19 @@ public class MasterTitleScreen {
         int scaledEmblemW = (int)(emblemWidth * emblemScale);
         int scaledEmblemH = (int)(emblemHeight * emblemScale);
         float emblemX = (SCREEN_W - scaledEmblemW) / 2f;
-        float emblemGlY = titleGlY - scaledEmblemH + 28;
+        float emblemGlY = titleGlY - scaledEmblemH + 12;
         renderer.drawTexture(emblemTextureId, emblemX, emblemGlY, scaledEmblemW, scaledEmblemH);
 
         // 5. Title text "OpenGGF" (centered, top) - drawn after emblem so it appears in front
         renderer.drawTexture(titleTextId, titleX, titleGlY, scaledTitleW, scaledTitleH);
+
+        // 6. Subtitle text, right-aligned to title's right edge - drawn after title (no overlap)
+        int titleRightEdge = (int)(titleX + scaledTitleW)-8;
+        int subtitleY = (int)(SCREEN_H - titleGlY) - 6;
+        int line1X = titleRightEdge - font.measureWidth("Open-Source");
+        int line2X = titleRightEdge - font.measureWidth("Sonic Engine");
+        font.drawText("Open-Source", line1X, subtitleY-8, 0.8f, 0.8f, 0.8f, 0.9f);
+        font.drawText("Sonic Engine", line2X, subtitleY + 2, 0.8f, 0.8f, 0.8f, 0.9f);
 
         // 5. Game selection menu at bottom
         drawGameMenu();
