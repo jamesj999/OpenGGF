@@ -4,6 +4,7 @@ import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kObjectArtKeys;
 import uk.co.jamesj999.sonic.graphics.GLCommand;
 import uk.co.jamesj999.sonic.level.LevelManager;
 import uk.co.jamesj999.sonic.level.objects.ObjectRenderManager;
+import uk.co.jamesj999.sonic.level.objects.TouchResponseProvider;
 import uk.co.jamesj999.sonic.level.objects.boss.AbstractBossChild;
 import uk.co.jamesj999.sonic.level.objects.boss.AbstractBossInstance;
 import uk.co.jamesj999.sonic.level.render.PatternSpriteRenderer;
@@ -12,12 +13,24 @@ import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import java.util.List;
 
 /**
- * AIZ Miniboss (0x90) - Body sprite child.
- * Follows the parent boss with a Y offset of +0x20 and renders the body frame
- * from the AIZ_MINIBOSS art sheet.
+ * AIZ miniboss body child.
+ *
+ * ROM: loc_686BE / loc_686E8
+ * - X/Y offset from ChildObjDat_6905C: (0, +0x20)
+ * - collision_flags=$9C (hurt)
+ * - animated body frames while active
  */
-public class AizMinibossBodyChild extends AbstractBossChild {
+public class AizMinibossBodyChild extends AbstractBossChild implements TouchResponseProvider {
     private static final int Y_OFFSET = 0x20;
+    private static final int COLLISION_FLAGS = 0x9C;
+    private static final int SHIELD_REACTION = 1 << 4;
+
+    private static final int[] ACTIVE_FRAMES = {3, 4, 5};
+    private static final int[] ACTIVE_DELAYS = {7, 5, 5};
+
+    private int mappingFrame = 2;
+    private int animIndex = 0;
+    private int animTimer = ACTIVE_DELAYS[0];
 
     public AizMinibossBodyChild(AbstractBossInstance parent) {
         super(parent, "AIZMinibossBody", 3, 0x90);
@@ -37,7 +50,50 @@ public class AizMinibossBodyChild extends AbstractBossChild {
             return;
         }
         syncPositionWithParent();
+        updateAnimation();
         updateDynamicSpawn();
+    }
+
+    private void updateAnimation() {
+        if (parent == null || parent.getState().defeated) {
+            mappingFrame = 2;
+            return;
+        }
+
+        // Body animation is only active once the parent has entered active phases.
+        if (parent.getState().routine < 8) {
+            mappingFrame = 2;
+            animIndex = 0;
+            animTimer = ACTIVE_DELAYS[0];
+            return;
+        }
+
+        animTimer--;
+        if (animTimer > 0) {
+            return;
+        }
+
+        animIndex = (animIndex + 1) % ACTIVE_FRAMES.length;
+        mappingFrame = ACTIVE_FRAMES[animIndex];
+        animTimer = ACTIVE_DELAYS[animIndex];
+    }
+
+    @Override
+    public int getCollisionFlags() {
+        if (parent == null || parent.getState().defeated || isDestroyed()) {
+            return 0;
+        }
+        return COLLISION_FLAGS;
+    }
+
+    @Override
+    public int getCollisionProperty() {
+        return 0;
+    }
+
+    @Override
+    public int getShieldReactionFlags() {
+        return SHIELD_REACTION;
     }
 
     @Override
@@ -50,6 +106,7 @@ public class AizMinibossBodyChild extends AbstractBossChild {
         if (renderer == null || !renderer.isReady()) {
             return;
         }
-        renderer.drawFrameIndex(0, currentX, currentY, false, false);
+        boolean hFlip = parent != null && (parent.getState().renderFlags & 1) != 0;
+        renderer.drawFrameIndex(mappingFrame, currentX, currentY, hFlip, false);
     }
 }

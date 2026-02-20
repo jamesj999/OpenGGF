@@ -12,9 +12,12 @@ import uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite;
 import java.util.List;
 
 /**
- * AIZ Miniboss (0x90) - Arm sprite child.
- * Follows the parent boss with X offset -0x24 and Y offset +8.
- * Purely visual, no collision.
+ * AIZ miniboss arm child.
+ *
+ * ROM: loc_6870A / loc_68720
+ * - Offset from ChildObjDat_6905C: (-0x24, +8)
+ * - mapping_frame=6
+ * - purely visual (no collision)
  */
 public class AizMinibossArmChild extends AbstractBossChild {
     private static final int X_OFFSET = -0x24;
@@ -27,7 +30,8 @@ public class AizMinibossArmChild extends AbstractBossChild {
     @Override
     public void syncPositionWithParent() {
         if (parent != null && !parent.isDestroyed()) {
-            this.currentX = parent.getX() + X_OFFSET;
+            int signedOffset = ((parent.getState().renderFlags & 1) != 0) ? -X_OFFSET : X_OFFSET;
+            this.currentX = parent.getX() + signedOffset;
             this.currentY = parent.getY() + Y_OFFSET;
         }
     }
@@ -51,6 +55,7 @@ public class AizMinibossArmChild extends AbstractBossChild {
         if (renderer == null || !renderer.isReady()) {
             return;
         }
-        renderer.drawFrameIndex(1, currentX, currentY, false, false);
+        boolean hFlip = (parent != null) && ((parent.getState().renderFlags & 1) != 0);
+        renderer.drawFrameIndex(6, currentX, currentY, hFlip, false);
     }
 }

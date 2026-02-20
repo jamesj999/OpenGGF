@@ -17,6 +17,7 @@ public final class Sonic3kObjectIds {
     public static final int RHINOBOT = 0x8D;
     public static final int MONKEY_DUDE = 0x8E;
     public static final int AIZ_MINIBOSS_CUTSCENE = 0x90;
+    public static final int AIZ_MINIBOSS = 0x91;
 
     private Sonic3kObjectIds() {
     }

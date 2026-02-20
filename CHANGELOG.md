@@ -2,6 +2,110 @@
 
 All notable changes to the sonic-engine project are documented in this file.
 
+## v0.4 (Unreleased)
+
+Analysis range: `v0.3.20260206..HEAD` on `develop` (`312` commits, `291` non-merge commits,
+`801` files changed, `153243` insertions, `29989` deletions).
+
+### Sonic 1 Expansion and Content Completion
+
+- Added full Sonic 1 title screen pipeline and title-screen-to-level-select flow
+  (`Sonic1TitleScreenManager`, loader, mappings, transition handling).
+- Implemented Sonic 1 rings and lamppost/checkpoint behavior.
+- Implemented Sonic 1 special stage gameplay and integration:
+  - Game-agnostic special stage provider refactor.
+  - `Sonic1SpecialStageManager`, renderer/background renderer/data loader, block types, and results screen.
+  - Giant Ring route from normal gameplay into special stage flow.
+- Introduced per-zone event coverage for Sonic 1 with zone-specific managers/events for GHZ, MZ, SYZ,
+  LZ (including water events), SLZ, SBZ, and ending/FZ handling.
+- Major object implementation wave for Sonic 1: `117` new object-related classes
+  (`78` general objects, `23` badnik classes, `16` boss-related classes).
+- Boss coverage expanded to GHZ, MZ, SYZ, LZ, SLZ, and FZ with child objects/projectiles and event integration.
+- Added/finished LZ water behavior and bubble systems, including per-ROM drowning music selection.
+- Added ending/outro flow updates and initial credits sequence implementation.
+
+### Sonic 2 Gameplay Additions
+
+- Added Sonic 2 title screen architecture and title-screen audio regression coverage.
+- Added major object coverage passes:
+  - Metropolis Zone object set (`16` objects) and engine crush detection.
+  - Sky Chase/Tornado object set and spawn path integration.
+  - Wing Fortress object set and supporting hazards/platforms.
+  - Oil Ocean object and oil-surface behavior improvements.
+- Added MCZ boss implementation (`Sonic2MCZBossInstance` + falling debris support) with follow-up fixes.
+- Added `61` new Sonic 2 object-related files (`45` general objects, `14` badnik classes, `2` boss files),
+  including additional SCZ/WFZ/MTZ/OOZ badnik/object coverage.
+- Refactored and expanded Sonic 2 zone events (`Sonic2LevelEventManager` + per-zone event classes).
+
+### Super Sonic and Per-Game Physics
+
+- Added cross-game physics abstraction:
+  - `PhysicsProfile`, `PhysicsFeatureSet`, `PhysicsModifiers`, `PhysicsProvider`, and `CollisionModel`.
+  - Validation tests for profile behavior, collision model differences, spindash gating, and speed capping.
+- Implemented Sonic 2 Super Sonic flow:
+  - Base state machine via `SuperState`/`SuperStateController`.
+  - Integration into playable sprite/game loop/module plumbing.
+  - ROM-based animation loading, ROM-exact palette cycling, and S2 constants wiring.
+  - Invulnerability/enemy-destruction behavior and shield/power-up interaction guards.
+  - Debug toggle support and Super Sonic stars object support.
+- Added Sonic 3K Super Sonic controller stub/hook points for future parity work.
+
+### Sonic 3K Bring-Up (AIZ-Focused)
+
+- Extended Sonic 3K bootstrap/audio readiness (voice/sfx index fixes, ROM loading fixes, SoundTestApp support).
+- Implemented Angel Island intro cinematic pipeline:
+  - AIZ event wiring and intro state-machine objects (`AizPlaneIntroInstance`, Knuckles cutscene objects,
+    emerald scatter, wave/plane/glow/booster children).
+  - Intro art loading/caching and terrain swap integration.
+- Added AIZ gameplay object work with parity-focused fixes:
+  - Ride vines and giant ride vines.
+  - Hollow tree traversal and reveal/tilemap support.
+  - Multiple parity fixes (angle bytes, state retention, endianness, momentum, despawn guards) plus regressions.
+- Added AIZ miniboss object set and child components.
+- Added initial S3K badnik framework and first wired badnik implementations.
+- Added S3K shield object implementations and fixed deferred PLC loading after AIZ intro.
+- Added Sonic 3K title card manager/mappings and S3K pattern/palette animation work.
+
+### PLC, Art Loading, and Tooling
+
+- Major PLC and sprite-pattern refactor across S1/S2/S3K pipelines.
+- Added/expanded PLC systems:
+  - `Sonic2PlcLoader`, `Sonic2PlcArtRegistry`, and broader S3K PLC loading paths.
+  - Shared sprite/mapping loader use (`S1SpriteDataLoader`, `S2SpriteDataLoader`, `S3kSpriteDataLoader`).
+- Expanded ROM/disassembly tooling:
+  - Object profile abstractions per game (`Sonic1ObjectProfile`, `Sonic2ObjectProfile`, `Sonic3kObjectProfile`).
+  - Shared-ID handling in S3K object checklist generation.
+  - PLC cross-referencing in `RomOffsetFinder`/`DisassemblySearchTool` and `ObjectDiscoveryTool`.
+
+### Audio, Stability, and Engine Hardening
+
+- Audio updates:
+  - Music/SFX catalog refactor to enum-driven paths.
+  - PSG GPGX hybrid parity work and tests.
+  - S3K pitch wrapping and SFX index fixes.
+  - YM2612/SMPS fixes (including SSG-EG active-count leak and loop counter bounds).
+  - Thread-safety fixes in SMPS/audio backend paths and output mixing saturation safeguards.
+- Engine hardening and safety:
+  - ROM read synchronization and bounds checks.
+  - Kosinski/resource loading safety limits.
+  - Graphics cleanup fixes (resource leaks, reset-state gaps, allocation reductions).
+  - Additional stability fixes across water/drowning handling, invulnerability timing, and debug movement modifiers.
+- Performance passes across level/render/audio hot paths and internal debug profiling updates.
+
+### Test and Quality Coverage
+
+- Added `83` new test files across this range, including:
+  - Sonic 1 special stage, object, badnik, boss, and routing regressions.
+  - Sonic 3K AIZ intro/state timeline/hollow tree traversal parity regressions.
+  - Title screen audio regression coverage.
+  - PSG/YM2612 and per-game physics/profile parity checks.
+- Expanded headless and subsystem-focused tests in support of object/event/audio refactors.
+
+### Docs and Planning
+
+- Added release-planning/implementation docs for unified level events, Super Sonic, and AIZ intro work.
+- Expanded disassembly/reference and skill documentation used for parity-driven object/boss implementation workflows.
+
 ## v0.3.20260206
 
 366 commits, 541 files changed, ~99,000 lines added.
@@ -610,12 +714,12 @@ most of the objects and Badniks in Emerald Hill Zone. Rings are implemented, lif
 is implemented. SoundFX and music are implemented. Everything has room for improvement, but this
 now resembles a playable game.
 
-## V0.05
+## V0.05 (2015-04-09)
 
 Little more than a tech demo. Sonic is able to run and jump and collide with terrain in a reasonably
 correct way. No graphics have yet been implemented so it's a moving white box on a black background.
 
-## V0.01 (Pre-Alpha) (Unreleased)
+## V0.01 (Pre-Alpha) (Unreleased; first documented 2013-05-22)
 
 A moving black box. This version will be complete when we have an unskinned box that can traverse
 terrain in the same way Sonic would in the original game.
