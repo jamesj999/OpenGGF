@@ -159,11 +159,21 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     // Dynamic spawn for position updates
     private ObjectSpawn dynamicSpawn;
 
-    // Frame counter when push sound was last triggered (throttle restarts)
-    private int lastPushSoundFrame = -100;
+    // Frame counter when push sound was last triggered.
+    // ROM's SMPS driver uses f_push_playing flag: sfx_Push is ignored while already
+    // playing, and smpsClearPush at the end of the sound data clears the flag.
+    // Sound duration: nD1,$07 + nRst,$02 + nD1,$06 + nRst,$10 = 31 frames at tempo $01.
+    private static final int PUSH_SOUND_DURATION = 31;
+    private int lastPushSoundFrame = -PUSH_SOUND_DURATION;
 
     // Last X position where a geyser maker was spawned (prevents repeated spawns)
     private int lastGeyserSpawnX = Integer.MIN_VALUE;
+
+    // ROM d0 displacement captured during update() (before SolidContacts correction).
+    // Solid_ChkEnter computes d0 from the uncorrected player position; by the time
+    // onSolidContact fires the player has already been pushed to the edge (d0 would
+    // always be 0). Capturing here preserves the pre-correction overlap.
+    private int preContactD0;
 
     public Sonic1PushBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "PushBlock");
@@ -251,8 +261,24 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         }
 
         // loc_C186 state machine: states 4 and 6 handled directly.
-        // States 0 and 2 are handled by the SolidContacts system.
+        // State 0: capture pre-correction d0 for the push check (see handlePush).
+        // update() runs during levelManager.updateObjectPositions(), BEFORE the
+        // SolidContacts pass repositions the player, so the player position here
+        // reflects actual pixel overlap — matching the ROM's Solid_ChkEnter timing.
         switch (solidState) {
+            case 0 -> {
+                if (!inMotion && player != null) {
+                    int solidHalfWidth = activeWidth + 0x0B;
+                    int relX = player.getCentreX() - x + solidHalfWidth;
+                    if (relX >= solidHalfWidth) {
+                        preContactD0 = relX - (solidHalfWidth * 2);
+                    } else {
+                        preContactD0 = relX;
+                    }
+                } else {
+                    preContactD0 = 0;
+                }
+            }
             case 4 -> runState4FallWithGravity();
             case 6 -> runState6AlignTo16px();
         }
@@ -586,17 +612,20 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void handlePush(AbstractPlayableSprite player, int frameCounter) {
-        int playerCenterX = player.getCentreX();
-        int blockCenterX = x;
-
-        // tst.w d0 / beq.w locret_C2E4 — if player is exactly at block center, exit
-        if (playerCenterX == blockCenterX) {
+        // Use the pre-correction d0 captured during update() (before SolidContacts
+        // repositioned the player to the block edge). This matches the ROM where
+        // Solid_ChkEnter computes d0 from the uncorrected overlap and the push
+        // block code checks "tst.w d0 / beq.w locret_C2E4".
+        // With gSpeed=$40 (~0.25px/frame) the player needs ~4 frames to move 1px
+        // into the block, matching the ROM's push cadence.
+        int d0 = preContactD0;
+        if (d0 == 0) {
             return;
         }
 
         // d0 > 0 → player LEFT of block → push RIGHT
         // d0 < 0 → player RIGHT of block → push LEFT
-        boolean pushRight = playerCenterX < blockCenterX;
+        boolean pushRight = d0 > 0;
 
         if (pushRight) {
             // btst #0,obStatus(a1) / bne.w locret_C2E4
@@ -615,7 +644,9 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             // addi.l #$10000,obX(a0) — move block 1 pixel right
             x += 1;
             // moveq #1,d0 / add.w d0,obX(a1) — move player 1 pixel right
-            player.setCentreX((short) (player.getCentreX() + 1));
+            // Use move() not setCentreX() to preserve subpixels (ROM's add.w only
+            // changes the pixel word, subpixel byte is untouched).
+            player.move((short) 256, (short) 0);
             // move.w #$40,d1 / move.w d1,obInertia(a1)
             player.setGSpeed((short) PUSH_INERTIA);
             // move.w #0,obVelX(a1)
@@ -638,7 +669,9 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             // subi.l #$10000,obX(a0) — move block 1 pixel left
             x -= 1;
             // moveq #-1,d0 / add.w d0,obX(a1) — move player 1 pixel left
-            player.setCentreX((short) (player.getCentreX() - 1));
+            // Use move() not setCentreX() to preserve subpixels (ROM's add.w only
+            // changes the pixel word, subpixel byte is untouched).
+            player.move((short) -256, (short) 0);
             // move.w #-$40,d1 / move.w d1,obInertia(a1)
             player.setGSpeed((short) -PUSH_INERTIA);
             // move.w #0,obVelX(a1)
@@ -646,16 +679,19 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         }
 
         // Play push sound: move.w #sfx_Push,d0 / jsr (QueueSound2).l
-        // ROM calls this every push frame; throttle to avoid choppy per-frame restarts.
-        // Only re-trigger the sound when a new push session starts (gap > 1 frame).
-        if (frameCounter - lastPushSoundFrame > 1) {
+        // ROM's SMPS driver has special handling for sfx_Push: if f_push_playing is
+        // already set, the queue request is silently ignored. The flag is cleared by
+        // smpsClearPush at the end of the sound data (~31 frames). This prevents the
+        // sound from restarting on every push frame while still allowing it to loop
+        // naturally when the player continues pushing.
+        if (frameCounter - lastPushSoundFrame >= PUSH_SOUND_DURATION) {
             try {
                 AudioManager.getInstance().playSfx(Sonic1Sfx.PUSH.id);
             } catch (Exception e) {
                 // Prevent audio failure from breaking game logic
             }
+            lastPushSoundFrame = frameCounter;
         }
-        lastPushSoundFrame = frameCounter;
 
         // tst.b obSubtype(a0) / bmi.s locret_C2E4
         // If chained to stomper (bit 7 set), skip ledge check
