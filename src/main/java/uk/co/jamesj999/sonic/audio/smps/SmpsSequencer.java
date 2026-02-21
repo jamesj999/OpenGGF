@@ -618,7 +618,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
 
         // For TIMEOUT mode, initialize the countdown accumulator to the tempo value
         if (config.getTempoMode() == SmpsSequencerConfig.TempoMode.TIMEOUT && tempoAccumulator == 0) {
-            tempoAccumulator = normalTempo;
+            tempoAccumulator = tempoWeight;
         }
     }
 
@@ -901,7 +901,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             if (!sfxMode) {
                 tempoAccumulator--;
                 if (tempoAccumulator <= 0) {
-                    tempoAccumulator = normalTempo;
+                    tempoAccumulator = tempoWeight;
                     // Extend all active music track durations by 1
                     for (Track t : tracks) {
                         if (t.active && t.duration > 0) {
@@ -1137,7 +1137,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                     calculateTempo();
                     // Parity: EA (Tempo Set) resets the tempo accumulator/counter to the new tempo value
                     if (config.getTempoMode() == SmpsSequencerConfig.TempoMode.TIMEOUT) {
-                        tempoAccumulator = normalTempo;
+                        tempoAccumulator = tempoWeight;
                     } else {
                         tempoAccumulator = tempoWeight;
                     }
