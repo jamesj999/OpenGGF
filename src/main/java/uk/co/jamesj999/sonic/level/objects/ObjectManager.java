@@ -2204,6 +2204,16 @@ public class ObjectManager {
                         // solids to prevent fractional accumulation causing 1px jitter.
                         // Push-driven objects skip this to preserve ROM push cadence.
                         player.setCentreX((short) playerCenterX);
+                        // ROM runs solid checks AFTER movement, so any penetration is
+                        // caught within the same frame. Our engine runs them BEFORE
+                        // movement, so gSpeed/xSpeed must also be zeroed when at the
+                        // exact edge and pressing into the object; otherwise gSpeed
+                        // accumulates across frames until xSpeed > 256 subpixels,
+                        // causing a 1px jitter every ~22 frames.
+                        if (movingInto) {
+                            player.setXSpeed((short) 0);
+                            player.setGSpeed((short) 0);
+                        }
                     }
                     if (distX != 0 && movingInto) {
                         // ROM: Solid_Left (lines 185-187) — zero inertia and xvel
@@ -2283,6 +2293,10 @@ public class ObjectManager {
                         boolean preserveEdgeMotion = preservesEdgeSubpixelMotion(instance);
                         if (!preserveEdgeMotion && distX == 0) {
                             player.setCentreX((short) playerCenterX);
+                            if (movingInto) {
+                                player.setXSpeed((short) 0);
+                                player.setGSpeed((short) 0);
+                            }
                         }
                         if (distX != 0 && movingInto) {
                             player.setXSpeed((short) 0);
