@@ -844,6 +844,12 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean preservesEdgeSubpixelMotion() {
+        // Solid_ChkEnter push cadence depends on accumulating subpixels while d0 == 0.
+        return true;
+    }
+
+    @Override
     public boolean isSolidFor(AbstractPlayableSprite player) {
         // Solid in states 0 (idle/pushable) and 2 (player riding on top).
         // NOT solid in states 4 (falling) and 6 (sliding to alignment) — the
