@@ -501,14 +501,15 @@ public class WaterSystem {
             int oscillation = uk.co.jamesj999.sonic.game.OscillationManager.getByte(0);
             return baseLevel + (oscillation - 8);
         }
-        // S1 LZ: water surface bobs using oscillator data (v_oscillate+2).
+        // S1 LZ and SBZ3: water surface bobs using oscillator data (v_oscillate+2).
         // The ROM reads byte at v_oscillate+2, shifts right by 1 (divides by 2),
         // and adds to v_waterpos2. This produces a gentle vertical bob.
-        if (zoneId == S1_ZONE_ID_LZ) {
+        // SBZ3 reuses the LZ water system entirely (LZWaterFeatures.asm .setheight).
+        if (zoneId == S1_ZONE_ID_LZ || (zoneId == S1_ZONE_ID_SBZ && actId == 2)) {
             int oscillation = uk.co.jamesj999.sonic.game.OscillationManager.getByte(0);
             return baseLevel + (oscillation >> 1);
         }
-        return baseLevel; // ARZ, SBZ3, etc: no oscillation
+        return baseLevel; // ARZ: no oscillation
     }
 
     /**
