@@ -192,6 +192,7 @@ Physics differences across S1/S2/S3K are handled through a layered provider syst
 | `inputAlwaysCapsGroundSpeed` | `true` | `false` | `false` | S1: input always caps ground speed; S2/S3K: preserves high speed |
 | `elementalShieldsEnabled` | `false` | `false` | `true` | S3K fire/lightning/bubble shield mechanics |
 | `angleDiffCardinalSnap` | `false` | `true` | `true` | S2/S3K: snap to cardinal when sensor angle diff >= 0x20 |
+| `extendedEdgeBalance` | `false` | `true` | `true` | S2/S3K: 4 balance states, precarious check; S1: single state, force face edge |
 
 ### Collision Model: UNIFIED vs DUAL_PATH
 
