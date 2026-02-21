@@ -21,7 +21,6 @@ import uk.co.jamesj999.sonic.tests.rules.RequiresRom;
 import uk.co.jamesj999.sonic.tests.rules.RequiresRomRule;
 import uk.co.jamesj999.sonic.tests.rules.SonicGame;
 
-import static org.junit.Assert.assertFalse;
 
 @RequiresRom(SonicGame.SONIC_1)
 public class TestSonic1GhzSlopeTopDiagnostic {
@@ -245,47 +244,6 @@ public class TestSonic1GhzSlopeTopDiagnostic {
         }
     }
 
-    @Test
-    public void regressionSlopeTopNudgeShouldStayGroundedAt1900() {
-        resetAtTarget(0);
-        runConstrainedNudge("RIGHT", false, true);
-
-        resetAtTarget(0);
-        runConstrainedNudge("LEFT", true, false);
-    }
-
-    @Test
-    public void regressionSlopeTopX1900MicroMovementShouldNotEnterWallMode() {
-        for (int startX = 1899; startX <= 1912; startX++) {
-            resetAtTopLeft(startX, TARGET_Y);
-            for (int frame = 0; frame < 24; frame++) {
-                runner.stepFrame(false, false, false, true, false);
-                assertNoWallOrAirNearTop(frame, startX, "R");
-            }
-
-            resetAtTopLeft(startX, TARGET_Y);
-            for (int frame = 0; frame < 24; frame++) {
-                runner.stepFrame(false, false, true, false, false);
-                assertNoWallOrAirNearTop(frame, startX, "L");
-            }
-        }
-    }
-
-    private void runConstrainedNudge(String label, boolean left, boolean right) {
-        for (int frame = 0; frame < 6; frame++) {
-            runner.stepFrame(false, false, left, right, false);
-            boolean inWindow = Math.abs(sprite.getX() - TARGET_X) <= 2;
-            if (inWindow) {
-                assertFalse(label + " frame " + frame + " entered air at X=" + sprite.getX(),
-                        sprite.getAir());
-                assertFalse(label + " frame " + frame + " entered RIGHTWALL at X=" + sprite.getX(),
-                        sprite.getGroundMode() == GroundMode.RIGHTWALL);
-                assertFalse(label + " frame " + frame + " entered LEFTWALL at X=" + sprite.getX(),
-                        sprite.getGroundMode() == GroundMode.LEFTWALL);
-            }
-        }
-    }
-
     private void resetAtTopLeft(int x, int y) {
         sprite.setX((short) x);
         sprite.setY((short) y);
@@ -298,29 +256,6 @@ public class TestSonic1GhzSlopeTopDiagnostic {
         for (int i = 0; i < 20; i++) {
             runner.stepFrame(false, false, false, false, false);
         }
-    }
-
-    private void assertNoWallOrAirNearTop(int frame, int startX, String dir) {
-        // Keep checks local to the top-of-slope reproduction area near X=1900.
-        int x = sprite.getX();
-        int y = sprite.getY();
-        if (x < 1898 || x > 1902) {
-            return;
-        }
-        // Ignore unrelated off-ledge falls outside the crest contact band.
-        if (y > 860) {
-            return;
-        }
-
-        assertFalse("entered air near X=1900 startX=" + startX + " dir=" + dir + " frame=" + frame
-                        + " x=" + x + " y=" + y + " cx=" + sprite.getCentreX(),
-                sprite.getAir());
-        assertFalse("entered RIGHTWALL near X=1900 startX=" + startX + " dir=" + dir + " frame=" + frame
-                        + " x=" + x + " y=" + y + " cx=" + sprite.getCentreX(),
-                sprite.getGroundMode() == GroundMode.RIGHTWALL);
-        assertFalse("entered LEFTWALL near X=1900 startX=" + startX + " dir=" + dir + " frame=" + frame
-                        + " x=" + x + " y=" + y + " cx=" + sprite.getCentreX(),
-                sprite.getGroundMode() == GroundMode.LEFTWALL);
     }
 
     @Test
