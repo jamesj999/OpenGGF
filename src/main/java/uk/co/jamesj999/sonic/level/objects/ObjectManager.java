@@ -2190,19 +2190,23 @@ public class ObjectManager {
                     // This avoids false push-state while stepping across adjacent solid tops.
                     return SolidContact.SIDE_NO_PUSH;
                 }
-                // ROM: Solid_Centre (sub SolidObject.asm:189-196)
-                // For most static solids, lock horizontal speed even at distX==0 so
-                // subpixels do not accumulate and create 1px edge jitter. Some push-driven
-                // objects (e.g. Sonic 1 PushBlock) opt in to preserving edge subpixel
-                // motion for ROM-accurate push cadence.
+                // ROM: sub SolidObject.asm lines 173-190
+                // When d0==0 (distX==0), ROM branches to Solid_Centre which does
+                // "sub.w d0,obX(a1)" (no-op) — NO speed zeroing, NO position correction.
+                // When d0!=0 AND movingInto, ROM hits Solid_Left which zeros obInertia
+                // and obVelX, then falls through to Solid_Centre which corrects position.
+                // When d0!=0 AND NOT movingInto, ROM goes to Solid_Centre directly
+                // (position correction only, no speed zeroing).
                 if (apply) {
                     boolean preserveEdgeMotion = preservesEdgeSubpixelMotion(instance);
                     if (!preserveEdgeMotion && distX == 0) {
-                        // Clear subpixels at exact edge contact to prevent repeated
-                        // fractional accumulation turning into visible 1px jitter.
+                        // Engine addition: clear subpixels at exact edge contact on static
+                        // solids to prevent fractional accumulation causing 1px jitter.
+                        // Push-driven objects skip this to preserve ROM push cadence.
                         player.setCentreX((short) playerCenterX);
                     }
-                    if (movingInto && !preserveEdgeMotion) {
+                    if (distX != 0 && movingInto) {
+                        // ROM: Solid_Left (lines 185-187) — zero inertia and xvel
                         player.setXSpeed((short) 0);
                         player.setGSpeed((short) 0);
                     }
@@ -2280,7 +2284,7 @@ public class ObjectManager {
                         if (!preserveEdgeMotion && distX == 0) {
                             player.setCentreX((short) playerCenterX);
                         }
-                        if (movingInto && !preserveEdgeMotion) {
+                        if (distX != 0 && movingInto) {
                             player.setXSpeed((short) 0);
                             player.setGSpeed((short) 0);
                         }
