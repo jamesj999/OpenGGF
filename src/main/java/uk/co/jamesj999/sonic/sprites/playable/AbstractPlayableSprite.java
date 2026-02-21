@@ -1538,9 +1538,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         /**
          * Returns whether the jump button is currently pressed.
          * Used by objects (like CNZ flippers) to detect jump input for triggering.
+         * Also checks forcedInputMask so demo playback input is visible to objects,
+         * matching ROM behavior where jpadhold1 contains demo data during demos.
          */
         public boolean isJumpPressed() {
-                return jumpInputPressed;
+                return jumpInputPressed || isForcedInputActive(INPUT_JUMP);
         }
 
         /**
@@ -1554,33 +1556,41 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         /**
          * Returns whether the up button is currently pressed.
          * Used by objects (like VineSwitch) to detect directional input for release delay.
+         * Also checks forcedInputMask so demo playback input is visible to objects,
+         * matching ROM behavior where jpadhold1 contains demo data during demos.
          */
         public boolean isUpPressed() {
-                return upInputPressed;
+                return upInputPressed || isForcedInputActive(INPUT_UP);
         }
 
         /**
          * Returns whether the down button is currently pressed.
          * Used by objects (like VineSwitch) to detect directional input for release delay.
+         * Also checks forcedInputMask so demo playback input is visible to objects,
+         * matching ROM behavior where jpadhold1 contains demo data during demos.
          */
         public boolean isDownPressed() {
-                return downInputPressed;
+                return downInputPressed || isForcedInputActive(INPUT_DOWN);
         }
 
         /**
          * Returns whether the left button is currently pressed.
          * Used by objects (like Grabber) to detect directional input for escape mechanism.
+         * Also checks forcedInputMask so demo playback input is visible to objects,
+         * matching ROM behavior where jpadhold1 contains demo data during demos.
          */
         public boolean isLeftPressed() {
-                return leftInputPressed;
+                return leftInputPressed || isForcedInputActive(INPUT_LEFT);
         }
 
         /**
          * Returns whether the right button is currently pressed.
          * Used by objects (like Grabber) to detect directional input for escape mechanism.
+         * Also checks forcedInputMask so demo playback input is visible to objects,
+         * matching ROM behavior where jpadhold1 contains demo data during demos.
          */
         public boolean isRightPressed() {
-                return rightInputPressed;
+                return rightInputPressed || isForcedInputActive(INPUT_RIGHT);
         }
 
         /**
