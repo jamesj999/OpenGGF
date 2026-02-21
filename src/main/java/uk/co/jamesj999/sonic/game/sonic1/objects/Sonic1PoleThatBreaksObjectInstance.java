@@ -169,6 +169,7 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
 
         boolean jumpPressedNow = player.isJumpPressed();
         if (jumpPressedNow && !jumpPressedPrevious) {
+            mappingFrame = FRAME_BROKEN;
             releasePlayer(player);
             return;
         }

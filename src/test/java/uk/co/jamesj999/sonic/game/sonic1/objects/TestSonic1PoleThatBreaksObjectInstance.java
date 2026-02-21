@@ -78,7 +78,7 @@ public class TestSonic1PoleThatBreaksObjectInstance {
     }
 
     @Test
-    public void jumpPressReleasesPole() {
+    public void jumpPressReleasesPole() throws Exception {
         Sonic1PoleThatBreaksObjectInstance pole = createPole(200, 320, 0);
         TestPlayableSprite player = new TestPlayableSprite();
         player.setCentreX((short) 240);
@@ -91,6 +91,43 @@ public class TestSonic1PoleThatBreaksObjectInstance {
 
         assertFalse(player.isObjectControlled());
         assertEquals(0, pole.getCollisionFlags());
+        assertEquals(1, getPrivateInt(pole, "mappingFrame"));
+    }
+
+    @Test
+    public void forcedInputMaskMovesPlayerOnPole() {
+        // Simulates demo playback: no keyboard input, only forcedInputMask (demo data).
+        // Before the fix, isUpPressed()/isDownPressed() only checked raw keyboard state,
+        // so demo up/down input was invisible to the pole.
+        Sonic1PoleThatBreaksObjectInstance pole = createPole(200, 320, 0);
+        TestPlayableSprite player = new TestPlayableSprite();
+        player.setCentreX((short) 240);
+        player.setCentreY((short) 320);
+
+        pole.onTouchResponse(player, TOUCH_RESULT, 1);
+        pole.update(1, player); // grab
+
+        int startY = player.getCentreY();
+
+        // Forced UP input (demo data) — no keyboard input set
+        player.setForcedInputMask(AbstractPlayableSprite.INPUT_UP);
+        for (int i = 2; i <= 10; i++) {
+            pole.update(i, player);
+        }
+        assertTrue("Forced UP should move player upward on pole",
+                player.getCentreY() < startY);
+
+        int afterUpY = player.getCentreY();
+
+        // Forced DOWN input (demo data)
+        player.setForcedInputMask(AbstractPlayableSprite.INPUT_DOWN);
+        for (int i = 11; i <= 20; i++) {
+            pole.update(i, player);
+        }
+        assertTrue("Forced DOWN should move player downward on pole",
+                player.getCentreY() > afterUpY);
+
+        player.clearForcedInputMask();
     }
 
     @Test
