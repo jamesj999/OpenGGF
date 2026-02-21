@@ -1450,8 +1450,40 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		// ROM prefers secondary; only use primary if primary distance < secondary distance
 		SensorResult selected = primary.distance() < secondary.distance() ? primary : secondary;
+		selected = applyS1CrestSensorGuard(selected, primary, secondary);
 		applyAngleFromSensor(selected.angle());
 		return selected;
+	}
+
+	private SensorResult applyS1CrestSensorGuard(SensorResult selected, SensorResult primary, SensorResult secondary) {
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		boolean s1StyleAngle = featureSet != null && !featureSet.angleDiffCardinalSnap();
+		if (!s1StyleAngle || sprite.getGroundMode() != GroundMode.GROUND) {
+			return selected;
+		}
+
+		// At crest transitions in S1, one probe can briefly hit an underlying wall-class
+		// tile at distance 0 while the opposite probe is still on nearby floor.
+		// Prefer the floor-class probe here to avoid a one-frame wall/air flip.
+		int currentClass = cardinalClass(sprite.getAngle());
+		if (currentClass != 0x00) {
+			return selected;
+		}
+
+		SensorResult other = (selected == primary) ? secondary : primary;
+		int selectedClass = cardinalClass(selected.angle());
+		int otherClass = cardinalClass(other.angle());
+		boolean selectedWallClass = selectedClass == 0x40 || selectedClass == 0xC0;
+		boolean otherFloorClass = otherClass == 0x00;
+		if (selectedWallClass && otherFloorClass && selected.distance() <= 0 && other.distance() <= 2) {
+			return other;
+		}
+
+		return selected;
+	}
+
+	private int cardinalClass(byte angle) {
+		return ((angle & 0xFF) + 0x20) & 0xC0;
 	}
 
 	/**

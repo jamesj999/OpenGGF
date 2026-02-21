@@ -2191,21 +2191,32 @@ public class ObjectManager {
                     return SolidContact.SIDE_NO_PUSH;
                 }
                 // ROM: Solid_Centre (sub SolidObject.asm:189-196)
-                // When d0=0, the ROM does "sub.w d0,obX(a1)" (no-op) and does NOT zero
-                // obInertia/obVelX. Speed zeroing only happens at Solid_Left (d0 != 0 and
-                // moving into). Skipping when distX=0 lets the player accumulate subpixels
-                // at the block edge, matching the ROM's push cadence (~1 push per 4 frames).
-                if (apply && distX != 0) {
-                    if (movingInto) {
+                // For most static solids, lock horizontal speed even at distX==0 so
+                // subpixels do not accumulate and create 1px edge jitter. Some push-driven
+                // objects (e.g. Sonic 1 PushBlock) opt in to preserving edge subpixel
+                // motion for ROM-accurate push cadence.
+                if (apply) {
+                    boolean preserveEdgeMotion = preservesEdgeSubpixelMotion(instance);
+                    if (!preserveEdgeMotion && distX == 0) {
+                        // Clear subpixels at exact edge contact to prevent repeated
+                        // fractional accumulation turning into visible 1px jitter.
+                        player.setCentreX((short) playerCenterX);
+                    }
+                    if (movingInto && !preserveEdgeMotion) {
                         player.setXSpeed((short) 0);
                         player.setGSpeed((short) 0);
                     }
-                    // ROM: sub.w d0,obX(a1) only modifies the pixel word, preserving
-                    // the subpixel byte. Use move() instead of setCentreX() which zeros
-                    // subpixels. Zeroing creates a left/right asymmetry: adding positive
-                    // subpixels from 0 takes many frames to reach 256, but subtracting
-                    // from 0 immediately underflows, causing a spurious pixel shift.
-                    player.move((short)(-distX * 256), (short) 0);
+                    if (distX != 0) {
+                        if (preserveEdgeMotion) {
+                            // Push-driven objects rely on ROM-style pixel-word correction that
+                            // preserves subpixels (e.g. Sonic 1 PushBlock cadence).
+                            player.move((short) (-distX * 256), (short) 0);
+                        } else {
+                            // Static solids should snap to the resolved edge and clear subpixels,
+                            // otherwise fractional X carries forward and causes visible 1px jitter.
+                            player.setCentreX((short) (playerCenterX - distX));
+                        }
+                    }
                 }
                 return pushing ? SolidContact.SIDE_PUSH : SolidContact.SIDE_NO_PUSH;
             }
@@ -2264,13 +2275,22 @@ public class ObjectManager {
                     boolean leftSide = relX < halfWidth;
                     boolean movingInto = leftSide ? player.getXSpeed() > 0 : player.getXSpeed() < 0;
                     boolean pushing = !player.getAir() && movingInto;
-                    if (apply && distX != 0) {
-                        if (movingInto) {
+                    if (apply) {
+                        boolean preserveEdgeMotion = preservesEdgeSubpixelMotion(instance);
+                        if (!preserveEdgeMotion && distX == 0) {
+                            player.setCentreX((short) playerCenterX);
+                        }
+                        if (movingInto && !preserveEdgeMotion) {
                             player.setXSpeed((short) 0);
                             player.setGSpeed((short) 0);
                         }
-                        // Preserve subpixels (see main side contact path comment above)
-                        player.move((short)(-distX * 256), (short) 0);
+                        if (distX != 0) {
+                            if (preserveEdgeMotion) {
+                                player.move((short) (-distX * 256), (short) 0);
+                            } else {
+                                player.setCentreX((short) (playerCenterX - distX));
+                            }
+                        }
                     }
                     return pushing ? SolidContact.SIDE_PUSH : SolidContact.SIDE_NO_PUSH;
                 }
@@ -2317,6 +2337,13 @@ public class ObjectManager {
             }
             PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
             return featureSet != null && featureSet.collisionModel() == CollisionModel.UNIFIED;
+        }
+
+        private boolean preservesEdgeSubpixelMotion(ObjectInstance instance) {
+            if (!(instance instanceof SolidObjectProvider provider)) {
+                return false;
+            }
+            return provider.preservesEdgeSubpixelMotion();
         }
 
         private void clearRollingOnLanding(AbstractPlayableSprite player) {
