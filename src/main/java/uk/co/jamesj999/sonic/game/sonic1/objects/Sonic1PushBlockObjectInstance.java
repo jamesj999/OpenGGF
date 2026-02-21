@@ -169,12 +169,6 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     // Last X position where a geyser maker was spawned (prevents repeated spawns)
     private int lastGeyserSpawnX = Integer.MIN_VALUE;
 
-    // ROM d0 displacement captured during update() (before SolidContacts correction).
-    // Solid_ChkEnter computes d0 from the uncorrected player position; by the time
-    // onSolidContact fires the player has already been pushed to the edge (d0 would
-    // always be 0). Capturing here preserves the pre-correction overlap.
-    private int preContactD0;
-
     public Sonic1PushBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "PushBlock");
 
@@ -207,7 +201,12 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         this.routine = 2; // Skip init, go straight to active
         this.solidState = 0;
         this.inMotion = false;
-        this.chainedToStomper = false;
+        // ROM keeps obSubtype intact after init; bit 7 gates the ledge/floor
+        // check in the push handler (tst.b obSubtype / bmi.s locret_C2E4).
+        // In MZ Act 1 the stomper interaction dynamically manages bit 7 every
+        // frame (bclr then conditional bset), so the init value is overwritten.
+        // In all other acts/zones bit 7 retains its spawn value.
+        this.chainedToStomper = (subtype & 0x80) != 0;
 
         refreshDynamicSpawn();
     }
@@ -261,24 +260,11 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         }
 
         // loc_C186 state machine: states 4 and 6 handled directly.
-        // State 0: capture pre-correction d0 for the push check (see handlePush).
-        // update() runs during levelManager.updateObjectPositions(), BEFORE the
-        // SolidContacts pass repositions the player, so the player position here
-        // reflects actual pixel overlap — matching the ROM's Solid_ChkEnter timing.
+        // State 0 is handled by SolidContacts → onSolidContact → handlePush.
+        // The d0 displacement is now carried via SolidContact.sideDistX(),
+        // computed at the correct time in each SolidContacts pass.
         switch (solidState) {
-            case 0 -> {
-                if (!inMotion && player != null) {
-                    int solidHalfWidth = activeWidth + 0x0B;
-                    int relX = player.getCentreX() - x + solidHalfWidth;
-                    if (relX >= solidHalfWidth) {
-                        preContactD0 = relX - (solidHalfWidth * 2);
-                    } else {
-                        preContactD0 = relX;
-                    }
-                } else {
-                    preContactD0 = 0;
-                }
-            }
+            case 0 -> { /* handled by SolidContacts callback */ }
             case 4 -> runState4FallWithGravity();
             case 6 -> runState6AlignTo16px();
         }
@@ -583,8 +569,14 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        if (contact.pushing()) {
-            handlePush(player, frameCounter);
+        // ROM: The push handler at loc_C230 checks d0 (the pre-correction X
+        // displacement from Solid_ChkEnter), NOT the pushing status flag.
+        // SolidObject's Solid_Centre only sets the pushing flag when grounded
+        // (btst #1,obStatus / bne Solid_SideAir), but d0 retains its value
+        // regardless of air state. Use contact.sideDistX() which carries the
+        // displacement from SolidContacts — this is d0 in ROM terms.
+        if (contact.touchSide()) {
+            handlePush(player, contact.sideDistX(), frameCounter);
         }
     }
 
@@ -611,14 +603,13 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
      *   ...
      * </pre>
      */
-    private void handlePush(AbstractPlayableSprite player, int frameCounter) {
-        // Use the pre-correction d0 captured during update() (before SolidContacts
-        // repositioned the player to the block edge). This matches the ROM where
-        // Solid_ChkEnter computes d0 from the uncorrected overlap and the push
-        // block code checks "tst.w d0 / beq.w locret_C2E4".
+    private void handlePush(AbstractPlayableSprite player, int d0, int frameCounter) {
+        // d0 = pre-correction X displacement from SolidContacts (ROM's d0 from
+        // Solid_ChkEnter). SolidContacts computes this from the uncorrected player
+        // position before applying the correction, matching the ROM where d0 is
+        // preserved through SolidObject's return.
         // With gSpeed=$40 (~0.25px/frame) the player needs ~4 frames to move 1px
         // into the block, matching the ROM's push cadence.
-        int d0 = preContactD0;
         if (d0 == 0) {
             return;
         }
