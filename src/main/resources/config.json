@@ -36,7 +36,7 @@
   "SONIC_2_ROM": "Sonic The Hedgehog 2 (W) (REV01) [!].gen",
   "SONIC_3K_ROM": "Sonic 3 & Knuckles (W) [!].gen",
   "DEFAULT_ROM": "s1",
-  "TITLE_SCREEN_ON_STARTUP": false,
-  "LEVEL_SELECT_ON_STARTUP": true,
-  "MASTER_TITLE_SCREEN_ON_STARTUP": false
+  "TITLE_SCREEN_ON_STARTUP": true,
+  "LEVEL_SELECT_ON_STARTUP": false,
+  "MASTER_TITLE_SCREEN_ON_STARTUP": true
 }
