@@ -117,7 +117,10 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
         // bclr #0,obStatus(a1)
         player.setDirection(Direction.RIGHT);
 
-        // move.b #id_Hang,obAnim(a1)
+        // ROM: move.b #id_Hang,obAnim(a1)
+        // Clear any forcedAnimationId left by wind tunnels (FLOAT2) since the ROM
+        // has no separate forced field — obAnim is simply overwritten by the pole.
+        player.setForcedAnimationId(-1);
         player.setAnimationId(Sonic1AnimationIds.HANG);
 
         // move.b #1,(f_playerctrl).w

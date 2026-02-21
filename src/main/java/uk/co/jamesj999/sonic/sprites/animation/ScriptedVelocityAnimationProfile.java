@@ -64,6 +64,11 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
 
     @Override
     public Integer resolveAnimationId(AbstractPlayableSprite sprite, int frameCounter, int scriptCount) {
+        // ROM: when f_playerctrl is set, Sonic_Move and normal movement routines don't run,
+        // so they never overwrite obAnim. Let the controlling object's animation stick.
+        if (sprite.isObjectControlled()) {
+            return null;
+        }
         // Drowning uses its own animation (0x17) throughout both pre-death and dead phases
         if (sprite.isDrowningDeath() && drownAnimId >= 0) {
             return drownAnimId;
