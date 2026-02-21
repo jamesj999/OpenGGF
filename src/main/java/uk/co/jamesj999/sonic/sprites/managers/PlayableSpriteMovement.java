@@ -228,7 +228,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short originalY = sprite.getY();
 
 		if (doCheckSpindash()) return;
-		if (inputJump && !jumpPressed && doJump()) {
+		if (inputJumpPress && doJump()) {
 			modeAirborne();
 			return;
 		}
@@ -248,7 +248,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short originalX = sprite.getX();
 		short originalY = sprite.getY();
 
-		if (!sprite.getPinballMode() && inputJump && !jumpPressed && doJump()) {
+		if (!sprite.getPinballMode() && inputJumpPress && doJump()) {
 			modeAirborne();
 			return;
 		}
