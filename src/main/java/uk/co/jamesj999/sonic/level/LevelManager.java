@@ -964,14 +964,21 @@ public class LevelManager {
             playable.setTailsTailsController(null);
             return;
         }
-        boolean isS3k = gameModule.hasSeparateTailsTailArt();
+        // Check donor game first (cross-game donation), then fall back to base game module
+        boolean isS3k = CrossGameFeatureProvider.isActive()
+                ? CrossGameFeatureProvider.getInstance().hasSeparateTailsTailArt()
+                : gameModule.hasSeparateTailsTailArt();
         SpriteArtSet tailsArt;
         if (isS3k) {
             // S3K: Obj05 uses a completely separate art/mapping/DPLC set
             try {
-                Rom rom = GameServices.rom().getRom();
-                Sonic3kPlayerArt s3kArt = new Sonic3kPlayerArt(RomByteReader.fromRom(rom));
-                tailsArt = s3kArt.loadTailsTail();
+                if (CrossGameFeatureProvider.isActive()) {
+                    tailsArt = CrossGameFeatureProvider.getInstance().loadTailsTailArt();
+                } else {
+                    Rom rom = GameServices.rom().getRom();
+                    Sonic3kPlayerArt s3kArt = new Sonic3kPlayerArt(RomByteReader.fromRom(rom));
+                    tailsArt = s3kArt.loadTailsTail();
+                }
             } catch (Exception e) {
                 LOGGER.log(SEVERE, "Failed to load S3K tails tail art.", e);
                 playable.setTailsTailsController(null);
