@@ -193,7 +193,7 @@ public class Engine {
 		// Create the window
 		String version = SonicConfigurationService.ENGINE_VERSION;
 		window = glfwCreateWindow(windowWidth, windowHeight,
-				"Java Sonic Engine by Jamesj999 and Raiscan " + version, NULL, NULL);
+				"OpenGGF " + version, NULL, NULL);
 		if (window == NULL) {
 			throw new RuntimeException("Failed to create the GLFW window");
 		}
