@@ -103,28 +103,112 @@ Analysis range: `v0.3.20260206..HEAD` on `develop` (`312` commits, `291` non-mer
 
 ### Cross-Game Feature Donation
 
-- Added underwater palette support for donated sprites:
-  - `RenderContext.deriveUnderwaterPalette()` synthesizes donor underwater colors using the base game's
-    global average per-channel color shift ratio (not per-index, which would mismatch palette layouts).
-  - `RenderContext.getDonorContexts()` for iterating active donor palette contexts.
-  - `GraphicsManager.cacheUnderwaterPaletteTexture()` extended to populate donor palette rows automatically.
-  - Tests: `TestRenderContext` covering ratio application, uniform tint, clamping, and zero-base fallback.
-- Fixed donor SFX using base game's SMPS driver config instead of donor's:
-  - `SmpsSequencerConfig` threaded through `AudioManager.registerDonorLoader()`, stored per donor game.
-  - `AudioBackend.playSfxSmps()` 4-arg overload accepting explicit config; `LWJGLAudioBackend` uses donor
-    config when provided, falling back to base game config.
+Implemented cross-game feature donation system: a donor game (S2 or S3K) provides player sprites,
+spindash dust, physics, palettes, and SFX while the base game (e.g. S1) handles levels, collision,
+objects, and music. Enabled via `CROSS_GAME_FEATURES_ENABLED` and `CROSS_GAME_SOURCE` config keys.
+
+- `CrossGameFeatureProvider` singleton: opens donor ROM as secondary ROM (no module detection
+  side-effect), creates game-specific art loaders (`Sonic2PlayerArt`/`Sonic3kPlayerArt`,
+  `Sonic2DustArt`), builds hybrid `PhysicsFeatureSet` (spindash from donor, everything else S1),
+  loads donor character palette, initializes donor audio.
+- `RenderContext` palette isolation: base game occupies palette lines 0-3, each donor gets its own
+  block of 4 lines (4-7, 8-11, etc.) via static registry with `getOrCreateDonor()`.
+  `uploadDonorPalettes()` pushes donor palettes to GPU. `getDonorContexts()` for iteration.
+- `GameId` enum with `fromCode()` for type-safe donor identification.
+- `RomManager.getSecondaryRom()` opens donor ROM without triggering game module detection.
+- `LevelManager` art loading paths (`initPlayerSpriteArt`, `initSpindashDust`, `initTailsTails`)
+  check `CrossGameFeatureProvider.isActive()` and delegate to donor art providers, attaching
+  donor `RenderContext` to each `PlayerSpriteRenderer`.
+- `Engine` initialization gates sidekick spawning on `GameModule.supportsSidekick()` or
+  `CrossGameFeatureProvider.isActive()`, with cleanup on shutdown.
+- GPU palette texture dynamically resized via `RenderContext.getTotalPaletteLines()`. All shaders
+  (`shader_the_hedgehog`, `shader_tilemap`, `shader_water`, `shader_sprite_priority`,
+  `shader_instanced_priority`, `shader_cnz_slots`) updated from hardcoded `/4.0` to
+  `/TotalPaletteLines` uniform.
+- Underwater palette derivation for donor sprites:
+  - `RenderContext.deriveUnderwaterPalette()` synthesizes donor underwater colors using the base
+    game's global average per-channel color shift ratio (not per-index, which would mismatch
+    palette layouts across games).
+  - `GraphicsManager.cacheUnderwaterPaletteTexture()` extended to populate donor palette rows
+    automatically from the base game's normal-to-underwater shift.
+- Donor SMPS driver config for correct SFX playback:
+  - `SmpsSequencerConfig` threaded through `AudioManager.registerDonorLoader()` (4-arg overload),
+    stored per donor game in `donorConfigs` map.
+  - `AudioBackend.playSfxSmps()` 4-arg overload accepting explicit config; `LWJGLAudioBackend`
+    uses donor config when provided, falling back to base game config.
   - `CrossGameFeatureProvider.initializeDonorAudio()` passes `donorProfile.getSequencerConfig()`.
-  - Tests: `TestDonorAudioRouting.testDonorSfx_UsesProvidedSequencerConfig`.
-- Fixed S3K Tails tail appendage and animations when donating to S1:
-  - `CrossGameFeatureProvider.hasSeparateTailsTailArt()` and `loadTailsTailArt()` delegate to donor's
-    `Sonic3kPlayerArt` for separate Obj05 tail art (S3K uses distinct `Map_Tails_Tail`/`DPLC_Tails_Tail`).
-  - `LevelManager.initTailsTails()` checks donor game module when cross-game is active, selecting correct
-    art loading path and `ANI_SELECTION_S3K` animation tables.
+- Donor audio overlay in `AudioManager`: `donorLoaders`, `donorDacData`, `donorSoundBindings` maps;
+  `playSfx()` falls through to donor path when base game sound map has no entry.
+- S3K Tails tail appendage support: `CrossGameFeatureProvider.hasSeparateTailsTailArt()` and
+  `loadTailsTailArt()` delegate to donor's `Sonic3kPlayerArt` for separate Obj05 tail art.
+  `LevelManager.initTailsTails()` checks donor game module when cross-game is active, selecting
+  correct art loading path and `ANI_SELECTION_S3K` animation tables.
+- SFX re-trigger fix in `SmpsDriver`: re-triggering the same SFX ID now replaces the old sequencer
+  instead of competing for the same FM/PSG channels (prevents priority lock ping-pong with S1/S2
+  jump SFX priority 0x80).
+- Tests: `TestRenderContext` (9 tests covering palette isolation, line allocation, reset,
+  underwater palette derivation), `TestDonorAudioRouting` (donor SFX routing and sequencer config),
+  `TestGameId`, `TestHybridPhysicsFeatureSet`, `TestSidekickGating`.
+
+### Master Title Screen
+
+- Implemented `MasterTitleScreen` (404 lines): engine-wide title screen displayed on startup before
+  entering game-specific title flow. PNG-based background, animated clouds, title emblem, and game
+  selection text rendered via `TexturedQuadRenderer` and `PixelFont`.
+- New rendering infrastructure: `PngTextureLoader` (85 lines), `TexturedQuadRenderer` (139 lines),
+  `PixelFont` (144 lines), `shader_rgba_texture` vertex/fragment shaders.
+- Configurable via `TITLE_SCREEN_ON_STARTUP` config key (default: enabled).
+
+### Sonic 1 Fixes and Improvements
+
+- Fixed Sonic spawning 5px underneath terrain on level reset by restoring standing radii in
+  `AbstractPlayableSprite` respawn path (ROM: `Obj01_Init` unconditionally sets `y_radius=$13`).
+- Object collision fixes: `ObjectManager` solid overlap test now always uses `airHalfHeight`
+  matching ROM behaviour (d3 is overwritten by playerYRadius before read). Added
+  `Sonic1ButtonObjectInstance` and `Sonic1MzBrickObjectInstance` collision support.
+  `TestHeadlessSonic1ObjectCollision` (291 lines) regression test added.
+- Fixed edge balance mode for S1 (single balance state, force face edge) while preserving S2's
+  4-state extended balance. `PhysicsFeatureSet.extendedEdgeBalance` gates behaviour.
+  `TestEdgeBalance` (91 lines) and `TestHeadlessSonic1EdgeBalance` (369 lines) added.
+- Fixed MZ2 push block: longer blocks no longer get pushed "out of the way" when Sonic pushes them
+  against walls. `SolidContact` improvements. `TestHeadlessMZ2PushBlockGap` (132 lines) added.
+- SBZ fixes: Flamethrower positioning corrected for vflip/hflip variants. StomperDoor objects fixed.
+  Junction now locks the player correctly. SBZ3 water oscillation implemented.
+- LZ fixes: Wind tunnels now play correct player animation. Breakable poles play correct animation.
+  Water splash effect implemented (`Sonic1SplashObjectInstance`).
+- Demo playback now sent to objects (`AbstractPlayableSprite` demo input routing).
+- Push stability fixes for solid objects. `TestHeadlessSonic1PushStability` (220 lines) added.
+- Outro/credits improvements (`Sonic1CreditsManager`, `FadeManager` enhancements).
+- `TestSbz1CreditsDemoBug` (162 lines) and `TestS1FlamethrowerObjectRendering` (58 lines) added.
+- S1 "fast" mode SMPS sequencer support.
+
+### Sonic 2 Fixes
+
+- Fixed badnik palette lines (Spiny now uses palette line 1 matching `make_art_tile`), signpost
+  frame order corrected to match `obj0D_a.asm` ROM mapping order, CPZ stair block / MTZ platform
+  art sheet rebuilt with hand-crafted mappings (ROM mappings reference level art tiles).
+- Swinging platform art loading fix for non-S2 games.
+
+### Physics and Collision Fixes
+
+- Fixed solid object edge jitter: `SolidContacts` snaps player to resolved edge on static solids
+  to prevent subpixel accumulation. Push-driven objects opt in to ROM-style subpixel preservation
+  via `SolidObjectProvider.preservesEdgeSubpixelMotion()`.
+- S1 slope crest sensor guard: prefer floor-class probe over wall-class probe at crest transitions,
+  preventing one-frame wall/air mode flips.
+  `TestHeadlessStaticObjectPushStability` (208 lines) and
+  `TestSonic1GhzSlopeTopDiagnostic` (519 lines) added.
+- Sonic no longer jumps if the player holds jump while airborne via a non-jump (spring, slope
+  launch, etc.).
+- Various physics tweaks aimed at S1: physics modifiers cleanup, `FadeManager` fade-to-black
+  transitions no longer flash back to "off" briefly before fade-in begins.
+- Fixed results screen rendering issue for both S1 and S2.
 
 ### Docs and Planning
 
 - Added release-planning/implementation docs for unified level events, Super Sonic, and AIZ intro work.
 - Added cross-game donation fixes design doc and implementation plan.
+- Added `docs/CONFIGURATION.md` with full config key reference.
 - Expanded disassembly/reference and skill documentation used for parity-driven object/boss implementation workflows.
 
 ## v0.3.20260206
