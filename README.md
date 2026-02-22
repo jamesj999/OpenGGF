@@ -98,7 +98,7 @@ these specific revisions, placed in the working directory:
 | Sonic 2 | `Sonic The Hedgehog 2 (W) (REV01) [!].gen` | World, Revision 01 |
 | Sonic 3&K | `Sonic and Knuckles & Sonic 3 (W) [!].gen` | World (lock-on combined ROM) |
 
-Other revisions (REV00, Japanese, etc.) are untested and will likely produce incorrect results, as
+Other revisions (REV00, etc.) are untested and will likely produce incorrect results, as
 ROM addresses are verified against these specific builds. ROM filenames are configurable via
 `config.json` (see `SONIC_1_ROM`, `SONIC_2_ROM`, `SONIC_3K_ROM` keys).
 
