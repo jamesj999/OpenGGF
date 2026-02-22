@@ -4,7 +4,8 @@
 // Renders 3 scrolling slot windows with face wrapping
 
 uniform sampler2D SlotFaceTexture;  // All 6 faces stacked vertically (32x192 indexed)
-uniform sampler2D Palette;           // Combined palette texture (16x4)
+uniform sampler2D Palette;           // Combined palette texture
+uniform float TotalPaletteLines;
 
 // Per-slot state: face index (0-5) and scroll offset (0.0-1.0)
 uniform int SlotFace0;
@@ -124,7 +125,7 @@ void main()
 
     // Palette lookup: X = color index (0-15), Y = palette line
     float paletteX = (colorIndex + 0.5) / 16.0;
-    float paletteY = (PaletteLine + 0.5) / 4.0;
+    float paletteY = (PaletteLine + 0.5) / TotalPaletteLines;
     vec4 color = texture(Palette, vec2(paletteX, paletteY));
 
     FragColor = color;

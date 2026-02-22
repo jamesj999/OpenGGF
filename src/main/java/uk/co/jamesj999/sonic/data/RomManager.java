@@ -7,6 +7,8 @@ import uk.co.jamesj999.sonic.configuration.SonicConfigurationService;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Logger;
 
 /**
@@ -31,6 +33,7 @@ public class RomManager implements AutoCloseable {
     private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
     private Rom rom;
     private boolean initialized = false;
+    private final Map<String, Rom> secondaryRoms = new HashMap<>();
 
     private RomManager() {
     }
@@ -75,6 +78,32 @@ public class RomManager implements AutoCloseable {
      */
     public synchronized boolean isRomAvailable() {
         return initialized && rom != null && rom.isOpen();
+    }
+
+    /**
+     * Opens a secondary ROM by game ID without changing the active game module.
+     * Used for cross-game feature donation (e.g., loading S2 sprites while playing S1).
+     *
+     * @param gameId "s1", "s2", or "s3k"
+     * @return The open ROM instance
+     * @throws IOException If the ROM cannot be opened
+     */
+    public synchronized Rom getSecondaryRom(String gameId) throws IOException {
+        Rom existing = secondaryRoms.get(gameId);
+        if (existing != null && existing.isOpen()) {
+            return existing;
+        }
+        String filename = resolveRomForGame(gameId);
+        if (filename == null || filename.isEmpty()) {
+            throw new IOException("No ROM configured for game: " + gameId);
+        }
+        Rom secondaryRom = new Rom();
+        if (!secondaryRom.open(filename)) {
+            throw new IOException("Failed to open secondary ROM: " + filename);
+        }
+        LOGGER.info("Opened secondary ROM (" + gameId + "): " + secondaryRom.readDomesticName());
+        secondaryRoms.put(gameId, secondaryRom);
+        return secondaryRom;
     }
 
     /**
@@ -134,6 +163,12 @@ public class RomManager implements AutoCloseable {
             rom.close();
             rom = null;
         }
+        for (Rom secondary : secondaryRoms.values()) {
+            if (secondary != null) {
+                secondary.close();
+            }
+        }
+        secondaryRoms.clear();
         initialized = false;
     }
 

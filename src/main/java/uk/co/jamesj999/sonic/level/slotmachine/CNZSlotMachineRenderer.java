@@ -91,6 +91,7 @@ public class CNZSlotMachineRenderer {
     private int locScreenWidth = -1;
     private int locScreenHeight = -1;
     private int locPaletteLine = -1;
+    private int locTotalPaletteLines = -1;
     private int locViewportWidth = -1;
     private int locViewportHeight = -1;
 
@@ -374,6 +375,9 @@ public class CNZSlotMachineRenderer {
         glUniform1f(locScreenWidth, 320.0f);
         glUniform1f(locScreenHeight, 224.0f);
         glUniform1f(locPaletteLine, 0.0f); // CNZ slot faces use palette line 0
+        if (locTotalPaletteLines >= 0) {
+            glUniform1f(locTotalPaletteLines, (float) uk.co.jamesj999.sonic.graphics.RenderContext.getTotalPaletteLines());
+        }
 
         // Pass actual viewport dimensions for coordinate conversion
         glUniform1f(locViewportWidth, viewportWidth);
@@ -440,6 +444,7 @@ public class CNZSlotMachineRenderer {
         locScreenWidth = glGetUniformLocation(programId, "ScreenWidth");
         locScreenHeight = glGetUniformLocation(programId, "ScreenHeight");
         locPaletteLine = glGetUniformLocation(programId, "PaletteLine");
+        locTotalPaletteLines = glGetUniformLocation(programId, "TotalPaletteLines");
         locViewportWidth = glGetUniformLocation(programId, "ViewportWidth");
         locViewportHeight = glGetUniformLocation(programId, "ViewportHeight");
 
@@ -469,6 +474,7 @@ public class CNZSlotMachineRenderer {
         locScreenWidth = -1;
         locScreenHeight = -1;
         locPaletteLine = -1;
+        locTotalPaletteLines = -1;
         locViewportWidth = -1;
         locViewportHeight = -1;
     }

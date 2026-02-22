@@ -173,4 +173,9 @@ public class Sonic3kGameModule implements GameModule {
             uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite player) {
         return new Sonic3kSuperStateController(player);
     }
+
+    @Override
+    public boolean supportsSidekick() {
+        return true;
+    }
 }

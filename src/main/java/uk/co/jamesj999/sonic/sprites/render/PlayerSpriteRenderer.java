@@ -1,6 +1,7 @@
 package uk.co.jamesj999.sonic.sprites.render;
 
 import uk.co.jamesj999.sonic.graphics.GraphicsManager;
+import uk.co.jamesj999.sonic.graphics.RenderContext;
 import uk.co.jamesj999.sonic.level.PatternDesc;
 import uk.co.jamesj999.sonic.level.render.DynamicPatternBank;
 import uk.co.jamesj999.sonic.level.render.SpritePieceRenderer;
@@ -16,12 +17,17 @@ public class PlayerSpriteRenderer {
     private final DynamicPatternBank patternBank;
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
     private final PatternDesc reusableDesc = new PatternDesc();
+    private RenderContext renderContext;
     private int lastFrame = -1;
 
     public PlayerSpriteRenderer(SpriteArtSet artSet) {
         this.artSet = artSet;
         int capacity = Math.max(0, artSet.bankSize());
         this.patternBank = new DynamicPatternBank(artSet.basePatternIndex(), capacity);
+    }
+
+    public void setRenderContext(RenderContext ctx) {
+        this.renderContext = ctx;
     }
 
     public void ensureCached(GraphicsManager graphicsManager) {
@@ -72,6 +78,10 @@ public class PlayerSpriteRenderer {
                     descIndex |= (paletteIndex & 0x3) << 13;
 
                     reusableDesc.set(descIndex);
+                    if (renderContext != null) {
+                        reusableDesc.setPaletteIndex(
+                                renderContext.getEffectivePaletteLine(paletteIndex));
+                    }
                     graphicsManager.renderPattern(reusableDesc, drawX, drawY);
                 }
         );

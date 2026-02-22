@@ -234,6 +234,18 @@ public enum SonicConfiguration {
 	/**
 	 * Whether to show the master title screen (game selection) on startup.
 	 */
-	MASTER_TITLE_SCREEN_ON_STARTUP;
+	MASTER_TITLE_SCREEN_ON_STARTUP,
+
+	/**
+	 * Whether to enable cross-game feature donation (e.g., S2 sprites in S1).
+	 * When false (default), the base game runs unmodified.
+	 */
+	CROSS_GAME_FEATURES_ENABLED,
+
+	/**
+	 * Which game to use as the donor for cross-game features: "s2" or "s3k".
+	 * Only used when CROSS_GAME_FEATURES_ENABLED is true.
+	 */
+	CROSS_GAME_SOURCE;
 
 }

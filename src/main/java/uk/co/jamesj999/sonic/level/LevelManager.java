@@ -13,6 +13,7 @@ import uk.co.jamesj999.sonic.data.PlayerSpriteArtProvider;
 import uk.co.jamesj999.sonic.data.SpindashDustArtProvider;
 import uk.co.jamesj999.sonic.data.Rom;
 import uk.co.jamesj999.sonic.data.RomByteReader;
+import uk.co.jamesj999.sonic.game.CrossGameFeatureProvider;
 import uk.co.jamesj999.sonic.game.GameModule;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.game.PhysicsFeatureSet;
@@ -43,6 +44,7 @@ import uk.co.jamesj999.sonic.graphics.WaterShaderProgram;
 import uk.co.jamesj999.sonic.graphics.RenderPriority;
 import uk.co.jamesj999.sonic.graphics.PatternRenderCommand;
 import uk.co.jamesj999.sonic.graphics.PatternAtlas;
+import uk.co.jamesj999.sonic.graphics.RenderContext;
 import uk.co.jamesj999.sonic.level.render.SpritePieceRenderer;
 import uk.co.jamesj999.sonic.level.render.BackgroundRenderer;
 // import uk.co.jamesj999.sonic.level.ParallaxManager; -> Removed unused
@@ -835,7 +837,12 @@ public class LevelManager {
     }
 
     private void initPlayerSpriteArt() {
-        if (!(game instanceof PlayerSpriteArtProvider provider)) {
+        PlayerSpriteArtProvider artProvider;
+        if (CrossGameFeatureProvider.isActive()) {
+            artProvider = CrossGameFeatureProvider.getInstance();
+        } else if (game instanceof PlayerSpriteArtProvider p) {
+            artProvider = p;
+        } else {
             return;
         }
         Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
@@ -843,13 +850,17 @@ public class LevelManager {
             return;
         }
         try {
-            SpriteArtSet artSet = provider.loadPlayerSpriteArt(playable.getCode());
+            SpriteArtSet artSet = artProvider.loadPlayerSpriteArt(playable.getCode());
             if (artSet == null || artSet.bankSize() <= 0 || artSet.mappingFrames().isEmpty()
                     || artSet.dplcFrames().isEmpty()) {
                 playable.setSpriteRenderer(null);
                 return;
             }
             PlayerSpriteRenderer renderer = new PlayerSpriteRenderer(artSet);
+            if (CrossGameFeatureProvider.isActive()) {
+                renderer.setRenderContext(
+                        CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+            }
             renderer.ensureCached(graphicsManager);
             playable.setSpriteRenderer(renderer);
             playable.setMappingFrame(0);
@@ -870,10 +881,14 @@ public class LevelManager {
         AbstractPlayableSprite sidekick = spriteManager.getSidekick();
         if (sidekick != null) {
             try {
-                SpriteArtSet sidekickArt = provider.loadPlayerSpriteArt(sidekick.getCode());
+                SpriteArtSet sidekickArt = artProvider.loadPlayerSpriteArt(sidekick.getCode());
                 if (sidekickArt != null && sidekickArt.bankSize() > 0 && !sidekickArt.mappingFrames().isEmpty()
                         && !sidekickArt.dplcFrames().isEmpty()) {
                     PlayerSpriteRenderer sidekickRenderer = new PlayerSpriteRenderer(sidekickArt);
+                    if (CrossGameFeatureProvider.isActive()) {
+                        sidekickRenderer.setRenderContext(
+                                CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+                    }
                     sidekickRenderer.ensureCached(graphicsManager);
                     sidekick.setSpriteRenderer(sidekickRenderer);
                     sidekick.setMappingFrame(0);
@@ -890,6 +905,11 @@ public class LevelManager {
             } catch (IOException e) {
                 LOGGER.log(SEVERE, "Failed to load sidekick sprite art.", e);
             }
+        }
+
+        // Upload donor palettes to GPU if cross-game features are active
+        if (CrossGameFeatureProvider.isActive()) {
+            RenderContext.uploadDonorPalettes(graphicsManager);
         }
     }
 
@@ -908,18 +928,27 @@ public class LevelManager {
     }
 
     private void initSpindashDust(AbstractPlayableSprite playable) {
-        if (!(game instanceof SpindashDustArtProvider dustProvider)) {
+        SpindashDustArtProvider dustProv;
+        if (CrossGameFeatureProvider.isActive()) {
+            dustProv = CrossGameFeatureProvider.getInstance();
+        } else if (game instanceof SpindashDustArtProvider d) {
+            dustProv = d;
+        } else {
             playable.setSpindashDustController(null);
             return;
         }
         try {
-            SpriteArtSet dustArt = dustProvider.loadSpindashDustArt(playable.getCode());
+            SpriteArtSet dustArt = dustProv.loadSpindashDustArt(playable.getCode());
             if (dustArt == null || dustArt.bankSize() <= 0 || dustArt.mappingFrames().isEmpty()
                     || dustArt.dplcFrames().isEmpty()) {
                 playable.setSpindashDustController(null);
                 return;
             }
             PlayerSpriteRenderer dustRenderer = new PlayerSpriteRenderer(dustArt);
+            if (CrossGameFeatureProvider.isActive()) {
+                dustRenderer.setRenderContext(
+                        CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+            }
             dustRenderer.ensureCached(graphicsManager);
             playable.setSpindashDustController(new SpindashDustController(playable, dustRenderer));
         } catch (IOException e) {
@@ -961,6 +990,10 @@ public class LevelManager {
             );
         }
         PlayerSpriteRenderer tailsRenderer = new PlayerSpriteRenderer(tailsArt);
+        if (CrossGameFeatureProvider.isActive()) {
+            tailsRenderer.setRenderContext(
+                    CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+        }
         tailsRenderer.ensureCached(graphicsManager);
         playable.setTailsTailsController(new TailsTailsController(playable, tailsRenderer, isS3k));
     }

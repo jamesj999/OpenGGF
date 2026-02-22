@@ -304,4 +304,14 @@ public interface GameModule {
     default boolean hasTrailInvincibilityStars() {
         return false;
     }
+
+    /**
+     * Returns whether this game natively supports a sidekick character (e.g., Tails).
+     * Games without sidekick art/logic should return false.
+     *
+     * @return true if sidekick characters are supported
+     */
+    default boolean supportsSidekick() {
+        return false;
+    }
 }

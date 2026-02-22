@@ -4,6 +4,7 @@
 uniform sampler2D Palette;              // Texture Unit 0
 uniform sampler2D IndexedColorTexture;  // Texture Unit 1
 uniform float PaletteLine;
+uniform float TotalPaletteLines;
 
 // Water-specific inputs
 uniform sampler2D UnderwaterPalette;    // Texture Unit 2
@@ -95,7 +96,7 @@ void main()
 
         // Standard palette lookup
         float paletteX = (index + 0.5) / 16.0;
-        float paletteY = (paletteLine + 0.5) / 4.0;
+        float paletteY = (paletteLine + 0.5) / TotalPaletteLines;
 
         if (pixelYFromTop >= waterlineY) {
              // Use underwater palette

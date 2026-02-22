@@ -14,6 +14,7 @@ uniform sampler2D Palette;
 uniform sampler2D IndexedColorTexture;
 uniform sampler2D TilePriorityTexture;  // FBO texture with high-priority tile info
 uniform float PaletteLine;
+uniform float TotalPaletteLines;
 uniform int SpriteHighPriority;         // 1 = sprite appears above all tiles, 0 = behind high-priority tiles
 uniform vec2 ScreenSize;                // Viewport dimensions for screen coord lookup
 uniform vec2 ViewportOffset;            // Viewport offset in window coords (for letterboxing)
@@ -62,9 +63,9 @@ void main()
         paletteLine = v_paletteLine;
     }
 
-    // Map the index to palette coordinates (16 colors, 4 lines)
+    // Map the index to palette coordinates (16 colors per line)
     float paletteX = (index + 0.5) / 16.0;
-    float paletteY = (paletteLine + 0.5) / 4.0;
+    float paletteY = (paletteLine + 0.5) / TotalPaletteLines;
 
     // Check if underwater (screen-space mode) and sample appropriate palette
     vec4 indexedColor;
