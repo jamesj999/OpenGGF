@@ -752,6 +752,7 @@ public class Sonic1LZWaterEvents {
             // obRoutine >= 4 means Sonic is hurt or dying
             if (player.isHurt() || player.getDead()) {
                 windTunnelActive = false;
+                player.setForcedAnimationId(-1);
                 return;
             }
 
@@ -784,6 +785,7 @@ public class Sonic1LZWaterEvents {
 
             // move.b #id_Float2,obAnim(a1)  - floating animation
             player.setAnimationId(Sonic1AnimationIds.FLOAT2);
+            player.setForcedAnimationId(Sonic1AnimationIds.FLOAT2);
 
             // bset #1,obStatus(a1)  - set airborne flag
             player.setAir(true);
@@ -808,6 +810,7 @@ public class Sonic1LZWaterEvents {
         if (windTunnelActive) {
             // ROM: move.b #id_Walk,obAnim(a1) - restore walk animation
             player.setAnimationId(Sonic1AnimationIds.WALK);
+            player.setForcedAnimationId(-1);
             // ROM: .clrquit: clr.b (f_wtunnelmode).w
             windTunnelActive = false;
         }
@@ -858,6 +861,7 @@ public class Sonic1LZWaterEvents {
 
             if (player.isHurt() || player.getDead()) {
                 windTunnelActive = false;
+                player.setForcedAnimationId(-1);
                 return;
             }
 
@@ -872,6 +876,7 @@ public class Sonic1LZWaterEvents {
             player.setXSpeed(WIND_TUNNEL_X_VELOCITY);
             player.setYSpeed((short) 0);
             player.setAnimationId(Sonic1AnimationIds.FLOAT2);
+            player.setForcedAnimationId(Sonic1AnimationIds.FLOAT2);
             player.setAir(true);
 
             if (player.isUpPressed()) {
@@ -885,6 +890,7 @@ public class Sonic1LZWaterEvents {
 
         if (windTunnelActive) {
             player.setAnimationId(Sonic1AnimationIds.WALK);
+            player.setForcedAnimationId(-1);
             windTunnelActive = false;
         }
     }
@@ -933,6 +939,17 @@ public class Sonic1LZWaterEvents {
     public void checkWaterSlide(int chunkIdAtPlayer, int fallbackChunkId) {
         AbstractPlayableSprite player = camera.getFocusedSprite();
         if (player == null) {
+            return;
+        }
+
+        // ROM: LZWaterFeatures runs before ExecuteObjects, so objects that set
+        // f_playerctrl (e.g., PoleThatBreaks) overwrite obAnim AFTER this code.
+        // In our engine objects update first, so skip slide logic when an object
+        // has control to avoid overriding the object's animation.
+        if (player.isObjectControlled()) {
+            if (waterSlideActive) {
+                handleSlideExit(player);
+            }
             return;
         }
 

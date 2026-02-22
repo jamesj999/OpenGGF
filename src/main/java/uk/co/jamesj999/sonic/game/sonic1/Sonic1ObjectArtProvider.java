@@ -230,6 +230,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadLzPushBlockArt(art);
             loadLzFlappingDoorArt(art);
             loadLzWaterfallArt(art);
+            loadLzSplashArt(art);
             loadLzMovingBlockArt(art);
             loadLabyrinthBlockArt(art);
             loadLzConveyorArt(art);
@@ -2027,6 +2028,50 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         frames.add(new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-0x18, -0x10, 3, 4, 0x55, false, false, 0, false),
                 new SpriteMappingPiece(0x00, -0x10, 3, 4, 0x61, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads LZ water splash art (Object 0x08 - Map_Splash).
+     * Shares Nem_Splash patterns with the waterfall but uses separate mappings.
+     * 3 frames from docs/s1disasm/_maps/Water Splash.asm:
+     *   Frame 0 (.splash1): 2x1 at tile $6D, 4x1 at tile $6F
+     *   Frame 1 (.splash2): 1x1 at tile $73, 4x3 at tile $74
+     *   Frame 2 (.splash3): 4x4 at tile $80
+     * Palette line 2, priority 0 (make_art_tile(ArtTile_LZ_Splash, 2, 0)).
+     */
+    private void loadLzSplashArt(Sonic1ObjectArt art) {
+        Pattern[] patterns = art.loadNemesisPatterns(
+                Sonic1Constants.ART_NEM_LZ_SPLASH_ADDR);
+        if (patterns.length == 0) {
+            LOGGER.warning("Failed to load LZ splash art");
+            return;
+        }
+
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, createLzSplashMappings(), 2, 1);
+        registerSheet(ObjectArtKeys.LZ_SPLASH, sheet);
+    }
+
+    private List<SpriteMappingFrame> createLzSplashMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>(3);
+
+        // Frame 0 (.splash1): small initial splash
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x08, -0x0E, 2, 1, 0x6D, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x06, 4, 1, 0x6F, false, false, 0, false)
+        )));
+
+        // Frame 1 (.splash2): medium splash
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x08, -0x1E, 1, 1, 0x73, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x16, 4, 3, 0x74, false, false, 0, false)
+        )));
+
+        // Frame 2 (.splash3): large splash
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x1E, 4, 4, 0x80, false, false, 0, false)
         )));
 
         return frames;

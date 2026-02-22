@@ -1538,9 +1538,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         /**
          * Returns whether the jump button is currently pressed.
          * Used by objects (like CNZ flippers) to detect jump input for triggering.
+         * Also checks forcedInputMask so demo playback input is visible to objects,
+         * matching ROM behavior where jpadhold1 contains demo data during demos.
          */
         public boolean isJumpPressed() {
-                return jumpInputPressed;
+                return jumpInputPressed || isForcedInputActive(INPUT_JUMP);
         }
 
         /**
@@ -1554,33 +1556,41 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         /**
          * Returns whether the up button is currently pressed.
          * Used by objects (like VineSwitch) to detect directional input for release delay.
+         * Also checks forcedInputMask so demo playback input is visible to objects,
+         * matching ROM behavior where jpadhold1 contains demo data during demos.
          */
         public boolean isUpPressed() {
-                return upInputPressed;
+                return upInputPressed || isForcedInputActive(INPUT_UP);
         }
 
         /**
          * Returns whether the down button is currently pressed.
          * Used by objects (like VineSwitch) to detect directional input for release delay.
+         * Also checks forcedInputMask so demo playback input is visible to objects,
+         * matching ROM behavior where jpadhold1 contains demo data during demos.
          */
         public boolean isDownPressed() {
-                return downInputPressed;
+                return downInputPressed || isForcedInputActive(INPUT_DOWN);
         }
 
         /**
          * Returns whether the left button is currently pressed.
          * Used by objects (like Grabber) to detect directional input for escape mechanism.
+         * Also checks forcedInputMask so demo playback input is visible to objects,
+         * matching ROM behavior where jpadhold1 contains demo data during demos.
          */
         public boolean isLeftPressed() {
-                return leftInputPressed;
+                return leftInputPressed || isForcedInputActive(INPUT_LEFT);
         }
 
         /**
          * Returns whether the right button is currently pressed.
          * Used by objects (like Grabber) to detect directional input for escape mechanism.
+         * Also checks forcedInputMask so demo playback input is visible to objects,
+         * matching ROM behavior where jpadhold1 contains demo data during demos.
          */
         public boolean isRightPressed() {
-                return rightInputPressed;
+                return rightInputPressed || isForcedInputActive(INPUT_RIGHT);
         }
 
         /**
@@ -2624,28 +2634,30 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         return;
                 }
 
-                // Get dust/splash renderer from spindash dust manager
-                SpindashDustController dustController = getSpindashDustController();
-                if (dustController == null || dustController.getRenderer() == null) {
+                var level = levelManager.getCurrentLevel();
+                if (level == null) {
                         return;
                 }
 
                 // Get water level from WaterSystem
                 // Use getVisualWaterLevelY so splash appears at the oscillating water surface (CPZ2)
-                var level = levelManager.getCurrentLevel();
-                if (level == null) {
-                        return;
-                }
                 var waterSystem = uk.co.jamesj999.sonic.level.WaterSystem.getInstance();
                 int waterY = waterSystem.getVisualWaterLevelY(level.getZoneIndex(), levelManager.getCurrentAct());
 
-                // Create splash object
-                var splash = new uk.co.jamesj999.sonic.game.sonic2.objects.SplashObjectInstance(
-                                getCentreX(), waterY, dustController.getRenderer(),
-                                direction == Direction.LEFT);
+                // S2/S3K: use dust/splash renderer from SpindashDustController
+                SpindashDustController dustController = getSpindashDustController();
+                if (dustController != null && dustController.getRenderer() != null) {
+                        var splash = new uk.co.jamesj999.sonic.game.sonic2.objects.SplashObjectInstance(
+                                        getCentreX(), waterY, dustController.getRenderer(),
+                                        direction == Direction.LEFT);
+                        levelManager.getObjectManager().addDynamicObject(splash);
+                        return;
+                }
 
-                // Add to object manager
-                levelManager.getObjectManager().addDynamicObject(splash);
+                // S1: use LZ splash art from ObjectRenderManager (Object 0x08)
+                var s1Splash = new uk.co.jamesj999.sonic.game.sonic1.objects.Sonic1SplashObjectInstance(
+                                getCentreX(), waterY);
+                levelManager.getObjectManager().addDynamicObject(s1Splash);
         }
 
         /**

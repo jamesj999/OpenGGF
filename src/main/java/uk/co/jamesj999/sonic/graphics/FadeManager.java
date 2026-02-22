@@ -59,7 +59,10 @@ public class FadeManager {
     private FadeState state = FadeState.NONE;
     private int frameCount = 0;
 
-    // Fade duration in frames (matches original Sonic 2: 21 frames)
+    // Standard fade duration in color steps (7 per channel × 3 channels = 21 steps).
+    // On Mega Drive, PaletteFadeOut/In uses dbf d4 with d4=$15 (22 VBla periods),
+    // but only 21 perform color updates; the 22nd is a no-op. The engine's
+    // completeFade() auto-hold adds 1 frame to match the full 22-frame ROM timing.
     private static final int FADE_DURATION = 21;
 
     // Frames per RGB channel (7 levels per channel on Genesis: 0, 2, 4, 6, 8, A, C, E)
@@ -85,6 +88,14 @@ public class FadeManager {
     // Hold duration in frames (for optional pause at full white)
     private int holdDuration = 0;
     private int holdFrameCount = 0;
+
+    // Per-fade effective parameters (computed in startFade methods).
+    // Allows slow fades (e.g., ROM Level_FadeDemo uses 60-frame fade with
+    // palette decrements every 3rd frame) by adjusting frames-per-channel
+    // and increment values while keeping the same sequential-channel algorithm.
+    private int effectiveFPC = FRAMES_PER_CHANNEL;
+    private float effectiveIncrement = CHANNEL_INCREMENT;
+    private int effectiveDuration = FADE_DURATION;
 
     // Shader program reference (set by GraphicsManager)
     private ShaderProgram fadeShader;
@@ -186,6 +197,27 @@ public class FadeManager {
      * @param holdFrames   Number of frames to hold at full black before completing
      */
     public void startFadeToBlack(Runnable onComplete, int holdFrames) {
+        startFadeToBlack(onComplete, holdFrames, 0);
+    }
+
+    /**
+     * Start a fade-to-black transition with optional hold and custom duration.
+     * <p>
+     * The standard fade takes {@link #FADE_DURATION} frames (21 color steps matching
+     * the Mega Drive's 7-level-per-channel palette). For slow fades (e.g., the demo
+     * ending fadeout in credits), pass a larger totalDuration.
+     * <p>
+     * ROM reference: Level_FadeDemo (sonic.asm:3097) uses a 60-frame slow fade where
+     * FadeOut_ToBlack is called every 3rd frame (v_palchgspeed pattern), giving 20
+     * palette updates. The standard PaletteFadeOut uses 22 VBla periods (dbf d4 with
+     * d4=$15 = 21 color steps + 1 no-op frame).
+     *
+     * @param onComplete     Callback to execute when fade completes (can be null)
+     * @param holdFrames     Number of frames to hold at full black before completing
+     * @param totalDuration  Total fade duration in frames (0 = use default FADE_DURATION).
+     *                       Must be divisible by 3 for even channel distribution.
+     */
+    public void startFadeToBlack(Runnable onComplete, int holdFrames, int totalDuration) {
         this.state = FadeState.FADING_TO_BLACK;
         this.fadeType = FadeType.BLACK;
         this.frameCount = 0;
@@ -196,6 +228,15 @@ public class FadeManager {
         this.onFadeComplete = onComplete;
         this.holdDuration = holdFrames;
         this.holdFrameCount = 0;
+        if (totalDuration > 0) {
+            this.effectiveFPC = totalDuration / 3;
+            this.effectiveIncrement = 1.0f / this.effectiveFPC;
+            this.effectiveDuration = totalDuration;
+        } else {
+            this.effectiveFPC = FRAMES_PER_CHANNEL;
+            this.effectiveIncrement = CHANNEL_INCREMENT;
+            this.effectiveDuration = FADE_DURATION;
+        }
     }
 
     /**
@@ -316,22 +357,23 @@ public class FadeManager {
     private void updateFadeToBlack() {
         frameCount++;
 
-        // Black fade: RGB channels decrement sequentially (like Sonic 2)
-        // Frames 1-7: Red decreases, Frames 8-14: Green decreases, Frames 15-21: Blue decreases
-        // fadeR/G/B represent "darkness" (0 = full color, 1 = no color)
-        if (frameCount <= FRAMES_PER_CHANNEL) {
+        // Black fade: RGB channels decrement sequentially (like the Mega Drive).
+        // Standard: 7 frames per channel, 21 total. Slow (demo ending): 20 frames
+        // per channel, 60 total. fadeR/G/B represent "darkness" (0 = full color,
+        // 1 = no color).
+        if (frameCount <= effectiveFPC) {
             // Increment red darkness
-            fadeR = Math.min(1f, fadeR + CHANNEL_INCREMENT);
-        } else if (frameCount <= FRAMES_PER_CHANNEL * 2) {
+            fadeR = Math.min(1f, fadeR + effectiveIncrement);
+        } else if (frameCount <= effectiveFPC * 2) {
             // Increment green darkness
-            fadeG = Math.min(1f, fadeG + CHANNEL_INCREMENT);
-        } else if (frameCount <= FADE_DURATION) {
+            fadeG = Math.min(1f, fadeG + effectiveIncrement);
+        } else if (frameCount <= effectiveDuration) {
             // Increment blue darkness
-            fadeB = Math.min(1f, fadeB + CHANNEL_INCREMENT);
+            fadeB = Math.min(1f, fadeB + effectiveIncrement);
         }
 
         // Check if fade is complete
-        if (frameCount >= FADE_DURATION) {
+        if (frameCount >= effectiveDuration) {
             // Ensure we're at full black
             fadeR = 1f;
             fadeG = 1f;

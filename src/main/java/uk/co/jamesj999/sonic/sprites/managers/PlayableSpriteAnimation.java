@@ -35,8 +35,10 @@ public class PlayableSpriteAnimation {
         SpriteAnimationProfile profile = sprite.getAnimationProfile();
         if (sprite.getAnimationSet() != null && !sprite.getAnimationSet().getAllScripts().isEmpty()) {
             int forced = sprite.getForcedAnimationId();
+            // Both branches must be Integer (not int) so null from resolveAnimationId
+            // doesn't trigger auto-unboxing NPE via JLS ternary type inference.
             Integer desiredAnimId = forced >= 0
-                    ? forced
+                    ? Integer.valueOf(forced)
                     : (profile != null
                         ? profile.resolveAnimationId(sprite, frameCounter, sprite.getAnimationSet().getScriptCount())
                         : null);

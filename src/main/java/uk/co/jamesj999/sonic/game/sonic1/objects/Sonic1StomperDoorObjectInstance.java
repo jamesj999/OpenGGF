@@ -632,8 +632,12 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
     @Override
     public boolean shouldStayActiveWhenRemembered() {
         // Type 5 marks itself as remembered when the switch is pressed, but must
-        // stay active to complete the diagonal slide animation.
-        return true;
+        // stay active to complete the diagonal slide animation. Returning false
+        // removes the spawn from the active set (so it won't be re-created on
+        // respawn), but the instance stays alive via isPersistent() while on-screen.
+        // This avoids setting the stayActive bit, which would cause the top-position
+        // door to incorrectly respawn instead of the bottom-position static door.
+        return false;
     }
 
     @Override

@@ -228,7 +228,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short originalY = sprite.getY();
 
 		if (doCheckSpindash()) return;
-		if (inputJump && !jumpPressed && doJump()) {
+		if (inputJumpPress && doJump()) {
 			modeAirborne();
 			return;
 		}
@@ -248,7 +248,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short originalX = sprite.getX();
 		short originalY = sprite.getY();
 
-		if (!sprite.getPinballMode() && inputJump && !jumpPressed && doJump()) {
+		if (!sprite.getPinballMode() && inputJumpPress && doJump()) {
 			modeAirborne();
 			return;
 		}
@@ -1889,14 +1889,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/**
 	 * Check balance when standing on an object (platform, monitor, etc.).
-	 * ROM: s2.asm:36246-36318
 	 *
-	 * Logic:
-	 * - d1 = player_x + width - object_x (player position relative to left edge)
-	 * - d2 = (width * 2) - 2 (right edge threshold)
-	 * - If d1 < 2: on left edge
-	 * - If d1 >= d2: on right edge
-	 * - Precarious: left edge d1 < -4, right edge d1 >= d2 + 6
+	 * S2/S3K (extendedEdgeBalance): ROM s2.asm:36246-36318
+	 * - d2 = (width * 2) - 2, left threshold < 2, right threshold >= d2
+	 * - 4 balance states with precarious/facing-away checks
+	 *
+	 * S1 (!extendedEdgeBalance): ROM s1disasm/_incObj/01 Sonic.asm:340-351
+	 * - d2 = (width * 2) - 4, left threshold < 4, right threshold >= d2
+	 * - Single balance state, always forces facing toward edge
 	 */
 	private void checkObjectEdgeBalance() {
 		// Get the object the sprite is standing on
@@ -1924,6 +1924,9 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		boolean extended = featureSet != null && featureSet.extendedEdgeBalance();
+
 		int objectWidth = params.halfWidth(); // Half-width (radius)
 		int objectX = ridingObject.getX();
 		int playerX = sprite.getCentreX();
@@ -1931,57 +1934,61 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// ROM formula: d1 = player_x + width - object_x
 		// This gives player position relative to left edge of object
 		int d1 = playerX + objectWidth - objectX;
-		// d2 = (width * 2) - 2 (threshold for right edge)
-		int d2 = (objectWidth * 2) - 2;
+
+		// S1: d2 = (width * 2) - 4, left threshold 4 (s1.asm:344,347)
+		// S2: d2 = (width * 2) - 2, left threshold 2 (s2.asm:36268)
+		int leftThreshold = extended ? 2 : 4;
+		int d2 = (objectWidth * 2) - (extended ? 2 : 4);
 
 		boolean facingRight = sprite.getDirection() == Direction.RIGHT;
 
-		// ROM s2.asm:36268-36270: cmpi.w #2,d1 / blt.s Sonic_BalanceOnObjLeft
-		if (d1 < 2) {
+		if (d1 < leftThreshold) {
 			// On left edge of object
-			// ROM s2.asm:36308: cmpi.w #-4,d1 / bge = not precarious
-			// Precarious if d1 < -4
-			boolean precarious = d1 < -4;
-			// On left edge, facing LEFT is toward edge, facing RIGHT is away
-			boolean facingTowardEdge = !facingRight;
-			int balanceState = facingTowardEdge ? (precarious ? 2 : 1) : (precarious ? 4 : 3);
-
-			// ROM s2.asm:36317: Balance4 flips sprite to face edge (bset x_flip → face left)
-			if (balanceState == 4) {
+			if (extended) {
+				// S2/S3K: 4-state balance with precarious check
+				boolean precarious = d1 < -4;
+				boolean facingTowardEdge = !facingRight;
+				int balanceState = facingTowardEdge ? (precarious ? 2 : 1) : (precarious ? 4 : 3);
+				if (balanceState == 4) {
+					sprite.setDirection(Direction.LEFT);
+				}
+				sprite.setBalanceState(balanceState);
+			} else {
+				// S1: single state, force facing toward edge (bset #0 → face left)
+				// ROM s1.asm:370-371: bset #0,obStatus(a0)
+				sprite.setBalanceState(1);
 				sprite.setDirection(Direction.LEFT);
 			}
-
-			sprite.setBalanceState(balanceState);
-		}
-		// ROM s2.asm:36270-36272: cmp.w d2,d1 / bge.s Sonic_BalanceOnObjRight
-		else if (d1 >= d2) {
+		} else if (d1 >= d2) {
 			// On right edge of object
-			// ROM s2.asm:36288-36290: addq.w #6,d2 / cmp.w d2,d1 / blt = not precarious
-			// Precarious if d1 >= d2 + 6
-			boolean precarious = d1 >= d2 + 6;
-			// On right edge, facing RIGHT is toward edge, facing LEFT is away
-			boolean facingTowardEdge = facingRight;
-			int balanceState = facingTowardEdge ? (precarious ? 2 : 1) : (precarious ? 4 : 3);
-
-			// ROM s2.asm:36299: Balance4 flips sprite to face edge (bclr x_flip → face right)
-			if (balanceState == 4) {
+			if (extended) {
+				// S2/S3K: 4-state balance with precarious check
+				boolean precarious = d1 >= d2 + 6;
+				boolean facingTowardEdge = facingRight;
+				int balanceState = facingTowardEdge ? (precarious ? 2 : 1) : (precarious ? 4 : 3);
+				if (balanceState == 4) {
+					sprite.setDirection(Direction.RIGHT);
+				}
+				sprite.setBalanceState(balanceState);
+			} else {
+				// S1: single state, force facing toward edge (bclr #0 → face right)
+				// ROM s1.asm:361-362: bclr #0,obStatus(a0)
+				sprite.setBalanceState(1);
 				sprite.setDirection(Direction.RIGHT);
 			}
-
-			sprite.setBalanceState(balanceState);
 		}
 	}
 
 	/**
 	 * Check balance when standing on terrain (level floor).
-	 * ROM: s2.asm:36322-36373 (Sonic_Balance)
 	 *
-	 * Logic:
-	 * - Call ChkFloorEdge to get distance to floor at player position
-	 * - If distance >= 12 ($C), there's an edge
-	 * - Check next_tilt == 3 for right edge (floor drops off to the right)
-	 * - Check tilt == 3 for left edge (floor drops off to the left)
-	 * - For precarious (Balance2/4): scan 6 pixels toward center, if still no floor, precarious
+	 * S2/S3K (extendedEdgeBalance): ROM s2.asm:36322-36373 (Sonic_Balance)
+	 * - ChkFloorEdge distance >= 12, next_tilt/tilt == 3
+	 * - Secondary probe at ±6px for precarious check → 4 balance states
+	 *
+	 * S1 (!extendedEdgeBalance): ROM s1disasm/_incObj/01 Sonic.asm:354-375
+	 * - ObjFloorDist distance >= 12, objoff_36/objoff_37 == 3
+	 * - No precarious check, single balance state, always faces edge
 	 */
 	private void checkTerrainEdgeBalance() {
 		// Use ground sensors to check for floor edge
@@ -1999,17 +2006,54 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		int leftDist = (leftResult == null) ? 99 : leftResult.distance();
 		int rightDist = (rightResult == null) ? 99 : rightResult.distance();
 
-		// Edge threshold - ROM uses 12 ($C)
+		// Edge threshold - ROM uses 12 ($C) for both S1 and S2
 		final int EDGE_THRESHOLD = 12;
 
 		boolean facingRight = sprite.getDirection() == Direction.RIGHT;
 
-		// Detect which edge based on which sensor lost ground
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		boolean extended = featureSet != null && featureSet.extendedEdgeBalance();
+
+		if (!extended) {
+			// S1: ObjFloorDist probes at CENTER X, not at the ±9 side sensors.
+			// ROM s1.asm:354-356: jsr (ObjFloorDist).l / cmpi.w #$C,d1
+			// ObjFloorDist uses obX(a0) = sprite center X.
+			// Left sensor is at center - 9; scanning with dx=+9 probes at center.
+			SensorResult centerResult = groundSensors[0].scan((short) 9, (short) 0);
+			int centerDist = (centerResult == null) ? 99 : centerResult.distance();
+
+			if (centerDist < EDGE_THRESHOLD) {
+				return; // Center still has ground — not on edge yet
+			}
+
+			// Center is over edge (distance >= 12). Determine which side using
+			// the ±9 sensor angles — ROM checks objoff_36/objoff_37 == 3
+			// (FLAGGED_ANGLE for empty tile, set during AnglePos).
+			// We approximate: whichever side sensor still has ground indicates
+			// the opposite side is the edge.
+			if (leftDist < EDGE_THRESHOLD && rightDist >= EDGE_THRESHOLD) {
+				// Left sensor on ground, right sensor off → right edge → face right
+				// ROM s1.asm:358-362: objoff_36 == 3 → bclr #0,obStatus
+				sprite.setBalanceState(1);
+				sprite.setDirection(Direction.RIGHT);
+			} else if (rightDist < EDGE_THRESHOLD && leftDist >= EDGE_THRESHOLD) {
+				// Right sensor on ground, left sensor off → left edge → face left
+				// ROM s1.asm:367-371: objoff_37 == 3 → bset #0,obStatus
+				sprite.setBalanceState(1);
+				sprite.setDirection(Direction.LEFT);
+			}
+			// If both or neither sensor has ground, don't balance
+			// (ROM: neither objoff_36 nor objoff_37 == 3 → branch to Sonic_LookUp)
+			return;
+		}
+
+		// S2/S3K: Edge detection uses ±9 side sensors as the primary gate
+		// (ChkFloorEdge probes at center X, but the distance threshold effectively
+		// aligns with the side sensor approach for S2/S3K terrain geometry).
+
 		// Right edge: left sensor has ground, right sensor doesn't
 		if (leftDist < EDGE_THRESHOLD && rightDist >= EDGE_THRESHOLD) {
-			// Right edge detected
-			// ROM precarious check: scan at center - 6 (6 pixels toward center from edge)
-			// Left sensor is at center - 9, so we need dx = +3 to scan at center - 6
+			// S2/S3K: precarious check - scan at center - 6 (dx = +3 from left sensor)
 			SensorResult precariousResult = groundSensors[0].scan((short) 3, (short) 0);
 			int precariousDist = (precariousResult == null) ? 99 : precariousResult.distance();
 			boolean precarious = precariousDist >= EDGE_THRESHOLD;
@@ -2019,9 +2063,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		// Left edge: right sensor has ground, left sensor doesn't
 		if (rightDist < EDGE_THRESHOLD && leftDist >= EDGE_THRESHOLD) {
-			// Left edge detected
-			// ROM precarious check: scan at center + 6 (6 pixels toward center from edge)
-			// Right sensor is at center + 9, so we need dx = -3 to scan at center + 6
+			// S2/S3K: precarious check - scan at center + 6 (dx = -3 from right sensor)
 			SensorResult precariousResult = groundSensors[1].scan((short) -3, (short) 0);
 			int precariousDist = (precariousResult == null) ? 99 : precariousResult.distance();
 			boolean precarious = precariousDist >= EDGE_THRESHOLD;

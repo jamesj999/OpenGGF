@@ -140,6 +140,9 @@ public final class ObjectArtKeys {
     // LZ waterfall/splash object art (S1 Object 0x65)
     public static final String LZ_WATERFALL = "lz_waterfall";
 
+    // LZ water splash effect (S1 Object 0x08 - spawned on water entry/exit)
+    public static final String LZ_SPLASH = "lz_splash";
+
     // SLZ elevator (S1 Object 0x59)
     public static final String SLZ_ELEVATOR = "slz_elevator";
 

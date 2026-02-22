@@ -112,7 +112,11 @@ public class Sonic1CreditsManager {
             }
             case DEMO_PLAYING -> updateDemoPlaying();
             case DEMO_FADING_OUT -> {
-                // Waiting for FadeManager callback; scroll is frozen
+                // ROM Level_FDLoop continues MoveSonicInDemo during the 60-frame
+                // slow fadeout (objects and physics also continue running)
+                if (demoInputPlayer != null) {
+                    demoInputPlayer.advanceFrame();
+                }
             }
             case FINISHED -> { }
         }
@@ -152,7 +156,10 @@ public class Sonic1CreditsManager {
 
         timer--;
         if (timer <= 0 || (demoInputPlayer != null && demoInputPlayer.isComplete())) {
-            // Demo time expired — start fadeout
+            // Demo time expired — start slow fadeout.
+            // ROM Level_FadeDemo (sonic.asm:3097) uses a 60-frame fade where
+            // FadeOut_ToBlack is called every 3rd frame (v_palchgspeed pattern).
+            // Objects and demo input continue running during the fade.
             scrollFrozen = true;
             state = State.DEMO_FADING_OUT;
             FadeManager.getInstance().startFadeToBlack(() -> {
@@ -165,7 +172,7 @@ public class Sonic1CreditsManager {
                     // Return to text phase for next credit
                     requestTextReturn = true;
                 }
-            });
+            }, 0, Sonic1CreditsDemoData.DEMO_FADEOUT_FRAMES);
         }
     }
 

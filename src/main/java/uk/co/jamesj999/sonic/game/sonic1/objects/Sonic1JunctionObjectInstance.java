@@ -261,6 +261,9 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
         routine = Routine.RELEASE;
 
         // move.b #1,(f_playerctrl).w — lock controls
+        // S1 ROM: f_playerctrl=$01 (bit 0) causes Sonic_Modes to be skipped entirely.
+        // Engine: isObjectControlled() gates the movement-skip at PlayableSpriteMovement line 124.
+        player.setObjectControlled(true);
         player.setControlLocked(true);
 
         // move.b #id_Roll,obAnim(a1) — make Sonic use "rolling" animation
@@ -352,6 +355,7 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
             }
 
             // clr.b (f_playerctrl).w — unlock controls
+            player.setObjectControlled(false);
             player.setControlLocked(false);
 
             // subq.b #4,obRoutine(a0) — back to Jun_Action
@@ -539,6 +543,7 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
         if (routine == Routine.RELEASE) {
             AbstractPlayableSprite player = getPlayer();
             if (player != null) {
+                player.setObjectControlled(false);
                 player.setControlLocked(false);
             }
             routine = Routine.ACTION;
