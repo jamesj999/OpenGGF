@@ -70,7 +70,12 @@ public class RenderContext {
 
     /**
      * Derives an underwater palette for a donor sprite by applying the base
-     * game's normal-to-underwater color ratio to each donor color.
+     * game's average normal-to-underwater color shift to each donor color.
+     *
+     * <p>Uses a global per-channel ratio averaged across all non-transparent
+     * colors, rather than per-index ratios. This is necessary because color
+     * indices map to completely different things across games (e.g. S1 index 3
+     * might be Sonic's blue while the donor's index 3 is Tails' orange).
      *
      * @param donorNormal    the donor's normal (above-water) palette
      * @param normalBase     the base game's normal palette (line 0)
@@ -80,28 +85,43 @@ public class RenderContext {
     public static Palette deriveUnderwaterPalette(Palette donorNormal,
                                                    Palette normalBase,
                                                    Palette underwaterBase) {
+        // Compute global per-channel ratio: avg(underwater) / avg(normal)
+        long sumNR = 0, sumNG = 0, sumNB = 0;
+        long sumUR = 0, sumUG = 0, sumUB = 0;
+        int count = 0;
+        for (int i = 1; i < 16; i++) { // skip index 0 (transparent)
+            Palette.Color nb = normalBase.getColor(i);
+            Palette.Color ub = underwaterBase.getColor(i);
+            int nbR = Byte.toUnsignedInt(nb.r);
+            int nbG = Byte.toUnsignedInt(nb.g);
+            int nbB = Byte.toUnsignedInt(nb.b);
+            if (nbR + nbG + nbB > 0) {
+                sumNR += nbR; sumNG += nbG; sumNB += nbB;
+                sumUR += Byte.toUnsignedInt(ub.r);
+                sumUG += Byte.toUnsignedInt(ub.g);
+                sumUB += Byte.toUnsignedInt(ub.b);
+                count++;
+            }
+        }
+
+        // Ratios scaled by 256 for fixed-point math
+        int ratioR = 256, ratioG = 256, ratioB = 256;
+        if (count > 0) {
+            if (sumNR > 0) ratioR = (int) (sumUR * 256 / sumNR);
+            if (sumNG > 0) ratioG = (int) (sumUG * 256 / sumNG);
+            if (sumNB > 0) ratioB = (int) (sumUB * 256 / sumNB);
+        }
+
         Palette result = new Palette();
         for (int i = 0; i < 16; i++) {
             Palette.Color dn = donorNormal.getColor(i);
-            Palette.Color nb = normalBase.getColor(i);
-            Palette.Color ub = underwaterBase.getColor(i);
-
             int dnR = Byte.toUnsignedInt(dn.r);
             int dnG = Byte.toUnsignedInt(dn.g);
             int dnB = Byte.toUnsignedInt(dn.b);
 
-            int nbR = Byte.toUnsignedInt(nb.r);
-            int nbG = Byte.toUnsignedInt(nb.g);
-            int nbB = Byte.toUnsignedInt(nb.b);
-
-            int ubR = Byte.toUnsignedInt(ub.r);
-            int ubG = Byte.toUnsignedInt(ub.g);
-            int ubB = Byte.toUnsignedInt(ub.b);
-
-            int r, g, b;
-            if (nbR > 0) { r = Math.min(255, dnR * ubR / nbR); } else { r = ubR; }
-            if (nbG > 0) { g = Math.min(255, dnG * ubG / nbG); } else { g = ubG; }
-            if (nbB > 0) { b = Math.min(255, dnB * ubB / nbB); } else { b = ubB; }
+            int r = Math.min(255, dnR * ratioR / 256);
+            int g = Math.min(255, dnG * ratioG / 256);
+            int b = Math.min(255, dnB * ratioB / 256);
 
             result.setColor(i, new Palette.Color((byte) r, (byte) g, (byte) b));
         }
