@@ -96,57 +96,77 @@ public class TestRenderContext {
     }
 
     // --- deriveUnderwaterPalette tests ---
+    // Uses GLOBAL average per-channel ratio (not per-index), so donor sprites
+    // with different palette layouts (e.g., Tails in S1) get a consistent tint.
 
     @Test
-    public void deriveUnderwaterPalette_appliesColorShiftRatio() {
+    public void deriveUnderwaterPalette_appliesGlobalAverageRatio() {
+        // Base: 2 non-transparent colors. Normal avg R=(200+100)/2=150, UW avg R=(100+50)/2=75
+        // Global ratio R = 75/150 = 0.5
         uk.co.jamesj999.sonic.level.Palette normalBase = new uk.co.jamesj999.sonic.level.Palette();
         normalBase.setColor(1, new uk.co.jamesj999.sonic.level.Palette.Color(
                 (byte) 200, (byte) 100, (byte) 50));
+        normalBase.setColor(2, new uk.co.jamesj999.sonic.level.Palette.Color(
+                (byte) 100, (byte) 100, (byte) 50));
 
         uk.co.jamesj999.sonic.level.Palette underwaterBase = new uk.co.jamesj999.sonic.level.Palette();
         underwaterBase.setColor(1, new uk.co.jamesj999.sonic.level.Palette.Color(
                 (byte) 100, (byte) 50, (byte) 25));
+        underwaterBase.setColor(2, new uk.co.jamesj999.sonic.level.Palette.Color(
+                (byte) 50, (byte) 50, (byte) 25));
 
+        // Donor: color 3 has completely different meaning than base colors 1-2
         uk.co.jamesj999.sonic.level.Palette donorNormal = new uk.co.jamesj999.sonic.level.Palette();
-        donorNormal.setColor(1, new uk.co.jamesj999.sonic.level.Palette.Color(
+        donorNormal.setColor(3, new uk.co.jamesj999.sonic.level.Palette.Color(
                 (byte) 180, (byte) 80, (byte) 40));
 
         uk.co.jamesj999.sonic.level.Palette result = RenderContext.deriveUnderwaterPalette(
                 donorNormal, normalBase, underwaterBase);
 
-        // donor * (underwater/normal) = (180*100/200, 80*50/100, 40*25/50) = (90, 40, 20)
-        uk.co.jamesj999.sonic.level.Palette.Color c = result.getColor(1);
+        // Global ratios: R=(100+50)/(200+100)=150/300=0.5, G=(50+50)/(100+100)=100/200=0.5, B=(25+25)/(50+50)=50/100=0.5
+        // Donor color 3: (180*128/256, 80*128/256, 40*128/256) = (90, 40, 20)
+        uk.co.jamesj999.sonic.level.Palette.Color c = result.getColor(3);
         assertEquals(90, Byte.toUnsignedInt(c.r));
         assertEquals(40, Byte.toUnsignedInt(c.g));
         assertEquals(20, Byte.toUnsignedInt(c.b));
     }
 
     @Test
-    public void deriveUnderwaterPalette_handlesZeroBaseColor() {
+    public void deriveUnderwaterPalette_appliesUniformTintAcrossAllDonorColors() {
+        // Same base palettes — ratio ~0.5 across all channels
         uk.co.jamesj999.sonic.level.Palette normalBase = new uk.co.jamesj999.sonic.level.Palette();
-        normalBase.setColor(2, new uk.co.jamesj999.sonic.level.Palette.Color(
-                (byte) 0, (byte) 0, (byte) 0));
+        normalBase.setColor(1, new uk.co.jamesj999.sonic.level.Palette.Color(
+                (byte) 200, (byte) 200, (byte) 200));
 
         uk.co.jamesj999.sonic.level.Palette underwaterBase = new uk.co.jamesj999.sonic.level.Palette();
-        underwaterBase.setColor(2, new uk.co.jamesj999.sonic.level.Palette.Color(
-                (byte) 30, (byte) 30, (byte) 30));
+        underwaterBase.setColor(1, new uk.co.jamesj999.sonic.level.Palette.Color(
+                (byte) 100, (byte) 100, (byte) 100));
 
+        // Donor has Tails-like orange at index 4 AND blue at index 8
         uk.co.jamesj999.sonic.level.Palette donorNormal = new uk.co.jamesj999.sonic.level.Palette();
-        donorNormal.setColor(2, new uk.co.jamesj999.sonic.level.Palette.Color(
-                (byte) 120, (byte) 60, (byte) 30));
+        donorNormal.setColor(4, new uk.co.jamesj999.sonic.level.Palette.Color(
+                (byte) 200, (byte) 100, (byte) 0));
+        donorNormal.setColor(8, new uk.co.jamesj999.sonic.level.Palette.Color(
+                (byte) 0, (byte) 0, (byte) 200));
 
         uk.co.jamesj999.sonic.level.Palette result = RenderContext.deriveUnderwaterPalette(
                 donorNormal, normalBase, underwaterBase);
 
-        // When base normal is zero, fallback: use the underwater base color
-        uk.co.jamesj999.sonic.level.Palette.Color c = result.getColor(2);
-        assertEquals(30, Byte.toUnsignedInt(c.r));
-        assertEquals(30, Byte.toUnsignedInt(c.g));
-        assertEquals(30, Byte.toUnsignedInt(c.b));
+        // Both should get the same 0.5 factor: orange→(100,50,0), blue→(0,0,100)
+        uk.co.jamesj999.sonic.level.Palette.Color orange = result.getColor(4);
+        assertEquals(100, Byte.toUnsignedInt(orange.r));
+        assertEquals(50, Byte.toUnsignedInt(orange.g));
+        assertEquals(0, Byte.toUnsignedInt(orange.b));
+
+        uk.co.jamesj999.sonic.level.Palette.Color blue = result.getColor(8);
+        assertEquals(0, Byte.toUnsignedInt(blue.r));
+        assertEquals(0, Byte.toUnsignedInt(blue.g));
+        assertEquals(100, Byte.toUnsignedInt(blue.b));
     }
 
     @Test
     public void deriveUnderwaterPalette_clampsTo255() {
+        // Ratio > 1 (underwater brighter than normal on average)
         uk.co.jamesj999.sonic.level.Palette normalBase = new uk.co.jamesj999.sonic.level.Palette();
         normalBase.setColor(1, new uk.co.jamesj999.sonic.level.Palette.Color(
                 (byte) 50, (byte) 50, (byte) 50));
@@ -162,8 +182,28 @@ public class TestRenderContext {
         uk.co.jamesj999.sonic.level.Palette result = RenderContext.deriveUnderwaterPalette(
                 donorNormal, normalBase, underwaterBase);
 
-        // 200 * 200/50 = 800, clamped to 255
+        // ratio=4.0, 200*4=800, clamped to 255
         uk.co.jamesj999.sonic.level.Palette.Color c = result.getColor(1);
         assertEquals(255, Byte.toUnsignedInt(c.r));
+    }
+
+    @Test
+    public void deriveUnderwaterPalette_allZeroBase_preservesDonorColors() {
+        // All base colors are black — ratio defaults to 1.0 (no shift)
+        uk.co.jamesj999.sonic.level.Palette normalBase = new uk.co.jamesj999.sonic.level.Palette();
+        uk.co.jamesj999.sonic.level.Palette underwaterBase = new uk.co.jamesj999.sonic.level.Palette();
+
+        uk.co.jamesj999.sonic.level.Palette donorNormal = new uk.co.jamesj999.sonic.level.Palette();
+        donorNormal.setColor(1, new uk.co.jamesj999.sonic.level.Palette.Color(
+                (byte) 120, (byte) 60, (byte) 30));
+
+        uk.co.jamesj999.sonic.level.Palette result = RenderContext.deriveUnderwaterPalette(
+                donorNormal, normalBase, underwaterBase);
+
+        // No valid base colors to compute ratio from — donor colors pass through unchanged
+        uk.co.jamesj999.sonic.level.Palette.Color c = result.getColor(1);
+        assertEquals(120, Byte.toUnsignedInt(c.r));
+        assertEquals(60, Byte.toUnsignedInt(c.g));
+        assertEquals(30, Byte.toUnsignedInt(c.b));
     }
 }
