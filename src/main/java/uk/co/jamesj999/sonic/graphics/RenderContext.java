@@ -3,6 +3,8 @@ package uk.co.jamesj999.sonic.graphics;
 import uk.co.jamesj999.sonic.game.GameId;
 import uk.co.jamesj999.sonic.level.Palette;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -57,6 +59,13 @@ public class RenderContext {
                 }
             }
         }
+    }
+
+    /**
+     * Returns all active donor render contexts (unmodifiable).
+     */
+    public static Collection<RenderContext> getDonorContexts() {
+        return Collections.unmodifiableCollection(donorContexts.values());
     }
 
     /**
