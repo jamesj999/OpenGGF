@@ -121,7 +121,8 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
 
     // Static mapping data (loaded per-zone)
     private static List<SpriteMappingFrame> oozMappings;
-    private static List<SpriteMappingFrame> mczArzMappings;
+    private static List<SpriteMappingFrame> mczMappings;
+    private static List<SpriteMappingFrame> arzMappings;
     private static List<SpriteMappingFrame> trapMappings;
     private static boolean mappingsLoadAttempted;
 
@@ -458,7 +459,11 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
         if (behaviorMode == BehaviorMode.TRAP) {
             return trapMappings;
         }
-        return (zoneConfig == ZoneConfig.OOZ) ? oozMappings : mczArzMappings;
+        return switch (zoneConfig) {
+            case OOZ -> oozMappings;
+            case ARZ -> arzMappings;
+            case MCZ -> mczMappings;
+        };
     }
 
     private void renderPieces(GraphicsManager graphicsManager, List<SpriteMappingPiece> pieces,
@@ -546,9 +551,13 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
             oozMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_A_ADDR);
             LOGGER.fine("Loaded " + oozMappings.size() + " Obj15 OOZ mapping frames");
 
-            // Load MCZ/ARZ mappings - use dedicated MCZ address, not Obj83
-            mczArzMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_MCZ_ADDR);
-            LOGGER.fine("Loaded " + mczArzMappings.size() + " Obj15 MCZ/ARZ mapping frames");
+            // Load MCZ mappings (Obj15_Obj7A_MapUnc_10256)
+            mczMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_MCZ_ADDR);
+            LOGGER.fine("Loaded " + mczMappings.size() + " Obj15 MCZ mapping frames");
+
+            // Load ARZ mappings (Obj15_Obj83_MapUnc_1021E) - shared with ARZRotPforms
+            arzMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ83_ADDR);
+            LOGGER.fine("Loaded " + arzMappings.size() + " Obj15 ARZ mapping frames");
 
             // Load trap mode mappings
             trapMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_TRAP_ADDR);

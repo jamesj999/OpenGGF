@@ -546,8 +546,47 @@ public class Sonic2ObjectArt {
     }
 
     public ObjectSpriteSheet loadCpzStairBlockSheet() {
-        return buildArtSheetFromRom(Sonic2Constants.ART_NEM_CPZ_STAIRBLOCK_ADDR,
-                Sonic2Constants.MAP_UNC_CPZ_STAIR_BLOCK_ADDR, 3, 1);
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_CPZ_STAIRBLOCK_ADDR, "CPZStairBlock");
+        List<SpriteMappingFrame> mappings = createCPZStairBlockMappings();
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Hand-crafted mapping frames for the CPZ stair block / MTZ platform art sheet.
+     * <p>
+     * The ROM mapping files for these objects use ArtTile_ArtKos_LevelArt (level art tiles)
+     * which cannot be used directly as a sprite sheet. These frames use ArtNem_CPZStairBlock
+     * patterns as a stand-in, arranged to match the platform shapes:
+     * <ul>
+     *   <li>Frame 0: 4-block wide platform (MTZLongPlatform, 4 pieces)</li>
+     *   <li>Frame 1: 2-block platform (MTZLongPlatform narrow, 2 pieces)</li>
+     *   <li>Frame 2: Single 32x32 block (MTZPlatform / CPZ square platform)</li>
+     * </ul>
+     */
+    private List<SpriteMappingFrame> createCPZStairBlockMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0: 4 blocks (MTZLongPlatform wide variant)
+        List<SpriteMappingPiece> frame0 = new ArrayList<>();
+        frame0.add(new SpriteMappingPiece(-0x40, -0x10, 4, 4, 0, false, false, 0));
+        frame0.add(new SpriteMappingPiece(-0x20, -0x10, 4, 4, 0, false, false, 0));
+        frame0.add(new SpriteMappingPiece(0,     -0x10, 4, 4, 0, false, false, 0));
+        frame0.add(new SpriteMappingPiece(0x20,  -0x10, 4, 4, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame0));
+
+        // Frame 1: 2 blocks (MTZLongPlatform narrow variant, second piece h-flipped)
+        List<SpriteMappingPiece> frame1 = new ArrayList<>();
+        frame1.add(new SpriteMappingPiece(-0x20, -0x10, 4, 4, 0, false, false, 0));
+        frame1.add(new SpriteMappingPiece(0,     -0x10, 4, 4, 0, true,  false, 0));
+        frames.add(new SpriteMappingFrame(frame1));
+
+        // Frame 2: Single 32x32 block (MTZPlatform / CPZ square platform)
+        // Matches obj6B.asm: spritePiece -$10, -$10, 4, 4, 0, 0, 0, 0, 0
+        List<SpriteMappingPiece> frame2 = new ArrayList<>();
+        frame2.add(new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0, false, false, 0));
+        frames.add(new SpriteMappingFrame(frame2));
+
+        return frames;
     }
 
     public ObjectSpriteSheet loadCpzPylonSheet() {
@@ -1393,11 +1432,11 @@ public class Sonic2ObjectArt {
 
     /**
      * Load Spiny (ObjA5) sprite sheet - crawling badnik from CPZ.
-     * ROM: ArtNem_Spiny at 0x8B430, palette line 0
+     * ROM: ArtNem_Spiny at 0x8B430, palette line 1 (make_art_tile(ArtTile_ArtNem_Spiny,1,0))
      */
     public ObjectSpriteSheet loadSpinySheet() {
         return buildArtSheetFromRom(Sonic2Constants.ART_NEM_SPINY_ADDR,
-                Sonic2Constants.MAP_UNC_SPINY_ADDR, 0, 1);
+                Sonic2Constants.MAP_UNC_SPINY_ADDR, 1, 1);
     }
 
     /**
@@ -2071,37 +2110,43 @@ public class Sonic2ObjectArt {
     /**
      * Creates animations for Signpost (Obj0D).
      * Based on Ani_obj0D in s2.asm.
-     * 
-     * Animation scripts:
-     * 0: $0F, $02, $FF (hold frame 2 - Eggman face)
-     * 1: $01, $02, $03, $04, $05, $01, $03, $04, $05, $00, $03, $04, $05, $FF
-     * (spinning)
-     * 2: same as 1
-     * 3: $0F, $00, $FF (hold frame 0 - Sonic face)
-     * 4: $0F, $01, $FF (hold frame 1 - Tails face)
+     *
+     * Frame indices match obj0D_a.asm ROM order (as parsed by loadMappingFrames):
+     *   0 = Sonic final face (tiles $22+$2E, wide)
+     *   1 = Tails face
+     *   2 = Eggman front face (tiles 0, h-flip) — initial state
+     *   3 = Spin transition A (tile $0C, 4x4)
+     *   4 = Edge/thin view (tile $1C)
+     *   5 = Spin transition B (tile $0C, h-flipped)
+     *
+     * ROM animation scripts (Ani_obj0D):
+     *   0: $0F, $02, $FF       — hold frame 2 (Eggman, initial state)
+     *   1: $01, 2,3,4,5, 1,3,4,5, 0,3,4,5, $FF  — spin
+     *   2: same as 1
+     *   3: $0F, $00, $FF       — hold frame 0 (Sonic face, final state)
+     *   4: $0F, $01, $FF       — hold frame 1 (Tails face)
      */
     private SpriteAnimationSet createSignpostAnimations() {
         SpriteAnimationSet set = new SpriteAnimationSet();
 
-        // Anim 0: Hold Eggman face (frame 3 in current mapping order)
-        set.addScript(0, new SpriteAnimationScript(0x0F, List.of(3), SpriteAnimationEndAction.LOOP, 0));
+        // Anim 0: Hold Eggman face (ROM: $0F, $02, $FF)
+        set.addScript(0, new SpriteAnimationScript(0x0F, List.of(2), SpriteAnimationEndAction.LOOP, 0));
 
-        // Anim 1: Spinning to Sonic (mapped to current frames)
-        // Eggman -> spin -> Tails -> spin -> Sonic
+        // Anim 1: Spin — Eggman → transitions → Tails → transitions → Sonic
+        // (ROM: $01, 2,3,4,5, 1,3,4,5, 0,3,4,5, $FF)
         set.addScript(1, new SpriteAnimationScript(0x01,
-                List.of(3, 0, 4, 5, 1, 0, 4, 5, 2, 0, 4, 5),
+                List.of(2, 3, 4, 5, 1, 3, 4, 5, 0, 3, 4, 5),
                 SpriteAnimationEndAction.LOOP, 0));
 
-        // Anim 2: Same as 1 (used for 2P mode)
+        // Anim 2: Same as 1 (2P mode)
         set.addScript(2, new SpriteAnimationScript(0x01,
-                List.of(3, 0, 4, 5, 1, 0, 4, 5, 2, 0, 4, 5),
+                List.of(2, 3, 4, 5, 1, 3, 4, 5, 0, 3, 4, 5),
                 SpriteAnimationEndAction.LOOP, 0));
 
-        // Anim 3: Hold Sonic face (frame 2 in current mapping order)
-        // From disasm: byte_195B7: dc.b $0F, $00, $FF - hold frame 0
-        set.addScript(3, new SpriteAnimationScript(0x0F, List.of(2), SpriteAnimationEndAction.LOOP, 0));
+        // Anim 3: Hold Sonic face (ROM: $0F, $00, $FF)
+        set.addScript(3, new SpriteAnimationScript(0x0F, List.of(0), SpriteAnimationEndAction.LOOP, 0));
 
-        // Anim 4: Hold Tails face (frame 1 in current mapping order)
+        // Anim 4: Hold Tails face (ROM: $0F, $01, $FF)
         set.addScript(4, new SpriteAnimationScript(0x0F, List.of(1), SpriteAnimationEndAction.LOOP, 0));
 
         return set;

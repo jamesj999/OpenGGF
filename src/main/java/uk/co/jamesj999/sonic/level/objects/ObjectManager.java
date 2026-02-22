@@ -130,6 +130,11 @@ public class ObjectManager {
                 instance.update(frameCounter, player);
                 if (instance.isDestroyed()) {
                     instance.onUnload();
+                    // Clear stayActive so the remembered check in trySpawn() permanently
+                    // blocks this spawn. Without this, stayActive objects (e.g. EggPrison)
+                    // that self-destruct after their animation would respawn on camera
+                    // re-entry because stayActive bypasses the remembered gate.
+                    placement.clearStayActive(entry.getKey());
                     iterator.remove();
                     objectsRemoved = true;
                 }
@@ -624,6 +629,17 @@ public class ObjectManager {
         boolean isStayActive(ObjectSpawn spawn) {
             int index = getSpawnIndex(spawn);
             return index >= 0 && stayActive.get(index);
+        }
+
+        /**
+         * Clears the stayActive flag for a spawn. Called when a stayActive object
+         * (e.g. EggPrison) self-destructs, so the remembered flag alone prevents respawn.
+         */
+        void clearStayActive(ObjectSpawn spawn) {
+            int index = getSpawnIndex(spawn);
+            if (index >= 0) {
+                stayActive.clear(index);
+            }
         }
 
         void clearRemembered() {

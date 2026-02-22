@@ -102,6 +102,10 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         registerSheet(ObjectArtKeys.ANIMAL, artData.animalSheet());
         registerSheet(Sonic2ObjectArtKeys.BREAKABLE_BLOCK, artData.breakableBlockSheet());
         registerSheet(Sonic2ObjectArtKeys.CPZ_PLATFORM, artData.cpzPlatformSheet());
+        // MTZPlatform (Obj6B) and MTZLongPlatform (Obj65) use ArtTile_ArtKos_LevelArt (level art)
+        // and have no dedicated Nemesis art file. CPZ_STAIR_BLOCK provides the closest compatible
+        // sprite sheet for rendering. Must be loaded for all zones, not just CPZ.
+        registerSheet(Sonic2ObjectArtKeys.CPZ_STAIR_BLOCK, artLoader.loadCpzStairBlockSheet());
         registerSheet(Sonic2ObjectArtKeys.SIDEWAYS_PFORM, artData.sidewaysPformSheet());
         // Red spring variants (share base spring art, different mappings — not PLC entries)
         registerSheet(ObjectArtKeys.SPRING_VERTICAL_RED, artData.springVerticalRedSheet());
