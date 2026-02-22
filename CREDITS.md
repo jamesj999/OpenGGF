@@ -2,7 +2,7 @@
 
 ## Project
 
-Created by **jamesj999**, with contributions from **Raiscan**.
+Created by **jamesj999** and **Raiscan**.
 
 ---
 
