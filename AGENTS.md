@@ -50,7 +50,7 @@ The project is in an **alpha** state. Core systems are functional with 962 passi
 2.  **Code Structure:** Keep logic within existing or new manager classes. Avoid putting all logic into `Engine.java` to maintain a strong object-oriented design.
 
 ## Key information
-*   **Entry point:** `uk.co.jamesj999.sonic.Engine` (declared in the manifest). A `main` method creates a GLFW window with a manual timing game loop.
+*   **Entry point:** `com.openggf.Engine` (declared in the manifest). A `main` method creates a GLFW window with a manual timing game loop.
 *   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 4).
 *   **Run:** `java -jar target/sonic-engine-0.4.prerelease-jar-with-dependencies.jar`.
 *   **ROM Requirement:** The engine now supports Sonic 1, Sonic 2, and Sonic 3&K modules. Keep the relevant ROM in the project root (typically gitignored): `Sonic The Hedgehog 2 (W) (REV01) [!].gen`, `Sonic The Hedgehog (W) (REV01) [!].gen`, and `Sonic and Knuckles & Sonic 3 (W) [!].gen`. S3K-focused tests should pass `-Ds3k.rom.path="Sonic and Knuckles & Sonic 3 (W) [!].gen"` when needed.
@@ -83,7 +83,7 @@ The project is in an **alpha** state. Core systems are functional with 962 passi
 
 ## Headless Testing with HeadlessTestRunner
 
-The `HeadlessTestRunner` utility (`uk.co.jamesj999.sonic.tests.HeadlessTestRunner`) enables physics and collision integration tests without an OpenGL context.
+The `HeadlessTestRunner` utility (`com.openggf.tests.HeadlessTestRunner`) enables physics and collision integration tests without an OpenGL context.
 
 ### Usage
 ```java
@@ -324,64 +324,64 @@ Use `--game s1`, `--game s2` (default), or `--game s3k` to select the target gam
 
 ```bash
 # Sonic 2 (default) - search, verify, export
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search <pattern>" -q
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify <label>" -q
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="export nem ART_" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search <pattern>" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="verify <label>" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="export nem ART_" -q
 
 # Sonic 1 - use --game s1 flag
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_GHZ" -q
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 list nem" -q
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 verify Pal_Sonic" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search Nem_GHZ" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 list nem" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 verify Pal_Sonic" -q
 
 # Sonic 3&K - use --game s3k flag
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search AIZ" -q
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k list nem" -q
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k verify ArtNem_TitleScreenText" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search AIZ" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k list nem" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k verify ArtNem_TitleScreenText" -q
 
 # Search ROM binary for hex byte patterns (inline data, pointer tables, etc.)
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search-rom \"07 72 73 26 15 08 FF 05\"" -q
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search-rom \"0002 FF2A\" 0x28000 0x29000" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search-rom \"07 72 73 26 15 08 FF 05\"" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search-rom \"0002 FF2A\" 0x28000 0x29000" -q
 
 # Other commands (work with all games)
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify-batch nem" -q
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="test <offset> <type>" -q
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="list <type>" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="verify-batch nem" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="test <offset> <type>" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="list <type>" -q
 ```
 
 ### Examples
 
 ```bash
 # Sonic 2: Search for special stage stars art
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search SpecialStars" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search SpecialStars" -q
 
 # Sonic 2: Search for palettes (supports S2 palette macro)
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search Pal_SS" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search Pal_SS" -q
 
 # Sonic 2: Verify a specific label's offset
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="verify ArtNem_SpecialHUD" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="verify ArtNem_SpecialHUD" -q
 
 # Sonic 1: Search for GHZ Nemesis art
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_GHZ" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search Nem_GHZ" -q
 
 # Sonic 1: Search for palettes (finds bincludePalette entries)
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Pal_Sonic" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search Pal_Sonic" -q
 
 # Sonic 1: Export verified Nemesis offsets as Sonic1Constants
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 export nem NEM_" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 export nem NEM_" -q
 
 # Sonic 3&K: Search for Angel Island Zone items
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search AIZ" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search AIZ" -q
 
 # Sonic 3&K: List all Kosinski Moduled files (label-suffix detection)
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k list kosm" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k list kosm" -q
 
 # Sonic 3&K: Verify a specific offset against ROM
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k verify ArtNem_TitleScreenText" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k verify ArtNem_TitleScreenText" -q
 
 # Search ROM for inline data (pointer tables, animation scripts, etc.)
 # Useful when disassembly labels point to inline dc.w/dc.b data, not binclude files
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search-rom \"07 72 73 26 15 08 FF 05\"" -q
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search-rom \"0002 FF2A\" 0x28000 0x29000" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search-rom \"07 72 73 26 15 08 FF 05\"" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search-rom \"0002 FF2A\" 0x28000 0x29000" -q
 ```
 
 ### PLC Cross-Referencing
@@ -389,17 +389,17 @@ mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFind
 Search results for art labels automatically show which PLCs reference that art:
 ```bash
 # Search shows PLC references inline
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search ArtNem_Ring" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search ArtNem_Ring" -q
 # Output includes: PLCs: PlrList_Std1, PlrList_Std2
 
 # Show all art entries in a specific PLC definition
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="plc PlrList_Htz1" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="plc PlrList_Htz1" -q
 
 # S1 PLC lookup
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 plc PLC_GHZ" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 plc PLC_GHZ" -q
 
 # S3K PLC lookup
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k plc PLCKosM_AIZ" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k plc PLCKosM_AIZ" -q
 ```
 
 ### Verification Status Codes

@@ -54,12 +54,12 @@ Agents should:
    - Search for `Nem_` references in the object's ASM file
    - Use RomOffsetFinder to get ROM addresses:
      ```bash
-     mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search ObjectName" -q
+     mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search ObjectName" -q
      ```
    - Search results now show **PLC cross-references** - which PLCs load this art
    - Use `plc <name>` command to see all art entries in a PLC:
      ```bash
-     mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 plc PLC_GHZ" -q
+     mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 plc PLC_GHZ" -q
      ```
    - The ObjectDiscoveryTool checklist also shows PLC IDs per object per zone
    - Parse mappings from `_maps/Name.asm` (5-byte piece format, byte header)

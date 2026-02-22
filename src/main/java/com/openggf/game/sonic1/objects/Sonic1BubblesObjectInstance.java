@@ -1,0 +1,769 @@
+package com.openggf.game.sonic1.objects;
+
+import com.openggf.audio.AudioManager;
+import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
+import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.RenderPriority;
+import com.openggf.level.LevelManager;
+import com.openggf.level.WaterSystem;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectArtKeys;
+import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
+
+import java.awt.Color;
+import java.util.List;
+import java.util.Random;
+
+/**
+ * Object 0x64 - Bubbles (Labyrinth Zone).
+ * <p>
+ * Dual-mode object: regular rising bubbles OR static bubble maker spawner.
+ * <p>
+ * <b>Regular bubble</b> (subtype 0x00-0x7F): Rises upward through water with
+ * horizontal wobble. Grows from small to full-size through animation. Once
+ * full-size (mapping frame 6), can be inhaled by Sonic to restore air.
+ * Bursts when reaching the water surface.
+ * <p>
+ * <b>Bubble maker</b> (subtype 0x80+): Static spawner on the level floor.
+ * Periodically creates small and large bubble child objects. Frequency
+ * controlled by lower 7 bits of subtype. Renders as animated floor vent.
+ * <p>
+ * Reference: docs/s1disasm/_incObj/64 Bubbles.asm
+ */
+public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
+
+    // ========================================================================
+    // Routine IDs (from Bub_Index dispatch table)
+    // ========================================================================
+
+    private static final int ROUTINE_INIT     = 0;
+    private static final int ROUTINE_ANIMATE  = 2;
+    private static final int ROUTINE_CHKWATER = 4;
+    private static final int ROUTINE_DISPLAY  = 6;
+    private static final int ROUTINE_DELETE   = 8;
+    private static final int ROUTINE_MAKER    = 10;
+
+    // ========================================================================
+    // Animation Constants
+    // ========================================================================
+
+    /** Animation end action: advance obRoutine by 2 (afRoutine = 0xFC). */
+    private static final int AF_ROUTINE = 0xFC;
+    /** Animation end action: loop from beginning (afEnd = 0xFF). */
+    private static final int AF_END = 0xFF;
+
+    /**
+     * Animation scripts from docs/s1disasm/_anim/Bubbles.asm.
+     * Each entry: {duration, frame0, frame1, ..., end_action}.
+     */
+    private static final int[][] ANIM_SCRIPTS = {
+        // Anim 0 (.small):  duration $E, frames 0,1,2, afRoutine
+        {0x0E, 0, 1, 2, AF_ROUTINE},
+        // Anim 1 (.medium): duration $E, frames 1,2,3,4, afRoutine
+        {0x0E, 1, 2, 3, 4, AF_ROUTINE},
+        // Anim 2 (.large):  duration $E, frames 2,3,4,5,6, afRoutine
+        {0x0E, 2, 3, 4, 5, 6, AF_ROUTINE},
+        // Anim 3 (.incroutine): duration 4, afRoutine
+        {4, AF_ROUTINE},
+        // Anim 4 (.incroutine): duration 4, afRoutine
+        {4, AF_ROUTINE},
+        // Anim 5 (.burst): duration 4, frames 6,7,8, afRoutine
+        {4, 6, 7, 8, AF_ROUTINE},
+        // Anim 6 (.bubmaker): duration $F, frames $13,$14,$15, afEnd
+        {0x0F, 0x13, 0x14, 0x15, AF_END},
+    };
+
+    // ========================================================================
+    // Physics Constants
+    // ========================================================================
+
+    /** Rise velocity in 8.8 fixed point. From disassembly: move.w #-$88,obVelY(a0) */
+    private static final int RISE_VELOCITY = -0x88;
+
+    /**
+     * Wobble data table (128 bytes, signed) matching Drown_WobbleData.
+     * Creates smooth horizontal sinusoidal oscillation as bubble rises.
+     * S1 REV01 uses positive peak +3, negative peak -4.
+     */
+    private static final int[] WOBBLE_DATA = {
+        0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2,
+        2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+        2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+        0, -1, -1, -1, -1, -1, -2, -2, -2, -2, -2, -3, -3, -3, -3, -3,
+        -3, -3, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4,
+        -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -3,
+        -3, -3, -3, -3, -3, -3, -2, -2, -2, -2, -2, -1, -1, -1, -1, -1
+    };
+
+    // ========================================================================
+    // Collision Constants (Bub_ChkSonic)
+    // ========================================================================
+
+    /**
+     * Collision box: X range is [bubbleX - 0x10, bubbleX + 0x10] (32px wide).
+     * From disassembly: subi.w #$10,d1 ... addi.w #$20,d1
+     */
+    private static final int COLLISION_X_RANGE = 0x10;
+
+    /**
+     * Collision box: Y range is [bubbleY, bubbleY + 0x10] (16px tall, downward only).
+     * From disassembly: cmp.w d0,d1 ... addi.w #$10,d1
+     */
+    private static final int COLLISION_Y_RANGE = 0x10;
+
+    // ========================================================================
+    // Bubble Maker Constants
+    // ========================================================================
+
+    /**
+     * Bubble type production sequence from Bub_BblTypes.
+     * 0 = small bubble, 1 = large bubble.
+     * From disassembly: dc.b 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0
+     */
+    private static final int[] BUBBLE_TYPE_TABLE = {
+        0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0
+    };
+
+    /** Active width for bubble render. From disassembly: move.b #$10,obActWid(a0) */
+    private static final int ACTIVE_WIDTH = 0x10;
+
+    /** Render priority. From disassembly: move.b #1,obPriority(a0) */
+    private static final int PRIORITY = 1;
+
+    /** Debug color for bubble maker (blue). */
+    private static final Color DEBUG_COLOR_MAKER = new Color(50, 100, 200);
+    /** Debug color for regular bubble (light blue). */
+    private static final Color DEBUG_COLOR_BUBBLE = new Color(100, 180, 255);
+
+    // ========================================================================
+    // Instance State
+    // ========================================================================
+
+    /** Current routine index (0, 2, 4, 6, 8, 10). */
+    private int routine;
+
+    /** Whether this is a bubble maker (subtype >= 0x80). */
+    private final boolean isMaker;
+
+    // ---- Regular bubble state ----
+
+    /** Position as 16.16 fixed point for sub-pixel accuracy. */
+    private int posX16;
+    private int posY16;
+
+    /** Original X position for wobble offset calculation. (bub_origX) */
+    private int origX;
+
+    /** Current display coordinates (after wobble applied). */
+    private int displayX;
+    private int displayY;
+
+    /** Wobble angle counter (0-255, indexed via & 0x7F). (obAngle) */
+    private int wobbleAngle;
+
+    /** Flag set when bubble reaches full size and can be inhaled. (bub_inhalable) */
+    private boolean inhalable;
+
+    // ---- Animation state ----
+
+    /** Current animation ID. (obAnim) */
+    private int animId;
+    /** Previous animation ID for change detection. (obPrevAnim) */
+    private int prevAnimId = -1;
+    /** Current position within animation frame sequence. (obAnimFrame) */
+    private int animFrameIndex;
+    /** Animation timer countdown. (obTimeFrame) */
+    private int animTimer;
+    /** Current mapping frame to render. (obFrame) */
+    private int mappingFrame;
+
+    // ---- Bubble maker state ----
+
+    /** Spawn timer countdown. (bub_time) */
+    private int spawnTime;
+    /** Spawn frequency reset value. (bub_freq) */
+    private final int spawnFreq;
+    /** Bubble type counter within production sequence. (objoff_34) */
+    private int typeCounter;
+    /** Production state flags. Bit 7 = production active, bit 6 = large-spawned flag. (objoff_36) */
+    private int productionFlags;
+    /** Delay counter between spawn bursts. (objoff_38) */
+    private int delayCounter;
+    /** Current offset into BUBBLE_TYPE_TABLE. (objoff_3C) */
+    private int typeTableOffset;
+
+    private final Random random = new Random();
+
+    // ========================================================================
+    // Constructor
+    // ========================================================================
+
+    public Sonic1BubblesObjectInstance(ObjectSpawn spawn) {
+        super(spawn, "Bubbles");
+
+        int subtype = spawn.subtype();
+
+        if (subtype >= 0x80) {
+            // ---- Bubble Maker mode ----
+            isMaker = true;
+            // andi.w #$7F,d0 ; read only last 7 bits
+            int freq = subtype & 0x7F;
+            spawnFreq = freq;
+            spawnTime = freq;
+            // move.b #6,obAnim(a0)
+            animId = 6;
+
+            displayX = spawn.x();
+            displayY = spawn.y();
+            origX = spawn.x();
+            posX16 = spawn.x() << 16;
+            posY16 = spawn.y() << 16;
+
+            // Start in maker routine
+            routine = ROUTINE_MAKER;
+        } else {
+            // ---- Regular Bubble mode ----
+            isMaker = false;
+            spawnFreq = 0;
+
+            // move.b d0,obAnim(a0) ; subtype selects animation (0=small, 1=medium, 2=large)
+            animId = subtype;
+
+            // move.w obX(a0),bub_origX(a0)
+            origX = spawn.x();
+
+            // move.w #-$88,obVelY(a0) ; float bubble upwards
+            posX16 = spawn.x() << 16;
+            posY16 = spawn.y() << 16;
+
+            displayX = spawn.x();
+            displayY = spawn.y();
+
+            // jsr (RandomNumber).l / move.b d0,obAngle(a0)
+            wobbleAngle = random.nextInt(256);
+
+            // Start in animate routine (init is done inline here)
+            routine = ROUTINE_ANIMATE;
+        }
+    }
+
+    // ========================================================================
+    // Update
+    // ========================================================================
+
+    @Override
+    public void update(int frameCounter, AbstractPlayableSprite player) {
+        switch (routine) {
+            case ROUTINE_ANIMATE -> updateAnimate(player);
+            case ROUTINE_CHKWATER -> updateChkWater(player);
+            case ROUTINE_DISPLAY -> updateDisplay();
+            case ROUTINE_DELETE -> setDestroyed(true);
+            case ROUTINE_MAKER -> updateBubbleMaker(player);
+        }
+    }
+
+    // ========================================================================
+    // Routine 2: Bub_Animate
+    // ========================================================================
+
+    private void updateAnimate(AbstractPlayableSprite player) {
+        // AnimateSprite with Ani_Bub
+        animateSprite();
+
+        // cmpi.b #6,obFrame(a0) ; is bubble full-size?
+        // bne.s Bub_ChkWater
+        if (mappingFrame == 6) {
+            // move.b #1,bub_inhalable(a0)
+            inhalable = true;
+        }
+
+        // Fall through to Bub_ChkWater
+        updateChkWater(player);
+    }
+
+    // ========================================================================
+    // Routine 4: Bub_ChkWater
+    // ========================================================================
+
+    private void updateChkWater(AbstractPlayableSprite player) {
+        int waterY = getWaterLevel();
+
+        // cmp.w obY(a0),d0 ; is bubble at/above water?
+        // blo.s .wobble ; branch if waterY < bubbleY (bubble underwater)
+        if (waterY >= displayY) {
+            // Bubble has reached water surface → burst
+            startBurst();
+            return;
+        }
+
+        // ---- Wobble logic (bubble is underwater) ----
+
+        // move.b obAngle(a0),d0 / addq.b #1,obAngle(a0)
+        int wobbleIndex = wobbleAngle & 0x7F;
+        wobbleAngle = (wobbleAngle + 1) & 0xFF;
+
+        // lea (Drown_WobbleData).l,a1 / move.b (a1,d0.w),d0
+        int wobbleOffset = WOBBLE_DATA[wobbleIndex];
+
+        // ext.w d0 / add.w bub_origX(a0),d0 / move.w d0,obX(a0)
+        displayX = origX + wobbleOffset;
+
+        // Check for Sonic collision if bubble is inhalable
+        if (inhalable && player != null) {
+            if (checkSonicCollision(player)) {
+                // Player collected the bubble
+                onBubbleCollected(player);
+                startBurst();
+                return;
+            }
+        }
+
+        // SpeedToPos - apply velocity to position (16.16 fixed point)
+        // Only Y velocity is set (rising upward)
+        posY16 += RISE_VELOCITY << 8;
+        displayY = posY16 >> 16;
+
+        // tst.b obRender(a0) / bpl.s .delete
+        if (!isOnScreen(ACTIVE_WIDTH)) {
+            setDestroyed(true);
+            return;
+        }
+
+        // DisplaySprite (render will be handled by appendRenderCommands)
+    }
+
+    // ========================================================================
+    // Routine 6: Bub_Display (burst animation)
+    // ========================================================================
+
+    private void updateDisplay() {
+        // AnimateSprite with burst animation
+        animateSprite();
+
+        // tst.b obRender(a0) / bpl.s .delete
+        if (!isOnScreen(ACTIVE_WIDTH)) {
+            setDestroyed(true);
+        }
+    }
+
+    // ========================================================================
+    // Routine A: Bub_BblMaker
+    // ========================================================================
+
+    private void updateBubbleMaker(AbstractPlayableSprite player) {
+        int waterY = getWaterLevel();
+
+        if (productionFlags != 0) {
+            // Already in production - continue spawn cycle
+            delayCounter--;
+            if (delayCounter >= 0) {
+                // Still waiting - animate and display
+                animateMaker(waterY);
+                return;
+            }
+        } else {
+            // Not in production yet
+            // cmp.w obY(a0),d0 ; is bubble maker underwater?
+            // bhs.w .chkdel ; branch if waterY >= makerY (not underwater)
+            if (waterY >= displayY) {
+                // Not underwater (water at or below maker) - just check deletion
+                checkMakerDeletion(waterY);
+                return;
+            }
+
+            // tst.b obRender(a0) / bpl.w .chkdel
+            if (!isOnScreen(ACTIVE_WIDTH)) {
+                checkMakerDeletion(waterY);
+                return;
+            }
+
+            // subq.w #1,objoff_38(a0) / bpl.w .loc_12914
+            delayCounter--;
+            if (delayCounter >= 0) {
+                animateMaker(waterY);
+                return;
+            }
+
+            // move.w #1,objoff_36(a0) ; start production
+            productionFlags = 1;
+
+            // jsr (RandomNumber).l / move.w d0,d1
+            // ROM extracts both typeCounter and tableOffset from SAME random call
+            int rng;
+            do {
+                rng = random.nextInt(65536);
+            } while ((rng & 7) >= 6);
+
+            typeCounter = rng & 7;
+
+            // andi.w #$C,d1 ; select table offset (0, 4, 8, or 12) from same random
+            typeTableOffset = (rng >> 2) & 0x0C;
+
+            // subq.b #1,bub_time(a0)
+            spawnTime--;
+            if (spawnTime < 0) {
+                // move.b bub_freq(a0),bub_time(a0)
+                spawnTime = spawnFreq;
+                // bset #7,objoff_36(a0) ; mark large spawn enabled
+                productionFlags |= 0x80;
+            }
+        }
+
+        // ---- Spawn a bubble ----
+        spawnBubble();
+
+        // Check if spawn counter exhausted
+        typeCounter--;
+        if (typeCounter < 0) {
+            // Add random long delay before next production cycle
+            // jsr (RandomNumber).l / andi.w #$7F,d0 / addi.w #$80,d0
+            int extraDelay = (random.nextInt(256) & 0x7F) + 0x80;
+            delayCounter += extraDelay;
+            productionFlags = 0;
+        }
+
+        // Animate and display
+        animateMaker(waterY);
+    }
+
+    /**
+     * Spawns a single bubble child object.
+     * From Bub_BblMaker spawn section (lines 165-196 of disassembly).
+     */
+    private void spawnBubble() {
+        LevelManager levelManager = LevelManager.getInstance();
+        if (levelManager == null || levelManager.getObjectManager() == null) {
+            return;
+        }
+
+        // jsr (RandomNumber).l / andi.w #$1F,d0
+        delayCounter = random.nextInt(32);
+
+        // Determine bubble subtype from type table
+        int tableIndex = typeTableOffset + typeCounter;
+        int bubbleSubtype;
+        if (tableIndex >= 0 && tableIndex < BUBBLE_TYPE_TABLE.length) {
+            bubbleSubtype = BUBBLE_TYPE_TABLE[tableIndex];
+        } else {
+            bubbleSubtype = 0;
+        }
+
+        // Check for large bubble override
+        // btst #7,objoff_36(a0) / beq.s .fail
+        if ((productionFlags & 0x80) != 0) {
+            // ~25% chance to spawn type 2 (large breathable)
+            if ((random.nextInt(4)) == 0) {
+                if ((productionFlags & 0x40) == 0) {
+                    productionFlags |= 0x40;
+                    bubbleSubtype = 2;
+                }
+            }
+        }
+
+        // Additional type-2 check when counter is at 0
+        if (typeCounter == 0 && (productionFlags & 0x40) == 0) {
+            productionFlags |= 0x40;
+            bubbleSubtype = 2;
+        }
+
+        // Spawn position: original X ± random(-8 to +7), original Y
+        // jsr (RandomNumber).l / andi.w #$F,d0 / subq.w #8,d0
+        int xOffset = (random.nextInt(16)) - 8;
+        int spawnX = origX + xOffset;
+
+        ObjectSpawn childSpawn = new ObjectSpawn(
+                spawnX, spawn.y(),
+                Sonic1ObjectIds.BUBBLES,
+                bubbleSubtype,
+                0, false, 0);
+        Sonic1BubblesObjectInstance child = new Sonic1BubblesObjectInstance(childSpawn);
+        levelManager.getObjectManager().addDynamicObject(child);
+    }
+
+    /**
+     * Animate the bubble maker sprite and check for deletion.
+     */
+    private void animateMaker(int waterY) {
+        // Animate with Ani_Bub (anim 6 = bubmaker)
+        animateSprite();
+
+        // out_of_range.w DeleteObject
+        if (!isOnScreen(128)) {
+            setDestroyed(true);
+            return;
+        }
+
+        // cmp.w obY(a0),d0 / blo.w DisplaySprite
+        // Only display if maker is underwater
+        // (if above water, just rts - don't render)
+    }
+
+    /**
+     * Check maker deletion when not in production.
+     */
+    private void checkMakerDeletion(int waterY) {
+        if (!isOnScreen(128)) {
+            setDestroyed(true);
+        }
+    }
+
+    // ========================================================================
+    // Burst / Collection
+    // ========================================================================
+
+    /**
+     * Start burst animation when bubble reaches water surface or is collected.
+     * From disassembly .burst section.
+     */
+    private void startBurst() {
+        // move.b #6,obRoutine(a0) ; goto Bub_Display next
+        routine = ROUTINE_DISPLAY;
+        // addq.b #3,obAnim(a0) ; burst animation
+        animId += 3;
+        if (animId >= ANIM_SCRIPTS.length) {
+            // Safety: if animation ID is out of range, just delete
+            setDestroyed(true);
+            return;
+        }
+        // Force animation reset
+        prevAnimId = -1;
+    }
+
+    /**
+     * Handle Sonic collecting the bubble (restoring air).
+     * From disassembly lines 82-100 of 64 Bubbles.asm.
+     */
+    private void onBubbleCollected(AbstractPlayableSprite player) {
+        // bsr.w ResumeMusic ; cancel countdown music
+        // move.w #sfx_Bubble,d0 / jsr (QueueSound2).l
+        try {
+            AudioManager.getInstance().playSfx(Sonic1Sfx.BUBBLE.id);
+        } catch (Exception e) {
+            // Don't let audio failure break game logic
+        }
+
+        // clr.w obVelX(a1) / clr.w obVelY(a1) / clr.w obInertia(a1)
+        // move.b #id_GetAir,obAnim(a1) ; use bubble-collecting animation
+        // ... additional status bit clearing
+        player.replenishAir();
+    }
+
+    // ========================================================================
+    // Sonic Collision Check (Bub_ChkSonic)
+    // ========================================================================
+
+    /**
+     * Check if Sonic has touched this bubble.
+     * From Bub_ChkSonic subroutine (lines 226-251 of disassembly).
+     * <p>
+     * X range: [bubbleX - 0x10, bubbleX + 0x10]
+     * Y range: [bubbleY, bubbleY + 0x10] (downward only from bubble position)
+     */
+    private boolean checkSonicCollision(AbstractPlayableSprite player) {
+        // tst.b (f_playerctrl).w / bmi.s .no_collision
+        // (skip if player is in a controlled state - we approximate this)
+
+        if (!player.isInWater()) {
+            return false;
+        }
+
+        int playerX = player.getCentreX();
+        int playerY = player.getCentreY();
+
+        // X check: subi.w #$10,d1 / cmp.w d0,d1 / bhs.s .no
+        //   bhs branches when bubbleLeft >= playerX → no collision
+        //   addi.w #$20,d1 / cmp.w d0,d1 / blo.s .no
+        //   blo branches when bubbleRight < playerX → no collision
+        // Collision: playerX > bubbleLeft AND playerX <= bubbleRight
+        int bubbleLeft = displayX - COLLISION_X_RANGE;
+        int bubbleRight = displayX + COLLISION_X_RANGE;
+        if (playerX <= bubbleLeft || playerX > bubbleRight) {
+            return false;
+        }
+
+        // Y check: cmp.w d0,d1 / bhs.s .no
+        //   bhs branches when bubbleY >= playerY → no collision
+        //   addi.w #$10,d1 / cmp.w d0,d1 / blo.s .no
+        //   blo branches when bubbleY+16 < playerY → no collision
+        // Collision: playerY > bubbleY AND playerY <= bubbleY + 0x10
+        if (playerY <= displayY || playerY > displayY + COLLISION_Y_RANGE) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // ========================================================================
+    // Animation Engine (AnimateSprite equivalent)
+    // ========================================================================
+
+    /**
+     * Processes one frame of animation, matching ROM AnimateSprite behavior.
+     * Decrements timer; when expired, advances to next frame in current script.
+     * Handles afRoutine (advance obRoutine) and afEnd (loop) commands.
+     */
+    private void animateSprite() {
+        if (animId < 0 || animId >= ANIM_SCRIPTS.length) {
+            return;
+        }
+
+        int[] script = ANIM_SCRIPTS[animId];
+        int duration = script[0];
+
+        // Check for animation change
+        if (animId != prevAnimId) {
+            prevAnimId = animId;
+            animFrameIndex = 0;
+            animTimer = 0;
+        }
+
+        // Decrement timer
+        animTimer--;
+        if (animTimer >= 0) {
+            return; // Still displaying current frame
+        }
+
+        // Timer expired - reload and advance
+        animTimer = duration;
+
+        // Read next frame byte from script
+        int frameDataIndex = 1 + animFrameIndex;
+        if (frameDataIndex >= script.length) {
+            // Shouldn't happen with well-formed scripts, treat as end
+            return;
+        }
+
+        int frameByte = script[frameDataIndex];
+
+        if (frameByte == AF_ROUTINE) {
+            // Advance to next routine
+            routine += 2;
+            return;
+        }
+
+        if (frameByte == AF_END) {
+            // Loop back to first frame
+            animFrameIndex = 0;
+            if (script.length > 1) {
+                mappingFrame = script[1];
+            }
+            return;
+        }
+
+        // Normal frame - set mapping frame and advance
+        mappingFrame = frameByte;
+        animFrameIndex++;
+    }
+
+    // ========================================================================
+    // Water Level Helper
+    // ========================================================================
+
+    /**
+     * Gets the current water level Y position.
+     * Returns Integer.MAX_VALUE if no water (bubble should always be "underwater").
+     */
+    private int getWaterLevel() {
+        LevelManager levelManager = LevelManager.getInstance();
+        if (levelManager == null || levelManager.getCurrentLevel() == null) {
+            return Integer.MAX_VALUE;
+        }
+
+        WaterSystem waterSystem = WaterSystem.getInstance();
+        // Use feature zone/act so SBZ3 (ROM zone LZ act 3) resolves to the
+        // water config stored under ZONE_SBZ act 2.
+        int zoneId = levelManager.getFeatureZoneId();
+        int actId = levelManager.getFeatureActId();
+
+        if (waterSystem.hasWater(zoneId, actId)) {
+            return waterSystem.getWaterLevelY(zoneId, actId);
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    // ========================================================================
+    // Rendering
+    // ========================================================================
+
+    @Override
+    public void appendRenderCommands(List<GLCommand> commands) {
+        if (isDestroyed()) {
+            return;
+        }
+
+        // Bubble maker only renders when underwater
+        // cmp.w obY(a0),d0 / blo.w DisplaySprite ; display if waterY < makerY
+        if (isMaker) {
+            int waterY = getWaterLevel();
+            if (waterY >= displayY) {
+                // Not underwater (water at or below maker) - don't render
+                return;
+            }
+        }
+
+        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        if (renderManager == null) {
+            return;
+        }
+
+        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.LZ_BUBBLES);
+        if (renderer == null || !renderer.isReady()) {
+            return;
+        }
+
+        renderer.drawFrameIndex(mappingFrame, displayX, displayY, false, false);
+    }
+
+    @Override
+    public int getX() {
+        return displayX;
+    }
+
+    @Override
+    public int getY() {
+        return displayY;
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        return RenderPriority.clamp(PRIORITY);
+    }
+
+    // ========================================================================
+    // Debug Rendering
+    // ========================================================================
+
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
+        Color color = isMaker ? DEBUG_COLOR_MAKER : DEBUG_COLOR_BUBBLE;
+
+        if (isMaker) {
+            ctx.drawCross(displayX, displayY, 8, 0.2f, 0.4f, 0.8f);
+            ctx.drawWorldLabel(displayX, displayY, -1,
+                    String.format("BubMaker freq=%d prod=%02X", spawnFreq, productionFlags),
+                    color);
+        } else {
+            ctx.drawCross(displayX, displayY, 4, 0.4f, 0.7f, 1.0f);
+            String state = inhalable ? "INHALABLE" : "growing";
+            ctx.drawWorldLabel(displayX, displayY, -1,
+                    String.format("Bubble r=%d f=%d %s", routine, mappingFrame, state),
+                    color);
+
+            // Draw collision box when inhalable (centered at bubble, half-widths)
+            if (inhalable) {
+                ctx.drawRect(
+                        displayX,
+                        displayY + COLLISION_Y_RANGE / 2,
+                        COLLISION_X_RANGE,
+                        COLLISION_Y_RANGE / 2,
+                        0.4f, 0.7f, 1.0f);
+            }
+        }
+    }
+}

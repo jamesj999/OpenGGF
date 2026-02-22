@@ -50,12 +50,12 @@ Agents should:
    - Search for `ArtNem_` or `ArtKos_` references in the disassembly
    - Use RomOffsetFinder to get ROM addresses:
      ```bash
-     mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search ObjectName" -q
+     mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search ObjectName" -q
      ```
    - Search results now show **PLC cross-references** - which PLCs load this art
    - Use `plc <name>` command to see all art entries in a PLC:
      ```bash
-     mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="plc PlrList_Ehz1" -q
+     mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="plc PlrList_Ehz1" -q
      ```
    - The ObjectDiscoveryTool checklist also shows PLC IDs per object per zone
    - Check existing art keys in `Sonic2ObjectArtKeys.java`
@@ -195,6 +195,8 @@ For enemies with touch response and destruction behavior:
 
 ```java
 package uk.co.jamesj999.sonic.game.sonic2.objects.badniks;
+
+import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
 
 public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
     @Override

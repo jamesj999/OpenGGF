@@ -43,7 +43,7 @@ Use **RomOffsetFinder** to search disassembly items and find ROM offsets. Suppor
 
 ```bash
 # Base command pattern (add --game s1 or --game s3k before command for non-S2)
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="<command>" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="<command>" -q
 
 # Examples
 # search <pattern>     - Search for items by label/filename
@@ -68,7 +68,7 @@ See `uk.co.jamesj999.sonic.tools.disasm` package for programmatic API.
 ## Architecture
 
 ### Entry Point
-`uk.co.jamesj999.sonic.Engine` - GLFW window with manual timing loop (`display()` -> `update()` -> `draw()`).
+`com.openggf.Engine` - GLFW window with manual timing loop (`display()` -> `update()` -> `draw()`).
 
 ### Core Managers (Singleton Pattern via `getInstance()`)
 - **LevelManager** - Level loading, rendering, zone/act management
@@ -252,10 +252,10 @@ Critical constraints for current S3K support:
 - **Known limitation:** Some S3K levels log `maxChunkPatternIndex > patternCount` (dynamic art/PLC parity incomplete).
 
 **Keep these S3K tests green:**
-- `uk.co.jamesj999.sonic.tests.TestS3kAiz1SpawnStability`
-- `uk.co.jamesj999.sonic.tests.TestSonic3kLevelLoading`
-- `uk.co.jamesj999.sonic.game.sonic3k.TestSonic3kBootstrapResolver`
-- `uk.co.jamesj999.sonic.game.sonic3k.TestSonic3kDecodingUtils`
+- `com.openggf.tests.TestS3kAiz1SpawnStability`
+- `com.openggf.tests.TestSonic3kLevelLoading`
+- `sonic3k.com.openggf.game.TestSonic3kBootstrapResolver`
+- `sonic3k.com.openggf.game.TestSonic3kDecodingUtils`
 
 ## Audio Engine
 
