@@ -35,6 +35,18 @@ public interface SolidObjectProvider {
     }
 
     /**
+     * Whether side-contact at exact edge overlap (distX == 0) should preserve
+     * player subpixel motion instead of immediately zeroing horizontal speed.
+     * <p>
+     * Most static solids should return false to keep the player stable against
+     * walls and avoid 1px edge jitter. Push-driven objects that depend on ROM
+     * edge cadence (for example Sonic 1 push blocks) can return true.
+     */
+    default boolean preservesEdgeSubpixelMotion() {
+        return false;
+    }
+
+    /**
      * Half-width of the standable top surface used by landing checks.
      * <p>
      * Defaults to the full collision half-width. Override for objects whose

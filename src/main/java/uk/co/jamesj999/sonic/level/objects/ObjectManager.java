@@ -2206,24 +2206,49 @@ public class ObjectManager {
                     // This avoids false push-state while stepping across adjacent solid tops.
                     return SolidContact.SIDE_NO_PUSH;
                 }
-                // ROM: Solid_Centre (sub SolidObject.asm:189-196)
-                // When d0=0, the ROM does "sub.w d0,obX(a1)" (no-op) and does NOT zero
-                // obInertia/obVelX. Speed zeroing only happens at Solid_Left (d0 != 0 and
-                // moving into). Skipping when distX=0 lets the player accumulate subpixels
-                // at the block edge, matching the ROM's push cadence (~1 push per 4 frames).
-                if (apply && distX != 0) {
-                    if (movingInto) {
+                // ROM: sub SolidObject.asm lines 173-190
+                // When d0==0 (distX==0), ROM branches to Solid_Centre which does
+                // "sub.w d0,obX(a1)" (no-op) — NO speed zeroing, NO position correction.
+                // When d0!=0 AND movingInto, ROM hits Solid_Left which zeros obInertia
+                // and obVelX, then falls through to Solid_Centre which corrects position.
+                // When d0!=0 AND NOT movingInto, ROM goes to Solid_Centre directly
+                // (position correction only, no speed zeroing).
+                if (apply) {
+                    boolean preserveEdgeMotion = preservesEdgeSubpixelMotion(instance);
+                    if (!preserveEdgeMotion && distX == 0) {
+                        // Engine addition: clear subpixels at exact edge contact on static
+                        // solids to prevent fractional accumulation causing 1px jitter.
+                        // Push-driven objects skip this to preserve ROM push cadence.
+                        player.setCentreX((short) playerCenterX);
+                        // ROM runs solid checks AFTER movement, so any penetration is
+                        // caught within the same frame. Our engine runs them BEFORE
+                        // movement, so gSpeed/xSpeed must also be zeroed when at the
+                        // exact edge and pressing into the object; otherwise gSpeed
+                        // accumulates across frames until xSpeed > 256 subpixels,
+                        // causing a 1px jitter every ~22 frames.
+                        if (movingInto) {
+                            player.setXSpeed((short) 0);
+                            player.setGSpeed((short) 0);
+                        }
+                    }
+                    if (distX != 0 && movingInto) {
+                        // ROM: Solid_Left (lines 185-187) — zero inertia and xvel
                         player.setXSpeed((short) 0);
                         player.setGSpeed((short) 0);
                     }
-                    // ROM: sub.w d0,obX(a1) only modifies the pixel word, preserving
-                    // the subpixel byte. Use move() instead of setCentreX() which zeros
-                    // subpixels. Zeroing creates a left/right asymmetry: adding positive
-                    // subpixels from 0 takes many frames to reach 256, but subtracting
-                    // from 0 immediately underflows, causing a spurious pixel shift.
-                    player.move((short)(-distX * 256), (short) 0);
+                    if (distX != 0) {
+                        if (preserveEdgeMotion) {
+                            // Push-driven objects rely on ROM-style pixel-word correction that
+                            // preserves subpixels (e.g. Sonic 1 PushBlock cadence).
+                            player.move((short) (-distX * 256), (short) 0);
+                        } else {
+                            // Static solids should snap to the resolved edge and clear subpixels,
+                            // otherwise fractional X carries forward and causes visible 1px jitter.
+                            player.setCentreX((short) (playerCenterX - distX));
+                        }
+                    }
                 }
-                return pushing ? SolidContact.SIDE_PUSH : SolidContact.SIDE_NO_PUSH;
+                return SolidContact.side(pushing, distX);
             }
 
             if (distY >= 0 || (sticky && distY >= -16)) {
@@ -2280,15 +2305,28 @@ public class ObjectManager {
                     boolean leftSide = relX < halfWidth;
                     boolean movingInto = leftSide ? player.getXSpeed() > 0 : player.getXSpeed() < 0;
                     boolean pushing = !player.getAir() && movingInto;
-                    if (apply && distX != 0) {
-                        if (movingInto) {
+                    if (apply) {
+                        boolean preserveEdgeMotion = preservesEdgeSubpixelMotion(instance);
+                        if (!preserveEdgeMotion && distX == 0) {
+                            player.setCentreX((short) playerCenterX);
+                            if (movingInto) {
+                                player.setXSpeed((short) 0);
+                                player.setGSpeed((short) 0);
+                            }
+                        }
+                        if (distX != 0 && movingInto) {
                             player.setXSpeed((short) 0);
                             player.setGSpeed((short) 0);
                         }
-                        // Preserve subpixels (see main side contact path comment above)
-                        player.move((short)(-distX * 256), (short) 0);
+                        if (distX != 0) {
+                            if (preserveEdgeMotion) {
+                                player.move((short) (-distX * 256), (short) 0);
+                            } else {
+                                player.setCentreX((short) (playerCenterX - distX));
+                            }
+                        }
                     }
-                    return pushing ? SolidContact.SIDE_PUSH : SolidContact.SIDE_NO_PUSH;
+                    return SolidContact.side(pushing, distX);
                 }
                 // Player is well inside horizontally - crush death.
                 // ROM: KillCharacter (s2.asm:84995) - unconditional death.
@@ -2333,6 +2371,13 @@ public class ObjectManager {
             }
             PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
             return featureSet != null && featureSet.collisionModel() == CollisionModel.UNIFIED;
+        }
+
+        private boolean preservesEdgeSubpixelMotion(ObjectInstance instance) {
+            if (!(instance instanceof SolidObjectProvider provider)) {
+                return false;
+            }
+            return provider.preservesEdgeSubpixelMotion();
         }
 
         private void clearRollingOnLanding(AbstractPlayableSprite player) {

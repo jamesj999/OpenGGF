@@ -2,7 +2,7 @@
   "SCREEN_WIDTH_PIXELS": 320,
   "SCREEN_HEIGHT_PIXELS": 224,
   "SCREEN_WIDTH": 640,
-  "SCREEN_HEIGHT": 480,
+  "SCREEN_HEIGHT": 448,
   "SCALE": 1,
   "FPS": 60,
   "UP": 265,
@@ -36,6 +36,7 @@
   "SONIC_2_ROM": "Sonic The Hedgehog 2 (W) (REV01) [!].gen",
   "SONIC_3K_ROM": "Sonic 3 & Knuckles (W) [!].gen",
   "DEFAULT_ROM": "s1",
-  "TITLE_SCREEN_ON_STARTUP": false,
-  "LEVEL_SELECT_ON_STARTUP": false
+  "TITLE_SCREEN_ON_STARTUP": true,
+  "LEVEL_SELECT_ON_STARTUP": false,
+  "MASTER_TITLE_SCREEN_ON_STARTUP": true
 }

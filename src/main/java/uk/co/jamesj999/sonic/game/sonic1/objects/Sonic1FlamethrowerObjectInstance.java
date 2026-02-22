@@ -315,9 +315,12 @@ public class Sonic1FlamethrowerObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // ori.b #4,obRender(a0) -> screen-space coords, no directional flip
-        // The flamethrower always points upward (flames rise from base)
-        renderer.drawFrameIndex(displayFrame, getX(), getY(), false, false);
+        // OPL_MakeItem seeds obRender bits 0-1 from placement flags, and Flame_Main
+        // preserves them via ori.b #4,obRender(a0). DisplaySprite therefore applies
+        // spawn flips to the whole flamethrower mapping.
+        boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
+        boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
+        renderer.drawFrameIndex(displayFrame, getX(), getY(), hFlip, vFlip);
     }
 
     @Override
