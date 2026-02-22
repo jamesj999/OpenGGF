@@ -1,6 +1,12 @@
 # Credits
 
-This project uses documentation, tools, and reference implementations from many talented members of the Sonic hacking and emulation communities. 
+## Project
+
+Created by **jamesj999**, with contributions from **Raiscan**.
+
+---
+
+This project uses documentation, tools, and reference implementations from many talented members of the Sonic hacking and emulation communities.
 
 **It would not have been possible without their hard work; we truly stand on the shoulders of giants.**
 
