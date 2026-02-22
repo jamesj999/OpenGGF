@@ -69,6 +69,46 @@ public class RenderContext {
     }
 
     /**
+     * Derives an underwater palette for a donor sprite by applying the base
+     * game's normal-to-underwater color ratio to each donor color.
+     *
+     * @param donorNormal    the donor's normal (above-water) palette
+     * @param normalBase     the base game's normal palette (line 0)
+     * @param underwaterBase the base game's underwater palette (line 0)
+     * @return a new Palette with underwater-tinted donor colors
+     */
+    public static Palette deriveUnderwaterPalette(Palette donorNormal,
+                                                   Palette normalBase,
+                                                   Palette underwaterBase) {
+        Palette result = new Palette();
+        for (int i = 0; i < 16; i++) {
+            Palette.Color dn = donorNormal.getColor(i);
+            Palette.Color nb = normalBase.getColor(i);
+            Palette.Color ub = underwaterBase.getColor(i);
+
+            int dnR = Byte.toUnsignedInt(dn.r);
+            int dnG = Byte.toUnsignedInt(dn.g);
+            int dnB = Byte.toUnsignedInt(dn.b);
+
+            int nbR = Byte.toUnsignedInt(nb.r);
+            int nbG = Byte.toUnsignedInt(nb.g);
+            int nbB = Byte.toUnsignedInt(nb.b);
+
+            int ubR = Byte.toUnsignedInt(ub.r);
+            int ubG = Byte.toUnsignedInt(ub.g);
+            int ubB = Byte.toUnsignedInt(ub.b);
+
+            int r, g, b;
+            if (nbR > 0) { r = Math.min(255, dnR * ubR / nbR); } else { r = ubR; }
+            if (nbG > 0) { g = Math.min(255, dnG * ubG / nbG); } else { g = ubG; }
+            if (nbB > 0) { b = Math.min(255, dnB * ubB / nbB); } else { b = ubB; }
+
+            result.setColor(i, new Palette.Color((byte) r, (byte) g, (byte) b));
+        }
+        return result;
+    }
+
+    /**
      * Clears all donor contexts. Call on engine cleanup or game reset.
      */
     public static void reset() {
