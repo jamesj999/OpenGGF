@@ -3,6 +3,7 @@ package uk.co.jamesj999.sonic.audio;
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 import uk.co.jamesj999.sonic.audio.smps.DacData;
 import uk.co.jamesj999.sonic.audio.smps.SmpsLoader;
+import uk.co.jamesj999.sonic.audio.smps.SmpsSequencerConfig;
 import uk.co.jamesj999.sonic.data.Rom;
 
 import java.util.EnumMap;
@@ -23,6 +24,7 @@ public class AudioManager {
     // Donor audio overlay: secondary SFX path for cross-game feature donation
     private final Map<String, SmpsLoader> donorLoaders = new HashMap<>();
     private final Map<String, DacData> donorDacData = new HashMap<>();
+    private final Map<String, SmpsSequencerConfig> donorConfigs = new HashMap<>();
     private final Map<GameSound, DonorSfxBinding> donorSoundBindings = new EnumMap<>(GameSound.class);
 
     private record DonorSfxBinding(String gameId, int sfxId) {}
@@ -158,7 +160,12 @@ public class AudioManager {
                 if (loader != null && dData != null) {
                     AbstractSmpsData sfx = loader.loadSfx(binding.sfxId());
                     if (sfx != null) {
-                        backend.playSfxSmps(sfx, dData, pitch);
+                        SmpsSequencerConfig donorConfig = donorConfigs.get(binding.gameId());
+                        if (donorConfig != null) {
+                            backend.playSfxSmps(sfx, dData, pitch, donorConfig);
+                        } else {
+                            backend.playSfxSmps(sfx, dData, pitch);
+                        }
                         played = true;
                     }
                 }
@@ -258,6 +265,19 @@ public class AudioManager {
     }
 
     /**
+     * Registers a donor SmpsLoader, DacData, and SmpsSequencerConfig for cross-game SFX playback.
+     * The config will be passed to the backend so the donor SFX uses the correct driver settings.
+     */
+    public void registerDonorLoader(String gameId, SmpsLoader loader, DacData dacData,
+                                    SmpsSequencerConfig config) {
+        donorLoaders.put(gameId, loader);
+        this.donorDacData.put(gameId, dacData);
+        if (config != null) {
+            donorConfigs.put(gameId, config);
+        }
+    }
+
+    /**
      * Registers a donor sound binding so that a GameSound missing from the
      * base game's sound map will be routed through the specified donor loader.
      */
@@ -271,6 +291,7 @@ public class AudioManager {
     public void clearDonorAudio() {
         donorLoaders.clear();
         donorDacData.clear();
+        donorConfigs.clear();
         donorSoundBindings.clear();
     }
 
