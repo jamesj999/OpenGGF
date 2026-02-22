@@ -5,11 +5,20 @@
 
 ## Introduction
 
-This Java-based Sonic the Hedgehog game engine aims to fully and faithfully recreate the original
-physics of the Sonic The Hedgehog games for Sega Mega Drive (Genesis). It will be capable of loading
-the game data from the original ROMs of the games and providing a pixel-perfect gameplay experience
-of the original games. It will also provide more modern features, such as a level editor, and an
-open framework allowing for modding and customisation.
+OpenGGF is an open-source, Java-based game engine for research and preservation of classic Mega
+Drive / Genesis platform games. It faithfully reimplements the physics and rendering behaviour of
+the original hardware using data loaded from user-supplied ROM images. The project's primary goal
+is accuracy: physics, collision, and audio are all verified against community-maintained
+disassemblies of titles in the Sonic the Hedgehog series. No copyrighted assets are included in
+this repository; a legally obtained ROM is required to run the engine.
+
+The engine also aims to provide modern tooling such as a level editor and an open framework for
+modding and customisation.
+
+> **Disclaimer:** This project is not affiliated with or endorsed by Sega. Sonic the Hedgehog and
+> all related characters, names, and trademarks are the property of Sega Corporation. No ROM images
+> or other copyrighted game data are included in this repository. Users must supply their own
+> legally obtained ROM files to use this software.
 
 ## Configuration
 
@@ -44,6 +53,112 @@ these at your own risk.
 | F10 | Show/Hide Plane Switchers |
 | F11 | Show/Hide Touch Response |
 | F12 | Show/Hide Art Viewer |
+
+## FAQ
+
+### What does "GGF" stand for?
+
+Gotta Go Fast!
+
+### Is this an emulator?
+
+No. OpenGGF is a clean-room reimplementation of the game logic and physics. It does not emulate
+the Mega Drive CPU or VDP. Instead, it reads data (level layouts, art, music) from original ROM
+images and runs its own implementation of the game rules, verified for accuracy against the
+community-maintained disassemblies ([s1disasm], [s2disasm], [skdisasm]). The audio engine is a
+partial exception: it features software emulation of the YM2612 FM synthesiser and SN76489 PSG
+chips (based on [libvgm] and [Genesis Plus GX] reference cores) driven by a reimplemented SMPS
+sound driver.
+
+[libvgm]: https://github.com/ValleyBell/libvgm
+[Genesis Plus GX]: https://github.com/ekeeke/Genesis-Plus-GX
+
+[s1disasm]: https://github.com/sonicretro/s1disasm
+[s2disasm]: https://github.com/sonicretro/s2disasm
+[skdisasm]: https://github.com/sonicretro/skdisasm
+
+### Which games are supported?
+
+| Game | Status |
+|------|--------|
+| Sonic the Hedgehog (S1) | Broadly playable. All 7 zones, 6 bosses, special stages, title screen, ending/credits. |
+| Sonic the Hedgehog 2 (S2) | Most complete. All zones through Wing Fortress, 6 bosses, special stages, Tails AI. |
+| Sonic 3 & Knuckles (S3K) | Early. Angel Island Zone Act 1 with intro cutscene, gameplay objects, and miniboss. |
+
+Work is ongoing across all three games. See CHANGELOG.md for detailed progress.
+
+### Where do I get ROMs?
+
+We do not supply ROM images. You must provide your own legally obtained copies. The engine expects
+these specific revisions, placed in the working directory:
+
+| Game | Expected filename | Revision |
+|------|-------------------|----------|
+| Sonic 1 | `Sonic The Hedgehog (W) (REV01) [!].gen` | World, Revision 01 |
+| Sonic 2 | `Sonic The Hedgehog 2 (W) (REV01) [!].gen` | World, Revision 01 |
+| Sonic 3&K | `Sonic and Knuckles & Sonic 3 (W) [!].gen` | World (lock-on combined ROM) |
+
+Other revisions (REV00, Japanese, etc.) are untested and will likely produce incorrect results, as
+ROM addresses are verified against these specific builds. ROM filenames are configurable via
+`config.json` (see `SONIC_1_ROM`, `SONIC_2_ROM`, `SONIC_3K_ROM` keys).
+
+### What is cross-game feature donation?
+
+A feature that lets a donor game (S2 or S3K) provide player sprites, spindash mechanics, and sound
+effects while you play a different base game (e.g. Sonic 1). This means you can play S1 levels
+with S2's Sonic and Tails sprites, spindash, and sidekick AI. Enable it in `config.json`:
+
+```json
+{
+  "CROSS_GAME_FEATURES_ENABLED": true,
+  "CROSS_GAME_SOURCE": "s2"
+}
+```
+
+Both the base game ROM and the donor game ROM must be present.
+
+### Why Java?
+
+We knew Java, and nobody had done it before. Every other Sonic engine reimplementation out there is
+written in C, C++, or C#. A Java implementation proves it can be done on a managed runtime, and
+the JVM's cross-platform nature means it runs on Windows, macOS, and Linux without platform-specific
+builds (though a GraalVM native image is also available for those who prefer it).
+
+### Will Sega shut this down?
+
+This project contains no copyrighted material. No ROM data, sprites, music, or other Sega assets
+are included in the repository. The engine is a clean-room reimplementation that requires users to
+supply their own legally obtained ROM files. We have no affiliation with Sega and make no claim to
+any of their intellectual property.
+
+### What platforms does it run on?
+
+Anywhere Java 21 and LWJGL run: Windows, macOS, and Linux. The engine uses OpenGL 4.1 core profile
+(chosen for macOS compatibility). A GraalVM native image build is also supported for ahead-of-time compiled
+binaries.
+
+### Did you use AI to write this? / This is AI slop!
+
+Various agents (Claude, Codex, and Gemini, in various versions and forms) have all been used at various points in the project's history, and
+the commit history doesn't hide it — you'll see `Co-Authored-By` tags throughout. But the project
+has been in development since 2013, long before AI coding assistants existed.
+
+The core engine framework, architecture, rendering pipeline, physics engine, and collision system
+were designed and coded by hand. The multi-game provider architecture, the GPU shader pipeline, the
+SMPS audio driver, and the original physics rewrite are all human-authored. AI was brought in
+for bulk analysis and research, to accelerate bulk object and boss implementation, debugging, validation, and
+unit tests — all under direct architectural oversight, with accuracy verified against the original
+ROM disassemblies. Every commit is reviewed, tested, and corrected where needed.
+
+You can't prompt your way to ROM accuracy (yet!). But we certainly prompted our way through object
+implementations, research and boilerplate code a lot faster than would have been possible by hand.
+
+### How can I contribute?
+
+The project is open source. Check the issue tracker, OBJECT_CHECKLIST.md for unimplemented game
+objects, and CHANGELOG.md for the current state of each game. The codebase uses a provider-based
+architecture that makes it relatively straightforward to add new objects, zones, and game-specific
+behaviour.
 
 ## Releases
 
