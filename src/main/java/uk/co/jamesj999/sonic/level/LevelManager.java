@@ -277,7 +277,8 @@ public class LevelManager {
         int zoneId = getFeatureZoneId();
         Palette[] underwater = waterSystem.getUnderwaterPalette(zoneId, currentAct);
         if (underwater != null) {
-            graphicsManager.cacheUnderwaterPaletteTexture(underwater);
+            Palette normalLine0 = (level != null) ? level.getPalette(0) : null;
+            graphicsManager.cacheUnderwaterPaletteTexture(underwater, normalLine0);
             Integer texId = graphicsManager.getUnderwaterPaletteTextureId();
             int loc = shader.getUnderwaterPaletteLocation();
 
@@ -309,7 +310,8 @@ public class LevelManager {
 
             Palette[] underwaterInstanced = waterSystem.getUnderwaterPalette(zoneId, currentAct);
             if (underwaterInstanced != null) {
-                graphicsManager.cacheUnderwaterPaletteTexture(underwaterInstanced);
+                Palette normalLine0Instanced = (level != null) ? level.getPalette(0) : null;
+                graphicsManager.cacheUnderwaterPaletteTexture(underwaterInstanced, normalLine0Instanced);
                 Integer texId = graphicsManager.getUnderwaterPaletteTextureId();
                 int loc = instancedShader.getUnderwaterPaletteLocation();
                 if (texId != null && loc != -1) {
