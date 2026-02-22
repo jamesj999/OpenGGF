@@ -4,8 +4,8 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>uk.co.jamesj999</groupId>
-    <artifactId>sonic-engine</artifactId>
+    <groupId>com.openggf</groupId>
+    <artifactId>OpenGGF</artifactId>
     <version>0.4.prerelease</version>
 
     <properties>
@@ -102,7 +102,7 @@
                                             </fileset>
                                         </copy>
                                         <!-- Also copy to target/ alongside the native binary
-                                             so bare execution (target/SonicEngine) works -->
+                                             so bare execution (target/OpenGGF) works -->
                                         <copy todir="${project.build.directory}" flatten="true">
                                             <fileset dir="${project.build.directory}/lwjgl-unpack">
                                                 <include name="**/*.dylib"/>
@@ -121,8 +121,8 @@
                         <version>0.10.4</version>
                         <extensions>true</extensions>
                         <configuration>
-                            <imageName>SonicEngine</imageName>
-                            <mainClass>uk.co.jamesj999.sonic.Engine</mainClass>
+                            <imageName>OpenGGF</imageName>
+                            <mainClass>com.openggf.Engine</mainClass>
                             <fallback>false</fallback>
                             <buildArgs>
                                 <buildArg>--initialize-at-run-time=org.lwjgl</buildArg>
@@ -151,7 +151,7 @@
                                     <executable>bash</executable>
                                     <arguments>
                                         <argument>${basedir}/src/packaging/assemble-macos-app.sh</argument>
-                                        <argument>${basedir}/target/SonicEngine</argument>
+                                        <argument>${basedir}/target/OpenGGF</argument>
                                         <argument>${basedir}/target</argument>
                                     </arguments>
                                 </configuration>
@@ -193,7 +193,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>uk.co.jamesj999.sonic.Engine</mainClass>
+                            <mainClass>com.openggf.Engine</mainClass>
                         </manifest>
                     </archive>
 

@@ -1,0 +1,148 @@
+package com.openggf.level.scroll;
+
+import com.openggf.data.Rom;
+
+import java.io.IOException;
+import java.util.logging.Logger;
+
+/**
+ * Loads parallax data tables from ROM at exact offsets.
+ * All offsets are for Sonic 2 World Rev 01.
+ */
+public class ParallaxTables {
+    private static final Logger LOGGER = Logger.getLogger(ParallaxTables.class.getName());
+
+    // ROM offsets (Rev 01)
+    public static final int SWSCRL_RIPPLE_DATA_ADDR = 0xC682;
+    public static final int SWSCRL_RIPPLE_DATA_SIZE = 512; // Expanded to allow linear overflow read
+
+    public static final int SWSCRL_WFZ_TRANS_ADDR = 0xC8CA;
+    public static final int SWSCRL_WFZ_TRANS_SIZE = 76; // Until normal array
+
+    public static final int SWSCRL_WFZ_NORMAL_ADDR = 0xC916;
+    public static final int SWSCRL_WFZ_NORMAL_SIZE = 78;
+
+    public static final int SWSCRL_MCZ_ROW_HEIGHTS_ADDR = 0xCE6C;
+    public static final int SWSCRL_MCZ_ROW_HEIGHTS_SIZE = 24;
+
+    public static final int SWSCRL_MCZ_2P_ROW_HEIGHTS_ADDR = 0xCF90;
+    public static final int SWSCRL_MCZ_2P_ROW_HEIGHTS_SIZE = 26;
+
+    public static final int SWSCRL_CNZ_ROW_HEIGHTS_ADDR = 0xD156;
+    public static final int SWSCRL_CNZ_ROW_HEIGHTS_SIZE = 10;  // 10 bytes: [16,16,16,16,16,16,16,16,0,240]
+
+    // CNZ Ripple data - subset of main ripple data at 0xC682 (66 bytes needed)
+    // Used for the special rippling segment
+    public static final int SWSCRL_CNZ_RIPPLE_DATA_SIZE = 66;
+
+    public static final int SWSCRL_DEZ_ROW_HEIGHTS_ADDR = 0xD48A;
+    public static final int SWSCRL_DEZ_ROW_HEIGHTS_SIZE = 36;
+
+    public static final int SWSCRL_ARZ_ROW_HEIGHTS_ADDR = 0xD5CE;
+    public static final int SWSCRL_ARZ_ROW_HEIGHTS_SIZE = 16;
+
+    // CPZ camera section map - determines which BG camera applies per block row
+    // ROM offset $DDD0, 65 bytes: 20 entries of 0x02, then 45 entries of 0x04
+    public static final int CPZ_CAMERA_SECTIONS_ADDR = 0xDDD0;
+    public static final int CPZ_CAMERA_SECTIONS_SIZE = 65;
+
+    // Loaded tables
+    private byte[] rippleData;
+    private byte[] cpzCameraSections;
+    private byte[] wfzTransArray;
+    private byte[] wfzNormalArray;
+    private byte[] mczRowHeights;
+    private byte[] mcz2PRowHeights;
+    private byte[] cnzRowHeights;
+    private byte[] dezRowHeights;
+    private byte[] arzRowHeights;
+
+    public ParallaxTables(Rom rom) throws IOException {
+        loadTables(rom);
+    }
+
+    private void loadTables(Rom rom) throws IOException {
+        rippleData = rom.readBytes(SWSCRL_RIPPLE_DATA_ADDR, SWSCRL_RIPPLE_DATA_SIZE);
+        LOGGER.fine("Loaded ripple data: " + rippleData.length + " bytes from 0x" +
+                Integer.toHexString(SWSCRL_RIPPLE_DATA_ADDR));
+
+        wfzTransArray = rom.readBytes(SWSCRL_WFZ_TRANS_ADDR, SWSCRL_WFZ_TRANS_SIZE);
+        wfzNormalArray = rom.readBytes(SWSCRL_WFZ_NORMAL_ADDR, SWSCRL_WFZ_NORMAL_SIZE);
+
+        mczRowHeights = rom.readBytes(SWSCRL_MCZ_ROW_HEIGHTS_ADDR, SWSCRL_MCZ_ROW_HEIGHTS_SIZE);
+        mcz2PRowHeights = rom.readBytes(SWSCRL_MCZ_2P_ROW_HEIGHTS_ADDR, SWSCRL_MCZ_2P_ROW_HEIGHTS_SIZE);
+
+        cnzRowHeights = rom.readBytes(SWSCRL_CNZ_ROW_HEIGHTS_ADDR, SWSCRL_CNZ_ROW_HEIGHTS_SIZE);
+        dezRowHeights = rom.readBytes(SWSCRL_DEZ_ROW_HEIGHTS_ADDR, SWSCRL_DEZ_ROW_HEIGHTS_SIZE);
+        arzRowHeights = rom.readBytes(SWSCRL_ARZ_ROW_HEIGHTS_ADDR, SWSCRL_ARZ_ROW_HEIGHTS_SIZE);
+
+        // CPZ camera sections - determines which BG camera applies per block row
+        cpzCameraSections = rom.readBytes(CPZ_CAMERA_SECTIONS_ADDR, CPZ_CAMERA_SECTIONS_SIZE);
+        LOGGER.fine("Loaded CPZ camera sections: " + cpzCameraSections.length + " bytes from 0x" +
+                Integer.toHexString(CPZ_CAMERA_SECTIONS_ADDR));
+
+        LOGGER.info("All parallax tables loaded successfully.");
+    }
+
+    /**
+     * Get ripple data byte at index.
+     * Used by EHZ water surface, OOZ sun haze, CPZ ripple effect.
+     */
+    public byte getRippleByte(int index) {
+        if (rippleData == null || index < 0 || index >= rippleData.length)
+            return 0;
+        return rippleData[index];
+    }
+
+    /**
+     * Get signed ripple value (sign-extended byte).
+     */
+    public int getRippleSigned(int index) {
+        return getRippleByte(index); // Java bytes are already signed
+    }
+
+    public int getRippleDataLength() {
+        return rippleData != null ? rippleData.length : 0;
+    }
+
+    public byte[] getRippleData() {
+        return rippleData;
+    }
+
+    public byte[] getWfzTransArray() {
+        return wfzTransArray;
+    }
+
+    public byte[] getWfzNormalArray() {
+        return wfzNormalArray;
+    }
+
+    public byte[] getMczRowHeights() {
+        return mczRowHeights;
+    }
+
+    public byte[] getMcz2PRowHeights() {
+        return mcz2PRowHeights;
+    }
+
+    public byte[] getCnzRowHeights() {
+        return cnzRowHeights;
+    }
+
+    public byte[] getDezRowHeights() {
+        return dezRowHeights;
+    }
+
+    public byte[] getArzRowHeights() {
+        return arzRowHeights;
+    }
+
+    /**
+     * Get CPZ camera sections table.
+     * 65 bytes: 20 entries of 0x02 (BG1), then 45 entries of 0x04 (BG2).
+     * Used to determine which BG camera applies per 16-line block row.
+     */
+    public byte[] getCpzCameraSections() {
+        return cpzCameraSections;
+    }
+}

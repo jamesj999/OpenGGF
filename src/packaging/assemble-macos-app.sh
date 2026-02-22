@@ -4,7 +4,7 @@
 # Usage: ./assemble-macos-app.sh <path-to-native-binary> [output-dir]
 #
 # Example:
-#   ./assemble-macos-app.sh target/SonicEngine dist
+#   ./assemble-macos-app.sh target/OpenGGF dist
 
 set -euo pipefail
 
@@ -16,7 +16,7 @@ fi
 
 BINARY="${1:?Usage: $0 <path-to-native-binary> [output-dir]}"
 OUTPUT_DIR="${2:-.}"
-APP_NAME="SonicEngine"
+APP_NAME="OpenGGF"
 APP_BUNDLE="${OUTPUT_DIR}/${APP_NAME}.app"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -30,7 +30,7 @@ mkdir -p "${APP_BUNDLE}/Contents/Resources"
 # Copy Info.plist
 cp "${SCRIPT_DIR}/Info.plist" "${APP_BUNDLE}/Contents/"
 
-# Copy native binary as SonicEngine.bin
+# Copy native binary as OpenGGF.bin
 cp "${BINARY}" "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}.bin"
 chmod +x "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}.bin"
 
@@ -51,7 +51,7 @@ cat > "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}" << 'LAUNCHER'
 #!/bin/bash
 DIR="$(cd "$(dirname "$0")" && pwd)"
 # Set working directory to the folder containing the .app bundle,
-# so the engine finds the ROM file placed next to SonicEngine.app
+# so the engine finds the ROM file placed next to OpenGGF.app
 APP_DIR="$(cd "${DIR}/../../.." && pwd)"
 cd "${APP_DIR}"
 
@@ -63,7 +63,7 @@ export DYLD_LIBRARY_PATH="${DIR}${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
 # GraalVM native-image's getcwd() fails when launched via macOS
 # LaunchServices (Finder/open). -Duser.dir bypasses the broken
 # getcwd() in property initialization and file path resolution.
-"${DIR}/SonicEngine.bin" "-Duser.dir=${APP_DIR}" "$@"
+"${DIR}/OpenGGF.bin" "-Duser.dir=${APP_DIR}" "$@"
 LAUNCHER
 chmod +x "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 

@@ -107,13 +107,13 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 - [ ] Check for multi-phase transitions (especially LBZ, DEZ)
 - [ ] Find boss art addresses using RomOffsetFinder:
   ```bash
-  mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_ZONEBoss" -q
-  mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ZONEBoss" -q
-  mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
+  mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_ZONEBoss" -q
+  mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search ZONEBoss" -q
+  mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
   ```
   - Use `plc` command to see which PLCs load boss art:
     ```bash
-    mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k plc PLCKosM_AIZBoss" -q
+    mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k plc PLCKosM_AIZBoss" -q
     ```
   - Search results now show PLC cross-references inline
 
@@ -315,8 +315,8 @@ private void transitionToNextPhase() {
 
 ```bash
 # Find boss art
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_ZONEBoss" -q
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_ZONEBoss" -q
+mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
 ```
 
 S3K bosses typically use:
