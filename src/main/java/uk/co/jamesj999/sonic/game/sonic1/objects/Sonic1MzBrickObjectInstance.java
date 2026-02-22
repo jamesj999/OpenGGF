@@ -320,6 +320,13 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+        // ROM uses obActWid ($10) for Solid_Landed / SolidObject_InsideTop,
+        // not the collision halfWidth ($1B).
+        return ACTIVE_WIDTH;
+    }
+
+    @Override
     public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
         // Standard solid collision handled by ObjectManager
     }
