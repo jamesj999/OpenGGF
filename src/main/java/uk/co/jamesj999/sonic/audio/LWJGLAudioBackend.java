@@ -290,10 +290,18 @@ public class LWJGLAudioBackend implements AudioBackend {
 
     @Override
     public void playSfxSmps(AbstractSmpsData data, DacData dacData, float pitch) {
+        playSfxSmps(data, dacData, pitch, null);
+    }
+
+    @Override
+    public void playSfxSmps(AbstractSmpsData data, DacData dacData, float pitch,
+                             SmpsSequencerConfig config) {
         // ROM behavior: completely block SFX during override jingle and fade-in period
         if (sfxBlocked) {
             return;
         }
+
+        SmpsSequencerConfig effectiveConfig = (config != null) ? config : requireSmpsConfig();
 
         boolean dacInterpolate = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.DAC_INTERPOLATE);
         boolean fm6DacOff = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.FM6_DAC_OFF);
@@ -304,7 +312,7 @@ public class LWJGLAudioBackend implements AudioBackend {
 
         if (smpsDriver != null && currentStream == smpsDriver) {
             // Mix into current driver
-            SmpsSequencer seq = new SmpsSequencer(data, dacData, smpsDriver, requireSmpsConfig());
+            SmpsSequencer seq = new SmpsSequencer(data, dacData, smpsDriver, effectiveConfig);
             seq.setSampleRate(smpsDriver.getOutputSampleRate());
             seq.setFm6DacOff(fm6DacOff);
             seq.setSfxMode(true);
@@ -328,7 +336,7 @@ public class LWJGLAudioBackend implements AudioBackend {
                 }
                 sfxDriver.setOutputSampleRate(getSmpsOutputRate());
                 applyPsgNoiseConfig(sfxDriver);
-                SmpsSequencer seq = new SmpsSequencer(data, dacData, sfxDriver, requireSmpsConfig());
+                SmpsSequencer seq = new SmpsSequencer(data, dacData, sfxDriver, effectiveConfig);
                 seq.setSampleRate(sfxDriver.getOutputSampleRate());
                 seq.setFm6DacOff(fm6DacOff);
                 seq.setSfxMode(true);
