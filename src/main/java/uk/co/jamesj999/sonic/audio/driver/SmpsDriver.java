@@ -49,6 +49,26 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
         seq.setRegion(region);
         seq.setIsSfx(isSfx); // Cache isSfx flag on the sequencer for O(1) lookup
         synchronized (sequencersLock) {
+            // ROM behavior: re-triggering the same SFX replaces the old one.
+            // Without this, two sequencers for the same sound compete for the same
+            // FM/PSG channels, causing lock ping-pong when priority bit 7 is set
+            // (S1/S2 jump SFX priority 0x80 allows any SFX to steal the lock,
+            // so the old sequencer steals back from the new one every sample).
+            if (isSfx) {
+                int newId = seq.getSmpsData().getId();
+                SmpsSequencer existing = null;
+                for (SmpsSequencer s : sfxSequencers) {
+                    if (s.getSmpsData().getId() == newId) {
+                        existing = s;
+                        break;
+                    }
+                }
+                if (existing != null) {
+                    sequencers.remove(existing);
+                    releaseLocks(existing);
+                    sfxSequencers.remove(existing);
+                }
+            }
             sequencers.add(seq);
             if (isSfx) {
                 sfxSequencers.add(seq);
