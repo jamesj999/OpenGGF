@@ -1,4 +1,3 @@
-============
 OpenGGF - The Open-Source Java-Based Speedy Erinaceidae Engine
 ============
 >This project is a work in progress, for the current state please see the latest version in the Releases section of this
