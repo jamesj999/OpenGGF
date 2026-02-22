@@ -101,9 +101,30 @@ Analysis range: `v0.3.20260206..HEAD` on `develop` (`312` commits, `291` non-mer
   - PSG/YM2612 and per-game physics/profile parity checks.
 - Expanded headless and subsystem-focused tests in support of object/event/audio refactors.
 
+### Cross-Game Feature Donation
+
+- Added underwater palette support for donated sprites:
+  - `RenderContext.deriveUnderwaterPalette()` synthesizes donor underwater colors using the base game's
+    global average per-channel color shift ratio (not per-index, which would mismatch palette layouts).
+  - `RenderContext.getDonorContexts()` for iterating active donor palette contexts.
+  - `GraphicsManager.cacheUnderwaterPaletteTexture()` extended to populate donor palette rows automatically.
+  - Tests: `TestRenderContext` covering ratio application, uniform tint, clamping, and zero-base fallback.
+- Fixed donor SFX using base game's SMPS driver config instead of donor's:
+  - `SmpsSequencerConfig` threaded through `AudioManager.registerDonorLoader()`, stored per donor game.
+  - `AudioBackend.playSfxSmps()` 4-arg overload accepting explicit config; `LWJGLAudioBackend` uses donor
+    config when provided, falling back to base game config.
+  - `CrossGameFeatureProvider.initializeDonorAudio()` passes `donorProfile.getSequencerConfig()`.
+  - Tests: `TestDonorAudioRouting.testDonorSfx_UsesProvidedSequencerConfig`.
+- Fixed S3K Tails tail appendage and animations when donating to S1:
+  - `CrossGameFeatureProvider.hasSeparateTailsTailArt()` and `loadTailsTailArt()` delegate to donor's
+    `Sonic3kPlayerArt` for separate Obj05 tail art (S3K uses distinct `Map_Tails_Tail`/`DPLC_Tails_Tail`).
+  - `LevelManager.initTailsTails()` checks donor game module when cross-game is active, selecting correct
+    art loading path and `ANI_SELECTION_S3K` animation tables.
+
 ### Docs and Planning
 
 - Added release-planning/implementation docs for unified level events, Super Sonic, and AIZ intro work.
+- Added cross-game donation fixes design doc and implementation plan.
 - Expanded disassembly/reference and skill documentation used for parity-driven object/boss implementation workflows.
 
 ## v0.3.20260206

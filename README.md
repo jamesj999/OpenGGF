@@ -1,5 +1,5 @@
 ============
-sonic-engine
+OpenGGF - The Open-Source Java-Based Speedy Erinaceidae Engine
 ============
 >This project is a work in progress, for the current state please see the latest version in the Releases section of this
 document
@@ -45,10 +45,11 @@ to broad gameplay coverage: title screen flow, special stages, major per-zone ev
 multiple boss implementations (GHZ, MZ, SYZ, LZ, SLZ, FZ), Labyrinth water/drowning behaviour, and ending/credits work. Sonic 2 adds
 title screen support, major object passes for MTZ/SCZ/WFZ/OOZ, MCZ boss work, and expanded per-zone event architecture. Sonic 3&K
 sees major AIZ progress including intro cutscene systems, hollow tree and vine traversal parity work, miniboss object set bring-up,
-initial badnik implementations, shield/plc integration fixes, and related regressions/tests. Cross-game systems were extended with
-per-game physics profiles and Super Sonic state/control flow (implemented for S2, stubbed for S3K), alongside PLC/art-loader
-refactors, RomOffsetFinder/ObjectDiscoveryTool enhancements, and broad audio/stability/performance hardening. See CHANGELOG.md for
-full details.
+initial badnik implementations, shield/plc integration fixes, and related regressions/tests. Cross-game feature donation now supports
+underwater palette derivation for donor sprites, correct SMPS driver config for donor SFX playback, and S3K Tails tail appendage/animation
+fixes. Cross-game systems were further extended with per-game physics profiles and Super Sonic state/control flow (implemented for S2,
+stubbed for S3K), alongside PLC/art-loader refactors, RomOffsetFinder/ObjectDiscoveryTool enhancements, and broad
+audio/stability/performance hardening. See CHANGELOG.md for full details.
 
 v0.3.20260206 - A massive release covering 366 commits across every major subsystem. Tails (Miles Prower) is now a playable
 character with ROM-accurate CPU AI follower behaviour, input replay, flight, and configurable sidekick toggle. The engine has been
