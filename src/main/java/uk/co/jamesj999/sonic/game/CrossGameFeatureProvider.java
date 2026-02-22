@@ -206,6 +206,25 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         return donorGameId;
     }
 
+    /**
+     * Returns true if the donor game uses separate art for Tails' tail appendage (Obj05).
+     * S3K has separate Map_Tails_Tail / DPLC_Tails_Tail tables; S2 reuses the main body art.
+     */
+    public boolean hasSeparateTailsTailArt() {
+        return s3kPlayerArt != null;
+    }
+
+    /**
+     * Loads the separate tail appendage art set from the donor game.
+     * Only valid when {@link #hasSeparateTailsTailArt()} returns true.
+     */
+    public SpriteArtSet loadTailsTailArt() throws IOException {
+        if (s3kPlayerArt != null) {
+            return s3kPlayerArt.loadTailsTail();
+        }
+        return null;
+    }
+
     public void close() {
         donorReader = null;
         s2PlayerArt = null;
