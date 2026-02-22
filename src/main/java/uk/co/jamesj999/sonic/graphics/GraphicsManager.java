@@ -34,6 +34,7 @@ public class GraphicsManager {
 
 	private final Map<String, Integer> paletteTextureMap = new HashMap<>(); // Map for palette textures
 	private Integer combinedPaletteTextureId;
+	private int currentPaletteTextureHeight = 0;
 	private PatternAtlas patternAtlas;
 	// Lazily allocated to avoid LWJGL native library loading in headless tests
 	private ByteBuffer paletteUploadBuffer;
@@ -393,16 +394,28 @@ public class GraphicsManager {
 			paletteTextureMap.put("palette_" + paletteId, -1);
 			return;
 		}
+		int requiredHeight = RenderContext.getTotalPaletteLines();
 		if (combinedPaletteTextureId == null) {
 			combinedPaletteTextureId = glGenTextures();
-			ByteBuffer emptyBuffer = MemoryUtil.memAlloc(COLORS_PER_PALETTE * 4 * 4);
+			currentPaletteTextureHeight = requiredHeight;
+			ByteBuffer emptyBuffer = MemoryUtil.memAlloc(COLORS_PER_PALETTE * 4 * requiredHeight);
 			try {
 				glBindTexture(GL_TEXTURE_2D, combinedPaletteTextureId);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 16, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, emptyBuffer);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 16, requiredHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, emptyBuffer);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			} finally {
+				MemoryUtil.memFree(emptyBuffer);
+			}
+		} else if (requiredHeight > currentPaletteTextureHeight) {
+			// Texture needs to grow to accommodate new donor contexts
+			currentPaletteTextureHeight = requiredHeight;
+			ByteBuffer emptyBuffer = MemoryUtil.memAlloc(COLORS_PER_PALETTE * 4 * requiredHeight);
+			try {
+				glBindTexture(GL_TEXTURE_2D, combinedPaletteTextureId);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 16, requiredHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, emptyBuffer);
 			} finally {
 				MemoryUtil.memFree(emptyBuffer);
 			}
@@ -776,6 +789,8 @@ public class GraphicsManager {
 		if (headlessMode)
 			return;
 
+		int totalLines = RenderContext.getTotalPaletteLines();
+
 		if (underwaterPaletteTextureId == null) {
 			underwaterPaletteTextureId = glGenTextures();
 			glBindTexture(GL_TEXTURE_2D, underwaterPaletteTextureId);
@@ -785,38 +800,43 @@ public class GraphicsManager {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		}
 
-		// Upload 64 colors (16x4)
-		ByteBuffer paletteBuffer = ensureUnderwaterPaletteUploadBuffer(); // 64 cols * 4 bytes (RGBA)
-		paletteBuffer.clear();
+		// Upload 16 * totalLines colors
+		int bufferSize = 16 * totalLines * 4;
+		ByteBuffer paletteBuffer = MemoryUtil.memAlloc(bufferSize);
+		try {
+			paletteBuffer.clear();
 
-		for (int pIndex = 0; pIndex < 4; pIndex++) {
-			Palette p = (palettes != null && pIndex < palettes.length) ? palettes[pIndex] : null;
-			for (int i = 0; i < 16; i++) {
-				try {
-					if (p != null) {
-						Palette.Color color = p.getColor(i);
-						paletteBuffer.put((byte) Byte.toUnsignedInt(color.r));
-						paletteBuffer.put((byte) Byte.toUnsignedInt(color.g));
-						paletteBuffer.put((byte) Byte.toUnsignedInt(color.b));
-						if (i == 0) {
-							paletteBuffer.put((byte) 0);
+			for (int pIndex = 0; pIndex < totalLines; pIndex++) {
+				Palette p = (palettes != null && pIndex < palettes.length) ? palettes[pIndex] : null;
+				for (int i = 0; i < 16; i++) {
+					try {
+						if (p != null) {
+							Palette.Color color = p.getColor(i);
+							paletteBuffer.put((byte) Byte.toUnsignedInt(color.r));
+							paletteBuffer.put((byte) Byte.toUnsignedInt(color.g));
+							paletteBuffer.put((byte) Byte.toUnsignedInt(color.b));
+							if (i == 0) {
+								paletteBuffer.put((byte) 0);
+							} else {
+								paletteBuffer.put((byte) 255);
+							}
 						} else {
-							paletteBuffer.put((byte) 255);
+							// Empty/Black for missing palette lines
+							paletteBuffer.put((byte) 0).put((byte) 0).put((byte) 0).put((byte) 0);
 						}
-					} else {
-						// Empty/Black for missing palette lines
+					} catch (Exception e) {
+						// Fallback
 						paletteBuffer.put((byte) 0).put((byte) 0).put((byte) 0).put((byte) 0);
 					}
-				} catch (Exception e) {
-					// Fallback
-					paletteBuffer.put((byte) 0).put((byte) 0).put((byte) 0).put((byte) 0);
 				}
 			}
-		}
-		paletteBuffer.flip();
+			paletteBuffer.flip();
 
-		glBindTexture(GL_TEXTURE_2D, underwaterPaletteTextureId);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 16, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, paletteBuffer);
+			glBindTexture(GL_TEXTURE_2D, underwaterPaletteTextureId);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 16, totalLines, 0, GL_RGBA, GL_UNSIGNED_BYTE, paletteBuffer);
+		} finally {
+			MemoryUtil.memFree(paletteBuffer);
+		}
 	}
 
 	/**
@@ -837,6 +857,7 @@ public class GraphicsManager {
 			}
 			paletteTextureMap.clear();
 			combinedPaletteTextureId = null;
+			currentPaletteTextureHeight = 0;
 			return;
 		}
 		// Delete pattern atlas texture
@@ -901,6 +922,7 @@ public class GraphicsManager {
 		if (combinedPaletteTextureId != null) {
 			glDeleteTextures(combinedPaletteTextureId);
 			combinedPaletteTextureId = null;
+			currentPaletteTextureHeight = 0;
 		}
 		// Free pre-allocated buffers
 		if (paletteUploadBuffer != null) {
@@ -952,6 +974,7 @@ public class GraphicsManager {
 			}
 		}
 		combinedPaletteTextureId = null;
+		currentPaletteTextureHeight = 0;
 		underwaterPaletteTextureId = null;
 		// Free native memory before nulling references
 		if (paletteUploadBuffer != null) {

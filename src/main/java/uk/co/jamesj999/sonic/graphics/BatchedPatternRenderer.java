@@ -664,6 +664,7 @@ public class BatchedPatternRenderer {
             glUniform1i(shader.getPaletteLocation(), 0);
             glUniform1i(shader.getIndexedColorTextureLocation(), 1);
             shader.setPaletteLine(-1.0f);
+            shader.setTotalPaletteLines((float) RenderContext.getTotalPaletteLines());
 
             // Cache uniform locations per shader program to avoid per-batch string lookups
             int programId = shader.getProgramId();

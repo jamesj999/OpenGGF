@@ -218,4 +218,9 @@ public class Sonic2GameModule implements GameModule {
             uk.co.jamesj999.sonic.sprites.playable.AbstractPlayableSprite player) {
         return new Sonic2SuperStateController(player);
     }
+
+    @Override
+    public boolean supportsSidekick() {
+        return true;
+    }
 }

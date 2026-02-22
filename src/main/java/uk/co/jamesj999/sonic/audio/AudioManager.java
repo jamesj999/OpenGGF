@@ -5,6 +5,8 @@ import uk.co.jamesj999.sonic.audio.smps.DacData;
 import uk.co.jamesj999.sonic.audio.smps.SmpsLoader;
 import uk.co.jamesj999.sonic.data.Rom;
 
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -17,6 +19,13 @@ public class AudioManager {
     private Map<GameSound, Integer> soundMap;
     private GameAudioProfile audioProfile;
     private boolean ringLeft = true;
+
+    // Donor audio overlay: secondary SFX path for cross-game feature donation
+    private final Map<String, SmpsLoader> donorLoaders = new HashMap<>();
+    private final Map<String, DacData> donorDacData = new HashMap<>();
+    private final Map<GameSound, DonorSfxBinding> donorSoundBindings = new EnumMap<>(GameSound.class);
+
+    private record DonorSfxBinding(String gameId, int sfxId) {}
 
     private AudioManager() {
         // Default to NullBackend
@@ -142,6 +151,20 @@ public class AudioManager {
             played = playSfx(soundMap.get(sound), pitch);
         }
         if (!played) {
+            DonorSfxBinding binding = donorSoundBindings.get(sound);
+            if (binding != null) {
+                SmpsLoader loader = donorLoaders.get(binding.gameId());
+                DacData dData = donorDacData.get(binding.gameId());
+                if (loader != null && dData != null) {
+                    AbstractSmpsData sfx = loader.loadSfx(binding.sfxId());
+                    if (sfx != null) {
+                        backend.playSfxSmps(sfx, dData, pitch);
+                        played = true;
+                    }
+                }
+            }
+        }
+        if (!played) {
             backend.playSfx(sound.name(), pitch);
         }
     }
@@ -227,6 +250,31 @@ public class AudioManager {
     }
 
     /**
+     * Registers a donor SmpsLoader and DacData for cross-game SFX playback.
+     */
+    public void registerDonorLoader(String gameId, SmpsLoader loader, DacData dacData) {
+        donorLoaders.put(gameId, loader);
+        this.donorDacData.put(gameId, dacData);
+    }
+
+    /**
+     * Registers a donor sound binding so that a GameSound missing from the
+     * base game's sound map will be routed through the specified donor loader.
+     */
+    public void registerDonorSound(GameSound sound, String gameId, int sfxId) {
+        donorSoundBindings.put(sound, new DonorSfxBinding(gameId, sfxId));
+    }
+
+    /**
+     * Clears all donor audio state (loaders, DAC data, and sound bindings).
+     */
+    public void clearDonorAudio() {
+        donorLoaders.clear();
+        donorDacData.clear();
+        donorSoundBindings.clear();
+    }
+
+    /**
      * Resets mutable state without destroying the singleton instance.
      * Used by TestEnvironment to prevent state leaking between tests
      * (e.g. Sonic 1 SMPS loader contaminating Sonic 2 tests).
@@ -240,6 +288,7 @@ public class AudioManager {
         this.soundMap = null;
         this.audioProfile = null;
         this.ringLeft = true;
+        clearDonorAudio();
     }
 
     public void destroy() {

@@ -164,6 +164,7 @@ public class PatternRenderCommand implements GLCommandable {
             shaderProgram.cacheUniformLocations();
             glUniform1i(shaderProgram.getPaletteLocation(), 0);
             glUniform1i(shaderProgram.getIndexedColorTextureLocation(), 1);
+            shaderProgram.setTotalPaletteLines((float) RenderContext.getTotalPaletteLines());
 
             // Set projection matrix uniform - REQUIRED for correct rendering
             int projectionLoc = glGetUniformLocation(shaderProgram.getProgramId(), "ProjectionMatrix");

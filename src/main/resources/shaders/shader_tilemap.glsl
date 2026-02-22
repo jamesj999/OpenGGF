@@ -5,6 +5,7 @@ uniform sampler1D PatternLookup;     // RGBA8: R=tileX, G=tileY
 uniform sampler2D AtlasTexture;      // Indexed color atlas (GL_RED)
 uniform sampler2D Palette;           // Combined palette texture
 uniform sampler2D UnderwaterPalette; // Underwater palette
+uniform float TotalPaletteLines;
 
 uniform float TilemapWidth;          // In tiles
 uniform float TilemapHeight;         // In tiles
@@ -205,7 +206,7 @@ void main()
     }
 
     float paletteX = (index + 0.5) / 16.0;
-    float paletteY = (paletteIndex + 0.5) / 4.0;
+    float paletteY = (paletteIndex + 0.5) / TotalPaletteLines;
     vec4 color;
     if (UseUnderwaterPalette == 1 && pixelYFromTop >= WaterlineScreenY) {
         color = texture(UnderwaterPalette, vec2(paletteX, paletteY));

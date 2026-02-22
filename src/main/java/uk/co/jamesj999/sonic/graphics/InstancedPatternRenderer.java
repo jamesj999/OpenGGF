@@ -492,6 +492,7 @@ public class InstancedPatternRenderer {
             glUniform1i(shader.getPaletteLocation(), 0);
             glUniform1i(shader.getIndexedColorTextureLocation(), 1);
             shader.setPaletteLine(-1.0f);
+            shader.setTotalPaletteLines((float) RenderContext.getTotalPaletteLines());
 
             // Set priority uniforms if using the priority shader
             // Priority is now per-instance via InstanceHighPriority attribute,

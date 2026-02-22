@@ -1,5 +1,6 @@
 package uk.co.jamesj999.sonic.sprites.playable;
 
+import uk.co.jamesj999.sonic.game.CrossGameFeatureProvider;
 import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 import uk.co.jamesj999.sonic.game.GameServices;
 import uk.co.jamesj999.sonic.game.PhysicsFeatureSet;
@@ -1831,6 +1832,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 } catch (Exception e) {
                         // Graceful fallback: defineSpeeds() values remain
                         LOGGER.fine("PhysicsProvider unavailable, using defineSpeeds() values: " + e.getMessage());
+                }
+                // Cross-game donation: override only the feature set with hybrid (donor spindash + base physics)
+                if (CrossGameFeatureProvider.isActive()) {
+                        this.physicsFeatureSet = CrossGameFeatureProvider.getInstance().getHybridFeatureSet();
                 }
         }
 

@@ -203,6 +203,8 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.SUPER_SONIC_DEBUG_KEY, GLFW_KEY_U);
 		putDefault(SonicConfiguration.GIVE_EMERALDS_KEY, GLFW_KEY_E);
 		putDefault(SonicConfiguration.MASTER_TITLE_SCREEN_ON_STARTUP, true);
+		putDefault(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, false);
+		putDefault(SonicConfiguration.CROSS_GAME_SOURCE, "s2");
 	}
 
 	private void putDefault(SonicConfiguration key, Object value) {

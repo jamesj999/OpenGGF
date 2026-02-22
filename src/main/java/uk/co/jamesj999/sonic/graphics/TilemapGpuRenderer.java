@@ -190,6 +190,7 @@ public class TilemapGpuRenderer {
 
         shader.use();
         shader.cacheUniformLocations();
+        shader.setTotalPaletteLines((float) RenderContext.getTotalPaletteLines());
 
         shader.setTextureUnits(0, 1, 2, 3, 4);
         shader.setTilemapDimensions(tilemapWidthTiles, tilemapHeightTiles);

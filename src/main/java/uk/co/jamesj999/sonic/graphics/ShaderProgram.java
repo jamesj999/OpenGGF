@@ -11,6 +11,7 @@ public class ShaderProgram {
     private int paletteLocation = -1;
     private int indexedColorTextureLocation = -1;
     private int paletteLineLocation = -1;
+    private int totalPaletteLinesLocation = -1;
     private boolean uniformsCached = false;
 
     public int getProgramId() {
@@ -34,6 +35,7 @@ public class ShaderProgram {
         paletteLocation = glGetUniformLocation(programId, "Palette");
         indexedColorTextureLocation = glGetUniformLocation(programId, "IndexedColorTexture");
         paletteLineLocation = glGetUniformLocation(programId, "PaletteLine");
+        totalPaletteLinesLocation = glGetUniformLocation(programId, "TotalPaletteLines");
         uniformsCached = true;
     }
 
@@ -55,6 +57,15 @@ public class ShaderProgram {
     public void setPaletteLine(float line) {
         if (paletteLineLocation >= 0) {
             glUniform1f(paletteLineLocation, line);
+        }
+    }
+
+    /**
+     * Set the total palette lines uniform for dynamic palette texture height.
+     */
+    public void setTotalPaletteLines(float n) {
+        if (totalPaletteLinesLocation >= 0) {
+            glUniform1f(totalPaletteLinesLocation, n);
         }
     }
 

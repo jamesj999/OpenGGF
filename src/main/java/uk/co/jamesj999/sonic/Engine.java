@@ -29,6 +29,8 @@ import uk.co.jamesj999.sonic.game.LevelSelectProvider;
 import uk.co.jamesj999.sonic.game.MasterTitleScreen;
 import uk.co.jamesj999.sonic.game.TitleCardProvider;
 import uk.co.jamesj999.sonic.game.TitleScreenProvider;
+import uk.co.jamesj999.sonic.game.CrossGameFeatureProvider;
+import uk.co.jamesj999.sonic.game.GameModuleRegistry;
 
 import java.io.IOException;
 import java.nio.IntBuffer;
@@ -325,6 +327,18 @@ public class Engine {
 			AudioManager.getInstance().setBackend(new LWJGLAudioBackend());
 		}
 
+		// Initialize cross-game feature donation if enabled
+		if (configService.getBoolean(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED)) {
+			try {
+				String donorGame = configService.getString(SonicConfiguration.CROSS_GAME_SOURCE);
+				CrossGameFeatureProvider.getInstance().initialize(donorGame);
+			} catch (IOException e) {
+				LOGGER.severe("Cross-game features enabled but initialization failed. "
+					+ "Check that the " + configService.getString(SonicConfiguration.CROSS_GAME_SOURCE)
+					+ " ROM is configured and accessible. Error: " + e.getMessage());
+			}
+		}
+
 		String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
 		AbstractPlayableSprite mainSprite;
 		if ("tails".equalsIgnoreCase(mainCode)) {
@@ -338,7 +352,9 @@ public class Engine {
 		// ROM: Both Sonic and Tails share the same start position from the zone start location table.
 		// Sidekick must start at the same X as main so the AI doesn't immediately chase (threshold is 16px).
 		String sidekickCode = configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
-		if (!sidekickCode.isEmpty()) {
+		boolean sidekickAllowed = GameModuleRegistry.getCurrent().supportsSidekick()
+				|| CrossGameFeatureProvider.isActive();
+		if (!sidekickCode.isEmpty() && sidekickAllowed) {
 			AbstractPlayableSprite sidekick;
 			if ("tails".equalsIgnoreCase(sidekickCode)) {
 				sidekick = new Tails(sidekickCode, mainSprite.getX(), mainSprite.getY());
@@ -753,6 +769,9 @@ public class Engine {
 	}
 
 	private void cleanup() {
+		AudioManager.getInstance().clearDonorAudio();
+		CrossGameFeatureProvider.resetInstance();
+		uk.co.jamesj999.sonic.graphics.RenderContext.reset();
 		if (masterTitleScreen != null) {
 			masterTitleScreen.cleanup();
 			masterTitleScreen = null;
