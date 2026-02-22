@@ -1,79 +1,242 @@
-OpenGGF - The Open-Source Java-Based Speedy Erinaceidae Engine
-============
->This project is a work in progress, for the current state please see the latest version in the Releases section of this
-document
+# OpenGGF - The Open-Source Java-Based Speedy Erinaceidae Engine
 
-Introduction
-============
-This Java-based Sonic the Hedgehog game engine aims to fully and faithfully recreate the original physics of the Sonic
-The Hedgehog games for Sega Mega Drive (Genesis). It will be capable of loading the game data from the original ROMs of
-the games and providing a pixel-perfect gameplay experience of the original games. It will also provide more modern features,
-such as a level editor, and an open framework allowing for modding and customisation.
+> This project is a work in progress. For the current state, please see the latest version in the
+> Releases section of this document.
 
-Configuration
-=============
-The engine currently makes limited use of config.json to hold some basic configurations. Change these at your own risk.
+## Introduction
 
-Controls
-========
->Currently, only Keyboard controls are supported.
+OpenGGF is an open-source, Java-based game engine for research and preservation of classic Mega
+Drive / Genesis platform games. It faithfully reimplements the physics and rendering behaviour of
+the original hardware using data loaded from user-supplied ROM images. The project's primary goal
+is accuracy: physics, collision, and audio are all verified against community-maintained
+disassemblies of titles in the Sonic the Hedgehog series. No copyrighted assets are included in
+this repository; a legally obtained ROM is required to run the engine.
 
-Player Controls
-- D-Pad Up/Down/Left/Right - Movement Controls
-- Space - Jump
-- Z - Cycle Acts
-- X - Cycle Zones
+The engine also aims to provide modern tooling such as a level editor and an open framework for
+modding and customisation.
 
-Debug Controls
-- F1 - Show/Hide Debug Overlay (Includes text and bounding boxes)
-- F2 - Show/Hide Shortcuts Overlay
-- F3 - Show/Hide Player Panel
-- F4 - Show/Hide Sensor Labels
-- F5 - Show/Hide Object Labels
-- F6 - Show/Hide Camera Bounds
-- F7 - Show/Hide Player Bounds
-- F9 - Show/Hide Ring Bounds
-- F10 - Show/Hide Plane Switchers
-- F11 - Show/Hide Touch Response
-- F12 - Show/Hide Art Viewer
+> **Disclaimer:** This project is not affiliated with or endorsed by Sega. Sonic the Hedgehog and
+> all related characters, names, and trademarks are the property of Sega Corporation. No ROM images
+> or other copyrighted game data are included in this repository. Users must supply their own
+> legally obtained ROM files to use this software.
 
-Releases
-========
-v0.4 (Unreleased) - A release-sized update focused on expanding playable coverage and parity. Sonic 1 has moved from initial support
-to broad gameplay coverage: title screen flow, special stages, major per-zone event scripting, extensive object and badnik additions,
-multiple boss implementations (GHZ, MZ, SYZ, LZ, SLZ, FZ), Labyrinth water/drowning behaviour, and ending/credits work. Sonic 2 adds
-title screen support, major object passes for MTZ/SCZ/WFZ/OOZ, MCZ boss work, and expanded per-zone event architecture. Sonic 3&K
-sees major AIZ progress including intro cutscene systems, hollow tree and vine traversal parity work, miniboss object set bring-up,
-initial badnik implementations, shield/plc integration fixes, and related regressions/tests. Cross-game feature donation now supports
-underwater palette derivation for donor sprites, correct SMPS driver config for donor SFX playback, and S3K Tails tail appendage/animation
-fixes. Cross-game systems were further extended with per-game physics profiles and Super Sonic state/control flow (implemented for S2,
-stubbed for S3K), alongside PLC/art-loader refactors, RomOffsetFinder/ObjectDiscoveryTool enhancements, and broad
-audio/stability/performance hardening. See CHANGELOG.md for full details.
+## Configuration
 
-v0.3.20260206 - A massive release covering 366 commits across every major subsystem. Tails (Miles Prower) is now a playable
-character with ROM-accurate CPU AI follower behaviour, input replay, flight, and configurable sidekick toggle. The engine has been
-refactored to support multiple games via a provider-based abstraction layer, with initial Sonic 1 ROM support (level select, title
-cards, HUD, audio with S1-specific SMPS driver configuration) alongside the existing Sonic 2 support. The physics engine has been
-completely rewritten to match ROM behaviour. Boss fights are implemented for 5 zones (EHZ, CPZ, HTZ, CNZ, ARZ), along with 15+ new
-badniks and 50+ new game objects spanning all implemented zones. A full water system with drowning mechanics is in place for CPZ and
-ARZ. The graphics backend has been migrated from JOGL to LWJGL with a GPU-accelerated rendering pipeline (pattern atlas, tilemap
-shader, instanced sprite batching, priority FBOs). The audio engine has seen major accuracy improvements to YM2612 FM synthesis
-(based on Genesis-Plus-GX reference) and the SMPS driver. New infrastructure includes per-game ROM configuration, a
-HeadlessTestRunner for physics integration testing, visual and audio regression test suites, a multi-game test annotation framework,
-GraalVM native build support, and significant performance optimisations throughout. See CHANGELOG.md for full details.
+The engine currently makes limited use of `config.json` to hold some basic configurations. Change
+these at your own risk.
 
-v0.2.20260117 - Improvements and fixes across the board. Special stages are now implemented, feature complete with a few known issues.
-Physics have been improved, parallax backgrounds implemented and complete for EHZ, CPZ, ARZ and MCZ. Some sound improvements, title cards,
-level 'outros' etc.
+## Controls
 
-v0.1.20260110 - Now vaguely resembles the actual Sonic 2 game. Real collision and graphics data is loaded from the Sonic 2 ROM and rendered
-on screen. The majority of the physics are in place, although it is far from perfect. A system for loading game objects has
-been created, along with an implementation for most of the objects and Badniks in Emerald Hill Zone. Rings are implemented, life and score
-tracking is implemented. SoundFX and music are implemented. Everything has room for improvement, but this now resembles a playable
-game.
+> Currently, only keyboard controls are supported.
 
-V0.05 (2015-04-09) - Little more than a tech demo. Sonic is able to run and jump and collide with terrain in a reasonably correct way. No
-graphics have yet been implemented so it's a moving white box on a black background.
+### Player Controls
 
-V0.01 (Pre-Alpha) (Unreleased; first documented 2013-05-22) - A moving black box. This version will be complete when we have an unskinned box that can traverse
+| Key | Action |
+|-----|--------|
+| Arrow Keys | Movement |
+| Space | Jump |
+| Z | Cycle Acts |
+| X | Cycle Zones |
+
+### Debug Controls
+
+| Key | Action |
+|-----|--------|
+| F1 | Show/Hide Debug Overlay (text and bounding boxes) |
+| F2 | Show/Hide Shortcuts Overlay |
+| F3 | Show/Hide Player Panel |
+| F4 | Show/Hide Sensor Labels |
+| F5 | Show/Hide Object Labels |
+| F6 | Show/Hide Camera Bounds |
+| F7 | Show/Hide Player Bounds |
+| F9 | Show/Hide Ring Bounds |
+| F10 | Show/Hide Plane Switchers |
+| F11 | Show/Hide Touch Response |
+| F12 | Show/Hide Art Viewer |
+
+## FAQ
+
+### What does "GGF" stand for?
+
+Gotta Go Fast!
+
+### Is this an emulator?
+
+No. OpenGGF is a clean-room reimplementation of the game logic and physics. It does not emulate
+the Mega Drive CPU or VDP. Instead, it reads data (level layouts, art, music) from original ROM
+images and runs its own implementation of the game rules, verified for accuracy against the
+community-maintained disassemblies ([s1disasm], [s2disasm], [skdisasm]). The audio engine is a
+partial exception: it features software emulation of the YM2612 FM synthesiser and SN76489 PSG
+chips (based on [libvgm] and [Genesis Plus GX] reference cores) driven by a reimplemented SMPS
+sound driver.
+
+[libvgm]: https://github.com/ValleyBell/libvgm
+[Genesis Plus GX]: https://github.com/ekeeke/Genesis-Plus-GX
+
+[s1disasm]: https://github.com/sonicretro/s1disasm
+[s2disasm]: https://github.com/sonicretro/s2disasm
+[skdisasm]: https://github.com/sonicretro/skdisasm
+
+### Which games are supported?
+
+| Game | Status |
+|------|--------|
+| Sonic the Hedgehog (S1) | Broadly playable. All 7 zones, 6 bosses, special stages, title screen, ending/credits. |
+| Sonic the Hedgehog 2 (S2) | Most complete. All zones through Wing Fortress, 6 bosses, special stages, Tails AI. |
+| Sonic 3 & Knuckles (S3K) | Early. Angel Island Zone Act 1 with intro cutscene, gameplay objects, and miniboss. |
+
+Work is ongoing across all three games. See CHANGELOG.md for detailed progress.
+
+### Where do I get ROMs?
+
+We do not supply ROM images. You must provide your own legally obtained copies. The engine expects
+these specific revisions, placed in the working directory:
+
+| Game | Expected filename | Revision |
+|------|-------------------|----------|
+| Sonic 1 | `Sonic The Hedgehog (W) (REV01) [!].gen` | World, Revision 01 |
+| Sonic 2 | `Sonic The Hedgehog 2 (W) (REV01) [!].gen` | World, Revision 01 |
+| Sonic 3&K | `Sonic and Knuckles & Sonic 3 (W) [!].gen` | World (lock-on combined ROM) |
+
+Other revisions (REV00, Japanese, etc.) are untested and will likely produce incorrect results, as
+ROM addresses are verified against these specific builds. ROM filenames are configurable via
+`config.json` (see `SONIC_1_ROM`, `SONIC_2_ROM`, `SONIC_3K_ROM` keys).
+
+### What is cross-game feature donation?
+
+A feature that lets a donor game (S2 or S3K) provide player sprites, spindash mechanics, and sound
+effects while you play a different base game (e.g. Sonic 1). This means you can play S1 levels
+with S2's Sonic and Tails sprites, spindash, and sidekick AI. Enable it in `config.json`:
+
+```json
+{
+  "CROSS_GAME_FEATURES_ENABLED": true,
+  "CROSS_GAME_SOURCE": "s2"
+}
+```
+
+Both the base game ROM and the donor game ROM must be present.
+
+### Why Java?
+
+We knew Java, and nobody had done it before. Every other Sonic engine reimplementation out there is
+written in C, C++, or C#. A Java implementation proves it can be done on a managed runtime, and
+the JVM's cross-platform nature means it runs on Windows, macOS, and Linux without platform-specific
+builds (though a GraalVM native image is also available for those who prefer it).
+
+### Will Sega shut this down?
+
+This project contains no copyrighted material. No ROM data, sprites, music, or other Sega assets
+are included in the repository. The engine is a clean-room reimplementation that requires users to
+supply their own legally obtained ROM files. We have no affiliation with Sega and make no claim to
+any of their intellectual property.
+
+### What platforms does it run on?
+
+Anywhere Java 21 and LWJGL run: Windows, macOS, and Linux. The engine uses OpenGL 4.1 core profile
+(chosen for macOS compatibility). A GraalVM native image build is also supported for ahead-of-time compiled
+binaries.
+
+### Did you use AI to write this? / This is AI slop!
+
+Various agents (Claude, Codex, and Gemini, in various versions and forms) have all been used at various points in the project's history, and
+the commit history doesn't hide it — you'll see `Co-Authored-By` tags throughout. But the project
+has been in development since 2013, long before AI coding assistants existed.
+
+The core engine framework, architecture, rendering pipeline, physics engine, and collision system
+were designed and coded by hand. The multi-game provider architecture, the GPU shader pipeline, the
+SMPS audio driver, and the original physics rewrite are all human-authored. AI was brought in
+for bulk analysis and research, to accelerate bulk object and boss implementation, debugging, validation, and
+unit tests — all under direct architectural oversight, with accuracy verified against the original
+ROM disassemblies. Every commit is reviewed, tested, and corrected where needed.
+
+You can't prompt your way to ROM accuracy (yet!). But we certainly prompted our way through object
+implementations, research and boilerplate code a lot faster than would have been possible by hand.
+
+### How can I contribute?
+
+The project is open source. Check the issue tracker, OBJECT_CHECKLIST.md for unimplemented game
+objects, and CHANGELOG.md for the current state of each game. The codebase uses a provider-based
+architecture that makes it relatively straightforward to add new objects, zones, and game-specific
+behaviour.
+
+## Releases
+
+### v0.4 (Unreleased)
+
+A release-sized update focused on expanding playable coverage and parity.
+
+- **Master title screen** implemented: engine-wide PNG-based title screen with animated clouds, game
+  selection, and pixel font renderer. Displayed on startup before entering game-specific title flow.
+- **Sonic 1** has moved from initial support to broad gameplay coverage: title screen flow, special
+  stages, major per-zone event scripting, extensive object and badnik additions, multiple boss
+  implementations (GHZ, MZ, SYZ, LZ, SLZ, FZ), Labyrinth water/drowning/splash behaviour,
+  ending/credits work, SBZ object and demo playback fixes, edge balance and push block collision
+  corrections, and slope crest sensor guard.
+- **Sonic 2** adds title screen support, major object passes for MTZ/SCZ/WFZ/OOZ, MCZ boss work,
+  expanded per-zone event architecture, and signpost/badnik palette/stair block art fixes.
+- **Sonic 3&K** sees major AIZ progress including intro cutscene systems, hollow tree and vine
+  traversal parity work, miniboss object set bring-up, initial badnik implementations, shield/PLC
+  integration fixes, and related regressions/tests.
+- **Cross-game feature donation** implemented: a donor game (S2 or S3K) can provide player sprites,
+  spindash dust, physics, palettes, and SFX while the base game handles levels, collision, objects,
+  and music. Includes `CrossGameFeatureProvider`, `RenderContext` palette isolation (donor sprites
+  render on dedicated palette lines 4+), underwater palette derivation for donor sprites, donor SMPS
+  driver config for correct SFX playback, S3K Tails tail appendage/animation support, hybrid physics
+  feature set, donor audio registration with per-game sequencer config, and dynamic palette texture
+  resizing across all GPU shaders.
+- **Per-game physics** and Super Sonic state/control flow (implemented for S2, stubbed for S3K).
+- **Engine fixes:** solid object edge jitter fix, S1 slope crest sensor guard, jump-while-airborne
+  guard, fade transition flash fix, results screen rendering fix.
+- PLC/art-loader refactors, RomOffsetFinder/ObjectDiscoveryTool enhancements, configuration
+  documentation, and broad audio/stability/performance hardening.
+
+See CHANGELOG.md for full details.
+
+### v0.3.20260206
+
+A massive release covering 366 commits across every major subsystem.
+
+- **Tails** (Miles Prower) is now a playable character with ROM-accurate CPU AI follower behaviour,
+  input replay, flight, and configurable sidekick toggle.
+- **Multi-game architecture:** The engine has been refactored to support multiple games via a
+  provider-based abstraction layer, with initial Sonic 1 ROM support (level select, title cards, HUD,
+  audio with S1-specific SMPS driver configuration) alongside the existing Sonic 2 support.
+- **Physics:** The physics engine has been completely rewritten to match ROM behaviour.
+- **Bosses and objects:** Boss fights are implemented for 5 zones (EHZ, CPZ, HTZ, CNZ, ARZ), along
+  with 15+ new badniks and 50+ new game objects spanning all implemented zones.
+- **Water:** A full water system with drowning mechanics is in place for CPZ and ARZ.
+- **Graphics:** The graphics backend has been migrated from JOGL to LWJGL with a GPU-accelerated
+  rendering pipeline (pattern atlas, tilemap shader, instanced sprite batching, priority FBOs).
+- **Audio:** Major accuracy improvements to YM2612 FM synthesis (based on Genesis-Plus-GX reference)
+  and the SMPS driver.
+- **Infrastructure:** Per-game ROM configuration, a HeadlessTestRunner for physics integration
+  testing, visual and audio regression test suites, a multi-game test annotation framework, GraalVM
+  native build support, and significant performance optimisations throughout.
+
+See CHANGELOG.md for full details.
+
+### v0.2.20260117
+
+Improvements and fixes across the board. Special stages are now implemented, feature complete with a
+few known issues. Physics have been improved, parallax backgrounds implemented and complete for EHZ,
+CPZ, ARZ and MCZ. Some sound improvements, title cards, level outros, etc.
+
+### v0.1.20260110
+
+Now vaguely resembles the actual Sonic 2 game. Real collision and graphics data is loaded from the
+Sonic 2 ROM and rendered on screen. The majority of the physics are in place, although it is far
+from perfect. A system for loading game objects has been created, along with an implementation for
+most of the objects and badniks in Emerald Hill Zone. Rings are implemented, life and score tracking
+is implemented. SFX and music are implemented. Everything has room for improvement, but this now
+resembles a playable game.
+
+### v0.05 (2015-04-09)
+
+Little more than a tech demo. Sonic is able to run and jump and collide with terrain in a reasonably
+correct way. No graphics have yet been implemented so it's a moving white box on a black background.
+
+### v0.01 (Pre-Alpha, first documented 2013-05-22)
+
+A moving black box. This version will be complete when we have an unskinned box that can traverse
 terrain in the same way Sonic would in the original game.
