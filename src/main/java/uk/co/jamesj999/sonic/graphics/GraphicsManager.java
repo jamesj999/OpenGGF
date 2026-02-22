@@ -785,7 +785,7 @@ public class GraphicsManager {
 		return underwaterPaletteTextureId;
 	}
 
-	public void cacheUnderwaterPaletteTexture(Palette[] palettes) {
+	public void cacheUnderwaterPaletteTexture(Palette[] palettes, Palette normalLine0) {
 		if (headlessMode)
 			return;
 
@@ -800,6 +800,9 @@ public class GraphicsManager {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		}
 
+		// Pre-compute underwater base line 0 for donor palette derivation
+		Palette underwaterLine0 = (palettes != null && palettes.length > 0) ? palettes[0] : null;
+
 		// Upload 16 * totalLines colors
 		int bufferSize = 16 * totalLines * 4;
 		ByteBuffer paletteBuffer = MemoryUtil.memAlloc(bufferSize);
@@ -808,6 +811,21 @@ public class GraphicsManager {
 
 			for (int pIndex = 0; pIndex < totalLines; pIndex++) {
 				Palette p = (palettes != null && pIndex < palettes.length) ? palettes[pIndex] : null;
+
+				// For donor palette rows, derive underwater palette from base game's color shift
+				if (p == null && normalLine0 != null && underwaterLine0 != null) {
+					for (RenderContext ctx : RenderContext.getDonorContexts()) {
+						int base = ctx.getPaletteLineBase();
+						if (pIndex >= base && pIndex < base + RenderContext.LINES_PER_CONTEXT) {
+							Palette donorNormal = ctx.getPalette(pIndex - base);
+							if (donorNormal != null) {
+								p = RenderContext.deriveUnderwaterPalette(donorNormal, normalLine0, underwaterLine0);
+							}
+							break;
+						}
+					}
+				}
+
 				for (int i = 0; i < 16; i++) {
 					try {
 						if (p != null) {
