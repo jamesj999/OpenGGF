@@ -40,25 +40,31 @@ public class SignpostObjectInstance extends BoxObjectInstance {
     private static final int STATE_SPINNING = 2;
     private static final int STATE_WALK_OFF = 4;
 
-    // Mapping frames (verified via art viewer)
-    // 0=Spin right, 1=Tails, 2=Sonic, 3=Eggman, 4=Side-on, 5=Spin left
-    private static final int FRAME_SPIN_RIGHT = 0;
+    // Mapping frame indices matching obj0D_a.asm (ROM order from loadMappingFrames):
+    // 0 = Sonic final face (tiles $22+$2E, wide) — held by Ani_obj0D anim 3: $0F,$00,$FF
+    // 1 = Tails face (tiles $3A+$3E+hflip) — held by anim 4: $0F,$01,$FF
+    // 2 = Eggman front face (tiles 0, h-flip) — held by anim 0: $0F,$02,$FF (initial state)
+    // 3 = Spin transition A (tile $0C, 4x4)
+    // 4 = Edge/thin view (tile $1C)
+    // 5 = Spin transition B (tile $0C, h-flipped)
+    private static final int FRAME_SONIC = 0;
     private static final int FRAME_TAILS = 1;
-    private static final int FRAME_SONIC = 2;
-    private static final int FRAME_EGGMAN = 3;
+    private static final int FRAME_EGGMAN = 2;
+    private static final int FRAME_SPIN_A = 3;
     private static final int FRAME_SIDE_ON = 4;
-    private static final int FRAME_SPIN_LEFT = 5;
+    private static final int FRAME_SPIN_B = 5;
 
     // Spin timing
     private static final int SPIN_FRAME_DELAY = 2;
     private static final int SPIN_CYCLES = 3;
     private static final int WALK_OFF_OFFSET = 0x128;
 
-    // Spinning animation frame sequence (Ani_obj0D mapped to current frames)
+    // Spinning animation frame sequence matching Ani_obj0D anim 1:
+    // $01, $02,$03,$04,$05, $01,$03,$04,$05, $00,$03,$04,$05, $FF
     private static final int[] SPIN_FRAMES = {
-            FRAME_EGGMAN, FRAME_SPIN_RIGHT, FRAME_SIDE_ON, FRAME_SPIN_LEFT,
-            FRAME_TAILS, FRAME_SPIN_RIGHT, FRAME_SIDE_ON, FRAME_SPIN_LEFT,
-            FRAME_SONIC, FRAME_SPIN_RIGHT, FRAME_SIDE_ON, FRAME_SPIN_LEFT
+            FRAME_EGGMAN, FRAME_SPIN_A, FRAME_SIDE_ON, FRAME_SPIN_B,
+            FRAME_TAILS, FRAME_SPIN_A, FRAME_SIDE_ON, FRAME_SPIN_B,
+            FRAME_SONIC, FRAME_SPIN_A, FRAME_SIDE_ON, FRAME_SPIN_B
     };
 
     // Sparkle effect timing and positions (from s2.asm Obj0D_RingSparklePositions)

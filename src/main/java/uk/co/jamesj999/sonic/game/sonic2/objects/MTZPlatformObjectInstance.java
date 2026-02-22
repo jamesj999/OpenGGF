@@ -143,9 +143,9 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
         }
 
         if (renderer != null && renderer.isReady()) {
-            // In CPZ, the original mappings (obj6B.asm) only have 1 frame with 1 piece.
-            // Multiple instances are placed at the same location with different subtypes
-            // to create the multi-block effect. So we always render a SINGLE block (frame 2).
+            // Frame 2 in the CPZ_STAIR_BLOCK sheet is the single 32x32 block, hand-crafted
+            // in Sonic2ObjectArt.createCPZStairBlockMappings(). Multiple Obj6B instances are
+            // placed at the same location with different subtypes to create the multi-block effect.
             renderer.drawFrameIndex(2, x, y, xFlip, false);
         } else {
             appendDebug(commands);
