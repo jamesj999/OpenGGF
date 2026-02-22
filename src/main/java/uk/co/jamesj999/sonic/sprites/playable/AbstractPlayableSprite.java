@@ -539,6 +539,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.loopLowPlane = false;
                 defineSpeeds(); // Reset speeds to default
                 resolvePhysicsProfile();
+                // ROM: Obj01_Init unconditionally sets y_radius=$13, x_radius=9.
+                // Since we reuse the sprite rather than recreating it, we must
+                // explicitly restore standing dimensions and sensor offsets here.
+                setHeight(runHeight);
+                applyStandingRadii(false);
         }
 
         public void giveShield() {

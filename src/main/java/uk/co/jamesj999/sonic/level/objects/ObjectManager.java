@@ -1504,7 +1504,9 @@ public class ObjectManager {
                     SolidObjectParams params = provider.getSolidParams();
                     int anchorX = instance.getX() + params.offsetX();
                     int anchorY = instance.getY() + params.offsetY();
-                    int halfHeight = player.getAir() ? params.airHalfHeight() : params.groundHalfHeight();
+                    // ROM always uses airHalfHeight (d2) for the overlap test — d3 is
+                    // overwritten by playerYRadius before it is read.
+                    int halfHeight = params.airHalfHeight();
                     boolean useStickyBuffer = provider.usesStickyContactBuffer();
                     byte[] slopeData = null;
                     if (instance instanceof SlopedSolidProvider sloped) {
@@ -1761,7 +1763,9 @@ public class ObjectManager {
                 SolidObjectParams params = provider.getSolidParams();
                 int anchorX = instance.getX() + params.offsetX();
                 int anchorY = instance.getY() + params.offsetY();
-                int halfHeight = player.getAir() ? params.airHalfHeight() : params.groundHalfHeight();
+                // ROM always uses airHalfHeight (d2) for the overlap test — d3 is
+                // overwritten by playerYRadius before it is read.
+                int halfHeight = params.airHalfHeight();
                 boolean useStickyBuffer = provider.usesStickyContactBuffer();
                 SolidContact contact;
                 byte[] slopeData = null;

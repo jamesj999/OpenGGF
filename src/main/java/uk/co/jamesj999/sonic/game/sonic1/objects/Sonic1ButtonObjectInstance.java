@@ -249,6 +249,13 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+        // ROM uses obActWid ($10) for Solid_Landed / SolidObject_InsideTop,
+        // not the collision halfWidth ($1B).
+        return ACTIVE_WIDTH;
+    }
+
+    @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(PRIORITY);
     }
