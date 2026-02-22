@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.audio;
 
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 import uk.co.jamesj999.sonic.audio.smps.DacData;
+import uk.co.jamesj999.sonic.audio.smps.SmpsSequencerConfig;
 
 public interface AudioBackend {
     void init();
@@ -20,6 +21,16 @@ public interface AudioBackend {
     void playSfxSmps(AbstractSmpsData data, DacData dacData);
 
     void playSfxSmps(AbstractSmpsData data, DacData dacData, float pitch);
+
+    /**
+     * Plays an SFX with an explicit sequencer config override.
+     * Used for donor (cross-game) SFX that need a different driver configuration
+     * than the base game's.
+     */
+    default void playSfxSmps(AbstractSmpsData data, DacData dacData, float pitch,
+                             SmpsSequencerConfig config) {
+        playSfxSmps(data, dacData, pitch);
+    }
 
     /**
      * Plays a sound effect by name (mapped to a WAV file).

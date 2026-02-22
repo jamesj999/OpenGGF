@@ -2,6 +2,7 @@ package uk.co.jamesj999.sonic.audio;
 
 import uk.co.jamesj999.sonic.audio.smps.AbstractSmpsData;
 import uk.co.jamesj999.sonic.audio.smps.DacData;
+import uk.co.jamesj999.sonic.audio.smps.SmpsSequencerConfig;
 
 public class NullAudioBackend implements AudioBackend {
     @Override
@@ -26,6 +27,11 @@ public class NullAudioBackend implements AudioBackend {
 
     @Override
     public void playSfxSmps(AbstractSmpsData data, DacData dacData, float pitch) {
+    }
+
+    @Override
+    public void playSfxSmps(AbstractSmpsData data, DacData dacData, float pitch,
+                            SmpsSequencerConfig config) {
     }
 
     @Override

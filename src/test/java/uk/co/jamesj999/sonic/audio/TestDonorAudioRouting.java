@@ -168,6 +168,26 @@ public class TestDonorAudioRouting {
         assertEquals("s3k-fire-shield", backend.lastSfxName);
     }
 
+    @Test
+    public void testDonorSfx_UsesProvidedSequencerConfig() {
+        Map<GameSound, Integer> baseMap = new EnumMap<>(GameSound.class);
+        audioManager.setSoundMap(baseMap);
+
+        SmpsSequencerConfig donorConfig = new SmpsSequencerConfig.Builder()
+                .tempoMode(SmpsSequencerConfig.TempoMode.OVERFLOW)
+                .build();
+
+        StubSmpsLoader donorLoader = new StubSmpsLoader();
+        donorLoader.sfxResults.put(0xE0, new StubSmpsData("donor-spindash"));
+        audioManager.registerDonorLoader("s3k", donorLoader, EMPTY_DAC, donorConfig);
+        audioManager.registerDonorSound(GameSound.SPINDASH_CHARGE, "s3k", 0xE0);
+
+        audioManager.playSfx(GameSound.SPINDASH_CHARGE, 1.0f);
+
+        assertNotNull("Donor config should be passed to backend", backend.lastDonorConfig);
+        assertEquals(SmpsSequencerConfig.TempoMode.OVERFLOW, backend.lastDonorConfig.getTempoMode());
+    }
+
     // --- Test doubles ---
 
     /** Minimal SmpsData stub that carries a name for assertion. */
@@ -259,17 +279,28 @@ public class TestDonorAudioRouting {
     private static class RecordingBackend extends NullAudioBackend {
         String lastSfxName;
         String lastFallbackName;
+        SmpsSequencerConfig lastDonorConfig;
 
         @Override
         public void playSfxSmps(AbstractSmpsData data, DacData dacData, float pitch) {
             lastSfxName = data.toString();
             lastFallbackName = null;
+            lastDonorConfig = null;
+        }
+
+        @Override
+        public void playSfxSmps(AbstractSmpsData data, DacData dacData, float pitch,
+                                SmpsSequencerConfig config) {
+            lastSfxName = data.toString();
+            lastFallbackName = null;
+            lastDonorConfig = config;
         }
 
         @Override
         public void playSfx(String sfxName, float pitch) {
             lastFallbackName = sfxName;
             lastSfxName = null;
+            lastDonorConfig = null;
         }
     }
 }
