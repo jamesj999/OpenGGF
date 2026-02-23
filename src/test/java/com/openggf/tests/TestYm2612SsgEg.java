@@ -9,7 +9,6 @@ import static org.junit.Assert.assertTrue;
 public class TestYm2612SsgEg {
 
     @Test
-    @org.junit.Ignore("Needs update for GPGX-style envelope generator")
     public void ssgEgRepeatLoopsEnvelope() {
         Ym2612Chip chip = new Ym2612Chip();
 
