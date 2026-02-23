@@ -44,14 +44,15 @@ public final class Sonic1CreditsMappings {
     public static final int FRAME_SOUND_PROGRAM  = 6;
     public static final int FRAME_THANKS         = 7;
     public static final int FRAME_PRESENTED_BY   = 8;
+    public static final int FRAME_TRY_AGAIN      = 9;
 
     /**
-     * Creates all 9 credit text mapping frames.
+     * Creates all 10 credit text mapping frames.
      *
-     * @return list of frames indexed 0-8
+     * @return list of frames indexed 0-9
      */
     public static List<SpriteMappingFrame> createFrames() {
-        List<SpriteMappingFrame> frames = new ArrayList<>(9);
+        List<SpriteMappingFrame> frames = new ArrayList<>(10);
 
         // Frame 0: .staff — "SONIC TEAM STAFF"
         frames.add(frame(
@@ -266,6 +267,18 @@ public final class Sonic1CreditsMappings {
                 piece( 0x50, -8, 2, 2, 0x0E, false, false, 0, false), // E
                 piece( 0x60, -8, 2, 2, 0x00, false, false, 0, false), // G
                 piece( 0x70, -8, 2, 2, 0x04, false, false, 0, false)  // A
+        ));
+
+        // Frame 9: .tryagain — "TRY AGAIN"
+        frames.add(frame(
+                piece(-0x40, 0x30, 2, 2, 0x3E, false, false, 0, false), // T
+                piece(-0x30, 0x30, 2, 2, 0x22, false, false, 0, false), // R
+                piece(-0x20, 0x30, 2, 2, 0x2A, false, false, 0, false), // Y
+                piece(   -8, 0x30, 2, 2, 0x04, false, false, 0, false), // A
+                piece(    8, 0x30, 2, 2, 0x00, false, false, 0, false), // G
+                piece( 0x18, 0x30, 2, 2, 0x04, false, false, 0, false), // A
+                piece( 0x28, 0x30, 1, 2, 0x46, false, false, 0, false), // I
+                piece( 0x30, 0x30, 2, 2, 0x1A, false, false, 0, false)  // N
         ));
 
         return frames;

@@ -30,5 +30,8 @@ public enum GameMode {
     CREDITS_DEMO,
 
     /** Master title screen for game selection (before any ROM is loaded) */
-    MASTER_TITLE_SCREEN
+    MASTER_TITLE_SCREEN,
+
+    /** Post-credits "TRY AGAIN" or "END" screen (Sonic 1) */
+    TRY_AGAIN_END
 }

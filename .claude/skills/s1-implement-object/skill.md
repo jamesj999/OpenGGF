@@ -118,7 +118,7 @@ Create the instance class following existing Sonic 2 patterns but in the Sonic 1
 
 ##### Pattern 1: Simple Object
 ```java
-package uk.co.jamesj999.sonic.game.sonic1.objects;
+package com.openggf.sonic.game.sonic1.objects;
 
 public class ObjectNameObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
@@ -128,7 +128,7 @@ public class ObjectNameObjectInstance extends AbstractObjectInstance
 
 ##### Pattern 2: Badnik (Enemy with AI)
 ```java
-package uk.co.jamesj999.sonic.game.sonic1.objects.badniks;
+package com.openggf.sonic.game.sonic1.objects.badniks;
 
 public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
     @Override

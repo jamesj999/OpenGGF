@@ -1,0 +1,218 @@
+package com.openggf.game.sonic1.objects;
+
+import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
+import com.openggf.game.sonic1.credits.Sonic1CreditsMappings;
+import com.openggf.graphics.GLCommand;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectArtKeys;
+import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
+
+import java.util.List;
+import java.util.logging.Logger;
+
+/**
+ * Object 8B - Eggman on the "TRY AGAIN" and "END" screens.
+ * <p>
+ * State machine matching {@code _incObj/8B Try Again & End Eggman.asm}:
+ * <pre>
+ *   0: EEgg_Main     - initialize, check emerald count, spawn text/emeralds
+ *   2: EEgg_Animate  - play animation via Ani_EEgg
+ *   4: EEgg_Juggle   - flip emerald rotation direction, set timer
+ *   6: EEgg_Wait     - countdown, toggle direction, return to animate
+ * </pre>
+ * <p>
+ * Uses screen-space coordinates (ROM: obRender = 0).
+ * <p>
+ * Animation scripts (Ani_EEgg):
+ * <ul>
+ *   <li>Anim 0 (.tryagain1): delay=5, frame 0, then afRoutine (advance to routine 4)</li>
+ *   <li>Anim 1 (.tryagain2): delay=5, frame 2, then afRoutine (advance to routine 4)</li>
+ *   <li>Anim 2 (.end): delay=7, frames 4,5,6,5,4,5,6,5,4,5,6,5,7,5,6,5, afEnd (loop)</li>
+ * </ul>
+ * <p>
+ * Reference: docs/s1disasm/_incObj/8B Try Again & End Eggman.asm
+ */
+public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
+    private static final Logger LOGGER = Logger.getLogger(Sonic1TryAgainEggmanObjectInstance.class.getName());
+
+    private static final int PRIORITY = 2;
+
+    /** ROM: move.w #$120,obX(a0) */
+    private static final int SCREEN_X = 0x120;
+
+    /** ROM: move.w #$F4,obScreenY(a0) */
+    private static final int SCREEN_Y = 0xF4;
+
+    /** ROM: move.w #112,eegg_time(a0) */
+    private static final int JUGGLE_TIMER = 112;
+
+    /** S1 has 6 chaos emeralds. */
+    private static final int TOTAL_EMERALDS = 6;
+
+    // Animation data (Ani_EEgg)
+    // Anim 0 (.tryagain1): delay=5, frame 0, then advance routine
+    // Anim 1 (.tryagain2): delay=5, frame 2, then advance routine
+    // Anim 2 (.end): delay=7, loop of frames 4,5,6,5,...,7,5,6,5
+    private static final int[][] ANIM_FRAMES = {
+            {0},                                                              // anim 0: frame 0 then afRoutine
+            {2},                                                              // anim 1: frame 2 then afRoutine
+            {4, 5, 6, 5, 4, 5, 6, 5, 4, 5, 6, 5, 7, 5, 6, 5}               // anim 2: END loop
+    };
+    private static final int[] ANIM_DELAYS = {5, 5, 7};
+    private static final boolean[] ANIM_ADVANCE_ROUTINE = {true, true, false};
+    // For anims 0 and 1, the afRoutine parameter value (added to obRoutine index)
+    // Anim 0: afRoutine,1 -> after frame 0, routine advances and next anim = 1
+    // Anim 1: afRoutine,3 -> after frame 2, routine advances and next anim = 3
+    private static final int[] ANIM_NEXT_ANIM = {1, 3, -1};
+
+    private final PatternSpriteRenderer renderer;
+    private final Sonic1TryAgainEmeraldsObjectInstance emeralds;
+    private final Sonic1CreditsTextRendererRef textRenderer;
+    private int routine;
+    private int animIndex;
+    private int animFrameIndex;
+    private int animDelayCounter;
+    private int frameId;
+    private int juggleTimer;
+    /** Bit 0 of obAnim: controls juggle direction. */
+    private int animDirection;
+
+    /**
+     * @param renderManager object render manager for art lookup
+     * @param emeralds      the emeralds object (may be null if all 6 collected)
+     * @param textRenderer  text renderer reference for "TRY AGAIN" text (may be null)
+     */
+    public Sonic1TryAgainEggmanObjectInstance(
+            ObjectRenderManager renderManager,
+            Sonic1TryAgainEmeraldsObjectInstance emeralds,
+            Sonic1CreditsTextRendererRef textRenderer) {
+        super(null, "EndEggman");
+        this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_EGGMAN) : null;
+        this.emeralds = emeralds;
+        this.textRenderer = textRenderer;
+
+        // Routine 0: EEgg_Main
+        int emeraldCount = GameServices.gameState().getEmeraldCount();
+
+        if (emeraldCount >= TOTAL_EMERALDS) {
+            // All emeralds: use "END" animation (anim 2)
+            animIndex = 2;
+        } else {
+            // Not all emeralds: use "TRY AGAIN" animation (anim 0)
+            animIndex = 0;
+        }
+
+        // Advance to routine 2 (EEgg_Animate) - ROM falls through
+        routine = 2;
+        animFrameIndex = 0;
+        animDelayCounter = ANIM_DELAYS[animIndex];
+        frameId = ANIM_FRAMES[animIndex][0];
+        animDirection = 0;
+    }
+
+    @Override
+    public void update(int frameCounter, AbstractPlayableSprite player) {
+        if (isDestroyed()) {
+            return;
+        }
+        switch (routine) {
+            case 2 -> updateAnimate();
+            case 4 -> updateJuggle();
+            case 6 -> updateWait();
+            default -> { }
+        }
+    }
+
+    /** Routine 2: EEgg_Animate - play animation. */
+    private void updateAnimate() {
+        animDelayCounter--;
+        if (animDelayCounter >= 0) {
+            return;
+        }
+        animDelayCounter = ANIM_DELAYS[animIndex];
+
+        int[] frames = ANIM_FRAMES[animIndex];
+        animFrameIndex++;
+
+        if (animFrameIndex >= frames.length) {
+            if (ANIM_ADVANCE_ROUTINE[animIndex]) {
+                // afRoutine: advance routine by 2, set new anim
+                routine = 4; // EEgg_Juggle
+                int nextAnim = ANIM_NEXT_ANIM[animIndex];
+                if (nextAnim >= 0 && nextAnim < ANIM_FRAMES.length) {
+                    animIndex = nextAnim;
+                    animFrameIndex = 0;
+                    animDelayCounter = ANIM_DELAYS[animIndex];
+                    frameId = ANIM_FRAMES[animIndex][0];
+                }
+                // Immediately run juggle logic
+                updateJuggle();
+                return;
+            } else {
+                // afEnd: loop
+                animFrameIndex = 0;
+            }
+        }
+        frameId = frames[animFrameIndex];
+    }
+
+    /** Routine 4: EEgg_Juggle - signal emeralds to change direction. */
+    private void updateJuggle() {
+        routine = 6; // advance to EEgg_Wait
+
+        if (emeralds != null) {
+            // Determine velocity direction from obAnim bit 0
+            int velocity = 2;
+            if ((animDirection & 1) != 0) {
+                velocity = -2;
+            }
+            emeralds.signalJuggle(velocity);
+        }
+
+        // Increment frame (ROM: addq.b #1,obFrame(a0))
+        frameId++;
+
+        juggleTimer = JUGGLE_TIMER;
+    }
+
+    /** Routine 6: EEgg_Wait - countdown timer. */
+    private void updateWait() {
+        juggleTimer--;
+        if (juggleTimer < 0) {
+            // Toggle direction and return to animate
+            animDirection ^= 1;
+            routine = 2;
+            animFrameIndex = 0;
+            animDelayCounter = ANIM_DELAYS[animIndex];
+            frameId = ANIM_FRAMES[animIndex][0];
+        }
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        return PRIORITY;
+    }
+
+    @Override
+    public void appendRenderCommands(List<GLCommand> commands) {
+        if (isDestroyed() || renderer == null || !renderer.isReady()) {
+            return;
+        }
+        // Screen-space rendering: convert to world coords by adding camera position
+        Camera camera = Camera.getInstance();
+        int worldX = SCREEN_X + camera.getX();
+        int worldY = SCREEN_Y + camera.getY();
+        renderer.drawFrameIndex(frameId, worldX, worldY, false, false);
+    }
+
+    /**
+     * Interface for accessing the credits text renderer from the TryAgainEnd screen.
+     * Avoids circular dependency on Sonic1CreditsTextRenderer.
+     */
+    public interface Sonic1CreditsTextRendererRef {
+        void draw(int frameIndex);
+    }
+}

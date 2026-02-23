@@ -63,7 +63,7 @@ Game selection: `--game s1`, `--game s2` (default), or `--game s3k`. Auto-detect
 
 **PLC cross-referencing:** Search results for art labels automatically show which PLCs reference that art. Use `plc <name>` to display all art entries within a specific PLC definition.
 
-See `uk.co.jamesj999.sonic.tools.disasm` package for programmatic API.
+See `com.openggf.sonic.tools.disasm` package for programmatic API.
 
 ## Architecture
 
@@ -111,9 +111,9 @@ GameServices.debugOverlay() // DebugOverlayManager - debug rendering
 
 **PlayableSpriteController** coordinates: `PlayableSpriteMovement` (physics), `PlayableSpriteAnimation` (animation state), `SpindashDustController`, `DrowningController`.
 
-**CollisionSystem** (`uk.co.jamesj999.sonic.physics`) - Unified collision orchestration: terrain probes via `TerrainCollisionManager`, solid object resolution via `ObjectManager.SolidContacts`, post-resolution ground mode/headroom checks. Supports trace recording via `CollisionTrace`.
+**CollisionSystem** (`com.openggf.sonic.physics`) - Unified collision orchestration: terrain probes via `TerrainCollisionManager`, solid object resolution via `ObjectManager.SolidContacts`, post-resolution ground mode/headroom checks. Supports trace recording via `CollisionTrace`.
 
-**UiRenderPipeline** (`uk.co.jamesj999.sonic.graphics.pipeline`) - Render ordering: Scene -> HUD overlay -> Fade pass. `Engine.display()` uses it for screen transitions.
+**UiRenderPipeline** (`com.openggf.sonic.graphics.pipeline`) - Render ordering: Scene -> HUD overlay -> Fade pass. `Engine.display()` uses it for screen transitions.
 
 **Sonic2LevelAnimationManager** - Implements `AnimatedPatternManager` and `AnimatedPaletteManager` (pattern animation scripts + zone-specific palette cycling).
 
@@ -129,7 +129,7 @@ GameServices.debugOverlay() // DebugOverlayManager - debug rendering
 
 ## Level Resource Overlay System
 
-Some zones share level resources with overlays (e.g., HTZ shares base data with EHZ, then applies HTZ-specific pattern/block overlays). Implemented in `uk.co.jamesj999.sonic.level.resources`:
+Some zones share level resources with overlays (e.g., HTZ shares base data with EHZ, then applies HTZ-specific pattern/block overlays). Implemented in `com.openggf.sonic.level.resources`:
 
 - `LoadOp` - Single load operation (ROM address, compression, dest offset)
 - `LevelResourcePlan` - Lists of LoadOps for patterns, blocks, chunks, collision
@@ -300,7 +300,7 @@ Documented in **[docs/KNOWN_DISCREPANCIES.md](docs/KNOWN_DISCREPANCIES.md)**: Gl
 
 ## Special Stage Implementation
 
-Key files in `uk.co.jamesj999.sonic.game.sonic2.specialstage`: `Sonic2SpecialStageManager` (main coordinator), `Sonic2TrackAnimator` (segment sequencing), `Sonic2TrackFrameDecoder` (bitstream decoder), `Sonic2SpecialStageDataLoader`, `Sonic2SpecialStageConstants`.
+Key files in `com.openggf.sonic.game.sonic2.specialstage`: `Sonic2SpecialStageManager` (main coordinator), `Sonic2TrackAnimator` (segment sequencing), `Sonic2TrackFrameDecoder` (bitstream decoder), `Sonic2SpecialStageDataLoader`, `Sonic2SpecialStageConstants`.
 
 **Track frame format:** Each of 56 frames is a compressed bitstream: bitflags (1 bit/tile: 0=RLE fill, 1=UNC unique), UNC LUT, RLE LUT. Only UNC tiles get `flip_x` (0x0800) toggled on flip. VDP plane is 128 cells wide as 4x32 strips - flipping reverses within each strip.
 
