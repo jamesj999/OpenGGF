@@ -70,6 +70,8 @@ public class TryAgainEndManager {
     private static final int PALETTE_COUNT = 4;
     /** VDP palette RAM start address for destination offset calculation. */
     private static final int V_PALETTE_RAM = 0xFB00;
+    /** Disassembly palette ID for Sonic (palid_Sonic = 3). */
+    private static final int DISASM_SONIC_PALID = 3;
 
     /** Pattern base for Eggman art in the GPU pattern atlas. */
     private static final int EGGMAN_PATTERN_BASE = 0x60000;
@@ -88,7 +90,6 @@ public class TryAgainEndManager {
     private int eggAnimDelay;
     private int eggFrameId;
     private int eggJuggleTimer;
-    private int eggAnimDirection; // bit 0 of obAnim
 
     // Ani_EEgg animation data
     private static final int[][] EGG_ANIM_FRAMES = {
@@ -145,7 +146,6 @@ public class TryAgainEndManager {
         eggAnimFrameIndex = 0;
         eggAnimDelay = EGG_ANIM_DELAYS[eggAnimIndex];
         eggFrameId = EGG_ANIM_FRAMES[eggAnimIndex][0];
-        eggAnimDirection = 0;
 
         // Initialize emeralds (Object 8C) - only if not all collected
         if (!hasAllEmeralds) {
@@ -231,15 +231,24 @@ public class TryAgainEndManager {
      * Loads the ending palette from ROM palette pointer table and uploads to GPU.
      * ROM: PalLoad_Fade palid_Ending
      * <p>
-     * Reads the palette ID from the ending zone's level header (byte 15), matching
-     * how Sonic1.java loads palettes for normal levels. This avoids hardcoding a
-     * palette table index which may vary between ROM revisions.
+     * Reads the palette ID from the ending zone's level header (byte 15), then
+     * applies the same ROM-revision adjustment as Sonic1.java. REV01 removed the
+     * Level Select palette entry, shifting all IDs down by 1, but the level headers
+     * still reference the OLD (disassembly) IDs.
      */
     private void loadEndingPalette(Rom rom, GraphicsManager gm) throws IOException {
         // Read the ending zone level header to get palette ID (byte 15)
         int headerAddr = Sonic1Constants.LEVEL_HEADERS_ADDR + Sonic1Constants.ZONE_ENDZ * 16;
-        int paletteId = rom.readByte(headerAddr + 15) & 0xFF;
-        LOGGER.info("TryAgainEnd: ending zone header palette ID = " + paletteId);
+        int headerPaletteId = rom.readByte(headerAddr + 15) & 0xFF;
+
+        // Apply ROM revision adjustment (same as Sonic1.java):
+        // The disassembly defines palid_Sonic=3, but REV01 shifted it to 2.
+        // Level headers still contain old IDs, so we detect the actual Sonic
+        // palette position and adjust the offset accordingly.
+        int sonicPaletteId = findSonicPaletteId(rom);
+        int paletteId = sonicPaletteId + (headerPaletteId - DISASM_SONIC_PALID);
+        LOGGER.info("TryAgainEnd: header palette ID=" + headerPaletteId
+                + " sonicId=" + sonicPaletteId + " adjusted=" + paletteId);
 
         int tableAddr = Sonic1Constants.PALETTE_TABLE_ADDR;
         int entryAddr = tableAddr + paletteId * 8;
@@ -285,6 +294,27 @@ public class TryAgainEndManager {
                 gm.cachePaletteTexture(palettes[i], i);
             }
         }
+    }
+
+    /**
+     * Finds the actual Sonic palette ID in the PalPointers table.
+     * Matches Sonic1.java's findSonicPaletteId(): scans for the first entry
+     * (after title/menu) targeting palette line 0 with exactly 1 palette line (32 bytes).
+     * This handles REV01 where the Level Select entry was removed, shifting IDs by -1.
+     */
+    private int findSonicPaletteId(Rom rom) throws IOException {
+        int tableAddr = Sonic1Constants.PALETTE_TABLE_ADDR;
+        for (int id = 2; id < 10; id++) {
+            int entryAddr = tableAddr + id * 8;
+            if (entryAddr + 8 > rom.getSize()) break;
+            int dest = rom.read16BitAddr(entryAddr + 4) & 0xFFFF;
+            int countWord = rom.read16BitAddr(entryAddr + 6) & 0xFFFF;
+            int byteCount = (countWord + 1) * 4;
+            if (dest == V_PALETTE_RAM && byteCount == 32) {
+                return id;
+            }
+        }
+        return DISASM_SONIC_PALID; // fallback
     }
 
     /**
@@ -336,16 +366,10 @@ public class TryAgainEndManager {
 
         if (eggAnimFrameIndex >= frames.length) {
             if (eggAnimIndex < 2) {
-                // afRoutine: advance to EEgg_Juggle, set next animation
+                // afRoutine: advance to EEgg_Juggle.
+                // Do NOT change eggAnimIndex here — EEgg_Wait toggles it
+                // via bchg #0,obAnim when the juggle timer expires.
                 eggRoutine = 4;
-                eggAnimIndex = (eggAnimIndex == 0) ? 1 : 3;
-                // Clamp to valid anim range
-                if (eggAnimIndex >= EGG_ANIM_FRAMES.length) {
-                    eggAnimIndex = 2;
-                }
-                eggAnimFrameIndex = 0;
-                eggAnimDelay = EGG_ANIM_DELAYS[eggAnimIndex];
-                eggFrameId = EGG_ANIM_FRAMES[eggAnimIndex][0];
                 updateEggJuggle();
                 return;
             } else {
@@ -360,9 +384,10 @@ public class TryAgainEndManager {
     private void updateEggJuggle() {
         eggRoutine = 6;
 
-        // Signal emeralds
+        // Signal emeralds — direction from bit 0 of eggAnimIndex
+        // (matches ROM: btst #0,obAnim(a0))
         int velocity = 2;
-        if ((eggAnimDirection & 1) != 0) {
+        if ((eggAnimIndex & 1) != 0) {
             velocity = -2;
         }
         for (int i = 0; i < emeraldCount; i++) {
@@ -379,7 +404,10 @@ public class TryAgainEndManager {
     private void updateEggWait() {
         eggJuggleTimer--;
         if (eggJuggleTimer < 0) {
-            eggAnimDirection ^= 1;
+            // bchg #0,obAnim — toggle animation index bit 0.
+            // In TRY AGAIN mode this alternates between anim 0 and 1;
+            // in END mode routine 6 is never reached (anim 2 loops via afEnd).
+            eggAnimIndex ^= 1;
             eggRoutine = 2;
             eggAnimFrameIndex = 0;
             eggAnimDelay = EGG_ANIM_DELAYS[eggAnimIndex];
