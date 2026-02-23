@@ -287,7 +287,42 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
 
     @Override
     protected void onExitReady() {
-        triggerFadeToBlack();
+        if (specialStageAfter) {
+            triggerFadeToWhiteForSpecialStage();
+        } else {
+            triggerFadeToBlack();
+        }
+    }
+
+    /**
+     * Fade to white and play the special stage enter SFX before transitioning
+     * to the special stage. ROM-accurate: the screen goes white (like the
+     * normal special stage entry) rather than black.
+     */
+    private void triggerFadeToWhiteForSpecialStage() {
+        LOGGER.info("S1 Results screen complete, starting fade to white for special stage");
+
+        // Play the special stage enter/exit SFX during the white fade
+        try {
+            AudioManager.getInstance().playSfx(Sonic1Sfx.ENTER_SS.id);
+        } catch (Exception e) {
+            // Don't let audio failure break the transition
+        }
+
+        FadeManager fadeManager = FadeManager.getInstance();
+        fadeManager.startFadeToWhite(() -> {
+            setDestroyed(true);
+            LevelManager levelManager = LevelManager.getInstance();
+            if (levelManager != null) {
+                // Giant Ring collected: advance zone/act first (ROM-accurate: Got_NextLevel),
+                // then enter special stage. On return, the advanced values are used.
+                levelManager.advanceZoneActOnly();
+                levelManager.requestSpecialStageFromCheckpoint();
+            }
+            // Don't start fadeFromWhite here — let the screen stay white
+            // (HOLD_WHITE). enterSpecialStage() will detect HOLD_WHITE and
+            // transition directly, fading from white to reveal the special stage.
+        });
     }
 
     private void triggerFadeToBlack() {
@@ -303,23 +338,14 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
             setDestroyed(true);
             LevelManager levelManager = LevelManager.getInstance();
             if (levelManager != null) {
-                if (specialStageAfter) {
-                    // Giant Ring collected: advance zone/act first (ROM-accurate: Got_NextLevel),
-                    // then enter special stage. On return, the advanced values are used.
-                    levelManager.advanceZoneActOnly();
-                    levelManager.requestSpecialStageFromCheckpoint();
-                } else {
-                    try {
-                        levelManager.advanceToNextLevel();
-                    } catch (java.io.IOException e) {
-                        LOGGER.severe("Failed to load next level: " + e.getMessage());
-                    }
+                try {
+                    levelManager.advanceToNextLevel();
+                } catch (java.io.IOException e) {
+                    LOGGER.severe("Failed to load next level: " + e.getMessage());
                 }
+                // Keep transition atomic: immediately reveal the next scene.
+                fadeManager.startFadeFromBlack(null);
             }
-
-            // Keep transition atomic: once post-results routing is decided,
-            // immediately reveal the next scene instead of persisting HOLD_BLACK.
-            fadeManager.startFadeFromBlack(null);
         });
     }
 
