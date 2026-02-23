@@ -7,6 +7,7 @@ import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
+import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -268,6 +269,8 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
 
         // move.b #id_Roll,obAnim(a1) — make Sonic use "rolling" animation
         player.setRolling(true);
+        player.setAnimationId(Sonic1AnimationIds.ROLL);
+        player.setForcedAnimationId(Sonic1AnimationIds.ROLL);
 
         // move.w #$800,obInertia(a1)
         player.setGSpeed((short) GRAB_INERTIA);
@@ -357,6 +360,7 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
             // clr.b (f_playerctrl).w — unlock controls
             player.setObjectControlled(false);
             player.setControlLocked(false);
+            player.setForcedAnimationId(-1);
 
             // subq.b #4,obRoutine(a0) — back to Jun_Action
             routine = Routine.ACTION;
