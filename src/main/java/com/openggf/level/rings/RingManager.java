@@ -12,6 +12,10 @@ import com.openggf.level.objects.TouchResponseTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.ShieldType;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameStateManager;
+import com.openggf.game.PhysicsFeatureSet;
+import com.openggf.game.PhysicsProvider;
 
 import java.util.Arrays;
 import java.util.BitSet;
@@ -475,11 +479,13 @@ public class RingManager {
             renderer.ensurePatternsCached(graphicsManager, basePatternIndex);
         }
 
+        private int getSpinFrameCount() {
+            int count = spriteSheet.getSpinFrameCount();
+            return (count > 0) ? count : spriteSheet.getFrameCount();
+        }
+
         private int getSpinFrameIndex(int frameCounter) {
-            int frameCount = spriteSheet.getSpinFrameCount();
-            if (frameCount <= 0) {
-                frameCount = spriteSheet.getFrameCount();
-            }
+            int frameCount = getSpinFrameCount();
             if (frameCount <= 0) {
                 return 0;
             }
@@ -554,6 +560,9 @@ public class RingManager {
         private static final int LIFETIME_FRAMES = 0xFF;
         private static final int RING_TOUCH_SIZE_INDEX = 0x07;
         private static final int SOLIDITY_TOP = 0x0C;
+        // ROM: Obj37_Init sets y_radius(a1) = 8. RingCheckFloorDist adds y_radius
+        // to y_pos before probing, so it checks from the ring's bottom edge.
+        private static final int RING_Y_RADIUS = 8;
 
         private static final short[] SINE_TABLE = {
                 0, 6, 12, 18, 25, 31, 37, 43, 49, 56, 62, 68, 74, 80, 86, 92,
@@ -586,6 +595,12 @@ public class RingManager {
         private final LostRing[] ringPool = new LostRing[MAX_LOST_RINGS];
         private int activeRingCount = 0;
         private int nextId;
+        // ROM-accurate shared animation state (Ring_spill_anim_counter/accum/frame).
+        // The counter doubles as both lifetime and animation speed input:
+        // accumulator increases by counter each frame, producing a decelerating spin.
+        private int spillAnimCounter;
+        private int spillAnimAccum;
+        private int spillAnimFrame;
 
         private LostRingPool(LevelManager levelManager, RingRenderer renderer, TouchResponseTable touchResponseTable) {
             this.levelManager = levelManager;
@@ -613,6 +628,10 @@ public class RingManager {
             int yVel = 0;
 
             activeRingCount = 0;
+            // ROM: Ring_spill_anim_counter = $FF, accumulator reset
+            spillAnimCounter = LIFETIME_FRAMES;
+            spillAnimAccum = 0;
+            spillAnimFrame = 0;
 
             for (int i = 0; i < count; i++) {
                 if (angle >= 0) {
@@ -621,17 +640,22 @@ public class RingManager {
                     int scale = (angle >> 8) & 0xFF;
                     xVel = sin << scale;
                     yVel = cos << scale;
-                    angle = (angle + 0x10) & 0xFFFF;
-                    if ((angle & 0x100) != 0) {
-                        angle = (angle - 0x80) & 0xFFFF;
-                        if ((angle & 0x100) != 0) {
+                    // ROM: addi.b #$10,d4 — byte-only add, high byte (scale) unchanged.
+                    // Only the low byte increments; carry from the byte add triggers
+                    // the $80 subtraction which eventually drops the scale 2→1→0.
+                    int lowByte = (angle & 0xFF) + 0x10;
+                    boolean carry = lowByte > 0xFF;
+                    angle = (angle & 0xFF00) | (lowByte & 0xFF);
+                    if (carry) {
+                        angle -= 0x80;
+                        if (angle < 0) {
                             angle = 0x288;
                         }
                     }
                 }
 
                 ringPool[activeRingCount].reset(nextId++, player.getCentreX(), player.getCentreY(),
-                        xVel, yVel, LIFETIME_FRAMES, frameCounter);
+                        xVel, yVel, LIFETIME_FRAMES);
                 activeRingCount++;
                 xVel = -xVel;
                 angle = -angle;
@@ -650,6 +674,29 @@ public class RingManager {
             if (bounds.width() <= 0 || bounds.height() <= 0) {
                 return;
             }
+
+            // ROM: ChangeRingFrame — shared animation driven by countdown counter.
+            // Accumulator adds the counter value each frame, producing a decelerating
+            // spin (fast when counter is high, slow as it approaches 0).
+            if (spillAnimCounter > 0) {
+                spillAnimAccum = (spillAnimAccum + spillAnimCounter) & 0xFFFF;
+                // ROM: rol.w #7,d0 / andi.w #3,d0 → extracts bits 10:9
+                spillAnimFrame = (spillAnimAccum >> 9) & 3;
+                spillAnimCounter--;
+            }
+
+            // Per-game floor check frequency: S1 every 4 frames (#3), S2/S3K every 8 (#7).
+            int floorCheckMask = PhysicsFeatureSet.RING_FLOOR_CHECK_MASK_S2; // default S2
+            PhysicsProvider physProvider = GameModuleRegistry.getCurrent() != null
+                    ? GameModuleRegistry.getCurrent().getPhysicsProvider() : null;
+            PhysicsFeatureSet featureSet = physProvider != null ? physProvider.getFeatureSet() : null;
+            if (featureSet != null) {
+                floorCheckMask = featureSet.ringFloorCheckMask();
+            }
+
+            // S3K: Reverse_gravity_flag gates Obj_Bouncing_Ring_Reverse_Gravity variant.
+            boolean reverseGravity = GameStateManager.getInstance().isReverseGravityActive();
+            int gravity = reverseGravity ? -GRAVITY : GRAVITY;
 
             int playerX = 0;
             int playerY = 0;
@@ -676,19 +723,38 @@ public class RingManager {
                 if (!ring.isCollected()) {
                     ring.addXSubpixel(ring.getXVel());
                     ring.addYSubpixel(ring.getYVel());
-                    ring.addYVel(GRAVITY);
+                    ring.addYVel(gravity);
 
-                    if (ring.getYVel() >= 0 && ((frameCounter + ring.getId()) & 7) == 0) {
-                        int dist = ringCheckFloorDist(ring.getX(), ring.getY());
-                        if (dist < 0) {
-                            ring.addYSubpixel(dist << 8);
-                            int yVel = ring.getYVel();
-                            yVel -= (yVel >> 2);
-                            ring.setYVel(-yVel);
+                    if (((frameCounter + ring.getId()) & floorCheckMask) == 0) {
+                        if (reverseGravity) {
+                            // S3K reverse gravity: check ceiling (probe from top edge, y - y_radius).
+                            // ROM: RingCheckFloorDist_ReverseGravity subtracts y_radius, probes upward.
+                            if (ring.getYVel() <= 0) {
+                                int dist = ringCheckCeilingDist(ring.getX(), ring.getY() - RING_Y_RADIUS);
+                                if (dist < 0) {
+                                    ring.addYSubpixel(-dist << 8);
+                                    int yVel = ring.getYVel();
+                                    yVel -= (yVel >> 2);
+                                    ring.setYVel(-yVel);
+                                }
+                            }
+                        } else {
+                            // Normal gravity: check floor (probe from bottom edge, y + y_radius).
+                            if (ring.getYVel() >= 0) {
+                                int dist = ringCheckFloorDist(ring.getX(), ring.getY() + RING_Y_RADIUS);
+                                if (dist < 0) {
+                                    ring.addYSubpixel(dist << 8);
+                                    int yVel = ring.getYVel();
+                                    yVel -= (yVel >> 2);
+                                    ring.setYVel(-yVel);
+                                }
+                            }
                         }
                     }
 
-                    if (player != null && ring.canBeCollected(frameCounter)
+                    // ROM: Touch_ChkValue (s2.asm:84750-84756) — collection gated only
+                    // by invulnerable_time >= 90 (0x5A). No per-ring age delay exists.
+                    if (player != null
                             && !player.getDead()
                             && player.getInvulnerableFrames() < 90
                             && ringOverlapsPlayer(playerX, playerY, playerHeight, ring)) {
@@ -699,6 +765,7 @@ public class RingManager {
                 }
 
                 ring.decLifetime();
+                // ROM: tst.b (Ring_spill_anim_counter).w / beq.s Obj37_Delete
                 if (ring.getLifetime() <= 0 || ring.getY() > cameraBottom) {
                     ring.deactivate();
                 }
@@ -710,7 +777,12 @@ public class RingManager {
                 return;
             }
 
-            int spinFrameIndex = renderer.getSpinFrameIndex(frameCounter);
+            // ROM: scattered rings use shared spillAnimFrame (0-3) driven by the
+            // decelerating accumulator, NOT the constant-speed placed-ring animation.
+            // Clamp to available spin frames in case sprite sheet differs.
+            int spinCount = renderer.getSpinFrameCount();
+            int spinFrameIndex = (spinCount > 0) ? (spillAnimFrame % spinCount) : 0;
+
             for (int i = 0; i < activeRingCount; i++) {
                 LostRing ring = ringPool[i];
                 if (!ring.isActive()) {
@@ -718,9 +790,8 @@ public class RingManager {
                 }
 
                 if (!ring.isCollected()) {
-                    if (ring.getLifetime() < 64 && (ring.getLifetime() & 1) != 0) {
-                        continue;
-                    }
+                    // ROM: Obj37_Main always calls DisplaySprite — no blink effect.
+                    // Rings display every frame until the counter hits 0, then delete.
                     renderer.drawFrameIndex(spinFrameIndex, ring.getX(), ring.getY());
                     continue;
                 }
@@ -781,12 +852,42 @@ public class RingManager {
                 return 0;
             }
             if (metric.metric == 16) {
+                // ROM: sub.w a3,d2 with a3=$10 → check tile above
                 int prevY = y - 16;
                 ChunkDesc prevDesc = levelManager.getChunkDescAt((byte) 0, x, prevY);
                 SolidTile prevTile = getSolidTile(prevDesc, SOLIDITY_TOP);
                 SensorMetric prevMetric = getMetric(prevTile, prevDesc, x, prevY);
                 if (prevMetric.metric > 0 && prevMetric.metric < 16) {
                     return calculateDistance(prevMetric.metric, x, y, prevY);
+                }
+                return calculateDistance(metric.metric, x, y, y);
+            }
+            return calculateDistance(metric.metric, x, y, y);
+        }
+
+        /**
+         * Ceiling distance check for S3K reverse gravity rings.
+         * ROM: RingCheckFloorDist_ReverseGravity — same as floor check but probes
+         * upward (stride -$10 → check tile below when fully solid).
+         */
+        private int ringCheckCeilingDist(int x, int y) {
+            if (levelManager == null) {
+                return 0;
+            }
+            ChunkDesc chunkDesc = levelManager.getChunkDescAt((byte) 0, x, y);
+            SolidTile tile = getSolidTile(chunkDesc, SOLIDITY_TOP);
+            SensorMetric metric = getMetric(tile, chunkDesc, x, y);
+            if (metric.metric == 0) {
+                return 0;
+            }
+            if (metric.metric == 16) {
+                // ROM: sub.w a3,d2 with a3=-$10 → check tile below
+                int nextY = y + 16;
+                ChunkDesc nextDesc = levelManager.getChunkDescAt((byte) 0, x, nextY);
+                SolidTile nextTile = getSolidTile(nextDesc, SOLIDITY_TOP);
+                SensorMetric nextMetric = getMetric(nextTile, nextDesc, x, nextY);
+                if (nextMetric.metric > 0 && nextMetric.metric < 16) {
+                    return calculateDistance(nextMetric.metric, x, y, nextY);
                 }
                 return calculateDistance(metric.metric, x, y, y);
             }
