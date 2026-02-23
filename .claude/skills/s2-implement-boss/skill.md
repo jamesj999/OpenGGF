@@ -131,7 +131,7 @@ private void updateZONE() {
 **Boss instance template:**
 
 ```java
-package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
+package com.openggf.sonic.game.sonic2.objects.bosses;
 
 public class Sonic2ZoneBossInstance extends AbstractBossInstance {
 

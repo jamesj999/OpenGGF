@@ -37,6 +37,7 @@ public final class ObjectArtKeys {
     public static final String END_SONIC = "end_sonic";
     public static final String END_EMERALDS = "end_emeralds";
     public static final String END_STH = "end_sth";
+    public static final String END_EGGMAN = "end_eggman";
     public static final String POINTS = "points";
     public static final String BRIDGE = "bridge";
     public static final String ROCK = "rock";

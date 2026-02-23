@@ -554,6 +554,8 @@ public final class Sonic1Constants {
     public static final int ART_NEM_END_EMERALDS_ADDR = 0x5FB02;
     // Nem_EndStH: Ending "SONIC THE HEDGEHOG" logo art (647 bytes, verified by RomOffsetFinder)
     public static final int ART_NEM_END_STH_ADDR = 0x62638;
+    // Nem_TryAgain: "TRY AGAIN" / "END" Eggman art (verified by RomOffsetFinder)
+    public static final int ART_NEM_TRY_AGAIN_ADDR = 0x60EDE;
 
     // Nem_Sbz2Eggman: Eggman without vehicle (SBZ2/FZ) — loaded at ArtTile_FZ_Eggman_No_Vehicle
     // PLC: Nem_Sbz2Eggman -> ArtTile_FZ_Eggman_No_Vehicle ($470) — used by Map_SEgg

@@ -125,7 +125,7 @@ Create the instance class following existing patterns. **Choose the appropriate 
 For objects that exist as a single collision/render entity:
 
 ```java
-package uk.co.jamesj999.sonic.game.sonic2.objects;
+package com.openggf.sonic.game.sonic2.objects;
 
 public class ObjectNameObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
@@ -198,7 +198,7 @@ public class ObjectNameObjectInstance extends AbstractObjectInstance
 For enemies with touch response and destruction behavior:
 
 ```java
-package uk.co.jamesj999.sonic.game.sonic2.objects.badniks;
+package com.openggf.sonic.game.sonic2.objects.badniks;
 
 import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
 

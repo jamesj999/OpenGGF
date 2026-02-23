@@ -179,7 +179,7 @@ protected void initializeBossState() {
 Create the boss class in the S3K objects package:
 
 ```java
-package uk.co.jamesj999.sonic.game.sonic3k.objects.bosses;
+package com.openggf.sonic.game.sonic3k.objects.bosses;
 
 public class Sonic3kZoneBossInstance extends AbstractBossInstance {
 
