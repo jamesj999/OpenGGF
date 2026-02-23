@@ -438,7 +438,7 @@ Verified offsets are automatically added as runtime anchors during a session. To
 
 ### Programmatic Usage
 
-The tools in `uk.co.jamesj999.sonic.tools.disasm` can also be used programmatically:
+The tools in `com.openggf.sonic.tools.disasm` can also be used programmatically:
 
 ```java
 // Sonic 2 (default profile)
@@ -485,7 +485,7 @@ exporter.exportAsJavaConstants(batch, "", new PrintWriter(System.out), s1);
     *   **Block:** A 128x128 pixel area, composed of Chunks.
 *   **Dependencies:** Running the engine requires LWJGL (OpenGL, OpenAL, GLFW bindings) and JOML (math library), already declared as dependencies in `pom.xml`.
 *   **Debug:** `DEBUG_VIEW_ENABLED` (true by default) overlays sensor and collision info during gameplay.
-*   **Level Loading:** Performed by `LevelManager`, which reads from the ROM through classes in `uk.co.jamesj999.sonic.data`.
+*   **Level Loading:** Performed by `LevelManager`, which reads from the ROM through classes in `com.openggf.sonic.data`.
 *   **Conditional Tests**: `TestCollisionLogic` uses `Assume.assumeTrue` to skip when a ROM file is not present. This is a known and accepted conditional skip, not a hard `@Ignore`.
 *   **File Endings**: Ensure all source code files end with a newline character.
 

@@ -20,10 +20,10 @@ import java.util.stream.Collectors;
  * <p>
  * Usage:
  * <pre>
- * mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.ObjectDiscoveryTool" -q
- * mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.ObjectDiscoveryTool" -Dexec.args="--game s1" -q
- * mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.ObjectDiscoveryTool" -Dexec.args="--game s2" -q
- * mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.ObjectDiscoveryTool" -Dexec.args="--game s3k" -q
+ * mvn exec:java -Dexec.mainClass="com.openggf.sonic.tools.ObjectDiscoveryTool" -q
+ * mvn exec:java -Dexec.mainClass="com.openggf.sonic.tools.ObjectDiscoveryTool" -Dexec.args="--game s1" -q
+ * mvn exec:java -Dexec.mainClass="com.openggf.sonic.tools.ObjectDiscoveryTool" -Dexec.args="--game s2" -q
+ * mvn exec:java -Dexec.mainClass="com.openggf.sonic.tools.ObjectDiscoveryTool" -Dexec.args="--game s3k" -q
  * </pre>
  */
 public class ObjectDiscoveryTool {
