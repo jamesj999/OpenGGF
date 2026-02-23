@@ -1,7 +1,6 @@
 package com.openggf.level.rings;
 
 public class LostRing {
-    private static final int COLLECTION_DELAY_FRAMES = 64;
     private int xSubpixel;
     private int ySubpixel;
     private int xVel;
@@ -10,24 +9,22 @@ public class LostRing {
     private boolean collected;
     private int sparkleStartFrame = -1;
     private int id;
-    private int spawnFrame;
     private boolean active;
 
     public LostRing() {
     }
 
-    public LostRing(int id, int x, int y, int xVel, int yVel, int lifetime, int spawnFrame) {
-        reset(id, x, y, xVel, yVel, lifetime, spawnFrame);
+    public LostRing(int id, int x, int y, int xVel, int yVel, int lifetime) {
+        reset(id, x, y, xVel, yVel, lifetime);
     }
 
-    public void reset(int id, int x, int y, int xVel, int yVel, int lifetime, int spawnFrame) {
+    public void reset(int id, int x, int y, int xVel, int yVel, int lifetime) {
         this.id = id;
         this.xSubpixel = x << 8;
         this.ySubpixel = y << 8;
         this.xVel = xVel;
         this.yVel = yVel;
         this.lifetime = lifetime;
-        this.spawnFrame = spawnFrame;
         this.collected = false;
         this.sparkleStartFrame = -1;
         this.active = true;
@@ -39,15 +36,6 @@ public class LostRing {
 
     public void deactivate() {
         this.active = false;
-    }
-
-    /**
-     * Returns true if enough frames have passed since spawning for the ring to be
-     * collected.
-     * This prevents immediate recollection after being hurt.
-     */
-    public boolean canBeCollected(int currentFrame) {
-        return (currentFrame - spawnFrame) >= COLLECTION_DELAY_FRAMES;
     }
 
     public int getId() {
