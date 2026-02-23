@@ -20,7 +20,7 @@ public class TestSonic1SpikeObjectInstance {
         player.setCentreX((short) 160);
         player.setCentreY((short) 80);
         player.setInvulnerableFrames(120);
-        player.setHurt(true);
+        player.setHurt(false);
         player.setInvincibleFrames(0);
 
         spikes.onSolidContact(player, new SolidContact(true, false, false, false, false), 1);
@@ -51,6 +51,76 @@ public class TestSonic1SpikeObjectInstance {
         Sonic1SpikeObjectInstance spikes = new Sonic1SpikeObjectInstance(
                 new ObjectSpawn(160, 112, 0x36, 0x01, 0, false, 0));
         assertFalse(spikes.usesStickyContactBuffer());
+    }
+
+    @Test
+    public void spikesDoNotHurtWhenAlreadyHurt() {
+        // Sideways spike (subtype 0x10) — ROM check: cmpi.b #4,obRoutine(a0) / bhs.s loc_CF20
+        Sonic1SpikeObjectInstance spikes = new Sonic1SpikeObjectInstance(
+                new ObjectSpawn(160, 112, 0x36, 0x10, 0, false, 0));
+        TestPlayableSprite player = new TestPlayableSprite();
+        player.setCentreX((short) 160);
+        player.setCentreY((short) 112);
+        player.setHurt(true);
+
+        spikes.onSolidContact(player, new SolidContact(false, true, false, false, false), 1);
+
+        assertFalse(player.hurtOrDeathIgnoringIFramesCalled);
+        assertFalse(player.hurtIgnoringIFramesCalled);
+    }
+
+    @Test
+    public void spikesDoNotHurtWhenDead() {
+        // Sideways spike (subtype 0x10) — ROM check: cmpi.b #4,obRoutine(a0) / bhs.s loc_CF20
+        Sonic1SpikeObjectInstance spikes = new Sonic1SpikeObjectInstance(
+                new ObjectSpawn(160, 112, 0x36, 0x10, 0, false, 0));
+        TestPlayableSprite player = new TestPlayableSprite();
+        player.setCentreX((short) 160);
+        player.setCentreY((short) 112);
+        player.setDead(true);
+
+        spikes.onSolidContact(player, new SolidContact(false, true, false, false, false), 1);
+
+        assertFalse(player.hurtOrDeathIgnoringIFramesCalled);
+        assertFalse(player.hurtIgnoringIFramesCalled);
+    }
+
+    @Test
+    public void ceilingSpikeSetsRomKnockbackVelocity() {
+        // Upright spike (subtype 0x00) hit from below (touchBottom = ceiling contact).
+        // ROM: HurtSonic always sets ySpeed = -$400 (upward), regardless of contact direction.
+        Sonic1SpikeObjectInstance spikes = new Sonic1SpikeObjectInstance(
+                new ObjectSpawn(160, 112, 0x36, 0x00, 0, false, 0));
+        TestPlayableSprite player = new TestPlayableSprite();
+        player.setCentreX((short) 160);
+        player.setCentreY((short) 130); // below spike
+        player.setYSpeed((short) -0x400); // jumping upward
+
+        // touchBottom = true: Sonic hits the bottom of the spike from below (ceiling contact)
+        spikes.onSolidContact(player, new SolidContact(false, false, true, false, false), 1);
+
+        assertTrue("Spike should have hurt player", player.hurtOrDeathIgnoringIFramesCalled);
+        assertTrue("ySpeed should be negative (upward) matching ROM HurtSonic, was: " + player.getYSpeed(),
+                player.getYSpeed() < 0);
+    }
+
+    @Test
+    public void floorSpikeSetsRomKnockbackVelocity() {
+        // Upright spike (subtype 0x00) hit from above (standing contact).
+        // ROM: HurtSonic always sets ySpeed = -$400 (upward).
+        Sonic1SpikeObjectInstance spikes = new Sonic1SpikeObjectInstance(
+                new ObjectSpawn(160, 112, 0x36, 0x00, 0, false, 0));
+        TestPlayableSprite player = new TestPlayableSprite();
+        player.setCentreX((short) 160);
+        player.setCentreY((short) 80); // above spike
+        player.setYSpeed((short) 0); // descending onto spike
+
+        // standing = true: Sonic landed on top of the spike
+        spikes.onSolidContact(player, new SolidContact(true, false, false, false, false), 1);
+
+        assertTrue("Spike should have hurt player", player.hurtOrDeathIgnoringIFramesCalled);
+        assertTrue("ySpeed should be negative (upward) matching ROM HurtSonic, was: " + player.getYSpeed(),
+                player.getYSpeed() < 0);
     }
 
     @Test
@@ -95,6 +165,11 @@ public class TestSonic1SpikeObjectInstance {
             lastSourceX = sourceX;
             lastSpikeHit = spikeHit;
             lastHadRings = hadRings;
+            // Simulate real applyHurt behavior: set hurt flag and knockback velocity
+            setHurt(true);
+            int dir = (getCentreX() >= sourceX) ? 1 : -1;
+            setXSpeed((short) (0x200 * dir));
+            setYSpeed((short) -0x400);
             return true;
         }
 
