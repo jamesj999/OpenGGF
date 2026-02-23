@@ -42,7 +42,8 @@ public class TestHybridPhysicsFeatureSet {
                 true,   // inputAlwaysCapsGroundSpeed - S1
                 false,  // elementalShieldsEnabled - S1
                 false,  // angleDiffCardinalSnap - S1
-                false   // extendedEdgeBalance - S1
+                false,  // extendedEdgeBalance - S1
+                PhysicsFeatureSet.RING_FLOOR_CHECK_MASK_S1  // ringFloorCheckMask - S1
         );
 
         // Verify spindash is enabled (donor contribution)

@@ -104,6 +104,12 @@ public class Engine {
 	private int viewportWidth = 0;
 	private int viewportHeight = 0;
 
+	// Window snap-to-integer-scale after resize
+	private long lastResizeTimeNanos = 0;
+	private boolean resizePendingSnap = false;
+	private boolean isSnappingWindowSize = false;
+	private int lastSnappedScale = 0;
+
 	// JOML matrices for projection - accessible for shader uniforms
 	private final org.joml.Matrix4f projectionMatrix = new org.joml.Matrix4f();
 	private final float[] matrixBuffer = new float[16];
@@ -213,6 +219,11 @@ public class Engine {
 			if (graphicsManager.isGlInitialized()) {
 				reshape(width, height);
 			}
+			// Schedule a window snap once the user finishes resizing
+			if (!isSnappingWindowSize) {
+				resizePendingSnap = true;
+				lastResizeTimeNanos = System.nanoTime();
+			}
 		});
 
 		// Setup window focus callback
@@ -278,13 +289,16 @@ public class Engine {
 		inputHandler = new InputHandler();
 		setInputHandler(inputHandler);
 
-		// Initial reshape
+		// Initial reshape and snap to integer scale (handles DPI-scaled framebuffer)
 		try (MemoryStack stack = stackPush()) {
 			IntBuffer pWidth = stack.mallocInt(1);
 			IntBuffer pHeight = stack.mallocInt(1);
 			glfwGetFramebufferSize(window, pWidth, pHeight);
-			reshape(pWidth.get(0), pHeight.get(0));
+			this.windowWidth = pWidth.get(0);
+			this.windowHeight = pHeight.get(0);
+			reshape(windowWidth, windowHeight);
 		}
+		snapWindowToIntegerScale();
 
 		// === Check master title screen before Phase 2 ===
 		boolean masterTitleOnStartup = configService.getBoolean(SonicConfiguration.MASTER_TITLE_SCREEN_ON_STARTUP);
@@ -414,25 +428,19 @@ public class Engine {
 	}
 
 	private void reshape(int width, int height) {
-		// Calculate aspect-ratio-correct viewport
-		double targetAspect = realWidth / realHeight;
-		double windowAspect = (double) width / height;
+		int nativeW = (int) realWidth;   // 320
+		int nativeH = (int) realHeight;  // 224
 
-		if (windowAspect > targetAspect) {
-			// Window is wider than target - pillarbox
-			viewportHeight = height;
-			viewportWidth = (int) (height * targetAspect);
-			viewportX = (width - viewportWidth) / 2;
-			viewportY = 0;
-		} else {
-			// Window is taller than target - letterbox
-			viewportWidth = width;
-			viewportHeight = (int) (width / targetAspect);
-			viewportX = 0;
-			viewportY = (height - viewportHeight) / 2;
-		}
+		// Find the largest integer scale that fits both dimensions
+		int scale = Math.max(1, Math.min(width / nativeW, height / nativeH));
+		viewportWidth = scale * nativeW;
+		viewportHeight = scale * nativeH;
 
-		// Set the viewport to the aspect-ratio-correct area
+		// Center the integer-scaled viewport within the framebuffer
+		viewportX = (width - viewportWidth) / 2;
+		viewportY = (height - viewportHeight) / 2;
+
+		// Set the viewport to the integer-scaled area
 		glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
 
 		// Cache viewport dimensions in GraphicsManager
@@ -441,6 +449,46 @@ public class Engine {
 		// Setup orthographic projection using JOML - stored for shader access
 		projectionMatrix.identity().ortho2D(0, (float) projectionWidth, 0, (float) realHeight);
 		projectionMatrix.get(matrixBuffer);
+	}
+
+	/**
+	 * Snaps the window size to the nearest integer multiple of the native resolution
+	 * so every game pixel maps to exactly NxN screen pixels with no fractional scaling.
+	 * Rounds UP when the window grew (e.g. DPI increase) and DOWN when it shrank,
+	 * preventing progressive shrinking across monitor moves.
+	 */
+	private void snapWindowToIntegerScale() {
+		int nativeW = (int) realWidth;
+		int nativeH = (int) realHeight;
+
+		// Get the current monitor's usable resolution as an upper bound
+		long monitor = glfwGetWindowMonitor(window);
+		if (monitor == NULL) {
+			monitor = glfwGetPrimaryMonitor();
+		}
+		GLFWVidMode vidmode = glfwGetVideoMode(monitor);
+		int maxScale = Math.min(vidmode.width() / nativeW, vidmode.height() / nativeH);
+
+		double currentScale = Math.min((double) windowWidth / nativeW, (double) windowHeight / nativeH);
+
+		int scale;
+		if (lastSnappedScale > 0 && currentScale > lastSnappedScale) {
+			// Window grew (DPI increase or manual resize up) - round up
+			scale = (int) Math.ceil(currentScale);
+		} else {
+			// Window shrank, unchanged, or initial load - round down
+			scale = (int) currentScale;
+		}
+		scale = Math.max(1, Math.min(scale, maxScale));
+
+		lastSnappedScale = scale;
+		int targetW = scale * nativeW;
+		int targetH = scale * nativeH;
+		if (targetW != windowWidth || targetH != windowHeight) {
+			isSnappingWindowSize = true;
+			glfwSetWindowSize(window, targetW, targetH);
+			isSnappingWindowSize = false;
+		}
 	}
 
 	private void loop() {
@@ -471,6 +519,12 @@ public class Engine {
 			}
 
 			glfwPollEvents();
+
+			// Snap window to nearest integer scale once resize drag ends (~200ms debounce)
+			if (resizePendingSnap && System.nanoTime() - lastResizeTimeNanos > 200_000_000L) {
+				resizePendingSnap = false;
+				snapWindowToIntegerScale();
+			}
 
 			// Note: inputHandler.update() is called at the end of GameLoop.step()
 			// to properly handle isKeyPressed() edge detection. Do NOT call update()

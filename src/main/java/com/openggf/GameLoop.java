@@ -686,10 +686,25 @@ public class GameLoop {
             return;
         }
 
-        // Don't start another fade if one is already in progress
         FadeManager fadeManager = FadeManager.getInstance();
+        boolean screenAlreadyFaded = false;
+        boolean fadeFromBlack = false;
+
         if (fadeManager.isActive()) {
-            return;
+            FadeManager.FadeState fadeState = fadeManager.getState();
+            if (fadeState == FadeManager.FadeState.HOLD_WHITE) {
+                // Screen is held white (S1 big ring -> results -> fade to white path).
+                // Take over and enter special stage directly with fade-from-white.
+                screenAlreadyFaded = true;
+                fadeFromBlack = false;
+            } else if (fadeState == FadeManager.FadeState.HOLD_BLACK) {
+                // Screen is held black. Enter special stage with fade-from-black.
+                screenAlreadyFaded = true;
+                fadeFromBlack = true;
+            } else {
+                // Different fade in progress, can't start
+                return;
+            }
         }
 
         SpecialStageProvider ssProvider = getCurrentModuleSpecialStageProvider();
@@ -697,9 +712,6 @@ public class GameLoop {
             LOGGER.fine("Current game module has no special stages; ignoring entry request");
             return;
         }
-
-        // Freeze level updates during transition (ROM-accurate: level stops updating)
-        specialStageTransitionPending = true;
 
         // Clear power-ups before entering special stage
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
@@ -721,19 +733,32 @@ public class GameLoop {
         GameStateManager gsm = GameServices.gameState();
         final int stageIndex = gsm.consumeCurrentSpecialStageIndexAndAdvance();
 
-        // Start fade-to-white, then enter special stage when complete
-        fadeManager.startFadeToWhite(() -> {
-            doEnterSpecialStage(ssProvider, stageIndex);
-        });
-
-        LOGGER.info("Starting fade-to-white for Special Stage " + (stageIndex + 1));
+        if (screenAlreadyFaded) {
+            // Screen is already fully faded (from S1 results screen after big ring).
+            // Cancel the hold, enter the special stage directly, and fade to reveal.
+            fadeManager.cancel();
+            doEnterSpecialStage(ssProvider, stageIndex, fadeFromBlack);
+            LOGGER.info("Entering Special Stage " + (stageIndex + 1) +
+                    " from " + (fadeFromBlack ? "black" : "white") + " screen (S1 big ring path)");
+        } else {
+            // Normal path (S2 checkpoint star): freeze level, fade to white, then enter
+            specialStageTransitionPending = true;
+            fadeManager.startFadeToWhite(() -> {
+                doEnterSpecialStage(ssProvider, stageIndex, false);
+            });
+            LOGGER.info("Starting fade-to-white for Special Stage " + (stageIndex + 1));
+        }
     }
 
     /**
-     * Actually enters the special stage after fade-to-white completes.
-     * Called by the fade callback.
+     * Actually enters the special stage after the transition fade completes.
+     * Called by the fade callback (fade-to-white) or directly (screen-already-black).
+     *
+     * @param fadeFromBlack true if the screen is already black and should fade from black;
+     *                      false for the normal fade-from-white reveal
      */
-    private void doEnterSpecialStage(SpecialStageProvider ssProvider, int stageIndex) {
+    private void doEnterSpecialStage(SpecialStageProvider ssProvider, int stageIndex,
+                                     boolean fadeFromBlack) {
         // Clear the transition freeze flag (now we're in special stage mode)
         specialStageTransitionPending = false;
 
@@ -756,8 +781,12 @@ public class GameLoop {
                 gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
             }
 
-            // Start fade-from-white to reveal the special stage
-            FadeManager.getInstance().startFadeFromWhite(null);
+            // Reveal the special stage
+            if (fadeFromBlack) {
+                FadeManager.getInstance().startFadeFromBlack(null);
+            } else {
+                FadeManager.getInstance().startFadeFromWhite(null);
+            }
 
             LOGGER.info("Entered Special Stage " + (stageIndex + 1) + " (H32 mode: 256x224)");
         } catch (IOException e) {
@@ -925,6 +954,11 @@ public class GameLoop {
         int zoneIndex = levelManager.getCurrentZone();
         int actIndex = levelManager.getCurrentAct();
         enterTitleCardFromResults(zoneIndex, actIndex);
+
+        // Reveal the title card by fading from white (the screen is currently white
+        // from exitResultsScreen()'s fade-to-white). Without this, the white overlay
+        // persists indefinitely because completeFade() sees no new fade was started.
+        FadeManager.getInstance().startFadeFromWhite(null);
 
         LOGGER.info("Exited Results Screen, entering Title Card for zone " + zoneIndex + " act " + actIndex);
     }
