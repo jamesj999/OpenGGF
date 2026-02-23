@@ -138,7 +138,7 @@ boss_ghz_x: equ $2A70   ; Boss X position
 Create the boss class in the S1 objects package:
 
 ```java
-package uk.co.jamesj999.sonic.game.sonic1.objects.bosses;
+package com.openggf.sonic.game.sonic1.objects.bosses;
 
 public class Sonic1ZoneBossInstance extends AbstractBossInstance {
 
