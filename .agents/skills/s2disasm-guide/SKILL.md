@@ -52,49 +52,49 @@ The RomOffsetFinder tool searches the disassembly and calculates ROM offsets:
 
 ```bash
 # Search by partial name - finds labels and calculates ROM offset
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search Ring" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="search Ring" -q
 
 # Search for zone-specific items
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search EHZ" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="search EHZ" -q
 
 # Search for palettes
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search Pal_" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="search Pal_" -q
 ```
 
 ### List Command
 
 ```bash
 # List all Nemesis-compressed items
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="list nem" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="list nem" -q
 
 # List all palettes (uncompressed)
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="list bin" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="list bin" -q
 
 # List all compression types
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="list" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="list" -q
 ```
 
 ### Test Decompression
 
 ```bash
 # Test if data at offset is Nemesis-compressed
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="test 0xDD8CE nem" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="test 0xDD8CE nem" -q
 
 # Auto-detect compression type
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="test 0x3000 auto" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="test 0x3000 auto" -q
 ```
 
 ### Verify and Export
 
 ```bash
 # Verify a single offset
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="verify ArtNem_SpecialHUD" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="verify ArtNem_SpecialHUD" -q
 
 # Batch verify all Nemesis items
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="verify-batch nem" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="verify-batch nem" -q
 
 # Export as Java constants
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="export nem ART_" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="export nem ART_" -q
 ```
 
 ### Search ROM Binary
@@ -103,10 +103,10 @@ Use `search-rom` to find inline assembly data (pointer tables, animation scripts
 
 ```bash
 # Search for known hex byte pattern (spaces optional)
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search-rom \"07 72 73 26 15 08\"" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="search-rom \"07 72 73 26 15 08\"" -q
 
 # Restrict search to a specific ROM range
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search-rom \"0002\" 0x28000 0x29000" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="search-rom \"0002\" 0x28000 0x29000" -q
 ```
 
 ## Label Naming Conventions
@@ -248,30 +248,30 @@ The overlay is applied at the specified byte offset after decompressing the base
 
 ```bash
 # Search for specific badnik
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search Buzzer" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="search Buzzer" -q
 
 # Find all badnik mappings
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search MapUnc_" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="search MapUnc_" -q
 ```
 
 ### Finding Zone Data
 
 ```bash
 # All EHZ resources
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search EHZ" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="search EHZ" -q
 
 # Zone palette
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search Pal_CPZ" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="search Pal_CPZ" -q
 ```
 
 ### Finding Object Code
 
 ```bash
 # Monitor object
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search Obj_Monitor" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="search Obj_Monitor" -q
 
 # Spring object
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="search Obj_Spring" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="search Obj_Spring" -q
 ```
 
 ## Troubleshooting

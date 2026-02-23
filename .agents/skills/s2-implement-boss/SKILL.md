@@ -45,7 +45,7 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 - [ ] Find boss-specific art addresses (`ArtNem_XXXBoss`, `Map_XXXBoss`)
 - [ ] Use `plc` command to identify which PLCs load boss art:
   ```bash
-  mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="plc PlrList_EhzBoss" -q
+  mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="plc PlrList_EhzBoss" -q
   ```
   Search results show PLC cross-references inline
 

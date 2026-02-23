@@ -59,13 +59,13 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 - [ ] Note defeat sequence timing (explosion count, flee direction)
 - [ ] Find boss art addresses using RomOffsetFinder:
   ```bash
-  mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search Nem_Eggman" -q
-  mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search Nem_BossItems" -q
-  mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search Boss" -q
+  mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_Eggman" -q
+  mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_BossItems" -q
+  mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Boss" -q
   ```
   - Use `plc` command to see which PLCs load boss art:
     ```bash
-    mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 plc PLC_GHZ" -q
+    mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 plc PLC_GHZ" -q
     ```
   - Search results now show PLC cross-references inline
 
@@ -219,8 +219,8 @@ The hit response typically:
 
 ```bash
 # Find boss art
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search Nem_Eggman" -q
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search Nem_BossItems" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_Eggman" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_BossItems" -q
 ```
 
 S1 bosses typically use shared Eggman art plus zone-specific boss weapon art:
