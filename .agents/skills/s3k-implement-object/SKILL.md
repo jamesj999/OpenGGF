@@ -70,12 +70,12 @@ Agents should:
    - Search for art references in the object code
    - Use RomOffsetFinder to get ROM addresses:
      ```bash
-     mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search ObjectName" -q
+     mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ObjectName" -q
      ```
    - Search results now show **PLC cross-references** - which PLCs load this art
    - Use `plc <name>` command to see all art entries in a PLC:
      ```bash
-     mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k plc PLCKosM_AIZ" -q
+     mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k plc PLCKosM_AIZ" -q
      ```
    - The ObjectDiscoveryTool checklist also shows PLC IDs per object per zone
    - Parse mappings from `General/Sprites/{Name}/Map - Name.asm` or `Levels/{ZONE}/Misc Object Data/Map - Name.asm`

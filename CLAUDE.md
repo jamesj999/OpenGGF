@@ -43,7 +43,7 @@ Use **RomOffsetFinder** to search disassembly items and find ROM offsets. Suppor
 
 ```bash
 # Base command pattern (add --game s1 or --game s3k before command for non-S2)
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="<command>" -q
+mvn exec:java "-Dexec.mainClass=com.openggf.tools.disasm.RomOffsetFinder" "-Dexec.args=<command>" -q
 
 # Examples
 # search <pattern>     - Search for items by label/filename

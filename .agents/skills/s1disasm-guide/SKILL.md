@@ -56,39 +56,39 @@ The disassembly is organized into these major directories:
 
 ```bash
 # Search by partial name
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search Crabmeat" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Crabmeat" -q
 
 # Search for zone-specific items
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search GHZ" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search GHZ" -q
 
 # Search for palettes
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search Pal_" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Pal_" -q
 ```
 
 ### List Command
 
 ```bash
 # List all Nemesis-compressed items
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 list nem" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 list nem" -q
 
 # List all uncompressed items
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 list bin" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 list bin" -q
 
 # List all compression types
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 list" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 list" -q
 ```
 
 ### Verify and Export
 
 ```bash
 # Verify a single offset
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 verify Nem_Crabmeat" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 verify Nem_Crabmeat" -q
 
 # Batch verify all Nemesis items
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 verify-batch nem" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 verify-batch nem" -q
 
 # Export as Java constants
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 export nem ART_" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 export nem ART_" -q
 ```
 
 ### Search ROM Binary
@@ -97,10 +97,10 @@ Use `search-rom` to find inline assembly data (pointer tables, animation scripts
 
 ```bash
 # Search for SpeedUpIndex pattern
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search-rom \"07 72 73 26 15 08 FF 05\"" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search-rom \"07 72 73 26 15 08 FF 05\"" -q
 
 # Restrict search to a specific ROM range
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search-rom \"0002\" 0x71000 0x72000" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search-rom \"0002\" 0x71000 0x72000" -q
 ```
 
 ## Label Naming Conventions
@@ -258,20 +258,20 @@ Size byte encoding (same as S2):
 
 ```bash
 # Search for specific badnik
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search Crabmeat" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Crabmeat" -q
 
 # Find all Nemesis art
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search Nem_" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Nem_" -q
 ```
 
 ### Finding Zone Data
 
 ```bash
 # All GHZ resources
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search GHZ" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search GHZ" -q
 
 # Zone palette
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s1 search Pal_LZ" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search Pal_LZ" -q
 ```
 
 ### Finding Object Code

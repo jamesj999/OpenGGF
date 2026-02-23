@@ -103,13 +103,13 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 - [ ] Check for multi-phase transitions (especially LBZ, DEZ)
 - [ ] Find boss art addresses using RomOffsetFinder:
   ```bash
-  mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_ZONEBoss" -q
-  mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search ZONEBoss" -q
-  mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
+  mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_ZONEBoss" -q
+  mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ZONEBoss" -q
+  mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
   ```
   - Use `plc` command to see which PLCs load boss art:
     ```bash
-    mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k plc PLCKosM_AIZBoss" -q
+    mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k plc PLCKosM_AIZBoss" -q
     ```
   - Search results now show PLC cross-references inline
 
@@ -299,8 +299,8 @@ See `plc-system` and `s3k-plc-system` skills for full PLC system docs. Use `RomO
 
 ```bash
 # Find the boss PLC ID and art addresses
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search ZONEBoss" -q
-mvn exec:java -Dexec.mainClass="disasm.com.openggf.tools.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ZONEBoss" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
 ```
 
 **Standalone PLC pattern (preferred for boss art):**
