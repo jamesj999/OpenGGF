@@ -63,6 +63,10 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
     // From disassembly: move.w #$20,d1 (half-width for PlatformObject)
     private static final int PLATFORM_HALF_WIDTH = 0x20;
 
+    // PlatformObject applies subq.w #8,d0 to place the platform surface
+    // 8 pixels above the object's Y center. Model this as half-height = 8.
+    private static final int PLATFORM_HALF_HEIGHT = 0x08;
+
     // From disassembly: move.b #$44,obActWid(a0)
     private static final int ACTIVE_WIDTH = 0x44;
 
@@ -469,8 +473,8 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
     @Override
     public SolidObjectParams getSolidParams() {
         // PlatformObject uses half-width for platform checks.
-        // Height params are 0 for top-solid-only platforms.
-        return new SolidObjectParams(PLATFORM_HALF_WIDTH, 0, 0);
+        // Half-height of 8 models PlatformObject's subq.w #8,d0 (surface 8px above center).
+        return new SolidObjectParams(PLATFORM_HALF_WIDTH, PLATFORM_HALF_HEIGHT, PLATFORM_HALF_HEIGHT);
     }
 
     @Override
