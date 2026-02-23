@@ -246,8 +246,9 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
     /**
      * Builds a hybrid feature set: spindash enabled with donor speed table,
-     * but all other flags remain S1 defaults (UNIFIED collision, fixed angle
-     * threshold, no extended edge balance, etc.).
+     * but collision model and other flags inherited from the current (base) game module.
+     * This ensures that S2/S3K levels keep DUAL_PATH collision (required for plane switching)
+     * while S1 levels keep UNIFIED collision.
      */
     private PhysicsFeatureSet buildHybridFeatureSet() {
         // Spindash speed table is the same for S2 and S3K
@@ -255,17 +256,22 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
         };
 
+        // Inherit collision model from the base game module so plane switching
+        // works correctly in S2/S3K levels with cross-game features enabled
+        PhysicsFeatureSet baseFeatureSet = GameModuleRegistry.getCurrent()
+                .getPhysicsProvider().getFeatureSet();
+
         return new PhysicsFeatureSet(
                 true,                                           // spindashEnabled (from donor)
                 spindashSpeedTable,                             // spindashSpeedTable (from donor)
-                CollisionModel.UNIFIED,                         // collisionModel (S1)
-                true,                                           // fixedAnglePosThreshold (S1)
-                PhysicsFeatureSet.LOOK_SCROLL_DELAY_NONE,       // lookScrollDelay (S1)
-                true,                                           // waterShimmerEnabled (S1)
-                true,                                           // inputAlwaysCapsGroundSpeed (S1)
-                false,                                          // elementalShieldsEnabled (S1)
-                false,                                          // angleDiffCardinalSnap (S1)
-                false                                           // extendedEdgeBalance (S1)
+                baseFeatureSet.collisionModel(),                // collisionModel (from base game)
+                baseFeatureSet.fixedAnglePosThreshold(),        // fixedAnglePosThreshold (from base game)
+                baseFeatureSet.lookScrollDelay(),               // lookScrollDelay (from base game)
+                baseFeatureSet.waterShimmerEnabled(),            // waterShimmerEnabled (from base game)
+                baseFeatureSet.inputAlwaysCapsGroundSpeed(),     // inputAlwaysCapsGroundSpeed (from base game)
+                false,                                          // elementalShieldsEnabled (donor doesn't donate shields)
+                baseFeatureSet.angleDiffCardinalSnap(),          // angleDiffCardinalSnap (from base game)
+                baseFeatureSet.extendedEdgeBalance()             // extendedEdgeBalance (from base game)
         );
     }
 }
