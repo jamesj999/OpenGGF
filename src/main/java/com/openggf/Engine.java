@@ -539,6 +539,9 @@ public class Engine {
 		} else if (getCurrentGameMode() == GameMode.CREDITS_TEXT) {
 			// Credits text is drawn on a black background
 			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		} else if (getCurrentGameMode() == GameMode.TRY_AGAIN_END) {
+			// TRY AGAIN / END screen: black background
+			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		} else if (getCurrentGameMode() == GameMode.MASTER_TITLE_SCREEN) {
 			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		} else if (getCurrentGameMode() == GameMode.TITLE_CARD) {
@@ -705,6 +708,14 @@ public class Engine {
 		} else if (getCurrentGameMode() == GameMode.CREDITS_DEMO) {
 			// Normal level rendering (HUD suppressed via zone feature provider)
 			levelManager.drawWithSpritePriority(spriteManager);
+		} else if (getCurrentGameMode() == GameMode.TRY_AGAIN_END) {
+			// TRY AGAIN / END screen: screen-space rendering
+			camera.setX((short) 0);
+			camera.setY((short) 0);
+			var tryAgainEndManager = gameLoop.getTryAgainEndManager();
+			if (tryAgainEndManager != null) {
+				tryAgainEndManager.draw();
+			}
 		} else if (getCurrentGameMode() == GameMode.TITLE_CARD) {
 			levelManager.drawWithSpritePriority(spriteManager);
 

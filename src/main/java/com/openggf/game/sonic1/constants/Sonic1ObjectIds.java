@@ -112,4 +112,7 @@ public final class Sonic1ObjectIds {
     public static final int END_SONIC       = 0x87; // id_EndSonic - Ending sequence Sonic
     public static final int END_CHAOS       = 0x88; // id_EndChaos - Ending sequence chaos emeralds
     public static final int END_STH         = 0x89; // id_EndSTH - Ending sequence "SONIC THE HEDGEHOG" text
+    public static final int CREDITS_TEXT    = 0x8A; // id_CreditsText - Credits / "TRY AGAIN" text
+    public static final int END_EGGMAN     = 0x8B; // id_EndEggman - Eggman on TRY AGAIN / END screens
+    public static final int TRY_CHAOS      = 0x8C; // id_TryChaos - Chaos emeralds on TRY AGAIN screen
 }
