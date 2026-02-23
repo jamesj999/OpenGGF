@@ -31,6 +31,7 @@ import com.openggf.graphics.FadeManager;
 import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.game.sonic1.credits.Sonic1CreditsDemoData;
 import com.openggf.game.sonic1.credits.Sonic1CreditsManager;
+import com.openggf.game.sonic1.credits.TryAgainEndManager;
 import com.openggf.level.WaterSystem;
 
 import java.io.IOException;
@@ -90,6 +91,9 @@ public class GameLoop {
 
     // Ending credits manager (Sonic 1)
     private Sonic1CreditsManager creditsManager;
+
+    // Post-credits TRY AGAIN / END screen (Sonic 1)
+    private TryAgainEndManager tryAgainEndManager;
 
     // Listener for game mode changes (used by Engine to update projection)
     private GameModeChangeListener gameModeChangeListener;
@@ -391,6 +395,10 @@ public class GameLoop {
             return;
         } else if (currentGameMode == GameMode.CREDITS_DEMO) {
             updateCreditsDemo();
+            inputHandler.update();
+            return;
+        } else if (currentGameMode == GameMode.TRY_AGAIN_END) {
+            updateTryAgainEnd();
             inputHandler.update();
             return;
         }
@@ -1801,7 +1809,7 @@ public class GameLoop {
 
         // Check if finished (after "PRESENTED BY SEGA")
         if (creditsManager.consumeFinishedRequest()) {
-            exitCreditsToTitleScreen();
+            exitCreditsToTryAgainEnd();
         }
     }
 
@@ -1853,7 +1861,7 @@ public class GameLoop {
 
         // Check if finished
         if (creditsManager.consumeFinishedRequest()) {
-            exitCreditsToTitleScreen();
+            exitCreditsToTryAgainEnd();
         }
     }
 
@@ -1975,12 +1983,12 @@ public class GameLoop {
     }
 
     /**
-     * Exits the credits sequence and returns to the title screen.
+     * Exits the credits sequence and transitions to the TRY AGAIN / END screen.
      */
-    private void exitCreditsToTitleScreen() {
-        LOGGER.info("Credits complete, returning to title screen");
+    private void exitCreditsToTryAgainEnd() {
+        LOGGER.info("Credits complete, transitioning to TRY AGAIN / END screen");
 
-        // Clean up
+        // Clean up credits state
         levelManager.setForceHudSuppressed(false);
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if (mainCode == null) mainCode = "sonic";
@@ -1998,20 +2006,72 @@ public class GameLoop {
         FadeManager fadeManager = FadeManager.getInstance();
         if (!fadeManager.isActive()) {
             fadeManager.startFadeToBlack(() -> {
-                doExitCreditsToTitleScreen();
+                doEnterTryAgainEnd();
             });
         } else {
-            // Already faded (from "PRESENTED BY SEGA" text fadeout)
-            doExitCreditsToTitleScreen();
+            doEnterTryAgainEnd();
+        }
+    }
+
+    /**
+     * Actually enters the TRY AGAIN / END screen after fade completes.
+     */
+    private void doEnterTryAgainEnd() {
+        GameMode oldMode = currentGameMode;
+        currentGameMode = GameMode.TRY_AGAIN_END;
+
+        tryAgainEndManager = new TryAgainEndManager();
+        tryAgainEndManager.initialize();
+
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+
+        FadeManager.getInstance().startFadeFromBlack(null);
+        LOGGER.info("Credits -> TRY AGAIN / END");
+    }
+
+    /**
+     * Updates the TRY_AGAIN_END mode each frame.
+     */
+    private void updateTryAgainEnd() {
+        if (tryAgainEndManager == null) {
+            return;
+        }
+
+        tryAgainEndManager.update(inputHandler);
+
+        if (tryAgainEndManager.consumeExitRequest()) {
+            exitTryAgainEndToTitleScreen();
+        }
+    }
+
+    /**
+     * Exits the TRY AGAIN / END screen and returns to the title screen.
+     */
+    private void exitTryAgainEndToTitleScreen() {
+        LOGGER.info("TRY AGAIN / END complete, returning to title screen");
+
+        AudioManager.getInstance().fadeOutMusic();
+
+        FadeManager fadeManager = FadeManager.getInstance();
+        if (!fadeManager.isActive()) {
+            fadeManager.startFadeToBlack(() -> {
+                doExitTryAgainEndToTitleScreen();
+            });
+        } else {
+            doExitTryAgainEndToTitleScreen();
         }
     }
 
     /**
      * Actually transitions to the title screen after fade completes.
      */
-    private void doExitCreditsToTitleScreen() {
+    private void doExitTryAgainEndToTitleScreen() {
         GameMode oldMode = currentGameMode;
         currentGameMode = GameMode.TITLE_SCREEN;
+
+        tryAgainEndManager = null;
 
         camera.setX((short) 0);
         camera.setY((short) 0);
@@ -2026,7 +2086,7 @@ public class GameLoop {
         }
 
         FadeManager.getInstance().startFadeFromBlack(null);
-        LOGGER.info("Credits -> Title Screen");
+        LOGGER.info("TRY AGAIN / END -> Title Screen");
     }
 
     /**
@@ -2034,6 +2094,13 @@ public class GameLoop {
      */
     public Sonic1CreditsManager getCreditsManager() {
         return creditsManager;
+    }
+
+    /**
+     * Gets the TRY AGAIN / END manager (for rendering).
+     */
+    public TryAgainEndManager getTryAgainEndManager() {
+        return tryAgainEndManager;
     }
 }
 
