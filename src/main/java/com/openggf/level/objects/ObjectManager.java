@@ -2341,14 +2341,17 @@ public class ObjectManager {
                 return SolidContact.CEILING;
             }
 
-            if (apply) {
+            // ROM: Solid_Below — only correct position when ySpeed < 0 (moving upward into object).
+            // When ySpeed > 0 (falling) or ySpeed == 0 with air, ROM's Solid_TopBtmAir returns
+            // d4=-1 without correcting position or zeroing speed. This lets the player fall
+            // through the bottom of the object naturally, preventing spikes from trapping Sonic
+            // by continuously pushing him back into the collision box.
+            if (apply && player.getYSpeed() < 0) {
                 int newCenterY = playerCenterY - distY;
                 int newY = newCenterY - (player.getHeight() / 2);
                 player.setY((short) newY);
-                if (player.getYSpeed() < 0) {
-                    LOGGER.fine(() -> "Solid object ceiling hit, zeroing ySpeed from " + player.getYSpeed());
-                    player.setYSpeed((short) 0);
-                }
+                LOGGER.fine(() -> "Solid object ceiling hit, zeroing ySpeed from " + player.getYSpeed());
+                player.setYSpeed((short) 0);
             }
             return SolidContact.CEILING;
         }

@@ -110,6 +110,12 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
         if (player.getInvincibleFrames() > 0) {
             return;
         }
+        // From disassembly: cmpi.b #4,obRoutine(a0) / bhs.s loc_CF20
+        // Skip if Sonic is already in the hurt routine or dead — prevents
+        // spikes from double-hitting on consecutive frames.
+        if (player.isHurt() || player.getDead()) {
+            return;
+        }
         // S1 spike exception: unlike most hazards, spikes still hurt during post-hit
         // invulnerability frames (while still respecting invincibility power-up).
         if (player.isCpuControlled()) {
