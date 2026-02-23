@@ -1,12 +1,12 @@
 package com.openggf.tests;
 
-import org.junit.Assume;
-
 import org.junit.Test;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.Sonic2RingPlacement;
 import com.openggf.game.sonic2.ZoneAct;
 import com.openggf.level.rings.RingSpawn;
+import com.openggf.tests.rules.RomRequirementTracker;
+import com.openggf.tests.rules.SonicGame;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,16 +20,14 @@ public class Sonic2RingPlacementTest {
 
     @Test
     public void ringPointerTableMatchesRev01Offsets() throws Exception {
-        Assume.assumeTrue("Rev01 ROM missing", Files.exists(REV01_ROM));
-        RomByteReader reader = new RomByteReader(Files.readAllBytes(REV01_ROM));
+        RomByteReader reader = createReader();
         assertEquals(0x0044, reader.readU16BE(Sonic2RingPlacement.OFF_RINGS_REV01));
         assertEquals(0x026A, reader.readU16BE(Sonic2RingPlacement.OFF_RINGS_REV01 + 2));
     }
 
     @Test
     public void parsesEmeraldHillAct1RingGroup() throws Exception {
-        Assume.assumeTrue("Rev01 ROM missing", Files.exists(REV01_ROM));
-        RomByteReader reader = new RomByteReader(Files.readAllBytes(REV01_ROM));
+        RomByteReader reader = createReader();
         Sonic2RingPlacement placement = new Sonic2RingPlacement(reader);
 
         List<RingSpawn> rings = placement.load(new ZoneAct(0, 0));
@@ -42,8 +40,7 @@ public class Sonic2RingPlacementTest {
 
     @Test
     public void singleActZoneFallsBackToAct0() throws Exception {
-        Assume.assumeTrue("Rev01 ROM missing", Files.exists(REV01_ROM));
-        RomByteReader reader = new RomByteReader(Files.readAllBytes(REV01_ROM));
+        RomByteReader reader = createReader();
         Sonic2RingPlacement placement = new Sonic2RingPlacement(reader);
 
         List<RingSpawn> act0 = placement.load(new ZoneAct(16, 0)); // SCZ
@@ -51,6 +48,14 @@ public class Sonic2RingPlacementTest {
         assertFalse(act0.isEmpty());
         assertFalse(act1.isEmpty());
         assertEquals(act0.get(0), act1.get(0));
+    }
+
+    private static RomByteReader createReader() throws Exception {
+        RomRequirementTracker.requireRomOrSkip(
+                SonicGame.SONIC_2,
+                Files.exists(REV01_ROM),
+                "Rev01 ROM missing at " + REV01_ROM);
+        return new RomByteReader(Files.readAllBytes(REV01_ROM));
     }
 
     private static void assertContainsRing(List<RingSpawn> rings, int x, int y) {

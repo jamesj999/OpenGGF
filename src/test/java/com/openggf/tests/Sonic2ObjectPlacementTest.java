@@ -1,11 +1,12 @@
 package com.openggf.tests;
 
-import org.junit.Assume;
 import org.junit.Test;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.Sonic2ObjectPlacement;
 import com.openggf.game.sonic2.ZoneAct;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.tests.rules.RomRequirementTracker;
+import com.openggf.tests.rules.SonicGame;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,8 +20,7 @@ public class Sonic2ObjectPlacementTest {
 
     @Test
     public void parsesFirstEmeraldHillAct1Object() throws Exception {
-        Assume.assumeTrue("Rev01 ROM missing", Files.exists(REV01_ROM));
-        RomByteReader reader = new RomByteReader(Files.readAllBytes(REV01_ROM));
+        RomByteReader reader = createReader();
         Sonic2ObjectPlacement placement = new Sonic2ObjectPlacement(reader);
 
         List<ObjectSpawn> spawns = placement.load(new ZoneAct(0, 0));
@@ -37,8 +37,7 @@ public class Sonic2ObjectPlacementTest {
 
     @Test
     public void parsesFirstObjectsForAdditionalActs() throws Exception {
-        Assume.assumeTrue("Rev01 ROM missing", Files.exists(REV01_ROM));
-        RomByteReader reader = new RomByteReader(Files.readAllBytes(REV01_ROM));
+        RomByteReader reader = createReader();
         Sonic2ObjectPlacement placement = new Sonic2ObjectPlacement(reader);
 
         assertFirstSpawn(placement, new ZoneAct(4, 0), 0x0160, 0x0140, 0xA4, 0x2E, true, 0);
@@ -51,8 +50,7 @@ public class Sonic2ObjectPlacementTest {
 
     @Test
     public void clampsActIndexForMetropolisAct3() throws Exception {
-        Assume.assumeTrue("Rev01 ROM missing", Files.exists(REV01_ROM));
-        RomByteReader reader = new RomByteReader(Files.readAllBytes(REV01_ROM));
+        RomByteReader reader = createReader();
         Sonic2ObjectPlacement placement = new Sonic2ObjectPlacement(reader);
 
         List<ObjectSpawn> act2 = placement.load(new ZoneAct(7, 1));
@@ -64,8 +62,7 @@ public class Sonic2ObjectPlacementTest {
 
     @Test
     public void clampsActIndexForSingleActZones() throws Exception {
-        Assume.assumeTrue("Rev01 ROM missing", Files.exists(REV01_ROM));
-        RomByteReader reader = new RomByteReader(Files.readAllBytes(REV01_ROM));
+        RomByteReader reader = createReader();
         Sonic2ObjectPlacement placement = new Sonic2ObjectPlacement(reader);
 
         List<ObjectSpawn> act0 = placement.load(new ZoneAct(8, 0));
@@ -77,11 +74,18 @@ public class Sonic2ObjectPlacementTest {
 
     @Test
     public void pointerTableMatchesRev01Offsets() throws Exception {
-        Assume.assumeTrue("Rev01 ROM missing", Files.exists(REV01_ROM));
-        RomByteReader reader = new RomByteReader(Files.readAllBytes(REV01_ROM));
+        RomByteReader reader = createReader();
         // Off_Objects pointer table first two entries -> EHZ1/EHZ2
         assertEquals(0x004A, reader.readU16BE(Sonic2ObjectPlacement.OFF_OBJECTS_REV01));
         assertEquals(0x037A, reader.readU16BE(Sonic2ObjectPlacement.OFF_OBJECTS_REV01 + 2));
+    }
+
+    private static RomByteReader createReader() throws Exception {
+        RomRequirementTracker.requireRomOrSkip(
+                SonicGame.SONIC_2,
+                Files.exists(REV01_ROM),
+                "Rev01 ROM missing at " + REV01_ROM);
+        return new RomByteReader(Files.readAllBytes(REV01_ROM));
     }
 
     private static void assertFirstSpawn(

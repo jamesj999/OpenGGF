@@ -1,8 +1,9 @@
 package com.openggf.tests;
 
 import org.junit.Test;
-import org.junit.Assume;
 import com.openggf.tools.KosinskiReader;
+import com.openggf.tests.rules.RomRequirementTracker;
+import com.openggf.tests.rules.SonicGame;
 
 import static org.junit.Assert.*;
 
@@ -26,7 +27,10 @@ public class TestCollisionLogic {
         } else {
             // Fallback: Try to read from ROM
             Path romPath = Path.of("Sonic The Hedgehog 2 (W) (REV01) [!].gen");
-            Assume.assumeTrue("Test data not available (neither .kos file nor ROM found)", romPath.toFile().exists());
+            RomRequirementTracker.requireRomOrSkip(
+                    SonicGame.SONIC_2,
+                    romPath.toFile().exists(),
+                    "Test data not available (neither .kos file nor ROM found)");
 
             try (FileChannel romChannel = FileChannel.open(romPath, StandardOpenOption.READ)) {
                 romChannel.position(0x44E50); // Offset for EHZ and HTZ primary from collisionindexes.txt

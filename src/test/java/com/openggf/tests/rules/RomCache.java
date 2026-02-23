@@ -47,7 +47,9 @@ final class RomCache {
                 case SONIC_3K -> RomTestUtils.ensureSonic3kRomAvailable();
             };
             Rom rom = new Rom();
-            rom.open(romFile.getAbsolutePath());
+            if (!rom.open(romFile.getAbsolutePath())) {
+                return null;
+            }
             return rom;
         } catch (AssertionError | Exception e) {
             // ROM not available — RomTestUtils asserts on missing ROMs

@@ -1,12 +1,19 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'bugfix/**'
+      - develop
+      - main
   pull_request:
     branches:
       - develop
+      - main
 
 jobs:
-  test:
+  core-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -19,5 +26,24 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Run tests
-        run: mvn test -B
+      - name: Run core test suite (default behavior)
+        run: mvn -B -ntp test -Dqa.requiredRoms=
+
+  # This lane enforces S2 ROM presence via Maven profile.
+  # It is allowed to fail so CI remains portable in environments that cannot host ROM assets.
+  rom-s2-strict:
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run strict Sonic 2 ROM-gated tests
+        run: mvn -B -ntp test -Pqa-rom-s2-strict -Dqa.requiredRoms=SONIC_2

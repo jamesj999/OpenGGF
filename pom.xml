@@ -13,6 +13,7 @@
         <lwjgl.version>3.3.3</lwjgl.version>
         <joml.version>1.10.5</joml.version>
         <surefire.argLine>-Xmx2g</surefire.argLine>
+        <qa.requiredRoms></qa.requiredRoms>
     </properties>
 
     <!-- LWJGL native classifier profiles -->
@@ -54,6 +55,101 @@
             <properties>
                 <lwjgl.natives>natives-windows</lwjgl.natives>
             </properties>
+        </profile>
+
+        <!-- Strict QA profiles are opt-in and do not affect default test behavior. -->
+        <profile>
+            <id>qa-rom-s2-strict</id>
+            <properties>
+                <qa.requiredRoms>SONIC_2</qa.requiredRoms>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <version>3.5.0</version>
+                        <executions>
+                            <execution>
+                                <id>require-sonic-2-rom</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireFilesExist>
+                                            <files>
+                                                <file>${project.basedir}/Sonic The Hedgehog 2 (W) (REV01) [!].gen</file>
+                                            </files>
+                                            <message>qa-rom-s2-strict requires Sonic 2 ROM in project root.</message>
+                                        </requireFilesExist>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>qa-rom-all-strict</id>
+            <properties>
+                <qa.requiredRoms>SONIC_1,SONIC_2,SONIC_3K</qa.requiredRoms>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <version>3.5.0</version>
+                        <executions>
+                            <execution>
+                                <id>require-all-roms</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireFilesExist>
+                                            <files>
+                                                <file>${project.basedir}/Sonic The Hedgehog (W) (REV01) [!].gen</file>
+                                                <file>${project.basedir}/Sonic The Hedgehog 2 (W) (REV01) [!].gen</file>
+                                                <file>${project.basedir}/Sonic and Knuckles &amp; Sonic 3 (W) [!].gen</file>
+                                            </files>
+                                            <message>qa-rom-all-strict requires Sonic 1, Sonic 2, and Sonic 3&amp;K ROMs in project root.</message>
+                                        </requireFilesExist>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>qa-visual-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration combine.self="override">
+                            <argLine>${surefire.argLine}</argLine>
+                            <systemPropertyVariables>
+                                <qa.requiredRoms>${qa.requiredRoms}</qa.requiredRoms>
+                            </systemPropertyVariables>
+                            <!-- Keep headless-only exclusion, allow visual test classes when explicitly requested. -->
+                            <excludes>
+                                <exclude>**/TestGraphicsManagerHeadless.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
 
         <!-- GraalVM native-image build: mvn package -Pnative -DskipTests -->
@@ -226,6 +322,9 @@
                 <configuration>
                     <!-- LWJGL/GLFW on macOS requires -XstartOnFirstThread (set via profile) -->
                     <argLine>${surefire.argLine}</argLine>
+                    <systemPropertyVariables>
+                        <qa.requiredRoms>${qa.requiredRoms}</qa.requiredRoms>
+                    </systemPropertyVariables>
                     <!-- Exclude tests that require a GL context/display -->
                     <excludes>
                         <exclude>**/TestGraphicsManagerHeadless.java</exclude>

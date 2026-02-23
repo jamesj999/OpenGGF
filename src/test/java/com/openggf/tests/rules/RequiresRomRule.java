@@ -1,7 +1,6 @@
 package com.openggf.tests.rules;
 
 import com.openggf.tests.TestEnvironment;
-import org.junit.Assume;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -44,7 +43,7 @@ public class RequiresRomRule implements TestRule {
         }
 
         if (requiresRom != null) {
-            return applyRequiresRom(base, requiresRom.value());
+            return applyRequiresRom(base, description, requiresRom.value());
         }
         if (requiresModule != null) {
             return applyRequiresGameModule(base, requiresModule.value());
@@ -62,15 +61,16 @@ public class RequiresRomRule implements TestRule {
         return rom;
     }
 
-    private Statement applyRequiresRom(Statement base, SonicGame game) {
+    private Statement applyRequiresRom(Statement base, Description description, SonicGame game) {
         return new Statement() {
             @Override
             public void evaluate() throws Throwable {
                 TestEnvironment.resetAll();
                 rom = RomCache.getRom(game);
-                Assume.assumeTrue(
-                        game.getDisplayName() + " ROM not available — skipping test",
-                        rom != null);
+                RomRequirementTracker.requireRomOrSkip(
+                        game,
+                        rom != null,
+                        description.getDisplayName() + " requires " + game.getDisplayName() + " ROM");
                 GameModuleRegistry.detectAndSetModule(rom);
                 RomManager.getInstance().setRom(rom);
                 base.evaluate();

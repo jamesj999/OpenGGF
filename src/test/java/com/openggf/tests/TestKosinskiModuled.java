@@ -2,12 +2,13 @@ package com.openggf.tests;
 
 import org.junit.Test;
 import com.openggf.tools.KosinskiReader;
+import com.openggf.tests.rules.RomRequirementTracker;
+import com.openggf.tests.rules.SonicGame;
 
 import java.io.File;
 import java.nio.file.Files;
 
 import static org.junit.Assert.*;
-import static org.junit.Assume.assumeTrue;
 
 /**
  * Tests for Kosinski Moduled (KosM) decompression.
@@ -24,10 +25,7 @@ public class TestKosinskiModuled {
 
     @Test
     public void testDecompressAiz1Primary() throws Exception {
-        File kosmFile = new File(AIZ1_PRIMARY_KOSM);
-        assumeTrue("skdisasm not available", kosmFile.exists());
-
-        byte[] compressed = Files.readAllBytes(kosmFile.toPath());
+        byte[] compressed = readKosmFile(AIZ1_PRIMARY_KOSM);
         assertTrue("File should have data", compressed.length > 2);
 
         // Read expected size from big-endian header
@@ -43,10 +41,7 @@ public class TestKosinskiModuled {
 
     @Test
     public void testDecompressAiz1MainLevel() throws Exception {
-        File kosmFile = new File(AIZ1_MAIN_LEVEL_KOSM);
-        assumeTrue("skdisasm not available", kosmFile.exists());
-
-        byte[] compressed = Files.readAllBytes(kosmFile.toPath());
+        byte[] compressed = readKosmFile(AIZ1_MAIN_LEVEL_KOSM);
         int expectedSize = ((compressed[0] & 0xFF) << 8) | (compressed[1] & 0xFF);
 
         byte[] decompressed = KosinskiReader.decompressModuled(compressed, 0);
@@ -58,10 +53,7 @@ public class TestKosinskiModuled {
 
     @Test
     public void testDecompressAiz1Secondary() throws Exception {
-        File kosmFile = new File(AIZ1_SECONDARY_KOSM);
-        assumeTrue("skdisasm not available", kosmFile.exists());
-
-        byte[] compressed = Files.readAllBytes(kosmFile.toPath());
+        byte[] compressed = readKosmFile(AIZ1_SECONDARY_KOSM);
         int expectedSize = ((compressed[0] & 0xFF) << 8) | (compressed[1] & 0xFF);
 
         byte[] decompressed = KosinskiReader.decompressModuled(compressed, 0);
@@ -73,10 +65,7 @@ public class TestKosinskiModuled {
 
     @Test
     public void testDecompressWithOffset() throws Exception {
-        File kosmFile = new File(AIZ1_PRIMARY_KOSM);
-        assumeTrue("skdisasm not available", kosmFile.exists());
-
-        byte[] compressed = Files.readAllBytes(kosmFile.toPath());
+        byte[] compressed = readKosmFile(AIZ1_PRIMARY_KOSM);
 
         // Wrap the data in a larger array with an offset
         byte[] padded = new byte[compressed.length + 100];
@@ -91,10 +80,7 @@ public class TestKosinskiModuled {
     @Test
     public void testMultipleModules() throws Exception {
         // AIZ1 Main Level is large enough to have multiple modules (0x1000 bytes each)
-        File kosmFile = new File(AIZ1_MAIN_LEVEL_KOSM);
-        assumeTrue("skdisasm not available", kosmFile.exists());
-
-        byte[] compressed = Files.readAllBytes(kosmFile.toPath());
+        byte[] compressed = readKosmFile(AIZ1_MAIN_LEVEL_KOSM);
         int expectedSize = ((compressed[0] & 0xFF) << 8) | (compressed[1] & 0xFF);
 
         // Expected size > 0x1000 means multiple modules
@@ -121,5 +107,14 @@ public class TestKosinskiModuled {
         // Only 1 byte - not enough for the header
         byte[] data = {0x10};
         KosinskiReader.decompressModuled(data, 0);
+    }
+
+    private static byte[] readKosmFile(String path) throws Exception {
+        File kosmFile = new File(path);
+        RomRequirementTracker.requireDependencyOrSkip(
+                SonicGame.SONIC_3K,
+                kosmFile.exists(),
+                "skdisasm not available at " + kosmFile.getPath());
+        return Files.readAllBytes(kosmFile.toPath());
     }
 }
