@@ -542,41 +542,6 @@ public class LevelManager {
         graphicsManager.setUseUnderwaterPaletteForBackground(false);
     });
 
-    // Mutable state for pre-allocated HTZ earthquake BG overlay command
-    private float pendingHtzBgWorldOffsetX;
-    private float pendingHtzBgWorldOffsetY;
-    private int pendingHtzScreenW;
-    private int pendingHtzScreenH;
-    private Integer pendingHtzAtlasId;
-    private Integer pendingHtzPaletteId;
-    private final GLCommand htzBgOverlayCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
-        if (tilemapRenderer == null) {
-            return;
-        }
-        glGetIntegerv(GL_VIEWPORT, viewportBuffer);
-        tilemapRenderer.render(
-                TilemapGpuRenderer.Layer.BACKGROUND,
-                pendingHtzScreenW,
-                pendingHtzScreenH,
-                viewportBuffer[0],
-                viewportBuffer[1],
-                viewportBuffer[2],
-                viewportBuffer[3],
-                pendingHtzBgWorldOffsetX,
-                pendingHtzBgWorldOffsetY,
-                graphicsManager.getPatternAtlasWidth(),
-                graphicsManager.getPatternAtlasHeight(),
-                pendingHtzAtlasId,
-                pendingHtzPaletteId,
-                0,
-                1,
-                true,   // wrapY: VDPWrapHeight maps earthquake Y back into valid BG rows
-                false,
-                false,
-                0.0f);
-    });
-
     /**
      * Checks if a point is within the visible camera frustum with optional padding.
      * Used to cull debug overlay commands for off-screen objects.
@@ -1303,11 +1268,6 @@ public class LevelManager {
         renderHighPriorityTilesToFBO(camera);
         profiler.endSection("render.fg.priority");
 
-        // HTZ earthquake uses BG high-priority cave tiles as a visual overlay.
-        // Our main BG pass renders all BG priorities together behind FG-low, so we
-        // draw a BG-high overlay here to match hardware layering in this mode.
-        renderHtzEarthquakeBgHighOverlay();
-
         // Draw Foreground (Layer 0) high-priority pass to screen
         enqueueForegroundTilemapPass(camera, 1);
 
@@ -1608,6 +1568,10 @@ public class LevelManager {
         int bgCameraX = parallaxManager.getBgCameraX();
         if (bgCameraX != Integer.MIN_VALUE
                 && zoneFeatureProvider != null && zoneFeatureProvider.bgWrapsHorizontally()) {
+            int sourceWrapWidthPx = getBackgroundSourceWrapWidthPx();
+            if (sourceWrapWidthPx > 0) {
+                bgCameraX = Math.floorMod(bgCameraX, sourceWrapWidthPx);
+            }
             // 16px-aligned base offset. The tilemap is 512px wide, viewport is 320px.
             // This leaves 192px of headroom for the viewport within the tilemap.
             int newBase = Math.floorDiv(bgCameraX, 16) * 16;
@@ -1703,6 +1667,7 @@ public class LevelManager {
         float bgWaterlineScreenY = (float) (waterLevelWorldY - camera.getY());
 
         ensureBackgroundTilemapData();
+
         pendingBgTilePassRenderWidth = renderWidth;
         pendingBgTilePassRenderHeight = renderHeight;
         pendingBgTilePassHasWater = hasWater;
@@ -1797,48 +1762,6 @@ public class LevelManager {
     }
 
     /**
-     * Render BG high-priority tiles as an overlay during HTZ earthquake mode.
-     *
-     * In quake mode, HTZ horizontal scroll is flat (same for every scanline), so BG
-     * high-priority tiles can be drawn with a single world offset.
-     */
-    private void renderHtzEarthquakeBgHighOverlay() {
-        if (currentZone != ParallaxManager.ZONE_HTZ || !GameServices.gameState().isHtzScreenShakeActive()) {
-            return;
-        }
-
-        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
-        if (renderer == null) {
-            return;
-        }
-
-        Integer atlasId = graphicsManager.getPatternAtlasTextureId();
-        Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
-        if (atlasId == null || paletteId == null) {
-            return;
-        }
-
-        int[] hScrollData = parallaxManager.getHScrollForShader();
-        if (hScrollData == null || hScrollData.length == 0) {
-            return;
-        }
-
-        short bgScroll = (short) (hScrollData[hScrollData.length - 1] & 0xFFFF);
-        float bgWorldOffsetX = -bgScroll;
-        float bgWorldOffsetY = parallaxManager.getVscrollFactorBG();
-        int screenW = cachedScreenWidth;
-        int screenH = cachedScreenHeight;
-
-        pendingHtzBgWorldOffsetX = bgWorldOffsetX;
-        pendingHtzBgWorldOffsetY = bgWorldOffsetY;
-        pendingHtzScreenW = screenW;
-        pendingHtzScreenH = screenH;
-        pendingHtzAtlasId = atlasId;
-        pendingHtzPaletteId = paletteId;
-        graphicsManager.registerCommand(htzBgOverlayCommand);
-    }
-
-    /**
      * Render high-priority foreground tiles to the tile priority FBO.
      * This FBO is sampled by the sprite priority shader to determine
      * if low-priority sprites should be hidden behind high-priority tiles.
@@ -1876,20 +1799,13 @@ public class LevelManager {
             bgWorldOffsetX = -bgScroll;
         }
 
-        // BG high-priority FBO pass is only valid when BG scroll is flat (earthquake mode).
-        // In normal mode, per-scanline parallax means a single BG offset can't match the
-        // actual on-screen tile positions, causing the sprite priority shader to hide sprites
-        // behind misaligned mask pixels.
-        boolean bgFboPassEnabled =
-                currentZone == ParallaxManager.ZONE_HTZ && GameServices.gameState().isHtzScreenShakeActive();
-
         pendingFboScreenW = screenW;
         pendingFboScreenH = screenH;
         pendingFboFgWorldOffsetX = fgWorldOffsetX;
         pendingFboFgWorldOffsetY = fgWorldOffsetY;
         pendingFboBgWorldOffsetX = bgWorldOffsetX;
         pendingFboBgWorldOffsetY = bgWorldOffsetY;
-        pendingFboBgPassEnabled = bgFboPassEnabled;
+        pendingFboBgPassEnabled = false;
         pendingFboAtlasId = atlasId;
         pendingFboPaletteId = paletteId;
         graphicsManager.registerCommand(highPriorityFboCommand);
@@ -2028,6 +1944,10 @@ public class LevelManager {
     // The background tilemap wraps at this width for Sonic 2's redraw-style pipeline.
     private static final int VDP_BG_PLANE_WIDTH_PX = 512;
     private static final int VDP_BG_PLANE_HEIGHT_TILES = 32; // VDP 64x32 nametable
+    // HTZ BG layout uses 8 populated 128px blocks horizontally (1024px source span).
+    // Quake mode still renders to a 512px VDP window, but source sampling must wrap
+    // within this 1024px span to avoid drifting into empty columns.
+    private static final int HTZ_BG_SOURCE_WRAP_WIDTH_PX = 1024;
 
     private TilemapData buildTilemapData(byte layerIndex) {
         int layerLevelWidth = getLayerLevelWidthPx(layerIndex);
@@ -2046,6 +1966,7 @@ public class LevelManager {
         // BG camera X from the scroll handler). The shader uses this same offset
         // (via ScrollMidpoint → fboWorldOffsetX) to index into the tilemap correctly.
         int bgXQueryOffset = (layerIndex == 1 && bgWrap) ? bgTilemapBaseX : 0;
+        int bgSourceWrapWidthPx = (layerIndex == 1 && bgWrap) ? getBackgroundSourceWrapWidthPx() : 0;
 
         int widthTiles = levelWidth / Pattern.PATTERN_WIDTH;
         int heightTiles = levelHeight / Pattern.PATTERN_HEIGHT;
@@ -2061,6 +1982,9 @@ public class LevelManager {
 
                 // Query the BG map at the offset position (wrapping handled by getBlockAtPosition)
                 int queryX = x + bgXQueryOffset;
+                if (bgSourceWrapWidthPx > 0) {
+                    queryX = Math.floorMod(queryX, bgSourceWrapWidthPx);
+                }
                 Block block = getBlockAtPosition(layerIndex, queryX, y);
                 if (block == null) {
                     writeEmptyChunk(data, widthTiles, heightTiles, chunkX, chunkY);
@@ -2068,7 +1992,7 @@ public class LevelManager {
                 }
 
                 // xBlockBit uses the query position to select the correct chunk within the block.
-                int xBlockBit = (queryX % blockPixelSize) / chunkWidth;
+                int xBlockBit = Math.floorMod(queryX, blockPixelSize) / chunkWidth;
                 int yBlockBit = (y % blockPixelSize) / chunkHeight;
                 ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
                 int chunkIndex = chunkDesc.getChunkIndex();
@@ -2111,6 +2035,18 @@ public class LevelManager {
         }
 
         return new TilemapData(data, widthTiles, heightTiles);
+    }
+
+    /**
+     * Returns the horizontal source wrap span (in pixels) used when sampling BG map
+     * columns into the 512px VDP window tilemap.
+     */
+    private int getBackgroundSourceWrapWidthPx() {
+        int defaultWidth = Math.max(VDP_BG_PLANE_WIDTH_PX, getCachedLayerWidthPx((byte) 1));
+        if (currentZone == ParallaxManager.ZONE_HTZ) {
+            return Math.min(defaultWidth, HTZ_BG_SOURCE_WRAP_WIDTH_PX);
+        }
+        return defaultWidth;
     }
 
     private void writeEmptyChunk(byte[] data, int widthTiles, int heightTiles, int chunkX, int chunkY) {

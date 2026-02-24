@@ -33,6 +33,8 @@ public class DynamicHtz {
 
     // Art data loaded from files
     private byte[] cliffArtData;    // Decompressed cliff art
+    // PatchHTZTiles output staging buffer (RAM offsets used by Dynamic_HTZ.offsets)
+    private byte[] cliffPatchedRam;
     private byte[] cloudArtData;    // Uncompressed cloud art (1024 bytes)
 
     // RAM buffer for cloud composition (8 tiles = 256 bytes)
@@ -69,20 +71,10 @@ public class DynamicHtz {
     // Built by simulating PatchHTZTiles: it reads 128-byte chunks sequentially from
     // decompressed data and scatters them to the RAM addresses in the offset table.
     // Uses only unique rows (0,2,4,6,8,10,12,14) - 8 rows × 6 columns = 48 patches × 128 bytes = 6144 bytes.
-    private static final java.util.Map<Integer, Integer> OFFSET_TO_SOURCE = new java.util.HashMap<>();
-    static {
-        // PatchHTZTiles processes 8 unique rows, 6 offsets each
-        // Unique rows are at table indices 0, 12, 24, 36, 48, 60, 72, 84 (every other row of 12)
-        int sourceOffset = 0;
-        for (int row = 0; row < 8; row++) {
-            int tableBase = row * 12; // Each unique row is followed by its duplicate
-            for (int col = 0; col < 6; col++) {
-                int ramAddress = MOUNTAIN_OFFSETS[tableBase + col];
-                OFFSET_TO_SOURCE.put(ramAddress, sourceOffset);
-                sourceOffset += 128; // 4 tiles = 128 bytes per patch
-            }
-        }
-    }
+    // PatchHTZTiles copies 32 longwords (128 bytes, i.e. 4 tiles) per strip.
+    private static final int CLIFF_PATCH_BYTES_PER_STRIP = 128;
+    private static final int CLIFF_PATCH_ROWS = 8;
+    private static final int CLIFF_PATCH_COLS = 6;
 
     private boolean initialized = false;
 
@@ -139,7 +131,43 @@ public class DynamicHtz {
             channel.position(Sonic2Constants.ART_NEM_HTZ_CLIFFS_ADDR);
             cliffArtData = NemesisReader.decompress(channel);
         }
+        buildCliffPatchedRam();
         LOG.fine("Loaded and decompressed HTZ cliff art from ROM: " + cliffArtData.length + " bytes");
+    }
+
+    /**
+     * Simulate PatchHTZTiles exactly: scatter sequential 128-byte strips from
+     * decompressed ArtNem_HTZCliffs into RAM offsets referenced by Dynamic_HTZ.offsets.
+     * ROM reference: s2.asm PatchHTZTiles (86777-86806).
+     */
+    private void buildCliffPatchedRam() {
+        if (cliffArtData == null || cliffArtData.length == 0) {
+            cliffPatchedRam = null;
+            return;
+        }
+
+        int maxOffset = 0;
+        for (int off : MOUNTAIN_OFFSETS) {
+            if (off > maxOffset) {
+                maxOffset = off;
+            }
+        }
+        cliffPatchedRam = new byte[maxOffset + CLIFF_PATCH_BYTES_PER_STRIP];
+
+        int sourceOffset = 0;
+        for (int row = 0; row < CLIFF_PATCH_ROWS; row++) {
+            // PatchHTZTiles skips every duplicate row in Dynamic_HTZ.offsets.
+            int tableBase = row * 12;
+            for (int col = 0; col < CLIFF_PATCH_COLS; col++) {
+                int ramOffset = MOUNTAIN_OFFSETS[tableBase + col];
+                if (sourceOffset + CLIFF_PATCH_BYTES_PER_STRIP <= cliffArtData.length
+                        && ramOffset + CLIFF_PATCH_BYTES_PER_STRIP <= cliffPatchedRam.length) {
+                    System.arraycopy(cliffArtData, sourceOffset, cliffPatchedRam, ramOffset,
+                            CLIFF_PATCH_BYTES_PER_STRIP);
+                }
+                sourceOffset += CLIFF_PATCH_BYTES_PER_STRIP;
+            }
+        }
     }
 
     /**
@@ -174,7 +202,7 @@ public class DynamicHtz {
      * Load 6 strips of 4 tiles each
      */
     private void updateMountainArt(Level level, int cameraX) {
-        if (cliffArtData == null || cliffArtData.length == 0) {
+        if (cliffPatchedRam == null || cliffPatchedRam.length == 0) {
             return;
         }
 
@@ -215,42 +243,27 @@ public class DynamicHtz {
         GraphicsManager graphicsMan = GraphicsManager.getInstance();
 
         // Load 6 mountain strips (4 tiles each = 24 tiles total)
-        // The MOUNTAIN_OFFSETS are RAM addresses. Use the OFFSET_TO_SOURCE mapping
-        // to find the actual byte offset in the decompressed cliff art data.
-        int artLen = cliffArtData.length;
+        // from the PatchHTZTiles-staged RAM image.
+        int patchedLen = cliffPatchedRam.length;
 
         for (int strip = 0; strip < 6; strip++) {
             int ramAddress = MOUNTAIN_OFFSETS[offsetIdx + strip];
 
-            // Look up the source offset for this RAM address
-            Integer srcOffsetObj = OFFSET_TO_SOURCE.get(ramAddress);
-            if (srcOffsetObj == null) {
-                // Offset not in mapping - shouldn't happen with correct table
-                continue;
-            }
-            int srcOffset = srcOffsetObj;
-
-            // Sanity check bounds
-            if (srcOffset < 0 || srcOffset >= artLen) {
-                continue;
-            }
-
             int destTileIndex = Sonic2Constants.HTZ_MOUNTAINS_TILE_INDEX + strip * 4;
 
-            // Copy 4 tiles (128 bytes) from cliff art to level patterns
+            // Copy 4 tiles (128 bytes) from staged RAM to level patterns.
             for (int tile = 0; tile < 4; tile++) {
-                int srcTileOffset = srcOffset + tile * 32;
+                int srcTileOffset = ramAddress + tile * 32;
                 int destIndex = destTileIndex + tile;
 
-                if (srcTileOffset + 32 > artLen) {
-                    // Source data doesn't have enough bytes
+                if (srcTileOffset < 0 || srcTileOffset + 32 > patchedLen) {
                     continue;
                 }
 
                 if (destIndex < level.getPatternCount()) {
                     Pattern pattern = level.getPattern(destIndex);
                     byte[] tileData = new byte[32];
-                    System.arraycopy(cliffArtData, srcTileOffset, tileData, 0, 32);
+                    System.arraycopy(cliffPatchedRam, srcTileOffset, tileData, 0, 32);
                     pattern.fromSegaFormat(tileData);
 
                     if (graphicsMan.isGlInitialized()) {

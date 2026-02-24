@@ -583,7 +583,6 @@ public class TestHTZInvisibleWallBug {
 
         int lastBgYOffset = -999;
         int lastShakeY = -999;
-
         // Run frames to observe offset behavior
         for (int frame = 0; frame < 60; frame++) {
             testRunner.stepFrame(false, false, false, false, false);

@@ -39,6 +39,12 @@ public class SwScrlHtz implements ZoneScrollHandler {
     private int shakeOffsetX = 0;
     private int shakeOffsetY = 0;
 
+    // ROM-style Camera_BG positions used by HTZ_Screen_Shake.
+    // These are eased toward target values via ScrollBG-style clamped deltas.
+    private int quakeBgXPos = 0;
+    private int quakeBgYPos = 0;
+    private boolean quakeBgInitialized = false;
+
     // Cloud animation counter (TempArray_LayerDef+$22 equivalent)
     // Incremented by 4 each frame
     private int cloudCounter = 0;
@@ -64,6 +70,9 @@ public class SwScrlHtz implements ZoneScrollHandler {
         for (int i = 0; i < 16; i++) {
             tempArrayLayerDef[i] = 0;
         }
+        quakeBgXPos = 0;
+        quakeBgYPos = 0;
+        quakeBgInitialized = false;
     }
 
     /**
@@ -115,6 +124,7 @@ public class SwScrlHtz implements ZoneScrollHandler {
         if (GameServices.gameState().isHtzScreenShakeActive()) {
             updateEarthquakeMode(horizScrollBuf, cameraX, cameraY, frameCounter);
         } else {
+            quakeBgInitialized = false;
             updateNormal(horizScrollBuf, cameraX, cameraY, frameCounter);
         }
     }
@@ -333,9 +343,46 @@ public class SwScrlHtz implements ZoneScrollHandler {
         int bgYOffset = levelEvents.getCameraBgYOffset();
         int bgXOffset = levelEvents.getHtzBgXOffset();
 
-        // Camera_BG positions used by HTZ_Screen_Shake.
-        int bgXPos = cameraX - bgXOffset;
-        int bgYPos = cameraY - bgYOffset;
+        // ROM parity (LevEvents_HTZ/LevEvents_HTZ2 routine entry):
+        //   Camera_BG_X/Y_pos are seeded from Camera_X/Y_pos,
+        //   Camera_BG_Y_pos is shifted by -$100,
+        //   and bottom route adds +$480 to Camera_BG_X_pos.
+        // The entry frame has Camera_BG_*_pos_diff = 0, so no ScrollBG step is
+        // applied until the following frame.
+        boolean justInitialized = false;
+        if (!quakeBgInitialized) {
+            quakeBgXPos = cameraX;
+            quakeBgYPos = cameraY - 0x100;
+            if (bgXOffset == -0x680) {
+                quakeBgXPos += 0x480;
+            }
+            quakeBgInitialized = true;
+            justInitialized = true;
+        }
+
+        if (!justInitialized) {
+            // ScrollBG equivalent:
+            //   d0 = targetX - Camera_BG_X_pos - Camera_BG_X_offset (clamp +/-16)
+            //   d1 = targetY - Camera_BG_Y_pos - Camera_BG_Y_offset (clamp +/-16)
+            // then Camera_BG positions advance by those deltas each frame.
+            int dx = cameraX - quakeBgXPos - bgXOffset;
+            if (dx < -16) {
+                dx = -16;
+            } else if (dx > 16) {
+                dx = 16;
+            }
+            int dy = cameraY - quakeBgYPos - bgYOffset;
+            if (dy < -16) {
+                dy = -16;
+            } else if (dy > 16) {
+                dy = 16;
+            }
+            quakeBgXPos += dx;
+            quakeBgYPos += dy;
+        }
+
+        int bgXPos = quakeBgXPos;
+        int bgYPos = quakeBgYPos;
 
         int shakeOffsetV = 0;
         int shakeOffsetH = 0;
@@ -387,6 +434,14 @@ public class SwScrlHtz implements ZoneScrollHandler {
     @Override
     public short getVscrollFactorBG() {
         return vscrollFactorBG;
+    }
+
+    @Override
+    public int getBgCameraX() {
+        // During quake mode, expose ROM-style Camera_BG_X_pos so LevelManager can
+        // choose the correct 512px BG window. In normal mode, HTZ uses static
+        // layout sampling and does not need a moving base offset.
+        return GameServices.gameState().isHtzScreenShakeActive() ? quakeBgXPos : Integer.MIN_VALUE;
     }
 
     public short getVscrollFactorFG() {

@@ -11,6 +11,7 @@ import java.lang.reflect.Field;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Regression tests for HTZ earthquake scroll path parity.
@@ -39,9 +40,10 @@ public class TestSwScrlHtzEarthquakeMode {
         int[] hScroll = new int[224];
         handler.update(hScroll, 0x1800, 0x450, 10, 0);
 
-        // BG scroll uses absolute Camera_BG positions:
-        //   bgXPos = cameraX - bgXOffset = 0x1800 - 0 = 0x1800
-        //   bgYPos = cameraY - bgYOffset = 0x450 - 0x140 = 0x310
+        // BG scroll uses ROM-style Camera_BG entry seeding:
+        //   entry seed: bgXPos=Camera_X, bgYPos=Camera_Y-$100
+        //   Camera_BG_*_pos_diff is zero on this entry frame, so ScrollBG
+        //   convergence starts on the NEXT frame.
         short expectedFg = (short) -0x1800;
         short expectedBg = (short) -0x1800;
         int expectedPacked = ((expectedFg & 0xFFFF) << 16) | (expectedBg & 0xFFFF);
@@ -50,7 +52,8 @@ public class TestSwScrlHtzEarthquakeMode {
 
         assertArrayEquals(expected, hScroll);
         assertEquals(0x450, handler.getVscrollFactorFG() & 0xFFFF);
-        assertEquals(0x450 - 0x140, handler.getVscrollFactorBG() & 0xFFFF);
+        assertEquals(0x350, handler.getVscrollFactorBG() & 0xFFFF);
+        assertEquals(0x1800, handler.getBgCameraX());
         assertEquals(0, handler.getShakeOffsetX());
         assertEquals(0, handler.getShakeOffsetY());
     }
@@ -68,13 +71,28 @@ public class TestSwScrlHtzEarthquakeMode {
         int[] hScroll = new int[224];
         handler.update(hScroll, 0x1600, 0x400, 12, 1);
 
-        // bgXPos = cameraX - bgXOffset = 0x1600 - (-0x680) = 0x1C80
-        int bgXPos = 0x1600 - (-0x680);
+        // Bottom route entry seeds bgXPos = cameraX + $480 and does not apply
+        // the first ScrollBG convergence step until the next frame.
+        int bgXPos = 0x1600 + 0x480;
         short expectedFg = (short) -0x1600;
         short expectedBg = (short) -bgXPos;
         int expectedPacked = ((expectedFg & 0xFFFF) << 16) | (expectedBg & 0xFFFF);
         assertEquals(expectedPacked, hScroll[0]);
         assertEquals(expectedPacked, hScroll[223]);
+        assertEquals(bgXPos, handler.getBgCameraX());
+    }
+
+    @Test
+    public void bgCameraXDisabledOutsideEarthquakeMode() {
+        GameServices.gameState().setHtzScreenShakeActive(false);
+        GameServices.gameState().setScreenShakeActive(false);
+
+        SwScrlHtz handler = new SwScrlHtz(null, new BackgroundCamera());
+        int[] hScroll = new int[224];
+        handler.update(hScroll, 0x1200, 0x300, 0, 0);
+
+        assertTrue("BG camera X should be disabled in normal HTZ mode",
+                handler.getBgCameraX() == Integer.MIN_VALUE);
     }
 
     private static Object getHtzHandler(Object manager) throws Exception {

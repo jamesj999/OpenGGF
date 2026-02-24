@@ -350,6 +350,7 @@ public class ParallaxManager {
         int cameraX = cam.getX();
         int cameraY = cam.getY();
         vscrollFactorFG = (short) cameraY;
+        cachedBgCameraX = Integer.MIN_VALUE;
 
         // For non-Sonic 2 games, use the game-specific scroll handler provider
         if (!loaded && scrollProvider != null) {
@@ -383,6 +384,7 @@ public class ParallaxManager {
                     minScroll = ehzHandler.getMinScrollOffset();
                     maxScroll = ehzHandler.getMaxScrollOffset();
                     vscrollFactorBG = ehzHandler.getVscrollFactorBG();
+                    cachedBgCameraX = ehzHandler.getBgCameraX();
                 } else {
                     // Fallback should normally not happen if loaded
                     // fillEhz(cameraX, frameCounter, bgScrollY);
@@ -394,6 +396,7 @@ public class ParallaxManager {
                     minScroll = cpzHandler.getMinScrollOffset();
                     maxScroll = cpzHandler.getMaxScrollOffset();
                     vscrollFactorBG = cpzHandler.getVscrollFactorBG();
+                    cachedBgCameraX = cpzHandler.getBgCameraX();
                 } else {
                     fillCpz(cameraX, bgScrollY, frameCounter);
                 }
@@ -404,6 +407,7 @@ public class ParallaxManager {
                     minScroll = arzHandler.getMinScrollOffset();
                     maxScroll = arzHandler.getMaxScrollOffset();
                     vscrollFactorBG = arzHandler.getVscrollFactorBG();
+                    cachedBgCameraX = arzHandler.getBgCameraX();
                     // Capture shake offsets for FG tiles and sprites
                     currentShakeOffsetX = arzHandler.getShakeOffsetX();
                     currentShakeOffsetY = arzHandler.getShakeOffsetY();
@@ -415,6 +419,7 @@ public class ParallaxManager {
                     minScroll = cnzHandler.getMinScrollOffset();
                     maxScroll = cnzHandler.getMaxScrollOffset();
                     vscrollFactorBG = cnzHandler.getVscrollFactorBG();
+                    cachedBgCameraX = cnzHandler.getBgCameraX();
                     // Update bgCamera for renderer's vertical scroll
                     bgCamera.setBgYPos(vscrollFactorBG);
                 } else {
@@ -427,6 +432,7 @@ public class ParallaxManager {
                     minScroll = htzHandler.getMinScrollOffset();
                     maxScroll = htzHandler.getMaxScrollOffset();
                     vscrollFactorBG = htzHandler.getVscrollFactorBG();
+                    cachedBgCameraX = htzHandler.getBgCameraX();
                     if (GameServices.gameState().isScreenShakeActive()) {
                         vscrollFactorFG = htzHandler.getVscrollFactorFG();
                         // Capture shake offsets for FG tiles and sprites
@@ -444,6 +450,7 @@ public class ParallaxManager {
                     maxScroll = mczHandler.getMaxScrollOffset();
                     vscrollFactorBG = mczHandler.getVscrollFactorBG();
                     vscrollFactorFG = mczHandler.getVscrollFactorFG();
+                    cachedBgCameraX = mczHandler.getBgCameraX();
                     // Capture shake offsets for FG tiles and sprites
                     currentShakeOffsetX = mczHandler.getShakeOffsetX();
                     currentShakeOffsetY = mczHandler.getShakeOffsetY();
@@ -457,6 +464,7 @@ public class ParallaxManager {
                     minScroll = oozHandler.getMinScrollOffset();
                     maxScroll = oozHandler.getMaxScrollOffset();
                     vscrollFactorBG = oozHandler.getVscrollFactorBG();
+                    cachedBgCameraX = oozHandler.getBgCameraX();
                     // Update bgCamera for renderer's vertical scroll
                     bgCamera.setBgYPos(vscrollFactorBG);
                 } else {
@@ -472,6 +480,7 @@ public class ParallaxManager {
                     minScroll = sczHandler.getMinScrollOffset();
                     maxScroll = sczHandler.getMaxScrollOffset();
                     vscrollFactorBG = sczHandler.getVscrollFactorBG();
+                    cachedBgCameraX = sczHandler.getBgCameraX();
                     // Re-read camera position after SCZ handler modifies it
                     vscrollFactorFG = (short) cam.getY();
                 } else {
@@ -484,6 +493,7 @@ public class ParallaxManager {
                     minScroll = wfzHandler.getMinScrollOffset();
                     maxScroll = wfzHandler.getMaxScrollOffset();
                     vscrollFactorBG = wfzHandler.getVscrollFactorBG();
+                    cachedBgCameraX = wfzHandler.getBgCameraX();
                 } else {
                     fillWfz(cameraX, frameCounter);
                 }
@@ -495,6 +505,7 @@ public class ParallaxManager {
                     minScroll = dezHandler.getMinScrollOffset();
                     maxScroll = dezHandler.getMaxScrollOffset();
                     vscrollFactorBG = dezHandler.getVscrollFactorBG();
+                    cachedBgCameraX = dezHandler.getBgCameraX();
                 } else {
                     fillDez(cameraX, frameCounter);
                 }
