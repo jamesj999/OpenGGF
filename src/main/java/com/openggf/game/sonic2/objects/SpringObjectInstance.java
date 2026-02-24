@@ -86,12 +86,21 @@ public class SpringObjectInstance extends BoxObjectInstance
             if (!contact.standing()) {
                 return;
             }
+            // ROM: s2.asm:34030-34045 — Only trigger when player's X has passed
+            // the spring's centre by +/-4 pixels (on the diagonal, not the flat)
+            if (!isDiagonalXThresholdMet(player)) {
+                return;
+            }
             applyDiagonalSpring(player, true);
             return;
         }
 
         if (type == TYPE_DIAGONAL_DOWN) {
             if (!contact.touchBottom()) {
+                return;
+            }
+            // ROM: Same X threshold check for diagonal-down springs
+            if (!isDiagonalXThresholdMet(player)) {
                 return;
             }
             applyDiagonalSpring(player, false);
@@ -136,8 +145,9 @@ public class SpringObjectInstance extends BoxObjectInstance
      * spring face)
      */
     private void applyUpSpring(AbstractPlayableSprite player) {
-        // Don't adjust Y position - ObjectManager already handles collision
-        // positioning
+        // ROM: addq.w #8,y_pos(a1) — push player down 8px (away from spring face)
+        // before launching. y_pos is center coordinate.
+        player.setCentreY((short) (player.getCentreY() + 8));
 
         // ROM: y_vel = negative value (negative = up in Y-down coordinate system)
         player.setYSpeed((short) getStrength()); // Negative = up
@@ -182,20 +192,22 @@ public class SpringObjectInstance extends BoxObjectInstance
         int strength = getStrength(); // starts negative
         boolean flipped = isFlippedHorizontal();
 
-        // Always add 8 first
-        int newX = player.getX() + 8;
+        // ROM uses x_pos which is center coordinate.
+        // Always add 8 first (addq.w #8,x_pos)
+        int newCentreX = player.getCentreX() + 8;
         Direction dir = Direction.RIGHT;
 
         if (!flipped) {
             // Unflipped spring: subtract 16 (net -8), negate velocity
-            newX -= 16;
+            // ROM: subi.w #$10,x_pos(a1)
+            newCentreX -= 16;
             strength = -strength; // now positive (right)
         } else {
             // Flipped spring: keep +8, keep negative velocity (left)
             dir = Direction.LEFT;
         }
 
-        player.setX((short) newX);
+        player.setCentreX((short) newCentreX);
         player.setXSpeed((short) strength);
         player.setDirection(dir);
 
@@ -210,21 +222,54 @@ public class SpringObjectInstance extends BoxObjectInstance
             player.setYSpeed((short) 0);
         }
 
-        // ROM: Horizontal springs set control lock to 16 frames (SPG confirms)
-        // This prevents player from braking immediately after being launched
-        // However, our engine uses setSpringing which also locks controls
-        // TODO: Fix animation profile to not show spring animation when grounded
-        player.setSpringing(16);
+        // ROM: move.w #$F,move_lock(a1) — 15 frames of input lock
+        // Horizontal springs use move_lock (not springing state) to prevent
+        // player from braking immediately after being launched
+        player.setMoveLockTimer(15);
 
         trigger(player);
     }
 
     /**
-     * ROM: Diagonal springs apply both X and Y velocity
+     * ROM: s2.asm:34030-34045 — Check that player's X has passed the spring's
+     * centre by +/-4 pixels before triggering. The ROM only fires the diagonal
+     * spring when the player is on the diagonal surface, not on the flat portion.
+     */
+    private boolean isDiagonalXThresholdMet(AbstractPlayableSprite player) {
+        int playerCentreX = player.getCentreX();
+        int springX = spawn.x();
+        boolean flipped = isFlippedHorizontal();
+
+        if (flipped) {
+            // Flipped: player must be at least 4px to the LEFT of spring centre
+            return playerCentreX <= springX - 4;
+        } else {
+            // Unflipped: player must be at least 4px to the RIGHT of spring centre
+            return playerCentreX >= springX + 4;
+        }
+    }
+
+    /**
+     * ROM: Diagonal springs apply both X and Y velocity.
+     * ROM: s2.asm:34052-34058 — Position offsets before launch:
+     *   addq.w #6,y_pos(a1)
+     *   addq.w #6,x_pos(a1)
+     *   btst #0,status(a0)  ; if spring faces right (not x-flipped)
+     *   beq.s +              ; skip if flipped
+     *   subi.w #$C,x_pos(a1) ; subtract 12 (net -6)
      */
     private void applyDiagonalSpring(AbstractPlayableSprite player, boolean up) {
         int strength = getStrength(); // negative base
         boolean flipped = isFlippedHorizontal();
+
+        // ROM position offsets before launching
+        player.setCentreY((short) (player.getCentreY() + 6));
+        int newCentreX = player.getCentreX() + 6;
+        if (!flipped) {
+            // Unflipped (faces right): subtract 12 from X (net -6)
+            newCentreX -= 12;
+        }
+        player.setCentreX((short) newCentreX);
 
         int xStrength = flipped ? strength : -strength;
         int yStrength = up ? strength : -strength;
@@ -351,8 +396,8 @@ public class SpringObjectInstance extends BoxObjectInstance
     public SolidObjectParams getSolidParams() {
         int type = getType();
         if (type == TYPE_HORIZONTAL) {
-            // Reduce height to 8 (16px total) to avoid blocking player when walking over it
-            return new SolidObjectParams(19, 8, 8);
+            // ROM: d2=$E (14), d3=$F (15) — air half-height and ground half-height
+            return new SolidObjectParams(19, 14, 15);
         }
         if (type == TYPE_DIAGONAL_UP || type == TYPE_DIAGONAL_DOWN) {
             // ROM: Diagonal springs use d2=$10 (halfHeight=16), taller collision box
@@ -360,9 +405,8 @@ public class SpringObjectInstance extends BoxObjectInstance
             return new SolidObjectParams(27, 16, 16);
         }
         // Up, Down springs use standard vertical params
-        // Fix height: Air=8, Ground=8 (matches 16px visual height, prevents
-        // oscillation)
-        return new SolidObjectParams(27, 8, 8);
+        // ROM: d2=8, d3=$10 (16) — air half-height=8, ground half-height=16
+        return new SolidObjectParams(27, 8, 16);
     }
 
     @Override

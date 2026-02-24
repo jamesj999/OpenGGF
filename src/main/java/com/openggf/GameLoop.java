@@ -1975,6 +1975,9 @@ public class GameLoop {
             camera.updatePosition(true);
         }
 
+        // Suppress player keyboard input — demo input comes from forcedInputMask only
+        spriteManager.setInputSuppressed(true);
+
         // Switch to CREDITS_DEMO mode
         GameMode oldMode = currentGameMode;
         currentGameMode = GameMode.CREDITS_DEMO;
@@ -1994,7 +1997,8 @@ public class GameLoop {
      * Returns from CREDITS_DEMO to CREDITS_TEXT for the next credit.
      */
     private void returnToCreditsText() {
-        // Unlock player control and clear HUD suppression
+        // Restore player keyboard input and clear HUD suppression
+        spriteManager.setInputSuppressed(false);
         levelManager.setForceHudSuppressed(false);
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if (mainCode == null) mainCode = "sonic";
@@ -2023,6 +2027,7 @@ public class GameLoop {
         LOGGER.info("Credits complete, transitioning to TRY AGAIN / END screen");
 
         // Clean up credits state
+        spriteManager.setInputSuppressed(false);
         levelManager.setForceHudSuppressed(false);
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if (mainCode == null) mainCode = "sonic";

@@ -24,7 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 
 /**
  * Manages the post-credits "TRY AGAIN" / "END" screen for Sonic 1.
@@ -338,8 +339,9 @@ public class TryAgainEndManager {
             updateSingleEmerald(i);
         }
 
-        // Check START press
-        if (inputHandler != null && inputHandler.isKeyPressed(GLFW_KEY_ENTER)) {
+        // Check START press (mapped to configured jump key, matching ROM's Start button)
+        int startKey = SonicConfigurationService.getInstance().getInt(SonicConfiguration.JUMP);
+        if (inputHandler != null && startKey > 0 && inputHandler.isKeyPressed(startKey)) {
             exitRequested = true;
             return;
         }

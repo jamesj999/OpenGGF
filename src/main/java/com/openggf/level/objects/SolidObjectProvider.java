@@ -55,4 +55,13 @@ public interface SolidObjectProvider {
     default int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
         return collisionHalfWidth;
     }
+
+    /**
+     * Called when the player is pushing against this object.
+     * ROM: bset #p1_pushing_bit,status(a0) (s2.asm:35220-35226).
+     * Objects that need to react to being pushed (e.g., spring walls) can override.
+     */
+    default void setPlayerPushing(AbstractPlayableSprite player, boolean pushing) {
+        // Default no-op
+    }
 }
