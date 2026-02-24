@@ -65,6 +65,13 @@ public class FlipperObjectInstance extends BoxObjectInstance
     private int playerFlipperState = 0;
     private boolean launchPending = false;
 
+    // Track the player currently locked by this flipper.
+    // ROM: loc_2B20A runs every frame and checks the standing bit even when the player
+    // has moved away. Our onSolidContact callback only fires when there IS a contact,
+    // so we must check in update() whether the player has left and release the lock.
+    private AbstractPlayableSprite lockedPlayer = null;
+    private boolean contactThisFrame = false;
+
     public FlipperObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name, 8, 8, 0.8f, 0.4f, 0.2f, false);
         this.idleAnimId = isHorizontal() ? ANIM_HORIZONTAL_IDLE : ANIM_VERTICAL_IDLE;
@@ -85,6 +92,7 @@ public class FlipperObjectInstance extends BoxObjectInstance
 
         // If player entered debug mode while on the flipper, reset flipper state
         if (player.isDebugMode() && playerFlipperState != 0) {
+            releaseLockedPlayer();
             playerFlipperState = 0;
             launchPending = false;
             return;
@@ -96,11 +104,16 @@ public class FlipperObjectInstance extends BoxObjectInstance
                 applyHorizontalLaunch(player);
             }
         } else {
+            // Mark that we received a contact callback this frame - used by update()
+            // to detect when the player has moved out of range entirely (no callback).
+            contactThisFrame = true;
+
             // Vertical flipper state machine (loc_2B20A - loc_2B288)
             if (contact.standing()) {
                 // ROM: move.b #1,obj_control(a1) - locks ALL player input including jumping
                 // This is set every frame while standing on the flipper
                 player.setControlLocked(true);
+                lockedPlayer = player;
 
                 if (playerFlipperState == 0) {
                     // First frame standing: enter rolling state (loc_2B20A)
@@ -126,8 +139,7 @@ public class FlipperObjectInstance extends BoxObjectInstance
                 // Player left flipper without jumping (loc_2B23C branch to clear)
                 // ROM: move.b #0,obj_control(a1)
                 if (playerFlipperState != 0) {
-                    player.setControlLocked(false);
-                    player.setPinballMode(false);
+                    releaseLockedPlayer();
                 }
                 playerFlipperState = 0;
             }
@@ -193,6 +205,7 @@ public class FlipperObjectInstance extends BoxObjectInstance
         // ROM: move.b #0,obj_control(a1) at loc_2B2E2 - release control lock
         player.setControlLocked(false);
         player.setPinballMode(false);
+        lockedPlayer = null;
 
         // Clear solid object riding state to prevent the object system from
         // continuing to track the player's position relative to the flipper.
@@ -317,8 +330,32 @@ public class FlipperObjectInstance extends BoxObjectInstance
         if (launchCooldown > 0) {
             launchCooldown--;
         }
+
+        // ROM: loc_2B20A runs every frame as part of the object's main routine.
+        // It checks the standing bit (set/cleared by SlopedSolid) and clears
+        // obj_control when the player is no longer standing. Our onSolidContact
+        // callback only fires when collision is detected, so if the player has
+        // moved out of range entirely, we never get a callback. Detect that here.
+        if (!isHorizontal() && playerFlipperState != 0 && !contactThisFrame) {
+            releaseLockedPlayer();
+            playerFlipperState = 0;
+        }
+        contactThisFrame = false;
+
         animationState.update();
         mappingFrame = animationState.getMappingFrame();
+    }
+
+    /**
+     * Release the control lock on the tracked player.
+     * ROM: move.b #0,obj_control(a1) at loc_2B23C when player leaves flipper.
+     */
+    private void releaseLockedPlayer() {
+        if (lockedPlayer != null) {
+            lockedPlayer.setControlLocked(false);
+            lockedPlayer.setPinballMode(false);
+            lockedPlayer = null;
+        }
     }
 
     @Override
