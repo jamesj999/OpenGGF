@@ -51,6 +51,7 @@ public class TestSwScrlHtzEarthquakeMode {
         assertArrayEquals(expected, hScroll);
         assertEquals(0x450, handler.getVscrollFactorFG() & 0xFFFF);
         assertEquals(0x450 - 0x140, handler.getVscrollFactorBG() & 0xFFFF);
+        assertEquals(0x1800, handler.getBgCameraX());
         assertEquals(0, handler.getShakeOffsetX());
         assertEquals(0, handler.getShakeOffsetY());
     }
@@ -75,6 +76,7 @@ public class TestSwScrlHtzEarthquakeMode {
         int expectedPacked = ((expectedFg & 0xFFFF) << 16) | (expectedBg & 0xFFFF);
         assertEquals(expectedPacked, hScroll[0]);
         assertEquals(expectedPacked, hScroll[223]);
+        assertEquals(bgXPos, handler.getBgCameraX());
     }
 
     private static Object getHtzHandler(Object manager) throws Exception {

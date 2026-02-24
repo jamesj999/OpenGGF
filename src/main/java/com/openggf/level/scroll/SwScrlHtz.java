@@ -38,6 +38,8 @@ public class SwScrlHtz implements ZoneScrollHandler {
     // Screen shake offsets for FG/sprite rendering (calculated during updateScreenShake)
     private int shakeOffsetX = 0;
     private int shakeOffsetY = 0;
+    // v_bgscreenposx equivalent for wide BG tilemap sampling.
+    private int bgCameraX = Integer.MIN_VALUE;
 
     // Cloud animation counter (TempArray_LayerDef+$22 equivalent)
     // Incremented by 4 each frame
@@ -64,6 +66,7 @@ public class SwScrlHtz implements ZoneScrollHandler {
         for (int i = 0; i < 16; i++) {
             tempArrayLayerDef[i] = 0;
         }
+        bgCameraX = Integer.MIN_VALUE;
     }
 
     /**
@@ -116,6 +119,15 @@ public class SwScrlHtz implements ZoneScrollHandler {
             updateEarthquakeMode(horizScrollBuf, cameraX, cameraY, frameCounter);
         } else {
             updateNormal(horizScrollBuf, cameraX, cameraY, frameCounter);
+        }
+
+        // Use the last scanline's BG scroll as the current BG camera X.
+        // This matches how the renderer already derives base BG scroll from HScroll.
+        if (horizScrollBuf != null && horizScrollBuf.length >= VISIBLE_LINES) {
+            short bgScroll = (short) horizScrollBuf[VISIBLE_LINES - 1];
+            bgCameraX = -bgScroll;
+        } else {
+            bgCameraX = Integer.MIN_VALUE;
         }
     }
 
@@ -401,6 +413,11 @@ public class SwScrlHtz implements ZoneScrollHandler {
     @Override
     public int getMaxScrollOffset() {
         return maxScrollOffset;
+    }
+
+    @Override
+    public int getBgCameraX() {
+        return bgCameraX;
     }
 
     /**
