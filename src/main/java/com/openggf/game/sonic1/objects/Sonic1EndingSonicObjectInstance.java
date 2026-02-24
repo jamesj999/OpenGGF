@@ -3,7 +3,9 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameServices;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GLCommand;
+import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
+import com.openggf.level.Map;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
@@ -175,6 +177,11 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
             clearEmeralds();
             emeraldsCleared = true;
         }
+        // ROM: move.w #$2E2F,(v_lvllayout+$80).w — modify level layout
+        // Patches row 1 columns 0-1 with flower blocks before the second flash.
+        // Layout buffer row stride is $80; offset $80 = row 1, col 0.
+        // After write, ROM calls DrawChunks to re-render with flower blocks visible.
+        patchLayoutWithFlowers();
         // ROM: move.w #1,(f_restart).w — second flash/palette reload
         triggerFlash();
         routine = 0x0A;
@@ -310,6 +317,38 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
             if (i == 0) {
                 emeraldMaster = emerald;
             }
+        }
+    }
+
+    /**
+     * Patches the level layout to add flower blocks after the emerald flash.
+     *
+     * <p>ROM: {@code move.w #$2E2F,(v_lvllayout+$80).w} followed by
+     * {@code DrawChunks} to re-render. The layout buffer uses a $80 (128)
+     * byte row stride, so offset $80 = row 1, column 0.
+     *
+     * <p>Block IDs $2E and $2F are GHZ blocks containing flower graphics
+     * that reference the animated Kos_EndFlowers tile positions.
+     */
+    private void patchLayoutWithFlowers() {
+        LevelManager levelManager = LevelManager.getInstance();
+        Level level = levelManager.getCurrentLevel();
+        if (level == null) {
+            return;
+        }
+        Map map = level.getMap();
+        if (map == null) {
+            return;
+        }
+        try {
+            // ROM writes $2E at v_lvllayout+$80 (row 1, col 0)
+            //          $2F at v_lvllayout+$81 (row 1, col 1)
+            map.setValue(0, 0, 1, (byte) 0x2E);
+            map.setValue(0, 1, 1, (byte) 0x2F);
+            // ROM: bsr.w DrawChunks — re-render level with modified layout
+            levelManager.invalidateForegroundTilemap();
+        } catch (IllegalArgumentException e) {
+            LOGGER.warning("Ending layout patch failed: " + e.getMessage());
         }
     }
 

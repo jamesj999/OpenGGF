@@ -7,9 +7,14 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Pattern;
 import com.openggf.level.animation.AnimatedPatternManager;
+import com.openggf.tools.KosinskiReader;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.channels.Channels;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Sonic 1 animated tile system.
@@ -22,11 +27,15 @@ import java.util.List;
  * <p>Supported zones:
  * <ul>
  *   <li>GHZ - Waterfall (2 frames), Big Flower (2 frames), Small Flower (4-step sequence)</li>
+ *   <li>Ending - Big Flower (2 frames, dual dest), Small Flower (8-step), Flower3, Flower4
+ *       (Flower3/4 use Kosinski-compressed Kos_EndFlowers from ROM)</li>
  *   <li>MZ - Lava surface (3 frames), Torch (4 frames)</li>
  *   <li>SBZ - Smoke Puff 1 (7 frames + 3s interval), Smoke Puff 2 (7 frames + 2s interval)</li>
  * </ul>
  */
 class Sonic1PatternAnimator implements AnimatedPatternManager {
+
+    private static final Logger LOG = Logger.getLogger(Sonic1PatternAnimator.class.getName());
 
     private final Level level;
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
@@ -49,10 +58,139 @@ class Sonic1PatternAnimator implements AnimatedPatternManager {
     private List<AnimHandler> createHandlers(RomByteReader reader, int zoneIndex) {
         return switch (zoneIndex) {
             case Sonic1Constants.ZONE_GHZ -> createGhzHandlers(reader);
+            case Sonic1Constants.ZONE_ENDZ -> createEndingHandlers(reader);
             case Sonic1Constants.ZONE_MZ -> createMzHandlers(reader);
             case Sonic1Constants.ZONE_SBZ -> createSbzHandlers(reader);
             default -> List.of();
         };
+    }
+
+    // ===== Ending animations (AniArt_Ending from AnimateLevelGfx.asm) =====
+
+    /**
+     * Creates ending-specific pattern animation handlers.
+     *
+     * <p>The ending has its own animation routines distinct from GHZ:
+     * <ul>
+     *   <li>BigFlower: Art_GhzFlower1 → Big_Flower_1, Kos_EndFlowers → Big_Flower_2 (duration 7)</li>
+     *   <li>SmallFlower: Art_GhzFlower2, 8-step sequence {0,0,0,1,2,2,2,1} (duration 7)</li>
+     *   <li>Flower3: Kos_EndFlowers+$400, 4-step {0,1,2,1}, 16 tiles (duration 14)</li>
+     *   <li>Flower4: Kos_EndFlowers+$A00, 4-step {0,1,2,1}, 16 tiles (duration 11)</li>
+     * </ul>
+     * No waterfall animation in the ending (unlike GHZ).
+     */
+    private List<AnimHandler> createEndingHandlers(RomByteReader reader) {
+        List<AnimHandler> list = new ArrayList<>(4);
+
+        // Decompress Kos_EndFlowers from ROM into a byte buffer.
+        // ROM: lea (Kos_EndFlowers).l,a0 / lea (v_256x256_end-$1000).w,a1 / bsr.w KosDec
+        Pattern[] kosFlowerPatterns = decompressKosEndFlowers(reader);
+
+        // AniArt_Ending_BigFlower: 2 frames, 16 tiles, duration 7.
+        // Writes Art_GhzFlower1 → ArtTile_GHZ_Big_Flower_1 AND
+        //        Kos_EndFlowers  → ArtTile_GHZ_Big_Flower_2 (same frame index).
+        Pattern[] flower1Art = loadArt(reader, Sonic1Constants.ART_UNC_GHZ_FLOWER1_ADDR, 32);
+        // Kos_EndFlowers offset 0: first 32 tiles (2 frames × 16 tiles) for Big_Flower_2
+        Pattern[] flower2Art = extractPatterns(kosFlowerPatterns, 0, 32);
+        list.add(new EndingBigFlowerAnim(flower1Art, flower2Art));
+
+        // AniArt_Ending_SmallFlower: 8-step sequence {0,0,0,1,2,2,2,1}, 12 tiles, duration 7.
+        // ROM: andi.w #7,d0 ; 8 frames; .sequence: dc.b 0, 0, 0, 1, 2, 2, 2, 1
+        // Tile offset = sequence[frame] * $180 bytes = sequence[frame] * 12 tiles
+        list.add(new CyclingAnim(
+                loadArt(reader, Sonic1Constants.ART_UNC_GHZ_FLOWER2_ADDR, 36),
+                Sonic1Constants.ARTTILE_GHZ_SMALL_FLOWER,
+                12,
+                new int[]{0, 0, 0, 12, 24, 24, 24, 12}, // sequence {0,0,0,1,2,2,2,1} × 12
+                7, // 8-1
+                null
+        ));
+
+        // AniArt_Ending_Flower3: 16 tiles from Kos_EndFlowers+$400, duration 14.
+        // ROM: lea (v_256x256_end-$1000+$400).w,a1; sequence {0,1,2,1}; frame*$200 bytes
+        // $400 bytes = 32 tiles offset into decompressed data; each frame = $200 bytes = 16 tiles
+        Pattern[] flower3Art = extractPatterns(kosFlowerPatterns, 32, 48); // 3 frames × 16 tiles
+        list.add(new CyclingAnim(
+                flower3Art,
+                Sonic1Constants.ARTTILE_GHZ_FLOWER_3,
+                16,
+                new int[]{0, 16, 32, 16}, // sequence {0,1,2,1} × 16 tiles
+                14, // $F-1
+                null
+        ));
+
+        // AniArt_Ending_Flower4: 16 tiles from Kos_EndFlowers+$A00, duration 11.
+        // ROM: lea (v_256x256_end-$1000+$A00).w,a1; same sequence; frame*$200 bytes
+        // $A00 bytes = 80 tiles offset; 3 frames × 16 tiles
+        Pattern[] flower4Art = extractPatterns(kosFlowerPatterns, 80, 48);
+        list.add(new CyclingAnim(
+                flower4Art,
+                Sonic1Constants.ARTTILE_GHZ_FLOWER_4,
+                16,
+                new int[]{0, 16, 32, 16}, // sequence {0,1,2,1} × 16 tiles
+                11, // $C-1
+                null
+        ));
+
+        return list;
+    }
+
+    /**
+     * Decompresses Kos_EndFlowers from ROM and converts to Pattern array.
+     * Returns empty array on failure (graceful degradation - flowers just won't animate).
+     */
+    private Pattern[] decompressKosEndFlowers(RomByteReader reader) {
+        int addr = Sonic1Constants.KOS_END_FLOWERS_ADDR;
+        // Read generous chunk for Kosinski decompression (compressed size ~1424 bytes)
+        int readSize = Math.min(2048, reader.size() - addr);
+        if (readSize <= 0) {
+            LOG.warning("Kos_EndFlowers: ROM too small for address 0x" + Integer.toHexString(addr));
+            return new Pattern[0];
+        }
+        byte[] compressed = reader.slice(addr, readSize);
+        try {
+            byte[] decompressed = KosinskiReader.decompress(
+                    Channels.newChannel(new ByteArrayInputStream(compressed)), false);
+            int tileCount = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
+            Pattern[] patterns = new Pattern[tileCount];
+            for (int i = 0; i < tileCount; i++) {
+                Pattern p = new Pattern();
+                byte[] tileBytes = new byte[Pattern.PATTERN_SIZE_IN_ROM];
+                System.arraycopy(decompressed, i * Pattern.PATTERN_SIZE_IN_ROM,
+                        tileBytes, 0, Pattern.PATTERN_SIZE_IN_ROM);
+                p.fromSegaFormat(tileBytes);
+                patterns[i] = p;
+            }
+            LOG.info("Kos_EndFlowers: decompressed " + decompressed.length +
+                    " bytes (" + tileCount + " tiles)");
+            return patterns;
+        } catch (IOException e) {
+            LOG.log(java.util.logging.Level.WARNING,
+                    "Failed to decompress Kos_EndFlowers at 0x" + Integer.toHexString(addr), e);
+            return new Pattern[0];
+        }
+    }
+
+    /**
+     * Extracts a sub-range of patterns from a source array.
+     * Returns empty array if source is too small.
+     */
+    private static Pattern[] extractPatterns(Pattern[] source, int offset, int count) {
+        if (source.length < offset + count) {
+            // Graceful: return what we can, pad remainder with empty patterns
+            Pattern[] result = new Pattern[count];
+            for (int i = 0; i < count; i++) {
+                if (offset + i < source.length) {
+                    result[i] = source[offset + i];
+                } else {
+                    result[i] = new Pattern();
+                }
+            }
+            return result;
+        }
+        Pattern[] result = new Pattern[count];
+        System.arraycopy(source, offset, result, 0, count);
+        return result;
     }
 
     // ===== GHZ animations =====
@@ -403,6 +541,89 @@ class Sonic1PatternAnimator implements AnimatedPatternManager {
                 }
             }
             return out;
+        }
+    }
+
+    // ===== Ending big flower (dual destination) =====
+
+    /**
+     * Ending BigFlower animation from AniArt_Ending_BigFlower.
+     *
+     * <p>Writes two sets of 16 tiles per frame:
+     * <ol>
+     *   <li>Art_GhzFlower1 → ArtTile_GHZ_Big_Flower_1</li>
+     *   <li>Kos_EndFlowers → ArtTile_GHZ_Big_Flower_2</li>
+     * </ol>
+     * 2 frames, duration 7 (8-1), shared frame counter.
+     */
+    private static class EndingBigFlowerAnim implements AnimHandler {
+        private static final int TILES_PER_FRAME = 16;
+        private static final int DURATION = 7; // 8-1
+
+        private final Pattern[] flower1Art; // Art_GhzFlower1 (32 tiles: 2 frames × 16)
+        private final Pattern[] flower2Art; // Kos_EndFlowers offset 0 (32 tiles: 2 frames × 16)
+        private int timer;
+        private int frameCounter;
+
+        EndingBigFlowerAnim(Pattern[] flower1Art, Pattern[] flower2Art) {
+            this.flower1Art = flower1Art;
+            this.flower2Art = flower2Art;
+        }
+
+        @Override
+        public void tick(Level level, GraphicsManager gm) {
+            if (timer > 0) {
+                timer--;
+                return;
+            }
+
+            int frame = frameCounter & 1; // 2 frames
+            frameCounter = frame + 1;
+            timer = DURATION;
+
+            applyFrame(level, gm, frame * TILES_PER_FRAME);
+        }
+
+        @Override
+        public void prime(Level level, GraphicsManager gm) {
+            applyFrame(level, gm, 0);
+        }
+
+        @Override
+        public int requiredPatternCount() {
+            return Math.max(
+                    Sonic1Constants.ARTTILE_GHZ_BIG_FLOWER_1 + TILES_PER_FRAME,
+                    Sonic1Constants.ARTTILE_GHZ_BIG_FLOWER_2 + TILES_PER_FRAME);
+        }
+
+        private void applyFrame(Level level, GraphicsManager gm, int srcOffset) {
+            int maxPatterns = level.getPatternCount();
+            boolean canUpdate = gm.isGlInitialized();
+
+            // Dest 1: Art_GhzFlower1 → Big_Flower_1
+            writeTiles(level, gm, flower1Art, srcOffset,
+                    Sonic1Constants.ARTTILE_GHZ_BIG_FLOWER_1, maxPatterns, canUpdate);
+
+            // Dest 2: Kos_EndFlowers → Big_Flower_2
+            writeTiles(level, gm, flower2Art, srcOffset,
+                    Sonic1Constants.ARTTILE_GHZ_BIG_FLOWER_2, maxPatterns, canUpdate);
+        }
+
+        private static void writeTiles(Level level, GraphicsManager gm,
+                                        Pattern[] src, int srcOffset,
+                                        int destBase, int maxPatterns, boolean canUpdate) {
+            for (int i = 0; i < TILES_PER_FRAME; i++) {
+                int srcIdx = srcOffset + i;
+                int destIdx = destBase + i;
+                if (srcIdx < 0 || srcIdx >= src.length) continue;
+                if (destIdx < 0 || destIdx >= maxPatterns) continue;
+
+                Pattern dest = level.getPattern(destIdx);
+                dest.copyFrom(src[srcIdx]);
+                if (canUpdate) {
+                    gm.updatePatternTexture(dest, destIdx);
+                }
+            }
         }
     }
 
