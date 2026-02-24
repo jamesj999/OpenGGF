@@ -65,6 +65,7 @@ public class SpriteManager {
 	private int superSonicDebugKey;
 	private int giveEmeraldsKey;
 	private int frameCounter;
+	private boolean inputSuppressed;
 
 	private SpriteManager() {
 		sprites = new HashMap<String, Sprite>();
@@ -158,12 +159,12 @@ public class SpriteManager {
 		// Note: bucketsDirty is already marked in addSprite()/removeSprite(),
 		// no need to unconditionally mark dirty every frame
 		Collection<Sprite> sprites = getAllSprites();
-		boolean up = handler.isKeyDown(upKey);
-		boolean down = handler.isKeyDown(downKey);
-		boolean left = handler.isKeyDown(leftKey);
-		boolean right = handler.isKeyDown(rightKey);
-		boolean space = handler.isKeyDown(jumpKey);
-		boolean testButton = handler.isKeyDown(testKey);
+		boolean up = !inputSuppressed && handler.isKeyDown(upKey);
+		boolean down = !inputSuppressed && handler.isKeyDown(downKey);
+		boolean left = !inputSuppressed && handler.isKeyDown(leftKey);
+		boolean right = !inputSuppressed && handler.isKeyDown(rightKey);
+		boolean space = !inputSuppressed && handler.isKeyDown(jumpKey);
+		boolean testButton = !inputSuppressed && handler.isKeyDown(testKey);
 		boolean speedUp = isDebugSpeedUpModifierDown(handler);
 		boolean slowDown = isDebugSlowDownModifierDown(handler);
 		boolean debugModePressed = handler.isKeyPressed(debugModeKey);
@@ -510,6 +511,14 @@ public class SpriteManager {
 			levelManager = LevelManager.getInstance();
 		}
 		return levelManager;
+	}
+
+	/**
+	 * Suppresses all player keyboard input (directional + jump + test).
+	 * Forced input masks (demo playback) still apply.
+	 */
+	public void setInputSuppressed(boolean suppressed) {
+		this.inputSuppressed = suppressed;
 	}
 
 	private boolean isCpuSidekickSuppressed() {
