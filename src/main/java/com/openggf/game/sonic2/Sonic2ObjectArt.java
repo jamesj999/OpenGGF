@@ -893,7 +893,7 @@ public class Sonic2ObjectArt {
      * but with different mappings: 5 frames of 8 pieces each representing the gate
      * in various states from closed (flat horizontal) to open (split into two columns).
      * <p>
-     * Disassembly Reference: mappings/sprite/obj77.asm (Obj77_MapUnc_2A0BC)
+     * Disassembly Reference: mappings/sprite/obj77.asm (Obj77_MapUnc_29064)
      *
      * @return sprite sheet for MCZ bridge gate, or null on failure
      */
@@ -903,7 +903,27 @@ public class Sonic2ObjectArt {
         if (patterns.length == 0) {
             return null;
         }
-        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJ1A_A_ADDR);
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJ77_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
+    }
+
+    /**
+     * Load VineSwitch sprite sheet (Object 0x7F - MCZ pull switch).
+     * <p>
+     * ROM: ArtNem_VineSwitch at 0xF1C64, palette line 3
+     * Mappings: Obj7F_MapUnc_29938 (2 frames - normal and grabbed)
+     * <p>
+     * Disassembly Reference: mappings/sprite/obj7F.asm (Obj7F_MapUnc_29938)
+     *
+     * @return sprite sheet for MCZ vine switch, or null on failure
+     */
+    public ObjectSpriteSheet loadVineSwitchSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(
+                Sonic2Constants.ART_NEM_VINE_SWITCH_ADDR, "VineSwitch");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJ7F_ADDR);
         return new ObjectSpriteSheet(patterns, mappings, 3, 1);
     }
 
@@ -1602,7 +1622,11 @@ public class Sonic2ObjectArt {
             }
         }
 
-        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_SOL_ADDR);
+        // ROM: art_tile = make_art_tile(ArtTile_ArtKos_LevelArt, 0, 0) — mapping pieces
+        // use absolute VRAM tile indices ($3DE for body, $3AE for fireball). Offset by
+        // -baseTile to convert to array indices within the combined pattern array.
+        List<SpriteMappingFrame> mappings = loadMappingFramesWithTileOffset(
+                Sonic2Constants.MAP_UNC_SOL_ADDR, -baseTile);
         return new ObjectSpriteSheet(combined, mappings, 0, 1);
     }
 
@@ -2857,8 +2881,8 @@ public class Sonic2ObjectArt {
      * Load MCZ Falling Rocks sprite sheet.
      * Uses ArtUnc_FallingRocks (256 bytes = 8 tiles uncompressed).
      * ROM: art_tile = make_art_tile(ArtTile_ArtUnc_FallingRocks,0,0) = $0560
-     * Falling debris uses frames 13 (stone) and 20 (spike) from Obj57_MapUnc_316EC,
-     * but with a different art_tile base. We create a dedicated sheet with just 2 frames.
+     * Falling debris uses frames 0x0D (stone) and 0x14 (spike) from Obj57_MapUnc_316EC.
+     * The 8-tile art covers tile indices 0-3 (stone, 2x2) and 4-7 (spike, 1x4).
      *
      * @return sprite sheet for falling rocks, or null on failure
      */

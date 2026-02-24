@@ -145,6 +145,7 @@ public final class Sonic2ObjectArtKeys {
     public static final String MCZ_CRATE = "mcz_crate";
     public static final String MCZ_BRIDGE = "mcz_bridge";
     public static final String MCZ_DRAWBRIDGE = "mcz_drawbridge";
+    public static final String VINE_SWITCH = "vine_switch";
 
     // WFZ Objects
     public static final String WFZ_HOOK = "wfz_hook";

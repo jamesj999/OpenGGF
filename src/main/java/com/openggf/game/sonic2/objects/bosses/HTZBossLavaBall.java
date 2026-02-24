@@ -4,6 +4,7 @@ import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
+import com.openggf.game.sonic2.objects.HtzGroundFireObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -112,16 +113,21 @@ public class HTZBossLavaBall extends AbstractBossChild implements TouchResponseP
         // ROM: jsrto JmpTo4_ObjCheckFloorDist
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
         if (floor.hasCollision() && floor.distance() < 0) {
-            // Hit the floor - transform to lava bubble
-            // ROM: s2.asm:64016-64060
+            // Hit the floor - transform to fire trail spawner (Obj20 routine $A)
+            // ROM: s2.asm:64016-64060 - transforms to Obj20 with routine=$A,
+            // objoff_32=9, objoff_36=3, spawning fire trail along ground
             AudioManager.getInstance().playSfx(Sonic2Sfx.FIRE_BURN.id);
 
-            // Spawn lava bubble at floor contact point
-            LavaBubbleObjectInstance bubble = new LavaBubbleObjectInstance(
-                    currentX,
-                    currentY + floor.distance() // Snap to floor surface
-            );
-            LevelManager.getInstance().getObjectManager().addDynamicObject(bubble);
+            int floorY = currentY + floor.distance();
+            // Spread direction matches lava ball X velocity
+            // ROM: tst.w x_vel(a1) / bpl.s / neg.w d0
+            int spreadDir = (xVel >= 0) ? 1 : -1;
+
+            // Spawn ground fire at impact point with 3-deep spread chain
+            // ROM: objoff_36(a0) = 3
+            HtzGroundFireObjectInstance groundFire = new HtzGroundFireObjectInstance(
+                    currentX, floorY, spreadDir, 3);
+            LevelManager.getInstance().getObjectManager().addDynamicObject(groundFire);
 
             setDestroyed(true);
             return;

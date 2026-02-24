@@ -65,10 +65,6 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
     // Number of log segments in the drawbridge (child sprites)
     private static final int NUM_LOG_SEGMENTS = 8;
 
-    // Spacing between log segments (16 pixels each)
-    // ROM: move.b #$10,d4 (line 56460)
-    private static final int LOG_SPACING = 0x10;
-
     // Angle completion targets
     // ROM: tst.b angle(a0) / beq.s loc_2A154 (angle == 0)
     // ROM: cmpi.b #$80,angle(a0) / bne.s loc_2A180 (angle == 0x80)
@@ -227,35 +223,30 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
         }
 
         if (isMoving) {
-            // Rotate the bridge by adding direction's high byte to angle
-            // ROM (line 56534-56536): move.w objoff_34(a0),d0 / add.w d0,angle(a0)
-            // Note: The ROM adds the full word but angle wraps as a byte
-            int angleStep = direction >> 8;  // High byte of direction (±1)
-            angle = (byte)(angle + angleStep);  // Wrap as signed byte
-
-            // Check if rotation is complete (angle == 0 or angle == 0x80/-128)
+            // ROM checks completion BEFORE incrementing angle:
             // ROM (line 56516-56520): tst.b angle(a0) / beq.s loc_2A154
             //                         / cmpi.b #$80,angle(a0) / bne.s loc_2A180
             int unsignedAngle = angle & 0xFF;
             if (unsignedAngle == ANGLE_COMPLETE_ZERO || unsignedAngle == ANGLE_COMPLETE_180) {
+                // Bridge reached horizontal target
                 isMoving = false;
                 bridgeDown = true;
                 AudioManager.getInstance().playSfx(Sonic2Sfx.DRAWBRIDGE_DOWN.id);
 
-                // Update collision position when bridge is down
-                // ROM (line 56521-56523): move.w objoff_32(a0),y_pos(a0)
-                // Simply restores Y to original - no Y-flip offset when horizontal
+                // ROM: move.w objoff_32(a0),y_pos(a0) - restore Y to original
                 collisionY = originalY;
 
-                // X offset direction depends on final angle
-                // ROM: move.w #$48,d1 / ... / cmpi.b #$80,angle(a0) / bne.s + / neg.w d1
-                // ROM: add.w d1,x_pos(a0)
+                // ROM: move.w #$48,d1 / cmpi.b #$80,angle(a0) / bne.s + / neg.w d1
+                //      move.w objoff_30(a0),x_pos(a0) / add.w d1,x_pos(a0)
                 int xOffset = (unsignedAngle == ANGLE_COMPLETE_180) ? -DOWN_X_OFFSET : DOWN_X_OFFSET;
                 if (!xFlipped) {
-                    // Normal (non-X-flipped) case: add offset
                     collisionX = originalX + xOffset;
                 }
-                // X-flipped case: position was already set when triggered
+            } else {
+                // Still rotating: increment angle
+                // ROM (line 56534-56536): move.w objoff_34(a0),d0 / add.w d0,angle(a0)
+                int angleStep = direction >> 8;  // High byte of direction (±1)
+                angle = (byte)(angle + angleStep);
             }
         }
 
@@ -267,44 +258,38 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
      * Update the positions of all 8 log segments based on the current rotation angle.
      * Uses sine/cosine to calculate positions along the rotating bridge.
      * <p>
-     * ROM Reference: s2.asm lines 56585-56617 (loc_2A1EA subroutine)
+     * ROM Reference: s2.asm lines 56599-56638 (loc_2A1EA subroutine)
      * <p>
-     * The disassembly uses 16.16 fixed-point math:
+     * The ROM uses 16.16 fixed-point accumulation per segment:
      * <pre>
-     *   swap d0/d1        ; Move sine/cosine to high word (multiply by 65536)
-     *   asr.l #4,d0/d1    ; Divide by 16, keeping fractional bits
-     *   ; Net effect: multiply by 4096
+     *   CalcSine → d0=sin (±256), d1=cos (±256)
+     *   swap d0/d1 → shift to high word (×65536)
+     *   asr.l #4  → net step per segment = sin×4096 (fixed-point)
+     *   Each iteration: accumulated >> 16 gives integer offset
+     *   Result: segment i offset = (i+1) × sin / 16
      * </pre>
-     * Since our sine table is already scaled to ±256, we multiply by 16 to match.
+     * With sin=256 at 90°: 256/16 = 16px per segment (one LOG_SPACING).
+     * The sign/direction is encoded in the sine/cosine via the angle value.
+     * <p>
+     * Base position is objoff_30/objoff_32 (original spawn position, NOT the
+     * collision position which has a -$48 offset).
      */
     private void updateSegmentPositions() {
-        // Convert angle to 0-255 range for sine table lookup
         int sineAngle = angle & 0xFF;
 
         int sin = calcSine(sineAngle);
         int cos = calcCosine(sineAngle);
 
-        // Base position is the pivot point
+        // ROM: move.w objoff_30(a0),d3 / move.w objoff_32(a0),d2
+        // Base is the ORIGINAL spawn position (not the collision position)
         int baseX = originalX;
-        int baseY = originalY + INITIAL_Y_OFFSET;
-        if (yFlipped) {
-            baseY += 0x90;  // Y-flipped bridges have offset Y
-        }
-
-        // Determine segment direction based on Y-flip
-        // ROM: move.b #-$10,d4 or move.b #$10,d4 based on y_flip
-        int segmentStep = yFlipped ? -LOG_SPACING : LOG_SPACING;
+        int baseY = originalY;
 
         for (int i = 0; i < NUM_LOG_SEGMENTS; i++) {
-            // Calculate distance for this segment
-            // First segment is at 1 * segmentStep, second at 2 * segmentStep, etc.
-            int distance = (i + 1) * segmentStep;
-
-            // Apply rotation using sine/cosine
-            // ROM uses (sin * distance * 4096) >> 16 which equals (sin * distance) >> 4
-            // Our sine table gives ±256, so we use (sin * distance) >> 4
-            int offsetX = (cos * distance) >> 4;
-            int offsetY = (sin * distance) >> 4;
+            int step = i + 1;
+            // ROM: accumulated = step × (sin << 12), integer = accumulated >> 16 = step × sin >> 4
+            int offsetX = (cos * step) >> 4;
+            int offsetY = (sin * step) >> 4;
 
             logX[i] = baseX + offsetX;
             logY[i] = baseY + offsetY;
@@ -368,12 +353,11 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // Render each log segment using frame index 1 (frame 0 is empty)
-        boolean hFlip = xFlipped;
-        boolean vFlip = yFlipped;
-
+        // Render each log segment using frame index 1 (frame 0 is empty/pivot)
+        // ROM: sub-sprites use mapping frame 1 without flip - orientation is
+        // handled by the sine/cosine position calculation, not by flipping tiles
         for (int i = 0; i < NUM_LOG_SEGMENTS; i++) {
-            renderer.drawFrameIndex(1, logX[i], logY[i], hFlip, vFlip);
+            renderer.drawFrameIndex(1, logX[i], logY[i], false, false);
         }
     }
 

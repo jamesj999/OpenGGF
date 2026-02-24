@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
+import com.openggf.game.sonic2.objects.HtzGroundFireObjectInstance;
 import com.openggf.game.sonic2.objects.bosses.HTZBossFlamethrower;
 import com.openggf.game.sonic2.objects.bosses.HTZBossLavaBall;
 import com.openggf.game.sonic2.objects.bosses.HTZBossSmokeParticle;
@@ -136,7 +137,7 @@ public class TestHTZBossChildObjects {
     }
 
     @Test
-    public void lavaBallTransformsToLavaBubbleWhenLandingOnSurface() throws Exception {
+    public void lavaBallTransformsToGroundFireWhenLandingOnSurface() throws Exception {
         LevelManager mockLevelManager = mock(LevelManager.class);
         ObjectManager objectManager = mock(ObjectManager.class);
         when(mockLevelManager.getObjectManager()).thenReturn(objectManager);
@@ -156,7 +157,8 @@ public class TestHTZBossChildObjects {
         }
 
         assertTrue(lavaBall.isDestroyed());
-        verify(objectManager).addDynamicObject(argThat(obj -> obj instanceof LavaBubbleObjectInstance));
+        // ROM: lava ball transforms to Obj20 routine $A (fire trail spawner)
+        verify(objectManager).addDynamicObject(argThat(obj -> obj instanceof HtzGroundFireObjectInstance));
     }
 
     @Test

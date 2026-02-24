@@ -384,7 +384,7 @@ public class MCZBrickObjectInstance extends AbstractObjectInstance
                 drawX,
                 drawY,
                 0,  // Base pattern index (level art starts at 0)
-                -1, // Use palette from piece
+                1,  // art_tile palette offset: make_art_tile(ArtTile_ArtKos_LevelArt,1,0)
                 hFlip,
                 vFlip,
                 (patternIndex, pieceHFlip, pieceVFlip, paletteIndex, px, py) -> {

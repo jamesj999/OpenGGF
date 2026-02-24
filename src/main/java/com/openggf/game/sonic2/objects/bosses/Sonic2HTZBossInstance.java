@@ -95,6 +95,13 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
     // Eye animation constants (ROM: Boss_AnimationArray - frames 2,3 with delay 6)
     private static final int EYE_ANIM_DELAY = 6;
 
+    // Flame spreading animation (ROM: Ani_obj52 chain anim 1→2→3→4)
+    // Mapping frames 4-11 show the flame progressively extending from the nozzle.
+    // Each pair has increasing duration (speed+1 ticks per frame).
+    private static final int[] FLAME_FRAMES =    {4,  5,  6,  7,  8,  9, 10, 11};
+    private static final int[] FLAME_DURATIONS = {3,  3,  4,  4,  5,  5,  6,  6};
+    private static final int FLAME_LOOP_START = 6; // Loop back to frames 10,11
+
     // Internal state
     private int actionTimer;
     private int defeatTimer;
@@ -105,6 +112,11 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
     // Child sprite state for eye animation (ROM: sub2_* fields, Boss_AnimationArray)
     private int eyeAnimTimer;
     private int eyeFrame;
+
+    // Flame spreading animation state
+    private boolean flameActive;
+    private int flameAnimIndex;   // index into FLAME_FRAMES/FLAME_DURATIONS
+    private int flameAnimTimer;
 
     public Sonic2HTZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "HTZ Boss");
@@ -141,6 +153,11 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
         // ROM: move.b #2,sub2_mapframe(a0) - starts with eye open
         eyeFrame = FRAME_EYE_OPEN;
         eyeAnimTimer = EYE_ANIM_DELAY;
+
+        // Flame starts inactive
+        flameActive = false;
+        flameAnimIndex = 0;
+        flameAnimTimer = 0;
     }
 
     @Override
@@ -217,6 +234,17 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
         // ROM: move.b #1,(Boss_CollisionRoutine).w - enable collision
         // (Collision is now enabled via getCollisionFlags() when actionTimer < 0)
 
+        // Start flame spreading animation on first negative tick
+        // ROM: AnimateBoss processes chained Ani_obj52 animations 1→2→3→4
+        // which progressively render frames 4-11 (flame growing from nozzle)
+        if (!flameActive) {
+            flameActive = true;
+            flameAnimIndex = 0;
+            flameAnimTimer = FLAME_DURATIONS[0];
+        }
+
+        updateFlameAnimation();
+
         // ROM: cmpi.b #-$18,objoff_3E(a0) - spawn flamethrower at -24
         if (actionTimer == FLAMETHROWER_SPAWN_TIME) {
             spawnFlamethrower();
@@ -236,6 +264,11 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
         // ROM: move.b #0,(Boss_CollisionRoutine).w - disable collision
         // (Collision is disabled via getCollisionFlags() for this state)
 
+        // Continue flame animation during the hover-before-descent phase
+        if (flameActive) {
+            updateFlameAnimation();
+        }
+
         // Decrement timer
         actionTimer--;
 
@@ -244,6 +277,9 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
             updateHover();
             return;
         }
+
+        // Stop flame when starting descent
+        flameActive = false;
 
         // ROM: move.w #$E0,(Boss_Y_vel).w
         state.yVel = LOWER_VELOCITY;
@@ -372,6 +408,24 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
 
         // ROM: addq.b #4,boss_sine_count(a0)
         sineCounter = (sineCounter + 4) & 0xFF;
+    }
+
+    /**
+     * Advance the flame spreading animation.
+     * ROM: Ani_obj52 chain anim 1→2→3→4 with mapping frames 4-11.
+     * Each pair of frames plays at increasing speed (longer duration),
+     * then the final pair (10,11) loops.
+     */
+    private void updateFlameAnimation() {
+        flameAnimTimer--;
+        if (flameAnimTimer <= 0) {
+            flameAnimIndex++;
+            if (flameAnimIndex >= FLAME_FRAMES.length) {
+                // Loop back to frames 10,11 (ROM: anim 4 loops)
+                flameAnimIndex = FLAME_LOOP_START;
+            }
+            flameAnimTimer = FLAME_DURATIONS[flameAnimIndex];
+        }
     }
 
     /**
@@ -566,6 +620,14 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
             // ROM: sub2_x_pos = x_pos, sub2_y_pos = y_pos (same position, different mapping)
             // Eye frames have offset built into their mappings (-$28, -$21)
             renderer.drawFrameIndex(eyeFrame, state.x, state.y, flipped, false);
+
+            // Render flame spreading (frames 4-11) during flamethrower phase
+            // ROM: AnimateBoss renders this as a child sprite using the body's art_tile,
+            // so tile indices in frames 4-11 map directly to our combined pattern array.
+            if (flameActive) {
+                int flameFrame = FLAME_FRAMES[flameAnimIndex];
+                renderer.drawFrameIndex(flameFrame, state.x, state.y, flipped, false);
+            }
         }
     }
 }

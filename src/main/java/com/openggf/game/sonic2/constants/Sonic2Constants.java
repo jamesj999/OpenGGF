@@ -866,7 +866,7 @@ public class Sonic2Constants {
     public static final int MAP_UNC_OBJ1F_B_ADDR = 0x110C6;          // Obj1F_MapUnc_110C6 (MCZ Collapsing)
     public static final int MAP_UNC_OBJ1F_C_ADDR = 0x11106;          // Obj1F_MapUnc_11106 (MCZ Collapsing Platform)
     public static final int MAP_UNC_CRATE_ADDR = 0x27D30;            // Obj6A_MapUnc_27D30
-    public static final int MAP_UNC_OBJ1A_A_ADDR = 0x10C6C;          // Obj1A_MapUnc_10C6C (MCZ Bridge)
+    public static final int MAP_UNC_OBJ77_ADDR = 0x29064;             // Obj77_MapUnc_29064 (MCZ Bridge)
     public static final int MAP_UNC_OBJBD_ADDR = 0x3BD3E;            // ObjBD_MapUnc_3BD3E (WFZ Belt Platform)
     public static final int MAP_UNC_OBJB9_ADDR = 0x3BB18;            // ObjB9_MapUnc_3BB18 (WFZ Laser)
     public static final int MAP_UNC_OBJC2_ADDR = 0x3C3C2;            // ObjC2_MapUnc_3C3C2 (WFZ Rivet)

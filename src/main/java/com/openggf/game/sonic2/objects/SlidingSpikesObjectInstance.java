@@ -9,12 +9,15 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectArtKeys;
+import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
-import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.level.render.PatternSpriteRenderer;
+
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.sprites.managers.SpriteManager;
@@ -72,16 +75,25 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
     // Sprite mapping for this object (single frame with 6 pieces)
     // From docs/s2disasm/mappings/sprite/obj76.asm
     // spritePiece format: xpos, ypos, width, height, tile, xflip, yflip, pal, pri
-    private static final SpriteMappingFrame MAPPING_FRAME = new SpriteMappingFrame(List.of(
-            // Pieces 0-1: End cap pieces (tile 0x42C, palette 1)
-            new SpriteMappingPiece(-0x40, -0x10, 2, 2, 0x42C, false, false, 1),
-            new SpriteMappingPiece(-0x40, 0x00, 2, 2, 0x42C, false, false, 1),
-            // Pieces 2-5: Main spike body (palette 3)
+    //
+    // Pieces 0-1 are end caps (ArtNem_HorizSpike at VRAM tile 0x42C, palette 1).
+    // On real hardware these tiles are loaded via MCZ PLC2 into VRAM. In our engine,
+    // the HorizSpike art is loaded as the SPIKE_SIDE ObjectSpriteSheet, so end caps
+    // are rendered from that sheet (tile index 0 = first HorizSpike pattern).
+    // Palette is 0 here because the SPIKE_SIDE sheet already has paletteIndex=1,
+    // and SpritePieceRenderer ADDs piece palette to the default (0+1=1).
+    private static final List<SpriteMappingPiece> END_CAP_PIECES = List.of(
+            new SpriteMappingPiece(-0x40, -0x10, 2, 2, 0, false, false, 0),
+            new SpriteMappingPiece(-0x40, 0x00, 2, 2, 0, false, false, 0)
+    );
+
+    // Pieces 2-5: Main spike body (level art tiles 0x40/0x48, palette 3)
+    private static final List<SpriteMappingPiece> BODY_PIECES = List.of(
             new SpriteMappingPiece(-0x30, -0x10, 2, 4, 0x40, false, false, 3),
             new SpriteMappingPiece(-0x20, -0x10, 4, 4, 0x48, false, false, 3),
             new SpriteMappingPiece(0x00, -0x10, 4, 4, 0x48, false, false, 3),
             new SpriteMappingPiece(0x20, -0x10, 4, 4, 0x48, false, false, 3)
-    ));
+    );
 
     public SlidingSpikesObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
@@ -297,17 +309,18 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Render using level art patterns (ArtTile_ArtKos_LevelArt).
+     * Render using mixed art sources.
      * <p>
-     * The tile indices in the mapping (0x40, 0x42C, 0x48) reference MCZ level patterns.
+     * Body pieces (tiles 0x40/0x48) use level art patterns (ArtTile_ArtKos_LevelArt).
+     * End cap pieces (ArtNem_HorizSpike) use the SPIKE_SIDE ObjectSpriteSheet,
+     * which is loaded via MCZ PLC2 and cached in the object pattern atlas (0x20000+).
      */
     private void renderUsingLevelArt() {
         GraphicsManager graphicsManager = GraphicsManager.getInstance();
-        List<SpriteMappingPiece> pieces = MAPPING_FRAME.pieces();
 
-        // Draw in reverse order (Painter's Algorithm) - first piece in list appears on top
-        for (int i = pieces.size() - 1; i >= 0; i--) {
-            SpriteMappingPiece piece = pieces.get(i);
+        // Body first (drawn behind end caps, matching original reverse-order rendering)
+        for (int i = BODY_PIECES.size() - 1; i >= 0; i--) {
+            SpriteMappingPiece piece = BODY_PIECES.get(i);
             SpritePieceRenderer.renderPieces(
                     List.of(piece),
                     currentX,
@@ -315,18 +328,23 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
                     0,  // Level patterns start at index 0
                     -1, // Use piece's palette directly (absolute)
                     hFlip,
-                    false,  // No vFlip for this object
+                    false,
                     (patternIndex, pieceHFlip, pieceVFlip, paletteIndex, drawX, drawY) -> {
                         int descIndex = patternIndex & 0x7FF;
-                        if (pieceHFlip) {
-                            descIndex |= 0x800;
-                        }
-                        if (pieceVFlip) {
-                            descIndex |= 0x1000;
-                        }
+                        if (pieceHFlip) descIndex |= 0x800;
+                        if (pieceVFlip) descIndex |= 0x1000;
                         descIndex |= (paletteIndex & 0x3) << 13;
                         graphicsManager.renderPattern(new PatternDesc(descIndex), drawX, drawY);
                     });
+        }
+
+        // End caps from SPIKE_SIDE sheet (HorizSpike art loaded via MCZ PLC2)
+        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        if (renderManager != null) {
+            PatternSpriteRenderer spikeRenderer = renderManager.getSpikeRenderer(true);
+            if (spikeRenderer != null && spikeRenderer.isReady()) {
+                spikeRenderer.drawPieces(END_CAP_PIECES, currentX, spawn.y(), hFlip, false);
+            }
         }
     }
 

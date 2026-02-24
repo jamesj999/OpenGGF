@@ -179,6 +179,8 @@ public final class Sonic2PlcArtRegistry {
                 Sonic2ObjectArtKeys.MCZ_CRATE, Sonic2ObjectArt::loadMCZCrateSheet);
         reg(Sonic2Constants.ART_NEM_MCZ_GATE_LOG_ADDR,
                 Sonic2ObjectArtKeys.MCZ_DRAWBRIDGE, Sonic2ObjectArt::loadMCZDrawbridgeSheet);
+        reg(Sonic2Constants.ART_NEM_VINE_SWITCH_ADDR,
+                Sonic2ObjectArtKeys.VINE_SWITCH, Sonic2ObjectArt::loadVineSwitchSheet);
         reg(Sonic2Constants.ART_NEM_MCZ_COLLAPSING_PLATFORM_ADDR,
                 Sonic2ObjectArtKeys.MCZ_COLLAPSING_PLATFORM, Sonic2ObjectArt::loadMCZCollapsingPlatformSheet);
         reg(Sonic2Constants.ART_NEM_CRAWLTON_ADDR,

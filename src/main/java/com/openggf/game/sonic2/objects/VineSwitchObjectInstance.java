@@ -3,29 +3,22 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
-import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.ButtonVineTriggerManager;
+import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
-import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.render.SpriteMappingFrame;
-import com.openggf.level.render.SpriteMappingPiece;
-import com.openggf.level.render.SpritePieceRenderer;
+import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -63,10 +56,6 @@ public class VineSwitchObjectInstance extends AbstractObjectInstance {
     private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
             .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
     private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
-
-    // Static mapping data (loaded once)
-    private static List<SpriteMappingFrame> mappings;
-    private static boolean mappingsLoadAttempted;
 
     // === Object Configuration ===
     private final int switchId;  // subtype & 0x0F: Switch ID for ButtonVine_Trigger
@@ -349,96 +338,30 @@ public class VineSwitchObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ensureMappingsLoaded();
-
         // Draw debug overlay when enabled
         if (isDebugViewEnabled()) {
             appendDebug(commands);
         }
 
-        // Get mappings
-        if (mappings == null || mappings.isEmpty()) {
+        // Get renderer from art provider
+        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        if (renderManager == null) {
             return;
         }
 
-        // Clamp frame to available range
-        int frame = Math.min(mappingFrame, mappings.size() - 1);
-        if (frame < 0) {
-            frame = 0;
-        }
-
-        SpriteMappingFrame currentFrame = mappings.get(frame);
-        if (currentFrame == null || currentFrame.pieces().isEmpty()) {
+        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.VINE_SWITCH);
+        if (renderer == null || !renderer.isReady()) {
             return;
         }
 
-        // Render the vine switch at position
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
-        boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
-        boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
-
-        renderPieces(graphicsManager, currentFrame.pieces(), spawn.x(), spawn.y(), hFlip, vFlip);
-    }
-
-    /**
-     * Renders sprite pieces using the graphics manager.
-     * <p>
-     * Art tile base: ArtTile_ArtNem_VineSwitch = 0x040E (palette 3)
-     */
-    private void renderPieces(GraphicsManager graphicsManager, List<SpriteMappingPiece> pieces,
-                              int drawX, int drawY, boolean hFlip, boolean vFlip) {
-        SpritePieceRenderer.renderPieces(
-                pieces,
-                drawX,
-                drawY,
-                Sonic2Constants.ART_TILE_VINE_SWITCH,  // Base pattern index
-                3,  // Palette 3 (MCZ objects)
-                hFlip,
-                vFlip,
-                (patternIndex, pieceHFlip, pieceVFlip, paletteIndex, px, py) -> {
-                    int descIndex = patternIndex & 0x7FF;
-                    if (pieceHFlip) {
-                        descIndex |= 0x800;
-                    }
-                    if (pieceVFlip) {
-                        descIndex |= 0x1000;
-                    }
-                    descIndex |= (paletteIndex & 0x3) << 13;
-                    graphicsManager.renderPattern(new PatternDesc(descIndex), px, py);
-                });
+        // Render the current frame at object position
+        renderer.drawFrameIndex(mappingFrame, getX(), getY(), false, false);
     }
 
     @Override
     public int getPriorityBucket() {
         // ROM: move.b #4,priority(a0)
         return RenderPriority.clamp(4);
-    }
-
-    /**
-     * Loads mapping frames from ROM if not already loaded.
-     */
-    private static void ensureMappingsLoaded() {
-        if (mappingsLoadAttempted) {
-            return;
-        }
-        mappingsLoadAttempted = true;
-
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-
-            // Load mappings (2 frames)
-            mappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ7F_ADDR);
-            LOGGER.fine("Loaded " + mappings.size() + " VineSwitch mapping frames");
-
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load VineSwitch mappings: " + e.getMessage());
-        }
     }
 
     /**
