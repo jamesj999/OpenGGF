@@ -1715,12 +1715,10 @@ public class ObjectManager {
                     int deltaX = currentX - ridingX;
                     int deltaY = currentY - ridingY;
                     if (deltaX != 0) {
-                        int baseX = player.getCentreX() - (player.getWidth() / 2);
-                        player.setX((short) (baseX + deltaX));
+                        player.shiftX(deltaX);
                     }
                     if (deltaY != 0) {
-                        int baseY = player.getCentreY() - (player.getHeight() / 2);
-                        player.setY((short) (baseY + deltaY));
+                        player.shiftY(deltaY);
                     }
                     ridingX = currentX;
                     ridingY = currentY;
