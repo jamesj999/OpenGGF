@@ -72,7 +72,7 @@ public class TestPhysicsProfile {
         assertEquals("runDecel", (short) 0x100, profile.runDecel());
         assertEquals("friction", (short) 0x30, profile.friction());
         assertEquals("max", (short) 0xA00, profile.max());
-        assertEquals("jump", (short) 1664, profile.jump());
+        assertEquals("jump", (short) 0x800, profile.jump());
         assertEquals("standYRadius", (short) 19, profile.standYRadius());
         assertEquals("rollYRadius", (short) 14, profile.rollYRadius());
     }
