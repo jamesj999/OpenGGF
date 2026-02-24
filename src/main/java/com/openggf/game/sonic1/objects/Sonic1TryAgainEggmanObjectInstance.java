@@ -62,11 +62,6 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
             {4, 5, 6, 5, 4, 5, 6, 5, 4, 5, 6, 5, 7, 5, 6, 5}               // anim 2: END loop
     };
     private static final int[] ANIM_DELAYS = {5, 5, 7};
-    private static final boolean[] ANIM_ADVANCE_ROUTINE = {true, true, false};
-    // For anims 0 and 1, the afRoutine parameter value (added to obRoutine index)
-    // Anim 0: afRoutine,1 -> after frame 0, routine advances and next anim = 1
-    // Anim 1: afRoutine,3 -> after frame 2, routine advances and next anim = 3
-    private static final int[] ANIM_NEXT_ANIM = {1, 3, -1};
 
     private final PatternSpriteRenderer renderer;
     private final Sonic1TryAgainEmeraldsObjectInstance emeralds;
@@ -77,8 +72,6 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
     private int animDelayCounter;
     private int frameId;
     private int juggleTimer;
-    /** Bit 0 of obAnim: controls juggle direction. */
-    private int animDirection;
 
     /**
      * @param renderManager object render manager for art lookup
@@ -110,7 +103,6 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
         animFrameIndex = 0;
         animDelayCounter = ANIM_DELAYS[animIndex];
         frameId = ANIM_FRAMES[animIndex][0];
-        animDirection = 0;
     }
 
     @Override
@@ -138,17 +130,11 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
         animFrameIndex++;
 
         if (animFrameIndex >= frames.length) {
-            if (ANIM_ADVANCE_ROUTINE[animIndex]) {
-                // afRoutine: advance routine by 2, set new anim
-                routine = 4; // EEgg_Juggle
-                int nextAnim = ANIM_NEXT_ANIM[animIndex];
-                if (nextAnim >= 0 && nextAnim < ANIM_FRAMES.length) {
-                    animIndex = nextAnim;
-                    animFrameIndex = 0;
-                    animDelayCounter = ANIM_DELAYS[animIndex];
-                    frameId = ANIM_FRAMES[animIndex][0];
-                }
-                // Immediately run juggle logic
+            if (animIndex < 2) {
+                // afRoutine: advance to EEgg_Juggle.
+                // Do NOT change animIndex here — EEgg_Wait toggles it
+                // via bchg #0,obAnim when the juggle timer expires.
+                routine = 4;
                 updateJuggle();
                 return;
             } else {
@@ -164,9 +150,10 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
         routine = 6; // advance to EEgg_Wait
 
         if (emeralds != null) {
-            // Determine velocity direction from obAnim bit 0
+            // Determine velocity direction from bit 0 of animIndex
+            // (matches ROM: btst #0,obAnim(a0))
             int velocity = 2;
-            if ((animDirection & 1) != 0) {
+            if ((animIndex & 1) != 0) {
                 velocity = -2;
             }
             emeralds.signalJuggle(velocity);
@@ -182,8 +169,10 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
     private void updateWait() {
         juggleTimer--;
         if (juggleTimer < 0) {
-            // Toggle direction and return to animate
-            animDirection ^= 1;
+            // bchg #0,obAnim — toggle animation index bit 0.
+            // In TRY AGAIN mode this alternates between anim 0 and 1;
+            // in END mode routine 6 is never reached (anim 2 loops via afEnd).
+            animIndex ^= 1;
             routine = 2;
             animFrameIndex = 0;
             animDelayCounter = ANIM_DELAYS[animIndex];

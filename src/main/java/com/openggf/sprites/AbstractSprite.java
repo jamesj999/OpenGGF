@@ -123,6 +123,25 @@ public abstract class AbstractSprite implements Sprite {
 		this.ySubpixel = 0;
 	}
 
+	/**
+	 * Shifts the pixel X position by a delta without zeroing subpixels.
+	 * ROM-accurate: matches 68000 {@code sub.w d2, obX(a1)} which modifies
+	 * only the pixel word, preserving any accumulated subpixel fraction.
+	 * Used by platform riding code (MvSonicOnPtfm / MvSonicOnPtfm2).
+	 */
+	public final void shiftX(int delta) {
+		this.xPixel += delta;
+	}
+
+	/**
+	 * Shifts the pixel Y position by a delta without zeroing subpixels.
+	 * ROM-accurate: matches 68000 position word modification that preserves
+	 * subpixel fraction. Used by platform riding code.
+	 */
+	public final void shiftY(int delta) {
+		this.yPixel += delta;
+	}
+
 	public final void move(short xSpeed, short ySpeed) {
 		/*
 		 * Speeds are provied in subpixels, need to convert current
