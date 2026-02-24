@@ -43,6 +43,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
 	};
 
+	// ROM Super Sonic spindash speed table (s2.asm:37305-37314)
+	private static final short[] SPINDASH_SPEEDS_SUPER = {
+		0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
+	};
+
 	// Angle classification thresholds
 	private static final int ANGLE_STEEP_OFFSET = 0x20;
 	private static final int ANGLE_STEEP_MASK = 0x40;
@@ -101,8 +106,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/**
 	 * Returns the spindash speed table from the physics feature set,
 	 * falling back to the static SPINDASH_SPEEDS constant.
+	 * Uses Super Sonic table when in super state (s2.asm:37305-37314).
 	 */
 	private short[] getSpindashSpeedTable() {
+		if (sprite.isSuperSonic()) {
+			return SPINDASH_SPEEDS_SUPER;
+		}
 		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
 		if (featureSet != null && featureSet.spindashSpeedTable() != null) {
 			return featureSet.spindashSpeedTable();
@@ -596,7 +605,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			if (inputLeft) {
 				if (gSpeed > 0) {
 					gSpeed -= runDecel;
-					if (gSpeed <= 0) gSpeed = (short) -128;
+					if (gSpeed < 0) gSpeed = (short) -128;
 					if (isOnFlatGround() && gSpeed > SKID_SPEED_THRESHOLD) {
 						handleSkid();
 					}
@@ -610,7 +619,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			if (inputRight) {
 				if (gSpeed < 0) {
 					gSpeed += runDecel;
-					if (gSpeed >= 0) gSpeed = (short) 128;
+					if (gSpeed > 0) gSpeed = (short) 128;
 					if (isOnFlatGround() && gSpeed < -SKID_SPEED_THRESHOLD) {
 						handleSkid();
 					}
@@ -681,8 +690,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 
 		// Friction
+		// ROM ref: s2.asm:36443-36446 — Super Sonic uses normal friction (0x0C) not his profile friction (0x30)
 		if (!inputRawLeft && !inputRawRight) {
-			gSpeed = applyFriction(gSpeed, friction);
+			short effectiveFriction = sprite.isSuperSonic() ? (short) 0x0C : friction;
+			gSpeed = applyFriction(gSpeed, effectiveFriction);
 		}
 
 		sprite.setGSpeed(gSpeed);
@@ -745,15 +756,16 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		boolean inputAllowed = sprite.getMoveLockTimer() == 0;
 
-		// Controlled deceleration
-		short rollDecel = (short) (sprite.getRunDecel() >> 2);
+		// Controlled roll deceleration: hardcoded $20 regardless of water state
+		// ROM ref: s2.asm:36671 — move.w #$20,d4
+		short rollDecel = (short) 0x20;
 		if (inputAllowed && inputLeft && gSpeed > 0) {
 			gSpeed -= rollDecel;
-			if (gSpeed <= 0) gSpeed = (short) -128;
+			if (gSpeed < 0) gSpeed = (short) -128;
 		}
 		if (inputAllowed && inputRight && gSpeed < 0) {
 			gSpeed += rollDecel;
-			if (gSpeed >= 0) gSpeed = (short) 128;
+			if (gSpeed > 0) gSpeed = (short) 128;
 		}
 
 		// Natural deceleration
@@ -1217,7 +1229,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/** Airborne landing check */
 	private void doTerrainCollisionAir(SensorResult[] results) {
 		SensorResult lowestResult = findLowestSensorResult(results);
-		if (lowestResult == null || lowestResult.distance() >= 0 || sprite.getYSpeed() < 0) {
+		if (lowestResult == null || lowestResult.distance() >= 0) {
 			return;
 		}
 

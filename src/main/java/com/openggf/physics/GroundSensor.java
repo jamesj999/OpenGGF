@@ -111,7 +111,11 @@ public class GroundSensor extends Sensor {
         // Handle negative metrics (ROM: FindFloor loc_1E85E / FindFloor2 loc_1E900)
         // Negative metric means collision starts from opposite edge (V-flipped tiles)
         if (metric < 0) {
-            int yInTile = origY & 0x0F;  // Position within tile (0-15)
+            // ROM: FindCeiling applies eori.w #$F,d2 (XOR Y's bottom 4 bits) before
+            // calling FindFloor, mirroring yInTile within the 16px tile. (s2.asm:43895)
+            int yInTile = (direction == Direction.UP)
+                    ? ((origY ^ 0x0F) & 0x0F)
+                    : (origY & 0x0F);
             int adjusted = metric + yInTile;
 
             if (adjusted >= 0) {

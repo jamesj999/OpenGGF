@@ -77,7 +77,7 @@ public record PhysicsProfile(
             (short) 0x100, // runDecel
             (short) 0x30,  // friction (same as accel for Super)
             (short) 0xA00, // max
-            (short) 1664,  // jump (unchanged)
+            (short) 0x800, // jump (ROM: Super Sonic override)
             (short) 32,    // slopeRunning
             (short) 20,    // slopeRollingUp
             (short) 80,    // slopeRollingDown
@@ -94,12 +94,13 @@ public record PhysicsProfile(
     );
 
     // S2 Super Sonic (same values as S3K: max=0xA00, accel=0x30, decel=0x100)
+    // ROM ref: s2.asm:37015 — move.w #$800,d2
     public static final PhysicsProfile SONIC_2_SUPER_SONIC = new PhysicsProfile(
             (short) 0x30,  // runAccel
             (short) 0x100, // runDecel
             (short) 0x30,  // friction (same as accel for Super)
             (short) 0xA00, // max
-            (short) 1664,  // jump (unchanged)
+            (short) 0x800, // jump (2048 — Super Sonic higher jump)
             (short) 32,    // slopeRunning
             (short) 20,    // slopeRollingUp
             (short) 80,    // slopeRollingDown
