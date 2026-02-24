@@ -103,7 +103,8 @@ public class LevelManager {
     // Avoids repeated getLayerWidthBlocks()*blockPixelSize in hot-path collision lookups.
     private int cachedFgWidthPx;
     private int cachedFgHeightPx;
-    private int cachedBgWidthPx;
+    private int cachedBgWidthPx;           // Full map width for BG layer (used for block lookups)
+    private int cachedBgContiguousWidthPx; // Contiguous BG data width from column 0 (for bgTilemapBaseX wrapping)
     private int cachedBgHeightPx;
     private Game game;
     private GameModule gameModule;
@@ -147,7 +148,6 @@ public class LevelManager {
     // X offset (in pixels, 512-aligned) for BG tilemap building.
     // Wide BG maps (> 512px) need tiles from the correct region, not always from position 0.
     private int bgTilemapBaseX = 0;
-
     private byte[] foregroundTilemapData;
     private int foregroundTilemapWidthTiles;
     private int foregroundTilemapHeightTiles;
@@ -428,9 +428,6 @@ public class LevelManager {
     private int pendingFboScreenH;
     private float pendingFboFgWorldOffsetX;
     private float pendingFboFgWorldOffsetY;
-    private float pendingFboBgWorldOffsetX;
-    private float pendingFboBgWorldOffsetY;
-    private boolean pendingFboBgPassEnabled;
     private Integer pendingFboAtlasId;
     private Integer pendingFboPaletteId;
     private final GLCommand highPriorityFboCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
@@ -445,21 +442,6 @@ public class LevelManager {
         glEnable(GL_BLEND);
         glBlendEquation(GL_MAX);
         glBlendFunc(GL_ONE, GL_ONE);
-
-        if (pendingFboBgPassEnabled) {
-            tilemapRenderer.render(
-                    TilemapGpuRenderer.Layer.BACKGROUND,
-                    pendingFboScreenW,
-                    pendingFboScreenH,
-                    0, 0, pendingFboScreenW, pendingFboScreenH,
-                    pendingFboBgWorldOffsetX,
-                    pendingFboBgWorldOffsetY,
-                    graphicsManager.getPatternAtlasWidth(),
-                    graphicsManager.getPatternAtlasHeight(),
-                    pendingFboAtlasId,
-                    pendingFboPaletteId,
-                    0, 1, false, true, false, 0.0f);
-        }
 
         tilemapRenderer.render(
                 TilemapGpuRenderer.Layer.FOREGROUND,
@@ -538,43 +520,9 @@ public class LevelManager {
 
             tilemapRenderer.setShimmerState(frameCounter, savedShimmerStyle);
         }
+
         bgRenderer.endTilePass();
         graphicsManager.setUseUnderwaterPaletteForBackground(false);
-    });
-
-    // Mutable state for pre-allocated HTZ earthquake BG overlay command
-    private float pendingHtzBgWorldOffsetX;
-    private float pendingHtzBgWorldOffsetY;
-    private int pendingHtzScreenW;
-    private int pendingHtzScreenH;
-    private Integer pendingHtzAtlasId;
-    private Integer pendingHtzPaletteId;
-    private final GLCommand htzBgOverlayCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
-        if (tilemapRenderer == null) {
-            return;
-        }
-        glGetIntegerv(GL_VIEWPORT, viewportBuffer);
-        tilemapRenderer.render(
-                TilemapGpuRenderer.Layer.BACKGROUND,
-                pendingHtzScreenW,
-                pendingHtzScreenH,
-                viewportBuffer[0],
-                viewportBuffer[1],
-                viewportBuffer[2],
-                viewportBuffer[3],
-                pendingHtzBgWorldOffsetX,
-                pendingHtzBgWorldOffsetY,
-                graphicsManager.getPatternAtlasWidth(),
-                graphicsManager.getPatternAtlasHeight(),
-                pendingHtzAtlasId,
-                pendingHtzPaletteId,
-                0,
-                1,
-                true,   // wrapY: VDPWrapHeight maps earthquake Y back into valid BG rows
-                false,
-                false,
-                0.0f);
     });
 
     /**
@@ -1799,8 +1747,13 @@ public class LevelManager {
     /**
      * Render BG high-priority tiles as an overlay during HTZ earthquake mode.
      *
-     * In quake mode, HTZ horizontal scroll is flat (same for every scanline), so BG
-     * high-priority tiles can be drawn with a single world offset.
+     * On real hardware the VDP layer order is BG-low → FG-low → BG-high → FG-high.
+     * Our main BG pass renders all priorities behind FG, so this method draws only
+     * BG high-priority tiles (cave ceiling terrain) between FG-low and FG-high to
+     * match hardware layering.
+     *
+     * In earthquake mode, HTZ horizontal scroll is flat (same for every scanline),
+     * so a single tilemap render call with the BG scroll offset suffices.
      */
     private void renderHtzEarthquakeBgHighOverlay() {
         if (currentZone != ParallaxManager.ZONE_HTZ || !GameServices.gameState().isHtzScreenShakeActive()) {
@@ -1829,13 +1782,39 @@ public class LevelManager {
         int screenW = cachedScreenWidth;
         int screenH = cachedScreenHeight;
 
-        pendingHtzBgWorldOffsetX = bgWorldOffsetX;
-        pendingHtzBgWorldOffsetY = bgWorldOffsetY;
-        pendingHtzScreenW = screenW;
-        pendingHtzScreenH = screenH;
-        pendingHtzAtlasId = atlasId;
-        pendingHtzPaletteId = paletteId;
-        graphicsManager.registerCommand(htzBgOverlayCommand);
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+            TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+            if (tilemapRenderer == null) {
+                return;
+            }
+            int[] viewport = new int[4];
+            glGetIntegerv(GL_VIEWPORT, viewport);
+            // Disable VDP wrap height for the overlay — earthquake priority tiles are
+            // at tilemap rows 48+ (outside the 0-31 range that normal BG wrapping uses).
+            float savedWrapHeight = tilemapRenderer.getBgVdpWrapHeight();
+            tilemapRenderer.setBgVdpWrapHeight(0.0f);
+            tilemapRenderer.render(
+                    TilemapGpuRenderer.Layer.BACKGROUND,
+                    screenW,
+                    screenH,
+                    viewport[0],
+                    viewport[1],
+                    viewport[2],
+                    viewport[3],
+                    bgWorldOffsetX,
+                    bgWorldOffsetY,
+                    graphicsManager.getPatternAtlasWidth(),
+                    graphicsManager.getPatternAtlasHeight(),
+                    atlasId,
+                    paletteId,
+                    0,
+                    1,      // priorityPass=1: HIGH-PRIORITY TILES ONLY
+                    false,
+                    false,
+                    false,
+                    0.0f);
+            tilemapRenderer.setBgVdpWrapHeight(savedWrapHeight);
+        }));
     }
 
     /**
@@ -1865,31 +1844,10 @@ public class LevelManager {
         float fgWorldOffsetX = camera.getXWithShake();
         float fgWorldOffsetY = camera.getYWithShake();
 
-        // Use parallax-computed BG offsets for the BG priority mask pass.
-        // This avoids HTZ earthquake desync where BG high-priority mask can drift
-        // relative to the actual background rendering and incorrectly hide sprites.
-        float bgWorldOffsetY = parallaxManager.getVscrollFactorBG();
-        float bgWorldOffsetX = fgWorldOffsetX;
-        int[] hScrollData = parallaxManager.getHScrollForShader();
-        if (hScrollData != null && hScrollData.length > 0) {
-            short bgScroll = (short) (hScrollData[hScrollData.length - 1] & 0xFFFF);
-            bgWorldOffsetX = -bgScroll;
-        }
-
-        // BG high-priority FBO pass is only valid when BG scroll is flat (earthquake mode).
-        // In normal mode, per-scanline parallax means a single BG offset can't match the
-        // actual on-screen tile positions, causing the sprite priority shader to hide sprites
-        // behind misaligned mask pixels.
-        boolean bgFboPassEnabled =
-                currentZone == ParallaxManager.ZONE_HTZ && GameServices.gameState().isHtzScreenShakeActive();
-
         pendingFboScreenW = screenW;
         pendingFboScreenH = screenH;
         pendingFboFgWorldOffsetX = fgWorldOffsetX;
         pendingFboFgWorldOffsetY = fgWorldOffsetY;
-        pendingFboBgWorldOffsetX = bgWorldOffsetX;
-        pendingFboBgWorldOffsetY = bgWorldOffsetY;
-        pendingFboBgPassEnabled = bgFboPassEnabled;
         pendingFboAtlasId = atlasId;
         pendingFboPaletteId = paletteId;
         graphicsManager.registerCommand(highPriorityFboCommand);
@@ -1983,8 +1941,13 @@ public class LevelManager {
         backgroundTilemapWidthTiles = data.widthTiles;
         backgroundTilemapHeightTiles = data.heightTiles;
 
+        // For VDP wrap height detection, only scan the contiguous BG data region (columns 0-N).
+        // HTZ has earthquake cave data at distant columns (54+, rows 48+) that must not
+        // inflate the data height beyond 32 — the normal sky BG wraps at 32 rows.
+        int scanWidthTiles = Math.min(backgroundTilemapWidthTiles,
+                cachedBgContiguousWidthPx / Pattern.PATTERN_WIDTH);
         int actualHeightTiles = findActualBgTilemapDataHeight(backgroundTilemapData,
-                backgroundTilemapWidthTiles, backgroundTilemapHeightTiles);
+                backgroundTilemapWidthTiles, backgroundTilemapHeightTiles, scanWidthTiles);
         backgroundVdpWrapHeightTiles = (actualHeightTiles > 0
                 && actualHeightTiles <= VDP_BG_PLANE_HEIGHT_TILES)
                 ? VDP_BG_PLANE_HEIGHT_TILES : 0;
@@ -1999,12 +1962,18 @@ public class LevelManager {
      * pattern 1 is the default fill tile produced by block 0, so both are
      * excluded.  Real level art starts at pattern index 2+.
      * <p>
+     * Only scans the first {@code scanWidthTiles} columns.  This excludes
+     * distant earthquake columns (e.g., HTZ BG column 54+) from inflating
+     * the detected height beyond the VDP plane size.
+     * <p>
      * This lets us distinguish HTZ (real art in rows 0-31 only, fill beyond)
      * from MCZ (real art extending to row 85+).
      */
-    private int findActualBgTilemapDataHeight(byte[] data, int widthTiles, int heightTiles) {
+    private int findActualBgTilemapDataHeight(byte[] data, int widthTiles, int heightTiles,
+            int scanWidthTiles) {
+        int scanW = Math.min(scanWidthTiles, widthTiles);
         for (int y = heightTiles - 1; y >= 0; y--) {
-            for (int x = 0; x < widthTiles; x++) {
+            for (int x = 0; x < scanW; x++) {
                 int offset = (y * widthTiles + x) * 4;
                 int r = data[offset] & 0xFF;
                 int g = data[offset + 1] & 0xFF;
@@ -2035,9 +2004,13 @@ public class LevelManager {
 
         // Keep Sonic 2's 512px BG wrap behavior (VDP plane redraw model).
         // S3K uses a different background data flow in AIZ intro and needs full-width BG data.
+        // HTZ earthquake needs full-width BG data because high-priority BG tiles (cave ceiling)
+        // are rendered as a direct overlay between FG-low and FG-high passes, and they span the
+        // full BG map. The FBO/parallax path still caps its period at 512px.
         boolean bgWrap = layerIndex == 1
                 && zoneFeatureProvider != null
-                && zoneFeatureProvider.bgWrapsHorizontally();
+                && zoneFeatureProvider.bgWrapsHorizontally()
+                && currentZone != ParallaxManager.ZONE_HTZ;
         int levelWidth = bgWrap ? VDP_BG_PLANE_WIDTH_PX : layerLevelWidth;
 
         // For BG layers wider than 512px (e.g., SBZ 15360px), the 64-tile tilemap
@@ -2045,7 +2018,13 @@ public class LevelManager {
         // bgTilemapBaseX is the 16px-aligned offset into the BG map (matching the
         // BG camera X from the scroll handler). The shader uses this same offset
         // (via ScrollMidpoint → fboWorldOffsetX) to index into the tilemap correctly.
-        int bgXQueryOffset = (layerIndex == 1 && bgWrap) ? bgTilemapBaseX : 0;
+        // When using the 512px window, wrap the base offset at the contiguous BG data extent
+        // so that large camera X positions map back to valid BG columns (not empty map regions).
+        int bgXQueryOffset = 0;
+        if (layerIndex == 1 && bgWrap && cachedBgContiguousWidthPx > 0) {
+            bgXQueryOffset = ((bgTilemapBaseX % cachedBgContiguousWidthPx) + cachedBgContiguousWidthPx)
+                    % cachedBgContiguousWidthPx;
+        }
 
         int widthTiles = levelWidth / Pattern.PATTERN_WIDTH;
         int heightTiles = levelHeight / Pattern.PATTERN_HEIGHT;
@@ -2699,14 +2678,76 @@ public class LevelManager {
         if (level != null) {
             cachedFgWidthPx = getLayerLevelWidthPx((byte) 0);
             cachedFgHeightPx = getLayerLevelHeightPx((byte) 0);
-            cachedBgWidthPx = getLayerLevelWidthPx((byte) 1);
+            cachedBgWidthPx = getLayerLevelWidthPx((byte) 1);  // Full map width (matches reference)
+            cachedBgContiguousWidthPx = computeActualBgDataWidthPx();  // For bgTilemapBaseX wrapping
             cachedBgHeightPx = getLayerLevelHeightPx((byte) 1);
         } else {
             cachedFgWidthPx = blockPixelSize;
             cachedFgHeightPx = blockPixelSize;
             cachedBgWidthPx = blockPixelSize;
+            cachedBgContiguousWidthPx = blockPixelSize;
             cachedBgHeightPx = blockPixelSize;
         }
+    }
+
+    /**
+     * Scan the BG layer (layer 1) to find the contiguous data width.
+     * On the Mega Drive, the BG nametable is a 512px-wide ring buffer.
+     * The scroll handler fills it from the BG map, wrapping at the map's
+     * data width.  The Map stores both FG and BG with the same total width
+     * (e.g., 128 blocks = 16384px), but BG data typically only spans a
+     * small contiguous region from column 0 (e.g., 8 blocks for HTZ).
+     * <p>
+     * Using the contiguous BG data width for X wrapping ensures that queries
+     * at large camera X positions wrap back to valid BG data rather than
+     * reading empty columns in the unused portion of the map.
+     * <p>
+     * Example: HTZ BG data spans 8 contiguous columns (1024px) within a
+     * 128-column map.  Without this fix, bgTilemapBaseX=6144 queries
+     * column 48 (empty).  With contiguous width = 1024px wrapping,
+     * 6144 mod 1024 = 0 → column 0 (valid).
+     */
+    private int computeActualBgDataWidthPx() {
+        if (level == null || level.getMap() == null) {
+            return blockPixelSize;
+        }
+        Map map = level.getMap();
+        int mapWidth = map.getWidth();
+        int mapHeight = map.getHeight();
+
+        // Scan left-to-right to find the first all-zero column.
+        // This gives the contiguous BG data width starting from column 0,
+        // ignoring any stray non-zero blocks at distant columns.
+        int contiguousWidth = 0;
+        for (int col = 0; col < mapWidth; col++) {
+            boolean hasData = false;
+            for (int row = 0; row < mapHeight; row++) {
+                if ((map.getValue(1, col, row) & 0xFF) != 0) {
+                    hasData = true;
+                    break;
+                }
+            }
+            if (hasData) {
+                contiguousWidth = col + 1;
+            } else {
+                // Found first empty column - stop here
+                break;
+            }
+        }
+
+        if (contiguousWidth == 0) {
+            // No BG data at all — use full map width as fallback
+            return mapWidth * blockPixelSize;
+        }
+
+        int dataWidthPx = contiguousWidth * blockPixelSize;
+
+        if (dataWidthPx < mapWidth * blockPixelSize) {
+            LOGGER.fine("BG contiguous data width: " + contiguousWidth + " blocks ("
+                    + dataWidthPx + "px) out of " + mapWidth + " map columns");
+        }
+
+        return dataWidthPx;
     }
 
     /** Fast cached getter for layer pixel width (avoids per-call getLayerWidthBlocks). */
