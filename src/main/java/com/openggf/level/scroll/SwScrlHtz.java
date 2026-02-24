@@ -325,8 +325,6 @@ public class SwScrlHtz implements ZoneScrollHandler {
      *
      * Our tilemap contains the full BG map, so these absolute positions correctly
      * address BG map rows 0-1 containing lava/cave tile data (256px); VDP wraps vertically.
-     * The HTZ BG high-priority overlay (renderHtzEarthquakeBgHighOverlay) also
-     * uses vscrollFactorBG as its world offset, so it must remain absolute.
      */
     private void updateEarthquakeMode(int[] horizScrollBuf, int cameraX, int cameraY, int frameCounter) {
         Sonic2LevelEventManager levelEvents = Sonic2LevelEventManager.getInstance();

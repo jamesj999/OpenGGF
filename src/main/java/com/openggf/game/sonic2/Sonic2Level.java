@@ -13,7 +13,11 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.rings.RingSpawn;
 import com.openggf.level.rings.RingSpriteSheet;
 
+import com.openggf.data.RomManager;
+import com.openggf.tools.NemesisReader;
+
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
 import java.util.List;
@@ -579,30 +583,123 @@ public class Sonic2Level implements Level {
     }
 
     /**
-     * Fills HTZ dynamic art pattern slots with sky blue placeholder patterns.
+     * PatchHTZTiles equivalent: fills HTZ dynamic art pattern slots with actual
+     * decompressed cliff art and uncompressed cloud art from the ROM.
      *
-     * <p>The original game uses Dynamic_HTZ to stream mountain and cloud art
-     * to VRAM tiles $0500-$0520 based on camera position. Without this dynamic
-     * streaming, those tiles would show garbage. We fill them with sky blue (palette
-     * index 0 in HTZ, which maps to the sky color) to provide a clean fallback.
+     * <p>Reference: s2.asm PatchHTZTiles (line 86777). The ROM decompresses
+     * ArtNem_HTZCliffs and scatters 128-byte chunks to VRAM tile slots. The
+     * first 24 tiles (6 strips × 4 tiles) go to $0500-$0517 (mountains).
+     * Cloud art (ArtUnc_HTZClouds, 1024 bytes = 32 tiles) fills $0518-$051F
+     * with the initial 8 tiles.
      *
-     * <p>TODO: Implement proper Dynamic_HTZ to stream the actual cliff/cloud art.
+     * <p>Dynamic_HTZ then streams position-specific mountain/cloud art every
+     * frame at runtime, overwriting these initial values.
      */
     private void fillHtzDynamicArtPatterns(GraphicsManager graphicsMan, int startIndex) {
-        // Create a sky blue pattern (all pixels = palette index 0, which is sky blue in HTZ)
-        byte[] skyPattern = new byte[Pattern.PATTERN_SIZE_IN_ROM];
-        // All zeros = palette index 0 for all pixels, which is sky blue in HTZ palette
+        try {
+            Rom rom = RomManager.getInstance().getRom();
+            if (rom == null) {
+                fillEmptyPatterns(graphicsMan, startIndex);
+                return;
+            }
 
+            // 1. Decompress cliff art (ArtNem_HTZCliffs → ~6KB)
+            byte[] cliffArt;
+            synchronized (rom) {
+                FileChannel ch = rom.getFileChannel();
+                ch.position(Sonic2Constants.ART_NEM_HTZ_CLIFFS_ADDR);
+                cliffArt = NemesisReader.decompress(ch);
+            }
+
+            // 2. Fill mountain tile slots ($0500-$0517) with the first 24 tiles
+            //    from decompressed cliff art (matching PatchHTZTiles' initial frame).
+            int destTile = Sonic2Constants.HTZ_MOUNTAINS_TILE_INDEX;
+            int srcOff = 0;
+            int mountainsFilled = 0;
+            for (int i = 0; i < Sonic2Constants.HTZ_MOUNTAINS_TILE_COUNT && destTile < patternCount; i++, destTile++) {
+                patterns[destTile] = new Pattern();
+                if (srcOff + Pattern.PATTERN_SIZE_IN_ROM <= cliffArt.length) {
+                    byte[] tile = new byte[Pattern.PATTERN_SIZE_IN_ROM];
+                    System.arraycopy(cliffArt, srcOff, tile, 0, Pattern.PATTERN_SIZE_IN_ROM);
+                    patterns[destTile].fromSegaFormat(tile);
+                    srcOff += Pattern.PATTERN_SIZE_IN_ROM;
+                    mountainsFilled++;
+                } else {
+                    patterns[destTile].fromSegaFormat(new byte[Pattern.PATTERN_SIZE_IN_ROM]);
+                }
+                if (graphicsMan.isGlInitialized()) {
+                    graphicsMan.cachePatternTexture(patterns[destTile], destTile);
+                }
+            }
+
+            // 3. Load uncompressed cloud art and fill cloud tile slots ($0518-$051F)
+            byte[] cloudArt = new byte[Sonic2Constants.ART_UNC_HTZ_CLOUDS_SIZE];
+            synchronized (rom) {
+                FileChannel ch = rom.getFileChannel();
+                ch.position(Sonic2Constants.ART_UNC_HTZ_CLOUDS_ADDR);
+                ByteBuffer buf = ByteBuffer.wrap(cloudArt);
+                while (buf.hasRemaining()) {
+                    if (ch.read(buf) < 0) break;
+                }
+            }
+            destTile = Sonic2Constants.HTZ_CLOUDS_TILE_INDEX;
+            srcOff = 0;
+            int cloudsFilled = 0;
+            for (int i = 0; i < Sonic2Constants.HTZ_CLOUDS_TILE_COUNT && destTile < patternCount; i++, destTile++) {
+                patterns[destTile] = new Pattern();
+                if (srcOff + Pattern.PATTERN_SIZE_IN_ROM <= cloudArt.length) {
+                    byte[] tile = new byte[Pattern.PATTERN_SIZE_IN_ROM];
+                    System.arraycopy(cloudArt, srcOff, tile, 0, Pattern.PATTERN_SIZE_IN_ROM);
+                    patterns[destTile].fromSegaFormat(tile);
+                    srcOff += Pattern.PATTERN_SIZE_IN_ROM;
+                    cloudsFilled++;
+                } else {
+                    patterns[destTile].fromSegaFormat(new byte[Pattern.PATTERN_SIZE_IN_ROM]);
+                }
+                if (graphicsMan.isGlInitialized()) {
+                    graphicsMan.cachePatternTexture(patterns[destTile], destTile);
+                }
+            }
+
+            // 4. Fill any remaining slots between cloud end and patternCount with empty
+            for (int i = Math.max(startIndex, Sonic2Constants.HTZ_DYNAMIC_TILES_END); i < patternCount; i++) {
+                if (patterns[i] == null) {
+                    patterns[i] = new Pattern();
+                    patterns[i].fromSegaFormat(new byte[Pattern.PATTERN_SIZE_IN_ROM]);
+                    if (graphicsMan.isGlInitialized()) {
+                        graphicsMan.cachePatternTexture(patterns[i], i);
+                    }
+                }
+            }
+            // Also fill gaps between startIndex and mountain range
+            for (int i = startIndex; i < Sonic2Constants.HTZ_MOUNTAINS_TILE_INDEX && i < patternCount; i++) {
+                if (patterns[i] == null) {
+                    patterns[i] = new Pattern();
+                    patterns[i].fromSegaFormat(new byte[Pattern.PATTERN_SIZE_IN_ROM]);
+                    if (graphicsMan.isGlInitialized()) {
+                        graphicsMan.cachePatternTexture(patterns[i], i);
+                    }
+                }
+            }
+
+            LOG.info("HTZ PatchHTZTiles: filled " + mountainsFilled + " mountain tiles from cliff art ("
+                    + cliffArt.length + " bytes), " + cloudsFilled + " cloud tiles from cloud art");
+
+        } catch (IOException e) {
+            LOG.warning("Failed to load HTZ dynamic art, using empty placeholders: " + e.getMessage());
+            fillEmptyPatterns(graphicsMan, startIndex);
+        }
+    }
+
+    private void fillEmptyPatterns(GraphicsManager graphicsMan, int startIndex) {
+        byte[] empty = new byte[Pattern.PATTERN_SIZE_IN_ROM];
         for (int i = startIndex; i < patternCount; i++) {
             patterns[i] = new Pattern();
-            patterns[i].fromSegaFormat(skyPattern);
-
+            patterns[i].fromSegaFormat(empty);
             if (graphicsMan.isGlInitialized()) {
                 graphicsMan.cachePatternTexture(patterns[i], i);
             }
         }
-
-        LOG.info("HTZ: Filled " + (patternCount - startIndex) + " dynamic art pattern slots with sky blue placeholders");
     }
 
     /**
