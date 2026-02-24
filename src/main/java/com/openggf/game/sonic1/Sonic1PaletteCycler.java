@@ -50,7 +50,7 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
     private List<PaletteCycle> createCycles(int zoneIndex) {
         return switch (zoneIndex) {
             case Sonic1Constants.ZONE_GHZ -> List.of(createGhzCycle());
-            case Sonic1ZoneConstants.ZONE_ENDING -> List.of(createGhzCycle());
+            case Sonic1Constants.ZONE_ENDZ -> List.of(createGhzCycle());
             case Sonic1Constants.ZONE_LZ -> createLzCycles();
             case Sonic1Constants.ZONE_SLZ -> List.of(new SlzCycle());
             case Sonic1Constants.ZONE_SYZ -> List.of(new SyzCycle());

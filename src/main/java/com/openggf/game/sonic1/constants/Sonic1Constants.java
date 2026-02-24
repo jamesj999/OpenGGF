@@ -131,11 +131,19 @@ public final class Sonic1Constants {
     // Verified by binary search matching docs/s1disasm/artnem/Title Cards.nem
     public static final int ART_NEM_TITLE_CARD_ADDR = 0x39204;
 
+    // ---- Ending sequence Kosinski-compressed flower art ----
+    // Kos_EndFlowers: decompressed at GM_Ending into RAM buffer, used by
+    // AniArt_Ending_BigFlower (offset 0), Flower3 (+$400) and Flower4 (+$A00).
+    public static final int KOS_END_FLOWERS_ADDR = 0x61822;
+
     // ---- Animated tile VRAM destinations (ArtTile_Level = 0x000) ----
     // GHZ
+    public static final int ARTTILE_GHZ_FLOWER_4      = 0x340;
     public static final int ARTTILE_GHZ_WATERFALL     = 0x378;
     public static final int ARTTILE_GHZ_BIG_FLOWER_1  = 0x35C;
     public static final int ARTTILE_GHZ_SMALL_FLOWER  = 0x36C;
+    public static final int ARTTILE_GHZ_FLOWER_3      = 0x380;
+    public static final int ARTTILE_GHZ_BIG_FLOWER_2  = 0x390;
     // MZ
     public static final int ARTTILE_MZ_ANIMATED_LAVA  = 0x2E2;
     public static final int ARTTILE_MZ_ANIMATED_MAGMA = 0x2D2;

@@ -715,6 +715,7 @@ public class ObjectManager {
     }
 
     static final class PlaneSwitchers {
+        private static final Logger LOGGER = Logger.getLogger(PlaneSwitchers.class.getName());
         private static final int[] HALF_SPANS = new int[]{0x20, 0x40, 0x80, 0x100};
         private static final int MASK_SIZE = 0x03;
         private static final int MASK_HORIZONTAL = 0x04;
@@ -787,6 +788,11 @@ public class ObjectManager {
                             player.setTopSolidBit(config.getPath1TopSolidBit());
                             player.setLrbSolidBit(config.getPath1LrbSolidBit());
                         }
+                        LOGGER.info(() -> String.format(
+                                "PlaneSwitcher path=%d: player(%d,%d) obj(%d,%d) sub=0x%02X side=%d→%d air=%b mode=%s",
+                                path, player.getCentreX(), player.getCentreY(),
+                                spawn.x(), spawn.y(), subtype, state.sideState, sideNow,
+                                player.getAir(), player.getGroundMode()));
                     }
                     boolean highPriority = decodePriority(subtype, sideNow);
                     player.setHighPriority(highPriority);
@@ -968,6 +974,8 @@ public class ObjectManager {
                     TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
                     handleTouchResponse(player, instance, listener, result);
+                    // ROM: exits after first hit found per frame (bne.w branch)
+                    break;
                 }
             }
 
@@ -1337,7 +1345,8 @@ public class ObjectManager {
             }
             // Use center coordinates to match ROM y_pos behavior
             int playerY = player.getCentreY();
-            int enemyY = instance != null ? instance.getSpawn().y() : playerY;
+            // ROM: cmp.w y_pos(a1),d0 — use current position, not spawn
+            int enemyY = instance != null ? instance.getY() : playerY;
             if (playerY < enemyY) {
                 player.setYSpeed((short) -ySpeed);
             } else {
@@ -1650,6 +1659,16 @@ public class ObjectManager {
             }
         }
 
+        // KNOWN ARCHITECTURAL DIFFERENCE: The ROM processes solid object contacts inline
+        // during each object's update routine, so each subsequent object sees the player's
+        // position as updated by earlier solid contacts within the same frame. This engine
+        // instead batches all solid contacts in a single pass after object updates, meaning
+        // every object sees the player's position from the START of the pass. This can cause
+        // differences with adjacent or sandwiching solid objects and with crush detection
+        // timing, since the cumulative position adjustments don't propagate between objects
+        // within the same frame. The sticky buffer and subpixel workarounds partially
+        // compensate for this, but a full fix would require per-object inline resolution
+        // integrated into the object update loop.
         void update(AbstractPlayableSprite player) {
             frameCounter++;
             if (player == null || objectManager == null || player.getDead()) {
@@ -1711,15 +1730,21 @@ public class ObjectManager {
                 int maxRelXExclusive = (ridingHalfWidth * 2) + stickyX;
                 boolean inBounds = relX >= minRelX && relX < maxRelXExclusive;
 
-                if (inBounds && provider.isSolidFor(player)) {
+                // ROM: s2.asm:35387 — skip repositioning if obj_control bit 7 set
+                if (inBounds && provider.isSolidFor(player) && !player.isObjectControlled()) {
+                    // ROM: s2.asm:35377-35401 — X uses delta tracking, Y uses absolute positioning
                     int deltaX = currentX - ridingX;
-                    int deltaY = currentY - ridingY;
                     if (deltaX != 0) {
                         player.shiftX(deltaX);
                     }
-                    if (deltaY != 0) {
-                        player.shiftY(deltaY);
-                    }
+                    // ROM: MvSonicOnPtfm — y_pos(a1) = y_pos(a0) - d3 - y_radius(a1)
+                    // d3 is the platform's Y offset (negative = surface below center).
+                    // offsetY shifts the collision anchor; the standing surface is at
+                    // anchorY - halfHeight = (currentY + offsetY) - halfHeight.
+                    int halfHeight = params.airHalfHeight();
+                    int newCentreY = currentY + params.offsetY() - halfHeight - player.getYRadius();
+                    int newY = newCentreY - (player.getHeight() / 2);
+                    player.setY((short) newY);
                     ridingX = currentX;
                     ridingY = currentY;
                     // Update state with new tracking position
@@ -1748,6 +1773,8 @@ public class ObjectManager {
                             player, multiPiece, instance, frameCounter, provider.usesStickyContactBuffer());
                     if (result.pushing) {
                         player.setPushing(true);
+                        // ROM: s2.asm:35220-35226 — also set pushing bit on the object
+                        provider.setPlayerPushing(player, true);
                     }
                     if (result.standing) {
                         nextRidingObject = instance;
@@ -1786,6 +1813,8 @@ public class ObjectManager {
                 }
                 if (contact.pushing()) {
                     player.setPushing(true);
+                    // ROM: s2.asm:35220-35226 — also set pushing bit on the object
+                    provider.setPlayerPushing(player, true);
                 }
                 if (contact.standing()) {
                     nextRidingObject = instance;
@@ -1910,7 +1939,8 @@ public class ObjectManager {
             int maxTop = halfHeight + playerYRadius;
             // SPG: Monitors don't add +4 during vertical overlap check
             int verticalOffset = monitorSolidity ? 0 : 4;
-            int relY = playerCenterY - anchorY + verticalOffset + maxTop;
+            // ROM: s2.asm:35147 — mask with $7FF to handle edge cases near y_pos=0
+            int relY = ((playerCenterY - anchorY + verticalOffset + maxTop) & 0x7FF);
 
             boolean riding = useStickyBuffer && isRidingCurrentPlayerObject(instance);
             // For multi-piece objects, only apply sticky buffer (-16px) when checking
@@ -2198,7 +2228,8 @@ public class ObjectManager {
                 // When distX=0 (at exact edge), distX>0 would be false for both sides,
                 // causing incorrect movingInto detection for left side pushes.
                 boolean leftSide = relX < halfWidth;
-                boolean nearVerticalEdge = absDistY <= 6;
+                // ROM: cmpi.w #4,d1
+                boolean nearVerticalEdge = absDistY <= 4;
                 // Only set pushing if player is on ground AND actively pressing into the object
                 boolean movingInto = leftSide ? player.getXSpeed() > 0 : player.getXSpeed() < 0;
                 boolean pushing = !player.getAir() && movingInto;
@@ -2262,7 +2293,8 @@ public class ObjectManager {
                     return null;
                 }
 
-                int landingThreshold = usesUnifiedCollisionModel(player) ? 0x10 : 0x18;
+                // ROM: cmpi.w #$10,d3
+                int landingThreshold = 0x10;
                 if (distY >= landingThreshold) {
                     return null;
                 }
@@ -2361,9 +2393,17 @@ public class ObjectManager {
             }
 
             int configuredHalfWidth = provider.getTopLandingHalfWidth(player, collisionHalfWidth);
-            int allowedHalfWidth = Math.max(0, Math.min(configuredHalfWidth, collisionHalfWidth));
-            if (allowedHalfWidth >= collisionHalfWidth) {
-                return true;
+            int allowedHalfWidth;
+            if (configuredHalfWidth < collisionHalfWidth) {
+                // Provider explicitly set a narrower landing width
+                allowedHalfWidth = configuredHalfWidth;
+            } else if (!usesUnifiedCollisionModel(player)) {
+                // ROM: s2.asm:35345-35353 — S2/S3K landing check reloads width_pixels,
+                // which is narrower than collision halfWidth (collision = width_pixels + $B).
+                allowedHalfWidth = Math.max(0, collisionHalfWidth - 0x0B);
+            } else {
+                // S1 unified: no $B offset convention, use full collision width
+                allowedHalfWidth = collisionHalfWidth;
             }
 
             int xFromCenter = relX - collisionHalfWidth;

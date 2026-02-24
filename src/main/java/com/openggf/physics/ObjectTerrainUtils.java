@@ -69,6 +69,19 @@ public final class ObjectTerrainUtils {
             return checkFloorExtension(lm, x, y);
         }
 
+        // ROM: neg.w produces negative metric for V-flipped tiles.
+        // FindFloor handles this via the negative metric path (s2.asm:42984-43000).
+        if (metric < 0) {
+            int yInTile = y & 0x0F;
+            int adjusted = metric + yInTile;
+            if (adjusted >= 0) {
+                // No collision in this tile - extend to next tile
+                return checkFloorExtension(lm, x, y);
+            }
+            // Collision found - regress to previous tile
+            return checkFloorRegress(lm, tile, desc, x, y);
+        }
+
         if (metric == FULL_TILE) {
             // Full tile - check previous tile up for edge detection
             TerrainCheckResult edgeResult = checkFloorEdge(lm, x, y);
@@ -87,7 +100,41 @@ public final class ObjectTerrainUtils {
         if (metric > 0) {
             return createFloorResult(tile, desc, metric, y, nextY);
         }
+        // Handle negative metric in extension (FindFloor2 path)
+        if (metric < 0) {
+            int yInTile = y & 0x0F;
+            int adjusted = metric + yInTile;
+            if (adjusted < 0) {
+                // ROM FindFloor2: not.w d1 where d1 = yInTile
+                int dist = ~yInTile + 16; // +16 for extension tile offset
+                return new TerrainCheckResult(dist, getAngle(tile), getTileIndex(desc));
+            }
+        }
         return TerrainCheckResult.noCollision();
+    }
+
+    /** Regress to previous tile when negative metric indicates collision from below */
+    private static TerrainCheckResult checkFloorRegress(LevelManager lm, SolidTile origTile,
+                                                         ChunkDesc origDesc, int x, int y) {
+        int prevY = y - 16;
+        ChunkDesc desc = lm.getChunkDescAt((byte) 0, x, prevY);
+        SolidTile tile = getSolidTile(lm, desc, SOLIDITY_TOP);
+        byte metric = getHeightMetric(tile, desc, x);
+
+        if (metric != 0) {
+            // ROM: FindFloor2 result with subi.w #$10,d1
+            if (metric < 0) {
+                int yInTile = y & 0x0F;
+                int dist = ~yInTile - 16;
+                return new TerrainCheckResult(dist, getAngle(tile), getTileIndex(desc));
+            }
+            TerrainCheckResult result = createFloorResult(tile, desc, metric, y, prevY);
+            return new TerrainCheckResult(result.distance() - 16, result.angle(), result.tileIndex());
+        }
+        // Empty previous tile - use yInTile-based distance
+        int yInTile = y & 0x0F;
+        int dist = ~yInTile - 16;
+        return new TerrainCheckResult(dist, getAngle(origTile), getTileIndex(origDesc));
     }
 
     private static TerrainCheckResult checkFloorEdge(LevelManager lm, int x, int y) {
@@ -248,7 +295,8 @@ public final class ObjectTerrainUtils {
 
         byte metric = tile.getHeightAt((byte) index);
         if (metric != 0 && metric != FULL_TILE && desc != null && desc.getVFlip()) {
-            metric = (byte) (16 - metric);
+            // ROM: neg.w d0 (s2.asm:42984-42987) - simple negation
+            metric = (byte) -metric;
         }
         return metric;
     }
