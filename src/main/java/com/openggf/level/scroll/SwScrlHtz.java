@@ -318,6 +318,15 @@ public class SwScrlHtz implements ZoneScrollHandler {
     /**
      * HTZ earthquake mode scrolling.
      * Reference: s2.asm HTZ_Screen_Shake lines 15975-16029
+     *
+     * ROM uses absolute Camera_BG_Y/X_pos for scroll factors:
+     *   Vscroll_Factor_BG = Camera_BG_Y_pos (≈ Camera_Y_pos - Camera_BG_Y_offset)
+     *   Horiz_Scroll_Buf BG = -Camera_BG_X_pos
+     *
+     * Our tilemap contains the full BG map, so these absolute positions correctly
+     * address BG map rows 0-1 containing lava/cave tile data (256px); VDP wraps vertically.
+     * The HTZ BG high-priority overlay (renderHtzEarthquakeBgHighOverlay) also
+     * uses vscrollFactorBG as its world offset, so it must remain absolute.
      */
     private void updateEarthquakeMode(int[] horizScrollBuf, int cameraX, int cameraY, int frameCounter) {
         Sonic2LevelEventManager levelEvents = Sonic2LevelEventManager.getInstance();

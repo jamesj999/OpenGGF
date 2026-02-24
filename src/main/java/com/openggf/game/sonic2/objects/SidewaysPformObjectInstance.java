@@ -1,8 +1,13 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.data.RomByteReader;
+import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
+import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -11,8 +16,11 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -39,6 +47,14 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     private static final int HALF_WIDTH = 0x18;  // 24 pixels
     private static final int HALF_HEIGHT = 8;
 
+    // MCZ-specific mappings (Obj15_Obj7A_MapUnc_10256, shared with SwingingPlatform)
+    // In MCZ, Obj7A uses level art with palette 0 instead of CPZ stair block art.
+    // Disasm: cmpi.b #mystic_cave_zone,(Current_Zone).w / bne.s +
+    //         move.l #Obj15_Obj7A_MapUnc_10256,mappings(a0)
+    //         move.w #make_art_tile(ArtTile_ArtKos_LevelArt,0,0),art_tile(a0)
+    private static List<SpriteMappingFrame> mczMappings;
+    private static boolean mczMappingsLoadAttempted;
+
     // Subtype properties from Obj7A_Properties
     // Format: {totalChildren-1, originXOffset, parentXOffset, childXOffset}
     // Subtypes map: 0x00 -> index 0, 0x06 -> index 1, 0x0C -> index 2, 0x12 -> index 3
@@ -60,6 +76,9 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     private SidewaysPformObjectInstance linkedPlatform;
     private boolean isChild;
 
+    // Zone-specific rendering: MCZ uses level art, CPZ uses dedicated stair block art
+    private final boolean isMcz;
+
     private ObjectSpawn dynamicSpawn;
 
     /**
@@ -71,6 +90,8 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     public SidewaysPformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.isChild = false;
+        LevelManager lm = LevelManager.getInstance();
+        this.isMcz = lm != null && lm.getRomZoneId() == Sonic2Constants.ZONE_MYSTIC_CAVE;
         init();
     }
 
@@ -84,6 +105,7 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     private SidewaysPformObjectInstance(ObjectSpawn spawn, String name, SidewaysPformObjectInstance parent) {
         super(spawn, name);
         this.isChild = true;
+        this.isMcz = parent.isMcz;
         this.linkedPlatform = parent;
         parent.linkedPlatform = this;
         initChild(parent);
@@ -132,6 +154,18 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
+        if (isMcz) {
+            appendRenderMcz(commands);
+        } else {
+            appendRenderCpz(commands);
+        }
+    }
+
+    /**
+     * CPZ rendering: uses dedicated CPZ stair block art via PatternSpriteRenderer.
+     * art_tile = make_art_tile(ArtTile_ArtNem_CPZStairBlock, 3, 1)
+     */
+    private void appendRenderCpz(List<GLCommand> commands) {
         ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
         PatternSpriteRenderer renderer = null;
 
@@ -144,6 +178,66 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
             renderer.drawFrameIndex(0, x, y, false, false);
         } else {
             appendDebug(commands);
+        }
+    }
+
+    /**
+     * MCZ rendering: uses level art patterns with Obj15 shared mappings.
+     * art_tile = make_art_tile(ArtTile_ArtKos_LevelArt, 0, 0)
+     * Mapping pieces have palette 3 embedded, art_tile adds 0.
+     */
+    private void appendRenderMcz(List<GLCommand> commands) {
+        ensureMczMappingsLoaded();
+
+        if (mczMappings == null || mczMappings.isEmpty()) {
+            appendDebug(commands);
+            return;
+        }
+
+        // Frame 0 is the 48x16 platform
+        SpriteMappingFrame frame = mczMappings.get(0);
+        if (frame == null || frame.pieces().isEmpty()) {
+            appendDebug(commands);
+            return;
+        }
+
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        SpritePieceRenderer.renderPieces(
+                frame.pieces(),
+                x, y,
+                0,  // Base pattern index (level art starts at 0)
+                0,  // art_tile palette offset: make_art_tile(ArtTile_ArtKos_LevelArt,0,0)
+                false, false,
+                (patternIndex, pieceHFlip, pieceVFlip, paletteIndex, px, py) -> {
+                    int descIndex = patternIndex & 0x7FF;
+                    if (pieceHFlip) {
+                        descIndex |= 0x800;
+                    }
+                    if (pieceVFlip) {
+                        descIndex |= 0x1000;
+                    }
+                    descIndex |= (paletteIndex & 0x3) << 13;
+                    graphicsManager.renderPattern(new PatternDesc(descIndex), px, py);
+                });
+    }
+
+    private static void ensureMczMappingsLoaded() {
+        if (mczMappingsLoadAttempted) {
+            return;
+        }
+        mczMappingsLoadAttempted = true;
+
+        LevelManager manager = LevelManager.getInstance();
+        if (manager == null || manager.getGame() == null) {
+            return;
+        }
+
+        try {
+            RomByteReader reader = RomByteReader.fromRom(manager.getGame().getRom());
+            mczMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_MCZ_ADDR);
+            LOGGER.fine("Loaded " + mczMappings.size() + " MCZ SidewaysPform mapping frames");
+        } catch (IOException | RuntimeException e) {
+            LOGGER.warning("Failed to load MCZ SidewaysPform mappings: " + e.getMessage());
         }
     }
 

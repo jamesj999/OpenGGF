@@ -52,10 +52,12 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
 
     private static final Logger LOGGER = Logger.getLogger(MCZBridgeObjectInstance.class.getName());
 
-    // Animation frame sequences
+    // Animation frame sequences (from Ani_obj77 in s2.asm)
     // Close anim: from open to closed
+    // ROM: dc.b 3, 4, 3, 2, 1, 0, $FE, 1
     private static final int[] CLOSE_FRAMES = {4, 3, 2, 1, 0};
     // Open anim: from closed to open
+    // ROM: dc.b 3, 0, 1, 2, 3, 4, $FE, 1
     private static final int[] OPEN_FRAMES = {0, 1, 2, 3, 4};
 
     // Animation speed: advance every (ANIM_SPEED + 1) frames
@@ -79,7 +81,7 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
     private int frameIndex;             // Index into current frame array
     private int animTimer;              // Counts up to ANIM_SPEED before advancing
     private boolean animating;          // True when animation is in progress
-    private boolean triggerLatch;       // One-shot latch to detect trigger edge
+    private boolean hasResponded;       // ROM objoff_34: one-shot flag, set permanently on first trigger
 
     public MCZBridgeObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
@@ -93,7 +95,7 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
         this.frameIndex = 0;
         this.animTimer = 0;
         this.animating = false;
-        this.triggerLatch = false;
+        this.hasResponded = false;
 
         LOGGER.fine(() -> String.format(
                 "MCZBridge init: pos=(%d,%d), switchId=%d",
@@ -106,26 +108,30 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // Check ButtonVine trigger (one-shot: only react on rising edge)
-        boolean triggered = ButtonVineTriggerManager.getTrigger(switchId);
-        if (triggered && !triggerLatch) {
-            triggerLatch = true;
+        // Check ButtonVine trigger (one-shot: ROM objoff_34 is set permanently)
+        // ROM: tst.b objoff_34(a0) / bne.s + (skip if already responded)
+        //      btst #0,(ButtonVine_Trigger,d0.w) / beq.s + (skip if not triggered)
+        //      move.b #1,objoff_34(a0) (permanent one-shot)
+        //      bchg #0,anim(a0) (toggle animation)
+        if (!hasResponded) {
+            boolean triggered = ButtonVineTriggerManager.getTrigger(switchId);
+            if (triggered) {
+                hasResponded = true;
 
-            // Toggle animation direction
-            animId ^= 1;
-            frameIndex = 0;
-            animTimer = 0;
-            animating = true;
+                // Toggle animation direction
+                animId ^= 1;
+                frameIndex = 0;
+                animTimer = 0;
+                animating = true;
 
-            // Play door slam sound if on screen
-            if (isOnScreen(WIDTH_PIXELS)) {
-                AudioManager.getInstance().playSfx(Sonic2Sfx.DOOR_SLAM.id);
+                // Play door slam sound if on screen
+                if (isOnScreen(WIDTH_PIXELS)) {
+                    AudioManager.getInstance().playSfx(Sonic2Sfx.DOOR_SLAM.id);
+                }
             }
-        } else if (!triggered) {
-            triggerLatch = false;
         }
 
-        // Step animation
+        // Step animation: play through sequence once and stop on last frame
         if (animating) {
             animTimer++;
             if (animTimer > ANIM_SPEED) {
@@ -134,8 +140,8 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
 
                 int[] currentFrames = (animId == 0) ? CLOSE_FRAMES : OPEN_FRAMES;
                 if (frameIndex >= currentFrames.length) {
-                    // Animation complete - loop back to start (ROM: $FE, 1 restart command)
-                    frameIndex = 0;
+                    // Stop on the last frame
+                    frameIndex = currentFrames.length - 1;
                     animating = false;
                 }
                 mappingFrame = currentFrames[frameIndex];

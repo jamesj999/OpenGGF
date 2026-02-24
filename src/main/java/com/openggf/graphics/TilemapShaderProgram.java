@@ -1,6 +1,7 @@
 package com.openggf.graphics;
 
 import java.io.IOException;
+import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL20.*;
 
@@ -8,6 +9,8 @@ import static org.lwjgl.opengl.GL20.*;
  * Shader program for GPU tilemap rendering.
  */
 public class TilemapShaderProgram extends ShaderProgram {
+    private static final Logger LOGGER = Logger.getLogger(TilemapShaderProgram.class.getName());
+    private boolean loggedVdpWrapHeight = false;
     private int tilemapTextureLocation = -1;
     private int patternLookupLocation = -1;
     private int atlasTextureLocation = -1;
@@ -35,6 +38,7 @@ public class TilemapShaderProgram extends ShaderProgram {
     private int perLineScrollLocation = -1;
     private int screenHeightLocation = -1;
     private int vdpWrapWidthLocation = -1;
+    private int vdpWrapHeightLocation = -1;
     private int nametableBaseLocation = -1;
     private int frameCounterLocation = -1;
     private int shimmerStyleLocation = -1;
@@ -76,6 +80,7 @@ public class TilemapShaderProgram extends ShaderProgram {
         perLineScrollLocation = glGetUniformLocation(programId, "PerLineScroll");
         screenHeightLocation = glGetUniformLocation(programId, "ScreenHeight");
         vdpWrapWidthLocation = glGetUniformLocation(programId, "VDPWrapWidth");
+        vdpWrapHeightLocation = glGetUniformLocation(programId, "VDPWrapHeight");
         nametableBaseLocation = glGetUniformLocation(programId, "NametableBase");
         frameCounterLocation = glGetUniformLocation(programId, "FrameCounter");
         shimmerStyleLocation = glGetUniformLocation(programId, "ShimmerStyle");
@@ -196,6 +201,16 @@ public class TilemapShaderProgram extends ShaderProgram {
     public void setVdpWrapWidth(float width) {
         if (vdpWrapWidthLocation >= 0) {
             glUniform1f(vdpWrapWidthLocation, width);
+        }
+    }
+
+    public void setVdpWrapHeight(float height) {
+        if (!loggedVdpWrapHeight && height > 0) {
+            LOGGER.info("VDPWrapHeight uniform location=" + vdpWrapHeightLocation + " value=" + height);
+            loggedVdpWrapHeight = true;
+        }
+        if (vdpWrapHeightLocation >= 0) {
+            glUniform1f(vdpWrapHeightLocation, height);
         }
     }
 

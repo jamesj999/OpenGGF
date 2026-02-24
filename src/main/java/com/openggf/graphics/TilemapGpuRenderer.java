@@ -52,6 +52,8 @@ public class TilemapGpuRenderer {
     private float perLineVdpWrapWidth = 0.0f;
     private float perLineNametableBase = 0.0f;
 
+    private float bgVdpWrapHeight = 0.0f;
+
     private int shimmerFrameCounter = 0;
     private int shimmerStyle = 0;
 
@@ -139,6 +141,14 @@ public class TilemapGpuRenderer {
         return shimmerStyle;
     }
 
+    public void setBgVdpWrapHeight(float heightTiles) {
+        this.bgVdpWrapHeight = heightTiles;
+    }
+
+    public float getBgVdpWrapHeight() {
+        return bgVdpWrapHeight;
+    }
+
     public void setPatternLookupData(byte[] data, int size) {
         this.lookupData = data;
         this.lookupSize = size;
@@ -205,6 +215,7 @@ public class TilemapGpuRenderer {
         shader.setWaterSplit(useUnderwaterPalette, waterlineScreenY);
         shader.setPerLineScroll(perLineScroll);
         shader.setVdpWrapWidth(perLineScroll ? perLineVdpWrapWidth : 0.0f);
+        shader.setVdpWrapHeight(layer == Layer.BACKGROUND ? bgVdpWrapHeight : 0.0f);
         shader.setNametableBase(perLineScroll ? perLineNametableBase : 0.0f);
         // Always assign HScrollTexture to unit 5 to satisfy macOS sampler validation.
         shader.setHScrollTexture(5);

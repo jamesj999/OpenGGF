@@ -29,6 +29,7 @@ uniform sampler1D HScrollTexture;    // Per-scanline BG scroll (R32F, 224 entrie
 uniform int PerLineScroll;           // 1 = per-scanline HScroll, 0 = uniform WorldOffsetX
 uniform float ScreenHeight;          // Visible scanline count (224.0)
 uniform float VDPWrapWidth;          // VDP nametable width in tiles (64.0), 0 = use TilemapWidth
+uniform float VDPWrapHeight;         // VDP nametable height in tiles, 0 = disabled
 uniform float NametableBase;         // Starting tilemap column for VDP-style wrapping
 uniform int FrameCounter;            // For shimmer animation
 uniform int ShimmerStyle;            // 0 = none, 1 = S1 integer-snapped shimmer
@@ -152,6 +153,16 @@ void main()
         if (tileYf < 0.0 || tileYf >= TilemapHeight) {
             discard;
         }
+    }
+
+    // VDP vertical nametable wrap - maps tall tilemaps back into valid data range.
+    // On real hardware the BG nametable is 64x32 cells; tiles beyond row 31 wrap
+    // back to row 0.  Zones whose BG data fits within 32 rows (e.g. HTZ) set
+    // VDPWrapHeight = 32 so the earthquake scroll (tileY ~98) reads valid tiles.
+    // Zones with taller BG data (e.g. MCZ, 85+ rows) leave VDPWrapHeight = 0.
+    if (VDPWrapHeight > 0.0) {
+        tileYf = mod(tileYf, VDPWrapHeight);
+        if (tileYf < 0.0) tileYf += VDPWrapHeight;
     }
 
     vec2 tileUv = vec2((tileXf + 0.5) / TilemapWidth, (tileYf + 0.5) / TilemapHeight);

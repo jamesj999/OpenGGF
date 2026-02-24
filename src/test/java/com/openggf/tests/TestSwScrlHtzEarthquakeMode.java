@@ -39,6 +39,9 @@ public class TestSwScrlHtzEarthquakeMode {
         int[] hScroll = new int[224];
         handler.update(hScroll, 0x1800, 0x450, 10, 0);
 
+        // BG scroll uses absolute Camera_BG positions:
+        //   bgXPos = cameraX - bgXOffset = 0x1800 - 0 = 0x1800
+        //   bgYPos = cameraY - bgYOffset = 0x450 - 0x140 = 0x310
         short expectedFg = (short) -0x1800;
         short expectedBg = (short) -0x1800;
         int expectedPacked = ((expectedFg & 0xFFFF) << 16) | (expectedBg & 0xFFFF);
@@ -65,7 +68,8 @@ public class TestSwScrlHtzEarthquakeMode {
         int[] hScroll = new int[224];
         handler.update(hScroll, 0x1600, 0x400, 12, 1);
 
-        int bgXPos = 0x1600 - (-0x680); // Camera_BG_X_pos target in bottom route
+        // bgXPos = cameraX - bgXOffset = 0x1600 - (-0x680) = 0x1C80
+        int bgXPos = 0x1600 - (-0x680);
         short expectedFg = (short) -0x1600;
         short expectedBg = (short) -bgXPos;
         int expectedPacked = ((expectedFg & 0xFFFF) << 16) | (expectedBg & 0xFFFF);

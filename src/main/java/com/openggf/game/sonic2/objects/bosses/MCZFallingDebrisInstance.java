@@ -16,8 +16,8 @@ import java.util.List;
  * MCZ Boss falling debris - stones and spikes spawned during descent phases.
  * ROM Reference: Obj57_FallingStuff (s2.asm:65856-65861)
  *
- * Stones: frame 0x0D in ROM (frame 0 in our sheet), no collision hazard
- * Spikes: frame 0x14 in ROM (frame 1 in our sheet), collision_flags 0xB1 (hazard)
+ * Stones: frame 0x0D (13) in Obj57_MapUnc_316EC, no collision hazard
+ * Spikes: frame 0x14 (20) in Obj57_MapUnc_316EC, collision_flags 0xB1 (hazard)
  *
  * Uses ObjectMoveAndFall for gravity. Deleted when Y >= 0x6F0.
  */
@@ -27,6 +27,10 @@ public class MCZFallingDebrisInstance extends AbstractObjectInstance implements 
     // sub2_y_pos at SST offset $12 aliases y_vel. Net gravity = $38 - $28 = $10
     private static final int GRAVITY = 0x10;
     private static final int DELETE_Y = 0x6F0;
+
+    // ROM mapping frame indices in Obj57_MapUnc_316EC
+    private static final int FRAME_STONE = 0x0D; // Map_obj57_014C: 2x2 rock
+    private static final int FRAME_SPIKE = 0x14; // Map_obj57_01C2: 1x4 stalactite
 
     private final boolean isSpike;
     private int posX;
@@ -96,8 +100,7 @@ public class MCZFallingDebrisInstance extends AbstractObjectInstance implements 
             return;
         }
 
-        // Frame 0 = stone, Frame 1 = spike
-        int frame = isSpike ? 1 : 0;
+        int frame = isSpike ? FRAME_SPIKE : FRAME_STONE;
         renderer.drawFrameIndex(frame, posX, posY, false, false);
     }
 }

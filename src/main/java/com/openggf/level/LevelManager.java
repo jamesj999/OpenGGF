@@ -143,6 +143,7 @@ public class LevelManager {
     private int backgroundTilemapWidthTiles;
     private int backgroundTilemapHeightTiles;
     private boolean backgroundTilemapDirty = true;
+    private int backgroundVdpWrapHeightTiles = 0; // 0 = disabled
     // X offset (in pixels, 512-aligned) for BG tilemap building.
     // Wide BG maps (> 512px) need tiles from the correct region, not always from position 0.
     private int bgTilemapBaseX = 0;
@@ -570,7 +571,7 @@ public class LevelManager {
                 pendingHtzPaletteId,
                 0,
                 1,
-                false,
+                true,   // wrapY: VDPWrapHeight maps earthquake Y back into valid BG rows
                 false,
                 false,
                 0.0f);
@@ -1896,6 +1897,12 @@ public class LevelManager {
 
     private void ensureBackgroundTilemapData() {
         if (!backgroundTilemapDirty && backgroundTilemapData != null && patternLookupData != null) {
+            // Tilemap data already up to date — but still push VDP wrap height
+            // to the renderer in case it was null during the initial build.
+            TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
+            if (renderer != null && backgroundVdpWrapHeightTiles > 0) {
+                renderer.setBgVdpWrapHeight(backgroundVdpWrapHeightTiles);
+            }
             return;
         }
         if (level == null || level.getMap() == null) {
@@ -1910,6 +1917,7 @@ public class LevelManager {
         if (renderer != null) {
             renderer.setTilemapData(TilemapGpuRenderer.Layer.BACKGROUND, backgroundTilemapData,
                     backgroundTilemapWidthTiles, backgroundTilemapHeightTiles);
+            renderer.setBgVdpWrapHeight(backgroundVdpWrapHeightTiles);
             renderer.setPatternLookupData(patternLookupData, patternLookupSize);
         }
     }
@@ -1974,6 +1982,39 @@ public class LevelManager {
         backgroundTilemapData = data.data;
         backgroundTilemapWidthTiles = data.widthTiles;
         backgroundTilemapHeightTiles = data.heightTiles;
+
+        int actualHeightTiles = findActualBgTilemapDataHeight(backgroundTilemapData,
+                backgroundTilemapWidthTiles, backgroundTilemapHeightTiles);
+        backgroundVdpWrapHeightTiles = (actualHeightTiles > 0
+                && actualHeightTiles <= VDP_BG_PLANE_HEIGHT_TILES)
+                ? VDP_BG_PLANE_HEIGHT_TILES : 0;
+        LOGGER.info("BG tilemap " + backgroundTilemapWidthTiles + "x" + backgroundTilemapHeightTiles
+                + " actualDataHeight=" + actualHeightTiles
+                + " VDPWrapHeight=" + backgroundVdpWrapHeightTiles);
+    }
+
+    /**
+     * Scan the BG tilemap data bottom-up to find the last row containing
+     * actual art (pattern index >= 2).  Pattern 0 is VDP-transparent and
+     * pattern 1 is the default fill tile produced by block 0, so both are
+     * excluded.  Real level art starts at pattern index 2+.
+     * <p>
+     * This lets us distinguish HTZ (real art in rows 0-31 only, fill beyond)
+     * from MCZ (real art extending to row 85+).
+     */
+    private int findActualBgTilemapDataHeight(byte[] data, int widthTiles, int heightTiles) {
+        for (int y = heightTiles - 1; y >= 0; y--) {
+            for (int x = 0; x < widthTiles; x++) {
+                int offset = (y * widthTiles + x) * 4;
+                int r = data[offset] & 0xFF;
+                int g = data[offset + 1] & 0xFF;
+                int patternIndex = r + ((g & 0x07) << 8);
+                if (patternIndex >= 2) {
+                    return y + 1;
+                }
+            }
+        }
+        return 0;
     }
 
     private void buildForegroundTilemapData() {
@@ -1986,6 +2027,7 @@ public class LevelManager {
     // VDP plane size for Sonic 2 normal levels: 64x32 cells = 512x256 pixels.
     // The background tilemap wraps at this width for Sonic 2's redraw-style pipeline.
     private static final int VDP_BG_PLANE_WIDTH_PX = 512;
+    private static final int VDP_BG_PLANE_HEIGHT_TILES = 32; // VDP 64x32 nametable
 
     private TilemapData buildTilemapData(byte layerIndex) {
         int layerLevelWidth = getLayerLevelWidthPx(layerIndex);

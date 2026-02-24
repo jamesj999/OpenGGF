@@ -11,8 +11,10 @@ import java.util.List;
  * Reusable static utilities for loading S2 sprite mapping data from ROM.
  *
  * <p>S2 uses 8-byte mapping pieces (includes 2P tile word) and standard
- * word-offset tables. The first word at the mapping address is the offset
- * to frame 0's data; frame count = firstOffset / 2.
+ * word-offset tables. Normally the first word is the offset to frame 0's
+ * data; frame count = firstOffset / 2. Some tables (obj51, obj52_b, obj55)
+ * have a null frame 0 that self-references offset 0; in that case the
+ * second word gives the true table size.
  *
  * <p>Piece format (8 bytes):
  * <pre>
@@ -48,12 +50,24 @@ public final class S2SpriteDataLoader {
      */
     public static List<SpriteMappingFrame> loadMappingFramesWithTileOffset(
             RomByteReader reader, int mappingAddr, int tileOffset) {
-        int offsetTableSize = reader.readU16BE(mappingAddr);
-        int frameCount = offsetTableSize / 2;
+        int firstOffset = reader.readU16BE(mappingAddr);
+        int frameCount;
+        if (firstOffset == 0) {
+            // Null frame 0: the first entry is a self-reference (offset 0) producing
+            // an empty frame. Determine the real table size from the second entry,
+            // which points to the first real frame data.
+            int secondOffset = reader.readU16BE(mappingAddr + 2);
+            if (secondOffset == 0 || secondOffset > 1024) {
+                return new ArrayList<>();
+            }
+            frameCount = secondOffset / 2;
+        } else {
+            frameCount = firstOffset / 2;
+        }
         if (frameCount > 512) {
             throw new IllegalArgumentException(String.format(
                     "S2 mapping table at 0x%X has implausible frame count %d (first word=0x%04X) - wrong address?",
-                    mappingAddr, frameCount, offsetTableSize));
+                    mappingAddr, frameCount, firstOffset));
         }
         List<SpriteMappingFrame> frames = new ArrayList<>(frameCount);
         for (int i = 0; i < frameCount; i++) {
