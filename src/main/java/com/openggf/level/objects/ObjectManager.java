@@ -1737,10 +1737,12 @@ public class ObjectManager {
                     if (deltaX != 0) {
                         player.shiftX(deltaX);
                     }
-                    // ROM: y_pos(a1) = y_pos(a0) - y_radius(a0) - y_radius(a1)
-                    // Absolute Y: object top surface minus player's Y radius
+                    // ROM: MvSonicOnPtfm — y_pos(a1) = y_pos(a0) - d3 - y_radius(a1)
+                    // d3 is the platform's Y offset (negative = surface below center).
+                    // offsetY shifts the collision anchor; the standing surface is at
+                    // anchorY - halfHeight = (currentY + offsetY) - halfHeight.
                     int halfHeight = params.airHalfHeight();
-                    int newCentreY = currentY - halfHeight - player.getYRadius();
+                    int newCentreY = currentY + params.offsetY() - halfHeight - player.getYRadius();
                     int newY = newCentreY - (player.getHeight() / 2);
                     player.setY((short) newY);
                     ridingX = currentX;
