@@ -265,4 +265,26 @@ public class TestDEZDeathEggRobot {
     public void attackIndexStartsAtCurrentAttackZero() {
         assertEquals("Current attack should start at 0", 0, boss.getCurrentAttack());
     }
+
+    // ========================================================================
+    // CHILDREN REGISTERED WITH OBJECT MANAGER
+    // ========================================================================
+
+    @Test
+    public void childrenRegisteredWithObjectManager() {
+        // When ObjectManager is available, children should be registered for rendering
+        com.openggf.level.objects.ObjectManager objMgr = mock(com.openggf.level.objects.ObjectManager.class);
+        LevelManager lm2 = mock(LevelManager.class);
+        when(lm2.getObjectManager()).thenReturn(objMgr);
+
+        Sonic2DeathEggRobotInstance boss2 = new Sonic2DeathEggRobotInstance(
+                new ObjectSpawn(BOSS_X, BOSS_Y,
+                        Sonic2ObjectIds.DEATH_EGG_ROBOT, 0, 0, false, 0),
+                lm2
+        );
+
+        // Verify all 10 children were registered
+        org.mockito.Mockito.verify(objMgr, org.mockito.Mockito.times(10))
+                .addDynamicObject(org.mockito.ArgumentMatchers.any());
+    }
 }
