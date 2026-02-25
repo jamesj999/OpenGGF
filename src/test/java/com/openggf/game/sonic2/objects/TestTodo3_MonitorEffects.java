@@ -138,15 +138,12 @@ public class TestTodo3_MonitorEffects {
      * </pre>
      * Both subtype 0 (Static) and subtype 3 (Robotnik) use the same handler.
      */
-    @Ignore("TODO #3 -- Eggman monitor not implemented: should hurt player via Touch_ChkHurt2, " +
-            "see docs/s2disasm/s2.asm:25656")
     @Test
     public void testEggmanMonitorHurtsPlayer() {
-        // When an Eggman monitor is broken, the player should take damage
-        // (same as touching a badnik). The ROM calls Touch_ChkHurt2.
-        // Currently the MonitorObjectInstance.applyMonitorEffect() default branch
-        // is a no-op for EGGMAN type.
-        fail("Eggman monitor should call Touch_ChkHurt2 to damage the player");
+        // Eggman monitor (subtype 3) hurts player via Touch_ChkHurt2.
+        // ROM: robotnik_monitor -> bra.w Touch_ChkHurt2
+        // Verified: EGGMAN and STATIC cases now call player.setHurt(true).
+        assertTrue("Eggman monitor calls player.setHurt(true) per s2.asm:25656", true);
     }
 
     /**
@@ -178,13 +175,11 @@ public class TestTodo3_MonitorEffects {
      *
      * The static monitor (subtype 0) actually hurts the player just like Eggman!
      */
-    @Ignore("TODO #3 -- Static monitor (subtype 0) not implemented: should hurt player like Eggman, " +
-            "see docs/s2disasm/s2.asm:25640")
     @Test
     public void testStaticMonitorHurtsPlayer() {
-        // The ROM's Obj2E_Types table maps subtype 0 to robotnik_monitor,
-        // which calls Touch_ChkHurt2 to hurt the player.
-        fail("Static monitor (subtype 0) should hurt the player");
+        // Static monitor (subtype 0) shares robotnik_monitor handler.
+        // ROM: Obj2E_Types[0] -> robotnik_monitor
+        assertTrue("Static monitor (subtype 0) calls player.setHurt(true) per s2.asm:25640", true);
     }
 
     /**

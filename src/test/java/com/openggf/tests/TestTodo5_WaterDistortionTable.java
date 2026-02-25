@@ -88,7 +88,7 @@ public class TestTodo5_WaterDistortionTable {
         WaterSystem waterSystem = WaterSystem.getInstance();
         int[] table = waterSystem.getDistortionTable();
         assertNotNull("Distortion table should not be null", table);
-        assertEquals("Distortion table should be 64 entries", 64, table.length);
+        assertEquals("Distortion table should be 66 entries", 66, table.length);
     }
 
     /**
@@ -100,7 +100,6 @@ public class TestTodo5_WaterDistortionTable {
      * engine's table matches the ROM data.
      */
     @Test
-    @Ignore("TODO #5 -- WaterSystem.getDistortionTable() uses generated sine, not ROM data. See docs/s2disasm/s2.asm:15408")
     public void testDistortionTableMatchesRom() {
         WaterSystem waterSystem = WaterSystem.getInstance();
         int[] engineTable = waterSystem.getDistortionTable();

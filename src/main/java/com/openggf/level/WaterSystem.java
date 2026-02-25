@@ -524,25 +524,26 @@ public class WaterSystem {
     }
 
     /**
+     * ROM's SwScrl_RippleData table (s2.asm:15408-15413, label byte_C682).
+     * 66 bytes of horizontal pixel offsets per scanline for water ripple.
+     * Values range 0-3 representing pixel displacement.
+     */
+    private static final int[] RIPPLE_DATA = {
+        1, 2, 1, 3, 1, 2, 2, 1, 2, 3, 1, 2, 1, 2, 0, 0,
+        2, 0, 3, 2, 2, 3, 2, 2, 1, 3, 0, 0, 1, 0, 1, 3,
+        1, 2, 1, 3, 1, 2, 2, 1, 2, 3, 1, 2, 1, 2, 0, 0,
+        2, 0, 3, 2, 2, 3, 2, 2, 1, 3, 0, 0, 1, 0, 1, 3,
+        1, 2
+    };
+
+    /**
      * Get water distortion table for underwater ripple effect.
-     * For now, returns a simple generated sine-wave pattern.
-     * TODO: Extract actual ROM data for pixel-perfect accuracy.
-     * 
+     * Uses the ROM's hand-tuned SwScrl_RippleData table (s2.asm:15408).
+     *
      * @return Array of horizontal pixel offsets (per scanline)
      */
     public int[] getDistortionTable() {
-        // Generate a simple sinusoidal distortion pattern
-        // The original uses a specific lookup table - this is a placeholder
-        int tableSize = 64; // Must match shader expectations
-        int[] table = new int[tableSize];
-
-        for (int i = 0; i < tableSize; i++) {
-            // Simple sine wave: amplitude of ~3 pixels
-            double angle = (i * 2.0 * Math.PI) / tableSize;
-            table[i] = (int) Math.round(3.0 * Math.sin(angle));
-        }
-
-        return table;
+        return RIPPLE_DATA;
     }
 
     private String makeKey(int zoneId, int actId) {

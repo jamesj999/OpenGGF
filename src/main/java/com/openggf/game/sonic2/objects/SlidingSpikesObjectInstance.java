@@ -43,9 +43,8 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
     // Constants from disassembly (Obj76_InitData at s2.asm:55221-55225)
-    // The ROM supports a table lookup for different subtypes (s2.asm:55236-55242),
-    // but all original layouts use subtype 0. Only the first entry is implemented.
-    // If ROM hacks use other subtypes, this would need expansion to table lookup.
+    // The ROM defines a table lookup for subtypes (s2.asm:55236-55242),
+    // but all original S2 layouts use subtype 0. This single entry is sufficient.
     private static final int WIDTH_PIXELS = 0x40;  // 64 pixels (half-width for collision)
     private static final int Y_RADIUS = 0x10;      // 16 pixels
 
