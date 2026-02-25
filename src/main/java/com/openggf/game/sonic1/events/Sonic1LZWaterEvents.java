@@ -909,9 +909,8 @@ public class Sonic1LZWaterEvents {
     // When Sonic leaves a slide chunk, he gets 5 frames of normal control before
     // full movement resumes (objoff_3E countdown).
     //
-    // NOTE: This requires reading the chunk ID from the collision system,
-    // which is not yet fully exposed. The method below is implemented as a
-    // TODO stub with all constants documented from the disassembly.
+    // Chunk ID lookup is implemented via findSlideChunkIndex() below,
+    // with constants from the disassembly (s1disasm: _inc/WaterSlide.asm).
     // =========================================================================
 
     /**
