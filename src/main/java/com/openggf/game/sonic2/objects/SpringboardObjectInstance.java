@@ -133,9 +133,12 @@ public class SpringboardObjectInstance extends BoxObjectInstance
             return;
         }
 
-        // Don't process if player is already springing or in air
-        // This prevents re-triggering immediately after launch
-        if (player.getSpringing() || player.getAir()) {
+        // Don't process if player is already springing (post-launch).
+        // ROM's SlopedSolid_SingleCharacter does NOT check airborne before setting
+        // the standing bit — it only checks X range. The getAir() guard is omitted
+        // to match ROM behavior: at high speed, terrain micro-gaps can set air=true
+        // for single frames while SolidContacts still resolves STANDING contact.
+        if (player.getSpringing()) {
             return;
         }
 
@@ -330,9 +333,12 @@ public class SpringboardObjectInstance extends BoxObjectInstance
         AbstractPlayableSprite lp = launchPlayer;
 
         // ROM: SlopedSolid_SingleCharacter fast-path checks:
-        // - Player airborne -> clear standing bit
+        // - Player springing -> already launched, clear standing bit
         // - Player outside X range -> clear standing bit
-        if (lp.getAir() || lp.getSpringing()) {
+        // Note: ROM does NOT clear standing bit on airborne alone — only X range
+        // and springing matter. This allows the launch to complete even if terrain
+        // micro-gaps briefly set air=true at high speed.
+        if (lp.getSpringing()) {
             clearLaunchSequence();
             return;
         }

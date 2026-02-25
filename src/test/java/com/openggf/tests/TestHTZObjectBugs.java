@@ -267,20 +267,37 @@ public class TestHTZObjectBugs {
         int sbY = springboardObj.getY();
         logState("Springboard found at (" + sbX + ", " + sbY + ")");
 
-        // Position Sonic 64px to the LEFT of the springboard
-        sprite.setX((short) (sbX - 64));
-        sprite.setY((short) sbY);
-        sprite.setAir(false);
+        // Position Sonic well above the springboard and let gravity find terrain.
+        // Clear ALL velocities to avoid stale state from the scan phase.
+        sprite.setCentreX((short) (sbX - 64));
+        sprite.setCentreY((short) (sbY - 64));
+        sprite.setAir(true);
+        sprite.setGSpeed((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        sprite.setRolling(false);
         Camera.getInstance().updatePosition(true);
         objMgr.reset(Camera.getInstance().getX());
+
+        // Let Sonic fall onto terrain (up to 30 frames)
+        for (int i = 0; i < 30; i++) {
+            testRunner.stepIdleFrames(1);
+            if (!sprite.getAir()) break;
+        }
+
+        Assume.assumeTrue("Sonic could not find ground near springboard at X=" + (sbX - 64),
+                !sprite.getAir());
+
+        logState("Grounded near springboard");
 
         // Inject high ground speed: 0x1000 (16 px/frame)
         sprite.setGSpeed((short) 0x1000);
         sprite.setXSpeed((short) 0x1000);
+        sprite.setYSpeed((short) 0);
 
         logState("Before high-speed approach");
 
-        // Step 30 frames moving right
+        // Step 30 frames moving right — Sonic should reach the springboard
         for (int i = 0; i < 30; i++) {
             testRunner.stepFrame(false, false, false, true, false);
         }

@@ -11,6 +11,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.game.sonic2.objects.BreakableBlockObjectInstance;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
@@ -170,13 +171,20 @@ public class TestBreakableBlockDespawn {
         logState("After block broken");
 
         // Move Sonic far away to trigger despawn (>400px from block X)
-        sprite.setX((short) (blockX + 500));
-        sprite.setY((short) blockSpawn.y());
+        // Use centre coordinates for correct alignment (CLAUDE.md)
+        sprite.setCentreX((short) (blockX + 500));
+        sprite.setCentreY((short) blockSpawn.y());
+        sprite.setAir(false);
+        sprite.setGSpeed((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
         Camera.getInstance().updatePosition(true);
 
         logState("Teleported far away for despawn");
 
-        // Step frames for despawn processing
+        // Step frames for despawn processing — use stepIdleFrames which calls
+        // objMgr.update() (via Placement.update -> refreshWindow -> trySpawn),
+        // preserving the remembered BitSet unlike reset() which clears it.
         for (int frame = 0; frame < 60; frame++) {
             testRunner.stepIdleFrames(1);
         }
@@ -187,11 +195,17 @@ public class TestBreakableBlockDespawn {
         assertTrue("Block should still be remembered after despawn",
             objMgr.isRemembered(blockSpawn));
 
-        // Now move back to the original block position
-        sprite.setX((short) (blockX - 16));
-        sprite.setY((short) blockSpawn.y());
+        // Move back to the original block position.
+        // Do NOT call objMgr.reset() — that clears the remembered BitSet.
+        // Instead, teleport and step frames so update() re-spawns via refreshWindow,
+        // which checks remembered state and skips remembered spawns.
+        sprite.setCentreX((short) blockX);
+        sprite.setCentreY((short) blockSpawn.y());
+        sprite.setAir(false);
+        sprite.setGSpeed((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
         Camera.getInstance().updatePosition(true);
-        objMgr.reset(Camera.getInstance().getX());
 
         logState("Returned to original block position");
 
@@ -202,10 +216,18 @@ public class TestBreakableBlockDespawn {
 
         logState("After respawn frames");
 
-        // Check: the block should NOT have respawned as an intact object
+        // Verify the block's spawn is still remembered after the full cycle
+        assertTrue("Block spawn should still be remembered after return",
+            objMgr.isRemembered(blockSpawn));
+
+        // Check: no BreakableBlockObjectInstance (the parent block) should exist at
+        // the original position. BreakableBlockFragmentInstance (flying debris from
+        // the original break) may linger as dynamic objects — these are NOT respawned
+        // blocks and should not trigger the assertion.
         boolean foundIntactBlock = false;
         for (var obj : objMgr.getActiveObjects()) {
-            if (obj.getSpawn().objectId() == 0x32
+            if (obj instanceof BreakableBlockObjectInstance
+                    && obj.getSpawn().objectId() == 0x32
                     && obj.getSpawn().x() == blockX
                     && !obj.isDestroyed()) {
                 foundIntactBlock = true;
