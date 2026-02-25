@@ -113,19 +113,24 @@ public class TestCPZObjectBugs {
      */
     @Test
     public void testSpinTubeForcesRolling() {
-        // Position near CPZ1 start - set AFTER level load since loadZoneAndAct
-        // resets player position to level default
-        sprite.setX((short) 192);
-        sprite.setY((short) 544);
+        // First CPZ1 spin tube is at (1920, 896) subtype 0x02.
+        // Tube entry collision detects player within X range and Y 0-0x80 below object.
+        // Position Sonic at the tube entrance with rightward speed so the tube captures him.
+        sprite.setCentreX((short) 1920);
+        sprite.setCentreY((short) 896);
+        sprite.setAir(false);
+        sprite.setGSpeed((short) 0x400);
+        sprite.setXSpeed((short) 0x400);
+        sprite.setYSpeed((short) 0);
         Camera.getInstance().updatePosition(true);
         LevelManager.getInstance().getObjectManager().reset(Camera.getInstance().getX());
 
-        logState("Initial");
+        logState("Initial (at tube 1920,896)");
 
         boolean tubeEntered = false;
         boolean tubeExited = false;
 
-        // Run right looking for a spin tube
+        // Step frames — the tube should capture Sonic almost immediately
         for (int frame = 0; frame < 600; frame++) {
             testRunner.stepFrame(false, false, false, true, false);
 
@@ -140,12 +145,12 @@ public class TestCPZObjectBugs {
                 break;
             }
 
-            if (frame % 100 == 0) {
+            if (frame % 50 == 0) {
                 logState("Frame " + (frame + 1));
             }
         }
 
-        Assume.assumeTrue("No spin tube found in traversal range", tubeEntered && tubeExited);
+        Assume.assumeTrue("Spin tube at (1920,896) did not capture/release Sonic", tubeEntered && tubeExited);
 
         assertTrue("Sonic should be rolling or in pinball mode after tube exit",
             sprite.getRolling() || sprite.getPinballMode());
@@ -175,26 +180,35 @@ public class TestCPZObjectBugs {
      */
     @Test
     public void testStaircaseNoFalseBalance() {
-        // Position near CPZ1 start
-        sprite.setX((short) 192);
-        sprite.setY((short) 544);
+        // CPZ1 staircase at (8336, 848) subtype 0x00. Teleport Sonic near it
+        // and drop him onto it so he lands on a staircase piece.
+        int staircaseX = 8336;
+        int staircaseY = 848;
+
+        // Position Sonic above the staircase center and let him fall onto it
+        sprite.setCentreX((short) staircaseX);
+        sprite.setCentreY((short) (staircaseY - 48));
+        sprite.setAir(true);
+        sprite.setGSpeed((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
         Camera.getInstance().updatePosition(true);
         LevelManager.getInstance().getObjectManager().reset(Camera.getInstance().getX());
 
-        logState("Initial");
+        logState("Initial (above staircase at " + staircaseX + "," + staircaseY + ")");
 
         ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
         boolean foundStaircase = false;
 
-        // Walk right looking for a staircase to land on
-        for (int frame = 0; frame < 900; frame++) {
-            testRunner.stepFrame(false, false, false, true, false);
+        // Drop onto the staircase - wait for landing on an object
+        for (int frame = 0; frame < 120; frame++) {
+            testRunner.stepFrame(false, false, false, false, false);
 
             if (sprite.isOnObject() && !sprite.getAir()) {
                 ObjectInstance ridingObj = objMgr.getRidingObject(sprite);
                 if (ridingObj != null && ridingObj.getSpawn().objectId() == OBJ_STAIRCASE) {
                     foundStaircase = true;
-                    logState("Staircase found at frame " + (frame + 1));
+                    logState("Landed on staircase at frame " + (frame + 1));
 
                     // Stop and settle on the staircase
                     sprite.setGSpeed((short) 0);
@@ -226,13 +240,10 @@ public class TestCPZObjectBugs {
                     return;
                 }
             }
-
-            if (frame % 200 == 0) {
-                logState("Frame " + (frame + 1));
-            }
         }
 
-        Assume.assumeTrue("No staircase (0x78) found in CPZ1 traversal range", foundStaircase);
+        Assume.assumeTrue("Could not land on staircase (0x78) at (" + staircaseX + "," + staircaseY + ")",
+            foundStaircase);
     }
 
     /**
