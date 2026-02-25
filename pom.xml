@@ -226,6 +226,11 @@
                 <configuration>
                     <!-- LWJGL/GLFW on macOS requires -XstartOnFirstThread (set via profile) -->
                     <argLine>${surefire.argLine}</argLine>
+                    <!-- Run test classes in parallel forked JVMs (max 8).
+                         Thread-level parallelism is unsafe due to singleton state,
+                         but process-level forks each get isolated singletons. -->
+                    <forkCount>8</forkCount>
+                    <reuseForks>true</reuseForks>
                     <!-- Exclude tests that require a GL context/display -->
                     <excludes>
                         <exclude>**/TestGraphicsManagerHeadless.java</exclude>
