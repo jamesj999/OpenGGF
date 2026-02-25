@@ -199,7 +199,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         int idx = Math.clamp(sizeIndex, 0, SIZE_TABLE.length - 1);
         int halfWidth = SIZE_TABLE[idx][0];
         int halfHeight = SIZE_TABLE[idx][1];
-        // TODO: Verify +0x0B offset against s3k disassembly sub_200A2 - may be from a different code path
+        // +0x0B offset verified: sonic3k.asm:43924 (addi.w #$B,d1 before SolidObjectFull call)
         return new SolidObjectParams(halfWidth + 0x0B, halfHeight, halfHeight + 1);
     }
 

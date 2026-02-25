@@ -14,27 +14,11 @@ import java.util.logging.Logger;
 import static org.junit.Assert.*;
 
 /**
- * TODO #30 -- Timer error reporting should use proper exception structure.
+ * TODO #30 coverage: Timer error reporting.
  *
- * <p>In {@code TimerManager.update()} (TimerManager.java:41), the TODO states:
- * <pre>
- *   // TODO: Improve the error reporting - use a proper Exception structure
- *   if (timer.perform()) {
- *       iterator.remove();
- *   } else {
- *       LOGGER.fine("ERROR: " + timer.getClass() + " " + timer.getCode() + " failed...");
- *       iterator.remove();
- *   }
- * </pre>
- *
- * <p>Currently, when a timer's {@code perform()} returns false, the error is
- * only logged at FINE level and the timer is still removed. This test verifies
- * the current behavior and documents the expected improvements:
- * <ol>
- *   <li>Failed timers should produce a meaningful error message that includes
- *       the timer code and class name.</li>
- *   <li>The timer is removed regardless of success/failure (current behavior).</li>
- * </ol>
+ * <p>Verifies that when a timer's {@code perform()} returns false, the error is
+ * logged at WARNING level with a meaningful message including the timer code
+ * and class name. The timer is removed regardless of success/failure.
  */
 public class TestTodo30_TimerErrorReporting {
     private TimerManager manager;
@@ -136,10 +120,10 @@ public class TestTodo30_TimerErrorReporting {
             manager.update();
 
             String logged = logCapture.toString();
-            // The current implementation logs at FINE level with:
-            // "ERROR: " + timer.getClass() + " " + timer.getCode() + " failed..."
-            assertTrue("Log should contain ERROR prefix",
-                    logged.contains("ERROR"));
+            // The implementation logs at WARNING level with:
+            // "Timer failed: " + class.getSimpleName() + " code=" + timer.getCode()
+            assertTrue("Log should contain 'failed'",
+                    logged.contains("failed"));
             assertTrue("Log should contain the timer code",
                     logged.contains("LOG_TEST_CODE"));
             assertTrue("Log should contain the timer class",
