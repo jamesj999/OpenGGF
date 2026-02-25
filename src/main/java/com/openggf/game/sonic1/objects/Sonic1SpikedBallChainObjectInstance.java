@@ -16,6 +16,7 @@ import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -50,26 +51,6 @@ import java.util.List;
  */
 public class Sonic1SpikedBallChainObjectInstance extends AbstractObjectInstance
         implements TouchResponseProvider {
-
-    // ROM-accurate 256-entry sine table (from CalcSine lookup, values -256 to +256)
-    private static final short[] SINE_TABLE = {
-            0, 6, 12, 18, 25, 31, 37, 43, 49, 56, 62, 68, 74, 80, 86, 92,
-            97, 103, 109, 115, 120, 126, 131, 136, 142, 147, 152, 157, 162, 167, 171, 176,
-            181, 185, 189, 193, 197, 201, 205, 209, 212, 216, 219, 222, 225, 228, 231, 234,
-            236, 238, 241, 243, 244, 246, 248, 249, 251, 252, 253, 254, 254, 255, 255, 255,
-            256, 255, 255, 255, 254, 254, 253, 252, 251, 249, 248, 246, 244, 243, 241, 238,
-            236, 234, 231, 228, 225, 222, 219, 216, 212, 209, 205, 201, 197, 193, 189, 185,
-            181, 176, 171, 167, 162, 157, 152, 147, 142, 136, 131, 126, 120, 115, 109, 103,
-            97, 92, 86, 80, 74, 68, 62, 56, 49, 43, 37, 31, 25, 18, 12, 6,
-            0, -6, -12, -18, -25, -31, -37, -43, -49, -56, -62, -68, -74, -80, -86, -92,
-            -97, -103, -109, -115, -120, -126, -131, -136, -142, -147, -152, -157, -162, -167, -171, -176,
-            -181, -185, -189, -193, -197, -201, -205, -209, -212, -216, -219, -222, -225, -228, -231, -234,
-            -236, -238, -241, -243, -244, -246, -248, -249, -251, -252, -253, -254, -254, -255, -255, -255,
-            -256, -255, -255, -255, -254, -254, -253, -252, -251, -249, -248, -246, -244, -243, -241, -238,
-            -236, -234, -231, -228, -225, -222, -219, -216, -212, -209, -205, -201, -197, -193, -189, -185,
-            -181, -176, -171, -167, -162, -157, -152, -147, -142, -136, -131, -126, -120, -115, -109, -103,
-            -97, -92, -86, -80, -74, -68, -62, -56, -49, -43, -37, -31, -25, -18, -12, -6
-    };
 
     // Display priority: move.b #4,obPriority(a0)
     private static final int DISPLAY_PRIORITY = 4;
@@ -238,8 +219,8 @@ public class Sonic1SpikedBallChainObjectInstance extends AbstractObjectInstance
         // move.b obAngle(a0),d0 — reads high byte of 16-bit angle
         int angleByte = (angle >> 8) & 0xFF;
 
-        int sin = SINE_TABLE[angleByte];
-        int cos = SINE_TABLE[(angleByte + 0x40) & 0xFF];
+        int sin = TrigLookupTable.sinHex(angleByte);
+        int cos = TrigLookupTable.cosHex(angleByte);
 
         for (int i = 0; i < elementCount; i++) {
             int radius = elementRadius[i];

@@ -5,6 +5,7 @@ import com.openggf.game.GameServices;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.timer.Timer;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.timer.timers.SSInvulnerabilityTimer;
 
 import java.util.logging.Logger;
@@ -144,16 +145,6 @@ public class Sonic2SpecialStagePlayer {
     private boolean swapPositionsFlag;
     private Sonic2SpecialStagePlayer otherPlayer;
 
-    private static final int[] SINE_TABLE = new int[256];
-    private static final int[] COSINE_TABLE = new int[256];
-
-    static {
-        for (int i = 0; i < 256; i++) {
-            double rad = (i / 256.0) * 2.0 * Math.PI;
-            SINE_TABLE[i] = (int) (Math.sin(rad) * 256);
-            COSINE_TABLE[i] = (int) (Math.cos(rad) * 256);
-        }
-    }
 
     public Sonic2SpecialStagePlayer(PlayerType type, boolean isMain) {
         this.playerType = type;
@@ -778,11 +769,11 @@ public class Sonic2SpecialStagePlayer {
     }
 
     private int calcSine(int angle) {
-        return SINE_TABLE[angle & 0xFF];
+        return TrigLookupTable.sinHex(angle);
     }
 
     private int calcCosine(int angle) {
-        return COSINE_TABLE[angle & 0xFF];
+        return TrigLookupTable.cosHex(angle);
     }
 
     public int getXPos() { return xPos; }

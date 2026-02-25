@@ -8,6 +8,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -29,19 +30,6 @@ import java.util.List;
  * - Deletes when off-screen
  */
 public class LeafParticleObjectInstance extends AbstractObjectInstance {
-
-    // 256-entry sine table (values scaled to ±256 range)
-    private static final int[] SINE_TABLE = new int[256];
-    private static final int[] COSINE_TABLE = new int[256];
-
-    static {
-        // Generate sine/cosine tables matching ROM CalcSine
-        for (int i = 0; i < 256; i++) {
-            double angle = i * 2.0 * Math.PI / 256.0;
-            SINE_TABLE[i] = (int) (Math.sin(angle) * 256);
-            COSINE_TABLE[i] = (int) (Math.cos(angle) * 256);
-        }
-    }
 
     // Animation: toggle bit 1 every 11 frames
     private static final int ANIM_FRAME_DURATION = 11;
@@ -141,8 +129,8 @@ public class LeafParticleObjectInstance extends AbstractObjectInstance {
         // ROM: move.b angle(a0),d0 / jsr CalcSine
         //      asr.w #6,d0 / add.w objoff_30(a0),d0 / move.w d0,x_pos(a0)
         //      asr.w #6,d1 / add.w objoff_34(a0),d1 / move.w d1,y_pos(a0)
-        int sinValue = SINE_TABLE[angle & 0xFF];
-        int cosValue = COSINE_TABLE[angle & 0xFF];
+        int sinValue = TrigLookupTable.sinHex(angle);
+        int cosValue = TrigLookupTable.cosHex(angle);
 
         // Get pixel position from 16.16 fixed point (high word)
         int baseX = posX16 >> 16;

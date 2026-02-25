@@ -16,6 +16,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -95,26 +96,6 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
 
     // loc_12180: move.w #$400,d1 — amplitude multiplier for sine-based sink
     private static final int SINK_AMPLITUDE = 0x400;
-
-    // ROM-accurate 256-entry sine table (from CalcSine lookup, values -256 to +256)
-    private static final short[] SINE_TABLE = {
-            0, 6, 12, 18, 25, 31, 37, 43, 49, 56, 62, 68, 74, 80, 86, 92,
-            97, 103, 109, 115, 120, 126, 131, 136, 142, 147, 152, 157, 162, 167, 171, 176,
-            181, 185, 189, 193, 197, 201, 205, 209, 212, 216, 219, 222, 225, 228, 231, 234,
-            236, 238, 241, 243, 244, 246, 248, 249, 251, 252, 253, 254, 254, 255, 255, 255,
-            256, 255, 255, 255, 254, 254, 253, 252, 251, 249, 248, 246, 244, 243, 241, 238,
-            236, 234, 231, 228, 225, 222, 219, 216, 212, 209, 205, 201, 197, 193, 189, 185,
-            181, 176, 171, 167, 162, 157, 152, 147, 142, 136, 131, 126, 120, 115, 109, 103,
-            97, 92, 86, 80, 74, 68, 62, 56, 49, 43, 37, 31, 25, 18, 12, 6,
-            0, -6, -12, -18, -25, -31, -37, -43, -49, -56, -62, -68, -74, -80, -86, -92,
-            -97, -103, -109, -115, -120, -126, -131, -136, -142, -147, -152, -157, -162, -167, -171, -176,
-            -181, -185, -189, -193, -197, -201, -205, -209, -212, -216, -219, -222, -225, -228, -231, -234,
-            -236, -238, -241, -243, -244, -246, -248, -249, -251, -252, -253, -254, -254, -255, -255, -255,
-            -256, -255, -255, -255, -254, -254, -253, -252, -251, -249, -248, -246, -244, -243, -241, -238,
-            -236, -234, -231, -228, -225, -222, -219, -216, -212, -209, -205, -201, -197, -193, -189, -185,
-            -181, -176, -171, -167, -162, -157, -152, -147, -142, -136, -131, -126, -120, -115, -109, -103,
-            -97, -92, -86, -80, -74, -68, -62, -56, -49, -43, -37, -31, -25, -18, -12, -6
-    };
 
     // Dynamic position
     private int x;
@@ -576,7 +557,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
 
         // loc_121A6: apply sine offset
         // CalcSine returns 8.8 fixed-point sine value
-        int sineValue = SINE_TABLE[sinkAngle & 0xFF];
+        int sineValue = TrigLookupTable.sinHex(sinkAngle);
 
         // muls.w d1,d0 -> d0 = sin(angle) * $400 (signed 16x16->32)
         int offset = sineValue * SINK_AMPLITUDE;

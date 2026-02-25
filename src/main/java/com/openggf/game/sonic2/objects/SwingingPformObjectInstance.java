@@ -27,6 +27,7 @@ import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.level.WaterSystem;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.io.IOException;
@@ -90,10 +91,6 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
     private static final int GRAVITY = 8;             // Gravity acceleration (Type 2/6)
     private static final int WATER_SPEED = 2;         // Max speed toward water level (Type 7)
     private static final int CONTACT_DELAY = 0x1E;    // 30 frames delay before falling (Type 1/3)
-
-    // Sine lookup table (256 entries, values from 0 to 255 for 0 to 90 degrees)
-    // Simplified approximation: sin(angle * 90 / 64) * 255
-    private static final int[] SINE_TABLE = generateSineTable();
 
     private static List<SpriteMappingFrame> mappings;
     private static boolean mappingsLoadAttempted;
@@ -415,28 +412,16 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
     /**
      * Get sine value for angle (0-64 maps to 0-90 degrees).
      * Returns value in 8-bit format (0 to 256 for 0 to 1).
-     * Combined with SWING_SCALE (0x400) and >> 16 shift, this gives ~4 pixels max offset.
+     * Delegates to TrigLookupTable.sinHex() which uses the ROM-accurate SINCOSLIST.
      */
     private int getSine(int angle) {
         if (angle <= 0) {
             return 0;
         }
-        if (angle >= SINE_TABLE.length) {
-            return SINE_TABLE[SINE_TABLE.length - 1];
+        if (angle > MAX_SWING_ANGLE) {
+            angle = MAX_SWING_ANGLE;
         }
-        return SINE_TABLE[angle];
-    }
-
-    private static int[] generateSineTable() {
-        int[] table = new int[MAX_SWING_ANGLE + 1];
-        for (int i = 0; i <= MAX_SWING_ANGLE; i++) {
-            // Map angle (0-64) to radians (0 to 90 degrees)
-            double radians = (i * Math.PI) / (2 * MAX_SWING_ANGLE);
-            // Convert to 8-bit format (0-256)
-            // With SWING_SCALE=0x400 and >>16 shift: (256 * 1024) >> 16 = 4 pixels max
-            table[i] = (int) (Math.sin(radians) * 256);
-        }
-        return table;
+        return TrigLookupTable.sinHex(angle);
     }
 
     @Override

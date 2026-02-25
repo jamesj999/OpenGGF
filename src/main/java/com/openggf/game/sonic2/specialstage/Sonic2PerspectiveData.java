@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.specialstage;
 
+import com.openggf.physics.TrigLookupTable;
+
 import java.io.IOException;
 import java.util.logging.Logger;
 
@@ -42,21 +44,6 @@ public class Sonic2PerspectiveData {
 
     /** Pre-parsed max depth counts per frame */
     private int[] maxDepthCounts;
-
-    /** Cosine lookup table (256 entries, -128 to 127 fixed point) */
-    private static final int[] COSINE_TABLE = new int[256];
-
-    /** Sine lookup table (256 entries, -128 to 127 fixed point) */
-    private static final int[] SINE_TABLE = new int[256];
-
-    static {
-        // Initialize sine/cosine tables matching Mega Drive CalcSine
-        for (int i = 0; i < 256; i++) {
-            double radians = (i / 256.0) * 2 * Math.PI;
-            COSINE_TABLE[i] = (int) Math.round(Math.cos(radians) * 256);
-            SINE_TABLE[i] = (int) Math.round(Math.sin(radians) * 256);
-        }
-    }
 
     /**
      * Loads perspective data from the data loader.
@@ -196,8 +183,8 @@ public class Sonic2PerspectiveData {
          */
         public int[] calculateScreenPosition(int angle, boolean trackFlipped) {
             // Get sine/cosine values
-            int cos = COSINE_TABLE[angle & 0xFF];
-            int sin = SINE_TABLE[angle & 0xFF];
+            int cos = TrigLookupTable.cosHex(angle);
+            int sin = TrigLookupTable.sinHex(angle);
 
             // Calculate position offsets
             int xOffset = (cos * xRadius) >> 8;
