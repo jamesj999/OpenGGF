@@ -63,10 +63,11 @@ Gotta Go Fast!
 
 ### Is this an emulator?
 
-No. OpenGGF is a clean-room reimplementation of the game logic and physics. It does not emulate
-the Mega Drive CPU or VDP. Instead, it reads data (level layouts, art, music) from original ROM
-images and runs its own implementation of the game rules, verified for accuracy against the
-community-maintained disassemblies ([s1disasm], [s2disasm], [skdisasm]). The audio engine is a
+No. OpenGGF is an independent reimplementation of the game logic and physics, written in Java
+from scratch. It does not emulate the Mega Drive CPU or VDP. Instead, it reads data (level
+layouts, art, music) from original ROM images and runs its own implementation of the game rules.
+The implementation is developed and verified against the community-maintained disassemblies
+([s1disasm], [s2disasm], [skdisasm]) to achieve pixel-accurate behaviour. The audio engine is a
 partial exception: it features software emulation of the YM2612 FM synthesiser and SN76489 PSG
 chips (based on [libvgm] and [Genesis Plus GX] reference cores) driven by a reimplemented SMPS
 sound driver.
@@ -128,9 +129,10 @@ builds (though a GraalVM native image is also available for those who prefer it)
 ### Will Sega shut this down?
 
 This project contains no copyrighted material. No ROM data, sprites, music, or other Sega assets
-are included in the repository. The engine is a clean-room reimplementation that requires users to
-supply their own legally obtained ROM files. We have no affiliation with Sega and make no claim to
-any of their intellectual property.
+are included in the repository. The engine is an independent reimplementation, developed and
+verified against the community-maintained disassemblies, that requires users to supply their own
+legally obtained ROM files. We have no affiliation with Sega and make no claim to any of their
+intellectual property.
 
 ### What platforms does it run on?
 
