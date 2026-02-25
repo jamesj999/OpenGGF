@@ -960,7 +960,7 @@ public class LevelManager {
         playable.setSuperStateController(superCtrl);
 
         // Load game-specific ROM data (palette cycling, etc.)
-        if (superCtrl != null) {
+        if (superCtrl != null && !superCtrl.isRomDataPreLoaded()) {
             try {
                 Rom rom = GameServices.rom().getRom();
                 RomByteReader reader = RomByteReader.fromRom(rom);
