@@ -19,6 +19,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -117,6 +118,9 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
 
     // Dynamic spawn for moving position
     private ObjectSpawn dynamicSpawn;
+
+    // Child tracking for cleanup on unload
+    private final List<MCZRotPformsObjectInstance> children = new ArrayList<>();
 
     public MCZRotPformsObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
@@ -359,6 +363,7 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
                 spawn.rawYWord());
         MCZRotPformsObjectInstance child1 = new MCZRotPformsObjectInstance(child1Spawn, "MCZRotPforms");
         manager.addDynamicObject(child1);
+        children.add(child1);
 
         // Child 2: -64, +64 from parent with subtype C (or 6 if parent x_flip)
         int child2Subtype = xFlip ? 0x06 : 0x0C;
@@ -372,10 +377,21 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
                 spawn.rawYWord());
         MCZRotPformsObjectInstance child2 = new MCZRotPformsObjectInstance(child2Spawn, "MCZRotPforms");
         manager.addDynamicObject(child2);
+        children.add(child2);
 
         LOGGER.fine(() -> String.format(
                 "MCZRotPforms spawned children at (%d,%d) and (%d,%d)",
                 baseX + 0x40, baseY + 0x40, baseX - 0x40, baseY + 0x40));
+    }
+
+    @Override
+    public void onUnload() {
+        // When parent goes off-screen, destroy children so they are cleaned up.
+        // Matches ROM behavior: each object calls MarkObjGone2 independently.
+        for (MCZRotPformsObjectInstance child : children) {
+            child.setDestroyed(true);
+        }
+        children.clear();
     }
 
     @Override
