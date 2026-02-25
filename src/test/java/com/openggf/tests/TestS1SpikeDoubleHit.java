@@ -1,12 +1,14 @@
 package com.openggf.tests;
 
 import org.junit.Before;
-import org.junit.Rule;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
@@ -36,31 +38,46 @@ public class TestS1SpikeDoubleHit {
     private static final int LZ_ACT_3 = 2;
     private static final int FRAMES_AFTER_DAMAGE = 10;
 
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
+    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
+    private static String mainCharCode;
+
+    @BeforeClass
+    public static void loadLevel() throws Exception {
+        GraphicsManager.getInstance().initHeadless();
+        SonicConfigurationService cs = SonicConfigurationService.getInstance();
+        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+
+        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
+        SpriteManager.getInstance().addSprite(temp);
+        Camera camera = Camera.getInstance();
+        camera.setFocusedSprite(temp);
+        camera.setFrozen(false);
+
+        LevelManager.getInstance().loadZoneAndAct(LZ_ZONE, LZ_ACT_3);
+        GroundSensor.setLevelManager(LevelManager.getInstance());
+    }
 
     private Sonic sprite;
     private HeadlessTestRunner testRunner;
 
     @Before
-    public void setUp() throws Exception {
-        GraphicsManager.getInstance().initHeadless();
-
-        SonicConfigurationService configService = SonicConfigurationService.getInstance();
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        sprite = new Sonic(mainCode, (short) 5560, (short) 550);
-
-        SpriteManager spriteManager = SpriteManager.getInstance();
-        spriteManager.addSprite(sprite);
-
+    public void setUp() {
+        TestEnvironment.resetPerTest();
+        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
+        SpriteManager.getInstance().addSprite(sprite);
         Camera camera = Camera.getInstance();
         camera.setFocusedSprite(sprite);
         camera.setFrozen(false);
 
-        LevelManager.getInstance().loadZoneAndAct(LZ_ZONE, LZ_ACT_3);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
-        camera.updatePosition(true);
+        Level level = LevelManager.getInstance().getCurrentLevel();
+        if (level != null) {
+            camera.setMinX((short) level.getMinX());
+            camera.setMaxX((short) level.getMaxX());
+            camera.setMinY((short) level.getMinY());
+            camera.setMaxY((short) level.getMaxY());
+        }
 
+        camera.updatePosition(true);
         testRunner = new HeadlessTestRunner(sprite);
     }
 
