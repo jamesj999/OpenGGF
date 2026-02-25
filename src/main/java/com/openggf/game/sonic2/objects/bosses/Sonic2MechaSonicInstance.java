@@ -15,6 +15,8 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossChild;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.ObjectTerrainUtils;
+import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -60,8 +62,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     };
 
     // Position constants
-    /** Floor Y position (ROM: ObjCheckFloorDist triggers when d1 < 0) */
-    private static final int FLOOR_Y = 0x1B0;
+    /** Y radius for terrain collision (ROM: move.b #$1B,y_radius(a0)) */
+    private static final int Y_RADIUS = 0x1B;
     /** Camera lock X position (ROM: $224) */
     private static final int CAMERA_LOCK_X = 0x224;
     /** Descent constant velocity (ROM: move.w #$100,y_vel(a0)) */
@@ -270,9 +272,10 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
         // ROM: ObjCheckFloorDist checks floor distance
         // If d1 < 0 (touching/below floor), snap to floor
-        if (state.y >= FLOOR_Y) {
-            // ROM: loc_39830 - landed
-            state.y = FLOOR_Y;
+        TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
+        if (floor.distance() < 0) {
+            // ROM: loc_39830 - add.w d1,y_pos(a0) snaps to floor surface
+            state.y += floor.distance();
             state.yFixed = state.y << 16;
             state.yVel = 0;
             // ROM: move.b #$1A,collision_flags(a0)
@@ -522,9 +525,10 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 // ROM: loc_39B1A advances routine_secondary on landing, so
                 // next frame dispatches to walk phase. Skip gravity on the
                 // landing frame to avoid pushing below floor.
-                if (state.y >= FLOOR_Y) {
+                TerrainCheckResult floorADW = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
+                if (floorADW.distance() < 0) {
                     // ROM: loc_39B1A - landed
-                    state.y = FLOOR_Y;
+                    state.y += floorADW.distance();
                     state.yFixed = state.y << 16;
                     state.yVel = 0;
                     updateBallAnimation();
@@ -609,9 +613,10 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 // ROM: loc_39B84 advances routine_secondary on landing, so
                 // next frame dispatches to walk phase. Skip gravity on the
                 // landing frame to avoid pushing below floor.
-                if (state.y >= FLOOR_Y) {
+                TerrainCheckResult floorAJS = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
+                if (floorAJS.distance() < 0) {
                     // ROM: loc_39B84 - landed
-                    state.y = FLOOR_Y;
+                    state.y += floorAJS.distance();
                     state.yFixed = state.y << 16;
                     state.yVel = 0;
                     updateBallAnimation();
