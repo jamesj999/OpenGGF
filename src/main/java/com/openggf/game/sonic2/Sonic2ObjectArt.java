@@ -2967,4 +2967,54 @@ public class Sonic2ObjectArt {
         return new ObjectSpriteSheet(patterns, mappings, 2, 1);
     }
 
+    // ========== WFZ Boss (Object 0xC5) ==========
+
+    /**
+     * Load WFZ Boss sprite sheet (laser case, walls, platforms, laser).
+     * ROM: ArtNem_WfzBoss at 0x8E138, tile base $0379, palette line 0.
+     * 19 frames from ObjC5_MapUnc_3CCD8.
+     *
+     * @return sprite sheet for WFZ boss, or null on failure
+     */
+    public ObjectSpriteSheet loadWFZBossSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_WFZ_BOSS_ADDR, "WfzBoss");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_WFZ_BOSS_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Load WFZ Robotnik sprite sheet.
+     * ROM: ArtNem_Eggpod_1 at 0x8E886, tile base $0500, palette line 0.
+     * 8 frames from ObjC6_MapUnc_3D0EE.
+     *
+     * @return sprite sheet for WFZ Robotnik, or null on failure
+     */
+    public ObjectSpriteSheet loadWFZRobotnikSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_ROBOTNIK_UPPER_ADDR, "WfzRobotnik");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_WFZ_ROBOTNIK_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
+    /**
+     * Load WFZ Robotnik Platform sprite sheet.
+     * ROM: ArtNem_WfzFloatingPlatform at 0x8D96E, tile base $046D, palette line 1.
+     * 1 frame from ObjC6_MapUnc_3CEBC.
+     *
+     * @return sprite sheet for WFZ Robotnik platform, or null on failure
+     */
+    public ObjectSpriteSheet loadWFZRobotnikPlatformSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_WFZ_FLOAT_PLATFORM_ADDR, "WfzRobotnikPlatform");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_WFZ_ROBOTNIK_PLATFORM_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
 }

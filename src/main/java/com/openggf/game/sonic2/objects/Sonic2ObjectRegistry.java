@@ -39,6 +39,7 @@ import com.openggf.game.sonic2.objects.bosses.Sonic2ARZBossInstance;
 import com.openggf.game.sonic2.objects.bosses.Sonic2CNZBossInstance;
 import com.openggf.game.sonic2.objects.bosses.Sonic2HTZBossInstance;
 import com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance;
+import com.openggf.game.sonic2.objects.bosses.Sonic2WFZBossInstance;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -349,6 +350,9 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         // DEZ Mecha Sonic / Silver Sonic (Object 0xAF)
         registerFactory(Sonic2ObjectIds.MECHA_SONIC,
                 (spawn, registry) -> new Sonic2MechaSonicInstance(spawn, LevelManager.getInstance()));
+        // WFZ Boss (Object 0xC5) - Laser Platform Boss
+        registerFactory(Sonic2ObjectIds.WFZ_BOSS,
+                (spawn, registry) -> new Sonic2WFZBossInstance(spawn, LevelManager.getInstance()));
         // Boss Explosion (Object 0x58)
         registerFactory(Sonic2ObjectIds.BOSS_EXPLOSION,
                 (spawn, registry) -> new BossExplosionObjectInstance(
