@@ -40,8 +40,8 @@ public class Sonic2DEZEvents extends Sonic2ZoneEvents {
         switch (eventRoutine) {
             case 0 -> {
                 // Routine 0 (s2.asm LevEvents_DEZ_Routine1):
-                // ROM: cmp.w #320,(Camera_X_pos).w / bhi.s
-                if (camera.getX() >= 320) {
+                // ROM: cmp.w #$140,(Camera_X_pos).w / bhi.s
+                if (camera.getX() >= 0x140) {
                     // Advance routine
                     eventRoutine += 2;
                     // Spawn Silver Sonic (ObjAF) at ($348, $A0) subtype $48
