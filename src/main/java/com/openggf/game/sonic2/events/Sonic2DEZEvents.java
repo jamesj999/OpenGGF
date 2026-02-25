@@ -1,9 +1,6 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance;
 import com.openggf.level.LevelManager;
@@ -11,14 +8,18 @@ import com.openggf.level.objects.ObjectSpawn;
 
 /**
  * Death Egg Zone events.
- * ROM: LevEvents_DEZ (s2.asm:21311-21395)
+ * ROM: LevEvents_DEZ (s2.asm:21661-21724)
  *
  * DEZ has two sequential boss fights in a single act:
- *   Routine 0: Camera X trigger >= $140 for Silver Sonic spawn + camera lock
- *   Routine 2: Silver Sonic fight in progress (empty - boss defeat advances this)
- *   Routine 4: Push Camera_Min_X forward; Camera X >= $300 triggers DEZ boss load
+ *   Routine 0: Camera X >= $140 -> spawn Silver Sonic (ObjAF) + load PLCID_FieryExplosion
+ *   Routine 2: Silver Sonic fight in progress (empty - boss advances this on defeat)
+ *   Routine 4: Push Camera_Min_X forward; Camera X >= $300 -> load PLCID_DezBoss
  *   Routine 6: Push Camera_Min_X forward; Camera X >= $680 locks camera for Death Egg Robot
  *   Routine 8: Death Egg Robot fight in progress (empty)
+ *
+ * Note: boss_id and music fade are handled by the boss object itself (ObjAF routine 2),
+ * not by the event routines. The ROM sets boss_id=9 and fades music when Camera_X >= $224,
+ * which is checked in ObjAF's WAIT_CAMERA routine.
  */
 public class Sonic2DEZEvents extends Sonic2ZoneEvents {
     private Sonic2MechaSonicInstance silverSonic;
@@ -39,51 +40,48 @@ public class Sonic2DEZEvents extends Sonic2ZoneEvents {
         switch (eventRoutine) {
             case 0 -> {
                 // Routine 0 (s2.asm LevEvents_DEZ_Routine1):
-                // Wait for Camera_X >= $140
-                if (camera.getX() >= 0x140) {
+                // ROM: cmp.w #320,(Camera_X_pos).w / bhi.s
+                if (camera.getX() >= 320) {
                     // Advance routine
                     eventRoutine += 2;
                     // Spawn Silver Sonic (ObjAF) at ($348, $A0) subtype $48
                     spawnSilverSonic();
-                    // Mark boss fight active (boss_id = 9)
-                    GameServices.gameState().setCurrentBossId(9);
-                    // Fade out music
-                    AudioManager.getInstance().fadeOutMusic();
+                    // ROM: moveq #PLCID_FieryExplosion,d0 / jmpto JmpTo2_LoadPLC
+                    // PLC load handled by art provider system
                 }
             }
             case 2 -> {
-                // Routine 2: Silver Sonic fight in progress
-                // Boss handles its own camera locking and music in its state machine.
-                // When Silver Sonic is defeated, it advances this routine.
-                if (silverSonic != null && silverSonic.isDefeated()) {
-                    eventRoutine += 2;
-                }
+                // Routine 2 (s2.asm LevEvents_DEZ_Routine2): rts
+                // Empty - boss defeat handler advances Dynamic_Resize_Routine
             }
             case 4 -> {
-                // Routine 4: Post-Silver Sonic - push camera forward
+                // Routine 4 (s2.asm LevEvents_DEZ_Routine3):
                 // ROM: Push Camera_Min_X forward (prevent backtracking)
                 camera.setMinX(camera.getX());
                 // Wait for Camera_X >= $300
                 if (camera.getX() >= 0x300) {
                     eventRoutine += 2;
-                    // Load PLC DEZ boss art here (in ROM: PlcList_DEZBoss)
+                    // ROM: moveq #PLCID_DezBoss,d0 / jmpto JmpTo2_LoadPLC
+                    // PLC load handled by art provider system
                 }
             }
             case 6 -> {
-                // Routine 6: Push camera forward to Death Egg Robot arena
+                // Routine 6 (s2.asm LevEvents_DEZ_Routine4):
                 // ROM: Push Camera_Min_X forward
                 camera.setMinX(camera.getX());
                 // Wait for Camera_X >= $680
                 if (camera.getX() >= 0x680) {
-                    // Lock camera for Death Egg Robot arena
-                    camera.setMinX((short) 0x680);
-                    camera.setMaxX((short) 0x740);
                     eventRoutine += 2;
+                    // Lock camera for Death Egg Robot arena
+                    // ROM: move.w d0,(Camera_Min_X_pos).w
+                    camera.setMinX((short) 0x680);
+                    // ROM: addi.w #$C0,d0 -> move.w d0,(Camera_Max_X_pos).w
+                    camera.setMaxX((short) (0x680 + 0xC0));
                 }
             }
             case 8 -> {
-                // Routine 8: Death Egg Robot fight in progress (empty)
-                // Will be populated when ObjC7 (Death Egg Robot) is implemented
+                // Routine 8 (s2.asm LevEvents_DEZ_Routine5): rts
+                // Death Egg Robot fight in progress (empty)
             }
             default -> {
                 // No more routines
