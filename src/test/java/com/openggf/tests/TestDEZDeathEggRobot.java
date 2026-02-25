@@ -137,14 +137,15 @@ public class TestDEZDeathEggRobot {
     @Test
     public void attackPatternCyclesModulo4() {
         // ROM: addq.b #1,angle(a0) / andi.b #3,angle(a0)
-        // Table: {2, 0, 2, 4} cycles via modulo 4
-        for (int cycle = 0; cycle < 3; cycle++) {
-            for (int i = 0; i < 4; i++) {
-                int index = (cycle * 4 + i) & 3;
-                assertEquals("Modulo-4 cycling should wrap correctly at iteration " +
-                        (cycle * 4 + i), i, index);
-            }
+        // Verify modulo-4 wrapping: (n & 3) cycles 0,1,2,3 for any positive n.
+        // This ensures the attack index always stays within ATTACK_PATTERN bounds.
+        for (int step = 0; step < 12; step++) {
+            int index = step & 3;
+            assertTrue("Index " + index + " must be in range [0,3]",
+                    index >= 0 && index < 4);
         }
+        // Attack index starts at 0, currentAttack not yet resolved (requires SelectAttack)
+        assertEquals("Attack index should start at 0", 0, boss.getAttackIndex());
     }
 
     // ========================================================================

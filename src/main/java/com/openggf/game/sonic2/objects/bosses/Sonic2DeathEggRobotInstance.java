@@ -30,7 +30,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * Body State Machine (routine_secondary, 8 sub-states):
  * - 0: Init - spawn 10 children, frame=3, priority=5, position children
  * - 2: WaitEggman - wait for Head's status.misc flag (Eggman boarding)
- * - 4: Countdown - 60 frames, then fade music
+ * - 4: Countdown - 60 frames after music fade, then play final boss music
  * - 6: Rise - y_vel=-$100, rumbling sound, 121 frames ($79)
  * - 8: WaitReady - 31 frames ($1F), then collision_flags=$16, HP=12, init child collisions
  * - A: SelectAttack - cycle through attack pattern {2,0,2,4} using modulo-4 counter
@@ -658,6 +658,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             case 0 -> updateDefeatFall(frameCounter);
             case 2 -> updateDefeatExplode(frameCounter);
             case 4 -> updateDefeatWalkPlayer(frameCounter, player);
+            case 6 -> {} // Terminal: ending triggered, waiting for game mode change
         }
     }
 
@@ -721,9 +722,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             // This is much longer than the stomp shake ($40). The ROM's timer-driven
             // shake is more complex than a simple offset - it counts down and produces
             // oscillating Y offsets. The current simple offset is a placeholder.
-            if (camera != null) {
-                camera.setShakeOffsets(0, 4);
-            }
+            camera.setShakeOffsets(0, 4);
 
             // ROM: movea.w objoff_36(a0),a1 / JmpTo6_DeleteObject2
             // objoff_36 = head. Delete head in ending transition.
@@ -734,6 +733,9 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             // Transition to ending setup
             // TODO: Full ending sequence (fade to white, game mode change)
             AudioManager.getInstance().fadeOutMusic();
+
+            // Advance to terminal state to prevent re-triggering every frame
+            defeatPhase = 6;
         }
     }
 
@@ -743,26 +745,13 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     /**
      * ROM: ObjC7_CheckHit (s2.asm:83187-83220)
-     * Check if head has been hit and process damage/flash on body.
+     * Check if head has been hit and trigger defeat if HP depleted.
+     * Invulnerability flash/timer is handled by base class hitHandler.update().
+     * HeadChild.getCollisionFlags() dynamically gates on boss.state.invulnerable.
      */
     private void checkHit() {
-        if (state.hitCount <= 0) {
+        if (state.hitCount <= 0 && !state.defeated) {
             triggerDefeatSequence();
-            return;
-        }
-        if (state.invulnerable) {
-            // Flash palette line 2
-            paletteFlasher.update();
-            state.invulnerabilityTimer--;
-            if (state.invulnerabilityTimer <= 0) {
-                state.invulnerable = false;
-                paletteFlasher.stopFlash();
-                // ROM: ObjC7_Flashing end - restore collision on body + head
-                // move.b #$16,collision_flags(a0) / move.b #$2A,collision_flags(a1)
-                if (head != null) {
-                    head.setCollisionFlags(COLLISION_HEAD);
-                }
-            }
         }
     }
 
@@ -1030,13 +1019,15 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         this.targetedPlayerX = x;
     }
 
-    boolean isFrontPunchTriggered() {
+    /** Consume the front punch trigger flag (destructive read — clears on access). */
+    boolean consumeFrontPunchTrigger() {
         boolean val = frontPunchTriggered;
         frontPunchTriggered = false;
         return val;
     }
 
-    boolean isBackPunchTriggered() {
+    /** Consume the back punch trigger flag (destructive read — clears on access). */
+    boolean consumeBackPunchTrigger() {
         boolean val = backPunchTriggered;
         backPunchTriggered = false;
         return val;
@@ -1190,8 +1181,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
             // Check if punch was triggered
             if (!punching) {
-                boolean triggered = isFront ? boss.isFrontPunchTriggered()
-                        : boss.isBackPunchTriggered();
+                boolean triggered = isFront ? boss.consumeFrontPunchTrigger()
+                        : boss.consumeBackPunchTrigger();
                 if (triggered) {
                     punching = true;
                     punchPhase = 0;
@@ -1395,12 +1386,14 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     // ========================================================================
 
     static class JetChild extends AbstractBossChild {
+        private int jetRoutine;
         private int jetAnim;
         private int jetFrame;
         private int animTimer;
 
         JetChild(Sonic2DeathEggRobotInstance parent, int priority) {
             super(parent, "Jet", priority, Sonic2ObjectIds.DEATH_EGG_ROBOT);
+            this.jetRoutine = 0;
             this.jetAnim = 0;
             this.jetFrame = FRAME_JET_OFF;
             this.animTimer = 0;
@@ -1410,7 +1403,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         void setJetRoutine(int routine) {
             // Jet routine table (off_3DC66):
             // 0=init, 2=idle(anim=3), 4=animate, 6=anim=1+animate, 8=idle(anim=3)
-            this.jetAnim = routine;
+            this.jetRoutine = routine;
         }
 
         /** ROM: move.b #N,anim(a1) where a1=objoff_38 (jet) */
