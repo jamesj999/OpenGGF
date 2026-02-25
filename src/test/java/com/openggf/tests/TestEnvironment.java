@@ -60,4 +60,41 @@ public final class TestEnvironment {
         // Phase 8: Static field fixups
         GroundSensor.setLevelManager(LevelManager.getInstance());
     }
+
+    /**
+     * Resets per-test state without touching the loaded level data or game module.
+     * <p>
+     * Use this in {@code @Before} methods when the level and game module are
+     * loaded once per class (via {@code @BeforeClass} / {@code @ClassRule}) and
+     * shared across tests. It clears transient gameplay state (event routines,
+     * sprites, camera, collision, fade, game-state counters, timers, water) so
+     * each test starts from a clean slate, but preserves:
+     * <ul>
+     *   <li>{@link GameModuleRegistry} - game module stays loaded</li>
+     *   <li>{@link AudioManager} - ROM-specific SMPS loader cache stays warm</li>
+     *   <li>{@link LevelManager} - level layout, chunks, patterns stay loaded</li>
+     *   <li>{@link GraphicsManager} - OpenGL/shader state stays initialized</li>
+     *   <li>{@link GroundSensor#setLevelManager} - static reference stays valid</li>
+     * </ul>
+     */
+    public static void resetPerTest() {
+        // Level event state (boss routines, dynamic boundaries)
+        Sonic2LevelEventManager.getInstance().resetState();
+        ParallaxManager.getInstance().resetState();
+
+        // Sprites (clears all registered sprites)
+        SpriteManager.getInstance().resetState();
+
+        // Physics (fresh collision system instance)
+        CollisionSystem.resetInstance();
+
+        // Camera and fade (position, freeze flag, fade state)
+        Camera.getInstance().resetState();
+        FadeManager.resetInstance();
+
+        // Game state counters and timers
+        GameServices.gameState().resetSession();
+        TimerManager.getInstance().resetState();
+        WaterSystem.getInstance().reset();
+    }
 }
