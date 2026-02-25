@@ -138,7 +138,7 @@ public class Sonic2 extends Game implements PlayerSpriteArtProvider, SpindashDus
         int levelPalettesAddr = levelPaletteInfo[0];
         int levelPalettesSize = levelPaletteInfo[1];
 
-        int mapAddr = getTilesAddr(zoneAct);
+        int mapAddr = getLevelLayoutAddr(zoneAct);
         int solidTileHeightsAddr = getSolidTileHeightsAddr();
         int solidTileWidthsAddr = getSolidTileWidthsAddr();
         int solidTileAngleAddr = getSolidTileAngleAddr();
@@ -433,10 +433,7 @@ public class Sonic2 extends Game implements PlayerSpriteArtProvider, SpindashDus
         return getDataAddress(zoneAct.zone(), 0) & 0xFFFFFF;
     }
 
-    /*
-     * FIXME: Level Layout, not 'tiles'
-     */
-    private int getTilesAddr(ZoneAct zoneAct) throws IOException {
+    private int getLevelLayoutAddr(ZoneAct zoneAct) throws IOException {
         // The address at LEVEL_LAYOUT_DIR_ADDR_LOC points to another pointer table.
         // We read this base address first.
         int levelLayoutDirAddr = rom.read32BitAddr(Sonic2Constants.LEVEL_LAYOUT_DIR_ADDR_LOC);
