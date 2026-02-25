@@ -217,6 +217,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private boolean frontPunchTriggered;
     private boolean backPunchTriggered;
 
+    // Group animation state
+    private int groupAnimStep;          // Current step index within the playing script
+    private int groupAnimFrameTimer;    // Frame counter within current step
+    private int[][] currentGroupAnim;   // Currently playing group animation (null = none)
+
     // Targeting sensor data
     private int targetedPlayerX; // ROM: objoff_28(a0) - reported by targeting sensor
 
@@ -264,6 +269,9 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         frontPunchTriggered = false;
         backPunchTriggered = false;
         sensorSpawned = false;
+        groupAnimStep = 0;
+        groupAnimFrameTimer = 0;
+        currentGroupAnim = null;
 
         // Spawn 10 permanent children (ROM: loc_3D52A)
         spawnChildren();
@@ -953,37 +961,106 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         childComponents.add(bomb2);
     }
 
-    /** Simplified group animation stepper. Returns true when complete. */
+    // ========================================================================
+    // GROUP ANIMATION SYSTEM
+    // ROM: ObjC7_GroupAnim (loc_3E1AA) dispatches per-step deltas for body
+    // and all children. Each script has N steps, each lasting FRAMES_PER_STEP
+    // frames. Walk scripts move the body horizontally; crouch moves vertically.
+    // ========================================================================
+
+    /** Frames per walk animation step (ROM: each step runs ~8 frames) */
+    private static final int WALK_FRAMES_PER_STEP = 8;
+    /** Frames per crouch animation step (ROM: $10 = 16 frames per step) */
+    private static final int CROUCH_FRAMES_PER_STEP = 16;
+    /** Walk speed in pixels per frame (~2px/frame matches ROM group delta totals) */
+    private static final int WALK_SPEED_PX = 2;
+    /** Crouch Y delta per frame during step 0 (body moves down) */
+    private static final int CROUCH_DY_PER_FRAME = 1;
+
+    /** Walk forward: 4 steps (ROM: off_3E2F6, steps 0-3, $FF terminator) */
+    private static final int[][] WALK_FORWARD_SCRIPT = {{ 0, 1, 2, 3 }};
+    /** Walk backward: 4 steps (ROM: off_3E300, steps 5-8, $FF terminator) */
+    private static final int[][] WALK_BACKWARD_SCRIPT = {{ 5, 6, 7, 8 }};
+    /** Crouch: 3 steps (ROM: off_3E3D0, steps 0-2, $C0 terminator) */
+    private static final int[][] CROUCH_SCRIPT = {{ 0, 1, 2 }};
+    /** Stand-up: 9 steps (ROM: off_3E30A, steps 0-8, $C0 terminator) */
+    private static final int[][] STAND_UP_SCRIPT = {{ 0, 1, 2, 3, 4, 5, 6, 7, 8 }};
+
+    /**
+     * Step through a group animation script. Moves the body and repositions
+     * all children each frame. Returns true when the script completes.
+     *
+     * ROM equivalent: ObjC7_GroupAnim (loc_3E1AA) — reads per-step delta
+     * tables and applies them to body + children via PositionChildren.
+     */
     private boolean stepGroupAnimation(int[][] script) {
-        // Group animations move children by delta values per step
-        // For now, just count down and return true when done
-        actionTimer--;
-        return actionTimer < 0;
+        // Detect new animation start
+        if (currentGroupAnim != script) {
+            currentGroupAnim = script;
+            groupAnimStep = 0;
+            groupAnimFrameTimer = 0;
+        }
+
+        int stepsInScript = script[0].length;
+        int framesPerStep = (script == CROUCH_SCRIPT) ? CROUCH_FRAMES_PER_STEP
+                : WALK_FRAMES_PER_STEP;
+
+        // Apply per-frame movement
+        applyGroupAnimMovement(script);
+
+        // Advance frame counter within current step
+        groupAnimFrameTimer++;
+        if (groupAnimFrameTimer >= framesPerStep) {
+            groupAnimFrameTimer = 0;
+            groupAnimStep++;
+            if (groupAnimStep >= stepsInScript) {
+                currentGroupAnim = null; // Reset for next animation
+                return true; // Animation complete
+            }
+        }
+
+        positionChildren();
+        return false;
     }
 
-    // ========================================================================
-    // GROUP ANIMATION SCRIPTS (simplified from ROM data)
-    // ========================================================================
-
-    /** Walk forward script step count (ROM: off_3E2F6, 5 steps) */
-    private static final int[][] WALK_FORWARD_SCRIPT = {
-            { 0, 1, 2, 3 } // 4 animation steps, $FF terminator
-    };
-
-    /** Walk backward script step count (ROM: off_3E300, 5 steps) */
-    private static final int[][] WALK_BACKWARD_SCRIPT = {
-            { 5, 6, 7, 8 }
-    };
-
-    /** Crouch script (ROM: off_3E3D0, 3 steps) */
-    private static final int[][] CROUCH_SCRIPT = {
-            { 0, 1, 2 }
-    };
-
-    /** Stand-up script (ROM: off_3E30A, 10 steps) */
-    private static final int[][] STAND_UP_SCRIPT = {
-            { 0, 1, 2, 3, 4, 5, 6, 7, 8 }
-    };
+    /**
+     * Apply per-frame movement during a group animation.
+     * Walk scripts move horizontally, crouch moves vertically.
+     */
+    private void applyGroupAnimMovement(int[][] script) {
+        if (script == WALK_FORWARD_SCRIPT) {
+            // Walk forward = move in facing direction
+            int dx = facingLeft ? -WALK_SPEED_PX : WALK_SPEED_PX;
+            state.x += dx;
+            state.xFixed = state.x << 16;
+        } else if (script == WALK_BACKWARD_SCRIPT) {
+            // Walk backward = move opposite to facing direction
+            int dx = facingLeft ? WALK_SPEED_PX : -WALK_SPEED_PX;
+            state.x += dx;
+            state.xFixed = state.x << 16;
+        } else if (script == CROUCH_SCRIPT) {
+            // Crouch: step 0 = move body down, step 1 = hold, step 2 = move body up
+            if (groupAnimStep == 0) {
+                state.y += CROUCH_DY_PER_FRAME;
+                state.yFixed = state.y << 16;
+            } else if (groupAnimStep == 2) {
+                state.y -= CROUCH_DY_PER_FRAME;
+                state.yFixed = state.y << 16;
+            }
+        } else if (script == STAND_UP_SCRIPT) {
+            // Stand-up reverses the walk forward then walk backward sequence
+            // Steps 0-3: move backward (undo walk), steps 5-8: move forward (stand up)
+            if (groupAnimStep < 4) {
+                int dx = facingLeft ? WALK_SPEED_PX : -WALK_SPEED_PX;
+                state.x += dx;
+                state.xFixed = state.x << 16;
+            } else if (groupAnimStep > 4) {
+                int dx = facingLeft ? -WALK_SPEED_PX : WALK_SPEED_PX;
+                state.x += dx;
+                state.xFixed = state.x << 16;
+            }
+        }
+    }
 
     // ========================================================================
     // ACCESSORS (for tests and children)
@@ -1288,12 +1365,21 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     // ========================================================================
 
     static class HeadChild extends AbstractBossChild implements com.openggf.level.objects.TouchResponseProvider, com.openggf.level.objects.TouchResponseAttackable {
+        // Head glow animation: pulses expanding/contracting (ROM: Ani_objC7_a)
+        // Frames 0x15 (closed) -> 0x10 -> 0x11 -> 0x12 -> 0x13 -> 0x12 -> 0x11 -> 0x10
+        private static final int[] HEAD_GLOW_SEQUENCE = {
+                0x15, 0x10, 0x11, 0x12, 0x13, 0x12, 0x11, 0x10
+        };
+        private static final int HEAD_GLOW_SPEED = 4;
+
         private int headRoutine;
         private int headAnim;
         private int waitTimer;
         private boolean eggmanBoarded;
         private int animFrame;
         private int animTimer;
+        private int glowIndex;     // Current index in HEAD_GLOW_SEQUENCE
+        private int glowTimer;     // Frame counter for glow animation
 
         HeadChild(Sonic2DeathEggRobotInstance parent, int priority) {
             super(parent, "Head", priority, Sonic2ObjectIds.DEATH_EGG_ROBOT);
@@ -1303,6 +1389,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             this.eggmanBoarded = false;
             this.animFrame = 0;
             this.animTimer = 0;
+            this.glowIndex = 0;
+            this.glowTimer = 0;
         }
 
         boolean isEggmanBoarded() {
@@ -1344,15 +1432,27 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                         animTimer = 0;
                         animFrame++;
                     }
+                    // Start glow animation once Eggman boards
+                    stepGlow();
                 }
                 case 6 -> { // Active during fight
                     // Collision is managed by parent via initChildCollisions/removeAllCollision
+                    stepGlow();
                 }
                 case 8 -> { // Defeated - collision_property = -1
                     collisionFlags = 0;
                 }
             }
             updateDynamicSpawn();
+        }
+
+        /** Advance the head glow pulsing animation. */
+        private void stepGlow() {
+            glowTimer++;
+            if (glowTimer >= HEAD_GLOW_SPEED) {
+                glowTimer = 0;
+                glowIndex = (glowIndex + 1) % HEAD_GLOW_SEQUENCE.length;
+            }
         }
 
         @Override
@@ -1364,7 +1464,9 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
             boolean flip = ((Sonic2DeathEggRobotInstance) parent).facingLeft;
-            renderer.drawFrameIndex(FRAME_HEAD_CLOSED, currentX, currentY, flip, false);
+            // Head pulses through glow frames (ROM: Ani_objC7_a animation)
+            int headFrame = HEAD_GLOW_SEQUENCE[glowIndex];
+            renderer.drawFrameIndex(headFrame, currentX, currentY, flip, false);
         }
 
         @Override
