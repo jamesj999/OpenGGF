@@ -115,4 +115,39 @@ public class TestHtzDropOnFloor {
         assertFalse("Sonic should not clip through floor when riding descending platform "
                 + "(Y should stay <= " + (baseY + 30) + " but reached " + maxY + ")", detectedClip);
     }
+
+    /**
+     * ROM: Obj30 subtype 4 uses jsrto (JSR) for DropOnFloor at s2.asm:49149,
+     * which returns and falls through to Obj30_HurtSupportedPlayers (line 49151).
+     * Sonic should take lava damage when standing on the subtype 4 platform.
+     */
+    @Test
+    public void sonicTakesDamageFromLavaSubtype4() {
+        // Give Sonic rings so hurt doesn't kill him
+        sprite.setRingCount(10);
+
+        // Reposition to the subtype 4 platform area
+        sprite.setX((short) 7502);
+        sprite.setY((short) 1329);
+        camera.updatePosition(true);
+
+        // Settle: let earthquake trigger
+        for (int i = 0; i < 20; i++) {
+            testRunner.stepFrame(false, false, false, false, false);
+        }
+
+        boolean wasHurt = false;
+
+        // Run 600 frames — Sonic should land on subtype 4 lava and get hurt
+        for (int frame = 0; frame < 600; frame++) {
+            testRunner.stepFrame(false, false, false, false, false);
+
+            if (sprite.isHurt()) {
+                wasHurt = true;
+                break;
+            }
+        }
+
+        assertTrue("Sonic should take damage from subtype 4 lava at (7502, 1329)", wasHurt);
+    }
 }
