@@ -100,6 +100,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     private static final int COLLISION_BALL = 0x9A;
 
     // Rendering frame indices (from ROM mappings ObjAF_MapUnc_39E68)
+    // Frames 0-8 are full body poses; frames 9-14 are sub-component pieces
+    // (legs/quills only — NOT full sprites). Frames 15-22 are spikeball projectiles.
     private static final int FRAME_STAND = 0;
     private static final int FRAME_AIM = 1;
     private static final int FRAME_LASER = 2;
@@ -109,13 +111,18 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     private static final int FRAME_BALL_A = 6;
     private static final int FRAME_BALL_B = 7;
     private static final int FRAME_BALL_C = 8;
-    private static final int FRAME_JUMP_UP = 9;
-    private static final int FRAME_JUMP_ARC = 10;
-    private static final int FRAME_CROUCH = 11;
-    private static final int FRAME_DEFEATED = 12;
-    private static final int FRAME_DESCEND = 13;
-    private static final int FRAME_IDLE = 14;
-    // Frames 15-22 are spikeball projectile frames ($0F-$16)
+
+    // ROM animation 3 (byte_39DFE): ball form — complex 21-frame sequence, speed 3
+    private static final int[] BALL_ANIM_SEQUENCE = {
+            3, 3, 3, 6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 7, 7, 8, 8, 6, 7, 8
+    };
+    private static final int BALL_ANIM_SPEED = 3;
+
+    // ROM animation 5 (byte_39E1A): descent spin-down — decelerating ball spin
+    private static final int[] DESCENT_ANIM_SEQUENCE = {
+            8, 7, 6, 8, 8, 7, 7, 6, 6, 8, 8, 8, 7, 7, 7, 6, 6, 6, 3, 3
+    };
+    private static final int DESCENT_ANIM_SPEED = 3;
 
     // Spikeball data table (8 entries from ROM byte_39D92)
     // Each entry: {x_offset, y_offset, x_vel, y_vel, mapping_frame}
@@ -148,6 +155,9 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     private boolean spikeballsFired;
     /** ROM: objoff_2D - direction toggle, alternates via not.b each dash cycle */
     private boolean dashDirectionToggle;
+    // Animation system state (replaces hardcoded frame indices)
+    private int animSequenceIndex;  // Current position in active animation sequence
+    private int animSequenceTimer;  // Frame countdown for current animation step
 
     // Child component references (ROM: objoff_3A, objoff_3C, objoff_3E)
     private MechaSonicDEZWindow dezWindow;
@@ -170,7 +180,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         attackIndex = 0;
         actionTimer = 0;
         defeatTimer = 0;
-        currentFrame = FRAME_DESCEND;
+        currentFrame = FRAME_STAND; // Full body pose (ROM sets $0D then overrides via AnimateSprite)
         facingLeft = false;
         ballForm = false;
         walkAnimTimer = 0;
@@ -179,6 +189,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         ballAnimFrame = 0;
         spikeballsFired = false;
         dashDirectionToggle = false; // ROM: objoff_2D starts at 0
+        animSequenceIndex = 0;
+        animSequenceTimer = 0;
 
         // Advance to wait-for-camera routine immediately
         state.routine = ROUTINE_WAIT_CAMERA;
@@ -255,7 +267,10 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             // ROM: bmi.s loc_397F0
             AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
             state.routine = ROUTINE_DESCEND;
-            currentFrame = FRAME_DESCEND;
+            // ROM uses AnimateSprite with descent animation (spin-down ball);
+            // reset animation sequence state
+            animSequenceIndex = 0;
+            animSequenceTimer = 0;
         }
     }
 
@@ -287,7 +302,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         // ROM: ObjectMove - apply velocity at constant speed (no gravity added)
         state.applyVelocity();
 
-        currentFrame = FRAME_DESCEND;
+        // ROM: AnimateSprite uses animation 5 (descent spin-down: 8,7,6,8,8,7,7,6,6...)
+        stepAnimSequence(DESCENT_ANIM_SEQUENCE, DESCENT_ANIM_SPEED, true);
     }
 
     // ========================================================================
@@ -707,12 +723,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     // ========================================================================
 
     private void updateBallAnimation() {
-        ballAnimTimer++;
-        if (ballAnimTimer >= 3) {
-            ballAnimTimer = 0;
-            ballAnimFrame = (ballAnimFrame + 1) % 3;
-        }
-        currentFrame = FRAME_BALL_A + ballAnimFrame;
+        // ROM animation 3 (byte_39DFE): complex 21-frame ball sequence with $FC loop
+        stepAnimSequence(BALL_ANIM_SEQUENCE, BALL_ANIM_SPEED, true);
         ballForm = true;
     }
 
@@ -723,6 +735,26 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             walkAnimFrame = (walkAnimFrame + 1) % 3;
         }
         currentFrame = FRAME_WALK_A + walkAnimFrame;
+    }
+
+    /**
+     * Step through an animation sequence array, setting currentFrame each tick.
+     * ROM equivalent: AnimateSprite with animation table entries.
+     *
+     * @param sequence  Frame index array from ROM animation script
+     * @param speed     Frames per animation step (ROM: first byte of animation script)
+     * @param loop      True to loop ($FC terminator), false to hold last frame ($FF)
+     */
+    private void stepAnimSequence(int[] sequence, int speed, boolean loop) {
+        animSequenceTimer++;
+        if (animSequenceTimer >= speed) {
+            animSequenceTimer = 0;
+            animSequenceIndex++;
+            if (animSequenceIndex >= sequence.length) {
+                animSequenceIndex = loop ? 0 : sequence.length - 1;
+            }
+        }
+        currentFrame = sequence[animSequenceIndex];
     }
 
     // ========================================================================
@@ -757,7 +789,9 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             spawnDefeatExplosion();
         }
 
-        currentFrame = FRAME_DEFEATED;
+        // ROM: defeat routine uses Ani_objAF_b animation table.
+        // Frame 12 is a sub-component piece (nearly invisible), use standing pose.
+        currentFrame = FRAME_STAND;
     }
 
     // ========================================================================
@@ -822,7 +856,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         state.xVel = 0;
         state.yVel = 0;
         ballForm = false;
-        currentFrame = FRAME_DEFEATED;
+        currentFrame = FRAME_STAND; // Frame 12 is a sub-component piece; use standing pose
         // ROM: bset #status.npc.misc,status(a0) - signals DEZ window
         // ROM: Delete targeting sensor and LED window
         if (targetingSensor != null) {

@@ -274,8 +274,9 @@ public class TestDEZMechaSonic {
     public void currentFrameAccessorWorks() {
         // Verify we can read current frame for collision determination
         int frame = boss.getCurrentFrame();
-        // Frame should be FRAME_DESCEND (13) initially since that's set in initializeBossState
-        assertEquals("Initial frame should be FRAME_DESCEND (13)", 13, frame);
+        // Frame should be FRAME_STAND (0) initially — ROM uses AnimateSprite which
+        // overrides the initial frame immediately, so we start with a visible pose.
+        assertEquals("Initial frame should be FRAME_STAND (0)", 0, frame);
     }
 
     private static final class NoOpObjectRegistry implements ObjectRegistry {
