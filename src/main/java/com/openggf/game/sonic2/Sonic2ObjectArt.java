@@ -2896,6 +2896,49 @@ public class Sonic2ObjectArt {
         return new ObjectSpriteSheet(rockPatterns, mappings, 0, 0);
     }
 
+    // ========== MTZ Boss (Object 0x54) ==========
+
+    /**
+     * Load MTZ Boss sprite sheet.
+     * Uses ArtNem_MTZBoss with mappings from Obj54_MapUnc_32DC6.
+     * ROM: art_tile = make_art_tile(ArtTile_ArtNem_MTZBoss,0,0) = $037C
+     *
+     * PLC (PlrList_MtzBoss) loads 4 art sources:
+     *   ArtNem_Eggpod      at tile $0500 (offset $184 from base)
+     *   ArtNem_MTZBoss      at tile $037C (base)
+     *   ArtNem_EggpodJets   at tile $0560 (offset $1E4 from base)
+     *   ArtNem_FieryExplosion at tile $0580 (offset $204 from base)
+     *
+     * @return sprite sheet for MTZ boss, or null on failure
+     */
+    public ObjectSpriteSheet loadMTZBossSheet() {
+        Pattern[] bossPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_MTZ_BOSS_ADDR, "MTZBoss");
+        if (bossPatterns.length == 0) {
+            return null;
+        }
+
+        // Load Eggpod patterns (Robotnik face/vehicle)
+        Pattern[] eggpodPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_EGGPOD_ADDR, "Eggpod");
+
+        // Calculate offset: $0500 - $037C = $184 = 388 tiles
+        int eggpodOffset = Sonic2Constants.ART_TILE_EGGPOD_4 - Sonic2Constants.ART_TILE_MTZ_BOSS;
+
+        // Create combined array
+        int combinedSize = Math.max(bossPatterns.length, eggpodOffset + eggpodPatterns.length);
+        Pattern[] combined = new Pattern[combinedSize];
+
+        // Copy MTZ boss patterns at base
+        System.arraycopy(bossPatterns, 0, combined, 0, bossPatterns.length);
+
+        // Copy Eggpod patterns at offset $184 (388)
+        for (int i = 0; i < eggpodPatterns.length && (eggpodOffset + i) < combinedSize; i++) {
+            combined[eggpodOffset + i] = eggpodPatterns[i];
+        }
+
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_MTZ_BOSS_ADDR);
+        return new ObjectSpriteSheet(combined, mappings, 0, 0);
+    }
+
     // ========== DEZ Silver Sonic / Mecha Sonic (Object 0xAF) ==========
 
     /**

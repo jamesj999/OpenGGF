@@ -6,6 +6,8 @@ import com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 
+import java.util.logging.Logger;
+
 /**
  * Death Egg Zone events.
  * ROM: LevEvents_DEZ (s2.asm:21661-21724)

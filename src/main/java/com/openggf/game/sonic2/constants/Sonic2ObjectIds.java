@@ -90,6 +90,8 @@ public final class Sonic2ObjectIds {
     // Bosses
     public static final int CNZ_BOSS = 0x51; // CNZ Act 2 Boss (electricity boss)
     public static final int HTZ_BOSS = 0x52; // HTZ Act 2 Boss (lava flamethrower boss)
+    public static final int MTZ_BOSS_ORB = 0x53; // Obj53 - Shield orbs that surround MTZ boss
+    public static final int MTZ_BOSS = 0x54;     // Obj54 - MTZ boss (orbiting shield + laser)
     public static final int EHZ_BOSS = 0x56; // EHZ Act 2 Boss (drill car boss)
     public static final int MCZ_BOSS = 0x57; // MCZ Act 2 Boss (drill-digger boss)
     public static final int CPZ_BOSS = 0x5D; // CPZ Act 2 Boss (water dropper boss)

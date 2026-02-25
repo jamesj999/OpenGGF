@@ -440,7 +440,9 @@ public class Sonic2Constants {
     public static final int ART_TILE_BOSS_SMOKE_1 = 0x0570; // ArtTile_ArtNem_BossSmoke_1
     public static final int ART_TILE_FIERY_EXPLOSION = 0x0580; // ArtTile_ArtNem_FieryExplosion
     public static final int ART_TILE_ARZ_BOSS = 0x03E0;    // ArtTile_ArtNem_ARZBoss
+    public static final int ART_TILE_MTZ_BOSS = 0x037C;   // ArtTile_ArtNem_MTZBoss
     public static final int ART_TILE_EGGPOD_4 = 0x0500;   // ArtTile_ArtNem_Eggpod_4 (ARZ/MCZ/CNZ/MTZ boss)
+    public static final int ART_TILE_EGGPOD_JETS_2 = 0x0560; // ArtTile_ArtNem_EggpodJets_2 (MTZ boss)
     public static final int ART_TILE_CNZ_BOSS = 0x0407;   // ArtTile_ArtNem_CNZBoss
     public static final int ART_TILE_CNZ_BOSS_FUDGE = 0x03A7; // ArtTile_ArtNem_CNZBoss_Fudge (= 0x0407 - 0x60)
     public static final int ART_TILE_HTZ_BOSS = 0x0421;  // ArtTile_ArtNem_HTZBoss (flamethrower/lava ball)
@@ -492,6 +494,10 @@ public class Sonic2Constants {
     // HTZ Boss mappings (uncompressed)
     public static final int MAP_UNC_HTZ_BOSS_SMOKE_ADDR = 0x30258;  // Obj52_MapUnc_30258 (smoke particles)
     public static final int MAP_UNC_HTZ_BOSS_MAIN_ADDR = 0x302BC;   // Obj52_MapUnc_302BC (main boss, flamethrower, lava ball)
+
+    // MTZ Boss art and mappings
+    public static final int ART_NEM_MTZ_BOSS_ADDR = 0x88DA6;        // ArtNem_MTZBoss (verified via RomOffsetFinder)
+    public static final int MAP_UNC_MTZ_BOSS_ADDR = 0x32DC6;        // Obj54_MapUnc_32DC6 (verified via ROM search)
 
     // Animal art (Nemesis compressed, verified offsets)
     public static final int ART_NEM_FLICKY_ADDR = 0x7EF60;
