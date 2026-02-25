@@ -12,6 +12,8 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.spawn.AbstractPlacementManager;
+import com.openggf.physics.ObjectTerrainUtils;
+import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.GroundMode;
 
@@ -1697,6 +1699,7 @@ public class ObjectManager {
             int ridingX = state != null ? state.x : 0;
             int ridingY = state != null ? state.y : 0;
             int ridingPieceIndex = state != null ? state.pieceIndex : -1;
+            ObjectInstance dropOnFloorExclude = null;
 
             if (ridingObject != null && ridingObject instanceof SolidObjectProvider provider) {
                 int currentX;
@@ -1749,6 +1752,22 @@ public class ObjectManager {
                     ridingY = currentY;
                     // Update state with new tracking position
                     ridingStates.put(player, new RidingState(ridingObject, ridingX, ridingY, ridingPieceIndex));
+
+                    // ROM: DropOnFloor (s2.asm:35810) — after repositioning the player
+                    // on a platform, check if terrain is at or above the player's feet.
+                    // If so, detach the player so terrain collision takes over next frame.
+                    if (provider.dropOnFloor()) {
+                        TerrainCheckResult floorCheck = ObjectTerrainUtils.checkFloorDist(
+                                player.getCentreX(), player.getCentreY(), player.getYRadius());
+                        if (floorCheck.distance() <= 0) {
+                            dropOnFloorExclude = ridingObject;
+                            ridingStates.remove(player);
+                            ridingObject = null;
+                            ridingPieceIndex = -1;
+                            player.setOnObject(false);
+                            player.setAir(true);
+                        }
+                    }
                 } else {
                     ridingStates.remove(player);
                     ridingObject = null;
@@ -1761,6 +1780,11 @@ public class ObjectManager {
             int nextRidingY = 0;
             int nextRidingPieceIndex = -1;
             for (ObjectInstance instance : activeObjects) {
+                // DropOnFloor detached the player from this object — don't re-land on it
+                // this frame. Terrain collision will handle the player next frame.
+                if (instance == dropOnFloorExclude) {
+                    continue;
+                }
                 if (!(instance instanceof SolidObjectProvider provider)) {
                     continue;
                 }

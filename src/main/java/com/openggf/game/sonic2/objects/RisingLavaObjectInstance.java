@@ -344,8 +344,13 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
             }
         }
 
-        // ROM: JmpTo_DropOnFloor is called for all subtypes after solid collision
-        // This is handled by the physics system's normal platform interaction
+        // ROM: JmpTo_DropOnFloor is called for all subtypes after solid collision.
+        // Terrain check is handled by SolidContacts via dropOnFloor() opt-in below.
+    }
+
+    @Override
+    public boolean dropOnFloor() {
+        return true;
     }
 
     // ========================================================================
