@@ -21,21 +21,18 @@ import java.util.logging.Logger;
 public class Sonic2LevelEventManager extends AbstractLevelEventManager {
     private static Sonic2LevelEventManager instance;
 
-    // Zone constants (matches ROM zone ordering)
+    // Zone constants (matches Sonic2ZoneRegistry ordering: game progression, 0-based)
     public static final int ZONE_EHZ = 0;
-    public static final int ZONE_UNUSED_1 = 1;
+    public static final int ZONE_CPZ = 1;
     public static final int ZONE_ARZ = 2;
     public static final int ZONE_CNZ = 3;
     public static final int ZONE_HTZ = 4;
     public static final int ZONE_MCZ = 5;
     public static final int ZONE_OOZ = 6;
     public static final int ZONE_MTZ = 7;
-    public static final int ZONE_UNUSED_2 = 8;
-    public static final int ZONE_SCZ = 9;
-    public static final int ZONE_WFZ = 10;
-    public static final int ZONE_DEZ = 11;
-    // CPZ uses zone index 1 in level event ordering (ROM zone ID 0x0D)
-    public static final int ZONE_CPZ = 1;
+    public static final int ZONE_SCZ = 8;
+    public static final int ZONE_WFZ = 9;
+    public static final int ZONE_DEZ = 10;
 
     private static final Logger LOGGER = Logger.getLogger(Sonic2LevelEventManager.class.getName());
 
