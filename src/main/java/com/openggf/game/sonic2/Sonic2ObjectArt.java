@@ -2990,6 +2990,14 @@ public class Sonic2ObjectArt {
      * ROM: ArtNem_Eggpod_1 at 0x8E886, tile base $0500, palette line 0.
      * 8 frames from ObjC6_MapUnc_3D0EE.
      *
+     * TODO: ROM Robotnik in WFZ (ObjC5 subtype $A0) uses Ani_objC5_objC6 which references
+     * ObjC5_SubObjData4 with ArtTile_ArtKos_LevelArt ($0000) as the tile base. The mapping
+     * frames contain absolute tile indices ($500+) because the art is loaded into specific
+     * VRAM positions by the PLC system (PLCID_WfzBoss). This Nemesis-based approach loads
+     * the art directly and uses relative tile indices, which may produce slightly different
+     * visuals. When the PLC system is fully implemented, this should be converted to use
+     * KosinskiM-compressed level art tiles with absolute VRAM tile indices matching the ROM.
+     *
      * @return sprite sheet for WFZ Robotnik, or null on failure
      */
     public ObjectSpriteSheet loadWFZRobotnikSheet() {
