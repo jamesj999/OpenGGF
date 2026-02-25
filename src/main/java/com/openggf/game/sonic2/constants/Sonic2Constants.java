@@ -466,6 +466,14 @@ public class Sonic2Constants {
     public static final int MAP_UNC_ARZ_BOSS_PARTS_ADDR = 0x30D68;   // Obj89_MapUnc_30D68 (ARZ boss parts)
     public static final int MAP_UNC_ARZ_BOSS_MAIN_ADDR = 0x30E04;    // Obj89_MapUnc_30E04 (ARZ boss main)
 
+    // DEZ Boss art (Silver Sonic / Mecha Sonic, ObjAF)
+    public static final int ART_NEM_SILVER_SONIC_ADDR = 0x8BE12;       // ArtNem_SilverSonic (tile base $0380, palette 1)
+    public static final int ART_NEM_DEZ_WINDOW_ADDR = 0x8EF96;         // ArtNem_DEZWindow (tile base $0378, palette 0)
+    public static final int ART_TILE_SILVER_SONIC = 0x0380;             // ArtTile_ArtNem_SilverSonic
+    public static final int ART_TILE_DEZ_WINDOW = 0x0378;               // ArtTile_ArtNem_DEZWindow
+    public static final int MAP_UNC_SILVER_SONIC_ADDR = 0x39E68;        // ObjAF_MapUnc_39E68 (23 frames: Silver Sonic + spikeballs)
+    public static final int MAP_UNC_DEZ_WINDOW_ADDR = 0x3A08C;          // ObjAF_MapUnc_3A08C (8 frames: DEZ window)
+
     // HTZ Boss mappings (uncompressed)
     public static final int MAP_UNC_HTZ_BOSS_SMOKE_ADDR = 0x30258;  // Obj52_MapUnc_30258 (smoke particles)
     public static final int MAP_UNC_HTZ_BOSS_MAIN_ADDR = 0x302BC;   // Obj52_MapUnc_302BC (main boss, flamethrower, lava ball)

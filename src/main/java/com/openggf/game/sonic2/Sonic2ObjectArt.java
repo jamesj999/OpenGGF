@@ -2896,6 +2896,42 @@ public class Sonic2ObjectArt {
         return new ObjectSpriteSheet(rockPatterns, mappings, 0, 0);
     }
 
+    // ========== DEZ Silver Sonic / Mecha Sonic (Object 0xAF) ==========
+
+    /**
+     * Load Silver Sonic sprite sheet.
+     * Uses ArtNem_SilverSonic with mappings from ObjAF_MapUnc_39E68.
+     * ROM: art_tile = make_art_tile(ArtTile_ArtNem_SilverSonic,1,0) = $0380, palette line 1
+     * 23 frames: 0-14 = Silver Sonic poses, 15-22 = spikeball projectiles
+     *
+     * @return sprite sheet for Silver Sonic, or null on failure
+     */
+    public ObjectSpriteSheet loadSilverSonicSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_SILVER_SONIC_ADDR, "SilverSonic");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_SILVER_SONIC_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 1, 1);
+    }
+
+    /**
+     * Load DEZ Window sprite sheet (Robotnik watching through window).
+     * Uses ArtNem_DEZWindow with mappings from ObjAF_MapUnc_3A08C.
+     * ROM: art_tile = make_art_tile(ArtTile_ArtNem_DEZWindow,0,0) = $0378, palette line 0
+     * 8 frames of window/LED animation
+     *
+     * @return sprite sheet for DEZ window, or null on failure
+     */
+    public ObjectSpriteSheet loadDEZWindowSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_DEZ_WINDOW_ADDR, "DEZWindow");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_DEZ_WINDOW_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
     // ========== MTZ Nut (Object 0x69) ==========
 
     /**
