@@ -342,6 +342,11 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     // ========================================================================
     // Routine A: Attack dispatch
     // ROM: loc_398C0
+    //
+    // Phase transition timing: ROM uses jsr off_398F2(pc,d1.w) (subroutine
+    // call, not jmp). Each sub-phase sets routine_secondary and returns via
+    // rts; the updated value is dispatched on the NEXT frame. Java's switch
+    // on attackPhase has the same one-frame-per-transition semantics.
     // ========================================================================
 
     private void updateAttack(AbstractPlayableSprite player) {
@@ -514,21 +519,20 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                     return;
                 }
                 // ROM: ObjCheckFloorDist - check floor
+                // ROM: loc_39B1A advances routine_secondary on landing, so
+                // next frame dispatches to walk phase. Skip gravity on the
+                // landing frame to avoid pushing below floor.
                 if (state.y >= FLOOR_Y) {
                     // ROM: loc_39B1A - landed
                     state.y = FLOOR_Y;
                     state.yFixed = state.y << 16;
                     state.yVel = 0;
-                    // Continue in walk phase after landing
+                    updateBallAnimation();
+                    return;
                 }
                 // ROM: addi.w #$38,y_vel(a0) - gravity
                 state.yVel += GRAVITY;
                 state.applyVelocity();
-                // Floor snap
-                if (state.y > FLOOR_Y) {
-                    state.y = FLOOR_Y;
-                    state.yFixed = state.y << 16;
-                }
                 updateBallAnimation();
             }
             case 5 -> {
@@ -602,21 +606,21 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 }
 
                 // ROM: ObjCheckFloorDist
+                // ROM: loc_39B84 advances routine_secondary on landing, so
+                // next frame dispatches to walk phase. Skip gravity on the
+                // landing frame to avoid pushing below floor.
                 if (state.y >= FLOOR_Y) {
                     // ROM: loc_39B84 - landed
                     state.y = FLOOR_Y;
                     state.yFixed = state.y << 16;
                     state.yVel = 0;
+                    updateBallAnimation();
+                    return;
                 }
 
                 // ROM: addi.w #$38,y_vel(a0) - gravity
                 state.yVel += GRAVITY;
                 state.applyVelocity();
-                // Floor snap
-                if (state.y > FLOOR_Y) {
-                    state.y = FLOOR_Y;
-                    state.yFixed = state.y << 16;
-                }
                 updateBallAnimation();
             }
             case 5 -> {
@@ -731,13 +735,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             Camera camera = Camera.getInstance();
             camera.setMaxX((short) 0x1000);
             // ROM: addq.b #2,(Dynamic_Resize_Routine).w
-            try {
-                Sonic2LevelEventManager eventManager = Sonic2LevelEventManager.getInstance();
-                int currentRoutine = eventManager.getEventRoutine();
-                eventManager.setEventRoutine(currentRoutine + 2);
-            } catch (Exception e) {
-                // In tests, event manager may not be available
-            }
+            Sonic2LevelEventManager eventManager = Sonic2LevelEventManager.getInstance();
+            eventManager.setEventRoutine(eventManager.getEventRoutine() + 2);
             GameServices.gameState().setCurrentBossId(0);
             // ROM: move.w (Level_Music).w,d0 / PlayMusic (resume zone music)
             // Note: ROM has a bug where it reads a byte instead of word, causing
@@ -1176,12 +1175,14 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
      * Moves in a fixed direction with no gravity.
      */
     static class MechaSonicSpikeball extends AbstractBossChild {
+        /** ROM: MarkObjGone uses $180 half-width for screen bounds check */
+        private static final int SCREEN_BOUNDS_HALF_WIDTH = 0x180;
+
         private final int xVel;
         private final int yVel;
         private final int mappingFrame;
         private int xFixed;
         private int yFixed;
-        private int lifetime;
 
         MechaSonicSpikeball(Sonic2MechaSonicInstance parent,
                             int startX, int startY,
@@ -1194,7 +1195,6 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             this.xVel = xVel;
             this.yVel = yVel;
             this.mappingFrame = mappingFrame;
-            this.lifetime = 0;
         }
 
         @Override
@@ -1209,9 +1209,11 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             currentY = yFixed >> 16;
             updateDynamicSpawn();
 
-            lifetime++;
-            // Delete after going off screen (roughly 120 frames)
-            if (lifetime > 120) {
+            // ROM: loc_39CA0 uses MarkObjGone to delete when off-screen.
+            // MarkObjGone checks if abs(obj_x - camera_x - $A0) >= $180.
+            Camera camera = Camera.getInstance();
+            int screenRelX = currentX - camera.getX() - 0xA0;
+            if (Math.abs(screenRelX) >= SCREEN_BOUNDS_HALF_WIDTH) {
                 setDestroyed(true);
             }
         }
