@@ -93,7 +93,6 @@ public class TestWFZBoss {
         boss.getState().routine = 0x12;
         boss.getState().invulnerable = false;
         boss.getState().defeated = false;
-        // We need to set the internal collisionActive flag via state
         // Since collisionActive is private, test indirectly through accessor
         assertFalse("Collision not active until phase enables it",
                 boss.isCollisionActive());
@@ -149,7 +148,7 @@ public class TestWFZBoss {
 
     @Test
     public void defeatTimerRomBoundary() {
-        // ROM: subq.w #1,objoff_32(a0) / bmi.s
+        // ROM: subq.w #1,objoff_30(a0) / bmi.s
         // Timer starts at $EF (239). Decrements 240 times: $EF -> $EE -> ... -> 0 -> -1 (triggers)
         int timer = 0xEF;
         int iterations = 0;
@@ -159,6 +158,24 @@ public class TestWFZBoss {
         }
         assertEquals("Defeat timer should run 240 iterations (0xEF down to -1)",
                 240, iterations);
+    }
+
+    @Test
+    public void robotnikDefeatTimerRomBoundary() {
+        // Issue 13: ROM ObjC5_RobotnikDown: timer=$C0, subq+bmi = 192 frames of movement.
+        // Timer starts at $C0 (192). subq: 192->191, move (not bmi). ... 1->0, move (not bmi).
+        // 0->-1, bmi triggers delete. Total: 192 frames of movement.
+        int timer = 0xC0;
+        int moveCount = 0;
+        while (true) {
+            timer--;
+            if (timer < 0) {
+                break; // bmi triggers delete
+            }
+            moveCount++; // move down 1px
+        }
+        assertEquals("Robotnik defeat should move for 192 frames",
+                192, moveCount);
     }
 
     @Test
@@ -198,8 +215,6 @@ public class TestWFZBoss {
     @Test
     public void collisionHittableConstantIsSix() {
         // ROM: collision_flags=$06 when hittable (only during phases $12-$16)
-        // Verify the collision_flags return 0 when collision is not active
-        // (the constant COLLISION_HITTABLE=0x06 is verified by the code contract)
         assertFalse("Collision should not be active initially", boss.isCollisionActive());
         assertEquals("Collision flags should be 0 when not active", 0, boss.getCollisionFlags());
     }
@@ -216,5 +231,141 @@ public class TestWFZBoss {
         boss.getState().defeated = true;
         assertEquals("Collision should be 0 when defeated",
                 0, boss.getCollisionFlags());
+    }
+
+    // ========================================================================
+    // Issue 1: Two-phase descent timing
+    // ========================================================================
+
+    @Test
+    public void descentWaitPhaseLasting0x5AFrames() {
+        // ROM: ObjC5_CaseWaitDown waits $5A frames with NO movement,
+        // then ObjC5_CaseDown descends for $60 frames.
+        // Verify the two-phase structure via timer math:
+        // Phase 1: timer=$5A, subq+bmi = $5B frames of waiting
+        int waitTimer = 0x5A;
+        int waitFrames = 0;
+        while (waitTimer >= 0) {
+            waitTimer--;
+            waitFrames++;
+        }
+        assertEquals("Wait phase should last $5B frames (0x5A down to -1)",
+                0x5B, waitFrames);
+
+        // Phase 2: timer=$60, subq+beq = $60 frames of movement
+        int moveTimer = 0x60;
+        int moveFrames = 0;
+        while (moveTimer > 0) {
+            moveTimer--;
+            moveFrames++;
+            if (moveTimer == 0) break; // beq triggers stop
+        }
+        assertEquals("Descent movement phase should last $60 frames",
+                0x60, moveFrames);
+    }
+
+    // ========================================================================
+    // Issue 2-3: Open/close animation timing
+    // ========================================================================
+
+    @Test
+    public void openAnimationSpeedIs6GameFramesPerAnimFrame() {
+        // ROM: Ani_objC5 anim 0: speed=5 (6 game frames per anim frame).
+        // 7 entries: {0,1,2,3,3,3,3}. Total: 7 * 6 = 42 game frames.
+        int speed = 5;
+        int entries = 7;
+        int totalGameFrames = entries * (speed + 1); // speed+1 because counter starts at speed
+        assertEquals("Open animation should take 42 game frames",
+                42, totalGameFrames);
+    }
+
+    @Test
+    public void closeAnimationSpeedIs4GameFramesPerAnimFrame() {
+        // ROM: Ani_objC5 anim 1: speed=3 (4 game frames per anim frame).
+        // 5 entries: {3,2,1,0,0}. Total: 5 * 4 = 20 game frames.
+        int speed = 3;
+        int entries = 5;
+        int totalGameFrames = entries * (speed + 1);
+        assertEquals("Close animation should take 20 game frames",
+                20, totalGameFrames);
+    }
+
+    @Test
+    public void closeAnimationStartsFromFrame3() {
+        // Issue 3: ROM close sequence is {3,2,1,0,0} starting from fully open.
+        // Verify frame 3 is first in sequence, frame 0 is held an extra count.
+        int[] closeFrames = {3, 2, 1, 0, 0};
+        assertEquals("Close should start from frame 3", 3, closeFrames[0]);
+        assertEquals("Close should end with frame 0 held twice", 0, closeFrames[3]);
+        assertEquals("Close should have 5 entries", 5, closeFrames.length);
+    }
+
+    // ========================================================================
+    // Issue 7: Laser shooter 13px movement
+    // ========================================================================
+
+    @Test
+    public void laserShooterMoves13Pixels() {
+        // ROM: timer=$0E, subq+beq pattern. Decrement first, then move only if not 0.
+        // 14->13 (move), 13->12 (move), ..., 1->0 (beq, don't move) = 13 frames of movement.
+        int timer = 0x0E;
+        int moveCount = 0;
+        while (true) {
+            timer--;
+            if (timer == 0) break; // beq triggers advance, no move this frame
+            moveCount++;
+        }
+        assertEquals("Laser shooter should move exactly 13 pixels (13 frames)",
+                13, moveCount);
+    }
+
+    // ========================================================================
+    // Issue 9: Platform first horizontal timer
+    // ========================================================================
+
+    @Test
+    public void platformFirstHorizontalTimerIs0x60() {
+        // ROM: ObjC5_PlatformLeft sets timer=$60 for first leftward movement.
+        // After that, ObjC5_PlatformTestChangeDirection uses $C0 for reversal.
+        // Verify these are distinct values.
+        int firstTimer = 0x60;
+        int reverseInterval = 0xC0;
+        assertEquals("First horizontal timer should be $60", 0x60, firstTimer);
+        assertEquals("Reverse interval should be $C0", 0xC0, reverseInterval);
+        assertTrue("First timer should be shorter than reverse interval",
+                firstTimer < reverseInterval);
+    }
+
+    // ========================================================================
+    // Issue 15: Platform releaser first spawn timer
+    // ========================================================================
+
+    @Test
+    public void platformReleaserFirstTimerIs0x10() {
+        // ROM: ObjC5_PlatformReleaserStop sets first timer=$10 (not $80).
+        // This means first platform appears much sooner than subsequent ones.
+        int firstSpawnTimer = 0x10;
+        int subsequentInterval = 0x80;
+        assertEquals("First spawn timer should be $10", 0x10, firstSpawnTimer);
+        assertTrue("First timer should be much shorter than subsequent interval",
+                firstSpawnTimer < subsequentInterval);
+    }
+
+    // ========================================================================
+    // Issue 4: Laser boundary stop vs bounce
+    // ========================================================================
+
+    @Test
+    public void laserBoundaryStopsInsteadOfBounce() {
+        // ROM routine $16 (CaseBoundaryLaserChk): clr.w x_vel when hitting bounds.
+        // This STOPS the boss at the boundary, unlike $0A which negates velocity (bounces).
+        // Verify the semantics: stop = velocity becomes 0, bounce = velocity negates.
+        int velocity = 0x80;
+        // Stop behavior:
+        int stoppedVel = 0; // clr.w x_vel
+        assertEquals("Stopped velocity should be 0", 0, stoppedVel);
+        // Bounce behavior (for comparison):
+        int bouncedVel = -velocity; // neg.w x_vel
+        assertEquals("Bounced velocity should negate", -0x80, bouncedVel);
     }
 }

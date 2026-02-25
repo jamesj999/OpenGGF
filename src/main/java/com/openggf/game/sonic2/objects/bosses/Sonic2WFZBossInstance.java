@@ -3,7 +3,6 @@ package com.openggf.game.sonic2.objects.bosses;
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -12,6 +11,8 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SolidObjectParams;
+import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.objects.boss.AbstractBossChild;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -134,6 +135,16 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     private static final int FRAME_LASER_BASE = 0x0D;
     // Laser extension stages: frames $0E-$12
 
+    // Animation speed constants
+    // ROM Ani_objC5 anim 0 (opening): speed=5 (6 game frames/anim frame), 8 entries
+    private static final int OPEN_ANIM_SPEED = 5;
+    // ROM Ani_objC5 anim 1 (closing): speed=3 (4 game frames/anim frame), 6 entries
+    private static final int CLOSE_ANIM_SPEED = 3;
+    // ROM opening sequence: frames 0,1,2,3,3,3,3 then $FA loop
+    private static final int[] OPEN_ANIM_FRAMES = {0, 1, 2, 3, 3, 3, 3};
+    // ROM closing sequence: frames 3,2,1,0,0 then $FA loop
+    private static final int[] CLOSE_ANIM_FRAMES = {3, 2, 1, 0, 0};
+
     // Internal state
     private int actionTimer;
     private int defeatTimer;
@@ -144,6 +155,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     private int rightBound;
     private boolean collisionActive;
     private int openAnimFrame;
+    private int animSpeedCounter; // Counts down game frames per animation frame
+    private boolean laserSignaled; // Set by laser child when fully extended (issue 6)
 
     // Child component references
     private WFZLaserWall leftWall;
@@ -169,6 +182,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         actionTimer = 0;
         defeatTimer = 0;
         openAnimFrame = 0;
+        animSpeedCounter = 0;
+        laserSignaled = false;
 
         // ROM: Camera max Y = $442
         Camera camera = Camera.getInstance();
@@ -190,7 +205,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             case ROUTINE_SIGNAL_SHOOTER -> updateSignalShooter();
             case ROUTINE_LOWER_SHOOTER -> updateLowerShooter();
             case ROUTINE_ENABLE_COLLISION -> updateEnableCollision();
-            case ROUTINE_SPAWN_LASER -> updateSpawnLaser();
+            case ROUTINE_SPAWN_LASER -> updateSpawnLaser(player);
             case ROUTINE_BOUNCE_WITH_LASER -> updateBounceWithLaser();
             case ROUTINE_RETRACT_SHOOTER -> updateRetractShooter();
             case ROUTINE_CLOSE_ANIM -> updateCloseAnim();
@@ -198,8 +213,12 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             case ROUTINE_DEFEAT -> updateDefeat(frameCounter);
         }
 
-        // Apply velocity for movement phases
-        if (state.routine >= ROUTINE_DESCEND && state.routine <= ROUTINE_BOUNCE_WITH_LASER) {
+        // Apply velocity only for phases that call ObjectMove in the ROM.
+        // ROM phases with ObjectMove: $06 (CaseDown), $0A (CaseBoundaryChk),
+        // $16 (CaseBoundaryLaserChk). NOT $04 (CaseWaitDown - just waits).
+        if (state.routine == ROUTINE_DESCEND
+                || state.routine == ROUTINE_BOUNCE
+                || state.routine == ROUTINE_BOUNCE_WITH_LASER) {
             state.applyVelocity();
         }
     }
@@ -222,20 +241,34 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     // Routine $04: Spawn walls, laser shooter, platform releaser, Robotnik
     // ========================================================================
 
+    private boolean childrenSpawned = false;
+
     private void updateSpawnChildren() {
-        if (levelManager.getObjectManager() != null) {
-            spawnChildObjects();
+        // ROM: Two-phase descent sequence.
+        // Phase 1 (CaseStart): Spawn children, set y_vel, timer=$5A, fade music.
+        // Phase 2 (CaseWaitDown): Wait $5A frames with NO movement. Then advance to DESCEND.
+        if (!childrenSpawned) {
+            // First call: spawn children and set up wait
+            if (levelManager.getObjectManager() != null) {
+                spawnChildObjects();
+            }
+            state.yVel = DESCENT_SPEED;
+            state.xVel = 0;
+            actionTimer = DESCEND_TIMER; // $5A
+            AudioManager.getInstance().fadeOutMusic();
+            childrenSpawned = true;
+            return; // Stay in SPAWN_CHILDREN, wait phase starts next frame
         }
 
-        // Set descent velocity and timer
-        state.yVel = DESCENT_SPEED;
-        state.xVel = 0;
-        actionTimer = DESCEND_TIMER;
-
-        // Fade music
-        AudioManager.getInstance().fadeOutMusic();
-
-        state.routine = ROUTINE_DESCEND;
+        // ROM: ObjC5_CaseWaitDown - subq.w #1,objoff_2A(a0) / bmi.s
+        // No movement during this phase (DisplaySprite only in ROM)
+        actionTimer--;
+        if (actionTimer < 0) {
+            // ROM: ObjC5_CaseSpeedDown - advance to descent with movement
+            state.routine = ROUTINE_DESCEND;
+            actionTimer = MUSIC_DELAY_TIMER; // $60
+            AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+        }
     }
 
     private void spawnChildObjects() {
@@ -270,12 +303,13 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     // ========================================================================
 
     private void updateDescend() {
+        // ROM: ObjC5_CaseDown - subq.w #1,objoff_2A(a0) / beq.s ObjC5_CaseStopDown
+        // ObjectMove is called (velocity applied by outer loop for this routine).
+        // Timer counts $60 frames of movement.
         actionTimer--;
-        if (actionTimer <= 0) {
+        if (actionTimer == 0) {
+            // ROM: ObjC5_CaseStopDown - clr.w y_vel(a0)
             state.yVel = 0;
-            actionTimer = MUSIC_DELAY_TIMER;
-            // Play boss music
-            AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
             state.routine = ROUTINE_SET_DIRECTION;
         }
     }
@@ -313,10 +347,13 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         bounceAtBounds();
 
         actionTimer--;
-        if (actionTimer <= 0) {
+        if (actionTimer < 0) {
+            // ROM: ObjC5_CaseOpeningAnim - clr.b anim(a0)
             // Start open animation
             state.xVel = 0;
             openAnimFrame = 0;
+            animSpeedCounter = OPEN_ANIM_SPEED; // ROM: animation speed counter
+            currentFrame = OPEN_ANIM_FRAMES[0]; // Frame 0 (closed)
             state.routine = ROUTINE_OPEN_ANIM;
         }
     }
@@ -335,19 +372,41 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
     }
 
+    /**
+     * ROM: ObjC5_CaseBoundaryLaserChk - STOP at bounds (clr.w x_vel).
+     * Unlike bounceAtBounds which negates velocity, this clears it.
+     */
+    private void stopAtBounds() {
+        if (state.xVel >= 0 && state.x >= rightBound) {
+            state.x = rightBound;
+            state.xFixed = state.x << 16;
+            state.xVel = 0;
+        } else if (state.xVel < 0 && state.x <= leftBound) {
+            state.x = leftBound;
+            state.xFixed = state.x << 16;
+            state.xVel = 0;
+        }
+    }
+
     // ========================================================================
     // Routine $0C: Open animation
     // ========================================================================
 
     private void updateOpenAnim() {
-        openAnimFrame++;
-        if (openAnimFrame <= 3) {
-            currentFrame = openAnimFrame; // Frames 1, 2, 3 (opening stages)
-        }
-        if (openAnimFrame >= 4) {
-            currentFrame = FRAME_CASE_OPEN_3;
-            state.routine = ROUTINE_SIGNAL_SHOOTER;
-            actionTimer = SHOOTER_LOWER_TIMER;
+        // ROM: Ani_objC5 anim 0: speed=5, frames {0,1,2,3,3,3,3}, then $FA loop.
+        // AnimateSprite counts down speed counter; on 0 advances to next entry.
+        // Speed=5 means 6 game frames per animation frame (counter: 5,4,3,2,1,0 then advance).
+        animSpeedCounter--;
+        if (animSpeedCounter < 0) {
+            animSpeedCounter = OPEN_ANIM_SPEED;
+            openAnimFrame++;
+            if (openAnimFrame >= OPEN_ANIM_FRAMES.length) {
+                // Animation complete, advance to signal shooter
+                currentFrame = FRAME_CASE_OPEN_3;
+                state.routine = ROUTINE_SIGNAL_SHOOTER;
+                return;
+            }
+            currentFrame = OPEN_ANIM_FRAMES[openAnimFrame];
         }
     }
 
@@ -366,14 +425,18 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     // ========================================================================
 
     private void updateLowerShooter() {
-        if (laserShooter != null) {
-            laserShooter.moveDown();
-        }
+        // ROM: ObjC5_CaseLSDown - subq first, beq check, then move.
+        // Timer=$0E. subq+beq = 13 frames of movement (14->13...1->0 triggers beq).
         actionTimer--;
-        if (actionTimer <= 0) {
+        if (actionTimer == 0) {
+            // ROM: ObjC5_CaseAddCollision
             state.routine = ROUTINE_ENABLE_COLLISION;
             actionTimer = COLLISION_WAIT_TIMER;
             collisionActive = true;
+            return;
+        }
+        if (laserShooter != null) {
+            laserShooter.moveDown();
         }
     }
 
@@ -382,8 +445,9 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     // ========================================================================
 
     private void updateEnableCollision() {
+        // ROM: ObjC5_CaseWaitLoadLaser - subq.w #1,objoff_2A / bmi
         actionTimer--;
-        if (actionTimer <= 0) {
+        if (actionTimer < 0) {
             state.routine = ROUTINE_SPAWN_LASER;
         }
     }
@@ -392,18 +456,39 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     // Routine $14: Spawn laser
     // ========================================================================
 
-    private void updateSpawnLaser() {
-        // Spawn laser child
+    private void updateSpawnLaser(AbstractPlayableSprite player) {
+        // ROM: ObjC5_CaseLoadLaser spawns laser then advances routine.
+        // ObjC5_CaseWaitMove ($14) then waits for laser to signal.
+        // We combine both in this routine.
         if (levelManager.getObjectManager() != null && laser == null) {
             laser = new WFZLaser(this);
             childComponents.add(laser);
             levelManager.getObjectManager().addDynamicObject(laser);
+            laserSignaled = false;
+            return; // Wait for laser signal starting next frame
         }
 
-        // Set bounce velocity toward player (using slower laser bounce speed)
-        state.xVel = facingLeft ? -LASER_BOUNCE_SPEED : LASER_BOUNCE_SPEED;
-        actionTimer = LASER_BOUNCE_TIMER;
+        // ROM: ObjC5_CaseWaitMove - waits for laser to set status bit
+        // btst #status.npc.misc,status(a1) / bne.s ObjC5_CaseLaserSpeed
+        if (!laserSignaled) {
+            return; // Keep waiting
+        }
+
+        // ROM: ObjC5_CaseLaserSpeed - set velocity and timer
         state.routine = ROUTINE_BOUNCE_WITH_LASER;
+        actionTimer = LASER_BOUNCE_TIMER; // $80
+        if (player != null) {
+            if (player.getCentreX() < state.x) {
+                state.xVel = -LASER_BOUNCE_SPEED;
+            } else {
+                state.xVel = LASER_BOUNCE_SPEED;
+            }
+        }
+    }
+
+    /** Called by laser child when fully extended. */
+    void signalLaserExtended() {
+        laserSignaled = true;
     }
 
     // ========================================================================
@@ -411,15 +496,12 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     // ========================================================================
 
     private void updateBounceWithLaser() {
-        bounceAtBounds();
-
-        // Check if laser is fully extended (signals parent)
-        if (laser != null && laser.isFullyExtended()) {
-            // Laser is active, continue bouncing
-        }
+        // ROM: ObjC5_CaseBoundaryLaserChk - STOP at boundary, don't bounce.
+        // Unlike $0A which negates velocity, $16 uses clr.w x_vel(a0).
+        stopAtBounds();
 
         actionTimer--;
-        if (actionTimer <= 0) {
+        if (actionTimer < 0) {
             state.routine = ROUTINE_RETRACT_SHOOTER;
             actionTimer = SHOOTER_LOWER_TIMER;
             state.xVel = 0;
@@ -431,22 +513,27 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     // ========================================================================
 
     private void updateRetractShooter() {
-        if (laserShooter != null) {
-            laserShooter.moveUp();
-        }
-
-        // Delete laser
+        // ROM: ObjC5_CaseStopLaserDelete runs first:
+        // Deletes laser, clears collision, sets timer=$0E for shooter retract.
+        // Then ObjC5_CaseLSUp: subq+beq with moveUp each frame.
         if (laser != null) {
             laser.setDestroyed(true);
             laser = null;
         }
-
         collisionActive = false;
 
+        // ROM: ObjC5_CaseLSUp - subq.w #1,objoff_2A / beq -> closing
         actionTimer--;
-        if (actionTimer <= 0) {
+        if (actionTimer == 0) {
+            // ROM: ObjC5_CaseClosingAnim - move.b #1,anim(a0)
             state.routine = ROUTINE_CLOSE_ANIM;
-            openAnimFrame = 3;
+            openAnimFrame = 0; // Start at beginning of close sequence
+            animSpeedCounter = CLOSE_ANIM_SPEED; // ROM: animation speed counter
+            currentFrame = CLOSE_ANIM_FRAMES[0]; // Frame 3 (fully open)
+            return;
+        }
+        if (laserShooter != null) {
+            laserShooter.moveUp();
         }
     }
 
@@ -455,13 +542,19 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     // ========================================================================
 
     private void updateCloseAnim() {
-        openAnimFrame--;
-        if (openAnimFrame >= 0) {
-            currentFrame = openAnimFrame;
-        }
-        if (openAnimFrame <= 0) {
-            currentFrame = FRAME_CASE_CLOSED;
-            state.routine = ROUTINE_LOOP;
+        // ROM: Ani_objC5 anim 1: speed=3, frames {3,2,1,0,0}, then $FA loop.
+        // Speed=3 means 4 game frames per animation frame.
+        animSpeedCounter--;
+        if (animSpeedCounter < 0) {
+            animSpeedCounter = CLOSE_ANIM_SPEED;
+            openAnimFrame++;
+            if (openAnimFrame >= CLOSE_ANIM_FRAMES.length) {
+                // Animation complete, loop back
+                currentFrame = FRAME_CASE_CLOSED;
+                state.routine = ROUTINE_LOOP;
+                return;
+            }
+            currentFrame = CLOSE_ANIM_FRAMES[openAnimFrame];
         }
     }
 
@@ -478,16 +571,15 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     // ========================================================================
 
     private void updateDefeat(int frameCounter) {
+        // ROM: ObjC5_CaseDefeated - subq.w #1,objoff_30(a0) / bmi.s ObjC5_End
         defeatTimer--;
 
         if (defeatTimer < 0) {
-            // ROM: Play WFZ music, camera max Y=$720, delete
+            // ROM: ObjC5_End - play WFZ music, camera max Y=$720, delete.
+            // Issue 16: ROM does NOT advance Dynamic_Resize_Routine here.
             AudioManager.getInstance().playMusic(Sonic2Music.WING_FORTRESS.id);
             Camera camera = Camera.getInstance();
             camera.setMaxY((short) CAMERA_MAX_Y_DEFEAT);
-            // Advance event routine
-            Sonic2LevelEventManager eventManager = Sonic2LevelEventManager.getInstance();
-            eventManager.setEventRoutine(eventManager.getEventRoutine() + 2);
             GameServices.gameState().setCurrentBossId(0);
             setDestroyed(true);
             return;
@@ -647,7 +739,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
      * Width $13, Y radius $40, height $80.
      * On defeat: flash then fade-delete in 4 cycles.
      */
-    static class WFZLaserWall extends AbstractBossChild {
+    static class WFZLaserWall extends AbstractBossChild implements SolidObjectProvider {
         private boolean defeatSignaled;
         private int defeatFlashTimer;
         private static final int FLASH_CYCLES = 4;
@@ -706,6 +798,15 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             }
             renderer.drawFrameIndex(FRAME_WALL, currentX, currentY, false, false);
         }
+
+        // ROM: ObjC5_LaserWall calls SolidObject with d1=$13, d2=$40, d3=$80
+        private static final SolidObjectParams WALL_SOLID_PARAMS =
+                new SolidObjectParams(0x13, 0x40, 0x80);
+
+        @Override
+        public SolidObjectParams getSolidParams() {
+            return WALL_SOLID_PARAMS;
+        }
     }
 
     /**
@@ -717,6 +818,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
      */
     static class WFZPlatformReleaser extends AbstractBossChild {
         private static final int PLATFORM_SPAWN_INTERVAL = 0x80;
+        /** ROM: ObjC5_PlatformReleaserStop - move.w #$10,objoff_2A(a0) */
+        private static final int FIRST_SPAWN_TIMER = 0x10;
         private static final int MAX_PLATFORMS = 3;
         private static final int MOVE_DOWN_TIMER = 0x40;
         private static final int MOVE_DOWN_SPEED = 0x40;
@@ -735,13 +838,18 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             this.spawnTimer = 0;
             this.platformCount = 0;
             this.moveDownTimer = 0;
+            // ROM: ObjC5_PlatformReleaserInit - addq.w #8,y_pos(a0)
+            // Issue 14: +8 Y offset from parent position
+            this.currentY += 8;
             this.yFixed = currentY << 16;
         }
 
         void signalStart() {
             if (!started) {
                 started = true;
-                spawnTimer = PLATFORM_SPAWN_INTERVAL;
+                // ROM: ObjC5_PlatformReleaserStop sets first timer=$10 (not $80).
+                // Issue 15: First platform appears much sooner.
+                spawnTimer = FIRST_SPAWN_TIMER;
                 moveDownTimer = MOVE_DOWN_TIMER;
             }
         }
@@ -768,18 +876,25 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             }
 
             if (started) {
-                // Move down phase
+                // ROM: Two sequential phases (not parallel):
+                // Phase $04: Move down for $40 frames with y_vel=$40
+                // Phase $06: Spawn platforms cyclically
                 if (moveDownTimer > 0) {
+                    // Phase $04: ObjC5_PlatformReleaserDown
                     moveDownTimer--;
                     yFixed += (MOVE_DOWN_SPEED << 8);
                     currentY = yFixed >> 16;
-                }
-
-                // Spawn platforms cyclically
-                spawnTimer--;
-                if (spawnTimer <= 0 && platformCount < MAX_PLATFORMS) {
-                    spawnPlatform();
-                    spawnTimer = PLATFORM_SPAWN_INTERVAL;
+                    if (moveDownTimer == 0) {
+                        // ROM: ObjC5_PlatformReleaserStop - clr.w y_vel, timer=$10
+                        spawnTimer = FIRST_SPAWN_TIMER; // $10, not $80
+                    }
+                } else {
+                    // Phase $06: ObjC5_PlatformReleaserLoadWait
+                    spawnTimer--;
+                    if (spawnTimer == 0 && platformCount < MAX_PLATFORMS) {
+                        spawnPlatform();
+                        spawnTimer = PLATFORM_SPAWN_INTERVAL; // $80
+                    }
                 }
             }
 
@@ -833,7 +948,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
      * Spawns PlatformHurt child below it.
      * On defeat: explode, delete hurt child.
      */
-    static class WFZFloatingPlatform extends AbstractBossChild {
+    static class WFZFloatingPlatform extends AbstractBossChild implements SolidObjectProvider {
         private static final int DESCEND_SPEED = 0x100;
         private static final int DESCEND_DURATION = 0x60;
         private static final int HORIZONTAL_SPEED = 0x100;
@@ -848,7 +963,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         private int yVel;
         private int xFixed;
         private int yFixed;
-        private int oscillateDir; // +1 or -1
+        private int baseY; // ROM: objoff_34 - Y reference for spring oscillation
         private WFZPlatformHurt hurtChild;
 
         WFZFloatingPlatform(Sonic2WFZBossInstance parent, int startX, int startY) {
@@ -859,10 +974,10 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             this.yFixed = startY << 16;
             this.phase = 0;
             this.phaseTimer = DESCEND_DURATION;
-            this.reverseTimer = REVERSE_INTERVAL;
+            this.reverseTimer = 0;
             this.xVel = 0;
             this.yVel = DESCEND_SPEED;
-            this.oscillateDir = 1;
+            this.baseY = 0;
 
             // Spawn hurt child
             spawnHurtChild(parent);
@@ -886,33 +1001,49 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
 
             switch (phase) {
                 case 0 -> {
-                    // Descend phase
-                    yFixed += (yVel << 8);
-                    currentY = yFixed >> 16;
+                    // ROM: ObjC5_PlatformDownWait - descend phase with ObjectMove
+                    // subq.w #1,objoff_2A / beq -> PlatformLeft
                     phaseTimer--;
-                    if (phaseTimer <= 0) {
+                    if (phaseTimer == 0) {
+                        // ROM: ObjC5_PlatformLeft
                         phase = 1;
                         xVel = -HORIZONTAL_SPEED;
-                        yVel = 0;
-                        phaseTimer = HORIZONTAL_TIMER;
-                        reverseTimer = REVERSE_INTERVAL;
+                        // ROM: move.w #$60,objoff_2A(a0) - first leftward timer
+                        reverseTimer = HORIZONTAL_TIMER; // $60 (NOT $C0)
+                        // ROM: move.w y_pos(a0),objoff_34(a0) - store base Y for oscillation
+                        baseY = currentY;
+                        // yVel stays from descent (ROM doesn't clear it here, ObjectMove applies it)
                     }
+                    // ROM: ObjC5_PlatformMakeSolid - ObjectMove
+                    xFixed += (xVel << 8);
+                    yFixed += (yVel << 8);
+                    currentX = xFixed >> 16;
+                    currentY = yFixed >> 16;
                 }
                 case 1 -> {
-                    // Horizontal movement with Y oscillation
-                    xFixed += (xVel << 8);
-                    currentX = xFixed >> 16;
-
-                    // Y oscillation
-                    currentY += (Y_OSCILLATION * oscillateDir);
-                    yFixed = currentY << 16;
-
+                    // ROM: ObjC5_PlatformTestChangeDirection
+                    // Check timer and reverse direction
                     reverseTimer--;
-                    if (reverseTimer <= 0) {
+                    if (reverseTimer == 0) {
+                        reverseTimer = REVERSE_INTERVAL; // $C0
                         xVel = -xVel;
-                        oscillateDir = -oscillateDir;
-                        reverseTimer = REVERSE_INTERVAL;
                     }
+
+                    // ROM: ObjC5_PlatformTestLeftRight / ObjC5_PlatformChangeY
+                    // Spring-like Y oscillation: add +-4 to Y VELOCITY (not position)
+                    // ROM: moveq #4,d0 / cmp.w objoff_34,y_pos / blo -> add / neg d0
+                    // ROM: add.w d0,y_vel(a0)
+                    int yAccel = Y_OSCILLATION;
+                    if (currentY >= baseY) {
+                        yAccel = -yAccel;
+                    }
+                    yVel += yAccel;
+
+                    // ROM: ObjC5_PlatformMakeSolid - ObjectMove
+                    xFixed += (xVel << 8);
+                    yFixed += (yVel << 8);
+                    currentX = xFixed >> 16;
+                    currentY = yFixed >> 16;
                 }
             }
 
@@ -957,6 +1088,21 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
                 return;
             }
             renderer.drawFrameIndex(FRAME_PLATFORM, currentX, currentY, false, false);
+        }
+
+        // ROM: ObjC5_PlatformMakeSolid - PlatformObject with d1=$10, d2=8, d3=8
+        // PlatformObject = top-solid only platform
+        private static final SolidObjectParams PLATFORM_SOLID_PARAMS =
+                new SolidObjectParams(0x10, 8, 8);
+
+        @Override
+        public SolidObjectParams getSolidParams() {
+            return PLATFORM_SOLID_PARAMS;
+        }
+
+        @Override
+        public boolean isTopSolidOnly() {
+            return true; // ROM: PlatformObject = top-solid only
         }
     }
 
@@ -1076,38 +1222,50 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
 
     /**
      * Laser child (subtype $9E, routine $0E).
-     * mapping_frame=$0D, extends downward in 5 stages.
-     * Stage data: {frame $0E,col $86}, {$0F,$AB}, {$10,$AC}, {$11,$AD}, {$12,$AE}
-     * Flickers via toggle each frame.
+     * ROM sub-state machine:
+     *   $00 (Init): mapping=$0D, y+=$10, anim_frame=$C, y-=3. Advance.
+     *   $02 (Flash): Flicker countdown. 12 frames flickering (anim_frame_duration counts
+     *        from $C down with nested loops). On complete advance.
+     *   $04 (WaitShoot): Timer=$40, countdown. On expire advance.
+     *   $06 (Shoot): 5 stages, each adds $10 to y_pos, sets mapping+collision.
+     *        On complete: signal parent, advance.
+     *   $08 (Move): Follow parent X while laser is active.
+     *
+     * Flicker via bchg #0,objoff_2F toggles visibility each frame.
      * Signals parent when fully extended.
      */
     static class WFZLaser extends AbstractBossChild {
-        private static final int[][] LASER_STAGES = {
-                {0x0E, 0x86},
-                {0x0F, 0xAB},
-                {0x10, 0xAC},
-                {0x11, 0xAD},
-                {0x12, 0xAE}
-        };
-        private static final int STAGE_FRAME_DURATION = 4; // Frames per stage
+        private static final int[] LASER_MAPPING_FRAMES = {0x0E, 0x0F, 0x10, 0x11, 0x12};
+        private static final int[] LASER_COLLISION_FLAGS = {0x86, 0xAB, 0xAC, 0xAD, 0xAE};
+        /** ROM: ObjC5_LaseNext - move.w #$40,objoff_2A(a0) */
+        private static final int CHARGE_WAIT_TIMER = 0x40;
+        /** ROM: ObjC5_LaserInit - move.b #$C,anim_frame(a0) = 12 flicker frames */
+        private static final int FLICKER_FRAMES = 12;
 
-        private int currentStage;
-        private int stageTimer;
+        // Sub-states matching ROM routine_secondary values
+        private static final int STATE_INIT = 0;
+        private static final int STATE_FLASH = 2;
+        private static final int STATE_WAIT_SHOOT = 4;
+        private static final int STATE_SHOOT = 6;
+        private static final int STATE_MOVE = 8;
+
+        private int subState;
         private int currentMappingFrame;
-        private boolean flickerToggle;
-        private boolean fullyExtended;
+        private boolean flickerToggle; // ROM: bchg #0,objoff_2F
+        private int flickerCounter; // Counts down flicker frames
+        private int waitTimer;
+        private int shootStage; // 0-4 for the 5 extension stages
+        private boolean forceHide; // During flash phase, alternates visibility
 
         WFZLaser(Sonic2WFZBossInstance parent) {
-            super(parent, "Laser", 3, Sonic2ObjectIds.WFZ_BOSS);
-            this.currentStage = 0;
-            this.stageTimer = STAGE_FRAME_DURATION;
-            this.currentMappingFrame = FRAME_LASER_BASE;
+            super(parent, "Laser", 4, Sonic2ObjectIds.WFZ_BOSS);
+            this.subState = STATE_INIT;
+            this.currentMappingFrame = FRAME_LASER_BASE; // $0D
             this.flickerToggle = false;
-            this.fullyExtended = false;
-        }
-
-        boolean isFullyExtended() {
-            return fullyExtended;
+            this.flickerCounter = FLICKER_FRAMES;
+            this.waitTimer = 0;
+            this.shootStage = 0;
+            this.forceHide = false;
         }
 
         @Override
@@ -1117,22 +1275,63 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             }
             syncPositionWithParent();
 
-            // Flicker toggle each frame
-            flickerToggle = !flickerToggle;
-
-            // Advance through stages
-            if (!fullyExtended) {
-                stageTimer--;
-                if (stageTimer <= 0) {
-                    currentStage++;
-                    if (currentStage >= LASER_STAGES.length) {
-                        currentStage = LASER_STAGES.length - 1;
-                        fullyExtended = true;
-                    }
-                    stageTimer = STAGE_FRAME_DURATION;
+            switch (subState) {
+                case STATE_INIT -> {
+                    // ROM: ObjC5_LaserInit
+                    // mapping=$0D, priority=4, collision=0, y+=$10, anim_frame=$C, y-=3
+                    // Net y offset: +$10 - 3 = +$0D
+                    currentY += 0x0D;
+                    flickerCounter = FLICKER_FRAMES;
+                    subState = STATE_FLASH;
                 }
-                currentMappingFrame = LASER_STAGES[currentStage][0];
+                case STATE_FLASH -> {
+                    // ROM: ObjC5_LaserFlash - flickering/charging effect
+                    // Uses anim_frame as countdown. Each "tick" decrements anim_frame.
+                    // The nested anim_frame_duration counter creates a flicker pattern.
+                    // Simplified: flicker for FLICKER_FRAMES frames.
+                    flickerCounter--;
+                    forceHide = (flickerCounter & 1) != 0; // Alternate visibility
+                    if (flickerCounter <= 0) {
+                        // ROM: ObjC5_LaseNext
+                        subState = STATE_WAIT_SHOOT;
+                        waitTimer = CHARGE_WAIT_TIMER; // $40
+                        forceHide = false;
+                    }
+                }
+                case STATE_WAIT_SHOOT -> {
+                    // ROM: ObjC5_LaseWaitShoot - subq.w #1,objoff_2A / bmi
+                    waitTimer--;
+                    if (waitTimer < 0) {
+                        // ROM: ObjC5_LaseStartShooting - y+=$10
+                        currentY += 0x10;
+                        subState = STATE_SHOOT;
+                        shootStage = 0;
+                    }
+                }
+                case STATE_SHOOT -> {
+                    // ROM: ObjC5_LaserShoot - advance through 5 extension stages
+                    // Each stage: y+=$10, set mapping_frame and collision_flags
+                    shootStage++;
+                    if (shootStage >= 5) {
+                        // ROM: ObjC5_LaseShotOut - signal parent
+                        subState = STATE_MOVE;
+                        Sonic2WFZBossInstance wfzParent = (Sonic2WFZBossInstance) parent;
+                        wfzParent.signalLaserExtended();
+                    } else {
+                        currentY += 0x10;
+                        currentMappingFrame = LASER_MAPPING_FRAMES[shootStage];
+                    }
+                }
+                case STATE_MOVE -> {
+                    // ROM: ObjC5_LaserMove - follow parent X
+                    if (parent != null && !parent.isDestroyed()) {
+                        currentX = parent.getX();
+                    }
+                }
             }
+
+            // ROM: bchg #0,objoff_2F / bne -> skip display (flicker every other frame)
+            flickerToggle = !flickerToggle;
 
             updateDynamicSpawn();
         }
@@ -1142,11 +1341,9 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             if (parent != null && !parent.isDestroyed()) {
                 Sonic2WFZBossInstance wfzParent = (Sonic2WFZBossInstance) parent;
                 this.currentX = parent.getX();
-                // Position below the laser shooter
-                if (wfzParent.laserShooter != null) {
+                // Position below the laser shooter (only on init/flash/wait phases)
+                if (subState <= STATE_WAIT_SHOOT && wfzParent.laserShooter != null) {
                     this.currentY = wfzParent.laserShooter.getCurrentY();
-                } else {
-                    this.currentY = parent.getY();
                 }
             }
         }
@@ -1156,8 +1353,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             if (isDestroyed()) {
                 return;
             }
-            // Flicker: only render every other frame
-            if (flickerToggle) {
+            // ROM: bchg #0,objoff_2F / bne -> don't display
+            if (flickerToggle || forceHide) {
                 return;
             }
             ObjectRenderManager renderManager =
@@ -1184,10 +1381,16 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         private static final int ROBOTNIK_X = 0x2C60;
         private static final int ROBOTNIK_Y = 0x04E6;
         private static final int DEFEAT_MOVE_TIMER = 0xC0;
+        // ROM: Ani_objC5_objC6 anim 1: speed=5, frames {6,7}, $FF loop
+        private static final int ROBOTNIK_ANIM_SPEED = 5;
+        private static final int[] ROBOTNIK_ANIM_FRAMES = {6, 7};
 
         private boolean defeatSignaled;
         private int defeatTimer;
         private WFZRobotnikPlatform robotnikPlatform;
+        private int animFrameIndex; // Index into ROBOTNIK_ANIM_FRAMES
+        private int animSpeedCounter; // Counts down for animation speed
+        private int currentMappingFrame; // Frame to render
 
         WFZRobotnik(Sonic2WFZBossInstance parent) {
             super(parent, "WFZ Robotnik", 4, Sonic2ObjectIds.WFZ_BOSS);
@@ -1195,6 +1398,10 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             this.currentY = ROBOTNIK_Y;
             this.defeatSignaled = false;
             this.defeatTimer = 0;
+            // ROM: move.b #1,anim(a0) - anim 1 from init
+            this.animFrameIndex = 0;
+            this.animSpeedCounter = ROBOTNIK_ANIM_SPEED;
+            this.currentMappingFrame = ROBOTNIK_ANIM_FRAMES[0];
 
             // Spawn Robotnik platform child
             spawnPlatformChild(parent);
@@ -1222,15 +1429,28 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             }
 
             if (defeatSignaled) {
+                // ROM: ObjC5_RobotnikDown - subq.w #1,objoff_2A / bmi -> delete
+                // Timer=$C0. subq+bmi = 192 frames of movement (timer values 191..0),
+                // then at -1 deletes. Issue 13: use < 0 pattern.
                 defeatTimer--;
-                if (defeatTimer > 0) {
-                    // Move down 1px/frame
-                    currentY++;
-                } else {
+                if (defeatTimer < 0) {
+                    // ROM: ObjC5_RobotnikDelete
                     setDestroyed(true);
                     if (robotnikPlatform != null) {
                         robotnikPlatform.setDestroyed(true);
                     }
+                } else {
+                    // Move down 1px/frame
+                    currentY++;
+                }
+            } else {
+                // ROM: ObjC5_RobotnikAnimate - Ani_objC5_objC6 anim 1
+                // Issue 12: Animate Robotnik (speed=5, frames 6,7 looping)
+                animSpeedCounter--;
+                if (animSpeedCounter < 0) {
+                    animSpeedCounter = ROBOTNIK_ANIM_SPEED;
+                    animFrameIndex = (animFrameIndex + 1) % ROBOTNIK_ANIM_FRAMES.length;
+                    currentMappingFrame = ROBOTNIK_ANIM_FRAMES[animFrameIndex];
                 }
             }
 
@@ -1262,7 +1482,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             if (renderer == null || !renderer.isReady()) {
                 return;
             }
-            renderer.drawFrameIndex(0, currentX, currentY, false, false);
+            // ROM: Ani_objC5_objC6 anim 1: frames 6,7 at speed 5
+            renderer.drawFrameIndex(currentMappingFrame, currentX, currentY, false, false);
         }
     }
 
