@@ -288,9 +288,22 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
                 AudioManager.getInstance().playMusic(Sonic2Music.EXTRA_LIFE.id);
                 GameServices.gameState().addLife();
             }
-            default -> {
-                // TODO: implement remaining monitor effects.
+            case EGGMAN, STATIC -> {
+                // ROM: robotnik_monitor (s2.asm:25656-25658)
+                // Both Static (subtype 0) and Eggman (subtype 3) call Touch_ChkHurt2.
+                // Hurts the player as if touching a badnik.
+                player.setHurt(true);
             }
+            case TELEPORT -> {
+                // ROM: teleport_monitor (s2.asm:25825-25845)
+                // Swaps player positions in 2P mode. No-op in 1P mode.
+                // 2P mode is not yet implemented.
+            }
+            case RANDOM -> {
+                // ROM: qmark_monitor (s2.asm:26018-26020)
+                // addq.w #1,(a2) / rts — no gameplay effect.
+            }
+            default -> {}
         }
     }
 

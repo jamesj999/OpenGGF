@@ -10,6 +10,7 @@ import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
+import com.openggf.level.WaterSystem;
 import com.openggf.level.bumpers.CNZBumperDataLoader;
 import com.openggf.level.bumpers.CNZBumperManager;
 import com.openggf.level.bumpers.CNZBumperSpawn;
@@ -300,9 +301,7 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public int getWaterLevel(int zoneIndex, int actIndex) {
-        // TODO: Implement actual water levels from ROM data
-        // For now, return MAX_VALUE (no water effect)
-        return Integer.MAX_VALUE;
+        return WaterSystem.getInstance().getWaterLevelY(zoneIndex, actIndex);
     }
 
     @Override

@@ -18,7 +18,7 @@ public class SolidTile {
 		this.heights = heights;
 		this.widths = widths;
 
-		// TODO add angle recalculations
+		// Angle transforms (H-flip, V-flip) handled in getAngle(boolean, boolean).
 		this.angle = angle;
 
 	}

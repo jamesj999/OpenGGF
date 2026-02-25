@@ -1821,7 +1821,7 @@ public class Ym2612Chip {
         }
     }
 
-    // TODO: DAC sample transitions can produce audible clicks (no crossfade).
+    // DAC sample transitions produce audible clicks (no crossfade).
     // The original hardware exhibits the same behavior, so this is accurate.
     public void playDac(int note) {
         if (dacData == null)
