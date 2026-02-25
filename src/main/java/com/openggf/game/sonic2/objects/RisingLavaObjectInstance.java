@@ -34,8 +34,8 @@ import static org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN;
  *   <tr><th>Subtype</th><th>Width</th><th>Height D2/D3</th><th>Behavior</th></tr>
  *   <tr><td>0</td><td>0xC0 (192)</td><td>0x80/0x81</td><td>Regular solid</td></tr>
  *   <tr><td>2</td><td>0xC0 (192)</td><td>0x80/0x81</td><td>Regular solid</td></tr>
- *   <tr><td>4</td><td>0xC0 (192)</td><td>0x78/0x79</td><td>Lower height solid</td></tr>
- *   <tr><td>6</td><td>0xE0 (224)</td><td>0x78/0x79</td><td>Hurts players standing on it</td></tr>
+ *   <tr><td>4</td><td>0xC0 (192)</td><td>0x78/0x79</td><td>Hurts players standing on it (jsrto falls through)</td></tr>
+ *   <tr><td>6</td><td>0xE0 (224)</td><td>0x78/0x79</td><td>Hurts players standing on it (explicit bra.s)</td></tr>
  *   <tr><td>8</td><td>0xC0 (192)</td><td>0x2E</td><td>Sloped solid</td></tr>
  * </table>
  *
@@ -337,15 +337,15 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
-        // For subtype 6, hurt players that land on top
-        if (subtype == 6 && contact.standing()) {
+        // ROM: Subtypes 4 and 6 fall through to Obj30_HurtSupportedPlayers (s2.asm:49151).
+        // Subtype 4 uses jsrto (JSR) for DropOnFloor at line 49149, so execution returns
+        // and falls directly into the hurt routine. Subtype 6 has an explicit bra.s to it.
+        // Subtypes 0/2/8 use jmpto (JMP = tail call) so they never reach the hurt code.
+        if ((subtype == 4 || subtype == 6) && contact.standing()) {
             if (!player.getInvulnerable()) {
                 applyHurt(player);
             }
         }
-
-        // ROM: JmpTo_DropOnFloor is called for all subtypes after solid collision.
-        // Terrain check is handled by SolidContacts via dropOnFloor() opt-in below.
     }
 
     @Override
