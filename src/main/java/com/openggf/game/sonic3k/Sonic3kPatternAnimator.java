@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k;
 import com.openggf.camera.Camera;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
@@ -103,7 +104,10 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
      * (tracked by AizPlaneIntroInstance.isMainLevelPhaseActive()).
      */
     private void updateAiz1() {
-        // TODO: check boss flag when boss system is implemented
+        // ROM: tst.b (Boss_flag).w / bne.s locret_27848 (sonic3k.asm:53939)
+        if (isAizBossActive()) {
+            return;
+        }
         if (isSkipIntro || AizPlaneIntroInstance.isMainLevelPhaseActive()) {
             runAllScripts();
         }
@@ -115,7 +119,10 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
      * - Camera X < 0x1C0: run only script #0 (fire), show FirstTree art at tile 0xCA
      */
     private void updateAiz2() {
-        // TODO: check boss flag when boss system is implemented
+        // ROM: tst.b (Boss_flag).w / bne.s locret_2787E (sonic3k.asm:53949)
+        if (isAizBossActive()) {
+            return;
+        }
         int cameraX = 0;
         try {
             cameraX = Camera.getInstance().getX();
@@ -142,6 +149,24 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         for (ScriptState script : scripts) {
             script.tick(level, graphicsManager);
         }
+    }
+
+    /**
+     * Check if the AIZ boss fight is active.
+     * ROM: tst.b (Boss_flag).w / bne.s locret_27848
+     */
+    private boolean isAizBossActive() {
+        try {
+            Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+            if (lem != null) {
+                Sonic3kAIZEvents aizEvents = lem.getAizEvents();
+                if (aizEvents != null) {
+                    return aizEvents.isBossFlag();
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
     }
 
     // ===== AniPLC address resolution =====

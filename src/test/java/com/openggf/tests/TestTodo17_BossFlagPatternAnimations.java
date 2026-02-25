@@ -62,8 +62,7 @@ public class TestTodo17_BossFlagPatternAnimations {
         assertEquals("AIZ2 camera X threshold for animation branching", 0x1C0, cameraThreshold);
     }
 
-    @Ignore("TODO #17 -- Sonic3kPatternAnimator not yet implemented. " +
-            "See docs/skdisasm/sonic3k.asm:53938-53944 for AIZ1 boss gate.")
+    @Ignore("TODO #17 -- Boss flag gating implemented but integration test requires S3K level + boss spawn")
     @Test
     public void testAiz1AnimationSuppressedDuringBoss() {
         // When Boss_flag is nonzero, AnimateTiles_AIZ1 returns immediately
@@ -72,8 +71,7 @@ public class TestTodo17_BossFlagPatternAnimations {
         fail("Sonic3kPatternAnimator boss gating not yet implemented");
     }
 
-    @Ignore("TODO #17 -- Sonic3kPatternAnimator not yet implemented. " +
-            "See docs/skdisasm/sonic3k.asm:53948-53950 for AIZ2 boss gate.")
+    @Ignore("TODO #17 -- Boss flag gating implemented but integration test requires S3K level + boss spawn")
     @Test
     public void testAiz2AnimationSuppressedDuringBoss() {
         // When Boss_flag is nonzero, AnimateTiles_AIZ2 returns immediately
@@ -81,8 +79,7 @@ public class TestTodo17_BossFlagPatternAnimations {
         fail("Sonic3kPatternAnimator boss gating not yet implemented");
     }
 
-    @Ignore("TODO #17 -- Sonic3kPatternAnimator not yet implemented. " +
-            "See docs/skdisasm/sonic3k.asm:53938 for AnimateTiles function table.")
+    @Ignore("TODO #17 -- Boss flag gating implemented but integration test requires S3K level + boss spawn")
     @Test
     public void testNonAizZonesAnimateRegardlessOfBossFlag() {
         // AnimateTiles functions for non-AIZ zones do NOT check Boss_flag.
