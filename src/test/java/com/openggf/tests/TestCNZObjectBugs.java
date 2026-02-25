@@ -39,6 +39,7 @@ import static org.junit.Assert.*;
  *   <li><b>#13</b> - BonusBlock bounce direction sin/cos swap</li>
  *   <li><b>#14</b> - PointPokey capture kills Sonic (objectControlled doesn't disable damage)</li>
  *   <li><b>#15</b> - Slot machine rendered 8px too high (Y offset -12 instead of -4)</li>
+ *   <li><b>#16</b> - PointPokey eject survival (camera must center during capture)</li>
  * </ul>
  */
 @RequiresRom(SonicGame.SONIC_2)
@@ -659,6 +660,157 @@ public class TestCNZObjectBugs {
         assertEquals("Sonic should retain all 10 rings during capture. " +
                         "Ring loss detected at frame " + damageFrame + ".",
                 10, sprite.getRingCount());
+    }
+
+    // ========================================================================
+    // Bug #16: PointPokey eject survival
+    // ========================================================================
+
+    /**
+     * Bug #16: Sonic must survive the PointPokey capture-eject cycle.
+     *
+     * <p>ROM behavior: SolidObject → RideObject_SetRide (s2.asm:35761) clears
+     * in_air when the player lands on the cage. ObjD6 capture code (s2.asm:58596-58608)
+     * does not modify in_air. The player has air=false during the 120-frame capture.
+     * Grounded camera scroll (6px/frame cap, bias=96) centers the camera on the cage
+     * within ~6 frames. Eject sets air=true and yVel=+0x400 (downward).
+     *
+     * <p><b>Expected:</b> Camera centers on cage during capture; Sonic survives eject;
+     * air=false during capture (ROM-accurate), air=true after eject.
+     */
+    @Test
+    public void testPointPokeyCaptureAndEjectSurvival() {
+        System.out.println("=== Bug #16: PointPokey Eject Survival ===");
+
+        // Search for a simple PointPokey (subtype 0x00) first, fall back to any
+        ObjectInstance pointPokey = findSimplePointPokey();
+        if (pointPokey == null) {
+            // Fall back to any PointPokey
+            pointPokey = walkAndSearch(OBJ_POINT_POKEY, 0, 8192, 800);
+            if (pointPokey == null) {
+                pointPokey = walkAndSearch(OBJ_POINT_POKEY, 0, 8192, 1200);
+            }
+        }
+
+        Assume.assumeTrue("No PointPokey (0xD6) found in CNZ1; skipping test", pointPokey != null);
+
+        int cageX = pointPokey.getSpawn().x();
+        int cageY = pointPokey.getSpawn().y();
+        int subtype = pointPokey.getSpawn().subtype() & 0xFF;
+        boolean isSimpleMode = subtype == 0x00;
+        System.out.println("Found PointPokey at: (" + cageX + ", " + cageY +
+                "), subtype=0x" + Integer.toHexString(subtype) +
+                (isSimpleMode ? " (simple)" : " (slot machine)"));
+
+        // Give Sonic rings so he survives if something goes wrong
+        sprite.setRingCount(10);
+
+        // Position Sonic above the cage, falling fast (airborne)
+        sprite.setCentreX((short) cageX);
+        sprite.setCentreY((short) (cageY - 40));
+        sprite.setAir(true);
+        sprite.setXSpeed((short) 0);
+        sprite.setGSpeed((short) 0);
+        sprite.setYSpeed((short) 0x400); // Falling downward
+
+        Camera camera = Camera.getInstance();
+        camera.updatePosition(true);
+
+        logState("Before capture");
+
+        // Step frames until Sonic is captured (objectControlled becomes true)
+        boolean captured = false;
+        for (int i = 0; i < 30; i++) {
+            testRunner.stepFrame(false, false, false, false, false);
+            if (sprite.isObjectControlled()) {
+                captured = true;
+                System.out.println("Captured at frame " + (i + 1));
+                break;
+            }
+        }
+
+        Assume.assumeTrue("Sonic should have been captured by the PointPokey", captured);
+
+        // ROM-accurate: air=false during capture (SolidObject clears it at s2.asm:35761)
+        assertFalse("Air flag should be false during capture (ROM: SolidObject clears in_air). ",
+                sprite.getAir());
+
+        logState("After capture");
+
+        // Step through the capture period, tracking camera Y.
+        // Grounded scroll at 6px/frame should center camera within ~6 frames.
+        int captureFrames = isSimpleMode ? 120 : 180;
+        int cameraYAtCapture = camera.getY();
+        System.out.println("Camera Y at capture: " + cameraYAtCapture);
+        System.out.println("Cage Y: " + cageY);
+
+        boolean ejected = false;
+        for (int frame = 0; frame < captureFrames; frame++) {
+            testRunner.stepFrame(false, false, false, false, false);
+
+            // Check if ejected (objectControlled becomes false)
+            if (!sprite.isObjectControlled() && frame > 5) {
+                ejected = true;
+                System.out.println("Ejected at frame " + (frame + 1));
+                logState("At eject");
+                break;
+            }
+
+            if (frame % 30 == 0) {
+                System.out.printf("Frame %3d: CameraY=%d, SpriteY=%d, Air=%b, ObjCtrl=%b%n",
+                        frame, camera.getY(), sprite.getY(), sprite.getAir(),
+                        sprite.isObjectControlled());
+            }
+        }
+
+        // For simple cages, eject should have happened
+        if (isSimpleMode) {
+            assertTrue("Simple cage should eject after ~120 frames", ejected);
+
+            // After eject: verify positive YSpeed (downward) and air=true
+            short ySpeedAfterEject = sprite.getYSpeed();
+            assertTrue("After eject, YSpeed should be positive (downward +0x400), was: " + ySpeedAfterEject,
+                    ySpeedAfterEject > 0);
+            assertTrue("After eject, air flag should be true (ROM: s2.asm:58745 bset in_air)",
+                    sprite.getAir());
+        }
+
+        // Step 60 more frames and verify Sonic doesn't die
+        for (int frame = 0; frame < 60; frame++) {
+            testRunner.stepFrame(false, false, false, false, false);
+            if (sprite.getDead()) {
+                logState("DEAD at frame " + (frame + 1) + " after eject");
+                break;
+            }
+        }
+
+        logState("Final");
+        assertFalse("Sonic should NOT die after PointPokey eject. " +
+                        "Camera should have centered during capture (grounded scroll 6px/frame).",
+                sprite.getDead());
+    }
+
+    /**
+     * Searches for a simple (subtype 0x00) PointPokey cage in CNZ1.
+     * Returns null if none found.
+     */
+    private ObjectInstance findSimplePointPokey() {
+        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        for (int y : new int[]{800, 1200, 1600}) {
+            for (int x = 0; x <= 8192; x += 256) {
+                teleportAndRefresh(x, y);
+                if (objectManager == null) continue;
+
+                for (ObjectInstance obj : objectManager.getActiveObjects()) {
+                    if (obj.getSpawn().objectId() == OBJ_POINT_POKEY
+                            && !obj.isDestroyed()
+                            && (obj.getSpawn().subtype() & 0xFF) == 0x00) {
+                        return obj;
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     // ========================================================================

@@ -1823,6 +1823,14 @@ public class ObjectManager {
                     continue;
                 }
 
+                // ROM: SolidObject_ChkBounds (s2.asm:35175-35176) — when obj_control bit 7
+                // is set, SolidObject returns "no collision". This prevents captured/spring-locked
+                // players from interacting with other solid objects (avoids crush death, position
+                // shifts, and state corruption while the controlling object manages the player).
+                if (player.isObjectControlled()) {
+                    continue;
+                }
+
                 if (provider instanceof MultiPieceSolidProvider multiPiece) {
                     MultiPieceContactResult result = processMultiPieceCollision(
                             player, multiPiece, instance, frameCounter, provider.usesStickyContactBuffer());

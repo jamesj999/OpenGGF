@@ -37,7 +37,7 @@ import java.util.logging.Logger;
  *   <li>Player capture: position locked to cage center, velocity zeroed, rolling state, obj_control = 0x81</li>
  *   <li>For subtype 0x00: countdown timer, then eject</li>
  *   <li>For subtype 0x01: wait for slot machine, spawn prizes, then eject</li>
- *   <li>Exit: player ejected with upward velocity (-0x400)</li>
+ *   <li>Exit: player ejected with downward velocity (+0x400)</li>
  *   <li>Sound effect: SndID_CasinoBonus (0xC0)</li>
  * </ol>
  * <p>
@@ -166,7 +166,9 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
         // wrong height and shifts when setRolling changes it.
         player.setPinballMode(true);
         player.setRolling(true);
-        player.setAir(false);
+
+        // ROM: SolidObject -> RideObject_SetRide (s2.asm:35761) already cleared in_air
+        // before this code runs. ObjD6 capture does not modify in_air. No change needed here.
 
         // ROM: move.b #$81,obj_control(a1) - locks player control
         // Bit 0 (0x01): controlLocked - blocks player input
@@ -230,7 +232,7 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
      * Based on loc_2BB12 - loc_2BB3A in s2.asm.
      */
     private void ejectPlayer(AbstractPlayableSprite player) {
-        // Apply upward velocity
+        // Apply downward velocity (+0x400, positive Y = down)
         player.setYSpeed((short) EXIT_VELOCITY);
 
         // Set player airborne
