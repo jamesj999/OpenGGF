@@ -3,6 +3,7 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -226,6 +227,7 @@ public class MTZSpinTubeObjectInstance extends AbstractObjectInstance {
 
         // ROM: move.b #AniIDSonAni_Roll,anim(a1)
         player.setRolling(true);
+        player.setAnimationId(Sonic2AnimationIds.ROLL);
 
         // ROM: move.w #$800,inertia(a1)
         player.setGSpeed((short) ROLLING_INERTIA);

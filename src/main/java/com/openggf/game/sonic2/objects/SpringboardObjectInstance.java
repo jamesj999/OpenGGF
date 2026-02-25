@@ -24,11 +24,18 @@ import java.util.List;
  * <p>
  * Based on Sonic 2 disassembly s2.asm lines 51757-51971.
  * <p>
- * Launch sequence:
- * 1. Player stands on high side -> animation switches to 1 (compressed)
- * 2. Animation 1 shows frame 1, then cycles to frame 0
- * 3. When anim==1 AND frame==0, player is launched
- * 4. Animation auto-switches back to 0 (idle)
+ * Launch sequence (ROM):
+ * 1. SlopedSolid sets p1_standing_bit on initial contact
+ * 2. loc_2641E checks standing bit + high side -> starts COMPRESSED anim
+ * 3. Standing bit persists via fast-path (X range check only, no side/standing re-eval)
+ * 4. When anim==1 AND mapping_frame==0, player is launched
+ * <p>
+ * Engine implementation:
+ * The ROM uses a standing bit that persists without re-evaluating standing vs side
+ * contact. Our SolidContacts re-resolves contact type each frame, which can produce
+ * SIDE contacts on sloped surfaces near edges. To match ROM behavior, the launch
+ * sequence is driven from update() using the riding state (equivalent to the ROM's
+ * standing bit) rather than relying on onSolidContact() receiving STANDING every frame.
  */
 public class SpringboardObjectInstance extends BoxObjectInstance
         implements SolidObjectProvider, SolidObjectListener, SlopedSolidProvider {
@@ -86,6 +93,21 @@ public class SpringboardObjectInstance extends BoxObjectInstance
     private final ObjectAnimationState animationState;
     private int mappingFrame;
 
+    /**
+     * Tracks whether a launch sequence is in progress for a player.
+     * In the ROM, this is implicit via the p1_standing_bit in the object's status
+     * register, which persists across frames as long as the player stays within
+     * the object's X range and is not airborne. The ROM's fast-path in
+     * SlopedSolid_SingleCharacter only checks X range (not side vs standing),
+     * so the standing bit is never cleared by edge-proximity contact type changes.
+     * <p>
+     * Our SolidContacts re-evaluates contact type each frame, which can produce
+     * SIDE contacts on the sloped surface near edges at high speeds. This flag
+     * allows the launch sequence to continue in update() independently.
+     */
+    private boolean launchSequenceActive;
+    private AbstractPlayableSprite launchPlayer;
+
     public SpringboardObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name, COLLISION_HALF_WIDTH, COLLISION_HEIGHT, 1.0f, 0.85f, 0.1f, false);
 
@@ -99,6 +121,10 @@ public class SpringboardObjectInstance extends BoxObjectInstance
 
     /**
      * Called when player has solid contact with the springboard.
+     * This initiates the launch sequence when the player first stands on the high side.
+     * Once initiated, the sequence is continued by update() using the riding state
+     * (ROM standing bit equivalent), not by subsequent onSolidContact calls.
+     * <p>
      * ROM: loc_2641E is called when p1_standing_bit is set in object's status.
      */
     @Override
@@ -113,27 +139,22 @@ public class SpringboardObjectInstance extends BoxObjectInstance
             return;
         }
 
+        // If launch sequence is already in progress, update() handles continuation
+        if (launchSequenceActive && launchPlayer == player) {
+            return;
+        }
+
         // ROM: loc_2641E - Check if player is on the "high" side
         if (!isPlayerOnHighSide(player)) {
             return;
         }
 
-        // ROM: loc_26446 - Check animation state
-        int currentAnim = animationState.getAnimId();
-
-        if (currentAnim != ANIM_COMPRESSED) {
-            // ROM: move.w #(1<<8)|(0<<0),anim(a0) - set anim to 1, frame to 0
-            // This starts the compress animation
+        // ROM: loc_26446 - Start the compress animation and begin launch sequence
+        if (animationState.getAnimId() != ANIM_COMPRESSED) {
             animationState.setAnimId(ANIM_COMPRESSED);
-            return;
+            launchSequenceActive = true;
+            launchPlayer = player;
         }
-
-        // ROM: loc_26456 - anim is 1, check if mapping_frame is 0
-        if (mappingFrame == 0) {
-            // ROM: loc_2645E - Launch the player!
-            applyLaunch(player);
-        }
-        // If mapping_frame != 0, do nothing (wait for animation to cycle)
     }
 
     /**
@@ -287,6 +308,72 @@ public class SpringboardObjectInstance extends BoxObjectInstance
         // ROM: Obj40_Main calls AnimateSprite before collision check
         animationState.update();
         mappingFrame = animationState.getMappingFrame();
+
+        // ROM: After SlopedSolid_SingleCharacter, loc_2641E runs if standing bit set.
+        // The standing bit persists via the fast-path (X range only) without re-evaluating
+        // standing vs side contact. We use our own launchSequenceActive flag to match this,
+        // driving the launch sequence from update() rather than onSolidContact().
+        if (launchSequenceActive && launchPlayer != null) {
+            processLaunchSequence();
+        }
+    }
+
+    /**
+     * Continues the launch sequence each frame, matching the ROM's loc_2641E behavior.
+     * <p>
+     * In the ROM, this runs every frame the player's standing bit is set on this object.
+     * The standing bit only clears when the player goes airborne or leaves X range.
+     * Our SolidContacts may produce SIDE contacts on the sloped surface, but the ROM
+     * never re-evaluates standing vs side for an already-standing player.
+     */
+    private void processLaunchSequence() {
+        AbstractPlayableSprite lp = launchPlayer;
+
+        // ROM: SlopedSolid_SingleCharacter fast-path checks:
+        // - Player airborne -> clear standing bit
+        // - Player outside X range -> clear standing bit
+        if (lp.getAir() || lp.getSpringing()) {
+            clearLaunchSequence();
+            return;
+        }
+
+        // ROM fast-path X range check (s2.asm:34909-34914):
+        // relX = player.x - object.x + halfWidth
+        // if relX < 0 or relX >= width: clear standing
+        int relX = lp.getCentreX() - spawn.x() + COLLISION_HALF_WIDTH;
+        int width = COLLISION_HALF_WIDTH * 2;
+        if (relX < 0 || relX >= width) {
+            clearLaunchSequence();
+            return;
+        }
+
+        // ROM: loc_2641E - Check if player is still on the "high" side
+        if (!isPlayerOnHighSide(lp)) {
+            // Player moved to low side - clear launch but keep standing
+            clearLaunchSequence();
+            return;
+        }
+
+        // ROM: loc_26446 - Check animation state
+        int currentAnim = animationState.getAnimId();
+        if (currentAnim != ANIM_COMPRESSED) {
+            // Animation switched back (shouldn't normally happen during sequence)
+            animationState.setAnimId(ANIM_COMPRESSED);
+            return;
+        }
+
+        // ROM: loc_26456 - anim is 1, check if mapping_frame is 0
+        if (mappingFrame == 0) {
+            // ROM: loc_2645E - Launch the player!
+            applyLaunch(lp);
+            clearLaunchSequence();
+        }
+        // If mapping_frame != 0, wait for animation to cycle to frame 0
+    }
+
+    private void clearLaunchSequence() {
+        launchSequenceActive = false;
+        launchPlayer = null;
     }
 
     @Override

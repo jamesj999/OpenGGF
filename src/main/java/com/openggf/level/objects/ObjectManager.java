@@ -443,6 +443,14 @@ public class ObjectManager {
         return solidContacts.getRidingObject(player);
     }
 
+    /**
+     * Get the piece index this player is riding on a multi-piece object, or -1.
+     * Used for balance detection at piece edges (e.g., CPZ Staircase).
+     */
+    public int getRidingPieceIndex(AbstractPlayableSprite player) {
+        return solidContacts.getRidingPieceIndex(player);
+    }
+
     public boolean hasStandingContact(AbstractPlayableSprite player) {
         return solidContacts.hasStandingContact(player);
     }
@@ -1467,6 +1475,13 @@ public class ObjectManager {
             if (player == null) return null;
             RidingState state = ridingStates.get(player);
             return state != null ? state.object : null;
+        }
+
+        /** Get the piece index this player is riding, or -1 if not riding a multi-piece object. */
+        int getRidingPieceIndex(AbstractPlayableSprite player) {
+            if (player == null) return -1;
+            RidingState state = ridingStates.get(player);
+            return state != null ? state.pieceIndex : -1;
         }
 
         /** Check if the current player (set during update()) is riding the given object. Used by internal resolve methods. */
