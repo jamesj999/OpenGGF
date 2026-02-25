@@ -16,6 +16,7 @@ import com.openggf.game.sonic2.scroll.Sonic2ScrollHandlerProvider;
 import com.openggf.game.sonic2.titlecard.TitleCardManager;
 import com.openggf.game.sonic2.titlescreen.TitleScreenManager;
 import com.openggf.game.CheckpointState;
+import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelGamestate;
@@ -218,6 +219,9 @@ public class Sonic2GameModule implements GameModule {
     @Override
     public SuperStateController createSuperStateController(
             AbstractPlayableSprite player) {
+        if (CrossGameFeatureProvider.isActive()) {
+            return CrossGameFeatureProvider.getInstance().createSuperStateController(player);
+        }
         return new Sonic2SuperStateController(player);
     }
 
