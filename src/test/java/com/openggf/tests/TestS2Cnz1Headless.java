@@ -1,13 +1,14 @@
 package com.openggf.tests;
 
 import org.junit.Before;
-
-import org.junit.Rule;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.physics.GroundSensor;
@@ -21,93 +22,74 @@ import com.openggf.tests.rules.SonicGame;
 import static org.junit.Assert.*;
 
 /**
- * Headless integration test for CNZ ceiling state exit.
+ * Grouped headless tests for Sonic 2 CNZ Act 1.
  *
- * This test verifies that Sonic properly exits ceiling state when walking off
- * the end of a ceiling in Casino Night Zone Act 1.
+ * Level data is loaded once via {@code @BeforeClass}; sprite, camera, and game
+ * state are reset per test via {@link TestEnvironment#resetPerTest()}.
  *
- * Bug Description:
- * - Location: Casino Night Zone Act 1, starting at position (4198, 1716)
- * - Issue: When Sonic rolls up a wall and enters ceiling state, he should exit
- *   ceiling state when walking off the end of the ceiling. Currently, he stays
- *   in ceiling mode even when standing still on the ground below.
- * - Sequence: Charge vertical launcher spring by holding jump for 130 frames,
- *   release to launch upward at high speed, pass ForcedSpin object around Y ~1220,
- *   roll/run up onto ceiling, triggering ceiling state.
- *
- * Pass/Fail Criteria:
- * - FAIL if Sonic is in ceiling state (GroundMode.CEILING) while Y > 858
- *   (Note: larger Y = lower on screen, so Y > 858 means below the ceiling area)
- * - FAIL if Sonic remains in ceiling state for more than 3 seconds (180 frames)
- * - PASS if Sonic enters ceiling state during the sequence and properly exits it
- *
- * This test is expected to FAIL until the underlying bug is fixed.
+ * Merged from:
+ * <ul>
+ *   <li>TestCNZCeilingStateExit</li>
+ *   <li>TestCNZFlipperLaunch</li>
+ *   <li>TestCNZForcedSpinTunnel</li>
+ * </ul>
  */
 @RequiresRom(SonicGame.SONIC_2)
-public class TestCNZCeilingStateExit {
+public class TestS2Cnz1Headless {
 
-    @Rule public RequiresRomRule romRule = new RequiresRomRule();
+    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
 
-    // Zone constants
-    private static final int ZONE_CNZ = 3;  // Casino Night Zone (level select ID)
+    private static final int ZONE_CNZ = 3;
     private static final int ACT_1 = 0;
+    private static String mainCharCode;
 
-    // Starting position - first spring in the chain
-    // The bug only triggers when chaining two launcher springs:
-    // 1. First spring at (3630, 1827) - diagonal spring (subtype 0x81)
-    // 2. Player goes around a loop
-    // 3. Lands on second spring at (4208, 1776) - vertical spring
-    // 4. Launch from second spring triggers the bug
-    private static final short START_X = 3621;  // Near first diagonal spring
-    private static final short START_Y = 1820;
-
-    // Test parameters
-    private static final int CHARGE_FRAMES = 130;           // Frames to hold jump to charge spring
-    private static final int CEILING_Y_THRESHOLD = 858;     // Impossible Y - if in ceiling at Y < this, bug detected
-    private static final int MAX_CEILING_FRAMES = 180;      // 3 seconds at 60fps - bug threshold
-    private static final int MAX_TEST_FRAMES = 600;         // Total frames to run after launch
+    @BeforeClass
+    public static void loadLevel() throws Exception {
+        GraphicsManager.getInstance().initHeadless();
+        SonicConfigurationService cs = SonicConfigurationService.getInstance();
+        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
+        SpriteManager.getInstance().addSprite(temp);
+        Camera camera = Camera.getInstance();
+        camera.setFocusedSprite(temp);
+        camera.setFrozen(false);
+        LevelManager.getInstance().loadZoneAndAct(ZONE_CNZ, ACT_1);
+        GroundSensor.setLevelManager(LevelManager.getInstance());
+    }
 
     private Sonic sprite;
     private HeadlessTestRunner testRunner;
 
     @Before
-    public void setUp() throws Exception {
-        // Initialize headless graphics (no GL context needed)
-        GraphicsManager.getInstance().initHeadless();
-
-        // Create Sonic sprite at a temporary position (will be moved after level load)
-        SonicConfigurationService configService = SonicConfigurationService.getInstance();
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        sprite = new Sonic(mainCode, (short) 0, (short) 0);  // Temporary position
-
-        // Add sprite to SpriteManager
-        SpriteManager spriteManager = SpriteManager.getInstance();
-        spriteManager.addSprite(sprite);
-
-        // Set camera focus - must be done BEFORE level load
+    public void setUp() {
+        TestEnvironment.resetPerTest();
+        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
+        SpriteManager.getInstance().addSprite(sprite);
         Camera camera = Camera.getInstance();
         camera.setFocusedSprite(sprite);
         camera.setFrozen(false);
-
-        // Load CNZ Act 1 (zone 3, act 0)
-        LevelManager.getInstance().loadZoneAndAct(ZONE_CNZ, ACT_1);
-
-        // Set the sprite to our desired test position (AFTER level load)
-        sprite.setX(START_X);
-        sprite.setY(START_Y);
-
-        // Enable pinball mode (required for spring interaction in CNZ)
-        sprite.setPinballMode(true);
-
-        // Ensure GroundSensor uses the current LevelManager instance
-        GroundSensor.setLevelManager(LevelManager.getInstance());
-
-        // Fix camera position
+        Level level = LevelManager.getInstance().getCurrentLevel();
+        if (level != null) {
+            camera.setMinX((short) level.getMinX());
+            camera.setMaxX((short) level.getMaxX());
+            camera.setMinY((short) level.getMinY());
+            camera.setMaxY((short) level.getMaxY());
+        }
         camera.updatePosition(true);
-
-        // Create the headless test runner
         testRunner = new HeadlessTestRunner(sprite);
     }
+
+    // ========== From TestCNZCeilingStateExit ==========
+
+    // Starting position - first spring in the chain
+    private static final short CEILING_START_X = 3621;
+    private static final short CEILING_START_Y = 1820;
+
+    // Test parameters for ceiling state exit
+    private static final int CHARGE_FRAMES = 130;
+    private static final int CEILING_Y_THRESHOLD = 858;
+    private static final int MAX_CEILING_FRAMES = 180;
+    private static final int MAX_CEILING_TEST_FRAMES = 600;
 
     /**
      * Test that Sonic properly exits ceiling state when walking off a ceiling.
@@ -125,8 +107,14 @@ public class TestCNZCeilingStateExit {
      */
     @Test
     public void testCeilingStateExitsWhenWalkingOffCeiling() throws Exception {
+        // Set start position and enable pinball mode for spring interaction
+        sprite.setX(CEILING_START_X);
+        sprite.setY(CEILING_START_Y);
+        sprite.setPinballMode(true);
+        Camera.getInstance().updatePosition(true);
+
         System.out.println("=== CNZ Ceiling State Exit Test (Two-Spring Chain) ===");
-        System.out.println("Start position: (" + START_X + ", " + START_Y + ")");
+        System.out.println("Start position: (" + CEILING_START_X + ", " + CEILING_START_Y + ")");
         System.out.println("Pinball mode: " + sprite.getPinballMode());
         System.out.println("Initial ground mode: " + sprite.getGroundMode());
         System.out.println();
@@ -154,8 +142,8 @@ public class TestCNZCeilingStateExit {
         }
 
         // Reposition sprite above the first spring
-        sprite.setX(START_X);
-        sprite.setY(START_Y);
+        sprite.setX(CEILING_START_X);
+        sprite.setY(CEILING_START_Y);
         sprite.setAir(true);
         sprite.setYSpeed((short) 0);
         sprite.setPinballMode(true);
@@ -194,13 +182,12 @@ public class TestCNZCeilingStateExit {
 
         boolean reachedSecondSpring = false;
         int secondSpringX = 4208;
-        int maxTravelFrames = 300;  // Max frames to reach second spring
+        int maxTravelFrames = 300;
 
         for (int frame = 0; frame < maxTravelFrames && !reachedSecondSpring; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);  // No input
+            testRunner.stepFrame(false, false, false, false, false);
             totalFrames++;
 
-            // Update camera to follow player - this is needed for object spawning
             camera.updatePosition(false);
 
             short ySpeed = sprite.getYSpeed();
@@ -208,13 +195,11 @@ public class TestCNZCeilingStateExit {
                 springLaunchCount++;
             }
 
-            // Check if we've landed on the second spring (object controlled near X=4208)
             if (sprite.isObjectControlled() && Math.abs(sprite.getX() - secondSpringX) < 50) {
                 reachedSecondSpring = true;
                 System.out.println(">>> Reached second spring at frame " + totalFrames);
             }
 
-            // Print periodically
             if (frame < 20 || (frame + 1) % 20 == 0 || sprite.isObjectControlled()) {
                 System.out.printf("%5d | %5d | %5d | %6d | %10s | %3s | %s%n",
                         totalFrames, sprite.getX(), sprite.getY(), ySpeed,
@@ -227,20 +212,15 @@ public class TestCNZCeilingStateExit {
             System.out.println("Did not land directly on second spring - repositioning player");
             System.out.println("Current position: (" + sprite.getX() + ", " + sprite.getY() + ")");
 
-            // The second spring is at (4208, 1776), standing surface at Y = 1776 - 46 = 1730
-            // Reposition player above the spring to fall onto it
             sprite.setX((short) 4208);
-            sprite.setY((short) 1710);  // Above the spring's standing surface
+            sprite.setY((short) 1710);
             sprite.setAir(true);
             sprite.setYSpeed((short) 0);
-            // Keep pinball mode and rolling state from the first launch
             sprite.setPinballMode(true);
             System.out.println("Repositioned to: (" + sprite.getX() + ", " + sprite.getY() + ") above second spring");
 
-            // Update camera to ensure second spring is spawned
             camera.updatePosition(true);
 
-            // Check if second spring is now active
             System.out.println("Active launcher springs after camera update:");
             for (ObjectInstance obj : objectManager.getActiveObjects()) {
                 if (obj.getSpawn().objectId() == 0x85) {
@@ -249,7 +229,6 @@ public class TestCNZCeilingStateExit {
                 }
             }
 
-            // Run a few frames to land on the spring
             for (int i = 0; i < 30 && !sprite.isObjectControlled(); i++) {
                 testRunner.stepFrame(false, false, false, false, false);
                 camera.updatePosition(false);
@@ -267,7 +246,7 @@ public class TestCNZCeilingStateExit {
         System.out.println("Charging for " + CHARGE_FRAMES + " frames...");
 
         for (int frame = 0; frame < CHARGE_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, false, true);  // Hold jump
+            testRunner.stepFrame(false, false, false, false, true);
             totalFrames++;
         }
         System.out.println("Releasing second spring at frame " + totalFrames);
@@ -282,7 +261,7 @@ public class TestCNZCeilingStateExit {
         System.out.println("Frame | X Pos | Y Pos | YSpeed | GroundMode | Air | Angle | CeilFrames");
         System.out.println("------|-------|-------|--------|------------|-----|-------|----------");
 
-        for (int frame = 0; frame < MAX_TEST_FRAMES; frame++) {
+        for (int frame = 0; frame < MAX_CEILING_TEST_FRAMES; frame++) {
             testRunner.stepFrame(false, false, false, false, false);
             totalFrames++;
 
@@ -369,6 +348,153 @@ public class TestCNZCeilingStateExit {
                         "Sonic should either slow down and drop off, or roll off the end of the ceiling. " +
                         "This is the ceiling state exit bug.",
                 ceilingFrameCount <= MAX_CEILING_FRAMES
+        );
+    }
+
+    // ========== From TestCNZFlipperLaunch ==========
+
+    // Starting position (on top of vertical flipper)
+    private static final short FLIPPER_START_X = 612;
+    private static final short FLIPPER_START_Y = 857;
+
+    // Target Y position - pass if Sonic ever reaches below this
+    private static final int FLIPPER_TARGET_Y = 700;
+
+    // Maximum frames to run before failing
+    private static final int FLIPPER_MAX_FRAMES = 30;
+
+    /**
+     * Test that the CNZ horizontal flipper launches Sonic to the expected height.
+     *
+     * The horizontal flipper (subtype 0x01) auto-launches when Sonic pushes against it.
+     * We walk Sonic into the flipper to trigger the push, then track the minimum Y position.
+     * If Sonic reaches below TARGET_Y (700), the test passes.
+     */
+    @Test
+    public void testFlipperLaunchReachesTargetHeight() throws Exception {
+        sprite.setX(FLIPPER_START_X);
+        sprite.setY(FLIPPER_START_Y);
+        Camera.getInstance().updatePosition(true);
+
+        System.out.println("=== CNZ Horizontal Flipper Launch Test ===");
+        System.out.println("Requested start position: (" + FLIPPER_START_X + ", " + FLIPPER_START_Y + ")");
+        System.out.println("Actual initial position: (" + sprite.getX() + ", " + sprite.getY() + ")");
+        System.out.println("Initial air state: " + sprite.getAir());
+        System.out.println("Initial YSpeed: " + sprite.getYSpeed());
+        System.out.println("Target Y: < " + FLIPPER_TARGET_Y);
+        System.out.println();
+
+        int minY = sprite.getY();
+
+        System.out.println("Frame | X Pos | Y Pos | YSpeed | Air | MinY");
+        System.out.println("------|-------|-------|--------|-----|-----");
+
+        for (int frame = 0; frame < FLIPPER_MAX_FRAMES; frame++) {
+            testRunner.stepFrame(false, false, false, true, false);
+
+            short currentX = sprite.getX();
+            short currentY = sprite.getY();
+            short ySpeed = sprite.getYSpeed();
+            boolean inAir = sprite.getAir();
+
+            if (currentY < minY) {
+                minY = currentY;
+            }
+
+            System.out.printf("%5d | %5d | %5d | %6d | %3s | %4d%n",
+                    frame + 1, currentX, currentY, ySpeed, inAir ? "YES" : "NO", minY);
+
+            if (minY < FLIPPER_TARGET_Y) {
+                System.out.println();
+                System.out.println("SUCCESS: Reached target height at frame " + (frame + 1));
+                break;
+            }
+        }
+
+        System.out.println();
+        System.out.println("Final minimum Y: " + minY);
+        System.out.println("Target was: < " + FLIPPER_TARGET_Y);
+
+        assertTrue(
+                "Flipper should launch Sonic to Y < " + FLIPPER_TARGET_Y +
+                ", but minimum Y reached was " + minY +
+                ". This indicates the flipper launch is not working correctly.",
+                minY < FLIPPER_TARGET_Y
+        );
+    }
+
+    // ========== From TestCNZForcedSpinTunnel ==========
+
+    // Starting position (approaching the forced spin tunnel)
+    private static final short TUNNEL_START_X = 7787;
+    private static final short TUNNEL_START_Y = 921;
+
+    // Target X position - pass if Sonic reaches beyond this (traveled through tunnel)
+    private static final int TUNNEL_TARGET_X = 7915;
+
+    // Maximum frames to run before failing
+    private static final int TUNNEL_MAX_FRAMES = 100;
+
+    /**
+     * Test that Sonic can enter and travel through the forced spin tunnel.
+     *
+     * The forced spin tunnel should cause Sonic to automatically roll when entering.
+     * We walk Sonic into the tunnel entrance and verify he passes through to the other side.
+     * If Sonic's X position exceeds TARGET_X (7915), the test passes.
+     */
+    @Test
+    public void testForcedSpinTunnelEntry() throws Exception {
+        sprite.setX(TUNNEL_START_X);
+        sprite.setY(TUNNEL_START_Y);
+        Camera.getInstance().updatePosition(true);
+
+        System.out.println("=== CNZ Forced Spin Tunnel Test ===");
+        System.out.println("Requested start position: (" + TUNNEL_START_X + ", " + TUNNEL_START_Y + ")");
+        System.out.println("Actual initial position: (" + sprite.getX() + ", " + sprite.getY() + ")");
+        System.out.println("Initial air state: " + sprite.getAir());
+        System.out.println("Initial XSpeed: " + sprite.getXSpeed());
+        System.out.println("Target X: > " + TUNNEL_TARGET_X);
+        System.out.println();
+
+        int maxX = sprite.getX();
+
+        System.out.println("Frame | X Pos | Y Pos | XSpeed | YSpeed | Air | Rolling | MaxX");
+        System.out.println("------|-------|-------|--------|--------|-----|---------|-----");
+
+        for (int frame = 0; frame < TUNNEL_MAX_FRAMES; frame++) {
+            testRunner.stepFrame(false, false, false, true, false);
+
+            short currentX = sprite.getX();
+            short currentY = sprite.getY();
+            short xSpeed = sprite.getXSpeed();
+            short ySpeed = sprite.getYSpeed();
+            boolean inAir = sprite.getAir();
+            boolean rolling = sprite.getRolling();
+
+            if (currentX > maxX) {
+                maxX = currentX;
+            }
+
+            System.out.printf("%5d | %5d | %5d | %6d | %6d | %3s | %7s | %4d%n",
+                    frame + 1, currentX, currentY, xSpeed, ySpeed,
+                    inAir ? "YES" : "NO", rolling ? "YES" : "NO", maxX);
+
+            if (currentX > TUNNEL_TARGET_X) {
+                System.out.println();
+                System.out.println("SUCCESS: Passed through tunnel at frame " + (frame + 1));
+                break;
+            }
+        }
+
+        System.out.println();
+        System.out.println("Final maximum X: " + maxX);
+        System.out.println("Target was: > " + TUNNEL_TARGET_X);
+
+        assertTrue(
+                "Sonic should pass through the forced spin tunnel to X > " + TUNNEL_TARGET_X +
+                ", but maximum X reached was " + maxX +
+                ". This indicates Sonic bounced off the tunnel entrance instead of entering.",
+                maxX > TUNNEL_TARGET_X
         );
     }
 }
