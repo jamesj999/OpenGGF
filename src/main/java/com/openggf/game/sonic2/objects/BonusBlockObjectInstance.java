@@ -12,6 +12,7 @@ import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.Arrays;
@@ -137,10 +138,16 @@ public class BonusBlockObjectInstance extends AbstractObjectInstance {
     // ========================================================================
 
     /**
-     * Animation frame offset for hit animation.
-     * Frames 0-2 are idle states, frames 3-5 are corresponding hit states.
+     * Hit animation frame mapping indexed by baseAnimFrame.
+     * <p>
+     * ROM dispatch (loc_2C74E, lines 59611-59681):
+     * <ul>
+     *   <li>baseAnimFrame 0/3 (horizontal block) → Y bounce → anim=3</li>
+     *   <li>baseAnimFrame 1 (vertical block) → velocity reflection → anim=4</li>
+     *   <li>baseAnimFrame 2 (narrow block) → X bounce → anim=5</li>
+     * </ul>
      */
-    private static final int HIT_FRAME_OFFSET = 3;
+    private static final int[] HIT_FRAME_MAP = {3, 4, 5, 3};
 
     /** Duration of hit animation in frames */
     private static final int ANIM_DURATION = 8;
@@ -334,42 +341,161 @@ public class BonusBlockObjectInstance extends AbstractObjectInstance {
 
         // Trigger hit animation
         if (!isDestroyed()) {
-            animFrame = baseAnimFrame + HIT_FRAME_OFFSET;
+            animFrame = HIT_FRAME_MAP[baseAnimFrame];
             animTimer = ANIM_DURATION;
         }
     }
 
     /**
-     * Apply bounce to player.
+     * Apply orientation-specific bounce to player.
      * <p>
-     * ROM Reference: ObjD8_BouncePlayer at s2.asm line 59640
+     * ROM Reference: s2.asm lines 59611-59682 (loc_2C74E dispatch)
      * <p>
-     * Similar to Obj44 radial bounce but with $700 velocity.
+     * Three bounce behaviors based on block orientation (baseAnimFrame):
+     * <ul>
+     *   <li>Frame 0/3 (horizontal block, 32x16): Y-only bounce, ±$700 based on relative Y</li>
+     *   <li>Frame 1 (vertical block, 24x32): Velocity-based angle reflection with dead-zone clamping</li>
+     *   <li>Frame 2 (narrow block, 16x32): X-only bounce, ±$700 based on relative X</li>
+     * </ul>
      */
     private void applyBounce(AbstractPlayableSprite player) {
-        // Calculate direction from block to player center
-        int dx = spawn.x() - player.getCentreX();
-        int dy = spawn.y() - player.getCentreY();
-
-        // Calculate angle
-        double angle = Math.atan2(dy, dx);
-
-        // If player is exactly at center, push them up
-        if (dx == 0 && dy == 0) {
-            angle = Math.PI / 2;
+        switch (baseAnimFrame) {
+            case 0:
+            case 3:
+                // Y-only bounce (horizontal block)
+                // ROM: loc_2C75C (lines 59619-59628)
+                applyYBounce(player);
+                break;
+            case 1:
+                // Velocity reflection bounce (vertical block)
+                // ROM: loc_2C794 (lines 59640-59672)
+                applyVelocityReflectionBounce(player);
+                break;
+            case 2:
+                // X-only bounce (narrow block)
+                // ROM: loc_2C7EC (lines 59675-59681)
+                applyXBounce(player);
+                break;
+            default:
+                applyYBounce(player);
+                break;
         }
 
-        // Apply velocity
-        int xVel = (int) (-Math.cos(angle) * BOUNCE_VELOCITY);
-        int yVel = (int) (-Math.sin(angle) * BOUNCE_VELOCITY);
-
-        player.setXSpeed((short) xVel);
-        player.setYSpeed((short) yVel);
-
-        // Set player state
+        // Common state changes (ROM: loc_2C806, lines 59683-59687)
         player.setAir(true);
         player.setPushing(false);
         player.setGSpeed((short) 0);
+    }
+
+    /**
+     * Y-only bounce for horizontal blocks (baseAnimFrame 0/3).
+     * <p>
+     * ROM Reference: loc_2C75C at s2.asm lines 59619-59628
+     * <pre>
+     * move.w  #-$700,y_vel(a1)        ; default upward
+     * move.w  y_pos(a0),d2
+     * sub.w   y_pos(a1),d2            ; d2 = blockY - playerY
+     * bpl.s   BranchTo_loc_2C806      ; if block below player, keep upward
+     * neg.w   y_vel(a1)               ; else push downward
+     * </pre>
+     * x_vel is left unchanged.
+     */
+    private void applyYBounce(AbstractPlayableSprite player) {
+        int d2 = spawn.y() - player.getCentreY();
+        if (d2 >= 0) {
+            // Block is at or below player → push up
+            player.setYSpeed((short) -BOUNCE_VELOCITY);
+        } else {
+            // Block is above player → push down
+            player.setYSpeed((short) BOUNCE_VELOCITY);
+        }
+        // x_vel unchanged (ROM does not touch it)
+    }
+
+    /**
+     * X-only bounce for narrow blocks (baseAnimFrame 2).
+     * <p>
+     * ROM Reference: loc_2C7EC at s2.asm lines 59675-59681
+     * <pre>
+     * move.w  #-$700,x_vel(a1)        ; default leftward
+     * move.w  x_pos(a0),d2
+     * sub.w   x_pos(a1),d2            ; d2 = blockX - playerX
+     * bpl.s   loc_2C806               ; if block right of player, keep leftward
+     * neg.w   x_vel(a1)               ; else push rightward
+     * </pre>
+     * y_vel is left unchanged.
+     */
+    private void applyXBounce(AbstractPlayableSprite player) {
+        int d2 = spawn.x() - player.getCentreX();
+        if (d2 >= 0) {
+            // Block is at or right of player → push left
+            player.setXSpeed((short) -BOUNCE_VELOCITY);
+        } else {
+            // Block is left of player → push right
+            player.setXSpeed((short) BOUNCE_VELOCITY);
+        }
+        // y_vel unchanged (ROM does not touch it)
+    }
+
+    /**
+     * Velocity-based angle reflection bounce for diagonal blocks (baseAnimFrame 1).
+     * <p>
+     * ROM Reference: loc_2C794 at s2.asm lines 59640-59672
+     * <p>
+     * Reflects the player's velocity angle around a surface angle (d3) determined
+     * by the block's x_flip flag, with dead-zone clamping near tangent directions.
+     * <pre>
+     * d3 = 0x20 if x_flip, 0x60 otherwise
+     * angle = CalcAngle(x_vel, y_vel)
+     * reflected = 2*d3 - angle
+     * ; Dead-zone clamping:
+     * ;   |angle-d3| in [0x38,0x40) → snap to d3
+     * ;   |angle-d3| in [0x40,0x48] → snap to d3+0x80
+     * CalcSine(reflected) → x_vel = -cos*$700, y_vel = -sin*$700
+     * </pre>
+     */
+    private void applyVelocityReflectionBounce(AbstractPlayableSprite player) {
+        int xVel = player.getXSpeed();
+        int yVel = player.getYSpeed();
+
+        // CalcAngle(x_vel, y_vel) → MD angle (0-255) using ROM lookup table
+        int angle = TrigLookupTable.calcAngle((short) xVel, (short) yVel);
+
+        // Surface angle from x_flip flag (ROM: lines 59635-59638)
+        boolean xFlip = (spawn.renderFlags() & 0x01) != 0;
+        int d3 = xFlip ? 0x20 : 0x60;
+
+        // ROM: sub.w d3,d0 → d0 = angle - d3 (signed word)
+        int offset = angle - d3;
+
+        // ROM: mvabs.w d0,d1 → d1 = |offset|
+        int absDist = Math.abs(offset);
+
+        // ROM: neg.w d0; add.w d3,d0 → d0 = 2*d3 - angle (reflection)
+        int reflected = 2 * d3 - angle;
+
+        // Dead-zone clamping (ROM: lines 59648-59662)
+        int distByte = absDist & 0xFF;
+        if (distByte >= 0x40) {
+            // ROM: loc_2C7BE — far from surface
+            int otherDist = (0x80 - distByte) & 0xFF;
+            if (otherDist >= 0x38) {
+                // Dead zone: snap to opposite direction
+                reflected = d3 + 0x80;
+            }
+        } else if (distByte >= 0x38) {
+            // Dead zone near tangent: snap to surface angle
+            reflected = d3;
+        }
+
+        // CalcSine(reflected) + apply -$700 velocity (ROM: lines 59665-59671)
+        // ROM: muls.w #-$700,d1; asr.l #8,d1 → x_vel = cos * -$700 / 256
+        // ROM: muls.w #-$700,d0; asr.l #8,d0 → y_vel = sin * -$700 / 256
+        int finalAngle = reflected & 0xFF;
+        int cosVal = TrigLookupTable.cosHex(finalAngle);
+        int sinVal = TrigLookupTable.sinHex(finalAngle);
+        player.setXSpeed((short) (cosVal * -BOUNCE_VELOCITY >> 8));
+        player.setYSpeed((short) (sinVal * -BOUNCE_VELOCITY >> 8));
     }
 
     @Override
