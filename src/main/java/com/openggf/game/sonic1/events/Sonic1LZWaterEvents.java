@@ -480,7 +480,7 @@ public class Sonic1LZWaterEvents {
                 waterRoutine = 1;
 
                 // move.w #sfx_Rumbling,d0 / bsr.w QueueSound2
-                // TODO: Play rumbling sound (sfx_Rumbling = $B7)
+                AudioManager.getInstance().playSfx(Sonic1Sfx.RUMBLING.id);
                 LOGGER.fine("LZ3 routine 0: Water triggered, advancing to routine 1");
             }
         }
