@@ -175,7 +175,7 @@ public class Sonic2ObjectArt {
         // using the load*Sheet() methods on this class
 
         Pattern[] animalPatterns = loadAnimalPatterns(animalTypeA, animalTypeB);
-        List<SpriteMappingFrame> animalMappings = createAnimalMappings(); // TODO: complex composite - keep hardcoded
+        List<SpriteMappingFrame> animalMappings = createAnimalMappings(); // Complex composite layout - kept hardcoded
         ObjectSpriteSheet animalSheet = new ObjectSpriteSheet(animalPatterns, animalMappings, 0, 1);
 
         ObjectSpriteSheet pointsSheet = loadPointsSheet();

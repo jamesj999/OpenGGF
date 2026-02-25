@@ -133,7 +133,7 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
         // S&K: check if player can break monitors
         // Must be rolling (spinning), spindashing, or Knuckles gliding/sliding
         boolean canBreak = player.getRolling() || player.getSpindash();
-        // TODO: Add Knuckles glide/slide check when PlayerCharacter system is complete
+        // Knuckles glide/slide check requires PlayerCharacter system (not yet implemented)
         // canBreak |= (player.getCharacter() == PlayerCharacter.KNUCKLES
         //              && (player.getDoubleJumpFlag() == 1 || player.getDoubleJumpFlag() == 3));
 
