@@ -57,8 +57,8 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
     // The original game ADDS this to each mapping piece's pattern word
     private static final int ART_TILE_PALETTE = 1;
 
-    private static final int HALF_WIDTH = 0x1C;
-    private static final int INITIAL_Y_RADIUS = 0x20;
+    private static final int HALF_WIDTH = 0x10;
+    private static final int INITIAL_Y_RADIUS = 0x18;
     private static final int TRIGGER_DISTANCE = 0x40;
     private static final int RISE_SPEED = 4;
     private static final int RISE_DELAY = 3;
@@ -179,7 +179,10 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
 
         if (dx < TRIGGER_DISTANCE) {
             routineSecondary = 2;
-            delayCounter = RISE_DELAY;
+            // ROM (loc_25B3C): only sets routine_secondary to 2, does NOT
+            // set objoff_34. Since objoff_34 starts at 0, the first subq.w #1
+            // at loc_25B66 causes borrow (carry set), so bcc does NOT branch
+            // and the first rise step executes immediately.
         }
     }
 
@@ -401,12 +404,13 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
-        // Only handle solid contact in main routine, extended state
-        if (routine != 2 || routineSecondary != 4) {
+        // Only handle solid contact in main routine
+        if (routine != 2) {
             return;
         }
 
-        // If player is standing on extended pillar, break it
+        // ROM (Obj2B_Main, line 51369): checks standing_mask REGARDLESS of
+        // routine_secondary. If any player is standing, break the pillar.
         if (contact.standing()) {
             releasePlayerAndBreak(player);
         }

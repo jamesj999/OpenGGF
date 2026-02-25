@@ -11,6 +11,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -187,31 +188,24 @@ public class BumperObjectInstance extends AbstractObjectInstance {
      * @param frameCounter Current frame counter for wobble calculation
      */
     private void applyBounce(AbstractPlayableSprite player, int frameCounter) {
-        // Calculate direction from bumper to player center
-        // ROM: CalcAngle(bumper_x - player_x, bumper_y - player_y)
+        // ROM: CalcAngle(x_pos(a0) - x_pos(a1), y_pos(a0) - y_pos(a1))
+        // ROM x_pos is the center position. Use getCentreX()/getCentreY() to match.
         int dx = spawn.x() - player.getCentreX();
         int dy = spawn.y() - player.getCentreY();
 
-        // Calculate angle in radians
-        double angle = StrictMath.atan2(dy, dx);
+        // CalcAngle using ROM lookup table (handles dx=dy=0 → returns 0x40 = down)
+        int angle = TrigLookupTable.calcAngle((short) dx, (short) dy);
 
-        // If player is exactly at center, push them up
-        if (dx == 0 && dy == 0) {
-            angle = StrictMath.PI / 2; // 90 degrees up
-        }
+        // Add wobble: ROM adds (Timer_frames & 3) to the byte angle directly
+        angle = (angle + (frameCounter & 3)) & 0xFF;
 
-        // Add wobble: ROM adds (Timer_frames & 3) to the 0-255 angle
-        // Convert to radians: (frameCounter & 3) * (2*PI/256)
-        double wobble = (frameCounter & 3) * (2.0 * StrictMath.PI / 256.0);
-        angle += wobble;
-
-        // Calculate velocity components
-        // ROM: x_vel = -sin(angle) * $700 >> 8
-        // ROM: y_vel = -cos(angle) * $700 >> 8
-        // Note: ROM uses CalcSine which returns (sin, cos) in (d0, d1)
-        // We negate because we want to push AWAY from bumper
-        int xVel = (int) (-StrictMath.sin(angle) * BOUNCE_VELOCITY);
-        int yVel = (int) (-StrictMath.cos(angle) * BOUNCE_VELOCITY);
+        // CalcSine + apply -$700 velocity
+        // ROM: muls.w #-$700,d1; asr.l #8,d1 → x_vel = cos * -$700 / 256
+        // ROM: muls.w #-$700,d0; asr.l #8,d0 → y_vel = sin * -$700 / 256
+        int cosVal = TrigLookupTable.cosHex(angle);
+        int sinVal = TrigLookupTable.sinHex(angle);
+        int xVel = cosVal * -BOUNCE_VELOCITY >> 8;
+        int yVel = sinVal * -BOUNCE_VELOCITY >> 8;
 
         player.setXSpeed((short) xVel);
         player.setYSpeed((short) yVel);

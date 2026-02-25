@@ -58,6 +58,10 @@ public class TestCNZObjectBugs {
     private static final int OBJ_POINT_POKEY = 0xD6;
     private static final int OBJ_BONUS_BLOCK = 0xD8;
 
+    // Bounce velocity threshold: $700 = 1792, but due to integer trig rounding
+    // the actual value may be slightly less. Use a reasonable threshold.
+    private static final int BOUNCE_VELOCITY_THRESHOLD = 0x600;
+
     @Before
     public void setUp() throws Exception {
         GraphicsManager.getInstance().initHeadless();
@@ -198,11 +202,9 @@ public class TestCNZObjectBugs {
         int bumperY = bumper.getSpawn().y();
         System.out.println("Found bumper at: (" + bumperX + ", " + bumperY + ")");
 
-        // Position Sonic directly above the bumper center
-        int sonicX = bumperX;
-        int sonicY = bumperY - 20;
-        sprite.setX((short) sonicX);
-        sprite.setY((short) sonicY);
+        // Position Sonic directly above the bumper center (use centre coords)
+        sprite.setCentreX((short) bumperX);
+        sprite.setCentreY((short) (bumperY - 20));
         sprite.setAir(true);
         sprite.setXSpeed((short) 0);
         sprite.setGSpeed((short) 0);
@@ -463,50 +465,105 @@ public class TestCNZObjectBugs {
 
         int blockX = bonusBlock.getSpawn().x();
         int blockY = bonusBlock.getSpawn().y();
-        System.out.println("Found BonusBlock at: (" + blockX + ", " + blockY + ")");
+        int subtype = bonusBlock.getSpawn().subtype() & 0xFF;
+        int baseAnimFrame = (subtype >> 6) & 0x03;
+        System.out.println("Found BonusBlock at: (" + blockX + ", " + blockY +
+                "), subtype=0x" + Integer.toHexString(subtype) +
+                ", baseAnimFrame=" + baseAnimFrame);
 
-        // Position Sonic to the LEFT of the block, same Y, X offset -20
-        int sonicX = blockX - 20;
-        int sonicY = blockY;
-        sprite.setX((short) sonicX);
-        sprite.setY((short) sonicY);
-        sprite.setAir(true);
-        sprite.setXSpeed((short) 0x400);  // Moving right toward the block
-        sprite.setGSpeed((short) 0x400);
-        sprite.setYSpeed((short) 0);
+        // ROM has 3 bounce behaviors based on orientation:
+        //   baseAnimFrame 0/3: Y-only bounce (horizontal block pushes up/down)
+        //   baseAnimFrame 1:   Velocity reflection (diagonal block)
+        //   baseAnimFrame 2:   X-only bounce (narrow block pushes left/right)
+        // Test the appropriate axis based on the found block's orientation.
 
-        Camera camera = Camera.getInstance();
-        camera.updatePosition(true);
+        if (baseAnimFrame == 0 || baseAnimFrame == 3) {
+            // Y-bounce block: approach from above, expect upward bounce
+            sprite.setCentreX((short) blockX);
+            sprite.setCentreY((short) (blockY - 20));
+            sprite.setAir(true);
+            sprite.setXSpeed((short) 0);
+            sprite.setGSpeed((short) 0);
+            sprite.setYSpeed((short) 0x400);  // Falling downward toward block
 
-        logState("Before approach");
+            Camera.getInstance().updatePosition(true);
+            logState("Before approach (Y-bounce block, approaching from above)");
 
-        // Step frames until bounce detected (XSpeed changes sign or becomes negative)
-        boolean bounced = false;
-        for (int i = 0; i < 60; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
-
-            short xSpeed = sprite.getXSpeed();
-            if (xSpeed < 0) {
-                bounced = true;
-                logState("Bounced at frame " + (i + 1));
-                break;
+            boolean bounced = false;
+            for (int i = 0; i < 60; i++) {
+                testRunner.stepFrame(false, false, false, false, false);
+                if (sprite.getYSpeed() < 0) {
+                    bounced = true;
+                    logState("Bounced at frame " + (i + 1));
+                    break;
+                }
             }
+
+            assertTrue("Sonic should have bounced off Y-bounce BonusBlock (YSpeed should become negative)",
+                    bounced);
+            assertTrue("YSpeed should be strongly negative (pushed up), was: " + sprite.getYSpeed(),
+                    sprite.getYSpeed() <= -BOUNCE_VELOCITY_THRESHOLD);
+
+        } else if (baseAnimFrame == 2) {
+            // X-bounce block: approach from the left, expect leftward bounce
+            sprite.setCentreX((short) (blockX - 20));
+            sprite.setCentreY((short) blockY);
+            sprite.setAir(true);
+            sprite.setXSpeed((short) 0x400);
+            sprite.setGSpeed((short) 0x400);
+            sprite.setYSpeed((short) 0);
+
+            Camera.getInstance().updatePosition(true);
+            logState("Before approach (X-bounce block, approaching from left)");
+
+            boolean bounced = false;
+            for (int i = 0; i < 60; i++) {
+                testRunner.stepFrame(false, false, false, false, false);
+                if (sprite.getXSpeed() < 0) {
+                    bounced = true;
+                    logState("Bounced at frame " + (i + 1));
+                    break;
+                }
+            }
+
+            assertTrue("Sonic should have bounced off X-bounce BonusBlock (XSpeed should become negative)",
+                    bounced);
+            assertTrue("XSpeed should be strongly negative (pushed left), was: " + sprite.getXSpeed(),
+                    sprite.getXSpeed() <= -BOUNCE_VELOCITY_THRESHOLD);
+
+        } else {
+            // baseAnimFrame 1: velocity reflection block — approach from left
+            // The reflection should change velocity direction based on surface angle
+            sprite.setCentreX((short) (blockX - 20));
+            sprite.setCentreY((short) blockY);
+            sprite.setAir(true);
+            sprite.setXSpeed((short) 0x400);
+            sprite.setGSpeed((short) 0x400);
+            sprite.setYSpeed((short) 0x200);
+
+            Camera.getInstance().updatePosition(true);
+            logState("Before approach (velocity-reflection block)");
+
+            short origXSpeed = sprite.getXSpeed();
+            short origYSpeed = sprite.getYSpeed();
+            boolean bounced = false;
+            for (int i = 0; i < 60; i++) {
+                testRunner.stepFrame(false, false, false, false, false);
+                // Velocity reflection changes both components
+                if (sprite.getXSpeed() != origXSpeed || sprite.getYSpeed() != origYSpeed) {
+                    if (Math.abs(sprite.getXSpeed()) > 0x200 || Math.abs(sprite.getYSpeed()) > 0x200) {
+                        bounced = true;
+                        logState("Bounced at frame " + (i + 1));
+                        break;
+                    }
+                }
+            }
+
+            assertTrue("Sonic should have bounced off velocity-reflection BonusBlock " +
+                    "(velocity should change significantly)", bounced);
         }
 
-        assertTrue("Sonic should have bounced off the BonusBlock (XSpeed should become negative)", bounced);
-
-        short xSpeed = sprite.getXSpeed();
-        short ySpeed = sprite.getYSpeed();
-
-        System.out.println("Post-bounce XSpeed=" + xSpeed + ", YSpeed=" + ySpeed);
-
-        // For a horizontal approach from the left, bounce should push left
-        assertTrue("XSpeed should be negative (pushed left), was: " + xSpeed,
-                xSpeed < 0);
-        assertTrue("|XSpeed| should be > |YSpeed| for a horizontal approach. " +
-                        "XSpeed=" + xSpeed + ", YSpeed=" + ySpeed +
-                        ". If sin/cos are swapped, the bounce is mostly vertical instead.",
-                Math.abs(xSpeed) > Math.abs(ySpeed));
+        System.out.println("Post-bounce XSpeed=" + sprite.getXSpeed() + ", YSpeed=" + sprite.getYSpeed());
     }
 
     // ========================================================================

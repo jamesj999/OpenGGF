@@ -163,10 +163,9 @@ public class TestHTZObjectBugs {
         logState("Pillar found at (" + pillarX + ", " + pillarY + ")");
 
         // Position Sonic near the pillar to trigger extension (within 64px X range).
-        // Place Sonic at the same Y as the pillar base (so he's on floor level)
-        // and within trigger distance.
-        sprite.setX((short) (pillarX - 48));
-        sprite.setY((short) pillarY);
+        // Use center coordinates since the trigger checks player.getCentreX().
+        sprite.setCentreX((short) (pillarX - 48));
+        sprite.setCentreY((short) pillarY);
         sprite.setAir(false);
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
@@ -182,30 +181,32 @@ public class TestHTZObjectBugs {
         logState("After pillar extension");
 
         // Calculate expected extended pillar top Y:
-        // Initial yRadius = 0x20 (32), extension = 4px * 6 = 24px
+        // INITIAL_Y_RADIUS = 0x18 (24), extension = 4px * 6 = 24px
         // Pillar Y decreases by rise amount, yRadius increases by rise amount
-        // Extended top = (pillarY - 24) - (0x20 + 24) = pillarY - 24 - 56 = pillarY - 80
-        // But the pillar solid top is at: getY() - yRadius
-        // After extension: Y = pillarY - 24, yRadius = 0x20 + 24 = 56
-        // Solid top = (pillarY - 24) - 56 = pillarY - 80
-        int extendedTopY = pillarY - 80;
+        // After extension: Y = pillarY - 24, yRadius = 0x18 + 24 = 48
+        // Solid top = (pillarY - 24) - 48 = pillarY - 72
+        int extendedTopY = pillarY - 72;
 
         // Position Sonic just to the left of the pillar, on flat ground
-        sprite.setX((short) (pillarX - 40));
-        sprite.setY((short) pillarY);
+        sprite.setCentreX((short) (pillarX - 40));
+        sprite.setCentreY((short) pillarY);
         sprite.setAir(false);
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
         Camera.getInstance().updatePosition(true);
 
-        // Jump and track maximum height (minimum Y reached)
+        // Jump and HOLD the button during ascent to get full jump height.
+        // A single-frame press triggers short-jump cap (-0x400), giving only ~39px.
+        // Full jump requires holding jump during ascent for ~100px height.
         testRunner.stepFrame(false, false, false, false, true); // Press jump
         logState("Jump initiated");
 
         int minY = sprite.getY();
         for (int i = 0; i < 60; i++) {
-            testRunner.stepIdleFrames(1);
+            // Hold jump while ascending (ySpeed < 0), release once falling
+            boolean holdJump = sprite.getYSpeed() < 0;
+            testRunner.stepFrame(false, false, false, false, holdJump);
             if (sprite.getY() < minY) {
                 minY = sprite.getY();
             }
