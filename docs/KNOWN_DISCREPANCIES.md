@@ -8,6 +8,7 @@ This document tracks intentional deviations from the original Sonic 2 ROM implem
 2. [Spindash Release Transpose Fix](#spindash-release-transpose-fix)
 3. [Pattern ID Ranges](#pattern-id-ranges-for-guiresults-screen)
 4. [HTZ Cloud Scroll Precision Fix](#htz-cloud-scroll-precision-fix)
+5. [MCZ Rotating Platforms Child Cleanup](#mcz-rotating-platforms-child-cleanup)
 
 ---
 
@@ -198,3 +199,62 @@ This is implemented in `SwScrlHtz.java` using a 32-bit arithmetic shift after sw
 ### Verification
 
 Cloud layer scrolling in HTZ is smooth across all frames, without the 2-frame jitter visible in the original ROM.
+
+---
+
+## MCZ Rotating Platforms Child Cleanup
+
+**Location:** `MCZRotPformsObjectInstance.java`
+**ROM Reference:** `s2.asm` lines 53707-53726 (child spawn), lines 53801-53803 / 53826-53828 (`MarkObjGone2` calls)
+
+### Original Implementation
+
+In the ROM, all three objects (parent + 2 children) live in the same flat object RAM table. Children are allocated via `AllocateObjectAfterCurrent` into adjacent SST slots. Each object independently calls `MarkObjGone2` using `objoff_32` (base X = the parent's original spawn X):
+
+```asm
+; routine 2 exit (MTZ path / parent):
+loc_27C5E:
+    move.w  objoff_32(a0),d0
+    jmpto   JmpTo3_MarkObjGone2
+
+; routine 4 exit (MCZ path / children):
+loc_27C9A:
+    move.w  objoff_32(a0),d0
+    jmpto   JmpTo3_MarkObjGone2
+```
+
+`Obj6A_InitSubObject` copies the parent's `x_pos` to each child's `objoff_32`:
+
+```asm
+    move.w  x_pos(a0),objoff_32(a1)
+```
+
+So all three share the same base X and self-destruct at the same camera threshold.
+
+### Our Implementation
+
+Our engine uses a two-tier object system: placement-windowed objects (`activeObjects`) and unwindowed dynamic objects (`dynamicObjects`). The parent is placement-managed, but children are dynamic and have no off-screen removal.
+
+Instead of independent self-cleanup, the parent's `onUnload()` explicitly destroys its children:
+
+```java
+@Override
+public void onUnload() {
+    for (MCZRotPformsObjectInstance child : children) {
+        child.setDestroyed(true);
+    }
+    children.clear();
+}
+```
+
+### Rationale
+
+1. **Architectural mismatch** - The ROM's flat object table lets every object run `MarkObjGone2` against a base X. Our dynamic objects have no equivalent windowing mechanism.
+
+2. **Parent-driven cleanup is idiomatic** - This matches the pattern used by other parent-child objects in the engine (`AizGiantRideVineObjectInstance`, `Sonic1CaterkillerBadnikInstance`, `SolBadnikInstance`).
+
+3. **Same trigger point** - The parent's Placement window check uses the same spawn X that the ROM's `MarkObjGone2` checks via `objoff_32`, so cleanup occurs at the same camera position.
+
+### Verification
+
+When the camera leaves the MCZ crate area, all three objects are removed. On return, the parent is re-spawned by Placement and creates fresh children — no accumulation.
