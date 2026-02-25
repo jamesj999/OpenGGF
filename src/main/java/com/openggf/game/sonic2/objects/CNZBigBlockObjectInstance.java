@@ -91,8 +91,9 @@ public class CNZBigBlockObjectInstance extends BoxObjectInstance
             this.y = targetY + offset;
         }
 
-        this.xSub = 0;
-        this.ySub = 0;
+        // ROM: move.w #$8000,x_sub(a0) / move.w #$8000,y_sub(a0)
+        this.xSub = 0x8000;
+        this.ySub = 0x8000;
         this.xVel = 0;
         this.yVel = 0;
     }
@@ -167,10 +168,9 @@ public class CNZBigBlockObjectInstance extends BoxObjectInstance
 
     @Override
     public SolidObjectParams getSolidParams() {
-        // Calculate offset from spawn position to current position
-        int offsetX = x - spawn.x();
-        int offsetY = y - spawn.y();
-        return new SolidObjectParams(HALF_WIDTH, AIR_HALF_HEIGHT, GROUND_HALF_HEIGHT, offsetX, offsetY);
+        // No offset needed: getX()/getY() already return the current oscillating position,
+        // so the collision anchor is already correct without additional displacement.
+        return new SolidObjectParams(HALF_WIDTH, AIR_HALF_HEIGHT, GROUND_HALF_HEIGHT, 0, 0);
     }
 
     @Override
