@@ -12,6 +12,7 @@ import com.openggf.audio.smps.DacData;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.*;
 
@@ -20,6 +21,7 @@ public class TestSmpsDriver {
     // A spy driver that records writes
     static class SpyDriver extends SmpsDriver {
         List<String> log = new ArrayList<>();
+        List<Integer> rawPsgWrites = new ArrayList<>();
 
         @Override
         public void render(short[] buffer) {
@@ -29,39 +31,15 @@ public class TestSmpsDriver {
         @Override
         public void writeFm(Object source, int port, int reg, int val) {
             super.writeFm(source, port, reg, val);
-            // Log if the write passed through
-            // We can check internal state or just log here.
-            // SmpsDriver calls super.writeFm if allowed.
-            // But SmpsDriver doesn't call a 'hardware' write, it updates internal state.
-            // We need to override the *base* VirtualSynthesizer methods to detect if the write happened?
-            // SmpsDriver extends VirtualSynthesizer.
-            // But we can't easily spy on "super.super.writeFm".
-            // However, SmpsDriver calls `super.writeFm`. We can override it in this SpyDriver?
-            // No, `super` in SpyDriver refers to SmpsDriver.
-            // We need to know if SmpsDriver decided to proceed.
-            // SmpsDriver logic: if (allowed) super.writeFm().
-            // So if we override `writeFm` in SpyDriver, we are overriding the logic itself!
-            // Wait, SmpsDriver IS the class under test.
-            // We can't override the method we are testing.
-
-            // We can inspect the state of the synthesizer AFTER the write?
-            // VirtualSynthesizer has registers.
-            // But they are private/protected?
-            // VirtualSynthesizer registers are private.
-
-            // However, we can use a callback/listener if available? No.
-
-            // Alternative: SmpsDriver allows checking fmLocks?
-            // No, private.
-
-            // We can rely on the return value? writeFm is void.
-
-            // Let's use reflection to check fmLocks?
-            // Or add a getter/protected visibility for testing.
-            // I'll try reflection.
         }
 
-        // Helper to check lock via reflection
+        @Override
+        protected void writeRawPsg(int val) {
+            rawPsgWrites.add(val);
+            super.writeRawPsg(val);
+        }
+
+        // Helper to check FM lock via reflection
         public Object getFmLock(int channel) {
             try {
                 java.lang.reflect.Field f = SmpsDriver.class.getDeclaredField("fmLocks");
@@ -71,6 +49,52 @@ public class TestSmpsDriver {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
+        }
+
+        // Helper to check PSG lock via reflection
+        public Object getPsgLock(int channel) {
+            try {
+                java.lang.reflect.Field f = SmpsDriver.class.getDeclaredField("psgLocks");
+                f.setAccessible(true);
+                SmpsSequencer[] locks = (SmpsSequencer[]) f.get(this);
+                return locks[channel];
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        public int getSequencerCount() {
+            try {
+                java.lang.reflect.Field f = SmpsDriver.class.getDeclaredField("sequencers");
+                f.setAccessible(true);
+                return ((List<SmpsSequencer>) f.get(this)).size();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        public int getSfxSequencerCount() {
+            try {
+                java.lang.reflect.Field f = SmpsDriver.class.getDeclaredField("sfxSequencers");
+                f.setAccessible(true);
+                return ((Set<SmpsSequencer>) f.get(this)).size();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    /** Create a Track via reflection (constructor is package-private). */
+    private static SmpsSequencer.Track createTrack(SmpsSequencer.TrackType type, int channelId) {
+        try {
+            var ctor = SmpsSequencer.Track.class.getDeclaredConstructor(
+                    int.class, SmpsSequencer.TrackType.class, int.class);
+            ctor.setAccessible(true);
+            return ctor.newInstance(0, type, channelId);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -153,5 +177,72 @@ public class TestSmpsDriver {
 
         driver.writeFm(special, 0, 0xA0, 0x20);
         assertEquals("Special SFX should not steal Ch 0 from normal SFX", normal, driver.getFmLock(0));
+    }
+
+    @Test
+    public void testSfxChannelConflictKillsOldTrack() {
+        SpyDriver driver = new SpyDriver();
+        AbstractSmpsData dummyDataA = new Sonic2SmpsData(new byte[100]);
+        dummyDataA.setId(0xE7); // DrawbridgeMove
+        AbstractSmpsData dummyDataB = new Sonic2SmpsData(new byte[100]);
+        dummyDataB.setId(0xCD); // BLIP - different ID so same-ID dedup doesn't fire
+        DacData dummyDac = new DacData(new HashMap<>(), new HashMap<>());
+
+        // SFX-A uses PSG channel 2 (PSG3)
+        SmpsSequencer sfxA = new SmpsSequencer(dummyDataA, dummyDac, driver, Sonic2SmpsSequencerConfig.CONFIG);
+        sfxA.getTracks().add(createTrack(SmpsSequencer.TrackType.PSG, 2));
+
+        // SFX-B also uses PSG channel 2 (PSG3)
+        SmpsSequencer sfxB = new SmpsSequencer(dummyDataB, dummyDac, driver, Sonic2SmpsSequencerConfig.CONFIG);
+        sfxB.getTracks().add(createTrack(SmpsSequencer.TrackType.PSG, 2));
+
+        // Add SFX-A, give it the PSG2 lock via a write
+        driver.addSequencer(sfxA, true);
+        driver.writePsg(sfxA, 0x80 | (2 << 5) | 0x00); // latch PSG3
+        assertEquals("SFX-A should hold PSG2 lock", sfxA, driver.getPsgLock(2));
+        assertEquals(1, driver.getSequencerCount());
+
+        // Add SFX-B on same channel - should kill SFX-A's track
+        driver.addSequencer(sfxB, true);
+
+        // SFX-A's track should be deactivated
+        assertFalse("SFX-A's PSG2 track should be deactivated",
+                sfxA.getTracks().get(0).active);
+        // SFX-A's lock should be released (SFX-B hasn't written yet)
+        assertNull("PSG2 lock should be released after conflict resolution",
+                driver.getPsgLock(2));
+        // SFX-A should be removed entirely (all tracks inactive)
+        assertEquals("SFX-A should be removed (all tracks dead)", 1, driver.getSequencerCount());
+        assertEquals("Only SFX-B in sfxSequencers", 1, driver.getSfxSequencerCount());
+    }
+
+    @Test
+    public void testPsg3SfxSilencesNoiseChannel() {
+        SpyDriver driver = new SpyDriver();
+        AbstractSmpsData dummyDataA = new Sonic2SmpsData(new byte[100]);
+        dummyDataA.setId(0xE7); // old SFX on PSG3
+        AbstractSmpsData dummyDataB = new Sonic2SmpsData(new byte[100]);
+        dummyDataB.setId(0xCD); // new SFX replacing it on PSG3
+        DacData dummyDac = new DacData(new HashMap<>(), new HashMap<>());
+
+        // Old SFX on PSG3 (channel 2)
+        SmpsSequencer sfxOld = new SmpsSequencer(dummyDataA, dummyDac, driver, Sonic2SmpsSequencerConfig.CONFIG);
+        sfxOld.getTracks().add(createTrack(SmpsSequencer.TrackType.PSG, 2));
+        driver.addSequencer(sfxOld, true);
+        // Give it the PSG2 lock
+        driver.writePsg(sfxOld, 0x80 | (2 << 5) | 0x00);
+
+        // New SFX also on PSG3 (channel 2) - should trigger noise silencing
+        SmpsSequencer sfxNew = new SmpsSequencer(dummyDataB, dummyDac, driver, Sonic2SmpsSequencerConfig.CONFIG);
+        sfxNew.getTracks().add(createTrack(SmpsSequencer.TrackType.PSG, 2));
+
+        driver.rawPsgWrites.clear();
+        driver.addSequencer(sfxNew, true);
+
+        // ROM lines 2221-2228: replacing PSG3 SFX should silence both tone2 and noise
+        assertTrue("Should silence PSG3 (0xDF)",
+                driver.rawPsgWrites.contains(0xDF));
+        assertTrue("Should silence noise channel (0xFF)",
+                driver.rawPsgWrites.contains(0xFF));
     }
 }
