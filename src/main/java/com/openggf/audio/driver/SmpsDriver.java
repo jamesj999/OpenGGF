@@ -7,6 +7,7 @@ import com.openggf.audio.synth.VirtualSynthesizer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -67,6 +68,76 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
                     sequencers.remove(existing);
                     releaseLocks(existing);
                     sfxSequencers.remove(existing);
+                }
+
+                // Channel-based SFX conflict resolution (ROM: s2.sounddriver.asm lines 2203-2266)
+                // When a new SFX uses a channel already in use by another SFX, kill the old
+                // SFX's track on that channel. This prevents the old SFX from resuming after
+                // the new one finishes and stops noise mode from leaking through shared PSG
+                // channels (e.g., DrawbridgeMove noise leaking into BLIP on PSG3).
+                List<SmpsSequencer.Track> newTracks = seq.getTracks();
+                Set<SmpsSequencer> deadSequencers = null;
+                boolean killedPsg3Track = false;
+                for (int i = 0; i < newTracks.size(); i++) {
+                    SmpsSequencer.Track newTrack = newTracks.get(i);
+                    for (SmpsSequencer existingSfx : sfxSequencers) {
+                        List<SmpsSequencer.Track> existingTracks = existingSfx.getTracks();
+                        for (int j = 0; j < existingTracks.size(); j++) {
+                            SmpsSequencer.Track existingTrack = existingTracks.get(j);
+                            if (existingTrack.active
+                                    && existingTrack.type == newTrack.type
+                                    && existingTrack.channelId == newTrack.channelId) {
+                                existingTrack.active = false;
+                                existingSfx.stopNote(existingTrack);
+                                // Release the lock for this channel
+                                if (existingTrack.type == SmpsSequencer.TrackType.FM
+                                        || existingTrack.type == SmpsSequencer.TrackType.DAC) {
+                                    if (fmLocks[existingTrack.channelId] == existingSfx) {
+                                        fmLocks[existingTrack.channelId] = null;
+                                        updateOverrides(SmpsSequencer.TrackType.FM,
+                                                existingTrack.channelId, false);
+                                    }
+                                } else if (existingTrack.type == SmpsSequencer.TrackType.PSG) {
+                                    if (psgLocks[existingTrack.channelId] == existingSfx) {
+                                        psgLocks[existingTrack.channelId] = null;
+                                        updateOverrides(SmpsSequencer.TrackType.PSG,
+                                                existingTrack.channelId, false);
+                                    }
+                                    if (existingTrack.channelId == 2) {
+                                        killedPsg3Track = true;
+                                    }
+                                }
+                            }
+                        }
+                        // If all tracks in existing SFX are now inactive, mark for removal
+                        boolean allInactive = true;
+                        for (int j = 0; j < existingTracks.size(); j++) {
+                            if (existingTracks.get(j).active) {
+                                allInactive = false;
+                                break;
+                            }
+                        }
+                        if (allInactive) {
+                            if (deadSequencers == null) deadSequencers = new LinkedHashSet<>();
+                            deadSequencers.add(existingSfx);
+                        }
+                    }
+                }
+                if (deadSequencers != null) {
+                    for (SmpsSequencer dead : deadSequencers) {
+                        sequencers.remove(dead);
+                        releaseLocks(dead);
+                        sfxSequencers.remove(dead);
+                    }
+                }
+
+                // ROM lines 2221-2228: when PSG3 SFX replaces another, silence both
+                // tone2 and noise. stopNote() only silences one (tone or noise depending
+                // on noiseMode), so this ensures both are cleaned up to prevent noise
+                // mode leaking from the old SFX.
+                if (killedPsg3Track) {
+                    writeRawPsg(0xDF); // silence PSG3 (tone2): 0x80|(2<<5)|(1<<4)|0x0F
+                    writeRawPsg(0xFF); // silence noise channel: 0x80|(3<<5)|(1<<4)|0x0F
                 }
             }
             sequencers.add(seq);
@@ -433,6 +504,15 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
         int hwCh = ch % 3;
         int chVal = (port == 0) ? hwCh : (hwCh + 4);
         super.writeFm(null, 0, 0x28, 0x00 | chVal);
+    }
+
+    /**
+     * Write directly to PSG hardware, bypassing SFX lock checks.
+     * Used for unconditional channel silencing during SFX load (ROM: zPlaySound).
+     * Protected to allow test spy access.
+     */
+    protected void writeRawPsg(int val) {
+        super.writePsg(null, val);
     }
 
     /**
