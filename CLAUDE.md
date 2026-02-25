@@ -252,7 +252,7 @@ Critical constraints for current S3K support:
 - **Known limitation:** Some S3K levels log `maxChunkPatternIndex > patternCount` (dynamic art/PLC parity incomplete).
 
 **Keep these S3K tests green:**
-- `com.openggf.tests.TestS3kAiz1SpawnStability`
+- `com.openggf.tests.TestS3kAiz1SkipHeadless`
 - `com.openggf.tests.TestSonic3kLevelLoading`
 - `sonic3k.com.openggf.game.TestSonic3kBootstrapResolver`
 - `sonic3k.com.openggf.game.TestSonic3kDecodingUtils`
