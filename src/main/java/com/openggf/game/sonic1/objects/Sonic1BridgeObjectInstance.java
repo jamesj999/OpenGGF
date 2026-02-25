@@ -12,6 +12,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -41,10 +42,6 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
 
     // From disassembly: obPriority = 3
     private static final int PRIORITY = 3;
-
-    // Sine lookup table: maps angle (0-64) to 8.8 fixed-point sine (0-256)
-    // Matches the Mega Drive CalcSine for angles 0 to $40 (0 to 90 degrees)
-    private static final int[] SINE_TABLE = generateSineTable();
 
     // ghzbend1.bin - Maximum depression depth per bridge length and player position
     // 17 rows x 16 columns. Row = segment count (0-16), column = player position.
@@ -282,24 +279,14 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Mega Drive CalcSine approximation for angles 0 to $40 (0 to 90 degrees).
+     * ROM-accurate CalcSine for angles 0 to $40 (0 to 90 degrees).
      * Returns 8.8 fixed-point value: 0 at angle 0, 256 ($100) at angle $40.
+     * Delegates to TrigLookupTable.sinHex() which uses the ROM SINCOSLIST.
      */
     private static int getSine(int angle) {
         if (angle <= 0) return 0;
-        if (angle >= SINE_TABLE.length) return SINE_TABLE[SINE_TABLE.length - 1];
-        return SINE_TABLE[angle];
-    }
-
-    private static int[] generateSineTable() {
-        int[] table = new int[MAX_DEPRESSION_ANGLE + 1];
-        for (int i = 0; i <= MAX_DEPRESSION_ANGLE; i++) {
-            // Map angle 0-64 to radians 0 to PI/2 (0 to 90 degrees)
-            double radians = (i * Math.PI) / (2.0 * MAX_DEPRESSION_ANGLE);
-            // 8.8 fixed point: sin(90deg) = 1.0 -> 256 ($100)
-            table[i] = (int) (Math.sin(radians) * 256);
-        }
-        return table;
+        if (angle > MAX_DEPRESSION_ANGLE) angle = MAX_DEPRESSION_ANGLE;
+        return TrigLookupTable.sinHex(angle);
     }
 
     // ---- Rendering ----

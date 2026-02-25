@@ -20,6 +20,7 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -91,30 +92,6 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
     private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
             .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
     private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
-
-    // ROM-accurate 256-entry sine table (values from -256 to +256)
-    private static final short[] SINE_TABLE = {
-            0, 6, 12, 18, 25, 31, 37, 43, 49, 56, 62, 68, 74, 80, 86, 92,
-            97, 103, 109, 115, 120, 126, 131, 136, 142, 147, 152, 157, 162, 167, 171, 176,
-            181, 185, 189, 193, 197, 201, 205, 209, 212, 216, 219, 222, 225, 228, 231, 234,
-            236, 238, 241, 243, 244, 246, 248, 249, 251, 252, 253, 254, 254, 255, 255, 255,
-            256, 255, 255, 255, 254, 254, 253, 252, 251, 249, 248, 246, 244, 243, 241, 238,
-            236, 234, 231, 228, 225, 222, 219, 216, 212, 209, 205, 201, 197, 193, 189, 185,
-            181, 176, 171, 167, 162, 157, 152, 147, 142, 136, 131, 126, 120, 115, 109, 103,
-            97, 92, 86, 80, 74, 68, 62, 56, 49, 43, 37, 31, 25, 18, 12, 6,
-            0, -6, -12, -18, -25, -31, -37, -43, -49, -56, -62, -68, -74, -80, -86, -92,
-            -97, -103, -109, -115, -120, -126, -131, -136, -142, -147, -152, -157, -162, -167, -171, -176,
-            -181, -185, -189, -193, -197, -201, -205, -209, -212, -216, -219, -222, -225, -228, -231, -234,
-            -236, -238, -241, -243, -244, -246, -248, -249, -251, -252, -253, -254, -254, -255, -255, -255,
-            -256, -255, -255, -255, -254, -254, -253, -252, -251, -249, -248, -246, -244, -243, -241, -238,
-            -236, -234, -231, -228, -225, -222, -219, -216, -212, -209, -205, -201, -197, -193, -189, -185,
-            -181, -176, -171, -167, -162, -157, -152, -147, -142, -136, -131, -126, -120, -115, -109, -103,
-            -97, -92, -86, -80, -74, -68, -62, -56, -49, -43, -37, -31, -25, -18, -12, -6,
-            0, 6, 12, 18, 25, 31, 37, 43, 49, 56, 62, 68, 74, 80, 86, 92,
-            97, 103, 109, 115, 120, 126, 131, 136, 142, 147, 152, 157, 162, 167, 171, 176,
-            181, 185, 189, 193, 197, 201, 205, 209, 212, 216, 219, 222, 225, 228, 231, 234,
-            236, 238, 241, 243, 244, 246, 248, 249, 251, 252, 253, 254, 254, 255, 255, 255
-    };
 
     // State variables
     private final int switchId;           // ButtonVine trigger ID (0-15)
@@ -300,14 +277,14 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
      * Calculate sine value for angle (0-255 maps to 0-360 degrees).
      */
     private int calcSine(int angle) {
-        return SINE_TABLE[angle & 0xFF];
+        return TrigLookupTable.sinHex(angle);
     }
 
     /**
      * Calculate cosine value for angle (0-255 maps to 0-360 degrees).
      */
     private int calcCosine(int angle) {
-        return SINE_TABLE[(angle + 0x40) & 0xFF];
+        return TrigLookupTable.cosHex(angle);
     }
 
     // SolidObjectProvider implementation

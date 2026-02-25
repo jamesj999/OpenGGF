@@ -14,6 +14,7 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -44,27 +45,6 @@ import java.util.List;
  * <b>Disassembly reference:</b> docs/s1disasm/_incObj/67 Running Disc.asm
  */
 public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
-
-    // ---- ROM-accurate sine table (256 entries, values -256 to +256) ----
-    // From CalcSine lookup used by the disassembly
-    private static final short[] SINE_TABLE = {
-            0, 6, 12, 18, 25, 31, 37, 43, 49, 56, 62, 68, 74, 80, 86, 92,
-            97, 103, 109, 115, 120, 126, 131, 136, 142, 147, 152, 157, 162, 167, 171, 176,
-            181, 185, 189, 193, 197, 201, 205, 209, 212, 216, 219, 222, 225, 228, 231, 234,
-            236, 238, 241, 243, 244, 246, 248, 249, 251, 252, 253, 254, 254, 255, 255, 255,
-            256, 255, 255, 255, 254, 254, 253, 252, 251, 249, 248, 246, 244, 243, 241, 238,
-            236, 234, 231, 228, 225, 222, 219, 216, 212, 209, 205, 201, 197, 193, 189, 185,
-            181, 176, 171, 167, 162, 157, 152, 147, 142, 136, 131, 126, 120, 115, 109, 103,
-            97, 92, 86, 80, 74, 68, 62, 56, 49, 43, 37, 31, 25, 18, 12, 6,
-            0, -6, -12, -18, -25, -31, -37, -43, -49, -56, -62, -68, -74, -80, -86, -92,
-            -97, -103, -109, -115, -120, -126, -131, -136, -142, -147, -152, -157, -162, -167, -171, -176,
-            -181, -185, -189, -193, -197, -201, -205, -209, -212, -216, -219, -222, -225, -228, -231, -234,
-            -236, -238, -241, -243, -244, -246, -248, -249, -251, -252, -253, -254, -254, -255, -255, -255,
-            -256, -255, -255, -255, -254, -254, -253, -252, -251, -249, -248, -246, -244, -243, -241, -238,
-            -236, -234, -231, -228, -225, -222, -219, -216, -212, -209, -205, -201, -197, -193, -189, -185,
-            -181, -176, -171, -167, -162, -157, -152, -147, -142, -136, -131, -126, -120, -115, -109, -103,
-            -97, -92, -86, -80, -74, -68, -62, -56, -49, -43, -37, -31, -25, -18, -12, -6
-    };
 
     // From disassembly: move.b #4,obRender(a0) — render flags (screen-relative coords)
     // From disassembly: move.b #4,obPriority(a0)
@@ -365,8 +345,8 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
         int angleByte = (angle >> 8) & 0xFF;
 
         // CalcSine: d0 = sin, d1 = cos
-        int sin = SINE_TABLE[angleByte];
-        int cos = SINE_TABLE[(angleByte + 0x40) & 0xFF];
+        int sin = TrigLookupTable.sinHex(angleByte);
+        int cos = TrigLookupTable.cosHex(angleByte);
 
         // lsl.w #8,d4 — distance * 256
         int distScaled = spotDistance << 8;
