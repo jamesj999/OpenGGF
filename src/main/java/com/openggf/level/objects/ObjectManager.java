@@ -814,7 +814,7 @@ public class ObjectManager {
                             player.setTopSolidBit(config.getPath1TopSolidBit());
                             player.setLrbSolidBit(config.getPath1LrbSolidBit());
                         }
-                        LOGGER.info(() -> String.format(
+                        LOGGER.fine(() -> String.format(
                                 "PlaneSwitcher path=%d: player(%d,%d) obj(%d,%d) sub=0x%02X side=%d→%d air=%b mode=%s",
                                 path, player.getCentreX(), player.getCentreY(),
                                 spawn.x(), spawn.y(), subtype, state.sideState, sideNow,
@@ -1771,12 +1771,18 @@ public class ObjectManager {
                     if (deltaX != 0) {
                         player.shiftX(deltaX);
                     }
-                    // ROM: MvSonicOnPtfm — y_pos(a1) = y_pos(a0) - d3 - y_radius(a1)
-                    // d3 is the platform's Y offset (negative = surface below center).
-                    // offsetY shifts the collision anchor; the standing surface is at
-                    // anchorY - halfHeight = (currentY + offsetY) - halfHeight.
-                    int halfHeight = params.airHalfHeight();
-                    int newCentreY = currentY + params.offsetY() - halfHeight - player.getYRadius();
+                    // ROM: Sloped objects use SlopeObject2 for riding updates,
+                    // which re-samples the slope heightmap at the player's X each
+                    // frame: surfaceY = obY - slopeSample; playerY = surfaceY - yRadius.
+                    // Flat objects use MvSonicOnPtfm: y = obY - d3 - yRadius.
+                    int surfaceOffset;
+                    if (ridingObject instanceof SlopedSolidProvider sloped) {
+                        int slopeY = sampleSlopeY(player, currentX, params.halfWidth(), sloped);
+                        surfaceOffset = (slopeY != Integer.MIN_VALUE) ? slopeY : params.airHalfHeight();
+                    } else {
+                        surfaceOffset = params.airHalfHeight();
+                    }
+                    int newCentreY = currentY + params.offsetY() - surfaceOffset - player.getYRadius();
                     int newY = newCentreY - (player.getHeight() / 2);
                     player.setY((short) newY);
                     ridingX = currentX;
@@ -2486,6 +2492,53 @@ public class ObjectManager {
                 return false;
             }
             return provider.preservesEdgeSubpixelMotion();
+        }
+
+        /**
+         * ROM: SlopeObject2 / MvSonicOnSlope slope sampling for riding updates.
+         * Returns the raw slope sample (surface offset from object Y), matching
+         * the ROM formula: surfaceY = obY - slopeSample.
+         *
+         * Important: unlike resolveSlopedContact (landing path) which normalises
+         * slope values via getSlopeBaseline(), the riding path uses the raw sample
+         * exactly as the ROM does — no baseline subtraction.
+         *
+         * Shift/flip ordering matches the ROM: shift first (lsr.w #1), then flip
+         * (not.w + add.w halfWidth). This differs from SlopeObject (landing) which
+         * flips the full relX before shifting.
+         */
+        private int sampleSlopeY(AbstractPlayableSprite player, int objectX,
+                int halfWidth, SlopedSolidProvider sloped) {
+            byte[] slopeData = sloped.getSlopeData();
+            if (slopeData == null || slopeData.length == 0) {
+                return Integer.MIN_VALUE;
+            }
+            int playerCenterX = player.getCentreX();
+            int relX = playerCenterX - objectX + halfWidth;
+            int width2 = halfWidth * 2;
+            // Clamp relX to the valid collision width. The riding bounds check
+            // allows a sticky buffer (up to 16px beyond the collision edge),
+            // so the player can be slightly outside the slope data range.
+            if (relX < 0) {
+                relX = 0;
+            } else if (relX >= width2) {
+                relX = width2 - 1;
+            }
+            // ROM: lsr.w #1,d0 — shift BEFORE flip (matches SlopeObject2/MvSonicOnSlope)
+            int sampleX = relX >> 1;
+            if (sloped.isSlopeFlipped()) {
+                // ROM: not.w d0 / add.w d1,d0 — where d1 = halfWidth
+                // not.w gives ~sampleX = -sampleX - 1, then + halfWidth
+                sampleX = halfWidth - sampleX - 1;
+            }
+            if (sampleX < 0) {
+                sampleX = 0;
+            } else if (sampleX >= slopeData.length) {
+                sampleX = slopeData.length - 1;
+            }
+            // ROM: move.b (a2,d0.w),d1 / ext.w d1 (S2) or moveq #0,d1 / move.b (S1)
+            // Java byte is signed, matching S2's ext.w. S1 values are positive so no difference.
+            return (byte) slopeData[sampleX];
         }
 
         private void clearRollingOnLanding(AbstractPlayableSprite player) {
