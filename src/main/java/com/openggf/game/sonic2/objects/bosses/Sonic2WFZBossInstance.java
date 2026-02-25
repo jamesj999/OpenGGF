@@ -13,6 +13,7 @@ import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.boss.AbstractBossChild;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -157,6 +158,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     private int openAnimFrame;
     private int animSpeedCounter; // Counts down game frames per animation frame
     private boolean laserSignaled; // Set by laser child when fully extended (issue 6)
+    private boolean childrenSpawned;
 
     // Child component references
     private WFZLaserWall leftWall;
@@ -184,6 +186,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         openAnimFrame = 0;
         animSpeedCounter = 0;
         laserSignaled = false;
+        childrenSpawned = false;
 
         // ROM: Camera max Y = $442
         Camera camera = Camera.getInstance();
@@ -240,8 +243,6 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     // ========================================================================
     // Routine $04: Spawn walls, laser shooter, platform releaser, Robotnik
     // ========================================================================
-
-    private boolean childrenSpawned = false;
 
     private void updateSpawnChildren() {
         // ROM: Two-phase descent sequence.
@@ -999,6 +1000,15 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
                 return;
             }
 
+            // Destroy platform and hurt child when boss is defeated
+            if (parent != null && parent.getState().defeated) {
+                if (hurtChild != null) {
+                    hurtChild.setDestroyed(true);
+                }
+                setDestroyed(true);
+                return;
+            }
+
             switch (phase) {
                 case 0 -> {
                     // ROM: ObjC5_PlatformDownWait - descend phase with ObjectMove
@@ -1061,18 +1071,6 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public boolean isDestroyed() {
-            // Destroy when parent boss is defeated
-            if (parent != null && parent.getState().defeated) {
-                if (hurtChild != null) {
-                    hurtChild.setDestroyed(true);
-                }
-                setDestroyed(true);
-            }
-            return super.isDestroyed();
-        }
-
-        @Override
         public void appendRenderCommands(List<GLCommand> commands) {
             if (isDestroyed()) {
                 return;
@@ -1112,7 +1110,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
      * Follows parent platform, offset Y+$0C.
      * Delete when parent signals defeat.
      */
-    static class WFZPlatformHurt extends AbstractBossChild {
+    static class WFZPlatformHurt extends AbstractBossChild implements TouchResponseProvider {
         private static final int Y_OFFSET = 0x0C;
         private static final int COLLISION_FLAGS = 0x98;
 
@@ -1129,8 +1127,17 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             this.currentY = platformY + Y_OFFSET;
         }
 
+        @Override
         public int getCollisionFlags() {
+            if (isDestroyed()) {
+                return 0;
+            }
             return COLLISION_FLAGS;
+        }
+
+        @Override
+        public int getCollisionProperty() {
+            return 0;
         }
 
         @Override
@@ -1306,6 +1313,9 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
                         currentY += 0x10;
                         subState = STATE_SHOOT;
                         shootStage = 0;
+                        // Set stage 0 mapping frame immediately so it's visible
+                        // before the first shootStage++ in STATE_SHOOT
+                        currentMappingFrame = LASER_MAPPING_FRAMES[0];
                     }
                 }
                 case STATE_SHOOT -> {

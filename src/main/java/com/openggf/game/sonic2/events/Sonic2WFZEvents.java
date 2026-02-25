@@ -26,7 +26,7 @@ public class Sonic2WFZEvents extends Sonic2ZoneEvents {
                 // Routine 0: Boss arena trigger
                 // ROM: cmp.w #$2880,(Camera_X_pos).w / bhi.s
                 // ROM: cmp.w #$400,(Camera_Y_pos).w / bhi.s
-                if (camera.getX() >= 0x2880 && camera.getY() >= 0x400) {
+                if (camera.getX() > 0x2880 && camera.getY() > 0x400) {
                     eventRoutine += 2;
                     // Lock camera min X to prevent backtracking
                     camera.setMinX((short) 0x2880);
@@ -37,7 +37,7 @@ public class Sonic2WFZEvents extends Sonic2ZoneEvents {
             case 2 -> {
                 // Routine 2: Tornado sequence trigger
                 // ROM: cmp.w #$500,(Camera_Y_pos).w / bhi.s
-                if (camera.getY() >= 0x500) {
+                if (camera.getY() > 0x500) {
                     eventRoutine += 2;
                     // ROM: moveq #PLCID_Tornado,d0 / jmpto JmpTo2_LoadPLC
                     // PLC load handled by art provider system
