@@ -234,13 +234,22 @@ public class TestHTZObjectBugs {
      * <p>If no springboard is found in HTZ1, the test is skipped via {@code Assume}.
      */
     @Test
-    public void testSpringboardHighSpeedLaunch() {
+    public void testSpringboardHighSpeedLaunch() throws Exception {
+        // Springboards (0x40) exist in CPZ, ARZ, MCZ — not HTZ. Load ARZ Act 1.
+        LevelManager.getInstance().loadZoneAndAct(ZONE_ARZ, ACT_1);
+        GroundSensor.setLevelManager(LevelManager.getInstance());
+        Camera.getInstance().updatePosition(true);
+
         ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
         ObjectInstance springboardObj = null;
 
-        // Walk right through HTZ1 looking for a springboard (0x40)
-        for (int frame = 0; frame < 900; frame++) {
-            testRunner.stepFrame(false, false, false, true, false);
+        // Scan the level for a springboard by teleporting in 256px increments
+        for (int scanX = 0; scanX < 10240; scanX += 256) {
+            sprite.setX((short) scanX);
+            sprite.setY((short) 512);
+            Camera.getInstance().updatePosition(true);
+            objMgr.reset(Camera.getInstance().getX());
+            testRunner.stepIdleFrames(2);
 
             for (ObjectInstance obj : objMgr.getActiveObjects()) {
                 if (obj.getSpawn().objectId() == OBJ_SPRINGBOARD && !obj.isDestroyed()) {
@@ -248,16 +257,10 @@ public class TestHTZObjectBugs {
                     break;
                 }
             }
-            if (springboardObj != null) {
-                break;
-            }
-
-            if (frame % 200 == 0) {
-                logState("Searching frame " + (frame + 1));
-            }
+            if (springboardObj != null) break;
         }
 
-        Assume.assumeTrue("No springboard (0x40) found in HTZ1 traversal range",
+        Assume.assumeTrue("No springboard (0x40) found in ARZ1",
                 springboardObj != null);
 
         int sbX = springboardObj.getX();
@@ -307,32 +310,34 @@ public class TestHTZObjectBugs {
     @Test
     public void testSeesawBallNoDuplicateOnReentry() {
         ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
+
+        // First HTZ1 seesaw is at (1920, 1000). Teleport near it.
+        int seesawX = 1920;
+        int seesawY = 1000;
+
+        sprite.setX((short) seesawX);
+        sprite.setY((short) (seesawY - 32));
+        sprite.setAir(false);
+        sprite.setGSpeed((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        Camera.getInstance().updatePosition(true);
+        objMgr.reset(Camera.getInstance().getX());
+
+        // Step frames to spawn the seesaw and its ball
+        testRunner.stepIdleFrames(10);
+
+        // Verify seesaw was actually spawned
         ObjectInstance seesawObj = null;
-
-        // Walk right through HTZ1 looking for a seesaw (0x14)
-        for (int frame = 0; frame < 900; frame++) {
-            testRunner.stepFrame(false, false, false, true, false);
-
-            for (ObjectInstance obj : objMgr.getActiveObjects()) {
-                if (obj.getSpawn().objectId() == OBJ_SEESAW && !obj.isDestroyed()) {
-                    seesawObj = obj;
-                    break;
-                }
-            }
-            if (seesawObj != null) {
+        for (ObjectInstance obj : objMgr.getActiveObjects()) {
+            if (obj.getSpawn().objectId() == OBJ_SEESAW && !obj.isDestroyed()) {
+                seesawObj = obj;
                 break;
             }
-
-            if (frame % 200 == 0) {
-                logState("Searching frame " + (frame + 1));
-            }
         }
-
-        Assume.assumeTrue("No seesaw (0x14) found in HTZ1 traversal range",
+        Assume.assumeTrue("Seesaw (0x14) not spawned at (" + seesawX + "," + seesawY + ")",
                 seesawObj != null);
 
-        int seesawX = seesawObj.getX();
-        int seesawY = seesawObj.getY();
         logState("Seesaw found at (" + seesawX + ", " + seesawY + ")");
 
         // Position Sonic near the seesaw to ensure ball is spawned
@@ -411,36 +416,42 @@ public class TestHTZObjectBugs {
     @Test
     public void testDiagonalSpringActivatesFromGround() {
         ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
+
+        // First diagonal spring in HTZ1 is at (1744, 752) subtype 0x30.
+        // Teleport Sonic near it so the object spawns.
+        int springX = 1744;
+        int springY = 752;
+
+        sprite.setX((short) springX);
+        sprite.setY((short) (springY - 16));
+        sprite.setAir(false);
+        sprite.setGSpeed((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        Camera.getInstance().updatePosition(true);
+        objMgr.reset(Camera.getInstance().getX());
+
+        // Step a few frames to let the spring spawn
+        testRunner.stepIdleFrames(5);
+
+        // Verify the diagonal spring actually spawned
         ObjectInstance diagonalSpringObj = null;
-
-        // Walk right through HTZ1 looking for a diagonal spring (0x41 with type 6)
-        for (int frame = 0; frame < 900; frame++) {
-            testRunner.stepFrame(false, false, false, true, false);
-
-            for (ObjectInstance obj : objMgr.getActiveObjects()) {
-                if (obj.getSpawn().objectId() == OBJ_SPRING && !obj.isDestroyed()) {
-                    // Check if this is a diagonal-up spring: (subtype >> 3) & 0xE == 6
-                    int springType = (obj.getSpawn().subtype() >> 3) & 0xE;
-                    if (springType == SPRING_TYPE_DIAGONAL_UP) {
-                        diagonalSpringObj = obj;
-                        break;
-                    }
+        for (ObjectInstance obj : objMgr.getActiveObjects()) {
+            if (obj.getSpawn().objectId() == OBJ_SPRING && !obj.isDestroyed()) {
+                int springType = (obj.getSpawn().subtype() >> 3) & 0xE;
+                if (springType == SPRING_TYPE_DIAGONAL_UP) {
+                    diagonalSpringObj = obj;
+                    break;
                 }
-            }
-            if (diagonalSpringObj != null) {
-                break;
-            }
-
-            if (frame % 200 == 0) {
-                logState("Searching frame " + (frame + 1));
             }
         }
 
-        Assume.assumeTrue("No diagonal-up spring (0x41 type 6) found in HTZ1 traversal range",
+        Assume.assumeTrue("Diagonal spring (0x41) not spawned near (" + springX + "," + springY + ")",
                 diagonalSpringObj != null);
 
-        int springX = diagonalSpringObj.getX();
-        int springY = diagonalSpringObj.getY();
+        // Use the actual spawned position
+        springX = diagonalSpringObj.getX();
+        springY = diagonalSpringObj.getY();
         logState("Diagonal spring found at (" + springX + ", " + springY + ")");
 
         // Position Sonic standing on the flat portion of the diagonal spring
