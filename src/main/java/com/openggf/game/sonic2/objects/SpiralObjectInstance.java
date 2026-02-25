@@ -30,8 +30,8 @@ public class SpiralObjectInstance extends AbstractObjectInstance {
             (byte) 0xF2, (byte) 0xF2, 0x01, 0x01, 0x00, 0x00
     };
 
-    // Obj06_CosineTable (slooptbl)
-    private static final byte[] COSINE_TABLE = {
+    // Obj06_CosineTable (slooptbl) - Y-offset curve for spiral path, NOT a trig table
+    private static final byte[] SPIRAL_Y_OFFSETS = {
             32, 32, 32, 32, 32, 32, 32, 32,
             32, 32, 32, 32, 32, 32, 32, 32,
             32, 32, 32, 32, 32, 32, 32, 32,
@@ -227,12 +227,12 @@ public class SpiralObjectInstance extends AbstractObjectInstance {
         // Let's assume for Java implementation that we index by `dx + 0xD0`.
 
         int tableIndex = dx + 0xD0;
-        if (tableIndex < 0 || tableIndex >= COSINE_TABLE.length) {
+        if (tableIndex < 0 || tableIndex >= SPIRAL_Y_OFFSETS.length) {
             // Out of bounds
             return;
         }
 
-        byte offsetY = COSINE_TABLE[tableIndex];
+        byte offsetY = SPIRAL_Y_OFFSETS[tableIndex];
         // d1 extended to word.
 
         // move.w y_pos(a0),d2
