@@ -1,13 +1,15 @@
 package com.openggf.tests;
 
 import org.junit.Before;
-import org.junit.Rule;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
@@ -31,33 +33,48 @@ public class TestSczSpawnOnTornado {
     private static final int ZONE_SCZ = 8;
     private static final int ACT_1 = 0;
 
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
+    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
+    private static String mainCharCode;
+
+    @BeforeClass
+    public static void loadLevel() throws Exception {
+        GraphicsManager.getInstance().initHeadless();
+        SonicConfigurationService cs = SonicConfigurationService.getInstance();
+        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+
+        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
+        SpriteManager.getInstance().addSprite(temp);
+        Camera camera = Camera.getInstance();
+        camera.setFocusedSprite(temp);
+        camera.setFrozen(false);
+
+        LevelManager.getInstance().loadZoneAndAct(ZONE_SCZ, ACT_1);
+        GroundSensor.setLevelManager(LevelManager.getInstance());
+    }
 
     private AbstractPlayableSprite sprite;
     private HeadlessTestRunner runner;
     private LevelManager levelManager;
 
     @Before
-    public void setUp() throws Exception {
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
-        String mainCharacter = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-
-        GraphicsManager.getInstance().initHeadless();
-
-        // LevelManager load path expects playable sprite to exist first.
-        sprite = new Sonic(mainCharacter, (short) 100, (short) 100);
+    public void setUp() {
+        TestEnvironment.resetPerTest();
+        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
         SpriteManager.getInstance().addSprite(sprite);
-
         Camera camera = Camera.getInstance();
         camera.setFocusedSprite(sprite);
         camera.setFrozen(false);
 
-        levelManager = LevelManager.getInstance();
-        levelManager.loadZoneAndAct(ZONE_SCZ, ACT_1);
-        GroundSensor.setLevelManager(levelManager);
-        camera.updatePosition(true);
+        Level level = LevelManager.getInstance().getCurrentLevel();
+        if (level != null) {
+            camera.setMinX((short) level.getMinX());
+            camera.setMaxX((short) level.getMaxX());
+            camera.setMinY((short) level.getMinY());
+            camera.setMaxY((short) level.getMaxY());
+        }
 
+        camera.updatePosition(true);
+        levelManager = LevelManager.getInstance();
         runner = new HeadlessTestRunner(sprite);
     }
 

@@ -1,12 +1,14 @@
 package com.openggf.tests;
 
 import org.junit.Before;
-import org.junit.Rule;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
@@ -35,10 +37,8 @@ import static org.junit.Assert.*;
 @RequiresRom(SonicGame.SONIC_2)
 public class TestHtzSpringLoop {
 
-    @Rule public RequiresRomRule romRule = new RequiresRomRule();
-
-    private Sonic sprite;
-    private HeadlessTestRunner testRunner;
+    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
+    private static String mainCharCode;
 
     // Test position for HTZ Act 2 spring loop area (from debug overlay - decimal values)
     private static final short START_X = (short) 8475;  // X position from debug overlay
@@ -49,48 +49,43 @@ public class TestHtzSpringLoop {
     private static final int HTZ_ZONE_INDEX = 4;
     private static final int ACT_2_INDEX = 1;
 
-    @Before
-    public void setUp() throws Exception {
-        // Initialize headless graphics (no GL context needed)
+    @BeforeClass
+    public static void loadLevel() throws Exception {
         GraphicsManager.getInstance().initHeadless();
+        SonicConfigurationService cs = SonicConfigurationService.getInstance();
+        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
 
-        // Create Sonic sprite at the spring loop position
-        SonicConfigurationService configService = SonicConfigurationService.getInstance();
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        sprite = new Sonic(mainCode, START_X, START_Y);
-
-        // Add sprite to SpriteManager
-        SpriteManager spriteManager = SpriteManager.getInstance();
-        spriteManager.addSprite(sprite);
-
-        // Set camera focus - must be done BEFORE level load
+        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
+        SpriteManager.getInstance().addSprite(temp);
         Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        // Reset camera to ensure clean state (frozen may be left over from death in other tests)
+        camera.setFocusedSprite(temp);
         camera.setFrozen(false);
 
-        // Load HTZ Act 2 (zone index 4, act index 1)
         LevelManager.getInstance().loadZoneAndAct(HTZ_ZONE_INDEX, ACT_2_INDEX);
-
-        // Ensure GroundSensor uses the current LevelManager instance
-        // (static field may be stale from earlier tests)
         GroundSensor.setLevelManager(LevelManager.getInstance());
+    }
 
-        // IMPORTANT: loadZoneAndAct resets player position to level default.
-        // We must set the test position AFTER level load.
-        sprite.setX(START_X);
-        sprite.setY(START_Y);
+    private Sonic sprite;
+    private HeadlessTestRunner testRunner;
 
-        // Fix camera position - loadCurrentLevel sets bounds AFTER updatePosition,
-        // so the camera may have been clamped incorrectly. Force update again now
-        // that bounds are set. Also needs to account for our new sprite position.
+    @Before
+    public void setUp() {
+        TestEnvironment.resetPerTest();
+        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
+        SpriteManager.getInstance().addSprite(sprite);
+        Camera camera = Camera.getInstance();
+        camera.setFocusedSprite(sprite);
+        camera.setFrozen(false);
+
+        Level level = LevelManager.getInstance().getCurrentLevel();
+        if (level != null) {
+            camera.setMinX((short) level.getMinX());
+            camera.setMaxX((short) level.getMaxX());
+            camera.setMinY((short) level.getMinY());
+            camera.setMaxY((short) level.getMaxY());
+        }
+
         camera.updatePosition(true);
-
-        // Reset the object manager's spawn window to the new camera position
-        // so objects near our test position are spawned
-        LevelManager.getInstance().getObjectManager().reset(camera.getX());
-
-        // Create the headless test runner
         testRunner = new HeadlessTestRunner(sprite);
     }
 
@@ -103,6 +98,15 @@ public class TestHtzSpringLoop {
      */
     @Test
     public void testSpringLoopMaintainsMovement() {
+        // Position sprite at the spring loop test location
+        sprite.setX(START_X);
+        sprite.setY(START_Y);
+        Camera.getInstance().updatePosition(true);
+
+        // Reset the object manager's spawn window to the new camera position
+        // so objects near our test position are spawned
+        LevelManager.getInstance().getObjectManager().reset(Camera.getInstance().getX());
+
         // Log initial state
         logState("Initial");
 
