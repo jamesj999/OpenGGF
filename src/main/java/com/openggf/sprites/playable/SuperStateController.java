@@ -17,6 +17,7 @@ public abstract class SuperStateController {
     private SuperState state = SuperState.NORMAL;
     private int ringDrainCounter;
     private SpriteAnimationProfile normalAnimProfile;
+    private boolean romDataPreLoaded;
 
     protected SuperStateController(AbstractPlayableSprite player) {
         this.player = player;
@@ -71,6 +72,14 @@ public abstract class SuperStateController {
      */
     public void loadRomData(RomByteReader reader) {
         // Default: no ROM data needed
+    }
+
+    public void setRomDataPreLoaded(boolean preLoaded) {
+        this.romDataPreLoaded = preLoaded;
+    }
+
+    public boolean isRomDataPreLoaded() {
+        return romDataPreLoaded;
     }
 
     // --- Template methods for subclasses ---
