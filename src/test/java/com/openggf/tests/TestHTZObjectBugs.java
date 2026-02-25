@@ -1,0 +1,664 @@
+package com.openggf.tests;
+
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.LevelManager;
+import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectManager;
+import com.openggf.physics.GroundSensor;
+import com.openggf.sprites.managers.SpriteManager;
+import com.openggf.sprites.playable.Sonic;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.RequiresRomRule;
+import com.openggf.tests.rules.SonicGame;
+
+import static org.junit.Assert.*;
+
+/**
+ * Headless integration tests for HTZ (Hill Top Zone) and related object bugs
+ * in the Sonic 2 engine reimplementation.
+ *
+ * <p>These are bug reproduction tests that should <b>FAIL</b> initially (proving the
+ * bugs exist), then <b>PASS</b> after the corresponding fixes are applied.
+ *
+ * <p><b>Bug #3 - Rising Pillar Too Tall:</b> Rising pillar (0x2B) in ARZ has Y-radius
+ * 0x20 (32px) and rises 4px/frame for 6 frames. When fully extended, Sonic should be
+ * able to clear it from a standing jump on adjacent terrain.
+ *
+ * <p><b>Bug #5 - Springboard Speed Skip:</b> Springboard (0x40) relies on
+ * {@code contact.standing()} which requires per-frame overlap. At high speed, Sonic
+ * passes over without triggering the launch.
+ *
+ * <p><b>Bug #6 - Seesaw Ghost Ball:</b> Seesaw (0x14) spawns a ball on first update.
+ * On camera re-entry, a duplicate ball may spawn if the seesaw re-initialises.
+ *
+ * <p><b>Bug #7 - Diagonal Spring Not Activating:</b> Diagonal spring (0x41)
+ * {@code isDiagonalXThresholdMet()} requires Sonic be 4px past the spring centre.
+ * Standing on the flat portion of a diagonal spring never meets this threshold.
+ *
+ * <p><b>Bug #10 - 90-Degree Corner Bounce:</b> Landing on the exact corner between
+ * flat terrain and a cliff can produce an incorrect bounce instead of a clean landing.
+ */
+@RequiresRom(SonicGame.SONIC_2)
+public class TestHTZObjectBugs {
+
+    @Rule public RequiresRomRule romRule = new RequiresRomRule();
+
+    private Sonic sprite;
+    private HeadlessTestRunner testRunner;
+
+    // Zone/Act indices for loadZoneAndAct (not ROM zone IDs)
+    // EHZ=0, CPZ=1, ARZ=2, CNZ=3, HTZ=4
+    private static final int ZONE_EHZ = 0;
+    private static final int ZONE_ARZ = 2;
+    private static final int ZONE_HTZ = 4;
+    private static final int ACT_1 = 0;
+
+    // Object IDs from Sonic 2 layout
+    private static final int OBJ_SEESAW = 0x14;
+    private static final int OBJ_RISING_PILLAR = 0x2B;
+    private static final int OBJ_SPRINGBOARD = 0x40;
+    private static final int OBJ_SPRING = 0x41;
+
+    // Diagonal spring type value: (subtype >> 3) & 0xE == 6
+    private static final int SPRING_TYPE_DIAGONAL_UP = 6;
+
+    @Before
+    public void setUp() throws Exception {
+        // Initialize headless graphics (no GL context needed)
+        GraphicsManager.getInstance().initHeadless();
+
+        // Create Sonic sprite at origin (position set after level load)
+        SonicConfigurationService configService = SonicConfigurationService.getInstance();
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        sprite = new Sonic(mainCode, (short) 0, (short) 0);
+
+        // Add sprite to SpriteManager
+        SpriteManager.getInstance().addSprite(sprite);
+
+        // Set camera focus - must be done BEFORE level load
+        Camera camera = Camera.getInstance();
+        camera.setFocusedSprite(sprite);
+        // Reset camera to ensure clean state (frozen may be left over from death in other tests)
+        camera.setFrozen(false);
+
+        // Load HTZ Act 1 (zone index 4, act index 0)
+        LevelManager.getInstance().loadZoneAndAct(ZONE_HTZ, ACT_1);
+
+        // Ensure GroundSensor uses the current LevelManager instance
+        // (static field may be stale from earlier tests)
+        GroundSensor.setLevelManager(LevelManager.getInstance());
+
+        // Fix camera position - loadZoneAndAct sets bounds AFTER updatePosition,
+        // so the camera may have been clamped incorrectly. Force update again now
+        // that bounds are set.
+        camera.updatePosition(true);
+
+        // Reset the object manager's spawn window to the new camera position
+        // so objects near our test position are spawned
+        LevelManager.getInstance().getObjectManager().reset(camera.getX());
+
+        // Create the headless test runner
+        testRunner = new HeadlessTestRunner(sprite);
+    }
+
+    // -----------------------------------------------------------------------
+    // Bug #3: Rising Pillar Too Tall (ARZ)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Tests that Sonic can jump over a fully extended rising pillar (0x2B) in ARZ.
+     *
+     * <p>The rising pillar has Y-radius 0x20 (32px), and rises 4px/frame for 6 frames
+     * (24px total extension), with a 3-frame delay between each rise step. When fully
+     * extended, the pillar top is at {@code pillarY - 0x20 - 24}. Sonic's normal jump
+     * should be able to clear this height from flat terrain at the same Y level.
+     *
+     * <p>If no rising pillar is found in the ARZ1 traversal range, the test is skipped
+     * via {@code Assume}.
+     */
+    @Test
+    public void testRisingPillarSonicCanClearFromTop() throws Exception {
+        // Rising pillars are in ARZ (zone 2), reload level
+        LevelManager.getInstance().loadZoneAndAct(ZONE_ARZ, ACT_1);
+        GroundSensor.setLevelManager(LevelManager.getInstance());
+        Camera.getInstance().updatePosition(true);
+        LevelManager.getInstance().getObjectManager().reset(Camera.getInstance().getX());
+
+        logState("ARZ loaded");
+
+        ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
+        ObjectInstance pillarObj = null;
+
+        // Walk right through ARZ1 looking for a rising pillar (0x2B)
+        for (int frame = 0; frame < 900; frame++) {
+            testRunner.stepFrame(false, false, false, true, false);
+
+            for (ObjectInstance obj : objMgr.getActiveObjects()) {
+                if (obj.getSpawn().objectId() == OBJ_RISING_PILLAR && !obj.isDestroyed()) {
+                    pillarObj = obj;
+                    break;
+                }
+            }
+            if (pillarObj != null) {
+                break;
+            }
+
+            if (frame % 200 == 0) {
+                logState("Searching frame " + (frame + 1));
+            }
+        }
+
+        Assume.assumeTrue("No rising pillar (0x2B) found in ARZ1 traversal range",
+                pillarObj != null);
+
+        int pillarX = pillarObj.getX();
+        int pillarY = pillarObj.getY();
+        logState("Pillar found at (" + pillarX + ", " + pillarY + ")");
+
+        // Position Sonic near the pillar to trigger extension (within 64px X range).
+        // Place Sonic at the same Y as the pillar base (so he's on floor level)
+        // and within trigger distance.
+        sprite.setX((short) (pillarX - 48));
+        sprite.setY((short) pillarY);
+        sprite.setAir(false);
+        sprite.setGSpeed((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        Camera.getInstance().updatePosition(true);
+        objMgr.reset(Camera.getInstance().getX());
+
+        // Wait 30 frames for pillar to fully extend (3-frame delay + 6 rise steps)
+        for (int i = 0; i < 30; i++) {
+            testRunner.stepIdleFrames(1);
+        }
+
+        logState("After pillar extension");
+
+        // Calculate expected extended pillar top Y:
+        // Initial yRadius = 0x20 (32), extension = 4px * 6 = 24px
+        // Pillar Y decreases by rise amount, yRadius increases by rise amount
+        // Extended top = (pillarY - 24) - (0x20 + 24) = pillarY - 24 - 56 = pillarY - 80
+        // But the pillar solid top is at: getY() - yRadius
+        // After extension: Y = pillarY - 24, yRadius = 0x20 + 24 = 56
+        // Solid top = (pillarY - 24) - 56 = pillarY - 80
+        int extendedTopY = pillarY - 80;
+
+        // Position Sonic just to the left of the pillar, on flat ground
+        sprite.setX((short) (pillarX - 40));
+        sprite.setY((short) pillarY);
+        sprite.setAir(false);
+        sprite.setGSpeed((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        Camera.getInstance().updatePosition(true);
+
+        // Jump and track maximum height (minimum Y reached)
+        testRunner.stepFrame(false, false, false, false, true); // Press jump
+        logState("Jump initiated");
+
+        int minY = sprite.getY();
+        for (int i = 0; i < 60; i++) {
+            testRunner.stepIdleFrames(1);
+            if (sprite.getY() < minY) {
+                minY = sprite.getY();
+            }
+        }
+
+        logState("After jump apex (minY=" + minY + ", extendedTopY=" + extendedTopY + ")");
+
+        // Sonic's apex should be above (less than) the extended pillar top
+        assertTrue("Sonic's jump apex (Y=" + minY + ") should clear the extended pillar top " +
+                "(Y=" + extendedTopY + "). Pillar may be too tall for a standing jump.",
+                minY < extendedTopY);
+    }
+
+    // -----------------------------------------------------------------------
+    // Bug #5: Springboard Speed Skip (HTZ)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Tests that the springboard (0x40) launches Sonic when he crosses it at high speed.
+     *
+     * <p>The springboard relies on {@code contact.standing()} which requires per-frame
+     * overlap. At high speed (16+ px/frame), Sonic may pass over the springboard without
+     * triggering the launch because his collision box never overlaps with the springboard
+     * for a full frame.
+     *
+     * <p>If no springboard is found in HTZ1, the test is skipped via {@code Assume}.
+     */
+    @Test
+    public void testSpringboardHighSpeedLaunch() {
+        ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
+        ObjectInstance springboardObj = null;
+
+        // Walk right through HTZ1 looking for a springboard (0x40)
+        for (int frame = 0; frame < 900; frame++) {
+            testRunner.stepFrame(false, false, false, true, false);
+
+            for (ObjectInstance obj : objMgr.getActiveObjects()) {
+                if (obj.getSpawn().objectId() == OBJ_SPRINGBOARD && !obj.isDestroyed()) {
+                    springboardObj = obj;
+                    break;
+                }
+            }
+            if (springboardObj != null) {
+                break;
+            }
+
+            if (frame % 200 == 0) {
+                logState("Searching frame " + (frame + 1));
+            }
+        }
+
+        Assume.assumeTrue("No springboard (0x40) found in HTZ1 traversal range",
+                springboardObj != null);
+
+        int sbX = springboardObj.getX();
+        int sbY = springboardObj.getY();
+        logState("Springboard found at (" + sbX + ", " + sbY + ")");
+
+        // Position Sonic 64px to the LEFT of the springboard
+        sprite.setX((short) (sbX - 64));
+        sprite.setY((short) sbY);
+        sprite.setAir(false);
+        Camera.getInstance().updatePosition(true);
+        objMgr.reset(Camera.getInstance().getX());
+
+        // Inject high ground speed: 0x1000 (16 px/frame)
+        sprite.setGSpeed((short) 0x1000);
+        sprite.setXSpeed((short) 0x1000);
+
+        logState("Before high-speed approach");
+
+        // Step 30 frames moving right
+        for (int i = 0; i < 30; i++) {
+            testRunner.stepFrame(false, false, false, true, false);
+        }
+
+        logState("After high-speed pass");
+
+        // The springboard should have launched Sonic upward
+        assertTrue("Springboard should launch Sonic upward at high speed. " +
+                "YSpeed=" + sprite.getYSpeed() + " (expected < -0x200). " +
+                "At 16px/frame, Sonic may have passed over without triggering.",
+                sprite.getYSpeed() < -0x200);
+    }
+
+    // -----------------------------------------------------------------------
+    // Bug #6: Seesaw Ghost Ball (HTZ)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Tests that seesaw (0x14) does not spawn a duplicate ball on camera re-entry.
+     *
+     * <p>The seesaw spawns a ball child on its first update. When Sonic moves far
+     * enough away for the seesaw to despawn and then returns, the seesaw may respawn
+     * and create another ball, resulting in duplicate balls at the same position.
+     *
+     * <p>If no seesaw is found in HTZ1, the test is skipped via {@code Assume}.
+     */
+    @Test
+    public void testSeesawBallNoDuplicateOnReentry() {
+        ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
+        ObjectInstance seesawObj = null;
+
+        // Walk right through HTZ1 looking for a seesaw (0x14)
+        for (int frame = 0; frame < 900; frame++) {
+            testRunner.stepFrame(false, false, false, true, false);
+
+            for (ObjectInstance obj : objMgr.getActiveObjects()) {
+                if (obj.getSpawn().objectId() == OBJ_SEESAW && !obj.isDestroyed()) {
+                    seesawObj = obj;
+                    break;
+                }
+            }
+            if (seesawObj != null) {
+                break;
+            }
+
+            if (frame % 200 == 0) {
+                logState("Searching frame " + (frame + 1));
+            }
+        }
+
+        Assume.assumeTrue("No seesaw (0x14) found in HTZ1 traversal range",
+                seesawObj != null);
+
+        int seesawX = seesawObj.getX();
+        int seesawY = seesawObj.getY();
+        logState("Seesaw found at (" + seesawX + ", " + seesawY + ")");
+
+        // Position Sonic near the seesaw to ensure ball is spawned
+        sprite.setX((short) seesawX);
+        sprite.setY((short) (seesawY - 32));
+        sprite.setAir(false);
+        sprite.setGSpeed((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        Camera.getInstance().updatePosition(true);
+        objMgr.reset(Camera.getInstance().getX());
+
+        // Step frames so the seesaw spawns its ball
+        testRunner.stepIdleFrames(10);
+
+        // Count SeesawBall instances among active objects
+        int initialBallCount = countSeesawBalls(objMgr);
+        System.out.printf("Initial SeesawBall count near seesaw at (%d,%d): %d%n",
+                seesawX, seesawY, initialBallCount);
+
+        // Move Sonic far away (>320px from seesaw X) to trigger despawn
+        sprite.setX((short) (seesawX + 500));
+        sprite.setY((short) seesawY);
+        sprite.setAir(false);
+        sprite.setGSpeed((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        Camera.getInstance().updatePosition(true);
+        objMgr.reset(Camera.getInstance().getX());
+
+        // Step frames for despawn processing
+        testRunner.stepIdleFrames(60);
+
+        logState("After moving away");
+
+        // Move Sonic back near the seesaw to trigger respawn
+        sprite.setX((short) seesawX);
+        sprite.setY((short) (seesawY - 32));
+        sprite.setAir(false);
+        sprite.setGSpeed((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        Camera.getInstance().updatePosition(true);
+        objMgr.reset(Camera.getInstance().getX());
+
+        // Step frames for respawn processing
+        testRunner.stepIdleFrames(60);
+
+        logState("After returning");
+
+        // Count SeesawBall instances again
+        int newBallCount = countSeesawBalls(objMgr);
+        System.out.printf("SeesawBall count after re-entry: %d (was %d)%n",
+                newBallCount, initialBallCount);
+
+        // There should not be more balls than before (no duplicates)
+        assertTrue("Seesaw at (" + seesawX + "," + seesawY + ") spawned duplicate balls " +
+                "on camera re-entry. Ball count went from " + initialBallCount +
+                " to " + newBallCount + ".",
+                newBallCount <= initialBallCount);
+    }
+
+    // -----------------------------------------------------------------------
+    // Bug #7: Diagonal Spring Not Activating (general)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Tests that a diagonal spring (0x41) activates when Sonic stands on its flat portion.
+     *
+     * <p>The diagonal spring's {@code isDiagonalXThresholdMet()} requires Sonic to be
+     * 4px past the spring's centre. When standing on the flat portion of the diagonal
+     * surface, the player may never meet this threshold, causing the spring to never fire.
+     *
+     * <p>If no diagonal spring is found in HTZ1, the test is skipped via {@code Assume}.
+     */
+    @Test
+    public void testDiagonalSpringActivatesFromGround() {
+        ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
+        ObjectInstance diagonalSpringObj = null;
+
+        // Walk right through HTZ1 looking for a diagonal spring (0x41 with type 6)
+        for (int frame = 0; frame < 900; frame++) {
+            testRunner.stepFrame(false, false, false, true, false);
+
+            for (ObjectInstance obj : objMgr.getActiveObjects()) {
+                if (obj.getSpawn().objectId() == OBJ_SPRING && !obj.isDestroyed()) {
+                    // Check if this is a diagonal-up spring: (subtype >> 3) & 0xE == 6
+                    int springType = (obj.getSpawn().subtype() >> 3) & 0xE;
+                    if (springType == SPRING_TYPE_DIAGONAL_UP) {
+                        diagonalSpringObj = obj;
+                        break;
+                    }
+                }
+            }
+            if (diagonalSpringObj != null) {
+                break;
+            }
+
+            if (frame % 200 == 0) {
+                logState("Searching frame " + (frame + 1));
+            }
+        }
+
+        Assume.assumeTrue("No diagonal-up spring (0x41 type 6) found in HTZ1 traversal range",
+                diagonalSpringObj != null);
+
+        int springX = diagonalSpringObj.getX();
+        int springY = diagonalSpringObj.getY();
+        logState("Diagonal spring found at (" + springX + ", " + springY + ")");
+
+        // Position Sonic standing on the flat portion of the diagonal spring
+        // The flat portion is near the spring centre (within the 4px threshold)
+        sprite.setX((short) springX);
+        sprite.setY((short) (springY - 16));
+        sprite.setAir(false);
+        sprite.setGSpeed((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        Camera.getInstance().updatePosition(true);
+        objMgr.reset(Camera.getInstance().getX());
+
+        logState("Positioned on diagonal spring");
+
+        // Step frames and check if the spring fires
+        boolean launched = false;
+        for (int i = 0; i < 15; i++) {
+            testRunner.stepIdleFrames(1);
+            if (sprite.getYSpeed() < -0x400) {
+                launched = true;
+                logState("Spring launched at frame " + (i + 1));
+                break;
+            }
+        }
+
+        logState("After standing on diagonal spring");
+
+        assertTrue("Diagonal spring at (" + springX + "," + springY + ") should launch " +
+                "Sonic when standing on its flat portion. YSpeed=" + sprite.getYSpeed() +
+                " (expected < -0x400). The isDiagonalXThresholdMet() check may be " +
+                "preventing activation from the flat area.",
+                launched);
+    }
+
+    // -----------------------------------------------------------------------
+    // Bug #17: Diagonal Spring at Specific HTZ1 Coordinates
+    // -----------------------------------------------------------------------
+
+    /**
+     * Tests that the diagonal spring at HTZ1 coordinates (3456, 793) activates correctly.
+     *
+     * <p>This is a specific bug report location where Sonic should be launched by a
+     * diagonal spring when standing at or near these coordinates. The spring's
+     * {@code isDiagonalXThresholdMet()} guard may prevent activation if Sonic is
+     * positioned on the flat portion.
+     */
+    @Test
+    public void testDiagonalSpringAtHTZ1_3456x793() {
+        // Position Sonic at the reported bug coordinates
+        sprite.setX((short) 3456);
+        sprite.setY((short) 793);
+        sprite.setAir(false);
+        sprite.setGSpeed((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        Camera.getInstance().updatePosition(true);
+        LevelManager.getInstance().getObjectManager().reset(Camera.getInstance().getX());
+
+        logState("Positioned at (3456, 793)");
+
+        // Step 5 idle frames to settle and check for spring activation
+        boolean launched = false;
+        for (int i = 0; i < 5; i++) {
+            testRunner.stepIdleFrames(1);
+            if (sprite.getYSpeed() < -0x400) {
+                launched = true;
+                logState("Spring activated within first 5 frames at frame " + (i + 1));
+                break;
+            }
+        }
+
+        // If not launched in 5 frames, try 10 more with slight movement
+        if (!launched) {
+            logState("Not launched after 5 frames, stepping 10 more");
+            for (int i = 0; i < 10; i++) {
+                testRunner.stepIdleFrames(1);
+                if (sprite.getYSpeed() < -0x400) {
+                    launched = true;
+                    logState("Spring activated at frame " + (i + 6));
+                    break;
+                }
+            }
+        }
+
+        logState("Final state at (3456, 793)");
+
+        assertTrue("Diagonal spring at HTZ1 (3456, 793) should launch Sonic. " +
+                "YSpeed=" + sprite.getYSpeed() + " (expected < -0x400). " +
+                "The spring may not be activating due to the X threshold check.",
+                launched);
+    }
+
+    // -----------------------------------------------------------------------
+    // Bug #10: 90-Degree Corner Bounce (EHZ)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Tests that Sonic lands cleanly on terrain corners without bouncing.
+     *
+     * <p>When Sonic falls diagonally onto the exact corner between flat terrain and
+     * a cliff/drop, the collision system may produce an incorrect bounce or fail to
+     * land him. This test uses EHZ1 for simpler, more predictable terrain geometry.
+     *
+     * <p>The test walks Sonic right until he is on flat ground, then positions him
+     * above and to the right of his current position and drops him with diagonal
+     * velocity. He should land within 60 frames.
+     */
+    @Test
+    public void testLandingOnCornerDoesNotBounce() throws Exception {
+        // Use EHZ for simpler terrain
+        LevelManager.getInstance().loadZoneAndAct(ZONE_EHZ, ACT_1);
+        GroundSensor.setLevelManager(LevelManager.getInstance());
+        Camera.getInstance().updatePosition(true);
+        LevelManager.getInstance().getObjectManager().reset(Camera.getInstance().getX());
+
+        logState("EHZ loaded");
+
+        // Walk Sonic right until he is on flat ground with positive gSpeed
+        int groundX = -1;
+        int groundY = -1;
+        for (int frame = 0; frame < 300; frame++) {
+            testRunner.stepFrame(false, false, false, true, false);
+
+            if (!sprite.getAir() && sprite.getGSpeed() > 0) {
+                // Verify the ground angle is approximately flat (near 0 or 0xFF/0x00)
+                int angle = sprite.getAngle() & 0xFF;
+                if (angle <= 0x10 || angle >= 0xF0) {
+                    groundX = sprite.getX();
+                    groundY = sprite.getY();
+                    break;
+                }
+            }
+        }
+
+        Assume.assumeTrue("Could not find flat ground in EHZ1", groundX > 0);
+
+        logState("Flat ground found at (" + groundX + ", " + groundY + ")");
+
+        // Position Sonic 64px to the right and 32px above the known ground position.
+        // This simulates approaching terrain from a diagonal trajectory that could
+        // hit a corner between floor and empty space.
+        int testX = groundX + 64;
+        int testY = groundY - 32;
+
+        sprite.setX((short) testX);
+        sprite.setY((short) testY);
+        sprite.setAir(true);
+        sprite.setXSpeed((short) 0x200);  // Moving right
+        sprite.setYSpeed((short) 0x200);  // Falling down
+        sprite.setGSpeed((short) 0);
+        Camera.getInstance().updatePosition(true);
+
+        logState("Dropped from (" + testX + ", " + testY + ") with diagonal velocity");
+
+        // Step frames until Sonic lands or 60 frames elapse
+        boolean landed = false;
+        int landFrame = -1;
+        for (int i = 0; i < 60; i++) {
+            testRunner.stepIdleFrames(1);
+
+            if (!sprite.getAir()) {
+                landed = true;
+                landFrame = i + 1;
+                logState("Landed at frame " + landFrame);
+
+                // Verify the ground angle is reasonable (not a wild bounce angle)
+                int angle = sprite.getAngle() & 0xFF;
+                boolean angleReasonable = angle <= 0x20 || angle >= 0xE0;
+                assertTrue("Landing angle should be near-flat when landing on terrain corner. " +
+                        "Angle=0x" + Integer.toHexString(angle) + " is too steep, " +
+                        "suggesting a corner collision artifact.",
+                        angleReasonable);
+                break;
+            }
+        }
+
+        logState("Final state (landed=" + landed + ")");
+
+        assertTrue("Sonic should land within 60 frames when dropped near terrain corner " +
+                "at (" + testX + "," + testY + ") with diagonal velocity. " +
+                "Still airborne suggests a corner bounce ejected Sonic.",
+                landed);
+    }
+
+    // -----------------------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------------------
+
+    /**
+     * Counts the number of SeesawBall instances among active objects.
+     * Checks the class name to identify ball objects spawned by seesaws.
+     */
+    private int countSeesawBalls(ObjectManager objMgr) {
+        int count = 0;
+        for (ObjectInstance obj : objMgr.getActiveObjects()) {
+            if (obj.getClass().getSimpleName().contains("SeesawBall") && !obj.isDestroyed()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Helper method to log sprite state for debugging.
+     */
+    private void logState(String label) {
+        System.out.printf("%s: X=%d (0x%04X), Y=%d (0x%04X), GSpeed=%d, XSpeed=%d, " +
+                "YSpeed=%d, Air=%b, Rolling=%b, Angle=0x%02X, Facing=%s%n",
+                label,
+                sprite.getX(), sprite.getX() & 0xFFFF,
+                sprite.getY(), sprite.getY() & 0xFFFF,
+                sprite.getGSpeed(),
+                sprite.getXSpeed(),
+                sprite.getYSpeed(),
+                sprite.getAir(),
+                sprite.getRolling(),
+                sprite.getAngle() & 0xFF,
+                sprite.getDirection());
+    }
+}
