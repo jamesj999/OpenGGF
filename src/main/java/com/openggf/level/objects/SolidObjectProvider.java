@@ -64,4 +64,16 @@ public interface SolidObjectProvider {
     default void setPlayerPushing(AbstractPlayableSprite player, boolean pushing) {
         // Default no-op
     }
+
+    /**
+     * Whether this object should run a DropOnFloor terrain check after repositioning
+     * the player each frame. When enabled, if terrain is detected at or above the
+     * player's feet, the player detaches from this object and enters the air state.
+     * <p>
+     * ROM: DropOnFloor (s2.asm:35810) — called by objects that can push the player
+     * into solid terrain (e.g., vertically-moving platforms like HTZ rising lava).
+     */
+    default boolean dropOnFloor() {
+        return false;
+    }
 }
