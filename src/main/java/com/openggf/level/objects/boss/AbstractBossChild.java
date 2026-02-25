@@ -16,6 +16,10 @@ public abstract class AbstractBossChild extends AbstractObjectInstance implement
     protected int currentX;
     protected int currentY;
     protected int priority;
+    /** Collision flags set by parent via initChildCollisions/removeAllCollision */
+    protected int collisionFlags;
+    /** X-flip state, set by parent's updateChildFacing() */
+    protected boolean flipX;
     private ObjectSpawn dynamicSpawn;
     private int lastUpdatedFrame = -1;
 
@@ -100,6 +104,36 @@ public abstract class AbstractBossChild extends AbstractObjectInstance implement
 
     public int getPriority() {
         return priority;
+    }
+
+    /**
+     * Set collision flags on this child (used by parent boss for init/remove collision).
+     * Individual child getCollisionFlags() implementations should check this field.
+     */
+    public void setCollisionFlags(int flags) {
+        this.collisionFlags = flags;
+    }
+
+    /**
+     * Get the stored collision flags value (set by parent).
+     */
+    public int getStoredCollisionFlags() {
+        return collisionFlags;
+    }
+
+    /**
+     * Set the x-flip state on this child (used by parent's updateChildFacing).
+     * ROM: loc_3E168 copies body's render_flags.x_flip to all children.
+     */
+    public void setFlipX(boolean flip) {
+        this.flipX = flip;
+    }
+
+    /**
+     * Get the x-flip state of this child.
+     */
+    public boolean isFlipX() {
+        return flipX;
     }
 
     @Override

@@ -196,6 +196,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private static final int JET_DX = 0x38;
     private static final int JET_DY = 0x18;
 
+    /** Bomb spawn delta from body (loc_3E282 with byte_3DF00: dc.w $38, -$14) */
+    private static final int BOMB_SPAWN_DX = 0x38;
+    private static final int BOMB_SPAWN_DY = -0x14;
+
     // ========================================================================
     // INTERNAL STATE
     // ========================================================================
@@ -380,9 +384,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             bodyRoutine = BODY_RISE;
             actionTimer = RISE_TIMER;
             state.yVel = RISE_VELOCITY;
-            // Signal head to enter active state
-            if (head != null) {
-                head.setHeadRoutine(4);
+            // ROM: movea.w objoff_38(a0),a1 / move.b #4,routine_secondary(a1)
+            // objoff_38 = jet, NOT head. Set jet routine 4 to start jet animation.
+            if (jet != null) {
+                jet.setJetRoutine(4);
             }
             AudioManager.getInstance().playMusic(Sonic2Music.FINAL_BOSS.id);
         }
@@ -398,9 +403,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             // Set collision
             state.hitCount = DEATH_EGG_ROBOT_HP;
             initChildCollisions();
-            // Signal head to enter ready state
-            if (head != null) {
-                head.setHeadRoutine(6);
+            // ROM: movea.w objoff_38(a0),a1 / move.b #6,routine_secondary(a1)
+            // objoff_38 = jet, NOT head. Set jet routine 6 for different jet pattern.
+            if (jet != null) {
+                jet.setJetRoutine(6);
             }
             return;
         }
@@ -432,10 +438,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         currentAttack = ATTACK_PATTERN[attackIndex];
         attackPhase = 0;
 
-        // ROM: cmpi.b #2,d0 / bne.s + => for attack type 2 (jet stomp), signal head
-        if (currentAttack == 2 && head != null) {
-            head.setHeadRoutine(4);
-            head.setHeadAnim(2);
+        // ROM: cmpi.b #2,d0 / bne.s + => for attack type 2 (jet stomp), signal jet
+        // ROM: movea.w objoff_38(a0),a1 / move.b #4,routine_secondary(a1) / move.b #2,anim(a1)
+        if (currentAttack == 2 && jet != null) {
+            jet.setJetRoutine(4);
+            jet.setJetAnim(2);
         }
     }
 
@@ -471,8 +478,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 actionTimer--;
                 if (actionTimer < 0) {
                     attackPhase = 6;
-                    // Trigger front forearm punch
-                    frontPunchTriggered = true;
+                    // ROM: Attack type 0 (Walk-and-Punch) does NOT trigger any forearm punch.
+                    // The forearm launch is only triggered via p2_standing in attack type 4.
                 }
             }
             case 6 -> { // Walk backward (group animation)
@@ -544,11 +551,14 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     // Screen shake
                     Camera camera = Camera.getInstance();
                     if (camera != null) {
-                        camera.setShakeOffsets(0, 4); // ROM: screen shake on stomp
+                        // TODO: ROM uses Screen_Shaking_Flag=1, DEZ_Shake_Timer=$40 (stomp).
+                    // The ROM's timer-driven shake is more complex than a simple offset.
+                    camera.setShakeOffsets(0, 4);
                     }
-                    // Signal head ready
-                    if (head != null) {
-                        head.setHeadRoutine(6);
+                    // ROM: movea.w objoff_38(a0),a1 / move.b #6,routine_secondary(a1)
+                    // objoff_38 = jet. Signal jet to return to idle pattern.
+                    if (jet != null) {
+                        jet.setJetRoutine(6);
                     }
                     AudioManager.getInstance().playSfx(Sonic2Sfx.SMASH.id);
                     return;
@@ -598,18 +608,21 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             }
             case 2 -> { // Walk toward player (group animation)
                 if (stepGroupAnimation(WALK_FORWARD_SCRIPT)) {
-                    // Check orientation to player
+                    // ROM: Obj_GetOrientationToPlayer + x_flip adjust, then tst.w d0
+                    // d0==0 (player on facing side) → BOMBS + phase 8
+                    // d0!=0 (player behind) → PUNCH + phase 4
                     boolean playerOnSameSide = isPlayerOnFacingSide(player);
                     if (playerOnSameSide) {
-                        attackPhase = 4;
-                        actionTimer = 0x40;
-                        // Trigger back forearm punch
-                        backPunchTriggered = true;
-                    } else {
-                        // Walk toward player and drop bombs
+                        // Player on facing side -> bombs (ROM: bne.s + branch)
                         attackPhase = 8;
                         actionTimer = 0x20;
                         spawnBombs(player);
+                    } else {
+                        // Player behind -> punch (ROM: tst.w d0 == 0 fallthrough)
+                        attackPhase = 4;
+                        actionTimer = 0x40;
+                        // ROM: bset #status.npc.p2_standing -> triggers FRONT forearm
+                        frontPunchTriggered = true;
                     }
                 }
             }
@@ -693,22 +706,27 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
     }
 
-    /** Defeat phase 4: Force player right, break apart when camera reaches $840 */
+    /** Defeat phase 4: Force player right, trigger ending when camera reaches $840 */
     private void updateDefeatWalkPlayer(int frameCounter, AbstractPlayableSprite player) {
         // ROM: move.w #(button_right_mask<<8)|button_right_mask,(Ctrl_1_Logical).w
         // Player is forced to walk right - this is handled externally via control lock
 
         Camera camera = Camera.getInstance();
         if (camera != null && camera.getX() >= DEFEAT_CAMERA_WALK_TARGET) {
-            // Break apart body pieces
-            breakApart();
+            // ROM: loc_3D93C - transition to ending
+            // NOTE: breakApart() is NOT called here; it was already called once in
+            // triggerDefeatSequence() (ObjC7_Beaten). ROM only calls ObjC7_Break once.
 
-            // Trigger screen shake and rumbling
+            // TODO: ROM uses Screen_Shaking_Flag=1, DEZ_Shake_Timer=$1000 (ending).
+            // This is much longer than the stomp shake ($40). The ROM's timer-driven
+            // shake is more complex than a simple offset - it counts down and produces
+            // oscillating Y offsets. The current simple offset is a placeholder.
             if (camera != null) {
-                camera.setShakeOffsets(0, 4); // ROM: Screen_Shaking_Flag + DEZ_Shake_Timer
+                camera.setShakeOffsets(0, 4);
             }
 
-            // Delete head
+            // ROM: movea.w objoff_36(a0),a1 / JmpTo6_DeleteObject2
+            // objoff_36 = head. Delete head in ending transition.
             if (head != null) {
                 head.setDestroyed(true);
             }
@@ -739,9 +757,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             if (state.invulnerabilityTimer <= 0) {
                 state.invulnerable = false;
                 paletteFlasher.stopFlash();
-                // Restore collision flags
+                // ROM: ObjC7_Flashing end - restore collision on body + head
+                // move.b #$16,collision_flags(a0) / move.b #$2A,collision_flags(a1)
                 if (head != null) {
-                    head.setCollisionActive(true);
+                    head.setCollisionFlags(COLLISION_HEAD);
                 }
             }
         }
@@ -779,9 +798,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         removeAllCollision();
         // Break apart body parts
         breakApart();
-        // Delete head
-        if (head != null) {
-            head.setDestroyed(true);
+        // ROM: movea.w objoff_38(a0),a1 / JmpTo6_DeleteObject2
+        // objoff_38 = jet. Head is deleted later in the ending transition (loc_3D93C).
+        if (jet != null) {
+            jet.setDestroyed(true);
         }
     }
 
@@ -850,14 +870,25 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     /** Initialize child collision flags (ROM: ObjC7_InitCollision, s2.asm:83282) */
     private void initChildCollisions() {
-        // Collision flags are stored in CHILD_COLLISION array
-        // Children are indexed by their SST offset order
-        // Head ($2A) is the only hittable part
+        // ROM iterates ObjC7_ChildOffsets + ObjC7_ChildCollision arrays,
+        // setting collision_flags on each of the 10 children.
+        // Child order: Shoulder, FrontLowerLeg, FrontForearm, UpperArm, FrontThigh,
+        //              Head, Jet, BackLowerLeg, BackForearm, BackThigh
+        for (int i = 0; i < childComponents.size() && i < CHILD_COLLISION.length; i++) {
+            if (childComponents.get(i) instanceof AbstractBossChild child) {
+                child.setCollisionFlags(CHILD_COLLISION[i]);
+            }
+        }
     }
 
     /** Remove all child collision (ROM: ObjC7_RemoveCollision, s2.asm:83324) */
     private void removeAllCollision() {
-        // Clear collision on all children
+        // ROM iterates ObjC7_ChildOffsets, clearing collision_flags on all 10 children.
+        for (var component : childComponents) {
+            if (component instanceof AbstractBossChild child) {
+                child.setCollisionFlags(0);
+            }
+        }
     }
 
     /** Break apart body pieces with per-part velocities (ROM: ObjC7_Break, s2.asm:83241) */
@@ -890,26 +921,37 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
     }
 
+    /**
+     * ROM: loc_3E168 (s2.asm:83358-83381)
+     * Copies body's x_flip (render_flags bit 0) to all 10 children's render_flags and status.
+     * Iterates byte_3E19E offset table: objoff_2C through objoff_3E (all 10 children).
+     */
     private void updateChildFacing() {
-        // ROM: loc_3E168 - update render_flags.x_flip on all children
+        for (var component : childComponents) {
+            if (component instanceof AbstractBossChild child && !child.isDestroyed()) {
+                child.setFlipX(facingLeft);
+            }
+        }
     }
 
     private void spawnBombs(AbstractPlayableSprite player) {
         // ROM: CreateEggmanBombs (s2.asm:83336)
-        // Spawn 2 bombs with arc trajectories
+        // Bombs spawn at body + byte_3DF00 offset ($38, -$14) via loc_3E282
         ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
         if (renderManager == null || levelManager.getObjectManager() == null) return;
 
         int xSign = facingLeft ? -1 : 1;
+        int spawnX = state.x + (BOMB_SPAWN_DX * xSign);
+        int spawnY = state.y + BOMB_SPAWN_DY;
 
         // Bomb 1: x_vel=$60, y_vel=-$800
-        BombChild bomb1 = new BombChild(this, state.x + (JET_DX * xSign),
-                state.y + JET_DY, 0x60 * xSign, -0x800);
+        BombChild bomb1 = new BombChild(this, spawnX, spawnY,
+                0x60 * xSign, -0x800);
         childComponents.add(bomb1);
 
         // Bomb 2: x_vel=$C0, y_vel=-$A00
-        BombChild bomb2 = new BombChild(this, state.x + (JET_DX * xSign),
-                state.y + JET_DY, 0xC0 * xSign, -0xA00);
+        BombChild bomb2 = new BombChild(this, spawnX, spawnY,
+                0xC0 * xSign, -0xA00);
         childComponents.add(bomb2);
     }
 
@@ -1006,7 +1048,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     @Override
     public int getPriorityBucket() {
-        return 4;
+        return 5; // ROM: move.b #5,priority(a0) (loc_3D52A, line 82052)
     }
 
     @Override
@@ -1080,7 +1122,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         public int getCollisionFlags() {
-            return 0;
+            return collisionFlags;
         }
     }
 
@@ -1237,7 +1279,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         public int getCollisionFlags() {
-            return 0;
+            return collisionFlags;
         }
     }
 
@@ -1250,7 +1292,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         private int headAnim;
         private int waitTimer;
         private boolean eggmanBoarded;
-        private boolean collisionActive;
         private int animFrame;
         private int animTimer;
 
@@ -1260,7 +1301,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             this.headAnim = 0;
             this.waitTimer = 0;
             this.eggmanBoarded = false;
-            this.collisionActive = false;
             this.animFrame = 0;
             this.animTimer = 0;
         }
@@ -1292,10 +1332,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             this.headAnim = anim;
         }
 
-        void setCollisionActive(boolean active) {
-            this.collisionActive = active;
-        }
-
         @Override
         public void update(int frameCounter, AbstractPlayableSprite player) {
             if (!beginUpdate(frameCounter)) return;
@@ -1310,10 +1346,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     }
                 }
                 case 6 -> { // Active during fight
-                    collisionActive = true;
+                    // Collision is managed by parent via initChildCollisions/removeAllCollision
                 }
                 case 8 -> { // Defeated - collision_property = -1
-                    collisionActive = false;
+                    collisionFlags = 0;
                 }
             }
             updateDynamicSpawn();
@@ -1333,10 +1369,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         @Override
         public int getCollisionFlags() {
-            if (!collisionActive) return 0;
+            // collisionFlags is set by initChildCollisions/removeAllCollision
+            if (collisionFlags == 0) return 0;
             Sonic2DeathEggRobotInstance boss = (Sonic2DeathEggRobotInstance) parent;
             if (boss.state.invulnerable || boss.state.defeated) return 0;
-            return COLLISION_HEAD;
+            return collisionFlags;
         }
 
         @Override
@@ -1369,6 +1406,18 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             this.animTimer = 0;
         }
 
+        /** ROM: move.b #N,routine_secondary(a1) where a1=objoff_38 (jet) */
+        void setJetRoutine(int routine) {
+            // Jet routine table (off_3DC66):
+            // 0=init, 2=idle(anim=3), 4=animate, 6=anim=1+animate, 8=idle(anim=3)
+            this.jetAnim = routine;
+        }
+
+        /** ROM: move.b #N,anim(a1) where a1=objoff_38 (jet) */
+        void setJetAnim(int anim) {
+            this.jetAnim = anim;
+        }
+
         @Override
         public void update(int frameCounter, AbstractPlayableSprite player) {
             if (!beginUpdate(frameCounter)) return;
@@ -1398,7 +1447,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         public int getCollisionFlags() {
-            return 0;
+            return collisionFlags;
         }
     }
 
@@ -1499,8 +1548,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         public int getCollisionFlags() {
+            // ROM: collision only cleared when detonation animation reaches frame 5+
             if (detonating && detonateFrame >= 5) return 0;
-            if (detonating) return 0;
             return 0x89; // ROM: move.b #$89,collision_flags(a0)
         }
     }
