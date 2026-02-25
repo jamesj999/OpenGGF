@@ -252,6 +252,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
             LOGGER.fine("Created cross-game Super Sonic controller from donor: " + donorGameId);
         } catch (Exception e) {
             LOGGER.warning("Failed to load donor Super Sonic ROM data: " + e.getMessage());
+            return null;
         }
         return ctrl;
     }
