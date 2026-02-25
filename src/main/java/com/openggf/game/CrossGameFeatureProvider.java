@@ -10,7 +10,9 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.data.RomManager;
 import com.openggf.data.SpindashDustArtProvider;
+import com.openggf.game.sonic2.Sonic2SuperStateController;
 import com.openggf.game.sonic3k.Sonic3kPlayerArt;
+import com.openggf.game.sonic3k.Sonic3kSuperStateController;
 import com.openggf.game.sonic2.Sonic2DustArt;
 import com.openggf.game.sonic2.Sonic2PlayerArt;
 import com.openggf.game.sonic2.audio.Sonic2AudioProfile;
@@ -20,6 +22,8 @@ import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.RenderContext;
 import com.openggf.level.Palette;
 import com.openggf.sprites.art.SpriteArtSet;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.SuperStateController;
 
 import java.io.IOException;
 import java.util.Map;
@@ -223,6 +227,33 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
             return s3kPlayerArt.loadTailsTail();
         }
         return null;
+    }
+
+    /**
+     * Creates a Super Sonic state controller using the donor game's implementation
+     * and pre-loads ROM data from the donor ROM.
+     *
+     * @param player the player sprite to attach the controller to
+     * @return a donor-game SuperStateController with ROM data pre-loaded, or null
+     */
+    public SuperStateController createSuperStateController(AbstractPlayableSprite player) {
+        if (!active || donorReader == null) {
+            return null;
+        }
+        SuperStateController ctrl;
+        if ("s3k".equalsIgnoreCase(donorGameId)) {
+            ctrl = new Sonic3kSuperStateController(player);
+        } else {
+            ctrl = new Sonic2SuperStateController(player);
+        }
+        try {
+            ctrl.loadRomData(donorReader);
+            ctrl.setRomDataPreLoaded(true);
+            LOGGER.fine("Created cross-game Super Sonic controller from donor: " + donorGameId);
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load donor Super Sonic ROM data: " + e.getMessage());
+        }
+        return ctrl;
     }
 
     public void close() {
