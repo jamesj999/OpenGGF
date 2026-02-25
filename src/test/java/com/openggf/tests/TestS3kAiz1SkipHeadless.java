@@ -1,13 +1,17 @@
 package com.openggf.tests;
 
-import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.Rule;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Chunk;
+import com.openggf.level.ChunkDesc;
+import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Map;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
@@ -21,11 +25,119 @@ import com.openggf.tests.rules.SonicGame;
 
 import java.lang.reflect.Method;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+/**
+ * Grouped headless tests for Sonic 3K AIZ Act 1 with intro skip enabled.
+ *
+ * Level data is loaded once via {@code @BeforeClass}; sprite, camera, and game
+ * state are reset per test via {@link TestEnvironment#resetPerTest()}.
+ *
+ * Merged from:
+ * <ul>
+ *   <li>TestS3kAiz1SpawnStability</li>
+ *   <li>TestS3kAizHollowLogTraversal</li>
+ * </ul>
+ */
 @RequiresRom(SonicGame.SONIC_3K)
-public class TestS3kAizHollowLogTraversal {
+public class TestS3kAiz1SkipHeadless {
+
+    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
+    private static Object oldSkipIntros;
+    private static String mainCharCode;
+
+    @BeforeClass
+    public static void loadLevel() throws Exception {
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
+        config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
+
+        GraphicsManager.getInstance().initHeadless();
+        mainCharCode = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
+        SpriteManager.getInstance().addSprite(temp);
+        Camera camera = Camera.getInstance();
+        camera.setFocusedSprite(temp);
+        camera.setFrozen(false);
+        LevelManager.getInstance().loadZoneAndAct(0, 0);  // AIZ1 with intro skip
+        GroundSensor.setLevelManager(LevelManager.getInstance());
+    }
+
+    @AfterClass
+    public static void restoreConfig() {
+        SonicConfigurationService.getInstance().setConfigValue(
+                SonicConfiguration.S3K_SKIP_INTROS,
+                oldSkipIntros != null ? oldSkipIntros : false);
+    }
+
+    private Sonic sprite;
+    private HeadlessTestRunner testRunner;
+
+    @Before
+    public void setUp() {
+        TestEnvironment.resetPerTest();
+        // Reset static hollow-tree reveal counter -- the original per-test level load
+        // cleared this via Sonic3kAIZEvents.initLevel(), but we share one level load.
+        AizHollowTreeObjectInstance.resetTreeRevealCounter();
+        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
+        SpriteManager.getInstance().addSprite(sprite);
+        Camera camera = Camera.getInstance();
+        camera.setFocusedSprite(sprite);
+        camera.setFrozen(false);
+        Level level = LevelManager.getInstance().getCurrentLevel();
+        if (level != null) {
+            camera.setMinX((short) level.getMinX());
+            camera.setMaxX((short) level.getMaxX());
+            camera.setMinY((short) level.getMinY());
+            camera.setMaxY((short) level.getMaxY());
+        }
+        // Reset object manager so spawn windows and active objects are fresh per test.
+        // The original per-test level load did this implicitly.
+        LevelManager.getInstance().getObjectManager().reset(0);
+        camera.updatePosition(true);
+        testRunner = new HeadlessTestRunner(sprite);
+    }
+
+    // ========== From TestS3kAiz1SpawnStability ==========
+
+    @Test
+    public void aiz1IntroSkipSpawnHasCollisionAndNoImmediatePitDeath() {
+        int centreX = sprite.getCentreX();
+        int centreY = sprite.getCentreY();
+        assertTrue("Expected collidable primary terrain below AIZ1 intro-skip spawn",
+                hasPrimaryCollisionBelow(centreX, centreY, 512));
+
+        testRunner.stepIdleFrames(30);
+        assertFalse("AIZ1 intro-skip spawn should not immediately enter death state", sprite.getDead());
+    }
+
+    private boolean hasPrimaryCollisionBelow(int worldX, int worldY, int rangePixels) {
+        Level level = LevelManager.getInstance().getCurrentLevel();
+        if (level == null) {
+            return false;
+        }
+        int endY = worldY + Math.max(0, rangePixels);
+        for (int y = worldY; y <= endY; y += 16) {
+            ChunkDesc chunkDesc = LevelManager.getInstance().getChunkDescAt((byte) 0, worldX, y);
+            if (chunkDesc == null || !chunkDesc.hasPrimarySolidity()) {
+                continue;
+            }
+            int chunkIndex = chunkDesc.getChunkIndex();
+            if (chunkIndex < 0 || chunkIndex >= level.getChunkCount()) {
+                continue;
+            }
+            Chunk chunk = level.getChunk(chunkIndex);
+            if (chunk.getSolidTileIndex() != 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ========== From TestS3kAizHollowLogTraversal ==========
 
     private static final int ZONE_AIZ = 0;
     private static final int ACT_1 = 0;
@@ -47,49 +159,10 @@ public class TestS3kAizHollowLogTraversal {
     private static final int TOP_EXIT_CHECK_MAX_FRAMES = 96;
     private static final int TOP_EXIT_CHECK_MAX_X = AIZ_MINIBOSS_TRIGGER_X - 0x20;
 
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
-
-    private Sonic sprite;
-    private HeadlessTestRunner runner;
-    private Object oldSkipIntros;
-
-    @Before
-    public void setUp() throws Exception {
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
-        oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
-        config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
-
-        GraphicsManager.getInstance().initHeadless();
-
-        String mainCode = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        sprite = new Sonic(mainCode, (short) 100, (short) 624);
-        SpriteManager.getInstance().addSprite(sprite);
-
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        camera.setFrozen(false);
-
-        LevelManager levelManager = LevelManager.getInstance();
-        levelManager.loadZoneAndAct(ZONE_AIZ, ACT_1);
-        GroundSensor.setLevelManager(levelManager);
-        camera.updatePosition(true);
-
-        runner = new HeadlessTestRunner(sprite);
-
-        // Apply exact debug state from the report.
-        applyDebugStartState();
-    }
-
-    @After
-    public void tearDown() {
-        SonicConfigurationService.getInstance().setConfigValue(
-                SonicConfiguration.S3K_SKIP_INTROS,
-                oldSkipIntros != null ? oldSkipIntros : false);
-    }
-
     @Test
     public void hollowLogTraversal_regressionScenario_fromDebugCoords() {
+        applyDebugStartState();
+
         boolean reachedWaypoint = false;
         boolean reachedExitHeight = false;
         int minYAfterWaypoint = Integer.MAX_VALUE;
@@ -105,7 +178,7 @@ public class TestS3kAizHollowLogTraversal {
 
         // Phase 1: advance while holding Right until exact waypoint is reached.
         for (; frame < TIMEOUT_FRAMES; frame++) {
-            runner.stepFrame(false, false, false, true, false);
+            testRunner.stepFrame(false, false, false, true, false);
 
             int x = sprite.getX();
             int y = sprite.getY();
@@ -136,7 +209,7 @@ public class TestS3kAizHollowLogTraversal {
 
         // Phase 2: continue holding Right and verify hollow log traversal.
         for (; frame < TIMEOUT_FRAMES; frame++) {
-            runner.stepFrame(false, false, false, true, false);
+            testRunner.stepFrame(false, false, false, true, false);
 
             int x = sprite.getX();
             int y = sprite.getY();
@@ -208,12 +281,14 @@ public class TestS3kAizHollowLogTraversal {
 
     @Test
     public void hollowLogTraversal_appliesTreeRevealChunkSwitch() {
+        applyDebugStartState();
+
         boolean reachedFirstThreshold = false;
         boolean reachedSecondThreshold = false;
         boolean reachedUpperThreshold = false;
         int firstThresholdFrame = -1;
         for (int frame = 0; frame < TIMEOUT_FRAMES; frame++) {
-            runner.stepFrame(false, false, false, true, false);
+            testRunner.stepFrame(false, false, false, true, false);
 
             int revealCounter = AizHollowTreeObjectInstance.getTreeRevealCounter();
             if (revealCounter >= 0x14) {
@@ -242,13 +317,15 @@ public class TestS3kAizHollowLogTraversal {
 
     @Test
     public void hollowLogTraversal_treeRevealCompletesAndClears() {
+        applyDebugStartState();
+
         boolean revealStarted = false;
         boolean revealClearedAfterStart = false;
         int maxRevealCounter = 0;
         int clearFrame = -1;
 
         for (int frame = 0; frame < TIMEOUT_FRAMES; frame++) {
-            runner.stepFrame(false, false, false, true, false);
+            testRunner.stepFrame(false, false, false, true, false);
 
             int revealCounter = AizHollowTreeObjectInstance.getTreeRevealCounter();
             if (revealCounter > 0) {
@@ -274,11 +351,13 @@ public class TestS3kAizHollowLogTraversal {
 
     @Test
     public void hollowLogTraversal_doesNotMutateCollisionMapRows() {
+        applyDebugStartState();
+
         Map map = LevelManager.getInstance().getCurrentLevel().getMap();
         byte[][] before = snapshotTreeColumns(map);
 
         for (int frame = 0; frame < TIMEOUT_FRAMES; frame++) {
-            runner.stepFrame(false, false, false, true, false);
+            testRunner.stepFrame(false, false, false, true, false);
         }
 
         byte[][] after = snapshotTreeColumns(map);
@@ -293,6 +372,8 @@ public class TestS3kAizHollowLogTraversal {
 
     @Test
     public void hollowLogTraversal_visualRevealStableAcrossRepeatRuns() {
+        applyDebugStartState();
+
         LevelManager levelManager = LevelManager.getInstance();
 
         assertTrue("Expected first traversal to trigger and finish tree reveal.",
@@ -323,6 +404,8 @@ public class TestS3kAizHollowLogTraversal {
 
     @Test
     public void hollowLogTraversal_reentryLandsOnBottomFloor() {
+        applyDebugStartState();
+
         assertTrue("Expected first pass to complete hollow-log ascent before re-entry check.",
                 runUntilExitHeightHoldingRight());
 
@@ -333,7 +416,7 @@ public class TestS3kAizHollowLogTraversal {
 
         // Return into the tunnel and ensure Sonic lands instead of falling through.
         for (int frame = 0; frame < TIMEOUT_FRAMES * 3; frame++) {
-            runner.stepFrame(false, false, true, false, false);
+            testRunner.stepFrame(false, false, true, false, false);
 
             int y = sprite.getY();
             if (y > maxYAfterExit) {
@@ -366,6 +449,8 @@ public class TestS3kAizHollowLogTraversal {
 
     @Test
     public void hollowLogTraversal_topExitMaintainsForwardTraversal() {
+        applyDebugStartState();
+
         assertTrue("Expected hollow-log ascent to reach top-exit height before momentum check.",
                 runUntilExitHeightHoldingRight());
 
@@ -379,7 +464,7 @@ public class TestS3kAizHollowLogTraversal {
         int finalCheckedFrame = -1;
 
         for (int frame = 0; frame < TOP_EXIT_CHECK_MAX_FRAMES; frame++) {
-            runner.stepFrame(false, false, false, true, false);
+            testRunner.stepFrame(false, false, false, true, false);
 
             int x = sprite.getX();
             int y = sprite.getY();
@@ -432,6 +517,8 @@ public class TestS3kAizHollowLogTraversal {
                 maxForwardGain >= 48);
     }
 
+    // ========== Hollow Log Helpers ==========
+
     private static byte[][] snapshotTreeColumns(Map map) {
         byte[][] values = new byte[9][2];
         for (int row = 0; row < values.length; row++) {
@@ -465,7 +552,7 @@ public class TestS3kAizHollowLogTraversal {
     private boolean runUntilTreeRevealClears() {
         boolean revealStarted = false;
         for (int frame = 0; frame < TIMEOUT_FRAMES * 2; frame++) {
-            runner.stepFrame(false, false, false, true, false);
+            testRunner.stepFrame(false, false, false, true, false);
             int revealCounter = AizHollowTreeObjectInstance.getTreeRevealCounter();
             if (revealCounter > 0) {
                 revealStarted = true;
@@ -479,7 +566,7 @@ public class TestS3kAizHollowLogTraversal {
 
     private boolean runUntilExitHeightHoldingRight() {
         for (int frame = 0; frame < TIMEOUT_FRAMES * 2; frame++) {
-            runner.stepFrame(false, false, false, true, false);
+            testRunner.stepFrame(false, false, false, true, false);
             if (sprite.getY() <= TARGET_EXIT_Y) {
                 return true;
             }
