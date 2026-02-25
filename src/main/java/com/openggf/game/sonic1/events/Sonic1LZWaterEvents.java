@@ -1024,9 +1024,9 @@ public class Sonic1LZWaterEvents {
             return;
         }
         // ROM: move.w #5,objoff_3E(a1)
-        // This is a brief control lockout after leaving the slide.
-        // TODO: Implement the 5-frame control lockout (objoff_3E timer)
-        //       when the sprite controller supports it.
+        // Brief control lockout (move_lock) after leaving the water slide.
+        // Blocks left/right input for 5 frames, allowing momentum to carry.
+        player.setMoveLockTimer(5);
 
         // ROM: clr.b (f_slidemode).w
         waterSlideActive = false;
