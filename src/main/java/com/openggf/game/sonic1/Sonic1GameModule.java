@@ -33,6 +33,7 @@ import com.openggf.game.sonic1.levelselect.Sonic1LevelSelectManager;
 import com.openggf.game.sonic1.objects.Sonic1ObjectRegistry;
 import com.openggf.game.sonic1.scroll.Sonic1ScrollHandlerProvider;
 import com.openggf.game.CheckpointState;
+import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.LevelGamestate;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic1.titlecard.Sonic1TitleCardManager;
@@ -40,6 +41,7 @@ import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
 import com.openggf.level.objects.TouchResponseTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.SuperStateController;
 
 /**
  * GameModule implementation for Sonic the Hedgehog 1 (Mega Drive/Genesis).
@@ -231,5 +233,13 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public boolean hasTrailInvincibilityStars() {
         return true;
+    }
+
+    @Override
+    public SuperStateController createSuperStateController(AbstractPlayableSprite player) {
+        if (CrossGameFeatureProvider.isActive()) {
+            return CrossGameFeatureProvider.getInstance().createSuperStateController(player);
+        }
+        return null; // Vanilla S1 has no Super Sonic
     }
 }
