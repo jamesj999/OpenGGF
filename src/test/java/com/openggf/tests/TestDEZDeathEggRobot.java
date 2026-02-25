@@ -90,8 +90,9 @@ public class TestDEZDeathEggRobot {
     }
 
     @Test
-    public void priorityBucketIsFour() {
-        assertEquals("Priority bucket should be 4", 4, boss.getPriorityBucket());
+    public void priorityBucketIsFive() {
+        // ROM: move.b #5,priority(a0) (loc_3D52A, s2.asm:82052)
+        assertEquals("Priority bucket should be 5", 5, boss.getPriorityBucket());
     }
 
     @Test
