@@ -9,11 +9,14 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
 /**
  * Shared windowing support for spawn placement managers.
  */
 public abstract class AbstractPlacementManager<T extends SpawnPoint> {
+    private static final Logger LOGGER = Logger.getLogger(AbstractPlacementManager.class.getName());
+
     protected final List<T> spawns;
     protected final Set<T> active = new LinkedHashSet<>();
     protected final Collection<T> activeUnmodifiable = Collections.unmodifiableCollection(active);
@@ -40,9 +43,30 @@ public abstract class AbstractPlacementManager<T extends SpawnPoint> {
         return activeUnmodifiable;
     }
 
+    /**
+     * Returns the index of the given spawn in the sorted spawns list.
+     * Uses identity-based lookup first (fast path), then falls back to
+     * equals-based linear scan if the reference doesn't match.
+     * The fallback handles cases where an object instance holds a spawn
+     * reference that differs from the canonical reference stored during
+     * construction (e.g. if the spawn was reconstructed or deserialized).
+     */
     public int getSpawnIndex(T spawn) {
         Integer index = spawnIndexMap.get(spawn);
-        return index != null ? index : -1;
+        if (index != null) {
+            return index;
+        }
+        // Fallback: linear scan using equals() in case the identity reference
+        // doesn't match the canonical reference stored in spawnIndexMap.
+        for (int i = 0; i < spawns.size(); i++) {
+            if (spawns.get(i).equals(spawn)) {
+                final int foundIndex = i;
+                LOGGER.warning(() -> "getSpawnIndex: identity miss for spawn at ("
+                        + spawn.x() + "," + spawn.y() + "), found via equals at index " + foundIndex);
+                return i;
+            }
+        }
+        return -1;
     }
 
     protected int getLoadAhead() {

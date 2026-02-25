@@ -385,8 +385,19 @@ public class ObjectManager {
     }
 
     public void markRemembered(ObjectSpawn spawn) {
-        // Look up the instance to check if it should stay active
+        // Look up the instance to check if it should stay active.
+        // activeObjects is an IdentityHashMap so try identity first.
         ObjectInstance instance = activeObjects.get(spawn);
+        if (instance == null) {
+            // Fallback: scan by equals() in case the caller's spawn reference
+            // differs from the canonical key stored in the IdentityHashMap.
+            for (Map.Entry<ObjectSpawn, ObjectInstance> entry : activeObjects.entrySet()) {
+                if (entry.getKey().equals(spawn)) {
+                    instance = entry.getValue();
+                    break;
+                }
+            }
+        }
         if (instance != null) {
             placement.markRemembered(spawn, instance);
         } else {
@@ -554,6 +565,7 @@ public class ObjectManager {
     }
 
     static final class Placement extends AbstractPlacementManager<ObjectSpawn> {
+        private static final Logger LOGGER = Logger.getLogger(Placement.class.getName());
         // ROM: ObjectsManager_GoingForward (s2.asm) uses addi.w #$280,d6 for forward load range.
         // Unload range in ROM is effectively camera - $80 (going forward) or camera + $220 (going backward).
         // Engine uses a wider $300 behind to avoid pop-in on fast camera movement; functionally safe.
@@ -609,6 +621,8 @@ public class ObjectManager {
         void markRemembered(ObjectSpawn spawn) {
             int index = getSpawnIndex(spawn);
             if (index < 0) {
+                LOGGER.warning(() -> "markRemembered: spawn not found in placement list at ("
+                        + spawn.x() + "," + spawn.y() + ") id=0x" + Integer.toHexString(spawn.objectId()));
                 return;
             }
             remembered.set(index);
@@ -623,6 +637,8 @@ public class ObjectManager {
 
             int index = getSpawnIndex(spawn);
             if (index < 0) {
+                LOGGER.warning(() -> "markRemembered: spawn not found in placement list at ("
+                        + spawn.x() + "," + spawn.y() + ") id=0x" + Integer.toHexString(spawn.objectId()));
                 return;
             }
             remembered.set(index);
