@@ -331,7 +331,7 @@ public class Sonic2Level implements Level {
         LOG.fine("Pattern count: " + patternCount + " (" + result.length + " bytes)");
     }
 
-    // TODO both collision addresses
+    // Loads chunks with both primary and secondary collision indices.
     private void loadChunks(Rom rom, int chunksAddr, int collisionAddr, int altCollisionAddr) throws IOException {
         final int CHUNK_BUFFER_SIZE = 0xFFFF; // 64KB
         final int SOLID_TILE_REF_BUFFER_LENGTH = 0x300;

@@ -480,7 +480,7 @@ public class Sonic1LZWaterEvents {
                 waterRoutine = 1;
 
                 // move.w #sfx_Rumbling,d0 / bsr.w QueueSound2
-                // TODO: Play rumbling sound (sfx_Rumbling = $B7)
+                AudioManager.getInstance().playSfx(Sonic1Sfx.RUMBLING.id);
                 LOGGER.fine("LZ3 routine 0: Water triggered, advancing to routine 1");
             }
         }
@@ -909,9 +909,8 @@ public class Sonic1LZWaterEvents {
     // When Sonic leaves a slide chunk, he gets 5 frames of normal control before
     // full movement resumes (objoff_3E countdown).
     //
-    // NOTE: This requires reading the chunk ID from the collision system,
-    // which is not yet fully exposed. The method below is implemented as a
-    // TODO stub with all constants documented from the disassembly.
+    // Chunk ID lookup is implemented via findSlideChunkIndex() below,
+    // with constants from the disassembly (s1disasm: _inc/WaterSlide.asm).
     // =========================================================================
 
     /**
@@ -1024,9 +1023,9 @@ public class Sonic1LZWaterEvents {
             return;
         }
         // ROM: move.w #5,objoff_3E(a1)
-        // This is a brief control lockout after leaving the slide.
-        // TODO: Implement the 5-frame control lockout (objoff_3E timer)
-        //       when the sprite controller supports it.
+        // Brief control lockout (move_lock) after leaving the water slide.
+        // Blocks left/right input for 5 frames, allowing momentum to carry.
+        player.setMoveLockTimer(5);
 
         // ROM: clr.b (f_slidemode).w
         waterSlideActive = false;

@@ -37,13 +37,11 @@ public class TimerManager {
 
             // Check if the tick is less than 1.
             if (timer.getTicks() < 1) {
-                // Perform event
-                // TODO: Improve the error reporting - use a proper Exception structure
                 if (timer.perform()) {
                     iterator.remove();
                 } else {
-                    LOGGER.fine(
-                            "ERROR: " + timer.getClass() + " " + timer.getCode() + " failed to complete successfully.");
+                    LOGGER.warning("Timer failed: " + timer.getClass().getSimpleName()
+                            + " code=" + timer.getCode());
                     iterator.remove();
                 }
             }

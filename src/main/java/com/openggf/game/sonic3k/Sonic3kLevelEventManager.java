@@ -58,8 +58,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
 
     @Override
     public PlayerCharacter getPlayerCharacter() {
-        // TODO: Query actual player mode once character selection is implemented.
-        // For now, default to Sonic+Tails.
+        // Defaults to Sonic+Tails until character selection screen is implemented.
         return PlayerCharacter.SONIC_AND_TAILS;
     }
 

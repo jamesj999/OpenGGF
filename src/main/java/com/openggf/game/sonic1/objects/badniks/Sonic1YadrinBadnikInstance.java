@@ -14,6 +14,8 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TouchResponseListener;
+import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -50,11 +52,14 @@ import java.util.List;
  *   <li>Anim 1 (walk): dc.b 7, 0, 3, 1, 4, 0, 3, 2, 5, afEnd - 8 frames cycling</li>
  * </ul>
  */
-public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance {
+public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implements TouchResponseListener {
 
     // From disassembly: obColType = $CC
     // Upper 2 bits ($C0) = collision category, lower 6 bits ($0C) = size index
     private static final int COLLISION_SIZE_INDEX = 0x0C;
+
+    /** Vertical overlap threshold for spiky-top hurt (s1disasm: cmpi.w #8,d5) */
+    private static final int SPIKY_TOP_THRESHOLD = 8;
 
     // From disassembly: obHeight = $11, obWidth = 8
     private static final int Y_RADIUS = 0x11;
@@ -292,13 +297,28 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public int getCollisionFlags() {
-        // obColType = $CC in ROM. In S1, the $C0 upper bits route to React_Special,
-        // which for Yadrin falls through to React_Enemy (standard enemy) for most contacts.
-        // The engine's $C0 maps to BOSS (S2 convention) causing incorrect boss bounce
-        // that negates both X and Y velocity. Use ENEMY category (0x00) for correct
-        // S1 behavior: only Y velocity modified on enemy bounce.
-        // TODO: Implement React_Special spiky-top check (hurts even rolling Sonic from above).
+        // obColType = $CC: React_Special path.
+        // Use ENEMY category (0x00) for standard bounce on side/below contact.
+        // The spiky-top check is handled in onTouchResponse() via TouchResponseListener.
         return 0x00 | (getCollisionSizeIndex() & 0x3F);
+    }
+
+    @Override
+    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+        // React_Special Yadrin check (s1disasm: sub ReactToItem.asm:393-420):
+        // Compute vertical overlap between player center and Yadrin center.
+        // If overlap < 8 pixels, Sonic is on the spiky top -> hurt.
+        // Otherwise, standard enemy destruction.
+        int playerCentreY = player.getCentreY();
+        int yadrinCentreY = this.currentY;
+        int verticalOverlap = yadrinCentreY - playerCentreY;
+
+        if (verticalOverlap >= 0 && verticalOverlap < SPIKY_TOP_THRESHOLD) {
+            // Sonic is above Yadrin within the spiky-top zone: hurt Sonic
+            player.setHurt(true);
+        }
+        // If not in spiky-top zone, the default ENEMY category bounce applies
+        // (handled by the touch response system before this listener fires).
     }
 
     @Override
