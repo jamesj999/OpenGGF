@@ -5,6 +5,8 @@ import com.openggf.game.PhysicsFeatureSet;
 
 import com.openggf.camera.Camera;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.MultiPieceSolidProvider;
+import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.Direction;
@@ -1932,7 +1934,20 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// Some objects (like spinning platforms) disable balancing
 		// We skip this check for now as most objects allow balancing
 
-		var params = provider.getSolidParams();
+		// For multi-piece solid objects (e.g., CPZ Staircase), use the piece-specific
+		// position and params rather than the overall object's base position.
+		// In the ROM, each piece is effectively a separate SST with its own x_pos and
+		// width_pixels, so the balance check naturally uses piece-local coordinates.
+		int objectX;
+		SolidObjectParams params;
+		int ridingPieceIndex = objectManager.getRidingPieceIndex(sprite);
+		if (ridingPieceIndex >= 0 && ridingObject instanceof MultiPieceSolidProvider multiPiece) {
+			objectX = multiPiece.getPieceX(ridingPieceIndex);
+			params = multiPiece.getPieceParams(ridingPieceIndex);
+		} else {
+			objectX = ridingObject.getX();
+			params = provider.getSolidParams();
+		}
 		if (params == null) {
 			return;
 		}
@@ -1941,7 +1956,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		boolean extended = featureSet != null && featureSet.extendedEdgeBalance();
 
 		int objectWidth = params.halfWidth(); // Half-width (radius)
-		int objectX = ridingObject.getX();
 		int playerX = sprite.getCentreX();
 
 		// ROM formula: d1 = player_x + width - object_x

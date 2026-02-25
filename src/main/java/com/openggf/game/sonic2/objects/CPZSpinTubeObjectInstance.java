@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
+import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -405,6 +406,10 @@ public class CPZSpinTubeObjectInstance extends AbstractObjectInstance {
         player.setObjectControlled(true);
         player.setControlLocked(true);
         player.setRolling(true);
+        // ROM: move.b #AniIDSonAni_Roll,anim(a1) - force roll animation.
+        // Must be set explicitly because resolveAnimationId() returns null while
+        // objectControlled is true, so auto-resolution won't select the roll anim.
+        player.setAnimationId(Sonic2AnimationIds.ROLL);
         player.setAir(true);
         player.setGSpeed((short) TUBE_SPEED);
         player.setXSpeed((short) 0);
