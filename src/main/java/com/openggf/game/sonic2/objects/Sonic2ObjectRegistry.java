@@ -38,6 +38,7 @@ import com.openggf.game.sonic2.objects.bosses.Sonic2CPZBossInstance;
 import com.openggf.game.sonic2.objects.bosses.Sonic2ARZBossInstance;
 import com.openggf.game.sonic2.objects.bosses.Sonic2CNZBossInstance;
 import com.openggf.game.sonic2.objects.bosses.Sonic2HTZBossInstance;
+import com.openggf.game.sonic2.objects.bosses.Sonic2DeathEggRobotInstance;
 import com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance;
 import com.openggf.game.sonic2.objects.bosses.Sonic2WFZBossInstance;
 
@@ -353,6 +354,9 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         // WFZ Boss (Object 0xC5) - Laser Platform Boss
         registerFactory(Sonic2ObjectIds.WFZ_BOSS,
                 (spawn, registry) -> new Sonic2WFZBossInstance(spawn, LevelManager.getInstance()));
+        // DEZ Death Egg Robot (Object 0xC7) - Final Boss
+        registerFactory(Sonic2ObjectIds.DEATH_EGG_ROBOT,
+                (spawn, registry) -> new Sonic2DeathEggRobotInstance(spawn, LevelManager.getInstance()));
         // Boss Explosion (Object 0x58)
         registerFactory(Sonic2ObjectIds.BOSS_EXPLOSION,
                 (spawn, registry) -> new BossExplosionObjectInstance(

@@ -184,6 +184,7 @@ public final class Sonic2ObjectArtKeys {
     public static final String HTZ_BOSS_SMOKE = "htz_boss_smoke";
     public static final String DEZ_SILVER_SONIC = "dez_silver_sonic";
     public static final String DEZ_WINDOW = "dez_window";
+    public static final String DEZ_BOSS = "dez_boss";
     public static final String WFZ_BOSS = "wfz_boss";
     public static final String WFZ_ROBOTNIK = "wfz_robotnik";
     public static final String WFZ_ROBOTNIK_PLATFORM = "wfz_robotnik_platform";

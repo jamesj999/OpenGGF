@@ -474,6 +474,11 @@ public class Sonic2Constants {
     public static final int MAP_UNC_SILVER_SONIC_ADDR = 0x39E68;        // ObjAF_MapUnc_39E68 (23 frames: Silver Sonic + spikeballs)
     public static final int MAP_UNC_DEZ_WINDOW_ADDR = 0x3A08C;          // ObjAF_MapUnc_3A08C (8 frames: DEZ window)
 
+    // DEZ Boss art (Death Egg Robot, ObjC7)
+    public static final int ART_NEM_DEZ_BOSS_ADDR = 0x8F024;            // ArtNem_DEZBoss / Eggrobo (tile base $0330, palette 0)
+    public static final int ART_TILE_DEZ_BOSS = 0x0330;                 // ArtTile_ArtNem_DEZBoss
+    public static final int MAP_UNC_DEZ_BOSS_ADDR = 0x3E5F8;            // ObjC7_MapUnc_3E5F8 (23 frames: Death Egg Robot parts)
+
     // WFZ Boss art (ObjC5) - laser platform boss
     public static final int ART_NEM_WFZ_BOSS_ADDR = 0x8E138;             // ArtNem_WfzBoss (tile base $0379, palette 0)
     public static final int ART_NEM_WFZ_FLOAT_PLATFORM_ADDR = 0x8D96E;   // ArtNem_WfzFloatingPlatform (tile base $046D, palette 1)

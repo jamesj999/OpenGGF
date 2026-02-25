@@ -2932,6 +2932,25 @@ public class Sonic2ObjectArt {
         return new ObjectSpriteSheet(patterns, mappings, 0, 1);
     }
 
+    // ========== DEZ Boss / Death Egg Robot (Object 0xC7) ==========
+
+    /**
+     * Load DEZ Boss (Death Egg Robot / Eggrobo) sprite sheet.
+     * Uses ArtNem_DEZBoss with mappings from ObjC7_MapUnc_3E5F8.
+     * ROM: art_tile = make_art_tile(ArtTile_ArtNem_DEZBoss,0,0) = $0330, palette line 0
+     * 23 frames: body, shoulder, arm, forearm, thighs, legs, head, jet, bomb, sensor, lock
+     *
+     * @return sprite sheet for DEZ Boss, or null on failure
+     */
+    public ObjectSpriteSheet loadDEZBossSheet() {
+        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_DEZ_BOSS_ADDR, "DEZBoss");
+        if (patterns.length == 0) {
+            return null;
+        }
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_DEZ_BOSS_ADDR);
+        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+    }
+
     // ========== MTZ Nut (Object 0x69) ==========
 
     /**

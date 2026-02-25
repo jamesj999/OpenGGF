@@ -96,6 +96,7 @@ public final class Sonic2ObjectIds {
     public static final int ARZ_BOSS = 0x89; // ARZ Act 2 Boss (hammer/arrow boss)
     public static final int MECHA_SONIC = 0xAF; // DEZ Silver Sonic / Mecha Sonic (first DEZ boss)
     public static final int WFZ_BOSS = 0xC5;    // WFZ Boss (ObjC5) - laser platform boss
+    public static final int DEATH_EGG_ROBOT = 0xC7; // DEZ Death Egg Robot (ObjC7) - final boss
     public static final int BOSS_EXPLOSION = 0x58; // Boss explosion (Obj58)
     public static final int LAVA_BUBBLE = 0x20;    // Lava bubble (Obj20) - spawned when HTZ lava ball hits ground
 

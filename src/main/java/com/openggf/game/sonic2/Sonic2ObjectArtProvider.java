@@ -260,6 +260,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             case 0x0E: // ROM_ZONE_DEZ
                 registerIfAbsent(Sonic2ObjectArtKeys.DEZ_SILVER_SONIC, artLoader::loadSilverSonicSheet);
                 registerIfAbsent(Sonic2ObjectArtKeys.DEZ_WINDOW, artLoader::loadDEZWindowSheet);
+                registerIfAbsent(Sonic2ObjectArtKeys.DEZ_BOSS, artLoader::loadDEZBossSheet);
                 break;
             case 0x06: // ROM_ZONE_WFZ
                 registerIfAbsent(Sonic2ObjectArtKeys.WFZ_BOSS, artLoader::loadWFZBossSheet);

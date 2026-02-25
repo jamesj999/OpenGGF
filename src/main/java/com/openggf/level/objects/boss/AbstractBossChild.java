@@ -117,4 +117,13 @@ public abstract class AbstractBossChild extends AbstractObjectInstance implement
     public int getCurrentY() {
         return currentY;
     }
+
+    /**
+     * Set the child's position directly.
+     * Used by parent bosses with articulated body parts (e.g., DEZ Robot).
+     */
+    public void setPosition(int x, int y) {
+        this.currentX = x;
+        this.currentY = y;
+    }
 }
