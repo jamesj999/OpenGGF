@@ -108,7 +108,8 @@ public class Sonic2EndingCutsceneManager {
 
     /** Character sprite position during sky fall. */
     private static final int SKY_FALL_CHAR_X = SCREEN_WIDTH / 2;
-    private static final int SKY_FALL_CHAR_Y = SCREEN_HEIGHT / 2 + 16;
+    /** ROM: move.w #$50,y_pos(a1) (s2.asm:13467) */
+    private static final int SKY_FALL_CHAR_Y = 0x50;
 
     /** Cloud Y positions and speeds for parallax effect. */
     private static final int[] CLOUD_INIT_Y = {40, 80, 140};
@@ -119,8 +120,8 @@ public class Sonic2EndingCutsceneManager {
 
     /** Plane starts off-screen left. */
     private static final int PLANE_START_X_SUB = -0x10 << 8;
-    /** Plane Y start position (subpixels). */
-    private static final int PLANE_START_Y_SUB = 0x90 << 8;
+    /** Plane Y start position (subpixels). ROM: move.w #$C0,y_pos(a0) (s2.asm:13549) */
+    private static final int PLANE_START_Y_SUB = 0xC0 << 8;
 
     // ========================================================================
     // State

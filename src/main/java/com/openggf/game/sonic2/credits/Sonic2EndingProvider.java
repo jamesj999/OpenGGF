@@ -133,9 +133,9 @@ public class Sonic2EndingProvider implements EndingProvider {
                 state = InternalState.LOGO_FLASH;
             }
             case LOGO_FLASH -> {
-                // InputHandler is passed via updateLogoFlash() from GameLoop
-                // (see getLogoFlashManager() accessor and GameLoop.updateEndingPostCredits)
-                logoFlashManager.update(null);
+                // Logo flash update is driven by GameLoop.updateEndingPostCredits()
+                // which passes the real InputHandler for button skip detection.
+                // We only check completion here; GameLoop calls logoFlash.update(inputHandler).
                 if (logoFlashManager.isDone()) {
                     state = InternalState.FINISHED;
                     LOGGER.info("Sonic2 ending sequence complete");
