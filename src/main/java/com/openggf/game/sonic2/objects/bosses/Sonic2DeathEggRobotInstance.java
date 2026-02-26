@@ -17,7 +17,6 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * DEZ Death Egg Robot (Object 0xC7).
@@ -169,8 +168,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     // ========================================================================
     // CHILD POSITION DELTAS (from ObjC7_ChildDeltas, s2.asm:83536-83544)
-    // Only for children that use PositionChildren: FrontLowerLeg, FrontForearm,
-    // UpperArm, FrontThigh, BackLowerLeg, BackForearm, BackThigh
     // ========================================================================
 
     /** Child deltas: [childIndex]{dx, dy} - only 7 children use these */
@@ -201,6 +198,195 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private static final int BOMB_SPAWN_DY = -0x14;
 
     // ========================================================================
+    // ROM-ACCURATE GROUP ANIMATION SYSTEM (loc_3E1AA)
+    //
+    // Each signed byte delta is applied as: (byte << 4) << 8 = byte << 12
+    // added to 32-bit position. Net effect: byte / 16 pixels per substep.
+    // Substep counter increments each frame; when it reaches the speed
+    // threshold, the keyframe advances.
+    //
+    // Keyframe format: { pieceCount, speed, {objoffId, dx, dy}... }
+    //   objoffId: 0 = body, or the child's objoff slot index
+    //   dx, dy: signed bytes (Java uses int for clarity)
+    //
+    // Script format: keyframe table reference + sequence of frame indices.
+    //   Frame byte flags: $40 = play sound, $80 = reverse, $C0 = end.
+    // ========================================================================
+
+    // --- objoff slot identifiers (matching ROM SST offsets) ---
+    private static final int SLOT_BODY = 0;
+    private static final int SLOT_FRONT_LOWER_LEG = 0x2E;  // objoff_2E
+    private static final int SLOT_FRONT_FOREARM = 0x30;     // objoff_30
+    private static final int SLOT_UPPER_ARM = 0x32;         // objoff_32
+    private static final int SLOT_FRONT_THIGH = 0x34;       // objoff_34
+    private static final int SLOT_BACK_LOWER_LEG = 0x3A;    // objoff_3A
+    private static final int SLOT_BACK_FOREARM = 0x3C;      // objoff_3C
+    private static final int SLOT_BACK_THIGH = 0x3E;        // objoff_3E
+
+    // --- Keyframe tables (from ROM ObjC7_GroupAni_*) ---
+    // Each keyframe: { speed, slot0, dx0, dy0, slot1, dx1, dy1, ... }
+    // First element is speed threshold. Then triplets of (slot, dx, dy).
+
+    // ObjC7_GroupAni_3E318: 9 keyframes for half-step walk (off_3E2F6/off_3E300/off_3E30A)
+    private static final int[][] HALF_STEP_KEYFRAMES = {
+        // 0: byte_3E32A - speed 8
+        { 8,  SLOT_BODY,0xE0,0x0C, SLOT_FRONT_FOREARM,0xE0,0x0C, SLOT_UPPER_ARM,0xE0,0x0C, SLOT_BACK_FOREARM,0xE0,0x0C, SLOT_FRONT_THIGH,0xF8,0x04, SLOT_BACK_THIGH,0xF8,0x04 },
+        // 1: byte_3E33E - speed 8
+        { 8,  SLOT_BODY,0xEC,0x14, SLOT_FRONT_FOREARM,0xEC,0x14, SLOT_UPPER_ARM,0xEC,0x14, SLOT_BACK_FOREARM,0xEC,0x14, SLOT_FRONT_THIGH,0xFA,0x06, SLOT_BACK_THIGH,0xFA,0x06 },
+        // 2: byte_3E352 - speed 8
+        { 8,  SLOT_BODY,0xF8,0x14, SLOT_FRONT_FOREARM,0xF8,0x14, SLOT_UPPER_ARM,0xF8,0x14, SLOT_BACK_FOREARM,0xF8,0x14, SLOT_FRONT_THIGH,0xFE,0x04, SLOT_BACK_THIGH,0xFE,0x04 },
+        // 3: byte_3E366 - speed 8
+        { 8,  SLOT_BODY,0xFC,0x0C, SLOT_FRONT_FOREARM,0xFC,0x0C, SLOT_UPPER_ARM,0xFC,0x0C, SLOT_BACK_FOREARM,0xFC,0x0C, SLOT_FRONT_THIGH,0x00,0x02, SLOT_BACK_THIGH,0x00,0x02 },
+        // 4: byte_3E37A - speed 8 (body only, standing still)
+        { 8,  SLOT_BODY,0x00,0x00 },
+        // 5: byte_3E380 - speed 8
+        { 8,  SLOT_BODY,0x04,0xE8, SLOT_FRONT_FOREARM,0x04,0xE8, SLOT_UPPER_ARM,0x04,0xE8, SLOT_BACK_FOREARM,0x04,0xE8, SLOT_FRONT_THIGH,0x02,0xFA, SLOT_BACK_THIGH,0x02,0xFA },
+        // 6: byte_3E394 - speed 8
+        { 8,  SLOT_BODY,0x0C,0xE8, SLOT_FRONT_FOREARM,0x0C,0xE8, SLOT_UPPER_ARM,0x0C,0xE8, SLOT_BACK_FOREARM,0x0C,0xE8, SLOT_FRONT_THIGH,0x04,0xFC, SLOT_BACK_THIGH,0x04,0xFC },
+        // 7: byte_3E3A8 - speed 8
+        { 8,  SLOT_BODY,0x18,0xF4, SLOT_FRONT_FOREARM,0x18,0xF4, SLOT_UPPER_ARM,0x18,0xF4, SLOT_BACK_FOREARM,0x18,0xF4, SLOT_FRONT_THIGH,0x04,0xFC, SLOT_BACK_THIGH,0x04,0xFC },
+        // 8: byte_3E3BC - speed 8
+        { 8,  SLOT_BODY,0x18,0xFC, SLOT_FRONT_FOREARM,0x18,0xFC, SLOT_UPPER_ARM,0x18,0xFC, SLOT_BACK_FOREARM,0x18,0xFC, SLOT_FRONT_THIGH,0x06,0xFE, SLOT_BACK_THIGH,0x06,0xFE },
+    };
+
+    // ObjC7_GroupAni_3E3D8: 3 keyframes for crouch/rise (off_3E3D0)
+    private static final int[][] CROUCH_KEYFRAMES = {
+        // 0: byte_3E3DE - speed $10 (crouch down: all children Y +4)
+        { 0x10, SLOT_BODY,0x00,0x04, SLOT_FRONT_FOREARM,0x00,0x04, SLOT_UPPER_ARM,0x00,0x04, SLOT_BACK_FOREARM,0x00,0x04, SLOT_FRONT_THIGH,0x00,0x04, SLOT_BACK_THIGH,0x00,0x04 },
+        // 1: byte_3E3F2 - speed $10 (hold: body only, no movement)
+        { 0x10, SLOT_BODY,0x00,0x00 },
+        // 2: byte_3E3F8 - speed 8 (spring up: all children Y -8)
+        { 8,    SLOT_BODY,0x00,0xF8, SLOT_FRONT_FOREARM,0x00,0xF8, SLOT_UPPER_ARM,0x00,0xF8, SLOT_BACK_FOREARM,0x00,0xF8, SLOT_FRONT_THIGH,0x00,0xF8, SLOT_BACK_THIGH,0x00,0xF8 },
+    };
+
+    // ObjC7_GroupAni_3E438: 12 keyframes for full walk cycle (off_3E40C/off_3E42C)
+    private static final int[][] WALK_CYCLE_KEYFRAMES = {
+        // 0: byte_3E450 - speed $20
+        { 0x20, SLOT_FRONT_THIGH,0xF8,0xF8, SLOT_FRONT_LOWER_LEG,0xF8,0xF8, SLOT_BODY,0x00,0xFC, SLOT_FRONT_FOREARM,0x04,0xFB, SLOT_UPPER_ARM,0x03,0xFB, SLOT_BACK_FOREARM,0xFC,0xFB, SLOT_BACK_THIGH,0x00,0xFE },
+        // 1: byte_3E468 - speed $10
+        { 0x10, SLOT_FRONT_THIGH,0xF0,0xFC, SLOT_FRONT_LOWER_LEG,0xF0,0xFC, SLOT_BODY,0xF0,0xFC, SLOT_FRONT_FOREARM,0xF4,0xFB, SLOT_UPPER_ARM,0xF3,0xFB, SLOT_BACK_FOREARM,0xEC,0xFB, SLOT_BACK_THIGH,0xF8,0x00 },
+        // 2: byte_3E480 - speed $10
+        { 0x10, SLOT_FRONT_THIGH,0xF8,0x04, SLOT_FRONT_LOWER_LEG,0xF8,0x04, SLOT_BODY,0xF8,0x04, SLOT_FRONT_FOREARM,0xFC,0x03, SLOT_UPPER_ARM,0xFB,0x03, SLOT_BACK_FOREARM,0xF4,0x03 },
+        // 3: byte_3E494 - speed $10
+        { 0x10, SLOT_FRONT_THIGH,0xFC,0x10, SLOT_FRONT_LOWER_LEG,0xF8,0x10, SLOT_BODY,0x00,0x08, SLOT_FRONT_FOREARM,0xF8,0x0A, SLOT_UPPER_ARM,0xFA,0x0A, SLOT_BACK_FOREARM,0x08,0x0A, SLOT_BACK_THIGH,0x00,0x08 },
+        // 4: byte_3E4AC - speed $20
+        { 0x20, SLOT_FRONT_THIGH,0xFE,0xFE, SLOT_BODY,0xF4,0xFC, SLOT_FRONT_FOREARM,0xF0,0xFD, SLOT_UPPER_ARM,0xF1,0xFD, SLOT_BACK_FOREARM,0xF8,0xFD, SLOT_BACK_THIGH,0xEC,0xFA, SLOT_BACK_LOWER_LEG,0xE8,0xFC },
+        // 5: byte_3E4C4 - speed $20
+        { 0x20, SLOT_BACK_THIGH,0xF8,0xFC, SLOT_BACK_LOWER_LEG,0xF8,0xFC, SLOT_FRONT_FOREARM,0xFC,0xFF, SLOT_UPPER_ARM,0xFD,0xFF, SLOT_BACK_FOREARM,0x04,0xFF },
+        // 6: byte_3E4D6 - speed $10
+        { 0x10, SLOT_BACK_THIGH,0xF0,0xFC, SLOT_BACK_LOWER_LEG,0xF0,0xFC, SLOT_BODY,0xF0,0xFC, SLOT_FRONT_FOREARM,0xEC,0xFB, SLOT_UPPER_ARM,0xED,0xFB, SLOT_BACK_FOREARM,0xF4,0xFB, SLOT_FRONT_THIGH,0xF8,0x00 },
+        // 7: byte_3E4EE - speed $10
+        { 0x10, SLOT_BACK_THIGH,0xF8,0x04, SLOT_BACK_LOWER_LEG,0xF8,0x04, SLOT_BODY,0xF8,0x04, SLOT_FRONT_FOREARM,0xF4,0x03, SLOT_UPPER_ARM,0xF5,0x03, SLOT_BACK_FOREARM,0xFC,0x03 },
+        // 8: byte_3E502 - speed $10
+        { 0x10, SLOT_BACK_THIGH,0xFC,0x10, SLOT_BACK_LOWER_LEG,0xF8,0x10, SLOT_BODY,0x00,0x08, SLOT_FRONT_FOREARM,0x08,0x0A, SLOT_UPPER_ARM,0x06,0x0A, SLOT_BACK_FOREARM,0xF8,0x0A, SLOT_FRONT_THIGH,0x00,0x08 },
+        // 9: byte_3E51A - speed $20
+        { 0x20, SLOT_BACK_THIGH,0xFE,0xFE, SLOT_BODY,0xF4,0xFC, SLOT_FRONT_FOREARM,0xF8,0xFD, SLOT_UPPER_ARM,0xF7,0xFD, SLOT_BACK_FOREARM,0xF1,0xFD, SLOT_FRONT_THIGH,0xEC,0xFA, SLOT_FRONT_LOWER_LEG,0xE8,0xFC },
+        // 10: byte_3E532 - speed $20
+        { 0x20, SLOT_FRONT_THIGH,0xF8,0xFC, SLOT_FRONT_LOWER_LEG,0xF8,0xFC, SLOT_FRONT_FOREARM,0x04,0xFF, SLOT_UPPER_ARM,0x03,0xFF, SLOT_BACK_FOREARM,0xFC,0xFF },
+        // 11: byte_3E544 - speed $10 (landing: all children Y +8)
+        { 0x10, SLOT_BACK_THIGH,0x00,0x08, SLOT_BACK_LOWER_LEG,0x00,0x08, SLOT_BODY,0x00,0x08, SLOT_FRONT_FOREARM,0x00,0x08, SLOT_UPPER_ARM,0x00,0x08, SLOT_BACK_FOREARM,0x00,0x08, SLOT_FRONT_THIGH,0x00,0x08 },
+    };
+
+    // --- Group animation script definitions ---
+    // Each script entry: positive = keyframe index, negative = flag byte
+    // FLAG_SOUND = next byte is sound ID, then next is the real keyframe
+    // FLAG_REVERSE = negate all deltas for this keyframe (lower 6 bits = keyframe index)
+    // FLAG_END = animation complete
+    private static final int FLAG_SOUND = -0x40;    // $40 prefix
+    private static final int FLAG_REVERSE = -0x80;  // $80 prefix
+    private static final int FLAG_END = -0xC0;      // $C0 prefix / $FF
+
+    // ROM script: off_3E2F6 — half-step walk forward (steps 0-3, end)
+    // Keyframe table: HALF_STEP_KEYFRAMES
+    private static final int SCRIPT_HALF_WALK_FWD = 0;
+    // ROM script: off_3E300 — half-step walk backward (steps 5-8, end)
+    private static final int SCRIPT_HALF_WALK_BWD = 1;
+    // ROM script: off_3E30A — full walk cycle (steps 0-8, end)
+    private static final int SCRIPT_FULL_WALK = 2;
+    // ROM script: off_3E3D0 — crouch (steps 0-2, end)
+    private static final int SCRIPT_CROUCH = 3;
+    // ROM script: off_3E40C — walk cycle with hammer sounds (4 half-cycles)
+    private static final int SCRIPT_WALK_ATTACK_FWD = 4;
+    // ROM script: off_3E42C — walk backward reversed with hammer
+    private static final int SCRIPT_WALK_ATTACK_BWD = 5;
+
+    // Script data: sequences of keyframe indices and flags
+    // Positive values = keyframe index; negative values = flags
+    private static final int[][] SCRIPT_SEQUENCES = {
+        // 0: off_3E2F6 — half-step walk forward
+        { 0, 1, 2, 3 },
+        // 1: off_3E300 — half-step walk backward
+        { 5, 6, 7, 8 },
+        // 2: off_3E30A — full walk cycle (used in stomp recovery)
+        { 0, 1, 2, 3, 4, 5, 6, 7, 8 },
+        // 3: off_3E3D0 — crouch
+        { 0, 1, 2 },
+        // 4: off_3E40C — walk attack forward (with hammer sounds at key points)
+        // ROM: 0, 1, 2, 3, $40, SndID_Hammer, 4, 5, 6, 7, 8, $40, SndID_Hammer, ...
+        // We encode sound triggers as negative markers and play them in the engine
+        { 0, 1, 2, 3, -1/*sound*/, 4, 5, 6, 7, 8, -1/*sound*/, 9, 10, 1, 2, 3, -1/*sound*/, 4, 5, 6, 7, 8, -1/*sound*/ },
+        // 5: off_3E42C — walk attack backward (reversed keyframes + landing)
+        // ROM: $88, $87, $86, $85, $B, $40, SndID_Hammer
+        // $88 = $80|8 = reversed keyframe 8, etc.
+        { -108/*rev8*/, -107/*rev7*/, -106/*rev6*/, -105/*rev5*/, 11, -1/*sound*/ },
+    };
+
+    // Keyframe table reference per script
+    private static final int[][] SCRIPT_KEYFRAME_TABLE_REF = {
+        null, // 0: HALF_STEP_KEYFRAMES
+        null, // 1: HALF_STEP_KEYFRAMES
+        null, // 2: HALF_STEP_KEYFRAMES
+        null, // 3: CROUCH_KEYFRAMES
+        null, // 4: WALK_CYCLE_KEYFRAMES
+        null, // 5: WALK_CYCLE_KEYFRAMES
+    };
+
+    /** Get the keyframe table for a script */
+    private static int[][] getKeyframeTable(int scriptId) {
+        return switch (scriptId) {
+            case SCRIPT_HALF_WALK_FWD, SCRIPT_HALF_WALK_BWD, SCRIPT_FULL_WALK -> HALF_STEP_KEYFRAMES;
+            case SCRIPT_CROUCH -> CROUCH_KEYFRAMES;
+            case SCRIPT_WALK_ATTACK_FWD, SCRIPT_WALK_ATTACK_BWD -> WALK_CYCLE_KEYFRAMES;
+            default -> HALF_STEP_KEYFRAMES;
+        };
+    }
+
+    // ========================================================================
+    // HEAD GLOW ANIMATION (ROM: Ani_objC7_a)
+    // Speed 7: frame changes every 8 VBlanks
+    // Frames: $15,$15,$15,$15,$15,$15,$15,$15, 0, 1, 2, $FA (loop)
+    // ========================================================================
+    static final int[] HEAD_GLOW_FRAMES = {
+        0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0, 1, 2
+    };
+    static final int HEAD_GLOW_SPEED = 7; // changes every (7+1)=8 frames
+
+    // ========================================================================
+    // JET FLAME ANIMATION (ROM: Ani_objC7_b)
+    // ========================================================================
+    // Anim 0: speed 1, $C, $D, $FF (idle flicker loop)
+    static final int[] JET_ANIM_0 = { 0x0C, 0x0D };
+    // Anim 1: speed 1, rising pattern (24 frames, $FA loop)
+    static final int[] JET_ANIM_1 = {
+        0x0C,0x0D,0x0C,0x0C,0x0D,0x0D,0x0C,0x0C,0x0C,0x0D,0x0D,0x0D,
+        0x0C,0x0C,0x0C,0x0C,0x0C,0x0D,0x0D,0x0D,0x0D,0x0D,0x0D
+    };
+    // Anim 2: speed 1, descending pattern (23 frames, $FD -> go to anim 1)
+    static final int[] JET_ANIM_2 = {
+        0x0D,0x0D,0x0D,0x0D,0x0D,0x0D,0x0C,0x0C,0x0C,0x0C,0x0C,0x0D,
+        0x0D,0x0D,0x0C,0x0C,0x0C,0x0D,0x0D,0x0C,0x0C,0x0D,0x0C
+    };
+    // Anim 3: speed 0, $D, $15, $FF (special: jet + head flicker)
+    static final int[] JET_ANIM_3 = { 0x0D, 0x15 };
+
+    // ========================================================================
+    // TARGETING SENSOR ANIMATION (ROM: Ani_objC7_c)
+    // Speed 3, frames: $13, $12, $11, $10, $16, $FF (loop)
+    // ========================================================================
+    static final int[] SENSOR_ANIM_FRAMES = { 0x13, 0x12, 0x11, 0x10, 0x16 };
+    static final int SENSOR_ANIM_SPEED = 3;
+
+    // ========================================================================
     // INTERNAL STATE
     // ========================================================================
 
@@ -217,10 +403,15 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private boolean frontPunchTriggered;
     private boolean backPunchTriggered;
 
-    // Group animation state
-    private int groupAnimStep;          // Current step index within the playing script
-    private int groupAnimFrameTimer;    // Frame counter within current step
-    private int[][] currentGroupAnim;   // Currently playing group animation (null = none)
+    // Group animation state (ROM: loc_3E1AA)
+    private int groupAnimScript = -1;   // Currently playing script ID (-1 = none)
+    private int groupAnimFrameIdx;      // Current index within the script sequence
+    private int groupAnimSubStep;       // ROM: objoff_1F - sub-step counter within keyframe
+
+    // Subpixel position tracking for body (32-bit fixed: 16.16)
+    // Children track their own xFixed/yFixed via ArticulatedChild
+    private long bodyXFixed;  // 32-bit position as long to avoid sign issues
+    private long bodyYFixed;
 
     // Targeting sensor data
     private int targetedPlayerX; // ROM: objoff_28(a0) - reported by targeting sensor
@@ -230,19 +421,19 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private boolean controlsLocked;
 
     // Child references (10 permanent)
-    private BodyPartChild shoulder;
-    private BodyPartChild frontLowerLeg;
+    private ArticulatedChild shoulder;
+    private ArticulatedChild frontLowerLeg;
     private ForearmChild frontForearm;
-    private BodyPartChild upperArm;
-    private BodyPartChild frontThigh;
+    private ArticulatedChild upperArm;
+    private ArticulatedChild frontThigh;
     private HeadChild head;
     private JetChild jet;
-    private BodyPartChild backLowerLeg;
+    private ArticulatedChild backLowerLeg;
     private ForearmChild backForearm;
-    private BodyPartChild backThigh;
+    private ArticulatedChild backThigh;
 
-    // Pending transient spawn flags
-    private boolean sensorSpawned;
+    // Targeting sensor (transient child)
+    private SensorChild sensorChild;
 
     public Sonic2DeathEggRobotInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "DeathEggRobot");
@@ -268,10 +459,12 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         targetedPlayerX = 0;
         frontPunchTriggered = false;
         backPunchTriggered = false;
-        sensorSpawned = false;
-        groupAnimStep = 0;
-        groupAnimFrameTimer = 0;
-        currentGroupAnim = null;
+        groupAnimScript = -1;
+        groupAnimFrameIdx = 0;
+        groupAnimSubStep = 0;
+
+        bodyXFixed = (long) state.x << 16;
+        bodyYFixed = (long) state.y << 16;
 
         // Spawn 10 permanent children (ROM: loc_3D52A)
         spawnChildren();
@@ -281,16 +474,16 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     }
 
     private void spawnChildren() {
-        shoulder = new BodyPartChild(this, "Shoulder", 4, FRAME_SHOULDER, 5);
-        frontLowerLeg = new BodyPartChild(this, "FrontLowerLeg", 4, FRAME_LOWER_LEG, 4);
+        shoulder = new ArticulatedChild(this, "Shoulder", 4, FRAME_SHOULDER, 5);
+        frontLowerLeg = new ArticulatedChild(this, "FrontLowerLeg", 4, FRAME_LOWER_LEG, 4);
         frontForearm = new ForearmChild(this, "FrontForearm", 4, true);
-        upperArm = new BodyPartChild(this, "UpperArm", 4, FRAME_ARM, 4);
-        frontThigh = new BodyPartChild(this, "FrontThigh", 4, FRAME_THIGH, 4);
+        upperArm = new ArticulatedChild(this, "UpperArm", 4, FRAME_ARM, 4);
+        frontThigh = new ArticulatedChild(this, "FrontThigh", 4, FRAME_THIGH, 4);
         head = new HeadChild(this, 4);
         jet = new JetChild(this, 4);
-        backLowerLeg = new BodyPartChild(this, "BackLowerLeg", 5, FRAME_LOWER_LEG, 4);
+        backLowerLeg = new ArticulatedChild(this, "BackLowerLeg", 5, FRAME_LOWER_LEG, 4);
         backForearm = new ForearmChild(this, "BackForearm", 5, false);
-        backThigh = new BodyPartChild(this, "BackThigh", 5, FRAME_THIGH, 4);
+        backThigh = new ArticulatedChild(this, "BackThigh", 5, FRAME_THIGH, 4);
 
         childComponents.add(shoulder);
         childComponents.add(frontLowerLeg);
@@ -385,8 +578,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     /** State 2: WaitEggman - wait for head to signal Eggman has boarded */
     private void updateWaitEggman() {
-        // ROM: btst #status.npc.misc,status(a0); bne.s +
-        // Auto-trigger after head signals boarding (or skip for now)
         if (head != null && head.isEggmanBoarded()) {
             bodyRoutine = BODY_COUNTDOWN;
             actionTimer = COUNTDOWN_TIMER;
@@ -401,8 +592,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             bodyRoutine = BODY_RISE;
             actionTimer = RISE_TIMER;
             state.yVel = RISE_VELOCITY;
-            // ROM: movea.w objoff_38(a0),a1 / move.b #4,routine_secondary(a1)
-            // objoff_38 = jet, NOT head. Set jet routine 4 to start jet animation.
+            // ROM: objoff_38 = jet. Set jet routine 4 to start jet animation.
             if (jet != null) {
                 jet.setJetRoutine(4);
             }
@@ -417,11 +607,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             bodyRoutine = BODY_WAIT_READY;
             state.yVel = 0;
             actionTimer = WAIT_READY_TIMER;
-            // Set collision
             state.hitCount = DEATH_EGG_ROBOT_HP;
             initChildCollisions();
-            // ROM: movea.w objoff_38(a0),a1 / move.b #6,routine_secondary(a1)
-            // objoff_38 = jet, NOT head. Set jet routine 6 for different jet pattern.
             if (jet != null) {
                 jet.setJetRoutine(6);
             }
@@ -430,7 +617,9 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         // ROM: SndID_Rumbling every frame during rise
         AudioManager.getInstance().playSfx(Sonic2Sfx.RUMBLING.id);
         // ObjectMove (constant velocity, no gravity)
-        state.yFixed += (state.yVel << 8);
+        bodyYFixed += ((long) state.yVel << 8);
+        state.y = (int)(bodyYFixed >> 16);
+        state.yFixed = (int) bodyYFixed;
         state.updatePositionFromFixed();
         positionChildren();
     }
@@ -455,8 +644,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         currentAttack = ATTACK_PATTERN[attackIndex];
         attackPhase = 0;
 
-        // ROM: cmpi.b #2,d0 / bne.s + => for attack type 2 (jet stomp), signal jet
-        // ROM: movea.w objoff_38(a0),a1 / move.b #4,routine_secondary(a1) / move.b #2,anim(a1)
+        // ROM: for attack type 2 (jet stomp), signal jet
         if (currentAttack == 2 && jet != null) {
             jet.setJetRoutine(4);
             jet.setJetAnim(2);
@@ -475,6 +663,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     // ========================================================================
     // ATTACK TYPE 0: WALK AND PUNCH
+    // ROM: loc_3D6AA (anim=0)
     // ========================================================================
 
     private void updateAttackWalkPunch(int frameCounter, AbstractPlayableSprite player) {
@@ -483,10 +672,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 actionTimer--;
                 if (actionTimer < 0) {
                     attackPhase = 2;
+                    resetGroupAnim();
                 }
             }
-            case 2 -> { // Walk forward (group animation)
-                if (stepGroupAnimation(WALK_FORWARD_SCRIPT)) {
+            case 2 -> { // Walk forward (ROM: off_3E40C walk cycle with hammer sounds)
+                if (stepGroupAnimation(SCRIPT_WALK_ATTACK_FWD)) {
                     attackPhase = 4;
                     actionTimer = 0x40;
                 }
@@ -495,13 +685,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 actionTimer--;
                 if (actionTimer < 0) {
                     attackPhase = 6;
-                    // ROM: Attack type 0 (Walk-and-Punch) does NOT trigger any forearm punch.
-                    // The forearm launch is only triggered via p2_standing in attack type 4.
+                    resetGroupAnim();
                 }
             }
-            case 6 -> { // Walk backward (group animation)
-                if (stepGroupAnimation(WALK_BACKWARD_SCRIPT)) {
-                    // Return to select attack
+            case 6 -> { // Walk backward (ROM: off_3E42C reversed walk cycle)
+                if (stepGroupAnimation(SCRIPT_WALK_ATTACK_BWD)) {
                     bodyRoutine = BODY_SELECT_ATTACK;
                     actionTimer = 0x40;
                 }
@@ -511,6 +699,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     // ========================================================================
     // ATTACK TYPE 2: JET STOMP
+    // ROM: loc_3D702 (anim=2)
     // ========================================================================
 
     private void updateAttackJetStomp(int frameCounter, AbstractPlayableSprite player) {
@@ -519,10 +708,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 actionTimer--;
                 if (actionTimer < 0) {
                     attackPhase = 2;
+                    resetGroupAnim();
                 }
             }
-            case 2 -> { // Crouch (group animation)
-                if (stepGroupAnimation(CROUCH_SCRIPT)) {
+            case 2 -> { // Crouch (ROM: off_3E3D0)
+                if (stepGroupAnimation(SCRIPT_CROUCH)) {
                     attackPhase = 4;
                     actionTimer = 0x80;
                     state.xVel = 0;
@@ -536,7 +726,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     state.yVel = 0;
                     // Spawn targeting sensor
                     targetedPlayerX = 0;
-                    sensorSpawned = true;
+                    spawnSensor(player);
                     return;
                 }
                 // Fire sound every 32 frames
@@ -544,15 +734,21 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     AudioManager.getInstance().playSfx(Sonic2Sfx.FIRE.id);
                 }
                 // ObjectMove
-                state.yFixed += (state.yVel << 8);
+                bodyYFixed += ((long) state.yVel << 8);
+                state.y = (int)(bodyYFixed >> 16);
+                state.yFixed = (int) bodyYFixed;
                 state.updatePositionFromFixed();
                 positionChildren();
             }
             case 6 -> { // Wait for sensor to report player X
+                if (sensorChild != null) {
+                    sensorChild.update(frameCounter, player);
+                }
                 if (targetedPlayerX != 0) {
                     attackPhase = 8;
                     state.x = targetedPlayerX;
-                    state.xFixed = state.x << 16;
+                    bodyXFixed = (long) state.x << 16;
+                    state.xFixed = (int) bodyXFixed;
                     // Set facing based on position
                     facingLeft = targetedPlayerX < 0x780;
                     updateChildFacing();
@@ -568,32 +764,28 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     // Screen shake
                     Camera camera = Camera.getInstance();
                     if (camera != null) {
-                        // TODO: ROM uses Screen_Shaking_Flag=1, DEZ_Shake_Timer=$40 (stomp).
-                    // The ROM's timer-driven shake is more complex than a simple offset.
-                    camera.setShakeOffsets(0, 4);
+                        camera.setShakeOffsets(0, 4);
                     }
-                    // ROM: movea.w objoff_38(a0),a1 / move.b #6,routine_secondary(a1)
-                    // objoff_38 = jet. Signal jet to return to idle pattern.
                     if (jet != null) {
                         jet.setJetRoutine(6);
                     }
                     AudioManager.getInstance().playSfx(Sonic2Sfx.SMASH.id);
+                    resetGroupAnim();
                     return;
                 }
-                state.yFixed += (state.yVel << 8);
+                bodyYFixed += ((long) state.yVel << 8);
+                state.y = (int)(bodyYFixed >> 16);
+                state.yFixed = (int) bodyYFixed;
                 state.updatePositionFromFixed();
                 positionChildren();
             }
-            case 0x0A -> { // Stand up (group animation)
-                if (stepGroupAnimation(STAND_UP_SCRIPT)) {
+            case 0x0A -> { // Stand up (ROM: off_3E30A full walk cycle)
+                if (stepGroupAnimation(SCRIPT_FULL_WALK)) {
                     positionChildren();
-                    // Check orientation to determine if we drop bombs
                     boolean playerOnSameSide = isPlayerOnFacingSide(player);
                     if (!playerOnSameSide) {
-                        // Return to select attack
                         bodyRoutine = BODY_SELECT_ATTACK;
                     } else {
-                        // Drop bombs, then return
                         attackPhase = 0x0C;
                         actionTimer = 0x60;
                         spawnBombs(player);
@@ -611,6 +803,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     // ========================================================================
     // ATTACK TYPE 4: STOMP TURN BOMBS
+    // ROM: loc_3D83C (anim=4)
     // ========================================================================
 
     private void updateAttackStompBombs(int frameCounter, AbstractPlayableSprite player) {
@@ -619,26 +812,20 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 actionTimer--;
                 if (actionTimer < 0) {
                     attackPhase = 2;
-                    // Set p2_pushing flag for walk animation
+                    resetGroupAnim();
                     backPunchTriggered = false;
                 }
             }
-            case 2 -> { // Walk toward player (group animation)
-                if (stepGroupAnimation(WALK_FORWARD_SCRIPT)) {
-                    // ROM: Obj_GetOrientationToPlayer + x_flip adjust, then tst.w d0
-                    // d0==0 (player on facing side) → BOMBS + phase 8
-                    // d0!=0 (player behind) → PUNCH + phase 4
+            case 2 -> { // Walk toward player (ROM: off_3E2F6 half-step forward)
+                if (stepGroupAnimation(SCRIPT_HALF_WALK_FWD)) {
                     boolean playerOnSameSide = isPlayerOnFacingSide(player);
                     if (playerOnSameSide) {
-                        // Player on facing side -> bombs (ROM: bne.s + branch)
                         attackPhase = 8;
                         actionTimer = 0x20;
                         spawnBombs(player);
                     } else {
-                        // Player behind -> punch (ROM: tst.w d0 == 0 fallthrough)
                         attackPhase = 4;
                         actionTimer = 0x40;
-                        // ROM: bset #status.npc.p2_standing -> triggers FRONT forearm
                         frontPunchTriggered = true;
                     }
                 }
@@ -647,13 +834,13 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 actionTimer--;
                 if (actionTimer < 0) {
                     attackPhase = 6;
-                    // Trigger back forearm punch launch
                     backPunchTriggered = true;
                     actionTimer = 0x40;
+                    resetGroupAnim();
                 }
             }
-            case 6 -> { // Walk backward
-                if (stepGroupAnimation(WALK_BACKWARD_SCRIPT)) {
+            case 6 -> { // Walk backward (ROM: off_3E300 half-step backward)
+                if (stepGroupAnimation(SCRIPT_HALF_WALK_BWD)) {
                     bodyRoutine = BODY_SELECT_ATTACK;
                 }
             }
@@ -683,16 +870,18 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private void updateDefeatFall(int frameCounter) {
         spawnDefeatExplosion();
         // ObjectMoveAndFall
-        state.yFixed += (state.yVel << 8);
+        bodyYFixed += ((long) state.yVel << 8);
         state.yVel += GRAVITY;
+        state.y = (int)(bodyYFixed >> 16);
+        state.yFixed = (int) bodyYFixed;
         state.updatePositionFromFixed();
 
         if (state.y >= DEFEAT_FLOOR_Y) {
             state.y = DEFEAT_FLOOR_Y;
-            state.yFixed = state.y << 16;
+            bodyYFixed = (long) state.y << 16;
+            state.yFixed = (int) bodyYFixed;
             int absVel = state.yVel;
             if (absVel < 0) {
-                // Negative velocity means still going up - just advance
                 defeatPhase = 2;
                 actionTimer = DEFEAT_EXPLODE_TIMER;
                 return;
@@ -701,7 +890,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             if (bounceVel >= DEFEAT_BOUNCE_THRESHOLD) {
                 state.yVel = -bounceVel;
             } else {
-                // Stop bouncing
                 defeatPhase = 2;
                 actionTimer = DEFEAT_EXPLODE_TIMER;
             }
@@ -714,7 +902,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         if (actionTimer >= 0) {
             spawnDefeatExplosion();
         } else {
-            // Lock controls and extend camera
             defeatPhase = 4;
             controlsLocked = true;
             Camera camera = Camera.getInstance();
@@ -726,32 +913,13 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     /** Defeat phase 4: Force player right, trigger ending when camera reaches $840 */
     private void updateDefeatWalkPlayer(int frameCounter, AbstractPlayableSprite player) {
-        // ROM: move.w #(button_right_mask<<8)|button_right_mask,(Ctrl_1_Logical).w
-        // Player is forced to walk right - this is handled externally via control lock
-
         Camera camera = Camera.getInstance();
         if (camera != null && camera.getX() >= DEFEAT_CAMERA_WALK_TARGET) {
-            // ROM: loc_3D93C - transition to ending
-            // NOTE: breakApart() is NOT called here; it was already called once in
-            // triggerDefeatSequence() (ObjC7_Beaten). ROM only calls ObjC7_Break once.
-
-            // TODO: ROM uses Screen_Shaking_Flag=1, DEZ_Shake_Timer=$1000 (ending).
-            // This is much longer than the stomp shake ($40). The ROM's timer-driven
-            // shake is more complex than a simple offset - it counts down and produces
-            // oscillating Y offsets. The current simple offset is a placeholder.
             camera.setShakeOffsets(0, 4);
-
-            // ROM: movea.w objoff_36(a0),a1 / JmpTo6_DeleteObject2
-            // objoff_36 = head. Delete head in ending transition.
             if (head != null) {
                 head.setDestroyed(true);
             }
-
-            // Transition to ending setup
-            // TODO: Full ending sequence (fade to white, game mode change)
             AudioManager.getInstance().fadeOutMusic();
-
-            // Advance to terminal state to prevent re-triggering every frame
             defeatPhase = 6;
         }
     }
@@ -760,21 +928,12 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     // HIT DETECTION (custom - head is only hittable part)
     // ========================================================================
 
-    /**
-     * ROM: ObjC7_CheckHit (s2.asm:83187-83220)
-     * Check if head has been hit and trigger defeat if HP depleted.
-     * Invulnerability flash/timer is handled by base class hitHandler.update().
-     * HeadChild.getCollisionFlags() dynamically gates on boss.state.invulnerable.
-     */
     private void checkHit() {
         if (state.hitCount <= 0 && !state.defeated) {
             triggerDefeatSequence();
         }
     }
 
-    /**
-     * Called by HeadChild when the head takes a hit.
-     */
     void onHeadHit() {
         if (state.invulnerable || state.defeated) {
             return;
@@ -793,22 +952,176 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private void triggerDefeatSequence() {
         if (state.defeated) return;
         state.defeated = true;
-        // ROM: ObjC7_Beaten (s2.asm:83222-83238)
         GameServices.gameState().addScore(1000);
         bodyRoutine = BODY_DEFEAT;
         defeatPhase = 0;
         animPhase = 0;
         state.xVel = 0;
         state.yVel = 0;
-        // Remove all collision
         removeAllCollision();
-        // Break apart body parts
         breakApart();
-        // ROM: movea.w objoff_38(a0),a1 / JmpTo6_DeleteObject2
-        // objoff_38 = jet. Head is deleted later in the ending transition (loc_3D93C).
         if (jet != null) {
             jet.setDestroyed(true);
         }
+    }
+
+    // ========================================================================
+    // ROM-ACCURATE GROUP ANIMATION ENGINE (loc_3E1AA)
+    // ========================================================================
+
+    /** Reset group animation state for a new script */
+    private void resetGroupAnim() {
+        groupAnimScript = -1;
+        groupAnimFrameIdx = 0;
+        groupAnimSubStep = 0;
+    }
+
+    /**
+     * Step through a group animation script. Returns true when the script completes.
+     *
+     * ROM: loc_3E1AA — reads per-keyframe delta tables and applies them
+     * to body + children using signed byte deltas scaled to 1/16 pixel per substep.
+     */
+    private boolean stepGroupAnimation(int scriptId) {
+        // Detect new animation start
+        if (groupAnimScript != scriptId) {
+            groupAnimScript = scriptId;
+            groupAnimFrameIdx = 0;
+            groupAnimSubStep = 0;
+        }
+
+        int[] sequence = SCRIPT_SEQUENCES[scriptId];
+        int[][] keyframes = getKeyframeTable(scriptId);
+
+        // Skip sound markers (encoded as -1 in the sequence)
+        while (groupAnimFrameIdx < sequence.length && sequence[groupAnimFrameIdx] == -1) {
+            // Play hammer sound
+            AudioManager.getInstance().playSfx(Sonic2Sfx.HAMMER.id);
+            groupAnimFrameIdx++;
+        }
+
+        // Check for end of sequence
+        if (groupAnimFrameIdx >= sequence.length) {
+            resetGroupAnim();
+            return true;
+        }
+
+        int entry = sequence[groupAnimFrameIdx];
+
+        // Decode reversed keyframes (encoded as negative values <= -100)
+        boolean reversed = false;
+        int keyframeIdx;
+        if (entry <= -100) {
+            reversed = true;
+            keyframeIdx = -(entry + 100); // -108 -> keyframe 8, -107 -> 7, etc.
+        } else {
+            keyframeIdx = entry;
+        }
+
+        // Look up keyframe data
+        int[] kf = keyframes[keyframeIdx];
+        int speed = kf[0];
+
+        // Apply deltas to body and children
+        applyKeyframeDeltas(kf, reversed);
+
+        // Advance substep counter
+        groupAnimSubStep++;
+        if (groupAnimSubStep >= speed) {
+            groupAnimSubStep = 0;
+            groupAnimFrameIdx++;
+
+            // Skip sound markers after advancing
+            while (groupAnimFrameIdx < sequence.length && sequence[groupAnimFrameIdx] == -1) {
+                AudioManager.getInstance().playSfx(Sonic2Sfx.HAMMER.id);
+                groupAnimFrameIdx++;
+            }
+
+            if (groupAnimFrameIdx >= sequence.length) {
+                resetGroupAnim();
+                return true;
+            }
+        }
+
+        // Update body pixel position from fixed-point
+        state.x = (int)(bodyXFixed >> 16);
+        state.y = (int)(bodyYFixed >> 16);
+        state.xFixed = (int) bodyXFixed;
+        state.yFixed = (int) bodyYFixed;
+
+        // Update children pixel positions from their fixed-point
+        syncChildPixelPositions();
+
+        // Position children that aren't in the keyframe (shoulder, head, jet)
+        positionNonAnimatedChildren();
+
+        return false;
+    }
+
+    /**
+     * Apply ROM-accurate keyframe deltas to body and children.
+     * ROM math: signedByte -> ext.w -> asl.w #4 -> ext.l -> asl.l #8 -> add.l to pos
+     * Net effect: delta_subpixels = signedByte << 12
+     */
+    private void applyKeyframeDeltas(int[] kf, boolean reversed) {
+        // kf[0] = speed; then triplets of (slot, dx, dy) starting at index 1
+        for (int i = 1; i < kf.length; i += 3) {
+            int slot = kf[i];
+            int dx = (byte) kf[i + 1]; // sign-extend to byte range
+            int dy = (byte) kf[i + 2]; // sign-extend to byte range
+
+            // ROM: asl.w #4, asl.l #8 = total shift left 12
+            long dxFixed = (long) dx << 12;
+            long dyFixed = (long) dy << 12;
+
+            // ROM: if x-flipped, negate X delta
+            if (facingLeft) {
+                dxFixed = -dxFixed;
+            }
+
+            // ROM: if reversed ($80 prefix), negate both
+            if (reversed) {
+                dxFixed = -dxFixed;
+                dyFixed = -dyFixed;
+            }
+
+            // Apply to the appropriate object
+            if (slot == SLOT_BODY) {
+                bodyXFixed += dxFixed;
+                bodyYFixed += dyFixed;
+            } else {
+                ArticulatedChild child = resolveChildBySlot(slot);
+                if (child != null) {
+                    child.xFixed += dxFixed;
+                    child.yFixed += dyFixed;
+                }
+            }
+        }
+    }
+
+    /** Resolve a child by its ROM objoff slot identifier */
+    private ArticulatedChild resolveChildBySlot(int slot) {
+        return switch (slot) {
+            case SLOT_FRONT_LOWER_LEG -> frontLowerLeg;
+            case SLOT_FRONT_FOREARM -> frontForearm;
+            case SLOT_UPPER_ARM -> upperArm;
+            case SLOT_FRONT_THIGH -> frontThigh;
+            case SLOT_BACK_LOWER_LEG -> backLowerLeg;
+            case SLOT_BACK_FOREARM -> backForearm;
+            case SLOT_BACK_THIGH -> backThigh;
+            default -> null;
+        };
+    }
+
+    /** Update children's pixel positions from their fixed-point tracking */
+    private void syncChildPixelPositions() {
+        if (frontLowerLeg != null) frontLowerLeg.syncFromFixed();
+        if (frontForearm != null && !frontForearm.isPunching()) frontForearm.syncFromFixed();
+        if (upperArm != null) upperArm.syncFromFixed();
+        if (frontThigh != null) frontThigh.syncFromFixed();
+        if (backLowerLeg != null) backLowerLeg.syncFromFixed();
+        if (backForearm != null && !backForearm.isPunching()) backForearm.syncFromFixed();
+        if (backThigh != null) backThigh.syncFromFixed();
     }
 
     // ========================================================================
@@ -821,65 +1134,47 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         // 7 children positioned via ObjC7_ChildDeltas
         if (frontLowerLeg != null) {
-            frontLowerLeg.setPosition(
-                    state.x + (CHILD_DELTAS[0][0] * flipSign),
-                    state.y + CHILD_DELTAS[0][1]);
+            frontLowerLeg.setPositionAndSnap(state.x + (CHILD_DELTAS[0][0] * flipSign), state.y + CHILD_DELTAS[0][1]);
         }
         if (frontForearm != null && !frontForearm.isPunching()) {
-            frontForearm.setPosition(
-                    state.x + (CHILD_DELTAS[1][0] * flipSign),
-                    state.y + CHILD_DELTAS[1][1]);
+            frontForearm.setPositionAndSnap(state.x + (CHILD_DELTAS[1][0] * flipSign), state.y + CHILD_DELTAS[1][1]);
         }
         if (upperArm != null) {
-            upperArm.setPosition(
-                    state.x + (CHILD_DELTAS[2][0] * flipSign),
-                    state.y + CHILD_DELTAS[2][1]);
+            upperArm.setPositionAndSnap(state.x + (CHILD_DELTAS[2][0] * flipSign), state.y + CHILD_DELTAS[2][1]);
         }
         if (frontThigh != null) {
-            frontThigh.setPosition(
-                    state.x + (CHILD_DELTAS[3][0] * flipSign),
-                    state.y + CHILD_DELTAS[3][1]);
+            frontThigh.setPositionAndSnap(state.x + (CHILD_DELTAS[3][0] * flipSign), state.y + CHILD_DELTAS[3][1]);
         }
         if (backLowerLeg != null) {
-            backLowerLeg.setPosition(
-                    state.x + (CHILD_DELTAS[4][0] * flipSign),
-                    state.y + CHILD_DELTAS[4][1]);
+            backLowerLeg.setPositionAndSnap(state.x + (CHILD_DELTAS[4][0] * flipSign), state.y + CHILD_DELTAS[4][1]);
         }
         if (backForearm != null && !backForearm.isPunching()) {
-            backForearm.setPosition(
-                    state.x + (CHILD_DELTAS[5][0] * flipSign),
-                    state.y + CHILD_DELTAS[5][1]);
+            backForearm.setPositionAndSnap(state.x + (CHILD_DELTAS[5][0] * flipSign), state.y + CHILD_DELTAS[5][1]);
         }
         if (backThigh != null) {
-            backThigh.setPosition(
-                    state.x + (CHILD_DELTAS[6][0] * flipSign),
-                    state.y + CHILD_DELTAS[6][1]);
+            backThigh.setPositionAndSnap(state.x + (CHILD_DELTAS[6][0] * flipSign), state.y + CHILD_DELTAS[6][1]);
         }
 
-        // 3 children positioned via loc_3E282 (relative delta from body with x-flip)
+        positionNonAnimatedChildren();
+    }
+
+    /** Position children that use loc_3E282 (relative offset, NOT group animation) */
+    private void positionNonAnimatedChildren() {
+        int flipSign = facingLeft ? -1 : 1;
+
         if (shoulder != null) {
-            shoulder.setPosition(
-                    state.x + (SHOULDER_DX * flipSign),
-                    state.y + SHOULDER_DY);
+            shoulder.setPosition(state.x + (SHOULDER_DX * flipSign), state.y + SHOULDER_DY);
         }
         if (head != null) {
-            head.setPosition(
-                    state.x + (HEAD_DX * flipSign),
-                    state.y + HEAD_DY);
+            head.setPosition(state.x + (HEAD_DX * flipSign), state.y + HEAD_DY);
         }
         if (jet != null) {
-            jet.setPosition(
-                    state.x + (JET_DX * flipSign),
-                    state.y + JET_DY);
+            jet.setPosition(state.x + (JET_DX * flipSign), state.y + JET_DY);
         }
     }
 
     /** Initialize child collision flags (ROM: ObjC7_InitCollision, s2.asm:83282) */
     private void initChildCollisions() {
-        // ROM iterates ObjC7_ChildOffsets + ObjC7_ChildCollision arrays,
-        // setting collision_flags on each of the 10 children.
-        // Child order: Shoulder, FrontLowerLeg, FrontForearm, UpperArm, FrontThigh,
-        //              Head, Jet, BackLowerLeg, BackForearm, BackThigh
         for (int i = 0; i < childComponents.size() && i < CHILD_COLLISION.length; i++) {
             if (childComponents.get(i) instanceof AbstractBossChild child) {
                 child.setCollisionFlags(CHILD_COLLISION[i]);
@@ -889,7 +1184,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     /** Remove all child collision (ROM: ObjC7_RemoveCollision, s2.asm:83324) */
     private void removeAllCollision() {
-        // ROM iterates ObjC7_ChildOffsets, clearing collision_flags on all 10 children.
         for (var component : childComponents) {
             if (component instanceof AbstractBossChild child) {
                 child.setCollisionFlags(0);
@@ -899,15 +1193,14 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     /** Break apart body pieces with per-part velocities (ROM: ObjC7_Break, s2.asm:83241) */
     private void breakApart() {
-        // Set break velocities on 8 body parts (excludes head and jet)
         AbstractBossChild[] breakParts = {
                 shoulder, frontLowerLeg, frontForearm, upperArm,
                 frontThigh, backLowerLeg, backForearm, backThigh
         };
         for (int i = 0; i < breakParts.length && i < BREAK_VELOCITIES.length; i++) {
-            if (breakParts[i] != null && breakParts[i] instanceof BodyPartChild bpc) {
-                bpc.startFalling(BREAK_VELOCITIES[i][0], BREAK_VELOCITIES[i][1]);
-            } else if (breakParts[i] != null && breakParts[i] instanceof ForearmChild fc) {
+            if (breakParts[i] instanceof ArticulatedChild ac) {
+                ac.startFalling(BREAK_VELOCITIES[i][0], BREAK_VELOCITIES[i][1]);
+            } else if (breakParts[i] instanceof ForearmChild fc) {
                 fc.startFalling(BREAK_VELOCITIES[i][0], BREAK_VELOCITIES[i][1]);
             }
         }
@@ -927,11 +1220,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
     }
 
-    /**
-     * ROM: loc_3E168 (s2.asm:83358-83381)
-     * Copies body's x_flip (render_flags bit 0) to all 10 children's render_flags and status.
-     * Iterates byte_3E19E offset table: objoff_2C through objoff_3E (all 10 children).
-     */
     private void updateChildFacing() {
         for (var component : childComponents) {
             if (component instanceof AbstractBossChild child && !child.isDestroyed()) {
@@ -941,8 +1229,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     }
 
     private void spawnBombs(AbstractPlayableSprite player) {
-        // ROM: CreateEggmanBombs (s2.asm:83336)
-        // Bombs spawn at body + byte_3DF00 offset ($38, -$14) via loc_3E282
         ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
         if (renderManager == null || levelManager.getObjectManager() == null) return;
 
@@ -950,154 +1236,21 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         int spawnX = state.x + (BOMB_SPAWN_DX * xSign);
         int spawnY = state.y + BOMB_SPAWN_DY;
 
-        // Bomb 1: x_vel=$60, y_vel=-$800
-        BombChild bomb1 = new BombChild(this, spawnX, spawnY,
-                0x60 * xSign, -0x800);
+        BombChild bomb1 = new BombChild(this, spawnX, spawnY, 0x60 * xSign, -0x800);
         childComponents.add(bomb1);
 
-        // Bomb 2: x_vel=$C0, y_vel=-$A00
-        BombChild bomb2 = new BombChild(this, spawnX, spawnY,
-                0xC0 * xSign, -0xA00);
+        BombChild bomb2 = new BombChild(this, spawnX, spawnY, 0xC0 * xSign, -0xA00);
         childComponents.add(bomb2);
     }
 
-    // ========================================================================
-    // GROUP ANIMATION SYSTEM
-    // ROM: ObjC7_GroupAnim (loc_3E1AA) dispatches per-step deltas for body
-    // and all children. Each script has N steps, each lasting FRAMES_PER_STEP
-    // frames. Walk scripts move the body horizontally; crouch moves vertically.
-    // ========================================================================
-
-    /** Frames per walk animation step (ROM: each step runs ~8 frames) */
-    private static final int WALK_FRAMES_PER_STEP = 8;
-    /** Frames per crouch animation step (ROM: $10 = 16 frames per step) */
-    private static final int CROUCH_FRAMES_PER_STEP = 16;
-    /** Walk speed in pixels per frame (~2px/frame matches ROM group delta totals) */
-    private static final int WALK_SPEED_PX = 2;
-    /** Crouch Y delta per frame during step 0 (body moves down) */
-    private static final int CROUCH_DY_PER_FRAME = 1;
-
-    /** Walk forward: 4 steps (ROM: off_3E2F6, steps 0-3, $FF terminator) */
-    private static final int[][] WALK_FORWARD_SCRIPT = {{ 0, 1, 2, 3 }};
-    /** Walk backward: 4 steps (ROM: off_3E300, steps 5-8, $FF terminator) */
-    private static final int[][] WALK_BACKWARD_SCRIPT = {{ 5, 6, 7, 8 }};
-    /** Crouch: 3 steps (ROM: off_3E3D0, steps 0-2, $C0 terminator) */
-    private static final int[][] CROUCH_SCRIPT = {{ 0, 1, 2 }};
-    /** Stand-up: 9 steps (ROM: off_3E30A, steps 0-8, $C0 terminator) */
-    private static final int[][] STAND_UP_SCRIPT = {{ 0, 1, 2, 3, 4, 5, 6, 7, 8 }};
-
-    /**
-     * Step through a group animation script. Moves the body and repositions
-     * all children each frame. Returns true when the script completes.
-     *
-     * ROM equivalent: ObjC7_GroupAnim (loc_3E1AA) — reads per-step delta
-     * tables and applies them to body + children via PositionChildren.
-     */
-    private boolean stepGroupAnimation(int[][] script) {
-        // Detect new animation start
-        if (currentGroupAnim != script) {
-            currentGroupAnim = script;
-            groupAnimStep = 0;
-            groupAnimFrameTimer = 0;
+    /** Spawn the targeting sensor child */
+    private void spawnSensor(AbstractPlayableSprite player) {
+        if (player == null) return;
+        sensorChild = new SensorChild(this, player.getCentreX(), player.getCentreY());
+        // Register with ObjectManager for rendering if available
+        if (levelManager.getObjectManager() != null) {
+            levelManager.getObjectManager().addDynamicObject(sensorChild);
         }
-
-        int stepsInScript = script[0].length;
-        int framesPerStep = (script == CROUCH_SCRIPT) ? CROUCH_FRAMES_PER_STEP
-                : WALK_FRAMES_PER_STEP;
-
-        // Apply per-frame movement
-        applyGroupAnimMovement(script);
-
-        // Advance frame counter within current step
-        groupAnimFrameTimer++;
-        if (groupAnimFrameTimer >= framesPerStep) {
-            groupAnimFrameTimer = 0;
-            groupAnimStep++;
-            if (groupAnimStep >= stepsInScript) {
-                currentGroupAnim = null; // Reset for next animation
-                return true; // Animation complete
-            }
-        }
-
-        positionChildren();
-        return false;
-    }
-
-    /**
-     * Apply per-frame movement during a group animation.
-     * Walk scripts move horizontally, crouch moves vertically.
-     */
-    private void applyGroupAnimMovement(int[][] script) {
-        if (script == WALK_FORWARD_SCRIPT) {
-            // Walk forward = move in facing direction
-            int dx = facingLeft ? -WALK_SPEED_PX : WALK_SPEED_PX;
-            state.x += dx;
-            state.xFixed = state.x << 16;
-        } else if (script == WALK_BACKWARD_SCRIPT) {
-            // Walk backward = move opposite to facing direction
-            int dx = facingLeft ? WALK_SPEED_PX : -WALK_SPEED_PX;
-            state.x += dx;
-            state.xFixed = state.x << 16;
-        } else if (script == CROUCH_SCRIPT) {
-            // Crouch: step 0 = move body down, step 1 = hold, step 2 = move body up
-            if (groupAnimStep == 0) {
-                state.y += CROUCH_DY_PER_FRAME;
-                state.yFixed = state.y << 16;
-            } else if (groupAnimStep == 2) {
-                state.y -= CROUCH_DY_PER_FRAME;
-                state.yFixed = state.y << 16;
-            }
-        } else if (script == STAND_UP_SCRIPT) {
-            // Stand-up reverses the walk forward then walk backward sequence
-            // Steps 0-3: move backward (undo walk), steps 5-8: move forward (stand up)
-            if (groupAnimStep < 4) {
-                int dx = facingLeft ? WALK_SPEED_PX : -WALK_SPEED_PX;
-                state.x += dx;
-                state.xFixed = state.x << 16;
-            } else if (groupAnimStep > 4) {
-                int dx = facingLeft ? -WALK_SPEED_PX : WALK_SPEED_PX;
-                state.x += dx;
-                state.xFixed = state.x << 16;
-            }
-        }
-    }
-
-    // ========================================================================
-    // ACCESSORS (for tests and children)
-    // ========================================================================
-
-    public int getBodyRoutine() {
-        return bodyRoutine;
-    }
-
-    public int getCurrentFrame() {
-        return currentFrame;
-    }
-
-    public int getAttackIndex() {
-        return attackIndex;
-    }
-
-    public int getCurrentAttack() {
-        return currentAttack;
-    }
-
-    public int getDefeatPhase() {
-        return defeatPhase;
-    }
-
-    public boolean isFacingLeft() {
-        return facingLeft;
-    }
-
-    /** For tests: expose head child for collision verification. */
-    public HeadChild getHead() {
-        return head;
-    }
-
-    /** For tests: expose action timer. */
-    public int getActionTimer() {
-        return actionTimer;
     }
 
     /** Report player X from targeting sensor */
@@ -1105,14 +1258,25 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         this.targetedPlayerX = x;
     }
 
-    /** Consume the front punch trigger flag (destructive read — clears on access). */
+    // ========================================================================
+    // ACCESSORS (for tests and children)
+    // ========================================================================
+
+    public int getBodyRoutine() { return bodyRoutine; }
+    public int getCurrentFrame() { return currentFrame; }
+    public int getAttackIndex() { return attackIndex; }
+    public int getCurrentAttack() { return currentAttack; }
+    public int getDefeatPhase() { return defeatPhase; }
+    public boolean isFacingLeft() { return facingLeft; }
+    public HeadChild getHead() { return head; }
+    public int getActionTimer() { return actionTimer; }
+
     boolean consumeFrontPunchTrigger() {
         boolean val = frontPunchTriggered;
         frontPunchTriggered = false;
         return val;
     }
 
-    /** Consume the back punch trigger flag (destructive read — clears on access). */
     boolean consumeBackPunchTrigger() {
         boolean val = backPunchTriggered;
         backPunchTriggered = false;
@@ -1125,7 +1289,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     @Override
     public int getPriorityBucket() {
-        return 5; // ROM: move.b #5,priority(a0) (loc_3D52A, line 82052)
+        return 5;
     }
 
     @Override
@@ -1133,33 +1297,36 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
         if (renderManager == null) return;
 
-        PatternSpriteRenderer renderer = renderManager.getRenderer(
-                Sonic2ObjectArtKeys.DEZ_BOSS);
+        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
         if (renderer == null || !renderer.isReady()) return;
 
         renderer.drawFrameIndex(currentFrame, state.x, state.y, facingLeft, false);
     }
 
     // ========================================================================
-    // INNER CLASS: BodyPartChild - Generic body part (shoulder, arm, legs, thighs)
+    // INNER CLASS: ArticulatedChild - Body part with subpixel position tracking
     // ========================================================================
 
-    static class BodyPartChild extends AbstractBossChild {
-        private int frame;
-        private boolean falling;
+    static class ArticulatedChild extends AbstractBossChild {
+        int frame;
+        long xFixed;  // 32-bit subpixel position (as long for Java sign safety)
+        long yFixed;
+        boolean falling;  // package-private for ForearmChild access
         private int xVel;
         private int yVel;
         private int fallTimer;
 
-        BodyPartChild(Sonic2DeathEggRobotInstance parent, String name,
-                      int priority, int frame, int initialPriority) {
+        ArticulatedChild(Sonic2DeathEggRobotInstance parent, String name,
+                         int priority, int frame, int initialPriority) {
             super(parent, name, initialPriority, Sonic2ObjectIds.DEATH_EGG_ROBOT);
             this.frame = frame;
             this.priority = priority;
             this.falling = false;
             this.xVel = 0;
             this.yVel = 0;
-            this.fallTimer = 0x80; // ROM: move.w #$80,objoff_2A(a3)
+            this.fallTimer = 0x80;
+            this.xFixed = (long) currentX << 16;
+            this.yFixed = (long) currentY << 16;
         }
 
         void startFalling(int xVel, int yVel) {
@@ -1178,7 +1345,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     setDestroyed(true);
                     return;
                 }
-                // ObjectMoveAndFall
                 currentX += (xVel >> 8);
                 currentY += (yVel >> 8);
                 yVel += GRAVITY;
@@ -1191,11 +1357,22 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
                     .getObjectRenderManager();
             if (renderManager == null) return;
-            PatternSpriteRenderer renderer = renderManager.getRenderer(
-                    Sonic2ObjectArtKeys.DEZ_BOSS);
+            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
             boolean flip = ((Sonic2DeathEggRobotInstance) parent).facingLeft;
             renderer.drawFrameIndex(frame, currentX, currentY, flip, false);
+        }
+
+        /** Sync pixel position from fixed-point (called by parent after group animation) */
+        void syncFromFixed() {
+            setPosition((int)(xFixed >> 16), (int)(yFixed >> 16));
+        }
+
+        /** Set pixel position and snap fixed-point to match (called by positionChildren) */
+        void setPositionAndSnap(int x, int y) {
+            setPosition(x, y);
+            xFixed = (long) x << 16;
+            yFixed = (long) y << 16;
         }
 
         public int getCollisionFlags() {
@@ -1204,45 +1381,37 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     }
 
     // ========================================================================
-    // INNER CLASS: ForearmChild - Forearm with punch mechanics
+    // INNER CLASS: ForearmChild - Forearm with punch mechanics + subpixel tracking
     // ========================================================================
 
-    static class ForearmChild extends AbstractBossChild {
+    static class ForearmChild extends ArticulatedChild {
         private final boolean isFront;
         private boolean punching;
         private int punchPhase;
         private int punchTimer;
-        private int xVel;
-        private int yVel;
+        private int punchXVel;
+        private int punchYVel;
         private int savedY;
-        private boolean falling;
-        private int fallTimer;
-        private int fallXVel;
-        private int fallYVel;
 
         ForearmChild(Sonic2DeathEggRobotInstance parent, String name,
                      int priority, boolean isFront) {
-            super(parent, name, priority, Sonic2ObjectIds.DEATH_EGG_ROBOT);
+            super(parent, name, priority, FRAME_FOREARM, priority);
             this.isFront = isFront;
             this.punching = false;
             this.punchPhase = 0;
             this.punchTimer = 0;
-            this.xVel = 0;
-            this.yVel = 0;
+            this.punchXVel = 0;
+            this.punchYVel = 0;
             this.savedY = 0;
-            this.falling = false;
-            this.fallTimer = 0x80;
         }
 
         boolean isPunching() {
             return punching;
         }
 
+        @Override
         void startFalling(int xVel, int yVel) {
-            this.falling = true;
-            this.fallXVel = xVel;
-            this.fallYVel = yVel;
-            this.fallTimer = 0x80;
+            super.startFalling(xVel, yVel);
             this.punching = false;
         }
 
@@ -1251,15 +1420,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             if (!beginUpdate(frameCounter)) return;
 
             if (falling) {
-                fallTimer--;
-                if (fallTimer < 0) {
-                    setDestroyed(true);
-                    return;
-                }
-                currentX += (fallXVel >> 8);
-                currentY += (fallYVel >> 8);
-                fallYVel += GRAVITY;
-                updateDynamicSpawn();
+                super.update(frameCounter, player);
                 return;
             }
 
@@ -1272,8 +1433,9 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 if (triggered) {
                     punching = true;
                     punchPhase = 0;
-                    punchTimer = 0x10; // Wind up for 16 frames
+                    punchTimer = 0x10;
                     savedY = currentY;
+                    punchYVel = 0;
                 }
             }
 
@@ -1291,117 +1453,77 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     if (punchTimer < 0) {
                         punchPhase = 2;
                         punchTimer = 0x20;
-                        // Calculate Y velocity from distance to player
                         int dy = 0;
                         if (player != null) {
                             dy = Math.abs(player.getCentreY() - currentY);
                         }
                         int yVelIdx = Math.min(3, (dy & 0xC0) >> 5);
                         int[] Y_VEL_TABLE = { 0x200, 0x100, 0x80, 0 };
-                        yVel = Y_VEL_TABLE[yVelIdx];
+                        punchYVel = Y_VEL_TABLE[yVelIdx];
                         if (player != null && player.getCentreY() < currentY) {
-                            yVel = -yVel;
+                            punchYVel = -punchYVel;
                         }
-                        // X velocity = $800 in facing direction
-                        xVel = boss.facingLeft ? -FOREARM_PUNCH_SPEED : FOREARM_PUNCH_SPEED;
+                        punchXVel = boss.facingLeft ? -FOREARM_PUNCH_SPEED : FOREARM_PUNCH_SPEED;
                         AudioManager.getInstance().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
                     } else {
-                        // Add $20 to y_vel for wind-up animation
-                        yVel += 0x20;
-                        currentY += (yVel >> 8);
+                        punchYVel += 0x20;
+                        currentY += (punchYVel >> 8);
                     }
                 }
                 case 2 -> { // Travel
                     punchTimer--;
                     if (punchTimer < 0) {
                         punchPhase = 4;
-                        xVel = -xVel; // Reverse
+                        punchXVel = -punchXVel;
                         punchTimer = 0x20;
-                        // Calculate return Y velocity
                         int dy = savedY - currentY;
-                        yVel = dy << 3;
+                        punchYVel = dy << 3;
                     } else {
-                        currentX += (xVel >> 8);
-                        currentY += (yVel >> 8);
+                        currentX += (punchXVel >> 8);
+                        currentY += (punchYVel >> 8);
                     }
                 }
                 case 4 -> { // Return
                     punchTimer--;
                     if (punchTimer < 0) {
                         punching = false;
-                        xVel = 0;
-                        yVel = 0;
+                        punchXVel = 0;
+                        punchYVel = 0;
                     } else {
-                        currentX += (xVel >> 8);
-                        currentY += (yVel >> 8);
+                        currentX += (punchXVel >> 8);
+                        currentY += (punchYVel >> 8);
                     }
                 }
             }
-        }
-
-        @Override
-        public void appendRenderCommands(List<GLCommand> commands) {
-            if (punching) {
-                // Hidden during certain phases in ROM (btst p2_pushing check)
-                // For now always render
-            }
-            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
-                    .getObjectRenderManager();
-            if (renderManager == null) return;
-            PatternSpriteRenderer renderer = renderManager.getRenderer(
-                    Sonic2ObjectArtKeys.DEZ_BOSS);
-            if (renderer == null || !renderer.isReady()) return;
-            boolean flip = ((Sonic2DeathEggRobotInstance) parent).facingLeft;
-            renderer.drawFrameIndex(FRAME_FOREARM, currentX, currentY, flip, false);
-        }
-
-        public int getCollisionFlags() {
-            return collisionFlags;
         }
     }
 
     // ========================================================================
     // INNER CLASS: HeadChild - The only hittable part!
+    // ROM: Ani_objC7_a: speed 7, $15×8, 0, 1, 2, $FA (loop)
     // ========================================================================
 
     static class HeadChild extends AbstractBossChild implements com.openggf.level.objects.TouchResponseProvider, com.openggf.level.objects.TouchResponseAttackable {
-        // Head glow animation: pulses expanding/contracting (ROM: Ani_objC7_a)
-        // Frames 0x15 (closed) -> 0x10 -> 0x11 -> 0x12 -> 0x13 -> 0x12 -> 0x11 -> 0x10
-        private static final int[] HEAD_GLOW_SEQUENCE = {
-                0x15, 0x10, 0x11, 0x12, 0x13, 0x12, 0x11, 0x10
-        };
-        private static final int HEAD_GLOW_SPEED = 4;
-
         private int headRoutine;
-        private int headAnim;
         private int waitTimer;
         private boolean eggmanBoarded;
-        private int animFrame;
-        private int animTimer;
-        private int glowIndex;     // Current index in HEAD_GLOW_SEQUENCE
-        private int glowTimer;     // Frame counter for glow animation
+        private int glowIndex;     // Current index in HEAD_GLOW_FRAMES
+        private int glowTimer;     // Frame counter for glow animation speed
 
         HeadChild(Sonic2DeathEggRobotInstance parent, int priority) {
             super(parent, "Head", priority, Sonic2ObjectIds.DEATH_EGG_ROBOT);
             this.headRoutine = 0;
-            this.headAnim = 0;
             this.waitTimer = 0;
             this.eggmanBoarded = false;
-            this.animFrame = 0;
-            this.animTimer = 0;
             this.glowIndex = 0;
             this.glowTimer = 0;
         }
 
         boolean isEggmanBoarded() {
-            // Auto-signal boarding after initialization for now
-            // ROM: checks DEZ_Eggman p1_standing flag
             if (headRoutine == 0) {
                 headRoutine = 2;
             }
             if (headRoutine == 2) {
-                // ROM: loc_3DC02 - check if Eggman is standing
-                // Auto-trigger after a brief wait
                 waitTimer++;
                 if (waitTimer > 30) {
                     headRoutine = 4;
@@ -1416,42 +1538,33 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             this.headRoutine = routine;
         }
 
-        void setHeadAnim(int anim) {
-            this.headAnim = anim;
-        }
-
         @Override
         public void update(int frameCounter, AbstractPlayableSprite player) {
             if (!beginUpdate(frameCounter)) return;
 
             switch (headRoutine) {
-                case 4 -> { // Animate (Eggman entering)
-                    // ROM: Ani_objC7_a animation
-                    animTimer++;
-                    if (animTimer > 7) {
-                        animTimer = 0;
-                        animFrame++;
-                    }
-                    // Start glow animation once Eggman boards
+                case 4 -> { // AnimateSprite with Ani_objC7_a
                     stepGlow();
                 }
                 case 6 -> { // Active during fight
-                    // Collision is managed by parent via initChildCollisions/removeAllCollision
                     stepGlow();
                 }
-                case 8 -> { // Defeated - collision_property = -1
+                case 8 -> { // Defeated
                     collisionFlags = 0;
                 }
             }
             updateDynamicSpawn();
         }
 
-        /** Advance the head glow pulsing animation. */
+        /** ROM-accurate head glow: speed 7, $15×8, 0, 1, 2, $FA (loop) */
         private void stepGlow() {
             glowTimer++;
-            if (glowTimer >= HEAD_GLOW_SPEED) {
+            if (glowTimer > HEAD_GLOW_SPEED) { // > 7 means every 8th frame
                 glowTimer = 0;
-                glowIndex = (glowIndex + 1) % HEAD_GLOW_SEQUENCE.length;
+                glowIndex++;
+                if (glowIndex >= HEAD_GLOW_FRAMES.length) {
+                    glowIndex = 0; // $FA = loop back to start
+                }
             }
         }
 
@@ -1460,18 +1573,15 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
                     .getObjectRenderManager();
             if (renderManager == null) return;
-            PatternSpriteRenderer renderer = renderManager.getRenderer(
-                    Sonic2ObjectArtKeys.DEZ_BOSS);
+            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
             boolean flip = ((Sonic2DeathEggRobotInstance) parent).facingLeft;
-            // Head pulses through glow frames (ROM: Ani_objC7_a animation)
-            int headFrame = HEAD_GLOW_SEQUENCE[glowIndex];
+            int headFrame = HEAD_GLOW_FRAMES[glowIndex];
             renderer.drawFrameIndex(headFrame, currentX, currentY, flip, false);
         }
 
         @Override
         public int getCollisionFlags() {
-            // collisionFlags is set by initChildCollisions/removeAllCollision
             if (collisionFlags == 0) return 0;
             Sonic2DeathEggRobotInstance boss = (Sonic2DeathEggRobotInstance) parent;
             if (boss.state.invulnerable || boss.state.defeated) return 0;
@@ -1487,39 +1597,65 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         @Override
         public void onPlayerAttack(AbstractPlayableSprite player,
                                    com.openggf.level.objects.TouchResponseResult result) {
-            // Relay hit to parent body
             ((Sonic2DeathEggRobotInstance) parent).onHeadHit();
         }
     }
 
     // ========================================================================
-    // INNER CLASS: JetChild - Jet exhaust animation
+    // INNER CLASS: JetChild - Jet exhaust with ROM-accurate animations
+    // ROM: Ani_objC7_b (4 animations)
     // ========================================================================
 
     static class JetChild extends AbstractBossChild {
         private int jetRoutine;
-        private int jetAnim;
+        private int jetAnimId;  // Current animation ID (0-3)
         private int jetFrame;
-        private int animTimer;
+        private int animIdx;    // Current frame index within animation
+        private int animTimer;  // Speed counter
 
         JetChild(Sonic2DeathEggRobotInstance parent, int priority) {
             super(parent, "Jet", priority, Sonic2ObjectIds.DEATH_EGG_ROBOT);
             this.jetRoutine = 0;
-            this.jetAnim = 0;
+            this.jetAnimId = 0;
             this.jetFrame = FRAME_JET_OFF;
+            this.animIdx = 0;
             this.animTimer = 0;
         }
 
-        /** ROM: move.b #N,routine_secondary(a1) where a1=objoff_38 (jet) */
         void setJetRoutine(int routine) {
-            // Jet routine table (off_3DC66):
-            // 0=init, 2=idle(anim=3), 4=animate, 6=anim=1+animate, 8=idle(anim=3)
             this.jetRoutine = routine;
+            // ROM: routine 2/8 → anim 0 (idle), routine 4 → anim 3, routine 6 → anim 1
+            switch (routine) {
+                case 2, 8 -> setJetAnim(0);
+                case 4 -> setJetAnim(3);
+                case 6 -> setJetAnim(1);
+            }
         }
 
-        /** ROM: move.b #N,anim(a1) where a1=objoff_38 (jet) */
         void setJetAnim(int anim) {
-            this.jetAnim = anim;
+            if (this.jetAnimId != anim) {
+                this.jetAnimId = anim;
+                this.animIdx = 0;
+                this.animTimer = 0;
+            }
+        }
+
+        private int[] getCurrentAnimFrames() {
+            return switch (jetAnimId) {
+                case 0 -> JET_ANIM_0;
+                case 1 -> JET_ANIM_1;
+                case 2 -> JET_ANIM_2;
+                case 3 -> JET_ANIM_3;
+                default -> JET_ANIM_0;
+            };
+        }
+
+        private int getAnimSpeed() {
+            return switch (jetAnimId) {
+                case 0, 1, 2 -> 1; // speed 1: every 2nd frame
+                case 3 -> 0;       // speed 0: every frame
+                default -> 1;
+            };
         }
 
         @Override
@@ -1527,12 +1663,26 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             if (!beginUpdate(frameCounter)) return;
 
             Sonic2DeathEggRobotInstance boss = (Sonic2DeathEggRobotInstance) parent;
-            // Animate jet: alternate between JET_OFF and JET_ON based on boss state
-            if (boss.bodyRoutine >= BODY_RISE) {
+            if (boss.bodyRoutine >= BODY_RISE && jetRoutine > 0) {
+                int[] frames = getCurrentAnimFrames();
+                int speed = getAnimSpeed();
                 animTimer++;
-                if (animTimer > 1) {
+                if (animTimer > speed) {
                     animTimer = 0;
-                    jetFrame = (jetFrame == FRAME_JET_OFF) ? FRAME_JET_ON : FRAME_JET_OFF;
+                    animIdx++;
+                    if (animIdx >= frames.length) {
+                        // Handle terminators
+                        if (jetAnimId == 2) {
+                            // $FD: go to previous anim (anim 1)
+                            setJetAnim(1);
+                        } else {
+                            // $FF/$FA: loop
+                            animIdx = 0;
+                        }
+                    }
+                }
+                if (animIdx < frames.length) {
+                    jetFrame = frames[animIdx];
                 }
             }
             updateDynamicSpawn();
@@ -1543,8 +1693,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
                     .getObjectRenderManager();
             if (renderManager == null) return;
-            PatternSpriteRenderer renderer = renderManager.getRenderer(
-                    Sonic2ObjectArtKeys.DEZ_BOSS);
+            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
             boolean flip = ((Sonic2DeathEggRobotInstance) parent).facingLeft;
             renderer.drawFrameIndex(jetFrame, currentX, currentY, flip, false);
@@ -1552,6 +1701,119 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         public int getCollisionFlags() {
             return collisionFlags;
+        }
+    }
+
+    // ========================================================================
+    // INNER CLASS: SensorChild - Targeting sensor with velocity-tracked animation
+    // ROM: ObjC7_TargettingSensor (s2.asm:82951-83044)
+    // ========================================================================
+
+    static class SensorChild extends AbstractBossChild {
+        private int sensorRoutine;  // 0=init, 2=tracking, 4=lock-on
+        private int countdown;      // ROM: objoff_2A
+        private int beepInterval;   // ROM: angle — current beep interval
+        private int beepCounter;    // Frames until next beep
+        private int animIdx;        // Current frame in SENSOR_ANIM_FRAMES
+        private int animTimer;      // Speed counter
+        private int targetX;        // Tracked X position
+        private int targetY;        // Tracked Y position
+
+        SensorChild(Sonic2DeathEggRobotInstance parent, int playerX, int playerY) {
+            super(parent, "Sensor", 1, Sonic2ObjectIds.DEATH_EGG_ROBOT);
+            this.currentX = playerX;
+            this.currentY = playerY;
+            this.targetX = playerX;
+            this.targetY = playerY;
+            this.sensorRoutine = 0;
+            this.countdown = 0xA0; // 160 frames
+            this.beepInterval = 0x18; // Initial interval = 24 frames
+            this.beepCounter = 0x18;
+            this.animIdx = 0;
+            this.animTimer = 0;
+        }
+
+        @Override
+        public void update(int frameCounter, AbstractPlayableSprite player) {
+            if (!beginUpdate(frameCounter)) return;
+
+            Sonic2DeathEggRobotInstance boss = (Sonic2DeathEggRobotInstance) parent;
+
+            switch (sensorRoutine) {
+                case 0 -> { // Init
+                    sensorRoutine = 2;
+                }
+                case 2 -> { // Tracking
+                    countdown--;
+                    if (countdown <= 0) {
+                        sensorRoutine = 4;
+                        countdown = 0x40; // 64 frames for lock-on
+                        beepCounter = 4;
+                    } else {
+                        // Track toward player position with lag
+                        if (player != null) {
+                            targetX = player.getCentreX();
+                            targetY = player.getCentreY();
+                        }
+                        // Smooth approach
+                        currentX += (targetX - currentX) >> 3;
+                        currentY += (targetY - currentY) >> 3;
+
+                        // Beep with decreasing interval
+                        beepCounter--;
+                        if (beepCounter <= 0) {
+                            AudioManager.getInstance().playSfx(Sonic2Sfx.BEEP.id);
+                            if (beepInterval > 4) {
+                                beepInterval--;
+                            }
+                            beepCounter = beepInterval;
+                        }
+                    }
+                    stepAnim();
+                }
+                case 4 -> { // Lock-on
+                    countdown--;
+                    if (countdown <= 0) {
+                        // Report final position to body and self-destruct
+                        boss.reportTargetedPlayerX(currentX);
+                        setDestroyed(true);
+                        return;
+                    }
+                    // Fast beeping
+                    beepCounter--;
+                    if (beepCounter <= 0) {
+                        AudioManager.getInstance().playSfx(Sonic2Sfx.BEEP.id);
+                        beepCounter = 4;
+                    }
+                    stepAnim();
+                }
+            }
+            updateDynamicSpawn();
+        }
+
+        private void stepAnim() {
+            animTimer++;
+            if (animTimer > SENSOR_ANIM_SPEED) {
+                animTimer = 0;
+                animIdx++;
+                if (animIdx >= SENSOR_ANIM_FRAMES.length) {
+                    animIdx = 0; // $FF loop
+                }
+            }
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
+                    .getObjectRenderManager();
+            if (renderManager == null) return;
+            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
+            if (renderer == null || !renderer.isReady()) return;
+            renderer.drawFrameIndex(SENSOR_ANIM_FRAMES[animIdx], currentX, currentY, false, false);
+        }
+
+        public int getCollisionFlags() {
+            return 0; // Sensor has no collision
         }
     }
 
@@ -1567,9 +1829,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         private boolean detonating;
         private int detonateFrame;
         private int detonateTimer;
-        /** ROM: cmpi.w #$170,d0 - bomb ground level */
         private static final int BOMB_GROUND_Y = 0x170;
-        /** ROM: move.w #$40,objoff_2A(a0) - ground timer before detonate */
         private static final int BOMB_GROUND_TIMER = 0x40;
 
         BombChild(Sonic2DeathEggRobotInstance parent, int spawnX, int spawnY,
@@ -1604,14 +1864,12 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 return;
             }
 
-            // Check if parent is defeated -> detonate immediately
             if (boss.state.defeated) {
                 startDetonate();
                 return;
             }
 
             if (!onGround) {
-                // ObjectMoveAndFall
                 currentX += (xVel >> 8);
                 currentY += (yVel >> 8);
                 yVel += GRAVITY;
@@ -1642,19 +1900,16 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
                     .getObjectRenderManager();
             if (renderManager == null) return;
-            PatternSpriteRenderer renderer = renderManager.getRenderer(
-                    Sonic2ObjectArtKeys.DEZ_BOSS);
+            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
             if (!detonating) {
                 renderer.drawFrameIndex(FRAME_BOMB, currentX, currentY, false, false);
             }
-            // When detonating, use fiery explosion art (separate sheet)
         }
 
         public int getCollisionFlags() {
-            // ROM: collision only cleared when detonation animation reaches frame 5+
             if (detonating && detonateFrame >= 5) return 0;
-            return 0x89; // ROM: move.b #$89,collision_flags(a0)
+            return 0x89;
         }
     }
 }
