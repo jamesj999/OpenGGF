@@ -183,6 +183,17 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.SPECIAL_STAGE_PLANE_DEBUG_KEY, GLFW_KEY_F3);
 		putDefault(SonicConfiguration.PAUSE_KEY, GLFW_KEY_ENTER);
 		putDefault(SonicConfiguration.FRAME_STEP_KEY, GLFW_KEY_Q);
+		putDefault(SonicConfiguration.PLAYBACK_MOVIE_PATH, "playback.bk2");
+		putDefault(SonicConfiguration.PLAYBACK_TOGGLE_KEY, GLFW_KEY_B);
+		putDefault(SonicConfiguration.PLAYBACK_LOAD_KEY, GLFW_KEY_N);
+		putDefault(SonicConfiguration.PLAYBACK_PLAY_PAUSE_KEY, GLFW_KEY_M);
+		putDefault(SonicConfiguration.PLAYBACK_STEP_BACK_KEY, GLFW_KEY_COMMA);
+		putDefault(SonicConfiguration.PLAYBACK_STEP_FORWARD_KEY, GLFW_KEY_PERIOD);
+		putDefault(SonicConfiguration.PLAYBACK_JUMP_BACK_KEY, GLFW_KEY_LEFT_BRACKET);
+		putDefault(SonicConfiguration.PLAYBACK_JUMP_FORWARD_KEY, GLFW_KEY_RIGHT_BRACKET);
+		putDefault(SonicConfiguration.PLAYBACK_FAST_RATE_KEY, GLFW_KEY_SLASH);
+		putDefault(SonicConfiguration.PLAYBACK_RESET_TO_START_KEY, GLFW_KEY_BACKSLASH);
+		putDefault(SonicConfiguration.PLAYBACK_START_OFFSET_FRAME, 0);
 		putDefault(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, GLFW_KEY_C);
 		putDefault(SonicConfiguration.LEVEL_SELECT_KEY, GLFW_KEY_F9);
 		putDefault(SonicConfiguration.TITLE_SCREEN_ON_STARTUP, false);
