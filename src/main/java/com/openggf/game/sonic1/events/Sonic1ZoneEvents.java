@@ -8,7 +8,7 @@ import com.openggf.camera.Camera;
  * that tracks progress through Act 3 boss sequences.
  */
 abstract class Sonic1ZoneEvents {
-    protected final Camera camera;
+    protected Camera camera;
     protected int eventRoutine;
 
     Sonic1ZoneEvents(Camera camera) {
@@ -17,6 +17,7 @@ abstract class Sonic1ZoneEvents {
 
     /** Reset event state for a new level. */
     void init() {
+        this.camera = Camera.getInstance();
         eventRoutine = 0;
     }
 

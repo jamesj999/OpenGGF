@@ -18,7 +18,11 @@ public abstract class Sonic2ZoneEvents {
     /** VDP palette line size: 16 colors × 2 bytes each = 32 bytes */
     private static final int PALETTE_LINE_SIZE = 32;
 
-    protected final Camera camera;
+    /**
+     * Camera reference. Refreshed on each {@link #init(int)} call
+     * to survive singleton replacement (e.g. {@code Camera.resetInstance()} in tests).
+     */
+    protected Camera camera;
     protected int eventRoutine;
     protected int bossSpawnDelay;
 
@@ -28,6 +32,8 @@ public abstract class Sonic2ZoneEvents {
 
     /** Reset event state for a new level load. */
     public void init(int act) {
+        // Refresh camera reference to survive singleton replacement
+        this.camera = Camera.getInstance();
         eventRoutine = 0;
         bossSpawnDelay = 0;
     }

@@ -20,7 +20,11 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
  */
 public abstract class AbstractLevelEventManager implements LevelEventProvider {
 
-    protected final Camera camera;
+    /**
+     * Camera reference. Refreshed on each {@link #initLevel(int, int)} call
+     * to survive singleton replacement (e.g. {@code Camera.resetInstance()} in tests).
+     */
+    protected Camera camera;
 
     // Current zone and act
     protected int currentZone = -1;
@@ -61,6 +65,9 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
 
     @Override
     public void initLevel(int zone, int act) {
+        // Refresh camera reference to survive singleton replacement
+        // (e.g. Camera.resetInstance() in tests).
+        this.camera = Camera.getInstance();
         this.currentZone = zone;
         this.currentAct = act;
         this.eventRoutineFg = 0;
