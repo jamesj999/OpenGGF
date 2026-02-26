@@ -36,6 +36,10 @@ import java.util.List;
  * - 8: Idle on ground (100-frame timer), buzz at 50 remaining
  * - A: Attack dispatch (reads from 16-entry attack table)
  * - C: Defeat (256 iterations of explosions, then unlock camera)
+ *
+ * Animation: AnimateSprite_Checked is NOT called every frame. The ROM calls
+ * it only in specific routines/phases: idle (routine 8 at loc_3986A) and
+ * specific attack sub-phases. Descent (routine 6) does not animate at all.
  */
 public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
@@ -100,8 +104,6 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     private static final int COLLISION_BALL = 0x9A;
 
     // Rendering frame indices (from ROM mappings ObjAF_MapUnc_39E68)
-    // Frames 0-8 are full body poses; frames 9-14 are sub-component pieces
-    // (legs/quills only — NOT full sprites). Frames 15-22 are spikeball projectiles.
     private static final int FRAME_STAND = 0;
     private static final int FRAME_AIM = 1;
     private static final int FRAME_LASER = 2;
@@ -116,91 +118,68 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     // ROM Animation Table: Ani_objAF (off_39DE2)
     // AnimateSprite_Checked: reads anim field, indexes table, sequences frames
     // at given speed, handles terminators ($FF=loop, $FC=stall, $FD=advance).
-    // Called once per frame at END of main routine dispatch.
+    // Called ONLY in specific routines, NOT every frame.
     // ========================================================================
     private static final int ANIM_TERM_LOOP = 0xFF;
     private static final int ANIM_TERM_STALL = 0xFC;
     private static final int ANIM_TERM_ADVANCE = 0xFD;
 
-    // Anim 0 (byte_39DEA): standing walk cycle, speed=2, loop
+    // Anim 0: standing walk cycle (speed 2, loop)
     private static final int[] ANIM_0_STANDING = {0, 1, 2};
-    private static final int ANIM_0_SPEED = 2;
-    private static final int ANIM_0_TERM = ANIM_TERM_LOOP;
-
-    // Anim 1 (byte_39DF0): crouch, speed=$45 (69 frames), advance routine_secondary
+    // Anim 1: crouch (speed $45/69, advance routine_secondary)
     private static final int[] ANIM_1_CROUCH = {3};
-    private static final int ANIM_1_SPEED = 0x45;
-    private static final int ANIM_1_TERM = ANIM_TERM_ADVANCE;
-
-    // Anim 2 (byte_39DF4): dash start, speed=3, stall on last frame
+    // Anim 2: dash start (speed 3, stall) — used in Dash Across second half
     private static final int[] ANIM_2_DASH = {4, 5, 4, 3};
-    private static final int ANIM_2_SPEED = 3;
-    private static final int ANIM_2_TERM = ANIM_TERM_STALL;
-
-    // Anim 3 (byte_39DFE): speed-up ball form, speed=3, stall
+    // Anim 3: speed-up ball form (speed 3, stall) — aim phase wind-up
     private static final int[] ANIM_3_SPEEDUP = {3, 3, 6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 7, 7, 8, 8, 6, 7, 8};
-    private static final int ANIM_3_SPEED = 3;
-    private static final int ANIM_3_TERM = ANIM_TERM_STALL;
-
-    // Anim 4 (byte_39E14): spin loop, speed=2, loop
+    // Anim 4: spin loop (speed 2, loop) — continuous ball spin during dash
     private static final int[] ANIM_4_SPIN = {6, 7, 8};
-    private static final int ANIM_4_SPEED = 2;
-    private static final int ANIM_4_TERM = ANIM_TERM_LOOP;
-
-    // Anim 5 (byte_39E1A): decel spin-down, speed=3, stall
+    // Anim 5: decel spin-down (speed 3, stall) — post-dash walk-out
     private static final int[] ANIM_5_DECEL = {8, 7, 6, 8, 8, 7, 7, 6, 6, 8, 8, 8, 7, 7, 7, 6, 6, 6, 3, 3};
-    private static final int ANIM_5_SPEED = 3;
-    private static final int ANIM_5_TERM = ANIM_TERM_STALL;
 
     private static final int[][] ANIM_FRAMES = {
             ANIM_0_STANDING, ANIM_1_CROUCH, ANIM_2_DASH,
             ANIM_3_SPEEDUP, ANIM_4_SPIN, ANIM_5_DECEL
     };
-    private static final int[] ANIM_SPEEDS = {
-            ANIM_0_SPEED, ANIM_1_SPEED, ANIM_2_SPEED,
-            ANIM_3_SPEED, ANIM_4_SPEED, ANIM_5_SPEED
-    };
+    private static final int[] ANIM_SPEEDS = {2, 0x45, 3, 3, 2, 3};
     private static final int[] ANIM_TERMINATORS = {
-            ANIM_0_TERM, ANIM_1_TERM, ANIM_2_TERM,
-            ANIM_3_TERM, ANIM_4_TERM, ANIM_5_TERM
+            ANIM_TERM_LOOP, ANIM_TERM_ADVANCE, ANIM_TERM_STALL,
+            ANIM_TERM_STALL, ANIM_TERM_LOOP, ANIM_TERM_STALL
     };
 
     // Spikeball data table (8 entries from ROM byte_39D92)
-    // Each entry: {x_offset, y_offset, x_vel, y_vel, mapping_frame}
-    // ROM format: 6 bytes per entry (x_off, y_off, x_vel, y_vel, frame, render_flags)
     private static final int[][] SPIKEBALL_DATA = {
-            {0x00, -0x18, 0x000, -0x300, 0x0F},   // Up
-            {-0x10, -0x10, -0x200, -0x200, 0x10},  // Upper-left
-            {-0x18, 0x00, -0x300, 0x000, 0x11},    // Left
-            {-0x10, 0x10, -0x200, 0x200, 0x12},    // Lower-left
-            {0x00, 0x18, 0x000, 0x300, 0x13},      // Down
-            {0x10, 0x10, 0x200, 0x200, 0x14},      // Lower-right
-            {0x18, 0x00, 0x300, 0x000, 0x15},       // Right
-            {0x10, -0x10, 0x200, -0x200, 0x16}      // Upper-right
+            {0x00, -0x18, 0x000, -0x300, 0x0F},
+            {-0x10, -0x10, -0x200, -0x200, 0x10},
+            {-0x18, 0x00, -0x300, 0x000, 0x11},
+            {-0x10, 0x10, -0x200, 0x200, 0x12},
+            {0x00, 0x18, 0x000, 0x300, 0x13},
+            {0x10, 0x10, 0x200, 0x200, 0x14},
+            {0x18, 0x00, 0x300, 0x000, 0x15},
+            {0x10, -0x10, 0x200, -0x200, 0x16}
     };
 
     // Internal state
     private int actionTimer;
-    private int attackIndex;  // objoff_2F (cycles through 16-entry table)
+    private int attackIndex;
     private int attackSubRoutine;
-    private int attackPhase;  // sub-phase within attack
+    private int attackPhase;
     private int dashRepeatCount;
     private int defeatTimer;
     private int currentFrame;
     private boolean facingLeft;
     private boolean ballForm;
     private boolean spikeballsFired;
-    /** ROM: objoff_2D - direction toggle, alternates via not.b each dash cycle */
     private boolean dashDirectionToggle;
 
-    // AnimateSprite_Checked state (ROM: anim, prev_anim, anim_frame, anim_frame_duration)
-    private int anim;              // Current animation ID (0-5)
-    private int prevAnim;          // Previous animation ID (detect changes -> reset)
-    private int animFrame;         // Index into current animation's frame array
-    private int animFrameDuration; // Countdown timer for current frame
-    private boolean animTerminatorReached; // True when terminator hit (d0=1 return)
+    // AnimateSprite_Checked state
+    private int anim;
+    private int prevAnim;
+    private int animFrame;
+    private int animFrameDuration;
+    private boolean animTerminatorReached;
 
-    // Child component references (ROM: objoff_3A, objoff_3C, objoff_3E)
+    // Child component references
     private MechaSonicDEZWindow dezWindow;
     private MechaSonicTargetingSensor targetingSensor;
     private MechaSonicLEDWindow ledWindow;
@@ -211,11 +190,6 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
     @Override
     protected void initializeBossState() {
-        // ROM: ObjAF_Init
-        // Set radii: y=$1B, x=$10 (stored in y_radius, x_radius)
-        // collision_flags = $00 initially (set to $1A when idle)
-        // HP = 8
-
         state.routine = ROUTINE_INIT;
         state.routineSecondary = 0;
         attackIndex = 0;
@@ -225,19 +199,15 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         facingLeft = false;
         ballForm = false;
         spikeballsFired = false;
-        dashDirectionToggle = false; // ROM: objoff_2D starts at 0
+        dashDirectionToggle = false;
 
-        // AnimateSprite_Checked initial state
         anim = 0;
-        prevAnim = -1; // Force reset on first call
+        prevAnim = -1;
         animFrame = 0;
         animFrameDuration = 0;
         animTerminatorReached = false;
 
-        // Advance to wait-for-camera routine immediately
         state.routine = ROUTINE_WAIT_CAMERA;
-
-        // Spawn child objects
         spawnChildObjects();
     }
 
@@ -245,19 +215,14 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         if (levelManager.getObjectManager() == null) {
             return;
         }
-
-        // ROM order from ObjAF_Init:
-        // 1. LED Window (objoff_3E via ChildObject_39DC2): InheritParentXYFlip (copies parent pos)
         ledWindow = new MechaSonicLEDWindow(this);
         childComponents.add(ledWindow);
         levelManager.getObjectManager().addDynamicObject(ledWindow);
 
-        // 2. Targeting Sensor (objoff_3C via ChildObject_39DC6): Follows at (+$C/-$C, -$C) offset
         targetingSensor = new MechaSonicTargetingSensor(this);
         childComponents.add(targetingSensor);
         levelManager.getObjectManager().addDynamicObject(targetingSensor);
 
-        // 3. DEZ Window (objoff_3A via ChildObject_39DCA): Fixed at ($2C0, $139)
         dezWindow = new MechaSonicDEZWindow(this);
         childComponents.add(dezWindow);
         levelManager.getObjectManager().addDynamicObject(dezWindow);
@@ -265,6 +230,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
     @Override
     protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+        // ROM: AnimateSprite_Checked is NOT called globally. Each routine/phase
+        // calls it explicitly only when needed.
         switch (state.routine) {
             case ROUTINE_WAIT_CAMERA -> updateWaitCamera();
             case ROUTINE_COUNTDOWN -> updateCountdown();
@@ -273,28 +240,16 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             case ROUTINE_ATTACK -> updateAttack(player);
             case ROUTINE_DEFEAT -> updateDefeat(frameCounter);
         }
-
-        // ROM: AnimateSprite_Checked called at end of every frame
-        // (after routine dispatch, before rendering)
-        if (state.routine >= ROUTINE_DESCEND && state.routine <= ROUTINE_ATTACK) {
-            animateSpriteChecked();
-        }
     }
 
     // ========================================================================
-    // AnimateSprite_Checked — ROM-accurate animation engine
-    // ROM: reads anim field, compares to prev_anim to detect changes,
-    // decrements duration counter, advances frame on expiry, handles
-    // terminators ($FF=loop, $FC=stall/freeze, $FD=advance routine_secondary).
-    // Returns d0=1 when terminator is reached.
+    // AnimateSprite_Checked — called only by routines that need it
     // ========================================================================
 
     private void animateSpriteChecked() {
         if (anim < 0 || anim >= ANIM_FRAMES.length) {
             return;
         }
-
-        // Detect animation change -> reset
         if (anim != prevAnim) {
             prevAnim = anim;
             animFrame = 0;
@@ -304,26 +259,17 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             ballForm = isBallFrame(currentFrame);
             return;
         }
-
-        // If already stalled, don't advance
         if (animTerminatorReached) {
             return;
         }
-
-        // Decrement duration counter
         animFrameDuration--;
         if (animFrameDuration >= 0) {
-            return; // Not yet time for next frame
+            return;
         }
-
-        // Reset duration for next frame
         animFrameDuration = ANIM_SPEEDS[anim];
-
-        // Advance to next frame
         animFrame++;
         int[] frames = ANIM_FRAMES[anim];
         if (animFrame >= frames.length) {
-            // Hit terminator
             int term = ANIM_TERMINATORS[anim];
             switch (term) {
                 case ANIM_TERM_LOOP -> {
@@ -339,7 +285,6 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                     animFrame = frames.length - 1;
                     currentFrame = frames[animFrame];
                     animTerminatorReached = true;
-                    // ROM: addq.b #2,routine_secondary(a0)
                     state.routineSecondary += 2;
                 }
             }
@@ -354,121 +299,97 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     }
 
     // ========================================================================
-    // Routine 2: Wait for camera X >= $224, set boss_id, fade music
-    // ROM: loc_397AC / loc_397BA
+    // Routine 2: Wait for camera
     // ========================================================================
 
     private void updateWaitCamera() {
         Camera camera = Camera.getInstance();
         if (camera.getX() >= CAMERA_LOCK_X) {
-            // ROM: addq.b #2,routine(a0)
             state.routine = ROUTINE_COUNTDOWN;
             actionTimer = MUSIC_COUNTDOWN;
-            // ROM: move.w #$100,y_vel(a0) - set constant descent velocity
             state.yVel = DESCENT_SPEED;
-            // ROM: Lock camera min/max X to $224
             camera.setMinX((short) CAMERA_LOCK_X);
             camera.setMaxX((short) CAMERA_LOCK_X);
-            // ROM: move.b #9,(Current_Boss_ID).w - set boss_id in the boss itself
             GameServices.gameState().setCurrentBossId(9);
-            // ROM: moveq #signextendB(MusID_FadeOut),d0 - fade music
             AudioManager.getInstance().fadeOutMusic();
         }
     }
 
     // ========================================================================
-    // Routine 4: 60-frame countdown, then play boss music
-    // ROM: loc_397E6 / loc_397F0
+    // Routine 4: Countdown
     // ========================================================================
 
     private void updateCountdown() {
         actionTimer--;
         if (actionTimer < 0) {
-            // ROM: bmi.s loc_397F0
             AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
             state.routine = ROUTINE_DESCEND;
-            // ROM: uses anim 5 (descent spin-down) during descend
-            anim = 5;
+            // ROM: No anim set here. anim stays 0, but AnimateSprite_Checked
+            // is NOT called during descent, so mapping_frame stays as-is.
         }
     }
 
     // ========================================================================
-    // Routine 6: Descend at constant velocity $100 (no gravity)
-    // ROM: loc_397FE - uses ObjectMove (not ObjectMoveAndFall)
+    // Routine 6: Descend (no AnimateSprite_Checked in ROM)
+    // ROM: loc_397FE — ObjectMove + positioning only
     // ========================================================================
 
     private void updateDescend(int frameCounter) {
-        // ROM: Play fire sound when (Vint_runcount & $1F) == 0
         if ((frameCounter & 0x1F) == 0) {
             AudioManager.getInstance().playSfx(Sonic2Sfx.FIRE.id);
         }
 
-        // ROM: ObjCheckFloorDist checks floor distance
-        // If d1 < 0 (touching/below floor), snap to floor
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
         if (floor.distance() < 0) {
-            // ROM: loc_39830 - add.w d1,y_pos(a0) snaps to floor surface
             state.y += floor.distance();
             state.yFixed = state.y << 16;
             state.yVel = 0;
-            // ROM: move.b #$1A,collision_flags(a0)
-            // ROM: bra.w loc_399D6 (transition to idle)
             transitionToIdle();
             return;
         }
 
-        // ROM: ObjectMove - apply velocity at constant speed (no gravity added)
+        // ROM: ObjectMove — constant velocity, no gravity, no AnimateSprite
         state.applyVelocity();
+        // currentFrame stays as FRAME_STAND (set in init)
     }
 
     // ========================================================================
-    // Routine 8: Idle on ground
-    // ROM: loc_3984A
+    // Routine 8: Idle — ROM calls AnimateSprite_Checked at loc_3986A
     // ========================================================================
 
     private void updateIdle() {
-        // ROM: anim = 0 (standing walk cycle)
-        anim = 0;
+        anim = 0; // Standing walk cycle
         ballForm = false;
 
         actionTimer--;
-
         if (actionTimer == 0) {
-            // ROM: beq.s loc_39886 - timer expired, start attack
             state.routine = ROUTINE_ATTACK;
-            // ROM: read attack table
             attackSubRoutine = ATTACK_TABLE[attackIndex & 0x0F];
-            attackIndex = (attackIndex + 1) & 0xFF; // ROM: addq.b #1
+            attackIndex = (attackIndex + 1) & 0xFF;
             attackPhase = 0;
             dashRepeatCount = 0;
             spikeballsFired = false;
-            // ROM: movea.w objoff_3C(a0),a1; move.b #$16,routine(a1)
-            // Enable targeting sensor collision
             if (targetingSensor != null) {
                 targetingSensor.setCollisionEnabled(true);
             }
             return;
         }
 
-        // Play buzz sound at 50 frames remaining
-        // ROM: cmpi.b #$32,objoff_2A(a0)
         if (actionTimer == BUZZ_THRESHOLD) {
             AudioManager.getInstance().playSfx(Sonic2Sfx.MECHA_SONIC_BUZZ.id);
         }
+
+        // ROM: loc_3986A — AnimateSprite_Checked during idle
+        animateSpriteChecked();
     }
 
-    /**
-     * Transition to idle state (used after descent landing and attack completion).
-     * ROM: loc_399D6
-     */
     private void transitionToIdle() {
         state.routine = ROUTINE_IDLE;
         actionTimer = IDLE_DURATION;
-        anim = 0; // Standing walk cycle
+        anim = 0;
+        currentFrame = FRAME_STAND;
         ballForm = false;
         state.xVel = 0;
-        // ROM: movea.w objoff_3C(a0),a1; move.b #$18,routine(a1)
-        // Disable targeting sensor collision during idle
         if (targetingSensor != null) {
             targetingSensor.setCollisionEnabled(false);
         }
@@ -476,12 +397,6 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
     // ========================================================================
     // Routine A: Attack dispatch
-    // ROM: loc_398C0
-    //
-    // Phase transition timing: ROM uses jsr off_398F2(pc,d1.w) (subroutine
-    // call, not jmp). Each sub-phase sets routine_secondary and returns via
-    // rts; the updated value is dispatched on the NEXT frame. Java's switch
-    // on attackPhase has the same one-frame-per-transition semantics.
     // ========================================================================
 
     private void updateAttack(AbstractPlayableSprite player) {
@@ -493,114 +408,120 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         }
     }
 
-    /**
-     * Attack $00: Dash Across.
-     * ROM: loc_3991E -> loc_39946 -> loc_39976
-     * Wait $20 frames, dash at $800 speed, decelerate at $20/frame, repeat 2x.
-     */
+    // ========================================================================
+    // Attack $00: Dash Across
+    // ROM: loc_3991E → loc_3992E → loc_39946 → loc_3994E → loc_39976
+    // ========================================================================
+
     private void updateDashAcross(AbstractPlayableSprite player) {
         switch (attackPhase) {
             case 0 -> {
-                // Phase 0: Wait setup
-                // ROM: loc_3991E - set mapping_frame=3, objoff_2C=2 (repeat count)
+                // ROM: loc_3991E — mapping_frame=3 directly (not via anim)
+                currentFrame = FRAME_WALK_A;
+                ballForm = false;
                 actionTimer = AIM_HOLD_DURATION;
                 attackPhase = 1;
-                dashRepeatCount = 2; // ROM: move.b #2,objoff_2C(a0)
-                // ROM: anim 1 (crouch) — holds frame 3 for $45 frames
-                anim = 1;
-                ballForm = false;
+                dashRepeatCount = 2;
             }
             case 1 -> {
-                // Phase 1: Wait timer
-                // ROM: loc_39946
+                // ROM: loc_39946 — timer countdown, NO AnimateSprite
                 actionTimer--;
                 if (actionTimer < 0) {
                     attackPhase = 2;
-                    actionTimer = 0x40; // ROM: move.b #$40,objoff_2A(a0)
+                    actionTimer = 0x40;
+                    // ROM: loc_3994E — anim=1 (crouch, frame 3), start dash, play sound
+                    anim = 1;
                     startDash(DASH_SPEED);
+                    AudioManager.getInstance().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
                 }
             }
             case 2 -> {
-                // Phase 2: Dashing
-                // ROM: loc_39976
+                // ROM: loc_39976 — dashing with AnimateSprite_Checked
                 actionTimer--;
                 if (actionTimer < 0) {
-                    // Dash complete
                     dashRepeatCount--;
                     if (dashRepeatCount > 0) {
-                        // ROM: loc_399C2 -> loc_3992E - repeat
                         attackPhase = 1;
                         actionTimer = AIM_HOLD_DURATION;
                         state.xVel = 0;
+                        // ROM: bra.w loc_3992E — reset to wait phase
+                        currentFrame = FRAME_WALK_A;
                     } else {
-                        // ROM: loc_399D6 - finished
                         transitionToIdle();
                     }
                 } else {
-                    // Decelerate
+                    // ROM: At timer=$20, switch to anim 2 (dash start: {4,5,4,3})
+                    if (actionTimer == 0x20) {
+                        anim = 2;
+                    }
                     applyDeceleration();
+                    animateSpriteChecked();
+                    // ROM: direction flip at anim=2, frame index 2, duration=3
+                    if (anim == 2 && animFrame == 2 && animFrameDuration == ANIM_SPEEDS[2]) {
+                        facingLeft = !facingLeft;
+                    }
                 }
             }
         }
     }
 
-    /**
-     * Attack $06: Aim & Dash.
-     * ROM: loc_39A0A -> loc_39A1C -> loc_39A2A -> loc_39A44 -> loc_39A56 -> loc_39A68 -> loc_39A7C -> loc_39A96
-     * Aim animation, laser beam (hold $20 frames), dash at $800, decelerate,
-     * walk animation ending, then return to idle.
-     */
+    // ========================================================================
+    // Attack $06: Aim & Dash
+    // ROM: loc_39A0A → loc_39A1C → loc_39A2A/loc_39A44 → loc_39A56/loc_39A68
+    //   → loc_39A7C → loc_39A96
+    // ========================================================================
+
     private void updateAimAndDash(AbstractPlayableSprite player) {
         switch (attackPhase) {
             case 0 -> {
-                // Phase 0: Aim setup
-                // ROM: loc_39A0A - anim 1 (crouch, holds frame 3)
-                anim = 1;
+                // ROM: loc_39A0A — mapping_frame=3, anim=3, no AnimateSprite
+                currentFrame = FRAME_WALK_A;
+                anim = 3;
                 ballForm = false;
                 attackPhase = 1;
             }
             case 1 -> {
-                // Phase 1: Aim animation — ROM uses AnimateSprite_Checked with anim 3
-                // (speed-up ball form). The $FD terminator advances routine_secondary
-                // when complete, but we use animTerminatorReached to detect completion.
-                anim = 3;
+                // ROM: loc_39A1C — AnimateSprite_Checked with anim 3 (speed-up)
+                // Wait for $FC terminator (d0=1)
+                animateSpriteChecked();
                 if (animTerminatorReached) {
                     attackPhase = 2;
                     actionTimer = AIM_HOLD_DURATION;
-                    // ROM: anim 4 (spin loop) during laser hold
-                    anim = 4;
+                    anim = 4; // Spin loop
+                    // ROM: loc_39A2A — play laser beam sound
+                    AudioManager.getInstance().playSfx(Sonic2Sfx.LASER_BEAM.id);
                 }
             }
             case 2 -> {
-                // Phase 2: Laser hold
-                // ROM: loc_39A44
+                // ROM: loc_39A44 — timer + AnimateSprite_Checked
                 actionTimer--;
                 if (actionTimer < 0) {
                     attackPhase = 3;
                     actionTimer = 0x40;
+                    // ROM: loc_39A56 — start dash, no sound, no anim change
                     startDash(DASH_SPEED);
+                } else {
+                    animateSpriteChecked();
                 }
             }
             case 3 -> {
-                // Phase 3: Dashing
-                // ROM: loc_39A68
+                // ROM: loc_39A68 — dashing with AnimateSprite_Checked
                 actionTimer--;
                 if (actionTimer < 0) {
-                    // ROM: loc_39A7C - stop, play walk-out anim
+                    // ROM: loc_39A7C — stop, flip, anim=5
                     attackPhase = 4;
-                    facingLeft = !facingLeft; // bchg x_flip
+                    anim = 5;
+                    facingLeft = !facingLeft;
                     state.xVel = 0;
                     state.yVel = 0;
-                    // ROM: anim 5 (decel spin-down)
-                    anim = 5;
-                    ballForm = false;
                 } else {
                     applyDeceleration();
+                    animateSpriteChecked();
                 }
             }
             case 4 -> {
-                // Phase 4: Walk-out animation then idle
-                // ROM: loc_39A96 - AnimateSprite_Checked with anim 5, then idle
+                // ROM: loc_39A96 — AnimateSprite_Checked, wait for $FC stall
+                animateSpriteChecked();
                 if (animTerminatorReached) {
                     transitionToIdle();
                 }
@@ -608,76 +529,83 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         }
     }
 
-    /**
-     * Attack $10: Aim, Dash, Walk.
-     * ROM: loc_39A0A -> ... -> loc_39AAA -> loc_39ABC -> loc_39ACE -> loc_39AE8 -> loc_39AF4 -> ...
-     * Same as Aim & Dash but with a jump at the end.
-     */
+    // ========================================================================
+    // Attack $10: Aim, Dash, Walk (jump variant)
+    // ROM: shares loc_39A0A/loc_39A1C with Attack $06, then diverges
+    // ========================================================================
+
     private void updateAimDashWalk(AbstractPlayableSprite player) {
         switch (attackPhase) {
             case 0 -> {
-                // Phase 0: Aim setup (same as Aim & Dash)
-                anim = 1; // Crouch
+                // ROM: loc_39A0A — same as Aim & Dash
+                currentFrame = FRAME_WALK_A;
+                anim = 3;
                 ballForm = false;
                 attackPhase = 1;
             }
             case 1 -> {
-                // Phase 1: Aim animation
-                anim = 3; // Speed-up
+                // ROM: loc_39A1C — AnimateSprite_Checked anim 3
+                animateSpriteChecked();
                 if (animTerminatorReached) {
                     attackPhase = 2;
                     actionTimer = AIM_HOLD_DURATION;
-                    anim = 4; // Spin loop
+                    anim = 4;
+                    AudioManager.getInstance().playSfx(Sonic2Sfx.LASER_BEAM.id);
                 }
             }
             case 2 -> {
-                // Phase 2: Laser hold
+                // ROM: loc_39AAA — timer + AnimateSprite_Checked
                 actionTimer--;
                 if (actionTimer < 0) {
                     attackPhase = 3;
                     actionTimer = 0x40;
-                    startDash(SLOW_DASH_SPEED); // ROM: move.w #$400,d0
+                    // ROM: loc_39ABC — slow dash, no sound
+                    startDash(SLOW_DASH_SPEED);
+                } else {
+                    animateSpriteChecked();
                 }
             }
             case 3 -> {
-                // Phase 3: Dashing at $400, then jump trigger
-                // ROM: loc_39ACE
+                // ROM: loc_39ACE — dashing, jump trigger at timer=60
                 actionTimer--;
                 if (actionTimer == 60) {
-                    // ROM: cmpi.b #60,objoff_2A(a0) -> bsr.w loc_39AE8
+                    // ROM: loc_39AE8 — set y_vel, advance
                     attackPhase = 4;
                     state.yVel = JUMP_Y_VEL;
                 }
+                // ROM: AnimateSprite_Checked every frame in this phase
+                animateSpriteChecked();
             }
             case 4 -> {
-                // Phase 4: In the air after jump
-                // ROM: loc_39AF4
+                // ROM: loc_39AF4 — airborne after jump
                 actionTimer--;
                 if (actionTimer < 0) {
                     // ROM: bmi.w loc_39A7C
                     attackPhase = 5;
+                    anim = 5;
                     facingLeft = !facingLeft;
                     state.xVel = 0;
                     state.yVel = 0;
-                    anim = 5; // Decel spin-down
-                    ballForm = false;
                     return;
                 }
-                // ROM: ObjCheckFloorDist - check floor
                 TerrainCheckResult floorADW = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
                 if (floorADW.distance() < 0) {
-                    // ROM: loc_39B1A - landed
+                    // ROM: loc_39B1A — landed, snap to floor
                     state.y += floorADW.distance();
                     state.yFixed = state.y << 16;
                     state.yVel = 0;
+                    // ROM: AnimateSprite_Checked still runs after landing
+                    animateSpriteChecked();
                     return;
                 }
-                // ROM: addi.w #$38,y_vel(a0) - gravity
                 state.yVel += GRAVITY;
                 state.applyVelocity();
+                // ROM: loc_39B0A — AnimateSprite_Checked
+                animateSpriteChecked();
             }
             case 5 -> {
-                // Phase 5: Walk-out then idle
+                // ROM: loc_39A96 — walk-out, wait for $FC stall
+                animateSpriteChecked();
                 if (animTerminatorReached) {
                     transitionToIdle();
                 }
@@ -685,88 +613,78 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         }
     }
 
-    /**
-     * Attack $1E: Aim, Jump + Spikeballs.
-     * ROM: loc_39A0A -> ... -> loc_39AAA -> loc_39ABC -> loc_39ACE -> ... -> loc_39B44
-     * Aim, laser, dash at $400, jump (y_vel=-$600, gravity $38),
-     * fire 8 spikeballs at apex, land, walk-out.
-     */
+    // ========================================================================
+    // Attack $1E: Aim, Jump + Spikeballs
+    // ROM: shares aim phases with $10, diverges at airborne phase
+    // ========================================================================
+
     private void updateAimJumpSpikeballs(AbstractPlayableSprite player) {
         switch (attackPhase) {
             case 0 -> {
-                // Phase 0: Aim setup
-                anim = 1; // Crouch
+                currentFrame = FRAME_WALK_A;
+                anim = 3;
                 ballForm = false;
                 attackPhase = 1;
             }
             case 1 -> {
-                // Phase 1: Aim animation
-                anim = 3; // Speed-up
+                animateSpriteChecked();
                 if (animTerminatorReached) {
                     attackPhase = 2;
                     actionTimer = AIM_HOLD_DURATION;
-                    anim = 4; // Spin loop
+                    anim = 4;
+                    AudioManager.getInstance().playSfx(Sonic2Sfx.LASER_BEAM.id);
                 }
             }
             case 2 -> {
-                // Phase 2: Laser hold
                 actionTimer--;
                 if (actionTimer < 0) {
                     attackPhase = 3;
                     actionTimer = 0x40;
                     startDash(SLOW_DASH_SPEED);
+                } else {
+                    animateSpriteChecked();
                 }
             }
             case 3 -> {
-                // Phase 3: Dashing at $400, then jump with spikeballs
-                // ROM: loc_39ACE -> loc_39B44
+                // ROM: loc_39ACE — dashing, jump trigger at timer=60
                 actionTimer--;
                 if (actionTimer == 60) {
-                    // ROM: bsr.w loc_39AE8 - set y_vel
                     state.yVel = JUMP_Y_VEL;
                     attackPhase = 4;
                     spikeballsFired = false;
                 }
+                animateSpriteChecked();
             }
             case 4 -> {
-                // Phase 4: In the air, fire spikeballs at apex
-                // ROM: loc_39B44
+                // ROM: loc_39B44 — airborne, fire spikeballs at apex
                 actionTimer--;
                 if (actionTimer < 0) {
-                    // ROM: bmi.w loc_39A7C - timer expired
                     attackPhase = 5;
+                    anim = 5;
                     facingLeft = !facingLeft;
                     state.xVel = 0;
                     state.yVel = 0;
-                    anim = 5; // Decel spin-down
-                    ballForm = false;
                     return;
                 }
-
-                // Fire spikeballs at apex (when yVel crosses from negative to positive)
-                // ROM: tst.w y_vel(a0) / bmi.s / st.b objoff_2E(a0) / bsr.w loc_39D82
                 if (!spikeballsFired && state.yVel >= 0) {
                     spikeballsFired = true;
                     fireSpikeballs();
                     AudioManager.getInstance().playSfx(Sonic2Sfx.SPIKE_SWITCH.id);
                 }
-
-                // ROM: ObjCheckFloorDist
                 TerrainCheckResult floorAJS = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
                 if (floorAJS.distance() < 0) {
-                    // ROM: loc_39B84 - landed
                     state.y += floorAJS.distance();
                     state.yFixed = state.y << 16;
                     state.yVel = 0;
+                    animateSpriteChecked();
                     return;
                 }
-
-                // ROM: addi.w #$38,y_vel(a0) - gravity
                 state.yVel += GRAVITY;
                 state.applyVelocity();
+                animateSpriteChecked();
             }
             case 5 -> {
-                // Phase 5: Walk-out then idle
+                animateSpriteChecked();
                 if (animTerminatorReached) {
                     transitionToIdle();
                 }
@@ -780,61 +698,40 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
     /**
      * Start a dash using the ROM's direction toggle system.
-     * ROM: loc_39D60 - uses objoff_2D toggle (not player-facing).
-     * When objoff_2D is 0: negate speed (go left). Then toggle.
-     * When objoff_2D is nonzero: keep positive (go right). Then toggle.
+     * ROM: loc_39D60 — ONLY sets velocity and toggles direction.
+     * Does NOT set anim or play sound (callers handle those).
      */
     private void startDash(int speed) {
-        ballForm = true;
-        // ROM: loc_39D60
         int xVel = speed;
         if (!dashDirectionToggle) {
-            xVel = -xVel; // ROM: neg.w d0
+            xVel = -xVel;
         }
-        dashDirectionToggle = !dashDirectionToggle; // ROM: not.b objoff_2D(a0)
+        dashDirectionToggle = !dashDirectionToggle;
         state.xVel = xVel;
         facingLeft = (xVel < 0);
-        // ROM: anim 4 (spin loop) during dash
-        anim = 4;
-        // ROM: moveq #signextendB(SndID_SpindashRelease),d0
-        AudioManager.getInstance().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
     }
 
-    /**
-     * Apply deceleration to x velocity.
-     * ROM: loc_39D72
-     */
     private void applyDeceleration() {
         if (state.xVel > 0) {
             state.xVel -= DECEL_RATE;
-            if (state.xVel < 0) {
-                state.xVel = 0;
-            }
+            if (state.xVel < 0) state.xVel = 0;
         } else if (state.xVel < 0) {
             state.xVel += DECEL_RATE;
-            if (state.xVel > 0) {
-                state.xVel = 0;
-            }
+            if (state.xVel > 0) state.xVel = 0;
         }
         state.applyVelocity();
     }
 
     private void fireSpikeballs() {
-        if (levelManager.getObjectManager() == null) {
-            return;
-        }
-
-        // Spawn 8 spikeballs with position offsets from ROM byte_39D92
+        if (levelManager.getObjectManager() == null) return;
         for (int i = 0; i < 8; i++) {
             int xOffset = SPIKEBALL_DATA[i][0];
             int yOffset = SPIKEBALL_DATA[i][1];
             int xVelData = SPIKEBALL_DATA[i][2];
             int yVelData = SPIKEBALL_DATA[i][3];
             int mappingFrame = SPIKEBALL_DATA[i][4];
-
             MechaSonicSpikeball spikeball = new MechaSonicSpikeball(
-                    this,
-                    state.x + xOffset, state.y + yOffset,
+                    this, state.x + xOffset, state.y + yOffset,
                     xVelData, yVelData, mappingFrame);
             levelManager.getObjectManager().addDynamicObject(spikeball);
         }
@@ -842,57 +739,34 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
     // ========================================================================
     // Routine C: Defeat sequence
-    // ROM: loc_39B92 / loc_39BA4
     // ========================================================================
 
     private void updateDefeat(int frameCounter) {
-        // ROM: subq.w #1,objoff_32(a0) / bmi.s loc_39BA4
         defeatTimer--;
-
         if (defeatTimer < 0) {
-            // ROM: loc_39BA4 - defeat complete
-            // ROM: move.w #$1000,(Camera_Max_X_pos).w
             Camera camera = Camera.getInstance();
             camera.setMaxX((short) 0x1000);
-            // ROM: addq.b #2,(Dynamic_Resize_Routine).w
             Sonic2LevelEventManager eventManager = Sonic2LevelEventManager.getInstance();
             eventManager.setEventRoutine(eventManager.getEventRoutine() + 2);
             GameServices.gameState().setCurrentBossId(0);
-            // ROM: move.w (Level_Music).w,d0 / PlayMusic (resume zone music)
-            // Note: ROM has a bug where it reads a byte instead of word, causing
-            // music to not resume. We use the fixBugs version.
             AudioManager.getInstance().playMusic(Sonic2Music.DEATH_EGG.id);
-            // Delete self
             setDestroyed(true);
             return;
         }
-
-        // ROM: Boss_LoadExplosion - spawn explosions
         if (defeatTimer % EXPLOSION_INTERVAL == 0) {
             spawnDefeatExplosion();
         }
-
-        // ROM: defeat routine uses Ani_objAF_b animation table.
-        // Frame 12 is a sub-component piece (nearly invisible), use standing pose.
         currentFrame = FRAME_STAND;
     }
 
     // ========================================================================
-    // Collision overrides
-    // ROM: loc_39D1C / loc_39D24
+    // Collision
     // ========================================================================
 
     @Override
     public int getCollisionFlags() {
-        if (state.invulnerable || state.defeated) {
-            return 0;
-        }
-        if (state.routine < ROUTINE_IDLE) {
-            return 0; // No collision before idle phase
-        }
-        // ROM: loc_39D24 - check mapping_frame for ball frames
-        // If mapping frame is 6, 7, or 8 -> $9A (ball collision)
-        // Otherwise -> $1A (standing collision)
+        if (state.invulnerable || state.defeated) return 0;
+        if (state.routine < ROUTINE_IDLE) return 0;
         if (currentFrame == FRAME_BALL_A || currentFrame == FRAME_BALL_B
                 || currentFrame == FRAME_BALL_C) {
             return COLLISION_BALL;
@@ -901,36 +775,24 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     }
 
     @Override
-    protected int getCollisionSizeIndex() {
-        return COLLISION_STANDING;
-    }
+    protected int getCollisionSizeIndex() { return COLLISION_STANDING; }
 
     @Override
-    protected int getInitialHitCount() {
-        return DEFAULT_HIT_COUNT;
-    }
+    protected int getInitialHitCount() { return DEFAULT_HIT_COUNT; }
 
     @Override
     protected void onHitTaken(int remainingHits) {
-        // Update DEZ Window animation based on remaining hits
         if (dezWindow != null) {
-            if (remainingHits <= 2) {
-                dezWindow.setAnimId(4); // Panicked
-            } else if (remainingHits <= 4) {
-                dezWindow.setAnimId(3); // Worried
-            }
+            if (remainingHits <= 2) dezWindow.setAnimId(4);
+            else if (remainingHits <= 4) dezWindow.setAnimId(3);
         }
     }
 
     @Override
-    protected int getInvulnerabilityDuration() {
-        return INVULN_DURATION;
-    }
+    protected int getInvulnerabilityDuration() { return INVULN_DURATION; }
 
     @Override
-    protected boolean usesDefeatSequencer() {
-        return false; // Custom defeat logic
-    }
+    protected boolean usesDefeatSequencer() { return false; }
 
     @Override
     protected void onDefeatStarted() {
@@ -940,24 +802,13 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         state.yVel = 0;
         ballForm = false;
         currentFrame = FRAME_STAND;
-        // ROM: bset #status.npc.misc,status(a0) - signals DEZ window
-        // ROM: Delete targeting sensor and LED window
-        if (targetingSensor != null) {
-            targetingSensor.setDestroyed(true);
-        }
-        if (ledWindow != null) {
-            ledWindow.setDestroyed(true);
-        }
-        // DEZ window transitions to closing animation
-        if (dezWindow != null) {
-            dezWindow.setAnimId(1); // Window closing
-        }
+        if (targetingSensor != null) targetingSensor.setDestroyed(true);
+        if (ledWindow != null) ledWindow.setDestroyed(true);
+        if (dezWindow != null) dezWindow.setAnimId(1);
     }
 
     @Override
-    public int getPriorityBucket() {
-        return 4;
-    }
+    public int getPriorityBucket() { return 4; }
 
     // ========================================================================
     // Rendering
@@ -966,16 +817,10 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
+        if (renderManager == null) return;
         PatternSpriteRenderer renderer = renderManager.getRenderer(
                 Sonic2ObjectArtKeys.DEZ_SILVER_SONIC);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
-
+        if (renderer == null || !renderer.isReady()) return;
         renderer.drawFrameIndex(currentFrame, state.x, state.y, facingLeft, false);
     }
 
@@ -983,80 +828,42 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     // Accessors for tests
     // ========================================================================
 
-    public int getAttackIndex() {
-        return attackIndex;
-    }
-
-    public int getCurrentRoutine() {
-        return state.routine;
-    }
-
-    public boolean isBallForm() {
-        return ballForm;
-    }
-
-    public int getDefeatTimer() {
-        return defeatTimer;
-    }
-
-    public int getCurrentFrame() {
-        return currentFrame;
-    }
-
-    public boolean isDashDirectionToggle() {
-        return dashDirectionToggle;
-    }
-
-    public int getAttackSubRoutine() {
-        return attackSubRoutine;
-    }
+    public int getAttackIndex() { return attackIndex; }
+    public int getCurrentRoutine() { return state.routine; }
+    public boolean isBallForm() { return ballForm; }
+    public int getDefeatTimer() { return defeatTimer; }
+    public int getCurrentFrame() { return currentFrame; }
+    public boolean isDashDirectionToggle() { return dashDirectionToggle; }
+    public int getAttackSubRoutine() { return attackSubRoutine; }
 
     // ========================================================================
     // Child Objects
     // ========================================================================
 
-    /**
-     * DEZ Window child: Fixed at ($2C0, $139), shows Robotnik watching.
-     * ROM: objoff_3A, routine $1A/$1C/$1E/$20/$22
-     * Uses Ani_objAF_c animation script with 5 animations.
-     */
     static class MechaSonicDEZWindow extends AbstractBossChild {
         private static final int WINDOW_X = 0x2C0;
         private static final int WINDOW_Y = 0x139;
-
-        // Animation definitions from ROM Ani_objAF_c (byte_39E4C..byte_39E64)
-        // Each animation: {speed, frame0, frame1, ..., terminator}
-        // $FC = loop back to start, $FA = loop back 2 entries, $FF = hold last frame
         private static final int[][] WINDOW_ANIMS = {
-                {3, 4, 3, 2, 1, 0},  // Anim 0: window opening (hold at end)
-                {3, 0, 1, 2, 3, 4},  // Anim 1: window closing (loop)
-                {3, 5, 5},           // Anim 2: Robotnik watching (loop)
-                {3, 5, 6},           // Anim 3: Robotnik worried (loop)
-                {3, 7, 7},           // Anim 4: Robotnik panicked (loop)
-        };
-        // Terminator types per animation
-        private static final int[] WINDOW_ANIM_TERM = {
-                0xFF, // Anim 0: hold last frame
-                0xFC, // Anim 1: loop back to start (actually $FA = loop back 2, but same effect for small anims)
-                0xFF, // Anim 2: loop
-                0xFF, // Anim 3: loop
-                0xFF, // Anim 4: loop
+                {3, 4, 3, 2, 1, 0},
+                {3, 0, 1, 2, 3, 4},
+                {3, 5, 5},
+                {3, 5, 6},
+                {3, 7, 7},
         };
 
         private int animId;
-        private int animFrame;     // Index into WINDOW_ANIMS[animId]
+        private int animFrame;
         private int animTimer;
-        private int mappingFrame;  // Actual displayed mapping frame
+        private int mappingFrame;
 
         MechaSonicDEZWindow(Sonic2MechaSonicInstance parent) {
             super(parent, "DEZ Window", 6, Sonic2ObjectIds.MECHA_SONIC);
             this.currentX = WINDOW_X;
             this.currentY = WINDOW_Y;
-            // ROM: loc_39C12 - move.b #4,mapping_frame(a0) - start at frame 4 (closed window)
-            this.animId = 0; // Will start opening when fight begins
+            this.animId = 0;
             this.animFrame = 0;
             this.animTimer = 0;
-            this.mappingFrame = 4; // Initial: closed window
+            this.mappingFrame = 4;
         }
 
         void setAnimId(int newAnimId) {
@@ -1064,75 +871,51 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 animId = newAnimId;
                 animFrame = 0;
                 animTimer = 0;
-                mappingFrame = WINDOW_ANIMS[animId][0 + 1]; // Skip speed byte (index 1)
+                mappingFrame = WINDOW_ANIMS[animId][1];
             }
         }
 
         @Override
         public void update(int frameCounter, AbstractPlayableSprite player) {
-            if (!beginUpdate(frameCounter)) {
-                return;
-            }
-
-            // ROM: Ani_objAF_c animation system
+            if (!beginUpdate(frameCounter)) return;
             int[] anim = WINDOW_ANIMS[animId];
             int speed = anim[0];
-            int frameCount = anim.length - 1; // Subtract speed byte
-
+            int frameCount = anim.length - 1;
             animTimer++;
             if (animTimer > speed) {
                 animTimer = 0;
                 animFrame++;
                 if (animFrame >= frameCount) {
-                    // Loop or hold based on animation
                     if (animId == 0) {
-                        // Anim 0 (opening): hold last frame, then switch to anim 2 (watching)
                         animFrame = frameCount - 1;
                         setAnimId(2);
                         return;
                     } else {
-                        // All others loop
                         animFrame = 0;
                     }
                 }
-                mappingFrame = anim[animFrame + 1]; // +1 to skip speed byte
+                mappingFrame = anim[animFrame + 1];
             }
             updateDynamicSpawn();
         }
 
         @Override
         public void syncPositionWithParent() {
-            // Fixed position, does not follow parent
             this.currentX = WINDOW_X;
             this.currentY = WINDOW_Y;
         }
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            if (parent.isDestroyed()) {
-                return;
-            }
-            ObjectRenderManager renderManager =
-                    LevelManager.getInstance().getObjectRenderManager();
-            if (renderManager == null) {
-                return;
-            }
-            PatternSpriteRenderer renderer = renderManager.getRenderer(
-                    Sonic2ObjectArtKeys.DEZ_WINDOW);
-            if (renderer == null || !renderer.isReady()) {
-                return;
-            }
+            if (parent.isDestroyed()) return;
+            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            if (renderManager == null) return;
+            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_WINDOW);
+            if (renderer == null || !renderer.isReady()) return;
             renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
         }
     }
 
-    /**
-     * Targeting Sensor child: Toggles collision flags.
-     * ROM: objoff_3C, routines $14/$16/$18
-     * Follows parent at (+$C/-$C, -$C) offset.
-     * Routine $16: collision_flags = 0 (disabled)
-     * Routine $18: collision_flags = $98 (enabled, harmful)
-     */
     static class MechaSonicTargetingSensor extends AbstractBossChild {
         private static final int X_OFFSET_RIGHT = 0x0C;
         private static final int X_OFFSET_LEFT = -0x0C;
@@ -1141,39 +924,22 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
         MechaSonicTargetingSensor(Sonic2MechaSonicInstance parent) {
             super(parent, "Targeting Sensor", 4, Sonic2ObjectIds.MECHA_SONIC);
-            this.collisionEnabled = false; // ROM: starts at routine $14, collision = 0
+            this.collisionEnabled = false;
         }
 
-        void setCollisionEnabled(boolean enabled) {
-            this.collisionEnabled = enabled;
-        }
-
-        boolean isCollisionEnabled() {
-            return collisionEnabled;
-        }
-
-        /**
-         * Get collision flags for the targeting sensor.
-         * ROM: routine $16 -> collision_flags = 0 (disabled)
-         * ROM: routine $18 -> collision_flags = $98 (enabled, harmful)
-         */
-        public int getCollisionFlags() {
-            return collisionEnabled ? 0x98 : 0x00;
-        }
+        void setCollisionEnabled(boolean enabled) { this.collisionEnabled = enabled; }
+        boolean isCollisionEnabled() { return collisionEnabled; }
+        public int getCollisionFlags() { return collisionEnabled ? 0x98 : 0x00; }
 
         @Override
         public void update(int frameCounter, AbstractPlayableSprite player) {
-            if (!beginUpdate(frameCounter)) {
-                return;
-            }
+            if (!beginUpdate(frameCounter)) return;
             syncPositionWithParent();
             updateDynamicSpawn();
         }
 
         @Override
         public void syncPositionWithParent() {
-            // ROM: loc_39D4A - Obj_AlignChildXY with d0=$C, d1=-$C
-            // Targeting sensor follows parent at (+$C/-$C, -$C) offset
             if (parent != null && !parent.isDestroyed()) {
                 Sonic2MechaSonicInstance mechParent = (Sonic2MechaSonicInstance) parent;
                 int xOff = mechParent.facingLeft ? X_OFFSET_LEFT : X_OFFSET_RIGHT;
@@ -1183,25 +949,14 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void appendRenderCommands(List<GLCommand> commands) {
-            // Invisible object (no rendering)
-        }
+        public void appendRenderCommands(List<GLCommand> commands) {}
     }
 
-    /**
-     * LED Window child: Follows parent position directly (InheritParentXYFlip).
-     * ROM: objoff_3E, routine $10
-     * Uses off_39E30 animation script with 3 LED animations.
-     */
     static class MechaSonicLEDWindow extends AbstractBossChild {
-        // LED animation definitions from ROM off_39E30
-        // byte_39E36: anim 0 - speed 1, frames $B,$C loop (normal LED blink)
-        // byte_39E3A: anim 1 - speed 1, frames $D,$E loop (targeting active)
-        // byte_39E3E: anim 2 - speed 1, frames $9,$A loop (dash active)
         private static final int[][] LED_ANIMS = {
-                {1, 0x0B, 0x0C},  // Anim 0: normal LED blink
-                {1, 0x0D, 0x0E},  // Anim 1: targeting active
-                {1, 0x09, 0x0A},  // Anim 2: dash active
+                {1, 0x0B, 0x0C},
+                {1, 0x0D, 0x0E},
+                {1, 0x09, 0x0A},
         };
 
         private int animId;
@@ -1214,7 +969,6 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             this.animId = 0;
             this.animFrame = 0;
             this.animTimer = 0;
-            // ROM: loc_39BEA - move.b #$B,mapping_frame(a0)
             this.mappingFrame = 0x0B;
         }
 
@@ -1223,47 +977,38 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 animId = newAnimId;
                 animFrame = 0;
                 animTimer = 0;
-                mappingFrame = LED_ANIMS[animId][1]; // First frame (skip speed byte)
+                mappingFrame = LED_ANIMS[animId][1];
             }
         }
 
         @Override
         public void update(int frameCounter, AbstractPlayableSprite player) {
-            if (!beginUpdate(frameCounter)) {
-                return;
-            }
+            if (!beginUpdate(frameCounter)) return;
             syncPositionWithParent();
-
-            // ROM: off_39E30 animation system
             int[] anim = LED_ANIMS[animId];
             int speed = anim[0];
-            int frameCount = anim.length - 1; // Subtract speed byte
-
+            int frameCount = anim.length - 1;
             animTimer++;
             if (animTimer > speed) {
                 animTimer = 0;
                 animFrame = (animFrame + 1) % frameCount;
-                mappingFrame = anim[animFrame + 1]; // +1 to skip speed byte
+                mappingFrame = anim[animFrame + 1];
             }
-
-            // Update LED anim based on parent attack state
             Sonic2MechaSonicInstance mechParent = (Sonic2MechaSonicInstance) parent;
             if (mechParent.state.routine == ROUTINE_ATTACK) {
                 if (mechParent.ballForm) {
-                    setAnimId(2); // Dash active
+                    setAnimId(2);
                 } else {
-                    setAnimId(1); // Targeting active
+                    setAnimId(1);
                 }
             } else {
-                setAnimId(0); // Normal blink
+                setAnimId(0);
             }
-
             updateDynamicSpawn();
         }
 
         @Override
         public void syncPositionWithParent() {
-            // ROM: loc_39BCC - InheritParentXYFlip (copies parent position directly)
             if (parent != null && !parent.isDestroyed()) {
                 this.currentX = parent.getX();
                 this.currentY = parent.getY();
@@ -1272,34 +1017,19 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            if (parent.isDestroyed()) {
-                return;
-            }
-            ObjectRenderManager renderManager =
-                    LevelManager.getInstance().getObjectRenderManager();
-            if (renderManager == null) {
-                return;
-            }
+            if (parent.isDestroyed()) return;
+            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(
                     Sonic2ObjectArtKeys.DEZ_SILVER_SONIC);
-            if (renderer == null || !renderer.isReady()) {
-                return;
-            }
+            if (renderer == null || !renderer.isReady()) return;
             Sonic2MechaSonicInstance mechParent = (Sonic2MechaSonicInstance) parent;
-            renderer.drawFrameIndex(mappingFrame, currentX, currentY,
-                    mechParent.facingLeft, false);
+            renderer.drawFrameIndex(mappingFrame, currentX, currentY, mechParent.facingLeft, false);
         }
     }
 
-    /**
-     * Spikeball projectile fired by Mecha Sonic.
-     * Uses mapping frames $0F-$16 from the Silver Sonic sheet.
-     * Moves in a fixed direction with no gravity.
-     */
     static class MechaSonicSpikeball extends AbstractBossChild {
-        /** ROM: MarkObjGone uses $180 half-width for screen bounds check */
         private static final int SCREEN_BOUNDS_HALF_WIDTH = 0x180;
-
         private final int xVel;
         private final int yVel;
         private final int mappingFrame;
@@ -1321,18 +1051,12 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
         @Override
         public void update(int frameCounter, AbstractPlayableSprite player) {
-            if (!beginUpdate(frameCounter)) {
-                return;
-            }
-            // Move in fixed direction (whole pixel velocities)
+            if (!beginUpdate(frameCounter)) return;
             xFixed += (xVel << 8);
             yFixed += (yVel << 8);
             currentX = xFixed >> 16;
             currentY = yFixed >> 16;
             updateDynamicSpawn();
-
-            // ROM: loc_39CA0 uses MarkObjGone to delete when off-screen.
-            // MarkObjGone checks if abs(obj_x - camera_x - $A0) >= $180.
             Camera camera = Camera.getInstance();
             int screenRelX = currentX - camera.getX() - 0xA0;
             if (Math.abs(screenRelX) >= SCREEN_BOUNDS_HALF_WIDTH) {
@@ -1341,28 +1065,18 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void syncPositionWithParent() {
-            // Spikeballs move independently, don't follow parent
-        }
+        public void syncPositionWithParent() {}
 
         @Override
-        public boolean isDestroyed() {
-            // Don't inherit parent destruction - spikeballs persist after boss defeat
-            return super.isDestroyed();
-        }
+        public boolean isDestroyed() { return super.isDestroyed(); }
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager =
-                    LevelManager.getInstance().getObjectRenderManager();
-            if (renderManager == null) {
-                return;
-            }
+            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(
                     Sonic2ObjectArtKeys.DEZ_SILVER_SONIC);
-            if (renderer == null || !renderer.isReady()) {
-                return;
-            }
+            if (renderer == null || !renderer.isReady()) return;
             renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
         }
     }
