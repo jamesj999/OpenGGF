@@ -708,7 +708,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         }
         dashDirectionToggle = !dashDirectionToggle;
         state.xVel = xVel;
-        facingLeft = (xVel < 0);
+        // facingLeft is NOT set here — ROM only toggles it at end-of-dash (loc_39A7C)
     }
 
     private void applyDeceleration() {
