@@ -33,6 +33,9 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
     // S2 adjusts the angle by -1 for positive values before computing the slope frame
     // offset (subq.b #1,d0 at s2.asm:38080). S1 does not do this.
     private boolean anglePreAdjust;
+    // S2 Super Run uses compact slope layout (lsr.b #1,d0 = d0/2), while S3K Super Run
+    // uses standard run spacing (add.b d0,d0 = d0*2). ROM: s2.asm:38159 vs s3.asm:22323.
+    private boolean compactSuperRunSlope;
 
     public ScriptedVelocityAnimationProfile() {
     }
@@ -61,6 +64,7 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
     public ScriptedVelocityAnimationProfile setWalkSpeedThreshold(int walkSpeedThreshold) { this.walkSpeedThreshold = walkSpeedThreshold; return this; }
     public ScriptedVelocityAnimationProfile setFallbackFrame(int fallbackFrame) { this.fallbackFrame = fallbackFrame; return this; }
     public ScriptedVelocityAnimationProfile setAnglePreAdjust(boolean anglePreAdjust) { this.anglePreAdjust = anglePreAdjust; return this; }
+    public ScriptedVelocityAnimationProfile setCompactSuperRunSlope(boolean compactSuperRunSlope) { this.compactSuperRunSlope = compactSuperRunSlope; return this; }
 
     @Override
     public Integer resolveAnimationId(AbstractPlayableSprite sprite, int frameCounter, int scriptCount) {
@@ -242,6 +246,10 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         return anglePreAdjust;
     }
 
+    public boolean isCompactSuperRunSlope() {
+        return compactSuperRunSlope;
+    }
+
     public ScriptedVelocityAnimationProfile withRunSpeedThreshold(int newThreshold) {
         ScriptedVelocityAnimationProfile copy = new ScriptedVelocityAnimationProfile();
         copy.idleAnimId = this.idleAnimId;
@@ -268,6 +276,7 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         copy.runSpeedThreshold = newThreshold;
         copy.fallbackFrame = this.fallbackFrame;
         copy.anglePreAdjust = this.anglePreAdjust;
+        copy.compactSuperRunSlope = this.compactSuperRunSlope;
         return copy;
     }
 }
