@@ -98,11 +98,12 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     /** HP = 12 (final boss, NOT the usual 8) */
     private static final int DEATH_EGG_ROBOT_HP = 12;
 
-    /** Per-child collision flags from ObjC7_ChildCollision (s2.asm:83296-83306) */
+    /** Per-child collision flags from ObjC7_ChildCollision (s2.asm:83296-83306)
+     *  Order matches ROM spawn order at loc_3D52A: Shoulder, FrontForearm, FrontLowerLeg, ... */
     static final int[] CHILD_COLLISION = {
             0x00,  // Shoulder
-            0x8F,  // FrontLowerLeg
             0x9C,  // FrontForearm
+            0x8F,  // FrontLowerLeg
             0x00,  // UpperArm
             0x86,  // FrontThigh
             0x2A,  // Head (hittable!)
@@ -427,7 +428,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         attackIndex = 0;
         currentAttack = 0;
         attackPhase = 0;
-        facingLeft = true; // ROM: Egg Robo faces left toward the approaching player
+        facingLeft = false; // ROM: x_flip = 0 (ObjC7_SubObjData render_flags bit 0 clear), art naturally faces LEFT
         defeatPhase = 0;
         targetedPlayerX = 0;
         frontPunchTriggered = false;
@@ -465,8 +466,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         backThigh = new ArticulatedChild(this, "BackThigh", 5, FRAME_THIGH);
 
         childComponents.add(shoulder);
-        childComponents.add(frontLowerLeg);
         childComponents.add(frontForearm);
+        childComponents.add(frontLowerLeg);
         childComponents.add(upperArm);
         childComponents.add(frontThigh);
         childComponents.add(head);

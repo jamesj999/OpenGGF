@@ -91,10 +91,14 @@ public class TestDEZDeathEggRobot {
     }
 
     @Test
-    public void testInitialFacingIsLeft() {
-        // ROM: Egg Robo faces left toward the player who enters from the left.
-        // facingLeft=false causes forearm punches to go right (away from player).
-        assertTrue("Egg Robo should initially face left toward the player", boss.isFacingLeft());
+    public void testInitialFacingMatchesRom() {
+        // ROM: ObjC7_SubObjData render_flags = 1<<render_flags.level_fg = 0x04
+        // Bit 0 (x_flip) is clear, so x_flip = 0. The art naturally faces LEFT.
+        // facingLeft is passed as hFlip to the renderer:
+        //   facingLeft = false -> hFlip = false -> art not flipped -> faces LEFT (correct)
+        //   facingLeft = true  -> hFlip = true  -> art flipped   -> faces RIGHT (wrong)
+        assertFalse("facingLeft should be false (ROM x_flip=0, art naturally faces left)",
+                boss.isFacingLeft());
     }
 
     // ========================================================================
@@ -229,6 +233,33 @@ public class TestDEZDeathEggRobot {
         for (BossChildComponent child : boss.getChildComponents()) {
             assertNotNull("Every child component should be non-null", child);
         }
+    }
+
+    @Test
+    public void childSpawnOrderMatchesRom() throws Exception {
+        // ROM: loc_3D52A spawns children in this order:
+        // 1. Shoulder, 2. FrontForearm, 3. FrontLowerLeg, 4. UpperArm,
+        // 5. FrontThigh, 6. Head, 7. Jet, 8. BackLowerLeg, 9. BackForearm, 10. BackThigh
+        java.lang.reflect.Field childField =
+                com.openggf.level.objects.boss.AbstractBossInstance.class.getDeclaredField("childComponents");
+        childField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.List<BossChildComponent> children =
+                (java.util.List<BossChildComponent>) childField.get(boss);
+
+        assertEquals("Should have 10 children", 10, children.size());
+
+        // Verify FrontForearm (index 1) comes before FrontLowerLeg (index 2)
+        // by checking their class names via the name field on AbstractObjectInstance
+        java.lang.reflect.Method getName =
+                com.openggf.level.objects.AbstractObjectInstance.class.getMethod("getName");
+
+        String child1Name = (String) getName.invoke(children.get(1));
+        String child2Name = (String) getName.invoke(children.get(2));
+        assertEquals("Child index 1 should be FrontForearm (ROM spawn order)",
+                "FrontForearm", child1Name);
+        assertEquals("Child index 2 should be FrontLowerLeg (ROM spawn order)",
+                "FrontLowerLeg", child2Name);
     }
 
     // ========================================================================
