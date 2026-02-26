@@ -44,9 +44,9 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
     // POSITION & VELOCITY CONSTANTS (from ROM)
     // ========================================================================
 
-    /** ROM: move.w #$3F8,x_pos(a1) */
+    /** ROM: move.w #$3F8,x_pos(a1) — child (solid wall) spawn X; Eggman inherits from layout */
     private static final int SPAWN_X = 0x3F8;
-    /** ROM: move.w #$160,y_pos(a1) */
+    /** ROM: move.w #$160,y_pos(a1) — child (solid wall) spawn Y; Eggman inherits from layout */
     private static final int SPAWN_Y = 0x160;
 
     /** ROM: addi.w #$5C,d2 / cmpi.w #$B8,d2 — proximity check radius */
@@ -120,7 +120,7 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
      * @param spawnY initial Y position (ROM: $160)
      */
     public Sonic2DEZEggmanInstance(int spawnX, int spawnY) {
-        super(new ObjectSpawn(spawnX, spawnY, 0xC6, 0xA4, 0, false, 0), "DEZ Eggman");
+        super(new ObjectSpawn(spawnX, spawnY, 0xC6, 0xA6, 0, false, 0), "DEZ Eggman");
         this.currentX = spawnX;
         this.currentY = spawnY;
         this.xFixed = spawnX << 16;
@@ -217,7 +217,7 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
      */
     private void updatePause() {
         timer--;
-        if (timer <= 0) {
+        if (timer < 0) {
             routineSecondary = STATE_RUN;
             xVel = RUN_VELOCITY;
             currentFrame = RUNNING_FRAMES[0];
@@ -237,16 +237,20 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
      */
     private void updateRun(AbstractPlayableSprite player) {
         // ROM: cmpi.w #$810,x_pos(a0) — check jump threshold
-        // ROM: btst #render_flags.on_screen,render_flags(a0) — only advance when on-screen
-        if (currentX >= JUMP_THRESHOLD_X && isOnScreen()) {
-            // Reached cockpit area — start jump
-            routineSecondary = STATE_JUMP;
+        if (currentX >= JUMP_THRESHOLD_X) {
+            // ROM: Always set jump frame and clear running velocity when threshold reached
             currentFrame = FRAME_JUMP;
-            xVel = JUMP_X_VEL;
-            yVel = JUMP_Y_VEL;
-            timer = JUMP_TIMER;
-            // ROM: bset #status.npc.p1_standing,status(a0) — signal boarding NOW
-            signalBoarding();
+            xVel = 0;
+
+            // ROM: btst #render_flags.on_screen,render_flags(a0) — only transition when on-screen
+            if (isOnScreenX()) {
+                routineSecondary = STATE_JUMP;
+                xVel = JUMP_X_VEL;
+                yVel = JUMP_Y_VEL;
+                timer = JUMP_TIMER;
+                // ROM: bset #status.npc.p1_standing,status(a0) — signal boarding NOW
+                signalBoarding();
+            }
             return;
         }
 
@@ -285,7 +289,7 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
      */
     private void updateJump() {
         timer--;
-        if (timer <= 0) {
+        if (timer < 0) {
             setDestroyed(true);
             return;
         }

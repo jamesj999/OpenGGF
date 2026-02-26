@@ -264,10 +264,9 @@ public class TestDEZMechaSonic {
     @Test
     public void attackTableFirstEntryIsAimAndDash() {
         // ROM: byte_398B0 first entry is 6 (ATTACK_AIM_AND_DASH)
-        assertEquals("First attack should be AIM_AND_DASH (0x06)",
-                0x06, boss.getAttackSubRoutine() == 0 ? 0x06 : boss.getAttackSubRoutine());
-        // Verify attack index 0 references table entry 0 which is 0x06
-        // This is implicitly tested by the fact that the attack table constant matches ROM
+        // ROM: byte_398B0 first entry is 6 — attack subroutine starts at 0 before first selection
+        assertEquals("Attack sub-routine should start at 0 before first attack selection",
+                0, boss.getAttackSubRoutine());
     }
 
     @Test
