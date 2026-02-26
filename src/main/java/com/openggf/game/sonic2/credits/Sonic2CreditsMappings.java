@@ -14,9 +14,10 @@ import java.util.List;
  * (Nemesis art at {@code ArtNem_CreditText}).
  * <p>
  * The S2 credit font uses a <b>2-wide character encoding</b> where each character
- * is 2 tiles wide x 2 tiles tall (16x16 px). The font's tile layout uses TWO charset
- * tables ({@code charset2}): each character maps to two tile indices (left column,
- * right column), and each column is 1 tile wide x 2 tiles tall.
+ * is 2 tiles wide x 2 tiles tall (16x16 px). The font's tile layout uses two charset
+ * tables ({@code charset '@'} for left-column tiles, {@code charset 'a'} for right-column
+ * tiles): each character maps to two tile indices (left column, right column), and
+ * each column is 1 tile wide x 2 tiles tall.
  * <p>
  * Frame assignments correspond to the 21 credit screens (0-20).
  */
@@ -30,47 +31,43 @@ public final class Sonic2CreditsMappings {
     private static final int CENTER_Y = 112;
 
     /**
-     * Character-to-tile mapping for the S2 credit text font ({@code charset2}).
+     * Character-to-tile mapping for the S2 credit text font ({@code charset '@'}).
      * Each entry is {@code {leftTile, rightTile}} where each tile is 1 wide x 2 tall.
      * <p>
-     * From s2.asm:
+     * From s2.asm (charset '@' and charset 'a', lines 14487-14488):
      * <pre>
-     * charset2 '`',"\x15\x17\x19\x1B\x1D\x1F\x21\x23\x25\x27\x29\x2B\x2D\x2F\x31\x33\x35\x37\x39\x3B\x3D\x3F\x41\x43\x45\x47"
-     * charset2 'a',"\3\5\7\9\xB\xD\xF\x11\x12\x14\x16\x18\x1A\x1C\x1E\x20\x22\x24\x26\x28\x2A\x2C\x2E\x30\x32\x34"
+     * charset '@',"\x3B\2\4\6\8\xA\xC\xE\x10\x12\x13\x15\x17\x19\x1B\x1D\x1F\x21\x23\x25\x27\x29\x2B\x2D\x2F\x31\x33"
+     * charset 'a',"\3\5\7\9\xB\xD\xF\x11\x12\x14\x16\x18\x1A\x1C\x1E\x20\x22\x24\x26\x28\x2A\x2C\x2E\x30\x32\x34"
      * </pre>
+     * The {@code charset '@'} table positions 1-26 (A-Z) provide the left-column tile
+     * indices. The {@code charset 'a'} table provides the right-column tile indices.
      */
     private static final int[][] CHAR_TILES;
 
     static {
-        // 26 letters A-Z, plus digits and special chars
-        // Index 0-25 = A-Z
         CHAR_TILES = new int[128][];
-        // A-Z: left column from charset2 '`' (backtick=A), right column from charset2 'a'
-        int[] leftTiles =  {0x15,0x17,0x19,0x1B,0x1D,0x1F,0x21,0x23,0x25,0x27,0x29,0x2B,0x2D,0x2F,0x31,0x33,0x35,0x37,0x39,0x3B,0x3D,0x3F,0x41,0x43,0x45,0x47};
+
+        // A-Z: 2-wide characters (left column from charset '@' positions 1-26,
+        //       right column from charset 'a' positions 0-25)
+        int[] leftTiles =  {0x02,0x04,0x06,0x08,0x0A,0x0C,0x0E,0x10,0x12,0x13,0x15,0x17,0x19,0x1B,0x1D,0x1F,0x21,0x23,0x25,0x27,0x29,0x2B,0x2D,0x2F,0x31,0x33};
         int[] rightTiles = {0x03,0x05,0x07,0x09,0x0B,0x0D,0x0F,0x11,0x12,0x14,0x16,0x18,0x1A,0x1C,0x1E,0x20,0x22,0x24,0x26,0x28,0x2A,0x2C,0x2E,0x30,0x32,0x34};
         for (int i = 0; i < 26; i++) {
             CHAR_TILES['A' + i] = new int[]{leftTiles[i], rightTiles[i]};
         }
-        // Digits 0-9 from charset2 '0'-'9'
-        CHAR_TILES['0'] = new int[]{0x02, 0x03};
-        CHAR_TILES['1'] = new int[]{0x04, 0x05};
-        CHAR_TILES['2'] = new int[]{0x06, 0x07};
-        CHAR_TILES['3'] = new int[]{0x08, 0x09};
-        CHAR_TILES['4'] = new int[]{0x0A, 0x0B};
-        CHAR_TILES['5'] = new int[]{0x0C, 0x0D};
-        CHAR_TILES['6'] = new int[]{0x0E, 0x0F};
-        CHAR_TILES['7'] = new int[]{0x10, 0x11};
-        CHAR_TILES['8'] = new int[]{0x12, 0x13};
-        CHAR_TILES['9'] = new int[]{0x14, 0x15};
-        // Period (used in "S.O", "N.GEE")
-        CHAR_TILES['.'] = new int[]{0x3A, 0x34};
-        // Copyright symbol '@' (used in "(@1992" as copyright C)
-        CHAR_TILES['@'] = new int[]{0x3A, 0x34};
-        // Parentheses
-        CHAR_TILES['('] = new int[]{0x36, 0x34};
-        CHAR_TILES[')'] = new int[]{0x38, 0x34};
-        // Apostrophe (single tick)
-        CHAR_TILES['\''] = new int[]{0x38, 0x34};
+        // Override I: 1-wide in ROM (creditText macro emits only 1 byte for 'I')
+        CHAR_TILES['I'] = new int[]{0x12};
+
+        // Digits used in credit text: 1, 2, 9 (from "( @1992" and "2")
+        // 2-wide: charset '1'/'9' for left tile, macro emits '!'/'$'/'#' for right tile
+        CHAR_TILES['1'] = new int[]{0x3C, 0x3D}; // charset '1' pos 0, charset '!' pos 0
+        CHAR_TILES['2'] = new int[]{0x35, 0x36}; // charset '1' pos 1, charset '!' pos 3
+        CHAR_TILES['9'] = new int[]{0x3E, 0x3F}; // charset '9' pos 0, charset '!' pos 2
+
+        // 1-wide special characters (creditText macro emits only 1 byte, no right tile)
+        CHAR_TILES['.'] = new int[]{0x3A};  // charset '.'
+        CHAR_TILES['@'] = new int[]{0x3B};  // charset '@' pos 0 (copyright symbol)
+        CHAR_TILES['('] = new int[]{0x28};  // ASCII default (not remapped by charset)
+        CHAR_TILES[')'] = new int[]{0x29};  // ASCII default (not remapped by charset)
     }
 
     /**
@@ -283,8 +280,12 @@ public final class Sonic2CreditsMappings {
     /**
      * Converts a text string at a given (col, line, palette) into SpriteMappingPieces.
      * <p>
-     * Each character produces TWO pieces (left column 1x2, right column 1x2).
-     * Spaces advance by 16 px (2 columns) without producing pieces.
+     * Character widths match the ROM's creditText macro byte encoding:
+     * <ul>
+     *   <li>2-wide characters (most letters, digits): left + right column pieces, advance 16px</li>
+     *   <li>1-wide characters (I, @, ., (, )): single column piece, advance 8px</li>
+     *   <li>Space: advance 8px (ROM encodes space as single byte 0x00)</li>
+     * </ul>
      * Positions are stored as offsets from screen center (160, 112) since
      * {@link com.openggf.level.render.PatternSpriteRenderer#drawFrameIndex} adds an origin.
      *
@@ -303,17 +304,21 @@ public final class Sonic2CreditsMappings {
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             if (c == ' ') {
-                x += 16; // space = one character width (2 tiles)
+                x += 8; // space = 1 VDP column (8px), matching ROM byte 0x00
                 continue;
             }
             int[] tiles = charToTiles(c);
             if (tiles != null) {
                 // Left column: 1 tile wide x 2 tiles tall
                 pieces.add(piece(x, baseY, 1, 2, tiles[0], false, false, palette, false));
-                // Right column: 1 tile wide x 2 tiles tall, offset 8px right
-                pieces.add(piece(x + 8, baseY, 1, 2, tiles[1], false, false, palette, false));
+                if (tiles.length > 1) {
+                    // Right column: 1 tile wide x 2 tiles tall, offset 8px right
+                    pieces.add(piece(x + 8, baseY, 1, 2, tiles[1], false, false, palette, false));
+                    x += 16; // 2-wide character
+                } else {
+                    x += 8; // 1-wide character
+                }
             }
-            x += 16; // each character is 16px (2 tiles) wide
         }
     }
 
