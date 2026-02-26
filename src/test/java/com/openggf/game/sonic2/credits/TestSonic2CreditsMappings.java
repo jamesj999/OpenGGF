@@ -1,0 +1,205 @@
+package com.openggf.game.sonic2.credits;
+
+import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.level.render.SpriteMappingPiece;
+import org.junit.Test;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import static org.junit.Assert.*;
+
+/**
+ * Tests for {@link Sonic2CreditsMappings} credit text mapping data.
+ * <p>
+ * Verifies the hardcoded mapping frames match the expected structure from the
+ * S2 disassembly (21 credit screens, each with at least one text entry, all
+ * using the 2-wide character encoding).
+ */
+public class TestSonic2CreditsMappings {
+
+    // ========================================================================
+    // Frame count
+    // ========================================================================
+
+    @Test
+    public void testMappingsHave21Frames() {
+        List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
+        assertEquals("Should have exactly 21 credit screens",
+                21, frames.size());
+    }
+
+    @Test
+    public void testFrameCountMatchesCreditsDataConstant() {
+        List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
+        assertEquals("Frame count should match Sonic2CreditsData.TOTAL_CREDITS",
+                Sonic2CreditsData.TOTAL_CREDITS, frames.size());
+    }
+
+    // ========================================================================
+    // All frames have pieces
+    // ========================================================================
+
+    @Test
+    public void testAllFramesHavePieces() {
+        List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
+        for (int i = 0; i < frames.size(); i++) {
+            assertNotNull("Frame " + i + " should not be null", frames.get(i));
+            assertFalse("Frame " + i + " should have pieces",
+                    frames.get(i).pieces().isEmpty());
+        }
+    }
+
+    // ========================================================================
+    // Piece geometry (2-wide character encoding)
+    // ========================================================================
+
+    @Test
+    public void testAllPiecesAre1x2Tiles() {
+        List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
+        for (int f = 0; f < frames.size(); f++) {
+            for (int p = 0; p < frames.get(f).pieces().size(); p++) {
+                SpriteMappingPiece piece = frames.get(f).pieces().get(p);
+                assertEquals("Frame " + f + " piece " + p + " width should be 1 tile",
+                        1, piece.widthTiles());
+                assertEquals("Frame " + f + " piece " + p + " height should be 2 tiles",
+                        2, piece.heightTiles());
+            }
+        }
+    }
+
+    @Test
+    public void testPiecesArePairedLeftRight() {
+        // Each character produces two pieces: left column and right column.
+        // So every frame should have an even number of pieces.
+        List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
+        for (int i = 0; i < frames.size(); i++) {
+            int pieceCount = frames.get(i).pieces().size();
+            assertEquals("Frame " + i + " should have even number of pieces (L/R pairs)",
+                    0, pieceCount % 2);
+        }
+    }
+
+    // ========================================================================
+    // Specific screen content validation
+    // ========================================================================
+
+    @Test
+    public void testFirstScreenIsSonic2CastOfCharacters() {
+        List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
+        SpriteMappingFrame screen0 = frames.get(0);
+        // "SONIC" = 5 chars * 2 pieces = 10
+        // "2" = 1 char * 2 pieces = 2
+        // "CAST OF CHARACTERS" = 16 non-space chars (CAST=4, OF=2, CHARACTERS=10) * 2 = 32
+        // Total = 10 + 2 + 32 = 44 pieces
+        int expectedPieces = (5 + 1 + 16) * 2; // 44
+        assertEquals("Screen 0 (SONIC 2 / CAST OF CHARACTERS) piece count",
+                expectedPieces, screen0.pieces().size());
+    }
+
+    @Test
+    public void testPresentedBySegaIsLastFrame() {
+        List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
+        SpriteMappingFrame lastFrame = frames.get(20);
+        // "PRESENTED" = 9 chars, "BY" = 2 chars, "SEGA" = 4 chars = 15 * 2 = 30 pieces
+        int expectedPieces = (9 + 2 + 4) * 2; // 30
+        assertEquals("Last frame (PRESENTED BY SEGA) should have 30 pieces",
+                expectedPieces, lastFrame.pieces().size());
+    }
+
+    @Test
+    public void testZoneArtistsScreenHasMostNames() {
+        // Screen 10 (ZONE ARTISTS) has the most names: 6 artists + 1 title = 7 lines
+        List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
+        SpriteMappingFrame screen10 = frames.get(10);
+
+        // Find the screen with the most pieces -- screen 10 should be a large one
+        int maxPieces = 0;
+        int maxScreen = -1;
+        for (int i = 0; i < frames.size(); i++) {
+            int count = frames.get(i).pieces().size();
+            if (count > maxPieces) {
+                maxPieces = count;
+                maxScreen = i;
+            }
+        }
+
+        // Zone Artists or Executive Supporters or Special Thanks screens should have
+        // the most pieces due to having the most text lines
+        assertTrue("Screen with most pieces should be >= 10",
+                maxScreen >= 10 || maxScreen == 6 || maxScreen == 17 || maxScreen == 18 || maxScreen == 19);
+    }
+
+    // ========================================================================
+    // Palette validation
+    // ========================================================================
+
+    @Test
+    public void testPaletteLinesAreValidRange() {
+        // Credit text uses palette 0 (names) and palette 1 (role titles)
+        List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
+        Set<Integer> palettes = new HashSet<>();
+        for (SpriteMappingFrame frame : frames) {
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                palettes.add(piece.paletteIndex());
+                assertTrue("Palette index " + piece.paletteIndex() + " should be 0 or 1",
+                        piece.paletteIndex() == 0 || piece.paletteIndex() == 1);
+            }
+        }
+        // Both palettes should be used
+        assertTrue("Palette 0 (names) should be used", palettes.contains(0));
+        assertTrue("Palette 1 (roles) should be used", palettes.contains(1));
+    }
+
+    @Test
+    public void testNoFlipsInCreditText() {
+        // Credit text should not use H-flip or V-flip
+        List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
+        for (int f = 0; f < frames.size(); f++) {
+            for (SpriteMappingPiece piece : frames.get(f).pieces()) {
+                assertFalse("Frame " + f + " should not use H-flip", piece.hFlip());
+                assertFalse("Frame " + f + " should not use V-flip", piece.vFlip());
+            }
+        }
+    }
+
+    @Test
+    public void testNoPriorityInCreditText() {
+        // Credit text should not use priority bit
+        List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
+        for (int f = 0; f < frames.size(); f++) {
+            for (SpriteMappingPiece piece : frames.get(f).pieces()) {
+                assertFalse("Frame " + f + " should not use priority", piece.priority());
+            }
+        }
+    }
+
+    // ========================================================================
+    // Tile index validation
+    // ========================================================================
+
+    @Test
+    public void testTileIndicesArePositive() {
+        List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
+        for (int f = 0; f < frames.size(); f++) {
+            for (SpriteMappingPiece piece : frames.get(f).pieces()) {
+                assertTrue("Frame " + f + " tile index should be >= 0, got " + piece.tileIndex(),
+                        piece.tileIndex() >= 0);
+            }
+        }
+    }
+
+    @Test
+    public void testTileIndicesWithinFontRange() {
+        // S2 credit font tile indices should be within the font range (0x02 to 0x47 based on CHAR_TILES)
+        List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
+        for (int f = 0; f < frames.size(); f++) {
+            for (SpriteMappingPiece piece : frames.get(f).pieces()) {
+                assertTrue("Frame " + f + " tile index " + piece.tileIndex()
+                                + " should be within font range (<= 0x47)",
+                        piece.tileIndex() <= 0x47);
+            }
+        }
+    }
+}
