@@ -1230,6 +1230,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/** Airborne landing check */
 	private void doTerrainCollisionAir(SensorResult[] results) {
+		// ROM: Sonic_HitFloor (s2.asm:37641-37643) - skip floor check entirely
+		// when moving upward. tst.w y_vel(a0) / bmi.s return_1AFE6
+		// Same in S1: 01 Sonic.asm Sonic_Floor loc_136B4
+		if (sprite.getYSpeed() < 0) {
+			return;
+		}
+
 		SensorResult lowestResult = findLowestSensorResult(results);
 		if (lowestResult == null || lowestResult.distance() >= 0) {
 			return;
