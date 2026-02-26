@@ -93,8 +93,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     /** ROM: move.b #$16,collision_flags(a0) - body collision (hurts player) */
     static final int COLLISION_BODY = 0x16;
-    /** ROM: move.b #$2A,collision_flags(a1) - head collision (hittable!) */
-    static final int COLLISION_HEAD = 0xC0 | 0x2A; // 0xEA — BOSS category for proper bounce
+    /** ROM: move.b #$2A,collision_flags(a1) - head collision (hittable via Touch_Enemy routing) */
+    static final int COLLISION_HEAD = 0x2A;
     /** HP = 12 (final boss, NOT the usual 8) */
     private static final int DEATH_EGG_ROBOT_HP = 12;
 
@@ -162,9 +162,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private static final int FRAME_JET_OFF = 0x0C;
     private static final int FRAME_JET_ON = 0x0D;
     private static final int FRAME_BOMB = 0x0E;
-    private static final int FRAME_SENSOR = 0x10;
-    private static final int FRAME_LOCK = 0x14;
-    private static final int FRAME_HEAD_CLOSED = 0x15;
 
     // ========================================================================
     // CHILD POSITION DELTAS (from ObjC7_ChildDeltas, s2.asm:83536-83544)
@@ -331,16 +328,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         { -108/*rev8*/, -107/*rev7*/, -106/*rev6*/, -105/*rev5*/, 11, -1/*sound*/ },
     };
 
-    // Keyframe table reference per script
-    private static final int[][] SCRIPT_KEYFRAME_TABLE_REF = {
-        null, // 0: HALF_STEP_KEYFRAMES
-        null, // 1: HALF_STEP_KEYFRAMES
-        null, // 2: HALF_STEP_KEYFRAMES
-        null, // 3: CROUCH_KEYFRAMES
-        null, // 4: WALK_CYCLE_KEYFRAMES
-        null, // 5: WALK_CYCLE_KEYFRAMES
-    };
-
     /** Get the keyframe table for a script */
     private static int[][] getKeyframeTable(int scriptId) {
         return switch (scriptId) {
@@ -481,14 +468,15 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         upperArm = new ArticulatedChild(this, "UpperArm", 4, FRAME_ARM, 4);
         frontThigh = new ArticulatedChild(this, "FrontThigh", 4, FRAME_THIGH, 4);
 
-        // Head: priority 3 (most prominent, in front of all)
-        head = new HeadChild(this, 3);
+        // Head: priority 4 (same as front parts, ROM: subObjData inherited)
+        head = new HeadChild(this, 4);
 
-        // Jet and back parts: priority 6 (behind body at priority 5)
-        jet = new JetChild(this, 6);
-        backLowerLeg = new ArticulatedChild(this, "BackLowerLeg", 6, FRAME_LOWER_LEG, 6);
-        backForearm = new ForearmChild(this, "BackForearm", 6, false);
-        backThigh = new ArticulatedChild(this, "BackThigh", 6, FRAME_THIGH, 6);
+        // Jet: priority 4 (same as front parts, ROM: subObjData inherited)
+        jet = new JetChild(this, 4);
+        // Back parts: priority 5 (behind body, ROM: move.b #5,priority(a1))
+        backLowerLeg = new ArticulatedChild(this, "BackLowerLeg", 5, FRAME_LOWER_LEG, 6);
+        backForearm = new ForearmChild(this, "BackForearm", 5, false);
+        backThigh = new ArticulatedChild(this, "BackThigh", 5, FRAME_THIGH, 6);
 
         childComponents.add(shoulder);
         childComponents.add(frontLowerLeg);
@@ -561,7 +549,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     @Override
     protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
         switch (bodyRoutine) {
-            case BODY_INIT -> updateInit();
             case BODY_WAIT_EGGMAN -> updateWaitEggman();
             case BODY_COUNTDOWN -> updateCountdown();
             case BODY_RISE -> updateRise(frameCounter);
@@ -575,11 +562,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     // ========================================================================
     // BODY STATE IMPLEMENTATIONS
     // ========================================================================
-
-    /** State 0: Init - already handled in initializeBossState */
-    private void updateInit() {
-        // No-op, handled by initializeBossState
-    }
 
     /** State 2: WaitEggman - wait for head to signal Eggman has boarded */
     private void updateWaitEggman() {
@@ -939,6 +921,13 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
     }
 
+    /** Called by HeadChild when glow intro completes — body can start fight */
+    void onHeadReady() {
+        if (bodyRoutine == BODY_COUNTDOWN) {
+            // Head is ready; body will transition when its own countdown completes
+        }
+    }
+
     void onHeadHit() {
         if (state.invulnerable || state.defeated) {
             return;
@@ -957,7 +946,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private void triggerDefeatSequence() {
         if (state.defeated) return;
         state.defeated = true;
-        GameServices.gameState().addScore(1000);
+        GameServices.gameState().addScore(100);
         bodyRoutine = BODY_DEFEAT;
         defeatPhase = 0;
         animPhase = 0;
@@ -1244,9 +1233,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         BombChild bomb1 = new BombChild(this, spawnX, spawnY, 0x60 * xSign, -0x800);
         childComponents.add(bomb1);
+        levelManager.getObjectManager().addDynamicObject(bomb1);
 
         BombChild bomb2 = new BombChild(this, spawnX, spawnY, 0xC0 * xSign, -0xA00);
         childComponents.add(bomb2);
+        levelManager.getObjectManager().addDynamicObject(bomb2);
     }
 
     /** Spawn the targeting sensor child */
@@ -1527,7 +1518,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         private boolean eggmanBoarded;
         private int glowIndex;     // Current index in HEAD_GLOW_FRAMES
         private int glowTimer;     // Frame counter for glow animation speed
-        private boolean glowPlayedOnce;
 
         HeadChild(Sonic2DeathEggRobotInstance parent, int priority) {
             super(parent, "Head", priority, Sonic2ObjectIds.DEATH_EGG_ROBOT);
@@ -1536,7 +1526,6 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             this.eggmanBoarded = false;
             this.glowIndex = 0;
             this.glowTimer = 0;
-            this.glowPlayedOnce = false;
         }
 
         /**
@@ -1580,30 +1569,40 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             if (!beginUpdate(frameCounter)) return;
 
             switch (headRoutine) {
-                case 4 -> { // AnimateSprite with Ani_objC7_a
+                case 4 -> {
+                    // ROM: AnimateSprite with Ani_objC7_a — glow loop
                     stepGlow();
+                    // After initial glow period, advance to active fight
+                    waitTimer--;
+                    if (waitTimer < 0) {
+                        headRoutine = 6;
+                        waitTimer = 0x40; // ROM: move.w #$40,objoff_2A(a0)
+                        Sonic2DeathEggRobotInstance boss = (Sonic2DeathEggRobotInstance) parent;
+                        boss.onHeadReady();
+                    }
                 }
-                case 6 -> { // Active during fight
+                case 6 -> {
+                    // ROM: Active during fight — animate glow, enable collision
                     stepGlow();
+                    collisionFlags = COLLISION_HEAD;
                 }
-                case 8 -> { // Defeated
+                case 8 -> {
+                    // ROM: Defeated — disable collision
                     collisionFlags = 0;
                 }
             }
             updateDynamicSpawn();
         }
 
-        /** ROM-accurate head glow: speed 7, $15×8, 0, 1, 2 - plays once then holds last frame */
+        /** ROM-accurate head glow: speed 7, $15×8, 0, 1, 2, $FA (loop via advance routine) */
         private void stepGlow() {
-            if (glowPlayedOnce) return; // Hold on last frame after first play
             glowTimer++;
             if (glowTimer > HEAD_GLOW_SPEED) { // > 7 means every 8th frame
                 glowTimer = 0;
                 glowIndex++;
                 if (glowIndex >= HEAD_GLOW_FRAMES.length) {
-                    // Play once and hold on last frame (frame 2)
-                    glowIndex = HEAD_GLOW_FRAMES.length - 1;
-                    glowPlayedOnce = true;
+                    // ROM: $FA terminator loops animation back to start
+                    glowIndex = 0;
                 }
             }
         }

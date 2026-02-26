@@ -139,14 +139,7 @@ public class TestDEZDeathEggRobot {
     @Test
     public void attackPatternCyclesModulo4() {
         // ROM: addq.b #1,angle(a0) / andi.b #3,angle(a0)
-        // Verify modulo-4 wrapping: (n & 3) cycles 0,1,2,3 for any positive n.
-        // This ensures the attack index always stays within ATTACK_PATTERN bounds.
-        for (int step = 0; step < 12; step++) {
-            int index = step & 3;
-            assertTrue("Index " + index + " must be in range [0,3]",
-                    index >= 0 && index < 4);
-        }
-        // Attack index starts at 0, currentAttack not yet resolved (requires SelectAttack)
+        // Verify the engine's attack index starts at 0 and would cycle mod 4
         assertEquals("Attack index should start at 0", 0, boss.getAttackIndex());
     }
 
@@ -292,10 +285,11 @@ public class TestDEZDeathEggRobot {
 
     @Test
     public void defeatBodyRoutineIs0x0E() {
-        // ROM: BODY_DEFEAT = 0x0E (s2.asm). Verify the constant via the initial
-        // bodyRoutine being distinct from it, confirming defeat is a different state.
+        // ROM: BODY_DEFEAT = 0x0E (s2.asm). Verify initial state is not defeat.
         assertFalse("Body routine should NOT be 0x0E initially (that's defeat)",
                 boss.getBodyRoutine() == 0x0E);
+        // Positive: initial body routine should be WAIT_EGGMAN (0x02)
+        assertEquals("Initial body routine should be 0x02", 0x02, boss.getBodyRoutine());
     }
 
     // ========================================================================
