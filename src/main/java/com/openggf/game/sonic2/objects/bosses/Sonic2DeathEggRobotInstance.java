@@ -1203,10 +1203,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 frontThigh, backLowerLeg, backForearm, backThigh
         };
         for (int i = 0; i < breakParts.length && i < BREAK_VELOCITIES.length; i++) {
-            if (breakParts[i] instanceof ArticulatedChild ac) {
-                ac.startFalling(BREAK_VELOCITIES[i][0], BREAK_VELOCITIES[i][1]);
-            } else if (breakParts[i] instanceof ForearmChild fc) {
+            // Check ForearmChild FIRST (more specific subclass of ArticulatedChild)
+            if (breakParts[i] instanceof ForearmChild fc) {
                 fc.startFalling(BREAK_VELOCITIES[i][0], BREAK_VELOCITIES[i][1]);
+            } else if (breakParts[i] instanceof ArticulatedChild ac) {
+                ac.startFalling(BREAK_VELOCITIES[i][0], BREAK_VELOCITIES[i][1]);
             }
         }
     }
