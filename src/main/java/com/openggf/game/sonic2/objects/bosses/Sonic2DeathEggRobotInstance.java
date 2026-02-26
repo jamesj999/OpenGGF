@@ -1509,6 +1509,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         private boolean eggmanBoarded;
         private int glowIndex;     // Current index in HEAD_GLOW_FRAMES
         private int glowTimer;     // Frame counter for glow animation speed
+        private boolean glowPlayedOnce;
 
         HeadChild(Sonic2DeathEggRobotInstance parent, int priority) {
             super(parent, "Head", priority, Sonic2ObjectIds.DEATH_EGG_ROBOT);
@@ -1517,6 +1518,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             this.eggmanBoarded = false;
             this.glowIndex = 0;
             this.glowTimer = 0;
+            this.glowPlayedOnce = false;
         }
 
         boolean isEggmanBoarded() {
@@ -1556,14 +1558,17 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             updateDynamicSpawn();
         }
 
-        /** ROM-accurate head glow: speed 7, $15×8, 0, 1, 2, $FA (loop) */
+        /** ROM-accurate head glow: speed 7, $15×8, 0, 1, 2 - plays once then holds last frame */
         private void stepGlow() {
+            if (glowPlayedOnce) return; // Hold on last frame after first play
             glowTimer++;
             if (glowTimer > HEAD_GLOW_SPEED) { // > 7 means every 8th frame
                 glowTimer = 0;
                 glowIndex++;
                 if (glowIndex >= HEAD_GLOW_FRAMES.length) {
-                    glowIndex = 0; // $FA = loop back to start
+                    // Play once and hold on last frame (frame 2)
+                    glowIndex = HEAD_GLOW_FRAMES.length - 1;
+                    glowPlayedOnce = true;
                 }
             }
         }
