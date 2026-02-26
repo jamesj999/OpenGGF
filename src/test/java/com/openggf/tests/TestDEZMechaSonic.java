@@ -311,6 +311,64 @@ public class TestDEZMechaSonic {
         assertEquals("Initial frame should be FRAME_STAND (0)", 0, frame);
     }
 
+    @Test
+    public void signalLandingCompleteIsOneShot() throws Exception {
+        // ROM: bclr #status.npc.y_flip — test-and-clear semantics.
+        // The DEZ window's signalLandingComplete() should only fire once.
+        // After the first call, waitingForLanding becomes false and subsequent
+        // calls should be no-ops (not reset openingAnimPlaying to true).
+
+        // Create a DEZ window via reflection (package-private inner class)
+        Class<?> windowClass = Class.forName(
+                "com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance$MechaSonicDEZWindow");
+        java.lang.reflect.Constructor<?> ctor = windowClass.getDeclaredConstructor(
+                Sonic2MechaSonicInstance.class);
+        ctor.setAccessible(true);
+        Object dezWindow = ctor.newInstance(boss);
+
+        // Verify initial state: waitingForLanding=true, openingAnimPlaying=false
+        java.lang.reflect.Field waitingField = windowClass.getDeclaredField("waitingForLanding");
+        waitingField.setAccessible(true);
+        java.lang.reflect.Field openingField = windowClass.getDeclaredField("openingAnimPlaying");
+        openingField.setAccessible(true);
+
+        assertTrue("Window should start in waiting state", waitingField.getBoolean(dezWindow));
+        assertFalse("Opening anim should not be playing initially", openingField.getBoolean(dezWindow));
+
+        // First call: should transition from waiting to opening animation
+        java.lang.reflect.Method signalMethod = windowClass.getDeclaredMethod("signalLandingComplete");
+        signalMethod.setAccessible(true);
+        signalMethod.invoke(dezWindow);
+
+        assertFalse("After first signal, waitingForLanding should be false",
+                waitingField.getBoolean(dezWindow));
+        assertTrue("After first signal, openingAnimPlaying should be true",
+                openingField.getBoolean(dezWindow));
+
+        // Simulate the opening animation completing (set openingAnimPlaying=false)
+        openingField.setBoolean(dezWindow, false);
+
+        // Second call: should be a no-op (one-shot guard)
+        signalMethod.invoke(dezWindow);
+
+        assertFalse("After second signal, waitingForLanding should still be false",
+                waitingField.getBoolean(dezWindow));
+        assertFalse("After second signal, openingAnimPlaying should NOT be re-set to true",
+                openingField.getBoolean(dezWindow));
+    }
+
+    @Test
+    public void gravityConstantIs0x38() throws Exception {
+        // ROM: addi.w #$38,y_vel(a0) — gravity applied during airborne phases
+        // and on the landing frame. Verify GRAVITY = 0x38 in AbstractBossInstance.
+        java.lang.reflect.Field gravityField =
+                com.openggf.level.objects.boss.AbstractBossInstance.class.getDeclaredField("GRAVITY");
+        gravityField.setAccessible(true);
+        int gravity = gravityField.getInt(null);
+        assertEquals("GRAVITY constant should be 0x38 (ROM: addi.w #$38,y_vel)",
+                0x38, gravity);
+    }
+
     private static final class NoOpObjectRegistry implements ObjectRegistry {
         @Override
         public ObjectInstance create(ObjectSpawn spawn) {

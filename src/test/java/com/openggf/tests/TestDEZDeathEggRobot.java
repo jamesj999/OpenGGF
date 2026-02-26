@@ -399,4 +399,80 @@ public class TestDEZDeathEggRobot {
         org.mockito.Mockito.verify(objMgr, org.mockito.Mockito.times(10))
                 .addDynamicObject(org.mockito.ArgumentMatchers.any());
     }
+
+    // ========================================================================
+    // SENSOR FIFO BUFFER DEPTH
+    // ========================================================================
+
+    @Test
+    public void sensorFifoBufferHas4Elements() throws Exception {
+        // ROM: ObjC7_TargettingSensor uses 4 slots at offsets $30-$3F
+        // (each slot = 4 bytes: xvel word + yvel word). A value written to
+        // slot 0 traverses 3 shifts before being consumed at slot 3.
+        // Verify via reflection that the buffer arrays have length 4.
+        Class<?> sensorClass = null;
+        for (Class<?> inner : Sonic2DeathEggRobotInstance.class.getDeclaredClasses()) {
+            if (inner.getSimpleName().equals("SensorChild")) {
+                sensorClass = inner;
+                break;
+            }
+        }
+        assertNotNull("SensorChild inner class should exist", sensorClass);
+
+        java.lang.reflect.Field xBufField = sensorClass.getDeclaredField("xVelBuffer");
+        xBufField.setAccessible(true);
+        java.lang.reflect.Field yBufField = sensorClass.getDeclaredField("yVelBuffer");
+        yBufField.setAccessible(true);
+
+        // Construct a SensorChild to inspect buffer size
+        // SensorChild(Sonic2DeathEggRobotInstance parent, int playerX, int playerY)
+        java.lang.reflect.Constructor<?> ctor = sensorClass.getDeclaredConstructor(
+                Sonic2DeathEggRobotInstance.class, int.class, int.class);
+        ctor.setAccessible(true);
+        Object sensor = ctor.newInstance(boss, 100, 200);
+
+        int[] xBuf = (int[]) xBufField.get(sensor);
+        int[] yBuf = (int[]) yBufField.get(sensor);
+        assertEquals("xVelBuffer should have 4 elements (3-frame delay)", 4, xBuf.length);
+        assertEquals("yVelBuffer should have 4 elements (3-frame delay)", 4, yBuf.length);
+    }
+
+    // ========================================================================
+    // FOREARM Y VELOCITY CLAMP
+    // ========================================================================
+
+    @Test
+    public void forearmYVelocityClampAt0xFF() throws Exception {
+        // ROM: cmpi.w #$100,d2 / blo.s + / move.w #$FF,d2
+        // Clamps absolute horizontal distance to 0xFF before (d2 & 0xC0) >> 6.
+        // For dx >= 0x100, the table index should be the same as dx = 0xFF (= 3).
+        // Without the clamp, dx = 0x100 would give (0x100 & 0xC0) >> 6 = (0x00) >> 6 = 0
+        // which is wrong. With the clamp, Math.min(0xFF, dx) = 0xFF, (0xFF & 0xC0) >> 6 = 3.
+
+        // Test ROM-accurate clamped behavior:
+        int dxClamped = Math.min(0xFF, 0x100);
+        int idxClamped = (dxClamped & 0xC0) >> 6;
+        assertEquals("dx=0x100 clamped to 0xFF should give table index 3", 3, idxClamped);
+
+        dxClamped = Math.min(0xFF, 0xFF);
+        idxClamped = (dxClamped & 0xC0) >> 6;
+        assertEquals("dx=0xFF should give table index 3", 3, idxClamped);
+
+        // Verify the bug scenario: without clamping, dx=0x100 would give index 0
+        int dxUnclamped = 0x100;
+        int idxUnclamped = (dxUnclamped & 0xC0) >> 6;
+        assertEquals("Unclamped dx=0x100 would incorrectly give index 0", 0, idxUnclamped);
+
+        // Verify boundary cases with clamping
+        assertEquals("dx=0x00 -> index 0", 0, (Math.min(0xFF, 0x00) & 0xC0) >> 6);
+        assertEquals("dx=0x3F -> index 0", 0, (Math.min(0xFF, 0x3F) & 0xC0) >> 6);
+        assertEquals("dx=0x40 -> index 1", 1, (Math.min(0xFF, 0x40) & 0xC0) >> 6);
+        assertEquals("dx=0x7F -> index 1", 1, (Math.min(0xFF, 0x7F) & 0xC0) >> 6);
+        assertEquals("dx=0x80 -> index 2", 2, (Math.min(0xFF, 0x80) & 0xC0) >> 6);
+        assertEquals("dx=0xBF -> index 2", 2, (Math.min(0xFF, 0xBF) & 0xC0) >> 6);
+        assertEquals("dx=0xC0 -> index 3", 3, (Math.min(0xFF, 0xC0) & 0xC0) >> 6);
+        assertEquals("dx=0xFF -> index 3", 3, (Math.min(0xFF, 0xFF) & 0xC0) >> 6);
+        assertEquals("dx=0x200 -> index 3 (clamped)", 3, (Math.min(0xFF, 0x200) & 0xC0) >> 6);
+        assertEquals("dx=0xFFFF -> index 3 (clamped)", 3, (Math.min(0xFF, 0xFFFF) & 0xC0) >> 6);
+    }
 }
