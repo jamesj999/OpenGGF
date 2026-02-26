@@ -2962,17 +2962,53 @@ public class Sonic2ObjectArt {
      * Load DEZ Window sprite sheet (Robotnik watching through window).
      * Uses ArtNem_DEZWindow with mappings from ObjAF_MapUnc_3A08C.
      * ROM: art_tile = make_art_tile(ArtTile_ArtNem_DEZWindow,0,0) = $0378, palette line 0
-     * 8 frames of window/LED animation
+     * 8 frames of window/blinds animation
+     *
+     * The mapping data references two separate VRAM art regions:
+     * - Tiles 0-7: DEZ window frame/blinds (from ArtNem_DEZWindow at VRAM $0378)
+     * - Tiles $190-$19F: Robotnik's face (from ArtNem_RobotnikUpper at VRAM $0500)
+     *
+     * The offset $190 = $0500 - $0378 + 8 = Robotnik Upper tile 8. In the ROM,
+     * both art sets are loaded to VRAM by PlrList_Dez2 and the mapping's tile
+     * indices bridge across them. The engine must create a combined pattern array
+     * so that the renderer can resolve both tile ranges.
      *
      * @return sprite sheet for DEZ window, or null on failure
      */
     public ObjectSpriteSheet loadDEZWindowSheet() {
-        Pattern[] patterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_DEZ_WINDOW_ADDR, "DEZWindow");
-        if (patterns.length == 0) {
+        Pattern[] windowPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_DEZ_WINDOW_ADDR, "DEZWindow");
+        if (windowPatterns.length == 0) {
             return null;
         }
+        Pattern[] robotnikPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_ROBOTNIK_UPPER_ADDR, "RobotnikUpper");
+
+        // ROM VRAM layout: DEZWindow at $0378, RobotnikUpper at $0500.
+        // Mapping tile indices are relative to DEZWindow's art_tile ($0378).
+        // RobotnikUpper offset = $0500 - $0378 = $0188 = 392 tiles from window base.
+        // Mappings reference tiles $190-$19F (RobotnikUpper tiles 8-23).
+        int robotnikOffset = 0x0500 - 0x0378; // 392 = where RobotnikUpper starts in combined array
+
+        // Determine combined array size from max referenced tile
+        int combinedSize = robotnikOffset + robotnikPatterns.length;
+        Pattern[] combined = new Pattern[combinedSize];
+
+        // Fill with empty patterns to avoid null references
+        for (int i = 0; i < combinedSize; i++) {
+            combined[i] = new Pattern();
+        }
+
+        // Copy window patterns at index 0
+        System.arraycopy(windowPatterns, 0, combined, 0,
+                Math.min(windowPatterns.length, combinedSize));
+
+        // Copy RobotnikUpper patterns at offset 392
+        int copyLen = Math.min(robotnikPatterns.length, combinedSize - robotnikOffset);
+        if (copyLen > 0) {
+            System.arraycopy(robotnikPatterns, 0, combined, robotnikOffset, copyLen);
+        }
+
         List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_DEZ_WINDOW_ADDR);
-        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        return new ObjectSpriteSheet(combined, mappings, 0, 1);
     }
 
     // ========== DEZ Boss / Death Egg Robot (Object 0xC7) ==========
