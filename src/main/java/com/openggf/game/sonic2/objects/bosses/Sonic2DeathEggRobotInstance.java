@@ -934,8 +934,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             if (head != null) {
                 head.setDestroyed(true);
             }
-            // ROM: music fade happens AFTER palette-to-white in ending sequence,
-            // not at camera position check. Moved to defeatPhase 6.
+            // ROM: move.b #id_Ending,(v_gamemode).w
+            // Signal GameLoop to begin the ending/credits sequence via fade-to-black.
+            // Music fade happens in defeatPhase 6 (after palette-to-white).
+            LevelManager.getInstance().requestCreditsTransition();
             defeatPhase = 6;
         }
     }

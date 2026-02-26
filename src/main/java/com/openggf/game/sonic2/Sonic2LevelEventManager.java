@@ -3,6 +3,8 @@ package com.openggf.game.sonic2;
 import com.openggf.game.sonic2.events.*;
 import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 
 import java.util.logging.Logger;
 
@@ -35,6 +37,9 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
     public static final int ZONE_DEZ = 10;
 
     private static final Logger LOGGER = Logger.getLogger(Sonic2LevelEventManager.class.getName());
+
+    /** Cached player character resolved from config (lazy init). */
+    private PlayerCharacter resolvedPlayerCharacter;
 
     // Zone event handlers (one per zone, each owns its own eventRoutine)
     private final Sonic2EHZEvents ehzEvents;
@@ -85,6 +90,25 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
 
     @Override
     public PlayerCharacter getPlayerCharacter() {
+        if (resolvedPlayerCharacter == null) {
+            resolvedPlayerCharacter = resolvePlayerCharacterFromConfig();
+        }
+        return resolvedPlayerCharacter;
+    }
+
+    private static PlayerCharacter resolvePlayerCharacterFromConfig() {
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        if (config == null) {
+            return PlayerCharacter.SONIC_AND_TAILS;
+        }
+        String mainCode = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if ("tails".equalsIgnoreCase(mainCode)) {
+            return PlayerCharacter.TAILS_ALONE;
+        }
+        String sidekickCode = config.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
+        if (sidekickCode == null || sidekickCode.isEmpty()) {
+            return PlayerCharacter.SONIC_ALONE;
+        }
         return PlayerCharacter.SONIC_AND_TAILS;
     }
 

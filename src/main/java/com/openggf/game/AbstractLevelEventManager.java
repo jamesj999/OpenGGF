@@ -116,8 +116,9 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
     protected abstract void onUpdate();
 
     /**
-     * Returns the current player character.
-     * S1/S2 override to always return SONIC_AND_TAILS.
+     * Returns the current player character matching ROM's {@code (Player_mode).w}.
+     * S1 always returns SONIC_AND_TAILS.
+     * S2 resolves from config (MAIN_CHARACTER_CODE / SIDEKICK_CHARACTER_CODE).
      * S3K queries the actual player mode selection.
      */
     public abstract PlayerCharacter getPlayerCharacter();
