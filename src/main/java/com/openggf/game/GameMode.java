@@ -33,5 +33,8 @@ public enum GameMode {
     MASTER_TITLE_SCREEN,
 
     /** Post-credits "TRY AGAIN" or "END" screen (Sonic 1) */
-    TRY_AGAIN_END
+    TRY_AGAIN_END,
+
+    /** Ending cutscene sequence (managed by EndingProvider) */
+    ENDING_CUTSCENE
 }
