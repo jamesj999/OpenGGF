@@ -94,7 +94,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     /** ROM: move.b #$16,collision_flags(a0) - body collision (hurts player) */
     static final int COLLISION_BODY = 0x16;
     /** ROM: move.b #$2A,collision_flags(a1) - head collision (hittable!) */
-    static final int COLLISION_HEAD = 0x2A;
+    static final int COLLISION_HEAD = 0xC0 | 0x2A; // 0xEA — BOSS category for proper bounce
     /** HP = 12 (final boss, NOT the usual 8) */
     private static final int DEATH_EGG_ROBOT_HP = 12;
 
