@@ -1817,6 +1817,11 @@ public class GameLoop {
 
         endingProvider.initialize();
         setGameMode(gameModeForPhase(endingProvider.getCurrentPhase()));
+
+        // Reveal the ending scene (screen is currently black from startEndingFade())
+        // ROM: PaletteFadeIn after loading ending art
+        FadeManager.getInstance().startFadeFromBlack(null);
+
         LOGGER.info("Entered ending sequence, phase=" + endingProvider.getCurrentPhase());
     }
 

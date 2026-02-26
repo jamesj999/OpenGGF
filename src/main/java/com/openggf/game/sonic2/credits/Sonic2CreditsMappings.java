@@ -61,7 +61,7 @@ public final class Sonic2CreditsMappings {
         CHAR_TILES['6'] = new int[]{0x0E, 0x0F};
         CHAR_TILES['7'] = new int[]{0x10, 0x11};
         CHAR_TILES['8'] = new int[]{0x12, 0x13};
-        CHAR_TILES['9'] = new int[]{0x13, 0x14};
+        CHAR_TILES['9'] = new int[]{0x14, 0x15};
         // Period (used in "S.O", "N.GEE")
         CHAR_TILES['.'] = new int[]{0x3A, 0x34};
         // Copyright symbol '@' (used in "(@1992" as copyright C)
@@ -111,7 +111,7 @@ public final class Sonic2CreditsMappings {
         // Screen 4: CHIEF PROGRAMMER / YUJI NAKA (YU2)
         frames.add(buildScreen(
                 text("CHIEF  PROGRAMMER", 5, 11, 1),
-                text("YUJI  NAKA  (YU2)", 7, 15, 0)
+                text("YUJI  NAKA (YU2)", 7, 15, 0)
         ));
 
         // Screen 5: GAME PLANNER / HIROKAZU YASUHARA / (CAROL YAS)
@@ -148,9 +148,10 @@ public final class Sonic2CreditsMappings {
 
         // Screen 9: SPECIALSTAGE / OBJECT PLACEMENT / YUTAKA SUGANO
         // Note: "SPECIALSTAGE" has no space in ROM (creditText: "SPECIALSTAGE")
+        // Note: "OBJECT  PLACEMENT" reuses byte_B75C which is creditText 1 (role palette)
         frames.add(buildScreen(
                 text("SPECIALSTAGE", 8, 10, 1),
-                text("OBJECT  PLACEMENT", 4, 12, 0),
+                text("OBJECT  PLACEMENT", 4, 12, 1),
                 text("YUTAKA  SUGANO", 7, 16, 0)
         ));
 

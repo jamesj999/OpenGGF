@@ -60,7 +60,7 @@ public class Sonic2LogoFlashManager {
      * Avoids collision with credit text (0xE0000), S1 credit text (0xB0000),
      * title screen credit text (0x80000), and other ranges.
      */
-    private static final int PATTERN_BASE = 0xF0000;
+    private static final int PATTERN_BASE = 0xF6000;
 
     /** Enigma mapping grid dimensions (from ROM: 16-1 and 6-1 in d1/d2). */
     private static final int LOGO_TILE_WIDTH = 16;
@@ -185,7 +185,6 @@ public class Sonic2LogoFlashManager {
 
         } catch (Exception e) {
             LOGGER.warning("Failed to initialize logo flash: " + e.getMessage());
-            e.printStackTrace();
             state = State.DONE;
         }
     }
