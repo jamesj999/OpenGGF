@@ -812,15 +812,20 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     }
                 }
             }
-            case 4 -> { // Front punch pause ($40 frames), then trigger back punch
+            case 4 -> { // Front punch pause ($40 frames), then advance to back punch phase
                 actionTimer--;
                 if (actionTimer < 0) {
+                    // ROM: Advance prev_anim to 6. On the NEXT frame, loc_3D89E
+                    // runs and sets the back punch signal. 1-frame gap.
                     attackPhase = 6;
-                    backPunchTriggered = true;
                     actionTimer = 0x40;
                 }
             }
             case 6 -> { // Back punch display ($40 frames), then walk backward
+                // ROM: loc_3D89E — back punch signal fires on first frame of this phase
+                if (!backPunchTriggered) {
+                    backPunchTriggered = true;
+                }
                 actionTimer--;
                 if (actionTimer < 0) {
                     attackPhase = 8;
@@ -1498,9 +1503,12 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                         if (player != null) {
                             dx = Math.abs(player.getCentreX() - currentX);
                         }
+                        // ROM: cmpi.w #$100,d2 / blo.s + / move.w #$FF,d2
+                        // Clamp absolute distance to 0xFF before mask/shift
+                        dx = Math.min(0xFF, dx);
                         // ROM: andi.w #$C0,d0; lsr.w #6,d0 — divide by 64
-                        // dx 0-63->0, 64-127->1, 128-191->2, 192+->3
-                        int yVelIdx = Math.min(3, (dx & 0xC0) >> 6);
+                        // dx 0-63->0, 64-127->1, 128-191->2, 192-255->3
+                        int yVelIdx = (dx & 0xC0) >> 6;
                         int[] Y_VEL_TABLE = { 0x200, 0x100, 0x80, 0 };
                         punchYVel = Y_VEL_TABLE[yVelIdx];
                         if (player != null && player.getCentreY() < currentY) {
@@ -1796,12 +1804,14 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         private int animIdx;        // Current frame in SENSOR_ANIM_FRAMES
         private int animTimer;      // Speed counter
 
-        // ROM-accurate 3-frame velocity FIFO buffer (replaces smooth approach)
-        // ROM: ObjC7_TargettingSensor stores velocity in a circular buffer
-        // and applies the oldest entry (3-frame delay)
-        private final int[] xVelBuffer = new int[3];
-        private final int[] yVelBuffer = new int[3];
+        // ROM-accurate 4-slot velocity FIFO buffer (3-frame delay)
+        // ROM: ObjC7_TargettingSensor uses 4 slots at offsets $30-$3F
+        // (each slot = 4 bytes: xvel word + yvel word). A value written to
+        // slot 0 traverses 3 shifts before being consumed at slot 3.
+        private final int[] xVelBuffer = new int[4];
+        private final int[] yVelBuffer = new int[4];
         private int bufferIdx = 0;
+        private boolean bufferSeeded = false;
 
         SensorChild(Sonic2DeathEggRobotInstance parent, int playerX, int playerY) {
             super(parent, "Sensor", 1, Sonic2ObjectIds.DEATH_EGG_ROBOT);
@@ -1810,7 +1820,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             this.sensorRoutine = 0;
             this.countdown = 0xA0; // 160 frames
             this.beepInterval = 0x18; // Initial interval = 24 frames
-            this.beepCounter = 1; // ROM: angle byte = $00, first subq wraps to $FF (immediate beep)
+            this.beepCounter = 0; // ROM: angle byte = $00, first subq.b gives $FF (bit 7 set, bpl not taken = immediate beep)
             this.animIdx = 0;
             this.animTimer = 0;
         }
@@ -1827,10 +1837,16 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 }
                 case 2 -> { // Tracking
                     countdown--;
-                    if (countdown <= 0) {
+                    // ROM: subq.w #1,objoff_2A(a0) / bmi.s — fires when result goes negative
+                    if (countdown < 0) {
                         sensorRoutine = 4;
                         countdown = 0x40; // 64 frames for lock-on
                         beepCounter = 4;
+                        // ROM: Snap sensor to player position when transitioning to lock-on
+                        if (player != null) {
+                            currentX = player.getCentreX();
+                            currentY = player.getCentreY();
+                        }
                     } else {
                         // ROM loc_3DDA6: reads player's OWN velocity (x_vel/y_vel),
                         // NOT position delta. Snaps to player when stationary.
@@ -1846,40 +1862,50 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                                 currentY = player.getCentreY();
                             }
 
+                            // ROM: Seed buffer slot 0 with player's initial velocity on first update
+                            // move.w x_vel(a1),objoff_30(a0) / move.w y_vel(a1),objoff_32(a0)
+                            if (!bufferSeeded) {
+                                xVelBuffer[0] = playerXVel;
+                                yVelBuffer[0] = playerYVel;
+                                bufferSeeded = true;
+                            }
+
                             // Push player velocity into FIFO
                             xVelBuffer[bufferIdx] = playerXVel;
                             yVelBuffer[bufferIdx] = playerYVel;
 
-                            // Apply oldest velocity (3-frame delay)
-                            int applyIdx = (bufferIdx + 1) % 3;
+                            // Apply oldest velocity (3-frame delay via 4-slot buffer)
+                            int applyIdx = (bufferIdx + 1) % 4;
                             currentX += (xVelBuffer[applyIdx] >> 8); // 8.8 fixed -> pixel
                             currentY += (yVelBuffer[applyIdx] >> 8);
-                            bufferIdx = (bufferIdx + 1) % 3;
+                            bufferIdx = (bufferIdx + 1) % 4;
                         }
 
                         // Beep with decreasing interval
+                        // ROM: subq.b #1,angle(a0) / bpl.s — fires when byte goes negative
                         beepCounter--;
-                        if (beepCounter <= 0) {
+                        if (beepCounter < 0) {
                             AudioManager.getInstance().playSfx(Sonic2Sfx.BEEP.id);
-                            if (beepInterval > 4) {
-                                beepInterval--;
-                            }
                             beepCounter = beepInterval;
+                            // ROM: subq.b #1,objoff_27(a0) — unconditional decrement
+                            beepInterval--;
                         }
                     }
                     stepAnim();
                 }
                 case 4 -> { // Lock-on
                     countdown--;
-                    if (countdown <= 0) {
+                    // ROM: subq.w #1,objoff_2A(a0) / bmi.s — fires when result goes negative
+                    if (countdown < 0) {
                         // Report final position to body and self-destruct
                         boss.reportTargetedPlayerX(currentX);
                         setDestroyed(true);
                         return;
                     }
                     // Fast beeping
+                    // ROM: subq.b #1,angle(a0) / bpl.s — fires when byte goes negative
                     beepCounter--;
-                    if (beepCounter <= 0) {
+                    if (beepCounter < 0) {
                         AudioManager.getInstance().playSfx(Sonic2Sfx.BEEP.id);
                         beepCounter = 4;
                     }

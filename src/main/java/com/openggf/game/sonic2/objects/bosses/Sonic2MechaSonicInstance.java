@@ -624,12 +624,17 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 }
                 TerrainCheckResult floorADW = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
                 if (floorADW.distance() < 0) {
-                    // ROM: loc_39B1A — landed, snap to floor, continue ground run
+                    // ROM: loc_39B1A — landed, snap Y to floor then fall through
+                    // to loc_39B0A which re-applies gravity and calls ObjectMove.
+                    // On the landing frame: yVel = GRAVITY ($38), ObjectMove pushes
+                    // slightly below floor; next frame's ground-run snap corrects.
                     state.y += floorADW.distance();
                     state.yFixed = state.y << 16;
                     state.yVel = 0;
-                    attackPhase = 5;
+                    state.yVel += GRAVITY;
                     animateSpriteChecked();
+                    state.applyVelocity();
+                    attackPhase = 5;
                     return;
                 }
                 state.yVel += GRAVITY;
@@ -730,12 +735,17 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 }
                 TerrainCheckResult floorAJS = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
                 if (floorAJS.distance() < 0) {
-                    // ROM: landed, snap to floor, continue ground run
+                    // ROM: landed, snap Y to floor then fall through
+                    // to loc_39B0A which re-applies gravity and calls ObjectMove.
+                    // On the landing frame: yVel = GRAVITY ($38), ObjectMove pushes
+                    // slightly below floor; next frame's ground-run snap corrects.
                     state.y += floorAJS.distance();
                     state.yFixed = state.y << 16;
                     state.yVel = 0;
-                    attackPhase = 5;
+                    state.yVel += GRAVITY;
                     animateSpriteChecked();
+                    state.applyVelocity();
+                    attackPhase = 5;
                     return;
                 }
                 state.yVel += GRAVITY;
@@ -992,10 +1002,15 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         }
 
         /**
-         * ROM: bset #status.npc.y_flip — called when Silver Sonic lands,
-         * advancing to routine $1E which plays the blind-opening animation.
+         * ROM: bclr #status.npc.y_flip — test-and-clear semantics.
+         * Called when Silver Sonic lands; advances window from routine $1C
+         * (waiting) to $1E (blind-opening animation). The ROM's bclr only
+         * fires when the bit is still set, so subsequent calls are no-ops.
+         * This ensures the opening animation plays exactly once (after the
+         * initial descent landing) and is never replayed after attack cycles.
          */
         void signalLandingComplete() {
+            if (!waitingForLanding) return;  // Already advanced past waiting — one-shot
             waitingForLanding = false;
             openingAnimPlaying = true;
             animId = 0;
