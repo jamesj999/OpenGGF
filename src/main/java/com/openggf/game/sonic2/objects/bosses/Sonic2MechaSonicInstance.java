@@ -452,8 +452,11 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 actionTimer = AIM_HOLD_DURATION;
                 attackPhase = 1;
                 dashRepeatCount = 2;
-                // ROM: LED routine $10 (visible) during standing/aiming phase
-                if (ledWindow != null) ledWindow.setVisible(true);
+                // ROM: loc_3992E — LED routine $10 (visible), anim 1 (back thruster)
+                if (ledWindow != null) {
+                    ledWindow.setAnimId(1);
+                    ledWindow.setVisible(true);
+                }
             }
             case 1 -> {
                 // ROM: loc_39946 — timer countdown, NO AnimateSprite
@@ -465,6 +468,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                     anim = 1;
                     startDash(DASH_SPEED);
                     AudioManager.getInstance().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
+                    // ROM: loc_3994E — LED anim 2 (back thruster variant) on dash start
+                    if (ledWindow != null) ledWindow.setAnimId(2);
                 }
             }
             case 2 -> {
@@ -478,8 +483,11 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                         state.xVel = 0;
                         // ROM: bra.w loc_3992E — reset to wait phase
                         currentFrame = FRAME_WALK_A;
-                        // ROM: LED routine $10 (visible) during standing/aiming phase
-                        if (ledWindow != null) ledWindow.setVisible(true);
+                        // ROM: loc_3992E — LED routine $10 (visible), anim 1 (back thruster)
+                        if (ledWindow != null) {
+                            ledWindow.setAnimId(1);
+                            ledWindow.setVisible(true);
+                        }
                     } else {
                         transitionToIdle();
                     }
@@ -1176,7 +1184,9 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         private int mappingFrame;
         /**
          * ROM routine-based visibility: routine $10 = visible, routine $12 = hidden.
-         * LED is only visible during the standing/aiming portion of ATTACK_DASH_ACROSS.
+         * Created visible at routine $10 with anim 0 (bottom jets) during descent,
+         * hidden at loc_399D6 (transitionToIdle) after first landing, then toggled
+         * by parent during Dash Across attack phases.
          */
         private boolean visible;
 
@@ -1186,7 +1196,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             this.animFrame = 0;
             this.animTimer = 0;
             this.mappingFrame = 0x0B;
-            this.visible = false;
+            // ROM: child created at routine $10 (visible) with default anim 0 (bottom jets)
+            this.visible = true;
         }
 
         void setVisible(boolean v) { this.visible = v; }
@@ -1204,6 +1215,9 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         public void update(int frameCounter, AbstractPlayableSprite player) {
             if (!beginUpdate(frameCounter)) return;
             syncPositionWithParent();
+            // ROM: AnimateSprite_Checked — animate with whatever anim was set by parent.
+            // Anim selection is event-driven from parent (updateDashAcross, transitionToIdle),
+            // not heuristic-based.
             int[] anim = LED_ANIMS[animId];
             int speed = anim[0];
             int frameCount = anim.length - 1;
@@ -1212,16 +1226,6 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 animTimer = 0;
                 animFrame = (animFrame + 1) % frameCount;
                 mappingFrame = anim[animFrame + 1];
-            }
-            Sonic2MechaSonicInstance mechParent = (Sonic2MechaSonicInstance) parent;
-            if (mechParent.state.routine == ROUTINE_ATTACK) {
-                if (mechParent.ballForm) {
-                    setAnimId(2);
-                } else {
-                    setAnimId(1);
-                }
-            } else {
-                setAnimId(0);
             }
             updateDynamicSpawn();
         }

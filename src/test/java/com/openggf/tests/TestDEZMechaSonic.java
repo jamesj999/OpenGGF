@@ -369,6 +369,79 @@ public class TestDEZMechaSonic {
                 0x38, gravity);
     }
 
+    @Test
+    public void thrusterStartsVisibleWithBottomJetsAnim() throws Exception {
+        // ROM: LED child (MechaSonicLEDWindow) is created at routine $10 (visible)
+        // with default anim 0 (bottom jets, frames $B/$C). This ensures the
+        // bottom jets render during the descent phase before the first landing.
+
+        // Access the ledWindow field on the boss via reflection
+        java.lang.reflect.Field ledField =
+                Sonic2MechaSonicInstance.class.getDeclaredField("ledWindow");
+        ledField.setAccessible(true);
+
+        // ledWindow is null because setUp() uses a mock LevelManager with no ObjectManager.
+        // Create the LED window directly via reflection to test its initial state.
+        Class<?> ledClass = Class.forName(
+                "com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance$MechaSonicLEDWindow");
+        java.lang.reflect.Constructor<?> ctor = ledClass.getDeclaredConstructor(
+                Sonic2MechaSonicInstance.class);
+        ctor.setAccessible(true);
+        Object ledWindow = ctor.newInstance(boss);
+
+        // Verify visible = true (ROM: created at routine $10)
+        java.lang.reflect.Field visibleField = ledClass.getDeclaredField("visible");
+        visibleField.setAccessible(true);
+        assertTrue("LED window should start visible (ROM routine $10)",
+                visibleField.getBoolean(ledWindow));
+
+        // Verify animId = 0 (bottom jets)
+        java.lang.reflect.Field animIdField = ledClass.getDeclaredField("animId");
+        animIdField.setAccessible(true);
+        assertEquals("LED window should start with anim 0 (bottom jets)",
+                0, animIdField.getInt(ledWindow));
+
+        // Verify mappingFrame = 0x0B (first frame of bottom jets anim)
+        java.lang.reflect.Field mappingField = ledClass.getDeclaredField("mappingFrame");
+        mappingField.setAccessible(true);
+        assertEquals("LED window should start with mapping frame 0x0B",
+                0x0B, mappingField.getInt(ledWindow));
+    }
+
+    @Test
+    public void thrusterHiddenAfterTransitionToIdle() throws Exception {
+        // ROM: loc_399D6 — transitionToIdle sets LED to routine $12 (hidden).
+        // After the first landing, the thruster should be hidden.
+
+        Class<?> ledClass = Class.forName(
+                "com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance$MechaSonicLEDWindow");
+        java.lang.reflect.Constructor<?> ctor = ledClass.getDeclaredConstructor(
+                Sonic2MechaSonicInstance.class);
+        ctor.setAccessible(true);
+        Object ledWindow = ctor.newInstance(boss);
+
+        // Wire the ledWindow into the boss via reflection
+        java.lang.reflect.Field ledField =
+                Sonic2MechaSonicInstance.class.getDeclaredField("ledWindow");
+        ledField.setAccessible(true);
+        ledField.set(boss, ledWindow);
+
+        // Verify it starts visible
+        java.lang.reflect.Field visibleField = ledClass.getDeclaredField("visible");
+        visibleField.setAccessible(true);
+        assertTrue("LED should start visible", visibleField.getBoolean(ledWindow));
+
+        // Call transitionToIdle via reflection (private method)
+        java.lang.reflect.Method transitionMethod =
+                Sonic2MechaSonicInstance.class.getDeclaredMethod("transitionToIdle");
+        transitionMethod.setAccessible(true);
+        transitionMethod.invoke(boss);
+
+        // Verify it's now hidden
+        assertFalse("LED should be hidden after transitionToIdle",
+                visibleField.getBoolean(ledWindow));
+    }
+
     private static final class NoOpObjectRegistry implements ObjectRegistry {
         @Override
         public ObjectInstance create(ObjectSpawn spawn) {
