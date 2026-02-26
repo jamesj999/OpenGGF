@@ -525,15 +525,18 @@ public class Sonic2LogoFlashManager {
 
     /**
      * Checks for B/C/A/Start button press to skip the hold phase.
-     * Uses the configured jump key (matching ROM's Ctrl_1_Press check for
-     * button_B_mask|button_C_mask|button_A_mask|button_start_mask).
+     * ROM checks {@code Ctrl_1_Press} for {@code button_B_mask|button_C_mask|button_A_mask|button_start_mask}.
+     * JUMP key covers A/B/C; PAUSE_KEY (Enter) covers Start.
      */
     private boolean checkButtonSkip(InputHandler inputHandler) {
         if (inputHandler == null) {
             return false;
         }
-        int jumpKey = SonicConfigurationService.getInstance().getInt(SonicConfiguration.JUMP);
-        return jumpKey > 0 && inputHandler.isKeyPressed(jumpKey);
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        int jumpKey = config.getInt(SonicConfiguration.JUMP);
+        int startKey = config.getInt(SonicConfiguration.PAUSE_KEY);
+        return (jumpKey > 0 && inputHandler.isKeyPressed(jumpKey))
+                || (startKey > 0 && inputHandler.isKeyPressed(startKey));
     }
 
     // ========================================================================

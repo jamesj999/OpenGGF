@@ -2,13 +2,15 @@ package com.openggf.game.sonic2.credits;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.data.Rom;
-import com.openggf.data.RomManager;
-import com.openggf.game.GameServices;
+import com.openggf.data.RomByteReader;
+import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.Pattern;
+import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.tools.EnigmaReader;
 
 import java.io.ByteArrayInputStream;
@@ -16,6 +18,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -154,6 +157,10 @@ public class Sonic2EndingCutsceneManager {
     private int birdAnimFrame;
     private int birdAnimTimer;
 
+    // ROM-parsed sprite mappings for accurate frame rendering
+    private List<SpriteMappingFrame> objCfFrames;   // ObjCF: character/tornado sprites
+    private List<SpriteMappingFrame> animalFrames;   // Obj28_a: animal/bird sprites
+
     // Reusable PatternDesc for tile rendering
     private final PatternDesc reusableDesc = new PatternDesc();
 
@@ -179,6 +186,17 @@ public class Sonic2EndingCutsceneManager {
         for (int i = 0; i < PHOTO_COUNT; i++) {
             photoMaps[i] = loadEnigmaMap(rom, PHOTO_MAP_ADDRS[i],
                     Sonic2Constants.ART_TILE_ENDING_PICS, "EndingPhoto" + (i + 1));
+        }
+
+        // Parse ROM sprite mappings for accurate cutscene rendering
+        try {
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            objCfFrames = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJCF_ADDR);
+            animalFrames = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ28_A_ADDR);
+            LOGGER.fine("Parsed ObjCF mappings: " + objCfFrames.size() + " frames, "
+                    + "Obj28_a mappings: " + animalFrames.size() + " frames");
+        } catch (IOException e) {
+            LOGGER.warning("Failed to parse sprite mappings: " + e.getMessage());
         }
 
         // Play ending music
@@ -461,12 +479,12 @@ public class Sonic2EndingCutsceneManager {
         // Initialize birds (3 birds at varying positions)
         birdXSub = new int[3];
         birdYSub = new int[3];
-        birdXSub[0] = (planeXSub >> 8) + 40 << 8;
-        birdYSub[0] = (planeYSub >> 8) - 40 << 8;
-        birdXSub[1] = (planeXSub >> 8) + 60 << 8;
-        birdYSub[1] = (planeYSub >> 8) - 20 << 8;
-        birdXSub[2] = (planeXSub >> 8) + 50 << 8;
-        birdYSub[2] = (planeYSub >> 8) - 60 << 8;
+        birdXSub[0] = ((planeXSub >> 8) + 40) << 8;
+        birdYSub[0] = ((planeYSub >> 8) - 40) << 8;
+        birdXSub[1] = ((planeXSub >> 8) + 60) << 8;
+        birdYSub[1] = ((planeYSub >> 8) - 20) << 8;
+        birdXSub[2] = ((planeXSub >> 8) + 50) << 8;
+        birdYSub[2] = ((planeYSub >> 8) - 60) << 8;
         birdAnimFrame = 0;
         birdAnimTimer = 0;
 
@@ -643,80 +661,51 @@ public class Sonic2EndingCutsceneManager {
     }
 
     /**
-     * Draws the character sprite (Sonic/Super Sonic/Tails) as a simple 3x4 tile block.
+     * Draws the character sprite using ROM-parsed ObjCF mapping frames.
      * <p>
-     * This is a simplified representation. The ROM uses full sprite mappings
-     * (MAP_UNC_OBJCF_ADDR) for the mini ending sprites.
-     * TODO: Parse ObjCF mappings for accurate frame rendering.
+     * ObjCF animation 2 ({@code byte_AD9E}): speed 1, frames [5, 6], loop.
+     * Frame 5 = landing/catch A, frame 6 = landing/catch B (H/V flipped variant).
+     * Used during sky fall for the falling character. For character-on-plane,
+     * frames 7-11 show character sitting on the tornado wing.
+     * <p>
+     * ROM reference: art_tile = make_art_tile(0, 0, 0) → palette 0, no priority.
+     * Piece palettes are absolute (defaultPaletteIndex = -1).
      */
     private void drawCharacterSprite(GraphicsManager gm, int x, int y) {
-        Pattern[] character = endingArt.getCharacterPatterns();
-        if (character == null || character.length == 0) {
-            return;
-        }
-
-        // Render a 3x4 tile character block from the character art
-        int tilesW = 3;
-        int tilesH = 4;
-        int originX = x - (tilesW * 4); // Center horizontally
-        int originY = y - (tilesH * 4); // Center vertically
-        for (int ty = 0; ty < tilesH; ty++) {
-            for (int tx = 0; tx < tilesW; tx++) {
-                int tileIdx = tx * tilesH + ty; // Column-major VDP ordering
-                if (tileIdx >= character.length) {
-                    break;
-                }
-                // Palette 0 (character palette), no flip
-                int word = tileIdx;
-                reusableDesc.set(word);
-                int patternId = Sonic2EndingArt.PATTERN_BASE_CHARACTER + tileIdx;
-                gm.renderPatternWithId(patternId, reusableDesc,
-                        originX + tx * 8, originY + ty * 8);
-            }
-        }
+        // Use ObjCF frame 5 for falling character (from Anim 2 initial frame)
+        drawObjCfFrame(gm, 5, x, y, -1);
     }
 
     /**
-     * Draws the mini tornado sprite as a 4x3 tile block.
-     * TODO: Parse MAP_UNC_OBJCF_ADDR for accurate tornado frame rendering.
+     * Draws the mini tornado sprite using ROM-parsed ObjCF mapping frame 0.
+     * <p>
+     * ObjCF animation 0 ({@code byte_AD88}): speed 3, frames [0, 0, 1], loop.
+     * Frame 0 = primary mini tornado pose (tiles $493+).
+     * <p>
+     * ROM reference: art_tile = make_art_tile(0, 0, 1) → palette 0, priority set.
+     * Piece palettes are absolute (defaultPaletteIndex = -1).
      */
     private void drawMiniTornado(GraphicsManager gm, int x, int y) {
-        Pattern[] tornado = endingArt.getMiniTornadoPatterns();
-        if (tornado == null || tornado.length == 0) {
-            return;
-        }
-
-        int tilesW = 4;
-        int tilesH = 3;
-        for (int ty = 0; ty < tilesH; ty++) {
-            for (int tx = 0; tx < tilesW; tx++) {
-                int tileIdx = tx * tilesH + ty; // Column-major
-                if (tileIdx >= tornado.length) {
-                    break;
-                }
-                // Palette 0, no flip
-                int word = tileIdx;
-                reusableDesc.set(word);
-                int patternId = Sonic2EndingArt.PATTERN_BASE_MINI_TORNADO + tileIdx;
-                gm.renderPatternWithId(patternId, reusableDesc,
-                        x + tx * 8, y + ty * 8);
-            }
-        }
+        // Use ObjCF frame 0 for the mini tornado
+        drawObjCfFrame(gm, 0, x, y, -1);
     }
 
     /**
-     * Draws bird sprites (ObjCD animals).
-     * Uses animal patterns with simple 2-frame wing flap animation.
-     * TODO: Parse MAP_UNC_OBJ28_A_ADDR for accurate animal frame rendering.
+     * Draws bird sprites (ObjCD animals) using ROM-parsed Obj28_a mapping frames.
+     * <p>
+     * Obj28_a frame 0 = standing/wings down (2x2, tile $8),
+     * frame 1 = wings up (2x2, tile $C). Alternates for flap animation.
+     * <p>
+     * ROM reference: art_tile = make_art_tile(ArtTile_ArtNem_Animal_2, 0, 0).
+     * basePatternIndex = PATTERN_BASE_VRAM + ART_TILE_ENDING_ANIMAL_2.
      */
     private void drawBirds(GraphicsManager gm) {
-        if (birdXSub == null || endingArt.getAnimalPatterns() == null) {
+        if (birdXSub == null || animalFrames == null || animalFrames.isEmpty()) {
             return;
         }
-        Pattern[] animal = endingArt.getAnimalPatterns();
-        if (animal.length == 0) {
-            return;
-        }
+
+        // Obj28_a frames: 0 = wings down, 1 = wings up
+        int frameIdx = birdAnimFrame % animalFrames.size();
 
         for (int b = 0; b < birdXSub.length; b++) {
             int bx = birdXSub[b] >> 8;
@@ -727,22 +716,71 @@ public class Sonic2EndingCutsceneManager {
                 continue;
             }
 
-            // Draw a 2x2 bird sprite, using animation frame offset
-            int frameOffset = birdAnimFrame * 4;
-            for (int ty = 0; ty < 2; ty++) {
-                for (int tx = 0; tx < 2; tx++) {
-                    int tileIdx = frameOffset + tx * 2 + ty; // Column-major
-                    if (tileIdx >= animal.length) {
-                        break;
-                    }
-                    int word = tileIdx;
-                    reusableDesc.set(word);
-                    int patternId = Sonic2EndingArt.PATTERN_BASE_ANIMAL + tileIdx;
-                    gm.renderPatternWithId(patternId, reusableDesc,
-                            bx + tx * 8, by + ty * 8);
-                }
-            }
+            drawAnimalFrame(gm, frameIdx, bx, by);
         }
+    }
+
+    // ========================================================================
+    // ROM mapping frame rendering
+    // ========================================================================
+
+    /**
+     * Draws an ObjCF mapping frame at the given screen position.
+     * <p>
+     * Uses {@link Sonic2EndingArt#PATTERN_BASE_VRAM} as the base pattern index so that
+     * the absolute VRAM tile indices in the mapping pieces resolve directly to the
+     * GPU-cached patterns.
+     *
+     * @param gm              graphics manager
+     * @param frameIndex      ObjCF mapping frame index (0-25)
+     * @param originX         screen X origin
+     * @param originY         screen Y origin
+     * @param paletteOverride palette index to use, or -1 for absolute piece palettes
+     */
+    private void drawObjCfFrame(GraphicsManager gm, int frameIndex, int originX, int originY,
+                                 int paletteOverride) {
+        if (objCfFrames == null || frameIndex < 0 || frameIndex >= objCfFrames.size()) {
+            return;
+        }
+        SpriteMappingFrame frame = objCfFrames.get(frameIndex);
+        SpritePieceRenderer.renderPieces(
+                frame.pieces(), originX, originY,
+                Sonic2EndingArt.PATTERN_BASE_VRAM, paletteOverride,
+                false, false,
+                (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {
+                    int descIndex = patternIdx & 0x7FF;
+                    if (pieceHFlip) descIndex |= 0x800;
+                    if (pieceVFlip) descIndex |= 0x1000;
+                    descIndex |= (palIdx & 0x3) << 13;
+                    reusableDesc.set(descIndex);
+                    gm.renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
+                });
+    }
+
+    /**
+     * Draws an Obj28_a (animal) mapping frame at the given screen position.
+     * <p>
+     * Animal tile indices are relative to {@code ArtTile_ArtNem_Animal_2}, so
+     * basePatternIndex = PATTERN_BASE_VRAM + ART_TILE_ENDING_ANIMAL_2.
+     */
+    private void drawAnimalFrame(GraphicsManager gm, int frameIndex, int originX, int originY) {
+        if (animalFrames == null || frameIndex < 0 || frameIndex >= animalFrames.size()) {
+            return;
+        }
+        SpriteMappingFrame frame = animalFrames.get(frameIndex);
+        int basePattern = Sonic2EndingArt.PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_ANIMAL_2;
+        SpritePieceRenderer.renderPieces(
+                frame.pieces(), originX, originY,
+                basePattern, -1,
+                false, false,
+                (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {
+                    int descIndex = patternIdx & 0x7FF;
+                    if (pieceHFlip) descIndex |= 0x800;
+                    if (pieceVFlip) descIndex |= 0x1000;
+                    descIndex |= (palIdx & 0x3) << 13;
+                    reusableDesc.set(descIndex);
+                    gm.renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
+                });
     }
 
     // ========================================================================

@@ -14,8 +14,9 @@ import static org.junit.Assert.*;
  * Tests for {@link Sonic2CreditsMappings} credit text mapping data.
  * <p>
  * Verifies the hardcoded mapping frames match the expected structure from the
- * S2 disassembly (21 credit screens, each with at least one text entry, all
- * using the 2-wide character encoding).
+ * S2 disassembly (21 credit screens, each with at least one text entry,
+ * using the ROM's variable-width character encoding: 2-wide for most letters
+ * and digits, 1-wide for I, @, ., (, )).
  */
 public class TestSonic2CreditsMappings {
 
@@ -70,15 +71,20 @@ public class TestSonic2CreditsMappings {
     }
 
     @Test
-    public void testPiecesArePairedLeftRight() {
-        // Each character produces two pieces: left column and right column.
-        // So every frame should have an even number of pieces.
+    public void testPieceCountsMatchVariableWidthEncoding() {
+        // Most characters produce 2 pieces (left + right column).
+        // 1-wide characters (I, @, ., (, )) produce 1 piece only.
+        // Verify that at least one frame has an odd count (proving variable width works).
         List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
-        for (int i = 0; i < frames.size(); i++) {
-            int pieceCount = frames.get(i).pieces().size();
-            assertEquals("Frame " + i + " should have even number of pieces (L/R pairs)",
-                    0, pieceCount % 2);
+        boolean hasOddCount = false;
+        for (SpriteMappingFrame frame : frames) {
+            if (frame.pieces().size() % 2 != 0) {
+                hasOddCount = true;
+                break;
+            }
         }
+        assertTrue("At least one frame should have an odd piece count (1-wide chars present)",
+                hasOddCount);
     }
 
     // ========================================================================
@@ -89,13 +95,12 @@ public class TestSonic2CreditsMappings {
     public void testFirstScreenIsSonic2CastOfCharacters() {
         List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
         SpriteMappingFrame screen0 = frames.get(0);
-        // "SONIC" = 5 chars * 2 pieces = 10
-        // "2" = 1 char * 2 pieces = 2
-        // "CAST OF CHARACTERS" = 16 non-space chars (CAST=4, OF=2, CHARACTERS=10) * 2 = 32
-        // Total = 10 + 2 + 32 = 44 pieces
-        int expectedPieces = (5 + 1 + 16) * 2; // 44
+        // "SONIC" = S(2)+O(2)+N(2)+I(1)+C(2) = 9 pieces (I is 1-wide in ROM)
+        // "2" = 2(2) = 2 pieces
+        // "CAST  OF  CHARACTERS" = 16 non-space letters * 2 = 32 pieces
+        // Total = 9 + 2 + 32 = 43 pieces
         assertEquals("Screen 0 (SONIC 2 / CAST OF CHARACTERS) piece count",
-                expectedPieces, screen0.pieces().size());
+                43, screen0.pieces().size());
     }
 
     @Test

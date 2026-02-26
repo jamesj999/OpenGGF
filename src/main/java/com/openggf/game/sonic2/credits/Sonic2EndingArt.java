@@ -4,6 +4,7 @@ import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
@@ -73,6 +74,14 @@ public class Sonic2EndingArt {
     /** Pattern base for animal art (flicky/eagle/chicken). */
     static final int PATTERN_BASE_ANIMAL = 0xF5000;
 
+    /**
+     * Unified VRAM-relative pattern base for ObjCF sprite mapping rendering.
+     * Art is cached at {@code PATTERN_BASE_VRAM + vramTileIndex} so that
+     * ROM mapping pieces (which contain absolute VRAM tile indices) resolve
+     * directly to GPU pattern IDs when using this as the base.
+     */
+    static final int PATTERN_BASE_VRAM = 0xF8000;
+
     // ========================================================================
     // Loaded art
     // ========================================================================
@@ -117,10 +126,12 @@ public class Sonic2EndingArt {
             return EndingRoutine.SONIC;
         }
 
-        // TODO: Query actual PlayerCharacter from level event manager or game module
-        // For now, default to SONIC unless we can detect Tails-alone.
-        // The ROM checks Player_mode == 2 for Tails alone.
+        // Query actual PlayerCharacter from level event manager (matches ROM's Player_mode check)
         boolean tailsAlone = false;
+        Sonic2LevelEventManager lem = Sonic2LevelEventManager.getInstance();
+        if (lem != null) {
+            tailsAlone = (lem.getPlayerCharacter() == PlayerCharacter.TAILS_ALONE);
+        }
 
         if (gs.hasAllEmeralds() && !tailsAlone) {
             return EndingRoutine.SUPER_SONIC;
@@ -239,13 +250,22 @@ public class Sonic2EndingArt {
             }
         }
 
-        // Cache all pattern sets
+        // Cache all pattern sets at their dedicated GPU bases (used by photo/cloud rendering)
         cachePatternSet(gm, characterPatterns, PATTERN_BASE_CHARACTER, "character");
         cachePatternSet(gm, finalTornadoPatterns, PATTERN_BASE_FINAL_TORNADO, "finalTornado");
         cachePatternSet(gm, picsPatterns, PATTERN_BASE_PICS, "pics");
         cachePatternSet(gm, miniTornadoPatterns, PATTERN_BASE_MINI_TORNADO, "miniTornado");
         cachePatternSet(gm, cloudPatterns, PATTERN_BASE_CLOUDS, "clouds");
         cachePatternSet(gm, animalPatterns, PATTERN_BASE_ANIMAL, "animal");
+
+        // Also cache at VRAM-relative positions for ObjCF/Obj28 sprite mapping rendering.
+        // ROM mapping pieces contain absolute VRAM tile indices, so caching at
+        // PATTERN_BASE_VRAM + vramTileOffset allows direct lookup.
+        cachePatternSet(gm, characterPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_CHARACTER, "character-vram");
+        cachePatternSet(gm, finalTornadoPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_FINAL_TORNADO, "finalTornado-vram");
+        cachePatternSet(gm, miniTornadoPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_MINI_TORNADO, "miniTornado-vram");
+        cachePatternSet(gm, cloudPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_CLOUDS, "clouds-vram");
+        cachePatternSet(gm, animalPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_ANIMAL_2, "animal-vram");
 
         initialized = true;
         LOGGER.info("Ending art cached to GPU");
