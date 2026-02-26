@@ -295,6 +295,93 @@ public class TestDEZDeathEggRobot {
     // CHILDREN REGISTERED WITH OBJECT MANAGER
     // ========================================================================
 
+    // ========================================================================
+    // ROM DATA VERIFICATION (via reflection)
+    // ========================================================================
+
+    @Test
+    public void breakVelocitiesMatchRom() throws Exception {
+        // ROM: ObjC7_BreakSpeeds (s2.asm:83258-83267)
+        // 8 entries: {x_vel, y_vel} for each body part during break-apart
+        java.lang.reflect.Field field =
+                Sonic2DeathEggRobotInstance.class.getDeclaredField("BREAK_VELOCITIES");
+        field.setAccessible(true);
+        int[][] actual = (int[][]) field.get(null);
+
+        assertEquals("BREAK_VELOCITIES should have 8 entries", 8, actual.length);
+
+        int[][] expected = {
+                {  0x200, -0x400 },  // Shoulder
+                { -0x100, -0x100 },  // FrontLowerLeg
+                {  0x300, -0x300 },  // FrontForearm
+                { -0x100, -0x400 },  // UpperArm
+                {  0x180, -0x200 },  // FrontThigh
+                { -0x200, -0x300 },  // BackLowerLeg
+                {  0x000, -0x400 },  // BackForearm
+                {  0x100, -0x300 }   // BackThigh
+        };
+
+        for (int i = 0; i < expected.length; i++) {
+            assertArrayEquals("Break velocity entry " + i + " should match ROM",
+                    expected[i], actual[i]);
+        }
+    }
+
+    @Test
+    public void childDeltasMatchRom() throws Exception {
+        // ROM: ObjC7_ChildDeltas (s2.asm:83536-83544)
+        // 7 entries: {dx, dy} position offsets for articulated children
+        java.lang.reflect.Field field =
+                Sonic2DeathEggRobotInstance.class.getDeclaredField("CHILD_DELTAS");
+        field.setAccessible(true);
+        int[][] actual = (int[][]) field.get(null);
+
+        assertEquals("CHILD_DELTAS should have 7 entries", 7, actual.length);
+
+        int[][] expected = {
+                { -4, 60 },   // FrontLowerLeg
+                { -12, 8 },   // FrontForearm
+                { 12, -8 },   // UpperArm
+                { 4, 36 },    // FrontThigh
+                { -4, 60 },   // BackLowerLeg
+                { -12, 8 },   // BackForearm
+                { 4, 36 }     // BackThigh
+        };
+
+        for (int i = 0; i < expected.length; i++) {
+            assertArrayEquals("Child delta entry " + i + " should match ROM",
+                    expected[i], actual[i]);
+        }
+    }
+
+    @Test
+    public void groupAnimationKeyframeCounts() throws Exception {
+        // ROM: ObjC7_GroupAni_3E318 = 9 keyframes (half-step walk)
+        java.lang.reflect.Field halfStepField =
+                Sonic2DeathEggRobotInstance.class.getDeclaredField("HALF_STEP_KEYFRAMES");
+        halfStepField.setAccessible(true);
+        int[][] halfStep = (int[][]) halfStepField.get(null);
+        assertEquals("HALF_STEP_KEYFRAMES should have 9 entries", 9, halfStep.length);
+
+        // ROM: ObjC7_GroupAni_3E3D8 = 3 keyframes (crouch/rise)
+        java.lang.reflect.Field crouchField =
+                Sonic2DeathEggRobotInstance.class.getDeclaredField("CROUCH_KEYFRAMES");
+        crouchField.setAccessible(true);
+        int[][] crouch = (int[][]) crouchField.get(null);
+        assertEquals("CROUCH_KEYFRAMES should have 3 entries", 3, crouch.length);
+
+        // ROM: ObjC7_GroupAni_3E438 = 12 keyframes (full walk cycle)
+        java.lang.reflect.Field walkField =
+                Sonic2DeathEggRobotInstance.class.getDeclaredField("WALK_CYCLE_KEYFRAMES");
+        walkField.setAccessible(true);
+        int[][] walk = (int[][]) walkField.get(null);
+        assertEquals("WALK_CYCLE_KEYFRAMES should have 12 entries", 12, walk.length);
+    }
+
+    // ========================================================================
+    // CHILDREN REGISTERED WITH OBJECT MANAGER
+    // ========================================================================
+
     @Test
     public void childrenRegisteredWithObjectManager() {
         // When ObjectManager is available, children should be registered for rendering
