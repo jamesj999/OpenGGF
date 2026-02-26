@@ -299,6 +299,17 @@ public interface GameModule {
     }
 
     /**
+     * Returns the ending/credits provider for this game.
+     * Manages the full ending sequence: cutscene, credits text,
+     * demo playback, and post-credits screens.
+     *
+     * @return the ending provider, or null if not implemented
+     */
+    default EndingProvider getEndingProvider() {
+        return null;
+    }
+
+    /**
      * Returns whether invincibility stars use a trail-based animation pattern
      * (following behind the player) rather than orbital animation.
      *
