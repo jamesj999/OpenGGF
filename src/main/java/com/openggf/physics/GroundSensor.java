@@ -149,20 +149,34 @@ public class GroundSensor extends Sensor {
             return null;
         }
 
-        // Full-height tile: check previous tile for edge detection
+        // Full-height tile handling differs between FindFloor and FindFloor2.
         if (metric == FULL_TILE) {
-            short prevY = (short) (checkY + (direction == Direction.DOWN ? -16 : 16));
-            ChunkDesc prevDesc = getLevelManager().getChunkDescAt((byte) 0, checkX, prevY, sprite.isLoopLowPlane());
-            SolidTile prevTile = getSolidTile(prevDesc, solidityBit);
-            byte prevMetric = getHeightMetric(prevTile, prevDesc, checkX, direction);
+            if (!isExtension) {
+                // FindFloor (first pass, s2.asm:43008-43013 loc_1E86A):
+                // Recurse to FindFloor2 on the previous tile, then subtract 16.
+                short prevY = (short) (checkY + (direction == Direction.DOWN ? -16 : 16));
+                SensorResult prevResult = scanTileVertical(origX, origY, checkX, prevY, solidityBit, direction, true);
 
-            if (prevMetric > 0 && prevMetric < FULL_TILE) {
-                return createVerticalResult(prevTile, prevDesc, checkX, origY, prevY, direction);
+                if (prevResult != null) {
+                    // ROM: subi.w #$10,d1
+                    return reusableResult.set(
+                        prevResult.angle(),
+                        (byte) (prevResult.distance() - 16),
+                        prevResult.tileId(),
+                        prevResult.direction()
+                    );
+                }
+
+                // prevResult null means FindFloor2 found no solid tile — use default distance.
+                // ROM FindFloor2 loc_1E88A: d1 = 15 - yInTile, then FindFloor subtracts 16.
+                int yInTile = (direction == Direction.UP)
+                        ? ((origY ^ 0x0F) & 0x0F)
+                        : (origY & 0x0F);
+                byte distance = (byte) (15 - yInTile - 16);
+                return createResultWithDistance(tile, desc, distance, direction);
             }
-
-            // Use current full tile
-            byte distance = calculateVerticalDistance(metric, origY, checkY, direction);
-            return createResultWithDistance(tile, desc, distance, direction);
+            // FindFloor2 (second pass): NO special full-tile handling in ROM.
+            // Falls through to standard distance calculation below.
         }
 
         return createVerticalResult(tile, desc, checkX, origY, checkY, direction);

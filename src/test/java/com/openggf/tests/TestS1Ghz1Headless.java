@@ -1548,4 +1548,90 @@ public class TestS1Ghz1Headless {
         assertEquals("Destroyed Crabmeat must not respawn after window cycle",
                 0, countCrabmeatsAtSpawnX(targetSpawnX));
     }
+
+    // ========================================================================
+    // Regression: Jump at 557,921 should not land inside terrain above
+    // ========================================================================
+
+    /**
+     * At GHZ1 position (557, 921), jumping straight up should not cause Sonic
+     * to collide with or land on the terrain above. He should arc up, not hit
+     * any ceiling, and fall back down to approximately y=921.
+     *
+     * Bug: The engine incorrectly places Sonic at y≈841 after the jump,
+     * standing inside the terrain above.
+     */
+    /**
+     * Regression: jumping at x=682 in GHZ1 lower path should NOT land Sonic
+     * inside terrain above (~y=841). Sonic should fall back to roughly the
+     * same starting height (~y=925 area).
+     *
+     * The bug: Sonic jumps, reaches the top-solid underground blocks of the
+     * upper path, and incorrectly lands inside them instead of passing through.
+     * On real hardware Sonic would not land on these blocks.
+     */
+    @Test
+    public void regressionJumpAt682ShouldNotStickInsideTerrain() {
+        final short START_X = 682;
+        final short START_Y = 925;
+        final int HOLD_JUMP_FRAMES = 7;
+        final int POST_JUMP_FRAMES = 21;
+
+        // Place Sonic above the target position and let him settle on ground.
+        // Start high enough to find the ground surface at this X.
+        sprite.setCentreX(START_X);
+        sprite.setCentreY((short) (START_Y - 40));
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        sprite.setGSpeed((short) 0);
+        sprite.setAir(true);
+        sprite.setAngle((byte) 0);
+        sprite.setGroundMode(GroundMode.GROUND);
+
+        // Let Sonic fall and land on the ground.
+        for (int i = 0; i < 60; i++) {
+            testRunner.stepFrame(false, false, false, false, false);
+            if (!sprite.getAir()) break;
+        }
+        assertFalse("Sonic should have landed on ground", sprite.getAir());
+
+        short settledY = sprite.getCentreY();
+        System.out.println("[JUMP-REGRESSION] Settled centreY=" + settledY
+                + " centreX=" + sprite.getCentreX());
+
+        // Hold jump for 7 frames.
+        for (int i = 0; i < HOLD_JUMP_FRAMES; i++) {
+            testRunner.stepFrame(false, false, false, false, true);
+        }
+        assertTrue("Sonic should be airborne after pressing jump", sprite.getAir());
+
+        // Continue for POST_JUMP_FRAMES frames (no input).
+        for (int i = 0; i < POST_JUMP_FRAMES; i++) {
+            testRunner.stepFrame(false, false, false, false, false);
+
+            int frameNum = HOLD_JUMP_FRAMES + i + 1;
+            System.out.printf("[JUMP-REGRESSION] Frame %2d: centreY=%d ySpd=0x%04X air=%b gMode=%s%n",
+                    frameNum, sprite.getCentreY(), sprite.getYSpeed() & 0xFFFF,
+                    sprite.getAir(), sprite.getGroundMode());
+        }
+
+        // Continue stepping until Sonic lands or we time out.
+        for (int i = POST_JUMP_FRAMES; i < 80; i++) {
+            testRunner.stepFrame(false, false, false, false, false);
+            if (!sprite.getAir()) break;
+        }
+
+        short finalY = sprite.getCentreY();
+        System.out.println("[JUMP-REGRESSION] Final centreY=" + finalY
+                + " air=" + sprite.getAir()
+                + " settled was " + settledY);
+
+        // Sonic must NOT be stuck at ~841 (inside the terrain above).
+        // He should be near where he started (within ~30px of settledY) or still airborne
+        // and heading back down. Being grounded at y < settledY - 40 means he stuck
+        // inside the upper path terrain.
+        boolean stuckAbove = !sprite.getAir() && finalY < (settledY - 40);
+        assertFalse("Sonic should not be stuck inside terrain above (centreY="
+                + finalY + ", expected near " + settledY + ")", stuckAbove);
+    }
 }
