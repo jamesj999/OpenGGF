@@ -10,7 +10,6 @@ import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseTable;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
 
@@ -35,7 +34,6 @@ public class TestDEZMechaSonic {
     private static final int COLLISION_BALL = 0x9A;
 
     private Sonic2MechaSonicInstance boss;
-    private AbstractPlayableSprite player;
 
     @Before
     public void setUp() {
@@ -45,10 +43,6 @@ public class TestDEZMechaSonic {
                         Sonic2ObjectIds.MECHA_SONIC, 0x48, 0, false, 0),
                 levelManager
         );
-
-        player = mock(AbstractPlayableSprite.class);
-        when(player.getCentreX()).thenReturn((short) (MECHA_SONIC_X - 32));
-        when(player.getCentreY()).thenReturn((short) MECHA_SONIC_Y);
     }
 
     @Test
@@ -115,12 +109,21 @@ public class TestDEZMechaSonic {
     }
 
     @Test
-    public void defeatTriggersAtZeroHits() {
-        // Set hit count to 1 and trigger defeat
-        boss.getState().hitCount = 0;
-        boss.getState().defeated = true;
+    public void defeatFlagSettableWhenHpZero() {
+        // Verify the pre-condition: hitCount must reach 0 before defeat can be flagged.
+        // The actual hit path triggers defeat when hitCount reaches 0.
+        assertEquals("HP starts at 8", 8, boss.getState().hitCount);
+        assertFalse("Should not be defeated at full HP", boss.getState().defeated);
 
-        assertTrue("Boss should be marked defeated", boss.getState().defeated);
+        // Decrement HP to 0
+        for (int i = 0; i < 8; i++) {
+            boss.getState().hitCount--;
+        }
+        assertEquals("HP should be 0 after 8 decrements", 0, boss.getState().hitCount);
+
+        // At HP=0, the defeat flag should be settable
+        boss.getState().defeated = true;
+        assertTrue("Boss should be marked defeated at 0 HP", boss.getState().defeated);
     }
 
     @Test
@@ -140,14 +143,14 @@ public class TestDEZMechaSonic {
     }
 
     @Test
-    public void invulnerabilityDurationIsHex20() {
-        // Process a hit via state manipulation
-        boss.getState().invulnerable = true;
-        boss.getState().invulnerabilityTimer = 0x20;
-
-        assertEquals("Invulnerability timer should be 0x20",
-                0x20, boss.getState().invulnerabilityTimer);
-        assertTrue("Should be invulnerable", boss.getState().invulnerable);
+    public void invulnerabilityTimerStartsAtZero() {
+        // ROM: INVULN_DURATION = $20 (32 frames) for Mecha Sonic.
+        // Verify the timer starts at 0 (no invulnerability) in initial state.
+        // The timer is set to $20 only when the boss takes a hit.
+        assertEquals("Invulnerability timer should start at 0",
+                0, boss.getState().invulnerabilityTimer);
+        assertFalse("Should not be invulnerable initially",
+                boss.getState().invulnerable);
     }
 
     @Test
@@ -159,7 +162,10 @@ public class TestDEZMechaSonic {
     }
 
     @Test
-    public void touchResponseDamagesBoss() {
+    public void touchResponseSetupCreatesValidBoss() {
+        // Verifies that a boss created alongside an ObjectManager with a touch
+        // response table initializes with correct HP. The actual touch response
+        // path requires AudioManager and full sprite wiring.
         TouchResponseTable touchTable = mock(TouchResponseTable.class);
         when(touchTable.getWidthRadius(COLLISION_STANDING)).thenReturn(16);
         when(touchTable.getHeightRadius(COLLISION_STANDING)).thenReturn(27);
@@ -167,7 +173,6 @@ public class TestDEZMechaSonic {
         ObjectManager objectManager = new ObjectManager(
                 List.of(), new NoOpObjectRegistry(), 0, null, touchTable);
 
-        // Create boss in a state where collision is active
         LevelManager levelManager = mock(LevelManager.class);
         Sonic2MechaSonicInstance testBoss = new Sonic2MechaSonicInstance(
                 new ObjectSpawn(MECHA_SONIC_X, MECHA_SONIC_Y,
@@ -176,6 +181,8 @@ public class TestDEZMechaSonic {
         );
 
         assertEquals("Boss should start with 8 HP", 8, testBoss.getState().hitCount);
+        assertFalse("Boss should not be defeated initially", testBoss.getState().defeated);
+        assertFalse("Boss should not be invulnerable initially", testBoss.getState().invulnerable);
     }
 
     @Test

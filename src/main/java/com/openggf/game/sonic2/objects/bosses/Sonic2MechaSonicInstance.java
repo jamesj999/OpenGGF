@@ -105,11 +105,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
     // Rendering frame indices (from ROM mappings ObjAF_MapUnc_39E68)
     private static final int FRAME_STAND = 0;
-    private static final int FRAME_AIM = 1;
-    private static final int FRAME_LASER = 2;
     private static final int FRAME_WALK_A = 3;
-    private static final int FRAME_WALK_B = 4;
-    private static final int FRAME_WALK_C = 5;
     private static final int FRAME_BALL_A = 6;
     private static final int FRAME_BALL_B = 7;
     private static final int FRAME_BALL_C = 8;
@@ -393,6 +389,10 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         if (targetingSensor != null) {
             targetingSensor.setCollisionEnabled(false);
         }
+        // ROM: LED routine $12 (hidden) when returning to idle
+        if (ledWindow != null) {
+            ledWindow.setVisible(false);
+        }
         // ROM: bset #status.npc.y_flip — signal DEZ window to begin blind-opening animation
         if (dezWindow != null) {
             dezWindow.signalLandingComplete();
@@ -426,6 +426,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 actionTimer = AIM_HOLD_DURATION;
                 attackPhase = 1;
                 dashRepeatCount = 2;
+                // ROM: LED routine $10 (visible) during standing/aiming phase
+                if (ledWindow != null) ledWindow.setVisible(true);
             }
             case 1 -> {
                 // ROM: loc_39946 — timer countdown, NO AnimateSprite
@@ -437,6 +439,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                     anim = 1;
                     startDash(DASH_SPEED);
                     AudioManager.getInstance().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
+                    // ROM: LED routine $12 (hidden) when dash begins
+                    if (ledWindow != null) ledWindow.setVisible(false);
                 }
             }
             case 2 -> {
@@ -450,6 +454,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                         state.xVel = 0;
                         // ROM: bra.w loc_3992E — reset to wait phase
                         currentFrame = FRAME_WALK_A;
+                        // ROM: LED routine $10 (visible) during standing/aiming phase
+                        if (ledWindow != null) ledWindow.setVisible(true);
                     } else {
                         transitionToIdle();
                     }
@@ -716,12 +722,11 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     }
 
     private void applyDeceleration() {
+        // ROM: add.w d0,x_vel(a0) — no clamping, velocity may overshoot through zero
         if (state.xVel > 0) {
             state.xVel -= DECEL_RATE;
-            if (state.xVel < 0) state.xVel = 0;
         } else if (state.xVel < 0) {
             state.xVel += DECEL_RATE;
-            if (state.xVel > 0) state.xVel = 0;
         }
         state.applyVelocity();
     }
@@ -788,10 +793,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
     @Override
     protected void onHitTaken(int remainingHits) {
-        if (dezWindow != null) {
-            if (remainingHits <= 2) dezWindow.setAnimId(4);
-            else if (remainingHits <= 4) dezWindow.setAnimId(3);
-        }
+        // ROM: Animation selection is now per-frame in MechaSonicDEZWindow.update(),
+        // not triggered by hit count thresholds. No action needed here.
     }
 
     @Override
@@ -926,6 +929,23 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 updateDynamicSpawn();
                 return;
             }
+
+            // ROM: loc_39C50 — per-frame animation selection based on game state
+            Sonic2MechaSonicInstance mechParent = (Sonic2MechaSonicInstance) parent;
+            if (mechParent.state.defeated) {
+                // ROM: status.npc.misc set (boss defeated) → closing blinds animation
+                setAnimId(1);
+            } else if (player != null && player.isHurt()) {
+                // ROM: player routine >= 4 (player is hurt/dying) → scared face
+                setAnimId(3);
+            } else if (mechParent.state.invulnerable) {
+                // ROM: collision_flags == 0 (boss invulnerable/flashing) → laughing
+                setAnimId(4);
+            } else {
+                // ROM: default → normal watching
+                setAnimId(2);
+            }
+
             int[] anim = WINDOW_ANIMS[animId];
             int speed = anim[0];
             int frameCount = anim.length - 1;
@@ -976,7 +996,6 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         }
 
         void setCollisionEnabled(boolean enabled) { this.collisionEnabled = enabled; }
-        boolean isCollisionEnabled() { return collisionEnabled; }
         public int getCollisionFlags() { return collisionEnabled ? 0x98 : 0x00; }
 
         @Override
@@ -1011,6 +1030,11 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         private int animFrame;
         private int animTimer;
         private int mappingFrame;
+        /**
+         * ROM routine-based visibility: routine $10 = visible, routine $12 = hidden.
+         * LED is only visible during the standing/aiming portion of ATTACK_DASH_ACROSS.
+         */
+        private boolean visible;
 
         MechaSonicLEDWindow(Sonic2MechaSonicInstance parent) {
             super(parent, "LED Window", 3, Sonic2ObjectIds.MECHA_SONIC);
@@ -1018,7 +1042,10 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             this.animFrame = 0;
             this.animTimer = 0;
             this.mappingFrame = 0x0B;
+            this.visible = false;
         }
+
+        void setVisible(boolean v) { this.visible = v; }
 
         void setAnimId(int newAnimId) {
             if (newAnimId != animId && newAnimId >= 0 && newAnimId < LED_ANIMS.length) {
@@ -1066,10 +1093,10 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
             if (parent.isDestroyed()) return;
-            // ROM: LED overlay children are not rendered during ball form animations.
-            // Frames 0x09/0x0A appear as sparks/thruster when overlaid on ball frames.
+            // ROM: LED visibility is routine-based. Routine $10 = visible (during
+            // Dash Across standing/aiming phase), routine $12 = hidden (all other times).
+            if (!visible) return;
             Sonic2MechaSonicInstance mechParent = (Sonic2MechaSonicInstance) parent;
-            if (mechParent.ballForm) return;
             ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(
@@ -1117,9 +1144,6 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
         @Override
         public void syncPositionWithParent() {}
-
-        @Override
-        public boolean isDestroyed() { return super.isDestroyed(); }
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {

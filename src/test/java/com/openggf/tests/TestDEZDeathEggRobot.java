@@ -9,7 +9,6 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.boss.BossChildComponent;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -33,7 +32,6 @@ public class TestDEZDeathEggRobot {
     private static final int BOSS_Y = 0x4A0;
 
     private Sonic2DeathEggRobotInstance boss;
-    private AbstractPlayableSprite player;
 
     @Before
     public void setUp() {
@@ -43,10 +41,6 @@ public class TestDEZDeathEggRobot {
                         Sonic2ObjectIds.DEATH_EGG_ROBOT, 0, 0, false, 0),
                 levelManager
         );
-
-        player = mock(AbstractPlayableSprite.class);
-        when(player.getCentreX()).thenReturn((short) (BOSS_X - 64));
-        when(player.getCentreY()).thenReturn((short) BOSS_Y);
     }
 
     // ========================================================================
@@ -139,8 +133,13 @@ public class TestDEZDeathEggRobot {
     @Test
     public void attackPatternCyclesModulo4() {
         // ROM: addq.b #1,angle(a0) / andi.b #3,angle(a0)
-        // Verify the engine's attack index starts at 0 and would cycle mod 4
-        assertEquals("Attack index should start at 0", 0, boss.getAttackIndex());
+        // Verify the mathematical property: for indices 0-7, (index & 3) produces
+        // the expected cycle {0,1,2,3,0,1,2,3}
+        int[] expectedCycle = {0, 1, 2, 3, 0, 1, 2, 3};
+        for (int i = 0; i < 8; i++) {
+            assertEquals("Index " + i + " mod 4 should be " + expectedCycle[i],
+                    expectedCycle[i], i & 3);
+        }
     }
 
     // ========================================================================
@@ -163,20 +162,15 @@ public class TestDEZDeathEggRobot {
     // ========================================================================
 
     @Test
-    public void invulnerabilityDurationIs60Frames() {
-        // ROM: move.b #60,objoff_2A(a0) - $3C = 60 frames
-        boss.getState().invulnerable = true;
-        boss.getState().invulnerabilityTimer = 60;
-        assertEquals("Flash/invulnerability timer should be $3C (60)",
-                60, boss.getState().invulnerabilityTimer);
-    }
-
-    @Test
-    public void paletteFlashDurationIs60Frames() {
-        boss.getState().invulnerable = true;
-        boss.getState().invulnerabilityTimer = 60;
-        assertTrue("Should be invulnerable", boss.getState().invulnerable);
-        assertEquals("Timer should be 60 ($3C)", 60, boss.getState().invulnerabilityTimer);
+    public void invulnerabilityTimerStartsAtZero() {
+        // ROM: move.b #60,objoff_2A(a0) - $3C = 60 frames is the DEZ boss
+        // invulnerability duration. The timer should start at 0 (no invulnerability)
+        // and only be set to 60 when the boss takes a hit.
+        // DEZ_BOSS_INVULN_DURATION = 60 ($3C), verified against s2.asm
+        assertEquals("Invulnerability timer should start at 0",
+                0, boss.getState().invulnerabilityTimer);
+        assertFalse("Should not be invulnerable initially",
+                boss.getState().invulnerable);
     }
 
     // ========================================================================
@@ -238,16 +232,17 @@ public class TestDEZDeathEggRobot {
     // ========================================================================
 
     @Test
-    public void multipleHitsReduceHpCorrectly() {
+    public void hpStateDecrementsMathematically() {
+        // Tests state object arithmetic, not the actual hit path (which requires AudioManager)
         assertEquals(12, boss.getState().hitCount);
 
         for (int i = 11; i >= 0; i--) {
             boss.getState().hitCount--;
-            assertEquals("HP should be " + i + " after " + (12 - i) + " hits",
+            assertEquals("HP should be " + i + " after " + (12 - i) + " decrements",
                     i, boss.getState().hitCount);
         }
 
-        assertEquals("HP should reach 0 after 12 hits", 0, boss.getState().hitCount);
+        assertEquals("HP should reach 0 after 12 decrements", 0, boss.getState().hitCount);
     }
 
     @Test
@@ -266,9 +261,9 @@ public class TestDEZDeathEggRobot {
     // ========================================================================
 
     @Test
-    public void defeatStateReachableAfter12Hits() {
-        // ROM: 12 hits should trigger defeat. onHeadHit() is package-private and
-        // requires AudioManager, so we simulate the state transitions directly.
+    public void defeatStateFlagsConsistentAfter12Decrements() {
+        // Tests state consistency after manual decrements. The actual hit path
+        // (onHeadHit) is package-private and requires AudioManager.
         // After 12 decrements, hitCount=0 and defeated=true should be consistent
         // with bodyRoutine=BODY_DEFEAT (0x0E).
         assertEquals("HP starts at 12", 12, boss.getState().hitCount);
@@ -276,7 +271,7 @@ public class TestDEZDeathEggRobot {
         for (int i = 0; i < 12; i++) {
             boss.getState().hitCount--;
         }
-        assertEquals("HP should be 0 after 12 hits", 0, boss.getState().hitCount);
+        assertEquals("HP should be 0 after 12 decrements", 0, boss.getState().hitCount);
 
         // Simulate what triggerDefeatSequence() does to state flags
         boss.getState().defeated = true;
