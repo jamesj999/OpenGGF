@@ -39,6 +39,8 @@ public class Sonic2EndingProvider implements EndingProvider {
     private enum InternalState {
         /** Cutscene in progress (photos, sky fall, plane rescue). */
         CUTSCENE,
+        /** Fade-to-black after cutscene, before credits begin. */
+        CUTSCENE_FADE_OUT,
         /** Fade-in before a credit text slide. */
         CREDITS_FADE_IN,
         /** Credit text slide is being displayed. */
@@ -74,6 +76,7 @@ public class Sonic2EndingProvider implements EndingProvider {
             cutsceneManager.initialize(GameServices.rom().getRom());
         } catch (IOException e) {
             LOGGER.warning("Failed to get ROM for cutscene: " + e.getMessage());
+            cutsceneManager = null;
         }
 
         state = InternalState.CUTSCENE;
@@ -92,10 +95,21 @@ public class Sonic2EndingProvider implements EndingProvider {
                 if (cutsceneManager != null) {
                     cutsceneManager.update();
                     if (cutsceneManager.isDone()) {
-                        transitionToCreditsFadeIn();
+                        // Fade to black before transitioning to credits
+                        // ROM: PaletteFadeOut after plane flyaway
+                        slideTimer = 0;
+                        state = InternalState.CUTSCENE_FADE_OUT;
+                        FadeManager.getInstance().startFadeToBlack(() -> {});
                     }
                 } else {
                     // No cutscene manager (ROM unavailable) -- skip to credits
+                    transitionToCreditsFadeIn();
+                }
+            }
+            case CUTSCENE_FADE_OUT -> {
+                // Wait for fade-to-black to complete (timer matches ROM timing)
+                slideTimer++;
+                if (slideTimer >= Sonic2CreditsData.FADE_DURATION) {
                     transitionToCreditsFadeIn();
                 }
             }
@@ -109,8 +123,10 @@ public class Sonic2EndingProvider implements EndingProvider {
             case CREDITS_TEXT -> {
                 slideTimer++;
                 if (slideTimer >= Sonic2CreditsData.SLIDE_DURATION_60FPS) {
+                    // ROM: PaletteFadeOut after each credit slide
                     slideTimer = 0;
                     state = InternalState.CREDITS_FADE_OUT;
+                    FadeManager.getInstance().startFadeToBlack(() -> {});
                 }
             }
             case CREDITS_FADE_OUT -> {
@@ -121,9 +137,10 @@ public class Sonic2EndingProvider implements EndingProvider {
                         // All 21 slides complete -- transition to logo flash
                         transitionToLogoLoading();
                     } else {
-                        // Next slide
+                        // ROM: PaletteFadeIn for next credit slide
                         slideTimer = 0;
                         state = InternalState.CREDITS_FADE_IN;
+                        FadeManager.getInstance().startFadeFromBlack(null);
                     }
                 }
             }
@@ -131,6 +148,8 @@ public class Sonic2EndingProvider implements EndingProvider {
                 logoFlashManager = new Sonic2LogoFlashManager();
                 logoFlashManager.initialize();
                 state = InternalState.LOGO_FLASH;
+                // ROM: PaletteFadeIn to reveal logo
+                FadeManager.getInstance().startFadeFromBlack(null);
             }
             case LOGO_FLASH -> {
                 // Logo flash update is driven by GameLoop.updateEndingPostCredits()
@@ -150,7 +169,7 @@ public class Sonic2EndingProvider implements EndingProvider {
     @Override
     public void draw() {
         switch (state) {
-            case CUTSCENE -> {
+            case CUTSCENE, CUTSCENE_FADE_OUT -> {
                 if (cutsceneManager != null) {
                     cutsceneManager.draw();
                 }
@@ -174,7 +193,7 @@ public class Sonic2EndingProvider implements EndingProvider {
     @Override
     public EndingPhase getCurrentPhase() {
         return switch (state) {
-            case CUTSCENE -> EndingPhase.CUTSCENE;
+            case CUTSCENE, CUTSCENE_FADE_OUT -> EndingPhase.CUTSCENE;
             case CREDITS_FADE_IN, CREDITS_TEXT, CREDITS_FADE_OUT -> EndingPhase.CREDITS_TEXT;
             case LOGO_LOADING, LOGO_FLASH -> EndingPhase.POST_CREDITS;
             case FINISHED -> EndingPhase.FINISHED;
@@ -228,6 +247,9 @@ public class Sonic2EndingProvider implements EndingProvider {
         currentSlide = 0;
         slideTimer = 0;
         state = InternalState.CREDITS_FADE_IN;
+
+        // ROM: PaletteFadeIn to reveal first credit slide
+        FadeManager.getInstance().startFadeFromBlack(null);
 
         LOGGER.info("Sonic2EndingProvider: cutscene complete, starting credits text");
     }

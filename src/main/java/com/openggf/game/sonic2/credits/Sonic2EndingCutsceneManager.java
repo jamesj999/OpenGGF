@@ -215,7 +215,7 @@ public class Sonic2EndingCutsceneManager {
      * Renders the current cutscene state.
      */
     public void draw() {
-        if (!endingArt.isInitialized()) {
+        if (endingArt == null || !endingArt.isInitialized()) {
             return;
         }
 
