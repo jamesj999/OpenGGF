@@ -153,26 +153,22 @@ public class GroundSensor extends Sensor {
         if (metric == FULL_TILE) {
             if (!isExtension) {
                 // FindFloor (first pass, s2.asm:43008-43013 loc_1E86A):
-                // Recurse to FindFloor2 on the previous tile, then subtract 16.
+                // Recurse to FindFloor2 on the previous tile.
+                // ROM subtracts 16 because FindFloor2's distance is relative to the
+                // shifted d2. But the engine's scanTileVertical always calculates
+                // distance relative to origY, so no adjustment is needed.
                 short prevY = (short) (checkY + (direction == Direction.DOWN ? -16 : 16));
                 SensorResult prevResult = scanTileVertical(origX, origY, checkX, prevY, solidityBit, direction, true);
 
                 if (prevResult != null) {
-                    // ROM: subi.w #$10,d1
-                    return reusableResult.set(
-                        prevResult.angle(),
-                        (byte) (prevResult.distance() - 16),
-                        prevResult.tileId(),
-                        prevResult.direction()
-                    );
+                    return prevResult;
                 }
 
-                // prevResult null means FindFloor2 found no solid tile — use default distance.
-                // ROM FindFloor2 loc_1E88A: d1 = 15 - yInTile, then FindFloor subtracts 16.
-                int yInTile = (direction == Direction.UP)
-                        ? ((origY ^ 0x0F) & 0x0F)
-                        : (origY & 0x0F);
-                byte distance = (byte) (15 - yInTile - 16);
+                // prevResult null means FindFloor2 found no solid tile — use default
+                // distance. ROM FindFloor2 loc_1E88A: d1 = 15 - yInTile (relative to
+                // shifted d2), then FindFloor subtracts 16. Engine equivalent: calculate
+                // distance from origY to the surface implied by a blank tile at prevY.
+                byte distance = calculateVerticalDistance((byte) 0, origY, prevY, direction);
                 return createResultWithDistance(tile, desc, distance, direction);
             }
             // FindFloor2 (second pass): NO special full-tile handling in ROM.
