@@ -453,7 +453,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         currentAttack = 0;
         attackPhase = 0;
         animPhase = 0;
-        facingLeft = false;
+        facingLeft = true; // ROM: Egg Robo faces left toward the approaching player
         defeatPhase = 0;
         controlsLocked = false;
         targetedPlayerX = 0;
