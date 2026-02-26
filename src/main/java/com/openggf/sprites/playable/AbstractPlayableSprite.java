@@ -1297,7 +1297,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         private boolean isDamageBlocked(boolean ignoreIFrames) {
-                if (debugMode || invincibleFrames > 0) {
+                if (debugMode || invincibleFrames > 0 || isSuperSonic()) {
                         return true;
                 }
                 // ROM: Touch_ChkHurt only checks invulnerable_time, not routine number.

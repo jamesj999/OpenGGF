@@ -121,7 +121,8 @@ public class Sonic2PlayerArt {
                 .setWalkSpeedThreshold(0x40)
                 .setRunSpeedThreshold(0x600)
                 .setFallbackFrame(0)
-                .setAnglePreAdjust(true);
+                .setAnglePreAdjust(true)
+                .setCompactSuperRunSlope(true);
 
         return new SpriteArtSet(
                 artTiles,
