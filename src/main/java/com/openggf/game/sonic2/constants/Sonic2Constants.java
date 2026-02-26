@@ -324,8 +324,105 @@ public class Sonic2Constants {
     public static final int ART_NEM_MENU_JUNK_ADDR = 0x78CBC;     // ArtNem_MenuJunk (extra sprite tiles at VRAM 0x03F2)
 
     // Credit Text Art (Nemesis compressed, 64 patterns)
-    // Used for "SONIC AND MILES 'TAILS' PROWER IN" intro screen
+    // Used for "SONIC AND MILES 'TAILS' PROWER IN" intro screen and credits screens
     public static final int ART_NEM_CREDIT_TEXT_ADDR = 0xBD26;     // ArtNem_CreditText
+
+    // =====================================================================
+    // Ending Sequence & Credits (s2.asm lines 12998-14640)
+    // ROM Reference: EndingSequence, EndgameCredits, EndgameLogoFlash,
+    //   ObjCA (cutscene controller), ObjCB (clouds), ObjCC (tornado),
+    //   ObjCD (birds), ObjCE (Sonic/Tails jumping off plane),
+    //   ObjCF (ending mini-sprites)
+    // =====================================================================
+
+    // --- Ending Art (Nemesis compressed) ---
+    // Character art loaded to VRAM at ArtTile_EndingCharacter (0x0019)
+    public static final int ART_NEM_ENDING_SONIC_ADDR = 0x92F0A;       // ArtNem_EndingSonic (verified)
+    public static final int ART_NEM_ENDING_SUPER_SONIC_ADDR = 0x93848; // ArtNem_EndingSuperSonic (verified)
+    public static final int ART_NEM_ENDING_TAILS_ADDR = 0x93F3C;       // ArtNem_EndingTails (verified)
+    // Final tornado closeup loaded to ArtTile_ArtNem_EndingFinalTornado (0x0156)
+    public static final int ART_NEM_ENDING_FINAL_TORNADO_ADDR = 0x91F3C; // ArtNem_EndingFinalTornado (verified)
+    // Photo frames loaded to ArtTile_ArtNem_EndingPics (0x0328)
+    public static final int ART_NEM_ENDING_PICS_ADDR = 0x90992;        // ArtNem_EndingPics (verified)
+    // Small tornado sprites loaded to ArtTile_ArtNem_EndingMiniTornado (0x0493)
+    public static final int ART_NEM_ENDING_MINI_TORNADO_ADDR = 0x927E0; // ArtNem_EndingMiniTornado (verified)
+    // "Sonic 2" logo at end of credits (loaded to VRAM 0x0000)
+    public static final int ART_NEM_ENDING_TITLE_ADDR = 0x94B28;       // ArtNem_EndingTitle (verified)
+
+    // --- Ending Photo Mappings (Enigma compressed) ---
+    // These are decoded into Chunk_Table and DMA'd to Plane A at planeLoc(64,14,8)
+    // using PlaneMapToVRAM_H40 with dimensions 12x9
+    public static final int MAP_ENG_ENDING1_ADDR = 0x906E0;  // MapEng_Ending1 (verified, 24 bytes)
+    public static final int MAP_ENG_ENDING2_ADDR = 0x906F8;  // MapEng_Ending2 (verified, 42 bytes)
+    public static final int MAP_ENG_ENDING3_ADDR = 0x90722;  // MapEng_Ending3 (verified, 26 bytes)
+    public static final int MAP_ENG_ENDING4_ADDR = 0x9073C;  // MapEng_Ending4 (verified, 50 bytes)
+
+    // --- Ending Plane Closeup Mappings (Enigma compressed) ---
+    // Decoded to Chunk_Table with art_tile ArtTile_ArtNem_EndingFinalTornado + priority
+    public static final int MAP_ENG_ENDING_TAILS_PLANE_ADDR = 0x9076E;  // MapEng_EndingTailsPlane (verified, 82 bytes)
+    public static final int MAP_ENG_ENDING_SONIC_PLANE_ADDR = 0x907C0;  // MapEng_EndingSonicPlane (verified, 106 bytes)
+
+    // --- End Game Logo Mapping (Enigma compressed) ---
+    // "Sonic the Hedgehog 2" logo shown after all credits screens
+    // Decoded at art_tile 0, written to Plane A at planeLoc(64,12,11), dimensions 16x6
+    public static final int MAP_ENG_END_GAME_LOGO_ADDR = 0xB23A; // MapEng_EndGameLogo (verified, 40 bytes)
+
+    // --- Ending Palettes (uncompressed binary) ---
+    public static final int PAL_ENDING_SONIC_ADDR = 0xAC7E;     // Pal_AC7E - Ending Sonic (32 bytes)
+    public static final int PAL_ENDING_TAILS_ADDR = 0xAC9E;     // Pal_AC9E - Ending Tails (64 bytes)
+    public static final int PAL_ENDING_BACKGROUND_ADDR = 0xACDE; // Pal_ACDE - Ending Background (64 bytes)
+    public static final int PAL_ENDING_PHOTOS_ADDR = 0xAD1E;    // Pal_AD1E - Ending Photos (32 bytes)
+    public static final int PAL_ENDING_SUPER_SONIC_ADDR = 0xAD3E; // Pal_AD3E - Ending Super Sonic (32 bytes)
+    // Full palette loaded at EndingSequence init: all 4 lines (128 bytes) from Pal_AC7E
+    public static final int PAL_ENDING_FULL_ADDR = 0xAC7E;      // All 4 palette lines (128 bytes total)
+    public static final int PAL_ENDING_FULL_SIZE = 128;
+
+    // --- Logo Flash Palette Cycle ---
+    // EndgameLogoFlash uses byte_A0EC as a strobe index (18 entries),
+    // each referencing a 24-byte (0x18) palette frame within pal_A0FE (216 bytes, 9 frames)
+    public static final int LOGO_FLASH_STROBE_ADDR = 0xA0EC;    // byte_A0EC - 18-byte strobe sequence
+    public static final int LOGO_FLASH_STROBE_SIZE = 18;
+    public static final int PAL_ENDING_CYCLE_ADDR = 0xA0FE;     // pal_A0FE - Ending Cycle (216 bytes, 9 frames x 24 bytes)
+    public static final int PAL_ENDING_CYCLE_SIZE = 216;
+    public static final int PAL_ENDING_CYCLE_FRAME_SIZE = 24;   // Each palette frame is 24 bytes (12 colors)
+
+    // --- Credits Screen Pointer Table ---
+    // off_B2CA: 21 screen pointers + $FFFFFFFF terminator (88 bytes)
+    // Each pointer references a creditsPtrs structure:
+    //   repeated { dc.l textAddr, dc.w vramDest } terminated by dc.w -1
+    public static final int CREDITS_SCREEN_TABLE_ADDR = 0xB2CA; // off_B2CA
+    public static final int CREDITS_SCREEN_COUNT = 21;
+
+    // --- Intro Text Pointer Table ---
+    // off_B2B0: single screen for "SONIC AND MILES 'TAILS' PROWER IN"
+    public static final int INTRO_TEXT_TABLE_ADDR = 0xB2B0;     // off_B2B0
+
+    // --- Ending Sprite Mappings (uncompressed, assembly-included) ---
+    // ObjCF sprites (ending mini-Sonic/Tails/plane/Super Sonic walk frames)
+    public static final int MAP_UNC_OBJCF_ADDR = 0xADA2;        // ObjCF_MapUnc_ADA2
+    // Obj28 animal sprites (used by ObjCD birds in ending)
+    public static final int MAP_UNC_OBJ28_A_ADDR = 0x11E1C;     // Obj28_MapUnc_11E1C (Animal_2, flicky/eagle/chicken)
+
+    // --- Ending VRAM Tile Indices (from s2.constants.asm) ---
+    public static final int ART_TILE_ENDING_CHARACTER = 0x0019;          // ArtTile_EndingCharacter
+    public static final int ART_TILE_ENDING_FINAL_TORNADO = 0x0156;      // ArtTile_ArtNem_EndingFinalTornado
+    public static final int ART_TILE_ENDING_PICS = 0x0328;               // ArtTile_ArtNem_EndingPics
+    public static final int ART_TILE_ENDING_MINI_TORNADO = 0x0493;       // ArtTile_ArtNem_EndingMiniTornado
+    public static final int ART_TILE_ENDING_TORNADO = 0x0500;            // ArtTile_ArtNem_Tornado (shared with WFZ/SCZ)
+    public static final int ART_TILE_ENDING_CLOUDS = 0x054F;             // ArtTile_ArtNem_Clouds (shared with WFZ/SCZ)
+    public static final int ART_TILE_ENDING_ANIMAL_2 = 0x0594;           // ArtTile_ArtNem_Animal_2 (flicky/eagle/chicken)
+    public static final int ART_TILE_CREDIT_TEXT_CREDITS = 0x0001;       // ArtTile_ArtNem_CreditText_CredScr (credits screen)
+
+    // --- Ending VDP Layout ---
+    public static final int VRAM_END_SEQ_PLANE_A = 0xC000;  // VRAM_EndSeq_Plane_A_Name_Table
+    public static final int VRAM_END_SEQ_PLANE_B1 = 0xE000; // VRAM_EndSeq_Plane_B_Name_Table1
+    public static final int VRAM_END_SEQ_PLANE_B2 = 0x4000; // VRAM_EndSeq_Plane_B_Name_Table2
+
+    // --- Ending Timing Constants ---
+    public static final int CREDITS_SLIDE_DURATION_NTSC = 0x18E; // 398 frames at 60fps per credits slide
+    public static final int CREDITS_SLIDE_DURATION_PAL = 0x144;  // 324 frames at 50fps per credits slide
+    public static final int LOGO_FLASH_CYCLE_LIMIT = 0x5E;       // 94 frames of logo flash cycling
+    public static final int LOGO_FLASH_HOLD_FRAMES = 0x3B;       // 59 frames hold before cycling starts
 
     // Title Screen Sonic Palette (uncompressed, 32 bytes, loaded to palette line 0)
     public static final int PAL_TITLE_SONIC_ADDR = 0x133EC;        // Pal_133EC (Title Sonic.bin)
@@ -1300,6 +1397,34 @@ public class Sonic2Constants {
         offsets.put("MAP_UNC_OBJBE_ADDR", MAP_UNC_OBJBE_ADDR);
         offsets.put("ART_LOAD_CUES_ADDR", ART_LOAD_CUES_ADDR);
         offsets.put("ART_LOAD_CUES_ENTRY_COUNT", ART_LOAD_CUES_ENTRY_COUNT);
+
+        // Ending Sequence & Credits
+        offsets.put("ART_NEM_ENDING_SONIC_ADDR", ART_NEM_ENDING_SONIC_ADDR);
+        offsets.put("ART_NEM_ENDING_SUPER_SONIC_ADDR", ART_NEM_ENDING_SUPER_SONIC_ADDR);
+        offsets.put("ART_NEM_ENDING_TAILS_ADDR", ART_NEM_ENDING_TAILS_ADDR);
+        offsets.put("ART_NEM_ENDING_FINAL_TORNADO_ADDR", ART_NEM_ENDING_FINAL_TORNADO_ADDR);
+        offsets.put("ART_NEM_ENDING_PICS_ADDR", ART_NEM_ENDING_PICS_ADDR);
+        offsets.put("ART_NEM_ENDING_MINI_TORNADO_ADDR", ART_NEM_ENDING_MINI_TORNADO_ADDR);
+        offsets.put("ART_NEM_ENDING_TITLE_ADDR", ART_NEM_ENDING_TITLE_ADDR);
+        offsets.put("MAP_ENG_ENDING1_ADDR", MAP_ENG_ENDING1_ADDR);
+        offsets.put("MAP_ENG_ENDING2_ADDR", MAP_ENG_ENDING2_ADDR);
+        offsets.put("MAP_ENG_ENDING3_ADDR", MAP_ENG_ENDING3_ADDR);
+        offsets.put("MAP_ENG_ENDING4_ADDR", MAP_ENG_ENDING4_ADDR);
+        offsets.put("MAP_ENG_ENDING_TAILS_PLANE_ADDR", MAP_ENG_ENDING_TAILS_PLANE_ADDR);
+        offsets.put("MAP_ENG_ENDING_SONIC_PLANE_ADDR", MAP_ENG_ENDING_SONIC_PLANE_ADDR);
+        offsets.put("MAP_ENG_END_GAME_LOGO_ADDR", MAP_ENG_END_GAME_LOGO_ADDR);
+        offsets.put("PAL_ENDING_SONIC_ADDR", PAL_ENDING_SONIC_ADDR);
+        offsets.put("PAL_ENDING_TAILS_ADDR", PAL_ENDING_TAILS_ADDR);
+        offsets.put("PAL_ENDING_BACKGROUND_ADDR", PAL_ENDING_BACKGROUND_ADDR);
+        offsets.put("PAL_ENDING_PHOTOS_ADDR", PAL_ENDING_PHOTOS_ADDR);
+        offsets.put("PAL_ENDING_SUPER_SONIC_ADDR", PAL_ENDING_SUPER_SONIC_ADDR);
+        offsets.put("LOGO_FLASH_STROBE_ADDR", LOGO_FLASH_STROBE_ADDR);
+        offsets.put("PAL_ENDING_CYCLE_ADDR", PAL_ENDING_CYCLE_ADDR);
+        offsets.put("CREDITS_SCREEN_TABLE_ADDR", CREDITS_SCREEN_TABLE_ADDR);
+        offsets.put("INTRO_TEXT_TABLE_ADDR", INTRO_TEXT_TABLE_ADDR);
+        offsets.put("MAP_UNC_OBJCF_ADDR", MAP_UNC_OBJCF_ADDR);
+        offsets.put("MAP_UNC_OBJ28_A_ADDR", MAP_UNC_OBJ28_A_ADDR);
+
         return offsets;
     }
 }
