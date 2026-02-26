@@ -80,6 +80,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     private static final int SLOW_DASH_SPEED = 0x400;
     /** Deceleration rate per frame (ROM: $20) */
     private static final int DECEL_RATE = 0x20;
+    /** Ground-run deceleration per frame after landing from jump attacks (ROM: ~$10) */
+    private static final int GROUND_RUN_DECEL = 0x10;
     /** Jump Y velocity (ROM: move.w #-$600,y_vel(a0)) */
     private static final int JUMP_Y_VEL = -0x600;
 
@@ -167,6 +169,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     private boolean ballForm;
     private boolean spikeballsFired;
     private boolean dashDirectionToggle;
+    /** Ground Y position, captured on first landing for floor-snap during idle */
+    private int groundY;
 
     // AnimateSprite_Checked state
     private int anim;
@@ -340,6 +344,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             state.y += floor.distance();
             state.yFixed = state.y << 16;
             state.yVel = 0;
+            groundY = state.y;
             transitionToIdle();
             return;
         }
@@ -357,6 +362,12 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         anim = 0; // Standing walk cycle
         ballForm = false;
 
+        // ROM: snap to floor during idle (prevent subpixel drift)
+        if (groundY != 0 && state.y != groundY) {
+            state.y = groundY;
+            state.yFixed = groundY << 16;
+        }
+
         actionTimer--;
         if (actionTimer == 0) {
             state.routine = ROUTINE_ATTACK;
@@ -366,7 +377,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             dashRepeatCount = 0;
             spikeballsFired = false;
             if (targetingSensor != null) {
-                targetingSensor.setCollisionEnabled(true);
+                targetingSensor.setCollisionEnabled(false);
             }
             return;
         }
@@ -386,8 +397,10 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         currentFrame = FRAME_STAND;
         ballForm = false;
         state.xVel = 0;
+        // ROM: play SndID_MechaSonicBuzz on every idle transition
+        AudioManager.getInstance().playSfx(Sonic2Sfx.MECHA_SONIC_BUZZ.id);
         if (targetingSensor != null) {
-            targetingSensor.setCollisionEnabled(false);
+            targetingSensor.setCollisionEnabled(true);
         }
         // ROM: LED routine $12 (hidden) when returning to idle
         if (ledWindow != null) {
@@ -439,8 +452,6 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                     anim = 1;
                     startDash(DASH_SPEED);
                     AudioManager.getInstance().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
-                    // ROM: LED routine $12 (hidden) when dash begins
-                    if (ledWindow != null) ledWindow.setVisible(false);
                 }
             }
             case 2 -> {
@@ -461,8 +472,10 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                     }
                 } else {
                     // ROM: At timer=$20, switch to anim 2 (dash start: {4,5,4,3})
+                    // ROM: LED routine $12 (hidden) midway through dash
                     if (actionTimer == 0x20) {
                         anim = 2;
+                        if (ledWindow != null) ledWindow.setVisible(false);
                     }
                     applyDeceleration();
                     animateSpriteChecked();
@@ -590,21 +603,18 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 // ROM: loc_39AF4 — airborne after jump
                 actionTimer--;
                 if (actionTimer < 0) {
-                    // ROM: bmi.w loc_39A7C
+                    // Timer expired before landing — transition to ground slide
                     attackPhase = 5;
-                    anim = 5;
-                    facingLeft = !facingLeft;
-                    state.xVel = 0;
                     state.yVel = 0;
                     return;
                 }
                 TerrainCheckResult floorADW = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
                 if (floorADW.distance() < 0) {
-                    // ROM: loc_39B1A — landed, snap to floor
+                    // ROM: loc_39B1A — landed, snap to floor, continue ground run
                     state.y += floorADW.distance();
                     state.yFixed = state.y << 16;
                     state.yVel = 0;
-                    // ROM: AnimateSprite_Checked still runs after landing
+                    attackPhase = 5;
                     animateSpriteChecked();
                     return;
                 }
@@ -614,6 +624,24 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 animateSpriteChecked();
             }
             case 5 -> {
+                // ROM: ground-run phase — boss slides along ground, decelerating
+                if (state.xVel > 0) {
+                    state.xVel -= GROUND_RUN_DECEL;
+                    if (state.xVel <= 0) state.xVel = 0;
+                } else if (state.xVel < 0) {
+                    state.xVel += GROUND_RUN_DECEL;
+                    if (state.xVel >= 0) state.xVel = 0;
+                }
+                state.applyVelocity();
+                animateSpriteChecked();
+                if (state.xVel == 0) {
+                    // ROM: loc_39A7C — stop, flip, anim=5
+                    attackPhase = 6;
+                    anim = 5;
+                    facingLeft = !facingLeft;
+                }
+            }
+            case 6 -> {
                 // ROM: loc_39A96 — walk-out, wait for $FC stall
                 animateSpriteChecked();
                 if (animTerminatorReached) {
@@ -669,10 +697,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 // ROM: loc_39B44 — airborne, fire spikeballs at apex
                 actionTimer--;
                 if (actionTimer < 0) {
+                    // Timer expired before landing — transition to ground slide
                     attackPhase = 5;
-                    anim = 5;
-                    facingLeft = !facingLeft;
-                    state.xVel = 0;
                     state.yVel = 0;
                     return;
                 }
@@ -683,9 +709,11 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 }
                 TerrainCheckResult floorAJS = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
                 if (floorAJS.distance() < 0) {
+                    // ROM: landed, snap to floor, continue ground run
                     state.y += floorAJS.distance();
                     state.yFixed = state.y << 16;
                     state.yVel = 0;
+                    attackPhase = 5;
                     animateSpriteChecked();
                     return;
                 }
@@ -694,6 +722,24 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 animateSpriteChecked();
             }
             case 5 -> {
+                // ROM: ground-run phase — boss slides along ground, decelerating
+                if (state.xVel > 0) {
+                    state.xVel -= GROUND_RUN_DECEL;
+                    if (state.xVel <= 0) state.xVel = 0;
+                } else if (state.xVel < 0) {
+                    state.xVel += GROUND_RUN_DECEL;
+                    if (state.xVel >= 0) state.xVel = 0;
+                }
+                state.applyVelocity();
+                animateSpriteChecked();
+                if (state.xVel == 0) {
+                    // ROM: loc_39A7C — stop, flip, anim=5
+                    attackPhase = 6;
+                    anim = 5;
+                    facingLeft = !facingLeft;
+                }
+            }
+            case 6 -> {
                 animateSpriteChecked();
                 if (animTerminatorReached) {
                     transitionToIdle();
@@ -722,10 +768,11 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     }
 
     private void applyDeceleration() {
-        // ROM: add.w d0,x_vel(a0) — no clamping, velocity may overshoot through zero
+        // ROM: add.w d0,x_vel(a0) — unconditional subtract toward zero,
+        // velocity may overshoot; timer-based transition handles state change
         if (state.xVel > 0) {
             state.xVel -= DECEL_RATE;
-        } else if (state.xVel < 0) {
+        } else {
             state.xVel += DECEL_RATE;
         }
         state.applyVelocity();

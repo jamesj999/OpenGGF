@@ -242,15 +242,7 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
      * the jump completes. ObjC7's head child polls this flag.
      */
     private void updateRun(AbstractPlayableSprite player) {
-        // Exhaust puff timer (ROM: loc_3CFB0 area)
-        puffTimer--;
-        if (puffTimer < 0) {
-            puffTimer = 0x20;
-            // TODO: ROM spawns exhaust puff child (ObjC6 subtype $AA, frame 5,
-            // x_vel=-$100, y_offset=-$18, lifetime=8 frames)
-        }
-
-        // ROM: cmpi.w #$810,x_pos(a0) — check jump threshold
+        // ROM: cmpi.w #$810,x_pos(a0) — check jump threshold FIRST
         if (currentX >= JUMP_THRESHOLD_X) {
             // ROM: Always set jump frame and clear running velocity when threshold reached
             currentFrame = FRAME_JUMP;
@@ -265,17 +257,29 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
                 // ROM: bset #status.npc.p1_standing,status(a0) — signal boarding NOW
                 signalBoarding();
             }
+            // Return before puff timer — ROM does not decrement timer during $810 wait
             return;
         }
 
         // ROM: Keep Eggman ahead of the player (loc_3CFB0)
-        // When player catches up within $50 pixels, snap Eggman to player.x + $50
+        // ROM: addi.w #$50,d2 / cmpi.w #$A0,d2 / blo.s — unsigned range check
+        // Checks if (dx + $50) unsigned < $A0, equivalent to |dx| < $50
         if (player != null) {
             int dx = currentX - player.getCentreX();
-            if (dx < 0x50) {
+            int shifted = dx + 0x50;
+            if (shifted >= 0 && shifted < 0xA0) {
                 currentX = player.getCentreX() + 0x50;
                 xFixed = currentX << 16;
             }
+        }
+
+        // Exhaust puff timer (ROM: loc_3CFB0 area)
+        puffTimer--;
+        if (puffTimer < 0) {
+            puffTimer = 0x20;
+            // TODO: ROM spawns exhaust puff child (ObjC6 subtype $AA, frame 5,
+            // x_vel=-$100, y_offset=-$18, timer=$08 [9 frames, bmi at -1],
+            // y_vel=0 with gravity $18/frame)
         }
 
         // Apply movement (ObjectMove)

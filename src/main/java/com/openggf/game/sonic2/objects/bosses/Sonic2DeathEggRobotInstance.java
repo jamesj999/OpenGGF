@@ -278,13 +278,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     };
 
     // --- Group animation script definitions ---
-    // Each script entry: positive = keyframe index, negative = flag byte
-    // FLAG_SOUND = next byte is sound ID, then next is the real keyframe
-    // FLAG_REVERSE = negate all deltas for this keyframe (lower 6 bits = keyframe index)
-    // FLAG_END = animation complete
-    private static final int FLAG_SOUND = -0x40;    // $40 prefix
-    private static final int FLAG_REVERSE = -0x80;  // $80 prefix
-    private static final int FLAG_END = -0xC0;      // $C0 prefix / $FF
+    // Each script entry: positive = keyframe index, negative = inline flag encoding
+    // -1 = sound marker (plays SndID_Hammer at that point in the sequence)
+    // <= -100 = reversed keyframe (e.g. -108 = reversed keyframe 8, computed as -(entry+100))
+    // End of sequence = implicit when groupAnimFrameIdx reaches sequence.length
 
     // ROM script: off_3E2F6 — half-step walk forward (steps 0-3, end)
     // Keyframe table: HALF_STEP_KEYFRAMES
@@ -451,11 +448,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     private void spawnChildren() {
         // Front parts: priority 4 (in front of body at priority 5)
-        shoulder = new ArticulatedChild(this, "Shoulder", 4, FRAME_SHOULDER, 4);
-        frontLowerLeg = new ArticulatedChild(this, "FrontLowerLeg", 4, FRAME_LOWER_LEG, 4);
+        shoulder = new ArticulatedChild(this, "Shoulder", 4, FRAME_SHOULDER);
+        frontLowerLeg = new ArticulatedChild(this, "FrontLowerLeg", 4, FRAME_LOWER_LEG);
         frontForearm = new ForearmChild(this, "FrontForearm", 4, true);
-        upperArm = new ArticulatedChild(this, "UpperArm", 4, FRAME_ARM, 4);
-        frontThigh = new ArticulatedChild(this, "FrontThigh", 4, FRAME_THIGH, 4);
+        upperArm = new ArticulatedChild(this, "UpperArm", 4, FRAME_ARM);
+        frontThigh = new ArticulatedChild(this, "FrontThigh", 4, FRAME_THIGH);
 
         // Head: priority 4 (same as front parts, ROM: subObjData inherited)
         head = new HeadChild(this, 4);
@@ -463,9 +460,9 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         // Jet: priority 4 (same as front parts, ROM: subObjData inherited)
         jet = new JetChild(this, 4);
         // Back parts: priority 5 (behind body, ROM: move.b #5,priority(a1))
-        backLowerLeg = new ArticulatedChild(this, "BackLowerLeg", 5, FRAME_LOWER_LEG, 6);
+        backLowerLeg = new ArticulatedChild(this, "BackLowerLeg", 5, FRAME_LOWER_LEG);
         backForearm = new ForearmChild(this, "BackForearm", 5, false);
-        backThigh = new ArticulatedChild(this, "BackThigh", 5, FRAME_THIGH, 6);
+        backThigh = new ArticulatedChild(this, "BackThigh", 5, FRAME_THIGH);
 
         childComponents.add(shoulder);
         childComponents.add(frontLowerLeg);
@@ -872,7 +869,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
     }
 
-    /** Defeat phase 2: 64 frames of explosions, then lock controls */
+    /** Defeat phase 2: 64 frames of explosions, then lock controls and walk player right */
     private void updateDefeatExplode(int frameCounter) {
         actionTimer--;
         if (actionTimer >= 0) {
@@ -882,12 +879,21 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             Camera camera = Camera.getInstance();
             if (camera != null) {
                 camera.setMaxX((short) DEFEAT_CAMERA_MAX_X);
+                // TODO: ROM sets (Vint_Count_addr+2).w = $1000 for persistent screen rumble.
+                // Camera has no timed/persistent shake API yet.
             }
         }
     }
 
     /** Defeat phase 4: Force player right, trigger ending when camera reaches $840 */
     private void updateDefeatWalkPlayer(int frameCounter, AbstractPlayableSprite player) {
+        // ROM: move.b #1,(Ctrl_1_Locked).w — lock player controls
+        // ROM: move.w #(btnRight<<8)|btnRight,(Ctrl_1_Logical).w — force walk right
+        if (player != null) {
+            player.setControlLocked(true);
+            player.setForceInputRight(true);
+        }
+
         Camera camera = Camera.getInstance();
         if (camera != null && camera.getX() >= DEFEAT_CAMERA_WALK_TARGET) {
             camera.setShakeOffsets(0, 4);
@@ -1314,8 +1320,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         private int fallTimer;
 
         ArticulatedChild(Sonic2DeathEggRobotInstance parent, String name,
-                         int priority, int frame, int initialPriority) {
-            super(parent, name, initialPriority, Sonic2ObjectIds.DEATH_EGG_ROBOT);
+                         int priority, int frame) {
+            super(parent, name, priority, Sonic2ObjectIds.DEATH_EGG_ROBOT);
             this.frame = frame;
             this.priority = priority;
             this.falling = false;
@@ -1392,7 +1398,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         ForearmChild(Sonic2DeathEggRobotInstance parent, String name,
                      int priority, boolean isFront) {
-            super(parent, name, priority, FRAME_FOREARM, priority);
+            super(parent, name, priority, FRAME_FOREARM);
             this.isFront = isFront;
             this.punching = false;
             this.punchPhase = 0;
@@ -1619,8 +1625,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         @Override
         public int getCollisionProperty() {
-            Sonic2DeathEggRobotInstance boss = (Sonic2DeathEggRobotInstance) parent;
-            return boss.state.hitCount;
+            // ROM: move.b #-1,collision_property(a0) every frame in routine 8.
+            // Value -1 (0xFF unsigned) tells Touch_Enemy to always process the hit;
+            // HP tracking is handled by the parent body's onHeadHit() method.
+            return -1;
         }
 
         @Override
