@@ -593,8 +593,14 @@ public class Engine {
 			}
 		} else if (getCurrentGameMode() == GameMode.CREDITS_TEXT
 				|| getCurrentGameMode() == GameMode.ENDING_CUTSCENE) {
-			// Credits text / ending cutscene: black background
-			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			// Ending: delegate to EndingProvider for phase-dependent background color
+			// (sky blue during cutscene sky phases, black during photos/credits/logo)
+			EndingProvider ending = gameLoop.getEndingProvider();
+			if (ending != null) {
+				ending.setClearColor();
+			} else {
+				glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			}
 		} else if (getCurrentGameMode() == GameMode.TRY_AGAIN_END) {
 			// TRY AGAIN / END screen: black background
 			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);

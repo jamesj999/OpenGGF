@@ -51,6 +51,15 @@ public interface EndingProvider {
      */
     boolean isComplete();
 
+    /**
+     * Sets the OpenGL clear color for the current ending state.
+     * Default is black; games can override to use VDP background color
+     * (e.g., palette 2 color 0 for sky blue during cutscene sky phases).
+     */
+    default void setClearColor() {
+        org.lwjgl.opengl.GL11.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    }
+
     // --- Demo playback support (S1-style interleaved credits/demos) ---
 
     /**
