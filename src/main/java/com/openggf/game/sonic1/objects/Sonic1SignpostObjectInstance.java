@@ -12,10 +12,8 @@ import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.game.sonic2.objects.SignpostSparkleObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.render.PlayerSpriteRenderer;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -145,14 +143,8 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
 
         switch (routineState) {
             case STATE_IDLE -> checkPlayerPass(player);
-            case STATE_SPINNING -> {
-                updateSpinning();
-                clampPlayerRight(player);
-            }
-            case STATE_WALK_OFF -> {
-                updateWalkOff(player);
-                clampPlayerRight(player);
-            }
+            case STATE_SPINNING -> updateSpinning();
+            case STATE_WALK_OFF -> updateWalkOff(player);
             case STATE_COMPLETE -> { /* Sign_Exit: rts */ }
         }
     }
@@ -189,13 +181,14 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
             levelGamestate.pauseTimer();
         }
 
-        // ROM: move.w (v_limitright2).w,(v_limitleft2).w - lock screen position
+        // ROM: move.w (v_limitright2).w,(v_limitleft2).w
+        // S1 uses target boundaries (v_limitleft2/v_limitright2), not current ones.
+        // v_limitleft1 eases toward v_limitleft2 at 2px/frame — the camera does NOT
+        // snap immediately. Use setMinXTarget() to match this easing behavior.
         Camera camera = Camera.getInstance();
         if (camera != null) {
-            short camX = camera.getX();
-            camera.setMinX(camX);
-            camera.setMaxX(camX);
-            LOGGER.fine("Camera locked at X=" + camX);
+            camera.setMinXTarget(camera.getMaxX());
+            LOGGER.fine("Camera lock target: minXTarget set to maxX=" + camera.getMaxX());
         }
 
         // ROM: addq.b #2,obRoutine(a0) - advance to Sign_Spin
@@ -327,11 +320,11 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
         }
 
         // Check if player has walked far enough off-screen
-        // ROM: v_limitright2 = camera scroll position (locked at activation time)
-        // Check: player center X >= limitright2 + $128
+        // ROM: move.w (v_limitright2).w,d1; addi.w #$128,d1
+        // v_limitright2 = camera maxX (level boundary, unchanged by lock)
         Camera camera = Camera.getInstance();
         if (camera != null && !resultsSpawned) {
-            int rightLimit = camera.getX() + WALK_OFF_OFFSET;
+            int rightLimit = camera.getMaxX() + WALK_OFF_OFFSET;
             if (player.getCentreX() >= rightLimit) {
                 triggerGotThroughAct(player);
             }
@@ -372,43 +365,6 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
             objectManager.addDynamicObject(resultsScreen);
             LOGGER.info("S1 Results screen spawned");
         }
-    }
-
-    /**
-     * Clamps the player from moving too far to the right during spin/walk-off.
-     * Prevents the player from running past the camera boundary + offset.
-     */
-    private void clampPlayerRight(AbstractPlayableSprite player) {
-        Camera camera = Camera.getInstance();
-        if (camera == null) {
-            return;
-        }
-        int maxX = camera.getX() + camera.getWidth() + WALK_OFF_OFFSET;
-        int renderRight = resolvePlayerRenderRight(player);
-        if (renderRight > maxX) {
-            int delta = renderRight - maxX;
-            int clampedLeft = player.getX() - delta;
-            if (clampedLeft < 0) {
-                clampedLeft = 0;
-            }
-            player.setX((short) clampedLeft);
-            player.setXSpeed((short) 0);
-            player.setGSpeed((short) 0);
-        }
-    }
-
-    private int resolvePlayerRenderRight(AbstractPlayableSprite player) {
-        PlayerSpriteRenderer renderer = player.getSpriteRenderer();
-        if (renderer != null) {
-            SpritePieceRenderer.FrameBounds bounds = renderer.getFrameBounds(
-                    player.getMappingFrame(),
-                    player.getRenderHFlip(),
-                    player.getRenderVFlip());
-            if (bounds.width() > 0) {
-                return player.getRenderCentreX() + bounds.maxX();
-            }
-        }
-        return player.getRightX();
     }
 
     @Override
