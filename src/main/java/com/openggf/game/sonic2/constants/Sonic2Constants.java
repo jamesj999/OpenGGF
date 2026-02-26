@@ -486,7 +486,7 @@ public class Sonic2Constants {
     public static final int ART_NEM_WFZ_FLOAT_PLATFORM_ADDR = 0x8D96E;   // ArtNem_WfzFloatingPlatform (tile base $046D, palette 1)
     public static final int ART_NEM_ROBOTNIK_UPPER_ADDR = 0x8E886;        // ArtNem_Eggpod_1 (tile base $0500, palette 0)
     public static final int ART_NEM_ROBOTNIK_RUNNING_ADDR = 0x8EA5A;      // ArtNem_EggpodRunning (tile base $0518, palette 0)
-    public static final int ART_NEM_ROBOTNIK_LOWER_ADDR = 0x8EF96;        // ArtNem_Eggpod_2 (tile base $0564, palette 0)
+    public static final int ART_NEM_ROBOTNIK_LOWER_ADDR = 0x8EE52;        // ArtNem_RobotnikLower (tile base $0564, palette 0)
     public static final int MAP_UNC_WFZ_BOSS_ADDR = 0x3CCD8;             // ObjC5_MapUnc_3CCD8 (19 frames: case, walls, platforms, laser)
     public static final int MAP_UNC_WFZ_ROBOTNIK_PLATFORM_ADDR = 0x3CEBC; // ObjC6_MapUnc_3CEBC (1 frame: Robotnik platform)
     public static final int MAP_UNC_WFZ_ROBOTNIK_ADDR = 0x3D0EE;         // ObjC6_MapUnc_3D0EE (8 frames: Robotnik)

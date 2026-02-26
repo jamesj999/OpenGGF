@@ -3030,6 +3030,64 @@ public class Sonic2ObjectArt {
         return new ObjectSpriteSheet(patterns, mappings, 0, 1);
     }
 
+    // ========== DEZ Eggman Transition (ObjC6 State2) ==========
+
+    /**
+     * Load DEZ Eggman transition sprite sheet (Robotnik running to cockpit).
+     * Uses three art blocks loaded by PlrList_Dez2:
+     * - ArtNem_RobotnikUpper at VRAM $0500 (head/torso)
+     * - ArtNem_RobotnikRunning at VRAM $0518 (running legs)
+     * - ArtNem_RobotnikLower at VRAM $0564 (lower body/shared)
+     *
+     * Mappings from ObjC6_MapUnc_3D0EE reference tiles as absolute VRAM positions
+     * (art_tile base = ArtTile_ArtKos_LevelArt = $0000). The combined pattern array
+     * is offset by -$0500 so mapping tile $0500 maps to array index 0.
+     *
+     * ROM frames: 0=standing, 1=surprised, 2=jumping, 3-4=running (body variants),
+     *             5=exhaust puff, 6-7=running (leg variants)
+     *
+     * @return sprite sheet for DEZ Eggman transition, or null on failure
+     */
+    public ObjectSpriteSheet loadDEZEggmanSheet() {
+        Pattern[] upperPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_ROBOTNIK_UPPER_ADDR, "RobotnikUpper");
+        Pattern[] runningPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_ROBOTNIK_RUNNING_ADDR, "RobotnikRunning");
+        Pattern[] lowerPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_ROBOTNIK_LOWER_ADDR, "RobotnikLower");
+        if (upperPatterns.length == 0 && runningPatterns.length == 0 && lowerPatterns.length == 0) {
+            return null;
+        }
+
+        // VRAM layout: Upper at $0500, Running at $0518, Lower at $0564
+        // Combined array indexed from $0500, so:
+        //   Upper -> index 0 ($0500-$0500)
+        //   Running -> index $18 = 24 ($0518-$0500)
+        //   Lower -> index $64 = 100 ($0564-$0500)
+        int runningOffset = 0x0518 - 0x0500; // 24
+        int lowerOffset = 0x0564 - 0x0500;   // 100
+
+        int combinedSize = lowerOffset + lowerPatterns.length;
+        Pattern[] combined = new Pattern[combinedSize];
+
+        // Fill with empty patterns to avoid null references
+        for (int i = 0; i < combinedSize; i++) {
+            combined[i] = new Pattern();
+        }
+
+        // Copy each art block at its correct offset
+        System.arraycopy(upperPatterns, 0, combined, 0,
+                Math.min(upperPatterns.length, combinedSize));
+        if (runningOffset + runningPatterns.length <= combinedSize) {
+            System.arraycopy(runningPatterns, 0, combined, runningOffset, runningPatterns.length);
+        }
+        if (lowerOffset + lowerPatterns.length <= combinedSize) {
+            System.arraycopy(lowerPatterns, 0, combined, lowerOffset, lowerPatterns.length);
+        }
+
+        // Mappings reference absolute VRAM tiles starting at $0500; shift by -$0500
+        List<SpriteMappingFrame> mappings = loadMappingFramesWithTileOffset(
+                Sonic2Constants.MAP_UNC_WFZ_ROBOTNIK_ADDR, -0x0500);
+        return new ObjectSpriteSheet(combined, mappings, 0, 1);
+    }
+
     // ========== MTZ Nut (Object 0x69) ==========
 
     /**

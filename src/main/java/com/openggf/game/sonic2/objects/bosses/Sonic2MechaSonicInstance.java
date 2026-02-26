@@ -754,6 +754,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             eventManager.setEventRoutine(eventManager.getEventRoutine() + 2);
             GameServices.gameState().setCurrentBossId(0);
             AudioManager.getInstance().playMusic(Sonic2Music.DEATH_EGG.id);
+            // Spawn Eggman transition object (ObjC6 State2) before self-destructing
+            spawnEggmanTransition();
             setDestroyed(true);
             return;
         }
@@ -826,6 +828,29 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 Sonic2ObjectArtKeys.DEZ_SILVER_SONIC);
         if (renderer == null || !renderer.isReady()) return;
         renderer.drawFrameIndex(currentFrame, state.x, state.y, facingLeft, false);
+    }
+
+    // ========================================================================
+    // Eggman Transition Spawning
+    // ========================================================================
+
+    /**
+     * Spawn the ObjC6 State2 Eggman transition object.
+     * ROM: ObjC6 is placed in the DEZ object layout with subtype $A6, but we
+     * spawn it dynamically after Silver Sonic's defeat to match the gameplay flow.
+     * Position ($3F8, $160) from ROM ObjC6_State2_State1 (s2.asm:81609-81610).
+     */
+    private void spawnEggmanTransition() {
+        if (levelManager.getObjectManager() == null) return;
+        Sonic2DEZEggmanInstance eggman = new Sonic2DEZEggmanInstance(0x3F8, 0x160);
+        // Wire direct reference to Death Egg Robot for boarding signal
+        for (var obj : levelManager.getObjectManager().getActiveObjects()) {
+            if (obj instanceof Sonic2DeathEggRobotInstance der) {
+                eggman.setDeathEggRobot(der);
+                break;
+            }
+        }
+        levelManager.getObjectManager().addDynamicObject(eggman);
     }
 
     // ========================================================================

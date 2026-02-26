@@ -1277,6 +1277,18 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     public HeadChild getHead() { return head; }
     public int getActionTimer() { return actionTimer; }
 
+    /**
+     * Signal that Eggman has boarded the cockpit (called by Sonic2DEZEggmanInstance).
+     * ROM: ObjC7 head child polls (DEZ_Eggman).w for status.npc.p1_standing bit.
+     * This flag replaces the timer-based stub in HeadChild.isEggmanBoarded().
+     */
+    public void setEggmanBoarded() {
+        this.eggmanBoardedFlag = true;
+    }
+
+    /** Eggman boarding flag, set by Sonic2DEZEggmanInstance when jump starts */
+    private boolean eggmanBoardedFlag = false;
+
     boolean consumeFrontPunchTrigger() {
         boolean val = frontPunchTriggered;
         frontPunchTriggered = false;
@@ -1527,16 +1539,33 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             this.glowPlayedOnce = false;
         }
 
+        /**
+         * Check if Eggman has boarded the cockpit.
+         * ROM: loc_3DC02 — polls (DEZ_Eggman).w status.npc.p1_standing bit.
+         * When the Sonic2DEZEggmanInstance signals boarding (via parent's
+         * eggmanBoardedFlag), advance head routine and signal the body.
+         * Falls back to the original timer if no Eggman object is present
+         * (e.g., when the DER is spawned without Silver Sonic fight).
+         */
         boolean isEggmanBoarded() {
             if (headRoutine == 0) {
                 headRoutine = 2;
             }
             if (headRoutine == 2) {
-                waitTimer++;
-                if (waitTimer > 30) {
+                Sonic2DeathEggRobotInstance boss = (Sonic2DeathEggRobotInstance) parent;
+                if (boss.eggmanBoardedFlag) {
+                    // Eggman transition object signaled boarding
                     headRoutine = 4;
                     waitTimer = 0x40;
                     eggmanBoarded = true;
+                } else {
+                    // Fallback timer for cases without Eggman object (debug/test)
+                    waitTimer++;
+                    if (waitTimer > 180) {
+                        headRoutine = 4;
+                        waitTimer = 0x40;
+                        eggmanBoarded = true;
+                    }
                 }
             }
             return eggmanBoarded;
