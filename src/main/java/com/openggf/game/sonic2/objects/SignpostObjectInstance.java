@@ -11,9 +11,7 @@ import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.render.PlayerSpriteRenderer;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -57,6 +55,8 @@ public class SignpostObjectInstance extends BoxObjectInstance {
     // Spin timing
     private static final int SPIN_FRAME_DELAY = 2;
     private static final int SPIN_CYCLES = 3;
+
+    // ROM: Obj0D_Main_State3 - player must pass Camera_Max_X_pos + $128 to trigger results
     private static final int WALK_OFF_OFFSET = 0x128;
 
     // Spinning animation frame sequence matching Ani_obj0D anim 1:
@@ -82,7 +82,6 @@ public class SignpostObjectInstance extends BoxObjectInstance {
     private int sparkleTimer = 0;
     private int sparkleIndex = 0;
 
-    private short groundLockY = 0;
     private boolean resultsSpawned = false;
 
     public SignpostObjectInstance(ObjectSpawn spawn, String name) {
@@ -126,22 +125,22 @@ public class SignpostObjectInstance extends BoxObjectInstance {
 
         switch (routineState) {
             case STATE_IDLE -> checkPlayerPass(player);
-            case STATE_SPINNING -> {
-                updateSpinning();
-                clampPlayerRight(player);
-            }
-            case STATE_WALK_OFF -> {
-                updateWalkOff(player);
-                clampPlayerRight(player);
-            }
+            case STATE_SPINNING -> updateSpinning();
+            case STATE_WALK_OFF -> updateWalkOff(player);
         }
     }
 
+    /**
+     * ROM: Obj0D_Main (s2.asm:34449-34456)
+     * move.w x_pos(a1),d0 ; player center X
+     * sub.w  x_pos(a0),d0 ; d0 = player_center - signpost_center
+     * bcs.s  ...           ; skip if negative (player left of signpost)
+     * cmpi.w #$20,d0
+     * bhs.s  ...           ; skip if >= $20 (player too far past)
+     */
     private void checkPlayerPass(AbstractPlayableSprite player) {
-        int signpostX = spawn.x();
-        int playerX = player.getX();
-
-        if (playerX >= signpostX - 0x20) {
+        int dx = player.getCentreX() - spawn.x();
+        if (dx >= 0 && dx < 0x20) {
             activateSignpost(player);
         }
     }
@@ -172,13 +171,17 @@ public class SignpostObjectInstance extends BoxObjectInstance {
         mappingFrame = SPIN_FRAMES[0];
     }
 
+    /**
+     * ROM: move.w (Camera_Max_X_pos).w,(Camera_Min_X_pos).w
+     * Sets Camera_Min to Camera_Max, locking the camera at the level's right boundary.
+     * Camera_Max_X_pos is NOT changed — the player's right movement limit in
+     * Sonic_LevelBound still uses the original level boundary value.
+     */
     private void lockCamera() {
         Camera camera = Camera.getInstance();
         if (camera != null) {
-            short camX = camera.getX();
-            camera.setMinX(camX);
-            camera.setMaxX(camX);
-            LOGGER.fine("Camera locked at X=" + camX);
+            camera.setMinX(camera.getMaxX());
+            LOGGER.fine("Camera locked: minX set to maxX=" + camera.getMaxX());
         }
     }
 
@@ -228,62 +231,33 @@ public class SignpostObjectInstance extends BoxObjectInstance {
         }
     }
 
+    /**
+     * ROM: Obj0D_Main_State3 (s2.asm:34593-34621)
+     * <p>
+     * Each frame:
+     * 1. If player is airborne, skip control lock (wait for landing)
+     * 2. Otherwise set Control_Locked and force right input
+     * 3. Check: player_center_x >= Camera_Max_X_pos + $128 → trigger end of act
+     */
     private void updateWalkOff(AbstractPlayableSprite player) {
-        // Only need to set control lock once (ROM behavior)
-        if (groundLockY == 0) {
-            groundLockY = 1; // Just use as "initialized" flag
+        // ROM: btst #status.player.in_air — only lock controls when grounded
+        if (!player.getAir()) {
             player.setForceInputRight(true);
             player.setControlLocked(true);
-            LOGGER.fine("Walk-off initiated: forceInputRight=true, controlLocked=true");
         }
 
-        // Check for off-screen transition - trigger results when player is fully
-        // past the right edge of the visible screen
+        // ROM: move.w (MainCharacter+x_pos).w,d0
+        //      move.w (Camera_Max_X_pos).w,d1
+        //      addi.w #$128,d1
+        //      cmp.w  d1,d0
+        //      blo.w  return
         Camera camera = Camera.getInstance();
         if (camera != null && !resultsSpawned) {
-            int screenRightEdge = camera.getX() + camera.getWidth();
-            // Player is off-screen when their left edge is past the screen's right edge
-            if (player.getX() > screenRightEdge) {
+            int triggerX = camera.getMaxX() + WALK_OFF_OFFSET;
+            if (player.getCentreX() >= triggerX) {
                 spawnResultsScreen(player);
             }
         }
-    }
-
-    private void clampPlayerRight(AbstractPlayableSprite player) {
-        Camera camera = Camera.getInstance();
-        if (camera == null) {
-            return;
-        }
-        int maxX = resolveRightLimit(camera);
-        int renderRight = resolvePlayerRenderRight(player);
-        if (renderRight > maxX) {
-            int delta = renderRight - maxX;
-            int clampedLeft = player.getX() - delta;
-            if (clampedLeft < 0) {
-                clampedLeft = 0;
-            }
-            player.setX((short) clampedLeft);
-            player.setXSpeed((short) 0);
-            player.setGSpeed((short) 0);
-        }
-    }
-
-    private int resolveRightLimit(Camera camera) {
-        return camera.getX() + camera.getWidth() + WALK_OFF_OFFSET;
-    }
-
-    private int resolvePlayerRenderRight(AbstractPlayableSprite player) {
-        PlayerSpriteRenderer renderer = player.getSpriteRenderer();
-        if (renderer != null) {
-            SpritePieceRenderer.FrameBounds bounds = renderer.getFrameBounds(
-                    player.getMappingFrame(),
-                    player.getRenderHFlip(),
-                    player.getRenderVFlip());
-            if (bounds.width() > 0) {
-                return player.getRenderCentreX() + bounds.maxX();
-            }
-        }
-        return player.getRightX();
     }
 
     private void spawnResultsScreen(AbstractPlayableSprite player) {
