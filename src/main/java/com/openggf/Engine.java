@@ -30,6 +30,7 @@ import com.openggf.game.TitleCardProvider;
 import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.debug.playback.PlaybackDebugManager;
 
 import java.io.IOException;
 import java.nio.IntBuffer;
@@ -632,8 +633,9 @@ public class Engine {
 			uiPipeline.renderFadePass();
 		}
 
+		boolean playbackHud = PlaybackDebugManager.getInstance().isHudVisible();
 		boolean needsOverlay = (getCurrentGameMode() == GameMode.SPECIAL_STAGE) ||
-				(debugViewEnabled && getCurrentGameMode() != GameMode.SPECIAL_STAGE);
+				((debugViewEnabled || playbackHud) && getCurrentGameMode() != GameMode.SPECIAL_STAGE && !isNativeImage());
 
 		if (needsOverlay) {
 			prepareOverlayState();
@@ -647,7 +649,7 @@ public class Engine {
 			} else {
 				ssProvider.renderLagCompensationOverlay(windowWidth, windowHeight);
 			}
-		} else if (debugViewEnabled) {
+		} else if ((debugViewEnabled || playbackHud) && !isNativeImage()) {
 			getDebugRenderer().updateViewport(viewportWidth, viewportHeight);
 			getDebugRenderer().renderDebugInfo();
 
