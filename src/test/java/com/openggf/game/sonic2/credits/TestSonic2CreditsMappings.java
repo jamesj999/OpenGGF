@@ -57,15 +57,17 @@ public class TestSonic2CreditsMappings {
     // ========================================================================
 
     @Test
-    public void testAllPiecesAre1x2Tiles() {
+    public void testAllPiecesAre1x1Tiles() {
+        // ROM credit font uses 8×8 tiles: each charset value is a single tile,
+        // and characters are 2 tiles wide × 1 tile tall (16×8 px).
         List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
         for (int f = 0; f < frames.size(); f++) {
             for (int p = 0; p < frames.get(f).pieces().size(); p++) {
                 SpriteMappingPiece piece = frames.get(f).pieces().get(p);
                 assertEquals("Frame " + f + " piece " + p + " width should be 1 tile",
                         1, piece.widthTiles());
-                assertEquals("Frame " + f + " piece " + p + " height should be 2 tiles",
-                        2, piece.heightTiles());
+                assertEquals("Frame " + f + " piece " + p + " height should be 1 tile",
+                        1, piece.heightTiles());
             }
         }
     }
@@ -197,13 +199,14 @@ public class TestSonic2CreditsMappings {
 
     @Test
     public void testTileIndicesWithinFontRange() {
-        // S2 credit font tile indices should be within the font range (0x02 to 0x47 based on CHAR_TILES)
+        // S2 credit font tile indices are 0-based (ArtTile offset already subtracted).
+        // Max value is around 0x3E (from charset '9' right digit).
         List<SpriteMappingFrame> frames = Sonic2CreditsMappings.createFrames();
         for (int f = 0; f < frames.size(); f++) {
             for (SpriteMappingPiece piece : frames.get(f).pieces()) {
                 assertTrue("Frame " + f + " tile index " + piece.tileIndex()
-                                + " should be within font range (<= 0x47)",
-                        piece.tileIndex() <= 0x47);
+                                + " should be within font range (<= 0x3F)",
+                        piece.tileIndex() <= 0x3F);
             }
         }
     }

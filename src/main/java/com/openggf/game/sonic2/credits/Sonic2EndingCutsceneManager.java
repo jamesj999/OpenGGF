@@ -266,6 +266,36 @@ public class Sonic2EndingCutsceneManager {
         return state;
     }
 
+    /**
+     * Returns whether the cutscene is currently in a sky phase (sky fall, plane approach,
+     * rescue, or fly away) where the background should be blue sky instead of black.
+     * ROM reference: VDP register $8720 = palette 2, color 0 during EndingSequence.
+     */
+    public boolean isSkyPhase() {
+        return state == CutsceneState.SKY_FALL
+                || state == CutsceneState.PLANE_APPROACH
+                || state == CutsceneState.PLANE_RESCUE
+                || state == CutsceneState.FLY_AWAY;
+    }
+
+    /**
+     * Sets the OpenGL clear color based on the current cutscene state.
+     * During sky phases, uses palette line 2 color 0 (sky blue) from the ending palettes.
+     * During photo/init phases, uses black.
+     * ROM reference: VDP register $8720 = palette 2, color 0.
+     */
+    public void setClearColor() {
+        if (isSkyPhase() && endingArt != null && endingArt.getEndingPalettes() != null) {
+            com.openggf.level.Palette[] palettes = endingArt.getEndingPalettes();
+            if (palettes.length > 2 && palettes[2] != null) {
+                com.openggf.level.Palette.Color bgColor = palettes[2].getColor(0);
+                org.lwjgl.opengl.GL11.glClearColor(bgColor.rFloat(), bgColor.gFloat(), bgColor.bFloat(), 1.0f);
+                return;
+            }
+        }
+        org.lwjgl.opengl.GL11.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    }
+
     // ========================================================================
     // PHOTO_SEQUENCE
     // ========================================================================
@@ -316,7 +346,10 @@ public class Sonic2EndingCutsceneManager {
                     continue;
                 }
                 reusableDesc.set(word);
-                int patternId = Sonic2EndingArt.PATTERN_BASE_PICS + reusableDesc.getPatternIndex();
+                // Enigma-decoded words have ART_TILE_ENDING_PICS baked into the tile index.
+                // Subtract it to get the 0-based pattern array offset.
+                int patternId = Sonic2EndingArt.PATTERN_BASE_PICS
+                        + reusableDesc.getPatternIndex() - Sonic2Constants.ART_TILE_ENDING_PICS;
                 gm.renderPatternWithId(patternId, reusableDesc,
                         PHOTO_X + tx * 8, PHOTO_Y + ty * 8);
             }

@@ -205,6 +205,16 @@ public class Sonic2EndingProvider implements EndingProvider {
         return state == InternalState.FINISHED;
     }
 
+    @Override
+    public void setClearColor() {
+        if (cutsceneManager != null && (state == InternalState.CUTSCENE || state == InternalState.CUTSCENE_FADE_OUT)) {
+            cutsceneManager.setClearColor();
+        } else {
+            // Credits text and logo phases: black background
+            org.lwjgl.opengl.GL11.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        }
+    }
+
     // ========================================================================
     // Manager accessors (for GameLoop integration)
     // ========================================================================
