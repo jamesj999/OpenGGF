@@ -1918,6 +1918,7 @@ public class GameLoop {
     /**
      * POST_CREDITS phase: update the post-credits screen (e.g., TRY AGAIN / END).
      * For Sonic 1, the TryAgainEndManager needs InputHandler access for START press.
+     * For Sonic 2, the LogoFlashManager needs InputHandler for button skip detection.
      */
     private void updateEndingPostCredits() {
         if (endingProvider instanceof com.openggf.game.sonic1.credits.Sonic1EndingProvider s1Provider) {
@@ -1928,6 +1929,22 @@ public class GameLoop {
                     exitEndingToTitleScreen();
                     return;
                 }
+            }
+        } else if (endingProvider instanceof com.openggf.game.sonic2.credits.Sonic2EndingProvider s2Provider) {
+            // S2 logo flash needs InputHandler for B/C/A/Start skip detection
+            var logoFlash = s2Provider.getLogoFlashManager();
+            if (logoFlash != null) {
+                logoFlash.update(inputHandler);
+                if (logoFlash.isDone()) {
+                    exitEndingToTitleScreen();
+                    return;
+                }
+            } else {
+                // Logo not yet loaded -- let provider advance its internal state
+                endingProvider.update();
+            }
+            if (endingProvider.isComplete()) {
+                exitEndingToTitleScreen();
             }
         } else {
             // Generic provider: just call update() and check completion
