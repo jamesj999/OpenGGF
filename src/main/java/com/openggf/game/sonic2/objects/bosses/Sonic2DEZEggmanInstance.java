@@ -205,6 +205,9 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
         if (player == null) return;
 
         int dx = currentX - player.getCentreX();
+        // TODO: ROM's Obj_GetOrientationToPlayer considers both players and picks
+        // the closest. When 2P/sidekick support is added, also check the secondary
+        // character and use the smaller |dx|.
         // ROM: addi.w #$5C,d2 / cmpi.w #$B8,d2 / blo.s
         // This checks if (dx + $5C) unsigned < $B8, equivalent to |dx| < $5C
         int shifted = dx + PROXIMITY_RADIUS;
@@ -279,7 +282,7 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
             puffTimer = 0x20;
             // TODO: ROM spawns exhaust puff child (ObjC6 subtype $AA, frame 5,
             // x_vel=-$100, y_offset=-$18, timer=$08 [9 frames, bmi at -1],
-            // y_vel=0 with gravity $18/frame)
+            // y_vel=0 with gravity $10/frame)
         }
 
         // Apply movement (ObjectMove)

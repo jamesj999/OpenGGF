@@ -80,8 +80,6 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     private static final int SLOW_DASH_SPEED = 0x400;
     /** Deceleration rate per frame (ROM: $20) */
     private static final int DECEL_RATE = 0x20;
-    /** Ground-run deceleration per frame after landing from jump attacks (ROM: ~$10) */
-    private static final int GROUND_RUN_DECEL = 0x10;
     /** Jump Y velocity (ROM: move.w #-$600,y_vel(a0)) */
     private static final int JUMP_Y_VEL = -0x600;
 
@@ -351,6 +349,14 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
         // ROM: ObjectMove — constant velocity, no gravity, no AnimateSprite
         state.applyVelocity();
+
+        // ROM: Position children during descent (LED at offset 0,0; sensor at $C,-$C)
+        if (ledWindow != null) {
+            ledWindow.syncPositionWithParent();
+        }
+        if (targetingSensor != null) {
+            targetingSensor.syncPositionWithParent();
+        }
         // currentFrame stays as FRAME_STAND (set in init)
     }
 
@@ -362,10 +368,12 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         anim = 0; // Standing walk cycle
         ballForm = false;
 
-        // ROM: snap to floor during idle (prevent subpixel drift)
-        if (groundY != 0 && state.y != groundY) {
-            state.y = groundY;
-            state.yFixed = groundY << 16;
+        // ROM: ObjCheckFloorDist called dynamically every frame during idle to snap to floor.
+        // Probe terrain each frame rather than using cached groundY.
+        TerrainCheckResult floorIdle = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
+        if (floorIdle != null && floorIdle.distance() <= 0) {
+            state.y += floorIdle.distance();
+            state.yFixed = state.y << 16;
         }
 
         actionTimer--;
@@ -417,6 +425,11 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     // ========================================================================
 
     private void updateAttack(AbstractPlayableSprite player) {
+        // TODO: ROM calls ObjectMove ONCE at the end of the outer attack loop (loc_398F4),
+        // AFTER child alignment via loc_39D44. The current code calls applyVelocity() inside
+        // individual subroutine handlers. Moving it here would require removing all per-phase
+        // applyVelocity() calls and ensuring child sync happens between logic and movement.
+        // This structural difference is minor but noted for future ROM-accuracy improvement.
         switch (attackSubRoutine) {
             case ATTACK_DASH_ACROSS -> updateDashAcross(player);
             case ATTACK_AIM_AND_DASH -> updateAimAndDash(player);
@@ -624,21 +637,21 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 animateSpriteChecked();
             }
             case 5 -> {
-                // ROM: ground-run phase — boss slides along ground, decelerating
-                if (state.xVel > 0) {
-                    state.xVel -= GROUND_RUN_DECEL;
-                    if (state.xVel <= 0) state.xVel = 0;
-                } else if (state.xVel < 0) {
-                    state.xVel += GROUND_RUN_DECEL;
-                    if (state.xVel >= 0) state.xVel = 0;
-                }
-                state.applyVelocity();
-                animateSpriteChecked();
-                if (state.xVel == 0) {
-                    // ROM: loc_39A7C — stop, flip, anim=5
+                // ROM: ground-run phase — constant velocity with timer-based stop.
+                // ROM: subq.b #1,objoff_2A(a0) / bmi.w loc_39A7C
+                // Velocity stays constant (whatever was set during dash), timer counts down.
+                // When timer reaches -1, instantly zero velocity, flip, transition.
+                actionTimer--;
+                if (actionTimer < 0) {
+                    // ROM: loc_39A7C — stop, flip direction, anim=5
                     attackPhase = 6;
                     anim = 5;
+                    state.xVel = 0;
+                    state.yVel = 0;
                     facingLeft = !facingLeft;
+                } else {
+                    state.applyVelocity();
+                    animateSpriteChecked();
                 }
             }
             case 6 -> {
@@ -722,21 +735,21 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 animateSpriteChecked();
             }
             case 5 -> {
-                // ROM: ground-run phase — boss slides along ground, decelerating
-                if (state.xVel > 0) {
-                    state.xVel -= GROUND_RUN_DECEL;
-                    if (state.xVel <= 0) state.xVel = 0;
-                } else if (state.xVel < 0) {
-                    state.xVel += GROUND_RUN_DECEL;
-                    if (state.xVel >= 0) state.xVel = 0;
-                }
-                state.applyVelocity();
-                animateSpriteChecked();
-                if (state.xVel == 0) {
-                    // ROM: loc_39A7C — stop, flip, anim=5
+                // ROM: ground-run phase — constant velocity with timer-based stop.
+                // ROM: subq.b #1,objoff_2A(a0) / bmi.w loc_39A7C
+                // Velocity stays constant (whatever was set during dash), timer counts down.
+                // When timer reaches -1, instantly zero velocity, flip, transition.
+                actionTimer--;
+                if (actionTimer < 0) {
+                    // ROM: loc_39A7C — stop, flip direction, anim=5
                     attackPhase = 6;
                     anim = 5;
+                    state.xVel = 0;
+                    state.yVel = 0;
                     facingLeft = !facingLeft;
+                } else {
+                    state.applyVelocity();
+                    animateSpriteChecked();
                 }
             }
             case 6 -> {
@@ -768,9 +781,10 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     }
 
     private void applyDeceleration() {
-        // ROM: add.w d0,x_vel(a0) — unconditional subtract toward zero,
-        // velocity may overshoot; timer-based transition handles state change
-        if (state.xVel > 0) {
+        // ROM: move.w #-$20,d0 / tst.w x_vel(a0) / bge.s + / neg.w d0
+        // ROM pushes -$20 (left), then if xVel >= 0, negates to +$20 (right decel).
+        // This means: xVel >= 0 -> subtract, xVel < 0 -> add. Note >= 0, not > 0.
+        if (state.xVel >= 0) {
             state.xVel -= DECEL_RATE;
         } else {
             state.xVel += DECEL_RATE;
@@ -940,6 +954,12 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
          * displays mapping_frame 4 (blinds fully closed) without animating.
          */
         private boolean waitingForLanding = true;
+        /**
+         * ROM: Closing animation (animId==1) uses $FA terminator which means
+         * "advance routine_secondary by 2" — it does NOT loop. Once complete,
+         * the window stalls on the last frame.
+         */
+        private boolean closingComplete = false;
 
         MechaSonicDEZWindow(Sonic2MechaSonicInstance parent) {
             super(parent, "DEZ Window", 6, Sonic2ObjectIds.MECHA_SONIC);
@@ -996,14 +1016,29 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             int[] anim = WINDOW_ANIMS[animId];
             int speed = anim[0];
             int frameCount = anim.length - 1;
+
+            // ROM: Closing animation (animId==1) uses $FA terminator — stall, don't loop
+            if (closingComplete) {
+                updateDynamicSpawn();
+                return;
+            }
+
             animTimer++;
             if (animTimer > speed) {
                 animTimer = 0;
                 animFrame++;
                 if (animFrame >= frameCount) {
                     if (animId == 0) {
+                        // Opening animation complete -> transition to watching
                         animFrame = frameCount - 1;
                         setAnimId(2);
+                        return;
+                    } else if (animId == 1) {
+                        // ROM: $FA terminator — stall on last frame, do not loop
+                        animFrame = frameCount - 1;
+                        mappingFrame = anim[animFrame + 1];
+                        closingComplete = true;
+                        updateDynamicSpawn();
                         return;
                     } else {
                         animFrame = 0;

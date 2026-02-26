@@ -13,6 +13,7 @@ import com.openggf.level.objects.TouchResponseTable;
 
 import java.util.List;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
@@ -65,7 +66,7 @@ public class TestDEZMechaSonic {
     }
 
     @Test
-    public void attackPatternTableCyclesCorrectly() {
+    public void attackPatternTableCyclesCorrectly() throws Exception {
         // The attack table has 16 entries and cycles via & 0x0F
         int[] expectedTable = {
                 0x06, 0x00, 0x10, 0x06, 0x06, 0x1E, 0x00, 0x10,
@@ -74,6 +75,13 @@ public class TestDEZMechaSonic {
 
         // Verify the attack index starts at 0
         assertEquals("Attack index should start at 0", 0, boss.getAttackIndex());
+
+        // Verify the static attack table matches ROM byte_398B0
+        java.lang.reflect.Field field =
+                Sonic2MechaSonicInstance.class.getDeclaredField("ATTACK_TABLE");
+        field.setAccessible(true);
+        int[] actual = (int[]) field.get(null);
+        assertArrayEquals("Attack table should match ROM byte_398B0", expectedTable, actual);
     }
 
     @Test
@@ -93,19 +101,37 @@ public class TestDEZMechaSonic {
         boss.getState().routine = 0x08; // ROUTINE_IDLE
 
         // Standing frame -> $1A
-        // getCurrentFrame starts as FRAME_DESCEND (13), which is not ball, so $1A
+        // getCurrentFrame starts as FRAME_STAND (0), which is not ball, so $1A
         int flags = boss.getCollisionFlags();
         assertEquals("Standing collision should be $1A", COLLISION_STANDING, flags);
     }
 
     @Test
-    public void hitCountDecrementsOnDamage() {
-        // Simulate boss taking damage
-        assertEquals(8, boss.getState().hitCount);
+    public void collisionFlagsReturnBallWhenInBallFrame() throws Exception {
+        // ROM: loc_39D24 - frames 6,7,8 (BALL_A/B/C) -> return $9A
+        // Complementary to collisionFlagsBasedOnMappingFrame which tests non-ball frames
 
-        // Process a hit manually
-        boss.getState().hitCount--;
-        assertEquals("Hit count should decrement", 7, boss.getState().hitCount);
+        // Force boss into idle routine to enable collision
+        boss.getState().routine = 0x08; // ROUTINE_IDLE
+        boss.getState().invulnerable = false;
+        boss.getState().defeated = false;
+
+        // Use reflection to set currentFrame to each ball frame
+        java.lang.reflect.Field frameField =
+                Sonic2MechaSonicInstance.class.getDeclaredField("currentFrame");
+        frameField.setAccessible(true);
+
+        // Test FRAME_BALL_A (6)
+        frameField.setInt(boss, 6);
+        assertEquals("Ball frame 6 collision should be $9A", COLLISION_BALL, boss.getCollisionFlags());
+
+        // Test FRAME_BALL_B (7)
+        frameField.setInt(boss, 7);
+        assertEquals("Ball frame 7 collision should be $9A", COLLISION_BALL, boss.getCollisionFlags());
+
+        // Test FRAME_BALL_C (8)
+        frameField.setInt(boss, 8);
+        assertEquals("Ball frame 8 collision should be $9A", COLLISION_BALL, boss.getCollisionFlags());
     }
 
     @Test
