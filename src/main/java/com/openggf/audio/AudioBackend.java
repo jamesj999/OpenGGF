@@ -18,6 +18,20 @@ public interface AudioBackend {
 
     void playSmps(AbstractSmpsData data, DacData dacData);
 
+    /**
+     * Plays music SMPS data with an explicit sequencer config override.
+     * Used for donor (cross-game) music that needs a different driver configuration
+     * than the base game's.
+     *
+     * @param forceOverride when true, treat as a temporary music override (push current
+     *                      music onto the stack) regardless of the base game's audio profile.
+     *                      Used for donor music whose IDs aren't recognized by the base profile.
+     */
+    default void playSmps(AbstractSmpsData data, DacData dacData,
+                          SmpsSequencerConfig config, boolean forceOverride) {
+        playSmps(data, dacData);
+    }
+
     void playSfxSmps(AbstractSmpsData data, DacData dacData);
 
     void playSfxSmps(AbstractSmpsData data, DacData dacData, float pitch);

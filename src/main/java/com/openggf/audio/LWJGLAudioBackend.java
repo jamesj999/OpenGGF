@@ -206,25 +206,24 @@ public class LWJGLAudioBackend implements AudioBackend {
         int musicId = data.getId();
         boolean isOverride = audioProfile != null && audioProfile.isMusicOverride(musicId);
         if (isOverride) {
-            // Stop any playing SFX before pushing state to prevent partial playback on restore
-            synchronized (streamLock) {
-                if (smpsDriver != null) {
-                    smpsDriver.stopAllSfx();
+            // ROM behavior: only 1-up jingle (isSfxBlockingMusic) kills active SFX.
+            // Non-blocking overrides (invincibility, Super Sonic) let SFX continue.
+            if (audioProfile.isSfxBlockingMusic(musicId)) {
+                synchronized (streamLock) {
+                    if (smpsDriver != null) {
+                        smpsDriver.stopAllSfx();
+                    }
+                    if (sfxStream instanceof SmpsDriver sfxDriver) {
+                        sfxDriver.stopAll();
+                    }
+                    sfxStream = null;
                 }
-                // Also clean up standalone SFX stream (used when SFX played before any music)
-                if (sfxStream instanceof SmpsDriver sfxDriver) {
-                    sfxDriver.stopAll();
-                }
-                sfxStream = null;
+                sfxBlocked = true;
             }
             // Only push state if current music is NOT an override (e.g., not already playing 1up jingle).
             boolean currentIsOverride = audioProfile != null && audioProfile.isMusicOverride(currentMusicId);
             if (!currentIsOverride) {
                 pushCurrentState();
-            }
-            // ROM behavior: only 1-up jingle blocks SFX (1upPlaying flag), not invincibility
-            if (audioProfile.isSfxBlockingMusic(musicId)) {
-                sfxBlocked = true;
             }
 
             // Just disconnect the current driver from the source without stopping/clearing it.
@@ -271,6 +270,83 @@ public class LWJGLAudioBackend implements AudioBackend {
         seq.setSpeedShoes(speedShoesEnabled);
         seq.setFm6DacOff(fm6DacOff);
         // Music is the primary voice source for SFX fallback
+        seq.setFallbackVoiceData(data);
+        smpsDriver.addSequencer(seq, false);
+        currentSmps = seq;
+        currentMusicId = musicId;
+
+        updateSynthesizerConfig();
+        synchronized (streamLock) {
+            currentStream = smpsDriver;
+        }
+        startStream();
+    }
+
+    @Override
+    public void playSmps(AbstractSmpsData data, DacData dacData,
+                         SmpsSequencerConfig config, boolean forceOverride) {
+        SmpsSequencerConfig effectiveConfig = (config != null) ? config : requireSmpsConfig();
+
+        int musicId = data.getId();
+        boolean isOverride = forceOverride
+                || (audioProfile != null && audioProfile.isMusicOverride(musicId));
+        if (isOverride) {
+            boolean sfxBlocking = audioProfile != null && audioProfile.isSfxBlockingMusic(musicId);
+            // ROM: only the 1-up jingle (isSfxBlockingMusic) kills active SFX.
+            // Non-blocking overrides (invincibility, Super Sonic) let SFX continue.
+            if (sfxBlocking) {
+                synchronized (streamLock) {
+                    if (smpsDriver != null) {
+                        smpsDriver.stopAllSfx();
+                    }
+                    if (sfxStream instanceof SmpsDriver sfxDriver) {
+                        sfxDriver.stopAll();
+                    }
+                    sfxStream = null;
+                }
+                sfxBlocked = true;
+            }
+            boolean currentIsOverride = audioProfile != null && audioProfile.isMusicOverride(currentMusicId);
+            if (!currentIsOverride) {
+                pushCurrentState();
+            }
+            alSourceStop(musicSource);
+            alSourcei(musicSource, AL_BUFFER, 0);
+            currentStream = null;
+            currentSmps = null;
+            smpsDriver = null;
+        } else {
+            stopStream();
+            alSourceStop(musicSource);
+            clearMusicStack();
+            synchronized (streamLock) {
+                if (sfxStream instanceof SmpsDriver sfxDriver) {
+                    sfxDriver.stopAll();
+                }
+                sfxStream = null;
+            }
+        }
+
+        smpsDriver = new SmpsDriver(getSmpsOutputRate());
+
+        String regionStr = SonicConfigurationService.getInstance().getString(SonicConfiguration.REGION);
+        if ("PAL".equalsIgnoreCase(regionStr)) {
+            smpsDriver.setRegion(SmpsSequencer.Region.PAL);
+        } else {
+            smpsDriver.setRegion(SmpsSequencer.Region.NTSC);
+        }
+
+        boolean dacInterpolate = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.DAC_INTERPOLATE);
+        smpsDriver.setDacInterpolate(dacInterpolate);
+        smpsDriver.setOutputSampleRate(getSmpsOutputRate());
+        applyPsgNoiseConfig(smpsDriver);
+
+        boolean fm6DacOff = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.FM6_DAC_OFF);
+
+        SmpsSequencer seq = new SmpsSequencer(data, dacData, smpsDriver, effectiveConfig);
+        seq.setSampleRate(smpsDriver.getOutputSampleRate());
+        seq.setSpeedShoes(speedShoesEnabled);
+        seq.setFm6DacOff(fm6DacOff);
         seq.setFallbackVoiceData(data);
         smpsDriver.addSequencer(seq, false);
         currentSmps = seq;
@@ -474,9 +550,12 @@ public class LWJGLAudioBackend implements AudioBackend {
             // Restore speed shoes state to the saved sequencer
             currentSmps.setSpeedShoes(speedShoesEnabled);
             currentSmps.refreshAllVoices();
-            // Set callback to unblock SFX when fade-in completes
-            currentSmps.setOnFadeComplete(() -> sfxBlocked = false);
-            currentSmps.triggerFadeIn();
+            // ROM: only the 1-up jingle (sfxBlocked/FadeInFlag) fades in on restore.
+            // Non-blocking overrides (invincibility, Super Sonic) resume at full volume.
+            if (sfxBlocked) {
+                currentSmps.setOnFadeComplete(() -> sfxBlocked = false);
+                currentSmps.triggerFadeIn();
+            }
         }
 
         startStream();
