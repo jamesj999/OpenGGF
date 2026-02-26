@@ -393,6 +393,10 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         if (targetingSensor != null) {
             targetingSensor.setCollisionEnabled(false);
         }
+        // ROM: bset #status.npc.y_flip — signal DEZ window to begin blind-opening animation
+        if (dezWindow != null) {
+            dezWindow.signalLandingComplete();
+        }
     }
 
     // ========================================================================
@@ -855,6 +859,12 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         private int animFrame;
         private int animTimer;
         private int mappingFrame;
+        /**
+         * ROM: The window sits at routine $1C waiting for the parent's y_flip flag
+         * (set when Silver Sonic lands after descent). Until signalled, the window
+         * displays mapping_frame 4 (blinds fully closed) without animating.
+         */
+        private boolean waitingForLanding = true;
 
         MechaSonicDEZWindow(Sonic2MechaSonicInstance parent) {
             super(parent, "DEZ Window", 6, Sonic2ObjectIds.MECHA_SONIC);
@@ -864,6 +874,14 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             this.animFrame = 0;
             this.animTimer = 0;
             this.mappingFrame = 4;
+        }
+
+        /**
+         * ROM: bset #status.npc.y_flip — called when Silver Sonic lands,
+         * allowing the window to begin its blind-opening animation.
+         */
+        void signalLandingComplete() {
+            waitingForLanding = false;
         }
 
         void setAnimId(int newAnimId) {
@@ -878,6 +896,11 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         @Override
         public void update(int frameCounter, AbstractPlayableSprite player) {
             if (!beginUpdate(frameCounter)) return;
+            // ROM: routine $1C — wait for parent's y_flip flag before animating
+            if (waitingForLanding) {
+                updateDynamicSpawn();
+                return;
+            }
             int[] anim = WINDOW_ANIMS[animId];
             int speed = anim[0];
             int frameCount = anim.length - 1;
