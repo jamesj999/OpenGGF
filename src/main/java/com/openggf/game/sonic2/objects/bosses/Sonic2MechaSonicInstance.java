@@ -1018,12 +1018,15 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
             if (parent.isDestroyed()) return;
+            // ROM: LED overlay children are not rendered during ball form animations.
+            // Frames 0x09/0x0A appear as sparks/thruster when overlaid on ball frames.
+            Sonic2MechaSonicInstance mechParent = (Sonic2MechaSonicInstance) parent;
+            if (mechParent.ballForm) return;
             ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(
                     Sonic2ObjectArtKeys.DEZ_SILVER_SONIC);
             if (renderer == null || !renderer.isReady()) return;
-            Sonic2MechaSonicInstance mechParent = (Sonic2MechaSonicInstance) parent;
             renderer.drawFrameIndex(mappingFrame, currentX, currentY, mechParent.facingLeft, false);
         }
     }
