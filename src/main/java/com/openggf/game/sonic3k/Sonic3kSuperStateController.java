@@ -2,12 +2,12 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.PhysicsProfile;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
 import com.openggf.sprites.animation.SpriteAnimationSet;
 import com.openggf.sprites.art.SpriteArtSet;
@@ -107,6 +107,10 @@ public class Sonic3kSuperStateController extends SuperStateController {
             SpriteArtSet superArtSet = playerArt.loadSuperSonicArtSet();
             if (superArtSet != null) {
                 superRenderer = new PlayerSpriteRenderer(superArtSet);
+                if (CrossGameFeatureProvider.isActive()) {
+                    superRenderer.setRenderContext(
+                            CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+                }
                 LOGGER.fine("Loaded S3K Super Sonic sprite renderer");
             }
         } catch (Exception e) {
@@ -140,6 +144,18 @@ public class Sonic3kSuperStateController extends SuperStateController {
         paletteFrame = 0;
         paletteTimer = 1;
         transformFramesRemaining = 30;
+        // Play transformation SFX
+        try {
+            if (CrossGameFeatureProvider.isActive()) {
+                AudioManager.getInstance().playDonorSfx(
+                        CrossGameFeatureProvider.getInstance().getDonorGameId(),
+                        Sonic3kSfx.SUPER_TRANSFORM.id);
+            } else {
+                AudioManager.getInstance().playSfx(Sonic3kSfx.SUPER_TRANSFORM.id);
+            }
+        } catch (Exception e) {
+            LOGGER.fine("Could not play transformation SFX: " + e.getMessage());
+        }
     }
 
     @Override
@@ -155,7 +171,13 @@ public class Sonic3kSuperStateController extends SuperStateController {
         paletteTimer = 6;
         // Play invincibility music (S3K Super Sonic uses mus_Invincibility)
         try {
-            AudioManager.getInstance().playMusic(Sonic3kMusic.INVINCIBILITY.id);
+            if (CrossGameFeatureProvider.isActive()) {
+                AudioManager.getInstance().playDonorMusic(
+                        CrossGameFeatureProvider.getInstance().getDonorGameId(),
+                        Sonic3kMusic.INVINCIBILITY.id);
+            } else {
+                AudioManager.getInstance().playMusic(Sonic3kMusic.INVINCIBILITY.id);
+            }
         } catch (Exception e) {
             LOGGER.fine("Could not play Super Sonic music: " + e.getMessage());
         }
@@ -271,11 +293,10 @@ public class Sonic3kSuperStateController extends SuperStateController {
         if (paletteData == null || paletteData.length == 0) return;
         if (frameOffset < 0 || frameOffset + BYTES_PER_FRAME > paletteData.length) return;
 
-        Level level = LevelManager.getInstance().getCurrentLevel();
-        if (level == null) return;
+        PaletteTarget target = resolvePaletteTarget(SONIC_PALETTE_INDEX);
+        if (target == null) return;
 
-        Palette palette = level.getPalette(SONIC_PALETTE_INDEX);
-        if (palette == null) return;
+        Palette palette = target.palette();
 
         for (int i = 0; i < COLORS_PER_FRAME; i++) {
             palette.getColor(FIRST_COLOR_INDEX + i)
@@ -284,7 +305,7 @@ public class Sonic3kSuperStateController extends SuperStateController {
 
         GraphicsManager gfx = GraphicsManager.getInstance();
         if (gfx.isGlInitialized()) {
-            gfx.cachePaletteTexture(palette, SONIC_PALETTE_INDEX);
+            gfx.cachePaletteTexture(palette, target.gpuLine());
         }
     }
 }

@@ -2,12 +2,12 @@ package com.openggf.game.sonic2;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.PhysicsProfile;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.objects.SuperSonicStarsObjectInstance;
 import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
 import com.openggf.sprites.animation.SpriteAnimationSet;
@@ -136,7 +136,13 @@ public class Sonic2SuperStateController extends SuperStateController {
         transformFramesRemaining = 30;
         // Play transformation SFX
         try {
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SUPER_TRANSFORM);
+            if (CrossGameFeatureProvider.isActive()) {
+                AudioManager.getInstance().playDonorSfx(
+                        CrossGameFeatureProvider.getInstance().getDonorGameId(),
+                        Sonic2AudioConstants.SFX_SUPER_TRANSFORM);
+            } else {
+                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SUPER_TRANSFORM);
+            }
         } catch (Exception e) {
             LOGGER.fine("Could not play transformation SFX: " + e.getMessage());
         }
@@ -155,7 +161,13 @@ public class Sonic2SuperStateController extends SuperStateController {
         paletteTimer = 7;
         // Play Super Sonic music (overrides zone music)
         try {
-            AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_SUPER_SONIC);
+            if (CrossGameFeatureProvider.isActive()) {
+                AudioManager.getInstance().playDonorMusic(
+                        CrossGameFeatureProvider.getInstance().getDonorGameId(),
+                        Sonic2AudioConstants.MUS_SUPER_SONIC);
+            } else {
+                AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_SUPER_SONIC);
+            }
         } catch (Exception e) {
             LOGGER.fine("Could not play Super Sonic music: " + e.getMessage());
         }
@@ -292,11 +304,10 @@ public class Sonic2SuperStateController extends SuperStateController {
         if (paletteData == null || paletteData.length == 0) return;
         if (frameOffset < 0 || frameOffset + 8 > paletteData.length) return;
 
-        Level level = LevelManager.getInstance().getCurrentLevel();
-        if (level == null) return;
+        PaletteTarget target = resolvePaletteTarget(SONIC_PALETTE_INDEX);
+        if (target == null) return;
 
-        Palette palette = level.getPalette(SONIC_PALETTE_INDEX);
-        if (palette == null) return;
+        Palette palette = target.palette();
 
         // Write 4 colors at indices 2, 3, 4, 5 from ROM data
         // ROM: move.l (a0,d0.w),(a1)+ / move.l 4(a0,d0.w),(a1)
@@ -309,7 +320,7 @@ public class Sonic2SuperStateController extends SuperStateController {
         // Mark palette dirty for GPU re-upload
         GraphicsManager gfx = GraphicsManager.getInstance();
         if (gfx.isGlInitialized()) {
-            gfx.cachePaletteTexture(palette, SONIC_PALETTE_INDEX);
+            gfx.cachePaletteTexture(palette, target.gpuLine());
         }
     }
 

@@ -19,6 +19,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
     private final byte[] data;
     private final Synthesizer synth;
     private final SmpsSequencerConfig config;
+    private final DacData dacData;
     private final int tempoModBase;
     private final List<Track> tracks = new ArrayList<>();
 
@@ -297,6 +298,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         this.synth = synth;
         this.config = Objects.requireNonNull(config, "config");
         this.tempoModBase = this.config.getTempoModBase();
+        this.dacData = dacData;
         this.synth.setDacData(dacData);
 
         // Enable DAC (YM2612 Reg 2B = 0x80)
@@ -407,6 +409,10 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
     @Override
     public AbstractSmpsData getSmpsData() {
         return smpsData;
+    }
+
+    public DacData getDacData() {
+        return dacData;
     }
 
     /**

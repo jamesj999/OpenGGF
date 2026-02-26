@@ -143,6 +143,24 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
             sequencers.add(seq);
             if (isSfx) {
                 sfxSequencers.add(seq);
+                // SFX constructor calls synth.setDacData() which overwrites the music's
+                // DAC sample bank on the shared synthesizer. Restore the music sequencer's
+                // DAC data so donor music (e.g. S3K invincibility) keeps its correct samples.
+                restoreMusicDacData();
+            }
+        }
+    }
+
+    /**
+     * Restores the music (non-SFX) sequencer's DAC data on the shared synthesizer.
+     * Called after adding an SFX sequencer whose constructor may have overwritten it.
+     */
+    private void restoreMusicDacData() {
+        for (int i = 0; i < sequencers.size(); i++) {
+            SmpsSequencer s = sequencers.get(i);
+            if (!isSfx(s) && s.getDacData() != null) {
+                setDacData(s.getDacData());
+                return;
             }
         }
     }

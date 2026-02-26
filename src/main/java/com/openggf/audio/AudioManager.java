@@ -191,8 +191,54 @@ public class AudioManager {
         return false;
     }
 
+    /**
+     * Plays an SFX from a donor game's SMPS loader with the donor's sequencer config.
+     * Used for cross-game SFX that aren't in the base game's sound map (e.g., S3K
+     * Super Sonic transformation sound).
+     *
+     * @param donorGameId the donor game identifier (e.g., "s3k")
+     * @param sfxId the SFX ID in the donor game's format
+     */
+    public void playDonorSfx(String donorGameId, int sfxId) {
+        SmpsLoader loader = donorLoaders.get(donorGameId);
+        DacData dData = donorDacData.get(donorGameId);
+        if (loader != null && dData != null) {
+            AbstractSmpsData sfx = loader.loadSfx(sfxId);
+            if (sfx != null) {
+                SmpsSequencerConfig config = donorConfigs.get(donorGameId);
+                if (config != null) {
+                    backend.playSfxSmps(sfx, dData, 1.0f, config);
+                } else {
+                    backend.playSfxSmps(sfx, dData, 1.0f);
+                }
+            }
+        }
+    }
+
     public void update() {
         backend.update();
+    }
+
+    /**
+     * Plays music from a donor game's SMPS loader with the donor's sequencer config.
+     * Used for cross-game Super Sonic music (e.g., S3K invincibility in an S2 base game).
+     *
+     * @param donorGameId the donor game identifier (e.g., "s3k")
+     * @param musicId the music ID in the donor game's format
+     */
+    public void playDonorMusic(String donorGameId, int musicId) {
+        SmpsLoader loader = donorLoaders.get(donorGameId);
+        DacData dData = donorDacData.get(donorGameId);
+        if (loader != null && dData != null) {
+            AbstractSmpsData data = loader.loadMusic(musicId);
+            if (data != null) {
+                SmpsSequencerConfig config = donorConfigs.get(donorGameId);
+                // forceOverride=true: the base game's audioProfile won't recognize
+                // donor music IDs, so force the override path to push zone music
+                // onto the stack for restoration when Super Sonic ends.
+                backend.playSmps(data, dData, config, true);
+            }
+        }
     }
 
     public void endMusicOverride(int musicId) {

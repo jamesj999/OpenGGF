@@ -1,10 +1,14 @@
 package com.openggf.sprites.playable;
 
 import com.openggf.data.RomByteReader;
+import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelState;
 import com.openggf.game.PhysicsProfile;
+import com.openggf.graphics.RenderContext;
+import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
+import com.openggf.level.Palette;
 import com.openggf.sprites.animation.ScriptedVelocityAnimationProfile;
 import com.openggf.sprites.animation.SpriteAnimationProfile;
 
@@ -49,13 +53,8 @@ public abstract class SuperStateController {
     public void debugActivate() {
         if (state != SuperState.NORMAL) return;
         player.addRings(50);
-        state = SuperState.SUPER;
-        player.setSuperSonic(true);
-        player.applyExternalPhysicsProfile(getSuperProfile());
-        swapToSuperAnimProfile();
-        ringDrainCounter = getRingDrainInterval();
-        onSuperActivated();
-        LOGGER.info("Debug: Super Sonic activated");
+        startTransformation();
+        LOGGER.info("Debug: Super Sonic transformation started");
     }
 
     public void debugDeactivate() {
@@ -80,6 +79,35 @@ public abstract class SuperStateController {
 
     public boolean isRomDataPreLoaded() {
         return romDataPreLoaded;
+    }
+
+    // --- Palette target resolution for cross-game support ---
+
+    protected record PaletteTarget(Palette palette, int gpuLine) {}
+
+    /**
+     * Resolves the correct palette and GPU line for Super Sonic palette cycling.
+     * In cross-game mode, uses the donor render context's palette so cycling
+     * affects the palette the sprite actually renders from (GPU line 4+).
+     * In normal mode, uses the level's palette at the given logical line.
+     *
+     * @param logicalLine logical palette line (e.g., 0 for Sonic's palette)
+     * @return the palette and GPU line to write to, or null if unavailable
+     */
+    protected PaletteTarget resolvePaletteTarget(int logicalLine) {
+        if (CrossGameFeatureProvider.isActive()) {
+            RenderContext donor = CrossGameFeatureProvider.getInstance().getDonorRenderContext();
+            if (donor != null) {
+                Palette p = donor.getPalette(logicalLine);
+                if (p != null) {
+                    return new PaletteTarget(p, donor.getEffectivePaletteLine(logicalLine));
+                }
+            }
+        }
+        Level level = LevelManager.getInstance().getCurrentLevel();
+        if (level == null) return null;
+        Palette p = level.getPalette(logicalLine);
+        return p != null ? new PaletteTarget(p, logicalLine) : null;
     }
 
     // --- Template methods for subclasses ---
@@ -110,6 +138,15 @@ public abstract class SuperStateController {
         return 0x800;
     }
 
+    /**
+     * Returns the animation ID to play during the transformation.
+     * Default is 0x1F (AniIDSupSonAni_Transform), used by both S2 and S3K.
+     * ROM: move.b #$1F,anim(a0) in Sonic_Transform_Super.
+     */
+    protected int getTransformationAnimationId() {
+        return 0x1F;
+    }
+
     // --- Core logic ---
     private void checkTransformationTrigger() {
         if (!canTransform()) return;
@@ -130,6 +167,10 @@ public abstract class SuperStateController {
     private void startTransformation() {
         state = SuperState.TRANSFORMING;
         player.setSuperSonic(true);
+        // ROM: move.b #$81,obj_control(a0) - freeze physics during transformation
+        player.setObjectControlled(true);
+        // ROM: move.b #$1F,anim(a0) - play transformation sparkle animation
+        player.setForcedAnimationId(getTransformationAnimationId());
         onTransformationStarted();
     }
 
@@ -140,6 +181,9 @@ public abstract class SuperStateController {
             swapToSuperAnimProfile();
             ringDrainCounter = getRingDrainInterval();
             onSuperActivated();
+            // ROM: clr.b obj_control(a0) - unfreeze after transformation complete
+            player.setObjectControlled(false);
+            player.setForcedAnimationId(-1);
         }
     }
 
@@ -167,6 +211,9 @@ public abstract class SuperStateController {
 
     private void revertToNormal() {
         player.setSuperSonic(false);
+        // Clear transformation freeze in case revert happens during transformation
+        player.setObjectControlled(false);
+        player.setForcedAnimationId(-1);
         player.applyExternalPhysicsProfile(getNormalProfile());
         restoreNormalAnimProfile();
         onRevertStarted();
