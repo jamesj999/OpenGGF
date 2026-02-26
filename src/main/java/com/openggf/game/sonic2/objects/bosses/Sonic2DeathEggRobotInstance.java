@@ -474,16 +474,21 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     }
 
     private void spawnChildren() {
-        shoulder = new ArticulatedChild(this, "Shoulder", 4, FRAME_SHOULDER, 5);
+        // Front parts: priority 4 (in front of body at priority 5)
+        shoulder = new ArticulatedChild(this, "Shoulder", 4, FRAME_SHOULDER, 4);
         frontLowerLeg = new ArticulatedChild(this, "FrontLowerLeg", 4, FRAME_LOWER_LEG, 4);
         frontForearm = new ForearmChild(this, "FrontForearm", 4, true);
         upperArm = new ArticulatedChild(this, "UpperArm", 4, FRAME_ARM, 4);
         frontThigh = new ArticulatedChild(this, "FrontThigh", 4, FRAME_THIGH, 4);
-        head = new HeadChild(this, 4);
-        jet = new JetChild(this, 4);
-        backLowerLeg = new ArticulatedChild(this, "BackLowerLeg", 5, FRAME_LOWER_LEG, 4);
-        backForearm = new ForearmChild(this, "BackForearm", 5, false);
-        backThigh = new ArticulatedChild(this, "BackThigh", 5, FRAME_THIGH, 4);
+
+        // Head: priority 3 (most prominent, in front of all)
+        head = new HeadChild(this, 3);
+
+        // Jet and back parts: priority 6 (behind body at priority 5)
+        jet = new JetChild(this, 6);
+        backLowerLeg = new ArticulatedChild(this, "BackLowerLeg", 6, FRAME_LOWER_LEG, 6);
+        backForearm = new ForearmChild(this, "BackForearm", 6, false);
+        backThigh = new ArticulatedChild(this, "BackThigh", 6, FRAME_THIGH, 6);
 
         childComponents.add(shoulder);
         childComponents.add(frontLowerLeg);
