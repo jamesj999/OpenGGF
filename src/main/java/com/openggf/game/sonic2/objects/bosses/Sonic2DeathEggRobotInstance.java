@@ -799,16 +799,16 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             case 2 -> { // Walk toward player (ROM: off_3E2F6 half-step forward)
                 if (stepGroupAnimation(SCRIPT_HALF_WALK_FWD)) {
                     boolean playerOnSameSide = isPlayerOnFacingSide(player);
-                    // ROM: d0!=0 (player on facing side) -> punch forward (phase 4)
-                    //      d0==0 (player behind) -> bombs and retreat (phase 8)
+                    // ROM loc_3D856: d0!=0 (player on facing side) -> bombs and retreat
+                    //                d0==0 (player behind) -> punch forward
                     if (playerOnSameSide) {
-                        attackPhase = 4;
-                        actionTimer = 0x40;
-                        frontPunchTriggered = true;
-                    } else {
                         attackPhase = 10;
                         actionTimer = 0x20;
                         spawnBombs(player);
+                    } else {
+                        attackPhase = 4;
+                        actionTimer = 0x40;
+                        frontPunchTriggered = true;
                     }
                 }
             }
@@ -832,9 +832,15 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     bodyRoutine = BODY_SELECT_ATTACK;
                 }
             }
-            case 10 -> { // Wait after bombs
+            case 10 -> { // Wait after bombs (ROM: loc_3D6C0 at prev_anim=8)
                 actionTimer--;
                 if (actionTimer < 0) {
+                    attackPhase = 12;  // advance to walk backward
+                    resetGroupAnim();
+                }
+            }
+            case 12 -> { // Walk backward before returning (ROM: loc_3D8B8 at prev_anim=$A)
+                if (stepGroupAnimation(SCRIPT_HALF_WALK_BWD)) {
                     bodyRoutine = BODY_SELECT_ATTACK;
                 }
             }
@@ -1498,7 +1504,9 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                         if (player != null && player.getCentreY() < currentY) {
                             punchYVel = -punchYVel;
                         }
-                        punchXVel = boss.facingLeft ? -FOREARM_PUNCH_SPEED : FOREARM_PUNCH_SPEED;
+                        // ROM loc_3DACC: x_flip SET -> +$800, x_flip NOT SET -> -$800
+                        // Punch goes AWAY from facing direction (toward the player behind)
+                        punchXVel = boss.facingLeft ? FOREARM_PUNCH_SPEED : -FOREARM_PUNCH_SPEED;
                         AudioManager.getInstance().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
                     } else {
                         punchYVel += 0x20;
@@ -1800,7 +1808,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             this.sensorRoutine = 0;
             this.countdown = 0xA0; // 160 frames
             this.beepInterval = 0x18; // Initial interval = 24 frames
-            this.beepCounter = 0x18;
+            this.beepCounter = 1; // ROM: angle byte = $00, first subq wraps to $FF (immediate beep)
             this.animIdx = 0;
             this.animTimer = 0;
         }
@@ -1822,19 +1830,28 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                         countdown = 0x40; // 64 frames for lock-on
                         beepCounter = 4;
                     } else {
-                        // ROM-accurate 3-frame velocity FIFO tracking
-                        // Each frame: compute velocity, push into circular buffer,
-                        // apply the oldest velocity (3-frame delay)
+                        // ROM loc_3DDA6: reads player's OWN velocity (x_vel/y_vel),
+                        // NOT position delta. Snaps to player when stationary.
                         if (player != null) {
-                            int newXVel = player.getCentreX() - currentX;
-                            int newYVel = player.getCentreY() - currentY;
-                            // Store new velocity in buffer
-                            xVelBuffer[bufferIdx] = newXVel;
-                            yVelBuffer[bufferIdx] = newYVel;
-                            // Apply oldest velocity (3 frames ago)
+                            int playerXVel = player.getXSpeed();
+                            int playerYVel = player.getYSpeed();
+
+                            // ROM: snap sensor to player position when velocity is 0
+                            if (playerXVel == 0) {
+                                currentX = player.getCentreX();
+                            }
+                            if (playerYVel == 0) {
+                                currentY = player.getCentreY();
+                            }
+
+                            // Push player velocity into FIFO
+                            xVelBuffer[bufferIdx] = playerXVel;
+                            yVelBuffer[bufferIdx] = playerYVel;
+
+                            // Apply oldest velocity (3-frame delay)
                             int applyIdx = (bufferIdx + 1) % 3;
-                            currentX += xVelBuffer[applyIdx];
-                            currentY += yVelBuffer[applyIdx];
+                            currentX += (xVelBuffer[applyIdx] >> 8); // 8.8 fixed -> pixel
+                            currentY += (yVelBuffer[applyIdx] >> 8);
                             bufferIdx = (bufferIdx + 1) % 3;
                         }
 

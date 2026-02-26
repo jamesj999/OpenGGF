@@ -611,6 +611,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 }
                 // ROM: AnimateSprite_Checked every frame in this phase
                 animateSpriteChecked();
+                state.applyVelocity(); // ROM: ObjectMove in outer loop at loc_398C0
             }
             case 4 -> {
                 // ROM: loc_39AF4 — airborne after jump
@@ -651,6 +652,12 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                     facingLeft = !facingLeft;
                 } else {
                     state.applyVelocity();
+                    // ROM: loc_39B28 — ObjCheckFloorDist + add.w d1,y_pos(a0)
+                    TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
+                    if (floor != null) {
+                        state.y += floor.distance();
+                        state.yFixed = state.y << 16;
+                    }
                     animateSpriteChecked();
                 }
             }
@@ -705,6 +712,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                     spikeballsFired = false;
                 }
                 animateSpriteChecked();
+                state.applyVelocity(); // ROM: ObjectMove in outer loop at loc_398C0
             }
             case 4 -> {
                 // ROM: loc_39B44 — airborne, fire spikeballs at apex
@@ -749,6 +757,12 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                     facingLeft = !facingLeft;
                 } else {
                     state.applyVelocity();
+                    // ROM: loc_39B28 — ObjCheckFloorDist + add.w d1,y_pos(a0)
+                    TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
+                    if (floor != null) {
+                        state.y += floor.distance();
+                        state.yFixed = state.y << 16;
+                    }
                     animateSpriteChecked();
                 }
             }
@@ -955,6 +969,12 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
          */
         private boolean waitingForLanding = true;
         /**
+         * ROM: Routine $1E plays the blind-opening animation (anim 0: 4→3→2→1→0)
+         * before transitioning to routine $20 (per-frame animation selection).
+         * This flag gates the per-frame selection until the opening anim completes.
+         */
+        private boolean openingAnimPlaying = false;
+        /**
          * ROM: Closing animation (animId==1) uses $FA terminator which means
          * "advance routine_secondary by 2" — it does NOT loop. Once complete,
          * the window stalls on the last frame.
@@ -973,10 +993,15 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
         /**
          * ROM: bset #status.npc.y_flip — called when Silver Sonic lands,
-         * allowing the window to begin its blind-opening animation.
+         * advancing to routine $1E which plays the blind-opening animation.
          */
         void signalLandingComplete() {
             waitingForLanding = false;
+            openingAnimPlaying = true;
+            animId = 0;
+            animFrame = 0;
+            animTimer = 0;
+            mappingFrame = WINDOW_ANIMS[0][1]; // First frame of opening anim
         }
 
         void setAnimId(int newAnimId) {
@@ -997,7 +1022,29 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 return;
             }
 
-            // ROM: loc_39C50 — per-frame animation selection based on game state
+            // ROM: routine $1E — play blind-opening animation before per-frame selection
+            if (openingAnimPlaying) {
+                int[] openAnim = WINDOW_ANIMS[animId];
+                int speed = openAnim[0];
+                int frameCount = openAnim.length - 1;
+                animTimer++;
+                if (animTimer > speed) {
+                    animTimer = 0;
+                    animFrame++;
+                    if (animFrame >= frameCount) {
+                        // Opening animation complete ($FC terminator) → advance to routine $20
+                        openingAnimPlaying = false;
+                        animFrame = frameCount - 1;
+                        setAnimId(2); // Begin per-frame selection with watching face
+                    } else {
+                        mappingFrame = openAnim[animFrame + 1];
+                    }
+                }
+                updateDynamicSpawn();
+                return;
+            }
+
+            // ROM: routine $20 / loc_39C50 — per-frame animation selection based on game state
             Sonic2MechaSonicInstance mechParent = (Sonic2MechaSonicInstance) parent;
             if (mechParent.state.defeated) {
                 // ROM: status.npc.misc set (boss defeated) → closing blinds animation
