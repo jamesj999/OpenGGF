@@ -920,6 +920,9 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 head.setDestroyed(true);
             }
             AudioManager.getInstance().fadeOutMusic();
+            // ROM: move.b #id_Ending,(v_gamemode).w
+            // Signal GameLoop to begin the ending/credits sequence via fade-to-black.
+            LevelManager.getInstance().requestCreditsTransition();
             defeatPhase = 6;
         }
     }
