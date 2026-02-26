@@ -44,9 +44,9 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
     // POSITION & VELOCITY CONSTANTS (from ROM)
     // ========================================================================
 
-    /** ROM: move.w #$3F8,x_pos(a1) — child (solid wall) spawn X; Eggman inherits from layout */
+    /** ROM: move.w #$3F8,x_pos(a1) — child (solid wall) spawn X; Eggman inherits from layout. Reference only */
     private static final int SPAWN_X = 0x3F8;
-    /** ROM: move.w #$160,y_pos(a1) — child (solid wall) spawn Y; Eggman inherits from layout */
+    /** ROM: move.w #$160,y_pos(a1) — child (solid wall) spawn Y; Eggman inherits from layout. Reference only */
     private static final int SPAWN_Y = 0x160;
 
     /** ROM: addi.w #$5C,d2 / cmpi.w #$B8,d2 — proximity check radius */
@@ -105,6 +105,9 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
     // Animation state
     private int animFrameIndex; // Index into RUNNING_FRAMES
     private int animTimer;      // Countdown for frame changes
+
+    // Exhaust puff timer (ROM: loc_3CFB0 area, ObjC6 subtype $AA)
+    private int puffTimer;
 
     // Reference to the Death Egg Robot for boarding signal
     private Sonic2DeathEggRobotInstance deathEggRobot;
@@ -184,9 +187,11 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
     /**
      * State 0: Init.
      * ROM: ObjC6_State2_State1 — spawn child, set position, advance.
-     * We skip child spawning (parent object handles that in ROM) and just advance.
      */
     private void updateInit() {
+        // TODO: ROM spawns solid wall child (ObjC6 subtype $A8) at ($3F8, $160)
+        // using ObjC6_MapUnc_3D1DE (construction stripes), priority 1, width 8.
+        // This blocks the player from running past Eggman.
         routineSecondary = STATE_WAIT_PLAYER;
         currentFrame = FRAME_STANDING;
     }
@@ -223,6 +228,7 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
             currentFrame = RUNNING_FRAMES[0];
             animFrameIndex = 0;
             animTimer = RUNNING_ANIM_SPEED;
+            puffTimer = 0x10;
         }
     }
 
@@ -236,6 +242,14 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
      * the jump completes. ObjC7's head child polls this flag.
      */
     private void updateRun(AbstractPlayableSprite player) {
+        // Exhaust puff timer (ROM: loc_3CFB0 area)
+        puffTimer--;
+        if (puffTimer < 0) {
+            puffTimer = 0x20;
+            // TODO: ROM spawns exhaust puff child (ObjC6 subtype $AA, frame 5,
+            // x_vel=-$100, y_offset=-$18, lifetime=8 frames)
+        }
+
         // ROM: cmpi.w #$810,x_pos(a0) — check jump threshold
         if (currentX >= JUMP_THRESHOLD_X) {
             // ROM: Always set jump frame and clear running velocity when threshold reached
