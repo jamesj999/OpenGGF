@@ -154,4 +154,24 @@ public interface EndingProvider {
     default void consumeTextReturnRequest() {
         // no-op
     }
+
+    /**
+     * Returns whether the current credit demo is the Labyrinth Zone
+     * lamppost demo, which requires special water/lamppost state setup.
+     * Only applicable to Sonic 1 credits.
+     *
+     * @return true if the current demo is the LZ lamppost demo
+     */
+    default boolean isLzDemo() {
+        return false;
+    }
+
+    /**
+     * Called when transitioning back from demo playback to credits text.
+     * Implementations can use this to reset demo state and prepare
+     * the next credit text display.
+     */
+    default void onReturnToText() {
+        // no-op
+    }
 }

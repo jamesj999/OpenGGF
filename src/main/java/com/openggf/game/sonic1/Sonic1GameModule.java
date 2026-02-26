@@ -12,6 +12,7 @@ import com.openggf.game.sonic1.specialstage.Sonic1SpecialStageProvider;
 import com.openggf.game.sonic1.titlescreen.Sonic1TitleScreenManager;
 import com.openggf.game.DebugModeProvider;
 import com.openggf.game.DebugOverlayProvider;
+import com.openggf.game.EndingProvider;
 import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelSelectProvider;
@@ -29,6 +30,7 @@ import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.ZoneRegistry;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
+import com.openggf.game.sonic1.credits.Sonic1EndingProvider;
 import com.openggf.game.sonic1.levelselect.Sonic1LevelSelectManager;
 import com.openggf.game.sonic1.objects.Sonic1ObjectRegistry;
 import com.openggf.game.sonic1.scroll.Sonic1ScrollHandlerProvider;
@@ -228,6 +230,11 @@ public class Sonic1GameModule implements GameModule {
             return 2;
         }
         return -1;
+    }
+
+    @Override
+    public EndingProvider getEndingProvider() {
+        return new Sonic1EndingProvider();
     }
 
     @Override
