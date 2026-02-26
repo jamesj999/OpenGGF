@@ -32,7 +32,7 @@ public abstract class Sonic3kZoneEvents {
     /** VDP palette line size: 16 colors x 2 bytes each = 32 bytes */
     private static final int PALETTE_LINE_SIZE = 32;
 
-    protected final Camera camera;
+    protected Camera camera;
     protected int eventRoutine;
     protected int bossSpawnDelay;
 
@@ -42,6 +42,7 @@ public abstract class Sonic3kZoneEvents {
 
     /** Reset event state for a new level load. */
     public void init(int act) {
+        this.camera = Camera.getInstance();
         eventRoutine = 0;
         bossSpawnDelay = 0;
     }

@@ -5,6 +5,7 @@ import com.openggf.camera.Camera;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
+import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
@@ -59,6 +60,7 @@ public final class TestEnvironment {
 
         // Phase 8: Static field fixups
         GroundSensor.setLevelManager(LevelManager.getInstance());
+        AizPlaneIntroInstance.setSidekickSuppressed(false);
     }
 
     /**
@@ -81,6 +83,9 @@ public final class TestEnvironment {
         // Level event state (boss routines, dynamic boundaries)
         Sonic2LevelEventManager.getInstance().resetState();
         ParallaxManager.getInstance().resetState();
+
+        // S3K static state that can leak across test classes
+        AizPlaneIntroInstance.setSidekickSuppressed(false);
 
         // Sprites (clears all registered sprites)
         SpriteManager.getInstance().resetState();

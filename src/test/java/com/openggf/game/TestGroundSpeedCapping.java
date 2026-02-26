@@ -2,6 +2,7 @@ package com.openggf.game;
 
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -23,6 +24,11 @@ public class TestGroundSpeedCapping {
     @Before
     public void setUp() {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
+    }
+
+    @After
+    public void tearDown() {
+        GameModuleRegistry.reset();
     }
 
     @Test
