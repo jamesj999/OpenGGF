@@ -10,6 +10,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.boss.BossChildComponent;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -131,15 +132,17 @@ public class TestDEZDeathEggRobot {
     }
 
     @Test
-    public void attackPatternCyclesModulo4() {
-        // ROM: addq.b #1,angle(a0) / andi.b #3,angle(a0)
-        // Verify the mathematical property: for indices 0-7, (index & 3) produces
-        // the expected cycle {0,1,2,3,0,1,2,3}
-        int[] expectedCycle = {0, 1, 2, 3, 0, 1, 2, 3};
-        for (int i = 0; i < 8; i++) {
-            assertEquals("Index " + i + " mod 4 should be " + expectedCycle[i],
-                    expectedCycle[i], i & 3);
-        }
+    public void attackPatternMatchesRom() throws Exception {
+        // ROM: dc.b 2, 0, 2, 4 (byte_3D680)
+        // Verify the static attack pattern array matches the ROM values.
+        // ATTACK_PATTERN is package-private, so we use reflection from a different package.
+        java.lang.reflect.Field field =
+                Sonic2DeathEggRobotInstance.class.getDeclaredField("ATTACK_PATTERN");
+        field.setAccessible(true);
+        int[] actual = (int[]) field.get(null);
+        int[] expected = { 2, 0, 2, 4 };
+        assertArrayEquals("Attack pattern should match ROM dc.b 2, 0, 2, 4",
+                expected, actual);
     }
 
     // ========================================================================
@@ -213,11 +216,12 @@ public class TestDEZDeathEggRobot {
     }
 
     @Test
-    public void headCollisionPropertyReturnsHitCount() {
-        // Head relays collision_property as parent's hitCount
+    public void headCollisionPropertyReturnsNegativeOne() {
+        // ROM: move.b #-1,collision_property(a0) — head always returns -1
+        // HP tracking is handled by the parent body's onHeadHit(), not collision_property
         TouchResponseProvider headProvider = (TouchResponseProvider) boss.getHead();
-        assertEquals("Head collision property should equal HP (12)",
-                12, headProvider.getCollisionProperty());
+        assertEquals("Head collision property should be -1 (ROM-accurate: always hittable)",
+                -1, headProvider.getCollisionProperty());
     }
 
     @Test
