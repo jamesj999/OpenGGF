@@ -96,8 +96,10 @@ public class TestDEZDeathEggRobot {
     }
 
     @Test
-    public void notFacingLeftInitially() {
-        assertFalse("Should not be facing left initially", boss.isFacingLeft());
+    public void testInitialFacingIsLeft() {
+        // ROM: Egg Robo faces left toward the player who enters from the left.
+        // facingLeft=false causes forearm punches to go right (away from player).
+        assertTrue("Egg Robo should initially face left toward the player", boss.isFacingLeft());
     }
 
     // ========================================================================
