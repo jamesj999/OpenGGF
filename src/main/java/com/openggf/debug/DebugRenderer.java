@@ -21,6 +21,7 @@ import com.openggf.sprites.Sprite;
 import com.openggf.sprites.SensorConfiguration;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.debug.playback.PlaybackDebugManager;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -35,6 +36,7 @@ public class DebugRenderer {
         private final SonicConfigurationService configService = SonicConfigurationService
                         .getInstance();
         private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
+        private final PlaybackDebugManager playbackDebugManager = PlaybackDebugManager.getInstance();
         private GlyphBatchRenderer glyphBatch;
         private PerformancePanelRenderer performancePanelRenderer;
         private static final String[] SENSOR_LABELS = {"A", "B", "C", "D", "E", "F"};
@@ -105,6 +107,10 @@ public class DebugRenderer {
                 boolean showOverlay = overlayManager.isEnabled(DebugOverlayToggle.OVERLAY);
                 boolean showShortcuts = overlayManager.isEnabled(DebugOverlayToggle.SHORTCUTS);
 
+                // Always show playback status panel when playback is active/loaded,
+                // even if the normal overlay is toggled off.
+                renderPlaybackPanel();
+
                 if (!showOverlay) {
                         if (showShortcuts) {
                                 renderOverlayShortcuts(true);
@@ -135,7 +141,6 @@ public class DebugRenderer {
                 if (overlayManager.isEnabled(DebugOverlayToggle.OBJECT_ART_VIEWER)) {
                         renderObjectArtViewerPanel();
                 }
-
                 // Render sensor labels
                 if (playable != null && overlayManager.isEnabled(DebugOverlayToggle.SENSOR_LABELS)) {
                         Sensor[] sensors = playable.getAllSensors();
@@ -627,6 +632,24 @@ public class DebugRenderer {
                 }
         }
 
+        private void renderPlaybackPanel() {
+                if (!glyphBatch.isBatchActive()) {
+                        return;
+                }
+                List<String> lines = playbackDebugManager.buildOverlayLines();
+                if (lines.isEmpty()) {
+                        return;
+                }
+                int startX = uiX(baseWidth - 220);
+                int startY = uiY(baseHeight - 18);
+                int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
+                int y = startY;
+                for (String line : lines) {
+                        glyphBatch.drawTextOutlined(line, startX, y, COLOR_ART_VIEWER, PANEL_FONT);
+                        y -= lineHeight;
+                }
+        }
+
         private void renderPerformancePanel() {
                 if (performancePanelRenderer == null) {
                         performancePanelRenderer = new PerformancePanelRenderer(baseWidth, baseHeight, glyphBatch);
@@ -729,4 +752,3 @@ public class DebugRenderer {
                 return viewportHeight - toScreenY(worldY);
         }
 }
-

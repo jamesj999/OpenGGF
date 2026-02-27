@@ -168,6 +168,61 @@ public enum SonicConfiguration {
 	FRAME_STEP_KEY,
 
 	/**
+	 * Path to BizHawk BK2 movie file for playback debugging.
+	 */
+	PLAYBACK_MOVIE_PATH,
+
+	/**
+	 * Key to toggle playback mode.
+	 */
+	PLAYBACK_TOGGLE_KEY,
+
+	/**
+	 * Key to load/reload BK2 from PLAYBACK_MOVIE_PATH.
+	 */
+	PLAYBACK_LOAD_KEY,
+
+	/**
+	 * Key to toggle playback play/pause.
+	 */
+	PLAYBACK_PLAY_PAUSE_KEY,
+
+	/**
+	 * Key to step the BK2 cursor backward by one frame.
+	 */
+	PLAYBACK_STEP_BACK_KEY,
+
+	/**
+	 * Key to step the BK2 cursor forward by one frame.
+	 */
+	PLAYBACK_STEP_FORWARD_KEY,
+
+	/**
+	 * Key to jump the BK2 cursor backward by a larger interval.
+	 */
+	PLAYBACK_JUMP_BACK_KEY,
+
+	/**
+	 * Key to jump the BK2 cursor forward by a larger interval.
+	 */
+	PLAYBACK_JUMP_FORWARD_KEY,
+
+	/**
+	 * Key to cycle playback rate (1x/2x/4x/8x).
+	 */
+	PLAYBACK_FAST_RATE_KEY,
+
+	/**
+	 * Key to reset BK2 cursor to PLAYBACK_START_OFFSET_FRAME.
+	 */
+	PLAYBACK_RESET_TO_START_KEY,
+
+	/**
+	 * Starting frame offset for BK2 playback.
+	 */
+	PLAYBACK_START_OFFSET_FRAME,
+
+	/**
 	 * Key to teleport player to the last checkpoint (debug).
 	 */
 	DEBUG_LAST_CHECKPOINT_KEY,

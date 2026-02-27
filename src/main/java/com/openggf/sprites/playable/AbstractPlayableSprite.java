@@ -355,6 +355,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          */
         protected int forcedInputMask = 0;
         /**
+         * When true, BK2 playback detected a new action button press edge (A/B/C cycling).
+         */
+        protected boolean forcedJumpPress = false;
+        /**
          * When true, user inputs are ignored (Control_Locked in ROM).
          */
         protected boolean controlLocked = false;
@@ -1467,6 +1471,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         public void clearForcedInputMask() {
                 this.forcedInputMask = 0;
                 this.forceInputRight = false;
+                this.forcedJumpPress = false;
+        }
+
+        public void setForcedJumpPress(boolean forcedJumpPress) {
+                this.forcedJumpPress = forcedJumpPress;
+        }
+
+        public boolean isForcedJumpPress() {
+                return forcedJumpPress;
         }
 
         public boolean isForcedInputActive(int inputBit) {

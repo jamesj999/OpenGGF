@@ -32,6 +32,7 @@ import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.game.sonic1.credits.Sonic1CreditsDemoData;
 import com.openggf.game.sonic1.credits.TryAgainEndManager;
 import com.openggf.level.WaterSystem;
+import com.openggf.debug.playback.PlaybackDebugManager;
 
 import java.io.IOException;
 import java.util.Comparator;
@@ -66,6 +67,7 @@ public class GameLoop {
     private final TimerManager timerManager = GameServices.timers();
     private final LevelManager levelManager = LevelManager.getInstance();
     private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
+    private final PlaybackDebugManager playbackDebugManager = PlaybackDebugManager.getInstance();
     private SpecialStageProvider activeSpecialStageProvider = NoOpSpecialStageProvider.INSTANCE;
 
     // Title card provider - lazily initialized when GameModule is available
@@ -103,6 +105,9 @@ public class GameLoop {
 
     private volatile boolean paused = false;      // Window focus pause
     private volatile boolean userPaused = false;  // Keyboard toggle pause
+    private boolean playbackInputSuppressed = false;
+    private boolean playbackForcedMaskApplied = false;
+    private boolean playbackFrameConsumed = false;
 
     public GameLoop() {
     }
@@ -216,6 +221,9 @@ public class GameLoop {
         if (inputHandler == null) {
             throw new IllegalStateException("InputHandler must be set before calling step()");
         }
+        playbackDebugManager.handleInput(inputHandler);
+        syncPlaybackInputBridge();
+        playbackDebugManager.setObservedMode(currentGameMode);
 
         // Master title screen mode - runs before any ROM/game systems are loaded.
         // Must be checked before pause handling since Enter is both confirm and pause.
@@ -457,6 +465,9 @@ public class GameLoop {
                 profiler.beginSection("physics");
                 spriteManager.update(inputHandler);
                 profiler.endSection("physics");
+                if (playbackFrameConsumed) {
+                    playbackDebugManager.onLevelFrameAdvanced();
+                }
 
                 // Dynamic level events update boundary targets (game-specific)
                 LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
@@ -501,6 +512,44 @@ public class GameLoop {
         }
 
         inputHandler.update();
+    }
+
+    private void syncPlaybackInputBridge() {
+        playbackFrameConsumed = false;
+        boolean shouldDrive = playbackDebugManager.isDriving(currentGameMode);
+        if (shouldDrive != playbackInputSuppressed) {
+            spriteManager.setPlaybackInputSuppressed(shouldDrive);
+            playbackInputSuppressed = shouldDrive;
+        }
+
+        AbstractPlayableSprite player = getMainPlayableSprite();
+        if (shouldDrive && player != null) {
+            player.setForcedInputMask(playbackDebugManager.getCurrentForcedInputMask());
+            player.setForcedJumpPress(playbackDebugManager.isCurrentForcedJumpPress());
+            playbackForcedMaskApplied = true;
+            playbackFrameConsumed = true;
+            return;
+        }
+
+        playbackDebugManager.clearLastAppliedState();
+        if (playbackForcedMaskApplied && player != null) {
+            player.clearForcedInputMask();
+            playbackForcedMaskApplied = false;
+        } else if (player == null) {
+            playbackForcedMaskApplied = false;
+        }
+    }
+
+    private AbstractPlayableSprite getMainPlayableSprite() {
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if (mainCode == null || mainCode.isBlank()) {
+            mainCode = "sonic";
+        }
+        var sprite = spriteManager.getSprite(mainCode);
+        if (sprite instanceof AbstractPlayableSprite playable) {
+            return playable;
+        }
+        return null;
     }
 
     /**
@@ -2149,4 +2198,3 @@ public class GameLoop {
         return endingProvider;
     }
 }
-
