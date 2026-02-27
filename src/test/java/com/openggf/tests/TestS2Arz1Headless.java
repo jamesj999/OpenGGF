@@ -1,17 +1,12 @@
 package com.openggf.tests;
 
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
-import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.GroundMode;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
@@ -23,8 +18,8 @@ import static org.junit.Assert.*;
 /**
  * Grouped headless tests for Sonic 2 ARZ Act 1.
  *
- * <p>Level data is loaded once via {@code @BeforeClass}; sprite, camera, and game
- * state are reset per test via {@link TestEnvironment#resetPerTest()}.
+ * <p>Level data is loaded once via {@link SharedLevel#load} in {@code @BeforeClass};
+ * sprite, camera, and game state are reset per test via {@link HeadlessTestFixture}.
  *
  * <p>Merged from:
  * <ul>
@@ -40,60 +35,37 @@ public class TestS2Arz1Headless {
 
     private static final int ZONE_ARZ = 2;
     private static final int ACT_1 = 0;
-    private static String mainCharCode;
 
     // Common start position for ARZ spring-loop tests
     private static final short START_X = 2468;
     private static final short START_Y = 841;
 
+    private static SharedLevel sharedLevel;
+
+    private HeadlessTestFixture fixture;
+    private Sonic sprite;
+
     @BeforeClass
     public static void loadLevel() throws Exception {
-        GraphicsManager.getInstance().initHeadless();
-        SonicConfigurationService cs = SonicConfigurationService.getInstance();
-        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-
-        // LevelManager.loadCurrentLevel() needs a player sprite in SpriteManager.
-        // Create a temporary one for the level load, then clear it -- each @Before
-        // will install its own fresh sprite.
-        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(temp);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(temp);
-        camera.setFrozen(false);
-
-        LevelManager.getInstance().loadZoneAndAct(ZONE_ARZ, ACT_1);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_2, ZONE_ARZ, ACT_1);
 
         // ARZ tests need object manager reset with camera position
-        camera.updatePosition(true);
+        Camera camera = Camera.getInstance();
         var om = LevelManager.getInstance().getObjectManager();
         if (om != null) om.reset(camera.getX());
     }
 
-    private Sonic sprite;
-    private HeadlessTestRunner testRunner;
+    @AfterClass
+    public static void cleanup() {
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
 
     @Before
     public void setUp() {
-        TestEnvironment.resetPerTest();
-        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        camera.setFrozen(false);
-
-        // Restore camera bounds from the loaded level -- resetPerTest() zeroes them
-        // but the level data is still valid since we skip LevelManager reset.
-        Level level = LevelManager.getInstance().getCurrentLevel();
-        if (level != null) {
-            camera.setMinX((short) level.getMinX());
-            camera.setMaxX((short) level.getMaxX());
-            camera.setMinY((short) level.getMinY());
-            camera.setMaxY((short) level.getMaxY());
-        }
-
-        camera.updatePosition(true);
-        testRunner = new HeadlessTestRunner(sprite);
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
+        sprite = (Sonic) fixture.sprite();
     }
 
     // ========== From TestArzRunRight -- Plane Switcher Diagnostics ==========
@@ -185,8 +157,8 @@ public class TestS2Arz1Headless {
         assertEquals("Should start on primary lrb", 0x0D, sprite.getLrbSolidBit());
 
         for (int f = 0; f < 400; f++) {
-            Camera.getInstance().updateBoundaryEasing();
-            testRunner.stepFrame(false, false, false, true, false); // hold right
+            fixture.camera().updateBoundaryEasing();
+            fixture.stepFrame(false, false, false, true, false); // hold right
 
             if (sprite.getX() > 2700) {
                 break;
@@ -205,12 +177,12 @@ public class TestS2Arz1Headless {
         sprite.setX(START_X);
         sprite.setY(START_Y);
 
-        Camera cam = Camera.getInstance();
+        Camera cam = fixture.camera();
 
         // Phase 1: Run left to hit the spring
         for (int f = 0; f < 600; f++) {
             cam.updateBoundaryEasing();
-            testRunner.stepFrame(false, false, true, false, false);
+            fixture.stepFrame(false, false, true, false, false);
             if (sprite.getGSpeed() > 0x200) {
                 System.out.printf("SPRING at f%d: X=%d Y=%d G=%d%n",
                         f, sprite.getX(), sprite.getY(), sprite.getGSpeed());
@@ -226,7 +198,7 @@ public class TestS2Arz1Headless {
 
         for (int f = 0; f < 600; f++) {
             cam.updateBoundaryEasing();
-            testRunner.stepFrame(false, false, false, true, false); // hold RIGHT
+            fixture.stepFrame(false, false, false, true, false); // hold RIGHT
 
             int x = sprite.getX();
             int y = sprite.getY();
@@ -300,7 +272,7 @@ public class TestS2Arz1Headless {
         int springFrame = -1;
 
         for (int frame = 0; frame < MAX_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, true, false, false); // hold left
+            fixture.stepFrame(false, false, true, false, false); // hold left
 
             short gSpeed = sprite.getGSpeed();
 
@@ -332,7 +304,7 @@ public class TestS2Arz1Headless {
         short prevGSpeed = sprite.getGSpeed();
 
         for (int frame = springFrame + 1; frame < MAX_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, false, false); // no input
+            fixture.stepFrame(false, false, false, false, false); // no input
 
             short gSpeed = sprite.getGSpeed();
             GroundMode mode = sprite.getGroundMode();
@@ -387,7 +359,7 @@ public class TestS2Arz1Headless {
 
         // Run left to hit spring
         for (int f = 0; f < 600; f++) {
-            testRunner.stepFrame(false, false, true, false, false);
+            fixture.stepFrame(false, false, true, false, false);
             if (sprite.getGSpeed() > 0x200) {
                 System.out.printf("SPRING at frame %d: X=%d Y=%d GSpeed=%d%n",
                         f, sprite.getX(), sprite.getY(), sprite.getGSpeed());
@@ -397,7 +369,7 @@ public class TestS2Arz1Headless {
         // Now run with no input for 600 frames, track everything
         int minY = sprite.getY(), maxAngle = 0;
         for (int f = 0; f < 600; f++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             int angle = sprite.getAngle() & 0xFF;
             if (sprite.getY() < minY) minY = sprite.getY();
             if (angle > 0x20 && angle < 0xE0 && angle > maxAngle) maxAngle = angle;
