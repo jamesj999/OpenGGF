@@ -67,6 +67,17 @@ public final class GameContext {
     /**
      * Resets all critical singletons in the correct order (matching
      * {@code TestEnvironment.resetAll()}), then returns a fresh production context.
+     * <p>
+     * <b>Warning:</b> Callers should not hold references to singleton instances
+     * across a {@code forTesting()} call. {@link CollisionSystem} and
+     * {@link FadeManager} are destroyed and recreated (via {@code resetInstance()}),
+     * so any previously captured references become stale.
+     * <p>
+     * <b>Known limitation:</b> This method resets
+     * {@link Sonic2LevelEventManager} specifically (inherited from
+     * {@code TestEnvironment.resetAll()}). S1 and S3K level event managers
+     * are not reset here, which may require additional setup in tests
+     * targeting those games.
      */
     public static GameContext forTesting() {
         // Phase 1: Game module (affects what other singletons do)
