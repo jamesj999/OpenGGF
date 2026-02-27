@@ -1126,10 +1126,22 @@ public class ObjectManager {
                 case HURT -> applySidekickHurt(sidekick, instance);
                 case ENEMY -> {
                     if (isPlayerAttacking(sidekick)) {
+                        // ROM: Touch_Enemy_Part2 checks collision_property BEFORE decrementing HP.
+                        int hpBeforeHit = 0;
+                        if (instance instanceof TouchResponseProvider provider2) {
+                            hpBeforeHit = provider2.getCollisionProperty();
+                        }
                         if (instance instanceof TouchResponseAttackable attackable) {
                             attackable.onPlayerAttack(sidekick, result);
                         }
-                        applyEnemyBounce(sidekick, instance);
+                        if (hpBeforeHit > 0) {
+                            // Touch_Enemy_Part2: neg.w x_vel / neg.w y_vel
+                            sidekick.setXSpeed((short) -sidekick.getXSpeed());
+                            sidekick.setYSpeed((short) -sidekick.getYSpeed());
+                        } else {
+                            // Touch_KillEnemy: position-based bounce
+                            applyEnemyBounce(sidekick, instance);
+                        }
                     } else {
                         applySidekickHurt(sidekick, instance);
                     }
@@ -1329,10 +1341,24 @@ public class ObjectManager {
                 case HURT -> applyHurt(player, instance);
                 case ENEMY -> {
                     if (isPlayerAttacking(player)) {
+                        // ROM: Touch_Enemy_Part2 checks collision_property BEFORE decrementing HP.
+                        // Capture HP before onPlayerAttack (which may decrement it).
+                        int hpBeforeHit = 0;
+                        if (instance instanceof TouchResponseProvider provider2) {
+                            hpBeforeHit = provider2.getCollisionProperty();
+                        }
                         if (instance instanceof TouchResponseAttackable attackable) {
                             attackable.onPlayerAttack(player, result);
                         }
-                        applyEnemyBounce(player, instance);
+                        if (hpBeforeHit > 0) {
+                            // Touch_Enemy_Part2: neg.w x_vel(a0) / neg.w y_vel(a0)
+                            // Then clear collision_flags and decrement HP (handled by onPlayerAttack)
+                            player.setXSpeed((short) -player.getXSpeed());
+                            player.setYSpeed((short) -player.getYSpeed());
+                        } else {
+                            // Touch_KillEnemy: position-based bounce (one-hit kill)
+                            applyEnemyBounce(player, instance);
+                        }
                     } else {
                         applyHurt(player, instance);
                     }

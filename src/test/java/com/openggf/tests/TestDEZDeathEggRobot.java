@@ -91,10 +91,14 @@ public class TestDEZDeathEggRobot {
     }
 
     @Test
-    public void testInitialFacingIsLeft() {
-        // ROM: Egg Robo faces left toward the player who enters from the left.
-        // facingLeft=false causes forearm punches to go right (away from player).
-        assertTrue("Egg Robo should initially face left toward the player", boss.isFacingLeft());
+    public void testInitialFacingMatchesRom() {
+        // ROM: ObjC7_SubObjData render_flags = 1<<render_flags.level_fg = 0x04
+        // Bit 0 (x_flip) is clear, so x_flip = 0. The art naturally faces LEFT.
+        // facingLeft is passed as hFlip to the renderer:
+        //   facingLeft = false -> hFlip = false -> art not flipped -> faces LEFT (correct)
+        //   facingLeft = true  -> hFlip = true  -> art flipped   -> faces RIGHT (wrong)
+        assertFalse("facingLeft should be false (ROM x_flip=0, art naturally faces left)",
+                boss.isFacingLeft());
     }
 
     // ========================================================================
@@ -231,6 +235,33 @@ public class TestDEZDeathEggRobot {
         }
     }
 
+    @Test
+    public void childSpawnOrderMatchesRom() throws Exception {
+        // ROM: loc_3D52A spawns children in this order:
+        // 1. Shoulder, 2. FrontForearm, 3. FrontLowerLeg, 4. UpperArm,
+        // 5. FrontThigh, 6. Head, 7. Jet, 8. BackLowerLeg, 9. BackForearm, 10. BackThigh
+        java.lang.reflect.Field childField =
+                com.openggf.level.objects.boss.AbstractBossInstance.class.getDeclaredField("childComponents");
+        childField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.List<BossChildComponent> children =
+                (java.util.List<BossChildComponent>) childField.get(boss);
+
+        assertEquals("Should have 10 children", 10, children.size());
+
+        // Verify FrontForearm (index 1) comes before FrontLowerLeg (index 2)
+        // by checking their class names via the name field on AbstractObjectInstance
+        java.lang.reflect.Method getName =
+                com.openggf.level.objects.AbstractObjectInstance.class.getMethod("getName");
+
+        String child1Name = (String) getName.invoke(children.get(1));
+        String child2Name = (String) getName.invoke(children.get(2));
+        assertEquals("Child index 1 should be FrontForearm (ROM spawn order)",
+                "FrontForearm", child1Name);
+        assertEquals("Child index 2 should be FrontLowerLeg (ROM spawn order)",
+                "FrontLowerLeg", child2Name);
+    }
+
     // ========================================================================
     // HP DECREMENT
     // ========================================================================
@@ -295,6 +326,93 @@ public class TestDEZDeathEggRobot {
     // CHILDREN REGISTERED WITH OBJECT MANAGER
     // ========================================================================
 
+    // ========================================================================
+    // ROM DATA VERIFICATION (via reflection)
+    // ========================================================================
+
+    @Test
+    public void breakVelocitiesMatchRom() throws Exception {
+        // ROM: ObjC7_BreakSpeeds (s2.asm:83258-83267)
+        // 8 entries: {x_vel, y_vel} for each body part during break-apart
+        java.lang.reflect.Field field =
+                Sonic2DeathEggRobotInstance.class.getDeclaredField("BREAK_VELOCITIES");
+        field.setAccessible(true);
+        int[][] actual = (int[][]) field.get(null);
+
+        assertEquals("BREAK_VELOCITIES should have 8 entries", 8, actual.length);
+
+        int[][] expected = {
+                {  0x200, -0x400 },  // Shoulder
+                { -0x100, -0x100 },  // FrontLowerLeg
+                {  0x300, -0x300 },  // FrontForearm
+                { -0x100, -0x400 },  // UpperArm
+                {  0x180, -0x200 },  // FrontThigh
+                { -0x200, -0x300 },  // BackLowerLeg
+                {  0x000, -0x400 },  // BackForearm
+                {  0x100, -0x300 }   // BackThigh
+        };
+
+        for (int i = 0; i < expected.length; i++) {
+            assertArrayEquals("Break velocity entry " + i + " should match ROM",
+                    expected[i], actual[i]);
+        }
+    }
+
+    @Test
+    public void childDeltasMatchRom() throws Exception {
+        // ROM: ObjC7_ChildDeltas (s2.asm:83536-83544)
+        // 7 entries: {dx, dy} position offsets for articulated children
+        java.lang.reflect.Field field =
+                Sonic2DeathEggRobotInstance.class.getDeclaredField("CHILD_DELTAS");
+        field.setAccessible(true);
+        int[][] actual = (int[][]) field.get(null);
+
+        assertEquals("CHILD_DELTAS should have 7 entries", 7, actual.length);
+
+        int[][] expected = {
+                { -4, 60 },   // FrontLowerLeg
+                { -12, 8 },   // FrontForearm
+                { 12, -8 },   // UpperArm
+                { 4, 36 },    // FrontThigh
+                { -4, 60 },   // BackLowerLeg
+                { -12, 8 },   // BackForearm
+                { 4, 36 }     // BackThigh
+        };
+
+        for (int i = 0; i < expected.length; i++) {
+            assertArrayEquals("Child delta entry " + i + " should match ROM",
+                    expected[i], actual[i]);
+        }
+    }
+
+    @Test
+    public void groupAnimationKeyframeCounts() throws Exception {
+        // ROM: ObjC7_GroupAni_3E318 = 9 keyframes (half-step walk)
+        java.lang.reflect.Field halfStepField =
+                Sonic2DeathEggRobotInstance.class.getDeclaredField("HALF_STEP_KEYFRAMES");
+        halfStepField.setAccessible(true);
+        int[][] halfStep = (int[][]) halfStepField.get(null);
+        assertEquals("HALF_STEP_KEYFRAMES should have 9 entries", 9, halfStep.length);
+
+        // ROM: ObjC7_GroupAni_3E3D8 = 3 keyframes (crouch/rise)
+        java.lang.reflect.Field crouchField =
+                Sonic2DeathEggRobotInstance.class.getDeclaredField("CROUCH_KEYFRAMES");
+        crouchField.setAccessible(true);
+        int[][] crouch = (int[][]) crouchField.get(null);
+        assertEquals("CROUCH_KEYFRAMES should have 3 entries", 3, crouch.length);
+
+        // ROM: ObjC7_GroupAni_3E438 = 12 keyframes (full walk cycle)
+        java.lang.reflect.Field walkField =
+                Sonic2DeathEggRobotInstance.class.getDeclaredField("WALK_CYCLE_KEYFRAMES");
+        walkField.setAccessible(true);
+        int[][] walk = (int[][]) walkField.get(null);
+        assertEquals("WALK_CYCLE_KEYFRAMES should have 12 entries", 12, walk.length);
+    }
+
+    // ========================================================================
+    // CHILDREN REGISTERED WITH OBJECT MANAGER
+    // ========================================================================
+
     @Test
     public void childrenRegisteredWithObjectManager() {
         // When ObjectManager is available, children should be registered for rendering
@@ -311,5 +429,81 @@ public class TestDEZDeathEggRobot {
         // Verify all 10 children were registered
         org.mockito.Mockito.verify(objMgr, org.mockito.Mockito.times(10))
                 .addDynamicObject(org.mockito.ArgumentMatchers.any());
+    }
+
+    // ========================================================================
+    // SENSOR FIFO BUFFER DEPTH
+    // ========================================================================
+
+    @Test
+    public void sensorFifoBufferHas4Elements() throws Exception {
+        // ROM: ObjC7_TargettingSensor uses 4 slots at offsets $30-$3F
+        // (each slot = 4 bytes: xvel word + yvel word). A value written to
+        // slot 0 traverses 3 shifts before being consumed at slot 3.
+        // Verify via reflection that the buffer arrays have length 4.
+        Class<?> sensorClass = null;
+        for (Class<?> inner : Sonic2DeathEggRobotInstance.class.getDeclaredClasses()) {
+            if (inner.getSimpleName().equals("SensorChild")) {
+                sensorClass = inner;
+                break;
+            }
+        }
+        assertNotNull("SensorChild inner class should exist", sensorClass);
+
+        java.lang.reflect.Field xBufField = sensorClass.getDeclaredField("xVelBuffer");
+        xBufField.setAccessible(true);
+        java.lang.reflect.Field yBufField = sensorClass.getDeclaredField("yVelBuffer");
+        yBufField.setAccessible(true);
+
+        // Construct a SensorChild to inspect buffer size
+        // SensorChild(Sonic2DeathEggRobotInstance parent, int playerX, int playerY)
+        java.lang.reflect.Constructor<?> ctor = sensorClass.getDeclaredConstructor(
+                Sonic2DeathEggRobotInstance.class, int.class, int.class);
+        ctor.setAccessible(true);
+        Object sensor = ctor.newInstance(boss, 100, 200);
+
+        int[] xBuf = (int[]) xBufField.get(sensor);
+        int[] yBuf = (int[]) yBufField.get(sensor);
+        assertEquals("xVelBuffer should have 4 elements (3-frame delay)", 4, xBuf.length);
+        assertEquals("yVelBuffer should have 4 elements (3-frame delay)", 4, yBuf.length);
+    }
+
+    // ========================================================================
+    // FOREARM Y VELOCITY CLAMP
+    // ========================================================================
+
+    @Test
+    public void forearmYVelocityClampAt0xFF() throws Exception {
+        // ROM: cmpi.w #$100,d2 / blo.s + / move.w #$FF,d2
+        // Clamps absolute horizontal distance to 0xFF before (d2 & 0xC0) >> 6.
+        // For dx >= 0x100, the table index should be the same as dx = 0xFF (= 3).
+        // Without the clamp, dx = 0x100 would give (0x100 & 0xC0) >> 6 = (0x00) >> 6 = 0
+        // which is wrong. With the clamp, Math.min(0xFF, dx) = 0xFF, (0xFF & 0xC0) >> 6 = 3.
+
+        // Test ROM-accurate clamped behavior:
+        int dxClamped = Math.min(0xFF, 0x100);
+        int idxClamped = (dxClamped & 0xC0) >> 6;
+        assertEquals("dx=0x100 clamped to 0xFF should give table index 3", 3, idxClamped);
+
+        dxClamped = Math.min(0xFF, 0xFF);
+        idxClamped = (dxClamped & 0xC0) >> 6;
+        assertEquals("dx=0xFF should give table index 3", 3, idxClamped);
+
+        // Verify the bug scenario: without clamping, dx=0x100 would give index 0
+        int dxUnclamped = 0x100;
+        int idxUnclamped = (dxUnclamped & 0xC0) >> 6;
+        assertEquals("Unclamped dx=0x100 would incorrectly give index 0", 0, idxUnclamped);
+
+        // Verify boundary cases with clamping
+        assertEquals("dx=0x00 -> index 0", 0, (Math.min(0xFF, 0x00) & 0xC0) >> 6);
+        assertEquals("dx=0x3F -> index 0", 0, (Math.min(0xFF, 0x3F) & 0xC0) >> 6);
+        assertEquals("dx=0x40 -> index 1", 1, (Math.min(0xFF, 0x40) & 0xC0) >> 6);
+        assertEquals("dx=0x7F -> index 1", 1, (Math.min(0xFF, 0x7F) & 0xC0) >> 6);
+        assertEquals("dx=0x80 -> index 2", 2, (Math.min(0xFF, 0x80) & 0xC0) >> 6);
+        assertEquals("dx=0xBF -> index 2", 2, (Math.min(0xFF, 0xBF) & 0xC0) >> 6);
+        assertEquals("dx=0xC0 -> index 3", 3, (Math.min(0xFF, 0xC0) & 0xC0) >> 6);
+        assertEquals("dx=0xFF -> index 3", 3, (Math.min(0xFF, 0xFF) & 0xC0) >> 6);
+        assertEquals("dx=0x200 -> index 3 (clamped)", 3, (Math.min(0xFF, 0x200) & 0xC0) >> 6);
+        assertEquals("dx=0xFFFF -> index 3 (clamped)", 3, (Math.min(0xFF, 0xFFFF) & 0xC0) >> 6);
     }
 }

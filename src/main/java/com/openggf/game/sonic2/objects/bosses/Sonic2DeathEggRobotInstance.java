@@ -98,11 +98,12 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     /** HP = 12 (final boss, NOT the usual 8) */
     private static final int DEATH_EGG_ROBOT_HP = 12;
 
-    /** Per-child collision flags from ObjC7_ChildCollision (s2.asm:83296-83306) */
+    /** Per-child collision flags from ObjC7_ChildCollision (s2.asm:83296-83306)
+     *  Order matches ROM spawn order at loc_3D52A: Shoulder, FrontForearm, FrontLowerLeg, ... */
     static final int[] CHILD_COLLISION = {
             0x00,  // Shoulder
-            0x8F,  // FrontLowerLeg
             0x9C,  // FrontForearm
+            0x8F,  // FrontLowerLeg
             0x00,  // UpperArm
             0x86,  // FrontThigh
             0x2A,  // Head (hittable!)
@@ -427,7 +428,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         attackIndex = 0;
         currentAttack = 0;
         attackPhase = 0;
-        facingLeft = true; // ROM: Egg Robo faces left toward the approaching player
+        facingLeft = false; // ROM: x_flip = 0 (ObjC7_SubObjData render_flags bit 0 clear), art naturally faces LEFT
         defeatPhase = 0;
         targetedPlayerX = 0;
         frontPunchTriggered = false;
@@ -465,8 +466,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         backThigh = new ArticulatedChild(this, "BackThigh", 5, FRAME_THIGH);
 
         childComponents.add(shoulder);
-        childComponents.add(frontLowerLeg);
         childComponents.add(frontForearm);
+        childComponents.add(frontLowerLeg);
         childComponents.add(upperArm);
         childComponents.add(frontThigh);
         childComponents.add(head);
@@ -734,7 +735,12 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 if (actionTimer < 0) {
                     attackPhase = 0x0A;
                     state.yVel = 0;
-                    // Screen shake
+                    // Screen shake on stomp landing
+                    // TODO: ROM uses a 64-frame oscillating ripple table for screen shake,
+                    //       not a static offset. Camera currently has no timed/oscillating
+                    //       shake API. Using static offset as stub until Camera supports
+                    //       duration-based shake (ROM: ObjC7 stomp sets $40 frames of
+                    //       oscillating Y shake via the ripple/shake system).
                     Camera camera = Camera.getInstance();
                     if (camera != null) {
                         camera.setShakeOffsets(0, 4);
@@ -756,12 +762,14 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 if (stepGroupAnimation(SCRIPT_FULL_WALK)) {
                     positionChildren();
                     boolean playerOnSameSide = isPlayerOnFacingSide(player);
-                    if (!playerOnSameSide) {
-                        bodyRoutine = BODY_SELECT_ATTACK;
-                    } else {
+                    // ROM: d0!=0 (player on facing side) -> spawn bombs (phase 0x0C)
+                    //      d0==0 (player behind) -> return to select
+                    if (playerOnSameSide) {
                         attackPhase = 0x0C;
                         actionTimer = 0x60;
                         spawnBombs(player);
+                    } else {
+                        bodyRoutine = BODY_SELECT_ATTACK;
                     }
                 }
             }
@@ -792,8 +800,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             case 2 -> { // Walk toward player (ROM: off_3E2F6 half-step forward)
                 if (stepGroupAnimation(SCRIPT_HALF_WALK_FWD)) {
                     boolean playerOnSameSide = isPlayerOnFacingSide(player);
+                    // ROM loc_3D856: d0!=0 (player on facing side) -> bombs and retreat
+                    //                d0==0 (player behind) -> punch forward
                     if (playerOnSameSide) {
-                        attackPhase = 8;
+                        attackPhase = 10;
                         actionTimer = 0x20;
                         spawnBombs(player);
                     } else {
@@ -803,23 +813,40 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     }
                 }
             }
-            case 4 -> { // Pause with punch active
+            case 4 -> { // Front punch pause ($40 frames), then advance to back punch phase
                 actionTimer--;
                 if (actionTimer < 0) {
+                    // ROM: Advance prev_anim to 6. On the NEXT frame, loc_3D89E
+                    // runs and sets the back punch signal. 1-frame gap.
                     attackPhase = 6;
-                    backPunchTriggered = true;
                     actionTimer = 0x40;
+                }
+            }
+            case 6 -> { // Back punch display ($40 frames), then walk backward
+                // ROM: loc_3D89E — back punch signal fires on first frame of this phase
+                if (!backPunchTriggered) {
+                    backPunchTriggered = true;
+                }
+                actionTimer--;
+                if (actionTimer < 0) {
+                    attackPhase = 8;
                     resetGroupAnim();
                 }
             }
-            case 6 -> { // Walk backward (ROM: off_3E300 half-step backward)
+            case 8 -> { // Walk backward (ROM: off_3E300 half-step backward)
                 if (stepGroupAnimation(SCRIPT_HALF_WALK_BWD)) {
                     bodyRoutine = BODY_SELECT_ATTACK;
                 }
             }
-            case 8 -> { // Wait after bombs
+            case 10 -> { // Wait after bombs (ROM: loc_3D6C0 at prev_anim=8)
                 actionTimer--;
                 if (actionTimer < 0) {
+                    attackPhase = 12;  // advance to walk backward
+                    resetGroupAnim();
+                }
+            }
+            case 12 -> { // Walk backward before returning (ROM: loc_3D8B8 at prev_anim=$A)
+                if (stepGroupAnimation(SCRIPT_HALF_WALK_BWD)) {
                     bodyRoutine = BODY_SELECT_ATTACK;
                 }
             }
@@ -835,7 +862,20 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             case 0 -> updateDefeatFall(frameCounter);
             case 2 -> updateDefeatExplode(frameCounter);
             case 4 -> updateDefeatWalkPlayer(frameCounter, player);
-            case 6 -> {} // Terminal: ending triggered, waiting for game mode change
+            case 6 -> {
+                // ROM: ObjC7_SetupEnding (s2.asm:83050-83124)
+                // - Makes the robot follow the walking player
+                // - Triggers palette fade to white
+                // - Sets game mode transition to ending/credits
+                // TODO: Implement full ObjC7_SetupEnding sequence:
+                //   1. Robot walks right following player (x_vel matching player speed)
+                //   2. After palette-to-white completes, set game mode to ending
+                //   3. Game mode transition triggers credits sequence
+                // For now, fade music and hold as terminal state.
+                AudioManager.getInstance().fadeOutMusic();
+                defeatPhase = 8; // Advance to terminal to avoid repeated fade calls
+            }
+            case 8 -> {} // Terminal: ending triggered, waiting for game mode change
         }
     }
 
@@ -900,7 +940,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             if (head != null) {
                 head.setDestroyed(true);
             }
-            AudioManager.getInstance().fadeOutMusic();
+            // ROM: move.b #id_Ending,(v_gamemode).w
+            // Signal GameLoop to begin the ending/credits sequence via fade-to-black.
+            // Music fade happens in defeatPhase 6 (after palette-to-white).
+            LevelManager.getInstance().requestCreditsTransition();
             defeatPhase = 6;
         }
     }
@@ -1456,17 +1499,25 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     if (punchTimer < 0) {
                         punchPhase = 2;
                         punchTimer = 0x20;
-                        int dy = 0;
+                        // ROM uses HORIZONTAL distance (x_pos - sonic_x_pos), NOT vertical
+                        int dx = 0;
                         if (player != null) {
-                            dy = Math.abs(player.getCentreY() - currentY);
+                            dx = Math.abs(player.getCentreX() - currentX);
                         }
-                        int yVelIdx = Math.min(3, (dy & 0xC0) >> 5);
+                        // ROM: cmpi.w #$100,d2 / blo.s + / move.w #$FF,d2
+                        // Clamp absolute distance to 0xFF before mask/shift
+                        dx = Math.min(0xFF, dx);
+                        // ROM: andi.w #$C0,d0; lsr.w #6,d0 — divide by 64
+                        // dx 0-63->0, 64-127->1, 128-191->2, 192-255->3
+                        int yVelIdx = (dx & 0xC0) >> 6;
                         int[] Y_VEL_TABLE = { 0x200, 0x100, 0x80, 0 };
                         punchYVel = Y_VEL_TABLE[yVelIdx];
                         if (player != null && player.getCentreY() < currentY) {
                             punchYVel = -punchYVel;
                         }
-                        punchXVel = boss.facingLeft ? -FOREARM_PUNCH_SPEED : FOREARM_PUNCH_SPEED;
+                        // ROM loc_3DACC: x_flip SET -> +$800, x_flip NOT SET -> -$800
+                        // Punch goes AWAY from facing direction (toward the player behind)
+                        punchXVel = boss.facingLeft ? FOREARM_PUNCH_SPEED : -FOREARM_PUNCH_SPEED;
                         AudioManager.getInstance().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
                     } else {
                         punchYVel += 0x20;
@@ -1753,19 +1804,24 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         private int beepCounter;    // Frames until next beep
         private int animIdx;        // Current frame in SENSOR_ANIM_FRAMES
         private int animTimer;      // Speed counter
-        private int targetX;        // Tracked X position
-        private int targetY;        // Tracked Y position
+
+        // ROM-accurate 4-slot velocity FIFO buffer (3-frame delay)
+        // ROM: ObjC7_TargettingSensor uses 4 slots at offsets $30-$3F
+        // (each slot = 4 bytes: xvel word + yvel word). A value written to
+        // slot 0 traverses 3 shifts before being consumed at slot 3.
+        private final int[] xVelBuffer = new int[4];
+        private final int[] yVelBuffer = new int[4];
+        private int bufferIdx = 0;
+        private boolean bufferSeeded = false;
 
         SensorChild(Sonic2DeathEggRobotInstance parent, int playerX, int playerY) {
             super(parent, "Sensor", 1, Sonic2ObjectIds.DEATH_EGG_ROBOT);
             this.currentX = playerX;
             this.currentY = playerY;
-            this.targetX = playerX;
-            this.targetY = playerY;
             this.sensorRoutine = 0;
             this.countdown = 0xA0; // 160 frames
             this.beepInterval = 0x18; // Initial interval = 24 frames
-            this.beepCounter = 0x18;
+            this.beepCounter = 0; // ROM: angle byte = $00, first subq.b gives $FF (bit 7 set, bpl not taken = immediate beep)
             this.animIdx = 0;
             this.animTimer = 0;
         }
@@ -1782,43 +1838,75 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 }
                 case 2 -> { // Tracking
                     countdown--;
-                    if (countdown <= 0) {
+                    // ROM: subq.w #1,objoff_2A(a0) / bmi.s — fires when result goes negative
+                    if (countdown < 0) {
                         sensorRoutine = 4;
                         countdown = 0x40; // 64 frames for lock-on
                         beepCounter = 4;
-                    } else {
-                        // Track toward player position with lag
+                        // ROM: Snap sensor to player position when transitioning to lock-on
                         if (player != null) {
-                            targetX = player.getCentreX();
-                            targetY = player.getCentreY();
+                            currentX = player.getCentreX();
+                            currentY = player.getCentreY();
                         }
-                        // Smooth approach
-                        currentX += (targetX - currentX) >> 3;
-                        currentY += (targetY - currentY) >> 3;
+                    } else {
+                        // ROM loc_3DDA6: reads player's OWN velocity (x_vel/y_vel),
+                        // NOT position delta. Snaps to player when stationary.
+                        if (player != null) {
+                            int playerXVel = player.getXSpeed();
+                            int playerYVel = player.getYSpeed();
+
+                            // ROM: snap sensor to player position when velocity is 0
+                            if (playerXVel == 0) {
+                                currentX = player.getCentreX();
+                            }
+                            if (playerYVel == 0) {
+                                currentY = player.getCentreY();
+                            }
+
+                            // ROM: Seed buffer slot 0 with player's initial velocity on first update
+                            // move.w x_vel(a1),objoff_30(a0) / move.w y_vel(a1),objoff_32(a0)
+                            if (!bufferSeeded) {
+                                xVelBuffer[0] = playerXVel;
+                                yVelBuffer[0] = playerYVel;
+                                bufferSeeded = true;
+                            }
+
+                            // Push player velocity into FIFO
+                            xVelBuffer[bufferIdx] = playerXVel;
+                            yVelBuffer[bufferIdx] = playerYVel;
+
+                            // Apply oldest velocity (3-frame delay via 4-slot buffer)
+                            int applyIdx = (bufferIdx + 1) % 4;
+                            currentX += (xVelBuffer[applyIdx] >> 8); // 8.8 fixed -> pixel
+                            currentY += (yVelBuffer[applyIdx] >> 8);
+                            bufferIdx = (bufferIdx + 1) % 4;
+                        }
 
                         // Beep with decreasing interval
+                        // ROM: subq.b #1,angle(a0) / bpl.s — fires when byte goes negative
                         beepCounter--;
-                        if (beepCounter <= 0) {
+                        if (beepCounter < 0) {
                             AudioManager.getInstance().playSfx(Sonic2Sfx.BEEP.id);
-                            if (beepInterval > 4) {
-                                beepInterval--;
-                            }
                             beepCounter = beepInterval;
+                            // ROM: subq.b #1,objoff_27(a0) — unconditional decrement
+                            beepInterval--;
                         }
                     }
                     stepAnim();
                 }
                 case 4 -> { // Lock-on
                     countdown--;
-                    if (countdown <= 0) {
+                    // ROM: subq.w #1,objoff_2A(a0) / bmi.s — fires when result goes negative
+                    if (countdown < 0) {
                         // Report final position to body and self-destruct
                         boss.reportTargetedPlayerX(currentX);
                         setDestroyed(true);
                         return;
                     }
                     // Fast beeping
+                    // ROM: subq.b #1,angle(a0) / bpl.s — fires when byte goes negative
                     beepCounter--;
-                    if (beepCounter <= 0) {
+                    if (beepCounter < 0) {
                         AudioManager.getInstance().playSfx(Sonic2Sfx.BEEP.id);
                         beepCounter = 4;
                     }
@@ -1939,7 +2027,13 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
-            if (!detonating) {
+            if (detonating) {
+                // ROM uses FieryExplosion (Obj58) mappings during detonation.
+                // Frame 0x0F from ObjC7_MapUnc_3E5F8 is the explosion frame.
+                // TODO: Use proper Obj58 explosion mappings when available.
+                //       For now, use FRAME_BOMB as placeholder during detonation.
+                renderer.drawFrameIndex(FRAME_BOMB, currentX, currentY, false, false);
+            } else {
                 renderer.drawFrameIndex(FRAME_BOMB, currentX, currentY, false, false);
             }
         }

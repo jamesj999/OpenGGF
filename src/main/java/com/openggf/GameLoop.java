@@ -30,7 +30,6 @@ import com.openggf.graphics.FadeManager;
 
 import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.game.sonic1.credits.Sonic1CreditsDemoData;
-import com.openggf.game.sonic1.credits.Sonic1CreditsManager;
 import com.openggf.game.sonic1.credits.TryAgainEndManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.debug.playback.PlaybackDebugManager;
@@ -91,11 +90,8 @@ public class GameLoop {
     // Flag to freeze level updates during special stage entry transition
     private boolean specialStageTransitionPending = false;
 
-    // Ending credits manager (Sonic 1)
-    private Sonic1CreditsManager creditsManager;
-
-    // Post-credits TRY AGAIN / END screen (Sonic 1)
-    private TryAgainEndManager tryAgainEndManager;
+    // Game-agnostic ending/credits provider (wraps S1 CreditsManager, S2 credits, etc.)
+    private EndingProvider endingProvider;
 
     // Listener for game mode changes (used by Engine to update projection)
     private GameModeChangeListener gameModeChangeListener;
@@ -397,16 +393,11 @@ public class GameLoop {
             }
             inputHandler.update();
             return; // Don't process LEVEL mode logic
-        } else if (currentGameMode == GameMode.CREDITS_TEXT) {
-            updateCreditsText();
-            inputHandler.update();
-            return;
-        } else if (currentGameMode == GameMode.CREDITS_DEMO) {
-            updateCreditsDemo();
-            inputHandler.update();
-            return;
-        } else if (currentGameMode == GameMode.TRY_AGAIN_END) {
-            updateTryAgainEnd();
+        } else if (currentGameMode == GameMode.CREDITS_TEXT
+                || currentGameMode == GameMode.CREDITS_DEMO
+                || currentGameMode == GameMode.TRY_AGAIN_END
+                || currentGameMode == GameMode.ENDING_CUTSCENE) {
+            updateEnding();
             inputHandler.update();
             return;
         }
@@ -448,7 +439,7 @@ public class GameLoop {
                     return;
                 }
                 if (levelManager.consumeCreditsRequest()) {
-                    startCreditsFade();
+                    startEndingFade();
                     return;
                 }
             }
@@ -1844,68 +1835,97 @@ public class GameLoop {
                 ssProvider.getLagCompensation() * 100, effectiveUpdates));
     }
 
-    // ==================== Credits Sequence Methods ====================
+    // ==================== Ending / Credits Sequence Methods ====================
 
     /**
-     * Starts the fade-to-black transition to enter the credits sequence.
-     * Called when the STH logo timer expires in the ending cutscene.
+     * Starts the fade-to-black transition to enter the ending sequence.
+     * Called when the level requests credits (e.g., after final boss defeat).
      */
-    private void startCreditsFade() {
-        LOGGER.info("Starting fade-to-black for credits sequence");
+    private void startEndingFade() {
+        LOGGER.info("Starting fade-to-black for ending sequence");
         AudioManager.getInstance().fadeOutMusic();
-        FadeManager.getInstance().startFadeToBlack(() -> {
-            doEnterCredits();
-        });
+        FadeManager.getInstance().startFadeToBlack(this::doEnterEnding);
     }
 
     /**
-     * Actually enters the credits sequence after fade-to-black completes.
+     * Actually enters the ending sequence after fade-to-black completes.
+     * Initializes the EndingProvider from the current GameModule.
      */
-    private void doEnterCredits() {
-        GameMode oldMode = currentGameMode;
-        currentGameMode = GameMode.CREDITS_TEXT;
-
-        creditsManager = new Sonic1CreditsManager();
-        creditsManager.initialize();
-
-        if (gameModeChangeListener != null) {
-            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
-        }
-
-        LOGGER.info("Entered credits text mode");
-    }
-
-    /**
-     * Updates the CREDITS_TEXT mode each frame.
-     */
-    private void updateCreditsText() {
-        if (creditsManager == null) {
+    private void doEnterEnding() {
+        endingProvider = GameModuleRegistry.getCurrent().getEndingProvider();
+        if (endingProvider == null) {
+            // No ending provider for this game — return to title screen
+            LOGGER.warning("No EndingProvider available, returning to title screen");
+            setGameMode(GameMode.TITLE_SCREEN);
+            TitleScreenProvider titleScreen = getTitleScreenProviderLazy();
+            if (titleScreen != null) {
+                titleScreen.initialize();
+            }
             return;
         }
 
-        creditsManager.update();
+        endingProvider.initialize();
+        setGameMode(gameModeForPhase(endingProvider.getCurrentPhase()));
 
-        // Check if the manager wants to load a demo zone
-        if (creditsManager.consumeDemoLoadRequest()) {
-            loadCreditsDemoZone();
+        // Reveal the ending scene (screen is currently black from startEndingFade())
+        // ROM: PaletteFadeIn after loading ending art
+        FadeManager.getInstance().startFadeFromBlack(null);
+
+        LOGGER.info("Entered ending sequence, phase=" + endingProvider.getCurrentPhase());
+    }
+
+    /**
+     * Unified update method for all ending-related game modes.
+     * Dispatches to phase-specific logic based on the current EndingPhase.
+     */
+    private void updateEnding() {
+        if (endingProvider == null) {
+            return;
         }
 
-        // Check if finished (after "PRESENTED BY SEGA")
-        if (creditsManager.consumeFinishedRequest()) {
-            exitCreditsToTryAgainEnd();
+        EndingPhase phase = endingProvider.getCurrentPhase();
+
+        switch (phase) {
+            case CREDITS_TEXT -> updateEndingCreditsText();
+            case CREDITS_DEMO -> updateEndingCreditsDemo();
+            case POST_CREDITS -> updateEndingPostCredits();
+            case CUTSCENE -> updateEndingCutscene();
+            case FINISHED -> exitEndingToTitleScreen();
+        }
+
+        // Sync GameMode to the current phase (in case provider changed phase internally)
+        if (endingProvider != null && !endingProvider.isComplete()) {
+            EndingPhase newPhase = endingProvider.getCurrentPhase();
+            GameMode targetMode = gameModeForPhase(newPhase);
+            if (targetMode != currentGameMode) {
+                setGameMode(targetMode);
+            }
         }
     }
 
     /**
-     * Updates the CREDITS_DEMO mode each frame.
-     * Runs level physics with demo input override.
+     * CREDITS_TEXT phase: update provider, check for demo load requests and completion.
      */
-    private void updateCreditsDemo() {
-        if (creditsManager == null) {
-            return;
+    private void updateEndingCreditsText() {
+        endingProvider.update();
+
+        // Check if the provider wants to load a demo zone
+        if (endingProvider.hasDemoLoadRequest()) {
+            endingProvider.consumeDemoLoadRequest();
+            loadEndingDemoZone();
         }
 
-        creditsManager.update();
+        // Check if ending is complete (e.g., after "PRESENTED BY SEGA")
+        if (endingProvider.isComplete()) {
+            exitEndingToTitleScreen();
+        }
+    }
+
+    /**
+     * CREDITS_DEMO phase: update provider, run level physics with demo input.
+     */
+    private void updateEndingCreditsDemo() {
+        endingProvider.update();
 
         // Apply demo input to player
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
@@ -1916,7 +1936,7 @@ public class GameLoop {
             // directly to jpadhold1/jpadpress1 (MoveSonicInDemo.asm).
             // Do NOT use controlLocked here: PlayableSpriteMovement re-reads it
             // and would zero out left/right/jump, overriding the forced input.
-            player.setForcedInputMask(creditsManager.getDemoInputMask());
+            player.setForcedInputMask(endingProvider.getDemoInputMask());
         }
 
         // Run level physics (objects + player)
@@ -1931,31 +1951,84 @@ public class GameLoop {
         }
 
         // Camera/scroll only if not frozen (during fadeout, scroll freezes)
-        if (!creditsManager.isScrollFrozen()) {
+        if (!endingProvider.isScrollFrozen()) {
             camera.updateBoundaryEasing();
             camera.updatePosition();
             levelManager.update();
         }
 
         // Check if returning to text phase
-        if (creditsManager.consumeTextReturnRequest()) {
-            returnToCreditsText();
+        if (endingProvider.hasTextReturnRequest()) {
+            endingProvider.consumeTextReturnRequest();
+            returnFromEndingDemo();
         }
 
-        // Check if finished
-        if (creditsManager.consumeFinishedRequest()) {
-            exitCreditsToTryAgainEnd();
+        // Check if ending is complete
+        if (endingProvider.isComplete()) {
+            exitEndingToTitleScreen();
         }
     }
 
     /**
-     * Loads the demo zone for the current credit and transitions to CREDITS_DEMO mode.
+     * POST_CREDITS phase: update the post-credits screen (e.g., TRY AGAIN / END).
+     * For Sonic 1, the TryAgainEndManager needs InputHandler access for START press.
+     * For Sonic 2, the LogoFlashManager needs InputHandler for button skip detection.
      */
-    private void loadCreditsDemoZone() {
-        int zone = creditsManager.getDemoZone();
-        int act = creditsManager.getDemoAct();
-        int startX = creditsManager.getDemoStartX();
-        int startY = creditsManager.getDemoStartY();
+    private void updateEndingPostCredits() {
+        if (endingProvider instanceof com.openggf.game.sonic1.credits.Sonic1EndingProvider s1Provider) {
+            TryAgainEndManager tryAgainEnd = s1Provider.getTryAgainEndManager();
+            if (tryAgainEnd != null) {
+                tryAgainEnd.update(inputHandler);
+                if (tryAgainEnd.consumeExitRequest()) {
+                    exitEndingToTitleScreen();
+                    return;
+                }
+            }
+        } else if (endingProvider instanceof com.openggf.game.sonic2.credits.Sonic2EndingProvider s2Provider) {
+            // S2 logo flash needs InputHandler for B/C/A/Start skip detection
+            var logoFlash = s2Provider.getLogoFlashManager();
+            if (logoFlash != null) {
+                logoFlash.update(inputHandler);
+                if (logoFlash.isDone()) {
+                    exitEndingToTitleScreen();
+                    return;
+                }
+            } else {
+                // Logo not yet loaded -- let provider advance its internal state
+                endingProvider.update();
+            }
+            if (endingProvider.isComplete()) {
+                exitEndingToTitleScreen();
+            }
+        } else {
+            // Generic provider: just call update() and check completion
+            endingProvider.update();
+            if (endingProvider.isComplete()) {
+                exitEndingToTitleScreen();
+            }
+        }
+    }
+
+    /**
+     * CUTSCENE phase: update provider (e.g., S2 Tornado flyby).
+     */
+    private void updateEndingCutscene() {
+        endingProvider.update();
+
+        if (endingProvider.isComplete()) {
+            exitEndingToTitleScreen();
+        }
+    }
+
+    /**
+     * Loads a demo zone for ending credits and transitions to CREDITS_DEMO mode.
+     * Reads zone/act/position from the EndingProvider.
+     */
+    private void loadEndingDemoZone() {
+        int zone = endingProvider.getDemoZone();
+        int act = endingProvider.getDemoAct();
+        int startX = endingProvider.getDemoStartX();
+        int startY = endingProvider.getDemoStartY();
 
         try {
             // Suppress zone music — credits music should continue playing
@@ -1964,7 +2037,7 @@ public class GameLoop {
             // Consume the title card request since we don't want a title card
             levelManager.consumeTitleCardRequest();
         } catch (IOException e) {
-            LOGGER.severe("Failed to load credits demo zone " + zone + " act " + act + ": " + e.getMessage());
+            LOGGER.severe("Failed to load ending demo zone " + zone + " act " + act + ": " + e.getMessage());
             return;
         }
 
@@ -1986,7 +2059,7 @@ public class GameLoop {
             player.setControlLocked(false);
             player.setForcedInputMask(0);
 
-            if (creditsManager.isLzDemo()) {
+            if (endingProvider.isLzDemo()) {
                 // LZ demo (credit 3): use lamppost position, not startpos
                 // ROM: EndDemo_LampVar (sonic.asm:4176-4187) — lamppost is pre-loaded
                 // so the level code uses lamppost position instead of startpos.
@@ -2020,7 +2093,7 @@ public class GameLoop {
         }
 
         // Snap camera to player position (unless LZ which has explicit camera coords)
-        if (!creditsManager.isLzDemo()) {
+        if (!endingProvider.isLzDemo()) {
             camera.updatePosition(true);
         }
 
@@ -2028,24 +2101,19 @@ public class GameLoop {
         spriteManager.setInputSuppressed(true);
 
         // Switch to CREDITS_DEMO mode
-        GameMode oldMode = currentGameMode;
-        currentGameMode = GameMode.CREDITS_DEMO;
+        setGameMode(GameMode.CREDITS_DEMO);
 
-        if (gameModeChangeListener != null) {
-            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
-        }
+        // Notify provider that zone is loaded
+        endingProvider.onDemoZoneLoaded();
 
-        // Notify credits manager that zone is loaded
-        creditsManager.onDemoZoneLoaded();
-
-        LOGGER.info("Loaded credits demo zone " + zone + " act " + act +
+        LOGGER.info("Loaded ending demo zone " + zone + " act " + act +
                 " at (" + startX + ", " + startY + ")");
     }
 
     /**
      * Returns from CREDITS_DEMO to CREDITS_TEXT for the next credit.
      */
-    private void returnToCreditsText() {
+    private void returnFromEndingDemo() {
         // Restore player keyboard input and clear HUD suppression
         spriteManager.setInputSuppressed(false);
         levelManager.setForceHudSuppressed(false);
@@ -2057,25 +2125,19 @@ public class GameLoop {
             player.clearForcedInputMask();
         }
 
-        GameMode oldMode = currentGameMode;
-        currentGameMode = GameMode.CREDITS_TEXT;
+        setGameMode(GameMode.CREDITS_TEXT);
+        endingProvider.onReturnToText();
 
-        if (gameModeChangeListener != null) {
-            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
-        }
-
-        creditsManager.onReturnToText();
-
-        LOGGER.info("Returned to credits text for credit " + creditsManager.getCreditsNum());
+        LOGGER.info("Returned from ending demo to credits text");
     }
 
     /**
-     * Exits the credits sequence and transitions to the TRY AGAIN / END screen.
+     * Exits the ending sequence and returns to the title screen.
      */
-    private void exitCreditsToTryAgainEnd() {
-        LOGGER.info("Credits complete, transitioning to TRY AGAIN / END screen");
+    private void exitEndingToTitleScreen() {
+        LOGGER.info("Ending sequence complete, returning to title screen");
 
-        // Clean up credits state
+        // Clean up any remaining demo state
         spriteManager.setInputSuppressed(false);
         levelManager.setForceHudSuppressed(false);
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
@@ -2086,108 +2148,53 @@ public class GameLoop {
             player.clearForcedInputMask();
         }
 
-        creditsManager = null;
-
-        // Fade out credits music
         AudioManager.getInstance().fadeOutMusic();
 
         FadeManager fadeManager = FadeManager.getInstance();
         if (!fadeManager.isActive()) {
-            fadeManager.startFadeToBlack(() -> {
-                doEnterTryAgainEnd();
-            });
+            fadeManager.startFadeToBlack(this::doExitEndingToTitleScreen);
         } else {
-            doEnterTryAgainEnd();
-        }
-    }
-
-    /**
-     * Actually enters the TRY AGAIN / END screen after fade completes.
-     */
-    private void doEnterTryAgainEnd() {
-        GameMode oldMode = currentGameMode;
-        currentGameMode = GameMode.TRY_AGAIN_END;
-
-        tryAgainEndManager = new TryAgainEndManager();
-        tryAgainEndManager.initialize();
-
-        if (gameModeChangeListener != null) {
-            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
-        }
-
-        FadeManager.getInstance().startFadeFromBlack(null);
-        LOGGER.info("Credits -> TRY AGAIN / END");
-    }
-
-    /**
-     * Updates the TRY_AGAIN_END mode each frame.
-     */
-    private void updateTryAgainEnd() {
-        if (tryAgainEndManager == null) {
-            return;
-        }
-
-        tryAgainEndManager.update(inputHandler);
-
-        if (tryAgainEndManager.consumeExitRequest()) {
-            exitTryAgainEndToTitleScreen();
-        }
-    }
-
-    /**
-     * Exits the TRY AGAIN / END screen and returns to the title screen.
-     */
-    private void exitTryAgainEndToTitleScreen() {
-        LOGGER.info("TRY AGAIN / END complete, returning to title screen");
-
-        AudioManager.getInstance().fadeOutMusic();
-
-        FadeManager fadeManager = FadeManager.getInstance();
-        if (!fadeManager.isActive()) {
-            fadeManager.startFadeToBlack(() -> {
-                doExitTryAgainEndToTitleScreen();
-            });
-        } else {
-            doExitTryAgainEndToTitleScreen();
+            doExitEndingToTitleScreen();
         }
     }
 
     /**
      * Actually transitions to the title screen after fade completes.
      */
-    private void doExitTryAgainEndToTitleScreen() {
-        GameMode oldMode = currentGameMode;
-        currentGameMode = GameMode.TITLE_SCREEN;
-
-        tryAgainEndManager = null;
+    private void doExitEndingToTitleScreen() {
+        endingProvider = null;
 
         camera.setX((short) 0);
         camera.setY((short) 0);
+
+        setGameMode(GameMode.TITLE_SCREEN);
 
         TitleScreenProvider titleScreen = getTitleScreenProviderLazy();
         if (titleScreen != null) {
             titleScreen.initialize();
         }
 
-        if (gameModeChangeListener != null) {
-            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
-        }
-
         FadeManager.getInstance().startFadeFromBlack(null);
-        LOGGER.info("TRY AGAIN / END -> Title Screen");
+        LOGGER.info("Ending -> Title Screen");
     }
 
     /**
-     * Gets the credits manager (for rendering).
+     * Maps an {@link EndingPhase} to the corresponding {@link GameMode}.
      */
-    public Sonic1CreditsManager getCreditsManager() {
-        return creditsManager;
+    private GameMode gameModeForPhase(EndingPhase phase) {
+        return switch (phase) {
+            case CUTSCENE -> GameMode.ENDING_CUTSCENE;
+            case CREDITS_TEXT -> GameMode.CREDITS_TEXT;
+            case CREDITS_DEMO -> GameMode.CREDITS_DEMO;
+            case POST_CREDITS -> GameMode.TRY_AGAIN_END;
+            case FINISHED -> GameMode.TITLE_SCREEN;
+        };
     }
 
     /**
-     * Gets the TRY AGAIN / END manager (for rendering).
+     * Gets the ending provider (for rendering in Engine.java).
      */
-    public TryAgainEndManager getTryAgainEndManager() {
-        return tryAgainEndManager;
+    public EndingProvider getEndingProvider() {
+        return endingProvider;
     }
 }
