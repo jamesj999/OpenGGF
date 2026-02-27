@@ -7,8 +7,8 @@ import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Palette;
 import com.openggf.level.PatternDesc;
-import com.openggf.level.Pattern;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.tools.EnigmaReader;
@@ -18,21 +18,25 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.logging.Logger;
 
 /**
- * State machine for the Sonic 2 ending cutscene sequence.
+ * ROM-accurate state machine for the Sonic 2 ending cutscene sequence.
  * <p>
- * Modeled on the ROM's ObjCA (ending controller) routines from s2.asm lines 13109-13623.
- * The cutscene plays after defeating the Death Egg Robot and shows:
+ * Modeled 1:1 on the ROM's ObjCA (ending controller) 8 routines from s2.asm,
+ * with ObjCC (tornado) as a 6-sub-state inner machine, plus ObjCB (clouds),
+ * ObjCD (birds), ObjCE (jumping character), and ObjCF (plane helixes).
+ * <p>
+ * The cutscene plays after defeating the Death Egg Robot:
  * <ol>
- *   <li>PHOTO_SEQUENCE: 4 ending photos displayed sequentially</li>
- *   <li>SKY_FALL: Character falling through sky with scrolling clouds</li>
- *   <li>PLANE_APPROACH: Tornado plane enters from the left</li>
- *   <li>PLANE_RESCUE: Character boards the plane, birds spawn</li>
- *   <li>FLY_AWAY: Plane exits screen to the right</li>
- *   <li>TRIGGER_CREDITS: Terminal state, signals provider to begin credits</li>
+ *   <li>Photo loop: 4 photos, each with white-to-target palette fade</li>
+ *   <li>CHARACTER_APPEAR: character floats on cleared screen</li>
+ *   <li>CAMERA_SCROLL: reveals sky background</li>
+ *   <li>MAIN_ENDING: tornado approach, birds, rotation, departure, camera pan</li>
+ *   <li>TRIGGER_CREDITS: terminal state</li>
  * </ol>
  * <p>
  * This is a self-contained renderer; it does not use the game's level/object system.
@@ -43,27 +47,55 @@ public class Sonic2EndingCutsceneManager {
     private static final Logger LOGGER = Logger.getLogger(Sonic2EndingCutsceneManager.class.getName());
 
     // ========================================================================
-    // Cutscene states
+    // Cutscene states — maps 1:1 to ObjCA routines 0/$2/$4/$6/$8/$A/$C/$E
     // ========================================================================
 
     /**
      * States of the ending cutscene, corresponding to ObjCA routine progression.
+     * The photo loop (INIT through PHOTO_LOAD) cycles 4 times before advancing.
      */
     public enum CutsceneState {
-        /** Loading art and initializing. */
+        /** ObjCA routine 0: spawn palette changer, set timer. */
         INIT,
-        /** Displaying 4 ending photos sequentially. */
-        PHOTO_SEQUENCE,
-        /** Character falling through sky with clouds. */
-        SKY_FALL,
-        /** Tornado plane approaching from the left. */
-        PLANE_APPROACH,
-        /** Character boarding the plane, birds flying. */
-        PLANE_RESCUE,
-        /** Plane exiting screen to the right. */
-        FLY_AWAY,
-        /** Terminal state: cutscene is complete. */
+        /** ObjCA routine 2: wait for palette fade timer 1. */
+        PALETTE_WAIT_1,
+        /** ObjCA routine 4: spawn second palette changer. */
+        PALETTE_SETUP_2,
+        /** ObjCA routine 6: wait for palette fade timer 2. */
+        PALETTE_WAIT_2,
+        /** ObjCA routine 8: load next photo to VRAM; if photos remain loop, else advance. */
+        PHOTO_LOAD,
+        /** ObjCA routine $A: character floats/walks on cleared screen. */
+        CHARACTER_APPEAR,
+        /** ObjCA routine $C: DEZ scroll reveals sky background. */
+        CAMERA_SCROLL,
+        /** ObjCA routine $E: ObjCC manages tornado sequence (6 sub-states). */
+        MAIN_ENDING,
+        /** Credits_Trigger set — terminal state. */
         TRIGGER_CREDITS
+    }
+
+    /** ObjCC tornado sub-states during MAIN_ENDING. */
+    private enum TornadoSubState {
+        /** Sub-state 0: Tornado approaches from left using ObjB2 body only. */
+        APPROACH,
+        /** Sub-state 2: Birds spawn, character on tornado, clouds horizontal. */
+        BIRDS_AND_HOLD,
+        /** Sub-state 4: 28-step rotation with position/frame tables. */
+        ROTATION,
+        /** Sub-state 6: Character departure, spawn ObjCE/ObjCF. */
+        DEPARTURE,
+        /** Sub-state 8: Camera pan with 7 delta pairs. */
+        CAMERA_PAN,
+        /** Sub-state $A: Super Sonic final position sequence. */
+        SUPER_FINAL
+    }
+
+    /** ObjCD bird behavior states. */
+    private enum BirdState {
+        FLY_RIGHT,
+        HOMING,
+        EXIT_LEFT
     }
 
     // ========================================================================
@@ -77,57 +109,20 @@ public class Sonic2EndingCutsceneManager {
     // Photo sequence constants
     // ========================================================================
 
-    /**
-     * Photo Enigma map addresses in ROM order.
-     * ROM reference: ObjCA routines 0-6, MapEng_Ending1 through MapEng_Ending4.
-     */
     private static final int[] PHOTO_MAP_ADDRS = {
             Sonic2Constants.MAP_ENG_ENDING1_ADDR,
             Sonic2Constants.MAP_ENG_ENDING2_ADDR,
             Sonic2Constants.MAP_ENG_ENDING3_ADDR,
             Sonic2Constants.MAP_ENG_ENDING4_ADDR
     };
-
-    /** Number of photos in the sequence. */
     private static final int PHOTO_COUNT = 4;
-
-    /**
-     * Photo display area dimensions (in tiles).
-     * ROM reference: PlaneMapToVRAM_H40 with dimensions 12x9 at planeLoc(64,14,8).
-     */
     private static final int PHOTO_WIDTH_TILES = 12;
     private static final int PHOTO_HEIGHT_TILES = 9;
-
-    /**
-     * Photo display position on screen (in pixels).
-     * ROM: planeLoc(planeWidth=64, startCol=14, startRow=8) -> pixel (14*8, 8*8) = (112, 64).
-     */
     private static final int PHOTO_X = 112;
     private static final int PHOTO_Y = 64;
 
     // ========================================================================
-    // Sky fall constants
-    // ========================================================================
-
-    /** Character sprite position during sky fall. */
-    private static final int SKY_FALL_CHAR_X = SCREEN_WIDTH / 2;
-    /** ROM: move.w #$50,y_pos(a1) (s2.asm:13467) */
-    private static final int SKY_FALL_CHAR_Y = 0x50;
-
-    /** Cloud Y positions and speeds for parallax effect. */
-    private static final int[] CLOUD_INIT_Y = {40, 80, 140};
-
-    // ========================================================================
-    // Plane approach constants
-    // ========================================================================
-
-    /** Plane starts off-screen left. */
-    private static final int PLANE_START_X_SUB = -0x10 << 8;
-    /** Plane Y start position (subpixels). ROM: move.w #$C0,y_pos(a0) (s2.asm:13549) */
-    private static final int PLANE_START_Y_SUB = 0xC0 << 8;
-
-    // ========================================================================
-    // State
+    // State fields
     // ========================================================================
 
     private CutsceneState state = CutsceneState.INIT;
@@ -139,30 +134,136 @@ public class Sonic2EndingCutsceneManager {
     private Sonic2EndingArt.EndingRoutine routine;
 
     // Photo sequence state
-    private int currentPhotoIndex;
+    private int photoIndex;
     private int[][] photoMaps;
 
-    // Sky fall state
-    private int[] cloudYSub;  // Cloud Y positions in subpixels (256 = 1px)
+    // Palette fade state — ROM starts Normal_palette as all-white ($EEE) and runs
+    // PaletteFadeFrom every frame to fade toward Target_palette.
+    private Palette[] displayPalettes;
+    private boolean paletteFadeActive;
 
-    // Plane approach/rescue/fly-away state
-    private int planeXSub;    // Plane X in subpixels
-    private int planeYSub;    // Plane Y in subpixels
-    private int characterXSub; // Character X in subpixels (during rescue)
-    private int characterYSub; // Character Y in subpixels
+    // CHARACTER_APPEAR state
+    private int charAppearFrame;
+    private int charAppearAnimTimer;
 
-    // Bird state (simple: track 3 birds)
-    private int[] birdXSub;
-    private int[] birdYSub;
-    private int birdAnimFrame;
-    private int birdAnimTimer;
+    // CAMERA_SCROLL state
+    private float scrollProgress;
 
-    // ROM-parsed sprite mappings for accurate frame rendering
-    private List<SpriteMappingFrame> objCfFrames;   // ObjCF: character/tornado sprites
-    private List<SpriteMappingFrame> animalFrames;   // Obj28_a: animal/bird sprites
+    // MAIN_ENDING: ObjCC tornado state
+    private TornadoSubState tornadoSubState;
+    private int tornadoTimer;
+    private int tornadoXSub;
+    private int tornadoYSub;
+    private int tornadoXVel;
+    private int tornadoYVel;
+    private boolean cutSceneFlag;
 
-    // Reusable PatternDesc for tile rendering
+    // Tornado rotation state (Sub-state 4)
+    private int rotationStep;
+    private int rotationFrameTimer;
+
+    // Departure state (Sub-state 6)
+    private int departureTimer;
+    private int superDepartureStep;
+
+    // Camera pan state (Sub-state 8)
+    private int cameraPanStep;
+    private int cameraPanFrameTimer;
+    private int horizScrollOffset;
+    private int vscrollOffset;
+    private boolean standingFlag;
+
+    // Super final state (Sub-state $A)
+    private int superFinalStep;
+
+    // Character on tornado position
+    private int charOnTornadoX;
+    private int charOnTornadoY;
+
+    // ObjCE jumping character
+    private boolean objCeActive;
+    private int objCeX;
+    private int objCeY;
+    private int objCeSavedX;
+    private int objCeSavedY;
+    private int objCeFrame;
+    private int objCeTimer;
+    private int objCePhase;
+
+    // ObjCF plane helixes
+    private boolean objCfHelixActive;
+    private int objCfHelixX;
+    private int objCfHelixY;
+    private int objCfHelixSavedX;
+    private int objCfHelixSavedY;
+    private int objCfHelixFrame;
+    private int objCfHelixAnimTimer;
+
+    // ObjCD birds
+    private final List<Bird> birds = new ArrayList<>();
+    private int birdSpawnCounter;
+    private int birdSpawnDelay;
+    private boolean birdsSpawning;
+
+    // ObjCB clouds
+    private final List<Cloud> clouds = new ArrayList<>();
+    private int cloudSpawnTimer;
+
+    // ROM-parsed sprite mappings
+    private List<SpriteMappingFrame> objCfFrames;
+    private List<SpriteMappingFrame> animalFrames;
+    private List<SpriteMappingFrame> tornadoFrames;
+    private List<SpriteMappingFrame> cloudFrames;
+
     private final PatternDesc reusableDesc = new PatternDesc();
+    private final Random random = new Random();
+
+    /**
+     * Mega Drive color levels (0-7). Each MD color component uses values 0,$2,$4,$6,$8,$A,$C,$E
+     * which map to these 0-255 scaled values via: {@code (level * 255 + 3) / 7}.
+     */
+    private static final int[] MD_COLOR_LEVELS = {0, 36, 73, 109, 146, 182, 219, 255};
+
+    // ========================================================================
+    // Inner data classes for entity tracking
+    // ========================================================================
+
+    private static class Bird {
+        int xSub, ySub;
+        int xVel, yVel;
+        int initialYVel;
+        int targetY;
+        BirdState birdState;
+        int stateTimer;
+        int animFrame;
+        int animTimer;
+
+        Bird(int xSub, int ySub, int xVel, int yVel, int targetY) {
+            this.xSub = xSub;
+            this.ySub = ySub;
+            this.xVel = xVel;
+            this.yVel = yVel;
+            this.initialYVel = yVel;
+            this.targetY = targetY;
+            this.birdState = BirdState.FLY_RIGHT;
+        }
+    }
+
+    private static class Cloud {
+        int xSub, ySub;
+        int xVel, yVel;
+        int frame;
+        boolean horizontal;
+
+        Cloud(int xSub, int ySub, int xVel, int yVel, int frame, boolean horizontal) {
+            this.xSub = xSub;
+            this.ySub = ySub;
+            this.xVel = xVel;
+            this.yVel = yVel;
+            this.frame = frame;
+            this.horizontal = horizontal;
+        }
+    }
 
     // ========================================================================
     // Lifecycle
@@ -170,7 +271,7 @@ public class Sonic2EndingCutsceneManager {
 
     /**
      * Initializes the ending cutscene: loads art, palettes, plays music, and
-     * transitions to the photo sequence.
+     * starts the photo loop.
      *
      * @param rom the ROM to load ending art from
      */
@@ -180,6 +281,9 @@ public class Sonic2EndingCutsceneManager {
         endingArt.loadArt(rom, routine);
         endingArt.loadPalettes(rom, routine);
         endingArt.cacheToGpu();
+
+        // ROM: Normal_palette filled with $0EEE0EEE (all white) at EndingSequence init
+        initDisplayPalettes();
 
         // Decode all 4 photo Enigma maps
         photoMaps = new int[PHOTO_COUNT][];
@@ -193,8 +297,12 @@ public class Sonic2EndingCutsceneManager {
             RomByteReader reader = RomByteReader.fromRom(rom);
             objCfFrames = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJCF_ADDR);
             animalFrames = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ28_A_ADDR);
-            LOGGER.fine("Parsed ObjCF mappings: " + objCfFrames.size() + " frames, "
-                    + "Obj28_a mappings: " + animalFrames.size() + " frames");
+            tornadoFrames = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJB2_A_ADDR);
+            cloudFrames = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_CLOUD_ADDR);
+            LOGGER.fine("Parsed sprite mappings: ObjCF=" + objCfFrames.size()
+                    + " Obj28_a=" + animalFrames.size()
+                    + " ObjB2=" + tornadoFrames.size()
+                    + " ObjB3=" + cloudFrames.size() + " frames");
         } catch (IOException e) {
             LOGGER.warning("Failed to parse sprite mappings: " + e.getMessage());
         }
@@ -202,14 +310,18 @@ public class Sonic2EndingCutsceneManager {
         // Play ending music
         AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_ENDING);
 
-        // Transition to photo sequence
-        currentPhotoIndex = 0;
+        // Start photo loop at photo 0
+        photoIndex = 0;
         frameCounter = 0;
         stateFrameCounter = 0;
-        state = CutsceneState.PHOTO_SEQUENCE;
+        enterInit();
 
         LOGGER.info("Ending cutscene initialized with routine=" + routine);
     }
+
+    // ========================================================================
+    // Update
+    // ========================================================================
 
     /**
      * Per-frame update. Advances the cutscene state machine.
@@ -218,16 +330,27 @@ public class Sonic2EndingCutsceneManager {
         frameCounter++;
         stateFrameCounter++;
 
+        // ROM: PaletteFadeFrom runs every frame in the ending main loop
+        if (paletteFadeActive) {
+            runPaletteFadeStep();
+        }
+
         switch (state) {
-            case PHOTO_SEQUENCE -> updatePhotoSequence();
-            case SKY_FALL -> updateSkyFall();
-            case PLANE_APPROACH -> updatePlaneApproach();
-            case PLANE_RESCUE -> updatePlaneRescue();
-            case FLY_AWAY -> updateFlyAway();
-            case TRIGGER_CREDITS -> { /* no-op, picked up by provider */ }
-            default -> { }
+            case INIT -> { /* immediate transition done in enterInit() */ }
+            case PALETTE_WAIT_1 -> updatePaletteWait1();
+            case PALETTE_SETUP_2 -> updatePaletteSetup2();
+            case PALETTE_WAIT_2 -> updatePaletteWait2();
+            case PHOTO_LOAD -> updatePhotoLoad();
+            case CHARACTER_APPEAR -> updateCharacterAppear();
+            case CAMERA_SCROLL -> updateCameraScroll();
+            case MAIN_ENDING -> updateMainEnding();
+            case TRIGGER_CREDITS -> { /* terminal */ }
         }
     }
+
+    // ========================================================================
+    // Draw
+    // ========================================================================
 
     /**
      * Renders the current cutscene state.
@@ -243,52 +366,55 @@ public class Sonic2EndingCutsceneManager {
         }
 
         switch (state) {
-            case PHOTO_SEQUENCE -> drawPhotoSequence(gm);
-            case SKY_FALL -> drawSkyFall(gm);
-            case PLANE_APPROACH -> drawPlaneApproach(gm);
-            case PLANE_RESCUE -> drawPlaneRescue(gm);
-            case FLY_AWAY -> drawFlyAway(gm);
+            case INIT, PALETTE_WAIT_1, PALETTE_SETUP_2, PALETTE_WAIT_2, PHOTO_LOAD ->
+                    drawPhotoSequence(gm);
+            case CHARACTER_APPEAR -> drawCharacterAppear(gm);
+            case CAMERA_SCROLL -> drawCameraScroll(gm);
+            case MAIN_ENDING -> drawMainEnding(gm);
             default -> { }
         }
     }
 
-    /**
-     * Returns whether the cutscene is complete and credits should begin.
-     */
+    // ========================================================================
+    // Public accessors
+    // ========================================================================
+
+    /** Returns whether the cutscene is complete and credits should begin. */
     public boolean isDone() {
         return state == CutsceneState.TRIGGER_CREDITS;
     }
 
-    /**
-     * Returns the current cutscene state (for debugging/testing).
-     */
+    /** Returns the current cutscene state (for debugging/testing). */
     public CutsceneState getState() {
         return state;
     }
 
     /**
-     * Returns whether the cutscene is currently in a sky phase (sky fall, plane approach,
-     * rescue, or fly away) where the background should be blue sky instead of black.
-     * ROM reference: VDP register $8720 = palette 2, color 0 during EndingSequence.
+     * Returns whether the cutscene is in a sky phase where the background should
+     * show sky colors. ROM: VDP register $8720 = palette 2, color 0.
      */
     public boolean isSkyPhase() {
-        return state == CutsceneState.SKY_FALL
-                || state == CutsceneState.PLANE_APPROACH
-                || state == CutsceneState.PLANE_RESCUE
-                || state == CutsceneState.FLY_AWAY;
+        return state == CutsceneState.CAMERA_SCROLL
+                || state == CutsceneState.MAIN_ENDING;
     }
 
     /**
-     * Sets the OpenGL clear color based on the current cutscene state.
-     * During sky phases, uses palette line 2 color 0 (sky blue) from the ending palettes.
-     * During photo/init phases, uses black.
+     * Sets the OpenGL clear color for the ending cutscene.
+     * Uses palette line 2 color 0 from display palettes (starts white, fades to target).
      * ROM reference: VDP register $8720 = palette 2, color 0.
      */
     public void setClearColor() {
-        if (isSkyPhase() && endingArt != null && endingArt.getEndingPalettes() != null) {
-            com.openggf.level.Palette[] palettes = endingArt.getEndingPalettes();
+        // Prefer display palettes (starts white, fades toward target)
+        if (displayPalettes != null && displayPalettes.length > 2 && displayPalettes[2] != null) {
+            Palette.Color bgColor = displayPalettes[2].getColor(0);
+            org.lwjgl.opengl.GL11.glClearColor(bgColor.rFloat(), bgColor.gFloat(), bgColor.bFloat(), 1.0f);
+            return;
+        }
+        // Fallback to target palettes
+        if (endingArt != null && endingArt.getEndingPalettes() != null) {
+            Palette[] palettes = endingArt.getEndingPalettes();
             if (palettes.length > 2 && palettes[2] != null) {
-                com.openggf.level.Palette.Color bgColor = palettes[2].getColor(0);
+                Palette.Color bgColor = palettes[2].getColor(0);
                 org.lwjgl.opengl.GL11.glClearColor(bgColor.rFloat(), bgColor.gFloat(), bgColor.bFloat(), 1.0f);
                 return;
             }
@@ -297,38 +423,69 @@ public class Sonic2EndingCutsceneManager {
     }
 
     // ========================================================================
-    // PHOTO_SEQUENCE
+    // Photo loop: INIT -> PALETTE_WAIT_1 -> PALETTE_SETUP_2 -> PALETTE_WAIT_2
+    //             -> PHOTO_LOAD (cycles 4 times, then CHARACTER_APPEAR)
     // ========================================================================
 
     /**
-     * Updates the photo sequence state.
-     * Each photo is held for PHOTO_HOLD_FRAMES, then advances to the next.
-     * After all 4 photos, transitions to SKY_FALL.
+     * Enters the INIT state for the current photo. Resets display palettes to
+     * all-white and immediately transitions to PALETTE_WAIT_1.
      */
-    private void updatePhotoSequence() {
-        if (stateFrameCounter >= Sonic2CreditsData.PHOTO_HOLD_FRAMES) {
-            currentPhotoIndex++;
-            stateFrameCounter = 0;
+    private void enterInit() {
+        state = CutsceneState.INIT;
+        stateFrameCounter = 0;
 
-            if (currentPhotoIndex >= PHOTO_COUNT) {
-                transitionToSkyFall();
-            }
+        // Reset display palettes to all-white for this photo's fade-from-white
+        resetDisplayPalettesToWhite();
+        paletteFadeActive = true;
+
+        // Immediately transition to PALETTE_WAIT_1 (ROM: routine 0 → routine 2)
+        state = CutsceneState.PALETTE_WAIT_1;
+        stateFrameCounter = 0;
+    }
+
+    private void updatePaletteWait1() {
+        if (stateFrameCounter >= Sonic2CreditsData.PALETTE_WAIT_1_60FPS) {
+            state = CutsceneState.PALETTE_SETUP_2;
+            stateFrameCounter = 0;
+        }
+    }
+
+    private void updatePaletteSetup2() {
+        // ROM spawns second ObjC9 palette changer; we continue the same fade
+        state = CutsceneState.PALETTE_WAIT_2;
+        stateFrameCounter = 0;
+    }
+
+    private void updatePaletteWait2() {
+        if (stateFrameCounter >= Sonic2CreditsData.PALETTE_WAIT_2) {
+            state = CutsceneState.PHOTO_LOAD;
+            stateFrameCounter = 0;
+        }
+    }
+
+    private void updatePhotoLoad() {
+        // Current photo displayed; advance to next
+        photoIndex++;
+
+        if (photoIndex < PHOTO_COUNT) {
+            // Loop back for next photo with fresh white fade
+            enterInit();
+        } else {
+            // All 4 photos done -> CHARACTER_APPEAR
+            enterCharacterAppear();
         }
     }
 
     /**
      * Draws the current photo using Enigma-decoded tile data.
-     * <p>
-     * ROM reference: Photos are Enigma-mapped tilemaps decoded with
-     * startingArtTile = ArtTile_ArtNem_EndingPics. The decoded words are VDP
-     * nametable entries containing tile index, palette, and flip flags.
-     * Each photo is a 12x9 tile grid rendered at screen position (112, 64).
+     * Photos are 12x9 tile grids rendered at screen position (112, 64).
      */
     private void drawPhotoSequence(GraphicsManager gm) {
-        if (currentPhotoIndex < 0 || currentPhotoIndex >= PHOTO_COUNT) {
+        if (photoIndex < 0 || photoIndex >= PHOTO_COUNT) {
             return;
         }
-        int[] map = photoMaps[currentPhotoIndex];
+        int[] map = photoMaps[photoIndex];
         if (map == null || map.length == 0) {
             return;
         }
@@ -338,16 +495,10 @@ public class Sonic2EndingCutsceneManager {
         for (int ty = 0; ty < PHOTO_HEIGHT_TILES; ty++) {
             for (int tx = 0; tx < PHOTO_WIDTH_TILES; tx++) {
                 int idx = ty * PHOTO_WIDTH_TILES + tx;
-                if (idx >= map.length) {
-                    continue;
-                }
+                if (idx >= map.length) continue;
                 int word = map[idx];
-                if (word == 0) {
-                    continue;
-                }
+                if (word == 0) continue;
                 reusableDesc.set(word);
-                // Enigma-decoded words have ART_TILE_ENDING_PICS baked into the tile index.
-                // Subtract it to get the 0-based pattern array offset.
                 int patternId = Sonic2EndingArt.PATTERN_BASE_PICS
                         + reusableDesc.getPatternIndex() - Sonic2Constants.ART_TILE_ENDING_PICS;
                 gm.renderPatternWithId(patternId, reusableDesc,
@@ -359,397 +510,583 @@ public class Sonic2EndingCutsceneManager {
     }
 
     // ========================================================================
-    // SKY_FALL
+    // CHARACTER_APPEAR (ObjCA routine $A)
     // ========================================================================
 
-    /**
-     * Transitions to the sky fall phase.
-     * Initializes cloud positions for parallax scrolling.
-     */
-    private void transitionToSkyFall() {
-        state = CutsceneState.SKY_FALL;
+    private void enterCharacterAppear() {
+        state = CutsceneState.CHARACTER_APPEAR;
         stateFrameCounter = 0;
 
-        // Initialize 3 cloud layers at different Y positions (subpixels)
-        cloudYSub = new int[3];
-        for (int i = 0; i < CLOUD_INIT_Y.length; i++) {
-            cloudYSub[i] = CLOUD_INIT_Y[i] << 8;
-        }
+        // Character at X=$A0 (160), Y=$50 (80)
+        charAppearFrame = 5; // ObjCF anim 2 initial frame (floating)
+        charAppearAnimTimer = 0;
 
-        LOGGER.fine("Cutscene: entering SKY_FALL");
+        LOGGER.fine("Cutscene: entering CHARACTER_APPEAR");
     }
 
-    /**
-     * Updates the sky fall state.
-     * Clouds scroll upward at varying speeds. Duration: SKY_FALL_FRAMES.
-     */
-    private void updateSkyFall() {
-        if (cloudYSub != null) {
-            // Three cloud layers at different speeds
-            cloudYSub[0] += Sonic2CreditsData.CLOUD_SPEED_FAST;
-            cloudYSub[1] += Sonic2CreditsData.CLOUD_SPEED_MED;
-            cloudYSub[2] += Sonic2CreditsData.CLOUD_SPEED_SLOW;
-
-            // Wrap clouds that scroll off the top of the screen
-            for (int i = 0; i < cloudYSub.length; i++) {
-                if ((cloudYSub[i] >> 8) < -32) {
-                    cloudYSub[i] = (SCREEN_HEIGHT + 32) << 8;
-                }
-            }
+    private void updateCharacterAppear() {
+        // Animate floating character: Ani_objCF anim 2: speed 1, frames 5->6 loop
+        charAppearAnimTimer++;
+        if (charAppearAnimTimer >= 2) { // speed 1 = tick every 2 frames
+            charAppearAnimTimer = 0;
+            charAppearFrame = (charAppearFrame == 5) ? 6 : 5;
         }
 
-        if (stateFrameCounter >= Sonic2CreditsData.SKY_FALL_FRAMES) {
-            transitionToPlaneApproach();
+        if (stateFrameCounter >= Sonic2CreditsData.CHARACTER_APPEAR_HOLD) {
+            enterCameraScroll();
         }
     }
 
-    /**
-     * Draws the sky fall scene: clouds and falling character.
-     */
-    private void drawSkyFall(GraphicsManager gm) {
+    private void drawCharacterAppear(GraphicsManager gm) {
         gm.beginPatternBatch();
-
-        // Draw clouds at their current Y positions
-        // Each cloud is rendered as a simple sprite from the cloud pattern set
-        if (cloudYSub != null) {
-            drawCloudLayer(gm, 0, 40, cloudYSub[0] >> 8);
-            drawCloudLayer(gm, 1, 160, cloudYSub[1] >> 8);
-            drawCloudLayer(gm, 2, 240, cloudYSub[2] >> 8);
-        }
-
-        // Draw character sprite at center
-        // Use first few patterns from character art as a simple sprite representation
-        drawCharacterSprite(gm, SKY_FALL_CHAR_X, SKY_FALL_CHAR_Y);
-
+        drawObjCfFrame(gm, charAppearFrame, 0xA0, 0x50, -1);
         gm.flushPatternBatch();
     }
 
     // ========================================================================
-    // PLANE_APPROACH
+    // CAMERA_SCROLL (ObjCA routine $C)
     // ========================================================================
 
-    /**
-     * Transitions to the plane approach phase.
-     */
-    private void transitionToPlaneApproach() {
-        state = CutsceneState.PLANE_APPROACH;
+    private void enterCameraScroll() {
+        state = CutsceneState.CAMERA_SCROLL;
         stateFrameCounter = 0;
+        scrollProgress = 0.0f;
 
-        planeXSub = PLANE_START_X_SUB;
-        planeYSub = PLANE_START_Y_SUB;
-
-        LOGGER.fine("Cutscene: entering PLANE_APPROACH");
+        LOGGER.fine("Cutscene: entering CAMERA_SCROLL");
     }
 
-    /**
-     * Updates the plane approach state.
-     * Tornado moves from left to target X position.
-     * ROM reference: ObjCC (tornado) movement, ObjCA routines 10-12.
-     */
-    private void updatePlaneApproach() {
-        // Move plane rightward and slightly upward
-        planeXSub += Sonic2CreditsData.PLANE_X_SPEED;
-        planeYSub += Sonic2CreditsData.PLANE_Y_SPEED;
-
-        // Clouds continue scrolling during plane approach (slower, horizontal feel)
-        if (cloudYSub != null) {
-            cloudYSub[0] += Sonic2CreditsData.CLOUD_SPEED_SLOW;
-            cloudYSub[1] += Sonic2CreditsData.CLOUD_SPEED_SLOW / 2;
-            cloudYSub[2] += Sonic2CreditsData.CLOUD_SPEED_SLOW / 4;
-
-            for (int i = 0; i < cloudYSub.length; i++) {
-                if ((cloudYSub[i] >> 8) < -32) {
-                    cloudYSub[i] = (SCREEN_HEIGHT + 32) << 8;
-                }
-            }
+    private void updateCameraScroll() {
+        int duration = Sonic2CreditsData.CAMERA_SCROLL_SONIC_60FPS;
+        if (routine == Sonic2EndingArt.EndingRoutine.TAILS) {
+            duration = Sonic2CreditsData.CAMERA_SCROLL_TAILS_60FPS;
         }
 
-        // Check if plane has reached target position
-        int planeX = planeXSub >> 8;
-        if (planeX >= Sonic2CreditsData.PLANE_TARGET_X) {
-            transitionToPlaneRescue();
+        scrollProgress = Math.min(1.0f, (float) stateFrameCounter / duration);
+
+        if (stateFrameCounter >= duration) {
+            enterMainEnding();
         }
     }
 
-    /**
-     * Draws the plane approach scene: clouds, character falling, and approaching tornado.
-     */
-    private void drawPlaneApproach(GraphicsManager gm) {
+    private void drawCameraScroll(GraphicsManager gm) {
+        // Background transitions from white to sky via palette fade (setClearColor)
+        // Character still visible floating at center
         gm.beginPatternBatch();
-
-        // Draw clouds
-        if (cloudYSub != null) {
-            drawCloudLayer(gm, 0, 40, cloudYSub[0] >> 8);
-            drawCloudLayer(gm, 1, 160, cloudYSub[1] >> 8);
-            drawCloudLayer(gm, 2, 240, cloudYSub[2] >> 8);
-        }
-
-        // Draw character at center (still falling/waiting)
-        drawCharacterSprite(gm, SKY_FALL_CHAR_X, SKY_FALL_CHAR_Y);
-
-        // Draw mini tornado approaching from left
-        drawMiniTornado(gm, planeXSub >> 8, planeYSub >> 8);
-
+        drawObjCfFrame(gm, charAppearFrame, 0xA0, 0x50, -1);
         gm.flushPatternBatch();
     }
 
     // ========================================================================
-    // PLANE_RESCUE
+    // MAIN_ENDING (ObjCA routine $E) — ObjCC tornado sub-state machine
     // ========================================================================
 
-    /**
-     * Transitions to the plane rescue phase.
-     * Character boards the plane and birds spawn.
-     */
-    private void transitionToPlaneRescue() {
-        state = CutsceneState.PLANE_RESCUE;
+    private void enterMainEnding() {
+        state = CutsceneState.MAIN_ENDING;
         stateFrameCounter = 0;
 
-        // Position character on the plane
-        characterXSub = planeXSub;
-        characterYSub = planeYSub - (16 << 8); // Character sits on top of plane
+        // ObjCC init: tornado starts off-screen left
+        tornadoSubState = TornadoSubState.APPROACH;
+        tornadoXSub = -0x10 << 8;
+        tornadoYSub = 0xC0 << 8;
+        tornadoXVel = Sonic2CreditsData.PLANE_X_SPEED;
+        tornadoYVel = Sonic2CreditsData.PLANE_Y_SPEED;
+        tornadoTimer = 0;
+        cutSceneFlag = false;
 
-        // Initialize birds (3 birds at varying positions)
-        birdXSub = new int[3];
-        birdYSub = new int[3];
-        birdXSub[0] = ((planeXSub >> 8) + 40) << 8;
-        birdYSub[0] = ((planeYSub >> 8) - 40) << 8;
-        birdXSub[1] = ((planeXSub >> 8) + 60) << 8;
-        birdYSub[1] = ((planeYSub >> 8) - 20) << 8;
-        birdXSub[2] = ((planeXSub >> 8) + 50) << 8;
-        birdYSub[2] = ((planeYSub >> 8) - 60) << 8;
-        birdAnimFrame = 0;
-        birdAnimTimer = 0;
+        // Reset scroll offsets
+        horizScrollOffset = 0;
+        vscrollOffset = 0;
+        standingFlag = false;
 
-        LOGGER.fine("Cutscene: entering PLANE_RESCUE");
+        // Reset entity lists
+        birds.clear();
+        clouds.clear();
+        birdSpawnCounter = 0;
+        birdSpawnDelay = 0;
+        birdsSpawning = false;
+        cloudSpawnTimer = 0;
+
+        // Reset ObjCE/ObjCF
+        objCeActive = false;
+        objCfHelixActive = false;
+
+        LOGGER.fine("Cutscene: entering MAIN_ENDING");
     }
 
-    /**
-     * Updates the plane rescue state.
-     * Short boarding animation, then transition to fly away.
-     * ROM reference: ObjCC states 2-4 (s2.asm ~lines 13579-13623).
-     */
-    private void updatePlaneRescue() {
-        // Animate birds
-        birdAnimTimer++;
-        if (birdAnimTimer >= 8) {
-            birdAnimTimer = 0;
-            birdAnimFrame = (birdAnimFrame + 1) % 2;
+    private void updateMainEnding() {
+        // Update tornado sub-state machine
+        switch (tornadoSubState) {
+            case APPROACH -> updateTornadoApproach();
+            case BIRDS_AND_HOLD -> updateBirdsAndHold();
+            case ROTATION -> updateRotation();
+            case DEPARTURE -> updateDeparture();
+            case CAMERA_PAN -> updateCameraPan();
+            case SUPER_FINAL -> updateSuperFinal();
         }
 
-        // Birds drift slightly
-        if (birdXSub != null) {
-            for (int i = 0; i < birdXSub.length; i++) {
-                birdXSub[i] += 0x40;  // Drift right slowly
-                birdYSub[i] += (i % 2 == 0) ? -0x20 : 0x20; // Oscillate
-            }
-        }
+        // Update all active entities
+        updateBirds();
+        updateClouds();
+        updateObjCe();
+        updateObjCfHelix();
 
-        // Character settles onto plane
-        if (characterYSub < planeYSub - (8 << 8)) {
-            characterYSub += 0x80;
-        }
-
-        // After boarding animation, transition to fly away
-        // ROM uses a short hold (~64 frames for boarding)
-        if (stateFrameCounter >= 64) {
-            transitionToFlyAway();
-        }
-    }
-
-    /**
-     * Draws the plane rescue scene.
-     */
-    private void drawPlaneRescue(GraphicsManager gm) {
-        gm.beginPatternBatch();
-
-        // Draw clouds
-        if (cloudYSub != null) {
-            drawCloudLayer(gm, 0, 40, cloudYSub[0] >> 8);
-            drawCloudLayer(gm, 1, 160, cloudYSub[1] >> 8);
-            drawCloudLayer(gm, 2, 240, cloudYSub[2] >> 8);
-        }
-
-        // Draw birds
-        drawBirds(gm);
-
-        // Draw mini tornado with character on top
-        drawMiniTornado(gm, planeXSub >> 8, planeYSub >> 8);
-        drawCharacterSprite(gm, characterXSub >> 8, characterYSub >> 8);
-
-        gm.flushPatternBatch();
-    }
-
-    // ========================================================================
-    // FLY_AWAY
-    // ========================================================================
-
-    /**
-     * Transitions to the fly away phase.
-     * Plane exits screen to the right.
-     */
-    private void transitionToFlyAway() {
-        state = CutsceneState.FLY_AWAY;
-        stateFrameCounter = 0;
-
-        LOGGER.fine("Cutscene: entering FLY_AWAY");
-    }
-
-    /**
-     * Updates the fly away state.
-     * Plane moves rightward. When off-screen, transition to TRIGGER_CREDITS.
-     */
-    private void updateFlyAway() {
-        // Move plane and character rightward
-        planeXSub += Sonic2CreditsData.PLANE_X_SPEED * 2; // Accelerate exit
-        planeYSub += Sonic2CreditsData.PLANE_Y_SPEED / 2; // Slight upward drift
-        characterXSub = planeXSub;
-        characterYSub = planeYSub - (8 << 8);
-
-        // Birds follow the plane
-        if (birdXSub != null) {
-            for (int i = 0; i < birdXSub.length; i++) {
-                birdXSub[i] += Sonic2CreditsData.PLANE_X_SPEED * 2;
-                birdYSub[i] += (i % 2 == 0) ? -0x20 : 0x20;
-            }
-        }
-
-        // Animate birds
-        birdAnimTimer++;
-        if (birdAnimTimer >= 8) {
-            birdAnimTimer = 0;
-            birdAnimFrame = (birdAnimFrame + 1) % 2;
-        }
-
-        // When plane exits screen (X > 352), cutscene is done
-        if ((planeXSub >> 8) > SCREEN_WIDTH + 32) {
+        // Check global credits trigger
+        if (frameCounter >= Sonic2CreditsData.CREDITS_TRIGGER_60FPS) {
             state = CutsceneState.TRIGGER_CREDITS;
             LOGGER.info("Ending cutscene complete, triggering credits");
         }
     }
 
-    /**
-     * Draws the fly away scene.
-     */
-    private void drawFlyAway(GraphicsManager gm) {
-        gm.beginPatternBatch();
+    // --- ObjCC Sub-state 0: Tornado Approach ---
 
-        // Draw clouds
-        if (cloudYSub != null) {
-            drawCloudLayer(gm, 0, 40, cloudYSub[0] >> 8);
-            drawCloudLayer(gm, 1, 160, cloudYSub[1] >> 8);
-            drawCloudLayer(gm, 2, 240, cloudYSub[2] >> 8);
+    private void updateTornadoApproach() {
+        tornadoXSub += tornadoXVel;
+        tornadoYSub += tornadoYVel;
+
+        if ((tornadoXSub >> 8) >= Sonic2CreditsData.PLANE_TARGET_X) {
+            // Snap to target, clear velocities
+            tornadoXSub = Sonic2CreditsData.PLANE_TARGET_X << 8;
+            tornadoXVel = 0;
+            tornadoYVel = 0;
+
+            // Set hold timer and CutScene flag
+            tornadoTimer = Sonic2CreditsData.PLANE_HOLD_FRAMES_60FPS;
+            cutSceneFlag = true;
+
+            // Position character on tornado
+            int tornadoY = tornadoYSub >> 8;
+            charOnTornadoX = tornadoXSub >> 8;
+            charOnTornadoY = tornadoY - (routine == Sonic2EndingArt.EndingRoutine.TAILS ? 0x18 : 0x1C);
+
+            // Begin bird spawning
+            birdsSpawning = true;
+            birdSpawnCounter = Sonic2CreditsData.BIRD_SPAWN_COUNT;
+            birdSpawnDelay = 0;
+
+            tornadoSubState = TornadoSubState.BIRDS_AND_HOLD;
+            LOGGER.fine("Tornado arrived, entering BIRDS_AND_HOLD");
+        }
+    }
+
+    // --- ObjCC Sub-state 2: Birds + Character on Tornado ---
+
+    private void updateBirdsAndHold() {
+        // Spawn birds at random intervals
+        if (birdsSpawning && birdSpawnCounter > 0) {
+            birdSpawnDelay--;
+            if (birdSpawnDelay <= 0) {
+                spawnBird();
+                birdSpawnCounter--;
+                birdSpawnDelay = random.nextInt(16); // 0-15 frame delay
+            }
         }
 
-        // Draw birds
+        // Spawn clouds continuously while CutScene flag set (horizontal mode)
+        if (cutSceneFlag) {
+            spawnCloudIfNeeded();
+        }
+
+        // Super Sonic drifts: addi.l #$8000,x_pos; addq.w #1,y_pos
+        if (routine == Sonic2EndingArt.EndingRoutine.SUPER_SONIC) {
+            if (charOnTornadoX < 0xC0) {
+                charOnTornadoX++;
+            }
+            if (charOnTornadoY < 0x90) {
+                charOnTornadoY++;
+            }
+        }
+
+        tornadoTimer--;
+        if (tornadoTimer <= 0) {
+            // Switch ObjCC to ObjCF mappings; adjust position
+            // ROM: subi.w #$14,x_pos(a0); addi.w #$14,y_pos(a0)
+            tornadoXSub -= 0x14 << 8;
+            tornadoYSub += 0x14 << 8;
+
+            rotationStep = 0;
+            rotationFrameTimer = Sonic2CreditsData.ROTATION_FRAME_DELAY;
+            tornadoSubState = TornadoSubState.ROTATION;
+            LOGGER.fine("Entering ROTATION");
+        }
+    }
+
+    // --- ObjCC Sub-state 4: Tornado Rotation ---
+
+    private void updateRotation() {
+        rotationFrameTimer--;
+        if (rotationFrameTimer <= 0) {
+            rotationFrameTimer = Sonic2CreditsData.ROTATION_FRAME_DELAY;
+            rotationStep++;
+
+            if (rotationStep >= Sonic2CreditsData.ROTATION_STEPS) {
+                // Non-Super: move character off-screen
+                if (routine != Sonic2EndingArt.EndingRoutine.SUPER_SONIC) {
+                    charOnTornadoX = 0x200;
+                    charOnTornadoY = 0;
+                }
+
+                departureTimer = Sonic2CreditsData.DEPARTURE_TIMER;
+                superDepartureStep = 0;
+                tornadoSubState = TornadoSubState.DEPARTURE;
+                LOGGER.fine("Entering DEPARTURE");
+                return;
+            }
+        }
+
+        // Update tornado position from path table
+        if (rotationStep < Sonic2CreditsData.TORNADO_PATH.length) {
+            int[] pos = Sonic2CreditsData.TORNADO_PATH[rotationStep];
+            tornadoXSub = pos[0] << 8;
+            tornadoYSub = pos[1] << 8;
+        }
+    }
+
+    // --- ObjCC Sub-state 6: Character Departure ---
+
+    private void updateDeparture() {
+        // Super Sonic follows separate position table
+        if (routine == Sonic2EndingArt.EndingRoutine.SUPER_SONIC
+                && superDepartureStep < Sonic2CreditsData.SUPER_SONIC_PATH.length) {
+            int[] pos = Sonic2CreditsData.SUPER_SONIC_PATH[superDepartureStep];
+            charOnTornadoX = pos[0];
+            charOnTornadoY = pos[1];
+            superDepartureStep++;
+        }
+
+        departureTimer--;
+        if (departureTimer <= 0) {
+            // Spawn ObjCF plane helixes at X=$10F, Y=$15E
+            objCfHelixActive = true;
+            objCfHelixX = 0x10F;
+            objCfHelixY = 0x15E;
+            objCfHelixSavedX = objCfHelixX;
+            objCfHelixSavedY = objCfHelixY;
+            objCfHelixFrame = 5; // anim 2 initial
+            objCfHelixAnimTimer = 0;
+
+            // Spawn ObjCE jumping character at X=$E8, Y=$118
+            objCeActive = true;
+            objCeX = 0xE8;
+            objCeY = 0x118;
+            objCeSavedX = objCeX;
+            objCeSavedY = objCeY;
+            objCeFrame = (routine == Sonic2EndingArt.EndingRoutine.TAILS) ? 0xF : 0xC;
+            objCeTimer = 0;
+            objCePhase = 0; // follow
+
+            cameraPanStep = 0;
+            cameraPanFrameTimer = Sonic2CreditsData.CAMERA_PAN_FRAME_DELAY;
+            tornadoSubState = TornadoSubState.CAMERA_PAN;
+            LOGGER.fine("Entering CAMERA_PAN");
+        }
+    }
+
+    // --- ObjCC Sub-state 8: Camera Pan ---
+
+    private void updateCameraPan() {
+        cameraPanFrameTimer--;
+        if (cameraPanFrameTimer <= 0) {
+            cameraPanFrameTimer = Sonic2CreditsData.CAMERA_PAN_FRAME_DELAY;
+
+            if (cameraPanStep < Sonic2CreditsData.CAMERA_PAN_STEPS) {
+                int[] delta = Sonic2CreditsData.CAMERA_PAN_DELTAS[cameraPanStep];
+                horizScrollOffset += delta[0];
+                vscrollOffset += delta[1];
+                cameraPanStep++;
+            }
+
+            if (cameraPanStep >= Sonic2CreditsData.CAMERA_PAN_STEPS) {
+                standingFlag = true;
+
+                if (routine == Sonic2EndingArt.EndingRoutine.SUPER_SONIC) {
+                    superFinalStep = 0;
+                    tornadoSubState = TornadoSubState.SUPER_FINAL;
+                    LOGGER.fine("Entering SUPER_FINAL");
+                }
+                // Non-super: stay here, credits trigger via global timer
+            }
+        }
+    }
+
+    // --- ObjCC Sub-state $A: Super Sonic Final ---
+
+    private void updateSuperFinal() {
+        if (superFinalStep < Sonic2CreditsData.SUPER_FINAL_PATH.length) {
+            int[] pos = Sonic2CreditsData.SUPER_FINAL_PATH[superFinalStep];
+            charOnTornadoX = pos[0];
+            charOnTornadoY = pos[1];
+            superFinalStep++;
+        }
+        // Credits trigger via global timer
+    }
+
+    // ========================================================================
+    // Entity management
+    // ========================================================================
+
+    private void spawnBird() {
+        // X = -$A0 + (random & $7F) -> off-screen left
+        int bx = (-0xA0 + (random.nextInt(0x80))) << 8;
+        // Y = 8 + (random & $FF)
+        int by = (8 + random.nextInt(0x100)) << 8;
+        int yVel = (random.nextBoolean()) ? Sonic2CreditsData.BIRD_Y_VEL : -Sonic2CreditsData.BIRD_Y_VEL;
+        int targetY = by >> 8;
+        birds.add(new Bird(bx, by, Sonic2CreditsData.BIRD_X_VEL, yVel, targetY));
+    }
+
+    private void updateBirds() {
+        var it = birds.iterator();
+        while (it.hasNext()) {
+            Bird bird = it.next();
+            bird.stateTimer++;
+
+            // Animate: Ani_objCD speed 5, frames 0->1 loop
+            bird.animTimer++;
+            if (bird.animTimer >= Sonic2CreditsData.BIRD_ANIM_SPEED) {
+                bird.animTimer = 0;
+                bird.animFrame = (bird.animFrame + 1) % 2;
+            }
+
+            switch (bird.birdState) {
+                case FLY_RIGHT -> {
+                    bird.xSub += bird.xVel;
+                    bird.ySub += bird.yVel;
+                    if (bird.stateTimer >= Sonic2CreditsData.BIRD_STATE0_FRAMES) {
+                        bird.birdState = BirdState.HOMING;
+                        bird.stateTimer = 0;
+                        bird.xVel = 0;
+                    }
+                }
+                case HOMING -> {
+                    int currentY = bird.ySub >> 8;
+                    if (currentY < bird.targetY) {
+                        bird.yVel += 4;
+                    } else if (currentY > bird.targetY) {
+                        bird.yVel -= 4;
+                    }
+                    bird.ySub += bird.yVel;
+                    if (bird.stateTimer >= Sonic2CreditsData.BIRD_STATE1_FRAMES) {
+                        bird.birdState = BirdState.EXIT_LEFT;
+                        bird.stateTimer = 0;
+                        bird.xVel = -Sonic2CreditsData.BIRD_X_VEL;
+                        bird.yVel = bird.initialYVel;
+                    }
+                }
+                case EXIT_LEFT -> {
+                    bird.xSub += bird.xVel;
+                    bird.ySub += bird.yVel;
+                    if (bird.stateTimer >= Sonic2CreditsData.BIRD_STATE2_FRAMES) {
+                        it.remove();
+                    }
+                }
+            }
+        }
+    }
+
+    private void spawnCloudIfNeeded() {
+        cloudSpawnTimer++;
+        if (cloudSpawnTimer < 8) return;
+        cloudSpawnTimer = 0;
+
+        if (clouds.size() >= 12) return;
+
+        // Horizontal mode: spawn from right side
+        int cx = 0x150 << 8;
+        int cy = random.nextInt(0x100) << 8;
+        int cloudIdx = random.nextInt(Sonic2CreditsData.CLOUD_Y_VELS.length);
+        // Cloud y_vel becomes x_vel in horizontal mode (drift left)
+        int xVel = Sonic2CreditsData.CLOUD_Y_VELS[cloudIdx];
+        int frame = Sonic2CreditsData.CLOUD_FRAMES[cloudIdx];
+        clouds.add(new Cloud(cx, cy, xVel, 0, frame, true));
+    }
+
+    private void updateClouds() {
+        var it = clouds.iterator();
+        while (it.hasNext()) {
+            Cloud cloud = it.next();
+            cloud.xSub += cloud.xVel;
+            cloud.ySub += cloud.yVel;
+
+            if (cloud.horizontal) {
+                if ((cloud.xSub >> 8) < -0x20) it.remove();
+            } else {
+                if ((cloud.ySub >> 8) < 0) it.remove();
+            }
+        }
+    }
+
+    private void updateObjCe() {
+        if (!objCeActive) return;
+
+        // Follow scroll offsets
+        objCeX = objCeSavedX + horizScrollOffset;
+        objCeY = objCeSavedY - vscrollOffset;
+
+        if (standingFlag && objCePhase == 0) {
+            objCePhase = 1; // start jump
+            objCeTimer = 0;
+        }
+
+        if (objCePhase == 1) {
+            objCeTimer++;
+            // 4-frame tick, apply delta pairs
+            if (objCeTimer % 4 == 0) {
+                int deltaIdx = (objCeTimer / 4) - 1;
+                int[][] deltas = (routine == Sonic2EndingArt.EndingRoutine.TAILS)
+                        ? Sonic2CreditsData.CHAR_JUMP_DELTAS_TAILS
+                        : Sonic2CreditsData.CHAR_JUMP_DELTAS_SONIC;
+                if (deltaIdx >= 0 && deltaIdx < deltas.length) {
+                    objCeSavedX += deltas[deltaIdx][0];
+                    objCeSavedY += deltas[deltaIdx][1];
+                    objCeFrame++;
+                }
+            }
+        }
+    }
+
+    private void updateObjCfHelix() {
+        if (!objCfHelixActive) return;
+
+        // Follow scroll offsets
+        objCfHelixX = objCfHelixSavedX + horizScrollOffset;
+        objCfHelixY = objCfHelixSavedY - vscrollOffset;
+
+        // Ani_objCF anim 2: speed 1, frames 5->6, $FF (stop after 6)
+        objCfHelixAnimTimer++;
+        if (objCfHelixAnimTimer >= 2 && objCfHelixFrame == 5) {
+            objCfHelixFrame = 6;
+        }
+    }
+
+    // ========================================================================
+    // MAIN_ENDING rendering
+    // ========================================================================
+
+    private void drawMainEnding(GraphicsManager gm) {
+        gm.beginPatternBatch();
+
+        // Clouds (behind everything)
+        drawClouds(gm);
+
+        // Tornado
+        drawTornado(gm);
+
+        // Character on tornado (visible during BIRDS_AND_HOLD, ROTATION, DEPARTURE, SUPER_FINAL)
+        if (tornadoSubState == TornadoSubState.BIRDS_AND_HOLD
+                || tornadoSubState == TornadoSubState.ROTATION
+                || tornadoSubState == TornadoSubState.DEPARTURE
+                || tornadoSubState == TornadoSubState.SUPER_FINAL) {
+            if (charOnTornadoX > -64 && charOnTornadoX < SCREEN_WIDTH
+                    && charOnTornadoY > -64 && charOnTornadoY < SCREEN_HEIGHT) {
+                int frame = getCharacterFrameForCurrentState();
+                if (frame >= 0) {
+                    drawObjCfFrame(gm, frame, charOnTornadoX, charOnTornadoY, -1);
+                }
+            }
+        }
+
+        // Birds
         drawBirds(gm);
 
-        // Draw plane with character
-        int px = planeXSub >> 8;
-        int py = planeYSub >> 8;
-        if (px < SCREEN_WIDTH + 64 && px > -64) {
-            drawMiniTornado(gm, px, py);
-            drawCharacterSprite(gm, characterXSub >> 8, characterYSub >> 8);
+        // ObjCF plane helixes
+        if (objCfHelixActive) {
+            drawObjCfFrame(gm, objCfHelixFrame, objCfHelixX, objCfHelixY, -1);
+        }
+
+        // ObjCE jumping character
+        if (objCeActive && objCeFrame >= 0 && objCfFrames != null && objCeFrame < objCfFrames.size()) {
+            drawObjCfFrame(gm, objCeFrame, objCeX, objCeY, -1);
         }
 
         gm.flushPatternBatch();
     }
 
-    // ========================================================================
-    // Sprite rendering helpers
-    // ========================================================================
+    private int getCharacterFrameForCurrentState() {
+        if (tornadoSubState == TornadoSubState.ROTATION
+                && rotationStep >= 0 && rotationStep < Sonic2CreditsData.ROTATION_STEPS) {
+            return switch (routine) {
+                case SONIC -> Sonic2CreditsData.TORNADO_FRAMES_SONIC[rotationStep];
+                case SUPER_SONIC -> Sonic2CreditsData.TORNADO_FRAMES_SUPER[rotationStep];
+                case TAILS -> Sonic2CreditsData.TORNADO_FRAMES_TAILS[rotationStep];
+            };
+        }
+        if (tornadoSubState == TornadoSubState.SUPER_FINAL) {
+            return 0x17;
+        }
+        // BIRDS_AND_HOLD / DEPARTURE: floating frame
+        return 5;
+    }
 
-    /**
-     * Draws a cloud sprite layer.
-     * Uses cloud patterns as a simple 4x2 tile block at the given position.
-     *
-     * @param layerIndex cloud layer (0-2) for pattern offset variety
-     * @param x          screen X position
-     * @param y          screen Y position
-     */
-    private void drawCloudLayer(GraphicsManager gm, int layerIndex, int x, int y) {
-        Pattern[] clouds = endingArt.getCloudPatterns();
-        if (clouds == null || clouds.length == 0) {
+    private void drawTornado(GraphicsManager gm) {
+        int tx = tornadoXSub >> 8;
+        int ty = tornadoYSub >> 8;
+
+        if (tx < -64 || tx > SCREEN_WIDTH + 64 || ty < -64 || ty > SCREEN_HEIGHT + 64) {
             return;
         }
 
-        // Render a 4x2 tile cloud block using sequential patterns
-        int startTile = (layerIndex * 8) % clouds.length;
-        int tilesW = 4;
-        int tilesH = 2;
-        for (int ty = 0; ty < tilesH; ty++) {
-            for (int tx = 0; tx < tilesW; tx++) {
-                int tileIdx = startTile + ty * tilesW + tx;
-                if (tileIdx >= clouds.length) {
-                    break;
+        switch (tornadoSubState) {
+            case APPROACH, BIRDS_AND_HOLD -> {
+                // ObjB2 body ONLY — NO ObjCF overlay during approach/hold
+                // ROM: make_art_tile(ArtTile_ArtNem_Tornado, 0, 1) — palette 0, priority 1
+                if (tornadoFrames != null && !tornadoFrames.isEmpty()) {
+                    int animFrame = (frameCounter % 4);
+                    if (animFrame >= tornadoFrames.size()) animFrame = 0;
+                    int basePattern = Sonic2EndingArt.PATTERN_BASE_VRAM
+                            + Sonic2Constants.ART_TILE_ENDING_TORNADO;
+                    drawMappingFrame(gm, tornadoFrames, animFrame, tx, ty, basePattern, 0);
                 }
-                // Build a VDP word: palette 2 (background), no flip, no priority
-                int word = tileIdx | (2 << 13);
-                reusableDesc.set(word);
-                int patternId = Sonic2EndingArt.PATTERN_BASE_CLOUDS + tileIdx;
-                gm.renderPatternWithId(patternId, reusableDesc,
-                        x + tx * 8, y + ty * 8);
+            }
+            case ROTATION, DEPARTURE, CAMERA_PAN, SUPER_FINAL -> {
+                // ObjCF mappings after rotation switch
+                int frame = getObjCfTornadoFrame();
+                if (frame >= 0) {
+                    drawObjCfFrame(gm, frame, tx, ty, -1);
+                }
             }
         }
     }
 
-    /**
-     * Draws the character sprite using ROM-parsed ObjCF mapping frames.
-     * <p>
-     * ObjCF animation 2 ({@code byte_AD9E}): speed 1, frames [5, 6], loop.
-     * Frame 5 = landing/catch A, frame 6 = landing/catch B (H/V flipped variant).
-     * Used during sky fall for the falling character. For character-on-plane,
-     * frames 7-11 show character sitting on the tornado wing.
-     * <p>
-     * ROM reference: art_tile = make_art_tile(0, 0, 0) → palette 0, no priority.
-     * Piece palettes are absolute (defaultPaletteIndex = -1).
-     */
-    private void drawCharacterSprite(GraphicsManager gm, int x, int y) {
-        // Use ObjCF frame 5 for falling character (from Anim 2 initial frame)
-        drawObjCfFrame(gm, 5, x, y, -1);
-    }
-
-    /**
-     * Draws the mini tornado sprite using ROM-parsed ObjCF mapping frame 0.
-     * <p>
-     * ObjCF animation 0 ({@code byte_AD88}): speed 3, frames [0, 0, 1], loop.
-     * Frame 0 = primary mini tornado pose (tiles $493+).
-     * <p>
-     * ROM reference: art_tile = make_art_tile(0, 0, 1) → palette 0, priority set.
-     * Piece palettes are absolute (defaultPaletteIndex = -1).
-     */
-    private void drawMiniTornado(GraphicsManager gm, int x, int y) {
-        // Use ObjCF frame 0 for the mini tornado
-        drawObjCfFrame(gm, 0, x, y, -1);
-    }
-
-    /**
-     * Draws bird sprites (ObjCD animals) using ROM-parsed Obj28_a mapping frames.
-     * <p>
-     * Obj28_a frame 0 = standing/wings down (2x2, tile $8),
-     * frame 1 = wings up (2x2, tile $C). Alternates for flap animation.
-     * <p>
-     * ROM reference: art_tile = make_art_tile(ArtTile_ArtNem_Animal_2, 0, 0).
-     * basePatternIndex = PATTERN_BASE_VRAM + ART_TILE_ENDING_ANIMAL_2.
-     */
-    private void drawBirds(GraphicsManager gm) {
-        if (birdXSub == null || animalFrames == null || animalFrames.isEmpty()) {
-            return;
+    private int getObjCfTornadoFrame() {
+        if (tornadoSubState == TornadoSubState.ROTATION
+                && rotationStep >= 0 && rotationStep < Sonic2CreditsData.ROTATION_STEPS) {
+            return switch (routine) {
+                case SONIC -> Sonic2CreditsData.TORNADO_FRAMES_SONIC[rotationStep];
+                case SUPER_SONIC -> Sonic2CreditsData.TORNADO_FRAMES_SUPER[rotationStep];
+                case TAILS -> Sonic2CreditsData.TORNADO_FRAMES_TAILS[rotationStep];
+            };
         }
+        // Post-rotation default
+        return 0xB;
+    }
 
-        // Obj28_a frames: 0 = wings down, 1 = wings up
-        int frameIdx = birdAnimFrame % animalFrames.size();
+    private void drawClouds(GraphicsManager gm) {
+        if (cloudFrames == null || cloudFrames.isEmpty()) return;
 
-        for (int b = 0; b < birdXSub.length; b++) {
-            int bx = birdXSub[b] >> 8;
-            int by = birdYSub[b] >> 8;
+        for (Cloud cloud : clouds) {
+            int cx = cloud.xSub >> 8;
+            int cy = cloud.ySub >> 8;
+            if (cx < -64 || cx > SCREEN_WIDTH + 64 || cy < -64 || cy > SCREEN_HEIGHT + 64) {
+                continue;
+            }
+            int frameIdx = cloud.frame % cloudFrames.size();
+            int basePattern = Sonic2EndingArt.PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_CLOUDS;
+            drawMappingFrame(gm, cloudFrames, frameIdx, cx, cy, basePattern, 2);
+        }
+    }
 
-            // Skip if off-screen
+    private void drawBirds(GraphicsManager gm) {
+        if (animalFrames == null || animalFrames.isEmpty()) return;
+
+        for (Bird bird : birds) {
+            int bx = bird.xSub >> 8;
+            int by = bird.ySub >> 8;
             if (bx < -32 || bx > SCREEN_WIDTH + 32 || by < -32 || by > SCREEN_HEIGHT + 32) {
                 continue;
             }
-
-            drawAnimalFrame(gm, frameIdx, bx, by);
+            int frameIdx = bird.animFrame % animalFrames.size();
+            int basePattern = Sonic2EndingArt.PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_ANIMAL_2;
+            drawMappingFrame(gm, animalFrames, frameIdx, bx, by, basePattern, -1);
         }
     }
 
@@ -759,16 +1096,8 @@ public class Sonic2EndingCutsceneManager {
 
     /**
      * Draws an ObjCF mapping frame at the given screen position.
-     * <p>
-     * Uses {@link Sonic2EndingArt#PATTERN_BASE_VRAM} as the base pattern index so that
-     * the absolute VRAM tile indices in the mapping pieces resolve directly to the
-     * GPU-cached patterns.
-     *
-     * @param gm              graphics manager
-     * @param frameIndex      ObjCF mapping frame index (0-25)
-     * @param originX         screen X origin
-     * @param originY         screen Y origin
-     * @param paletteOverride palette index to use, or -1 for absolute piece palettes
+     * Uses PATTERN_BASE_VRAM so absolute VRAM tile indices in mapping pieces
+     * resolve directly to GPU-cached patterns.
      */
     private void drawObjCfFrame(GraphicsManager gm, int frameIndex, int originX, int originY,
                                  int paletteOverride) {
@@ -791,20 +1120,18 @@ public class Sonic2EndingCutsceneManager {
     }
 
     /**
-     * Draws an Obj28_a (animal) mapping frame at the given screen position.
-     * <p>
-     * Animal tile indices are relative to {@code ArtTile_ArtNem_Animal_2}, so
-     * basePatternIndex = PATTERN_BASE_VRAM + ART_TILE_ENDING_ANIMAL_2.
+     * Generic mapping frame renderer for ObjB2 (tornado), ObjB3 (clouds), Obj28 (animals).
      */
-    private void drawAnimalFrame(GraphicsManager gm, int frameIndex, int originX, int originY) {
-        if (animalFrames == null || frameIndex < 0 || frameIndex >= animalFrames.size()) {
+    private void drawMappingFrame(GraphicsManager gm, List<SpriteMappingFrame> frames,
+                                   int frameIndex, int originX, int originY,
+                                   int basePatternIdx, int paletteOverride) {
+        if (frames == null || frameIndex < 0 || frameIndex >= frames.size()) {
             return;
         }
-        SpriteMappingFrame frame = animalFrames.get(frameIndex);
-        int basePattern = Sonic2EndingArt.PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_ANIMAL_2;
+        SpriteMappingFrame frame = frames.get(frameIndex);
         SpritePieceRenderer.renderPieces(
                 frame.pieces(), originX, originY,
-                basePattern, -1,
+                basePatternIdx, paletteOverride,
                 false, false,
                 (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {
                     int descIndex = patternIdx & 0x7FF;
@@ -820,15 +1147,6 @@ public class Sonic2EndingCutsceneManager {
     // Enigma map loading
     // ========================================================================
 
-    /**
-     * Loads an Enigma-compressed tilemap from ROM.
-     *
-     * @param rom            ROM to read from
-     * @param address        ROM address of the Enigma data
-     * @param startingArtTile starting art tile index to add to decoded values
-     * @param name           descriptive name for logging
-     * @return array of VDP nametable words, or empty array on failure
-     */
     private int[] loadEnigmaMap(Rom rom, int address, int startingArtTile, String name) {
         try {
             byte[] compressed = rom.readBytes(address, 1024);
@@ -849,6 +1167,121 @@ public class Sonic2EndingCutsceneManager {
         } catch (IOException e) {
             LOGGER.warning("Failed to load " + name + " Enigma map: " + e.getMessage());
             return new int[0];
+        }
+    }
+
+    // ========================================================================
+    // Palette fade system
+    // ========================================================================
+
+    /**
+     * Initializes display palettes as all-white, matching ROM's EndingSequence init
+     * where Normal_palette is filled with $0EEE (white) for every color entry.
+     */
+    private void initDisplayPalettes() {
+        Palette[] targetPalettes = endingArt.getEndingPalettes();
+        if (targetPalettes == null) return;
+
+        displayPalettes = new Palette[targetPalettes.length];
+        for (int i = 0; i < displayPalettes.length; i++) {
+            displayPalettes[i] = new Palette();
+            for (int c = 0; c < Palette.PALETTE_SIZE; c++) {
+                displayPalettes[i].setColor(c,
+                        new Palette.Color((byte) 0xFF, (byte) 0xFF, (byte) 0xFF));
+            }
+        }
+
+        cacheDisplayPalettes();
+        paletteFadeActive = true;
+        LOGGER.fine("Display palettes initialized as all-white for fade-from-white effect");
+    }
+
+    /**
+     * Resets display palettes back to all-white for the next photo's fade cycle.
+     */
+    private void resetDisplayPalettesToWhite() {
+        if (displayPalettes == null) return;
+        for (Palette palette : displayPalettes) {
+            if (palette == null) continue;
+            for (int c = 0; c < Palette.PALETTE_SIZE; c++) {
+                palette.setColor(c,
+                        new Palette.Color((byte) 0xFF, (byte) 0xFF, (byte) 0xFF));
+            }
+        }
+        cacheDisplayPalettes();
+        paletteFadeActive = true;
+    }
+
+    /**
+     * Runs one step of PaletteFadeFrom: changes each color component by one MD level
+     * toward the target palette. Deactivates when all colors match.
+     */
+    private void runPaletteFadeStep() {
+        Palette[] targetPalettes = endingArt.getEndingPalettes();
+        if (displayPalettes == null || targetPalettes == null) {
+            paletteFadeActive = false;
+            return;
+        }
+
+        boolean anyChanged = false;
+
+        for (int line = 0; line < displayPalettes.length && line < targetPalettes.length; line++) {
+            if (displayPalettes[line] == null || targetPalettes[line] == null) continue;
+            for (int c = 0; c < Palette.PALETTE_SIZE; c++) {
+                Palette.Color display = displayPalettes[line].getColor(c);
+                Palette.Color target = targetPalettes[line].getColor(c);
+
+                int newR = fadeColorStep(display.r & 0xFF, target.r & 0xFF);
+                int newG = fadeColorStep(display.g & 0xFF, target.g & 0xFF);
+                int newB = fadeColorStep(display.b & 0xFF, target.b & 0xFF);
+
+                if (newR != (display.r & 0xFF) || newG != (display.g & 0xFF)
+                        || newB != (display.b & 0xFF)) {
+                    display.r = (byte) newR;
+                    display.g = (byte) newG;
+                    display.b = (byte) newB;
+                    anyChanged = true;
+                }
+            }
+        }
+
+        if (anyChanged) {
+            cacheDisplayPalettes();
+        } else {
+            paletteFadeActive = false;
+            LOGGER.fine("Palette fade from white complete");
+        }
+    }
+
+    /**
+     * Fades a single color component by one MD level toward the target.
+     */
+    private static int fadeColorStep(int current, int target) {
+        if (current == target) return current;
+        if (current > target) {
+            for (int i = MD_COLOR_LEVELS.length - 1; i >= 0; i--) {
+                if (MD_COLOR_LEVELS[i] < current) {
+                    return Math.max(MD_COLOR_LEVELS[i], target);
+                }
+            }
+            return target;
+        } else {
+            for (int i = 0; i < MD_COLOR_LEVELS.length; i++) {
+                if (MD_COLOR_LEVELS[i] > current) {
+                    return Math.min(MD_COLOR_LEVELS[i], target);
+                }
+            }
+            return target;
+        }
+    }
+
+    private void cacheDisplayPalettes() {
+        GraphicsManager gm = GraphicsManager.getInstance();
+        if (gm == null || gm.isHeadlessMode() || displayPalettes == null) return;
+        for (int i = 0; i < displayPalettes.length; i++) {
+            if (displayPalettes[i] != null) {
+                gm.cachePaletteTexture(displayPalettes[i], i);
+            }
         }
     }
 }
