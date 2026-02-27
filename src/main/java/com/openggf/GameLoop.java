@@ -1842,9 +1842,9 @@ public class GameLoop {
      * Called when the level requests credits (e.g., after final boss defeat).
      */
     private void startEndingFade() {
-        LOGGER.info("Starting fade-to-black for ending sequence");
+        LOGGER.info("Starting fade-to-white for ending sequence");
         AudioManager.getInstance().fadeOutMusic();
-        FadeManager.getInstance().startFadeToBlack(this::doEnterEnding);
+        FadeManager.getInstance().startFadeToWhite(this::doEnterEnding);
     }
 
     /**
