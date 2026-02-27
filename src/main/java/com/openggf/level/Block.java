@@ -35,6 +35,18 @@ public class Block {
         this.chunkDescs = LevelDataFactory.chunksFromSegaByteArray(blockBuffer, chunksPerBlock);
     }
 
+    /**
+     * Creates a deep copy of this block. Each ChunkDesc is independently copied
+     * so modifications to the copy do not affect this block.
+     */
+    public Block copy() {
+        Block clone = new Block(this.gridSide);
+        for (int i = 0; i < chunkDescs.length; i++) {
+            clone.chunkDescs[i] = new ChunkDesc(this.chunkDescs[i].get());
+        }
+        return clone;
+    }
+
     // Retrieves a chunk descriptor based on x and y coordinates
     public ChunkDesc getChunkDesc(int x, int y) {
         if (x >= gridSide || y >= gridSide) {

@@ -36,5 +36,8 @@ public enum GameMode {
     TRY_AGAIN_END,
 
     /** Ending cutscene sequence (managed by EndingProvider) */
-    ENDING_CUTSCENE
+    ENDING_CUTSCENE,
+
+    /** In-engine level editor for placing chunks/blocks */
+    LEVEL_EDITOR
 }
