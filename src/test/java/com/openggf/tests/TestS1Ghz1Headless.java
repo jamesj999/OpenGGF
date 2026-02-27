@@ -1,20 +1,16 @@
 package com.openggf.tests;
 
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
-import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic1.Sonic1Level;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.objects.badniks.Sonic1CrabmeatBadnikInstance;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.ChunkDesc;
-import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SolidTile;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -23,10 +19,8 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.physics.Direction;
-import com.openggf.physics.GroundSensor;
 import com.openggf.physics.Sensor;
 import com.openggf.physics.SensorResult;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.GroundMode;
 import com.openggf.sprites.playable.Sonic;
@@ -41,8 +35,8 @@ import static org.junit.Assert.*;
 /**
  * Grouped headless tests for Sonic 1 GHZ Act 1.
  *
- * Level data is loaded once via {@code @BeforeClass}; sprite, camera, and game
- * state are reset per test via {@link TestEnvironment#resetPerTest()}.
+ * Level data is loaded once via {@link SharedLevel#load} in {@code @BeforeClass};
+ * sprite, camera, and game state are reset per test via {@link HeadlessTestFixture}.
  *
  * Merged from:
  * <ul>
@@ -61,56 +55,33 @@ public class TestS1Ghz1Headless {
 
     private static final int ZONE_GHZ = 0;
     private static final int ACT_1 = 0;
-    private static String mainCharCode;
+
+    private static SharedLevel sharedLevel;
 
     @BeforeClass
     public static void loadLevel() throws Exception {
-        GraphicsManager.getInstance().initHeadless();
-        SonicConfigurationService cs = SonicConfigurationService.getInstance();
-        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-
-        // LevelManager.loadCurrentLevel() needs a player sprite in SpriteManager.
-        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(temp);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(temp);
-        camera.setFrozen(false);
-
-        LevelManager.getInstance().loadZoneAndAct(ZONE_GHZ, ACT_1);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_1, ZONE_GHZ, ACT_1);
     }
 
-    private Sonic sprite;
-    private HeadlessTestRunner testRunner;
+    @AfterClass
+    public static void cleanup() {
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
+
+    private HeadlessTestFixture fixture;
 
     @Before
     public void setUp() {
-        TestEnvironment.resetPerTest();
-        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        camera.setFrozen(false);
-
-        // Restore camera bounds from the loaded level -- resetPerTest() zeroes them
-        // but the level data is still valid since we skip LevelManager reset.
-        Level level = LevelManager.getInstance().getCurrentLevel();
-        if (level != null) {
-            camera.setMinX((short) level.getMinX());
-            camera.setMaxX((short) level.getMaxX());
-            camera.setMinY((short) level.getMinY());
-            camera.setMaxY((short) level.getMaxY());
-        }
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
 
         // Reset object manager to clear dynamic objects and respawn state from
         // previous tests. Uses camera X=0 since sprite starts at origin.
         ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
         if (objectManager != null) {
-            objectManager.reset(camera.getX());
+            objectManager.reset(fixture.camera().getX());
         }
-
-        camera.updatePosition(true);
-        testRunner = new HeadlessTestRunner(sprite);
     }
 
     // ========================================================================
@@ -122,29 +93,29 @@ public class TestS1Ghz1Headless {
 
     @Test
     public void diagnosticSlopeTopWallModeBlip() {
-        sprite.setCentreX((short) TARGET_X);
-        sprite.setCentreY((short) TARGET_Y);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
-        sprite.setTopSolidBit((byte) 0x0D);
-        sprite.setLrbSolidBit((byte) 0x0E);
-        sprite.setAir(true);
-        sprite.setAngle((byte) 0);
-        sprite.setGroundMode(GroundMode.GROUND);
+        fixture.sprite().setCentreX((short) TARGET_X);
+        fixture.sprite().setCentreY((short) TARGET_Y);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setTopSolidBit((byte) 0x0D);
+        fixture.sprite().setLrbSolidBit((byte) 0x0E);
+        fixture.sprite().setAir(true);
+        fixture.sprite().setAngle((byte) 0);
+        fixture.sprite().setGroundMode(GroundMode.GROUND);
 
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
         System.out.println("=== GHZ slope-top diagnostic at approx (1900,857) ===");
         System.out.printf("Start settled: x=%d y=%d cx=%d cy=%d air=%b angle=0x%02X mode=%s%n",
-                sprite.getX(), sprite.getY(), sprite.getCentreX(), sprite.getCentreY(),
-                sprite.getAir(), sprite.getAngle() & 0xFF, sprite.getGroundMode());
+                fixture.sprite().getX(), fixture.sprite().getY(), fixture.sprite().getCentreX(), fixture.sprite().getCentreY(),
+                fixture.sprite().getAir(), fixture.sprite().getAngle() & 0xFF, fixture.sprite().getGroundMode());
 
-        Sensor[] groundSensors = sprite.getGroundSensors();
+        Sensor[] groundSensors = fixture.sprite().getGroundSensors();
         for (int frame = 0; frame < 120; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
 
             SensorResult left = groundSensors[0].scan();
             SensorResult right = groundSensors[1].scan();
@@ -156,45 +127,45 @@ public class TestS1Ghz1Headless {
             System.out.printf("f=%03d x=%d y=%d cx=%d cy=%d g=%d xs=%d ys=%d air=%b angle=0x%02X mode=%s | "
                             + "L(d=%d a=0x%02X) R(d=%d a=0x%02X)%n",
                     frame,
-                    sprite.getX(), sprite.getY(), sprite.getCentreX(), sprite.getCentreY(),
-                    sprite.getGSpeed(), sprite.getXSpeed(), sprite.getYSpeed(),
-                    sprite.getAir(), sprite.getAngle() & 0xFF, sprite.getGroundMode(),
+                    fixture.sprite().getX(), fixture.sprite().getY(), fixture.sprite().getCentreX(), fixture.sprite().getCentreY(),
+                    fixture.sprite().getGSpeed(), fixture.sprite().getXSpeed(), fixture.sprite().getYSpeed(),
+                    fixture.sprite().getAir(), fixture.sprite().getAngle() & 0xFF, fixture.sprite().getGroundMode(),
                     leftD, leftA, rightD, rightA);
         }
     }
 
     @Test
     public void diagnosticSlopeTopWithIncomingSlopeAngle() {
-        sprite.setCentreX((short) TARGET_X);
-        sprite.setCentreY((short) TARGET_Y);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
-        sprite.setAir(true);
-        sprite.setAngle((byte) 0);
-        sprite.setGroundMode(GroundMode.GROUND);
+        fixture.sprite().setCentreX((short) TARGET_X);
+        fixture.sprite().setCentreY((short) TARGET_Y);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setAir(true);
+        fixture.sprite().setAngle((byte) 0);
+        fixture.sprite().setGroundMode(GroundMode.GROUND);
 
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
         // Simulate entering this flat-top tile from a descending slope.
-        sprite.setAir(false);
-        sprite.setAngle((byte) 0xFC);
-        sprite.setGroundMode(GroundMode.GROUND);
+        fixture.sprite().setAir(false);
+        fixture.sprite().setAngle((byte) 0xFC);
+        fixture.sprite().setGroundMode(GroundMode.GROUND);
 
         System.out.println("=== GHZ slope-top diagnostic with incoming angle 0xFC ===");
         for (int frame = 0; frame < 20; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
-            Sensor[] groundSensors = sprite.getGroundSensors();
+            fixture.stepFrame(false, false, false, false, false);
+            Sensor[] groundSensors = fixture.sprite().getGroundSensors();
             SensorResult left = groundSensors[0].scan();
             SensorResult right = groundSensors[1].scan();
             System.out.printf(
                     "f=%02d angle=0x%02X mode=%s air=%b | L(d=%d a=0x%02X tid=%d) R(d=%d a=0x%02X tid=%d)%n",
                     frame,
-                    sprite.getAngle() & 0xFF,
-                    sprite.getGroundMode(),
-                    sprite.getAir(),
+                    fixture.sprite().getAngle() & 0xFF,
+                    fixture.sprite().getGroundMode(),
+                    fixture.sprite().getAir(),
                     left != null ? left.distance() : -99,
                     left != null ? left.angle() & 0xFF : -1,
                     left != null ? left.tileId() : -1,
@@ -206,36 +177,36 @@ public class TestS1Ghz1Headless {
 
     @Test
     public void diagnosticApproachSlopeTopFromLeft() {
-        sprite.setX((short) 1750);
-        sprite.setY((short) 900);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
-        sprite.setAir(true);
-        sprite.setAngle((byte) 0);
-        sprite.setGroundMode(GroundMode.GROUND);
+        fixture.sprite().setX((short) 1750);
+        fixture.sprite().setY((short) 900);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setAir(true);
+        fixture.sprite().setAngle((byte) 0);
+        fixture.sprite().setGroundMode(GroundMode.GROUND);
 
         for (int i = 0; i < 40; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
         System.out.println("=== GHZ approach diagnostic (left -> right) ===");
         System.out.printf("Start settled: x=%d y=%d cx=%d cy=%d air=%b angle=0x%02X mode=%s%n",
-                sprite.getX(), sprite.getY(), sprite.getCentreX(), sprite.getCentreY(),
-                sprite.getAir(), sprite.getAngle() & 0xFF, sprite.getGroundMode());
+                fixture.sprite().getX(), fixture.sprite().getY(), fixture.sprite().getCentreX(), fixture.sprite().getCentreY(),
+                fixture.sprite().getAir(), fixture.sprite().getAngle() & 0xFF, fixture.sprite().getGroundMode());
 
-        GroundMode lastMode = sprite.getGroundMode();
-        int lastAngle = sprite.getAngle() & 0xFF;
+        GroundMode lastMode = fixture.sprite().getGroundMode();
+        int lastAngle = fixture.sprite().getAngle() & 0xFF;
         for (int frame = 0; frame < 260; frame++) {
             boolean holdRight = frame < 180;
-            testRunner.stepFrame(false, false, false, holdRight, false);
+            fixture.stepFrame(false, false, false, holdRight, false);
 
-            int angle = sprite.getAngle() & 0xFF;
-            GroundMode mode = sprite.getGroundMode();
+            int angle = fixture.sprite().getAngle() & 0xFF;
+            GroundMode mode = fixture.sprite().getGroundMode();
             boolean interesting = mode != lastMode || angle != lastAngle
                     || mode == GroundMode.LEFTWALL || mode == GroundMode.RIGHTWALL;
             if (interesting) {
-                Sensor[] groundSensors = sprite.getGroundSensors();
+                Sensor[] groundSensors = fixture.sprite().getGroundSensors();
                 SensorResult left = groundSensors[0].scan();
                 SensorResult right = groundSensors[1].scan();
                 int leftD = left != null ? left.distance() : -99;
@@ -246,8 +217,8 @@ public class TestS1Ghz1Headless {
                 System.out.printf(
                         "f=%03d holdR=%b x=%d y=%d cx=%d cy=%d g=%d xs=%d ys=%d air=%b angle=0x%02X mode=%s | "
                                 + "L(d=%d a=0x%02X) R(d=%d a=0x%02X)%n",
-                        frame, holdRight, sprite.getX(), sprite.getY(), sprite.getCentreX(), sprite.getCentreY(),
-                        sprite.getGSpeed(), sprite.getXSpeed(), sprite.getYSpeed(), sprite.getAir(), angle, mode,
+                        frame, holdRight, fixture.sprite().getX(), fixture.sprite().getY(), fixture.sprite().getCentreX(), fixture.sprite().getCentreY(),
+                        fixture.sprite().getGSpeed(), fixture.sprite().getXSpeed(), fixture.sprite().getYSpeed(), fixture.sprite().getAir(), angle, mode,
                         leftD, leftA, rightD, rightA);
             }
 
@@ -263,8 +234,8 @@ public class TestS1Ghz1Headless {
         for (int startOffset = -2; startOffset <= 2; startOffset++) {
             slopeResetAtTarget(startOffset);
             System.out.printf("startOffset=%+d settled: x=%d y=%d cx=%d cy=%d air=%b angle=0x%02X mode=%s%n",
-                    startOffset, sprite.getX(), sprite.getY(), sprite.getCentreX(), sprite.getCentreY(),
-                    sprite.getAir(), sprite.getAngle() & 0xFF, sprite.getGroundMode());
+                    startOffset, fixture.sprite().getX(), fixture.sprite().getY(), fixture.sprite().getCentreX(), fixture.sprite().getCentreY(),
+                    fixture.sprite().getAir(), fixture.sprite().getAngle() & 0xFF, fixture.sprite().getGroundMode());
 
             slopeRunNudgeSequence("RIGHT", false, true);
             slopeResetAtTarget(startOffset);
@@ -273,9 +244,9 @@ public class TestS1Ghz1Headless {
     }
 
     private void slopeRunNudgeSequence(String label, boolean left, boolean right) {
-        Sensor[] groundSensors = sprite.getGroundSensors();
+        Sensor[] groundSensors = fixture.sprite().getGroundSensors();
         for (int frame = 0; frame < 8; frame++) {
-            testRunner.stepFrame(false, false, left, right, false);
+            fixture.stepFrame(false, false, left, right, false);
 
             SensorResult leftResult = groundSensors[0].scan();
             SensorResult rightResult = groundSensors[1].scan();
@@ -286,74 +257,74 @@ public class TestS1Ghz1Headless {
 
             System.out.printf("  %s f=%02d x=%d y=%d cx=%d cy=%d g=%d xs=%d ys=%d air=%b angle=0x%02X mode=%s | "
                             + "L(d=%d a=0x%02X) R(d=%d a=0x%02X)%n",
-                    label, frame, sprite.getX(), sprite.getY(), sprite.getCentreX(), sprite.getCentreY(),
-                    sprite.getGSpeed(), sprite.getXSpeed(), sprite.getYSpeed(),
-                    sprite.getAir(), sprite.getAngle() & 0xFF, sprite.getGroundMode(),
+                    label, frame, fixture.sprite().getX(), fixture.sprite().getY(), fixture.sprite().getCentreX(), fixture.sprite().getCentreY(),
+                    fixture.sprite().getGSpeed(), fixture.sprite().getXSpeed(), fixture.sprite().getYSpeed(),
+                    fixture.sprite().getAir(), fixture.sprite().getAngle() & 0xFF, fixture.sprite().getGroundMode(),
                     leftD, leftA, rightD, rightA);
         }
     }
 
     private void slopeResetAtTarget(int xOffset) {
-        sprite.setX((short) (TARGET_X + xOffset));
-        sprite.setY((short) TARGET_Y);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
-        sprite.setAir(true);
-        sprite.setAngle((byte) 0);
-        sprite.setGroundMode(GroundMode.GROUND);
+        fixture.sprite().setX((short) (TARGET_X + xOffset));
+        fixture.sprite().setY((short) TARGET_Y);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setAir(true);
+        fixture.sprite().setAngle((byte) 0);
+        fixture.sprite().setGroundMode(GroundMode.GROUND);
 
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
     }
 
     private void slopeResetAtTopLeft(int x, int y) {
-        sprite.setX((short) x);
-        sprite.setY((short) y);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
-        sprite.setAir(true);
-        sprite.setAngle((byte) 0);
-        sprite.setGroundMode(GroundMode.GROUND);
+        fixture.sprite().setX((short) x);
+        fixture.sprite().setY((short) y);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setAir(true);
+        fixture.sprite().setAngle((byte) 0);
+        fixture.sprite().setGroundMode(GroundMode.GROUND);
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
     }
 
     @Test
     public void diagnosticCentre1896LeftNudge() {
-        sprite.setCentreX((short) 1896);
-        sprite.setCentreY((short) 857);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
-        sprite.setAir(true);
-        sprite.setAngle((byte) 0);
-        sprite.setGroundMode(GroundMode.GROUND);
+        fixture.sprite().setCentreX((short) 1896);
+        fixture.sprite().setCentreY((short) 857);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setAir(true);
+        fixture.sprite().setAngle((byte) 0);
+        fixture.sprite().setGroundMode(GroundMode.GROUND);
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
-        Sensor[] groundSensors = sprite.getGroundSensors();
+        Sensor[] groundSensors = fixture.sprite().getGroundSensors();
         System.out.println("=== diagnosticCentre1896LeftNudge ===");
         System.out.printf("topSolidBit=0x%02X lrbSolidBit=0x%02X xRad=%d yRad=%d%n",
-                sprite.getTopSolidBit() & 0xFF,
-                sprite.getLrbSolidBit() & 0xFF,
-                sprite.getXRadius(),
-                sprite.getYRadius());
-        System.out.printf("width=%d height=%d%n", sprite.getWidth(), sprite.getHeight());
+                fixture.sprite().getTopSolidBit() & 0xFF,
+                fixture.sprite().getLrbSolidBit() & 0xFF,
+                fixture.sprite().getXRadius(),
+                fixture.sprite().getYRadius());
+        System.out.printf("width=%d height=%d%n", fixture.sprite().getWidth(), fixture.sprite().getHeight());
         for (int frame = 0; frame < 10; frame++) {
-            testRunner.stepFrame(false, false, true, false, false);
+            fixture.stepFrame(false, false, true, false, false);
             SensorResult left = groundSensors[0].scan();
             SensorResult right = groundSensors[1].scan();
             System.out.printf("f=%02d x=%d y=%d cx=%d cy=%d g=%d xs=%d ys=%d air=%b angle=0x%02X mode=%s | "
                             + "L(d=%d a=0x%02X tid=%d) R(d=%d a=0x%02X tid=%d)%n",
                     frame,
-                    sprite.getX(), sprite.getY(), sprite.getCentreX(), sprite.getCentreY(),
-                    sprite.getGSpeed(), sprite.getXSpeed(), sprite.getYSpeed(), sprite.getAir(),
-                    sprite.getAngle() & 0xFF, sprite.getGroundMode(),
+                    fixture.sprite().getX(), fixture.sprite().getY(), fixture.sprite().getCentreX(), fixture.sprite().getCentreY(),
+                    fixture.sprite().getGSpeed(), fixture.sprite().getXSpeed(), fixture.sprite().getYSpeed(), fixture.sprite().getAir(),
+                    fixture.sprite().getAngle() & 0xFF, fixture.sprite().getGroundMode(),
                     left != null ? left.distance() : -99,
                     left != null ? left.angle() & 0xFF : -1,
                     left != null ? left.tileId() : -1,
@@ -366,18 +337,18 @@ public class TestS1Ghz1Headless {
     @Test
     public void diagnosticFindEmbeddedPositionsNear1900() {
         System.out.println("=== diagnosticFindEmbeddedPositionsNear1900 ===");
-        Sensor[] groundSensors = sprite.getGroundSensors();
+        Sensor[] groundSensors = fixture.sprite().getGroundSensors();
         for (int cx = 1888; cx <= 1912; cx++) {
-            sprite.setCentreX((short) cx);
-            sprite.setCentreY((short) 857);
-            sprite.setXSpeed((short) 0);
-            sprite.setYSpeed((short) 0);
-            sprite.setGSpeed((short) 0);
-            sprite.setAir(true);
-            sprite.setAngle((byte) 0);
-            sprite.setGroundMode(GroundMode.GROUND);
+            fixture.sprite().setCentreX((short) cx);
+            fixture.sprite().setCentreY((short) 857);
+            fixture.sprite().setXSpeed((short) 0);
+            fixture.sprite().setYSpeed((short) 0);
+            fixture.sprite().setGSpeed((short) 0);
+            fixture.sprite().setAir(true);
+            fixture.sprite().setAngle((byte) 0);
+            fixture.sprite().setGroundMode(GroundMode.GROUND);
             for (int i = 0; i < 20; i++) {
-                testRunner.stepFrame(false, false, false, false, false);
+                fixture.stepFrame(false, false, false, false, false);
             }
 
             SensorResult left = groundSensors[0].scan();
@@ -387,7 +358,7 @@ public class TestS1Ghz1Headless {
             boolean embedded = leftD <= 0 && rightD <= 0;
             if (embedded || cx == 1900) {
                 System.out.printf("cx=%d x=%d embedded=%b angle=0x%02X mode=%s | L(d=%d a=0x%02X tid=%d) R(d=%d a=0x%02X tid=%d)%n",
-                        sprite.getCentreX(), sprite.getX(), embedded, sprite.getAngle() & 0xFF, sprite.getGroundMode(),
+                        fixture.sprite().getCentreX(), fixture.sprite().getX(), embedded, fixture.sprite().getAngle() & 0xFF, fixture.sprite().getGroundMode(),
                         leftD, left != null ? left.angle() & 0xFF : -1, left != null ? left.tileId() : -1,
                         rightD, right != null ? right.angle() & 0xFF : -1, right != null ? right.tileId() : -1);
             }
@@ -400,13 +371,13 @@ public class TestS1Ghz1Headless {
         for (int startX = 1888; startX <= 1912; startX++) {
             slopeResetAtTopLeft(startX, TARGET_Y);
             for (int frame = 0; frame < 24; frame++) {
-                testRunner.stepFrame(false, false, true, false, false); // hold left
-                int x = sprite.getX();
-                int angle = sprite.getAngle() & 0xFF;
-                if (x >= 1901 && x <= 1903 && sprite.getAir() && angle == 0xCC) {
+                fixture.stepFrame(false, false, true, false, false); // hold left
+                int x = fixture.sprite().getX();
+                int angle = fixture.sprite().getAngle() & 0xFF;
+                if (x >= 1901 && x <= 1903 && fixture.sprite().getAir() && angle == 0xCC) {
                     System.out.printf("HIT startX=%d frame=%d x=%d cx=%d y=%d g=%d xs=%d ys=%d mode=%s%n",
-                            startX, frame, x, sprite.getCentreX(), sprite.getY(),
-                            sprite.getGSpeed(), sprite.getXSpeed(), sprite.getYSpeed(), sprite.getGroundMode());
+                            startX, frame, x, fixture.sprite().getCentreX(), fixture.sprite().getY(),
+                            fixture.sprite().getGSpeed(), fixture.sprite().getXSpeed(), fixture.sprite().getYSpeed(), fixture.sprite().getGroundMode());
                 }
             }
         }
@@ -416,50 +387,50 @@ public class TestS1Ghz1Headless {
     public void diagnostic1903SingleLeftStep() {
         System.out.println("=== diagnostic1903SingleLeftStep ===");
         slopeResetAtTopLeft(1903, TARGET_Y);
-        sprite.setTopSolidBit((byte) 0x0D);
-        sprite.setLrbSolidBit((byte) 0x0E);
+        fixture.sprite().setTopSolidBit((byte) 0x0D);
+        fixture.sprite().setLrbSolidBit((byte) 0x0E);
         Sonic1Level level = (Sonic1Level) LevelManager.getInstance().getCurrentLevel();
-        int aX0 = sprite.getCentreX() - sprite.getXRadius();
-        int bX0 = sprite.getCentreX() + sprite.getXRadius();
-        int footY0 = sprite.getCentreY() + sprite.getYRadius();
+        int aX0 = fixture.sprite().getCentreX() - fixture.sprite().getXRadius();
+        int bX0 = fixture.sprite().getCentreX() + fixture.sprite().getXRadius();
+        int footY0 = fixture.sprite().getCentreY() + fixture.sprite().getYRadius();
         slopePrintVerticalScanState("A0", aX0, footY0);
         slopePrintVerticalScanState("B0", bX0, footY0);
-        Sensor[] sensors = sprite.getGroundSensors();
+        Sensor[] sensors = fixture.sprite().getGroundSensors();
         SensorResult a0 = sensors[0].scan();
         SensorResult b0 = sensors[1].scan();
-        int mapX0 = (sprite.getCentreX() & 0xFFFF) / 256;
-        int mapY0 = (sprite.getCentreY() & 0xFFFF) / 256;
+        int mapX0 = (fixture.sprite().getCentreX() & 0xFFFF) / 256;
+        int mapY0 = (fixture.sprite().getCentreY() & 0xFFFF) / 256;
         int raw0 = level.getRawFgValue(mapX0, mapY0);
         System.out.printf("before: x=%d cx=%d y=%d air=%b angle=0x%02X mode=%s g=%d xs=%d ys=%d | "
                         + "loopLow=%b raw=0x%02X map=(%d,%d) | A(d=%d a=0x%02X tid=%d) B(d=%d a=0x%02X tid=%d)%n",
-                sprite.getX(), sprite.getCentreX(), sprite.getY(), sprite.getAir(),
-                sprite.getAngle() & 0xFF, sprite.getGroundMode(),
-                sprite.getGSpeed(), sprite.getXSpeed(), sprite.getYSpeed(),
-                sprite.isLoopLowPlane(), raw0, mapX0, mapY0,
+                fixture.sprite().getX(), fixture.sprite().getCentreX(), fixture.sprite().getY(), fixture.sprite().getAir(),
+                fixture.sprite().getAngle() & 0xFF, fixture.sprite().getGroundMode(),
+                fixture.sprite().getGSpeed(), fixture.sprite().getXSpeed(), fixture.sprite().getYSpeed(),
+                fixture.sprite().isLoopLowPlane(), raw0, mapX0, mapY0,
                 a0 != null ? a0.distance() : -99, a0 != null ? a0.angle() & 0xFF : -1,
                 a0 != null ? a0.tileId() : -1,
                 b0 != null ? b0.distance() : -99, b0 != null ? b0.angle() & 0xFF : -1,
                 b0 != null ? b0.tileId() : -1);
 
-        testRunner.stepFrame(false, false, true, false, false);
+        fixture.stepFrame(false, false, true, false, false);
         SensorResult a1 = sensors[0].scan();
         SensorResult b1 = sensors[1].scan();
-        int mapX1 = (sprite.getCentreX() & 0xFFFF) / 256;
-        int mapY1 = (sprite.getCentreY() & 0xFFFF) / 256;
+        int mapX1 = (fixture.sprite().getCentreX() & 0xFFFF) / 256;
+        int mapY1 = (fixture.sprite().getCentreY() & 0xFFFF) / 256;
         int raw1 = level.getRawFgValue(mapX1, mapY1);
         System.out.printf("after : x=%d cx=%d y=%d air=%b angle=0x%02X mode=%s g=%d xs=%d ys=%d | "
                         + "loopLow=%b raw=0x%02X map=(%d,%d) | A(d=%d a=0x%02X tid=%d) B(d=%d a=0x%02X tid=%d)%n",
-                sprite.getX(), sprite.getCentreX(), sprite.getY(), sprite.getAir(),
-                sprite.getAngle() & 0xFF, sprite.getGroundMode(),
-                sprite.getGSpeed(), sprite.getXSpeed(), sprite.getYSpeed(),
-                sprite.isLoopLowPlane(), raw1, mapX1, mapY1,
+                fixture.sprite().getX(), fixture.sprite().getCentreX(), fixture.sprite().getY(), fixture.sprite().getAir(),
+                fixture.sprite().getAngle() & 0xFF, fixture.sprite().getGroundMode(),
+                fixture.sprite().getGSpeed(), fixture.sprite().getXSpeed(), fixture.sprite().getYSpeed(),
+                fixture.sprite().isLoopLowPlane(), raw1, mapX1, mapY1,
                 a1 != null ? a1.distance() : -99, a1 != null ? a1.angle() & 0xFF : -1,
                 a1 != null ? a1.tileId() : -1,
                 b1 != null ? b1.distance() : -99, b1 != null ? b1.angle() & 0xFF : -1,
                 b1 != null ? b1.tileId() : -1);
-        int aX1 = sprite.getCentreX() - sprite.getXRadius();
-        int bX1 = sprite.getCentreX() + sprite.getXRadius();
-        int footY1 = sprite.getCentreY() + sprite.getYRadius();
+        int aX1 = fixture.sprite().getCentreX() - fixture.sprite().getXRadius();
+        int bX1 = fixture.sprite().getCentreX() + fixture.sprite().getXRadius();
+        int footY1 = fixture.sprite().getCentreY() + fixture.sprite().getYRadius();
         slopePrintVerticalScanState("A1", aX1, footY1);
         slopePrintVerticalScanState("B1", bX1, footY1);
     }
@@ -468,14 +439,14 @@ public class TestS1Ghz1Headless {
     public void diagnostic1903SingleLeftStepWithTop0D() {
         System.out.println("=== diagnostic1903SingleLeftStepWithTop0D ===");
         slopeResetAtTopLeft(1903, TARGET_Y);
-        sprite.setTopSolidBit((byte) 0x0D);
-        sprite.setLrbSolidBit((byte) 0x0E);
+        fixture.sprite().setTopSolidBit((byte) 0x0D);
+        fixture.sprite().setLrbSolidBit((byte) 0x0E);
         diagnostic1903SingleLeftStep();
     }
 
     private void slopePrintVerticalScanState(String label, int x, int y) {
         LevelManager lm = LevelManager.getInstance();
-        byte topBit = sprite.getTopSolidBit();
+        byte topBit = fixture.sprite().getTopSolidBit();
         System.out.printf("  %s sensor at (%d,%d) topBit=0x%02X%n", label, x, y, topBit & 0xFF);
         slopePrintTileState(label + " cur ", lm, x, y, topBit);
         slopePrintTileState(label + " next", lm, x, y + 16, topBit);
@@ -483,7 +454,7 @@ public class TestS1Ghz1Headless {
     }
 
     private void slopePrintTileState(String label, LevelManager lm, int x, int y, byte solidityBit) {
-        ChunkDesc desc = lm.getChunkDescAt((byte) 0, x, y, sprite.isLoopLowPlane());
+        ChunkDesc desc = lm.getChunkDescAt((byte) 0, x, y, fixture.sprite().isLoopLowPlane());
         if (desc == null) {
             System.out.printf("    %s: null desc at (%d,%d)%n", label, x, y);
             return;
@@ -568,74 +539,74 @@ public class TestS1Ghz1Headless {
         short startX = (short) (tunnelPixelX - 128);
         short startY = (short) (tunnelPixelY + 80);
 
-        sprite.setX(startX);
-        sprite.setY(startY);
-        sprite.setAir(true); // Let him fall to find ground
-        Camera.getInstance().updatePosition(true);
+        fixture.sprite().setX(startX);
+        fixture.sprite().setY(startY);
+        fixture.sprite().setAir(true); // Let him fall to find ground
+        fixture.camera().updatePosition(true);
 
-        System.out.printf("Initial position: X=%d, Y=%d%n", sprite.getX(), sprite.getY());
+        System.out.printf("Initial position: X=%d, Y=%d%n", fixture.sprite().getX(), fixture.sprite().getY());
 
         // Let Sonic settle onto the ground (fall and land)
         for (int frame = 0; frame < 30; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
-            if (!sprite.getAir() && frame > 5) break;
+            fixture.stepFrame(false, false, false, false, false);
+            if (!fixture.sprite().getAir() && frame > 5) break;
         }
 
         System.out.printf("After settling: X=%d, Y=%d, air=%b, angle=0x%02X%n",
-                sprite.getX(), sprite.getY(), sprite.getAir(), sprite.getAngle() & 0xFF);
+                fixture.sprite().getX(), fixture.sprite().getY(), fixture.sprite().getAir(), fixture.sprite().getAngle() & 0xFF);
 
         // If still in air, try a different Y
-        if (sprite.getAir()) {
+        if (fixture.sprite().getAir()) {
             System.out.println("WARNING: Sonic did not land. Trying different Y...");
-            sprite.setX(startX);
-            sprite.setY((short) (tunnelPixelY - 32));
-            sprite.setAir(true);
-            sprite.setXSpeed((short) 0);
-            sprite.setYSpeed((short) 0);
-            sprite.setGSpeed((short) 0);
+            fixture.sprite().setX(startX);
+            fixture.sprite().setY((short) (tunnelPixelY - 32));
+            fixture.sprite().setAir(true);
+            fixture.sprite().setXSpeed((short) 0);
+            fixture.sprite().setYSpeed((short) 0);
+            fixture.sprite().setGSpeed((short) 0);
             for (int frame = 0; frame < 30; frame++) {
-                testRunner.stepFrame(false, false, false, false, false);
-                if (!sprite.getAir() && frame > 5) break;
+                fixture.stepFrame(false, false, false, false, false);
+                if (!fixture.sprite().getAir() && frame > 5) break;
             }
             System.out.printf("After re-settling: X=%d, Y=%d, air=%b%n",
-                    sprite.getX(), sprite.getY(), sprite.getAir());
+                    fixture.sprite().getX(), fixture.sprite().getY(), fixture.sprite().getAir());
         }
 
-        assertFalse("Sonic should be on the ground before approaching tunnel", sprite.getAir());
+        assertFalse("Sonic should be on the ground before approaching tunnel", fixture.sprite().getAir());
 
-        short groundY = sprite.getY();
-        System.out.printf("Ground Y level: %d (centre Y: %d)%n", groundY, sprite.getCentreY());
+        short groundY = fixture.sprite().getY();
+        System.out.printf("Ground Y level: %d (centre Y: %d)%n", groundY, fixture.sprite().getCentreY());
 
         // Give Sonic rightward speed to approach the tunnel
-        sprite.setGSpeed((short) 0x600); // ~6 pixels/frame
-        sprite.setXSpeed((short) 0x600);
+        fixture.sprite().setGSpeed((short) 0x600); // ~6 pixels/frame
+        fixture.sprite().setXSpeed((short) 0x600);
 
         // Now step frames and log every frame as Sonic approaches and enters the tunnel
         System.out.println("\n=== Frame-by-frame log ===");
         System.out.println("Frame | X      | Y      | CentreY | GSpd  | Angle | Air   | Roll  | Push  | Mode    | TunnelTile");
 
-        short prevY = sprite.getY();
+        short prevY = fixture.sprite().getY();
         int framesInTunnel = 0;
         int framesAirborne = 0;
         boolean enteredTunnel = false;
         boolean failedInTunnel = false;
 
         for (int frame = 0; frame < 200; frame++) {
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
 
-            short x = sprite.getX();
-            short y = sprite.getY();
-            short centreY = (short) sprite.getCentreY();
-            short gSpeed = sprite.getGSpeed();
-            int angle = sprite.getAngle() & 0xFF;
-            boolean air = sprite.getAir();
-            boolean rolling = sprite.getRolling();
-            boolean pushing = sprite.getPushing();
-            String mode = sprite.getGroundMode().name();
+            short x = fixture.sprite().getX();
+            short y = fixture.sprite().getY();
+            short centreY = (short) fixture.sprite().getCentreY();
+            short gSpeed = fixture.sprite().getGSpeed();
+            int angle = fixture.sprite().getAngle() & 0xFF;
+            boolean air = fixture.sprite().getAir();
+            boolean rolling = fixture.sprite().getRolling();
+            boolean pushing = fixture.sprite().getPushing();
+            String mode = fixture.sprite().getGroundMode().name();
 
             // Check what tile Sonic's centre is on
-            int cx = sprite.getCentreX() & 0xFFFF;
-            int cy = sprite.getCentreY() & 0xFFFF;
+            int cx = fixture.sprite().getCentreX() & 0xFFFF;
+            int cy = fixture.sprite().getCentreY() & 0xFFFF;
             int cellX = cx / blockSize;
             int cellY = cy / blockSize;
             int rawTile = s1Level.getRawFgValue(cellX, cellY);
@@ -650,7 +621,7 @@ public class TestS1Ghz1Headless {
 
             // Log raw sensor results at critical frames around the curve
             if (frame >= 25 && frame <= 50 && !air) {
-                Sensor[] groundSensors = sprite.getGroundSensors();
+                Sensor[] groundSensors = fixture.sprite().getGroundSensors();
                 if (groundSensors != null && groundSensors.length >= 2) {
                     SensorResult sA = groundSensors[0].scan();
                     SensorResult sB = groundSensors[1].scan();
@@ -742,19 +713,19 @@ public class TestS1Ghz1Headless {
                         new SolidObjectParams(PUSH_FLOOR_HALF_WIDTH, PUSH_FLOOR_HALF_HEIGHT, PUSH_FLOOR_HALF_HEIGHT),
                         true));
 
-        sprite.setCentreX((short) (PUSH_TESTBED_X + (pushRight ? -PUSH_START_OFFSET : PUSH_START_OFFSET)));
-        sprite.setCentreY((short) PUSH_TESTBED_SPAWN_Y);
-        sprite.setAir(true);
+        fixture.sprite().setCentreX((short) (PUSH_TESTBED_X + (pushRight ? -PUSH_START_OFFSET : PUSH_START_OFFSET)));
+        fixture.sprite().setCentreY((short) PUSH_TESTBED_SPAWN_Y);
+        fixture.sprite().setAir(true);
 
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
 
         // Wait for Sonic to land on the floor
         boolean landed = false;
         for (int frame = 0; frame < PUSH_LANDING_TIMEOUT_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
-            if (!sprite.getAir()) {
+            fixture.stepFrame(false, false, false, false, false);
+            if (!fixture.sprite().getAir()) {
                 landed = true;
                 break;
             }
@@ -762,9 +733,9 @@ public class TestS1Ghz1Headless {
         assertTrue("Sonic should land on the static floor testbed", landed);
 
         // Place the wall object next to Sonic
-        int objectX = sprite.getCentreX()
+        int objectX = fixture.sprite().getCentreX()
                 + (pushRight ? PUSH_WALL_HALF_WIDTH + PUSH_OBJECT_GAP : -(PUSH_WALL_HALF_WIDTH + PUSH_OBJECT_GAP));
-        int objectY = sprite.getCentreY();
+        int objectY = fixture.sprite().getCentreY();
 
         LevelManager.getInstance().getObjectManager()
                 .addDynamicObject(new PushTestSolidObject(
@@ -777,8 +748,8 @@ public class TestS1Ghz1Headless {
         boolean pressingLeft = !pushRight;
         boolean contactReached = false;
         for (int frame = 0; frame < PUSH_CONTACT_TIMEOUT_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, pressingLeft, pushRight, false);
-            if (sprite.getPushing()) {
+            fixture.stepFrame(false, false, pressingLeft, pushRight, false);
+            if (fixture.sprite().getPushing()) {
                 contactReached = true;
                 break;
             }
@@ -787,7 +758,7 @@ public class TestS1Ghz1Headless {
 
         // Warmup: let subpixels stabilise
         for (int frame = 0; frame < PUSH_CONTACT_WARMUP_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, pressingLeft, pushRight, false);
+            fixture.stepFrame(false, false, pressingLeft, pushRight, false);
         }
 
         // Stability window: position must not oscillate
@@ -796,15 +767,15 @@ public class TestS1Ghz1Headless {
         int transitionCount = 0;
         Integer previousX = null;
         for (int frame = 0; frame < PUSH_STABILITY_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, pressingLeft, pushRight, false);
-            int x = sprite.getX();
+            fixture.stepFrame(false, false, pressingLeft, pushRight, false);
+            int x = fixture.sprite().getX();
             minX = Math.min(minX, x);
             maxX = Math.max(maxX, x);
             if (previousX != null && previousX != x) {
                 transitionCount++;
             }
             previousX = x;
-            assertFalse("Sonic should stay grounded while pushing (" + pushDirectionName(pushRight) + ")", sprite.getAir());
+            assertFalse("Sonic should stay grounded while pushing (" + pushDirectionName(pushRight) + ")", fixture.sprite().getAir());
         }
 
         assertEquals("Sonic X position should stay stable while pushing static object (" + pushDirectionName(pushRight)
@@ -914,12 +885,12 @@ public class TestS1Ghz1Headless {
         int rightEdgeX = EDGE_TESTBED_X + EDGE_PLATFORM_HALF_WIDTH - 3;
 
         // Face LEFT (away from right edge)
-        sprite.setDirection(Direction.LEFT);
+        fixture.sprite().setDirection(Direction.LEFT);
         int balanceState = edgeSettleOnObjectAndCheckBalance(rightEdgeX);
 
         assertTrue("Should balance at right edge", balanceState > 0);
         assertEquals("S1 should force facing RIGHT (toward right edge)",
-                Direction.RIGHT, sprite.getDirection());
+                Direction.RIGHT, fixture.sprite().getDirection());
     }
 
     /**
@@ -931,12 +902,12 @@ public class TestS1Ghz1Headless {
 
         int leftEdgeX = EDGE_TESTBED_X - EDGE_PLATFORM_HALF_WIDTH + 3;
 
-        sprite.setDirection(Direction.RIGHT); // Face away from left edge
+        fixture.sprite().setDirection(Direction.RIGHT); // Face away from left edge
         int balanceState = edgeSettleOnObjectAndCheckBalance(leftEdgeX);
 
         assertTrue("Should balance at left edge", balanceState > 0);
         assertEquals("S1 should force facing LEFT (toward left edge)",
-                Direction.LEFT, sprite.getDirection());
+                Direction.LEFT, fixture.sprite().getDirection());
     }
 
     /**
@@ -962,36 +933,36 @@ public class TestS1Ghz1Headless {
     @Test
     public void testTerrainEdgeBalanceUsesCenter() {
         // Land on natural GHZ terrain
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
 
         boolean landed = false;
         for (int frame = 0; frame < EDGE_LANDING_TIMEOUT_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
-            if (!sprite.getAir()) {
+            fixture.stepFrame(false, false, false, false, false);
+            if (!fixture.sprite().getAir()) {
                 landed = true;
                 break;
             }
         }
         assertTrue("Sonic should land on GHZ1 ground", landed);
 
-        Sensor[] groundSensors = sprite.getGroundSensors();
+        Sensor[] groundSensors = fixture.sprite().getGroundSensors();
         assertNotNull("Ground sensors should exist", groundSensors);
 
         int sideSensorEdgeX = -1;
         int sideSensorEdgeY = -1;
 
         for (int frame = 0; frame < EDGE_WALK_TIMEOUT_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, true, false); // Walk right
+            fixture.stepFrame(false, false, false, true, false); // Walk right
 
-            if (!sprite.getAir() && sprite.getGSpeed() > 0) {
+            if (!fixture.sprite().getAir() && fixture.sprite().getGSpeed() > 0) {
                 SensorResult rightResult = groundSensors[1].scan();
                 int rightDist = (rightResult == null) ? 99 : rightResult.distance();
 
                 if (rightDist >= EDGE_THRESHOLD) {
-                    sideSensorEdgeX = sprite.getCentreX();
-                    sideSensorEdgeY = sprite.getCentreY();
+                    sideSensorEdgeX = fixture.sprite().getCentreX();
+                    sideSensorEdgeY = fixture.sprite().getCentreY();
                     break;
                 }
             }
@@ -1016,15 +987,15 @@ public class TestS1Ghz1Headless {
 
             int centerEdgeX = -1;
             for (int x = sideSensorEdgeX + 1; x < sideSensorEdgeX + 20; x++) {
-                sprite.setCentreX((short) x);
-                sprite.setCentreY((short) sideSensorEdgeY);
-                sprite.setAir(false);
-                sprite.setGSpeed((short) 0);
-                sprite.setXSpeed((short) 0);
-                sprite.setYSpeed((short) 0);
-                testRunner.stepFrame(false, false, false, false, false);
+                fixture.sprite().setCentreX((short) x);
+                fixture.sprite().setCentreY((short) sideSensorEdgeY);
+                fixture.sprite().setAir(false);
+                fixture.sprite().setGSpeed((short) 0);
+                fixture.sprite().setXSpeed((short) 0);
+                fixture.sprite().setYSpeed((short) 0);
+                fixture.stepFrame(false, false, false, false, false);
 
-                if (sprite.getAir()) continue;
+                if (fixture.sprite().getAir()) continue;
 
                 SensorResult cr = groundSensors[0].scan((short) 9, (short) 0);
                 int cd = (cr == null) ? 99 : cr.distance();
@@ -1055,17 +1026,17 @@ public class TestS1Ghz1Headless {
                         new SolidObjectParams(EDGE_PLATFORM_HALF_WIDTH, EDGE_PLATFORM_HALF_HEIGHT, EDGE_PLATFORM_HALF_HEIGHT),
                         true));
 
-        sprite.setCentreX((short) EDGE_TESTBED_X);
-        sprite.setCentreY((short) EDGE_TESTBED_SPAWN_Y);
-        sprite.setAir(true);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
+        fixture.sprite().setCentreX((short) EDGE_TESTBED_X);
+        fixture.sprite().setCentreY((short) EDGE_TESTBED_SPAWN_Y);
+        fixture.sprite().setAir(true);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
 
         boolean landed = false;
         for (int frame = 0; frame < EDGE_LANDING_TIMEOUT_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
-            if (!sprite.getAir() && sprite.isOnObject()) {
+            fixture.stepFrame(false, false, false, false, false);
+            if (!fixture.sprite().getAir() && fixture.sprite().isOnObject()) {
                 landed = true;
                 break;
             }
@@ -1074,45 +1045,45 @@ public class TestS1Ghz1Headless {
     }
 
     private int edgeSettleOnObjectAndCheckBalance(int x) {
-        sprite.setCentreX((short) x);
-        sprite.setGSpeed((short) 0);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setRolling(false);
-        sprite.setBalanceState(0);
+        fixture.sprite().setCentreX((short) x);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setRolling(false);
+        fixture.sprite().setBalanceState(0);
 
         // Two frames: first settles position, second runs balance check
-        testRunner.stepFrame(false, false, false, false, false);
-        sprite.setGSpeed((short) 0);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setBalanceState(0);
-        testRunner.stepFrame(false, false, false, false, false);
+        fixture.stepFrame(false, false, false, false, false);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setBalanceState(0);
+        fixture.stepFrame(false, false, false, false, false);
 
-        return sprite.getBalanceState();
+        return fixture.sprite().getBalanceState();
     }
 
     private int edgeSettleAndCheckBalance(int x, int approxGroundY) {
-        sprite.setCentreX((short) x);
-        sprite.setCentreY((short) approxGroundY);
-        sprite.setAir(false);
-        sprite.setGSpeed((short) 0);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setRolling(false);
-        sprite.setBalanceState(0);
+        fixture.sprite().setCentreX((short) x);
+        fixture.sprite().setCentreY((short) approxGroundY);
+        fixture.sprite().setAir(false);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setRolling(false);
+        fixture.sprite().setBalanceState(0);
 
-        testRunner.stepFrame(false, false, false, false, false);
+        fixture.stepFrame(false, false, false, false, false);
 
-        if (sprite.getAir()) return 0;
+        if (fixture.sprite().getAir()) return 0;
 
-        sprite.setGSpeed((short) 0);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setBalanceState(0);
-        testRunner.stepFrame(false, false, false, false, false);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setBalanceState(0);
+        fixture.stepFrame(false, false, false, false, false);
 
-        return sprite.getBalanceState();
+        return fixture.sprite().getBalanceState();
     }
 
     private static final class EdgeBalanceSolidObject extends AbstractObjectInstance
@@ -1181,18 +1152,18 @@ public class TestS1Ghz1Headless {
                         false, COLLISION_ACTIVE_WIDTH));
 
         // Spawn Sonic to the left of the object, on the floor
-        sprite.setCentreX((short) (objectX - COLLISION_HALF_WIDTH - 0x30));
-        sprite.setCentreY((short) COLLISION_TESTBED_SPAWN_Y);
-        sprite.setAir(true);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
+        fixture.sprite().setCentreX((short) (objectX - COLLISION_HALF_WIDTH - 0x30));
+        fixture.sprite().setCentreY((short) COLLISION_TESTBED_SPAWN_Y);
+        fixture.sprite().setAir(true);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
 
         // Land on floor
         boolean landed = false;
         for (int frame = 0; frame < COLLISION_LANDING_TIMEOUT_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
-            if (!sprite.getAir()) {
+            fixture.stepFrame(false, false, false, false, false);
+            if (!fixture.sprite().getAir()) {
                 landed = true;
                 break;
             }
@@ -1202,8 +1173,8 @@ public class TestS1Ghz1Headless {
         // Walk right into the object
         boolean contactReached = false;
         for (int frame = 0; frame < COLLISION_CONTACT_TIMEOUT_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, true, false);
-            if (sprite.getPushing()) {
+            fixture.stepFrame(false, false, false, true, false);
+            if (fixture.sprite().getPushing()) {
                 contactReached = true;
                 break;
             }
@@ -1211,12 +1182,12 @@ public class TestS1Ghz1Headless {
         assertTrue("Sonic should reach side-pushing contact with MzBrick-sized object", contactReached);
 
         // Verify stability -- position should not oscillate
-        int stableX = sprite.getX();
+        int stableX = fixture.sprite().getX();
         for (int frame = 0; frame < COLLISION_STABILITY_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
             assertEquals("Sonic X should stay stable while pushing (frame " + frame + ")",
-                    stableX, sprite.getX());
-            assertFalse("Sonic should stay grounded while pushing", sprite.getAir());
+                    stableX, fixture.sprite().getX());
+            assertFalse("Sonic should stay grounded while pushing", fixture.sprite().getAir());
         }
     }
 
@@ -1241,20 +1212,20 @@ public class TestS1Ghz1Headless {
         // ACTIVE_WIDTH = 0x10 (16), HALF_WIDTH = 0x1B (27)
         // Position at offset 0x15 (21) from center -- outside active, inside collision
         int spawnOffset = COLLISION_ACTIVE_WIDTH + 5; // 21px from object center
-        sprite.setCentreX((short) (objectX + spawnOffset));
-        sprite.setCentreY((short) (objectY - COLLISION_AIR_HALF_HEIGHT - 0x40));
-        sprite.setAir(true);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
+        fixture.sprite().setCentreX((short) (objectX + spawnOffset));
+        fixture.sprite().setCentreY((short) (objectY - COLLISION_AIR_HALF_HEIGHT - 0x40));
+        fixture.sprite().setAir(true);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
 
         // Let Sonic fall -- should NOT land on the object
         for (int frame = 0; frame < COLLISION_LANDING_TIMEOUT_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
         // Sonic should have fallen through (still in air or landed on terrain below)
-        int sonicBottom = sprite.getCentreY();
+        int sonicBottom = fixture.sprite().getCentreY();
         assertTrue("Sonic should fall past the object when outside active width",
                 sonicBottom > objectY);
     }
@@ -1282,20 +1253,20 @@ public class TestS1Ghz1Headless {
                         false, COLLISION_ACTIVE_WIDTH));
 
         // Spawn Sonic centered on the object
-        sprite.setCentreX((short) objectX);
-        sprite.setCentreY((short) (objectY - COLLISION_AIR_HALF_HEIGHT - 0x40));
-        sprite.setAir(true);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
+        fixture.sprite().setCentreX((short) objectX);
+        fixture.sprite().setCentreY((short) (objectY - COLLISION_AIR_HALF_HEIGHT - 0x40));
+        fixture.sprite().setAir(true);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
 
         // Let Sonic fall -- should land on the object
         boolean landed = false;
         for (int frame = 0; frame < COLLISION_LANDING_TIMEOUT_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
-            if (!sprite.getAir()) {
+            fixture.stepFrame(false, false, false, false, false);
+            if (!fixture.sprite().getAir()) {
                 // Verify landed near the object top, not on the distant floor
-                int sonicY = sprite.getCentreY();
+                int sonicY = fixture.sprite().getCentreY();
                 if (sonicY < objectY + COLLISION_AIR_HALF_HEIGHT) {
                     landed = true;
                     break;
@@ -1390,12 +1361,12 @@ public class TestS1Ghz1Headless {
     @Test
     public void crabmeatsSpawnAtCorrectXPositions() {
         // Reposition Sonic near the first two Crabmeats (X=0x08B0, 0x0960)
-        sprite.setX((short) 0x0800);
-        sprite.setY((short) 0x0350);
-        Camera.getInstance().updatePosition(true);
+        fixture.sprite().setX((short) 0x0800);
+        fixture.sprite().setY((short) 0x0350);
+        fixture.camera().updatePosition(true);
 
         // One frame is enough for the ObjectManager to create instances
-        testRunner.stepIdleFrames(1);
+        fixture.stepIdleFrames(1);
 
         List<Sonic1CrabmeatBadnikInstance> crabmeats = findCrabmeats();
         assertTrue("Both GHZ1 Crabmeats should spawn within camera window",
@@ -1413,11 +1384,11 @@ public class TestS1Ghz1Headless {
      */
     @Test
     public void xDoesNotChangeDuringObjectFall() {
-        sprite.setX((short) 0x0800);
-        sprite.setY((short) 0x0350);
-        Camera.getInstance().updatePosition(true);
+        fixture.sprite().setX((short) 0x0800);
+        fixture.sprite().setY((short) 0x0350);
+        fixture.camera().updatePosition(true);
 
-        testRunner.stepIdleFrames(1);
+        fixture.stepIdleFrames(1);
         List<Sonic1CrabmeatBadnikInstance> crabmeats = findCrabmeats();
         assertFalse("Crabmeats should have spawned", crabmeats.isEmpty());
 
@@ -1428,7 +1399,7 @@ public class TestS1Ghz1Headless {
                 Assert.assertEquals("Crabmeat X must not drift during init (frame " + frame + ")",
                         spawnX, crab.getX());
             }
-            testRunner.stepIdleFrames(1);
+            fixture.stepIdleFrames(1);
         }
     }
 
@@ -1438,12 +1409,12 @@ public class TestS1Ghz1Headless {
      */
     @Test
     public void crabmeatsLandOnTerrain() {
-        sprite.setX((short) 0x0800);
-        sprite.setY((short) 0x0350);
-        Camera.getInstance().updatePosition(true);
+        fixture.sprite().setX((short) 0x0800);
+        fixture.sprite().setY((short) 0x0350);
+        fixture.camera().updatePosition(true);
 
         // 30 frames is more than enough for ObjectFall at gravity 0x38/frame
-        testRunner.stepIdleFrames(30);
+        fixture.stepIdleFrames(30);
 
         List<Sonic1CrabmeatBadnikInstance> crabmeats = findCrabmeats();
         assertFalse("Crabmeats should have spawned", crabmeats.isEmpty());
@@ -1464,11 +1435,11 @@ public class TestS1Ghz1Headless {
      */
     @Test
     public void firstCrabmeatPatrolsInBothDirections() {
-        sprite.setX((short) 0x0800);
-        sprite.setY((short) 0x0350);
-        Camera.getInstance().updatePosition(true);
+        fixture.sprite().setX((short) 0x0800);
+        fixture.sprite().setY((short) 0x0350);
+        fixture.camera().updatePosition(true);
 
-        testRunner.stepIdleFrames(1);
+        fixture.stepIdleFrames(1);
         List<Sonic1CrabmeatBadnikInstance> crabmeats = findCrabmeats();
         assertFalse("Crabmeat should have spawned", crabmeats.isEmpty());
 
@@ -1480,7 +1451,7 @@ public class TestS1Ghz1Headless {
         int maxX = spawnX;
 
         for (int frame = 0; frame < 500; frame++) {
-            testRunner.stepIdleFrames(1);
+            fixture.stepIdleFrames(1);
             int x = crab.getX();
             minX = Math.min(minX, x);
             maxX = Math.max(maxX, x);
@@ -1514,11 +1485,11 @@ public class TestS1Ghz1Headless {
     public void destroyedCrabmeatDoesNotRespawnAfterCameraWindowCycle() {
         final int targetSpawnX = 0x08B0;
 
-        sprite.setX((short) 0x0800);
-        sprite.setY((short) 0x0350);
-        Camera.getInstance().updatePosition(true);
+        fixture.sprite().setX((short) 0x0800);
+        fixture.sprite().setY((short) 0x0350);
+        fixture.camera().updatePosition(true);
 
-        testRunner.stepIdleFrames(1);
+        fixture.stepIdleFrames(1);
         Sonic1CrabmeatBadnikInstance target = findCrabmeats().stream()
                 .filter(crab -> crab.getSpawn().x() == targetSpawnX)
                 .findFirst()
@@ -1528,22 +1499,22 @@ public class TestS1Ghz1Headless {
                 1, countCrabmeatsAtSpawnX(targetSpawnX));
 
         // Simulate player destroying the badnik.
-        target.onPlayerAttack(sprite, null);
-        testRunner.stepIdleFrames(2);
+        target.onPlayerAttack(fixture.sprite(), null);
+        fixture.stepIdleFrames(2);
         assertEquals("Destroyed Crabmeat should be removed immediately",
                 0, countCrabmeatsAtSpawnX(targetSpawnX));
 
         // Move camera far enough that the original spawn leaves the placement window.
-        sprite.setX((short) 0x1500);
-        sprite.setY((short) 0x0350);
-        Camera.getInstance().updatePosition(true);
-        testRunner.stepIdleFrames(4);
+        fixture.sprite().setX((short) 0x1500);
+        fixture.sprite().setY((short) 0x0350);
+        fixture.camera().updatePosition(true);
+        fixture.stepIdleFrames(4);
 
         // Return camera so the original spawn is in range again.
-        sprite.setX((short) 0x0800);
-        sprite.setY((short) 0x0350);
-        Camera.getInstance().updatePosition(true);
-        testRunner.stepIdleFrames(6);
+        fixture.sprite().setX((short) 0x0800);
+        fixture.sprite().setY((short) 0x0350);
+        fixture.camera().updatePosition(true);
+        fixture.stepIdleFrames(6);
 
         assertEquals("Destroyed Crabmeat must not respawn after window cycle",
                 0, countCrabmeatsAtSpawnX(targetSpawnX));
@@ -1579,58 +1550,58 @@ public class TestS1Ghz1Headless {
 
         // Place Sonic above the target position and let him settle on ground.
         // Start high enough to find the ground surface at this X.
-        sprite.setCentreX(START_X);
-        sprite.setCentreY((short) (START_Y - 40));
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
-        sprite.setAir(true);
-        sprite.setAngle((byte) 0);
-        sprite.setGroundMode(GroundMode.GROUND);
+        fixture.sprite().setCentreX(START_X);
+        fixture.sprite().setCentreY((short) (START_Y - 40));
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setAir(true);
+        fixture.sprite().setAngle((byte) 0);
+        fixture.sprite().setGroundMode(GroundMode.GROUND);
 
         // Let Sonic fall and land on the ground.
         for (int i = 0; i < 60; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
-            if (!sprite.getAir()) break;
+            fixture.stepFrame(false, false, false, false, false);
+            if (!fixture.sprite().getAir()) break;
         }
-        assertFalse("Sonic should have landed on ground", sprite.getAir());
+        assertFalse("Sonic should have landed on ground", fixture.sprite().getAir());
 
-        short settledY = sprite.getCentreY();
+        short settledY = fixture.sprite().getCentreY();
         System.out.println("[JUMP-REGRESSION] Settled centreY=" + settledY
-                + " centreX=" + sprite.getCentreX());
+                + " centreX=" + fixture.sprite().getCentreX());
 
         // Hold jump for 7 frames.
         for (int i = 0; i < HOLD_JUMP_FRAMES; i++) {
-            testRunner.stepFrame(false, false, false, false, true);
+            fixture.stepFrame(false, false, false, false, true);
         }
-        assertTrue("Sonic should be airborne after pressing jump", sprite.getAir());
+        assertTrue("Sonic should be airborne after pressing jump", fixture.sprite().getAir());
 
         // Continue for POST_JUMP_FRAMES frames (no input).
         for (int i = 0; i < POST_JUMP_FRAMES; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
 
             int frameNum = HOLD_JUMP_FRAMES + i + 1;
             System.out.printf("[JUMP-REGRESSION] Frame %2d: centreY=%d ySpd=0x%04X air=%b gMode=%s%n",
-                    frameNum, sprite.getCentreY(), sprite.getYSpeed() & 0xFFFF,
-                    sprite.getAir(), sprite.getGroundMode());
+                    frameNum, fixture.sprite().getCentreY(), fixture.sprite().getYSpeed() & 0xFFFF,
+                    fixture.sprite().getAir(), fixture.sprite().getGroundMode());
         }
 
         // Continue stepping until Sonic lands or we time out.
         for (int i = POST_JUMP_FRAMES; i < 80; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
-            if (!sprite.getAir()) break;
+            fixture.stepFrame(false, false, false, false, false);
+            if (!fixture.sprite().getAir()) break;
         }
 
-        short finalY = sprite.getCentreY();
+        short finalY = fixture.sprite().getCentreY();
         System.out.println("[JUMP-REGRESSION] Final centreY=" + finalY
-                + " air=" + sprite.getAir()
+                + " air=" + fixture.sprite().getAir()
                 + " settled was " + settledY);
 
         // Sonic must NOT be stuck at ~841 (inside the terrain above).
         // He should be near where he started (within ~30px of settledY) or still airborne
         // and heading back down. Being grounded at y < settledY - 40 means he stuck
         // inside the upper path terrain.
-        boolean stuckAbove = !sprite.getAir() && finalY < (settledY - 40);
+        boolean stuckAbove = !fixture.sprite().getAir() && finalY < (settledY - 40);
         assertFalse("Sonic should not be stuck inside terrain above (centreY="
                 + finalY + ", expected near " + settledY + ")", stuckAbove);
     }
