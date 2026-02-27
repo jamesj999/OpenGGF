@@ -1,23 +1,19 @@
 package com.openggf.tests;
 
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Chunk;
 import com.openggf.level.ChunkDesc;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.SolidTile;
-import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -28,8 +24,8 @@ import static org.junit.Assert.*;
 /**
  * Grouped headless tests for Sonic 2 HTZ Act 1.
  *
- * Level data is loaded once via {@code @BeforeClass}; sprite, camera, and game
- * state are reset per test via {@link TestEnvironment#resetPerTest()}.
+ * Level data is loaded once via {@link SharedLevel#load} in {@code @BeforeClass};
+ * sprite, camera, and game state are reset per test via {@link HeadlessTestFixture}.
  *
  * Merged from:
  * <ul>
@@ -49,59 +45,30 @@ public class TestS2Htz1Headless {
     private static final int BUG_X = 6635;
     private static final int BUG_Y = 1433;
 
-    private static String mainCharCode;
+    private static SharedLevel sharedLevel;
 
+    private HeadlessTestFixture fixture;
     private Sonic sprite;
-    private HeadlessTestRunner testRunner;
     private LevelManager levelManager;
 
     @BeforeClass
     public static void loadLevel() throws Exception {
-        GraphicsManager.getInstance().initHeadless();
-        SonicConfigurationService cs = SonicConfigurationService.getInstance();
-        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_2, HTZ_ZONE, HTZ_ACT);
+    }
 
-        // LevelManager.loadCurrentLevel() needs a player sprite in SpriteManager.
-        // Create a temporary one for the level load, then clear it -- each @Before
-        // will install its own fresh sprite.
-        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(temp);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(temp);
-        camera.setFrozen(false);
-
-        LevelManager.getInstance().loadZoneAndAct(HTZ_ZONE, HTZ_ACT);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
+    @AfterClass
+    public static void cleanup() {
+        if (sharedLevel != null) sharedLevel.dispose();
     }
 
     @Before
     public void setUp() {
-        TestEnvironment.resetPerTest();
-        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        camera.setFrozen(false);
-
-        // Restore camera bounds from the loaded level -- resetPerTest() zeroes them
-        // but the level data is still valid since we skip LevelManager reset.
-        Level level = LevelManager.getInstance().getCurrentLevel();
-        if (level != null) {
-            camera.setMinX((short) level.getMinX());
-            camera.setMaxX((short) level.getMaxX());
-            camera.setMinY((short) level.getMinY());
-            camera.setMaxY((short) level.getMaxY());
-        }
-
-        camera.updatePosition(true);
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .withLevelEvents()
+                .build();
+        sprite = (Sonic) fixture.sprite();
         levelManager = LevelManager.getInstance();
-
-        // Re-initialize level event manager for HTZ after resetPerTest() cleared it.
-        // loadZoneAndAct() does this during level load, but since we load only once
-        // in @BeforeClass and reset per test, we must re-init explicitly.
-        Sonic2LevelEventManager.getInstance().initLevel(HTZ_ZONE, HTZ_ACT);
-
-        testRunner = new HeadlessTestRunner(sprite);
     }
 
     // ========== From TestHtzDropOnFloor ==========
@@ -118,13 +85,13 @@ public class TestS2Htz1Headless {
     public void sonicDetachesFromLavaPlatformAtFloor() {
         sprite.setX((short) 6857);
         sprite.setY((short) 1403);
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         Sonic2LevelEventManager lem = Sonic2LevelEventManager.getInstance();
 
         // Settle: let earthquake trigger and Sonic land on terrain
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
         // Verify earthquake activated
@@ -139,7 +106,7 @@ public class TestS2Htz1Headless {
         // Platform rises (Sonic rides up to ~Y=1337) then descends.
         // DropOnFloor should detach Sonic when platform pushes into terrain.
         for (int frame = 0; frame < 1200; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
 
             int y = sprite.getY();
             if (y > maxY) maxY = y;
@@ -167,18 +134,18 @@ public class TestS2Htz1Headless {
         // Reposition to the subtype 4 platform area
         sprite.setX((short) 7502);
         sprite.setY((short) 1329);
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         // Settle: let earthquake trigger
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
         boolean wasHurt = false;
 
         // Run 600 frames -- Sonic should land on subtype 4 lava and get hurt
         for (int frame = 0; frame < 600; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
 
             if (sprite.isHurt()) {
                 wasHurt = true;
@@ -199,7 +166,7 @@ public class TestS2Htz1Headless {
     public void testDiagnoseCollisionAtBugLocation() {
         sprite.setX((short) (BUG_X - 100));
         sprite.setY((short) BUG_Y);
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         Level level = levelManager.getCurrentLevel();
 
@@ -334,7 +301,7 @@ public class TestS2Htz1Headless {
     public void testWalkThroughBugLocation() {
         sprite.setX((short) (BUG_X - 100));
         sprite.setY((short) BUG_Y);
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         // First scan to find solid ground near the bug location
         System.out.println("=== Scanning for solid ground near bug location ===");
@@ -355,7 +322,7 @@ public class TestS2Htz1Headless {
 
         // Let sprite settle
         for (int i = 0; i < 10; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
         System.out.println("After settling: (" + sprite.getX() + ", " + sprite.getY() + "), air=" + sprite.getAir());
 
@@ -370,7 +337,7 @@ public class TestS2Htz1Headless {
             boolean beforeAir = sprite.getAir();
             byte beforeAngle = sprite.getAngle();
 
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
 
             short afterX = sprite.getX();
             short afterGSpeed = sprite.getGSpeed();
@@ -533,7 +500,7 @@ public class TestS2Htz1Headless {
 
         Sonic2LevelEventManager levelEventManager = Sonic2LevelEventManager.getInstance();
         ParallaxManager parallaxManager = ParallaxManager.getInstance();
-        Camera camera = Camera.getInstance();
+        Camera camera = fixture.camera();
 
         // Teleport Sonic to a position where the camera will be in the earthquake zone
         final int TARGET_X = 0x1800 + 200;  // 6344 - comfortably past trigger
@@ -558,7 +525,7 @@ public class TestS2Htz1Headless {
         System.out.println("\n=== Triggering earthquake ===");
         boolean enteredZone = false;
         for (int i = 0; i < 10 && !enteredZone; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             if (GameServices.gameState().isHtzScreenShakeActive()) {
                 enteredZone = true;
                 System.out.println("Earthquake triggered at frame " + i);
@@ -587,7 +554,7 @@ public class TestS2Htz1Headless {
 
         // Run frames to observe offset behavior
         for (int frame = 0; frame < 60; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
 
             int cameraBgYOffset = levelEventManager.getCameraBgYOffset();
             int shakeOffsetY = parallaxManager.getShakeOffsetY();
@@ -627,11 +594,11 @@ public class TestS2Htz1Headless {
         sprite.setX((short) 96);
         sprite.setY((short) 1007);
         sprite.setAir(false);
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         // Let sprite settle
         for (int i = 0; i < 10; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
         System.out.println("Starting at: (" + sprite.getX() + ", " + sprite.getY() + ")");
@@ -644,7 +611,7 @@ public class TestS2Htz1Headless {
         // Walk right for a long time to reach and pass the bug location
         for (int i = 0; i < 2000; i++) {
             frameCounter++;
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
 
             short currentX = sprite.getX();
 
