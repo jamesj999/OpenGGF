@@ -1,23 +1,19 @@
 package com.openggf.tests;
 
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic2.objects.ResultsScreenObjectInstance;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
-import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
@@ -35,7 +31,7 @@ import static org.junit.Assert.*;
  * Grouped headless tests for Sonic 2 EHZ Act 1.
  *
  * Level data is loaded once via {@code @BeforeClass}; sprite, camera, and game
- * state are reset per test via {@link TestEnvironment#resetPerTest()}.
+ * state are reset per test via {@link HeadlessTestFixture}.
  *
  * Merged from:
  * <ul>
@@ -52,53 +48,29 @@ public class TestS2Ehz1Headless {
 
     private static final int ZONE_EHZ = 0;
     private static final int ACT_1 = 0;
-    private static String mainCharCode;
+    private static SharedLevel sharedLevel;
 
     @BeforeClass
     public static void loadLevel() throws Exception {
-        GraphicsManager.getInstance().initHeadless();
-        SonicConfigurationService cs = SonicConfigurationService.getInstance();
-        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-
-        // LevelManager.loadCurrentLevel() needs a player sprite in SpriteManager.
-        // Create a temporary one for the level load, then clear it -- each @Before
-        // will install its own fresh sprite.
-        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(temp);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(temp);
-        camera.setFrozen(false);
-
-        LevelManager.getInstance().loadZoneAndAct(ZONE_EHZ, ACT_1);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_2, ZONE_EHZ, ACT_1);
     }
 
+    @AfterClass
+    public static void cleanup() {
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
+
+    private HeadlessTestFixture fixture;
     private Sonic sprite;
     private Sonic sonic;
-    private HeadlessTestRunner testRunner;
 
     @Before
     public void setUp() {
-        TestEnvironment.resetPerTest();
-        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
+        sprite = (Sonic) fixture.sprite();
         sonic = sprite;
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        camera.setFrozen(false);
-
-        // Restore camera bounds from the loaded level — resetPerTest() zeroes them
-        // but the level data is still valid since we skip LevelManager reset.
-        Level level = LevelManager.getInstance().getCurrentLevel();
-        if (level != null) {
-            camera.setMinX((short) level.getMinX());
-            camera.setMaxX((short) level.getMaxX());
-            camera.setMinY((short) level.getMinY());
-            camera.setMaxY((short) level.getMaxY());
-        }
-
-        camera.updatePosition(true);
-        testRunner = new HeadlessTestRunner(sprite);
     }
 
     // ========== From TestHeadlessWallCollision ==========
@@ -116,7 +88,7 @@ public class TestS2Ehz1Headless {
 
         // Let Sonic settle onto the ground (5 frames with no input)
         for (int frame = 0; frame < 5; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
         // Verify sprite is still on ground after settling
@@ -127,7 +99,7 @@ public class TestS2Ehz1Headless {
 
         // Walk left for 5 frames
         for (int frame = 0; frame < 5; frame++) {
-            testRunner.stepFrame(false, false, true, false, false);
+            fixture.stepFrame(false, false, true, false, false);
         }
 
         // Verify sprite stayed on ground while walking
@@ -186,7 +158,7 @@ public class TestS2Ehz1Headless {
 
         boolean landed = false;
         for (int frame = 0; frame < LANDING_TIMEOUT_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             if (!sprite.getAir()) {
                 landed = true;
                 break;
@@ -208,7 +180,7 @@ public class TestS2Ehz1Headless {
         boolean pressingLeft = !pushRight;
         boolean contactReached = false;
         for (int frame = 0; frame < CONTACT_TIMEOUT_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, pressingLeft, pushRight, false);
+            fixture.stepFrame(false, false, pressingLeft, pushRight, false);
             if (sprite.getPushing()) {
                 contactReached = true;
                 break;
@@ -217,7 +189,7 @@ public class TestS2Ehz1Headless {
         assertTrue("Sonic should reach side-pushing contact (" + directionName(pushRight) + ")", contactReached);
 
         for (int frame = 0; frame < CONTACT_WARMUP_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, pressingLeft, pushRight, false);
+            fixture.stepFrame(false, false, pressingLeft, pushRight, false);
         }
 
         int minX = Integer.MAX_VALUE;
@@ -225,7 +197,7 @@ public class TestS2Ehz1Headless {
         int transitionCount = 0;
         Integer previousX = null;
         for (int frame = 0; frame < STABILITY_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, pressingLeft, pushRight, false);
+            fixture.stepFrame(false, false, pressingLeft, pushRight, false);
             int x = sprite.getX();
             minX = Math.min(minX, x);
             maxX = Math.max(maxX, x);
@@ -346,7 +318,7 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         // Settle both sprites on ground
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             stepTailsFrame();
         }
 
@@ -356,7 +328,7 @@ public class TestS2Ehz1Headless {
         tails.setX((short) (sonicDelayedX - tails.getWidth() / 2));
         tails.setY((short) (sonicDelayedY - tails.getHeight() / 2));
 
-        controller.update(testRunner.getFrameCounter());
+        controller.update(fixture.frameCount());
 
         assertFalse("No left input when close to target", controller.getInputLeft());
         assertFalse("No right input when close to target", controller.getInputRight());
@@ -367,19 +339,19 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         // Settle sprites and populate history
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             stepTailsFrame();
         }
 
         // Move Sonic far to the right of Tails
         // Walk Sonic right for many frames to create distance
         for (int i = 0; i < 30; i++) {
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
             // Don't move Tails so gap opens up
         }
 
         // Now update Tails AI - Sonic's delayed position should be to the right
-        controller.update(testRunner.getFrameCounter());
+        controller.update(fixture.frameCount());
 
         // Sonic moved right, so the delayed position (16 frames ago) should be
         // somewhat to the right of Tails
@@ -399,7 +371,7 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         // Settle sprites and populate history
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             stepTailsFrame();
         }
 
@@ -407,7 +379,7 @@ public class TestS2Ehz1Headless {
         tails.setX((short) (sonic.getCentreX() + 100));
         tails.setY(sonic.getY());
 
-        controller.update(testRunner.getFrameCounter());
+        controller.update(fixture.frameCount());
 
         assertTrue("Should input left when target is to the left",
                 controller.getInputLeft());
@@ -420,7 +392,7 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         // Settle sprites and populate history
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             stepTailsFrame();
         }
 
@@ -443,7 +415,7 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         // Settle sprites and populate history
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             stepTailsFrame();
         }
 
@@ -466,7 +438,7 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         // Settle sprites and populate history
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             stepTailsFrame();
         }
 
@@ -475,7 +447,7 @@ public class TestS2Ehz1Headless {
         tails.setY(sonic.getY());
         tails.setAir(true);
 
-        controller.update(testRunner.getFrameCounter());
+        controller.update(fixture.frameCount());
 
         assertFalse("Should not trigger jump when already airborne",
                 controller.getInputJump());
@@ -611,7 +583,7 @@ public class TestS2Ehz1Headless {
         tails.setAir(false);
 
         for (int i = 1; i <= 125; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             controller.update(i);
             // Keep Tails stuck
             tails.setGSpeed((short) 0);
@@ -631,7 +603,7 @@ public class TestS2Ehz1Headless {
         tails.setAir(false);
 
         for (int i = 1; i <= 125; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             controller.update(i);
             tails.setGSpeed((short) 0);
             tails.setAir(false);
@@ -656,7 +628,7 @@ public class TestS2Ehz1Headless {
         tails.setAir(false);
 
         for (int i = 1; i <= 125; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             controller.update(i);
             tails.setGSpeed((short) 0);
             tails.setAir(false);
@@ -720,7 +692,7 @@ public class TestS2Ehz1Headless {
         // Record Sonic's input history by walking right for 20+ frames
         // so that the 17-frame delayed input has right pressed
         for (int i = 0; i < 25; i++) {
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
             stepTailsFrame();
         }
 
@@ -731,7 +703,7 @@ public class TestS2Ehz1Headless {
         tails.setY((short) (targetY - tails.getHeight() / 2));
         tails.setAir(false);
 
-        controller.update(testRunner.getFrameCounter());
+        controller.update(fixture.frameCount());
 
         // Sonic's recorded input from 17 frames ago should have RIGHT pressed
         // (since Sonic was walking right for all 25 frames)
@@ -748,27 +720,27 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         // Run idle frames to settle
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             stepTailsFrame();
         }
 
         // Make Sonic jump (record jump input)
-        testRunner.stepFrame(false, false, false, false, true);
+        fixture.stepFrame(false, false, false, false, true);
         stepTailsFrame();
 
         // Continue for 16 more frames (not stepping Tails on the last one)
         for (int i = 0; i < 16; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             stepTailsFrame();
         }
 
         // Step Sonic one more frame but DON'T step Tails yet
-        testRunner.stepFrame(false, false, false, false, false);
+        fixture.stepFrame(false, false, false, false, false);
 
         // Now the jump input is exactly 17 frames behind in Sonic's history.
         // Update Tails' controller fresh to see the replayed jump.
         tails.setAir(false);
-        controller.update(testRunner.getFrameCounter());
+        controller.update(fixture.frameCount());
 
         short replayedInput = sonic.getInputHistory(17);
         boolean replayedJump = (replayedInput & AbstractPlayableSprite.INPUT_JUMP) != 0;
@@ -785,7 +757,7 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         // Walk Sonic right for 20 frames
         for (int i = 0; i < 20; i++) {
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
         }
 
         short currentX = sonic.getCentreX();
@@ -838,7 +810,7 @@ public class TestS2Ehz1Headless {
      * Mimics what SpriteManager does for CPU-controlled sprites.
      */
     private void stepTailsFrame() {
-        controller.update(testRunner.getFrameCounter());
+        controller.update(fixture.frameCount());
         if (!controller.isFlying()) {
             tails.getMovementManager().handleMovement(
                     controller.getInputUp(),
@@ -867,7 +839,7 @@ public class TestS2Ehz1Headless {
         // Reposition sprite for this test (after level load, set to desired test position)
         sprite.setCentreX(START_X);
         sprite.setCentreY(START_Y);
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         System.out.println("=== Signpost Walk-Off Regression Test ===");
         System.out.println("Start position: (" + START_X + ", " + START_Y + ")");
@@ -878,11 +850,11 @@ public class TestS2Ehz1Headless {
         boolean walkedOffScreen = false;
         boolean resultsSpawned = false;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = fixture.camera();
 
         for (int frame = 0; frame < MAX_FRAMES; frame++) {
             // Walk right
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
 
             // Check if signpost triggered (forceInputRight becomes true)
             if (!signpostTriggered && sprite.isForceInputRight()) {
