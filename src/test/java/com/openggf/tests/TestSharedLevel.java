@@ -37,18 +37,19 @@ public class TestSharedLevel {
     }
 
     @Test
-    public void levelIsLoaded() {
+    public void testLevelIsLoaded() {
         assertNotNull("SharedLevel.level() should not be null after load", shared.level());
     }
 
     @Test
-    public void levelHasValidBounds() {
+    public void testLevelHasValidBounds() {
         Level level = shared.level();
+        assertNotNull("level() must not be null", level);
         assertTrue("Level maxX should be > 0, was " + level.getMaxX(), level.getMaxX() > 0);
     }
 
     @Test
-    public void gameAndZoneAreStored() {
+    public void testGameAndZoneAreStored() {
         assertEquals(SonicGame.SONIC_2, shared.game());
         assertEquals(ZONE_EHZ, shared.zone());
         assertEquals(ACT_1, shared.act());

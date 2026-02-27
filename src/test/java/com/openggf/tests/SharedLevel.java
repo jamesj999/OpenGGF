@@ -9,6 +9,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
+import com.openggf.tests.TestEnvironment;
 import com.openggf.tests.rules.SonicGame;
 
 import java.io.IOException;
@@ -36,12 +37,14 @@ public final class SharedLevel {
     private final SonicGame game;
     private final int zone;
     private final int act;
+    private final String mainCharCode;
 
-    private SharedLevel(Level level, SonicGame game, int zone, int act) {
+    private SharedLevel(Level level, SonicGame game, int zone, int act, String mainCharCode) {
         this.level = level;
         this.game = game;
         this.zone = zone;
         this.act = act;
+        this.mainCharCode = mainCharCode;
     }
 
     /**
@@ -89,17 +92,15 @@ public final class SharedLevel {
         }
         camera.updatePosition(true);
 
-        return new SharedLevel(level, game, zone, act);
+        return new SharedLevel(level, game, zone, act, mainCharCode);
     }
 
     /**
      * Cleans up state after the shared level is no longer needed.
-     * Resets LevelManager, SpriteManager, and Camera state.
+     * Delegates to {@link TestEnvironment#resetAll()} for complete cleanup.
      */
     public void dispose() {
-        LevelManager.getInstance().resetState();
-        SpriteManager.getInstance().resetState();
-        Camera.getInstance().resetState();
+        TestEnvironment.resetAll();
     }
 
     /** Returns the loaded level, or {@code null} if loading failed. */
@@ -120,5 +121,10 @@ public final class SharedLevel {
     /** Returns the act index. */
     public int act() {
         return act;
+    }
+
+    /** Returns the main character code used to create the player sprite. */
+    public String mainCharCode() {
+        return mainCharCode;
     }
 }
