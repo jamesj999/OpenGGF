@@ -241,6 +241,44 @@ public class GameLoop {
             return;
         }
 
+        // Level editor mode toggle: Shift+Tab
+        if (inputHandler.isKeyDown(GLFW_KEY_LEFT_SHIFT) && inputHandler.isKeyPressed(GLFW_KEY_TAB)) {
+            if (currentGameMode == GameMode.LEVEL_EDITOR) {
+                setGameMode(GameMode.LEVEL);
+            } else if (currentGameMode == GameMode.LEVEL) {
+                setGameMode(GameMode.LEVEL_EDITOR);
+                // Initialize editor if needed
+                var editorMgr = com.openggf.editor.LevelEditorManager.getInstance();
+                if (!editorMgr.isInitialized()) {
+                    // Create editor's own PixelFont and TexturedQuadRenderer
+                    try {
+                        var quadRenderer = new com.openggf.graphics.TexturedQuadRenderer();
+                        quadRenderer.init();
+                        var font = new com.openggf.graphics.PixelFont();
+                        font.init("pixel-font.png", quadRenderer);
+                        editorMgr.initialize(font, quadRenderer);
+                    } catch (java.io.IOException e) {
+                        java.util.logging.Logger.getLogger(GameLoop.class.getName())
+                            .warning("Failed to initialize level editor: " + e.getMessage());
+                    }
+                }
+                // Set current level (only if init succeeded)
+                Level level = levelManager.getCurrentLevel();
+                if (level != null && editorMgr.isInitialized()) {
+                    editorMgr.setLevel(level);
+                }
+            }
+            inputHandler.update();
+            return;
+        }
+
+        // Level editor update
+        if (currentGameMode == GameMode.LEVEL_EDITOR) {
+            com.openggf.editor.LevelEditorManager.getInstance().update(inputHandler);
+            inputHandler.update();
+            return;
+        }
+
         // Handle pause toggle - must work even when paused
         int pauseKey = configService.getInt(SonicConfiguration.PAUSE_KEY);
         if (inputHandler.isKeyPressed(pauseKey)) {

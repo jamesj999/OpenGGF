@@ -1,6 +1,10 @@
 package com.openggf.editor;
 
+import com.openggf.Control.InputHandler;
+import com.openggf.graphics.PixelFont;
+import com.openggf.graphics.TexturedQuadRenderer;
 import com.openggf.level.Block;
+import com.openggf.level.Level;
 
 import java.util.Arrays;
 
@@ -75,6 +79,19 @@ public class LevelEditorManager {
 
     /** Currently selected index in the side panel. */
     private int panelSelection;
+
+    // -- Rendering and input subsystems -------------------------------------
+
+    private EditorInputHandler inputHandler;
+    private GridOverlayRenderer gridOverlayRenderer;
+    private TooltipBarRenderer tooltipBarRenderer;
+    private ChunkPanelRenderer chunkPanelRenderer;
+    private boolean initialized;
+
+    // -- Editor camera position (pixels) ------------------------------------
+
+    private int cameraX;
+    private int cameraY;
 
     // -- Construction -------------------------------------------------------
 
@@ -374,6 +391,87 @@ public class LevelEditorManager {
             }
         }
     }
+
+    // -- Lifecycle (init / update / draw) ------------------------------------
+
+    /**
+     * Initialize rendering and input subsystems.
+     * Must be called after GL context is available.
+     */
+    public void initialize(PixelFont font, TexturedQuadRenderer quadRenderer) {
+        this.inputHandler = new EditorInputHandler(this);
+        this.gridOverlayRenderer = new GridOverlayRenderer(this);
+        this.tooltipBarRenderer = new TooltipBarRenderer(this);
+        this.chunkPanelRenderer = new ChunkPanelRenderer(this);
+        this.tooltipBarRenderer.init(font, quadRenderer);
+        this.chunkPanelRenderer.init(font, quadRenderer);
+        this.initialized = true;
+    }
+
+    public boolean isInitialized() { return initialized; }
+
+    /**
+     * Set the level for the editor, initializing dimensions from the Level object.
+     */
+    public void setLevel(Level level) {
+        this.chunkPanelRenderer.setLevel(level);
+        int mapW = level.getLayerWidthBlocks(0);
+        int mapH = level.getLayerHeightBlocks(0);
+        // chunksPerBlock is typically 8 (128px block / 16px chunk)
+        initForLevel(mapW, mapH, level.getChunkCount(), level.getBlockCount(),
+                level.getChunksPerBlockSide());
+    }
+
+    /**
+     * Process one frame of editor logic: input + camera follow.
+     */
+    public void update(InputHandler input) {
+        EditorInputHandler.EditorAction action = this.inputHandler.update(input);
+        // Action handling (place/clear/eyedrop) is wired in Task 9
+        updateCameraFollow(320, 224);
+    }
+
+    /**
+     * Keep cursor visible by scrolling camera when cursor moves out of view.
+     * @param viewW viewport width in game pixels
+     * @param viewH viewport height in game pixels
+     */
+    private void updateCameraFollow(int viewW, int viewH) {
+        int cursorPx = getCursorPixelX();
+        int cursorPy = getCursorPixelY();
+        int cellSize = getCursorCellSize();
+
+        // Scroll right if cursor goes past right edge
+        if (cursorPx + cellSize > cameraX + viewW) {
+            cameraX = cursorPx + cellSize - viewW;
+        }
+        // Scroll left if cursor goes past left edge
+        if (cursorPx < cameraX) {
+            cameraX = cursorPx;
+        }
+        // Scroll down if cursor goes past bottom edge
+        if (cursorPy + cellSize > cameraY + viewH) {
+            cameraY = cursorPy + cellSize - viewH;
+        }
+        // Scroll up if cursor goes past top edge
+        if (cursorPy < cameraY) {
+            cameraY = cursorPy;
+        }
+
+        // Clamp camera to level bounds
+        int levelW = mapWidthBlocks * chunksPerBlock * 16;
+        int levelH = mapHeightBlocks * chunksPerBlock * 16;
+        cameraX = Math.max(0, Math.min(cameraX, Math.max(0, levelW - viewW)));
+        cameraY = Math.max(0, Math.min(cameraY, Math.max(0, levelH - viewH)));
+    }
+
+    // -- Renderer accessors -------------------------------------------------
+
+    public GridOverlayRenderer getGridOverlayRenderer() { return gridOverlayRenderer; }
+    public TooltipBarRenderer getTooltipBarRenderer() { return tooltipBarRenderer; }
+    public ChunkPanelRenderer getChunkPanelRenderer() { return chunkPanelRenderer; }
+    public int getCameraX() { return cameraX; }
+    public int getCameraY() { return cameraY; }
 
     // -- Accessors for level dimensions -------------------------------------
 

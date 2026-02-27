@@ -23,6 +23,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.playable.TailsCpuController;
+import com.openggf.editor.LevelEditorManager;
 import com.openggf.game.EndingProvider;
 import com.openggf.game.GameMode;
 import com.openggf.game.LevelSelectProvider;
@@ -636,6 +637,37 @@ public class Engine {
 		graphicsManager.flush();
 		profiler.endSection("render");
 
+		// Editor screen-space UI (panel + tooltip bar) -- after flush, before fade
+		if (getCurrentGameMode() == GameMode.LEVEL_EDITOR) {
+			LevelEditorManager editorMgr = LevelEditorManager.getInstance();
+			if (editorMgr.isInitialized()) {
+				graphicsManager.resetForFixedFunction();
+
+				// ChunkPanelRenderer uses game projection (320x224) same as PixelFont
+				String zoneName = "Zone " + levelManager.getCurrentZone()
+						+ " Act " + levelManager.getCurrentAct();
+				editorMgr.getChunkPanelRenderer().draw(
+						(int) projectionWidth, (int) realHeight, zoneName);
+
+				// Tooltip bar needs its own screen-space projection (origin bottom-left)
+				glMatrixMode(GL_PROJECTION);
+				glPushMatrix();
+				glLoadIdentity();
+				glOrtho(0, projectionWidth, 0, realHeight, -1, 1);
+				glMatrixMode(GL_MODELVIEW);
+				glPushMatrix();
+				glLoadIdentity();
+
+				editorMgr.getTooltipBarRenderer().draw(
+						(int) projectionWidth, (int) realHeight);
+
+				glPopMatrix();
+				glMatrixMode(GL_PROJECTION);
+				glPopMatrix();
+				glMatrixMode(GL_MODELVIEW);
+			}
+		}
+
 		// Render screen fade overlay via unified UI render pipeline
 		if (uiPipeline != null) {
 			uiPipeline.renderFadePass();
@@ -808,6 +840,20 @@ public class Engine {
 			if (titleCardProvider != null) {
 				titleCardProvider.draw();
 				graphicsManager.flushScreenSpace();
+			}
+		} else if (getCurrentGameMode() == GameMode.LEVEL_EDITOR) {
+			LevelEditorManager editorMgr = LevelEditorManager.getInstance();
+
+			// Set camera to editor position so flush() uses correct position
+			camera.setX((short) editorMgr.getCameraX());
+			camera.setY((short) editorMgr.getCameraY());
+
+			// Draw tilemap without sprites
+			levelManager.draw();
+
+			// Register grid overlay for camera-aware flush
+			if (editorMgr.isInitialized()) {
+				graphicsManager.registerCommand(editorMgr.getGridOverlayRenderer());
 			}
 		} else if (!debugViewEnabled) {
 			levelManager.drawWithSpritePriority(spriteManager);
