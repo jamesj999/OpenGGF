@@ -80,9 +80,12 @@ public class TestSonic1PlatformObjectInstanceRespawn {
         assertEquals(0, manager.getActiveObjects().size());
 
         // After leaving the window and coming back, normal respawn should be allowed.
+        // With deferred placement, placement.update() streams spawns at end of each frame
+        // and syncActiveSpawns() creates instances at start of the next frame.
         camera.setMaxY((short) 1000);
-        manager.update(1400, null, null, 3);
-        manager.update(0, null, null, 4);
+        manager.update(1400, null, null, 3);  // Streams spawn out of window
+        manager.update(0, null, null, 4);     // Streams spawn back into window
+        manager.update(0, null, null, 5);     // syncActiveSpawns creates the instance
         assertTrue(manager.getActiveSpawns().contains(spawn));
         assertEquals(1, manager.getActiveObjects().size());
     }

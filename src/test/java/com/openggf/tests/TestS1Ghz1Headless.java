@@ -1365,8 +1365,9 @@ public class TestS1Ghz1Headless {
         fixture.sprite().setY((short) 0x0350);
         fixture.camera().updatePosition(true);
 
-        // One frame is enough for the ObjectManager to create instances
-        fixture.stepIdleFrames(1);
+        // Two frames needed: placement.update() streams spawns at end of frame 1,
+        // syncActiveSpawns() creates instances at start of frame 2.
+        fixture.stepIdleFrames(2);
 
         List<Sonic1CrabmeatBadnikInstance> crabmeats = findCrabmeats();
         assertTrue("Both GHZ1 Crabmeats should spawn within camera window",
@@ -1388,7 +1389,9 @@ public class TestS1Ghz1Headless {
         fixture.sprite().setY((short) 0x0350);
         fixture.camera().updatePosition(true);
 
-        fixture.stepIdleFrames(1);
+        // Two frames: placement streams spawns at end of frame 1,
+        // syncActiveSpawns creates instances at start of frame 2.
+        fixture.stepIdleFrames(2);
         List<Sonic1CrabmeatBadnikInstance> crabmeats = findCrabmeats();
         assertFalse("Crabmeats should have spawned", crabmeats.isEmpty());
 
@@ -1439,7 +1442,9 @@ public class TestS1Ghz1Headless {
         fixture.sprite().setY((short) 0x0350);
         fixture.camera().updatePosition(true);
 
-        fixture.stepIdleFrames(1);
+        // Two frames: placement streams spawns at end of frame 1,
+        // syncActiveSpawns creates instances at start of frame 2.
+        fixture.stepIdleFrames(2);
         List<Sonic1CrabmeatBadnikInstance> crabmeats = findCrabmeats();
         assertFalse("Crabmeat should have spawned", crabmeats.isEmpty());
 
@@ -1489,7 +1494,9 @@ public class TestS1Ghz1Headless {
         fixture.sprite().setY((short) 0x0350);
         fixture.camera().updatePosition(true);
 
-        fixture.stepIdleFrames(1);
+        // Two frames: placement streams spawns at end of frame 1,
+        // syncActiveSpawns creates instances at start of frame 2.
+        fixture.stepIdleFrames(2);
         Sonic1CrabmeatBadnikInstance target = findCrabmeats().stream()
                 .filter(crab -> crab.getSpawn().x() == targetSpawnX)
                 .findFirst()

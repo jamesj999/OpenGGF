@@ -144,8 +144,8 @@ public class TestBuzzBomberLifecycle {
     public void testFlyingObjectSurvivesCameraBacktrack() {
         // Buzz Bomber-like object at X=1000
         ObjectSpawn flyingSpawn = new ObjectSpawn(1000, 400, 0x22, 0, 0, false, 0);
-        // A static reference object at X=100 (always in window for these camera positions)
-        ObjectSpawn staticSpawn = new ObjectSpawn(100, 400, 0x01, 0, 0, false, 0);
+        // A static reference object at X=300 (inside the unload-behind window for camera at 200-400)
+        ObjectSpawn staticSpawn = new ObjectSpawn(300, 400, 0x01, 0, 0, false, 0);
 
         List<ObjectSpawn> spawns = List.of(staticSpawn, flyingSpawn);
         TestRegistry registry = new TestRegistry(0x22, 160);
@@ -163,13 +163,16 @@ public class TestBuzzBomberLifecycle {
         registry.flyingInstance.setCurrentX(600);
 
         // --- Frame 2: Camera backs up to X=200.
-        //     Window refreshes: windowEnd = 200+640 = 840.
-        //     Spawn at X=1000 > 840 → spawn drops out of active set.
-        //     But isPersistent() should save the object:
-        //       cameraBounds = [200, ?, 520, ?]
-        //       isOnScreenX(160) for X=600: 600 ≤ 520+160=680 → true
+        //     placement.update() streams new window (windowEnd=840) at end of frame.
+        //     Spawn at X=1000 > 840 → spawn drops out of placement active set.
         camera.setX((short) 200);
         manager.update(200, null, null, 2);
+
+        // --- Frame 3: syncActiveSpawns sees spawn X=1000 is no longer in placement.
+        //     isPersistent() check fires:
+        //       cameraBounds = [200, ?, 520, ?]
+        //       isOnScreenX(160) for X=600: 600 ≤ 520+160=680 → true → persists
+        manager.update(200, null, null, 3);
 
         assertEquals("Flying object must survive camera backtrack while near viewport",
                 2, manager.getActiveObjects().size());
@@ -199,11 +202,14 @@ public class TestBuzzBomberLifecycle {
         registry.flyingInstance.setCurrentX(600);
 
         // Camera backs up far to X=0.
-        //   cameraBounds = [0, ?, 320, ?]
-        //   isOnScreenX(160) for X=600: 600 ≤ 320+160=480? NO (600>480) → not persistent
-        //   Spawn 1000 > windowEnd 640 → spawn out of window, not persistent → removed.
+        //   placement.update() streams new window at end of frame 2.
         camera.setX((short) 0);
         manager.update(0, null, null, 2);
+
+        // Frame 3: syncActiveSpawns sees spawn X=1000 is no longer in placement.
+        //   cameraBounds = [0, ?, 320, ?]
+        //   isOnScreenX(160) for X=600: 600 ≤ 320+160=480? NO (600>480) → not persistent → removed.
+        manager.update(0, null, null, 3);
 
         assertEquals("Flying object should be removed when far from camera",
                 0, manager.getActiveObjects().size());
@@ -230,9 +236,12 @@ public class TestBuzzBomberLifecycle {
         manager.update(400, null, null, 1);
         assertEquals("Object should be created", 1, manager.getActiveObjects().size());
 
-        // Camera backs up → spawn leaves window → non-persistent object removed
+        // Camera backs up → placement.update() streams new window at end of frame 2.
         camera.setX((short) 200);
         manager.update(200, null, null, 2);
+
+        // Frame 3: syncActiveSpawns sees spawn X=1000 no longer in placement → removed.
+        manager.update(200, null, null, 3);
 
         assertEquals("Non-persistent object should be removed when spawn leaves window",
                 0, manager.getActiveObjects().size());
