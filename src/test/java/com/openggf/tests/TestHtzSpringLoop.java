@@ -1,17 +1,11 @@
 package com.openggf.tests;
 
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
-import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
-import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -24,6 +18,9 @@ import static org.junit.Assert.*;
  *
  * <p>This test reproduces a scenario where Sonic enters a spring loop but fails
  * to trigger a spring he's facing opposite to, causing him to stop moving.
+ *
+ * <p>Level data is loaded once via {@link SharedLevel#load} in {@code @BeforeClass};
+ * sprite, camera, and game state are reset per test via {@link HeadlessTestFixture}.
  *
  * <p>Test scenario:
  * <ol>
@@ -38,7 +35,6 @@ import static org.junit.Assert.*;
 public class TestHtzSpringLoop {
 
     @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-    private static String mainCharCode;
 
     // Test position for HTZ Act 2 spring loop area (from debug overlay - decimal values)
     private static final short START_X = (short) 8475;  // X position from debug overlay
@@ -49,44 +45,27 @@ public class TestHtzSpringLoop {
     private static final int HTZ_ZONE_INDEX = 4;
     private static final int ACT_2_INDEX = 1;
 
+    private static SharedLevel sharedLevel;
+
+    private HeadlessTestFixture fixture;
+    private Sonic sprite;
+
     @BeforeClass
     public static void loadLevel() throws Exception {
-        GraphicsManager.getInstance().initHeadless();
-        SonicConfigurationService cs = SonicConfigurationService.getInstance();
-        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-
-        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(temp);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(temp);
-        camera.setFrozen(false);
-
-        LevelManager.getInstance().loadZoneAndAct(HTZ_ZONE_INDEX, ACT_2_INDEX);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_2, HTZ_ZONE_INDEX, ACT_2_INDEX);
     }
 
-    private Sonic sprite;
-    private HeadlessTestRunner testRunner;
+    @AfterClass
+    public static void cleanup() {
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
 
     @Before
     public void setUp() {
-        TestEnvironment.resetPerTest();
-        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        camera.setFrozen(false);
-
-        Level level = LevelManager.getInstance().getCurrentLevel();
-        if (level != null) {
-            camera.setMinX((short) level.getMinX());
-            camera.setMaxX((short) level.getMaxX());
-            camera.setMinY((short) level.getMinY());
-            camera.setMaxY((short) level.getMaxY());
-        }
-
-        camera.updatePosition(true);
-        testRunner = new HeadlessTestRunner(sprite);
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
+        sprite = (Sonic) fixture.sprite();
     }
 
     /**
@@ -101,11 +80,11 @@ public class TestHtzSpringLoop {
         // Position sprite at the spring loop test location
         sprite.setX(START_X);
         sprite.setY(START_Y);
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         // Reset the object manager's spawn window to the new camera position
         // so objects near our test position are spawned
-        LevelManager.getInstance().getObjectManager().reset(Camera.getInstance().getX());
+        LevelManager.getInstance().getObjectManager().reset(fixture.camera().getX());
 
         // Log initial state
         logState("Initial");
@@ -115,7 +94,7 @@ public class TestHtzSpringLoop {
         assertEquals("Initial Y position should match START_Y", START_Y, sprite.getY());
 
         // Step 1 frame holding right to initiate movement
-        testRunner.stepFrame(false, false, false, true, false);
+        fixture.stepFrame(false, false, false, true, false);
         logState("After 1 frame right");
 
         // Let simulation run 300 frames with no input
@@ -123,7 +102,7 @@ public class TestHtzSpringLoop {
         short prevGSpeed = sprite.getGSpeed();
         short prevXSpeed = sprite.getXSpeed();
         for (int i = 0; i < 300; i++) {
-            testRunner.stepIdleFrames(1);
+            fixture.stepIdleFrames(1);
             int frame = i + 2; // Frame number (1 was the initial right press)
 
             short gSpeed = sprite.getGSpeed();
