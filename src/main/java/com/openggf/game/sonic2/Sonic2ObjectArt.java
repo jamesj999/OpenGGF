@@ -3088,6 +3088,19 @@ public class Sonic2ObjectArt {
         return new ObjectSpriteSheet(combined, mappings, 0, 1);
     }
 
+    /**
+     * Load DEZ barrier wall sprite sheet (ObjC6 subtype $A8).
+     * ROM: ArtNem_ConstructionStripes at 0x827F8, palette line 1.
+     * Art tile: make_art_tile(ArtTile_ArtNem_ConstructionStripes_1,1,0) = $0328 | palette 1.
+     * 4 frames from ObjC6_MapUnc_3D1DE (construction stripe wall opening animation).
+     *
+     * @return sprite sheet for DEZ barrier wall, or null on failure
+     */
+    public ObjectSpriteSheet loadDEZWallSheet() {
+        return buildArtSheetFromRom(Sonic2Constants.ART_NEM_CONSTRUCTION_STRIPES_ADDR,
+                Sonic2Constants.MAP_UNC_DEZ_WALL_ADDR, 1, 1);
+    }
+
     // ========== MTZ Nut (Object 0x69) ==========
 
     /**

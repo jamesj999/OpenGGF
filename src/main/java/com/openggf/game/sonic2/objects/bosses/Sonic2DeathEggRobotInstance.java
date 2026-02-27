@@ -917,6 +917,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         state.yFixed = (int) bodyYFixed;
         state.updatePositionFromFixed();
 
+        // ROM: Head's ObjC7_Head routine calls loc_3E282 EVERY frame to reposition
+        // relative to the parent body. Head is NOT included in ObjC7_Break — it stays
+        // attached to the body throughout the defeat fall/bounce.
+        positionNonAnimatedChildren();
+
         if (state.y >= DEFEAT_FLOOR_Y) {
             state.y = DEFEAT_FLOOR_Y;
             bodyYFixed = (long) state.y << 16;
@@ -939,6 +944,9 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     /** Defeat phase 2: 64 frames of explosions, then lock controls and walk player right */
     private void updateDefeatExplode(int frameCounter) {
+        // ROM: Head stays attached during ground explosion phase (loc_3E282 every frame)
+        positionNonAnimatedChildren();
+
         actionTimer--;
         if (actionTimer >= 0) {
             // ROM: Boss_LoadExplosion only spawns every 8th frame
@@ -964,6 +972,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         if (player != null) {
             player.setControlLocked(true);
             player.setForceInputRight(true);
+            // Prevent pit death: clamp player Y to ground level during ending walk.
+            // The level collision may not extend far enough to the credits trigger X,
+            // so force the player to stay at ground height.
+            clampPlayerToGround(player);
         }
 
         Camera camera = Camera.getInstance();
@@ -995,6 +1007,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         if (player != null) {
             player.setControlLocked(true);
             player.setForceInputRight(true);
+            // Prevent pit death: clamp player Y to ground level during ending walk.
+            // The level collision may not extend far enough, so force the player to
+            // stay at the defeat floor height (matching ROM where the player walks
+            // on flat ground through to the credits trigger).
+            clampPlayerToGround(player);
         }
 
         defeatFrameCounter++;
@@ -1006,6 +1023,12 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 robotFollowOffset--;
             }
         }
+
+        // ROM: ObjC7_SetupEnding calls loc_3DFBA EVERY frame to spawn an explosion
+        // at the robot's position. This is a DIFFERENT function from Boss_LoadExplosion
+        // (no 8-frame throttle) — it creates a continuous trail of explosions behind
+        // the player as the robot follows.
+        spawnDefeatExplosion();
 
         // Position robot following behind the player
         if (player != null) {
@@ -1332,6 +1355,25 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     // HELPER METHODS
     // ========================================================================
 
+    /**
+     * Prevent the player from falling into a pit during the ending walk sequence.
+     * ROM: The player walks right on flat ground from the defeat position to the
+     * credits trigger at X=$EC0. If the engine's level collision doesn't extend
+     * that far, the player would fall and die. Clamp Y to a safe ground level
+     * and zero any downward velocity to keep the player walking on solid ground.
+     */
+    private void clampPlayerToGround(AbstractPlayableSprite player) {
+        // Use the defeat floor Y as the maximum safe ground level.
+        // The player's centre Y at the arena floor is approximately at DEFEAT_FLOOR_Y.
+        // If the player's Y exceeds this by more than a small margin, they've fallen
+        // off the level geometry — clamp them back.
+        int maxSafeY = DEFEAT_FLOOR_Y + 0x20; // small margin for normal ground height variation
+        if (player.getY() > maxSafeY) {
+            player.setY((short) maxSafeY);
+            player.setYSpeed((short) 0);
+        }
+    }
+
     private boolean isPlayerOnFacingSide(AbstractPlayableSprite player) {
         if (player == null) return false;
         int playerX = player.getCentreX();
@@ -1430,6 +1472,12 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
+        // ROM: ObjC7_SetupEnding does NOT call DisplaySprite — the robot body is
+        // invisible during the ending phase. Only the trailing explosions are visible.
+        if (defeatPhase >= 6) {
+            return;
+        }
+
         ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
         if (renderManager == null) return;
 

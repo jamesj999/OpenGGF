@@ -584,6 +584,7 @@ public class Sonic2Constants {
     public static final int MAP_UNC_WFZ_BOSS_ADDR = 0x3CCD8;             // ObjC5_MapUnc_3CCD8 (19 frames: case, walls, platforms, laser)
     public static final int MAP_UNC_WFZ_ROBOTNIK_PLATFORM_ADDR = 0x3CEBC; // ObjC6_MapUnc_3CEBC (1 frame: Robotnik platform)
     public static final int MAP_UNC_WFZ_ROBOTNIK_ADDR = 0x3D0EE;         // ObjC6_MapUnc_3D0EE (8 frames: Robotnik)
+    public static final int MAP_UNC_DEZ_WALL_ADDR = 0x3D1DE;             // ObjC6_MapUnc_3D1DE (4 frames: DEZ barrier wall, construction stripes)
 
     // HTZ Boss mappings (uncompressed)
     public static final int MAP_UNC_HTZ_BOSS_SMOKE_ADDR = 0x30258;  // Obj52_MapUnc_30258 (smoke particles)
