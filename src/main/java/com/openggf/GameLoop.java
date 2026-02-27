@@ -1867,9 +1867,11 @@ public class GameLoop {
         endingProvider.initialize();
         setGameMode(gameModeForPhase(endingProvider.getCurrentPhase()));
 
-        // Reveal the ending scene (screen is currently black from startEndingFade())
-        // ROM: PaletteFadeIn after loading ending art
-        FadeManager.getInstance().startFadeFromBlack(null);
+        // Reveal the ending scene (screen is currently white from startEndingFade's
+        // fade-to-white). ROM: Normal_palette starts all $0EEE (white), display enabled.
+        // Use startFadeFromWhite so the white overlay dissolves smoothly while the
+        // palette fade transitions line 0 from white to Photos colors.
+        FadeManager.getInstance().startFadeFromWhite(null);
 
         LOGGER.info("Entered ending sequence, phase=" + endingProvider.getCurrentPhase());
     }

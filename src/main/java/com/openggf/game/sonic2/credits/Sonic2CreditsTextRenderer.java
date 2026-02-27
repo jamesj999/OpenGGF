@@ -27,9 +27,10 @@ import java.util.logging.Logger;
  * an {@link ObjectSpriteSheet} and {@link PatternSpriteRenderer}, and draws
  * mapping frames from {@link Sonic2CreditsMappings}.
  * <p>
- * The credit screen uses the ending palette ({@code PAL_ENDING_FULL_ADDR}):
- * palette line 0 for names (white text) and palette line 1 for role titles
- * (yellow/gold text). Each mapping piece carries its own palette index.
+ * The credit screen uses a manually-constructed palette matching the ROM's
+ * {@code EndgameCredits} setup: palette line 0 color 6 = $EEE (white) for
+ * names, palette line 1 color 6 = $0EE (yellow) for role titles.
+ * Each mapping piece carries its own palette index.
  */
 public class Sonic2CreditsTextRenderer {
 
@@ -196,29 +197,33 @@ public class Sonic2CreditsTextRenderer {
     }
 
     /**
-     * Loads the ending palette from ROM (4 palette lines, 128 bytes total).
+     * Constructs the credits-specific palette matching the ROM's EndgameCredits setup.
      * <p>
-     * Palette line 0 = Ending Sonic palette (white text for names)
-     * Palette line 1 = Ending Tails palette (gold/yellow text for roles)
-     * Lines 2-3 = Ending background and photos palettes
+     * ROM reference (s2.asm EndgameCredits):
+     * <pre>
+     *   clr.w   (Target_palette).w                  ; clear pal line 0
+     *   move.w  #$EEE,(Target_palette+$C).w          ; line 0 color 6 = white
+     *   move.w  #$EE,(Target_palette_line2+$C).w     ; line 1 color 6 = yellow
+     * </pre>
+     * The credits screen does NOT load from PAL_ENDING_FULL_ADDR. It manually
+     * sets only two color entries: white for names (pal 0) and yellow for roles (pal 1).
      *
-     * @return array of 4 Palette objects, one per VDP palette line
+     * @return array of 2 Palette objects for credit text rendering
      */
     private Palette[] loadEndingPalettes(Rom rom) {
-        try {
-            byte[] fullData = rom.readBytes(Sonic2Constants.PAL_ENDING_FULL_ADDR,
-                    Sonic2Constants.PAL_ENDING_FULL_SIZE);
-            Palette[] palettes = new Palette[4];
-            for (int i = 0; i < 4; i++) {
-                byte[] lineData = Arrays.copyOfRange(fullData, i * 32, (i + 1) * 32);
-                palettes[i] = new Palette();
-                palettes[i].fromSegaFormat(lineData);
-            }
-            LOGGER.fine("Loaded 4 ending palette lines from ROM");
-            return palettes;
-        } catch (Exception e) {
-            LOGGER.warning("Failed to load ending palettes: " + e.getMessage());
-            return null;
-        }
+        Palette[] palettes = new Palette[2];
+
+        // Palette line 0: all black, color 6 = $EEE (white) for name text
+        palettes[0] = new Palette();
+        // MD $EEE: R=7, G=7, B=7 → scaled 255, 255, 255
+        palettes[0].setColor(6, new Palette.Color((byte) 0xFF, (byte) 0xFF, (byte) 0xFF));
+
+        // Palette line 1: all black, color 6 = $0EE (yellow) for role titles
+        palettes[1] = new Palette();
+        // MD $0EE: R=7, G=7, B=0 → scaled 255, 255, 0
+        palettes[1].setColor(6, new Palette.Color((byte) 0xFF, (byte) 0xFF, (byte) 0x00));
+
+        LOGGER.fine("Constructed credits-specific palettes (white names, yellow roles)");
+        return palettes;
     }
 }

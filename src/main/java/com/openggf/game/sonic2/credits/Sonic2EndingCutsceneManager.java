@@ -19,6 +19,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.logging.Logger;
@@ -144,10 +145,33 @@ public class Sonic2EndingCutsceneManager {
     // PaletteFadeFrom every frame to fade toward Target_palette.
     private Palette[] displayPalettes;
     private boolean paletteFadeActive;
+    // ROM ObjC9 fades only specific palette lines. Track which lines to fade.
+    private int paletteFadeStartLine;
+    private int paletteFadeEndLine;
 
-    // CHARACTER_APPEAR state
-    private int charAppearFrame;
-    private int charAppearAnimTimer;
+    // Photos palette (Pal_AD1E) — loaded into Target line 0 during photo display.
+    // ROM: ObjC9 subtype 4 loads Pal_AD1E into Target offset 0, length $F (line 0).
+    private Palette photosPalette;
+
+    // CHARACTER_APPEAR state — ROM spawns real Sonic/Tails object with Map_Sonic/Map_Tails
+    // Float2 animation: SonAni_Float2 dc.b 7,$54,$55,$56,$57,$58,$FF
+    //                    TailsAni_Float2 dc.b 9,$6E,$6F,$70,$71,$72,$FF
+    // Walk animation (Super Sonic): SonAni_Walk dc.b $FF,0,1,2,3,4,5,$FF
+    private static final int[] SONIC_FLOAT2_FRAMES = {0x54, 0x55, 0x56, 0x57, 0x58};
+    private static final int SONIC_FLOAT2_SPEED = 8; // speed byte 7 + 1
+    private static final int[] TAILS_FLOAT2_FRAMES = {0x6E, 0x6F, 0x70, 0x71, 0x72};
+    private static final int TAILS_FLOAT2_SPEED = 10; // speed byte 9 + 1
+    private static final int[] SONIC_WALK_FRAMES = {0, 1, 2, 3, 4, 5};
+    private static final int SONIC_WALK_SPEED = 4; // Approximation for inertia=$1000
+
+    // Player sprite rendering (for CHARACTER_APPEAR / CAMERA_SCROLL)
+    private List<SpriteMappingFrame> playerMappingFrames;
+    private int playerArtTile;
+    private int[] charAnimFrames;
+    private int charAnimSpeed;
+    private int charAnimIndex;
+    private int charAnimTimer;
+    private int charAppearPhase; // 0=initial ($40 frames), 1=after bg palette load ($C0 frames)
 
     // CAMERA_SCROLL state
     private float scrollProgress;
@@ -292,6 +316,17 @@ public class Sonic2EndingCutsceneManager {
         // ROM: Normal_palette filled with $0EEE0EEE (all white) at EndingSequence init
         initDisplayPalettes();
 
+        // Load Photos palette (Pal_AD1E, 32 bytes) for ObjC9 subtype 4 simulation.
+        // ROM: ObjCA_Init spawns ObjC9 subtype 4 which copies Pal_AD1E into
+        // Target_palette offset 0 (line 0), length $F. Photos use palette line 0.
+        try {
+            byte[] photosPalData = rom.readBytes(Sonic2Constants.PAL_ENDING_PHOTOS_ADDR, 32);
+            photosPalette = new Palette();
+            photosPalette.fromSegaFormat(photosPalData);
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load photos palette: " + e.getMessage());
+        }
+
         // Decode all 4 photo Enigma maps
         photoMaps = new int[PHOTO_COUNT][];
         for (int i = 0; i < PHOTO_COUNT; i++) {
@@ -306,10 +341,20 @@ public class Sonic2EndingCutsceneManager {
             animalFrames = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ28_A_ADDR);
             tornadoFrames = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJB2_A_ADDR);
             cloudFrames = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_CLOUD_ADDR);
+
+            // Load player mappings for CHARACTER_APPEAR rendering.
+            // ROM: ObjCA routine $A spawns real Sonic/Tails object using standard Map_Sonic/Map_Tails.
+            int playerMapAddr = (routine == Sonic2EndingArt.EndingRoutine.TAILS)
+                    ? Sonic2Constants.MAP_UNC_TAILS_ADDR
+                    : Sonic2Constants.MAP_UNC_SONIC_ADDR;
+            playerMappingFrames = S2SpriteDataLoader.loadMappingFrames(reader, playerMapAddr);
+            playerArtTile = endingArt.getPlayerArtTile();
+
             LOGGER.fine("Parsed sprite mappings: ObjCF=" + objCfFrames.size()
                     + " Obj28_a=" + animalFrames.size()
                     + " ObjB2=" + tornadoFrames.size()
-                    + " ObjB3=" + cloudFrames.size() + " frames");
+                    + " ObjB3=" + cloudFrames.size()
+                    + " Player=" + playerMappingFrames.size() + " frames");
         } catch (IOException e) {
             LOGGER.warning("Failed to parse sprite mappings: " + e.getMessage());
         }
@@ -452,16 +497,26 @@ public class Sonic2EndingCutsceneManager {
     // ========================================================================
 
     /**
-     * Enters the INIT state for the current photo. Resets display palettes to
-     * all-white and immediately transitions to PALETTE_WAIT_1.
+     * Enters the INIT state for the current photo.
+     * ROM reference: ObjCA routine 0 (ObjCA_Init) spawns ObjC9 subtype 4
+     * which calls PaletteFadeFrom to fade Normal_palette toward Target_palette.
+     * Normal_palette is only filled with $0EEE once at EndingSequence start,
+     * NOT reset per photo.
      */
     private void enterInit() {
         state = CutsceneState.INIT;
         stateFrameCounter = 0;
 
-        // Reset display palettes to all-white for this photo's fade-from-white
-        resetDisplayPalettesToWhite();
+        // ROM: ObjC9 subtype 4 copies Pal_AD1E (Photos palette) into Target line 0.
+        // Photos use palette line 0, so this sets the colors for photo display.
+        // The fade-down (loc_1344C) then decrements Normal line 0 toward Target line 0.
+        // Lines 1-3 of Normal are NOT faded by this ObjC9, so they stay white.
+        copyPhotosPaletteToTargetLine0();
+
+        // Enable palette fade for line 0 ONLY (ROM ObjC9 subtype 4: offset 0, length $F)
         paletteFadeActive = true;
+        paletteFadeStartLine = 0;
+        paletteFadeEndLine = 0;
 
         // Immediately transition to PALETTE_WAIT_1 (ROM: routine 0 → routine 2)
         state = CutsceneState.PALETTE_WAIT_1;
@@ -476,7 +531,15 @@ public class Sonic2EndingCutsceneManager {
     }
 
     private void updatePaletteSetup2() {
-        // ROM spawns second ObjC9 palette changer; we continue the same fade
+        // ROM: ObjCA routine 4 spawns ObjC9 subtype 6 → Pal_AD1E (Photos palette)
+        // into Target line 0 with fade-UP (loc_1348A). Since line 0 has already
+        // faded to the Photos palette target from Init's fade-down, this is
+        // effectively a no-op (incrementing toward a target we already reached).
+        // NO background palette loading happens here — that's at routine $A.
+        paletteFadeActive = true;
+        paletteFadeStartLine = 0;
+        paletteFadeEndLine = 0;
+
         state = CutsceneState.PALETTE_WAIT_2;
         stateFrameCounter = 0;
     }
@@ -540,33 +603,69 @@ public class Sonic2EndingCutsceneManager {
     private void enterCharacterAppear() {
         state = CutsceneState.CHARACTER_APPEAR;
         stateFrameCounter = 0;
+        charAppearPhase = 0;
 
-        // Character at X=$A0 (160), Y=$50 (80)
-        charAppearFrame = 5; // ObjCF anim 2 initial frame (floating)
-        charAppearAnimTimer = 0;
+        // Character at X=$A0 (160), Y=$50 (80) using Map_Sonic/Map_Tails
+        // ROM: SonAni_Float2 for Sonic/Tails, SonAni_Walk for Super Sonic
+        switch (routine) {
+            case SONIC -> {
+                charAnimFrames = SONIC_FLOAT2_FRAMES;
+                charAnimSpeed = SONIC_FLOAT2_SPEED;
+            }
+            case SUPER_SONIC -> {
+                charAnimFrames = SONIC_WALK_FRAMES;
+                charAnimSpeed = SONIC_WALK_SPEED;
+            }
+            case TAILS -> {
+                charAnimFrames = TAILS_FLOAT2_FRAMES;
+                charAnimSpeed = TAILS_FLOAT2_SPEED;
+            }
+        }
+        charAnimIndex = 0;
+        charAnimTimer = 0;
 
         // ROM: EndingSequence sets Camera_BG_Y_pos = $C8
         bgYPos = INITIAL_BG_Y_POS;
+
+        // ROM: ObjCA state transition spawns ObjC9 with character-specific subtype.
+        // d0=8 (Sonic) → Pal_AC7E lines 0-1; d0=$C (Super) → Pal_AD3E line 0;
+        // d0=$E (Tails) → Pal_AC9E lines 0-1. This replaces Photos palette in Target.
+        loadCharacterPaletteToTarget();
 
         LOGGER.fine("Cutscene: entering CHARACTER_APPEAR");
     }
 
     private void updateCharacterAppear() {
-        // Animate floating character: Ani_objCF anim 2: speed 1, frames 5->6 loop
-        charAppearAnimTimer++;
-        if (charAppearAnimTimer >= 2) { // speed 1 = tick every 2 frames
-            charAppearAnimTimer = 0;
-            charAppearFrame = (charAppearFrame == 5) ? 6 : 5;
+        // Animate player sprite using Float2 (Sonic/Tails) or Walk (Super Sonic) frames
+        charAnimTimer++;
+        if (charAnimTimer >= charAnimSpeed) {
+            charAnimTimer = 0;
+            charAnimIndex = (charAnimIndex + 1) % charAnimFrames.length;
         }
 
-        if (stateFrameCounter >= Sonic2CreditsData.CHARACTER_APPEAR_HOLD) {
+        // ROM: routine $A has two phases:
+        // Phase 0: Timer $40 (64 frames), then spawn ObjC9 subtype $A (Background)
+        // Phase 1: Timer $C0 (192 frames), then advance to CAMERA_SCROLL
+        if (charAppearPhase == 0 && stateFrameCounter >= 0x40) {
+            // ROM: moveq #$A,d0 → ObjC9 subtype $A = Pal_ACDE (Background)
+            // Copies 64 bytes into Target offset $40 (lines 2-3)
+            loadBackgroundPaletteToTarget();
+            paletteFadeActive = true;
+            paletteFadeStartLine = 2;
+            paletteFadeEndLine = 3;
+            charAppearPhase = 1;
+            stateFrameCounter = 0; // Reset for phase 1 timer
+        }
+
+        if (charAppearPhase == 1 && stateFrameCounter >= 0xC0) {
             enterCameraScroll();
         }
     }
 
     private void drawCharacterAppear(GraphicsManager gm) {
         gm.beginPatternBatch();
-        drawObjCfFrame(gm, charAppearFrame, 0xA0, 0x50, -1);
+        int frameIdx = charAnimFrames[charAnimIndex];
+        drawPlayerFrame(gm, frameIdx, 0xA0, 0x50);
         gm.flushPatternBatch();
     }
 
@@ -587,6 +686,13 @@ public class Sonic2EndingCutsceneManager {
         // With Camera_Y_pos_diff=$100, this increments ~1px/frame (256 subpixels in 8.8 fixed-point)
         bgYPos++;
 
+        // Character continues animating during camera scroll
+        charAnimTimer++;
+        if (charAnimTimer >= charAnimSpeed) {
+            charAnimTimer = 0;
+            charAnimIndex = (charAnimIndex + 1) % charAnimFrames.length;
+        }
+
         int duration = Sonic2CreditsData.CAMERA_SCROLL_SONIC_60FPS;
         if (routine == Sonic2EndingArt.EndingRoutine.TAILS) {
             duration = Sonic2CreditsData.CAMERA_SCROLL_TAILS_60FPS;
@@ -603,7 +709,8 @@ public class Sonic2EndingCutsceneManager {
         // Background transitions from white to sky via palette fade (setClearColor)
         // Character still visible floating at center
         gm.beginPatternBatch();
-        drawObjCfFrame(gm, charAppearFrame, 0xA0, 0x50, -1);
+        int frameIdx = charAnimFrames[charAnimIndex];
+        drawPlayerFrame(gm, frameIdx, 0xA0, 0x50);
         gm.flushPatternBatch();
     }
 
@@ -1126,6 +1233,19 @@ public class Sonic2EndingCutsceneManager {
     // ========================================================================
 
     /**
+     * Draws a player sprite frame (Map_Sonic/Map_Tails) at the given screen position.
+     * ROM: CHARACTER_APPEAR uses real Sonic/Tails object with ArtTile_ArtUnc_Sonic ($0780)
+     * or ArtTile_ArtUnc_Tails ($07A0). Player art is cached at PATTERN_BASE_VRAM + artTile.
+     */
+    private void drawPlayerFrame(GraphicsManager gm, int frameIndex, int x, int y) {
+        if (playerMappingFrames == null || frameIndex < 0 || frameIndex >= playerMappingFrames.size()) {
+            return;
+        }
+        int basePattern = Sonic2EndingArt.PATTERN_BASE_VRAM + playerArtTile;
+        drawMappingFrame(gm, playerMappingFrames, frameIndex, x, y, basePattern, 0);
+    }
+
+    /**
      * Draws an ObjCF mapping frame at the given screen position.
      * Uses PATTERN_BASE_VRAM so absolute VRAM tile indices in mapping pieces
      * resolve directly to GPU-cached patterns.
@@ -1223,24 +1343,12 @@ public class Sonic2EndingCutsceneManager {
         }
 
         cacheDisplayPalettes();
-        paletteFadeActive = true;
+        // Don't start fading yet — enterInit() will enable fade with proper line range.
+        // ROM: ObjC9 is spawned by ObjCA_Init, not at EndingSequence init.
+        paletteFadeActive = false;
+        paletteFadeStartLine = 0;
+        paletteFadeEndLine = 0;
         LOGGER.fine("Display palettes initialized as all-white for fade-from-white effect");
-    }
-
-    /**
-     * Resets display palettes back to all-white for the next photo's fade cycle.
-     */
-    private void resetDisplayPalettesToWhite() {
-        if (displayPalettes == null) return;
-        for (Palette palette : displayPalettes) {
-            if (palette == null) continue;
-            for (int c = 0; c < Palette.PALETTE_SIZE; c++) {
-                palette.setColor(c,
-                        new Palette.Color((byte) 0xFF, (byte) 0xFF, (byte) 0xFF));
-            }
-        }
-        cacheDisplayPalettes();
-        paletteFadeActive = true;
     }
 
     /**
@@ -1256,7 +1364,13 @@ public class Sonic2EndingCutsceneManager {
 
         boolean anyChanged = false;
 
-        for (int line = 0; line < displayPalettes.length && line < targetPalettes.length; line++) {
+        // ROM: ObjC9 only fades the palette line range specified by its start_offset/length.
+        // During photos, only line 0 fades. Lines 1-3 stay white (unchanged Normal).
+        int startLine = Math.max(0, paletteFadeStartLine);
+        int endLine = Math.min(Math.min(paletteFadeEndLine, displayPalettes.length - 1),
+                targetPalettes.length - 1);
+
+        for (int line = startLine; line <= endLine; line++) {
             if (displayPalettes[line] == null || targetPalettes[line] == null) continue;
             for (int c = 0; c < Palette.PALETTE_SIZE; c++) {
                 Palette.Color display = displayPalettes[line].getColor(c);
@@ -1303,6 +1417,107 @@ public class Sonic2EndingCutsceneManager {
                 }
             }
             return target;
+        }
+    }
+
+    /**
+     * Copies the Photos palette (Pal_AD1E) into Target palette line 0.
+     * ROM: ObjC9 subtype 4 at ObjCA_Init does this every photo cycle.
+     * C9PalInfo: loc_1344C, Pal_AD1E, offset 0, length $F (line 0 only).
+     */
+    private void copyPhotosPaletteToTargetLine0() {
+        if (photosPalette == null || endingArt == null) return;
+        Palette[] targetPalettes = endingArt.getEndingPalettes();
+        if (targetPalettes == null || targetPalettes.length == 0) return;
+
+        for (int c = 0; c < Palette.PALETTE_SIZE; c++) {
+            Palette.Color src = photosPalette.getColor(c);
+            targetPalettes[0].setColor(c, new Palette.Color(src.r, src.g, src.b));
+        }
+        LOGGER.fine("Target palette line 0 set to Photos palette (ObjC9 subtype 4)");
+    }
+
+    /**
+     * Loads character-specific palette into Target palette at the CHARACTER_APPEAR
+     * transition. ROM: d0=8 (Sonic) → subtype 8 = Pal_AC7E lines 0-1,
+     * d0=$C (Super) → subtype $C = Pal_AD3E line 0, d0=$E (Tails) → subtype $E = Pal_AC9E lines 0-1.
+     */
+    private void loadCharacterPaletteToTarget() {
+        if (endingArt == null) return;
+        Palette[] targetPalettes = endingArt.getEndingPalettes();
+        if (targetPalettes == null || targetPalettes.length < 2) return;
+
+        // Photos palette overwrote Target line 0. Restore character palette from ROM.
+        // ROM subtypes: 8 (Sonic) → Pal_AC7E 64B lines 0-1;
+        //               $C (Super) → Pal_AD3E 32B line 0;
+        //               $E (Tails) → Pal_AC9E 64B lines 0-1.
+        try {
+            com.openggf.data.Rom rom = com.openggf.game.GameServices.rom().getRom();
+            switch (routine) {
+                case SONIC -> {
+                    loadPaletteLinesToTarget(rom, Sonic2Constants.PAL_ENDING_SONIC_ADDR, 64,
+                            targetPalettes, 0);
+                    paletteFadeStartLine = 0;
+                    paletteFadeEndLine = 1;
+                }
+                case SUPER_SONIC -> {
+                    loadPaletteLinesToTarget(rom, Sonic2Constants.PAL_ENDING_SUPER_SONIC_ADDR, 32,
+                            targetPalettes, 0);
+                    paletteFadeStartLine = 0;
+                    paletteFadeEndLine = 0;
+                }
+                case TAILS -> {
+                    loadPaletteLinesToTarget(rom, Sonic2Constants.PAL_ENDING_TAILS_ADDR, 64,
+                            targetPalettes, 0);
+                    paletteFadeStartLine = 0;
+                    paletteFadeEndLine = 1;
+                }
+            }
+            paletteFadeActive = true;
+            LOGGER.fine("Target palette restored to character palette for " + routine);
+        } catch (Exception e) {
+            LOGGER.warning("Failed to reload character palette: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads palette data from ROM into Target palette lines starting at the given line.
+     * @param size number of bytes (32 = 1 line, 64 = 2 lines)
+     * @param startLine first Target palette line to write to
+     */
+    private void loadPaletteLinesToTarget(com.openggf.data.Rom rom, int addr, int size,
+                                           Palette[] targetPalettes, int startLine) throws IOException {
+        byte[] data = rom.readBytes(addr, size);
+        int lineCount = size / 32;
+        for (int line = 0; line < lineCount; line++) {
+            int targetLine = startLine + line;
+            if (targetLine >= targetPalettes.length) break;
+            Palette pal = new Palette();
+            pal.fromSegaFormat(Arrays.copyOfRange(data, line * 32, (line + 1) * 32));
+            for (int c = 0; c < Palette.PALETTE_SIZE; c++) {
+                Palette.Color src = pal.getColor(c);
+                targetPalettes[targetLine].setColor(c, new Palette.Color(src.r, src.g, src.b));
+            }
+        }
+    }
+
+    /**
+     * Loads Background palette (Pal_ACDE, 64 bytes) into Target palette lines 2-3.
+     * ROM: ObjC9 subtype $A at routine $A. C9PalInfo: loc_1344C, Pal_ACDE, $40, $1F.
+     */
+    private void loadBackgroundPaletteToTarget() {
+        if (endingArt == null) return;
+        Palette[] targetPalettes = endingArt.getEndingPalettes();
+        if (targetPalettes == null || targetPalettes.length <= 3) return;
+
+        try {
+            com.openggf.data.Rom rom = com.openggf.game.GameServices.rom().getRom();
+            // Pal_ACDE: 64 bytes → Target lines 2-3
+            loadPaletteLinesToTarget(rom, Sonic2Constants.PAL_ENDING_BACKGROUND_ADDR, 64,
+                    targetPalettes, 2);
+            LOGGER.fine("Target palette lines 2-3 updated with Background data (ObjC9 subtype $A)");
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load background palette: " + e.getMessage());
         }
     }
 
