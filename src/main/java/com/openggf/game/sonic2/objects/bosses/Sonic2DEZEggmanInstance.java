@@ -519,11 +519,27 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            // ROM: Uses ObjC6_MapUnc_3D1DE (construction stripes).
-            // We don't have these exact mappings loaded as a separate art sheet,
-            // so the wall is functionally invisible but provides solid collision.
-            // The visual effect is minimal since the wall is behind the Eggman sprite
-            // and only visible briefly before Eggman runs past it.
+            if (isDestroyed() || wallState == WALL_STATE_DELETE) return;
+
+            LevelManager lm;
+            try {
+                lm = LevelManager.getInstance();
+            } catch (Exception e) {
+                return;
+            }
+            if (lm == null) return;
+
+            ObjectRenderManager renderManager = lm.getObjectRenderManager();
+            if (renderManager == null) return;
+
+            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_WALL);
+            if (renderer == null || !renderer.isReady()) return;
+
+            // Frame 0 = full wall (4 segments), frames 1-3 = progressively smaller during opening
+            int frame = (wallState == WALL_STATE_OPENING)
+                    ? OPENING_FRAMES[Math.min(openingFrameIndex, OPENING_FRAMES.length - 1)]
+                    : 0;
+            renderer.drawFrameIndex(frame, wallX, wallY, false, false);
         }
     }
 }
