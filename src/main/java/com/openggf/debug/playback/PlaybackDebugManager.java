@@ -32,6 +32,8 @@ public final class PlaybackDebugManager {
     private String statusMessage = "Playback disabled";
     private int lastAppliedMask;
     private boolean lastAppliedStart;
+    private int previousActionMask;
+    private boolean currentForcedJumpPress;
     private GameMode lastObservedMode = GameMode.LEVEL;
     private int firstActiveFrame = -1;
     private int periodicLogCounter;
@@ -118,17 +120,29 @@ public final class PlaybackDebugManager {
         if (movie == null || timeline == null) {
             lastAppliedMask = 0;
             lastAppliedStart = false;
+            currentForcedJumpPress = false;
             return 0;
         }
         if (!timeline.isPlaying()) {
             lastAppliedMask = 0;
             lastAppliedStart = false;
+            currentForcedJumpPress = false;
             return 0;
         }
         Bk2FrameInput frame = movie.getFrame(timeline.getCursorFrame());
         lastAppliedMask = frame.p1InputMask();
         lastAppliedStart = frame.p1StartPressed();
+
+        int actionMask = frame.p1ActionMask();
+        int pressed = (actionMask ^ previousActionMask) & actionMask;
+        currentForcedJumpPress = pressed != 0;
+        previousActionMask = actionMask;
+
         return lastAppliedMask;
+    }
+
+    public synchronized boolean isCurrentForcedJumpPress() {
+        return currentForcedJumpPress;
     }
 
     public synchronized void onLevelFrameAdvanced() {
@@ -150,7 +164,10 @@ public final class PlaybackDebugManager {
     public synchronized void clearLastAppliedState() {
         lastAppliedMask = 0;
         lastAppliedStart = false;
+        currentForcedJumpPress = false;
+        previousActionMask = 0;
     }
+
 
     public synchronized List<String> buildOverlayLines(GameMode mode) {
         if (mode != null) {
@@ -238,8 +255,16 @@ public final class PlaybackDebugManager {
         clearLastAppliedState();
     }
 
+    /**
+     * Converts the user-configured BizHawk frame number to a 0-based internal index.
+     * BizHawk frame numbers correspond to 1-based line numbers in the Input Log file.
+     */
     private int getConfiguredStartOffset() {
-        return Math.max(0, configService.getInt(SonicConfiguration.PLAYBACK_START_OFFSET_FRAME));
+        int bk2Frame = configService.getInt(SonicConfiguration.PLAYBACK_START_OFFSET_FRAME);
+        if (movie != null) {
+            return Math.max(0, movie.bk2FrameToIndex(bk2Frame));
+        }
+        return Math.max(0, bk2Frame);
     }
 
     private static Path resolveAgainstWorkingDir(String configuredPath) {
