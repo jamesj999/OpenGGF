@@ -126,7 +126,7 @@ public final class HeadlessTestFixture {
          * This is an alternative to {@link #withSharedLevel} for tests
          * that need a different zone/act.
          */
-        public Builder zone(int zone, int act) {
+        public Builder withZoneAndAct(int zone, int act) {
             this.zone = zone;
             this.act = act;
             return this;
@@ -167,6 +167,11 @@ public final class HeadlessTestFixture {
          * @return a fully wired fixture ready for frame stepping
          */
         public HeadlessTestFixture build() {
+            if (sharedLevel == null && zone < 0) {
+                throw new IllegalStateException(
+                        "HeadlessTestFixture.Builder requires either withSharedLevel() or withZoneAndAct() before build()");
+            }
+
             // 1. Reset transient per-test state
             TestEnvironment.resetPerTest();
 
@@ -225,6 +230,9 @@ public final class HeadlessTestFixture {
             }
 
             // 10. Create context and runner
+            // GameContext wraps singletons post-setup. In Phase 1, build() accesses
+            // singletons directly; in a future phase, build() could route all access
+            // through GameContext once production code accepts it via constructor injection.
             GameContext context = GameContext.production();
             HeadlessTestRunner runner = new HeadlessTestRunner(sprite);
 

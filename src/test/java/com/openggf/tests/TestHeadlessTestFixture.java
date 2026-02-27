@@ -60,6 +60,7 @@ public class TestHeadlessTestFixture {
         Camera camera = fixture.camera();
         assertNotNull("Fixture should provide a non-null camera", camera);
         assertFalse("Camera should not be frozen after fixture build", camera.getFrozen());
+        assertTrue("Camera maxX should be non-zero after fixture build", camera.getMaxX() > 0);
     }
 
     @Test
@@ -85,6 +86,10 @@ public class TestHeadlessTestFixture {
 
     @Test
     public void testTwoFixturesDoNotInterfere() {
+        // Note: building fixture2 calls resetPerTest(), which clears SpriteManager.
+        // After fixture2 is built, fixture1 is no longer usable. Each fixture
+        // "owns" the singleton state between its build() and the next build().
+
         // Use the same known-good EHZ1 spawn point so the sprite is grounded
         HeadlessTestFixture fixture1 = HeadlessTestFixture.builder()
                 .withSharedLevel(shared)
