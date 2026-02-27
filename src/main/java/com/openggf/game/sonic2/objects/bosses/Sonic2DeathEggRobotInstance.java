@@ -11,6 +11,8 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TouchResponseProvider;
+import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.objects.boss.AbstractBossChild;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -132,6 +134,12 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private static final int DEFEAT_CAMERA_MAX_X = 0x1000;
     /** ROM: cmpi.w #$840,(Camera_X_pos).w */
     private static final int DEFEAT_CAMERA_WALK_TARGET = 0x840;
+    /** ROM: Player X threshold for ending trigger (ObjC7_SetupEnding, s2.asm:83050) */
+    private static final int DEFEAT_ENDING_PLAYER_X = 0xEC0;
+    /** ROM: Initial robot follow-offset behind player (ObjC7_SetupEnding) */
+    private static final int INITIAL_ROBOT_FOLLOW_OFFSET = 0x20;
+    /** ROM: Fade duration before credits transition (approx $16 = 22 frames) */
+    private static final int FADE_DURATION = 0x16;
     /** Break-apart velocities for 8 body parts (from ObjC7_BreakSpeeds, s2.asm:83258-83267) */
     static final int[][] BREAK_VELOCITIES = {
             {  0x200, -0x400 },  // Shoulder
@@ -394,7 +402,12 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private int targetedPlayerX; // ROM: objoff_28(a0) - reported by targeting sensor
 
     // Defeat sub-state
-    private int defeatPhase;    // 0=fall, 2=explode, 4=walk player right
+    private int defeatPhase;    // 0=fall, 2=explode, 4=walk, 6=setupEnding, 8=fade, 10=terminal
+
+    // Setup-ending state (ObjC7_SetupEnding, s2.asm:83050-83124)
+    private int robotFollowOffset;  // Robot trails player by this amount, decremented every 32 frames
+    private int defeatFrameCounter; // Frame counter for setup-ending rumble timing
+    private int fadeTimer;          // Countdown for fade-to-white before credits
 
     // Child references (10 permanent)
     private ArticulatedChild shoulder;
@@ -430,6 +443,9 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         attackPhase = 0;
         facingLeft = false; // ROM: x_flip = 0 (ObjC7_SubObjData render_flags bit 0 clear), art naturally faces LEFT
         defeatPhase = 0;
+        robotFollowOffset = 0;
+        defeatFrameCounter = 0;
+        fadeTimer = 0;
         targetedPlayerX = 0;
         frontPunchTriggered = false;
         backPunchTriggered = false;
@@ -460,10 +476,15 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         // Jet: priority 4 (same as front parts, ROM: subObjData inherited)
         jet = new JetChild(this, 4);
-        // Back parts: priority 5 (behind body, ROM: move.b #5,priority(a1))
-        backLowerLeg = new ArticulatedChild(this, "BackLowerLeg", 5, FRAME_LOWER_LEG);
-        backForearm = new ForearmChild(this, "BackForearm", 5, false);
-        backThigh = new ArticulatedChild(this, "BackThigh", 5, FRAME_THIGH);
+        // Back parts: priority 6 (behind body at priority 5).
+        // ROM: Within the same VDP priority, earlier sprites appear in front. The body
+        // is spawned before its children, so it appears in front of the back parts.
+        // In the Java engine's painter's algorithm, later = in front (opposite of VDP).
+        // Bucket 6 renders before bucket 5 (render loop goes high to low), so back parts
+        // at priority 6 render first (behind), and the body at priority 5 renders after (in front).
+        backLowerLeg = new ArticulatedChild(this, "BackLowerLeg", 6, FRAME_LOWER_LEG);
+        backForearm = new ForearmChild(this, "BackForearm", 6, false);
+        backThigh = new ArticulatedChild(this, "BackThigh", 6, FRAME_THIGH);
 
         childComponents.add(shoulder);
         childComponents.add(frontForearm);
@@ -527,6 +548,19 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     @Override
     protected boolean usesDefeatSequencer() {
         return false; // Custom defeat logic
+    }
+
+    /**
+     * Route body hits through the same unified pathway as head hits.
+     * ROM: ObjC7_CheckHit polls collision_flags on BOTH body and head, and both
+     * go through the same flash timer and collision restoration logic. By routing
+     * body hits through onHeadHit(), we prevent the inherited hitHandler.processHit()
+     * from using the wrong defeat path (which would set state.defeated=true without
+     * calling triggerDefeatSequence(), leaving state.invulnerable=true permanently).
+     */
+    @Override
+    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+        onHeadHit();
     }
 
     // ========================================================================
@@ -862,26 +896,20 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             case 0 -> updateDefeatFall(frameCounter);
             case 2 -> updateDefeatExplode(frameCounter);
             case 4 -> updateDefeatWalkPlayer(frameCounter, player);
-            case 6 -> {
-                // ROM: ObjC7_SetupEnding (s2.asm:83050-83124)
-                // - Makes the robot follow the walking player
-                // - Triggers palette fade to white
-                // - Sets game mode transition to ending/credits
-                // TODO: Implement full ObjC7_SetupEnding sequence:
-                //   1. Robot walks right following player (x_vel matching player speed)
-                //   2. After palette-to-white completes, set game mode to ending
-                //   3. Game mode transition triggers credits sequence
-                // For now, fade music and hold as terminal state.
-                AudioManager.getInstance().fadeOutMusic();
-                defeatPhase = 8; // Advance to terminal to avoid repeated fade calls
-            }
-            case 8 -> {} // Terminal: ending triggered, waiting for game mode change
+            case 6 -> updateDefeatSetupEnding(frameCounter, player);
+            case 8 -> updateDefeatFade();
+            case 10 -> {} // Terminal: ending triggered, waiting for game mode change
         }
     }
 
     /** Defeat phase 0: Fall with gravity, bounce at floor Y=$15C */
     private void updateDefeatFall(int frameCounter) {
-        spawnDefeatExplosion();
+        // ROM: Boss_LoadExplosion only spawns an explosion every 8th frame
+        // (andi.b #7,(Vint_runcount+3).w / bne.s rts). frameCounter is the
+        // Java equivalent of Vint_runcount.
+        if ((frameCounter & 7) == 0) {
+            spawnDefeatExplosion();
+        }
         // ObjectMoveAndFall
         bodyYFixed += ((long) state.yVel << 8);
         state.yVel += GRAVITY;
@@ -913,7 +941,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private void updateDefeatExplode(int frameCounter) {
         actionTimer--;
         if (actionTimer >= 0) {
-            spawnDefeatExplosion();
+            // ROM: Boss_LoadExplosion only spawns every 8th frame
+            if ((frameCounter & 7) == 0) {
+                spawnDefeatExplosion();
+            }
         } else {
             defeatPhase = 4;
             Camera camera = Camera.getInstance();
@@ -925,7 +956,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
     }
 
-    /** Defeat phase 4: Force player right, trigger ending when camera reaches $840 */
+    /** Defeat phase 4: Force player right, advance to setup-ending when camera reaches $840.
+     *  ROM: ObjC7_Phase3 (s2.asm) - lock controls, walk right until Camera_X >= $840. */
     private void updateDefeatWalkPlayer(int frameCounter, AbstractPlayableSprite player) {
         // ROM: move.b #1,(Ctrl_1_Locked).w — lock player controls
         // ROM: move.w #(btnRight<<8)|btnRight,(Ctrl_1_Logical).w — force walk right
@@ -936,15 +968,73 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         Camera camera = Camera.getInstance();
         if (camera != null && camera.getX() >= DEFEAT_CAMERA_WALK_TARGET) {
+            // ROM: ObjC7_SetupEnding (s2.asm:83050-83124)
+            // Advance to setup-ending phase. Do NOT trigger credits yet.
+            defeatPhase = 6;
+            robotFollowOffset = INITIAL_ROBOT_FOLLOW_OFFSET;
+            defeatFrameCounter = 0;
+
+            // ROM: set screen shake flag and DEZ shake timer ($1000)
             camera.setShakeOffsets(0, 4);
+
             if (head != null) {
                 head.setDestroyed(true);
             }
+        }
+    }
+
+    /**
+     * Defeat phase 6: ObjC7_SetupEnding - robot follows player with decreasing offset.
+     * ROM: Controls still locked, player keeps walking right.
+     * Screen shake + rumble sound every 32 frames, decrement follow-offset.
+     * Robot position: X = player_X - offset, Y = player_Y.
+     * Wait until Player X >= $EC0 (3776 decimal) before advancing to fade.
+     */
+    private void updateDefeatSetupEnding(int frameCounter, AbstractPlayableSprite player) {
+        // Keep player controls locked and forcing right
+        if (player != null) {
+            player.setControlLocked(true);
+            player.setForceInputRight(true);
+        }
+
+        defeatFrameCounter++;
+
+        // ROM: Every 32 frames: play rumble sound, decrement follow-offset
+        if ((defeatFrameCounter & 0x1F) == 0) {
+            AudioManager.getInstance().playSfx(Sonic2Sfx.RUMBLING_2.id);
+            if (robotFollowOffset > 0) {
+                robotFollowOffset--;
+            }
+        }
+
+        // Position robot following behind the player
+        if (player != null) {
+            state.x = player.getCentreX() - robotFollowOffset;
+            state.y = player.getCentreY();
+            bodyXFixed = (long) state.x << 16;
+            bodyYFixed = (long) state.y << 16;
+            state.xFixed = (int) bodyXFixed;
+            state.yFixed = (int) bodyYFixed;
+
+            // Check player X threshold for ending
+            if (player.getCentreX() >= DEFEAT_ENDING_PLAYER_X) {
+                defeatPhase = 8;
+                fadeTimer = FADE_DURATION;
+                AudioManager.getInstance().fadeOutMusic();
+            }
+        }
+    }
+
+    /**
+     * Defeat phase 8: Fade to white, then trigger credits transition.
+     * ROM: Fade palette to white over ~22 frames, then set game mode to ending.
+     */
+    private void updateDefeatFade() {
+        fadeTimer--;
+        if (fadeTimer < 0) {
             // ROM: move.b #id_Ending,(v_gamemode).w
-            // Signal GameLoop to begin the ending/credits sequence via fade-to-black.
-            // Music fade happens in defeatPhase 6 (after palette-to-white).
             LevelManager.getInstance().requestCreditsTransition();
-            defeatPhase = 6;
+            defeatPhase = 10; // Terminal state
         }
     }
 
@@ -1353,7 +1443,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     // INNER CLASS: ArticulatedChild - Body part with subpixel position tracking
     // ========================================================================
 
-    static class ArticulatedChild extends AbstractBossChild {
+    static class ArticulatedChild extends AbstractBossChild implements TouchResponseProvider {
         int frame;
         long xFixed;  // 32-bit subpixel position (as long for Java sign safety)
         long yFixed;
@@ -1423,6 +1513,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         public int getCollisionFlags() {
             return collisionFlags;
+        }
+
+        @Override
+        public int getCollisionProperty() {
+            return 0; // HURT-category objects don't use HP
         }
     }
 
@@ -1694,7 +1789,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     // ROM: Ani_objC7_b (4 animations)
     // ========================================================================
 
-    static class JetChild extends AbstractBossChild {
+    static class JetChild extends AbstractBossChild implements TouchResponseProvider {
         private int jetRoutine;
         private int jetAnimId;  // Current animation ID (0-3)
         private int jetFrame;
@@ -1790,6 +1885,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         public int getCollisionFlags() {
             return collisionFlags;
         }
+
+        @Override
+        public int getCollisionProperty() {
+            return 0; // HURT-category objects don't use HP
+        }
     }
 
     // ========================================================================
@@ -1804,6 +1904,15 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         private int beepCounter;    // Frames until next beep
         private int animIdx;        // Current frame in SENSOR_ANIM_FRAMES
         private int animTimer;      // Speed counter
+
+        // Lock-on visual state (ROM: ObjC7_TargettingLock child at routine $1A)
+        // ROM spawns a separate child that renders mapping_frame $14 with palette
+        // flashing (bchg #palette_bit_0,art_tile every 4 frames), priority 1,
+        // high_priority flag set. We implement this inline for simplicity.
+        static final int FRAME_LOCK_ON = 0x14;
+        private boolean lockOnActive;       // True when in lock-on phase (sensorRoutine == 4)
+        private boolean lockOnPaletteFlip;  // Toggles every 4 frames for palette flash
+        private int lockOnFlashCounter;     // Frame counter for 4-frame palette toggle
 
         // ROM-accurate 4-slot velocity FIFO buffer (3-frame delay)
         // ROM: ObjC7_TargettingSensor uses 4 slots at offsets $30-$3F
@@ -1824,6 +1933,9 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             this.beepCounter = 0; // ROM: angle byte = $00, first subq.b gives $FF (bit 7 set, bpl not taken = immediate beep)
             this.animIdx = 0;
             this.animTimer = 0;
+            this.lockOnActive = false;
+            this.lockOnPaletteFlip = false;
+            this.lockOnFlashCounter = 0;
         }
 
         @Override
@@ -1843,6 +1955,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                         sensorRoutine = 4;
                         countdown = 0x40; // 64 frames for lock-on
                         beepCounter = 4;
+                        // Activate lock-on visual (ROM: spawns ObjC7_TargettingLock child)
+                        lockOnActive = true;
+                        lockOnFlashCounter = 0;
+                        lockOnPaletteFlip = false;
                         // ROM: Snap sensor to player position when transitioning to lock-on
                         if (player != null) {
                             currentX = player.getCentreX();
@@ -1910,6 +2026,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                         AudioManager.getInstance().playSfx(Sonic2Sfx.BEEP.id);
                         beepCounter = 4;
                     }
+                    // ROM: ObjC7_TargettingLock — bchg #palette_bit_0,art_tile(a0) every 4 frames
+                    lockOnFlashCounter++;
+                    if ((lockOnFlashCounter & 3) == 0) {
+                        lockOnPaletteFlip = !lockOnPaletteFlip;
+                    }
                     stepAnim();
                 }
             }
@@ -1935,6 +2056,20 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
             renderer.drawFrameIndex(SENSOR_ANIM_FRAMES[animIdx], currentX, currentY, false, false);
+            // ROM: ObjC7_TargettingLock — draw frame $14 on top during lock-on phase
+            // with palette flashing (toggles palette line 0/1 every 4 frames)
+            if (lockOnActive) {
+                int palOverride = lockOnPaletteFlip ? 1 : -1;
+                renderer.drawFrameIndex(FRAME_LOCK_ON, currentX, currentY, false, false, palOverride);
+            }
+        }
+
+        boolean isLockOnActive() {
+            return lockOnActive;
+        }
+
+        boolean isLockOnPaletteFlip() {
+            return lockOnPaletteFlip;
         }
 
         public int getCollisionFlags() {
@@ -1946,7 +2081,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     // INNER CLASS: BombChild - Projectile with arc trajectory
     // ========================================================================
 
-    static class BombChild extends AbstractBossChild {
+    static class BombChild extends AbstractBossChild implements TouchResponseProvider {
         private int xVel;
         private int yVel;
         private int groundTimer;
@@ -2041,6 +2176,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         public int getCollisionFlags() {
             if (detonating && detonateFrame >= 5) return 0;
             return 0x89;
+        }
+
+        @Override
+        public int getCollisionProperty() {
+            return 0; // HURT-category objects don't use HP
         }
     }
 }

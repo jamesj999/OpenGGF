@@ -6,6 +6,8 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SolidObjectParams;
+import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -44,10 +46,14 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
     // POSITION & VELOCITY CONSTANTS (from ROM)
     // ========================================================================
 
-    /** ROM: move.w #$3F8,x_pos(a1) — child (solid wall) spawn X; Eggman inherits from layout. Reference only */
-    private static final int SPAWN_X = 0x3F8;
-    /** ROM: move.w #$160,y_pos(a1) — child (solid wall) spawn Y; Eggman inherits from layout. Reference only */
-    private static final int SPAWN_Y = 0x160;
+    /** ROM: move.w #$3F8,x_pos(a1) — solid wall child spawn X (ObjC6_State2_State1) */
+    private static final int WALL_X = 0x3F8;
+    /** ROM: move.w #$160,y_pos(a1) — solid wall child spawn Y (ObjC6_State2_State1) */
+    private static final int WALL_Y = 0x160;
+    /** ROM: solid wall half-width = $13 (19px) */
+    private static final int WALL_HALF_WIDTH = 0x13;
+    /** ROM: solid wall half-height = $20 (32px) */
+    private static final int WALL_HALF_HEIGHT = 0x20;
 
     /** ROM: addi.w #$5C,d2 / cmpi.w #$B8,d2 — proximity check radius */
     private static final int PROXIMITY_RADIUS = 0x5C;
@@ -112,6 +118,9 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
     // Reference to the Death Egg Robot for boarding signal
     private Sonic2DeathEggRobotInstance deathEggRobot;
 
+    // Barrier wall child (ObjC6 subtype $A8)
+    private BarrierWall barrierWall;
+
     // ========================================================================
     // CONSTRUCTOR
     // ========================================================================
@@ -119,8 +128,8 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
     /**
      * Create a new DEZ Eggman transition object.
      *
-     * @param spawnX initial X position (ROM: $3F8)
-     * @param spawnY initial Y position (ROM: $160)
+     * @param spawnX initial X position (ROM layout: $440)
+     * @param spawnY initial Y position (ROM layout: $168)
      */
     public Sonic2DEZEggmanInstance(int spawnX, int spawnY) {
         super(new ObjectSpawn(spawnX, spawnY, 0xC6, 0xA6, 0, false, 0), "DEZ Eggman");
@@ -186,12 +195,19 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
 
     /**
      * State 0: Init.
-     * ROM: ObjC6_State2_State1 — spawn child, set position, advance.
+     * ROM: ObjC6_State2_State1 — spawn solid wall child at ($3F8, $160), advance.
      */
     private void updateInit() {
-        // TODO: ROM spawns solid wall child (ObjC6 subtype $A8) at ($3F8, $160)
-        // using ObjC6_MapUnc_3D1DE (construction stripes), priority 1, width 8.
+        // ROM: Spawn solid wall child (ObjC6 subtype $A8) at ($3F8, $160)
+        // using ObjC6_MapUnc_3D1DE (construction stripes), priority 1,
+        // solid dimensions: half-width=$13, half-height=$20/$20.
         // This blocks the player from running past Eggman.
+        barrierWall = new BarrierWall(WALL_X, WALL_Y);
+        LevelManager lm = LevelManager.getInstance();
+        if (lm != null && lm.getObjectManager() != null) {
+            lm.getObjectManager().addDynamicObject(barrierWall);
+        }
+
         routineSecondary = STATE_WAIT_PLAYER;
         currentFrame = FRAME_STANDING;
     }
@@ -232,6 +248,11 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
             animFrameIndex = 0;
             animTimer = RUNNING_ANIM_SPEED;
             puffTimer = 0x10;
+
+            // ROM: When Eggman starts running, signal barrier wall to begin opening
+            if (barrierWall != null) {
+                barrierWall.signalEggmanRunning();
+            }
         }
     }
 
@@ -379,5 +400,130 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
 
         // Eggman always faces right (running away from player)
         renderer.drawFrameIndex(currentFrame, currentX, currentY, false, false);
+    }
+
+    // ========================================================================
+    // BARRIER WALL INNER CLASS (ObjC6 subtype $A8)
+    // ========================================================================
+
+    /**
+     * Solid barrier wall spawned by Eggman at ($3F8, $160) during ObjC6_State2_State1.
+     * ROM: Uses ObjC6_MapUnc_3D1DE (construction stripes), priority 1,
+     * solid dimensions: half-width=$13, half-height=$20/$20.
+     *
+     * State machine:
+     * - State1: Acts as solid wall. Polls parent Eggman's misc flag.
+     *           When Eggman starts running, advances to State2.
+     * - State2: Still solid. Plays opening animation (speed=1, frames {0,1,2,3},
+     *           $FA terminator advances to State3).
+     * - State3: Clears player pushing flag, deletes itself.
+     */
+    static class BarrierWall extends AbstractObjectInstance implements SolidObjectProvider {
+
+        private static final int WALL_STATE_SOLID = 0;
+        private static final int WALL_STATE_OPENING = 2;
+        private static final int WALL_STATE_DELETE = 4;
+
+        /** Opening animation: frames {0,1,2,3}, speed=1 (change every 2nd frame) */
+        private static final int[] OPENING_FRAMES = { 0, 1, 2, 3 };
+        private static final int OPENING_ANIM_SPEED = 1;
+
+        private final int wallX;
+        private final int wallY;
+        private int wallState;
+        private boolean eggmanRunning;
+
+        // Opening animation state
+        private int openingFrameIndex;
+        private int openingAnimTimer;
+
+        BarrierWall(int x, int y) {
+            super(new ObjectSpawn(x, y, 0xC6, 0xA8, 0, false, 0), "DEZ Barrier Wall");
+            this.wallX = x;
+            this.wallY = y;
+            this.wallState = WALL_STATE_SOLID;
+            this.eggmanRunning = false;
+            this.openingFrameIndex = 0;
+            this.openingAnimTimer = OPENING_ANIM_SPEED;
+        }
+
+        /** Called by parent Eggman when he starts running */
+        void signalEggmanRunning() {
+            this.eggmanRunning = true;
+        }
+
+        @Override
+        public int getX() {
+            return wallX;
+        }
+
+        @Override
+        public int getY() {
+            return wallY;
+        }
+
+        @Override
+        public boolean isPersistent() {
+            return true;
+        }
+
+        @Override
+        public int getPriorityBucket() {
+            return 1; // ROM: priority 1
+        }
+
+        @Override
+        public void update(int frameCounter, AbstractPlayableSprite player) {
+            if (isDestroyed()) return;
+
+            switch (wallState) {
+                case WALL_STATE_SOLID -> {
+                    // Wait for Eggman's running signal
+                    if (eggmanRunning) {
+                        wallState = WALL_STATE_OPENING;
+                        openingFrameIndex = 0;
+                        openingAnimTimer = OPENING_ANIM_SPEED;
+                    }
+                }
+                case WALL_STATE_OPENING -> {
+                    // Play opening animation
+                    openingAnimTimer--;
+                    if (openingAnimTimer < 0) {
+                        openingAnimTimer = OPENING_ANIM_SPEED;
+                        openingFrameIndex++;
+                        if (openingFrameIndex >= OPENING_FRAMES.length) {
+                            // ROM: $FA terminator advances to State3
+                            wallState = WALL_STATE_DELETE;
+                        }
+                    }
+                }
+                case WALL_STATE_DELETE -> {
+                    // ROM: State3 — clear player pushing flag, delete self
+                    if (player != null) {
+                        player.setPushing(false);
+                    }
+                    setDestroyed(true);
+                }
+            }
+        }
+
+        @Override
+        public SolidObjectParams getSolidParams() {
+            return new SolidObjectParams(WALL_HALF_WIDTH, WALL_HALF_HEIGHT, WALL_HALF_HEIGHT);
+        }
+
+        @Override
+        public boolean isSolidFor(AbstractPlayableSprite player) {
+            return !isDestroyed() && wallState != WALL_STATE_DELETE;
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            // ROM: Uses ObjC6_MapUnc_3D1DE (construction stripes).
+            // We don't have these exact mappings loaded as a separate art sheet,
+            // so the wall is functionally invisible but provides solid collision.
+            // The visual effect is minimal since the wall is behind the Eggman sprite
+            // and only visible briefly before Eggman runs past it.
+        }
     }
 }
