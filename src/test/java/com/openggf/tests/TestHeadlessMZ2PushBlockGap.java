@@ -1,19 +1,13 @@
 package com.openggf.tests;
 
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
-import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic1.objects.Sonic1PushBlockObjectInstance;
-import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
-import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -45,50 +39,32 @@ public class TestHeadlessMZ2PushBlockGap {
     private static final int MIN_FALL_DISTANCE = 32;
 
     @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-    private static String mainCharCode;
+
+    private static SharedLevel sharedLevel;
 
     @BeforeClass
     public static void loadLevel() throws Exception {
-        GraphicsManager.getInstance().initHeadless();
-        SonicConfigurationService cs = SonicConfigurationService.getInstance();
-        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-
-        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(temp);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(temp);
-        camera.setFrozen(false);
-
-        LevelManager.getInstance().loadZoneAndAct(ZONE_MZ, ACT_2);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_1, ZONE_MZ, ACT_2);
     }
 
-    private Sonic sprite;
-    private HeadlessTestRunner testRunner;
+    @AfterClass
+    public static void cleanup() {
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
+
+    private HeadlessTestFixture fixture;
 
     @Before
     public void setUp() {
-        TestEnvironment.resetPerTest();
-        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        camera.setFrozen(false);
-
-        Level level = LevelManager.getInstance().getCurrentLevel();
-        if (level != null) {
-            camera.setMinX((short) level.getMinX());
-            camera.setMaxX((short) level.getMaxX());
-            camera.setMinY((short) level.getMinY());
-            camera.setMaxY((short) level.getMaxY());
-        }
-
-        camera.updatePosition(true);
-        testRunner = new HeadlessTestRunner(sprite);
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
     }
 
     @Test
     public void testPushBlockClearsGapAndSonicFalls() {
+        Sonic sprite = (Sonic) fixture.sprite();
+
         sprite.setCentreX((short) START_CENTRE_X);
         sprite.setCentreY((short) START_CENTRE_Y);
         sprite.setAir(false);
@@ -96,14 +72,14 @@ public class TestHeadlessMZ2PushBlockGap {
         sprite.setYSpeed((short) 0);
         sprite.setGSpeed((short) 0);
 
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         // Let Sonic settle onto ground
         for (int i = 0; i < 10; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
-        Sonic1PushBlockObjectInstance block = findNearestPushBlock();
+        Sonic1PushBlockObjectInstance block = findNearestPushBlock(sprite);
         assertNotNull("Should find a push block near Sonic", block);
 
         int blockStartX = block.getX();
@@ -111,7 +87,7 @@ public class TestHeadlessMZ2PushBlockGap {
 
         // Hold right to push the block
         for (int frame = 0; frame < MAX_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
 
             int currentY = sprite.getCentreY();
             if (currentY > startY + MIN_FALL_DISTANCE) {
@@ -127,7 +103,7 @@ public class TestHeadlessMZ2PushBlockGap {
                 + " (moved " + (block.getX() - blockStartX) + "px)");
     }
 
-    private Sonic1PushBlockObjectInstance findNearestPushBlock() {
+    private Sonic1PushBlockObjectInstance findNearestPushBlock(Sonic sprite) {
         LevelManager lm = LevelManager.getInstance();
         if (lm == null || lm.getObjectManager() == null) return null;
 
