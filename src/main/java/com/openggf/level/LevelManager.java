@@ -4085,10 +4085,13 @@ public class LevelManager {
             for (int worldX = startX; worldX < endX; worldX += 8) {
                 int tileIdx = getPatternIndexAt(worldX, worldY, map);
                 if (tileIdx >= minTileIdx && tileIdx <= maxTileIdx) {
-                    // Found a matching pattern - calculate offset from ref to pattern center
-                    // Pattern center is at worldX+4, worldY+4
-                    int offsetX = (worldX + 4) - refX;
-                    int offsetY = (worldY + 4) - refY;
+                    // Found a matching pattern - snap to actual pattern boundary
+                    // Patterns are 8x8 and aligned to 8-pixel grid within the level
+                    int patternLeftX = worldX - (Math.floorMod(worldX, 8));
+                    int patternTopY = worldY - (Math.floorMod(worldY, 8));
+                    // Calculate offset from ref to pattern center
+                    int offsetX = (patternLeftX + 4) - refX;
+                    int offsetY = (patternTopY + 4) - refY;
                     return new int[]{offsetX, offsetY};
                 }
             }
