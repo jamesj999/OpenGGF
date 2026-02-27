@@ -240,6 +240,21 @@ public class LevelEditorManager {
     }
 
     /**
+     * Move the panel selection up by {@code count} items, clamping at 0.
+     */
+    public void movePanelSelectionPageUp(int count) {
+        panelSelection = Math.max(0, panelSelection - count);
+    }
+
+    /**
+     * Move the panel selection down by {@code count} items, clamping at max.
+     */
+    public void movePanelSelectionPageDown(int count) {
+        int maxSelection = getPanelItemCount() - 1;
+        panelSelection = Math.min(maxSelection, panelSelection + count);
+    }
+
+    /**
      * Returns the number of items in the side panel, depending on the current edit mode.
      */
     private int getPanelItemCount() {
