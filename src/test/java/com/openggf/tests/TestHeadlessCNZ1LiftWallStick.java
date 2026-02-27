@@ -1,18 +1,10 @@
 package com.openggf.tests;
 
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
-import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
-import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.managers.SpriteManager;
-import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
@@ -46,84 +38,63 @@ public class TestHeadlessCNZ1LiftWallStick {
     private static final int HOLD_LEFT_FRAMES = 40;
 
     @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-    private static String mainCharCode;
+    private static SharedLevel sharedLevel;
 
     @BeforeClass
     public static void loadLevel() throws Exception {
-        GraphicsManager.getInstance().initHeadless();
-        SonicConfigurationService cs = SonicConfigurationService.getInstance();
-        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-
-        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(temp);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(temp);
-        camera.setFrozen(false);
-
-        LevelManager.getInstance().loadZoneAndAct(ZONE_CNZ, ACT_1);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_2, ZONE_CNZ, ACT_1);
     }
 
-    private Sonic sprite;
-    private HeadlessTestRunner testRunner;
+    @AfterClass
+    public static void cleanup() {
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
+
+    private HeadlessTestFixture fixture;
 
     @Before
     public void setUp() {
-        TestEnvironment.resetPerTest();
-        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        camera.setFrozen(false);
-
-        Level level = LevelManager.getInstance().getCurrentLevel();
-        if (level != null) {
-            camera.setMinX((short) level.getMinX());
-            camera.setMaxX((short) level.getMaxX());
-            camera.setMinY((short) level.getMinY());
-            camera.setMaxY((short) level.getMaxY());
-        }
-
-        camera.updatePosition(true);
-        testRunner = new HeadlessTestRunner(sprite);
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
     }
 
     @Test
     public void testRidingStateDoesNotOscillateNearWall() {
-        sprite.setCentreX((short) START_CENTRE_X);
-        sprite.setCentreY((short) START_CENTRE_Y);
-        sprite.setAir(false);
-        sprite.setXSpeed((short) 0);
-        sprite.setYSpeed((short) 0);
-        sprite.setGSpeed((short) 0);
+        fixture.sprite().setCentreX((short) START_CENTRE_X);
+        fixture.sprite().setCentreY((short) START_CENTRE_Y);
+        fixture.sprite().setAir(false);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
 
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         // Let Sonic settle onto ground/platform
         for (int i = 0; i < SETTLE_FRAMES; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
         // Record if Sonic is on an object after settling
-        boolean wasOnObject = sprite.isOnObject();
+        boolean wasOnObject = fixture.sprite().isOnObject();
 
         // Hold left near the wall and track on-object state changes
         int oscillationCount = 0;
         boolean previousOnObject = wasOnObject;
-        int lastX = sprite.getCentreX();
+        int lastX = fixture.sprite().getCentreX();
         int maxXJitter = 0;
 
         for (int frame = 0; frame < HOLD_LEFT_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, true, false, false);
+            fixture.stepFrame(false, false, true, false, false);
 
-            boolean currentOnObject = sprite.isOnObject();
+            boolean currentOnObject = fixture.sprite().isOnObject();
             if (currentOnObject != previousOnObject) {
                 oscillationCount++;
             }
             previousOnObject = currentOnObject;
 
             // Track X position stability
-            int currentX = sprite.getCentreX();
+            int currentX = fixture.sprite().getCentreX();
             int jitter = Math.abs(currentX - lastX);
             if (jitter > maxXJitter) {
                 maxXJitter = jitter;
