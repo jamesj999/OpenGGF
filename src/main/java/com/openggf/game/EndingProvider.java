@@ -183,4 +183,27 @@ public interface EndingProvider {
     default void onReturnToText() {
         // no-op
     }
+
+    /**
+     * Returns whether the ending currently needs the DEZ level background
+     * rendered behind the cutscene sprites. When true, the engine calls
+     * {@link com.openggf.level.LevelManager#renderEndingBackground(int)}
+     * before {@link #draw()}.
+     *
+     * @return true if level background should be rendered this frame
+     */
+    default boolean needsLevelBackground() {
+        return false;
+    }
+
+    /**
+     * Returns the current background vertical scroll value.
+     * Maps to ROM's Vscroll_Factor_BG during the ending sequence.
+     * Only meaningful when {@link #needsLevelBackground()} returns true.
+     *
+     * @return BG vertical scroll in pixels
+     */
+    default int getBackgroundVscroll() {
+        return 0;
+    }
 }

@@ -1684,6 +1684,36 @@ public class LevelManager {
         }
     }
 
+    /**
+     * Renders the DEZ background during the ending cutscene.
+     * <p>
+     * Reuses the existing shader background pipeline with ending-specific parameters:
+     * camera at (0,0), BG vertical scroll from the ending provider, and DEZ
+     * parallax update via SwScrlDez TempArray accumulation.
+     * <p>
+     * ROM reference: During the ending, SwScrl_DEZ runs every frame with
+     * Camera_X_pos=0, Camera_BG_Y_pos starting at $C8 and incrementing during
+     * CAMERA_SCROLL. Stars animate via TempArray addq accumulation independent
+     * of camera movement.
+     *
+     * @param bgVscroll the current background vertical scroll value (ROM: Vscroll_Factor_BG)
+     */
+    public void renderEndingBackground(int bgVscroll) {
+        if (level == null || level.getMap() == null) {
+            return;
+        }
+        if (!useShaderBackground || graphicsManager.getBackgroundRenderer() == null) {
+            return;
+        }
+
+        // Update parallax with camera=(0,0) and the ending's BG vscroll
+        // This drives SwScrlDez TempArray accumulation for star parallax
+        frameCounter++;
+        parallaxManager.updateForEnding(currentZone, currentAct, frameCounter, bgVscroll);
+
+        // Render using the existing shader pipeline
+        renderBackgroundShader(collisionCommands, bgVscroll);
+    }
 
     private void enqueueForegroundTilemapPass(Camera camera, int priorityPass) {
         TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();

@@ -761,9 +761,19 @@ public class Engine {
 			if (levelSelect != null) {
 				levelSelect.draw();
 			}
-		} else if (getCurrentGameMode() == GameMode.CREDITS_TEXT
-				|| getCurrentGameMode() == GameMode.ENDING_CUTSCENE) {
-			// Credits text / ending cutscene: screen-space rendering
+		} else if (getCurrentGameMode() == GameMode.ENDING_CUTSCENE) {
+			// Ending cutscene: render DEZ background during sky phases, then cutscene sprites
+			camera.setX((short) 0);
+			camera.setY((short) 0);
+			EndingProvider provider = gameLoop.getEndingProvider();
+			if (provider != null) {
+				if (provider.needsLevelBackground()) {
+					levelManager.renderEndingBackground(provider.getBackgroundVscroll());
+				}
+				provider.draw();
+			}
+		} else if (getCurrentGameMode() == GameMode.CREDITS_TEXT) {
+			// Credits text: screen-space rendering (no background)
 			camera.setX((short) 0);
 			camera.setY((short) 0);
 			EndingProvider provider = gameLoop.getEndingProvider();

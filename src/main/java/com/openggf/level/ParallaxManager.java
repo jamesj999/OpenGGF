@@ -526,6 +526,40 @@ public class ParallaxManager {
         }
     }
 
+    /**
+     * Update parallax for the ending cutscene.
+     * <p>
+     * Uses camera (0,0) and a fixed BG vscroll value from the ending provider.
+     * Only drives the DEZ scroll handler (SwScrlDez) since DEZ is always the
+     * zone during the ending.
+     *
+     * @param zoneId     zone ID (should be ZONE_DEZ=10)
+     * @param actId      act ID
+     * @param frameCounter current frame counter
+     * @param bgVscroll  ending BG vertical scroll (ROM: Camera_BG_Y_pos)
+     */
+    public void updateForEnding(int zoneId, int actId, int frameCounter, int bgVscroll) {
+        java.util.Arrays.fill(hScroll, 0);
+        minScroll = Integer.MAX_VALUE;
+        maxScroll = Integer.MIN_VALUE;
+
+        // Camera is (0,0) during ending
+        int cameraX = 0;
+        vscrollFactorFG = 0;
+        vscrollFactorBG = (short) bgVscroll;
+
+        // Initialize zone if needed (ensures dezHandler is created)
+        initZone(zoneId, actId, cameraX, 0);
+
+        if (dezHandler != null) {
+            dezHandler.setVscrollFactorBG(vscrollFactorBG);
+            dezHandler.update(hScroll, cameraX, 0, frameCounter, actId);
+            minScroll = dezHandler.getMinScrollOffset();
+            maxScroll = dezHandler.getMaxScrollOffset();
+            vscrollFactorBG = dezHandler.getVscrollFactorBG();
+        }
+    }
+
     // ========== Zone-Specific Scroll Routines ==========
 
     /**
