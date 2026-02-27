@@ -5,6 +5,7 @@ import com.openggf.graphics.PixelFont;
 import com.openggf.graphics.TexturedQuadRenderer;
 import com.openggf.level.Block;
 import com.openggf.level.Level;
+import com.openggf.level.LevelManager;
 
 import java.util.Arrays;
 
@@ -87,6 +88,10 @@ public class LevelEditorManager {
     private TooltipBarRenderer tooltipBarRenderer;
     private ChunkPanelRenderer chunkPanelRenderer;
     private boolean initialized;
+
+    // -- Live level reference -----------------------------------------------
+
+    private Level currentLevel;
 
     // -- Editor camera position (pixels) ------------------------------------
 
@@ -414,6 +419,7 @@ public class LevelEditorManager {
      * Set the level for the editor, initializing dimensions from the Level object.
      */
     public void setLevel(Level level) {
+        this.currentLevel = level;
         this.chunkPanelRenderer.setLevel(level);
         int mapW = level.getLayerWidthBlocks(0);
         int mapH = level.getLayerHeightBlocks(0);
@@ -423,12 +429,93 @@ public class LevelEditorManager {
     }
 
     /**
-     * Process one frame of editor logic: input + camera follow.
+     * Process one frame of editor logic: input, edit actions, and camera follow.
      */
     public void update(InputHandler input) {
         EditorInputHandler.EditorAction action = this.inputHandler.update(input);
-        // Action handling (place/clear/eyedrop) is wired in Task 9
+
+        if (action != null && currentLevel != null) {
+            com.openggf.level.Map map = currentLevel.getMap();
+            if (map != null) {
+                switch (action) {
+                    case PLACE -> {
+                        if (editMode == EditMode.BLOCK) {
+                            placeBlock(map, panelSelection);
+                        } else {
+                            // In-place chunk edit: modify the existing block directly.
+                            // This is simpler than copy-on-write for MVP.
+                            placeChunkInPlace(map, panelSelection);
+                        }
+                        LevelManager.getInstance().invalidateForegroundTilemap();
+                    }
+                    case CLEAR -> {
+                        clearCell(map, currentLevel);
+                        LevelManager.getInstance().invalidateForegroundTilemap();
+                    }
+                    case EYEDROP -> {
+                        eyedropperFromLevel(map, currentLevel);
+                    }
+                }
+            }
+        }
+
         updateCameraFollow(320, 224);
+    }
+
+    /**
+     * In-place chunk edit: directly modifies the chunk descriptor in the existing block.
+     * Simpler than copy-on-write for an in-memory MVP editor.
+     */
+    private void placeChunkInPlace(com.openggf.level.Map map, int chunkIndex) {
+        int blockX = cursorX / chunksPerBlock;
+        int blockY = cursorY / chunksPerBlock;
+        int chunkX = cursorX % chunksPerBlock;
+        int chunkY = cursorY % chunksPerBlock;
+        int blockIndex = map.getValue(0, blockX, blockY) & 0xFF;
+        Block block = currentLevel.getBlock(blockIndex);
+        if (block != null) {
+            block.getChunkDesc(chunkX, chunkY).set(chunkIndex);
+        }
+    }
+
+    /**
+     * Clears the cell at the current cursor position using the live level.
+     */
+    private void clearCell(com.openggf.level.Map map, Level level) {
+        switch (editMode) {
+            case BLOCK -> map.setValue(0, cursorX, cursorY, (byte) 0);
+            case CHUNK -> {
+                int blockX = cursorX / chunksPerBlock;
+                int blockY = cursorY / chunksPerBlock;
+                int chunkX = cursorX % chunksPerBlock;
+                int chunkY = cursorY % chunksPerBlock;
+                int blockIndex = map.getValue(0, blockX, blockY) & 0xFF;
+                Block block = level.getBlock(blockIndex);
+                if (block != null) {
+                    block.getChunkDesc(chunkX, chunkY).set(0);
+                }
+            }
+        }
+    }
+
+    /**
+     * Picks the value under the cursor and sets it as the current panel selection.
+     */
+    private void eyedropperFromLevel(com.openggf.level.Map map, Level level) {
+        switch (editMode) {
+            case BLOCK -> panelSelection = map.getValue(0, cursorX, cursorY) & 0xFF;
+            case CHUNK -> {
+                int blockX = cursorX / chunksPerBlock;
+                int blockY = cursorY / chunksPerBlock;
+                int chunkX = cursorX % chunksPerBlock;
+                int chunkY = cursorY % chunksPerBlock;
+                int blockIndex = map.getValue(0, blockX, blockY) & 0xFF;
+                Block block = level.getBlock(blockIndex);
+                if (block != null) {
+                    panelSelection = block.getChunkDesc(chunkX, chunkY).getChunkIndex();
+                }
+            }
+        }
     }
 
     /**
