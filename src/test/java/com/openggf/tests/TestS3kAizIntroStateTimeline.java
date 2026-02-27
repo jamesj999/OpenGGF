@@ -1,21 +1,22 @@
 package com.openggf.tests;
 
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.Rule;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.LevelEventProvider;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.game.sonic3k.objects.AizIntroPlaneChild;
 import com.openggf.game.sonic3k.objects.CutsceneKnucklesAiz1Instance;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -29,52 +30,77 @@ import static org.junit.Assert.assertTrue;
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kAizIntroStateTimeline {
 
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
+    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
 
-    private Sonic sonic;
-    private HeadlessTestRunner runner;
-    private Object oldSkipIntros;
-    private Object oldMainCharacter;
+    private static final int ZONE_AIZ = 0;
+    private static final int ACT_1 = 0;
 
-    @Before
-    public void setUp() throws Exception {
+    // ROM source: sonic3k.asm:38174-38177 (Level_FromSavedGame override)
+    // move.w #$40,(Player_1+x_pos).w / move.w #$420,(Player_1+y_pos).w
+    private static final short AIZ1_INTRO_CENTRE_X = 0x40;
+    private static final short AIZ1_INTRO_CENTRE_Y = 0x420;
+
+    private static Object oldSkipIntros;
+    private static Object oldMainCharacter;
+    private static SharedLevel sharedLevel;
+
+    @BeforeClass
+    public static void loadLevel() throws Exception {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
         oldMainCharacter = config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE);
         config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, false);
         config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
 
-        GraphicsManager.getInstance().initHeadless();
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, ZONE_AIZ, ACT_1);
+    }
 
-        sonic = new Sonic("sonic", (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sonic);
+    @AfterClass
+    public static void cleanup() {
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS,
+                oldSkipIntros != null ? oldSkipIntros : false);
+        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE,
+                oldMainCharacter != null ? oldMainCharacter : "sonic");
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
 
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sonic);
-        camera.setFrozen(false);
+    private HeadlessTestFixture fixture;
+    private Sonic sonic;
 
-        LevelManager levelManager = LevelManager.getInstance();
-        levelManager.loadZoneAndAct(0, 0); // AIZ1 with intro enabled
-        GroundSensor.setLevelManager(levelManager);
-        camera.updatePosition(true);
+    @Before
+    public void setUp() {
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
+        sonic = (Sonic) fixture.sprite();
 
-        runner = new HeadlessTestRunner(sonic);
+        // Reposition sprite to the AIZ1 intro start position (centre coordinates),
+        // matching what loadCurrentLevel() does via DynamicStartPositionProvider.
+        sonic.setCentreX(AIZ1_INTRO_CENTRE_X);
+        sonic.setCentreY(AIZ1_INTRO_CENTRE_Y);
+        fixture.camera().updatePosition(true);
+
+        // Initialize level events after sprite is at the correct position.
+        LevelEventProvider lep = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        if (lep != null) {
+            lep.initLevel(ZONE_AIZ, ACT_1);
+        }
+
+        // Reset object manager so intro objects spawn fresh.
+        LevelManager.getInstance().getObjectManager().reset(0);
     }
 
     @After
     public void tearDown() {
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
-        config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, oldSkipIntros != null ? oldSkipIntros : false);
-        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE,
-                oldMainCharacter != null ? oldMainCharacter : "sonic");
+        // Config restore is handled by @AfterClass; nothing per-test to restore.
     }
 
     @Test
     public void recordsAizIntroStateTransitionTimeline() {
         LevelManager levelManager = LevelManager.getInstance();
         ObjectManager objectManager = levelManager.getObjectManager();
-        Camera camera = Camera.getInstance();
+        Camera camera = fixture.camera();
 
         List<IntroSnapshot> timeline = new ArrayList<>();
 
@@ -110,7 +136,7 @@ public class TestS3kAizIntroStateTimeline {
 
         final int maxFrames = 5000;
         for (int i = 0; i < maxFrames; i++) {
-            runner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
 
             AizPlaneIntroInstance intro = null;
             CutsceneKnucklesAiz1Instance knux = null;
@@ -205,7 +231,7 @@ public class TestS3kAizIntroStateTimeline {
                     || levelStarted != prevLevelStarted;
 
             if (changed) {
-                timeline.add(IntroSnapshot.capture(runner.getFrameCounter(), sonic, camera, intro, knux, plane));
+                timeline.add(IntroSnapshot.capture(fixture.frameCount(), sonic, camera, intro, knux, plane));
                 prevIntroPresent = introPresent;
                 prevKnuxPresent = knuxPresent;
                 prevPlanePresent = planePresent;
