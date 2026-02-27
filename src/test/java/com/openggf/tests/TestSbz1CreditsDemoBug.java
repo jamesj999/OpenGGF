@@ -1,18 +1,11 @@
 package com.openggf.tests;
 
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
-import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
-import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.managers.SpriteManager;
-import com.openggf.sprites.playable.Sonic;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
@@ -59,50 +52,31 @@ public class TestSbz1CreditsDemoBug {
     };
 
     @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-    private static String mainCharCode;
+    private static SharedLevel sharedLevel;
 
     @BeforeClass
     public static void loadLevel() throws Exception {
-        GraphicsManager.getInstance().initHeadless();
-        SonicConfigurationService cs = SonicConfigurationService.getInstance();
-        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-
-        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(temp);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(temp);
-        camera.setFrozen(false);
-
-        LevelManager.getInstance().loadZoneAndAct(ZONE_SBZ, ACT_1);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_1, ZONE_SBZ, ACT_1);
     }
 
-    private Sonic sprite;
-    private HeadlessTestRunner testRunner;
+    @AfterClass
+    public static void cleanup() {
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
+
+    private HeadlessTestFixture fixture;
 
     @Before
     public void setUp() {
-        TestEnvironment.resetPerTest();
-        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        camera.setFrozen(false);
-
-        Level level = LevelManager.getInstance().getCurrentLevel();
-        if (level != null) {
-            camera.setMinX((short) level.getMinX());
-            camera.setMaxX((short) level.getMaxX());
-            camera.setMinY((short) level.getMinY());
-            camera.setMaxY((short) level.getMaxY());
-        }
-
-        camera.updatePosition(true);
-        testRunner = new HeadlessTestRunner(sprite);
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
     }
 
     @Test
     public void testSonicDoesNotGetStuckInSbz1Tube() {
+        AbstractPlayableSprite sprite = fixture.sprite();
+
         // Set the credits demo start position
         sprite.setCentreX(START_X);
         sprite.setCentreY(START_Y);
@@ -111,11 +85,11 @@ public class TestSbz1CreditsDemoBug {
         sprite.setGSpeed((short) 0);
         sprite.setAir(true);  // Start airborne to settle onto terrain
 
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         // Let Sonic settle onto the ground
         for (int i = 0; i < 30; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
         System.out.printf("After settle: X=%d Y=%d air=%b%n",
                 sprite.getX(), sprite.getY(), sprite.getAir());
@@ -136,7 +110,7 @@ public class TestSbz1CreditsDemoBug {
             boolean jump = (buttons & 0x70) != 0;
 
             for (int f = 0; f < duration; f++) {
-                testRunner.stepFrame(up, down, left, right, jump);
+                fixture.stepFrame(up, down, left, right, jump);
                 totalFrame++;
 
                 short y = sprite.getY();
