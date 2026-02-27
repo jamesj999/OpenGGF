@@ -1,18 +1,14 @@
 package com.openggf.tests;
 
+import org.junit.AfterClass;
 import org.junit.Assume;
 import org.junit.Before;
-import org.junit.Rule;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
-import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -38,14 +34,14 @@ import static org.junit.Assert.*;
  * {@code ridingObject.getX()} (the BASE X of the parent staircase) instead of the
  * per-piece X. Since staircase pieces are 32px apart, Sonic's position relative to
  * the base X triggers false edge detection even when centered on a piece.
+ *
+ * <p>Level data is loaded once via {@link SharedLevel#load} in {@code @BeforeClass};
+ * sprite, camera, and game state are reset per test via {@link HeadlessTestFixture}.
  */
 @RequiresRom(SonicGame.SONIC_2)
 public class TestCPZObjectBugs {
 
-    @Rule public RequiresRomRule romRule = new RequiresRomRule();
-
-    private Sonic sprite;
-    private HeadlessTestRunner testRunner;
+    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
 
     // Zone/Act indices for loadZoneAndAct (not ROM zone IDs)
     // CPZ is zone index 1 in Sonic2ZoneRegistry (EHZ=0, CPZ=1, ARZ=2, CNZ=3, HTZ=4)
@@ -56,43 +52,30 @@ public class TestCPZObjectBugs {
     private static final int OBJ_SPIN_TUBE = 0x1E;
     private static final int OBJ_STAIRCASE = 0x78;
 
+    private static SharedLevel sharedLevel;
+
+    private HeadlessTestFixture fixture;
+    private Sonic sprite;
+
+    @BeforeClass
+    public static void loadLevel() throws Exception {
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_2, ZONE_CPZ, ACT_1);
+    }
+
+    @AfterClass
+    public static void cleanup() {
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
+
     @Before
-    public void setUp() throws Exception {
-        // Initialize headless graphics (no GL context needed)
-        GraphicsManager.getInstance().initHeadless();
+    public void setUp() {
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
+        sprite = (Sonic) fixture.sprite();
 
-        // Create Sonic sprite at origin (position set after level load)
-        SonicConfigurationService configService = SonicConfigurationService.getInstance();
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        sprite = new Sonic(mainCode, (short) 0, (short) 0);
-
-        // Add sprite to SpriteManager
-        SpriteManager.getInstance().addSprite(sprite);
-
-        // Set camera focus - must be done BEFORE level load
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        // Reset camera to ensure clean state (frozen may be left over from death in other tests)
-        camera.setFrozen(false);
-
-        // Load CPZ Act 1 (zone index 1, act index 0)
-        LevelManager.getInstance().loadZoneAndAct(ZONE_CPZ, ACT_1);
-
-        // Ensure GroundSensor uses the current LevelManager instance
-        // (static field may be stale from earlier tests)
-        GroundSensor.setLevelManager(LevelManager.getInstance());
-
-        // Fix camera position - loadZoneAndAct sets bounds AFTER updatePosition,
-        // so the camera may have been clamped incorrectly. Force update again now
-        // that bounds are set.
-        camera.updatePosition(true);
-
-        // Reset the object manager's spawn window to the new camera position
-        // so objects near our test position are spawned
-        LevelManager.getInstance().getObjectManager().reset(camera.getX());
-
-        // Create the headless test runner
-        testRunner = new HeadlessTestRunner(sprite);
+        // Reset the object manager's spawn window so objects near our test position are spawned
+        LevelManager.getInstance().getObjectManager().reset(fixture.camera().getX());
     }
 
     /**
@@ -122,8 +105,8 @@ public class TestCPZObjectBugs {
         sprite.setGSpeed((short) 0x400);
         sprite.setXSpeed((short) 0x400);
         sprite.setYSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
-        LevelManager.getInstance().getObjectManager().reset(Camera.getInstance().getX());
+        fixture.camera().updatePosition(true);
+        LevelManager.getInstance().getObjectManager().reset(fixture.camera().getX());
 
         logState("Initial (at tube 1920,896)");
 
@@ -132,7 +115,7 @@ public class TestCPZObjectBugs {
 
         // Step frames — the tube should capture Sonic almost immediately
         for (int frame = 0; frame < 600; frame++) {
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
 
             if (!tubeEntered && sprite.isObjectControlled()) {
                 tubeEntered = true;
@@ -192,8 +175,8 @@ public class TestCPZObjectBugs {
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
-        LevelManager.getInstance().getObjectManager().reset(Camera.getInstance().getX());
+        fixture.camera().updatePosition(true);
+        LevelManager.getInstance().getObjectManager().reset(fixture.camera().getX());
 
         logState("Initial (above staircase at " + staircaseX + "," + staircaseY + ")");
 
@@ -202,7 +185,7 @@ public class TestCPZObjectBugs {
 
         // Drop onto the staircase - wait for landing on an object
         for (int frame = 0; frame < 120; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
 
             if (sprite.isOnObject() && !sprite.getAir()) {
                 ObjectInstance ridingObj = objMgr.getRidingObject(sprite);
@@ -219,7 +202,7 @@ public class TestCPZObjectBugs {
 
                     // Step a few idle frames to let physics settle
                     for (int settle = 0; settle < 10; settle++) {
-                        testRunner.stepFrame(false, false, false, false, false);
+                        fixture.stepFrame(false, false, false, false, false);
                         sprite.setGSpeed((short) 0);
                         sprite.setXSpeed((short) 0);
                     }
@@ -229,7 +212,7 @@ public class TestCPZObjectBugs {
                     // Final check frame - reset balance state and let one physics
                     // frame run to see if false balance is detected
                     sprite.setBalanceState(0);
-                    testRunner.stepFrame(false, false, false, false, false);
+                    fixture.stepFrame(false, false, false, false, false);
 
                     logState("Final check");
 
