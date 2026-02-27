@@ -66,6 +66,7 @@ public class SpriteManager {
 	private int giveEmeraldsKey;
 	private int frameCounter;
 	private boolean inputSuppressed;
+	private boolean playbackInputSuppressed;
 
 	private SpriteManager() {
 		sprites = new HashMap<String, Sprite>();
@@ -123,6 +124,8 @@ public class SpriteManager {
 		clearAllSprites();
 		levelManager = null;
 		frameCounter = 0;
+		inputSuppressed = false;
+		playbackInputSuppressed = false;
 	}
 
 	public Collection<Sprite> getAllSprites() {
@@ -159,12 +162,13 @@ public class SpriteManager {
 		// Note: bucketsDirty is already marked in addSprite()/removeSprite(),
 		// no need to unconditionally mark dirty every frame
 		Collection<Sprite> sprites = getAllSprites();
-		boolean up = !inputSuppressed && handler.isKeyDown(upKey);
-		boolean down = !inputSuppressed && handler.isKeyDown(downKey);
-		boolean left = !inputSuppressed && handler.isKeyDown(leftKey);
-		boolean right = !inputSuppressed && handler.isKeyDown(rightKey);
-		boolean space = !inputSuppressed && handler.isKeyDown(jumpKey);
-		boolean testButton = !inputSuppressed && handler.isKeyDown(testKey);
+		boolean suppressInput = inputSuppressed || playbackInputSuppressed;
+		boolean up = !suppressInput && handler.isKeyDown(upKey);
+		boolean down = !suppressInput && handler.isKeyDown(downKey);
+		boolean left = !suppressInput && handler.isKeyDown(leftKey);
+		boolean right = !suppressInput && handler.isKeyDown(rightKey);
+		boolean space = !suppressInput && handler.isKeyDown(jumpKey);
+		boolean testButton = !suppressInput && handler.isKeyDown(testKey);
 		boolean speedUp = isDebugSpeedUpModifierDown(handler);
 		boolean slowDown = isDebugSlowDownModifierDown(handler);
 		boolean debugModePressed = handler.isKeyPressed(debugModeKey);
@@ -519,6 +523,14 @@ public class SpriteManager {
 	 */
 	public void setInputSuppressed(boolean suppressed) {
 		this.inputSuppressed = suppressed;
+	}
+
+	/**
+	 * Suppresses keyboard-driven gameplay input specifically for playback mode.
+	 * This is separate from generic suppression used by title cards/credits.
+	 */
+	public void setPlaybackInputSuppressed(boolean suppressed) {
+		this.playbackInputSuppressed = suppressed;
 	}
 
 	private boolean isCpuSidekickSuppressed() {

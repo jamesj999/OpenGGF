@@ -27,7 +27,9 @@ public class TestObjectManagerLifecycle {
         manager.update(0, null, null, 1);
         assertEquals(2, manager.getActiveObjects().size());
 
+        // Placement updates are streamed for the next frame; run one tick to apply.
         manager.update(2000, null, null, 2);
+        manager.update(2000, null, null, 3);
 
         assertEquals(1, manager.getActiveObjects().size());
         assertTrue(manager.getActiveObjects().contains(registry.instances.get(persistentSpawn)));

@@ -26,8 +26,6 @@ import com.openggf.game.sonic3k.objects.FireShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.LightningShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.BubbleShieldObjectInstance;
 
-import java.util.logging.Logger;
-
 /**
  * ROM-accurate movement handler for playable sprites.
  * Implements exact order of operations from Sonic 2 ROM disassembly (s2.asm:36145-37700).
@@ -38,7 +36,6 @@ import java.util.logging.Logger;
  * - Obj01_MdAir/MdJump: airborne (air=true)
  */
 public class PlayableSpriteMovement extends AbstractSpriteMovementManager<AbstractPlayableSprite> {
-	private static final Logger LOGGER = Logger.getLogger(PlayableSpriteMovement.class.getName());
 
 	// ROM spindash speed table (s2.asm:37294) - indexed by spindash_counter >> 8
 	private static final short[] SPINDASH_SPEEDS = {
@@ -1575,7 +1572,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		inputLeft = left;
 		inputRight = right;
 		inputJump = sprite.isHurt() ? false : jump;
-		inputJumpPress = jump && !jumpPrevious;
+		inputJumpPress = (jump && !jumpPrevious) || sprite.isForcedJumpPress();
+		sprite.setForcedJumpPress(false); // consume one-shot signal
 		jumpPrevious = jump;
 	}
 
