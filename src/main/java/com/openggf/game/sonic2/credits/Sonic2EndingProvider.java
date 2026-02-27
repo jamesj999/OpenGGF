@@ -215,6 +215,22 @@ public class Sonic2EndingProvider implements EndingProvider {
         }
     }
 
+    @Override
+    public boolean needsLevelBackground() {
+        if (cutsceneManager != null && (state == InternalState.CUTSCENE || state == InternalState.CUTSCENE_FADE_OUT)) {
+            return cutsceneManager.needsLevelBackground();
+        }
+        return false;
+    }
+
+    @Override
+    public int getBackgroundVscroll() {
+        if (cutsceneManager != null) {
+            return cutsceneManager.getBackgroundVscroll();
+        }
+        return 0;
+    }
+
     // ========================================================================
     // Manager accessors (for GameLoop integration)
     // ========================================================================

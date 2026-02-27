@@ -105,6 +105,9 @@ public class Sonic2EndingCutsceneManager {
     private static final int SCREEN_WIDTH = 320;
     private static final int SCREEN_HEIGHT = 224;
 
+    /** ROM: Camera_BG_Y_pos initial value ($C8 = 200). */
+    private static final int INITIAL_BG_Y_POS = 0xC8;
+
     // ========================================================================
     // Photo sequence constants
     // ========================================================================
@@ -148,6 +151,10 @@ public class Sonic2EndingCutsceneManager {
 
     // CAMERA_SCROLL state
     private float scrollProgress;
+
+    // Background vertical scroll tracking (ROM: Camera_BG_Y_pos)
+    // Starts at $C8 (200) during CHARACTER_APPEAR, increments during CAMERA_SCROLL
+    private int bgYPos;
 
     // MAIN_ENDING: ObjCC tornado state
     private TornadoSubState tornadoSubState;
@@ -399,6 +406,23 @@ public class Sonic2EndingCutsceneManager {
     }
 
     /**
+     * Returns whether the level background (DEZ star field) should be rendered
+     * behind the cutscene sprites. Active during CAMERA_SCROLL and MAIN_ENDING.
+     */
+    public boolean needsLevelBackground() {
+        return state == CutsceneState.CAMERA_SCROLL
+                || state == CutsceneState.MAIN_ENDING;
+    }
+
+    /**
+     * Returns the current background vertical scroll value (ROM: Vscroll_Factor_BG).
+     * Starts at $C8 during CHARACTER_APPEAR, increments during CAMERA_SCROLL.
+     */
+    public int getBackgroundVscroll() {
+        return bgYPos;
+    }
+
+    /**
      * Sets the OpenGL clear color for the ending cutscene.
      * Uses palette line 2 color 0 from display palettes (starts white, fades to target).
      * ROM reference: VDP register $8720 = palette 2, color 0.
@@ -521,6 +545,9 @@ public class Sonic2EndingCutsceneManager {
         charAppearFrame = 5; // ObjCF anim 2 initial frame (floating)
         charAppearAnimTimer = 0;
 
+        // ROM: EndingSequence sets Camera_BG_Y_pos = $C8
+        bgYPos = INITIAL_BG_Y_POS;
+
         LOGGER.fine("Cutscene: entering CHARACTER_APPEAR");
     }
 
@@ -556,6 +583,10 @@ public class Sonic2EndingCutsceneManager {
     }
 
     private void updateCameraScroll() {
+        // ROM: SetHorizVertiScrollFlagsBG adds Camera_Y_pos_diff << 8 to Camera_BG_Y_pos
+        // With Camera_Y_pos_diff=$100, this increments ~1px/frame (256 subpixels in 8.8 fixed-point)
+        bgYPos++;
+
         int duration = Sonic2CreditsData.CAMERA_SCROLL_SONIC_60FPS;
         if (routine == Sonic2EndingArt.EndingRoutine.TAILS) {
             duration = Sonic2CreditsData.CAMERA_SCROLL_TAILS_60FPS;
