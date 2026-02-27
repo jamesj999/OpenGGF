@@ -550,6 +550,15 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         return false; // Custom defeat logic
     }
 
+    @Override
+    public boolean isPersistent() {
+        // During the defeat walk/ending sequence, the robot body follows the player
+        // far past its original spawn X ($0840). Without persistence, the Placement
+        // system despawns it when the spawn leaves the camera window, killing the
+        // explosion trail, player Y clamp, and credits trigger.
+        return state.defeated;
+    }
+
     /**
      * Route body hits through the same unified pathway as head hits.
      * ROM: ObjC7_CheckHit polls collision_flags on BOTH body and head, and both
