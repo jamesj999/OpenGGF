@@ -1,17 +1,10 @@
 package com.openggf.tests;
 
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
-import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
-import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -39,53 +32,35 @@ public class TestS1SpikeDoubleHit {
     private static final int FRAMES_AFTER_DAMAGE = 10;
 
     @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-    private static String mainCharCode;
+
+    private static SharedLevel sharedLevel;
 
     @BeforeClass
     public static void loadLevel() throws Exception {
-        GraphicsManager.getInstance().initHeadless();
-        SonicConfigurationService cs = SonicConfigurationService.getInstance();
-        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-
-        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(temp);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(temp);
-        camera.setFrozen(false);
-
-        LevelManager.getInstance().loadZoneAndAct(LZ_ZONE, LZ_ACT_3);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_1, LZ_ZONE, LZ_ACT_3);
     }
 
-    private Sonic sprite;
-    private HeadlessTestRunner testRunner;
+    @AfterClass
+    public static void cleanup() {
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
+
+    private HeadlessTestFixture fixture;
 
     @Before
     public void setUp() {
-        TestEnvironment.resetPerTest();
-        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        camera.setFrozen(false);
-
-        Level level = LevelManager.getInstance().getCurrentLevel();
-        if (level != null) {
-            camera.setMinX((short) level.getMinX());
-            camera.setMaxX((short) level.getMaxX());
-            camera.setMinY((short) level.getMinY());
-            camera.setMaxY((short) level.getMaxY());
-        }
-
-        camera.updatePosition(true);
-        testRunner = new HeadlessTestRunner(sprite);
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
     }
 
     @Test
     public void ceilingSpikesShouldNotKillSonicWithRings() {
+        Sonic sprite = (Sonic) fixture.sprite();
+
         // Let level settle and objects spawn
         for (int i = 0; i < 10; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
         // Place Sonic below the ceiling spike and give him rings.
@@ -99,7 +74,7 @@ public class TestS1SpikeDoubleHit {
 
         // Let Sonic settle onto the ground for a few frames
         for (int i = 0; i < 3; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
         int groundY = sprite.getCentreY();
@@ -118,7 +93,7 @@ public class TestS1SpikeDoubleHit {
         sprite.setAir(true);
         sprite.setYSpeed((short) -1440);
 
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         int damageFrame = -1;
         int damageCount = 0;
@@ -126,7 +101,7 @@ public class TestS1SpikeDoubleHit {
 
         // Step up to 60 frames — enough to hit spike, bounce, land, and survive
         for (int frame = 0; frame < 60; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
 
             boolean isHurtNow = sprite.isHurt();
             boolean tookDamage = !wasHurt && isHurtNow;
