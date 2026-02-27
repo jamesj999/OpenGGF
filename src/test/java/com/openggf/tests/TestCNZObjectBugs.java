@@ -1,18 +1,15 @@
 package com.openggf.tests;
 
+import org.junit.AfterClass;
 import org.junit.Assume;
 import org.junit.Before;
-import org.junit.Rule;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -45,13 +42,25 @@ import static org.junit.Assert.*;
 @RequiresRom(SonicGame.SONIC_2)
 public class TestCNZObjectBugs {
 
-    @Rule public RequiresRomRule romRule = new RequiresRomRule();
-
-    private Sonic sprite;
-    private HeadlessTestRunner testRunner;
+    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
 
     private static final int ZONE_CNZ = 3;
     private static final int ACT_1 = 0;
+
+    private static SharedLevel sharedLevel;
+
+    @BeforeClass
+    public static void loadLevel() throws Exception {
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_2, ZONE_CNZ, ACT_1);
+    }
+
+    @AfterClass
+    public static void cleanup() {
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
+
+    private HeadlessTestFixture fixture;
+    private Sonic sprite;
 
     // Object IDs from Sonic2ObjectIds
     private static final int OBJ_BUMPER = 0x44;
@@ -64,28 +73,14 @@ public class TestCNZObjectBugs {
     private static final int BOUNCE_VELOCITY_THRESHOLD = 0x600;
 
     @Before
-    public void setUp() throws Exception {
-        GraphicsManager.getInstance().initHeadless();
+    public void setUp() {
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
+        sprite = (Sonic) fixture.sprite();
 
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
-        String mainCode = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        sprite = new Sonic(mainCode, (short) 0, (short) 0);
-
-        SpriteManager.getInstance().addSprite(sprite);
-
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        camera.setFrozen(false);
-
-        LevelManager.getInstance().loadZoneAndAct(ZONE_CNZ, ACT_1);
-
-        GroundSensor.setLevelManager(LevelManager.getInstance());
-
-        camera.updatePosition(true);
-
-        LevelManager.getInstance().getObjectManager().reset(camera.getX());
-
-        testRunner = new HeadlessTestRunner(sprite);
+        // Reset object spawn windows (was in original @Before)
+        LevelManager.getInstance().getObjectManager().reset(fixture.camera().getX());
     }
 
     // ========================================================================
@@ -136,7 +131,7 @@ public class TestCNZObjectBugs {
         sprite.setX((short) x);
         sprite.setY((short) y);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = fixture.camera();
         camera.updatePosition(true);
 
         ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
@@ -145,7 +140,7 @@ public class TestCNZObjectBugs {
         }
 
         // Step a few frames to let spawning take effect
-        testRunner.stepIdleFrames(5);
+        fixture.stepIdleFrames(5);
     }
 
     /**
@@ -211,7 +206,7 @@ public class TestCNZObjectBugs {
         sprite.setGSpeed((short) 0);
         sprite.setYSpeed((short) 0x200); // Falling downward
 
-        Camera camera = Camera.getInstance();
+        Camera camera = fixture.camera();
         camera.updatePosition(true);
 
         logState("Before drop");
@@ -219,7 +214,7 @@ public class TestCNZObjectBugs {
         // Step frames until bounce is detected (YSpeed becomes negative)
         boolean bounced = false;
         for (int i = 0; i < 60; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
 
             short ySpeed = sprite.getYSpeed();
             if (ySpeed < 0) {
@@ -287,7 +282,7 @@ public class TestCNZObjectBugs {
         // Step 300 frames, tracking the block's Y position
         int maxExcursion = 0;
         for (int frame = 0; frame < 300; frame++) {
-            testRunner.stepIdleFrames(1);
+            fixture.stepIdleFrames(1);
 
             int currentY = bigBlock.getY();
             int excursion = Math.abs(currentY - initialY);
@@ -328,7 +323,7 @@ public class TestCNZObjectBugs {
         teleportAndRefresh(3311, 1305);
 
         // Let Sonic settle onto the ground
-        testRunner.stepIdleFrames(30);
+        fixture.stepIdleFrames(30);
         logState("After settling");
 
         // Record X position
@@ -337,7 +332,7 @@ public class TestCNZObjectBugs {
 
         // Hold LEFT for 30 frames
         for (int frame = 0; frame < 30; frame++) {
-            testRunner.stepFrame(false, false, true, false, false);
+            fixture.stepFrame(false, false, true, false, false);
             if (frame % 10 == 0) {
                 logState("Left frame " + frame);
             }
@@ -376,7 +371,7 @@ public class TestCNZObjectBugs {
 
         // Hold DOWN for 10 frames (charge on spring)
         for (int frame = 0; frame < 10; frame++) {
-            testRunner.stepFrame(false, true, false, false, false);
+            fixture.stepFrame(false, true, false, false, false);
         }
         logState("After charging");
 
@@ -387,7 +382,7 @@ public class TestCNZObjectBugs {
         int trappedYMax = 1110;
 
         for (int frame = 0; frame < 500; frame++) {
-            testRunner.stepIdleFrames(1);
+            fixture.stepIdleFrames(1);
 
             int currentY = sprite.getY();
 
@@ -487,12 +482,12 @@ public class TestCNZObjectBugs {
             sprite.setGSpeed((short) 0);
             sprite.setYSpeed((short) 0x400);  // Falling downward toward block
 
-            Camera.getInstance().updatePosition(true);
+            fixture.camera().updatePosition(true);
             logState("Before approach (Y-bounce block, approaching from above)");
 
             boolean bounced = false;
             for (int i = 0; i < 60; i++) {
-                testRunner.stepFrame(false, false, false, false, false);
+                fixture.stepFrame(false, false, false, false, false);
                 if (sprite.getYSpeed() < 0) {
                     bounced = true;
                     logState("Bounced at frame " + (i + 1));
@@ -514,12 +509,12 @@ public class TestCNZObjectBugs {
             sprite.setGSpeed((short) 0x400);
             sprite.setYSpeed((short) 0);
 
-            Camera.getInstance().updatePosition(true);
+            fixture.camera().updatePosition(true);
             logState("Before approach (X-bounce block, approaching from left)");
 
             boolean bounced = false;
             for (int i = 0; i < 60; i++) {
-                testRunner.stepFrame(false, false, false, false, false);
+                fixture.stepFrame(false, false, false, false, false);
                 if (sprite.getXSpeed() < 0) {
                     bounced = true;
                     logState("Bounced at frame " + (i + 1));
@@ -533,7 +528,7 @@ public class TestCNZObjectBugs {
                     sprite.getXSpeed() <= -BOUNCE_VELOCITY_THRESHOLD);
 
         } else {
-            // baseAnimFrame 1: velocity reflection block — approach from left
+            // baseAnimFrame 1: velocity reflection block -- approach from left
             // The reflection should change velocity direction based on surface angle
             sprite.setCentreX((short) (blockX - 20));
             sprite.setCentreY((short) blockY);
@@ -542,14 +537,14 @@ public class TestCNZObjectBugs {
             sprite.setGSpeed((short) 0x400);
             sprite.setYSpeed((short) 0x200);
 
-            Camera.getInstance().updatePosition(true);
+            fixture.camera().updatePosition(true);
             logState("Before approach (velocity-reflection block)");
 
             short origXSpeed = sprite.getXSpeed();
             short origYSpeed = sprite.getYSpeed();
             boolean bounced = false;
             for (int i = 0; i < 60; i++) {
-                testRunner.stepFrame(false, false, false, false, false);
+                fixture.stepFrame(false, false, false, false, false);
                 // Velocity reflection changes both components
                 if (sprite.getXSpeed() != origXSpeed || sprite.getYSpeed() != origYSpeed) {
                     if (Math.abs(sprite.getXSpeed()) > 0x200 || Math.abs(sprite.getYSpeed()) > 0x200) {
@@ -617,7 +612,7 @@ public class TestCNZObjectBugs {
         sprite.setXSpeed((short) 0);
         sprite.setGSpeed((short) 0);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = fixture.camera();
         camera.updatePosition(true);
 
         logState("Before capture");
@@ -627,7 +622,7 @@ public class TestCNZObjectBugs {
         int damageFrame = -1;
 
         for (int frame = 0; frame < 120; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
 
             boolean dead = sprite.getDead();
             boolean hurt = sprite.isHurt();
@@ -669,7 +664,7 @@ public class TestCNZObjectBugs {
     /**
      * Bug #16: Sonic must survive the PointPokey capture-eject cycle.
      *
-     * <p>ROM behavior: SolidObject → RideObject_SetRide (s2.asm:35761) clears
+     * <p>ROM behavior: SolidObject -> RideObject_SetRide (s2.asm:35761) clears
      * in_air when the player lands on the cage. ObjD6 capture code (s2.asm:58596-58608)
      * does not modify in_air. The player has air=false during the 120-frame capture.
      * Grounded camera scroll (6px/frame cap, bias=96) centers the camera on the cage
@@ -713,7 +708,7 @@ public class TestCNZObjectBugs {
         sprite.setGSpeed((short) 0);
         sprite.setYSpeed((short) 0x400); // Falling downward
 
-        Camera camera = Camera.getInstance();
+        Camera camera = fixture.camera();
         camera.updatePosition(true);
 
         logState("Before capture");
@@ -721,7 +716,7 @@ public class TestCNZObjectBugs {
         // Step frames until Sonic is captured (objectControlled becomes true)
         boolean captured = false;
         for (int i = 0; i < 30; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             if (sprite.isObjectControlled()) {
                 captured = true;
                 System.out.println("Captured at frame " + (i + 1));
@@ -746,7 +741,7 @@ public class TestCNZObjectBugs {
 
         boolean ejected = false;
         for (int frame = 0; frame < captureFrames; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
 
             // Check if ejected (objectControlled becomes false)
             if (!sprite.isObjectControlled() && frame > 5) {
@@ -777,7 +772,7 @@ public class TestCNZObjectBugs {
 
         // Step 60 more frames and verify Sonic doesn't die
         for (int frame = 0; frame < 60; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             if (sprite.getDead()) {
                 logState("DEAD at frame " + (frame + 1) + " after eject");
                 break;
