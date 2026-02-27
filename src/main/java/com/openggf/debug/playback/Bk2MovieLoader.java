@@ -50,7 +50,8 @@ public final class Bk2MovieLoader {
 
             List<String> inputLines = readEntryLines(zip, inputLogEntry);
             ParsedInputLog parsed = parseInputLog(inputLines);
-            return new Bk2Movie(bk2Path, parsed.logKey(), headerMetadata, parsed.frames());
+            return new Bk2Movie(bk2Path, parsed.logKey(), headerMetadata, parsed.frames(),
+                    parsed.firstFrameLineNumber());
         }
     }
 
@@ -99,8 +100,13 @@ public final class Bk2MovieLoader {
         String logKey = null;
         List<String> frameLines = new ArrayList<>();
         boolean inInputBlock = false;
+        // Track the 1-based line number of the first frame data line so that
+        // frame indices match BizHawk's display (which uses 1-based file line numbers).
+        int firstFrameLineNumber = -1;
+        int lineNumber = 0;
 
         for (String line : lines) {
+            lineNumber++;
             String stripped = stripBom(line);
             String trimmed = stripped.trim();
             if (trimmed.startsWith("LogKey:")) {
@@ -122,6 +128,9 @@ public final class Bk2MovieLoader {
             }
             if (trimmed.startsWith("LogKey:")) {
                 continue;
+            }
+            if (firstFrameLineNumber < 0) {
+                firstFrameLineNumber = lineNumber;
             }
             frameLines.add(trimmed);
         }
@@ -149,6 +158,7 @@ public final class Bk2MovieLoader {
             boolean a = isPressed(bindings.bindings().get(Button.A), fields);
             boolean b = isPressed(bindings.bindings().get(Button.B), fields);
             boolean c = isPressed(bindings.bindings().get(Button.C), fields);
+            int actionMask = (a ? 0x01 : 0) | (b ? 0x02 : 0) | (c ? 0x04 : 0);
 
             if (isPressed(bindings.bindings().get(Button.UP), fields)) {
                 mask |= AbstractPlayableSprite.INPUT_UP;
@@ -169,10 +179,10 @@ public final class Bk2MovieLoader {
                 startPressed = true;
             }
 
-            frames.add(new Bk2FrameInput(i, mask, startPressed, raw));
+            frames.add(new Bk2FrameInput(i, mask, actionMask, startPressed, raw));
         }
 
-        return new ParsedInputLog(logKey, frames);
+        return new ParsedInputLog(logKey, frames, Math.max(1, firstFrameLineNumber));
     }
 
     private static FrameBindings resolveBindings(List<String> logKeyFields, List<String> firstFrameFields) {
@@ -401,7 +411,7 @@ public final class Bk2MovieLoader {
     private record FrameBindings(EnumMap<Button, FieldBinding> bindings) {
     }
 
-    private record ParsedInputLog(String logKey, List<Bk2FrameInput> frames) {
+    private record ParsedInputLog(String logKey, List<Bk2FrameInput> frames, int firstFrameLineNumber) {
     }
 
     private record GroupDescriptor(List<String> tokens) {

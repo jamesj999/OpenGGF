@@ -111,6 +111,7 @@ public class GameLoop {
     private volatile boolean userPaused = false;  // Keyboard toggle pause
     private boolean playbackInputSuppressed = false;
     private boolean playbackForcedMaskApplied = false;
+    private boolean playbackFrameConsumed = false;
 
     public GameLoop() {
     }
@@ -473,7 +474,9 @@ public class GameLoop {
                 profiler.beginSection("physics");
                 spriteManager.update(inputHandler);
                 profiler.endSection("physics");
-                playbackDebugManager.onLevelFrameAdvanced();
+                if (playbackFrameConsumed) {
+                    playbackDebugManager.onLevelFrameAdvanced();
+                }
 
                 // Dynamic level events update boundary targets (game-specific)
                 LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
@@ -521,6 +524,7 @@ public class GameLoop {
     }
 
     private void syncPlaybackInputBridge() {
+        playbackFrameConsumed = false;
         boolean shouldDrive = playbackDebugManager.isDriving(currentGameMode);
         if (shouldDrive != playbackInputSuppressed) {
             spriteManager.setPlaybackInputSuppressed(shouldDrive);
@@ -530,15 +534,17 @@ public class GameLoop {
         AbstractPlayableSprite player = getMainPlayableSprite();
         if (shouldDrive && player != null) {
             player.setForcedInputMask(playbackDebugManager.getCurrentForcedInputMask());
+            player.setForcedJumpPress(playbackDebugManager.isCurrentForcedJumpPress());
             playbackForcedMaskApplied = true;
+            playbackFrameConsumed = true;
             return;
         }
 
         playbackDebugManager.clearLastAppliedState();
-        if (currentGameMode == GameMode.LEVEL && playbackForcedMaskApplied && player != null) {
+        if (playbackForcedMaskApplied && player != null) {
             player.clearForcedInputMask();
             playbackForcedMaskApplied = false;
-        } else if (currentGameMode == GameMode.LEVEL && player == null) {
+        } else if (player == null) {
             playbackForcedMaskApplied = false;
         }
     }
