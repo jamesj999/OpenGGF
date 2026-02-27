@@ -1,0 +1,124 @@
+package com.openggf.tests;
+
+import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Level;
+import com.openggf.level.LevelManager;
+import com.openggf.physics.GroundSensor;
+import com.openggf.sprites.managers.SpriteManager;
+import com.openggf.sprites.playable.Sonic;
+import com.openggf.tests.rules.SonicGame;
+
+import java.io.IOException;
+
+/**
+ * Encapsulates the {@code @BeforeClass} level loading pattern used across
+ * headless test classes. Loads a level once and stores the result for reuse.
+ * <p>
+ * Usage:
+ * <pre>
+ * {@literal @}BeforeClass
+ * public static void loadLevel() throws Exception {
+ *     shared = SharedLevel.load(SonicGame.SONIC_2, 0, 0);
+ * }
+ *
+ * {@literal @}AfterClass
+ * public static void cleanup() {
+ *     if (shared != null) shared.dispose();
+ * }
+ * </pre>
+ */
+public final class SharedLevel {
+
+    private final Level level;
+    private final SonicGame game;
+    private final int zone;
+    private final int act;
+
+    private SharedLevel(Level level, SonicGame game, int zone, int act) {
+        this.level = level;
+        this.game = game;
+        this.zone = zone;
+        this.act = act;
+    }
+
+    /**
+     * Loads a level in headless mode and returns a {@code SharedLevel} holding
+     * the loaded data.
+     * <p>
+     * This replicates the {@code @BeforeClass} boilerplate found in
+     * {@code TestS2Ehz1Headless}, {@code TestHeadlessCNZ1LiftWallStick}, etc.:
+     * <ol>
+     *   <li>Init headless graphics</li>
+     *   <li>Create a temporary Sonic sprite and register it</li>
+     *   <li>Set camera focus and unfreeze</li>
+     *   <li>Load the requested zone and act</li>
+     *   <li>Wire {@link GroundSensor} to the level manager</li>
+     *   <li>Set camera bounds from the loaded level</li>
+     * </ol>
+     *
+     * @param game the game whose ROM is loaded (for documentation/querying)
+     * @param zone zone index (e.g. 0 = EHZ for Sonic 2)
+     * @param act  act index (0-based)
+     * @return a new {@code SharedLevel} with the loaded level data
+     */
+    public static SharedLevel load(SonicGame game, int zone, int act) throws IOException {
+        GraphicsManager.getInstance().initHeadless();
+
+        SonicConfigurationService cs = SonicConfigurationService.getInstance();
+        String mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+
+        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
+        SpriteManager.getInstance().addSprite(temp);
+        Camera camera = Camera.getInstance();
+        camera.setFocusedSprite(temp);
+        camera.setFrozen(false);
+
+        LevelManager lm = LevelManager.getInstance();
+        lm.loadZoneAndAct(zone, act);
+        GroundSensor.setLevelManager(lm);
+
+        Level level = lm.getCurrentLevel();
+        if (level != null) {
+            camera.setMinX((short) level.getMinX());
+            camera.setMaxX((short) level.getMaxX());
+            camera.setMinY((short) level.getMinY());
+            camera.setMaxY((short) level.getMaxY());
+        }
+        camera.updatePosition(true);
+
+        return new SharedLevel(level, game, zone, act);
+    }
+
+    /**
+     * Cleans up state after the shared level is no longer needed.
+     * Resets LevelManager, SpriteManager, and Camera state.
+     */
+    public void dispose() {
+        LevelManager.getInstance().resetState();
+        SpriteManager.getInstance().resetState();
+        Camera.getInstance().resetState();
+    }
+
+    /** Returns the loaded level, or {@code null} if loading failed. */
+    public Level level() {
+        return level;
+    }
+
+    /** Returns the game type that was used to load this level. */
+    public SonicGame game() {
+        return game;
+    }
+
+    /** Returns the zone index. */
+    public int zone() {
+        return zone;
+    }
+
+    /** Returns the act index. */
+    public int act() {
+        return act;
+    }
+}
