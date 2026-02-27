@@ -13,6 +13,7 @@ import com.openggf.level.objects.TouchResponseTable;
 
 import java.util.List;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
@@ -65,7 +66,7 @@ public class TestDEZMechaSonic {
     }
 
     @Test
-    public void attackPatternTableCyclesCorrectly() {
+    public void attackPatternTableCyclesCorrectly() throws Exception {
         // The attack table has 16 entries and cycles via & 0x0F
         int[] expectedTable = {
                 0x06, 0x00, 0x10, 0x06, 0x06, 0x1E, 0x00, 0x10,
@@ -74,6 +75,13 @@ public class TestDEZMechaSonic {
 
         // Verify the attack index starts at 0
         assertEquals("Attack index should start at 0", 0, boss.getAttackIndex());
+
+        // Verify the static attack table matches ROM byte_398B0
+        java.lang.reflect.Field field =
+                Sonic2MechaSonicInstance.class.getDeclaredField("ATTACK_TABLE");
+        field.setAccessible(true);
+        int[] actual = (int[]) field.get(null);
+        assertArrayEquals("Attack table should match ROM byte_398B0", expectedTable, actual);
     }
 
     @Test
@@ -93,19 +101,37 @@ public class TestDEZMechaSonic {
         boss.getState().routine = 0x08; // ROUTINE_IDLE
 
         // Standing frame -> $1A
-        // getCurrentFrame starts as FRAME_DESCEND (13), which is not ball, so $1A
+        // getCurrentFrame starts as FRAME_STAND (0), which is not ball, so $1A
         int flags = boss.getCollisionFlags();
         assertEquals("Standing collision should be $1A", COLLISION_STANDING, flags);
     }
 
     @Test
-    public void hitCountDecrementsOnDamage() {
-        // Simulate boss taking damage
-        assertEquals(8, boss.getState().hitCount);
+    public void collisionFlagsReturnBallWhenInBallFrame() throws Exception {
+        // ROM: loc_39D24 - frames 6,7,8 (BALL_A/B/C) -> return $9A
+        // Complementary to collisionFlagsBasedOnMappingFrame which tests non-ball frames
 
-        // Process a hit manually
-        boss.getState().hitCount--;
-        assertEquals("Hit count should decrement", 7, boss.getState().hitCount);
+        // Force boss into idle routine to enable collision
+        boss.getState().routine = 0x08; // ROUTINE_IDLE
+        boss.getState().invulnerable = false;
+        boss.getState().defeated = false;
+
+        // Use reflection to set currentFrame to each ball frame
+        java.lang.reflect.Field frameField =
+                Sonic2MechaSonicInstance.class.getDeclaredField("currentFrame");
+        frameField.setAccessible(true);
+
+        // Test FRAME_BALL_A (6)
+        frameField.setInt(boss, 6);
+        assertEquals("Ball frame 6 collision should be $9A", COLLISION_BALL, boss.getCollisionFlags());
+
+        // Test FRAME_BALL_B (7)
+        frameField.setInt(boss, 7);
+        assertEquals("Ball frame 7 collision should be $9A", COLLISION_BALL, boss.getCollisionFlags());
+
+        // Test FRAME_BALL_C (8)
+        frameField.setInt(boss, 8);
+        assertEquals("Ball frame 8 collision should be $9A", COLLISION_BALL, boss.getCollisionFlags());
     }
 
     @Test
@@ -283,6 +309,137 @@ public class TestDEZMechaSonic {
         // Frame should be FRAME_STAND (0) initially — ROM uses AnimateSprite which
         // overrides the initial frame immediately, so we start with a visible pose.
         assertEquals("Initial frame should be FRAME_STAND (0)", 0, frame);
+    }
+
+    @Test
+    public void signalLandingCompleteIsOneShot() throws Exception {
+        // ROM: bclr #status.npc.y_flip — test-and-clear semantics.
+        // The DEZ window's signalLandingComplete() should only fire once.
+        // After the first call, waitingForLanding becomes false and subsequent
+        // calls should be no-ops (not reset openingAnimPlaying to true).
+
+        // Create a DEZ window via reflection (package-private inner class)
+        Class<?> windowClass = Class.forName(
+                "com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance$MechaSonicDEZWindow");
+        java.lang.reflect.Constructor<?> ctor = windowClass.getDeclaredConstructor(
+                Sonic2MechaSonicInstance.class);
+        ctor.setAccessible(true);
+        Object dezWindow = ctor.newInstance(boss);
+
+        // Verify initial state: waitingForLanding=true, openingAnimPlaying=false
+        java.lang.reflect.Field waitingField = windowClass.getDeclaredField("waitingForLanding");
+        waitingField.setAccessible(true);
+        java.lang.reflect.Field openingField = windowClass.getDeclaredField("openingAnimPlaying");
+        openingField.setAccessible(true);
+
+        assertTrue("Window should start in waiting state", waitingField.getBoolean(dezWindow));
+        assertFalse("Opening anim should not be playing initially", openingField.getBoolean(dezWindow));
+
+        // First call: should transition from waiting to opening animation
+        java.lang.reflect.Method signalMethod = windowClass.getDeclaredMethod("signalLandingComplete");
+        signalMethod.setAccessible(true);
+        signalMethod.invoke(dezWindow);
+
+        assertFalse("After first signal, waitingForLanding should be false",
+                waitingField.getBoolean(dezWindow));
+        assertTrue("After first signal, openingAnimPlaying should be true",
+                openingField.getBoolean(dezWindow));
+
+        // Simulate the opening animation completing (set openingAnimPlaying=false)
+        openingField.setBoolean(dezWindow, false);
+
+        // Second call: should be a no-op (one-shot guard)
+        signalMethod.invoke(dezWindow);
+
+        assertFalse("After second signal, waitingForLanding should still be false",
+                waitingField.getBoolean(dezWindow));
+        assertFalse("After second signal, openingAnimPlaying should NOT be re-set to true",
+                openingField.getBoolean(dezWindow));
+    }
+
+    @Test
+    public void gravityConstantIs0x38() throws Exception {
+        // ROM: addi.w #$38,y_vel(a0) — gravity applied during airborne phases
+        // and on the landing frame. Verify GRAVITY = 0x38 in AbstractBossInstance.
+        java.lang.reflect.Field gravityField =
+                com.openggf.level.objects.boss.AbstractBossInstance.class.getDeclaredField("GRAVITY");
+        gravityField.setAccessible(true);
+        int gravity = gravityField.getInt(null);
+        assertEquals("GRAVITY constant should be 0x38 (ROM: addi.w #$38,y_vel)",
+                0x38, gravity);
+    }
+
+    @Test
+    public void thrusterStartsVisibleWithBottomJetsAnim() throws Exception {
+        // ROM: LED child (MechaSonicLEDWindow) is created at routine $10 (visible)
+        // with default anim 0 (bottom jets, frames $B/$C). This ensures the
+        // bottom jets render during the descent phase before the first landing.
+
+        // Access the ledWindow field on the boss via reflection
+        java.lang.reflect.Field ledField =
+                Sonic2MechaSonicInstance.class.getDeclaredField("ledWindow");
+        ledField.setAccessible(true);
+
+        // ledWindow is null because setUp() uses a mock LevelManager with no ObjectManager.
+        // Create the LED window directly via reflection to test its initial state.
+        Class<?> ledClass = Class.forName(
+                "com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance$MechaSonicLEDWindow");
+        java.lang.reflect.Constructor<?> ctor = ledClass.getDeclaredConstructor(
+                Sonic2MechaSonicInstance.class);
+        ctor.setAccessible(true);
+        Object ledWindow = ctor.newInstance(boss);
+
+        // Verify visible = true (ROM: created at routine $10)
+        java.lang.reflect.Field visibleField = ledClass.getDeclaredField("visible");
+        visibleField.setAccessible(true);
+        assertTrue("LED window should start visible (ROM routine $10)",
+                visibleField.getBoolean(ledWindow));
+
+        // Verify animId = 0 (bottom jets)
+        java.lang.reflect.Field animIdField = ledClass.getDeclaredField("animId");
+        animIdField.setAccessible(true);
+        assertEquals("LED window should start with anim 0 (bottom jets)",
+                0, animIdField.getInt(ledWindow));
+
+        // Verify mappingFrame = 0x0B (first frame of bottom jets anim)
+        java.lang.reflect.Field mappingField = ledClass.getDeclaredField("mappingFrame");
+        mappingField.setAccessible(true);
+        assertEquals("LED window should start with mapping frame 0x0B",
+                0x0B, mappingField.getInt(ledWindow));
+    }
+
+    @Test
+    public void thrusterHiddenAfterTransitionToIdle() throws Exception {
+        // ROM: loc_399D6 — transitionToIdle sets LED to routine $12 (hidden).
+        // After the first landing, the thruster should be hidden.
+
+        Class<?> ledClass = Class.forName(
+                "com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance$MechaSonicLEDWindow");
+        java.lang.reflect.Constructor<?> ctor = ledClass.getDeclaredConstructor(
+                Sonic2MechaSonicInstance.class);
+        ctor.setAccessible(true);
+        Object ledWindow = ctor.newInstance(boss);
+
+        // Wire the ledWindow into the boss via reflection
+        java.lang.reflect.Field ledField =
+                Sonic2MechaSonicInstance.class.getDeclaredField("ledWindow");
+        ledField.setAccessible(true);
+        ledField.set(boss, ledWindow);
+
+        // Verify it starts visible
+        java.lang.reflect.Field visibleField = ledClass.getDeclaredField("visible");
+        visibleField.setAccessible(true);
+        assertTrue("LED should start visible", visibleField.getBoolean(ledWindow));
+
+        // Call transitionToIdle via reflection (private method)
+        java.lang.reflect.Method transitionMethod =
+                Sonic2MechaSonicInstance.class.getDeclaredMethod("transitionToIdle");
+        transitionMethod.setAccessible(true);
+        transitionMethod.invoke(boss);
+
+        // Verify it's now hidden
+        assertFalse("LED should be hidden after transitionToIdle",
+                visibleField.getBoolean(ledWindow));
     }
 
     private static final class NoOpObjectRegistry implements ObjectRegistry {

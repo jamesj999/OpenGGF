@@ -546,9 +546,9 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
             // Found slot display tiles - the offset points to the first pattern's center
             // The findPatternOffset returns offset from ref to pattern center (pattern top-left + 4)
             // We need the offset to the pattern's top-left corner for rendering
-            // Subtract 4 for X to get pattern left edge, subtract 12 for Y (4 for center->top, 8 for one pattern adjustment)
+            // Subtract 4 for both X and Y to convert from pattern center to pattern top-left
             slotDisplayOffsetX = offset[0] - 4;  // Pattern center to pattern left edge
-            slotDisplayOffsetY = offset[1] - 12; // Pattern center to pattern top edge, minus one pattern (8px)
+            slotDisplayOffsetY = offset[1] - 4;  // Pattern center to pattern top edge
 
             LOGGER.fine("Slot display offset calculated: (" + slotDisplayOffsetX + ", " + slotDisplayOffsetY +
                     ") for cage at (" + spawn.x() + ", " + spawn.y() + ")");

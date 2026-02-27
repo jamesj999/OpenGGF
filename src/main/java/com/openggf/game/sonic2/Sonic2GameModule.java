@@ -6,6 +6,7 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.constants.Sonic2ObjectConstants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
+import com.openggf.game.sonic2.credits.Sonic2EndingProvider;
 import com.openggf.game.sonic2.debug.Sonic2DebugModeProvider;
 import com.openggf.game.sonic2.levelselect.LevelSelectManager;
 import com.openggf.game.sonic2.objects.BlueBallsObjectInstance;
@@ -17,6 +18,7 @@ import com.openggf.game.sonic2.titlecard.TitleCardManager;
 import com.openggf.game.sonic2.titlescreen.TitleScreenManager;
 import com.openggf.game.CheckpointState;
 import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.EndingProvider;
 import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelGamestate;
@@ -228,5 +230,10 @@ public class Sonic2GameModule implements GameModule {
     @Override
     public boolean supportsSidekick() {
         return true;
+    }
+
+    @Override
+    public EndingProvider getEndingProvider() {
+        return new Sonic2EndingProvider();
     }
 }
