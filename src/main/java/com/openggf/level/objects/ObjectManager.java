@@ -104,10 +104,9 @@ public class ObjectManager {
     }
 
     public void update(int cameraX, AbstractPlayableSprite player, AbstractPlayableSprite sidekick, int touchFrameCounter) {
-        placement.update(cameraX);
         frameCounter++;
-        // Note: bucketsDirty and activeObjectsCacheDirty are marked in syncActiveSpawns()
-        // and when objects are removed below, avoiding unnecessary re-bucketing
+        // ROM parity: object execution uses the previously streamed set, and object placement
+        // is updated after object execution/render preparation for the next frame.
         updateCameraBounds();
         syncActiveSpawns();
 
@@ -167,6 +166,9 @@ public class ObjectManager {
                 touchResponses.updateSidekick(sidekick, touchFrameCounter);
             }
         }
+
+        // Stream object placement for the NEXT frame.
+        placement.update(cameraX);
     }
 
     public void applyPlaneSwitchers(AbstractPlayableSprite player) {
@@ -567,10 +569,10 @@ public class ObjectManager {
     static final class Placement extends AbstractPlacementManager<ObjectSpawn> {
         private static final Logger LOGGER = Logger.getLogger(Placement.class.getName());
         // ROM: ObjectsManager_GoingForward (s2.asm) uses addi.w #$280,d6 for forward load range.
-        // Unload range in ROM is effectively camera - $80 (going forward) or camera + $220 (going backward).
-        // Engine uses a wider $300 behind to avoid pop-in on fast camera movement; functionally safe.
+        // Behind-window unload range is one chunk ($80) for forward movement.
         private static final int LOAD_AHEAD = 0x280;
-        private static final int UNLOAD_BEHIND = 0x300;
+        private static final int UNLOAD_BEHIND = 0x80;
+        private static final int CHUNK_MASK = 0xFF80;
 
         private final BitSet remembered = new BitSet();
         /** Tracks spawns that should stay in active even when remembered (e.g. broken monitors). */
@@ -579,6 +581,7 @@ public class ObjectManager {
         private final BitSet destroyedInWindow = new BitSet();
         private int cursorIndex = 0;
         private int lastCameraX = Integer.MIN_VALUE;
+        private int lastCameraChunk = Integer.MIN_VALUE;
 
         Placement(List<ObjectSpawn> spawns) {
             super(spawns, LOAD_AHEAD, UNLOAD_BEHIND);
@@ -591,6 +594,7 @@ public class ObjectManager {
             destroyedInWindow.clear();
             cursorIndex = 0;
             lastCameraX = cameraX;
+            lastCameraChunk = toCoarseChunk(cameraX);
             refreshWindow(cameraX);
         }
 
@@ -603,6 +607,12 @@ public class ObjectManager {
                 return;
             }
 
+            int cameraChunk = toCoarseChunk(cameraX);
+            if (cameraChunk == lastCameraChunk) {
+                lastCameraX = cameraX;
+                return;
+            }
+
             int delta = cameraX - lastCameraX;
             if (delta < 0 || delta > (getLoadAhead() + getUnloadBehind())) {
                 refreshWindow(cameraX);
@@ -612,6 +622,7 @@ public class ObjectManager {
             }
 
             lastCameraX = cameraX;
+            lastCameraChunk = cameraChunk;
         }
 
         public List<ObjectSpawn> getAllSpawns() {
@@ -703,16 +714,7 @@ public class ObjectManager {
                     iterator.remove();
                 }
             }
-            // Clear destroyedInWindow for spawns that have left the window (allows respawn on return)
-            // Use tighter bounds for clearing destroyedInWindow to prevent respawn on camera jitter
-            int clearStart = windowStart - 16;
-            int clearEnd = windowEnd + 16;
-            for (int i = destroyedInWindow.nextSetBit(0); i >= 0; i = destroyedInWindow.nextSetBit(i + 1)) {
-                ObjectSpawn spawn = spawns.get(i);
-                if (spawn.x() < clearStart || spawn.x() > clearEnd) {
-                    destroyedInWindow.clear(i);
-                }
-            }
+            clearDestroyedLatchOutsideWindow(windowStart, windowEnd);
         }
 
         private void refreshWindow(int cameraX) {
@@ -725,6 +727,7 @@ public class ObjectManager {
             for (int i = start; i < end; i++) {
                 trySpawn(i);
             }
+            clearDestroyedLatchOutsideWindow(windowStart, windowEnd);
         }
 
         private void trySpawn(int index) {
@@ -737,6 +740,20 @@ public class ObjectManager {
                 return;
             }
             active.add(spawn);
+        }
+
+        private int toCoarseChunk(int cameraX) {
+            return cameraX & CHUNK_MASK;
+        }
+
+        private void clearDestroyedLatchOutsideWindow(int windowStart, int windowEnd) {
+            // Clear destroyed-in-window latch once the spawn fully leaves the current stream window.
+            for (int i = destroyedInWindow.nextSetBit(0); i >= 0; i = destroyedInWindow.nextSetBit(i + 1)) {
+                ObjectSpawn spawn = spawns.get(i);
+                if (spawn.x() < windowStart || spawn.x() > windowEnd) {
+                    destroyedInWindow.clear(i);
+                }
+            }
         }
     }
 
