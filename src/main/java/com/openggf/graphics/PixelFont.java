@@ -132,6 +132,52 @@ public class PixelFont {
     }
 
     /**
+     * Draws a string at an absolute OpenGL position (no Y-flip).
+     * Use this when rendering in a custom orthographic projection
+     * where the caller manages the coordinate system directly.
+     */
+    public void drawTextGL(String text, float x, float y, float r, float g, float b, float a) {
+        float cursorX = x;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == ' ') {
+                cursorX += GLYPH_W;
+                continue;
+            }
+
+            int col = -1, row = -1;
+            if (c < 128 && charKnown[c]) {
+                col = charToCol[c];
+                row = charToRow[c];
+            } else {
+                int[] ext = extendedChars.get(c);
+                if (ext != null) {
+                    row = ext[0];
+                    col = ext[1];
+                }
+            }
+
+            if (col >= 0) {
+                int srcX = GLYPH_OFFSET_X + col * CELL_W;
+                int srcY = GLYPH_OFFSET_Y + row * CELL_H;
+
+                float u0 = (float) srcX / textureWidth;
+                float u1 = (float) (srcX + GLYPH_W) / textureWidth;
+
+                float texTop = 1.0f - (float) srcY / textureHeight;
+                float texBottom = 1.0f - (float) (srcY + GLYPH_H) / textureHeight;
+
+                renderer.drawTextureRegion(textureId,
+                        cursorX, y, GLYPH_W, GLYPH_H,
+                        u0, texBottom, u1, texTop,
+                        r, g, b, a);
+            }
+
+            cursorX += GLYPH_W;
+        }
+    }
+
+    /**
      * Returns the pixel width of a string.
      */
     public int measureWidth(String text) {
