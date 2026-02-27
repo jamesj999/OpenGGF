@@ -90,8 +90,11 @@ public class Sonic2EndingArt {
     private Pattern[] finalTornadoPatterns;
     private Pattern[] picsPatterns;
     private Pattern[] miniTornadoPatterns;
+    private Pattern[] tornadoPatterns;      // Standard tornado (ArtNem_Tornado at VRAM 0x0500)
     private Pattern[] cloudPatterns;
     private Pattern[] animalPatterns;
+    private Pattern[] playerPatterns;       // Standard uncompressed player art (Sonic/Tails)
+    private int playerArtTile;              // VRAM tile base for player art ($0780 Sonic, $07A0 Tails)
 
     private Palette[] endingPalettes;
 
@@ -174,6 +177,8 @@ public class Sonic2EndingArt {
         finalTornadoPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_ENDING_FINAL_TORNADO_ADDR, 16384, "EndingFinalTornado");
         picsPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_ENDING_PICS_ADDR, 16384, "EndingPics");
         miniTornadoPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_ENDING_MINI_TORNADO_ADDR, 8192, "EndingMiniTornado");
+        // ROM loads standard Tornado art at VRAM 0x0500 for ObjCF frames that reference those tiles
+        tornadoPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_TORNADO_ADDR, 16384, "Tornado");
         cloudPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_CLOUDS_ADDR, 8192, "Clouds");
 
         // Load animal companion art
@@ -184,13 +189,39 @@ public class Sonic2EndingArt {
         };
         animalPatterns = loadNemesisPatterns(rom, animalAddr, 4096, "EndingAnimal");
 
+        // Load standard uncompressed player art for CHARACTER_APPEAR rendering.
+        // ROM: ObjCA routine $A spawns a real Sonic/Tails object using standard art
+        // still in VRAM from the DEZ level. Our renderer needs to load it explicitly.
+        int playerArtAddr;
+        int playerArtSize;
+        switch (routine) {
+            case SONIC, SUPER_SONIC -> {
+                playerArtAddr = Sonic2Constants.ART_UNC_SONIC_ADDR;
+                playerArtSize = Sonic2Constants.ART_UNC_SONIC_SIZE;
+                playerArtTile = Sonic2Constants.ART_TILE_SONIC;
+            }
+            case TAILS -> {
+                playerArtAddr = Sonic2Constants.ART_UNC_TAILS_ADDR;
+                playerArtSize = Sonic2Constants.ART_UNC_TAILS_SIZE;
+                playerArtTile = Sonic2Constants.ART_TILE_TAILS;
+            }
+            default -> {
+                playerArtAddr = Sonic2Constants.ART_UNC_SONIC_ADDR;
+                playerArtSize = Sonic2Constants.ART_UNC_SONIC_SIZE;
+                playerArtTile = Sonic2Constants.ART_TILE_SONIC;
+            }
+        }
+        playerPatterns = loadUncompressedPatterns(rom, playerArtAddr, playerArtSize, "Player");
+
         LOGGER.info("Ending art loaded for routine " + routine
                 + ": character=" + patternCount(characterPatterns)
                 + " finalTornado=" + patternCount(finalTornadoPatterns)
                 + " pics=" + patternCount(picsPatterns)
                 + " miniTornado=" + patternCount(miniTornadoPatterns)
+                + " tornado=" + patternCount(tornadoPatterns)
                 + " clouds=" + patternCount(cloudPatterns)
-                + " animal=" + patternCount(animalPatterns));
+                + " animal=" + patternCount(animalPatterns)
+                + " player=" + patternCount(playerPatterns));
     }
 
     /**
@@ -211,22 +242,27 @@ public class Sonic2EndingArt {
     public void loadPalettes(Rom rom, EndingRoutine routine) {
         endingPalettes = new Palette[4];
 
-        // Palette line 0: character-specific
+        // ROM reference: EndingSequence (s2.asm line 13076-13081) loads ALL 4 palette
+        // lines as a contiguous 128-byte block from Pal_AC7E into Target_palette.
+        // The binary layout at Pal_AC7E is:
+        //   Line 0 (+0):  "Ending Sonic.bin"       (32 bytes) - character colors
+        //   Line 1 (+32): "Ending Tails.bin" pt.1   (32 bytes) - secondary colors
+        //   Line 2 (+64): "Ending Tails.bin" pt.2   (32 bytes) - backdrop/env colors
+        //   Line 3 (+96): "Ending Background.bin" pt.1 (32 bytes) - sky gradient
+        // IMPORTANT: PAL_ENDING_BACKGROUND_ADDR (0xACDE) is line 3, NOT line 2!
+        // Line 2 is at PAL_ENDING_FULL_ADDR + 64 = 0xACBE (second half of Tails file).
+        int baseAddr = Sonic2Constants.PAL_ENDING_FULL_ADDR;
+        endingPalettes[1] = loadPalette(rom, baseAddr + 32, "EndingPalLine1");
+        endingPalettes[2] = loadPalette(rom, baseAddr + 64, "EndingPalLine2");
+        endingPalettes[3] = loadPalette(rom, baseAddr + 96, "EndingPalLine3");
+
+        // Palette line 0: character-specific (Super Sonic replaces line 0)
         int charPalAddr = switch (routine) {
-            case SONIC -> Sonic2Constants.PAL_ENDING_SONIC_ADDR;
+            case SONIC -> baseAddr;
             case SUPER_SONIC -> Sonic2Constants.PAL_ENDING_SUPER_SONIC_ADDR;
-            case TAILS -> Sonic2Constants.PAL_ENDING_SONIC_ADDR; // Tails ending still uses Sonic line 0
+            case TAILS -> baseAddr; // Tails ending still uses Sonic line 0
         };
         endingPalettes[0] = loadPalette(rom, charPalAddr, "EndingPalLine0");
-
-        // Palette line 1: Tails palette (used for secondary colors in all variants)
-        endingPalettes[1] = loadPalette(rom, Sonic2Constants.PAL_ENDING_TAILS_ADDR, "EndingPalLine1");
-
-        // Palette line 2: Background
-        endingPalettes[2] = loadPalette(rom, Sonic2Constants.PAL_ENDING_BACKGROUND_ADDR, "EndingPalLine2");
-
-        // Palette line 3: Photos
-        endingPalettes[3] = loadPalette(rom, Sonic2Constants.PAL_ENDING_PHOTOS_ADDR, "EndingPalLine3");
 
         LOGGER.info("Ending palettes loaded for routine " + routine);
     }
@@ -264,8 +300,13 @@ public class Sonic2EndingArt {
         cachePatternSet(gm, characterPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_CHARACTER, "character-vram");
         cachePatternSet(gm, finalTornadoPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_FINAL_TORNADO, "finalTornado-vram");
         cachePatternSet(gm, miniTornadoPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_MINI_TORNADO, "miniTornado-vram");
+        // Standard Tornado art at VRAM 0x0500 — used by ObjCF frames referencing non-mini tornado tiles
+        cachePatternSet(gm, tornadoPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_TORNADO, "tornado-vram");
         cachePatternSet(gm, cloudPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_CLOUDS, "clouds-vram");
         cachePatternSet(gm, animalPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_ANIMAL_2, "animal-vram");
+        // Standard player art at VRAM position (e.g., $0780 for Sonic, $07A0 for Tails)
+        // ROM: CHARACTER_APPEAR uses real Sonic/Tails object with standard art still in VRAM from DEZ
+        cachePatternSet(gm, playerPatterns, PATTERN_BASE_VRAM + playerArtTile, "player-vram");
 
         initialized = true;
         LOGGER.info("Ending art cached to GPU");
@@ -307,6 +348,10 @@ public class Sonic2EndingArt {
         return loadedRoutine;
     }
 
+    public int getPlayerArtTile() {
+        return playerArtTile;
+    }
+
     public boolean isInitialized() {
         return initialized;
     }
@@ -339,6 +384,31 @@ public class Sonic2EndingArt {
             }
         } catch (IOException e) {
             LOGGER.warning("Failed to load " + name + " patterns: " + e.getMessage());
+            return new Pattern[0];
+        }
+    }
+
+    /**
+     * Loads uncompressed (raw) patterns from ROM. Used for standard player art
+     * (ArtUnc_Sonic / ArtUnc_Tails) which is stored uncompressed in the ROM.
+     */
+    private Pattern[] loadUncompressedPatterns(Rom rom, int address, int size, String name) {
+        try {
+            byte[] data = rom.readBytes(address, size);
+            int patternCount = size / Pattern.PATTERN_SIZE_IN_ROM;
+            Pattern[] patterns = new Pattern[patternCount];
+            for (int i = 0; i < patternCount; i++) {
+                patterns[i] = new Pattern();
+                byte[] subArray = Arrays.copyOfRange(data,
+                        i * Pattern.PATTERN_SIZE_IN_ROM,
+                        (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
+                patterns[i].fromSegaFormat(subArray);
+            }
+            LOGGER.fine("Loaded " + patternCount + " " + name + " uncompressed patterns from ROM at 0x"
+                    + Integer.toHexString(address));
+            return patterns;
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load " + name + " uncompressed patterns: " + e.getMessage());
             return new Pattern[0];
         }
     }
