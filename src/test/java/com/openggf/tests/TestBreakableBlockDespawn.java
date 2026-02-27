@@ -1,19 +1,14 @@
 package com.openggf.tests;
 
+import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.Rule;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
-import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.game.sonic2.objects.BreakableBlockObjectInstance;
-import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -30,6 +25,9 @@ import static org.junit.Assert.*;
  * {@code objectManager.isRemembered(spawn)} to skip re-creation. Despite this, the block
  * currently respawns intact when the camera window re-enters the spawn area.
  *
+ * <p>Level data is loaded once via {@link SharedLevel#load} in {@code @BeforeClass};
+ * sprite, camera, and game state are reset per test via {@link HeadlessTestFixture}.
+ *
  * <p>Test scenario:
  * <ol>
  *   <li>Load CPZ Act 1 (zone index 1, act 0)</li>
@@ -44,53 +42,37 @@ import static org.junit.Assert.*;
 @RequiresRom(SonicGame.SONIC_2)
 public class TestBreakableBlockDespawn {
 
-    @Rule public RequiresRomRule romRule = new RequiresRomRule();
-
-    private Sonic sprite;
-    private HeadlessTestRunner testRunner;
+    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
 
     // CPZ is zone index 1 in Sonic2ZoneRegistry (EHZ=0, CPZ=1, ARZ=2, CNZ=3, HTZ=4)
     private static final int ZONE_CPZ = 1;
     private static final int ACT_1 = 0;
 
+    private static SharedLevel sharedLevel;
+
+    private HeadlessTestFixture fixture;
+    private Sonic sprite;
+
+    @BeforeClass
+    public static void loadLevel() throws Exception {
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_2, ZONE_CPZ, ACT_1);
+    }
+
+    @AfterClass
+    public static void cleanup() {
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
+
     @Before
-    public void setUp() throws Exception {
-        // Initialize headless graphics (no GL context needed)
-        GraphicsManager.getInstance().initHeadless();
-
-        // Create Sonic sprite at origin (will be repositioned after level load)
-        SonicConfigurationService configService = SonicConfigurationService.getInstance();
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        sprite = new Sonic(mainCode, (short) 0, (short) 0);
-
-        // Add sprite to SpriteManager
-        SpriteManager spriteManager = SpriteManager.getInstance();
-        spriteManager.addSprite(sprite);
-
-        // Set camera focus - must be done BEFORE level load
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        // Reset camera to ensure clean state (frozen may be left over from death in other tests)
-        camera.setFrozen(false);
-
-        // Load CPZ Act 1 (zone index 1, act index 0)
-        LevelManager.getInstance().loadZoneAndAct(ZONE_CPZ, ACT_1);
-
-        // Ensure GroundSensor uses the current LevelManager instance
-        // (static field may be stale from earlier tests)
-        GroundSensor.setLevelManager(LevelManager.getInstance());
-
-        // Fix camera position - loadZoneAndAct sets bounds AFTER updatePosition,
-        // so the camera may have been clamped incorrectly. Force update again now
-        // that bounds are set.
-        camera.updatePosition(true);
+    public void setUp() {
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
+        sprite = (Sonic) fixture.sprite();
 
         // Reset the object manager's spawn window to the new camera position
         // so objects near our test position are spawned
-        LevelManager.getInstance().getObjectManager().reset(camera.getX());
-
-        // Create the headless test runner
-        testRunner = new HeadlessTestRunner(sprite);
+        LevelManager.getInstance().getObjectManager().reset(fixture.camera().getX());
     }
 
     /**
@@ -110,7 +92,7 @@ public class TestBreakableBlockDespawn {
 
         // First, build some speed running right
         for (int frame = 0; frame < 120; frame++) {
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
         }
 
         logState("After 120 frames running right");
@@ -120,7 +102,7 @@ public class TestBreakableBlockDespawn {
         sprite.setRolling(true);
 
         for (int frame = 0; frame < 600; frame++) {
-            testRunner.stepFrame(false, true, false, true, false); // down+right to maintain roll
+            fixture.stepFrame(false, true, false, true, false); // down+right to maintain roll
 
             // Check active objects for breakable blocks
             for (var obj : objMgr.getActiveObjects()) {
@@ -144,15 +126,15 @@ public class TestBreakableBlockDespawn {
         sprite.setRolling(true);
         sprite.setGSpeed((short) 0x800);
         sprite.setXSpeed((short) 0x800);
-        Camera.getInstance().updatePosition(true);
-        objMgr.reset(Camera.getInstance().getX());
+        fixture.camera().updatePosition(true);
+        objMgr.reset(fixture.camera().getX());
 
         logState("Positioned near block, rolling");
 
         // Step frames to roll through the block
         boolean blockBroken = false;
         for (int frame = 0; frame < 60; frame++) {
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
             if (objMgr.isRemembered(blockSpawn)) {
                 blockBroken = true;
                 System.out.printf("Block broken at frame %d%n", frame);
@@ -178,7 +160,7 @@ public class TestBreakableBlockDespawn {
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         logState("Teleported far away for despawn");
 
@@ -186,7 +168,7 @@ public class TestBreakableBlockDespawn {
         // objMgr.update() (via Placement.update -> refreshWindow -> trySpawn),
         // preserving the remembered BitSet unlike reset() which clears it.
         for (int frame = 0; frame < 60; frame++) {
-            testRunner.stepIdleFrames(1);
+            fixture.stepIdleFrames(1);
         }
 
         logState("After despawn frames");
@@ -205,13 +187,13 @@ public class TestBreakableBlockDespawn {
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         logState("Returned to original block position");
 
         // Step frames for respawn processing
         for (int frame = 0; frame < 30; frame++) {
-            testRunner.stepIdleFrames(1);
+            fixture.stepIdleFrames(1);
         }
 
         logState("After respawn frames");
