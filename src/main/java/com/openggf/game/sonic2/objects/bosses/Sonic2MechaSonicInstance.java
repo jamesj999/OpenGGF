@@ -932,13 +932,14 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
     /**
      * Spawn the ObjC6 State2 Eggman transition object.
-     * ROM: ObjC6 is placed in the DEZ object layout with subtype $A6, but we
-     * spawn it dynamically after Silver Sonic's defeat to match the gameplay flow.
-     * Position ($3F8, $160) from ROM ObjC6_State2_State1 (s2.asm:81609-81610).
+     * ROM: ObjC6 is placed in the DEZ object layout at ($440, $168) with subtype $A6.
+     * We spawn it dynamically after Silver Sonic's defeat to match the gameplay flow.
+     * Position ($440, $168) from DEZ_1.bin object layout.
+     * Note: ($3F8, $160) is the solid wall child position, NOT Eggman's own position.
      */
     private void spawnEggmanTransition() {
         if (levelManager.getObjectManager() == null) return;
-        Sonic2DEZEggmanInstance eggman = new Sonic2DEZEggmanInstance(0x3F8, 0x160);
+        Sonic2DEZEggmanInstance eggman = new Sonic2DEZEggmanInstance(0x440, 0x168);
         // Wire direct reference to Death Egg Robot for boarding signal
         for (var obj : levelManager.getObjectManager().getActiveObjects()) {
             if (obj instanceof Sonic2DeathEggRobotInstance der) {

@@ -22,8 +22,10 @@ import static org.junit.Assert.assertTrue;
  */
 public class TestDEZEggman {
 
-    private static final int SPAWN_X = 0x3F8;
-    private static final int SPAWN_Y = 0x160;
+    /** ROM: Eggman spawn position from DEZ_1.bin object layout ($440, $168).
+     *  Note: ($3F8, $160) is the solid wall child position, NOT Eggman's position. */
+    private static final int SPAWN_X = 0x440;
+    private static final int SPAWN_Y = 0x168;
 
     private Sonic2DEZEggmanInstance eggman;
 
