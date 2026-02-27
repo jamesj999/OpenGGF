@@ -1,18 +1,13 @@
 package com.openggf.tests;
 
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
-import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.GroundMode;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
@@ -24,8 +19,8 @@ import static org.junit.Assert.*;
 /**
  * Grouped headless tests for Sonic 2 CNZ Act 1.
  *
- * Level data is loaded once via {@code @BeforeClass}; sprite, camera, and game
- * state are reset per test via {@link TestEnvironment#resetPerTest()}.
+ * Level data is loaded once via {@link SharedLevel#load} in {@code @BeforeClass};
+ * sprite, camera, and game state are reset per test via {@link HeadlessTestFixture}.
  *
  * Merged from:
  * <ul>
@@ -41,42 +36,28 @@ public class TestS2Cnz1Headless {
 
     private static final int ZONE_CNZ = 3;
     private static final int ACT_1 = 0;
-    private static String mainCharCode;
+
+    private static SharedLevel sharedLevel;
 
     @BeforeClass
     public static void loadLevel() throws Exception {
-        GraphicsManager.getInstance().initHeadless();
-        SonicConfigurationService cs = SonicConfigurationService.getInstance();
-        mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(temp);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(temp);
-        camera.setFrozen(false);
-        LevelManager.getInstance().loadZoneAndAct(ZONE_CNZ, ACT_1);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_2, ZONE_CNZ, ACT_1);
     }
 
+    @AfterClass
+    public static void cleanup() {
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
+
+    private HeadlessTestFixture fixture;
     private Sonic sprite;
-    private HeadlessTestRunner testRunner;
 
     @Before
     public void setUp() {
-        TestEnvironment.resetPerTest();
-        sprite = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
-        camera.setFocusedSprite(sprite);
-        camera.setFrozen(false);
-        Level level = LevelManager.getInstance().getCurrentLevel();
-        if (level != null) {
-            camera.setMinX((short) level.getMinX());
-            camera.setMaxX((short) level.getMaxX());
-            camera.setMinY((short) level.getMinY());
-            camera.setMaxY((short) level.getMaxY());
-        }
-        camera.updatePosition(true);
-        testRunner = new HeadlessTestRunner(sprite);
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
+        sprite = (Sonic) fixture.sprite();
     }
 
     // ========== From TestCNZCeilingStateExit ==========
@@ -111,7 +92,7 @@ public class TestS2Cnz1Headless {
         sprite.setX(CEILING_START_X);
         sprite.setY(CEILING_START_Y);
         sprite.setPinballMode(true);
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         System.out.println("=== CNZ Ceiling State Exit Test (Two-Spring Chain) ===");
         System.out.println("Start position: (" + CEILING_START_X + ", " + CEILING_START_Y + ")");
@@ -121,10 +102,10 @@ public class TestS2Cnz1Headless {
 
         // Run a few frames first to trigger object spawning
         System.out.println("Running initial frames to spawn objects...");
-        Camera camera = Camera.getInstance();
+        Camera camera = fixture.camera();
 
         for (int i = 0; i < 5; i++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
         }
 
         // Debug: Print active launcher springs
@@ -165,7 +146,7 @@ public class TestS2Cnz1Headless {
         System.out.println("Charging for " + CHARGE_FRAMES + " frames...");
 
         for (int frame = 0; frame < CHARGE_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, false, true);  // Hold jump
+            fixture.stepFrame(false, false, false, false, true);  // Hold jump
             totalFrames++;
         }
         System.out.println("Releasing first spring at frame " + totalFrames);
@@ -185,7 +166,7 @@ public class TestS2Cnz1Headless {
         int maxTravelFrames = 300;
 
         for (int frame = 0; frame < maxTravelFrames && !reachedSecondSpring; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             totalFrames++;
 
             camera.updatePosition(false);
@@ -230,7 +211,7 @@ public class TestS2Cnz1Headless {
             }
 
             for (int i = 0; i < 30 && !sprite.isObjectControlled(); i++) {
-                testRunner.stepFrame(false, false, false, false, false);
+                fixture.stepFrame(false, false, false, false, false);
                 camera.updatePosition(false);
                 totalFrames++;
             }
@@ -246,7 +227,7 @@ public class TestS2Cnz1Headless {
         System.out.println("Charging for " + CHARGE_FRAMES + " frames...");
 
         for (int frame = 0; frame < CHARGE_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, false, true);
+            fixture.stepFrame(false, false, false, false, true);
             totalFrames++;
         }
         System.out.println("Releasing second spring at frame " + totalFrames);
@@ -262,7 +243,7 @@ public class TestS2Cnz1Headless {
         System.out.println("------|-------|-------|--------|------------|-----|-------|----------");
 
         for (int frame = 0; frame < MAX_CEILING_TEST_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, false, false);
+            fixture.stepFrame(false, false, false, false, false);
             totalFrames++;
 
             short currentY = sprite.getY();
@@ -374,7 +355,7 @@ public class TestS2Cnz1Headless {
     public void testFlipperLaunchReachesTargetHeight() throws Exception {
         sprite.setX(FLIPPER_START_X);
         sprite.setY(FLIPPER_START_Y);
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         System.out.println("=== CNZ Horizontal Flipper Launch Test ===");
         System.out.println("Requested start position: (" + FLIPPER_START_X + ", " + FLIPPER_START_Y + ")");
@@ -390,7 +371,7 @@ public class TestS2Cnz1Headless {
         System.out.println("------|-------|-------|--------|-----|-----");
 
         for (int frame = 0; frame < FLIPPER_MAX_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
 
             short currentX = sprite.getX();
             short currentY = sprite.getY();
@@ -446,7 +427,7 @@ public class TestS2Cnz1Headless {
     public void testForcedSpinTunnelEntry() throws Exception {
         sprite.setX(TUNNEL_START_X);
         sprite.setY(TUNNEL_START_Y);
-        Camera.getInstance().updatePosition(true);
+        fixture.camera().updatePosition(true);
 
         System.out.println("=== CNZ Forced Spin Tunnel Test ===");
         System.out.println("Requested start position: (" + TUNNEL_START_X + ", " + TUNNEL_START_Y + ")");
@@ -462,7 +443,7 @@ public class TestS2Cnz1Headless {
         System.out.println("------|-------|-------|--------|--------|-----|---------|-----");
 
         for (int frame = 0; frame < TUNNEL_MAX_FRAMES; frame++) {
-            testRunner.stepFrame(false, false, false, true, false);
+            fixture.stepFrame(false, false, false, true, false);
 
             short currentX = sprite.getX();
             short currentY = sprite.getY();
