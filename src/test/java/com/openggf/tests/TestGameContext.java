@@ -2,9 +2,13 @@ package com.openggf.tests;
 
 import com.openggf.GameContext;
 import com.openggf.camera.Camera;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
+import com.openggf.level.WaterSystem;
 import com.openggf.physics.CollisionSystem;
 import com.openggf.sprites.managers.SpriteManager;
+import com.openggf.timer.TimerManager;
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -14,6 +18,13 @@ import static org.junit.Assert.*;
  */
 public class TestGameContext {
 
+    @Before
+    public void setUp() {
+        // Ensure clean Camera state before each test so results
+        // don't depend on test execution order.
+        Camera.getInstance().resetState();
+    }
+
     @Test
     public void productionWrapsExistingSingletons() {
         GameContext ctx = GameContext.production();
@@ -21,6 +32,9 @@ public class TestGameContext {
         assertSame(LevelManager.getInstance(), ctx.levelManager());
         assertSame(SpriteManager.getInstance(), ctx.spriteManager());
         assertSame(CollisionSystem.getInstance(), ctx.collisionSystem());
+        assertSame(GraphicsManager.getInstance(), ctx.graphicsManager());
+        assertSame(TimerManager.getInstance(), ctx.timerManager());
+        assertSame(WaterSystem.getInstance(), ctx.waterSystem());
     }
 
     @Test
@@ -32,8 +46,9 @@ public class TestGameContext {
     }
 
     @Test
-    public void forTestingResetsSpriteManager() {
+    public void forTestingReturnsSpriteManagerSingleton() {
         GameContext ctx = GameContext.forTesting();
-        assertNotNull("SpriteManager should not be null after forTesting()", ctx.spriteManager());
+        assertSame("spriteManager() should return the SpriteManager singleton",
+                SpriteManager.getInstance(), ctx.spriteManager());
     }
 }
