@@ -15,6 +15,7 @@ import com.openggf.game.DebugOverlayProvider;
 import com.openggf.game.EndingProvider;
 import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
+import com.openggf.game.LevelInitProfile;
 import com.openggf.game.LevelSelectProvider;
 import com.openggf.game.LevelState;
 import com.openggf.game.ObjectArtProvider;
@@ -235,6 +236,11 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public EndingProvider getEndingProvider() {
         return new Sonic1EndingProvider();
+    }
+
+    @Override
+    public LevelInitProfile getLevelInitProfile() {
+        return new Sonic1LevelInitProfile();
     }
 
     @Override

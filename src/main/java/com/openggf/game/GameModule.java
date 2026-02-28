@@ -328,4 +328,9 @@ public interface GameModule {
     default boolean supportsSidekick() {
         return false;
     }
+
+    /** Returns the ROM-derived level initialization profile for this game. */
+    default LevelInitProfile getLevelInitProfile() {
+        return null;
+    }
 }

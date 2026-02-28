@@ -21,6 +21,7 @@ import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.EndingProvider;
 import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
+import com.openggf.game.LevelInitProfile;
 import com.openggf.game.LevelGamestate;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.PhysicsProvider;
@@ -211,6 +212,11 @@ public class Sonic2GameModule implements GameModule {
             physicsProvider = new Sonic2PhysicsProvider();
         }
         return physicsProvider;
+    }
+
+    @Override
+    public LevelInitProfile getLevelInitProfile() {
+        return new Sonic2LevelInitProfile();
     }
 
     @Override
