@@ -77,9 +77,12 @@ public class Sonic3kLevelInitProfile implements LevelInitProfile {
 
     @Override
     public List<InitStep> perTestResetSteps() {
+        // Note: S3K level event manager is NOT reset here. The old
+        // TestEnvironment.resetPerTest() only called
+        // Sonic2LevelEventManager.resetState(), which was a no-op for S3K.
+        // Resetting the S3K event manager would destroy zone event handlers
+        // (e.g. AIZ events) initialized during the @BeforeClass level load.
         return List.of(
-            new InitStep("ResetS3kLevelEvents", "Engine: clear S3K level event state",
-                () -> Sonic3kLevelEventManager.getInstance().resetState()),
             new InitStep("ResetAizSidekickSuppression",
                 "Engine: clear AIZ plane intro sidekick suppression flag",
                 () -> AizPlaneIntroInstance.setSidekickSuppressed(false)),
