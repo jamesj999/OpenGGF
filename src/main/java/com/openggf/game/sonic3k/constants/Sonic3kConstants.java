@@ -122,6 +122,13 @@ public class Sonic3kConstants {
     public static int SONIC_PALETTE_ADDR = 0x0A8A3C;  // Pal_SonicTails (64 bytes)
     public static int KNUCKLES_PALETTE_ADDR = 0x0A8AFC; // Pal_Knuckles (32 bytes)
 
+    // Pal_WaterKnux - Knuckles water palette patch (42 bytes = 7 zones x 6 bytes)
+    // 6 bytes per zone (3 Mega Drive colors), written to Water_palette+$04 (colors 2-4 of line 0)
+    // Covers S3 zones only (0=AIZ through 6=LBZ). Verified via RomOffsetFinder find.
+    public static final int PAL_WATER_KNUX_ADDR = 0x7A4A;
+    public static final int PAL_WATER_KNUX_ENTRY_SIZE = 6; // 3 colors x 2 bytes each
+    public static final int PAL_WATER_KNUX_ZONE_COUNT = 7; // Zones 0-6 (AIZ-LBZ)
+
     // ===== AIZ Intro Cinematic =====================================================
     // Addresses verified 2026-02-13 by ROM binary pattern search and LockOn Pointer
     // cumulative offset calculation, cross-checked against disassembly frame labels.
