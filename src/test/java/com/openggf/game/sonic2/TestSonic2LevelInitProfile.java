@@ -41,7 +41,7 @@ public class TestSonic2LevelInitProfile {
 
         assertEquals("ResetS2LevelEvents", steps.get(0).name());
         assertEquals("ResetParallax", steps.get(1).name());
-        assertEquals("ClearSprites", steps.get(2).name());
+        assertEquals("ResetSprites", steps.get(2).name());
         assertEquals("ResetCollision", steps.get(3).name());
         assertEquals("ResetCamera", steps.get(4).name());
         assertEquals("ResetFade", steps.get(5).name());
