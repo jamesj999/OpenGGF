@@ -58,7 +58,11 @@ public class ParallaxManager {
     private final int[] hScroll = new int[VISIBLE_LINES];
     // Optional per-line BG VScroll deltas (added on top of vscrollFactorBG).
     private final short[] vScrollPerLineBG = new short[VISIBLE_LINES];
+    // Optional per-column BG VScroll deltas (20 columns in H40 mode).
+    private static final int BG_VSCROLL_COLUMN_COUNT = 20;
+    private final short[] vScrollPerColumnBG = new short[BG_VSCROLL_COLUMN_COUNT];
     private boolean hasPerLineVScrollBG = false;
+    private boolean hasPerColumnVScrollBG = false;
 
     private int minScroll = 0;
     private int maxScroll = 0;
@@ -157,7 +161,9 @@ public class ParallaxManager {
         maxScroll = 0;
         java.util.Arrays.fill(hScroll, 0);
         java.util.Arrays.fill(vScrollPerLineBG, (short) 0);
+        java.util.Arrays.fill(vScrollPerColumnBG, (short) 0);
         hasPerLineVScrollBG = false;
+        hasPerColumnVScrollBG = false;
     }
 
     public void load(Rom rom) {
@@ -272,6 +278,15 @@ public class ParallaxManager {
     }
 
     /**
+     * Optional per-column BG VScroll values for shader-based column distortion effects.
+     *
+     * @return 20-entry per-column VScroll array, or null when not active
+     */
+    public short[] getVScrollPerColumnBGForShader() {
+        return hasPerColumnVScrollBG ? vScrollPerColumnBG : null;
+    }
+
+    /**
      * Get the BG camera X position from the active scroll handler.
      * Used by LevelManager to determine which region of a wide BG map
      * to render into the 512px VDP nametable tilemap.
@@ -361,7 +376,9 @@ public class ParallaxManager {
         currentShakeOffsetX = 0;
         currentShakeOffsetY = 0;
         java.util.Arrays.fill(vScrollPerLineBG, (short) 0);
+        java.util.Arrays.fill(vScrollPerColumnBG, (short) 0);
         hasPerLineVScrollBG = false;
+        hasPerColumnVScrollBG = false;
 
         int cameraX = cam.getX();
         int cameraY = cam.getY();
@@ -377,6 +394,7 @@ public class ParallaxManager {
                 vscrollFactorBG = handler.getVscrollFactorBG();
                 cachedBgCameraX = handler.getBgCameraX();
                 capturePerLineVScroll(handler);
+                capturePerColumnVScroll(handler);
             } else {
                 cachedBgCameraX = Integer.MIN_VALUE;
                 fillMinimal(cam);
@@ -822,6 +840,20 @@ public class ParallaxManager {
             java.util.Arrays.fill(vScrollPerLineBG, count, VISIBLE_LINES, (short) 0);
         }
         hasPerLineVScrollBG = true;
+    }
+
+    private void capturePerColumnVScroll(ZoneScrollHandler handler) {
+        short[] perColumn = handler.getPerColumnVScrollBG();
+        if (perColumn == null || perColumn.length == 0) {
+            hasPerColumnVScrollBG = false;
+            return;
+        }
+        int count = Math.min(BG_VSCROLL_COLUMN_COUNT, perColumn.length);
+        System.arraycopy(perColumn, 0, vScrollPerColumnBG, 0, count);
+        if (count < BG_VSCROLL_COLUMN_COUNT) {
+            java.util.Arrays.fill(vScrollPerColumnBG, count, BG_VSCROLL_COLUMN_COUNT, (short) 0);
+        }
+        hasPerColumnVScrollBG = true;
     }
 
     /**

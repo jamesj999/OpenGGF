@@ -557,6 +557,8 @@ public class Sonic3kConstants {
     public static final int ART_KOSM_AIZ_BLOOMINATOR_ADDR = 0x367DCA;
     // ArtKosM_AIZ_MonkeyDude - Kosinski Moduled compressed art.
     public static final int ART_KOSM_AIZ_MONKEY_DUDE_ADDR = 0x36800C;
+    // AIZ1_8x8_Flames_KosM - fire overlay tiles loaded at x >= $2E00 (Act 1).
+    public static final int ART_KOSM_AIZ1_FIRE_OVERLAY_ADDR = 0x1AF5D0;
 
     // VRAM tile destinations for shields
     public static final int ART_TILE_SHIELD = 0x079C;

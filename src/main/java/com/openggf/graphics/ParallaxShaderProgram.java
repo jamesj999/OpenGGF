@@ -18,6 +18,7 @@ public class ParallaxShaderProgram {
     private int backgroundTextureLocation = -1;
     private int hScrollTextureLocation = -1;
     private int vScrollTextureLocation = -1;
+    private int vScrollColumnTextureLocation = -1;
     private int paletteLocation = -1;
 
     // Scroll and dimension uniforms
@@ -36,6 +37,7 @@ public class ParallaxShaderProgram {
     private int fboAllocationWidthLocation = -1;
     private int noHScrollLocation = -1;
     private int usePerLineVScrollLocation = -1;
+    private int usePerColumnVScrollLocation = -1;
     private int frameCounterLocation = -1;
     private int shimmerStyleLocation = -1;
     private int waterlineScreenYLocation = -1;
@@ -83,6 +85,7 @@ public class ParallaxShaderProgram {
         backgroundTextureLocation = glGetUniformLocation(programId, "BackgroundTexture");
         hScrollTextureLocation = glGetUniformLocation(programId, "HScrollTexture");
         vScrollTextureLocation = glGetUniformLocation(programId, "VScrollTexture");
+        vScrollColumnTextureLocation = glGetUniformLocation(programId, "VScrollColumnTexture");
         paletteLocation = glGetUniformLocation(programId, "Palette");
 
         // Scroll and dimensions
@@ -101,6 +104,7 @@ public class ParallaxShaderProgram {
         fboAllocationWidthLocation = glGetUniformLocation(programId, "FBOAllocationWidth");
         noHScrollLocation = glGetUniformLocation(programId, "NoHScroll");
         usePerLineVScrollLocation = glGetUniformLocation(programId, "UsePerLineVScroll");
+        usePerColumnVScrollLocation = glGetUniformLocation(programId, "UsePerColumnVScroll");
         frameCounterLocation = glGetUniformLocation(programId, "FrameCounter");
         shimmerStyleLocation = glGetUniformLocation(programId, "ShimmerStyle");
         waterlineScreenYLocation = glGetUniformLocation(programId, "WaterlineScreenY");
@@ -136,6 +140,12 @@ public class ParallaxShaderProgram {
     public void setVScrollTexture(int textureUnit) {
         if (vScrollTextureLocation >= 0) {
             glUniform1i(vScrollTextureLocation, textureUnit);
+        }
+    }
+
+    public void setVScrollColumnTexture(int textureUnit) {
+        if (vScrollColumnTextureLocation >= 0) {
+            glUniform1i(vScrollColumnTextureLocation, textureUnit);
         }
     }
 
@@ -236,6 +246,12 @@ public class ParallaxShaderProgram {
     public void setUsePerLineVScroll(boolean enabled) {
         if (usePerLineVScrollLocation >= 0) {
             glUniform1i(usePerLineVScrollLocation, enabled ? 1 : 0);
+        }
+    }
+
+    public void setUsePerColumnVScroll(boolean enabled) {
+        if (usePerColumnVScrollLocation >= 0) {
+            glUniform1i(usePerColumnVScrollLocation, enabled ? 1 : 0);
         }
     }
 

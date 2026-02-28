@@ -12,6 +12,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static com.openggf.level.scroll.M68KMath.VISIBLE_LINES;
 import static com.openggf.level.scroll.M68KMath.asrWord;
@@ -24,6 +25,10 @@ public class SwScrlAizTest {
     private static final int INTRO_DEFORM_BANDS = 0x25;
     private static final int INTRO_DEFORM_CAP = 0x580;
     private static final int DEFORM_ORIGIN_X = 0x1300;
+    private static final short[] AIZ_FINE_HAZE_FG_DEFORM = {
+            0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0
+    };
 
     private SwScrlAiz handler;
 
@@ -187,7 +192,7 @@ public class SwScrlAizTest {
     }
 
     @Test
-    public void fireTransitionExposesPerLineVScrollWave() {
+    public void fireTransitionExposesPerColumnVScrollWave() {
         Sonic3kLevelEventManager eventsManager = Sonic3kLevelEventManager.getInstance();
         eventsManager.initLevel(0, 0);
         Sonic3kAIZEvents events = eventsManager.getAizEvents();
@@ -200,19 +205,41 @@ public class SwScrlAizTest {
         int[] buffer = new int[VISIBLE_LINES];
         handler.update(buffer, 0x2F10, 0x200, 8, 0);
 
-        short[] perLine = handler.getPerLineVScrollBG();
-        assertNotNull(perLine);
-        assertEquals(VISIBLE_LINES, perLine.length);
+        short[] perColumn = handler.getPerColumnVScrollBG();
+        assertNotNull(perColumn);
+        assertEquals(20, perColumn.length);
 
         boolean hasVariation = false;
-        short first = perLine[0];
-        for (int i = 1; i < perLine.length; i++) {
-            if (perLine[i] != first) {
+        short first = perColumn[0];
+        for (int i = 1; i < perColumn.length; i++) {
+            if (perColumn[i] != first) {
                 hasVariation = true;
                 break;
             }
         }
-        assertTrue("Expected non-flat per-line VScroll during AIZ fire transition", hasVariation);
+        assertTrue("Expected non-flat per-column VScroll during AIZ fire transition", hasVariation);
+    }
+
+    @Test
+    public void postBurnFineHazeUsesAiz2ForegroundDeltaTable() {
+        Camera.getInstance().setLevelStarted(true);
+        int[] buffer = new int[VISIBLE_LINES];
+        int cameraX = 0x2E20;
+        int cameraY = 0x180;
+        int frameCounter = 19;
+
+        handler.update(buffer, cameraX, cameraY, frameCounter, 0);
+
+        // Fine haze is FG-only in this phase; no fire-transition column VScroll should be active.
+        assertNull(handler.getPerColumnVScrollBG());
+
+        int phase = ((frameCounter + (cameraY << 1)) & 0x3E) >> 1;
+        short baseFg = negWord(cameraX);
+        for (int line = 0; line < VISIBLE_LINES; line++) {
+            short actualFg = (short) (buffer[line] >>> 16);
+            short expectedFg = (short) (baseFg + AIZ_FINE_HAZE_FG_DEFORM[(phase + line) & 0x1F]);
+            assertEquals("FG haze mismatch at scanline " + line, expectedFg, actualFg);
+        }
     }
 
     private int[] buildExpectedIntroBuffer(int cameraX, int cameraY, int source) {

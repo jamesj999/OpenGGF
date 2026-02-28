@@ -24,6 +24,8 @@ public class TilemapGpuRenderer {
     private final TilemapTexture backgroundTexture = new TilemapTexture();
     private final TilemapTexture foregroundTexture = new TilemapTexture();
     private final PatternLookupBuffer patternLookup = new PatternLookupBuffer();
+    private final HScrollBuffer foregroundLineScrollBuffer = new HScrollBuffer(true);
+    private final VScrollBuffer columnVScrollBuffer = new VScrollBuffer(20);
     private final QuadRenderer quadRenderer = new QuadRenderer();
 
     // Dummy 1x1 textures used as fallback when no real texture is available.
@@ -51,6 +53,7 @@ public class TilemapGpuRenderer {
     private float perLineScreenHeight = 224.0f;
     private float perLineVdpWrapWidth = 0.0f;
     private float perLineNametableBase = 0.0f;
+    private boolean perColumnVScroll = false;
 
     private float bgVdpWrapHeight = 0.0f;
 
@@ -94,6 +97,9 @@ public class TilemapGpuRenderer {
             glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glBindTexture(GL_TEXTURE_1D, 0);
 
+            columnVScrollBuffer.init();
+            foregroundLineScrollBuffer.init();
+
             LOGGER.info("Tilemap GPU renderer initialized.");
         }
         quadRenderer.init();
@@ -125,6 +131,33 @@ public class TilemapGpuRenderer {
         this.perLineScreenHeight = screenHeight;
         this.perLineVdpWrapWidth = vdpWrapWidth;
         this.perLineNametableBase = nametableBase;
+    }
+
+    /**
+     * Enable per-scanline foreground scroll for the next render() call from packed HScroll data.
+     * Extracts FG values (high 16-bit word) and uploads them to a dedicated 1D texture.
+     */
+    public void enablePerLineForegroundScroll(int[] packedHScroll) {
+        if (packedHScroll == null || packedHScroll.length == 0) {
+            this.perLineScroll = false;
+            return;
+        }
+        foregroundLineScrollBuffer.upload(packedHScroll);
+        enablePerLineScroll(foregroundLineScrollBuffer.getTextureId(), 224.0f, 0.0f, 0.0f);
+    }
+
+    /**
+     * Enable per-column vertical scroll for the next render() call.
+     * Uses 20 columns (H40 mode), matching the Mega Drive 2-cell column mode.
+     * Automatically resets after render().
+     */
+    public void enablePerColumnVScroll(short[] columnVScroll) {
+        if (columnVScroll == null || columnVScroll.length == 0) {
+            this.perColumnVScroll = false;
+            return;
+        }
+        columnVScrollBuffer.upload(columnVScroll);
+        this.perColumnVScroll = true;
     }
 
     /**
@@ -219,6 +252,8 @@ public class TilemapGpuRenderer {
         shader.setNametableBase(perLineScroll ? perLineNametableBase : 0.0f);
         // Always assign HScrollTexture to unit 5 to satisfy macOS sampler validation.
         shader.setHScrollTexture(5);
+        shader.setVScrollColumnTexture(6);
+        shader.setPerColumnVScroll(perColumnVScroll);
         if (perLineScroll) {
             shader.setScreenHeight(perLineScreenHeight);
         }
@@ -250,11 +285,22 @@ public class TilemapGpuRenderer {
             glBindTexture(GL_TEXTURE_1D, dummyTexture1dId);
         }
 
+        // Bind per-column VScroll texture (or dummy when disabled).
+        glActiveTexture(GL_TEXTURE6);
+        if (perColumnVScroll) {
+            glBindTexture(GL_TEXTURE_1D, columnVScrollBuffer.getTextureId());
+        } else {
+            glBindTexture(GL_TEXTURE_1D, dummyTexture1dId);
+        }
+
         quadRenderer.draw(0, 0, windowWidth, windowHeight);
 
+        glActiveTexture(GL_TEXTURE6);
+        glBindTexture(GL_TEXTURE_1D, 0);
         glActiveTexture(GL_TEXTURE5);
         glBindTexture(GL_TEXTURE_1D, 0);
         perLineScroll = false; // Reset for next frame
+        perColumnVScroll = false;
         glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE4);
@@ -282,6 +328,8 @@ public class TilemapGpuRenderer {
             glDeleteTextures(dummyTexture1dId);
             dummyTexture1dId = 0;
         }
+        columnVScrollBuffer.cleanup();
+        foregroundLineScrollBuffer.cleanup();
         backgroundTexture.cleanup();
         foregroundTexture.cleanup();
         patternLookup.cleanup();
