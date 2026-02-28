@@ -3,7 +3,7 @@ package com.openggf.game.sonic3k.events;
 import com.openggf.camera.Camera;
 import com.openggf.game.CheckpointState;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
-import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelConstants;
@@ -491,8 +491,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             requestFireTransitionMutation();
         }
 
-        // ROM performs in-place mutation while still in AIZ1, then advances to AIZ2
-        // later in the finish phase once required resources are loaded.
+        // Fire transition completes with a seamless in-place reload to continue
+        // the second gameplay half without a title card/act bump.
         if (fireBgY >= FIRE_BG_FINISH_Y || fireTransitionFrames >= FIRE_TRANSITION_FALLBACK_FRAMES) {
             requestAct2Transition();
         }
@@ -528,16 +528,21 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             requestFireTransitionMutation();
         }
         persistTransitionCheckpoint();
+        LevelManager levelManager = LevelManager.getInstance();
         LevelManager.getInstance().requestSeamlessTransition(
                 SeamlessLevelTransitionRequest.builder(SeamlessLevelTransitionRequest.TransitionType.RELOAD_TARGET_LEVEL)
-                        .targetZoneAct(Sonic3kZoneIds.ZONE_AIZ, 1)
+                        // ROM loads AIZ act 2 resources here, but this is presented as
+                        // a seamless continuation (no title card transition).
+                        .targetZoneAct(levelManager.getCurrentZone(), 1)
                         .deactivateLevelNow(true)
-                        .preserveMusic(true)
-                        .showInLevelTitleCard(true)
+                        .preserveMusic(false)
+                        .showInLevelTitleCard(false)
+                        .mutationKey(S3kSeamlessMutationExecutor.MUTATION_AIZ1_FIRE_TRANSITION_STAGE)
+                        .musicOverrideId(Sonic3kMusic.AIZ1.id)
                         .playerOffset(-0x2F00, -0x80)
                         .cameraOffset(-0x2F00, -0x80)
                         .build());
-        LOG.info("AIZ1: requested seamless transition to AIZ2");
+        LOG.info("AIZ1: requested seamless in-place post-miniboss reload");
     }
 
     private void persistTransitionCheckpoint() {

@@ -21,6 +21,7 @@ public final class SeamlessLevelTransitionRequest {
     private final int cameraOffsetX;
     private final int cameraOffsetY;
     private final String mutationKey;
+    private final int musicOverrideId;
 
     private SeamlessLevelTransitionRequest(Builder builder) {
         this.type = builder.type;
@@ -34,6 +35,7 @@ public final class SeamlessLevelTransitionRequest {
         this.cameraOffsetX = builder.cameraOffsetX;
         this.cameraOffsetY = builder.cameraOffsetY;
         this.mutationKey = builder.mutationKey;
+        this.musicOverrideId = builder.musicOverrideId;
     }
 
     public TransitionType type() {
@@ -80,6 +82,10 @@ public final class SeamlessLevelTransitionRequest {
         return mutationKey;
     }
 
+    public int musicOverrideId() {
+        return musicOverrideId;
+    }
+
     public static Builder builder(TransitionType type) {
         return new Builder(type);
     }
@@ -96,6 +102,7 @@ public final class SeamlessLevelTransitionRequest {
         private int cameraOffsetX;
         private int cameraOffsetY;
         private String mutationKey;
+        private int musicOverrideId = -1;
 
         private Builder(TransitionType type) {
             this.type = type;
@@ -136,6 +143,11 @@ public final class SeamlessLevelTransitionRequest {
 
         public Builder mutationKey(String mutationKey) {
             this.mutationKey = mutationKey;
+            return this;
+        }
+
+        public Builder musicOverrideId(int musicOverrideId) {
+            this.musicOverrideId = musicOverrideId;
             return this;
         }
 

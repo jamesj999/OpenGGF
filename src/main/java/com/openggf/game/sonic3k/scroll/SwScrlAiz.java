@@ -44,6 +44,7 @@ public class SwScrlAiz implements ZoneScrollHandler {
             0, -1, -2, -5, -8, -10, -13, -14,
             -15, -14, -13, -10, -7, -5, -2, -1
     };
+    private static final int FIRE_WAVE_COLUMN_COUNT = 0x14; // ROM loop count: moveq #$14-1,d3
 
     private short vscrollFactorBG;
     private int minScrollOffset;
@@ -394,13 +395,24 @@ public class SwScrlAiz implements ZoneScrollHandler {
     }
 
     private void buildFireWaveVScroll(int frameCounter) {
-        // AIZTrans_WavyFlame advances table index by +2 each step.
-        // Mapping each step to an 8-line band gives a smooth full-screen wave.
-        int phase = (frameCounter >> 2) & 0xF;
+        // ROM AIZTrans_WavyFlame:
+        // d2 = Level_frame_counter >> 2, then each write does d2 += 2 (mod 16),
+        // producing 20 VScroll words (column scroll mode).
+        // This renderer consumes per-scanline offsets, so map those 20 words to
+        // 224 lines as 20 vertical bands.
+        short[] columnValues = new short[FIRE_WAVE_COLUMN_COUNT];
+        int d2 = (frameCounter >> 2) & 0xF;
+        for (int i = 0; i < FIRE_WAVE_COLUMN_COUNT; i++) {
+            d2 = (d2 + 2) & 0xF;
+            columnValues[i] = AIZ_FLAME_VSCROLL[d2];
+        }
+
         for (int line = 0; line < VISIBLE_LINES; line++) {
-            int band = line >> 3;
-            int index = (phase + (band << 1)) & 0xF;
-            perLineVScrollBG[line] = AIZ_FLAME_VSCROLL[index];
+            int column = (line * FIRE_WAVE_COLUMN_COUNT) / VISIBLE_LINES;
+            if (column >= FIRE_WAVE_COLUMN_COUNT) {
+                column = FIRE_WAVE_COLUMN_COUNT - 1;
+            }
+            perLineVScrollBG[line] = columnValues[column];
         }
         hasPerLineVScrollBG = true;
     }

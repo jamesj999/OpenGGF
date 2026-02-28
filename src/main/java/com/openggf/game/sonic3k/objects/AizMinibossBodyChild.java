@@ -25,12 +25,17 @@ public class AizMinibossBodyChild extends AbstractBossChild implements TouchResp
     private static final int COLLISION_FLAGS = 0x9C;
     private static final int SHIELD_REACTION = 1 << 4;
 
-    private static final int[] ACTIVE_FRAMES = {3, 4, 5};
-    private static final int[] ACTIVE_DELAYS = {7, 5, 5};
+    // ROM byte_69126:
+    // dc.b 1,1,2,$FC / dc.b 7,3,4,5,$F4
+    private static final int[] INTRO_FRAMES = {1, 2};
+    private static final int INTRO_DELAY = 1;
+    private static final int[] LOOP_FRAMES = {3, 4, 5};
+    private static final int LOOP_DELAY = 7;
 
-    private int mappingFrame = 2;
-    private int animIndex = 0;
-    private int animTimer = ACTIVE_DELAYS[0];
+    private int mappingFrame = INTRO_FRAMES[0];
+    private int animTimer = INTRO_DELAY;
+    private boolean inLoopSection;
+    private int loopIndex;
 
     public AizMinibossBodyChild(AbstractBossInstance parent) {
         super(parent, "AIZMinibossBody", 3, 0x90);
@@ -60,22 +65,27 @@ public class AizMinibossBodyChild extends AbstractBossChild implements TouchResp
             return;
         }
 
-        // Body animation is only active once the parent has entered active phases.
-        if (parent.getState().routine < 8) {
-            mappingFrame = 2;
-            animIndex = 0;
-            animTimer = ACTIVE_DELAYS[0];
-            return;
-        }
-
         animTimer--;
         if (animTimer > 0) {
             return;
         }
 
-        animIndex = (animIndex + 1) % ACTIVE_FRAMES.length;
-        mappingFrame = ACTIVE_FRAMES[animIndex];
-        animTimer = ACTIVE_DELAYS[animIndex];
+        if (!inLoopSection) {
+            if (mappingFrame == INTRO_FRAMES[0]) {
+                mappingFrame = INTRO_FRAMES[1];
+                animTimer = INTRO_DELAY;
+                return;
+            }
+            inLoopSection = true;
+            loopIndex = 0;
+            mappingFrame = LOOP_FRAMES[loopIndex];
+            animTimer = LOOP_DELAY;
+            return;
+        }
+
+        loopIndex = (loopIndex + 1) % LOOP_FRAMES.length;
+        mappingFrame = LOOP_FRAMES[loopIndex];
+        animTimer = LOOP_DELAY;
     }
 
     @Override
