@@ -74,8 +74,12 @@ public class Sonic3kWaterDataProvider implements WaterDataProvider {
     @Override
     public boolean hasWater(int zoneId, int actId, PlayerCharacter character) {
         // CheckLevelForWater (sonic3k.asm:9751-9778)
-        // AIZ both acts (line 9752-9753)
-        if (zoneId == Sonic3kZoneIds.ZONE_AIZ) return true;
+        // AIZ1: water for all characters (line 9752-9753)
+        if (zoneId == Sonic3kZoneIds.ZONE_AIZ && actId == 0) return true;
+        // AIZ2: water for Sonic/Tails only (lines 9754-9759)
+        // ROM also checks Apparent_zone_and_act; we assume normal gameplay (Apparent == Current)
+        if (zoneId == Sonic3kZoneIds.ZONE_AIZ && actId == 1
+                && character != PlayerCharacter.KNUCKLES) return true;
         // HCZ both acts (line 9762-9763, zone byte check)
         if (zoneId == Sonic3kZoneIds.ZONE_HCZ) return true;
         // CNZ2: Sonic/Tails only, not Knuckles (line 9764-9767)

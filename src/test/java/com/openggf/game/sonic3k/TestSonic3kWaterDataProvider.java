@@ -25,11 +25,24 @@ public class TestSonic3kWaterDataProvider {
     // =====================================================================
 
     @Test
-    public void aizHasWater() {
-        assertTrue("AIZ1 should have water",
+    public void aiz1HasWater() {
+        assertTrue("AIZ1 Sonic should have water",
                 provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 0, PlayerCharacter.SONIC_AND_TAILS));
-        assertTrue("AIZ2 should have water",
+        assertTrue("AIZ1 Knuckles should have water",
+                provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 0, PlayerCharacter.KNUCKLES));
+    }
+
+    @Test
+    public void aiz2SonicHasWater() {
+        assertTrue("AIZ2 Sonic should have water",
                 provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 1, PlayerCharacter.SONIC_AND_TAILS));
+    }
+
+    @Test
+    public void aiz2KnucklesHasNoWater() {
+        // ROM CheckLevelForWater (sonic3k.asm:9754-9759): Knuckles excluded from AIZ2 water
+        assertFalse("AIZ2 Knuckles should NOT have water",
+                provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 1, PlayerCharacter.KNUCKLES));
     }
 
     @Test
