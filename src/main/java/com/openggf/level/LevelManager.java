@@ -601,23 +601,37 @@ public class LevelManager {
     }
 
     /**
-     * Phase A-C: Initialize game module, configure audio manager, and play level music.
+     * Phase A: Initialize ROM access, parallax, game module, and zone registry.
      */
-    public void initGameModuleAndAudio(int levelIndex) throws IOException {
+    public void initGameModule(int levelIndex) throws IOException {
         Rom rom = GameServices.rom().getRom();
         parallaxManager.load(rom);
         gameModule = GameModuleRegistry.getCurrent();
         refreshZoneList();
         game = gameModule.createGame(rom);
+    }
+
+    /**
+     * Phase C/F: Configure audio manager and play level music.
+     */
+    public void initAudio(int levelIndex) throws IOException {
         AudioManager audioManager = AudioManager.getInstance();
         audioManager.setAudioProfile(gameModule.getAudioProfile());
-        audioManager.setRom(rom);
+        audioManager.setRom(GameServices.rom().getRom());
         audioManager.setSoundMap(game.getSoundMap());
         audioManager.resetRingSound();
         if (!suppressNextMusicChange) {
             audioManager.playMusic(game.getMusicId(levelIndex));
         }
         suppressNextMusicChange = false;
+    }
+
+    /**
+     * Phase A-C: Initialize game module, configure audio manager, and play level music.
+     */
+    public void initGameModuleAndAudio(int levelIndex) throws IOException {
+        initGameModule(levelIndex);
+        initAudio(levelIndex);
     }
 
     /**
