@@ -4,8 +4,11 @@ All notable changes to the sonic-engine project are documented in this file.
 
 ## v0.4 (Unreleased)
 
-Analysis range: `v0.3.20260206..HEAD` on `develop` (`312` commits, `291` non-merge commits,
-`801` files changed, `153243` insertions, `29989` deletions).
+Analysis range: `v0.3.20260206..HEAD` on `develop` (`621` commits, `583` non-merge commits,
+`2020` files changed, `212883` insertions, `195323` deletions).
+
+> Note: the large deletion count reflects the package rename from `uk.co.jamesj999.sonic` to
+> `com.openggf`, which deleted and recreated most source files. Net code growth is ~17,500 lines.
 
 ### Sonic 1 Expansion and Content Completion
 
@@ -23,6 +26,8 @@ Analysis range: `v0.3.20260206..HEAD` on `develop` (`312` commits, `291` non-mer
 - Boss coverage expanded to GHZ, MZ, SYZ, LZ, SLZ, and FZ with child objects/projectiles and event integration.
 - Added/finished LZ water behavior and bubble systems, including per-ROM drowning music selection.
 - Added ending/outro flow updates and initial credits sequence implementation.
+- Added SBZ2 post-level-end sequence.
+- Fixed S1 physics regressions with test coverage (multiple passes).
 
 ### Sonic 2 Gameplay Additions
 
@@ -33,9 +38,30 @@ Analysis range: `v0.3.20260206..HEAD` on `develop` (`312` commits, `291` non-mer
   - Wing Fortress object set and supporting hazards/platforms.
   - Oil Ocean object and oil-surface behavior improvements.
 - Added MCZ boss implementation (`Sonic2MCZBossInstance` + falling debris support) with follow-up fixes.
+- Added MTZ Boss (Obj54) with S2 boss event stubs.
+- Added WFZ Boss (ObjC5) with laser platform attack cycle, plus ROM-accuracy pass (17 issues).
+- Added DEZ Mecha Sonic boss (ObjAF) with full state machine, plus ROM-accuracy pass (17 issues).
+- Added DEZ Death Egg Robot (ObjC7) — final S2 boss, plus ROM-accuracy pass (12 issues).
+- Added Robotnik escape sequence between DEZ boss fights (ObjC6).
+- Six passes of DEZ boss ROM-accuracy corrections: Silver Sonic facing direction, LED overlay,
+  animation phase gating, Egg Robo collision/render priorities, Death Egg Robot child systems.
 - Added `61` new Sonic 2 object-related files (`45` general objects, `14` badnik classes, `2` boss files),
   including additional SCZ/WFZ/MTZ/OOZ badnik/object coverage.
 - Refactored and expanded Sonic 2 zone events (`Sonic2LevelEventManager` + per-zone event classes).
+- Implemented Sonic 2 credits and ending system:
+  - `EndingPhase` enum, `EndingProvider` interface, and `ENDING_CUTSCENE` GameMode.
+  - `Sonic2CreditsTextRenderer`, `Sonic2CreditsMappings`, `Sonic2CreditsData` with timing constants.
+  - `Sonic2EndingCutsceneManager` and `Sonic2EndingArt` with DEZ star field background rendering.
+  - `Sonic2LogoFlashManager` with ROM-accurate palette strobe.
+  - `Sonic2EndingProvider` wired to DEZ boss ending trigger.
+  - Rewritten for ROM parity with ObjCA/ObjCC, DPLC player sprites, tornado visibility.
+  - `Sonic1EndingProvider` refactored to use shared `EndingProvider` interface.
+- Added demo playback functionality with enhancements and routing to objects.
+- Systematic TODO resolution pass: water heights, monitor effects, distortion table, sliding spikes,
+  dual collision, Yadrin spiky-top collision, water slide control lockout, LZ rumbling SFX,
+  boss flag wiring to AIZ pattern animations, plus TODO/FIXME coverage tests with disassembly validation.
+- Various object fixes: PointPokey positioning, MCZRotPlatforms child accumulation, signpost/screen
+  locking, object loading improvements, ROM-accurate bumper/bonus block/rising pillar/diagonal spring physics.
 
 ### Super Sonic and Per-Game Physics
 
@@ -49,6 +75,8 @@ Analysis range: `v0.3.20260206..HEAD` on `develop` (`312` commits, `291` non-mer
   - Invulnerability/enemy-destruction behavior and shield/power-up interaction guards.
   - Debug toggle support and Super Sonic stars object support.
 - Added Sonic 3K Super Sonic controller stub/hook points for future parity work.
+- Added cross-game Super Sonic delegation to S1 and S2 game modules via `CrossGameFeatureProvider`,
+  including palette, audio, and renderer integration, invincibility, and S3K slope animation offset.
 
 ### Sonic 3K Bring-Up (AIZ-Focused)
 
@@ -65,6 +93,18 @@ Analysis range: `v0.3.20260206..HEAD` on `develop` (`312` commits, `291` non-mer
 - Added initial S3K badnik framework and first wired badnik implementations.
 - Added S3K shield object implementations and fixed deferred PLC loading after AIZ intro.
 - Added Sonic 3K title card manager/mappings and S3K pattern/palette animation work.
+- Implemented S3K water system:
+  - Game-agnostic `WaterDataProvider` and `DynamicWaterHandler` interfaces.
+  - `ThresholdTableWaterHandler` for table-driven water zones.
+  - `Sonic3kWaterDataProvider` with static heights, dynamic handlers, and underwater palette loading.
+  - `Sonic1WaterDataProvider` migration to the new provider architecture.
+  - Wired into LevelManager and S3K zone features, deprecated game-specific water loading methods.
+  - Correct water threshold tables, `setMeanDirect`, zone scope, and starting heights matching ROM.
+  - S3K water locked flag, shake timer, LBZ2 pipe plug handler.
+  - AIZ2 Knuckles water exclusion, raise speed inheritance, `update()` overshoot fixes.
+- Implemented seamless AIZ fire transition flow (`S3kSeamlessMutationExecutor`).
+- AIZ miniboss cutscene and barrel shot child updates.
+- Expanded AIZ scroll handler work (`SwScrlAiz`).
 
 ### PLC, Art Loading, and Tooling
 
@@ -91,6 +131,12 @@ Analysis range: `v0.3.20260206..HEAD` on `develop` (`312` commits, `291` non-mer
   - Graphics cleanup fixes (resource leaks, reset-state gaps, allocation reductions).
   - Additional stability fixes across water/drowning handling, invulnerability timing, and debug movement modifiers.
 - Performance passes across level/render/audio hot paths and internal debug profiling updates.
+- Fixed SFX channel replacement: kill old SFX track on shared channel to prevent priority lock.
+- Synth-core review fixes: resource safety, encapsulation, dead code cleanup.
+- HTZ earthquake fixes: descending through floor, tile display, rising lava subtype 4 hurt behaviour.
+- Consolidated duplicate sine/cosine tables to `TrigLookupTable`.
+- Fixed cross-game features breaking layer switchers.
+- Fixed special stage transition softlocks and S1 results fade type.
 
 ### Test and Quality Coverage
 
@@ -100,6 +146,13 @@ Analysis range: `v0.3.20260206..HEAD` on `develop` (`312` commits, `291` non-mer
   - Title screen audio regression coverage.
   - PSG/YM2612 and per-game physics/profile parity checks.
 - Expanded headless and subsystem-focused tests in support of object/event/audio refactors.
+- Added 21 headless bug reproduction tests for 17 reported S1/S2 bugs.
+- JUnit 5 migration: deleted 54 self-verifying tests, replaced with parameterized tests.
+- Parallelized test execution with 8 forked JVMs.
+- Test grouping by level: merged headless tests sharing the same level load into groups
+  (EHZ1: 4→1, ARZ1: 3→1, CNZ1: 3→1, HTZ1: 2→1, AIZ1: 2→1, GHZ1: 6→1), eliminating 14 redundant
+  level loads.
+- Added TODO/FIXME coverage tests with disassembly validation.
 
 ### Cross-Game Feature Donation
 
@@ -181,6 +234,9 @@ objects, and music. Enabled via `CROSS_GAME_FEATURES_ENABLED` and `CROSS_GAME_SO
 - Outro/credits improvements (`Sonic1CreditsManager`, `FadeManager` enhancements).
 - `TestSbz1CreditsDemoBug` (162 lines) and `TestS1FlamethrowerObjectRendering` (58 lines) added.
 - S1 "fast" mode SMPS sequencer support.
+- S1 outro improvements: disable control on outro, change 'back to main menu' key.
+- S1 ending sequence flowers fix.
+- S1 object collision fixes.
 
 ### Sonic 2 Fixes
 
@@ -188,6 +244,12 @@ objects, and music. Enabled via `CROSS_GAME_FEATURES_ENABLED` and `CROSS_GAME_SO
   frame order corrected to match `obj0D_a.asm` ROM mapping order, CPZ stair block / MTZ platform
   art sheet rebuilt with hand-crafted mappings (ROM mappings reference level art tiles).
 - Swinging platform art loading fix for non-S2 games.
+- S2 ending cutscene parity: DEZ white fade (not black), star field background, pilot visibility,
+  BG scroll compensation, DPLC player sprites, tornado visibility, falling timing.
+- Prevented DEZ Robot despawn during defeat ending sequence.
+- Fixed DEZ boss visual and collision issues (multiple passes).
+- Fixed S2 credits visual accuracy: ROM-correct font, mappings, and player detection.
+- Fixed S2 `Sonic2LevelEventManager` zone constants alignment with `ZoneRegistry`.
 
 ### Physics and Collision Fixes
 
@@ -204,12 +266,46 @@ objects, and music. Enabled via `CROSS_GAME_FEATURES_ENABLED` and `CROSS_GAME_SO
   transitions no longer flash back to "off" briefly before fade-in begins.
 - Fixed results screen rendering issue for both S1 and S2.
 
+### Package Rename
+
+- Renamed root package from `uk.co.jamesj999.sonic` to `com.openggf` across the entire codebase.
+  All source files, test files, and references updated.
+
+### Profile-Driven Level Loading
+
+- Introduced `LevelInitProfile` abstraction with `InitStep` and `StaticFixup` primitives for
+  declarative, ROM-aligned level loading.
+- Implemented per-game profiles (`Sonic1LevelInitProfile`, `Sonic2LevelInitProfile`,
+  `Sonic3kLevelInitProfile`) with 13 finer-grained ROM-aligned steps each.
+- `LevelLoadContext` provides shared state across load steps.
+- `LevelManager.loadLevel()` routed through profile steps; old fallback path removed.
+- Per-step timing and logging for load diagnostics.
+- Profile-driven teardown and per-test reset replaces `TestEnvironment` and `GameContext.forTesting()`.
+- `CHARACTER_APPEAR` phase uses `Map_Sonic`/`Map_Tails` Float2 animation.
+
+### Testability Refactor
+
+- `GameContext` holder with `production()` and `forTesting()` factories for singleton lifecycle.
+- `SharedLevel` for reusable level loading across test classes.
+- `HeadlessTestFixture` builder pattern for test setup, with 14 test classes converted.
+- `TestEnvironment.resetAll()` delegates to `GameContext.forTesting()` for consistent teardown.
+
 ### Docs and Planning
 
 - Added release-planning/implementation docs for unified level events, Super Sonic, and AIZ intro work.
 - Added cross-game donation fixes design doc and implementation plan.
 - Added `docs/CONFIGURATION.md` with full config key reference.
 - Expanded disassembly/reference and skill documentation used for parity-driven object/boss implementation workflows.
+- Added DEZ boss fixes design and implementation plans.
+- Added Sonic 2 credits and ending sequence design and implementation plans.
+- Added cross-game Super Sonic design and implementation plan.
+- Added S3K water system design and implementation plan.
+- Added testability improvement design (GameContext + HeadlessTestFixture) and implementation plan.
+- Added headless test level grouping design and implementation plan.
+- Added profile-driven level loading plans (Phase 3 and Phase 4).
+- Added ending parallax background design and implementation plan.
+- Added level editor design and implementation plan.
+- Added ROM-driven init profiles design and implementation plan.
 
 ## v0.3.20260206
 

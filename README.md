@@ -84,8 +84,8 @@ sound driver.
 | Game | Status |
 |------|--------|
 | Sonic the Hedgehog (S1) | Broadly playable. All 7 zones, 6 bosses, special stages, title screen, ending/credits. |
-| Sonic the Hedgehog 2 (S2) | Most complete. All zones through Wing Fortress, 6 bosses, special stages, Tails AI. |
-| Sonic 3 & Knuckles (S3K) | Early. Angel Island Zone Act 1 with intro cutscene, gameplay objects, and miniboss. |
+| Sonic the Hedgehog 2 (S2) | Most complete. All zones, 9 bosses (including both DEZ bosses), special stages, Tails AI, credits/ending. |
+| Sonic 3 & Knuckles (S3K) | Early. Angel Island Zone with intro cutscene, gameplay objects, miniboss, water system, and fire transition. |
 
 Work is ongoing across all three games. See CHANGELOG.md for detailed progress.
 
@@ -167,30 +167,37 @@ behaviour.
 
 ### v0.4 (Unreleased)
 
-A release-sized update focused on expanding playable coverage and parity.
+A release-sized update focused on expanding playable coverage, ending sequences, and engine maturity.
 
+- **Package rename** from `uk.co.jamesj999.sonic` to `com.openggf` across the entire codebase.
 - **Master title screen** implemented: engine-wide PNG-based title screen with animated clouds, game
   selection, and pixel font renderer. Displayed on startup before entering game-specific title flow.
 - **Sonic 1** has moved from initial support to broad gameplay coverage: title screen flow, special
   stages, major per-zone event scripting, extensive object and badnik additions, multiple boss
   implementations (GHZ, MZ, SYZ, LZ, SLZ, FZ), Labyrinth water/drowning/splash behaviour,
-  ending/credits work, SBZ object and demo playback fixes, edge balance and push block collision
-  corrections, and slope crest sensor guard.
-- **Sonic 2** adds title screen support, major object passes for MTZ/SCZ/WFZ/OOZ, MCZ boss work,
-  expanded per-zone event architecture, and signpost/badnik palette/stair block art fixes.
+  ending/credits work, SBZ post-level-end sequence, demo playback, edge balance and push block
+  collision corrections, and slope crest sensor guard.
+- **Sonic 2** adds title screen support, major object passes for MTZ/SCZ/WFZ/OOZ, 9 boss fights
+  (MCZ, MTZ, WFZ, and both DEZ bosses — Mecha Sonic and Death Egg Robot, plus Robotnik escape),
+  a complete credits and ending cutscene system with ROM-accurate visuals, expanded per-zone event
+  architecture, demo playback, signpost/badnik palette/stair block art fixes, and a systematic
+  TODO resolution pass with disassembly validation.
 - **Sonic 3&K** sees major AIZ progress including intro cutscene systems, hollow tree and vine
   traversal parity work, miniboss object set bring-up, initial badnik implementations, shield/PLC
-  integration fixes, and related regressions/tests.
+  integration fixes, a full water system with provider architecture and underwater palettes,
+  seamless AIZ fire transition flow, and related regressions/tests.
 - **Cross-game feature donation** implemented: a donor game (S2 or S3K) can provide player sprites,
   spindash dust, physics, palettes, and SFX while the base game handles levels, collision, objects,
-  and music. Includes `CrossGameFeatureProvider`, `RenderContext` palette isolation (donor sprites
-  render on dedicated palette lines 4+), underwater palette derivation for donor sprites, donor SMPS
-  driver config for correct SFX playback, S3K Tails tail appendage/animation support, hybrid physics
-  feature set, donor audio registration with per-game sequencer config, and dynamic palette texture
-  resizing across all GPU shaders.
-- **Per-game physics** and Super Sonic state/control flow (implemented for S2, stubbed for S3K).
+  and music. Now includes cross-game Super Sonic delegation.
+- **Per-game physics** and Super Sonic state/control flow (implemented for S2, with cross-game
+  delegation to S1 and S2 game modules).
+- **Profile-driven level loading:** declarative `LevelInitProfile` system with 13 ROM-aligned
+  steps per game, replacing the monolithic `loadLevel()` path.
+- **Testability refactor:** `GameContext`, `SharedLevel`, `HeadlessTestFixture` builder, and
+  profile-driven test teardown. Test grouping by level and 8-JVM parallel execution.
 - **Engine fixes:** solid object edge jitter fix, S1 slope crest sensor guard, jump-while-airborne
-  guard, fade transition flash fix, results screen rendering fix.
+  guard, fade transition flash fix, results screen rendering fix, HTZ earthquake fixes, SFX
+  channel replacement fix.
 - PLC/art-loader refactors, RomOffsetFinder/ObjectDiscoveryTool enhancements, configuration
   documentation, and broad audio/stability/performance hardening.
 
