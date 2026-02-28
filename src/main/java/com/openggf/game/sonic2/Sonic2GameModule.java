@@ -21,6 +21,7 @@ import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.EndingProvider;
 import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
+import com.openggf.game.WaterDataProvider;
 import com.openggf.game.LevelInitProfile;
 import com.openggf.game.LevelGamestate;
 import com.openggf.game.OscillationManager;
@@ -154,6 +155,11 @@ public class Sonic2GameModule implements GameModule {
             zoneFeatureProvider = new Sonic2ZoneFeatureProvider();
         }
         return zoneFeatureProvider;
+    }
+
+    @Override
+    public WaterDataProvider getWaterDataProvider() {
+        return new Sonic2WaterDataProvider();
     }
 
     @Override

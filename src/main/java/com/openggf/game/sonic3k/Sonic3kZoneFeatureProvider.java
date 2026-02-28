@@ -7,6 +7,7 @@ import com.openggf.data.Rom;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.WaterSystem;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.io.IOException;
@@ -40,12 +41,15 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public boolean hasWater(int zoneIndex) {
-        return false;
+        // Check if water was loaded for this zone (any act)
+        WaterSystem waterSystem = WaterSystem.getInstance();
+        return waterSystem.hasWater(zoneIndex, 0) || waterSystem.hasWater(zoneIndex, 1);
     }
 
     @Override
     public int getWaterLevel(int zoneIndex, int actIndex) {
-        return Integer.MAX_VALUE;
+        WaterSystem waterSystem = WaterSystem.getInstance();
+        return waterSystem.getWaterLevelY(zoneIndex, actIndex);
     }
 
     @Override

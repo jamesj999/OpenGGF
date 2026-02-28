@@ -778,13 +778,15 @@ public class LevelManager {
      */
     public void initWater() throws IOException {
         Rom rom = GameServices.rom().getRom();
-        // Initialize water system for this level.
-        // Only attempt water loading for zones the game module declares as water zones,
-        // otherwise S3K object IDs (e.g. 0x04 = CollapsingPlatform) get misinterpreted
-        // as water surface objects by WaterSystem.extractWaterHeight().
-        // S1 water is already loaded by the ZoneFeatureProvider above.
         WaterSystem waterSystem = WaterSystem.getInstance();
-        if (zoneFeatureProvider != null && zoneFeatureProvider.hasWater(getFeatureZoneId())) {
+        WaterDataProvider waterProvider = gameModule != null ? gameModule.getWaterDataProvider() : null;
+        if (waterProvider != null) {
+            // Use the game-agnostic provider-based loading
+            PlayerCharacter character = PlayerCharacter.SONIC_AND_TAILS; // TODO: get from game state
+            waterSystem.loadForLevelFromProvider(waterProvider, rom,
+                    getFeatureZoneId(), getFeatureActId(), character);
+        } else if (zoneFeatureProvider != null && zoneFeatureProvider.hasWater(getFeatureZoneId())) {
+            // Fallback for games without a provider (backward compatibility)
             if (!waterSystem.hasWater(getFeatureZoneId(), getFeatureActId())) {
                 waterSystem.loadForLevel(rom, getFeatureZoneId(), getFeatureActId(), level.getObjects());
             }
@@ -900,9 +902,15 @@ public class LevelManager {
         WaterSystem waterSystem = WaterSystem.getInstance();
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
-        if (level != null && playable != null && waterSystem.hasWater(featureZone, featureAct)) {
-            int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
-            playable.updateWaterState(waterY);
+        if (level != null && waterSystem.hasWater(featureZone, featureAct)) {
+            // Dispatch dynamic water handlers (S3K HCZ/LBZ/AIZ2, S2 CPZ2, etc.)
+            Camera camera = Camera.getInstance();
+            waterSystem.updateDynamic(featureZone, featureAct, camera.getX(), camera.getY());
+
+            if (playable != null) {
+                int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
+                playable.updateWaterState(waterY);
+            }
         }
     }
 
