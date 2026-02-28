@@ -7,13 +7,14 @@ import com.openggf.level.WaterSystem;
  * Dynamic water handler for Angel Island Zone Act 2.
  * Implements the ROM logic from DynamicWaterHeight_AIZ2 (sonic3k.asm:8648-8695).
  * <p>
- * The water starts at an initial level (0x0618), drops to a lower level (0x0528)
- * early in the act, then rises back to the initial level when the camera passes
- * the trigger X threshold (0x2850).
+ * The water starts at 0x0528 (from StartingWaterHeights.bin), drops with speed=2
+ * early in the act, then rises back to 0x0618 when the camera passes the trigger
+ * X threshold (0x2850). The rise inherits the current speed (2 after the drop).
  */
 public class Aiz2DynamicWaterHandler implements DynamicWaterHandler {
 
-    /** Starting water level for AIZ2 before the drop. */
+    /** Water level the ROM raises TO after the trigger (NOT the starting height).
+     *  Starting height is 0x0528 from StartingWaterHeights.bin. */
     static final int INITIAL_LEVEL = 0x0618;
 
     /** Water level after the early drop. */
@@ -48,9 +49,10 @@ public class Aiz2DynamicWaterHandler implements DynamicWaterHandler {
         }
 
         // Phase 3: When triggered, raise water back
+        // ROM does NOT change Water_speed here — it inherits the last-set speed
+        // (initially 1, or 2 after a drop cycle)
         if (triggered && state.getTargetLevel() != INITIAL_LEVEL) {
             state.setTarget(INITIAL_LEVEL);
-            state.setSpeed(1);
         }
     }
 

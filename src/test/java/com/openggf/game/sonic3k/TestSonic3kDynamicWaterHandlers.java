@@ -105,11 +105,22 @@ public class TestSonic3kDynamicWaterHandlers {
     // =====================================================================
 
     @Test
-    public void hasWaterAizBothActs() {
-        assertTrue("AIZ1 should have water",
+    public void hasWaterAiz1AllCharacters() {
+        assertTrue("AIZ1 Sonic should have water",
                 provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 0, PlayerCharacter.SONIC_AND_TAILS));
-        assertTrue("AIZ2 should have water",
+        assertTrue("AIZ1 Knuckles should have water",
+                provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 0, PlayerCharacter.KNUCKLES));
+    }
+
+    @Test
+    public void hasWaterAiz2SonicOnly() {
+        // AIZ2: Sonic/Tails have water, Knuckles does NOT (sonic3k.asm:9754-9759)
+        assertTrue("AIZ2 Sonic should have water",
                 provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 1, PlayerCharacter.SONIC_AND_TAILS));
+        assertTrue("AIZ2 Tails should have water",
+                provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 1, PlayerCharacter.TAILS_ALONE));
+        assertFalse("AIZ2 Knuckles should NOT have water",
+                provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 1, PlayerCharacter.KNUCKLES));
     }
 
     @Test
@@ -336,6 +347,32 @@ public class TestSonic3kDynamicWaterHandlers {
         int after = state.getMeanLevel();
         assertEquals("Speed should be 2 (move 2 pixels per frame toward target)",
                 2, before - after);
+    }
+
+    @Test
+    public void aiz2RaiseInheritsSpeed2FromDrop() {
+        // ROM does NOT change Water_speed during raise — inherits speed=2 from the drop
+        Aiz2DynamicWaterHandler handler = new Aiz2DynamicWaterHandler();
+        WaterSystem.DynamicWaterState state = new WaterSystem.DynamicWaterState(
+                Aiz2DynamicWaterHandler.INITIAL_LEVEL);
+
+        // Drop (sets speed=2)
+        handler.update(state, 0x1000, 0);
+        assertEquals(Aiz2DynamicWaterHandler.DROP_LEVEL, state.getTargetLevel());
+
+        // Simulate water reaching drop level
+        state.setMeanDirect(Aiz2DynamicWaterHandler.DROP_LEVEL);
+
+        // Trigger rise
+        handler.update(state, Aiz2DynamicWaterHandler.TRIGGER_X, 0);
+        assertEquals(Aiz2DynamicWaterHandler.INITIAL_LEVEL, state.getTargetLevel());
+
+        // Verify speed is still 2 (inherited from drop, not reset to 1)
+        int before = state.getMeanLevel();
+        state.update();
+        int after = state.getMeanLevel();
+        assertEquals("Rise should inherit speed=2 from drop phase",
+                2, after - before);
     }
 
     private static void assertInstanceOf(Class<?> expectedType, Object actual) {

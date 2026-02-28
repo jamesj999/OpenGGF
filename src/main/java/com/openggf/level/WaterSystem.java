@@ -143,23 +143,24 @@ public class WaterSystem {
         public int getTargetLevel() { return targetLevel; }
         public int getMeanLevel() { return meanLevel; }
 
-        /** Move mean toward target by speed pixels. Returns true if still moving. */
+        /** Move mean toward target by speed pixels. Returns true if still moving.
+         *  ROM adds full speed in one step (add.w d1,(Mean_water_level).w at
+         *  sonic3k.asm:8602), which can overshoot — this is correct behavior. */
         public boolean update() {
-            if (!rising) {
+            if (meanLevel == targetLevel) {
+                rising = false;
                 return false;
             }
-            for (int i = 0; i < speed; i++) {
-                if (meanLevel > targetLevel) {
-                    meanLevel--;
-                } else if (meanLevel < targetLevel) {
-                    meanLevel++;
-                }
-                if (meanLevel == targetLevel) {
-                    rising = false;
-                    break;
-                }
+            rising = true;
+            if (meanLevel < targetLevel) {
+                meanLevel += speed;
+            } else {
+                meanLevel -= speed;
             }
             currentLevel = meanLevel;
+            if (meanLevel == targetLevel) {
+                rising = false;
+            }
             return rising;
         }
     }
