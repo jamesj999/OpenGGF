@@ -23,6 +23,8 @@ import com.openggf.game.sonic1.objects.bosses.Sonic1MZBossInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1SLZBossInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1SYZBossInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1FZBossInstance;
+import com.openggf.game.sonic1.objects.bosses.Sonic1FalseFloorInstance;
+import com.openggf.game.sonic1.objects.bosses.Sonic1ScrapEggmanInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectFactory;
 import com.openggf.level.objects.ObjectInstance;
@@ -268,6 +270,10 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             }
             return new Sonic1EggPrisonObjectInstance(spawn);
         });
+        factories.put(Sonic1ObjectIds.SCRAP_EGGMAN,
+                (spawn, registry) -> new Sonic1ScrapEggmanInstance(spawn, LevelManager.getInstance()));
+        factories.put(Sonic1ObjectIds.FALSE_FLOOR,
+                (spawn, registry) -> new Sonic1FalseFloorInstance(spawn, LevelManager.getInstance()));
     }
 
     @Override
@@ -375,6 +381,8 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             case Sonic1ObjectIds.END_SONIC -> "EndSonic";
             case Sonic1ObjectIds.END_CHAOS -> "EndChaos";
             case Sonic1ObjectIds.END_STH -> "EndSTH";
+            case Sonic1ObjectIds.SCRAP_EGGMAN -> "ScrapEggman";
+            case Sonic1ObjectIds.FALSE_FLOOR -> "FalseFloor";
             default -> String.format("S1_Obj_%02X", objectId & 0xFF);
         };
     }

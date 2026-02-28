@@ -4,6 +4,8 @@ import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic1.Sonic1LoopManager;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
+import com.openggf.level.LevelManager;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 /**
  * Sonic 1 implementation of dynamic level events.
@@ -35,6 +37,9 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
 
     // Loop/plane switching manager
     private final Sonic1LoopManager loopManager = new Sonic1LoopManager();
+
+    // Guard against re-triggering the SBZ2->SBZ3 pit death intercept during fade
+    private boolean sbz3TransitionRequested;
 
     private Sonic1LevelEventManager() {
         super();
@@ -83,6 +88,7 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
         sbzEvents.init();
         endingEvents.init();
         loopManager.initLevel(zone, act);
+        sbz3TransitionRequested = false;
     }
 
     @Override
@@ -139,6 +145,30 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
             case Sonic1ZoneConstants.ZONE_ENDING -> endingEvents;
             default -> null;
         };
+    }
+
+    /**
+     * ROM: Sonic_LevelBound intercepts bottom boundary death in SBZ act 2.
+     * When Sonic falls through the collapsing floor and X >= 0x2000,
+     * the game transitions to SBZ3 (LZ act 3) instead of killing Sonic.
+     */
+    @Override
+    public boolean interceptPitDeath(AbstractPlayableSprite player) {
+        if (sbz3TransitionRequested) {
+            return true; // Already requested; suppress death until fade completes
+        }
+        if (currentZone == Sonic1ZoneConstants.ZONE_SBZ && currentAct == 1) {
+            int playerX = player.getCentreX() & 0xFFFF;
+            if (playerX >= 0x2000) {
+                // Transition to SBZ3 (our engine: zone SBZ, act 2)
+                sbz3TransitionRequested = true;
+                player.setControlLocked(true);
+                LevelManager.getInstance().requestZoneAndAct(
+                        Sonic1ZoneConstants.ZONE_SBZ, 2);
+                return true;
+            }
+        }
+        return false;
     }
 
     public Sonic1LoopManager getLoopManager() {

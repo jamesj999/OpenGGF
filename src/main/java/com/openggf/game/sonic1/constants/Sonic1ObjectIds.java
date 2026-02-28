@@ -106,6 +106,8 @@ public final class Sonic1ObjectIds {
     public static final int SLZ_BOSS_SPIKEBALL = 0x7B; // id_BossSpikeball (dynamically spawned by SLZ boss)
     public static final int RING_FLASH      = 0x7C;
     public static final int HIDDEN_BONUS    = 0x7D;
+    public static final int SCRAP_EGGMAN    = 0x82; // id_ScrapEggman - Eggman cutscene in SBZ2
+    public static final int FALSE_FLOOR     = 0x83; // id_FalseFloor - collapsing floor blocks in SBZ2
     public static final int EGGMAN_CYLINDER = 0x84; // id_EggmanCylinder - FZ crushing cylinders
     public static final int FZ_BOSS         = 0x85; // id_BossFinal - Final Zone boss
     public static final int BOSS_PLASMA     = 0x86; // id_BossPlasma - FZ plasma ball launcher

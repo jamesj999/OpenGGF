@@ -219,6 +219,11 @@ public final class ObjectArtKeys {
     public static final String ANIM_CHECKPOINT = "checkpoint";
     public static final String ANIM_SIGNPOST = "signpost";
 
+    // SBZ2 cutscene art keys (S1 Object 0x82, 0x83)
+    public static final String SBZ2_EGGMAN = "sbz2_eggman";
+    public static final String SBZ2_BUTTON = "sbz2_button";
+    public static final String SBZ2_FALSE_FLOOR = "sbz2_false_floor";
+
     // Zone data keys
     public static final String ANIMAL_TYPE_A = "animal_type_a";
     public static final String ANIMAL_TYPE_B = "animal_type_b";

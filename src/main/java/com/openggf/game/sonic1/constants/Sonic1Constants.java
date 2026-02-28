@@ -569,6 +569,17 @@ public final class Sonic1Constants {
     // PLC: Nem_Sbz2Eggman -> ArtTile_FZ_Eggman_No_Vehicle ($470) — used by Map_SEgg
     public static final int ART_NEM_SBZ2_EGGMAN_ADDR = 0x5E4CE;
 
+    // ---- SBZ2 cutscene art tile addresses (from PLC_EggmanSBZ2) ----
+    // ArtTile_Eggman = $400 — SBZ2 Eggman VRAM base (palette line 0)
+    public static final int ARTTILE_SBZ2_EGGMAN = 0x400;
+    // ArtTile_Eggman_Button = $4A4 — button sprite base (loaded at $4A0, but $4A4 used for mapping)
+    public static final int ARTTILE_SBZ2_BUTTON = 0x4A4;
+    // ArtTile_Eggman_Trap_Floor = $518 — false floor block art
+    public static final int ARTTILE_SBZ2_TRAP_FLOOR = 0x518;
+    // Boss arena constants for SBZ2 cutscene
+    public static final int BOSS_SBZ2_X = 0x2050;
+    public static final int BOSS_SBZ2_Y = 0x510;
+
     // Nem_Eggman: Main Eggman ship + face + flame art (verified by RomOffsetFinder)
     public static final int ART_NEM_EGGMAN_ADDR = 0x5D0FC;
     // Nem_Weapons: Boss weapons art — chain anchor, pipes, spikes (verified)

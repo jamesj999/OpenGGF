@@ -260,10 +260,11 @@ public class Camera {
 		}
 
 		// Clamp to boundaries (ROM: ScrollHoriz lines 18077-18092, ScrollVerti similar)
+		// ROM clamps camera Y to v_limitbtm2 even in vertically-wrapping levels
+		// (e.g. SBZ2 top=$FF00 enables wrapping, but v_limitbtm2=$510 still
+		// constrains the camera so Sonic falls off-screen for pit death).
 		x = clampAxisWithWrap(x, minX, maxX);
-		if (!verticalWrapEnabled) {
-			y = clampAxisWithWrap(y, minY, maxY);
-		}
+		y = clampAxisWithWrap(y, minY, maxY);
 	}
 
 	private short clampAxisWithWrap(short value, short min, short max) {
