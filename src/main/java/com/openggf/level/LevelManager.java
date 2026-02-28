@@ -572,25 +572,18 @@ public class LevelManager {
             ctx.setLevelIndex(levelIndex);
 
             List<InitStep> steps = profile.levelLoadSteps(ctx);
-
             if (steps.isEmpty()) {
-                // Fallback for EMPTY profile or games not yet wired
-                initGameModuleAndAudio(levelIndex);
-                level = loadLevelData(levelIndex);
-                initAnimatedContent();
-                initObjectSystem();
-                initGameState();
-                initArtAndPlayer();
-                initWater();
-                initBackgroundRenderer();
-            } else {
-                for (InitStep step : steps) {
-                    step.execute();
-                }
-                // The LoadLevelData step stores the result in ctx
-                if (ctx.getLevel() != null) {
-                    level = ctx.getLevel();
-                }
+                throw new IllegalStateException(
+                    "No level load steps defined for " +
+                    GameModuleRegistry.getCurrent().getClass().getSimpleName() +
+                    ". All game modules must implement levelLoadSteps().");
+            }
+            for (InitStep step : steps) {
+                step.execute();
+            }
+            // The LoadLevelData step stores the result in ctx
+            if (ctx.getLevel() != null) {
+                level = ctx.getLevel();
             }
         } catch (IOException e) {
             LOGGER.log(SEVERE, "Failed to load level " + levelIndex, e);

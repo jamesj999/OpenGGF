@@ -41,8 +41,8 @@ public class Sonic2CreditsData {
     /** CHARACTER_APPEAR hold before spawning second ObjC9: $80 frames. */
     public static final int CHARACTER_APPEAR_HOLD = 0x80;
 
-    /** CAMERA_SCROLL duration: $C0 frames (Sonic/Super), $880/$660 Tails. */
-    public static final int CAMERA_SCROLL_SONIC_60FPS = 0xC0;
+    /** CAMERA_SCROLL duration: $100 frames (Sonic/Super), $880/$660 Tails. */
+    public static final int CAMERA_SCROLL_SONIC_60FPS = 0x100;
     public static final int CAMERA_SCROLL_TAILS_60FPS = 0x660;
     public static final int CAMERA_SCROLL_TAILS_50FPS = 0x880;
 
@@ -57,11 +57,12 @@ public class Sonic2CreditsData {
     public static final int CREDITS_TRIGGER_60FPS = 0x1140;
     public static final int CREDITS_TRIGGER_50FPS = 0xE40;
 
-    /** ObjCC State 4 rotation: 28 steps, 2 frames each = 56 frames total. */
+    /** ObjCC State 4 rotation: 28 steps, 3 frames each = 84 frames total.
+     *  ROM: objoff_3C starts at 2, subq.w #1 + bpl = 3 frames before advance. */
     public static final int ROTATION_STEPS = 28;
-    public static final int ROTATION_FRAME_DELAY = 2;
+    public static final int ROTATION_FRAME_DELAY = 3;
 
-    /** ObjCC State 6 timer: $60 frames. */
+    /** ObjCC State 6 timer: $60 frames (plane arc final segment). */
     public static final int DEPARTURE_TIMER = 0x60;
 
     /** ObjCC State 8 camera pan: 7 steps, 2 frames each = 14 frames total. */
