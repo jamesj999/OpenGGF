@@ -845,8 +845,9 @@ public class Engine {
 			LevelEditorManager editorMgr = LevelEditorManager.getInstance();
 
 			// Set camera to editor position so flush() uses correct position
-			camera.setX((short) editorMgr.getCameraX());
-			camera.setY((short) editorMgr.getCameraY());
+			// Clamp to short range to prevent silent overflow wrapping
+			camera.setX((short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, editorMgr.getCameraX())));
+			camera.setY((short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, editorMgr.getCameraY())));
 
 			// Draw tilemap without sprites
 			levelManager.draw();

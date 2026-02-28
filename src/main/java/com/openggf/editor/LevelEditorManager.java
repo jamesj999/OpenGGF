@@ -163,6 +163,11 @@ public class LevelEditorManager {
             cursorY *= chunksPerBlock;
         }
         editMode = newMode;
+        // Clamp panel selection to new mode's item count
+        int maxSel = getPanelItemCount() - 1;
+        if (maxSel >= 0 && panelSelection > maxSel) {
+            panelSelection = maxSel;
+        }
     }
 
     // -- Grid cursor --------------------------------------------------------
@@ -472,6 +477,7 @@ public class LevelEditorManager {
         int chunkX = cursorX % chunksPerBlock;
         int chunkY = cursorY % chunksPerBlock;
         int blockIndex = map.getValue(0, blockX, blockY) & 0xFF;
+        if (blockIndex >= currentLevel.getBlockCount()) return;
         Block block = currentLevel.getBlock(blockIndex);
         if (block != null) {
             block.getChunkDesc(chunkX, chunkY).set(chunkIndex);
@@ -490,6 +496,7 @@ public class LevelEditorManager {
                 int chunkX = cursorX % chunksPerBlock;
                 int chunkY = cursorY % chunksPerBlock;
                 int blockIndex = map.getValue(0, blockX, blockY) & 0xFF;
+                if (blockIndex >= level.getBlockCount()) return;
                 Block block = level.getBlock(blockIndex);
                 if (block != null) {
                     block.getChunkDesc(chunkX, chunkY).set(0);
@@ -510,6 +517,7 @@ public class LevelEditorManager {
                 int chunkX = cursorX % chunksPerBlock;
                 int chunkY = cursorY % chunksPerBlock;
                 int blockIndex = map.getValue(0, blockX, blockY) & 0xFF;
+                if (blockIndex >= level.getBlockCount()) return;
                 Block block = level.getBlock(blockIndex);
                 if (block != null) {
                     panelSelection = block.getChunkDesc(chunkX, chunkY).getChunkIndex();
