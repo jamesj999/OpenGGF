@@ -214,9 +214,11 @@ public class Sonic2GameModule implements GameModule {
         return physicsProvider;
     }
 
+    private final LevelInitProfile levelInitProfile = new Sonic2LevelInitProfile();
+
     @Override
     public LevelInitProfile getLevelInitProfile() {
-        return new Sonic2LevelInitProfile();
+        return levelInitProfile;
     }
 
     @Override

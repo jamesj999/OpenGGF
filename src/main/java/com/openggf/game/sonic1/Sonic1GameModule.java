@@ -238,9 +238,11 @@ public class Sonic1GameModule implements GameModule {
         return new Sonic1EndingProvider();
     }
 
+    private final LevelInitProfile levelInitProfile = new Sonic1LevelInitProfile();
+
     @Override
     public LevelInitProfile getLevelInitProfile() {
-        return new Sonic1LevelInitProfile();
+        return levelInitProfile;
     }
 
     @Override

@@ -331,6 +331,6 @@ public interface GameModule {
 
     /** Returns the ROM-derived level initialization profile for this game. */
     default LevelInitProfile getLevelInitProfile() {
-        return null;
+        return AbstractLevelInitProfile.EMPTY;
     }
 }
