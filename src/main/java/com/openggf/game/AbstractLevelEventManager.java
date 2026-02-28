@@ -330,6 +330,19 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
     }
 
     // =========================================================================
+    // Lifecycle
+    // =========================================================================
+
+    /**
+     * Resets mutable state without destroying the singleton instance.
+     * Calls {@link #initLevel(int, int)} with (-1, -1) to clear zone/act
+     * and reset all event counters/data.
+     */
+    public void resetState() {
+        initLevel(-1, -1);
+    }
+
+    // =========================================================================
     // Accessors
     // =========================================================================
 
