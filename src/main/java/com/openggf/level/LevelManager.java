@@ -744,12 +744,17 @@ public class LevelManager {
     }
 
     /**
-     * Phase C: Load object art, player sprite art, reset player state,
-     * and initialize checkpoint and level gamestate.
+     * Phase C: Load object art and player sprite art into the pattern atlas.
      */
-    public void initArtAndPlayer() {
+    public void initArt() {
         initObjectArt();
         initPlayerSpriteArt();
+    }
+
+    /**
+     * Phase C: Reset player state, initialize checkpoint, and create level gamestate.
+     */
+    public void initPlayerAndCheckpoint() {
         resetPlayerState();
         // Initialize checkpoint state for new level
         if (checkpointState == null) {
@@ -757,6 +762,15 @@ public class LevelManager {
         }
         checkpointState.clear();
         levelGamestate = gameModule.createLevelState();
+    }
+
+    /**
+     * Phase C: Load object art, player sprite art, reset player state,
+     * and initialize checkpoint and level gamestate.
+     */
+    public void initArtAndPlayer() {
+        initArt();
+        initPlayerAndCheckpoint();
     }
 
     /**
