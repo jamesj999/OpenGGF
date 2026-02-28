@@ -9,6 +9,7 @@ import com.openggf.game.DebugModeProvider;
 import com.openggf.game.DebugOverlayProvider;
 import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
+import com.openggf.game.LevelInitProfile;
 import com.openggf.game.PhysicsProvider;
 import com.openggf.game.LevelState;
 import com.openggf.game.ObjectArtProvider;
@@ -163,6 +164,11 @@ public class Sonic3kGameModule implements GameModule {
             physicsProvider = new Sonic3kPhysicsProvider();
         }
         return physicsProvider;
+    }
+
+    @Override
+    public LevelInitProfile getLevelInitProfile() {
+        return new Sonic3kLevelInitProfile();
     }
 
     @Override
