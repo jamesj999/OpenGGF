@@ -16,6 +16,7 @@ uniform sampler2D BackgroundTexture;
 // 1D texture containing per-scanline scroll values (224 entries)
 uniform sampler1D HScrollTexture;
 uniform sampler1D VScrollTexture;
+uniform sampler1D VScrollColumnTexture;
 
 // Screen dimensions (actual viewport pixels)
 uniform float ScreenHeight;
@@ -46,6 +47,7 @@ uniform float FBOAllocationWidth;
 // When 1, skip HScroll sampling (per-line scroll already applied in tile pass)
 uniform int NoHScroll;
 uniform int UsePerLineVScroll;
+uniform int UsePerColumnVScroll;
 
 // Shimmer distortion uniforms
 uniform int FrameCounter;            // For shimmer animation
@@ -76,6 +78,11 @@ void main()
     }
     if (UsePerLineVScroll != 0) {
         vScrollThis = texture(VScrollTexture, scanlineTexCoord).r * 32767.0;
+    }
+    if (UsePerColumnVScroll != 0) {
+        float column = clamp(floor(gameX / 16.0), 0.0, 19.0);
+        float columnTexCoord = (column + 0.5) / 20.0;
+        vScrollThis += texture(VScrollColumnTexture, columnTexCoord).r * 32767.0;
     }
 
     // hScroll contains signed scroll values from the zone handler.

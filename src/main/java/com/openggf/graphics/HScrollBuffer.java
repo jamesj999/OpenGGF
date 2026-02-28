@@ -31,7 +31,16 @@ public class HScrollBuffer {
 
     private int textureId = -1;
     private final float[] scrollData = new float[VISIBLE_LINES];
+    private final boolean foregroundWord;
     private boolean initialized = false;
+
+    public HScrollBuffer() {
+        this(false);
+    }
+
+    public HScrollBuffer(boolean foregroundWord) {
+        this.foregroundWord = foregroundWord;
+    }
 
     /**
      * Initialize the OpenGL texture for scroll data.
@@ -80,9 +89,12 @@ public class HScrollBuffer {
             return;
         }
 
-        // Extract BG scroll values (lower 16 bits) and normalize to -1..1
+        // Extract per-line scroll values from packed words and normalize to -1..1.
+        // foregroundWord=false -> BG word (low 16 bits), true -> FG word (high 16 bits).
         for (int i = 0; i < VISIBLE_LINES && i < hScroll.length; i++) {
-            int raw = (short) (hScroll[i] & 0xFFFF);
+            int raw = foregroundWord
+                    ? (short) ((hScroll[i] >>> 16) & 0xFFFF)
+                    : (short) (hScroll[i] & 0xFFFF);
             float normalized = raw / 32767.0f;
             if (normalized > 1.0f) {
                 normalized = 1.0f;

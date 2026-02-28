@@ -45,13 +45,18 @@ public class SwScrlAiz implements ZoneScrollHandler {
             -15, -14, -13, -10, -7, -5, -2, -1
     };
     private static final int FIRE_WAVE_COLUMN_COUNT = 0x14; // ROM loop count: moveq #$14-1,d3
+    // AIZ2_SOZ1_LRZ3_FGDeformDelta base pattern (32-word cycle, repeated in ROM table).
+    private static final short[] AIZ_FINE_HAZE_FG_DEFORM = {
+            0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0
+    };
 
     private short vscrollFactorBG;
     private int minScrollOffset;
     private int maxScrollOffset;
     private final short[] introBandValues = new short[INTRO_DEFORM_BANDS];
-    private final short[] perLineVScrollBG = new short[VISIBLE_LINES];
-    private boolean hasPerLineVScrollBG;
+    private final short[] perColumnVScrollBG = new short[FIRE_WAVE_COLUMN_COUNT];
+    private boolean hasPerColumnVScrollBG;
 
     /** Persistent wave accumulator (ROM: HScroll_table+$03C, advances $2000/frame). */
     private long waveAccum;
@@ -64,8 +69,8 @@ public class SwScrlAiz implements ZoneScrollHandler {
                        int actId) {
         minScrollOffset = Integer.MAX_VALUE;
         maxScrollOffset = Integer.MIN_VALUE;
-        hasPerLineVScrollBG = false;
-        Arrays.fill(perLineVScrollBG, (short) 0);
+        hasPerColumnVScrollBG = false;
+        Arrays.fill(perColumnVScrollBG, (short) 0);
 
         short fgScroll = negWord(cameraX);
         Sonic3kAIZEvents aizEvents = resolveAizEvents();
@@ -96,6 +101,16 @@ public class SwScrlAiz implements ZoneScrollHandler {
                     ? wordOf(aizEvents.getFireTransitionBgY())
                     : asrWord(cameraY, 1);
             computeAiz1Deform(horizScrollBuf, fgScroll, bgSourceX, cameraY);
+        }
+
+        // Fine post-burn haze (AIZ2 style) is a subtle per-line FG deformation.
+        // Keep it separate from AIZTrans_WavyFlame, which is a temporary BG transition effect.
+        boolean fineHeatHazeActive = !fireTransition
+                && (actId > 0
+                || (aizEvents != null && aizEvents.isPostFireHazeActive())
+                || cameraX >= 0x2E00);
+        if (fineHeatHazeActive) {
+            applyFineFgHeatHaze(horizScrollBuf, cameraX, cameraY, frameCounter);
         }
 
         if (fireTransition) {
@@ -381,7 +396,12 @@ public class SwScrlAiz implements ZoneScrollHandler {
 
     @Override
     public short[] getPerLineVScrollBG() {
-        return hasPerLineVScrollBG ? perLineVScrollBG : null;
+        return null;
+    }
+
+    @Override
+    public short[] getPerColumnVScrollBG() {
+        return hasPerColumnVScrollBG ? perColumnVScrollBG : null;
     }
 
     @Override
@@ -398,23 +418,22 @@ public class SwScrlAiz implements ZoneScrollHandler {
         // ROM AIZTrans_WavyFlame:
         // d2 = Level_frame_counter >> 2, then each write does d2 += 2 (mod 16),
         // producing 20 VScroll words (column scroll mode).
-        // This renderer consumes per-scanline offsets, so map those 20 words to
-        // 224 lines as 20 vertical bands.
-        short[] columnValues = new short[FIRE_WAVE_COLUMN_COUNT];
         int d2 = (frameCounter >> 2) & 0xF;
         for (int i = 0; i < FIRE_WAVE_COLUMN_COUNT; i++) {
             d2 = (d2 + 2) & 0xF;
-            columnValues[i] = AIZ_FLAME_VSCROLL[d2];
+            perColumnVScrollBG[i] = AIZ_FLAME_VSCROLL[d2];
         }
+        hasPerColumnVScrollBG = true;
+    }
 
+    private void applyFineFgHeatHaze(int[] horizScrollBuf, int cameraX, int cameraY, int frameCounter) {
+        int phase = ((frameCounter + (cameraY << 1)) & 0x3E) >> 1;
         for (int line = 0; line < VISIBLE_LINES; line++) {
-            int column = (line * FIRE_WAVE_COLUMN_COUNT) / VISIBLE_LINES;
-            if (column >= FIRE_WAVE_COLUMN_COUNT) {
-                column = FIRE_WAVE_COLUMN_COUNT - 1;
-            }
-            perLineVScrollBG[line] = columnValues[column];
+            int packed = horizScrollBuf[line];
+            short bg = unpackBG(packed);
+            short fg = (short) (negWord(cameraX) + AIZ_FINE_HAZE_FG_DEFORM[(phase + line) & 0x1F]);
+            horizScrollBuf[line] = packScrollWords(fg, bg);
         }
-        hasPerLineVScrollBG = true;
     }
 
     private Sonic3kAIZEvents resolveAizEvents() {

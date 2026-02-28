@@ -342,6 +342,7 @@ public class LevelManager {
     // Mutable state for pre-allocated BG renderWithScrollWide command
     private int[] pendingBgHScrollData;
     private short[] pendingBgVScrollData;
+    private short[] pendingBgVScrollColumnData;
     private int pendingBgShaderScrollMidpoint;
     private int pendingBgShaderExtraBuffer;
     private int pendingBgVOffset;
@@ -349,7 +350,7 @@ public class LevelManager {
     private final GLCommand bgRenderWithScrollCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
         BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
         if (bgRenderer != null) {
-            bgRenderer.renderWithScrollWide(pendingBgHScrollData, pendingBgVScrollData,
+            bgRenderer.renderWithScrollWide(pendingBgHScrollData, pendingBgVScrollData, pendingBgVScrollColumnData,
                     pendingBgShaderScrollMidpoint, pendingBgShaderExtraBuffer,
                     pendingBgVOffset, pendingBgPerLineScroll);
         }
@@ -371,6 +372,7 @@ public class LevelManager {
         if (tilemapRenderer == null) {
             return;
         }
+        applyForegroundHeatHaze(tilemapRenderer);
         glGetIntegerv(GL_VIEWPORT, viewportBuffer);
         tilemapRenderer.render(
                 TilemapGpuRenderer.Layer.FOREGROUND,
@@ -409,6 +411,7 @@ public class LevelManager {
         if (tilemapRenderer == null) {
             return;
         }
+        applyForegroundHeatHaze(tilemapRenderer);
         glGetIntegerv(GL_VIEWPORT, viewportBuffer);
         tilemapRenderer.render(
                 TilemapGpuRenderer.Layer.FOREGROUND,
@@ -452,6 +455,7 @@ public class LevelManager {
         glBlendEquation(GL_MAX);
         glBlendFunc(GL_ONE, GL_ONE);
 
+        applyForegroundHeatHaze(tilemapRenderer);
         tilemapRenderer.render(
                 TilemapGpuRenderer.Layer.FOREGROUND,
                 pendingFboScreenW,
@@ -533,6 +537,37 @@ public class LevelManager {
         bgRenderer.endTilePass();
         graphicsManager.setUseUnderwaterPaletteForBackground(false);
     });
+
+    private void applyForegroundHeatHaze(TilemapGpuRenderer tilemapRenderer) {
+        // The fine post-burn haze in AIZ is a subtle per-line FG horizontal deformation.
+        // Apply FG per-line scroll only when the AIZ haze phase is active.
+        if (isAizFineHeatHazeActive()) {
+            tilemapRenderer.enablePerLineForegroundScroll(parallaxManager.getHScrollForShader());
+        }
+    }
+
+    private boolean isAizFineHeatHazeActive() {
+        if (!(GameModuleRegistry.getCurrent() instanceof com.openggf.game.sonic3k.Sonic3kGameModule)) {
+            return false;
+        }
+        if (currentZone != com.openggf.game.sonic3k.constants.Sonic3kZoneIds.ZONE_AIZ) {
+            return false;
+        }
+        if (currentAct > 0) {
+            return true;
+        }
+        try {
+            com.openggf.game.sonic3k.Sonic3kLevelEventManager lem = com.openggf.game.sonic3k.Sonic3kLevelEventManager.getInstance();
+            com.openggf.game.sonic3k.events.Sonic3kAIZEvents events = lem != null ? lem.getAizEvents() : null;
+            if (events != null && events.isPostFireHazeActive()) {
+                return true;
+            }
+            // AIZ1 stage where flame overlay and haze begin before the miniboss transition.
+            return camera.getX() >= 0x2E00;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
 
     /**
      * Checks if a point is within the visible camera frustum with optional padding.
@@ -1720,6 +1755,7 @@ public class LevelManager {
 
         int[] hScrollData = parallaxManager.getHScrollForShader();
         short[] vScrollData = parallaxManager.getVScrollPerLineBGForShader();
+        short[] vScrollColumnData = parallaxManager.getVScrollPerColumnBGForShader();
 
         // For zones with BG maps wider than 512px (e.g., SBZ/FZ with 15360px BG),
         // the 512px tilemap must contain tiles from the correct BG map region.
@@ -1850,6 +1886,7 @@ public class LevelManager {
 
             pendingBgHScrollData = hScrollData;
             pendingBgVScrollData = vScrollData;
+            pendingBgVScrollColumnData = vScrollColumnData;
             pendingBgShaderScrollMidpoint = shaderScrollMidpoint;
             pendingBgShaderExtraBuffer = shaderExtraBuffer;
             pendingBgVOffset = shaderVOffset;

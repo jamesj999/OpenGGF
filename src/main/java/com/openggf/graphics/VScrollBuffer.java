@@ -21,8 +21,18 @@ public class VScrollBuffer {
     public static final int VISIBLE_LINES = 224;
 
     private int textureId = -1;
-    private final float[] scrollData = new float[VISIBLE_LINES];
+    private final int entryCount;
+    private final float[] scrollData;
     private boolean initialized = false;
+
+    public VScrollBuffer() {
+        this(VISIBLE_LINES);
+    }
+
+    public VScrollBuffer(int entryCount) {
+        this.entryCount = Math.max(1, entryCount);
+        this.scrollData = new float[this.entryCount];
+    }
 
     public void init() {
         if (initialized) {
@@ -38,7 +48,7 @@ public class VScrollBuffer {
                 GL_TEXTURE_1D,
                 0,
                 GL_R32F,
-                VISIBLE_LINES,
+                entryCount,
                 0,
                 GL_RED,
                 GL_FLOAT,
@@ -52,7 +62,7 @@ public class VScrollBuffer {
             return;
         }
 
-        for (int i = 0; i < VISIBLE_LINES; i++) {
+        for (int i = 0; i < entryCount; i++) {
             int raw = i < vScroll.length ? vScroll[i] : 0;
             float normalized = raw / 32767.0f;
             if (normalized > 1.0f) {
@@ -63,7 +73,7 @@ public class VScrollBuffer {
             scrollData[i] = normalized;
         }
 
-        FloatBuffer buffer = MemoryUtil.memAllocFloat(VISIBLE_LINES);
+        FloatBuffer buffer = MemoryUtil.memAllocFloat(entryCount);
         try {
             buffer.put(scrollData);
             buffer.flip();
@@ -72,7 +82,7 @@ public class VScrollBuffer {
                     GL_TEXTURE_1D,
                     0,
                     0,
-                    VISIBLE_LINES,
+                    entryCount,
                     GL_RED,
                     GL_FLOAT,
                     buffer);
