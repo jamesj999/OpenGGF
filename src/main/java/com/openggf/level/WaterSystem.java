@@ -3,6 +3,8 @@ package com.openggf.level;
 import com.openggf.data.Rom;
 import com.openggf.game.DynamicWaterHandler;
 import com.openggf.game.OscillationManager;
+import com.openggf.game.PlayerCharacter;
+import com.openggf.game.WaterDataProvider;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.level.objects.ObjectSpawn;
 
@@ -232,6 +234,66 @@ public class WaterSystem {
         LOGGER.info(String.format("S1 Zone %d Act %d: Water at Y=%d (0x%X), palette=%s",
                 zoneId, actId, waterHeight, waterHeight,
                 underwaterPalette != null ? "loaded" : "none"));
+    }
+
+    /**
+     * Load water configuration using a game-agnostic provider.
+     * New entry point that replaces game-specific loadForLevel/loadForLevelS1.
+     *
+     * @param provider  game-specific water data provider
+     * @param rom       ROM data
+     * @param zoneId    zone index
+     * @param actId     act index
+     * @param character current player character
+     */
+    public void loadForLevelFromProvider(WaterDataProvider provider, Rom rom,
+            int zoneId, int actId, PlayerCharacter character) {
+        String key = makeKey(zoneId, actId);
+
+        if (!provider.hasWater(zoneId, actId, character)) {
+            waterConfigs.put(key, new WaterConfig(false, 0, null));
+            LOGGER.info(String.format("Zone %d Act %d: No water (provider)", zoneId, actId));
+            return;
+        }
+
+        int height = provider.getStartingWaterLevel(zoneId, actId);
+        Palette[] palette = provider.getUnderwaterPalette(rom, zoneId, actId, character);
+        int speed = provider.getWaterSpeed(zoneId, actId);
+        DynamicWaterHandler handler = provider.getDynamicHandler(zoneId, actId, character);
+
+        waterConfigs.put(key, new WaterConfig(true, height, palette));
+
+        DynamicWaterState state = new DynamicWaterState(height);
+        state.setSpeed(speed);
+        state.setHandler(handler);
+        dynamicWaterStates.put(key, state);
+
+        LOGGER.info(String.format("Zone %d Act %d: Water at Y=%d (0x%X), speed=%d, dynamic=%s, palette=%s",
+                zoneId, actId, height, height, speed,
+                handler != null ? "yes" : "no",
+                palette != null ? "loaded" : "none"));
+    }
+
+    /**
+     * Update dynamic water handlers for a specific level.
+     * Called once per frame from LevelManager when water is active.
+     *
+     * @param zoneId  zone index
+     * @param actId   act index
+     * @param cameraX camera X position in world pixels
+     * @param cameraY camera Y position in world pixels
+     */
+    public void updateDynamic(int zoneId, int actId, int cameraX, int cameraY) {
+        String key = makeKey(zoneId, actId);
+        DynamicWaterState state = dynamicWaterStates.get(key);
+        if (state == null) {
+            return;
+        }
+        DynamicWaterHandler handler = state.getHandler();
+        if (handler != null) {
+            handler.update(state, cameraX, cameraY);
+        }
+        state.update(); // Move mean toward target
     }
 
     /**
