@@ -136,6 +136,16 @@ public interface GameModule {
     ZoneFeatureProvider getZoneFeatureProvider();
 
     /**
+     * Returns the water data provider for this game.
+     * Provides zone-specific water heights, palettes, and dynamic handlers.
+     *
+     * @return the water data provider, or null if water not supported
+     */
+    default WaterDataProvider getWaterDataProvider() {
+        return null;
+    }
+
+    /**
      * Returns the ROM offset provider for this game.
      * Provides type-safe access to game-specific ROM addresses.
      *

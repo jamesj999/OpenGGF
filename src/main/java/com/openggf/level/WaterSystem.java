@@ -92,7 +92,7 @@ public class WaterSystem {
      * Tracks dynamic water level state for levels where water rises or falls.
      * Used for CPZ2's rising Mega Mack.
      */
-    private static class DynamicWaterState {
+    public static class DynamicWaterState {
         private int currentLevel; // Current water Y position
         private int targetLevel; // Target water Y position (water moves toward this)
         private boolean rising; // True if water is actively rising
