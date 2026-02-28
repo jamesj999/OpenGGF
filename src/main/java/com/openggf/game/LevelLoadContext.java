@@ -6,7 +6,7 @@ import com.openggf.level.Level;
 /**
  * Mutable context accumulated during level load step execution.
  * <p>
- * Each {@link InitStep} in a {@link LevelInitProfile#levelLoadSteps()} list
+ * Each {@link InitStep} in a {@link LevelInitProfile#levelLoadSteps(LevelLoadContext)} list
  * captures a reference to this context. Steps populate fields as they execute;
  * later steps read values set by earlier ones. This replaces the local variables
  * that were previously threaded through {@code LevelManager.loadLevel()}.
