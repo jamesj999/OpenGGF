@@ -33,68 +33,47 @@ public class Sonic1LevelInitProfile extends AbstractLevelInitProfile {
 
     @Override
     public List<InitStep> levelLoadSteps(LevelLoadContext ctx) {
+        LevelManager lm = LevelManager.getInstance();
         return List.of(
-            new InitStep("InitModuleAndAudio",
-                "S1 Phase A-D: bgm_Fade, ClearPLC, PaletteFadeOut, NemDec Nem_TitleCard, AddPLC, PalLoad palid_Sonic, PlayMusic",
-                () -> {
-                    try {
-                        LevelManager.getInstance().initGameModuleAndAudio(ctx.getLevelIndex());
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                }),
-
+            new InitStep("InitGameModule",
+                "S1 Phase A (#1-4): bgm_Fade, ClearPLC, PaletteFadeOut, create Game instance",
+                () -> { try { lm.initGameModule(ctx.getLevelIndex()); } catch (IOException e) { throw new UncheckedIOException(e); } }),
+            new InitStep("InitAudio",
+                "S1 Phase D (#15): QueueSound1 from MusicList — SBZ3/FZ music overrides",
+                () -> { try { lm.initAudio(ctx.getLevelIndex()); } catch (IOException e) { throw new UncheckedIOException(e); } }),
             new InitStep("LoadLevelData",
-                "S1 Phase G-H: LevelSizeLoad, DeformLayers, LevelDataLoad, ConvertCollisionArray, ColIndexLoad",
-                () -> {
-                    try {
-                        ctx.setLevel(LevelManager.getInstance().loadLevelData(ctx.getLevelIndex()));
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                }),
-
+                "S1 Phase G-H (#20-26): LevelSizeLoad, DeformLayers, LevelDataLoad, ConvertCollisionArray, ColIndexLoad",
+                () -> { try { ctx.setLevel(lm.loadLevelData(ctx.getLevelIndex())); } catch (IOException e) { throw new UncheckedIOException(e); } }),
             new InitStep("InitAnimatedContent",
-                "S1 Phase G: LoadAnimatedBlocks",
-                () -> LevelManager.getInstance().initAnimatedContent()),
-
-            new InitStep("InitObjectSystem",
-                "S1 Phase I-J: LZWaterFeatures, Sonic spawn, ObjPosLoad, ExecuteObjects",
-                () -> {
-                    try {
-                        LevelManager.getInstance().initObjectSystem();
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                }),
-
-            new InitStep("InitGameState",
-                "S1 Phase K: Clear game state, OscillateNumInit, HUD flags",
-                () -> {
-                    try {
-                        LevelManager.getInstance().initGameState();
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                }),
-
-            new InitStep("InitArtAndPlayer",
-                "S1 Phase A (#6-7): Zone PLC, plcid_Main2",
-                () -> LevelManager.getInstance().initArtAndPlayer()),
-
+                "S1 Phase G: LoadAnimatedBlocks (S1 loads animation scripts during LevelDataLoad)",
+                lm::initAnimatedContent),
+            new InitStep("InitObjectManager",
+                "S1 Phase I (#28-32): Spawn Sonic, HUD, create ObjectManager, wire CollisionSystem",
+                () -> { try { lm.initObjectManager(); } catch (IOException e) { throw new UncheckedIOException(e); } }),
+            new InitStep("InitCameraBounds",
+                "S1 Phase G (#20): LevelSizeLoad — reset camera bounds from level geometry",
+                lm::initCameraBounds),
+            new InitStep("InitGameplayState",
+                "S1 Phase K (#36-38): OscillateNumInit, clear game state, HUD update flags",
+                lm::initGameplayState),
+            new InitStep("InitRings",
+                "S1 Phase J (#33): ObjPosLoad — rings are objects in S1, placed via ObjectManager",
+                lm::initRings),
+            new InitStep("InitZoneFeatures",
+                "S1 Phase I (#32): LZ water surface objects, zone-specific features",
+                () -> { try { lm.initZoneFeatures(); } catch (IOException e) { throw new UncheckedIOException(e); } }),
+            new InitStep("InitArt",
+                "S1 Phase A (#6-7): Zone PLC, plcid_Main2 (shared HUD/ring/monitor patterns)",
+                lm::initArt),
+            new InitStep("InitPlayerAndCheckpoint",
+                "S1 Phase I (#28): Spawn Sonic, reset player state, checkpoint clear",
+                lm::initPlayerAndCheckpoint),
             new InitStep("InitWater",
-                "S1 Phase C: LZ water check, WaterHeight table, Water_flag",
-                () -> {
-                    try {
-                        LevelManager.getInstance().initWater();
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                }),
-
+                "S1 Phase C (#11): LZ water check, WaterHeight table, Water_flag",
+                () -> { try { lm.initWater(); } catch (IOException e) { throw new UncheckedIOException(e); } }),
             new InitStep("InitBackgroundRenderer",
                 "Engine-specific: Pre-allocate BG FBO",
-                () -> LevelManager.getInstance().initBackgroundRenderer())
+                lm::initBackgroundRenderer)
         );
     }
 
