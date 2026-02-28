@@ -110,15 +110,8 @@ public class Sonic2EndingCutsceneManager {
     private static final int SCREEN_WIDTH = 320;
     private static final int SCREEN_HEIGHT = 224;
 
-    /**
-     * ROM: Camera_BG_Y_pos initial value.
-     * ROM sets $C8 with no scrolling during CHARACTER_APPEAR.
-     * We start lower ($08) to allow bgYPos++ during CHARACTER_APPEAR (falling
-     * sensation). After CHARACTER_APPEAR ($C0 frames), bgYPos reaches $C8;
-     * after CAMERA_SCROLL ($100 frames), it reaches $1C8 — matching ROM's
-     * final scroll position exactly.
-     */
-    private static final int INITIAL_BG_Y_POS = 0x08;
+    /** ROM: Camera_BG_Y_pos initial value ($C8 = 200). Fixed for entire ending. */
+    private static final int INITIAL_BG_Y_POS = 0xC8;
 
     // ========================================================================
     // Photo sequence constants
@@ -773,11 +766,9 @@ public class Sonic2EndingCutsceneManager {
             charAnimIndex = (charAnimIndex + 1) % charAnimFrames.length;
         }
 
-        // ROM: routine $A spawns both character and background ObjC9 faders together.
-        // Single $C0 (192 frame) timer, both palettes fade simultaneously.
-        // bgYPos increments here to create falling sensation from the start.
-        // INITIAL_BG_Y_POS is lowered to compensate, so total scroll matches ROM.
-        bgYPos++;
+        // ROM: Camera_BG_Y_pos stays fixed at $C8 during CHARACTER_APPEAR.
+        // The "falling" visual comes from Camera_Y_pos_diff=$100 through SwScrl_DEZ parallax,
+        // not from incrementing Camera_BG_Y_pos.
 
         if (stateFrameCounter >= 0xC0) {
             enterCameraScroll();
@@ -1279,9 +1270,10 @@ public class Sonic2EndingCutsceneManager {
     private void updateObjCe() {
         if (!objCeActive) return;
 
-        // Follow scroll offsets
-        objCeX = objCeSavedX + horizScrollOffset;
-        objCeY = objCeSavedY - vscrollOffset;
+        // ROM: ObjCE is a sprite object — renders at screen coordinates.
+        // CAMERA_PAN only changes BG/FG scroll registers, not sprite positions.
+        objCeX = objCeSavedX;
+        objCeY = objCeSavedY;
 
         if (standingFlag && objCePhase == 0) {
             objCePhase = 1; // start jump
@@ -1308,9 +1300,8 @@ public class Sonic2EndingCutsceneManager {
     private void updateObjCfHelix() {
         if (!objCfHelixActive) return;
 
-        // Follow scroll offsets
-        objCfHelixX = objCfHelixSavedX + horizScrollOffset;
-        objCfHelixY = objCfHelixSavedY - vscrollOffset;
+        // ROM: ObjCF is a sprite object — renders at fixed screen coordinates.
+        // CAMERA_PAN only changes BG/FG scroll registers, not sprite positions.
 
         // Ani_objCF anim 2: speed 1, frames 5→6 looping for continuous rotor spin.
         objCfHelixAnimTimer++;
@@ -1411,8 +1402,10 @@ public class Sonic2EndingCutsceneManager {
                 // ObjB2 body during approach/hold.
                 // ROM: make_art_tile(ArtTile_ArtNem_Tornado, 0, 1) — palette 0, priority 1
                 // ROM Ani_objB2_a: anim 0 = frames 0,1,2,3 (Sonic); anim 1 = frames 4,5,6,7 (Tails)
-                // The tornado body art (ArtNem_Tornado) includes the pilot character
-                // in the cockpit — no separate pilot sprite needed.
+                // ROM: ObjB2_Animate_Pilot loads character DPLCs at tornado's art_tile,
+                // overwriting cockpit tiles so the pilot shows through transparent pixels.
+                // We draw pilot BEFORE tornado body so the body covers the lower portion.
+                drawPilotFrame(gm, tx, ty);
                 if (tornadoFrames != null && !tornadoFrames.isEmpty()) {
                     int animBase = (routine == Sonic2EndingArt.EndingRoutine.TAILS) ? 4 : 0;
                     int animFrame = animBase + (frameCounter % 4);
@@ -1432,21 +1425,19 @@ public class Sonic2EndingCutsceneManager {
             case DEPARTURE, CAMERA_PAN -> {
                 // ROM: ObjCC ALWAYS calls DisplaySprite after every state handler via
                 // unconditional jmpto JmpTo5_DisplaySprite at the end of ObjCC_Main.
-                // The tornado renders at its position with scroll offset compensation.
-                int drawTx = tx + horizScrollOffset;
-                int drawTy = ty - vscrollOffset;
+                // Sprites render at screen coordinates — they do NOT move with BG scroll.
+                // CAMERA_PAN changes Horiz_Scroll_Buf/Vscroll_Factor_FG (BG/FG scroll),
+                // not sprite positions.
                 int frame = getObjCfTornadoFrame();
                 if (frame >= 0) {
-                    drawObjCfFrame(gm, frame, drawTx, drawTy, -1, 0);
+                    drawObjCfFrame(gm, frame, tx, ty, -1, 0);
                 }
             }
             case SUPER_FINAL -> {
-                // ROM: Super Sonic final state — tornado still rendered
-                int drawTx = tx + horizScrollOffset;
-                int drawTy = ty - vscrollOffset;
+                // ROM: Super Sonic final state — tornado still rendered at screen coords
                 int frame = getObjCfTornadoFrame();
                 if (frame >= 0) {
-                    drawObjCfFrame(gm, frame, drawTx, drawTy, -1, 0);
+                    drawObjCfFrame(gm, frame, tx, ty, -1, 0);
                 }
             }
         }
