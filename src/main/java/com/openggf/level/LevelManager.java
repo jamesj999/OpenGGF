@@ -579,7 +579,10 @@ public class LevelManager {
                     ". All game modules must implement levelLoadSteps().");
             }
             for (InitStep step : steps) {
+                long start = System.nanoTime();
                 step.execute();
+                long elapsed = (System.nanoTime() - start) / 1_000_000;
+                LOGGER.fine(() -> String.format("  [%s] %dms — %s", step.name(), elapsed, step.romRoutine()));
             }
             // The LoadLevelData step stores the result in ctx
             if (ctx.getLevel() != null) {
