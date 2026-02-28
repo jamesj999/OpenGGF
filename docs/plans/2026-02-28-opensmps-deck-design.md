@@ -127,7 +127,7 @@ Literal SMPS bytes. The tracker grid is a decoded view:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  [Song1.osd] [Song2.osd] [+]               ← tab bar   │
+│  [Song1.osmpsd] [Song2.osmpsd] [+]           ← tab bar   │
 ├──────────────────────────────────────────────────────────┤
 │  Toolbar: [New] [Open] [Save] [Export] | Mode: S2 ▼     │
 │  Transport: [Play] [Stop] [Pause] | Tempo: 120          │
@@ -303,7 +303,7 @@ Sequencer tracks byte offset per channel. Playback engine maps back to order row
 
 ## File I/O
 
-### Project Format (`.osd`)
+### Project Format (`.osmpsd`)
 
 JSON file. Human-readable, diffable, version-control friendly.
 
@@ -383,7 +383,7 @@ Offline render of playback engine to `.wav`. Configurable loop count with fade-o
 - FM voice editor with sliders, algorithm diagram, preview
 - PSG envelope editor with bar graph
 - Playback engine (play, stop, play from cursor, solo/mute)
-- Project save/load (`.osd` JSON)
+- Project save/load (`.osmpsd` JSON)
 - SMPS binary export
 - ROM and SMPSPlay track import (load existing songs for validation)
 - Keyboard-driven editing (full key map)
@@ -424,6 +424,6 @@ opensmps-deck/
         model/                   # Song, Pattern, FmVoice, PsgEnvelope
         ui/                      # JavaFX: TrackerGrid, OrderList, VoiceEditor, etc.
         audio/                   # javax.sound playback, PatternCompiler
-        io/                      # File I/O: .osd save/load, SMPS export, ROM import
+        io/                      # File I/O: .osmpsd save/load, SMPS export, ROM import
   pom.xml                        # Multi-module Maven build
 ```
