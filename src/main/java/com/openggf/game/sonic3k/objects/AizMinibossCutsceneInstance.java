@@ -6,6 +6,7 @@ import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.graphics.GLCommand;
@@ -102,6 +103,11 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     @Override
     protected int getPaletteLineForFlash() {
         return 2;
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic3kSfx.BOSS_HIT.id;
     }
 
     @Override

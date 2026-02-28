@@ -364,6 +364,19 @@ public class Sonic3kLevel implements Level {
      * Used by AIZ intro to swap secondary terrain tiles to the "main level" set.
      */
     public synchronized void applyPatternOverlay(byte[] overlayData, int destOffsetBytes) {
+        applyPatternOverlay(overlayData, destOffsetBytes, true);
+    }
+
+    /**
+     * Applies an 8x8 pattern overlay at runtime.
+     *
+     * @param overlayData      decompressed tile data
+     * @param destOffsetBytes  destination byte offset in pattern memory
+     * @param clearTrailing    true to clear tiles above the written range; false to preserve them
+     */
+    public synchronized void applyPatternOverlay(byte[] overlayData,
+                                                 int destOffsetBytes,
+                                                 boolean clearTrailing) {
         if (overlayData == null || overlayData.length == 0 || destOffsetBytes < 0) {
             return;
         }
@@ -401,13 +414,10 @@ public class Sonic3kLevel implements Level {
                 }
             }
 
-            // ROM parity: on the Mega Drive, VRAM tiles beyond the DMA write pointer
-            // are implicitly zero. Clear stale patterns so they render as transparent,
-            // but keep the array size unchanged — blocks may reference chunk indices
-            // whose PatternDescs point to these higher pattern slots.  Shrinking the
-            // array would shrink the GPU pattern-lookup texture, causing the shader to
-            // clamp out-of-range indices to the last entry and show wrong tiles.
-            if (requiredPatternCount < patternCount) {
+            // Some event paths intentionally patch only a subset of the pattern table.
+            // Preserve trailing data by default for compatibility, with optional clear
+            // mode retained for intro swap parity behavior.
+            if (clearTrailing && requiredPatternCount < patternCount) {
                 for (int i = requiredPatternCount; i < patternCount; i++) {
                     if (patterns[i] != null) {
                         patterns[i].clear();
@@ -427,6 +437,19 @@ public class Sonic3kLevel implements Level {
      * In engine terminology this updates {@link Chunk} data.
      */
     public synchronized void applyChunkOverlay(byte[] overlayData, int destOffsetBytes) {
+        applyChunkOverlay(overlayData, destOffsetBytes, true);
+    }
+
+    /**
+     * Applies a 16x16 block-map overlay at runtime.
+     *
+     * @param overlayData      decompressed chunk bytes
+     * @param destOffsetBytes  destination byte offset in chunk memory
+     * @param clearTrailing    true to clear chunks above the written range; false to preserve them
+     */
+    public synchronized void applyChunkOverlay(byte[] overlayData,
+                                               int destOffsetBytes,
+                                               boolean clearTrailing) {
         if (overlayData == null || overlayData.length == 0 || destOffsetBytes < 0) {
             return;
         }
@@ -459,12 +482,10 @@ public class Sonic3kLevel implements Level {
             chunk.fromSegaFormat(chunkBytes, solidIndex, altSolidIndex);
         }
 
-        // ROM parity: on the Mega Drive, VRAM beyond the DMA write pointer is
-        // implicitly zero.  Clear stale chunks so their PatternDescs become 0
-        // (transparent), but keep the array size unchanged — blocks reference
-        // chunk indices across the full range and shrinking the array would turn
-        // valid block references into out-of-range nulls.
-        if (requiredChunkCount < chunkCount) {
+        // Some event paths intentionally patch only a subset of the chunk table.
+        // Preserve trailing entries by default for compatibility, with optional
+        // clear mode retained for intro swap parity behavior.
+        if (clearTrailing && requiredChunkCount < chunkCount) {
             byte[] emptyChunkBytes = new byte[Chunk.CHUNK_SIZE_IN_ROM];
             for (int i = requiredChunkCount; i < chunkCount; i++) {
                 if (chunks[i] != null) {
@@ -495,6 +516,64 @@ public class Sonic3kLevel implements Level {
         }
     }
 
+    /**
+     * Applies a 128x128 block-map overlay at runtime.
+     * In engine terminology this updates {@link Block} data.
+     */
+    public synchronized void applyBlockOverlay(byte[] overlayData, int destOffsetBytes) {
+        applyBlockOverlay(overlayData, destOffsetBytes, true);
+    }
+
+    /**
+     * Applies a 128x128 block-map overlay at runtime.
+     *
+     * @param overlayData      decompressed block bytes
+     * @param destOffsetBytes  destination byte offset in block memory
+     * @param clearTrailing    true to clear blocks above the written range; false to preserve them
+     */
+    public synchronized void applyBlockOverlay(byte[] overlayData,
+                                               int destOffsetBytes,
+                                               boolean clearTrailing) {
+        if (overlayData == null || overlayData.length == 0 || destOffsetBytes < 0) {
+            return;
+        }
+        if (destOffsetBytes % LevelConstants.BLOCK_SIZE_IN_ROM != 0) {
+            LOG.warning("Block overlay offset is not 128-byte aligned: 0x"
+                    + Integer.toHexString(destOffsetBytes));
+            return;
+        }
+
+        int usableLength = (overlayData.length / LevelConstants.BLOCK_SIZE_IN_ROM)
+                * LevelConstants.BLOCK_SIZE_IN_ROM;
+        int startBlockIndex = destOffsetBytes / LevelConstants.BLOCK_SIZE_IN_ROM;
+        int overlayBlockCount = usableLength / LevelConstants.BLOCK_SIZE_IN_ROM;
+        int requiredBlockCount = startBlockIndex + overlayBlockCount;
+        ensureBlockCapacity(requiredBlockCount);
+
+        byte[] blockBytes = new byte[LevelConstants.BLOCK_SIZE_IN_ROM];
+        for (int i = 0; i < overlayBlockCount; i++) {
+            int src = i * LevelConstants.BLOCK_SIZE_IN_ROM;
+            System.arraycopy(overlayData, src, blockBytes, 0, LevelConstants.BLOCK_SIZE_IN_ROM);
+
+            int blockIndex = startBlockIndex + i;
+            Block block = blocks[blockIndex];
+            if (block == null) {
+                block = new Block();
+                blocks[blockIndex] = block;
+            }
+            block.fromSegaFormat(blockBytes);
+        }
+
+        if (clearTrailing && requiredBlockCount < blockCount) {
+            byte[] emptyBlockBytes = new byte[LevelConstants.BLOCK_SIZE_IN_ROM];
+            for (int i = requiredBlockCount; i < blockCount; i++) {
+                if (blocks[i] != null) {
+                    blocks[i].fromSegaFormat(emptyBlockBytes);
+                }
+            }
+        }
+    }
+
     private void ensureChunkCapacity(int minCount) {
         if (minCount <= chunkCount) {
             return;
@@ -505,6 +584,18 @@ public class Sonic3kLevel implements Level {
             chunks[i] = new Chunk();
         }
         chunkCount = minCount;
+    }
+
+    private void ensureBlockCapacity(int minCount) {
+        if (minCount <= blockCount) {
+            return;
+        }
+        int oldCount = blockCount;
+        blocks = Arrays.copyOf(blocks, minCount);
+        for (int i = oldCount; i < minCount; i++) {
+            blocks[i] = new Block();
+        }
+        blockCount = minCount;
     }
 
     private void loadBlocksWithPlan(Rom rom, LevelResourcePlan plan) throws IOException {

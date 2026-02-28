@@ -4363,13 +4363,20 @@ public class LevelManager {
                             .playerOffset(request.playerOffsetX(), request.playerOffsetY())
                             .cameraOffset(request.cameraOffsetX(), request.cameraOffsetY())
                             .mutationKey(request.mutationKey())
+                            .musicOverrideId(request.musicOverrideId())
                             .build();
                     loadZoneAndActSeamless(adjusted);
                     initLevelEventsForCurrentZoneAct();
+                    if (request.mutationKey() != null && !request.mutationKey().isBlank()) {
+                        applySeamlessMutation(request.mutationKey());
+                    }
                 }
                 case RELOAD_TARGET_LEVEL -> {
                     loadZoneAndActSeamless(request);
                     initLevelEventsForCurrentZoneAct();
+                    if (request.mutationKey() != null && !request.mutationKey().isBlank()) {
+                        applySeamlessMutation(request.mutationKey());
+                    }
                 }
                 default -> {
                 }
@@ -4378,6 +4385,9 @@ public class LevelManager {
             applySeamlessOffsets(request);
             restoreCameraBoundsForCurrentLevel();
             camera.updatePosition(true);
+            if (request.musicOverrideId() >= 0) {
+                AudioManager.getInstance().playMusic(request.musicOverrideId());
+            }
             if (request.showInLevelTitleCard() && !graphicsManager.isHeadlessMode()) {
                 requestInLevelTitleCard(currentZone, currentAct);
             }
