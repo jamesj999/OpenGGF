@@ -26,6 +26,9 @@ public class Aiz2DynamicWaterHandler implements DynamicWaterHandler {
     /** Camera X at which the water rise-back is triggered. */
     static final int TRIGGER_X = 0x2850;
 
+    /** Frames of screen shake when the rise is triggered (ROM: Obj_6E6E timer). */
+    static final int SHAKE_DURATION = 180;
+
     private boolean triggered;
 
     public Aiz2DynamicWaterHandler() {
@@ -53,6 +56,8 @@ public class Aiz2DynamicWaterHandler implements DynamicWaterHandler {
         // (initially 1, or 2 after a drop cycle)
         if (triggered && state.getTargetLevel() != INITIAL_LEVEL) {
             state.setTarget(INITIAL_LEVEL);
+            // ROM sets Screen_shake_flag=-1 and creates 180-frame timer (Obj_6E6E)
+            state.setShakeTimer(SHAKE_DURATION);
         }
     }
 
