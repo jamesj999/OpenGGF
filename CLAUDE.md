@@ -24,8 +24,6 @@ Keep ROMs in the working directory (gitignored):
 - `Sonic The Hedgehog 2 (W) (REV01) [!].gen`
 - `Sonic and Knuckles & Sonic 3 (W) [!].gen`
 
-Sonic 2 ROM download: `http://bluetoaster.net/secretfolder/Sonic%20The%20Hedgehog%202%20%28W%29%20%28REV01%29%20%5B!%5D.gen`
-
 For S3K tests: `-Ds3k.rom.path="Sonic and Knuckles & Sonic 3 (W) [!].gen"`. `TestRomLogic` is skipped when ROM is absent.
 
 ## Reference Materials
