@@ -113,20 +113,6 @@ public class TestTodo5_WaterDistortionTable {
     }
 
     /**
-     * Verify the ROM ripple data properties: all values are in range 0-3.
-     */
-    @Test
-    public void testRippleDataValueRange() {
-        for (int i = 0; i < EXPECTED_RIPPLE_DATA.length; i++) {
-            int value = EXPECTED_RIPPLE_DATA[i];
-            assertEquals(
-                    String.format("Ripple value [%d] = %d should be in range [0,3]", i, value),
-                    true,
-                    value >= 0 && value <= 3);
-        }
-    }
-
-    /**
      * Search ROM for the SwScrl_RippleData pattern.
      * Returns the ROM offset if found, or -1 if not found.
      */

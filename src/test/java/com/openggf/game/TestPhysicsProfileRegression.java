@@ -1,156 +1,100 @@
 package com.openggf.game;
 
 import com.openggf.game.sonic2.Sonic2GameModule;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Regression test: verify that getter values under the new PhysicsModifiers
  * path match the original hardcoded Sonic 2 values with/without water/shoes.
  */
-public class TestPhysicsProfileRegression {
+class TestPhysicsProfileRegression {
 
     private TestableSprite sprite;
 
-    @Before
-    public void setUp() {
-        // Ensure Sonic 2 module is active (default)
+    @BeforeEach
+    void setUp() {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
         sprite = new TestableSprite("test", (short) 100, (short) 100);
     }
 
-    // ========================================
-    // Normal (no water, no speed shoes)
-    // ========================================
-
-    @Test
-    public void testNormal_RunAccel() {
-        assertEquals(12, sprite.getRunAccel());
+    @ParameterizedTest(name = "normal {0} = {1}")
+    @CsvSource({
+            "runAccel,    12",
+            "runDecel,   128",
+            "friction,    12",
+            "max,       1536",
+            "jump,      1664"
+    })
+    void normalCondition(String getter, int expected) {
+        assertEquals(expected, callGetter(sprite, getter));
     }
 
-    @Test
-    public void testNormal_RunDecel() {
-        assertEquals(128, sprite.getRunDecel());
-    }
-
-    @Test
-    public void testNormal_Friction() {
-        assertEquals(12, sprite.getFriction());
-    }
-
-    @Test
-    public void testNormal_Max() {
-        assertEquals(0x600, sprite.getMax());
-    }
-
-    @Test
-    public void testNormal_Jump() {
-        assertEquals(0x680, sprite.getJump());
-    }
-
-    // ========================================
-    // Water
-    // ========================================
-
-    @Test
-    public void testWater_RunAccel() {
+    @ParameterizedTest(name = "water {0} = {1}")
+    @CsvSource({
+            "runAccel,     6",
+            "runDecel,    64",
+            "friction,     6",
+            "max,        768",
+            "jump,       896"
+    })
+    void waterCondition(String getter, int expected) {
         sprite.setInWater(true);
-        assertEquals(6, sprite.getRunAccel());
+        assertEquals(expected, callGetter(sprite, getter));
     }
 
-    @Test
-    public void testWater_RunDecel() {
-        sprite.setInWater(true);
-        assertEquals(64, sprite.getRunDecel());
-    }
-
-    @Test
-    public void testWater_Friction() {
-        sprite.setInWater(true);
-        assertEquals(6, sprite.getFriction());
-    }
-
-    @Test
-    public void testWater_Max() {
-        sprite.setInWater(true);
-        assertEquals(0x300, sprite.getMax());
-    }
-
-    @Test
-    public void testWater_Jump() {
-        sprite.setInWater(true);
-        assertEquals(0x380, sprite.getJump());
-    }
-
-    // ========================================
-    // Speed shoes
-    // ========================================
-
-    @Test
-    public void testSpeedShoes_RunAccel() {
+    @ParameterizedTest(name = "speedShoes {0} = {1}")
+    @CsvSource({
+            "runAccel,    24",
+            "runDecel,   128",
+            "friction,    24",
+            "max,       3072"
+    })
+    void speedShoesCondition(String getter, int expected) {
         sprite.setTestSpeedShoes(true);
-        assertEquals(24, sprite.getRunAccel());
+        assertEquals(expected, callGetter(sprite, getter));
     }
 
-    @Test
-    public void testSpeedShoes_RunDecel_Unchanged() {
-        sprite.setTestSpeedShoes(true);
-        // Speed shoes don't affect decel
-        assertEquals(128, sprite.getRunDecel());
-    }
-
-    @Test
-    public void testSpeedShoes_Friction() {
-        sprite.setTestSpeedShoes(true);
-        assertEquals(24, sprite.getFriction());
-    }
-
-    @Test
-    public void testSpeedShoes_Max() {
-        sprite.setTestSpeedShoes(true);
-        assertEquals(0xC00, sprite.getMax());
-    }
-
-    // ========================================
-    // Water + speed shoes combined
-    // ========================================
-
-    @Test
-    public void testWaterAndShoes_RunAccel() {
+    @ParameterizedTest(name = "water+shoes {0} = {1}")
+    @CsvSource({
+            "runAccel,     6",
+            "max,        768"
+    })
+    void waterAndShoesCondition(String getter, int expected) {
         sprite.setInWater(true);
         sprite.setTestSpeedShoes(true);
-        // ROM: water overrides shoes — only water values apply while submerged
-        // (s1:01 Sonic.asm:206-208, s2.asm:36063-36070)
-        assertEquals(6, sprite.getRunAccel());
+        assertEquals(expected, callGetter(sprite, getter));
     }
 
     @Test
-    public void testWaterAndShoes_Max() {
-        sprite.setInWater(true);
-        sprite.setTestSpeedShoes(true);
-        // ROM: water overrides shoes — 0x600 halved to 0x300
-        assertEquals(0x300, sprite.getMax());
-    }
-
-    // ========================================
-    // Provider accessors
-    // ========================================
-
-    @Test
-    public void testPhysicsFeatureSet_IsSet() {
-        assertNotNull("Feature set should be populated", sprite.getPhysicsFeatureSet());
-        assertTrue("S2 spindash enabled", sprite.getPhysicsFeatureSet().spindashEnabled());
+    void physicsFeatureSet_isSet() {
+        assertNotNull(sprite.getPhysicsFeatureSet(), "Feature set should be populated");
+        assertTrue(sprite.getPhysicsFeatureSet().spindashEnabled(), "S2 spindash enabled");
     }
 
     @Test
-    public void testPhysicsModifiers_IsSet() {
-        assertNotNull("Modifiers should be populated", sprite.getPhysicsModifiers());
-        Assert.assertEquals("Water gravity reduction", 0x28, sprite.getPhysicsModifiers().waterGravityReduction());
-        Assert.assertEquals("Water hurt gravity reduction", 0x20, sprite.getPhysicsModifiers().waterHurtGravityReduction());
+    void physicsModifiers_isSet() {
+        assertNotNull(sprite.getPhysicsModifiers(), "Modifiers should be populated");
+        assertEquals(0x28, sprite.getPhysicsModifiers().waterGravityReduction(),
+                "Water gravity reduction");
+        assertEquals(0x20, sprite.getPhysicsModifiers().waterHurtGravityReduction(),
+                "Water hurt gravity reduction");
+    }
+
+    private static int callGetter(TestableSprite s, String name) {
+        return switch (name) {
+            case "runAccel" -> s.getRunAccel();
+            case "runDecel" -> s.getRunDecel();
+            case "friction" -> s.getFriction();
+            case "max" -> s.getMax();
+            case "jump" -> s.getJump();
+            default -> throw new IllegalArgumentException("Unknown getter: " + name);
+        };
     }
 
     /**

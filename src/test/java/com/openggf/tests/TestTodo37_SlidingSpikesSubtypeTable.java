@@ -92,45 +92,6 @@ public class TestTodo37_SlidingSpikesSubtypeTable {
     }
 
     /**
-     * Document the subtype indexing scheme from the disassembly.
-     * <p>
-     * s2.asm lines 55256-55260:
-     *   moveq #0,d0
-     *   move.b subtype(a0),d0
-     *   lsr.w #2,d0          ; shift right by 2 (divide by 4)
-     *   andi.w #$1C,d0       ; keep bits 2-4 only (multiples of 4: 0,4,8,...,28)
-     *   lea Obj76_InitData(pc,d0.w),a2
-     * <p>
-     * The formula is: offset = (subtype >> 2) & 0x1C
-     * This selects 4-byte entries using subtype bits 4-6 (after shift, bits 2-4).
-     * With only 4 bytes of data (3 + padding), only entry 0 is valid.
-     * Higher subtypes would read into Obj76_Init machine code as data.
-     */
-    @Test
-    public void testSubtypeIndexingScheme() {
-        // Verify the indexing formula: (subtype >> 2) & 0x1C
-        // Entry 0 (offset 0): subtypes 0x00-0x0F (bits 4-6 = 0)
-        assertEquals("Subtype 0x00 -> offset 0", 0, (0x00 >> 2) & 0x1C);
-        assertEquals("Subtype 0x04 -> offset 0 (low bits shifted out)", 0, (0x04 >> 2) & 0x1C);
-        assertEquals("Subtype 0x08 -> offset 0 (bit 3 shifted to bit 1, masked out)", 0, (0x08 >> 2) & 0x1C);
-        assertEquals("Subtype 0x0F -> offset 0", 0, (0x0F >> 2) & 0x1C);
-
-        // Entry 1 (offset 4): subtypes 0x10-0x1F (bits 4-6 = 1) - INVALID, reads code
-        assertEquals("Subtype 0x10 -> offset 4 (invalid entry)", 0x04, (0x10 >> 2) & 0x1C);
-
-        // Entry 2 (offset 8): subtypes 0x20-0x2F (bits 4-6 = 2) - INVALID
-        assertEquals("Subtype 0x20 -> offset 8 (invalid entry)", 0x08, (0x20 >> 2) & 0x1C);
-
-        // Entry 7 (offset 28): subtypes 0x70-0x7F (bits 4-6 = 7) - INVALID, max
-        assertEquals("Subtype 0x70 -> offset 0x1C (max, invalid entry)", 0x1C, (0x70 >> 2) & 0x1C);
-
-        // Lower nibble is masked separately (andi.w #$F,subtype at line 55266)
-        // for the sub-mode (0 = waiting, 2 = sliding, etc.)
-        assertEquals("Lower nibble 0x0F mask on 0x00", 0x00, 0x00 & 0x0F);
-        assertEquals("Lower nibble 0x0F mask on 0x02", 0x02, 0x02 & 0x0F);
-    }
-
-    /**
      * Verify the 'even' alignment after the 3-byte InitData.
      * The assembler's 'even' directive pads to word alignment.
      * So byte at offset 3 should be 0x00 (padding byte).

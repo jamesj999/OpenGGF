@@ -61,66 +61,6 @@ public class TestTodo34_WaterSlideDetection {
     };
 
     @Test
-    public void testSlideChunkTableSize() {
-        assertEquals("Slide_Chunks should have 7 entries", 7, SLIDE_CHUNK_IDS.length);
-    }
-
-    @Test
-    public void testSlideSpeedTableSize() {
-        assertEquals("Slide_Speeds should have 7 entries (same as Slide_Chunks)",
-                SLIDE_CHUNK_IDS.length, SLIDE_SPEEDS.length);
-    }
-
-    @Test
-    public void testSlideChunkIdsMatchDisassembly() {
-        // From LZWaterFeatures.asm:455: dc.b 2, 7, 3, $4C, $4B, 8, 4
-        assertEquals("Chunk 0 should be 0x02", 0x02, SLIDE_CHUNK_IDS[0]);
-        assertEquals("Chunk 1 should be 0x07", 0x07, SLIDE_CHUNK_IDS[1]);
-        assertEquals("Chunk 2 should be 0x03", 0x03, SLIDE_CHUNK_IDS[2]);
-        assertEquals("Chunk 3 should be 0x4C", 0x4C, SLIDE_CHUNK_IDS[3]);
-        assertEquals("Chunk 4 should be 0x4B", 0x4B, SLIDE_CHUNK_IDS[4]);
-        assertEquals("Chunk 5 should be 0x08", 0x08, SLIDE_CHUNK_IDS[5]);
-        assertEquals("Chunk 6 should be 0x04", 0x04, SLIDE_CHUNK_IDS[6]);
-    }
-
-    @Test
-    public void testSlideSpeedsMatchDisassembly() {
-        // From LZWaterFeatures.asm:451: dc.b 10, -11, 10, -10, -11, -12, 11
-        assertEquals("Speed 0 should be 10 (right)", 10, SLIDE_SPEEDS[0]);
-        assertEquals("Speed 1 should be -11 (left)", -11, SLIDE_SPEEDS[1]);
-        assertEquals("Speed 2 should be 10 (right)", 10, SLIDE_SPEEDS[2]);
-        assertEquals("Speed 3 should be -10 (left)", -10, SLIDE_SPEEDS[3]);
-        assertEquals("Speed 4 should be -11 (left)", -11, SLIDE_SPEEDS[4]);
-        assertEquals("Speed 5 should be -12 (left)", -12, SLIDE_SPEEDS[5]);
-        assertEquals("Speed 6 should be 11 (right)", 11, SLIDE_SPEEDS[6]);
-    }
-
-    @Test
-    public void testSlideSpeedSignDeterminesDirection() {
-        // Positive speed = Sonic faces right (bit 0 of obStatus cleared)
-        // Negative speed = Sonic faces left (bit 0 of obStatus set)
-        // From LZSlide_Move (LZWaterFeatures.asm:428-432):
-        //   bclr #0,obStatus(a1)      ; default: face right
-        //   move.b Slide_Speeds(pc,d1.w),d0
-        //   move.b d0,obInertia(a1)
-        //   bpl.s loc_3F9A            ; if positive, keep facing right
-        //   bset #0,obStatus(a1)      ; if negative, face left
-        for (int i = 0; i < SLIDE_SPEEDS.length; i++) {
-            if (SLIDE_SPEEDS[i] > 0) {
-                assertTrue("Chunk " + i + " (ID=0x" +
-                                Integer.toHexString(SLIDE_CHUNK_IDS[i]) +
-                                ") has positive speed, Sonic should face right",
-                        SLIDE_SPEEDS[i] > 0);
-            } else {
-                assertTrue("Chunk " + i + " (ID=0x" +
-                                Integer.toHexString(SLIDE_CHUNK_IDS[i]) +
-                                ") has negative speed, Sonic should face left",
-                        SLIDE_SPEEDS[i] < 0);
-            }
-        }
-    }
-
-    @Test
     public void testReverseSearchLogic() {
         // The game searches Slide_Chunks backward (from end to start).
         // After the search, d1 contains the index into Slide_Chunks/Slide_Speeds.

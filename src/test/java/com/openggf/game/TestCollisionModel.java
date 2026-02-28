@@ -3,12 +3,17 @@ package com.openggf.game;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.game.sonic2.objects.SpringHelper;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import com.openggf.tests.TestablePlayableSprite;
 
-import static org.junit.Assert.*;
+import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests collision model differentiation between Sonic 1 (unified) and Sonic 2/3K (dual-path).
@@ -16,90 +21,69 @@ import static org.junit.Assert.*;
  * Sonic 1 locks solid bits to 0x0C/0x0D — setters are no-ops.
  * Sonic 2/3K allows dynamic switching via plane switchers and springs.
  */
-public class TestCollisionModel {
+class TestCollisionModel {
 
-    @Before
-    public void setUp() {
-        // Default to Sonic 2
+    @BeforeEach
+    void setUp() {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
     }
 
-    @After
-    public void tearDown() {
+    @AfterEach
+    void tearDown() {
         GameModuleRegistry.reset();
     }
 
     // ========================================
-    // Feature set constants
+    // Feature set constants (parameterized)
     // ========================================
 
-    @Test
-    public void testSonic1_UnifiedCollision() {
-        PhysicsFeatureSet fs = PhysicsFeatureSet.SONIC_1;
-        assertEquals("S1 collision model", CollisionModel.UNIFIED, fs.collisionModel());
-        assertFalse("S1 no dual paths", fs.hasDualCollisionPaths());
+    static Stream<Arguments> featureSetProvider() {
+        return Stream.of(
+                Arguments.of(PhysicsFeatureSet.SONIC_1, CollisionModel.UNIFIED, false, "S1"),
+                Arguments.of(PhysicsFeatureSet.SONIC_2, CollisionModel.DUAL_PATH, true, "S2"),
+                Arguments.of(PhysicsFeatureSet.SONIC_3K, CollisionModel.DUAL_PATH, true, "S3K")
+        );
     }
 
-    @Test
-    public void testSonic2_DualPathCollision() {
-        PhysicsFeatureSet fs = PhysicsFeatureSet.SONIC_2;
-        assertEquals("S2 collision model", CollisionModel.DUAL_PATH, fs.collisionModel());
-        assertTrue("S2 has dual paths", fs.hasDualCollisionPaths());
-    }
-
-    @Test
-    public void testSonic3K_DualPathCollision() {
-        PhysicsFeatureSet fs = PhysicsFeatureSet.SONIC_3K;
-        assertEquals("S3K collision model", CollisionModel.DUAL_PATH, fs.collisionModel());
-        assertTrue("S3K has dual paths", fs.hasDualCollisionPaths());
+    @ParameterizedTest(name = "{3} collision model")
+    @MethodSource("featureSetProvider")
+    void featureSetCollisionModel(PhysicsFeatureSet fs, CollisionModel expectedModel,
+                                  boolean expectedHasDual, String label) {
+        assertEquals(expectedModel, fs.collisionModel(), label + " collision model");
+        assertEquals(expectedHasDual, fs.hasDualCollisionPaths(), label + " dual paths");
     }
 
     // ========================================
-    // Setter guarding (Sonic 1)
+    // Setter guarding (parameterized)
     // ========================================
 
-    @Test
-    public void testSonic1_SetTopSolidBitIgnored() {
-        GameModuleRegistry.setCurrent(new Sonic1GameModule());
+    static Stream<Arguments> setterGuardProvider() {
+        return Stream.of(
+                // S1: setters are no-ops
+                Arguments.of(new Sonic1GameModule(), "topSolidBit", 0x0C, (byte) 0x0E, 0x0C, "S1 top ignored"),
+                Arguments.of(new Sonic1GameModule(), "lrbSolidBit", 0x0D, (byte) 0x0F, 0x0D, "S1 lrb ignored"),
+                // S2: setters work
+                Arguments.of(new Sonic2GameModule(), "topSolidBit", 0x0C, (byte) 0x0E, 0x0E, "S2 top works"),
+                Arguments.of(new Sonic2GameModule(), "lrbSolidBit", 0x0D, (byte) 0x0F, 0x0F, "S2 lrb works")
+        );
+    }
+
+    @ParameterizedTest(name = "{4}")
+    @MethodSource("setterGuardProvider")
+    void solidBitSetterGuarding(GameModule module, String setter, int initial,
+                                byte newValue, int expected, String label) {
+        GameModuleRegistry.setCurrent(module);
         TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
-        assertEquals("Initial topSolidBit", 0x0C, sprite.getTopSolidBit());
-        sprite.setTopSolidBit((byte) 0x0E);
-        assertEquals("topSolidBit unchanged in S1", 0x0C, sprite.getTopSolidBit());
-    }
-
-    @Test
-    public void testSonic1_SetLrbSolidBitIgnored() {
-        GameModuleRegistry.setCurrent(new Sonic1GameModule());
-        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
-
-        assertEquals("Initial lrbSolidBit", 0x0D, sprite.getLrbSolidBit());
-        sprite.setLrbSolidBit((byte) 0x0F);
-        assertEquals("lrbSolidBit unchanged in S1", 0x0D, sprite.getLrbSolidBit());
-    }
-
-    // ========================================
-    // Setter works (Sonic 2)
-    // ========================================
-
-    @Test
-    public void testSonic2_SetTopSolidBitWorks() {
-        GameModuleRegistry.setCurrent(new Sonic2GameModule());
-        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
-
-        assertEquals("Initial topSolidBit", 0x0C, sprite.getTopSolidBit());
-        sprite.setTopSolidBit((byte) 0x0E);
-        assertEquals("topSolidBit changed in S2", 0x0E, sprite.getTopSolidBit());
-    }
-
-    @Test
-    public void testSonic2_SetLrbSolidBitWorks() {
-        GameModuleRegistry.setCurrent(new Sonic2GameModule());
-        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
-
-        assertEquals("Initial lrbSolidBit", 0x0D, sprite.getLrbSolidBit());
-        sprite.setLrbSolidBit((byte) 0x0F);
-        assertEquals("lrbSolidBit changed in S2", 0x0F, sprite.getLrbSolidBit());
+        if ("topSolidBit".equals(setter)) {
+            assertEquals(initial, sprite.getTopSolidBit(), "Initial " + setter);
+            sprite.setTopSolidBit(newValue);
+            assertEquals(expected, sprite.getTopSolidBit(), label);
+        } else {
+            assertEquals(initial, sprite.getLrbSolidBit(), "Initial " + setter);
+            sprite.setLrbSolidBit(newValue);
+            assertEquals(expected, sprite.getLrbSolidBit(), label);
+        }
     }
 
     // ========================================
@@ -107,50 +91,41 @@ public class TestCollisionModel {
     // ========================================
 
     @Test
-    public void testModuleSwitch_S2toS1_SettersBecomGuarded() {
-        // Start with S2 where setters work
+    void moduleSwitch_s2ToS1_settersBecomGuarded() {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
         TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         sprite.setTopSolidBit((byte) 0x0E);
-        assertEquals("S2 allows change", 0x0E, sprite.getTopSolidBit());
+        assertEquals(0x0E, sprite.getTopSolidBit(), "S2 allows change");
 
-        // Switch to S1 and reset state (re-resolves physics)
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
         sprite.resetState();
 
-        // Bits should be back to defaults after reset
-        assertEquals("After reset, topSolidBit default", 0x0C, sprite.getTopSolidBit());
+        assertEquals(0x0C, sprite.getTopSolidBit(), "After reset, topSolidBit default");
 
-        // Setter should now be guarded
         sprite.setTopSolidBit((byte) 0x0E);
-        assertEquals("S1 guards setter after switch", 0x0C, sprite.getTopSolidBit());
+        assertEquals(0x0C, sprite.getTopSolidBit(), "S1 guards setter after switch");
     }
 
     // ========================================
-    // SpringHelper guarding
+    // SpringHelper guarding (parameterized)
     // ========================================
 
-    @Test
-    public void testSpringHelper_NoOpInSonic1() {
-        GameModuleRegistry.setCurrent(new Sonic1GameModule());
-        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
-
-        // Subtype 0x08 would normally switch to secondary layer
-        SpringHelper.applyCollisionLayerBits(sprite, 0x08);
-        assertEquals("topSolidBit unchanged by spring in S1", 0x0C, sprite.getTopSolidBit());
-        assertEquals("lrbSolidBit unchanged by spring in S1", 0x0D, sprite.getLrbSolidBit());
+    static Stream<Arguments> springHelperProvider() {
+        return Stream.of(
+                Arguments.of(new Sonic1GameModule(), 0x0C, 0x0D, "S1 spring no-op"),
+                Arguments.of(new Sonic2GameModule(), 0x0E, 0x0F, "S2 spring works")
+        );
     }
 
-    @Test
-    public void testSpringHelper_WorksInSonic2() {
-        GameModuleRegistry.setCurrent(new Sonic2GameModule());
+    @ParameterizedTest(name = "{3}")
+    @MethodSource("springHelperProvider")
+    void springHelperLayerBits(GameModule module, int expectedTop, int expectedLrb, String label) {
+        GameModuleRegistry.setCurrent(module);
         TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
-        // Subtype 0x08 switches to secondary layer
         SpringHelper.applyCollisionLayerBits(sprite, 0x08);
-        assertEquals("topSolidBit changed by spring in S2", 0x0E, sprite.getTopSolidBit());
-        assertEquals("lrbSolidBit changed by spring in S2", 0x0F, sprite.getLrbSolidBit());
+        assertEquals(expectedTop, sprite.getTopSolidBit(), label + " topSolidBit");
+        assertEquals(expectedLrb, sprite.getLrbSolidBit(), label + " lrbSolidBit");
     }
-
 }

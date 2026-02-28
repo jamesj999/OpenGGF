@@ -57,67 +57,6 @@ public class TestTodo35_ControlLockout {
     private static final int SLOPE_REPEL_LOCKOUT_FRAMES = 30;
 
     @Test
-    public void testLocktimeOffsetMatchesDisassembly() {
-        // locktime = $3E per Constants.asm:141
-        // It is a 2-byte (word) field at object offset $3E.
-        assertEquals("locktime offset should be $3E", 0x3E, LOCKTIME_OFFSET);
-    }
-
-    @Test
-    public void testWaterSlideLockoutIs5Frames() {
-        // From LZWaterFeatures.asm:415: move.w #5,locktime(a1)
-        // When Sonic exits a water slide (f_slidemode cleared), D-Pad is locked
-        // for 5 frames to prevent immediate direction changes.
-        assertEquals("Water slide lockout should be 5 frames",
-                5, WATER_SLIDE_LOCKOUT_FRAMES);
-    }
-
-    @Test
-    public void testSpringLockoutIs15Frames() {
-        // From 41 Springs.asm:127: move.w #15,locktime(a1)
-        // After hitting a horizontal spring, Sonic's D-Pad is locked for 15 frames
-        // to prevent immediately reversing the spring's impulse.
-        assertEquals("Spring lockout should be 15 frames",
-                15, SPRING_LOCKOUT_FRAMES);
-    }
-
-    @Test
-    public void testBubbleLockoutIs35Frames() {
-        // From 64 Bubbles.asm:90: move.w #35,locktime(a1)
-        // While Sonic breathes an air bubble, D-Pad is locked for 35 frames.
-        // This holds Sonic still during the breathing animation.
-        assertEquals("Bubble lockout should be 35 frames",
-                35, BUBBLE_LOCKOUT_FRAMES);
-    }
-
-    @Test
-    public void testSlopeRepelLockoutIs30Frames() {
-        // From 01 Sonic.asm:1126: move.w #30,locktime(a0)
-        // When Sonic is pushed off a steep slope (Sonic_SlopeRepel),
-        // D-Pad is locked for 30 frames.
-        assertEquals("Slope repel lockout should be 30 frames",
-                30, SLOPE_REPEL_LOCKOUT_FRAMES);
-    }
-
-    @Test
-    public void testLocktimeIsDistinctFromControlLock() {
-        // locktime ($3E) is a per-sprite COUNTDOWN timer that blocks D-Pad only.
-        // f_lockctrl is a GLOBAL flag that locks ALL input (including jump).
-        //
-        // locktime usage (01 Sonic.asm:316):
-        //   tst.w locktime(a0) -> bne.w Sonic_ResetScr (ignore D-Pad but NOT jump)
-        //
-        // f_lockctrl usage (01 Sonic.asm:58):
-        //   tst.b (f_lockctrl).w -> bne.s .ignorecontrols (ignore ALL input)
-        //
-        // These are independent mechanisms:
-        // - locktime: short-lived per-sprite timer (5/15/30/35 frames)
-        // - f_lockctrl: persistent global flag (set/cleared by cutscene events)
-        assertNotEquals("locktime and f_lockctrl should be distinct mechanisms",
-                LOCKTIME_OFFSET, 0); // locktime is at offset $3E, not zero
-    }
-
-    @Test
     @Ignore("TODO #35 -- S1 locktime timer not yet implemented in sprite system. " +
             "See docs/s1disasm/_incObj/01 Sonic.asm:316, 1111, 1126, 1133")
     public void testLocktimeCountdownBehavior() {

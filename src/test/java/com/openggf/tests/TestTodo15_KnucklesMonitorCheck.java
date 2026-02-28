@@ -50,15 +50,6 @@ public class TestTodo15_KnucklesMonitorCheck {
     /** Animation ID for rolling/spin attack (sonic3k.asm:20859). */
     private static final int ANIM_ROLLING = 2;
 
-    @Test
-    public void testKnucklesMonitorDestroyConstants() {
-        // Verify the character_id and double_jump_flag values from disassembly
-        assertEquals("Knuckles character_id is 2", 2, CHARACTER_ID_KNUCKLES);
-        assertEquals("Gliding double_jump_flag is 1", 1, DOUBLE_JUMP_GLIDING);
-        assertEquals("Sliding double_jump_flag is 3", 3, DOUBLE_JUMP_SLIDING);
-        assertEquals("Rolling anim is 2", 2, ANIM_ROLLING);
-    }
-
     @Ignore("TODO #15 -- Sonic3kMonitorObjectInstance not yet implemented. " +
             "See docs/skdisasm/sonic3k.asm:20858-20866 for Knuckles glide/slide check.")
     @Test

@@ -2,76 +2,77 @@ package com.openggf.game;
 
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import com.openggf.tests.TestablePlayableSprite;
 
-import static org.junit.Assert.*;
+import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests spindash feature gating per game module.
  * S1 module: spindash should be disabled and never enter spindash state.
  * S2 module: spindash should be enabled.
  */
-public class TestSpindashGating {
+class TestSpindashGating {
 
-    @Before
-    public void setUp() {
-        // Default to Sonic 2
+    @BeforeEach
+    void setUp() {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
     }
 
-    @After
-    public void tearDown() {
+    @AfterEach
+    void tearDown() {
         GameModuleRegistry.reset();
     }
 
-    @Test
-    public void testSonic1Module_SpindashDisabled() {
-        GameModuleRegistry.setCurrent(new Sonic1GameModule());
+    static Stream<Arguments> spindashGatingProvider() {
+        return Stream.of(
+                Arguments.of(new Sonic1GameModule(), false, "S1 spindash disabled"),
+                Arguments.of(new Sonic2GameModule(), true, "S2 spindash enabled")
+        );
+    }
+
+    @ParameterizedTest(name = "{2}")
+    @MethodSource("spindashGatingProvider")
+    void spindashEnabledMatchesModule(GameModule module, boolean expectedEnabled, String label) {
+        GameModuleRegistry.setCurrent(module);
         TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
-        assertNotNull("Feature set should be set", fs);
-        assertFalse("S1 spindash should be disabled", fs.spindashEnabled());
-        assertNull("S1 no spindash speed table", fs.spindashSpeedTable());
+        assertNotNull(fs, "Feature set should be set");
+        assertEquals(expectedEnabled, fs.spindashEnabled(), label);
+
+        if (expectedEnabled) {
+            assertNotNull(fs.spindashSpeedTable(), label + " speed table");
+            assertEquals(9, fs.spindashSpeedTable().length, label + " speed table entries");
+        } else {
+            assertNull(fs.spindashSpeedTable(), label + " no speed table");
+        }
     }
 
     @Test
-    public void testSonic2Module_SpindashEnabled() {
-        GameModuleRegistry.setCurrent(new Sonic2GameModule());
-        TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
-
-        PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
-        assertNotNull("Feature set should be set", fs);
-        assertTrue("S2 spindash should be enabled", fs.spindashEnabled());
-        assertNotNull("S2 has spindash speed table", fs.spindashSpeedTable());
-        assertEquals("S2 speed table has 9 entries", 9, fs.spindashSpeedTable().length);
-    }
-
-    @Test
-    public void testSonic1Module_SpindashFlagNeverSet() {
+    void sonic1Module_spindashFlagNeverSet() {
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
         TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
-        // Simulate ducking + jump press scenario:
-        // In S1, even if the sprite is crouching, the spindash flag should never be set
-        // because the feature gate prevents doCheckSpindash() from proceeding.
-        assertFalse("Spindash should not be active", sprite.getSpindash());
+        assertFalse(sprite.getSpindash(), "Spindash should not be active");
     }
 
     @Test
-    public void testModuleSwitch_UpdatesFeatureSet() {
-        // Start with S2
+    void moduleSwitch_updatesFeatureSet() {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
         TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
-        assertTrue("Initially S2 spindash", sprite.getPhysicsFeatureSet().spindashEnabled());
+        assertTrue(sprite.getPhysicsFeatureSet().spindashEnabled(), "Initially S2 spindash");
 
-        // Switch to S1 and reset state
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
         sprite.resetState();
-        assertFalse("After switch to S1, spindash disabled", sprite.getPhysicsFeatureSet().spindashEnabled());
+        assertFalse(sprite.getPhysicsFeatureSet().spindashEnabled(),
+                "After switch to S1, spindash disabled");
     }
-
 }

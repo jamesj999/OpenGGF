@@ -145,27 +145,4 @@ public class TestTodo31_EndGameLoopPrevention {
                 "UNKNOWN", registry.getZoneName(zoneAfterFinal));
     }
 
-    @Test
-    public void testLoopBackBehaviorDocumented() {
-        // The current behavior wraps to zone 0 when zones are exhausted.
-        // This is the TODO: instead of looping, it should trigger an end-game
-        // sequence (credits screen, ending cutscene, etc.)
-        //
-        // Per game, the expected end-game trigger points are:
-        // S1: After Final Zone (zone 6, act 0)
-        // S2: After Death Egg Zone (zone 10, act 0)
-        // S3K: After Doomsday Zone (last zone)
-
-        // Simulate the current loop-back logic
-        int currentZone = 10; // Death Egg (last S2 zone)
-        int totalZones = 11;
-        currentZone++; // advance past last zone
-        if (currentZone >= totalZones) {
-            currentZone = 0; // current behavior: loop back
-        }
-        assertEquals("Current behavior loops back to zone 0", 0, currentZone);
-
-        // When end-game is implemented, this should NOT loop.
-        // Instead it should trigger GameState.END_GAME or similar.
-    }
 }

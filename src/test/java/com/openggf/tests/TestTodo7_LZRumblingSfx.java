@@ -38,18 +38,6 @@ public class TestTodo7_LZRumblingSfx {
     private static final int SFX_RUMBLING = 0xB7;
 
     @Test
-    public void testRumblingSfxIdMatchesDisassembly() {
-        // sfx_Rumbling = $B7 per s1disasm Constants.asm:227
-        // It is within the valid S1 SFX range [$A0, $CF]
-        assertEquals("sfx_Rumbling should be 0xB7", 0xB7, SFX_RUMBLING);
-        // S1 SFX range: $A0 (sfx__First) to $CF (last standard SFX), 48 entries
-        assertTrue("SFX_RUMBLING must be >= $A0 (sfx__First)",
-                SFX_RUMBLING >= 0xA0);
-        assertTrue("SFX_RUMBLING must be <= $CF (last standard SFX)",
-                SFX_RUMBLING <= 0xCF);
-    }
-
-    @Test
     public void testRumblingSfxHasValidPriority() {
         // The sound priority table should have an entry for sfx_Rumbling.
         // From s1disasm: SFX $B0-$BF priorities are in the 0x60-0x70 range.
