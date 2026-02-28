@@ -585,10 +585,13 @@ public class LevelManager {
             if (ctx.getLevel() != null) {
                 level = ctx.getLevel();
             }
-        } catch (IOException e) {
-            LOGGER.log(SEVERE, "Failed to load level " + levelIndex, e);
-            throw e;
         } catch (Exception e) {
+            // Profile steps wrap checked exceptions in RuntimeException; unwrap if cause is IOException
+            Throwable cause = e.getCause();
+            if (cause instanceof IOException ioe) {
+                LOGGER.log(SEVERE, "Failed to load level " + levelIndex, ioe);
+                throw ioe;
+            }
             LOGGER.log(SEVERE, "Unexpected error while loading level " + levelIndex, e);
             throw new IOException("Failed to load level due to unexpected error.", e);
         }
