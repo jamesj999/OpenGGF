@@ -2,6 +2,8 @@ package com.openggf.game.sonic1.events;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.objects.bosses.Sonic1FZBossInstance;
+import com.openggf.game.sonic1.objects.bosses.Sonic1FalseFloorInstance;
+import com.openggf.game.sonic1.objects.bosses.Sonic1ScrapEggmanInstance;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
 import com.openggf.game.GameServices;
@@ -145,8 +147,13 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
             return; // locret_7298
         }
 
-        // TODO: Spawn collapsing floor object (not yet implemented)
-        // ROM spawns the SBZ2 collapsing floor boss trigger here
+        // ROM: Spawn collapsing floor object (FalseFloor / Object 0x83)
+        LevelManager lm = LevelManager.getInstance();
+        ObjectSpawn floorSpawn = new ObjectSpawn(
+                BOSS_SBZ2_X + 0x30, BOSS_SBZ2_Y + 0xC0,
+                Sonic1ObjectIds.FALSE_FLOOR, 0, 0, false, 0);
+        lm.getObjectManager().addDynamicObject(
+                new Sonic1FalseFloorInstance(floorSpawn, lm));
 
         // addq.b #2,(v_dle_routine).w
         eventRoutine += 2;
@@ -162,8 +169,13 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
 
         // cmpi.w #boss_sbz2_x-$F0,(v_screenposx).w = 0x1F60
         if (camX >= (BOSS_SBZ2_X - 0xF0)) {
-            // TODO: Spawn Eggman boss object (not yet implemented)
-            // ROM spawns the SBZ2 boss (Eggman) here
+            // ROM: Spawn Eggman cutscene object (ScrapEggman / Object 0x82)
+            LevelManager lm = LevelManager.getInstance();
+            ObjectSpawn eggSpawn = new ObjectSpawn(
+                    BOSS_SBZ2_X + 0x110, BOSS_SBZ2_Y + 0x94,
+                    Sonic1ObjectIds.SCRAP_EGGMAN, 0, 0, false, 0);
+            lm.getObjectManager().addDynamicObject(
+                    new Sonic1ScrapEggmanInstance(eggSpawn, lm));
 
             // addq.b #2,(v_dle_routine).w
             eventRoutine += 2;

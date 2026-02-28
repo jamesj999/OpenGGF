@@ -2,9 +2,11 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
+import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
+import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
 import com.openggf.game.sonic2.objects.AbstractResultsScreen;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GLCommand;
@@ -14,6 +16,7 @@ import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -120,6 +123,25 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     private static final int SLIDE_IN_FRAMES = 68;
 
     // -----------------------------------------------------------------------
+    // SBZ Act 2 special transition states (ROM: Got_Move2 / loc_C766)
+    //
+    // After tally, SBZ2 skips the normal level-advance fade and instead:
+    //   1. Slides card elements off at 2x speed ($20/frame)
+    //   2. Unlocks controls and plays FZ music (Got_SBZ2)
+    //   3. Scrolls the right camera boundary by +2px/frame until $2100
+    // This allows the DLE_SBZ2 events to trigger as the camera extends
+    // past the initial right boundary ($1E40).
+    // -----------------------------------------------------------------------
+    private static final int STATE_SBZ2_SLIDE_OUT = 5;
+    private static final int STATE_SBZ2_SCROLL = 6;
+
+    /** Got_Move2: moveq #$20,d1 = 32 pixels/frame (2x normal) */
+    private static final int SBZ2_SLIDE_OUT_SPEED = 0x20;
+
+    /** loc_C766: cmpi.w #$2100,(v_limitright2).w */
+    private static final int SBZ2_SCROLL_TARGET = 0x2100;
+
+    // -----------------------------------------------------------------------
     // Bonus state
     // -----------------------------------------------------------------------
     private int timeBonus;
@@ -138,6 +160,9 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
 
     /** When true, transition to special stage after tally instead of next level. */
     private boolean specialStageAfter = false;
+
+    /** Tracks whether SBZ2 slide-out elements have reached their exit positions. */
+    private final boolean[] elemExited = new boolean[ELEMENT_COUNT];
 
     public void setSpecialStageAfter(boolean specialStageAfter) {
         this.specialStageAfter = specialStageAfter;
@@ -177,6 +202,23 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     // -----------------------------------------------------------------------
     // State machine overrides
     // -----------------------------------------------------------------------
+
+    @Override
+    public void update(int frameCounter, AbstractPlayableSprite player) {
+        // Handle SBZ2 special states outside the base class state machine
+        if (state == STATE_SBZ2_SLIDE_OUT || state == STATE_SBZ2_SCROLL) {
+            this.frameCounter = frameCounter;
+            stateTimer++;
+            totalFrames++;
+            if (state == STATE_SBZ2_SLIDE_OUT) {
+                updateSbz2SlideOut();
+            } else {
+                updateSbz2Scroll();
+            }
+            return;
+        }
+        super.update(frameCounter, player);
+    }
 
     @Override
     protected int getSlideDuration() {
@@ -289,6 +331,13 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     protected void onExitReady() {
         if (specialStageAfter) {
             triggerFadeToWhiteForSpecialStage();
+        } else if (isSBZ2()) {
+            // ROM: Got_ChkBonus lines 122-124: addq.b #4,obRoutine skips
+            // Got_NextLevel and goes to Got_Wait($C) -> Got_Move2($E) -> loc_C766($10).
+            // The 180-frame wait (STATE_WAIT) has already elapsed; now enter slide-out.
+            LOGGER.info("SBZ Act 2 detected: entering special transition to Final Zone");
+            state = STATE_SBZ2_SLIDE_OUT;
+            stateTimer = 0;
         } else {
             triggerFadeToBlack();
         }
@@ -328,11 +377,6 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     private void triggerFadeToBlack() {
         LOGGER.info("S1 Results screen complete, starting fade to black");
 
-        // TODO: SBZ Act 2 special case - transition to Final Zone with camera scroll
-        // instead of normal fade. From Got_NextLevel:
-        //   cmpi.w #(id_SBZ<<8)+1,(v_zone).w => skip post-tally wait, play bgm_FZ,
-        //   scroll camera right until (v_limitright2) == $2100
-
         FadeManager fadeManager = FadeManager.getInstance();
         fadeManager.startFadeToBlack(() -> {
             setDestroyed(true);
@@ -347,6 +391,103 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
                 fadeManager.startFadeFromBlack(null);
             }
         });
+    }
+
+    // -----------------------------------------------------------------------
+    // SBZ Act 2 -> Final Zone special transition
+    // ROM: Got_Move2 ($E) -> Got_SBZ2 -> loc_C766 ($10)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Checks whether the current level is SBZ Act 2 (zone word $0501).
+     * ROM: cmpi.w #(id_SBZ<<8)+1,(v_zone).w
+     */
+    private boolean isSBZ2() {
+        LevelManager lm = LevelManager.getInstance();
+        return lm != null
+                && lm.getCurrentZone() == Sonic1ZoneConstants.ZONE_SBZ
+                && lm.getCurrentAct() == 1;
+    }
+
+    /**
+     * Got_Move2 (routine $E): Slide card elements off-screen at 2x speed.
+     * Each element moves toward its original start position (got_finalX).
+     * When the ring bonus element (frame 4) reaches its target,
+     * unlock controls and play FZ music (Got_SBZ2), then enter scroll state.
+     */
+    private void updateSbz2SlideOut() {
+        for (int i = 0; i < ELEMENT_COUNT; i++) {
+            if (elemExited[i]) {
+                continue;
+            }
+
+            int target = ELEM_START_X[i];
+            int current = elemCurrentX[i];
+
+            if (current == target) {
+                elemExited[i] = true;
+                continue;
+            }
+
+            // Got_Move2: moveq #$20,d1 (32 px/frame toward got_finalX)
+            int direction = (target > current) ? SBZ2_SLIDE_OUT_SPEED : -SBZ2_SLIDE_OUT_SPEED;
+            int next = current + direction;
+
+            // Check if reached or passed target
+            if ((direction > 0 && next >= target) || (direction < 0 && next <= target)) {
+                next = target;
+                elemExited[i] = true;
+            }
+
+            elemCurrentX[i] = next;
+        }
+
+        // Got_SBZ2: When ring bonus card (frame 4, index ELEM_RING_BONUS) reaches
+        // its exit position, unlock controls and play FZ music, then scroll.
+        if (elemExited[ELEM_RING_BONUS]) {
+            LOGGER.info("SBZ2 slide-out complete: unlocking controls, playing FZ music");
+
+            // ROM: clr.b (f_lockctrl).w — unlock player controls and clear
+            // the forced-right input injected by the signpost walkoff sequence.
+            Camera camera = Camera.getInstance();
+            if (camera != null && camera.getFocusedSprite() != null) {
+                camera.getFocusedSprite().setControlLocked(false);
+                camera.getFocusedSprite().clearForcedInputMask();
+            }
+
+            // ROM: move.w #bgm_FZ,d0; jmp (QueueSound1).l
+            try {
+                AudioManager.getInstance().playMusic(Sonic1Music.FZ.id);
+            } catch (Exception e) {
+                // Don't let audio failure break the transition
+            }
+
+            state = STATE_SBZ2_SCROLL;
+            stateTimer = 0;
+        }
+    }
+
+    /**
+     * loc_C766 (routine $10): Scroll the camera right boundary by 2px/frame
+     * until it reaches $2100, then delete this object.
+     * ROM: addq.w #2,(v_limitright2).w / cmpi.w #$2100,(v_limitright2).w
+     */
+    private void updateSbz2Scroll() {
+        Camera camera = Camera.getInstance();
+        if (camera == null) {
+            setDestroyed(true);
+            return;
+        }
+
+        short currentMaxX = camera.getMaxX();
+        short newMaxX = (short) (currentMaxX + 2);
+        camera.setMaxX(newMaxX);
+
+        if ((newMaxX & 0xFFFF) >= SBZ2_SCROLL_TARGET) {
+            LOGGER.info("SBZ2 right boundary scroll complete at $"
+                    + Integer.toHexString(newMaxX & 0xFFFF));
+            setDestroyed(true);
+        }
     }
 
     // -----------------------------------------------------------------------

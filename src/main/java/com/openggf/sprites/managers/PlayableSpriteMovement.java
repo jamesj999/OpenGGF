@@ -1,6 +1,8 @@
 package com.openggf.sprites.managers;
 
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
+import com.openggf.game.LevelEventProvider;
 import com.openggf.game.PhysicsFeatureSet;
 
 import com.openggf.camera.Camera;
@@ -905,7 +907,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
 					sprite.getCpuController().despawn();
 				} else {
-					sprite.applyPitDeath();
+					// ROM: Sonic_LevelBound checks for zone-specific intercepts
+					// (e.g. SBZ2 fall -> SBZ3 transition) before applying death.
+					LevelEventProvider levelEvents = GameModuleRegistry.getCurrent() != null
+							? GameModuleRegistry.getCurrent().getLevelEventProvider() : null;
+					if (levelEvents == null || !levelEvents.interceptPitDeath(sprite)) {
+						sprite.applyPitDeath();
+					}
 				}
 			}
 		}

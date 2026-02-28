@@ -1,5 +1,7 @@
 package com.openggf.game;
 
+import com.openggf.sprites.playable.AbstractPlayableSprite;
+
 /**
  * Interface for game-specific dynamic level events.
  *
@@ -28,4 +30,18 @@ public interface LevelEventProvider {
      * appropriate boundary changes or other level events.
      */
     void update();
+
+    /**
+     * Called when a player falls below the bottom boundary.
+     * If this returns true, the pit death is intercepted (e.g. zone transition).
+     * <p>
+     * ROM reference: Sonic_LevelBound in s1disasm - SBZ2 intercepts bottom
+     * boundary death to transition to SBZ3 (LZ act 3).
+     *
+     * @param player the player about to die
+     * @return true if the death should be suppressed
+     */
+    default boolean interceptPitDeath(AbstractPlayableSprite player) {
+        return false;
+    }
 }

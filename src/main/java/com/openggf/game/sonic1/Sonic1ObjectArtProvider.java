@@ -283,6 +283,9 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
             loadSbzRunningDiscArt(art);
             loadSbzJunctionArt(art);
             loadBallHogArt(art);
+            loadSbz2EggmanArt(art);
+            loadSbz2ButtonArt(art);
+            loadSbz2FalseFloorArt(art);
         }
 
         // Load boss art (GHZ/MZ/SYZ/LZ/SLZ: Eggman, weapons/chain anchor, exhaust flame)
@@ -8111,6 +8114,155 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
                 new SpriteMappingPiece(-0x30, -0x10, 4, 4, 0x00, false, false, 0, false),
                 new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x10, false, false, 0, false),
                 new SpriteMappingPiece(0x10, -0x10, 4, 4, 0x20, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    // ── SBZ2 cutscene art ──────────────────────────────────────────────
+
+    /**
+     * Loads SBZ2 Eggman sprite art (Nem_Sbz2Eggman) with hardcoded Map_SEgg mappings.
+     * obGfx = make_art_tile(ArtTile_Eggman,0,0) -> palette 0.
+     * Frames 0-4 cover the SBZ2 cutscene sequence (stand, laugh1, laugh2, jump1, jump2).
+     */
+    private void loadSbz2EggmanArt(Sonic1ObjectArt art) {
+        List<SpriteMappingFrame> mappings = createSbz2EggmanMappings();
+        registerSheet(ObjectArtKeys.SBZ2_EGGMAN, art.buildArtSheet(
+                Sonic1Constants.ART_NEM_SBZ2_EGGMAN_ADDR, mappings, 0, 1));
+    }
+
+    /**
+     * Creates Map_SEgg sprite mappings for the SBZ2 cutscene Eggman.
+     * Hardcoded from docs/s1disasm/_maps/SBZ2 Eggman.asm (inline spritePiece macros).
+     * 5 frames: stand, laugh1, laugh2, jump1, jump2.
+     */
+    private List<SpriteMappingFrame> createSbz2EggmanMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (stand): 3 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x18, -4, 1, 1, 0x8F, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x18, 4, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, 0, 4, 4, 0x6F, false, false, 0, false)
+        )));
+
+        // Frame 1 (laugh1): 4 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x18, 4, 2, 0x0E, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x18, 4, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, 0, 4, 4, 0x6F, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, -4, 1, 1, 0x8F, false, false, 0, false)
+        )));
+
+        // Frame 2 (laugh2): 4 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x17, 4, 2, 0x0E, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x17, 4, 3, 0, false, false, 0, false),
+                new SpriteMappingPiece(-0x10, 1, 4, 4, 0x7F, false, false, 0, false),
+                new SpriteMappingPiece(-0x18, -3, 1, 1, 0x8F, false, false, 0, false)
+        )));
+
+        // Frame 3 (jump1): 4 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x0C, 4, 4, 0x20, true, false, 0, false),
+                new SpriteMappingPiece(0x10, -0x0B, 2, 1, 0x30, true, false, 0, false),
+                new SpriteMappingPiece(-0x10, 8, 3, 2, 0x4E, true, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x14, 4, 3, 0, false, false, 0, false)
+        )));
+
+        // Frame 4 (jump2): 4 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0x20, true, false, 0, false),
+                new SpriteMappingPiece(0x10, -0x0F, 2, 1, 0x30, true, false, 0, false),
+                new SpriteMappingPiece(-8, 8, 2, 3, 0x3E, true, false, 0, false),
+                new SpriteMappingPiece(-0x10, -0x18, 4, 3, 0, false, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads SBZ2 button sprite art (Nem_Button / LZ switch) with hardcoded Map_But mappings.
+     * obGfx = make_art_tile(ArtTile_SBZ2_Button,0,0) -> palette 0.
+     * Shared Nemesis art with LZ switch (ART_NEM_LZ_SWITCH_ADDR).
+     * 2 frames: unpressed, pressed.
+     */
+    private void loadSbz2ButtonArt(Sonic1ObjectArt art) {
+        List<SpriteMappingFrame> mappings = createSbz2ButtonMappings();
+        registerSheet(ObjectArtKeys.SBZ2_BUTTON, art.buildArtSheet(
+                Sonic1Constants.ART_NEM_LZ_SWITCH_ADDR, mappings, 0, 1));
+    }
+
+    /**
+     * Creates Map_But sprite mappings for the SBZ2 button.
+     * Hardcoded from docs/s1disasm/_maps/Button.asm (inline spritePiece macros).
+     * 2 frames: unpressed, pressed.
+     */
+    private List<SpriteMappingFrame> createSbz2ButtonMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (unpressed): 2 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x0B, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x0B, 2, 2, 0, true, false, 0, false)
+        )));
+
+        // Frame 1 (pressed): 2 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x0B, 2, 2, 4, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x0B, 2, 2, 4, true, false, 0, false)
+        )));
+
+        return frames;
+    }
+
+    /**
+     * Loads SBZ2 false floor art (Nem_SBZ_VanishingBlock) with hardcoded Map_FFloor mappings.
+     * obGfx = make_art_tile(ArtTile_Eggman_Trap_Floor,2,0) -> palette 2.
+     * 5 frames: whole block, then 4 quarter-block fragments (TL, TR, BL, BR).
+     */
+    private void loadSbz2FalseFloorArt(Sonic1ObjectArt art) {
+        List<SpriteMappingFrame> mappings = createSbz2FalseFloorMappings();
+        registerSheet(ObjectArtKeys.SBZ2_FALSE_FLOOR, art.buildArtSheet(
+                Sonic1Constants.ART_NEM_SBZ_VANISHING_BLOCK_ADDR, mappings, 2, 1));
+    }
+
+    /**
+     * Creates Map_FFloor sprite mappings for the SBZ2 false floor blocks.
+     * Hardcoded from docs/s1disasm/_maps/False Floor.asm (inline spritePiece macros).
+     * 5 frames: whole block (4x4), then 4 quarter pieces (1x2 each pair).
+     */
+    private List<SpriteMappingFrame> createSbz2FalseFloorMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+
+        // Frame 0 (wholeblock): 1 piece
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-0x10, -0x10, 4, 4, 0, false, false, 0, false)
+        )));
+
+        // Frame 1 (topleft): 2 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 1, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(0, -8, 1, 2, 4, false, false, 0, false)
+        )));
+
+        // Frame 2 (topright): 2 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 1, 2, 8, false, false, 0, false),
+                new SpriteMappingPiece(0, -8, 1, 2, 0x0C, false, false, 0, false)
+        )));
+
+        // Frame 3 (bottomleft): 2 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 1, 2, 2, false, false, 0, false),
+                new SpriteMappingPiece(0, -8, 1, 2, 6, false, false, 0, false)
+        )));
+
+        // Frame 4 (bottomright): 2 pieces
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 1, 2, 0x0A, false, false, 0, false),
+                new SpriteMappingPiece(0, -8, 1, 2, 0x0E, false, false, 0, false)
         )));
 
         return frames;
