@@ -1,18 +1,15 @@
 package com.openggf;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameModuleRegistry;
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.Sonic2LevelEventManager;
-import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
+import com.openggf.game.InitStep;
+import com.openggf.game.LevelInitProfile;
+import com.openggf.game.StaticFixup;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
-import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.physics.CollisionSystem;
-import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.timer.TimerManager;
 
@@ -65,51 +62,37 @@ public final class GameContext {
     }
 
     /**
-     * Resets all critical singletons in the correct order (matching
-     * {@code TestEnvironment.resetAll()}), then returns a fresh production context.
+     * Resets all critical singletons using the current game's
+     * {@link LevelInitProfile}, then returns a fresh production context.
+     * <p>
+     * The profile is captured from the CURRENT game module before
+     * {@link GameModuleRegistry#reset()} is called, ensuring each game's
+     * teardown cleans up its own state (S1 resets S1 event manager,
+     * S3K resets AizPlaneIntroInstance, etc.).
      * <p>
      * <b>Warning:</b> Callers should not hold references to singleton instances
      * across a {@code forTesting()} call. {@link CollisionSystem} and
      * {@link FadeManager} are destroyed and recreated (via {@code resetInstance()}),
      * so any previously captured references become stale.
-     * <p>
-     * <b>Known limitation:</b> This method resets
-     * {@link Sonic2LevelEventManager} specifically (inherited from
-     * {@code TestEnvironment.resetAll()}). S1 and S3K level event managers
-     * are not reset here, which may require additional setup in tests
-     * targeting those games.
      */
     public static GameContext forTesting() {
-        // Phase 1: Game module (affects what other singletons do)
+        // CRITICAL: Capture the current game's profile BEFORE resetting the module.
+        // After reset(), the module reverts to Sonic2GameModule (the default).
+        // We need the PREVIOUS game's teardown to clean up its own state.
+        LevelInitProfile profile = GameModuleRegistry.getCurrent().getLevelInitProfile();
+
+        // Phase 0: Reset game module (shared across all games)
         GameModuleRegistry.reset();
 
-        // Phase 2: Audio (clears ROM-specific SMPS loader cache)
-        AudioManager.getInstance().resetState();
+        // Execute game-specific teardown steps (replaces phases 2-8)
+        for (InitStep step : profile.levelTeardownSteps()) {
+            step.execute();
+        }
 
-        // Phase 3: Level subsystems
-        Sonic2LevelEventManager.getInstance().resetState();
-        ParallaxManager.getInstance().resetState();
-        LevelManager.getInstance().resetState();
-
-        // Phase 4: Sprites
-        SpriteManager.getInstance().resetState();
-
-        // Phase 5: Physics
-        CollisionSystem.resetInstance();
-
-        // Phase 6: Camera and graphics
-        Camera.getInstance().resetState();
-        GraphicsManager.getInstance().resetState();
-        FadeManager.resetInstance();
-
-        // Phase 7: Game state and timers
-        GameServices.gameState().resetSession();
-        TimerManager.getInstance().resetState();
-        WaterSystem.getInstance().reset();
-
-        // Phase 8: Static field fixups
-        GroundSensor.setLevelManager(LevelManager.getInstance());
-        AizPlaneIntroInstance.setSidekickSuppressed(false);
+        // Apply static fixups (replaces Phase 8)
+        for (StaticFixup fixup : profile.postTeardownFixups()) {
+            fixup.apply();
+        }
 
         return production();
     }
