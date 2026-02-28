@@ -567,14 +567,31 @@ public class LevelManager {
      */
     public void loadLevel(int levelIndex) throws IOException {
         try {
-            initGameModuleAndAudio(levelIndex);
-            level = loadLevelData(levelIndex);
-            initAnimatedContent();
-            initObjectSystem();
-            initGameState();
-            initArtAndPlayer();
-            initWater();
-            initBackgroundRenderer();
+            LevelInitProfile profile = GameModuleRegistry.getCurrent().getLevelInitProfile();
+            LevelLoadContext ctx = new LevelLoadContext();
+            ctx.setLevelIndex(levelIndex);
+
+            List<InitStep> steps = profile.levelLoadSteps(ctx);
+
+            if (steps.isEmpty()) {
+                // Fallback for EMPTY profile or games not yet wired
+                initGameModuleAndAudio(levelIndex);
+                level = loadLevelData(levelIndex);
+                initAnimatedContent();
+                initObjectSystem();
+                initGameState();
+                initArtAndPlayer();
+                initWater();
+                initBackgroundRenderer();
+            } else {
+                for (InitStep step : steps) {
+                    step.execute();
+                }
+                // The LoadLevelData step stores the result in ctx
+                if (ctx.getLevel() != null) {
+                    level = ctx.getLevel();
+                }
+            }
         } catch (IOException e) {
             LOGGER.log(SEVERE, "Failed to load level " + levelIndex, e);
             throw e;
