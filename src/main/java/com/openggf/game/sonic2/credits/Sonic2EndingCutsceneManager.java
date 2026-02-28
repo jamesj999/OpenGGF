@@ -4,11 +4,15 @@ import com.openggf.audio.AudioManager;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
+import com.openggf.game.sonic2.Sonic2PlayerArt;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
+import com.openggf.level.Pattern;
 import com.openggf.level.PatternDesc;
+import com.openggf.level.render.DynamicPatternBank;
+import com.openggf.level.render.SpriteDplcFrame;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.tools.EnigmaReader;
@@ -106,8 +110,15 @@ public class Sonic2EndingCutsceneManager {
     private static final int SCREEN_WIDTH = 320;
     private static final int SCREEN_HEIGHT = 224;
 
-    /** ROM: Camera_BG_Y_pos initial value ($C8 = 200). */
-    private static final int INITIAL_BG_Y_POS = 0xC8;
+    /**
+     * ROM: Camera_BG_Y_pos initial value.
+     * ROM sets $C8 with no scrolling during CHARACTER_APPEAR.
+     * We start lower ($08) to allow bgYPos++ during CHARACTER_APPEAR (falling
+     * sensation). After CHARACTER_APPEAR ($C0 frames), bgYPos reaches $C8;
+     * after CAMERA_SCROLL ($100 frames), it reaches $1C8 — matching ROM's
+     * final scroll position exactly.
+     */
+    private static final int INITIAL_BG_Y_POS = 0x08;
 
     // ========================================================================
     // Photo sequence constants
@@ -148,6 +159,12 @@ public class Sonic2EndingCutsceneManager {
     // ROM ObjC9 fades only specific palette lines. Track which lines to fade.
     private int paletteFadeStartLine;
     private int paletteFadeEndLine;
+    // ROM PaletteFadeTo increments Normal toward $EEE (white) for photo fade-out.
+    private boolean paletteFadeToWhite;
+    // ROM: ObjC9 uses fadeinTime delay between fade steps and fadeinAmount total steps.
+    // Photo fades: fadeinTime=8, fadeinAmount=7 (8 steps total); char/bg: fadeinTime=4, fadeinAmount=7.
+    private int paletteFadeDelay;
+    private int paletteFadeDelayTimer;
 
     // Photos palette (Pal_AD1E) — loaded into Target line 0 during photo display.
     // ROM: ObjC9 subtype 4 loads Pal_AD1E into Target offset 0, length $F (line 0).
@@ -164,14 +181,43 @@ public class Sonic2EndingCutsceneManager {
     private static final int[] SONIC_WALK_FRAMES = {0, 1, 2, 3, 4, 5};
     private static final int SONIC_WALK_SPEED = 4; // Approximation for inertia=$1000
 
-    // Player sprite rendering (for CHARACTER_APPEAR / CAMERA_SCROLL)
+    // Pilot animation sequences (ROM: byte_A6A2 / byte_A6B6 in ObjB2_Animate_Pilot).
+    // Frame values are character DPLC frame indices passed to LoadSonic/TailsDynPLC_Part2.
+    // ROM: When main=Sonic → pilot=Tails; When main=Tails → pilot=Sonic.
+    private static final int[] SONIC_PILOT_FRAMES = {0x2D, 0x2E, 0x2F, 0x30};
+    private static final int[] TAILS_PILOT_FRAMES = {
+            0x10, 0x10, 0x10, 0x10,   1, 2, 3, 2, 1, 1,
+            0x10, 0x10, 0x10, 0x10,   1, 2, 3, 2, 1, 1,
+            4, 4, 1, 1
+    };
+    private static final int PILOT_ANIM_DELAY = 8; // ROM: objoff_37 resets to 8
+
+    // Player sprite rendering (for CHARACTER_APPEAR / CAMERA_SCROLL / BIRDS_AND_HOLD)
     private List<SpriteMappingFrame> playerMappingFrames;
     private int playerArtTile;
+    private List<SpriteDplcFrame> playerDplcFrames;
+    private DynamicPatternBank playerPatternBank;
+    private Pattern[] playerSourceArt;
+    private int lastPlayerDplcFrame = -1;
     private int[] charAnimFrames;
     private int charAnimSpeed;
     private int charAnimIndex;
     private int charAnimTimer;
-    private int charAppearPhase; // 0=initial ($40 frames), 1=after bg palette load ($C0 frames)
+    // charAppearPhase removed: both palettes now fade simultaneously from start
+
+    // Pilot character rendering (ObjB2_Animate_Pilot)
+    // ROM: The pilot is the OTHER character sitting in the Tornado cockpit.
+    // Sonic as main → Tails pilots; Tails as main → Sonic pilots.
+    // Uses standard Map_Sonic/Map_Tails (NOT Map_objB2_b which belongs to Obj5D).
+    private List<SpriteMappingFrame> pilotMappingFrames; // Map_Sonic or Map_Tails
+    private List<SpriteDplcFrame> pilotDplcFrames;       // Other character's DPLC table
+    private DynamicPatternBank pilotPatternBank;
+    private Pattern[] pilotSourceArt;
+    private int pilotArtTile;
+    private int lastPilotDplcFrame = -1;
+    private int pilotAnimTimer;     // ROM: objoff_37, counts down from 8
+    private int pilotAnimIndex;     // ROM: objoff_36, index into pilot frame sequence
+    private int[] pilotAnimSequence; // Sonic pilot: {$2D,$2E,$2F,$30}; Tails pilot: 24-entry
 
     // CAMERA_SCROLL state
     private float scrollProgress;
@@ -192,6 +238,7 @@ public class Sonic2EndingCutsceneManager {
     // Tornado rotation state (Sub-state 4)
     private int rotationStep;
     private int rotationFrameTimer;
+    private int rotationDisplayFrame; // ObjCF frame to render (set before step increment)
 
     // Departure state (Sub-state 6)
     private int departureTimer;
@@ -350,11 +397,58 @@ public class Sonic2EndingCutsceneManager {
             playerMappingFrames = S2SpriteDataLoader.loadMappingFrames(reader, playerMapAddr);
             playerArtTile = endingArt.getPlayerArtTile();
 
-            LOGGER.fine("Parsed sprite mappings: ObjCF=" + objCfFrames.size()
+            // Load player DPLCs for per-frame art loading.
+            // MapUnc_Sonic mapping pieces reference DPLC-relative tile indices,
+            // not absolute offsets into the full ArtUnc_Sonic art.
+            int playerDplcAddr = (routine == Sonic2EndingArt.EndingRoutine.TAILS)
+                    ? Sonic2Constants.MAP_R_UNC_TAILS_ADDR
+                    : Sonic2Constants.MAP_R_UNC_SONIC_ADDR;
+            playerDplcFrames = Sonic2PlayerArt.parseDplcFrames(reader, playerDplcAddr);
+
+            // Create DynamicPatternBank for DPLC-driven player art rendering
+            playerSourceArt = endingArt.getPlayerPatterns();
+            int bankSize = Sonic2PlayerArt.resolveBankSize(playerDplcFrames, playerMappingFrames);
+            playerPatternBank = new DynamicPatternBank(
+                    Sonic2EndingArt.PATTERN_BASE_VRAM + playerArtTile, bankSize);
+
+            // Load pilot mappings and DPLC (opposite character for cockpit overlay).
+            // ROM: ObjB2_Animate_Pilot loads DPLC for the other character's animation frames,
+            // then the real player character object renders using standard Map_Sonic/Map_Tails.
+            // Map_objB2_b is NOT the pilot mapping — it belongs to Obj5D.
+            int pilotMapAddr = (routine == Sonic2EndingArt.EndingRoutine.TAILS)
+                    ? Sonic2Constants.MAP_UNC_SONIC_ADDR    // pilot=Sonic when main=Tails
+                    : Sonic2Constants.MAP_UNC_TAILS_ADDR;   // pilot=Tails when main=Sonic
+            pilotMappingFrames = S2SpriteDataLoader.loadMappingFrames(reader, pilotMapAddr);
+            pilotArtTile = endingArt.getPilotArtTile();
+            int pilotDplcAddr = (routine == Sonic2EndingArt.EndingRoutine.TAILS)
+                    ? Sonic2Constants.MAP_R_UNC_SONIC_ADDR   // pilot=Sonic when main=Tails
+                    : Sonic2Constants.MAP_R_UNC_TAILS_ADDR;  // pilot=Tails when main=Sonic
+            pilotDplcFrames = Sonic2PlayerArt.parseDplcFrames(reader, pilotDplcAddr);
+            pilotSourceArt = endingArt.getPilotPatterns();
+            int pilotBankSize = Sonic2PlayerArt.resolveBankSize(pilotDplcFrames, pilotMappingFrames);
+            pilotPatternBank = new DynamicPatternBank(
+                    Sonic2EndingArt.PATTERN_BASE_VRAM + pilotArtTile, pilotBankSize);
+
+            // Set pilot animation sequence based on which character is the pilot
+            pilotAnimSequence = (routine == Sonic2EndingArt.EndingRoutine.TAILS)
+                    ? SONIC_PILOT_FRAMES   // pilot=Sonic
+                    : TAILS_PILOT_FRAMES;  // pilot=Tails
+            pilotAnimTimer = PILOT_ANIM_DELAY;
+            pilotAnimIndex = 0;
+
+            LOGGER.info("Parsed sprite mappings: ObjCF=" + objCfFrames.size()
                     + " Obj28_a=" + animalFrames.size()
-                    + " ObjB2=" + tornadoFrames.size()
+                    + " ObjB2_a=" + tornadoFrames.size()
+                    + " PilotMap=" + pilotMappingFrames.size()
                     + " ObjB3=" + cloudFrames.size()
-                    + " Player=" + playerMappingFrames.size() + " frames");
+                    + " Player=" + playerMappingFrames.size()
+                    + " PlayerDPLC=" + playerDplcFrames.size()
+                    + " PilotDPLC=" + pilotDplcFrames.size());
+            if (playerMappingFrames.size() != playerDplcFrames.size()) {
+                LOGGER.warning("Player mapping/DPLC frame count MISMATCH: "
+                        + playerMappingFrames.size() + " mappings vs "
+                        + playerDplcFrames.size() + " DPLCs — DPLC may fail for out-of-range frames");
+            }
         } catch (IOException e) {
             LOGGER.warning("Failed to parse sprite mappings: " + e.getMessage());
         }
@@ -444,18 +538,24 @@ public class Sonic2EndingCutsceneManager {
     /**
      * Returns whether the cutscene is in a sky phase where the background should
      * show sky colors. ROM: VDP register $8720 = palette 2, color 0.
+     * Both character and background palettes fade simultaneously from the start
+     * of CHARACTER_APPEAR, so the sky is visible immediately.
      */
     public boolean isSkyPhase() {
-        return state == CutsceneState.CAMERA_SCROLL
+        return state == CutsceneState.CHARACTER_APPEAR
+                || state == CutsceneState.CAMERA_SCROLL
                 || state == CutsceneState.MAIN_ENDING;
     }
 
     /**
      * Returns whether the level background (DEZ star field) should be rendered
-     * behind the cutscene sprites. Active during CAMERA_SCROLL and MAIN_ENDING.
+     * behind the cutscene sprites. Active during CHARACTER_APPEAR, CAMERA_SCROLL,
+     * and MAIN_ENDING. Background palette fades in from the start of
+     * CHARACTER_APPEAR.
      */
     public boolean needsLevelBackground() {
-        return state == CutsceneState.CAMERA_SCROLL
+        return state == CutsceneState.CHARACTER_APPEAR
+                || state == CutsceneState.CAMERA_SCROLL
                 || state == CutsceneState.MAIN_ENDING;
     }
 
@@ -465,6 +565,24 @@ public class Sonic2EndingCutsceneManager {
      */
     public int getBackgroundVscroll() {
         return bgYPos;
+    }
+
+    /**
+     * Returns the backdrop color override for the BG shader during the ending.
+     * <p>
+     * The BG shader normally reads the level's stored palette for its backdrop,
+     * but during the ending the cutscene fades display palettes from white to
+     * target independently. Without this override, the star field backdrop
+     * stays at full color while the rest of the scene fades.
+     *
+     * @return {r, g, b} in [0..1] from display palette line 2 color 0, or null
+     */
+    public float[] getBackdropColorOverride() {
+        if (displayPalettes != null && displayPalettes.length > 2 && displayPalettes[2] != null) {
+            Palette.Color c = displayPalettes[2].getColor(0);
+            return new float[]{c.rFloat(), c.gFloat(), c.bFloat()};
+        }
+        return null;
     }
 
     /**
@@ -514,9 +632,14 @@ public class Sonic2EndingCutsceneManager {
         copyPhotosPaletteToTargetLine0();
 
         // Enable palette fade for line 0 ONLY (ROM ObjC9 subtype 4: offset 0, length $F)
+        // PaletteFadeFrom: decrement Normal toward Target (white → photo colors)
+        // ROM C9PalInfo subtype 4: fadeinTime=8, fadeinAmount=7 (8 steps, 1 per 8 frames)
         paletteFadeActive = true;
+        paletteFadeToWhite = false;
         paletteFadeStartLine = 0;
         paletteFadeEndLine = 0;
+        paletteFadeDelay = 8;
+        paletteFadeDelayTimer = 8;
 
         // Immediately transition to PALETTE_WAIT_1 (ROM: routine 0 → routine 2)
         state = CutsceneState.PALETTE_WAIT_1;
@@ -531,14 +654,16 @@ public class Sonic2EndingCutsceneManager {
     }
 
     private void updatePaletteSetup2() {
-        // ROM: ObjCA routine 4 spawns ObjC9 subtype 6 → Pal_AD1E (Photos palette)
-        // into Target line 0 with fade-UP (loc_1348A). Since line 0 has already
-        // faded to the Photos palette target from Init's fade-down, this is
-        // effectively a no-op (incrementing toward a target we already reached).
-        // NO background palette loading happens here — that's at routine $A.
+        // ROM: ObjCA routine 4 spawns ObjC9 subtype 6 which runs PaletteFadeTo
+        // (loc_1348A). PaletteFadeTo increments Normal toward $EEE (white),
+        // fading the photo out to white before the next photo loads.
+        // ROM C9PalInfo subtype 6: fadeinTime=8, fadeinAmount=7 (8 steps, 1 per 8 frames)
         paletteFadeActive = true;
+        paletteFadeToWhite = true;
         paletteFadeStartLine = 0;
         paletteFadeEndLine = 0;
+        paletteFadeDelay = 8;
+        paletteFadeDelayTimer = 8;
 
         state = CutsceneState.PALETTE_WAIT_2;
         stateFrameCounter = 0;
@@ -603,7 +728,6 @@ public class Sonic2EndingCutsceneManager {
     private void enterCharacterAppear() {
         state = CutsceneState.CHARACTER_APPEAR;
         stateFrameCounter = 0;
-        charAppearPhase = 0;
 
         // Character at X=$A0 (160), Y=$50 (80) using Map_Sonic/Map_Tails
         // ROM: SonAni_Float2 for Sonic/Tails, SonAni_Walk for Super Sonic
@@ -627,10 +751,16 @@ public class Sonic2EndingCutsceneManager {
         // ROM: EndingSequence sets Camera_BG_Y_pos = $C8
         bgYPos = INITIAL_BG_Y_POS;
 
-        // ROM: ObjCA state transition spawns ObjC9 with character-specific subtype.
-        // d0=8 (Sonic) → Pal_AC7E lines 0-1; d0=$C (Super) → Pal_AD3E line 0;
-        // d0=$E (Tails) → Pal_AC9E lines 0-1. This replaces Photos palette in Target.
+        // ROM: ObjCA routine $A spawns both character and background ObjC9 faders
+        // simultaneously. Load both palettes and start fading them together.
         loadCharacterPaletteToTarget();
+        loadBackgroundPaletteToTarget();
+        // ROM C9PalInfo: fadeinTime=4, fadeinAmount=7 (both char and bg)
+        paletteFadeActive = true;
+        paletteFadeStartLine = 0;
+        paletteFadeEndLine = 3;
+        paletteFadeDelay = 4;
+        paletteFadeDelayTimer = 4;
 
         LOGGER.fine("Cutscene: entering CHARACTER_APPEAR");
     }
@@ -643,21 +773,13 @@ public class Sonic2EndingCutsceneManager {
             charAnimIndex = (charAnimIndex + 1) % charAnimFrames.length;
         }
 
-        // ROM: routine $A has two phases:
-        // Phase 0: Timer $40 (64 frames), then spawn ObjC9 subtype $A (Background)
-        // Phase 1: Timer $C0 (192 frames), then advance to CAMERA_SCROLL
-        if (charAppearPhase == 0 && stateFrameCounter >= 0x40) {
-            // ROM: moveq #$A,d0 → ObjC9 subtype $A = Pal_ACDE (Background)
-            // Copies 64 bytes into Target offset $40 (lines 2-3)
-            loadBackgroundPaletteToTarget();
-            paletteFadeActive = true;
-            paletteFadeStartLine = 2;
-            paletteFadeEndLine = 3;
-            charAppearPhase = 1;
-            stateFrameCounter = 0; // Reset for phase 1 timer
-        }
+        // ROM: routine $A spawns both character and background ObjC9 faders together.
+        // Single $C0 (192 frame) timer, both palettes fade simultaneously.
+        // bgYPos increments here to create falling sensation from the start.
+        // INITIAL_BG_Y_POS is lowered to compensate, so total scroll matches ROM.
+        bgYPos++;
 
-        if (charAppearPhase == 1 && stateFrameCounter >= 0xC0) {
+        if (stateFrameCounter >= 0xC0) {
             enterCameraScroll();
         }
     }
@@ -693,6 +815,10 @@ public class Sonic2EndingCutsceneManager {
             charAnimIndex = (charAnimIndex + 1) % charAnimFrames.length;
         }
 
+        // Spawn vertical clouds during camera scroll for falling sensation
+        spawnVerticalCloudIfNeeded();
+        updateClouds();
+
         int duration = Sonic2CreditsData.CAMERA_SCROLL_SONIC_60FPS;
         if (routine == Sonic2EndingArt.EndingRoutine.TAILS) {
             duration = Sonic2CreditsData.CAMERA_SCROLL_TAILS_60FPS;
@@ -707,8 +833,9 @@ public class Sonic2EndingCutsceneManager {
 
     private void drawCameraScroll(GraphicsManager gm) {
         // Background transitions from white to sky via palette fade (setClearColor)
-        // Character still visible floating at center
+        // Character still visible floating at center, clouds drifting upward
         gm.beginPatternBatch();
+        drawClouds(gm);
         int frameIdx = charAnimFrames[charAnimIndex];
         drawPlayerFrame(gm, frameIdx, 0xA0, 0x50);
         gm.flushPatternBatch();
@@ -763,6 +890,10 @@ public class Sonic2EndingCutsceneManager {
         }
 
         // Update all active entities
+        if (tornadoSubState == TornadoSubState.APPROACH
+                || tornadoSubState == TornadoSubState.BIRDS_AND_HOLD) {
+            updatePilotAnimation();
+        }
         updateBirds();
         updateClouds();
         updateObjCe();
@@ -778,6 +909,17 @@ public class Sonic2EndingCutsceneManager {
     // --- ObjCC Sub-state 0: Tornado Approach ---
 
     private void updateTornadoApproach() {
+        // Continue animating the player's Float2/Walk animation during approach
+        charAnimTimer++;
+        if (charAnimTimer >= charAnimSpeed) {
+            charAnimTimer = 0;
+            charAnimIndex = (charAnimIndex + 1) % charAnimFrames.length;
+        }
+
+        // ROM: ObjCA routine $E calls loc_AB9C (cloud spawner) every frame.
+        // Clouds spawn from the start of MAIN_ENDING, not just during BIRDS_AND_HOLD.
+        spawnCloudIfNeeded();
+
         tornadoXSub += tornadoXVel;
         tornadoYSub += tornadoYVel;
 
@@ -800,6 +942,9 @@ public class Sonic2EndingCutsceneManager {
             birdsSpawning = true;
             birdSpawnCounter = Sonic2CreditsData.BIRD_SPAWN_COUNT;
             birdSpawnDelay = 0;
+
+            // Force DPLC reload: animation changes from Float2 to Wait
+            lastPlayerDplcFrame = -1;
 
             tornadoSubState = TornadoSubState.BIRDS_AND_HOLD;
             LOGGER.fine("Tornado arrived, entering BIRDS_AND_HOLD");
@@ -843,6 +988,12 @@ public class Sonic2EndingCutsceneManager {
 
             rotationStep = 0;
             rotationFrameTimer = Sonic2CreditsData.ROTATION_FRAME_DELAY;
+            // ROM: mapping_frame set at transition (7=Sonic, 0=Super, $18=Tails)
+            rotationDisplayFrame = switch (routine) {
+                case SONIC -> Sonic2CreditsData.TORNADO_FRAMES_SONIC[0];
+                case SUPER_SONIC -> Sonic2CreditsData.TORNADO_FRAMES_SUPER[0];
+                case TAILS -> Sonic2CreditsData.TORNADO_FRAMES_TAILS[0];
+            };
             tornadoSubState = TornadoSubState.ROTATION;
             LOGGER.fine("Entering ROTATION");
         }
@@ -854,8 +1005,8 @@ public class Sonic2EndingCutsceneManager {
         rotationFrameTimer--;
         if (rotationFrameTimer <= 0) {
             rotationFrameTimer = Sonic2CreditsData.ROTATION_FRAME_DELAY;
-            rotationStep++;
 
+            // ROM: read step index BEFORE incrementing (frame/position use pre-increment value)
             if (rotationStep >= Sonic2CreditsData.ROTATION_STEPS) {
                 // Non-Super: move character off-screen
                 if (routine != Sonic2EndingArt.EndingRoutine.SUPER_SONIC) {
@@ -863,20 +1014,52 @@ public class Sonic2EndingCutsceneManager {
                     charOnTornadoY = 0;
                 }
 
-                departureTimer = Sonic2CreditsData.DEPARTURE_TIMER;
                 superDepartureStep = 0;
+
+                // ROM: State 6 spawns ObjCE (jumping char) and ObjCF (plane helix)
+                // immediately on entry, then waits only 2 frames before State 8.
+                // Spawn child objects now so they're visible during departure.
+                objCfHelixActive = true;
+                objCfHelixX = 0x10F;
+                objCfHelixY = 0x15E;
+                objCfHelixSavedX = objCfHelixX;
+                objCfHelixSavedY = objCfHelixY;
+                objCfHelixFrame = 5; // Ani_objCF anim 2 initial
+                objCfHelixAnimTimer = 0;
+
+                objCeActive = true;
+                objCeX = 0xE8;
+                objCeY = 0x118;
+                objCeSavedX = objCeX;
+                objCeSavedY = objCeY;
+                objCeFrame = (routine == Sonic2EndingArt.EndingRoutine.TAILS) ? 0xF : 0xC;
+                objCeTimer = 0;
+                objCePhase = 0; // follow
+
+                departureTimer = Sonic2CreditsData.DEPARTURE_TIMER;
                 tornadoSubState = TornadoSubState.DEPARTURE;
                 LOGGER.fine("Entering DEPARTURE");
                 return;
             }
-        }
 
-        // Update tornado position from path table
-        if (rotationStep < Sonic2CreditsData.TORNADO_PATH.length) {
-            int[] pos = Sonic2CreditsData.TORNADO_PATH[rotationStep];
-            tornadoXSub = pos[0] << 8;
-            tornadoYSub = pos[1] << 8;
+            // Update display frame from frame table for current step (before increment)
+            rotationDisplayFrame = switch (routine) {
+                case SONIC -> Sonic2CreditsData.TORNADO_FRAMES_SONIC[rotationStep];
+                case SUPER_SONIC -> Sonic2CreditsData.TORNADO_FRAMES_SUPER[rotationStep];
+                case TAILS -> Sonic2CreditsData.TORNADO_FRAMES_TAILS[rotationStep];
+            };
+
+            // Update tornado position from path table for current step
+            if (rotationStep < Sonic2CreditsData.TORNADO_PATH.length) {
+                int[] pos = Sonic2CreditsData.TORNADO_PATH[rotationStep];
+                tornadoXSub = pos[0] << 8;
+                tornadoYSub = pos[1] << 8;
+            }
+
+            // ROM: addq.w #1,objoff_32(a0) — increment AFTER reading
+            rotationStep++;
         }
+        // ROM: position only updates on timer expiry, not every frame
     }
 
     // --- ObjCC Sub-state 6: Character Departure ---
@@ -893,25 +1076,8 @@ public class Sonic2EndingCutsceneManager {
 
         departureTimer--;
         if (departureTimer <= 0) {
-            // Spawn ObjCF plane helixes at X=$10F, Y=$15E
-            objCfHelixActive = true;
-            objCfHelixX = 0x10F;
-            objCfHelixY = 0x15E;
-            objCfHelixSavedX = objCfHelixX;
-            objCfHelixSavedY = objCfHelixY;
-            objCfHelixFrame = 5; // anim 2 initial
-            objCfHelixAnimTimer = 0;
-
-            // Spawn ObjCE jumping character at X=$E8, Y=$118
-            objCeActive = true;
-            objCeX = 0xE8;
-            objCeY = 0x118;
-            objCeSavedX = objCeX;
-            objCeSavedY = objCeY;
-            objCeFrame = (routine == Sonic2EndingArt.EndingRoutine.TAILS) ? 0xF : 0xC;
-            objCeTimer = 0;
-            objCePhase = 0; // follow
-
+            // ObjCE/ObjCF already spawned at departure start (see ROTATION exit).
+            // Transition to camera pan.
             cameraPanStep = 0;
             cameraPanFrameTimer = Sonic2CreditsData.CAMERA_PAN_FRAME_DELAY;
             tornadoSubState = TornadoSubState.CAMERA_PAN;
@@ -956,6 +1122,28 @@ public class Sonic2EndingCutsceneManager {
             superFinalStep++;
         }
         // Credits trigger via global timer
+    }
+
+    // --- Pilot animation (ObjB2_Animate_Pilot) ---
+
+    /**
+     * Updates pilot character animation in the tornado cockpit.
+     * ROM: ObjB2_Animate_Pilot decrements objoff_37 each frame. When it goes
+     * negative, it resets to 8, advances objoff_36 (frame index in sequence),
+     * and calls LoadSonic/TailsDynPLC_Part2 with the sequence frame value.
+     * Called during APPROACH and BIRDS_AND_HOLD sub-states.
+     */
+    private void updatePilotAnimation() {
+        if (pilotAnimSequence == null) return;
+
+        pilotAnimTimer--;
+        if (pilotAnimTimer < 0) {
+            pilotAnimTimer = PILOT_ANIM_DELAY;
+            pilotAnimIndex++;
+            if (pilotAnimIndex >= pilotAnimSequence.length) {
+                pilotAnimIndex = 0;
+            }
+        }
     }
 
     // ========================================================================
@@ -1021,6 +1209,32 @@ public class Sonic2EndingCutsceneManager {
         }
     }
 
+    /**
+     * Spawns vertical clouds (drifting upward) — used during CAMERA_SCROLL to
+     * create a falling sensation. ROM: ObjCB initial mode has y_vel upward and
+     * spawns at Y=$100 with random X.
+     */
+    private void spawnVerticalCloudIfNeeded() {
+        cloudSpawnTimer++;
+        if (cloudSpawnTimer < 8) return;
+        cloudSpawnTimer = 0;
+
+        if (clouds.size() >= 12) return;
+
+        // Vertical mode: spawn from bottom, drift upward
+        int cx = random.nextInt(0x200) << 8;
+        int cy = 0x100 << 8;
+        int cloudIdx = random.nextInt(Sonic2CreditsData.CLOUD_Y_VELS.length);
+        int yVel = Sonic2CreditsData.CLOUD_Y_VELS[cloudIdx]; // negative = upward
+        int frame = Sonic2CreditsData.CLOUD_FRAMES[cloudIdx];
+        clouds.add(new Cloud(cx, cy, 0, yVel, frame, false));
+    }
+
+    /**
+     * Spawns horizontal clouds (drifting left) — used during MAIN_ENDING after
+     * the CutScene flag is set. ROM: ObjCB with CutScene+$34 flag converts
+     * y_vel to x_vel for leftward drift.
+     */
     private void spawnCloudIfNeeded() {
         cloudSpawnTimer++;
         if (cloudSpawnTimer < 8) return;
@@ -1028,14 +1242,23 @@ public class Sonic2EndingCutsceneManager {
 
         if (clouds.size() >= 12) return;
 
-        // Horizontal mode: spawn from right side
-        int cx = 0x150 << 8;
-        int cy = random.nextInt(0x100) << 8;
-        int cloudIdx = random.nextInt(Sonic2CreditsData.CLOUD_Y_VELS.length);
-        // Cloud y_vel becomes x_vel in horizontal mode (drift left)
-        int xVel = Sonic2CreditsData.CLOUD_Y_VELS[cloudIdx];
-        int frame = Sonic2CreditsData.CLOUD_FRAMES[cloudIdx];
-        clouds.add(new Cloud(cx, cy, xVel, 0, frame, true));
+        if (cutSceneFlag) {
+            // Horizontal mode: spawn from right side (CutScene flag set)
+            int cx = 0x150 << 8;
+            int cy = random.nextInt(0x100) << 8;
+            int cloudIdx = random.nextInt(Sonic2CreditsData.CLOUD_Y_VELS.length);
+            int xVel = Sonic2CreditsData.CLOUD_Y_VELS[cloudIdx];
+            int frame = Sonic2CreditsData.CLOUD_FRAMES[cloudIdx];
+            clouds.add(new Cloud(cx, cy, xVel, 0, frame, true));
+        } else {
+            // Vertical mode: spawn from bottom, drift upward (initial approach)
+            int cx = random.nextInt(0x200) << 8;
+            int cy = 0x100 << 8;
+            int cloudIdx = random.nextInt(Sonic2CreditsData.CLOUD_Y_VELS.length);
+            int yVel = Sonic2CreditsData.CLOUD_Y_VELS[cloudIdx];
+            int frame = Sonic2CreditsData.CLOUD_FRAMES[cloudIdx];
+            clouds.add(new Cloud(cx, cy, 0, yVel, frame, false));
+        }
     }
 
     private void updateClouds() {
@@ -1089,10 +1312,11 @@ public class Sonic2EndingCutsceneManager {
         objCfHelixX = objCfHelixSavedX + horizScrollOffset;
         objCfHelixY = objCfHelixSavedY - vscrollOffset;
 
-        // Ani_objCF anim 2: speed 1, frames 5->6, $FF (stop after 6)
+        // Ani_objCF anim 2: speed 1, frames 5→6 looping for continuous rotor spin.
         objCfHelixAnimTimer++;
-        if (objCfHelixAnimTimer >= 2 && objCfHelixFrame == 5) {
-            objCfHelixFrame = 6;
+        if (objCfHelixAnimTimer >= 2) {
+            objCfHelixAnimTimer = 0;
+            objCfHelixFrame = (objCfHelixFrame == 5) ? 6 : 5;
         }
     }
 
@@ -1109,50 +1333,69 @@ public class Sonic2EndingCutsceneManager {
         // Tornado
         drawTornado(gm);
 
-        // Character on tornado (visible during BIRDS_AND_HOLD, ROTATION, DEPARTURE, SUPER_FINAL)
-        if (tornadoSubState == TornadoSubState.BIRDS_AND_HOLD
-                || tornadoSubState == TornadoSubState.ROTATION
-                || tornadoSubState == TornadoSubState.DEPARTURE
-                || tornadoSubState == TornadoSubState.SUPER_FINAL) {
-            if (charOnTornadoX > -64 && charOnTornadoX < SCREEN_WIDTH
-                    && charOnTornadoY > -64 && charOnTornadoY < SCREEN_HEIGHT) {
-                int frame = getCharacterFrameForCurrentState();
-                if (frame >= 0) {
-                    drawObjCfFrame(gm, frame, charOnTornadoX, charOnTornadoY, -1);
-                }
+        // Player character rendering depends on tornado sub-state:
+        // APPROACH: ROM still shows the real MainCharacter at Float2 position (0xA0, 0x50)
+        // BIRDS_AND_HOLD: character on tornado using Wait animation (MapUnc_Sonic frame 1)
+        // ROTATION: ObjCF composite frame already includes character — DON'T draw separately
+        // DEPARTURE/CAMERA_PAN: character off-screen (non-Super), tornado rendered in drawTornado
+        // SUPER_FINAL: Super Sonic final positioning
+        if (tornadoSubState == TornadoSubState.APPROACH) {
+            // Character continues floating at center until tornado arrives
+            int frameIdx = charAnimFrames[charAnimIndex];
+            drawPlayerFrame(gm, frameIdx, 0xA0, 0x50);
+        } else if (tornadoSubState == TornadoSubState.BIRDS_AND_HOLD
+                && charOnTornadoX > -64 && charOnTornadoX < SCREEN_WIDTH
+                && charOnTornadoY > -64 && charOnTornadoY < SCREEN_HEIGHT) {
+            // ROM: real player object with Wait animation, positioned on tornado.
+            // SonAni_Wait: $FF, 1, $FF → frame 1; TailsAni_Wait: same.
+            int waitFrame = 1;
+            drawPlayerFrame(gm, waitFrame, charOnTornadoX, charOnTornadoY);
+        } else if (tornadoSubState == TornadoSubState.SUPER_FINAL
+                && charOnTornadoX > -64 && charOnTornadoX < SCREEN_WIDTH
+                && charOnTornadoY > -64 && charOnTornadoY < SCREEN_HEIGHT) {
+            // ROM: ObjCC uses ArtTile_ArtKos_LevelArt ($0000) after switching to
+            // ObjCF mappings — tile indices in ObjCF_MapUnc are absolute VRAM refs.
+            int frame = getCharacterFrameForCurrentState();
+            if (frame >= 0) {
+                drawObjCfFrame(gm, frame, charOnTornadoX, charOnTornadoY, -1, 0);
             }
         }
 
         // Birds
         drawBirds(gm);
 
-        // ObjCF plane helixes
+        // ObjCF plane helixes — ROM: art_tile = ArtTile_ArtKos_LevelArt ($0000)
+        // ObjCF_MapUnc tile indices are absolute VRAM tile references.
         if (objCfHelixActive) {
-            drawObjCfFrame(gm, objCfHelixFrame, objCfHelixX, objCfHelixY, -1);
+            drawObjCfFrame(gm, objCfHelixFrame, objCfHelixX, objCfHelixY, -1, 0);
         }
 
-        // ObjCE jumping character
+        // ObjCE jumping character — ROM: art_tile = ArtTile_ArtKos_LevelArt ($0000)
+        // Uses ObjCF_MapUnc mappings with absolute tile indices.
         if (objCeActive && objCeFrame >= 0 && objCfFrames != null && objCeFrame < objCfFrames.size()) {
-            drawObjCfFrame(gm, objCeFrame, objCeX, objCeY, -1);
+            drawObjCfFrame(gm, objCeFrame, objCeX, objCeY, -1, 0);
         }
 
         gm.flushPatternBatch();
     }
 
     private int getCharacterFrameForCurrentState() {
-        if (tornadoSubState == TornadoSubState.ROTATION
-                && rotationStep >= 0 && rotationStep < Sonic2CreditsData.ROTATION_STEPS) {
-            return switch (routine) {
-                case SONIC -> Sonic2CreditsData.TORNADO_FRAMES_SONIC[rotationStep];
-                case SUPER_SONIC -> Sonic2CreditsData.TORNADO_FRAMES_SUPER[rotationStep];
-                case TAILS -> Sonic2CreditsData.TORNADO_FRAMES_TAILS[rotationStep];
-            };
+        if (tornadoSubState == TornadoSubState.ROTATION && rotationDisplayFrame >= 0) {
+            return rotationDisplayFrame;
         }
         if (tornadoSubState == TornadoSubState.SUPER_FINAL) {
             return 0x17;
         }
-        // BIRDS_AND_HOLD / DEPARTURE: floating frame
-        return 5;
+        // DEPARTURE: character is off-screen for non-Super (charOnTornadoX=0x200),
+        // so this frame is only used for Super Sonic departure.
+        // ROM: ObjCC keeps last rotation mapping_frame; Super follows byte_A748.
+        if (rotationDisplayFrame >= 0) {
+            return rotationDisplayFrame;
+        }
+        return switch (routine) {
+            case SUPER_SONIC -> 4;
+            default -> 0xB;
+        };
     }
 
     private void drawTornado(GraphicsManager gm) {
@@ -1165,37 +1408,64 @@ public class Sonic2EndingCutsceneManager {
 
         switch (tornadoSubState) {
             case APPROACH, BIRDS_AND_HOLD -> {
-                // ObjB2 body ONLY — NO ObjCF overlay during approach/hold
+                // ObjB2 body during approach/hold.
                 // ROM: make_art_tile(ArtTile_ArtNem_Tornado, 0, 1) — palette 0, priority 1
+                // ROM Ani_objB2_a: anim 0 = frames 0,1,2,3 (Sonic); anim 1 = frames 4,5,6,7 (Tails)
+                // The tornado body art (ArtNem_Tornado) includes the pilot character
+                // in the cockpit — no separate pilot sprite needed.
                 if (tornadoFrames != null && !tornadoFrames.isEmpty()) {
-                    int animFrame = (frameCounter % 4);
-                    if (animFrame >= tornadoFrames.size()) animFrame = 0;
+                    int animBase = (routine == Sonic2EndingArt.EndingRoutine.TAILS) ? 4 : 0;
+                    int animFrame = animBase + (frameCounter % 4);
+                    if (animFrame >= tornadoFrames.size()) animFrame = animBase;
                     int basePattern = Sonic2EndingArt.PATTERN_BASE_VRAM
                             + Sonic2Constants.ART_TILE_ENDING_TORNADO;
                     drawMappingFrame(gm, tornadoFrames, animFrame, tx, ty, basePattern, 0);
                 }
             }
-            case ROTATION, DEPARTURE, CAMERA_PAN, SUPER_FINAL -> {
-                // ObjCF mappings after rotation switch
+            case ROTATION -> {
+                // ObjCF mappings during rotation — ROM calls DisplaySprite
                 int frame = getObjCfTornadoFrame();
                 if (frame >= 0) {
-                    drawObjCfFrame(gm, frame, tx, ty, -1);
+                    drawObjCfFrame(gm, frame, tx, ty, -1, 0);
+                }
+            }
+            case DEPARTURE, CAMERA_PAN -> {
+                // ROM: ObjCC ALWAYS calls DisplaySprite after every state handler via
+                // unconditional jmpto JmpTo5_DisplaySprite at the end of ObjCC_Main.
+                // The tornado renders at its position with scroll offset compensation.
+                int drawTx = tx + horizScrollOffset;
+                int drawTy = ty - vscrollOffset;
+                int frame = getObjCfTornadoFrame();
+                if (frame >= 0) {
+                    drawObjCfFrame(gm, frame, drawTx, drawTy, -1, 0);
+                }
+            }
+            case SUPER_FINAL -> {
+                // ROM: Super Sonic final state — tornado still rendered
+                int drawTx = tx + horizScrollOffset;
+                int drawTy = ty - vscrollOffset;
+                int frame = getObjCfTornadoFrame();
+                if (frame >= 0) {
+                    drawObjCfFrame(gm, frame, drawTx, drawTy, -1, 0);
                 }
             }
         }
     }
 
     private int getObjCfTornadoFrame() {
-        if (tornadoSubState == TornadoSubState.ROTATION
-                && rotationStep >= 0 && rotationStep < Sonic2CreditsData.ROTATION_STEPS) {
-            return switch (routine) {
-                case SONIC -> Sonic2CreditsData.TORNADO_FRAMES_SONIC[rotationStep];
-                case SUPER_SONIC -> Sonic2CreditsData.TORNADO_FRAMES_SUPER[rotationStep];
-                case TAILS -> Sonic2CreditsData.TORNADO_FRAMES_TAILS[rotationStep];
-            };
+        if (tornadoSubState == TornadoSubState.ROTATION && rotationDisplayFrame >= 0) {
+            return rotationDisplayFrame;
         }
-        // Post-rotation default
-        return 0xB;
+        // Post-rotation: ROM keeps mapping_frame from the last rotation step.
+        // rotationDisplayFrame retains this value after rotation ends.
+        if (rotationDisplayFrame >= 0) {
+            return rotationDisplayFrame;
+        }
+        // Fallback (shouldn't reach here): last frame per character
+        return switch (routine) {
+            case SUPER_SONIC -> 4;
+            default -> 0xB;
+        };
     }
 
     private void drawClouds(GraphicsManager gm) {
@@ -1209,7 +1479,8 @@ public class Sonic2EndingCutsceneManager {
             }
             int frameIdx = cloud.frame % cloudFrames.size();
             int basePattern = Sonic2EndingArt.PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_CLOUDS;
-            drawMappingFrame(gm, cloudFrames, frameIdx, cx, cy, basePattern, 2);
+            // ROM: ObjCB_Init overrides ObjB3's palette 2 with palette_mask ($6000 = palette 3)
+            drawMappingFrame(gm, cloudFrames, frameIdx, cx, cy, basePattern, 3);
         }
     }
 
@@ -1241,24 +1512,85 @@ public class Sonic2EndingCutsceneManager {
         if (playerMappingFrames == null || frameIndex < 0 || frameIndex >= playerMappingFrames.size()) {
             return;
         }
-        int basePattern = Sonic2EndingArt.PATTERN_BASE_VRAM + playerArtTile;
+        // Apply DPLC: load the correct tile subset for this animation frame.
+        // MapUnc_Sonic/Tails mapping pieces reference tile indices relative to
+        // DPLC-loaded art at the art_tile base, NOT absolute offsets into the
+        // full ArtUnc art. Without DPLC, tile index 0 maps to the wrong source tile.
+        if (frameIndex != lastPlayerDplcFrame && playerPatternBank != null) {
+            if (playerDplcFrames != null && frameIndex < playerDplcFrames.size()) {
+                SpriteDplcFrame dplcFrame = playerDplcFrames.get(frameIndex);
+                if (dplcFrame != null && !dplcFrame.requests().isEmpty()) {
+                    playerPatternBank.applyRequests(dplcFrame.requests(), playerSourceArt);
+                    playerPatternBank.ensureCached(gm);
+                    lastPlayerDplcFrame = frameIndex;
+                }
+            } else if (playerDplcFrames != null) {
+                LOGGER.warning("Player DPLC frame " + frameIndex + " out of range (max "
+                        + playerDplcFrames.size() + ") — DPLC not applied, tiles may be wrong");
+            }
+        }
+        int basePattern = playerPatternBank != null
+                ? playerPatternBank.getBasePatternIndex()
+                : Sonic2EndingArt.PATTERN_BASE_VRAM + playerArtTile;
         drawMappingFrame(gm, playerMappingFrames, frameIndex, x, y, basePattern, 0);
     }
 
     /**
+     * Draws the pilot character in the tornado cockpit using Map_Sonic/Map_Tails.
+     * <p>
+     * ROM: ObjB2_Animate_Pilot loads character DPLC art for the pilot's current
+     * animation frame. The pilot is the real player character object positioned on
+     * the tornado, rendered using standard Map_Sonic/Map_Tails mappings.
+     * The animation frame index from pilotAnimSequence doubles as both the DPLC
+     * frame and the mapping frame.
+     *
+     * @param gm the graphics manager
+     * @param x  screen X of pilot position
+     * @param y  screen Y of pilot position
+     */
+    private void drawPilotFrame(GraphicsManager gm, int x, int y) {
+        if (pilotMappingFrames == null || pilotMappingFrames.isEmpty()) return;
+        if (pilotAnimSequence == null || pilotPatternBank == null) return;
+
+        // The pilot animation sequence values are both DPLC frame indices AND
+        // Map_Sonic/Map_Tails mapping frame indices (they're the same in ROM).
+        int frameIndex = pilotAnimSequence[pilotAnimIndex % pilotAnimSequence.length];
+
+        // Apply DPLC for the pilot's character frame
+        if (frameIndex != lastPilotDplcFrame) {
+            if (pilotDplcFrames != null && frameIndex < pilotDplcFrames.size()) {
+                SpriteDplcFrame dplcFrame = pilotDplcFrames.get(frameIndex);
+                if (dplcFrame != null && !dplcFrame.requests().isEmpty()) {
+                    pilotPatternBank.applyRequests(dplcFrame.requests(), pilotSourceArt);
+                    pilotPatternBank.ensureCached(gm);
+                    lastPilotDplcFrame = frameIndex;
+                }
+            }
+        }
+
+        // Draw using standard player mappings at the pilot's art_tile base.
+        // ROM: palette line 0 (character palette).
+        if (frameIndex >= 0 && frameIndex < pilotMappingFrames.size()) {
+            int basePattern = pilotPatternBank.getBasePatternIndex();
+            drawMappingFrame(gm, pilotMappingFrames, frameIndex, x, y, basePattern, 0);
+        }
+    }
+
+    /**
      * Draws an ObjCF mapping frame at the given screen position.
-     * Uses PATTERN_BASE_VRAM so absolute VRAM tile indices in mapping pieces
-     * resolve directly to GPU-cached patterns.
+     * ROM: piece tile indices are offsets from the object's art_tile, so the
+     * base must include the art_tile offset (e.g. ART_TILE_ENDING_MINI_TORNADO
+     * for ObjCF/ObjCC, ART_TILE_ENDING_CHARACTER for ObjCE).
      */
     private void drawObjCfFrame(GraphicsManager gm, int frameIndex, int originX, int originY,
-                                 int paletteOverride) {
+                                 int paletteOverride, int artTile) {
         if (objCfFrames == null || frameIndex < 0 || frameIndex >= objCfFrames.size()) {
             return;
         }
         SpriteMappingFrame frame = objCfFrames.get(frameIndex);
         SpritePieceRenderer.renderPieces(
                 frame.pieces(), originX, originY,
-                Sonic2EndingArt.PATTERN_BASE_VRAM, paletteOverride,
+                Sonic2EndingArt.PATTERN_BASE_VRAM + artTile, paletteOverride,
                 false, false,
                 (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {
                     int descIndex = patternIdx & 0x7FF;
@@ -1352,8 +1684,9 @@ public class Sonic2EndingCutsceneManager {
     }
 
     /**
-     * Runs one step of PaletteFadeFrom: changes each color component by one MD level
-     * toward the target palette. Deactivates when all colors match.
+     * Runs one step of PaletteFadeFrom/PaletteFadeTo: changes each color component
+     * by one MD level toward the target palette. Only steps every {@code paletteFadeDelay}
+     * frames, matching ROM's ObjC9 fadeinTime counter. Deactivates when all colors match.
      */
     private void runPaletteFadeStep() {
         Palette[] targetPalettes = endingArt.getEndingPalettes();
@@ -1361,6 +1694,13 @@ public class Sonic2EndingCutsceneManager {
             paletteFadeActive = false;
             return;
         }
+
+        // ROM: ObjC9_Main counts down fadeinTime_left; fade only runs when it hits 0.
+        paletteFadeDelayTimer--;
+        if (paletteFadeDelayTimer > 0) {
+            return;
+        }
+        paletteFadeDelayTimer = paletteFadeDelay;
 
         boolean anyChanged = false;
 
@@ -1376,9 +1716,12 @@ public class Sonic2EndingCutsceneManager {
                 Palette.Color display = displayPalettes[line].getColor(c);
                 Palette.Color target = targetPalettes[line].getColor(c);
 
-                int newR = fadeColorStep(display.r & 0xFF, target.r & 0xFF);
-                int newG = fadeColorStep(display.g & 0xFF, target.g & 0xFF);
-                int newB = fadeColorStep(display.b & 0xFF, target.b & 0xFF);
+                int targetR = paletteFadeToWhite ? 0xFF : (target.r & 0xFF);
+                int targetG = paletteFadeToWhite ? 0xFF : (target.g & 0xFF);
+                int targetB = paletteFadeToWhite ? 0xFF : (target.b & 0xFF);
+                int newR = fadeColorStep(display.r & 0xFF, targetR);
+                int newG = fadeColorStep(display.g & 0xFF, targetG);
+                int newB = fadeColorStep(display.b & 0xFF, targetB);
 
                 if (newR != (display.r & 0xFF) || newG != (display.g & 0xFF)
                         || newB != (display.b & 0xFF)) {
@@ -1473,7 +1816,11 @@ public class Sonic2EndingCutsceneManager {
                     paletteFadeEndLine = 1;
                 }
             }
+            // ROM C9PalInfo subtypes 8/$C/$E: fadeinTime=4, fadeinAmount=7
             paletteFadeActive = true;
+            paletteFadeToWhite = false;
+            paletteFadeDelay = 4;
+            paletteFadeDelayTimer = 4;
             LOGGER.fine("Target palette restored to character palette for " + routine);
         } catch (Exception e) {
             LOGGER.warning("Failed to reload character palette: " + e.getMessage());

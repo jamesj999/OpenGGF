@@ -768,7 +768,14 @@ public class Engine {
 			EndingProvider provider = gameLoop.getEndingProvider();
 			if (provider != null) {
 				if (provider.needsLevelBackground()) {
-					levelManager.renderEndingBackground(provider.getBackgroundVscroll());
+					levelManager.renderEndingBackground(
+							provider.getBackgroundVscroll(),
+							provider.getBackdropColorOverride());
+					// Flush deferred BG shader commands BEFORE cutscene sprites.
+					// Without this, the parallax compositing pass executes during
+					// the top-level flush() AFTER provider.draw(), rendering the
+					// DEZ star field ON TOP of the palette-faded cutscene.
+					graphicsManager.flush();
 				}
 				provider.draw();
 			}

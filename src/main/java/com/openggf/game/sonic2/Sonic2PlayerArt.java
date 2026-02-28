@@ -78,7 +78,7 @@ public class Sonic2PlayerArt {
             int basePatternIndex) throws IOException {
         Pattern[] artTiles = loadArtTiles(artAddr, artSize);
         List<SpriteMappingFrame> mappingFrames = loadMappingFrames(mappingAddr);
-        List<SpriteDplcFrame> dplcFrames = loadDplcFrames(dplcAddr);
+        List<SpriteDplcFrame> dplcFrames = parseDplcFrames(reader, dplcAddr);
 
         int bankSize = resolveBankSize(dplcFrames, mappingFrames);
         int frameDelay = 1;
@@ -186,7 +186,11 @@ public class Sonic2PlayerArt {
         return frames;
     }
 
-    private List<SpriteDplcFrame> loadDplcFrames(int dplcAddr) {
+    /**
+     * Parses DPLC frames from ROM at the given address.
+     * Exposed as package-private static so the ending cutscene renderer can reuse it.
+     */
+    public static List<SpriteDplcFrame> parseDplcFrames(RomByteReader reader, int dplcAddr) {
         int offsetTableSize = reader.readU16BE(dplcAddr);
         int frameCount = offsetTableSize / 2;
         List<SpriteDplcFrame> frames = new ArrayList<>(frameCount);
@@ -379,7 +383,7 @@ public class Sonic2PlayerArt {
         return set;
     }
 
-    private int resolveBankSize(List<SpriteDplcFrame> dplcFrames, List<SpriteMappingFrame> mappingFrames) {
+    public static int resolveBankSize(List<SpriteDplcFrame> dplcFrames, List<SpriteMappingFrame> mappingFrames) {
         int maxTiles = 0;
         for (SpriteDplcFrame frame : dplcFrames) {
             int total = 0;

@@ -95,6 +95,8 @@ public class Sonic2EndingArt {
     private Pattern[] animalPatterns;
     private Pattern[] playerPatterns;       // Standard uncompressed player art (Sonic/Tails)
     private int playerArtTile;              // VRAM tile base for player art ($0780 Sonic, $07A0 Tails)
+    private Pattern[] pilotPatterns;        // Pilot character art (opposite of main: Tails/Sonic)
+    private int pilotArtTile;              // VRAM tile base for pilot art
 
     private Palette[] endingPalettes;
 
@@ -213,6 +215,33 @@ public class Sonic2EndingArt {
         }
         playerPatterns = loadUncompressedPatterns(rom, playerArtAddr, playerArtSize, "Player");
 
+        // Load pilot character art (opposite of main character).
+        // ROM: ObjB2_Animate_Pilot uses LoadSonicDynPLC_Part2 or LoadTailsDynPLC_Part2
+        // to load the OTHER character's art into VRAM for the cockpit pilot overlay.
+        // When main=Sonic → pilot=Tails; when main=Tails → pilot=Sonic.
+        int pilotArtAddr;
+        int pilotArtSz;
+        switch (routine) {
+            case SONIC, SUPER_SONIC -> {
+                // Pilot is Tails
+                pilotArtAddr = Sonic2Constants.ART_UNC_TAILS_ADDR;
+                pilotArtSz = Sonic2Constants.ART_UNC_TAILS_SIZE;
+                pilotArtTile = Sonic2Constants.ART_TILE_TAILS;
+            }
+            case TAILS -> {
+                // Pilot is Sonic
+                pilotArtAddr = Sonic2Constants.ART_UNC_SONIC_ADDR;
+                pilotArtSz = Sonic2Constants.ART_UNC_SONIC_SIZE;
+                pilotArtTile = Sonic2Constants.ART_TILE_SONIC;
+            }
+            default -> {
+                pilotArtAddr = Sonic2Constants.ART_UNC_TAILS_ADDR;
+                pilotArtSz = Sonic2Constants.ART_UNC_TAILS_SIZE;
+                pilotArtTile = Sonic2Constants.ART_TILE_TAILS;
+            }
+        }
+        pilotPatterns = loadUncompressedPatterns(rom, pilotArtAddr, pilotArtSz, "Pilot");
+
         LOGGER.info("Ending art loaded for routine " + routine
                 + ": character=" + patternCount(characterPatterns)
                 + " finalTornado=" + patternCount(finalTornadoPatterns)
@@ -221,7 +250,8 @@ public class Sonic2EndingArt {
                 + " tornado=" + patternCount(tornadoPatterns)
                 + " clouds=" + patternCount(cloudPatterns)
                 + " animal=" + patternCount(animalPatterns)
-                + " player=" + patternCount(playerPatterns));
+                + " player=" + patternCount(playerPatterns)
+                + " pilot=" + patternCount(pilotPatterns));
     }
 
     /**
@@ -304,9 +334,10 @@ public class Sonic2EndingArt {
         cachePatternSet(gm, tornadoPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_TORNADO, "tornado-vram");
         cachePatternSet(gm, cloudPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_CLOUDS, "clouds-vram");
         cachePatternSet(gm, animalPatterns, PATTERN_BASE_VRAM + Sonic2Constants.ART_TILE_ENDING_ANIMAL_2, "animal-vram");
-        // Standard player art at VRAM position (e.g., $0780 for Sonic, $07A0 for Tails)
-        // ROM: CHARACTER_APPEAR uses real Sonic/Tails object with standard art still in VRAM from DEZ
-        cachePatternSet(gm, playerPatterns, PATTERN_BASE_VRAM + playerArtTile, "player-vram");
+        // NOTE: Do NOT cache playerPatterns or pilotPatterns at VRAM positions here.
+        // Both use DynamicPatternBank for DPLC-driven per-frame tile loading.
+        // Caching full art at the VRAM base would pollute GPU tile positions beyond
+        // what DPLC loads, creating ghost/after-image artifacts from stale tiles.
 
         initialized = true;
         LOGGER.info("Ending art cached to GPU");
@@ -348,8 +379,20 @@ public class Sonic2EndingArt {
         return loadedRoutine;
     }
 
+    public Pattern[] getPlayerPatterns() {
+        return playerPatterns;
+    }
+
     public int getPlayerArtTile() {
         return playerArtTile;
+    }
+
+    public Pattern[] getPilotPatterns() {
+        return pilotPatterns;
+    }
+
+    public int getPilotArtTile() {
+        return pilotArtTile;
     }
 
     public boolean isInitialized() {

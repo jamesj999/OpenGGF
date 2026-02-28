@@ -231,6 +231,14 @@ public class Sonic2EndingProvider implements EndingProvider {
         return 0;
     }
 
+    @Override
+    public float[] getBackdropColorOverride() {
+        if (cutsceneManager != null && (state == InternalState.CUTSCENE || state == InternalState.CUTSCENE_FADE_OUT)) {
+            return cutsceneManager.getBackdropColorOverride();
+        }
+        return null;
+    }
+
     // ========================================================================
     // Manager accessors (for GameLoop integration)
     // ========================================================================

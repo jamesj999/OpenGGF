@@ -497,7 +497,12 @@ public class GameLoop {
             }
 
             if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.NEXT_ZONE))) {
-                levelManager.requestNextZone();
+                // DEZ: skip to ending cutscene instead of next zone
+                if (levelManager.getRomZoneId() == 0x0E) {
+                    levelManager.requestCreditsTransition();
+                } else {
+                    levelManager.requestNextZone();
+                }
             }
 
             // Debug: Teleport to last checkpoint (END key, only in LEVEL mode)

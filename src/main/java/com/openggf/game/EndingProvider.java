@@ -206,4 +206,19 @@ public interface EndingProvider {
     default int getBackgroundVscroll() {
         return 0;
     }
+
+    /**
+     * Returns the backdrop color override for the level background during the
+     * ending cutscene. The BG shader normally uses the level's stored palette
+     * line 2 color 0 as backdrop, but during the ending the cutscene fades
+     * display palettes from white to target — the backdrop must match.
+     * <p>
+     * Returns a 3-element float array {r, g, b} in [0..1] range, or null
+     * if no override is needed (use level default).
+     *
+     * @return backdrop color override as {r, g, b}, or null
+     */
+    default float[] getBackdropColorOverride() {
+        return null;
+    }
 }
