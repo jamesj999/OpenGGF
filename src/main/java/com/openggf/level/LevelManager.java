@@ -786,9 +786,12 @@ public class LevelManager {
             waterSystem.loadForLevelFromProvider(waterProvider, rom,
                     getFeatureZoneId(), getFeatureActId(), character);
         } else if (zoneFeatureProvider != null && zoneFeatureProvider.hasWater(getFeatureZoneId())) {
-            // Fallback for games without a provider (backward compatibility)
+            // Fallback for games without a WaterDataProvider (backward compatibility).
+            // All three game modules now supply providers, so this path should rarely execute.
+            @SuppressWarnings("deprecation")
+            Runnable fallback = () -> waterSystem.loadForLevel(rom, getFeatureZoneId(), getFeatureActId(), level.getObjects());
             if (!waterSystem.hasWater(getFeatureZoneId(), getFeatureActId())) {
-                waterSystem.loadForLevel(rom, getFeatureZoneId(), getFeatureActId(), level.getObjects());
+                fallback.run();
             }
         }
     }

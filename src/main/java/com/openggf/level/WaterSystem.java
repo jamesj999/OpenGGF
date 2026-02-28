@@ -14,15 +14,17 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 /**
- * Manages water configuration for Sonic 1 and Sonic 2 levels.
+ * Manages water configuration for all supported games.
  * Extracts water heights and underwater palettes from ROM data.
  * Provides deterministic water distortion parameters.
  *
- * <p>S2 levels use {@link #loadForLevel(Rom, int, int, List)} which reads water
- * heights from a ROM table and object layouts.
+ * <p>The preferred entry point is {@link #loadForLevelFromProvider(WaterDataProvider, Rom, int, int, PlayerCharacter)}
+ * which delegates to a game-specific {@link WaterDataProvider} implementation. Each game module
+ * supplies its own provider via {@code GameModule.getWaterDataProvider()}.
  *
- * <p>S1 levels use {@link #loadForLevelS1(Rom, int, int)} which uses hardcoded
- * water heights baked into the assembly (LZWaterFeatures.asm lines 49-52).
+ * <p>Legacy methods {@link #loadForLevel(Rom, int, int, List)} (S2) and
+ * {@link #loadForLevelS1(Rom, int, int)} (S1) are deprecated and retained only for
+ * backward compatibility with existing tests.
  */
 public class WaterSystem {
     private static final Logger LOGGER = Logger.getLogger(WaterSystem.class.getName());
@@ -171,14 +173,17 @@ public class WaterSystem {
     }
 
     /**
-     * Load water configuration from ROM and level object data.
+     * Load water configuration from ROM and level object data (S2-specific).
      * Must be called during level initialization.
-     * 
+     *
      * @param rom     ROM data
      * @param zoneId  Zone index
      * @param actId   Act index
      * @param objects List of object spawns for this level
+     * @deprecated Use {@link #loadForLevelFromProvider(WaterDataProvider, Rom, int, int, PlayerCharacter)} instead.
+     *             Retained for backward compatibility with tests.
      */
+    @Deprecated
     public void loadForLevel(Rom rom, int zoneId, int actId, List<ObjectSpawn> objects) {
         String key = makeKey(zoneId, actId);
 
@@ -217,7 +222,10 @@ public class WaterSystem {
      * @param rom    ROM data (used for loading underwater palettes)
      * @param zoneId S1 ROM zone ID (e.g., Sonic1Constants.ZONE_LZ)
      * @param actId  Act index (0-based)
+     * @deprecated Use {@link #loadForLevelFromProvider(WaterDataProvider, Rom, int, int, PlayerCharacter)} instead.
+     *             Retained for backward compatibility with tests.
      */
+    @Deprecated
     public void loadForLevelS1(Rom rom, int zoneId, int actId) {
         String key = makeKey(zoneId, actId);
 

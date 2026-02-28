@@ -7,6 +7,8 @@ import com.openggf.game.WaterDataProvider;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.level.Palette;
 
+import java.util.logging.Logger;
+
 /**
  * Water data provider for Sonic 2.
  * Supplies zone/act-specific water heights, underwater palettes, and dynamic handlers.
@@ -18,16 +20,22 @@ import com.openggf.level.Palette;
  *   <li>HTZ (Hill Top Zone) - Lava (acts like water for drowning, off-screen)</li>
  * </ul>
  * <p>
- * Starting water heights are hardcoded from the ROM's Water_Height table
- * (s2disasm). Full ROM-based extraction remains in {@link com.openggf.level.WaterSystem}
- * for backward compatibility.
+ * Starting water heights are from the ROM's Water_Height table (s2disasm).
+ * Underwater palette ROM addresses from SCHG documentation.
  */
 public class Sonic2WaterDataProvider implements WaterDataProvider {
+    private static final Logger LOGGER = Logger.getLogger(Sonic2WaterDataProvider.class.getName());
+
+    private static final int PALETTE_SIZE_BYTES = 128; // 64 colors * 2 bytes per color
 
     // S2 ROM zone IDs (from Sonic2ZoneConstants)
     private static final int ZONE_ARZ = Sonic2ZoneConstants.ROM_ZONE_ARZ; // 0x0F
     private static final int ZONE_CPZ = Sonic2ZoneConstants.ROM_ZONE_CPZ; // 0x0D
     private static final int ZONE_HTZ = Sonic2ZoneConstants.ROM_ZONE_HTZ; // 0x07
+
+    // ROM addresses for underwater palettes (from SCHG)
+    private static final int CPZ_UNDERWATER_PALETTE_ADDR = 0x2E62;
+    private static final int ARZ_UNDERWATER_PALETTE_ADDR = 0x2FA2;
 
     // Default off-screen water level for zones where water is not visible
     // (e.g., HTZ lava which is below the level)
@@ -52,8 +60,31 @@ public class Sonic2WaterDataProvider implements WaterDataProvider {
 
     @Override
     public Palette[] getUnderwaterPalette(Rom rom, int zoneId, int actId, PlayerCharacter character) {
-        // Deferred - existing WaterSystem handles palette loading
-        return null;
+        int paletteAddr;
+        if (zoneId == ZONE_CPZ) {
+            paletteAddr = CPZ_UNDERWATER_PALETTE_ADDR;
+        } else if (zoneId == ZONE_ARZ) {
+            paletteAddr = ARZ_UNDERWATER_PALETTE_ADDR;
+        } else {
+            return null; // No underwater palette for HTZ or other zones
+        }
+
+        try {
+            byte[] paletteData = rom.readBytes(paletteAddr, PALETTE_SIZE_BYTES);
+            Palette[] palettes = new Palette[4];
+            for (int i = 0; i < 4; i++) {
+                byte[] lineData = new byte[32];
+                System.arraycopy(paletteData, i * 32, lineData, 0, 32);
+                palettes[i] = new Palette();
+                palettes[i].fromSegaFormat(lineData);
+            }
+            return palettes;
+        } catch (Exception e) {
+            LOGGER.warning(String.format(
+                    "Failed to load underwater palette for zone %d act %d at 0x%X: %s",
+                    zoneId, actId, paletteAddr, e.getMessage()));
+            return null;
+        }
     }
 
     @Override
