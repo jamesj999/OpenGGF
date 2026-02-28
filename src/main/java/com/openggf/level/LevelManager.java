@@ -703,17 +703,27 @@ public class LevelManager {
     }
 
     /**
-     * Phase H: Reset game-specific state, create RingManager, and initialize zone features.
+     * Phase H: Reset game-specific object state for the new level.
      */
-    public void initGameState() throws IOException {
-        Rom rom = GameServices.rom().getRom();
-        // Reset game-specific object state for new level
+    public void initGameplayState() {
         gameModule.onLevelLoad();
+    }
+
+    /**
+     * Phase H: Create RingManager and cache ring patterns.
+     */
+    public void initRings() {
         RingSpriteSheet ringSpriteSheet = level.getRingSpriteSheet();
         ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable);
         ringManager.reset(Camera.getInstance().getX());
         ringManager.ensurePatternsCached(graphicsManager, level.getPatternCount());
-        // Initialize zone-specific features (CNZ bumpers, CPZ pylon, water surface, etc.)
+    }
+
+    /**
+     * Phase H: Initialize zone-specific features (CNZ bumpers, CPZ pylon, water surface, etc.).
+     */
+    public void initZoneFeatures() throws IOException {
+        Rom rom = GameServices.rom().getRom();
         Camera camera = Camera.getInstance();
         zoneFeatureProvider = gameModule.getZoneFeatureProvider();
         if (zoneFeatureProvider != null) {
@@ -722,6 +732,15 @@ public class LevelManager {
             int waterPatternBase = 0x30000; // High offset to avoid collision
             zoneFeatureProvider.ensurePatternsCached(graphicsManager, waterPatternBase);
         }
+    }
+
+    /**
+     * Phase H: Reset game-specific state, create RingManager, and initialize zone features.
+     */
+    public void initGameState() throws IOException {
+        initGameplayState();
+        initRings();
+        initZoneFeatures();
     }
 
     /**
