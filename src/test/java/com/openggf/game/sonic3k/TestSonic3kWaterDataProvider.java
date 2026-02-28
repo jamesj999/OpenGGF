@@ -41,8 +41,9 @@ public class TestSonic3kWaterDataProvider {
     }
 
     @Test
-    public void lbzHasWater() {
-        assertTrue("LBZ1 should have water",
+    public void lbz2HasWater() {
+        // Only LBZ2 has water — LBZ1 does NOT (sonic3k.asm:9772-9773)
+        assertFalse("LBZ1 should NOT have water",
                 provider.hasWater(Sonic3kZoneIds.ZONE_LBZ, 0, PlayerCharacter.SONIC_AND_TAILS));
         assertTrue("LBZ2 should have water",
                 provider.hasWater(Sonic3kZoneIds.ZONE_LBZ, 1, PlayerCharacter.SONIC_AND_TAILS));
@@ -55,9 +56,23 @@ public class TestSonic3kWaterDataProvider {
     }
 
     @Test
-    public void cnzHasNoWater() {
-        assertFalse("CNZ should not have water",
+    public void cnz1HasNoWater() {
+        assertFalse("CNZ1 should not have water",
                 provider.hasWater(Sonic3kZoneIds.ZONE_CNZ, 0, PlayerCharacter.SONIC_AND_TAILS));
+    }
+
+    @Test
+    public void cnz2SonicHasWater() {
+        // CNZ2 Sonic/Tails: water (sonic3k.asm:9764-9767)
+        assertTrue("CNZ2 Sonic should have water",
+                provider.hasWater(Sonic3kZoneIds.ZONE_CNZ, 1, PlayerCharacter.SONIC_AND_TAILS));
+    }
+
+    @Test
+    public void cnz2KnucklesHasNoWater() {
+        // CNZ2 Knuckles: no water (falls through in ROM)
+        assertFalse("CNZ2 Knuckles should NOT have water",
+                provider.hasWater(Sonic3kZoneIds.ZONE_CNZ, 1, PlayerCharacter.KNUCKLES));
     }
 
     @Test
@@ -73,9 +88,16 @@ public class TestSonic3kWaterDataProvider {
     }
 
     @Test
-    public void iczHasNoWater() {
-        assertFalse("ICZ should not have water",
+    public void icz1HasNoWater() {
+        assertFalse("ICZ1 should not have water",
                 provider.hasWater(Sonic3kZoneIds.ZONE_ICZ, 0, PlayerCharacter.SONIC_AND_TAILS));
+    }
+
+    @Test
+    public void icz2HasWater() {
+        // ICZ2: water (sonic3k.asm:9770-9771)
+        assertTrue("ICZ2 should have water",
+                provider.hasWater(Sonic3kZoneIds.ZONE_ICZ, 1, PlayerCharacter.SONIC_AND_TAILS));
     }
 
     @Test
@@ -138,14 +160,14 @@ public class TestSonic3kWaterDataProvider {
 
     @Test
     public void lbz1StartingHeight() {
-        assertEquals("LBZ1 starting height should be 0x0AD8",
-                0x0AD8, provider.getStartingWaterLevel(Sonic3kZoneIds.ZONE_LBZ, 0));
+        assertEquals("LBZ1 starting height should be 0x0A80 (ROM verified)",
+                0x0A80, provider.getStartingWaterLevel(Sonic3kZoneIds.ZONE_LBZ, 0));
     }
 
     @Test
     public void lbz2StartingHeight() {
-        assertEquals("LBZ2 starting height should be 0x0A80",
-                0x0A80, provider.getStartingWaterLevel(Sonic3kZoneIds.ZONE_LBZ, 1));
+        assertEquals("LBZ2 starting height should be 0x065E (ROM verified)",
+                0x065E, provider.getStartingWaterLevel(Sonic3kZoneIds.ZONE_LBZ, 1));
     }
 
     @Test
