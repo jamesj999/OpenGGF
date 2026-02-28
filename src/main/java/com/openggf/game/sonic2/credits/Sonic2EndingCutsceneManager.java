@@ -1398,14 +1398,27 @@ public class Sonic2EndingCutsceneManager {
         }
 
         switch (tornadoSubState) {
-            case APPROACH, BIRDS_AND_HOLD -> {
-                // ObjB2 body during approach/hold.
+            case APPROACH -> {
+                // ObjB2 body during approach.
                 // ROM: make_art_tile(ArtTile_ArtNem_Tornado, 0, 1) — palette 0, priority 1
                 // ROM Ani_objB2_a: anim 0 = frames 0,1,2,3 (Sonic); anim 1 = frames 4,5,6,7 (Tails)
                 // ROM: ObjB2_Animate_Pilot loads character DPLCs at tornado's art_tile,
                 // overwriting cockpit tiles so the pilot shows through transparent pixels.
                 // We draw pilot BEFORE tornado body so the body covers the lower portion.
                 drawPilotFrame(gm, tx, ty);
+                if (tornadoFrames != null && !tornadoFrames.isEmpty()) {
+                    int animBase = (routine == Sonic2EndingArt.EndingRoutine.TAILS) ? 4 : 0;
+                    int animFrame = animBase + (frameCounter % 4);
+                    if (animFrame >= tornadoFrames.size()) animFrame = animBase;
+                    int basePattern = Sonic2EndingArt.PATTERN_BASE_VRAM
+                            + Sonic2Constants.ART_TILE_ENDING_TORNADO;
+                    drawMappingFrame(gm, tornadoFrames, animFrame, tx, ty, basePattern, 0);
+                }
+            }
+            case BIRDS_AND_HOLD -> {
+                // ObjB2 body during hold. Character is on the tornado via sub_A524
+                // (the MainCharacter object is repositioned), so no separate pilot drawing.
+                // The character on the tornado is drawn by drawMainEnding's player section.
                 if (tornadoFrames != null && !tornadoFrames.isEmpty()) {
                     int animBase = (routine == Sonic2EndingArt.EndingRoutine.TAILS) ? 4 : 0;
                     int animFrame = animBase + (frameCounter % 4);
