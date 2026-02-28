@@ -1416,7 +1416,7 @@ git commit -m "feat: add PlaybackEngine (compile + play songs in real time)"
 
 ## Phase 3: File I/O
 
-### Task 8: Project Save/Load (.osd JSON)
+### Task 8: Project Save/Load (.osmpsd JSON)
 
 **Files:**
 - Create: `app/src/main/java/com/opensmps/deck/io/ProjectFile.java`
@@ -1459,7 +1459,7 @@ public class TestProjectFile {
         // Add second order row
         original.getOrderList().add(new int[]{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
 
-        File file = new File(tempDir, "test.osd");
+        File file = new File(tempDir, "test.osmpsd");
         ProjectFile.save(original, file);
         assertTrue(file.exists());
 
@@ -1488,7 +1488,7 @@ Serialize Song to JSON. Voice data and track data as hex strings. Use Gson for J
 
 ```bash
 mvn test -pl app
-git add -A && git commit -m "feat: add .osd project file save/load (JSON)"
+git add -A && git commit -m "feat: add .osmpsd project file save/load (JSON)"
 ```
 
 ---
