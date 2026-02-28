@@ -132,6 +132,7 @@ public class LevelManager {
     private ObjectManager objectManager;
     private RingManager ringManager;
     private ZoneFeatureProvider zoneFeatureProvider;
+    private TouchResponseTable touchResponseTable;
     private ObjectRenderManager objectRenderManager;
     private HudRenderManager hudRenderManager;
     private AnimatedPatternManager animatedPatternManager;
@@ -566,111 +567,174 @@ public class LevelManager {
      */
     public void loadLevel(int levelIndex) throws IOException {
         try {
-            Rom rom = GameServices.rom().getRom();
-            parallaxManager.load(rom);
-            gameModule = GameModuleRegistry.getCurrent();
-            refreshZoneList();
-            game = gameModule.createGame(rom);
-            AudioManager audioManager = AudioManager.getInstance();
-            audioManager.setAudioProfile(gameModule.getAudioProfile());
-            audioManager.setRom(rom);
-            audioManager.setSoundMap(game.getSoundMap());
-            audioManager.resetRingSound();
-            if (!suppressNextMusicChange) {
-                audioManager.playMusic(game.getMusicId(levelIndex));
-            }
-            suppressNextMusicChange = false;
-            level = game.loadLevel(levelIndex);
-            blockPixelSize = level.getBlockPixelSize();
-            chunksPerBlockSide = level.getChunksPerBlockSide();
-            cacheLevelDimensions();
-        backgroundTilemapDirty = true;
-        bgTilemapBaseX = 0;
-        foregroundTilemapDirty = true;
-        patternLookupDirty = true;
-        multiAtlasWarningLogged = false;
-        backgroundTilemapData = null;
-            foregroundTilemapData = null;
-            patternLookupData = null;
-            prebuiltFgTilemap = null;
-            prebuiltBgTilemap = null;
-            initAnimatedPatterns();
-            initAnimatedPalettes();
-            RomByteReader romReader = RomByteReader.fromRom(rom);
-            TouchResponseTable touchResponseTable = gameModule.createTouchResponseTable(romReader);
-            objectManager = new ObjectManager(level.getObjects(),
-                    gameModule.createObjectRegistry(),
-                    gameModule.getPlaneSwitcherObjectId(),
-                    gameModule.getPlaneSwitcherConfig(),
-                    touchResponseTable);
-            // Wire up CollisionSystem with ObjectManager for unified collision pipeline
-            CollisionSystem.getInstance().setObjectManager(objectManager);
-            // Reset camera state from previous level (signpost may have locked it)
-            Camera camera = Camera.getInstance();
-            camera.setFrozen(false);
-            camera.setMinX((short) 0);
-            camera.setMaxX((short) (level.getMap().getWidth() * blockPixelSize));
-            objectManager.reset(camera.getX());
-            // Reset game-specific object state for new level
-            gameModule.onLevelLoad();
-            RingSpriteSheet ringSpriteSheet = level.getRingSpriteSheet();
-            ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable);
-            ringManager.reset(Camera.getInstance().getX());
-            ringManager.ensurePatternsCached(graphicsManager, level.getPatternCount());
-            // Initialize zone-specific features (CNZ bumpers, CPZ pylon, water surface, etc.)
-            zoneFeatureProvider = gameModule.getZoneFeatureProvider();
-            if (zoneFeatureProvider != null) {
-                zoneFeatureProvider.initZoneFeatures(rom, getFeatureZoneId(), getFeatureActId(), camera.getX());
-                // Cache zone feature patterns (water surface, etc.)
-                int waterPatternBase = 0x30000; // High offset to avoid collision
-                zoneFeatureProvider.ensurePatternsCached(graphicsManager, waterPatternBase);
-            }
-            initObjectArt();
-            initPlayerSpriteArt();
-            resetPlayerState();
-            // Initialize checkpoint state for new level
-            if (checkpointState == null) {
-                checkpointState = gameModule.createRespawnState();
-            }
-            checkpointState.clear();
-            levelGamestate = gameModule.createLevelState();
-
-            // Initialize water system for this level.
-            // Only attempt water loading for zones the game module declares as water zones,
-            // otherwise S3K object IDs (e.g. 0x04 = CollapsingPlatform) get misinterpreted
-            // as water surface objects by WaterSystem.extractWaterHeight().
-            // S1 water is already loaded by the ZoneFeatureProvider above.
-            WaterSystem waterSystem = WaterSystem.getInstance();
-            if (zoneFeatureProvider != null && zoneFeatureProvider.hasWater(getFeatureZoneId())) {
-                if (!waterSystem.hasWater(getFeatureZoneId(), getFeatureActId())) {
-                    waterSystem.loadForLevel(rom, getFeatureZoneId(), getFeatureActId(), level.getObjects());
-                }
-            }
-
-            // Pre-allocate the background FBO at maximum required size to avoid
-            // mid-frame GPU reallocation hitches (e.g., AIZ intro ocean->beach transition)
-            BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
-            if (bgRenderer != null && bgRenderer.isInitialized()) {
-                int maxBgWidth;
-                if (zoneFeatureProvider != null && !zoneFeatureProvider.bgWrapsHorizontally()) {
-                    // S3K uses full-width BG data (e.g., AIZ intro ocean-to-beach transition)
-                    maxBgWidth = Math.max(cachedScreenWidth, getLayerLevelWidthPx((byte) 1));
-                } else {
-                    // S1/S2 use VDP-width (512px) background periods.
-                    // Pre-allocating to full level width can exceed GPU max texture size
-                    // (S2: 128 blocks * 128px = 16384, right at GPU limit).
-                    maxBgWidth = Math.max(cachedScreenWidth, VDP_BG_PLANE_WIDTH_PX);
-                }
-                int fboHeight = 256 + LevelConstants.CHUNK_HEIGHT;
-                graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM,
-                        (cx, cy, cw, ch) -> bgRenderer.ensureCapacity(maxBgWidth, fboHeight)));
-            }
+            initGameModuleAndAudio(levelIndex);
+            level = loadLevelData(levelIndex);
+            initAnimatedContent();
+            initObjectSystem();
+            initGameState();
+            initArtAndPlayer();
+            initWater();
+            initBackgroundRenderer();
         } catch (IOException e) {
             LOGGER.log(SEVERE, "Failed to load level " + levelIndex, e);
             throw e;
         } catch (Exception e) {
             LOGGER.log(SEVERE, "Unexpected error while loading level " + levelIndex, e);
             throw new IOException("Failed to load level due to unexpected error.", e);
+        }
+    }
+
+    /**
+     * Phase A-C: Initialize game module, configure audio manager, and play level music.
+     */
+    public void initGameModuleAndAudio(int levelIndex) throws IOException {
+        Rom rom = GameServices.rom().getRom();
+        parallaxManager.load(rom);
+        gameModule = GameModuleRegistry.getCurrent();
+        refreshZoneList();
+        game = gameModule.createGame(rom);
+        AudioManager audioManager = AudioManager.getInstance();
+        audioManager.setAudioProfile(gameModule.getAudioProfile());
+        audioManager.setRom(rom);
+        audioManager.setSoundMap(game.getSoundMap());
+        audioManager.resetRingSound();
+        if (!suppressNextMusicChange) {
+            audioManager.playMusic(game.getMusicId(levelIndex));
+        }
+        suppressNextMusicChange = false;
+    }
+
+    /**
+     * Phase E-F: Delegate to Game.loadLevel(), cache level dimensions, and reset dirty flags.
+     *
+     * @return the loaded Level instance (also assigned to {@code this.level})
+     */
+    public Level loadLevelData(int levelIndex) throws IOException {
+        Level loaded = game.loadLevel(levelIndex);
+        level = loaded;
+        blockPixelSize = level.getBlockPixelSize();
+        chunksPerBlockSide = level.getChunksPerBlockSide();
+        cacheLevelDimensions();
+        backgroundTilemapDirty = true;
+        bgTilemapBaseX = 0;
+        foregroundTilemapDirty = true;
+        patternLookupDirty = true;
+        multiAtlasWarningLogged = false;
+        backgroundTilemapData = null;
+        foregroundTilemapData = null;
+        patternLookupData = null;
+        prebuiltFgTilemap = null;
+        prebuiltBgTilemap = null;
+        return loaded;
+    }
+
+    /**
+     * Phase E: Initialize animated pattern and palette managers for the loaded level.
+     */
+    public void initAnimatedContent() {
+        initAnimatedPatterns();
+        initAnimatedPalettes();
+    }
+
+    /**
+     * Phase G: Create ObjectManager, wire CollisionSystem, and reset camera bounds.
+     */
+    public void initObjectSystem() throws IOException {
+        Rom rom = GameServices.rom().getRom();
+        RomByteReader romReader = RomByteReader.fromRom(rom);
+        touchResponseTable = gameModule.createTouchResponseTable(romReader);
+        objectManager = new ObjectManager(level.getObjects(),
+                gameModule.createObjectRegistry(),
+                gameModule.getPlaneSwitcherObjectId(),
+                gameModule.getPlaneSwitcherConfig(),
+                touchResponseTable);
+        // Wire up CollisionSystem with ObjectManager for unified collision pipeline
+        CollisionSystem.getInstance().setObjectManager(objectManager);
+        // Reset camera state from previous level (signpost may have locked it)
+        Camera camera = Camera.getInstance();
+        camera.setFrozen(false);
+        camera.setMinX((short) 0);
+        camera.setMaxX((short) (level.getMap().getWidth() * blockPixelSize));
+        objectManager.reset(camera.getX());
+    }
+
+    /**
+     * Phase H: Reset game-specific state, create RingManager, and initialize zone features.
+     */
+    public void initGameState() throws IOException {
+        Rom rom = GameServices.rom().getRom();
+        // Reset game-specific object state for new level
+        gameModule.onLevelLoad();
+        RingSpriteSheet ringSpriteSheet = level.getRingSpriteSheet();
+        ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable);
+        ringManager.reset(Camera.getInstance().getX());
+        ringManager.ensurePatternsCached(graphicsManager, level.getPatternCount());
+        // Initialize zone-specific features (CNZ bumpers, CPZ pylon, water surface, etc.)
+        Camera camera = Camera.getInstance();
+        zoneFeatureProvider = gameModule.getZoneFeatureProvider();
+        if (zoneFeatureProvider != null) {
+            zoneFeatureProvider.initZoneFeatures(rom, getFeatureZoneId(), getFeatureActId(), camera.getX());
+            // Cache zone feature patterns (water surface, etc.)
+            int waterPatternBase = 0x30000; // High offset to avoid collision
+            zoneFeatureProvider.ensurePatternsCached(graphicsManager, waterPatternBase);
+        }
+    }
+
+    /**
+     * Phase C: Load object art, player sprite art, reset player state,
+     * and initialize checkpoint and level gamestate.
+     */
+    public void initArtAndPlayer() {
+        initObjectArt();
+        initPlayerSpriteArt();
+        resetPlayerState();
+        // Initialize checkpoint state for new level
+        if (checkpointState == null) {
+            checkpointState = gameModule.createRespawnState();
+        }
+        checkpointState.clear();
+        levelGamestate = gameModule.createLevelState();
+    }
+
+    /**
+     * Phase B: Initialize the water system for the current level.
+     */
+    public void initWater() throws IOException {
+        Rom rom = GameServices.rom().getRom();
+        // Initialize water system for this level.
+        // Only attempt water loading for zones the game module declares as water zones,
+        // otherwise S3K object IDs (e.g. 0x04 = CollapsingPlatform) get misinterpreted
+        // as water surface objects by WaterSystem.extractWaterHeight().
+        // S1 water is already loaded by the ZoneFeatureProvider above.
+        WaterSystem waterSystem = WaterSystem.getInstance();
+        if (zoneFeatureProvider != null && zoneFeatureProvider.hasWater(getFeatureZoneId())) {
+            if (!waterSystem.hasWater(getFeatureZoneId(), getFeatureActId())) {
+                waterSystem.loadForLevel(rom, getFeatureZoneId(), getFeatureActId(), level.getObjects());
+            }
+        }
+    }
+
+    /**
+     * Engine-specific: Pre-allocate BG FBO at the maximum required size.
+     */
+    public void initBackgroundRenderer() {
+        // Pre-allocate the background FBO at maximum required size to avoid
+        // mid-frame GPU reallocation hitches (e.g., AIZ intro ocean->beach transition)
+        BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
+        if (bgRenderer != null && bgRenderer.isInitialized()) {
+            int maxBgWidth;
+            if (zoneFeatureProvider != null && !zoneFeatureProvider.bgWrapsHorizontally()) {
+                // S3K uses full-width BG data (e.g., AIZ intro ocean-to-beach transition)
+                maxBgWidth = Math.max(cachedScreenWidth, getLayerLevelWidthPx((byte) 1));
+            } else {
+                // S1/S2 use VDP-width (512px) background periods.
+                // Pre-allocating to full level width can exceed GPU max texture size
+                // (S2: 128 blocks * 128px = 16384, right at GPU limit).
+                maxBgWidth = Math.max(cachedScreenWidth, VDP_BG_PLANE_WIDTH_PX);
+            }
+            int fboHeight = 256 + LevelConstants.CHUNK_HEIGHT;
+            graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM,
+                    (cx, cy, cw, ch) -> bgRenderer.ensureCapacity(maxBgWidth, fboHeight)));
         }
     }
 
@@ -1699,6 +1763,24 @@ public class LevelManager {
      * @param bgVscroll the current background vertical scroll value (ROM: Vscroll_Factor_BG)
      */
     public void renderEndingBackground(int bgVscroll) {
+        renderEndingBackground(bgVscroll, null);
+    }
+
+    /**
+     * Renders the DEZ star field background for the ending cutscene, with an
+     * optional backdrop color override.
+     * <p>
+     * The BG shader normally resolves the backdrop from the level's stored
+     * palette. During the ending, the cutscene fades display palettes from
+     * white to target independently — the backdrop must track this fade.
+     * When {@code backdropOverride} is non-null, it replaces the level's
+     * backdrop after the shader pipeline is set up (deferred commands read
+     * the override at execution time).
+     *
+     * @param bgVscroll       current BG vertical scroll (ROM: Vscroll_Factor_BG)
+     * @param backdropOverride {r, g, b} in [0..1], or null to use level default
+     */
+    public void renderEndingBackground(int bgVscroll, float[] backdropOverride) {
         if (level == null || level.getMap() == null) {
             return;
         }
@@ -1711,8 +1793,27 @@ public class LevelManager {
         frameCounter++;
         parallaxManager.updateForEnding(currentZone, currentAct, frameCounter, bgVscroll);
 
+        // Force background tilemap FBO re-render every frame during the ending.
+        // The cutscene fades palette lines 2-3 from white → sky colors; the tilemap
+        // FBO bakes palette colors at render time, so it must be rebuilt each frame
+        // to reflect the evolving palette state. Without this, the DEZ star field
+        // appears at full color instantly instead of fading in with the palette.
+        backgroundTilemapDirty = true;
+
         // Render using the existing shader pipeline
         renderBackgroundShader(collisionCommands, bgVscroll);
+
+        // Override backdrop color for ending cutscene palette fade.
+        // The deferred commands read bgRenderer fields at execution time, so
+        // setting the backdrop AFTER renderBackgroundShader but BEFORE flush()
+        // ensures the override takes effect.
+        if (backdropOverride != null && backdropOverride.length >= 3) {
+            BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
+            if (bgRenderer != null) {
+                bgRenderer.setBackdropColor(
+                        backdropOverride[0], backdropOverride[1], backdropOverride[2]);
+            }
+        }
     }
 
     private void enqueueForegroundTilemapPass(Camera camera, int priorityPass) {
@@ -1981,7 +2082,7 @@ public class LevelManager {
         backgroundVdpWrapHeightTiles = (actualHeightTiles > 0
                 && actualHeightTiles <= VDP_BG_PLANE_HEIGHT_TILES)
                 ? VDP_BG_PLANE_HEIGHT_TILES : 0;
-        LOGGER.info("BG tilemap " + backgroundTilemapWidthTiles + "x" + backgroundTilemapHeightTiles
+        LOGGER.fine("BG tilemap " + backgroundTilemapWidthTiles + "x" + backgroundTilemapHeightTiles
                 + " actualDataHeight=" + actualHeightTiles
                 + " VDPWrapHeight=" + backgroundVdpWrapHeightTiles);
     }
