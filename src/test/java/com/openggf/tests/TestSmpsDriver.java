@@ -190,11 +190,11 @@ public class TestSmpsDriver {
 
         // SFX-A uses PSG channel 2 (PSG3)
         SmpsSequencer sfxA = new SmpsSequencer(dummyDataA, dummyDac, driver, Sonic2SmpsSequencerConfig.CONFIG);
-        sfxA.getTracks().add(createTrack(SmpsSequencer.TrackType.PSG, 2));
+        sfxA.addTrack(createTrack(SmpsSequencer.TrackType.PSG, 2));
 
         // SFX-B also uses PSG channel 2 (PSG3)
         SmpsSequencer sfxB = new SmpsSequencer(dummyDataB, dummyDac, driver, Sonic2SmpsSequencerConfig.CONFIG);
-        sfxB.getTracks().add(createTrack(SmpsSequencer.TrackType.PSG, 2));
+        sfxB.addTrack(createTrack(SmpsSequencer.TrackType.PSG, 2));
 
         // Add SFX-A, give it the PSG2 lock via a write
         driver.addSequencer(sfxA, true);
@@ -227,14 +227,14 @@ public class TestSmpsDriver {
 
         // Old SFX on PSG3 (channel 2)
         SmpsSequencer sfxOld = new SmpsSequencer(dummyDataA, dummyDac, driver, Sonic2SmpsSequencerConfig.CONFIG);
-        sfxOld.getTracks().add(createTrack(SmpsSequencer.TrackType.PSG, 2));
+        sfxOld.addTrack(createTrack(SmpsSequencer.TrackType.PSG, 2));
         driver.addSequencer(sfxOld, true);
         // Give it the PSG2 lock
         driver.writePsg(sfxOld, 0x80 | (2 << 5) | 0x00);
 
         // New SFX also on PSG3 (channel 2) - should trigger noise silencing
         SmpsSequencer sfxNew = new SmpsSequencer(dummyDataB, dummyDac, driver, Sonic2SmpsSequencerConfig.CONFIG);
-        sfxNew.getTracks().add(createTrack(SmpsSequencer.TrackType.PSG, 2));
+        sfxNew.addTrack(createTrack(SmpsSequencer.TrackType.PSG, 2));
 
         driver.rawPsgWrites.clear();
         driver.addSequencer(sfxNew, true);

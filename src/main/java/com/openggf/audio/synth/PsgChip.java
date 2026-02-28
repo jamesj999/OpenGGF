@@ -1,5 +1,12 @@
 package com.openggf.audio.synth;
 
+/**
+ * Legacy PSG (SN76489) emulator using float-based timing.
+ *
+ * @deprecated Use {@link PsgChipGPGX} instead, which provides higher-fidelity
+ *             band-limited synthesis via {@link BlipDeltaBuffer}.
+ */
+@Deprecated
 public class PsgChip {
     private static final double CLOCK = 3579545.0; // Master NTSC clock
     private static final double DEFAULT_SAMPLE_RATE = 44100.0;

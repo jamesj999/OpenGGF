@@ -7,6 +7,7 @@ import com.openggf.audio.synth.Synthesizer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -596,7 +597,12 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
     }
 
     public List<Track> getTracks() {
-        return tracks;
+        return Collections.unmodifiableList(tracks);
+    }
+
+    /** Adds a track to this sequencer's track list. */
+    public void addTrack(Track track) {
+        tracks.add(track);
     }
 
     private void calculateTempo() {
@@ -1142,11 +1148,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                     normalTempo = data[t.pos++] & 0xFF;
                     calculateTempo();
                     // Parity: EA (Tempo Set) resets the tempo accumulator/counter to the new tempo value
-                    if (config.getTempoMode() == SmpsSequencerConfig.TempoMode.TIMEOUT) {
-                        tempoAccumulator = tempoWeight;
-                    } else {
-                        tempoAccumulator = tempoWeight;
-                    }
+                    tempoAccumulator = tempoWeight;
                 }
                 break;
             case 0xEB:
@@ -1683,7 +1685,6 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
 
             if (writeToneFreq) {
                 int data = reg & 0xF;
-                int type = 0;
                 int ch = t.channelId;
                 synth.writePsg(this, 0x80 | (ch << 5) | (0) | data);
                 synth.writePsg(this, (reg >> 4) & 0x3F);
@@ -2536,7 +2537,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         return speedMultiplier;
     }
 
-    public synchronized DebugState debugState() {
+    public DebugState debugState() {
         DebugState state = new DebugState();
         state.tempoWeight = tempoWeight;
         state.dividingTiming = dividingTiming;
