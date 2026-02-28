@@ -56,6 +56,9 @@ public class ParallaxManager {
 
     // Packed as (planeA << 16) | (planeB & 0xFFFF)
     private final int[] hScroll = new int[VISIBLE_LINES];
+    // Optional per-line BG VScroll deltas (added on top of vscrollFactorBG).
+    private final short[] vScrollPerLineBG = new short[VISIBLE_LINES];
+    private boolean hasPerLineVScrollBG = false;
 
     private int minScroll = 0;
     private int maxScroll = 0;
@@ -153,6 +156,8 @@ public class ParallaxManager {
         minScroll = 0;
         maxScroll = 0;
         java.util.Arrays.fill(hScroll, 0);
+        java.util.Arrays.fill(vScrollPerLineBG, (short) 0);
+        hasPerLineVScrollBG = false;
     }
 
     public void load(Rom rom) {
@@ -258,6 +263,15 @@ public class ParallaxManager {
     }
 
     /**
+     * Optional per-line BG VScroll values for shader-based heat haze effects.
+     *
+     * @return 224-entry per-line VScroll array, or null when not active
+     */
+    public short[] getVScrollPerLineBGForShader() {
+        return hasPerLineVScrollBG ? vScrollPerLineBG : null;
+    }
+
+    /**
      * Get the BG camera X position from the active scroll handler.
      * Used by LevelManager to determine which region of a wide BG map
      * to render into the 512px VDP nametable tilemap.
@@ -346,6 +360,8 @@ public class ParallaxManager {
         // Reset shake offsets at start of frame
         currentShakeOffsetX = 0;
         currentShakeOffsetY = 0;
+        java.util.Arrays.fill(vScrollPerLineBG, (short) 0);
+        hasPerLineVScrollBG = false;
 
         int cameraX = cam.getX();
         int cameraY = cam.getY();
@@ -360,6 +376,7 @@ public class ParallaxManager {
                 maxScroll = handler.getMaxScrollOffset();
                 vscrollFactorBG = handler.getVscrollFactorBG();
                 cachedBgCameraX = handler.getBgCameraX();
+                capturePerLineVScroll(handler);
             } else {
                 cachedBgCameraX = Integer.MIN_VALUE;
                 fillMinimal(cam);
@@ -791,6 +808,20 @@ public class ParallaxManager {
         for (int line = 0; line < VISIBLE_LINES; line++) {
             setLineWithOffset(line, fgScroll, offset);
         }
+    }
+
+    private void capturePerLineVScroll(ZoneScrollHandler handler) {
+        short[] perLine = handler.getPerLineVScrollBG();
+        if (perLine == null || perLine.length == 0) {
+            hasPerLineVScrollBG = false;
+            return;
+        }
+        int count = Math.min(VISIBLE_LINES, perLine.length);
+        System.arraycopy(perLine, 0, vScrollPerLineBG, 0, count);
+        if (count < VISIBLE_LINES) {
+            java.util.Arrays.fill(vScrollPerLineBG, count, VISIBLE_LINES, (short) 0);
+        }
+        hasPerLineVScrollBG = true;
     }
 
     /**

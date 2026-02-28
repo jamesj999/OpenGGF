@@ -1,8 +1,13 @@
 package com.openggf.game.sonic3k.scroll;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.scroll.ZoneScrollHandler;
+
+import java.util.Arrays;
+
 import static com.openggf.level.scroll.M68KMath.*;
 
 /**
@@ -35,11 +40,17 @@ public class SwScrlAiz implements ZoneScrollHandler {
 
     /** Origin X for AIZ1_Deform base calculation (subi.w #$1300,d0). */
     private static final int DEFORM_ORIGIN_X = 0x1300;
+    private static final byte[] AIZ_FLAME_VSCROLL = {
+            0, -1, -2, -5, -8, -10, -13, -14,
+            -15, -14, -13, -10, -7, -5, -2, -1
+    };
 
     private short vscrollFactorBG;
     private int minScrollOffset;
     private int maxScrollOffset;
     private final short[] introBandValues = new short[INTRO_DEFORM_BANDS];
+    private final short[] perLineVScrollBG = new short[VISIBLE_LINES];
+    private boolean hasPerLineVScrollBG;
 
     /** Persistent wave accumulator (ROM: HScroll_table+$03C, advances $2000/frame). */
     private long waveAccum;
@@ -52,8 +63,15 @@ public class SwScrlAiz implements ZoneScrollHandler {
                        int actId) {
         minScrollOffset = Integer.MAX_VALUE;
         maxScrollOffset = Integer.MIN_VALUE;
+        hasPerLineVScrollBG = false;
+        Arrays.fill(perLineVScrollBG, (short) 0);
 
         short fgScroll = negWord(cameraX);
+        Sonic3kAIZEvents aizEvents = resolveAizEvents();
+        boolean fireTransition = actId == 0
+                && aizEvents != null
+                && (aizEvents.isFireTransitionActive() || aizEvents.isAct2TransitionRequested());
+        int bgSourceX = fireTransition ? aizEvents.getFireTransitionBgX() : cameraX;
 
         // ROM mode gate: AIZ1 intro uses IntroDeform only before the $1400 transition.
         boolean introMode = false;
@@ -73,8 +91,14 @@ public class SwScrlAiz implements ZoneScrollHandler {
         } else {
             // AIZ1_Deform: multi-band BG parallax with per-band speeds.
             // BG vertical scroll = camera Y / 2.
-            vscrollFactorBG = asrWord(cameraY, 1);
-            computeAiz1Deform(horizScrollBuf, fgScroll, cameraX, cameraY);
+            vscrollFactorBG = fireTransition
+                    ? wordOf(aizEvents.getFireTransitionBgY())
+                    : asrWord(cameraY, 1);
+            computeAiz1Deform(horizScrollBuf, fgScroll, bgSourceX, cameraY);
+        }
+
+        if (fireTransition) {
+            buildFireWaveVScroll(frameCounter);
         }
     }
 
@@ -355,6 +379,11 @@ public class SwScrlAiz implements ZoneScrollHandler {
     }
 
     @Override
+    public short[] getPerLineVScrollBG() {
+        return hasPerLineVScrollBG ? perLineVScrollBG : null;
+    }
+
+    @Override
     public int getMinScrollOffset() {
         return minScrollOffset;
     }
@@ -362,5 +391,26 @@ public class SwScrlAiz implements ZoneScrollHandler {
     @Override
     public int getMaxScrollOffset() {
         return maxScrollOffset;
+    }
+
+    private void buildFireWaveVScroll(int frameCounter) {
+        // AIZTrans_WavyFlame advances table index by +2 each step.
+        // Mapping each step to an 8-line band gives a smooth full-screen wave.
+        int phase = (frameCounter >> 2) & 0xF;
+        for (int line = 0; line < VISIBLE_LINES; line++) {
+            int band = line >> 3;
+            int index = (phase + (band << 1)) & 0xF;
+            perLineVScrollBG[line] = AIZ_FLAME_VSCROLL[index];
+        }
+        hasPerLineVScrollBG = true;
+    }
+
+    private Sonic3kAIZEvents resolveAizEvents() {
+        try {
+            Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+            return lem != null ? lem.getAizEvents() : null;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 }

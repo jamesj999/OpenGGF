@@ -215,12 +215,17 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         if (events != null) {
             events.setBossFlag(false);
         }
+        boolean transitionInProgress = events != null
+                && (events.isFireTransitionActive() || events.isAct2TransitionRequested());
 
-        AudioManager.getInstance().getBackend().restoreMusic();
-
-        Camera camera = Camera.getInstance();
-        camera.setMinX((short) 0);
-        camera.setMaxX((short) savedCameraMaxX);
+        // During the unwinnable AIZ1 cutscene transition, BG events own camera/music flow.
+        // Only restore defaults when no transition handoff is active.
+        if (!transitionInProgress) {
+            AudioManager.getInstance().getBackend().restoreMusic();
+            Camera camera = Camera.getInstance();
+            camera.setMinX((short) 0);
+            camera.setMaxX((short) savedCameraMaxX);
+        }
 
         setDestroyed(true);
     }

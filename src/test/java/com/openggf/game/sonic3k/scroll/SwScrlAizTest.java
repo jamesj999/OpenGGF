@@ -4,11 +4,14 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.objects.ObjectSpawn;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static com.openggf.level.scroll.M68KMath.VISIBLE_LINES;
 import static com.openggf.level.scroll.M68KMath.asrWord;
@@ -28,12 +31,14 @@ public class SwScrlAizTest {
     public void setUp() {
         handler = new SwScrlAiz();
         Camera.getInstance().setLevelStarted(true);
+        Sonic3kLevelEventManager.getInstance().resetState();
         resetIntroScrollState();
     }
 
     @After
     public void tearDown() {
         Camera.getInstance().setLevelStarted(true);
+        Sonic3kLevelEventManager.getInstance().resetState();
         resetIntroScrollState();
     }
 
@@ -179,6 +184,35 @@ public class SwScrlAizTest {
         // base*14 >> 16 = 112, which is 14x the base speed of 8
         assertEquals("Band 8 speed = base*14", (short) -112, bg8);
         assertEquals("Band 11 speed = base*20", (short) -160, bg11);
+    }
+
+    @Test
+    public void fireTransitionExposesPerLineVScrollWave() {
+        Sonic3kLevelEventManager eventsManager = Sonic3kLevelEventManager.getInstance();
+        eventsManager.initLevel(0, 0);
+        Sonic3kAIZEvents events = eventsManager.getAizEvents();
+        assertNotNull(events);
+
+        events.setEventsFg5(true);
+        events.update(0, 0);
+        assertTrue(events.isFireTransitionActive());
+
+        int[] buffer = new int[VISIBLE_LINES];
+        handler.update(buffer, 0x2F10, 0x200, 8, 0);
+
+        short[] perLine = handler.getPerLineVScrollBG();
+        assertNotNull(perLine);
+        assertEquals(VISIBLE_LINES, perLine.length);
+
+        boolean hasVariation = false;
+        short first = perLine[0];
+        for (int i = 1; i < perLine.length; i++) {
+            if (perLine[i] != first) {
+                hasVariation = true;
+                break;
+            }
+        }
+        assertTrue("Expected non-flat per-line VScroll during AIZ fire transition", hasVariation);
     }
 
     private int[] buildExpectedIntroBuffer(int cameraX, int cameraY, int source) {

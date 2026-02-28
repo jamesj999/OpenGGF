@@ -5,6 +5,7 @@ import com.openggf.game.sonic1.Sonic1ObjectArtProvider;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic2.Sonic2Level;
 import com.openggf.game.sonic2.Sonic2ObjectArtProvider;
+import com.openggf.game.sonic3k.events.S3kSeamlessMutationExecutor;
 import com.openggf.game.sonic3k.Sonic3kObjectArtProvider;
 
 import com.openggf.Engine;
@@ -172,12 +173,16 @@ public class LevelManager {
     private boolean titleCardRequested;
     private int titleCardZone = -1;
     private int titleCardAct = -1;
+    private boolean inLevelTitleCardRequested;
+    private int inLevelTitleCardZone = -1;
+    private int inLevelTitleCardAct = -1;
 
     // Transition request flags (for fade-coordinated transitions)
     private boolean respawnRequested;
     private boolean nextActRequested;
     private boolean nextZoneRequested;
     private boolean specificZoneActRequested;
+    private boolean seamlessTransitionRequested;
     private boolean creditsRequested;
     private boolean forceHudSuppressed;
     private boolean suppressNextMusicChange;
@@ -187,6 +192,7 @@ public class LevelManager {
     private boolean levelInactiveForTransition;
     private int requestedZone = -1;
     private int requestedAct = -1;
+    private SeamlessLevelTransitionRequest pendingSeamlessTransitionRequest;
 
     // Background rendering support
     private final ParallaxManager parallaxManager = ParallaxManager.getInstance();
@@ -335,6 +341,7 @@ public class LevelManager {
 
     // Mutable state for pre-allocated BG renderWithScrollWide command
     private int[] pendingBgHScrollData;
+    private short[] pendingBgVScrollData;
     private int pendingBgShaderScrollMidpoint;
     private int pendingBgShaderExtraBuffer;
     private int pendingBgVOffset;
@@ -342,8 +349,9 @@ public class LevelManager {
     private final GLCommand bgRenderWithScrollCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
         BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
         if (bgRenderer != null) {
-            bgRenderer.renderWithScrollWide(pendingBgHScrollData, pendingBgShaderScrollMidpoint,
-                    pendingBgShaderExtraBuffer, pendingBgVOffset, pendingBgPerLineScroll);
+            bgRenderer.renderWithScrollWide(pendingBgHScrollData, pendingBgVScrollData,
+                    pendingBgShaderScrollMidpoint, pendingBgShaderExtraBuffer,
+                    pendingBgVOffset, pendingBgPerLineScroll);
         }
     });
 
@@ -566,10 +574,22 @@ public class LevelManager {
      * @throws IOException if an I/O error occurs while loading the level
      */
     public void loadLevel(int levelIndex) throws IOException {
+        loadLevel(levelIndex, LevelLoadMode.FULL);
+    }
+
+    /**
+     * Loads the specified level into memory with explicit load mode.
+     *
+     * @param levelIndex the index of the level to load
+     * @param loadMode   profile execution mode
+     * @throws IOException if an I/O error occurs while loading the level
+     */
+    public void loadLevel(int levelIndex, LevelLoadMode loadMode) throws IOException {
         try {
             LevelInitProfile profile = GameModuleRegistry.getCurrent().getLevelInitProfile();
             LevelLoadContext ctx = new LevelLoadContext();
             ctx.setLevelIndex(levelIndex);
+            ctx.setLoadMode(loadMode);
 
             List<InitStep> steps = profile.levelLoadSteps(ctx);
             if (steps.isEmpty()) {
@@ -1699,6 +1719,7 @@ public class LevelManager {
                 backdropColor.bFloat());
 
         int[] hScrollData = parallaxManager.getHScrollForShader();
+        short[] vScrollData = parallaxManager.getVScrollPerLineBGForShader();
 
         // For zones with BG maps wider than 512px (e.g., SBZ/FZ with 15360px BG),
         // the 512px tilemap must contain tiles from the correct BG map region.
@@ -1828,6 +1849,7 @@ public class LevelManager {
                 shaderVOffset += LevelConstants.CHUNK_HEIGHT; // Handle negative modulo
 
             pendingBgHScrollData = hScrollData;
+            pendingBgVScrollData = vScrollData;
             pendingBgShaderScrollMidpoint = shaderScrollMidpoint;
             pendingBgShaderExtraBuffer = shaderExtraBuffer;
             pendingBgVOffset = shaderVOffset;
@@ -3868,6 +3890,80 @@ public class LevelManager {
         loadCurrentLevel();
     }
 
+    /**
+     * Performs an in-place seamless zone/act reload without using fade transitions.
+     */
+    public void loadZoneAndActSeamless(SeamlessLevelTransitionRequest request) throws IOException {
+        if (request == null) {
+            return;
+        }
+        if (request.preserveMusic()) {
+            setSuppressNextMusicChange(true);
+        }
+
+        // Preserve checkpoint payload in case a non-seamless profile step clears it.
+        boolean hasCheckpoint = checkpointState != null && checkpointState.isActive();
+        int checkpointX = hasCheckpoint ? checkpointState.getSavedX() : 0;
+        int checkpointY = hasCheckpoint ? checkpointState.getSavedY() : 0;
+        int checkpointCameraX = hasCheckpoint ? checkpointState.getSavedCameraX() : 0;
+        int checkpointCameraY = hasCheckpoint ? checkpointState.getSavedCameraY() : 0;
+        int checkpointIndex = hasCheckpoint ? checkpointState.getLastCheckpointIndex() : -1;
+
+        if (levels.isEmpty()) {
+            gameModule = GameModuleRegistry.getCurrent();
+            refreshZoneList();
+        }
+
+        currentZone = request.targetZone();
+        currentAct = request.targetAct();
+        LevelData levelData = levels.get(currentZone).get(currentAct);
+        loadLevel(levelData.getLevelIndex(), LevelLoadMode.SEAMLESS_RELOAD);
+
+        if (hasCheckpoint && checkpointState != null) {
+            checkpointState.restoreFromSaved(checkpointX, checkpointY, checkpointCameraX, checkpointCameraY, checkpointIndex);
+        }
+    }
+
+    private void restoreCameraBoundsForCurrentLevel() {
+        Level currentLevel = getCurrentLevel();
+        if (currentLevel == null) {
+            return;
+        }
+        camera.setMinX((short) currentLevel.getMinX());
+        camera.setMaxX((short) currentLevel.getMaxX());
+        camera.setMinY((short) currentLevel.getMinY());
+        camera.setMaxY((short) currentLevel.getMaxY());
+        verticalWrapEnabled = camera.isVerticalWrapEnabled();
+    }
+
+    private void applySeamlessOffsets(SeamlessLevelTransitionRequest request) {
+        if (request == null) {
+            return;
+        }
+        if (camera.getFocusedSprite() instanceof AbstractPlayableSprite playable) {
+            int newX = playable.getCentreX() + request.playerOffsetX();
+            int newY = playable.getCentreY() + request.playerOffsetY();
+            playable.setCentreX((short) newX);
+            playable.setCentreY((short) newY);
+        }
+        AbstractPlayableSprite sidekick = spriteManager.getSidekick();
+        if (sidekick != null) {
+            int newX = sidekick.getCentreX() + request.playerOffsetX();
+            int newY = sidekick.getCentreY() + request.playerOffsetY();
+            sidekick.setCentreX((short) newX);
+            sidekick.setCentreY((short) newY);
+        }
+        camera.setX((short) (camera.getX() + request.cameraOffsetX()));
+        camera.setY((short) (camera.getY() + request.cameraOffsetY()));
+    }
+
+    private void initLevelEventsForCurrentZoneAct() {
+        LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        if (levelEvents != null) {
+            levelEvents.initLevel(currentZone, currentAct);
+        }
+    }
+
     public void nextZone() throws IOException {
         currentZone++;
         if (currentZone >= levels.size()) {
@@ -3947,6 +4043,15 @@ public class LevelManager {
     }
 
     /**
+     * Requests an in-level (transparent) title card overlay.
+     */
+    public void requestInLevelTitleCard(int zone, int act) {
+        this.inLevelTitleCardRequested = true;
+        this.inLevelTitleCardZone = zone;
+        this.inLevelTitleCardAct = act;
+    }
+
+    /**
      * Checks if a title card has been requested.
      *
      * @return true if a title card was requested since last check
@@ -3974,6 +4079,15 @@ public class LevelManager {
     }
 
     /**
+     * Consumes and clears the in-level title card request flag.
+     */
+    public boolean consumeInLevelTitleCardRequest() {
+        boolean requested = inLevelTitleCardRequested;
+        inLevelTitleCardRequested = false;
+        return requested;
+    }
+
+    /**
      * Gets the zone index for the requested title card.
      *
      * @return zone index, or -1 if none requested
@@ -3989,6 +4103,14 @@ public class LevelManager {
      */
     public int getTitleCardAct() {
         return titleCardAct;
+    }
+
+    public int getInLevelTitleCardZone() {
+        return inLevelTitleCardZone;
+    }
+
+    public int getInLevelTitleCardAct() {
+        return inLevelTitleCardAct;
     }
 
     /**
@@ -4025,14 +4147,19 @@ public class LevelManager {
         titleCardRequested = false;
         titleCardZone = -1;
         titleCardAct = -1;
+        inLevelTitleCardRequested = false;
+        inLevelTitleCardZone = -1;
+        inLevelTitleCardAct = -1;
         respawnRequested = false;
         nextActRequested = false;
         nextZoneRequested = false;
         specificZoneActRequested = false;
+        seamlessTransitionRequested = false;
         verticalWrapEnabled = false;
         levelInactiveForTransition = false;
         requestedZone = -1;
         requestedAct = -1;
+        pendingSeamlessTransitionRequest = null;
         cacheLevelDimensions();
         levels.clear();
     }
@@ -4186,6 +4313,83 @@ public class LevelManager {
         this.requestedAct = act;
         this.specificZoneActRequested = true;
         this.levelInactiveForTransition = deactivateLevelNow;
+    }
+
+    /**
+     * Request an in-place seamless transition. GameLoop will execute it directly
+     * without fade.
+     */
+    public void requestSeamlessTransition(SeamlessLevelTransitionRequest request) {
+        if (request == null) {
+            return;
+        }
+        this.pendingSeamlessTransitionRequest = request;
+        this.seamlessTransitionRequested = true;
+        this.levelInactiveForTransition = request.deactivateLevelNow();
+    }
+
+    /**
+     * Consumes the pending seamless transition request.
+     */
+    public SeamlessLevelTransitionRequest consumeSeamlessTransitionRequest() {
+        if (!seamlessTransitionRequested) {
+            return null;
+        }
+        seamlessTransitionRequested = false;
+        SeamlessLevelTransitionRequest request = pendingSeamlessTransitionRequest;
+        pendingSeamlessTransitionRequest = null;
+        return request;
+    }
+
+    /**
+     * Applies a seamless transition immediately.
+     */
+    public void applySeamlessTransition(SeamlessLevelTransitionRequest request) {
+        if (request == null) {
+            return;
+        }
+
+        try {
+            specialStageReturnLevelReloadRequested = false;
+            switch (request.type()) {
+                case MUTATE_ONLY -> applySeamlessMutation(request.mutationKey());
+                case RELOAD_SAME_LEVEL -> {
+                    SeamlessLevelTransitionRequest adjusted = SeamlessLevelTransitionRequest
+                            .builder(SeamlessLevelTransitionRequest.TransitionType.RELOAD_TARGET_LEVEL)
+                            .targetZoneAct(currentZone, currentAct)
+                            .deactivateLevelNow(request.deactivateLevelNow())
+                            .preserveMusic(request.preserveMusic())
+                            .showInLevelTitleCard(request.showInLevelTitleCard())
+                            .playerOffset(request.playerOffsetX(), request.playerOffsetY())
+                            .cameraOffset(request.cameraOffsetX(), request.cameraOffsetY())
+                            .mutationKey(request.mutationKey())
+                            .build();
+                    loadZoneAndActSeamless(adjusted);
+                    initLevelEventsForCurrentZoneAct();
+                }
+                case RELOAD_TARGET_LEVEL -> {
+                    loadZoneAndActSeamless(request);
+                    initLevelEventsForCurrentZoneAct();
+                }
+                default -> {
+                }
+            }
+
+            applySeamlessOffsets(request);
+            restoreCameraBoundsForCurrentLevel();
+            camera.updatePosition(true);
+            if (request.showInLevelTitleCard() && !graphicsManager.isHeadlessMode()) {
+                requestInLevelTitleCard(currentZone, currentAct);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to apply seamless transition", e);
+        } finally {
+            levelInactiveForTransition = false;
+        }
+    }
+
+    private void applySeamlessMutation(String mutationKey) {
+        S3kSeamlessMutationExecutor.apply(this, mutationKey);
     }
 
     /**

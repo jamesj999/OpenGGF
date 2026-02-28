@@ -1,6 +1,8 @@
 package com.openggf.game.sonic3k;
 
 import com.openggf.game.InitStep;
+import com.openggf.game.LevelLoadContext;
+import com.openggf.game.LevelLoadMode;
 import com.openggf.game.StaticFixup;
 import org.junit.Test;
 import java.util.List;
@@ -78,5 +80,15 @@ public class TestSonic3kLevelInitProfile {
         assertEquals("InitPlayerAndCheckpoint", steps.get(10).name());
         assertEquals("InitWater", steps.get(11).name());
         assertEquals("InitBackgroundRenderer", steps.get(12).name());
+    }
+
+    @Test
+    public void seamlessReloadSkipsInitPlayerAndCheckpointStep() {
+        LevelLoadContext ctx = new LevelLoadContext();
+        ctx.setLoadMode(LevelLoadMode.SEAMLESS_RELOAD);
+        List<InitStep> steps = profile.levelLoadSteps(ctx);
+
+        assertEquals(12, steps.size());
+        assertFalse(steps.stream().anyMatch(step -> "InitPlayerAndCheckpoint".equals(step.name())));
     }
 }
