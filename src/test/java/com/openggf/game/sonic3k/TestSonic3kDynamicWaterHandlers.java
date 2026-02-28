@@ -73,11 +73,11 @@ public class TestSonic3kDynamicWaterHandlers {
     }
 
     @Test
-    public void lbz2KnucklesHandlerIsThresholdTable() {
+    public void lbz2KnucklesHandlerIsLbz2Handler() {
         DynamicWaterHandler handler = provider.getDynamicHandler(
                 Sonic3kZoneIds.ZONE_LBZ, 1, PlayerCharacter.KNUCKLES);
         assertNotNull("LBZ2 Knuckles should have a dynamic handler", handler);
-        assertInstanceOf(ThresholdTableWaterHandler.class, handler);
+        assertInstanceOf(Lbz2KnucklesDynamicWaterHandler.class, handler);
     }
 
     @Test
@@ -373,6 +373,112 @@ public class TestSonic3kDynamicWaterHandlers {
         int after = state.getMeanLevel();
         assertEquals("Rise should inherit speed=2 from drop phase",
                 2, after - before);
+    }
+
+    // =====================================================================
+    // Locked flag tests — ROM _unkFAA2 (boss/cutscene lock)
+    // =====================================================================
+
+    @Test
+    public void lockedFlagPreventsHandlerExecution() {
+        // When locked, the handler should be skipped in updateDynamic()
+        WaterSystem.DynamicWaterState state = new WaterSystem.DynamicWaterState(0x0700);
+        state.setLocked(true);
+        assertTrue("State should report locked", state.isLocked());
+
+        // Unlocking should allow handler execution
+        state.setLocked(false);
+        assertFalse("State should report unlocked", state.isLocked());
+    }
+
+    // =====================================================================
+    // Shake timer tests — ROM Obj_6E6E (180-frame countdown)
+    // =====================================================================
+
+    @Test
+    public void aiz2TriggerSetsShakeTimer() {
+        Aiz2DynamicWaterHandler handler = new Aiz2DynamicWaterHandler();
+        WaterSystem.DynamicWaterState state = new WaterSystem.DynamicWaterState(
+                Aiz2DynamicWaterHandler.INITIAL_LEVEL);
+
+        // Drop
+        handler.update(state, 0x1000, 0);
+        assertEquals(0, state.getShakeTimer());
+
+        // Simulate water reaching drop level
+        state.setMeanDirect(Aiz2DynamicWaterHandler.DROP_LEVEL);
+
+        // Trigger rise — should set shake timer
+        handler.update(state, Aiz2DynamicWaterHandler.TRIGGER_X, 0);
+        assertEquals("Shake timer should be set to 180",
+                Aiz2DynamicWaterHandler.SHAKE_DURATION, state.getShakeTimer());
+    }
+
+    @Test
+    public void shakeTimerDoesNotResetOnSubsequentUpdates() {
+        Aiz2DynamicWaterHandler handler = new Aiz2DynamicWaterHandler();
+        WaterSystem.DynamicWaterState state = new WaterSystem.DynamicWaterState(
+                Aiz2DynamicWaterHandler.INITIAL_LEVEL);
+
+        // Drop + trigger rise
+        handler.update(state, 0x1000, 0);
+        state.setMeanDirect(Aiz2DynamicWaterHandler.DROP_LEVEL);
+        handler.update(state, Aiz2DynamicWaterHandler.TRIGGER_X, 0);
+        assertEquals(180, state.getShakeTimer());
+
+        // Manually decrement to simulate some frames passing
+        state.setShakeTimer(50);
+
+        // Subsequent handler call should NOT re-set timer (target already == INITIAL_LEVEL)
+        handler.update(state, Aiz2DynamicWaterHandler.TRIGGER_X + 100, 0);
+        assertEquals("Timer should not be re-set once target is already INITIAL_LEVEL",
+                50, state.getShakeTimer());
+    }
+
+    // =====================================================================
+    // LBZ2 Knuckles pipe plug tests — ROM _unkF7C2
+    // =====================================================================
+
+    @Test
+    public void lbz2KnucklesNormalModeUsesThresholdTable() {
+        Lbz2KnucklesDynamicWaterHandler handler =
+                (Lbz2KnucklesDynamicWaterHandler) provider.getDynamicHandler(
+                        Sonic3kZoneIds.ZONE_LBZ, 1, PlayerCharacter.KNUCKLES);
+        WaterSystem.DynamicWaterState state = new WaterSystem.DynamicWaterState(0x0A80);
+
+        // Normal mode (pipe plug not destroyed) — should use threshold table
+        assertFalse(handler.isPipePlugDestroyed());
+        handler.update(state, 0, 0);
+        assertEquals("Should instant-set to 0x0FF0 via threshold table",
+                0x0FF0, state.getMeanLevel());
+    }
+
+    @Test
+    public void lbz2KnucklesPipePlugSnapsTo0x0660WhenMeanBelowCameraY() {
+        Lbz2KnucklesDynamicWaterHandler handler =
+                (Lbz2KnucklesDynamicWaterHandler) provider.getDynamicHandler(
+                        Sonic3kZoneIds.ZONE_LBZ, 1, PlayerCharacter.KNUCKLES);
+        WaterSystem.DynamicWaterState state = new WaterSystem.DynamicWaterState(0x0500);
+
+        handler.setPipePlugDestroyed(true);
+        // meanLevel (0x0500) < cameraY (0x0600) — should snap to 0x0660
+        handler.update(state, 0, 0x0600);
+        assertEquals("Pipe plug path: should snap to 0x0660",
+                Lbz2KnucklesDynamicWaterHandler.PIPE_PLUG_SNAP_LEVEL, state.getMeanLevel());
+    }
+
+    @Test
+    public void lbz2KnucklesPipePlugNoSnapWhenMeanAboveCameraY() {
+        Lbz2KnucklesDynamicWaterHandler handler =
+                (Lbz2KnucklesDynamicWaterHandler) provider.getDynamicHandler(
+                        Sonic3kZoneIds.ZONE_LBZ, 1, PlayerCharacter.KNUCKLES);
+        WaterSystem.DynamicWaterState state = new WaterSystem.DynamicWaterState(0x0800);
+
+        handler.setPipePlugDestroyed(true);
+        // meanLevel (0x0800) >= cameraY (0x0600) — should NOT snap
+        handler.update(state, 0, 0x0600);
+        assertEquals("Pipe plug path: mean >= cameraY, no snap",
+                0x0800, state.getMeanLevel());
     }
 
     private static void assertInstanceOf(Class<?> expectedType, Object actual) {

@@ -220,13 +220,14 @@ public class Sonic3kWaterDataProvider implements WaterDataProvider {
         }
 
         // LBZ1: no water per CheckLevelForWater (only LBZ2 has water)
-        // LBZ2: Knuckles only (word_6F12)
+        // LBZ2: Knuckles only — threshold table + pipe plug alternate path (loc_6F00)
         if (zoneId == Sonic3kZoneIds.ZONE_LBZ && actId == 1) {
             if (character == PlayerCharacter.KNUCKLES) {
-                return new ThresholdTableWaterHandler(List.of(
+                ThresholdTableWaterHandler thresholds = new ThresholdTableWaterHandler(List.of(
                     new WaterThreshold(0x0D80, 0x8FF0),   // cameraX <= 0x0D80 -> instant 0x0FF0
                     new WaterThreshold(0xFFFF, 0x8B20)    // fallback -> instant 0x0B20
                 ));
+                return new Lbz2KnucklesDynamicWaterHandler(thresholds);
             }
             // Sonic/Tails: no dynamic water
             return null;

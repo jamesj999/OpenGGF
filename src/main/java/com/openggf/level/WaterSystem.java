@@ -112,6 +112,8 @@ public class WaterSystem {
         private boolean rising;    // True if water is actively moving
         private int speed;         // Pixels per frame toward target (ROM: Water_speed, default 1)
         private DynamicWaterHandler handler; // Per-frame update logic, nullable
+        private boolean locked;    // ROM _unkFAA2: when true, dynamic handler is skipped (boss/cutscene)
+        private int shakeTimer;    // Screen shake countdown frames (0 = inactive)
 
         public DynamicWaterState(int initialLevel) {
             this.currentLevel = initialLevel;
@@ -120,6 +122,8 @@ public class WaterSystem {
             this.rising = false;
             this.speed = 1;
             this.handler = null;
+            this.locked = false;
+            this.shakeTimer = 0;
         }
 
         public void setTarget(int targetY) {
@@ -142,6 +146,14 @@ public class WaterSystem {
         public int getCurrentLevel() { return currentLevel; }
         public int getTargetLevel() { return targetLevel; }
         public int getMeanLevel() { return meanLevel; }
+
+        /** ROM _unkFAA2: when true, the dynamic handler is skipped (boss/cutscene lock). */
+        public boolean isLocked() { return locked; }
+        public void setLocked(boolean locked) { this.locked = locked; }
+
+        /** Screen shake countdown frames. 0 = inactive. */
+        public int getShakeTimer() { return shakeTimer; }
+        public void setShakeTimer(int timer) { this.shakeTimer = timer; }
 
         /** Move mean toward target by speed pixels. Returns true if still moving.
          *  ROM adds full speed in one step (add.w d1,(Mean_water_level).w at
@@ -301,11 +313,17 @@ public class WaterSystem {
         if (state == null) {
             return;
         }
+        // ROM _unkFAA2: skip handler when locked (boss/cutscene)
         DynamicWaterHandler handler = state.getHandler();
-        if (handler != null) {
+        if (handler != null && !state.isLocked()) {
             handler.update(state, cameraX, cameraY);
         }
         state.update(); // Move mean toward target
+
+        // Tick screen shake countdown (ROM: Obj_6E6E 180-frame timer)
+        if (state.shakeTimer > 0) {
+            state.shakeTimer--;
+        }
     }
 
     /**
