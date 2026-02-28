@@ -667,9 +667,9 @@ public class LevelManager {
     }
 
     /**
-     * Phase G: Create ObjectManager, wire CollisionSystem, and reset camera bounds.
+     * Phase G: Create ObjectManager, TouchResponseTable, and wire CollisionSystem.
      */
-    public void initObjectSystem() throws IOException {
+    public void initObjectManager() throws IOException {
         Rom rom = GameServices.rom().getRom();
         RomByteReader romReader = RomByteReader.fromRom(rom);
         touchResponseTable = gameModule.createTouchResponseTable(romReader);
@@ -680,12 +680,26 @@ public class LevelManager {
                 touchResponseTable);
         // Wire up CollisionSystem with ObjectManager for unified collision pipeline
         CollisionSystem.getInstance().setObjectManager(objectManager);
+    }
+
+    /**
+     * Phase G: Reset camera bounds and initialize object placement window.
+     */
+    public void initCameraBounds() {
         // Reset camera state from previous level (signpost may have locked it)
         Camera camera = Camera.getInstance();
         camera.setFrozen(false);
         camera.setMinX((short) 0);
         camera.setMaxX((short) (level.getMap().getWidth() * blockPixelSize));
         objectManager.reset(camera.getX());
+    }
+
+    /**
+     * Phase G: Create ObjectManager, wire CollisionSystem, and reset camera bounds.
+     */
+    public void initObjectSystem() throws IOException {
+        initObjectManager();
+        initCameraBounds();
     }
 
     /**
