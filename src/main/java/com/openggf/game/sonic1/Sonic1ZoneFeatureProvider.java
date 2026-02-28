@@ -50,8 +50,9 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
         isSBZ3 = (zoneIndex == Sonic1Constants.ZONE_SBZ && actIndex == 2);
 
         if (hasWater(zoneIndex)) {
-            // Initialize water system from ROM (hardcoded S1 water heights)
-            WaterSystem.getInstance().loadForLevelS1(rom, zoneIndex, actIndex);
+            // Water loading is handled by LevelManager.initWater() via
+            // Sonic1WaterDataProvider (provider-based path). This provider
+            // no longer calls WaterSystem.loadForLevelS1() directly.
 
             // Create the water event state machine for dynamic water levels
             waterEvents = new Sonic1LZWaterEvents(Camera.getInstance());

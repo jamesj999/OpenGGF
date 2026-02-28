@@ -7,14 +7,26 @@ import com.openggf.game.WaterDataProvider;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.level.Palette;
 
+import java.util.logging.Logger;
+
 /**
  * Water data provider for Sonic the Hedgehog 1.
  * <p>
  * S1 water heights are hardcoded in the assembly (LZWaterFeatures.asm lines 49-52)
  * rather than stored in a ROM table like S2. Only Labyrinth Zone (all 3 acts) and
  * Scrap Brain Zone Act 3 (SBZ3, which reuses LZ water mechanics) have water.
+ * <p>
+ * S1 has two separate underwater palette sets per water zone:
+ * <ul>
+ *   <li>Zone palette (128 bytes, 4 palette lines): Pal_LZWater or Pal_SBZ3Water</li>
+ *   <li>Sonic palette (32 bytes, 1 palette line): Pal_LZSonWater or Pal_SBZ3SonWat,
+ *       overwrites palette line 0 with Sonic's underwater colors</li>
+ * </ul>
  */
 public class Sonic1WaterDataProvider implements WaterDataProvider {
+    private static final Logger LOGGER = Logger.getLogger(Sonic1WaterDataProvider.class.getName());
+
+    private static final int PALETTE_SIZE_BYTES = 128; // 64 colors * 2 bytes per color
 
     // Water heights from LZWaterFeatures.asm WaterHeight table (lines 49-52)
     private static final int[] LZ_HEIGHTS = {
@@ -48,8 +60,46 @@ public class Sonic1WaterDataProvider implements WaterDataProvider {
 
     @Override
     public Palette[] getUnderwaterPalette(Rom rom, int zoneId, int actId, PlayerCharacter character) {
-        // Deferred -- existing WaterSystem.loadS1UnderwaterPalette() handles palette loading
-        return null;
+        int zoneUnderwaterAddr;
+        int sonicUnderwaterAddr;
+
+        if (zoneId == Sonic1Constants.ZONE_LZ) {
+            zoneUnderwaterAddr = Sonic1Constants.PAL_LZ_UNDERWATER_ADDR;          // 0x2460
+            sonicUnderwaterAddr = Sonic1Constants.PAL_LZ_SONIC_UNDERWATER_ADDR;   // 0x2820
+        } else if (zoneId == Sonic1Constants.ZONE_SBZ) {
+            zoneUnderwaterAddr = Sonic1Constants.PAL_SBZ3_UNDERWATER_ADDR;        // 0x27A0
+            sonicUnderwaterAddr = Sonic1Constants.PAL_SBZ3_SONIC_UNDERWATER_ADDR; // 0x2840
+        } else {
+            return null;
+        }
+
+        try {
+            // Load the 4-line zone underwater palette (128 bytes)
+            byte[] paletteData = rom.readBytes(zoneUnderwaterAddr, PALETTE_SIZE_BYTES);
+            Palette[] palettes = new Palette[4];
+            for (int i = 0; i < 4; i++) {
+                byte[] lineData = new byte[32];
+                System.arraycopy(paletteData, i * 32, lineData, 0, 32);
+                palettes[i] = new Palette();
+                palettes[i].fromSegaFormat(lineData);
+            }
+
+            // Load Sonic's underwater palette (32 bytes = 1 palette line) into line 0.
+            // In S1, the Sonic underwater palette replaces palette line 0 (the sprite
+            // palette line containing Sonic's colors). The zone underwater palette at
+            // destinationPaletteLine=0 covers all 4 lines, then the Sonic-specific
+            // palette overwrites line 0 with Sonic's underwater colors.
+            byte[] sonicPalData = rom.readBytes(sonicUnderwaterAddr, 32);
+            palettes[0] = new Palette();
+            palettes[0].fromSegaFormat(sonicPalData);
+
+            return palettes;
+        } catch (Exception e) {
+            LOGGER.warning(String.format(
+                    "Failed to load S1 underwater palette for zone %d at 0x%X: %s",
+                    zoneId, zoneUnderwaterAddr, e.getMessage()));
+            return null;
+        }
     }
 
     @Override
