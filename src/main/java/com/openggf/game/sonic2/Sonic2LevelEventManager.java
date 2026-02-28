@@ -204,17 +204,6 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
         return htzEvents.getHtzBgVerticalShift();
     }
 
-    // =========================================================================
-    // Lifecycle
-    // =========================================================================
-
-    /**
-     * Resets mutable state without destroying the singleton instance.
-     */
-    public void resetState() {
-        initLevel(-1, -1);
-    }
-
     public static synchronized Sonic2LevelEventManager getInstance() {
         if (instance == null) {
             instance = new Sonic2LevelEventManager();
