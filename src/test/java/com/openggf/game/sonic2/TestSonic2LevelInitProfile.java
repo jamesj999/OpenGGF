@@ -59,19 +59,24 @@ public class TestSonic2LevelInitProfile {
     }
 
     @Test
-    public void levelLoadStepsContains8RomAlignedSteps() {
+    public void levelLoadStepsContains13RomAlignedSteps() {
         List<InitStep> steps = profile.levelLoadSteps(new com.openggf.game.LevelLoadContext());
 
-        assertEquals(8, steps.size());
+        assertEquals(13, steps.size());
 
-        assertEquals("InitModuleAndAudio", steps.get(0).name());
-        assertEquals("LoadLevelData", steps.get(1).name());
-        assertEquals("InitAnimatedContent", steps.get(2).name());
-        assertEquals("InitObjectSystem", steps.get(3).name());
-        assertEquals("InitGameState", steps.get(4).name());
-        assertEquals("InitArtAndPlayer", steps.get(5).name());
-        assertEquals("InitWater", steps.get(6).name());
-        assertEquals("InitBackgroundRenderer", steps.get(7).name());
+        assertEquals("InitGameModule", steps.get(0).name());
+        assertEquals("InitAudio", steps.get(1).name());
+        assertEquals("LoadLevelData", steps.get(2).name());
+        assertEquals("InitAnimatedContent", steps.get(3).name());
+        assertEquals("InitObjectManager", steps.get(4).name());
+        assertEquals("InitCameraBounds", steps.get(5).name());
+        assertEquals("InitGameplayState", steps.get(6).name());
+        assertEquals("InitRings", steps.get(7).name());
+        assertEquals("InitZoneFeatures", steps.get(8).name());
+        assertEquals("InitArt", steps.get(9).name());
+        assertEquals("InitPlayerAndCheckpoint", steps.get(10).name());
+        assertEquals("InitWater", steps.get(11).name());
+        assertEquals("InitBackgroundRenderer", steps.get(12).name());
     }
 
     @Test
