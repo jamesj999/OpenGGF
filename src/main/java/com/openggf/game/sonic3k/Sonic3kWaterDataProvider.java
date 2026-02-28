@@ -176,42 +176,49 @@ public class Sonic3kWaterDataProvider implements WaterDataProvider {
             return new Aiz2DynamicWaterHandler();
         }
 
-        // HCZ1: threshold table
+        // HCZ1: threshold table (word_6E8C)
+        // ROM format: dc.w target, cameraX_threshold (32-bit longword pairs)
         if (zoneId == Sonic3kZoneIds.ZONE_HCZ && actId == 0) {
             return new ThresholdTableWaterHandler(List.of(
-                new WaterThreshold(0x8500, 0x0900),
-                new WaterThreshold(0x8680, 0x2A00),
-                new WaterThreshold(0x86A0, 0x3500)
+                new WaterThreshold(0x0900, 0x8500),   // cameraX <= 0x0900 -> instant 0x0500
+                new WaterThreshold(0x2A00, 0x8680),   // cameraX <= 0x2A00 -> instant 0x0680
+                new WaterThreshold(0x3500, 0x8680),   // cameraX <= 0x3500 -> instant 0x0680
+                new WaterThreshold(0xFFFF, 0x86A0)    // fallback -> instant 0x06A0
             ));
         }
 
-        // HCZ2: character-dependent thresholds
+        // HCZ2: character-dependent thresholds (word_6EBA / word_6EC2)
         if (zoneId == Sonic3kZoneIds.ZONE_HCZ && actId == 1) {
             if (character == PlayerCharacter.KNUCKLES) {
                 return new ThresholdTableWaterHandler(List.of(
-                    new WaterThreshold(0x0700, 0x4100)
+                    new WaterThreshold(0x4100, 0x0700),   // cameraX <= 0x4100 -> target 0x0700
+                    new WaterThreshold(0xFFFF, 0x8360)    // fallback -> instant 0x0360
                 ));
             }
             // Sonic/Tails
             return new ThresholdTableWaterHandler(List.of(
-                new WaterThreshold(0x0700, 0x3E00)
+                new WaterThreshold(0x3E00, 0x0700),   // cameraX <= 0x3E00 -> target 0x0700
+                new WaterThreshold(0xFFFF, 0x07E0)    // fallback -> target 0x07E0
             ));
         }
 
-        // LBZ1: threshold table
+        // LBZ1: threshold table (word_6ED4)
         if (zoneId == Sonic3kZoneIds.ZONE_LBZ && actId == 0) {
             return new ThresholdTableWaterHandler(List.of(
-                new WaterThreshold(0x8B00, 0x0E00),
-                new WaterThreshold(0x8A00, 0x1980),
-                new WaterThreshold(0x8AC8, 0x2C00)
+                new WaterThreshold(0x0E00, 0x8B00),   // cameraX <= 0x0E00 -> instant 0x0B00
+                new WaterThreshold(0x1980, 0x8A00),   // cameraX <= 0x1980 -> instant 0x0A00
+                new WaterThreshold(0x2340, 0x8A00),   // cameraX <= 0x2340 -> instant 0x0A00
+                new WaterThreshold(0x2C00, 0x8AC8),   // cameraX <= 0x2C00 -> instant 0x0AC8
+                new WaterThreshold(0xFFFF, 0x8FF0)    // fallback -> instant 0x0FF0
             ));
         }
 
-        // LBZ2: Knuckles only
+        // LBZ2: Knuckles only (word_6F12)
         if (zoneId == Sonic3kZoneIds.ZONE_LBZ && actId == 1) {
             if (character == PlayerCharacter.KNUCKLES) {
                 return new ThresholdTableWaterHandler(List.of(
-                    new WaterThreshold(0x8FF0, 0x0D80)
+                    new WaterThreshold(0x0D80, 0x8FF0),   // cameraX <= 0x0D80 -> instant 0x0FF0
+                    new WaterThreshold(0xFFFF, 0x8B20)    // fallback -> instant 0x0B20
                 ));
             }
             // Sonic/Tails: no dynamic water

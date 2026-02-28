@@ -106,54 +106,74 @@ public class TestSonic3kDynamicWaterHandlers {
     // =====================================================================
 
     @Test
-    public void hcz1BelowFirstThresholdSetsTarget0x0900() {
+    public void hcz1BelowFirstThresholdInstantSetsTo0x0500() {
+        // ROM word_6E8C: dc.w $8500, $0900 — cameraX <= 0x0900 -> instant-set 0x0500
         DynamicWaterHandler handler = provider.getDynamicHandler(
                 Sonic3kZoneIds.ZONE_HCZ, 0, PlayerCharacter.SONIC_AND_TAILS);
         WaterSystem.DynamicWaterState state = new WaterSystem.DynamicWaterState(0x0500);
 
-        // cameraX=0 is below first threshold (0x8500)
         handler.update(state, 0, 0);
-        assertEquals(0x0900, state.getTargetLevel());
+        assertEquals("Bit-15 target 0x8500 should instant-set to 0x0500",
+                0x0500, state.getTargetLevel());
+        assertEquals(0x0500, state.getMeanLevel());
     }
 
     @Test
-    public void hcz2SonicBelowFirstThresholdSetsTarget0x3E00() {
+    public void hcz1FallbackInstantSetsTo0x06A0() {
+        // ROM word_6E8C last entry: dc.w $86A0, $FFFF — fallback instant-set 0x06A0
+        DynamicWaterHandler handler = provider.getDynamicHandler(
+                Sonic3kZoneIds.ZONE_HCZ, 0, PlayerCharacter.SONIC_AND_TAILS);
+        WaterSystem.DynamicWaterState state = new WaterSystem.DynamicWaterState(0x0500);
+
+        handler.update(state, 0xF000, 0); // past all thresholds except fallback
+        assertEquals(0x06A0, state.getTargetLevel());
+        assertEquals(0x06A0, state.getMeanLevel());
+    }
+
+    @Test
+    public void hcz2SonicBelowFirstThresholdSetsTarget0x0700() {
+        // ROM word_6EBA: dc.w $0700, $3E00 — cameraX <= 0x3E00 -> target 0x0700 (gradual)
         DynamicWaterHandler handler = provider.getDynamicHandler(
                 Sonic3kZoneIds.ZONE_HCZ, 1, PlayerCharacter.SONIC_AND_TAILS);
         WaterSystem.DynamicWaterState state = new WaterSystem.DynamicWaterState(0x0700);
 
         handler.update(state, 0, 0);
-        assertEquals(0x3E00, state.getTargetLevel());
+        assertEquals(0x0700, state.getTargetLevel());
     }
 
     @Test
-    public void hcz2KnucklesBelowFirstThresholdSetsTarget0x4100() {
+    public void hcz2KnucklesBelowFirstThresholdSetsTarget0x0700() {
+        // ROM word_6EC2: dc.w $0700, $4100 — cameraX <= 0x4100 -> target 0x0700 (gradual)
         DynamicWaterHandler handler = provider.getDynamicHandler(
                 Sonic3kZoneIds.ZONE_HCZ, 1, PlayerCharacter.KNUCKLES);
         WaterSystem.DynamicWaterState state = new WaterSystem.DynamicWaterState(0x0700);
 
         handler.update(state, 0, 0);
-        assertEquals(0x4100, state.getTargetLevel());
+        assertEquals(0x0700, state.getTargetLevel());
     }
 
     @Test
-    public void lbz1BelowFirstThresholdSetsTarget0x0E00() {
+    public void lbz1BelowFirstThresholdInstantSetsTo0x0B00() {
+        // ROM word_6ED4: dc.w $8B00, $0E00 — cameraX <= 0x0E00 -> instant-set 0x0B00
         DynamicWaterHandler handler = provider.getDynamicHandler(
                 Sonic3kZoneIds.ZONE_LBZ, 0, PlayerCharacter.SONIC_AND_TAILS);
         WaterSystem.DynamicWaterState state = new WaterSystem.DynamicWaterState(0x0AD8);
 
         handler.update(state, 0, 0);
-        assertEquals(0x0E00, state.getTargetLevel());
+        assertEquals(0x0B00, state.getTargetLevel());
+        assertEquals(0x0B00, state.getMeanLevel());
     }
 
     @Test
-    public void lbz2KnucklesBelowThresholdSetsTarget0x0D80() {
+    public void lbz2KnucklesBelowThresholdInstantSetsTo0x0FF0() {
+        // ROM word_6F12: dc.w $8FF0, $0D80 — cameraX <= 0x0D80 -> instant-set 0x0FF0
         DynamicWaterHandler handler = provider.getDynamicHandler(
                 Sonic3kZoneIds.ZONE_LBZ, 1, PlayerCharacter.KNUCKLES);
         WaterSystem.DynamicWaterState state = new WaterSystem.DynamicWaterState(0x0A80);
 
         handler.update(state, 0, 0);
-        assertEquals(0x0D80, state.getTargetLevel());
+        assertEquals(0x0FF0, state.getTargetLevel());
+        assertEquals(0x0FF0, state.getMeanLevel());
     }
 
     // =====================================================================

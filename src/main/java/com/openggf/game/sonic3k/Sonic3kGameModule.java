@@ -11,6 +11,7 @@ import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelInitProfile;
 import com.openggf.game.PhysicsProvider;
+import com.openggf.game.WaterDataProvider;
 import com.openggf.game.LevelState;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.RespawnState;
@@ -164,6 +165,11 @@ public class Sonic3kGameModule implements GameModule {
             physicsProvider = new Sonic3kPhysicsProvider();
         }
         return physicsProvider;
+    }
+
+    @Override
+    public WaterDataProvider getWaterDataProvider() {
+        return new Sonic3kWaterDataProvider();
     }
 
     private final LevelInitProfile levelInitProfile = new Sonic3kLevelInitProfile();

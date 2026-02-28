@@ -127,10 +127,13 @@ public class WaterSystem {
             this.rising = (meanLevel != targetLevel);
         }
 
-        /** Set mean level directly (ROM bit-15 convention: instant teleport). */
+        /** Set mean level directly (ROM bit-15 convention: instant teleport).
+         *  ROM loc_6F44 always writes Target_water_level too, so we set all three. */
         public void setMeanDirect(int level) {
             this.meanLevel = level;
             this.currentLevel = level;
+            this.targetLevel = level;
+            this.rising = false;
         }
 
         public void setSpeed(int speed) { this.speed = speed; }
