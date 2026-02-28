@@ -20,7 +20,9 @@ import java.util.logging.Logger;
  * <ul>
  *   <li>Zone 0 (AIZ) - Angel Island, both acts</li>
  *   <li>Zone 1 (HCZ) - Hydrocity, both acts</li>
- *   <li>Zone 6 (LBZ) - Launch Base, both acts</li>
+ *   <li>Zone 3 (CNZ) - Carnival Night, act 2 only (Sonic/Tails, not Knuckles)</li>
+ *   <li>Zone 5 (ICZ) - IceCap, act 2 only</li>
+ *   <li>Zone 6 (LBZ) - Launch Base, act 2 only</li>
  * </ul>
  * <p>
  * Starting heights from StartingWaterHeights.bin (32 big-endian words).
@@ -50,16 +52,17 @@ public class Sonic3kWaterDataProvider implements WaterDataProvider {
 
     /**
      * Starting water heights indexed by zone (0-12), each with 2 acts.
-     * From StartingWaterHeights.bin. Non-water zones use 0x0600 (off-screen).
+     * From StartingWaterHeights.bin (hex dump verified against ROM binary).
+     * Non-water zones use 0x0600 (off-screen).
      */
     private static final int[][] STARTING_HEIGHTS = {
         { 0x0504, 0x0528 }, // Zone 0: AIZ
         { 0x0500, 0x0700 }, // Zone 1: HCZ
         { 0x0600, 0x0600 }, // Zone 2: MGZ (no water)
-        { 0x0600, 0x0600 }, // Zone 3: CNZ (no water)
+        { 0x0600, 0x0A90 }, // Zone 3: CNZ (act 1 water at 0x0A90)
         { 0x0600, 0x0600 }, // Zone 4: FBZ (no water)
-        { 0x0600, 0x0600 }, // Zone 5: ICZ (no water)
-        { 0x0AD8, 0x0A80 }, // Zone 6: LBZ
+        { 0x0AD8, 0x0AD8 }, // Zone 5: ICZ (both acts 0x0AD8)
+        { 0x0A80, 0x065E }, // Zone 6: LBZ (act 0=0x0A80, act 1=0x065E)
         { 0x0600, 0x0600 }, // Zone 7: MHZ (no water)
         { 0x0600, 0x0600 }, // Zone 8: SOZ (no water)
         { 0x0600, 0x0600 }, // Zone 9: LRZ (no water)
@@ -70,9 +73,19 @@ public class Sonic3kWaterDataProvider implements WaterDataProvider {
 
     @Override
     public boolean hasWater(int zoneId, int actId, PlayerCharacter character) {
-        return zoneId == Sonic3kZoneIds.ZONE_AIZ
-            || zoneId == Sonic3kZoneIds.ZONE_HCZ
-            || zoneId == Sonic3kZoneIds.ZONE_LBZ;
+        // CheckLevelForWater (sonic3k.asm:9751-9778)
+        // AIZ both acts (line 9752-9753)
+        if (zoneId == Sonic3kZoneIds.ZONE_AIZ) return true;
+        // HCZ both acts (line 9762-9763, zone byte check)
+        if (zoneId == Sonic3kZoneIds.ZONE_HCZ) return true;
+        // CNZ2: Sonic/Tails only, not Knuckles (line 9764-9767)
+        if (zoneId == Sonic3kZoneIds.ZONE_CNZ && actId == 1
+                && character != PlayerCharacter.KNUCKLES) return true;
+        // ICZ2 (line 9770-9771)
+        if (zoneId == Sonic3kZoneIds.ZONE_ICZ && actId == 1) return true;
+        // LBZ2 only — NOT LBZ1 (line 9772-9773)
+        if (zoneId == Sonic3kZoneIds.ZONE_LBZ && actId == 1) return true;
+        return false;
     }
 
     @Override
@@ -202,17 +215,7 @@ public class Sonic3kWaterDataProvider implements WaterDataProvider {
             ));
         }
 
-        // LBZ1: threshold table (word_6ED4)
-        if (zoneId == Sonic3kZoneIds.ZONE_LBZ && actId == 0) {
-            return new ThresholdTableWaterHandler(List.of(
-                new WaterThreshold(0x0E00, 0x8B00),   // cameraX <= 0x0E00 -> instant 0x0B00
-                new WaterThreshold(0x1980, 0x8A00),   // cameraX <= 0x1980 -> instant 0x0A00
-                new WaterThreshold(0x2340, 0x8A00),   // cameraX <= 0x2340 -> instant 0x0A00
-                new WaterThreshold(0x2C00, 0x8AC8),   // cameraX <= 0x2C00 -> instant 0x0AC8
-                new WaterThreshold(0xFFFF, 0x8FF0)    // fallback -> instant 0x0FF0
-            ));
-        }
-
+        // LBZ1: no water per CheckLevelForWater (only LBZ2 has water)
         // LBZ2: Knuckles only (word_6F12)
         if (zoneId == Sonic3kZoneIds.ZONE_LBZ && actId == 1) {
             if (character == PlayerCharacter.KNUCKLES) {
