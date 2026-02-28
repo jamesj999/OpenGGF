@@ -62,7 +62,16 @@ public class TestSonic3kLevelInitProfile {
     }
 
     @Test
-    public void levelLoadStepsEmptyForNow() {
-        assertTrue(profile.levelLoadSteps(new com.openggf.game.LevelLoadContext()).isEmpty());
+    public void levelLoadStepsContains8RomAlignedSteps() {
+        List<InitStep> steps = profile.levelLoadSteps(new com.openggf.game.LevelLoadContext());
+        assertEquals(8, steps.size());
+        assertEquals("InitModuleAndAudio", steps.get(0).name());
+        assertEquals("LoadLevelData", steps.get(1).name());
+        assertEquals("InitAnimatedContent", steps.get(2).name());
+        assertEquals("InitObjectSystem", steps.get(3).name());
+        assertEquals("InitGameState", steps.get(4).name());
+        assertEquals("InitArtAndPlayer", steps.get(5).name());
+        assertEquals("InitWater", steps.get(6).name());
+        assertEquals("InitBackgroundRenderer", steps.get(7).name());
     }
 }
