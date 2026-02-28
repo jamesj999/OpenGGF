@@ -1,6 +1,7 @@
 package com.openggf.level;
 
 import com.openggf.data.Rom;
+import com.openggf.game.DynamicWaterHandler;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.level.objects.ObjectSpawn;
@@ -90,39 +91,68 @@ public class WaterSystem {
 
     /**
      * Tracks dynamic water level state for levels where water rises or falls.
-     * Used for CPZ2's rising Mega Mack.
+     * Used for CPZ2's rising Mega Mack and S3K zones with dynamic water.
+     *
+     * <p>{@code meanLevel} corresponds to the ROM's {@code Mean_water_level}
+     * and is kept separate from {@code currentLevel} so that visual oscillation
+     * can be layered on top without disturbing the gameplay water position.
+     *
+     * <p>{@code speed} controls how many pixels per frame the water moves
+     * toward its target (ROM: {@code Water_speed}, default 1). S3K AIZ2 uses
+     * speed=2 for faster water drops.
      */
     public static class DynamicWaterState {
-        private int currentLevel; // Current water Y position
-        private int targetLevel; // Target water Y position (water moves toward this)
-        private boolean rising; // True if water is actively rising
+        private int currentLevel;  // Current water Y position
+        private int targetLevel;   // Target water Y position (water moves toward this)
+        private int meanLevel;     // ROM's Mean_water_level (separate from currentLevel for oscillation)
+        private boolean rising;    // True if water is actively moving
+        private int speed;         // Pixels per frame toward target (ROM: Water_speed, default 1)
+        private DynamicWaterHandler handler; // Per-frame update logic, nullable
 
-        DynamicWaterState(int initialLevel) {
+        public DynamicWaterState(int initialLevel) {
             this.currentLevel = initialLevel;
             this.targetLevel = initialLevel;
+            this.meanLevel = initialLevel;
             this.rising = false;
+            this.speed = 1;
+            this.handler = null;
         }
 
-        void setTarget(int targetY) {
+        public void setTarget(int targetY) {
             this.targetLevel = targetY;
-            this.rising = (currentLevel != targetLevel);
+            this.rising = (meanLevel != targetLevel);
         }
 
-        /** Move water toward target by 1 pixel. Returns true if still rising. */
-        boolean update() {
+        /** Set mean level directly (ROM bit-15 convention: instant teleport). */
+        public void setMeanDirect(int level) {
+            this.meanLevel = level;
+            this.currentLevel = level;
+        }
+
+        public void setSpeed(int speed) { this.speed = speed; }
+        public void setHandler(DynamicWaterHandler handler) { this.handler = handler; }
+        public DynamicWaterHandler getHandler() { return handler; }
+        public int getCurrentLevel() { return currentLevel; }
+        public int getTargetLevel() { return targetLevel; }
+        public int getMeanLevel() { return meanLevel; }
+
+        /** Move mean toward target by speed pixels. Returns true if still moving. */
+        public boolean update() {
             if (!rising) {
                 return false;
             }
-            if (currentLevel > targetLevel) {
-                // Water rising (lower Y = higher on screen)
-                currentLevel--;
-            } else if (currentLevel < targetLevel) {
-                // Water falling (higher Y = lower on screen)
-                currentLevel++;
+            for (int i = 0; i < speed; i++) {
+                if (meanLevel > targetLevel) {
+                    meanLevel--;
+                } else if (meanLevel < targetLevel) {
+                    meanLevel++;
+                }
+                if (meanLevel == targetLevel) {
+                    rising = false;
+                    break;
+                }
             }
-            if (currentLevel == targetLevel) {
-                rising = false;
-            }
+            currentLevel = meanLevel;
             return rising;
         }
     }
