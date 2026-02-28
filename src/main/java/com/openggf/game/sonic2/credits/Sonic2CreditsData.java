@@ -38,16 +38,19 @@ public class Sonic2CreditsData {
     /** Photo fade wait 2: $80 frames. ObjCA routine 6 timer. */
     public static final int PALETTE_WAIT_2 = 0x80;
 
-    /** CHARACTER_APPEAR hold before spawning second ObjC9: $80 frames. */
-    public static final int CHARACTER_APPEAR_HOLD = 0x80;
+    /** Tails ending boot wait before jumping to ObjCA routine 8: $100 frames. */
+    public static final int TAILS_BOOT_WAIT = 0x100;
 
-    /** CAMERA_SCROLL duration: $100 frames (Sonic/Super), $880/$660 Tails. */
-    public static final int CAMERA_SCROLL_SONIC_60FPS = 0x100;
-    public static final int CAMERA_SCROLL_TAILS_60FPS = 0x660;
-    public static final int CAMERA_SCROLL_TAILS_50FPS = 0x880;
+    /** ObjCA routine $A duration before switching to routine $C: $40 frames. */
+    public static final int CHARACTER_APPEAR_DURATION = 0x40;
 
-    /** ObjCC spawn delay into MAIN_ENDING: $100 frames. */
+    /** ObjCA routine $C duration: $C0 frames. */
+    public static final int CAMERA_SCROLL_DURATION = 0xC0;
+
+    /** ObjCC spawn delay from ObjCA routine $E: $100 (Sonic/Super), $880/$660 (Tails). */
     public static final int OBJCC_SPAWN_DELAY = 0x100;
+    public static final int OBJCC_SPAWN_DELAY_TAILS_60FPS = 0x880;
+    public static final int OBJCC_SPAWN_DELAY_TAILS_50FPS = 0x660;
 
     /** ObjCC State 2 (birds+tornado hold): $480 frames (60fps), $3D0 (PAL). */
     public static final int PLANE_HOLD_FRAMES_60FPS = 0x480;
@@ -74,7 +77,7 @@ public class Sonic2CreditsData {
 
     // Legacy aliases (used by existing code)
     public static final int PHOTO_HOLD_FRAMES = PALETTE_WAIT_1_60FPS;
-    public static final int SKY_FALL_FRAMES = 0xC0;
+    public static final int SKY_FALL_FRAMES = CAMERA_SCROLL_DURATION;
 
     // ========================================================================
     // Cutscene object speeds (subpixels, 256 = 1px)
@@ -160,23 +163,26 @@ public class Sonic2CreditsData {
      * word_A766: 30 (X,Y) pairs for Super Sonic departure path (ObjCC State 6).
      */
     public static final int[][] SUPER_SONIC_PATH = {
-            {0xC0, 0x90}, {0xBE, 0x8E}, {0xBC, 0x8C}, {0xBA, 0x8A},
-            {0xB8, 0x88}, {0xB6, 0x86}, {0xB4, 0x84}, {0xB2, 0x82},
-            {0xB0, 0x80}, {0xAE, 0x7E}, {0xAC, 0x7C}, {0xAA, 0x7A},
-            {0xA8, 0x78}, {0xA6, 0x76}, {0xA4, 0x74}, {0xA2, 0x72},
-            {0xA0, 0x70}, {0x9E, 0x6E}, {0x9C, 0x6C}, {0x9A, 0x6A},
-            {0x98, 0x68}, {0x96, 0x66}, {0x94, 0x64}, {0x92, 0x62},
-            {0x90, 0x60}, {0x8E, 0x5E}, {0x8C, 0x5C}, {0x8A, 0x5A},
-            {0x88, 0x58}, {0x86, 0x56}
+            {0xC0, 0x90}, {0xB0, 0x91}, {0xA8, 0x92}, {0x9B, 0x96},
+            {0x99, 0x98}, {0x98, 0x99}, {0x99, 0x9A}, {0x9B, 0x9C},
+            {0x9F, 0x9E}, {0xA4, 0xA0}, {0xAC, 0xA2}, {0xB7, 0xA5},
+            {0xC4, 0xA8}, {0xD3, 0xAB}, {0xDE, 0xAE}, {0xE8, 0xB0},
+            {0xEF, 0xB2}, {0xF4, 0xB5}, {0xF9, 0xB8}, {0xFC, 0xBB},
+            {0xFE, 0xBE}, {0xFF, 0xC0}, {0x100, 0xC2}, {0x101, 0xC5},
+            {0x102, 0xC8}, {0x102, 0xCC}, {0x101, 0xD1}, {0xFD, 0xD7},
+            {0xF9, 0xDE}, {0xF9, 0x118}
     };
 
     /**
      * byte_A748: 30 frame indices for Super Sonic during departure.
      */
     public static final int[] SUPER_SONIC_FRAMES = {
-            4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-            4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-            4, 4, 4, 4, 4, 4, 4, 4, 4, 4
+            0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12,
+            0x13, 0x13, 0x13, 0x13, 0x13, 0x13,
+            0x14, 0x14, 0x14, 0x14,
+            0x15, 0x15, 0x15,
+            0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16,
+            0
     };
 
     /**
