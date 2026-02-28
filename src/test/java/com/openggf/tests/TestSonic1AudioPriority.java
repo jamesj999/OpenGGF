@@ -168,7 +168,7 @@ public class TestSonic1AudioPriority {
         // general case: a normal SFX always steals from a special SFX regardless of
         // numeric priority (SmpsDriver.shouldStealLock: currentSpecial && !challengerSpecial).
         SmpsSequencer jump = createSfxSequencer(driver, 0xA0, 0x70, false);
-        jump.getTracks().add(createTrack(SmpsSequencer.TrackType.FM, 2));
+        jump.addTrack(createTrack(SmpsSequencer.TrackType.FM, 2));
         driver.addSequencer(jump, true);
 
         // Jump writes to FM2, stealing the lock from the waterfall.
@@ -314,7 +314,7 @@ public class TestSonic1AudioPriority {
             int sfxId = 0xA0 + cycle;
             SmpsSequencer normalSfx = createSfxSequencer(
                     driver, sfxId, 0x70, false);
-            normalSfx.getTracks().add(createTrack(SmpsSequencer.TrackType.FM, 2));
+            normalSfx.addTrack(createTrack(SmpsSequencer.TrackType.FM, 2));
             driver.addSequencer(normalSfx, true);
             driver.writeFm(normalSfx, 0, 0xA2, 0x20);
             assertEquals("Cycle " + cycle + ": normal SFX should steal FM2",

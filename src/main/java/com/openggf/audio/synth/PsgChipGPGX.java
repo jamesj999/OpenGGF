@@ -1,5 +1,14 @@
 package com.openggf.audio.synth;
 
+/**
+ * High-fidelity SN76489 PSG emulator using band-limited synthesis.
+ *
+ * <p>Emulates 3 square-wave tone channels and 1 noise channel with
+ * per-channel stereo panning and mute control. Uses {@link BlipDeltaBuffer}
+ * for band-limited sample generation, eliminating aliasing artifacts.
+ *
+ * <p>Based on the Genesis Plus GX PSG core.
+ */
 public class PsgChipGPGX {
     public enum ChipType {
         INTEGRATED,
