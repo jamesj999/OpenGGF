@@ -57,6 +57,6 @@ public class TestSonic1LevelInitProfile {
 
     @Test
     public void levelLoadStepsEmptyForNow() {
-        assertTrue(profile.levelLoadSteps().isEmpty());
+        assertTrue(profile.levelLoadSteps(new com.openggf.game.LevelLoadContext()).isEmpty());
     }
 }

@@ -80,7 +80,7 @@ public class TestGameModuleProfiles {
         };
         LevelInitProfile profile = anon.getLevelInitProfile();
         assertNotNull(profile);
-        assertTrue(profile.levelLoadSteps().isEmpty());
+        assertTrue(profile.levelLoadSteps(new LevelLoadContext()).isEmpty());
         assertTrue(profile.levelTeardownSteps().isEmpty());
         assertTrue(profile.perTestResetSteps().isEmpty());
         assertTrue(profile.postTeardownFixups().isEmpty());
