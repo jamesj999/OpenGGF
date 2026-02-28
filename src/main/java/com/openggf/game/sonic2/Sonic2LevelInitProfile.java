@@ -2,6 +2,11 @@ package com.openggf.game.sonic2;
 
 import com.openggf.game.AbstractLevelInitProfile;
 import com.openggf.game.InitStep;
+import com.openggf.game.LevelLoadContext;
+import com.openggf.level.LevelManager;
+
+import java.io.IOException;
+import java.util.List;
 
 /**
  * Sonic 2 level initialization profile.
@@ -22,6 +27,37 @@ import com.openggf.game.InitStep;
  *      Design doc: Sonic 2 Level Init Profile (57 steps)</a>
  */
 public class Sonic2LevelInitProfile extends AbstractLevelInitProfile {
+
+    @Override
+    public List<InitStep> levelLoadSteps(LevelLoadContext ctx) {
+        LevelManager lm = LevelManager.getInstance();
+        return List.of(
+            new InitStep("InitModuleAndAudio",
+                "S2 Phase A-C (#1-21): Pal_FadeToBlack, ClearPLC, LoadTitleCard, Level_SetPlayerMode, PlayMusic",
+                () -> { try { lm.initGameModuleAndAudio(ctx.getLevelIndex()); } catch (IOException e) { throw new RuntimeException(e); } }),
+            new InitStep("LoadLevelData",
+                "S2 Phase E-F (#26-35): LevelDataLoad, LoadZoneTiles, LoadCollisionIndexes",
+                () -> { try { ctx.setLevel(lm.loadLevelData(ctx.getLevelIndex())); } catch (IOException e) { throw new RuntimeException(e); } }),
+            new InitStep("InitAnimatedContent",
+                "S2 Phase E (#32): LoadAnimatedBlocks (pattern animation scripts + palette cycling)",
+                lm::initAnimatedContent),
+            new InitStep("InitObjectSystem",
+                "S2 Phase G (#36-40): InitPlayers, ObjPosLoad, CollisionSystem wiring, camera bounds",
+                () -> { try { lm.initObjectSystem(); } catch (IOException e) { throw new RuntimeException(e); } }),
+            new InitStep("InitGameState",
+                "S2 Phase H (#41-43): OscillationInit, RingManager, ZoneFeatures (CNZ bumpers, CPZ pylon)",
+                () -> { try { lm.initGameState(); } catch (IOException e) { throw new RuntimeException(e); } }),
+            new InitStep("InitArtAndPlayer",
+                "S2 Phase C (#8-9): ObjectArt, PlayerSpriteArt, ResetPlayerState, CheckpointState",
+                lm::initArtAndPlayer),
+            new InitStep("InitWater",
+                "S2 Phase B (#13,18): WaterSystem loading for water zones (LZ, HPZ, CPZ)",
+                () -> { try { lm.initWater(); } catch (IOException e) { throw new RuntimeException(e); } }),
+            new InitStep("InitBackgroundRenderer",
+                "Engine-specific: Pre-allocate BG FBO at maximum required size",
+                lm::initBackgroundRenderer)
+        );
+    }
 
     @Override
     protected InitStep levelEventTeardownStep() {
