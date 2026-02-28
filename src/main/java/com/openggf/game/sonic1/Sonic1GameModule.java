@@ -26,6 +26,7 @@ import com.openggf.game.ScrollHandlerProvider;
 import com.openggf.game.SpecialStageProvider;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.game.TitleScreenProvider;
+import com.openggf.game.WaterDataProvider;
 import com.openggf.game.ZoneArtProvider;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.ZoneRegistry;
@@ -151,6 +152,11 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public ZoneFeatureProvider getZoneFeatureProvider() {
         return new Sonic1ZoneFeatureProvider();
+    }
+
+    @Override
+    public WaterDataProvider getWaterDataProvider() {
+        return new Sonic1WaterDataProvider();
     }
 
     @Override
