@@ -24,8 +24,8 @@ public interface LevelInitProfile {
      * <p>
      * Maps to the game's {@code Level:} routine: S1 has 44 steps (phases A-L),
      * S2 has 57 steps (phases A-J), S3K has 65 steps (phases A-Q).
-     * Returns empty list until production level loading is wired through the
-     * profile system (Phase 3 of the implementation plan).
+     * Each game currently provides 8 coarse-grained step groups that map to
+     * ROM phase ranges. The context carries shared state between steps.
      */
     List<InitStep> levelLoadSteps(LevelLoadContext ctx);
 
