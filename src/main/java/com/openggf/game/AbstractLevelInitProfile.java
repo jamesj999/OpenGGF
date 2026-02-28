@@ -64,7 +64,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
     // Not final: subclasses will provide game-specific level load steps
     // once production level loading is wired through the profile system.
     @Override
-    public List<InitStep> levelLoadSteps() {
+    public List<InitStep> levelLoadSteps(LevelLoadContext ctx) {
         return List.of();
     }
 
@@ -159,7 +159,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
 
     /** Empty profile used as safe default by {@link GameModule#getLevelInitProfile()}. */
     public static final LevelInitProfile EMPTY = new LevelInitProfile() {
-        @Override public List<InitStep> levelLoadSteps() { return List.of(); }
+        @Override public List<InitStep> levelLoadSteps(LevelLoadContext ctx) { return List.of(); }
         @Override public List<InitStep> levelTeardownSteps() { return List.of(); }
         @Override public List<InitStep> perTestResetSteps() { return List.of(); }
         @Override public List<StaticFixup> postTeardownFixups() { return List.of(); }

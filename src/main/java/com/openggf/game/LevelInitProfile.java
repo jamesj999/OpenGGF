@@ -27,7 +27,7 @@ public interface LevelInitProfile {
      * Returns empty list until production level loading is wired through the
      * profile system (Phase 3 of the implementation plan).
      */
-    List<InitStep> levelLoadSteps();
+    List<InitStep> levelLoadSteps(LevelLoadContext ctx);
 
     /**
      * Ordered steps for tearing down all singletons before the next level load.
