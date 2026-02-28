@@ -61,30 +61,6 @@ public class TestTodo8_YadrinSpikyTopCollision {
     private static final int SPIKY_TOP_THRESHOLD_PX = 8;
 
     @Test
-    public void testYadrinCollisionTypeIs0xCC() {
-        // Yadrin uses collision type $CC which is in the $C0+ range,
-        // routing through React_Special (not React_Enemy).
-        assertEquals("Yadrin obColType should be 0xCC", 0xCC, YADRIN_COL_TYPE);
-
-        // $CC & $C0 == $C0, which means React_Special path
-        int typeBits = YADRIN_COL_TYPE & 0xC0;
-        assertEquals("obColType high bits should be $C0 (React_Special path)",
-                0xC0, typeBits);
-
-        // The low 6 bits: $CC & $3F == $0C
-        int subType = YADRIN_COL_TYPE & 0x3F;
-        assertEquals("Yadrin React_Special subtype should be $0C", 0x0C, subType);
-    }
-
-    @Test
-    public void testSpikyTopThresholdIs8Pixels() {
-        // The vertical overlap threshold that distinguishes "on top" (hurt)
-        // from "side/below" (destroy) is 8 pixels.
-        // From sub ReactToItem.asm:395: cmpi.w #8,d5; bhs.s .normalenemy
-        assertEquals("Spiky-top threshold should be 8 pixels", 8, SPIKY_TOP_THRESHOLD_PX);
-    }
-
-    @Test
     @Ignore("TODO #8 -- Yadrin badnik not yet implemented. " +
             "See docs/s1disasm/_incObj/50 Yadrin.asm, _incObj/sub ReactToItem.asm:393-420")
     public void testRollingSonicFromAboveHurts() {

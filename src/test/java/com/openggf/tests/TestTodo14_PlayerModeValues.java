@@ -33,23 +33,6 @@ public class TestTodo14_PlayerModeValues {
     private static final int PLAYER_MODE_TAILS_ALONE = 2;
     private static final int PLAYER_MODE_KNUCKLES = 3;
 
-    @Test
-    public void testPlayerModeConstantsMatchDisassembly() {
-        // These are the authoritative Player_mode values from the S3K ROM.
-        // sonic3k.asm line 8098: move.w #0,(Player_mode).w  => Sonic & Tails
-        // sonic3k.asm line 8101: move.w #1,(Player_mode).w  => Sonic alone
-        // sonic3k.asm line 4623:  cmpi.w #2,(Player_mode).w => Tails alone
-        // sonic3k.asm line 8095:  move.w #3,(Player_mode).w => Knuckles
-        assertEquals("Sonic & Tails must be 0", 0, PLAYER_MODE_SONIC_AND_TAILS);
-        assertEquals("Sonic alone must be 1", 1, PLAYER_MODE_SONIC_ALONE);
-        assertEquals("Tails alone must be 2", 2, PLAYER_MODE_TAILS_ALONE);
-        assertEquals("Knuckles must be 3", 3, PLAYER_MODE_KNUCKLES);
-
-        // Exactly 4 player modes exist in the ROM
-        assertEquals("Only 4 player modes in the S3K ROM", 4,
-                PLAYER_MODE_KNUCKLES - PLAYER_MODE_SONIC_AND_TAILS + 1);
-    }
-
     @Ignore("TODO #14 -- PlayerCharacter enum does not exist yet. " +
             "See docs/skdisasm/sonic3k.asm:8090-8101 for Player_mode values.")
     @Test

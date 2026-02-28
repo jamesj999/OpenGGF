@@ -1,9 +1,13 @@
 package com.openggf.game.sonic3k;
 
 import com.openggf.game.sonic3k.scroll.Sonic3kZoneConstants;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
@@ -16,29 +20,27 @@ import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
+import com.openggf.tests.rules.RequiresRomCondition;
 import com.openggf.tests.rules.SonicGame;
 
-import org.junit.After;
+import java.util.stream.Stream;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests that all Sonic 3&K zones can be loaded without errors.
  * Verifies resource plans, level boundaries, and start positions.
  */
 @RequiresRom(SonicGame.SONIC_3K)
-public class TestSonic3kLevelLoading {
-
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
+@ExtendWith(RequiresRomCondition.class)
+class TestSonic3kLevelLoading {
 
     private LevelManager levelManager;
     private String mainCharacter;
     private Object oldSkipIntros;
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUp() {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
         config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
@@ -47,13 +49,13 @@ public class TestSonic3kLevelLoading {
         levelManager = LevelManager.getInstance();
     }
 
-    @After
-    public void tearDown() {
+    @AfterEach
+    void tearDown() {
         SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, oldSkipIntros != null ? oldSkipIntros : false);
     }
 
     @Test
-    public void playerSpriteArtLoadsSuccessfully() throws Exception {
+    void playerSpriteArtLoadsSuccessfully() throws Exception {
         Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
         SpriteManager.getInstance().addSprite(sprite);
         Camera camera = Camera.getInstance();
@@ -64,18 +66,12 @@ public class TestSonic3kLevelLoading {
         GroundSensor.setLevelManager(levelManager);
         camera.updatePosition(true);
 
-        assertNotNull("Sprite renderer should be set after loading S3K level",
-                sprite.getSpriteRenderer());
+        assertNotNull(sprite.getSpriteRenderer(),
+                "Sprite renderer should be set after loading S3K level");
     }
 
     @Test
-    public void aizLoads() throws Exception {
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_AIZ, 0, "Angel Island Act 1");
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_AIZ, 1, "Angel Island Act 2");
-    }
-
-    @Test
-    public void aizIntroLayoutDimensionsMatchHeader() throws Exception {
+    void aizIntroLayoutDimensionsMatchHeader() throws Exception {
         Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
         SpriteManager.getInstance().addSprite(sprite);
         Camera camera = Camera.getInstance();
@@ -87,18 +83,18 @@ public class TestSonic3kLevelLoading {
         camera.updatePosition(true);
 
         Level level = levelManager.getCurrentLevel();
-        assertNotNull("AIZ1 level should not be null", level);
-        assertTrue("AIZ1 should load as Sonic3kLevel", level instanceof Sonic3kLevel);
+        assertNotNull(level, "AIZ1 level should not be null");
+        assertInstanceOf(Sonic3kLevel.class, level, "AIZ1 should load as Sonic3kLevel");
 
         // skdisasm AIZ intro layout header: FG 97x13, BG 66x11
-        assertEquals("AIZ1 FG layout width", 97, level.getLayerWidthBlocks(0));
-        assertEquals("AIZ1 FG layout height", 13, level.getLayerHeightBlocks(0));
-        assertEquals("AIZ1 BG layout width", 66, level.getLayerWidthBlocks(1));
-        assertEquals("AIZ1 BG layout height", 11, level.getLayerHeightBlocks(1));
+        assertEquals(97, level.getLayerWidthBlocks(0), "AIZ1 FG layout width");
+        assertEquals(13, level.getLayerHeightBlocks(0), "AIZ1 FG layout height");
+        assertEquals(66, level.getLayerWidthBlocks(1), "AIZ1 BG layout width");
+        assertEquals(11, level.getLayerHeightBlocks(1), "AIZ1 BG layout height");
     }
 
     @Test
-    public void aizIntroBlockZeroIsNotSanitizedEmpty() throws Exception {
+    void aizIntroBlockZeroIsNotSanitizedEmpty() throws Exception {
         Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
         SpriteManager.getInstance().addSprite(sprite);
         Camera camera = Camera.getInstance();
@@ -110,15 +106,16 @@ public class TestSonic3kLevelLoading {
         camera.updatePosition(true);
 
         Level level = levelManager.getCurrentLevel();
-        assertNotNull("AIZ1 level should not be null", level);
+        assertNotNull(level, "AIZ1 level should not be null");
 
         Block block0 = level.getBlock(0);
-        assertNotNull("Block 0 should exist", block0);
-        assertNotEquals("S3K AIZ intro uses non-empty block 0 in layout data", 0, block0.getChunkDesc(0, 0).get());
+        assertNotNull(block0, "Block 0 should exist");
+        assertNotEquals(0, block0.getChunkDesc(0, 0).get(),
+                "S3K AIZ intro uses non-empty block 0 in layout data");
     }
 
     @Test
-    public void aizIntroChunkZeroIsValidAndReferenced() throws Exception {
+    void aizIntroChunkZeroIsValidAndReferenced() throws Exception {
         Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
         SpriteManager.getInstance().addSprite(sprite);
         Camera camera = Camera.getInstance();
@@ -130,10 +127,10 @@ public class TestSonic3kLevelLoading {
         camera.updatePosition(true);
 
         Level level = levelManager.getCurrentLevel();
-        assertNotNull("AIZ1 level should not be null", level);
+        assertNotNull(level, "AIZ1 level should not be null");
 
         Chunk chunk0 = level.getChunk(0);
-        assertNotNull("Chunk 0 should exist", chunk0);
+        assertNotNull(chunk0, "Chunk 0 should exist");
 
         boolean chunk0HasPatternData = false;
         for (int py = 0; py < 2 && !chunk0HasPatternData; py++) {
@@ -144,7 +141,7 @@ public class TestSonic3kLevelLoading {
                 }
             }
         }
-        assertTrue("S3K AIZ intro uses non-empty chunk 0 data", chunk0HasPatternData);
+        assertTrue(chunk0HasPatternData, "S3K AIZ intro uses non-empty chunk 0 data");
 
         boolean chunk0ReferencedByBlocks = false;
         for (int blockIndex = 0; blockIndex < level.getBlockCount() && !chunk0ReferencedByBlocks; blockIndex++) {
@@ -161,89 +158,42 @@ public class TestSonic3kLevelLoading {
                 }
             }
         }
-        assertTrue("S3K AIZ intro block data references chunk index 0", chunk0ReferencedByBlocks);
+        assertTrue(chunk0ReferencedByBlocks, "S3K AIZ intro block data references chunk index 0");
     }
 
-    @Test
-    public void hczLoads() throws Exception {
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_HCZ, 0, "Hydrocity Act 1");
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_HCZ, 1, "Hydrocity Act 2");
+    static Stream<Arguments> zoneActProvider() {
+        return Stream.of(
+                Arguments.of(Sonic3kZoneConstants.ZONE_AIZ, 0, "Angel Island Act 1"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_AIZ, 1, "Angel Island Act 2"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_HCZ, 0, "Hydrocity Act 1"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_HCZ, 1, "Hydrocity Act 2"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_MGZ, 0, "Marble Garden Act 1"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_MGZ, 1, "Marble Garden Act 2"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_CNZ, 0, "Carnival Night Act 1"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_CNZ, 1, "Carnival Night Act 2"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_FBZ, 0, "Flying Battery Act 1"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_FBZ, 1, "Flying Battery Act 2"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_ICZ, 0, "IceCap Act 1"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_ICZ, 1, "IceCap Act 2"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_LBZ, 0, "Launch Base Act 1"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_LBZ, 1, "Launch Base Act 2"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_MHZ, 0, "Mushroom Hill Act 1"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_MHZ, 1, "Mushroom Hill Act 2"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_SOZ, 0, "Sandopolis Act 1"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_SOZ, 1, "Sandopolis Act 2"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_LRZ, 0, "Lava Reef Act 1"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_LRZ, 1, "Lava Reef Act 2"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_SSZ, 0, "Sky Sanctuary Act 1"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_SSZ, 1, "Sky Sanctuary Act 2"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_DEZ, 0, "Death Egg Act 1"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_DEZ, 1, "Death Egg Act 2"),
+                Arguments.of(Sonic3kZoneConstants.ZONE_DDZ, 0, "Doomsday")
+        );
     }
 
-    @Test
-    public void mgzLoads() throws Exception {
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_MGZ, 0, "Marble Garden Act 1");
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_MGZ, 1, "Marble Garden Act 2");
-    }
-
-    @Test
-    public void cnzLoads() throws Exception {
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_CNZ, 0, "Carnival Night Act 1");
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_CNZ, 1, "Carnival Night Act 2");
-    }
-
-    @Test
-    public void fbzLoads() throws Exception {
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_FBZ, 0, "Flying Battery Act 1");
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_FBZ, 1, "Flying Battery Act 2");
-    }
-
-    @Test
-    public void iczLoads() throws Exception {
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_ICZ, 0, "IceCap Act 1");
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_ICZ, 1, "IceCap Act 2");
-    }
-
-    @Test
-    public void lbzLoads() throws Exception {
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_LBZ, 0, "Launch Base Act 1");
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_LBZ, 1, "Launch Base Act 2");
-    }
-
-    @Test
-    public void mhzLoads() throws Exception {
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_MHZ, 0, "Mushroom Hill Act 1");
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_MHZ, 1, "Mushroom Hill Act 2");
-    }
-
-    @Test
-    public void sozLoads() throws Exception {
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_SOZ, 0, "Sandopolis Act 1");
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_SOZ, 1, "Sandopolis Act 2");
-    }
-
-    @Test
-    public void lrzLoads() throws Exception {
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_LRZ, 0, "Lava Reef Act 1");
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_LRZ, 1, "Lava Reef Act 2");
-    }
-
-    @Test
-    public void sszLoads() throws Exception {
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_SSZ, 0, "Sky Sanctuary Act 1");
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_SSZ, 1, "Sky Sanctuary Act 2");
-    }
-
-    @Test
-    public void dezLoads() throws Exception {
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_DEZ, 0, "Death Egg Act 1");
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_DEZ, 1, "Death Egg Act 2");
-    }
-
-    @Test
-    public void ddzLoads() throws Exception {
-        // Doomsday is a single-act zone
-        assertZoneLoads(Sonic3kZoneConstants.ZONE_DDZ, 0, "Doomsday");
-    }
-
-    /**
-     * Loads a zone/act and verifies:
-     * - Level object is non-null
-     * - Boundaries are valid (maxX > minX, maxY > minY)
-     * - Start position has non-zero components
-     */
-    private void assertZoneLoads(int zone, int act, String label) throws Exception {
-        // Create a fresh sprite for each load
+    @ParameterizedTest(name = "{2}")
+    @MethodSource("zoneActProvider")
+    void zoneLoads(int zone, int act, String label) throws Exception {
         Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
         SpriteManager.getInstance().addSprite(sprite);
         Camera camera = Camera.getInstance();
@@ -255,21 +205,21 @@ public class TestSonic3kLevelLoading {
         camera.updatePosition(true);
 
         Level level = levelManager.getCurrentLevel();
-        assertNotNull(label + ": level should not be null", level);
+        assertNotNull(level, label + ": level should not be null");
 
         int minX = level.getMinX();
         int maxX = level.getMaxX();
         int minY = level.getMinY();
         int maxY = level.getMaxY();
 
-        assertTrue(label + ": maxX (" + maxX + ") should be > minX (" + minX + ")",
-                maxX > minX);
-        assertTrue(label + ": maxY (" + maxY + ") should be > minY (" + minY + ")",
-                maxY > minY);
+        assertTrue(maxX > minX,
+                label + ": maxX (" + maxX + ") should be > minX (" + minX + ")");
+        assertTrue(maxY > minY,
+                label + ": maxY (" + maxY + ") should be > minY (" + minY + ")");
 
         Sonic3kZoneRegistry registry = Sonic3kZoneRegistry.getInstance();
         int[] startPos = registry.getStartPosition(zone, act);
-        assertTrue(label + ": start X should be non-zero", startPos[0] != 0);
-        assertTrue(label + ": start Y should be non-zero", startPos[1] != 0);
+        assertTrue(startPos[0] != 0, label + ": start X should be non-zero");
+        assertTrue(startPos[1] != 0, label + ": start Y should be non-zero");
     }
 }

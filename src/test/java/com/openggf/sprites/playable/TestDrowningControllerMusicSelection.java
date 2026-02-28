@@ -1,7 +1,9 @@
 package com.openggf.sprites.playable;
 
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import com.openggf.audio.AudioBackend;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.ChannelType;
@@ -17,35 +19,32 @@ import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.level.LevelManager;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import java.util.stream.Stream;
 
-public class TestDrowningControllerMusicSelection {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-    @After
-    public void tearDown() {
+class TestDrowningControllerMusicSelection {
+
+    @AfterEach
+    void tearDown() {
         AudioManager audioManager = AudioManager.getInstance();
         audioManager.setBackend(new NullAudioBackend());
         audioManager.resetState();
         LevelManager.getInstance().resetState();
     }
 
-    @Test
-    public void usesSonic1DrowningMusicWhenSonic1ProfileIsActive() {
-        assertDrowningMusicId(new Sonic1AudioProfile(), Sonic1Music.DROWNING.id);
+    static Stream<Arguments> drowningMusicProvider() {
+        return Stream.of(
+                Arguments.of(new Sonic1AudioProfile(), Sonic1Music.DROWNING.id, "Sonic 1"),
+                Arguments.of(new Sonic2AudioProfile(), Sonic2Music.UNDERWATER.id, "Sonic 2"),
+                Arguments.of(new Sonic3kAudioProfile(), Sonic3kMusic.DROWNING.id, "Sonic 3K")
+        );
     }
 
-    @Test
-    public void usesSonic2UnderwaterMusicWhenSonic2ProfileIsActive() {
-        assertDrowningMusicId(new Sonic2AudioProfile(), Sonic2Music.UNDERWATER.id);
-    }
-
-    @Test
-    public void usesSonic3kDrowningMusicWhenSonic3kProfileIsActive() {
-        assertDrowningMusicId(new Sonic3kAudioProfile(), Sonic3kMusic.DROWNING.id);
-    }
-
-    private void assertDrowningMusicId(GameAudioProfile profile, int expectedMusicId) {
+    @ParameterizedTest(name = "{2} drowning music")
+    @MethodSource("drowningMusicProvider")
+    void drowningMusicMatchesProfile(GameAudioProfile profile, int expectedMusicId, String label) {
         AudioManager audioManager = AudioManager.getInstance();
         CapturingBackend backend = new CapturingBackend();
         audioManager.setBackend(backend);
@@ -61,13 +60,12 @@ public class TestDrowningControllerMusicSelection {
             controller.update();
         }
 
-        assertTrueMusicTriggeredExactlyOnce(expectedMusicId, backend);
-        assertTrue("Controller should flag drowning music as active", controller.isDrowningMusicPlaying());
-    }
-
-    private void assertTrueMusicTriggeredExactlyOnce(int expectedMusicId, CapturingBackend backend) {
-        assertEquals("Drowning music should be triggered exactly once", 1, backend.musicPlayCalls);
-        assertEquals("Incorrect drowning music ID selected", expectedMusicId, backend.lastMusicId);
+        assertEquals(1, backend.musicPlayCalls,
+                "Drowning music should be triggered exactly once");
+        assertEquals(expectedMusicId, backend.lastMusicId,
+                "Incorrect drowning music ID selected");
+        assertTrue(controller.isDrowningMusicPlaying(),
+                "Controller should flag drowning music as active");
     }
 
     private static final class CapturingBackend implements AudioBackend {

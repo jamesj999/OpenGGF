@@ -45,67 +45,6 @@ import static org.junit.Assert.*;
  */
 public class TestTodo20_BidirectionalPush {
 
-    @Test
-    public void testOriginalRomOnlySupportsLeftPush() {
-        // The original ROM's sub_200CC ONLY decrements x_pos (pushes left).
-        // Evidence: sonic3k.asm line 44481: subq.w #1,x_pos(a0)
-        //           sonic3k.asm line 44482: subq.w #1,x_pos(a1)
-        //
-        // The directional check at line 44471:
-        //   cmp.w x_pos(a1),d2   ; d2 = rock x, a1 = player
-        //   bhs.s locret_2011C   ; if rock x >= player x, skip (don't push)
-        //
-        // This means: push only happens when rock x < player x
-        //   => player is to the RIGHT of the rock
-        //   => push direction is LEFT
-        //
-        // No addq.w instruction exists for rightward push.
-
-        // Push speed is 1 pixel per push frame (subq.w #1)
-        int pushSpeed = 1;
-        assertEquals("Push speed is 1 pixel per frame", 1, pushSpeed);
-
-        // Push timer resets to 0x10 (16 frames between pushes)
-        // sonic3k.asm line 44477: move.w #$10,$40(a0)
-        int pushTimerReset = 0x10;
-        assertEquals("Push timer resets to 0x10 (16 frames)", 0x10, pushTimerReset);
-    }
-
-    @Test
-    public void testPushSubtypeGating() {
-        // The push behavior (sub_200A2) is only called when subtype bit 1 is set.
-        // sonic3k.asm line 43931: btst #1,subtype(a0)
-        //                         beq.s loc_1FB3A
-        //                         bsr.w sub_200A2
-        //
-        // This means not all rocks are pushable -- only those with subtype bit 1.
-        int pushSubtypeBit = 1;
-        assertEquals("Push is gated by subtype bit 1", 1, pushSubtypeBit);
-    }
-
-    @Test
-    public void testPushCounterInRespawnState() {
-        // When a rock is pushed, the new position is saved to the respawn table.
-        // sonic3k.asm lines 44485-44492:
-        //   move.w  respawn_addr(a0),d0
-        //   movea.w d0,a2
-        //   move.b  $43(a0),d0
-        //   subi.b  #$40,d0
-        //   neg.b   d0
-        //   move.b  d0,(a2)
-        //   bset    #7,(a2)
-        //
-        // The $43(a0) field tracks the remaining push distance.
-        // $40(a0) is the push timer (resets to 0x10).
-        // $42(a0) is the remaining push count / distance.
-        int pushDistanceField = 0x42;
-        int pushTimerField = 0x40;
-        int respawnSaveField = 0x43;
-        assertEquals("Push distance at SST offset 0x42", 0x42, pushDistanceField);
-        assertEquals("Push timer at SST offset 0x40", 0x40, pushTimerField);
-        assertEquals("Respawn save value at SST offset 0x43", 0x43, respawnSaveField);
-    }
-
     @Ignore("TODO #20 -- AizLrzRockObjectInstance does not yet support bidirectional push. " +
             "See docs/skdisasm/sonic3k.asm:44468-44496 for sub_200CC (left-only push).")
     @Test

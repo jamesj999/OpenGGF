@@ -40,63 +40,6 @@ import static org.junit.Assert.*;
 public class TestTodo26_ChopChopBubbles {
 
     /**
-     * Verify bubble timer constant matches ROM value of $50 (80 frames).
-     * ROM reference: Obj91_MakeBubble (s2.asm:73258)
-     * <pre>
-     *   move.w #$50,Obj91_bubble_timer(a0)
-     * </pre>
-     */
-    @Test
-    public void testBubbleTimerConstant() {
-        // The ROM sets the bubble timer to $50 = 80 decimal frames
-        int romBubbleTimer = 0x50;
-        assertEquals("Bubble timer should be $50 (80 frames) per ROM",
-                80, romBubbleTimer);
-    }
-
-    /**
-     * Verify bubble spawn X offset matches ROM value of $14 (20 pixels).
-     * ROM reference: Obj91_MakeBubble (s2.asm:73264-73269)
-     * <pre>
-     *   moveq  #$14,d0     ; X offset = 20 pixels
-     *   btst   #render_flags.x_flip,render_flags(a0)
-     *   beq.s  +
-     *   neg.w  d0          ; negate if facing left
-     * </pre>
-     */
-    @Test
-    public void testBubbleSpawnXOffset() {
-        int xOffset = 0x14; // 20 pixels from ChopChop's center
-        assertEquals("Bubble X offset should be $14 (20 pixels)", 0x14, xOffset);
-    }
-
-    /**
-     * Verify bubble spawn Y offset matches ROM value of +6 pixels.
-     * ROM reference: Obj91_MakeBubble (s2.asm:73271)
-     * <pre>
-     *   addq.w #6,y_pos(a1)   ; 6 pixels below ChopChop center
-     * </pre>
-     */
-    @Test
-    public void testBubbleSpawnYOffset() {
-        int yOffset = 6;
-        assertEquals("Bubble Y offset should be +6 pixels", 6, yOffset);
-    }
-
-    /**
-     * Verify bubble subtype matches ROM value.
-     * ROM reference: Obj91_MakeBubble (s2.asm:73262)
-     * <pre>
-     *   move.b #6,subtype(a1)   ; subtype 6 references Obj90_SubObjData2
-     * </pre>
-     */
-    @Test
-    public void testBubbleSubtype() {
-        int bubbleSubtype = 6;
-        assertEquals("Bubble subtype should be 6 (Obj90_SubObjData2)", 6, bubbleSubtype);
-    }
-
-    /**
      * Verify bubble spawning is integrated into ChopChop's patrol behavior.
      * The timer decrements each frame and spawns a bubble when it reaches zero.
      *
@@ -122,24 +65,4 @@ public class TestTodo26_ChopChopBubbles {
         fail("Bubble spawning requires SmallBubbles object support");
     }
 
-    /**
-     * Verify ChopChop movement constants match ROM.
-     * Cross-checking that the existing implementation constants are correct.
-     * ROM reference: Obj91 (s2.asm:73158-73302)
-     */
-    @Test
-    public void testMovementConstants() {
-        // From the Obj91 code in s2.asm:
-        int patrolSpeed = 0x40;        // move.w #$40,x_vel(a0)
-        int moveTimerInit = 0x200;     // move.w #$200,Obj91_move_timer(a0)
-        int waitTime = 0x10;           // move.b #$10,Obj91_move_timer(a0) (in PrepareCharge)
-        int detectionMinRange = 0x20;  // subi.w #$20,d0 then addi.w #$20
-        int detectionMaxRange = 0xA0;  // cmpi.w #$A0,d0
-
-        assertEquals("Patrol speed should be $40", 0x40, patrolSpeed);
-        assertEquals("Move timer init should be $200 (512 frames)", 0x200, moveTimerInit);
-        assertEquals("Wait time should be $10 (16 frames)", 0x10, waitTime);
-        assertEquals("Detection min range should be $20 (32 pixels)", 0x20, detectionMinRange);
-        assertEquals("Detection max range should be $A0 (160 pixels)", 0xA0, detectionMaxRange);
-    }
 }

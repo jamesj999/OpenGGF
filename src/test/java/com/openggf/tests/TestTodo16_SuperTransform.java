@@ -67,18 +67,6 @@ public class TestTodo16_SuperTransform {
     /** Super form deceleration (sonic3k.asm:23509). */
     private static final int SUPER_DECELERATION = 0x100;
 
-    @Test
-    public void testTransformationConstants() {
-        // Verify the constants extracted from the disassembly
-        assertEquals("50 rings required", 50, REQUIRED_RING_COUNT);
-        assertEquals("7 emeralds required", 7, REQUIRED_EMERALD_COUNT);
-        assertEquals("Super flag is 1", 1, SUPER_FLAG_SUPER);
-        assertEquals("Hyper flag is -1 (0xFF signed)", -1, SUPER_FLAG_HYPER);
-        assertEquals("Super max speed is 0xA00", 0xA00, SUPER_MAX_SPEED);
-        assertEquals("Super acceleration is 0x30", 0x30, SUPER_ACCELERATION);
-        assertEquals("Super deceleration is 0x100", 0x100, SUPER_DECELERATION);
-    }
-
     @Ignore("TODO #16 -- SuperStateController not yet connected to monitor contents. " +
             "See docs/skdisasm/sonic3k.asm:23459-23515 for Sonic_CheckTransform.")
     @Test

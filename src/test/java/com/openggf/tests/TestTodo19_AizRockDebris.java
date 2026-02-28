@@ -73,56 +73,6 @@ public class TestTodo19_AizRockDebris {
             {-0x200, -0x100}, // piece 7
     };
 
-    @Test
-    public void testDebrisPositionDataFrame0() {
-        // Verify the position data matches the disassembly exactly.
-        assertEquals("Frame 0 has 8 pieces", 8, FRAME_0_PIECE_COUNT);
-        assertEquals("Position array has 8 entries", 8, FRAME_0_POSITIONS.length);
-
-        // Spot-check first and last entries
-        assertEquals("Piece 0 x offset", -8, FRAME_0_POSITIONS[0][0]);
-        assertEquals("Piece 0 y offset", -0x18, FRAME_0_POSITIONS[0][1]);
-        assertEquals("Piece 7 x offset", 0x0C, FRAME_0_POSITIONS[7][0]);
-        assertEquals("Piece 7 y offset", 0x1C, FRAME_0_POSITIONS[7][1]);
-    }
-
-    @Test
-    public void testDebrisVelocityDataFrame0() {
-        // Verify the velocity data matches the disassembly exactly.
-        assertEquals("Velocity array has 8 entries", 8, FRAME_0_VELOCITIES.length);
-
-        // All velocities are negative (debris flies up and to the left)
-        for (int i = 0; i < FRAME_0_VELOCITIES.length; i++) {
-            assertTrue("Piece " + i + " x_vel should be negative",
-                    FRAME_0_VELOCITIES[i][0] < 0);
-            assertTrue("Piece " + i + " y_vel should be negative",
-                    FRAME_0_VELOCITIES[i][1] < 0);
-        }
-
-        // First piece has the highest velocity magnitude
-        assertEquals("Piece 0 x_vel", -0x300, FRAME_0_VELOCITIES[0][0]);
-        assertEquals("Piece 0 y_vel", -0x300, FRAME_0_VELOCITIES[0][1]);
-    }
-
-    @Test
-    public void testMultipleDebrisFrameTypes() {
-        // The position table (off_2026E) has 8 entries for 8 different
-        // mapping frames (sonic3k.asm:44644-44651).
-        // Piece counts vary by frame:
-        // Frame 0: 8 pieces (word_2027E)
-        // Frame 1: 5 pieces (word_20290)
-        // Frame 2: 4 pieces (word_2029C)
-        // Frame 3: 6 pieces (word_202A6)
-        // Frames 4-7: variable (some share the same data)
-        int[] pieceCounts = {8, 5, 4, 6, 6, 6, 6, 2};
-        assertEquals("8 debris frame types in the table", 8, pieceCounts.length);
-
-        // Verify frame 1 has 5 pieces (sonic3k.asm:44663: dc.w 5-1)
-        assertEquals("Frame 1 has 5 pieces", 5, pieceCounts[1]);
-        // Verify frame 2 has 4 pieces (sonic3k.asm:44670: dc.w 4-1)
-        assertEquals("Frame 2 has 4 pieces", 4, pieceCounts[2]);
-    }
-
     @Ignore("TODO #19 -- AizLrzRockObjectInstance debris spawning not yet implemented. " +
             "See docs/skdisasm/sonic3k.asm:44502-44510 for sub_2011E.")
     @Test

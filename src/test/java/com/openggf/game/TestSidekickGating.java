@@ -10,50 +10,51 @@ import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
 import com.openggf.level.objects.TouchResponseTable;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import static org.junit.Assert.*;
+import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests sidekick capability gating per game module.
  * S1: no sidekick support (no Tails art/logic).
  * S2/S3K: sidekick support (Tails available).
  */
-public class TestSidekickGating {
+class TestSidekickGating {
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUp() {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
     }
 
-    @After
-    public void tearDown() {
+    @AfterEach
+    void tearDown() {
         GameModuleRegistry.reset();
     }
 
-    @Test
-    public void testSonic1Module_SidekickNotSupported() {
-        Sonic1GameModule module = new Sonic1GameModule();
-        assertFalse("S1 should not support sidekick", module.supportsSidekick());
+    static Stream<Arguments> sidekickProvider() {
+        return Stream.of(
+                Arguments.of(new Sonic1GameModule(), false, "S1"),
+                Arguments.of(new Sonic2GameModule(), true, "S2"),
+                Arguments.of(new Sonic3kGameModule(), true, "S3K")
+        );
+    }
+
+    @ParameterizedTest(name = "{2} supportsSidekick = {1}")
+    @MethodSource("sidekickProvider")
+    void sidekickSupportMatchesModule(GameModule module, boolean expected, String label) {
+        assertEquals(expected, module.supportsSidekick(),
+                label + " sidekick support");
     }
 
     @Test
-    public void testSonic2Module_SidekickSupported() {
-        Sonic2GameModule module = new Sonic2GameModule();
-        assertTrue("S2 should support sidekick", module.supportsSidekick());
-    }
-
-    @Test
-    public void testSonic3kModule_SidekickSupported() {
-        Sonic3kGameModule module = new Sonic3kGameModule();
-        assertTrue("S3K should support sidekick", module.supportsSidekick());
-    }
-
-    @Test
-    public void testDefaultMethod_ReturnsFalse() {
-        // Verify the default interface method returns false
+    void defaultMethod_returnsFalse() {
         GameModule anonymousModule = new GameModule() {
             public String getIdentifier() { return "test"; }
             public Game createGame(Rom rom) { return null; }
@@ -75,6 +76,7 @@ public class TestSidekickGating {
             public ZoneArtProvider getZoneArtProvider() { return null; }
             public ObjectArtProvider getObjectArtProvider() { return null; }
         };
-        assertFalse("Default supportsSidekick() should be false", anonymousModule.supportsSidekick());
+        assertFalse(anonymousModule.supportsSidekick(),
+                "Default supportsSidekick() should be false");
     }
 }

@@ -38,30 +38,6 @@ public class TestTodo17_BossFlagPatternAnimations {
      */
     private static final int ZONE_AIZ = 0; // Angel Island Zone
 
-    @Test
-    public void testBossFlagGatedAnimationsAreDocumented() {
-        // Document which zones have boss-gated pattern animations.
-        // From the disassembly:
-        // AnimateTiles_AIZ1 (act 1): line 53939 - tst.b (Boss_flag).w / bne
-        // AnimateTiles_AIZ2 (act 2): line 53949 - tst.b (Boss_flag).w / bne
-        //
-        // These are the ONLY AnimateTiles functions that check Boss_flag.
-        // Other zones' AnimateTiles functions do NOT gate on Boss_flag.
-        assertTrue("AIZ act 1 pattern animation is boss-gated (sonic3k.asm:53939)", true);
-        assertTrue("AIZ act 2 pattern animation is boss-gated (sonic3k.asm:53949)", true);
-    }
-
-    @Test
-    public void testAiz2HasCameraPositionCheck() {
-        // AnimateTiles_AIZ2 (line 53951) also has a camera position check:
-        //   cmpi.w #$1C0,(Camera_X_pos).w
-        //   bhs.w  AnimateTiles_DoAniPLC
-        // If camera X >= 0x1C0, it runs the standard animation PLC path.
-        // Otherwise, it falls through to a custom tree animation path.
-        int cameraThreshold = 0x1C0;
-        assertEquals("AIZ2 camera X threshold for animation branching", 0x1C0, cameraThreshold);
-    }
-
     @Ignore("TODO #17 -- Boss flag gating implemented but integration test requires S3K level + boss spawn")
     @Test
     public void testAiz1AnimationSuppressedDuringBoss() {
