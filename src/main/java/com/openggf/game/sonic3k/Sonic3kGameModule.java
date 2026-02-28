@@ -166,9 +166,11 @@ public class Sonic3kGameModule implements GameModule {
         return physicsProvider;
     }
 
+    private final LevelInitProfile levelInitProfile = new Sonic3kLevelInitProfile();
+
     @Override
     public LevelInitProfile getLevelInitProfile() {
-        return new Sonic3kLevelInitProfile();
+        return levelInitProfile;
     }
 
     @Override
