@@ -6,10 +6,12 @@ import com.openggf.game.PlayerCharacter;
 import com.openggf.game.ThresholdTableWaterHandler;
 import com.openggf.game.ThresholdTableWaterHandler.WaterThreshold;
 import com.openggf.game.WaterDataProvider;
+import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.level.Palette;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Water data provider for Sonic 3 &amp; Knuckles.
@@ -26,6 +28,25 @@ import java.util.List;
  * Dynamic handlers from DynamicWaterHeight_Index (sonic3k.asm:8609).
  */
 public class Sonic3kWaterDataProvider implements WaterDataProvider {
+    private static final Logger LOGGER = Logger.getLogger(Sonic3kWaterDataProvider.class.getName());
+
+    private static final int PALETTE_SIZE_BYTES = 128; // 4 palette lines x 32 bytes each
+
+    /**
+     * Water palette IDs from LoadWaterPalette (sonic3k.asm:9817).
+     * Each entry is the PalPoint table index for that zone/act combination.
+     * -1 indicates no water palette for that zone/act.
+     * Indexed as [zone][act].
+     */
+    private static final int[][] WATER_PALETTE_IDS = {
+        { 0x2B, 0x2C }, // Zone 0: AIZ act 0 = $2B, act 1 = $2C
+        { 0x31, 0x32 }, // Zone 1: HCZ act 0 = $31, act 1 = $32
+        {   -1,   -1 }, // Zone 2: MGZ (no water palette)
+        {   -1, 0x3A }, // Zone 3: CNZ act 1 = $3A
+        {   -1,   -1 }, // Zone 4: FBZ (no water palette)
+        {   -1, 0x39 }, // Zone 5: ICZ act 1 = $39
+        { 0x2D, 0x2E }, // Zone 6: LBZ act 0 = $2D, act 1 = $2E
+    };
 
     /**
      * Starting water heights indexed by zone (0-12), each with 2 acts.
@@ -68,8 +89,79 @@ public class Sonic3kWaterDataProvider implements WaterDataProvider {
 
     @Override
     public Palette[] getUnderwaterPalette(Rom rom, int zoneId, int actId, PlayerCharacter character) {
-        // Underwater palette loading deferred to Task 10
-        return null;
+        // Look up the PalPoint palette ID for this zone/act
+        int paletteId = getWaterPaletteId(zoneId, actId);
+        if (paletteId < 0) {
+            return null; // No water palette for this zone/act
+        }
+
+        try {
+            // Read the PalPoint entry: 4-byte ROM source, 2-byte RAM dest, 2-byte longword count
+            int palPointAddr = Sonic3kConstants.PAL_POINTERS_ADDR
+                    + paletteId * Sonic3kConstants.PAL_POINTER_ENTRY_SIZE;
+            int sourceAddr = rom.read32BitAddr(palPointAddr);
+            // RAM dest (2 bytes) - skip, we load the full palette
+            int longwordCount = rom.read16BitAddr(palPointAddr + 6);
+            int byteCount = (longwordCount + 1) * 4; // dbf loop: (count + 1) iterations x 4 bytes
+
+            // Clamp to standard 128-byte palette buffer (4 lines x 32 bytes)
+            int readSize = Math.min(byteCount, PALETTE_SIZE_BYTES);
+
+            byte[] paletteData = rom.readBytes(sourceAddr, readSize);
+
+            // If the palette data is smaller than 128 bytes, pad with zeros
+            if (readSize < PALETTE_SIZE_BYTES) {
+                byte[] padded = new byte[PALETTE_SIZE_BYTES];
+                System.arraycopy(paletteData, 0, padded, 0, readSize);
+                paletteData = padded;
+            }
+
+            // Split into 4 palette lines (32 bytes each = 16 colors)
+            Palette[] palettes = new Palette[4];
+            for (int i = 0; i < 4; i++) {
+                byte[] lineData = new byte[32];
+                System.arraycopy(paletteData, i * 32, lineData, 0, 32);
+                palettes[i] = new Palette();
+                palettes[i].fromSegaFormat(lineData);
+            }
+
+            // Knuckles palette patch: overwrite colors 2-4 of palette line 0
+            // with zone-specific data from Pal_WaterKnux (sonic3k.asm:9872)
+            if (character == PlayerCharacter.KNUCKLES
+                    && zoneId < Sonic3kConstants.PAL_WATER_KNUX_ZONE_COUNT) {
+                int knuxPatchAddr = Sonic3kConstants.PAL_WATER_KNUX_ADDR
+                        + zoneId * Sonic3kConstants.PAL_WATER_KNUX_ENTRY_SIZE;
+                byte[] knuxColors = rom.readBytes(knuxPatchAddr,
+                        Sonic3kConstants.PAL_WATER_KNUX_ENTRY_SIZE);
+                // Patch colors 2, 3, 4 of line 0 (byte offset 4 = color index 2, 2 bytes/color)
+                for (int c = 0; c < 3; c++) {
+                    int colorIndex = 2 + c;
+                    byte[] colorBytes = new byte[2];
+                    colorBytes[0] = knuxColors[c * 2];
+                    colorBytes[1] = knuxColors[c * 2 + 1];
+                    palettes[0].colors[colorIndex].fromSegaFormat(colorBytes, 0);
+                }
+            }
+
+            return palettes;
+        } catch (Exception e) {
+            LOGGER.warning(String.format(
+                    "Failed to load S3K underwater palette for zone %d act %d (palId 0x%02X): %s",
+                    zoneId, actId, paletteId, e.getMessage()));
+            return null;
+        }
+    }
+
+    /**
+     * Returns the PalPoint palette ID for the given zone/act, or -1 if none.
+     * Based on LoadWaterPalette in sonic3k.asm:9817.
+     */
+    private int getWaterPaletteId(int zoneId, int actId) {
+        if (zoneId < 0 || zoneId >= WATER_PALETTE_IDS.length) {
+            return -1;
+        }
+        int act = Math.min(Math.max(actId, 0), WATER_PALETTE_IDS[zoneId].length - 1);
+        return WATER_PALETTE_IDS[zoneId][act];
     }
 
     @Override
