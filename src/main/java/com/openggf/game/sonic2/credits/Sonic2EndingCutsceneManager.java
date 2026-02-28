@@ -1,6 +1,8 @@
 package com.openggf.game.sonic2.credits;
 
 import com.openggf.audio.AudioManager;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
@@ -14,6 +16,7 @@ import com.openggf.level.PatternDesc;
 import com.openggf.level.render.DynamicPatternBank;
 import com.openggf.level.render.SpriteDplcFrame;
 import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.tools.EnigmaReader;
 
@@ -60,6 +63,8 @@ public class Sonic2EndingCutsceneManager {
      * The photo loop (INIT through PHOTO_LOAD) cycles 4 times before advancing.
      */
     public enum CutsceneState {
+        /** Initial wait used by Tails ending path before skipping photo loop. */
+        TAILS_BOOT_WAIT,
         /** ObjCA routine 0: spawn palette changer, set timer. */
         INIT,
         /** ObjCA routine 2: wait for palette fade timer 1. */
@@ -128,6 +133,10 @@ public class Sonic2EndingCutsceneManager {
     private static final int PHOTO_HEIGHT_TILES = 9;
     private static final int PHOTO_X = 112;
     private static final int PHOTO_Y = 64;
+    private static final int ENDING_PLANE_WIDTH_TILES = 23;
+    private static final int ENDING_PLANE_HEIGHT_TILES = 15;
+    private static final int ENDING_PLANE_PLANE_X = 22 * 8; // planeLoc(64,22,33)
+    private static final int ENDING_PLANE_PLANE_Y = 33 * 8; // planeLoc(64,22,33)
 
     // ========================================================================
     // State fields
@@ -136,6 +145,7 @@ public class Sonic2EndingCutsceneManager {
     private CutsceneState state = CutsceneState.INIT;
     private int frameCounter;
     private int stateFrameCounter;
+    private boolean palTiming;
 
     // Art loader
     private Sonic2EndingArt endingArt;
@@ -144,6 +154,7 @@ public class Sonic2EndingCutsceneManager {
     // Photo sequence state
     private int photoIndex;
     private int[][] photoMaps;
+    private int[] endingPlaneMap;
 
     // Palette fade state — ROM starts Normal_palette as all-white ($EEE) and runs
     // PaletteFadeFrom every frame to fade toward Target_palette.
@@ -227,6 +238,8 @@ public class Sonic2EndingCutsceneManager {
     private int tornadoXVel;
     private int tornadoYVel;
     private boolean cutSceneFlag;
+    private int objCcSpawnTimer;
+    private boolean objCcActive;
 
     // Tornado rotation state (Sub-state 4)
     private int rotationStep;
@@ -236,6 +249,7 @@ public class Sonic2EndingCutsceneManager {
     // Departure state (Sub-state 6)
     private int departureTimer;
     private int superDepartureStep;
+    private int superDepartureTick;
 
     // Camera pan state (Sub-state 8)
     private int cameraPanStep;
@@ -260,6 +274,7 @@ public class Sonic2EndingCutsceneManager {
     private int objCeFrame;
     private int objCeTimer;
     private int objCePhase;
+    private int objCeJumpStep;
 
     // ObjCF plane helixes
     private boolean objCfHelixActive;
@@ -348,6 +363,7 @@ public class Sonic2EndingCutsceneManager {
      */
     public void initialize(Rom rom) {
         routine = Sonic2EndingArt.determineEndingRoutine();
+        palTiming = isPalTiming();
         endingArt = new Sonic2EndingArt();
         endingArt.loadArt(rom, routine);
         endingArt.loadPalettes(rom, routine);
@@ -373,6 +389,14 @@ public class Sonic2EndingCutsceneManager {
             photoMaps[i] = loadEnigmaMap(rom, PHOTO_MAP_ADDRS[i],
                     Sonic2Constants.ART_TILE_ENDING_PICS, "EndingPhoto" + (i + 1));
         }
+        int endingPlaneMapAddr = (routine == Sonic2EndingArt.EndingRoutine.TAILS)
+                ? Sonic2Constants.MAP_ENG_ENDING_SONIC_PLANE_ADDR
+                : Sonic2Constants.MAP_ENG_ENDING_TAILS_PLANE_ADDR;
+        endingPlaneMap = loadEnigmaMap(
+                rom,
+                endingPlaneMapAddr,
+                Sonic2Constants.ART_TILE_ENDING_FINAL_TORNADO,
+                "EndingPlaneBackdrop");
 
         // Parse ROM sprite mappings for accurate cutscene rendering
         try {
@@ -453,7 +477,13 @@ public class Sonic2EndingCutsceneManager {
         photoIndex = 0;
         frameCounter = 0;
         stateFrameCounter = 0;
-        enterInit();
+        if (routine == Sonic2EndingArt.EndingRoutine.TAILS) {
+            // ROM tails ending path bypasses the photo loop and waits #$100
+            // before entering character appear setup.
+            state = CutsceneState.TAILS_BOOT_WAIT;
+        } else {
+            enterInit();
+        }
 
         LOGGER.info("Ending cutscene initialized with routine=" + routine);
     }
@@ -475,6 +505,7 @@ public class Sonic2EndingCutsceneManager {
         }
 
         switch (state) {
+            case TAILS_BOOT_WAIT -> updateTailsBootWait();
             case INIT -> { /* immediate transition done in enterInit() */ }
             case PALETTE_WAIT_1 -> updatePaletteWait1();
             case PALETTE_SETUP_2 -> updatePaletteSetup2();
@@ -507,6 +538,7 @@ public class Sonic2EndingCutsceneManager {
         switch (state) {
             case INIT, PALETTE_WAIT_1, PALETTE_SETUP_2, PALETTE_WAIT_2, PHOTO_LOAD ->
                     drawPhotoSequence(gm);
+            case TAILS_BOOT_WAIT -> { }
             case CHARACTER_APPEAR -> drawCharacterAppear(gm);
             case CAMERA_SCROLL -> drawCameraScroll(gm);
             case MAIN_ENDING -> drawMainEnding(gm);
@@ -640,9 +672,18 @@ public class Sonic2EndingCutsceneManager {
     }
 
     private void updatePaletteWait1() {
-        if (stateFrameCounter >= Sonic2CreditsData.PALETTE_WAIT_1_60FPS) {
+        int duration = palTiming
+                ? Sonic2CreditsData.PALETTE_WAIT_1_50FPS
+                : Sonic2CreditsData.PALETTE_WAIT_1_60FPS;
+        if (stateFrameCounter >= duration) {
             state = CutsceneState.PALETTE_SETUP_2;
             stateFrameCounter = 0;
+        }
+    }
+
+    private void updateTailsBootWait() {
+        if (stateFrameCounter >= Sonic2CreditsData.TAILS_BOOT_WAIT) {
+            enterCharacterAppear();
         }
     }
 
@@ -770,7 +811,7 @@ public class Sonic2EndingCutsceneManager {
         // The "falling" visual comes from Camera_Y_pos_diff=$100 through SwScrl_DEZ parallax,
         // not from incrementing Camera_BG_Y_pos.
 
-        if (stateFrameCounter >= 0xC0) {
+        if (stateFrameCounter >= Sonic2CreditsData.CHARACTER_APPEAR_DURATION) {
             enterCameraScroll();
         }
     }
@@ -810,10 +851,7 @@ public class Sonic2EndingCutsceneManager {
         spawnVerticalCloudIfNeeded();
         updateClouds();
 
-        int duration = Sonic2CreditsData.CAMERA_SCROLL_SONIC_60FPS;
-        if (routine == Sonic2EndingArt.EndingRoutine.TAILS) {
-            duration = Sonic2CreditsData.CAMERA_SCROLL_TAILS_60FPS;
-        }
+        int duration = Sonic2CreditsData.CAMERA_SCROLL_DURATION;
 
         scrollProgress = Math.min(1.0f, (float) stateFrameCounter / duration);
 
@@ -839,14 +877,9 @@ public class Sonic2EndingCutsceneManager {
     private void enterMainEnding() {
         state = CutsceneState.MAIN_ENDING;
         stateFrameCounter = 0;
-
-        // ObjCC init: tornado starts off-screen left
         tornadoSubState = TornadoSubState.APPROACH;
-        tornadoXSub = -0x10 << 8;
-        tornadoYSub = 0xC0 << 8;
-        tornadoXVel = Sonic2CreditsData.PLANE_X_SPEED;
-        tornadoYVel = Sonic2CreditsData.PLANE_Y_SPEED;
-        tornadoTimer = 0;
+        objCcActive = false;
+        objCcSpawnTimer = getObjCcSpawnDelay();
         cutSceneFlag = false;
 
         // Reset scroll offsets
@@ -870,19 +903,33 @@ public class Sonic2EndingCutsceneManager {
     }
 
     private void updateMainEnding() {
-        // Update tornado sub-state machine
-        switch (tornadoSubState) {
-            case APPROACH -> updateTornadoApproach();
-            case BIRDS_AND_HOLD -> updateBirdsAndHold();
-            case ROTATION -> updateRotation();
-            case DEPARTURE -> updateDeparture();
-            case CAMERA_PAN -> updateCameraPan();
-            case SUPER_FINAL -> updateSuperFinal();
+        if (!objCcActive) {
+            // ROM ObjCA routine $E waits before spawning ObjCC.
+            charAnimTimer++;
+            if (charAnimTimer >= charAnimSpeed) {
+                charAnimTimer = 0;
+                charAnimIndex = (charAnimIndex + 1) % charAnimFrames.length;
+            }
+            spawnCloudIfNeeded();
+            objCcSpawnTimer--;
+            if (objCcSpawnTimer <= 0) {
+                startObjCc();
+            }
+        } else {
+            // Update tornado sub-state machine
+            switch (tornadoSubState) {
+                case APPROACH -> updateTornadoApproach();
+                case BIRDS_AND_HOLD -> updateBirdsAndHold();
+                case ROTATION -> updateRotation();
+                case DEPARTURE -> updateDeparture();
+                case CAMERA_PAN -> updateCameraPan();
+                case SUPER_FINAL -> updateSuperFinal();
+            }
         }
 
         // Update all active entities
-        if (tornadoSubState == TornadoSubState.APPROACH
-                || tornadoSubState == TornadoSubState.BIRDS_AND_HOLD) {
+        if (objCcActive && (tornadoSubState == TornadoSubState.APPROACH
+                || tornadoSubState == TornadoSubState.BIRDS_AND_HOLD)) {
             updatePilotAnimation();
         }
         updateBirds();
@@ -891,10 +938,35 @@ public class Sonic2EndingCutsceneManager {
         updateObjCfHelix();
 
         // Check global credits trigger
-        if (frameCounter >= Sonic2CreditsData.CREDITS_TRIGGER_60FPS) {
+        int creditsTrigger = palTiming
+                ? Sonic2CreditsData.CREDITS_TRIGGER_50FPS
+                : Sonic2CreditsData.CREDITS_TRIGGER_60FPS;
+        if (frameCounter >= creditsTrigger) {
             state = CutsceneState.TRIGGER_CREDITS;
             LOGGER.info("Ending cutscene complete, triggering credits");
         }
+    }
+
+    private int getObjCcSpawnDelay() {
+        if (routine == Sonic2EndingArt.EndingRoutine.TAILS) {
+            return palTiming
+                    ? Sonic2CreditsData.OBJCC_SPAWN_DELAY_TAILS_50FPS
+                    : Sonic2CreditsData.OBJCC_SPAWN_DELAY_TAILS_60FPS;
+        }
+        return Sonic2CreditsData.OBJCC_SPAWN_DELAY;
+    }
+
+    private void startObjCc() {
+        objCcActive = true;
+
+        // ObjCC init: tornado starts off-screen left
+        tornadoSubState = TornadoSubState.APPROACH;
+        tornadoXSub = -0x10 << 8;
+        tornadoYSub = 0xC0 << 8;
+        tornadoXVel = Sonic2CreditsData.PLANE_X_SPEED;
+        tornadoYVel = Sonic2CreditsData.PLANE_Y_SPEED;
+        tornadoTimer = 0;
+        cutSceneFlag = false;
     }
 
     // --- ObjCC Sub-state 0: Tornado Approach ---
@@ -921,7 +993,9 @@ public class Sonic2EndingCutsceneManager {
             tornadoYVel = 0;
 
             // Set hold timer and CutScene flag
-            tornadoTimer = Sonic2CreditsData.PLANE_HOLD_FRAMES_60FPS;
+            tornadoTimer = palTiming
+                    ? Sonic2CreditsData.PLANE_HOLD_FRAMES_50FPS
+                    : Sonic2CreditsData.PLANE_HOLD_FRAMES_60FPS;
             cutSceneFlag = true;
 
             // Position character on tornado
@@ -1006,26 +1080,7 @@ public class Sonic2EndingCutsceneManager {
                 }
 
                 superDepartureStep = 0;
-
-                // ROM: State 6 spawns ObjCE (jumping char) and ObjCF (plane helix)
-                // immediately on entry, then waits only 2 frames before State 8.
-                // Spawn child objects now so they're visible during departure.
-                objCfHelixActive = true;
-                objCfHelixX = 0x10F;
-                objCfHelixY = 0x15E;
-                objCfHelixSavedX = objCfHelixX;
-                objCfHelixSavedY = objCfHelixY;
-                objCfHelixFrame = 5; // Ani_objCF anim 2 initial
-                objCfHelixAnimTimer = 0;
-
-                objCeActive = true;
-                objCeX = 0xE8;
-                objCeY = 0x118;
-                objCeSavedX = objCeX;
-                objCeSavedY = objCeY;
-                objCeFrame = (routine == Sonic2EndingArt.EndingRoutine.TAILS) ? 0xF : 0xC;
-                objCeTimer = 0;
-                objCePhase = 0; // follow
+                superDepartureTick = 0;
 
                 departureTimer = Sonic2CreditsData.DEPARTURE_TIMER;
                 tornadoSubState = TornadoSubState.DEPARTURE;
@@ -1056,23 +1111,65 @@ public class Sonic2EndingCutsceneManager {
     // --- ObjCC Sub-state 6: Character Departure ---
 
     private void updateDeparture() {
-        // Super Sonic follows separate position table
-        if (routine == Sonic2EndingArt.EndingRoutine.SUPER_SONIC
-                && superDepartureStep < Sonic2CreditsData.SUPER_SONIC_PATH.length) {
-            int[] pos = Sonic2CreditsData.SUPER_SONIC_PATH[superDepartureStep];
-            charOnTornadoX = pos[0];
-            charOnTornadoY = pos[1];
-            superDepartureStep++;
+        // Super Sonic path update cadence mirrors ObjCC_State6:
+        // objoff_31 decrements each frame, resets by +3 when negative.
+        if (routine == Sonic2EndingArt.EndingRoutine.SUPER_SONIC) {
+            superDepartureTick--;
+            if (superDepartureTick < 0) {
+                superDepartureTick += 3;
+                if (superDepartureStep < Sonic2CreditsData.SUPER_SONIC_PATH.length) {
+                    int[] pos = Sonic2CreditsData.SUPER_SONIC_PATH[superDepartureStep];
+                    if (superDepartureStep < 3) {
+                        // d0 < $C branch updates MainCharacter path only.
+                        charOnTornadoX = pos[0];
+                        charOnTornadoY = pos[1];
+                    } else {
+                        // d0 >= $C branch updates ObjCC position/frame and moves MainCharacter off-screen.
+                        charOnTornadoX = 0x200;
+                        charOnTornadoY = 0;
+                        tornadoXSub = pos[0] << 8;
+                        tornadoYSub = pos[1] << 8;
+                        int frameIdx = Math.min(superDepartureStep, Sonic2CreditsData.SUPER_SONIC_FRAMES.length - 1);
+                        rotationDisplayFrame = Sonic2CreditsData.SUPER_SONIC_FRAMES[frameIdx];
+                    }
+                    superDepartureStep++;
+                }
+            }
         }
 
         departureTimer--;
         if (departureTimer <= 0) {
-            // ObjCE/ObjCF already spawned at departure start (see ROTATION exit).
+            // ROM loc_A720: spawn ObjCF (always) and ObjCE (non-super) at transition
+            // from State 6 to State 8.
+            spawnDepartureChildObjects();
+
             // Transition to camera pan.
             cameraPanStep = 0;
             cameraPanFrameTimer = Sonic2CreditsData.CAMERA_PAN_FRAME_DELAY;
             tornadoSubState = TornadoSubState.CAMERA_PAN;
             LOGGER.fine("Entering CAMERA_PAN");
+        }
+    }
+
+    private void spawnDepartureChildObjects() {
+        objCfHelixActive = true;
+        objCfHelixX = 0x10F;
+        objCfHelixY = 0x15E;
+        objCfHelixSavedX = objCfHelixX;
+        objCfHelixSavedY = objCfHelixY;
+        objCfHelixFrame = 5; // ObjCF_Init mapping_frame
+        objCfHelixAnimTimer = 0;
+
+        if (routine != Sonic2EndingArt.EndingRoutine.SUPER_SONIC) {
+            objCeActive = true;
+            objCeX = 0xE8;
+            objCeY = 0x118;
+            objCeSavedX = objCeX;
+            objCeSavedY = objCeY;
+            objCeFrame = (routine == Sonic2EndingArt.EndingRoutine.TAILS) ? 0xF : 0xC;
+            objCePhase = 0; // ObjCE routine 2: follow until standing flag
+            objCeTimer = 0;
+            objCeJumpStep = 0;
         }
     }
 
@@ -1256,6 +1353,13 @@ public class Sonic2EndingCutsceneManager {
         var it = clouds.iterator();
         while (it.hasNext()) {
             Cloud cloud = it.next();
+            // ROM ObjCB routine 2 checks CutScene+$34 and, once set, transitions
+            // cloud motion from vertical to horizontal by moving y_vel into x_vel.
+            if (!cloud.horizontal && cutSceneFlag) {
+                cloud.horizontal = true;
+                cloud.xVel = cloud.yVel;
+                cloud.yVel = 0;
+            }
             cloud.xSub += cloud.xVel;
             cloud.ySub += cloud.yVel;
 
@@ -1270,38 +1374,56 @@ public class Sonic2EndingCutsceneManager {
     private void updateObjCe() {
         if (!objCeActive) return;
 
-        // ROM: ObjCE is a sprite object — renders at screen coordinates.
-        // CAMERA_PAN only changes BG/FG scroll registers, not sprite positions.
+        if (objCePhase == 0) {
+            // ROM loc_A90E: while parent not standing, object position follows
+            // scroll buffer offsets using saved base coords.
+            objCeX = objCeSavedX + horizScrollOffset;
+            objCeY = objCeSavedY - vscrollOffset;
+            if (standingFlag) {
+                // ROM ObjCE loc_A902: switch to jump routine and clear timer.
+                // First delta is applied next frame in loc_A936 when timer goes negative.
+                objCePhase = 1;
+                objCeTimer = 0;
+                objCeJumpStep = 0;
+                // Preserve the current compensated screen position as the jump origin.
+                // ROM updates x_pos/y_pos directly in loc_A90E before switching routines.
+                objCeSavedX = objCeX;
+                objCeSavedY = objCeY;
+            }
+            return;
+        }
+
+        // ROM loc_A936: subq.w #1,objoff_3C; bpl -> hold current frame/position.
+        // When negative, reset timer to 4 and consume next delta pair.
+        objCeTimer--;
+        if (objCeTimer < 0) {
+            objCeTimer = 4;
+            applyObjCeJumpStep();
+        }
         objCeX = objCeSavedX;
         objCeY = objCeSavedY;
+    }
 
-        if (standingFlag && objCePhase == 0) {
-            objCePhase = 1; // start jump
-            objCeTimer = 0;
+    private void applyObjCeJumpStep() {
+        int[][] deltas = (routine == Sonic2EndingArt.EndingRoutine.TAILS)
+                ? Sonic2CreditsData.CHAR_JUMP_DELTAS_TAILS
+                : Sonic2CreditsData.CHAR_JUMP_DELTAS_SONIC;
+        if (objCeJumpStep >= deltas.length) {
+            return;
         }
-
-        if (objCePhase == 1) {
-            objCeTimer++;
-            // 4-frame tick, apply delta pairs
-            if (objCeTimer % 4 == 0) {
-                int deltaIdx = (objCeTimer / 4) - 1;
-                int[][] deltas = (routine == Sonic2EndingArt.EndingRoutine.TAILS)
-                        ? Sonic2CreditsData.CHAR_JUMP_DELTAS_TAILS
-                        : Sonic2CreditsData.CHAR_JUMP_DELTAS_SONIC;
-                if (deltaIdx >= 0 && deltaIdx < deltas.length) {
-                    objCeSavedX += deltas[deltaIdx][0];
-                    objCeSavedY += deltas[deltaIdx][1];
-                    objCeFrame++;
-                }
-            }
-        }
+        objCeSavedX += deltas[objCeJumpStep][0];
+        objCeSavedY += deltas[objCeJumpStep][1];
+        objCeFrame++;
+        objCeJumpStep++;
     }
 
     private void updateObjCfHelix() {
         if (!objCfHelixActive) return;
 
-        // ROM: ObjCF is a sprite object — renders at fixed screen coordinates.
-        // CAMERA_PAN only changes BG/FG scroll registers, not sprite positions.
+        // ROM ObjCF_Animate branches directly to loc_A90E every frame, so
+        // helix coordinates always include scroll-buffer compensation.
+        objCfHelixX = objCfHelixSavedX + horizScrollOffset;
+        objCfHelixY = objCfHelixSavedY - vscrollOffset;
 
         // Ani_objCF anim 2: speed 1, frames 5→6 looping for continuous rotor spin.
         objCfHelixAnimTimer++;
@@ -1318,8 +1440,21 @@ public class Sonic2EndingCutsceneManager {
     private void drawMainEnding(GraphicsManager gm) {
         gm.beginPatternBatch();
 
+        // ROM ObjCC_Init decodes MapEng_Ending*TornadoPlane and VInt subroutine 4
+        // writes it to Plane A. Render this backdrop before sprite objects.
+        if (objCcActive) {
+            drawEndingPlaneBackdrop(gm);
+        }
+
         // Clouds (behind everything)
         drawClouds(gm);
+
+        if (!objCcActive) {
+            int frameIdx = charAnimFrames[charAnimIndex];
+            drawPlayerFrame(gm, frameIdx, 0xA0, 0x50);
+            gm.flushPatternBatch();
+            return;
+        }
 
         // Tornado
         drawTornado(gm);
@@ -1355,19 +1490,46 @@ public class Sonic2EndingCutsceneManager {
         // Birds
         drawBirds(gm);
 
-        // ObjCF plane helixes — ROM: art_tile = ArtTile_ArtKos_LevelArt ($0000)
-        // ObjCF_MapUnc tile indices are absolute VRAM tile references.
-        if (objCfHelixActive) {
-            drawObjCfFrame(gm, objCfHelixFrame, objCfHelixX, objCfHelixY, -1, 0);
-        }
-
         // ObjCE jumping character — ROM: art_tile = ArtTile_ArtKos_LevelArt ($0000)
         // Uses ObjCF_MapUnc mappings with absolute tile indices.
         if (objCeActive && objCeFrame >= 0 && objCfFrames != null && objCeFrame < objCfFrames.size()) {
             drawObjCfFrame(gm, objCeFrame, objCeX, objCeY, -1, 0);
         }
 
+        // ObjCF plane helixes — render after ObjCE so rotor stays visible on top.
+        if (objCfHelixActive) {
+            drawObjCfFrame(gm, objCfHelixFrame, objCfHelixX, objCfHelixY, -1, 0);
+        }
+
         gm.flushPatternBatch();
+    }
+
+    private void drawEndingPlaneBackdrop(GraphicsManager gm) {
+        if (endingPlaneMap == null || endingPlaneMap.length == 0) {
+            return;
+        }
+
+        int originX = ENDING_PLANE_PLANE_X + horizScrollOffset;
+        int originY = ENDING_PLANE_PLANE_Y - vscrollOffset;
+        int maxWords = ENDING_PLANE_WIDTH_TILES * ENDING_PLANE_HEIGHT_TILES;
+        int words = Math.min(maxWords, endingPlaneMap.length);
+
+        for (int i = 0; i < words; i++) {
+            int word = endingPlaneMap[i];
+            if (word == 0) continue;
+            reusableDesc.set(word);
+
+            int tx = i % ENDING_PLANE_WIDTH_TILES;
+            int ty = i / ENDING_PLANE_WIDTH_TILES;
+            int drawX = originX + tx * 8;
+            int drawY = originY + ty * 8;
+            if (drawX < -8 || drawX >= SCREEN_WIDTH || drawY < -8 || drawY >= SCREEN_HEIGHT) {
+                continue;
+            }
+
+            int patternId = Sonic2EndingArt.PATTERN_BASE_VRAM + reusableDesc.getPatternIndex();
+            gm.renderPatternWithId(patternId, reusableDesc, drawX, drawY);
+        }
     }
 
     private int getCharacterFrameForCurrentState() {
@@ -1402,10 +1564,9 @@ public class Sonic2EndingCutsceneManager {
                 // ObjB2 body during approach.
                 // ROM: make_art_tile(ArtTile_ArtNem_Tornado, 0, 1) — palette 0, priority 1
                 // ROM Ani_objB2_a: anim 0 = frames 0,1,2,3 (Sonic); anim 1 = frames 4,5,6,7 (Tails)
-                // ROM: ObjB2_Animate_Pilot loads character DPLCs at tornado's art_tile,
-                // overwriting cockpit tiles so the pilot shows through transparent pixels.
-                // We draw pilot BEFORE tornado body so the body covers the lower portion.
-                drawPilotFrame(gm, tx, ty);
+                // ROM: ObjB2_Animate_Pilot writes character DPLC tiles into the
+                // ArtUnc_Sonic/ArtUnc_Tails VRAM region referenced by cockpit pieces.
+                syncPilotDplcOverlay(gm);
                 if (tornadoFrames != null && !tornadoFrames.isEmpty()) {
                     int animBase = (routine == Sonic2EndingArt.EndingRoutine.TAILS) ? 4 : 0;
                     int animFrame = animBase + (frameCounter % 4);
@@ -1416,9 +1577,9 @@ public class Sonic2EndingCutsceneManager {
                 }
             }
             case BIRDS_AND_HOLD -> {
-                // ObjB2 body during hold. Character is on the tornado via sub_A524
-                // (the MainCharacter object is repositioned), so no separate pilot drawing.
-                // The character on the tornado is drawn by drawMainEnding's player section.
+                // ObjB2 body during hold. sub_A524 repositions MainCharacter to tornado.
+                // ObjB2_Animate_Pilot still runs and updates cockpit tile region.
+                syncPilotDplcOverlay(gm);
                 if (tornadoFrames != null && !tornadoFrames.isEmpty()) {
                     int animBase = (routine == Sonic2EndingArt.EndingRoutine.TAILS) ? 4 : 0;
                     int animFrame = animBase + (frameCounter % 4);
@@ -1540,44 +1701,27 @@ public class Sonic2EndingCutsceneManager {
     }
 
     /**
-     * Draws the pilot character in the tornado cockpit using Map_Sonic/Map_Tails.
-     * <p>
-     * ROM: ObjB2_Animate_Pilot loads character DPLC art for the pilot's current
-     * animation frame. The pilot is the real player character object positioned on
-     * the tornado, rendered using standard Map_Sonic/Map_Tails mappings.
-     * The animation frame index from pilotAnimSequence doubles as both the DPLC
-     * frame and the mapping frame.
-     *
-     * @param gm the graphics manager
-     * @param x  screen X of pilot position
-     * @param y  screen Y of pilot position
+     * Applies ObjB2 pilot DPLC updates into the VRAM-relative character tile region.
+     * The cockpit pilot appears through ObjB2 mapping pieces that reference those tiles.
      */
-    private void drawPilotFrame(GraphicsManager gm, int x, int y) {
-        if (pilotMappingFrames == null || pilotMappingFrames.isEmpty()) return;
-        if (pilotAnimSequence == null || pilotPatternBank == null) return;
-
-        // The pilot animation sequence values are both DPLC frame indices AND
-        // Map_Sonic/Map_Tails mapping frame indices (they're the same in ROM).
+    private void syncPilotDplcOverlay(GraphicsManager gm) {
+        if (pilotAnimSequence == null || pilotPatternBank == null || pilotDplcFrames == null) {
+            return;
+        }
         int frameIndex = pilotAnimSequence[pilotAnimIndex % pilotAnimSequence.length];
-
-        // Apply DPLC for the pilot's character frame
-        if (frameIndex != lastPilotDplcFrame) {
-            if (pilotDplcFrames != null && frameIndex < pilotDplcFrames.size()) {
-                SpriteDplcFrame dplcFrame = pilotDplcFrames.get(frameIndex);
-                if (dplcFrame != null && !dplcFrame.requests().isEmpty()) {
-                    pilotPatternBank.applyRequests(dplcFrame.requests(), pilotSourceArt);
-                    pilotPatternBank.ensureCached(gm);
-                    lastPilotDplcFrame = frameIndex;
-                }
-            }
+        if (frameIndex == lastPilotDplcFrame) {
+            return;
         }
-
-        // Draw using standard player mappings at the pilot's art_tile base.
-        // ROM: palette line 0 (character palette).
-        if (frameIndex >= 0 && frameIndex < pilotMappingFrames.size()) {
-            int basePattern = pilotPatternBank.getBasePatternIndex();
-            drawMappingFrame(gm, pilotMappingFrames, frameIndex, x, y, basePattern, 0);
+        if (frameIndex < 0 || frameIndex >= pilotDplcFrames.size()) {
+            return;
         }
+        SpriteDplcFrame dplcFrame = pilotDplcFrames.get(frameIndex);
+        if (dplcFrame == null || dplcFrame.requests().isEmpty()) {
+            return;
+        }
+        pilotPatternBank.applyRequests(dplcFrame.requests(), pilotSourceArt);
+        pilotPatternBank.ensureCached(gm);
+        lastPilotDplcFrame = frameIndex;
     }
 
     /**
@@ -1587,23 +1731,29 @@ public class Sonic2EndingCutsceneManager {
      * for ObjCF/ObjCC, ART_TILE_ENDING_CHARACTER for ObjCE).
      */
     private void drawObjCfFrame(GraphicsManager gm, int frameIndex, int originX, int originY,
-                                 int paletteOverride, int artTile) {
+                                  int paletteOverride, int artTile) {
         if (objCfFrames == null || frameIndex < 0 || frameIndex >= objCfFrames.size()) {
             return;
         }
         SpriteMappingFrame frame = objCfFrames.get(frameIndex);
-        SpritePieceRenderer.renderPieces(
-                frame.pieces(), originX, originY,
-                Sonic2EndingArt.PATTERN_BASE_VRAM + artTile, paletteOverride,
-                false, false,
-                (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {
-                    int descIndex = patternIdx & 0x7FF;
-                    if (pieceHFlip) descIndex |= 0x800;
-                    if (pieceVFlip) descIndex |= 0x1000;
-                    descIndex |= (palIdx & 0x3) << 13;
-                    reusableDesc.set(descIndex);
-                    gm.renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
-                });
+        List<SpriteMappingPiece> pieces = frame.pieces();
+        for (int i = pieces.size() - 1; i >= 0; i--) {
+            SpriteMappingPiece piece = pieces.get(i);
+            boolean piecePriority = piece.priority();
+            SpritePieceRenderer.renderPiece(
+                    piece, originX, originY,
+                    Sonic2EndingArt.PATTERN_BASE_VRAM + artTile, paletteOverride,
+                    false, false,
+                    (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {
+                        int descIndex = patternIdx & 0x7FF;
+                        if (piecePriority) descIndex |= 0x8000;
+                        if (pieceHFlip) descIndex |= 0x800;
+                        if (pieceVFlip) descIndex |= 0x1000;
+                        descIndex |= (palIdx & 0x3) << 13;
+                        reusableDesc.set(descIndex);
+                        gm.renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
+                    });
+        }
     }
 
     /**
@@ -1611,23 +1761,29 @@ public class Sonic2EndingCutsceneManager {
      */
     private void drawMappingFrame(GraphicsManager gm, List<SpriteMappingFrame> frames,
                                    int frameIndex, int originX, int originY,
-                                   int basePatternIdx, int paletteOverride) {
+                                    int basePatternIdx, int paletteOverride) {
         if (frames == null || frameIndex < 0 || frameIndex >= frames.size()) {
             return;
         }
         SpriteMappingFrame frame = frames.get(frameIndex);
-        SpritePieceRenderer.renderPieces(
-                frame.pieces(), originX, originY,
-                basePatternIdx, paletteOverride,
-                false, false,
-                (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {
-                    int descIndex = patternIdx & 0x7FF;
-                    if (pieceHFlip) descIndex |= 0x800;
-                    if (pieceVFlip) descIndex |= 0x1000;
-                    descIndex |= (palIdx & 0x3) << 13;
-                    reusableDesc.set(descIndex);
-                    gm.renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
-                });
+        List<SpriteMappingPiece> pieces = frame.pieces();
+        for (int i = pieces.size() - 1; i >= 0; i--) {
+            SpriteMappingPiece piece = pieces.get(i);
+            boolean piecePriority = piece.priority();
+            SpritePieceRenderer.renderPiece(
+                    piece, originX, originY,
+                    basePatternIdx, paletteOverride,
+                    false, false,
+                    (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {
+                        int descIndex = patternIdx & 0x7FF;
+                        if (piecePriority) descIndex |= 0x8000;
+                        if (pieceHFlip) descIndex |= 0x800;
+                        if (pieceVFlip) descIndex |= 0x1000;
+                        descIndex |= (palIdx & 0x3) << 13;
+                        reusableDesc.set(descIndex);
+                        gm.renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
+                    });
+        }
     }
 
     // ========================================================================
@@ -1655,6 +1811,11 @@ public class Sonic2EndingCutsceneManager {
             LOGGER.warning("Failed to load " + name + " Enigma map: " + e.getMessage());
             return new int[0];
         }
+    }
+
+    private static boolean isPalTiming() {
+        String region = SonicConfigurationService.getInstance().getString(SonicConfiguration.REGION);
+        return "PAL".equalsIgnoreCase(region);
     }
 
     // ========================================================================
