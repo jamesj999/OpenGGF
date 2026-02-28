@@ -33,6 +33,7 @@ import com.openggf.game.sonic1.credits.Sonic1CreditsDemoData;
 import com.openggf.game.sonic1.credits.TryAgainEndManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.debug.playback.PlaybackDebugManager;
+import com.openggf.level.SeamlessLevelTransitionRequest;
 
 import java.io.IOException;
 import java.util.Comparator;
@@ -413,6 +414,22 @@ public class GameLoop {
             if (tcp != null && tcp.isOverlayActive()) {
                 tcp.update();
             }
+
+            // Handle in-place seamless transitions before fade-based routes.
+            SeamlessLevelTransitionRequest seamlessRequest = levelManager.consumeSeamlessTransitionRequest();
+            if (seamlessRequest != null) {
+                levelManager.applySeamlessTransition(seamlessRequest);
+                if (levelManager.consumeInLevelTitleCardRequest()) {
+                    enterInLevelTitleCard(levelManager.getInLevelTitleCardZone(), levelManager.getInLevelTitleCardAct());
+                }
+                return;
+            }
+
+            // Trigger transparent in-level title card overlays (no mode switch).
+            if (levelManager.consumeInLevelTitleCardRequest()) {
+                enterInLevelTitleCard(levelManager.getInLevelTitleCardZone(), levelManager.getInLevelTitleCardAct());
+            }
+
             // Check if a title card was requested (new level loaded)
             if (levelManager.consumeTitleCardRequest()) {
                 enterTitleCard(levelManager.getTitleCardZone(), levelManager.getTitleCardAct());
@@ -1120,6 +1137,18 @@ public class GameLoop {
         }
 
         LOGGER.info("Entered Title Card for zone " + zoneIndex + " act " + actIndex);
+    }
+
+    /**
+     * Starts a transparent in-level title card overlay without switching game mode.
+     */
+    private void enterInLevelTitleCard(int zoneIndex, int actIndex) {
+        TitleCardProvider provider = getTitleCardProviderLazy();
+        if (provider == null) {
+            return;
+        }
+        provider.initializeInLevel(zoneIndex, actIndex);
+        LOGGER.info("Entered in-level Title Card for zone " + zoneIndex + " act " + actIndex);
     }
 
     /**

@@ -1,11 +1,14 @@
 package com.openggf.game.sonic3k.events;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.CheckpointState;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelConstants;
 import com.openggf.level.LevelManager;
+import com.openggf.level.SeamlessLevelTransitionRequest;
 import com.openggf.level.objects.ObjectSpawn;
 
 import java.util.logging.Logger;
@@ -21,7 +24,7 @@ import java.util.logging.Logger;
  *   <li>Routine 4: Unlock Y boundaries, apply dynamic max Y from table</li>
  * </ul>
  *
- * Act 2: Boss arena + fire transition (future work).
+ * Act 2: boss arena and scroll/deformation state are handled by the act's own tables.
  */
 public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private static final Logger LOG = Logger.getLogger(Sonic3kAIZEvents.class.getName());
@@ -107,6 +110,31 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private boolean fireTransitionActive;
     /** Boss_flag equivalent - set when boss is present, cleared on cleanup. */
     private boolean bossFlag;
+    /** True after the act switch request has been sent to LevelManager. */
+    private boolean act2TransitionRequested;
+    /** True after in-place mutation stage has been requested. */
+    private boolean fireTransitionMutationRequested;
+    /** Fixed-point Camera_Y_pos_BG_copy used by AIZ1_FireRise (16.16). */
+    private int fireBgCopyFixed;
+    /** Events_bg+$02 equivalent: rising-fire speed. */
+    private int fireRiseSpeed;
+    /** _unkEE8E equivalent used by AIZTrans_WavyFlame. */
+    private int fireWavePhase;
+    /** Safety fallback to avoid getting stuck in transition logic. */
+    private int fireTransitionFrames;
+
+    private static final int FIRE_BG_FIXED_START = 0x0020_0000;
+    private static final int FIRE_BG_TARGET = 0x0068_0000;
+    private static final int FIRE_BG_LERP_SHIFT = 5;
+    private static final int FIRE_BG_LERP_MIN_DELTA = 0x1400;
+    private static final int FIRE_RISE_ACCEL = 0x0280;
+    private static final int FIRE_RISE_MAX_SPEED = 0xA000;
+    private static final int FIRE_BG_FINISH_Y = 0x0310;
+    private static final int FIRE_BG_MUTATION_Y = 0x0190;
+    private static final int FIRE_BG_X_BASE = 0x1000;
+    private static final int FIRE_BG_X_PHASE_MASK = 0x0060;
+    private static final int FIRE_WAVE_PHASE_STEP = 6;
+    private static final int FIRE_TRANSITION_FALLBACK_FRAMES = 240;
 
     public Sonic3kAIZEvents(Camera camera, Sonic3kLoadBootstrap bootstrap) {
         super(camera);
@@ -123,6 +151,12 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         eventsFg5 = false;
         fireTransitionActive = false;
         bossFlag = false;
+        act2TransitionRequested = false;
+        fireTransitionMutationRequested = false;
+        fireBgCopyFixed = FIRE_BG_FIXED_START;
+        fireRiseSpeed = 0;
+        fireWavePhase = 0;
+        fireTransitionFrames = 0;
         if (act == 0) {
             AizPlaneIntroInstance.resetIntroPhaseState();
             AizHollowTreeObjectInstance.resetTreeRevealCounter();
@@ -194,6 +228,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (boundariesUnlocked) {
             resizeMaxYFromX(cameraX);
         }
+
+        updateFireTransition();
     }
 
     /**
@@ -397,5 +433,122 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     public boolean isFireTransitionActive() {
         return fireTransitionActive;
+    }
+
+    public boolean isAct2TransitionRequested() {
+        return act2TransitionRequested;
+    }
+
+    /**
+     * Equivalent to Camera_Y_pos_BG_copy during AIZ1 fire transition.
+     */
+    public int getFireTransitionBgY() {
+        return fireBgCopyFixed >> 16;
+    }
+
+    /**
+     * Equivalent to Camera_X_pos_BG_copy updates in AIZTrans_WavyFlame.
+     */
+    public int getFireTransitionBgX() {
+        return FIRE_BG_X_BASE + (fireWavePhase & FIRE_BG_X_PHASE_MASK);
+    }
+
+    private void updateFireTransition() {
+        if (!fireTransitionActive) {
+            if (eventsFg5) {
+                beginFireTransition();
+            }
+            return;
+        }
+
+        // AIZ1BGE_FireTransition pre-rise easing:
+        // d0 = ((Events_bg+$00 << 16) - Camera_Y_pos_BG_copy) >> 5
+        // Camera_Y_pos_BG_copy += d0
+        // FireRise starts only once d0 < $1400.
+        boolean fireRiseEnabled = true;
+        if (fireRiseSpeed == 0) {
+            int delta = (FIRE_BG_TARGET - fireBgCopyFixed) >> FIRE_BG_LERP_SHIFT;
+            fireBgCopyFixed += delta;
+            fireRiseEnabled = Integer.compareUnsigned(delta, FIRE_BG_LERP_MIN_DELTA) < 0;
+        }
+
+        if (fireRiseEnabled) {
+            // AIZ1_FireRise: accelerate the rising-fire BG offset each frame.
+            fireRiseSpeed = Math.min(FIRE_RISE_MAX_SPEED, fireRiseSpeed + FIRE_RISE_ACCEL);
+            fireBgCopyFixed += (fireRiseSpeed << 4);
+        }
+
+        // AIZTrans_WavyFlame: phase accumulator used for BG X + VScroll wave selection.
+        fireWavePhase = (fireWavePhase + FIRE_WAVE_PHASE_STEP) & 0xFFFF;
+        fireTransitionFrames++;
+
+        if (act2TransitionRequested) {
+            return;
+        }
+
+        int fireBgY = getFireTransitionBgY();
+        if (!fireTransitionMutationRequested && fireBgY >= FIRE_BG_MUTATION_Y) {
+            requestFireTransitionMutation();
+        }
+
+        // ROM performs in-place mutation while still in AIZ1, then advances to AIZ2
+        // later in the finish phase once required resources are loaded.
+        if (fireBgY >= FIRE_BG_FINISH_Y || fireTransitionFrames >= FIRE_TRANSITION_FALLBACK_FRAMES) {
+            requestAct2Transition();
+        }
+    }
+
+    private void beginFireTransition() {
+        eventsFg5 = false;
+        fireTransitionActive = true;
+        fireBgCopyFixed = FIRE_BG_FIXED_START;
+        fireRiseSpeed = 0;
+        fireWavePhase = 0;
+        fireTransitionFrames = 0;
+        fireTransitionMutationRequested = false;
+        LOG.info("AIZ1: fire transition started");
+    }
+
+    private void requestFireTransitionMutation() {
+        fireTransitionMutationRequested = true;
+        LevelManager.getInstance().requestSeamlessTransition(
+                SeamlessLevelTransitionRequest.builder(SeamlessLevelTransitionRequest.TransitionType.MUTATE_ONLY)
+                        .mutationKey(S3kSeamlessMutationExecutor.MUTATION_AIZ1_FIRE_TRANSITION_STAGE)
+                        .preserveMusic(true)
+                        .build());
+        LOG.info("AIZ1: requested seamless in-place fire mutation stage");
+    }
+
+    private void requestAct2Transition() {
+        act2TransitionRequested = true;
+        fireTransitionActive = false;
+        eventsFg5 = false;
+        bossFlag = false;
+        if (!fireTransitionMutationRequested) {
+            requestFireTransitionMutation();
+        }
+        persistTransitionCheckpoint();
+        LevelManager.getInstance().requestSeamlessTransition(
+                SeamlessLevelTransitionRequest.builder(SeamlessLevelTransitionRequest.TransitionType.RELOAD_TARGET_LEVEL)
+                        .targetZoneAct(Sonic3kZoneIds.ZONE_AIZ, 1)
+                        .deactivateLevelNow(true)
+                        .preserveMusic(true)
+                        .showInLevelTitleCard(true)
+                        .playerOffset(-0x2F00, -0x80)
+                        .cameraOffset(-0x2F00, -0x80)
+                        .build());
+        LOG.info("AIZ1: requested seamless transition to AIZ2");
+    }
+
+    private void persistTransitionCheckpoint() {
+        if (!(LevelManager.getInstance().getCheckpointState() instanceof CheckpointState checkpoint)) {
+            return;
+        }
+        if (camera == null || camera.getFocusedSprite() == null) {
+            return;
+        }
+        int x = camera.getFocusedSprite().getCentreX() & 0xFFFF;
+        int y = camera.getFocusedSprite().getCentreY() & 0xFFFF;
+        checkpoint.saveCheckpoint(0, x, y, false);
     }
 }

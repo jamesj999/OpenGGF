@@ -4,6 +4,7 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.HScrollBuffer;
 import com.openggf.graphics.ParallaxShaderProgram;
 import com.openggf.graphics.QuadRenderer;
+import com.openggf.graphics.VScrollBuffer;
 
 import java.io.IOException;
 import java.util.logging.Logger;
@@ -49,6 +50,7 @@ public class BackgroundRenderer {
     private int renderHeight = DEFAULT_FBO_HEIGHT;
 
     private HScrollBuffer hScrollBuffer;
+    private VScrollBuffer vScrollBuffer;
     private ParallaxShaderProgram parallaxShader;
     private final QuadRenderer quadRenderer = new QuadRenderer();
 
@@ -76,6 +78,8 @@ public class BackgroundRenderer {
         // Initialize HScroll buffer
         hScrollBuffer = new HScrollBuffer();
         hScrollBuffer.init();
+        vScrollBuffer = new VScrollBuffer();
+        vScrollBuffer.init();
 
         // Load parallax shader
         parallaxShader = new ParallaxShaderProgram(shaderPath);
@@ -229,7 +233,12 @@ public class BackgroundRenderer {
      */
     public void renderWithScrollWide(int[] hScroll, int scrollMidpoint, int extraBuffer,
             int fboVScroll) {
-        renderWithScrollWide(hScroll, scrollMidpoint, extraBuffer, fboVScroll, false);
+        renderWithScrollWide(hScroll, null, scrollMidpoint, extraBuffer, fboVScroll, false);
+    }
+
+    public void renderWithScrollWide(int[] hScroll, short[] vScrollPerLine, int scrollMidpoint, int extraBuffer,
+            int fboVScroll) {
+        renderWithScrollWide(hScroll, vScrollPerLine, scrollMidpoint, extraBuffer, fboVScroll, false);
     }
 
     /**
@@ -240,11 +249,19 @@ public class BackgroundRenderer {
      */
     public void renderWithScrollWide(int[] hScroll, int scrollMidpoint, int extraBuffer,
             int fboVScroll, boolean noHScroll) {
+        renderWithScrollWide(hScroll, null, scrollMidpoint, extraBuffer, fboVScroll, noHScroll);
+    }
+
+    public void renderWithScrollWide(int[] hScroll, short[] vScrollPerLine, int scrollMidpoint, int extraBuffer,
+            int fboVScroll, boolean noHScroll) {
         if (!initialized)
             return;
 
         // Upload scroll data to GPU
         hScrollBuffer.upload(hScroll);
+        if (vScrollPerLine != null && vScrollBuffer != null) {
+            vScrollBuffer.upload(vScrollPerLine);
+        }
 
         // Bind shader and set uniforms
         parallaxShader.use();
@@ -253,6 +270,7 @@ public class BackgroundRenderer {
         // Set texture units
         parallaxShader.setBackgroundTexture(0);
         parallaxShader.setHScrollTexture(1);
+        parallaxShader.setVScrollTexture(2);
 
         // Get viewport for resolution independence
         GraphicsManager gm = GraphicsManager.getInstance();
@@ -275,6 +293,7 @@ public class BackgroundRenderer {
         parallaxShader.setBackdropColor(backdropR, backdropG, backdropB);
         parallaxShader.setFillTransparentWithBackdrop(true);
         parallaxShader.setNoHScroll(noHScroll);
+        parallaxShader.setUsePerLineVScroll(vScrollPerLine != null);
         parallaxShader.setShimmerParams(shimmerFrameCounter, shimmerStyle, shimmerWaterlineScreenY);
 
         // Bind textures
@@ -282,6 +301,9 @@ public class BackgroundRenderer {
         glBindTexture(GL_TEXTURE_2D, fboTextureId);
 
         hScrollBuffer.bind(1);
+        if (vScrollPerLine != null && vScrollBuffer != null) {
+            vScrollBuffer.bind(2);
+        }
 
         // Draw fullscreen quad
         drawFullscreenQuad();
@@ -289,6 +311,9 @@ public class BackgroundRenderer {
         // Cleanup
         parallaxShader.stop();
         hScrollBuffer.unbind(1);
+        if (vScrollPerLine != null && vScrollBuffer != null) {
+            vScrollBuffer.unbind(2);
+        }
         glActiveTexture(GL_TEXTURE0);
     }
 
@@ -360,6 +385,9 @@ public class BackgroundRenderer {
     public void cleanup() {
         if (hScrollBuffer != null) {
             hScrollBuffer.cleanup();
+        }
+        if (vScrollBuffer != null) {
+            vScrollBuffer.cleanup();
         }
         if (parallaxShader != null) {
             parallaxShader.cleanup();

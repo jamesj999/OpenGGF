@@ -35,6 +35,18 @@ public interface ZoneScrollHandler {
     short getVscrollFactorBG();
 
     /**
+     * Optional per-scanline BG vertical scroll offsets.
+     * <p>
+     * When non-null, values are interpreted as signed pixel deltas that are
+     * added on top of {@link #getVscrollFactorBG()} by the parallax shader.
+     *
+     * @return 224-entry per-line BG VScroll offset array, or null for flat VScroll
+     */
+    default short[] getPerLineVScrollBG() {
+        return null;
+    }
+
+    /**
      * Get minimum BG scroll offset relative to FG for this frame.
      * Used by LevelManager to determine tile loading bounds.
      * 

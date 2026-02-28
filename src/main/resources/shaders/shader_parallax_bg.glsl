@@ -15,6 +15,7 @@ uniform sampler2D BackgroundTexture;
 
 // 1D texture containing per-scanline scroll values (224 entries)
 uniform sampler1D HScrollTexture;
+uniform sampler1D VScrollTexture;
 
 // Screen dimensions (actual viewport pixels)
 uniform float ScreenHeight;
@@ -44,6 +45,7 @@ uniform float FBOAllocationWidth;
 
 // When 1, skip HScroll sampling (per-line scroll already applied in tile pass)
 uniform int NoHScroll;
+uniform int UsePerLineVScroll;
 
 // Shimmer distortion uniforms
 uniform int FrameCounter;            // For shimmer animation
@@ -66,10 +68,14 @@ void main()
 
     // Get the scroll value for this scanline
     float hScrollThis = 0.0;
+    float vScrollThis = 0.0;
+    float scanline = clamp(gameY, 0.0, 223.0);  // Clamp to valid scanline range
+    float scanlineTexCoord = (scanline + 0.5) / 224.0;
     if (NoHScroll == 0) {
-        float scanline = clamp(gameY, 0.0, 223.0);  // Clamp to valid scanline range
-        float scanlineTexCoord = (scanline + 0.5) / 224.0;
         hScrollThis = texture(HScrollTexture, scanlineTexCoord).r * 32767.0;
+    }
+    if (UsePerLineVScroll != 0) {
+        vScrollThis = texture(VScrollTexture, scanlineTexCoord).r * 32767.0;
     }
 
     // hScroll contains signed scroll values from the zone handler.
@@ -91,7 +97,7 @@ void main()
     float worldX = gameX - hScrollThis + bgShimmerDistortion;
 
     // Apply vertical scroll offset (sub-chunk alignment)
-    float fboY = gameY + VScroll;
+    float fboY = gameY + VScroll + vScrollThis;
 
     // Background tile pass may render from a shifted world origin.
     // ScrollMidpoint/ExtraBuffer define that origin for intro paths.

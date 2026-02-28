@@ -15,6 +15,14 @@ public interface TitleCardProvider {
     void initialize(int zoneIndex, int actIndex);
 
     /**
+     * Initializes the title card in in-level overlay mode.
+     * Default implementation falls back to normal title card init.
+     */
+    default void initializeInLevel(int zoneIndex, int actIndex) {
+        initialize(zoneIndex, actIndex);
+    }
+
+    /**
      * Updates the title card animation.
      * Call this once per frame while in TITLE_CARD mode.
      */

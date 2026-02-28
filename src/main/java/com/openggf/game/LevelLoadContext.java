@@ -18,6 +18,7 @@ public class LevelLoadContext {
     private int levelIndex = -1;
     private int zone = -1;
     private int act = -1;
+    private LevelLoadMode loadMode = LevelLoadMode.FULL;
     private Level level;
     private GameModule gameModule;
 
@@ -32,6 +33,11 @@ public class LevelLoadContext {
 
     public int getAct() { return act; }
     public void setAct(int act) { this.act = act; }
+
+    public LevelLoadMode getLoadMode() { return loadMode; }
+    public void setLoadMode(LevelLoadMode loadMode) {
+        this.loadMode = loadMode == null ? LevelLoadMode.FULL : loadMode;
+    }
 
     public Level getLevel() { return level; }
     public void setLevel(Level level) { this.level = level; }
