@@ -175,6 +175,10 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
         if (levelManager == null || levelManager.getObjectManager() == null) {
             return;
         }
+        // ROM ChildObjDat_6909A / ChildObjDat_690A8 spawn a short muzzle-flare child
+        // alongside the main shot object.
+        levelManager.getObjectManager().addDynamicObject(
+                new AizMinibossBarrelShotFlareChild(this));
         levelManager.getObjectManager().addDynamicObject(
                 new AizMinibossBarrelShotChild(parent, barrelIndex, currentX, currentY + 4, mode));
     }

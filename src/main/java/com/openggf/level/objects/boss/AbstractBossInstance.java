@@ -174,6 +174,14 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         return 1;
     }
 
+    /**
+     * SFX played when the boss takes damage.
+     * Defaults to Sonic 2 behavior; game-specific bosses can override.
+     */
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
     // ========================================================================
     // HELPER METHODS - Common functionality for all bosses
     // ========================================================================
@@ -263,7 +271,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
             state.invulnerable = true;
 
             // ROM: s2.asm:63129 - move.w #SndID_BossHit,d0
-            AudioManager.getInstance().playSfx(Sonic2Sfx.BOSS_HIT.id);
+            AudioManager.getInstance().playSfx(getBossHitSfxId());
             paletteFlasher.startFlash();
             onHitTaken(state.hitCount);
 

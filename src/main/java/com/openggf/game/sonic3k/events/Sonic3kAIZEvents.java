@@ -1,15 +1,26 @@
 package com.openggf.game.sonic3k.events;
 
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.data.Rom;
 import com.openggf.game.CheckpointState;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
-import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.Sonic3kLevel;
+import com.openggf.game.sonic3k.audio.Sonic3kMusic;
+import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelConstants;
+import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
+import com.openggf.level.Palette;
+import com.openggf.level.Pattern;
 import com.openggf.level.SeamlessLevelTransitionRequest;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.resources.LoadOp;
+import com.openggf.level.resources.ResourceLoader;
 
 import java.util.logging.Logger;
 
@@ -114,6 +125,10 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private boolean act2TransitionRequested;
     /** True after in-place mutation stage has been requested. */
     private boolean fireTransitionMutationRequested;
+    /** True once the post-burn fine haze phase should be active on FG. */
+    private boolean postFireHazeActive;
+    /** One-shot guard for AIZ1 fire-overlay 8x8 art staging at x >= $2E00. */
+    private boolean fireOverlayTilesLoaded;
     /** Fixed-point Camera_Y_pos_BG_copy used by AIZ1_FireRise (16.16). */
     private int fireBgCopyFixed;
     /** Events_bg+$02 equivalent: rising-fire speed. */
@@ -135,6 +150,13 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private static final int FIRE_BG_X_PHASE_MASK = 0x0060;
     private static final int FIRE_WAVE_PHASE_STEP = 6;
     private static final int FIRE_TRANSITION_FALLBACK_FRAMES = 240;
+    private static final int FIRE_OVERLAY_STAGE_X = 0x2E00;
+    private static final int FIRE_OVERLAY_TILE_DEST = 0x500;
+    private static final int FIRE_OVERLAY_PLC = 0x0C;
+    // ROM: AIZ1_AIZ2_Transition writes these 6 words to Normal_palette_line_4+$2.
+    private static final int[] FIRE_TRANSITION_LINE4_WORDS = {
+            0x004E, 0x006E, 0x00AE, 0x00CE, 0x02EE, 0x0AEE
+    };
 
     public Sonic3kAIZEvents(Camera camera, Sonic3kLoadBootstrap bootstrap) {
         super(camera);
@@ -153,6 +175,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         bossFlag = false;
         act2TransitionRequested = false;
         fireTransitionMutationRequested = false;
+        postFireHazeActive = act > 0;
+        fireOverlayTilesLoaded = false;
         fireBgCopyFixed = FIRE_BG_FIXED_START;
         fireRiseSpeed = 0;
         fireWavePhase = 0;
@@ -185,6 +209,10 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
         int cameraX = camera.getX();
         applyHollowTreeScreenEvent(cameraX);
+        if (cameraX >= FIRE_OVERLAY_STAGE_X) {
+            postFireHazeActive = true;
+            ensureFireOverlayTilesLoaded();
+        }
 
         // --- Routine 0→1: MinX tracking during intro panning ---
         // ROM (s3.asm AIZ1_Resize Stage 0): Once camera X >= $1000,
@@ -439,6 +467,10 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         return act2TransitionRequested;
     }
 
+    public boolean isPostFireHazeActive() {
+        return postFireHazeActive;
+    }
+
     /**
      * Equivalent to Camera_Y_pos_BG_copy during AIZ1 fire transition.
      */
@@ -481,6 +513,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // AIZTrans_WavyFlame: phase accumulator used for BG X + VScroll wave selection.
         fireWavePhase = (fireWavePhase + FIRE_WAVE_PHASE_STEP) & 0xFFFF;
         fireTransitionFrames++;
+        applyFireTransitionForegroundRows();
 
         if (act2TransitionRequested) {
             return;
@@ -491,8 +524,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             requestFireTransitionMutation();
         }
 
-        // ROM performs in-place mutation while still in AIZ1, then advances to AIZ2
-        // later in the finish phase once required resources are loaded.
+        // Fire transition completes with a seamless in-place reload to continue
+        // the second gameplay half without a title card/act bump.
         if (fireBgY >= FIRE_BG_FINISH_Y || fireTransitionFrames >= FIRE_TRANSITION_FALLBACK_FRAMES) {
             requestAct2Transition();
         }
@@ -501,11 +534,14 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private void beginFireTransition() {
         eventsFg5 = false;
         fireTransitionActive = true;
+        postFireHazeActive = true;
         fireBgCopyFixed = FIRE_BG_FIXED_START;
         fireRiseSpeed = 0;
         fireWavePhase = 0;
         fireTransitionFrames = 0;
         fireTransitionMutationRequested = false;
+        applyFireTransitionPaletteLine4();
+        ensureFireOverlayTilesLoaded();
         LOG.info("AIZ1: fire transition started");
     }
 
@@ -524,20 +560,132 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         fireTransitionActive = false;
         eventsFg5 = false;
         bossFlag = false;
+        postFireHazeActive = true;
         if (!fireTransitionMutationRequested) {
             requestFireTransitionMutation();
         }
         persistTransitionCheckpoint();
+        LevelManager levelManager = LevelManager.getInstance();
         LevelManager.getInstance().requestSeamlessTransition(
                 SeamlessLevelTransitionRequest.builder(SeamlessLevelTransitionRequest.TransitionType.RELOAD_TARGET_LEVEL)
-                        .targetZoneAct(Sonic3kZoneIds.ZONE_AIZ, 1)
+                        // ROM loads AIZ act 2 resources here, but this is presented as
+                        // a seamless continuation (no title card transition).
+                        .targetZoneAct(levelManager.getCurrentZone(), 1)
                         .deactivateLevelNow(true)
-                        .preserveMusic(true)
-                        .showInLevelTitleCard(true)
+                        .preserveMusic(false)
+                        .showInLevelTitleCard(false)
+                        .mutationKey(S3kSeamlessMutationExecutor.MUTATION_AIZ1_FIRE_TRANSITION_STAGE)
+                        .musicOverrideId(Sonic3kMusic.AIZ1.id)
                         .playerOffset(-0x2F00, -0x80)
                         .cameraOffset(-0x2F00, -0x80)
                         .build());
-        LOG.info("AIZ1: requested seamless transition to AIZ2");
+        LOG.info("AIZ1: requested seamless in-place post-miniboss reload");
+    }
+
+    /**
+     * ROM parity approximation for Draw_TileRow($1000):
+     * copy a foreground viewport window from source X=$1000 using Camera_Y_pos_BG_copy
+     * into the live visible FG tilemap window.
+     */
+    private void applyFireTransitionForegroundRows() {
+        LevelManager levelManager = LevelManager.getInstance();
+        if (levelManager == null || levelManager.getCurrentLevel() == null) {
+            return;
+        }
+
+        int screenWidth = SonicConfigurationService.getInstance()
+                .getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
+        int screenHeight = SonicConfigurationService.getInstance()
+                .getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+        if (screenWidth <= 0 || screenHeight <= 0) {
+            return;
+        }
+
+        int sourceX = FIRE_BG_X_BASE;
+        int sourceYBase = getFireTransitionBgY() & ~0xF;
+        int targetX = camera.getX();
+        int targetY = camera.getY();
+
+        boolean changed = false;
+        for (int py = 0; py < screenHeight; py += Pattern.PATTERN_HEIGHT) {
+            int sourceY = sourceYBase + py;
+            int destY = targetY + py;
+            for (int px = 0; px < screenWidth; px += Pattern.PATTERN_WIDTH) {
+                int descriptor = levelManager.getForegroundTileDescriptorAtWorld(sourceX + px, sourceY);
+                changed |= levelManager.setForegroundTileDescriptorAtWorld(targetX + px, destY, descriptor);
+            }
+        }
+
+        if (changed) {
+            levelManager.uploadForegroundTilemap();
+        }
+    }
+
+    private void ensureFireOverlayTilesLoaded() {
+        if (fireOverlayTilesLoaded) {
+            return;
+        }
+        LevelManager levelManager = LevelManager.getInstance();
+        if (!(levelManager.getCurrentLevel() instanceof Sonic3kLevel sonic3kLevel)) {
+            return;
+        }
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) {
+                return;
+            }
+            ResourceLoader loader = new ResourceLoader(rom);
+            byte[] fireOverlay8x8 = loader.loadSingle(
+                    LoadOp.kosinskiMBase(Sonic3kConstants.ART_KOSM_AIZ1_FIRE_OVERLAY_ADDR));
+            sonic3kLevel.applyPatternOverlay(
+                    fireOverlay8x8,
+                    FIRE_OVERLAY_TILE_DEST * Pattern.PATTERN_SIZE_IN_ROM,
+                    false);
+            applyPlc(FIRE_OVERLAY_PLC);
+            levelManager.invalidateAllTilemaps();
+            fireOverlayTilesLoaded = true;
+            LOG.info("AIZ1: loaded fire overlay 8x8 tiles at x>=0x2E00");
+        } catch (Exception e) {
+            LOG.warning("AIZ1: failed to load fire overlay tiles: " + e.getMessage());
+        }
+    }
+
+    private void applyFireTransitionPaletteLine4() {
+        LevelManager levelManager = LevelManager.getInstance();
+        Level currentLevel = levelManager.getCurrentLevel();
+        if (currentLevel == null) {
+            return;
+        }
+        Palette line4 = currentLevel.getPalette(3);
+        if (line4 == null) {
+            return;
+        }
+
+        byte[] lineData = new byte[Palette.PALETTE_SIZE_IN_ROM];
+        for (int i = 0; i < Palette.PALETTE_SIZE; i++) {
+            int sega = toSegaColorWord(line4.getColor(i));
+            int offset = i * 2;
+            lineData[offset] = (byte) ((sega >>> 8) & 0xFF);
+            lineData[offset + 1] = (byte) (sega & 0xFF);
+        }
+
+        for (int i = 0; i < FIRE_TRANSITION_LINE4_WORDS.length; i++) {
+            int offset = (i + 1) * 2; // Normal_palette_line_4+$2 -> color index 1
+            int word = FIRE_TRANSITION_LINE4_WORDS[i];
+            lineData[offset] = (byte) ((word >>> 8) & 0xFF);
+            lineData[offset + 1] = (byte) (word & 0xFF);
+        }
+        levelManager.updatePalette(3, lineData);
+    }
+
+    private static int toSegaColorWord(Palette.Color color) {
+        if (color == null) {
+            return 0;
+        }
+        int r3 = ((color.r & 0xFF) * 7 + 127) / 255;
+        int g3 = ((color.g & 0xFF) * 7 + 127) / 255;
+        int b3 = ((color.b & 0xFF) * 7 + 127) / 255;
+        return ((b3 & 0x7) << 9) | ((g3 & 0x7) << 5) | ((r3 & 0x7) << 1);
     }
 
     private void persistTransitionCheckpoint() {

@@ -36,6 +36,8 @@ public class TilemapShaderProgram extends ShaderProgram {
     private int waterlineScreenYLocation = -1;
     private int hScrollTextureLocation = -1;
     private int perLineScrollLocation = -1;
+    private int vScrollColumnTextureLocation = -1;
+    private int perColumnVScrollLocation = -1;
     private int screenHeightLocation = -1;
     private int vdpWrapWidthLocation = -1;
     private int vdpWrapHeightLocation = -1;
@@ -78,6 +80,8 @@ public class TilemapShaderProgram extends ShaderProgram {
         waterlineScreenYLocation = glGetUniformLocation(programId, "WaterlineScreenY");
         hScrollTextureLocation = glGetUniformLocation(programId, "HScrollTexture");
         perLineScrollLocation = glGetUniformLocation(programId, "PerLineScroll");
+        vScrollColumnTextureLocation = glGetUniformLocation(programId, "VScrollColumnTexture");
+        perColumnVScrollLocation = glGetUniformLocation(programId, "PerColumnVScroll");
         screenHeightLocation = glGetUniformLocation(programId, "ScreenHeight");
         vdpWrapWidthLocation = glGetUniformLocation(programId, "VDPWrapWidth");
         vdpWrapHeightLocation = glGetUniformLocation(programId, "VDPWrapHeight");
@@ -189,6 +193,18 @@ public class TilemapShaderProgram extends ShaderProgram {
     public void setPerLineScroll(boolean enabled) {
         if (perLineScrollLocation >= 0) {
             glUniform1i(perLineScrollLocation, enabled ? 1 : 0);
+        }
+    }
+
+    public void setVScrollColumnTexture(int textureUnit) {
+        if (vScrollColumnTextureLocation >= 0) {
+            glUniform1i(vScrollColumnTextureLocation, textureUnit);
+        }
+    }
+
+    public void setPerColumnVScroll(boolean enabled) {
+        if (perColumnVScrollLocation >= 0) {
+            glUniform1i(perColumnVScrollLocation, enabled ? 1 : 0);
         }
     }
 

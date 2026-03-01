@@ -27,6 +27,8 @@ uniform int UseUnderwaterPalette;
 uniform float WaterlineScreenY;
 uniform sampler1D HScrollTexture;    // Per-scanline BG scroll (R32F, 224 entries)
 uniform int PerLineScroll;           // 1 = per-scanline HScroll, 0 = uniform WorldOffsetX
+uniform sampler1D VScrollColumnTexture; // Per-column VScroll (R32F, 20 entries)
+uniform int PerColumnVScroll;        // 1 = apply per-column VScroll to worldY
 uniform float ScreenHeight;          // Visible scanline count (224.0)
 uniform float VDPWrapWidth;          // VDP nametable width in tiles (64.0), 0 = use TilemapWidth
 uniform float VDPWrapHeight;         // VDP nametable height in tiles, 0 = disabled
@@ -114,7 +116,13 @@ void main()
     } else {
         worldX = WorldOffsetX + pixelX + shimmerDistortion;
     }
-    float worldY = WorldOffsetY + pixelYFromTop;
+    float columnVScroll = 0.0;
+    if (PerColumnVScroll == 1) {
+        float column = clamp(floor(pixelX / 16.0), 0.0, 19.0);
+        float columnTexCoord = (column + 0.5) / 20.0;
+        columnVScroll = texture(VScrollColumnTexture, columnTexCoord).r * 32767.0;
+    }
+    float worldY = WorldOffsetY + pixelYFromTop + columnVScroll;
 
     float tileXf = floor(worldX / 8.0);
     float tileYf = floor(worldY / 8.0);

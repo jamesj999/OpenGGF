@@ -47,6 +47,18 @@ public interface ZoneScrollHandler {
     }
 
     /**
+     * Optional per-column BG vertical scroll offsets (20 columns in H40 mode).
+     * <p>
+     * When non-null, values are interpreted as signed pixel deltas that are
+     * added on top of {@link #getVscrollFactorBG()} by the parallax shader.
+     *
+     * @return 20-entry per-column BG VScroll offset array, or null for flat VScroll
+     */
+    default short[] getPerColumnVScrollBG() {
+        return null;
+    }
+
+    /**
      * Get minimum BG scroll offset relative to FG for this frame.
      * Used by LevelManager to determine tile loading bounds.
      * 

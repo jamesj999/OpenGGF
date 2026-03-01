@@ -27,6 +27,9 @@ import java.util.List;
 public class AizMinibossBarrelShotChild extends AbstractObjectInstance implements TouchResponseProvider {
     private static final int COLLISION_FLAGS_HAZARD = 0x98;
     private static final int SHIELD_REACTION_BOUNCE = 1 << 3;
+    private static final int FRAME_RISE_A = 0x0C;
+    private static final int FRAME_RISE_B = 0x0D;
+    private static final int PROJECTILE_PALETTE = 0;
 
     private static final int[] SELECT_TABLE_NORMAL = {
             2, 3, 4, 0, 0, 2, 4, 0, 1, 3, 4, 0, 0, 1, 4, 0
@@ -46,8 +49,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
     private enum State {
         PRELAUNCH,
         PRE_DROP_WAIT,
-        TOP_DROP,
-        EXPLODING
+        TOP_DROP
     }
 
     private final AbstractBossInstance parent;
@@ -83,7 +85,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         // sub_6885A equivalent
         this.xVel = 0;
         this.yVel = -0x400;
-        this.frame = 0;
+        this.frame = FRAME_RISE_A;
         this.animTimer = 2;
         this.timer = 0x60;
         this.state = State.PRELAUNCH;
@@ -102,13 +104,12 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
             case PRELAUNCH -> updatePrelaunch();
             case PRE_DROP_WAIT -> updatePreDropWait();
             case TOP_DROP -> updateTopDrop();
-            case EXPLODING -> updateExploding();
         }
     }
 
     private void updatePrelaunch() {
         move();
-        animateShot();
+        animateRise();
 
         timer--;
         if (timer >= 0) {
@@ -135,29 +136,20 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
 
     private void updateTopDrop() {
         move();
-        animateShot();
+        animateRise();
 
         if (!isOnScreen(128)) {
             setDestroyed(true);
             return;
         }
 
-        if (mode != Mode.ADVANCED_COLLIDING) {
+        if (mode == Mode.SIMPLE) {
             return;
         }
 
         int floorY = Camera.getInstance().getY() + 0xA0;
         if (currentY >= floorY) {
             AudioManager.getInstance().playSfx(Sonic3kSfx.MISSILE_EXPLODE.id);
-            frame = 4;
-            timer = 8;
-            state = State.EXPLODING;
-        }
-    }
-
-    private void updateExploding() {
-        timer--;
-        if (timer <= 0) {
             setDestroyed(true);
         }
     }
@@ -177,7 +169,8 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         yFixed = currentY << 16;
 
         yVel = 0x400;
-        xVel = hFlip ? -0x80 : 0x80;
+        xVel = 0;
+        animTimer = 2;
         AudioManager.getInstance().playSfx(Sonic3kSfx.MISSILE_THROW.id);
     }
 
@@ -188,12 +181,12 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         currentY = yFixed >> 16;
     }
 
-    private void animateShot() {
+    private void animateRise() {
         if (--animTimer > 0) {
             return;
         }
         animTimer = 2;
-        frame = (frame == 0) ? 1 : 0;
+        frame = (frame == FRAME_RISE_A) ? FRAME_RISE_B : FRAME_RISE_A;
     }
 
     @Override
@@ -248,11 +241,11 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         if (rm == null) {
             return;
         }
-        PatternSpriteRenderer renderer = rm.getRenderer(Sonic3kObjectArtKeys.AIZ_MINIBOSS_FLAME);
+        PatternSpriteRenderer renderer = rm.getRenderer(Sonic3kObjectArtKeys.AIZ_MINIBOSS);
         if (renderer == null || !renderer.isReady()) {
             return;
         }
-        renderer.drawFrameIndex(frame, currentX, currentY, false, false);
+        renderer.drawFrameIndex(frame, currentX, currentY, false, false, PROJECTILE_PALETTE);
     }
 
     @Override

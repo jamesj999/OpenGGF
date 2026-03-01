@@ -51,6 +51,7 @@ public class BackgroundRenderer {
 
     private HScrollBuffer hScrollBuffer;
     private VScrollBuffer vScrollBuffer;
+    private VScrollBuffer vScrollColumnBuffer;
     private ParallaxShaderProgram parallaxShader;
     private final QuadRenderer quadRenderer = new QuadRenderer();
 
@@ -80,6 +81,8 @@ public class BackgroundRenderer {
         hScrollBuffer.init();
         vScrollBuffer = new VScrollBuffer();
         vScrollBuffer.init();
+        vScrollColumnBuffer = new VScrollBuffer(20);
+        vScrollColumnBuffer.init();
 
         // Load parallax shader
         parallaxShader = new ParallaxShaderProgram(shaderPath);
@@ -233,12 +236,17 @@ public class BackgroundRenderer {
      */
     public void renderWithScrollWide(int[] hScroll, int scrollMidpoint, int extraBuffer,
             int fboVScroll) {
-        renderWithScrollWide(hScroll, null, scrollMidpoint, extraBuffer, fboVScroll, false);
+        renderWithScrollWide(hScroll, null, null, scrollMidpoint, extraBuffer, fboVScroll, false);
     }
 
     public void renderWithScrollWide(int[] hScroll, short[] vScrollPerLine, int scrollMidpoint, int extraBuffer,
             int fboVScroll) {
-        renderWithScrollWide(hScroll, vScrollPerLine, scrollMidpoint, extraBuffer, fboVScroll, false);
+        renderWithScrollWide(hScroll, vScrollPerLine, null, scrollMidpoint, extraBuffer, fboVScroll, false);
+    }
+
+    public void renderWithScrollWide(int[] hScroll, short[] vScrollPerLine, short[] vScrollPerColumn,
+            int scrollMidpoint, int extraBuffer, int fboVScroll) {
+        renderWithScrollWide(hScroll, vScrollPerLine, vScrollPerColumn, scrollMidpoint, extraBuffer, fboVScroll, false);
     }
 
     /**
@@ -249,11 +257,16 @@ public class BackgroundRenderer {
      */
     public void renderWithScrollWide(int[] hScroll, int scrollMidpoint, int extraBuffer,
             int fboVScroll, boolean noHScroll) {
-        renderWithScrollWide(hScroll, null, scrollMidpoint, extraBuffer, fboVScroll, noHScroll);
+        renderWithScrollWide(hScroll, null, null, scrollMidpoint, extraBuffer, fboVScroll, noHScroll);
     }
 
     public void renderWithScrollWide(int[] hScroll, short[] vScrollPerLine, int scrollMidpoint, int extraBuffer,
             int fboVScroll, boolean noHScroll) {
+        renderWithScrollWide(hScroll, vScrollPerLine, null, scrollMidpoint, extraBuffer, fboVScroll, noHScroll);
+    }
+
+    public void renderWithScrollWide(int[] hScroll, short[] vScrollPerLine, short[] vScrollPerColumn,
+            int scrollMidpoint, int extraBuffer, int fboVScroll, boolean noHScroll) {
         if (!initialized)
             return;
 
@@ -261,6 +274,9 @@ public class BackgroundRenderer {
         hScrollBuffer.upload(hScroll);
         if (vScrollPerLine != null && vScrollBuffer != null) {
             vScrollBuffer.upload(vScrollPerLine);
+        }
+        if (vScrollPerColumn != null && vScrollColumnBuffer != null) {
+            vScrollColumnBuffer.upload(vScrollPerColumn);
         }
 
         // Bind shader and set uniforms
@@ -271,6 +287,7 @@ public class BackgroundRenderer {
         parallaxShader.setBackgroundTexture(0);
         parallaxShader.setHScrollTexture(1);
         parallaxShader.setVScrollTexture(2);
+        parallaxShader.setVScrollColumnTexture(3);
 
         // Get viewport for resolution independence
         GraphicsManager gm = GraphicsManager.getInstance();
@@ -294,6 +311,7 @@ public class BackgroundRenderer {
         parallaxShader.setFillTransparentWithBackdrop(true);
         parallaxShader.setNoHScroll(noHScroll);
         parallaxShader.setUsePerLineVScroll(vScrollPerLine != null);
+        parallaxShader.setUsePerColumnVScroll(vScrollPerColumn != null);
         parallaxShader.setShimmerParams(shimmerFrameCounter, shimmerStyle, shimmerWaterlineScreenY);
 
         // Bind textures
@@ -304,6 +322,9 @@ public class BackgroundRenderer {
         if (vScrollPerLine != null && vScrollBuffer != null) {
             vScrollBuffer.bind(2);
         }
+        if (vScrollPerColumn != null && vScrollColumnBuffer != null) {
+            vScrollColumnBuffer.bind(3);
+        }
 
         // Draw fullscreen quad
         drawFullscreenQuad();
@@ -313,6 +334,9 @@ public class BackgroundRenderer {
         hScrollBuffer.unbind(1);
         if (vScrollPerLine != null && vScrollBuffer != null) {
             vScrollBuffer.unbind(2);
+        }
+        if (vScrollPerColumn != null && vScrollColumnBuffer != null) {
+            vScrollColumnBuffer.unbind(3);
         }
         glActiveTexture(GL_TEXTURE0);
     }
@@ -388,6 +412,9 @@ public class BackgroundRenderer {
         }
         if (vScrollBuffer != null) {
             vScrollBuffer.cleanup();
+        }
+        if (vScrollColumnBuffer != null) {
+            vScrollColumnBuffer.cleanup();
         }
         if (parallaxShader != null) {
             parallaxShader.cleanup();

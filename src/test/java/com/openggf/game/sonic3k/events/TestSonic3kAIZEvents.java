@@ -60,7 +60,9 @@ public class TestSonic3kAIZEvents {
         assertEquals(SeamlessLevelTransitionRequest.TransitionType.RELOAD_TARGET_LEVEL, request.type());
         assertEquals(0, request.targetZone());
         assertEquals(1, request.targetAct());
-        assertTrue(request.showInLevelTitleCard());
+        assertFalse(request.preserveMusic());
+        assertFalse(request.showInLevelTitleCard());
+        assertTrue(request.musicOverrideId() >= 0);
     }
 
     @Test
