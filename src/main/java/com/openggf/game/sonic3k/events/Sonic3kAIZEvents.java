@@ -1,6 +1,8 @@
 package com.openggf.game.sonic3k.events;
 
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.game.CheckpointState;
 import com.openggf.game.GameServices;
@@ -511,6 +513,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // AIZTrans_WavyFlame: phase accumulator used for BG X + VScroll wave selection.
         fireWavePhase = (fireWavePhase + FIRE_WAVE_PHASE_STEP) & 0xFFFF;
         fireTransitionFrames++;
+        applyFireTransitionForegroundRows();
 
         if (act2TransitionRequested) {
             return;
@@ -577,6 +580,45 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                         .cameraOffset(-0x2F00, -0x80)
                         .build());
         LOG.info("AIZ1: requested seamless in-place post-miniboss reload");
+    }
+
+    /**
+     * ROM parity approximation for Draw_TileRow($1000):
+     * copy a foreground viewport window from source X=$1000 using Camera_Y_pos_BG_copy
+     * into the live visible FG tilemap window.
+     */
+    private void applyFireTransitionForegroundRows() {
+        LevelManager levelManager = LevelManager.getInstance();
+        if (levelManager == null || levelManager.getCurrentLevel() == null) {
+            return;
+        }
+
+        int screenWidth = SonicConfigurationService.getInstance()
+                .getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
+        int screenHeight = SonicConfigurationService.getInstance()
+                .getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+        if (screenWidth <= 0 || screenHeight <= 0) {
+            return;
+        }
+
+        int sourceX = FIRE_BG_X_BASE;
+        int sourceYBase = getFireTransitionBgY() & ~0xF;
+        int targetX = camera.getX();
+        int targetY = camera.getY();
+
+        boolean changed = false;
+        for (int py = 0; py < screenHeight; py += Pattern.PATTERN_HEIGHT) {
+            int sourceY = sourceYBase + py;
+            int destY = targetY + py;
+            for (int px = 0; px < screenWidth; px += Pattern.PATTERN_WIDTH) {
+                int descriptor = levelManager.getForegroundTileDescriptorAtWorld(sourceX + px, sourceY);
+                changed |= levelManager.setForegroundTileDescriptorAtWorld(targetX + px, destY, descriptor);
+            }
+        }
+
+        if (changed) {
+            levelManager.uploadForegroundTilemap();
+        }
     }
 
     private void ensureFireOverlayTilesLoaded() {
