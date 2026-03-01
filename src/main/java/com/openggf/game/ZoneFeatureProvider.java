@@ -114,6 +114,19 @@ public interface ZoneFeatureProvider {
     }
 
     /**
+     * Whether the foreground renderer should apply per-line heat haze deformation.
+     * This is used for zone-specific post-processing effects such as AIZ fire haze.
+     *
+     * @param zoneIndex current feature zone id
+     * @param actIndex current feature act id
+     * @param cameraX current camera X position
+     * @return true when per-line foreground haze should be enabled
+     */
+    default boolean shouldEnableForegroundHeatHaze(int zoneIndex, int actIndex, int cameraX) {
+        return false;
+    }
+
+    /**
      * Ensures zone feature patterns are cached in the graphics manager.
      * Called during level initialization.
      *

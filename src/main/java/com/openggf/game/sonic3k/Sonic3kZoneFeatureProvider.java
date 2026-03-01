@@ -5,6 +5,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.sonic3k.features.AizTransitionRenderFeature;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.WaterSystem;
@@ -18,10 +19,11 @@ import java.io.IOException;
  * and other S3K-specific zone features.
  */
 public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
+    private final AizTransitionRenderFeature aizTransitionRenderFeature = new AizTransitionRenderFeature();
 
     @Override
     public void initZoneFeatures(Rom rom, int zoneIndex, int actIndex, int cameraX) throws IOException {
-        // No zone features to initialize yet
+        aizTransitionRenderFeature.onZoneInit(zoneIndex, actIndex);
     }
 
     @Override
@@ -31,7 +33,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public void reset() {
-        // Nothing to reset
+        aizTransitionRenderFeature.reset();
     }
 
     @Override
@@ -54,12 +56,22 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public void render(Camera camera, int frameCounter) {
-        // Nothing to render yet
+        aizTransitionRenderFeature.renderFlameOverlay(camera);
+    }
+
+    @Override
+    public void renderAfterForeground(Camera camera) {
+        // No S3K foreground-stage overlays currently. AIZ fire wall is a post-sprite screen pass.
     }
 
     @Override
     public int ensurePatternsCached(GraphicsManager graphicsManager, int baseIndex) {
         return baseIndex;
+    }
+
+    @Override
+    public boolean shouldEnableForegroundHeatHaze(int zoneIndex, int actIndex, int cameraX) {
+        return aizTransitionRenderFeature.shouldEnableForegroundHeatHaze(zoneIndex, actIndex, cameraX);
     }
 
     @Override
@@ -112,4 +124,5 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         String mainCharacter = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         return mainCharacter != null && "sonic".equalsIgnoreCase(mainCharacter.trim());
     }
+
 }

@@ -51,6 +51,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     private static final int EXIT_VEL = 0x400;
     private static final int EXIT_TIME_AIZ1 = 0x120;
     private static final int EXIT_TIME_OTHER = 0x40;
+    private static final int CUTSCENE_BOSS_ID = 1;
 
     private static final int FLAG_PARENT_BITS = 0x38;
     private static final int PARENT_BIT_BARREL_ACTIVATE = 1 << 1;
@@ -147,6 +148,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
 
         camera.setMinX((short) TRIGGER_X);
         camera.setMaxX((short) TRIGGER_X);
+        GameServices.gameState().setCurrentBossId(CUTSCENE_BOSS_ID);
         AudioManager.getInstance().fadeOutMusic();
 
         state.routine = ROUTINE_WAIT;
@@ -231,6 +233,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             Camera camera = Camera.getInstance();
             camera.setMinX((short) 0);
             camera.setMaxX((short) savedCameraMaxX);
+            GameServices.gameState().setCurrentBossId(0);
         }
 
         setDestroyed(true);

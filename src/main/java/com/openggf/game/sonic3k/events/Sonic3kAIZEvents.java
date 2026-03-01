@@ -1,8 +1,6 @@
 package com.openggf.game.sonic3k.events;
 
 import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.game.CheckpointState;
 import com.openggf.game.GameServices;
@@ -109,6 +107,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     private final Sonic3kLoadBootstrap bootstrap;
     private boolean introSpawned;
+    /** One-shot guard: once AIZ intro minX is locked at $1308, stop rewriting minX each frame. */
+    private boolean introMinXLocked;
     private boolean paletteSwapped;
     private boolean boundariesUnlocked;
     // Tracks one-shot application of AIZ1SE_ChangeChunk4/3/2/1.
@@ -145,7 +145,9 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private static final int FIRE_RISE_ACCEL = 0x0280;
     private static final int FIRE_RISE_MAX_SPEED = 0xA000;
     private static final int FIRE_BG_FINISH_Y = 0x0310;
-    private static final int FIRE_BG_MUTATION_Y = 0x0190;
+    // Defer visual-stage mutation until the fire wall has essentially completed
+    // so transition source tiles do not pop to post-burn graphics mid-rise.
+    private static final int FIRE_BG_MUTATION_Y = 0x0310;
     private static final int FIRE_BG_X_BASE = 0x1000;
     private static final int FIRE_BG_X_PHASE_MASK = 0x0060;
     private static final int FIRE_WAVE_PHASE_STEP = 6;
@@ -167,6 +169,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     public void init(int act) {
         super.init(act);
         introSpawned = false;
+        introMinXLocked = false;
         paletteSwapped = false;
         boundariesUnlocked = false;
         appliedTreeRevealChunkCopiesMask = 0;
@@ -218,9 +221,11 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // ROM (s3.asm AIZ1_Resize Stage 0): Once camera X >= $1000,
         // Camera_min_X_pos tracks camera X to prevent backtracking.
         // At camera X >= $1308 (Stage 1): lock Camera_min_X_pos = $1308.
-        if (shouldSpawnIntro(0)) {
+        if (shouldSpawnIntro(0) && !introMinXLocked) {
+            // ROM stage 0->1 lock: track minX until $1308, then freeze at $1308 once.
             if (cameraX >= PALETTE_SWAP_X) {
                 camera.setMinX((short) PALETTE_SWAP_X);
+                introMinXLocked = true;
             } else if (cameraX >= MIN_X_TRACK_START) {
                 camera.setMinX((short) cameraX);
             }
@@ -485,6 +490,14 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         return FIRE_BG_X_BASE + (fireWavePhase & FIRE_BG_X_PHASE_MASK);
     }
 
+    /**
+     * Bottom source Y used by the post-sprite flame wall overlay.
+     * Keep this fixed to the transition finish threshold so the wall source stays stable.
+     */
+    public int getFireTransitionOverlayBottomY() {
+        return FIRE_BG_FINISH_Y;
+    }
+
     private void updateFireTransition() {
         if (!fireTransitionActive) {
             if (eventsFg5) {
@@ -513,7 +526,6 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // AIZTrans_WavyFlame: phase accumulator used for BG X + VScroll wave selection.
         fireWavePhase = (fireWavePhase + FIRE_WAVE_PHASE_STEP) & 0xFFFF;
         fireTransitionFrames++;
-        applyFireTransitionForegroundRows();
 
         if (act2TransitionRequested) {
             return;
@@ -560,6 +572,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         fireTransitionActive = false;
         eventsFg5 = false;
         bossFlag = false;
+        GameServices.gameState().setCurrentBossId(0);
         postFireHazeActive = true;
         if (!fireTransitionMutationRequested) {
             requestFireTransitionMutation();
@@ -582,43 +595,21 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         LOG.info("AIZ1: requested seamless in-place post-miniboss reload");
     }
 
-    /**
-     * ROM parity approximation for Draw_TileRow($1000):
-     * copy a foreground viewport window from source X=$1000 using Camera_Y_pos_BG_copy
-     * into the live visible FG tilemap window.
-     */
-    private void applyFireTransitionForegroundRows() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getCurrentLevel() == null) {
-            return;
+    public int getFireWallCoverHeightPx(int screenHeight) {
+        int fireBgY = getFireTransitionBgY();
+        int startY = FIRE_BG_FIXED_START >> 16;
+        int denom = Math.max(1, FIRE_BG_FINISH_Y - startY);
+        int numer = Math.max(0, fireBgY - startY);
+        int cover = (numer * screenHeight) / denom;
+        if (cover <= 0) {
+            return 0;
         }
-
-        int screenWidth = SonicConfigurationService.getInstance()
-                .getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
-        int screenHeight = SonicConfigurationService.getInstance()
-                .getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
-        if (screenWidth <= 0 || screenHeight <= 0) {
-            return;
+        if (cover >= screenHeight) {
+            return screenHeight;
         }
-
-        int sourceX = FIRE_BG_X_BASE;
-        int sourceYBase = getFireTransitionBgY() & ~0xF;
-        int targetX = camera.getX();
-        int targetY = camera.getY();
-
-        boolean changed = false;
-        for (int py = 0; py < screenHeight; py += Pattern.PATTERN_HEIGHT) {
-            int sourceY = sourceYBase + py;
-            int destY = targetY + py;
-            for (int px = 0; px < screenWidth; px += Pattern.PATTERN_WIDTH) {
-                int descriptor = levelManager.getForegroundTileDescriptorAtWorld(sourceX + px, sourceY);
-                changed |= levelManager.setForegroundTileDescriptorAtWorld(targetX + px, destY, descriptor);
-            }
-        }
-
-        if (changed) {
-            levelManager.uploadForegroundTilemap();
-        }
+        // Keep writes aligned to tile rows to avoid jitter and descriptor tearing.
+        int aligned = (cover + (Pattern.PATTERN_HEIGHT - 1)) & ~(Pattern.PATTERN_HEIGHT - 1);
+        return Math.min(screenHeight, aligned);
     }
 
     private void ensureFireOverlayTilesLoaded() {
