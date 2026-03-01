@@ -2,12 +2,14 @@ package com.openggf.graphics;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.util.logging.Logger;
 
 import org.lwjgl.system.MemoryUtil;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL30.GL_R32F;
 
 /**
  * GPU renderer that draws a tilemap texture into the current framebuffer.
@@ -86,15 +88,16 @@ public class TilemapGpuRenderer {
             // sampler1D bound to a GL_TEXTURE_2D target on unit 0.
             dummyTexture1dId = glGenTextures();
             glBindTexture(GL_TEXTURE_1D, dummyTexture1dId);
-            ByteBuffer pixel1d = MemoryUtil.memAlloc(4);
+            FloatBuffer pixel1d = MemoryUtil.memAllocFloat(1);
             try {
-                pixel1d.put((byte) 0).put((byte) 0).put((byte) 0).put((byte) 0).flip();
-                glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel1d);
+                pixel1d.put(0.0f).flip();
+                glTexImage1D(GL_TEXTURE_1D, 0, GL_R32F, 1, 0, GL_RED, GL_FLOAT, pixel1d);
             } finally {
                 MemoryUtil.memFree(pixel1d);
             }
             glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glBindTexture(GL_TEXTURE_1D, 0);
 
             columnVScrollBuffer.init();
@@ -231,6 +234,21 @@ public class TilemapGpuRenderer {
             lookupDirty = false;
         }
 
+        // Bind all sampler1D units before shader.use().
+        // macOS may validate samplers at program-use time.
+        int patternLookupTextureId = patternLookup.getTextureId();
+        int boundPatternLookupTexture = patternLookupTextureId != 0 ? patternLookupTextureId : dummyTexture1dId;
+        int boundHScrollTexture = (perLineScroll && perLineHScrollTextureId != 0) ? perLineHScrollTextureId : dummyTexture1dId;
+        int columnVScrollTextureId = columnVScrollBuffer.getTextureId();
+        int boundColumnVScrollTexture = (perColumnVScroll && columnVScrollTextureId != 0)
+                ? columnVScrollTextureId : dummyTexture1dId;
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_1D, boundPatternLookupTexture);
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_1D, boundHScrollTexture);
+        glActiveTexture(GL_TEXTURE6);
+        glBindTexture(GL_TEXTURE_1D, boundColumnVScrollTexture);
+
         shader.use();
         shader.cacheUniformLocations();
         shader.setTotalPaletteLines((float) RenderContext.getTotalPaletteLines());
@@ -263,7 +281,7 @@ public class TilemapGpuRenderer {
         glBindTexture(GL_TEXTURE_2D, tilemapTexture.getTextureId());
 
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_1D, patternLookup.getTextureId());
+        glBindTexture(GL_TEXTURE_1D, boundPatternLookupTexture);
 
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, atlasTextureId);
@@ -279,26 +297,18 @@ public class TilemapGpuRenderer {
         // Always bind HScrollTexture to unit 5 to satisfy macOS sampler validation.
         // Use dummy 1D texture when per-line scroll is not active.
         glActiveTexture(GL_TEXTURE5);
-        if (perLineScroll) {
-            glBindTexture(GL_TEXTURE_1D, perLineHScrollTextureId);
-        } else {
-            glBindTexture(GL_TEXTURE_1D, dummyTexture1dId);
-        }
+        glBindTexture(GL_TEXTURE_1D, boundHScrollTexture);
 
         // Bind per-column VScroll texture (or dummy when disabled).
         glActiveTexture(GL_TEXTURE6);
-        if (perColumnVScroll) {
-            glBindTexture(GL_TEXTURE_1D, columnVScrollBuffer.getTextureId());
-        } else {
-            glBindTexture(GL_TEXTURE_1D, dummyTexture1dId);
-        }
+        glBindTexture(GL_TEXTURE_1D, boundColumnVScrollTexture);
 
         quadRenderer.draw(0, 0, windowWidth, windowHeight);
 
         glActiveTexture(GL_TEXTURE6);
-        glBindTexture(GL_TEXTURE_1D, 0);
+        glBindTexture(GL_TEXTURE_1D, dummyTexture1dId);
         glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_1D, 0);
+        glBindTexture(GL_TEXTURE_1D, dummyTexture1dId);
         perLineScroll = false; // Reset for next frame
         perColumnVScroll = false;
         glActiveTexture(GL_TEXTURE3);
@@ -308,7 +318,7 @@ public class TilemapGpuRenderer {
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_1D, 0);
+        glBindTexture(GL_TEXTURE_1D, dummyTexture1dId);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, 0);
 

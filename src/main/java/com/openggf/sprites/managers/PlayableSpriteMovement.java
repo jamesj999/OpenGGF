@@ -1162,16 +1162,16 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		int wallRotatedAngle = (angle + wallRotation) & 0xFF;
 		// Calculate dynamic offset: +8 only when (rotatedAngle & 0x38) == 0
 		short dynamicYOffset = (short) (((wallRotatedAngle & 0x38) == 0) ? 8 : 0);
-		// Subtract the stale sensor Y offset and add the dynamically calculated one
-		short sensorYOffset = sensor.getY();
-		short wallYOffset = (short) (dynamicYOffset - sensorYOffset);
 
 		// ROM doesn't use sensor active state - it checks gSpeed != 0 directly (already done above).
 		// Our sensor active state is updated at end of frame, so may be stale here on first frame
 		// of movement from standstill. Temporarily enable sensor to match ROM behavior.
 		boolean wasActive = sensor.isActive();
 		sensor.setActive(true);
-		SensorResult result = sensor.scan(predictedDx, (short)(predictedDy + wallYOffset));
+		byte savedSensorY = sensor.getY();
+		sensor.setOffset(sensor.getX(), (byte) 0);
+		SensorResult result = sensor.scan(predictedDx, (short)(predictedDy + dynamicYOffset));
+		sensor.setOffset(sensor.getX(), savedSensorY);
 		sensor.setActive(wasActive);
 
 		if (result == null || result.distance() >= 0) {
@@ -1291,10 +1291,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			sprite.setGSpeed(gSpeed);
 			updateGroundMode();
 		} else {
-			// ROM: Only reset velocity when moving upward (ySpeed < 0)
-			if (sprite.getYSpeed() < 0) {
-				sprite.setYSpeed((short) 0);
-			}
+			sprite.setYSpeed((short) 0);
 		}
 	}
 

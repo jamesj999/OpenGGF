@@ -221,6 +221,10 @@ public class SpecialStageBackgroundRenderer {
         // Upload H-scroll data to GPU
         hScrollBuffer.upload(hScrollData);
 
+        // Bind 1D sampler texture before shader use; macOS may validate samplers
+        // at program-use time.
+        hScrollBuffer.bind(1);
+
         // Bind shader
         shader.use();
         shader.cacheUniformLocations();
@@ -244,8 +248,6 @@ public class SpecialStageBackgroundRenderer {
         // Bind textures
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, fboTextureId);
-
-        hScrollBuffer.bind(1);
 
         // Draw fullscreen quad
         drawFullscreenQuad();

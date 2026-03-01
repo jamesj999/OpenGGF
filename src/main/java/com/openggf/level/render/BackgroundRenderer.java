@@ -279,6 +279,16 @@ public class BackgroundRenderer {
             vScrollColumnBuffer.upload(vScrollPerColumn);
         }
 
+        // Bind 1D sampler textures before shader use; macOS may validate samplers
+        // at program-use time.
+        hScrollBuffer.bind(1);
+        if (vScrollBuffer != null) {
+            vScrollBuffer.bind(2);
+        }
+        if (vScrollColumnBuffer != null) {
+            vScrollColumnBuffer.bind(3);
+        }
+
         // Bind shader and set uniforms
         parallaxShader.use();
         parallaxShader.cacheUniformLocations();
@@ -318,24 +328,16 @@ public class BackgroundRenderer {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, fboTextureId);
 
-        hScrollBuffer.bind(1);
-        if (vScrollPerLine != null && vScrollBuffer != null) {
-            vScrollBuffer.bind(2);
-        }
-        if (vScrollPerColumn != null && vScrollColumnBuffer != null) {
-            vScrollColumnBuffer.bind(3);
-        }
-
         // Draw fullscreen quad
         drawFullscreenQuad();
 
         // Cleanup
         parallaxShader.stop();
         hScrollBuffer.unbind(1);
-        if (vScrollPerLine != null && vScrollBuffer != null) {
+        if (vScrollBuffer != null) {
             vScrollBuffer.unbind(2);
         }
-        if (vScrollPerColumn != null && vScrollColumnBuffer != null) {
+        if (vScrollColumnBuffer != null) {
             vScrollColumnBuffer.unbind(3);
         }
         glActiveTexture(GL_TEXTURE0);

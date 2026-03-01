@@ -282,6 +282,10 @@ public class Sonic1SpecialStageBackgroundRenderer {
 
         hScrollBuffer.upload(hScrollData);
 
+        // Bind 1D sampler texture before shader use; macOS may validate samplers
+        // at program-use time.
+        hScrollBuffer.bind(1);
+
         shader.use();
         shader.cacheUniformLocations();
 
@@ -316,8 +320,6 @@ public class Sonic1SpecialStageBackgroundRenderer {
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, fboTextureId);
-
-        hScrollBuffer.bind(1);
 
         quadRenderer.draw(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 

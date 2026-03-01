@@ -58,15 +58,18 @@ out vec4 FragColor;
 
 void main()
 {
-    // Get viewport-relative position by subtracting viewport offset from window coordinates
-    // gl_FragCoord gives window coordinates, but we need viewport-relative coordinates
-    vec2 screenPos = gl_FragCoord.xy - vec2(ViewportOffsetX, ViewportOffsetY);
-    float normX = screenPos.x / ScreenWidth;
-    float normY = screenPos.y / ScreenHeight;
+    // Pixel-center aligned viewport coordinates.
+    float viewportX = gl_FragCoord.x - ViewportOffsetX - 0.5;
+    float viewportY = gl_FragCoord.y - ViewportOffsetY - 0.5;
 
-    // Map to game coordinates (0..320, 0..224)
-    float gameX = normX * 320.0;
-    float gameY = (1.0 - normY) * 224.0;  // Flip Y for Genesis coords (Y=0 at top)
+    if (viewportX < 0.0 || viewportY < 0.0 || viewportX >= ScreenWidth || viewportY >= ScreenHeight) {
+        discard;
+    }
+
+    // Map physical viewport pixels to logical game pixels and snap to integer
+    // game pixels so per-scanline sampling stays stable under integer upscaling.
+    float gameX = floor((viewportX * 320.0) / ScreenWidth);
+    float gameY = floor(((ScreenHeight - 1.0 - viewportY) * 224.0) / ScreenHeight);  // Y=0 at top
 
     // Get the scroll value for this scanline
     float hScrollThis = 0.0;
@@ -117,11 +120,12 @@ void main()
     // Clamp Y to valid range
     fboY = clamp(fboY, 0.0, BGTextureHeight - 1.0);
 
-    // Sample FBO with half-pixel offset to avoid edge artifacts
+    // Sample FBO at texel centers to avoid edge artifacts.
     // Use FBOAllocationWidth for UV mapping (actual texture size) while BGTextureWidth
     // was used above for wrapping (the rendered region may be smaller than the allocation)
     float uvWidth = FBOAllocationWidth > 0.0 ? FBOAllocationWidth : BGTextureWidth;
-    float fboU = fboX / uvWidth;
+    float fboU = (fboX + 0.5) / uvWidth;
+    fboU = clamp(fboU, 0.5 / uvWidth, 1.0 - 0.5 / uvWidth);  // Stay within texture
     float fboV = 1.0 - ((fboY + 0.5) / BGTextureHeight);  // Add 0.5 for pixel center
     fboV = clamp(fboV, 0.5 / BGTextureHeight, 1.0 - 0.5 / BGTextureHeight);  // Stay within texture
 

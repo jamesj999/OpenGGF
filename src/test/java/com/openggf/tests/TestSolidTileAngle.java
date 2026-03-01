@@ -40,8 +40,10 @@ public class TestSolidTileAngle {
         checkAngle((byte) 0xE0, (byte) 0x20, (byte) 0xA0, (byte) 0x60);
 
         // Case 5: Flagged Tile (Angle 0xFF / -1)
-        // Should ignore flips and return 0xFF
-        checkAngle((byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF);
+        // H-Flip: -0xFF = 0x01
+        // V-Flip: 0x80 - 0xFF = 0x81
+        // Both: H-flip first (0x01), then V-flip (0x80 - 0x01 = 0x7F)
+        checkAngle((byte) 0xFF, (byte) 0x01, (byte) 0x81, (byte) 0x7F);
     }
 
     private void checkAngle(byte original, byte expectedH, byte expectedV, byte expectedBoth) {

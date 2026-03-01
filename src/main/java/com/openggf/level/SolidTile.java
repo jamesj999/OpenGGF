@@ -36,7 +36,7 @@ public class SolidTile {
 	}
 
 	public byte getAngle(boolean hFlip, boolean vFlip) {
-		if (angle == (byte) 0xFF || (!hFlip && !vFlip)) {
+		if (!hFlip && !vFlip) {
 			return angle;
 		}
 		byte newAngle = angle;
