@@ -4,9 +4,12 @@ import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.RespawnState;
 import com.openggf.game.CheckpointState;
+import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
+import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -150,6 +153,21 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
         // Save checkpoint state: bsr.w Lamp_StoreInfo
         if (respawnState instanceof CheckpointState cs) {
             cs.saveCheckpoint(checkpointIndex, spawn.x(), spawn.y(), cameraLockFlag);
+
+            // ROM Lamp_StoreInfo also saves water state (v_waterpos2, v_wtr_routine)
+            LevelManager lm = LevelManager.getInstance();
+            WaterSystem waterSystem = WaterSystem.getInstance();
+            int featureZone = lm.getFeatureZoneId();
+            int featureAct = lm.getFeatureActId();
+            if (waterSystem.hasWater(featureZone, featureAct)) {
+                int waterLevel = waterSystem.getWaterLevelY(featureZone, featureAct);
+                ZoneFeatureProvider zfp = lm.getZoneFeatureProvider();
+                int waterRoutine = 0;
+                if (zfp instanceof Sonic1ZoneFeatureProvider s1zfp && s1zfp.getWaterEvents() != null) {
+                    waterRoutine = s1zfp.getWaterEvents().getWaterRoutine();
+                }
+                cs.saveWaterState(waterLevel, waterRoutine);
+            }
         }
 
         LOGGER.fine("S1 Lamppost " + checkpointIndex + " activated at (" + spawn.x() + ", " + spawn.y() + ")");

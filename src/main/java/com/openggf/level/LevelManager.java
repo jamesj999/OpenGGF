@@ -997,9 +997,6 @@ public class LevelManager {
         // NOTE: OscillationManager and objectManager are now updated via updateObjectPositions()
         // which is called earlier in GameLoop to fix platform riding sync (1-frame lag fix).
 
-        // Update dynamic water levels (for rising water in CPZ2, etc.)
-        WaterSystem.getInstance().update();
-
         Sprite player = null;
         AbstractPlayableSprite playable = null;
         boolean needsPlayer = ringManager != null || zoneFeatureProvider != null || levelGamestate != null;
@@ -1038,8 +1035,10 @@ public class LevelManager {
         int featureAct = getFeatureActId();
         if (level != null && waterSystem.hasWater(featureZone, featureAct)) {
             // Dispatch dynamic water handlers (S3K HCZ/LBZ/AIZ2, S2 CPZ2, etc.)
+            // Handlers run first (set targets), then movement applies — matching ROM order.
             Camera camera = Camera.getInstance();
             waterSystem.updateDynamic(featureZone, featureAct, camera.getX(), camera.getY());
+            waterSystem.update();
 
             if (playable != null) {
                 int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
@@ -3799,6 +3798,11 @@ public class LevelManager {
             int checkpointCameraX = hasCheckpoint ? checkpointState.getSavedCameraX() : 0;
             int checkpointCameraY = hasCheckpoint ? checkpointState.getSavedCameraY() : 0;
             int checkpointIndex = hasCheckpoint ? checkpointState.getLastCheckpointIndex() : -1;
+            // ROM Lamp_StoreInfo: save water state before loadLevel clears it
+            boolean hasWaterState = hasCheckpoint && checkpointState instanceof CheckpointState cs0
+                    && cs0.hasWaterState();
+            int checkpointWaterLevel = hasWaterState ? ((CheckpointState) checkpointState).getSavedWaterLevel() : 0;
+            int checkpointWaterRoutine = hasWaterState ? ((CheckpointState) checkpointState).getSavedWaterRoutine() : 0;
 
             loadLevel(levelData.getLevelIndex());
 
@@ -3807,6 +3811,28 @@ public class LevelManager {
             if (hasCheckpoint && checkpointState != null) {
                 checkpointState.restoreFromSaved(checkpointX, checkpointY, checkpointCameraX, checkpointCameraY,
                         checkpointIndex);
+                if (hasWaterState && checkpointState instanceof CheckpointState cs1) {
+                    cs1.saveWaterState(checkpointWaterLevel, checkpointWaterRoutine);
+                }
+            }
+
+            // ROM Lamp_LoadInfo: restore water level and routine after level reload.
+            // loadLevel() resets water to the default starting height; if the checkpoint
+            // had saved water state (LZ lamppost), apply it now so water starts at the
+            // correct position instead of gradually rising from the default.
+            if (hasWaterState) {
+                int featureZone = getFeatureZoneId();
+                int featureAct = getFeatureActId();
+                WaterSystem waterSystem = WaterSystem.getInstance();
+                if (waterSystem.hasWater(featureZone, featureAct)) {
+                    waterSystem.setWaterLevelDirect(featureZone, featureAct, checkpointWaterLevel);
+                    waterSystem.setWaterLevelTarget(featureZone, featureAct, checkpointWaterLevel);
+                }
+                // Restore water routine so dynamic water events resume from correct state
+                if (zoneFeatureProvider instanceof com.openggf.game.sonic1.Sonic1ZoneFeatureProvider s1zfp
+                        && s1zfp.getWaterEvents() != null) {
+                    s1zfp.getWaterEvents().setWaterRoutine(checkpointWaterRoutine);
+                }
             }
 
             frameCounter = 0;

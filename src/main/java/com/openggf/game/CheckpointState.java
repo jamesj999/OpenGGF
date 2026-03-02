@@ -23,6 +23,11 @@ public class CheckpointState implements RespawnState {
     private boolean cameraLock;
     private boolean usedForSpecialStage; // Prevents stars from respawning after SS entry
 
+    // Water state (ROM: v_lamp_wtrpos, v_lamp_wtrrout)
+    private int savedWaterLevel;
+    private int savedWaterRoutine;
+    private boolean hasWaterState;
+
     /**
      * Clear checkpoint state (called on level start/change).
      */
@@ -34,6 +39,9 @@ public class CheckpointState implements RespawnState {
         savedCameraY = 0;
         cameraLock = false;
         usedForSpecialStage = false;
+        savedWaterLevel = 0;
+        savedWaterRoutine = 0;
+        hasWaterState = false;
     }
 
     /**
@@ -123,6 +131,28 @@ public class CheckpointState implements RespawnState {
 
     public int getSavedCameraY() {
         return savedCameraY;
+    }
+
+    /**
+     * Save water state at checkpoint time.
+     * ROM: Lamp_StoreInfo saves v_waterpos2 and v_wtr_routine.
+     */
+    public void saveWaterState(int waterLevel, int waterRoutine) {
+        this.savedWaterLevel = waterLevel;
+        this.savedWaterRoutine = waterRoutine;
+        this.hasWaterState = true;
+    }
+
+    public boolean hasWaterState() {
+        return hasWaterState;
+    }
+
+    public int getSavedWaterLevel() {
+        return savedWaterLevel;
+    }
+
+    public int getSavedWaterRoutine() {
+        return savedWaterRoutine;
     }
 
     public boolean isUsedForSpecialStage() {

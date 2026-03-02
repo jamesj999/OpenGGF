@@ -318,7 +318,8 @@ public class WaterSystem {
         if (handler != null && !state.isLocked()) {
             handler.update(state, cameraX, cameraY);
         }
-        state.update(); // Move mean toward target
+        // Note: state.update() (mean->target movement) is called by WaterSystem.update(),
+        // not here, to avoid double-movement per frame.
 
         // Tick screen shake countdown (ROM: Obj_6E6E 180-frame timer)
         if (state.shakeTimer > 0) {
@@ -715,6 +716,7 @@ public class WaterSystem {
         DynamicWaterState state = dynamicWaterStates.get(key);
         if (state != null) {
             state.currentLevel = currentY;
+            state.meanLevel = currentY;
             LOGGER.fine(String.format("Zone %d Act %d: Water level set directly to %d (0x%X)",
                     zoneId, actId, currentY, currentY));
         }
