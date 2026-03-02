@@ -71,7 +71,7 @@ public class TestSonic1CaterkillerBodyChaining {
 
     @Test
     public void bodyDeletesWhenHeadIsUnloaded() {
-        AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224);
+        AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224, 0);
         LevelManager levelManager = LevelManager.getInstance();
         Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
                 new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);
@@ -89,7 +89,7 @@ public class TestSonic1CaterkillerBodyChaining {
 
     @Test
     public void fragmentingBodyDeletesWhenOffScreen() {
-        AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224);
+        AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224, 0);
         LevelManager levelManager = LevelManager.getInstance();
         Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
                 new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);

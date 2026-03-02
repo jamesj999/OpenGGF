@@ -246,17 +246,22 @@ public class ObjectManager {
             return;
         }
 
-        renderCommands.clear();
-        for (ObjectInstance instance : instances) {
-            instance.appendRenderCommands(renderCommands);
-        }
+        enableVerticalWrapIfNeeded();
+        try {
+            renderCommands.clear();
+            for (ObjectInstance instance : instances) {
+                instance.appendRenderCommands(renderCommands);
+            }
 
-        if (renderCommands.isEmpty()) {
-            return;
+            if (renderCommands.isEmpty()) {
+                return;
+            }
+            graphicsManager.enqueueDebugLineState();
+            graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, renderCommands));
+            graphicsManager.enqueueDefaultShaderState();
+        } finally {
+            graphicsManager.disableVerticalWrapAdjust();
         }
-        graphicsManager.enqueueDebugLineState();
-        graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, renderCommands));
-        graphicsManager.enqueueDefaultShaderState();
     }
 
     /**
@@ -286,18 +291,23 @@ public class ObjectManager {
             return;
         }
 
-        renderCommands.clear();
-        for (ObjectInstance instance : instances) {
-            if (callback != null) {
-                callback.beforeDraw(instance, highPriority);
+        enableVerticalWrapIfNeeded();
+        try {
+            renderCommands.clear();
+            for (ObjectInstance instance : instances) {
+                if (callback != null) {
+                    callback.beforeDraw(instance, highPriority);
+                }
+                instance.appendRenderCommands(renderCommands);
             }
-            instance.appendRenderCommands(renderCommands);
-        }
 
-        if (!renderCommands.isEmpty()) {
-            graphicsManager.enqueueDebugLineState();
-            graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, renderCommands));
-            graphicsManager.enqueueDefaultShaderState();
+            if (!renderCommands.isEmpty()) {
+                graphicsManager.enqueueDebugLineState();
+                graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, renderCommands));
+                graphicsManager.enqueueDefaultShaderState();
+            }
+        } finally {
+            graphicsManager.disableVerticalWrapAdjust();
         }
     }
 
@@ -346,15 +356,20 @@ public class ObjectManager {
             return;
         }
 
-        renderCommands.clear();
-        for (ObjectInstance instance : instances) {
-            instance.appendRenderCommands(renderCommands);
-        }
+        enableVerticalWrapIfNeeded();
+        try {
+            renderCommands.clear();
+            for (ObjectInstance instance : instances) {
+                instance.appendRenderCommands(renderCommands);
+            }
 
-        if (!renderCommands.isEmpty()) {
-            graphicsManager.enqueueDebugLineState();
-            graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, renderCommands));
-            graphicsManager.enqueueDefaultShaderState();
+            if (!renderCommands.isEmpty()) {
+                graphicsManager.enqueueDebugLineState();
+                graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, renderCommands));
+                graphicsManager.enqueueDefaultShaderState();
+            }
+        } finally {
+            graphicsManager.disableVerticalWrapAdjust();
         }
     }
 
@@ -533,13 +548,26 @@ public class ObjectManager {
         }
     }
 
+    /**
+     * Enables vertical wrap Y adjustment on GraphicsManager if the camera has
+     * vertical wrapping active. Called before object rendering to ensure objects
+     * on the "wrong side" of a wrap boundary render at correct screen positions.
+     */
+    private void enableVerticalWrapIfNeeded() {
+        Camera camera = Camera.getInstance();
+        if (camera.isVerticalWrapEnabled()) {
+            graphicsManager.enableVerticalWrapAdjust(Camera.VERTICAL_WRAP_RANGE, camera.getY());
+        }
+    }
+
     private void updateCameraBounds() {
         Camera camera = Camera.getInstance();
         int left = camera.getX();
         int top = camera.getY();
         int right = left + camera.getWidth();
         int bottom = top + camera.getHeight();
-        AbstractObjectInstance.updateCameraBounds(left, top, right, bottom);
+        int wrapRange = camera.isVerticalWrapEnabled() ? Camera.VERTICAL_WRAP_RANGE : 0;
+        AbstractObjectInstance.updateCameraBounds(left, top, right, bottom, wrapRange);
     }
 
     public static int decodePlaneSwitcherHalfSpan(int subtype) {

@@ -12,6 +12,7 @@ import com.openggf.game.CollisionModel;
 import com.openggf.game.GameServices;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
+import com.openggf.camera.Camera;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
@@ -323,54 +324,74 @@ public class SpriteManager {
 	}
 
 	public void draw() {
-		Collection<Sprite> sprites = getAllSprites();
-		for (Sprite sprite : sprites) {
-			if (isSuppressedSidekickSprite(sprite)) {
-				continue;
+		boolean wrapEnabled = enableVerticalWrapIfNeeded();
+		try {
+			Collection<Sprite> sprites = getAllSprites();
+			for (Sprite sprite : sprites) {
+				if (isSuppressedSidekickSprite(sprite)) {
+					continue;
+				}
+				sprite.draw();
 			}
-			sprite.draw();
+		} finally {
+			if (wrapEnabled) disableVerticalWrap();
 		}
 	}
 
 	public void drawLowPriority() {
-		bucketSprites();
-		for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
-			int idx = bucket - RenderPriority.MIN;
-			for (Sprite sprite : lowPriorityBuckets[idx]) {
-				sprite.draw();
+		boolean wrapEnabled = enableVerticalWrapIfNeeded();
+		try {
+			bucketSprites();
+			for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
+				int idx = bucket - RenderPriority.MIN;
+				for (Sprite sprite : lowPriorityBuckets[idx]) {
+					sprite.draw();
+				}
 			}
+		} finally {
+			if (wrapEnabled) disableVerticalWrap();
 		}
 	}
 
 	public void drawHighPriority() {
-		for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
-			int idx = bucket - RenderPriority.MIN;
-			for (Sprite sprite : highPriorityBuckets[idx]) {
-				sprite.draw();
-			}
-			if (bucket == RenderPriority.MIN) {
-				for (Sprite sprite : nonPlayableSprites) {
+		boolean wrapEnabled = enableVerticalWrapIfNeeded();
+		try {
+			for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
+				int idx = bucket - RenderPriority.MIN;
+				for (Sprite sprite : highPriorityBuckets[idx]) {
 					sprite.draw();
 				}
+				if (bucket == RenderPriority.MIN) {
+					for (Sprite sprite : nonPlayableSprites) {
+						sprite.draw();
+					}
+				}
 			}
+		} finally {
+			if (wrapEnabled) disableVerticalWrap();
 		}
 	}
 
 	public void drawPriorityBucket(int bucket, boolean highPriority) {
-		bucketSprites(); // Ensure sprites are bucketed
-		int targetBucket = RenderPriority.clamp(bucket);
-		int idx = targetBucket - RenderPriority.MIN;
+		boolean wrapEnabled = enableVerticalWrapIfNeeded();
+		try {
+			bucketSprites(); // Ensure sprites are bucketed
+			int targetBucket = RenderPriority.clamp(bucket);
+			int idx = targetBucket - RenderPriority.MIN;
 
-		List<Sprite>[] buckets = highPriority ? highPriorityBuckets : lowPriorityBuckets;
-		for (Sprite sprite : buckets[idx]) {
-			sprite.draw();
-		}
-
-		// Non-playable sprites are only drawn once at the minimum high-priority bucket
-		if (highPriority && targetBucket == RenderPriority.MIN) {
-			for (Sprite sprite : nonPlayableSprites) {
+			List<Sprite>[] buckets = highPriority ? highPriorityBuckets : lowPriorityBuckets;
+			for (Sprite sprite : buckets[idx]) {
 				sprite.draw();
 			}
+
+			// Non-playable sprites are only drawn once at the minimum high-priority bucket
+			if (highPriority && targetBucket == RenderPriority.MIN) {
+				for (Sprite sprite : nonPlayableSprites) {
+					sprite.draw();
+				}
+			}
+		} finally {
+			if (wrapEnabled) disableVerticalWrap();
 		}
 	}
 
@@ -385,35 +406,40 @@ public class SpriteManager {
 	 * @param callback Called before each sprite draw with (sprite, isHighPriority)
 	 */
 	public void drawUnifiedBucket(int bucket, SpriteDrawCallback callback) {
-		bucketSprites(); // Ensure sprites are bucketed
-		int targetBucket = RenderPriority.clamp(bucket);
-		int idx = targetBucket - RenderPriority.MIN;
+		boolean wrapEnabled = enableVerticalWrapIfNeeded();
+		try {
+			bucketSprites(); // Ensure sprites are bucketed
+			int targetBucket = RenderPriority.clamp(bucket);
+			int idx = targetBucket - RenderPriority.MIN;
 
-		// Draw low-priority sprites first (they appear behind)
-		for (Sprite sprite : lowPriorityBuckets[idx]) {
-			if (callback != null) {
-				callback.beforeDraw(sprite, false);
-			}
-			sprite.draw();
-		}
-
-		// Draw high-priority sprites second (they appear in front)
-		for (Sprite sprite : highPriorityBuckets[idx]) {
-			if (callback != null) {
-				callback.beforeDraw(sprite, true);
-			}
-			sprite.draw();
-		}
-
-		// Non-playable sprites are drawn at the minimum bucket
-		if (targetBucket == RenderPriority.MIN) {
-			for (Sprite sprite : nonPlayableSprites) {
-				// Non-playable sprites default to low priority for tile layering
+			// Draw low-priority sprites first (they appear behind)
+			for (Sprite sprite : lowPriorityBuckets[idx]) {
 				if (callback != null) {
 					callback.beforeDraw(sprite, false);
 				}
 				sprite.draw();
 			}
+
+			// Draw high-priority sprites second (they appear in front)
+			for (Sprite sprite : highPriorityBuckets[idx]) {
+				if (callback != null) {
+					callback.beforeDraw(sprite, true);
+				}
+				sprite.draw();
+			}
+
+			// Non-playable sprites are drawn at the minimum bucket
+			if (targetBucket == RenderPriority.MIN) {
+				for (Sprite sprite : nonPlayableSprites) {
+					// Non-playable sprites default to low priority for tile layering
+					if (callback != null) {
+						callback.beforeDraw(sprite, false);
+					}
+					sprite.draw();
+				}
+			}
+		} finally {
+			if (wrapEnabled) disableVerticalWrap();
 		}
 	}
 
@@ -440,33 +466,57 @@ public class SpriteManager {
 	 * @param gfx    The graphics manager to use for priority state
 	 */
 	public void drawUnifiedBucketWithPriority(int bucket, GraphicsManager gfx) {
-		bucketSprites();
-		int idx = RenderPriority.clamp(bucket) - RenderPriority.MIN;
+		boolean wrapEnabled = enableVerticalWrapIfNeeded();
+		try {
+			bucketSprites();
+			int idx = RenderPriority.clamp(bucket) - RenderPriority.MIN;
 
-		// Draw low-priority sprites first (sets priority per-instance in shader)
-		if (!lowPriorityBuckets[idx].isEmpty()) {
-			gfx.setCurrentSpriteHighPriority(false);
-			for (Sprite sprite : lowPriorityBuckets[idx]) {
-				sprite.draw();
+			// Draw low-priority sprites first (sets priority per-instance in shader)
+			if (!lowPriorityBuckets[idx].isEmpty()) {
+				gfx.setCurrentSpriteHighPriority(false);
+				for (Sprite sprite : lowPriorityBuckets[idx]) {
+					sprite.draw();
+				}
 			}
-		}
 
-		// Draw high-priority sprites (sets priority per-instance in shader)
-		// No batch flush needed - priority is baked into instance data
-		if (!highPriorityBuckets[idx].isEmpty()) {
-			gfx.setCurrentSpriteHighPriority(true);
-			for (Sprite sprite : highPriorityBuckets[idx]) {
-				sprite.draw();
+			// Draw high-priority sprites (sets priority per-instance in shader)
+			// No batch flush needed - priority is baked into instance data
+			if (!highPriorityBuckets[idx].isEmpty()) {
+				gfx.setCurrentSpriteHighPriority(true);
+				for (Sprite sprite : highPriorityBuckets[idx]) {
+					sprite.draw();
+				}
 			}
-		}
 
-		// Handle non-playable sprites at bucket MIN
-		if (bucket == RenderPriority.MIN && !nonPlayableSprites.isEmpty()) {
-			gfx.setCurrentSpriteHighPriority(false);
-			for (Sprite sprite : nonPlayableSprites) {
-				sprite.draw();
+			// Handle non-playable sprites at bucket MIN
+			if (bucket == RenderPriority.MIN && !nonPlayableSprites.isEmpty()) {
+				gfx.setCurrentSpriteHighPriority(false);
+				for (Sprite sprite : nonPlayableSprites) {
+					sprite.draw();
+				}
 			}
+		} finally {
+			if (wrapEnabled) disableVerticalWrap();
 		}
+	}
+
+	/**
+	 * Enables vertical wrap Y adjustment on GraphicsManager when the camera
+	 * has vertical wrapping active. Returns true if wrap was enabled (and
+	 * caller must disable it after drawing).
+	 */
+	private boolean enableVerticalWrapIfNeeded() {
+		Camera camera = Camera.getInstance();
+		if (camera.isVerticalWrapEnabled()) {
+			GraphicsManager.getInstance().enableVerticalWrapAdjust(
+					Camera.VERTICAL_WRAP_RANGE, camera.getY());
+			return true;
+		}
+		return false;
+	}
+
+	private void disableVerticalWrap() {
+		GraphicsManager.getInstance().disableVerticalWrapAdjust();
 	}
 
 	private boolean removeSprite(Sprite sprite) {

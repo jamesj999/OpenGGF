@@ -51,7 +51,7 @@ public class Camera {
 	// When top boundary is negative (e.g. 0xFF00 = -256), coordinates wrap modularly
 	// to create an infinite-falling effect. The wrap range is 0x800 (2048 pixels).
 	private boolean verticalWrapEnabled = false;
-	private static final int VERTICAL_WRAP_RANGE = 0x800;  // 2048 pixels
+	public static final int VERTICAL_WRAP_RANGE = 0x800;  // 2048 pixels
 	private static final int VERTICAL_WRAP_MASK = 0x7FF;   // AND mask for camera/player Y
 	private static final int VERTICAL_WRAP_BG_MASK = 0x3FF; // AND mask for BG Y
 	// Tracks whether a wrap occurred this frame, and the delta applied
@@ -133,7 +133,21 @@ public class Camera {
 		}
 
 		// Vertical scroll - always uses current position (ROM: ScrollVerti has no delay)
-		short focusedSpriteRealY = (short) (focusedSprite.getCentreY() - y);
+		// ROM: d0 = (v_player+obY).w - (v_screenposy).w
+		// When vertical wrapping is active, compute using modular arithmetic to handle
+		// cases where Sonic and camera are in different wrap periods (e.g. Sonic's Y was
+		// updated by ground collision across the wrap boundary between frames).
+		short focusedSpriteRealY;
+		if (verticalWrapEnabled) {
+			int diff = (int) focusedSprite.getCentreY() - (int) y;
+			diff = ((diff % VERTICAL_WRAP_RANGE) + VERTICAL_WRAP_RANGE) % VERTICAL_WRAP_RANGE;
+			if (diff > VERTICAL_WRAP_RANGE / 2) {
+				diff -= VERTICAL_WRAP_RANGE;
+			}
+			focusedSpriteRealY = (short) diff;
+		} else {
+			focusedSpriteRealY = (short) (focusedSprite.getCentreY() - y);
+		}
 
 		// ROM: s2.asm:18121-18132 - Rolling height compensation
 		// When rolling, Sonic's center shifts down by ~5px due to height change.
@@ -235,9 +249,9 @@ public class Camera {
 		lastFrameWrapped = false;
 		wrapDeltaY = 0;
 		if (verticalWrapEnabled) {
-			// Upward wrap: camera Y went below -256 (0xFF00 signed)
-			// ROM: cmp.w (Camera_Y_pos).w,d1 / bge.s .noupwrap / and.w d0,y
-			if (y < -0x100) {
+			// Upward wrap: camera Y at or below -256 (0xFF00 signed)
+			// ROM: cmpi.w #-$100,d1 / bgt.s .noupwrap — wraps when d1 <= -$100
+			if (y <= -0x100) {
 				short oldY = y;
 				y = (short) (y & VERTICAL_WRAP_MASK);
 				if (focusedSprite != null) {
@@ -260,11 +274,16 @@ public class Camera {
 		}
 
 		// Clamp to boundaries (ROM: ScrollHoriz lines 18077-18092, ScrollVerti similar)
-		// ROM clamps camera Y to v_limitbtm2 even in vertically-wrapping levels
-		// (e.g. SBZ2 top=$FF00 enables wrapping, but v_limitbtm2=$510 still
-		// constrains the camera so Sonic falls off-screen for pit death).
 		x = clampAxisWithWrap(x, minX, maxX);
-		y = clampAxisWithWrap(y, minY, maxY);
+		// ROM: After a vertical wrap, DeformLayers.asm branches directly to loc_6724
+		// (the store), skipping the normal boundary clamp. This is critical because
+		// after wrapping from e.g. -260 to 1788, clamping to maxY could force the
+		// camera to a different position than Sonic was wrapped to.
+		// Normal (non-wrap) frames still clamp, which handles pit death in SBZ2
+		// where v_limitbtm2=$510 constrains the camera even though wrapping is active.
+		if (!lastFrameWrapped) {
+			y = clampAxisWithWrap(y, minY, maxY);
+		}
 	}
 
 	private short clampAxisWithWrap(short value, short min, short max) {

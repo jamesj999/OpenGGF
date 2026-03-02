@@ -28,9 +28,13 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     /**
      * Updates the cached camera bounds in place. Called once per frame by ObjectManager
      * before any object updates run.
+     *
+     * @param verticalWrapRange Vertical wrap range in pixels (0 = no wrapping).
+     *                          When > 0, Y visibility checks use modular arithmetic.
      */
-    public static void updateCameraBounds(int left, int top, int right, int bottom) {
+    public static void updateCameraBounds(int left, int top, int right, int bottom, int verticalWrapRange) {
         cameraBounds.update(left, top, right, bottom);
+        cameraBounds.setVerticalWrapRange(verticalWrapRange);
     }
 
     @Override

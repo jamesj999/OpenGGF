@@ -97,6 +97,14 @@ public class GraphicsManager {
 	private boolean instancedBatchingEnabled = true;
 	private boolean instancedBatchActive = false;
 
+	// Vertical wrap Y adjustment for object rendering.
+	// When enabled, adjusts world Y coordinates passed to renderPattern/renderPatternWithId
+	// to account for vertical level wrapping (LZ3/SBZ2). Emulates VDP modular sprite Y
+	// which naturally wraps coordinates, preventing objects from vanishing at wrap boundaries.
+	private boolean verticalWrapAdjustEnabled = false;
+	private int verticalWrapRange = 0;
+	private int verticalWrapCameraY = 0;
+
 	/**
 	 * Reference to the Engine for accessing projection matrix.
 	 */
@@ -459,6 +467,20 @@ public class GraphicsManager {
 		if (headlessMode) {
 			return;
 		}
+
+		// Vertical wrap Y adjustment (emulates VDP modular sprite Y coordinates).
+		// When enabled, wraps the world Y to the nearest equivalent position within
+		// VERTICAL_WRAP_RANGE of the camera, so objects on the "wrong side" of a
+		// wrap boundary render at the correct screen position.
+		if (verticalWrapAdjustEnabled && verticalWrapRange > 0) {
+			int diff = y - verticalWrapCameraY;
+			diff = ((diff % verticalWrapRange) + verticalWrapRange) % verticalWrapRange;
+			if (diff > verticalWrapRange / 2) {
+				diff -= verticalWrapRange;
+			}
+			y = verticalWrapCameraY + diff;
+		}
+
 		ensurePatternAtlas();
 		PatternAtlas.Entry entry = patternAtlas != null ? patternAtlas.getEntry(patternId) : null;
 
@@ -638,6 +660,32 @@ public class GraphicsManager {
 
 	public boolean isInstancedBatchingEnabled() {
 		return instancedBatchingEnabled;
+	}
+
+	/**
+	 * Enables vertical wrap Y adjustment for object rendering.
+	 * While enabled, Y coordinates passed to renderPattern/renderPatternWithId
+	 * are adjusted to the nearest equivalent position modulo the wrap range,
+	 * emulating the Mega Drive VDP's modular sprite coordinate system.
+	 * <p>
+	 * Call this BEFORE rendering objects in vertically-wrapping zones (LZ3, SBZ2),
+	 * and call {@link #disableVerticalWrapAdjust()} afterwards to avoid affecting
+	 * HUD or other non-wrapping renders.
+	 *
+	 * @param range   The vertical wrap range in pixels (e.g. 2048)
+	 * @param cameraY The current camera Y position
+	 */
+	public void enableVerticalWrapAdjust(int range, int cameraY) {
+		this.verticalWrapAdjustEnabled = true;
+		this.verticalWrapRange = range;
+		this.verticalWrapCameraY = cameraY;
+	}
+
+	/**
+	 * Disables vertical wrap Y adjustment.
+	 */
+	public void disableVerticalWrapAdjust() {
+		this.verticalWrapAdjustEnabled = false;
 	}
 
 	/**

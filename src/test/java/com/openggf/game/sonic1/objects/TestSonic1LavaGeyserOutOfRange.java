@@ -42,7 +42,7 @@ public class TestSonic1LavaGeyserOutOfRange {
         Camera camera = Camera.getInstance();
         camera.setX((short) 0);
         camera.setY((short) 0);
-        AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224);
+        AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224, 0);
     }
 
     @Test
