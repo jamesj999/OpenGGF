@@ -77,12 +77,28 @@ public abstract class AbstractPlacementManager<T extends SpawnPoint> {
         return unloadBehind;
     }
 
+    /**
+     * ROM parity: window boundaries use chunk-aligned camera X.
+     * <p>
+     * Both S1 (ObjPosLoad/OPL_Next) and S2 (ObjectsManager_Main) calculate
+     * spawn boundaries from {@code cameraX & 0xFF80} rather than raw cameraX:
+     * <ul>
+     *   <li>Backward: {@code (cameraX & 0xFF80) - 0x80}</li>
+     *   <li>Forward:  {@code (cameraX & 0xFF80) + 0x280}</li>
+     * </ul>
+     * Using raw cameraX shifts the window right by up to 127px, causing
+     * objects on the left side to fall outside the spawn range.
+     */
+    private static final int CHUNK_ALIGN_MASK = 0xFF80;
+
     protected int getWindowStart(int cameraX) {
-        return Math.max(0, cameraX - unloadBehind);
+        int chunkAligned = cameraX & CHUNK_ALIGN_MASK;
+        return Math.max(0, chunkAligned - unloadBehind);
     }
 
     protected int getWindowEnd(int cameraX) {
-        return cameraX + loadAhead;
+        int chunkAligned = cameraX & CHUNK_ALIGN_MASK;
+        return chunkAligned + loadAhead;
     }
 
     protected int lowerBound(int value) {

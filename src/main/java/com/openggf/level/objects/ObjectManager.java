@@ -372,6 +372,10 @@ public class ObjectManager {
         return placement.getActiveSpawns();
     }
 
+    public List<ObjectSpawn> getAllSpawns() {
+        return placement.getAllSpawns();
+    }
+
     public void addDynamicObject(ObjectInstance object) {
         if (updating) {
             pendingDynamicAdditions.add(object);
@@ -697,7 +701,7 @@ public class ObjectManager {
         }
 
         private void spawnForward(int cameraX) {
-            int spawnLimit = cameraX + getLoadAhead();
+            int spawnLimit = getWindowEnd(cameraX);
             while (cursorIndex < spawns.size() && spawns.get(cursorIndex).x() <= spawnLimit) {
                 trySpawn(cursorIndex);
                 cursorIndex++;

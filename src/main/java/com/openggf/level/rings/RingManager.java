@@ -430,7 +430,7 @@ public class RingManager {
         }
 
         private void spawnForward(int cameraX) {
-            int spawnLimit = cameraX + getLoadAhead();
+            int spawnLimit = getWindowEnd(cameraX);
             while (cursorIndex < spawns.size() && spawns.get(cursorIndex).x() <= spawnLimit) {
                 active.add(spawns.get(cursorIndex));
                 cursorIndex++;
