@@ -1901,11 +1901,15 @@ public class GameLoop {
         endingProvider.initialize();
         setGameMode(gameModeForPhase(endingProvider.getCurrentPhase()));
 
-        // Reveal the ending scene (screen is currently white from startEndingFade's
-        // fade-to-white). ROM: Normal_palette starts all $0EEE (white), display enabled.
-        // Use startFadeFromWhite so the white overlay dissolves smoothly while the
-        // palette fade transitions line 0 from white to Photos colors.
-        FadeManager.getInstance().startFadeFromWhite(null);
+        // Reveal the ending scene. Only start our own fade if the provider didn't
+        // already start one during initialize() (e.g., S1 credits starts its own
+        // fade-from-black with a state-advancing callback that must not be overwritten).
+        FadeManager fadeManager = FadeManager.getInstance();
+        if (!fadeManager.isActive()) {
+            // Screen is currently white from startEndingFade's fade-to-white.
+            // ROM: Normal_palette starts all $0EEE (white), display enabled.
+            fadeManager.startFadeFromWhite(null);
+        }
 
         LOGGER.info("Entered ending sequence, phase=" + endingProvider.getCurrentPhase());
     }
