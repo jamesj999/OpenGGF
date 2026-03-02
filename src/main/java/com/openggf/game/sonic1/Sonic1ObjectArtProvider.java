@@ -8198,20 +8198,29 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
      * Creates Map_But sprite mappings for the SBZ2 button.
      * Hardcoded from docs/s1disasm/_maps/Button.asm (inline spritePiece macros).
      * 2 frames: unpressed, pressed.
+     *
+     * PLC loads Nem_LzSwitch at ArtTile_Eggman_Button-4 ($4A0), but the object's
+     * obGfx base is ArtTile_Eggman_Button ($4A4). This 4-tile offset means
+     * Map_But tile index 0 maps to decompressed tile 4, and tile index 4 maps to
+     * decompressed tile 8. Since buildArtSheet indexes directly into the
+     * decompressed art array, we must add 4 to all tile indices.
      */
     private List<SpriteMappingFrame> createSbz2ButtonMappings() {
         List<SpriteMappingFrame> frames = new ArrayList<>();
 
+        // PLC offset: art loaded 4 tiles before obGfx base
+        int tileOffset = 4;
+
         // Frame 0 (unpressed): 2 pieces
         frames.add(new SpriteMappingFrame(List.of(
-                new SpriteMappingPiece(-0x10, -0x0B, 2, 2, 0, false, false, 0, false),
-                new SpriteMappingPiece(0, -0x0B, 2, 2, 0, true, false, 0, false)
+                new SpriteMappingPiece(-0x10, -0x0B, 2, 2, 0 + tileOffset, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x0B, 2, 2, 0 + tileOffset, true, false, 0, false)
         )));
 
         // Frame 1 (pressed): 2 pieces
         frames.add(new SpriteMappingFrame(List.of(
-                new SpriteMappingPiece(-0x10, -0x0B, 2, 2, 4, false, false, 0, false),
-                new SpriteMappingPiece(0, -0x0B, 2, 2, 4, true, false, 0, false)
+                new SpriteMappingPiece(-0x10, -0x0B, 2, 2, 4 + tileOffset, false, false, 0, false),
+                new SpriteMappingPiece(0, -0x0B, 2, 2, 4 + tileOffset, true, false, 0, false)
         )));
 
         return frames;
