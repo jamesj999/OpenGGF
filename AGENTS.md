@@ -52,6 +52,7 @@ The project is in an **alpha** state. Core systems are functional with 962 passi
 ## Key information
 *   **Entry point:** `com.openggf.Engine` (declared in the manifest). A `main` method creates a GLFW window with a manual timing game loop.
 *   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 4).
+*   **Maven output for agents:** `.mvn/extensions.xml` installs Maven Silent Extension (MSE) and `.mvn/maven.config` enables `-Dmse=relaxed` by default for all repo-local Maven commands. Use `-Dmse=off` when full Maven logs are required for debugging.
 *   **Run:** `java -jar target/sonic-engine-0.4.prerelease-jar-with-dependencies.jar`.
 *   **ROM Requirement:** The engine now supports Sonic 1, Sonic 2, and Sonic 3&K modules. Keep the relevant ROM in the project root (typically gitignored): `Sonic The Hedgehog 2 (W) (REV01) [!].gen`, `Sonic The Hedgehog (W) (REV01) [!].gen`, and `Sonic and Knuckles & Sonic 3 (W) [!].gen`. S3K-focused tests should pass `-Ds3k.rom.path="Sonic and Knuckles & Sonic 3 (W) [!].gen"` when needed.
 *   **Important packages** under `src/main/java/uk/co/jamesj999/sonic`:
@@ -488,4 +489,3 @@ exporter.exportAsJavaConstants(batch, "", new PrintWriter(System.out), s1);
 *   **Level Loading:** Performed by `LevelManager`, which reads from the ROM through classes in `com.openggf.sonic.data`.
 *   **Conditional Tests**: `TestCollisionLogic` uses `Assume.assumeTrue` to skip when a ROM file is not present. This is a known and accepted conditional skip, not a hard `@Ignore`.
 *   **File Endings**: Ensure all source code files end with a newline character.
-
