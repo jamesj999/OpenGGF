@@ -2,6 +2,9 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.debug.DebugOverlayManager;
+import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -47,6 +50,10 @@ import java.util.List;
  */
 public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
+
+    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
+            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
+    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // Obj64_Properties flat byte array (s2.asm:52214-52220)
     // Accessed as a3 = Properties + byteOffset, then 3 sequential reads: (a3)+, (a3)+, (a3)+
@@ -342,7 +349,6 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isDebugViewEnabled() {
-        return SonicConfigurationService.getInstance()
-                .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
+        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
     }
 }

@@ -19,6 +19,7 @@ public class Sonic1ScrollHandlerProvider implements ScrollHandlerProvider {
     private static final Logger LOGGER = Logger.getLogger(Sonic1ScrollHandlerProvider.class.getName());
 
     private SwScrlGhz ghzHandler;
+    private SwScrlEnd endHandler;
     private SwScrlLz lzHandler;
     private SwScrlMz mzHandler;
     private SwScrlSlz slzHandler;
@@ -37,6 +38,7 @@ public class Sonic1ScrollHandlerProvider implements ScrollHandlerProvider {
         // Sonic 1 scroll handlers don't need ROM data - they compute
         // everything from camera positions and frame deltas.
         ghzHandler = new SwScrlGhz();
+        endHandler = new SwScrlEnd();
         lzHandler = new SwScrlLz();
         mzHandler = new SwScrlMz();
         slzHandler = new SwScrlSlz();
@@ -62,8 +64,9 @@ public class Sonic1ScrollHandlerProvider implements ScrollHandlerProvider {
             case Sonic1ZoneConstants.ZONE_SYZ -> syzHandler;
             case Sonic1ZoneConstants.ZONE_SBZ -> sbzHandler;
             case Sonic1ZoneConstants.ZONE_FZ -> fzHandler;
-            // ROM ending sequence uses Deform_GHZ scroll behavior.
-            case Sonic1ZoneConstants.ZONE_ENDING -> ghzHandler;
+            // ROM ending uses Deform_GHZ per-frame behavior but BgScroll_End
+            // init (different BG camera starting positions for parallax offset).
+            case Sonic1ZoneConstants.ZONE_ENDING -> endHandler;
             default -> null;
         };
     }

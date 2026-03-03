@@ -2,6 +2,9 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.debug.DebugOverlayManager;
+import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
@@ -21,6 +24,10 @@ import java.util.List;
  */
 public class InvisibleBlockObjectInstance extends BoxObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
+
+    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
+            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
+    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     private final int halfWidth;
     private final int halfHeight;
@@ -70,7 +77,6 @@ public class InvisibleBlockObjectInstance extends BoxObjectInstance
     }
 
     private boolean isDebugViewEnabled() {
-        return SonicConfigurationService.getInstance()
-                .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
+        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
     }
 }

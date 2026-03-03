@@ -1,6 +1,9 @@
 package com.openggf.game.sonic1.scroll;
 
 import com.openggf.level.scroll.ZoneScrollHandler;
+
+import java.util.logging.Logger;
+
 import static com.openggf.level.scroll.M68KMath.*;
 
 /**
@@ -22,24 +25,27 @@ import static com.openggf.level.scroll.M68KMath.*;
  */
 public class SwScrlGhz implements ZoneScrollHandler {
 
+    private static final Logger LOG = Logger.getLogger(SwScrlGhz.class.getName());
+
     private int minScrollOffset;
     private int maxScrollOffset;
     private short vscrollFactorBG;
 
     // Persistent BG camera positions (16.16 fixed point, matching original RAM)
     // v_bg2screenposx: accumulated at scrshiftx * 128
-    private long bg2XPos;
+    protected long bg2XPos;
     // v_bg3screenposx: accumulated at scrshiftx * 96
-    private long bg3XPos;
+    protected long bg3XPos;
 
     // GHZ cloud auto-scroll accumulators (16.16 fixed point).
     // High word is added to BG3 X to create layered cloud drift at idle.
-    private int cloudLayer1Counter;
-    private int cloudLayer2Counter;
-    private int cloudLayer3Counter;
+    protected int cloudLayer1Counter;
+    protected int cloudLayer2Counter;
+    protected int cloudLayer3Counter;
 
-    private int lastCameraX;
-    private boolean initialized = false;
+    protected int lastCameraX;
+    protected boolean initialized = false;
+    private boolean firstFrameLogged = false;
 
     /**
      * Initialize BG camera positions.
@@ -57,6 +63,8 @@ public class SwScrlGhz implements ZoneScrollHandler {
         cloudLayer3Counter = 0;
         lastCameraX = cameraX;
         initialized = true;
+        LOG.info("SwScrlGhz.init: cameraX=" + cameraX +
+                " bg2XPos=" + (bg2XPos >> 16) + " bg3XPos=" + (bg3XPos >> 16));
     }
 
     @Override
@@ -175,6 +183,24 @@ public class SwScrlGhz implements ZoneScrollHandler {
                 currentVal += increment16;
             }
         }
+
+        // One-time diagnostic dump to verify scroll state against ROM
+        if (!firstFrameLogged) {
+            firstFrameLogged = true;
+            int bg3XInt = (int) (bg3XPos >> 16);
+            int bg2XInt = (int) (bg2XPos >> 16);
+            LOG.info("SwScrlGhz first frame: cameraX=" + cameraX + " cameraY=" + cameraY +
+                    " bg3X=" + bg3XInt + " bg2X=" + bg2XInt +
+                    " d4(vscrollFactorBG)=" + vscrollFactorBG +
+                    " bands: upperClouds=" + Math.max(0, 0x20 - d4) +
+                    " midClouds=16 lowClouds=16 mountains=48 hills=40 water=" + (0x48 + d4));
+            // Sample HScroll at key scanlines
+            LOG.info("SwScrlGhz HScroll samples: " +
+                    "line0=BG:" + (short)(horizScrollBuf[0] & 0xFFFF) +
+                    " line80=BG:" + (short)(horizScrollBuf[Math.min(80, 223)] & 0xFFFF) +
+                    " line120=BG:" + (short)(horizScrollBuf[Math.min(120, 223)] & 0xFFFF) +
+                    " line200=BG:" + (short)(horizScrollBuf[Math.min(200, 223)] & 0xFFFF));
+        }
     }
 
     private int fillBand(int[] horizScrollBuf, int lineIndex, int lineCount, short fgScroll, short bgScroll) {
@@ -213,5 +239,71 @@ public class SwScrlGhz implements ZoneScrollHandler {
     @Override
     public int getMaxScrollOffset() {
         return maxScrollOffset;
+    }
+
+    /**
+     * Return the BG camera X for nametable tracking.
+     * <p>
+     * GHZ's BG map is 32 blocks (8192px) wide — far wider than the VDP's 512px
+     * nametable. On the real hardware, BGScroll_Block3 sets redraw flags whenever
+     * bg3screenposx crosses a 16-pixel boundary, causing the BG draw routines to
+     * update the nametable ring buffer with new columns. The mountains are the
+     * slowest-scrolling BG band (96/256 of camera speed), so bg3X is the
+     * base position the nametable tracks.
+     * <p>
+     * Returning bg3X here lets LevelManager dynamically rebuild the tilemap FBO
+     * around the current mountain scroll position, matching hardware behavior.
+     */
+    @Override
+    public int getBgCameraX() {
+        return (int) (bg3XPos >> 16);
+    }
+
+    /**
+     * GHZ needs a wider BG period to cover the parallax spread.
+     * <p>
+     * The visible BG range spans from bg3X (mountains, 96/256 of camera speed)
+     * to cameraX + 320 (water band, right screen edge). Additionally, the three
+     * cloud auto-scroll layers add ever-growing offsets on top of bg3X, pushing
+     * the visible cloud band further from the tilemap origin.
+     * <p>
+     * On the real VDP hardware, the 512px nametable is a ring buffer that's
+     * continuously updated column-by-column as bg3X changes. Adjacent nametable
+     * columns always contain adjacent BG map columns, so the 512px wrap seam
+     * sits between adjacent blocks that tile seamlessly.
+     * <p>
+     * The engine rebuilds the tilemap from scratch as a static snapshot, so a
+     * 512px wrap produces a seam between non-adjacent BG map blocks (2 blocks
+     * apart). GHZ uses 7 unique block types in a non-repeating 32-block
+     * sequence, and non-adjacent blocks have visibly different cloud art.
+     * Including cloud offsets in the spread ensures the tilemap is always wide
+     * enough that the wrap seam stays off-screen.
+     */
+    @Override
+    public int getBgPeriodWidth() {
+        int bg3X = (int) (bg3XPos >> 16);
+        // Camera spread: water band interpolates up to cameraX + 320
+        int cameraSpread = lastCameraX + 320 - bg3X;
+
+        // Cloud bands scroll at bg3X + cloudOffset. The fastest layer (cloud1)
+        // advances 1 pixel/frame. Include the maximum absolute cloud offset so
+        // the tilemap covers the full visible cloud range without a mid-screen
+        // wrap seam.
+        int c1 = Math.abs((short) (cloudLayer1Counter >> 16));
+        int c2 = Math.abs((short) (cloudLayer2Counter >> 16));
+        int c3 = Math.abs((short) (cloudLayer3Counter >> 16));
+        int cloudSpread = Math.max(c1, Math.max(c2, c3)) + 320;
+
+        int spread = Math.max(cameraSpread, cloudSpread);
+
+        // Round up to next power of 2, minimum 512
+        int width = 512;
+        while (width < spread) {
+            width <<= 1;
+        }
+        // Cap at full BG map extent (32 blocks × 256px). Beyond this, the seam
+        // is at the BG map's natural wrap point — the same boundary the VDP
+        // encounters when the nametable cycles through the full map.
+        return Math.min(width, 8192);
     }
 }

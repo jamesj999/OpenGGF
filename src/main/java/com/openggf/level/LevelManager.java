@@ -151,6 +151,7 @@ public class LevelManager {
     // X offset (in pixels, 512-aligned) for BG tilemap building.
     // Wide BG maps (> 512px) need tiles from the correct region, not always from position 0.
     private int bgTilemapBaseX = 0;
+    private int currentBgPeriodWidth = VDP_BG_PLANE_WIDTH_PX;
     private byte[] foregroundTilemapData;
     private int foregroundTilemapWidthTiles;
     private int foregroundTilemapHeightTiles;
@@ -778,6 +779,7 @@ public class LevelManager {
         cacheLevelDimensions();
         backgroundTilemapDirty = true;
         bgTilemapBaseX = 0;
+        currentBgPeriodWidth = VDP_BG_PLANE_WIDTH_PX;
         foregroundTilemapDirty = true;
         patternLookupDirty = true;
         multiAtlasWarningLogged = false;
@@ -1853,6 +1855,14 @@ public class LevelManager {
             backgroundTilemapDirty = true;
         }
 
+        // Track BG period width changes (e.g., GHZ parallax spread grows with cameraX).
+        // When the period widens, the tilemap must be rebuilt at the larger size.
+        int newBgPeriodWidth = parallaxManager.getBgPeriodWidth();
+        if (newBgPeriodWidth != currentBgPeriodWidth) {
+            currentBgPeriodWidth = newBgPeriodWidth;
+            backgroundTilemapDirty = true;
+        }
+
         ensureBackgroundTilemapData();
 
         int bgPeriodWidthPixels = backgroundTilemapWidthTiles * Pattern.PATTERN_WIDTH;
@@ -1883,12 +1893,13 @@ public class LevelManager {
             nametableBaseTile = zoneFeatureProvider.getVdpNametableBase(
                     currentZone, currentAct, camera.getX(), backgroundTilemapWidthTiles);
         }
-        // Cap BG period at VDP nametable width for parallax scroll wrapping.
-        // On the Mega Drive, BG art repeats at the 64-tile nametable width.
-        // Without this cap, the parallax shader wraps at the full tilemap width,
-        // exposing empty tile regions beyond the valid BG art pattern.
-        if (!perLineScrollActive && bgPeriodWidthPixels > VDP_BG_PLANE_WIDTH_PX) {
-            bgPeriodWidthPixels = VDP_BG_PLANE_WIDTH_PX;
+        // Cap BG period at the scroll handler's required width.
+        // Zones with a single BG scroll speed cap at VDP nametable width (512px).
+        // Zones with multi-speed parallax (e.g., GHZ) need a wider period to
+        // avoid a visible wrap seam where slower and faster layers overlap.
+        int bgPeriodCap = parallaxManager.getBgPeriodWidth();
+        if (!perLineScrollActive && bgPeriodWidthPixels > bgPeriodCap) {
+            bgPeriodWidthPixels = bgPeriodCap;
         }
         int renderWidth = Math.max(cachedScreenWidth, bgPeriodWidthPixels);
         // Add CHUNK_HEIGHT (16px) to cover VScroll range
@@ -2364,7 +2375,11 @@ public class LevelManager {
                 && zoneFeatureProvider != null
                 && zoneFeatureProvider.bgWrapsHorizontally()
                 && currentZone != ParallaxManager.ZONE_HTZ;
-        int levelWidth = bgWrap ? VDP_BG_PLANE_WIDTH_PX : layerLevelWidth;
+        // Use the scroll handler's required period width (may be wider than 512px
+        // for zones with multi-speed parallax like GHZ).
+        int bgPeriodWidth = parallaxManager != null ? parallaxManager.getBgPeriodWidth()
+                : VDP_BG_PLANE_WIDTH_PX;
+        int levelWidth = bgWrap ? bgPeriodWidth : layerLevelWidth;
 
         // For BG layers wider than 512px (e.g., SBZ 15360px), the 64-tile tilemap
         // must contain tiles from the correct BG map region, not always from position 0.
@@ -4279,6 +4294,7 @@ public class LevelManager {
         frameCounter = 0;
         backgroundTilemapDirty = true;
         bgTilemapBaseX = 0;
+        currentBgPeriodWidth = VDP_BG_PLANE_WIDTH_PX;
         foregroundTilemapDirty = true;
         patternLookupDirty = true;
         specialStageRequestedFromCheckpoint = false;

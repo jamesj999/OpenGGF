@@ -2,6 +2,9 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.debug.DebugOverlayManager;
+import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -46,6 +49,10 @@ import java.util.List;
  */
 public class StomperObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider {
+
+    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
+            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
+    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // Timer constants (from disassembly)
     private static final int MAX_TIMER = 0x60;      // 96 frames - fully retracted
@@ -209,8 +216,7 @@ public class StomperObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isDebugViewEnabled() {
-        return SonicConfigurationService.getInstance()
-                .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
+        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
     }
 
     private void appendDebug(List<GLCommand> commands) {

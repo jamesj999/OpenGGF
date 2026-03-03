@@ -610,6 +610,20 @@ public class Sonic1Level implements Level {
         map = new Map(2, mapWidth, mapHeight, mapBuffer);
 
         LOG.fine("Map loaded: FG=" + fgWidth + "x" + fgHeight + ", BG=" + bgWidth + "x" + bgHeight);
+
+        // Diagnostic: log BG layout block IDs for verification against disassembly
+        if (LOG.isLoggable(java.util.logging.Level.INFO)) {
+            StringBuilder sb = new StringBuilder("BG layout block IDs (first 32): ");
+            for (int i = 0; i < Math.min(bgWidth, 32); i++) {
+                if (i > 0) sb.append(", ");
+                sb.append(String.format("0x%02X", bgData[i] & 0xFF));
+            }
+            LOG.info(sb.toString());
+            // Log first two blocks (visible in 512px tilemap at bgscreenposx=0)
+            LOG.info("BG tilemap shows blocks: " +
+                    String.format("0x%02X", bgData[0] & 0x7F) + " (pos 0-255), " +
+                    String.format("0x%02X", bgData[1] & 0x7F) + " (pos 256-511)");
+        }
     }
 
     /**

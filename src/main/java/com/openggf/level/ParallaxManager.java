@@ -102,6 +102,7 @@ public class ParallaxManager {
 
     // Cached BG camera X from the active scroll handler (Integer.MIN_VALUE = no offset)
     private int cachedBgCameraX = Integer.MIN_VALUE;
+    private int cachedBgPeriodWidth = 512;
 
     // Pre-allocated arrays to avoid per-frame allocations
     private final int[] wfzOffsets = new int[4];
@@ -157,6 +158,7 @@ public class ParallaxManager {
         currentShakeOffsetX = 0;
         currentShakeOffsetY = 0;
         cachedBgCameraX = Integer.MIN_VALUE;
+        cachedBgPeriodWidth = 512;
         minScroll = 0;
         maxScroll = 0;
         java.util.Arrays.fill(hScroll, 0);
@@ -298,6 +300,15 @@ public class ParallaxManager {
     }
 
     /**
+     * Get the required BG tilemap period width from the active scroll handler.
+     *
+     * @return Period width in pixels (default 512)
+     */
+    public int getBgPeriodWidth() {
+        return cachedBgPeriodWidth;
+    }
+
+    /**
      * Get the current horizontal shake offset for this frame.
      * This is propagated from the active zone scroll handler when screen shake is active.
      * Used by LevelManager to set camera shake offsets for FG tiles and sprites.
@@ -393,10 +404,12 @@ public class ParallaxManager {
                 maxScroll = handler.getMaxScrollOffset();
                 vscrollFactorBG = handler.getVscrollFactorBG();
                 cachedBgCameraX = handler.getBgCameraX();
+                cachedBgPeriodWidth = handler.getBgPeriodWidth();
                 capturePerLineVScroll(handler);
                 capturePerColumnVScroll(handler);
             } else {
                 cachedBgCameraX = Integer.MIN_VALUE;
+                cachedBgPeriodWidth = 512;
                 fillMinimal(cam);
             }
             return;

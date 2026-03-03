@@ -89,4 +89,23 @@ public interface ZoneScrollHandler {
     default int getBgCameraX() {
         return Integer.MIN_VALUE;
     }
+
+    /**
+     * Get the required BG tilemap period width in pixels.
+     * <p>
+     * Zones with multiple BG scroll speeds (e.g., GHZ with mountains at 96/256,
+     * hills at 128/256, and water interpolated to camera speed) have a parallax
+     * spread wider than the VDP's 512px nametable. The FBO must be wide enough
+     * to cover the entire visible BG range without a wrap seam.
+     * <p>
+     * On the real hardware, the nametable is a persistent ring buffer that
+     * accumulates column updates from multiple BG scroll blocks, masking the
+     * 512px limitation. The engine rebuilds the tilemap from scratch, so it
+     * must be wide enough to cover all visible scanlines simultaneously.
+     *
+     * @return Required BG period width in pixels (default: 512)
+     */
+    default int getBgPeriodWidth() {
+        return 512;
+    }
 }
