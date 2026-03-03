@@ -43,7 +43,11 @@ public class Sonic2WaterDataProvider implements WaterDataProvider {
 
     @Override
     public boolean hasWater(int zoneId, int actId, PlayerCharacter character) {
-        return zoneId == ZONE_ARZ || zoneId == ZONE_CPZ || zoneId == ZONE_HTZ;
+        // CPZ only has active Mega Mack water in Act 2.
+        if (zoneId == ZONE_CPZ) {
+            return actId == 1;
+        }
+        return zoneId == ZONE_ARZ || zoneId == ZONE_HTZ;
     }
 
     @Override

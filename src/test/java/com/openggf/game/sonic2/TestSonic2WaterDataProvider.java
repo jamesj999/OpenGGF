@@ -28,8 +28,8 @@ public class TestSonic2WaterDataProvider {
     // =========================================================================
 
     @Test
-    public void testCpzHasWater() {
-        assertTrue(provider.hasWater(ZONE_CPZ, 0, PlayerCharacter.SONIC_AND_TAILS));
+    public void testCpzWaterByAct() {
+        assertFalse(provider.hasWater(ZONE_CPZ, 0, PlayerCharacter.SONIC_AND_TAILS));
         assertTrue(provider.hasWater(ZONE_CPZ, 1, PlayerCharacter.SONIC_AND_TAILS));
     }
 
