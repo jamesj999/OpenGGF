@@ -986,9 +986,9 @@ public class Sonic2Constants {
     public static final int MAP_UNC_OBJ3F_VERT_ADDR = 0x2AAC4;       // Obj3F_MapUnc_2AAC4 (Fan Vert)
     public static final int MAP_UNC_LAUNCH_BALL_ADDR = 0x254FE;      // Obj48_MapUnc_254FE
     public static final int MAP_UNC_OBJ3D_ADDR = 0x250BA;            // Obj3D_MapUnc_250BA (OOZ Launcher)
-    public static final int MAP_UNC_OBJ1F_A_ADDR = 0x10F0C;          // Obj1F_MapUnc_10F0C (OOZ Collapsing)
-    public static final int MAP_UNC_OBJ1F_B_ADDR = 0x110C6;          // Obj1F_MapUnc_110C6 (MCZ Collapsing)
-    public static final int MAP_UNC_OBJ1F_C_ADDR = 0x11106;          // Obj1F_MapUnc_11106 (MCZ Collapsing Platform)
+    public static final int MAP_UNC_OBJ1F_A_ADDR = 0x10F0C;          // Obj1F_MapUnc_10F0C (default/MZ/SLZ/SBZ Collapsing - obj1F_a.asm)
+    public static final int MAP_UNC_OBJ1F_B_ADDR = 0x110C6;          // Obj1F_MapUnc_110C6 (OOZ Collapsing - obj1F_b.asm)
+    public static final int MAP_UNC_OBJ1F_C_ADDR = 0x11106;          // Obj1F_MapUnc_11106 (MCZ Collapsing - obj1F_c.asm)
     public static final int MAP_UNC_CRATE_ADDR = 0x27D30;            // Obj6A_MapUnc_27D30
     public static final int MAP_UNC_OBJ77_ADDR = 0x29064;             // Obj77_MapUnc_29064 (MCZ Bridge)
     public static final int MAP_UNC_OBJBD_ADDR = 0x3BD3E;            // ObjBD_MapUnc_3BD3E (WFZ Belt Platform)

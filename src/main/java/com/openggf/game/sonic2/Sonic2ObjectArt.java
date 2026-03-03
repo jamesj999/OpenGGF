@@ -692,7 +692,7 @@ public class Sonic2ObjectArt {
      * Load OOZ Fan horizontal sprite sheet (Object 0x3F).
      * Side-blowing fan from Oil Ocean Zone.
      * <p>
-     * ROM: ArtNem_OOZFanHoriz at 0x81254, palette line 0
+     * ROM: ArtNem_OOZFanHoriz at 0x81254, palette line 3
      * Mappings: obj3F.asm - 11 frames (ping-pong cycle through 6 unique blade positions)
      * Each frame has 3 pieces: blade + body top + body bottom.
      *
@@ -705,7 +705,7 @@ public class Sonic2ObjectArt {
             return null;
         }
         List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJ3F_HORIZ_ADDR);
-        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
     }
 
     /**
@@ -725,7 +725,7 @@ public class Sonic2ObjectArt {
             return null;
         }
         List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJ3F_VERT_ADDR);
-        return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        return new ObjectSpriteSheet(patterns, mappings, 3, 1);
     }
 
     /**
@@ -794,7 +794,7 @@ public class Sonic2ObjectArt {
         if (patterns.length == 0) {
             return null;
         }
-        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJ1F_A_ADDR);
+        List<SpriteMappingFrame> mappings = loadMappingFrames(Sonic2Constants.MAP_UNC_OBJ1F_B_ADDR);
         return new ObjectSpriteSheet(patterns, mappings, 3, 1);
     }
 
