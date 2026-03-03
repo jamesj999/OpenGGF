@@ -152,6 +152,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     private int delayCounter = INITIAL_DELAY;
     private boolean stoodOnFlag = false;
     private boolean collapsed = false;
+    private boolean inFragmentPhase = false;  // ROM: parent becomes fragment 0, stays solid during delay
+    private int fragmentPhaseDelay = 0;       // ROM: delay_counter for the parent-as-fragment-0
     private int mappingFrame = 0;  // 0 = intact, 1 = collapsed appearance
 
     // Orientation from spawn render_flags (inherited by fragments per disassembly)
@@ -182,22 +184,35 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // Check if player is standing on the platform
-        boolean isStanding = isPlayerStanding();
-
-        if (isStanding) {
-            if (!stoodOnFlag) {
-                // Player just landed on the platform
-                stoodOnFlag = true;
+        // ROM: Obj1F_Fragment phase — parent stays solid at its original position
+        // until its fragment delay expires, then becomes non-solid.
+        // In the ROM, the parent object IS fragment 0 (routine changed to Obj1F_Fragment).
+        // Only fragment 0 has stood_on_flag=1 so only it calls PlatformObject.
+        if (inFragmentPhase) {
+            if (fragmentPhaseDelay > 0) {
+                fragmentPhaseDelay--;
+            } else {
+                // ROM: Obj1F_FragmentFall — delay expired, platform is no longer solid.
+                // SolidContacts automatically clears the player's riding state when
+                // isSolidFor() returns false (matching ROM's sub_10B36 clearing on_object).
+                collapsed = true;
             }
+            return;
+        }
 
-            // Decrement delay counter while standing
-            delayCounter--;
-
+        // ROM: Obj1F_Main — check stood_on_flag and delay_counter
+        if (stoodOnFlag) {
             if (delayCounter <= 0) {
-                // Trigger collapse
                 collapse();
+                return;
             }
+            delayCounter--;
+        }
+
+        // ROM: check status standing_mask bits — set stood_on_flag when player is on platform
+        boolean isStanding = isPlayerStanding();
+        if (isStanding) {
+            stoodOnFlag = true;
         }
     }
 
@@ -284,28 +299,28 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private void collapse() {
-        if (collapsed) {
+        if (inFragmentPhase || collapsed) {
             return;
         }
-        collapsed = true;
-        mappingFrame = 1;  // Show collapsed appearance (if applicable)
+
+        // ROM: Obj1F_CreateFragments — parent becomes fragment 0
+        // The parent stays solid at its original position during the fragment delay.
+        // Only fragment 0 (the parent) provides collision; other fragments are visual only.
+        inFragmentPhase = true;
+        fragmentPhaseDelay = config.delayData()[0];  // Parent gets first delay value
+        mappingFrame = 1;  // Show collapsed appearance
 
         // Play collapse sound
         AudioManager.getInstance().playSfx(Sonic2Sfx.SMASH.id);
 
-        // Spawn fragments - they will handle collision now
+        // Spawn visual-only fragments (they do NOT provide collision)
         spawnFragments();
 
         // Mark as remembered to prevent respawn (ROM-accurate behavior)
-        // In the original ROM, collapsed platforms set bit 7 in the respawn table
         LevelManager manager = LevelManager.getInstance();
         if (manager != null && manager.getObjectManager() != null) {
             manager.getObjectManager().markRemembered(spawn);
         }
-
-        // DON'T destroy immediately - the parent becomes non-solid (isSolidFor returns false
-        // because collapsed=true) but fragments now provide collision.
-        // Parent will be cleaned up when it goes off-screen via normal despawn logic.
 
         LOGGER.fine(() -> String.format("CollapsingPlatform at (%d,%d) collapsed, spawning %d fragments",
                 spawn.x(), spawn.y(), config.delayData().length));
@@ -394,28 +409,21 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Fragment object that falls after the platform collapses.
-     * Each fragment has a delay before it starts falling.
+     * Visual-only fragment that falls after the platform collapses.
+     * Each fragment has a staggered delay before it starts falling with gravity.
      * <p>
-     * In the original ROM, each fragment remains solid during its delay period.
-     * When a fragment's delay expires, it clears the player's "on object" flag
-     * (if the player is standing on that fragment) and starts falling with gravity.
+     * In the ROM, only fragment 0 (the parent object itself, reusing its SST) provides
+     * collision via PlatformObject. All other fragments have stood_on_flag=0 and never
+     * call PlatformObject — they are purely visual. The parent class handles the collision
+     * during the fragment phase via {@code inFragmentPhase} / {@code fragmentPhaseDelay}.
      * <p>
-     * In the original disassembly, each fragment uses static_mappings mode where
-     * the mappings pointer points to a single sprite piece (not a full frame).
-     * The piece's x/y offsets provide the visual displacement from the fragment's
-     * world position.
+     * Each fragment uses static_mappings mode where the mappings pointer points to a
+     * single sprite piece. The piece's x/y offsets provide visual displacement.
      */
-    public static class CollapsingPlatformFragmentInstance extends AbstractObjectInstance
-            implements SolidObjectProvider {
+    public static class CollapsingPlatformFragmentInstance extends AbstractObjectInstance {
 
         // Gravity from ObjectMoveAndFall (s2.asm line 29950)
         private static final int GRAVITY = 0x38;
-
-        // Fragment collision dimensions - each fragment piece is roughly 16x16 or 32x16
-        // Using conservative values that work for all zones
-        private static final int FRAGMENT_HALF_WIDTH = 0x10;   // 16 pixels
-        private static final int FRAGMENT_HALF_HEIGHT = 0x08;  // 8 pixels
 
         private int currentX;
         private int currentY;
@@ -431,7 +439,7 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         private final boolean hFlip;
         private final boolean vFlip;
 
-        // Piece offset from parent (for collision positioning)
+        // Piece offset from parent (for rendering positioning)
         private final int pieceOffsetX;
         private final int pieceOffsetY;
 
@@ -550,25 +558,6 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         @Override
         public int getPriorityBucket() {
             return RenderPriority.clamp(4);
-        }
-
-        // --- SolidObjectProvider implementation ---
-
-        @Override
-        public SolidObjectParams getSolidParams() {
-            return new SolidObjectParams(FRAGMENT_HALF_WIDTH, FRAGMENT_HALF_HEIGHT, FRAGMENT_HALF_HEIGHT);
-        }
-
-        @Override
-        public boolean isTopSolidOnly() {
-            return true;
-        }
-
-        @Override
-        public boolean isSolidFor(AbstractPlayableSprite player) {
-            // Fragment is solid until delay expires AND hasn't started falling
-            // Once falling starts, collision is cleared automatically by SolidContacts.update()
-            return delayCounter > 0 && !falling;
         }
 
         /**
