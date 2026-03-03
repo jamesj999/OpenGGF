@@ -216,6 +216,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			jumpPressed = false;
 		}
 
+		// Recover transient desync where object contact exists but air flag is stale.
+		// This can happen around moving/sloped solids and causes jump presses to be
+		// evaluated in airborne mode for one frame.
+		if (sprite.getAir() && hasObjectSupport() && sprite.getYSpeed() >= 0) {
+			sprite.setAir(false);
+			sprite.setOnObject(true);
+		}
+
 		// Mode dispatch (ROM: Obj01_MdNormal_Checks)
 		if (sprite.getAir()) {
 			modeAirborne();
@@ -996,6 +1004,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/** Sonic_SlopeRepel: Slip/fall check (s2.asm:37432) */
 	private void doSlopeRepel() {
 		if (sprite.isStickToConvex()) return;
+		// Object tops should not trigger terrain slope slip logic.
+		// If this runs while standing on an object, it can incorrectly flip
+		// the player to airborne and drop jump inputs for that frame.
+		if (sprite.isOnObject() || hasObjectSupport()) return;
 
 		int moveLock = sprite.getMoveLockTimer();
 		if (moveLock > 0) {

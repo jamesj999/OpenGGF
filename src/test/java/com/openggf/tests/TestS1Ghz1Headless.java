@@ -1277,6 +1277,99 @@ public class TestS1Ghz1Headless {
     }
 
     /**
+     * Regression: terrain slope-repel must not run while standing on a solid object.
+     * If it does, Sonic can be forced airborne and jump input is missed on platforms.
+     */
+    @Test
+    public void testStandingOnObjectDoesNotTriggerSlopeRepel() {
+        int objectX = COLLISION_TESTBED_X;
+        int objectY = COLLISION_TESTBED_FLOOR_Y;
+        int halfWidth = 0x60;
+        int halfHeight = 0x10;
+
+        LevelManager.getInstance().getObjectManager()
+                .addDynamicObject(new CollisionTestSolidObject(
+                        objectX, objectY,
+                        new SolidObjectParams(halfWidth, halfHeight, halfHeight),
+                        true, halfWidth));
+
+        fixture.sprite().setCentreX((short) objectX);
+        fixture.sprite().setCentreY((short) (objectY - halfHeight - 0x30));
+        fixture.sprite().setAir(true);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+
+        boolean landedOnObject = false;
+        for (int frame = 0; frame < COLLISION_LANDING_TIMEOUT_FRAMES; frame++) {
+            fixture.stepFrame(false, false, false, false, false);
+            if (!fixture.sprite().getAir() && fixture.sprite().isOnObject()) {
+                landedOnObject = true;
+                break;
+            }
+        }
+        assertTrue("Sonic should land on the test object", landedOnObject);
+
+        // Simulate residual non-flat ground angle while on the object.
+        fixture.sprite().setAngle((byte) 0x20);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+
+        fixture.stepFrame(false, false, false, false, false);
+        assertFalse("Sonic should remain grounded while standing on an object",
+                fixture.sprite().getAir());
+
+        fixture.stepFrame(false, false, false, false, true);
+        assertTrue("Jump from object should enter airborne state", fixture.sprite().getAir());
+        assertTrue("Jump from object should apply upward velocity", fixture.sprite().getYSpeed() < 0);
+    }
+
+    /**
+     * Regression: if air/onObject become transiently inconsistent while still
+     * supported by an object, jump input should still launch correctly.
+     */
+    @Test
+    public void testAirOnObjectDesyncStillAllowsJump() {
+        int objectX = COLLISION_TESTBED_X;
+        int objectY = COLLISION_TESTBED_FLOOR_Y;
+        int halfWidth = 0x50;
+        int halfHeight = 0x10;
+
+        LevelManager.getInstance().getObjectManager()
+                .addDynamicObject(new CollisionTestSolidObject(
+                        objectX, objectY,
+                        new SolidObjectParams(halfWidth, halfHeight, halfHeight),
+                        true, halfWidth));
+
+        fixture.sprite().setCentreX((short) objectX);
+        fixture.sprite().setCentreY((short) (objectY - halfHeight - 0x30));
+        fixture.sprite().setAir(true);
+        fixture.sprite().setXSpeed((short) 0);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+
+        boolean landedOnObject = false;
+        for (int frame = 0; frame < COLLISION_LANDING_TIMEOUT_FRAMES; frame++) {
+            fixture.stepFrame(false, false, false, false, false);
+            if (!fixture.sprite().getAir() && fixture.sprite().isOnObject()) {
+                landedOnObject = true;
+                break;
+            }
+        }
+        assertTrue("Sonic should land on the test object", landedOnObject);
+
+        // Inject the transient state observed around platform contact jitter.
+        fixture.sprite().setAir(true);
+        fixture.sprite().setOnObject(true);
+        fixture.sprite().setYSpeed((short) 0);
+
+        fixture.stepFrame(false, false, false, false, true);
+        assertTrue("Jump should still launch when object support exists", fixture.sprite().getAir());
+        assertTrue("Jump should apply upward velocity", fixture.sprite().getYSpeed() < 0);
+    }
+
+    /**
      * Static solid object for headless testing, with configurable landing width.
      */
     private static final class CollisionTestSolidObject extends AbstractObjectInstance implements SolidObjectProvider {
