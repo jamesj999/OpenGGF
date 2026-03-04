@@ -353,7 +353,9 @@ public class TestS3kAiz1SkipHeadless {
 
     @Test
     public void hollowLogTraversal_visualRevealStableAcrossRepeatRuns() {
-        applyDebugStartState();
+        // Reload level to get a clean tilemap — earlier tests may have mutated it
+        // via applyHollowTreeScreenEvent during frame stepping.
+        reloadAizAct1AndApplyDebugStart();
 
         LevelManager levelManager = LevelManager.getInstance();
 
@@ -557,7 +559,9 @@ public class TestS3kAiz1SkipHeadless {
 
     private void reloadAizAct1AndApplyDebugStart() {
         try {
+            AizHollowTreeObjectInstance.resetTreeRevealCounter();
             LevelManager levelManager = LevelManager.getInstance();
+            levelManager.getObjectManager().reset(0);
             levelManager.loadZoneAndAct(ZONE_AIZ, ACT_1);
             GroundSensor.setLevelManager(levelManager);
             fixture.camera().updatePosition(true);
