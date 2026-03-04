@@ -6,7 +6,7 @@
 
     <groupId>com.openggf</groupId>
     <artifactId>OpenGGF</artifactId>
-    <version>0.4.prerelease</version>
+    <version>0.4.20260304</version>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
