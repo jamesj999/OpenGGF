@@ -172,11 +172,12 @@ A release-sized update focused on expanding playable coverage, ending sequences,
 - **Package rename** from `uk.co.jamesj999.sonic` to `com.openggf` across the entire codebase.
 - **Master title screen** implemented: engine-wide PNG-based title screen with animated clouds, game
   selection, and pixel font renderer. Displayed on startup before entering game-specific title flow.
-- **Sonic 1** has moved from initial support to broad gameplay coverage: title screen flow, special
+- **Sonic 1** has moved from initial support to feature complete: title screen flow, special
   stages, major per-zone event scripting, extensive object and badnik additions, multiple boss
   implementations (GHZ, MZ, SYZ, LZ, SLZ, FZ), Labyrinth water/drowning/splash behaviour,
   ending/credits work, SBZ post-level-end sequence, demo playback, edge balance and push block
-  collision corrections, and slope crest sensor guard.
+  collision corrections, and slope crest sensor guard. Expect minor bugs, but the game should be playable
+  from beginning to end.
 - **Sonic 2** adds title screen support, major object passes for MTZ/SCZ/WFZ/OOZ, 9 boss fights
   (MCZ, MTZ, WFZ, and both DEZ bosses — Mecha Sonic and Death Egg Robot, plus Robotnik escape),
   a complete credits and ending cutscene system with ROM-accurate visuals, expanded per-zone event
