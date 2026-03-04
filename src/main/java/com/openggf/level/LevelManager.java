@@ -722,8 +722,11 @@ public class LevelManager {
         // Reset camera state from previous level (signpost may have locked it)
         Camera camera = Camera.getInstance();
         camera.setFrozen(false);
-        camera.setMinX((short) 0);
-        camera.setMaxX((short) (level.getMap().getWidth() * blockPixelSize));
+        // ROM: LevelSizeLoad sets v_limitleft2 and v_limitright2 from LevelSizeArray.
+        // Use the level's ROM boundaries (not map pixel width) so the camera is
+        // constrained to the same region as the original hardware.
+        camera.setMinX((short) level.getMinX());
+        camera.setMaxX((short) level.getMaxX());
         objectManager.reset(camera.getX());
     }
 

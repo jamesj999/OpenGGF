@@ -116,6 +116,8 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
     private static final int HTZ2_BOSS_CUTOFF_X = 0x2B00;
     /** Boss prep trigger X (ROM: $2C50) */
     private static final int HTZ2_BOSS_ARENA_TRIGGER_X = 0x2C50;
+    /** Boss arena camera lock trigger X (ROM: cmpi.w #$2EDF) */
+    private static final int HTZ2_BOSS_ARENA_LOCK_TRIGGER_X = 0x2EDF;
     /** Boss arena left camera lock X (ROM: $2EE0) */
     private static final int HTZ2_BOSS_ARENA_LEFT = 0x2EE0;
     /** Boss arena right camera lock X (ROM: $2F5E) */
@@ -392,7 +394,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             case 14 -> {
                 // Routine 7: Boss arena camera shift (LevEvents_HTZ2_Routine7)
                 // ROM: s2.asm:21222-21238
-                if (camera.getX() >= HTZ2_BOSS_ARENA_LEFT) {
+                if (camera.getX() >= HTZ2_BOSS_ARENA_LOCK_TRIGGER_X) {
                     // ROM: Lock camera X boundaries
                     camera.setMinX((short) HTZ2_BOSS_ARENA_LEFT);
                     camera.setMaxX((short) HTZ2_BOSS_ARENA_RIGHT);
