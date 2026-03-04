@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.events;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.objects.bosses.Sonic1BossBlockInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1SYZBossInstance;
 import com.openggf.game.sonic1.audio.Sonic1Music;
@@ -51,11 +52,9 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
         // v_limitbtm1 = 0x420
         camera.setMaxYTarget((short) 0x420);
 
-        // NOTE: The ROM checks v_player+obY (player Y position), not camera Y.
-        // Using camera Y as an approximation since the camera follows the player
-        // closely and the exact pixel value isn't critical for boundary switching.
-        int camY = camera.getY() & 0xFFFF;
-        if (camY < 0x4D0) {
+        // Check player Y position directly via the focused sprite
+        int playerY = camera.getFocusedSprite().getCentreY() & 0xFFFF;
+        if (playerY < 0x4D0) {
             return; // locret_71A2
         }
 
@@ -128,11 +127,8 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
         // ROM: QueueSound1 bgm_Boss
         AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
 
-        // ROM: f_lockscreen = 1 — locks horizontal scrolling only.
-        // Vertical scrolling and maxY boundary easing continue normally,
-        // allowing the camera to track the boss arena height (boss_syz_y = $4CC).
-        camera.setMinX(camera.getX());
-        camera.setMaxX(camera.getX());
+        // ROM: f_lockscreen = 1 — gates the 64px right boundary extension in Sonic_LevelBound. Does NOT modify v_limitleft2 or v_limitright2; camera scrolls within natural level boundaries.
+        GameServices.gameState().setCurrentBossId(0x75);
         eventRoutine += 2; // advance to DLE_SYZ3end
     }
 

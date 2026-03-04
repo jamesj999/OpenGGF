@@ -163,10 +163,7 @@ class Sonic1GHZEvents extends Sonic1ZoneEvents {
         }
         AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
 
-        // ROM: f_lockscreen = 1 — locks horizontal scrolling only.
-        // Vertical scrolling and maxY boundary easing continue normally.
-        camera.setMinX(camera.getX());
-        camera.setMaxX(camera.getX());
+        // ROM: f_lockscreen = 1 — gates the 64px right boundary extension in Sonic_LevelBound. Does NOT modify v_limitleft2 or v_limitright2; camera continues scrolling within natural level boundaries. setBossId() is the Java equivalent.
         GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.GHZ_BOSS);
         eventRoutine += 2; // advance to DLE_GHZ3end
     }

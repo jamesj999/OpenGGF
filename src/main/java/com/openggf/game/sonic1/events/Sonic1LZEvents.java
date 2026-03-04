@@ -172,11 +172,7 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
         // ROM: QueueSound1 bgm_Boss — play boss music
         AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
 
-        // ROM: f_lockscreen = 1 — prevents the right camera boundary from
-        // extending further. Does NOT freeze the camera entirely.
-        // For the LZ vertical chase, we lock the left boundary (can't scroll back)
-        // but leave maxX alone so camera follows Sonic rightward and upward.
-        camera.setMinX(camera.getX());
+        // ROM: f_lockscreen = 1 — gates the 64px right boundary extension in Sonic_LevelBound. Does NOT modify v_limitleft2 or v_limitright2. The LZ vertical chase relies on natural level boundaries; no explicit camera lock needed.
 
         GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.LZ_BOSS);
 

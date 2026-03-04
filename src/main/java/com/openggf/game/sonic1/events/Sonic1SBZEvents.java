@@ -162,7 +162,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
     /**
      * DLE_SBZ2boss2 (routine 4): Eggman spawn trigger.
      * When camera X reaches boss_sbz2_x - 0xF0 (0x1F60), spawns the boss
-     * and locks the camera. Then falls through to lock left boundary.
+     * and sets f_lockscreen. Then falls through to lock left boundary.
      */
     private void updateSBZ2Boss2() {
         int camX = camera.getX() & 0xFFFF;
@@ -179,10 +179,10 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
 
             // addq.b #2,(v_dle_routine).w
             eventRoutine += 2;
-
-            // loc_72B0: move.b #1,(f_lockscreen).w
-            camera.setMaxX(camera.getX());
+            GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.SCRAP_EGGMAN);
         }
+
+        // loc_72B0: ROM: f_lockscreen = 1 — gates the 64px right boundary extension in Sonic_LevelBound. Does NOT modify v_limitright2.
 
         // Fall through to loc_72C2: lock left boundary
         lockLeftBoundary();

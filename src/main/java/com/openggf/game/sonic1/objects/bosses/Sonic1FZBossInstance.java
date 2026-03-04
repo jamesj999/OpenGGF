@@ -282,6 +282,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
             if (state.hitCount <= 0) {
                 // ROM: loc_19FBC — defeated
                 GameServices.gameState().addScore(1000);
+                // ROM: v_bossstatus = 0 cleared on defeat (matches other S1 bosses)
+                GameServices.gameState().setCurrentBossId(0);
                 state.routineSecondary = STATE_DEFEAT_FALL;
                 state.x = BOSS_FZ_X + 0x170;
                 state.y = BOSS_FZ_Y + 0x2C;
