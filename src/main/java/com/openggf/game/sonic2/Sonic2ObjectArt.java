@@ -671,7 +671,7 @@ public class Sonic2ObjectArt {
      */
     public ObjectSpriteSheet loadOOZBurnerLidSheet() {
         return buildArtSheetFromRom(Sonic2Constants.ART_NEM_BURNER_LID_ADDR,
-                Sonic2Constants.MAP_UNC_OBJ33_A_ADDR, 2, 1);
+                Sonic2Constants.MAP_UNC_OBJ33_A_ADDR, 3, 1);
     }
 
     /**
@@ -685,7 +685,7 @@ public class Sonic2ObjectArt {
      */
     public ObjectSpriteSheet loadOOZBurnFlameSheet() {
         return buildArtSheetFromRom(Sonic2Constants.ART_NEM_OOZ_BURN_ADDR,
-                Sonic2Constants.MAP_UNC_OBJ33_B_ADDR, 2, 1);
+                Sonic2Constants.MAP_UNC_OBJ33_B_ADDR, 3, 1);
     }
 
     /**

@@ -1328,6 +1328,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setPushing(false);
 		sprite.setRollingJump(false);
 		sprite.setJumping(false);
+		// ROM: s2.asm:37769-37771 - reset flip/tumble state on landing
+		sprite.setFlipAngle(0);
+		sprite.setFlipTurned(false);
+		sprite.setFlipsRemaining(0);
 		// ROM: s2.asm:37772 - reset look delay counter on landing
 		sprite.setLookDelayCounter((short) 0);
 	}

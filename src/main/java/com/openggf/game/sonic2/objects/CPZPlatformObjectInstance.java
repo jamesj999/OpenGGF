@@ -160,7 +160,7 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
         // From disassembly: if subtype is 3 or 7 and x-flipped, subtract $C0 from y_pos
         if ((moveType == 3 && xFlip) || moveType == 7) {
             y -= 0xC0;
-            baseY -= 0xC0;
+            // baseY (objoff_32) is NOT modified in the ROM - only y_pos is offset
         }
 
         yVel = 0;
@@ -239,8 +239,10 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
         int targetY = baseY - 0x60;
 
         // Determine acceleration direction
+        // ROM: cmp.w y_pos(a0),d0 / bhs.s + / neg.w d1
+        // bhs branches when target >= y_pos; neg makes accel negative when target < y_pos
         int accel = 8;
-        if (y < targetY) {
+        if (y > targetY) {
             accel = -8;
         }
 

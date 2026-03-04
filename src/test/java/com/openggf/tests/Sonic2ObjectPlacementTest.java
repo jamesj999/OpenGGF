@@ -68,8 +68,9 @@ public class Sonic2ObjectPlacementTest {
         RomByteReader reader = new RomByteReader(Files.readAllBytes(REV01_ROM));
         Sonic2ObjectPlacement placement = new Sonic2ObjectPlacement(reader);
 
-        List<ObjectSpawn> act0 = placement.load(new ZoneAct(8, 0));
-        List<ObjectSpawn> act1 = placement.load(new ZoneAct(8, 1));
+        // WFZ = ROM zone ID 6, a single-act zone
+        List<ObjectSpawn> act0 = placement.load(new ZoneAct(6, 0));
+        List<ObjectSpawn> act1 = placement.load(new ZoneAct(6, 1));
         assertFalse(act0.isEmpty());
         assertFalse(act1.isEmpty());
         assertEquals(act0.get(0), act1.get(0));

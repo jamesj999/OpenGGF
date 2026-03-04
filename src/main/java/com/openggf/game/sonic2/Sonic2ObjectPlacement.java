@@ -65,6 +65,7 @@ public class Sonic2ObjectPlacement {
     }
 
     private static boolean isSingleActZone(int zone) {
-        return zone == 8 || zone == 9 || zone == 10;
+        // ROM zone IDs: WFZ=$06(6), DEZ=$0E(14), SCZ=$10(16)
+        return zone == 6 || zone == 14 || zone == 16;
     }
 }

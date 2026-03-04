@@ -176,30 +176,28 @@ public class FanObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        // Push calculation
+        // Push calculation - all operations must be 16-bit to match ROM
+        // ROM: subi.w #$50,d0 / bcc.s + / not.w d0 / add.w d0,d0
         dx -= 0x50;
         if (dx < 0) {
-            // NOT then double (ROM: not.w d0 / add.w d0,d0)
-            dx = (~dx & 0xFFFF) * 2;
+            dx = ((~dx & 0xFFFF) << 1) & 0xFFFF; // not.w d0; add.w d0,d0 (16-bit)
         }
-        dx += 0x60;
-        if (xFlipped) {
-            dx = -dx;
+        dx = (dx + 0x60) & 0xFFFF; // addi.w #$60,d0 (16-bit)
+        // ROM: btst x_flip / bne (skip neg) / neg.w d0 -- negates when NOT flipped
+        if (!xFlipped) {
+            dx = (-dx) & 0xFFFF; // neg.w d0 (16-bit)
         }
-        // Negate low byte, arithmetic shift right 4
-        // ROM: neg.b d0 / ext.w d0 / asr.w #4,d0
-        int lowByte = dx & 0xFF;
-        int negated = (-lowByte) & 0xFF;
-        // Sign-extend byte to word
-        if (negated >= 0x80) {
-            negated -= 0x100;
-        }
-        int push = negated >> 4; // arithmetic shift right 4
+        // ROM: neg.b d0 / asr.w #4,d0 -- negate low byte, preserve high byte, then shift word
+        int highByte = dx & 0xFF00;
+        int negLow = (-dx) & 0xFF;
+        dx = highByte | negLow;
+        int push = ((short) (dx & 0xFFFF)) >> 4; // asr.w #4,d0
+        // ROM: btst #0,subtype / beq + / neg.w d0
         if (reverseDirection) {
             push = -push;
         }
 
-        player.setX((short) (player.getX() + push));
+        player.setCentreX((short) (player.getCentreX() + push));
     }
 
     /**
@@ -229,18 +227,18 @@ public class FanObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        // Push calculation
+        // Push calculation - all operations must be 16-bit to match ROM
         // ROM: subi.w #$60,d1 / bcs.s + / not.w d1 / add.w d1,d1 / + addi.w #$60,d1
         // bcs branches (skips not/double) when dy < 0x60 (result negative)
         // Fall-through (not/double) when dy >= 0x60 (result non-negative)
         dy -= 0x60;
         if (dy >= 0) {
-            dy = (~dy & 0xFFFF) * 2;
+            dy = ((~dy & 0xFFFF) << 1) & 0xFFFF; // not.w d1; add.w d1,d1 (16-bit)
         }
-        dy += 0x60;
-        // ROM: neg.w d1 / asr.w #4,d1
-        int push = (-dy) >> 4;
-        player.setY((short) (player.getY() + push));
+        dy = (dy + 0x60) & 0xFFFF; // addi.w #$60,d1 (16-bit)
+        // ROM: neg.w d1 / asr.w #4,d1 / add.w d1,y_pos(a1)
+        int push = ((short) (-dy & 0xFFFF)) >> 4;
+        player.setCentreY((short) (player.getCentreY() + push));
 
         // Set player airborne state and tumble
         player.setAir(true);
