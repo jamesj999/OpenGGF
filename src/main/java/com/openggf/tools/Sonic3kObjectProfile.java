@@ -58,7 +58,11 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             0x04, // CollapsingPlatform
             0x05, // AIZLRZEMZRock
             0x07, // Spring
-            0x08  // Spikes
+            0x08, // Spikes
+            0x0E, // TwistedRamp
+            0x28, // InvisibleBlock
+            0x34, // StarPost
+            0x85  // SSEntryRing
     );
 
     // S3KL-only implementations (zones 0-6: AIZ through LBZ)

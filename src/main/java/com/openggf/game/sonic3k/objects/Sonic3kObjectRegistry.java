@@ -82,8 +82,16 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Aiz1ZiplinePegObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AIZ_GIANT_RIDE_VINE,
                 (spawn, registry) -> new AizGiantRideVineObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.TWISTED_RAMP,
+                (spawn, registry) -> new Sonic3kTwistedRampObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.INVISIBLE_BLOCK,
+                (spawn, registry) -> new Sonic3kInvisibleBlockObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.STAR_POST,
+                (spawn, registry) -> new Sonic3kStarPostObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AIZ_FOREGROUND_PLANT,
                 (spawn, registry) -> new AizForegroundPlantInstance(spawn));
+        factories.put(Sonic3kObjectIds.SS_ENTRY_RING,
+                (spawn, registry) -> new Sonic3kSSEntryRingObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.BLOOMINATOR,
                 (spawn, registry) -> {
                     S3kZoneSet zoneSet = getCurrentZoneSet();
