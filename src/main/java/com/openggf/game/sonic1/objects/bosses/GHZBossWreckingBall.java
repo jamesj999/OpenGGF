@@ -71,8 +71,7 @@ public class GHZBossWreckingBall extends AbstractBossChild
     private final int[] elementX;
     private final int[] elementY;
 
-    // Ball frame animation counter
-    private int animFrameAccum;
+    // Ball frame toggle (alternates every frame per GBall_ChkVanish)
     private int ballFrame; // 0 or 1 (toggles between check1 and shiny)
 
     private boolean parentDefeated;
@@ -95,7 +94,6 @@ public class GHZBossWreckingBall extends AbstractBossChild
         this.elementX = new int[TOTAL_ELEMENTS];
         this.elementY = new int[TOTAL_ELEMENTS];
 
-        this.animFrameAccum = 0;
         this.ballFrame = 1; // Start on check1 frame (frame 1 in Map_GBall)
         this.parentDefeated = false;
     }
@@ -133,12 +131,9 @@ public class GHZBossWreckingBall extends AbstractBossChild
             updateSwing();
         }
 
-        // Animate ball frame
-        animFrameAccum += 0x20;
-        if (animFrameAccum >= 0x100) {
-            animFrameAccum -= 0x100;
-            ballFrame = (ballFrame == 0) ? 1 : 0;
-        }
+        // Animate ball frame — toggles every frame (GBall_ChkVanish)
+        // ROM: tst.b obFrame / bne .set0 / addq #1,d0 — frame 0→1, non-zero→0
+        ballFrame = (ballFrame == 0) ? 1 : 0;
 
         // Calculate all element positions via sine/cosine
         calculateChainPositions();
