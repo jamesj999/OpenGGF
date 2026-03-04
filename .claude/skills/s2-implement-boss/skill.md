@@ -1,6 +1,6 @@
 # Implement Sonic 2 Boss
 
-Implement a Sonic 2 zone boss with complete ROM accuracy. This skill guides complete implementation including LevelEventManager integration, multi-component architecture, hit handling, defeat sequences, and cross-validation against the disassembly.
+Implement a Sonic 2 zone boss with complete ROM accuracy. This skill guides complete implementation including Sonic2LevelEventManager integration, multi-component architecture, hit handling, defeat sequences, and cross-validation against the disassembly.
 
 ## Inputs
 
@@ -15,7 +15,7 @@ $ARGUMENTS: Boss name or zone (e.g., "EHZ boss", "Chemical Plant boss", "0x56")
 
 | Aspect | Regular Objects | Bosses |
 |--------|-----------------|--------|
-| **Spawning** | From level layout data via ObjectManager | Dynamically via LevelEventManager |
+| **Spawning** | From level layout data via ObjectManager | Dynamically via Sonic2LevelEventManager |
 | **Camera** | No camera control | Arena setup with boundary locking |
 | **Components** | Single entity or simple children | Multi-component with AbstractBossChild |
 | **Hits** | 1 hit (badniks) or indestructible | 8 hits with invulnerability periods |
@@ -39,6 +39,11 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 - [ ] Document state machine (`routine_secondary`) transitions
 - [ ] Note defeat sequence timing (explosion duration, flee direction)
 - [ ] Find boss-specific art addresses (`ArtNem_XXXBoss`, `Map_XXXBoss`)
+- [ ] Use `plc` command to identify which PLCs load boss art:
+  ```bash
+  mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="plc PlrList_EhzBoss" -q
+  ```
+  Search results show PLC cross-references inline
 
 **Key disassembly patterns to identify:**
 - `collision_flags` set to `$C0 | size_index` (boss category)
@@ -46,9 +51,9 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 - `Boss_HandleHits` routine usage
 - `routine_secondary` state machine with approach/battle/defeat phases
 
-### Phase 2: LevelEventManager Setup
+### Phase 2: Sonic2LevelEventManager Setup
 
-Bosses are spawned dynamically by zone-specific event handlers in `LevelEventManager.java`.
+Bosses are spawned dynamically by zone-specific event handlers in `Sonic2LevelEventManager.java`.
 
 **Implementation checklist:**
 - [ ] Add zone constant if not present
@@ -61,7 +66,7 @@ Bosses are spawned dynamically by zone-specific event handlers in `LevelEventMan
 **Example event routine pattern:**
 
 ```java
-// In LevelEventManager.java - updateZONE() method
+// In Sonic2LevelEventManager.java - updateZONE() method
 private void updateZONE() {
     if (currentAct != 1) return;  // Act 2 only
 
@@ -126,7 +131,7 @@ private void updateZONE() {
 **Boss instance template:**
 
 ```java
-package uk.co.jamesj999.sonic.game.sonic2.objects.bosses;
+package com.openggf.sonic.game.sonic2.objects.bosses;
 
 public class Sonic2ZoneBossInstance extends AbstractBossInstance {
 
@@ -226,10 +231,23 @@ public class BossChildName extends AbstractBossChild {
 
 ### Phase 5: Art Loading
 
+**PLC-based art loading:** S2 boss art has dedicated PLC IDs in ArtLoadCues. Use the shared `PlcParser` API for standalone decompression — this avoids VRAM overlap conflicts where boss art tiles overwrite other object tiles. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI.
+
+**Standalone PLC pattern (preferred):**
+```java
+PlcDefinition plc = PlcParser.parse(rom, Sonic2Constants.ART_LOAD_CUES_ADDR, plcId);
+List<Pattern[]> artArrays = PlcParser.decompressAll(rom, plc);
+ObjectSpriteSheet sheet = new ObjectSpriteSheet(
+    artArrays.get(entryIndex),
+    S2SpriteDataLoader.loadMappingFrames(reader, mappingAddr),
+    paletteIndex, 1);
+```
+
 **Implementation checklist:**
-- [ ] Add ROM address constants to `Sonic2Constants.java`
+- [ ] Find the boss PLC ID in the disassembly's `LoadPLC` call
+- [ ] Add PLC ID or ROM address constants to `Sonic2Constants.java`
 - [ ] Add art keys to `Sonic2ObjectArtKeys.java`
-- [ ] Create loader method in `Sonic2ObjectArt.java`
+- [ ] Use `PlcParser.decompressAll()` for standalone `Pattern[]` (preferred), or create loader method in `Sonic2ObjectArt.java` for direct Nemesis loading
 - [ ] Create mappings method (parse from `Map_XXXBoss`)
 - [ ] Register in `Sonic2ObjectArtProvider.loadArtForZone()`
 
@@ -269,7 +287,7 @@ Disassembly references:
 - Level events: docs/s2disasm/LevEvents...
 
 Validation checklist:
-1. LevelEventManager arena setup matches LevEvents_ZONE2
+1. Sonic2LevelEventManager arena setup matches LevEvents_ZONE2
 2. State machine transitions match routine_secondary values
 3. All child components spawned correctly
 4. Hit count and invulnerability timing match ROM
@@ -287,7 +305,7 @@ Report any discrepancies with specific line references from both code and disass
 
 Once cross-validation passes:
 
-1. **Add to IMPLEMENTED_IDS** in `ObjectDiscoveryTool.java`:
+1. **Add to IMPLEMENTED_IDS** in `Sonic2ObjectProfile.java` (the `IMPLEMENTED_IDS` set):
    ```java
    0xXX,  // ZoneName Boss
    ```
@@ -308,7 +326,7 @@ Once cross-validation passes:
 | Boss state context | `src/.../level/objects/boss/BossStateContext.java` |
 | Boss child base | `src/.../level/objects/boss/AbstractBossChild.java` |
 | Boss child interface | `src/.../level/objects/boss/BossChildComponent.java` |
-| Level events | `src/.../game/sonic2/LevelEventManager.java` |
+| Level events | `src/.../game/sonic2/Sonic2LevelEventManager.java` |
 | Boss implementations | `src/.../game/sonic2/objects/bosses/` |
 | Object IDs | `src/.../game/sonic2/constants/Sonic2ObjectIds.java` |
 | ROM offsets | `src/.../game/sonic2/constants/Sonic2Constants.java` |
@@ -318,7 +336,7 @@ Once cross-validation passes:
 | Registry | `src/.../game/sonic2/objects/Sonic2ObjectRegistry.java` |
 | SFX constants | `src/.../game/sonic2/constants/Sonic2AudioConstants.java` |
 | Disassembly | `docs/s2disasm/` |
-| Implemented IDs | `src/.../tools/ObjectDiscoveryTool.java` |
+| Implemented IDs | `src/.../tools/Sonic2ObjectProfile.java` (IMPLEMENTED_IDS set) |
 
 ## Example Implementations
 

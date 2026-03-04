@@ -1,0 +1,59 @@
+package com.openggf.level;
+
+public class SolidTile {
+	public static final int TILE_SIZE_IN_ROM = 16;
+
+	public final byte[] heights;
+	public final byte[] widths;
+	private final byte angle;
+
+	private int index = 0;
+
+	public SolidTile(int index, byte[] heights, byte[] widths, byte angle) {
+		this.index = index;
+
+		if (heights.length != TILE_SIZE_IN_ROM) {
+			throw new IllegalArgumentException("SolidTile size does not match tile size in ROM");
+		}
+		this.heights = heights;
+		this.widths = widths;
+
+		// Angle transforms (H-flip, V-flip) handled in getAngle(boolean, boolean).
+		this.angle = angle;
+
+	}
+
+	public byte getHeightAt(byte x) {
+		return heights[x & 0xFF];
+	}
+
+	public byte getWidthAt(byte y) {
+		return widths[y & 0xFF];
+	}
+
+	public byte getAngle() {
+		return angle;
+	}
+
+	public byte getAngle(boolean hFlip, boolean vFlip) {
+		if (!hFlip && !vFlip) {
+			return angle;
+		}
+		byte newAngle = angle;
+		if (hFlip) {
+			newAngle = (byte) -newAngle;
+		}
+		if (vFlip) {
+			newAngle = (byte) (0x80 - newAngle);
+		}
+		return newAngle;
+	}
+
+    public int getIndex() {
+        return index;
+    }
+
+    public void setIndex(int index) {
+        this.index = index;
+    }
+}

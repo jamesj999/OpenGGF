@@ -1,0 +1,306 @@
+package com.openggf.configuration;
+
+/**
+ * All configurable properties are put here. Eventually, these will be loaded
+ * from a file. Use SonicConfigurationSerivce to retrieve the values for
+ * these properties. This way, the service can eventually populate the options
+ * from the file.
+ * 
+ * 
+ * 
+ * @author james
+ * 
+ */
+public enum SonicConfiguration {
+	/**
+	 * Current Version number.
+	 */
+	VERSION,
+	/**
+	 * Actual width of the screen (number of available x-coordinates).
+	 */
+	SCREEN_WIDTH_PIXELS,
+	/**
+	 * Actual height of the screen (number of available y-coordinates).
+	 */
+	SCREEN_HEIGHT_PIXELS,
+	/**
+	 * Current width of the screen.
+	 */
+	SCREEN_WIDTH,
+	/**
+	 * Current height of the screen.
+	 */
+	SCREEN_HEIGHT,
+	/**
+	 * Scale used with BufferedImage TODO: Work out what this does
+	 */
+	SCALE,
+	/**
+	 * Frames per second to render. Will make the game faster/slower!
+	 */
+	FPS,
+	/*
+	 * ALWAYS DEFINE BUTTONS IN THE ORDER: UP, DOWN, LEFT, RIGHT. NOT FOR ANY
+	 * TECHNICAL REASON, JUST BECAUSE LEVEL SELECT.
+	 */
+	/**
+	 * Key to look up.
+	 */
+	UP,
+	/**
+	 * Key to crouch/roll.
+	 */
+	DOWN,
+	/**
+	 * Key to move Sonic left.
+	 */
+	LEFT,
+	/**
+	 * Key to move Sonic right.
+	 */
+	RIGHT,
+	/**
+	 * Key to jump etc.
+	 */
+	JUMP,
+
+	/**
+	 * Test button only used in debug
+	 */
+	TEST,
+
+	/**
+	 * Test button for next act
+	 */
+	NEXT_ACT,
+
+	/**
+	 * Test button for next zone
+	 */
+	NEXT_ZONE,
+
+	/**
+	 * Code of the sprite of the main playable character.
+	 */
+	MAIN_CHARACTER_CODE,
+	/**
+	 * Whether to display debugging information on screen.
+	 */
+	DEBUG_VIEW_ENABLED,
+
+	/**
+	 * Whether to display debugging collision information on screen.
+	 */
+	DEBUG_COLLISION_VIEW_ENABLED,
+
+	/**
+	 * Key to toggle Debug Movement Mode at runtime.
+	 */
+	DEBUG_MODE_KEY,
+
+	/**
+	 * Whether to enable Audio (Music/SFX)
+	 */
+	AUDIO_ENABLED,
+
+	/**
+	 * Region (NTSC/PAL) for audio timing.
+	 */
+	REGION,
+
+	/**
+	 * Whether to enable DAC Interpolation (smoother sound).
+	 */
+	DAC_INTERPOLATE,
+
+	/**
+	 * Whether to output audio at the internal YM2612 rate (~53kHz).
+	 */
+	AUDIO_INTERNAL_RATE_OUTPUT,
+
+	/**
+	 * PSG noise LFSR clock mode.
+	 * true = shift on every polarity toggle (MAME-style, brighter),
+	 * false = shift on positive edges only (GPGX/libvgm style).
+	 */
+	PSG_NOISE_SHIFT_EVERY_TOGGLE,
+
+	/**
+	 * Whether to mute FM6 when playing a note on it (if DAC is enabled).
+	 * Parity hack from SMPSPlay.
+	 */
+	FM6_DAC_OFF,
+
+	/**
+	 * Key to toggle Special Stage mode (for testing).
+	 */
+	SPECIAL_STAGE_KEY,
+
+	/**
+	 * Key to complete Special Stage with emerald (debug).
+	 */
+	SPECIAL_STAGE_COMPLETE_KEY,
+
+	/**
+	 * Key to fail Special Stage (debug).
+	 */
+	SPECIAL_STAGE_FAIL_KEY,
+
+	/**
+	 * Key to toggle Special Stage sprite debug viewer.
+	 */
+	SPECIAL_STAGE_SPRITE_DEBUG_KEY,
+
+	/**
+	 * Key to cycle Special Stage plane visibility debug modes.
+	 */
+	SPECIAL_STAGE_PLANE_DEBUG_KEY,
+
+	/**
+	 * Key to toggle pause (default: ENTER).
+	 */
+	PAUSE_KEY,
+
+	/**
+	 * Key to step forward one frame while paused (default: Q).
+	 */
+	FRAME_STEP_KEY,
+
+	/**
+	 * Path to BizHawk BK2 movie file for playback debugging.
+	 */
+	PLAYBACK_MOVIE_PATH,
+
+	/**
+	 * Key to toggle playback mode.
+	 */
+	PLAYBACK_TOGGLE_KEY,
+
+	/**
+	 * Key to load/reload BK2 from PLAYBACK_MOVIE_PATH.
+	 */
+	PLAYBACK_LOAD_KEY,
+
+	/**
+	 * Key to toggle playback play/pause.
+	 */
+	PLAYBACK_PLAY_PAUSE_KEY,
+
+	/**
+	 * Key to step the BK2 cursor backward by one frame.
+	 */
+	PLAYBACK_STEP_BACK_KEY,
+
+	/**
+	 * Key to step the BK2 cursor forward by one frame.
+	 */
+	PLAYBACK_STEP_FORWARD_KEY,
+
+	/**
+	 * Key to jump the BK2 cursor backward by a larger interval.
+	 */
+	PLAYBACK_JUMP_BACK_KEY,
+
+	/**
+	 * Key to jump the BK2 cursor forward by a larger interval.
+	 */
+	PLAYBACK_JUMP_FORWARD_KEY,
+
+	/**
+	 * Key to cycle playback rate (1x/2x/4x/8x).
+	 */
+	PLAYBACK_FAST_RATE_KEY,
+
+	/**
+	 * Key to reset BK2 cursor to PLAYBACK_START_OFFSET_FRAME.
+	 */
+	PLAYBACK_RESET_TO_START_KEY,
+
+	/**
+	 * Starting frame offset for BK2 playback.
+	 */
+	PLAYBACK_START_OFFSET_FRAME,
+
+	/**
+	 * Key to teleport player to the last checkpoint (debug).
+	 */
+	DEBUG_LAST_CHECKPOINT_KEY,
+
+	/**
+	 * Key to open the Level Select screen (debug).
+	 */
+	LEVEL_SELECT_KEY,
+
+	/**
+	 * Whether to show the Title Screen on startup.
+	 */
+	TITLE_SCREEN_ON_STARTUP,
+
+	/**
+	 * Whether to show the Level Select screen on startup instead of loading EHZ.
+	 */
+	LEVEL_SELECT_ON_STARTUP,
+
+	/**
+	 * Code of the sprite of the CPU-controlled sidekick character.
+	 * Set to "tails" or "sonic" to spawn a sidekick, or empty string to disable.
+	 */
+	SIDEKICK_CHARACTER_CODE,
+
+	/**
+	 * Filename for the Sonic 1 ROM.
+	 */
+	SONIC_1_ROM,
+
+	/**
+	 * Filename for the Sonic 2 ROM.
+	 */
+	SONIC_2_ROM,
+
+	/**
+	 * Filename for the Sonic 3&K ROM.
+	 */
+	SONIC_3K_ROM,
+
+	/**
+	 * If true, zone intro sequences (AIZ biplane, etc.) are skipped and
+	 * gameplay-ready bootstrap data is used instead.
+	 */
+	S3K_SKIP_INTROS,
+
+	/**
+	 * Which game to load by default: "s1", "s2", or "s3k".
+	 * Used to select which per-game ROM key (SONIC_1_ROM, etc.) to load.
+	 */
+	DEFAULT_ROM,
+
+	/**
+	 * Key to toggle Super Sonic debug mode at runtime (default: U).
+	 * Only active when DEBUG_VIEW_ENABLED is true.
+	 */
+	SUPER_SONIC_DEBUG_KEY,
+
+	/**
+	 * Key to give all chaos emeralds (debug, default: E).
+	 */
+	GIVE_EMERALDS_KEY,
+
+	/**
+	 * Whether to show the master title screen (game selection) on startup.
+	 */
+	MASTER_TITLE_SCREEN_ON_STARTUP,
+
+	/**
+	 * Whether to enable cross-game feature donation (e.g., S2 sprites in S1).
+	 * When false (default), the base game runs unmodified.
+	 */
+	CROSS_GAME_FEATURES_ENABLED,
+
+	/**
+	 * Which game to use as the donor for cross-game features: "s2" or "s3k".
+	 * Only used when CROSS_GAME_FEATURES_ENABLED is true.
+	 */
+	CROSS_GAME_SOURCE;
+
+}

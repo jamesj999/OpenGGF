@@ -4,15 +4,15 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>uk.co.jamesj999</groupId>
-    <artifactId>sonic-engine</artifactId>
-    <version>0.3.20260206</version>
+    <groupId>com.openggf</groupId>
+    <artifactId>OpenGGF</artifactId>
+    <version>0.4.20260304</version>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <lwjgl.version>3.3.3</lwjgl.version>
         <joml.version>1.10.5</joml.version>
-        <surefire.argLine></surefire.argLine>
+        <surefire.argLine>-Xmx2g</surefire.argLine>
     </properties>
 
     <!-- LWJGL native classifier profiles -->
@@ -33,7 +33,7 @@
             </activation>
             <properties>
                 <lwjgl.natives>natives-macos</lwjgl.natives>
-                <surefire.argLine>-XstartOnFirstThread</surefire.argLine>
+                <surefire.argLine>-XstartOnFirstThread -Xmx2g</surefire.argLine>
             </properties>
         </profile>
         <profile>
@@ -43,7 +43,7 @@
             </activation>
             <properties>
                 <lwjgl.natives>natives-macos-arm64</lwjgl.natives>
-                <surefire.argLine>-XstartOnFirstThread</surefire.argLine>
+                <surefire.argLine>-XstartOnFirstThread -Xmx2g</surefire.argLine>
             </properties>
         </profile>
         <profile>
@@ -102,7 +102,7 @@
                                             </fileset>
                                         </copy>
                                         <!-- Also copy to target/ alongside the native binary
-                                             so bare execution (target/SonicEngine) works -->
+                                             so bare execution (target/OpenGGF) works -->
                                         <copy todir="${project.build.directory}" flatten="true">
                                             <fileset dir="${project.build.directory}/lwjgl-unpack">
                                                 <include name="**/*.dylib"/>
@@ -121,8 +121,8 @@
                         <version>0.10.4</version>
                         <extensions>true</extensions>
                         <configuration>
-                            <imageName>SonicEngine</imageName>
-                            <mainClass>uk.co.jamesj999.sonic.Engine</mainClass>
+                            <imageName>OpenGGF</imageName>
+                            <mainClass>com.openggf.Engine</mainClass>
                             <fallback>false</fallback>
                             <buildArgs>
                                 <buildArg>--initialize-at-run-time=org.lwjgl</buildArg>
@@ -151,7 +151,7 @@
                                     <executable>bash</executable>
                                     <arguments>
                                         <argument>${basedir}/src/packaging/assemble-macos-app.sh</argument>
-                                        <argument>${basedir}/target/SonicEngine</argument>
+                                        <argument>${basedir}/target/OpenGGF</argument>
                                         <argument>${basedir}/target</argument>
                                     </arguments>
                                 </configuration>
@@ -193,7 +193,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>uk.co.jamesj999.sonic.Engine</mainClass>
+                            <mainClass>com.openggf.Engine</mainClass>
                         </manifest>
                     </archive>
 
@@ -226,6 +226,11 @@
                 <configuration>
                     <!-- LWJGL/GLFW on macOS requires -XstartOnFirstThread (set via profile) -->
                     <argLine>${surefire.argLine}</argLine>
+                    <!-- Run test classes in parallel forked JVMs (max 8).
+                         Thread-level parallelism is unsafe due to singleton state,
+                         but process-level forks each get isolated singletons. -->
+                    <forkCount>8</forkCount>
+                    <reuseForks>true</reuseForks>
                     <!-- Exclude tests that require a GL context/display -->
                     <excludes>
                         <exclude>**/TestGraphicsManagerHeadless.java</exclude>
@@ -320,6 +325,18 @@
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.3</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.vintage</groupId>
+            <artifactId>junit-vintage-engine</artifactId>
+            <version>5.10.3</version>
             <scope>test</scope>
         </dependency>
         <dependency>

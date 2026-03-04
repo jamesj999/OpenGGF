@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>SonicEngine</string>
+    <string>OpenGGF</string>
     <key>CFBundleDisplayName</key>
-    <string>Sonic Engine</string>
+    <string>OpenGGF</string>
     <key>CFBundleIdentifier</key>
-    <string>uk.co.jamesj999.sonic</string>
+    <string>com.openggf</string>
     <key>CFBundleVersion</key>
     <string>1.0</string>
     <key>CFBundleShortVersionString</key>
@@ -15,9 +15,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
-    <string>SonicEngine</string>
+    <string>OpenGGF</string>
     <key>CFBundleIconFile</key>
-    <string>SonicEngine.icns</string>
+    <string>OpenGGF.icns</string>
     <key>LSMinimumSystemVersion</key>
     <string>11.0</string>
     <key>NSHighResolutionCapable</key>

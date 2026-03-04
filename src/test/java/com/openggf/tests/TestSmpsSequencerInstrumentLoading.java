@@ -1,0 +1,107 @@
+package com.openggf.tests;
+import com.openggf.game.sonic2.audio.Sonic2SmpsSequencerConfig;
+
+import org.junit.Test;
+import com.openggf.audio.smps.AbstractSmpsData;
+import com.openggf.audio.smps.DacData;
+import com.openggf.audio.smps.Sonic1SmpsData;
+import com.openggf.audio.smps.SmpsSequencer;
+import com.openggf.audio.synth.VirtualSynthesizer;
+
+import java.util.HashMap;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+public class TestSmpsSequencerInstrumentLoading {
+
+    static class MockSynthesizer extends VirtualSynthesizer {
+        boolean setInstrumentCalled = false;
+        int lastChannelId = -1;
+        byte[] lastVoice = null;
+
+        @Override
+        public void setInstrument(Object source, int channelId, byte[] voice) {
+            this.setInstrumentCalled = true;
+            this.lastChannelId = channelId;
+            this.lastVoice = voice;
+            super.setInstrument(source, channelId, voice);
+        }
+    }
+
+    @Test
+    public void testInstrumentLoading() {
+        // Construct SMPS data
+        // Header:
+        // 00-01: Voice Ptr
+        // 02: FM Channels
+        // 03: PSG Channels
+        // 04-05: Tempo
+        // 06-09: Track 1 Ptr
+
+        byte[] data = new byte[100];
+
+        // Voice Ptr at 40 (0x28)
+        // Big Endian: 00 28
+        data[0] = 0x00;
+        data[1] = 0x28;
+
+        data[2] = 2; // 2 FM Channels (to reach FM1, as Chn 0 is DAC)
+        data[3] = 0;
+        data[5] = (byte) 0x80; // Main tempo
+
+        // DAC Pointer at 6-7 (should be 0 for this test or pointing somewhere else)
+        data[6] = 0x00;
+        data[7] = 0x00;
+
+        // FM Track Ptr at 0x0A (10).
+        // Since forceLittleEndian is false (Big Endian), 16-bit read is (b1 << 8) | b2.
+        // We want pointer to be 16 (0x0010).
+        data[10] = 0x00;
+        data[11] = 0x10;
+
+        // Track 1 Data at 16 (0x10)
+        int t = 16;
+
+        data[t++] = (byte) 0xEF; // Flag Set Voice
+        data[t++] = 0x00;        // Voice ID 0
+        data[t++] = (byte) 0x81; // Note C (to advance time)
+        data[t++] = 0x01;        // Duration
+
+        // Voice Data at 40
+        int v = 40;
+        // Generate source voice
+        for(int i=0; i<25; i++) {
+            data[v+i] = (byte) (i + 10);
+        }
+
+        // Expected Voice: S1 voices (InsMode=DEFAULT) store operator groups as Op4,Op3,Op2,Op1.
+        // getVoice() converts to S2 format (Op4,Op2,Op3,Op1) by swapping the middle two
+        // bytes of each 4-byte group, so the engine's DT_IDX mapping works correctly.
+        byte[] expectedVoice = new byte[25];
+        System.arraycopy(data, v, expectedVoice, 0, 25);
+        // Apply the same swap that getVoice() performs
+        for (int g = 1; g < 25; g += 4) {
+            byte tmp = expectedVoice[g + 1];
+            expectedVoice[g + 1] = expectedVoice[g + 2];
+            expectedVoice[g + 2] = tmp;
+        }
+
+        // Explicitly set to Big Endian (S1) to verify 25-byte voice loading
+        AbstractSmpsData smps = new Sonic1SmpsData(data, 0);
+        MockSynthesizer synth = new MockSynthesizer();
+        DacData dac = new DacData(new HashMap<>(), new HashMap<>()); // Empty
+
+        SmpsSequencer seq = new SmpsSequencer(smps, dac, synth, Sonic2SmpsSequencerConfig.CONFIG);
+
+        short[] buf = new short[2000]; // Enough to tick
+        seq.read(buf); // Should trigger tick and process commands
+
+        assertTrue("setInstrument should be called", synth.setInstrumentCalled);
+        // Track 0 maps to HW Channel 0 (FM1)
+        assertEquals("Channel ID should be 0", 0, synth.lastChannelId);
+        assertArrayEquals("Voice data should match", expectedVoice, synth.lastVoice);
+    }
+
+}

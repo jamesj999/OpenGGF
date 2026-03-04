@@ -1,0 +1,111 @@
+package com.openggf.level.scroll;
+
+/**
+ * Interface for zone-specific horizontal scroll routines.
+ * Each implementation should match the corresponding SwScrl_* routine from the ROM.
+ * 
+ * Reference: s2.asm DeformBgLayer -> SwScrl_Index dispatch
+ */
+public interface ZoneScrollHandler {
+
+    /**
+     * Fill the horizontal scroll buffer for this zone.
+     * 
+     * This method should populate the 224-entry buffer with packed scroll values
+     * where each entry contains (FG_scroll << 16) | (BG_scroll & 0xFFFF).
+     * 
+     * @param horizScrollBuf 224-entry buffer to fill with packed (FG,BG) scroll words
+     * @param cameraX        Current foreground camera X position (pixels)
+     * @param cameraY        Current foreground camera Y position (pixels)
+     * @param frameCounter   Current frame number for animations
+     * @param actId          Current act (0-based: 0 = Act 1, 1 = Act 2)
+     */
+    void update(int[] horizScrollBuf,
+                int cameraX,
+                int cameraY,
+                int frameCounter,
+                int actId);
+
+    /**
+     * Get the VScroll factor for Plane B (background).
+     * This value will be written to VSRAM for vertical scrolling.
+     * 
+     * @return VScroll factor for background plane (16-bit signed)
+     */
+    short getVscrollFactorBG();
+
+    /**
+     * Optional per-scanline BG vertical scroll offsets.
+     * <p>
+     * When non-null, values are interpreted as signed pixel deltas that are
+     * added on top of {@link #getVscrollFactorBG()} by the parallax shader.
+     *
+     * @return 224-entry per-line BG VScroll offset array, or null for flat VScroll
+     */
+    default short[] getPerLineVScrollBG() {
+        return null;
+    }
+
+    /**
+     * Optional per-column BG vertical scroll offsets (20 columns in H40 mode).
+     * <p>
+     * When non-null, values are interpreted as signed pixel deltas that are
+     * added on top of {@link #getVscrollFactorBG()} by the parallax shader.
+     *
+     * @return 20-entry per-column BG VScroll offset array, or null for flat VScroll
+     */
+    default short[] getPerColumnVScrollBG() {
+        return null;
+    }
+
+    /**
+     * Get minimum BG scroll offset relative to FG for this frame.
+     * Used by LevelManager to determine tile loading bounds.
+     * 
+     * @return Minimum (BG - FG) scroll offset
+     */
+    int getMinScrollOffset();
+
+    /**
+     * Get maximum BG scroll offset relative to FG for this frame.
+     * Used by LevelManager to determine tile loading bounds.
+     *
+     * @return Maximum (BG - FG) scroll offset
+     */
+    int getMaxScrollOffset();
+
+    /**
+     * Get the main BG camera X position (v_bgscreenposx equivalent).
+     * Used by LevelManager to determine which region of a wide BG map
+     * to render into the 512px VDP nametable tilemap.
+     *
+     * <p>Zones with BG maps wider than 512px that do NOT tile at 512px
+     * (e.g., SBZ with 15360px BG) must override this to return the
+     * current BG camera X so the tilemap contains the correct tiles.
+     *
+     * @return BG camera X in pixels, or Integer.MIN_VALUE if the BG
+     *         tiles naturally at 512px (default, no offset needed)
+     */
+    default int getBgCameraX() {
+        return Integer.MIN_VALUE;
+    }
+
+    /**
+     * Get the required BG tilemap period width in pixels.
+     * <p>
+     * Zones with multiple BG scroll speeds (e.g., GHZ with mountains at 96/256,
+     * hills at 128/256, and water interpolated to camera speed) have a parallax
+     * spread wider than the VDP's 512px nametable. The FBO must be wide enough
+     * to cover the entire visible BG range without a wrap seam.
+     * <p>
+     * On the real hardware, the nametable is a persistent ring buffer that
+     * accumulates column updates from multiple BG scroll blocks, masking the
+     * 512px limitation. The engine rebuilds the tilemap from scratch, so it
+     * must be wide enough to cover all visible scanlines simultaneously.
+     *
+     * @return Required BG period width in pixels (default: 512)
+     */
+    default int getBgPeriodWidth() {
+        return 512;
+    }
+}

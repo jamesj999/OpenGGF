@@ -1,0 +1,448 @@
+package com.openggf.game.sonic2.objects;
+
+import com.openggf.camera.Camera;
+import com.openggf.data.Rom;
+import com.openggf.data.RomByteReader;
+import com.openggf.game.OscillationManager;
+import com.openggf.game.sonic2.S2SpriteDataLoader;
+import com.openggf.game.sonic2.constants.Sonic2Constants;
+import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.PatternDesc;
+import com.openggf.level.LevelManager;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidObjectListener;
+import com.openggf.level.objects.SolidObjectParams;
+import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.level.render.SpriteMappingPiece;
+import com.openggf.level.render.SpritePieceRenderer;
+import com.openggf.physics.TrigLookupTable;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.logging.Logger;
+
+/**
+ * Object 18 - Stationary floating platform (EHZ/ARZ/HTZ).
+ * Implements movement behaviors and rendering from the disassembly.
+ */
+public class ARZPlatformObjectInstance extends AbstractObjectInstance
+        implements SolidObjectProvider, SolidObjectListener {
+    private static final Logger LOGGER = Logger.getLogger(ARZPlatformObjectInstance.class.getName());
+
+    private static final int[] WIDTH_PIXELS = {
+            0x20, 0x20, 0x20, 0x40, 0x30
+    };
+    private static final int[] FRAME_INDEX = { 0, 1, 2, 3, 4 };
+    private static final int HALF_HEIGHT = 8;
+    private static final int SOLID_EXTRA_WIDTH = 0x0B;
+    private static final int SOLID_Y_RADIUS_DEFAULT = 0x30;
+    private static final int SOLID_Y_RADIUS_ARZ = 0x28;
+    private static final int PALETTE_INDEX = 2;
+
+    private static final int FALL_GRAVITY = 0x38;
+    private static final int FALL_RELEASE_DELAY = 0x1E;
+    private static final int FALL_START_DELAY = 0x20;
+    private static final int BUTTON_DELAY = 60;
+    private static final int OFFSCREEN_Y_MARGIN = 0x120;
+
+    private static final byte[] BUTTON_VINE_TRIGGERS = new byte[16];
+
+    private static List<SpriteMappingFrame> mappingsA;
+    private static List<SpriteMappingFrame> mappingsB;
+    private static boolean mappingLoadAttempted;
+
+    private int x;
+    private int y;
+    private int baseX;
+    private int baseY;
+    private int baseYFixed;
+    private int widthPixels;
+    private int mappingFrame;
+    private int subtype;
+    private int routine;
+    private int bobAngle;
+    private int angle;
+    private int timer;
+    private int yVel;
+    private int yRadius;
+    private ObjectSpawn dynamicSpawn;
+
+    public ARZPlatformObjectInstance(ObjectSpawn spawn, String name) {
+        super(spawn, name);
+        init();
+    }
+
+    @Override
+    public int getX() {
+        return x;
+    }
+
+    @Override
+    public int getY() {
+        return y;
+    }
+
+    @Override
+    public ObjectSpawn getSpawn() {
+        return dynamicSpawn != null ? dynamicSpawn : spawn;
+    }
+
+    @Override
+    public void update(int frameCounter, AbstractPlayableSprite player) {
+        x = baseX;
+
+        boolean standing = isStanding();
+        if (routine == 2 || routine == 8) {
+            updateBobAngle(standing);
+        }
+
+        boolean updateAngle = applyBehaviour(player, standing);
+        if (updateAngle) {
+            angle = OscillationManager.getByte(0x18);
+        }
+
+        applySineBob();
+        refreshDynamicSpawn();
+    }
+
+    @Override
+    public void appendRenderCommands(List<GLCommand> commands) {
+        List<SpriteMappingFrame> mappings = resolveMappings();
+        if (mappings == null || mappings.isEmpty()) {
+            appendDebug(commands);
+            return;
+        }
+
+        int frame = mappingFrame;
+        if (frame < 0) {
+            frame = 0;
+        }
+        if (frame >= mappings.size()) {
+            frame = mappings.size() - 1;
+        }
+
+        SpriteMappingFrame mapping = mappings.get(frame);
+        if (mapping == null || mapping.pieces().isEmpty()) {
+            appendDebug(commands);
+            return;
+        }
+
+        boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
+        boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
+
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        List<SpriteMappingPiece> pieces = mapping.pieces();
+        for (int i = pieces.size() - 1; i >= 0; i--) {
+            SpriteMappingPiece piece = pieces.get(i);
+            SpritePieceRenderer.renderPieces(
+                    List.of(piece),
+                    x,
+                    y,
+                    0,
+                    PALETTE_INDEX,
+                    hFlip,
+                    vFlip,
+                    (patternIndex, pieceHFlip, pieceVFlip, paletteIndex, drawX, drawY) -> {
+                        int descIndex = patternIndex & 0x7FF;
+                        if (pieceHFlip) {
+                            descIndex |= 0x800;
+                        }
+                        if (pieceVFlip) {
+                            descIndex |= 0x1000;
+                        }
+                        descIndex |= (paletteIndex & 0x3) << 13;
+                        graphicsManager.renderPattern(new PatternDesc(descIndex), drawX, drawY);
+                    });
+        }
+    }
+
+    @Override
+    public SolidObjectParams getSolidParams() {
+        if (routine == 8) {
+            int halfWidth = widthPixels + SOLID_EXTRA_WIDTH;
+            int airHalfHeight = Math.max(1, yRadius);
+            int groundHalfHeight = Math.max(1, yRadius + 1);
+            return new SolidObjectParams(halfWidth, airHalfHeight, groundHalfHeight);
+        }
+        return new SolidObjectParams(widthPixels, HALF_HEIGHT, HALF_HEIGHT);
+    }
+
+    @Override
+    public boolean isTopSolidOnly() {
+        return routine != 8;
+    }
+
+    @Override
+    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+        // Platform state is driven via ObjectManager standing checks.
+    }
+
+    @Override
+    public boolean isSolidFor(AbstractPlayableSprite player) {
+        return !isDestroyed();
+    }
+
+    private void init() {
+        routine = 2;
+        int initIndex = (spawn.subtype() >> 3) & 0x0E;
+        initIndex /= 2;
+        if (initIndex < 0) {
+            initIndex = 0;
+        }
+        if (initIndex >= WIDTH_PIXELS.length) {
+            initIndex = WIDTH_PIXELS.length - 1;
+        }
+        widthPixels = WIDTH_PIXELS[initIndex];
+        mappingFrame = FRAME_INDEX[initIndex];
+
+        baseX = spawn.x();
+        baseY = spawn.y();
+        baseYFixed = baseY << 8;
+        x = baseX;
+        y = baseY;
+        angle = 0x80;
+
+        subtype = spawn.subtype();
+        if ((subtype & 0x80) != 0) {
+            routine = 8;
+            subtype &= 0x0F;
+            yRadius = isAquaticRuin() ? SOLID_Y_RADIUS_ARZ : SOLID_Y_RADIUS_DEFAULT;
+        } else {
+            subtype &= 0x0F;
+            yRadius = HALF_HEIGHT;
+        }
+
+        refreshDynamicSpawn();
+    }
+
+    private boolean applyBehaviour(AbstractPlayableSprite player, boolean standing) {
+        int behaviour = subtype & 0x0F;
+        switch (behaviour) {
+            case 0, 9 -> {
+                return false;
+            }
+            case 1 -> {
+                x = baseX + signedByte(angle - 0x40);
+                return true;
+            }
+            case 2 -> {
+                setBaseY(baseY + signedByte(angle - 0x40));
+                return true;
+            }
+            case 3 -> {
+                handleFallTrigger(standing);
+                return false;
+            }
+            case 4 -> {
+                handleFalling(player);
+                return false;
+            }
+            case 5 -> {
+                x = baseX + signedByte(0x40 - angle);
+                return true;
+            }
+            case 6 -> {
+                setBaseY(baseY + signedByte(0x40 - angle));
+                return true;
+            }
+            case 7 -> {
+                handleButtonTrigger();
+                return false;
+            }
+            case 8 -> {
+                handleRise();
+                return false;
+            }
+            case 10 -> {
+                int offset = signedByte(angle - 0x40) >> 1;
+                setBaseY(baseY + offset);
+                return true;
+            }
+            case 11 -> {
+                int offset = signedByte(0x40 - angle) >> 1;
+                setBaseY(baseY + offset);
+                return true;
+            }
+            case 12 -> {
+                int osc = OscillationManager.getByte(0x0C);
+                setBaseY(baseY + signedByte(osc - 0x30));
+                return true;
+            }
+            case 13 -> {
+                int osc = OscillationManager.getByte(0x0C);
+                setBaseY(baseY + signedByte(0x30 - osc));
+                return true;
+            }
+            default -> {
+                return false;
+            }
+        }
+    }
+
+    private void handleFallTrigger(boolean standing) {
+        if (timer == 0) {
+            if (standing) {
+                timer = FALL_RELEASE_DELAY;
+            }
+            return;
+        }
+        timer--;
+        if (timer == 0) {
+            timer = FALL_START_DELAY;
+            subtype = (subtype + 1) & 0xFF;
+        }
+    }
+
+    private void handleFalling(AbstractPlayableSprite player) {
+        if (timer != 0) {
+            timer--;
+            if (timer == 0) {
+                if (player != null && isStanding()) {
+                    releasePlayer(player);
+                }
+                routine = 6;
+            }
+        }
+
+        baseYFixed += yVel;
+        yVel += FALL_GRAVITY;
+
+        int cameraMaxY = Camera.getInstance().getMaxY();
+        if ((baseYFixed >> 8) > cameraMaxY + OFFSCREEN_Y_MARGIN) {
+            setDestroyed(true);
+        }
+    }
+
+    private void releasePlayer(AbstractPlayableSprite player) {
+        player.setAir(true);
+        player.setYSpeed((short) yVel);
+    }
+
+    private void handleButtonTrigger() {
+        int triggerIndex = (subtype >> 4) & 0x0F;
+        if (timer == 0) {
+            if (triggerIndex >= 0 && triggerIndex < BUTTON_VINE_TRIGGERS.length
+                    && BUTTON_VINE_TRIGGERS[triggerIndex] != 0) {
+                timer = BUTTON_DELAY;
+            }
+            return;
+        }
+        timer--;
+        if (timer == 0) {
+            subtype = (subtype + 1) & 0xFF;
+        }
+    }
+
+    private void handleRise() {
+        baseYFixed -= (2 << 8);
+        if ((baseYFixed >> 8) == (baseY - 0x200)) {
+            subtype = 0;
+        }
+    }
+
+    private void updateBobAngle(boolean standing) {
+        if (!standing) {
+            if (bobAngle > 0) {
+                bobAngle = Math.max(0, bobAngle - 4);
+            }
+            return;
+        }
+        if (bobAngle < 0x40) {
+            bobAngle = Math.min(0x40, bobAngle + 4);
+        }
+    }
+
+    private void applySineBob() {
+        int sin = calcSine(bobAngle);
+        int offset = (sin * 0x400) >> 16;
+        y = (baseYFixed >> 8) + offset;
+    }
+
+    private int calcSine(int angle) {
+        return TrigLookupTable.sinHex(angle);
+    }
+
+    private int signedByte(int value) {
+        return (byte) value;
+    }
+
+    private void setBaseY(int value) {
+        baseYFixed = value << 8;
+    }
+
+    private boolean isStanding() {
+        LevelManager manager = LevelManager.getInstance();
+        if (manager == null || manager.getObjectManager() == null) {
+            return false;
+        }
+        return manager.getObjectManager().isAnyPlayerRiding(this);
+    }
+
+    private boolean isAquaticRuin() {
+        LevelManager manager = LevelManager.getInstance();
+        return manager != null && manager.getCurrentZone() == Sonic2Constants.ZONE_AQUATIC_RUIN;
+    }
+
+    private void refreshDynamicSpawn() {
+        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
+            dynamicSpawn = new ObjectSpawn(
+                    x,
+                    y,
+                    spawn.objectId(),
+                    spawn.subtype(),
+                    spawn.renderFlags(),
+                    spawn.respawnTracked(),
+                    spawn.rawYWord());
+        }
+    }
+
+    private List<SpriteMappingFrame> resolveMappings() {
+        ensureMappingsLoaded();
+        return isAquaticRuin() ? mappingsB : mappingsA;
+    }
+
+    private static void ensureMappingsLoaded() {
+        if (mappingLoadAttempted) {
+            return;
+        }
+        mappingLoadAttempted = true;
+        LevelManager manager = LevelManager.getInstance();
+        if (manager == null || manager.getGame() == null) {
+            return;
+        }
+        try {
+            Rom rom = manager.getGame().getRom();
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            mappingsA = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ18_A_ADDR);
+            mappingsB = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ18_B_ADDR);
+        } catch (IOException | RuntimeException e) {
+            LOGGER.warning("Failed to load Obj18 mappings: " + e.getMessage());
+        }
+    }
+
+    private void appendDebug(List<GLCommand> commands) {
+        int halfWidth = widthPixels;
+        int halfHeight = routine == 8 ? yRadius : HALF_HEIGHT;
+        int left = x - halfWidth;
+        int right = x + halfWidth;
+        int top = y - halfHeight;
+        int bottom = y + halfHeight;
+
+        appendLine(commands, left, top, right, top);
+        appendLine(commands, right, top, right, bottom);
+        appendLine(commands, right, bottom, left, bottom);
+        appendLine(commands, left, bottom, left, top);
+    }
+
+    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
+                0.35f, 0.7f, 1.0f, x1, y1, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
+                0.35f, 0.7f, 1.0f, x2, y2, 0, 0));
+    }
+}

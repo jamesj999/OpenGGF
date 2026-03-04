@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
-Main-Class: uk.co.jamesj999.sonic.Engine
+Main-Class: com.openggf.Engine
 Class-Path: commons-lang3-3.1.jar
  jogl-all.jar
  gluegen.jar

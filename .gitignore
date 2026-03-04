@@ -1,5 +1,5 @@
 /bin
-/.DS_Store
+.DS_Store
 /*.gen
 /target/*
 .classpath
@@ -36,6 +36,9 @@ docs/screenshots/
 
 # Claude Code workspace
 .claude/
+
+# Git worktrees
+.worktrees/
 
 # Savestates
 *.gs2

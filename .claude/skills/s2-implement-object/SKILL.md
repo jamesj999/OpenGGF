@@ -50,8 +50,14 @@ Agents should:
    - Search for `ArtNem_` or `ArtKos_` references in the disassembly
    - Use RomOffsetFinder to get ROM addresses:
      ```bash
-     mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="search ObjectName" -q
+     mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="search ObjectName" -q
      ```
+   - Search results now show **PLC cross-references** - which PLCs load this art
+   - Use `plc <name>` command to see all art entries in a PLC:
+     ```bash
+     mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="plc PlrList_Ehz1" -q
+     ```
+   - The ObjectDiscoveryTool checklist also shows PLC IDs per object per zone
    - Check existing art keys in `Sonic2ObjectArtKeys.java`
    - Check if art is zone-specific or shared
 
@@ -71,6 +77,8 @@ public static final int OBJECT_NAME = 0xXX;
 ```
 
 #### 2.2 Art Loading (if needed)
+
+**PLC note:** S2 art is loaded via ArtLoadCues (PLCs) in the ROM. The shared `PlcParser` utility handles parsing. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI. The ObjectDiscoveryTool checklist shows PLC IDs per object.
 
 If the object needs new art:
 
@@ -113,7 +121,7 @@ Create the instance class following existing patterns. **Choose the appropriate 
 For objects that exist as a single collision/render entity:
 
 ```java
-package uk.co.jamesj999.sonic.game.sonic2.objects;
+package com.openggf.sonic.game.sonic2.objects;
 
 public class ObjectNameObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
@@ -186,7 +194,9 @@ public class ObjectNameObjectInstance extends AbstractObjectInstance
 For enemies with touch response and destruction behavior:
 
 ```java
-package uk.co.jamesj999.sonic.game.sonic2.objects.badniks;
+package com.openggf.sonic.game.sonic2.objects.badniks;
+
+import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
 
 public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
     @Override
@@ -212,7 +222,7 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 **Use the dedicated `/s2-implement-boss` skill** (`.claude/skills/s2-implement-boss/skill.md`) for boss implementations.
 
 Bosses differ significantly from regular objects:
-- Dynamic spawning via `LevelEventManager` (not level layout)
+- Dynamic spawning via `Sonic2LevelEventManager` (not level layout)
 - Camera arena locking with min/max boundaries
 - 8 hits with invulnerability and palette flash
 - Multi-component architecture with `AbstractBossChild`
@@ -355,7 +365,7 @@ If issues are found:
 
 Once cross-validation is confirmed bug-free:
 
-1. **Add to IMPLEMENTED_IDS** in `ObjectDiscoveryTool.java` (around line 59):
+1. **Add to IMPLEMENTED_IDS** in `Sonic2ObjectProfile.java` (the `IMPLEMENTED_IDS` set):
    ```java
    0xXX,  // ObjectName (brief description)
    ```
@@ -384,7 +394,7 @@ Once cross-validation is confirmed bug-free:
 | SFX mapping | `src/.../game/sonic2/audio/smps/Sonic2SmpsLoader.java` |
 | SFX constants | `src/.../game/sonic2/constants/Sonic2AudioConstants.java` |
 | Disassembly | `docs/s2disasm/` |
-| Implemented IDs | `src/.../tools/ObjectDiscoveryTool.java` (line ~59) |
+| Implemented IDs | `src/.../tools/Sonic2ObjectProfile.java` (IMPLEMENTED_IDS set) |
 
 ## Example Implementations
 

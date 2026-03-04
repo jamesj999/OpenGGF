@@ -50,8 +50,14 @@ Agents should:
    - Search for `Nem_` references in the object's ASM file
    - Use RomOffsetFinder to get ROM addresses:
      ```bash
-     mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search ObjectName" -q
+     mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 search ObjectName" -q
      ```
+   - Search results now show **PLC cross-references** - which PLCs load this art
+   - Use `plc <name>` command to see all art entries in a PLC:
+     ```bash
+     mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s1 plc PLC_GHZ" -q
+     ```
+   - The ObjectDiscoveryTool checklist also shows PLC IDs per object per zone
    - Parse mappings from `_maps/Name.asm` (5-byte piece format, byte header)
    - Check if art is zone-specific or shared
 
@@ -75,28 +81,16 @@ public static final int OBJECT_NAME = 0xXX;
 
 #### 2.2 Art Loading
 
-**Note:** Sonic 1 art infrastructure is not yet fully established. If `Sonic1ObjectArt.java`, `Sonic1ObjectArtKeys.java`, and `Sonic1ObjectArtProvider.java` do not exist, create them following the Sonic 2 pattern:
+**PLC note:** S1 loads object art via ArtLoadCues (PLCs) during level init. The shared `PlcParser` utility handles parsing. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI. The ObjectDiscoveryTool checklist shows PLC IDs per object. For dedicated object art that shouldn't overwrite level pattern tiles, use standalone decompression: `PlcParser.decompressAll(rom, plc)` returns independent `Pattern[]` arrays per PLC entry.
 
-1. **Create `Sonic1ObjectArtKeys.java`** (if needed):
+**S1 art infrastructure exists:** `Sonic1ObjectArt.java`, `Sonic1ObjectArtKeys.java`, and `Sonic1ObjectArtProvider.java` are established. Follow the existing pattern:
+
+1. **Add art key** to `Sonic1ObjectArtKeys.java`:
    ```java
-   package uk.co.jamesj999.sonic.game.sonic1;
-
-   public final class Sonic1ObjectArtKeys {
-       private Sonic1ObjectArtKeys() {}
-       public static final String OBJECT_NAME = "objectname";
-   }
+   public static final String OBJECT_NAME = "objectname";
    ```
 
-2. **Create `Sonic1ObjectArt.java`** (if needed):
-   Follow the pattern in `Sonic2ObjectArt.java`. Key differences:
-   - Use `Sonic1Constants` for ROM addresses
-   - S1 mappings use 5-byte piece format (byte header, 5 bytes per piece)
-   - Parse mappings accordingly
-
-3. **Create `Sonic1ObjectArtProvider.java`** (if needed):
-   Follow `Sonic2ObjectArtProvider.java` pattern.
-
-4. **Add loader method** to `Sonic1ObjectArt.java`:
+2. **Add loader method** to `Sonic1ObjectArt.java`:
    ```java
    public ObjectSpriteSheet loadObjectNameSheet() {
        Pattern[] patterns = safeLoadNemesisPatterns(
@@ -124,7 +118,7 @@ Create the instance class following existing Sonic 2 patterns but in the Sonic 1
 
 ##### Pattern 1: Simple Object
 ```java
-package uk.co.jamesj999.sonic.game.sonic1.objects;
+package com.openggf.sonic.game.sonic1.objects;
 
 public class ObjectNameObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
@@ -134,7 +128,7 @@ public class ObjectNameObjectInstance extends AbstractObjectInstance
 
 ##### Pattern 2: Badnik (Enemy with AI)
 ```java
-package uk.co.jamesj999.sonic.game.sonic1.objects.badniks;
+package com.openggf.sonic.game.sonic1.objects.badniks;
 
 public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
     @Override
@@ -225,15 +219,12 @@ public void appendDebugRenderCommands(List<GLCommand> commands) {
 
 #### 2.5 Factory Registration
 
-Register in `Sonic1ObjectRegistry`. The current registry returns `PlaceholderObjectInstance` for all objects. Add factory registration by converting to a factory-based pattern (following `Sonic2ObjectRegistry`):
+Register in `Sonic1ObjectRegistry.registerDefaultFactories()`:
 
 ```java
-// In Sonic1ObjectRegistry - add factory support
 registerFactory(Sonic1ObjectIds.OBJECT_NAME,
     (spawn, registry) -> new ObjectNameObjectInstance(spawn));
 ```
-
-If `Sonic1ObjectRegistry` doesn't support factories yet, refactor it to match the `Sonic2ObjectRegistry` pattern with `registerFactory()` and `registerDefaultFactories()`.
 
 ### Phase 3: Code Quality
 
@@ -292,12 +283,24 @@ Once cross-validation is confirmed bug-free:
 
 1. **Verify registration** in `Sonic1ObjectRegistry` - ensure the factory is registered and the object is no longer returned as a `PlaceholderObjectInstance`.
 
-2. **Build and test**:
+2. **Add to IMPLEMENTED_IDS** in `Sonic1ObjectProfile.java` (the `IMPLEMENTED_IDS` set):
+   ```java
+   Sonic1ObjectIds.OBJECT_NAME
+   ```
+   Keep the set entries sorted logically with the other entries.
+
+3. **Update S1_OBJECT_CHECKLIST.md**:
+   - Move the object from the "Unimplemented Objects" table to the "Implemented Objects" table
+   - Update the summary counts (Implemented/Unimplemented numbers and percentages)
+   - In the "By Zone" section, change `[ ]` to `[x]` for every zone/act entry of this object
+   - Update the per-act "Implemented" and "Unimplemented" counts in each affected act header
+
+4. **Build and test**:
    ```bash
    mvn package
    ```
 
-3. Report completion with summary of implementation details.
+5. Report completion with summary of implementation details.
 
 ## Reference Files
 
@@ -314,6 +317,8 @@ Once cross-validation is confirmed bug-free:
 | Disassembly animations | `docs/s1disasm/_anim/` |
 | Disassembly mappings | `docs/s1disasm/_maps/` |
 | Disassembly art | `docs/s1disasm/artnem/` |
+| Implemented IDs | `src/.../tools/Sonic1ObjectProfile.java` (IMPLEMENTED_IDS set) |
+| Object checklist | `S1_OBJECT_CHECKLIST.md` (update after each implementation) |
 
 ## S1 vs S2 Key Differences Summary
 
@@ -331,4 +336,4 @@ Once cross-validation is confirmed bug-free:
 | Object IDs file | `Sonic1ObjectIds.java` | `Sonic2ObjectIds.java` |
 | SFX constants | `Sonic1AudioProfile.java` | `Sonic2AudioConstants.java` |
 | Registry | `Sonic1ObjectRegistry.java` | `Sonic2ObjectRegistry.java` |
-| Art infrastructure | May need creating | Fully established |
+| Art infrastructure | Established (`Sonic1ObjectArt/Provider/Keys`) | Fully established |

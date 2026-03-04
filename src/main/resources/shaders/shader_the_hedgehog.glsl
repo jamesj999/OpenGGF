@@ -3,6 +3,7 @@
 uniform sampler2D Palette;
 uniform sampler2D IndexedColorTexture;
 uniform float PaletteLine;
+uniform float TotalPaletteLines;
 
 in vec2 v_texCoord;
 in float v_paletteLine;
@@ -27,9 +28,9 @@ void main()
         paletteLine = v_paletteLine;
     }
 
-    // Map the index to palette coordinates (16 colors, 4 lines)
+    // Map the index to palette coordinates (16 colors per line)
     float paletteX = (index + 0.5) / 16.0;
-    float paletteY = (paletteLine + 0.5) / 4.0;
+    float paletteY = (paletteLine + 0.5) / TotalPaletteLines;
 
     // Sample the palette texture to get the actual color
     vec4 indexedColor = texture(Palette, vec2(paletteX, paletteY));

@@ -11,6 +11,14 @@ $ARGUMENTS: Boss name or zone (e.g., "AIZ mini-boss", "Angel Island end boss", "
 - **s3k-disasm-guide** (`.claude/skills/s3k-disasm-guide/skill.md`) - Disassembly navigation, label conventions, RomOffsetFinder
 - **s3k-implement-object** (`.claude/skills/s3k-implement-object/skill.md`) - For non-boss Sonic 3&K objects and badniks
 
+## Zone-Set-Aware Boss IDs
+
+S3K uses **two object pointer tables** that remap boss IDs by zone:
+- **S3KL** (zones 0-6: AIZ through LBZ): Boss IDs 0x90-0xCD
+- **SKL** (zones 7-13: MHZ through DDZ): Boss IDs 0x91-0xB6
+
+The same numeric ID maps to different bosses depending on the zone set. Use `S3kZoneSet.forZone(zoneId)` and `Sonic3kObjectRegistry.getPrimaryName(id, zoneSet)` for correct resolution.
+
 ## Sonic 3&K Boss List
 
 S3K has **both mini-bosses (Act 1) and end bosses (Act 2)** per zone — significantly more bosses than S1/S2.
@@ -61,12 +69,19 @@ S3K has **both mini-bosses (Act 1) and end bosses (Act 2)** per zone — signifi
 | **Hit counter** | `collision_property` (0x29) | `objoff_3C` or similar | `obColProp` |
 | **Object code** | Inline in `sonic3k.asm` | Inline in `s2.asm` | `_incObj/XX Boss - Zone.asm` |
 | **Multi-phase** | Common (LBZ, DEZ have 2-3 phases) | Rare | Rare (FZ only) |
-| **Boss spawning** | Via `Special_events_routine` and screen events | `LevelEventManager` | Object-local camera lock |
-| **Arena setup** | Zone screen event code | `LevEvents_ZONE2` routines | Boss object code |
+| **Boss spawning** | Via `Special_events_routine` and screen events | `Sonic2LevelEventManager` | Object-local camera lock |
+| **Arena setup** | Zone screen event code via `Sonic3kLevelEventManager` | `LevEvents_ZONE2` routines via `Sonic2LevelEventManager` | Boss object code via `Sonic1LevelEventManager` |
 | **Knuckles paths** | Separate boss or variant behavior | N/A | N/A |
 | **Art compression** | Primarily Kosinski Moduled (`kosm`) | Nemesis (`nem`) | Nemesis (`nem`) |
-| **Constants file** | `Sonic3kConstants.java` (to create) | `Sonic2Constants.java` | `Sonic1Constants.java` |
-| **Registry** | `Sonic3kObjectRegistry.java` (to create) | `Sonic2ObjectRegistry.java` | `Sonic1ObjectRegistry.java` |
+| **Object pointer tables** | 2 tables (S3KL + SKL) by zone | Single table | Single table |
+| **Constants file** | `Sonic3kConstants.java` | `Sonic2Constants.java` | `Sonic1Constants.java` |
+| **Registry** | `Sonic3kObjectRegistry.java` | `Sonic2ObjectRegistry.java` | `Sonic1ObjectRegistry.java` |
+
+## Critical: Use S&K-Side ROM Addresses
+
+The locked-on ROM has two halves: **S&K** (0x000000–0x1FFFFF) and **S3** (0x200000–0x3FFFFF). Many shared assets exist in both halves with identical data. **Always use S&K-side addresses (< 0x200000)** for all ROM constants in `Sonic3kConstants.java`.
+
+When RomOffsetFinder returns results from both `sonic3k.asm` and `s3.asm`, always use the `sonic3k.asm` address. When reading boss disassembly, always use the `sonic3k.asm` version (S3KL code path), as it may contain zone-specific overrides or Knuckles variants absent from the S3 standalone version.
 
 ## Implementation Process
 
@@ -88,10 +103,15 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 - [ ] Check for multi-phase transitions (especially LBZ, DEZ)
 - [ ] Find boss art addresses using RomOffsetFinder:
   ```bash
-  mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_ZONEBoss" -q
-  mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ZONEBoss" -q
-  mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
+  mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_ZONEBoss" -q
+  mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ZONEBoss" -q
+  mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
   ```
+  - Use `plc` command to see which PLCs load boss art:
+    ```bash
+    mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k plc PLCKosM_AIZBoss" -q
+    ```
+  - Search results now show PLC cross-references inline
 
 **Key disassembly patterns to identify:**
 - `collision_flags` set to boss collision category
@@ -104,13 +124,12 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 
 ### Phase 2: Arena & Level Event Setup
 
-S3K bosses use zone screen events for arena setup. There are two approaches:
+S3K bosses use `Sonic3kLevelEventManager` (at `game/sonic3k/Sonic3kLevelEventManager.java`) for arena setup and boss spawning. This manager extends `AbstractLevelEventManager`, though per-zone event handlers are still pending implementation.
 
-#### Option A: Add S3K Support to LevelEventManager
-If `LevelEventManager` has been extended for S3K, add zone-specific event handling:
+Add zone-specific event handling in a zone handler method or class:
 
 ```java
-// In LevelEventManager or a Sonic3kLevelEventManager
+// In Sonic3kLevelEventManager or a delegated zone handler class
 private void updateAizAct1Events() {
     switch (eventRoutine) {
         case 0 -> {
@@ -135,19 +154,6 @@ private void updateAizAct1Events() {
 }
 ```
 
-#### Option B: Self-Contained Boss Setup
-If no S3K LevelEventManager exists yet, the boss object can handle its own arena setup during initialization:
-
-```java
-@Override
-protected void initializeBossState() {
-    Camera camera = Camera.getInstance();
-    camera.setMinX((short) ARENA_MIN_X);
-    camera.setMaxX((short) ARENA_MAX_X);
-    // ... set up arena boundaries from disassembly
-}
-```
-
 **Extract arena coordinates from disassembly** - search for camera boundary writes in the boss code.
 
 ### Phase 3: Boss Instance Class
@@ -155,7 +161,7 @@ protected void initializeBossState() {
 Create the boss class in the S3K objects package:
 
 ```java
-package uk.co.jamesj999.sonic.game.sonic3k.objects.bosses;
+package com.openggf.sonic.game.sonic3k.objects.bosses;
 
 public class Sonic3kZoneBossInstance extends AbstractBossInstance {
 
@@ -287,24 +293,44 @@ private void transitionToNextPhase() {
 
 ### Phase 7: Art Loading
 
+**Preferred: Standalone PLC decompression.** Boss art is loaded via PLCs (IDs 0x53-0x7B). Use the shared `PlcParser.decompressAll()` API to decompress PLC entries into standalone `Pattern[]` arrays without writing to the level's shared pattern buffer. This avoids VRAM overlap conflicts (e.g., boss fire art overwriting spike/spring tiles).
+
+See `plc-system` and `s3k-plc-system` skills for full PLC system docs. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI.
+
 ```bash
-# Find boss art
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_ZONEBoss" -q
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
+# Find the boss PLC ID and art addresses
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ZONEBoss" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Eggman" -q
 ```
 
-S3K bosses typically use:
-- Shared Eggman art (`ArtKosM_Eggman` or similar)
-- Zone-specific boss weapon/vehicle art
-- **Kosinski Moduled** compression (primary for S3K, not Nemesis)
+**Standalone PLC pattern (preferred for boss art):**
+```java
+// In Sonic3kObjectArtProvider — load boss art from PLC without level buffer writes
+private void loadBossArtFromPlc() {
+    PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, PLC_BOSS_ID);
+    List<Pattern[]> decompressed = PlcParser.decompressAll(rom, plc);
+
+    // Each PLC entry becomes a standalone ObjectSpriteSheet
+    registerSheet(BOSS_KEY, new ObjectSpriteSheet(
+        decompressed.get(0),
+        S3kSpriteDataLoader.loadMappingFrames(reader, MAP_BOSS_ADDR),
+        paletteIndex, 1));
+}
+```
+
+**Why standalone:** On real hardware, boss PLCs overwrite existing VRAM tiles (the ROM restores them via `Load_PLC(PLC_Monitors)` after defeat). Standalone `Pattern[]` arrays avoid this conflict entirely — no restoration step needed.
+
+**When PLC isn't available:** Some boss art uses Kosinski Moduled compression (`ArtKosM_`). Use `safeLoadKosinskiModuledPatterns()` for those.
 
 **Implementation checklist:**
-- [ ] Add ROM address constants to `Sonic3kConstants.java` (create if needed)
-- [ ] Add art keys (create `Sonic3kObjectArtKeys.java` if needed)
-- [ ] Create loader method (create `Sonic3kObjectArt.java` if needed)
-- [ ] Use `safeLoadKosinskiModuledPatterns()` for `ArtKosM_` data
-- [ ] Create mappings method (parse from `General/Sprites/` or `Misc Object Data/`)
-- [ ] Register in art provider
+- [ ] Find the boss PLC ID (0x53-0x7B range) in the disassembly's `Load_PLC` call
+- [ ] Add PLC ID constant to `Sonic3kConstants.java` (e.g., `PLC_AIZ_MINIBOSS = 0x5A`)
+- [ ] Add mapping address constants (not in PLCs — need `MAP_*_ADDR` separately)
+- [ ] Add art keys to `Sonic3kObjectArtKeys.java`
+- [ ] Use `PlcParser.decompressAll()` for standalone `Pattern[]` arrays
+- [ ] Pair patterns with `S3kSpriteDataLoader.loadMappingFrames()` to build `ObjectSpriteSheet`
+- [ ] Register sheets in `Sonic3kObjectArtProvider`
+- [ ] For `ArtKosM_` art (not PLC-loaded): use `safeLoadKosinskiModuledPatterns()` instead
 
 ### Phase 8: Factory Registration
 
@@ -318,7 +344,7 @@ registerFactory(Sonic3kObjectIds.ZONE_ENDBOSS,
     (spawn, registry) -> new Sonic3kZoneEndBossInstance(spawn, LevelManager.getInstance()));
 ```
 
-If `Sonic3kObjectRegistry` doesn't exist yet, create it following `Sonic2ObjectRegistry` pattern.
+Register your factory in existing `Sonic3kObjectRegistry.registerDefaultFactories()`.
 
 ### Phase 9: Code Quality
 
@@ -368,12 +394,23 @@ Report any discrepancies with specific line references.
 
 1. **Verify registration** in `Sonic3kObjectRegistry`
 
-2. **Build and test**:
+2. **Add to the correct IMPLEMENTED_IDS set** in `Sonic3kObjectProfile.java`:
+   - `SHARED_IMPLEMENTED_IDS` — for objects that work in **both** zone sets
+   - `S3KL_IMPLEMENTED_IDS` static block — for S3KL-only bosses (zones 0-6: AIZ through LBZ)
+   - `SKL_IMPLEMENTED_IDS` static block — for SKL-only bosses (zones 7-13: MHZ through DDZ)
+
+   S3K reuses boss IDs across zone sets (e.g., 0x91 = AIZMiniboss in S3KL, MHZMinibossTree in SKL).
+   The `getImplementedIds(LevelConfig level)` override routes to the correct set per zone.
+   **Never add a zone-set-specific ID to `SHARED_IMPLEMENTED_IDS`.**
+
+   Keep entries sorted numerically within each set.
+
+3. **Build and test**:
    ```bash
    mvn package
    ```
 
-3. Report completion with summary.
+4. Report completion with summary.
 
 ## Reference Files
 
@@ -384,14 +421,17 @@ Report any discrepancies with specific line references.
 | Base boss | `src/.../level/objects/boss/AbstractBossInstance.java` |
 | Boss state context | `src/.../level/objects/boss/BossStateContext.java` |
 | Boss child base | `src/.../level/objects/boss/AbstractBossChild.java` |
-| Object IDs | `src/.../game/sonic3k/constants/Sonic3kObjectIds.java` (to be created) |
-| ROM offsets | `src/.../game/sonic3k/constants/Sonic3kConstants.java` (to be created) |
-| Audio profile | `src/.../game/sonic3k/audio/Sonic3kAudioProfile.java` (to be created) |
-| Registry | `src/.../game/sonic3k/objects/Sonic3kObjectRegistry.java` (to be created) |
+| Level events | `src/.../game/sonic3k/Sonic3kLevelEventManager.java` |
+| Zone set enum | `src/.../game/sonic3k/constants/S3kZoneSet.java` |
+| Object IDs | `src/.../game/sonic3k/constants/Sonic3kObjectIds.java` |
+| ROM offsets | `src/.../game/sonic3k/constants/Sonic3kConstants.java` |
+| Registry | `src/.../game/sonic3k/objects/Sonic3kObjectRegistry.java` |
+| Audio profile | `src/.../game/sonic3k/audio/Sonic3kAudioProfile.java` |
 | S2 boss examples | `src/.../game/sonic2/objects/bosses/` |
 | Disassembly main | `docs/skdisasm/sonic3k.asm` |
 | Shared sprites | `docs/skdisasm/General/Sprites/` |
 | Zone-specific data | `docs/skdisasm/Levels/{ZONE}/Misc Object Data/` |
+| Implemented IDs | `src/.../tools/Sonic3kObjectProfile.java` (zone-set-aware: `S3KL_IMPLEMENTED_IDS`, `SKL_IMPLEMENTED_IDS`, `SHARED_IMPLEMENTED_IDS`) |
 
 ## Boss-Specific Notes
 

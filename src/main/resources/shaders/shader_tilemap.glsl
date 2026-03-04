@@ -5,6 +5,7 @@ uniform sampler1D PatternLookup;     // RGBA8: R=tileX, G=tileY
 uniform sampler2D AtlasTexture;      // Indexed color atlas (GL_RED)
 uniform sampler2D Palette;           // Combined palette texture
 uniform sampler2D UnderwaterPalette; // Underwater palette
+uniform float TotalPaletteLines;
 
 uniform float TilemapWidth;          // In tiles
 uniform float TilemapHeight;         // In tiles
@@ -24,12 +25,53 @@ uniform int PriorityPass;            // -1 = all, 0 = low, 1 = high
 uniform int MaskOutput;              // 1 = output white mask, 0 = output actual color
 uniform int UseUnderwaterPalette;
 uniform float WaterlineScreenY;
+uniform sampler1D HScrollTexture;    // Per-scanline BG scroll (R32F, 224 entries)
+uniform int PerLineScroll;           // 1 = per-scanline HScroll, 0 = uniform WorldOffsetX
+uniform sampler1D VScrollColumnTexture; // Per-column VScroll (R32F, 20 entries)
+uniform int PerColumnVScroll;        // 1 = apply per-column VScroll to worldY
+uniform float ScreenHeight;          // Visible scanline count (224.0)
+uniform float VDPWrapWidth;          // VDP nametable width in tiles (64.0), 0 = use TilemapWidth
+uniform float VDPWrapHeight;         // VDP nametable height in tiles, 0 = disabled
+uniform float NametableBase;         // Starting tilemap column for VDP-style wrapping
+uniform int FrameCounter;            // For shimmer animation
+uniform int ShimmerStyle;            // 0 = none, 1 = S1 integer-snapped shimmer
 
 out vec4 FragColor;
 
+// Sonic 1 LZ/SBZ3 foreground underwater scroll table (Lz_Scroll_Data).
+// Reference: s1disasm/_inc/DeformLayers.asm (Deform_LZ).
+int sampleS1LzForegroundShimmer(int index8)
+{
+    int idx = index8 & 0xFF;
+    bool negativeBand = (idx >= 128 && idx < 144);
+    bool positiveBand = (idx < 16) || (idx >= 160 && idx < 176);
+
+    if (!negativeBand && !positiveBand) {
+        return 0;
+    }
+
+    int local = idx & 0x0F;
+    int magnitude = 0;
+
+    if (local < 2) {
+        magnitude = 1;
+    } else if (local < 4) {
+        magnitude = 2;
+    } else if (local < 8) {
+        magnitude = 3;
+    } else if (local < 10) {
+        magnitude = 2;
+    } else if (local < 12) {
+        magnitude = 1;
+    }
+
+    return negativeBand ? -magnitude : magnitude;
+}
+
 void main()
 {
-    // Pixel position in viewport space (0..ViewportWidth/Height), origin at bottom-left
+    // Pixel-center aligned position in viewport space (0..ViewportWidth/Height),
+    // origin at bottom-left.
     float viewportX = gl_FragCoord.x - ViewportOffsetX - 0.5;
     float viewportY = gl_FragCoord.y - ViewportOffsetY - 0.5;
 
@@ -37,21 +79,79 @@ void main()
         discard;
     }
 
-    float scaleX = ViewportWidth / WindowWidth;
-    float scaleY = ViewportHeight / WindowHeight;
+    // Convert physical viewport pixels to logical game pixels, snapping to whole
+    // game pixels so scanline/layer sampling stays stable under integer upscaling.
+    float pixelX = floor((viewportX * WindowWidth) / ViewportWidth);
+    float pixelYFromTop = floor(((ViewportHeight - 1.0 - viewportY) * WindowHeight) / ViewportHeight);
 
-    // Logical pixel position in screen space (0..WindowWidth/Height), origin at top-left
-    float pixelX = viewportX / scaleX;
-    float pixelYFromTop = (ViewportHeight - 1.0 - viewportY) / scaleY;
+    // Apply underwater shimmer distortion to horizontal position
+    float shimmerDistortion = 0.0;
+    if (UseUnderwaterPalette == 1 && pixelYFromTop >= WaterlineScreenY && ShimmerStyle > 0) {
+        if (ShimmerStyle == 1) {
+            // ROM-accurate S1 foreground shimmer:
+            // Deform_LZ writes FG underwater HScroll as:
+            //   fgScroll = -screenposx + Lz_Scroll_Data[(v_lz_deform + screenposy + line) & 0xFF]
+            // with v_lz_deform incrementing by +0x80 each frame.
+            // On 68000, move.b from a word address reads the high byte first (big-endian),
+            // so the sampled phase advances by +1 every 2 frames (not 0/128 flip).
+            int deformPhase = (FrameCounter >> 1) & 0xFF;
+            int worldLine = int(floor(WorldOffsetY + pixelYFromTop));
+            int tableIndex = (worldLine + deformPhase) & 0xFF;
+            int tableOffset = sampleS1LzForegroundShimmer(tableIndex);
 
-    float worldX = WorldOffsetX + pixelX;
-    float worldY = WorldOffsetY + pixelYFromTop;
+            // Convert HScroll delta to world-space sample offset.
+            shimmerDistortion = -float(tableOffset);
+        }
+    }
+
+    float worldX;
+    if (PerLineScroll == 1) {
+        // Per-scanline horizontal scroll: each scanline has its own BG offset.
+        // Matches VDP behavior where HScroll RAM provides per-line offsets.
+        float scanline = clamp(pixelYFromTop, 0.0, ScreenHeight - 1.0);
+        float scanlineTexCoord = (scanline + 0.5) / ScreenHeight;
+        float hScrollThis = texture(HScrollTexture, scanlineTexCoord).r * 32767.0;
+        worldX = pixelX - hScrollThis;
+    } else {
+        worldX = WorldOffsetX + pixelX + shimmerDistortion;
+    }
+    float columnVScroll = 0.0;
+    if (PerColumnVScroll == 1) {
+        float column = clamp(floor(pixelX / 16.0), 0.0, 19.0);
+        float columnTexCoord = (column + 0.5) / 20.0;
+        columnVScroll = texture(VScrollColumnTexture, columnTexCoord).r * 32767.0;
+    }
+    float worldY = WorldOffsetY + pixelYFromTop + columnVScroll;
 
     float tileXf = floor(worldX / 8.0);
     float tileYf = floor(worldY / 8.0);
 
-    tileXf = mod(tileXf, TilemapWidth);
-    if (tileXf < 0.0) tileXf += TilemapWidth;
+    if (VDPWrapWidth > 0.0) {
+        // VDP nametable simulation for AIZ ocean-to-beach transition.
+        // Two modes based on whether the camera has started revealing beach tiles:
+        //
+        // Transition (NametableBase > 0) with tileXf >= 0:
+        //   Read tiles directly from the level layout. The layout already has
+        //   ocean at low positions and beach further right, so per-line HScroll
+        //   naturally produces the correct mix without any ring-buffer boundary
+        //   artifacts (no staircase).
+        //
+        // Ocean phase (NametableBase == 0) or negative tileXf:
+        //   Wrap within VDP width so the 64-tile ocean pattern repeats.
+        //   Deep bands with negative worldX always see ocean here, which is
+        //   the visually correct result for underwater scroll layers.
+        if (NametableBase > 0.0 && tileXf >= 0.0) {
+            tileXf = mod(tileXf, TilemapWidth);
+            if (tileXf < 0.0) tileXf += TilemapWidth;
+        } else {
+            float pos = mod(tileXf, VDPWrapWidth);
+            if (pos < 0.0) pos += VDPWrapWidth;
+            tileXf = pos;
+        }
+    } else {
+        tileXf = mod(tileXf, TilemapWidth);
+        if (tileXf < 0.0) tileXf += TilemapWidth;
+    }
 
     if (WrapY == 1) {
         tileYf = mod(tileYf, TilemapHeight);
@@ -60,6 +160,16 @@ void main()
         if (tileYf < 0.0 || tileYf >= TilemapHeight) {
             discard;
         }
+    }
+
+    // VDP vertical nametable wrap - maps tall tilemaps back into valid data range.
+    // On real hardware the BG nametable is 64x32 cells; tiles beyond row 31 wrap
+    // back to row 0.  Zones whose BG data fits within 32 rows (e.g. HTZ) set
+    // VDPWrapHeight = 32 so the earthquake scroll (tileY ~98) reads valid tiles.
+    // Zones with taller BG data (e.g. MCZ, 85+ rows) leave VDPWrapHeight = 0.
+    if (VDPWrapHeight > 0.0) {
+        tileYf = mod(tileYf, VDPWrapHeight);
+        if (tileYf < 0.0) tileYf += VDPWrapHeight;
     }
 
     vec2 tileUv = vec2((tileXf + 0.5) / TilemapWidth, (tileYf + 0.5) / TilemapHeight);
@@ -114,7 +224,7 @@ void main()
     }
 
     float paletteX = (index + 0.5) / 16.0;
-    float paletteY = (paletteIndex + 0.5) / 4.0;
+    float paletteY = (paletteIndex + 0.5) / TotalPaletteLines;
     vec4 color;
     if (UseUnderwaterPalette == 1 && pixelYFromTop >= WaterlineScreenY) {
         color = texture(UnderwaterPalette, vec2(paletteX, paletteY));

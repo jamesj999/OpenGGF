@@ -2,6 +2,16 @@
 
 This skill provides guidance on finding, identifying, and interpreting items in the Sonic 3 & Knuckles disassembly (`docs/skdisasm/`).
 
+## S&K vs S3 ROM Halves — Address Selection Rule
+
+The locked-on ROM ("Sonic and Knuckles & Sonic 3") contains **two halves**:
+- **S&K half** (0x000000–0x1FFFFF): The primary S&K code and data — this is what the engine runs
+- **S3 half** (0x200000–0x3FFFFF): The Sonic 3 standalone code and data
+
+Many shared assets (art, mappings, palettes) exist in **both halves** with identical binary content. **Always use S&K-side addresses (< 0x200000)** for all ROM constants. The S3 copies at >= 0x200000 are not referenced by the S3KL code path.
+
+When RomOffsetFinder returns multiple results for the same label — one from `sonic3k.asm` (S&K) and one from `s3.asm` (S3) — always use the `sonic3k.asm` result. Similarly, when reading disassembly source, prefer `sonic3k.asm` over `s3.asm` for object code, as the S3KL versions may contain zone-specific overrides (e.g., FBZ art tile) absent from the S3 version.
+
 ## Directory Structure
 
 S3K is organized very differently from S1/S2 — per-zone directories under `Levels/`:
@@ -51,42 +61,54 @@ S3K is organized very differently from S1/S2 — per-zone directories under `Lev
 
 ```bash
 # Search by partial name
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search AIZ" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search AIZ" -q
 
 # Search for zone-specific items
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search MHZ" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search MHZ" -q
 
 # Search for palettes
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Pal_" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Pal_" -q
 
 # Search for specific object art
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_" -q
 ```
 
 ### List Command
 
 ```bash
 # List all Nemesis-compressed items
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k list nem" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k list nem" -q
 
 # List all Kosinski Moduled items
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k list kosm" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k list kosm" -q
 
 # List all compression types
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k list" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k list" -q
 ```
 
 ### Verify and Export
 
 ```bash
 # Verify a single offset
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k verify ArtNem_TitleScreenText" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k verify ArtNem_TitleScreenText" -q
 
 # Batch verify all Nemesis items
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k verify-batch nem" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k verify-batch nem" -q
 
 # Export as Java constants
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k export nem ART_" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k export nem ART_" -q
+```
+
+### Search ROM Binary
+
+Use `search-rom` to find inline assembly data (pointer tables, animation scripts, AniPLC tables, `dc.w`/`dc.b` directives) that have no binary file — the `search` and `find` commands only work with `binclude` items. This is especially useful for S3K where many data structures are inline.
+
+```bash
+# Search for known hex byte pattern (spaces optional)
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search-rom \"0002 FF2A 2940 5CC0\"" -q
+
+# Restrict search to a specific ROM range
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search-rom \"0002\" 0x28000 0x29000" -q
 ```
 
 ## Label Naming Conventions
@@ -151,6 +173,26 @@ S3K uses different label prefixes from S1 and S2:
 | EMZ | Endless Mine Zone | S3-only |
 | ALZ | Azure Lake Zone | S3-only competition |
 
+## Dual Object Pointer Tables (Zone-Set System)
+
+S3K uses **two separate object pointer tables** that remap many IDs depending on the zone:
+
+| Set | Disasm Name | Engine Name | Zones | File |
+|-----|------------|-------------|-------|------|
+| SK Set 1 | `Sprite_Listing3` | S3KL (S3K-Level Object Set) | 0-6 (AIZ through LBZ) | `Levels/Misc/Object pointers - SK Set 1.asm` (256 entries) |
+| SK Set 2 | `Sprite_ListingK` | SKL (SK-Level Object Set) | 7-13 (MHZ through DDZ) | `Levels/Misc/Object pointers - SK Set 2.asm` (185 entries) |
+
+**Selection logic** (sonic3k.asm line ~37411): Purely zone-based, NOT game-mode-based. Zones 0-6 use S3KL, zones 7+ use SKL.
+
+The same numeric object ID can map to completely different objects:
+- 0x03: AIZHollowTree (S3KL) vs MHZTwistedVine (SKL)
+- 0x8F: CaterKillerJr (S3KL) vs Butterdroid (SKL)
+- 0x9C: Spiker (S3KL) vs LRZRockCrusher (SKL)
+
+Many IDs are shared between both sets (Ring, Monitor, PathSwap, Spring, Spikes, etc.).
+
+**Engine support:** `S3kZoneSet` enum (`S3KL`/`SKL`), `Sonic3kObjectRegistry.getPrimaryName(id, zoneSet)`, and `Sonic3kObjectProfile` with per-level name/badnik/boss resolution.
+
 ## Object Code Organization
 
 Unlike S1 (separate files per object) and S2 (inline in `s2.asm`), S3K objects are:
@@ -211,7 +253,7 @@ S3K uses **S2-style field names** (same as S2, different from S1):
 | `routine_secondary` | 0x3C | byte | Secondary routine |
 | `parent` | 0x42 | word | Parent object address |
 
-**Object size:** `$4A` bytes (larger than S2's `$4A`).
+**Object size:** `$4A` bytes (same as S2).
 
 ### S3K-Specific Features
 
@@ -275,26 +317,26 @@ Size byte encoding (same as S1/S2):
 
 ```bash
 # Search for specific badnik
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Rhinobot" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Rhinobot" -q
 
 # Find all Kosinski Moduled art
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtKosM_" -q
 
 # Find all Nemesis art
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtNem_" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search ArtNem_" -q
 ```
 
 ### Finding Zone Data
 
 ```bash
 # All AIZ resources
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search AIZ" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search AIZ" -q
 
 # Zone palette
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Pal_AIZ" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search Pal_AIZ" -q
 
 # Animated palette
-mvn exec:java -Dexec.mainClass="uk.co.jamesj999.sonic.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search AnPal_AIZ" -q
+mvn exec:java -Dexec.mainClass="com.openggf.tools.disasm.RomOffsetFinder" -Dexec.args="--game s3k search AnPal_AIZ" -q
 ```
 
 ### Finding Object Code
