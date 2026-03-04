@@ -72,8 +72,7 @@ public class Sonic1BossFireInstance extends AbstractObjectInstance implements To
     private int prevX;      // objoff_30
     private int edgeX;      // objoff_32
     private int savedY;     // objoff_38
-    private int counter29;  // objoff_29
-    private int bounceCount;
+    private int counter29;  // objoff_29 (used for drop delay, bounce count, AND delete countdown)
 
     // Status/GFX flags used by AnimateSprite path
     private boolean statusHFlip; // obStatus bit 0
@@ -140,7 +139,6 @@ public class Sonic1BossFireInstance extends AbstractObjectInstance implements To
         this.edgeX = parent.edgeX;
         this.savedY = parent.savedY;
         this.counter29 = parent.counter29;
-        this.bounceCount = parent.bounceCount;
         this.statusHFlip = parent.statusHFlip;
         this.statusVFlip = parent.statusVFlip;
         this.gfxHighBit = parent.gfxHighBit;
@@ -239,7 +237,7 @@ public class Sonic1BossFireInstance extends AbstractObjectInstance implements To
         prevX = currentX;
         savedY = currentY;
         edgeX = currentX;
-        bounceCount = 3;
+        counter29 = 3;
         animId = 2;
         animStep = 0;
         animTimer = 0;
@@ -304,8 +302,8 @@ public class Sonic1BossFireInstance extends AbstractObjectInstance implements To
             return;
         }
 
-        bounceCount--;
-        if (bounceCount <= 0) {
+        counter29--;
+        if (counter29 <= 0) {
             setDestroyed(true);
             return;
         }
