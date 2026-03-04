@@ -6,6 +6,7 @@ import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.Sensor;
@@ -26,6 +27,7 @@ public class TestTornadoObjectInstance {
         Camera.resetInstance();
         SpriteManager.getInstance().resetState();
         LevelManager.getInstance().resetState();
+        AizPlaneIntroInstance.resetIntroPhaseState();
     }
 
     @After
