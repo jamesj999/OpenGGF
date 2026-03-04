@@ -236,15 +236,8 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
             objectManager.markRemembered(spawn);
         }
 
-        // Spawn explosion at lock position
+        // Spawn explosion at lock position (plays explosion SFX on init, matching ROM)
         spawnExplosion(lockX, lockY);
-
-        // Play explosion sound
-        try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.EXPLOSION.id);
-        } catch (Exception e) {
-            LOGGER.warning("Failed to play explosion sound: " + e.getMessage());
-        }
 
         // Lock starts flying off
         lockXVel = LOCK_X_VEL;
@@ -480,7 +473,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, x, y, renderManager);
+        ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, x, y, renderManager, Sonic2Sfx.EXPLOSION.id);
         objectManager.addDynamicObject(explosion);
     }
 

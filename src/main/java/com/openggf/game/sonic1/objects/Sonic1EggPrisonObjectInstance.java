@@ -4,6 +4,7 @@ import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Music;
+import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.objects.EggPrisonAnimalInstance;
 import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
@@ -279,9 +280,9 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
         // ROM: lsr.w #8,d0 / lsr.b #3,d0 → Y offset [0, 31]
         int yOff = ThreadLocalRandom.current().nextInt(EXPLOSION_Y_RANGE);
 
-        // Explosion object 0x3F uses sfx_Bomb sound
+        // ROM: Explosion object 0x3F plays sfx_Bomb on init
         ExplosionObjectInstance explosion = new ExplosionObjectInstance(
-                0x3F, baseX + xOff, baseY + yOff, renderManager);
+                0x3F, baseX + xOff, baseY + yOff, renderManager, Sonic1Sfx.BOSS_EXPLOSION.id);
         objectManager.addDynamicObject(explosion);
     }
 
