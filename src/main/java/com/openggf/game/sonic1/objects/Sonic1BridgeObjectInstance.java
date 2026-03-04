@@ -111,9 +111,7 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
     }
 
     private int getHalfWidth() {
-        // From Bri_Solid: d1 = subtype << 3; d1 += 8
-        // This gives (logCount * 8) + 8 as half-width for collision
-        // But for slope data we use the actual half-width
+        // Half the visual/collision width: logCount * 16 / 2 = logCount * 8
         return (logCount * LOG_WIDTH) / 2;
     }
 
@@ -121,9 +119,20 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
 
     @Override
     public SolidObjectParams getSolidParams() {
-        // From Bri_Solid: half-width = logCount * 8 + 8, half-heights for platform collision
-        int halfWidth = (logCount * 8) + 8;
-        return new SolidObjectParams(halfWidth, 0x04, 0x04);
+        // ROM Bri_Solid: d1 = subtype*8+8 (origin shift), d2 = subtype*16 (full width).
+        // The range is [bridgeX-N*8-8, bridgeX+N*8-8) — asymmetric, centered at bridgeX-8.
+        // We replicate this with halfWidth = N*8 (half the full width) and offsetX = -8
+        // to shift the collision center 8px left.
+        int halfWidth = logCount * 8;
+        // ROM Plat_NoXCheck: subq.w #8,d0 — landing/riding surface is at obY-8.
+        // offsetY = -8 replicates this for both the landing and riding paths.
+        //
+        // halfHeight = 0: ROM Platform3 does NOT use the object's half-height for
+        // landing position — only the fixed -8 from Plat_NoXCheck and the player's
+        // yRadius. Our landing formula includes halfHeight in the position
+        // calculation, so we set it to 0 to avoid double-counting the -8.
+        // The riding path ignores halfHeight for sloped objects (uses slope sample).
+        return new SolidObjectParams(halfWidth, 0, 0, -8, -8);
     }
 
     @Override

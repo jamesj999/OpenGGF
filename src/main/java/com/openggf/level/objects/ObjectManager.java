@@ -1829,7 +1829,10 @@ public class ObjectManager {
                     ridingHalfWidth = topLandingHalfWidth;
                 }
 
-                int relX = player.getCentreX() - currentX + ridingHalfWidth;
+                // ROM: Bounds check uses collision-offset X (anchorX = obX + offsetX),
+                // while delta tracking uses raw object X for movement following.
+                int boundsX = currentX + params.offsetX();
+                int relX = player.getCentreX() - boundsX + ridingHalfWidth;
                 // Keep riding contact with the same sticky X tolerance used by collision
                 // resolution to avoid one-frame edge drops on moving solids.
                 // For objects with a narrowed top-standing area, avoid extending beyond
