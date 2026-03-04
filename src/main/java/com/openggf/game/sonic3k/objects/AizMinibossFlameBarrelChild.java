@@ -27,6 +27,16 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
             {0, -0x20}, {9, -0x1C}, {0x12, -0x18}
     };
 
+    // ROM byte_6912F (Animate_RawMultiDelay, first pair skipped on initial play):
+    // Open: frame 4 (timer 5 = 6t), frame 5 (timer $17 = 24t), $F4
+    private static final int[] OPEN_FRAMES = {4, 5};
+    private static final int[] OPEN_DURATIONS = {6, 24};
+
+    // ROM byte_69136 (Animate_RawMultiDelay, first pair skipped on initial play):
+    // Close: frame 5 (timer $17 = 24t), frame 4 (timer 5 = 6t), frame 3 (timer 5 = 6t), $F4
+    private static final int[] CLOSE_FRAMES = {5, 4, 3};
+    private static final int[] CLOSE_DURATIONS = {24, 6, 6};
+
     private enum State {
         INIT,
         WAIT_ACTIVATE,
@@ -46,6 +56,7 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
     private int timer;
     private int mappingFrame = 3;
     private int cutsceneCounter;
+    private int animIndex;
 
     public AizMinibossFlameBarrelChild(AbstractBossInstance parent, int barrelIndex, boolean cutsceneVariant) {
         super(parent, "AIZMinibossBarrel" + barrelIndex, 4, 0x90);
@@ -100,15 +111,23 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
                 if (--timer >= 0) {
                     break;
                 }
-                timer = 8;
-                mappingFrame = 4;
+                // ROM byte_6912F: begin open animation (first pair skipped)
+                animIndex = 0;
+                mappingFrame = OPEN_FRAMES[0];
+                timer = OPEN_DURATIONS[0];
                 state = State.OPENING;
             }
             case OPENING -> {
                 if (--timer > 0) {
-                    mappingFrame = 4;
                     break;
                 }
+                animIndex++;
+                if (animIndex < OPEN_FRAMES.length) {
+                    mappingFrame = OPEN_FRAMES[animIndex];
+                    timer = OPEN_DURATIONS[animIndex];
+                    break;
+                }
+                // Open animation complete — start firing
                 mappingFrame = 5;
                 if (cutsceneVariant) {
                     cutsceneCounter = 3;
@@ -123,26 +142,33 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
                 state = State.BETWEEN_SHOTS;
             }
             case FIRING_MINIBOSS -> {
+                // ROM loc_68C64: fire shot and immediately begin close animation
                 spawnShot(AizMinibossBarrelShotChild.Mode.ADVANCED_COLLIDING);
-                timer = 10;
-                state = State.CLOSING;
+                enterClosingAnimation();
             }
             case BETWEEN_SHOTS -> {
+                // ROM loc_687DC: checks tst.b $39 EVERY frame during wait,
+                // exits immediately once counter goes negative after 4th shot
+                if (cutsceneCounter < 0) {
+                    enterClosingAnimation();
+                    break;
+                }
                 if (--timer >= 0) {
                     break;
                 }
-                if (cutsceneCounter < 0) {
-                    timer = 10;
-                    state = State.CLOSING;
-                } else {
-                    state = State.FIRING_CUTSCENE;
-                }
+                state = State.FIRING_CUTSCENE;
             }
             case CLOSING -> {
-                mappingFrame = 4;
                 if (--timer > 0) {
                     break;
                 }
+                animIndex++;
+                if (animIndex < CLOSE_FRAMES.length) {
+                    mappingFrame = CLOSE_FRAMES[animIndex];
+                    timer = CLOSE_DURATIONS[animIndex];
+                    break;
+                }
+                // Close animation complete
                 mappingFrame = 3;
                 if (cutsceneVariant) {
                     state = State.IDLE;
@@ -180,7 +206,15 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
         levelManager.getObjectManager().addDynamicObject(
                 new AizMinibossBarrelShotFlareChild(this));
         levelManager.getObjectManager().addDynamicObject(
-                new AizMinibossBarrelShotChild(parent, barrelIndex, currentX, currentY + 4, mode));
+                new AizMinibossBarrelShotChild(parent, barrelIndex << 1, currentX, currentY + 4, mode));
+    }
+
+    private void enterClosingAnimation() {
+        // ROM byte_69136: close animation (first pair skipped on initial play)
+        animIndex = 0;
+        mappingFrame = CLOSE_FRAMES[0];
+        timer = CLOSE_DURATIONS[0];
+        state = State.CLOSING;
     }
 
     private boolean isActivatedByParent() {

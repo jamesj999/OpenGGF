@@ -571,7 +571,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             // Entry 1: small debris art
             registerSheet(Sonic3kObjectArtKeys.AIZ_MINIBOSS_SMALL,
                     buildSheetFromPatterns(decompressed.get(1), reader,
-                            Sonic3kConstants.MAP_AIZ_MINIBOSS_SMALL_ADDR, 0));
+                            Sonic3kConstants.MAP_AIZ_MINIBOSS_SMALL_ADDR, 1));
 
             // Entry 2: flame art
             registerSheet(Sonic3kObjectArtKeys.AIZ_MINIBOSS_FLAME,

@@ -25,6 +25,11 @@ public class AizMinibossFlameChild extends AbstractObjectInstance implements Tou
     private static final int COLLISION_FLAGS = 0x8B;
     private static final int SHIELD_REACTION = 1 << 4;
 
+    // ROM byte_69164 (Animate_RawMultiDelay, first pair skipped on initial play):
+    // Explosion sequence: frame, duration (ROM timer+1 = visible ticks)
+    private static final int[] EXPLODE_FRAMES = {2, 3, 4, 5};
+    private static final int[] EXPLODE_DURATIONS = {2, 3, 5, 2};
+
     private enum Phase {
         WAIT,
         FLAME,
@@ -40,7 +45,7 @@ public class AizMinibossFlameChild extends AbstractObjectInstance implements Tou
     private int waitTimer;
     private int frame;
     private int animTimer;
-    private int phaseTimer;
+    private int explodeIndex;
 
     private int worldX;
     private int worldY;
@@ -62,11 +67,12 @@ public class AizMinibossFlameChild extends AbstractObjectInstance implements Tou
         this.worldY = spawn.y();
 
         // ROM loc_68928: timer = (6 - subtype) * 2
+        // CreateChild1_Normal gives subtypes 0, 2, 4, 6 → waits 12, 8, 4, 0
         int raw = (6 - this.subtype) * 2;
         this.waitTimer = Math.max(0, raw);
         this.frame = 0;
         this.animTimer = 0;
-        this.phaseTimer = 0;
+        this.explodeIndex = 0;
     }
 
     @Override
@@ -79,21 +85,19 @@ public class AizMinibossFlameChild extends AbstractObjectInstance implements Tou
                 if (waitTimer < 0) {
                     phase = Phase.FLAME;
                     frame = 0;
-                    animTimer = 1;
-                    phaseTimer = 12;
+                    // ROM byte_6915F (Animate_RawMultiDelay, first pair skipped):
+                    // data[2]=frame 0, data[3]=delay 1 → 2 ticks, then $F4 → explosion
+                    animTimer = 2;
                 }
             }
             case FLAME -> {
+                // ROM: frame 0 for 2 ticks only, then transition to explosion
                 animTimer--;
                 if (animTimer <= 0) {
-                    animTimer = 2;
-                    frame = (frame == 0) ? 1 : 0;
-                }
-                phaseTimer--;
-                if (phaseTimer <= 0) {
                     phase = Phase.EXPLODE;
-                    frame = 2;
-                    animTimer = 3;
+                    explodeIndex = 0;
+                    frame = EXPLODE_FRAMES[0];
+                    animTimer = EXPLODE_DURATIONS[0];
                 }
             }
             case EXPLODE -> {
@@ -101,11 +105,13 @@ public class AizMinibossFlameChild extends AbstractObjectInstance implements Tou
                 if (animTimer > 0) {
                     return;
                 }
-                animTimer = 3;
-                frame++;
-                if (frame > 4) {
+                explodeIndex++;
+                if (explodeIndex >= EXPLODE_FRAMES.length) {
                     setDestroyed(true);
+                    return;
                 }
+                frame = EXPLODE_FRAMES[explodeIndex];
+                animTimer = EXPLODE_DURATIONS[explodeIndex];
             }
         }
     }

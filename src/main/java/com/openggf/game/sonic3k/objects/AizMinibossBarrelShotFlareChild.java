@@ -23,9 +23,11 @@ public class AizMinibossBarrelShotFlareChild extends AbstractObjectInstance {
     private static final int PALETTE_OVERRIDE = 0;
     private static final int Y_OFFSET = 4;
 
-    // byte_6913F: dc.b 7,1, 7,1, 8,1, 9,3, A,3, B,3, F4
-    private static final int[] FRAMES = {7, 7, 8, 9, 10, 11};
-    private static final int[] DURATIONS = {1, 1, 1, 3, 3, 3};
+    // ROM byte_6913F (Animate_RawMultiDelay, first pair skipped on initial play):
+    // Visible sequence: frame 7 (timer 1=2t), 8 (timer 1=2t), 9 (timer 3=4t),
+    //                   10 (timer 3=4t), 11 (timer 3=4t) = 16 ticks
+    private static final int[] FRAMES = {7, 8, 9, 10, 11};
+    private static final int[] DURATIONS = {2, 2, 4, 4, 4};
 
     private final AbstractObjectInstance anchor;
     private int currentX;

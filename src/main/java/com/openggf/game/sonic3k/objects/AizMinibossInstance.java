@@ -335,11 +335,12 @@ public class AizMinibossInstance extends AbstractBossInstance {
             return;
         }
         for (int i = 0; i < BREATH_FLAME_X_OFFSETS.length; i++) {
+            // CreateChild1_Normal sets subtype = d2 (increments by 2): 0, 2, 4, 6
             objectManager.addDynamicObject(new AizMinibossFlameChild(
                     this,
                     BREATH_FLAME_X_OFFSETS[i],
                     BREATH_FLAME_Y_OFFSETS[i],
-                    i));
+                    i * 2));
         }
     }
 

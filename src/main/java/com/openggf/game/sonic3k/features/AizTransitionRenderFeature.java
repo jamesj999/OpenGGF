@@ -5,10 +5,12 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.events.FireWallRenderState;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.TilemapGpuRenderer;
+import com.openggf.level.LevelManager;
 
 import static java.lang.Math.ceil;
 
@@ -18,13 +20,12 @@ import static java.lang.Math.ceil;
  * - post-sprite fire-wall overlay draw during AIZ1 miniboss transition
  */
 public final class AizTransitionRenderFeature {
+    private static final java.util.logging.Logger LOG =
+            java.util.logging.Logger.getLogger(AizTransitionRenderFeature.class.getName());
     private static final int AIZ_PRE_FIRE_HAZE_START_X = 0x2E00;
-    private static final int FLAME_OVERLAY_SOURCE_BASE_X = 0x1000;
 
     private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
-
-    private int currentZone = -1;
-    private int currentAct = -1;
+    private boolean loggedFirstRender;
 
     // Mutable state consumed by the pre-allocated render command.
     private int pendingScreenWidth;
@@ -65,8 +66,12 @@ public final class AizTransitionRenderFeature {
 
                 graphicsManager.enableScissor(viewportX, viewportY, viewportWidth, scissorHeight);
                 try {
+                    // ROM: the fire wall is the BG layer scrolled up by
+                    // Camera_Y_pos_BG_copy. The BG has solid ground/terrain
+                    // tiles that appear as fire with the fire palette.
+                    // FG at this position is mostly transparent sky.
                     tilemapRenderer.render(
-                            TilemapGpuRenderer.Layer.FOREGROUND,
+                            TilemapGpuRenderer.Layer.BACKGROUND,
                             pendingScreenWidth,
                             pendingScreenHeight,
                             viewportX,
@@ -81,7 +86,7 @@ public final class AizTransitionRenderFeature {
                             pendingPaletteTextureId,
                             pendingUnderwaterPaletteTextureId != null ? pendingUnderwaterPaletteTextureId : 0,
                             -1,
-                            false,
+                            true,
                             false,
                             false,
                             0.0f);
@@ -91,17 +96,15 @@ public final class AizTransitionRenderFeature {
             });
 
     public void onZoneInit(int zoneIndex, int actIndex) {
-        currentZone = zoneIndex;
-        currentAct = actIndex;
+        // No-op; zone/act are read from LevelManager during render.
     }
 
     public void reset() {
-        currentZone = -1;
-        currentAct = -1;
         pendingCoverHeight = 0;
         pendingAtlasTextureId = null;
         pendingPaletteTextureId = null;
         pendingUnderwaterPaletteTextureId = null;
+        loggedFirstRender = false;
     }
 
     public boolean shouldEnableForegroundHeatHaze(int zoneIndex, int actIndex, int cameraX) {
@@ -116,12 +119,16 @@ public final class AizTransitionRenderFeature {
     }
 
     public void renderFlameOverlay(Camera camera) {
-        if (camera == null || currentZone != Sonic3kZoneIds.ZONE_AIZ || currentAct != 0) {
+        if (camera == null) {
+            return;
+        }
+        LevelManager levelManager = LevelManager.getInstance();
+        if (levelManager.getCurrentZone() != Sonic3kZoneIds.ZONE_AIZ) {
             return;
         }
 
         Sonic3kAIZEvents events = getAizEvents();
-        if (events == null || (!events.isFireTransitionActive() && !events.isAct2TransitionRequested())) {
+        if (events == null) {
             return;
         }
 
@@ -131,8 +138,8 @@ public final class AizTransitionRenderFeature {
             return;
         }
 
-        int coverHeight = events.getFireWallCoverHeightPx(screenHeight);
-        if (coverHeight <= 0) {
+        FireWallRenderState renderState = events.getFireWallRenderState(screenHeight);
+        if (renderState == null || renderState.coverHeightPx() <= 0) {
             return;
         }
 
@@ -143,22 +150,23 @@ public final class AizTransitionRenderFeature {
             return;
         }
 
-        // Draw only the covered lower section. Keep source anchored to the transition
-        // strip's final bottom to avoid sampling unrelated rows (sky/ocean) mid-rise.
-        int sourceBottomY = events.getFireTransitionOverlayBottomY();
-        int sourceOffsetY = sourceBottomY - screenHeight;
-
         pendingScreenWidth = screenWidth;
         pendingScreenHeight = screenHeight;
-        pendingCoverHeight = coverHeight;
-        pendingWorldOffsetX = events.getFireTransitionBgX();
-        pendingWorldOffsetY = sourceOffsetY;
+        pendingCoverHeight = renderState.coverHeightPx();
+        pendingWorldOffsetX = renderState.sourceWorldX();
+        pendingWorldOffsetY = renderState.sourceWorldY();
         pendingAtlasTextureId = atlasTextureId;
         pendingPaletteTextureId = paletteTextureId;
         pendingUnderwaterPaletteTextureId = graphicsManager.getUnderwaterPaletteTextureId();
 
-        // Keep source X anchored to the transition strip base; wave phase is applied by events.
-        pendingWorldOffsetX = Math.max(FLAME_OVERLAY_SOURCE_BASE_X, pendingWorldOffsetX);
+        if (!loggedFirstRender) {
+            loggedFirstRender = true;
+            LOG.info("AIZ fire overlay: FIRST RENDER coverH=" + pendingCoverHeight
+                    + " worldX=0x" + Integer.toHexString((int) pendingWorldOffsetX)
+                    + " worldY=0x" + Integer.toHexString((int) pendingWorldOffsetY)
+                    + " screenW=" + screenWidth + " screenH=" + screenHeight);
+        }
+
         graphicsManager.registerCommand(flameOverlayCommand);
     }
 

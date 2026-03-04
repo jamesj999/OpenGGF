@@ -27,7 +27,6 @@ public class AizMinibossDebrisChild extends AbstractObjectInstance {
     private int yFixed;
     private final int xVel;
     private final int mappingFrame;
-
     public AizMinibossDebrisChild(int x, int y, int xVel, int mappingFrame) {
         super(new ObjectSpawn(x, y, 0x90, 0, 0, false, 0), "AIZMinibossDebris");
         this.worldX = x;

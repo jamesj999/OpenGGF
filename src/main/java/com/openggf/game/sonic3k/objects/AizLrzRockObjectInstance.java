@@ -1,6 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayerCharacter;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -16,6 +18,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.ShieldType;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -64,6 +67,47 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
     private static final int BIT_PUSHABLE = 0x02;
     private static final int BIT_BREAK_SIDE = 0x04;
     private static final int BIT_BREAK_BOTTOM = 0x08;
+
+    // Side-break speed threshold: ROM loc_1FD90 cmpi.w #$480,d0
+    private static final int SIDE_BREAK_SPEED_THRESHOLD = 0x480;
+
+    // -----------------------------------------------------------------------
+    // Per-frame debris position and velocity tables from ROM.
+    // ROM: sub_2011E -> sub_2013A uses off_2026E (positions) and off_202E4
+    // (velocities), both indexed by mapping_frame.
+    //
+    // Each entry: {xOffset, yOffset} (positions) or {xVel, yVel} (velocities).
+    // Velocities have their sign randomised per piece by the ROM (odd pieces
+    // get negated X); we apply the same pattern below.
+    // -----------------------------------------------------------------------
+
+    /** Per-frame debris position offsets from rock centre (off_2026E). */
+    private static final int[][][] DEBRIS_POSITIONS = {
+            // Frame 0: 8 pieces
+            {{-8, -0x18}, {0x0B, -0x1C}, {-4, -0x0C}, {0x0C, -4},
+             {-0x0C, 4}, {4, 0x0C}, {-0x0C, 0x1C}, {0x0C, 0x1C}},
+            // Frame 1: 5 pieces
+            {{-4, -0x0C}, {0x0B, -0x0C}, {-4, -4}, {-0x0C, 0x0C}, {0x0C, 0x0C}},
+            // Frame 2: 4 pieces
+            {{-4, -4}, {0x0C, -4}, {-0x0C, 4}, {0x0C, 4}},
+            // Frame 3: 6 pieces
+            {{-0x0C, -4}, {0x0C, -4}, {-0x0C, 4}, {0x0C, 4}, {-8, 0x10}, {8, 0x10}},
+    };
+
+    /** Per-frame debris velocities in subpixels (off_202E4). */
+    private static final int[][][] DEBRIS_VELOCITIES = {
+            // Frame 0: 8 pieces
+            {{-0x300, -0x300}, {-0x2C0, -0x280}, {-0x2C0, -0x280}, {-0x280, -0x200},
+             {-0x280, -0x180}, {-0x240, -0x180}, {-0x240, -0x100}, {-0x200, -0x100}},
+            // Frame 1: 5 pieces
+            {{-0x300, -0x300}, {-0x2C0, -0x280}, {-0x280, -0x200},
+             {-0x240, -0x180}, {-0x200, -0x100}},
+            // Frame 2: 4 pieces
+            {{-0x300, -0x300}, {-0x2C0, -0x280}, {-0x280, -0x200}, {-0x200, -0x100}},
+            // Frame 3: 6 pieces
+            {{-0x300, -0x300}, {-0x2C0, -0x280}, {-0x2C0, -0x280}, {-0x280, -0x200},
+             {-0x240, -0x180}, {-0x200, -0x100}},
+    };
 
     // Zone variant determines art key and frame mapping
     private enum ZoneVariant {
@@ -145,11 +189,11 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
             }
         }
 
-        // Bottom break: player hits from below
+        // Bottom break: player hits from below (Bug 1 fix)
+        // ROM (loc_1FF48): breaks on ANY bottom contact - no spin check.
+        // SolidObjectFull contact bits 2|3 (swap d6, andi.w #4|8).
         if ((behaviorBits & BIT_BREAK_BOTTOM) != 0 && contact.touchBottom()) {
-            if (isPlayerSpinning(player)) {
-                breakRock(player);
-            }
+            breakRock(player);
         }
     }
 
@@ -161,10 +205,17 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         }
 
         // Check break from top: player standing + rolling/spinning
+        // ROM (sub_1FBAE): checks rolling animation, then launches player upward
         if ((behaviorBits & BIT_BREAK_TOP) != 0 && playerStandingOnRock && player != null) {
             if (isPlayerSpinning(player)) {
-                // Launch player upward (ROM: move.w #-$300,y_vel(a1))
+                // ROM: move.w #-$300,y_vel(a1) — launch player upward
                 player.setYSpeed((short) -0x300);
+                // Bug 6 fix: detach player from object and set airborne
+                // ROM: bset #Status_InAir,status(a1)
+                //      bclr #Status_OnObj,status(a1)
+                //      move.b #2,routine(a1) — air physics
+                player.setAir(true);
+                player.setOnObject(false);
                 breakRock(player);
                 playerStandingOnRock = false;
                 playerPushingSide = false;
@@ -172,9 +223,14 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
             }
         }
 
-        // Check break from sides: player rolling with sufficient speed
+        // Check break from sides (Bug 3, Bug 4 fix)
+        // ROM (loc_1FD72-loc_1FDA4): ordered checks:
+        //   1. Knuckles (character_id == 2) -> break immediately
+        //   2. Super_Sonic_Knux_flag -> break immediately
+        //   3. Fire shield + rolling + |x_vel| >= 0x480 -> break
+        //   4. Pushing + rolling + |x_vel| >= 0x480 -> break
         if ((behaviorBits & BIT_BREAK_SIDE) != 0 && playerPushingSide && player != null) {
-            if (isPlayerSpinning(player) && Math.abs(player.getXSpeed()) >= 0x480) {
+            if (canSideBreak(player)) {
                 breakRock(player);
                 playerStandingOnRock = false;
                 playerPushingSide = false;
@@ -192,6 +248,45 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         playerPushingSide = false;
 
         updateDynamicSpawn();
+    }
+
+    /**
+     * Checks if the player can break this rock from the side.
+     * ROM (loc_1FD72-loc_1FDA4):
+     * <ol>
+     *   <li>Knuckles (character_id == 2) -> always break</li>
+     *   <li>Super Sonic/Knuckles flag set -> always break</li>
+     *   <li>Fire shield + rolling + |x_vel| >= 0x480 -> break</li>
+     *   <li>Pushing + rolling + |x_vel| >= 0x480 -> break</li>
+     * </ol>
+     */
+    private boolean canSideBreak(AbstractPlayableSprite player) {
+        // Check 1: Knuckles always breaks side-break rocks
+        // ROM: cmpi.b #2,character_id(a1) / beq.s loc_1FDA4
+        if (isKnuckles()) {
+            return true;
+        }
+
+        // Check 2: Super mode bypasses all checks
+        // ROM: tst.b (Super_Sonic_Knux_flag).w / bne.s loc_1FDA4
+        if (player.isSuperSonic()) {
+            return true;
+        }
+
+        // Checks 3 & 4 both require rolling + speed >= 0x480
+        if (!isPlayerSpinning(player) || Math.abs(player.getXSpeed()) < SIDE_BREAK_SPEED_THRESHOLD) {
+            return false;
+        }
+
+        // Check 3: Fire shield enables breaking (still needs rolling + speed)
+        // ROM: btst #Status_FireShield,status_secondary(a1) / bne.s loc_1FD90
+        if (player.getShieldType() == ShieldType.FIRE) {
+            return true;
+        }
+
+        // Check 4: Player actively pushing against wall (normal break path)
+        // ROM: falls through to pushing check
+        return player.getPushing();
     }
 
     @Override
@@ -261,48 +356,53 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
             }
         }
 
-        // Spawn debris fragments using the existing BreakObjectToPieces velocity table
+        // Spawn debris fragments using per-frame ROM tables
         spawnDebrisFragments(player);
 
-        // Mark as destroyed since the rock is now replaced by debris children
+        // Mark as destroyed since the rock is now replaced by debris children.
+        // Bug 5: breaking flag suppresses rendering, and setDestroyed(true)
+        // removes the object from the object manager on next tick.
         setDestroyed(true);
     }
 
     /**
-     * Spawns debris fragment children with scattered velocities.
-     * ROM: sub_2013A (BreakObjectToPieces) creates one child per mapping piece.
+     * Spawns debris fragment children using per-frame position and velocity
+     * tables from ROM (off_2026E positions, off_202E4 velocities).
+     * <p>
+     * ROM (sub_2011E -> sub_2013A): each mapping frame has a different piece
+     * count. Each piece gets a position offset from rock centre and a velocity.
+     * Odd-indexed pieces get negated X velocity for symmetric scatter.
      */
     private void spawnDebrisFragments(AbstractPlayableSprite player) {
         if (variant.artKey == null) {
             return;
         }
 
+        // Clamp display frame to the table range (0-3 for AIZ frames)
+        int frameIdx = Math.clamp(sizeIndex, 0, DEBRIS_POSITIONS.length - 1);
+        int[][] positions = DEBRIS_POSITIONS[frameIdx];
+        int[][] velocities = DEBRIS_VELOCITIES[frameIdx];
+        int fragmentCount = positions.length;
+
         // Determine which debris frames to cycle through
-        // AIZ: debris frames are 3-6 in the mapping
-        // LRZ1: uses frames 0-3 (small rock rotations) for debris
-        // LRZ2: uses frames 0-3 for debris
         int debrisStartFrame = variant.debrisBaseFrame;
-        int debrisFrameCount = 4;
-
-        // Use velocities from the shared BreakObjectToPieces table (word_2A8B0)
-        int[][] velocities = AizRockFragmentChild.FRAGMENT_VELOCITIES;
-        int fragmentCount = Math.min(velocities.length, 8);
-
-        // Player direction affects scatter direction
-        boolean scatterLeft = player != null && player.getXSpeed() < 0;
+        int debrisFrameCount = Math.max(1, fragmentCount);
 
         for (int i = 0; i < fragmentCount; i++) {
+            int xPos = currentX + positions[i][0];
+            int yPos = currentY + positions[i][1];
+
             int xVel = velocities[i][0];
             int yVel = velocities[i][1];
-            if (scatterLeft) {
+            // ROM: odd-indexed pieces get negated X velocity for symmetric scatter
+            if ((i & 1) != 0) {
                 xVel = -xVel;
             }
 
             int debrisFrame = debrisStartFrame + (i % debrisFrameCount);
 
-            // TODO: Should use per-piece rendering (AizRockFragmentChild pattern) for ROM-accurate debris
             ObjectSpawn debrisSpawn = new ObjectSpawn(
-                    currentX, currentY, 0, 0, 0, false, 0);
+                    xPos, yPos, 0, 0, 0, false, 0);
             RockDebrisChild debris = new RockDebrisChild(
                     debrisSpawn, xVel, yVel, debrisFrame, variant.artKey);
             spawnDynamicObject(debris);
@@ -360,6 +460,20 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
      */
     private boolean isPlayerSpinning(AbstractPlayableSprite player) {
         return player.getRolling();
+    }
+
+    /**
+     * Checks if the current player character is Knuckles.
+     * ROM: cmpi.b #2,character_id(a1) — character_id 2 = Knuckles in S3K
+     * (Player_mode 3 = KNUCKLES in the engine's PlayerCharacter enum).
+     */
+    private static boolean isKnuckles() {
+        try {
+            Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+            return lem != null && lem.getPlayerCharacter() == PlayerCharacter.KNUCKLES;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**

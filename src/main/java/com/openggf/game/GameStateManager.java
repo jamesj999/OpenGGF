@@ -82,6 +82,13 @@ public class GameStateManager {
      */
     private boolean reverseGravityActive;
 
+    /**
+     * S3K Special Stage Entry Ring collected bitfield (ROM: Collected_special_ring_array).
+     * 32-bit bitfield where each ring's subtype (0-31) is a bit index.
+     * Reset per level load.
+     */
+    private int collectedSpecialRings;
+
     private GameStateManager() {
         configureSpecialStageProgress(DEFAULT_SPECIAL_STAGE_COUNT, DEFAULT_CHAOS_EMERALD_COUNT);
         resetSession();
@@ -114,6 +121,7 @@ public class GameStateManager {
         this.wfzFireToggle = false;
         this.itemBonus = 0;
         this.reverseGravityActive = false;
+        this.collectedSpecialRings = 0;
     }
 
     public int getScore() {
@@ -222,6 +230,22 @@ public class GameStateManager {
 
     public int getChaosEmeraldCount() {
         return chaosEmeraldCount;
+    }
+
+    /**
+     * Checks if a Special Stage entry ring has been collected.
+     * ROM: btst d0,(Collected_special_ring_array).w
+     */
+    public boolean isSpecialRingCollected(int bitIndex) {
+        return (collectedSpecialRings & (1 << (bitIndex & 0x1F))) != 0;
+    }
+
+    /**
+     * Marks a Special Stage entry ring as collected.
+     * ROM: bset d0,(Collected_special_ring_array).w
+     */
+    public void markSpecialRingCollected(int bitIndex) {
+        collectedSpecialRings |= (1 << (bitIndex & 0x1F));
     }
 
     /**

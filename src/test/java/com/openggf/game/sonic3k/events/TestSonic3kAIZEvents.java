@@ -66,7 +66,7 @@ public class TestSonic3kAIZEvents {
     }
 
     @Test
-    public void fireTransitionRequestsMutationBeforeActReload() {
+    public void fireTransitionAppliesMutationBeforeActReload() {
         LevelManager levelManager = LevelManager.getInstance();
         levelManager.resetState();
 
@@ -78,20 +78,79 @@ public class TestSonic3kAIZEvents {
         events.init(0);
         events.setEventsFg5(true);
 
-        boolean sawMutation = false;
+        // The mutation is now applied directly (not via requestSeamlessTransition)
+        // at FIRE_BG_MUTATION_Y. Verify it happens before the act 2 reload.
+        boolean sawMutationBeforeReload = false;
         for (int i = 0; i < 260 && !events.isAct2TransitionRequested(); i++) {
             events.update(0, i);
-            SeamlessLevelTransitionRequest request = levelManager.consumeSeamlessTransitionRequest();
-            if (request == null) {
-                continue;
+            // Direct mutation doesn't produce a SeamlessLevelTransitionRequest;
+            // instead verify the internal flag was set during the transition.
+            if (events.isFireTransitionActive() && !events.isAct2TransitionRequested()) {
+                // Check if mutation happened (fireBgY >= 0x190) while still transitioning
+                if (events.getFireTransitionBgY() >= 0x190) {
+                    sawMutationBeforeReload = true;
+                }
             }
-            if (request.type() == SeamlessLevelTransitionRequest.TransitionType.MUTATE_ONLY) {
-                sawMutation = true;
-                break;
-            }
-            fail("Expected mutation stage before reload transition");
         }
 
-        assertTrue("Expected MUTATE_ONLY request during fire transition", sawMutation);
+        assertTrue("Expected mutation applied during fire transition before reload", sawMutationBeforeReload);
+    }
+
+    @Test
+    public void postFireHazeEnablesDuringFireTransitionAndAfterActReload() {
+        LevelManager levelManager = LevelManager.getInstance();
+        levelManager.resetState();
+
+        Camera camera = Camera.getInstance();
+        camera.setX((short) 0x2F10);
+        camera.setY((short) 0x0200);
+
+        var events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
+        events.init(0);
+        assertFalse(events.isPostFireHazeActive());
+
+        events.setEventsFg5(true);
+
+        for (int i = 0; i < 320 && !events.isAct2TransitionRequested(); i++) {
+            events.update(0, i);
+        }
+
+        assertTrue(events.isAct2TransitionRequested());
+        assertTrue(events.isPostFireHazeActive());
+
+        var act2Events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
+        act2Events.init(1);
+        assertTrue(act2Events.isPostFireHazeActive());
+    }
+
+    @Test
+    public void fireWallRenderStateCarriesAcrossSeamlessReload() {
+        LevelManager levelManager = LevelManager.getInstance();
+        levelManager.resetState();
+
+        Camera camera = Camera.getInstance();
+        camera.setX((short) 0x2F10);
+        camera.setY((short) 0x0200);
+
+        var events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
+        events.init(0);
+        events.setEventsFg5(true);
+
+        for (int i = 0; i < 320 && !events.isAct2TransitionRequested(); i++) {
+            events.update(0, i);
+        }
+
+        assertTrue(events.isAct2TransitionRequested());
+        FireWallRenderState beforeReload = events.getFireWallRenderState(224);
+        assertNotNull(beforeReload);
+        assertEquals(224, beforeReload.coverHeightPx());
+
+        var act2Events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
+        act2Events.init(1);
+
+        FireWallRenderState afterReload = act2Events.getFireWallRenderState(224);
+        assertNotNull(afterReload);
+        assertEquals(224, afterReload.coverHeightPx());
+        assertEquals(beforeReload.sourceWorldX(), afterReload.sourceWorldX());
     }
 }

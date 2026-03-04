@@ -33,7 +33,7 @@ public class TestAizMinibossBarrelShotChild {
         AizMinibossBarrelShotChild shot = new AizMinibossBarrelShotChild(
                 parent, 0, 100, 100, AizMinibossBarrelShotChild.Mode.SIMPLE);
 
-        for (int i = 0; i < 140 && !shot.isDestroyed(); i++) {
+        for (int i = 0; i < 250 && !shot.isDestroyed(); i++) {
             shot.update(i, null);
             assertEquals(0, shot.getCollisionFlags());
         }

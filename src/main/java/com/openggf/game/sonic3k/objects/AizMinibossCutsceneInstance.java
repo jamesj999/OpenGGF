@@ -134,6 +134,8 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             events.setBossFlag(true);
         }
 
+        java.util.logging.Logger.getLogger("AIZMinibossCutscene")
+                .info("Cutscene INIT -> WAIT_TRIGGER at x=" + state.x + " y=" + state.y);
         state.routine = ROUTINE_WAIT_TRIGGER;
     }
 
@@ -198,6 +200,11 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         Sonic3kAIZEvents events = getAizEvents();
         if (events != null) {
             events.setEventsFg5(true);
+            java.util.logging.Logger.getLogger("AIZMinibossCutscene")
+                    .info("PRE_EXIT complete: setEventsFg5(true), exitFrames=" + exitFrames);
+        } else {
+            java.util.logging.Logger.getLogger("AIZMinibossCutscene")
+                    .warning("PRE_EXIT complete but getAizEvents() returned null! Fire transition NOT triggered.");
         }
     }
 
