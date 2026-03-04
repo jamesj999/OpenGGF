@@ -135,6 +135,11 @@ public class VisualRegressionTest {
 
             // Load ROM
             File romFile = ensureRomAvailable();
+            if (romFile == null) {
+                System.err.println("Sonic 2 ROM not available — visual regression tests will be skipped");
+                initialized = false;
+                return;
+            }
             rom = new Rom();
             assertTrue("Failed to open ROM", rom.open(romFile.getAbsolutePath()));
 

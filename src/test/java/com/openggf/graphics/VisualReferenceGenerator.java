@@ -142,6 +142,9 @@ public class VisualReferenceGenerator {
         // Load ROM
         System.out.println("Loading ROM...");
         File romFile = ensureRomAvailable();
+        if (romFile == null) {
+            throw new IOException("Sonic 2 ROM not found. Place it in the working directory or set -Dsonic.rom.path");
+        }
         rom = new Rom();
         if (!rom.open(romFile.getAbsolutePath())) {
             throw new IOException("Failed to open ROM file: " + romFile.getAbsolutePath());

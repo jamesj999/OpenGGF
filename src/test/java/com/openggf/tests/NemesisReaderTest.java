@@ -14,12 +14,14 @@ import java.security.NoSuchAlgorithmException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeNotNull;
 
 public class NemesisReaderTest {
 
     @Test
     public void testRingArtDecompressionLengthAndHash() throws Exception {
         File romFile = RomTestUtils.ensureRomAvailable();
+        assumeNotNull("Sonic 2 ROM not available — skipping test", romFile);
         byte[] result;
         try (FileChannel channel = FileChannel.open(romFile.toPath(), StandardOpenOption.READ)) {
             channel.position(0x7945C);

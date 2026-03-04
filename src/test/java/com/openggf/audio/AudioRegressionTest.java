@@ -60,19 +60,22 @@ public class AudioRegressionTest {
 
     @BeforeClass
     public static void setUpClass() {
-        try {
-            File romFile = ensureRomAvailable();
-            rom = new Rom();
-            assertTrue("Failed to open ROM", rom.open(romFile.getAbsolutePath()));
-            loader = new Sonic2SmpsLoader(rom);
-            dacData = loader.loadDacData();
-
-            // Check if reference files exist
-            referenceFilesExist = referenceFileExists("music_ehz.wav");
-        } catch (Exception e) {
+        File romFile = ensureRomAvailable();
+        if (romFile == null) {
             // ROM not available, tests will be skipped
             referenceFilesExist = false;
+            return;
         }
+        rom = new Rom();
+        if (!rom.open(romFile.getAbsolutePath())) {
+            referenceFilesExist = false;
+            return;
+        }
+        loader = new Sonic2SmpsLoader(rom);
+        dacData = loader.loadDacData();
+
+        // Check if reference files exist
+        referenceFilesExist = referenceFileExists("music_ehz.wav");
     }
 
     @Before

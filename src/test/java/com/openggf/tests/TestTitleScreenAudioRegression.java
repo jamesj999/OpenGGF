@@ -24,6 +24,7 @@ import java.io.File;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeNotNull;
 
 public class TestTitleScreenAudioRegression {
     @After
@@ -136,6 +137,7 @@ public class TestTitleScreenAudioRegression {
     @Test
     public void testTitleMusicLoadsFromRom() {
         File romFile = RomTestUtils.ensureRomAvailable();
+        assumeNotNull("Sonic 2 ROM not available — skipping test", romFile);
         Rom rom = new Rom();
         assertTrue("Failed to open ROM", rom.open(romFile.getAbsolutePath()));
 
@@ -147,6 +149,7 @@ public class TestTitleScreenAudioRegression {
     @Test
     public void testSparkleSfxCompletesQuickly() {
         File romFile = RomTestUtils.ensureRomAvailable();
+        assumeNotNull("Sonic 2 ROM not available — skipping test", romFile);
         Rom rom = new Rom();
         assertTrue("Failed to open ROM", rom.open(romFile.getAbsolutePath()));
 
@@ -171,6 +174,7 @@ public class TestTitleScreenAudioRegression {
     @Test
     public void testTitleScreenTriggersSparkleAndMusicExpectedCounts() {
         File romFile = RomTestUtils.ensureRomAvailable();
+        assumeNotNull("Sonic 2 ROM not available — skipping test", romFile);
         Rom rom = new Rom();
         assertTrue("Failed to open ROM", rom.open(romFile.getAbsolutePath()));
 

@@ -40,18 +40,16 @@ final class RomCache {
     }
 
     private static Rom loadRom(SonicGame game) {
-        try {
-            File romFile = switch (game) {
-                case SONIC_1 -> RomTestUtils.ensureSonic1RomAvailable();
-                case SONIC_2 -> RomTestUtils.ensureSonic2RomAvailable();
-                case SONIC_3K -> RomTestUtils.ensureSonic3kRomAvailable();
-            };
-            Rom rom = new Rom();
-            rom.open(romFile.getAbsolutePath());
-            return rom;
-        } catch (AssertionError | Exception e) {
-            // ROM not available — RomTestUtils asserts on missing ROMs
+        File romFile = switch (game) {
+            case SONIC_1 -> RomTestUtils.ensureSonic1RomAvailable();
+            case SONIC_2 -> RomTestUtils.ensureSonic2RomAvailable();
+            case SONIC_3K -> RomTestUtils.ensureSonic3kRomAvailable();
+        };
+        if (romFile == null) {
             return null;
         }
+        Rom rom = new Rom();
+        rom.open(romFile.getAbsolutePath());
+        return rom;
     }
 }

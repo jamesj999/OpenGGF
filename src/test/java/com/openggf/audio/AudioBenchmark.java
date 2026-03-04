@@ -32,6 +32,10 @@ public class AudioBenchmark {
     public static void main(String[] args) {
         try {
             File romFile = ensureRomAvailable();
+            if (romFile == null) {
+                System.err.println("Sonic 2 ROM not found. Place it in the working directory or set -Dsonic.rom.path");
+                System.exit(1);
+            }
             Rom rom = new Rom();
             if (!rom.open(romFile.getAbsolutePath())) {
                 System.err.println("Failed to open ROM");

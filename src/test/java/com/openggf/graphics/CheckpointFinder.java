@@ -22,6 +22,10 @@ import static com.openggf.tests.RomTestUtils.ensureRomAvailable;
 public class CheckpointFinder {
     public static void main(String[] args) throws Exception {
         File romFile = ensureRomAvailable();
+        if (romFile == null) {
+            System.err.println("Sonic 2 ROM not found. Place it in the working directory or set -Dsonic.rom.path");
+            System.exit(1);
+        }
         Rom rom = new Rom();
         rom.open(romFile.getAbsolutePath());
         GameModuleRegistry.detectAndSetModule(rom);

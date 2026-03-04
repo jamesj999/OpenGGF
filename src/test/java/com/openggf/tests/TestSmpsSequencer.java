@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeNotNull;
 
 public class TestSmpsSequencer {
 
@@ -505,6 +506,7 @@ public class TestSmpsSequencer {
     public void testSfxBcFmVoicePlaysWithCenteredPan() {
         // Load real SFX 0xBC from ROM to exercise the FM blip.
         File romFile = RomTestUtils.ensureRomAvailable();
+        assumeNotNull("Sonic 2 ROM not available — skipping test", romFile);
         Rom rom = new Rom();
         assertTrue("Failed to open ROM", rom.open(romFile.getAbsolutePath()));
         Sonic2SmpsLoader loader = new Sonic2SmpsLoader(rom);
