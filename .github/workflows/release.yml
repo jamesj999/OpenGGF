@@ -59,34 +59,34 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path dist/SonicEngine
-          Copy-Item "target/SonicEngine.exe" "dist/SonicEngine/"
-          Copy-Item "target/native-libs/*.dll" "dist/SonicEngine/"
-          Compress-Archive -Path "dist/SonicEngine" -DestinationPath "dist/SonicEngine-windows.zip"
-          Remove-Item -Recurse -Force "dist/SonicEngine"
+          New-Item -ItemType Directory -Force -Path dist/OpenGGF
+          Copy-Item "target/OpenGGF.exe" "dist/OpenGGF/"
+          Copy-Item "target/native-libs/*.dll" "dist/OpenGGF/"
+          Compress-Archive -Path "dist/OpenGGF" -DestinationPath "dist/OpenGGF-windows.zip"
+          Remove-Item -Recurse -Force "dist/OpenGGF"
 
       - name: Package (macOS)
         if: matrix.platform == 'macos'
         run: |
           mkdir -p dist
-          bash src/packaging/assemble-macos-app.sh target/SonicEngine dist
+          bash src/packaging/assemble-macos-app.sh target/OpenGGF dist
           cd dist
-          zip -r SonicEngine-macos.zip SonicEngine.app
-          rm -rf SonicEngine.app
+          zip -r OpenGGF-macos.zip OpenGGF.app
+          rm -rf OpenGGF.app
 
       - name: Package (Linux)
         if: matrix.platform == 'linux'
         run: |
-          mkdir -p dist/SonicEngine
-          cp target/SonicEngine dist/SonicEngine/
-          cp target/native-libs/*.so dist/SonicEngine/
-          tar -czvf dist/SonicEngine-linux.tar.gz -C dist SonicEngine
-          rm -rf dist/SonicEngine
+          mkdir -p dist/OpenGGF
+          cp target/OpenGGF dist/OpenGGF/
+          cp target/native-libs/*.so dist/OpenGGF/
+          tar -czvf dist/OpenGGF-linux.tar.gz -C dist OpenGGF
+          rm -rf dist/OpenGGF
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: sonic-engine-${{ matrix.platform }}
+          name: openggf-${{ matrix.platform }}
           path: dist/*
           retention-days: 30
 
