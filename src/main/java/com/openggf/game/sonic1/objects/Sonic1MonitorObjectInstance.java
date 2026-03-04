@@ -373,14 +373,12 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
 
     @Override
     public boolean isSolidFor(AbstractPlayableSprite player) {
-        if (broken) {
-            return false;
-        }
-        if (player == null) {
-            return true;
-        }
-        // Monitors are not solid when player is rolling (allows breaking from above)
-        return !player.getRolling();
+        // ROM: Mon_SolidSides always runs when the monitor is intact.
+        // The rolling/velY check happens INSIDE Mon_Solid (after geometry
+        // detection), not as an external solid gate. This is implemented
+        // in resolveMonitorContact which checks rolling+velY after the
+        // touch response has had a chance to modify velY.
+        return !broken;
     }
 
     @Override

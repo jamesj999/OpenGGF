@@ -2135,6 +2135,18 @@ public class ObjectManager {
         private SolidContact resolveMonitorContact(AbstractPlayableSprite player, int relX, int relY,
                 int halfWidth, int maxTop, int playerCenterX, int playerCenterY, int anchorX,
                 boolean sticky, boolean apply) {
+            // ROM: Mon_Solid / SolidObject_Monitor_Sonic — rolling check runs AFTER
+            // Mon_SolidSides geometry detection, not as an external gate.
+            // When the player is rolling AND velY >= 0 (not moving upward), skip
+            // the solid response entirely so the touch system can break the monitor.
+            // When velY < 0 (moving upward), always handle as solid (side push / landing)
+            // regardless of rolling state — this is the S1 "always solid when moving up" rule.
+            // When standing on the monitor (sticky), always handle as solid (ride mode,
+            // ROM: ob2ndRout=2 bypasses Mon_SolidSides entirely).
+            if (!sticky && player.getRolling() && player.getYSpeed() >= 0) {
+                return null;
+            }
+
             // Calculate distances from center
             int distX;
             int absDistX;
@@ -2193,19 +2205,16 @@ public class ObjectManager {
                 return SolidContact.STANDING;
             }
 
-            // SPG: Monitors never push player downward, only to sides
-            // If player X <= monitor X, pop left; otherwise pop right
+            // ROM loc_A220: Monitors never push player downward, only to sides.
+            // The positional push and velocity zeroing ONLY happen when the player
+            // is actively moving INTO the monitor. When d0=0 (centered) or moving
+            // away, the ROM skips the push entirely (falls through to loc_A246).
             boolean leftSide = playerCenterX <= anchorX;
-
-            // Only set pushing if player is on ground AND actively pressing into the monitor
             boolean movingInto = leftSide ? player.getXSpeed() > 0 : player.getXSpeed() < 0;
             boolean pushing = !player.getAir() && movingInto;
-            if (apply) {
-                if (movingInto) {
-                    player.setXSpeed((short) 0);
-                    player.setGSpeed((short) 0);
-                }
-                // Pop out to side
+            if (apply && movingInto) {
+                player.setXSpeed((short) 0);
+                player.setGSpeed((short) 0);
                 int pushDist = leftSide ? -absDistX : absDistX;
                 player.setCentreX((short) (playerCenterX + pushDist));
             }
