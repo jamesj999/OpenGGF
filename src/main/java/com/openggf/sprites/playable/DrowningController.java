@@ -267,7 +267,7 @@ public class DrowningController {
         // Calculate spawn position at player's mouth
         int xOffset = player.getDirection() == Direction.LEFT ? -BUBBLE_X_OFFSET : BUBBLE_X_OFFSET;
         int bubbleX = player.getCentreX() + xOffset;
-        int bubbleY = player.getY(); // Player's Y position (top of sprite, approximately mouth level)
+        int bubbleY = player.getCentreY(); // Player's centre Y (ROM uses centre coordinates for obY)
 
         // Determine if sine wave should start moving away from player
         boolean startMovingLeft = player.getDirection() == Direction.RIGHT;

@@ -41,8 +41,10 @@ public class BreathingBubbleInstance extends AbstractObjectInstance {
     /** Number of times the formed number appears before animation ends */
     private static final int COUNTDOWN_NUMBER_REPEATS = 4;
 
-    /** Total frames for countdown bubble animation before number forms */
-    private static final int COUNTDOWN_BUBBLE_FRAMES = 15;
+    /** Total frames for countdown bubble animation before number forms.
+     *  Original S1 uses drown_time=$1C (28 frames) with rise speed -$88 subpix/frame (~15px rise).
+     *  At 1px/frame rise speed, 3 frames * 5 delay = 15 frames ≈ 15px rise, matching the original. */
+    private static final int COUNTDOWN_BUBBLE_FRAMES = 3;
 
     /** Current X position (float for smooth movement) */
     private float currentX;
