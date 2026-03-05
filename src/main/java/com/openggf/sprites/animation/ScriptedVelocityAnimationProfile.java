@@ -73,6 +73,13 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         if (sprite.isObjectControlled()) {
             return null;
         }
+        // ROM: when move_lock > 0, Sonic_Move doesn't run and doesn't overwrite obAnim.
+        // This lets externally-set animations (e.g., bubble-breathing id_GetAir/id_Bubble)
+        // persist for the duration of the lock. Without this, resolveAnimationId would
+        // immediately override the animation with idle/walk based on current state.
+        if (sprite.getMoveLockTimer() > 0) {
+            return null;
+        }
         // Drowning uses its own animation (0x17) throughout both pre-death and dead phases
         if (sprite.isDrowningDeath() && drownAnimId >= 0) {
             return drownAnimId;
