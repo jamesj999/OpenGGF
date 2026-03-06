@@ -293,10 +293,10 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public boolean hasWater(int zoneIndex) {
-        // Zones with water in Sonic 2 (using ROM zone IDs)
+        // Water_flag is set for CPZ Act 2, ARZ, and HPZ only (s2.asm Level_InitWater).
+        // HTZ lava is a background effect, not water.
         return zoneIndex == Sonic2ZoneConstants.ROM_ZONE_ARZ ||
-               zoneIndex == Sonic2ZoneConstants.ROM_ZONE_CPZ ||  // Mega Mack (purple liquid)
-               zoneIndex == Sonic2ZoneConstants.ROM_ZONE_HTZ;    // Lava (acts like water for drowning)
+               zoneIndex == Sonic2ZoneConstants.ROM_ZONE_CPZ;  // Mega Mack (purple liquid)
     }
 
     @Override

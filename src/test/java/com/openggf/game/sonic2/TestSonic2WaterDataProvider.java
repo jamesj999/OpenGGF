@@ -40,9 +40,10 @@ public class TestSonic2WaterDataProvider {
     }
 
     @Test
-    public void testHtzHasWater() {
-        assertTrue(provider.hasWater(ZONE_HTZ, 0, PlayerCharacter.SONIC_AND_TAILS));
-        assertTrue(provider.hasWater(ZONE_HTZ, 1, PlayerCharacter.SONIC_AND_TAILS));
+    public void testHtzNoWater() {
+        // HTZ lava is a background visual effect, not water (s2.asm Level_InitWater)
+        assertFalse(provider.hasWater(ZONE_HTZ, 0, PlayerCharacter.SONIC_AND_TAILS));
+        assertFalse(provider.hasWater(ZONE_HTZ, 1, PlayerCharacter.SONIC_AND_TAILS));
     }
 
     @Test
@@ -101,16 +102,9 @@ public class TestSonic2WaterDataProvider {
     }
 
     @Test
-    public void testHtzHeightIsOffscreen() {
-        // HTZ lava uses off-screen default (no standard water height in ROM table)
-        assertEquals(0x0600, provider.getStartingWaterLevel(ZONE_HTZ, 0));
-        assertEquals(0x0600, provider.getStartingWaterLevel(ZONE_HTZ, 1));
-    }
-
-    @Test
     public void testCpz1HeightIsDefault() {
-        // CPZ Act 1 has no specific ROM entry; uses off-screen default
-        assertEquals(0x0600, provider.getStartingWaterLevel(ZONE_CPZ, 0));
+        // CPZ Act 1 has no specific ROM entry; uses default
+        assertEquals(0, provider.getStartingWaterLevel(ZONE_CPZ, 0));
     }
 
     // =========================================================================

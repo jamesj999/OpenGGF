@@ -13,12 +13,15 @@ import java.util.logging.Logger;
  * Water data provider for Sonic 2.
  * Supplies zone/act-specific water heights, underwater palettes, and dynamic handlers.
  * <p>
- * Sonic 2 water zones:
+ * Sonic 2 water zones (from s2.asm Level_InitWater):
  * <ul>
- *   <li>CPZ (Chemical Plant Zone) - Mega Mack (purple liquid), rises in Act 2</li>
+ *   <li>CPZ Act 2 (Chemical Plant Zone) - Mega Mack (purple liquid), rises</li>
  *   <li>ARZ (Aquatic Ruin Zone) - Standard water</li>
- *   <li>HTZ (Hill Top Zone) - Lava (acts like water for drowning, off-screen)</li>
+ *   <li>HPZ (Hidden Palace Zone) - Standard water (unused zone)</li>
  * </ul>
+ * <p>
+ * HTZ (Hill Top Zone) does NOT use the water system. Its lava is a background
+ * visual effect controlled by the earthquake event system.
  * <p>
  * Starting water heights are from the ROM's Water_Height table (s2disasm).
  * Underwater palette ROM addresses from SCHG documentation.
@@ -31,23 +34,19 @@ public class Sonic2WaterDataProvider implements WaterDataProvider {
     // S2 ROM zone IDs (from Sonic2ZoneConstants)
     private static final int ZONE_ARZ = Sonic2ZoneConstants.ROM_ZONE_ARZ; // 0x0F
     private static final int ZONE_CPZ = Sonic2ZoneConstants.ROM_ZONE_CPZ; // 0x0D
-    private static final int ZONE_HTZ = Sonic2ZoneConstants.ROM_ZONE_HTZ; // 0x07
 
     // ROM addresses for underwater palettes (from SCHG)
     private static final int CPZ_UNDERWATER_PALETTE_ADDR = 0x2E62;
     private static final int ARZ_UNDERWATER_PALETTE_ADDR = 0x2FA2;
 
-    // Default off-screen water level for zones where water is not visible
-    // (e.g., HTZ lava which is below the level)
-    private static final int DEFAULT_OFFSCREEN_WATER_LEVEL = 0x0600;
-
     @Override
     public boolean hasWater(int zoneId, int actId, PlayerCharacter character) {
-        // CPZ only has active Mega Mack water in Act 2.
+        // Water_flag is set for CPZ Act 2, ARZ, and HPZ only (s2.asm Level_InitWater).
+        // HTZ has lava but it is a background visual effect, not water.
         if (zoneId == ZONE_CPZ) {
             return actId == 1;
         }
-        return zoneId == ZONE_ARZ || zoneId == ZONE_HTZ;
+        return zoneId == ZONE_ARZ;
     }
 
     @Override
@@ -58,8 +57,7 @@ public class Sonic2WaterDataProvider implements WaterDataProvider {
         if (zoneId == ZONE_ARZ && actId == 0) return 0x0410;
         // ARZ Act 2: ROM Water_Height table at 0x45A2 = 0x0510
         if (zoneId == ZONE_ARZ && actId == 1) return 0x0510;
-        // HTZ and other zones: off-screen default
-        return DEFAULT_OFFSCREEN_WATER_LEVEL;
+        return 0;
     }
 
     @Override
@@ -70,7 +68,7 @@ public class Sonic2WaterDataProvider implements WaterDataProvider {
         } else if (zoneId == ZONE_ARZ) {
             paletteAddr = ARZ_UNDERWATER_PALETTE_ADDR;
         } else {
-            return null; // No underwater palette for HTZ or other zones
+            return null; // No underwater palette for other zones
         }
 
         try {
