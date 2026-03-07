@@ -2,13 +2,23 @@
 
 All notable changes to the sonic-engine project are documented in this file.
 
-## v0.4 (Unreleased)
+## Unreleased
 
-Analysis range: `v0.3.20260206..HEAD` on `develop` (`621` commits, `583` non-merge commits,
-`2020` files changed, `212883` insertions, `195323` deletions).
+Changes on `develop` since `v0.4.20260304`:
+
+- Fixed GitHub builds and native-image metadata after the package/project rename to `com.openggf` / `OpenGGF`.
+- Improved test robustness when ROM files are missing and increased a regression test timeout for GitHub Actions.
+- Fixed Sonic 1 drowning visuals: breathing air bubble animation frames and countdown number positioning.
+- Corrected Sonic 2 water configuration so Hill Top Zone no longer reports water.
+- Additional small bug fixes and cleanup.
+
+## v0.4.20260304 (Released 2026-03-04)
+
+Analysis range: `v0.3.20260206..v0.4.20260304` on `develop` (`1790` commits, `1589` non-merge commits,
+`2040` files changed, `218141` insertions, `195996` deletions).
 
 > Note: the large deletion count reflects the package rename from `uk.co.jamesj999.sonic` to
-> `com.openggf`, which deleted and recreated most source files. Net code growth is ~17,500 lines.
+> `com.openggf`, which deleted and recreated most source files. Net code growth is ~22,100 lines.
 
 ### Sonic 1 Expansion and Content Completion
 

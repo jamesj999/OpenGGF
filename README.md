@@ -165,7 +165,15 @@ behaviour.
 
 ## Releases
 
-### v0.4 (Unreleased)
+### Post-v0.4 Updates (Unreleased)
+
+A small batch of fixes has landed on `develop` since the `v0.4.20260304` release:
+
+- GitHub build and native-image metadata fixes following the project rename to `com.openggf` / `OpenGGF`.
+- Test robustness improvements for missing ROM files and CI timeout tuning.
+- Minor gameplay fixes including Sonic 1 drowning visual corrections and Sonic 2 water configuration cleanup.
+
+### v0.4.20260304 (Released 2026-03-04)
 
 A release-sized update focused on expanding playable coverage, ending sequences, and engine maturity.
 
