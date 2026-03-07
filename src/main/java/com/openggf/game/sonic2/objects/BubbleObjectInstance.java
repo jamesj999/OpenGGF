@@ -141,11 +141,13 @@ public class BubbleObjectInstance extends AbstractObjectInstance {
         displayX = baseX + wobbleOffset;
 
         // Check if reached water surface (bubble pops)
+        // Use getFeatureZoneId/ActId to match the keys WaterSystem stores configs
+        // under (important for S1 SBZ3 which remaps from LZ).
         LevelManager levelManager = LevelManager.getInstance();
         if (levelManager != null && levelManager.getCurrentLevel() != null) {
             WaterSystem waterSystem = WaterSystem.getInstance();
-            int zoneId = levelManager.getCurrentLevel().getZoneIndex();
-            int actId = levelManager.getCurrentAct();
+            int zoneId = levelManager.getFeatureZoneId();
+            int actId = levelManager.getFeatureActId();
 
             if (waterSystem.hasWater(zoneId, actId)) {
                 int waterY = waterSystem.getWaterLevelY(zoneId, actId);
