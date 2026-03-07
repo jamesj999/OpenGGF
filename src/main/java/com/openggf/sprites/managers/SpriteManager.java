@@ -61,6 +61,12 @@ public class SpriteManager {
 	private int leftKey;
 	private int rightKey;
 	private int jumpKey;
+	private int p2UpKey;
+	private int p2DownKey;
+	private int p2LeftKey;
+	private int p2RightKey;
+	private int p2JumpKey;
+	private int p2StartKey;
 	private int testKey;
 	private int debugModeKey;
 	private int superSonicDebugKey;
@@ -80,6 +86,12 @@ public class SpriteManager {
 		leftKey = configService.getInt(SonicConfiguration.LEFT);
 		rightKey = configService.getInt(SonicConfiguration.RIGHT);
 		jumpKey = configService.getInt(SonicConfiguration.JUMP);
+		p2UpKey = configService.getInt(SonicConfiguration.P2_UP);
+		p2DownKey = configService.getInt(SonicConfiguration.P2_DOWN);
+		p2LeftKey = configService.getInt(SonicConfiguration.P2_LEFT);
+		p2RightKey = configService.getInt(SonicConfiguration.P2_RIGHT);
+		p2JumpKey = configService.getInt(SonicConfiguration.P2_JUMP);
+		p2StartKey = configService.getInt(SonicConfiguration.P2_START);
 		testKey = configService.getInt(SonicConfiguration.TEST);
 		debugModeKey = configService.getInt(SonicConfiguration.DEBUG_MODE_KEY);
 		superSonicDebugKey = configService.getInt(SonicConfiguration.SUPER_SONIC_DEBUG_KEY);
@@ -169,6 +181,14 @@ public class SpriteManager {
 		boolean left = !suppressInput && handler.isKeyDown(leftKey);
 		boolean right = !suppressInput && handler.isKeyDown(rightKey);
 		boolean space = !suppressInput && handler.isKeyDown(jumpKey);
+		int p2Held = 0;
+		if (!suppressInput && handler.isKeyDown(p2UpKey)) p2Held |= AbstractPlayableSprite.INPUT_UP;
+		if (!suppressInput && handler.isKeyDown(p2DownKey)) p2Held |= AbstractPlayableSprite.INPUT_DOWN;
+		if (!suppressInput && handler.isKeyDown(p2LeftKey)) p2Held |= AbstractPlayableSprite.INPUT_LEFT;
+		if (!suppressInput && handler.isKeyDown(p2RightKey)) p2Held |= AbstractPlayableSprite.INPUT_RIGHT;
+		if (!suppressInput && handler.isKeyDown(p2JumpKey)) p2Held |= AbstractPlayableSprite.INPUT_JUMP;
+		int p2Logical = p2Held;
+		if (!suppressInput && handler.isKeyDown(p2StartKey)) p2Logical |= 0x20;
 		boolean testButton = !suppressInput && handler.isKeyDown(testKey);
 		boolean speedUp = isDebugSpeedUpModifierDown(handler);
 		boolean slowDown = isDebugSlowDownModifierDown(handler);
@@ -212,6 +232,7 @@ public class SpriteManager {
 				if (playable.isCpuControlled() && playable.getCpuController() != null) {
 					// CPU-controlled sprite: run AI to generate virtual input
 					var cpuController = playable.getCpuController();
+					cpuController.setController2Input(p2Held, p2Logical);
 					cpuController.update(frameCounter);
 
 					// If flying, the AI moves Tails directly - skip normal physics
@@ -228,18 +249,17 @@ public class SpriteManager {
 					boolean aiRight = cpuController.getInputRight();
 					boolean aiJump = cpuController.getInputJump();
 
-					boolean controlLocked = playable.isControlLocked();
 					boolean forcedRight = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_RIGHT)
 							|| playable.isForceInputRight();
 					boolean forcedLeft = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_LEFT);
 					boolean forcedUp = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_UP);
 					boolean forcedDown = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_DOWN);
 					boolean forcedJump = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_JUMP);
-					effectiveRight = (!controlLocked && aiRight) || forcedRight;
-					effectiveLeft = ((!controlLocked && aiLeft) || forcedLeft) && !forcedRight;
-					effectiveUp = (!controlLocked && aiUp) || forcedUp;
-					effectiveDown = (!controlLocked && aiDown) || forcedDown;
-					effectiveJump = (!controlLocked && aiJump) || forcedJump;
+					effectiveRight = aiRight || forcedRight;
+					effectiveLeft = (aiLeft || forcedLeft) && !forcedRight;
+					effectiveUp = aiUp || forcedUp;
+					effectiveDown = aiDown || forcedDown;
+					effectiveJump = aiJump || forcedJump;
 					effectiveTest = false;
 
 					playable.setJumpInputPressed(aiJump);
@@ -586,7 +606,9 @@ public class SpriteManager {
 	private boolean isCpuSidekickSuppressed() {
 		LevelManager lm = getLevelManager();
 		if (lm == null) return false;
-		if (lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_SCZ) return true;
+		if (lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_SCZ
+				|| lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_WFZ
+				|| lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_DEZ) return true;
 		if (AizPlaneIntroInstance.isSidekickSuppressed()) return true;
 		return false;
 	}

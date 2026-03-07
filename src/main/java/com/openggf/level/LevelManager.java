@@ -3853,8 +3853,8 @@ public class LevelManager {
             // Reset sidekick (Tails) position near the main player on level load/restart
             AbstractPlayableSprite sidekick = spriteManager.getSidekick();
             if (sidekick != null) {
-                sidekick.setX((short) (player.getX() - 40));
-                sidekick.setY(player.getY());
+                sidekick.setX((short) (player.getX() - 0x20));
+                sidekick.setY((short) (player.getY() + 4));
                 sidekick.setXSpeed((short) 0);
                 sidekick.setYSpeed((short) 0);
                 sidekick.setGSpeed((short) 0);
@@ -3863,6 +3863,12 @@ public class LevelManager {
                 sidekick.setDeathCountdown(0);
                 sidekick.setHighPriority(false);
                 sidekick.setDirection(Direction.RIGHT);
+                if (sidekick.getCpuController() != null) {
+                    sidekick.getCpuController().setLevelBounds(
+                            (int) camera.getMinX(),
+                            (int) camera.getMaxX(),
+                            (int) Math.max(camera.getMaxY(), camera.getMaxYTarget()));
+                }
             }
 
             // Request title card for level starts and death respawns
@@ -4653,4 +4659,3 @@ public class LevelManager {
         }
     }
 }
-

@@ -2,89 +2,70 @@ package com.openggf.sprites.playable;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
+import com.openggf.level.LevelManager;
+import com.openggf.level.WaterSystem;
+import com.openggf.level.objects.ObjectInstance;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.managers.SpriteManager;
 
 /**
- * CPU controller for Tails (Miles Prower) NPC follower behavior.
- * Implements ROM-accurate AI state machine from Sonic 2's TailsCPU_Control.
- *
- * In Normal state, Tails replays Sonic's recorded inputs from 17 frames ago
- * (via Sonic_Stat_Record_Buf). The AI only overrides with forced direction
- * when Tails is too far from Sonic's recorded position, and adds AI jumps
- * only under strict conditions.
- *
- * State machine: INIT -> NORMAL -> FLYING/PANIC -> NORMAL (cycles)
+ * Sonic 2 Tails CPU follower.
  */
 public class TailsCpuController {
 
-    /**
-     * Number of frames behind Sonic that Tails replays.
-     * ROM: delay = 0x10 entries, multiplied by 4 bytes + 4 = 68 byte offset = 17 entries.
-     */
     private static final int FOLLOW_DELAY_FRAMES = 17;
-
-    /** Horizontal distance threshold to stop forcing direction (ROM: 0x10 = 16 pixels) */
     private static final int HORIZONTAL_SNAP_THRESHOLD = 16;
-
-    /** Large horizontal gap that triggers AI jump (ROM: 0x40 = 64 pixels) */
     private static final int JUMP_DISTANCE_TRIGGER = 64;
-
-    /** Minimum vertical gap to trigger AI jump (ROM: 0x20 = 32 pixels) */
     private static final int JUMP_HEIGHT_THRESHOLD = 32;
-
-    /** Frames off-screen before despawning (ROM: 0x12C = 300 frames) */
     private static final int DESPAWN_TIMEOUT = 300;
-
-    /** Y offset above Sonic for respawn position (ROM: 0xC0 = 192 pixels) */
     private static final int RESPAWN_Y_OFFSET = 192;
-
-    /** Maximum flying acceleration per frame (ROM: 0x0C = 12) */
     private static final int MAX_FLY_ACCEL = 12;
-
-    /** Spindash charge cycle in Panic state (ROM: every 128 frames) */
-    private static final int PANIC_SPINDASH_INTERVAL = 128;
-
-    /** Tails helicopter flying animation ID (ROM: AniIDTailsAni_Fly = 0x20) */
+    private static final int MANUAL_CONTROL_FRAMES = 600;
     private static final int FLY_ANIM_ID = 0x20;
+    private static final int INPUT_START = 0x20;
+    private static final int MANUAL_HELD_MASK = AbstractPlayableSprite.INPUT_UP
+            | AbstractPlayableSprite.INPUT_DOWN
+            | AbstractPlayableSprite.INPUT_LEFT
+            | AbstractPlayableSprite.INPUT_RIGHT
+            | AbstractPlayableSprite.INPUT_JUMP;
+    private static final int RESPAWN_BYPASS_MASK = AbstractPlayableSprite.INPUT_JUMP | INPUT_START;
+    private static final int FLY_LAND_BLOCKERS = 0xD2;
 
     public enum State {
-        INIT,       // Initial setup
-        SPAWNING,   // Waiting to respawn (Sonic must be grounded safely)
-        FLYING,     // Flying toward Sonic's delayed position
-        NORMAL,     // Standard following with input replay
-        PANIC       // Stuck recovery (spindash escape)
+        INIT,
+        SPAWNING,
+        FLYING,
+        NORMAL,
+        PANIC
     }
 
     private final AbstractPlayableSprite tails;
     private AbstractPlayableSprite sonic;
 
     private State state = State.INIT;
-    private int despawnCounter = 0;
-    private int panicCounter = 0;
-    private int stuckCounter = 0;
-    private int frameCounter = 0;
-
-    // Virtual input produced each frame
+    private int despawnCounter;
+    private int frameCounter;
+    private int controlCounter;
+    private int controller2Held;
+    private int controller2Logical;
     private boolean inputUp;
     private boolean inputDown;
     private boolean inputLeft;
     private boolean inputRight;
     private boolean inputJump;
-    private boolean jumpingFlag; // Set when AI initiated a jump, cleared on landing
+    private boolean jumpingFlag;
+    private int minXBound = Integer.MIN_VALUE;
+    private int maxXBound = Integer.MIN_VALUE;
+    private int maxYBound = Integer.MIN_VALUE;
+    private ObjectInstance lastRidingObject;
 
     public TailsCpuController(AbstractPlayableSprite tails) {
         this.tails = tails;
     }
 
-    /**
-     * Run one frame of AI logic. Must be called before Tails' movement update.
-     * After calling this, read getInputXxx() to get the virtual inputs.
-     */
     public void update(int frameCount) {
         this.frameCounter = frameCount;
 
-        // Find Sonic if not cached
         if (sonic == null) {
             sonic = findSonic();
             if (sonic == null) {
@@ -93,8 +74,10 @@ public class TailsCpuController {
             }
         }
 
-        // Clear inputs for this frame
         clearInputs();
+        if ((controller2Held & MANUAL_HELD_MASK) != 0) {
+            controlCounter = MANUAL_CONTROL_FRAMES;
+        }
 
         switch (state) {
             case INIT -> updateInit();
@@ -105,207 +88,187 @@ public class TailsCpuController {
         }
     }
 
-    // -- State Updates --
+    public void setController2Input(int held, int logical) {
+        controller2Held = held;
+        controller2Logical = logical;
+    }
 
     private void updateInit() {
-        // ROM: TailsCPU_Init - transition to Normal and return (rts).
-        // Does NOT process Normal on the same frame.
         state = State.NORMAL;
+        controlCounter = 0;
         despawnCounter = 0;
-        stuckCounter = 0;
+        jumpingFlag = false;
+        lastRidingObject = null;
+        tails.setForcedAnimationId(-1);
+        tails.setControlLocked(false);
+        tails.setObjectControlled(false);
         tails.setXSpeed((short) 0);
         tails.setYSpeed((short) 0);
         tails.setGSpeed((short) 0);
     }
 
     private void updateSpawning() {
-        // ROM: TailsCPU_Spawning - wait for safe conditions
         if (sonic.getDead()) {
             return;
         }
-
-        // ROM: Waits for frame counter lower byte == 0, Sonic grounded, not rolling,
-        // not underwater, prevent_tails_respawn flag not set
-        if (!sonic.getAir() && !sonic.getRolling() && !sonic.isJumping()) {
-            // Respawn Tails above Sonic
-            short sonicX = sonic.getCentreX();
-            short sonicY = sonic.getCentreY();
-
-            tails.setX((short) (sonicX - tails.getWidth() / 2));
-            tails.setY((short) (sonicY - RESPAWN_Y_OFFSET));
-            tails.setXSpeed((short) 0);
-            tails.setYSpeed((short) 0);
-            tails.setGSpeed((short) 0);
-            tails.setAir(true);
-            tails.setDead(false);
-            tails.setHurt(false);
-
-            state = State.FLYING;
-            tails.setForcedAnimationId(FLY_ANIM_ID);
-            despawnCounter = 0;
+        if ((controller2Logical & RESPAWN_BYPASS_MASK) != 0) {
+            respawnToFlying();
+            return;
         }
+        if ((frameCounter & 0x3F) != 0) {
+            return;
+        }
+        if (sonic.isObjectControlled()) {
+            return;
+        }
+        if (sonic.getAir() || sonic.getRollingJump() || sonic.isInWater() || sonic.isPreventTailsRespawn()) {
+            return;
+        }
+        respawnToFlying();
+    }
+
+    private void respawnToFlying() {
+        state = State.FLYING;
+        controlCounter = 0;
+        despawnCounter = 0;
+        jumpingFlag = false;
+        tails.setCentreX(sonic.getCentreX());
+        tails.setCentreY((short) (sonic.getCentreY() - RESPAWN_Y_OFFSET));
+        tails.setXSpeed((short) 0);
+        tails.setYSpeed((short) 0);
+        tails.setGSpeed((short) 0);
+        tails.setAir(true);
+        tails.setDead(false);
+        tails.setHurt(false);
+        tails.setSpindash(false);
+        tails.setSpindashCounter((short) 0);
+        tails.setForcedAnimationId(FLY_ANIM_ID);
+        tails.setControlLocked(true);
+        tails.setObjectControlled(true);
     }
 
     private void updateFlying() {
-        // ROM: TailsCPU_Flying - helicopter chase toward Sonic's delayed position
         tails.setForcedAnimationId(FLY_ANIM_ID);
+        tails.setControlLocked(true);
+        tails.setObjectControlled(true);
 
-        // Check despawn while flying
         if (checkDespawn()) {
             return;
         }
 
-        // Get target from Sonic's position record buffer
         int targetX = getDelayedSonicX();
-        int targetY = getDelayedSonicY();
-
+        int targetY = clampTargetYToWater(getDelayedSonicY());
         int tailsX = tails.getCentreX();
         int tailsY = tails.getCentreY();
 
-        // ROM: Horizontal movement - distance/16 capped at 12, plus Sonic's speed
         int dx = targetX - tailsX;
         if (dx != 0) {
-            int accel = Math.min(Math.abs(dx) / 16 + 1, MAX_FLY_ACCEL);
-            accel += Math.abs(sonic.getXSpeed()) / 256;
-
-            int moveAmount = Math.min(accel, Math.abs(dx));
-            short newXSpeed;
+            int move = Math.abs(dx) / 16;
+            move = Math.min(move, MAX_FLY_ACCEL);
+            move += Math.abs(sonic.getXSpeed()) / 256;
+            move += 1;
+            move = Math.min(move, Math.abs(dx));
             if (dx > 0) {
-                newXSpeed = (short) (moveAmount * 256);
-                inputRight = true;
+                tails.setDirection(Direction.RIGHT);
+                tails.setX((short) (tails.getX() + move));
+                tails.setXSpeed((short) (move * 256));
             } else {
-                newXSpeed = (short) (-moveAmount * 256);
-                inputLeft = true;
+                tails.setDirection(Direction.LEFT);
+                tails.setX((short) (tails.getX() - move));
+                tails.setXSpeed((short) (-move * 256));
             }
-            tails.setXSpeed(newXSpeed);
+        } else {
+            tails.setXSpeed((short) 0);
         }
 
-        // ROM: Vertical movement - 1 pixel per frame toward target
         int dy = targetY - tailsY;
-        if (dy > 2) {
+        if (dy > 0) {
+            tails.setY((short) (tails.getY() + 1));
             tails.setYSpeed((short) 0x100);
-        } else if (dy < -2) {
+        } else if (dy < 0) {
+            tails.setY((short) (tails.getY() - 1));
             tails.setYSpeed((short) -0x100);
         } else {
             tails.setYSpeed((short) 0);
         }
 
-        // Direct position update (bypasses normal physics)
-        tails.setX((short) (tails.getX() + tails.getXSpeed() / 256));
-        tails.setY((short) (tails.getY() + tails.getYSpeed() / 256));
-
-        // ROM: Check recorded status to decide when to land
-        // Transition when aligned with target AND recorded status shows grounded
+        int remainingDx = targetX - tails.getCentreX();
+        int remainingDy = targetY - tails.getCentreY();
         byte recordedStatus = sonic.getStatusHistory(FOLLOW_DELAY_FRAMES);
-        boolean recordedGrounded = (recordedStatus & AbstractPlayableSprite.STATUS_IN_AIR) == 0;
-        boolean reachedTarget = Math.abs(dx) < HORIZONTAL_SNAP_THRESHOLD && Math.abs(dy) < 32;
-
-        if (reachedTarget && recordedGrounded) {
+        if ((recordedStatus & FLY_LAND_BLOCKERS) == 0 && remainingDx == 0 && remainingDy == 0) {
+            tails.setForcedAnimationId(-1);
+            tails.setControlLocked(false);
+            tails.setObjectControlled(false);
             tails.setXSpeed((short) 0);
             tails.setYSpeed((short) 0);
             tails.setGSpeed((short) 0);
             tails.setHurt(false);
-            tails.setForcedAnimationId(-1);
+            tails.setAir(true);
             state = State.NORMAL;
             despawnCounter = 0;
-            stuckCounter = 0;
         }
     }
 
-    /**
-     * ROM: TailsCPU_Normal - Input replay with AI override.
-     * Replays Sonic's recorded inputs from 17 frames ago. AI overrides direction
-     * when too far away, and adds jumps under strict conditions.
-     */
     private void updateNormal() {
-        // Check if Sonic is dead
         if (sonic.getDead()) {
-            triggerDespawn();
+            enterFlyingState();
             return;
         }
-
-        // ROM: Check if Tails is alive (routine < 6)
         if (tails.getDead()) {
             return;
         }
-
-        // Check despawn (off-screen for too long)
         if (checkDespawn()) {
             return;
         }
-
-        // ROM: Panic trigger - move_lock set AND zero inertia
-        if (tails.isControlLocked() && tails.getGSpeed() == 0) {
-            state = State.PANIC;
-            panicCounter = 0;
-            stuckCounter = 0;
+        if (controlCounter != 0) {
+            applyManualControl();
+            return;
+        }
+        if (tails.isObjectControlled()) {
             return;
         }
 
-        // Stuck detection (grounded, not rolling, zero speed for too long)
-        if (tails.getGSpeed() == 0 && !tails.getAir() && !tails.getRolling()) {
-            stuckCounter++;
-            if (stuckCounter > 120) {
-                state = State.PANIC;
-                panicCounter = 0;
-                stuckCounter = 0;
-                return;
-            }
-        } else {
-            stuckCounter = 0;
+        if (tails.getMoveLockTimer() > 0 && tails.getGSpeed() == 0) {
+            state = State.PANIC;
         }
 
-        // Read Sonic's recorded input and status from 17 frames ago
         short recordedInput = sonic.getInputHistory(FOLLOW_DELAY_FRAMES);
         byte recordedStatus = sonic.getStatusHistory(FOLLOW_DELAY_FRAMES);
-
-        // Get Sonic's delayed position for distance checks
         int targetX = getDelayedSonicX();
         int targetY = getDelayedSonicY();
-        int tailsX = tails.getCentreX();
-        int tailsY = tails.getCentreY();
-        int dx = targetX - tailsX;
-        int dy = targetY - tailsY;
+        int dx = targetX - tails.getCentreX();
+        int dy = targetY - tails.getCentreY();
 
-        // ROM: Copy Sonic's facing direction from recorded status
-        boolean sonicFacedLeft = (recordedStatus & AbstractPlayableSprite.STATUS_FACING_LEFT) != 0;
-        tails.setDirection(sonicFacedLeft ? Direction.LEFT : Direction.RIGHT);
+        inputLeft = (recordedInput & AbstractPlayableSprite.INPUT_LEFT) != 0;
+        inputRight = (recordedInput & AbstractPlayableSprite.INPUT_RIGHT) != 0;
+        inputUp = (recordedInput & AbstractPlayableSprite.INPUT_UP) != 0;
+        inputDown = (recordedInput & AbstractPlayableSprite.INPUT_DOWN) != 0;
+        inputJump = (recordedInput & AbstractPlayableSprite.INPUT_JUMP) != 0;
 
-        // ROM: Replay directional input from recorded buffer
-        boolean replayLeft = (recordedInput & AbstractPlayableSprite.INPUT_LEFT) != 0;
-        boolean replayRight = (recordedInput & AbstractPlayableSprite.INPUT_RIGHT) != 0;
-        boolean replayUp = (recordedInput & AbstractPlayableSprite.INPUT_UP) != 0;
-        boolean replayDown = (recordedInput & AbstractPlayableSprite.INPUT_DOWN) != 0;
-        boolean replayJump = (recordedInput & AbstractPlayableSprite.INPUT_JUMP) != 0;
+        if ((recordedStatus & AbstractPlayableSprite.STATUS_FACING_LEFT) != 0) {
+            tails.setDirection(Direction.LEFT);
+        } else {
+            tails.setDirection(Direction.RIGHT);
+        }
 
-        // Apply replayed directional input
-        inputLeft = replayLeft;
-        inputRight = replayRight;
-        inputUp = replayUp;
-        inputDown = replayDown;
-
-        // ROM: AI direction override when too far from recorded position
-        // If horizontal distance > 16px, force direction toward target
-        if (Math.abs(dx) > HORIZONTAL_SNAP_THRESHOLD) {
-            if (dx < 0) {
+        boolean skipFollowSteering = tails.getPushing()
+                && (recordedStatus & AbstractPlayableSprite.STATUS_PUSHING) == 0;
+        if (!skipFollowSteering) {
+            if (dx <= -HORIZONTAL_SNAP_THRESHOLD) {
                 inputLeft = true;
                 inputRight = false;
-            } else {
+                if (tails.getGSpeed() != 0 && tails.getDirection() == Direction.LEFT) {
+                    tails.setX((short) (tails.getX() - 1));
+                }
+            } else if (dx >= HORIZONTAL_SNAP_THRESHOLD) {
                 inputRight = true;
                 inputLeft = false;
+                if (tails.getGSpeed() != 0 && tails.getDirection() == Direction.RIGHT) {
+                    tails.setX((short) (tails.getX() + 1));
+                }
             }
         }
 
-        // ROM: Replay Sonic's jump input. In the original, Sonic's recorded
-        // jump bits are already in d1 from the history buffer. The
-        // Tails_CPU_jumping flag is ONLY for AI-initiated jumps.
-        if (replayJump) {
-            inputJump = true;
-        }
-
-        // ROM: TailsCPU_Normal_FilterAction - AI jump handling.
-        // When jumpingFlag is set (AI-initiated jump in progress), hold jump
-        // while airborne. Clear flag when Tails lands.
         if (jumpingFlag) {
             inputJump = true;
             if (!tails.getAir()) {
@@ -313,61 +276,79 @@ public class TailsCpuController {
             }
         }
 
-        // ROM: AI jump conditions (only when grounded and not in AI jump).
-        // Flow: frame gate -> distance gate -> vertical check -> timing gate -> duck check.
-        // The vertical check (Sonic above Tails by >= 32px) is ALWAYS required.
-        // On 256-frame boundaries the distance check is skipped; on other frames
-        // horizontal distance must be < 64 pixels.
         if (!jumpingFlag && !tails.getAir()) {
-            boolean passesDistanceGate;
-            if ((frameCounter & 0xFF) == 0) {
-                passesDistanceGate = true;
-            } else {
-                passesDistanceGate = Math.abs(dx) < JUMP_DISTANCE_TRIGGER;
-            }
-
-            if (passesDistanceGate && dy <= -JUMP_HEIGHT_THRESHOLD) {
-                if ((frameCounter & 0x3F) == 0) {
-                    if (tails.getAnimationId() != Sonic2AnimationIds.DUCK) {
-                        inputJump = true;
-                        jumpingFlag = true;
-                    }
-                }
+            boolean passesDistanceGate = (frameCounter & 0xFF) == 0 || Math.abs(dx) < JUMP_DISTANCE_TRIGGER;
+            if (passesDistanceGate
+                    && dy <= -JUMP_HEIGHT_THRESHOLD
+                    && (frameCounter & 0x3F) == 0
+                    && tails.getAnimationId() != Sonic2AnimationIds.DUCK) {
+                inputJump = true;
+                jumpingFlag = true;
             }
         }
     }
 
-    /**
-     * ROM: TailsCPU_Panic - Stuck recovery via spindash.
-     * Faces toward Sonic, holds Down, triggers spindash every 128 frames.
-     */
     private void updatePanic() {
-        panicCounter++;
-
-        // Face toward Sonic
-        int dx = sonic.getCentreX() - tails.getCentreX();
-        if (dx > 0) {
-            inputRight = true;
-            tails.setDirection(Direction.RIGHT);
-        } else {
-            inputLeft = true;
-            tails.setDirection(Direction.LEFT);
+        if (checkDespawn()) {
+            return;
+        }
+        if (controlCounter != 0) {
+            applyManualControl();
+            return;
+        }
+        if (tails.getMoveLockTimer() > 0) {
+            return;
         }
 
-        // Hold down to charge spindash
+        tails.setDirection(sonic.getCentreX() < tails.getCentreX() ? Direction.LEFT : Direction.RIGHT);
         inputDown = true;
 
-        // ROM: Every 128 frames, release spindash with jump button
-        if ((panicCounter & (PANIC_SPINDASH_INTERVAL - 1)) == 0) {
-            inputJump = true;
-            // After release, return to Normal
+        int phase = frameCounter & 0x7F;
+        if (!tails.getSpindash()) {
+            if (tails.getGSpeed() != 0) {
+                return;
+            }
+            if (phase == 0) {
+                clearInputs();
+                state = State.NORMAL;
+                return;
+            }
+            if (tails.getAnimationId() == Sonic2AnimationIds.DUCK) {
+                inputJump = true;
+            }
+            return;
+        }
+
+        if (phase == 0) {
+            clearInputs();
             state = State.NORMAL;
-            stuckCounter = 0;
-            panicCounter = 0;
+            return;
+        }
+        if ((phase & 0x1F) == 0) {
+            inputJump = true;
         }
     }
 
-    // -- Helper Methods --
+    private void applyManualControl() {
+        inputUp = (controller2Logical & AbstractPlayableSprite.INPUT_UP) != 0;
+        inputDown = (controller2Logical & AbstractPlayableSprite.INPUT_DOWN) != 0;
+        inputLeft = (controller2Logical & AbstractPlayableSprite.INPUT_LEFT) != 0;
+        inputRight = (controller2Logical & AbstractPlayableSprite.INPUT_RIGHT) != 0;
+        inputJump = (controller2Logical & AbstractPlayableSprite.INPUT_JUMP) != 0;
+        controlCounter--;
+    }
+
+    private void enterFlyingState() {
+        state = State.FLYING;
+        despawnCounter = 0;
+        controlCounter = 0;
+        tails.setSpindash(false);
+        tails.setSpindashCounter((short) 0);
+        tails.setForcedAnimationId(FLY_ANIM_ID);
+        tails.setAir(true);
+        tails.setControlLocked(true);
+        tails.setObjectControlled(true);
+    }
 
     private int getDelayedSonicX() {
         return sonic.getCentreX(FOLLOW_DELAY_FRAMES);
@@ -377,31 +358,48 @@ public class TailsCpuController {
         return sonic.getCentreY(FOLLOW_DELAY_FRAMES);
     }
 
+    private int clampTargetYToWater(int targetY) {
+        LevelManager levelManager = LevelManager.getInstance();
+        if (levelManager == null) {
+            return targetY;
+        }
+        int waterY = WaterSystem.getInstance().getWaterLevelY(levelManager.getCurrentZone(), levelManager.getCurrentAct());
+        if (waterY == 0) {
+            return targetY;
+        }
+        return Math.min(targetY, waterY - 0x10);
+    }
+
     private boolean checkDespawn() {
         Camera camera = Camera.getInstance();
-        int tailsScreenX = tails.getCentreX() - camera.getX();
-        int tailsScreenY = tails.getCentreY() - camera.getY();
+        ObjectInstance ridingObject = null;
+        LevelManager levelManager = LevelManager.getInstance();
+        if (levelManager != null && levelManager.getObjectManager() != null) {
+            ridingObject = levelManager.getObjectManager().getRidingObject(tails);
+        }
 
-        // Check if Tails is off-screen
-        boolean offScreen = tailsScreenX < -64 || tailsScreenX > 384 ||
-                            tailsScreenY < -64 || tailsScreenY > 288;
+        boolean onScreen = camera != null && camera.isOnScreen(tails);
+        boolean keepAliveOnObject = ridingObject != null && ridingObject == lastRidingObject;
+        if (!onScreen && lastRidingObject != null && ridingObject != null && ridingObject != lastRidingObject) {
+            lastRidingObject = ridingObject;
+            triggerDespawn();
+            return true;
+        }
+        lastRidingObject = ridingObject;
 
-        if (offScreen) {
-            despawnCounter++;
-            if (despawnCounter >= DESPAWN_TIMEOUT) {
-                triggerDespawn();
-                return true;
-            }
-        } else {
+        if (onScreen || keepAliveOnObject) {
             despawnCounter = 0;
+            return false;
+        }
+
+        despawnCounter++;
+        if (despawnCounter >= DESPAWN_TIMEOUT) {
+            triggerDespawn();
+            return true;
         }
         return false;
     }
 
-    /**
-     * Force a despawn (e.g., when Tails falls off-screen).
-     * Clears any death state and transitions to SPAWNING.
-     */
     public void despawn() {
         tails.setDead(false);
         tails.setDeathCountdown(0);
@@ -409,7 +407,10 @@ public class TailsCpuController {
     }
 
     private void triggerDespawn() {
-        // ROM: TailsCPU_Despawn - move far off-screen
+        state = State.SPAWNING;
+        despawnCounter = 0;
+        controlCounter = 0;
+        jumpingFlag = false;
         tails.setX((short) 0x4000);
         tails.setY((short) 0);
         tails.setXSpeed((short) 0);
@@ -417,9 +418,14 @@ public class TailsCpuController {
         tails.setGSpeed((short) 0);
         tails.setHurt(false);
         tails.setAir(true);
+        tails.setDead(false);
+        tails.setDeathCountdown(0);
+        tails.setSpindash(false);
+        tails.setSpindashCounter((short) 0);
         tails.setForcedAnimationId(FLY_ANIM_ID);
-        state = State.SPAWNING;
-        despawnCounter = 0;
+        tails.setControlLocked(true);
+        tails.setObjectControlled(true);
+        lastRidingObject = null;
     }
 
     private void clearInputs() {
@@ -432,16 +438,12 @@ public class TailsCpuController {
 
     private AbstractPlayableSprite findSonic() {
         for (var sprite : SpriteManager.getInstance().getAllSprites()) {
-            if (sprite instanceof AbstractPlayableSprite playable && sprite != tails) {
-                if (!playable.isCpuControlled()) {
-                    return playable;
-                }
+            if (sprite instanceof AbstractPlayableSprite playable && sprite != tails && !playable.isCpuControlled()) {
+                return playable;
             }
         }
         return null;
     }
-
-    // -- Input Getters (read after update()) --
 
     public boolean getInputUp() { return inputUp; }
     public boolean getInputDown() { return inputDown; }
@@ -449,26 +451,47 @@ public class TailsCpuController {
     public boolean getInputRight() { return inputRight; }
     public boolean getInputJump() { return inputJump; }
     public State getState() { return state; }
+    public boolean isFlying() { return state == State.FLYING; }
 
-    /**
-     * Returns true if Tails is in a flying state where normal physics
-     * should be bypassed (the AI moves Tails directly).
-     */
-    public boolean isFlying() {
-        return state == State.FLYING;
+    public int getMinXBound(int fallback) {
+        return minXBound == Integer.MIN_VALUE ? fallback : minXBound;
     }
 
-    /**
-     * Reset the controller (e.g., on level load).
-     */
+    public int getMaxXBound(int fallback) {
+        return maxXBound == Integer.MIN_VALUE ? fallback : maxXBound;
+    }
+
+    public int getMaxYBound(int fallback) {
+        return maxYBound == Integer.MIN_VALUE ? fallback : maxYBound;
+    }
+
+    public void setLevelBounds(Integer minX, Integer maxX, Integer maxY) {
+        if (minX != null) {
+            minXBound = minX;
+        }
+        if (maxX != null) {
+            maxXBound = maxX;
+        }
+        if (maxY != null) {
+            maxYBound = maxY;
+        }
+    }
+
     public void reset() {
         state = State.INIT;
         despawnCounter = 0;
-        panicCounter = 0;
-        stuckCounter = 0;
+        controlCounter = 0;
+        controller2Held = 0;
+        controller2Logical = 0;
         jumpingFlag = false;
+        sonic = null;
+        lastRidingObject = null;
+        minXBound = Integer.MIN_VALUE;
+        maxXBound = Integer.MIN_VALUE;
+        maxYBound = Integer.MIN_VALUE;
         clearInputs();
         tails.setForcedAnimationId(-1);
-        sonic = null;
+        tails.setControlLocked(false);
+        tails.setObjectControlled(false);
     }
 }

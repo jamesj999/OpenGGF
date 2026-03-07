@@ -64,6 +64,12 @@ public enum SonicConfiguration {
 	 * Key to jump etc.
 	 */
 	JUMP,
+	P2_UP,
+	P2_DOWN,
+	P2_LEFT,
+	P2_RIGHT,
+	P2_JUMP,
+	P2_START,
 
 	/**
 	 * Test button only used in debug

@@ -4,6 +4,8 @@ import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
+import com.openggf.sprites.managers.SpriteManager;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.logging.Logger;
 
@@ -69,5 +71,17 @@ public abstract class Sonic2ZoneEvents {
             LOGGER.warning("Failed to load boss palette from ROM offset 0x" +
                     Integer.toHexString(romAddr) + ": " + e.getMessage());
         }
+    }
+
+    protected void setSidekickBounds(Integer minX, Integer maxX, Integer maxY) {
+        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
+        if (sidekick != null && sidekick.getCpuController() != null) {
+            sidekick.getCpuController().setLevelBounds(minX, maxX, maxY);
+        }
+    }
+
+    protected void syncSidekickBoundsToCamera() {
+        setSidekickBounds((int) camera.getMinX(), (int) camera.getMaxX(),
+                (int) Math.max(camera.getMaxY(), camera.getMaxYTarget()));
     }
 }

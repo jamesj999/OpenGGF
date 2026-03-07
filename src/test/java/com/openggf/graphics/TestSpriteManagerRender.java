@@ -55,7 +55,7 @@ public class TestSpriteManagerRender {
     }
 
     @Test
-    public void testSczSuppressesCpuSidekickFromGameplayAndRender() throws Exception {
+    public void testSonic2SidekickSuppressionZones() throws Exception {
         List<String> drawOrder = new ArrayList<>();
         SpriteManager spriteManager = SpriteManager.getInstance();
         LevelManager levelManager = LevelManager.getInstance();
@@ -75,17 +75,24 @@ public class TestSpriteManagerRender {
         spriteManager.addSprite(sidekick);
 
         try {
-            setCurrentZone(levelManager, Sonic2ZoneConstants.ZONE_SCZ);
-            assertNull("SCZ should suppress CPU sidekick gameplay instance", spriteManager.getSidekick());
-
-            spriteManager.draw();
-            assertEquals("SCZ should render only the main character sprite", List.of("main"), drawOrder);
+            assertSuppressedZone(levelManager, spriteManager, drawOrder, Sonic2ZoneConstants.ZONE_SCZ);
+            assertSuppressedZone(levelManager, spriteManager, drawOrder, Sonic2ZoneConstants.ZONE_WFZ);
+            assertSuppressedZone(levelManager, spriteManager, drawOrder, Sonic2ZoneConstants.ZONE_DEZ);
         } finally {
             drawOrder.clear();
             setCurrentZone(levelManager, originalZone);
             spriteManager.removeSprite(main.getCode());
             spriteManager.removeSprite(sidekick.getCode());
         }
+    }
+
+    private static void assertSuppressedZone(LevelManager levelManager, SpriteManager spriteManager,
+                                             List<String> drawOrder, int zone) throws Exception {
+        drawOrder.clear();
+        setCurrentZone(levelManager, zone);
+        assertNull("Zone should suppress CPU sidekick gameplay instance", spriteManager.getSidekick());
+        spriteManager.draw();
+        assertEquals("Suppressed zone should render only the main character sprite", List.of("main"), drawOrder);
     }
 
     private static void setCurrentZone(LevelManager levelManager, int zone) throws Exception {

@@ -390,7 +390,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		int speedIndex = Math.min((sprite.getSpindashCounter() >> 8) & 0xFF, table.length - 1);
 		short spindashGSpeed = table[speedIndex];
 
-		Camera.getInstance().setHorizScrollDelay(32 - ((spindashGSpeed - 0x800) >> 7));
+		Camera camera = Camera.getInstance();
+		if (camera != null && camera.getFocusedSprite() == sprite) {
+			camera.setHorizScrollDelay(32 - ((spindashGSpeed - 0x800) >> 7));
+		}
 
 		if (Direction.LEFT.equals(sprite.getDirection())) {
 			spindashGSpeed = (short) -spindashGSpeed;
@@ -886,8 +889,17 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		int xTotal = (sprite.getCentreX() * 256) + (sprite.getXSubpixel() & 0xFF) + sprite.getXSpeed();
 		int predictedX = xTotal >> 8;
 
-		int leftBoundary = camera.getMinX() + LEFT_OFFSET;
-		int rightBoundary = camera.getMaxX() + SCREEN_WIDTH - SONIC_WIDTH;
+		int minX = camera.getMinX();
+		int maxX = camera.getMaxX();
+		int maxY = Math.max(camera.getMaxY(), camera.getMaxYTarget());
+		if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
+			minX = sprite.getCpuController().getMinXBound(minX);
+			maxX = sprite.getCpuController().getMaxXBound(maxX);
+			maxY = sprite.getCpuController().getMaxYBound(maxY);
+		}
+
+		int leftBoundary = minX + LEFT_OFFSET;
+		int rightBoundary = maxX + SCREEN_WIDTH - SONIC_WIDTH;
 		if (!GameServices.gameState().isBossFightActive()) {
 			rightBoundary += RIGHT_EXTRA;
 		}
@@ -910,7 +922,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// ROM: When Level_started_flag is clear, boundary death is suppressed
 		// (camera boundaries may not reflect actual level extents during intro).
 		if (camera.isLevelStarted()) {
-			short effectiveMaxY = (short) Math.max(camera.getMaxY(), camera.getMaxYTarget());
+			short effectiveMaxY = (short) maxY;
 			if (sprite.getY() > effectiveMaxY + 224) {
 				if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
 					sprite.getCpuController().despawn();

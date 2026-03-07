@@ -48,6 +48,7 @@ public class Sonic2MCZEvents extends Sonic2ZoneEvents {
                     camera.setMinX(camera.getX());
                     // ROM: Set maxY TARGET to $5D0
                     camera.setMaxYTarget((short) 0x5D0);
+                    setSidekickBounds((int) camera.getX(), null, 0x5D0);
                     eventRoutine += 2;
                 }
             }
@@ -57,6 +58,7 @@ public class Sonic2MCZEvents extends Sonic2ZoneEvents {
                     // ROM: Lock camera X boundaries for boss arena
                     camera.setMinX((short) 0x20F0);
                     camera.setMaxX((short) 0x20F0);
+                    setSidekickBounds(0x20F0, 0x20F0, null);
                     // Mark boss fight active
                     GameServices.gameState().setCurrentBossId(Sonic2ObjectIds.MCZ_BOSS);
                     eventRoutine += 2;
@@ -92,6 +94,7 @@ public class Sonic2MCZEvents extends Sonic2ZoneEvents {
                 }
                 // ROM: Update minX to camera X (prevent backtracking)
                 camera.setMinX(camera.getX());
+                syncSidekickBoundsToCamera();
 
                 if (mczBoss != null && mczBoss.isDefeated()) {
                     eventRoutine += 2;

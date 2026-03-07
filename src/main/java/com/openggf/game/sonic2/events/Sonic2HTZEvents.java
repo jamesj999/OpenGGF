@@ -388,6 +388,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     camera.setMinX(camera.getX());
                     // ROM: Set maxY TARGET to allow boss area access
                     camera.setMaxYTarget((short) HTZ2_BOSS_ARENA_MAX_Y);
+                    setSidekickBounds((int) camera.getX(), null, HTZ2_BOSS_ARENA_MAX_Y);
                     eventRoutine += 2;
                 }
             }
@@ -398,6 +399,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     // ROM: Lock camera X boundaries
                     camera.setMinX((short) HTZ2_BOSS_ARENA_LEFT);
                     camera.setMaxX((short) HTZ2_BOSS_ARENA_RIGHT);
+                    setSidekickBounds(HTZ2_BOSS_ARENA_LEFT, HTZ2_BOSS_ARENA_RIGHT, null);
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
@@ -425,6 +427,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             case 18 -> {
                 // Routine 9: Boss end / camera extend (LevEvents_HTZ2_Routine9)
                 // ROM: s2.asm:21261-21277
+                syncSidekickBoundsToCamera();
                 if (GameServices.gameState().getCurrentBossId() != 0) {
                     // ROM: does nothing until Boss_defeated_flag is set.
                     return;

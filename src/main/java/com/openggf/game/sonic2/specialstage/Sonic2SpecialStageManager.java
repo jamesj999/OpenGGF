@@ -133,6 +133,10 @@ public class Sonic2SpecialStageManager {
 
     private int heldButtons = 0;
     private int pressedButtons = 0;
+    private int p2HeldButtons = 0;
+    private int p2LogicalButtons = 0;
+    private int tailsControlCounter = 0;
+    private final int[] tailsCtrlRecordBuf = new int[16];
 
     // Intro sequence
     private Sonic2SpecialStageIntro intro;
@@ -1380,7 +1384,17 @@ public class Sonic2SpecialStageManager {
         if (sonicPlayer != null && tailsPlayer != null) {
             sonicPlayer.setGlobalAnimFrameTimer(animTimer);
             sonicPlayer.update(heldButtons, pressedButtons);
-            int delayedInput = sonicPlayer.getControlRecordEntry(8);
+            System.arraycopy(tailsCtrlRecordBuf, 0, tailsCtrlRecordBuf, 1, tailsCtrlRecordBuf.length - 1);
+            tailsCtrlRecordBuf[0] = heldButtons;
+            int delayedInput = tailsCtrlRecordBuf[tailsCtrlRecordBuf.length - 1];
+            if ((p2HeldButtons & 0x7F) != 0) {
+                java.util.Arrays.fill(tailsCtrlRecordBuf, 0);
+                tailsControlCounter = 0xB4;
+                delayedInput = p2LogicalButtons;
+            } else if (tailsControlCounter > 0) {
+                tailsControlCounter--;
+                delayedInput = p2LogicalButtons;
+            }
             tailsPlayer.setGlobalAnimFrameTimer(animTimer);
             tailsPlayer.update(delayedInput, 0);
         } else if (sonicPlayer != null) {
@@ -1512,6 +1526,11 @@ public class Sonic2SpecialStageManager {
     public void handleInput(int held, int pressed) {
         this.heldButtons = held;
         this.pressedButtons |= pressed;
+    }
+
+    public void handlePlayer2Input(int held, int logical) {
+        this.p2HeldButtons = held;
+        this.p2LogicalButtons = logical;
     }
 
     public void toggleAlignmentTestMode() {
@@ -1901,6 +1920,10 @@ public class Sonic2SpecialStageManager {
 
         heldButtons = 0;
         pressedButtons = 0;
+        p2HeldButtons = 0;
+        p2LogicalButtons = 0;
+        tailsControlCounter = 0;
+        java.util.Arrays.fill(tailsCtrlRecordBuf, 0);
 
         intro = null;
         hudPatternBase = 0;
@@ -2561,4 +2584,3 @@ public class Sonic2SpecialStageManager {
         }
     }
 }
-

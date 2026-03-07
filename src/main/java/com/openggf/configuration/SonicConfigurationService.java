@@ -171,6 +171,12 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.LEFT, GLFW_KEY_LEFT);
 		putDefault(SonicConfiguration.RIGHT, GLFW_KEY_RIGHT);
 		putDefault(SonicConfiguration.JUMP, GLFW_KEY_SPACE);
+		putDefault(SonicConfiguration.P2_UP, GLFW_KEY_I);
+		putDefault(SonicConfiguration.P2_DOWN, GLFW_KEY_K);
+		putDefault(SonicConfiguration.P2_LEFT, GLFW_KEY_J);
+		putDefault(SonicConfiguration.P2_RIGHT, GLFW_KEY_L);
+		putDefault(SonicConfiguration.P2_JUMP, GLFW_KEY_RIGHT_SHIFT);
+		putDefault(SonicConfiguration.P2_START, GLFW_KEY_ENTER);
 		putDefault(SonicConfiguration.TEST, GLFW_KEY_T);
 		putDefault(SonicConfiguration.NEXT_ACT, GLFW_KEY_PAGE_UP);
 		putDefault(SonicConfiguration.NEXT_ZONE, GLFW_KEY_PAGE_DOWN);

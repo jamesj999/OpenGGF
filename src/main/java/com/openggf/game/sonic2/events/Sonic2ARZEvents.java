@@ -46,6 +46,7 @@ public class Sonic2ARZEvents extends Sonic2ZoneEvents {
                     camera.setMinX(camera.getX());
                     // ROM: Set maxY TARGET to $400 (boss arena height)
                     camera.setMaxYTarget((short) 0x400);
+                    setSidekickBounds((int) camera.getX(), null, 0x400);
                     eventRoutine += 2;
                     // ROM: move.b #4,(Current_Boss_ID).w
                     GameServices.gameState().setCurrentBossId(4);
@@ -58,6 +59,7 @@ public class Sonic2ARZEvents extends Sonic2ZoneEvents {
                     // ROM: Lock camera X at $2A40 (both min and max)
                     camera.setMinX((short) 0x2A40);
                     camera.setMaxX((short) 0x2A40);
+                    setSidekickBounds(0x2A40, 0x2A40, null);
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
@@ -87,6 +89,7 @@ public class Sonic2ARZEvents extends Sonic2ZoneEvents {
                 if (cameraX > camera.getMinX()) {
                     camera.setMinX(cameraX);
                 }
+                syncSidekickBoundsToCamera();
             }
             default -> {
                 // No more routines

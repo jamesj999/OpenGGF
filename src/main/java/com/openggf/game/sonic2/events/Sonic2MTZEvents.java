@@ -52,6 +52,7 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
                     camera.setMaxY((short) 0x500);
                     // ROM: move.w #$450,(Camera_Max_Y_pos_target).w
                     camera.setMaxYTarget((short) 0x450);
+                    setSidekickBounds(null, null, 0x450);
                     eventRoutine += 2;
                 }
             }
@@ -63,6 +64,7 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
                     camera.setMinX(camera.getX());
                     // ROM: move.w #$400,(Camera_Max_Y_pos_target).w
                     camera.setMaxYTarget((short) 0x400);
+                    setSidekickBounds((int) camera.getX(), null, 0x400);
                     eventRoutine += 2;
                 }
             }
@@ -74,6 +76,7 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
                     //      move.w #$2AB0,(Camera_Max_X_pos).w
                     camera.setMinX((short) 0x2AB0);
                     camera.setMaxX((short) 0x2AB0);
+                    setSidekickBounds(0x2AB0, 0x2AB0, null);
                     eventRoutine += 2;
                     // ROM: move.w #$E2,d0 / jsr (PlayMusic).l  (MusID_FadeOut)
                     AudioManager.getInstance().fadeOutMusic();
@@ -112,6 +115,7 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
                 if (cameraX > camera.getMinX()) {
                     camera.setMinX(cameraX);
                 }
+                syncSidekickBoundsToCamera();
             }
             default -> {
                 // No more routines

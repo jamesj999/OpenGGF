@@ -63,6 +63,7 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
                 if (camera.getX() >= 0x2680) {
                     camera.setMinX(camera.getX());
                     camera.setMaxYTarget((short) 0x450);
+                    setSidekickBounds((int) camera.getX(), null, 0x450);
                     eventRoutine += 2;
                 }
             }
@@ -71,6 +72,7 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
                     // ROM locks camera completely at X=0x2A20 for the entire fight
                     camera.setMinX((short) 0x2A20);
                     camera.setMaxX((short) 0x2A20);
+                    setSidekickBounds(0x2A20, 0x2A20, null);
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     AudioManager.getInstance().fadeOutMusic();
@@ -95,6 +97,7 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
                 if (cameraX > camera.getMinX()) {
                     camera.setMinX(cameraX);
                 }
+                syncSidekickBoundsToCamera();
             }
             default -> {
             }
