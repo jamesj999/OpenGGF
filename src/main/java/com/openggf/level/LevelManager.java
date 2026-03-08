@@ -4531,6 +4531,9 @@ public class LevelManager {
 
     /**
      * Applies a seamless transition immediately.
+     * <p>
+     * Routes through {@link #executeActTransition} for RELOAD types,
+     * which bypasses the profile system and matches ROM behavior.
      */
     public void applySeamlessTransition(SeamlessLevelTransitionRequest request) {
         if (request == null) {
@@ -4553,31 +4556,9 @@ public class LevelManager {
                             .mutationKey(request.mutationKey())
                             .musicOverrideId(request.musicOverrideId())
                             .build();
-                    loadZoneAndActSeamless(adjusted);
-                    initLevelEventsForCurrentZoneAct();
-                    if (request.mutationKey() != null && !request.mutationKey().isBlank()) {
-                        applySeamlessMutation(request.mutationKey());
-                    }
+                    executeActTransition(adjusted);
                 }
-                case RELOAD_TARGET_LEVEL -> {
-                    loadZoneAndActSeamless(request);
-                    initLevelEventsForCurrentZoneAct();
-                    if (request.mutationKey() != null && !request.mutationKey().isBlank()) {
-                        applySeamlessMutation(request.mutationKey());
-                    }
-                }
-                default -> {
-                }
-            }
-
-            applySeamlessOffsets(request);
-            restoreCameraBoundsForCurrentLevel();
-            camera.updatePosition(true);
-            if (request.musicOverrideId() >= 0) {
-                AudioManager.getInstance().playMusic(request.musicOverrideId());
-            }
-            if (request.showInLevelTitleCard() && !graphicsManager.isHeadlessMode()) {
-                requestInLevelTitleCard(currentZone, currentAct);
+                case RELOAD_TARGET_LEVEL -> executeActTransition(request);
             }
         } catch (IOException e) {
             throw new RuntimeException("Failed to apply seamless transition", e);
