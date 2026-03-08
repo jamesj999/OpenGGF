@@ -3673,6 +3673,14 @@ public class LevelManager {
         return zoneFeatureProvider;
     }
 
+    public AnimatedPatternManager getAnimatedPatternManager() {
+        return animatedPatternManager;
+    }
+
+    public AnimatedPaletteManager getAnimatedPaletteManager() {
+        return animatedPaletteManager;
+    }
+
     public boolean areAllRingsCollected() {
         return ringManager != null && ringManager.areAllCollected();
     }
