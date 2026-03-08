@@ -4062,6 +4062,22 @@ public class LevelManager {
         camera.setY((short) (camera.getY() + request.cameraOffsetY()));
     }
 
+    /**
+     * Resets object and ring managers for an in-place act transition.
+     * Matches ROM behavior: clears Dynamic_object_RAM and Ring_status_table
+     * without touching player/checkpoint state.
+     */
+    private void resetManagersForActTransition() {
+        ObjectManager om = getObjectManager();
+        if (om != null) {
+            om.reset(camera.getX());
+        }
+        RingManager rm = getRingManager();
+        if (rm != null) {
+            rm.reset(camera.getX());
+        }
+    }
+
     private void initLevelEventsForCurrentZoneAct() {
         LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
         if (levelEvents != null) {
