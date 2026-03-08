@@ -4075,7 +4075,7 @@ public class LevelManager {
 
         // 4. Rebuild managers with new act's spawn data
         // (ROM: Load_Level swaps obj/ring pointers, then clears Dynamic_object_RAM + Ring_status_table)
-        rebuildManagersForActTransition();
+        rebuildManagersForActTransition(cam);
 
         // 5. Apply coordinate offsets (ROM: Offset_ObjectsDuringTransition)
         applySeamlessOffsets(request, cam);
@@ -4142,8 +4142,8 @@ public class LevelManager {
      * reconstruct both managers so they reference {@code level.getObjects()}
      * and {@code level.getRings()} from the newly loaded act.
      */
-    private void rebuildManagersForActTransition() {
-        int cameraX = camera.getX();
+    private void rebuildManagersForActTransition(Camera cam) {
+        int cameraX = cam.getX();
 
         // Rebuild ObjectManager with the new act's object spawns
         objectManager = new ObjectManager(level.getObjects(),

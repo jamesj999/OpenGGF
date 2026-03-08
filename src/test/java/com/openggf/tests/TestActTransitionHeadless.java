@@ -12,6 +12,7 @@ import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 import org.junit.*;
 
+import java.util.Collection;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -184,5 +185,43 @@ public class TestActTransitionHeadless {
 
         assertEquals("Zone should be EHZ after transition", ZONE_EHZ, lm.getCurrentZone());
         assertEquals("Act should be 2 (index 1) after transition", ACT_2, lm.getCurrentAct());
+    }
+
+    // ========== Manager Windowing Uses Live Camera ==========
+
+    @Test
+    public void executeActTransitionWindowsManagersAtLiveCameraX() throws Exception {
+        LevelManager lm = LevelManager.getInstance();
+
+        // Position the live camera at X=5000, well past the level start.
+        // If rebuildManagersForActTransition uses the stale cached camera
+        // field (which may hold X=0 after Camera.resetInstance()), the
+        // spawn window would be [−128, 640] and no objects near X=5000
+        // would be active. The correct behavior uses the live camera so
+        // the spawn window is [4872, 5640].
+        Camera cam = Camera.getInstance();
+        cam.setX((short) 5000);
+
+        SeamlessLevelTransitionRequest request = SeamlessLevelTransitionRequest
+                .builder(TransitionType.RELOAD_TARGET_LEVEL)
+                .targetZoneAct(ZONE_EHZ, ACT_2)
+                .preserveMusic(true)
+                .build();
+
+        lm.executeActTransition(request);
+
+        // After transition, active spawns should include objects near
+        // the camera (X=5000), not near the level start (X=0).
+        Collection<ObjectSpawn> active = lm.getObjectManager().getActiveSpawns();
+        boolean hasSpawnNearCamera = active.stream()
+                .anyMatch(s -> s.x() >= 4800 && s.x() <= 5700);
+        boolean hasSpawnNearStart = active.stream()
+                .anyMatch(s -> s.x() < 1000);
+
+        assertTrue("Active spawns should include objects near camera X=5000, " +
+                "proving windowing used the live camera (found " + active.size() +
+                " active spawns)", hasSpawnNearCamera);
+        assertFalse("Active spawns should NOT include objects near level start " +
+                "when camera is at X=5000", hasSpawnNearStart);
     }
 }
