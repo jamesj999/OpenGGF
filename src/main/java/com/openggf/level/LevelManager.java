@@ -3996,40 +3996,6 @@ public class LevelManager {
     }
 
     /**
-     * Performs an in-place seamless zone/act reload without using fade transitions.
-     */
-    public void loadZoneAndActSeamless(SeamlessLevelTransitionRequest request) throws IOException {
-        if (request == null) {
-            return;
-        }
-        if (request.preserveMusic()) {
-            setSuppressNextMusicChange(true);
-        }
-
-        // Preserve checkpoint payload in case a non-seamless profile step clears it.
-        boolean hasCheckpoint = checkpointState != null && checkpointState.isActive();
-        int checkpointX = hasCheckpoint ? checkpointState.getSavedX() : 0;
-        int checkpointY = hasCheckpoint ? checkpointState.getSavedY() : 0;
-        int checkpointCameraX = hasCheckpoint ? checkpointState.getSavedCameraX() : 0;
-        int checkpointCameraY = hasCheckpoint ? checkpointState.getSavedCameraY() : 0;
-        int checkpointIndex = hasCheckpoint ? checkpointState.getLastCheckpointIndex() : -1;
-
-        if (levels.isEmpty()) {
-            gameModule = GameModuleRegistry.getCurrent();
-            refreshZoneList();
-        }
-
-        currentZone = request.targetZone();
-        currentAct = request.targetAct();
-        LevelData levelData = levels.get(currentZone).get(currentAct);
-        loadLevel(levelData.getLevelIndex(), LevelLoadMode.SEAMLESS_RELOAD);
-
-        if (hasCheckpoint && checkpointState != null) {
-            checkpointState.restoreFromSaved(checkpointX, checkpointY, checkpointCameraX, checkpointCameraY, checkpointIndex);
-        }
-    }
-
-    /**
      * Performs a ROM-aligned act transition: reloads layout + collision,
      * resets managers, applies offsets, and restores camera bounds.
      * <p>
