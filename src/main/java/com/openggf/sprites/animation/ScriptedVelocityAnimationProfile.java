@@ -97,7 +97,10 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         if (sprite.getSpindash() && spindashAnimId >= 0) {
             return spindashAnimId;
         }
-        if (sprite.isSliding() && slideAnimId >= 0) {
+        // ROM: slide animation only applies on ground. When airborne (e.g. jumping
+        // off a water slide), the jump/roll mode directly overwrites obAnim with
+        // id_Roll, so the slide animation never shows in the air.
+        if (sprite.isSliding() && !sprite.getAir() && slideAnimId >= 0) {
             return slideAnimId;
         }
         if (sprite.getRolling()) {
