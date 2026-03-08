@@ -2,6 +2,9 @@ package com.openggf.game.sonic3k;
 
 import org.junit.Test;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import static org.junit.Assert.*;
 
 public class TestSonic3kPlcArtRegistry {
@@ -244,6 +247,53 @@ public class TestSonic3kPlcArtRegistry {
         assertEquals(1, plan.standaloneArt().size());
         assertTrue(plan.standaloneArt().stream().anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.DDZ_EGG_ROBO)));
         assertEquals(0, plan.standaloneArt().get(0).palette());
+    }
+
+    @Test
+    public void allZonesReturnNonNullPlan() {
+        // All 14 zone indices (0x00-0x0D) must return non-null plans for both acts
+        for (int zone = 0x00; zone <= 0x0D; zone++) {
+            for (int act = 0; act <= 1; act++) {
+                Sonic3kPlcArtRegistry.ZoneArtPlan plan = Sonic3kPlcArtRegistry.getPlan(zone, act);
+                assertNotNull("Zone 0x" + Integer.toHexString(zone) + " act " + act + " returned null", plan);
+                assertNotNull(plan.standaloneArt());
+                assertNotNull(plan.levelArt());
+                // All zones should have at least the 7 shared level-art entries
+                assertTrue("Zone 0x" + Integer.toHexString(zone) + " act " + act
+                                + " has fewer than 7 level art entries",
+                        plan.levelArt().size() >= 7);
+            }
+        }
+    }
+
+    @Test
+    public void allPopulatedZonesHaveStandaloneEntries() {
+        // Every zone except HPZ (0x0D) should have at least one standalone entry
+        int[] populatedZones = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C};
+        for (int zone : populatedZones) {
+            Sonic3kPlcArtRegistry.ZoneArtPlan plan = Sonic3kPlcArtRegistry.getPlan(zone, 0);
+            assertFalse("Zone 0x" + Integer.toHexString(zone) + " should have standalone entries",
+                    plan.standaloneArt().isEmpty());
+        }
+    }
+
+    @Test
+    public void noDuplicateKeysInPlan() {
+        // No plan should contain duplicate keys across standalone + level art
+        for (int zone = 0x00; zone <= 0x0D; zone++) {
+            for (int act = 0; act <= 1; act++) {
+                Sonic3kPlcArtRegistry.ZoneArtPlan plan = Sonic3kPlcArtRegistry.getPlan(zone, act);
+                Set<String> keys = new HashSet<>();
+                for (var e : plan.standaloneArt()) {
+                    assertTrue("Duplicate standalone key '" + e.key() + "' in zone 0x"
+                            + Integer.toHexString(zone) + " act " + act, keys.add(e.key()));
+                }
+                for (var e : plan.levelArt()) {
+                    assertTrue("Duplicate level-art key '" + e.key() + "' in zone 0x"
+                            + Integer.toHexString(zone) + " act " + act, keys.add(e.key()));
+                }
+            }
+        }
     }
 
     @Test
