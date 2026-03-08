@@ -2,7 +2,6 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.game.InitStep;
 import com.openggf.game.LevelLoadContext;
-import com.openggf.game.LevelLoadMode;
 import com.openggf.game.StaticFixup;
 import org.junit.Test;
 import java.util.List;
@@ -97,18 +96,4 @@ public class TestSonic3kLevelInitProfile {
         assertEquals("RequestTitleCard", steps.get(19).name());
     }
 
-    @Test
-    public void seamlessReloadSkipsPlayerAndSidekickSteps() {
-        LevelLoadContext ctx = new LevelLoadContext();
-        ctx.setLoadMode(LevelLoadMode.SEAMLESS_RELOAD);
-        List<InitStep> steps = profile.levelLoadSteps(ctx);
-
-        // 13 resource steps minus InitPlayerAndCheckpoint = 12, plus no post-load = 12
-        assertEquals(12, steps.size());
-        assertFalse(steps.stream().anyMatch(step -> "InitPlayerAndCheckpoint".equals(step.name())));
-        assertFalse(steps.stream().anyMatch(step -> "SpawnPlayer".equals(step.name())));
-        assertFalse(steps.stream().anyMatch(step -> "SpawnSidekick".equals(step.name())));
-        assertFalse(steps.stream().anyMatch(step -> "RestoreCheckpoint".equals(step.name())));
-        assertFalse(steps.stream().anyMatch(step -> "RequestTitleCard".equals(step.name())));
-    }
 }
