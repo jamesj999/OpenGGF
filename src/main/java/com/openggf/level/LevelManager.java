@@ -4029,6 +4029,72 @@ public class LevelManager {
         }
     }
 
+    /**
+     * Performs a ROM-aligned act transition: reloads layout + collision,
+     * resets managers, applies offsets, and restores camera bounds.
+     * <p>
+     * This bypasses the profile system entirely because act transitions
+     * are NOT level loads in the ROM — they are in-place data swaps
+     * performed by level event background routines.
+     * <p>
+     * ROM reference: S3K zone BG event handlers (e.g. AIZ Act 2 transition
+     * at sonic3k.asm). Pattern: set zone/act → Load_Level + LoadSolids →
+     * Offset_ObjectsDuringTransition → clear managers → restore camera bounds.
+     *
+     * @param request the transition request with target zone/act, offsets, etc.
+     * @throws IOException if level data loading fails
+     */
+    public void executeActTransition(SeamlessLevelTransitionRequest request) throws IOException {
+        if (request == null) {
+            return;
+        }
+
+        // Suppress music reload if requested (ROM: music continues through transition)
+        if (request.preserveMusic()) {
+            setSuppressNextMusicChange(true);
+        }
+
+        // 1. Set zone/act (ROM: move.b d0, Current_zone_and_act)
+        currentZone = request.targetZone();
+        currentAct = request.targetAct();
+
+        // 2. Reload layout + collision only (ROM: Load_Level + LoadSolids)
+        if (levels.isEmpty()) {
+            gameModule = GameModuleRegistry.getCurrent();
+            refreshZoneList();
+        }
+        LevelData levelData = levels.get(currentZone).get(currentAct);
+        loadLevelData(levelData.getLevelIndex());
+
+        // 3. Apply art mutations if requested (ROM: zone-specific art swaps)
+        if (request.mutationKey() != null && !request.mutationKey().isBlank()) {
+            applySeamlessMutation(request.mutationKey());
+        }
+
+        // 4. Reset managers (ROM: clears Dynamic_object_RAM, Ring_status_table)
+        resetManagersForActTransition();
+
+        // 5. Apply coordinate offsets (ROM: Offset_ObjectsDuringTransition)
+        applySeamlessOffsets(request);
+
+        // 6. Restore camera bounds from new level data
+        restoreCameraBoundsForCurrentLevel();
+        camera.updatePosition(true);
+
+        // 7. Reinitialize level events for new act
+        initLevelEventsForCurrentZoneAct();
+
+        // 8. Music override if specified
+        if (request.musicOverrideId() >= 0) {
+            AudioManager.getInstance().playMusic(request.musicOverrideId());
+        }
+
+        // 9. In-level title card if requested
+        if (request.showInLevelTitleCard() && !graphicsManager.isHeadlessMode()) {
+            requestInLevelTitleCard(currentZone, currentAct);
+        }
+    }
+
     private void restoreCameraBoundsForCurrentLevel() {
         Level currentLevel = getCurrentLevel();
         if (currentLevel == null) {
