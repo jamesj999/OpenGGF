@@ -106,10 +106,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         public static final int INPUT_JUMP  = 0x10;
 
         // Status flag constants (matching ROM status byte)
-        public static final byte STATUS_FACING_LEFT = 0x01;
-        public static final byte STATUS_IN_AIR      = 0x02;
-        public static final byte STATUS_ROLLING     = 0x04;
-        public static final byte STATUS_PUSHING     = 0x10;
+        public static final byte STATUS_FACING_LEFT          = 0x01;
+        public static final byte STATUS_IN_AIR               = 0x02;
+        public static final byte STATUS_ROLLING              = 0x04;
+        public static final byte STATUS_ON_OBJECT            = 0x08;
+        public static final byte STATUS_ROLLING_JUMP         = 0x10;
+        public static final byte STATUS_PUSHING              = 0x20;
+        public static final byte STATUS_UNDERWATER           = 0x40;
+        public static final byte STATUS_PREVENT_TAILS_RESPAWN = (byte) 0x80;
 
         // ROM: Sonic_Pos_Record_Index - wraps at 256 (64 entries * 4 bytes)
         private byte historyPos = 0;
@@ -430,6 +434,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          * Affects physics constants and triggers entry/exit speed changes.
          */
         protected boolean inWater = false;
+        protected boolean preventTailsRespawn = false;
         /**
          * Previous frame's water state, used for detecting transitions.
          */
@@ -534,6 +539,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.flipTurned = false;
                 this.inWater = false;
                 this.wasInWater = false;
+                this.preventTailsRespawn = false;
                 this.superSonic = false;
                 if (controller != null && controller.getSuperState() != null) {
                         controller.getSuperState().reset();
@@ -2501,7 +2507,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (getDirection() == Direction.LEFT) status |= STATUS_FACING_LEFT;
                 if (air) status |= STATUS_IN_AIR;
                 if (rolling) status |= STATUS_ROLLING;
+                if (onObject) status |= STATUS_ON_OBJECT;
+                if (rollingJump) status |= STATUS_ROLLING_JUMP;
                 if (pushing) status |= STATUS_PUSHING;
+                if (inWater) status |= STATUS_UNDERWATER;
+                if (preventTailsRespawn) status |= STATUS_PREVENT_TAILS_RESPAWN;
                 statusHistory[historyPos] = status;
         }
 
@@ -2692,6 +2702,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          */
         public boolean isInWater() {
                 return inWater;
+        }
+
+        public boolean isPreventTailsRespawn() {
+                return preventTailsRespawn;
+        }
+
+        public void setPreventTailsRespawn(boolean preventTailsRespawn) {
+                this.preventTailsRespawn = preventTailsRespawn;
         }
 
         /**

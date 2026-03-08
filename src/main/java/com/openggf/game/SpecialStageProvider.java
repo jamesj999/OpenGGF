@@ -123,6 +123,10 @@ public interface SpecialStageProvider extends MiniGameProvider {
         return 50;
     }
 
+    default void handlePlayer2Input(int heldButtons, int logicalButtons) {
+        // No-op by default.
+    }
+
     // ==================== Debug Methods ====================
 
     /**

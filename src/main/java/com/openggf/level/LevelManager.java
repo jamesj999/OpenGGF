@@ -3867,6 +3867,13 @@ public class LevelManager {
             sidekick.setDeathCountdown(0);
             sidekick.setHighPriority(false);
             sidekick.setDirection(Direction.RIGHT);
+            if (sidekick.getCpuController() != null) {
+                Camera camera = Camera.getInstance();
+                sidekick.getCpuController().setLevelBounds(
+                        (int) camera.getMinX(),
+                        (int) camera.getMaxX(),
+                        (int) Math.max(camera.getMaxY(), camera.getMaxYTarget()));
+            }
         }
     }
 
@@ -4701,4 +4708,3 @@ public class LevelManager {
         }
     }
 }
-

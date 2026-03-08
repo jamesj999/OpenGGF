@@ -46,6 +46,7 @@ public class Sonic2EHZEvents extends Sonic2ZoneEvents {
                     camera.setMinX(camera.getX());
                     // ROM: Set maxY TARGET to $390 (will ease down to boss arena height)
                     camera.setMaxYTarget((short) 0x390);
+                    setSidekickBounds((int) camera.getX(), null, 0x390);
                     eventRoutine += 2;
                 }
             }
@@ -55,6 +56,7 @@ public class Sonic2EHZEvents extends Sonic2ZoneEvents {
                     // ROM: Lock X boundaries immediately for boss arena (not eased)
                     camera.setMinX((short) 0x28F0);
                     camera.setMaxX((short) 0x2940);
+                    setSidekickBounds(0x28F0, 0x2940, null);
                     // Mark boss fight active when camera locks (enables tight boundary)
                     GameServices.gameState().setCurrentBossId(Sonic2ObjectIds.EHZ_BOSS);
                     eventRoutine += 2;
@@ -81,6 +83,7 @@ public class Sonic2EHZEvents extends Sonic2ZoneEvents {
             }
             case 6 -> {
                 // Routine 3 (s2.asm:20438+): Wait for boss defeat
+                syncSidekickBoundsToCamera();
                 if (ehzBoss != null && ehzBoss.isDefeated()) {
                     // Boss handles camera unlock and EggPrison spawn in its defeat sequence
                     // No additional action needed here

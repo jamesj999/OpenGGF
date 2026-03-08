@@ -206,6 +206,11 @@ public class Sonic2SpecialStageProvider implements SpecialStageProvider {
     }
 
     @Override
+    public void handlePlayer2Input(int heldButtons, int logicalButtons) {
+        manager.handlePlayer2Input(heldButtons, logicalButtons);
+    }
+
+    @Override
     public boolean isFinished() {
         return manager.isFinished();
     }

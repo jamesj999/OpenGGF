@@ -1774,6 +1774,12 @@ public class GameLoop {
         int upKey = configService.getInt(SonicConfiguration.UP);
         int downKey = configService.getInt(SonicConfiguration.DOWN);
         int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+        int p2UpKey = configService.getInt(SonicConfiguration.P2_UP);
+        int p2DownKey = configService.getInt(SonicConfiguration.P2_DOWN);
+        int p2LeftKey = configService.getInt(SonicConfiguration.P2_LEFT);
+        int p2RightKey = configService.getInt(SonicConfiguration.P2_RIGHT);
+        int p2JumpKey = configService.getInt(SonicConfiguration.P2_JUMP);
+        int p2StartKey = configService.getInt(SonicConfiguration.P2_START);
         int debugModeKey = configService.getInt(SonicConfiguration.DEBUG_MODE_KEY);
 
         SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
@@ -1815,6 +1821,8 @@ public class GameLoop {
 
         int heldButtons = 0;
         int pressedButtons = 0;
+        int p2HeldButtons = 0;
+        int p2LogicalButtons = 0;
 
         if (inputHandler.isKeyDown(leftKey)) {
             heldButtons |= 0x04;
@@ -1839,7 +1847,28 @@ public class GameLoop {
             }
         }
 
+        if (inputHandler.isKeyDown(p2LeftKey)) {
+            p2HeldButtons |= 0x04;
+        }
+        if (inputHandler.isKeyDown(p2RightKey)) {
+            p2HeldButtons |= 0x08;
+        }
+        if (inputHandler.isKeyDown(p2UpKey)) {
+            p2HeldButtons |= 0x01;
+        }
+        if (inputHandler.isKeyDown(p2DownKey)) {
+            p2HeldButtons |= 0x02;
+        }
+        if (inputHandler.isKeyDown(p2JumpKey)) {
+            p2HeldButtons |= 0x70;
+        }
+        p2LogicalButtons = p2HeldButtons;
+        if (inputHandler.isKeyDown(p2StartKey)) {
+            p2LogicalButtons |= 0x80;
+        }
+
         ssProvider.handleInput(heldButtons, pressedButtons);
+        ssProvider.handlePlayer2Input(p2HeldButtons, p2LogicalButtons);
     }
 
     /**

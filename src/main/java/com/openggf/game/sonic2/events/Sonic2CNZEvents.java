@@ -70,6 +70,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
                     // ROM: Set maxY TARGET to $62E (initial arena height - allows access to floor)
                     // This gets tightened to $5D0 later in routine 4 once fight starts
                     camera.setMaxYTarget((short) 0x62E);
+                    setSidekickBounds((int) camera.getX(), null, 0x62E);
                     eventRoutine += 2;
                 }
             }
@@ -79,6 +80,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
                     // ROM: Lock camera X boundaries for boss arena
                     camera.setMinX((short) 0x2860);
                     camera.setMaxX((short) 0x28E0);
+                    setSidekickBounds(0x2860, 0x28E0, null);
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
@@ -120,6 +122,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
                     if (cameraX > camera.getMinX()) {
                         camera.setMinX(cameraX);
                     }
+                    syncSidekickBoundsToCamera();
                 }
             }
             default -> {

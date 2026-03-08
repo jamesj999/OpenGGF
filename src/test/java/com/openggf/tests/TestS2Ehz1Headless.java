@@ -482,6 +482,9 @@ public class TestS2Ehz1Headless {
         sonic.setDead(false);
 
         controller.update(311);
+        assertEquals("Respawn should still wait off the 64-frame cadence",
+                TailsCpuController.State.SPAWNING, controller.getState());
+        controller.update(320);
 
         // After respawn, should be in FLYING state
         assertEquals("Should transition to FLYING after respawn",
@@ -499,7 +502,7 @@ public class TestS2Ehz1Headless {
 
         // Set Sonic as dead
         sonic.setDead(true);
-        controller.update(311);
+        controller.update(320);
 
         assertEquals("Should stay in SPAWNING while Sonic is dead",
                 TailsCpuController.State.SPAWNING, controller.getState());
@@ -515,7 +518,7 @@ public class TestS2Ehz1Headless {
         // Set Sonic as airborne
         sonic.setAir(true);
         sonic.setDead(false);
-        controller.update(311);
+        controller.update(320);
 
         assertEquals("Should stay in SPAWNING while Sonic is airborne",
                 TailsCpuController.State.SPAWNING, controller.getState());
@@ -534,7 +537,7 @@ public class TestS2Ehz1Headless {
 
         sonic.setAir(false);
         sonic.setDead(false);
-        controller.update(311);
+        controller.update(320);
 
         assertEquals(TailsCpuController.State.FLYING, controller.getState());
         assertTrue("isFlying() should return true", controller.isFlying());
@@ -549,7 +552,7 @@ public class TestS2Ehz1Headless {
 
         sonic.setAir(false);
         sonic.setDead(false);
-        controller.update(311);
+        controller.update(320);
         assertEquals(TailsCpuController.State.FLYING, controller.getState());
 
         // Place Tails right at Sonic's delayed position (17-frame delay)
@@ -572,25 +575,18 @@ public class TestS2Ehz1Headless {
     // -- Panic State Tests --
 
     @Test
-    public void testPanicTriggersWhenStuck() {
+    public void testPanicTriggersWhenMoveLockedAndStopped() {
         createTailsForTest();
         // Get to NORMAL state
         controller.update(0);
         assertEquals(TailsCpuController.State.NORMAL, controller.getState());
 
-        // Simulate stuck: grounded, zero gSpeed, not rolling, for 121+ frames
+        // ROM: PANIC trigger is move_lock && zero inertia, not an idle timer.
         tails.setGSpeed((short) 0);
-        tails.setAir(false);
+        tails.setMoveLockTimer(10);
+        controller.update(1);
 
-        for (int i = 1; i <= 125; i++) {
-            fixture.stepFrame(false, false, false, false, false);
-            controller.update(i);
-            // Keep Tails stuck
-            tails.setGSpeed((short) 0);
-            tails.setAir(false);
-        }
-
-        assertEquals("Should enter PANIC state after being stuck for >120 frames",
+        assertEquals("Should enter PANIC state when move lock is active and inertia is zero",
                 TailsCpuController.State.PANIC, controller.getState());
     }
 
@@ -600,23 +596,18 @@ public class TestS2Ehz1Headless {
         // Get to PANIC state
         controller.update(0);
         tails.setGSpeed((short) 0);
-        tails.setAir(false);
-
-        for (int i = 1; i <= 125; i++) {
-            fixture.stepFrame(false, false, false, false, false);
-            controller.update(i);
-            tails.setGSpeed((short) 0);
-            tails.setAir(false);
-        }
+        tails.setMoveLockTimer(1);
+        controller.update(1);
         assertEquals(TailsCpuController.State.PANIC, controller.getState());
 
         // Place Sonic to the right of Tails
         tails.setX((short) (sonic.getX() - 50));
 
-        controller.update(126);
+        tails.setMoveLockTimer(0);
+        controller.update(2);
 
-        assertTrue("Should face right toward Sonic during panic",
-                controller.getInputRight());
+        assertEquals("Should face right toward Sonic during panic",
+                com.openggf.physics.Direction.RIGHT, tails.getDirection());
     }
 
     @Test
@@ -625,29 +616,33 @@ public class TestS2Ehz1Headless {
         // Get to PANIC state
         controller.update(0);
         tails.setGSpeed((short) 0);
-        tails.setAir(false);
-
-        for (int i = 1; i <= 125; i++) {
-            fixture.stepFrame(false, false, false, false, false);
-            controller.update(i);
-            tails.setGSpeed((short) 0);
-            tails.setAir(false);
-        }
+        tails.setMoveLockTimer(1);
+        controller.update(1);
         assertEquals(TailsCpuController.State.PANIC, controller.getState());
 
-        // ROM: Panic holds down throughout and releases spindash every 128 frames
-        controller.update(126);
+        tails.setMoveLockTimer(0);
+        controller.update(2);
         assertTrue("Should hold down during panic", controller.getInputDown());
 
-        // Advance through 128 frames of panic (panicCounter wraps at 128)
-        for (int i = 127; i < 126 + 127; i++) {
-            controller.update(i);
-        }
-        // At panicCounter == 128, spindash releases and returns to NORMAL
-        controller.update(126 + 127);
+        controller.update(128);
 
-        assertEquals("Should return to NORMAL after 128-frame spindash cycle",
+        assertEquals("Should return to NORMAL on the 128-frame boundary",
                 TailsCpuController.State.NORMAL, controller.getState());
+    }
+
+    @Test
+    public void testSonicDeathTransitionsToFlying() {
+        createTailsForTest();
+        controller.update(0);
+        short originalX = tails.getX();
+        short originalY = tails.getY();
+
+        sonic.setDead(true);
+        controller.update(1);
+
+        assertEquals(TailsCpuController.State.FLYING, controller.getState());
+        assertEquals(originalX, tails.getX());
+        assertEquals(originalY, tails.getY());
     }
 
     // -- findSonic Tests --
