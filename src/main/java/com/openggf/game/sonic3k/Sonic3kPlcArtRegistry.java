@@ -166,6 +166,118 @@ public final class Sonic3kPlcArtRegistry {
     private static void addZoneEntries(int zoneIndex, int actIndex,
                                        List<StandaloneArtEntry> standalone,
                                        List<LevelArtEntry> levelArt) {
-        // Zone-specific entries added in Task 2+
+        switch (zoneIndex) {
+            case 0x00 -> addAizEntries(actIndex, standalone, levelArt);
+        }
+    }
+
+    /**
+     * Populates AIZ (Angel Island Zone) art entries.
+     *
+     * <p>Standalone: Bloominator, Rhinobot (with DPLC), MonkeyDude.
+     * <p>Level-art: ride vine, animated still sprites, foreground plant (both acts),
+     * plus act-specific rocks, trees, zipline pegs, collapsing platforms.
+     */
+    private static void addAizEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        // Badniks (both acts)
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.BLOOMINATOR,
+                Sonic3kConstants.ART_KOSM_AIZ_BLOOMINATOR_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_BLOOMINATOR_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.RHINOBOT,
+                Sonic3kConstants.ART_UNC_AIZ_RHINOBOT_ADDR,
+                CompressionType.UNCOMPRESSED,
+                Sonic3kConstants.ART_UNC_AIZ_RHINOBOT_SIZE,
+                Sonic3kConstants.MAP_RHINOBOT_ADDR,
+                1,
+                Sonic3kConstants.DPLC_RHINOBOT_ADDR
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.MONKEY_DUDE,
+                Sonic3kConstants.ART_KOSM_AIZ_MONKEY_DUDE_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_MONKEY_DUDE_ADDR,
+                1,
+                -1
+        ));
+
+        // Level-art shared across both acts
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.AIZ_RIDE_VINE,
+                Sonic3kConstants.MAP_AIZ_MHZ_RIDE_VINE_ADDR,
+                Sonic3kConstants.ARTTILE_AIZ_SWING_VINE,
+                0,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.ANIMATED_STILL_SPRITES,
+                -1,
+                Sonic3kConstants.ARTTILE_AIZ_MISC2,
+                3,
+                "buildAnimatedStillSpritesSheet"
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.AIZ_FOREGROUND_PLANT,
+                -1,
+                Sonic3kConstants.ARTTILE_AIZ_MISC1,
+                2,
+                "buildAizForegroundPlantSheet"
+        ));
+
+        // Act-specific level-art
+        if (actIndex == 0) {
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.AIZ1_TREE,
+                    -1,
+                    1,
+                    2,
+                    "buildAiz1TreeSheet"
+            ));
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.AIZ1_ZIPLINE_PEG,
+                    -1,
+                    Sonic3kConstants.ARTTILE_AIZ_SLIDE_ROPE,
+                    2,
+                    "buildAiz1ZiplinePegSheet"
+            ));
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.AIZ1_ROCK,
+                    Sonic3kConstants.MAP_AIZ_ROCK_ADDR,
+                    Sonic3kConstants.ARTTILE_AIZ_MISC1,
+                    1,
+                    null
+            ));
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.COLLAPSING_PLATFORM_AIZ1,
+                    Sonic3kConstants.MAP_AIZ_COLLAPSING_PLATFORM_ADDR,
+                    1,
+                    2,
+                    null
+            ));
+        } else {
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.AIZ2_ROCK,
+                    Sonic3kConstants.MAP_AIZ_ROCK2_ADDR,
+                    Sonic3kConstants.ARTTILE_AIZ_MISC2,
+                    2,
+                    null
+            ));
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.COLLAPSING_PLATFORM_AIZ2,
+                    Sonic3kConstants.MAP_AIZ_COLLAPSING_PLATFORM2_ADDR,
+                    1,
+                    2,
+                    null
+            ));
+        }
     }
 }
