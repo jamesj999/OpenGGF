@@ -10,6 +10,9 @@ import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+
 /**
  * Builder-pattern test fixture that encapsulates the per-test boilerplate
  * found in headless test classes (sprite creation, camera setup, level event
@@ -139,6 +142,8 @@ public final class HeadlessTestFixture {
          * Builds the fixture, performing all setup:
          * <ol>
          *   <li>Reset per-test state via {@link TestEnvironment#resetPerTest()}</li>
+         *   <li>If using {@link #withZoneAndAct}, load the level via
+         *       {@link LevelManager#loadZoneAndAct} (full production path)</li>
          *   <li>Create a Sonic sprite at the start position</li>
          *   <li>Register sprite with SpriteManager</li>
          *   <li>Wire GroundSensor to LevelManager</li>
@@ -158,7 +163,17 @@ public final class HeadlessTestFixture {
             // 1. Reset transient per-test state
             TestEnvironment.resetPerTest();
 
-            // 2. Determine character code
+            // 2. If withZoneAndAct was used, load the level now (full production path)
+            if (sharedLevel == null) {
+                try {
+                    LevelManager.getInstance().loadZoneAndAct(zone, act);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(
+                            "Failed to load zone " + zone + " act " + act, e);
+                }
+            }
+
+            // 3. Determine character code
             String charCode;
             if (sharedLevel != null) {
                 charCode = sharedLevel.mainCharCode();
@@ -167,23 +182,23 @@ public final class HeadlessTestFixture {
                         .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
             }
 
-            // 3. Create sprite at start position
+            // 4. Create sprite at start position
             Sonic sprite = new Sonic(charCode, startX, startY);
 
-            // 4. Register with SpriteManager
+            // 5. Register with SpriteManager
             SpriteManager sm = SpriteManager.getInstance();
             sm.addSprite(sprite);
 
-            // 5. Wire GroundSensor
+            // 6. Wire GroundSensor
             GroundSensor.setLevelManager(LevelManager.getInstance());
 
-            // 6. Initialize camera via production path (bounds, snap, vertical wrap)
+            // 7. Initialize camera via production path (bounds, snap, vertical wrap)
             LevelManager.getInstance().initCameraForLevel();
 
-            // 7. Initialize level events via production path (always-on for parity)
+            // 8. Initialize level events via production path (always-on for parity)
             LevelManager.getInstance().initLevelEventsForLevel();
 
-            // 8. Create context and runner
+            // 9. Create context and runner
             GameContext context = GameContext.production();
             HeadlessTestRunner runner = new HeadlessTestRunner(sprite);
 
