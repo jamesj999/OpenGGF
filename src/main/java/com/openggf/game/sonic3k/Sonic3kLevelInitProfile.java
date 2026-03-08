@@ -18,6 +18,13 @@ import java.util.List;
  * <p>
  * Aligned to the S3K {@code Level:} routine at {@code sonic3k.asm:7505} (65 steps
  * across phases A-Q). The teardown steps undo the state set up by that routine.
+ * <p>
+ * S3K-specific post-load characteristics:
+ * <ul>
+ *   <li>Sidekick X offset: -32px (ROM: {@code $20}), not S2's -40px</li>
+ *   <li>Title card skipped on checkpoint resume (ROM: {@code tst.b (Last_star_post_hit)})</li>
+ *   <li>Seamless reload skips InitPlayerAndCheckpoint + all post-load player steps</li>
+ * </ul>
  */
 public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
 
@@ -26,7 +33,7 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
         LevelManager lm = LevelManager.getInstance();
         boolean seamlessReload = ctx.getLoadMode() == LevelLoadMode.SEAMLESS_RELOAD;
 
-        List<InitStep> steps = new ArrayList<>();
+        List<InitStep> steps = new ArrayList<>(20);
         steps.add(new InitStep("InitGameModule",
                 "S3K Phase A-D (#1-20): cmd_FadeOut, Pal_FadeToBlack, Clear_Nem_Queue, clearRAM, create Game instance",
                 () -> { try { lm.initGameModule(ctx.getLevelIndex()); } catch (IOException e) { throw new UncheckedIOException(e); } }));
@@ -71,7 +78,39 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
         steps.add(new InitStep("InitBackgroundRenderer",
                 "Engine-specific: Pre-allocate BG FBO for AIZ intro ocean-to-beach transition",
                 lm::initBackgroundRenderer));
+
+        // Post-load assembly: only when requested, and seamless reload skips all
+        if (ctx.isIncludePostLoadAssembly() && !seamlessReload) {
+            steps.add(restoreCheckpointStep(ctx));
+            steps.add(spawnPlayerStep(ctx));
+            steps.add(resetPlayerStateStep(ctx));
+            steps.add(initCameraStep());
+            steps.add(initLevelEventsStep());
+            steps.add(spawnSidekickStep());
+            steps.add(requestTitleCardStep(ctx));
+        }
+
         return List.copyOf(steps);
+    }
+
+    /** S3K sidekick: -32px X, +4px Y (ROM: {@code player_pos - $20}, {@code player_pos + 4}). */
+    @Override
+    protected InitStep spawnSidekickStep() {
+        return new InitStep("SpawnSidekick",
+            "S3K: SpawnLevelMainSprites_SpawnPlayers — Tails at player_pos - $20, +4 Y",
+            () -> LevelManager.getInstance().spawnSidekick(-32, 4));
+    }
+
+    /** S3K: skip title card on checkpoint resume (ROM: {@code tst.b (Last_star_post_hit)}). */
+    @Override
+    protected InitStep requestTitleCardStep(LevelLoadContext ctx) {
+        return new InitStep("RequestTitleCard",
+            "S3K: Obj_TitleCard — skipped on checkpoint resume",
+            () -> {
+                if (!ctx.hasCheckpoint()) {
+                    LevelManager.getInstance().requestTitleCardIfNeeded(ctx);
+                }
+            });
     }
 
     @Override

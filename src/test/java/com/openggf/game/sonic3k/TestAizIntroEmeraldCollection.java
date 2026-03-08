@@ -87,7 +87,6 @@ public class TestAizIntroEmeraldCollection {
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
-                .withLevelEvents()
                 .startPosition(START_X, START_Y)
                 .build();
         // Reset object manager so intro cutscene objects spawn fresh per test.

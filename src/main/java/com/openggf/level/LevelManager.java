@@ -597,9 +597,26 @@ public class LevelManager {
      * @throws IOException if an I/O error occurs while loading the level
      */
     public void loadLevel(int levelIndex, LevelLoadMode loadMode) throws IOException {
+        LevelLoadContext ctx = new LevelLoadContext();
+        ctx.setLevelIndex(levelIndex);
+        ctx.setLoadMode(loadMode);
+        loadLevel(levelIndex, loadMode, ctx);
+    }
+
+    /**
+     * Loads the specified level into memory with explicit load mode and context.
+     * <p>
+     * When the context has {@code includePostLoadAssembly} set, the profile will
+     * include post-load steps (checkpoint restore, player spawn, camera, etc.).
+     *
+     * @param levelIndex the index of the level to load
+     * @param loadMode   profile execution mode
+     * @param ctx        pre-built context with checkpoint snapshot and spawn data
+     * @throws IOException if an I/O error occurs while loading the level
+     */
+    public void loadLevel(int levelIndex, LevelLoadMode loadMode, LevelLoadContext ctx) throws IOException {
         try {
             LevelInitProfile profile = GameModuleRegistry.getCurrent().getLevelInitProfile();
-            LevelLoadContext ctx = new LevelLoadContext();
             ctx.setLevelIndex(levelIndex);
             ctx.setLoadMode(loadMode);
 
@@ -3675,6 +3692,196 @@ public class LevelManager {
         ringManager.spawnLostRings(player, count, frameCounter);
     }
 
+    // ── Post-load assembly methods ──────────────────────────────────────
+    // Extracted from loadCurrentLevel() so profile steps can delegate to them.
+    // Each method corresponds to one post-load InitStep (steps 14-20).
+
+    /**
+     * Step 14: Restore checkpoint state after loadLevel() clears it.
+     * ROM: S1 Lamp_LoadInfo, S2 Obj79_LoadData, S3K Saved_zone_and_act restore.
+     */
+    public void restoreCheckpointState(LevelLoadContext ctx) {
+        if (!ctx.hasCheckpoint() || checkpointState == null) {
+            return;
+        }
+        checkpointState.restoreFromSaved(
+                ctx.getCheckpointX(), ctx.getCheckpointY(),
+                ctx.getCheckpointCameraX(), ctx.getCheckpointCameraY(),
+                ctx.getCheckpointIndex());
+        if (ctx.hasWaterState() && checkpointState instanceof CheckpointState cs) {
+            cs.saveWaterState(ctx.getCheckpointWaterLevel(), ctx.getCheckpointWaterRoutine());
+        }
+
+        // ROM Lamp_LoadInfo: restore water level and routine after level reload.
+        if (ctx.hasWaterState()) {
+            int featureZone = getFeatureZoneId();
+            int featureAct = getFeatureActId();
+            WaterSystem waterSystem = WaterSystem.getInstance();
+            if (waterSystem.hasWater(featureZone, featureAct)) {
+                waterSystem.setWaterLevelDirect(featureZone, featureAct, ctx.getCheckpointWaterLevel());
+                waterSystem.setWaterLevelTarget(featureZone, featureAct, ctx.getCheckpointWaterLevel());
+            }
+            if (zoneFeatureProvider instanceof com.openggf.game.sonic1.Sonic1ZoneFeatureProvider s1zfp
+                    && s1zfp.getWaterEvents() != null) {
+                s1zfp.getWaterEvents().setWaterRoutine(ctx.getCheckpointWaterRoutine());
+            }
+        }
+    }
+
+    /**
+     * Step 15: Set player position from checkpoint or level start.
+     * ROM: S1/S2 StartLocations / Obj79_LoadData, S3K Get_PlayerStart.
+     */
+    public void spawnPlayerAtStartPosition(LevelLoadContext ctx) {
+        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        LevelData levelData = ctx.getLevelData();
+        if (levelData == null) {
+            throw new IllegalStateException(
+                "LevelLoadContext.levelData must be set before SpawnPlayer step. " +
+                "Call ctx.setLevelData() in the caller (e.g. loadCurrentLevel).");
+        }
+
+        int spawnY = -1;
+        if (ctx.hasCheckpoint()) {
+            player.setCentreX((short) ctx.getCheckpointX());
+            player.setCentreY((short) ctx.getCheckpointY());
+            spawnY = ctx.getCheckpointY();
+            LOGGER.info("Set player position from checkpoint: X=" + ctx.getCheckpointX() +
+                    ", Y=" + ctx.getCheckpointY() + " (center coordinates)");
+        } else {
+            int spawnX = levelData.getStartXPos();
+            spawnY = levelData.getStartYPos();
+
+            if (game instanceof DynamicStartPositionProvider dynamicStartProvider) {
+                try {
+                    int[] dynamicStart = dynamicStartProvider.getStartPosition(currentZone, currentAct);
+                    if (dynamicStart != null && dynamicStart.length >= 2) {
+                        spawnX = dynamicStart[0];
+                        spawnY = dynamicStart[1];
+                        LOGGER.info("Set player position from dynamic start provider: X=" + spawnX +
+                                ", Y=" + spawnY + " (zone=" + currentZone + ", act=" + currentAct + ")");
+                    } else {
+                        LOGGER.info("Dynamic start provider unavailable, using levelData fallback for " +
+                                levelData.name());
+                    }
+                } catch (IOException e) {
+                    LOGGER.warning("DynamicStartPositionProvider failed, using levelData fallback: " + e.getMessage());
+                }
+            }
+
+            player.setCentreX((short) spawnX);
+            player.setCentreY((short) spawnY);
+            LOGGER.info("Set player position from level start: X=" + spawnX +
+                    ", Y=" + spawnY + " (center coordinates)" +
+                    ", level: " + levelData.name());
+        }
+        ctx.setSpawnY(spawnY);
+    }
+
+    /**
+     * Step 16: Reset player state for level start.
+     * ROM: S2 InitPlayers state clear, S3K object constructor defaults.
+     */
+    public void resetPlayerForLevelStart(LevelLoadContext ctx) {
+        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        if (!(player instanceof AbstractPlayableSprite playable)) {
+            return;
+        }
+        playable.resetState();
+        playable.setXSpeed((short) 0);
+        playable.setYSpeed((short) 0);
+        playable.setGSpeed((short) 0);
+        // ROM: SBZ3 (spawnY=0) spawns airborne — set air=true so gravity applies.
+        playable.setAir(ctx.getSpawnY() == 0);
+        LOGGER.info("Player state after loadCurrentLevel: air=" + playable.getAir() +
+                ", ySpeed=" + playable.getYSpeed() + ", layer=" + player.getLayer());
+        playable.setRolling(false);
+        playable.setDead(false);
+        playable.setHurt(false);
+        playable.setDeathCountdown(0);
+        playable.setInvulnerableFrames(0);
+        playable.setInvincibleFrames(0);
+        playable.setDirection(Direction.RIGHT);
+        playable.setAngle((byte) 0);
+        player.setLayer((byte) 0);
+        playable.setHighPriority(false);
+        playable.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
+        playable.setRingCount(0);
+        AudioManager.getInstance().getBackend().setSpeedShoes(false);
+    }
+
+    /**
+     * Step 17: Initialize camera for level start.
+     * ROM: S1/S2 SetScreen/InitCameraValues, S3K Get_LevelSizeStart.
+     */
+    public void initCameraForLevel() {
+        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        if (!(player instanceof AbstractPlayableSprite playable)) {
+            return;
+        }
+        Camera camera = Camera.getInstance();
+        camera.setFrozen(false);
+        camera.setFocusedSprite(playable);
+        camera.updatePosition(true);
+
+        Level currentLevel = getCurrentLevel();
+        if (currentLevel != null) {
+            camera.setMinX((short) currentLevel.getMinX());
+            camera.setMaxX((short) currentLevel.getMaxX());
+            camera.setMinY((short) currentLevel.getMinY());
+            camera.setMaxY((short) currentLevel.getMaxY());
+            verticalWrapEnabled = camera.isVerticalWrapEnabled();
+            camera.updatePosition(true);
+        }
+    }
+
+    /**
+     * Step 18: Initialize level events for dynamic boundary updates.
+     * All games: LevelEventProvider.initLevel(zone, act).
+     */
+    public void initLevelEventsForLevel() {
+        LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        if (levelEvents != null) {
+            levelEvents.initLevel(currentZone, currentAct);
+        }
+    }
+
+    /**
+     * Step 19: Spawn sidekick (Tails) near the main player.
+     * S2: InitPlayers multi-char. S3K: SpawnLevelMainSprites_SpawnPlayers (-$20 X, +4 Y).
+     *
+     * @param xOffset sidekick X offset from player (negative = behind). S2 uses -40, S3K uses -32.
+     * @param yOffset sidekick Y offset from player. S2 uses 0, S3K uses +4.
+     */
+    public void spawnSidekick(int xOffset, int yOffset) {
+        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        AbstractPlayableSprite sidekick = spriteManager.getSidekick();
+        if (sidekick != null) {
+            sidekick.setX((short) (player.getX() + xOffset));
+            sidekick.setY((short) (player.getY() + yOffset));
+            sidekick.setXSpeed((short) 0);
+            sidekick.setYSpeed((short) 0);
+            sidekick.setGSpeed((short) 0);
+            sidekick.setAir(false);
+            sidekick.setDead(false);
+            sidekick.setDeathCountdown(0);
+            sidekick.setHighPriority(false);
+            sidekick.setDirection(Direction.RIGHT);
+        }
+    }
+
+    /**
+     * Step 20: Request title card display.
+     * Skipped in headless mode and when zone feature provider suppresses it.
+     */
+    public void requestTitleCardIfNeeded(LevelLoadContext ctx) {
+        if (ctx.isShowTitleCard()
+                && !graphicsManager.isHeadlessMode()
+                && !(zoneFeatureProvider != null && zoneFeatureProvider.shouldSuppressInitialTitleCard(currentZone, currentAct))) {
+            requestTitleCard(currentZone, currentAct);
+        }
+    }
+
     /**
      * Loads the current level with title card.
      * Use this for fresh level starts (zone/act changes).
@@ -3701,180 +3908,21 @@ public class LevelManager {
             specialStageReturnLevelReloadRequested = false;
             levelInactiveForTransition = false;
 
-            // Ensure zone list is populated before accessing it
             if (levels.isEmpty()) {
                 gameModule = GameModuleRegistry.getCurrent();
                 refreshZoneList();
             }
             LevelData levelData = levels.get(currentZone).get(currentAct);
 
-            // Check if we have an active checkpoint BEFORE reloading
-            // (loadLevel clears checkpointState, so we need to save the values first)
-            boolean hasCheckpoint = checkpointState != null && checkpointState.isActive();
-            int checkpointX = hasCheckpoint ? checkpointState.getSavedX() : 0;
-            int checkpointY = hasCheckpoint ? checkpointState.getSavedY() : 0;
-            int checkpointCameraX = hasCheckpoint ? checkpointState.getSavedCameraX() : 0;
-            int checkpointCameraY = hasCheckpoint ? checkpointState.getSavedCameraY() : 0;
-            int checkpointIndex = hasCheckpoint ? checkpointState.getLastCheckpointIndex() : -1;
-            // ROM Lamp_StoreInfo: save water state before loadLevel clears it
-            boolean hasWaterState = hasCheckpoint && checkpointState instanceof CheckpointState cs0
-                    && cs0.hasWaterState();
-            int checkpointWaterLevel = hasWaterState ? ((CheckpointState) checkpointState).getSavedWaterLevel() : 0;
-            int checkpointWaterRoutine = hasWaterState ? ((CheckpointState) checkpointState).getSavedWaterRoutine() : 0;
+            LevelLoadContext ctx = new LevelLoadContext();
+            ctx.setShowTitleCard(showTitleCard);
+            ctx.setLevelData(levelData);
+            ctx.setIncludePostLoadAssembly(true);
+            ctx.snapshotCheckpoint(checkpointState);
 
-            loadLevel(levelData.getLevelIndex());
-
-            // Restore checkpoint state if we had an active checkpoint
-            // (loadLevel clears it, but we need it for subsequent respawns)
-            if (hasCheckpoint && checkpointState != null) {
-                checkpointState.restoreFromSaved(checkpointX, checkpointY, checkpointCameraX, checkpointCameraY,
-                        checkpointIndex);
-                if (hasWaterState && checkpointState instanceof CheckpointState cs1) {
-                    cs1.saveWaterState(checkpointWaterLevel, checkpointWaterRoutine);
-                }
-            }
-
-            // ROM Lamp_LoadInfo: restore water level and routine after level reload.
-            // loadLevel() resets water to the default starting height; if the checkpoint
-            // had saved water state (LZ lamppost), apply it now so water starts at the
-            // correct position instead of gradually rising from the default.
-            if (hasWaterState) {
-                int featureZone = getFeatureZoneId();
-                int featureAct = getFeatureActId();
-                WaterSystem waterSystem = WaterSystem.getInstance();
-                if (waterSystem.hasWater(featureZone, featureAct)) {
-                    waterSystem.setWaterLevelDirect(featureZone, featureAct, checkpointWaterLevel);
-                    waterSystem.setWaterLevelTarget(featureZone, featureAct, checkpointWaterLevel);
-                }
-                // Restore water routine so dynamic water events resume from correct state
-                if (zoneFeatureProvider instanceof com.openggf.game.sonic1.Sonic1ZoneFeatureProvider s1zfp
-                        && s1zfp.getWaterEvents() != null) {
-                    s1zfp.getWaterEvents().setWaterRoutine(checkpointWaterRoutine);
-                }
-            }
+            loadLevel(levelData.getLevelIndex(), LevelLoadMode.FULL, ctx);
 
             frameCounter = 0;
-            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
-
-            // Use checkpoint position if available, otherwise level start.
-            // ROM start/checkpoint coordinates are center-based.
-            int spawnY = -1; // Track spawn Y for airborne detection
-            if (hasCheckpoint) {
-                player.setCentreX((short) checkpointX);
-                player.setCentreY((short) checkpointY);
-                spawnY = checkpointY;
-                LOGGER.info("Set player position from checkpoint: X=" + checkpointX + ", Y=" + checkpointY +
-                        " (center coordinates)");
-            } else {
-                int spawnX = levelData.getStartXPos();
-                spawnY = levelData.getStartYPos();
-
-                if (game instanceof DynamicStartPositionProvider dynamicStartProvider) {
-                    int[] dynamicStart = dynamicStartProvider.getStartPosition(currentZone, currentAct);
-                    if (dynamicStart != null && dynamicStart.length >= 2) {
-                        spawnX = dynamicStart[0];
-                        spawnY = dynamicStart[1];
-                        LOGGER.info("Set player position from dynamic start provider: X=" + spawnX +
-                                ", Y=" + spawnY + " (zone=" + currentZone + ", act=" + currentAct + ")");
-                    } else {
-                        LOGGER.info("Dynamic start provider unavailable, using levelData fallback for " +
-                                levelData.name());
-                    }
-                }
-
-                player.setCentreX((short) spawnX);
-                player.setCentreY((short) spawnY);
-                LOGGER.info("Set player position from level start: X=" + spawnX +
-                        ", Y=" + spawnY + " (center coordinates)" +
-                        ", level: " + levelData.name());
-            }
-
-            if (player instanceof AbstractPlayableSprite) {
-                AbstractPlayableSprite playable = (AbstractPlayableSprite) player;
-                // Full state reset first
-                playable.resetState();
-                // Then set specific values
-                playable.setXSpeed((short) 0);
-                playable.setYSpeed((short) 0);
-                playable.setGSpeed((short) 0);
-                // ROM: air state is determined by first frame of physics.
-                // For most levels, Sonic spawns on solid ground (air=false).
-                // For SBZ3 (spawnY=0), Sonic spawns at the top of the level with
-                // no ground and must fall — set air=true so gravity applies.
-                playable.setAir(spawnY == 0);
-                LOGGER.info("Player state after loadCurrentLevel: air=" + playable.getAir() +
-                        ", ySpeed=" + playable.getYSpeed() + ", layer=" + player.getLayer());
-                playable.setRolling(false);
-                playable.setDead(false);
-                playable.setHurt(false);
-                playable.setDeathCountdown(0);
-                playable.setInvulnerableFrames(0);
-                playable.setInvincibleFrames(0);
-                playable.setDirection(Direction.RIGHT);
-                playable.setAngle((byte) 0);
-                player.setLayer((byte) 0);
-                playable.setHighPriority(false);
-                playable.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
-
-                // Clear rings on spawn (ROM behavior)
-                playable.setRingCount(0);
-
-                // Reset speed shoes effect and music tempo
-                // Note: resetState is already called which clears speedShoes, but we also need
-                // to reset audio
-                AudioManager.getInstance().getBackend().setSpeedShoes(false);
-
-                Camera camera = Camera.getInstance();
-                camera.setFrozen(false); // Unlock camera after death
-                camera.setFocusedSprite(playable);
-                camera.updatePosition(true); // Force camera to player position
-
-                Level currentLevel = getCurrentLevel();
-                if (currentLevel != null) {
-                    camera.setMinX((short) currentLevel.getMinX());
-                    camera.setMaxX((short) currentLevel.getMaxX());
-                    camera.setMinY((short) currentLevel.getMinY());
-                    camera.setMaxY((short) currentLevel.getMaxY());
-                    // ROM: LZ3/SBZ2 vertical wrapping — enabled when top boundary is negative
-                    verticalWrapEnabled = camera.isVerticalWrapEnabled();
-                    // Re-apply camera placement after level bounds are set.
-                    // Some starts (notably S3K AIZ1 intro-skip) are far below Y=0 and
-                    // must be clamped with the correct maxY before pit checks run.
-                    camera.updatePosition(true);
-                }
-
-                // Initialize level events for dynamic boundary updates (game-specific)
-                LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
-                if (levelEvents != null) {
-                    levelEvents.initLevel(currentZone, currentAct);
-                }
-            }
-
-            // Reset sidekick (Tails) position near the main player on level load/restart
-            AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-            if (sidekick != null) {
-                sidekick.setX((short) (player.getX() - 40));
-                sidekick.setY(player.getY());
-                sidekick.setXSpeed((short) 0);
-                sidekick.setYSpeed((short) 0);
-                sidekick.setGSpeed((short) 0);
-                sidekick.setAir(false);
-                sidekick.setDead(false);
-                sidekick.setDeathCountdown(0);
-                sidekick.setHighPriority(false);
-                sidekick.setDirection(Direction.RIGHT);
-            }
-
-            // Request title card for level starts and death respawns
-            // Original Sonic 2 shows title card on all respawns (with or without
-            // checkpoint)
-            // In headless mode, skip title card by default to avoid control locking
-            // during tests
-            if (showTitleCard
-                    && !graphicsManager.isHeadlessMode()
-                    && !(zoneFeatureProvider != null && zoneFeatureProvider.shouldSuppressInitialTitleCard(currentZone, currentAct))) {
-                requestTitleCard(currentZone, currentAct);
-            }
 
         } catch (IOException e) {
             throw new RuntimeException(e);

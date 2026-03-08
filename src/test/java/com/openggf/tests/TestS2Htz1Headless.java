@@ -65,7 +65,6 @@ public class TestS2Htz1Headless {
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
-                .withLevelEvents()
                 .build();
         sprite = (Sonic) fixture.sprite();
         levelManager = LevelManager.getInstance();
