@@ -6,10 +6,8 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
-import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
-import com.openggf.tests.TestEnvironment;
 import com.openggf.tests.rules.SonicGame;
 
 import java.io.IOException;
@@ -57,9 +55,9 @@ public final class SharedLevel {
      *   <li>Init headless graphics</li>
      *   <li>Create a temporary Sonic sprite and register it</li>
      *   <li>Set camera focus and unfreeze</li>
-     *   <li>Load the requested zone and act</li>
-     *   <li>Wire {@link GroundSensor} to the level manager</li>
-     *   <li>Set camera bounds from the loaded level</li>
+     *   <li>Load the requested zone and act (runs full production path
+     *       including camera bounds, level events, and player positioning
+     *       via profile steps)</li>
      * </ol>
      *
      * @param game the game whose ROM is loaded (for documentation/querying)
@@ -81,18 +79,12 @@ public final class SharedLevel {
 
         LevelManager lm = LevelManager.getInstance();
         lm.loadZoneAndAct(zone, act);
-        GroundSensor.setLevelManager(lm);
 
-        Level level = lm.getCurrentLevel();
-        if (level != null) {
-            camera.setMinX((short) level.getMinX());
-            camera.setMaxX((short) level.getMaxX());
-            camera.setMinY((short) level.getMinY());
-            camera.setMaxY((short) level.getMaxY());
-        }
-        camera.updatePosition(true);
+        // loadZoneAndAct → loadCurrentLevel now runs full profile including
+        // InitCamera (bounds, snap, vertical wrap) and InitLevelEvents.
+        // No manual camera setup needed.
 
-        return new SharedLevel(level, game, zone, act, mainCharCode);
+        return new SharedLevel(lm.getCurrentLevel(), game, zone, act, mainCharCode);
     }
 
     /**

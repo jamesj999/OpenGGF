@@ -34,11 +34,6 @@ public class TestSonic3kLevelInitProfile {
 
     @Test
     public void perTestResetHas9StepsWithoutLevelEventReset() {
-        // S3K level event manager is NOT reset per-test because it would
-        // destroy zone event handlers (e.g. AIZ events) initialized during
-        // the @BeforeClass level load. The old TestEnvironment.resetPerTest()
-        // only called Sonic2LevelEventManager.resetState() which was a no-op
-        // for S3K tests.
         List<InitStep> steps = profile.perTestResetSteps();
 
         assertEquals(9, steps.size());
@@ -64,9 +59,20 @@ public class TestSonic3kLevelInitProfile {
     }
 
     @Test
-    public void levelLoadStepsContains13RomAlignedSteps() {
-        List<InitStep> steps = profile.levelLoadSteps(new com.openggf.game.LevelLoadContext());
+    public void levelLoadStepsContains13WithoutPostLoad() {
+        List<InitStep> steps = profile.levelLoadSteps(new LevelLoadContext());
         assertEquals(13, steps.size());
+    }
+
+    @Test
+    public void levelLoadStepsContains20Steps() {
+        LevelLoadContext ctx = new LevelLoadContext();
+        ctx.setIncludePostLoadAssembly(true);
+        List<InitStep> steps = profile.levelLoadSteps(ctx);
+
+        assertEquals(20, steps.size());
+
+        // Original 13 ROM-aligned resource loading steps
         assertEquals("InitGameModule", steps.get(0).name());
         assertEquals("InitAudio", steps.get(1).name());
         assertEquals("LoadLevelData", steps.get(2).name());
@@ -80,15 +86,29 @@ public class TestSonic3kLevelInitProfile {
         assertEquals("InitPlayerAndCheckpoint", steps.get(10).name());
         assertEquals("InitWater", steps.get(11).name());
         assertEquals("InitBackgroundRenderer", steps.get(12).name());
+
+        // 7 post-load assembly steps
+        assertEquals("RestoreCheckpoint", steps.get(13).name());
+        assertEquals("SpawnPlayer", steps.get(14).name());
+        assertEquals("ResetPlayerState", steps.get(15).name());
+        assertEquals("InitCamera", steps.get(16).name());
+        assertEquals("InitLevelEvents", steps.get(17).name());
+        assertEquals("SpawnSidekick", steps.get(18).name());
+        assertEquals("RequestTitleCard", steps.get(19).name());
     }
 
     @Test
-    public void seamlessReloadSkipsInitPlayerAndCheckpointStep() {
+    public void seamlessReloadSkipsPlayerAndSidekickSteps() {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.setLoadMode(LevelLoadMode.SEAMLESS_RELOAD);
         List<InitStep> steps = profile.levelLoadSteps(ctx);
 
+        // 13 resource steps minus InitPlayerAndCheckpoint = 12, plus no post-load = 12
         assertEquals(12, steps.size());
         assertFalse(steps.stream().anyMatch(step -> "InitPlayerAndCheckpoint".equals(step.name())));
+        assertFalse(steps.stream().anyMatch(step -> "SpawnPlayer".equals(step.name())));
+        assertFalse(steps.stream().anyMatch(step -> "SpawnSidekick".equals(step.name())));
+        assertFalse(steps.stream().anyMatch(step -> "RestoreCheckpoint".equals(step.name())));
+        assertFalse(steps.stream().anyMatch(step -> "RequestTitleCard".equals(step.name())));
     }
 }

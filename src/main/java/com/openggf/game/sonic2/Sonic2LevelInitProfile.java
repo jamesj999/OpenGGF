@@ -7,6 +7,7 @@ import com.openggf.level.LevelManager;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -32,47 +33,50 @@ public class Sonic2LevelInitProfile extends AbstractLevelInitProfile {
     @Override
     public List<InitStep> levelLoadSteps(LevelLoadContext ctx) {
         LevelManager lm = LevelManager.getInstance();
-        return List.of(
-            new InitStep("InitGameModule",
+        List<InitStep> steps = new ArrayList<>(20);
+        steps.add(new InitStep("InitGameModule",
                 "S2 Phase A (#1-4): Pal_FadeToBlack, ClearPLC, clear variables, create Game instance",
-                () -> { try { lm.initGameModule(ctx.getLevelIndex()); } catch (IOException e) { throw new UncheckedIOException(e); } }),
-            new InitStep("InitAudio",
+                () -> { try { lm.initGameModule(ctx.getLevelIndex()); } catch (IOException e) { throw new UncheckedIOException(e); } }));
+        steps.add(new InitStep("InitAudio",
                 "S2 Phase C (#21): Level_SetPlayerMode, PlayMusic — configure audio manager and play level music",
-                () -> { try { lm.initAudio(ctx.getLevelIndex()); } catch (IOException e) { throw new UncheckedIOException(e); } }),
-            new InitStep("LoadLevelData",
+                () -> { try { lm.initAudio(ctx.getLevelIndex()); } catch (IOException e) { throw new UncheckedIOException(e); } }));
+        steps.add(new InitStep("LoadLevelData",
                 "S2 Phase E-F (#26-35): LevelDataLoad, LoadZoneTiles, LoadCollisionIndexes",
-                () -> { try { ctx.setLevel(lm.loadLevelData(ctx.getLevelIndex())); } catch (IOException e) { throw new UncheckedIOException(e); } }),
-            new InitStep("InitAnimatedContent",
+                () -> { try { ctx.setLevel(lm.loadLevelData(ctx.getLevelIndex())); } catch (IOException e) { throw new UncheckedIOException(e); } }));
+        steps.add(new InitStep("InitAnimatedContent",
                 "S2 Phase E (#32): LoadAnimatedBlocks (pattern animation scripts + palette cycling)",
-                lm::initAnimatedContent),
-            new InitStep("InitObjectManager",
+                lm::initAnimatedContent));
+        steps.add(new InitStep("InitObjectManager",
                 "S2 Phase G (#36-38): InitPlayers, WaterEffects, create ObjectManager, wire CollisionSystem",
-                () -> { try { lm.initObjectManager(); } catch (IOException e) { throw new UncheckedIOException(e); } }),
-            new InitStep("InitCameraBounds",
+                () -> { try { lm.initObjectManager(); } catch (IOException e) { throw new UncheckedIOException(e); } }));
+        steps.add(new InitStep("InitCameraBounds",
                 "S2 Phase E (#26): LevelSizeLoad — reset camera bounds from level geometry",
-                lm::initCameraBounds),
-            new InitStep("InitGameplayState",
+                lm::initCameraBounds));
+        steps.add(new InitStep("InitGameplayState",
                 "S2 Phase H (#41-43): OscillateNumInit, clear rings/time/lives, HUD update flags",
-                lm::initGameplayState),
-            new InitStep("InitRings",
+                lm::initGameplayState));
+        steps.add(new InitStep("InitRings",
                 "S2 Phase I (#45): RingsManager — initial ring placement and pattern caching",
-                lm::initRings),
-            new InitStep("InitZoneFeatures",
+                lm::initRings));
+        steps.add(new InitStep("InitZoneFeatures",
                 "S2 Phase G (#39-40): WaterSurface, CPZ Pylon, OOZ Oil, CNZ bumpers",
-                () -> { try { lm.initZoneFeatures(); } catch (IOException e) { throw new UncheckedIOException(e); } }),
-            new InitStep("InitArt",
+                () -> { try { lm.initZoneFeatures(); } catch (IOException e) { throw new UncheckedIOException(e); } }));
+        steps.add(new InitStep("InitArt",
                 "S2 Phase C (#8-9): ObjectArt (zone PLC), PlayerSpriteArt",
-                lm::initArt),
-            new InitStep("InitPlayerAndCheckpoint",
+                lm::initArt));
+        steps.add(new InitStep("InitPlayerAndCheckpoint",
                 "S2 Phase G (#37) + H (#41): ResetPlayerState, checkpoint clear, LevelGamestate",
-                lm::initPlayerAndCheckpoint),
-            new InitStep("InitWater",
+                lm::initPlayerAndCheckpoint));
+        steps.add(new InitStep("InitWater",
                 "S2 Phase B (#13,18): WaterSystem loading for water zones (LZ, HPZ, CPZ)",
-                () -> { try { lm.initWater(); } catch (IOException e) { throw new UncheckedIOException(e); } }),
-            new InitStep("InitBackgroundRenderer",
+                () -> { try { lm.initWater(); } catch (IOException e) { throw new UncheckedIOException(e); } }));
+        steps.add(new InitStep("InitBackgroundRenderer",
                 "Engine-specific: Pre-allocate BG FBO at maximum required size",
-                lm::initBackgroundRenderer)
-        );
+                lm::initBackgroundRenderer));
+        if (ctx.isIncludePostLoadAssembly()) {
+            steps.addAll(postLoadAssemblySteps(ctx));
+        }
+        return List.copyOf(steps);
     }
 
     @Override

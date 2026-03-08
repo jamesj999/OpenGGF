@@ -4,9 +4,6 @@ import com.openggf.GameContext;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.game.GameModuleRegistry;
-import com.openggf.game.LevelEventProvider;
-import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
@@ -107,7 +104,6 @@ public final class HeadlessTestFixture {
         private int act = -1;
         private short startX;
         private short startY;
-        private boolean levelEvents;
 
         private Builder() {}
 
@@ -140,27 +136,14 @@ public final class HeadlessTestFixture {
         }
 
         /**
-         * Enables level event initialization after build.
-         * When set, the builder will call
-         * {@link LevelEventProvider#initLevel(int, int)} for the
-         * current zone/act. This is required for tests that depend on
-         * zone-specific events (e.g., HTZ earthquake).
-         */
-        public Builder withLevelEvents() {
-            this.levelEvents = true;
-            return this;
-        }
-
-        /**
          * Builds the fixture, performing all setup:
          * <ol>
          *   <li>Reset per-test state via {@link TestEnvironment#resetPerTest()}</li>
          *   <li>Create a Sonic sprite at the start position</li>
-         *   <li>Register sprite with SpriteManager and Camera</li>
-         *   <li>Restore camera bounds from level data</li>
+         *   <li>Register sprite with SpriteManager</li>
          *   <li>Wire GroundSensor to LevelManager</li>
-         *   <li>Snap camera to sprite position</li>
-         *   <li>Optionally initialize level events</li>
+         *   <li>Initialize camera via production path ({@link LevelManager#initCameraForLevel()})</li>
+         *   <li>Initialize level events via production path ({@link LevelManager#initLevelEventsForLevel()})</li>
          *   <li>Create GameContext and HeadlessTestRunner</li>
          * </ol>
          *
@@ -187,52 +170,20 @@ public final class HeadlessTestFixture {
             // 3. Create sprite at start position
             Sonic sprite = new Sonic(charCode, startX, startY);
 
-            // 4. Register with SpriteManager and Camera
+            // 4. Register with SpriteManager
             SpriteManager sm = SpriteManager.getInstance();
             sm.addSprite(sprite);
-            Camera camera = Camera.getInstance();
-            camera.setFocusedSprite(sprite);
-            camera.setFrozen(false);
 
-            // 5. Restore camera bounds from level data
-            Level level = LevelManager.getInstance().getCurrentLevel();
-            if (level != null) {
-                camera.setMinX((short) level.getMinX());
-                camera.setMaxX((short) level.getMaxX());
-                camera.setMinY((short) level.getMinY());
-                camera.setMaxY((short) level.getMaxY());
-            }
-
-            // 6. Wire GroundSensor
+            // 5. Wire GroundSensor
             GroundSensor.setLevelManager(LevelManager.getInstance());
 
-            // 7. Snap camera
-            camera.updatePosition(true);
+            // 6. Initialize camera via production path (bounds, snap, vertical wrap)
+            LevelManager.getInstance().initCameraForLevel();
 
-            // 8. Determine effective zone/act for level events
-            int effectiveZone;
-            int effectiveAct;
-            if (sharedLevel != null) {
-                effectiveZone = sharedLevel.zone();
-                effectiveAct = sharedLevel.act();
-            } else {
-                effectiveZone = zone;
-                effectiveAct = act;
-            }
+            // 7. Initialize level events via production path (always-on for parity)
+            LevelManager.getInstance().initLevelEventsForLevel();
 
-            // 9. Optionally initialize level events
-            if (levelEvents && effectiveZone >= 0) {
-                LevelEventProvider lep = GameModuleRegistry.getCurrent()
-                        .getLevelEventProvider();
-                if (lep != null) {
-                    lep.initLevel(effectiveZone, effectiveAct);
-                }
-            }
-
-            // 10. Create context and runner
-            // GameContext wraps singletons post-setup. In Phase 1, build() accesses
-            // singletons directly; in a future phase, build() could route all access
-            // through GameContext once production code accepts it via constructor injection.
+            // 8. Create context and runner
             GameContext context = GameContext.production();
             HeadlessTestRunner runner = new HeadlessTestRunner(sprite);
 

@@ -61,11 +61,80 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
         return List.of();
     }
 
-    // Not final: subclasses will provide game-specific level load steps
-    // once production level loading is wired through the profile system.
+    // Not final: subclasses provide game-specific level load steps.
     @Override
     public List<InitStep> levelLoadSteps(LevelLoadContext ctx) {
         return List.of();
+    }
+
+    // ── Post-load assembly step factories ────────────────────────────────
+    // Steps 14-20: post-resource-load assembly (checkpoint, player spawn,
+    // state reset, camera, level events, sidekick, title card).
+    // Subclasses override individual factories for game-specific behavior.
+
+    /** Step 14: Restore checkpoint state after loadLevel() clears it. */
+    protected InitStep restoreCheckpointStep(LevelLoadContext ctx) {
+        return new InitStep("RestoreCheckpoint",
+            "S1: Lamp_LoadInfo, S2: Obj79_LoadData, S3K: Saved_zone_and_act restore",
+            () -> LevelManager.getInstance().restoreCheckpointState(ctx));
+    }
+
+    /** Step 15: Set player position from checkpoint or level start. */
+    protected InitStep spawnPlayerStep(LevelLoadContext ctx) {
+        return new InitStep("SpawnPlayer",
+            "S1/S2: StartLocations / Obj79_LoadData, S3K: Get_PlayerStart",
+            () -> LevelManager.getInstance().spawnPlayerAtStartPosition(ctx));
+    }
+
+    /** Step 16: Reset player state for level start. */
+    protected InitStep resetPlayerStateStep(LevelLoadContext ctx) {
+        return new InitStep("ResetPlayerState",
+            "S2: InitPlayers state clear, S3K: object constructor defaults",
+            () -> LevelManager.getInstance().resetPlayerForLevelStart(ctx));
+    }
+
+    /** Step 17: Initialize camera for level start. */
+    protected InitStep initCameraStep() {
+        return new InitStep("InitCamera",
+            "S1/S2: SetScreen/InitCameraValues, S3K: Get_LevelSizeStart",
+            () -> LevelManager.getInstance().initCameraForLevel());
+    }
+
+    /** Step 18: Initialize level events for dynamic boundary updates. */
+    protected InitStep initLevelEventsStep() {
+        return new InitStep("InitLevelEvents",
+            "All: LevelEventProvider.initLevel(zone, act)",
+            () -> LevelManager.getInstance().initLevelEventsForLevel());
+    }
+
+    /** Step 19: Spawn sidekick near the main player. Override for game-specific offset. */
+    protected InitStep spawnSidekickStep() {
+        return new InitStep("SpawnSidekick",
+            "S2: InitPlayers multi-char, S3K: SpawnLevelMainSprites_SpawnPlayers",
+            () -> LevelManager.getInstance().spawnSidekick(-40, 0));
+    }
+
+    /** Step 20: Request title card display. */
+    protected InitStep requestTitleCardStep(LevelLoadContext ctx) {
+        return new InitStep("RequestTitleCard",
+            "S1/S2: title card loop, S3K: Obj_TitleCard",
+            () -> LevelManager.getInstance().requestTitleCardIfNeeded(ctx));
+    }
+
+    /**
+     * Returns the standard 7 post-load assembly steps (14-20).
+     * Subclasses can call this and filter/modify as needed.
+     */
+    protected List<InitStep> postLoadAssemblySteps(LevelLoadContext ctx) {
+        return List.of(
+            restoreCheckpointStep(ctx),
+            spawnPlayerStep(ctx),
+            resetPlayerStateStep(ctx),
+            initCameraStep(),
+            initLevelEventsStep(),
+            spawnSidekickStep(),
+            requestTitleCardStep(ctx)
+        );
     }
 
     @Override

@@ -55,7 +55,6 @@ public class TestS1Lz3VerticalWrap {
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
-                .withLevelEvents()
                 .build();
 
         ObjectManager objectManager = LevelManager.getInstance().getObjectManager();

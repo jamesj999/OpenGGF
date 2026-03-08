@@ -56,11 +56,20 @@ public class TestSonic1LevelInitProfile {
     }
 
     @Test
-    public void levelLoadStepsContains13RomAlignedSteps() {
+    public void levelLoadStepsContains13WithoutPostLoad() {
         List<InitStep> steps = profile.levelLoadSteps(new com.openggf.game.LevelLoadContext());
-
         assertEquals(13, steps.size());
+    }
 
+    @Test
+    public void levelLoadStepsContains19Steps() {
+        com.openggf.game.LevelLoadContext ctx = new com.openggf.game.LevelLoadContext();
+        ctx.setIncludePostLoadAssembly(true);
+        List<InitStep> steps = profile.levelLoadSteps(ctx);
+
+        assertEquals(19, steps.size());
+
+        // Original 13 ROM-aligned resource loading steps
         assertEquals("InitGameModule", steps.get(0).name());
         assertEquals("InitAudio", steps.get(1).name());
         assertEquals("LoadLevelData", steps.get(2).name());
@@ -74,5 +83,13 @@ public class TestSonic1LevelInitProfile {
         assertEquals("InitPlayerAndCheckpoint", steps.get(10).name());
         assertEquals("InitWater", steps.get(11).name());
         assertEquals("InitBackgroundRenderer", steps.get(12).name());
+
+        // 6 post-load assembly steps (no SpawnSidekick — S1 has no Tails)
+        assertEquals("RestoreCheckpoint", steps.get(13).name());
+        assertEquals("SpawnPlayer", steps.get(14).name());
+        assertEquals("ResetPlayerState", steps.get(15).name());
+        assertEquals("InitCamera", steps.get(16).name());
+        assertEquals("InitLevelEvents", steps.get(17).name());
+        assertEquals("RequestTitleCard", steps.get(18).name());
     }
 }
