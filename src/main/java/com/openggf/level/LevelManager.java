@@ -3736,9 +3736,15 @@ public class LevelManager {
         Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
         LevelData levelData = ctx.getLevelData();
         if (levelData == null) {
-            throw new IllegalStateException(
-                "LevelLoadContext.levelData must be set before SpawnPlayer step. " +
-                "Call ctx.setLevelData() in the caller (e.g. loadCurrentLevel).");
+            levelData = resolveLevelData();
+            if (levelData == null) {
+                throw new IllegalStateException(
+                    "LevelLoadContext.levelData is null and could not be auto-resolved " +
+                    "from the levels map (zone=" + currentZone + ", act=" + currentAct + "). " +
+                    "Ensure InitGameModule has run before SpawnPlayer.");
+            }
+            ctx.setLevelData(levelData);
+            LOGGER.info("Auto-resolved levelData from levels map: " + levelData.name());
         }
 
         int spawnY = -1;
@@ -3890,6 +3896,25 @@ public class LevelManager {
     }
 
     /**
+     * Resolves the {@link LevelData} for the current zone and act from the
+     * {@code levels} map.
+     * <p>
+     * Used as a fallback when {@code LevelLoadContext.levelData} has not been
+     * pre-seeded by the caller. Returns {@code null} if the levels map is
+     * empty or the current zone/act is out of bounds.
+     */
+    private LevelData resolveLevelData() {
+        if (levels.isEmpty() || currentZone < 0 || currentZone >= levels.size()) {
+            return null;
+        }
+        List<LevelData> acts = levels.get(currentZone);
+        if (acts == null || currentAct < 0 || currentAct >= acts.size()) {
+            return null;
+        }
+        return acts.get(currentAct);
+    }
+
+    /**
      * Loads the current level with title card.
      * Use this for fresh level starts (zone/act changes).
      */
@@ -4022,6 +4047,10 @@ public class LevelManager {
             return;
         }
 
+        // Use fresh Camera singleton (the cached field can go stale after
+        // Camera.resetInstance() in test teardown or level reload)
+        Camera cam = Camera.getInstance();
+
         // Suppress music reload if requested (ROM: music continues through transition)
         if (request.preserveMusic()) {
             setSuppressNextMusicChange(true);
@@ -4049,11 +4078,11 @@ public class LevelManager {
         rebuildManagersForActTransition();
 
         // 5. Apply coordinate offsets (ROM: Offset_ObjectsDuringTransition)
-        applySeamlessOffsets(request);
+        applySeamlessOffsets(request, cam);
 
         // 6. Restore camera bounds from new level data
-        restoreCameraBoundsForCurrentLevel();
-        camera.updatePosition(true);
+        restoreCameraBoundsForCurrentLevel(cam);
+        cam.updatePosition(true);
 
         // 7. Reinitialize level events for new act
         initLevelEventsForCurrentZoneAct();
@@ -4069,23 +4098,23 @@ public class LevelManager {
         }
     }
 
-    private void restoreCameraBoundsForCurrentLevel() {
+    private void restoreCameraBoundsForCurrentLevel(Camera cam) {
         Level currentLevel = getCurrentLevel();
         if (currentLevel == null) {
             return;
         }
-        camera.setMinX((short) currentLevel.getMinX());
-        camera.setMaxX((short) currentLevel.getMaxX());
-        camera.setMinY((short) currentLevel.getMinY());
-        camera.setMaxY((short) currentLevel.getMaxY());
-        verticalWrapEnabled = camera.isVerticalWrapEnabled();
+        cam.setMinX((short) currentLevel.getMinX());
+        cam.setMaxX((short) currentLevel.getMaxX());
+        cam.setMinY((short) currentLevel.getMinY());
+        cam.setMaxY((short) currentLevel.getMaxY());
+        verticalWrapEnabled = cam.isVerticalWrapEnabled();
     }
 
-    private void applySeamlessOffsets(SeamlessLevelTransitionRequest request) {
+    private void applySeamlessOffsets(SeamlessLevelTransitionRequest request, Camera cam) {
         if (request == null) {
             return;
         }
-        if (camera.getFocusedSprite() instanceof AbstractPlayableSprite playable) {
+        if (cam.getFocusedSprite() instanceof AbstractPlayableSprite playable) {
             int newX = playable.getCentreX() + request.playerOffsetX();
             int newY = playable.getCentreY() + request.playerOffsetY();
             playable.setCentreX((short) newX);
@@ -4098,8 +4127,8 @@ public class LevelManager {
             sidekick.setCentreX((short) newX);
             sidekick.setCentreY((short) newY);
         }
-        camera.setX((short) (camera.getX() + request.cameraOffsetX()));
-        camera.setY((short) (camera.getY() + request.cameraOffsetY()));
+        cam.setX((short) (cam.getX() + request.cameraOffsetX()));
+        cam.setY((short) (cam.getY() + request.cameraOffsetY()));
     }
 
     /**
