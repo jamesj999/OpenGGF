@@ -10,8 +10,11 @@ import com.openggf.game.sonic2.credits.Sonic2EndingProvider;
 import com.openggf.game.sonic2.debug.Sonic2DebugModeProvider;
 import com.openggf.game.sonic2.levelselect.LevelSelectManager;
 import com.openggf.game.sonic2.objects.BlueBallsObjectInstance;
+import com.openggf.game.sonic2.objects.BombPrizeObjectInstance;
 import com.openggf.game.sonic2.objects.BonusBlockObjectInstance;
 import com.openggf.game.sonic2.objects.LauncherBallObjectInstance;
+import com.openggf.game.sonic2.objects.MTZLongPlatformObjectInstance;
+import com.openggf.game.sonic2.objects.SmashableGroundObjectInstance;
 import com.openggf.game.sonic2.objects.Sonic2ObjectRegistry;
 import com.openggf.game.sonic2.scroll.Sonic2ScrollHandlerProvider;
 import com.openggf.game.sonic2.titlecard.TitleCardManager;
@@ -192,6 +195,10 @@ public class Sonic2GameModule implements GameModule {
         BlueBallsObjectInstance.resetGlobalState();
         BonusBlockObjectInstance.resetGroupCounters();
         LauncherBallObjectInstance.clearActiveCaptures();
+        ButtonVineTriggerManager.reset();
+        SmashableGroundObjectInstance.resetGlobalState();
+        MTZLongPlatformObjectInstance.resetGlobalState();
+        BombPrizeObjectInstance.resetGlobalState();
     }
 
     @Override

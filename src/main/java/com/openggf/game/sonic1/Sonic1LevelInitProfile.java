@@ -4,6 +4,7 @@ import com.openggf.game.AbstractLevelInitProfile;
 import com.openggf.game.InitStep;
 import com.openggf.game.LevelLoadContext;
 import com.openggf.game.sonic1.events.Sonic1LevelEventManager;
+import com.openggf.game.sonic1.objects.Sonic1StomperDoorObjectInstance;
 import com.openggf.level.LevelManager;
 
 import java.io.IOException;
@@ -98,7 +99,12 @@ public class Sonic1LevelInitProfile extends AbstractLevelInitProfile {
     @Override
     protected InitStep perTestLeadStep() {
         return new InitStep("ResetS1LevelEvents",
-            "Undoes S1 per-zone event handlers (GHZ/MZ/SYZ/LZ/SLZ/SBZ/FZ events)",
-            () -> Sonic1LevelEventManager.getInstance().resetState());
+            "Undoes S1 per-zone event handlers, switch state, conveyor state, SBZ3 stomper door",
+            () -> {
+                Sonic1LevelEventManager.getInstance().resetState();
+                Sonic1SwitchManager.getInstance().reset();
+                Sonic1ConveyorState.getInstance().reset();
+                Sonic1StomperDoorObjectInstance.resetSbz3Flag();
+            });
     }
 }

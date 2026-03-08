@@ -204,6 +204,14 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
     }
 
     /**
+     * Resets all global state for MTZLongPlatform objects.
+     * Call on level load to ensure clean state across level transitions.
+     */
+    public static void resetGlobalState() {
+        mtzPlatformCogX = 0;
+    }
+
+    /**
      * Returns the current distance for child cog animation.
      */
     public int getCurrentDist() {

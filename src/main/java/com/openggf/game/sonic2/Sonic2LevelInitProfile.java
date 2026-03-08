@@ -89,7 +89,10 @@ public class Sonic2LevelInitProfile extends AbstractLevelInitProfile {
     @Override
     protected InitStep perTestLeadStep() {
         return new InitStep("ResetS2LevelEvents",
-            "Undoes S2 zone event handlers (HTZ earthquake, boss arenas, CPZ/ARZ/CNZ events)",
-            () -> Sonic2LevelEventManager.getInstance().resetState());
+            "Undoes S2 zone event handlers and object-level static state for test isolation",
+            () -> {
+                Sonic2LevelEventManager.getInstance().resetState();
+                ButtonVineTriggerManager.reset();
+            });
     }
 }

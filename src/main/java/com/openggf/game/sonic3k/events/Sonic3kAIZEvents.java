@@ -164,6 +164,15 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     };
     private static volatile FireWallHandoff pendingFireWallHandoff;
 
+    /**
+     * Resets all static/global state held by this class.
+     * Called from {@link Sonic3kLevelEventManager#resetState()} to prevent
+     * fire wall handoff data from leaking across level loads and test iterations.
+     */
+    public static void resetGlobalState() {
+        pendingFireWallHandoff = null;
+    }
+
     private record FireWallHandoff(int framesRemaining, int sourceBgY, int sourceWorldX) {
     }
 

@@ -337,6 +337,14 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
         globalChainBonusCounter = 0;
     }
 
+    /**
+     * Resets all global state for SmashableGround objects.
+     * Call on level load to ensure clean state across level transitions.
+     */
+    public static void resetGlobalState() {
+        globalChainBonusCounter = 0;
+    }
+
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         if (broken) {

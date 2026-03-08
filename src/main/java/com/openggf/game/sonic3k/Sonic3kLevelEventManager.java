@@ -4,6 +4,8 @@ import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
+import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 
 import java.util.logging.Logger;
 
@@ -98,6 +100,20 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     /** Returns the AIZ zone events handler, or null if not in AIZ. */
     public Sonic3kAIZEvents getAizEvents() {
         return aizEvents;
+    }
+
+    /**
+     * Resets mutable state including static/global state in AIZ event helpers.
+     * Extends the base {@link AbstractLevelEventManager#resetState()} to also
+     * clear fire wall handoff, tree reveal counter, and intro phase state that
+     * would otherwise leak across level loads and test iterations.
+     */
+    @Override
+    public void resetState() {
+        super.resetState();
+        Sonic3kAIZEvents.resetGlobalState();
+        AizHollowTreeObjectInstance.resetTreeRevealCounter();
+        AizPlaneIntroInstance.resetIntroPhaseState();
     }
 
     public static synchronized Sonic3kLevelEventManager getInstance() {

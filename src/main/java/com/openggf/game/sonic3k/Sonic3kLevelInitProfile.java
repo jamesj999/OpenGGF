@@ -116,8 +116,8 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
     @Override
     protected InitStep perTestLeadStep() {
         return new InitStep("ResetAizSidekickSuppression",
-                "Undoes AizPlaneIntroInstance.setSidekickSuppressed(true) from AIZ intro",
-                () -> AizPlaneIntroInstance.setSidekickSuppressed(false));
+                "Resets all AizPlaneIntroInstance static phase state (scroll, terrain swap, decompression, sidekick suppression)",
+                AizPlaneIntroInstance::resetIntroPhaseState);
     }
 
     @Override

@@ -153,6 +153,14 @@ public class BombPrizeObjectInstance extends AbstractObjectInstance {
     }
 
     /**
+     * Resets all global state for BombPrize objects.
+     * Call on level load to ensure clean state across level transitions.
+     */
+    public static void resetGlobalState() {
+        soundThrottleCounter = 0;
+    }
+
+    /**
      * Play spike sound effect for bomb impact.
      */
     private void playSpikeSound() {

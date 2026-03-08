@@ -28,6 +28,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry;
 import com.openggf.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
+import com.openggf.game.OscillationManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
 import com.openggf.level.objects.TouchResponseTable;
@@ -188,6 +189,12 @@ public class Sonic3kGameModule implements GameModule {
     public SuperStateController createSuperStateController(
             AbstractPlayableSprite player) {
         return new Sonic3kSuperStateController(player);
+    }
+
+    @Override
+    public void onLevelLoad() {
+        // Reset oscillation values used by moving platforms, etc.
+        OscillationManager.reset();
     }
 
     @Override
