@@ -3,7 +3,6 @@ package com.openggf.game.sonic3k;
 import com.openggf.game.AbstractLevelInitProfile;
 import com.openggf.game.InitStep;
 import com.openggf.game.LevelLoadContext;
-import com.openggf.game.LevelLoadMode;
 import com.openggf.game.StaticFixup;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelManager;
@@ -23,7 +22,6 @@ import java.util.List;
  * <ul>
  *   <li>Sidekick X offset: -32px (ROM: {@code $20}), not S2's -40px</li>
  *   <li>Title card skipped on checkpoint resume (ROM: {@code tst.b (Last_star_post_hit)})</li>
- *   <li>Seamless reload skips InitPlayerAndCheckpoint + all post-load player steps</li>
  * </ul>
  */
 public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
@@ -31,8 +29,6 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
     @Override
     public List<InitStep> levelLoadSteps(LevelLoadContext ctx) {
         LevelManager lm = LevelManager.getInstance();
-        boolean seamlessReload = ctx.getLoadMode() == LevelLoadMode.SEAMLESS_RELOAD;
-
         List<InitStep> steps = new ArrayList<>(20);
         steps.add(new InitStep("InitGameModule",
                 "S3K Phase A-D (#1-20): cmd_FadeOut, Pal_FadeToBlack, Clear_Nem_Queue, clearRAM, create Game instance",
@@ -65,12 +61,9 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
                 "S3K Phase C (#12-14): Load_PLC zone, character PLCs, standard PLCs",
                 lm::initArt));
 
-        // Seamless reload keeps runtime player/checkpoint state intact.
-        if (!seamlessReload) {
-            steps.add(new InitStep("InitPlayerAndCheckpoint",
-                    "S3K Phase O (#47): SpawnLevelMainSprites - player spawn after game state init",
-                    lm::initPlayerAndCheckpoint));
-        }
+        steps.add(new InitStep("InitPlayerAndCheckpoint",
+                "S3K Phase O (#47): SpawnLevelMainSprites - player spawn after game state init",
+                lm::initPlayerAndCheckpoint));
 
         steps.add(new InitStep("InitWater",
                 "S3K Phase E (#22): CheckLevelForWater, StartingWaterHeights",
@@ -79,8 +72,8 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
                 "Engine-specific: Pre-allocate BG FBO for AIZ intro ocean-to-beach transition",
                 lm::initBackgroundRenderer));
 
-        // Post-load assembly: only when requested, and seamless reload skips all
-        if (ctx.isIncludePostLoadAssembly() && !seamlessReload) {
+        // Post-load assembly: only when requested
+        if (ctx.isIncludePostLoadAssembly()) {
             steps.add(restoreCheckpointStep(ctx));
             steps.add(spawnPlayerStep(ctx));
             steps.add(resetPlayerStateStep(ctx));
