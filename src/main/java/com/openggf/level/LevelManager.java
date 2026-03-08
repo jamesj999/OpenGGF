@@ -4044,8 +4044,9 @@ public class LevelManager {
             applySeamlessMutation(request.mutationKey());
         }
 
-        // 4. Reset managers (ROM: clears Dynamic_object_RAM, Ring_status_table)
-        resetManagersForActTransition();
+        // 4. Rebuild managers with new act's spawn data
+        // (ROM: Load_Level swaps obj/ring pointers, then clears Dynamic_object_RAM + Ring_status_table)
+        rebuildManagersForActTransition();
 
         // 5. Apply coordinate offsets (ROM: Offset_ObjectsDuringTransition)
         applySeamlessOffsets(request);
@@ -4102,19 +4103,33 @@ public class LevelManager {
     }
 
     /**
-     * Resets object and ring managers for an in-place act transition.
-     * Matches ROM behavior: clears Dynamic_object_RAM and Ring_status_table
-     * without touching player/checkpoint state.
+     * Rebuilds object and ring managers with the new act's spawn data.
+     * <p>
+     * ROM behavior: {@code Load_Level} swaps the object/ring position index
+     * pointers, then clears {@code Dynamic_object_RAM} and
+     * {@code Ring_status_table}. Because our managers hold immutable spawn
+     * lists from construction, a simple {@code reset()} only clears runtime
+     * state without swapping in the new act's spawn sources. We must
+     * reconstruct both managers so they reference {@code level.getObjects()}
+     * and {@code level.getRings()} from the newly loaded act.
      */
-    private void resetManagersForActTransition() {
-        ObjectManager om = getObjectManager();
-        if (om != null) {
-            om.reset(camera.getX());
-        }
-        RingManager rm = getRingManager();
-        if (rm != null) {
-            rm.reset(camera.getX());
-        }
+    private void rebuildManagersForActTransition() {
+        int cameraX = camera.getX();
+
+        // Rebuild ObjectManager with the new act's object spawns
+        objectManager = new ObjectManager(level.getObjects(),
+                gameModule.createObjectRegistry(),
+                gameModule.getPlaneSwitcherObjectId(),
+                gameModule.getPlaneSwitcherConfig(),
+                touchResponseTable);
+        CollisionSystem.getInstance().setObjectManager(objectManager);
+        objectManager.reset(cameraX);
+
+        // Rebuild RingManager with the new act's ring spawns
+        RingSpriteSheet ringSpriteSheet = level.getRingSpriteSheet();
+        ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable);
+        ringManager.reset(cameraX);
+        ringManager.ensurePatternsCached(graphicsManager, level.getPatternCount());
     }
 
     private void initLevelEventsForCurrentZoneAct() {
