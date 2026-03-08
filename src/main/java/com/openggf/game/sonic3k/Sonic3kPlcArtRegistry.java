@@ -168,7 +168,551 @@ public final class Sonic3kPlcArtRegistry {
                                        List<LevelArtEntry> levelArt) {
         switch (zoneIndex) {
             case 0x00 -> addAizEntries(actIndex, standalone, levelArt);
+            case 0x01 -> addHczEntries(actIndex, standalone, levelArt);
+            case 0x02 -> addMgzEntries(actIndex, standalone, levelArt);
+            case 0x03 -> addCnzEntries(actIndex, standalone, levelArt);
+            case 0x04 -> addFbzEntries(actIndex, standalone, levelArt);
+            case 0x05 -> addIczEntries(actIndex, standalone, levelArt);
+            case 0x06 -> addLbzEntries(actIndex, standalone, levelArt);
+            case 0x07 -> addMhzEntries(actIndex, standalone, levelArt);
+            case 0x08 -> addSozEntries(actIndex, standalone, levelArt);
+            case 0x09 -> addLrzEntries(actIndex, standalone, levelArt);
+            case 0x0A -> addSszEntries(actIndex, standalone, levelArt);
+            case 0x0B -> addDezEntries(actIndex, standalone, levelArt);
+            case 0x0C -> addDdzEntries(actIndex, standalone, levelArt);
         }
+    }
+
+    /**
+     * Populates HCZ (Hydrocity Zone) art entries.
+     * Act 1: Blastoid, TurboSpiker, MegaChopper, Pointdexter.
+     * Act 2: Jawz, TurboSpiker, MegaChopper, Pointdexter.
+     */
+    private static void addHczEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        // Act-specific lead badnik
+        if (actIndex == 0) {
+            standalone.add(new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.HCZ_BLASTOID,
+                    Sonic3kConstants.ART_KOSM_HCZ_BLASTOID_ADDR,
+                    CompressionType.KOSINSKI_MODULED,
+                    0,
+                    Sonic3kConstants.MAP_BLASTOID_ADDR,
+                    1,
+                    -1
+            ));
+        } else {
+            standalone.add(new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.HCZ_JAWZ,
+                    Sonic3kConstants.ART_KOSM_HCZ_JAWZ_ADDR,
+                    CompressionType.KOSINSKI_MODULED,
+                    0,
+                    Sonic3kConstants.MAP_JAWZ_ADDR,
+                    1,
+                    -1
+            ));
+        }
+        // Shared across both acts
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_TURBO_SPIKER,
+                Sonic3kConstants.ART_KOSM_HCZ_TURBO_SPIKER_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_TURBO_SPIKER_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_MEGA_CHOPPER,
+                Sonic3kConstants.ART_KOSM_HCZ_MEGA_CHOPPER_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_MEGA_CHOPPER_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_POINTDEXTER,
+                Sonic3kConstants.ART_KOSM_HCZ_POINTDEXTER_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_POINTDEXTER_ADDR,
+                1,
+                -1
+        ));
+    }
+
+    /**
+     * Populates MGZ (Marble Garden Zone) art entries.
+     * Both acts: Spiker, BubblesBadnik. Act 1: Miniboss + debris. Act 2: Mantis.
+     * Overrides diagonal spring art tile to MGZ/MHZ value.
+     */
+    private static void addMgzEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        // Both acts
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.MGZ_SPIKER,
+                Sonic3kConstants.ART_KOSM_SPIKER_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_SPIKER_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.MGZ_BUBBLES_BADNIK,
+                Sonic3kConstants.ART_UNC_BUBBLES_BADNIK_ADDR,
+                CompressionType.UNCOMPRESSED,
+                Sonic3kConstants.ART_UNC_BUBBLES_BADNIK_SIZE,
+                Sonic3kConstants.MAP_BUBBLES_BADNIK_ADDR,
+                1,
+                Sonic3kConstants.DPLC_BUBBLES_BADNIK_ADDR
+        ));
+
+        // Act-specific
+        if (actIndex == 0) {
+            standalone.add(new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.MGZ_MINIBOSS,
+                    Sonic3kConstants.ART_KOSM_MGZ_MINIBOSS_ADDR,
+                    CompressionType.KOSINSKI_MODULED,
+                    0,
+                    Sonic3kConstants.MAP_MGZ_MINIBOSS_ADDR,
+                    1,
+                    -1
+            ));
+            standalone.add(new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.MGZ_MINIBOSS_DEBRIS,
+                    Sonic3kConstants.ART_KOSM_MGZ_ENDBOSS_DEBRIS_ADDR,
+                    CompressionType.KOSINSKI_MODULED,
+                    0,
+                    Sonic3kConstants.MAP_MGZ_MINIBOSS_ADDR,
+                    1,
+                    -1
+            ));
+        } else {
+            standalone.add(new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.MGZ_MANTIS,
+                    Sonic3kConstants.ART_KOSM_MANTIS_ADDR,
+                    CompressionType.KOSINSKI_MODULED,
+                    0,
+                    Sonic3kConstants.MAP_MANTIS_ADDR,
+                    1,
+                    -1
+            ));
+        }
+
+        // Diagonal spring override
+        levelArt.removeIf(e -> e.key().equals(Sonic3kObjectArtKeys.SPRING_DIAGONAL));
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.SPRING_DIAGONAL, -1, Sonic3kConstants.ARTTILE_MGZ_MHZ_DIAGONAL_SPRING, 0, "buildSpringDiagonalSheet"));
+        levelArt.removeIf(e -> e.key().equals(Sonic3kObjectArtKeys.SPRING_DIAGONAL_YELLOW));
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.SPRING_DIAGONAL_YELLOW, -1, Sonic3kConstants.ARTTILE_MGZ_MHZ_DIAGONAL_SPRING, 0, "buildSpringDiagonalYellowSheet"));
+    }
+
+    /**
+     * Populates CNZ (Carnival Night Zone) art entries.
+     * Both acts: Sparkle, Batbot, Clamer (with DPLC), ClamerShot, CNZBalloon.
+     */
+    private static void addCnzEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.CNZ_SPARKLE,
+                Sonic3kConstants.ART_KOSM_SPARKLE_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_SPARKLE_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.CNZ_BATBOT,
+                Sonic3kConstants.ART_KOSM_BATBOT_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_BATBOT_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.CNZ_CLAMER,
+                Sonic3kConstants.ART_UNC_CLAMER_ADDR,
+                CompressionType.UNCOMPRESSED,
+                Sonic3kConstants.ART_UNC_CLAMER_SIZE,
+                Sonic3kConstants.MAP_CLAMER_ADDR,
+                1,
+                Sonic3kConstants.DPLC_CLAMER_ADDR
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.CNZ_CLAMER_SHOT,
+                Sonic3kConstants.ART_KOSM_CLAMER_SHOT_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_CLAMER_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.CNZ_BALLOON,
+                Sonic3kConstants.ART_KOSM_CNZ_BALLOON_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_CNZ_BALLOON_ADDR,
+                0,
+                -1
+        ));
+    }
+
+    /**
+     * Populates FBZ (Flying Battery Zone) art entries.
+     * Overrides shared spikes to FBZ-specific VRAM tile.
+     * Both acts: Blaster, Technosqueek, FBZButton.
+     */
+    private static void addFbzEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        // Override shared spikes to FBZ tile address
+        levelArt.removeIf(e -> e.key().equals(Sonic3kObjectArtKeys.SPIKES));
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.SPIKES, -1, Sonic3kConstants.ARTTILE_FBZ_SPIKES, 0, "buildSpikesSheet"));
+
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.FBZ_BLASTER,
+                Sonic3kConstants.ART_KOSM_FBZ_BLASTER_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_BLASTER_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.FBZ_TECHNOSQUEEK,
+                Sonic3kConstants.ART_KOSM_FBZ_TECHNOSQUEEK_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_TECHNOSQUEEK_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.FBZ_BUTTON,
+                Sonic3kConstants.ART_KOSM_FBZ_BUTTON_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_BUTTON_ADDR,
+                0,
+                -1
+        ));
+    }
+
+    /**
+     * Populates ICZ (IceCap Zone) art entries.
+     * Level-art: collapsing bridge (both acts).
+     * Standalone: Snowdust, StarPointer, Penguinator (with DPLC).
+     */
+    private static void addIczEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_PLATFORM_ICZ,
+                Sonic3kConstants.MAP_ICZ_COLLAPSING_BRIDGE_ADDR,
+                1,
+                2,
+                null
+        ));
+
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.ICZ_SNOWDUST,
+                Sonic3kConstants.ART_KOSM_ICZ_SNOWDUST_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_ICZ_SNOWDUST_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.ICZ_STAR_POINTER,
+                Sonic3kConstants.ART_KOSM_ICZ_STAR_POINTER_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_STAR_POINTER_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.ICZ_PENGUINATOR,
+                Sonic3kConstants.ART_UNC_ICZ_PENGUINATOR_ADDR,
+                CompressionType.UNCOMPRESSED,
+                Sonic3kConstants.ART_UNC_ICZ_PENGUINATOR_SIZE,
+                Sonic3kConstants.MAP_PENGUINATOR_ADDR,
+                1,
+                Sonic3kConstants.DPLC_PENGUINATOR_ADDR
+        ));
+    }
+
+    /**
+     * Populates LBZ (Launch Base Zone) art entries.
+     * Both acts: SnaleBlaster, Orbinaut, Ribot, Corkey.
+     */
+    private static void addLbzEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.SNALE_BLASTER,
+                Sonic3kConstants.ART_KOSM_SNALE_BLASTER_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_SNALE_BLASTER_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.ORBINAUT,
+                Sonic3kConstants.ART_KOSM_ORBINAUT_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_ORBINAUT_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.RIBOT,
+                Sonic3kConstants.ART_KOSM_RIBOT_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_RIBOT_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.CORKEY,
+                Sonic3kConstants.ART_KOSM_CORKEY_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_CORKEY_ADDR,
+                1,
+                -1
+        ));
+    }
+
+    /**
+     * Populates MHZ (Mushroom Hill Zone) art entries.
+     * Both acts: Madmole, Mushmeanie, Dragonfly, Cluckoid (with DPLC).
+     * Act 2 only: CluckoidArrow.
+     * Overrides diagonal spring art tile to MGZ/MHZ value.
+     */
+    private static void addMhzEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.MADMOLE,
+                Sonic3kConstants.ART_KOSM_MADMOLE_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_MADMOLE_ADDR,
+                0,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.MUSHMEANIE,
+                Sonic3kConstants.ART_KOSM_MUSHMEANIE_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_MUSHMEANIE_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.DRAGONFLY,
+                Sonic3kConstants.ART_KOSM_DRAGONFLY_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_DRAGONFLY_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.CLUCKOID,
+                Sonic3kConstants.ART_UNC_CLUCKOID_ADDR,
+                CompressionType.UNCOMPRESSED,
+                Sonic3kConstants.ART_UNC_CLUCKOID_SIZE,
+                Sonic3kConstants.MAP_CLUCKOID_ADDR,
+                1,
+                Sonic3kConstants.DPLC_CLUCKOID_ADDR
+        ));
+
+        if (actIndex == 1) {
+            standalone.add(new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.CLUCKOID_ARROW,
+                    Sonic3kConstants.ART_KOSM_CLUCKOID_ARROW_ADDR,
+                    CompressionType.KOSINSKI_MODULED,
+                    0,
+                    Sonic3kConstants.MAP_CLUCKOID_ARROW_ADDR,
+                    1,
+                    -1
+            ));
+        }
+
+        // Diagonal spring override
+        levelArt.removeIf(e -> e.key().equals(Sonic3kObjectArtKeys.SPRING_DIAGONAL));
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.SPRING_DIAGONAL, -1, Sonic3kConstants.ARTTILE_MGZ_MHZ_DIAGONAL_SPRING, 0, "buildSpringDiagonalSheet"));
+        levelArt.removeIf(e -> e.key().equals(Sonic3kObjectArtKeys.SPRING_DIAGONAL_YELLOW));
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.SPRING_DIAGONAL_YELLOW, -1, Sonic3kConstants.ARTTILE_MGZ_MHZ_DIAGONAL_SPRING, 0, "buildSpringDiagonalYellowSheet"));
+    }
+
+    /**
+     * Populates SOZ (Sandopolis Zone) art entries.
+     * Both acts: Skorp, Sandworm, Rockn.
+     */
+    private static void addSozEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.SKORP,
+                Sonic3kConstants.ART_KOSM_SKORP_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_SKORP_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.SANDWORM,
+                Sonic3kConstants.ART_KOSM_SANDWORM_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_SANDWORM_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.ROCKN,
+                Sonic3kConstants.ART_KOSM_ROCKN_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_ROCKN_ADDR,
+                1,
+                -1
+        ));
+    }
+
+    /**
+     * Populates LRZ (Lava Reef Zone) art entries.
+     * Level-art: breakable rocks (act-specific).
+     * Standalone: FirewormSegments, Iwamodoki, Toxomister.
+     */
+    private static void addLrzEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        if (actIndex == 0) {
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.LRZ1_ROCK,
+                    Sonic3kConstants.MAP_LRZ_BREAKABLE_ROCK_ADDR,
+                    0x00D3,
+                    2,
+                    null
+            ));
+        } else {
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.LRZ2_ROCK,
+                    Sonic3kConstants.MAP_LRZ_BREAKABLE_ROCK2_ADDR,
+                    Sonic3kConstants.ARTTILE_LRZ2_MISC,
+                    3,
+                    null
+            ));
+        }
+
+        // Standalone badniks (both acts)
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.FIREWORM_SEGMENTS,
+                Sonic3kConstants.ART_KOSM_FIREWORM_SEGMENTS_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_FIREWORM_SEGMENTS_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.IWAMODOKI,
+                Sonic3kConstants.ART_KOSM_IWAMODOKI_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_IWAMODOKI_ADDR,
+                0,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.TOXOMISTER,
+                Sonic3kConstants.ART_KOSM_TOXOMISTER_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_TOXOMISTER_ADDR,
+                1,
+                -1
+        ));
+    }
+
+    /**
+     * Populates SSZ (Sky Sanctuary Zone) art entries.
+     * EggRobo (palette 0).
+     */
+    private static void addSszEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.SSZ_EGG_ROBO,
+                Sonic3kConstants.ART_KOSM_EGG_ROBO_BADNIK_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_EGG_ROBO_ADDR,
+                0,
+                -1
+        ));
+    }
+
+    /**
+     * Populates DEZ (Death Egg Zone) art entries.
+     * Both acts: Spikebonker, Chainspike.
+     */
+    private static void addDezEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.SPIKEBONKER,
+                Sonic3kConstants.ART_KOSM_SPIKEBONKER_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_SPIKEBONKER_ADDR,
+                1,
+                -1
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.CHAINSPIKE,
+                Sonic3kConstants.ART_KOSM_CHAINSPIKE_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_CHAINSPIKE_ADDR,
+                1,
+                -1
+        ));
+    }
+
+    /**
+     * Populates DDZ (Doomsday Zone) art entries.
+     * EggRobo (palette 0).
+     */
+    private static void addDdzEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.DDZ_EGG_ROBO,
+                Sonic3kConstants.ART_KOSM_EGG_ROBO_BADNIK_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_EGG_ROBO_ADDR,
+                0,
+                -1
+        ));
     }
 
     /**

@@ -560,6 +560,121 @@ public class Sonic3kConstants {
     // AIZ1_8x8_Flames_KosM - fire overlay tiles loaded at x >= $2E00 (Act 1).
     public static final int ART_KOSM_AIZ1_FIRE_OVERLAY_ADDR = 0x1AF5D0;
 
+    // ===== HCZ Badnik mappings (SK side, verified from LockOn Pointers) =====
+    public static final int MAP_BLASTOID_ADDR = 0x360DD0;
+    public static final int MAP_TURBO_SPIKER_ADDR = 0x361212;
+    public static final int MAP_MEGA_CHOPPER_ADDR = 0x360F26;
+    public static final int MAP_POINTDEXTER_ADDR = 0x360E72;
+    public static final int MAP_JAWZ_ADDR = 0x361364;
+    public static final int ART_KOSM_HCZ_BLASTOID_ADDR = 0x36A7C6;
+    public static final int ART_KOSM_HCZ_TURBO_SPIKER_ADDR = 0x36A968;
+    public static final int ART_KOSM_HCZ_MEGA_CHOPPER_ADDR = 0x36A6C4;
+    public static final int ART_KOSM_HCZ_POINTDEXTER_ADDR = 0x36AD8A;
+    public static final int ART_KOSM_HCZ_JAWZ_ADDR = 0x36A552;
+
+    // ===== MGZ Badnik Art =====
+    public static final int ART_KOSM_SPIKER_ADDR = 0x36E0C4;
+    public static final int MAP_SPIKER_ADDR = 0x361CB8;
+    public static final int ART_KOSM_MANTIS_ADDR = 0x36E2D6;
+    public static final int MAP_MANTIS_ADDR = 0x361D26;
+    public static final int ART_UNC_BUBBLES_BADNIK_ADDR = 0x36D6A4;
+    public static final int ART_UNC_BUBBLES_BADNIK_SIZE = 0x0A20;
+    public static final int MAP_BUBBLES_BADNIK_ADDR = 0x361C68;
+    public static final int DPLC_BUBBLES_BADNIK_ADDR = 0x361C40;
+    public static final int ART_KOSM_MGZ_MINIBOSS_ADDR = 0x36B02C;
+    public static final int MAP_MGZ_MINIBOSS_ADDR = 0x361972;
+    public static final int ART_KOSM_MGZ_ENDBOSS_DEBRIS_ADDR = 0x36D572;
+
+    // ===== CNZ Badnik Art =====
+    public static final int ART_KOSM_SPARKLE_ADDR = 0x3700CA;
+    public static final int MAP_SPARKLE_ADDR = 0x361B34;
+    public static final int ART_KOSM_BATBOT_ADDR = 0x3703EC;
+    public static final int MAP_BATBOT_ADDR = 0x361BD0;
+    public static final int ART_UNC_CLAMER_ADDR = 0x36EF18;
+    public static final int ART_UNC_CLAMER_SIZE = 0x1140;
+    public static final int DPLC_CLAMER_ADDR = 0x361A78;
+    public static final int MAP_CLAMER_ADDR = 0x361ABC;
+    public static final int ART_KOSM_CLAMER_SHOT_ADDR = 0x370058;
+    public static final int ART_KOSM_CNZ_BALLOON_ADDR = 0x37060E;
+    public static final int MAP_CNZ_BALLOON_ADDR = 0x230502;
+
+    // ===== FBZ Badnik Art =====
+    public static final int ART_KOSM_FBZ_BLASTER_ADDR = 0x0DC6C2;
+    public static final int MAP_BLASTER_ADDR = 0x08977C;
+    public static final int ART_KOSM_FBZ_TECHNOSQUEEK_ADDR = 0x0DC9C4;
+    public static final int MAP_TECHNOSQUEEK_ADDR = 0x089B78;
+    public static final int ART_KOSM_FBZ_BUTTON_ADDR = 0x165E80;
+    public static final int MAP_BUTTON_ADDR = 0x02C71E;
+    public static final int ARTTILE_FBZ_SPIKES = 0x0200;
+    public static final int ARTTILE_FBZ_BUTTON = 0x0500;
+    public static final int ARTTILE_BLASTER = 0x0506;
+    public static final int ARTTILE_TECHNOSQUEEK = 0x052E;
+
+    // ===== ICZ Badnik Art =====
+    public static final int ART_KOSM_ICZ_SNOWDUST_ADDR = 0x375134;
+    public static final int MAP_ICZ_SNOWDUST_ADDR = 0x361F0E;
+    public static final int ART_KOSM_ICZ_STAR_POINTER_ADDR = 0x3751C6;
+    public static final int MAP_STAR_POINTER_ADDR = 0x361FAE;
+    public static final int ART_UNC_ICZ_PENGUINATOR_ADDR = 0x374154;
+    public static final int ART_UNC_ICZ_PENGUINATOR_SIZE = 4064;
+    public static final int MAP_PENGUINATOR_ADDR = 0x361E90;
+    public static final int DPLC_PENGUINATOR_ADDR = 0x361E4E;
+
+    // ===== LBZ Badnik Art =====
+    public static final int ART_KOSM_SNALE_BLASTER_ADDR = 0x377996;
+    public static final int MAP_SNALE_BLASTER_ADDR = 0x360400;
+    public static final int ART_KOSM_ORBINAUT_ADDR = 0x377D1A;
+    public static final int MAP_ORBINAUT_ADDR = 0x3604A4;
+    public static final int ART_KOSM_RIBOT_ADDR = 0x377BE8;
+    public static final int MAP_RIBOT_ADDR = 0x3604B8;
+    public static final int ART_KOSM_CORKEY_ADDR = 0x377DFC;
+    public static final int MAP_CORKEY_ADDR = 0x3605C2;
+
+    // ===== MHZ Badnik Art =====
+    public static final int ART_KOSM_MADMOLE_ADDR = 0x165F02;
+    public static final int MAP_MADMOLE_ADDR = 0x08D9F2;
+    public static final int ART_KOSM_MUSHMEANIE_ADDR = 0x166234;
+    public static final int MAP_MUSHMEANIE_ADDR = 0x08DCF8;
+    public static final int ART_KOSM_DRAGONFLY_ADDR = 0x166386;
+    public static final int MAP_DRAGONFLY_ADDR = 0x08DFDA;
+    public static final int ART_KOSM_CLUCKOID_ARROW_ADDR = 0x1664C8;
+    public static final int ART_UNC_CLUCKOID_ADDR = 0x166A8A;
+    public static final int ART_UNC_CLUCKOID_SIZE = 5696;
+    public static final int MAP_CLUCKOID_ARROW_ADDR = 0x08E536;
+    public static final int MAP_CLUCKOID_ADDR = 0x08E546;
+    public static final int DPLC_CLUCKOID_ADDR = 0x08E4B8;
+    public static final int ARTTILE_MGZ_MHZ_DIAGONAL_SPRING = 0x0478;
+
+    // ===== SOZ Badnik Art =====
+    public static final int ART_KOSM_SKORP_ADDR = 0x16ADC6;
+    public static final int MAP_SKORP_ADDR = 0x186C84;
+    public static final int ART_KOSM_SANDWORM_ADDR = 0x16B038;
+    public static final int MAP_SANDWORM_ADDR = 0x186D10;
+    public static final int ART_KOSM_ROCKN_ADDR = 0x16B2BA;
+    public static final int MAP_ROCKN_ADDR = 0x08F086;
+
+    // ===== LRZ Badnik Art =====
+    public static final int ART_UNC_FIREWORM_ADDR = 0x16EFB2;
+    public static final int ART_UNC_FIREWORM_SIZE = 0x380;
+    public static final int MAP_FIREWORM_ADDR = 0x8FABE;
+    public static final int DPLC_FIREWORM_ADDR = 0x8FAA6;
+    public static final int ART_KOSM_FIREWORM_SEGMENTS_ADDR = 0x16F332;
+    public static final int MAP_FIREWORM_SEGMENTS_ADDR = 0x8FA5C;
+    public static final int ART_KOSM_IWAMODOKI_ADDR = 0x16F4E4;
+    public static final int MAP_IWAMODOKI_ADDR = 0x8FC90;
+    public static final int ART_KOSM_TOXOMISTER_ADDR = 0x16F7E6;
+    public static final int MAP_TOXOMISTER_ADDR = 0x9008E;
+
+    // ===== SSZ/DDZ Badnik Art =====
+    public static final int ART_KOSM_EGG_ROBO_BADNIK_ADDR = 0x17B17E;
+    public static final int MAP_EGG_ROBO_ADDR = 0x184F34;
+
+    // ===== DEZ Badnik Art =====
+    public static final int ART_KOSM_SPIKEBONKER_ADDR = 0x18008C;
+    public static final int MAP_SPIKEBONKER_ADDR = 0x184E5C;
+    public static final int ART_KOSM_CHAINSPIKE_ADDR = 0x1803EE;
+    public static final int MAP_CHAINSPIKE_ADDR = 0x184E8A;
+
     // VRAM tile destinations for shields
     public static final int ART_TILE_SHIELD = 0x079C;
     public static final int ART_TILE_SHIELD_SPARKS = 0x07BB;
