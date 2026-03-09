@@ -7,6 +7,7 @@ import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
+import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.HudRenderManager;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -45,6 +46,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     private static final Logger LOG = Logger.getLogger(Sonic3kObjectArtProvider.class.getName());
 
     private int currentZoneIndex = -2;
+    private int currentActIndex = 0;
 
     private final Map<String, PatternSpriteRenderer> renderers = new HashMap<>();
     private final Map<String, ObjectSpriteSheet> sheets = new HashMap<>();
@@ -93,8 +95,13 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         // Load shield art (DPLC-driven, same for all zones)
         loadShieldArt();
 
+        // Get act index from LevelManager (available during level load)
+        currentActIndex = LevelManager.getInstance().getCurrentAct();
+        Sonic3kPlcArtRegistry.ZoneArtPlan plan =
+                Sonic3kPlcArtRegistry.getPlan(zoneIndex, currentActIndex);
+        loadStandaloneFromRegistry(plan);
+        // PLC-based boss art stays separate for now
         if (zoneIndex == 0x00) {
-            loadAizBadnikArt();
             loadAizMinibossArtFromPlc();
         }
 
@@ -103,20 +110,33 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         LOG.info("Sonic3kObjectArtProvider initialized for zone " + zoneIndex);
     }
 
-    private void loadAizBadnikArt() {
+    private void loadStandaloneFromRegistry(Sonic3kPlcArtRegistry.ZoneArtPlan plan) {
+        Rom rom;
         try {
-            Rom rom = GameServices.rom().getRom();
-            if (rom == null) {
-                return;
-            }
-            RomByteReader reader = RomByteReader.fromRom(rom);
-            Sonic3kObjectArt art = new Sonic3kObjectArt(null, reader);
-            registerSheet(Sonic3kObjectArtKeys.BLOOMINATOR, art.loadBloominatorSheet(rom));
-            registerSheet(Sonic3kObjectArtKeys.RHINOBOT, art.loadRhinobotSheet(rom));
-            registerSheet(Sonic3kObjectArtKeys.MONKEY_DUDE, art.loadMonkeyDudeSheet(rom));
-            LOG.info("Loaded AIZ badnik art sheets (Bloominator, Rhinobot, MonkeyDude)");
+            rom = GameServices.rom().getRom();
         } catch (IOException e) {
-            LOG.warning("Failed to load AIZ badnik art: " + e.getMessage());
+            LOG.warning("Failed to get ROM for standalone art: " + e.getMessage());
+            return;
+        }
+        if (rom == null) return;
+
+        RomByteReader reader;
+        try {
+            reader = RomByteReader.fromRom(rom);
+        } catch (IOException e) {
+            LOG.warning("Failed to create RomByteReader: " + e.getMessage());
+            return;
+        }
+
+        Sonic3kObjectArt art = new Sonic3kObjectArt(null, reader);
+
+        for (Sonic3kPlcArtRegistry.StandaloneArtEntry entry : plan.standaloneArt()) {
+            try {
+                ObjectSpriteSheet sheet = art.loadStandaloneSheet(rom, entry);
+                registerSheet(entry.key(), sheet);
+            } catch (IOException e) {
+                LOG.warning("Failed to load standalone art '" + entry.key() + "': " + e.getMessage());
+            }
         }
     }
 
@@ -462,56 +482,60 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
      * @param zoneIndex the zone index
      */
     public void registerLevelArtSheets(Level level, int zoneIndex) {
-        if (level == null) {
-            return;
-        }
+        if (level == null) return;
 
         RomByteReader reader = null;
         try {
             Rom rom = GameServices.rom().getRom();
-            if (rom != null) {
-                reader = RomByteReader.fromRom(rom);
-            }
+            if (rom != null) reader = RomByteReader.fromRom(rom);
         } catch (IOException e) {
             LOG.warning("Failed to create RomByteReader for level art: " + e.getMessage());
         }
         Sonic3kObjectArt art = new Sonic3kObjectArt(level, reader);
 
-        // Spikes and springs appear in all zones
-        registerLevelArtSheet(Sonic3kObjectArtKeys.SPIKES, art.buildSpikesSheet(), art);
-        registerLevelArtSheet(Sonic3kObjectArtKeys.SPRING_VERTICAL, art.buildSpringVerticalSheet(), art);
-        registerLevelArtSheet(Sonic3kObjectArtKeys.SPRING_VERTICAL_YELLOW, art.buildSpringVerticalYellowSheet(), art);
-        registerLevelArtSheet(Sonic3kObjectArtKeys.SPRING_HORIZONTAL, art.buildSpringHorizontalSheet(), art);
-        registerLevelArtSheet(Sonic3kObjectArtKeys.SPRING_HORIZONTAL_YELLOW, art.buildSpringHorizontalYellowSheet(), art);
-        registerLevelArtSheet(Sonic3kObjectArtKeys.SPRING_DIAGONAL, art.buildSpringDiagonalSheet(), art);
-        registerLevelArtSheet(Sonic3kObjectArtKeys.SPRING_DIAGONAL_YELLOW, art.buildSpringDiagonalYellowSheet(), art);
-
-        // AIZ objects (zone index 0 = AIZ in S3K)
-        if (zoneIndex == 0x00) {
-            registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ_RIDE_VINE, art.buildAizRideVineSheet(), art);
-            registerLevelArtSheet(Sonic3kObjectArtKeys.ANIMATED_STILL_SPRITES, art.buildAnimatedStillSpritesSheet(), art);
-            registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ1_TREE, art.buildAiz1TreeSheet(), art);
-            registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ1_ZIPLINE_PEG, art.buildAiz1ZiplinePegSheet(), art);
-            registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ_FOREGROUND_PLANT, art.buildAizForegroundPlantSheet(), art);
-            registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ1_ROCK, art.buildAiz1RockSheet(), art);
-            registerLevelArtSheet(Sonic3kObjectArtKeys.AIZ2_ROCK, art.buildAiz2RockSheet(), art);
-            registerLevelArtSheet(Sonic3kObjectArtKeys.COLLAPSING_PLATFORM_AIZ1, art.buildCollapsingPlatformAiz1Sheet(), art);
-            registerLevelArtSheet(Sonic3kObjectArtKeys.COLLAPSING_PLATFORM_AIZ2, art.buildCollapsingPlatformAiz2Sheet(), art);
-        }
-
-        // ICZ objects (zone index 5 = ICZ in S3K)
-        if (zoneIndex == 0x05) {
-            registerLevelArtSheet(Sonic3kObjectArtKeys.COLLAPSING_PLATFORM_ICZ, art.buildCollapsingPlatformIczSheet(), art);
-        }
-
-        // LRZ objects (zone index 9 = LRZ in S3K)
-        if (zoneIndex == 0x09) {
-            registerLevelArtSheet(Sonic3kObjectArtKeys.LRZ1_ROCK, art.buildLrz1RockSheet(), art);
-            registerLevelArtSheet(Sonic3kObjectArtKeys.LRZ2_ROCK, art.buildLrz2RockSheet(), art);
-        }
+        Sonic3kPlcArtRegistry.ZoneArtPlan plan =
+                Sonic3kPlcArtRegistry.getPlan(zoneIndex, currentActIndex);
+        loadLevelArtFromRegistry(plan, art);
 
         LOG.info("Sonic3kObjectArtProvider registered " + rendererKeys.size()
                 + " level-art sheets for zone " + zoneIndex);
+    }
+
+    private void loadLevelArtFromRegistry(Sonic3kPlcArtRegistry.ZoneArtPlan plan,
+            Sonic3kObjectArt art) {
+        for (Sonic3kPlcArtRegistry.LevelArtEntry entry : plan.levelArt()) {
+            ObjectSpriteSheet sheet;
+            if (entry.builderName() != null) {
+                sheet = invokeBuilder(art, entry.builderName());
+            } else if (entry.mappingAddr() > 0) {
+                sheet = art.buildLevelArtSheetFromRom(
+                        entry.mappingAddr(), entry.artTileBase(), entry.palette());
+            } else {
+                LOG.warning("LevelArtEntry '" + entry.key() + "' has no builder or mapping addr");
+                continue;
+            }
+            registerLevelArtSheet(entry.key(), sheet, art);
+        }
+    }
+
+    private ObjectSpriteSheet invokeBuilder(Sonic3kObjectArt art, String builderName) {
+        return switch (builderName) {
+            case "buildSpikesSheet" -> art.buildSpikesSheet();
+            case "buildSpringVerticalSheet" -> art.buildSpringVerticalSheet();
+            case "buildSpringVerticalYellowSheet" -> art.buildSpringVerticalYellowSheet();
+            case "buildSpringHorizontalSheet" -> art.buildSpringHorizontalSheet();
+            case "buildSpringHorizontalYellowSheet" -> art.buildSpringHorizontalYellowSheet();
+            case "buildSpringDiagonalSheet" -> art.buildSpringDiagonalSheet();
+            case "buildSpringDiagonalYellowSheet" -> art.buildSpringDiagonalYellowSheet();
+            case "buildAiz1TreeSheet" -> art.buildAiz1TreeSheet();
+            case "buildAiz1ZiplinePegSheet" -> art.buildAiz1ZiplinePegSheet();
+            case "buildAizForegroundPlantSheet" -> art.buildAizForegroundPlantSheet();
+            case "buildAnimatedStillSpritesSheet" -> art.buildAnimatedStillSpritesSheet();
+            default -> {
+                LOG.warning("Unknown builder: " + builderName);
+                yield null;
+            }
+        };
     }
 
     /**
@@ -576,7 +600,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             // Entry 2: flame art
             registerSheet(Sonic3kObjectArtKeys.AIZ_MINIBOSS_FLAME,
                     buildSheetFromPatterns(decompressed.get(2), reader,
-                            Sonic3kConstants.MAP_AIZ_MINIBOSS_FLAME_ADDR, 1));
+                            Sonic3kConstants.MAP_AIZ_MINIBOSS_FLAME_ADDR, 0));
 
             LOG.info(String.format("Loaded AIZ miniboss art via PLC 0x5A (standalone): " +
                             "main=%d tiles, small=%d tiles, flame=%d tiles",

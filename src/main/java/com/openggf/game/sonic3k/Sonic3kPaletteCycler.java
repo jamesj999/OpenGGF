@@ -96,8 +96,11 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
     }
 
     // ========== AIZ1 Unified Cycle ==========
-    // ROM: AnPal_AIZ1 (line 3173) checks AIZ1_palette_cycle_flag set by AIZ1_Resize (line 38873):
-    //   Camera X < 0x1000 → flag=1 (intro mode), Camera X >= 0x1000 → flag=0 (gameplay mode)
+    // ROM: AnPal_AIZ1 (line 3173) checks AIZ1_palette_cycle_flag (a one-shot RAM flag)
+    // set by AIZ1_Resize routine 0 (line 38873-38877):
+    //   - Flag starts as 1 (intro mode)
+    //   - Set to 0 when Camera X >= 0x1000 (gameplay mode)
+    //   - Never set again — flag stays 0 for the rest of the level
     //
     // Intro mode (flag != 0, timer period 10):
     //   PalAIZ1_3 → palette 3 colors 2-5 (10 frames, wraps at 0x50)
@@ -123,6 +126,10 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         private boolean dirty2;
         private boolean dirty3;
 
+        // One-shot flag matching ROM's AIZ1_palette_cycle_flag (sonic3k.constants.asm line 630).
+        // Starts true (intro), cleared permanently once Camera X >= 0x1000.
+        private boolean introFlag = true;
+
         Aiz1Cycle(byte[] waterfallData, byte[] secondaryData, byte[] introData1, byte[] introData2) {
             this.waterfallData = waterfallData;
             this.secondaryData = secondaryData;
@@ -132,12 +139,16 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
 
         @Override
         void tick(Level level, GraphicsManager gm) {
-            boolean introMode = (Camera.getInstance().getX() & 0xFFFF) < 0x1000;
+            // ROM: AIZ1_Resize routine 0 (line 38873-38877) clears the flag once
+            // when Camera X >= 0x1000. It never re-sets it.
+            if (introFlag && (Camera.getInstance().getX() & 0xFFFF) >= 0x1000) {
+                introFlag = false;
+            }
 
             if (timer > 0) {
                 timer--;
             } else {
-                if (introMode) {
+                if (introFlag) {
                     tickIntro(level);
                 } else {
                     tickGameplay(level);
@@ -188,8 +199,10 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
             timer = 7;
 
             // PalAIZ1_1 → palette 2, colors 11-14
+            // ROM uses byte-width counter (wraps at 256); mask & 0x18 cycles
+            // through 0,8,16,24 for waterfallData indexing.
             int d0 = counter0 & 0x18;
-            counter0 += 8;
+            counter0 = (counter0 + 8) & 0xFF;
             Palette pal2 = level.getPalette(2);
             pal2.getColor(11).fromSegaFormat(waterfallData, d0);
             pal2.getColor(12).fromSegaFormat(waterfallData, d0 + 2);

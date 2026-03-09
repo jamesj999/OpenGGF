@@ -114,7 +114,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     @Override
     protected int getPaletteLineForFlash() {
-        return 2;
+        return 1;
     }
 
     @Override

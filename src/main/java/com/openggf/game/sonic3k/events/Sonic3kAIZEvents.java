@@ -234,7 +234,6 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         int cameraX = camera.getX();
         applyHollowTreeScreenEvent(cameraX);
         if (cameraX >= FIRE_OVERLAY_STAGE_X) {
-            postFireHazeActive = true;
             ensureFireOverlayTilesLoaded();
         }
 
@@ -617,7 +616,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         fireTransitionFrames = 0;
         fireTransitionMutationRequested = false;
         setTransitionControlLock(true);
-        applyFireTransitionPaletteLine4();
+        applyFireTransitionPaletteLine4(LevelManager.getInstance());
         ensureFireOverlayTilesLoaded();
         LOG.info("AIZ1: fire transition started");
     }
@@ -664,7 +663,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                         .deactivateLevelNow(true)
                         .preserveMusic(false)
                         .showInLevelTitleCard(false)
-                        .mutationKey(S3kSeamlessMutationExecutor.MUTATION_AIZ1_FIRE_TRANSITION_STAGE)
+                        .mutationKey(S3kSeamlessMutationExecutor.MUTATION_AIZ1_POST_RELOAD_ACT2)
                         .musicOverrideId(Sonic3kMusic.AIZ1.id)
                         .playerOffset(-0x2F00, -0x80)
                         .cameraOffset(-0x2F00, -0x80)
@@ -728,8 +727,10 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
     }
 
-    private void applyFireTransitionPaletteLine4() {
-        LevelManager levelManager = LevelManager.getInstance();
+    static void applyFireTransitionPaletteLine4(LevelManager levelManager) {
+        if (levelManager == null) {
+            return;
+        }
         Level currentLevel = levelManager.getCurrentLevel();
         if (currentLevel == null) {
             return;
