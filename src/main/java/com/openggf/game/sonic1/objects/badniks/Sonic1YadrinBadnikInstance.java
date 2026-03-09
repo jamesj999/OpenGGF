@@ -297,10 +297,9 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
 
     @Override
     public int getCollisionFlags() {
-        // obColType = $CC: React_Special path.
-        // Use ENEMY category (0x00) for standard bounce on side/below contact.
-        // The spiky-top check is handled in onTouchResponse() via TouchResponseListener.
-        return 0x00 | (getCollisionSizeIndex() & 0x3F);
+        // obColType = $CC: SPECIAL category ($40) + size index $0C.
+        // React_Special decides between spiky-top hurt and normal enemy defeat.
+        return 0x40 | (getCollisionSizeIndex() & 0x3F);
     }
 
     @Override
@@ -314,11 +313,51 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
         int verticalOverlap = yadrinCentreY - playerCentreY;
 
         if (verticalOverlap >= 0 && verticalOverlap < SPIKY_TOP_THRESHOLD) {
-            // Sonic is above Yadrin within the spiky-top zone: hurt Sonic
-            player.setHurt(true);
+            // Sonic is above Yadrin within the spiky-top zone: hurt Sonic even while rolling.
+            applyTouchHurt(player, frameCounter);
+            return;
         }
-        // If not in spiky-top zone, the default ENEMY category bounce applies
-        // (handled by the touch response system before this listener fires).
+
+        if (isPlayerAttacking(player)) {
+            applyEnemyBounce(player);
+            destroyBadnik(player);
+        } else {
+            applyTouchHurt(player, frameCounter);
+        }
+    }
+
+    private boolean isPlayerAttacking(AbstractPlayableSprite player) {
+        return player.isSuperSonic()
+                || player.getInvincibleFrames() > 0
+                || player.getRolling()
+                || player.getSpindash();
+    }
+
+    private void applyEnemyBounce(AbstractPlayableSprite player) {
+        short ySpeed = player.getYSpeed();
+        if (ySpeed < 0) {
+            player.setYSpeed((short) (ySpeed + 0x100));
+            return;
+        }
+
+        int playerY = player.getCentreY();
+        if (playerY < currentY) {
+            player.setYSpeed((short) -ySpeed);
+        } else {
+            player.setYSpeed((short) (ySpeed - 0x100));
+        }
+    }
+
+    private void applyTouchHurt(AbstractPlayableSprite player, int frameCounter) {
+        if (player.getInvulnerable()) {
+            return;
+        }
+
+        boolean hadRings = player.getRingCount() > 0;
+        if (hadRings && !player.hasShield() && levelManager != null) {
+            levelManager.spawnLostRings(player, frameCounter);
+        }
+        player.applyHurtOrDeath(currentX, false, hadRings);
     }
 
     @Override

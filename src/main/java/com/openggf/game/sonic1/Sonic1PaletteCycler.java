@@ -1,5 +1,7 @@
 package com.openggf.game.sonic1;
 
+import com.openggf.game.GameServices;
+import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
 import com.openggf.graphics.GraphicsManager;
@@ -24,8 +26,7 @@ import java.util.List;
  *   <li>SBZ - Per-entry script system (Acts 1 &amp; 2) plus conveyor belt rotation</li>
  * </ul>
  *
- * <p>MZ has no palette cycling. LZ conveyor belt cycling (direction-dependent)
- * is not yet implemented.
+ * <p>MZ has no palette cycling.
  *
  * <p>Palette cycle data is embedded directly from the s1disasm binary files
  * (palette/Cycle - *.bin) since the data is small and fixed.
@@ -84,8 +85,12 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
      * </pre>
      */
     private List<PaletteCycle> createLzCycles() {
-        List<PaletteCycle> list = new ArrayList<>(1);
-        list.add(new SimpleCycle(PAL_LZ_CYC1, 4, 8, 2, 2, new int[]{11, 12, 13, 14}));
+        Palette[] underwaterPalettes = loadLzUnderwaterPalettes();
+        boolean sbz3Waterfall = isSbz3FeatureState();
+
+        List<PaletteCycle> list = new ArrayList<>(2);
+        list.add(new LzWaterfallCycle(sbz3Waterfall, underwaterPalettes));
+        list.add(new LzConveyorCycle(underwaterPalettes));
         return list;
     }
 
@@ -147,6 +152,35 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
         void tick(Level level, GraphicsManager gm);
     }
 
+    private Palette[] loadLzUnderwaterPalettes() {
+        try {
+            return new Sonic1WaterDataProvider().getUnderwaterPalette(
+                    GameServices.rom().getRom(),
+                    resolveFeatureZoneId(),
+                    resolveFeatureActId(),
+                    PlayerCharacter.SONIC_AND_TAILS);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private int resolveFeatureZoneId() {
+        LevelManager manager = LevelManager.getInstance();
+        int featureZone = manager.getFeatureZoneId();
+        return featureZone >= 0 ? featureZone : level.getZoneIndex();
+    }
+
+    private int resolveFeatureActId() {
+        LevelManager manager = LevelManager.getInstance();
+        int featureAct = manager.getFeatureActId();
+        return featureAct >= 0 ? featureAct : 0;
+    }
+
+    private boolean isSbz3FeatureState() {
+        return resolveFeatureZoneId() == Sonic1Constants.ZONE_SBZ
+                && resolveFeatureActId() == 2;
+    }
+
     // ===== Simple cycling (contiguous colors, uniform frame stride) =====
 
     /**
@@ -203,6 +237,89 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
 
             if (gm.isGlInitialized()) {
                 gm.cachePaletteTexture(palette, paletteIndex);
+            }
+        }
+    }
+
+    private static final class LzWaterfallCycle implements PaletteCycle {
+        private static final int[] COLOR_INDICES = {11, 12, 13, 14};
+
+        private final byte[] data;
+        private final Palette[] underwaterPalettes;
+        private int timer;
+        private int frame;
+
+        private LzWaterfallCycle(boolean sbz3Waterfall, Palette[] underwaterPalettes) {
+            this.data = sbz3Waterfall ? PAL_SBZ3_CYC : PAL_LZ_CYC1;
+            this.underwaterPalettes = underwaterPalettes;
+        }
+
+        @Override
+        public void tick(Level level, GraphicsManager gm) {
+            if (timer > 0) {
+                timer--;
+                return;
+            }
+            timer = 2;
+
+            int frameIndex = frame & 3;
+            frame++;
+            int base = frameIndex * 8;
+
+            Palette palette = level.getPalette(2);
+            applyColors(data, base, palette, COLOR_INDICES);
+
+            if (underwaterPalettes != null && underwaterPalettes.length > 2 && underwaterPalettes[2] != null) {
+                applyColors(data, base, underwaterPalettes[2], COLOR_INDICES);
+            }
+
+            if (gm.isGlInitialized()) {
+                gm.cachePaletteTexture(palette, 2);
+                cacheUnderwaterPalette(gm, level, underwaterPalettes);
+            }
+        }
+    }
+
+    private static final class LzConveyorCycle implements PaletteCycle {
+        private static final int[] TRIGGER_SEQUENCE = {1, 0, 0, 1, 0, 0, 1, 0};
+        private static final int[] COLOR_INDICES = {11, 12, 13};
+
+        private final Palette[] underwaterPalettes;
+        private int sequenceIndex;
+        private int frameState;
+
+        private LzConveyorCycle(Palette[] underwaterPalettes) {
+            this.underwaterPalettes = underwaterPalettes;
+        }
+
+        @Override
+        public void tick(Level level, GraphicsManager gm) {
+            int trigger = TRIGGER_SEQUENCE[sequenceIndex];
+            sequenceIndex = (sequenceIndex + 1) & 7;
+            if (trigger == 0) {
+                return;
+            }
+
+            int direction = Sonic1ConveyorState.getInstance().isReversed() ? -1 : 1;
+            int nextState = frameState + direction;
+            if (nextState >= 3) {
+                nextState = 0;
+            } else if (nextState < 0) {
+                nextState = 2;
+            }
+            frameState = nextState;
+
+            int base = frameState * 6;
+            Palette palette = level.getPalette(3);
+            applyColors(PAL_LZ_CYC2, base, palette, COLOR_INDICES);
+
+            if (underwaterPalettes != null && underwaterPalettes.length > 3 && underwaterPalettes[3] != null) {
+                applyColors(PAL_LZ_CYC3, base, underwaterPalettes[3], COLOR_INDICES);
+            }
+
+            if (gm.isGlInitialized()) {
+                gm.cachePaletteTexture(palette, 3);
+                cacheUnderwaterPalette(gm, level, underwaterPalettes);
             }
         }
     }
@@ -293,6 +410,22 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
                 gm.cachePaletteTexture(palette, 3);
             }
         }
+    }
+
+    private static void applyColors(byte[] data, int base, Palette palette, int[] colorIndices) {
+        for (int i = 0; i < colorIndices.length; i++) {
+            int dataIndex = base + i * 2;
+            if (dataIndex + 1 < data.length) {
+                palette.getColor(colorIndices[i]).fromSegaFormat(data, dataIndex);
+            }
+        }
+    }
+
+    private static void cacheUnderwaterPalette(GraphicsManager gm, Level level, Palette[] underwaterPalettes) {
+        if (underwaterPalettes == null) {
+            return;
+        }
+        gm.cacheUnderwaterPaletteTexture(underwaterPalettes, level.getPalette(0));
     }
 
     // ===== SBZ per-entry color cycle (single palette color, own timer/frame) =====
@@ -415,6 +548,28 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
             0x0c, (byte) 0xe6, 0x0a, (byte) 0xc4, 0x08, (byte) 0xa2, 0x06, (byte) 0x80,
             0x0a, (byte) 0xc4, 0x08, (byte) 0xa2, 0x06, (byte) 0x80, 0x0c, (byte) 0xe6,
             0x08, (byte) 0xa2, 0x06, (byte) 0x80, 0x0c, (byte) 0xe6, 0x0a, (byte) 0xc4
+    };
+
+    /** LZ Conveyor Belt: 18 bytes, 3 frames x 6 bytes (3 colors each). */
+    private static final byte[] PAL_LZ_CYC2 = {
+            0x0a, (byte) 0xaa, 0x06, 0x66, 0x02, 0x22,
+            0x06, 0x66, 0x02, 0x22, 0x0a, (byte) 0xaa,
+            0x02, 0x22, 0x0a, (byte) 0xaa, 0x06, 0x66
+    };
+
+    /** LZ Conveyor Belt Underwater: 18 bytes, 3 frames x 6 bytes (3 colors each). */
+    private static final byte[] PAL_LZ_CYC3 = {
+            0x08, (byte) 0xa8, 0x04, 0x64, 0x00, 0x20,
+            0x04, 0x64, 0x00, 0x20, 0x08, (byte) 0xa8,
+            0x00, 0x20, 0x08, (byte) 0xa8, 0x04, 0x64
+    };
+
+    /** SBZ3 Waterfall: 32 bytes, 4 frames x 8 bytes (4 colors each). */
+    private static final byte[] PAL_SBZ3_CYC = {
+            0x0e, (byte) 0xce, 0x0e, (byte) 0x8c, 0x0a, 0x48, 0x08, 0x26,
+            0x0e, (byte) 0x8c, 0x0a, 0x48, 0x08, 0x26, 0x0e, (byte) 0xce,
+            0x0a, 0x48, 0x08, 0x26, 0x0e, (byte) 0xce, 0x0e, (byte) 0x8c,
+            0x08, 0x26, 0x0e, (byte) 0xce, 0x0e, (byte) 0x8c, 0x0a, 0x48
     };
 
     /** SLZ: 36 bytes, 6 frames x 6 bytes (3 non-contiguous colors). */
