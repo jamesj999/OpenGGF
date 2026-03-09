@@ -62,6 +62,7 @@ public class TestSonic3kAIZEvents {
         assertEquals(1, request.targetAct());
         assertFalse(request.preserveMusic());
         assertFalse(request.showInLevelTitleCard());
+        assertEquals(S3kSeamlessMutationExecutor.MUTATION_AIZ1_POST_RELOAD_ACT2, request.mutationKey());
         assertTrue(request.musicOverrideId() >= 0);
     }
 

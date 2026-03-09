@@ -4081,26 +4081,31 @@ public class LevelManager {
             applySeamlessMutation(request.mutationKey());
         }
 
-        // 4. Rebuild managers with new act's spawn data
+        // 4. Reinitialize animated content for the newly loaded zone/act.
+        // The ROM dispatches animation logic off Current_zone_and_act every frame;
+        // our managers capture act-specific scripts at construction time.
+        initAnimatedContent();
+
+        // 5. Rebuild managers with new act's spawn data
         // (ROM: Load_Level swaps obj/ring pointers, then clears Dynamic_object_RAM + Ring_status_table)
         rebuildManagersForActTransition(cam);
 
-        // 5. Apply coordinate offsets (ROM: Offset_ObjectsDuringTransition)
+        // 6. Apply coordinate offsets (ROM: Offset_ObjectsDuringTransition)
         applySeamlessOffsets(request, cam);
 
-        // 6. Restore camera bounds from new level data
+        // 7. Restore camera bounds from new level data
         restoreCameraBoundsForCurrentLevel(cam);
         cam.updatePosition(true);
 
-        // 7. Reinitialize level events for new act
+        // 8. Reinitialize level events for new act
         initLevelEventsForCurrentZoneAct();
 
-        // 8. Music override if specified
+        // 9. Music override if specified
         if (request.musicOverrideId() >= 0) {
             AudioManager.getInstance().playMusic(request.musicOverrideId());
         }
 
-        // 9. In-level title card if requested
+        // 10. In-level title card if requested
         if (request.showInLevelTitleCard() && !graphicsManager.isHeadlessMode()) {
             requestInLevelTitleCard(currentZone, currentAct);
         }

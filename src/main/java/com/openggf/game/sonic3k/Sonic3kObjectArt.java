@@ -10,6 +10,7 @@ import com.openggf.level.render.SpriteDplcFrame;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.TileLoadRequest;
+import com.openggf.level.resources.CompressionType;
 import com.openggf.tools.KosinskiReader;
 import com.openggf.tools.NemesisReader;
 
@@ -539,6 +540,37 @@ public class Sonic3kObjectArt {
             LOG.warning("Failed loading Rhinobot art: " + e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Loads a standalone art sheet from a registry entry.
+     * Dispatches based on the entry's compression type and DPLC presence.
+     */
+    public ObjectSpriteSheet loadStandaloneSheet(Rom rom,
+            Sonic3kPlcArtRegistry.StandaloneArtEntry entry) throws IOException {
+        if (rom == null || reader == null) return null;
+
+        Pattern[] patterns;
+        switch (entry.compression()) {
+            case KOSINSKI_MODULED ->
+                patterns = loadKosinskiModuledPatterns(rom, entry.artAddr());
+            case NEMESIS ->
+                patterns = loadNemesisPatterns(rom, entry.artAddr());
+            case UNCOMPRESSED ->
+                patterns = loadUncompressedPatterns(rom, entry.artAddr(), entry.artSize());
+            default -> { return null; }
+        }
+        if (patterns == null || patterns.length == 0) return null;
+
+        List<SpriteMappingFrame> mappings =
+                S3kSpriteDataLoader.loadMappingFrames(reader, entry.mappingAddr());
+
+        if (entry.dplcAddr() > 0) {
+            List<SpriteDplcFrame> dplcFrames = loadObjectDplcFrames(reader, entry.dplcAddr());
+            mappings = applyDplcRemap(mappings, dplcFrames);
+        }
+
+        return new ObjectSpriteSheet(patterns, mappings, entry.palette(), 1);
     }
 
     private Pattern[] loadNemesisPatterns(Rom rom, int addr) throws IOException {

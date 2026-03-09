@@ -24,6 +24,7 @@ public class AizMinibossBodyChild extends AbstractBossChild implements TouchResp
     private static final int Y_OFFSET = 0x20;
     private static final int COLLISION_FLAGS = 0x9C;
     private static final int SHIELD_REACTION = 1 << 4;
+    private static final int PALETTE_OVERRIDE = 0;
 
     // ROM byte_69126:
     // dc.b 1,1,2,$FC / dc.b 7,3,4,5,$F4
@@ -117,6 +118,6 @@ public class AizMinibossBodyChild extends AbstractBossChild implements TouchResp
             return;
         }
         boolean hFlip = parent != null && (parent.getState().renderFlags & 1) != 0;
-        renderer.drawFrameIndex(mappingFrame, currentX, currentY, hFlip, false);
+        renderer.drawFrameIndex(mappingFrame, currentX, currentY, hFlip, false, PALETTE_OVERRIDE);
     }
 }
