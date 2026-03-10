@@ -367,6 +367,7 @@ public class GameLoop {
                 // Force camera to snap to player position during title card (no smooth
                 // scrolling)
                 camera.updatePosition(true);
+                profiler.endSection("input");
                 return; // Don't process LEVEL mode logic yet
             }
         } else if (currentGameMode == GameMode.TITLE_SCREEN) {
@@ -380,6 +381,7 @@ public class GameLoop {
                 }
             }
             inputHandler.update();
+            profiler.endSection("input");
             return; // Don't process LEVEL mode logic
         } else if (currentGameMode == GameMode.LEVEL_SELECT) {
             // Update level select screen
@@ -393,6 +395,7 @@ public class GameLoop {
                 }
             }
             inputHandler.update();
+            profiler.endSection("input");
             return; // Don't process LEVEL mode logic
         } else if (currentGameMode == GameMode.CREDITS_TEXT
                 || currentGameMode == GameMode.CREDITS_DEMO
@@ -400,6 +403,7 @@ public class GameLoop {
                 || currentGameMode == GameMode.ENDING_CUTSCENE) {
             updateEnding();
             inputHandler.update();
+            profiler.endSection("input");
             return;
         }
 
