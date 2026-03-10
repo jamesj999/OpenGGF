@@ -335,6 +335,23 @@ public class SpriteManager {
 		}
 	}
 
+	/**
+	 * Refreshes playable sprite render state without advancing movement/gameplay.
+	 * Used by ending-demo preroll phases so the player sprite is visible as soon
+	 * as the fade begins, while physics remain frozen.
+	 */
+	public void primePlayableVisualState() {
+		Collection<Sprite> sprites = getAllSprites();
+		for (Sprite sprite : sprites) {
+			if (sprite instanceof AbstractPlayableSprite playable) {
+				if (playable.isCpuControlled() && isCpuSidekickSuppressed()) {
+					continue;
+				}
+				playable.getAnimationManager().update(frameCounter);
+			}
+		}
+	}
+
 	static boolean isDebugSpeedUpModifierDown(InputHandler handler) {
 		return handler.isKeyDown(GLFW_KEY_LEFT_SHIFT) || handler.isKeyDown(GLFW_KEY_RIGHT_SHIFT);
 	}

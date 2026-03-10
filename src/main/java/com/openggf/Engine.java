@@ -639,6 +639,13 @@ public class Engine {
 		if (uiPipeline != null) {
 			uiPipeline.renderFadePass();
 		}
+		if (getCurrentGameMode() == GameMode.CREDITS_DEMO) {
+			EndingProvider provider = gameLoop.getEndingProvider();
+			if (provider != null && provider.shouldRenderDemoSpritesOverFade()) {
+				levelManager.renderSpriteObjectPass(spriteManager, true);
+				graphicsManager.flush();
+			}
+		}
 
 		boolean playbackHud = PlaybackDebugManager.getInstance().isHudVisible();
 		boolean needsOverlay = (getCurrentGameMode() == GameMode.SPECIAL_STAGE) ||
@@ -787,8 +794,12 @@ public class Engine {
 				provider.draw();
 			}
 		} else if (getCurrentGameMode() == GameMode.CREDITS_DEMO) {
-			// Normal level rendering (HUD suppressed via zone feature provider)
-			levelManager.drawWithSpritePriority(spriteManager);
+			// Sonic 1 credits demo fade-in keeps sprites/objects visible while the
+			// tile planes are still under the black fade. Render only the tile side
+			// here and replay the sprite/object pass after the fade overlay.
+			EndingProvider provider = gameLoop.getEndingProvider();
+			boolean includeSprites = provider == null || !provider.shouldRenderDemoSpritesOverFade();
+			levelManager.drawWithSpritePriority(spriteManager, includeSprites);
 		} else if (getCurrentGameMode() == GameMode.TRY_AGAIN_END) {
 			// TRY AGAIN / END / post-credits screen: screen-space rendering
 			camera.setX((short) 0);

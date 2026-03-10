@@ -1994,18 +1994,41 @@ public class GameLoop {
      * CREDITS_DEMO phase: update provider, run level physics with demo input.
      */
     private void updateEndingCreditsDemo() {
+        boolean shouldAdvanceFrozenScene = endingProvider.shouldAdvanceFrozenDemoScene();
         endingProvider.update();
+        shouldAdvanceFrozenScene = shouldAdvanceFrozenScene || endingProvider.shouldAdvanceFrozenDemoScene();
 
         // Apply demo input to player
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if (mainCode == null) mainCode = "sonic";
         var sprite = spriteManager.getSprite(mainCode);
         if (sprite instanceof AbstractPlayableSprite player) {
+            if (!endingProvider.shouldRunDemoGameplay()) {
+                player.setForcedInputMask(0);
+            } else {
             // ROM does NOT set obj_control during demos — it writes demo input
             // directly to jpadhold1/jpadpress1 (MoveSonicInDemo.asm).
             // Do NOT use controlLocked here: PlayableSpriteMovement re-reads it
             // and would zero out left/right/jump, overriding the forced input.
-            player.setForcedInputMask(endingProvider.getDemoInputMask());
+                player.setForcedInputMask(endingProvider.getDemoInputMask());
+            }
+        }
+
+        if (!endingProvider.shouldRunDemoGameplay()) {
+            if (shouldAdvanceFrozenScene) {
+                levelManager.updateObjectPositionsWithoutTouches();
+                levelManager.updateEndingDemoScene();
+            }
+            spriteManager.primePlayableVisualState();
+
+            if (endingProvider.hasTextReturnRequest()) {
+                endingProvider.consumeTextReturnRequest();
+                returnFromEndingDemo();
+            }
+            if (endingProvider.isComplete()) {
+                exitEndingToTitleScreen();
+            }
+            return;
         }
 
         // Run level physics (objects + player)
@@ -2165,6 +2188,21 @@ public class GameLoop {
         if (!endingProvider.isLzDemo()) {
             camera.updatePosition(true);
         }
+
+        // Credits demos can override the load-time camera/player position after the level
+        // systems have already seeded object/ring windows. Re-seed them now so the hidden
+        // preroll and fade-in use the correct stream window immediately.
+        if (levelManager.getObjectManager() != null) {
+            levelManager.getObjectManager().reset(camera.getX());
+        }
+        if (levelManager.getRingManager() != null) {
+            levelManager.getRingManager().reset(camera.getX());
+        }
+
+        // Object/ring resets above already seed the visible stream window.
+        // Keep the demo scene static until gameplay begins, but prime the
+        // player's render state so Sonic appears with the other sprites.
+        spriteManager.primePlayableVisualState();
 
         // Suppress player keyboard input — demo input comes from forcedInputMask only
         spriteManager.setInputSuppressed(true);

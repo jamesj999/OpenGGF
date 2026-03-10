@@ -33,6 +33,7 @@ public class Sonic1CreditsManager {
         TEXT_DISPLAY,
         TEXT_FADE_OUT,
         DEMO_LOADING,
+        DEMO_LOAD_DELAY,
         DEMO_FADE_IN,
         DEMO_PLAYING,
         DEMO_FADING_OUT,
@@ -42,6 +43,8 @@ public class Sonic1CreditsManager {
     private State state;
     private int creditsNum;
     private int timer;
+    private int textPacingDelay;
+    private int demoLoadDelay;
     private boolean scrollFrozen;
 
     // Demo input playback
@@ -62,6 +65,8 @@ public class Sonic1CreditsManager {
     public void initialize() {
         creditsNum = 0;
         scrollFrozen = false;
+        textPacingDelay = 0;
+        demoLoadDelay = 0;
         demoInputPlayer = null;
         requestDemoLoad = false;
         requestTextReturn = false;
@@ -83,6 +88,7 @@ public class Sonic1CreditsManager {
         FadeManager.getInstance().startFadeFromBlack(() -> {
             state = State.TEXT_DISPLAY;
             timer = Sonic1CreditsDemoData.TEXT_DISPLAY_FRAMES;
+            textPacingDelay = getTextPacingDelayFrames(creditsNum);
         });
 
         LOGGER.info("Credits sequence initialized, starting credit 0");
@@ -103,12 +109,10 @@ public class Sonic1CreditsManager {
             case DEMO_LOADING -> {
                 // Waiting for GameLoop to load the demo zone
             }
+            case DEMO_LOAD_DELAY -> updateDemoLoadDelay();
             case DEMO_FADE_IN -> {
-                // ROM runs MoveSonicInDemo during fade-in — advance demo input
-                // so timing stays in sync with physics (which also runs during fade)
-                if (demoInputPlayer != null) {
-                    demoInputPlayer.advanceFrame();
-                }
+                // ROM does not enter Level_MainLoop until after the fade-in completes.
+                // Demo input and gameplay remain idle during this phase.
             }
             case DEMO_PLAYING -> updateDemoPlaying();
             case DEMO_FADING_OUT -> {
@@ -127,23 +131,43 @@ public class Sonic1CreditsManager {
      */
     private void updateTextDisplay() {
         timer--;
-        if (timer <= 0) {
-            if (creditsNum >= Sonic1CreditsDemoData.DEMO_CREDITS) {
-                // Credit 8 ("PRESENTED BY SEGA"): no demo, go to finished
-                state = State.TEXT_FADE_OUT;
-                FadeManager.getInstance().startFadeToBlack(() -> {
-                    state = State.FINISHED;
-                    requestFinished = true;
-                });
-            } else {
-                // Credits 0-7: fade to black, then load demo zone
-                state = State.TEXT_FADE_OUT;
-                FadeManager.getInstance().startFadeToBlack(() -> {
-                    state = State.DEMO_LOADING;
-                    requestDemoLoad = true;
-                });
-            }
+        if (timer > 0) {
+            return;
         }
+
+        if (textPacingDelay > 0) {
+            textPacingDelay--;
+            return;
+        }
+
+        if (creditsNum >= Sonic1CreditsDemoData.DEMO_CREDITS) {
+            // Credit 8 ("PRESENTED BY SEGA"): no demo, go to finished
+            state = State.TEXT_FADE_OUT;
+            FadeManager.getInstance().startFadeToBlack(() -> {
+                state = State.FINISHED;
+                requestFinished = true;
+            });
+        } else {
+            // Credits 0-7: fade to black, then load demo zone
+            state = State.TEXT_FADE_OUT;
+            FadeManager.getInstance().startFadeToBlack(() -> {
+                state = State.DEMO_LOADING;
+                requestDemoLoad = true;
+            });
+        }
+    }
+
+    /**
+     * DEMO_LOAD_DELAY: ROM-equivalent hidden delay between level load and fade-in.
+     */
+    private void updateDemoLoadDelay() {
+        demoLoadDelay--;
+        if (demoLoadDelay > 0) {
+            return;
+        }
+
+        state = State.DEMO_FADE_IN;
+        FadeManager.getInstance().startFadeFromBlack(() -> state = State.DEMO_PLAYING);
     }
 
     /**
@@ -155,7 +179,7 @@ public class Sonic1CreditsManager {
         }
 
         timer--;
-        if (timer <= 0 || (demoInputPlayer != null && demoInputPlayer.isComplete())) {
+        if (timer <= 0) {
             // Demo time expired — start slow fadeout.
             // ROM Level_FadeDemo (sonic.asm:3097) uses a 60-frame fade where
             // FadeOut_ToBlack is called every 3rd frame (v_palchgspeed pattern).
@@ -195,12 +219,8 @@ public class Sonic1CreditsManager {
 
         // Set demo timer
         timer = Sonic1CreditsDemoData.DEMO_TIMER[creditsNum];
-
-        // Start fade from black to reveal the demo zone
-        state = State.DEMO_FADE_IN;
-        FadeManager.getInstance().startFadeFromBlack(() -> {
-            state = State.DEMO_PLAYING;
-        });
+        demoLoadDelay = Sonic1CreditsDemoData.DEMO_LOAD_DELAY_FRAMES;
+        state = State.DEMO_LOAD_DELAY;
 
         // Diagnostic: log credit index, ROM address, and first bytes for verification
         StringBuilder hex = new StringBuilder();
@@ -220,6 +240,7 @@ public class Sonic1CreditsManager {
      */
     public void onReturnToText() {
         demoInputPlayer = null;
+        demoLoadDelay = 0;
 
         // Zone loading during demo phase overwrites GPU patterns/palette
         textRenderer.markGpuDirty();
@@ -229,6 +250,7 @@ public class Sonic1CreditsManager {
         FadeManager.getInstance().startFadeFromBlack(() -> {
             state = State.TEXT_DISPLAY;
             timer = Sonic1CreditsDemoData.TEXT_DISPLAY_FRAMES;
+            textPacingDelay = getTextPacingDelayFrames(creditsNum);
         });
 
         LOGGER.info("Showing credit text " + creditsNum);
@@ -281,10 +303,34 @@ public class Sonic1CreditsManager {
      * GameLoop should apply this to the player during CREDITS_DEMO mode.
      */
     public int getDemoInputMask() {
-        if (demoInputPlayer != null) {
+        if (demoInputPlayer != null && shouldRunDemoGameplay()) {
             return demoInputPlayer.getInputMask();
         }
         return 0;
+    }
+
+    /**
+     * Returns whether the current demo state should run input playback/physics.
+     * ROM: gameplay begins only after the post-load fade-in completes.
+     */
+    public boolean shouldRunDemoGameplay() {
+        return state == State.DEMO_PLAYING || state == State.DEMO_FADING_OUT;
+    }
+
+    /**
+     * During the initial demo fade-in, Sonic/object sprites should remain visible
+     * while the level tiles are still under the black fade overlay.
+     */
+    public boolean shouldRenderDemoSpritesOverFade() {
+        return state == State.DEMO_FADE_IN;
+    }
+
+    /**
+     * Only the hidden post-load delay should advance non-player demo scene
+     * state. The visible fade-in should stay static.
+     */
+    public boolean shouldAdvanceFrozenDemoScene() {
+        return state == State.DEMO_LOAD_DELAY;
     }
 
     /**
@@ -342,5 +388,12 @@ public class Sonic1CreditsManager {
      */
     public boolean isLzDemo() {
         return creditsNum == 3;
+    }
+
+    private static int getTextPacingDelayFrames(int creditIndex) {
+        if (creditIndex < 0 || creditIndex >= Sonic1CreditsDemoData.TEXT_PACING_DELAY_FRAMES.length) {
+            return 0;
+        }
+        return Sonic1CreditsDemoData.TEXT_PACING_DELAY_FRAMES[creditIndex];
     }
 }

@@ -131,6 +131,21 @@ public class Sonic1EndingProvider implements EndingProvider {
     }
 
     @Override
+    public boolean shouldRunDemoGameplay() {
+        return creditsManager != null && creditsManager.shouldRunDemoGameplay();
+    }
+
+    @Override
+    public boolean shouldRenderDemoSpritesOverFade() {
+        return creditsManager != null && creditsManager.shouldRenderDemoSpritesOverFade();
+    }
+
+    @Override
+    public boolean shouldAdvanceFrozenDemoScene() {
+        return creditsManager != null && creditsManager.shouldAdvanceFrozenDemoScene();
+    }
+
+    @Override
     public boolean isScrollFrozen() {
         return creditsManager != null && creditsManager.isScrollFrozen();
     }
@@ -203,7 +218,7 @@ public class Sonic1EndingProvider implements EndingProvider {
         Sonic1CreditsManager.State state = creditsManager.getState();
         currentPhase = switch (state) {
             case TEXT_FADE_IN, TEXT_DISPLAY, TEXT_FADE_OUT -> EndingPhase.CREDITS_TEXT;
-            case DEMO_LOADING, DEMO_FADE_IN, DEMO_PLAYING, DEMO_FADING_OUT -> EndingPhase.CREDITS_DEMO;
+            case DEMO_LOADING, DEMO_LOAD_DELAY, DEMO_FADE_IN, DEMO_PLAYING, DEMO_FADING_OUT -> EndingPhase.CREDITS_DEMO;
             case FINISHED -> EndingPhase.POST_CREDITS;
         };
     }

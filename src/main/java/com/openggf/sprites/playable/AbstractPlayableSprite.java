@@ -362,6 +362,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          * When true, BK2 playback detected a new action button press edge (A/B/C cycling).
          */
         protected boolean forcedJumpPress = false;
+        protected boolean suppressNextJumpPress = false;
+        protected boolean deferredObjectControlRelease = false;
         /**
          * When true, user inputs are ignored (Control_Locked in ROM).
          */
@@ -1478,6 +1480,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.forcedInputMask = 0;
                 this.forceInputRight = false;
                 this.forcedJumpPress = false;
+                this.suppressNextJumpPress = false;
+                this.deferredObjectControlRelease = false;
         }
 
         public void setForcedJumpPress(boolean forcedJumpPress) {
@@ -1486,6 +1490,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public boolean isForcedJumpPress() {
                 return forcedJumpPress;
+        }
+
+        public void suppressNextJumpPress() {
+                this.suppressNextJumpPress = true;
+        }
+
+        public boolean consumeSuppressNextJumpPress() {
+                boolean suppress = suppressNextJumpPress;
+                suppressNextJumpPress = false;
+                return suppress;
         }
 
         public boolean isForcedInputActive(int inputBit) {
@@ -1539,6 +1553,18 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          */
         public void setObjectControlled(boolean objectControlled) {
                 this.objectControlled = objectControlled;
+                if (objectControlled) {
+                        this.deferredObjectControlRelease = false;
+                }
+        }
+
+        /**
+         * Defers object-control release until the end of the current frame.
+         * This matches ROM object ordering where Sonic's routine has already
+         * run before a later object clears {@code f_playerctrl}.
+         */
+        public void deferObjectControlRelease() {
+                this.deferredObjectControlRelease = true;
         }
 
         /**
@@ -2485,6 +2511,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          * of the tick so all movement calculations have been performed.
          */
         public void endOfTick() {
+                if (deferredObjectControlRelease) {
+                        objectControlled = false;
+                        deferredObjectControlRelease = false;
+                }
                 // ROM: Sonic_Pos_Record_Index wraps at 256 bytes (64 entries * 4 bytes per entry)
                 if (historyPos == 63) {
                         historyPos = 0;

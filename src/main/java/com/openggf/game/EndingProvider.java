@@ -136,6 +136,44 @@ public interface EndingProvider {
     }
 
     /**
+     * Returns whether demo gameplay should run this frame.
+     * <p>
+     * Some endings have non-interactive demo sub-phases (for example, Sonic 1's
+     * hidden load delay and fade-in before {@code MoveSonicInDemo} starts).
+     * During those phases the engine should render the demo scene but skip
+     * physics/input playback.
+     *
+     * @return true if demo physics and input playback should run this frame
+     */
+    default boolean shouldRunDemoGameplay() {
+        return true;
+    }
+
+    /**
+     * Returns whether demo sprites/objects should render over the global fade.
+     * Used by Sonic 1 credits demo fade-in, where sprites are already visible
+     * while the level tiles are still being revealed.
+     *
+     * @return true if the engine should draw the sprite/object pass after fade
+     */
+    default boolean shouldRenderDemoSpritesOverFade() {
+        return false;
+    }
+
+    /**
+     * Returns whether the frozen credits-demo scene should still advance its
+     * non-player preroll state this frame.
+     * <p>
+     * Sonic 1 can override this when it truly needs hidden preroll work.
+     * The default behavior is to keep frozen demo scenes static.
+     *
+     * @return true if frozen demo scene prep should advance this frame
+     */
+    default boolean shouldAdvanceFrozenDemoScene() {
+        return false;
+    }
+
+    /**
      * Returns whether camera scrolling should be frozen.
      * Used during credits text phases where the background is static.
      *

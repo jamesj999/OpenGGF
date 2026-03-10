@@ -1605,7 +1605,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		inputLeft = left;
 		inputRight = right;
 		inputJump = sprite.isHurt() ? false : jump;
-		inputJumpPress = (jump && !jumpPrevious) || sprite.isForcedJumpPress();
+		boolean suppressJumpPress = sprite.consumeSuppressNextJumpPress();
+		inputJumpPress = ((jump && !jumpPrevious) && !suppressJumpPress) || sprite.isForcedJumpPress();
 		sprite.setForcedJumpPress(false); // consume one-shot signal
 		jumpPrevious = jump;
 	}

@@ -71,6 +71,7 @@ public class TestSonic1PoleThatBreaksObjectInstance {
         assertTrue(player.isObjectControlled());
         // 60th decrement: poleTime 1 -> 0, break + release
         pole.update(61, player);
+        player.endOfTick();
 
         assertFalse(player.isObjectControlled());
         assertEquals(0, pole.getCollisionFlags());
@@ -88,6 +89,7 @@ public class TestSonic1PoleThatBreaksObjectInstance {
         pole.update(1, player); // grab
         player.setJumpInputPressed(true);
         pole.update(2, player); // edge-trigger release
+        player.endOfTick();
 
         assertFalse(player.isObjectControlled());
         assertEquals(0, pole.getCollisionFlags());

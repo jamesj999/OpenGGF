@@ -104,6 +104,11 @@ public class ObjectManager {
     }
 
     public void update(int cameraX, AbstractPlayableSprite player, AbstractPlayableSprite sidekick, int touchFrameCounter) {
+        update(cameraX, player, sidekick, touchFrameCounter, true);
+    }
+
+    public void update(int cameraX, AbstractPlayableSprite player, AbstractPlayableSprite sidekick,
+            int touchFrameCounter, boolean enableTouchResponses) {
         frameCounter++;
         // ROM parity: object execution uses the previously streamed set, and object placement
         // is updated after object execution/render preparation for the next frame.
@@ -156,7 +161,7 @@ public class ObjectManager {
         // Note: solidContacts.update() is now called during SpriteManager.update(),
         // after movement but before animation. This ensures pushing flag is set correctly
         // for both terrain and solid objects before animation resolves.
-        if (touchResponses != null) {
+        if (enableTouchResponses && touchResponses != null) {
             touchResponses.debugState.setEnabled(
                     DebugOverlayManager.getInstance().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
             touchResponses.update(player, touchFrameCounter);

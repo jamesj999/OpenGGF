@@ -136,7 +136,7 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
 
     private void updateGrabbedPlayer(AbstractPlayableSprite player) {
         if (player == null) {
-            releasePlayer(null);
+            releasePlayer(null, false);
             return;
         }
 
@@ -144,7 +144,7 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
             poleTime--;
             if (poleTime == 0) {
                 mappingFrame = FRAME_BROKEN;
-                releasePlayer(player);
+                releasePlayer(player, false);
                 return;
             }
         }
@@ -170,13 +170,13 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
         boolean jumpPressedNow = player.isJumpPressed();
         if (jumpPressedNow && !jumpPressedPrevious) {
             mappingFrame = FRAME_BROKEN;
-            releasePlayer(player);
+            releasePlayer(player, true);
             return;
         }
         jumpPressedPrevious = jumpPressedNow;
     }
 
-    private void releasePlayer(AbstractPlayableSprite player) {
+    private void releasePlayer(AbstractPlayableSprite player, boolean consumeJumpPress) {
         // clr.b obColType(a0)
         collisionFlags = 0;
 
@@ -185,7 +185,13 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
 
         // clr.b (f_playerctrl).w / clr.b (f_wtunnelallow).w
         if (player != null) {
-            player.setObjectControlled(false);
+            if (consumeJumpPress) {
+                // ROM: the ABC edge that releases the pole is read by the pole object
+                // after Sonic's mode logic for that frame has already run, so it does
+                // not trigger an immediate jump on release.
+                player.suppressNextJumpPress();
+            }
+            player.deferObjectControlRelease();
         }
         setWindTunnelDisabled(false);
 
