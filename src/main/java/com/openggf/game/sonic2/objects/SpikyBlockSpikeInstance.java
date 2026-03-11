@@ -14,7 +14,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -238,7 +238,7 @@ public class SpikyBlockSpikeInstance extends AbstractObjectInstance
         // Harmful spike - red debug rectangle
         ctx.drawRect(currentX, currentY, WIDTH_PIXELS, WIDTH_PIXELS, 1f, 0f, 0f);
         ctx.drawCross(initialX, initialY, 3, 0.5f, 0.5f, 0.5f);
-        ctx.drawWorldLabel(currentX, currentY, -2, label, Color.RED);
+        ctx.drawWorldLabel(currentX, currentY, -2, label, DebugColor.RED);
     }
 
     private void updateDynamicSpawn() {

@@ -23,7 +23,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -133,7 +133,7 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
     private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
             .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
     private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
-    private static final Color DEBUG_COLOR = new Color(100, 200, 100);
+    private static final DebugColor DEBUG_COLOR = new DebugColor(100, 200, 100);
 
     // ========================================================================
     // Instance State

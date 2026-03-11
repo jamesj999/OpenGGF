@@ -12,7 +12,7 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -378,6 +378,6 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
         super.appendDebugRenderCommands(ctx);
         String stateLabel = "Shellcracker " + state + " f" + animFrame + " t" + timer;
-        ctx.drawWorldLabel(currentX, currentY, -12, stateLabel, Color.YELLOW);
+        ctx.drawWorldLabel(currentX, currentY, -12, stateLabel, DebugColor.YELLOW);
     }
 }

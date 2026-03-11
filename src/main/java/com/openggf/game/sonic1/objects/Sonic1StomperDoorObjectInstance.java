@@ -17,7 +17,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -120,7 +120,7 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
     private static final int PRIORITY = 4;
 
     /** Debug color (steel blue for SBZ machinery). */
-    private static final Color DEBUG_COLOR = new Color(100, 140, 200);
+    private static final DebugColor DEBUG_COLOR = new DebugColor(100, 140, 200);
 
     // ---- Instance state ----
 

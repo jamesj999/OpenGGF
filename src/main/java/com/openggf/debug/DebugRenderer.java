@@ -23,7 +23,7 @@ import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.debug.playback.PlaybackDebugManager;
 
-import java.awt.*;
+import java.awt.Font;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,11 +46,11 @@ public class DebugRenderer {
         private static final FontSize OBJECT_LABEL_FONT = FontSize.MEDIUM; // 11pt - object labels
         private static final FontSize PANEL_FONT = FontSize.LARGE;        // 12pt - main status panels
 
-        // Cached Color objects to avoid per-frame allocations
-        private static final Color COLOR_PLANE_SWITCH = new Color(255, 140, 0);
-        private static final Color COLOR_TOUCH_PANEL = new Color(180, 255, 180);
-        private static final Color COLOR_OBJECT_SUBTYPE = new Color(255, 180, 255);
-        private static final Color COLOR_ART_VIEWER = new Color(180, 255, 180);
+        // Cached DebugColor objects to avoid per-frame allocations
+        private static final DebugColor COLOR_PLANE_SWITCH = new DebugColor(255, 140, 0);
+        private static final DebugColor COLOR_TOUCH_PANEL = new DebugColor(180, 255, 180);
+        private static final DebugColor COLOR_OBJECT_SUBTYPE = new DebugColor(255, 180, 255);
+        private static final DebugColor COLOR_ART_VIEWER = new DebugColor(180, 255, 180);
 
         // Reusable lists for panel rendering to avoid per-frame allocations
         private final List<String> playerStatusLines = new ArrayList<>(24);
@@ -173,7 +173,7 @@ public class DebugRenderer {
                                         DebugRenderContext.appendHex2(sensorLabelBuilder, result.angle() & 0xFF);
                                         String label = sensorLabelBuilder.toString();
 
-                                        Color sensorColor = DebugOverlayPalette.sensorLabelColor(i, true);
+                                        DebugColor sensorColor = DebugOverlayPalette.sensorLabelColor(i, true);
                                         int screenX = toScreenX(xAdjusted);
                                         int screenY = toScreenYFromWorld(yAdjusted);
                                         int offsetX = 0;
@@ -262,8 +262,8 @@ public class DebugRenderer {
                         int labelX = toScreenX(screenX + 2);
                         int labelY = toScreenYFromWorld(screenY) + uiY(2);
                         int lineHeight = glyphBatch.getLineHeight(OBJECT_LABEL_FONT);
-                        glyphBatch.drawTextOutlined(name, labelX, labelY - lineHeight, Color.WHITE, OBJECT_LABEL_FONT);
-                        glyphBatch.drawTextOutlined(line1, labelX, labelY, Color.MAGENTA, OBJECT_LABEL_FONT);
+                        glyphBatch.drawTextOutlined(name, labelX, labelY - lineHeight, DebugColor.WHITE, OBJECT_LABEL_FONT);
+                        glyphBatch.drawTextOutlined(line1, labelX, labelY, DebugColor.MAGENTA, OBJECT_LABEL_FONT);
                         if (line2 != null) {
                                 glyphBatch.drawTextOutlined(line2, labelX, labelY + lineHeight,
                                                 COLOR_OBJECT_SUBTYPE, OBJECT_LABEL_FONT);
@@ -304,7 +304,7 @@ public class DebugRenderer {
                 int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
                 int y = startY;
                 for (String line : lines) {
-                        glyphBatch.drawTextOutlined(line, startX, y, Color.WHITE, PANEL_FONT);
+                        glyphBatch.drawTextOutlined(line, startX, y, DebugColor.WHITE, PANEL_FONT);
                         y -= lineHeight;
                 }
         }
@@ -498,7 +498,7 @@ public class DebugRenderer {
                 int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
                 int y = startY;
                 for (String line : lines) {
-                        glyphBatch.drawTextOutlined(line, startX, y, Color.WHITE, PANEL_FONT);
+                        glyphBatch.drawTextOutlined(line, startX, y, DebugColor.WHITE, PANEL_FONT);
                         y -= lineHeight;
                 }
         }

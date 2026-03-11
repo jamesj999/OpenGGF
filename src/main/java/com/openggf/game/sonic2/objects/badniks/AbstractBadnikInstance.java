@@ -5,7 +5,7 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.GameServices;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -192,7 +192,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
             cachedDebugAnimFrame = animFrame;
             cachedDebugFacingLeft = facingLeft;
         }
-        ctx.drawWorldLabel(currentX, currentY, -2, cachedDebugLabel, Color.YELLOW);
+        ctx.drawWorldLabel(currentX, currentY, -2, cachedDebugLabel, DebugColor.YELLOW);
     }
 
     /**

@@ -4,7 +4,6 @@ import org.lwjgl.system.MemoryUtil;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.ShaderProgram;
 
-import java.awt.Color;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -36,12 +35,15 @@ public class PerformancePanelRenderer {
             {0.9f, 0.6f, 0.8f},   // Pink
     };
 
-    /** Cached Color objects for section colors to avoid per-frame allocations */
-    private static final Color[] SECTION_COLOR_OBJECTS;
+    /** Cached DebugColor objects for section colors to avoid per-frame allocations */
+    private static final DebugColor[] SECTION_COLOR_OBJECTS;
     static {
-        SECTION_COLOR_OBJECTS = new Color[SECTION_COLORS.length];
+        SECTION_COLOR_OBJECTS = new DebugColor[SECTION_COLORS.length];
         for (int i = 0; i < SECTION_COLORS.length; i++) {
-            SECTION_COLOR_OBJECTS[i] = new Color(SECTION_COLORS[i][0], SECTION_COLORS[i][1], SECTION_COLORS[i][2]);
+            SECTION_COLOR_OBJECTS[i] = new DebugColor(
+                (int)(SECTION_COLORS[i][0] * 255),
+                (int)(SECTION_COLORS[i][1] * 255),
+                (int)(SECTION_COLORS[i][2] * 255));
         }
     }
 
@@ -190,7 +192,7 @@ public class PerformancePanelRenderer {
 
         if (!snapshot.hasData()) {
             glyphBatch.begin();
-            glyphBatch.drawTextOutlined("Perf: collecting...", uiX(panelRight - 80), uiY(panelTop - 10), Color.WHITE, PERF_FONT);
+            glyphBatch.drawTextOutlined("Perf: collecting...", uiX(panelRight - 80), uiY(panelTop - 10), DebugColor.WHITE, PERF_FONT);
             glyphBatch.end();
             return;
         }
@@ -228,7 +230,7 @@ public class PerformancePanelRenderer {
         appendFixed1(pb, workMs).append("ms (");
         appendFixed0(pb, budgetPct).append("%) ");
         appendFixed1(pb, snapshot.fps()).append("fps");
-        glyphBatch.drawTextOutlined(pb.toString(), textX, textY, Color.WHITE, PERF_FONT);
+        glyphBatch.drawTextOutlined(pb.toString(), textX, textY, DebugColor.WHITE, PERF_FONT);
 
         // Section legend — reuse the sorted list from getSectionsSortedByTime()
         // (also used by drawPieChart, but it caches internally)
@@ -238,7 +240,7 @@ public class PerformancePanelRenderer {
         int count = 0;
         for (SectionStats section : sections) {
             int colorIndex = getColorIndexForSection(section.name());
-            Color textColor = SECTION_COLOR_OBJECTS[colorIndex];
+            DebugColor textColor = SECTION_COLOR_OBJECTS[colorIndex];
 
             String name = section.name();
             pb.setLength(0);
@@ -261,20 +263,20 @@ public class PerformancePanelRenderer {
         appendFixed0(pb, memSnapshot.heapUsedMB()).append("MB/");
         appendFixed0(pb, memSnapshot.heapMaxMB()).append("MB (");
         pb.append(memSnapshot.heapPercentage()).append("%)");
-        glyphBatch.drawTextOutlined(pb.toString(), textX, memY, Color.LIGHT_GRAY, PERF_FONT);
+        glyphBatch.drawTextOutlined(pb.toString(), textX, memY, DebugColor.LIGHT_GRAY, PERF_FONT);
 
         memY -= lineHeight;
         pb.setLength(0);
         pb.append("GC: ").append(memSnapshot.gcCount())
           .append(" (").append(memSnapshot.gcTimeMs()).append("ms) | Alloc: ");
         appendFixed1(pb, memSnapshot.allocationRateMBPerSec()).append("MB/s");
-        glyphBatch.drawTextOutlined(pb.toString(), textX, memY, Color.LIGHT_GRAY, PERF_FONT);
+        glyphBatch.drawTextOutlined(pb.toString(), textX, memY, DebugColor.LIGHT_GRAY, PERF_FONT);
 
         // Top allocators
         List<MemoryStats.SectionAllocation> topAllocators = memSnapshot.topAllocators();
         if (!topAllocators.isEmpty()) {
             memY -= lineHeight;
-            glyphBatch.drawTextOutlined("Top Alloc:", textX, memY, Color.ORANGE, PERF_FONT);
+            glyphBatch.drawTextOutlined("Top Alloc:", textX, memY, DebugColor.ORANGE, PERF_FONT);
 
             for (MemoryStats.SectionAllocation alloc : topAllocators) {
                 memY -= lineHeight;
@@ -282,7 +284,7 @@ public class PerformancePanelRenderer {
                 pb.setLength(0);
                 appendFixed1(pb, alloc.kbPerFrame()).append("KB ");
                 pb.append(name, 0, Math.min(name.length(), 8));
-                glyphBatch.drawTextOutlined(pb.toString(), textX, memY, Color.ORANGE, PERF_FONT);
+                glyphBatch.drawTextOutlined(pb.toString(), textX, memY, DebugColor.ORANGE, PERF_FONT);
             }
         }
 

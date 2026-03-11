@@ -21,7 +21,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -328,7 +328,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
 
         // State label
         String label = "Turtloid [" + state + "] t=" + timer;
-        ctx.drawWorldLabel(currentX, currentY, -2, label, Color.YELLOW);
+        ctx.drawWorldLabel(currentX, currentY, -2, label, DebugColor.YELLOW);
 
         // Velocity arrow
         if (xVelocity != 0) {

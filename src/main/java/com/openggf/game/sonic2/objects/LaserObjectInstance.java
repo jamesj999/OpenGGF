@@ -14,7 +14,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -190,7 +190,7 @@ public class LaserObjectInstance extends AbstractObjectInstance {
         };
         ctx.drawWorldLabel(currentX, currentY, -1,
                 String.format("B9 Laser [%s] x=%d", state, currentX),
-                Color.RED);
+                DebugColor.RED);
 
         // Draw width extent lines (width_pixels = $60 = 96, so +/- 96 from center)
         // Actually the mapping spans -$48 to $48 (72+72=144px), but width_pixels=96

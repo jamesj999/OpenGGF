@@ -10,7 +10,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -331,6 +331,6 @@ public class CluckerBadnikInstance extends AbstractBadnikInstance {
         if (collisionEnabled) {
             label += " [COL]";
         }
-        ctx.drawWorldLabel(currentX, currentY, -2, label, Color.YELLOW);
+        ctx.drawWorldLabel(currentX, currentY, -2, label, DebugColor.YELLOW);
     }
 }

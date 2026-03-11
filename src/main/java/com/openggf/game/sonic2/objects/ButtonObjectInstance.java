@@ -18,7 +18,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -190,6 +190,6 @@ public class ButtonObjectInstance extends AbstractObjectInstance
         String label = String.format("Btn sw=%d bit=%d %s",
                 switchId, triggerBit, pressed ? "ON" : "off");
         ctx.drawWorldLabel(x, adjustedY, -2, label,
-                pressed ? Color.GREEN : Color.YELLOW);
+                pressed ? DebugColor.GREEN : DebugColor.YELLOW);
     }
 }

@@ -2,7 +2,6 @@ package com.openggf.debug;
 
 import com.openggf.graphics.GLCommand;
 
-import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -74,7 +73,7 @@ public class DebugRenderContext {
     /**
      * A text label positioned in world coordinates.
      */
-    public record DebugTextEntry(int worldX, int worldY, int lineOffset, String text, Color color) {}
+    public record DebugTextEntry(int worldX, int worldY, int lineOffset, String text, DebugColor color) {}
 
     // ---- Geometry helpers (world coordinates) ----
 
@@ -144,7 +143,7 @@ public class DebugRenderContext {
      * @param text       label text
      * @param color      text color
      */
-    public void drawWorldLabel(int worldX, int worldY, int lineOffset, String text, Color color) {
+    public void drawWorldLabel(int worldX, int worldY, int lineOffset, String text, DebugColor color) {
         textEntries.add(new DebugTextEntry(worldX, worldY, lineOffset, text, color));
     }
 

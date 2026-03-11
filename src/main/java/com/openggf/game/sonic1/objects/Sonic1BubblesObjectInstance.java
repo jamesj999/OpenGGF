@@ -15,7 +15,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 import java.util.Random;
 
@@ -137,9 +137,9 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
     private static final int PRIORITY = 1;
 
     /** Debug color for bubble maker (blue). */
-    private static final Color DEBUG_COLOR_MAKER = new Color(50, 100, 200);
+    private static final DebugColor DEBUG_COLOR_MAKER = new DebugColor(50, 100, 200);
     /** Debug color for regular bubble (light blue). */
-    private static final Color DEBUG_COLOR_BUBBLE = new Color(100, 180, 255);
+    private static final DebugColor DEBUG_COLOR_BUBBLE = new DebugColor(100, 180, 255);
 
     // ========================================================================
     // Instance State
@@ -741,7 +741,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
-        Color color = isMaker ? DEBUG_COLOR_MAKER : DEBUG_COLOR_BUBBLE;
+        DebugColor color = isMaker ? DEBUG_COLOR_MAKER : DEBUG_COLOR_BUBBLE;
 
         if (isMaker) {
             ctx.drawCross(displayX, displayY, 8, 0.2f, 0.4f, 0.8f);

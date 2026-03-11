@@ -1,17 +1,15 @@
 package com.openggf.debug;
 
-import java.awt.Color;
-
 public final class DebugOverlayPalette {
-    private static final Color[] SENSOR_COLORS = new Color[] {
-            new Color(0, 240, 0),   // A
-            new Color(56, 255, 162),// B
-            new Color(0, 174, 239), // C
-            new Color(255, 242, 56),// D
-            new Color(255, 56, 255),// E
-            new Color(255, 84, 84)  // F
+    private static final DebugColor[] SENSOR_COLORS = new DebugColor[] {
+            new DebugColor(0, 240, 0),   // A
+            new DebugColor(56, 255, 162),// B
+            new DebugColor(0, 174, 239), // C
+            new DebugColor(255, 242, 56),// D
+            new DebugColor(255, 56, 255),// E
+            new DebugColor(255, 84, 84)  // F
     };
-    private static final Color SENSOR_INACTIVE = new Color(140, 140, 140);
+    private static final DebugColor SENSOR_INACTIVE = new DebugColor(140, 140, 140);
     private static final float[] SENSOR_INACTIVE_LINE = new float[] { 0.55f, 0.55f, 0.55f };
     private static final float[][] SENSOR_LINE_COLORS = new float[][] {
             new float[] { 0f, 0.94f, 0f },
@@ -25,12 +23,12 @@ public final class DebugOverlayPalette {
     private DebugOverlayPalette() {
     }
 
-    public static Color sensorLabelColor(int index, boolean active) {
+    public static DebugColor sensorLabelColor(int index, boolean active) {
         if (!active) {
             return SENSOR_INACTIVE;
         }
         if (index < 0 || index >= SENSOR_COLORS.length) {
-            return Color.WHITE;
+            return DebugColor.WHITE;
         }
         return SENSOR_COLORS[index];
     }

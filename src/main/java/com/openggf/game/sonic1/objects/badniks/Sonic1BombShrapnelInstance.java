@@ -12,7 +12,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -192,7 +192,7 @@ public class Sonic1BombShrapnelInstance extends AbstractObjectInstance
             ctx.drawArrow(currentX, currentY, endX, endY, 1f, 0.5f, 0f);
         }
 
-        ctx.drawWorldLabel(currentX, currentY, -2, "Shrapnel", Color.RED);
+        ctx.drawWorldLabel(currentX, currentY, -2, "Shrapnel", DebugColor.RED);
     }
 
     // --- Position accessors ---

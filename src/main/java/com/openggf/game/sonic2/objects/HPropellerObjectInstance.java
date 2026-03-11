@@ -14,7 +14,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -407,6 +407,6 @@ public class HPropellerObjectInstance extends AbstractObjectInstance {
         String modeStr = (routineMode == ROUTINE_WFZ_MAIN) ? "WFZ" : "SCZ";
         ctx.drawWorldLabel(x, y, -1,
                 String.format("B5 %s a%d f%d", modeStr, currentAnim, mappingFrame),
-                Color.ORANGE);
+                DebugColor.ORANGE);
     }
 }

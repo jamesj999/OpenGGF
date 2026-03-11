@@ -11,7 +11,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -75,6 +75,6 @@ public class WFZWheelObjectInstance extends AbstractObjectInstance {
         int y = spawn.y();
         // Draw spawn position cross and object info label
         ctx.drawCross(x, y, 4, 1.0f, 1.0f, 0.0f);
-        ctx.drawWorldLabel(x, y, -1, "BA WFZWheel", Color.YELLOW);
+        ctx.drawWorldLabel(x, y, -1, "BA WFZWheel", DebugColor.YELLOW);
     }
 }

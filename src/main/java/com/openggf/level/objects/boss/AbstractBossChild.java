@@ -5,7 +5,7 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 
 /**
  * Base class for boss child components with common functionality.
@@ -141,7 +141,7 @@ public abstract class AbstractBossChild extends AbstractObjectInstance implement
         // Blue cross marker at position
         ctx.drawCross(currentX, currentY, 4, 0.3f, 0.3f, 1f);
         // Cyan name label
-        ctx.drawWorldLabel(currentX, currentY, -1, name, Color.CYAN);
+        ctx.drawWorldLabel(currentX, currentY, -1, name, DebugColor.CYAN);
     }
 
     public int getCurrentX() {

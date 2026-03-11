@@ -17,7 +17,7 @@ import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -590,7 +590,7 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
         };
         String dir = facingLeft ? "L" : "R";
         String label = "Bomb " + stateStr + " t" + timer + " f" + getMappingFrame() + " " + dir;
-        ctx.drawWorldLabel(currentX, currentY, -2, label, Color.YELLOW);
+        ctx.drawWorldLabel(currentX, currentY, -2, label, DebugColor.YELLOW);
     }
 
     // --- Position accessors ---

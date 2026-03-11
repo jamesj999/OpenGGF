@@ -152,6 +152,6 @@ public class Sonic1ConveyorBeltObjectInstance extends AbstractObjectInstance {
 
         // Label with speed info
         String label = String.format("CONV spd=%d w=%d", convSpeed, convWidth);
-        ctx.drawWorldLabel(x, yCenter - 0x18 - 8, 0, label, java.awt.Color.ORANGE);
+        ctx.drawWorldLabel(x, yCenter - 0x18 - 8, 0, label, com.openggf.debug.DebugColor.ORANGE);
     }
 }

@@ -13,7 +13,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -40,7 +40,7 @@ public class Sonic1ElectrocuterObjectInstance extends AbstractObjectInstance
     private static final int ACT_WIDTH = 0x28;
 
     /** Debug color (electric blue for zap hazard). */
-    private static final Color DEBUG_COLOR = new Color(80, 180, 255);
+    private static final DebugColor DEBUG_COLOR = new DebugColor(80, 180, 255);
 
     // Ani_Elec animation 0 (idle): dc.b 7, 0, afEnd
     // Frame delay 7, shows frame 0, loops.

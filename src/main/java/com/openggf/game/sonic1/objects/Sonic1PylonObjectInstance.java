@@ -12,7 +12,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -154,6 +154,6 @@ public class Sonic1PylonObjectInstance extends AbstractObjectInstance {
         ctx.drawCross(worldX, worldY, 4, 0.8f, 0.5f, 1.0f);
         ctx.drawWorldLabel(worldX, worldY, -1,
                 String.format("Pylon sx=%d sy=%d", screenX, screenY),
-                Color.MAGENTA);
+                DebugColor.MAGENTA);
     }
 }

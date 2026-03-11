@@ -16,7 +16,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -233,7 +233,7 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
 
         // Label with phase and timer info
         String label = String.format("Gird p%d t%d d%d", movePhase, moveTime, delay);
-        ctx.drawWorldLabel(x, y - SOLID_AIR_HALF_HEIGHT - 8, 0, label, Color.CYAN);
+        ctx.drawWorldLabel(x, y - SOLID_AIR_HALF_HEIGHT - 8, 0, label, DebugColor.CYAN);
     }
 
     // ========================================

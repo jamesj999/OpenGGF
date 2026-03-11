@@ -353,6 +353,6 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
             case STATE_SINKING -> "SINKING off=" + yOffset;
             default -> "?";
         };
-        ctx.drawWorldLabel(cx, cy - SOLID_HALF_HEIGHT - 10, 0, stateStr, java.awt.Color.CYAN);
+        ctx.drawWorldLabel(cx, cy - SOLID_HALF_HEIGHT - 10, 0, stateStr, com.openggf.debug.DebugColor.CYAN);
     }
 }

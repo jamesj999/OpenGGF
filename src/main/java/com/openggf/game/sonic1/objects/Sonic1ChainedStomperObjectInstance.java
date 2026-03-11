@@ -19,7 +19,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -673,7 +673,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
         int typeIndex = subtype & 0x0F;
         String label = String.format("CStom:T%d off=%d/%d v=%d",
                 typeIndex, (yOffset >> 8) & 0xFF, (maxFallDistance >> 8) & 0xFF, yVelocity);
-        ctx.drawWorldLabel(x, y, -2, label, Color.CYAN);
+        ctx.drawWorldLabel(x, y, -2, label, DebugColor.CYAN);
     }
 
     private void refreshDynamicSpawn() {

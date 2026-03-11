@@ -14,7 +14,7 @@ import com.openggf.sprites.animation.SpriteAnimationScript;
 import com.openggf.sprites.animation.SpriteAnimationSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -125,6 +125,6 @@ public class MTZLavaBubbleObjectInstance extends AbstractObjectInstance {
         ctx.drawCross(x, y, 4, 1.0f, 1.0f, 0.0f);
         ctx.drawWorldLabel(x, y, -1,
                 String.format("71 a%d f%d", animationState.getAnimId(), animationState.getMappingFrame()),
-                Color.YELLOW);
+                DebugColor.YELLOW);
     }
 }

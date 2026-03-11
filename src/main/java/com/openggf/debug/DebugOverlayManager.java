@@ -2,18 +2,21 @@ package com.openggf.debug;
 
 import com.openggf.Control.InputHandler;
 
-import java.awt.Toolkit;
-import java.awt.datatransfer.StringSelection;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.logging.Logger;
 
 import static org.lwjgl.glfw.GLFW.*;
 
 public class DebugOverlayManager {
+    private static final Logger LOGGER = Logger.getLogger(DebugOverlayManager.class.getName());
     private static DebugOverlayManager debugOverlayManager;
 
     private final EnumMap<DebugOverlayToggle, Boolean> states = new EnumMap<>(DebugOverlayToggle.class);
+
+    /** GLFW window handle for clipboard operations - set by Engine */
+    private long windowHandle;
 
     /** Reusable list for shortcut lines to avoid per-frame allocations */
     private final List<String> shortcutLines = new ArrayList<>(16);
@@ -87,9 +90,21 @@ public class DebugOverlayManager {
             }
         }
 
-        // Copy to clipboard
-        StringSelection selection = new StringSelection(sb.toString());
-        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
+        // Copy to clipboard using GLFW (avoids AWT dependency for native images)
+        if (windowHandle != 0) {
+            glfwSetClipboardString(windowHandle, sb.toString());
+            LOGGER.info("Performance stats copied to clipboard");
+        } else {
+            LOGGER.warning("Cannot copy to clipboard: window handle not set");
+        }
+    }
+
+    /**
+     * Sets the GLFW window handle for clipboard operations.
+     * Must be called after window creation.
+     */
+    public void setWindowHandle(long windowHandle) {
+        this.windowHandle = windowHandle;
     }
 
     public boolean isEnabled(DebugOverlayToggle toggle) {

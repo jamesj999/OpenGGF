@@ -290,6 +290,6 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
         String state = switches.isPressed(switchIndex) ? "ON" : "OFF";
         ctx.drawWorldLabel(x, y - 12, 0,
                 String.format("SW%d.b%d=%s", switchIndex, switchBit, state),
-                java.awt.Color.YELLOW);
+                com.openggf.debug.DebugColor.YELLOW);
     }
 }

@@ -12,7 +12,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -80,7 +80,7 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
     private static final int OUT_OF_RANGE_DISTANCE = 128 + 320 + 192;
 
     /** Debug color for geyser maker (dark orange). */
-    private static final Color DEBUG_COLOR = new Color(200, 100, 0);
+    private static final DebugColor DEBUG_COLOR = new DebugColor(200, 100, 0);
 
     // ========================================================================
     // Instance State

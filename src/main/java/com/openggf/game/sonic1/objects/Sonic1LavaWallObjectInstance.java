@@ -17,7 +17,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -151,7 +151,7 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
     private static final int OUT_OF_RANGE_DISTANCE = 128 + 320 + 192;
 
     /** Debug color (deep orange-red for lava). */
-    private static final Color DEBUG_COLOR = new Color(255, 80, 0);
+    private static final DebugColor DEBUG_COLOR = new DebugColor(255, 80, 0);
 
     // ========================================================================
     // Instance State

@@ -25,7 +25,7 @@ import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -375,7 +375,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         ctx.drawRect(getX(), getY(), SOLID_HALF_WIDTH, SOLID_HALF_HEIGHT_AIR,
                 0.0f, 0.8f, 0.2f);
         ctx.drawWorldLabel(getX(), getY(), -2,
-                String.format("SmashBlk bonus=%d", cachedItemBonus), Color.GREEN);
+                String.format("SmashBlk bonus=%d", cachedItemBonus), DebugColor.GREEN);
     }
 
     @Override

@@ -14,7 +14,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -81,7 +81,7 @@ public class Sonic1SmallDoorObjectInstance extends AbstractObjectInstance
     // Whether the door is currently acting as a solid object
     private boolean solidActive;
 
-    private static final Color DEBUG_COLOR = new Color(200, 140, 60);
+    private static final DebugColor DEBUG_COLOR = new DebugColor(200, 140, 60);
 
     public Sonic1SmallDoorObjectInstance(ObjectSpawn spawn) {
         super(spawn, "SmallDoor");

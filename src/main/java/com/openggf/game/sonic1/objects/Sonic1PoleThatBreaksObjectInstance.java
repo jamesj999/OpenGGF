@@ -20,7 +20,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -259,7 +259,7 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
         int maxY = minY + CLIMB_RANGE;
         ctx.drawLine(x + GRAB_X_OFFSET, minY, x + GRAB_X_OFFSET, maxY, 0.4f, 1.0f, 0.4f);
         ctx.drawWorldLabel(x, y, -2, "Pole t=" + poleTime + " f=" + mappingFrame
-                + (poleGrabbed ? " GRAB" : ""), Color.CYAN);
+                + (poleGrabbed ? " GRAB" : ""), DebugColor.CYAN);
     }
 
     private void setWindTunnelDisabled(boolean disabled) {

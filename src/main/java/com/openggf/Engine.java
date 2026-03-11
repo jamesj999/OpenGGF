@@ -1,5 +1,6 @@
 package com.openggf;
 
+import com.openggf.game.*;
 import com.openggf.graphics.*;
 import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.*;
@@ -15,22 +16,12 @@ import com.openggf.debug.DebugOption;
 import com.openggf.debug.DebugRenderer;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.debug.DebugState;
-import com.openggf.game.SpecialStageDebugProvider;
-import com.openggf.game.SpecialStageProvider;
 import com.openggf.level.LevelManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.playable.TailsCpuController;
-import com.openggf.game.EndingProvider;
-import com.openggf.game.GameMode;
-import com.openggf.game.LevelSelectProvider;
-import com.openggf.game.MasterTitleScreen;
-import com.openggf.game.TitleCardProvider;
-import com.openggf.game.TitleScreenProvider;
-import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.debug.playback.PlaybackDebugManager;
 
 import java.io.IOException;
@@ -290,6 +281,9 @@ public class Engine {
 		// Create input handler and set it
 		inputHandler = new InputHandler();
 		setInputHandler(inputHandler);
+
+		// Set window handle for clipboard operations (GLFW-based, no AWT dependency)
+		GameServices.debugOverlay().setWindowHandle(window);
 
 		// Initial reshape and snap to integer scale (handles DPI-scaled framebuffer)
 		try (MemoryStack stack = stackPush()) {

@@ -817,12 +817,12 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
                     currentWaypointIdx / WAYPOINT_STEP,
                     waypoints != null ? waypoints.length : 0,
                     dirReversed ? "REV" : "FWD");
-            ctx.drawWorldLabel(x, y - HALF_HEIGHT - 8, 0, label, java.awt.Color.CYAN);
+            ctx.drawWorldLabel(x, y - HALF_HEIGHT - 8, 0, label, com.openggf.debug.DebugColor.CYAN);
         } else if (mode == Mode.WHEEL) {
             // Draw wheel position
             ctx.drawRect(x, y, 0x10, 0x10, 0.5f, 0.5f, 0.2f);
             String label = String.format("WHL f%d", wheelFrame);
-            ctx.drawWorldLabel(x, y - 0x10 - 8, 0, label, java.awt.Color.YELLOW);
+            ctx.drawWorldLabel(x, y - 0x10 - 8, 0, label, com.openggf.debug.DebugColor.YELLOW);
         }
     }
 

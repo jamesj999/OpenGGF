@@ -13,7 +13,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -276,6 +276,6 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
         if (state == State.MOVING) {
             stateLabel += " t=" + moveTimer;
         }
-        ctx.drawWorldLabel(currentX, currentY, -12, stateLabel, Color.ORANGE);
+        ctx.drawWorldLabel(currentX, currentY, -12, stateLabel, DebugColor.ORANGE);
     }
 }

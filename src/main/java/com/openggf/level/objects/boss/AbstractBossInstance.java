@@ -17,7 +17,7 @@ import com.openggf.game.sonic2.objects.BossExplosionObjectInstance;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -497,7 +497,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
             cachedDebugHitCount = state.hitCount;
             cachedDebugRoutine = state.routine;
         }
-        ctx.drawWorldLabel(state.x, state.y, -3, cachedHpLabel, Color.RED);
+        ctx.drawWorldLabel(state.x, state.y, -3, cachedHpLabel, DebugColor.RED);
 
         // Orange invulnerability timer when invulnerable (cached until timer changes)
         if (state.invulnerable) {
@@ -505,7 +505,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
                 cachedInvulnLabel = "Invuln:" + state.invulnerabilityTimer;
                 cachedInvulnTimer = state.invulnerabilityTimer;
             }
-            ctx.drawWorldLabel(state.x, state.y, -2, cachedInvulnLabel, Color.ORANGE);
+            ctx.drawWorldLabel(state.x, state.y, -2, cachedInvulnLabel, DebugColor.ORANGE);
         }
 
         // Blue lines from parent to each child component

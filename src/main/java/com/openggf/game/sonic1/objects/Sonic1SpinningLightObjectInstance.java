@@ -11,7 +11,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -101,6 +101,6 @@ public class Sonic1SpinningLightObjectInstance extends AbstractObjectInstance {
         ctx.drawCross(spawn.x(), spawn.y(), 4, 0.5f, 1.0f, 0.5f);
         ctx.drawWorldLabel(spawn.x(), spawn.y(), -1,
                 String.format("Light f=%d t=%d", frameIndex, frameTimer),
-                Color.GREEN);
+                DebugColor.GREEN);
     }
 }

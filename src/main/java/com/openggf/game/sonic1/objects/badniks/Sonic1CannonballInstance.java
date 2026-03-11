@@ -18,7 +18,7 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -327,7 +327,7 @@ public class Sonic1CannonballInstance extends AbstractObjectInstance
         }
 
         String label = "Ball t" + explosionTimer + " f" + currentFrame;
-        ctx.drawWorldLabel(currentX, currentY, -2, label, Color.RED);
+        ctx.drawWorldLabel(currentX, currentY, -2, label, DebugColor.RED);
     }
 
     // --- Position accessors ---

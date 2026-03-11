@@ -14,7 +14,7 @@ import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -129,6 +129,6 @@ public class TurtloidRiderInstance extends AbstractObjectInstance
     @Override
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
         ctx.drawRect(currentX, currentY, 12, 12, 1f, 0.5f, 0f);
-        ctx.drawWorldLabel(currentX, currentY, -2, "Rider f" + mappingFrame, Color.ORANGE);
+        ctx.drawWorldLabel(currentX, currentY, -2, "Rider f" + mappingFrame, DebugColor.ORANGE);
     }
 }
