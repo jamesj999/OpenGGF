@@ -472,39 +472,17 @@ public class GameLoop {
             // ObjB2 transition parity: freeze gameplay during pending zone-act fade.
             boolean freezeForZoneActTransition = levelManager.isLevelInactiveForTransition();
             if (!freezeForArtViewer && !freezeForSpecialStage && !freezeForZoneActTransition) {
-                // Objects must update BEFORE player physics so SolidContacts sees new positions.
-                // This fixes 1-frame lag on fast-moving platforms (SwingingPlatform, CNZ Elevators).
-                profiler.beginSection("objects");
-                levelManager.updateObjectPositions();
-                profiler.endSection("objects");
-
-                // ROM order: LZWaterFeatures runs before ExecuteObjects (sonic.asm:3043-3044).
-                // Water slides and wind tunnels must set f_slidemode and obInertia before
-                // Sonic_Move executes so the sliding flag is visible to input handling.
-                levelManager.updateZoneFeaturesPrePhysics();
-
-                profiler.beginSection("physics");
-                spriteManager.update(inputHandler);
-                profiler.endSection("physics");
-                if (playbackFrameConsumed) {
-                    playbackDebugManager.onLevelFrameAdvanced();
-                }
-
-                // Dynamic level events update boundary targets (game-specific)
-                LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
-                if (levelEvents != null) {
-                    levelEvents.update();
-                }
-
-                profiler.beginSection("camera");
-                // Ease boundaries toward targets at 2px/frame
-                camera.updateBoundaryEasing();
-                camera.updatePosition();
-                profiler.endSection("camera");
-
-                profiler.beginSection("level");
-                levelManager.update();
-                profiler.endSection("level");
+                // Canonical level tick sequence — see LevelFrameStep for ordering rationale.
+                LevelFrameStep.execute(levelManager, camera, () -> {
+                    spriteManager.update(inputHandler);
+                    if (playbackFrameConsumed) {
+                        playbackDebugManager.onLevelFrameAdvanced();
+                    }
+                }, (name, step) -> {
+                    profiler.beginSection(name);
+                    step.run();
+                    profiler.endSection(name);
+                });
 
                 // Check if a checkpoint star requested a special stage
                 if (levelManager.consumeSpecialStageRequest()) {
@@ -2035,12 +2013,11 @@ public class GameLoop {
             return;
         }
 
-        // Run level physics (objects + player)
-        levelManager.updateObjectPositions();
+        // Run level physics — follows LevelFrameStep canonical order (steps 1-4),
+        // but steps 5-6 are conditional on scroll-freeze state during ending fadeout.
         levelManager.updateZoneFeaturesPrePhysics();
+        levelManager.updateObjectPositions();
         spriteManager.update(inputHandler);
-
-        // Level events
         LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
         if (levelEvents != null) {
             levelEvents.update();

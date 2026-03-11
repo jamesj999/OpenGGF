@@ -528,6 +528,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.priorityBucket = RenderPriority.PLAYER_DEFAULT;
                 this.forceInputRight = false;
                 this.forcedInputMask = 0;
+                this.forcedAnimationId = -1;
                 this.controlLocked = false;
                 this.moveLockTimer = 0;
                 this.objectControlled = false;

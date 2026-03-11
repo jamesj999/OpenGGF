@@ -952,7 +952,20 @@ public class LevelManager {
                 ringManager.updateLostRings(sidekick, frameCounter + 1);
             }
         }
-        // Update zone-specific features (CNZ bumpers, etc.)
+        // Water movement — ROM order: MoveWater (move toward target) runs BEFORE
+        // DynWaterHeight (zone features set new target for next frame).
+        // Use effective feature zone/act so S1 SBZ3 (loaded from LZ act 4 slot)
+        // resolves to SBZ3 water behavior while retaining LZ tile/object resources.
+        WaterSystem waterSystem = WaterSystem.getInstance();
+        int featureZone = getFeatureZoneId();
+        int featureAct = getFeatureActId();
+        if (level != null && waterSystem.hasWater(featureZone, featureAct)) {
+            Camera camera = Camera.getInstance();
+            waterSystem.updateDynamic(featureZone, featureAct, camera.getX(), camera.getY());
+            waterSystem.update();
+        }
+
+        // Update zone-specific features (CNZ bumpers, S1 DynWaterHeight, etc.)
         if (zoneFeatureProvider != null && level != null) {
             zoneFeatureProvider.update(playable, Camera.getInstance().getX(), getFeatureZoneId());
         }
@@ -965,23 +978,10 @@ public class LevelManager {
             }
         }
 
-        // Update water state for player.
-        // Use effective feature zone/act so S1 SBZ3 (loaded from LZ act 4 slot)
-        // resolves to SBZ3 water behavior while retaining LZ tile/object resources.
-        WaterSystem waterSystem = WaterSystem.getInstance();
-        int featureZone = getFeatureZoneId();
-        int featureAct = getFeatureActId();
-        if (level != null && waterSystem.hasWater(featureZone, featureAct)) {
-            // Dispatch dynamic water handlers (S3K HCZ/LBZ/AIZ2, S2 CPZ2, etc.)
-            // Handlers run first (set targets), then movement applies — matching ROM order.
-            Camera camera = Camera.getInstance();
-            waterSystem.updateDynamic(featureZone, featureAct, camera.getX(), camera.getY());
-            waterSystem.update();
-
-            if (playable != null) {
-                int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
-                playable.updateWaterState(waterY);
-            }
+        // Update player water state after both water movement and zone features.
+        if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
+            int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
+            playable.updateWaterState(waterY);
         }
     }
 
@@ -997,10 +997,7 @@ public class LevelManager {
             ringManager.update(Camera.getInstance().getX(), null, frameCounter + 1);
         }
 
-        if (zoneFeatureProvider != null && level != null) {
-            zoneFeatureProvider.update(playable, Camera.getInstance().getX(), getFeatureZoneId());
-        }
-
+        // Water movement before zone features (ROM order: MoveWater before DynWaterHeight)
         WaterSystem waterSystem = WaterSystem.getInstance();
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
@@ -1008,11 +1005,15 @@ public class LevelManager {
             Camera camera = Camera.getInstance();
             waterSystem.updateDynamic(featureZone, featureAct, camera.getX(), camera.getY());
             waterSystem.update();
+        }
 
-            if (playable != null) {
-                int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
-                playable.updateWaterState(waterY);
-            }
+        if (zoneFeatureProvider != null && level != null) {
+            zoneFeatureProvider.update(playable, Camera.getInstance().getX(), getFeatureZoneId());
+        }
+
+        if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
+            int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
+            playable.updateWaterState(waterY);
         }
     }
 
