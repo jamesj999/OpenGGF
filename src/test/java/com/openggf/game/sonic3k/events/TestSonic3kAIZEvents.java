@@ -13,7 +13,7 @@ public class TestSonic3kAIZEvents {
     @Test
     public void initWithIntroSkipDoesNotSpawnIntroObject() {
         Camera camera = Camera.getInstance();
-        var events = new Sonic3kAIZEvents(camera,
+        var events = new Sonic3kAIZEvents(
                 new Sonic3kLoadBootstrap(Sonic3kLoadBootstrap.Mode.SKIP_INTRO, null));
         events.init(0);
         // No crash, no spawn (ObjectManager is null in test)
@@ -23,7 +23,7 @@ public class TestSonic3kAIZEvents {
     @Test
     public void initForAct1WithNormalBootstrapRequestsIntro() {
         Camera camera = Camera.getInstance();
-        var events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         // When bootstrap is NORMAL and act is 0, intro should be requested
         assertTrue(events.shouldSpawnIntro(0));
     }
@@ -31,7 +31,7 @@ public class TestSonic3kAIZEvents {
     @Test
     public void initForAct2DoesNotRequestIntro() {
         Camera camera = Camera.getInstance();
-        var events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         assertFalse(events.shouldSpawnIntro(1));
     }
 
@@ -42,7 +42,7 @@ public class TestSonic3kAIZEvents {
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
-        var events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         events.init(0);
         events.setEventsFg5(true);
 
@@ -75,7 +75,7 @@ public class TestSonic3kAIZEvents {
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
-        var events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         events.init(0);
         events.setEventsFg5(true);
 
@@ -106,7 +106,7 @@ public class TestSonic3kAIZEvents {
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
-        var events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         events.init(0);
         assertFalse(events.isPostFireHazeActive());
 
@@ -119,7 +119,7 @@ public class TestSonic3kAIZEvents {
         assertTrue(events.isAct2TransitionRequested());
         assertTrue(events.isPostFireHazeActive());
 
-        var act2Events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
+        var act2Events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         act2Events.init(1);
         assertTrue(act2Events.isPostFireHazeActive());
     }
@@ -133,7 +133,7 @@ public class TestSonic3kAIZEvents {
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
-        var events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         events.init(0);
         events.setEventsFg5(true);
 
@@ -146,7 +146,7 @@ public class TestSonic3kAIZEvents {
         assertNotNull(beforeReload);
         assertEquals(224, beforeReload.coverHeightPx());
 
-        var act2Events = new Sonic3kAIZEvents(camera, Sonic3kLoadBootstrap.NORMAL);
+        var act2Events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         act2Events.init(1);
 
         FireWallRenderState afterReload = act2Events.getFireWallRenderState(224);

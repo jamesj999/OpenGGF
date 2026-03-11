@@ -43,13 +43,13 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
 
     private Sonic1LevelEventManager() {
         super();
-        ghzEvents = new Sonic1GHZEvents(camera);
-        lzEvents = new Sonic1LZEvents(camera);
-        mzEvents = new Sonic1MZEvents(camera);
-        slzEvents = new Sonic1SLZEvents(camera);
-        syzEvents = new Sonic1SYZEvents(camera);
-        sbzEvents = new Sonic1SBZEvents(camera);
-        endingEvents = new Sonic1EndingEvents(camera);
+        ghzEvents = new Sonic1GHZEvents();
+        lzEvents = new Sonic1LZEvents();
+        mzEvents = new Sonic1MZEvents();
+        slzEvents = new Sonic1SLZEvents();
+        syzEvents = new Sonic1SYZEvents();
+        sbzEvents = new Sonic1SBZEvents();
+        endingEvents = new Sonic1EndingEvents();
     }
 
     // =========================================================================

@@ -20,22 +20,22 @@ public abstract class Sonic2ZoneEvents {
     /** VDP palette line size: 16 colors × 2 bytes each = 32 bytes */
     private static final int PALETTE_LINE_SIZE = 32;
 
-    /**
-     * Camera reference. Refreshed on each {@link #init(int)} call
-     * to survive singleton replacement (e.g. {@code Camera.resetInstance()} in tests).
-     */
-    protected Camera camera;
     protected int eventRoutine;
     protected int bossSpawnDelay;
 
-    protected Sonic2ZoneEvents(Camera camera) {
-        this.camera = camera;
+    protected Sonic2ZoneEvents() {
+    }
+
+    /**
+     * Returns the current Camera singleton. Always call this accessor rather
+     * than caching the reference, so it survives singleton replacement.
+     */
+    protected Camera camera() {
+        return Camera.getInstance();
     }
 
     /** Reset event state for a new level load. */
     public void init(int act) {
-        // Refresh camera reference to survive singleton replacement
-        this.camera = Camera.getInstance();
         eventRoutine = 0;
         bossSpawnDelay = 0;
     }
@@ -81,7 +81,8 @@ public abstract class Sonic2ZoneEvents {
     }
 
     protected void syncSidekickBoundsToCamera() {
-        setSidekickBounds((int) camera.getMinX(), (int) camera.getMaxX(),
-                (int) Math.max(camera.getMaxY(), camera.getMaxYTarget()));
+        Camera cam = camera();
+        setSidekickBounds((int) cam.getMinX(), (int) cam.getMaxX(),
+                (int) Math.max(cam.getMaxY(), cam.getMaxYTarget()));
     }
 }

@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.events;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.objects.bosses.Sonic1GHZBossInstance;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Music;
@@ -21,8 +20,7 @@ class Sonic1GHZEvents extends Sonic1ZoneEvents {
     private static final int BOSS_GHZ_X = 0x2960;
     private static final int BOSS_GHZ_Y = 0x300;
 
-    Sonic1GHZEvents(Camera camera) {
-        super(camera);
+    Sonic1GHZEvents() {
     }
 
     @Override
@@ -39,12 +37,12 @@ class Sonic1GHZEvents extends Sonic1ZoneEvents {
      * Bottom boundary is 0x300 until camera X >= 0x1780, then 0x400.
      */
     private void updateAct1() {
-        camera.setMaxYTarget((short) 0x300);
-        int camX = camera.getX() & 0xFFFF;
+        camera().setMaxYTarget((short) 0x300);
+        int camX = camera().getX() & 0xFFFF;
         if (camX < 0x1780) {
             return; // locret_6E08
         }
-        camera.setMaxYTarget((short) 0x400);
+        camera().setMaxYTarget((short) 0x400);
     }
 
     /**
@@ -52,20 +50,20 @@ class Sonic1GHZEvents extends Sonic1ZoneEvents {
      * Boundaries change at X thresholds: 0xED0, 0x1600, 0x1D60.
      */
     private void updateAct2() {
-        camera.setMaxYTarget((short) 0x300);
-        int camX = camera.getX() & 0xFFFF;
+        camera().setMaxYTarget((short) 0x300);
+        int camX = camera().getX() & 0xFFFF;
         if (camX < 0xED0) {
             return; // locret_6E3A
         }
-        camera.setMaxYTarget((short) 0x200);
+        camera().setMaxYTarget((short) 0x200);
         if (camX < 0x1600) {
             return; // locret_6E3A
         }
-        camera.setMaxYTarget((short) 0x400);
+        camera().setMaxYTarget((short) 0x400);
         if (camX < 0x1D60) {
             return; // locret_6E3A
         }
-        camera.setMaxYTarget((short) 0x300);
+        camera().setMaxYTarget((short) 0x300);
     }
 
     /**
@@ -87,15 +85,15 @@ class Sonic1GHZEvents extends Sonic1ZoneEvents {
      * that can short-circuit to the boss phase.
      */
     private void updateAct3Main() {
-        int camX = camera.getX() & 0xFFFF;
-        int camY = camera.getY() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
+        int camY = camera().getY() & 0xFFFF;
 
-        camera.setMaxYTarget((short) 0x300);
+        camera().setMaxYTarget((short) 0x300);
         if (camX < 0x380) {
             return; // locret_6E96
         }
 
-        camera.setMaxYTarget((short) 0x310);
+        camera().setMaxYTarget((short) 0x310);
         if (camX < 0x960) {
             return; // locret_6E96
         }
@@ -107,10 +105,10 @@ class Sonic1GHZEvents extends Sonic1ZoneEvents {
             return;
         }
 
-        camera.setMaxYTarget((short) 0x400);
+        camera().setMaxYTarget((short) 0x400);
         if (camX < 0x1380) {
             // Immediate set (not eased) - sets both v_limitbtm1 and v_limitbtm2
-            camera.setMaxY((short) 0x4C0);
+            camera().setMaxY((short) 0x4C0);
         }
 
         // loc_6E8E
@@ -127,7 +125,7 @@ class Sonic1GHZEvents extends Sonic1ZoneEvents {
      * Sets boss Y boundary and advances event routine.
      */
     private void transitionToBoss() {
-        camera.setMaxYTarget((short) BOSS_GHZ_Y); // 0x300
+        camera().setMaxYTarget((short) BOSS_GHZ_Y); // 0x300
         eventRoutine += 2; // advance to DLE_GHZ3boss
     }
 
@@ -137,7 +135,7 @@ class Sonic1GHZEvents extends Sonic1ZoneEvents {
      * Locks camera and spawns boss when X >= 0x2960.
      */
     private void updateAct3Boss() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         if (camX < 0x960) {
             // Player went back left, revert to main phase
@@ -174,6 +172,6 @@ class Sonic1GHZEvents extends Sonic1ZoneEvents {
      */
     private void updateAct3End() {
         // v_limitleft2 = v_screenposx
-        camera.setMinX(camera.getX());
+        camera().setMinX(camera().getX());
     }
 }

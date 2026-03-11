@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.events;
 
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.sonic1.objects.Sonic1EndingSonicObjectInstance;
 import com.openggf.level.LevelManager;
@@ -26,8 +25,7 @@ class Sonic1EndingEvents extends Sonic1ZoneEvents {
     private boolean bootstrapApplied;
     private boolean endingSonicSpawned;
 
-    Sonic1EndingEvents(Camera camera) {
-        super(camera);
+    Sonic1EndingEvents() {
     }
 
     @Override
@@ -39,7 +37,7 @@ class Sonic1EndingEvents extends Sonic1ZoneEvents {
 
     @Override
     void update(int act) {
-        AbstractPlayableSprite player = camera.getFocusedSprite();
+        AbstractPlayableSprite player = camera().getFocusedSprite();
         if (player == null) {
             return;
         }

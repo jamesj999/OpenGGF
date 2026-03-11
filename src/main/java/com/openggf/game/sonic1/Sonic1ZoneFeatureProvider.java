@@ -55,7 +55,7 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
             // no longer calls WaterSystem.loadForLevelS1() directly.
 
             // Create the water event state machine for dynamic water levels
-            waterEvents = new Sonic1LZWaterEvents(Camera.getInstance());
+            waterEvents = new Sonic1LZWaterEvents();
             if (isSBZ3) {
                 // SBZ3 uses its own event handler but shares the LZ water system.
                 // Init with SBZ zone/act so WaterSystem lookups use the right key.

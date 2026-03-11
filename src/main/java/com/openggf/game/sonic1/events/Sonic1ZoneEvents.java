@@ -8,16 +8,21 @@ import com.openggf.camera.Camera;
  * that tracks progress through Act 3 boss sequences.
  */
 abstract class Sonic1ZoneEvents {
-    protected Camera camera;
     protected int eventRoutine;
 
-    Sonic1ZoneEvents(Camera camera) {
-        this.camera = camera;
+    Sonic1ZoneEvents() {
+    }
+
+    /**
+     * Returns the current Camera singleton. Always call this accessor rather
+     * than caching the reference, so it survives singleton replacement.
+     */
+    protected Camera camera() {
+        return Camera.getInstance();
     }
 
     /** Reset event state for a new level. */
     void init() {
-        this.camera = Camera.getInstance();
         eventRoutine = 0;
     }
 

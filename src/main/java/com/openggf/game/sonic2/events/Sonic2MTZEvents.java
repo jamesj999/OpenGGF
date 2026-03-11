@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.events;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2MTZBossInstance;
@@ -29,8 +28,7 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
     /** ROM: move.b #7,(Current_Boss_ID).w */
     private static final int MTZ_BOSS_ID = 7;
 
-    public Sonic2MTZEvents(Camera camera) {
-        super(camera);
+    public Sonic2MTZEvents() {
     }
 
     @Override
@@ -47,11 +45,11 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
             case 0 -> {
                 // Routine 0 (s2.asm:20494-20505): Wait for camera X >= $2530
                 // ROM: Adjusts bottom boundary before boss area
-                if (camera.getX() >= 0x2530) {
+                if (camera().getX() >= 0x2530) {
                     // ROM: move.w #$500,(Camera_Max_Y_pos).w
-                    camera.setMaxY((short) 0x500);
+                    camera().setMaxY((short) 0x500);
                     // ROM: move.w #$450,(Camera_Max_Y_pos_target).w
-                    camera.setMaxYTarget((short) 0x450);
+                    camera().setMaxYTarget((short) 0x450);
                     setSidekickBounds(null, null, 0x450);
                     eventRoutine += 2;
                 }
@@ -59,23 +57,23 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
             case 2 -> {
                 // Routine 2 (s2.asm:20508-20519): Wait for camera X >= $2980
                 // ROM: Lock minX to prevent backtracking, lower max Y target
-                if (camera.getX() >= 0x2980) {
+                if (camera().getX() >= 0x2980) {
                     // ROM: move.w (Camera_X_pos).w,(Camera_Min_X_pos).w
-                    camera.setMinX(camera.getX());
+                    camera().setMinX(camera().getX());
                     // ROM: move.w #$400,(Camera_Max_Y_pos_target).w
-                    camera.setMaxYTarget((short) 0x400);
-                    setSidekickBounds((int) camera.getX(), null, 0x400);
+                    camera().setMaxYTarget((short) 0x400);
+                    setSidekickBounds((int) camera().getX(), null, 0x400);
                     eventRoutine += 2;
                 }
             }
             case 4 -> {
                 // Routine 4 (s2.asm:20522-20540): Wait for camera X >= $2A80
                 // ROM: Lock camera horizontally at $2AB0 for boss arena
-                if (camera.getX() >= 0x2A80) {
+                if (camera().getX() >= 0x2A80) {
                     // ROM: move.w #$2AB0,(Camera_Min_X_pos).w
                     //      move.w #$2AB0,(Camera_Max_X_pos).w
-                    camera.setMinX((short) 0x2AB0);
-                    camera.setMaxX((short) 0x2AB0);
+                    camera().setMinX((short) 0x2AB0);
+                    camera().setMaxX((short) 0x2AB0);
                     setSidekickBounds(0x2AB0, 0x2AB0, null);
                     eventRoutine += 2;
                     // ROM: move.w #$E2,d0 / jsr (PlayMusic).l  (MusID_FadeOut)
@@ -92,8 +90,8 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
                 // Routine 6 (s2.asm:20543-20551): Lock floor, count spawn delay, spawn boss
                 // ROM: cmpi.w #$400,(Camera_Y_pos).w / blo.s +
                 //      move.w #$400,(Camera_Min_Y_pos).w
-                if (camera.getY() >= 0x400) {
-                    camera.setMinY((short) 0x400);
+                if (camera().getY() >= 0x400) {
+                    camera().setMinY((short) 0x400);
                 }
                 // ROM: addq.b #1,(Boss_spawn_delay).w
                 //      cmpi.b #$5A,(Boss_spawn_delay).w / blo.s ++
@@ -111,9 +109,9 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
                 // ROM: move.w (Camera_X_pos).w,(Camera_Min_X_pos).w
                 //      move.w (Camera_Max_X_pos).w,(Tails_Max_X_pos).w
                 //      move.w (Camera_X_pos).w,(Tails_Min_X_pos).w
-                short cameraX = camera.getX();
-                if (cameraX > camera.getMinX()) {
-                    camera.setMinX(cameraX);
+                short cameraX = camera().getX();
+                if (cameraX > camera().getMinX()) {
+                    camera().setMinX(cameraX);
                 }
                 syncSidekickBoundsToCamera();
             }

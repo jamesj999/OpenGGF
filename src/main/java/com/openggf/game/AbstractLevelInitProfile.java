@@ -8,11 +8,9 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.physics.CollisionSystem;
-import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.timer.TimerManager;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -56,7 +54,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
     /** Game-specific first step for per-test reset. */
     protected abstract InitStep perTestLeadStep();
 
-    /** Additional fixups beyond WireGroundSensor. Override to add game-specific ones. */
+    /** Game-specific post-teardown fixups. Override to add game-specific ones. */
     protected List<StaticFixup> gameSpecificFixups() {
         return List.of();
     }
@@ -160,7 +158,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
 
             // Undoes S1:Phase H / S2:Phase F / S3K:Phase K (ConvertCollisionArray/LoadSolids)
             new InitStep("ResetCollision", "Undoes ConvertCollisionArray / LoadCollisionIndexes / LoadSolids",
-                CollisionSystem::resetInstance),
+                () -> CollisionSystem.getInstance().resetState()),
 
             // Undoes S1:Phase G / S2:Phase E / S3K:Phase H (LevelSizeLoad/Get_LevelSizeStart)
             new InitStep("ResetCamera", "Undoes LevelSizeLoad / Get_LevelSizeStart",
@@ -170,7 +168,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
                 () -> GraphicsManager.getInstance().resetState()),
             // Undoes S1:Phase A / S2:Phase A / S3K:Phase A (PaletteFadeOut/Pal_FadeToBlack)
             new InitStep("ResetFade", "Undoes PaletteFadeOut / Pal_FadeToBlack",
-                FadeManager::resetInstance),
+                () -> FadeManager.getInstance().resetState()),
 
             // Undoes S1:Phase K / S2:Phase H / S3K:Phase N (game state clear)
             new InitStep("ResetGameState", "Undoes ring/timer/lives init from Level:",
@@ -194,11 +192,11 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
             new InitStep("ResetSprites", "Undoes InitPlayers / SpawnLevelMainSprites",
                 () -> SpriteManager.getInstance().resetState()),
             new InitStep("ResetCollision", "Undoes ConvertCollisionArray / LoadSolids",
-                CollisionSystem::resetInstance),
+                () -> CollisionSystem.getInstance().resetState()),
             new InitStep("ResetCamera", "Undoes LevelSizeLoad / Get_LevelSizeStart",
                 () -> Camera.getInstance().resetState()),
             new InitStep("ResetFade", "Undoes PaletteFadeOut / Pal_FadeToBlack",
-                FadeManager::resetInstance),
+                () -> FadeManager.getInstance().resetState()),
             new InitStep("ResetGameState", "Undoes ring/timer/lives init from Level:",
                 () -> GameServices.gameState().resetSession()),
             new InitStep("ResetTimers", "Undoes Level_frame_counter / demo timer",
@@ -210,20 +208,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
 
     @Override
     public final List<StaticFixup> postTeardownFixups() {
-        List<StaticFixup> extra = gameSpecificFixups();
-        if (extra.isEmpty()) {
-            return List.of(
-                new StaticFixup("WireGroundSensor",
-                    "GroundSensor uses static LevelManager ref that goes stale after resetState()",
-                    () -> GroundSensor.setLevelManager(LevelManager.getInstance()))
-            );
-        }
-        var fixups = new ArrayList<StaticFixup>(1 + extra.size());
-        fixups.add(new StaticFixup("WireGroundSensor",
-            "GroundSensor uses static LevelManager ref that goes stale after resetState()",
-            () -> GroundSensor.setLevelManager(LevelManager.getInstance())));
-        fixups.addAll(extra);
-        return List.copyOf(fixups);
+        return gameSpecificFixups();
     }
 
     /** Empty profile used as safe default by {@link GameModule#getLevelInitProfile()}. */

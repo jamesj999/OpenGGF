@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.events;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.objects.bosses.Sonic1MZBossInstance;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Music;
@@ -21,8 +20,7 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
     private static final int BOSS_MZ_X = 0x1800;
     private static final int BOSS_MZ_Y = 0x210;
 
-    Sonic1MZEvents(Camera camera) {
-        super(camera);
+    Sonic1MZEvents() {
     }
 
     @Override
@@ -52,23 +50,23 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
      * as camera moves right. Advances to routine 2 when camera Y >= 0x340.
      */
     private void updateAct1Routine0() {
-        int camX = camera.getX() & 0xFFFF;
-        int camY = camera.getY() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
+        int camY = camera().getY() & 0xFFFF;
 
         // v_limitbtm1 = 0x1D0
-        camera.setMaxYTarget((short) 0x1D0);
+        camera().setMaxYTarget((short) 0x1D0);
         if (camX < 0x700) {
             return; // locret_6FE8
         }
 
         // v_limitbtm1 = 0x220
-        camera.setMaxYTarget((short) 0x220);
+        camera().setMaxYTarget((short) 0x220);
         if (camX < 0xD00) {
             return; // locret_6FE8
         }
 
         // v_limitbtm1 = 0x340
-        camera.setMaxYTarget((short) 0x340);
+        camera().setMaxYTarget((short) 0x340);
         if (camY < 0x340) {
             return; // locret_6FE8
         }
@@ -83,8 +81,8 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
      * boundaries based on X position. Advances to routine 4 when Y >= 0x370.
      */
     private void updateAct1Routine2() {
-        int camX = camera.getX() & 0xFFFF;
-        int camY = camera.getY() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
+        int camY = camera().getY() & 0xFFFF;
 
         // Check if camera went back up above 0x340
         if (camY < 0x340) {
@@ -95,23 +93,23 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
 
         // loc_6FF8: Camera Y >= 0x340
         // v_limittop2 = 0 (immediate)
-        camera.setMinY((short) 0);
+        camera().setMinY((short) 0);
 
         if (camX >= 0xE00) {
             return; // locret_702C
         }
 
         // v_limittop2 = 0x340 (immediate)
-        camera.setMinY((short) 0x340);
+        camera().setMinY((short) 0x340);
         // v_limitbtm1 = 0x340
-        camera.setMaxYTarget((short) 0x340);
+        camera().setMaxYTarget((short) 0x340);
 
         if (camX >= 0xA90) {
             return; // locret_702C
         }
 
         // v_limitbtm1 = 0x500
-        camera.setMaxYTarget((short) 0x500);
+        camera().setMaxYTarget((short) 0x500);
 
         if (camY < 0x370) {
             return; // locret_702C
@@ -126,8 +124,8 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
      * back above Y 0x370. Advances to routine 6 when Y >= 0x500 and X >= 0xB80.
      */
     private void updateAct1Routine4() {
-        int camX = camera.getX() & 0xFFFF;
-        int camY = camera.getY() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
+        int camY = camera().getY() & 0xFFFF;
 
         // Check if camera went back up above 0x370
         if (camY < 0x370) {
@@ -147,7 +145,7 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
         }
 
         // v_limittop2 = 0x500 (immediate)
-        camera.setMinY((short) 0x500);
+        camera().setMinY((short) 0x500);
         // Advance to routine 6
         eventRoutine += 2;
     }
@@ -159,9 +157,9 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
      * opens top boundary at X >= 0xE70 and adjusts bottom for end of act.
      */
     private void updateAct1Routine6() {
-        int camX = camera.getX() & 0xFFFF;
-        int camY = camera.getY() & 0xFFFF;
-        int currentMinY = camera.getMinY() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
+        int camY = camera().getY() & 0xFFFF;
+        int currentMinY = camera().getMinY() & 0xFFFF;
 
         if (camX < 0xB80) {
             // locj_76B8 not taken: ease top boundary toward 0x340
@@ -169,7 +167,7 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
                 return; // locret_7072 (already at target)
             }
             // subq.w #2,(v_limittop2) - ease top boundary down by 2 per frame
-            camera.setMinY((short) (camera.getMinY() - 2));
+            camera().setMinY((short) (camera().getMinY() - 2));
             return;
         }
 
@@ -180,7 +178,7 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
                 return; // locret_7072
             }
             // Snap top to 0x500
-            camera.setMinY((short) 0x500);
+            camera().setMinY((short) 0x500);
         }
 
         // locj_76CE: Top boundary is at 0x500
@@ -189,16 +187,16 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
         }
 
         // v_limittop2 = 0 (open top boundary)
-        camera.setMinY((short) 0);
+        camera().setMinY((short) 0);
         // v_limitbtm1 = 0x500
-        camera.setMaxYTarget((short) 0x500);
+        camera().setMaxYTarget((short) 0x500);
 
         if (camX < 0x1430) {
             return; // locret_7072
         }
 
         // v_limitbtm1 = 0x210 (end of act area)
-        camera.setMaxYTarget((short) 0x210);
+        camera().setMaxYTarget((short) 0x210);
     }
 
     /**
@@ -206,16 +204,16 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
      * Bottom boundary is 0x520 until camera X >= 0x1700, then 0x200.
      */
     private void updateAct2() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // v_limitbtm1 = 0x520
-        camera.setMaxYTarget((short) 0x520);
+        camera().setMaxYTarget((short) 0x520);
         if (camX < 0x1700) {
             return; // locret_7088
         }
 
         // v_limitbtm1 = 0x200
-        camera.setMaxYTarget((short) 0x200);
+        camera().setMaxYTarget((short) 0x200);
     }
 
     /**
@@ -235,16 +233,16 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
      * Locks camera and advances to routine 2 at boss_mz_x - 0x10.
      */
     private void updateAct3Boss() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // v_limitbtm1 = 0x720
-        camera.setMaxYTarget((short) 0x720);
+        camera().setMaxYTarget((short) 0x720);
         if (camX < BOSS_MZ_X - 0x2A0) { // 0x1560
             return; // locret_70E8
         }
 
         // v_limitbtm1 = boss_mz_y (0x210)
-        camera.setMaxYTarget((short) BOSS_MZ_Y);
+        camera().setMaxYTarget((short) BOSS_MZ_Y);
         // ROM threshold: boss_mz_x-$10 (0x17F0).
         if (camX < BOSS_MZ_X - 0x10) { // 0x17F0
             return; // locret_70E8
@@ -265,7 +263,7 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
 
         // f_lockscreen = 1.
         // ROM: f_lockscreen limits Sonic's movement range (01 Sonic.asm:824-834) but
-        // does NOT freeze the camera. MoveScreenHoriz still runs, clamped to v_limitright2
+        // does NOT freeze the camera(). MoveScreenHoriz still runs, clamped to v_limitright2
         // ($1800 from LevelSizeArray). DLE_MZ3end ratchets v_limitleft2 forward each
         // frame. Camera settles at v_limitright2 naturally with no visible snap.
         // The Java equivalent is isBossFightActive() gating doLevelBoundary's RIGHT_EXTRA.
@@ -279,6 +277,6 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
      */
     private void updateAct3End() {
         // v_limitleft2 = v_screenposx
-        camera.setMinX(camera.getX());
+        camera().setMinX(camera().getX());
     }
 }

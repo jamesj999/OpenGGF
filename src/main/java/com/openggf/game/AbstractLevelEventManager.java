@@ -21,10 +21,12 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 public abstract class AbstractLevelEventManager implements LevelEventProvider {
 
     /**
-     * Camera reference. Refreshed on each {@link #initLevel(int, int)} call
-     * to survive singleton replacement (e.g. {@code Camera.resetInstance()} in tests).
+     * Returns the current Camera singleton. Always call this accessor rather
+     * than caching the reference, so it survives singleton replacement.
      */
-    protected Camera camera;
+    protected Camera camera() {
+        return Camera.getInstance();
+    }
 
     // Current zone and act
     protected int currentZone = -1;
@@ -52,7 +54,6 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
     protected byte[] eventDataBg;
 
     protected AbstractLevelEventManager() {
-        this.camera = Camera.getInstance();
         int fgSize = getEventDataFgSize();
         int bgSize = getEventDataBgSize();
         this.eventDataFg = fgSize > 0 ? new short[fgSize] : null;
@@ -65,9 +66,6 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
 
     @Override
     public void initLevel(int zone, int act) {
-        // Refresh camera reference to survive singleton replacement
-        // (e.g. Camera.resetInstance() in tests).
-        this.camera = Camera.getInstance();
         this.currentZone = zone;
         this.currentAct = act;
         this.eventRoutineFg = 0;
@@ -158,34 +156,34 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
 
     /** Lock both X boundaries immediately. */
     protected void lockCameraX(int min, int max) {
-        camera.setMinX((short) min);
-        camera.setMaxX((short) max);
+        camera().setMinX((short) min);
+        camera().setMaxX((short) max);
     }
 
     /** Lock both Y boundaries immediately. */
     protected void lockCameraY(int min, int max) {
-        camera.setMinY((short) min);
-        camera.setMaxY((short) max);
+        camera().setMinY((short) min);
+        camera().setMaxY((short) max);
     }
 
     /** Set bottom boundary target (eased at +2px/frame by Camera). */
     protected void setBottomBoundaryTarget(int y) {
-        camera.setMaxYTarget((short) y);
+        camera().setMaxYTarget((short) y);
     }
 
     /** Set top boundary target (eased by Camera). */
     protected void setTopBoundaryTarget(int y) {
-        camera.setMinYTarget((short) y);
+        camera().setMinYTarget((short) y);
     }
 
     /** Freeze camera (stops following player). Manual position still works. */
     protected void freezeCamera() {
-        camera.setFrozen(true);
+        camera().setFrozen(true);
     }
 
     /** Unfreeze camera (resumes following player). */
     protected void unfreezeCamera() {
-        camera.setFrozen(false);
+        camera().setFrozen(false);
     }
 
     /**
@@ -193,7 +191,7 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
      * Common post-boss or mid-level gate pattern.
      */
     protected void preventBacktracking() {
-        camera.setMinX(camera.getX());
+        camera().setMinX(camera().getX());
     }
 
     /**
@@ -201,7 +199,7 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
      * Used in S1 GHZ boss to stop player walking past boss arena.
      */
     protected void preventAdvancing() {
-        camera.setMaxX(camera.getX());
+        camera().setMaxX(camera().getX());
     }
 
     // =========================================================================
@@ -235,7 +233,7 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
      * Suppresses all directional and jump input.
      */
     protected void lockPlayerInput() {
-        AbstractPlayableSprite player = camera.getFocusedSprite();
+        AbstractPlayableSprite player = camera().getFocusedSprite();
         if (player != null) {
             player.setControlLocked(true);
         }
@@ -245,7 +243,7 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
      * Unlock player input (ROM: Ctrl_1_locked = 0).
      */
     protected void unlockPlayerInput() {
-        AbstractPlayableSprite player = camera.getFocusedSprite();
+        AbstractPlayableSprite player = camera().getFocusedSprite();
         if (player != null) {
             player.setControlLocked(false);
         }
@@ -258,7 +256,7 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
      * @param mask button bitmask (use AbstractPlayableSprite.INPUT_* constants)
      */
     protected void setForcedInput(int mask) {
-        AbstractPlayableSprite player = camera.getFocusedSprite();
+        AbstractPlayableSprite player = camera().getFocusedSprite();
         if (player != null) {
             player.setForcedInputMask(mask);
         }
@@ -266,7 +264,7 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
 
     /** Clear any forced input injection. */
     protected void clearForcedInput() {
-        AbstractPlayableSprite player = camera.getFocusedSprite();
+        AbstractPlayableSprite player = camera().getFocusedSprite();
         if (player != null) {
             player.clearForcedInputMask();
         }
@@ -274,7 +272,7 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
 
     /** Force player to walk right (end-of-act walkoff shorthand). */
     protected void forcePlayerRight() {
-        AbstractPlayableSprite player = camera.getFocusedSprite();
+        AbstractPlayableSprite player = camera().getFocusedSprite();
         if (player != null) {
             player.setForceInputRight(true);
         }

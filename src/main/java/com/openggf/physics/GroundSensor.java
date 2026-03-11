@@ -13,7 +13,15 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
  * with ground mode rotation for slopes.
  */
 public class GroundSensor extends Sensor {
-    private static LevelManager levelManager;
+
+    /**
+     * Optional override for tests. When non-null, getLevelManager() returns
+     * this instead of the singleton. Pass null to revert.
+     */
+    private static LevelManager overrideLevelManager;
+
+    /** Cached singleton — avoids synchronized getInstance() on every scan. */
+    private static LevelManager cachedLevelManager;
 
     // Full-height tile constant
     private static final byte FULL_TILE = 16;
@@ -25,15 +33,20 @@ public class GroundSensor extends Sensor {
     private final WallScanResult wallResult1 = new WallScanResult();
     private final WallScanResult wallResult2 = new WallScanResult();
 
+    /**
+     * Inject a mock LevelManager for unit tests. Pass null to revert
+     * to the default (LevelManager.getInstance()).
+     */
     public static void setLevelManager(LevelManager lm) {
-        levelManager = lm;
+        overrideLevelManager = lm;
+        cachedLevelManager = null; // force re-fetch
     }
 
     private static LevelManager getLevelManager() {
-        if (levelManager == null) {
-            levelManager = LevelManager.getInstance();
-        }
-        return levelManager;
+        LevelManager override = overrideLevelManager;
+        if (override != null) return override;
+        if (cachedLevelManager == null) cachedLevelManager = LevelManager.getInstance();
+        return cachedLevelManager;
     }
 
     public GroundSensor(AbstractPlayableSprite sprite, Direction direction, byte x, byte y, boolean active) {

@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.events;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
@@ -21,8 +20,7 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
     private boolean cpzWaterTriggered;
     private Sonic2CPZBossInstance cpzBoss;
 
-    public Sonic2CPZEvents(Camera camera) {
-        super(camera);
+    public Sonic2CPZEvents() {
     }
 
     @Override
@@ -49,7 +47,7 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
         final int ZONE_ID_CPZ_ROM = 0x0D;
         final int WATER_RISE_TRIGGER_X = 0x1E80;
         final int WATER_TARGET_Y = 0x508;
-        var player = camera.getFocusedSprite();
+        var player = camera().getFocusedSprite();
         if (player != null && player.getX() >= WATER_RISE_TRIGGER_X) {
             WaterSystem.getInstance().setWaterLevelTarget(
                     ZONE_ID_CPZ_ROM, 1, WATER_TARGET_Y);
@@ -60,18 +58,18 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
     private void updateCPZBossEvents() {
         switch (eventRoutine) {
             case 0 -> {
-                if (camera.getX() >= 0x2680) {
-                    camera.setMinX(camera.getX());
-                    camera.setMaxYTarget((short) 0x450);
-                    setSidekickBounds((int) camera.getX(), null, 0x450);
+                if (camera().getX() >= 0x2680) {
+                    camera().setMinX(camera().getX());
+                    camera().setMaxYTarget((short) 0x450);
+                    setSidekickBounds((int) camera().getX(), null, 0x450);
                     eventRoutine += 2;
                 }
             }
             case 2 -> {
-                if (camera.getX() >= 0x2A20) {
+                if (camera().getX() >= 0x2A20) {
                     // ROM locks camera completely at X=0x2A20 for the entire fight
-                    camera.setMinX((short) 0x2A20);
-                    camera.setMaxX((short) 0x2A20);
+                    camera().setMinX((short) 0x2A20);
+                    camera().setMaxX((short) 0x2A20);
                     setSidekickBounds(0x2A20, 0x2A20, null);
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
@@ -80,8 +78,8 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
                 }
             }
             case 4 -> {
-                if (camera.getY() >= 0x448) {
-                    camera.setMinY((short) 0x448);
+                if (camera().getY() >= 0x448) {
+                    camera().setMinY((short) 0x448);
                 }
                 bossSpawnDelay++;
                 if (bossSpawnDelay >= 0x5A) {
@@ -93,9 +91,9 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
             case 6 -> {
                 // Prevent backtracking - minX can only increase, never decrease
                 // ROM: move.w (Camera_X_pos).w,(Camera_Min_X_pos).w
-                short cameraX = camera.getX();
-                if (cameraX > camera.getMinX()) {
-                    camera.setMinX(cameraX);
+                short cameraX = camera().getX();
+                if (cameraX > camera().getMinX()) {
+                    camera().setMinX(cameraX);
                 }
                 syncSidekickBoundsToCamera();
             }

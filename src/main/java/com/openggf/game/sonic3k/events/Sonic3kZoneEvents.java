@@ -32,17 +32,22 @@ public abstract class Sonic3kZoneEvents {
     /** VDP palette line size: 16 colors x 2 bytes each = 32 bytes */
     private static final int PALETTE_LINE_SIZE = 32;
 
-    protected Camera camera;
     protected int eventRoutine;
     protected int bossSpawnDelay;
 
-    protected Sonic3kZoneEvents(Camera camera) {
-        this.camera = camera;
+    protected Sonic3kZoneEvents() {
+    }
+
+    /**
+     * Returns the current Camera singleton. Always call this accessor rather
+     * than caching the reference, so it survives singleton replacement.
+     */
+    protected Camera camera() {
+        return Camera.getInstance();
     }
 
     /** Reset event state for a new level load. */
     public void init(int act) {
-        this.camera = Camera.getInstance();
         eventRoutine = 0;
         bossSpawnDelay = 0;
     }
@@ -80,19 +85,6 @@ public abstract class Sonic3kZoneEvents {
         }
     }
 
-    /**
-     * Loads a multi-line palette via the PalPointers table.
-     * ROM equivalent: LoadPalette_Immediate
-     *
-     * <p>PalPointers entry format (8 bytes):
-     * <pre>
-     *   dc.l sourceAddr    - ROM address of palette data
-     *   dc.w ramDest       - RAM destination (sign-extended, Normal_palette = $FC00)
-     *   dc.w countMinusOne - longword count minus 1 (for dbf loop)
-     * </pre>
-     *
-     * @param palPointersIndex index into the PalPointers table
-     */
     /**
      * Parses and applies a Pattern Load Cue to the current level, then
      * refreshes any affected object renderers' GPU textures.

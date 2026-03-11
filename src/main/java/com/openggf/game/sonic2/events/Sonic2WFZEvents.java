@@ -1,7 +1,5 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.camera.Camera;
-
 import java.util.logging.Logger;
 
 /**
@@ -112,8 +110,7 @@ public class Sonic2WFZEvents extends Sonic2ZoneEvents {
     /** WFZ_LevEvent_Subrout: secondary routine counter */
     private int wfzSubRoutine;
 
-    public Sonic2WFZEvents(Camera camera) {
-        super(camera);
+    public Sonic2WFZEvents() {
     }
 
     @Override
@@ -187,9 +184,9 @@ public class Sonic2WFZEvents extends Sonic2ZoneEvents {
      */
     private void primaryRoutine0_initBgSync() {
         // ROM: move.l (Camera_X_pos).w,(Camera_BG_X_pos).w
-        bgXPos = camera.getX();
+        bgXPos = camera().getX();
         // ROM: move.l (Camera_Y_pos).w,(Camera_BG_Y_pos).w
-        bgYPos = camera.getY();
+        bgYPos = camera().getY();
         // ROM: moveq #0,d0 + clear all offset/diff words
         bgXPosDiff = 0;
         bgYPosDiff = 0;
@@ -210,8 +207,8 @@ public class Sonic2WFZEvents extends Sonic2ZoneEvents {
     private void primaryRoutine2_syncUntilTrigger() {
         // ROM: cmpi.w #$2BC0,(Camera_X_pos).w / blo.s +
         // ROM: cmpi.w #$580,(Camera_Y_pos).w / blo.s +
-        if (camera.getX() >= PLATFORM_RIDE_TRIGGER_X &&
-                camera.getY() >= PLATFORM_RIDE_TRIGGER_Y) {
+        if (camera().getX() >= PLATFORM_RIDE_TRIGGER_X &&
+                camera().getY() >= PLATFORM_RIDE_TRIGGER_Y) {
             // ROM: addq.b #2,(Dynamic_Resize_Routine).w
             eventRoutine += 2;
             // ROM: move.w #0,(WFZ_BG_Y_Speed).w
@@ -309,10 +306,10 @@ public class Sonic2WFZEvents extends Sonic2ZoneEvents {
      * state variables it will read.
      */
     private void syncBgDiffs() {
-        bgXPosDiff = camera.getX() - bgXPos;
-        bgYPosDiff = camera.getY() - bgYPos;
-        bgXPos = camera.getX();
-        bgYPos = camera.getY();
+        bgXPosDiff = camera().getX() - bgXPos;
+        bgYPosDiff = camera().getY() - bgYPos;
+        bgXPos = camera().getX();
+        bgYPos = camera().getY();
     }
 
     // =========================================================================
@@ -342,11 +339,11 @@ public class Sonic2WFZEvents extends Sonic2ZoneEvents {
      */
     private void secondaryRoutine0_bossPLC() {
         // ROM: cmpi.w #$2880,(Camera_X_pos).w / blo.s +
-        if (camera.getX() < BOSS_PLC_TRIGGER_X) {
+        if (camera().getX() < BOSS_PLC_TRIGGER_X) {
             return;
         }
         // ROM: cmpi.w #$400,(Camera_Y_pos).w / blo.s +
-        if (camera.getY() < BOSS_PLC_TRIGGER_Y) {
+        if (camera().getY() < BOSS_PLC_TRIGGER_Y) {
             return;
         }
 
@@ -357,7 +354,7 @@ public class Sonic2WFZEvents extends Sonic2ZoneEvents {
         LOGGER.fine("WFZ boss PLC (PLCID_WfzBoss) not yet loaded");
 
         // ROM: move.w #$2880,(Camera_Min_X_pos).w
-        camera.setMinX((short) BOSS_PLC_TRIGGER_X);
+        camera().setMinX((short) BOSS_PLC_TRIGGER_X);
     }
 
     /**
@@ -368,7 +365,7 @@ public class Sonic2WFZEvents extends Sonic2ZoneEvents {
      */
     private void secondaryRoutine2_controlLock() {
         // ROM: cmpi.w #$500,(Camera_Y_pos).w / blo.s +
-        if (camera.getY() < CONTROL_LOCK_TRIGGER_Y) {
+        if (camera().getY() < CONTROL_LOCK_TRIGGER_Y) {
             return;
         }
 

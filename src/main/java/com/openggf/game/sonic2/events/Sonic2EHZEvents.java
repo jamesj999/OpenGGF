@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.events;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
@@ -19,8 +18,7 @@ import com.openggf.level.objects.ObjectSpawn;
 public class Sonic2EHZEvents extends Sonic2ZoneEvents {
     private Sonic2EHZBossInstance ehzBoss;
 
-    public Sonic2EHZEvents(Camera camera) {
-        super(camera);
+    public Sonic2EHZEvents() {
     }
 
     @Override
@@ -41,21 +39,21 @@ public class Sonic2EHZEvents extends Sonic2ZoneEvents {
         switch (eventRoutine) {
             case 0 -> {
                 // Routine 0 (s2.asm:20377-20388): Wait for camera X >= $2780
-                if (camera.getX() >= 0x2780) {
+                if (camera().getX() >= 0x2780) {
                     // ROM: Set minX to current camera X (immediate, prevents backtracking)
-                    camera.setMinX(camera.getX());
+                    camera().setMinX(camera().getX());
                     // ROM: Set maxY TARGET to $390 (will ease down to boss arena height)
-                    camera.setMaxYTarget((short) 0x390);
-                    setSidekickBounds((int) camera.getX(), null, 0x390);
+                    camera().setMaxYTarget((short) 0x390);
+                    setSidekickBounds((int) camera().getX(), null, 0x390);
                     eventRoutine += 2;
                 }
             }
             case 2 -> {
                 // Routine 1 (s2.asm:20396-20411): Wait for camera X >= $28F0
-                if (camera.getX() >= 0x28F0) {
+                if (camera().getX() >= 0x28F0) {
                     // ROM: Lock X boundaries immediately for boss arena (not eased)
-                    camera.setMinX((short) 0x28F0);
-                    camera.setMaxX((short) 0x2940);
+                    camera().setMinX((short) 0x28F0);
+                    camera().setMaxX((short) 0x2940);
                     setSidekickBounds(0x28F0, 0x2940, null);
                     // Mark boss fight active when camera locks (enables tight boundary)
                     GameServices.gameState().setCurrentBossId(Sonic2ObjectIds.EHZ_BOSS);
@@ -69,8 +67,8 @@ public class Sonic2EHZEvents extends Sonic2ZoneEvents {
             case 4 -> {
                 // Routine 2 (s2.asm:20414-20435): Lock floor and spawn boss
                 // ROM: Set minY when camera Y reaches $388 (immediate, not eased)
-                if (camera.getY() >= 0x388) {
-                    camera.setMinY((short) 0x388);
+                if (camera().getY() >= 0x388) {
+                    camera().setMinY((short) 0x388);
                 }
                 // ROM: Increment delay every frame, spawn boss at $5A (90) frames
                 bossSpawnDelay++;
