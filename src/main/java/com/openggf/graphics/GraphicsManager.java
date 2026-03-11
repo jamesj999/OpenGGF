@@ -907,6 +907,45 @@ public class GraphicsManager {
 	}
 
 	/**
+	 * Release GL resources owned by the level renderers, palette textures, and
+	 * native upload buffers. Safe to call in any mode (headless guards internally).
+	 */
+	private void releasePerLevelResources() {
+		paletteTextureMap.clear();
+		if (!headlessMode && glInitialized) {
+			if (backgroundRenderer != null) {
+				backgroundRenderer.cleanup();
+			}
+			if (tilemapGpuRenderer != null) {
+				tilemapGpuRenderer.cleanup();
+			}
+			if (instancedPatternRenderer != null) {
+				instancedPatternRenderer.cleanup();
+			}
+			if (combinedPaletteTextureId != null) {
+				glDeleteTextures(combinedPaletteTextureId);
+			}
+			if (underwaterPaletteTextureId != null) {
+				glDeleteTextures(underwaterPaletteTextureId);
+			}
+		}
+		backgroundRenderer = null;
+		tilemapGpuRenderer = null;
+		instancedPatternRenderer = null;
+		combinedPaletteTextureId = null;
+		currentPaletteTextureHeight = 0;
+		underwaterPaletteTextureId = null;
+		if (paletteUploadBuffer != null) {
+			MemoryUtil.memFree(paletteUploadBuffer);
+			paletteUploadBuffer = null;
+		}
+		if (underwaterPaletteUploadBuffer != null) {
+			MemoryUtil.memFree(underwaterPaletteUploadBuffer);
+			underwaterPaletteUploadBuffer = null;
+		}
+	}
+
+	/**
 	 * Cleanup method to delete textures and release resources.
 	 */
 	public void cleanup() {
@@ -931,11 +970,7 @@ public class GraphicsManager {
 		if (patternAtlas != null) {
 			patternAtlas.cleanup();
 		}
-		// Delete palette textures
-		for (int textureId : new java.util.HashSet<>(paletteTextureMap.values())) {
-			glDeleteTextures(textureId);
-		}
-		// Cleanup shader program
+		// Cleanup shader programs
 		if (defaultShaderProgram != null) {
 			defaultShaderProgram.cleanup();
 		}
@@ -957,15 +992,9 @@ public class GraphicsManager {
 		if (cnzSlotMachineRenderer != null) {
 			cnzSlotMachineRenderer.cleanup();
 		}
-		if (tilemapGpuRenderer != null) {
-			tilemapGpuRenderer.cleanup();
-		}
 		BatchedPatternRenderer existingBatch = BatchedPatternRenderer.getInstanceIfInitialized();
 		if (existingBatch != null) {
 			existingBatch.cleanup();
-		}
-		if (instancedPatternRenderer != null) {
-			instancedPatternRenderer.cleanup();
 		}
 		// Sprite priority rendering cleanup
 		if (spritePriorityShaderProgram != null) {
@@ -980,27 +1009,8 @@ public class GraphicsManager {
 			fadeManager.cancel();
 			fadeManager = null;
 		}
-		// Delete underwater palette texture
-		if (underwaterPaletteTextureId != null) {
-			glDeleteTextures(underwaterPaletteTextureId);
-			underwaterPaletteTextureId = null;
-		}
-		// Delete combined palette texture
-		if (combinedPaletteTextureId != null) {
-			glDeleteTextures(combinedPaletteTextureId);
-			combinedPaletteTextureId = null;
-			currentPaletteTextureHeight = 0;
-		}
-		// Free pre-allocated buffers
-		if (paletteUploadBuffer != null) {
-			MemoryUtil.memFree(paletteUploadBuffer);
-			paletteUploadBuffer = null;
-		}
-		if (underwaterPaletteUploadBuffer != null) {
-			MemoryUtil.memFree(underwaterPaletteUploadBuffer);
-			underwaterPaletteUploadBuffer = null;
-		}
-		paletteTextureMap.clear();
+		// Release renderers, palette textures, native buffers
+		releasePerLevelResources();
 		glInitialized = false;
 	}
 
@@ -1030,31 +1040,7 @@ public class GraphicsManager {
 	 */
 	public void resetState() {
 		commands.clear();
-		paletteTextureMap.clear();
-		// Delete GPU textures before nulling references
-		if (!headlessMode && glInitialized) {
-			if (combinedPaletteTextureId != null) {
-				glDeleteTextures(combinedPaletteTextureId);
-			}
-			if (underwaterPaletteTextureId != null) {
-				glDeleteTextures(underwaterPaletteTextureId);
-			}
-		}
-		combinedPaletteTextureId = null;
-		currentPaletteTextureHeight = 0;
-		underwaterPaletteTextureId = null;
-		// Free native memory before nulling references
-		if (paletteUploadBuffer != null) {
-			MemoryUtil.memFree(paletteUploadBuffer);
-		}
-		if (underwaterPaletteUploadBuffer != null) {
-			MemoryUtil.memFree(underwaterPaletteUploadBuffer);
-		}
-		paletteUploadBuffer = null;
-		underwaterPaletteUploadBuffer = null;
-		backgroundRenderer = null;
-		tilemapGpuRenderer = null;
-		instancedPatternRenderer = null;
+		releasePerLevelResources();
 		camera = null;
 		useUnderwaterPaletteForBackground = false;
 		useSpritePriorityShader = false;

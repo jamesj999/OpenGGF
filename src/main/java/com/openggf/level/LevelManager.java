@@ -4429,6 +4429,9 @@ public class LevelManager {
         nextZoneRequested = false;
         specificZoneActRequested = false;
         seamlessTransitionRequested = false;
+        creditsRequested = false;
+        forceHudSuppressed = false;
+        suppressNextMusicChange = false;
         verticalWrapEnabled = false;
         levelInactiveForTransition = false;
         requestedZone = -1;
