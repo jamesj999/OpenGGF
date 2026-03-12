@@ -68,10 +68,13 @@ LAUNCHER
 chmod +x "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 
 # Copy config.json next to the .app bundle so it can be edited without rebuilding
-CONFIG_SRC="$(dirname "${BINARY}")/config.json"
-if [ -f "${CONFIG_SRC}" ]; then
-    cp "${CONFIG_SRC}" "${OUTPUT_DIR}/config.json"
+CONFIG_SRC="$(cd "$(dirname "${BINARY}")" && pwd)/config.json"
+CONFIG_DST="$(cd "${OUTPUT_DIR}" && pwd)/config.json"
+if [ -f "${CONFIG_SRC}" ] && [ "${CONFIG_SRC}" != "${CONFIG_DST}" ]; then
+    cp "${CONFIG_SRC}" "${CONFIG_DST}"
     echo "Exported config.json to ${OUTPUT_DIR}/"
+elif [ -f "${CONFIG_DST}" ]; then
+    echo "config.json already present in ${OUTPUT_DIR}/"
 fi
 
 # Copy icon if available
