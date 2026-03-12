@@ -671,12 +671,10 @@ public class Engine {
 		// F12 screenshot capture (after all rendering is complete)
 		if (inputHandler != null && inputHandler.isKeyPressed(GLFW_KEY_F12)) {
 			try {
-				java.awt.image.BufferedImage screenshot = ScreenshotCapture.captureFramebuffer(
-						viewportWidth, viewportHeight);
 				String timestamp = java.time.LocalDateTime.now()
 						.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
 				java.nio.file.Path path = java.nio.file.Path.of("screenshot_" + timestamp + ".png");
-				ScreenshotCapture.savePNG(screenshot, path);
+				ScreenshotCapture.captureAndSavePNG(viewportWidth, viewportHeight, path);
 				LOGGER.info("Screenshot saved: " + path);
 			} catch (Exception e) {
 				LOGGER.warning("Screenshot failed: " + e.getMessage());

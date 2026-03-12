@@ -1,5 +1,6 @@
 package com.openggf.graphics;
 
+import org.lwjgl.stb.STBImageWrite;
 import org.lwjgl.system.MemoryUtil;
 
 import javax.imageio.ImageIO;
@@ -227,5 +228,44 @@ public final class ScreenshotCapture {
         }
 
         return diff;
+    }
+
+    /**
+     * Capture the framebuffer and save directly to a PNG file using STBImageWrite.
+     * This method does NOT depend on java.awt and is safe for GraalVM native-image builds.
+     *
+     * @param width  Width of the capture area in pixels
+     * @param height Height of the capture area in pixels
+     * @param path   The file path to save to
+     * @throws IOException If the file cannot be written
+     */
+    public static void captureAndSavePNG(int width, int height, Path path) throws IOException {
+        ByteBuffer buffer = MemoryUtil.memAlloc(width * height * 4);
+        try {
+            glReadBuffer(GL_BACK);
+            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+
+            // Flip Y: OpenGL origin is bottom-left, PNG expects top-left
+            int stride = width * 4;
+            ByteBuffer flipped = MemoryUtil.memAlloc(width * height * 4);
+            try {
+                for (int y = 0; y < height; y++) {
+                    int srcPos = (height - 1 - y) * stride;
+                    int dstPos = y * stride;
+                    for (int i = 0; i < stride; i++) {
+                        flipped.put(dstPos + i, buffer.get(srcPos + i));
+                    }
+                }
+
+                STBImageWrite.stbi_flip_vertically_on_write(false);
+                if (!STBImageWrite.stbi_write_png(path.toString(), width, height, 4, flipped, stride)) {
+                    throw new IOException("Failed to write screenshot PNG: " + path);
+                }
+            } finally {
+                MemoryUtil.memFree(flipped);
+            }
+        } finally {
+            MemoryUtil.memFree(buffer);
+        }
     }
 }
