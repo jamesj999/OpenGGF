@@ -67,6 +67,13 @@ export DYLD_LIBRARY_PATH="${DIR}${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
 LAUNCHER
 chmod +x "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 
+# Copy config.json next to the .app bundle so it can be edited without rebuilding
+CONFIG_SRC="$(dirname "${BINARY}")/config.json"
+if [ -f "${CONFIG_SRC}" ]; then
+    cp "${CONFIG_SRC}" "${OUTPUT_DIR}/config.json"
+    echo "Exported config.json to ${OUTPUT_DIR}/"
+fi
+
 # Copy icon if available
 if [ -f "${SCRIPT_DIR}/${APP_NAME}.icns" ]; then
     cp "${SCRIPT_DIR}/${APP_NAME}.icns" "${APP_BUNDLE}/Contents/Resources/"
