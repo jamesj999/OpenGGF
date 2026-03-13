@@ -10,7 +10,6 @@ import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelConstants;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
