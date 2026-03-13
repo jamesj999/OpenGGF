@@ -10,6 +10,7 @@ import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelConstants;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
@@ -785,7 +786,6 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // is loaded later by the mutation executor when bgY >= $190.
         applyFireTransitionPaletteLine4(LevelManager.getInstance());
         ensureFireOverlayTilesLoaded();
-        logBgTileDescriptorsNearFireZone();
         LOG.info("AIZ1: fire transition started");
     }
 
@@ -881,11 +881,9 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             ResourceLoader loader = new ResourceLoader(rom);
             byte[] fireOverlay8x8 = loader.loadSingle(
                     LoadOp.kosinskiMBase(Sonic3kConstants.ART_KOSM_AIZ1_FIRE_OVERLAY_ADDR));
-            sonic3kLevel.applyPatternOverlay(
-                    fireOverlay8x8,
-                    FIRE_OVERLAY_TILE_DEST * Pattern.PATTERN_SIZE_IN_ROM,
-                    false);
             fireOverlayTileCount = fireOverlay8x8.length / Pattern.PATTERN_SIZE_IN_ROM;
+            int destOffset = FIRE_OVERLAY_TILE_DEST * Pattern.PATTERN_SIZE_IN_ROM;
+            sonic3kLevel.applyPatternOverlay(fireOverlay8x8, destOffset, false);
             applyPlc(FIRE_OVERLAY_PLC);
             levelManager.invalidateAllTilemaps();
             fireOverlayTilesLoaded = true;
@@ -893,26 +891,6 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         } catch (Exception e) {
             LOG.warning("AIZ1: failed to load fire overlay tiles: " + e.getMessage());
         }
-    }
-
-    private void logBgTileDescriptorsNearFireZone() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getCurrentLevel() == null) {
-            return;
-        }
-        int sourceX = FIRE_BG_X_BASE;
-        StringBuilder sb = new StringBuilder("AIZ1 BG tile scan near fire zone at sourceX=0x")
-                .append(Integer.toHexString(sourceX)).append(":\n");
-        for (int bgTileY = 0x80; bgTileY <= 0x120; bgTileY += 8) {
-            int desc = levelManager.getBackgroundTileDescriptorAtWorld(sourceX, bgTileY);
-            int pattern = desc & 0x7FF;
-            String marker = (pattern >= FIRE_OVERLAY_TILE_DEST
-                    && pattern < FIRE_OVERLAY_TILE_DEST + fireOverlayTileCount)
-                    ? " *** FIRE OVERLAY ***" : "";
-            sb.append(String.format("  bgY=0x%04X desc=0x%04X pattern=0x%03X%s%n",
-                    bgTileY, desc, pattern, marker));
-        }
-        LOG.info(sb.toString());
     }
 
     private void restorePendingFireSequenceIfPresent(int act) {

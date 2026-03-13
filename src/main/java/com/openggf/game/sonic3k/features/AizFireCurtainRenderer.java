@@ -38,7 +38,6 @@ final class AizFireCurtainRenderer {
      */
     private int[][] cachedFireDescriptors;
     private boolean fireDescriptorsCached;
-
     AizFireCurtainRenderer() {
         this(null);
     }
@@ -66,9 +65,6 @@ final class AizFireCurtainRenderer {
         int cameraX = camera.getX();
         int cameraY = camera.getY();
         for (ColumnRenderPlan column : plan.columns()) {
-            if (column.draws().isEmpty()) {
-                continue;
-            }
             for (TileDraw draw : column.draws()) {
                 reusableDesc.set(draw.descriptor());
                 graphicsManager.renderPatternWithId(draw.renderPatternId(),
@@ -204,6 +200,9 @@ final class AizFireCurtainRenderer {
                 if (drawY >= screenHeight || drawY + TILE_SIZE <= clipTop) {
                     continue;
                 }
+                if (bgTileY < FIRE_TILE_START_BG_Y || bgTileY >= FIRE_TILE_END_BG_Y) {
+                    continue;
+                }
                 for (int subColumn = 0; subColumn < subColumns; subColumn++) {
                     int drawX = columnLeft + subColumn * TILE_SIZE;
                     if (drawX >= columnRight) {
@@ -213,10 +212,16 @@ final class AizFireCurtainRenderer {
                     int descriptor = sampleBackgroundStripDescriptor(sourceX, bgTileY);
                     int patternIndex = descriptor & 0x7FF;
 
-                    if (bgTileY >= FIRE_TILE_START_BG_Y && bgTileY < FIRE_TILE_END_BG_Y
-                            && patternIndex >= tileBase && patternIndex < tileBase + tileCount) {
+                    // Skip empty tiles — fire zone boundary rows contain
+                    // transparent buffer tiles (pattern=0) that the ROM
+                    // renders as invisible via VDP priority.  Drawing a
+                    // synthetic fire tile here creates a garbage row.
+                    if (patternIndex == EMPTY_DESCRIPTOR) {
+                        continue;
+                    }
+                    if (patternIndex >= tileBase && patternIndex < tileBase + tileCount) {
                         draws.add(new TileDraw(forceFirePalette(descriptor), patternIndex, drawX, drawY));
-                    } else if (tileCount > 0 && bgTileY >= FIRE_TILE_START_BG_Y && bgTileY < FIRE_TILE_END_BG_Y) {
+                    } else if (tileCount > 0) {
                         int fallbackIdx = ((drawX / TILE_SIZE) + (bgRow & 0x7F)) % tileCount;
                         int fallbackPattern = tileBase + fallbackIdx;
                         int fallbackDesc = (FIRE_PALETTE_INDEX << 13) | (fallbackPattern & 0x7FF);
@@ -245,6 +250,11 @@ final class AizFireCurtainRenderer {
                 int worldX = sourceWorldX + col * TILE_SIZE;
                 int descriptor = sampleBackgroundStripDescriptor(worldX, bgTileY);
                 int patternIndex = descriptor & 0x7FF;
+                // Leave empty tiles as 0 in the cache — they are transparent
+                // buffer rows that must not become synthetic fire tiles.
+                if (patternIndex == EMPTY_DESCRIPTOR) {
+                    continue;
+                }
                 if (patternIndex >= tileBase && patternIndex < tileBase + tileCount) {
                     cachedFireDescriptors[row][col] = forceFirePalette(descriptor);
                 } else if (tileCount > 0) {
@@ -369,12 +379,13 @@ final class AizFireCurtainRenderer {
                 if (drawY >= screenHeight || drawY + TILE_SIZE <= clipTop) {
                     continue;
                 }
+                int bgRowIndex = bgTileY / TILE_SIZE;
                 for (int subColumn = 0; subColumn < subColumns; subColumn++) {
                     int drawX = columnLeft + subColumn * TILE_SIZE;
                     if (drawX >= columnRight) {
                         continue;
                     }
-                    int tileIndex = ((drawX / TILE_SIZE) + (bgRow & 0x7F)) % tileCount;
+                    int tileIndex = ((drawX / TILE_SIZE) + (bgRowIndex & 0x7F)) % tileCount;
                     int patternIndex = tileBase + tileIndex;
                     int descriptor = (FIRE_PALETTE_INDEX << 13) | (patternIndex & 0x7FF);
                     draws.add(new TileDraw(descriptor, patternIndex, drawX, drawY));

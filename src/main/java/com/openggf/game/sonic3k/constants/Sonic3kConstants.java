@@ -191,6 +191,7 @@ public class Sonic3kConstants {
     public static final int ART_NEM_BUBBLES_ADDR = 0x191B46;
     public static final int ART_NEM_RING_HUD_TEXT_ADDR = 0x192AEE;
     public static final int ART_NEM_ENEMY_PTS_STARPOST_ADDR = 0x192D2A;
+    public static final int ART_NEM_STARPOST_ADDR = 0x35D8A2; // Dedicated StarPost art (20 tiles)
     public static final int ART_NEM_SPIKES_SPRINGS_ADDR = 0x1927FE;
 
     // VRAM tile index for SpikesSprings shared art (spikes start at +8)
@@ -257,6 +258,13 @@ public class Sonic3kConstants {
     public static final int ARTTILE_STARPOST = 0x05E4;
     public static final int ARTTILE_RING = 0x06BC;
     public static final int ARTTILE_PLAYER_LIFE_ICON = 0x07D4;
+
+    // Map_StarPost - StarPost sprite mappings (5 frames)
+    // Frame 0: pole + red ball (idle), 1: pole only, 2: star ball, 3: head, 4: pole + blue ball
+    public static final int MAP_STARPOST_ADDR = 0x2D348;
+
+    // Map_StarpostStars - StarPost bonus star mappings (3 frames)
+    public static final int MAP_STARPOST_STARS_ADDR = 0x2D3AA;
 
     // --- Animation scripts (inline data in S3 code space) ---
     // Knuckles cutscene animation scripts

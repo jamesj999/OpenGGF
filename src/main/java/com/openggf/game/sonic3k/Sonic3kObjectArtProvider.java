@@ -91,6 +91,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         // Load shared object art (Nemesis compressed from ROM)
         loadExplosionArt();
         loadMonitorArt();
+        loadStarPostArt();
 
         // Load shield art (DPLC-driven, same for all zones)
         loadShieldArt();
@@ -399,6 +400,78 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                 SpriteAnimationEndAction.LOOP_BACK, 1));
 
         return set;
+    }
+
+    /**
+     * Loads S3K StarPost art from ROM (Nemesis compressed).
+     * <p>
+     * Art: ArtNem_EnemyPtsStarPost at 0x192D2A (28 tiles: 8 enemy pts + 20 starpost).
+     * Mappings: Map_StarPost at 0x2D348 (5 frames).
+     * art_tile: make_art_tile(ArtTile_StarPost+8, 0, 0) — mapping tiles offset by 8 from blob start.
+     * <p>
+     * Also loads StarPost Stars mappings (Map_StarpostStars, 3 frames) for bonus star rendering.
+     */
+    private void loadStarPostArt() throws IOException {
+        Rom rom = GameServices.rom().getRom();
+        if (rom == null) return;
+
+        RomByteReader reader;
+        try {
+            reader = RomByteReader.fromRom(rom);
+        } catch (IOException e) {
+            LOG.warning("Failed to create RomByteReader for StarPost art: " + e.getMessage());
+            return;
+        }
+
+        // Load combined enemy pts + starpost Nemesis art (28 tiles)
+        Pattern[] allPatterns = loadNemesisPatterns(rom, Sonic3kConstants.ART_NEM_ENEMY_PTS_STARPOST_ADDR);
+
+        // Parse starpost mappings from ROM
+        List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(reader,
+                Sonic3kConstants.MAP_STARPOST_ADDR);
+
+        // Mapping tile indices are relative to art_tile (ArtTile_StarPost+8),
+        // but the Nemesis blob starts at ArtTile_StarPost. Offset by +8.
+        List<SpriteMappingFrame> adjusted = new ArrayList<>(frames.size());
+        for (SpriteMappingFrame frame : frames) {
+            List<SpriteMappingPiece> adjustedPieces = new ArrayList<>(frame.pieces().size());
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                adjustedPieces.add(new SpriteMappingPiece(
+                        piece.xOffset(), piece.yOffset(),
+                        piece.widthTiles(), piece.heightTiles(),
+                        piece.tileIndex() + 8,
+                        piece.hFlip(), piece.vFlip(),
+                        piece.paletteIndex(), piece.priority()));
+            }
+            adjusted.add(new SpriteMappingFrame(adjustedPieces));
+        }
+
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(allPatterns, adjusted, 0, 1);
+        registerSheet(ObjectArtKeys.CHECKPOINT, sheet);
+
+        // Also load StarPost Stars mappings for bonus star rendering
+        List<SpriteMappingFrame> starFrames = S3kSpriteDataLoader.loadMappingFrames(reader,
+                Sonic3kConstants.MAP_STARPOST_STARS_ADDR);
+        // Star mappings use tiles relative to art_tile (same blob, same +8 offset)
+        List<SpriteMappingFrame> adjustedStars = new ArrayList<>(starFrames.size());
+        for (SpriteMappingFrame frame : starFrames) {
+            List<SpriteMappingPiece> adjustedPieces = new ArrayList<>(frame.pieces().size());
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                adjustedPieces.add(new SpriteMappingPiece(
+                        piece.xOffset(), piece.yOffset(),
+                        piece.widthTiles(), piece.heightTiles(),
+                        piece.tileIndex() + 8,
+                        piece.hFlip(), piece.vFlip(),
+                        piece.paletteIndex(), piece.priority()));
+            }
+            adjustedStars.add(new SpriteMappingFrame(adjustedPieces));
+        }
+
+        ObjectSpriteSheet starSheet = new ObjectSpriteSheet(allPatterns, adjustedStars, 0, 1);
+        registerSheet(ObjectArtKeys.CHECKPOINT_STAR, starSheet);
+
+        LOG.info("Loaded S3K StarPost art: " + allPatterns.length + " patterns, "
+                + adjusted.size() + " frames, " + adjustedStars.size() + " star frames");
     }
 
     /**
