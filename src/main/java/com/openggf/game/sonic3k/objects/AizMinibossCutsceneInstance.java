@@ -324,6 +324,12 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     @Override
+    public boolean isHighPriority() {
+        // ROM: make_art_tile(ArtTile_AIZMiniboss,1,1) — priority bit = 1
+        return true;
+    }
+
+    @Override
     public int getPriorityBucket() {
         return 2;
     }

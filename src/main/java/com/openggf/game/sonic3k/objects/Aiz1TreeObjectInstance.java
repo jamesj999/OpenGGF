@@ -1,8 +1,12 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
+import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.render.PatternSpriteRenderer;
 
 import java.util.List;
 
@@ -13,15 +17,14 @@ import java.util.List;
  * Uses level primary art tiles 0x39-0x3C (art_tile base 1 + mapping tile 0x38),
  * which are solid terrain-fill patterns with no transparent pixels.
  * <p>
- * In the real Mega Drive, this sprite renders ON TOP of low-priority Plane A
- * terrain tiles (VDP compositing rule: low-pri sprites above low-pri planes).
- * The sprite's solid fill is identical to the underlying terrain pixels, making
- * it invisible. Where no FG terrain exists, the fill extends the canopy.
+ * ROM: make_art_tile($001, 2, 0) — base tile 1, palette 2, priority 0 (low).
  * <p>
- * In our GPU tilemap renderer, the FG terrain already renders all tile data.
- * The tree sprite is redundant and creates visible colored rectangles where
- * the sprite's terrain-fill tiles don't exactly match the FG tiles at that
- * position. Rendering is suppressed to avoid this artifact.
+ * On the VDP this low-priority sprite renders above low-priority Plane A tiles,
+ * drawing the same terrain fill with palette line 2. It visually matches the
+ * underlying FG, making it invisible — but critically it masks any lower-priority
+ * sprites (e.g. AIZMinibossSmall at bucket 7) through VDP sprite table ordering.
+ * It also forces palette line 2 over FG tiles that may use palette line 1,
+ * preventing boss-palette colour bleed into the tree canopy.
  */
 public class Aiz1TreeObjectInstance extends AbstractObjectInstance {
 
@@ -37,6 +40,13 @@ public class Aiz1TreeObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // No-op: terrain filler sprite suppressed (see class javadoc)
+        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        if (renderManager == null) {
+            return;
+        }
+        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic3kObjectArtKeys.AIZ1_TREE);
+        if (renderer != null && renderer.isReady()) {
+            renderer.drawFrameIndex(0, spawn.x(), spawn.y(), false, false);
+        }
     }
 }

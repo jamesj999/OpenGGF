@@ -130,6 +130,12 @@ public class AizMinibossFlameChild extends AbstractObjectInstance implements Tou
     }
 
     @Override
+    public boolean isHighPriority() {
+        // ROM: make_art_tile(ArtTile_AIZBossFire,0,1) — priority bit = 1
+        return true;
+    }
+
+    @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         if (phase == Phase.WAIT) {
             return;

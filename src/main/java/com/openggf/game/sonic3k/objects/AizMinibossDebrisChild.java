@@ -50,6 +50,12 @@ public class AizMinibossDebrisChild extends AbstractObjectInstance {
     }
 
     @Override
+    public int getPriorityBucket() {
+        // ROM: ObjDat3_46F60 priority $380 / $80 = 7
+        return 7;
+    }
+
+    @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
         if (rm == null) {

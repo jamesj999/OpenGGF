@@ -46,6 +46,12 @@ public class AizMinibossArmChild extends AbstractBossChild {
     }
 
     @Override
+    public boolean isHighPriority() {
+        // ROM: make_art_tile(ArtTile_AIZMiniboss,0,1) — priority bit = 1
+        return true;
+    }
+
+    @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
         if (rm == null) {
